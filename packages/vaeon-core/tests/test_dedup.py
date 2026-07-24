@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from vaeon.dedup import DedupIndex
-from vaeon.models import DuplicateKind
+from vaeon_core.dedup import DedupIndex
+from vaeon_core.models import DuplicateKind
 
 
 def test_new_file_is_not_a_duplicate() -> None:

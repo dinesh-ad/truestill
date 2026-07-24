@@ -5,12 +5,12 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from vaeon.catalog import Catalog
-from vaeon.dedup import DedupIndex
-from vaeon.destinations import LocalDestination
-from vaeon.exif import read_metadata
-from vaeon.models import ActionStatus, DuplicateKind
-from vaeon.organizer import discover, execute, plan, resolve
+from vaeon_core.catalog import Catalog
+from vaeon_core.dedup import DedupIndex
+from vaeon_core.destinations import LocalDestination
+from vaeon_core.exif import read_metadata
+from vaeon_core.models import ActionStatus, DuplicateKind
+from vaeon_core.organizer import discover, execute, plan, resolve
 
 
 def _run(source: Path, out: Path, db: Path, *, apply: bool) -> list:

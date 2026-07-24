@@ -9,7 +9,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from vaeon.destinations.base import Destination
+from vaeon_core.destinations.base import Destination
 
 
 class LocalDestination(Destination):

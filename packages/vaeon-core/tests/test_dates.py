@@ -6,10 +6,9 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
-
-from vaeon.dates import date_from_filename, parse_exif_datetime, resolve_capture_datetime
-from vaeon.models import DateSource
-from vaeon.organizer import build_destination
+from vaeon_core.dates import date_from_filename, parse_exif_datetime, resolve_capture_datetime
+from vaeon_core.models import DateSource
+from vaeon_core.organizer import build_destination
 
 
 @pytest.mark.parametrize(

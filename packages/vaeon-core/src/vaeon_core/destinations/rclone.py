@@ -15,7 +15,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from vaeon.destinations.base import Destination, DestinationError
+from vaeon_core.destinations.base import Destination, DestinationError
 
 
 class RcloneError(DestinationError):

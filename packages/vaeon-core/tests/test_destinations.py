@@ -5,10 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
-from vaeon.destinations import LocalDestination
-from vaeon.destinations.base import DestinationError
-from vaeon.destinations.rclone import RcloneDestination
+from vaeon_core.destinations import LocalDestination
+from vaeon_core.destinations.base import DestinationError
+from vaeon_core.destinations.rclone import RcloneDestination
 
 
 def test_local_upload_exists_list_roundtrip(tmp_path: Path) -> None:

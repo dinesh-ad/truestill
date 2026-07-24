@@ -5,9 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
-from vaeon.categorize import build_rules, categorize, sanitize_label
-from vaeon.models import SAVED_LABEL, Confidence
+from vaeon_core.categorize import build_rules, categorize, sanitize_label
+from vaeon_core.models import SAVED_LABEL, Confidence
 
 
 def test_screenshot_metadata_beats_camera_exif() -> None:

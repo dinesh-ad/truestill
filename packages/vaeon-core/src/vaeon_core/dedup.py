@@ -19,8 +19,8 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from vaeon.hashing import hamming_distance
-from vaeon.models import DuplicateKind, DuplicateMatch
+from vaeon_core.hashing import hamming_distance
+from vaeon_core.models import DuplicateKind, DuplicateMatch
 
 
 class DedupIndex:

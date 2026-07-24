@@ -1,0 +1,36 @@
+[project]
+name = "vaeon-cli"
+version = "0.1.0"
+description = "Command-line interface for vaeon: organize, de-duplicate and back up a media library."
+authors = [{ name = "vaeon contributors" }]
+requires-python = ">=3.13"
+readme = "README.md"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: System :: Archiving :: Backup",
+]
+dependencies = [
+    "vaeon-core",
+]
+
+[project.scripts]
+vaeon = "vaeon_cli.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/dinesh-ad/vaeon"
+Repository = "https://github.com/dinesh-ad/vaeon"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/vaeon_cli"]
+
+# Resolve the vaeon-core dependency from this workspace rather than PyPI.
+[tool.uv.sources]
+vaeon-core = { workspace = true }

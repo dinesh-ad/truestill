@@ -1,8 +1,8 @@
-"""Enable ``python -m vaeon``."""
+"""Enable ``python -m vaeon_cli``."""
 
 from __future__ import annotations
 
-from vaeon.cli import main
+from vaeon_cli.cli import main
 
 if __name__ == "__main__":
     raise SystemExit(main())

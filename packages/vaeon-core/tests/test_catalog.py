@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from vaeon.catalog import Catalog
+from vaeon_core.catalog import Catalog
 
 
 def _record(

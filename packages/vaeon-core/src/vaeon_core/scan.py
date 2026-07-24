@@ -28,8 +28,8 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from pathlib import Path
 from typing import Literal
 
-from vaeon.hashing import perceptual_hash, sha256_file
-from vaeon.models import FileHashes
+from vaeon_core.hashing import perceptual_hash, sha256_file
+from vaeon_core.models import FileHashes
 
 PoolKind = Literal["thread", "process"]
 

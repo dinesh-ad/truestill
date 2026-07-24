@@ -17,13 +17,13 @@ from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from vaeon.catalog import Catalog
-from vaeon.categorize import Rule, categorize
-from vaeon.dates import resolve_capture_datetime
-from vaeon.dedup import DedupIndex
-from vaeon.destinations.base import Destination, DestinationError
-from vaeon.hashing import sha256_file
-from vaeon.models import (
+from vaeon_core.catalog import Catalog
+from vaeon_core.categorize import Rule, categorize
+from vaeon_core.dates import resolve_capture_datetime
+from vaeon_core.dedup import DedupIndex
+from vaeon_core.destinations.base import Destination, DestinationError
+from vaeon_core.hashing import sha256_file
+from vaeon_core.models import (
     UNDATED_DIRNAME,
     ActionResult,
     ActionStatus,
@@ -32,7 +32,7 @@ from vaeon.models import (
     DuplicateKind,
     Resolution,
 )
-from vaeon.scan import DEFAULT_WORKERS, PoolKind, compute_hashes
+from vaeon_core.scan import DEFAULT_WORKERS, PoolKind, compute_hashes
 
 #: Extensions treated as media. Anything else is skipped unless the caller opts in.
 MEDIA_EXTENSIONS: frozenset[str] = frozenset(

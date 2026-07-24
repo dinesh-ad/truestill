@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from vaeon.models import DateSource
+from vaeon_core.models import DateSource
 
 #: Metadata tags consulted in order. ``DateTimeOriginal`` is the photo capture time;
 #: the ``*CreateDate`` family covers MP4/MOV container timestamps.

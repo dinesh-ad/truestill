@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from vaeon.models import SAVED_LABEL, CategoryMatch, Confidence
+from vaeon_core.models import SAVED_LABEL, CategoryMatch, Confidence
 
 # --------------------------------------------------------------------------------------
 # Filename convention table

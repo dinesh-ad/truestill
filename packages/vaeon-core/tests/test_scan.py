@@ -5,9 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
-from vaeon.hashing import sha256_file
-from vaeon.scan import _needs_sha, compute_hashes
+from vaeon_core.hashing import sha256_file
+from vaeon_core.scan import _needs_sha, compute_hashes
 
 
 def _write(path: Path, data: bytes) -> Path:

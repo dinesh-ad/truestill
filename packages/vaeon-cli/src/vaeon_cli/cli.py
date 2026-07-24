@@ -12,22 +12,22 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from vaeon.catalog import Catalog
-from vaeon.categorize import build_rules
-from vaeon.dedup import DedupIndex
-from vaeon.destinations import Destination, LocalDestination, RcloneDestination
-from vaeon.destinations.base import DestinationError
-from vaeon.exif import ExiftoolMissingError, read_metadata
-from vaeon.hashing import DEFAULT_PHASH_THRESHOLD
-from vaeon.models import (
+from vaeon_core.catalog import Catalog
+from vaeon_core.categorize import build_rules
+from vaeon_core.dedup import DedupIndex
+from vaeon_core.destinations import Destination, LocalDestination, RcloneDestination
+from vaeon_core.destinations.base import DestinationError
+from vaeon_core.exif import ExiftoolMissingError, read_metadata
+from vaeon_core.hashing import DEFAULT_PHASH_THRESHOLD
+from vaeon_core.models import (
     ActionResult,
     ActionStatus,
     DateSource,
     DuplicateMatch,
     Resolution,
 )
-from vaeon.organizer import discover, execute, plan, resolve
-from vaeon.scan import DEFAULT_WORKERS
+from vaeon_core.organizer import discover, execute, plan, resolve
+from vaeon_core.scan import DEFAULT_WORKERS
 
 _SEPARATOR = "=" * 100
 _DEFAULT_DB = Path("reports/catalog.sqlite")

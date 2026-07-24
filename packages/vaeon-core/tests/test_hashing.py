@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from vaeon.hashing import hamming_distance, perceptual_hash, sha256_file
+from vaeon_core.hashing import hamming_distance, perceptual_hash, sha256_file
 
 
 def test_sha256_is_stable_and_content_based(tmp_path: Path) -> None:

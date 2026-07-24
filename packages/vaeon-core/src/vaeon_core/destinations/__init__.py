@@ -7,8 +7,8 @@ new class here and nothing else.
 
 from __future__ import annotations
 
-from vaeon.destinations.base import Destination
-from vaeon.destinations.local import LocalDestination
-from vaeon.destinations.rclone import RcloneDestination
+from vaeon_core.destinations.base import Destination
+from vaeon_core.destinations.local import LocalDestination
+from vaeon_core.destinations.rclone import RcloneDestination
 
 __all__ = ["Destination", "LocalDestination", "RcloneDestination"]
