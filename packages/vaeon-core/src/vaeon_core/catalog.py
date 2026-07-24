@@ -12,13 +12,15 @@ One row per processed source file, keyed by SHA-256.
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from types import TracebackType
 from typing import Self
 
+# Current catalog schema, created whole for a fresh database. Its version is
+# CURRENT_SCHEMA_VERSION; older databases are brought up to it by _MIGRATIONS.
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS files (
     id            INTEGER PRIMARY KEY,
@@ -38,8 +40,25 @@ CREATE INDEX IF NOT EXISTS idx_files_perceptual ON files (perceptual);
 CREATE INDEX IF NOT EXISTS idx_files_size ON files (size);
 """
 
-#: Columns added after the initial release, applied to pre-existing catalogs on open.
-_MIGRATIONS = (("size", "ALTER TABLE files ADD COLUMN size INTEGER"),)
+#: Bump whenever the schema changes, and add a matching entry to _MIGRATIONS.
+CURRENT_SCHEMA_VERSION = 2
+
+
+class CatalogVersionError(RuntimeError):
+    """The catalog on disk was written by a newer vaeon than this one understands."""
+
+
+def _add_size_column(conn: sqlite3.Connection) -> None:
+    """v1 -> v2: add the ``size`` column used by the scan's size pre-filter."""
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(files)")}
+    if "size" not in columns:
+        conn.execute("ALTER TABLE files ADD COLUMN size INTEGER")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_files_size ON files (size)")
+
+
+#: Ordered migrations: ``(target_version, fn)``. Each is idempotent and lifts a database
+#: from ``target_version - 1`` to ``target_version``. Append; never rewrite history.
+_MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = ((2, _add_size_column),)
 
 
 def _now() -> str:
@@ -55,16 +74,43 @@ class Catalog:
             path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(path))
         self._conn.row_factory = sqlite3.Row
-        self._conn.executescript(_SCHEMA)
         self._migrate()
         self._conn.commit()
 
     def _migrate(self) -> None:
-        """Add columns introduced after a catalog was first created."""
-        existing = {row["name"] for row in self._conn.execute("PRAGMA table_info(files)")}
-        for column, ddl in _MIGRATIONS:
-            if column not in existing:
-                self._conn.execute(ddl)
+        """Bring the database schema to CURRENT_SCHEMA_VERSION via PRAGMA user_version.
+
+        A fresh database gets the whole current schema in one step. An existing one is
+        lifted through the ordered migrations. A database from a *newer* vaeon is refused
+        rather than risked.
+        """
+        conn = self._conn
+        version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+
+        if version > CURRENT_SCHEMA_VERSION:
+            message = (
+                f"catalog schema is version {version} but this vaeon understands only "
+                f"{CURRENT_SCHEMA_VERSION}; upgrade vaeon to open it"
+            )
+            raise CatalogVersionError(message)
+
+        table_exists = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'files'"
+        ).fetchone()
+
+        if table_exists is None:
+            conn.executescript(_SCHEMA)
+            conn.execute(f"PRAGMA user_version = {CURRENT_SCHEMA_VERSION}")
+            return
+
+        for target, migrate in _MIGRATIONS:
+            if version < target:
+                migrate(conn)
+                conn.execute(f"PRAGMA user_version = {target}")
+
+    @property
+    def schema_version(self) -> int:
+        return int(self._conn.execute("PRAGMA user_version").fetchone()[0])
 
     def __enter__(self) -> Self:
         return self
