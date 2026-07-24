@@ -26,21 +26,34 @@ export before it is pushed to long-term storage.
 
 ## Layout
 
+A uv workspace. The core library and the CLI are separate packages so a future
+desktop/UI package can be added beside them without touching the core.
+
 ```
-src/vaeon/
-├── models.py       dataclasses + enums; Category is a plain str label, by design
-├── exif.py         batched exiftool JSON reads (no per-file process spawn)
-├── dates.py        capture-date resolution and filename date conventions
-├── categorize.py   the ordered rule chain; NAME_PATTERNS is the extension point
-├── organizer.py    pure planning, then opt-in execution
-└── cli.py          argparse entry point and the decision report
+packages/
+├── vaeon-core/src/vaeon_core/   # the library (importable, typed, py.typed)
+│   ├── models.py       dataclasses + enums; Category is a plain str label, by design
+│   ├── exif.py         batched exiftool JSON reads (no per-file process spawn)
+│   ├── dates.py        capture-date resolution and filename date conventions
+│   ├── categorize.py   the ordered rule chain; NAME_PATTERNS is the extension point
+│   ├── hashing.py      SHA-256 (content) + dHash (perceptual)
+│   ├── scan.py         concurrent hashing pass with the byte-size pre-filter
+│   ├── dedup.py        two-tier duplicate index (exact skip, perceptual keep+flag)
+│   ├── catalog.py      SQLite state; schema versioned via PRAGMA user_version
+│   ├── destinations/   pluggable Destination backends (local, rclone)
+│   └── organizer.py    pure planning, then opt-in execution
+└── vaeon-cli/src/vaeon_cli/     # the `vaeon` command (thin wrapper over the core)
+    ├── cli.py          argparse entry point and the decision report
+    └── __main__.py     python -m vaeon_cli
 ```
+
+Shared ruff/mypy/pytest config lives in the virtual workspace root `pyproject.toml`.
 
 ## Conventions
 
 Matches the house style used in `~/ad/application/nexdue`: uv + hatchling, ruff
 (line-length 100, double quotes), mypy with `disallow_untyped_defs`, pytest, and a
-`Makefile` wrapping `uv run`.
+`Makefile` wrapping `uv run`. `make check` runs across all workspace members.
 
 Run `make check` before considering work done.
 

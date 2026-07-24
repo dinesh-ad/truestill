@@ -1,0 +1,17 @@
+# Run against staged changes with: uv run pre-commit run --all-files
+# Install the git hook with:       uv run pre-commit install
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.0
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        # Match the repo's strict config; only type the source packages, not tests.
+        files: ^packages/(vaeon-core|vaeon-cli)/src/
+        additional_dependencies: [imagehash, pillow]
