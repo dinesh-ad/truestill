@@ -1,0 +1,51 @@
+# CLAUDE.md
+
+Guidance for working in this repository.
+
+## What this is
+
+A media library organizer: analyse files, derive a folder label from each file's own
+metadata, and place them into `<Label>/YYYY/MM/`. Built to organize a Google Photos
+export before it is pushed to long-term storage.
+
+## Non-negotiable design rules
+
+1. **Never hard-code the set of category folders.** Labels are *derived* from evidence.
+   If a new source needs supporting, add a row to `NAME_PATTERNS` in `categorize.py` or
+   let the `software`/`device` rules derive it. Do not reintroduce a `Category` enum.
+2. **Never consult filesystem mtime for dating.** Google's export zips carry the
+   download time, not the capture time. Metadata first, filename convention second,
+   `Undated/` third. Dates are never guessed.
+3. **Never overwrite.** Collisions are resolved by content hash: identical is a skipped
+   duplicate, different is written with a numeric suffix.
+4. **Dry run is the default.** Planning is pure and touches nothing; `execute(apply=True)`
+   is the only code path that writes.
+5. **Rule order is load-bearing.** Screenshot and messenger rules run *before* device
+   metadata, because screenshots and messenger files often carry device tags that would
+   otherwise misfile them. Tests pin this; do not reorder without updating them.
+
+## Layout
+
+```
+src/vaeon/
+├── models.py       dataclasses + enums; Category is a plain str label, by design
+├── exif.py         batched exiftool JSON reads (no per-file process spawn)
+├── dates.py        capture-date resolution and filename date conventions
+├── categorize.py   the ordered rule chain; NAME_PATTERNS is the extension point
+├── organizer.py    pure planning, then opt-in execution
+└── cli.py          argparse entry point and the decision report
+```
+
+## Conventions
+
+Matches the house style used in `~/ad/application/nexdue`: uv + hatchling, ruff
+(line-length 100, double quotes), mypy with `disallow_untyped_defs`, pytest, and a
+`Makefile` wrapping `uv run`.
+
+Run `make check` before considering work done.
+
+## External dependency
+
+`exiftool` (Ubuntu: `libimage-exiftool-perl`) must be on PATH. There are deliberately no
+runtime Python dependencies — a Python EXIF library would cover photos only and would
+not see video container tags or the vendor MakerNotes the screenshot rule depends on.

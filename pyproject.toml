@@ -1,0 +1,144 @@
+[project]
+name = "vaeon"
+version = "0.1.0"
+description = "Categorize and date-organize a photo/video library into a stable Category/YYYY/YYYY-MM tree"
+authors = [{ name = "vaeon contributors" }]
+requires-python = ">=3.13"
+readme = "README.md"
+license = { text = "MIT" }
+
+# Metadata is read by shelling out to the `exiftool` binary (Ubuntu:
+# libimage-exiftool-perl), the only tool that reads photo EXIF, video container tags and
+# vendor MakerNotes (e.g. SamsungCaptureInfo) through one uniform interface.
+#
+# Runtime Python deps are limited to perceptual hashing, which genuinely needs image
+# decoding: imagehash (dHash/pHash) on top of Pillow. SHA-256 and SQLite use the stdlib.
+dependencies = [
+    "imagehash>=4.3.1",
+    "pillow>=10.0.0",
+]
+
+[project.scripts]
+vaeon = "vaeon.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/vaeon"]
+
+# Ruff configuration for code quality
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "W",   # pycodestyle warnings
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "DTZ", # flake8-datetimez
+    "T10", # flake8-debugger
+    "EM",  # flake8-errmsg
+    "ISC", # flake8-implicit-str-concat
+    "ICN", # flake8-import-conventions
+    "G",   # flake8-logging-format
+    "PIE", # flake8-pie
+    "T20", # flake8-print
+    "PYI", # flake8-pyi
+    "PT",  # flake8-pytest-style
+    "Q",   # flake8-quotes
+    "RSE", # flake8-raise
+    "RET", # flake8-return
+    "SIM", # flake8-simplify
+    "ARG", # flake8-unused-arguments
+    "PTH", # flake8-use-pathlib
+    "ERA", # eradicate
+    "PGH", # pygrep-hooks
+    "PL",  # pylint
+    "TRY", # tryceratops
+    "RUF", # ruff-specific rules
+]
+ignore = [
+    "E501", # Line too long - handled by formatter
+]
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.lint.per-file-ignores]
+# CLI - stdout IS the output mechanism for the decision report
+"src/vaeon/cli.py" = [
+    "T201",    # print() is intentional here
+    "PLR0913", # report/render helpers take many display flags
+]
+# Catalog - a persisted row has many columns; keyword-only args name them at the call site
+"src/vaeon/catalog.py" = [
+    "PLR0913", # record_uploaded mirrors the table columns (same rationale as nexdue db layer)
+]
+# Date parsing - EXIF timestamps are local wall-clock with no zone. Attaching a
+# timezone would invent information the file does not carry, and would shift files
+# into the wrong month folder for anyone who travels. Naive datetimes are correct.
+"src/vaeon/dates.py" = [
+    "DTZ007", # strptime without %z is deliberate; EXIF has no reliable zone
+]
+# Destination backends shell out to rclone; that is the whole point of the wrapper.
+"src/vaeon/destinations/rclone.py" = [
+    "S603", # subprocess call is intentional
+    "S607", # rclone is resolved from PATH by design
+]
+# Standalone benchmark/utility scripts: print is the output, and they bootstrap sys.path.
+"scripts/**/*.py" = [
+    "T201",    # print() is the output mechanism
+    "E402",    # imports after a sys.path bootstrap are intentional
+    "S311",    # random is for synthetic test data, not security
+    "S603",    # subprocess/known-input, not untrusted
+    "PLR2004", # magic numbers are fine in a throwaway benchmark
+]
+# Tests can be more permissive
+"tests/**/*.py" = [
+    "S101",    # Assert allowed in tests
+    "PLR2004", # Magic values acceptable in tests
+    "T201",    # Print statements allowed in tests
+    "DTZ001",  # Naive datetimes are the subject under test (see dates.py rationale)
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "-v --tb=short"
+
+[tool.mypy]
+python_version = "3.13"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+# imagehash ships no type stubs; Pillow's are partial. Neither is worth failing on.
+[[tool.mypy.overrides]]
+module = ["imagehash", "PIL", "PIL.*"]
+ignore_missing_imports = true
+
+# Development dependencies (uv dependency-groups)
+# Usage: uv sync --group dev
+[dependency-groups]
+dev = [
+    "ruff>=0.9.0",
+    "mypy>=1.13.0",
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+]
