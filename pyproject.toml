@@ -71,6 +71,8 @@ unfixable = []
 "packages/*/tests/**/*.py" = [
     "S101",    # Assert allowed in tests
     "PLR2004", # Magic values acceptable in tests
+    "PLR0913", # Test helpers may take several args
+    "PLR0917", # ... including positional
     "T201",    # Print statements allowed in tests
     "DTZ001",  # Naive datetimes are the subject under test (see dates.py rationale)
 ]

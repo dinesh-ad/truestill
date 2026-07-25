@@ -346,12 +346,14 @@ def execute(
     set_timestamps: bool = True,
     event_ids: dict[str, int] | None = None,
     ingest: IngestContext | None = None,
+    drive_uuid: str | None = None,
 ) -> list[ActionResult]:
     """Upload genuinely-new files; skip duplicates. ``apply=False`` reports only.
 
     ``event_ids`` maps a source path to its assigned event. ``ingest`` (Takeout only) requests
     baking rescued metadata into copies and records album membership; when absent, the copy is
-    byte-identical to the source and ``copy_sha256`` equals the source hash.
+    byte-identical to the source and ``copy_sha256`` equals the source hash. ``drive_uuid``, when
+    the destination is an identified drive, records each copy's location in the catalog.
     """
     resolutions = list(resolutions)
     results: list[ActionResult] = []
@@ -407,6 +409,7 @@ def execute(
                     relative=final_relative,
                     event_id=events.get(str(decision.source)),
                     albums=sorted(album_set),
+                    drive_uuid=drive_uuid,
                 )
 
             status = ActionStatus.RENAMED if renamed else ActionStatus.UPLOADED

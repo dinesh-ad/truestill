@@ -25,13 +25,11 @@ decision context that produced them.
   clusters were deliberately deferred to the desktop UI — a terminal is the wrong surface for
   interactively re-partitioning clusters.
 
-## Next feature (agreed direction)
+## Shipped (kept for provenance)
 
-- **Drive identity + offline catalog + verify.** The intended next feature: identify a
-  specific destination drive, keep an offline catalog of what already lives on it, and verify
-  copies against their `copy_sha256` (the verification-identity hash the dual-hash rule was
-  built to enable). Enables safe resume and integrity checks without re-reading the whole
-  destination.
+- ~~**Drive identity + offline catalog + verify.**~~ Delivered: `.vaeon-drive.json` marker,
+  catalog v6 (`drives` + `file_copies`), and `vaeon drives`/`where`/`verify`/`status`. See the
+  CHANGELOG and `docs/drive-identity-research.md`.
 
 ## Product / strategy (parked decisions)
 

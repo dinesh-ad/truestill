@@ -11,7 +11,7 @@ import json
 import re
 import sys
 from collections import Counter
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +20,7 @@ from vaeon_core.categorize import build_rules
 from vaeon_core.dedup import DedupIndex
 from vaeon_core.destinations import Destination, LocalDestination, RcloneDestination
 from vaeon_core.destinations.base import DestinationError
+from vaeon_core.drive import DriveMarker, create_marker, read_marker
 from vaeon_core.exif import ExiftoolMissingError, read_metadata
 from vaeon_core.hashing import DEFAULT_PHASH_THRESHOLD
 from vaeon_core.models import (
@@ -39,11 +40,13 @@ from vaeon_core.takeout import (
     TakeoutSidecar,
     scan_takeout,
 )
+from vaeon_core.verify import CopyStatus, CopyToVerify, verify_copies
 
 from vaeon_cli.events_review import Prompt, album_prompt, run_event_stage
 
 _SEPARATOR = "=" * 100
 _DEFAULT_DB = Path("reports/catalog.sqlite")
+_STATUS_PREVIEW = 20  # how many single-copy files `vaeon status` lists before eliding
 
 
 def _parse_tz(value: str) -> timedelta:
@@ -141,13 +144,151 @@ def _build_parser() -> argparse.ArgumentParser:
         help="name Camera events after the album their photos came from",
     )
     _add_common_options(ingest)
+
+    drives = sub.add_parser("drives", help="list known backup drives, or init a drive marker")
+    drives.add_argument("--db", type=Path, default=_DEFAULT_DB, help="SQLite catalog")
+    drives.add_argument("--init", type=Path, metavar="ROOT", help="write a drive marker at ROOT")
+    drives.add_argument("--label", help="human label for --init")
+    drives.add_argument("--uuid", help="re-attach a known uuid instead of minting a new one")
+
+    where = sub.add_parser("where", help="find which drive(s) a file is on (offline)")
+    where.add_argument("term", help="filename / path substring to search for")
+    where.add_argument("--db", type=Path, default=_DEFAULT_DB, help="SQLite catalog")
+
+    verify = sub.add_parser("verify", help="re-hash a connected drive's copies against the catalog")
+    verify.add_argument(
+        "path", type=Path, help="the drive's current mount root (must be connected)"
+    )
+    verify.add_argument("--db", type=Path, default=_DEFAULT_DB, help="SQLite catalog")
+    verify.add_argument("--pool", choices=("thread", "process"), default="thread")
+    verify.add_argument("--workers", type=int, default=DEFAULT_WORKERS, metavar="N")
+
+    status = sub.add_parser("status", help="report content that exists on only one drive (3-2-1)")
+    status.add_argument("--db", type=Path, default=_DEFAULT_DB, help="SQLite catalog")
+
     return parser
+
+
+def _cmd_drives(args: argparse.Namespace) -> int:
+    with Catalog(args.db) as catalog:
+        if args.init is not None:
+            if not args.label:
+                print("error: --init requires --label", file=sys.stderr)
+                return 2
+            marker = create_marker(args.init, args.label, uuid=args.uuid)
+            catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+            print(f"Drive '{marker.label}' initialised at {args.init}  (uuid {marker.uuid}).")
+            return 0
+
+        drives = catalog.list_drives()
+        if not drives:
+            print("No drives known. Initialise one: vaeon drives --init <root> --label <name>")
+            return 0
+        print(f"{'LABEL':<20}{'FILES':>8}{'SIZE(MB)':>12}  {'LAST SEEN':<22}LAST VERIFIED")
+        for d in drives:
+            size_mb = (d["total_size"] or 0) / 1e6
+            print(
+                f"{d['label']:<20}{d['file_count']:>8}{size_mb:>12.1f}  "
+                f"{(d['last_seen'] or '-')[:19]:<22}{(d['last_verified'] or 'never')[:19]}"
+            )
+    return 0
+
+
+def _cmd_where(args: argparse.Namespace) -> int:
+    with Catalog(args.db) as catalog:
+        rows = catalog.find_copies(args.term)
+    if not rows:
+        print(f"No catalogued copies match '{args.term}'.")
+        return 0
+    print(f"Copies matching '{args.term}':")
+    for r in rows:
+        verified = (
+            f"verified {r['last_verified'][:19]}" if r["last_verified"] else "not yet verified"
+        )
+        print(f"  {r['original_name'] or r['relative']}")
+        print(f"      drive '{r['drive_label']}'  ->  {r['relative']}   ({verified})")
+    return 0
+
+
+def _cmd_verify(args: argparse.Namespace) -> int:
+    root = args.path
+    marker = read_marker(root)
+    if marker is None:
+        print(f"error: no .vaeon-drive.json at {root} -- connect the drive first", file=sys.stderr)
+        return 2
+    when = _now_iso()
+    with Catalog(args.db) as catalog:
+        catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+        rows = catalog.copies_on_drive(marker.uuid)
+        if not rows:
+            print(f"Drive '{marker.label}' has no recorded copies in the catalog.")
+            return 0
+        copies = [
+            CopyToVerify(
+                sha256=r["sha256"],
+                relative=r["relative"],
+                expected_hash=r["copy_sha256"] or r["sha256"],  # NULL -> pre-v6 byte-identical
+            )
+            for r in rows
+        ]
+        print(f"Verifying {len(copies)} copies on drive '{marker.label}' ...")
+        results = verify_copies(copies, root, pool=args.pool, workers=args.workers)
+
+        counts = Counter(r.status.value for r in results)
+        for result in results:
+            if result.status is CopyStatus.VERIFIED:
+                catalog.mark_copy_verified(
+                    sha256=result.copy.sha256, drive_uuid=marker.uuid, when=when
+                )
+        catalog.set_drive_verified(marker.uuid, when)
+
+    print(_SEPARATOR)
+    print(f"VERIFY '{marker.label}'")
+    print(_SEPARATOR)
+    print(f"  verified : {counts.get('verified', 0)}")
+    print(f"  MISSING  : {counts.get('missing', 0)}")
+    print(f"  MISMATCH : {counts.get('mismatch', 0)}")
+    for result in results:
+        if result.status is not CopyStatus.VERIFIED:
+            print(f"  {result.status.value.upper():<9} {result.copy.relative}")
+    print("\n  (read-only: vaeon never repairs; re-copy the source to restore a bad file.)")
+    return 1 if (counts.get("missing") or counts.get("mismatch")) else 0
+
+
+def _cmd_status(args: argparse.Namespace) -> int:
+    with Catalog(args.db) as catalog:
+        singles = catalog.single_copy_shas()
+    if not singles:
+        print("All catalogued content has at least two drive copies. Nicely redundant.")
+        return 0
+    print(f"At risk: {len(singles)} file(s) exist on only ONE drive (3-2-1 wants >=2):")
+    for r in singles[:_STATUS_PREVIEW]:
+        print(f"  {r['original_name'] or r['sha256'][:12]}   only on '{r['drive_label']}'")
+    if len(singles) > _STATUS_PREVIEW:
+        print(f"  ... and {len(singles) - _STATUS_PREVIEW} more.")
+    return 0
+
+
+def _now_iso() -> str:
+    return datetime.now(UTC).isoformat()
 
 
 def _build_destination(spec: str, *, rclone: bool) -> Destination:
     if rclone:
         return RcloneDestination(spec)
     return LocalDestination(Path(spec))
+
+
+def _local_drive_marker(args: argparse.Namespace) -> DriveMarker | None:
+    """Drive identity of a local destination, if it carries a ``.vaeon-drive.json`` marker.
+
+    rclone remotes are always-online cloud, not drives-in-a-drawer, so drive tracking is scoped
+    to local destinations. A local root without a marker is fine -- copies just aren't tracked
+    per-drive until `vaeon drives init` is run there.
+    """
+    if args.rclone:
+        return None
+    return read_marker(Path(args.destination))
 
 
 def _short_sha(sha256: str | None) -> str:
@@ -374,6 +515,7 @@ def _run_pipeline(
     prefer_takeout: bool = False,
     scan: TakeoutScan | None = None,
     event_prompt: Prompt | None = None,
+    drive_marker: DriveMarker | None = None,
 ) -> int:
     decisions = plan(
         files,
@@ -390,6 +532,12 @@ def _run_pipeline(
         index = DedupIndex.from_catalog_rows(catalog.seed_rows(), args.phash_threshold)
         if catalog.count():
             print(f"Catalog {args.db} holds {catalog.count()} previously-processed file(s).\n")
+
+        drive_uuid: str | None = None
+        if drive_marker is not None:
+            catalog.upsert_drive(uuid=drive_marker.uuid, label=drive_marker.label)
+            drive_uuid = drive_marker.uuid
+            print(f"Destination is drive '{drive_marker.label}' ({drive_marker.uuid[:8]}...).\n")
 
         resolutions = resolve(
             decisions,
@@ -420,6 +568,7 @@ def _run_pipeline(
             set_timestamps=not args.no_timestamps,
             event_ids=event_ids,
             ingest=ingest_ctx,
+            drive_uuid=drive_uuid,
         )
 
     print()
@@ -450,7 +599,7 @@ def _cmd_organize(args: argparse.Namespace) -> int:
     except DestinationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 4
-    return _run_pipeline(args, files, metadata, destination)
+    return _run_pipeline(args, files, metadata, destination, drive_marker=_local_drive_marker(args))
 
 
 def _cmd_ingest(args: argparse.Namespace) -> int:
@@ -492,15 +641,22 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
         prefer_takeout=args.prefer_takeout_dates,
         scan=scan,
         event_prompt=event_prompt,
+        drive_marker=_local_drive_marker(args),
     )
 
 
 def main(argv: list[str] | None = None) -> int:
     """Run the CLI. Returns a process exit code."""
     args = _build_parser().parse_args(argv)
-    if args.command == "ingest":
-        return _cmd_ingest(args)
-    return _cmd_organize(args)
+    dispatch = {
+        "organize": _cmd_organize,
+        "ingest": _cmd_ingest,
+        "drives": _cmd_drives,
+        "where": _cmd_where,
+        "verify": _cmd_verify,
+        "status": _cmd_status,
+    }
+    return dispatch[args.command](args)
 
 
 if __name__ == "__main__":

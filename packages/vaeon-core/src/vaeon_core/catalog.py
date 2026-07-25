@@ -65,10 +65,34 @@ CREATE TABLE IF NOT EXISTS skipped_clusters (
     signature  TEXT PRIMARY KEY,
     skipped_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS drives (
+    uuid          TEXT PRIMARY KEY,
+    label         TEXT NOT NULL,
+    first_seen    TEXT,
+    last_seen     TEXT,
+    last_verified TEXT,
+    notes         TEXT
+);
+
+-- One row per (content, drive): where each piece of content physically lives, and the hash of
+-- THAT copy (a baked Takeout copy is not byte-identical to the source, and two copies written
+-- at different times need not match each other -- so the hash is per-copy, not per-content).
+CREATE TABLE IF NOT EXISTS file_copies (
+    sha256        TEXT NOT NULL,
+    drive_uuid    TEXT NOT NULL,
+    relative      TEXT NOT NULL,
+    copy_sha256   TEXT,
+    size          INTEGER,
+    copied_at     TEXT,
+    last_verified TEXT,
+    PRIMARY KEY (sha256, drive_uuid)
+);
+CREATE INDEX IF NOT EXISTS idx_file_copies_drive ON file_copies (drive_uuid);
 """
 
 #: Bump whenever the schema changes, and add a matching entry to _MIGRATIONS.
-CURRENT_SCHEMA_VERSION = 5
+CURRENT_SCHEMA_VERSION = 6
 
 
 class CatalogVersionError(RuntimeError):
@@ -126,6 +150,30 @@ def _add_takeout_tables(conn: sqlite3.Connection) -> None:
     )
 
 
+def _add_drive_tables(conn: sqlite3.Connection) -> None:
+    """v5 -> v6: drive identity + per-(content, drive) copy locations.
+
+    ``files.copy_sha256`` is retained but deprecated: it is a per-content field, whereas a
+    copy's integrity hash belongs to the copy. New copies record their hash in ``file_copies``;
+    pre-v6 ``files`` rows are not backfilled (they predate drive identity), and their
+    ``copy_sha256`` remains readable for any legacy path.
+    """
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS drives (
+            uuid TEXT PRIMARY KEY, label TEXT NOT NULL, first_seen TEXT, last_seen TEXT,
+            last_verified TEXT, notes TEXT
+        );
+        CREATE TABLE IF NOT EXISTS file_copies (
+            sha256 TEXT NOT NULL, drive_uuid TEXT NOT NULL, relative TEXT NOT NULL,
+            copy_sha256 TEXT, size INTEGER, copied_at TEXT, last_verified TEXT,
+            PRIMARY KEY (sha256, drive_uuid)
+        );
+        CREATE INDEX IF NOT EXISTS idx_file_copies_drive ON file_copies (drive_uuid);
+        """
+    )
+
+
 #: Ordered migrations: ``(target_version, fn)``. Each is idempotent and lifts a database
 #: from ``target_version - 1`` to ``target_version``. Append; never rewrite history.
 _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
@@ -133,6 +181,7 @@ _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (3, _add_original_name_column),
     (4, _add_event_tables),
     (5, _add_takeout_tables),
+    (6, _add_drive_tables),
 )
 
 
@@ -237,6 +286,69 @@ class Catalog:
         cursor = self._conn.execute("SELECT DISTINCT size FROM files WHERE size IS NOT NULL")
         return frozenset(int(row["size"]) for row in cursor)
 
+    # -- drives & copies (reads) ---------------------------------------------------
+
+    def list_drives(self) -> list[sqlite3.Row]:
+        """Known drives with their copy counts and total bytes (largest label set aside)."""
+        return list(
+            self._conn.execute(
+                """
+                SELECT d.*, COUNT(fc.sha256) AS file_count, COALESCE(SUM(fc.size), 0) AS total_size
+                FROM drives d
+                LEFT JOIN file_copies fc ON fc.drive_uuid = d.uuid
+                GROUP BY d.uuid
+                ORDER BY d.label
+                """
+            )
+        )
+
+    def drive_by_label(self, label: str) -> sqlite3.Row | None:
+        cursor = self._conn.execute("SELECT * FROM drives WHERE label = ?", (label,))
+        row: sqlite3.Row | None = cursor.fetchone()
+        return row
+
+    def copies_on_drive(self, drive_uuid: str) -> list[sqlite3.Row]:
+        """Every recorded copy on a drive: ``sha256, relative, copy_sha256, size``."""
+        return list(
+            self._conn.execute(
+                "SELECT sha256, relative, copy_sha256, size FROM file_copies WHERE drive_uuid = ?",
+                (drive_uuid,),
+            )
+        )
+
+    def find_copies(self, term: str) -> list[sqlite3.Row]:
+        """For ``where``: copies whose original name, relative path or source path match ``term``."""
+        like = f"%{term}%"
+        return list(
+            self._conn.execute(
+                """
+                SELECT f.original_name, f.source_path, fc.relative, fc.last_verified,
+                       d.label AS drive_label, d.uuid AS drive_uuid
+                FROM file_copies fc
+                JOIN files f ON f.sha256 = fc.sha256
+                JOIN drives d ON d.uuid = fc.drive_uuid
+                WHERE f.original_name LIKE ? OR fc.relative LIKE ? OR f.source_path LIKE ?
+                ORDER BY f.original_name, d.label
+                """,
+                (like, like, like),
+            )
+        )
+
+    def single_copy_shas(self) -> list[sqlite3.Row]:
+        """For ``status``: content that exists on exactly one drive (a single point of loss)."""
+        return list(
+            self._conn.execute(
+                """
+                SELECT fc.sha256, f.original_name, d.label AS drive_label
+                FROM file_copies fc
+                JOIN files f ON f.sha256 = fc.sha256
+                JOIN drives d ON d.uuid = fc.drive_uuid
+                WHERE fc.sha256 IN (SELECT sha256 FROM file_copies GROUP BY sha256 HAVING COUNT(*) = 1)
+                ORDER BY f.original_name
+                """
+            )
+        )
+
     def event_by_signature(self, signature: str) -> sqlite3.Row | None:
         """A previously-named event with this cluster signature, if any."""
         cursor = self._conn.execute("SELECT * FROM events WHERE signature = ?", (signature,))
@@ -278,6 +390,53 @@ class Catalog:
                 (signature, _now()),
             )
 
+    def upsert_drive(self, *, uuid: str, label: str) -> None:
+        """Record a drive (idempotent on uuid), setting first_seen once and refreshing last_seen."""
+        now = _now()
+        with self._tx() as conn:
+            conn.execute(
+                """
+                INSERT INTO drives (uuid, label, first_seen, last_seen)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(uuid) DO UPDATE SET label = excluded.label, last_seen = excluded.last_seen
+                """,
+                (uuid, label, now, now),
+            )
+
+    def set_drive_verified(self, uuid: str, when: str) -> None:
+        """Roll up the drive-level last_verified convenience timestamp."""
+        with self._tx() as conn:
+            conn.execute("UPDATE drives SET last_verified = ? WHERE uuid = ?", (when, uuid))
+
+    def record_copy(
+        self,
+        *,
+        sha256: str,
+        drive_uuid: str,
+        relative: str,
+        copy_sha256: str | None,
+        size: int | None,
+    ) -> None:
+        """Record (idempotent on (sha256, drive_uuid)) that a copy lives on a drive."""
+        with self._tx() as conn:
+            conn.execute(
+                """
+                INSERT INTO file_copies (sha256, drive_uuid, relative, copy_sha256, size, copied_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(sha256, drive_uuid) DO UPDATE SET
+                    relative = excluded.relative, copy_sha256 = excluded.copy_sha256,
+                    size = excluded.size, copied_at = excluded.copied_at
+                """,
+                (sha256, drive_uuid, relative, copy_sha256, size, _now()),
+            )
+
+    def mark_copy_verified(self, *, sha256: str, drive_uuid: str, when: str) -> None:
+        with self._tx() as conn:
+            conn.execute(
+                "UPDATE file_copies SET last_verified = ? WHERE sha256 = ? AND drive_uuid = ?",
+                (when, sha256, drive_uuid),
+            )
+
     def record_uploaded(
         self,
         *,
@@ -292,13 +451,16 @@ class Catalog:
         relative: str,
         event_id: int | None = None,
         albums: Sequence[str] = (),
+        drive_uuid: str | None = None,
     ) -> int:
         """Insert (or refresh) a row marking a file as processed and uploaded; return its id.
 
         ``sha256`` is the source (pre-write) content hash and the dedup identity;
         ``copy_sha256`` is the organized copy's hash after any Takeout metadata write (equal to
-        ``sha256`` for the byte-identical normal pipeline). Album membership is linked
-        many-to-many. Idempotent on ``sha256``.
+        ``sha256`` for the byte-identical normal pipeline). When ``drive_uuid`` is given, the copy
+        is also recorded in ``file_copies`` (per-content-per-drive), the authoritative location
+        record. ``files.copy_sha256``/``relative`` are retained but deprecated. Album membership
+        is linked many-to-many. Idempotent on ``sha256``.
         """
         now = _now()
         with self._tx() as conn:
@@ -347,5 +509,16 @@ class Catalog:
                 conn.execute(
                     "INSERT OR IGNORE INTO file_albums (file_id, album_id) VALUES (?, ?)",
                     (file_id, int(album_row["id"])),
+                )
+            if drive_uuid is not None:
+                conn.execute(
+                    """
+                    INSERT INTO file_copies (sha256, drive_uuid, relative, copy_sha256, size, copied_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(sha256, drive_uuid) DO UPDATE SET
+                        relative = excluded.relative, copy_sha256 = excluded.copy_sha256,
+                        size = excluded.size, copied_at = excluded.copied_at
+                    """,
+                    (sha256, drive_uuid, relative, copy_sha256, size, now),
                 )
         return file_id

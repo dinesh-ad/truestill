@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Drive identity, offline catalog & verify: a `.vaeon-drive.json` marker (vaeon-minted `uuid4`,
+  never the mount path) identifies each backup drive. Catalog schema v6 adds a `drives` table and
+  a per-(content, drive) `file_copies` location table (with a per-copy `copy_sha256`, since a
+  baked copy is not byte-identical to its source). `vaeon drives` (list/`--init`),
+  `vaeon where <term>` (which drive is a file on, fully offline), `vaeon verify <path>` (re-hash a
+  connected drive's copies → verified/MISSING/MISMATCH, read-only, worker-pool), and
+  `vaeon status` (single-copy 3-2-1 nudge). Scoped to local destinations. See
+  `docs/drive-identity-research.md`.
 - Google Takeout Rescue Mode (`vaeon ingest --takeout <dir>`): matches each media file to its
   JSON sidecar (all naming variants -- classic, `supplemental-metadata`, truncated, `-edited`,
   relocated `(n)`), recovers `photoTakenTime`/GPS/description into the existing dating and dedup
