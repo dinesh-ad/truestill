@@ -18,16 +18,10 @@ decision context that produced them.
 - **Zip-direct Takeout ingestion.** `vaeon ingest --takeout` takes an already-extracted
   directory today; reading the Takeout `.zip`(s) directly was flagged as a follow-up in the
   Phase-2 spec (deferred to avoid complicating v1).
-- **Configurable organization structure.** Presets plus template tokens
-  (`{category}/{yyyy}/{mm}`) for the destination layout, with a live preview so the user sees
-  where files land before committing. The chosen template is recorded in the catalog. Changing
-  the template mid-library must raise an explicit warning and offer an optional migration run
-  that relocates existing copies to match. The default stays the current opinionated
-  `<Label>/YYYY/MM/` structure — this only unlocks it for users who want a different shape.
-  **Priority: first post-UI feature, pre-launch.**
 - **Metadata recovery fallback chain (video-date verification).** A full feature, scheduled
-  **immediately after the configurable organization structure** above. Today every date comes
-  from a single `exiftool` read; some video containers defeat it. Scope, in order:
+  **next** (the configurable organization structure it once trailed has shipped — see below).
+  Today every date comes from a single `exiftool` read; some video containers defeat it. Scope,
+  in order:
   1. **Corpus test first.** Assemble real, varied videos — including known-problem formats:
      `.3gp`, `.avi`, WhatsApp-recompressed clips, and old MP4s — and measure where the current
      single `exiftool` read returns *no* date.
@@ -47,18 +41,39 @@ decision context that produced them.
   requests the former family and not the latter, so a near-midnight iPhone clip
   (`CreateDate 2023:08:19 20:00:00Z` vs `CreationDate 2023:08:20 01:30:00+05:30`) is misfiled by
   a whole day — a month boundary in the worst case. Requesting `CreationDate` and preferring the
-  offset-bearing local tag is a small, dependency-free correctness fix that belongs to this
-  feature (or can ship ahead of it). Rationale for the whole feature: the user's firsthand
-  experience plus the well-documented community record of multi-field MP4 date chaos.
+  offset-bearing local tag is a small, dependency-free correctness fix. **Shipped ahead of the
+  feature** (`core(dates)`, commit `f89fec8`): `CreationDate` is now requested and ranked above
+  the UTC container tags, converted exactly once, pinned by tests. Rationale for the remaining
+  feature: the user's firsthand experience plus the community record of multi-field MP4 chaos.
+- **`--skip-undated` on organize/ingest.** Default **OFF** — for backup completeness, files that
+  cannot be dated still copy to `Undated/` where they are visible, never dropped. When the flag
+  is on, the skipped files are counted **and named** in the end-of-run report; neither posture is
+  ever silent about what happened to an undateable file. **Priority: pre-launch, after the
+  metadata recovery fallback chain** (which shrinks the undated set first).
+- **Space-safe move: source reclamation.** Two surfaces over one mechanism, so organizing a large
+  library does not require 2× disk space:
+  - `--move` on `organize` — per file: copy → hash-verify the destination copy → **only then**
+    delete the source. Interruption-safe and verification-gated: a failed verify never deletes.
+  - `vaeon reclaim` — a standalone command that deletes only source files whose destination
+    copies are **catalog-verified**, with its own dry-run preview reporting the count and the
+    space that would be freed.
 
-## Deferred to the desktop UI
-
-- **Event merge/split.** v1 event review is name-or-skip only. Merging and splitting proposed
-  clusters were deliberately deferred to the desktop UI — a terminal is the wrong surface for
-  interactively re-partitioning clusters.
+  Both require an explicit flag **and** a confirmation worded with honest destructive-action
+  language. This is a **documented, contained exception to the copy-only invariant**, scoped
+  exactly like the Takeout metadata-write path — update `IMPLEMENTATION_STANDARDS.md` accordingly
+  when built. **Priority: pre-launch, after the metadata recovery fallback chain.**
 
 ## Shipped (kept for provenance)
 
+- ~~**Event merge/split.**~~ Delivered in the local web UI's Event review screen (merge/split
+  are UI-only capabilities the CLI's name/skip flow lacks), exercised end-to-end through the HTTP
+  API against real clustered fixtures. The CLI stays name-or-skip only, by design — a terminal is
+  the wrong surface for interactively re-partitioning clusters.
+- ~~**Configurable organization structure.**~~ Delivered: `LayoutTemplate` seam + token grammar,
+  catalog v7 settings (`layout_template`) + validation, `vaeon config` with 5 presets and live
+  preview, and `vaeon migrate-layout` (crash-safe, journaled, catalog v8) plus the app Settings
+  screen. Split-era default: a template change affects new files only; migration relocates an
+  existing library preview-first. See `docs/org-structure-research.md`.
 - ~~**Drive identity + offline catalog + verify.**~~ Delivered: `.vaeon-drive.json` marker,
   catalog v6 (`drives` + `file_copies`), and `vaeon drives`/`where`/`verify`/`status`. See the
   CHANGELOG and `docs/drive-identity-research.md`.
