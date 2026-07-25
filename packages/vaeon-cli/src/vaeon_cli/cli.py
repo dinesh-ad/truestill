@@ -22,7 +22,7 @@ from vaeon_core.destinations import Destination, LocalDestination, RcloneDestina
 from vaeon_core.destinations.base import DestinationError
 from vaeon_core.drive import DriveMarker, create_marker, read_marker
 from vaeon_core.exif import ExiftoolMissingError, read_metadata
-from vaeon_core.hashing import DEFAULT_PHASH_THRESHOLD
+from vaeon_core.hashing import DEFAULT_PHASH_THRESHOLD, HEIF_AVAILABLE, HEIF_EXTENSIONS
 from vaeon_core.layout import (
     DEFAULT_TEMPLATE_STRING,
     LAYOUT_TEMPLATE_KEY,
@@ -413,6 +413,18 @@ def _print_report(resolutions: list[Resolution], root_label: str) -> None:
         print()
 
 
+def _print_heif_note(resolutions: list[Resolution]) -> None:
+    """If HEIC/HEIF files were seen but pillow-heif is unavailable, say so -- never silent."""
+    if HEIF_AVAILABLE:
+        return
+    heic = [r for r in resolutions if r.decision.source.suffix.lower() in HEIF_EXTENSIONS]
+    if heic:
+        print(
+            f"\n  NOTE: {len(heic)} HEIC/HEIF file(s) were exact-deduplicated but NOT perceptually "
+            "hashed -- pillow-heif is unavailable, so near-duplicate detection was skipped for them."
+        )
+
+
 def _print_summary(resolutions: list[Resolution]) -> None:
     uploads = [r for r in resolutions if r.should_upload]
     near = [r for r in uploads if r.near_duplicate is not None]
@@ -613,6 +625,7 @@ def _run_pipeline(
 
         _print_report(resolutions, destination.describe())
         _print_summary(resolutions)
+        _print_heif_note(resolutions)
         if scan is not None:
             _print_ingest_report(resolutions, scan)
         if args.report:

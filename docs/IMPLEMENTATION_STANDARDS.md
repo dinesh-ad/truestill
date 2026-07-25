@@ -144,6 +144,7 @@ Runtime deps must justify themselves against stdlib. Current state:
 |---|---|
 | `imagehash>=4.3.1` (`vaeon-core`) | Perceptual dHash for near-duplicate detection; requires image decoding, which the stdlib cannot do. |
 | `pillow>=10.0.0` (`vaeon-core`) | Image decoding backing imagehash and cheap dimension reads. |
+| `pillow-heif>=0.16.0` (`vaeon-core`) | Registers a HEIF opener so Pillow can decode **HEIC/HEIF** (the iPhone-default format since 2017), enabling their perceptual near-dup dedup. **Graceful degradation is mandatory:** `hashing._register_heif` guards the import; if it ever fails at runtime, `HEIF_AVAILABLE` is `False`, SHA-256 exact dedup still applies to HEIC, and the run **reports** that HEIC perceptual hashing was skipped — never a silent drop. TIFF-based RAW (CR2/NEF/DNG/…) needs no plugin (Pillow's TIFF decoder content-sniffs it); container-based RAW (CR3, RAF) is exact-dedup-only. |
 | `exiftool` (external **binary**, not a pip dep) | The only tool that reads photo EXIF, **video container tags**, and vendor MakerNotes (e.g. the screenshot marker) through one interface, and the writer used for the scoped Takeout bake. A pip EXIF library would cover photos only. |
 | `vaeon-cli` runtime deps | Only `vaeon-core` (workspace source). |
 

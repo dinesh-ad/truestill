@@ -19,7 +19,7 @@ from vaeon_core.dedup import DedupIndex
 from vaeon_core.destinations import LocalDestination
 from vaeon_core.drive import read_marker
 from vaeon_core.exif import read_metadata
-from vaeon_core.hashing import DEFAULT_PHASH_THRESHOLD
+from vaeon_core.hashing import DEFAULT_PHASH_THRESHOLD, HEIF_AVAILABLE, HEIF_EXTENSIONS
 from vaeon_core.layout import (
     DEFAULT_TEMPLATE_STRING,
     LAYOUT_TEMPLATE_KEY,
@@ -48,7 +48,8 @@ def _summarize(resolutions: list[Resolution]) -> dict[str, Any]:
     uploads = [r for r in resolutions if r.should_upload]
     near = [r for r in uploads if r.near_duplicate is not None]
     labels = Counter(r.decision.category.label for r in uploads)
-    return {
+    heic = sum(1 for r in resolutions if r.decision.source.suffix.lower() in HEIF_EXTENSIONS)
+    summary: dict[str, Any] = {
         "files": len(resolutions),
         "new_unique": len(uploads) - len(near),
         "near_dup": len(near),
@@ -56,6 +57,10 @@ def _summarize(resolutions: list[Resolution]) -> dict[str, Any]:
         "undated": sum(1 for r in uploads if r.decision.captured_at is None),
         "folders": dict(labels.most_common()),
     }
+    if heic and not HEIF_AVAILABLE:
+        # Never silent: HEIC was exact-deduped but not perceptually hashed.
+        summary["heic_perceptual_skipped"] = heic
+    return summary
 
 
 def _skipped_summary(scan: SourceScan) -> dict[str, dict[str, int]]:

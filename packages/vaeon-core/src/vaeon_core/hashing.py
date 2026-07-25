@@ -22,6 +22,33 @@ from typing import Literal
 import imagehash
 from PIL import Image, UnidentifiedImageError
 
+#: Image extensions whose perceptual dedup depends on the pillow-heif plugin (libheif).
+#: TIFF-based RAW (CR2/NEF/DNG/…) opens via Pillow's own TIFF decoder and needs no plugin.
+HEIF_EXTENSIONS: frozenset[str] = frozenset({".heic", ".heif", ".hif"})
+
+
+def _register_heif() -> bool:
+    """Register the HEIF opener so Pillow can decode HEIC/HEIF, or degrade gracefully.
+
+    pillow-heif is a declared dependency, so this normally succeeds. If it ever fails to import
+    at runtime (a broken install, or missing system libheif on an exotic platform), we do NOT
+    crash: SHA-256 exact dedup keeps working for HEIC, only its *perceptual* near-dup hash is
+    skipped -- and callers surface that in the report via :data:`HEIF_AVAILABLE` rather than
+    dropping it silently.
+    """
+    try:
+        import pillow_heif  # noqa: PLC0415 - optional-at-runtime plugin, imported lazily here
+
+        pillow_heif.register_heif_opener()
+    except Exception:  # any import/registration failure degrades gracefully, never crashes
+        return False
+    return True
+
+
+#: Whether Pillow can decode HEIC/HEIF this run. False -> HEIC perceptual dedup is skipped
+#: (exact dedup still applies) and the run reports it; never a silent drop.
+HEIF_AVAILABLE: bool = _register_heif()
+
 _HASH_CHUNK = 1024 * 1024
 
 #: dHash size in bits per side. 8 -> a 64-bit hash (16 hex chars).

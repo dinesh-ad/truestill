@@ -23,6 +23,7 @@ classifiers = [
 dependencies = [
     "imagehash>=4.3.1",
     "pillow>=10.0.0",
+    "pillow-heif>=0.16.0",
 ]
 
 [project.urls]
