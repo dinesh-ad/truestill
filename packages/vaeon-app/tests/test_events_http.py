@@ -28,9 +28,14 @@ def _camera_image(path: Path, when: datetime, colour: int) -> None:
     Image.new("RGB", (32, 32), (colour % 256, 40, 60)).save(path, "JPEG")
     subprocess.run(
         [
-            "exiftool", "-overwrite_original", "-q", "-m",
-            "-Make=TestCam", "-Model=X100",
-            f"-DateTimeOriginal={when:%Y:%m:%d %H:%M:%S}", str(path),
+            "exiftool",
+            "-overwrite_original",
+            "-q",
+            "-m",
+            "-Make=TestCam",
+            "-Model=X100",
+            f"-DateTimeOriginal={when:%Y:%m:%d %H:%M:%S}",
+            str(path),
         ],
         check=True,
     )
@@ -83,7 +88,9 @@ def test_ingest_preview_report(client: TestClient, tmp_path: Path) -> None:
     year = tmp_path / "Takeout" / "Photos from 2023"
     year.mkdir(parents=True)
     Image.new("RGB", (32, 32), (9, 9, 9)).save(year / "a.jpg", "JPEG")
-    (year / "a.jpg.json").write_text('{"photoTakenTime":{"timestamp":"1692113136"}}', encoding="utf-8")
+    (year / "a.jpg.json").write_text(
+        '{"photoTakenTime":{"timestamp":"1692113136"}}', encoding="utf-8"
+    )
 
     report = client.post(
         "/api/ingest/preview",

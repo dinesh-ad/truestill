@@ -3,7 +3,7 @@ CORE := packages/vaeon-core/src/vaeon_core
 CLI := packages/vaeon-cli/src/vaeon_cli
 APP := packages/vaeon-app/src/vaeon_app
 
-.PHONY: install lint format typecheck test check build dryrun
+.PHONY: install lint format format-check typecheck test check build dryrun
 
 install:
 	uv sync --all-packages --group dev
@@ -14,13 +14,17 @@ lint:
 format:
 	$(PYTHON) ruff format .
 
+# Mirror CI's read-only format gate so `make check` fails the same way CI does.
+format-check:
+	$(PYTHON) ruff format --check .
+
 typecheck:
 	$(PYTHON) mypy $(CORE) $(CLI) $(APP)
 
 test:
 	$(PYTHON) pytest
 
-check: lint typecheck test
+check: lint format-check typecheck test
 
 build:
 	uv build --all-packages
