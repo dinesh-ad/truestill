@@ -6,12 +6,12 @@ Guidance for working in this repository.
 
 At the start of every session, read both:
 
-1. [`docs/ENGINEERING_STANDARD.md`](ENGINEERING_STANDARD.md) — the portable canon (workflow,
+1. [`docs/ENGINEERING_STANDARD.md`](ENGINEERING_STANDARD.md) - the portable canon (workflow,
    research order, code standard).
-2. [`docs/IMPLEMENTATION_STANDARDS.md`](IMPLEMENTATION_STANDARDS.md) — the binding, repo-specific
+2. [`docs/IMPLEMENTATION_STANDARDS.md`](IMPLEMENTATION_STANDARDS.md) - the binding, repo-specific
    contract (product invariants, architecture, data, process, quality gates).
 
-**`IMPLEMENTATION_STANDARDS.md` wins on any conflict** — with each other, and with the notes
+**`IMPLEMENTATION_STANDARDS.md` wins on any conflict** - with each other, and with the notes
 below (which are a quick summary, not the contract).
 
 ## What this is
@@ -72,5 +72,5 @@ Run `make check` before considering work done.
 ## External dependency
 
 `exiftool` (Ubuntu: `libimage-exiftool-perl`) must be on PATH. There are deliberately no
-runtime Python dependencies — a Python EXIF library would cover photos only and would
+runtime Python dependencies - a Python EXIF library would cover photos only and would
 not see video container tags or the vendor MakerNotes the screenshot rule depends on.

@@ -1,18 +1,18 @@
-# Drive Identity, Offline Catalog & Verify — research & plan (Phase 1)
+# Drive Identity, Offline Catalog & Verify - research & plan (Phase 1)
 
 Reconnaissance (code truth) + community research (practitioner truth) for BACKLOG item (e).
-Ends with recommended scope answers and an implementation plan. **No code yet** — this
+Ends with recommended scope answers and an implementation plan. **No code yet** - this
 document is the review gate.
 
 ---
 
-## Part A — Reconnaissance (code truth, file:line)
+## Part A - Reconnaissance (code truth, file:line)
 
 ### A1. The catalog has no destination/drive identity, and is one-row-per-content
 `catalog.py` `files` table stores `relative` (a POSIX path *within* a destination) and
 `source_path` (the **source**, not the destination). There is **no** column identifying which
 destination/drive a copy went to. Worse for this feature: `files.sha256` is `NOT NULL UNIQUE`
-and `record_uploaded` does `ON CONFLICT(sha256) DO UPDATE` — so the catalog holds **exactly one
+and `record_uploaded` does `ON CONFLICT(sha256) DO UPDATE` - so the catalog holds **exactly one
 row per unique content**. Copying the same photo to two drives collapses to one row; the second
 write **overwrites** `relative`/`copy_sha256` with the second drive's.
 
@@ -21,7 +21,7 @@ write **overwrites** `relative`/`copy_sha256` with the second drive's.
 > detection) are impossible without a new **per-(content, drive) location table**. A `drives`
 > table alone is not enough.
 
-### A2. `copy_sha256` — where it is written, where it is NULL
+### A2. `copy_sha256` - where it is written, where it is NULL
 `organizer.execute` sets `copy_sha256` for **every** row it writes: `copy_sha = source_sha` for
 the byte-identical normal path (`organizer.py` ~line 391), or the post-write hash for Takeout
 (`_upload_with_metadata_write`, ~line 322). The metadata-write path arrived **with** schema v5.
@@ -33,13 +33,13 @@ Therefore:
   equals the on-disk bytes.
 
 > **Proposed NULL policy for verify:** compare the on-disk hash against `copy_sha256` when
-> present, else fall back to `sha256`. Safe by construction — NULL implies byte-identical.
+> present, else fall back to `sha256`. Safe by construction - NULL implies byte-identical.
 
-### A3. "A drive" — LocalDestination vs RcloneDestination
+### A3. "A drive" - LocalDestination vs RcloneDestination
 - `LocalDestination(root: Path)` → `describe()` = `local:{root}` (`destinations/local.py`). A
   local directory = a mounted drive. A marker file at `root` and verify-by-rehash are natural.
 - `RcloneDestination(remote)` → `describe()` = the remote spec, e.g. `pcloud:Photos/GoogleBackup`
-  (`destinations/rclone.py`). An always-online cloud remote — not a drive in a drawer.
+  (`destinations/rclone.py`). An always-online cloud remote - not a drive in a drawer.
 
 > **Scope proposal:** v1 drive-identity = **LocalDestination only** (the validated "unplugged in
 > a drawer" pain). rclone remotes are a different model (always online; verify would use
@@ -47,19 +47,19 @@ Therefore:
 
 ---
 
-## Part B — Community research (practitioner truth)
+## Part B - Community research (practitioner truth)
 
 Sources at the bottom. Priority order honoured: tool trackers + practitioner threads.
 
 ### B1. The micro-market is real, and catalog-only
 [catcli](https://github.com/deadc0de6/catcli) indexes external media into a catalog, searches
 and navigates it **while the media is disconnected**, and stores size + md5. JSON catalog,
-git-versionable. It validates the demand — and the gap: **none of these do
+git-versionable. It validates the demand - and the gap: **none of these do
 organize + dedup + backup + verification in one tool.** vaeon already has the first three.
 
 ### B2. Drive identity: filesystem UUID is the wrong primary key
 - Identity mechanisms are **OS/filesystem-inconsistent**: Linux/macOS expose a UUID; Windows/NTFS
-  uses a **64-bit volume serial** (half a UUID); FAT uses a **32-bit** serial — small enough to
+  uses a **64-bit volume serial** (half a UUID); FAT uses a **32-bit** serial - small enough to
   collide. Reformatting changes it.
 - **The cloned-drive problem (repeatedly cited):** cloning a disk copies its UUID/serial, so two
   physical drives share one identity and "create confusion in the database if you use both."
@@ -76,7 +76,7 @@ organize + dedup + backup + verification in one tool.** vaeon already has the fi
 - **Cloning copies the marker too** → duplicate `uuid4`. Fundamentally, clones are identical at
   clone time, so sharing identity is *correct* until they diverge. Proposed: treat same-uuid as the
   same logical drive; **warn** when one uuid is seen at two distinct mount paths in a single run;
-  `vaeon drives init --relabel` mints a fresh uuid for a diverged clone. Do not auto-disambiguate —
+  `vaeon drives init --relabel` mints a fresh uuid for a diverged clone. Do not auto-disambiguate -
   surface it, let the human decide.
 - **Verify UX praised vs cursed:** progress on huge drives, resumability, and honest reports are
   what users want; a silent multi-hour hash with no output is what they curse. Proposed: worker-pool
@@ -85,37 +85,37 @@ organize + dedup + backup + verification in one tool.** vaeon already has the fi
 
 ---
 
-## Part C — Recommended scope answers (for your approval)
+## Part C - Recommended scope answers (for your approval)
 
 1. **Identity = marker file (`.vaeon-drive.json`: `uuid` (uuid4), `label`, `created`)**, never the
    mount path; filesystem UUID explicitly rejected as primary key (B2).
 2. **v1 = LocalDestination only.** rclone remotes deferred (A3).
 3. **New schema (v6):** a `drives` table **and** a new **`file_copies`** location table
-   (per-content-per-drive) — the latter is required, not optional (A1).
+   (per-content-per-drive) - the latter is required, not optional (A1).
 4. **Verify NULL policy:** compare vs `copy_sha256`, else `sha256` (A2).
 5. **Cloned/missing-marker policy:** warn + manual re-init/relabel; never auto-guess (B3).
 
 ---
 
-## Part D — Implementation plan (Phase 2, on approval)
+## Part D - Implementation plan (Phase 2, on approval)
 
 - **`vaeon-core/drive.py`** (pure): read/write/validate `.vaeon-drive.json`; mint `uuid4`; the
   marker dataclass. No mount-path logic in identity.
 - **Catalog v6** via the migration framework + migration test:
   - `drives(uuid PK, label, first_seen, last_seen, last_verified, notes)`.
   - `file_copies(sha256, drive_uuid, relative, copy_sha256, size, last_verified, status,
-    PRIMARY KEY(sha256, drive_uuid))` — authoritative per-drive locations; `files` stays the
+    PRIMARY KEY(sha256, drive_uuid))` - authoritative per-drive locations; `files` stays the
     content identity/dedup/date/category record.
   - `record_uploaded` also upserts a `file_copies` row; the CLI resolves the destination's drive
     uuid (from its marker) and passes it in. `files.relative/copy_sha256` retained as "latest copy"
     for back-compat.
-- **`vaeon drives`** — list known drives (uuid, label, counts, sizes, last_seen/verified). `init`
+- **`vaeon drives`** - list known drives (uuid, label, counts, sizes, last_seen/verified). `init`
   subcommand to create/re-attach a marker.
-- **`vaeon where <term>`** — offline catalog query → drive label(s), path(s), last-verified.
-- **`vaeon verify <label>`** — connected drive; worker-pool re-hash of vaeon-managed files vs
+- **`vaeon where <term>`** - offline catalog query → drive label(s), path(s), last-verified.
+- **`vaeon verify <label>`** - connected drive; worker-pool re-hash of vaeon-managed files vs
   `file_copies.copy_sha256` (else `sha256`); report verified/MISSING/MISMATCH; **read-only** (never
   repairs without an explicit re-copy). Resumable via `last_verified`.
-- **`vaeon status`** — content with a single `file_copies` row → "at risk: N single-copy files"
+- **`vaeon status`** - content with a single `file_copies` row → "at risk: N single-copy files"
   (the 3-2-1 nudge, stated once).
 - **Capability seam:** Pro-tier candidate (convention). Pure logic in core; thin subcommands in cli.
 - **Tests:** two tmp "drives" + markers; corrupt one file + delete another on drive B → verify
@@ -126,7 +126,7 @@ organize + dedup + backup + verification in one tool.** vaeon already has the fi
 ---
 
 ## Sources
-- catcli — offline catalog tool & feature set: <https://github.com/deadc0de6/catcli>
+- catcli - offline catalog tool & feature set: <https://github.com/deadc0de6/catcli>
 - Cloned-drive duplicate serial/UUID confusion: Tom's Hardware
   <https://forums.tomshardware.com/threads/exact-disk-clone.2535798/>; Linux Mint forums
   <https://forums.linuxmint.com/viewtopic.php?t=143560>

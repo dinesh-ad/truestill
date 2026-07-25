@@ -23,7 +23,7 @@ but nothing in it is Google-specific.
 Labels are **derived from each file's own evidence**, not chosen from a fixed list. A
 library containing Signal, Snapseed, a flatbed scanner or a camera brand the tool has
 never seen grows those folders by itself. Only files with no identifying evidence at all
-land in `Unsorted`, which is deliberately a dead end rather than a dumping ground — a
+land in `Unsorted`, which is deliberately a dead end rather than a dumping ground - a
 growing `Unsorted` is a signal that a rule is worth adding.
 
 ## How a file is classified
@@ -49,12 +49,12 @@ Adding a new source means adding one row to `NAME_PATTERNS` in `categorize.py`.
 
 ## How the date is chosen
 
-1. **Embedded metadata** — `DateTimeOriginal`, then `CreateDate`, `MediaCreateDate`,
+1. **Embedded metadata** - `DateTimeOriginal`, then `CreateDate`, `MediaCreateDate`,
    `TrackCreateDate` (covers both photos and video containers).
-2. **Filename convention** — `YYYYMMDD`, `YYYY-MM-DD`, or Telegram Desktop's
+2. **Filename convention** - `YYYYMMDD`, `YYYY-MM-DD`, or Telegram Desktop's
    `DD-MM-YYYY`. These are **flagged for manual review** in the report; a date parsed
    from a filename is a convention, not a guarantee.
-3. **Nothing** — the file goes to `<Label>/Undated/`. Dates are never guessed.
+3. **Nothing** - the file goes to `<Label>/Undated/`. Dates are never guessed.
 
 **Filesystem mtime is never consulted.** Google Photos downloads and Takeout zips carry
 the *download* time in the filesystem timestamp, so trusting mtime would file an entire
@@ -62,7 +62,7 @@ library under the day it was exported.
 
 ## Timestamps
 
-After placing a file, its mtime/atime are set from the resolved capture date —
+After placing a file, its mtime/atime are set from the resolved capture date -
 equivalent in intent to:
 
 ```bash
@@ -75,7 +75,7 @@ year/month folder can never disagree. Disable with `--no-timestamps`.
 ## Requirements
 
 - Python ≥ 3.13, [uv](https://docs.astral.sh/uv/)
-- `exiftool` — the only tool that reads photo EXIF, video container tags and vendor
+- `exiftool` - the only tool that reads photo EXIF, video container tags and vendor
   MakerNotes through one interface:
 
 ```bash
@@ -111,8 +111,8 @@ uv run vaeon <source> <destination> --apply
 
 ## Safety
 
-- **Dry run by default** — `--apply` is the only thing that writes.
-- **Copy, not move, by default** — the source tree survives a bad run.
+- **Dry run by default** - `--apply` is the only thing that writes.
+- **Copy, not move, by default** - the source tree survives a bad run.
 - **Never overwrites.** On a name collision the file is hashed: identical content is
   reported as a duplicate and skipped; different content is written alongside with a
   `_1` suffix.

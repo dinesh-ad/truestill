@@ -1,44 +1,44 @@
-# vaeon UI v1 — recon, research & design (Phase 1)
+# vaeon UI v1 - recon, research & design (Phase 1)
 
 Design gate for the local web UI (`packages/vaeon-app`). **No build in this phase.** Decision
 already fixed: a plain **local web app** (Python server + browser UI on localhost), no
-Tauri/Electron/Rust; a native shell may wrap it later. The engine is untouched — `vaeon-app`
+Tauri/Electron/Rust; a native shell may wrap it later. The engine is untouched - `vaeon-app`
 calls `vaeon-core` as a library, exactly as `vaeon-cli` does, and `vaeon-cli` stays co-equal.
 
 ---
 
-## Part A — Reconnaissance (code truth, file:line)
+## Part A - Reconnaissance (code truth, file:line)
 
 ### A1. Interaction inventory (what the UI must expose)
 | Interaction | Where | Shape today |
 |---|---|---|
-| **Event review name/skip** | `vaeon_cli/events_review.py::run_event_stage` (L92); prompt type `Prompt = Callable[[EventCandidate], str \| None]` (L22) | Already **injectable** — the prompt is a callback. `_stdin_prompt` (L83, `input()`/`isatty`) is the CLI's implementation. |
+| **Event review name/skip** | `vaeon_cli/events_review.py::run_event_stage` (L92); prompt type `Prompt = Callable[[EventCandidate], str \| None]` (L22) | Already **injectable** - the prompt is a callback. `_stdin_prompt` (L83, `input()`/`isatty`) is the CLI's implementation. |
 | **`--map-albums` auto-name** | `events_review.py::album_prompt` (L67) | A non-interactive `Prompt` that returns the majority album. |
-| **Dry-run vs apply** | `organizer.execute(apply=...)`; CLI `_run_pipeline` | A *mode*, not a prompt — clean to model as a request flag. |
+| **Dry-run vs apply** | `organizer.execute(apply=...)`; CLI `_run_pipeline` | A *mode*, not a prompt - clean to model as a request flag. |
 | **Verify** | `cli.py::_cmd_verify` (L213); `verify.verify_copies` (core) | Core is pure; the CLI prints a single end report. |
 
 **Takeaway:** the one genuinely interactive stage (event review) already takes an injected
-callback — good. But it lives in `vaeon-cli` (see A2).
+callback - good. But it lives in `vaeon-cli` (see A2).
 
-### A2. Purity check — the required refactor
+### A2. Purity check - the required refactor
 `run_event_stage` and its helper `camera_items` live in **`vaeon-cli/events_review.py`**, yet
 every import they use is from **`vaeon-core`** (`catalog`, `events`, `hashing`, `models`,
 `organizer`). The only CLI-specific things inside are `print(...)` calls and `_stdin_prompt`.
 
 > **Refactor R1 (required):** move the *pure orchestration* (cluster → resolve names against
 > the catalog → `apply_events`) into **`vaeon-core`** (e.g. `vaeon_core/event_review.py`), prompt
-> injected, **no printing** — it returns structured proposals/results. `vaeon-cli` keeps its
+> injected, **no printing** - it returns structured proposals/results. `vaeon-cli` keeps its
 > `_stdin_prompt`/`album_prompt`/printing; `vaeon-app` supplies a UI-driven prompt. This is what
 > lets `vaeon-app` **never import `vaeon-cli`** (the architecture rule).
 
 Everything else the UI needs is already pure and injectable: `plan`, `resolve`, `execute`,
 `scan.compute_hashes`, `verify.verify_copies`, `cluster_camera`, the catalog, `drive.py`.
 
-### A3. Long-task reality — no progress or cancellation exists
+### A3. Long-task reality - no progress or cancellation exists
 The three long operations run minutes-to-hours on a big library and have **no hooks**:
-- `scan.compute_hashes` (`scan.py` L71) — `executor.map` (L93), no progress, no cancel.
-- `verify.verify_copies` (`verify.py`) — `executor.map` (L69), no progress, no cancel.
-- `organizer.execute` (L340) — `for resolution in resolutions` (L364), no progress, no cancel.
+- `scan.compute_hashes` (`scan.py` L71) - `executor.map` (L93), no progress, no cancel.
+- `verify.verify_copies` (`verify.py`) - `executor.map` (L69), no progress, no cancel.
+- `organizer.execute` (L340) - `for resolution in resolutions` (L364), no progress, no cancel.
 
 > **Refactor R2 (required):** add an optional `progress: Callable[[int done, int total], None]`
 > and cooperative cancellation (`cancel: threading.Event | None`, checked between items) to those
@@ -52,13 +52,13 @@ The three long operations run minutes-to-hours on a big library and have **no ho
 
 ---
 
-## Part B — Research (community truth)
+## Part B - Research (community truth)
 
 ### B1. Backend: Starlette (+ uvicorn), not FastAPI, not raw stdlib
 FastAPI *is* a wrapper over Starlette + Pydantic; for a **single-user local app** we don't want
 Pydantic on internal models (our standard forbids it) or FastAPI's OpenAPI/validation weight.
 Raw `http.server` is synchronous and would force hand-rolled routing, SSE, static serving and
-background-task handling — fragile. **Starlette** is the smallest well-tested ASGI that gives
+background-task handling - fragile. **Starlette** is the smallest well-tested ASGI that gives
 routing + SSE + static files + background tasks; **uvicorn** serves it. Two deps, isolated to
 `vaeon-app` (vaeon-core stays imagehash+pillow only).
 Sources: [DEV: FastAPI is overkill](https://dev.to/leapcell/fastapi-is-overkill-starlette-and-pydantic-are-all-you-really-need-1inp),
@@ -73,7 +73,7 @@ Sources: [htmx in 2026](https://dev.to/pockit_tools/htmx-in-2026-when-you-dont-n
 [HTMX vs React 2026](https://www.pkgpulse.com/blog/htmx-vs-react-2026).
 
 ### B3. Long-task pattern: SSE (the boring one)
-Progress is one-way server→client, which is exactly **Server-Sent Events**' shape — simpler than
+Progress is one-way server→client, which is exactly **Server-Sent Events**' shape - simpler than
 WebSockets (bidirectional, overkill) and cheaper than polling. Cancellation is a separate small
 `POST`. htmx has first-class SSE support.
 
@@ -82,8 +82,8 @@ DNS rebinding and localhost CSRF are real: a malicious web page can make the bro
 `127.0.0.1` and, via rebinding, bypass same-origin. Standard mitigations, all adopted:
 1. **Bind `127.0.0.1` only** (never `0.0.0.0`).
 2. **Per-session token** required on every request (minted at start, delivered in the URL on
-   first open — the Jupyter model); not a cookie, so rebinding/CSRF can't ride it.
-3. **Host/Origin header check** — reject requests whose `Host`/`Origin` isn't our localhost
+   first open - the Jupyter model); not a cookie, so rebinding/CSRF can't ride it.
+3. **Host/Origin header check** - reject requests whose `Host`/`Origin` isn't our localhost
    binding (defeats DNS rebinding).
 Sources: [GitHub blog: localhost CORS & DNS rebinding](https://github.blog/security/application-security/localhost-dangers-cors-and-dns-rebinding/),
 [Unit42 DNS rebinding](https://unit42.paloaltonetworks.com/dns-rebinding/).
@@ -95,7 +95,7 @@ if taken; bind `127.0.0.1`; open the browser at the exact URL **including the to
 
 ---
 
-## Part C — Design proposal (for approval)
+## Part C - Design proposal (for approval)
 
 ### C1. v1 screens (markdown wireframes)
 
@@ -120,7 +120,7 @@ Source: /photos/dump        Destination: [ Drive A ▾ ]   [ Dry run ]
 ── Running ────────────────  hashing 4,102 / 5,180  [■■■■□] [Cancel]
 ```
 
-**Event review** (name / skip / **merge** / **split** — the deferred features land here)
+**Event review** (name / skip / **merge** / **split** - the deferred features land here)
 ```
 Proposed events (Camera only)
  ▸ Jun 14–16  · 47 photos · ~(15.30, 74.12)   name:[ Goa Trip     ] [skip]
@@ -138,7 +138,7 @@ At risk: 12 files exist on only one drive.        [ Where is…? ]
 ── Verifying Drive A ──  1,204 / 5,180  [■■□□]  verified 1204  ✗0  [Cancel]
 ```
 
-**Rescue report** (Takeout ingest outcome) — the "wow" numbers already produced by ingest:
+**Rescue report** (Takeout ingest outcome) - the "wow" numbers already produced by ingest:
 dates recovered vs approximate, album copies collapsed + space reclaimed, still-undated,
 missing sidecars.
 
@@ -167,7 +167,7 @@ POST /api/verify/run           {path} -> {job_id}   (progress via /api/jobs/{id}
 Server calls `vaeon-core` only. Long endpoints start a background job (Starlette background task
 / a thread) that drives the core op with the R2 `progress`/`cancel` hooks and publishes SSE.
 
-### C4. Dependency additions (each justified, per the dependency policy) — all in `vaeon-app` only
+### C4. Dependency additions (each justified, per the dependency policy) - all in `vaeon-app` only
 | Dep | Justification vs stdlib |
 |---|---|
 | `starlette` | Minimal ASGI: routing + SSE + static + background tasks. `http.server` is sync and would require hand-rolling all of it. Not FastAPI (wraps Starlette+Pydantic; Pydantic is disallowed for internal models and unneeded for one user). |
@@ -179,7 +179,7 @@ Python, stdlib `threading` for cancellation).
 
 ---
 
-## Part D — Required core refactors before/with the build (summary)
+## Part D - Required core refactors before/with the build (summary)
 - **R1** move event-review orchestration `vaeon-cli` → `vaeon-core` (prompt injected, no I/O).
 - **R2** add `progress` + `cancel` to `compute_hashes`, `verify_copies`, `execute`.
 - **R3** evolve the event decision from `(cluster)->str|None` to data-in/decision-out to support
