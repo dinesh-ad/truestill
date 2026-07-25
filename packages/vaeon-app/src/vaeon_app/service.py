@@ -23,6 +23,7 @@ from vaeon_core.hashing import DEFAULT_PHASH_THRESHOLD
 from vaeon_core.models import Resolution
 from vaeon_core.organizer import discover, execute, plan, resolve
 from vaeon_core.progress import ProgressCallback
+from vaeon_core.takeout import scan_takeout
 from vaeon_core.verify import CopyStatus, CopyToVerify, verify_copies
 
 from vaeon_app.jobs import JobTarget
@@ -172,3 +173,68 @@ def at_risk(db: Path) -> list[dict[str, Any]]:
             {"name": r["original_name"] or r["sha256"][:12], "drive": r["drive_label"]}
             for r in catalog.single_copy_shas()
         ]
+
+
+# --- event review (used by the Event review screen; merge/split are UI-only) ----------
+
+
+def plan_resolve(source: Path, db: Path) -> tuple[list[Resolution], dict[Path, dict[str, Any]]]:
+    """Plan + dedup a source (no writes), returning resolutions and metadata for clustering."""
+    files = discover(source)
+    if not files:
+        return [], {}
+    metadata = read_metadata(files)
+    decisions = plan(files, metadata, build_rules())
+    with Catalog(db) as catalog:
+        index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
+        resolutions = resolve(decisions, index, catalog_sizes=catalog.known_sizes())
+    return resolutions, metadata
+
+
+def cluster_json(cluster: Any) -> dict[str, Any]:
+    """Serialise an EventCandidate for the review UI."""
+    centroid = cluster.gps_centroid()
+    return {
+        "start": cluster.start.isoformat(),
+        "end": cluster.end.isoformat(),
+        "count": cluster.count,
+        "location": list(centroid) if centroid else None,
+    }
+
+
+# --- Takeout rescue report (Rescue report screen) -------------------------------------
+
+
+def ingest_preview(takeout: Path, destination: Path, db: Path) -> dict[str, Any]:  # noqa: ARG001
+    """Dry-run Takeout rescue: the honest report the Rescue screen shows before any run."""
+    scan = scan_takeout(takeout)
+    files = discover(takeout)
+    if not files:
+        return {"files": 0, "missing_sidecar": 0}
+    metadata = read_metadata(files)
+    decisions = plan(files, metadata, build_rules(), takeout=scan.sidecars)
+    with Catalog(db) as catalog:
+        index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
+        resolutions = resolve(decisions, index, catalog_sizes=catalog.known_sizes())
+    uploads = [r for r in resolutions if r.should_upload]
+    dups = [r for r in resolutions if not r.should_upload]
+    sources = Counter(r.decision.date_source.value for r in uploads)
+    reclaimed = sum(_safe_size(r.decision.source) for r in dups)
+    return {
+        "files": len(resolutions),
+        "kept": len(uploads),
+        "dup_collapsed": len(dups),
+        "reclaimed_mb": round(reclaimed / 1e6, 1),
+        "dates_photo_taken": sources.get("takeout", 0),
+        "dates_upload_approx": sources.get("takeout_upload", 0),
+        "dates_exif": sources.get("exif", 0),
+        "undated": sources.get("none", 0),
+        "missing_sidecar": len(scan.missing_sidecar),
+    }
+
+
+def _safe_size(path: Path) -> int:
+    try:
+        return path.stat().st_size
+    except OSError:
+        return 0

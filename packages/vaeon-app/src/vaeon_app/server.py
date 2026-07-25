@@ -6,6 +6,7 @@ directly. Every data route is guarded by :class:`~vaeon_app.security.LocalGuard`
 
 from __future__ import annotations
 
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,10 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 from starlette.staticfiles import StaticFiles
+from vaeon_core import event_review
+from vaeon_core.catalog import Catalog
+from vaeon_core.event_review import EventDecision, commit
+from vaeon_core.events import merge_candidates, split_candidate
 
 from vaeon_app import service
 from vaeon_app.jobs import JobManager
@@ -67,11 +72,73 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
     async def where(request: Request) -> JSONResponse:
         return JSONResponse({"copies": service.where(request.query_params.get("term", ""), _db())})
 
+    async def ingest_preview(request: Request) -> JSONResponse:
+        body = await request.json()
+        report = service.ingest_preview(Path(body["takeout"]), Path(body["destination"]), _db())
+        return JSONResponse(report)
+
+    # --- Event review (session-based; merge/split are UI-only, no CLI path) ---
+    sessions: dict[str, dict[str, Any]] = {}
+
+    def _clusters_payload(session_id: str) -> JSONResponse:
+        clusters = sessions[session_id]["clusters"]
+        return JSONResponse(
+            {"session": session_id, "clusters": [service.cluster_json(c) for c in clusters]}
+        )
+
+    async def events_propose(request: Request) -> JSONResponse:
+        body = await request.json()
+        resolutions, metadata = service.plan_resolve(Path(body["source"]), _db())
+        clusters = event_review.propose(resolutions, metadata)
+        session_id = uuid.uuid4().hex
+        sessions[session_id] = {"resolutions": resolutions, "clusters": clusters}
+        return _clusters_payload(session_id)
+
+    async def events_merge(request: Request) -> JSONResponse:
+        session_id = request.path_params["session"]
+        indices: list[int] = (await request.json())["indices"]
+        clusters = sessions[session_id]["clusters"]
+        chosen = [clusters[i] for i in indices]
+        rest = [c for j, c in enumerate(clusters) if j not in set(indices)]
+        sessions[session_id]["clusters"] = [merge_candidates(chosen), *rest]
+        return _clusters_payload(session_id)
+
+    async def events_split(request: Request) -> JSONResponse:
+        session_id = request.path_params["session"]
+        body = await request.json()
+        clusters = sessions[session_id]["clusters"]
+        first, second = split_candidate(clusters[body["index"]], body["at"])
+        clusters[body["index"] : body["index"] + 1] = [first, second]
+        return _clusters_payload(session_id)
+
+    async def events_apply(request: Request) -> JSONResponse:
+        session_id = request.path_params["session"]
+        names: list[str | None] = (await request.json())["names"]
+        session = sessions[session_id]
+        decisions = [
+            EventDecision(cluster, name)
+            for cluster, name in zip(session["clusters"], names, strict=True)
+        ]
+        with Catalog(_db()) as catalog:
+            outcome = commit(session["resolutions"], decisions, catalog)
+        session["resolutions"] = outcome.resolutions  # event-applied, ready for a run
+        placements = [
+            {"name": r.decision.source.name, "relative": r.decision.relative.as_posix()}
+            for r in outcome.resolutions
+            if r.decision.category.rule == "device"
+        ]
+        return JSONResponse({"events": len(outcome.event_ids), "placements": placements})
+
     routes = [
         Route("/", home),
         Route("/api/organize/preview", organize_preview, methods=["POST"]),
         Route("/api/organize/run", organize_run, methods=["POST"]),
         Route("/api/verify/run", verify_run, methods=["POST"]),
+        Route("/api/ingest/preview", ingest_preview, methods=["POST"]),
+        Route("/api/events/propose", events_propose, methods=["POST"]),
+        Route("/api/events/{session}/merge", events_merge, methods=["POST"]),
+        Route("/api/events/{session}/split", events_split, methods=["POST"]),
+        Route("/api/events/{session}/apply", events_apply, methods=["POST"]),
         Route("/api/jobs/{job_id}/events", job_events),
         Route("/api/jobs/{job_id}/cancel", job_cancel, methods=["POST"]),
         Route("/api/drives", drives),

@@ -95,4 +95,72 @@ $("where-go").onclick = async () => {
     : `no copies match '${term}'`;
 };
 
+// --- Event review (name / skip / merge / split) ---
+let evSession = null;
+
+function renderClusters(clusters) {
+  const box = $("ev-clusters");
+  box.innerHTML = "";
+  clusters.forEach((c, i) => {
+    const loc = c.location ? ` ~(${c.location[0].toFixed(2)}, ${c.location[1].toFixed(2)})` : "";
+    const row = document.createElement("div");
+    row.className = "cluster";
+    row.innerHTML =
+      `<input type="checkbox" class="ev-check" data-i="${i}"> ` +
+      `<b>#${i}</b> ${c.count} files · ${c.start.slice(0, 16)} → ${c.end.slice(0, 16)}${loc} ` +
+      `<input class="ev-name" data-i="${i}" placeholder="name (blank = skip)"> ` +
+      `<button class="ev-split" data-i="${i}" data-count="${c.count}">split</button>`;
+    box.appendChild(row);
+  });
+  $("ev-merge").classList.toggle("hidden", clusters.length < 2);
+  $("ev-apply").classList.remove("hidden");
+  document.querySelectorAll(".ev-split").forEach((b) => {
+    b.onclick = async () => {
+      const at = parseInt(prompt(`Split #${b.dataset.i} after how many photos? (1..${b.dataset.count - 1})`), 10);
+      if (!at) return;
+      renderClusters((await api(`/api/events/${evSession}/split`, { index: +b.dataset.i, at })).clusters);
+    };
+  });
+}
+
+$("ev-propose").onclick = async () => {
+  const r = await api("/api/events/propose", { source: $("ev-source").value.trim() });
+  evSession = r.session;
+  renderClusters(r.clusters);
+  $("ev-out").textContent = r.clusters.length ? "" : "no event clusters proposed";
+};
+
+$("ev-merge").onclick = async () => {
+  const indices = [...document.querySelectorAll(".ev-check:checked")].map((c) => +c.dataset.i);
+  if (indices.length < 2) { $("ev-out").textContent = "check at least two clusters to merge"; return; }
+  renderClusters((await api(`/api/events/${evSession}/merge`, { indices })).clusters);
+};
+
+$("ev-apply").onclick = async () => {
+  const names = [...document.querySelectorAll("#ev-clusters .cluster")].map((row) => {
+    const v = row.querySelector(".ev-name").value.trim();
+    return v || null;
+  });
+  const r = await api(`/api/events/${evSession}/apply`, { names });
+  $("ev-out").textContent =
+    `Named ${r.events} file(s) into events.\n` +
+    r.placements.map((p) => `  ${p.name} -> ${p.relative}`).join("\n");
+};
+
+// --- Rescue report ---
+$("rc-preview").onclick = async () => {
+  $("rc-report").textContent = "scanning…";
+  const r = await api("/api/ingest/preview", {
+    takeout: $("rc-takeout").value.trim(), destination: $("rc-dest").value.trim(),
+  });
+  $("rc-report").innerHTML =
+    `<b>Takeout rescue (preview)</b><br>` +
+    `media files: ${r.files} &nbsp; kept: ${r.kept}<br>` +
+    `album duplicate copies collapsed: ${r.dup_collapsed} (~${r.reclaimed_mb} MB)<br>` +
+    `dates recovered (photoTakenTime): ${r.dates_photo_taken}<br>` +
+    `dates approximate (upload time): ${r.dates_upload_approx}<br>` +
+    `dates from EXIF: ${r.dates_exif} &nbsp; still undated: ${r.undated}<br>` +
+    `media without a JSON sidecar: ${r.missing_sidecar}`;
+};
+
 loadDrives();

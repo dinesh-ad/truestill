@@ -58,6 +58,10 @@ unfixable = []
 # scan.compute_hashes / verify.verify_copies expose pool/workers/progress/cancel as kw-only.
 "packages/vaeon-core/src/vaeon_core/scan.py" = ["PLR0913"]
 "packages/vaeon-core/src/vaeon_core/verify.py" = ["PLR0913"]
+# create_app is an application factory: each route is a nested handler closing over the token/db.
+"packages/vaeon-app/src/vaeon_app/server.py" = [
+    "PLR0915", # the route handlers are defined inline inside the factory, by design
+]
 # Date parsing - EXIF timestamps are local wall-clock with no zone; naive datetimes correct.
 "packages/vaeon-core/src/vaeon_core/dates.py" = [
     "DTZ007",  # strptime without %z is deliberate; EXIF has no reliable zone

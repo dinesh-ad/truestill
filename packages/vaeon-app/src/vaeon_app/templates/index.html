@@ -45,6 +45,24 @@
     <pre id="where-out" class="out"></pre>
   </section>
 
+  <section id="events">
+    <h2>Event review <span class="sub">Camera photos only · name / skip / merge / split</span></h2>
+    <label>Source folder <input id="ev-source" placeholder="/photos/dump"></label>
+    <button id="ev-propose">Propose events</button>
+    <div id="ev-clusters"></div>
+    <button id="ev-merge" class="hidden">Merge checked</button>
+    <button id="ev-apply" class="hidden">Apply (preview placement)</button>
+    <pre id="ev-out" class="out"></pre>
+  </section>
+
+  <section id="rescue">
+    <h2>Rescue a Google Takeout export</h2>
+    <label>Extracted Takeout folder <input id="rc-takeout" placeholder="/downloads/Takeout"></label>
+    <label>Destination <input id="rc-dest" placeholder="/mnt/DriveA"></label>
+    <button id="rc-preview">Rescue preview</button>
+    <div id="rc-report" class="out"></div>
+  </section>
+
   <footer>Dry-run is the default. Nothing is written until you choose “Run for real”.</footer>
   <script src="/static/app.js"></script>
 </body>
