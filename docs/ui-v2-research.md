@@ -206,7 +206,7 @@ in code, the CLI, and docs).
 | Where | Current (system voice) | Replacement (person's voice) |
 | --- | --- | --- |
 | Organize source | `Source folder` + placeholder `/photos/dump` | **Folder to organize** · empty field, grey *example* hint, **Browse** primary |
-| Organize dest | `Destination (drive root)` `/mnt/DriveA` | **Backup folder** (where organized copies go) · Browse |
+| Organize dest | `Destination (drive root)` `/mnt/DriveA` | **Organized folder** (where your sorted copies go) · Browse. *Not* "Backup folder" — this folder is the organized **result**, not the backup; "backup" is reserved for the drives on the Backups screen where it is literally true. |
 | Organize run btn | `Run for real` | **Organize N files** (names the outcome; N from the preview) |
 | Preview btn | `Dry-run preview` | **Preview** (subtext: "see what would happen - nothing is changed") |
 | Skip-undated | `Skip undated files (don't copy to Undated/)` | **Skip files with no date** (they won't be sorted into an Undated folder) |
@@ -300,10 +300,10 @@ Below are the six screens (markdown wireframes). Copy uses §4; every result is 
 **Organize (home)**
 ```
 Organize
-Point vaeon at a messy folder; it sorts copies into your backup - originals untouched.
+Point vaeon at a messy folder; it sorts copies into an organized folder - originals untouched.
 
 Folder to organize   [ /home/you/Pictures/dump          ] [ Browse ]   37 photos here
-Backup folder        [ /media/BackupA                   ] [ Browse ]   ✓ backup drive
+Organized folder     [ /media/BackupA                   ] [ Browse ]   ✓ backup drive
 [ ] Skip files with no date
 
               [ Preview ]   ( Organize … - disabled: Preview first )
@@ -328,7 +328,7 @@ Folder   [ … ] [ Browse ]      [ Find trips ]
 Import from Google Photos
 Bring in a Google Takeout export - vaeon recovers the real photo dates and removes duplicates.
 
-Takeout folder [ … ] [ Browse ]   Backup folder [ … ] [ Browse ]   [ Preview import ]
+Takeout folder [ … ] [ Browse ]   Organized folder [ … ] [ Browse ]   [ Preview import ]
 
 ┌ report card: 12,401 photos · 3,100 duplicates removed (~8.2 GB) · dates recovered … ┐
 ```

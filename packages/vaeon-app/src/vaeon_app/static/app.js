@@ -211,7 +211,7 @@ $("org-preview").onclick = async () => {
   const s = await api("/api/organize/preview", { source, destination });
   const kept = renderOrganizeResult(s);
   if (!s.files) { $("org-run").disabled = true; setWhy("Nothing to organize in this folder."); }
-  else if (!destination) { $("org-run").disabled = true; setWhy("Pick a backup folder to organize into."); }
+  else if (!destination) { $("org-run").disabled = true; setWhy("Pick the organized folder for the sorted copies."); }
   else { $("org-run").disabled = false; $("org-run").textContent = `Organize ${nfmt(kept)} files`; setWhy(""); }
 };
 

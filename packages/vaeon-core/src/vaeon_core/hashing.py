@@ -16,11 +16,23 @@ fast. pHash is available in :func:`perceptual_hash` via ``algorithm="phash"`` if
 from __future__ import annotations
 
 import hashlib
+import warnings
 from pathlib import Path
 from typing import Literal
 
 import imagehash
 from PIL import Image, UnidentifiedImageError
+
+# vaeon processes the user's OWN local library, not untrusted web uploads, so Pillow's ~89 MP
+# "decompression bomb" guard is a false positive on legitimate large photos -- panoramas,
+# medium-format, and flatbed scans routinely exceed it (the corpus has a 144 MP image). Immich and
+# PhotoPrism sidestep the issue entirely by decoding through libvips, which streams arbitrarily
+# large images; Pillow needs an explicit decision. We deliberately raise the ceiling to cover real
+# photography, and above it a truly pathological/gigapixel image is *skipped* for perceptual
+# hashing rather than risking an OOM -- SHA-256 exact dedup still applies, and the skip is never
+# silent (perceptual_hash returns None, which the report surfaces).
+MAX_PERCEPTUAL_PIXELS = 300_000_000  # 300 MP
+Image.MAX_IMAGE_PIXELS = MAX_PERCEPTUAL_PIXELS
 
 #: Image extensions whose perceptual dedup depends on the pillow-heif plugin (libheif).
 #: TIFF-based RAW (CR2/NEF/DNG/…) opens via Pillow's own TIFF decoder and needs no plugin.
@@ -79,14 +91,19 @@ def perceptual_hash(path: Path, algorithm: Algorithm = "dhash") -> str | None:
     """Return a hex perceptual hash for an image, or ``None`` if it is not an image.
 
     Videos, audio and unreadable files return ``None`` -- they simply do not participate
-    in perceptual dedup and are matched on SHA-256 alone.
+    in perceptual dedup and are matched on SHA-256 alone. A legitimately huge image (above
+    :data:`MAX_PERCEPTUAL_PIXELS`) also returns ``None`` -- Pillow raises ``DecompressionBombError``
+    and we skip *perceptual* hashing for it (SHA-256 still runs). The decompression-bomb *warning*
+    is suppressed locally so no raw Pillow warning ever reaches the user's terminal.
     """
     try:
-        with Image.open(path) as image:
-            image.draft("L", (64, 64))  # hint the decoder toward a cheap grayscale read
-            func = imagehash.phash if algorithm == "phash" else imagehash.dhash
-            return str(func(image, hash_size=_HASH_SIDE))
-    except (UnidentifiedImageError, OSError, ValueError):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", Image.DecompressionBombWarning)
+            with Image.open(path) as image:
+                image.draft("L", (64, 64))  # hint the decoder toward a cheap grayscale read
+                func = imagehash.phash if algorithm == "phash" else imagehash.dhash
+                return str(func(image, hash_size=_HASH_SIDE))
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
         return None
 
 

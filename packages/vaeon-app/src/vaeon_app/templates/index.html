@@ -31,8 +31,8 @@
       <section class="screen active" id="screen-organize">
         <header>
           <h1>Organize</h1>
-          <p class="lede">Point vaeon at a messy folder. It sorts copies into your backup and removes
-            duplicates - your originals are never touched.</p>
+          <p class="lede">Point vaeon at a messy folder. It sorts copies into an organized folder and
+            removes duplicates - your originals are never touched.</p>
         </header>
 
         <div class="card">
@@ -46,7 +46,7 @@
           </div>
 
           <div class="field">
-            <label for="org-dest">Backup folder <span style="color:var(--text-muted);font-weight:400">(where the organized copies go)</span></label>
+            <label for="org-dest">Organized folder <span style="color:var(--text-muted);font-weight:400">(where your sorted copies go)</span></label>
             <div class="row">
               <input class="input" id="org-dest" placeholder="e.g. /media/BackupA">
               <button class="btn btn-secondary" data-browse="org-dest" data-kind="dest">Browse…</button>
@@ -103,7 +103,7 @@
             <div class="row"><input class="input" id="rc-takeout" placeholder="e.g. /home/you/Downloads/Takeout">
               <button class="btn btn-secondary" data-browse="rc-takeout" data-kind="source">Browse…</button></div>
             <span class="hint" id="rc-takeout-hint"></span></div>
-          <div class="field"><label for="rc-dest">Backup folder</label>
+          <div class="field"><label for="rc-dest">Organized folder <span style="color:var(--text-muted);font-weight:400">(where your sorted copies go)</span></label>
             <div class="row"><input class="input" id="rc-dest" placeholder="e.g. /media/BackupA">
               <button class="btn btn-secondary" data-browse="rc-dest" data-kind="dest">Browse…</button></div>
             <span class="hint" id="rc-dest-hint"></span></div>

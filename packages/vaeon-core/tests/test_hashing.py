@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 
-from vaeon_core.hashing import hamming_distance, perceptual_hash, sha256_file
+import pytest
+from PIL import Image
+from vaeon_core.hashing import (
+    MAX_PERCEPTUAL_PIXELS,
+    hamming_distance,
+    perceptual_hash,
+    sha256_file,
+)
 
 
 def test_sha256_is_stable_and_content_based(tmp_path: Path) -> None:
@@ -48,3 +56,36 @@ def test_hamming_distance_basics() -> None:
     assert hamming_distance("00", "00") == 0
     assert hamming_distance("00", "01") == 1
     assert hamming_distance("00", "ff") == 8
+
+
+# -- very large images: deliberate policy, never a raw warning -----------------------------
+
+
+def test_ceiling_is_deliberately_high_for_real_photography() -> None:
+    # 144 MP (the corpus image that tripped Pillow's ~89 MP default) must sit under our ceiling.
+    assert MAX_PERCEPTUAL_PIXELS >= 200_000_000
+
+
+def test_large_image_hashes_without_leaking_a_warning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Shrink the guard so a tiny image is treated as "large" -- no giant allocation in the test.
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 100)
+    path = tmp_path / "pano.png"
+    Image.new("RGB", (12, 12), (9, 40, 80)).save(path)  # 144 px -> warn band (100..200)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # any leaked warning fails the test
+        result = perceptual_hash(path)
+    assert result is not None  # hashed fine; the bomb warning was suppressed inside the call
+
+
+def test_gigapixel_image_skips_perceptual_but_keeps_exact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 100)
+    path = tmp_path / "huge.png"
+    Image.new("RGB", (64, 64), (1, 2, 3)).save(path)  # 4096 px > 2x100 -> DecompressionBombError
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert perceptual_hash(path) is None  # perceptual skipped gracefully, no crash/warning
+    assert sha256_file(path)  # SHA-256 exact dedup still works
