@@ -69,8 +69,9 @@ def test_skip_undated_names_skipped_files(
     Image.new("RGB", (16, 16), (1, 2, 3)).save(src / "IMG-20250804-WA0007.jpg", "JPEG")
     Image.new("RGB", (16, 16), (9, 8, 7)).save(src / "mystery-scan.jpg", "JPEG")
     out = tmp_path / "out"
+    db = tmp_path / "c.sqlite"
 
-    assert main(["organize", str(src), str(out), "--apply", "--skip-undated"]) == 0
+    assert main(["organize", str(src), str(out), "--db", str(db), "--apply", "--skip-undated"]) == 0
     report = capsys.readouterr().out
     assert "SKIPPED (undated" in report
     assert "mystery-scan.jpg" in report  # named, never silent

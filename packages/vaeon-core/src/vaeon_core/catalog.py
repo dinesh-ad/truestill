@@ -109,10 +109,21 @@ CREATE TABLE IF NOT EXISTS migration_journal (
     copy_sha256  TEXT,
     PRIMARY KEY (sha256, drive_uuid)
 );
+
+-- Audit/resume journal for `vaeon reclaim`: one row per source deletion, written just before
+-- the delete and cleared just after. A row surviving a crash names a source that was verified-
+-- redundant and about to be freed -- an audit trail, since reclaim never deletes an unverified
+-- source. `freed_bytes` records the space each delete reclaimed.
+CREATE TABLE IF NOT EXISTS reclaim_journal (
+    source_path TEXT PRIMARY KEY,
+    sha256      TEXT NOT NULL,
+    freed_bytes INTEGER,
+    reclaimed_at TEXT
+);
 """
 
 #: Bump whenever the schema changes, and add a matching entry to _MIGRATIONS.
-CURRENT_SCHEMA_VERSION = 8
+CURRENT_SCHEMA_VERSION = 9
 
 
 class CatalogVersionError(RuntimeError):
@@ -218,6 +229,18 @@ def _add_migration_journal(conn: sqlite3.Connection) -> None:
     )
 
 
+def _add_reclaim_journal(conn: sqlite3.Connection) -> None:
+    """v8 -> v9: an audit/resume journal for `vaeon reclaim` source deletions."""
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS reclaim_journal (
+            source_path TEXT PRIMARY KEY, sha256 TEXT NOT NULL,
+            freed_bytes INTEGER, reclaimed_at TEXT
+        );
+        """
+    )
+
+
 #: Ordered migrations: ``(target_version, fn)``. Each is idempotent and lifts a database
 #: from ``target_version - 1`` to ``target_version``. Append; never rewrite history.
 _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
@@ -228,6 +251,7 @@ _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (6, _add_drive_tables),
     (7, _add_settings_table),
     (8, _add_migration_journal),
+    (9, _add_reclaim_journal),
 )
 
 
@@ -366,6 +390,49 @@ class Catalog:
                 "DELETE FROM migration_journal WHERE sha256 = ? AND drive_uuid = ?",
                 (sha256, drive_uuid),
             )
+
+    # -- reclaim (space-safe source deletion) --------------------------------------------
+
+    def reclaim_candidates(self, drive_uuid: str) -> list[sqlite3.Row]:
+        """Source files whose content has a copy on ``drive_uuid``, for reclaim evaluation.
+
+        Returns ``source_path, sha256, size, relative, copy_sha256`` (the copy on this drive, to
+        re-verify) and ``copy_count`` (total copies of this content across all drives, for the
+        min-copies redundancy check). The caller re-hashes the copy and confirms the source still
+        exists before deleting anything.
+        """
+        return list(
+            self._conn.execute(
+                """
+                SELECT f.source_path, f.sha256, f.size,
+                       fc.relative, fc.copy_sha256,
+                       (SELECT COUNT(*) FROM file_copies WHERE sha256 = f.sha256) AS copy_count
+                FROM files f
+                JOIN file_copies fc ON fc.sha256 = f.sha256 AND fc.drive_uuid = ?
+                """,
+                (drive_uuid,),
+            )
+        )
+
+    def record_reclaim(self, source_path: str, sha256: str, freed_bytes: int) -> None:
+        """Journal an imminent source deletion (written just before the unlink)."""
+        with self._tx() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO reclaim_journal (source_path, sha256, freed_bytes, "
+                "reclaimed_at) VALUES (?, ?, ?, ?)",
+                (source_path, sha256, freed_bytes, _now()),
+            )
+
+    def clear_reclaim(self, source_path: str) -> None:
+        """Clear a reclaim journal row once the source has been deleted."""
+        with self._tx() as conn:
+            conn.execute("DELETE FROM reclaim_journal WHERE source_path = ?", (source_path,))
+
+    def pending_reclaim(self) -> list[sqlite3.Row]:
+        """Reclaim journal rows left by an interrupted run (audit / resume)."""
+        return list(
+            self._conn.execute("SELECT source_path, sha256, freed_bytes FROM reclaim_journal")
+        )
 
     def __enter__(self) -> Self:
         return self

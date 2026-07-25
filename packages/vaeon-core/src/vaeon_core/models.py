@@ -67,6 +67,8 @@ class ActionStatus(StrEnum):
     RENAMED = "renamed"  # uploaded under a suffixed name to avoid an unrelated collision
     DUPLICATE = "duplicate"  # skipped: matched an existing file (exact or perceptual)
     SKIPPED_UNDATED = "skipped_undated"  # skipped: no capture date and --skip-undated is set
+    MOVED = "moved"  # uploaded, verified at the destination, and the source deleted (--move)
+    MOVE_KEPT = "move_kept"  # uploaded, but verify/delete failed so the source was kept (--move)
     FAILED = "failed"
 
 

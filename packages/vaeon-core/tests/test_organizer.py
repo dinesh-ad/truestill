@@ -11,6 +11,7 @@ from vaeon_core.categorize import CategoryMatch, Confidence
 from vaeon_core.dedup import DedupIndex
 from vaeon_core.destinations import LocalDestination
 from vaeon_core.exif import read_metadata
+from vaeon_core.hashing import sha256_file
 from vaeon_core.models import (
     ActionStatus,
     DateSource,
@@ -112,6 +113,40 @@ def test_skip_undated_skips_only_undated_files(tmp_path: Path) -> None:
     out2 = tmp_path / "out2"
     execute([undated], LocalDestination(out2), apply=True)
     assert any("Undated" in w for w in LocalDestination(out2).list())
+
+
+class _BadVerifyDestination(LocalDestination):
+    """Uploads normally but reports a wrong checksum, to force a move re-verify failure."""
+
+    def checksum(self, relative_path: str) -> str:  # noqa: ARG002
+        return "0" * 64
+
+
+def test_move_deletes_source_after_verified_copy(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    src.mkdir()
+    photo = src / "a.jpg"
+    photo.write_bytes(b"real-content")
+    res = _resolution(photo, datetime(2023, 1, 1), sha256_file(photo))
+    out = tmp_path / "out"
+
+    results = execute([res], LocalDestination(out), apply=True, move=True)
+    assert results[0].status is ActionStatus.MOVED
+    assert not photo.exists()  # source deleted only after the copy verified
+    assert LocalDestination(out).list()  # copy is at the destination
+
+
+def test_move_keeps_source_when_verify_fails(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    src.mkdir()
+    photo = src / "a.jpg"
+    photo.write_bytes(b"real-content")
+    res = _resolution(photo, datetime(2023, 1, 1), sha256_file(photo))
+    out = tmp_path / "out"
+
+    results = execute([res], _BadVerifyDestination(out), apply=True, move=True)
+    assert results[0].status is ActionStatus.MOVE_KEPT
+    assert photo.exists()  # verify failed -> source is NEVER deleted (still in both places)
 
 
 def test_apply_events_consolidates_cross_month_under_start_month() -> None:

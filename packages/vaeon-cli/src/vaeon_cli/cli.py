@@ -44,6 +44,7 @@ from vaeon_core.models import (
 )
 from vaeon_core.organizer import SourceScan, execute, plan, resolve, scan_source
 from vaeon_core.progress import ProgressCallback
+from vaeon_core.reclaim import plan_reclaim, run_reclaim
 from vaeon_core.scan import DEFAULT_WORKERS
 from vaeon_core.takeout import (
     IngestContext,
@@ -131,6 +132,11 @@ def _build_parser() -> argparse.ArgumentParser:
     organize = sub.add_parser("organize", help="organize a folder of media files")
     organize.add_argument("source", type=Path, help="folder to analyse (searched recursively)")
     organize.add_argument("--all-files", action="store_true", help="include non-media extensions")
+    organize.add_argument(
+        "--move",
+        action="store_true",
+        help="delete each source only after its copy is written and re-verified (needs --apply)",
+    )
     _add_common_options(organize)
 
     ingest = sub.add_parser(
@@ -191,6 +197,25 @@ def _build_parser() -> argparse.ArgumentParser:
     config.add_argument("--preset", choices=tuple(PRESETS), help="set the layout to a named preset")
     config.add_argument(
         "--preview", action="store_true", help="render sample files without saving anything"
+    )
+
+    reclaim = sub.add_parser(
+        "reclaim",
+        help="free source files that are safely backed up on a connected drive (preview by default)",
+    )
+    reclaim.add_argument(
+        "path", type=Path, help="the backup drive's mount root (must be connected)"
+    )
+    reclaim.add_argument("--db", type=Path, default=_DEFAULT_DB, help="SQLite catalog")
+    reclaim.add_argument(
+        "--apply", action="store_true", help="actually delete sources (default: preview only)"
+    )
+    reclaim.add_argument(
+        "--min-copies",
+        type=int,
+        default=1,
+        metavar="N",
+        help="only free content that has at least N backed-up copies (default: 1)",
     )
 
     migrate = sub.add_parser(
@@ -521,6 +546,10 @@ def _print_execution(results: list[ActionResult]) -> int:
     for status, count in outcomes.most_common():
         print(f"  {status:<12} {count}")
 
+    kept = [r for r in results if r.status is ActionStatus.MOVE_KEPT]
+    for k in kept:
+        print(f"  MOVE KEPT: {k.resolution.decision.source.name}: {k.detail}", file=sys.stderr)
+
     failures = [r for r in results if r.status is ActionStatus.FAILED]
     for failure in failures:
         print(
@@ -656,6 +685,7 @@ def _run_pipeline(
             apply=args.apply,
             set_timestamps=not args.no_timestamps,
             skip_undated=args.skip_undated,
+            move=getattr(args, "move", False),
             event_ids=event_ids,
             ingest=ingest_ctx,
             drive_uuid=drive_uuid,
@@ -852,6 +882,58 @@ def _cmd_migrate_layout(args: argparse.Namespace) -> int:
         return 0
 
 
+def _cmd_reclaim(args: argparse.Namespace) -> int:
+    marker = read_marker(args.path)
+    if marker is None:
+        print(
+            f"error: no .vaeon-drive.json at {args.path} -- connect the drive first",
+            file=sys.stderr,
+        )
+        return 2
+    if args.min_copies < 1:
+        print("error: --min-copies must be at least 1", file=sys.stderr)
+        return 2
+
+    with Catalog(args.db) as catalog:
+        catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+        plan = plan_reclaim(catalog, marker.uuid, args.path, min_copies=args.min_copies)
+
+        n = len(plan.candidates)
+        gib = plan.total_bytes / 1e9
+        print(f"Drive '{marker.label}': {n} source file(s) safely backed up and re-verified.")
+        print(f"  reclaimable: {n} file(s), {gib:.2f} GB would be freed")
+        if plan.unverified:
+            print(f"  skipped: {plan.unverified} copy(ies) failed re-verification (source kept)")
+        if plan.below_min_copies:
+            print(
+                f"  held back: {plan.below_min_copies} file(s) below --min-copies={args.min_copies}"
+            )
+        if plan.single_copy:
+            print(
+                f"  WARNING: {len(plan.single_copy)} file(s) would then exist in only ONE place "
+                f"(raise --min-copies to exclude them)"
+            )
+
+        if not args.apply:
+            print("\nPreview only. Re-run with --apply to delete these sources.")
+            return 0
+        if n == 0:
+            print("\nNothing to reclaim.")
+            return 0
+
+        print(f"\nThis PERMANENTLY DELETES {n} source file(s), freeing {gib:.2f} GB.")
+        answer = input("Type 'delete' to proceed (anything else aborts): ").strip()
+        if answer != "delete":
+            print("Aborted -- nothing was deleted.")
+            return 0
+
+        outcome = run_reclaim(catalog, marker.uuid, args.path, min_copies=args.min_copies)
+        print(f"\nFreed {outcome.deleted} source file(s), {outcome.freed_bytes / 1e9:.2f} GB.")
+        if outcome.kept:
+            print(f"Kept {outcome.kept} file(s) that failed a final re-verify -- not deleted.")
+        return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the CLI. Returns a process exit code."""
     args = _build_parser().parse_args(argv)
@@ -864,6 +946,7 @@ def main(argv: list[str] | None = None) -> int:
         "status": _cmd_status,
         "config": _cmd_config,
         "migrate-layout": _cmd_migrate_layout,
+        "reclaim": _cmd_reclaim,
     }
     return dispatch[args.command](args)
 

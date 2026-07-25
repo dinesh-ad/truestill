@@ -14,7 +14,22 @@ Paths are workspace-relative. Symbols are cited over line numbers, which drift.
 | Invariant | Enforced by |
 |---|---|
 | **Original quality is the top priority.** Media pixels are never re-encoded. | The pipeline only copies bytes; the sole content write is metadata-only (see below). |
-| **Copy-only — never move or delete user files.** | `organizer.execute` uploads via `LocalDestination.upload` (`shutil.copy2`) / `RcloneDestination.upload` (`rclone copyto`). There is no `move`/`delete`/`sync` code path over user data. `rclone` uses `copyto`, never `sync` (`destinations/rclone.py`). |
+| **Copy-only — never move or delete user files, except the two scoped, opt-in exceptions below.** | `organizer.execute` uploads via `LocalDestination.upload` (`shutil.copy2`) / `RcloneDestination.upload` (`rclone copyto`). `rclone` uses `copyto`, never `sync`. The only code paths that delete a **source** are `organizer._move_source` (`--move`) and `reclaim.run_reclaim` (`vaeon reclaim`) — both scoped exactly like the Takeout write path (below). |
+
+**Source-deletion exceptions (feature k), both opt-in and verify-gated:**
+
+- **`organizer.execute(move=True)` (`--move`).** Deletes a source **only** after its just-written
+  destination copy re-hashes to the recorded `copy_sha256`. Ordering is copy → record → re-verify
+  → delete, so no interruption leaves a window with zero copies; any verify/delete failure keeps
+  the source and reports `MOVE_KEPT`. Only under `apply=True`.
+- **`reclaim.run_reclaim` (`vaeon reclaim`).** Deletes a source **only** after re-hashing a
+  destination copy on a **currently-connected** drive at delete time (never trusts a stale
+  `last_verified`). Dry-run is the default; `--apply` additionally requires a typed `delete`
+  confirmation. `--min-copies N` (default 1) gates on recorded redundancy; single-copy outcomes
+  are warned. Every deletion is journalled (`reclaim_journal`, schema v9) for audit/resume.
+
+Both are **off by default**, never touch a source whose content is not proven present at the
+destination, and are the *only* sanctioned deletions of user source data.
 | **Copies are byte-identical to the source EXCEPT the scoped Takeout write.** | Normal path uploads the source unchanged. The only exception is `organizer._upload_with_metadata_write`, reached **only** when an `IngestContext` carries a write (Takeout ingestion); it stages a temp copy, bakes metadata losslessly via `exif.write_metadata` (no pixel re-encode), and never touches the source. |
 | **Categorization is evidence-derived — no hardcoded taxonomy.** | `categorize.build_rules` is an ordered rule chain; labels are plain `str` (there is no `Category` enum in `models.py`). New sources are added as a `NAME_PATTERNS` row or derived from the `Software`/device rules. |
 | **Dating uses an evidence chain, never filesystem mtime.** | `dates.resolve_capture_datetime`. mtime is only ever *written* (`organizer._apply_timestamp` sets mtime from the resolved capture date); it is never *read* for placement. |

@@ -25,24 +25,17 @@ decision context that produced them.
   the whole corpus zoo** (`.swf`, raw `.hevc`/`.mjpeg` elementary streams are not "photos to back
   up"). Each extension added must have its **category and date handling verified via the corpus
   probe** before inclusion. **Post-launch, demand-driven.**
-- **`--skip-undated` on organize/ingest.** Default **OFF** — for backup completeness, files that
-  cannot be dated still copy to `Undated/` where they are visible, never dropped. When the flag
-  is on, the skipped files are counted **and named** in the end-of-run report; neither posture is
-  ever silent about what happened to an undateable file. **Priority: pre-launch (next).**
-- **Space-safe move: source reclamation.** Two surfaces over one mechanism, so organizing a large
-  library does not require 2× disk space:
-  - `--move` on `organize` — per file: copy → hash-verify the destination copy → **only then**
-    delete the source. Interruption-safe and verification-gated: a failed verify never deletes.
-  - `vaeon reclaim` — a standalone command that deletes only source files whose destination
-    copies are **catalog-verified**, with its own dry-run preview reporting the count and the
-    space that would be freed.
-
-  Both require an explicit flag **and** a confirmation worded with honest destructive-action
-  language. This is a **documented, contained exception to the copy-only invariant**, scoped
-  exactly like the Takeout metadata-write path — update `IMPLEMENTATION_STANDARDS.md` accordingly
-  when built. **Priority: pre-launch (with `--skip-undated`).**
-
 ## Shipped (kept for provenance)
+
+- ~~**`--skip-undated` on organize/ingest (j).**~~ Delivered: default OFF (undateable files still
+  copy to `Undated/`); with the flag, they are skipped as `SKIPPED_UNDATED` and **counted + named**
+  in the report — never silent. CLI on organize/ingest, plus an app organize toggle.
+- ~~**Space-safe move: source reclamation (k).**~~ Delivered as one verify-gated mechanism, two
+  surfaces: `organizer.execute(move=True)` / `organize --move` (copy → record → re-verify → delete,
+  `MOVE_KEPT` on failure, no zero-copy window) and `reclaim.run_reclaim` / `vaeon reclaim` (dry-run
+  default, re-verify-at-delete on a connected drive, typed `delete` confirmation, `--min-copies N`
+  with single-copy warning, `reclaim_journal` at schema v9). The copy-only-invariant exception is
+  documented in `IMPLEMENTATION_STANDARDS.md §1`. CLI-only in v1 (app surface deferred).
 
 - ~~**Metadata recovery fallback chain — decided on evidence.**~~ A 37-file, 22-format corpus
   test (`docs/metadata-chain-research.md`) showed exiftool already dates every datable file

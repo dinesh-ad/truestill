@@ -428,6 +428,27 @@ def _upload_with_metadata_write(
     return copy_sha
 
 
+def _move_source(
+    source: Path, destination: Destination, final_relative: str, copy_sha: str
+) -> tuple[ActionStatus, str]:
+    """Delete a source only after its destination copy re-verifies. Never deletes on doubt.
+
+    Ordering guarantees no window with zero copies: the copy is already written and recorded;
+    here we re-hash it and delete the source only if it matches. Any failure keeps the source.
+    """
+    try:
+        verified = destination.checksum(final_relative) == copy_sha
+    except (DestinationError, OSError):
+        return ActionStatus.MOVE_KEPT, "could not verify destination copy -- source kept"
+    if not verified:
+        return ActionStatus.MOVE_KEPT, "destination copy failed re-verification -- source kept"
+    try:
+        source.unlink()
+    except OSError as exc:
+        return ActionStatus.MOVE_KEPT, f"copy verified but source delete failed ({exc}) -- kept"
+    return ActionStatus.MOVED, "source removed (copy verified)"
+
+
 def _aggregate_albums(
     resolutions: Sequence[Resolution], ingest: IngestContext
 ) -> dict[str, set[str]]:
@@ -449,6 +470,7 @@ def execute(
     apply: bool = False,
     set_timestamps: bool = True,
     skip_undated: bool = False,
+    move: bool = False,
     event_ids: dict[str, int] | None = None,
     ingest: IngestContext | None = None,
     drive_uuid: str | None = None,
@@ -541,6 +563,11 @@ def execute(
                 near = resolution.near_duplicate
                 distance = f", distance={near.distance}" if near.distance is not None else ""
                 notes.append(f"near-duplicate of {near.matched_path} [{near.origin}{distance}]")
+            if move:
+                # Copy-only exception: delete the source, but ONLY after the just-written copy
+                # re-verifies. A failed verify keeps the source; a crash before this leaves both.
+                status, note = _move_source(decision.source, destination, final_relative, copy_sha)
+                notes.append(note)
             results.append(ActionResult(resolution, status, Path(final_relative), "; ".join(notes)))
 
         except (OSError, DestinationError) as exc:
