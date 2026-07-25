@@ -16,10 +16,20 @@ from typing import Any
 from vaeon_core.models import DateSource
 from vaeon_core.takeout import TakeoutSidecar, local_naive
 
-#: Metadata tags consulted in order. ``DateTimeOriginal`` is the photo capture time;
-#: the ``*CreateDate`` family covers MP4/MOV container timestamps.
+#: Metadata tags consulted in order. ``DateTimeOriginal`` is the photo capture time.
+#: ``CreationDate`` (Apple's ``com.apple.quicktime.creationdate``) carries a video's local
+#: recording moment *with* its UTC offset, so it is preferred over the ``*CreateDate`` family,
+#: which the QuickTime spec stores in UTC and which therefore names the wrong wall-clock (and,
+#: near midnight, the wrong day/month) for anything shot away from UTC.
+#:
+#: Single-conversion rule (the osxphotos lesson): ``CreationDate``'s wall-clock is *already*
+#: local, so :func:`parse_exif_datetime` simply drops the offset and keeps it -- we never add
+#: the offset back on. Re-applying it is the classic double-conversion bug. The UTC ``*Create``
+#: tags are a last resort only, kept as-is; we do not try to convert them using another tag's
+#: offset (that guesses a zone the file never recorded).
 DATE_TAGS: tuple[str, ...] = (
     "DateTimeOriginal",
+    "CreationDate",
     "CreateDate",
     "MediaCreateDate",
     "TrackCreateDate",

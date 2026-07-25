@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
+from vaeon_core import dates, exif
 from vaeon_core.dates import date_from_filename, parse_exif_datetime, resolve_capture_datetime
 from vaeon_core.models import DateSource
 from vaeon_core.organizer import build_destination
@@ -50,6 +51,56 @@ def test_metadata_beats_filename() -> None:
     when, source, tag = resolve_capture_datetime(
         Path("IMG-20250804-WA0020.mp4"),
         {"CreateDate": "2025:08:04 11:16:38"},
+    )
+    assert when == datetime(2025, 8, 4, 11, 16, 38)
+    assert source is DateSource.EXIF
+    assert tag == "CreateDate"
+
+
+def test_quicktime_creationdate_beats_utc_container_tags() -> None:
+    # iPhone video, shot 2023-08-20 01:30 local (UTC+05:30). The QuickTime container tags are
+    # stored in UTC (2023-08-19 20:00), so filing by them would name the wrong day; CreationDate
+    # carries the true local moment with its offset and must win.
+    when, source, tag = resolve_capture_datetime(
+        Path("IMG_1234.mov"),
+        {
+            "CreationDate": "2023:08:20 01:30:00+05:30",
+            "CreateDate": "2023:08:19 20:00:00",
+            "MediaCreateDate": "2023:08:19 20:00:00",
+            "TrackCreateDate": "2023:08:19 20:00:00",
+        },
+    )
+    # Offset dropped exactly once -> the local wall-clock, not the UTC 08-19 nor a re-shifted time.
+    assert when == datetime(2023, 8, 20, 1, 30, 0)
+    assert source is DateSource.EXIF
+    assert tag == "CreationDate"
+
+
+def test_quicktime_creationdate_shifts_the_month_folder() -> None:
+    # The <Label>/YYYY/MM folder only moves when the UTC->local shift crosses a month (or year)
+    # edge: here the UTC container tag says July, the local CreationDate says August.
+    when, _, tag = resolve_capture_datetime(
+        Path("IMG_9.mov"),
+        {"CreationDate": "2023:08:01 01:30:00+05:30", "CreateDate": "2023:07:31 20:00:00"},
+    )
+    assert when == datetime(2023, 8, 1, 1, 30, 0)
+    assert tag == "CreationDate"
+    placed = build_destination(Path("/dest"), "Camera", when, "IMG_9.mov")
+    assert placed == Path("/dest/Camera/2023/08/IMG_9.mov")  # 2023/07 under the old behaviour
+
+
+def test_creationdate_wiring_is_requested_and_ranked() -> None:
+    # The fix is inert unless exiftool is asked for the tag and the resolver ranks it ahead of
+    # the UTC container family. Guard both, dependency-free.
+    assert "CreationDate" in exif.REQUESTED_TAGS
+    tags = dates.DATE_TAGS
+    assert tags.index("CreationDate") < tags.index("CreateDate")
+
+
+def test_container_createdate_still_used_when_no_creationdate() -> None:
+    # Non-Apple videos (no CreationDate) must be unaffected: the container tag is still used.
+    when, source, tag = resolve_capture_datetime(
+        Path("clip.mp4"), {"CreateDate": "2025:08:04 11:16:38"}
     )
     assert when == datetime(2025, 8, 4, 11, 16, 38)
     assert source is DateSource.EXIF

@@ -32,6 +32,11 @@ REQUESTED_TAGS: tuple[str, ...] = (
     "LensModel",
     # dates, in the order the resolver prefers them
     "DateTimeOriginal",
+    # com.apple.quicktime.creationdate: the ONLY video tag carrying the local recording
+    # moment *with* its UTC offset. The CreateDate family below is stored in UTC per the
+    # QuickTime spec, so for anything shot away from UTC it names the wrong wall-clock -- and
+    # near midnight, the wrong day/month. Requested so the resolver can prefer it.
+    "CreationDate",
     "CreateDate",
     "MediaCreateDate",
     "TrackCreateDate",
