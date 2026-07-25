@@ -7,6 +7,16 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Google Takeout Rescue Mode (`vaeon ingest --takeout <dir>`): matches each media file to its
+  JSON sidecar (all naming variants -- classic, `supplemental-metadata`, truncated, `-edited`,
+  relocated `(n)`), recovers `photoTakenTime`/GPS/description into the existing dating and dedup
+  pipeline, bakes rescued metadata into the organized copy losslessly via exiftool (source
+  untouched; catalog stores both source and post-write copy hashes), collapses album duplicate
+  copies while recording album membership, and prints an honest end-of-run rescue report.
+  Timezone-aware (`--tz ±HH:MM`, single UTC->local conversion), `--prefer-takeout-dates` for
+  libraries fixed inside Google Photos, `--map-albums` to name Camera events after their album.
+  See `docs/takeout-format.md`. Catalog schema v5.
+- CLI restructured into subcommands (`vaeon organize`, `vaeon ingest`).
 - Event layer (`--events`, opt-in, Camera-only): adaptive log-scale temporal-gap clustering
   with GPS-jump reinforcement proposes events for the user to name or skip (never
   auto-named). Named events become `Camera/YYYY/MM/YYYYMMDD_<slug>/`, consolidated under the

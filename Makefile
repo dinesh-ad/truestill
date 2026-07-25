@@ -26,4 +26,4 @@ build:
 
 # Dry run against the staging test set. Writes nothing.
 dryrun:
-	$(PYTHON) vaeon ~/gphotos-staging/takeout-test/extracted /tmp/organized-preview
+	$(PYTHON) vaeon organize ~/gphotos-staging/takeout-test/extracted /tmp/organized-preview

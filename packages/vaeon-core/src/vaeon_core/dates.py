@@ -9,11 +9,12 @@ entire library under the day it was exported.
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 from vaeon_core.models import DateSource
+from vaeon_core.takeout import TakeoutSidecar, local_naive
 
 #: Metadata tags consulted in order. ``DateTimeOriginal`` is the photo capture time;
 #: the ``*CreateDate`` family covers MP4/MOV container timestamps.
@@ -88,19 +89,56 @@ def _safe_date(year: int, month: int, day: int) -> datetime | None:
         return None
 
 
+def _exif_datetime(metadata: dict[str, Any]) -> tuple[datetime, str] | None:
+    """First parseable, sane embedded date, with the tag that supplied it."""
+    for tag in DATE_TAGS:
+        parsed = parse_exif_datetime(metadata.get(tag))
+        if parsed is not None and _MIN_SANE_YEAR <= parsed.year <= _MAX_SANE_YEAR:
+            return parsed, tag
+    return None
+
+
+#: EXIF dates outside this range are treated as a reset/garbage clock, so a Takeout date
+#: (if any) is preferred over them even in the default EXIF-wins mode.
+_MIN_SANE_YEAR = 1990
+_MAX_SANE_YEAR = 2100
+
+
 def resolve_capture_datetime(
     path: Path,
     metadata: dict[str, Any],
+    *,
+    takeout: TakeoutSidecar | None = None,
+    tz_offset: timedelta | None = None,
+    prefer_takeout: bool = False,
 ) -> tuple[datetime | None, DateSource, str | None]:
     """Return ``(datetime, source, tag)`` for a file.
 
-    ``tag`` names the metadata field that supplied the date, or None when the date came
-    from the filename or could not be determined.
+    Priority (default): sane embedded EXIF -> Takeout ``photoTakenTime`` -> Takeout
+    ``creationTime`` (approximate) -> filename convention -> none. ``prefer_takeout`` flips
+    the first two, for libraries whose dates were fixed inside Google Photos but whose
+    embedded EXIF stayed wrong. Takeout times are converted from UTC to local exactly once.
     """
-    for tag in DATE_TAGS:
-        parsed = parse_exif_datetime(metadata.get(tag))
-        if parsed is not None:
-            return parsed, DateSource.EXIF, tag
+    exif = _exif_datetime(metadata)
+    taken = (
+        local_naive(takeout.taken_at, tz_offset)
+        if takeout is not None and takeout.taken_at is not None
+        else None
+    )
+
+    if prefer_takeout:
+        if taken is not None:
+            return taken, DateSource.TAKEOUT, None
+        if exif is not None:
+            return exif[0], DateSource.EXIF, exif[1]
+    else:
+        if exif is not None:
+            return exif[0], DateSource.EXIF, exif[1]
+        if taken is not None:
+            return taken, DateSource.TAKEOUT, None
+
+    if takeout is not None and takeout.created_at is not None:
+        return local_naive(takeout.created_at, tz_offset), DateSource.TAKEOUT_UPLOAD, None
 
     from_name = date_from_filename(path.name)
     if from_name is not None:

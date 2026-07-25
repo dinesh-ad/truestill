@@ -8,6 +8,7 @@ for the CLI (deferred to the desktop UI); v1 is name-or-skip.
 from __future__ import annotations
 
 import sys
+from collections import Counter
 from collections.abc import Callable
 from typing import Any
 
@@ -61,6 +62,22 @@ def _describe(cluster: EventCandidate) -> str:
     centroid = cluster.gps_centroid()
     where = f"  ~({centroid[0]:.3f}, {centroid[1]:.3f})" if centroid else ""
     return f"{cluster.count} files  {span}{where}"
+
+
+def album_prompt(album_of: dict[str, str]) -> Prompt:
+    """A non-interactive prompt that names a cluster after its members' majority album.
+
+    Used by ``ingest --map-albums`` to reuse the whole event machinery (signature memory,
+    idempotent placement) without asking, mapping Takeout albums onto events.
+    """
+
+    def prompt(cluster: EventCandidate) -> str | None:
+        names = [album_of[item.key] for item in cluster.items if item.key in album_of]
+        if not names:
+            return None
+        return Counter(names).most_common(1)[0][0]
+
+    return prompt
 
 
 def _stdin_prompt(cluster: EventCandidate) -> str | None:

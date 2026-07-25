@@ -12,9 +12,11 @@ Each stage is a plain function so they compose and test in isolation:
 from __future__ import annotations
 
 import os
+import shutil
+import tempfile
 from collections.abc import Iterable, Sequence
 from dataclasses import replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -24,6 +26,7 @@ from vaeon_core.dates import resolve_capture_datetime
 from vaeon_core.dedup import DedupIndex
 from vaeon_core.destinations.base import Destination, DestinationError
 from vaeon_core.events import event_dirname
+from vaeon_core.exif import write_metadata
 from vaeon_core.hashing import sha256_file
 from vaeon_core.models import (
     UNDATED_DIRNAME,
@@ -37,6 +40,7 @@ from vaeon_core.models import (
 )
 from vaeon_core.naming import dated_filename
 from vaeon_core.scan import DEFAULT_WORKERS, PoolKind, compute_hashes
+from vaeon_core.takeout import IngestContext, MetadataWrite, TakeoutSidecar
 
 #: Extensions treated as media. Anything else is skipped unless the caller opts in.
 MEDIA_EXTENSIONS: frozenset[str] = frozenset(
@@ -126,18 +130,29 @@ def plan(
     rules: tuple[Rule, ...] | None = None,
     *,
     rename: bool = True,
+    takeout: dict[Path, TakeoutSidecar] | None = None,
+    tz_offset: timedelta | None = None,
+    prefer_takeout: bool = False,
 ) -> list[Decision]:
     """Produce one :class:`Decision` per file. Touches nothing on disk.
 
     With ``rename`` (the default) the destination copy is named
     ``YYYYMMDD_HHMMSS_<original>`` from the same date evidence used for placement; the
-    original source file is never touched.
+    original source file is never touched. ``takeout`` supplies rescued sidecar dates (Takeout
+    ingestion); ``tz_offset``/``prefer_takeout`` control how those interact with EXIF.
     """
+    takeout = takeout or {}
     decisions: list[Decision] = []
     for path in files:
         meta = metadata.get(path, {})
         category: CategoryMatch = categorize(path, meta, rules)
-        captured_at, date_source, date_tag = resolve_capture_datetime(path, meta)
+        captured_at, date_source, date_tag = resolve_capture_datetime(
+            path,
+            meta,
+            takeout=takeout.get(path),
+            tz_offset=tz_offset,
+            prefer_takeout=prefer_takeout,
+        )
         new_name = dated_filename(
             path.name,
             captured_at,
@@ -279,6 +294,49 @@ def _apply_timestamp(source: Path, captured_at: datetime | None) -> None:
     os.utime(source, (stamp, stamp))
 
 
+def _upload_with_metadata_write(
+    decision: Decision,
+    write: MetadataWrite,
+    final_relative: str,
+    destination: Destination,
+    *,
+    set_timestamps: bool,
+) -> str:
+    """Stage a copy, bake rescued metadata in, upload it, and return the copy's SHA-256.
+
+    The source is never modified: the metadata write happens on a temporary staged copy, so
+    the invariant "originals are untouched" holds even though the uploaded copy now differs
+    (by metadata only, losslessly) from the source.
+    """
+    with tempfile.TemporaryDirectory(prefix="vaeon-ingest-") as tmp:
+        staged = Path(tmp) / decision.relative.name
+        shutil.copy2(decision.source, staged)
+        write_metadata(
+            staged,
+            taken_at_local=write.taken_at_local,
+            gps=write.gps,
+            description=write.description,
+        )
+        if set_timestamps:
+            _apply_timestamp(staged, decision.captured_at)
+        copy_sha = sha256_file(staged)
+        destination.upload(staged, final_relative)
+    return copy_sha
+
+
+def _aggregate_albums(
+    resolutions: Sequence[Resolution], ingest: IngestContext
+) -> dict[str, set[str]]:
+    """Union album membership across byte-identical copies, keyed by source SHA-256."""
+    by_sha: dict[str, set[str]] = {}
+    for resolution in resolutions:
+        sha = resolution.hashes.sha256
+        album = ingest.albums.get(str(resolution.decision.source))
+        if sha is not None and album is not None:
+            by_sha.setdefault(sha, set()).add(album)
+    return by_sha
+
+
 def execute(
     resolutions: Iterable[Resolution],
     destination: Destination,
@@ -287,14 +345,19 @@ def execute(
     apply: bool = False,
     set_timestamps: bool = True,
     event_ids: dict[str, int] | None = None,
+    ingest: IngestContext | None = None,
 ) -> list[ActionResult]:
     """Upload genuinely-new files; skip duplicates. ``apply=False`` reports only.
 
-    ``event_ids`` maps a source path to the event it was assigned to (from the event stage),
-    recorded in the catalog alongside the file.
+    ``event_ids`` maps a source path to its assigned event. ``ingest`` (Takeout only) requests
+    baking rescued metadata into copies and records album membership; when absent, the copy is
+    byte-identical to the source and ``copy_sha256`` equals the source hash.
     """
+    resolutions = list(resolutions)
     results: list[ActionResult] = []
     events = event_ids or {}
+    ingest = ingest or IngestContext()
+    albums_by_sha = _aggregate_albums(resolutions, ingest)
 
     for resolution in resolutions:
         decision = resolution.decision
@@ -312,25 +375,38 @@ def execute(
 
         try:
             final_relative, renamed = _free_relative(destination, relative)
-            if set_timestamps:
-                _apply_timestamp(decision.source, decision.captured_at)
-            destination.upload(decision.source, final_relative)
+            # Source hash is the dedup identity; computed now for any unique-size file the
+            # scan skipped, since the file is being read for upload anyway.
+            source_sha = resolution.hashes.sha256 or sha256_file(decision.source)
+
+            write = ingest.writes.get(str(decision.source))
+            if write is not None and write.has_content:
+                copy_sha = _upload_with_metadata_write(
+                    decision, write, final_relative, destination, set_timestamps=set_timestamps
+                )
+            else:
+                if set_timestamps:
+                    _apply_timestamp(decision.source, decision.captured_at)
+                destination.upload(decision.source, final_relative)
+                copy_sha = source_sha  # byte-identical copy
 
             if catalog is not None:
-                # A unique-size file was not hashed during the scan; compute its SHA now
-                # (the file is being read for upload anyway) so the catalog stays complete
-                # and cross-run resume by content still works.
-                sha256 = resolution.hashes.sha256 or sha256_file(decision.source)
+                album_set = set(albums_by_sha.get(source_sha, set()))
+                own_album = ingest.albums.get(str(decision.source))
+                if own_album is not None:
+                    album_set.add(own_album)
                 catalog.record_uploaded(
                     source_path=str(decision.source),
                     original_name=decision.source.name,
-                    sha256=sha256,
+                    sha256=source_sha,
+                    copy_sha256=copy_sha,
                     perceptual=resolution.hashes.perceptual,
                     size=_safe_size(decision.source),
                     captured_at=decision.captured_at.isoformat() if decision.captured_at else None,
                     category=decision.category.label,
                     relative=final_relative,
                     event_id=events.get(str(decision.source)),
+                    albums=sorted(album_set),
                 )
 
             status = ActionStatus.RENAMED if renamed else ActionStatus.UPLOADED

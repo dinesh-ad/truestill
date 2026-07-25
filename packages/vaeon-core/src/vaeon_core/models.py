@@ -41,15 +41,22 @@ class Confidence(StrEnum):
 
 
 class DateSource(StrEnum):
-    """Where a file's capture date was recovered from.
+    """Where a file's capture date was recovered from, best to worst.
 
-    ``FILENAME`` results are flagged for manual review: a date parsed out of a
-    filename is a convention, not a guarantee.
+    ``EXIF`` and ``TAKEOUT`` (Google's ``photoTakenTime``) are trusted. ``TAKEOUT_UPLOAD``
+    (Google's ``creationTime``, i.e. when it was uploaded) and ``FILENAME`` are approximate
+    and flagged for review. ``NONE`` means no date evidence -> ``Undated/``.
     """
 
     EXIF = "exif"
+    TAKEOUT = "takeout"  # photoTakenTime -- authoritative capture time
+    TAKEOUT_UPLOAD = "takeout_upload"  # creationTime -- upload time, approximate
     FILENAME = "filename"
     NONE = "none"
+
+
+#: Date sources trusted enough not to warrant manual review.
+_TRUSTED_DATE_SOURCES = frozenset({DateSource.EXIF, DateSource.TAKEOUT})
 
 
 class ActionStatus(StrEnum):
@@ -120,8 +127,11 @@ class Decision:
 
     @property
     def needs_review(self) -> bool:
-        """True when the date did not come from embedded metadata."""
-        return self.date_source is not DateSource.EXIF
+        """True when the date came from an approximate source (not trusted metadata)."""
+        return (
+            self.date_source not in _TRUSTED_DATE_SOURCES
+            and self.date_source is not DateSource.NONE
+        )
 
 
 @dataclass(frozen=True, slots=True)

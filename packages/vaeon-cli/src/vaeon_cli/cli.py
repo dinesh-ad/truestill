@@ -8,9 +8,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from collections import Counter
+from datetime import timedelta
 from pathlib import Path
+from typing import Any
 
 from vaeon_core.catalog import Catalog
 from vaeon_core.categorize import build_rules
@@ -23,47 +26,46 @@ from vaeon_core.models import (
     ActionResult,
     ActionStatus,
     DateSource,
+    Decision,
     DuplicateMatch,
     Resolution,
 )
 from vaeon_core.organizer import discover, execute, plan, resolve
 from vaeon_core.scan import DEFAULT_WORKERS
+from vaeon_core.takeout import (
+    IngestContext,
+    MetadataWrite,
+    TakeoutScan,
+    TakeoutSidecar,
+    scan_takeout,
+)
 
-from vaeon_cli.events_review import run_event_stage
+from vaeon_cli.events_review import Prompt, album_prompt, run_event_stage
 
 _SEPARATOR = "=" * 100
 _DEFAULT_DB = Path("reports/catalog.sqlite")
 
 
-def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="vaeon",
-        description=(
-            "Categorize, date-organize and de-duplicate a media library into "
-            "<Label>/YYYY/MM/ at a pluggable destination. Folder labels are derived from "
-            "each file's own metadata, not a fixed list."
-        ),
-    )
-    parser.add_argument("source", type=Path, help="folder to analyse (searched recursively)")
+def _parse_tz(value: str) -> timedelta:
+    """Parse a ``±HH:MM`` timezone offset into a timedelta."""
+    match = re.fullmatch(r"([+-])(\d{2}):?(\d{2})", value.strip())
+    if match is None:
+        message = f"expected a ±HH:MM offset, got {value!r}"
+        raise argparse.ArgumentTypeError(message)
+    sign, hours, minutes = match.group(1), int(match.group(2)), int(match.group(3))
+    delta = timedelta(hours=hours, minutes=minutes)
+    return -delta if sign == "-" else delta
+
+
+def _add_common_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "destination",
-        help="local directory path, or an rclone remote spec with --rclone (e.g. pcloud:Photos/GoogleBackup)",
+        help="local directory path, or an rclone remote spec with --rclone",
     )
+    parser.add_argument("--rclone", action="store_true", help="destination is an rclone remote")
+    parser.add_argument("--apply", action="store_true", help="actually write (default: dry run)")
     parser.add_argument(
-        "--rclone",
-        action="store_true",
-        help="treat destination as an rclone remote spec instead of a local path",
-    )
-    parser.add_argument(
-        "--apply",
-        action="store_true",
-        help="actually upload and record (default: dry run, nothing is written)",
-    )
-    parser.add_argument(
-        "--db",
-        type=Path,
-        default=_DEFAULT_DB,
-        help=f"SQLite catalog for resume/dedup history (default: {_DEFAULT_DB})",
+        "--db", type=Path, default=_DEFAULT_DB, help=f"SQLite catalog (default: {_DEFAULT_DB})"
     )
     parser.add_argument(
         "--phash-threshold",
@@ -73,42 +75,72 @@ def _build_parser() -> argparse.ArgumentParser:
         help=f"max Hamming distance for a perceptual duplicate (default: {DEFAULT_PHASH_THRESHOLD})",
     )
     parser.add_argument(
-        "--by-device",
-        action="store_true",
-        help="name capture folders after the device instead of 'Camera'",
-    )
-    parser.add_argument("--all-files", action="store_true", help="include non-media extensions")
-    parser.add_argument(
-        "--no-rename",
-        action="store_true",
-        help="keep original filenames instead of prefixing copies with YYYYMMDD_HHMMSS_",
+        "--by-device", action="store_true", help="name capture folders after the device"
     )
     parser.add_argument(
-        "--events",
-        action="store_true",
-        help="propose Camera event clusters to name (interactive; Camera files only)",
+        "--no-rename", action="store_true", help="keep original filenames (no date prefix)"
     )
     parser.add_argument(
-        "--no-timestamps",
-        action="store_true",
-        help="do not set the local copy's mtime from the capture date before upload",
+        "--events", action="store_true", help="propose Camera event clusters to name"
     )
     parser.add_argument(
-        "--pool",
-        choices=("thread", "process"),
-        default="thread",
-        help="worker pool used for the concurrent hashing scan (default: thread)",
+        "--no-timestamps", action="store_true", help="do not set mtime from the capture date"
+    )
+    parser.add_argument(
+        "--pool", choices=("thread", "process"), default="thread", help="hashing worker pool"
     )
     parser.add_argument(
         "--workers",
         type=int,
         default=DEFAULT_WORKERS,
         metavar="N",
-        help=f"number of hashing workers (default: {DEFAULT_WORKERS}, = CPU count)",
+        help="number of hashing workers",
     )
     parser.add_argument(
         "--report", type=Path, metavar="PATH", help="write the full decision report as JSON"
     )
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="vaeon",
+        description="Organize, de-duplicate and back up a media library to a pluggable destination.",
+    )
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    organize = sub.add_parser("organize", help="organize a folder of media files")
+    organize.add_argument("source", type=Path, help="folder to analyse (searched recursively)")
+    organize.add_argument("--all-files", action="store_true", help="include non-media extensions")
+    _add_common_options(organize)
+
+    ingest = sub.add_parser(
+        "ingest", help="rescue + organize a Google Takeout export (dates from JSON sidecars)"
+    )
+    ingest.add_argument(
+        "--takeout",
+        type=Path,
+        required=True,
+        metavar="DIR",
+        help="extracted Google Takeout directory",
+    )
+    ingest.add_argument(
+        "--tz",
+        type=_parse_tz,
+        default=None,
+        metavar="±HH:MM",
+        help="local offset applied to Takeout's UTC dates (default: treat as UTC)",
+    )
+    ingest.add_argument(
+        "--prefer-takeout-dates",
+        action="store_true",
+        help="trust photoTakenTime over embedded EXIF (for dates fixed inside Google Photos)",
+    )
+    ingest.add_argument(
+        "--map-albums",
+        action="store_true",
+        help="name Camera events after the album their photos came from",
+    )
+    _add_common_options(ingest)
     return parser
 
 
@@ -213,13 +245,13 @@ def _print_summary(resolutions: list[Resolution]) -> None:
 
     review = [r for r in uploads if r.decision.needs_review]
     if review:
-        print(f"\n  MANUAL REVIEW ({len(review)}) - date not from embedded metadata:")
+        print(f"\n  MANUAL REVIEW ({len(review)}) - date from an approximate source:")
+        origin_labels = {
+            DateSource.FILENAME: "filename pattern",
+            DateSource.TAKEOUT_UPLOAD: "upload time (approximate)",
+        }
         for resolution in review:
-            origin = (
-                "filename pattern"
-                if resolution.decision.date_source is DateSource.FILENAME
-                else "no date evidence"
-            )
+            origin = origin_labels.get(resolution.decision.date_source, "approximate")
             print(f"      {resolution.decision.source.name}  [{origin}]")
 
 
@@ -278,60 +310,105 @@ def _print_execution(results: list[ActionResult]) -> int:
     return 1 if failures else 0
 
 
-def main(argv: list[str] | None = None) -> int:
-    """Run the CLI. Returns a process exit code."""
-    args = _build_parser().parse_args(argv)
+def _build_ingest_context(
+    decisions: list[Decision], metadata: dict[Path, dict[str, Any]], scan: TakeoutScan
+) -> IngestContext:
+    """Bake plan: write a rescued date into a copy only when it lacks a good embedded one;
+    add sidecar GPS only when the file has none; always carry a description."""
+    writes: dict[str, MetadataWrite] = {}
+    for decision in decisions:
+        sidecar = scan.sidecars.get(decision.source)
+        if sidecar is None:
+            continue
+        from_takeout = decision.date_source in (DateSource.TAKEOUT, DateSource.TAKEOUT_UPLOAD)
+        taken = decision.captured_at if from_takeout else None
+        has_exif_gps = "GPSLatitude" in metadata.get(decision.source, {})
+        gps = sidecar.gps if (sidecar.gps is not None and not has_exif_gps) else None
+        write = MetadataWrite(taken_at_local=taken, gps=gps, description=sidecar.description)
+        if write.has_content:
+            writes[str(decision.source)] = write
+    albums = {str(path): name for path, name in scan.albums.items()}
+    return IngestContext(writes=writes, albums=albums)
 
-    if not args.source.is_dir():
-        print(f"error: source is not a directory: {args.source}", file=sys.stderr)
-        return 2
 
-    files = discover(args.source, all_files=args.all_files)
-    if not files:
-        print(f"No media files found under {args.source}")
+def _safe_size(path: Path) -> int:
+    try:
+        return path.stat().st_size
+    except OSError:
         return 0
 
-    print(f"Analysing {len(files)} file(s) under {args.source} ...\n")
 
-    try:
-        metadata = read_metadata(files)
-    except ExiftoolMissingError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 3
+def _print_ingest_report(resolutions: list[Resolution], scan: TakeoutScan) -> None:
+    uploads = [r for r in resolutions if r.should_upload]
+    duplicates = [r for r in resolutions if not r.should_upload]
+    sources = Counter(r.decision.date_source.value for r in uploads)
+    reclaimed = sum(_safe_size(r.decision.source) for r in duplicates)
 
-    try:
-        destination = _build_destination(args.destination, rclone=args.rclone)
-    except DestinationError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 4
-
-    decisions = plan(
-        files, metadata, build_rules(by_device=args.by_device), rename=not args.no_rename
+    print(_SEPARATOR)
+    print("TAKEOUT RESCUE REPORT")
+    print(_SEPARATOR)
+    print(f"  media files found                : {len(resolutions)}")
+    print(f"  kept (unique)                    : {len(uploads)}")
+    print(
+        f"  album duplicate copies collapsed : {len(duplicates)}  (~{reclaimed / 1e6:.1f} MB reclaimed)"
     )
+    print(f"  dates recovered (photoTakenTime) : {sources.get(DateSource.TAKEOUT.value, 0)}")
+    print(f"  dates approximate (upload time)  : {sources.get(DateSource.TAKEOUT_UPLOAD.value, 0)}")
+    print(f"  dates from embedded EXIF         : {sources.get(DateSource.EXIF.value, 0)}")
+    print(f"  dates from filename              : {sources.get(DateSource.FILENAME.value, 0)}")
+    print(f"  still undated                    : {sources.get(DateSource.NONE.value, 0)}")
+    print(f"  media without any JSON sidecar   : {len(scan.missing_sidecar)}")
+    print(
+        "  note: Takeout times are UTC; near midnight a date may shift a day -- pass --tz to correct."
+    )
+
+
+def _run_pipeline(
+    args: argparse.Namespace,
+    files: list[Path],
+    metadata: dict[Path, dict[str, Any]],
+    destination: Destination,
+    *,
+    takeout: dict[Path, TakeoutSidecar] | None = None,
+    tz_offset: timedelta | None = None,
+    prefer_takeout: bool = False,
+    scan: TakeoutScan | None = None,
+    event_prompt: Prompt | None = None,
+) -> int:
+    decisions = plan(
+        files,
+        metadata,
+        build_rules(by_device=args.by_device),
+        rename=not args.no_rename,
+        takeout=takeout,
+        tz_offset=tz_offset,
+        prefer_takeout=prefer_takeout,
+    )
+    ingest_ctx = _build_ingest_context(decisions, metadata, scan) if scan is not None else None
 
     with Catalog(args.db) as catalog:
         index = DedupIndex.from_catalog_rows(catalog.seed_rows(), args.phash_threshold)
-        catalog_sizes = catalog.known_sizes()
         if catalog.count():
             print(f"Catalog {args.db} holds {catalog.count()} previously-processed file(s).\n")
 
         resolutions = resolve(
             decisions,
             index,
-            catalog_sizes=catalog_sizes,
+            catalog_sizes=catalog.known_sizes(),
             pool=args.pool,
             workers=args.workers,
         )
 
         event_ids: dict[str, int] = {}
-        if args.events:
+        if args.events or event_prompt is not None:
             resolutions, event_ids = run_event_stage(
-                resolutions, metadata, catalog, apply=args.apply
+                resolutions, metadata, catalog, apply=args.apply, prompt=event_prompt
             )
 
-        root_label = destination.describe()
-        _print_report(resolutions, root_label)
+        _print_report(resolutions, destination.describe())
         _print_summary(resolutions)
+        if scan is not None:
+            _print_ingest_report(resolutions, scan)
         if args.report:
             _write_json_report(args.report, resolutions)
 
@@ -342,6 +419,7 @@ def main(argv: list[str] | None = None) -> int:
             apply=args.apply,
             set_timestamps=not args.no_timestamps,
             event_ids=event_ids,
+            ingest=ingest_ctx,
         )
 
     print()
@@ -350,8 +428,79 @@ def main(argv: list[str] | None = None) -> int:
         print("DRY RUN - nothing was uploaded or recorded. Re-run with --apply to execute.")
         print(_SEPARATOR)
         return 0
-
     return _print_execution(results)
+
+
+def _cmd_organize(args: argparse.Namespace) -> int:
+    if not args.source.is_dir():
+        print(f"error: source is not a directory: {args.source}", file=sys.stderr)
+        return 2
+    files = discover(args.source, all_files=args.all_files)
+    if not files:
+        print(f"No media files found under {args.source}")
+        return 0
+    print(f"Analysing {len(files)} file(s) under {args.source} ...\n")
+    try:
+        metadata = read_metadata(files)
+    except ExiftoolMissingError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 3
+    try:
+        destination = _build_destination(args.destination, rclone=args.rclone)
+    except DestinationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 4
+    return _run_pipeline(args, files, metadata, destination)
+
+
+def _cmd_ingest(args: argparse.Namespace) -> int:
+    if not args.takeout.is_dir():
+        print(f"error: takeout path is not a directory: {args.takeout}", file=sys.stderr)
+        return 2
+    print(f"Scanning Takeout export at {args.takeout} ...")
+    scan = scan_takeout(args.takeout)
+    files = discover(args.takeout)
+    if not files:
+        print(f"No media files found under {args.takeout}")
+        return 0
+    print(
+        f"Found {len(files)} media file(s); matched {len(scan.sidecars)} sidecar(s), "
+        f"{len(scan.missing_sidecar)} without.\n"
+    )
+    try:
+        metadata = read_metadata(files)
+    except ExiftoolMissingError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 3
+    try:
+        destination = _build_destination(args.destination, rclone=args.rclone)
+    except DestinationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 4
+
+    event_prompt = None
+    if args.map_albums:
+        event_prompt = album_prompt({str(p): n for p, n in scan.albums.items()})
+
+    return _run_pipeline(
+        args,
+        files,
+        metadata,
+        destination,
+        takeout=scan.sidecars,
+        tz_offset=args.tz,
+        prefer_takeout=args.prefer_takeout_dates,
+        scan=scan,
+        event_prompt=event_prompt,
+    )
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Run the CLI. Returns a process exit code."""
+    args = _build_parser().parse_args(argv)
+    if args.command == "ingest":
+        return _cmd_ingest(args)
+    return _cmd_organize(args)
 
 
 if __name__ == "__main__":

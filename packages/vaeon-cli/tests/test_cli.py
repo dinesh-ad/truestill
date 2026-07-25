@@ -17,11 +17,11 @@ def test_help_exits_zero() -> None:
 def test_empty_source_reports_nothing(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     source = tmp_path / "empty"
     source.mkdir()
-    code = main([str(source), str(tmp_path / "out")])
+    code = main(["organize", str(source), str(tmp_path / "out")])
     assert code == 0
     assert "No media files" in capsys.readouterr().out
 
 
 def test_missing_source_is_an_error(tmp_path: Path) -> None:
-    code = main([str(tmp_path / "does-not-exist"), str(tmp_path / "out")])
+    code = main(["organize", str(tmp_path / "does-not-exist"), str(tmp_path / "out")])
     assert code == 2

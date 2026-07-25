@@ -12,7 +12,7 @@ One row per processed source file, keyed by SHA-256.
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS files (
     source_path   TEXT    NOT NULL,
     original_name TEXT,
     sha256        TEXT    NOT NULL UNIQUE,
+    copy_sha256   TEXT,
     perceptual    TEXT,
     size          INTEGER,
     captured_at   TEXT,
@@ -40,6 +41,16 @@ CREATE TABLE IF NOT EXISTS files (
 CREATE INDEX IF NOT EXISTS idx_files_sha256 ON files (sha256);
 CREATE INDEX IF NOT EXISTS idx_files_perceptual ON files (perceptual);
 CREATE INDEX IF NOT EXISTS idx_files_size ON files (size);
+
+CREATE TABLE IF NOT EXISTS albums (
+    id   INTEGER PRIMARY KEY,
+    name TEXT    NOT NULL UNIQUE
+);
+CREATE TABLE IF NOT EXISTS file_albums (
+    file_id  INTEGER NOT NULL,
+    album_id INTEGER NOT NULL,
+    PRIMARY KEY (file_id, album_id)
+);
 
 CREATE TABLE IF NOT EXISTS events (
     id         INTEGER PRIMARY KEY,
@@ -57,7 +68,7 @@ CREATE TABLE IF NOT EXISTS skipped_clusters (
 """
 
 #: Bump whenever the schema changes, and add a matching entry to _MIGRATIONS.
-CURRENT_SCHEMA_VERSION = 4
+CURRENT_SCHEMA_VERSION = 5
 
 
 class CatalogVersionError(RuntimeError):
@@ -98,12 +109,30 @@ def _add_event_tables(conn: sqlite3.Connection) -> None:
     )
 
 
+def _add_takeout_tables(conn: sqlite3.Connection) -> None:
+    """v4 -> v5: post-write copy hash + album membership for Takeout ingestion."""
+    if "copy_sha256" not in _column_names(conn):
+        conn.execute("ALTER TABLE files ADD COLUMN copy_sha256 TEXT")
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS albums (
+            id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE
+        );
+        CREATE TABLE IF NOT EXISTS file_albums (
+            file_id INTEGER NOT NULL, album_id INTEGER NOT NULL,
+            PRIMARY KEY (file_id, album_id)
+        );
+        """
+    )
+
+
 #: Ordered migrations: ``(target_version, fn)``. Each is idempotent and lifts a database
 #: from ``target_version - 1`` to ``target_version``. Append; never rewrite history.
 _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (2, _add_size_column),
     (3, _add_original_name_column),
     (4, _add_event_tables),
+    (5, _add_takeout_tables),
 )
 
 
@@ -255,30 +284,35 @@ class Catalog:
         source_path: str,
         original_name: str,
         sha256: str,
+        copy_sha256: str | None = None,
         perceptual: str | None,
         size: int | None,
         captured_at: str | None,
         category: str,
         relative: str,
         event_id: int | None = None,
-    ) -> None:
-        """Insert (or refresh) a row marking a file as processed and uploaded.
+        albums: Sequence[str] = (),
+    ) -> int:
+        """Insert (or refresh) a row marking a file as processed and uploaded; return its id.
 
-        Records the original path and name alongside the renamed destination copy
-        (``relative``), so the rename is fully reversible. Idempotent on ``sha256``:
-        re-recording the same content updates the existing row rather than raising.
+        ``sha256`` is the source (pre-write) content hash and the dedup identity;
+        ``copy_sha256`` is the organized copy's hash after any Takeout metadata write (equal to
+        ``sha256`` for the byte-identical normal pipeline). Album membership is linked
+        many-to-many. Idempotent on ``sha256``.
         """
         now = _now()
         with self._tx() as conn:
             conn.execute(
                 """
                 INSERT INTO files (
-                    source_path, original_name, sha256, perceptual, size, captured_at,
-                    category, relative, event_id, upload_status, processed_at, uploaded_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'uploaded', ?, ?)
+                    source_path, original_name, sha256, copy_sha256, perceptual, size,
+                    captured_at, category, relative, event_id, upload_status, processed_at,
+                    uploaded_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'uploaded', ?, ?)
                 ON CONFLICT(sha256) DO UPDATE SET
                     source_path   = excluded.source_path,
                     original_name = excluded.original_name,
+                    copy_sha256   = excluded.copy_sha256,
                     perceptual    = excluded.perceptual,
                     size          = excluded.size,
                     captured_at   = excluded.captured_at,
@@ -292,6 +326,7 @@ class Catalog:
                     source_path,
                     original_name,
                     sha256,
+                    copy_sha256,
                     perceptual,
                     size,
                     captured_at,
@@ -302,3 +337,15 @@ class Catalog:
                     now,
                 ),
             )
+            row = conn.execute("SELECT id FROM files WHERE sha256 = ?", (sha256,)).fetchone()
+            file_id = int(row["id"])
+            for album in albums:
+                conn.execute("INSERT OR IGNORE INTO albums (name) VALUES (?)", (album,))
+                album_row = conn.execute(
+                    "SELECT id FROM albums WHERE name = ?", (album,)
+                ).fetchone()
+                conn.execute(
+                    "INSERT OR IGNORE INTO file_albums (file_id, album_id) VALUES (?, ?)",
+                    (file_id, int(album_row["id"])),
+                )
+        return file_id

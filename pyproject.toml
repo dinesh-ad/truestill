@@ -55,7 +55,8 @@ unfixable = []
 ]
 # Date parsing - EXIF timestamps are local wall-clock with no zone; naive datetimes correct.
 "packages/vaeon-core/src/vaeon_core/dates.py" = [
-    "DTZ007", # strptime without %z is deliberate; EXIF has no reliable zone
+    "DTZ007",  # strptime without %z is deliberate; EXIF has no reliable zone
+    "PLR0911", # resolve_capture_datetime is a priority chain of early returns, by design
 ]
 # Destination backends shell out to rclone; that is the whole point of the wrapper.
 "packages/vaeon-core/src/vaeon_core/destinations/rclone.py" = [

@@ -12,6 +12,7 @@ import json
 import shutil
 import subprocess
 from collections.abc import Iterator, Sequence
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -70,6 +71,46 @@ def ensure_exiftool() -> str:
 def _chunked(items: Sequence[Path], size: int) -> Iterator[Sequence[Path]]:
     for start in range(0, len(items), size):
         yield items[start : start + size]
+
+
+def write_metadata(
+    path: Path,
+    *,
+    taken_at_local: datetime | None = None,
+    gps: tuple[float, float] | None = None,
+    description: str = "",
+) -> bool:
+    """Bake rescued metadata into a file in place, losslessly (no pixel re-encode).
+
+    exiftool rewrites only the metadata segment, so image quality is untouched -- but the
+    file's bytes (and hence its hash) change. This is used **only** on organized copies during
+    Takeout ingestion; the normal pipeline never calls it. Returns whether exiftool succeeded.
+    """
+    args: list[str] = ["-overwrite_original", "-q", "-m"]
+    if taken_at_local is not None:
+        stamp = taken_at_local.strftime("%Y:%m:%d %H:%M:%S")
+        args += [
+            f"-DateTimeOriginal={stamp}",
+            f"-CreateDate={stamp}",
+            f"-QuickTime:CreateDate={stamp}",
+        ]
+    if gps is not None:
+        lat, lon = gps
+        args += [
+            f"-GPSLatitude={abs(lat)}",
+            f"-GPSLatitudeRef={'N' if lat >= 0 else 'S'}",
+            f"-GPSLongitude={abs(lon)}",
+            f"-GPSLongitudeRef={'E' if lon >= 0 else 'W'}",
+        ]
+    if description:
+        args += [f"-Description={description}", f"-ImageDescription={description}"]
+
+    if not args[3:]:  # nothing beyond the flags -> nothing to write
+        return True
+
+    binary = ensure_exiftool()
+    proc = subprocess.run([binary, *args, str(path)], capture_output=True, text=True, check=False)
+    return proc.returncode == 0
 
 
 def read_metadata(paths: Sequence[Path]) -> dict[Path, dict[str, Any]]:
