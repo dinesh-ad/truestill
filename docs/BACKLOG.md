@@ -18,6 +18,13 @@ decision context that produced them.
 - **Zip-direct Takeout ingestion.** `vaeon ingest --takeout` takes an already-extracted
   directory today; reading the Takeout `.zip`(s) directly was flagged as a follow-up in the
   Phase-2 spec (deferred to avoid complicating v1).
+- **Configurable organization structure.** Presets plus template tokens
+  (`{category}/{yyyy}/{mm}`) for the destination layout, with a live preview so the user sees
+  where files land before committing. The chosen template is recorded in the catalog. Changing
+  the template mid-library must raise an explicit warning and offer an optional migration run
+  that relocates existing copies to match. The default stays the current opinionated
+  `<Label>/YYYY/MM/` structure — this only unlocks it for users who want a different shape.
+  **Priority: first post-UI feature, pre-launch.**
 
 ## Deferred to the desktop UI
 
