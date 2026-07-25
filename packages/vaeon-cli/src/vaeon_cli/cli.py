@@ -102,6 +102,11 @@ def _add_common_options(parser: argparse.ArgumentParser) -> None:
         "--no-timestamps", action="store_true", help="do not set mtime from the capture date"
     )
     parser.add_argument(
+        "--skip-undated",
+        action="store_true",
+        help="skip files with no capture date instead of copying them to Undated/",
+    )
+    parser.add_argument(
         "--pool", choices=("thread", "process"), default="thread", help="hashing worker pool"
     )
     parser.add_argument(
@@ -413,6 +418,18 @@ def _print_report(resolutions: list[Resolution], root_label: str) -> None:
         print()
 
 
+def _print_skipped_undated(resolutions: list[Resolution], skip_undated: bool) -> None:
+    """Name every undateable file that --skip-undated left behind. Never silent."""
+    if not skip_undated:
+        return
+    undated = [r for r in resolutions if r.should_upload and r.decision.captured_at is None]
+    if not undated:
+        return
+    print(f"\n  SKIPPED (undated -- not copied, --skip-undated): {len(undated)}")
+    for r in undated:
+        print(f"      {r.decision.source.name}")
+
+
 def _print_heif_note(resolutions: list[Resolution]) -> None:
     """If HEIC/HEIF files were seen but pillow-heif is unavailable, say so -- never silent."""
     if HEIF_AVAILABLE:
@@ -625,6 +642,7 @@ def _run_pipeline(
 
         _print_report(resolutions, destination.describe())
         _print_summary(resolutions)
+        _print_skipped_undated(resolutions, args.skip_undated)
         _print_heif_note(resolutions)
         if scan is not None:
             _print_ingest_report(resolutions, scan)
@@ -637,6 +655,7 @@ def _run_pipeline(
             catalog,
             apply=args.apply,
             set_timestamps=not args.no_timestamps,
+            skip_undated=args.skip_undated,
             event_ids=event_ids,
             ingest=ingest_ctx,
             drive_uuid=drive_uuid,

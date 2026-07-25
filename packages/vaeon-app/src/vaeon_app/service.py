@@ -89,7 +89,9 @@ def organize_preview(source: Path, destination: Path, db: Path) -> dict[str, Any
     return summary
 
 
-def organize_run(source: Path, destination: Path, db: Path) -> JobTarget:
+def organize_run(
+    source: Path, destination: Path, db: Path, *, skip_undated: bool = False
+) -> JobTarget:
     """Build a job target that runs the real organize (progress across hashing then copying)."""
 
     def target(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
@@ -118,6 +120,7 @@ def organize_run(source: Path, destination: Path, db: Path) -> JobTarget:
                 LocalDestination(destination),
                 catalog,
                 apply=True,
+                skip_undated=skip_undated,
                 progress=progress,
                 cancel=cancel,
                 drive_uuid=drive_uuid,

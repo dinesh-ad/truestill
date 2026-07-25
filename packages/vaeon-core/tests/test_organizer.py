@@ -65,6 +65,55 @@ def _camera_resolution(source: str, when: datetime, sha: str) -> Resolution:
     )
 
 
+def _resolution(source: Path, when: datetime | None, sha: str) -> Resolution:
+    category = CategoryMatch(
+        label="Camera", reason="t", confidence=Confidence.MEDIUM, rule="device"
+    )
+    rel = (
+        Path(f"Camera/Undated/{source.name}")
+        if when is None
+        else Path(f"Camera/{when:%Y}/{when:%m}/{source.name}")
+    )
+    decision = Decision(
+        source=source,
+        category=category,
+        captured_at=when,
+        date_source=DateSource.NONE if when is None else DateSource.EXIF,
+        date_tag=None,
+        relative=rel,
+    )
+    return Resolution(
+        decision=decision,
+        hashes=FileHashes(sha256=sha, perceptual=None),
+        exact_duplicate=None,
+        near_duplicate=None,
+    )
+
+
+def test_skip_undated_skips_only_undated_files(tmp_path: Path) -> None:
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "dated.jpg").write_bytes(b"dated-bytes")
+    (src / "undated.jpg").write_bytes(b"undated-bytes")
+    dated = _resolution(src / "dated.jpg", datetime(2023, 1, 1), "sha-dated")
+    undated = _resolution(src / "undated.jpg", None, "sha-undated")
+    out = tmp_path / "out"
+
+    results = execute([dated, undated], LocalDestination(out), apply=True, skip_undated=True)
+    by = {r.resolution.decision.source.name: r for r in results}
+    assert by["undated.jpg"].status is ActionStatus.SKIPPED_UNDATED
+    assert by["dated.jpg"].status is ActionStatus.UPLOADED
+
+    written = LocalDestination(out).list()
+    assert any("dated.jpg" in w for w in written)  # the dated file was copied
+    assert not any("undated" in w for w in written)  # the undated file was NOT written
+
+    # Default (flag off): the undated file goes to Undated/ as before.
+    out2 = tmp_path / "out2"
+    execute([undated], LocalDestination(out2), apply=True)
+    assert any("Undated" in w for w in LocalDestination(out2).list())
+
+
 def test_apply_events_consolidates_cross_month_under_start_month() -> None:
     """An event spanning June 30 -> July 2 lands wholly under the start month (June)."""
     r_jun = _camera_resolution("/src/a.jpg", datetime(2026, 6, 30, 23, 0), "sha-a")

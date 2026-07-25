@@ -60,6 +60,27 @@ def test_preview_flag_does_not_persist(tmp_path: Path, capsys: pytest.CaptureFix
 
 
 @pytest.mark.skipif(shutil.which("exiftool") is None, reason="exiftool not installed")
+def test_skip_undated_names_skipped_files(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    src = tmp_path / "src"
+    src.mkdir()
+    # A filename-dated file (kept) and an undateable one (no EXIF, no date in name).
+    Image.new("RGB", (16, 16), (1, 2, 3)).save(src / "IMG-20250804-WA0007.jpg", "JPEG")
+    Image.new("RGB", (16, 16), (9, 8, 7)).save(src / "mystery-scan.jpg", "JPEG")
+    out = tmp_path / "out"
+
+    assert main(["organize", str(src), str(out), "--apply", "--skip-undated"]) == 0
+    report = capsys.readouterr().out
+    assert "SKIPPED (undated" in report
+    assert "mystery-scan.jpg" in report  # named, never silent
+    # The undated file was not written; the dated one was.
+    written = [p.name for p in out.rglob("*.jpg")]
+    assert "mystery-scan.jpg" not in written
+    assert any("20250804" in n or "WA0007" in n for n in written)
+
+
+@pytest.mark.skipif(shutil.which("exiftool") is None, reason="exiftool not installed")
 def test_organize_honors_stored_template(tmp_path: Path) -> None:
     src = tmp_path / "src"
     src.mkdir()

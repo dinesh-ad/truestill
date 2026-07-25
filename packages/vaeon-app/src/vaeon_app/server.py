@@ -49,7 +49,12 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
 
     async def organize_run(request: Request) -> JSONResponse:
         body = await request.json()
-        target = service.organize_run(Path(body["source"]), Path(body["destination"]), _db())
+        target = service.organize_run(
+            Path(body["source"]),
+            Path(body["destination"]),
+            _db(),
+            skip_undated=bool(body.get("skip_undated", False)),
+        )
         return JSONResponse({"job_id": jobs.start(target)})
 
     async def verify_run(request: Request) -> JSONResponse:

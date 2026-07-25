@@ -448,6 +448,7 @@ def execute(
     *,
     apply: bool = False,
     set_timestamps: bool = True,
+    skip_undated: bool = False,
     event_ids: dict[str, int] | None = None,
     ingest: IngestContext | None = None,
     drive_uuid: str | None = None,
@@ -482,6 +483,13 @@ def execute(
             match = resolution.exact_duplicate
             detail = f"exact match of {match.matched_path} [{match.origin}]"
             results.append(ActionResult(resolution, ActionStatus.DUPLICATE, None, detail))
+            continue
+
+        if skip_undated and decision.captured_at is None:
+            # Undateable and the caller opted out of the Undated/ bucket. Not written, not
+            # recorded -- surfaced as its own status so the report can count and name it.
+            detail = "no capture date; skipped (--skip-undated)"
+            results.append(ActionResult(resolution, ActionStatus.SKIPPED_UNDATED, None, detail))
             continue
 
         if not apply:

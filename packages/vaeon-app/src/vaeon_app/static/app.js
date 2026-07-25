@@ -46,7 +46,8 @@ let orgJob = null;
 $("org-run").onclick = async () => {
   const source = $("org-source").value.trim();
   const destination = $("org-dest").value.trim();
-  const { job_id } = await api("/api/organize/run", { source, destination });
+  const skip_undated = $("org-skip-undated").checked;
+  const { job_id } = await api("/api/organize/run", { source, destination, skip_undated });
   orgJob = job_id;
   $("org-progress").classList.remove("hidden");
   streamJob(job_id,
