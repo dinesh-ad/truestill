@@ -15,3 +15,13 @@ repos:
         # Match the repo's strict config; only type the source packages, not tests.
         files: ^packages/(vaeon-core|vaeon-cli)/src/
         additional_dependencies: [imagehash, pillow]
+
+  # Non-negotiable project rule: no AI co-author trailer / Anthropic-Claude email in history.
+  # Activate with: uv run pre-commit install --hook-type commit-msg
+  - repo: local
+    hooks:
+      - id: no-ai-coauthor
+        name: block AI co-author / Anthropic-Claude signature in commit message
+        entry: python3 scripts/check_commit_msg.py
+        language: system
+        stages: [commit-msg]
