@@ -171,3 +171,26 @@ def slugify(name: str) -> str:
 def event_dirname(start: datetime, slug: str) -> str:
     """Event folder name, date-prefixed so folders sort chronologically: ``YYYYMMDD_slug``."""
     return f"{start:%Y%m%d}_{slug}"
+
+
+# --- interactive reshaping (merge / split), used by the review UI --------------------
+
+
+def merge_candidates(candidates: Sequence[EventCandidate]) -> EventCandidate:
+    """Combine several proposed clusters into one (members unioned, re-sorted by time)."""
+    items = sorted(
+        (item for candidate in candidates for item in candidate.items),
+        key=lambda item: item.captured_at,
+    )
+    return EventCandidate(items=tuple(items))
+
+
+def split_candidate(candidate: EventCandidate, index: int) -> tuple[EventCandidate, EventCandidate]:
+    """Split a cluster into two at ``index`` (1 <= index < count), preserving capture order."""
+    if not 1 <= index < candidate.count:
+        message = f"split index {index} out of range for a {candidate.count}-file cluster"
+        raise ValueError(message)
+    ordered = sorted(candidate.items, key=lambda item: item.captured_at)
+    return EventCandidate(items=tuple(ordered[:index])), EventCandidate(
+        items=tuple(ordered[index:])
+    )

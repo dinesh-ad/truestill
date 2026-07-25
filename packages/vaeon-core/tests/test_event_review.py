@@ -8,8 +8,14 @@ from pathlib import Path
 import pytest
 from vaeon_core.catalog import Catalog
 from vaeon_core.categorize import CategoryMatch, Confidence
-from vaeon_core.event_review import EventStageOutcome, run_event_stage
-from vaeon_core.events import EventCandidate
+from vaeon_core.event_review import (
+    EventDecision,
+    EventStageOutcome,
+    commit,
+    propose,
+    run_event_stage,
+)
+from vaeon_core.events import EventCandidate, merge_candidates
 from vaeon_core.models import DateSource, Decision, FileHashes, Resolution
 
 
@@ -52,6 +58,26 @@ def test_apply_names_and_places(tmp_path: Path) -> None:
     assert len(out.event_ids) == 10
     assert all(
         r.decision.relative.as_posix().startswith("Camera/2026/06/20260614_goa-trip/")
+        for r in out.resolutions
+    )
+
+
+def test_merge_then_commit_places_all_under_one_event(tmp_path: Path) -> None:
+    """The UI path: propose -> merge two clusters -> commit with one name."""
+    base = datetime(2026, 6, 14, 9, 0)
+    week2 = datetime(2026, 6, 21, 9, 0)  # 7 days later -> a second cluster
+    resolutions = [_camera(i, base + timedelta(minutes=20 * i)) for i in range(10)]
+    resolutions += [_camera(20 + i, week2 + timedelta(minutes=20 * i)) for i in range(10)]
+
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        clusters = propose(resolutions, {})
+        assert len(clusters) == 2  # two separate proposals
+        merged = merge_candidates(clusters)
+        out = commit(resolutions, [EventDecision(merged, "Summer")], catalog)
+
+    assert len(out.event_ids) == 20  # all files belong to the one merged event
+    assert all(
+        r.decision.relative.as_posix().startswith("Camera/2026/06/20260614_summer/")
         for r in out.resolutions
     )
 

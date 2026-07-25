@@ -34,6 +34,18 @@ class EventStageOutcome:
     clusters: list[EventCandidate] = field(default_factory=list)
 
 
+@dataclass(frozen=True, slots=True)
+class EventDecision:
+    """One reviewed cluster and its verdict: a name to keep it, or ``None`` to skip it.
+
+    The cluster may be an original proposal, or one the caller reshaped with
+    :func:`vaeon_core.events.merge_candidates` / ``split_candidate`` before deciding.
+    """
+
+    cluster: EventCandidate
+    name: str | None  # None -> skip
+
+
 def _gps(meta: dict[str, Any]) -> tuple[float, float] | None:
     lat, lon = meta.get("GPSLatitude"), meta.get("GPSLongitude")
     if isinstance(lat, int | float) and isinstance(lon, int | float):
@@ -69,6 +81,55 @@ def gather_camera_items(
     return items
 
 
+def propose(
+    resolutions: list[Resolution], metadata: dict[Any, dict[str, Any]]
+) -> list[EventCandidate]:
+    """Return the proposed Camera event clusters (the data a UI presents for review)."""
+    return cluster_camera(gather_camera_items(resolutions, metadata))
+
+
+def commit(
+    resolutions: list[Resolution],
+    decisions: list[EventDecision],
+    catalog: Catalog,
+) -> EventStageOutcome:
+    """Apply reviewed decisions: name (record event), skip (remember), or reuse a known event.
+
+    Decisions may cover reshaped (merged/split) clusters -- identity is each cluster's member
+    signature, so a previously-named or previously-skipped cluster is honoured without re-asking.
+    """
+    skipped = catalog.skipped_signatures()
+    assignments: dict[str, tuple[Any, str]] = {}
+    event_ids: dict[str, int] = {}
+
+    for decision in decisions:
+        cluster = decision.cluster
+        signature = cluster.signature
+        existing = catalog.event_by_signature(signature)
+        if existing is not None:
+            slug, event_id = existing["slug"], int(existing["id"])
+        elif decision.name and decision.name.strip():
+            slug = slugify(decision.name)
+            event_id = catalog.record_event(
+                name=decision.name.strip(),
+                slug=slug,
+                start_date=cluster.start.isoformat(),
+                file_count=cluster.count,
+                signature=signature,
+            )
+        else:
+            if signature not in skipped:
+                catalog.record_skip(signature)
+            continue
+        for item in cluster.items:
+            assignments[item.key] = (cluster.start, slug)
+            event_ids[item.key] = event_id
+
+    return EventStageOutcome(
+        apply_events(resolutions, assignments), event_ids, [d.cluster for d in decisions]
+    )
+
+
 def run_event_stage(
     resolutions: list[Resolution],
     metadata: dict[Any, dict[str, Any]],
@@ -77,44 +138,24 @@ def run_event_stage(
     apply: bool,
     prompt: Prompt | None = None,
 ) -> EventStageOutcome:
-    """Cluster Camera files and, when ``apply``, resolve names (catalog memory, then ``prompt``).
+    """Name/skip convenience over :func:`propose` + :func:`commit` (the CLI's flow).
 
-    In preview (``apply=False``) the clusters are returned but nothing is named or written and
-    the resolutions are unchanged. In apply mode a missing/empty prompt answer skips a cluster.
+    In preview (``apply=False``) the clusters are returned but nothing is named or written. In
+    apply mode each not-yet-decided cluster is put to ``prompt`` (a missing/empty answer skips).
+    A UI wanting merge/split calls ``propose`` + ``commit`` directly instead.
     """
-    items = gather_camera_items(resolutions, metadata)
-    clusters = cluster_camera(items)
-
+    clusters = propose(resolutions, metadata)
     if not clusters or not apply:
         return EventStageOutcome(resolutions, {}, clusters)
 
     ask = prompt or (lambda _cluster: None)
     skipped = catalog.skipped_signatures()
-    assignments: dict[str, tuple[Any, str]] = {}
-    event_ids: dict[str, int] = {}
-
+    decisions: list[EventDecision] = []
     for cluster in clusters:
-        signature = cluster.signature
-        existing = catalog.event_by_signature(signature)
-        if existing is not None:
-            slug, event_id = existing["slug"], int(existing["id"])
-        elif signature in skipped:
-            continue
+        if catalog.event_by_signature(cluster.signature) is not None:
+            decisions.append(EventDecision(cluster, name=None))  # commit reuses via signature
+        elif cluster.signature in skipped:
+            continue  # remembered skip -> leave flat, don't re-ask
         else:
-            name = ask(cluster)
-            if not name or not name.strip():
-                catalog.record_skip(signature)
-                continue
-            slug = slugify(name)
-            event_id = catalog.record_event(
-                name=name.strip(),
-                slug=slug,
-                start_date=cluster.start.isoformat(),
-                file_count=cluster.count,
-                signature=signature,
-            )
-        for item in cluster.items:
-            assignments[item.key] = (cluster.start, slug)
-            event_ids[item.key] = event_id
-
-    return EventStageOutcome(apply_events(resolutions, assignments), event_ids, clusters)
+            decisions.append(EventDecision(cluster, name=ask(cluster)))
+    return commit(resolutions, decisions, catalog)

@@ -4,12 +4,15 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
+import pytest
 from vaeon_core.events import (
     EventItem,
     cluster_camera,
     event_dirname,
     haversine_km,
+    merge_candidates,
     slugify,
+    split_candidate,
 )
 
 # Naive datetimes are the domain (EXIF wall-clock).
@@ -122,3 +125,25 @@ def test_slugify() -> None:
 
 def test_event_dirname_is_date_prefixed() -> None:
     assert event_dirname(datetime(2026, 6, 14, 9, 0, 0), "goa-trip") == "20260614_goa-trip"
+
+
+def test_merge_candidates_unions_and_sorts() -> None:
+    a = cluster_camera(_burst(datetime(2026, 6, 14, 9, 0, 0), 10))[0]
+    b = cluster_camera(_burst(datetime(2026, 6, 20, 9, 0, 0), 10))[0]
+    merged = merge_candidates([a, b])
+    assert merged.count == 20
+    times = [it.captured_at for it in merged.items]
+    assert times == sorted(times)  # re-sorted across both
+
+
+def test_split_candidate_partitions_in_order() -> None:
+    cluster = cluster_camera(_burst(datetime(2026, 6, 14, 9, 0, 0), 10))[0]
+    first, second = split_candidate(cluster, 4)
+    assert (first.count, second.count) == (4, 6)
+    assert first.items[-1].captured_at <= second.items[0].captured_at
+
+
+def test_split_out_of_range_raises() -> None:
+    cluster = cluster_camera(_burst(datetime(2026, 6, 14, 9, 0, 0), 10))[0]
+    with pytest.raises(ValueError, match="out of range"):
+        split_candidate(cluster, 0)
