@@ -27,6 +27,7 @@ Two behavioural rules preserve exactly what the inline code did:
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import PurePosixPath
@@ -53,9 +54,49 @@ KNOWN_TOKENS: frozenset[str] = frozenset(_DATE_TOKENS) | _NON_DATE_TOKENS
 #: The structure vaeon has always produced; the default until a catalog stores its own.
 DEFAULT_TEMPLATE_STRING = "{category}/{yyyy}/{mm}"
 
+#: The catalog settings key under which a library's chosen template is persisted.
+LAYOUT_TEMPLATE_KEY = "layout_template"
+
+#: Characters illegal in a path *component* on Windows (and thus banned for portability),
+#: minus ``/`` which is our segment separator. ``_VALUE`` also bans ``/`` so a token value
+#: can never inject an extra directory level.
+_LITERAL_ILLEGAL = re.compile(r'[<>:"\\|?*\x00-\x1f]')
+_VALUE_ILLEGAL = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
+#: Windows reserved device names (case-insensitive, reserved even with an extension).
+_WIN_RESERVED: frozenset[str] = frozenset(
+    {"con", "prn", "aux", "nul"}
+    | {f"com{i}" for i in range(1, 10)}
+    | {f"lpt{i}" for i in range(1, 10)}
+)
+
+#: A rendered relative path longer than this (before the drive root) earns a preview warning;
+#: Windows' classic limit is 260 and we leave headroom for the destination root and filename.
+PATH_LENGTH_WARN = 200
+
 
 class TemplateError(ValueError):
     """Raised when a layout template is malformed or references an unknown token."""
+
+
+def _is_reserved(component: str) -> bool:
+    """Whether a path component is a Windows reserved device name (stem, case-insensitive)."""
+    stem = component.split(".", 1)[0].strip().lower()
+    return stem in _WIN_RESERVED
+
+
+def _sanitize_value(value: str) -> str:
+    """Make a rendered token value safe as a single path component (never raises).
+
+    Illegal characters (incl. ``/`` and ``\\``) become ``_`` so a value cannot inject a
+    directory level, and trailing dots/spaces are trimmed (Windows silently drops them).
+    """
+    return _VALUE_ILLEGAL.sub("_", value).strip().rstrip(" .")
+
+
+def resolve_template(stored: str | None) -> LayoutTemplate:
+    """The active template: the stored one if a catalog has set it, else the default."""
+    return LayoutTemplate.parse(stored) if stored else DEFAULT_TEMPLATE
 
 
 @dataclass(frozen=True)
@@ -82,7 +123,14 @@ class LayoutTemplate:
 
     @classmethod
     def parse(cls, template: str) -> LayoutTemplate:
-        """Parse and validate a template string, or raise :class:`TemplateError`."""
+        """Parse and fully validate a template, or raise :class:`TemplateError`.
+
+        Everything checkable from the template *alone* is caught here, so an invalid template is
+        rejected at set/preview time and can never fail a run: unknown tokens, empty segments,
+        illegal characters in literal text, and fully-literal segments that are Windows reserved
+        names. Data-dependent risks (empty token values, over-length, case collisions) are
+        surfaced by :func:`preview` instead, since they depend on the files being organized.
+        """
         cleaned = template.strip().strip("/")
         if not cleaned:
             message = "layout template is empty"
@@ -97,6 +145,13 @@ class LayoutTemplate:
                     known = ", ".join(sorted(KNOWN_TOKENS))
                     message = f"unknown template token {{{token}}}; known tokens: {known}"
                     raise TemplateError(message)
+            literal = _TOKEN.sub("", segment)  # the fixed text a user typed around the tokens
+            if _LITERAL_ILLEGAL.search(literal):
+                message = f"segment {segment!r} contains a character not allowed in a path"
+                raise TemplateError(message)
+            if not _TOKEN.search(segment) and _is_reserved(segment):
+                message = f"segment {segment!r} is a reserved name on Windows"
+                raise TemplateError(message)
         return cls(template=cleaned, segments=segments)
 
     def has_event_token(self) -> bool:
@@ -104,9 +159,14 @@ class LayoutTemplate:
         return any("event" in _TOKEN.findall(segment) for segment in self.segments)
 
     def render(self, context: RenderContext) -> PurePosixPath:
-        """Render the destination *directory* (no filename) for ``context``."""
+        """Render the destination *directory* (no filename) for ``context``. Never raises."""
+        return self._render(context)[0]
+
+    def _render(self, context: RenderContext) -> tuple[PurePosixPath, list[str]]:
+        """Render, also returning human-readable notes (empty tokens, sanitized values)."""
         date = context.date
         parts: list[str] = []
+        notes: list[str] = []
         undated_done = False
         for segment in self.segments:
             tokens = _TOKEN.findall(segment)
@@ -115,25 +175,80 @@ class LayoutTemplate:
                     parts.append(UNDATED_DIRNAME)
                     undated_done = True
                 continue
-            rendered = self._render_segment(segment, context, date)
+            rendered = self._render_segment(segment, context, date, notes)
             if rendered:
+                if _is_reserved(rendered):
+                    rendered = f"_{rendered}"
+                    notes.append(f"segment {rendered!r} avoided a Windows reserved name")
                 parts.append(rendered)
+            elif tokens:
+                notes.append(f"segment {segment!r} was empty and dropped")
 
         path = PurePosixPath(*parts) if parts else PurePosixPath()
         if context.event is not None and not self.has_event_token():
             path = path / event_dirname(*context.event)
-        return path
+        return path, notes
 
-    def _render_segment(self, segment: str, context: RenderContext, date: datetime | None) -> str:
+    def _render_segment(
+        self, segment: str, context: RenderContext, date: datetime | None, notes: list[str]
+    ) -> str:
         def substitute(match: re.Match[str]) -> str:
             token = match.group(1)
             if token == "category":
-                return context.category
-            if token == "event":
-                return event_dirname(*context.event) if context.event is not None else ""
-            return format(date, _DATE_TOKENS[token]) if date is not None else ""
+                value = context.category
+            elif token == "event":
+                value = event_dirname(*context.event) if context.event is not None else ""
+            else:
+                value = format(date, _DATE_TOKENS[token]) if date is not None else ""
+            if not value:
+                notes.append(f"token {{{token}}} was empty")
+            return _sanitize_value(value)
 
         return _TOKEN.sub(substitute, segment)
+
+
+@dataclass(frozen=True)
+class PreviewRow:
+    """One rendered sample path plus any data-dependent warnings for it."""
+
+    path: PurePosixPath
+    warnings: tuple[str, ...]
+
+
+def preview(
+    template: LayoutTemplate,
+    contexts: Sequence[RenderContext],
+    *,
+    filename: str = "sample.jpg",
+) -> list[PreviewRow]:
+    """Render ``contexts`` through ``template`` for the live preview, collecting warnings.
+
+    Surfaces exactly the risks that cannot be judged from the template alone: an empty token
+    value (and where the file then lands), a relative path approaching the Windows length limit,
+    and two samples that collide on a case-insensitive filesystem. All are warnings, not errors:
+    rendering is total, so a run never fails here.
+    """
+    rendered = [template._render(c) for c in contexts]
+    fulls = [directory / filename for directory, _ in rendered]
+
+    lowered: dict[str, int] = {}
+    collisions: set[int] = set()
+    for i, full in enumerate(fulls):
+        key = full.as_posix().lower()
+        if key in lowered:
+            collisions.add(i)
+            collisions.add(lowered[key])
+        lowered[key] = i
+
+    rows: list[PreviewRow] = []
+    for i, (full, (_, notes)) in enumerate(zip(fulls, rendered, strict=True)):
+        warnings = list(notes)
+        if len(full.as_posix()) > PATH_LENGTH_WARN:
+            warnings.append(f"path is {len(full.as_posix())} chars, near the Windows 260 limit")
+        if i in collisions:
+            warnings.append("collides with another sample on a case-insensitive filesystem")
+        rows.append(PreviewRow(path=full, warnings=tuple(warnings)))
+    return rows
 
 
 #: The default layout, parsed once.

@@ -120,3 +120,41 @@ def test_newer_catalog_is_refused(tmp_path: Path) -> None:
 
     with pytest.raises(CatalogVersionError):
         Catalog(db)
+
+
+def _make_v6_catalog(path: Path) -> None:
+    """A pre-settings (v6) catalog: a files table + user_version 6, no settings table yet."""
+    conn = sqlite3.connect(str(path))
+    conn.executescript(
+        """
+        CREATE TABLE files (
+            id INTEGER PRIMARY KEY, source_path TEXT NOT NULL, sha256 TEXT NOT NULL UNIQUE,
+            category TEXT NOT NULL, relative TEXT NOT NULL, upload_status TEXT NOT NULL,
+            processed_at TEXT NOT NULL
+        );
+        PRAGMA user_version = 6;
+        """
+    )
+    conn.commit()
+    conn.close()
+
+
+def test_v6_catalog_migrates_to_settings_table(tmp_path: Path) -> None:
+    db = tmp_path / "v6.sqlite"
+    _make_v6_catalog(db)
+
+    with Catalog(db) as catalog:
+        assert catalog.schema_version == CURRENT_SCHEMA_VERSION  # v7 migration ran
+        assert catalog.get_setting("layout_template") is None  # settings table exists, empty
+        catalog.set_setting("layout_template", "{category}/{yyyy}")
+
+    with Catalog(db) as catalog:  # persisted across reopen
+        assert catalog.get_setting("layout_template") == "{category}/{yyyy}"
+
+
+def test_setting_overwrites_and_missing_is_none(tmp_path: Path) -> None:
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        catalog.set_setting("k", "first")
+        catalog.set_setting("k", "second")
+        assert catalog.get_setting("k") == "second"
+        assert catalog.get_setting("never-set") is None

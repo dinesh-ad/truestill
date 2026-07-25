@@ -89,10 +89,17 @@ CREATE TABLE IF NOT EXISTS file_copies (
     PRIMARY KEY (sha256, drive_uuid)
 );
 CREATE INDEX IF NOT EXISTS idx_file_copies_drive ON file_copies (drive_uuid);
+
+-- Per-catalog key/value settings. First use: the destination layout template (which folder
+-- structure this library is organized into), so a re-organization can diff against it.
+CREATE TABLE IF NOT EXISTS settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 """
 
 #: Bump whenever the schema changes, and add a matching entry to _MIGRATIONS.
-CURRENT_SCHEMA_VERSION = 6
+CURRENT_SCHEMA_VERSION = 7
 
 
 class CatalogVersionError(RuntimeError):
@@ -174,6 +181,17 @@ def _add_drive_tables(conn: sqlite3.Connection) -> None:
     )
 
 
+def _add_settings_table(conn: sqlite3.Connection) -> None:
+    """v6 -> v7: a per-catalog key/value settings store (first use: the layout template)."""
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY, value TEXT NOT NULL
+        );
+        """
+    )
+
+
 #: Ordered migrations: ``(target_version, fn)``. Each is idempotent and lifts a database
 #: from ``target_version - 1`` to ``target_version``. Append; never rewrite history.
 _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
@@ -182,6 +200,7 @@ _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (4, _add_event_tables),
     (5, _add_takeout_tables),
     (6, _add_drive_tables),
+    (7, _add_settings_table),
 )
 
 
@@ -235,6 +254,20 @@ class Catalog:
     @property
     def schema_version(self) -> int:
         return int(self._conn.execute("PRAGMA user_version").fetchone()[0])
+
+    def get_setting(self, key: str) -> str | None:
+        """Return a stored setting's value, or ``None`` if it was never set."""
+        row = self._conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+        return None if row is None else str(row["value"])
+
+    def set_setting(self, key: str, value: str) -> None:
+        """Persist a setting, replacing any prior value for ``key``."""
+        with self._tx() as conn:
+            conn.execute(
+                "INSERT INTO settings (key, value) VALUES (?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (key, value),
+            )
 
     def __enter__(self) -> Self:
         return self
