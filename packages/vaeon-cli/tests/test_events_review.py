@@ -52,7 +52,7 @@ def test_naming_applies_and_is_remembered(tmp_path: Path) -> None:
         )
         assert len(event_ids) == 10
         assert all(
-            str(r.decision.relative).startswith("Camera/2026/06/20260614_goa-trip/")
+            r.decision.relative.as_posix().startswith("Camera/2026/06/20260614_goa-trip/")
             for r in updated
         )
 
@@ -60,7 +60,7 @@ def test_naming_applies_and_is_remembered(tmp_path: Path) -> None:
     with Catalog(db) as catalog:
         updated2, event_ids2 = run_event_stage(resolutions, {}, catalog, apply=True, prompt=_boom)
         assert len(event_ids2) == 10
-        assert all("20260614_goa-trip" in str(r.decision.relative) for r in updated2)
+        assert all("20260614_goa-trip" in r.decision.relative.as_posix() for r in updated2)
 
 
 def test_skip_is_remembered_and_not_reasked(tmp_path: Path) -> None:
@@ -73,7 +73,7 @@ def test_skip_is_remembered_and_not_reasked(tmp_path: Path) -> None:
         )
         assert event_ids == {}
         # paths unchanged -- cluster left flat
-        assert all("20260614_goa-trip" not in str(r.decision.relative) for r in updated)
+        assert all("20260614_goa-trip" not in r.decision.relative.as_posix() for r in updated)
 
     with Catalog(db) as catalog:
         _, event_ids2 = run_event_stage(resolutions, {}, catalog, apply=True, prompt=_boom)

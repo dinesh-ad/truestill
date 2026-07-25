@@ -50,7 +50,7 @@ def test_apply_events_consolidates_cross_month_under_start_month() -> None:
     assignments = {"/src/a.jpg": (start, "goa-trip"), "/src/b.jpg": (start, "goa-trip")}
 
     updated = apply_events([r_jun, r_jul], assignments)
-    relatives = {str(r.decision.relative) for r in updated}
+    relatives = {r.decision.relative.as_posix() for r in updated}
     assert relatives == {
         "Camera/2026/06/20260630_goa-trip/a.jpg",
         "Camera/2026/06/20260630_goa-trip/b.jpg",  # July file consolidated under June
