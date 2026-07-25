@@ -20,7 +20,51 @@ def client(tmp_path: Path) -> TestClient:
 def test_library_status_is_honest_when_empty(client: TestClient) -> None:
     s = client.get("/api/library/status").json()
     assert s["photos"] == 0
+    assert s["videos"] == 0
     assert s["places"] == 0  # honest zero -> "not backed up yet", never a fake count
+
+
+def _seed_media(db: Path) -> None:
+    from vaeon_core.catalog import Catalog  # noqa: PLC0415 - test-local
+
+    with Catalog(db) as catalog:
+        catalog.upsert_drive(uuid="D1", label="BackupA")
+        rows = [
+            ("IMG_1.jpg", "Camera/2023/08/IMG_1.jpg"),
+            ("IMG_2.heic", "Camera/2023/08/IMG_2.heic"),
+            ("VID_1.mp4", "Camera/2023/08/VID_1.mp4"),
+        ]
+        for i, (name, rel) in enumerate(rows):
+            sha = f"{i:064x}"
+            catalog.record_uploaded(
+                source_path=f"/src/{name}",
+                original_name=name,
+                sha256=sha,
+                copy_sha256=sha,
+                perceptual=None,
+                size=1000,
+                captured_at=None,
+                category="Camera",
+                relative=rel,
+                drive_uuid="D1",
+            )
+
+
+def test_library_status_splits_photos_and_videos(client: TestClient, tmp_path: Path) -> None:
+    _seed_media(tmp_path / "c.sqlite")
+    s = client.get("/api/library/status").json()
+    assert s["photos"] == 2  # jpg + heic
+    assert s["videos"] == 1  # mp4
+    assert s["by_format"]["photos"] == {"jpg": 1, "heic": 1}
+    assert s["by_format"]["videos"] == {"mp4": 1}
+
+
+def test_drives_split_photos_and_videos(client: TestClient, tmp_path: Path) -> None:
+    _seed_media(tmp_path / "c.sqlite")
+    drives = client.get("/api/drives").json()["drives"]
+    assert len(drives) == 1
+    assert drives[0]["photos"] == 2
+    assert drives[0]["videos"] == 1
 
 
 def test_fs_dirs_returns_roots_when_no_path(client: TestClient) -> None:

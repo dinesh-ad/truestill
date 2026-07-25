@@ -20,7 +20,31 @@ from vaeon_core.models import (
     FileHashes,
     Resolution,
 )
-from vaeon_core.organizer import apply_events, discover, execute, plan, resolve, scan_source
+from vaeon_core.organizer import (
+    AUDIO_EXTENSIONS,
+    IMAGE_EXTENSIONS,
+    MEDIA_EXTENSIONS,
+    VIDEO_EXTENSIONS,
+    apply_events,
+    discover,
+    execute,
+    media_kind,
+    plan,
+    resolve,
+    scan_source,
+)
+
+
+def test_media_kind_classifies_photo_video_audio() -> None:
+    assert media_kind("IMG_1.JPG") == "photo"
+    assert media_kind("holiday.cr2") == "photo"
+    assert media_kind("clip.mp4") == "video"
+    assert media_kind("VID.MTS") == "video"
+    assert media_kind("note.m4a") == "audio"
+    assert media_kind("notes.pdf") is None
+    # the split sets partition MEDIA_EXTENSIONS with no overlap
+    assert IMAGE_EXTENSIONS | VIDEO_EXTENSIONS | AUDIO_EXTENSIONS == MEDIA_EXTENSIONS
+    assert not (IMAGE_EXTENSIONS & VIDEO_EXTENSIONS)
 
 
 def test_scan_source_partitions_media_documents_and_unrecognized(tmp_path: Path) -> None:

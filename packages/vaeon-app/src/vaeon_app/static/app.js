@@ -52,6 +52,27 @@ const CAT_INFO = {
 };
 const catTip = (name) => CAT_INFO[name] || "Folder derived from the file’s own details.";
 
+// "24 photos · 6 videos" — split, honest about the mix, zeros omitted (photos shown if all zero)
+function mediaCount(s) {
+  const parts = [];
+  if (s.photos) parts.push(`${nfmt(s.photos)} photo${s.photos === 1 ? "" : "s"}`);
+  if (s.videos) parts.push(`${nfmt(s.videos)} video${s.videos === 1 ? "" : "s"}`);
+  if (s.audio) parts.push(`${nfmt(s.audio)} audio`);
+  return parts.length ? parts.join(" · ") : "0 photos";
+}
+// collapsible "By format ▾" — extension counts split by photos / videos / audio, monospace
+function byFormat(bf) {
+  if (!bf) return "";
+  const line = (grp, label) => {
+    const e = Object.entries(bf[grp] || {});
+    return e.length ? `${label}: ${e.map(([x, n]) => `${esc(x)} ${n}`).join(" · ")}` : "";
+  };
+  const rows = [line("photos", "photos"), line("videos", "videos"), line("audio", "audio")].filter(Boolean);
+  return rows.length
+    ? `<details class="more"><summary>By format ▾</summary><div class="k mono" style="line-height:1.8;margin-top:var(--space-2)">${rows.join("<br>")}</div></details>`
+    : "";
+}
+
 // ---------- navigation ----------
 function showScreen(name) {
   document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("active", s.id === `screen-${name}`));
@@ -70,9 +91,11 @@ async function loadCustody() {
   const filled = Math.min(places, 3);
   pips.textContent = [0, 1, 2].map((i) => (i < filled ? "▪" : "▫")).join(" ");
   pips.classList.toggle("none", places === 0);
-  if (!s.photos) line.innerHTML = "<b>0 photos</b> · not backed up yet";
-  else if (places === 0) line.innerHTML = `<b>${nfmt(s.photos)} photos</b> · not on a backup drive yet`;
-  else line.innerHTML = `<b>${nfmt(s.photos)} photos</b> · safe in ${places} place${places > 1 ? "s" : ""}`;
+  const safe = !s.files ? "not backed up yet"
+    : places === 0 ? "not on a backup drive yet"
+    : `safe in ${places} place${places > 1 ? "s" : ""}`;
+  // deliberate two lines (counts, then safety) so nothing orphans at the 232px sidebar width
+  line.innerHTML = `<b>${s.files ? mediaCount(s) : "0 photos"}</b><br><span class="safe">${safe}</span>`;
 }
 
 // ---------- folder picker ----------
@@ -96,9 +119,10 @@ async function pkNavigate(path) {
   const crumbs = [`<a data-p="/">/</a>`].concat(segs.map((s) => { acc += "/" + s; return `<a data-p="${esc(acc)}">${esc(s)}</a>`; }));
   $("pk-crumbs").innerHTML = crumbs.join(" <span>›</span> ");
   const entries = data.entries || [];
+  const emptyMsg = data.error ? esc(data.error) : pk.path ? "No sub-folders here." : "Pick a place on the left to start.";
   $("pk-dirs").innerHTML = entries.length
     ? entries.map((e) => `<button class="diritem" data-p="${esc(e.path)}">${esc(e.name)}</button>`).join("")
-    : `<div class="empty">${data.error ? esc(data.error) : "No sub-folders here."}</div>`;
+    : `<div class="empty">${emptyMsg}</div>`;
   $("picker").querySelectorAll(".diritem, .crumbs a").forEach((n) => { n.onclick = () => pkNavigate(n.dataset.p); });
   updateUse();
 }
@@ -190,7 +214,7 @@ function renderOrganizeResult(s) {
   }
   const heic = s.heic_perceptual_skipped ? `<div class="banner warn"><div>${s.heic_perceptual_skipped} HEIC file(s) will be backed up, but near-duplicate detection is unavailable for them.</div></div>` : "";
   $("org-result").innerHTML = card(
-    `<div class="headline">${nfmt(s.files)} photos and videos found</div>
+    `<div class="headline">${mediaCount(s)} found</div>
      <div class="tally">
        <div class="n">${nfmt(s.new_unique)}</div><div class="k">new - will be organized</div>
        <div class="n">${nfmt(s.near_dup)}</div><div class="k">look-alikes - kept and flagged</div>
@@ -198,7 +222,7 @@ function renderOrganizeResult(s) {
        <div class="n">${nfmt(s.undated)}</div><div class="k">no date - will go to “Undated”</div>
      </div>
      ${folders ? `<h3>Into these folders <span style="font-weight:400;color:var(--text-muted)">- hover a chip for what it means</span></h3><div class="chips">${folders}</div>${legend}` : ""}
-     ${heic}${details}`
+     ${byFormat(s.by_format)}${heic}${details}`
   );
   return kept;
 }
@@ -238,17 +262,25 @@ $("org-cancel").onclick = () => { if (orgJob) api(`/api/jobs/${orgJob}/cancel`, 
 
 // ---------- Backups ----------
 async function loadDrives() {
-  const { drives, at_risk } = await api("/api/drives");
+  const [{ drives, at_risk }, lib] = await Promise.all([api("/api/drives"), get("/api/library/status")]);
   const list = $("drives-list");
   if (!drives.length) {
     list.innerHTML = `<div class="card"><div class="empty">No backup drives yet. Connect one and click “Check now”.</div></div>`;
     return;
   }
+  // Library summary (counts + formats only, catalog-driven — deliberately not a dashboard).
+  const summary = `<div class="card"><div class="headline" style="font-size:var(--text-lg)">Your library</div>
+    <div class="k mono">${mediaCount(lib)} · ${fmtBytes(lib.bytes)}</div>${byFormat(lib.by_format)}</div>`;
   const risk = at_risk.length ? `<div class="banner warn"><div>${at_risk.length} photo(s) exist in only one place.</div></div>` : "";
-  list.innerHTML = drives.map((d) => `<div class="card"><div class="tally" style="grid-template-columns:1fr auto">
-      <div><b>${esc(d.label)}</b><div class="k mono">${nfmt(d.files)} files · ${fmtBytes(d.size)}</div></div>
-      <div class="mono" style="color:var(--success)">▪ ▪ ▫</div></div>
-      <div class="k mono" style="font-size:var(--text-xs)">last checked: ${(d.last_verified || "never").slice(0, 10)}</div></div>`).join("") + risk;
+  const cards = drives.map((d) => {
+    const pips = Math.min(drives.length, 3);  // ambient: how many places this library lives in
+    const strip = [0, 1, 2].map((i) => (i < pips ? "▪" : "▫")).join(" ");
+    return `<div class="card"><div class="tally" style="grid-template-columns:1fr auto">
+      <div><b>${esc(d.label)}</b><div class="k mono">${mediaCount(d)} · ${fmtBytes(d.size)}</div></div>
+      <div class="mono" style="color:var(--success)">${strip}</div></div>
+      <div class="k mono" style="font-size:var(--text-xs)">last checked: ${(d.last_verified || "never").slice(0, 10)}</div></div>`;
+  }).join("");
+  list.innerHTML = summary + cards + risk;
 }
 $("verify-run").onclick = async () => {
   const path = $("verify-path").value.trim();

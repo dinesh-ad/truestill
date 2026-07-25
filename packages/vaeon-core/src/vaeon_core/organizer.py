@@ -43,13 +43,13 @@ from vaeon_core.progress import ProgressCallback
 from vaeon_core.scan import DEFAULT_WORKERS, PoolKind, compute_hashes
 from vaeon_core.takeout import IngestContext, MetadataWrite, TakeoutSidecar
 
-#: Extensions treated as media. Anything else is skipped unless the caller opts in.
-MEDIA_EXTENSIONS: frozenset[str] = frozenset(
+#: Photo extensions (standard + HEIF variants + RAW). RAW is dated by exiftool; perceptual works
+#: for the TIFF-based RAW, exact-only otherwise.
+IMAGE_EXTENSIONS: frozenset[str] = frozenset(
     {
-        # images
         ".jpg",
         ".jpeg",
-        ".jpe",  # JPEG aliases
+        ".jpe",
         ".jfif",
         ".png",
         ".gif",
@@ -59,9 +59,8 @@ MEDIA_EXTENSIONS: frozenset[str] = frozenset(
         ".tiff",
         ".heic",
         ".heif",
-        ".hif",  # HEIF variant (Canon/Fujifilm)
+        ".hif",
         ".avif",
-        # RAW (dated by exiftool; perceptual works for the TIFF-based ones, exact-only otherwise)
         ".dng",
         ".raw",
         ".cr2",
@@ -89,7 +88,12 @@ MEDIA_EXTENSIONS: frozenset[str] = frozenset(
         ".x3f",
         ".ari",
         ".gpr",
-        # video
+    }
+)
+
+#: Video extensions.
+VIDEO_EXTENSIONS: frozenset[str] = frozenset(
+    {
         ".mp4",
         ".mov",
         ".m4v",
@@ -104,16 +108,28 @@ MEDIA_EXTENSIONS: frozenset[str] = frozenset(
         ".flv",
         ".mts",
         ".m2ts",
-        # audio (voice notes travel with messenger exports)
-        ".m4a",
-        ".aac",
-        ".opus",
-        ".ogg",
-        ".mp3",
-        ".wav",
-        ".amr",
     }
 )
+
+#: Audio extensions (voice notes travel with messenger exports).
+AUDIO_EXTENSIONS: frozenset[str] = frozenset(
+    {".m4a", ".aac", ".opus", ".ogg", ".mp3", ".wav", ".amr"}
+)
+
+#: Extensions treated as media. Anything else is skipped unless the caller opts in.
+MEDIA_EXTENSIONS: frozenset[str] = IMAGE_EXTENSIONS | VIDEO_EXTENSIONS | AUDIO_EXTENSIONS
+
+
+def media_kind(name: str) -> str | None:
+    """Classify a path/filename as ``"photo"``, ``"video"``, ``"audio"``, or ``None``."""
+    ext = Path(name).suffix.lower()
+    if ext in IMAGE_EXTENSIONS:
+        return "photo"
+    if ext in VIDEO_EXTENSIONS:
+        return "video"
+    if ext in AUDIO_EXTENSIONS:
+        return "audio"
+    return None
 
 
 #: Common document / archive extensions, reported separately from unrecognized files so a

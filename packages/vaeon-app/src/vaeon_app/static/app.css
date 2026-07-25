@@ -113,6 +113,9 @@ code,
   color: var(--text);
   font-weight: var(--weight-semibold);
 }
+.custody .line .safe {
+  color: var(--text-muted);
+}
 
 /* ---------- main / screens ---------- */
 .main {

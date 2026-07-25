@@ -38,6 +38,7 @@ from vaeon_core.organizer import (
     SourceScan,
     discover,
     execute,
+    media_kind,
     plan,
     resolve,
     scan_source,
@@ -53,13 +54,33 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _media_breakdown(names: Any) -> dict[str, Any]:
+    """Split a set of file names into photos / videos / audio counts and per-extension formats."""
+    plural = {"photo": "photos", "video": "videos", "audio": "audio"}
+    counts = {"photos": 0, "videos": 0, "audio": 0}
+    fmt: dict[str, Counter[str]] = {"photos": Counter(), "videos": Counter(), "audio": Counter()}
+    for name in names:
+        kind = media_kind(name)
+        if kind is None:
+            continue
+        group = plural[kind]
+        counts[group] += 1
+        fmt[group][Path(name).suffix.lower().lstrip(".")] += 1
+    return {**counts, "by_format": {g: dict(c.most_common()) for g, c in fmt.items()}}
+
+
 def _summarize(resolutions: list[Resolution]) -> dict[str, Any]:
     uploads = [r for r in resolutions if r.should_upload]
     near = [r for r in uploads if r.near_duplicate is not None]
     labels = Counter(r.decision.category.label for r in uploads)
     heic = sum(1 for r in resolutions if r.decision.source.suffix.lower() in HEIF_EXTENSIONS)
+    breakdown = _media_breakdown([r.decision.source.name for r in resolutions])
     summary: dict[str, Any] = {
         "files": len(resolutions),
+        "photos": breakdown["photos"],
+        "videos": breakdown["videos"],
+        "audio": breakdown["audio"],
+        "by_format": breakdown["by_format"],
         "new_unique": len(uploads) - len(near),
         "near_dup": len(near),
         "exact_dup": len(resolutions) - len(uploads),
@@ -181,17 +202,26 @@ def verify_run(path: Path, db: Path) -> JobTarget:
 
 def list_drives(db: Path) -> list[dict[str, Any]]:
     with Catalog(db) as catalog:
-        return [
-            {
-                "label": d["label"],
-                "uuid": d["uuid"],
-                "files": d["file_count"],
-                "size": d["total_size"] or 0,
-                "last_seen": d["last_seen"],
-                "last_verified": d["last_verified"],
-            }
-            for d in catalog.list_drives()
-        ]
+        names_by_drive: dict[str, list[str]] = {}
+        for row in catalog.copy_names_by_drive():
+            names_by_drive.setdefault(row["drive_uuid"], []).append(row["relative"])
+        drives = []
+        for d in catalog.list_drives():
+            breakdown = _media_breakdown(names_by_drive.get(d["uuid"], []))
+            drives.append(
+                {
+                    "label": d["label"],
+                    "uuid": d["uuid"],
+                    "files": d["file_count"],
+                    "photos": breakdown["photos"],
+                    "videos": breakdown["videos"],
+                    "audio": breakdown["audio"],
+                    "size": d["total_size"] or 0,
+                    "last_seen": d["last_seen"],
+                    "last_verified": d["last_verified"],
+                }
+            )
+        return drives
 
 
 def where(term: str, db: Path) -> list[dict[str, Any]]:
@@ -373,12 +403,17 @@ def fs_validate(path_str: str, *, cap: int = 10000) -> dict[str, Any]:
 def library_status(db: Path) -> dict[str, Any]:
     """Honest, catalog-driven totals for the custody strip. Zeros when the catalog is empty."""
     with Catalog(db) as catalog:
-        photos = catalog.count()
+        breakdown = _media_breakdown(catalog.media_names())
+        total = catalog.count()
         drives = [d for d in catalog.list_drives() if d["file_count"]]
         single_copy = len(catalog.single_copy_shas())
         total_bytes = sum(d["total_size"] or 0 for d in drives)
     return {
-        "photos": photos,
+        "files": total,
+        "photos": breakdown["photos"],
+        "videos": breakdown["videos"],
+        "audio": breakdown["audio"],
+        "by_format": breakdown["by_format"],
         "places": len(drives),
         "single_copy": single_copy,
         "bytes": total_bytes,

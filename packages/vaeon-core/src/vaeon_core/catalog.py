@@ -475,6 +475,15 @@ class Catalog:
     def count(self) -> int:
         return int(self._conn.execute("SELECT COUNT(*) FROM files").fetchone()[0])
 
+    def media_names(self) -> list[str]:
+        """Every file's name (original if known, else its stored path) for format classification."""
+        cursor = self._conn.execute("SELECT COALESCE(original_name, relative) AS n FROM files")
+        return [str(row["n"]) for row in cursor]
+
+    def copy_names_by_drive(self) -> list[sqlite3.Row]:
+        """``(drive_uuid, relative)`` for every recorded copy, to split per-drive counts by format."""
+        return list(self._conn.execute("SELECT drive_uuid, relative FROM file_copies"))
+
     def known_sizes(self) -> frozenset[int]:
         """Byte sizes of all catalogued files, for the scan's size pre-filter.
 
