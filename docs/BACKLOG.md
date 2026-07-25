@@ -11,6 +11,14 @@ decision context that produced them.
   (that rule is absolute). Today, catalog resume-by-content (`catalog.known_sizes` +
   `seed_rows`) covers re-runs; the cache would additionally skip re-hashing unchanged files
   across runs. Marked convention-not-implemented in `IMPLEMENTATION_STANDARDS.md` §8.
+  - **Reference design:** PixSort `backend/pixsort/utils/hash_cache.py` — a small SQLite table
+    keyed on `(filepath, file_size, mtime)` → content digest; a lookup validates the file is
+    unchanged (size **and** mtime within ~1s) before trusting the cached digest.
+  - **Constraints from the PixSort audit (`PixSort/AUDIT_REPORT.md`):** keep **a single cache
+    layer** — never a second parallel store (PixSort's dual-store drift was a defect). Invalidate
+    an entry on **size OR mtime mismatch**. **Wire cleanup into the run lifecycle** — PixSort
+    *defined* `cleanup_stale_entries()` but **never called it anywhere**, so stale rows
+    accumulated forever; vaeon must actually invoke pruning as part of a run.
 - **GPS-derived per-photo timezone.** Deferred during Takeout Rescue Mode. `--tz` is a single
   fixed offset for the whole run, which cannot correctly date a library that spans timezones;
   the real fix derives each photo's timezone from its GPS. The near-midnight caveat is
@@ -69,3 +77,23 @@ decision context that produced them.
 - **Desktop UI: Tauri vs local-web.** Parked architecture decision. The Rust-backed Tauri path
   informed the SHA-256/no-BLAKE3 hashing choice; the event-review interaction is the feature
   that will ultimately force the decision.
+  - **(o) Lessons from the PixSort audit** (`PixSort/AUDIT_REPORT.md`): whatever wraps the UI,
+    **one process serves the real UI**, bound to **loopback only**, and there is **never a second
+    framework runtime beside the Python core**. PixSort's Electron+Next.js shell ran a whole JS
+    runtime alongside the backend — the coupling and bundle weight it caused is exactly what
+    vaeon's single-process, server-rendered, no-build local-web UI avoids. A native shell (if ever
+    built) wraps that one process; it does not add a second app runtime.
+
+## Ideas / deferred
+
+- **(m) Duplicate-cleanup staging UX.** A **preview → confirm → trash (with restore)** flow for
+  removing duplicates — the validated safe-delete pattern (same spirit as `reclaim`'s dry-run +
+  typed confirm, but for dedup). Note the real gap PixSort never closed: vaeon's near-duplicate
+  review still needs a **visual side-by-side compare** (show the two look-alikes at actual pixels
+  so a human decides which to keep) — PixSort had no such compare, and a trash-with-restore is
+  only trustworthy once the human can actually *see* what they're removing.
+- **(n) "How your dates were determined" honesty stat.** A per-run/library figure in the
+  reports/UI showing the **provenance mix** of capture dates — e.g. "82% from embedded EXIF, 11%
+  from filename, 5% from Takeout, 2% Undated" (a metadata-accuracy %). vaeon already resolves and
+  could persist `date_source` (see the metadata-chain §1b.3 schema-v9 note); surfacing it honestly
+  tells a user how much to trust their timeline, in vaeon's report voice.
