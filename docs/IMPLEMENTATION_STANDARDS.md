@@ -1,0 +1,156 @@
+# vaeon — Implementation Standards (the binding contract)
+
+The vaeon-specific rules, stated as checkable facts against this repo. This contract
+**overrides** [`ENGINEERING_STANDARD.md`](ENGINEERING_STANDARD.md) on any conflict. Every
+rule cites where it is enforced — a source symbol, a hook, a CI step, or a test — or is
+marked **convention — not yet enforced** (a human-process rule with no automated gate).
+
+Paths are workspace-relative. Symbols are cited over line numbers, which drift.
+
+---
+
+## 1. Product invariants
+
+| Invariant | Enforced by |
+|---|---|
+| **Original quality is the top priority.** Media pixels are never re-encoded. | The pipeline only copies bytes; the sole content write is metadata-only (see below). |
+| **Copy-only — never move or delete user files.** | `organizer.execute` uploads via `LocalDestination.upload` (`shutil.copy2`) / `RcloneDestination.upload` (`rclone copyto`). There is no `move`/`delete`/`sync` code path over user data. `rclone` uses `copyto`, never `sync` (`destinations/rclone.py`). |
+| **Copies are byte-identical to the source EXCEPT the scoped Takeout write.** | Normal path uploads the source unchanged. The only exception is `organizer._upload_with_metadata_write`, reached **only** when an `IngestContext` carries a write (Takeout ingestion); it stages a temp copy, bakes metadata losslessly via `exif.write_metadata` (no pixel re-encode), and never touches the source. |
+| **Categorization is evidence-derived — no hardcoded taxonomy.** | `categorize.build_rules` is an ordered rule chain; labels are plain `str` (there is no `Category` enum in `models.py`). New sources are added as a `NAME_PATTERNS` row or derived from the `Software`/device rules. |
+| **Dating uses an evidence chain, never filesystem mtime.** | `dates.resolve_capture_datetime`. mtime is only ever *written* (`organizer._apply_timestamp` sets mtime from the resolved capture date); it is never *read* for placement. |
+
+**Dating tier order (current), from `dates.resolve_capture_datetime`:**
+
+- Default: **sane embedded EXIF** → **Takeout `photoTakenTime`** (`TAKEOUT`) → **Takeout
+  `creationTime`** (`TAKEOUT_UPLOAD`, approximate) → **filename convention** (`FILENAME`) →
+  **none** (`NONE` → `Undated/`).
+- `--prefer-takeout-dates` flips the first two (`photoTakenTime` above EXIF).
+- "Sane" EXIF = parseable and year in `[1990, 2100]`; outside that, a Takeout date wins.
+- Takeout times are epoch-UTC, converted to local wall-clock **exactly once**
+  (`takeout.local_naive`); `--tz ±HH:MM` supplies the offset.
+
+---
+
+## 2. Architecture contract
+
+- **uv workspace**, two packages (root `pyproject.toml` `[tool.uv.workspace]`):
+  - `packages/vaeon-core/` — the pure library. The clustering core (`events.py`) does **no
+    I/O** and takes no filesystem/interaction dependencies; it operates on passed-in data.
+  - `packages/vaeon-cli/` — the thin CLI (`vaeon organize` / `vaeon ingest`), which wires
+    core stages together and owns all interaction (prompts, printing).
+  - Future packages (e.g. a desktop app) slot **beside** these without restructuring the core.
+- **Destinations behind an interface.** `destinations/base.py::Destination` (ABC:
+  `exists`/`upload`/`list`/`describe`). Implementations: `LocalDestination`,
+  `RcloneDestination`. Nothing in organize/dedup logic names a specific backend. Relative
+  paths are POSIX across all backends (enforced: `LocalDestination.list` returns `.as_posix()`;
+  regression-tested cross-OS in CI).
+- **Capability seam for Pro-tier candidates** (`--events`, `--map-albums`, Takeout ingestion
+  are the candidates). **Convention — not yet enforced:** there is no licensing/tier code in
+  the repo today; these are gated only by CLI flags. Keep them cleanly separable so a seam can
+  be introduced without forking core logic.
+
+---
+
+## 3. Data contract (catalog)
+
+- **Single SQLite file**, stdlib `sqlite3` (`catalog.py::Catalog`). No server.
+- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 5`**.
+  Migrations are ordered, idempotent functions in `_MIGRATIONS`; a catalog newer than the code
+  is refused (`CatalogVersionError`). Migration coverage tested in `tests/test_catalog.py`.
+- **Table inventory (v5):** `files`, `albums`, `file_albums`, `events`, `skipped_clusters`.
+- **Migration ledger:** v2 `size`, v3 `original_name`, v4 event tables (`events` +
+  `skipped_clusters` + `files.event_id`), v5 Takeout (`files.copy_sha256` + `albums` +
+  `file_albums`).
+- **Dual-hash rule.** `files.sha256` is the **source** (pre-write) hash — the **dedup
+  identity**. `files.copy_sha256` is the organized copy's **post-write** hash — the
+  **verification identity** (equal to `sha256` for the byte-identical normal pipeline; differs
+  after a Takeout metadata write). Any future copy-verification compares against
+  `copy_sha256`, never `sha256`. Recorded by `catalog.record_uploaded`.
+
+---
+
+## 4. Filename & organization contract
+
+- **Copy filename:** `YYYYMMDD_HHMMSS_<original>` (date-only when the time is unknown), from
+  the same date evidence used for placement (`naming.dated_filename`). Originals are never
+  renamed.
+- **Exact-stamp suppression:** the prefix is added **only** when that exact stamp is not
+  already in the name — so date-embedded names (screenshots) are not double-dated and re-runs
+  never stack a prefix; any mismatch keeps the authoritative prefix. Pinned in
+  `tests/test_naming.py` (incl. real screenshot/WhatsApp cases). Disable with `--no-rename`.
+- **Folder structure:** `<Label>/YYYY/MM/` (bare two-digit month). Undated → `<Label>/Undated/`.
+- **Event placement:** named Camera events become `<Label>/YYYY/MM/YYYYMMDD_<slug>/`. A cluster
+  straddling a month boundary is consolidated under its **start** month
+  (`organizer.apply_events`; pinned by `test_apply_events_consolidates_cross_month_under_start_month`).
+- **Category set** (derived, ordered; `categorize.build_rules`): screenshot-by-metadata →
+  screenshot-by-name → messenger/app filename conventions → editing `Software` →
+  capture device (`Camera`, or per-device with `--by-device`) → `Saved/`.
+- **`Saved/` heuristic:** a no-camera-EXIF image under `_SOCIAL_MAX_PIXELS` (2 MP) is flagged a
+  likely social/web save (`categorize.rule_saved_heuristic`); true unknowns also fall to
+  `Saved/` (`rule="fallback"`). No Instagram/Facebook-style categories — undetectable
+  post-strip, so not created.
+
+---
+
+## 5. Process contract
+
+| Rule | Status |
+|---|---|
+| **Staged/gated workflow** — no new stage without explicit user confirmation. | Convention — not yet enforced (human process). |
+| **Flag before deviating** — surface a spec/engineering conflict before implementing; never silently comply or silently deviate. | Convention — not yet enforced. |
+| **Research-first for every feature** — mine the issue trackers of tools that fought the same battle; write findings down. | Convention; exemplar: `docs/takeout-format.md`. |
+| **One fix per commit** — focused, reviewable commits. | Convention — visible in git history. |
+| **Dry-run before real runs** — planning writes nothing; `--apply` is the only writing path. | Enforced: `organizer.execute(apply=...)`; CLI defaults to dry run. |
+| **Never push without being asked.** | Convention — not yet enforced. |
+| **Commit identity / no-AI-trailer** — no `Co-Authored-By` trailer, no Anthropic/Claude email or signature in history. | **Enforced:** `scripts/check_commit_msg.py` via the `commit-msg` pre-commit hook (`.pre-commit-config.yaml`, id `no-ai-coauthor`). Activate: `uv run pre-commit install --hook-type commit-msg`. |
+
+---
+
+## 6. Quality gates
+
+- **`make check`** = `ruff check .` (lint) + `mypy` on both `src` trees + `pytest` (`Makefile`).
+- **`ruff format --check`** is a separate gate in CI (and `make format` applies it).
+- **CI** (`.github/workflows/ci.yml`): matrix **{ubuntu, macos, windows} × Python 3.13**; steps
+  = sync → ruff (lint) → ruff (format --check) → mypy → pytest; exiftool installed per-OS.
+- **`uv build --all-packages`** must produce clean wheels for both packages (`make build`);
+  `vaeon-core` ships `py.typed`.
+- **Test counts are never hardcoded** as a done-ness signal — they change. Assert behaviour,
+  not totals.
+
+---
+
+## 7. Dependency inventory
+
+Runtime deps must justify themselves against stdlib. Current state:
+
+| Dependency | Why it exists (vs stdlib) |
+|---|---|
+| `imagehash>=4.3.1` (`vaeon-core`) | Perceptual dHash for near-duplicate detection; requires image decoding, which the stdlib cannot do. |
+| `pillow>=10.0.0` (`vaeon-core`) | Image decoding backing imagehash and cheap dimension reads. |
+| `exiftool` (external **binary**, not a pip dep) | The only tool that reads photo EXIF, **video container tags**, and vendor MakerNotes (e.g. the screenshot marker) through one interface, and the writer used for the scoped Takeout bake. A pip EXIF library would cover photos only. |
+| `vaeon-cli` runtime deps | Only `vaeon-core` (workspace source). |
+
+SHA-256 (`hashlib`), SQLite (`sqlite3`), concurrency (`concurrent.futures`), and all path/date
+work are **stdlib** — no dependency. **BLAKE3 is deliberately absent** (SHA-256 is hardware-
+accelerated and doubles as the dedup + verification hash without a compiled dep).
+
+**Version policy:** `requires-python` = `>=3.12` (core), `>=3.13` (cli). Lower-bound + lock;
+`uv.lock` is the single source of truth; no blind upper-pins; updates via periodic
+`uv lock --upgrade` review.
+
+---
+
+## 8. Performance law (checkable)
+
+- **Stream, never slurp.** `hashing.sha256_file` reads in `1 MiB` chunks; no whole-media read.
+- **Size pre-filter is law.** SHA-256 is computed only for files whose byte size collides
+  in-scan or with a catalogued size (`scan._needs_sha`); unique-size files skip the read.
+- **One disk pass per file per run.** Re-runs skip already-processed content via catalog resume
+  (`catalog.known_sizes` seeds the pre-filter; `catalog.seed_rows` seeds the dedup index).
+  *A per-path mtime hash cache is **convention — not yet implemented**; catalog resume-by-content
+  currently serves the re-run case.*
+- **Concurrency for I/O-bound batches** via a worker pool (`scan.compute_hashes`, thread or
+  process, benchmarked default = thread).
+- **No accidental O(n²).** The perceptual dedup is a linear scan per file, documented in
+  `dedup.py` as acceptable at current scale with a BK-tree noted as the drop-in for growth.
+  Any nested library iteration must carry a comment proving its bound.

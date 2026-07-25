@@ -2,6 +2,18 @@
 
 Guidance for working in this repository.
 
+## Read first (the two-document contract)
+
+At the start of every session, read both:
+
+1. [`docs/ENGINEERING_STANDARD.md`](ENGINEERING_STANDARD.md) — the portable canon (workflow,
+   research order, code standard).
+2. [`docs/IMPLEMENTATION_STANDARDS.md`](IMPLEMENTATION_STANDARDS.md) — the binding, repo-specific
+   contract (product invariants, architecture, data, process, quality gates).
+
+**`IMPLEMENTATION_STANDARDS.md` wins on any conflict** — with each other, and with the notes
+below (which are a quick summary, not the contract).
+
 ## What this is
 
 A media library organizer: analyse files, derive a folder label from each file's own
