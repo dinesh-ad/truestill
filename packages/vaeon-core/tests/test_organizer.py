@@ -47,7 +47,12 @@ def test_apply_events_consolidates_cross_month_under_start_month() -> None:
     r_jun = _camera_resolution("/src/a.jpg", datetime(2026, 6, 30, 23, 0), "sha-a")
     r_jul = _camera_resolution("/src/b.jpg", datetime(2026, 7, 2, 10, 0), "sha-b")
     start = datetime(2026, 6, 30, 23, 0)
-    assignments = {"/src/a.jpg": (start, "goa-trip"), "/src/b.jpg": (start, "goa-trip")}
+    # Key by str(source) exactly as apply_events looks them up, so the test is not sensitive
+    # to how Path stringifies the source on the host OS.
+    assignments = {
+        str(r_jun.decision.source): (start, "goa-trip"),
+        str(r_jul.decision.source): (start, "goa-trip"),
+    }
 
     updated = apply_events([r_jun, r_jul], assignments)
     relatives = {r.decision.relative.as_posix() for r in updated}

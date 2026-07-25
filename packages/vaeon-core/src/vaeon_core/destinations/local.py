@@ -35,8 +35,10 @@ class LocalDestination(Destination):
     def list(self) -> list[str]:
         if not self._root.exists():
             return []
+        # POSIX-separated to honour the Destination contract on every OS (matches the rclone
+        # backend); the same relative form upload()/exists() accept.
         return [
-            str(path.relative_to(self._root))
+            path.relative_to(self._root).as_posix()
             for path in sorted(self._root.rglob("*"))
             if path.is_file()
         ]
