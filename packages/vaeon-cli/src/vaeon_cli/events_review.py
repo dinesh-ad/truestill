@@ -15,6 +15,7 @@ from vaeon_core.catalog import Catalog
 from vaeon_core.event_review import Prompt
 from vaeon_core.event_review import run_event_stage as _core_run_event_stage
 from vaeon_core.events import EventCandidate
+from vaeon_core.layout import DEFAULT_TEMPLATE, LayoutTemplate
 from vaeon_core.models import Resolution
 
 __all__ = ["Prompt", "album_prompt", "run_event_stage"]
@@ -55,10 +56,16 @@ def run_event_stage(
     *,
     apply: bool,
     prompt: Prompt | None = None,
+    template: LayoutTemplate = DEFAULT_TEMPLATE,
 ) -> tuple[list[Resolution], dict[str, int]]:
     """Run the core event stage, printing proposals for the CLI. Returns (resolutions, event_ids)."""
     outcome = _core_run_event_stage(
-        resolutions, metadata, catalog, apply=apply, prompt=prompt or _stdin_prompt
+        resolutions,
+        metadata,
+        catalog,
+        apply=apply,
+        prompt=prompt or _stdin_prompt,
+        template=template,
     )
     if not outcome.clusters:
         print("\nEvents: no clusters proposed (need enough Camera photos close in time).")

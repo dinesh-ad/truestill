@@ -28,7 +28,7 @@ from vaeon_core.dedup import DedupIndex
 from vaeon_core.destinations.base import Destination, DestinationError
 from vaeon_core.exif import write_metadata
 from vaeon_core.hashing import sha256_file
-from vaeon_core.layout import DEFAULT_TEMPLATE, RenderContext
+from vaeon_core.layout import DEFAULT_TEMPLATE, LayoutTemplate, RenderContext
 from vaeon_core.models import (
     ActionResult,
     ActionStatus,
@@ -108,13 +108,19 @@ def discover(source: Path, *, all_files: bool = False) -> list[Path]:
     return found
 
 
-def build_relative(label: str, captured_at: datetime | None, filename: str) -> PurePosixPath:
-    """Return the destination-relative path for a non-event file, ``<Label>/YYYY/MM/<filename>``.
+def build_relative(
+    label: str,
+    captured_at: datetime | None,
+    filename: str,
+    *,
+    template: LayoutTemplate = DEFAULT_TEMPLATE,
+) -> PurePosixPath:
+    """Return the destination-relative path for a non-event file (default ``<Label>/YYYY/MM/``).
 
-    Renders through the active :data:`~vaeon_core.layout.DEFAULT_TEMPLATE`; undated files land in
+    Renders through ``template`` (the catalog's layout, or the default); undated files land in
     ``<Label>/Undated/`` so the category survives even when the date does not.
     """
-    directory = DEFAULT_TEMPLATE.render(RenderContext(category=label, captured_at=captured_at))
+    directory = template.render(RenderContext(category=label, captured_at=captured_at))
     return directory / filename
 
 
@@ -132,6 +138,7 @@ def plan(
     takeout: dict[Path, TakeoutSidecar] | None = None,
     tz_offset: timedelta | None = None,
     prefer_takeout: bool = False,
+    template: LayoutTemplate = DEFAULT_TEMPLATE,
 ) -> list[Decision]:
     """Produce one :class:`Decision` per file. Touches nothing on disk.
 
@@ -139,6 +146,7 @@ def plan(
     ``YYYYMMDD_HHMMSS_<original>`` from the same date evidence used for placement; the
     original source file is never touched. ``takeout`` supplies rescued sidecar dates (Takeout
     ingestion); ``tz_offset``/``prefer_takeout`` control how those interact with EXIF.
+    ``template`` is the destination layout (the catalog's, or the default).
     """
     takeout = takeout or {}
     decisions: list[Decision] = []
@@ -165,7 +173,9 @@ def plan(
                 captured_at=captured_at,
                 date_source=date_source,
                 date_tag=date_tag,
-                relative=Path(build_relative(category.label, captured_at, new_name)),
+                relative=Path(
+                    build_relative(category.label, captured_at, new_name, template=template)
+                ),
             )
         )
     return decisions
@@ -227,13 +237,15 @@ def resolve(
 def apply_events(
     resolutions: Sequence[Resolution],
     assignments: dict[str, tuple[datetime, str]],
+    *,
+    template: LayoutTemplate = DEFAULT_TEMPLATE,
 ) -> list[Resolution]:
-    """Rewrite named-event members into ``<Label>/YYYY/MM/YYYYMMDD_slug/`` folders.
+    """Rewrite named-event members into their event folder (default ``<Label>/YYYY/MM/slug/``).
 
     ``assignments`` maps a member's source path (``str``) to its event's ``(start, slug)``.
     The event's *start* month is used for the whole event, so a cluster that straddles a
     month boundary lands together under the start month rather than being split. Files not
-    in a named event are returned unchanged.
+    in a named event are returned unchanged. ``template`` is the destination layout.
     """
     if not assignments:
         return list(resolutions)
@@ -247,7 +259,7 @@ def apply_events(
         start, slug = assignment
         label = resolution.decision.category.label
         filename = resolution.decision.relative.name
-        directory = DEFAULT_TEMPLATE.render(
+        directory = template.render(
             RenderContext(
                 category=label,
                 captured_at=resolution.decision.captured_at,

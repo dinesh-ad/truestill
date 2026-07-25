@@ -23,6 +23,16 @@ from vaeon_core.destinations.base import DestinationError
 from vaeon_core.drive import DriveMarker, create_marker, read_marker
 from vaeon_core.exif import ExiftoolMissingError, read_metadata
 from vaeon_core.hashing import DEFAULT_PHASH_THRESHOLD
+from vaeon_core.layout import (
+    DEFAULT_TEMPLATE_STRING,
+    LAYOUT_TEMPLATE_KEY,
+    PRESETS,
+    SAMPLE_CONTEXTS,
+    LayoutTemplate,
+    TemplateError,
+    preview,
+    resolve_template,
+)
 from vaeon_core.models import (
     ActionResult,
     ActionStatus,
@@ -166,6 +176,16 @@ def _build_parser() -> argparse.ArgumentParser:
 
     status = sub.add_parser("status", help="report content that exists on only one drive (3-2-1)")
     status.add_argument("--db", type=Path, default=_DEFAULT_DB, help="SQLite catalog")
+
+    config = sub.add_parser(
+        "config", help="show or change this catalog's destination folder layout"
+    )
+    config.add_argument("--db", type=Path, default=_DEFAULT_DB, help="SQLite catalog")
+    config.add_argument("--set-template", metavar="TEMPLATE", help="set a custom layout template")
+    config.add_argument("--preset", choices=tuple(PRESETS), help="set the layout to a named preset")
+    config.add_argument(
+        "--preview", action="store_true", help="render sample files without saving anything"
+    )
 
     return parser
 
@@ -534,18 +554,20 @@ def _run_pipeline(
     event_prompt: Prompt | None = None,
     drive_marker: DriveMarker | None = None,
 ) -> int:
-    decisions = plan(
-        files,
-        metadata,
-        build_rules(by_device=args.by_device),
-        rename=not args.no_rename,
-        takeout=takeout,
-        tz_offset=tz_offset,
-        prefer_takeout=prefer_takeout,
-    )
-    ingest_ctx = _build_ingest_context(decisions, metadata, scan) if scan is not None else None
-
     with Catalog(args.db) as catalog:
+        template = resolve_template(catalog.get_setting(LAYOUT_TEMPLATE_KEY))
+        decisions = plan(
+            files,
+            metadata,
+            build_rules(by_device=args.by_device),
+            rename=not args.no_rename,
+            takeout=takeout,
+            tz_offset=tz_offset,
+            prefer_takeout=prefer_takeout,
+            template=template,
+        )
+        ingest_ctx = _build_ingest_context(decisions, metadata, scan) if scan is not None else None
+
         index = DedupIndex.from_catalog_rows(catalog.seed_rows(), args.phash_threshold)
         if catalog.count():
             print(f"Catalog {args.db} holds {catalog.count()} previously-processed file(s).\n")
@@ -568,7 +590,12 @@ def _run_pipeline(
         event_ids: dict[str, int] = {}
         if args.events or event_prompt is not None:
             resolutions, event_ids = run_event_stage(
-                resolutions, metadata, catalog, apply=args.apply, prompt=event_prompt
+                resolutions,
+                metadata,
+                catalog,
+                apply=args.apply,
+                prompt=event_prompt,
+                template=template,
             )
 
         _print_report(resolutions, destination.describe())
@@ -664,6 +691,49 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
     )
 
 
+def _print_layout_preview(template: LayoutTemplate) -> None:
+    """Render the three sample files through ``template`` for the CLI preview."""
+    print("Preview:")
+    for context, row in zip(SAMPLE_CONTEXTS, preview(template, SAMPLE_CONTEXTS), strict=True):
+        when = context.captured_at.strftime("%Y-%m-%d") if context.captured_at else "undated"
+        print(f"  {context.category:12} {when:10} -> {row.path.as_posix()}")
+        for warning in row.warnings:
+            print(f"      ! {warning}")
+
+
+def _cmd_config(args: argparse.Namespace) -> int:
+    target = PRESETS[args.preset] if args.preset else args.set_template
+
+    with Catalog(args.db) as catalog:
+        stored = catalog.get_setting(LAYOUT_TEMPLATE_KEY)
+
+        if target is None:  # show (optionally previewing the current template)
+            current = stored or DEFAULT_TEMPLATE_STRING
+            print(f"Layout template: {current}" + ("" if stored else "  (default)"))
+            if args.preview:
+                _print_layout_preview(resolve_template(stored))
+            print("\nPresets:")
+            for name, tmpl in PRESETS.items():
+                print(f"  {name:24} {tmpl}")
+            return 0
+
+        try:
+            template = LayoutTemplate.parse(target)
+        except TemplateError as exc:
+            print(f"error: invalid template: {exc}", file=sys.stderr)
+            return 2
+
+        _print_layout_preview(template)
+        if args.preview:
+            print("\n(preview only -- not saved)")
+            return 0
+
+        catalog.set_setting(LAYOUT_TEMPLATE_KEY, target)
+        print(f"\nSaved. New files will be organized as: {target}")
+        print("Existing files are left in place (split-era default).")
+        return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the CLI. Returns a process exit code."""
     args = _build_parser().parse_args(argv)
@@ -674,6 +744,7 @@ def main(argv: list[str] | None = None) -> int:
         "where": _cmd_where,
         "verify": _cmd_verify,
         "status": _cmd_status,
+        "config": _cmd_config,
     }
     return dispatch[args.command](args)
 

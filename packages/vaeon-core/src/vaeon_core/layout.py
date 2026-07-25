@@ -253,3 +253,22 @@ def preview(
 
 #: The default layout, parsed once.
 DEFAULT_TEMPLATE = LayoutTemplate.parse(DEFAULT_TEMPLATE_STRING)
+
+#: Named starting points, drawn from what mainstream organizers actually ship (see
+#: docs/org-structure-research.md §1b.4). The first equals the default. Power users can edit
+#: any of these into a custom template.
+PRESETS: dict[str, str] = {
+    "category-year-month": "{category}/{yyyy}/{mm}",
+    "category-year-month-day": "{category}/{yyyy}/{mm}/{dd}",
+    "category-year": "{category}/{yyyy}",
+    "flat-date": "{yyyy}-{mm}-{dd}",
+    "category-year-event": "{category}/{yyyy}/{event}",
+}
+
+#: Three representative files for the live preview: a dated camera photo, a dated messenger
+#: image, and an undated file -- enough to show date placement and the Undated fallback.
+SAMPLE_CONTEXTS: tuple[RenderContext, ...] = (
+    RenderContext(category="Camera", captured_at=datetime(2023, 8, 20, 14, 30)),  # noqa: DTZ001
+    RenderContext(category="WhatsApp", captured_at=datetime(2024, 1, 15)),  # noqa: DTZ001
+    RenderContext(category="Screenshots", captured_at=None),
+)

@@ -18,6 +18,7 @@ from typing import Any
 from vaeon_core.catalog import Catalog
 from vaeon_core.events import EventCandidate, EventItem, cluster_camera, slugify
 from vaeon_core.hashing import sha256_file
+from vaeon_core.layout import DEFAULT_TEMPLATE, LayoutTemplate
 from vaeon_core.models import Resolution
 from vaeon_core.organizer import apply_events
 
@@ -92,6 +93,8 @@ def commit(
     resolutions: list[Resolution],
     decisions: list[EventDecision],
     catalog: Catalog,
+    *,
+    template: LayoutTemplate = DEFAULT_TEMPLATE,
 ) -> EventStageOutcome:
     """Apply reviewed decisions: name (record event), skip (remember), or reuse a known event.
 
@@ -126,7 +129,9 @@ def commit(
             event_ids[item.key] = event_id
 
     return EventStageOutcome(
-        apply_events(resolutions, assignments), event_ids, [d.cluster for d in decisions]
+        apply_events(resolutions, assignments, template=template),
+        event_ids,
+        [d.cluster for d in decisions],
     )
 
 
@@ -137,6 +142,7 @@ def run_event_stage(
     *,
     apply: bool,
     prompt: Prompt | None = None,
+    template: LayoutTemplate = DEFAULT_TEMPLATE,
 ) -> EventStageOutcome:
     """Name/skip convenience over :func:`propose` + :func:`commit` (the CLI's flow).
 
@@ -158,4 +164,4 @@ def run_event_stage(
             continue  # remembered skip -> leave flat, don't re-ask
         else:
             decisions.append(EventDecision(cluster, name=ask(cluster)))
-    return commit(resolutions, decisions, catalog)
+    return commit(resolutions, decisions, catalog, template=template)

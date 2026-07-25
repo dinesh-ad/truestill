@@ -40,7 +40,12 @@ unfixable = []
 ]
 # Event review is CLI-facing: it prints prompts/tables to the terminal.
 "packages/vaeon-cli/src/vaeon_cli/events_review.py" = [
-    "T201", # print()/input() are the interaction mechanism
+    "T201",    # print()/input() are the interaction mechanism
+    "PLR0913", # run_event_stage forwards resolutions/metadata/catalog/apply/prompt/template
+]
+# The event stage orchestrates several opt-in knobs (prompt, template) as keyword-only args.
+"packages/vaeon-core/src/vaeon_core/event_review.py" = [
+    "PLR0913", # run_event_stage(resolutions/metadata/catalog/apply/prompt/template)
 ]
 # Event clustering exposes several tunables as keyword-only knobs.
 "packages/vaeon-core/src/vaeon_core/events.py" = [
