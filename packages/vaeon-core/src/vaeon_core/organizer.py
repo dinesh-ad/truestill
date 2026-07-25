@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterable, Sequence
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -22,6 +23,7 @@ from vaeon_core.categorize import Rule, categorize
 from vaeon_core.dates import resolve_capture_datetime
 from vaeon_core.dedup import DedupIndex
 from vaeon_core.destinations.base import Destination, DestinationError
+from vaeon_core.events import event_dirname
 from vaeon_core.hashing import sha256_file
 from vaeon_core.models import (
     UNDATED_DIRNAME,
@@ -204,6 +206,41 @@ def resolve(
     return resolutions
 
 
+def apply_events(
+    resolutions: Sequence[Resolution],
+    assignments: dict[str, tuple[datetime, str]],
+) -> list[Resolution]:
+    """Rewrite named-event members into ``<Label>/YYYY/MM/YYYYMMDD_slug/`` folders.
+
+    ``assignments`` maps a member's source path (``str``) to its event's ``(start, slug)``.
+    The event's *start* month is used for the whole event, so a cluster that straddles a
+    month boundary lands together under the start month rather than being split. Files not
+    in a named event are returned unchanged.
+    """
+    if not assignments:
+        return list(resolutions)
+
+    updated: list[Resolution] = []
+    for resolution in resolutions:
+        assignment = assignments.get(str(resolution.decision.source))
+        if assignment is None:
+            updated.append(resolution)
+            continue
+        start, slug = assignment
+        label = resolution.decision.category.label
+        filename = resolution.decision.relative.name
+        new_relative = Path(
+            PurePosixPath(label)
+            / f"{start:%Y}"
+            / f"{start:%m}"
+            / event_dirname(start, slug)
+            / filename
+        )
+        new_decision = replace(resolution.decision, relative=new_relative)
+        updated.append(replace(resolution, decision=new_decision))
+    return updated
+
+
 def _free_relative(destination: Destination, relative: str) -> tuple[str, bool]:
     """Return a relative path that does not collide at ``destination``.
 
@@ -249,9 +286,15 @@ def execute(
     *,
     apply: bool = False,
     set_timestamps: bool = True,
+    event_ids: dict[str, int] | None = None,
 ) -> list[ActionResult]:
-    """Upload genuinely-new files; skip duplicates. ``apply=False`` reports only."""
+    """Upload genuinely-new files; skip duplicates. ``apply=False`` reports only.
+
+    ``event_ids`` maps a source path to the event it was assigned to (from the event stage),
+    recorded in the catalog alongside the file.
+    """
     results: list[ActionResult] = []
+    events = event_ids or {}
 
     for resolution in resolutions:
         decision = resolution.decision
@@ -287,6 +330,7 @@ def execute(
                     captured_at=decision.captured_at.isoformat() if decision.captured_at else None,
                     category=decision.category.label,
                     relative=final_relative,
+                    event_id=events.get(str(decision.source)),
                 )
 
             status = ActionStatus.RENAMED if renamed else ActionStatus.UPLOADED

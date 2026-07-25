@@ -7,6 +7,12 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Event layer (`--events`, opt-in, Camera-only): adaptive log-scale temporal-gap clustering
+  with GPS-jump reinforcement proposes events for the user to name or skip (never
+  auto-named). Named events become `Camera/YYYY/MM/YYYYMMDD_<slug>/`, consolidated under the
+  start month across month boundaries. Cluster identity is the hash of member SHA-256s, so
+  names and skips are remembered (schema v4) and re-proposed only when membership changes.
+  Sensitivity default (4.0) tuned so multi-day trips stay whole; see `scripts/tune_events.py`.
 - Filename convention: organized copies are named `YYYYMMDD_HHMMSS_<original>` (date-only
   when the time is unknown) from the same date evidence used for placement. The prefix is
   suppressed only when that exact stamp already appears in the name, so date-embedded names

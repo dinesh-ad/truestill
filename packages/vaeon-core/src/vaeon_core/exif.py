@@ -41,6 +41,14 @@ REQUESTED_TAGS: tuple[str, ...] = (
     "ImageHeight",
 )
 
+#: GPS tags, requested with a trailing ``#`` so exiftool emits signed decimal degrees for
+#: just these (negative for S/W) without changing the format of any other tag. Used by the
+#: event layer to reinforce time-gap boundaries with location jumps.
+_NUMERIC_TAGS: tuple[str, ...] = (
+    "GPSLatitude",
+    "GPSLongitude",
+)
+
 _MISSING_MSG = (
     "exiftool was not found on PATH. On Ubuntu install it with: "
     "sudo apt install -y libimage-exiftool-perl"
@@ -80,6 +88,7 @@ def read_metadata(paths: Sequence[Path]) -> dict[Path, dict[str, Any]]:
     for chunk in _chunked(paths, BATCH_SIZE):
         args = [binary, "-json", "-q", "-m", "-charset", "filename=utf8"]
         args += [f"-{tag}" for tag in REQUESTED_TAGS]
+        args += [f"-{tag}#" for tag in _NUMERIC_TAGS]  # signed decimal degrees for GPS
         args += [str(path) for path in chunk]
 
         proc = subprocess.run(args, capture_output=True, text=True, check=False)

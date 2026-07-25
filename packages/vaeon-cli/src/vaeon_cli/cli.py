@@ -29,6 +29,8 @@ from vaeon_core.models import (
 from vaeon_core.organizer import discover, execute, plan, resolve
 from vaeon_core.scan import DEFAULT_WORKERS
 
+from vaeon_cli.events_review import run_event_stage
+
 _SEPARATOR = "=" * 100
 _DEFAULT_DB = Path("reports/catalog.sqlite")
 
@@ -80,6 +82,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--no-rename",
         action="store_true",
         help="keep original filenames instead of prefixing copies with YYYYMMDD_HHMMSS_",
+    )
+    parser.add_argument(
+        "--events",
+        action="store_true",
+        help="propose Camera event clusters to name (interactive; Camera files only)",
     )
     parser.add_argument(
         "--no-timestamps",
@@ -316,6 +323,12 @@ def main(argv: list[str] | None = None) -> int:
             workers=args.workers,
         )
 
+        event_ids: dict[str, int] = {}
+        if args.events:
+            resolutions, event_ids = run_event_stage(
+                resolutions, metadata, catalog, apply=args.apply
+            )
+
         root_label = destination.describe()
         _print_report(resolutions, root_label)
         _print_summary(resolutions)
@@ -328,6 +341,7 @@ def main(argv: list[str] | None = None) -> int:
             catalog,
             apply=args.apply,
             set_timestamps=not args.no_timestamps,
+            event_ids=event_ids,
         )
 
     print()

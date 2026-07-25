@@ -37,9 +37,21 @@ unfixable = []
     "T201",    # print() is intentional here
     "PLR0913", # report/render helpers take many display flags
 ]
+# Event review is CLI-facing: it prints prompts/tables to the terminal.
+"packages/vaeon-cli/src/vaeon_cli/events_review.py" = [
+    "T201", # print()/input() are the interaction mechanism
+]
+# Event clustering exposes several tunables as keyword-only knobs.
+"packages/vaeon-core/src/vaeon_core/events.py" = [
+    "PLR0913", # cluster_camera(sensitivity/window/min_files/min_duration/gps_jump)
+]
 # Catalog - a persisted row has many columns; keyword-only args name them at the call site
 "packages/vaeon-core/src/vaeon_core/catalog.py" = [
     "PLR0913", # record_uploaded mirrors the table columns
+]
+# Organizer - execute() coordinates several opt-in behaviours via keyword-only flags
+"packages/vaeon-core/src/vaeon_core/organizer.py" = [
+    "PLR0913", # execute(): apply/set_timestamps/event_ids are distinct, named at call site
 ]
 # Date parsing - EXIF timestamps are local wall-clock with no zone; naive datetimes correct.
 "packages/vaeon-core/src/vaeon_core/dates.py" = [
@@ -52,7 +64,7 @@ unfixable = []
 ]
 # Standalone benchmark/utility scripts: print is the output, and they bootstrap sys.path.
 "scripts/**/*.py" = [
-    "T201", "E402", "S311", "S603", "PLR2004",
+    "T201", "E402", "S311", "S603", "PLR2004", "DTZ001",
 ]
 # Tests can be more permissive
 "packages/*/tests/**/*.py" = [

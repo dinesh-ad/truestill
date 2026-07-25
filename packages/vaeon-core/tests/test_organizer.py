@@ -3,14 +3,58 @@
 from __future__ import annotations
 
 import shutil
+from datetime import datetime
 from pathlib import Path
 
 from vaeon_core.catalog import Catalog
+from vaeon_core.categorize import CategoryMatch, Confidence
 from vaeon_core.dedup import DedupIndex
 from vaeon_core.destinations import LocalDestination
 from vaeon_core.exif import read_metadata
-from vaeon_core.models import ActionStatus, DuplicateKind
-from vaeon_core.organizer import discover, execute, plan, resolve
+from vaeon_core.models import (
+    ActionStatus,
+    DateSource,
+    Decision,
+    DuplicateKind,
+    FileHashes,
+    Resolution,
+)
+from vaeon_core.organizer import apply_events, discover, execute, plan, resolve
+
+
+def _camera_resolution(source: str, when: datetime, sha: str) -> Resolution:
+    category = CategoryMatch(
+        label="Camera", reason="test", confidence=Confidence.MEDIUM, rule="device"
+    )
+    decision = Decision(
+        source=Path(source),
+        category=category,
+        captured_at=when,
+        date_source=DateSource.EXIF,
+        date_tag="DateTimeOriginal",
+        relative=Path(f"Camera/{when:%Y}/{when:%m}/{Path(source).name}"),
+    )
+    return Resolution(
+        decision=decision,
+        hashes=FileHashes(sha256=sha, perceptual=None),
+        exact_duplicate=None,
+        near_duplicate=None,
+    )
+
+
+def test_apply_events_consolidates_cross_month_under_start_month() -> None:
+    """An event spanning June 30 -> July 2 lands wholly under the start month (June)."""
+    r_jun = _camera_resolution("/src/a.jpg", datetime(2026, 6, 30, 23, 0), "sha-a")
+    r_jul = _camera_resolution("/src/b.jpg", datetime(2026, 7, 2, 10, 0), "sha-b")
+    start = datetime(2026, 6, 30, 23, 0)
+    assignments = {"/src/a.jpg": (start, "goa-trip"), "/src/b.jpg": (start, "goa-trip")}
+
+    updated = apply_events([r_jun, r_jul], assignments)
+    relatives = {str(r.decision.relative) for r in updated}
+    assert relatives == {
+        "Camera/2026/06/20260630_goa-trip/a.jpg",
+        "Camera/2026/06/20260630_goa-trip/b.jpg",  # July file consolidated under June
+    }
 
 
 def _run(source: Path, out: Path, db: Path, *, apply: bool) -> list:

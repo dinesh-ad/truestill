@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS files (
     captured_at   TEXT,
     category      TEXT    NOT NULL,
     relative      TEXT    NOT NULL,
+    event_id      INTEGER,
     upload_status TEXT    NOT NULL,
     processed_at  TEXT    NOT NULL,
     uploaded_at   TEXT
@@ -39,10 +40,24 @@ CREATE TABLE IF NOT EXISTS files (
 CREATE INDEX IF NOT EXISTS idx_files_sha256 ON files (sha256);
 CREATE INDEX IF NOT EXISTS idx_files_perceptual ON files (perceptual);
 CREATE INDEX IF NOT EXISTS idx_files_size ON files (size);
+
+CREATE TABLE IF NOT EXISTS events (
+    id         INTEGER PRIMARY KEY,
+    name       TEXT    NOT NULL,
+    slug       TEXT    NOT NULL,
+    start_date TEXT,
+    file_count INTEGER,
+    signature  TEXT    NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS skipped_clusters (
+    signature  TEXT PRIMARY KEY,
+    skipped_at TEXT NOT NULL
+);
 """
 
 #: Bump whenever the schema changes, and add a matching entry to _MIGRATIONS.
-CURRENT_SCHEMA_VERSION = 3
+CURRENT_SCHEMA_VERSION = 4
 
 
 class CatalogVersionError(RuntimeError):
@@ -66,11 +81,29 @@ def _add_original_name_column(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE files ADD COLUMN original_name TEXT")
 
 
+def _add_event_tables(conn: sqlite3.Connection) -> None:
+    """v3 -> v4: event membership + remembered skips for the event layer."""
+    if "event_id" not in _column_names(conn):
+        conn.execute("ALTER TABLE files ADD COLUMN event_id INTEGER")
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS events (
+            id INTEGER PRIMARY KEY, name TEXT NOT NULL, slug TEXT NOT NULL,
+            start_date TEXT, file_count INTEGER, signature TEXT NOT NULL UNIQUE
+        );
+        CREATE TABLE IF NOT EXISTS skipped_clusters (
+            signature TEXT PRIMARY KEY, skipped_at TEXT NOT NULL
+        );
+        """
+    )
+
+
 #: Ordered migrations: ``(target_version, fn)``. Each is idempotent and lifts a database
 #: from ``target_version - 1`` to ``target_version``. Append; never rewrite history.
 _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (2, _add_size_column),
     (3, _add_original_name_column),
+    (4, _add_event_tables),
 )
 
 
@@ -175,7 +208,46 @@ class Catalog:
         cursor = self._conn.execute("SELECT DISTINCT size FROM files WHERE size IS NOT NULL")
         return frozenset(int(row["size"]) for row in cursor)
 
+    def event_by_signature(self, signature: str) -> sqlite3.Row | None:
+        """A previously-named event with this cluster signature, if any."""
+        cursor = self._conn.execute("SELECT * FROM events WHERE signature = ?", (signature,))
+        row: sqlite3.Row | None = cursor.fetchone()
+        return row
+
+    def skipped_signatures(self) -> frozenset[str]:
+        """Cluster signatures the user chose to skip on a previous run."""
+        cursor = self._conn.execute("SELECT signature FROM skipped_clusters")
+        return frozenset(row["signature"] for row in cursor)
+
     # -- writes --------------------------------------------------------------------
+
+    def record_event(
+        self, *, name: str, slug: str, start_date: str, file_count: int, signature: str
+    ) -> int:
+        """Record a named event (idempotent on signature) and return its id."""
+        with self._tx() as conn:
+            conn.execute(
+                """
+                INSERT INTO events (name, slug, start_date, file_count, signature)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(signature) DO UPDATE SET
+                    name = excluded.name, slug = excluded.slug,
+                    start_date = excluded.start_date, file_count = excluded.file_count
+                """,
+                (name, slug, start_date, file_count, signature),
+            )
+        row = self._conn.execute(
+            "SELECT id FROM events WHERE signature = ?", (signature,)
+        ).fetchone()
+        return int(row["id"])
+
+    def record_skip(self, signature: str) -> None:
+        """Remember that the user skipped this cluster, so it is not re-proposed unchanged."""
+        with self._tx() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO skipped_clusters (signature, skipped_at) VALUES (?, ?)",
+                (signature, _now()),
+            )
 
     def record_uploaded(
         self,
@@ -188,6 +260,7 @@ class Catalog:
         captured_at: str | None,
         category: str,
         relative: str,
+        event_id: int | None = None,
     ) -> None:
         """Insert (or refresh) a row marking a file as processed and uploaded.
 
@@ -201,8 +274,8 @@ class Catalog:
                 """
                 INSERT INTO files (
                     source_path, original_name, sha256, perceptual, size, captured_at,
-                    category, relative, upload_status, processed_at, uploaded_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'uploaded', ?, ?)
+                    category, relative, event_id, upload_status, processed_at, uploaded_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'uploaded', ?, ?)
                 ON CONFLICT(sha256) DO UPDATE SET
                     source_path   = excluded.source_path,
                     original_name = excluded.original_name,
@@ -211,6 +284,7 @@ class Catalog:
                     captured_at   = excluded.captured_at,
                     category      = excluded.category,
                     relative      = excluded.relative,
+                    event_id      = excluded.event_id,
                     upload_status = 'uploaded',
                     uploaded_at   = excluded.uploaded_at
                 """,
@@ -223,6 +297,7 @@ class Catalog:
                     captured_at,
                     category,
                     relative,
+                    event_id,
                     now,
                     now,
                 ),
