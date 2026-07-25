@@ -51,8 +51,12 @@ unfixable = []
 ]
 # Organizer - execute() coordinates several opt-in behaviours via keyword-only flags
 "packages/vaeon-core/src/vaeon_core/organizer.py" = [
-    "PLR0913", # execute(): apply/set_timestamps/event_ids are distinct, named at call site
+    "PLR0913", # execute(): apply/set_timestamps/event_ids/ingest/drive_uuid/progress/cancel
+    "PLR0912", # execute() branches over dup/dry-run/write/rename/near-dup outcomes
 ]
+# scan.compute_hashes / verify.verify_copies expose pool/workers/progress/cancel as kw-only.
+"packages/vaeon-core/src/vaeon_core/scan.py" = ["PLR0913"]
+"packages/vaeon-core/src/vaeon_core/verify.py" = ["PLR0913"]
 # Date parsing - EXIF timestamps are local wall-clock with no zone; naive datetimes correct.
 "packages/vaeon-core/src/vaeon_core/dates.py" = [
     "DTZ007",  # strptime without %z is deliberate; EXIF has no reliable zone

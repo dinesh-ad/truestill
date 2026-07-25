@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 import shutil
 import tempfile
+import threading
 from collections.abc import Iterable, Sequence
 from dataclasses import replace
 from datetime import datetime, timedelta
@@ -39,6 +40,7 @@ from vaeon_core.models import (
     Resolution,
 )
 from vaeon_core.naming import dated_filename
+from vaeon_core.progress import ProgressCallback
 from vaeon_core.scan import DEFAULT_WORKERS, PoolKind, compute_hashes
 from vaeon_core.takeout import IngestContext, MetadataWrite, TakeoutSidecar
 
@@ -179,6 +181,8 @@ def resolve(
     catalog_sizes: frozenset[int] = frozenset(),
     pool: PoolKind = "thread",
     workers: int = DEFAULT_WORKERS,
+    progress: ProgressCallback | None = None,
+    cancel: threading.Event | None = None,
 ) -> list[Resolution]:
     """Hash each file (concurrently) and classify it, updating ``index`` as it goes.
 
@@ -195,6 +199,8 @@ def resolve(
         catalog_sizes=catalog_sizes,
         pool=pool,
         workers=workers,
+        progress=progress,
+        cancel=cancel,
     )
 
     resolutions: list[Resolution] = []
@@ -347,6 +353,8 @@ def execute(
     event_ids: dict[str, int] | None = None,
     ingest: IngestContext | None = None,
     drive_uuid: str | None = None,
+    progress: ProgressCallback | None = None,
+    cancel: threading.Event | None = None,
 ) -> list[ActionResult]:
     """Upload genuinely-new files; skip duplicates. ``apply=False`` reports only.
 
@@ -354,14 +362,21 @@ def execute(
     baking rescued metadata into copies and records album membership; when absent, the copy is
     byte-identical to the source and ``copy_sha256`` equals the source hash. ``drive_uuid``, when
     the destination is an identified drive, records each copy's location in the catalog.
+    ``progress`` is called ``(done, total)`` per file; ``cancel`` stops the run early (already-
+    uploaded files stay -- the run is resumable).
     """
     resolutions = list(resolutions)
     results: list[ActionResult] = []
     events = event_ids or {}
     ingest = ingest or IngestContext()
     albums_by_sha = _aggregate_albums(resolutions, ingest)
+    total = len(resolutions)
 
-    for resolution in resolutions:
+    for done, resolution in enumerate(resolutions, start=1):
+        if cancel is not None and cancel.is_set():
+            break
+        if progress is not None:
+            progress(done, total)
         decision = resolution.decision
         relative = decision.relative.as_posix()
 

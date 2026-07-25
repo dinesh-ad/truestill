@@ -22,14 +22,16 @@ No BLAKE3, no algorithm setting, one catalog column.
 from __future__ import annotations
 
 import os
+import threading
 from collections import Counter
 from collections.abc import Sequence
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Literal
 
 from vaeon_core.hashing import perceptual_hash, sha256_file
 from vaeon_core.models import FileHashes
+from vaeon_core.progress import ProgressCallback
 
 PoolKind = Literal["thread", "process"]
 
@@ -74,11 +76,14 @@ def compute_hashes(
     catalog_sizes: frozenset[int] = frozenset(),
     pool: PoolKind = "thread",
     workers: int = DEFAULT_WORKERS,
+    progress: ProgressCallback | None = None,
+    cancel: threading.Event | None = None,
 ) -> dict[Path, FileHashes]:
     """Hash ``paths`` concurrently, applying the size pre-filter.
 
     Returns a mapping from path to :class:`FileHashes`, where ``sha256`` is ``None`` for a
-    unique-size file that was deliberately not hashed.
+    unique-size file that was deliberately not hashed. ``progress`` is called ``(done, total)``
+    as files finish; ``cancel`` stops early (pending files are cancelled, results are partial).
     """
     if not paths:
         return {}
@@ -89,7 +94,17 @@ def compute_hashes(
 
     executor_cls = ProcessPoolExecutor if pool == "process" else ThreadPoolExecutor
     results: dict[Path, FileHashes] = {}
+    total, done = len(jobs), 0
     with executor_cls(max_workers=max(1, workers)) as executor:
-        for path_str, sha, perceptual in executor.map(_hash_one, jobs):
+        futures = [executor.submit(_hash_one, job) for job in jobs]
+        for future in as_completed(futures):
+            if cancel is not None and cancel.is_set():
+                for pending in futures:
+                    pending.cancel()
+                break
+            path_str, sha, perceptual = future.result()
             results[Path(path_str)] = FileHashes(sha256=sha, perceptual=perceptual)
+            done += 1
+            if progress is not None:
+                progress(done, total)
     return results

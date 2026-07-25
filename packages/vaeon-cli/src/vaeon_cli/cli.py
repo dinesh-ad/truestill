@@ -32,6 +32,7 @@ from vaeon_core.models import (
     Resolution,
 )
 from vaeon_core.organizer import discover, execute, plan, resolve
+from vaeon_core.progress import ProgressCallback
 from vaeon_core.scan import DEFAULT_WORKERS
 from vaeon_core.takeout import (
     IngestContext,
@@ -232,7 +233,13 @@ def _cmd_verify(args: argparse.Namespace) -> int:
             for r in rows
         ]
         print(f"Verifying {len(copies)} copies on drive '{marker.label}' ...")
-        results = verify_copies(copies, root, pool=args.pool, workers=args.workers)
+        results = verify_copies(
+            copies,
+            root,
+            pool=args.pool,
+            workers=args.workers,
+            progress=_progress_printer("verified"),
+        )
 
         counts = Counter(r.status.value for r in results)
         for result in results:
@@ -271,6 +278,16 @@ def _cmd_status(args: argparse.Namespace) -> int:
 
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def _progress_printer(label: str) -> ProgressCallback:
+    """A terminal progress callback: an in-place ``label: done/total`` counter."""
+
+    def report(done: int, total: int) -> None:
+        end = "\n" if done >= total else "\r"
+        print(f"  {label}: {done}/{total}", end=end, flush=True)
+
+    return report
 
 
 def _build_destination(spec: str, *, rclone: bool) -> Destination:
@@ -545,6 +562,7 @@ def _run_pipeline(
             catalog_sizes=catalog.known_sizes(),
             pool=args.pool,
             workers=args.workers,
+            progress=_progress_printer("hashing"),
         )
 
         event_ids: dict[str, int] = {}
@@ -569,6 +587,7 @@ def _run_pipeline(
             event_ids=event_ids,
             ingest=ingest_ctx,
             drive_uuid=drive_uuid,
+            progress=_progress_printer("copying") if args.apply else None,
         )
 
     print()

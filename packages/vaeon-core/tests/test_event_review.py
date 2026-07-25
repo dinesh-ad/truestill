@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
-
 from vaeon_core.catalog import Catalog
 from vaeon_core.categorize import CategoryMatch, Confidence
 from vaeon_core.event_review import EventStageOutcome, run_event_stage
@@ -15,7 +14,9 @@ from vaeon_core.models import DateSource, Decision, FileHashes, Resolution
 
 
 def _camera(i: int, when: datetime) -> Resolution:
-    category = CategoryMatch(label="Camera", reason="t", confidence=Confidence.MEDIUM, rule="device")
+    category = CategoryMatch(
+        label="Camera", reason="t", confidence=Confidence.MEDIUM, rule="device"
+    )
     decision = Decision(
         source=Path(f"/src/img{i}.jpg"),
         category=category,

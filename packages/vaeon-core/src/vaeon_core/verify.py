@@ -11,12 +11,14 @@ the source, and copies written at different times need not match each other); wh
 
 from __future__ import annotations
 
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+import threading
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
 from vaeon_core.hashing import sha256_file
+from vaeon_core.progress import ProgressCallback
 from vaeon_core.scan import DEFAULT_WORKERS, PoolKind
 
 
@@ -52,8 +54,14 @@ def verify_copies(
     *,
     pool: PoolKind = "thread",
     workers: int = DEFAULT_WORKERS,
+    progress: ProgressCallback | None = None,
+    cancel: threading.Event | None = None,
 ) -> list[VerifyResult]:
-    """Verify ``copies`` under ``root``. Missing files short-circuit; present files hash in parallel."""
+    """Verify ``copies`` under ``root``. Missing files short-circuit; present files hash in parallel.
+
+    ``progress`` is called ``(done, total)`` across all copies; ``cancel`` stops hashing early
+    (results are then partial). Read-only: nothing is ever repaired.
+    """
     results: list[VerifyResult] = []
     present: list[tuple[CopyToVerify, Path]] = []
     for copy in copies:
@@ -63,12 +71,27 @@ def verify_copies(
         else:
             results.append(VerifyResult(copy, CopyStatus.MISSING, None))
 
+    total, done = len(copies), len(results)  # missing files are already counted
+    if progress is not None and done:
+        progress(done, total)
+
     if present:
         executor_cls = ProcessPoolExecutor if pool == "process" else ThreadPoolExecutor
         with executor_cls(max_workers=max(1, workers)) as executor:
-            hashes = list(executor.map(_hash_path, [str(path) for _copy, path in present]))
-        for (copy, _path), actual in zip(present, hashes, strict=True):
-            status = CopyStatus.VERIFIED if actual == copy.expected_hash else CopyStatus.MISMATCH
-            results.append(VerifyResult(copy, status, actual))
+            futures = {executor.submit(_hash_path, str(path)): copy for copy, path in present}
+            for future in as_completed(futures):
+                if cancel is not None and cancel.is_set():
+                    for pending in futures:
+                        pending.cancel()
+                    break
+                copy = futures[future]
+                actual = future.result()
+                status = (
+                    CopyStatus.VERIFIED if actual == copy.expected_hash else CopyStatus.MISMATCH
+                )
+                results.append(VerifyResult(copy, status, actual))
+                done += 1
+                if progress is not None:
+                    progress(done, total)
 
     return results
