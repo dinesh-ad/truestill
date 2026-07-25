@@ -25,6 +25,7 @@ _SCHEMA = """
 CREATE TABLE IF NOT EXISTS files (
     id            INTEGER PRIMARY KEY,
     source_path   TEXT    NOT NULL,
+    original_name TEXT,
     sha256        TEXT    NOT NULL UNIQUE,
     perceptual    TEXT,
     size          INTEGER,
@@ -41,24 +42,36 @@ CREATE INDEX IF NOT EXISTS idx_files_size ON files (size);
 """
 
 #: Bump whenever the schema changes, and add a matching entry to _MIGRATIONS.
-CURRENT_SCHEMA_VERSION = 2
+CURRENT_SCHEMA_VERSION = 3
 
 
 class CatalogVersionError(RuntimeError):
     """The catalog on disk was written by a newer vaeon than this one understands."""
 
 
+def _column_names(conn: sqlite3.Connection) -> set[str]:
+    return {row["name"] for row in conn.execute("PRAGMA table_info(files)")}
+
+
 def _add_size_column(conn: sqlite3.Connection) -> None:
     """v1 -> v2: add the ``size`` column used by the scan's size pre-filter."""
-    columns = {row["name"] for row in conn.execute("PRAGMA table_info(files)")}
-    if "size" not in columns:
+    if "size" not in _column_names(conn):
         conn.execute("ALTER TABLE files ADD COLUMN size INTEGER")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_files_size ON files (size)")
 
 
+def _add_original_name_column(conn: sqlite3.Connection) -> None:
+    """v2 -> v3: record the original filename alongside the renamed destination copy."""
+    if "original_name" not in _column_names(conn):
+        conn.execute("ALTER TABLE files ADD COLUMN original_name TEXT")
+
+
 #: Ordered migrations: ``(target_version, fn)``. Each is idempotent and lifts a database
 #: from ``target_version - 1`` to ``target_version``. Append; never rewrite history.
-_MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = ((2, _add_size_column),)
+_MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
+    (2, _add_size_column),
+    (3, _add_original_name_column),
+)
 
 
 def _now() -> str:
@@ -168,6 +181,7 @@ class Catalog:
         self,
         *,
         source_path: str,
+        original_name: str,
         sha256: str,
         perceptual: str | None,
         size: int | None,
@@ -177,19 +191,21 @@ class Catalog:
     ) -> None:
         """Insert (or refresh) a row marking a file as processed and uploaded.
 
-        Idempotent on ``sha256``: re-recording the same content updates the existing row
-        rather than raising, so a partially-completed run can be re-run safely.
+        Records the original path and name alongside the renamed destination copy
+        (``relative``), so the rename is fully reversible. Idempotent on ``sha256``:
+        re-recording the same content updates the existing row rather than raising.
         """
         now = _now()
         with self._tx() as conn:
             conn.execute(
                 """
                 INSERT INTO files (
-                    source_path, sha256, perceptual, size, captured_at,
+                    source_path, original_name, sha256, perceptual, size, captured_at,
                     category, relative, upload_status, processed_at, uploaded_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, 'uploaded', ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'uploaded', ?, ?)
                 ON CONFLICT(sha256) DO UPDATE SET
                     source_path   = excluded.source_path,
+                    original_name = excluded.original_name,
                     perceptual    = excluded.perceptual,
                     size          = excluded.size,
                     captured_at   = excluded.captured_at,
@@ -198,5 +214,16 @@ class Catalog:
                     upload_status = 'uploaded',
                     uploaded_at   = excluded.uploaded_at
                 """,
-                (source_path, sha256, perceptual, size, captured_at, category, relative, now, now),
+                (
+                    source_path,
+                    original_name,
+                    sha256,
+                    perceptual,
+                    size,
+                    captured_at,
+                    category,
+                    relative,
+                    now,
+                    now,
+                ),
             )

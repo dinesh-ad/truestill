@@ -18,6 +18,7 @@ def _record(
 ) -> None:
     catalog.record_uploaded(
         source_path=f"/src/{sha}.jpg",
+        original_name=f"{sha}.jpg",
         sha256=sha,
         perceptual=perceptual,
         size=1234,

@@ -77,6 +77,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--all-files", action="store_true", help="include non-media extensions")
     parser.add_argument(
+        "--no-rename",
+        action="store_true",
+        help="keep original filenames instead of prefixing copies with YYYYMMDD_HHMMSS_",
+    )
+    parser.add_argument(
         "--no-timestamps",
         action="store_true",
         help="do not set the local copy's mtime from the capture date before upload",
@@ -293,7 +298,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 4
 
-    decisions = plan(files, metadata, build_rules(by_device=args.by_device))
+    decisions = plan(
+        files, metadata, build_rules(by_device=args.by_device), rename=not args.no_rename
+    )
 
     with Catalog(args.db) as catalog:
         index = DedupIndex.from_catalog_rows(catalog.seed_rows(), args.phash_threshold)

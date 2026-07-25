@@ -7,6 +7,12 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Filename convention: organized copies are named `YYYYMMDD_HHMMSS_<original>` (date-only
+  when the time is unknown) from the same date evidence used for placement. The prefix is
+  suppressed only when that exact stamp already appears in the name, so date-embedded names
+  (screenshots) are not double-dated and re-runs never stack a prefix; any mismatch keeps
+  the authoritative metadata prefix. Originals are never renamed; the catalog records the
+  original name alongside the new one. Disable with `--no-rename`.
 - uv workspace layout: `vaeon-core` (library) and `vaeon-cli` (the `vaeon` command),
   ready for future packages (desktop/UI) without restructuring the core.
 - Concurrent hashing scan with a byte-size pre-filter (`vaeon_core.scan`); thread/process

@@ -28,10 +28,12 @@ from vaeon_core.models import (
     ActionResult,
     ActionStatus,
     CategoryMatch,
+    DateSource,
     Decision,
     DuplicateKind,
     Resolution,
 )
+from vaeon_core.naming import dated_filename
 from vaeon_core.scan import DEFAULT_WORKERS, PoolKind, compute_hashes
 
 #: Extensions treated as media. Anything else is skipped unless the caller opts in.
@@ -120,13 +122,26 @@ def plan(
     files: Sequence[Path],
     metadata: dict[Path, dict[str, Any]],
     rules: tuple[Rule, ...] | None = None,
+    *,
+    rename: bool = True,
 ) -> list[Decision]:
-    """Produce one :class:`Decision` per file. Touches nothing on disk."""
+    """Produce one :class:`Decision` per file. Touches nothing on disk.
+
+    With ``rename`` (the default) the destination copy is named
+    ``YYYYMMDD_HHMMSS_<original>`` from the same date evidence used for placement; the
+    original source file is never touched.
+    """
     decisions: list[Decision] = []
     for path in files:
         meta = metadata.get(path, {})
         category: CategoryMatch = categorize(path, meta, rules)
         captured_at, date_source, date_tag = resolve_capture_datetime(path, meta)
+        new_name = dated_filename(
+            path.name,
+            captured_at,
+            time_known=date_source is DateSource.EXIF,
+            enabled=rename,
+        )
         decisions.append(
             Decision(
                 source=path,
@@ -134,7 +149,7 @@ def plan(
                 captured_at=captured_at,
                 date_source=date_source,
                 date_tag=date_tag,
-                relative=Path(build_relative(category.label, captured_at, path.name)),
+                relative=Path(build_relative(category.label, captured_at, new_name)),
             )
         )
     return decisions
@@ -265,6 +280,7 @@ def execute(
                 sha256 = resolution.hashes.sha256 or sha256_file(decision.source)
                 catalog.record_uploaded(
                     source_path=str(decision.source),
+                    original_name=decision.source.name,
                     sha256=sha256,
                     perceptual=resolution.hashes.perceptual,
                     size=_safe_size(decision.source),
