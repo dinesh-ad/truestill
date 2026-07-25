@@ -19,7 +19,30 @@ from vaeon_core.models import (
     FileHashes,
     Resolution,
 )
-from vaeon_core.organizer import apply_events, discover, execute, plan, resolve
+from vaeon_core.organizer import apply_events, discover, execute, plan, resolve, scan_source
+
+
+def test_scan_source_partitions_media_documents_and_unrecognized(tmp_path: Path) -> None:
+    for name in ("a.jpg", "b.MP4", "notes.pdf", "clip.vob", "movie.ogv", "weird.xyz"):
+        (tmp_path / name).write_bytes(b"x")
+    (tmp_path / ".hidden.jpg").write_bytes(b"x")  # hidden -> skipped entirely
+
+    scan = scan_source(tmp_path)
+    assert sorted(p.name for p in scan.media) == [
+        "a.jpg",
+        "b.MP4",
+    ]  # recognized media (case-insensitive)
+    assert sorted(p.name for p in scan.documents) == ["notes.pdf"]
+    assert sorted(p.name for p in scan.unrecognized) == ["clip.vob", "movie.ogv", "weird.xyz"]
+
+
+def test_scan_source_all_files_treats_everything_as_media(tmp_path: Path) -> None:
+    (tmp_path / "notes.pdf").write_bytes(b"x")
+    (tmp_path / "clip.vob").write_bytes(b"x")
+    scan = scan_source(tmp_path, all_files=True)
+    assert len(scan.media) == 2
+    assert scan.documents == []
+    assert scan.unrecognized == []
 
 
 def _camera_resolution(source: str, when: datetime, sha: str) -> Resolution:

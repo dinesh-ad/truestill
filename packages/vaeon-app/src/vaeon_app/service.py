@@ -32,7 +32,7 @@ from vaeon_core.layout import (
 )
 from vaeon_core.migrate import run_migration
 from vaeon_core.models import Resolution
-from vaeon_core.organizer import discover, execute, plan, resolve
+from vaeon_core.organizer import SourceScan, discover, execute, plan, resolve, scan_source
 from vaeon_core.progress import ProgressCallback
 from vaeon_core.takeout import scan_takeout
 from vaeon_core.verify import CopyStatus, CopyToVerify, verify_copies
@@ -58,11 +58,20 @@ def _summarize(resolutions: list[Resolution]) -> dict[str, Any]:
     }
 
 
+def _skipped_summary(scan: SourceScan) -> dict[str, dict[str, int]]:
+    """Skipped files grouped by extension, so the UI can account for what was not organized."""
+    return {
+        "documents": dict(Counter(p.suffix.lower() or "(no ext)" for p in scan.documents)),
+        "unrecognized": dict(Counter(p.suffix.lower() or "(no ext)" for p in scan.unrecognized)),
+    }
+
+
 def organize_preview(source: Path, destination: Path, db: Path) -> dict[str, Any]:
     """Plan + dedup with no writes -- the dry-run summary the UI shows before a real run."""
-    files = discover(source)
+    scan = scan_source(source)
+    files = scan.media
     if not files:
-        return {"files": 0, "folders": {}}
+        return {"files": 0, "folders": {}, "skipped": _skipped_summary(scan)}
     metadata = read_metadata(files)
     with Catalog(db) as catalog:
         template = resolve_template(catalog.get_setting(LAYOUT_TEMPLATE_KEY))
@@ -71,6 +80,7 @@ def organize_preview(source: Path, destination: Path, db: Path) -> dict[str, Any
         resolutions = resolve(decisions, index, catalog_sizes=catalog.known_sizes())
     summary = _summarize(resolutions)
     summary["destination_is_drive"] = read_marker(destination) is not None
+    summary["skipped"] = _skipped_summary(scan)
     return summary
 
 

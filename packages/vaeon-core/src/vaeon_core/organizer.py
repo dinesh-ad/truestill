@@ -16,7 +16,7 @@ import shutil
 import tempfile
 import threading
 from collections.abc import Iterable, Sequence
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -95,17 +95,84 @@ MEDIA_EXTENSIONS: frozenset[str] = frozenset(
 )
 
 
-def discover(source: Path, *, all_files: bool = False) -> list[Path]:
-    """Return media files under ``source``, sorted, skipping hidden paths."""
-    found: list[Path] = []
+#: Common document / archive extensions, reported separately from unrecognized files so a
+#: skipped ``.pdf`` reads differently from a skipped video format vaeon does not yet organize.
+DOCUMENT_EXTENSIONS: frozenset[str] = frozenset(
+    {
+        ".pdf",
+        ".doc",
+        ".docx",
+        ".txt",
+        ".rtf",
+        ".odt",
+        ".pages",
+        ".md",
+        ".xls",
+        ".xlsx",
+        ".csv",
+        ".ods",
+        ".numbers",
+        ".ppt",
+        ".pptx",
+        ".odp",
+        ".key",
+        ".epub",
+        ".mobi",
+        ".azw3",
+        ".zip",
+        ".rar",
+        ".7z",
+        ".tar",
+        ".gz",
+        ".json",
+        ".xml",
+        ".html",
+        ".htm",
+    }
+)
+
+
+@dataclass(frozen=True)
+class SourceScan:
+    """Everything found under a source, partitioned so nothing is silently dropped.
+
+    ``media`` is what the pipeline organizes; ``documents`` are known non-media files;
+    ``unrecognized`` is everything else skipped -- which may include video formats vaeon does
+    not yet recognize. The two skipped lists are surfaced in the end-of-run report.
+    """
+
+    media: list[Path]
+    documents: list[Path]
+    unrecognized: list[Path]
+
+
+def scan_source(source: Path, *, all_files: bool = False) -> SourceScan:
+    """Walk ``source`` once, partitioning files into media / documents / unrecognized.
+
+    Hidden paths are skipped. With ``all_files`` every file is treated as media (the
+    ``--all-files`` escape hatch), so both skipped lists are empty.
+    """
+    media: list[Path] = []
+    documents: list[Path] = []
+    unrecognized: list[Path] = []
     for path in sorted(source.rglob("*")):
         if not path.is_file():
             continue
         if any(part.startswith(".") for part in path.relative_to(source).parts):
             continue
-        if all_files or path.suffix.lower() in MEDIA_EXTENSIONS:
-            found.append(path)
-    return found
+        ext = path.suffix.lower()
+        if all_files or ext in MEDIA_EXTENSIONS:
+            media.append(path)
+        elif ext in DOCUMENT_EXTENSIONS:
+            documents.append(path)
+        else:
+            unrecognized.append(path)
+    return SourceScan(media=media, documents=documents, unrecognized=unrecognized)
+
+
+def discover(source: Path, *, all_files: bool = False) -> list[Path]:
+    """Return media files under ``source``, sorted, skipping hidden paths."""
+    return scan_source(source, all_files=all_files).media
 
 
 def build_relative(

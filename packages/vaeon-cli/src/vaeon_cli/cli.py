@@ -42,7 +42,7 @@ from vaeon_core.models import (
     DuplicateMatch,
     Resolution,
 )
-from vaeon_core.organizer import discover, execute, plan, resolve
+from vaeon_core.organizer import SourceScan, execute, plan, resolve, scan_source
 from vaeon_core.progress import ProgressCallback
 from vaeon_core.scan import DEFAULT_WORKERS
 from vaeon_core.takeout import (
@@ -639,13 +639,34 @@ def _run_pipeline(
     return _print_execution(results)
 
 
+def _fmt_extensions(paths: list[Path]) -> str:
+    counts = Counter(p.suffix.lower() or "(no ext)" for p in paths)
+    return ", ".join(f"{ext} x{n}" for ext, n in counts.most_common())
+
+
+def _print_skipped(scan: SourceScan) -> None:
+    """Account for every file that was NOT organized, grouped by extension. Never silent."""
+    if not scan.documents and not scan.unrecognized:
+        return
+    print("\nSkipped (not organized):")
+    if scan.documents:
+        print(f"  documents: {len(scan.documents)}  ({_fmt_extensions(scan.documents)})")
+    if scan.unrecognized:
+        print(f"  unrecognized: {len(scan.unrecognized)}  ({_fmt_extensions(scan.unrecognized)})")
+        print(
+            "    (not recognized as media; some may be video formats vaeon does not organize yet)"
+        )
+
+
 def _cmd_organize(args: argparse.Namespace) -> int:
     if not args.source.is_dir():
         print(f"error: source is not a directory: {args.source}", file=sys.stderr)
         return 2
-    files = discover(args.source, all_files=args.all_files)
+    scan = scan_source(args.source, all_files=args.all_files)
+    files = scan.media
     if not files:
         print(f"No media files found under {args.source}")
+        _print_skipped(scan)
         return 0
     print(f"Analysing {len(files)} file(s) under {args.source} ...\n")
     try:
@@ -658,7 +679,9 @@ def _cmd_organize(args: argparse.Namespace) -> int:
     except DestinationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 4
-    return _run_pipeline(args, files, metadata, destination, drive_marker=_local_drive_marker(args))
+    code = _run_pipeline(args, files, metadata, destination, drive_marker=_local_drive_marker(args))
+    _print_skipped(scan)
+    return code
 
 
 def _cmd_ingest(args: argparse.Namespace) -> int:
@@ -667,9 +690,19 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
         return 2
     print(f"Scanning Takeout export at {args.takeout} ...")
     scan = scan_takeout(args.takeout)
-    files = discover(args.takeout)
+    source_scan = scan_source(args.takeout)
+    # A Takeout export's own .json sidecars and .html scaffolding are consumed here, not skipped,
+    # so they are excluded from the skipped report -- only genuinely unhandled files are shown.
+    _takeout_noise = {".json", ".html", ".htm"}
+    skipped = SourceScan(
+        media=source_scan.media,
+        documents=[p for p in source_scan.documents if p.suffix.lower() not in _takeout_noise],
+        unrecognized=source_scan.unrecognized,
+    )
+    files = source_scan.media
     if not files:
         print(f"No media files found under {args.takeout}")
+        _print_skipped(skipped)
         return 0
     print(
         f"Found {len(files)} media file(s); matched {len(scan.sidecars)} sidecar(s), "
@@ -690,7 +723,7 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
     if args.map_albums:
         event_prompt = album_prompt({str(p): n for p, n in scan.albums.items()})
 
-    return _run_pipeline(
+    code = _run_pipeline(
         args,
         files,
         metadata,
@@ -702,6 +735,8 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
         event_prompt=event_prompt,
         drive_marker=_local_drive_marker(args),
     )
+    _print_skipped(skipped)
+    return code
 
 
 def _print_layout_preview(template: LayoutTemplate) -> None:

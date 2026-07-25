@@ -18,38 +18,17 @@ decision context that produced them.
 - **Zip-direct Takeout ingestion.** `vaeon ingest --takeout` takes an already-extracted
   directory today; reading the Takeout `.zip`(s) directly was flagged as a follow-up in the
   Phase-2 spec (deferred to avoid complicating v1).
-- **Metadata recovery fallback chain (video-date verification).** A full feature, scheduled
-  **next** (the configurable organization structure it once trailed has shipped — see below).
-  Today every date comes from a single `exiftool` read; some video containers defeat it. Scope,
-  in order:
-  1. **Corpus test first.** Assemble real, varied videos — including known-problem formats:
-     `.3gp`, `.avi`, WhatsApp-recompressed clips, and old MP4s — and measure where the current
-     single `exiftool` read returns *no* date.
-  2. **Add only what the corpus proves necessary.** Candidate fallback parsers: `pymediainfo`,
-     `hachoir`, `ffprobe`. Each one added must come with a written justification naming a corpus
-     file it — and only it — could date. No parser goes in "just in case"; that is how PixSort's
-     five-deep chain accreted. Fallbacks fire **only when exiftool finds no date**.
-  3. **Provenance per file recorded in the catalog** — which tool supplied the date and from
-     which field — so a questionable placement can always be traced back to its source.
-  4. **The mtime-never rule stays absolute.** A file that no parser can date goes to `Undated/`,
-     never silently placed from filesystem time. (See non-negotiable rule 2 in `docs/CLAUDE.md`.)
-
-  Separately but in the same domain, verified empirically during this investigation: even when
-  exiftool *does* return a date, QuickTime container tags (`CreateDate`/`MediaCreateDate`/
-  `TrackCreateDate`) are stored in **UTC**, while Apple writes the true local recording moment
-  with its offset to `com.apple.quicktime.creationdate` (exiftool tag `CreationDate`). vaeon
-  requests the former family and not the latter, so a near-midnight iPhone clip
-  (`CreateDate 2023:08:19 20:00:00Z` vs `CreationDate 2023:08:20 01:30:00+05:30`) is misfiled by
-  a whole day — a month boundary in the worst case. Requesting `CreationDate` and preferring the
-  offset-bearing local tag is a small, dependency-free correctness fix. **Shipped ahead of the
-  feature** (`core(dates)`, commit `f89fec8`): `CreationDate` is now requested and ranked above
-  the UTC container tags, converted exactly once, pinned by tests. Rationale for the remaining
-  feature: the user's firsthand experience plus the community record of multi-field MP4 chaos.
+- **Recognize additional real-world video extensions (l).** The metadata-chain corpus surfaced
+  container formats vaeon's `MEDIA_EXTENSIONS` doesn't recognize, so they are skipped (now
+  *reported*, not silent). Recognize the ones that are actually common — **`.vob`, `.ts`, `.m2v`,
+  and the `.asf` family at minimum** — with the final list driven by **prevalence evidence, not
+  the whole corpus zoo** (`.swf`, raw `.hevc`/`.mjpeg` elementary streams are not "photos to back
+  up"). Each extension added must have its **category and date handling verified via the corpus
+  probe** before inclusion. **Post-launch, demand-driven.**
 - **`--skip-undated` on organize/ingest.** Default **OFF** — for backup completeness, files that
   cannot be dated still copy to `Undated/` where they are visible, never dropped. When the flag
   is on, the skipped files are counted **and named** in the end-of-run report; neither posture is
-  ever silent about what happened to an undateable file. **Priority: pre-launch, after the
-  metadata recovery fallback chain** (which shrinks the undated set first).
+  ever silent about what happened to an undateable file. **Priority: pre-launch (next).**
 - **Space-safe move: source reclamation.** Two surfaces over one mechanism, so organizing a large
   library does not require 2× disk space:
   - `--move` on `organize` — per file: copy → hash-verify the destination copy → **only then**
@@ -61,10 +40,18 @@ decision context that produced them.
   Both require an explicit flag **and** a confirmation worded with honest destructive-action
   language. This is a **documented, contained exception to the copy-only invariant**, scoped
   exactly like the Takeout metadata-write path — update `IMPLEMENTATION_STANDARDS.md` accordingly
-  when built. **Priority: pre-launch, after the metadata recovery fallback chain.**
+  when built. **Priority: pre-launch (with `--skip-undated`).**
 
 ## Shipped (kept for provenance)
 
+- ~~**Metadata recovery fallback chain — decided on evidence.**~~ A 37-file, 22-format corpus
+  test (`docs/metadata-chain-research.md`) showed exiftool already dates every datable file
+  (including AVCHD `.mts` and WhatsApp `.mp4`), **no** fallback parser recovered a genuine capture
+  date it missed, and naive parsers emit epoch sentinels (1904/1970) that would misfile. Outcome:
+  **no parser added**; shipped the never-silent **skipped-file reporting fix** (`scan_source` +
+  report); recorded the **sentinel-rejection rule** and ffprobe/schema-v9 reservation as binding
+  conventions (`IMPLEMENTATION_STANDARDS.md §1`). The `CreationDate` UTC-vs-local fix shipped
+  earlier (`f89fec8`). Remaining follow-on tracked as item (l).
 - ~~**Event merge/split.**~~ Delivered in the local web UI's Event review screen (merge/split
   are UI-only capabilities the CLI's name/skip flow lacks), exercised end-to-end through the HTTP
   API against real clustered fixtures. The CLI stays name-or-skip only, by design — a terminal is

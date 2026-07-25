@@ -18,6 +18,7 @@ Paths are workspace-relative. Symbols are cited over line numbers, which drift.
 | **Copies are byte-identical to the source EXCEPT the scoped Takeout write.** | Normal path uploads the source unchanged. The only exception is `organizer._upload_with_metadata_write`, reached **only** when an `IngestContext` carries a write (Takeout ingestion); it stages a temp copy, bakes metadata losslessly via `exif.write_metadata` (no pixel re-encode), and never touches the source. |
 | **Categorization is evidence-derived — no hardcoded taxonomy.** | `categorize.build_rules` is an ordered rule chain; labels are plain `str` (there is no `Category` enum in `models.py`). New sources are added as a `NAME_PATTERNS` row or derived from the `Software`/device rules. |
 | **Dating uses an evidence chain, never filesystem mtime.** | `dates.resolve_capture_datetime`. mtime is only ever *written* (`organizer._apply_timestamp` sets mtime from the resolved capture date); it is never *read* for placement. |
+| **Every source file is accounted for — none silently dropped.** | `organizer.scan_source` partitions a source into `media` / `documents` / `unrecognized`; the CLI end-of-run report (`_print_skipped`) and the app organize summary (`service._skipped_summary`) count the two skipped buckets by extension. Nothing is discarded without appearing in a report. |
 
 **Dating tier order (current), from `dates.resolve_capture_datetime`:**
 
@@ -28,6 +29,22 @@ Paths are workspace-relative. Symbols are cited over line numbers, which drift.
 - "Sane" EXIF = parseable and year in `[1990, 2100]`; outside that, a Takeout date wins.
 - Takeout times are epoch-UTC, converted to local wall-clock **exactly once**
   (`takeout.local_naive`); `--tz ±HH:MM` supplies the offset.
+
+**Sentinel-date rejection (binding, for any current or future date source).** A date equal to a
+container zero-epoch — `1904-01-01T00:00:00` (ISO-BMFF/QuickTime), `1970-01-01T00:00:00` (Unix),
+or an all-zero value — is **not a date**; it must be treated as "no date" and fall through to the
+next tier, exactly as `dates.parse_exif_datetime` already drops exiftool's `0000…` strings. This
+was proven necessary by the metadata-chain corpus: naive parsers (hachoir, pymediainfo) report
+these unset fields as if real, which would misfile clips to 1904/1970 — strictly worse than
+`Undated/`. See `docs/metadata-chain-research.md`.
+
+**Fallback-parser policy (convention — no parser is currently a dependency).** exiftool is the
+sole date reader. A container-parsing fallback (pymediainfo / hachoir / ffprobe) is added **only**
+when a real corpus shows a file it — and only it — can *correctly* date; hachoir is disqualified
+(reports EXIF `ModifyDate` as capture). On the evidence to date the designated front-runner, if
+one is ever justified, is **ffprobe** (the only sentinel-safe parser observed). When that happens,
+date **provenance** (`date_tool`, `date_field`) is reserved for catalog **schema v9**, and the
+fallback slots into `resolve_capture_datetime` between embedded-EXIF and the filename tier.
 
 ---
 
