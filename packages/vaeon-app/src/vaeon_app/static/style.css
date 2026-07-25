@@ -1,0 +1,18 @@
+:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+body { max-width: 900px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+header { display: flex; align-items: baseline; gap: .75rem; border-bottom: 1px solid #8884; padding-bottom: .5rem; }
+header .sub { color: #8a8a8a; font-size: .9rem; }
+section { margin: 1.5rem 0; padding: 1rem; border: 1px solid #8884; border-radius: 8px; }
+h2 { margin-top: 0; }
+label { display: block; margin: .5rem 0; }
+input { width: 22rem; max-width: 100%; padding: .3rem; }
+button { padding: .35rem .8rem; margin: .2rem .2rem 0 0; cursor: pointer; }
+.out { background: #8881; padding: .6rem; border-radius: 6px; white-space: pre-wrap; overflow-x: auto; }
+.progress { margin-top: .6rem; display: flex; align-items: center; gap: .6rem; }
+.bar { flex: 1; height: 12px; background: #8883; border-radius: 6px; overflow: hidden; }
+.bar > div { height: 100%; width: 0; background: #4a90d9; transition: width .2s; }
+.hidden { display: none; }
+.note { color: #c0783c; margin-bottom: .5rem; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: .3rem .5rem; border-bottom: 1px solid #8883; }
+footer { color: #8a8a8a; font-size: .85rem; margin-top: 2rem; }

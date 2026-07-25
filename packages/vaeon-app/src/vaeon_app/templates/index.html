@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>vaeon</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script>window.VAEON_TOKEN = "{{TOKEN}}";</script>
+</head>
+<body>
+  <header><h1>vaeon</h1><span class="sub">local media organizer &amp; backup</span></header>
+
+  <section id="organize">
+    <h2>Organize</h2>
+    <label>Source folder <input id="org-source" placeholder="/photos/dump"></label>
+    <label>Destination (drive root) <input id="org-dest" placeholder="/mnt/DriveA"></label>
+    <button id="org-preview">Dry-run preview</button>
+    <button id="org-run" disabled>Run for real</button>
+    <pre id="org-summary" class="out"></pre>
+    <div id="org-progress" class="progress hidden">
+      <div class="bar"><div id="org-bar"></div></div>
+      <span id="org-count"></span> <button id="org-cancel">Cancel</button>
+    </div>
+  </section>
+
+  <section id="drives">
+    <h2>Drives <button id="drives-refresh">Refresh</button></h2>
+    <div id="at-risk" class="note"></div>
+    <table id="drives-table"><thead><tr>
+      <th>Label</th><th>Files</th><th>Size</th><th>Last seen</th><th>Last verified</th><th></th>
+    </tr></thead><tbody></tbody></table>
+    <label>Verify a connected drive at <input id="verify-path" placeholder="/mnt/DriveA"></label>
+    <button id="verify-run">Verify</button>
+    <pre id="verify-out" class="out"></pre>
+    <div id="verify-progress" class="progress hidden">
+      <div class="bar"><div id="verify-bar"></div></div>
+      <span id="verify-count"></span> <button id="verify-cancel">Cancel</button>
+    </div>
+  </section>
+
+  <section id="where">
+    <h2>Where is…?</h2>
+    <label>Filename <input id="where-term" placeholder="beach"></label>
+    <button id="where-go">Find (offline)</button>
+    <pre id="where-out" class="out"></pre>
+  </section>
+
+  <footer>Dry-run is the default. Nothing is written until you choose “Run for real”.</footer>
+  <script src="/static/app.js"></script>
+</body>
+</html>

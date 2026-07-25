@@ -1,0 +1,42 @@
+[project]
+name = "vaeon-app"
+version = "0.1.0"
+description = "Local web UI for vaeon: a Starlette server + browser front-end on localhost."
+authors = [{ name = "vaeon contributors" }]
+requires-python = ">=3.13"
+readme = "README.md"
+license = "Apache-2.0"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Web Environment",
+    "Intended Audience :: End Users/Desktop",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Graphics",
+]
+# Deps isolated to this package; vaeon-core stays imagehash+pillow only.
+#   starlette -- minimal ASGI (routing + SSE + static + background); not FastAPI (wraps
+#     Starlette+Pydantic; Pydantic is disallowed for our models and unneeded for one user).
+#   uvicorn -- the ASGI server to run Starlette (no stdlib ASGI server exists).
+# The browser front-end is server-rendered HTML + a small vanilla-JS layer (EventSource for
+# SSE, fetch for the API): no npm/bundler/build step, and nothing third-party to vendor.
+dependencies = [
+    "vaeon-core",
+    "starlette>=0.40",
+    "uvicorn>=0.30",
+]
+
+[project.scripts]
+vaeon-app = "vaeon_app.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/dinesh-ad/vaeon"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/vaeon_app"]
+
+[tool.uv.sources]
+vaeon-core = { workspace = true }

@@ -53,7 +53,7 @@ jobs:
         run: uv run ruff format --check .
 
       - name: Mypy
-        run: uv run mypy packages/vaeon-core/src/vaeon_core packages/vaeon-cli/src/vaeon_cli
+        run: uv run mypy packages/vaeon-core/src/vaeon_core packages/vaeon-cli/src/vaeon_cli packages/vaeon-app/src/vaeon_app
 
       - name: Pytest
         run: uv run pytest

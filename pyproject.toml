@@ -14,6 +14,7 @@ dev = [
     "pytest>=8.0.0",
     "pytest-cov>=6.0.0",
     "pre-commit>=4.2.0",
+    "httpx>=0.28",       # Starlette TestClient (vaeon-app tests)
 ]
 
 # --- Ruff (lint + format), applied repo-wide ------------------------------------------
@@ -89,7 +90,11 @@ line-ending = "auto"
 
 # --- pytest ---------------------------------------------------------------------------
 [tool.pytest.ini_options]
-testpaths = ["packages/vaeon-core/tests", "packages/vaeon-cli/tests"]
+testpaths = [
+    "packages/vaeon-core/tests",
+    "packages/vaeon-cli/tests",
+    "packages/vaeon-app/tests",
+]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"

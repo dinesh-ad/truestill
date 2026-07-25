@@ -1,6 +1,7 @@
 PYTHON := uv run
 CORE := packages/vaeon-core/src/vaeon_core
 CLI := packages/vaeon-cli/src/vaeon_cli
+APP := packages/vaeon-app/src/vaeon_app
 
 .PHONY: install lint format typecheck test check build dryrun
 
@@ -14,7 +15,7 @@ format:
 	$(PYTHON) ruff format .
 
 typecheck:
-	$(PYTHON) mypy $(CORE) $(CLI)
+	$(PYTHON) mypy $(CORE) $(CLI) $(APP)
 
 test:
 	$(PYTHON) pytest
