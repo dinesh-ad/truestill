@@ -5,6 +5,7 @@ description = "Core library: categorize, date, de-duplicate and place media into
 authors = [{ name = "vaeon contributors" }]
 requires-python = ">=3.12"
 readme = "README.md"
+license = "Apache-2.0"
 keywords = ["photos", "media", "organizer", "deduplication", "backup", "exif"]
 classifiers = [
     "Development Status :: 3 - Alpha",
