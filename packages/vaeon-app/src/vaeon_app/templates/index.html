@@ -63,6 +63,30 @@
     <div id="rc-report" class="out"></div>
   </section>
 
+  <section id="settings">
+    <h2>Settings · Folder layout</h2>
+    <p class="note">Current: <code id="layout-current"></code> <span id="layout-default"></span></p>
+    <label>Preset
+      <select id="layout-preset"><option value="">— choose a preset —</option></select>
+    </label>
+    <label>Template <input id="layout-template" placeholder="{category}/{yyyy}/{mm}"></label>
+    <table id="layout-preview"><thead><tr><th>Category</th><th>Date</th><th>Lands at</th></tr></thead><tbody></tbody></table>
+    <div id="layout-error" class="note"></div>
+    <button id="layout-save" disabled>Save layout</button>
+    <p class="note">Changing the layout affects <b>newly organized files only</b>; existing files
+      stay where they are (split-era). To move an already-organized library, migrate it below.</p>
+
+    <h3>Migrate an existing drive</h3>
+    <label>Connected drive root <input id="mig-path" placeholder="/mnt/DriveA"></label>
+    <button id="mig-preview">Preview migration</button>
+    <pre id="mig-out" class="out"></pre>
+    <button id="mig-run" class="hidden">Move the files</button>
+    <div id="mig-progress" class="progress hidden">
+      <div class="bar"><div id="mig-bar"></div></div>
+      <span id="mig-count"></span> <button id="mig-cancel">Cancel</button>
+    </div>
+  </section>
+
   <footer>Dry-run is the default. Nothing is written until you choose “Run for real”.</footer>
   <script src="/static/app.js"></script>
 </body>

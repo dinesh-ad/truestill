@@ -77,6 +77,28 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
         report = service.ingest_preview(Path(body["takeout"]), Path(body["destination"]), _db())
         return JSONResponse(report)
 
+    # --- Settings: destination layout template + migration ------------------------------
+
+    async def layout(request: Request) -> JSONResponse:
+        if request.method == "POST":
+            body = await request.json()
+            return JSONResponse(service.set_layout(body["template"], _db()))
+        return JSONResponse(service.layout_state(_db()))
+
+    async def layout_preview(request: Request) -> JSONResponse:
+        body = await request.json()
+        return JSONResponse(service.preview_layout(body["template"]))
+
+    async def migrate_preview(request: Request) -> JSONResponse:
+        body = await request.json()
+        return JSONResponse(service.migration_preview(Path(body["path"]), _db()))
+
+    async def migrate_run(request: Request) -> JSONResponse:
+        body = await request.json()
+        return JSONResponse(
+            {"job_id": jobs.start(service.migration_apply(Path(body["path"]), _db()))}
+        )
+
     # --- Event review (session-based; merge/split are UI-only, no CLI path) ---
     sessions: dict[str, dict[str, Any]] = {}
 
@@ -135,6 +157,10 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
         Route("/api/organize/run", organize_run, methods=["POST"]),
         Route("/api/verify/run", verify_run, methods=["POST"]),
         Route("/api/ingest/preview", ingest_preview, methods=["POST"]),
+        Route("/api/layout", layout, methods=["GET", "POST"]),
+        Route("/api/layout/preview", layout_preview, methods=["POST"]),
+        Route("/api/migrate/preview", migrate_preview, methods=["POST"]),
+        Route("/api/migrate/run", migrate_run, methods=["POST"]),
         Route("/api/events/propose", events_propose, methods=["POST"]),
         Route("/api/events/{session}/merge", events_merge, methods=["POST"]),
         Route("/api/events/{session}/split", events_split, methods=["POST"]),

@@ -163,4 +163,81 @@ $("rc-preview").onclick = async () => {
     `media without a JSON sidecar: ${r.missing_sidecar}`;
 };
 
+// --- Settings: folder layout + migration ---
+function renderLayoutPreview(rows) {
+  const tbody = $("layout-preview").querySelector("tbody");
+  tbody.innerHTML = "";
+  for (const r of rows) {
+    const tr = document.createElement("tr");
+    const warn = r.warnings && r.warnings.length ? ` ⚠ ${r.warnings.join("; ")}` : "";
+    tr.innerHTML = `<td>${r.category}</td><td>${r.when}</td><td><code>${r.path}</code>${warn}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+async function loadLayout() {
+  const s = await api("/api/layout");
+  $("layout-current").textContent = s.template;
+  $("layout-default").textContent = s.is_default ? "(default)" : "";
+  $("layout-template").value = s.template;
+  const preset = $("layout-preset");
+  preset.length = 1;
+  for (const [name, tmpl] of Object.entries(s.presets)) {
+    const opt = document.createElement("option");
+    opt.value = tmpl;
+    opt.textContent = `${name}  (${tmpl})`;
+    preset.appendChild(opt);
+  }
+  renderLayoutPreview(s.preview);
+}
+
+async function previewLayout() {
+  const template = $("layout-template").value.trim();
+  const r = await api("/api/layout/preview", { template });
+  $("layout-error").textContent = r.valid ? "" : `Invalid: ${r.error}`;
+  $("layout-save").disabled = !r.valid;
+  if (r.valid) renderLayoutPreview(r.preview);
+}
+
+$("layout-template").oninput = previewLayout;
+$("layout-preset").onchange = () => {
+  if ($("layout-preset").value) { $("layout-template").value = $("layout-preset").value; previewLayout(); }
+};
+$("layout-save").onclick = async () => {
+  const r = await api("/api/layout", { template: $("layout-template").value.trim() });
+  if (r.valid === false) { $("layout-error").textContent = `Invalid: ${r.error}`; return; }
+  $("layout-current").textContent = r.template;
+  $("layout-default").textContent = "";
+  $("layout-error").textContent = "Saved.";
+};
+
+$("mig-preview").onclick = async () => {
+  const path = $("mig-path").value.trim();
+  $("mig-out").textContent = "planning…";
+  const r = await api("/api/migrate/preview", { path });
+  if (!r.ok) { $("mig-out").textContent = r.error; $("mig-run").classList.add("hidden"); return; }
+  const lines = [
+    `Drive '${r.label}' -> template ${r.template}`,
+    `${r.moves.length} file(s) to relocate, ${r.unchanged} already in place.`,
+    ...r.moves.slice(0, 20).map((m) => `  ${m.old}  ->  ${m.new}`),
+    ...(r.moves.length > 20 ? [`  ... and ${r.moves.length - 20} more`] : []),
+    ...r.warnings.map((w) => `  ! ${w}`),
+    ...r.pending_drives.map((d) => `  pending: '${d}' has copies too -- reconnect and re-run`),
+  ];
+  $("mig-out").textContent = lines.join("\n");
+  $("mig-run").classList.toggle("hidden", r.moves.length === 0);
+};
+
+let migJob = null;
+$("mig-run").onclick = async () => {
+  const { job_id } = await api("/api/migrate/run", { path: $("mig-path").value.trim() });
+  migJob = job_id;
+  $("mig-progress").classList.remove("hidden");
+  streamJob(job_id,
+    (d) => setBar("mig-bar", "mig-count", d.done, d.total),
+    (d) => { $("mig-out").textContent = JSON.stringify(d.summary || d, null, 2); migJob = null; loadDrives(); });
+};
+$("mig-cancel").onclick = () => { if (migJob) api(`/api/jobs/${migJob}/cancel`, {}); };
+
+loadLayout();
 loadDrives();

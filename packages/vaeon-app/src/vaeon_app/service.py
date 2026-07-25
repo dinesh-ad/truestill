@@ -20,6 +20,17 @@ from vaeon_core.destinations import LocalDestination
 from vaeon_core.drive import read_marker
 from vaeon_core.exif import read_metadata
 from vaeon_core.hashing import DEFAULT_PHASH_THRESHOLD
+from vaeon_core.layout import (
+    DEFAULT_TEMPLATE_STRING,
+    LAYOUT_TEMPLATE_KEY,
+    PRESETS,
+    SAMPLE_CONTEXTS,
+    LayoutTemplate,
+    TemplateError,
+    preview,
+    resolve_template,
+)
+from vaeon_core.migrate import run_migration
 from vaeon_core.models import Resolution
 from vaeon_core.organizer import discover, execute, plan, resolve
 from vaeon_core.progress import ProgressCallback
@@ -53,8 +64,9 @@ def organize_preview(source: Path, destination: Path, db: Path) -> dict[str, Any
     if not files:
         return {"files": 0, "folders": {}}
     metadata = read_metadata(files)
-    decisions = plan(files, metadata, build_rules())
     with Catalog(db) as catalog:
+        template = resolve_template(catalog.get_setting(LAYOUT_TEMPLATE_KEY))
+        decisions = plan(files, metadata, build_rules(), template=template)
         index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
         resolutions = resolve(decisions, index, catalog_sizes=catalog.known_sizes())
     summary = _summarize(resolutions)
@@ -70,8 +82,9 @@ def organize_run(source: Path, destination: Path, db: Path) -> JobTarget:
         if not files:
             return {"uploaded": 0}
         metadata = read_metadata(files)
-        decisions = plan(files, metadata, build_rules())
         with Catalog(db) as catalog:
+            template = resolve_template(catalog.get_setting(LAYOUT_TEMPLATE_KEY))
+            decisions = plan(files, metadata, build_rules(), template=template)
             index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
             resolutions = resolve(
                 decisions,
@@ -184,8 +197,9 @@ def plan_resolve(source: Path, db: Path) -> tuple[list[Resolution], dict[Path, d
     if not files:
         return [], {}
     metadata = read_metadata(files)
-    decisions = plan(files, metadata, build_rules())
     with Catalog(db) as catalog:
+        template = resolve_template(catalog.get_setting(LAYOUT_TEMPLATE_KEY))
+        decisions = plan(files, metadata, build_rules(), template=template)
         index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
         resolutions = resolve(decisions, index, catalog_sizes=catalog.known_sizes())
     return resolutions, metadata
@@ -212,8 +226,9 @@ def ingest_preview(takeout: Path, destination: Path, db: Path) -> dict[str, Any]
     if not files:
         return {"files": 0, "missing_sidecar": 0}
     metadata = read_metadata(files)
-    decisions = plan(files, metadata, build_rules(), takeout=scan.sidecars)
     with Catalog(db) as catalog:
+        template = resolve_template(catalog.get_setting(LAYOUT_TEMPLATE_KEY))
+        decisions = plan(files, metadata, build_rules(), takeout=scan.sidecars, template=template)
         index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
         resolutions = resolve(decisions, index, catalog_sizes=catalog.known_sizes())
     uploads = [r for r in resolutions if r.should_upload]
@@ -238,3 +253,109 @@ def _safe_size(path: Path) -> int:
         return path.stat().st_size
     except OSError:
         return 0
+
+
+# --- layout Settings screen (template + migration) ------------------------------------
+
+
+def _render_preview(template: LayoutTemplate) -> list[dict[str, Any]]:
+    """The three sample files rendered through a template, for the live preview."""
+    rows = []
+    for context, row in zip(SAMPLE_CONTEXTS, preview(template, SAMPLE_CONTEXTS), strict=True):
+        when = context.captured_at.strftime("%Y-%m-%d") if context.captured_at else "undated"
+        rows.append(
+            {
+                "category": context.category,
+                "when": when,
+                "path": row.path.as_posix(),
+                "warnings": list(row.warnings),
+            }
+        )
+    return rows
+
+
+def layout_state(db: Path) -> dict[str, Any]:
+    """Current template, whether it is the default, the presets, and a live preview."""
+    with Catalog(db) as catalog:
+        stored = catalog.get_setting(LAYOUT_TEMPLATE_KEY)
+    current = stored or DEFAULT_TEMPLATE_STRING
+    return {
+        "template": current,
+        "is_default": stored is None,
+        "presets": dict(PRESETS),
+        "preview": _render_preview(resolve_template(stored)),
+    }
+
+
+def preview_layout(template_str: str) -> dict[str, Any]:
+    """Validate a template and render the samples; report the error instead of raising."""
+    try:
+        template = LayoutTemplate.parse(template_str)
+    except TemplateError as exc:
+        return {"valid": False, "error": str(exc)}
+    return {"valid": True, "preview": _render_preview(template)}
+
+
+def set_layout(template_str: str, db: Path) -> dict[str, Any]:
+    """Persist a template after validating it; returns the new :func:`layout_state` or an error."""
+    try:
+        LayoutTemplate.parse(template_str)
+    except TemplateError as exc:
+        return {"valid": False, "error": str(exc)}
+    with Catalog(db) as catalog:
+        catalog.set_setting(LAYOUT_TEMPLATE_KEY, template_str)
+    return {"valid": True, **layout_state(db)}
+
+
+def migration_preview(path: Path, db: Path) -> dict[str, Any]:
+    """Preview relocating a connected drive's files to the current template (moves nothing)."""
+    marker = read_marker(path)
+    if marker is None:
+        return {
+            "ok": False,
+            "error": "no .vaeon-drive.json at that path -- is the drive connected?",
+        }
+    with Catalog(db) as catalog:
+        catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+        template = resolve_template(catalog.get_setting(LAYOUT_TEMPLATE_KEY))
+        outcome = run_migration(catalog, LocalDestination(path), marker.uuid, template, apply=False)
+        pending = [
+            d["label"]
+            for d in catalog.list_drives()
+            if d["uuid"] != marker.uuid and d["file_count"]
+        ]
+    plan = outcome.plan
+    return {
+        "ok": True,
+        "label": marker.label,
+        "template": template.template,
+        "unchanged": plan.unchanged,
+        "moves": [{"old": m.old_relative, "new": m.new_relative} for m in plan.moves],
+        "warnings": plan.warnings,
+        "pending_drives": pending,
+    }
+
+
+def migration_apply(path: Path, db: Path) -> JobTarget:
+    """Build a job target that relocates a connected drive's files under the current template."""
+
+    def target(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
+        marker = read_marker(path)
+        if marker is None:
+            message = "no .vaeon-drive.json at that path -- is the drive connected?"
+            raise ValueError(message)
+        with Catalog(db) as catalog:
+            catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+            template = resolve_template(catalog.get_setting(LAYOUT_TEMPLATE_KEY))
+            outcome = run_migration(
+                catalog,
+                LocalDestination(path),
+                marker.uuid,
+                template,
+                apply=True,
+                progress=progress,
+                cancel=cancel,
+            )
+        return {"label": marker.label, "migrated": outcome.migrated, "resumed": outcome.resumed}
+
+    return target

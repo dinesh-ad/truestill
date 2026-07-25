@@ -19,6 +19,7 @@ crash between those steps leaves a recoverable orphan, never a lost or unrecorde
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import PurePosixPath
@@ -26,6 +27,7 @@ from pathlib import PurePosixPath
 from vaeon_core.catalog import Catalog
 from vaeon_core.destinations.base import Destination, DestinationError
 from vaeon_core.layout import PATH_LENGTH_WARN, LayoutTemplate, RenderContext
+from vaeon_core.progress import ProgressCallback
 
 
 @dataclass(frozen=True)
@@ -157,8 +159,15 @@ def run_migration(
     template: LayoutTemplate,
     *,
     apply: bool,
+    progress: ProgressCallback | None = None,
+    cancel: threading.Event | None = None,
 ) -> MigrationOutcome:
-    """Resume any interrupted run, plan the relocations, and (if ``apply``) carry them out."""
+    """Resume any interrupted run, plan the relocations, and (if ``apply``) carry them out.
+
+    ``progress`` is called ``(done, total)`` per move; ``cancel`` stops the run early (moves
+    already completed stay -- the run is resumable). A cancelled run's remaining journal rows are
+    picked up by the next invocation.
+    """
     resumed = resume_migration(catalog, destination, drive_uuid) if apply else 0
     plan = plan_migration(catalog, drive_uuid, template)
     if not apply:
@@ -167,6 +176,13 @@ def run_migration(
     catalog.record_migration_moves(
         [(m.sha256, drive_uuid, m.old_relative, m.new_relative, m.copy_sha256) for m in plan.moves]
     )
+    migrated = 0
+    total = len(plan.moves)
     for move in plan.moves:
+        if cancel is not None and cancel.is_set():
+            break
         _apply_move(catalog, destination, drive_uuid, move)
-    return MigrationOutcome(plan=plan, resumed=resumed, migrated=len(plan.moves), applied=True)
+        migrated += 1
+        if progress is not None:
+            progress(migrated, total)
+    return MigrationOutcome(plan=plan, resumed=resumed, migrated=migrated, applied=True)
