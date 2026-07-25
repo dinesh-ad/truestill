@@ -68,6 +68,11 @@ decision context that produced them.
 
 ## Product / strategy (parked decisions)
 
+> **Settled stance these sit under:** vaeon has **no user accounts and no required telemetry,
+> permanently**; Pro is gated by **offline-verified license keys, not a login**. Any Pro-tier item
+> below inherits that constraint. Full decision + rationale: `docs/DECISIONS.md` D1
+> (binding invariant in `IMPLEMENTATION_STANDARDS.md §1`).
+
 - **Web dedup teaser.** A Pro-tier positioning idea (a lightweight web-facing "find your
   duplicates" hook); not started. Reference stack proven in PixSort's browser mode, all
   **client-side - nothing is uploaded**: `exifr` (image EXIF), `mediainfo.js` (WASM, video
