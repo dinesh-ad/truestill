@@ -26,11 +26,10 @@ from vaeon_core.categorize import Rule, categorize
 from vaeon_core.dates import resolve_capture_datetime
 from vaeon_core.dedup import DedupIndex
 from vaeon_core.destinations.base import Destination, DestinationError
-from vaeon_core.events import event_dirname
 from vaeon_core.exif import write_metadata
 from vaeon_core.hashing import sha256_file
+from vaeon_core.layout import DEFAULT_TEMPLATE, RenderContext
 from vaeon_core.models import (
-    UNDATED_DIRNAME,
     ActionResult,
     ActionStatus,
     CategoryMatch,
@@ -110,15 +109,13 @@ def discover(source: Path, *, all_files: bool = False) -> list[Path]:
 
 
 def build_relative(label: str, captured_at: datetime | None, filename: str) -> PurePosixPath:
-    """Return the destination-relative path ``<Label>/YYYY/MM/<filename>``.
+    """Return the destination-relative path for a non-event file, ``<Label>/YYYY/MM/<filename>``.
 
-    The month folder is the bare two-digit month (``07``); the year is already the parent
-    folder. Undated files land in ``<Label>/Undated/`` so the category survives even when
-    the date does not.
+    Renders through the active :data:`~vaeon_core.layout.DEFAULT_TEMPLATE`; undated files land in
+    ``<Label>/Undated/`` so the category survives even when the date does not.
     """
-    if captured_at is None:
-        return PurePosixPath(label) / UNDATED_DIRNAME / filename
-    return PurePosixPath(label) / f"{captured_at:%Y}" / f"{captured_at:%m}" / filename
+    directory = DEFAULT_TEMPLATE.render(RenderContext(category=label, captured_at=captured_at))
+    return directory / filename
 
 
 def build_destination(root: Path, label: str, captured_at: datetime | None, filename: str) -> Path:
@@ -250,13 +247,14 @@ def apply_events(
         start, slug = assignment
         label = resolution.decision.category.label
         filename = resolution.decision.relative.name
-        new_relative = Path(
-            PurePosixPath(label)
-            / f"{start:%Y}"
-            / f"{start:%m}"
-            / event_dirname(start, slug)
-            / filename
+        directory = DEFAULT_TEMPLATE.render(
+            RenderContext(
+                category=label,
+                captured_at=resolution.decision.captured_at,
+                event=(start, slug),
+            )
         )
+        new_relative = Path(directory / filename)
         new_decision = replace(resolution.decision, relative=new_relative)
         updated.append(replace(resolution, decision=new_decision))
     return updated
