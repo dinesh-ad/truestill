@@ -82,6 +82,21 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
         report = service.ingest_preview(Path(body["takeout"]), Path(body["destination"]), _db())
         return JSONResponse(report)
 
+    # --- folder picker + library status -------------------------------------------------
+
+    async def fs_dirs(request: Request) -> JSONResponse:
+        return JSONResponse(service.fs_dirs(request.query_params.get("path", "")))
+
+    async def fs_validate(request: Request) -> JSONResponse:
+        return JSONResponse(service.fs_validate(request.query_params.get("path", "")))
+
+    async def fs_create(request: Request) -> JSONResponse:
+        body = await request.json()
+        return JSONResponse(service.fs_create(body["path"]))
+
+    async def library_status(_request: Request) -> JSONResponse:
+        return JSONResponse(service.library_status(_db()))
+
     # --- Settings: destination layout template + migration ------------------------------
 
     async def layout(request: Request) -> JSONResponse:
@@ -162,6 +177,10 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
         Route("/api/organize/run", organize_run, methods=["POST"]),
         Route("/api/verify/run", verify_run, methods=["POST"]),
         Route("/api/ingest/preview", ingest_preview, methods=["POST"]),
+        Route("/api/fs/dirs", fs_dirs),
+        Route("/api/fs/validate", fs_validate),
+        Route("/api/fs/create", fs_create, methods=["POST"]),
+        Route("/api/library/status", library_status),
         Route("/api/layout", layout, methods=["GET", "POST"]),
         Route("/api/layout/preview", layout_preview, methods=["POST"]),
         Route("/api/migrate/preview", migrate_preview, methods=["POST"]),

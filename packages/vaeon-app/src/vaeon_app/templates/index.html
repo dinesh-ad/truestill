@@ -4,91 +4,203 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>vaeon</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/tokens.css">
+  <link rel="stylesheet" href="/static/app.css">
   <script>window.VAEON_TOKEN = "{{TOKEN}}";</script>
 </head>
 <body>
-  <header><h1>vaeon</h1><span class="sub">local media organizer &amp; backup</span></header>
+  <div class="app">
+    <nav class="sidebar" aria-label="Main">
+      <div class="wordmark">vaeon<span class="dot">.</span></div>
+      <div class="nav">
+        <button class="nav-item" data-screen="organize" aria-current="page"><span class="ico">◇</span> Organize</button>
+        <button class="nav-item" data-screen="events"><span class="ico">◷</span> Trips &amp; events</button>
+        <button class="nav-item" data-screen="import"><span class="ico">↧</span> Import</button>
+        <button class="nav-item" data-screen="backups"><span class="ico">▤</span> Backups</button>
+        <button class="nav-item" data-screen="find"><span class="ico">⌕</span> Find</button>
+        <button class="nav-item" data-screen="settings"><span class="ico">⚙</span> Settings</button>
+      </div>
+      <div class="custody" id="custody" title="Your library, and how many places it lives in">
+        <div class="pips none" id="custody-pips">▫ ▫ ▫</div>
+        <div class="line" id="custody-line">Checking your library…</div>
+      </div>
+    </nav>
 
-  <section id="organize">
-    <h2>Organize</h2>
-    <label>Source folder <input id="org-source" placeholder="/photos/dump"></label>
-    <label>Destination (drive root) <input id="org-dest" placeholder="/mnt/DriveA"></label>
-    <label class="inline"><input type="checkbox" id="org-skip-undated"> Skip undated files (don’t copy to Undated/)</label>
-    <button id="org-preview">Dry-run preview</button>
-    <button id="org-run" disabled>Run for real</button>
-    <pre id="org-summary" class="out"></pre>
-    <div id="org-progress" class="progress hidden">
-      <div class="bar"><div id="org-bar"></div></div>
-      <span id="org-count"></span> <button id="org-cancel">Cancel</button>
+    <main class="main">
+      <!-- ORGANIZE (home) -->
+      <section class="screen active" id="screen-organize">
+        <header>
+          <h1>Organize</h1>
+          <p class="lede">Point vaeon at a messy folder. It sorts copies into your backup and removes
+            duplicates - your originals are never touched.</p>
+        </header>
+
+        <div class="card">
+          <div class="field">
+            <label for="org-source">Folder to organize</label>
+            <div class="row">
+              <input class="input" id="org-source" placeholder="e.g. /home/you/Pictures">
+              <button class="btn btn-secondary" data-browse="org-source" data-kind="source">Browse…</button>
+            </div>
+            <span class="hint" id="org-source-hint"></span>
+          </div>
+
+          <div class="field">
+            <label for="org-dest">Backup folder <span style="color:var(--text-muted);font-weight:400">(where the organized copies go)</span></label>
+            <div class="row">
+              <input class="input" id="org-dest" placeholder="e.g. /media/BackupA">
+              <button class="btn btn-secondary" data-browse="org-dest" data-kind="dest">Browse…</button>
+            </div>
+            <span class="hint" id="org-dest-hint"></span>
+          </div>
+
+          <label class="checkline"><input type="checkbox" id="org-skip-undated"> Skip files with no date
+            <span style="color:var(--text-muted)">(they won’t be sorted into an Undated folder)</span></label>
+
+          <div class="actions">
+            <button class="btn btn-secondary" id="org-preview">Preview</button>
+            <button class="btn btn-primary" id="org-run" disabled>Organize files</button>
+            <span class="why" id="org-why">Preview first to see what would happen.</span>
+          </div>
+        </div>
+
+        <div id="org-result"></div>
+        <div class="card hidden" id="org-progress-card">
+          <div class="progress">
+            <div class="bar"><i id="org-bar"></i></div>
+            <div class="meta"><span id="org-count"></span><span class="spacer"></span>
+              <button class="btn btn-ghost" id="org-cancel">Cancel</button></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TRIPS & EVENTS -->
+      <section class="screen" id="screen-events">
+        <header><h1>Trips &amp; events</h1>
+          <p class="lede">Group your camera photos by when they were taken, then name the trips.</p></header>
+        <div class="card">
+          <div class="field"><label for="ev-source">Folder</label>
+            <div class="row"><input class="input" id="ev-source" placeholder="e.g. /home/you/Pictures">
+              <button class="btn btn-secondary" data-browse="ev-source" data-kind="source">Browse…</button></div>
+            <span class="hint" id="ev-source-hint"></span>
+          </div>
+          <div class="actions"><button class="btn btn-primary" id="ev-propose">Find trips</button></div>
+        </div>
+        <div id="ev-clusters"></div>
+        <div class="card hidden" id="ev-actions-card">
+          <div class="actions"><button class="btn btn-secondary hidden" id="ev-merge">Merge checked</button>
+            <span class="spacer"></span><button class="btn btn-primary" id="ev-apply">Save names</button></div>
+        </div>
+        <div id="ev-result"></div>
+      </section>
+
+      <!-- IMPORT -->
+      <section class="screen" id="screen-import">
+        <header><h1>Import from Google Photos</h1>
+          <p class="lede">Bring in a Google Takeout export - vaeon recovers the real photo dates and removes duplicates.</p></header>
+        <div class="card">
+          <div class="field"><label for="rc-takeout">Takeout folder</label>
+            <div class="row"><input class="input" id="rc-takeout" placeholder="e.g. /home/you/Downloads/Takeout">
+              <button class="btn btn-secondary" data-browse="rc-takeout" data-kind="source">Browse…</button></div>
+            <span class="hint" id="rc-takeout-hint"></span></div>
+          <div class="field"><label for="rc-dest">Backup folder</label>
+            <div class="row"><input class="input" id="rc-dest" placeholder="e.g. /media/BackupA">
+              <button class="btn btn-secondary" data-browse="rc-dest" data-kind="dest">Browse…</button></div>
+            <span class="hint" id="rc-dest-hint"></span></div>
+          <div class="actions"><button class="btn btn-primary" id="rc-preview">Preview import</button></div>
+        </div>
+        <div id="rc-result"></div>
+      </section>
+
+      <!-- BACKUPS -->
+      <section class="screen" id="screen-backups">
+        <header><h1>Backups</h1>
+          <p class="lede">Every drive your library is copied to, and when it was last checked.</p></header>
+        <div id="drives-list"></div>
+        <div class="card">
+          <h2>Check a connected backup drive</h2>
+          <div class="field"><label for="verify-path">Drive folder</label>
+            <div class="row"><input class="input" id="verify-path" placeholder="e.g. /media/BackupA">
+              <button class="btn btn-secondary" data-browse="verify-path" data-kind="dest">Browse…</button></div>
+            <span class="hint" id="verify-path-hint"></span></div>
+          <div class="actions"><button class="btn btn-primary" id="verify-run">Check now</button></div>
+          <div id="verify-result"></div>
+          <div class="progress hidden" id="verify-progress">
+            <div class="bar"><i id="verify-bar"></i></div>
+            <div class="meta"><span id="verify-count"></span><span class="spacer"></span>
+              <button class="btn btn-ghost" id="verify-cancel">Cancel</button></div></div>
+        </div>
+      </section>
+
+      <!-- FIND -->
+      <section class="screen" id="screen-find">
+        <header><h1>Find a file</h1>
+          <p class="lede">Search your whole library - it works even when the drives are unplugged.</p></header>
+        <div class="card">
+          <div class="field"><label for="where-term">Search</label>
+            <div class="row"><input class="input" id="where-term" placeholder="e.g. beach 2019">
+              <button class="btn btn-primary" id="where-go">Search</button></div></div>
+        </div>
+        <div id="where-result"></div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section class="screen" id="screen-settings">
+        <header><h1>Settings</h1></header>
+        <div class="card">
+          <h2>Folder layout</h2>
+          <p class="lede" style="margin-bottom:var(--space-4)">How organized copies are named on disk.
+            Current: <code id="layout-current"></code> <span id="layout-default" style="color:var(--text-muted)"></span></p>
+          <div class="field"><label for="layout-preset">Start from a preset</label>
+            <select class="input" id="layout-preset" style="font-family:var(--font-sans)"><option value="">- choose a preset -</option></select></div>
+          <div class="field"><label for="layout-template">Template</label>
+            <input class="input" id="layout-template" placeholder="{category}/{yyyy}/{mm}"></div>
+          <table class="table" id="layout-preview"><thead><tr><th>Category</th><th>Date</th><th>Lands at</th></tr></thead><tbody></tbody></table>
+          <div class="hint warn" id="layout-error"></div>
+          <div class="actions"><button class="btn btn-primary" id="layout-save" disabled>Save layout</button>
+            <span class="why">Changing this only affects files you organize from now on. Files already sorted stay put.</span></div>
+        </div>
+        <div class="card">
+          <h2>Move existing files to match</h2>
+          <div class="field"><label for="mig-path">Connected drive folder</label>
+            <div class="row"><input class="input" id="mig-path" placeholder="e.g. /media/BackupA">
+              <button class="btn btn-secondary" data-browse="mig-path" data-kind="dest">Browse…</button></div>
+            <span class="hint" id="mig-path-hint"></span></div>
+          <div class="actions"><button class="btn btn-secondary" id="mig-preview">Preview move</button>
+            <button class="btn btn-primary hidden" id="mig-run">Move the files</button></div>
+          <div id="mig-result"></div>
+          <div class="progress hidden" id="mig-progress">
+            <div class="bar"><i id="mig-bar"></i></div>
+            <div class="meta"><span id="mig-count"></span><span class="spacer"></span>
+              <button class="btn btn-ghost" id="mig-cancel">Cancel</button></div></div>
+        </div>
+        <div class="card">
+          <h2>Appearance</h2>
+          <div class="checkline"><label><input type="radio" name="theme" value="light"> Light</label>
+            <label><input type="radio" name="theme" value="dark"> Dark</label>
+            <label><input type="radio" name="theme" value="system" checked> Match system</label></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- folder picker -->
+  <div class="modal-backdrop hidden" id="picker">
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Choose a folder">
+      <header>Choose a folder</header>
+      <div class="crumbs" id="pk-crumbs"></div>
+      <div class="body">
+        <div class="roots" id="pk-roots"></div>
+        <div class="dirlist" id="pk-dirs"></div>
+      </div>
+      <footer>
+        <span class="sel" id="pk-sel"></span>
+        <button class="btn btn-ghost" id="pk-cancel">Cancel</button>
+        <button class="btn btn-primary" id="pk-use" disabled>Use this folder</button>
+      </footer>
     </div>
-  </section>
+  </div>
 
-  <section id="drives">
-    <h2>Drives <button id="drives-refresh">Refresh</button></h2>
-    <div id="at-risk" class="note"></div>
-    <table id="drives-table"><thead><tr>
-      <th>Label</th><th>Files</th><th>Size</th><th>Last seen</th><th>Last verified</th><th></th>
-    </tr></thead><tbody></tbody></table>
-    <label>Verify a connected drive at <input id="verify-path" placeholder="/mnt/DriveA"></label>
-    <button id="verify-run">Verify</button>
-    <pre id="verify-out" class="out"></pre>
-    <div id="verify-progress" class="progress hidden">
-      <div class="bar"><div id="verify-bar"></div></div>
-      <span id="verify-count"></span> <button id="verify-cancel">Cancel</button>
-    </div>
-  </section>
-
-  <section id="where">
-    <h2>Where is…?</h2>
-    <label>Filename <input id="where-term" placeholder="beach"></label>
-    <button id="where-go">Find (offline)</button>
-    <pre id="where-out" class="out"></pre>
-  </section>
-
-  <section id="events">
-    <h2>Event review <span class="sub">Camera photos only · name / skip / merge / split</span></h2>
-    <label>Source folder <input id="ev-source" placeholder="/photos/dump"></label>
-    <button id="ev-propose">Propose events</button>
-    <div id="ev-clusters"></div>
-    <button id="ev-merge" class="hidden">Merge checked</button>
-    <button id="ev-apply" class="hidden">Apply (preview placement)</button>
-    <pre id="ev-out" class="out"></pre>
-  </section>
-
-  <section id="rescue">
-    <h2>Rescue a Google Takeout export</h2>
-    <label>Extracted Takeout folder <input id="rc-takeout" placeholder="/downloads/Takeout"></label>
-    <label>Destination <input id="rc-dest" placeholder="/mnt/DriveA"></label>
-    <button id="rc-preview">Rescue preview</button>
-    <div id="rc-report" class="out"></div>
-  </section>
-
-  <section id="settings">
-    <h2>Settings · Folder layout</h2>
-    <p class="note">Current: <code id="layout-current"></code> <span id="layout-default"></span></p>
-    <label>Preset
-      <select id="layout-preset"><option value="">— choose a preset —</option></select>
-    </label>
-    <label>Template <input id="layout-template" placeholder="{category}/{yyyy}/{mm}"></label>
-    <table id="layout-preview"><thead><tr><th>Category</th><th>Date</th><th>Lands at</th></tr></thead><tbody></tbody></table>
-    <div id="layout-error" class="note"></div>
-    <button id="layout-save" disabled>Save layout</button>
-    <p class="note">Changing the layout affects <b>newly organized files only</b>; existing files
-      stay where they are (split-era). To move an already-organized library, migrate it below.</p>
-
-    <h3>Migrate an existing drive</h3>
-    <label>Connected drive root <input id="mig-path" placeholder="/mnt/DriveA"></label>
-    <button id="mig-preview">Preview migration</button>
-    <pre id="mig-out" class="out"></pre>
-    <button id="mig-run" class="hidden">Move the files</button>
-    <div id="mig-progress" class="progress hidden">
-      <div class="bar"><div id="mig-bar"></div></div>
-      <span id="mig-count"></span> <button id="mig-cancel">Cancel</button>
-    </div>
-  </section>
-
-  <footer>Dry-run is the default. Nothing is written until you choose “Run for real”.</footer>
   <script src="/static/app.js"></script>
 </body>
 </html>

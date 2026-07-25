@@ -7,6 +7,7 @@ dry-run posture, preserved in the UI).
 
 from __future__ import annotations
 
+import os
 import threading
 from collections import Counter
 from datetime import UTC, datetime
@@ -32,7 +33,15 @@ from vaeon_core.layout import (
 )
 from vaeon_core.migrate import run_migration
 from vaeon_core.models import Resolution
-from vaeon_core.organizer import SourceScan, discover, execute, plan, resolve, scan_source
+from vaeon_core.organizer import (
+    MEDIA_EXTENSIONS,
+    SourceScan,
+    discover,
+    execute,
+    plan,
+    resolve,
+    scan_source,
+)
 from vaeon_core.progress import ProgressCallback
 from vaeon_core.takeout import scan_takeout
 from vaeon_core.verify import CopyStatus, CopyToVerify, verify_copies
@@ -271,6 +280,109 @@ def _safe_size(path: Path) -> int:
         return path.stat().st_size
     except OSError:
         return 0
+
+
+# --- server-side folder picker (Browse) -----------------------------------------------
+
+
+def fs_roots() -> list[dict[str, str]]:
+    """Friendly starting points: Home + common media folders + mounted drives."""
+    roots: list[dict[str, str]] = []
+    home = Path.home()
+    roots.append({"label": "Home", "path": str(home)})
+    for name in ("Pictures", "Downloads", "Desktop", "Documents"):
+        candidate = home / name
+        if candidate.is_dir():
+            roots.append({"label": name, "path": str(candidate)})
+    for base in ("/media", "/mnt", "/run/media", "/Volumes"):
+        root = Path(base)
+        if not root.is_dir():
+            continue
+        try:
+            for child in sorted(root.iterdir()):
+                if child.is_dir():
+                    roots.append({"label": child.name, "path": str(child)})
+        except OSError:
+            continue
+    return roots
+
+
+def fs_dirs(path_str: str) -> dict[str, Any]:
+    """List the immediate sub-directories of ``path`` (or the roots when empty)."""
+    if not path_str.strip():
+        return {"path": "", "parent": None, "roots": fs_roots(), "entries": []}
+    path = Path(path_str).expanduser()
+    try:
+        path = path.resolve()
+    except OSError:
+        return {"error": "that path could not be read", "roots": fs_roots(), "entries": []}
+    if not path.is_dir():
+        return {"error": "not a folder", "roots": fs_roots(), "entries": []}
+    entries: list[dict[str, str]] = []
+    try:
+        for child in sorted(path.iterdir(), key=lambda p: p.name.lower()):
+            if child.is_dir() and not child.name.startswith("."):
+                entries.append({"name": child.name, "path": str(child)})
+    except OSError:
+        return {"error": "that folder could not be read", "roots": fs_roots(), "entries": []}
+    parent = str(path.parent) if path.parent != path else None
+    return {"path": str(path), "parent": parent, "roots": fs_roots(), "entries": entries}
+
+
+def fs_create(path_str: str) -> dict[str, Any]:
+    """Create a folder (and parents) - for the "Create it?" action on a new backup destination."""
+    path = Path(path_str).expanduser()
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        return {"created": False, "error": str(exc)}
+    return {"created": True, **fs_validate(str(path))}
+
+
+def fs_validate(path_str: str, *, cap: int = 10000) -> dict[str, Any]:
+    """Report whether ``path`` is a usable folder and roughly how much media it holds."""
+    path = Path(path_str).expanduser()
+    try:
+        path = path.resolve()
+    except OSError:
+        return {"exists": False, "is_dir": False, "readable": False, "writable": False, "media": 0}
+    is_dir = path.is_dir()
+    media = 0
+    capped = False
+    if is_dir and os.access(path, os.R_OK):
+        for child in path.rglob("*"):
+            if child.suffix.lower() in MEDIA_EXTENSIONS:
+                media += 1
+                if media >= cap:
+                    capped = True
+                    break
+    return {
+        "exists": path.exists(),
+        "is_dir": is_dir,
+        "readable": os.access(path, os.R_OK) if path.exists() else False,
+        "writable": os.access(path, os.W_OK) if path.exists() else False,
+        "is_drive": read_marker(path) is not None,
+        "media": media,
+        "media_capped": capped,
+    }
+
+
+# --- library custody status (the sidebar's always-true status line) -------------------
+
+
+def library_status(db: Path) -> dict[str, Any]:
+    """Honest, catalog-driven totals for the custody strip. Zeros when the catalog is empty."""
+    with Catalog(db) as catalog:
+        photos = catalog.count()
+        drives = [d for d in catalog.list_drives() if d["file_count"]]
+        single_copy = len(catalog.single_copy_shas())
+        total_bytes = sum(d["total_size"] or 0 for d in drives)
+    return {
+        "photos": photos,
+        "places": len(drives),
+        "single_copy": single_copy,
+        "bytes": total_bytes,
+    }
 
 
 # --- layout Settings screen (template + migration) ------------------------------------
