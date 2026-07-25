@@ -33,6 +33,7 @@ from vaeon_core.layout import (
     preview,
     resolve_template,
 )
+from vaeon_core.migrate import run_migration
 from vaeon_core.models import (
     ActionResult,
     ActionStatus,
@@ -185,6 +186,18 @@ def _build_parser() -> argparse.ArgumentParser:
     config.add_argument("--preset", choices=tuple(PRESETS), help="set the layout to a named preset")
     config.add_argument(
         "--preview", action="store_true", help="render sample files without saving anything"
+    )
+
+    migrate = sub.add_parser(
+        "migrate-layout",
+        help="relocate a connected drive's files to match the current template (preview by default)",
+    )
+    migrate.add_argument(
+        "path", type=Path, help="the drive's current mount root (must be connected)"
+    )
+    migrate.add_argument("--db", type=Path, default=_DEFAULT_DB, help="SQLite catalog")
+    migrate.add_argument(
+        "--apply", action="store_true", help="actually move files (default: preview only)"
     )
 
     return parser
@@ -734,6 +747,44 @@ def _cmd_config(args: argparse.Namespace) -> int:
         return 0
 
 
+def _cmd_migrate_layout(args: argparse.Namespace) -> int:
+    marker = read_marker(args.path)
+    if marker is None:
+        print(
+            f"error: no .vaeon-drive.json at {args.path} -- connect the drive first",
+            file=sys.stderr,
+        )
+        return 2
+
+    destination = LocalDestination(args.path)
+    with Catalog(args.db) as catalog:
+        catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+        template = resolve_template(catalog.get_setting(LAYOUT_TEMPLATE_KEY))
+        outcome = run_migration(catalog, destination, marker.uuid, template, apply=args.apply)
+
+        plan = outcome.plan
+        print(f"Drive '{marker.label}': layout {template.template}")
+        if outcome.resumed:
+            print(f"Recovered {outcome.resumed} move(s) from an interrupted run.")
+        print(f"{len(plan.moves)} file(s) to relocate, {plan.unchanged} already in place.")
+        for move in plan.moves[:_STATUS_PREVIEW]:
+            print(f"  {move.old_relative}  ->  {move.new_relative}")
+        if len(plan.moves) > _STATUS_PREVIEW:
+            print(f"  ... and {len(plan.moves) - _STATUS_PREVIEW} more")
+        for warning in plan.warnings:
+            print(f"  ! {warning}")
+
+        others = [d for d in catalog.list_drives() if d["uuid"] != marker.uuid and d["file_count"]]
+        for drive in others:
+            print(f"  pending: drive '{drive['label']}' has copies too -- reconnect it and re-run")
+
+        if not args.apply:
+            print("\nPreview only. Re-run with --apply to move the files.")
+            return 0
+        print(f"\nMigrated {outcome.migrated} file(s). Sources were never touched.")
+        return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the CLI. Returns a process exit code."""
     args = _build_parser().parse_args(argv)
@@ -745,6 +796,7 @@ def main(argv: list[str] | None = None) -> int:
         "verify": _cmd_verify,
         "status": _cmd_status,
         "config": _cmd_config,
+        "migrate-layout": _cmd_migrate_layout,
     }
     return dispatch[args.command](args)
 

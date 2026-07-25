@@ -9,7 +9,8 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from vaeon_core.destinations.base import Destination
+from vaeon_core.destinations.base import Destination, DestinationError
+from vaeon_core.hashing import sha256_file
 
 
 class LocalDestination(Destination):
@@ -31,6 +32,21 @@ class LocalDestination(Destination):
         target = self._full(relative_path)
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(local, target)
+
+    def relocate(self, old_relative_path: str, new_relative_path: str) -> None:
+        source = self._full(old_relative_path)
+        if not source.is_file():
+            message = f"cannot relocate missing copy: {old_relative_path}"
+            raise DestinationError(message)
+        target = self._full(new_relative_path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)  # overwrites a partial copy left by an interrupted run
+
+    def remove(self, relative_path: str) -> None:
+        self._full(relative_path).unlink(missing_ok=True)
+
+    def checksum(self, relative_path: str) -> str:
+        return sha256_file(self._full(relative_path))
 
     def list(self) -> list[str]:
         if not self._root.exists():

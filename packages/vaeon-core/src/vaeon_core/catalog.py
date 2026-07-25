@@ -96,10 +96,23 @@ CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+
+-- In-flight layout-migration moves, one row per copy being relocated. A row exists from the
+-- moment a move is planned until its old location is removed; its presence after a crash is
+-- what lets `migrate-layout` resume -- old_relative is retained so an orphaned old copy can be
+-- cleaned even after file_copies has been updated to new_relative.
+CREATE TABLE IF NOT EXISTS migration_journal (
+    sha256       TEXT NOT NULL,
+    drive_uuid   TEXT NOT NULL,
+    old_relative TEXT NOT NULL,
+    new_relative TEXT NOT NULL,
+    copy_sha256  TEXT,
+    PRIMARY KEY (sha256, drive_uuid)
+);
 """
 
 #: Bump whenever the schema changes, and add a matching entry to _MIGRATIONS.
-CURRENT_SCHEMA_VERSION = 7
+CURRENT_SCHEMA_VERSION = 8
 
 
 class CatalogVersionError(RuntimeError):
@@ -192,6 +205,19 @@ def _add_settings_table(conn: sqlite3.Connection) -> None:
     )
 
 
+def _add_migration_journal(conn: sqlite3.Connection) -> None:
+    """v7 -> v8: a journal of in-flight layout-migration moves (for crash-safe resume)."""
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS migration_journal (
+            sha256 TEXT NOT NULL, drive_uuid TEXT NOT NULL, old_relative TEXT NOT NULL,
+            new_relative TEXT NOT NULL, copy_sha256 TEXT,
+            PRIMARY KEY (sha256, drive_uuid)
+        );
+        """
+    )
+
+
 #: Ordered migrations: ``(target_version, fn)``. Each is idempotent and lifts a database
 #: from ``target_version - 1`` to ``target_version``. Append; never rewrite history.
 _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
@@ -201,6 +227,7 @@ _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (5, _add_takeout_tables),
     (6, _add_drive_tables),
     (7, _add_settings_table),
+    (8, _add_migration_journal),
 )
 
 
@@ -267,6 +294,77 @@ class Catalog:
                 "INSERT INTO settings (key, value) VALUES (?, ?) "
                 "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
                 (key, value),
+            )
+
+    # -- layout migration ----------------------------------------------------------------
+
+    def copies_for_migration(self, drive_uuid: str) -> list[sqlite3.Row]:
+        """Every copy on a drive with the fields needed to re-render its path under a template.
+
+        Joins ``file_copies`` to ``files`` (category, captured_at) and any named event (slug,
+        start), so a migration can recompute each copy's destination without re-reading the file.
+        """
+        return list(
+            self._conn.execute(
+                """
+                SELECT fc.sha256, fc.relative, fc.copy_sha256, f.category, f.captured_at,
+                       e.slug AS event_slug, e.start_date AS event_start
+                FROM file_copies fc
+                JOIN files f ON f.sha256 = fc.sha256
+                LEFT JOIN events e ON e.id = f.event_id
+                WHERE fc.drive_uuid = ?
+                """,
+                (drive_uuid,),
+            )
+        )
+
+    def copy_relative(self, sha256: str, drive_uuid: str) -> str | None:
+        """The relative path the catalog currently records for one copy, or ``None``."""
+        row = self._conn.execute(
+            "SELECT relative FROM file_copies WHERE sha256 = ? AND drive_uuid = ?",
+            (sha256, drive_uuid),
+        ).fetchone()
+        return None if row is None else str(row["relative"])
+
+    def record_migration_moves(self, moves: list[tuple[str, str, str, str, str | None]]) -> None:
+        """Journal planned moves ``(sha256, drive_uuid, old, new, copy_sha256)`` before touching disk."""
+        with self._tx() as conn:
+            conn.executemany(
+                """
+                INSERT INTO migration_journal
+                    (sha256, drive_uuid, old_relative, new_relative, copy_sha256)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(sha256, drive_uuid) DO UPDATE SET
+                    old_relative = excluded.old_relative, new_relative = excluded.new_relative,
+                    copy_sha256 = excluded.copy_sha256
+                """,
+                moves,
+            )
+
+    def pending_migration(self, drive_uuid: str) -> list[sqlite3.Row]:
+        """Journalled moves for a drive left over from an interrupted run."""
+        return list(
+            self._conn.execute(
+                "SELECT sha256, drive_uuid, old_relative, new_relative, copy_sha256 "
+                "FROM migration_journal WHERE drive_uuid = ?",
+                (drive_uuid,),
+            )
+        )
+
+    def relocate_copy(self, sha256: str, drive_uuid: str, new_relative: str) -> None:
+        """Point a copy at its new relative path (the authoritative location update)."""
+        with self._tx() as conn:
+            conn.execute(
+                "UPDATE file_copies SET relative = ? WHERE sha256 = ? AND drive_uuid = ?",
+                (new_relative, sha256, drive_uuid),
+            )
+
+    def clear_migration_move(self, sha256: str, drive_uuid: str) -> None:
+        """Drop a journal row once its move (including old-copy removal) is complete."""
+        with self._tx() as conn:
+            conn.execute(
+                "DELETE FROM migration_journal WHERE sha256 = ? AND drive_uuid = ?",
+                (sha256, drive_uuid),
             )
 
     def __enter__(self) -> Self:

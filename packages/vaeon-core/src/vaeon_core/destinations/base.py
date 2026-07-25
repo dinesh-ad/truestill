@@ -38,3 +38,25 @@ class Destination(ABC):
     @abstractmethod
     def list(self) -> list[str]:
         """Return every relative path currently present at the destination."""
+
+    # -- optional: in-place relocation, used only by layout migration ---------------------
+    # Backends that can move and re-hash their own files override these. The default refuses,
+    # so `vaeon migrate-layout` simply reports the backend as unsupported rather than guessing.
+
+    def relocate(self, old_relative_path: str, new_relative_path: str) -> None:
+        """Copy ``old`` to ``new`` within the destination (does not remove ``old``)."""
+        message = (
+            f"{self.describe()} cannot relocate {old_relative_path!r} -> {new_relative_path!r}: "
+            "this destination does not support layout migration"
+        )
+        raise DestinationError(message)
+
+    def remove(self, relative_path: str) -> None:
+        """Delete the file at ``relative_path`` (no error if already gone)."""
+        message = f"{self.describe()} does not support removing {relative_path!r}"
+        raise DestinationError(message)
+
+    def checksum(self, relative_path: str) -> str:
+        """Return the SHA-256 of the stored file, for verifying a relocated copy."""
+        message = f"{self.describe()} cannot checksum {relative_path!r}"
+        raise DestinationError(message)
