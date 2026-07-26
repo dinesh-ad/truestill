@@ -134,7 +134,7 @@ async function updateUse() {
   use.textContent = "Use this folder";
   const v = await get(`/api/fs/validate?path=${encodeURIComponent(pk.path)}`);
   const n = v.media_capped ? `${v.media}+` : v.media;
-  if (pk.kind === "source") use.textContent = v.media > 0 ? `Use this folder · ${n} photos` : "Use this folder · no photos";
+  if (pk.kind === "source") use.textContent = v.media > 0 ? `Use this folder · ${n} photos or videos` : "Use this folder · no photos or videos";
   else use.textContent = v.is_drive ? "Use this backup drive" : "Use this folder";
 }
 $("pk-use").onclick = () => {
@@ -218,7 +218,7 @@ function renderOrganizeResult(s) {
      <div class="tally">
        <div class="n">${nfmt(s.new_unique)}</div><div class="k">new - will be organized</div>
        <div class="n">${nfmt(s.near_dup)}</div><div class="k">look-alikes - kept and flagged</div>
-       <div class="n">${nfmt(s.exact_dup)}</div><div class="k">duplicates - already backed up, will skip</div>
+       <div class="n">${nfmt(s.exact_dup)}</div><div class="k">duplicates - identical to a kept file, will skip</div>
        <div class="n">${nfmt(s.undated)}</div><div class="k">no date - will go to “Undated”</div>
      </div>
      ${folders ? `<h3>Into these folders <span style="font-weight:400;color:var(--text-muted)">- hover a chip for what it means</span></h3><div class="chips">${folders}</div>${legend}` : ""}
@@ -271,7 +271,7 @@ async function loadDrives() {
   // Library summary (counts + formats only, catalog-driven — deliberately not a dashboard).
   const summary = `<div class="card"><div class="headline" style="font-size:var(--text-lg)">Your library</div>
     <div class="k mono">${mediaCount(lib)} · ${fmtBytes(lib.bytes)}</div>${byFormat(lib.by_format)}</div>`;
-  const risk = at_risk.length ? `<div class="banner warn"><div>${at_risk.length} photo(s) exist in only one place.</div></div>` : "";
+  const risk = at_risk.length ? `<div class="banner warn"><div>${at_risk.length} file(s) exist in only one place.</div></div>` : "";
   const cards = drives.map((d) => {
     const pips = Math.min(drives.length, 3);  // ambient: how many places this library lives in
     const strip = [0, 1, 2].map((i) => (i < pips ? "▪" : "▫")).join(" ");
@@ -299,6 +299,7 @@ $("verify-run").onclick = async () => {
            <div class="n">${nfmt(s.missing)}</div><div class="k">missing</div>
            <div class="n">${nfmt(s.mismatch)}</div><div class="k">changed</div></div>`);
       loadCustody();
+      loadDrives();  // refresh the drive card's "last checked" from the verify just recorded
     });
 };
 $("verify-cancel").onclick = () => {};

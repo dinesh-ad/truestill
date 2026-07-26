@@ -237,8 +237,13 @@ code,
   outline-offset: 2px;
 }
 .btn:disabled {
-  opacity: 0.55;
+  /* A disabled button should read as inactive, not as a faded-but-clickable primary -- so a
+     "not ready yet" CTA (e.g. Organize before a Preview) never looks broken when clicked. */
   cursor: not-allowed;
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  border-color: transparent;
+  box-shadow: none;
 }
 .btn-primary {
   background: var(--accent);
