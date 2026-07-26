@@ -23,7 +23,7 @@ from typing import Any
 
 from truestill_core.catalog import Catalog
 from truestill_core.categorize import Rule, categorize
-from truestill_core.dates import resolve_capture_datetime
+from truestill_core.dates import is_suspect_default, resolve_capture_datetime
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations.base import Destination, DestinationError
 from truestill_core.exif import write_metadata
@@ -277,6 +277,7 @@ def plan(
                 captured_at=captured_at,
                 date_source=date_source,
                 date_tag=date_tag,
+                suspect_default=is_suspect_default(captured_at, date_source),
                 relative=Path(
                     build_relative(category.label, captured_at, new_name, template=template)
                 ),

@@ -11,10 +11,12 @@ The organizer never mutates its source tree. Every run produces a list of
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
+from typing import NamedTuple
 
 #: Folder used when a file carries no usable date evidence at all. Files land here
 #: rather than being guessed into a year, so an undated file is always visible as such.
@@ -46,6 +48,11 @@ class DateSource(StrEnum):
     ``EXIF`` and ``TAKEOUT`` (Google's ``photoTakenTime``) are trusted. ``TAKEOUT_UPLOAD``
     (Google's ``creationTime``, i.e. when it was uploaded) and ``FILENAME`` are approximate
     and flagged for review. ``NONE`` means no date evidence -> ``Undated/``.
+
+    ``REJECTED_SENTINEL`` is ``NONE`` with a reason: the file *did* carry a date, and it was
+    an epoch/container zero (Tier A, ``dates.HARD_SENTINELS``) that we refused. It also lands
+    in ``Undated/`` -- the distinction exists purely so the report can say a date was found
+    and rejected, rather than leaving the user to assume the file never had one.
     """
 
     EXIF = "exif"
@@ -53,10 +60,15 @@ class DateSource(StrEnum):
     TAKEOUT_UPLOAD = "takeout_upload"  # creationTime -- upload time, approximate
     FILENAME = "filename"
     NONE = "none"
+    REJECTED_SENTINEL = "rejected_sentinel"  # only date found was an epoch zero -> refused
 
 
 #: Date sources trusted enough not to warrant manual review.
 _TRUSTED_DATE_SOURCES = frozenset({DateSource.EXIF, DateSource.TAKEOUT})
+
+#: Sources that produced no usable date at all. Excluded from the "approximate date" review
+#: list: there is no date to review, and both are reported on their own line instead.
+_DATELESS_SOURCES = frozenset({DateSource.NONE, DateSource.REJECTED_SENTINEL})
 
 
 class ActionStatus(StrEnum):
@@ -127,13 +139,18 @@ class Decision:
     date_source: DateSource
     date_tag: str | None
     relative: Path
+    #: Tier B: the date is exactly midnight on a known camera-clock reset day, so it may be a
+    #: dead-battery default rather than a capture time. The file is still placed by that date
+    #: -- these can be genuine -- and counted in the report for the user to review.
+    #: See ``dates.is_suspect_default``.
+    suspect_default: bool = False
 
     @property
     def needs_review(self) -> bool:
         """True when the date came from an approximate source (not trusted metadata)."""
         return (
             self.date_source not in _TRUSTED_DATE_SOURCES
-            and self.date_source is not DateSource.NONE
+            and self.date_source not in _DATELESS_SOURCES
         )
 
 
@@ -164,6 +181,37 @@ class Resolution:
     def is_unique(self) -> bool:
         """New content with no exact or perceptual match anywhere."""
         return self.exact_duplicate is None and self.near_duplicate is None
+
+
+class DateQuality(NamedTuple):
+    """The two date-quality signals a run must disclose, counted over the files it kept.
+
+    Both are deliberately separate from the plain "undated" tally: folding either into it
+    would tell the user *how many* files lack a good date while hiding *why*, which is the
+    failure mode the never-silent rule exists to prevent.
+    """
+
+    #: Files whose only date was a Tier A epoch zero. Refused -> they went to ``Undated/``.
+    sentinel_rejected: int
+    #: Files dated by a Tier B camera default (exact midnight on a clock-reset day). These
+    #: are **filed by that date** -- they may well be right -- and merely flagged for review.
+    suspect_default: int
+
+
+def date_quality(resolutions: Iterable[Resolution]) -> DateQuality:
+    """Count both signals in a single pass.
+
+    Shared by the CLI and the app so the two front-ends can never drift into reporting
+    different numbers for the same run.
+    """
+    sentinel = suspect = 0
+    for resolution in resolutions:
+        decision = resolution.decision
+        if decision.date_source is DateSource.REJECTED_SENTINEL:
+            sentinel += 1
+        if decision.suspect_default:
+            suspect += 1
+    return DateQuality(sentinel_rejected=sentinel, suspect_default=suspect)
 
 
 @dataclass(frozen=True, slots=True)

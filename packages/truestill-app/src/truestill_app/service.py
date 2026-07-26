@@ -39,7 +39,7 @@ from truestill_core.layout import (
     resolve_template,
 )
 from truestill_core.migrate import run_migration
-from truestill_core.models import Resolution
+from truestill_core.models import Resolution, date_quality
 from truestill_core.organizer import (
     MEDIA_EXTENSIONS,
     SourceScan,
@@ -91,6 +91,7 @@ def _summarize(resolutions: list[Resolution]) -> dict[str, Any]:
     labels = Counter(r.decision.category.label for r in uploads)
     heic = sum(1 for r in resolutions if r.decision.source.suffix.lower() in HEIF_EXTENSIONS)
     breakdown = _media_breakdown([r.decision.source.name for r in resolutions])
+    quality = date_quality(uploads)
     summary: dict[str, Any] = {
         "files": len(resolutions),
         "photos": breakdown["photos"],
@@ -101,6 +102,9 @@ def _summarize(resolutions: list[Resolution]) -> dict[str, Any]:
         "near_dup": len(near),
         "exact_dup": len(resolutions) - len(uploads),
         "undated": sum(1 for r in uploads if r.decision.captured_at is None),
+        # Never silent: an epoch-zero date that was refused, and a date that may be a dead
+        # camera-clock default, are each reported on their own -- never folded into "undated".
+        **quality._asdict(),
         "folders": dict(labels.most_common()),
     }
     if heic and not HEIF_AVAILABLE:
@@ -328,6 +332,7 @@ def ingest_preview(takeout: Path, destination: Path, db: Path) -> dict[str, Any]
         "dates_upload_approx": sources.get("takeout_upload", 0),
         "dates_exif": sources.get("exif", 0),
         "undated": sources.get("none", 0),
+        **date_quality(uploads)._asdict(),
         "missing_sidecar": len(scan.missing_sidecar),
     }
 

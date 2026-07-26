@@ -73,6 +73,24 @@ function byFormat(bf) {
     : "";
 }
 
+// Two date-quality signals, each on its own line and never folded into the plain "no date"
+// count: a placeholder date we refused, and a date that may be a dead camera-clock default.
+// Both render only when non-zero -- a clean library says nothing rather than "0".
+function dateQualityNotes(s) {
+  const notes = [];
+  if (s.sentinel_rejected) {
+    notes.push(`<div>${nfmt(s.sentinel_rejected)} file(s) carried only a placeholder date
+      (an all-zero “epoch” timestamp). It was refused, so they went to “Undated” rather than
+      being filed under 1904 or 1970.</div>`);
+  }
+  if (s.suspect_default) {
+    notes.push(`<div>${nfmt(s.suspect_default)} file(s) are dated exactly midnight on a day
+      cameras fall back to when their clock battery dies. They are filed by that date — it may
+      well be right — but they are worth a look.</div>`);
+  }
+  return notes.length ? `<div class="banner warn">${notes.join("")}</div>` : "";
+}
+
 // ---------- navigation ----------
 function showScreen(name) {
   document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("active", s.id === `screen-${name}`));
@@ -213,6 +231,7 @@ function renderOrganizeResult(s) {
       <table class="table"><tbody>${rows("documents", skDocs)}${rows("unrecognized", skUn)}</tbody></table></details>`;
   }
   const heic = s.heic_perceptual_skipped ? `<div class="banner warn"><div>${s.heic_perceptual_skipped} HEIC file(s) will be backed up, but near-duplicate detection is unavailable for them.</div></div>` : "";
+  const dateQuality = dateQualityNotes(s);
   $("org-result").innerHTML = card(
     `<div class="headline">${mediaCount(s)} found</div>
      <div class="tally">
@@ -222,7 +241,7 @@ function renderOrganizeResult(s) {
        <div class="n">${nfmt(s.undated)}</div><div class="k">no date - will go to “Undated”</div>
      </div>
      ${folders ? `<h3>Into these folders <span style="font-weight:400;color:var(--text-muted)">- hover a chip for what it means</span></h3><div class="chips">${folders}</div>${legend}` : ""}
-     ${byFormat(s.by_format)}${heic}${details}`
+     ${byFormat(s.by_format)}${dateQuality}${heic}${details}`
   );
   return kept;
 }
@@ -326,7 +345,8 @@ $("rc-preview").onclick = async () => {
        <div class="n">${nfmt(r.dup_collapsed)}</div><div class="k">duplicates removed (~${r.reclaimed_mb} MB)</div>
        <div class="n">${nfmt(r.dates_photo_taken)}</div><div class="k">dates recovered</div>
        <div class="n">${nfmt(r.undated)}</div><div class="k">still undated</div>
-     </div>`
+     </div>
+     ${dateQualityNotes(r)}`
   );
 };
 

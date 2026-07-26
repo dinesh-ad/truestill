@@ -40,19 +40,42 @@ destination, and are the *only* sanctioned deletions of user source data.
 
 - Default: **sane embedded EXIF** → **Takeout `photoTakenTime`** (`TAKEOUT`) → **Takeout
   `creationTime`** (`TAKEOUT_UPLOAD`, approximate) → **filename convention** (`FILENAME`) →
-  **none** (`NONE` → `Undated/`).
+  **none** (`NONE` → `Undated/`, or `REJECTED_SENTINEL` when a date was found and refused).
+- The tiers are an ordered tuple of `dates._Candidate`, not nested branches - the order *is*
+  the policy, so it reads as data.
 - `--prefer-takeout-dates` flips the first two (`photoTakenTime` above EXIF).
-- "Sane" EXIF = parseable and year in `[1990, 2100]`; outside that, a Takeout date wins.
+- "Sane" EXIF = parseable and year in `[1900, 2100]`; outside that, a Takeout date wins.
+  Sentinel rejection does **not** rely on this window - see the two-tier policy below.
 - Takeout times are epoch-UTC, converted to local wall-clock **exactly once**
   (`takeout.local_naive`); `--tz ±HH:MM` supplies the offset.
 
-**Sentinel-date rejection (binding, for any current or future date source).** A date equal to a
-container zero-epoch - `1904-01-01T00:00:00` (ISO-BMFF/QuickTime), `1970-01-01T00:00:00` (Unix),
-or an all-zero value - is **not a date**; it must be treated as "no date" and fall through to the
-next tier, exactly as `dates.parse_exif_datetime` already drops exiftool's `0000…` strings. This
-was proven necessary by the metadata-chain corpus: naive parsers (hachoir, pymediainfo) report
-these unset fields as if real, which would misfile clips to 1904/1970 - strictly worse than
-`Undated/`. See `docs/metadata-chain-research.md`.
+**Implausible-date policy (binding, for any current or future date source).** Two tiers, and the
+distinction between them is the point: one kind of bad date is *never* real, the other *can* be.
+
+| | **Tier A - hard sentinels** | **Tier B - suspect camera defaults** |
+|---|---|---|
+| Values | `1904-01-01T00:00:00` (ISO-BMFF/QuickTime), `1970-01-01T00:00:00` (Unix), all-zero `0000…` | **Exactly midnight** on `2000-01-01`, `1999-12-31`, `1980-01-01` |
+| Policy | **Auto-reject, always** - fall through to the next tier | **Accept and flag** - file by the date, count it for review |
+| Why | An unset field, not an early date. Naive parsers (hachoir, pymediainfo) report these as real, which would misfile clips to 1904/1970 - strictly worse than `Undated/`. | These are the dates a camera falls back to when its clock battery dies, but a photo really can be taken on 2000-01-01. Rejecting would be guessing. Exact midnight is the discriminator. |
+| Enforced by | `dates.HARD_SENTINELS` + `dates.is_hard_sentinel`, applied to **every** tier inside `dates.resolve_capture_datetime` (not just EXIF - a zero-epoch is not a date whichever field carried it); `0000…` still drops in `dates.parse_exif_datetime`. | `dates.SUSPECT_DEFAULT_DAYS` + `dates.is_suspect_default`, surfaced as `Decision.suspect_default`. |
+| Pinned by | `tests/test_date_sentinels.py`, incl. `test_sentinel_rejection_does_not_depend_on_the_sanity_window` | `tests/test_date_sentinels.py`, incl. `test_filename_dates_are_never_flagged_as_camera_defaults` |
+
+**Tier A is independent of the sanity window, deliberately.** `dates._MIN_SANE_YEAR` / `_MAX_SANE_YEAR`
+(**1900-2100**) is a *plausibility* filter, not a sentinel filter. The floor was 1990 and was the
+only thing rejecting 1904/1970, which made it unsafe to lower - and it needed lowering, because
+scanned negatives and slides carry genuine pre-1990 dates that were silently landing in `Undated/`.
+Tier A now rejects on value, so the window is free to be generous. A test pins that independence;
+do not delete it.
+
+**Never-silent disclosure (binding).** Neither tier may be folded into a plain "undated" count.
+- A Tier A rejection resolves to **`DateSource.REJECTED_SENTINEL`**, not `DateSource.NONE` - the
+  file still goes to `Undated/`, but the report can say a date was *found and refused* rather
+  than implying the file never had one.
+- Both counts come from the single shared helper **`models.date_quality`**, used by the CLI
+  (`cli._print_date_quality`, `cli._print_ingest_report`) and the app (`service._summarize`,
+  `service.ingest_preview`) so the two front-ends cannot drift.
+
+See `docs/metadata-chain-research.md` for the corpus evidence behind Tier A.
 
 **Fallback-parser policy (convention - no parser is currently a dependency).** exiftool is the
 sole date reader. A container-parsing fallback (pymediainfo / hachoir / ffprobe) is added **only**

@@ -49,6 +49,7 @@ from truestill_core.models import (
     Decision,
     DuplicateMatch,
     Resolution,
+    date_quality,
 )
 from truestill_core.organizer import SourceScan, execute, plan, resolve, scan_source
 from truestill_core.progress import ProgressCallback
@@ -508,6 +509,23 @@ def _print_heif_note(resolutions: list[Resolution]) -> None:
         )
 
 
+def _print_date_quality(uploads: list[Resolution]) -> None:
+    """Disclose the two date-quality signals. Each prints only when non-zero, and neither is
+    ever folded into the plain 'undated' count -- that is the whole point of counting them."""
+    quality = date_quality(uploads)
+    if quality.sentinel_rejected:
+        print(
+            f"  {quality.sentinel_rejected} file(s) carried only a placeholder date"
+            " (1904/1970 epoch zero); it was refused and they went to Undated/"
+        )
+    if quality.suspect_default:
+        print(
+            f"  {quality.suspect_default} file(s) dated by a suspicious camera-default"
+            " timestamp (exact midnight on a known clock-reset day) --"
+            " filed by that date, worth a look"
+        )
+
+
 def _print_summary(resolutions: list[Resolution]) -> None:
     uploads = [r for r in resolutions if r.should_upload]
     near = [r for r in uploads if r.near_duplicate is not None]
@@ -528,6 +546,7 @@ def _print_summary(resolutions: list[Resolution]) -> None:
     print("  date sources (uploaded files):")
     for source, count in sources.most_common():
         print(f"      {source:<28} {count}")
+    _print_date_quality(uploads)
 
     review = [r for r in uploads if r.decision.needs_review]
     if review:
@@ -647,6 +666,12 @@ def _print_ingest_report(resolutions: list[Resolution], scan: TakeoutScan) -> No
     print(f"  dates from embedded EXIF         : {sources.get(DateSource.EXIF.value, 0)}")
     print(f"  dates from filename              : {sources.get(DateSource.FILENAME.value, 0)}")
     print(f"  still undated                    : {sources.get(DateSource.NONE.value, 0)}")
+    quality = date_quality(uploads)
+    print(
+        f"  placeholder date refused         : {quality.sentinel_rejected}"
+        "  (epoch zero -> Undated/)"
+    )
+    print(f"  suspicious camera-default dates  : {quality.suspect_default}  (filed, worth a look)")
     print(f"  media without any JSON sidecar   : {len(scan.missing_sidecar)}")
     print(
         "  note: Takeout times are UTC; near midnight a date may shift a day -- pass --tz to correct."

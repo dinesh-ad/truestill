@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 from truestill_core.models import DateSource
 from truestill_core.takeout import TakeoutSidecar, local_naive
@@ -99,18 +99,111 @@ def _safe_date(year: int, month: int, day: int) -> datetime | None:
         return None
 
 
-def _exif_datetime(metadata: dict[str, Any]) -> tuple[datetime, str] | None:
-    """First parseable, sane embedded date, with the tag that supplied it."""
+#: **Tier A - hard sentinels.** Container/epoch zero values that are never a real capture
+#: instant: a file carrying one has an *unset* field, not an early date. Rejected at every
+#: tier and **independently of the sanity window below** - that independence is the point.
+#: The window used to be the only thing rejecting these, so lowering its floor (as we did, to
+#: honour genuine scanned-archive dates) would otherwise have quietly re-admitted 1904.
+#: Proven necessary by the metadata-chain corpus: naive parsers report these unset fields as
+#: real dates, which would misfile clips to 1904/1970 - strictly worse than ``Undated/``.
+HARD_SENTINELS: frozenset[datetime] = frozenset(
+    {
+        datetime(1904, 1, 1, 0, 0, 0),  # noqa: DTZ001 - ISO-BMFF/QuickTime zero epoch
+        datetime(1970, 1, 1, 0, 0, 0),  # noqa: DTZ001 - Unix zero epoch
+    }
+)
+
+#: **Tier B - suspect camera defaults.** The days a camera's clock falls back to when its
+#: coin cell dies. Unlike Tier A these **can** be genuine (millennium photos exist), so they
+#: are *accepted and counted*, never rejected - the user reviews, we do not guess.
+#: **Exact midnight is the discriminator**: a real photo taken at 00:00:00 sharp on one of
+#: these days is vanishingly rare next to a reset clock.
+SUSPECT_DEFAULT_DAYS: frozenset[tuple[int, int, int]] = frozenset(
+    {
+        (2000, 1, 1),
+        (1999, 12, 31),
+        (1980, 1, 1),
+    }
+)
+
+#: Sources whose dates are a *camera clock* reading, and so can carry a Tier B reset value.
+#: ``FILENAME`` is deliberately excluded: :func:`date_from_filename` returns **midnight by
+#: construction**, so the exact-midnight test would flag every legitimately filename-dated
+#: file on those days. ``TAKEOUT_UPLOAD`` is an upload time, not a camera clock.
+_CLOCK_SOURCES = frozenset({DateSource.EXIF, DateSource.TAKEOUT})
+
+
+def is_hard_sentinel(value: datetime) -> bool:
+    """True when ``value`` is a container/epoch zero, i.e. an unset field rather than a date."""
+    return value in HARD_SENTINELS
+
+
+def is_suspect_default(value: datetime | None, source: DateSource) -> bool:
+    """True when a camera-clock date lands exactly on midnight of a known reset day.
+
+    Accepted, never rejected - callers surface the count so a user can review. See
+    :data:`SUSPECT_DEFAULT_DAYS` and :data:`_CLOCK_SOURCES`.
+    """
+    if value is None or source not in _CLOCK_SOURCES:
+        return False
+    is_midnight = (value.hour, value.minute, value.second, value.microsecond) == (0, 0, 0, 0)
+    return is_midnight and (value.year, value.month, value.day) in SUSPECT_DEFAULT_DAYS
+
+
+class _EmbeddedDate(NamedTuple):
+    """What the embedded-metadata tier found.
+
+    ``saw_sentinel`` is not a detail: it is the difference between "this file has no date"
+    and "this file's only date was an epoch zero we refused", which is what lets the report
+    tell the user the truth instead of the first, misleading half of it.
+    """
+
+    value: datetime | None
+    tag: str | None
+    saw_sentinel: bool
+
+
+class _Candidate(NamedTuple):
+    """One tier's answer: the date it offers (or ``None``), and how to label it if it wins."""
+
+    value: datetime | None
+    source: DateSource
+    tag: str | None = None
+
+
+def _local(value: datetime | None, tz_offset: timedelta | None) -> datetime | None:
+    """A sidecar's UTC epoch as local wall-clock, or ``None`` when absent.
+
+    Centralizes the single-conversion rule: every sidecar time passes through
+    :func:`~truestill_core.takeout.local_naive` exactly once, here.
+    """
+    return None if value is None else local_naive(value, tz_offset)
+
+
+def _embedded_datetime(metadata: dict[str, Any]) -> _EmbeddedDate:
+    """First parseable, sane embedded date with the tag that supplied it.
+
+    One pass over :data:`DATE_TAGS` (5 entries, ordered by trust); the first usable hit wins.
+    """
+    saw_sentinel = False
     for tag in DATE_TAGS:
         parsed = parse_exif_datetime(metadata.get(tag))
-        if parsed is not None and _MIN_SANE_YEAR <= parsed.year <= _MAX_SANE_YEAR:
-            return parsed, tag
-    return None
+        if parsed is None:
+            continue
+        if is_hard_sentinel(parsed):
+            saw_sentinel = True
+            continue
+        if _MIN_SANE_YEAR <= parsed.year <= _MAX_SANE_YEAR:
+            return _EmbeddedDate(parsed, tag, saw_sentinel)
+    return _EmbeddedDate(None, None, saw_sentinel)
 
 
 #: EXIF dates outside this range are treated as a reset/garbage clock, so a Takeout date
-#: (if any) is preferred over them even in the default EXIF-wins mode.
-_MIN_SANE_YEAR = 1990
+#: (if any) is preferred over them even in the default EXIF-wins mode. The floor is 1900,
+#: not the film era's start: scanned negatives and slides carry genuine early dates, and
+#: sending them to ``Undated/`` was a silent data-quality loss. Tier A above is what keeps
+#: the epoch sentinels out, so this floor is free to be generous.
+_MIN_SANE_YEAR = 1900
 _MAX_SANE_YEAR = 2100
 
 
@@ -128,30 +221,42 @@ def resolve_capture_datetime(
     ``creationTime`` (approximate) -> filename convention -> none. ``prefer_takeout`` flips
     the first two, for libraries whose dates were fixed inside Google Photos but whose
     embedded EXIF stayed wrong. Takeout times are converted from UTC to local exactly once.
+
+    **Tier A sentinels are refused at every tier**, not just the EXIF one - a zero-epoch is
+    not a date whichever field produced it. When the chain exhausts *because* a sentinel was
+    refused, the source is :attr:`DateSource.REJECTED_SENTINEL` rather than
+    :attr:`DateSource.NONE`, so a report can say "a date was found and refused" instead of
+    silently implying the file never had one. Tier B (suspect camera defaults) does not
+    appear here at all: those dates are **accepted**, and callers flag them via
+    :func:`is_suspect_default`.
     """
-    exif = _exif_datetime(metadata)
-    taken = (
-        local_naive(takeout.taken_at, tz_offset)
-        if takeout is not None and takeout.taken_at is not None
-        else None
+    embedded = _embedded_datetime(metadata)
+    exif_tier = _Candidate(embedded.value, DateSource.EXIF, embedded.tag)
+    taken_tier = _Candidate(
+        _local(takeout.taken_at if takeout else None, tz_offset), DateSource.TAKEOUT
     )
 
-    if prefer_takeout:
-        if taken is not None:
-            return taken, DateSource.TAKEOUT, None
-        if exif is not None:
-            return exif[0], DateSource.EXIF, exif[1]
-    else:
-        if exif is not None:
-            return exif[0], DateSource.EXIF, exif[1]
-        if taken is not None:
-            return taken, DateSource.TAKEOUT, None
+    # The tier order *is* the policy, so it reads as ordered data rather than nested branches.
+    # Every tier is evaluated up front; the two that can be skipped cost ~2.6 us combined
+    # (measured: 1.44 us for a no-match filename scan, 1.13 us for a tz shift), against a
+    # per-file budget dominated by hashing in the milliseconds. Not worth lazy plumbing.
+    tiers: tuple[_Candidate, ...] = (
+        (taken_tier, exif_tier) if prefer_takeout else (exif_tier, taken_tier)
+    ) + (
+        _Candidate(
+            _local(takeout.created_at if takeout else None, tz_offset),
+            DateSource.TAKEOUT_UPLOAD,
+        ),
+        _Candidate(date_from_filename(path.name), DateSource.FILENAME),
+    )
 
-    if takeout is not None and takeout.created_at is not None:
-        return local_naive(takeout.created_at, tz_offset), DateSource.TAKEOUT_UPLOAD, None
+    saw_sentinel = embedded.saw_sentinel
+    for tier in tiers:
+        if tier.value is None:
+            continue
+        if is_hard_sentinel(tier.value):  # Tier A applies to every tier, not just EXIF
+            saw_sentinel = True
+            continue
+        return tier.value, tier.source, tier.tag
 
-    from_name = date_from_filename(path.name)
-    if from_name is not None:
-        return from_name, DateSource.FILENAME, None
-
-    return None, DateSource.NONE, None
+    return None, (DateSource.REJECTED_SENTINEL if saw_sentinel else DateSource.NONE), None
