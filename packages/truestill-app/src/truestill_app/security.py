@@ -5,7 +5,7 @@ A localhost web server is a real attack surface: a malicious page can make the b
 127.0.0.1-only bind at launch):
 
 * **Per-session token** minted at startup, required on every request (query ``?token=`` on the
-  first open and for SSE URLs, or the ``X-Vaeon-Token`` header for fetch). Not a cookie, so
+  first open and for SSE URLs, or the ``X-Truestill-Token`` header for fetch). Not a cookie, so
   rebinding/CSRF cannot ride it.
 * **Host check** -- the ``Host`` header must be a localhost binding; a rebinding attack arrives
   with an attacker Host and is rejected.
@@ -37,7 +37,7 @@ def _hostname(value: str | None) -> str | None:
 
 
 def _request_token(request: Request) -> str | None:
-    header = request.headers.get("x-vaeon-token")
+    header = request.headers.get("x-truestill-token")
     return header or request.query_params.get("token")
 
 

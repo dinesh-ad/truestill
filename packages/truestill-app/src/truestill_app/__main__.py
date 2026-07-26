@@ -15,8 +15,8 @@ from pathlib import Path
 
 import uvicorn
 
-from vaeon_app.security import new_token
-from vaeon_app.server import create_app
+from truestill_app.security import new_token
+from truestill_app.server import create_app
 
 _HOST = "127.0.0.1"
 _DEFAULT_PORT = 7357
@@ -35,7 +35,7 @@ def _choose_port(preferred: int) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="vaeon-app", description="vaeon local web UI")
+    parser = argparse.ArgumentParser(prog="truestill-app", description="truestill local web UI")
     parser.add_argument("--db", type=Path, default=Path("reports/catalog.sqlite"))
     parser.add_argument("--port", type=int, default=_DEFAULT_PORT)
     parser.add_argument("--no-browser", action="store_true", help="do not open a browser")
@@ -46,7 +46,7 @@ def main(argv: list[str] | None = None) -> int:
     url = f"http://{_HOST}:{port}/?token={token}"
     app = create_app(token=token, db=args.db)
 
-    print(f"vaeon UI on {url}", flush=True)  # noqa: T201 - the URL (with token) is the point
+    print(f"truestill UI on {url}", flush=True)  # noqa: T201 - the URL (with token) is the point
     if not args.no_browser:
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
     uvicorn.run(app, host=_HOST, port=port, log_level="warning")

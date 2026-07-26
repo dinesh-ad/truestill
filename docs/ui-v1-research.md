@@ -1,8 +1,8 @@
 # vaeon UI v1 - recon, research & design (Phase 1)
 
-Design gate for the local web UI (`packages/vaeon-app`). **No build in this phase.** Decision
+Design gate for the local web UI (`packages/truestill-app`). **No build in this phase.** Decision
 already fixed: a plain **local web app** (Python server + browser UI on localhost), no
-Tauri/Electron/Rust; a native shell may wrap it later. The engine is untouched - `vaeon-app`
+Tauri/Electron/Rust; a native shell may wrap it later. The engine is untouched - `truestill-app`
 calls `truestill-core` as a library, exactly as `truestill-cli` does, and `truestill-cli` stays co-equal.
 
 ---
@@ -28,8 +28,8 @@ every import they use is from **`truestill-core`** (`catalog`, `events`, `hashin
 > **Refactor R1 (required):** move the *pure orchestration* (cluster → resolve names against
 > the catalog → `apply_events`) into **`truestill-core`** (e.g. `truestill_core/event_review.py`), prompt
 > injected, **no printing** - it returns structured proposals/results. `truestill-cli` keeps its
-> `_stdin_prompt`/`album_prompt`/printing; `vaeon-app` supplies a UI-driven prompt. This is what
-> lets `vaeon-app` **never import `truestill-cli`** (the architecture rule).
+> `_stdin_prompt`/`album_prompt`/printing; `truestill-app` supplies a UI-driven prompt. This is what
+> lets `truestill-app` **never import `truestill-cli`** (the architecture rule).
 
 Everything else the UI needs is already pure and injectable: `plan`, `resolve`, `execute`,
 `scan.compute_hashes`, `verify.verify_copies`, `cluster_camera`, the catalog, `drive.py`.
@@ -60,7 +60,7 @@ Pydantic on internal models (our standard forbids it) or FastAPI's OpenAPI/valid
 Raw `http.server` is synchronous and would force hand-rolled routing, SSE, static serving and
 background-task handling - fragile. **Starlette** is the smallest well-tested ASGI that gives
 routing + SSE + static files + background tasks; **uvicorn** serves it. Two deps, isolated to
-`vaeon-app` (truestill-core stays imagehash+pillow only).
+`truestill-app` (truestill-core stays imagehash+pillow only).
 Sources: [DEV: FastAPI is overkill](https://dev.to/leapcell/fastapi-is-overkill-starlette-and-pydantic-are-all-you-really-need-1inp),
 [Slant FastAPI vs Starlette](https://www.slant.co/versus/34241/34868/~fastapi_vs_starlette).
 
@@ -148,7 +148,7 @@ CLI) · a settings/preferences editor · multi-user or accounts · scheduling/au
 or previewing media · packaging/native shell · anything that writes outside the existing
 `--apply` paths. The UI is a front-end over the *existing* engine, nothing new server-side.
 
-### C3. API surface (vaeon-app server ⇄ browser)
+### C3. API surface (truestill-app server ⇄ browser)
 Small, REST-ish + one SSE stream per job. All require the session token + Host check.
 ```
 GET  /                         -> home (html)
@@ -167,7 +167,7 @@ POST /api/verify/run           {path} -> {job_id}   (progress via /api/jobs/{id}
 Server calls `truestill-core` only. Long endpoints start a background job (Starlette background task
 / a thread) that drives the core op with the R2 `progress`/`cancel` hooks and publishes SSE.
 
-### C4. Dependency additions (each justified, per the dependency policy) - all in `vaeon-app` only
+### C4. Dependency additions (each justified, per the dependency policy) - all in `truestill-app` only
 | Dep | Justification vs stdlib |
 |---|---|
 | `starlette` | Minimal ASGI: routing + SSE + static + background tasks. `http.server` is sync and would require hand-rolling all of it. Not FastAPI (wraps Starlette+Pydantic; Pydantic is disallowed for internal models and unneeded for one user). |
@@ -185,5 +185,5 @@ Python, stdlib `threading` for cancellation).
 - **R3** evolve the event decision from `(cluster)->str|None` to data-in/decision-out to support
   merge/split.
 
-These keep `vaeon-app` free of any `truestill-cli` import and give the UI progress, cancellation and
+These keep `truestill-app` free of any `truestill-cli` import and give the UI progress, cancellation and
 merge/split. `truestill-cli` is updated to the new core APIs and stays co-equal; `make check` green.

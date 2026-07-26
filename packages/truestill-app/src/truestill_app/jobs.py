@@ -3,7 +3,7 @@
 A job runs a target ``fn(progress, cancel)`` on a worker thread. ``progress(done, total)`` and
 terminal events are pushed onto a thread-safe queue; the SSE endpoint drains that queue as
 ``text/event-stream`` frames. ``cancel`` is a ``threading.Event`` the core ops check between
-items (a cancelled run is safe -- vaeon is copy-only and resumable).
+items (a cancelled run is safe -- truestill is copy-only and resumable).
 """
 
 from __future__ import annotations

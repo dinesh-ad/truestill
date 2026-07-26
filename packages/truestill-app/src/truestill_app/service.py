@@ -54,7 +54,7 @@ from truestill_core.progress import ProgressCallback
 from truestill_core.takeout import scan_takeout
 from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
 
-from vaeon_app.jobs import JobTarget
+from truestill_app.jobs import JobTarget
 
 
 def _now() -> str:
@@ -517,9 +517,9 @@ def backup_preview(source: Path, target: Path, db: Path) -> dict[str, Any]:
     """
     src_marker, tgt_marker = read_marker(source), read_marker(target)
     if src_marker is None:
-        return {"ok": False, "error": "the 'from' folder is not a connected vaeon drive."}
+        return {"ok": False, "error": "the 'from' folder is not a connected truestill drive."}
     if tgt_marker is None:
-        return {"ok": False, "error": "the 'to' folder is not a connected vaeon drive."}
+        return {"ok": False, "error": "the 'to' folder is not a connected truestill drive."}
     if src_marker.uuid == tgt_marker.uuid:
         return {"ok": False, "error": "the 'from' and 'to' drives are the same drive."}
     with Catalog(db) as catalog:
@@ -545,7 +545,7 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
     def target_job(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
         src_marker, tgt_marker = read_marker(source), read_marker(target)
         if src_marker is None or tgt_marker is None:
-            message = "both the 'from' and 'to' folders must be connected vaeon drives."
+            message = "both the 'from' and 'to' folders must be connected truestill drives."
             raise ValueError(message)
         with Catalog(db) as catalog:
             catalog.upsert_drive(uuid=src_marker.uuid, label=src_marker.label)
@@ -593,7 +593,7 @@ def propose_events(path: Path, db: Path) -> dict[str, Any]:
     """Cluster trips from an already-organized connected drive (the 'review trips in place' path).
 
     Returns the drive uuid + the cluster objects (the caller keeps them in a session for
-    merge/split/name), or an error when the path is not a connected vaeon drive.
+    merge/split/name), or an error when the path is not a connected truestill drive.
     """
     marker = read_marker(path)
     if marker is None:

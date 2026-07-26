@@ -1,7 +1,7 @@
 """The Starlette application: routes, SSE, static assets, wired to the service + job manager.
 
 The app is built by :func:`create_app`, which takes the session token so tests can construct it
-directly. Every data route is guarded by :class:`~vaeon_app.security.LocalGuard`.
+directly. Every data route is guarded by :class:`~truestill_app.security.LocalGuard`.
 """
 
 from __future__ import annotations
@@ -19,9 +19,9 @@ from truestill_core.catalog import Catalog
 from truestill_core.event_review import EventDecision, commit_catalog
 from truestill_core.events import merge_candidates, split_candidate
 
-from vaeon_app import service
-from vaeon_app.jobs import JobManager
-from vaeon_app.security import LocalGuard
+from truestill_app import service
+from truestill_app.jobs import JobManager
+from truestill_app.security import LocalGuard
 
 _PKG = Path(__file__).resolve().parent
 _TEMPLATES = _PKG / "templates"

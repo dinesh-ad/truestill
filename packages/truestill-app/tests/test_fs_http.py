@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from starlette.testclient import TestClient
-from vaeon_app.server import create_app
+from truestill_app.server import create_app
 
 _TOKEN = "tok"
 
@@ -14,7 +14,7 @@ _TOKEN = "tok"
 @pytest.fixture
 def client(tmp_path: Path) -> TestClient:
     app = create_app(token=_TOKEN, db=tmp_path / "c.sqlite")
-    return TestClient(app, headers={"host": "127.0.0.1:7357", "x-vaeon-token": _TOKEN})
+    return TestClient(app, headers={"host": "127.0.0.1:7357", "x-truestill-token": _TOKEN})
 
 
 def test_library_status_is_honest_when_empty(client: TestClient) -> None:

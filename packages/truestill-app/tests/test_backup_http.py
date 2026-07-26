@@ -9,9 +9,9 @@ from types import SimpleNamespace
 import pytest
 from PIL import Image
 from starlette.testclient import TestClient
+from truestill_app import service
+from truestill_app.server import create_app
 from truestill_core.drive import create_marker
-from vaeon_app import service
-from vaeon_app.server import create_app
 
 _TOKEN = "tok"
 
@@ -19,7 +19,7 @@ _TOKEN = "tok"
 @pytest.fixture
 def client(tmp_path: Path) -> TestClient:
     app = create_app(token=_TOKEN, db=tmp_path / "c.sqlite")
-    return TestClient(app, headers={"host": "127.0.0.1:7357", "x-vaeon-token": _TOKEN})
+    return TestClient(app, headers={"host": "127.0.0.1:7357", "x-truestill-token": _TOKEN})
 
 
 def _finish(client: TestClient, job_id: str) -> dict:

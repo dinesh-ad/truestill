@@ -1,7 +1,7 @@
 PYTHON := uv run
 CORE := packages/truestill-core/src/truestill_core
 CLI := packages/truestill-cli/src/truestill_cli
-APP := packages/vaeon-app/src/vaeon_app
+APP := packages/truestill-app/src/truestill_app
 
 .PHONY: install lint format format-check typecheck test check build dryrun
 

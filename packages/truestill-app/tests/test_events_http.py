@@ -11,12 +11,12 @@ from pathlib import Path
 import pytest
 from PIL import Image
 from starlette.testclient import TestClient
+from truestill_app import service
+from truestill_app.server import create_app
 from truestill_core.catalog import Catalog
 from truestill_core.drive import create_marker
 from truestill_core.event_review import propose as core_propose
 from truestill_core.events import slugify
-from vaeon_app import service
-from vaeon_app.server import create_app
 
 pytestmark = pytest.mark.skipif(shutil.which("exiftool") is None, reason="exiftool not installed")
 
@@ -26,7 +26,7 @@ _TOKEN = "tok"
 @pytest.fixture
 def client(tmp_path: Path) -> TestClient:
     app = create_app(token=_TOKEN, db=tmp_path / "c.sqlite")
-    return TestClient(app, headers={"host": "127.0.0.1:7357", "x-vaeon-token": _TOKEN})
+    return TestClient(app, headers={"host": "127.0.0.1:7357", "x-truestill-token": _TOKEN})
 
 
 def _drive_with_library(client: TestClient, src: Path, drive: Path) -> None:

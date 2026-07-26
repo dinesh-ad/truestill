@@ -14,7 +14,7 @@ dev = [
     "pytest>=8.0.0",
     "pytest-cov>=6.0.0",
     "pre-commit>=4.2.0",
-    "httpx>=0.28",       # Starlette TestClient (vaeon-app tests)
+    "httpx>=0.28",       # Starlette TestClient (truestill-app tests)
 ]
 
 # --- Ruff (lint + format), applied repo-wide ------------------------------------------
@@ -67,7 +67,7 @@ unfixable = []
 # run_migration(catalog/destination/drive_uuid/template/apply/progress/cancel) as kw-only knobs.
 "packages/truestill-core/src/truestill_core/migrate.py" = ["PLR0913"]
 # create_app is an application factory: each route is a nested handler closing over the token/db.
-"packages/vaeon-app/src/vaeon_app/server.py" = [
+"packages/truestill-app/src/truestill_app/server.py" = [
     "PLR0915", # the route handlers are defined inline inside the factory, by design
 ]
 # Date parsing - EXIF timestamps are local wall-clock with no zone; naive datetimes correct.
@@ -105,7 +105,7 @@ line-ending = "auto"
 testpaths = [
     "packages/truestill-core/tests",
     "packages/truestill-cli/tests",
-    "packages/vaeon-app/tests",
+    "packages/truestill-app/tests",
 ]
 python_files = "test_*.py"
 python_classes = "Test*"

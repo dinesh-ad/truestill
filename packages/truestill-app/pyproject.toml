@@ -1,8 +1,8 @@
 [project]
-name = "vaeon-app"
+name = "truestill-app"
 version = "0.1.0"
-description = "Local web UI for vaeon: a Starlette server + browser front-end on localhost."
-authors = [{ name = "vaeon contributors" }]
+description = "Local web UI for truestill: a Starlette server + browser front-end on localhost."
+authors = [{ name = "truestill contributors" }]
 requires-python = ">=3.13"
 readme = "README.md"
 license = "Apache-2.0"
@@ -26,17 +26,17 @@ dependencies = [
 ]
 
 [project.scripts]
-vaeon-app = "vaeon_app.__main__:main"
+truestill-app = "truestill_app.__main__:main"
 
 [project.urls]
-Homepage = "https://github.com/dinesh-ad/vaeon"
+Homepage = "https://github.com/dinesh-ad/truestill"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/vaeon_app"]
+packages = ["src/truestill_app"]
 
 [tool.uv.sources]
 truestill-core = { workspace = true }

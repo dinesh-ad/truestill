@@ -1,11 +1,11 @@
 "use strict";
-const TOKEN = window.VAEON_TOKEN;
+const TOKEN = window.TRUESTILL_TOKEN;
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const nfmt = (n) => Number(n).toLocaleString();
 
 async function api(path, body) {
-  const opts = { headers: { "X-Vaeon-Token": TOKEN } };
+  const opts = { headers: { "X-Truestill-Token": TOKEN } };
   if (body !== undefined) {
     opts.method = "POST";
     opts.headers["Content-Type"] = "application/json";
