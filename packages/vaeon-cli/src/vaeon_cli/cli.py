@@ -15,15 +15,15 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from vaeon_core.catalog import Catalog
-from vaeon_core.categorize import build_rules
-from vaeon_core.dedup import DedupIndex
-from vaeon_core.destinations import Destination, LocalDestination, RcloneDestination
-from vaeon_core.destinations.base import DestinationError
-from vaeon_core.drive import DriveMarker, create_marker, read_marker
-from vaeon_core.exif import ExiftoolMissingError, read_metadata
-from vaeon_core.hashing import DEFAULT_PHASH_THRESHOLD, HEIF_AVAILABLE, HEIF_EXTENSIONS
-from vaeon_core.layout import (
+from truestill_core.catalog import Catalog
+from truestill_core.categorize import build_rules
+from truestill_core.dedup import DedupIndex
+from truestill_core.destinations import Destination, LocalDestination, RcloneDestination
+from truestill_core.destinations.base import DestinationError
+from truestill_core.drive import DriveMarker, create_marker, read_marker
+from truestill_core.exif import ExiftoolMissingError, read_metadata
+from truestill_core.hashing import DEFAULT_PHASH_THRESHOLD, HEIF_AVAILABLE, HEIF_EXTENSIONS
+from truestill_core.layout import (
     DEFAULT_TEMPLATE_STRING,
     LAYOUT_TEMPLATE_KEY,
     PRESETS,
@@ -33,8 +33,8 @@ from vaeon_core.layout import (
     preview,
     resolve_template,
 )
-from vaeon_core.migrate import run_migration
-from vaeon_core.models import (
+from truestill_core.migrate import run_migration
+from truestill_core.models import (
     ActionResult,
     ActionStatus,
     DateSource,
@@ -42,18 +42,18 @@ from vaeon_core.models import (
     DuplicateMatch,
     Resolution,
 )
-from vaeon_core.organizer import SourceScan, execute, plan, resolve, scan_source
-from vaeon_core.progress import ProgressCallback
-from vaeon_core.reclaim import plan_reclaim, run_reclaim
-from vaeon_core.scan import DEFAULT_WORKERS
-from vaeon_core.takeout import (
+from truestill_core.organizer import SourceScan, execute, plan, resolve, scan_source
+from truestill_core.progress import ProgressCallback
+from truestill_core.reclaim import plan_reclaim, run_reclaim
+from truestill_core.scan import DEFAULT_WORKERS
+from truestill_core.takeout import (
     IngestContext,
     MetadataWrite,
     TakeoutScan,
     TakeoutSidecar,
     scan_takeout,
 )
-from vaeon_core.verify import CopyStatus, CopyToVerify, verify_copies
+from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
 
 from vaeon_cli.events_review import Prompt, album_prompt, run_event_stage
 

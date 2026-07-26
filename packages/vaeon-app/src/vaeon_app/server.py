@@ -15,9 +15,9 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 from starlette.staticfiles import StaticFiles
-from vaeon_core.catalog import Catalog
-from vaeon_core.event_review import EventDecision, commit_catalog
-from vaeon_core.events import merge_candidates, split_candidate
+from truestill_core.catalog import Catalog
+from truestill_core.event_review import EventDecision, commit_catalog
+from truestill_core.events import merge_candidates, split_candidate
 
 from vaeon_app import service
 from vaeon_app.jobs import JobManager

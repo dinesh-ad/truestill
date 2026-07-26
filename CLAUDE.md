@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 vaeon - a local-first media organizer, de-duplicator, and backup pipeline (uv workspace:
-`vaeon-core` library + `vaeon-cli`).
+`truestill-core` library + `vaeon-cli`).
 
 ## Read first, every session - the two-document contract
 

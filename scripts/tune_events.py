@@ -3,7 +3,7 @@
 Run: uv run python scripts/tune_events.py
 
 Builds representative synthetic timelines and prints how many clusters each sensitivity
-yields, so the DEFAULT_SENSITIVITY in vaeon_core.events can be chosen from evidence rather
+yields, so the DEFAULT_SENSITIVITY in truestill_core.events can be chosen from evidence rather
 than guessed. The default (4.0) is the lowest value where a multi-day trip stays whole
 while genuinely separate events still split.
 """
@@ -14,9 +14,9 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "packages/vaeon-core/src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "packages/truestill-core/src"))
 
-from vaeon_core.events import EventItem, cluster_camera
+from truestill_core.events import EventItem, cluster_camera
 
 
 def _day(base: datetime, n: int = 15, gap_min: int = 30) -> list[datetime]:

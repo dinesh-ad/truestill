@@ -43,7 +43,7 @@ desktop/UI package can be added beside them without touching the core.
 
 ```
 packages/
-├── vaeon-core/src/vaeon_core/   # the library (importable, typed, py.typed)
+├── truestill-core/src/truestill_core/   # the library (importable, typed, py.typed)
 │   ├── models.py       dataclasses + enums; Category is a plain str label, by design
 │   ├── exif.py         batched exiftool JSON reads (no per-file process spawn)
 │   ├── dates.py        capture-date resolution and filename date conventions

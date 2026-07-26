@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 from starlette.testclient import TestClient
+from truestill_core.catalog import Catalog
 from vaeon_app.server import create_app
-from vaeon_core.catalog import Catalog
 
 _TOKEN = "test-token-123"
 

@@ -11,12 +11,12 @@ from pathlib import Path
 import pytest
 from PIL import Image
 from starlette.testclient import TestClient
+from truestill_core.catalog import Catalog
+from truestill_core.drive import create_marker
+from truestill_core.event_review import propose as core_propose
+from truestill_core.events import slugify
 from vaeon_app import service
 from vaeon_app.server import create_app
-from vaeon_core.catalog import Catalog
-from vaeon_core.drive import create_marker
-from vaeon_core.event_review import propose as core_propose
-from vaeon_core.events import slugify
 
 pytestmark = pytest.mark.skipif(shutil.which("exiftool") is None, reason="exiftool not installed")
 

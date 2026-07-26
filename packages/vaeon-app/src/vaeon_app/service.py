@@ -1,4 +1,4 @@
-"""Bridge from the web layer to vaeon-core. Imports only vaeon-core -- never vaeon-cli.
+"""Bridge from the web layer to truestill-core. Imports only truestill-core -- never vaeon-cli.
 
 Read helpers return plain dicts for JSON; long operations return :data:`JobTarget`s that the
 job manager runs on a thread with progress + cancellation. Preview writes nothing (the CLI's
@@ -15,20 +15,20 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from vaeon_core.catalog import Catalog
-from vaeon_core.categorize import build_rules
-from vaeon_core.dedup import DedupIndex
-from vaeon_core.destinations import LocalDestination
-from vaeon_core.drive import read_marker
-from vaeon_core.event_review import EventDecision, commit, propose, propose_from_catalog
-from vaeon_core.exif import read_metadata
-from vaeon_core.hashing import (
+from truestill_core.catalog import Catalog
+from truestill_core.categorize import build_rules
+from truestill_core.dedup import DedupIndex
+from truestill_core.destinations import LocalDestination
+from truestill_core.drive import read_marker
+from truestill_core.event_review import EventDecision, commit, propose, propose_from_catalog
+from truestill_core.exif import read_metadata
+from truestill_core.hashing import (
     DEFAULT_PHASH_THRESHOLD,
     HEIF_AVAILABLE,
     HEIF_EXTENSIONS,
     sha256_file,
 )
-from vaeon_core.layout import (
+from truestill_core.layout import (
     DEFAULT_TEMPLATE_STRING,
     LAYOUT_TEMPLATE_KEY,
     PRESETS,
@@ -38,9 +38,9 @@ from vaeon_core.layout import (
     preview,
     resolve_template,
 )
-from vaeon_core.migrate import run_migration
-from vaeon_core.models import Resolution
-from vaeon_core.organizer import (
+from truestill_core.migrate import run_migration
+from truestill_core.models import Resolution
+from truestill_core.organizer import (
     MEDIA_EXTENSIONS,
     SourceScan,
     discover,
@@ -50,9 +50,9 @@ from vaeon_core.organizer import (
     resolve,
     scan_source,
 )
-from vaeon_core.progress import ProgressCallback
-from vaeon_core.takeout import scan_takeout
-from vaeon_core.verify import CopyStatus, CopyToVerify, verify_copies
+from truestill_core.progress import ProgressCallback
+from truestill_core.takeout import scan_takeout
+from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
 
 from vaeon_app.jobs import JobTarget
 

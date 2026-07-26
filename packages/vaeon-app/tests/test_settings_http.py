@@ -6,10 +6,10 @@ from pathlib import Path
 
 import pytest
 from starlette.testclient import TestClient
+from truestill_core.catalog import Catalog
+from truestill_core.drive import create_marker
+from truestill_core.hashing import sha256_file
 from vaeon_app.server import create_app
-from vaeon_core.catalog import Catalog
-from vaeon_core.drive import create_marker
-from vaeon_core.hashing import sha256_file
 
 _TOKEN = "tok"
 

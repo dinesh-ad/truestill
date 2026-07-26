@@ -9,9 +9,9 @@ from types import SimpleNamespace
 import pytest
 from PIL import Image
 from starlette.testclient import TestClient
+from truestill_core.drive import create_marker
 from vaeon_app import service
 from vaeon_app.server import create_app
-from vaeon_core.drive import create_marker
 
 _TOKEN = "tok"
 

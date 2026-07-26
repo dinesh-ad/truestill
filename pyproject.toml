@@ -44,39 +44,39 @@ unfixable = []
     "PLR0913", # run_event_stage forwards resolutions/metadata/catalog/apply/prompt/template
 ]
 # The event stage orchestrates several opt-in knobs (prompt, template) as keyword-only args.
-"packages/vaeon-core/src/vaeon_core/event_review.py" = [
+"packages/truestill-core/src/truestill_core/event_review.py" = [
     "PLR0913", # run_event_stage(resolutions/metadata/catalog/apply/prompt/template)
 ]
 # Event clustering exposes several tunables as keyword-only knobs.
-"packages/vaeon-core/src/vaeon_core/events.py" = [
+"packages/truestill-core/src/truestill_core/events.py" = [
     "PLR0913", # cluster_camera(sensitivity/window/min_files/min_duration/gps_jump)
 ]
 # Catalog - a persisted row has many columns; keyword-only args name them at the call site
-"packages/vaeon-core/src/vaeon_core/catalog.py" = [
+"packages/truestill-core/src/truestill_core/catalog.py" = [
     "PLR0913", # record_uploaded mirrors the table columns
 ]
 # Organizer - execute() coordinates several opt-in behaviours via keyword-only flags
-"packages/vaeon-core/src/vaeon_core/organizer.py" = [
+"packages/truestill-core/src/truestill_core/organizer.py" = [
     "PLR0913", # execute(): apply/set_timestamps/skip_undated/event_ids/ingest/drive_uuid/...
     "PLR0912", # execute() branches over dup/dry-run/skip-undated/write/rename/near-dup outcomes
     "PLR0915", # execute() coordinates the whole per-file write path in one loop
 ]
 # scan.compute_hashes / verify.verify_copies expose pool/workers/progress/cancel as kw-only.
-"packages/vaeon-core/src/vaeon_core/scan.py" = ["PLR0913"]
-"packages/vaeon-core/src/vaeon_core/verify.py" = ["PLR0913"]
+"packages/truestill-core/src/truestill_core/scan.py" = ["PLR0913"]
+"packages/truestill-core/src/truestill_core/verify.py" = ["PLR0913"]
 # run_migration(catalog/destination/drive_uuid/template/apply/progress/cancel) as kw-only knobs.
-"packages/vaeon-core/src/vaeon_core/migrate.py" = ["PLR0913"]
+"packages/truestill-core/src/truestill_core/migrate.py" = ["PLR0913"]
 # create_app is an application factory: each route is a nested handler closing over the token/db.
 "packages/vaeon-app/src/vaeon_app/server.py" = [
     "PLR0915", # the route handlers are defined inline inside the factory, by design
 ]
 # Date parsing - EXIF timestamps are local wall-clock with no zone; naive datetimes correct.
-"packages/vaeon-core/src/vaeon_core/dates.py" = [
+"packages/truestill-core/src/truestill_core/dates.py" = [
     "DTZ007",  # strptime without %z is deliberate; EXIF has no reliable zone
     "PLR0911", # resolve_capture_datetime is a priority chain of early returns, by design
 ]
 # Destination backends shell out to rclone; that is the whole point of the wrapper.
-"packages/vaeon-core/src/vaeon_core/destinations/rclone.py" = [
+"packages/truestill-core/src/truestill_core/destinations/rclone.py" = [
     "S603", # subprocess call is intentional
     "S607", # rclone is resolved from PATH by design
 ]
@@ -103,7 +103,7 @@ line-ending = "auto"
 # --- pytest ---------------------------------------------------------------------------
 [tool.pytest.ini_options]
 testpaths = [
-    "packages/vaeon-core/tests",
+    "packages/truestill-core/tests",
     "packages/vaeon-cli/tests",
     "packages/vaeon-app/tests",
 ]

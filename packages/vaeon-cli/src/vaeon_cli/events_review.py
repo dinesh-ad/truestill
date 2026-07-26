@@ -1,6 +1,6 @@
 """CLI adapter for event review: terminal prompt + display over the pure core orchestrator.
 
-The orchestration lives in :mod:`vaeon_core.event_review`; this module only adds the CLI's
+The orchestration lives in :mod:`truestill_core.event_review`; this module only adds the CLI's
 interaction surface (a stdin prompt and printed proposals). ``album_prompt`` builds a
 non-interactive prompt for ``ingest --map-albums``.
 """
@@ -11,12 +11,12 @@ import sys
 from collections import Counter
 from typing import Any
 
-from vaeon_core.catalog import Catalog
-from vaeon_core.event_review import Prompt
-from vaeon_core.event_review import run_event_stage as _core_run_event_stage
-from vaeon_core.events import EventCandidate
-from vaeon_core.layout import DEFAULT_TEMPLATE, LayoutTemplate
-from vaeon_core.models import Resolution
+from truestill_core.catalog import Catalog
+from truestill_core.event_review import Prompt
+from truestill_core.event_review import run_event_stage as _core_run_event_stage
+from truestill_core.events import EventCandidate
+from truestill_core.layout import DEFAULT_TEMPLATE, LayoutTemplate
+from truestill_core.models import Resolution
 
 __all__ = ["Prompt", "album_prompt", "run_event_stage"]
 

@@ -6,11 +6,11 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
+from truestill_core.catalog import Catalog
+from truestill_core.categorize import CategoryMatch, Confidence
+from truestill_core.events import EventCandidate
+from truestill_core.models import DateSource, Decision, FileHashes, Resolution
 from vaeon_cli.events_review import run_event_stage
-from vaeon_core.catalog import Catalog
-from vaeon_core.categorize import CategoryMatch, Confidence
-from vaeon_core.events import EventCandidate
-from vaeon_core.models import DateSource, Decision, FileHashes, Resolution
 
 
 def _camera(i: int, when: datetime) -> Resolution:

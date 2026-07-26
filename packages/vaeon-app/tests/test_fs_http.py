@@ -25,7 +25,7 @@ def test_library_status_is_honest_when_empty(client: TestClient) -> None:
 
 
 def _seed_media(db: Path) -> None:
-    from vaeon_core.catalog import Catalog  # noqa: PLC0415 - test-local
+    from truestill_core.catalog import Catalog  # noqa: PLC0415 - test-local
 
     with Catalog(db) as catalog:
         catalog.upsert_drive(uuid="D1", label="BackupA")

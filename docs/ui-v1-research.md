@@ -3,7 +3,7 @@
 Design gate for the local web UI (`packages/vaeon-app`). **No build in this phase.** Decision
 already fixed: a plain **local web app** (Python server + browser UI on localhost), no
 Tauri/Electron/Rust; a native shell may wrap it later. The engine is untouched - `vaeon-app`
-calls `vaeon-core` as a library, exactly as `vaeon-cli` does, and `vaeon-cli` stays co-equal.
+calls `truestill-core` as a library, exactly as `vaeon-cli` does, and `vaeon-cli` stays co-equal.
 
 ---
 
@@ -22,11 +22,11 @@ callback - good. But it lives in `vaeon-cli` (see A2).
 
 ### A2. Purity check - the required refactor
 `run_event_stage` and its helper `camera_items` live in **`vaeon-cli/events_review.py`**, yet
-every import they use is from **`vaeon-core`** (`catalog`, `events`, `hashing`, `models`,
+every import they use is from **`truestill-core`** (`catalog`, `events`, `hashing`, `models`,
 `organizer`). The only CLI-specific things inside are `print(...)` calls and `_stdin_prompt`.
 
 > **Refactor R1 (required):** move the *pure orchestration* (cluster → resolve names against
-> the catalog → `apply_events`) into **`vaeon-core`** (e.g. `vaeon_core/event_review.py`), prompt
+> the catalog → `apply_events`) into **`truestill-core`** (e.g. `truestill_core/event_review.py`), prompt
 > injected, **no printing** - it returns structured proposals/results. `vaeon-cli` keeps its
 > `_stdin_prompt`/`album_prompt`/printing; `vaeon-app` supplies a UI-driven prompt. This is what
 > lets `vaeon-app` **never import `vaeon-cli`** (the architecture rule).
@@ -60,7 +60,7 @@ Pydantic on internal models (our standard forbids it) or FastAPI's OpenAPI/valid
 Raw `http.server` is synchronous and would force hand-rolled routing, SSE, static serving and
 background-task handling - fragile. **Starlette** is the smallest well-tested ASGI that gives
 routing + SSE + static files + background tasks; **uvicorn** serves it. Two deps, isolated to
-`vaeon-app` (vaeon-core stays imagehash+pillow only).
+`vaeon-app` (truestill-core stays imagehash+pillow only).
 Sources: [DEV: FastAPI is overkill](https://dev.to/leapcell/fastapi-is-overkill-starlette-and-pydantic-are-all-you-really-need-1inp),
 [Slant FastAPI vs Starlette](https://www.slant.co/versus/34241/34868/~fastapi_vs_starlette).
 
@@ -164,7 +164,7 @@ POST /api/drives/init          {root,label}
 GET  /api/where?term=          -> copies with drive+path+last_verified
 POST /api/verify/run           {path} -> {job_id}   (progress via /api/jobs/{id}/events)
 ```
-Server calls `vaeon-core` only. Long endpoints start a background job (Starlette background task
+Server calls `truestill-core` only. Long endpoints start a background job (Starlette background task
 / a thread) that drives the core op with the R2 `progress`/`cancel` hooks and publishes SSE.
 
 ### C4. Dependency additions (each justified, per the dependency policy) - all in `vaeon-app` only
@@ -174,13 +174,13 @@ Server calls `vaeon-core` only. Long endpoints start a background job (Starlette
 | `uvicorn` | The ASGI server to run Starlette. No stdlib ASGI server exists. |
 | htmx (vendored JS, **not** a Python/npm dep) | ~14 KB single file, no build step; the whole point is avoiding a bundler pipeline. Shipped as a static asset in the package. |
 
-`vaeon-core` gains **no** new dependency. Its only changes are the R1/R2/R3 refactors (pure
+`truestill-core` gains **no** new dependency. Its only changes are the R1/R2/R3 refactors (pure
 Python, stdlib `threading` for cancellation).
 
 ---
 
 ## Part D - Required core refactors before/with the build (summary)
-- **R1** move event-review orchestration `vaeon-cli` → `vaeon-core` (prompt injected, no I/O).
+- **R1** move event-review orchestration `vaeon-cli` → `truestill-core` (prompt injected, no I/O).
 - **R2** add `progress` + `cancel` to `compute_hashes`, `verify_copies`, `execute`.
 - **R3** evolve the event decision from `(cluster)->str|None` to data-in/decision-out to support
   merge/split.

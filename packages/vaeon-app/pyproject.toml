@@ -13,14 +13,14 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Topic :: Multimedia :: Graphics",
 ]
-# Deps isolated to this package; vaeon-core stays imagehash+pillow only.
+# Deps isolated to this package; truestill-core stays imagehash+pillow only.
 #   starlette -- minimal ASGI (routing + SSE + static + background); not FastAPI (wraps
 #     Starlette+Pydantic; Pydantic is disallowed for our models and unneeded for one user).
 #   uvicorn -- the ASGI server to run Starlette (no stdlib ASGI server exists).
 # The browser front-end is server-rendered HTML + a small vanilla-JS layer (EventSource for
 # SSE, fetch for the API): no npm/bundler/build step, and nothing third-party to vendor.
 dependencies = [
-    "vaeon-core",
+    "truestill-core",
     "starlette>=0.40",
     "uvicorn>=0.30",
 ]
@@ -39,4 +39,4 @@ build-backend = "hatchling.build"
 packages = ["src/vaeon_app"]
 
 [tool.uv.sources]
-vaeon-core = { workspace = true }
+truestill-core = { workspace = true }

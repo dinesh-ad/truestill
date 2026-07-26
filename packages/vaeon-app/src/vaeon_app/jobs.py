@@ -16,7 +16,7 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
-from vaeon_core.progress import ProgressCallback
+from truestill_core.progress import ProgressCallback
 
 #: A job target receives a progress callback and a cancel event, and returns a JSON-able summary.
 JobTarget = Callable[[ProgressCallback, threading.Event], Any]

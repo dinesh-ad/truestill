@@ -1,5 +1,5 @@
 PYTHON := uv run
-CORE := packages/vaeon-core/src/vaeon_core
+CORE := packages/truestill-core/src/truestill_core
 CLI := packages/vaeon-cli/src/vaeon_cli
 APP := packages/vaeon-app/src/vaeon_app
 

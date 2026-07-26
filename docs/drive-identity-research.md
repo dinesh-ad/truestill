@@ -99,7 +99,7 @@ organize + dedup + backup + verification in one tool.** vaeon already has the fi
 
 ## Part D - Implementation plan (Phase 2, on approval)
 
-- **`vaeon-core/drive.py`** (pure): read/write/validate `.vaeon-drive.json`; mint `uuid4`; the
+- **`truestill-core/drive.py`** (pure): read/write/validate `.vaeon-drive.json`; mint `uuid4`; the
   marker dataclass. No mount-path logic in identity.
 - **Catalog v6** via the migration framework + migration test:
   - `drives(uuid PK, label, first_seen, last_seen, last_verified, notes)`.

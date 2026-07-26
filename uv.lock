@@ -8,9 +8,9 @@ resolution-markers = [
 
 [manifest]
 members = [
+    "truestill-core",
     "vaeon-app",
     "vaeon-cli",
-    "vaeon-core",
 ]
 
 [manifest.dependency-groups]
@@ -770,6 +770,23 @@ wheels = [
 ]
 
 [[package]]
+name = "truestill-core"
+version = "0.1.0"
+source = { editable = "packages/truestill-core" }
+dependencies = [
+    { name = "imagehash" },
+    { name = "pillow" },
+    { name = "pillow-heif" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "imagehash", specifier = ">=4.3.1" },
+    { name = "pillow", specifier = ">=10.0.0" },
+    { name = "pillow-heif", specifier = ">=0.16.0" },
+]
+
+[[package]]
 name = "typing-extensions"
 version = "4.16.0"
 source = { registry = "https://pypi.org/simple" }
@@ -797,15 +814,15 @@ version = "0.1.0"
 source = { editable = "packages/vaeon-app" }
 dependencies = [
     { name = "starlette" },
+    { name = "truestill-core" },
     { name = "uvicorn" },
-    { name = "vaeon-core" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "starlette", specifier = ">=0.40" },
+    { name = "truestill-core", editable = "packages/truestill-core" },
     { name = "uvicorn", specifier = ">=0.30" },
-    { name = "vaeon-core", editable = "packages/vaeon-core" },
 ]
 
 [[package]]
@@ -813,28 +830,11 @@ name = "vaeon-cli"
 version = "0.1.0"
 source = { editable = "packages/vaeon-cli" }
 dependencies = [
-    { name = "vaeon-core" },
+    { name = "truestill-core" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "vaeon-core", editable = "packages/vaeon-core" }]
-
-[[package]]
-name = "vaeon-core"
-version = "0.1.0"
-source = { editable = "packages/vaeon-core" }
-dependencies = [
-    { name = "imagehash" },
-    { name = "pillow" },
-    { name = "pillow-heif" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "imagehash", specifier = ">=4.3.1" },
-    { name = "pillow", specifier = ">=10.0.0" },
-    { name = "pillow-heif", specifier = ">=0.16.0" },
-]
+requires-dist = [{ name = "truestill-core", editable = "packages/truestill-core" }]
 
 [[package]]
 name = "virtualenv"

@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from truestill_core.categorize import CategoryMatch, Confidence
+from truestill_core.models import DateSource, Decision, FileHashes, Resolution
 from vaeon_cli.cli import _print_heif_note
-from vaeon_core.categorize import CategoryMatch, Confidence
-from vaeon_core.models import DateSource, Decision, FileHashes, Resolution
 
 
 def _heic_resolution() -> Resolution:

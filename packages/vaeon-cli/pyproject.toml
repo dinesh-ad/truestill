@@ -15,7 +15,7 @@ classifiers = [
     "Topic :: System :: Archiving :: Backup",
 ]
 dependencies = [
-    "vaeon-core",
+    "truestill-core",
 ]
 
 [project.scripts]
@@ -32,6 +32,6 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/vaeon_cli"]
 
-# Resolve the vaeon-core dependency from this workspace rather than PyPI.
+# Resolve the truestill-core dependency from this workspace rather than PyPI.
 [tool.uv.sources]
-vaeon-core = { workspace = true }
+truestill-core = { workspace = true }

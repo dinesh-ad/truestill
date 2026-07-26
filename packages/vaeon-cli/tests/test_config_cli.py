@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
+from truestill_core.catalog import Catalog
+from truestill_core.layout import LAYOUT_TEMPLATE_KEY
 from vaeon_cli.cli import main
-from vaeon_core.catalog import Catalog
-from vaeon_core.layout import LAYOUT_TEMPLATE_KEY
 
 
 def test_config_show_lists_default_and_presets(
