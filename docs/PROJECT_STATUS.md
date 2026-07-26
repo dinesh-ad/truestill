@@ -35,6 +35,15 @@ SaaS class**, and *stile*/*still* are not homophones. Category distance is large
 visual similarity plus an active enforcer. **Formal attorney clearance is on the
 pre-monetization checklist** - do it before money changes hands.
 
+> ⚠️ **If you re-run the trademark check, do not trust a URL-parameter search.**
+> `tmsearch.uspto.gov/search/search-results?q=<term>` returns **"No results found" for every
+> term**, including marks that are demonstrably live - it silently reports a false negative.
+> Use the real search UI, and **always run a known-positive control query first**
+> (`trustile` should return 6 USPTO hits / 7 in TMview). The same applies to scripted
+> checks: Justia, Trademarkia and `uspto.report` are all Cloudflare-gated and return a
+> challenge page to `curl`, not data. A clean "no results" is only meaningful once the
+> control has proven the query path actually works.
+
 **Legacy drive-marker rule (binding, do not break).** Drives initialised before the rename
 carry `.vaeon-drive.json`. The canonical marker is now `.truestill-drive.json`, and:
 
