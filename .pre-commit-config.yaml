@@ -13,8 +13,10 @@ repos:
     hooks:
       - id: mypy
         # Match the repo's strict config; only type the source packages, not tests.
-        files: ^packages/(truestill-core|truestill-cli)/src/
-        additional_dependencies: [imagehash, pillow]
+        # Every workspace member's src/ is covered -- keep in step with `make typecheck`
+        # and the CI mypy step, which type all three.
+        files: ^packages/(truestill-core|truestill-cli|truestill-app)/src/
+        additional_dependencies: [imagehash, pillow, starlette]
 
   # Non-negotiable project rule: no AI co-author trailer / Anthropic-Claude email in history.
   # Activate with: uv run pre-commit install --hook-type commit-msg
