@@ -76,6 +76,17 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
     async def where(request: Request) -> JSONResponse:
         return JSONResponse({"copies": service.where(request.query_params.get("term", ""), _db())})
 
+    async def backup_preview(request: Request) -> JSONResponse:
+        body = await request.json()
+        return JSONResponse(
+            service.backup_preview(Path(body["source"]), Path(body["target"]), _db())
+        )
+
+    async def backup_run(request: Request) -> JSONResponse:
+        body = await request.json()
+        job = service.backup_run(Path(body["source"]), Path(body["target"]), _db())
+        return JSONResponse({"job_id": jobs.start(job)})
+
     async def ingest_preview(request: Request) -> JSONResponse:
         body = await request.json()
         report = service.ingest_preview(Path(body["takeout"]), Path(body["destination"]), _db())
@@ -210,6 +221,8 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
         Route("/api/jobs/{job_id}/cancel", job_cancel, methods=["POST"]),
         Route("/api/drives", drives),
         Route("/api/where", where),
+        Route("/api/backup/preview", backup_preview, methods=["POST"]),
+        Route("/api/backup/run", backup_run, methods=["POST"]),
     ]
     app = Starlette(routes=routes)
     app.mount("/static", StaticFiles(directory=_STATIC), name="static")

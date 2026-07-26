@@ -8,6 +8,7 @@ dry-run posture, preserved in the UI).
 from __future__ import annotations
 
 import os
+import shutil
 import threading
 from collections import Counter
 from datetime import UTC, datetime
@@ -21,7 +22,12 @@ from vaeon_core.destinations import LocalDestination
 from vaeon_core.drive import read_marker
 from vaeon_core.event_review import EventDecision, commit, propose, propose_from_catalog
 from vaeon_core.exif import read_metadata
-from vaeon_core.hashing import DEFAULT_PHASH_THRESHOLD, HEIF_AVAILABLE, HEIF_EXTENSIONS
+from vaeon_core.hashing import (
+    DEFAULT_PHASH_THRESHOLD,
+    HEIF_AVAILABLE,
+    HEIF_EXTENSIONS,
+    sha256_file,
+)
 from vaeon_core.layout import (
     DEFAULT_TEMPLATE_STRING,
     LAYOUT_TEMPLATE_KEY,
@@ -53,6 +59,15 @@ from vaeon_app.jobs import JobTarget
 
 def _now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+_GB = 1_000_000_000
+_MB = 1_000_000
+
+
+def _gb(n: int) -> str:
+    """A human byte size for space messages (GB for anything sizeable, else MB)."""
+    return f"{n / _GB:.1f} GB" if n >= _GB else f"{n / _MB:.0f} MB"
 
 
 def _media_breakdown(names: Any) -> dict[str, Any]:
@@ -482,6 +497,96 @@ def set_layout(template_str: str, db: Path) -> dict[str, Any]:
     with Catalog(db) as catalog:
         catalog.set_setting(LAYOUT_TEMPLATE_KEY, template_str)
     return {"valid": True, **layout_state(db)}
+
+
+_FREE_SPACE_MARGIN = 1.03  # keep a little headroom so a copy never fills the target drive
+
+
+def _files_missing_on_target(catalog: Catalog, source_uuid: str, target_uuid: str) -> list[Any]:
+    """Copies present on the source drive but not yet on the target -- keyed on per-drive presence,
+    not the catalog-global dedup that would wrongly skip a genuine second copy."""
+    on_target = {r["sha256"] for r in catalog.copies_on_drive(target_uuid)}
+    return [r for r in catalog.copies_on_drive(source_uuid) if r["sha256"] not in on_target]
+
+
+def backup_preview(source: Path, target: Path, db: Path) -> dict[str, Any]:
+    """Preview copying the library from one connected drive to another (writes nothing).
+
+    Reports how many files (and bytes) are missing on the target, and whether the target has room
+    -- a disk-full part-way through is the failure this whole feature exists to prevent.
+    """
+    src_marker, tgt_marker = read_marker(source), read_marker(target)
+    if src_marker is None:
+        return {"ok": False, "error": "the 'from' folder is not a connected vaeon drive."}
+    if tgt_marker is None:
+        return {"ok": False, "error": "the 'to' folder is not a connected vaeon drive."}
+    if src_marker.uuid == tgt_marker.uuid:
+        return {"ok": False, "error": "the 'from' and 'to' drives are the same drive."}
+    with Catalog(db) as catalog:
+        catalog.upsert_drive(uuid=src_marker.uuid, label=src_marker.label)
+        catalog.upsert_drive(uuid=tgt_marker.uuid, label=tgt_marker.label)
+        missing = _files_missing_on_target(catalog, src_marker.uuid, tgt_marker.uuid)
+    need = sum(int(r["size"] or 0) for r in missing)
+    free = shutil.disk_usage(target).free
+    return {
+        "ok": True,
+        "from": src_marker.label,
+        "to": tgt_marker.label,
+        "count": len(missing),
+        "bytes": need,
+        "free": free,
+        "enough": free >= need * _FREE_SPACE_MARGIN,
+    }
+
+
+def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
+    """Build a job that copies the library to another drive: verify-after-write, record each copy."""
+
+    def target_job(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
+        src_marker, tgt_marker = read_marker(source), read_marker(target)
+        if src_marker is None or tgt_marker is None:
+            message = "both the 'from' and 'to' folders must be connected vaeon drives."
+            raise ValueError(message)
+        with Catalog(db) as catalog:
+            catalog.upsert_drive(uuid=src_marker.uuid, label=src_marker.label)
+            catalog.upsert_drive(uuid=tgt_marker.uuid, label=tgt_marker.label)
+            missing = _files_missing_on_target(catalog, src_marker.uuid, tgt_marker.uuid)
+            need = sum(int(r["size"] or 0) for r in missing)
+            free = shutil.disk_usage(target).free
+            if free < need * _FREE_SPACE_MARGIN:
+                message = (
+                    f"not enough space on {tgt_marker.label}: needs {_gb(need)}, "
+                    f"only {_gb(free)} free."
+                )
+                raise ValueError(message)
+            copied = 0
+            for row in missing:
+                if cancel.is_set():
+                    break
+                rel = str(row["relative"])
+                dst = target / rel
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source / rel, dst)
+                want = row["copy_sha256"] or row["sha256"]
+                if sha256_file(dst) != want:  # verify-after-write; a bad copy is never recorded
+                    dst.unlink(missing_ok=True)
+                    message = f"copy of {rel} did not verify -- stopping to stay safe."
+                    raise ValueError(message)
+                catalog.record_copy(
+                    sha256=str(row["sha256"]),
+                    drive_uuid=tgt_marker.uuid,
+                    relative=rel,
+                    copy_sha256=want,
+                    size=int(row["size"] or 0) or None,
+                )
+                catalog.mark_copy_verified(
+                    sha256=str(row["sha256"]), drive_uuid=tgt_marker.uuid, when=_now()
+                )
+                copied += 1
+                progress(copied, len(missing))
+        return {"copied": copied, "to": tgt_marker.label}
+
+    return target_job
 
 
 def propose_events(path: Path, db: Path) -> dict[str, Any]:

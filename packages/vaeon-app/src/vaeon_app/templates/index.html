@@ -140,6 +140,25 @@
             <div class="meta"><span id="verify-count"></span><span class="spacer"></span>
               <button class="btn btn-ghost" id="verify-cancel">Cancel</button></div></div>
         </div>
+        <div class="card">
+          <h2>Copy your library to another drive</h2>
+          <p class="lede">Make a second copy so your photos are safe in more than one place (3-2-1).</p>
+          <div class="field"><label for="bk-source">From (a connected drive with your library)</label>
+            <div class="row"><input class="input" id="bk-source" placeholder="e.g. /media/BackupA">
+              <button class="btn btn-secondary" data-browse="bk-source" data-kind="dest">Browse…</button></div>
+            <span class="hint" id="bk-source-hint"></span></div>
+          <div class="field"><label for="bk-target">To (another connected drive)</label>
+            <div class="row"><input class="input" id="bk-target" placeholder="e.g. /media/BackupB">
+              <button class="btn btn-secondary" data-browse="bk-target" data-kind="dest">Browse…</button></div>
+            <span class="hint" id="bk-target-hint"></span></div>
+          <div class="actions"><button class="btn btn-secondary" id="bk-preview">Preview copy</button>
+            <button class="btn btn-primary hidden" id="bk-run">Copy the library</button></div>
+          <div id="bk-result"></div>
+          <div class="progress hidden" id="bk-progress">
+            <div class="bar"><i id="bk-bar"></i></div>
+            <div class="meta"><span id="bk-count"></span><span class="spacer"></span>
+              <button class="btn btn-ghost" id="bk-cancel">Cancel</button></div></div>
+        </div>
       </section>
 
       <!-- FIND -->

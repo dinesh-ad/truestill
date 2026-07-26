@@ -407,6 +407,46 @@ $("ev-apply-disk").onclick = async () => {
 };
 $("ev-cancel").onclick = () => { if (evJob) api(`/api/jobs/${evJob}/cancel`, {}); };
 
+// ---------- Backups: copy the library to another drive ----------
+$("bk-preview").onclick = async () => {
+  const source = $("bk-source").value.trim(), target = $("bk-target").value.trim();
+  const r = await api("/api/backup/preview", { source, target });
+  if (!r.ok) { $("bk-result").innerHTML = card(`<div class="banner warn"><div>${esc(r.error)}</div></div>`); $("bk-run").classList.add("hidden"); return; }
+  if (r.count === 0) {
+    $("bk-result").innerHTML = card(`<div class="headline">Already backed up.</div><div class="k">Every photo on ${esc(r.from)} is already on ${esc(r.to)}.</div>`);
+    $("bk-run").classList.add("hidden"); return;
+  }
+  if (!r.enough) {
+    // A disk-full mid-copy is the failure this feature exists to prevent: warn and block.
+    $("bk-result").innerHTML = card(`<div class="banner warn"><div><div class="b-title">Not enough space on ${esc(r.to)}</div>
+      Needs ${fmtBytes(r.bytes)}, but the drive only has ${fmtBytes(r.free)} free.</div></div>`);
+    $("bk-run").classList.add("hidden"); return;
+  }
+  $("bk-result").innerHTML = card(`<div class="headline">${nfmt(r.count)} photo(s) · ${fmtBytes(r.bytes)} to copy</div>
+    <div class="k">From ${esc(r.from)} to ${esc(r.to)} · ${fmtBytes(r.free)} free on ${esc(r.to)}.</div>`);
+  $("bk-run").classList.remove("hidden");
+};
+let bkJob = null;
+$("bk-run").onclick = async () => {
+  const source = $("bk-source").value.trim(), target = $("bk-target").value.trim();
+  const { job_id } = await api("/api/backup/run", { source, target });
+  bkJob = job_id;
+  $("bk-progress").classList.remove("hidden");
+  streamJob(job_id, (d) => setBar("bk-bar", "bk-count", d.done, d.total),
+    (d) => {
+      $("bk-progress").classList.add("hidden");
+      $("bk-run").classList.add("hidden");
+      const s = d.summary || d;
+      $("bk-result").innerHTML = s.error
+        ? card(`<div class="banner warn"><div>${esc(s.error)}</div></div>`)
+        : card(`<div class="headline">Copied ${nfmt(s.copied || 0)} photo(s) to ${esc(s.to || "the drive")}.</div>`);
+      bkJob = null;
+      loadDrives();    // per-drive counts + at-risk banner refresh from real state
+      loadCustody();   // custody strip "safe in N places" reflects the new second copy
+    });
+};
+$("bk-cancel").onclick = () => { if (bkJob) api(`/api/jobs/${bkJob}/cancel`, {}); };
+
 // ---------- Settings: layout + migrate ----------
 function renderLayoutPreview(rows) {
   $("layout-preview").querySelector("tbody").innerHTML = rows.map((r) => {
