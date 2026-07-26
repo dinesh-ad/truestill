@@ -10,3 +10,6 @@ dist/
 build/
 *.egg-info/
 reports/
+# Machine-local Claude Code permissions. Never tracked: it accumulates absolute paths
+# and one-off command allow-rules that are meaningless outside this machine.
+.claude/settings.local.json

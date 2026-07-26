@@ -27,7 +27,7 @@
 first-time user. **Rule for this pass:** findings only — **no fixes applied**, awaiting approval.
 
 **Setup:** dev catalog `reports/catalog.sqlite` backed up and set aside; all runs on throwaway
-catalogs. Source (read-only): `/home/dinesh/Damon/vaeon-corpus` (45 files → 22 photos · 10 videos ·
+catalogs. Source (read-only): `$TRUESTILL_CORPUS` (45 files → 22 photos · 10 videos ·
 13 skipped). Destinations under `/tmp/truestill-qa`. Realistic Backups catalog built via CLI (corpus on
 DriveA + a single-copy at-risk set); synthetic clustered fixture for Trips; synthetic mini-Takeout
 for Import. Both first-run-empty and populated states were exercised.
@@ -110,7 +110,8 @@ named trips. Surface the placement preview; reword the toast to say what happens
    (only Organize [dedups away] and Verify [read-only]). For a 3-2-1 tagline, the team should confirm
    the intended flow. *(Medium/high — product question, not a crash.)*
 3. **"duplicates — already backed up, will skip" on a fresh catalog.** Organize result card. On a brand
-   new library the 2 "duplicates" are intra-batch (the corpus's `scan-a.jpg` + `(Copy)`); nothing
+   new library the 2 "duplicates" are intra-batch (a scanned document in the corpus, `scan-a.jpg`,
+   and its `(Copy)` duplicate); nothing
    is "backed up" yet. Copy shouldn't assume a backup exists.
 4. **"N photos" conflates videos in three places.** The picker footer button ("Use this folder · 32
    photos" — while the field itself correctly says "32 photos and videos"), the Backups at-risk banner
@@ -168,6 +169,16 @@ named trips. Surface the placement preview; reword the toast to say what happens
 
 ## Hero / README candidates (well-composed, seeded states)
 
+> ⚠️ **Historical note (added 2026-07-26, post-rename): none of these 11 screenshots can ship
+> in a user-facing README.** Every one was captured on the pre-rename build and shows the
+> **`vaeon.` wordmark** in the sidebar and `vaeon` body copy ("Point vaeon at a messy folder"),
+> plus machine-local absolute paths and `/tmp/vaeon-*` paths in the folder fields. They are retained
+> as the **evidence record** for the findings below — that is all they are now.
+> The README set must be **re-captured on the truestill build against a neutral demo library**;
+> that requirement is recorded in `PROJECT_STATUS.md` road-item 2.
+> *(Audited image-by-image: no photo thumbnails, no personal filenames — the UI is text and
+> cards throughout. The only personal data in the set is path strings.)*
+
 1. `qa-screenshots/01-organize-result-card-light.jpg` — the honest result card (split + legend + by-format).
 2. `qa-screenshots/03-backups-light.jpg` — library summary + two drives + at-risk + verify result.
 3. `qa-screenshots/04-organize-dark.jpg` — Organize, dark theme.
@@ -176,7 +187,8 @@ named trips. Surface the placement preview; reword the toast to say what happens
 6. `qa-screenshots/02-BLOCKER-done-nothing-to-do.jpg` — **evidence, not a hero** (the B1 contradiction).
 7. `qa-screenshots/05-backups-dark-atrisk-illegible.jpg` — **evidence** of the dark-mode contrast bug.
 
-*(1–5 are README-worthy; 6–7 are bug evidence.)*
+*(1–5 were the composition candidates; 6–7 are bug evidence. All 11 need re-capture — see the
+note above.)*
 
 ---
 

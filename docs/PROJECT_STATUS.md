@@ -90,8 +90,20 @@ in this list. Treat a soak-test report as the highest-priority work in the queue
 
 Full read-through before the repo goes public: no stray absolute paths, no personal data in
 docs or fixtures, no leftover tokens, LICENSE correct, `.gitignore` complete. Rewrite the root
-README for a **newcomer** rather than a maintainer, with real screenshots (the QA set in
-`docs/qa-screenshots/` is a starting point) and an honest capability list.
+README for a **newcomer** rather than a maintainer, with real screenshots and an honest
+capability list.
+
+**A first pass of this audit already ran (2026-07-26)** - commit identity unified to
+`dinesh-ad` across all 55 commits, `.claude/settings.local.json` (and the stale app token in
+it) removed from history, and machine-specific paths / one personal filename scrubbed from the
+docs. What that pass did **not** fix, and what remains for this step:
+
+- **The screenshots must be re-captured.** All 11 in `docs/qa-screenshots/` are pre-rename:
+  they show the **`vaeon.` wordmark** and `vaeon` body copy, so none can ship in a
+  user-facing README. Re-shoot on the truestill build against a **neutral demo library**
+  (not the personal corpus) - best done **after the soak test**, when there is a real library
+  worth photographing. They stay in the repo meanwhile as the QA evidence record.
+- The remaining read-through: fixtures, LICENSE, `.gitignore` completeness.
 
 ### 3. PyPI publish
 
@@ -151,6 +163,10 @@ the full text; this is the short list nobody should have to rediscover.
   Anthropic/Claude email or signature anywhere in history. Enforced by
   `scripts/check_commit_msg.py` on the `commit-msg` hook. **This overrides any default
   assistant behaviour to add such a trailer.**
+  **The hook checks the message only, never the author field** - which is how 26 commits came
+  to be authored `vaeon <noreply@vaeon.local>` before the 2026-07-26 history rewrite unified
+  all 55. Check `git config user.name/user.email` in any fresh clone; nothing will catch it
+  for you.
   In a fresh clone - or after the repo directory is moved or renamed - install **both** hook
   types, because the generated hooks bake in an absolute path to `.venv` and stop working
   silently if it changes:
@@ -198,10 +214,11 @@ doc and `IMPLEMENTATION_STANDARDS.md` disagree, **the contract wins.**
 
 ## 6. Things worth knowing that are easy to rediscover the hard way
 
-- **The external test corpus lives at `/home/dinesh/Damon/vaeon-corpus`** and is treated
-  **strictly read-only**. It deliberately **keeps its `vaeon-` name** - the research and QA
-  documents cite that exact path, and renaming it would invalidate those records. It is not
-  part of the repo.
+- **The external test corpus is referenced as `$TRUESTILL_CORPUS`** and is treated **strictly
+  read-only**. Set that variable to your local corpus; the path itself is machine-specific and
+  deliberately **not** recorded in the repo. It deliberately **keeps its `vaeon-` directory
+  name** - the research and QA documents were produced against it under that name, and renaming
+  it would invalidate those records. It is not part of the repo.
 - **`exiftool` must be on `PATH`** (Ubuntu: `libimage-exiftool-perl`). Tests that need it skip
   cleanly when absent, so a green local run does **not** prove the metadata path works - CI
   exercises the real thing on Linux and macOS.

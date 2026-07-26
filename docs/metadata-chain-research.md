@@ -23,12 +23,12 @@ a hard **sentinel-date rejection rule**.
 
 ## Phase 1a - The corpus test
 
-Corpus: `/home/dinesh/Damon/vaeon-corpus`, treated strictly read-only. **37 files, 295 MB** across
+Corpus: `$TRUESTILL_CORPUS`, treated strictly read-only. **37 files, 295 MB** across
 22 extensions - **19 personal** files (higher-signal evidence) and **18 downloaded format
 samples** (some with stripped metadata, so "nothing can date it" is a *valid* result for those,
 distinct from "a fallback beat exiftool"). Candidate parsers were run standalone via throwaway
 `uv run --with hachoir --with pymediainfo` and the `ffprobe` binary - **none added as a project
-dependency**. Full per-file output: `scratchpad/corpus_probe.py`.
+dependency**. Per-file output came from a throwaway probe script, not retained.
 
 ### Personal files - the diff that matters (18 probed; 1 `.pdf` is non-media)
 
@@ -40,6 +40,10 @@ dependency**. Full per-file output: `scratchpad/corpus_probe.py`.
 | `IMG_20180819…` | NONE (only `ModifyDate`) | **filename** 2018-08-19 | hachoir = ModifyDate, same day (exiftool sees it too) |
 | `2 012.jpg`, `2.png`, `881783.png`, `circle-cropped.png`, `scan-a.jpg` | NONE | **UNDATED** | all - (genuinely dateless scans/graphics) |
 | `sample_1280x720*.3gp` ×2 (dateless) | NONE | UNDATED | **hachoir → 1904-01-01 ✗ sentinel** · others - |
+
+> Filenames of personal scans appear as neutral placeholders (`scan-a.jpg`); the results were
+> verified against the real files. Camera- and app-generated names are shown verbatim - they
+> carry no personal information and the real-world naming *is* the evidence.
 
 **Every personal file with a real embedded date is dated by exiftool.** Unique capture-date
 recoveries by a fallback: **zero**. The two dateless `.3gp` files expose the sentinel hazard
@@ -177,7 +181,7 @@ add-nothing recommendation and record the correctness hazards concretely.
 5. **Separately, consider recognizing more video extensions** (`.vob`, `.ogv`, `.m2v`, …) in
    `MEDIA_EXTENSIONS` - a deliberate, orthogonal decision the reporting fix will inform, not part
    of the date chain.
-6. The already-shipped **`CreationDate` fix** (`f89fec8`) remains the one real, evidence-backed
+6. The already-shipped **`CreationDate` fix** (`01ebaa0`) remains the one real, evidence-backed
    video-date improvement - it fixed a *wrong* exiftool date (UTC vs local), a different problem
    than *missing* dates, and needed no dependency.
 

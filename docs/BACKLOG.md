@@ -52,7 +52,7 @@ decision context that produced them.
   **no parser added**; shipped the never-silent **skipped-file reporting fix** (`scan_source` +
   report); recorded the **sentinel-rejection rule** and ffprobe/schema-v9 reservation as binding
   conventions (`IMPLEMENTATION_STANDARDS.md §1`). The `CreationDate` UTC-vs-local fix shipped
-  earlier (`f89fec8`). Remaining follow-on tracked as item (l).
+  earlier (`01ebaa0`). Remaining follow-on tracked as item (l).
 - ~~**Event merge/split.**~~ Delivered in the local web UI's Event review screen (merge/split
   are UI-only capabilities the CLI's name/skip flow lacks), exercised end-to-end through the HTTP
   API against real clustered fixtures. The CLI stays name-or-skip only, by design - a terminal is
