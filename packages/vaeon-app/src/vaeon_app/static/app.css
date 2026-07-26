@@ -114,7 +114,9 @@ code,
   font-weight: var(--weight-semibold);
 }
 .custody .line .safe {
-  color: var(--text-muted);
+  /* Safety status ("not backed up yet") -- use the stronger secondary tier, not muted, so it
+     stays WCAG-AA legible in both themes. */
+  color: var(--text-secondary);
 }
 
 /* ---------- main / screens ---------- */

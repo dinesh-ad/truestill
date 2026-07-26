@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -128,6 +129,22 @@ def test_organize_result_handler_unwraps_summary(client: TestClient) -> None:
     app_js = client.get(f"/static/app.js?token={_TOKEN}").text
     assert "(d.summary || d).outcomes" in app_js  # the correct unwrap is present
     assert "d.outcomes" not in app_js  # the bare buggy read is gone
+
+
+def test_dark_theme_toggle_defines_every_media_dark_token(client: TestClient) -> None:
+    """Guard the dark-mode contrast fix: the ``[data-theme="dark"]`` toggle block must define every
+    token the ``@media (prefers-color-scheme: dark)`` block does. A token omitted from the toggle
+    falls back to the light :root default -- which is exactly how the amber warning banners once
+    rendered light-on-light when a user toggled dark. Keeps the two dark palettes from drifting."""
+    css = client.get(f"/static/tokens.css?token={_TOKEN}").text
+    media = re.search(r"@media \(prefers-color-scheme: dark\).*?:root\s*\{(.*?)\}", css, re.S)
+    toggle = re.search(r':root\[data-theme="dark"\]\s*\{(.*?)\}', css, re.S)
+    assert media is not None
+    assert toggle is not None
+    media_tokens = set(re.findall(r"(--[\w-]+):", media.group(1)))
+    toggle_tokens = set(re.findall(r"(--[\w-]+):", toggle.group(1)))
+    missing = media_tokens - toggle_tokens
+    assert not missing, f"[data-theme=dark] is missing tokens (fall back to light): {missing}"
 
 
 def test_catalog_db_is_created(client: TestClient, tmp_path: Path) -> None:

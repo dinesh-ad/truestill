@@ -37,7 +37,7 @@
   --border-strong: var(--gray-300);
   --text: var(--gray-900);
   --text-secondary: var(--gray-500);
-  --text-muted: var(--gray-400);
+  --text-muted: #6f7580; /* WCAG AA: 4.6:1 on white (gray-400 was 2.6:1, sub-AA) */
   --on-accent: #ffffff;
 
   /* spacing (4px base) */
@@ -98,7 +98,7 @@
     --border-strong: #333842;
     --text: #e7e9ee;
     --text-secondary: #a3a9b5;
-    --text-muted: #6f7681;
+    --text-muted: #868d99; /* WCAG AA: 5.3:1 on surface (was 3.9:1, sub-AA) */
     --on-accent: #0b0c0e;
 
     --shadow-sm: none;
@@ -123,19 +123,25 @@
   --border-strong: #cbd0d9;
   --text: #16181d;
   --text-secondary: #6b7280;
-  --text-muted: #9aa1ad;
+  --text-muted: #6f7580;
   --on-accent: #ffffff;
   --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
 }
 :root[data-theme="dark"] {
+  /* Must mirror the @media (prefers-color-scheme: dark) palette above in full -- any token
+     omitted here falls back to the light :root default under the toggle (that is how the amber
+     warning banners once rendered light-on-light). Audited for WCAG AA in both themes. */
   --accent: #a9b6f0;
   --accent-hover: #bcc6f5;
+  --accent-pressed: #96a5ea;
   --accent-subtle: #1c2030;
   --accent-ring: rgba(169, 182, 240, 0.45);
   --success: #46b46a;
   --success-subtle: #16241b;
   --warning: #d69a3a;
+  --warning-subtle: #241d10;
   --danger: #e0686e;
+  --danger-subtle: #251316;
   --bg: #0b0c0e;
   --surface: #16181c;
   --surface-sunken: #101114;
@@ -143,7 +149,8 @@
   --border-strong: #333842;
   --text: #e7e9ee;
   --text-secondary: #a3a9b5;
-  --text-muted: #6f7681;
+  --text-muted: #868d99;
   --on-accent: #0b0c0e;
   --shadow-sm: none;
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
