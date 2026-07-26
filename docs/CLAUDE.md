@@ -2,9 +2,10 @@
 
 Guidance for working in this repository.
 
-## Read first (the two-document contract)
+## Read first
 
-At the start of every session, read both:
+Start with [`PROJECT_STATUS.md`](PROJECT_STATUS.md) - where the project stands and what
+ships next. Then the contract:
 
 1. [`docs/ENGINEERING_STANDARD.md`](ENGINEERING_STANDARD.md) - the portable canon (workflow,
    research order, code standard).
@@ -14,11 +15,29 @@ At the start of every session, read both:
 **`IMPLEMENTATION_STANDARDS.md` wins on any conflict** - with each other, and with the notes
 below (which are a quick summary, not the contract).
 
+Settled product stances live in [`DECISIONS.md`](DECISIONS.md); approved-but-unbuilt work in
+[`BACKLOG.md`](BACKLOG.md). The root [`../CLAUDE.md`](../CLAUDE.md) carries the full document map.
+
 ## What this is
 
-A media library organizer: analyse files, derive a folder label from each file's own
-metadata, and place them into `<Label>/YYYY/MM/`. Built to organize a Google Photos
-export before it is pushed to long-term storage.
+**Truestill** - a local-first media organizer, de-duplicator and backup pipeline. It analyses
+a photo/video library, derives a folder label from each file's own metadata, and places copies
+into a `<Label>/YYYY/MM/` tree. Originally built to rescue a Google Photos Takeout export
+(where capture dates survive only in JSON sidecars), but nothing in it is Google-specific.
+
+Beyond organizing, it owns the whole custody story: content-addressed drive identity, an
+offline catalog of which drive holds which copy, re-hash verification, 3-2-1 backup to a
+second drive, crash-safe re-layout, and verify-gated reclaim of source files that are
+provably backed up.
+
+Two front-ends over one core library:
+
+- **`truestill`** - the CLI (organize, ingest, drives, where, verify, status, config,
+  reclaim, migrate-layout).
+- **`truestill-app`** - a local web UI on `127.0.0.1`, token-authenticated, server-rendered,
+  no bundler. Co-equal with the CLI, not a replacement.
+
+Your files never leave your machine. No accounts, no telemetry - permanently (`DECISIONS.md` D1).
 
 ## Non-negotiable design rules
 
