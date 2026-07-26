@@ -19,7 +19,7 @@ from truestill_core.catalog import Catalog
 from truestill_core.categorize import build_rules
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import LocalDestination
-from truestill_core.drive import read_marker
+from truestill_core.drive import MARKER_NAME, read_marker
 from truestill_core.event_review import EventDecision, commit, propose, propose_from_catalog
 from truestill_core.exif import read_metadata
 from truestill_core.hashing import (
@@ -194,7 +194,7 @@ def verify_run(path: Path, db: Path) -> JobTarget:
     def target(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
         marker = read_marker(path)
         if marker is None:
-            message = "no .vaeon-drive.json at that path -- is the drive connected?"
+            message = f"no {MARKER_NAME} at that path -- is the drive connected?"
             raise ValueError(message)
         with Catalog(db) as catalog:
             catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
@@ -599,7 +599,7 @@ def propose_events(path: Path, db: Path) -> dict[str, Any]:
     if marker is None:
         return {
             "ok": False,
-            "error": "no .vaeon-drive.json at that path -- is the drive connected?",
+            "error": f"no {MARKER_NAME} at that path -- is the drive connected?",
         }
     with Catalog(db) as catalog:
         catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
@@ -613,7 +613,7 @@ def migration_preview(path: Path, db: Path) -> dict[str, Any]:
     if marker is None:
         return {
             "ok": False,
-            "error": "no .vaeon-drive.json at that path -- is the drive connected?",
+            "error": f"no {MARKER_NAME} at that path -- is the drive connected?",
         }
     with Catalog(db) as catalog:
         catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
@@ -642,7 +642,7 @@ def migration_apply(path: Path, db: Path) -> JobTarget:
     def target(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
         marker = read_marker(path)
         if marker is None:
-            message = "no .vaeon-drive.json at that path -- is the drive connected?"
+            message = f"no {MARKER_NAME} at that path -- is the drive connected?"
             raise ValueError(message)
         with Catalog(db) as catalog:
             catalog.upsert_drive(uuid=marker.uuid, label=marker.label)

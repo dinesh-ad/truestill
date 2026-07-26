@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from truestill_cli.cli import main
 from truestill_core.catalog import Catalog
-from truestill_core.drive import create_marker
+from truestill_core.drive import MARKER_NAME, create_marker
 from truestill_core.hashing import sha256_file
 
 
@@ -39,7 +39,7 @@ def test_migrate_layout_requires_a_connected_drive(
         ["migrate-layout", str(tmp_path / "not-a-drive"), "--db", str(tmp_path / "c.sqlite")]
     )
     assert code == 2
-    assert "no .vaeon-drive.json" in capsys.readouterr().err
+    assert f"no {MARKER_NAME}" in capsys.readouterr().err
 
 
 def test_migrate_layout_previews_then_applies(

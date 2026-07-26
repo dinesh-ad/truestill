@@ -100,6 +100,27 @@ fallback slots into `resolve_capture_datetime` between embedded-EXIF and the fil
   after a Takeout metadata write). Any future copy-verification compares against
   `copy_sha256`, never `sha256`. Recorded by `catalog.record_uploaded`.
 
+### 3.1 On-disk drive marker (and legacy-name compatibility)
+
+The drive marker is the **only** truestill-named artifact ever written to a user's drive.
+Migration and reclaim journals live in the local catalog, not on the drive. The catalog's
+`drives` / `file_copies` tables key on the marker **`uuid`**, never on its filename - so the
+`vaeon` → `truestill` rename needed no schema change and no catalog migration.
+
+| Rule | Enforced by |
+|---|---|
+| **Canonical name is `.truestill-drive.json`** - the only name any code path writes. | `drive.MARKER_NAME`; `drive.write_marker` writes `marker_path()` only. Pinned by `test_new_drives_only_ever_get_the_canonical_name`. |
+| **Legacy names stay readable.** `.vaeon-drive.json` (pre-rename) resolves normally. | `drive.LEGACY_MARKER_NAMES` + `drive.existing_marker_path`, consumed by `read_marker`. Pinned by `test_legacy_only_drive_is_still_readable`. |
+| **A read never writes.** `read_marker` runs on every app filesystem browse and on preview/dry-run paths; silently upgrading there would break the dry-run invariant (§5) and touch read-only mounts. | `drive.read_marker` has no write path. Pinned by `test_reading_a_legacy_drive_never_writes`. |
+| **Upgrading is explicit.** Only `write_marker` / `create_marker` / `upgrade_marker`, or `truestill drives --migrate-marker ROOT`. | `cli._migrate_marker`. Pinned by `test_drives_migrate_marker_upgrades_a_legacy_drive`. |
+| **Identity is copied verbatim** - `uuid`, `label`, `created` unchanged. Re-minting a uuid would orphan every recorded copy in `file_copies` and under-report the custody count. | `drive.upgrade_marker`. Pinned by `test_upgrade_preserves_identity_verbatim_and_keeps_the_legacy_file`. |
+| **The legacy file is retained, never deleted.** Deleting on a user drive is what §1 copy-only forbids; keeping it (~100 bytes) means an older build and a current build agree on identity. | `drive.upgrade_marker` writes only. Pinned by the same test. |
+| **Canonical wins if both exist and diverge** - a documented precedence, never a merge. | `drive.existing_marker_path` order. Pinned by `test_canonical_wins_when_both_markers_exist_and_diverge`. |
+| **Marker filenames are never hardcoded in messages.** User-facing text interpolates `MARKER_NAME`. | `cli.py` / `service.py` f-strings; asserted via `MARKER_NAME` in `test_migrate_cli` / `test_reclaim_cli`. |
+
+Retiring the legacy name is a **future, opt-in** step (a flag that removes it after a
+successful upgrade), never automatic.
+
 ---
 
 ## 4. Filename & organization contract

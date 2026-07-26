@@ -2,13 +2,26 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from pathlib import Path
 
 from truestill_core.catalog import CURRENT_SCHEMA_VERSION, Catalog
-from truestill_core.drive import create_marker, read_marker
+from truestill_core.drive import (
+    LEGACY_MARKER_NAMES,
+    MARKER_NAME,
+    DriveMarker,
+    create_marker,
+    existing_marker_path,
+    needs_marker_upgrade,
+    read_marker,
+    upgrade_marker,
+    write_marker,
+)
 from truestill_core.hashing import sha256_file
 from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
+
+LEGACY_NAME = LEGACY_MARKER_NAMES[0]
 
 
 def test_marker_roundtrip_and_identity_is_not_the_path(tmp_path: Path) -> None:
@@ -29,13 +42,95 @@ def test_cloned_drive_shares_identity_until_relabelled(tmp_path: Path) -> None:
     # a clone copies the marker verbatim -> same uuid (correct: identical at clone time)
     clone_root = tmp_path / "clone"
     clone_root.mkdir()
-    (clone_root / ".vaeon-drive.json").write_text(
-        (tmp_path / "orig" / ".vaeon-drive.json").read_text()
-    )
+    (clone_root / MARKER_NAME).write_text((tmp_path / "orig" / MARKER_NAME).read_text())
     assert read_marker(clone_root).uuid == original.uuid  # type: ignore[union-attr]
     # re-labelling mints a fresh identity for the diverged clone
     relabelled = create_marker(clone_root, "Clone", uuid=None)
     assert relabelled.uuid != original.uuid
+
+
+# --- legacy marker compatibility (vaeon -> truestill rename) ---------------------------
+
+
+def _write_legacy(
+    root: Path, *, uuid: str, label: str, created: str = "2025-01-01T00:00:00"
+) -> None:
+    """Write a pre-rename marker exactly as the old code would have."""
+    root.mkdir(parents=True, exist_ok=True)
+    (root / LEGACY_NAME).write_text(
+        DriveMarker(uuid=uuid, label=label, created=created).to_json(), encoding="utf-8"
+    )
+
+
+def test_legacy_only_drive_is_still_readable(tmp_path: Path) -> None:
+    _write_legacy(tmp_path, uuid="legacy-uuid", label="Old Drive")
+    marker = read_marker(tmp_path)
+    assert marker is not None
+    assert (marker.uuid, marker.label) == ("legacy-uuid", "Old Drive")
+    assert existing_marker_path(tmp_path).name == LEGACY_NAME  # type: ignore[union-attr]
+    assert needs_marker_upgrade(tmp_path)
+
+
+def test_reading_a_legacy_drive_never_writes(tmp_path: Path) -> None:
+    """A read on a preview/browse path must not touch the user's drive."""
+    _write_legacy(tmp_path, uuid="legacy-uuid", label="Old Drive")
+    before = {p.name for p in tmp_path.iterdir()}
+    for _ in range(3):
+        read_marker(tmp_path)
+    assert {p.name for p in tmp_path.iterdir()} == before
+    assert not (tmp_path / MARKER_NAME).exists()
+
+
+def test_upgrade_preserves_identity_verbatim_and_keeps_the_legacy_file(tmp_path: Path) -> None:
+    _write_legacy(tmp_path, uuid="keep-me", label="Photos A", created="2024-06-05T10:00:00")
+    upgraded = upgrade_marker(tmp_path)
+    assert upgraded is not None
+    # the uuid is the catalog foreign key -- re-minting would orphan every recorded copy
+    assert upgraded.uuid == "keep-me"
+    assert upgraded.label == "Photos A"
+    assert upgraded.created == "2024-06-05T10:00:00"
+    assert (tmp_path / MARKER_NAME).is_file()
+    assert (tmp_path / LEGACY_NAME).is_file()  # deliberately retained
+    assert not needs_marker_upgrade(tmp_path)
+    # both files now describe the same identity, so an older build still agrees
+    assert json.loads((tmp_path / LEGACY_NAME).read_text())["uuid"] == "keep-me"
+
+
+def test_upgrade_is_idempotent_and_noops_on_a_canonical_drive(tmp_path: Path) -> None:
+    created = create_marker(tmp_path, "Fresh")
+    stamp = (tmp_path / MARKER_NAME).stat().st_mtime_ns
+    again = upgrade_marker(tmp_path)
+    assert again is not None
+    assert again.uuid == created.uuid
+    assert (tmp_path / MARKER_NAME).stat().st_mtime_ns == stamp  # no rewrite
+    assert not (tmp_path / LEGACY_NAME).exists()
+
+
+def test_upgrade_on_an_unmarked_root_returns_none_and_writes_nothing(tmp_path: Path) -> None:
+    assert upgrade_marker(tmp_path) is None
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_canonical_wins_when_both_markers_exist_and_diverge(tmp_path: Path) -> None:
+    _write_legacy(tmp_path, uuid="stale-uuid", label="Stale")
+    write_marker(
+        tmp_path, DriveMarker(uuid="live-uuid", label="Live", created="2026-01-01T00:00:00")
+    )
+    marker = read_marker(tmp_path)
+    assert marker is not None
+    assert marker.uuid == "live-uuid"  # documented precedence, never a merge
+    assert existing_marker_path(tmp_path).name == MARKER_NAME  # type: ignore[union-attr]
+
+
+def test_new_drives_only_ever_get_the_canonical_name(tmp_path: Path) -> None:
+    create_marker(tmp_path, "Brand New")
+    names = {p.name for p in tmp_path.iterdir()}
+    assert names == {MARKER_NAME}
+
+
+def test_a_corrupt_legacy_marker_reads_as_no_marker(tmp_path: Path) -> None:
+    tmp_path.joinpath(LEGACY_NAME).write_text("{not json", encoding="utf-8")
+    assert read_marker(tmp_path) is None
 
 
 def _v5_catalog(path: Path) -> None:

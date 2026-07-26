@@ -20,7 +20,15 @@ from truestill_core.categorize import build_rules
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import Destination, LocalDestination, RcloneDestination
 from truestill_core.destinations.base import DestinationError
-from truestill_core.drive import DriveMarker, create_marker, read_marker
+from truestill_core.drive import (
+    MARKER_NAME,
+    DriveMarker,
+    create_marker,
+    existing_marker_path,
+    needs_marker_upgrade,
+    read_marker,
+    upgrade_marker,
+)
 from truestill_core.exif import ExiftoolMissingError, read_metadata
 from truestill_core.hashing import DEFAULT_PHASH_THRESHOLD, HEIF_AVAILABLE, HEIF_EXTENSIONS
 from truestill_core.layout import (
@@ -173,6 +181,15 @@ def _build_parser() -> argparse.ArgumentParser:
     drives.add_argument("--init", type=Path, metavar="ROOT", help="write a drive marker at ROOT")
     drives.add_argument("--label", help="human label for --init")
     drives.add_argument("--uuid", help="re-attach a known uuid instead of minting a new one")
+    drives.add_argument(
+        "--migrate-marker",
+        type=Path,
+        metavar="ROOT",
+        help=(
+            f"write a {MARKER_NAME} for a drive that still carries only a pre-rename "
+            "marker, keeping its identity and leaving the old file in place"
+        ),
+    )
 
     where = sub.add_parser("where", help="find which drive(s) a file is on (offline)")
     where.add_argument("term", help="filename / path substring to search for")
@@ -233,8 +250,32 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _migrate_marker(root: Path, catalog: Catalog) -> int:
+    """Give a legacy-only drive a canonical marker, preserving its identity."""
+    if read_marker(root) is None:
+        print(f"error: no drive marker at {root}", file=sys.stderr)
+        return 2
+    if not needs_marker_upgrade(root):
+        print(f"{root} already carries {MARKER_NAME}; nothing to do.")
+        return 0
+    legacy = existing_marker_path(root)
+    marker = upgrade_marker(root)
+    if marker is None:  # unreachable: read_marker above proved a marker exists
+        print(f"error: could not read the drive marker at {root}", file=sys.stderr)
+        return 2
+    catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+    print(
+        f"Wrote {MARKER_NAME} for '{marker.label}' (uuid {marker.uuid}, unchanged).\n"
+        f"  {legacy.name if legacy else 'the old marker'} was left in place."
+    )
+    return 0
+
+
 def _cmd_drives(args: argparse.Namespace) -> int:
     with Catalog(args.db) as catalog:
+        if args.migrate_marker is not None:
+            return _migrate_marker(args.migrate_marker, catalog)
+
         if args.init is not None:
             if not args.label:
                 print("error: --init requires --label", file=sys.stderr)
@@ -278,7 +319,7 @@ def _cmd_verify(args: argparse.Namespace) -> int:
     root = args.path
     marker = read_marker(root)
     if marker is None:
-        print(f"error: no .vaeon-drive.json at {root} -- connect the drive first", file=sys.stderr)
+        print(f"error: no {MARKER_NAME} at {root} -- connect the drive first", file=sys.stderr)
         return 2
     when = _now_iso()
     with Catalog(args.db) as catalog:
@@ -360,7 +401,7 @@ def _build_destination(spec: str, *, rclone: bool) -> Destination:
 
 
 def _local_drive_marker(args: argparse.Namespace) -> DriveMarker | None:
-    """Drive identity of a local destination, if it carries a ``.vaeon-drive.json`` marker.
+    """Drive identity of a local destination, if it carries a ``.truestill-drive.json`` marker.
 
     rclone remotes are always-online cloud, not drives-in-a-drawer, so drive tracking is scoped
     to local destinations. A local root without a marker is fine -- copies just aren't tracked
@@ -848,7 +889,7 @@ def _cmd_migrate_layout(args: argparse.Namespace) -> int:
     marker = read_marker(args.path)
     if marker is None:
         print(
-            f"error: no .vaeon-drive.json at {args.path} -- connect the drive first",
+            f"error: no {MARKER_NAME} at {args.path} -- connect the drive first",
             file=sys.stderr,
         )
         return 2
@@ -886,7 +927,7 @@ def _cmd_reclaim(args: argparse.Namespace) -> int:
     marker = read_marker(args.path)
     if marker is None:
         print(
-            f"error: no .vaeon-drive.json at {args.path} -- connect the drive first",
+            f"error: no {MARKER_NAME} at {args.path} -- connect the drive first",
             file=sys.stderr,
         )
         return 2

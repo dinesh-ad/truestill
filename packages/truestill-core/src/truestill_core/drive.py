@@ -1,7 +1,7 @@
 """Drive identity via a marker file.
 
-A destination drive is identified by a marker file at its root -- ``.vaeon-drive.json`` --
-carrying a vaeon-minted ``uuid4``, a human label, and a creation timestamp. Identity is the
+A destination drive is identified by a marker file at its root -- ``.truestill-drive.json`` --
+carrying a truestill-minted ``uuid4``, a human label, and a creation timestamp. Identity is the
 marker, **never** the mount path: drive letters and mount points change per session and OS,
 and filesystem UUIDs are inconsistent across filesystems (NTFS/FAT serials) and copied by
 cloning. A marker's uuid is OS/filesystem-independent, collision-free, and travels with the
@@ -9,6 +9,26 @@ data. See ``docs/drive-identity-research.md``.
 
 Cloning a drive copies the marker too, so a clone shares identity until it is deliberately
 re-labelled (a fresh uuid) -- correct, since clones are identical at clone time.
+
+Legacy marker compatibility (vaeon -> truestill rename)
+-------------------------------------------------------
+Drives initialised before the rename carry ``.vaeon-drive.json``. Those drives must keep
+working, so:
+
+* **Read falls back.** :func:`read_marker` prefers the canonical name and falls back to any
+  name in :data:`LEGACY_MARKER_NAMES`. If both exist, the **canonical file wins** -- a single,
+  documented precedence, never a merge.
+* **A read never writes.** :func:`read_marker` runs on every filesystem browse in the app and
+  on preview/dry-run paths, where writing would break the "planning writes nothing" invariant
+  and touch drives that may be mounted read-only. Upgrading is always an explicit act:
+  :func:`write_marker` / :func:`create_marker`, or :func:`upgrade_marker`.
+* **Identity is preserved verbatim.** An upgrade copies ``uuid``, ``label`` and ``created``
+  unchanged. The uuid is the foreign key behind the catalog's ``drives`` / ``file_copies``
+  tables; re-minting one would orphan every recorded copy and silently under-report how many
+  places a file is safe in -- the exact failure this product exists to prevent.
+* **The legacy file is kept, not deleted.** Deleting a file on a user's drive is what the
+  copy-only invariant forbids, and retaining it (~100 bytes) means an older build reading the
+  legacy name and a current build reading the canonical one agree on identity.
 """
 
 from __future__ import annotations
@@ -19,8 +39,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
-#: Marker filename written at a drive's root.
-MARKER_NAME = ".vaeon-drive.json"
+#: Marker filename written at a drive's root. The only name this code ever writes.
+MARKER_NAME = ".truestill-drive.json"
+
+#: Marker filenames still honoured on read, newest first. Never written.
+LEGACY_MARKER_NAMES: tuple[str, ...] = (".vaeon-drive.json",)
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,13 +61,40 @@ class DriveMarker:
 
 
 def marker_path(root: Path) -> Path:
+    """The canonical marker path for ``root`` -- where a write would go."""
     return root / MARKER_NAME
 
 
-def read_marker(root: Path) -> DriveMarker | None:
-    """Return the drive's marker, or ``None`` if absent or unreadable/invalid."""
+def existing_marker_path(root: Path) -> Path | None:
+    """The marker file actually present at ``root``: canonical first, then legacy names.
+
+    Returns ``None`` when the drive carries no marker at all. Purely a lookup -- it never
+    creates, moves or removes anything.
+    """
+    canonical = marker_path(root)
     try:
-        data = json.loads(marker_path(root).read_text(encoding="utf-8"))
+        if canonical.is_file():
+            return canonical
+        for name in LEGACY_MARKER_NAMES:
+            legacy = root / name
+            if legacy.is_file():
+                return legacy
+    except OSError:  # unreadable/disconnected mount -- treat as "no marker"
+        return None
+    return None
+
+
+def read_marker(root: Path) -> DriveMarker | None:
+    """Return the drive's marker, or ``None`` if absent or unreadable/invalid.
+
+    Honours legacy marker names (see the module docstring). This function never writes, so a
+    legacy drive stays legacy on disk until something explicitly upgrades it.
+    """
+    found = existing_marker_path(root)
+    if found is None:
+        return None
+    try:
+        data = json.loads(found.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         return None
     if not isinstance(data, dict):
@@ -56,9 +106,34 @@ def read_marker(root: Path) -> DriveMarker | None:
 
 
 def write_marker(root: Path, marker: DriveMarker) -> None:
-    """Write ``marker`` to the drive root (creating the root if needed)."""
+    """Write ``marker`` to the drive root under the canonical name (creating the root if needed).
+
+    Any legacy marker present is left untouched, so an interrupted or downgraded run still finds
+    a readable identity.
+    """
     root.mkdir(parents=True, exist_ok=True)
     marker_path(root).write_text(marker.to_json(), encoding="utf-8")
+
+
+def needs_marker_upgrade(root: Path) -> bool:
+    """True when ``root`` carries only a legacy marker and no canonical one."""
+    found = existing_marker_path(root)
+    return found is not None and found.name != MARKER_NAME
+
+
+def upgrade_marker(root: Path) -> DriveMarker | None:
+    """Write a canonical marker for a legacy-only drive, preserving identity verbatim.
+
+    Returns the marker now stored canonically, or ``None`` if ``root`` carries no marker at all.
+    Already-canonical drives are returned unchanged without a write. The legacy file is
+    deliberately left in place (see the module docstring).
+    """
+    marker = read_marker(root)
+    if marker is None:
+        return None
+    if needs_marker_upgrade(root):
+        write_marker(root, marker)  # uuid/label/created copied verbatim
+    return marker
 
 
 def create_marker(root: Path, label: str, *, uuid: str | None = None) -> DriveMarker:
