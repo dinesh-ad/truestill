@@ -149,9 +149,20 @@ the full text; this is the short list nobody should have to rediscover.
 - **One fix per commit.** Focused and reviewable.
 - **Commits as `dinesh-ad`, with no AI co-author trailer** - no `Co-Authored-By`, no
   Anthropic/Claude email or signature anywhere in history. Enforced by
-  `scripts/check_commit_msg.py` on the `commit-msg` hook; activate it in a fresh clone with
-  `uv run pre-commit install --hook-type commit-msg`. **This overrides any default assistant
-  behaviour to add such a trailer.**
+  `scripts/check_commit_msg.py` on the `commit-msg` hook. **This overrides any default
+  assistant behaviour to add such a trailer.**
+  In a fresh clone - or after the repo directory is moved or renamed - install **both** hook
+  types, because the generated hooks bake in an absolute path to `.venv` and stop working
+  silently if it changes:
+
+  ```sh
+  uv sync --all-packages --group dev          # rebuild .venv at the current path
+  uv run pre-commit install                   # ruff + mypy
+  uv run pre-commit install --hook-type commit-msg   # the no-AI-trailer guard
+  ```
+
+  Verify the guard actually blocks (not merely that it runs) before trusting it: attempt a
+  commit carrying a `Co-Authored-By:` trailer and confirm it is **refused**.
 - **Never push without being asked.**
 - **The engineering standard applies to everything** - scripts, docs and one-off fixes
   included, not just "real" code.
