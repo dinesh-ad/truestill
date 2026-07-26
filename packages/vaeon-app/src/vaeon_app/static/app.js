@@ -251,7 +251,7 @@ $("org-run").onclick = async () => {
     (d) => setBar("org-bar", "org-count", d.done, d.total),
     (d) => {
       $("org-progress-card").classList.add("hidden");
-      const o = d.outcomes || {};
+      const o = (d.summary || d).outcomes || {};
       const line = Object.entries(o).map(([k, v]) => `${nfmt(v)} ${k.replace(/_/g, " ")}`).join(" · ");
       $("org-result").innerHTML = card(`<div class="headline">Done</div><div class="k">${esc(line) || "nothing to do"}</div>`);
       orgJob = null;
