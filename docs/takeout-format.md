@@ -62,7 +62,7 @@ Sidecar JSON structure (fields we care about):
 
 ### ⚠️ Timezone: the load-bearing caveat
 
-`photoTakenTime` is **UTC with no local offset recorded.** vaeon's date model is *naive local
+`photoTakenTime` is **UTC with no local offset recorded.** truestill's date model is *naive local
 wall-clock* (EXIF `DateTimeOriginal`, which is already local). Feeding a UTC instant into that
 model naively shifts the time-of-day by the local offset and, for captures near midnight, can
 shift the **date** - which would change the `YYYY/MM` folder and the filename prefix. This is
@@ -78,9 +78,9 @@ the single biggest correctness risk of the feature and is addressed in the plan 
 - **Consequence:** a photo in *k* albums appears **k+1 times**, identical bytes. This is the
   bulk of Takeout's notorious size blow-up.
 
-## 4. How this composes with vaeon (why it's mostly assembly, not new logic)
+## 4. How this composes with truestill (why it's mostly assembly, not new logic)
 
-| Takeout problem | vaeon capability that already solves it |
+| Takeout problem | truestill capability that already solves it |
 |---|---|
 | Album duplicate copies | Exact SHA-256 dedup collapses byte-identical copies (tier 1, skip) |
 | `-edited` near-duplicates | Perceptual dedup keeps **both** and flags - the edit is preserved, not dropped |

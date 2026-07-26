@@ -168,7 +168,7 @@ Expose a **closed date vocabulary** rather than raw strftime (avoids exiftool's 
   with a slash) silently creates unintended nested folders. Sanitize token *values*, never the
   user's literal separators.
 
-### 3. Migration UX - the gap vaeon can beat
+### 3. Migration UX - the gap truestill can beat
 
 - **Mylio Auto Organize** is the direct analog and the cautionary tale: presets + custom tokens,
   but its safety model is a single modal - *"a permanent action and cannot be undone,"* it
@@ -180,7 +180,7 @@ Expose a **closed date vocabulary** rather than raw strftime (avoids exiftool's 
 - **phockup** is "safe by construction": copy-by-default, checksum collision handling, `unknown`
   catch-all.
 
-**No consumer competitor offers preview + undo.** vaeon already owns the checksum/dedup machinery
+**No consumer competitor offers preview + undo.** truestill already owns the checksum/dedup machinery
 to do both - this is the differentiator and the reason the feature is worth shipping.
 
 ### 4. Presets that actually ship (ranked by real prevalence)
@@ -234,7 +234,7 @@ network), filename tokens (filename stays the `naming.py` stamp - see §1a.4).
 
 Render the template against **3 representative sample files** - a dated Camera photo, a WhatsApp
 image, and an undated file - and show the resulting paths. In the app Settings screen this
-updates on keystroke; in the CLI, `vaeon config --set-template '…' --preview` prints the three
+updates on keystroke; in the CLI, `truestill config --set-template '…' --preview` prints the three
 renderings and does not persist until confirmed. This is the exiftool-`-p`/organize-simulate
 pattern, surfaced before the template is ever saved.
 
@@ -290,8 +290,8 @@ copies, present a warning with two choices:
 - **App:** a new minimal **Settings** screen (the app's first) - preset dropdown, editable
   template field, live 3-file preview, and a "Change existing library…" button that opens the
   §C6 preview-then-apply flow. Dry-run posture preserved: preview writes nothing.
-- **CLI:** `vaeon config --show` / `--set-template '…'` (validates + previews before persisting);
-  `vaeon organize` reads the stored template; `vaeon migrate-layout [--apply]` runs §C6 (dry-run
+- **CLI:** `truestill config --show` / `--set-template '…'` (validates + previews before persisting);
+  `truestill organize` reads the stored template; `truestill migrate-layout [--apply]` runs §C6 (dry-run
   default, `--apply` to execute, one connected drive at a time). No new flag on `organize`.
 
 ### C8. Explicitly NOT in v1

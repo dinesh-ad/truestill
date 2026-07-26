@@ -1,11 +1,11 @@
-# vaeon - Engineering Standard (the canon)
+# truestill - Engineering Standard (the canon)
 
-Portable principles for working in vaeon. This is the *generic* tier. The repo-specific,
+Portable principles for working in truestill. This is the *generic* tier. The repo-specific,
 checkable rules live in [`IMPLEMENTATION_STANDARDS.md`](IMPLEMENTATION_STANDARDS.md), which
 **wins on any conflict**. Keep this file short: every rule below is one you can actually
 violate in *this* repo. If a rule can't be violated here, it doesn't belong here.
 
-vaeon is a **local-first CLI/library** heading toward a desktop app. It has no server, no
+truestill is a **local-first CLI/library** heading toward a desktop app. It has no server, no
 network API boundary, no untrusted multi-tenant input. Do not import server-SaaS machinery
 (pagination, circuit breakers, DTO layers, telemetry stacks, GDPR tooling). Right-size.
 
@@ -49,7 +49,7 @@ re-implementing something the repo already has.
 - **Idioms (Python 3.13, standard build).** `pathlib` everywhere - never `os.path` string
   joins. `@dataclass(slots=True)` for internal models. `StrEnum` for enumerations. `match`
   for structured dispatch, f-strings, `:=` where it reads better. **Not** pydantic/attrs for
-  internal models - vaeon has no untrusted-input API boundary, so stdlib dataclasses are the
+  internal models - truestill has no untrusted-input API boundary, so stdlib dataclasses are the
   right-sized choice. Validation belongs only at real trust boundaries (CLI args, sidecar
   JSON, catalog reads).
 - **Typing.** mypy `strict` is mandatory. Full annotations incl. return types; modern syntax

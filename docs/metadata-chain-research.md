@@ -10,7 +10,7 @@ as backlog item (l).
 dates **every file that carries a real embedded date**, and **no fallback parser recovers a
 single genuine capture date exiftool missed**. Across the whole set the *only* unique recovery is
 ffprobe reading a **sample's encode timestamp** from an `.ogv` - a downloaded sample, in an
-extension vaeon doesn't even recognize, and an encode (not capture) date. Meanwhile the parsers
+extension truestill doesn't even recognize, and an encode (not capture) date. Meanwhile the parsers
 introduce two distinct hazards: hachoir reports EXIF **`ModifyDate`** as capture (2-week-wrong on
 an edited photo), and on dateless videos hachoir/pymediainfo emit **epoch-sentinel dates**
 (`1904-01-01` for ISO-BMFF/QuickTime, `1970-01-01` for ASF/WMV) that a naive chain would file
@@ -32,7 +32,7 @@ dependency**. Full per-file output: `scratchpad/corpus_probe.py`.
 
 ### Personal files - the diff that matters (18 probed; 1 `.pdf` is non-media)
 
-| File | exiftool embedded | vaeon-final | fallback parsers |
+| File | exiftool embedded | truestill-final | fallback parsers |
 | --- | --- | --- | --- |
 | `00123.MTS` (Sony AVCHD) | **DateTimeOriginal** 2023-08-20 (+05:30) | exif 2023-08-20 | pymediainfo ✓ agrees · ffprobe - · hachoir - |
 | `VID-…WA0020.mp4` (WhatsApp) | **CreateDate** 2025-08-04 | exif 2025-08-04 | all three ✓ agree |
@@ -57,16 +57,16 @@ below.
 
 - **exiftool is still the ceiling for real dates.** No parser recovered a genuine *capture* date
   exiftool missed. The single unique recovery (ffprobe on the `.ogv`) is a *sample's encode
-  timestamp*, on an extension vaeon doesn't recognize - not evidence of value on personal media.
+  timestamp*, on an extension truestill doesn't recognize - not evidence of value on personal media.
 - **New, decisive hazard - epoch sentinels.** On dateless ISO-BMFF/QuickTime containers hachoir
   returns `1904-01-01` (that format's zero-epoch) and on ASF/WMV both hachoir and pymediainfo
   return `1970-01-01` - the *unset* field, reported as if it were a real date. A naive chain would
   file these under **1904 / 1970**, which is strictly worse than `Undated/` and violates the
-  never-guess rule. vaeon already rejects exiftool's all-zero dates (`parse_exif_datetime` drops
+  never-guess rule. truestill already rejects exiftool's all-zero dates (`parse_exif_datetime` drops
   `0000…`); any future parser output would need the same sentinel rejection (see recommendation).
 - **hachoir's `ModifyDate`-as-capture bug persists** (`F18A0416`, 2 weeks wrong) - unchanged and
   disqualifying on its own.
-- **11 extensions are unrecognized by vaeon today** (`.asf .f4v .hevc .m2v .mjpeg .ogv .rm .swf
+- **11 extensions are unrecognized by truestill today** (`.asf .f4v .hevc .m2v .mjpeg .ogv .rm .swf
   .ts .vob .wtv`) - `discover` would silently skip them (§1b.2). Whether to *recognize* more video
   extensions is a separate call from the date chain; surfacing them is the immediate fix.
 
@@ -100,7 +100,7 @@ with a concrete new reason (sentinels) to be *especially* wary of naive fallback
 `if all_files or path.suffix.lower() in MEDIA_EXTENSIONS: found.append(path)`. Anything whose
 extension is not in `MEDIA_EXTENSIONS` is **silently dropped** - never counted, logged, or
 returned. The extended corpus made this vivid: not just the `.pdf`, but **11 video-ish extensions
-vaeon doesn't recognize** (`.asf .f4v .hevc .m2v .mjpeg .ogv .rm .swf .ts .vob .wtv`) would all
+truestill doesn't recognize** (`.asf .f4v .hevc .m2v .mjpeg .ogv .rm .swf .ts .vob .wtv`) would all
 vanish from every report with no trace. A user organizing a folder of `.vob` DVD rips would be
 told nothing happened to them. That violates the never-silent principle exactly as a
 silently-skipped undated file would.

@@ -1,7 +1,11 @@
 # CLAUDE.md
 
-vaeon - a local-first media organizer, de-duplicator, and backup pipeline (uv workspace:
-`truestill-core` library + `truestill-cli`).
+truestill - a local-first media organizer, de-duplicator, and backup pipeline (uv workspace:
+`truestill-core` library + `truestill-cli` + `truestill-app`).
+
+The command is `truestill`; the local web UI is `truestill-app`. Drives are identified by a
+`.truestill-drive.json` marker (pre-rename `.vaeon-drive.json` drives are still read - see
+`IMPLEMENTATION_STANDARDS.md` §3.1).
 
 ## Read first, every session - the two-document contract
 

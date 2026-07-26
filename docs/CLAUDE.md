@@ -38,8 +38,8 @@ export before it is pushed to long-term storage.
 
 ## Layout
 
-A uv workspace. The core library and the CLI are separate packages so a future
-desktop/UI package can be added beside them without touching the core.
+A uv workspace of three packages: the core library, the CLI, and the local web UI. The UI
+package sits *beside* the core and depends only on it - never on the CLI.
 
 ```
 packages/
@@ -48,15 +48,33 @@ packages/
 │   ├── exif.py         batched exiftool JSON reads (no per-file process spawn)
 │   ├── dates.py        capture-date resolution and filename date conventions
 │   ├── categorize.py   the ordered rule chain; NAME_PATTERNS is the extension point
+│   ├── naming.py       the YYYYMMDD_HHMMSS_<original> copy filename
 │   ├── hashing.py      SHA-256 (content) + dHash (perceptual)
 │   ├── scan.py         concurrent hashing pass with the byte-size pre-filter
 │   ├── dedup.py        two-tier duplicate index (exact skip, perceptual keep+flag)
 │   ├── catalog.py      SQLite state; schema versioned via PRAGMA user_version
+│   ├── drive.py        drive identity marker (+ legacy-name compatibility)
+│   ├── layout.py       the destination folder LayoutTemplate and its presets
+│   ├── migrate.py      crash-safe, journalled re-layout of an existing drive
+│   ├── reclaim.py      verify-gated source deletion (opt-in, journalled)
+│   ├── verify.py       re-hash a connected drive's copies against the catalog
+│   ├── events.py       pure camera-event clustering (no I/O)
+│   ├── event_review.py the interactive event naming/merge/split stage
+│   ├── takeout.py      Google Takeout sidecar parsing and date rescue
+│   ├── progress.py     the ProgressCallback seam shared by CLI and app
 │   ├── destinations/   pluggable Destination backends (local, rclone)
 │   └── organizer.py    pure planning, then opt-in execution
-└── truestill-cli/src/truestill_cli/     # the `vaeon` command (thin wrapper over the core)
-    ├── cli.py          argparse entry point and the decision report
-    └── __main__.py     python -m truestill_cli
+├── truestill-cli/src/truestill_cli/     # the `truestill` command (thin wrapper over the core)
+│   ├── cli.py          argparse entry point and the decision report
+│   ├── events_review.py terminal prompts for the event stage
+│   └── __main__.py     python -m truestill_cli
+└── truestill-app/src/truestill_app/     # the `truestill-app` local web UI (Starlette)
+    ├── server.py       the application factory: routes, SSE, static, token guard
+    ├── service.py      the bridge to truestill-core (imports core only, never the CLI)
+    ├── security.py     localhost token guard (X-Truestill-Token / ?token=)
+    ├── jobs.py         background job registry for long-running runs
+    ├── templates/      server-rendered HTML (no bundler, no npm)
+    └── static/         tokens.css + app.css + vanilla-JS app.js
 ```
 
 Shared ruff/mypy/pytest config lives in the virtual workspace root `pyproject.toml`.
@@ -71,6 +89,12 @@ Run `make check` before considering work done.
 
 ## External dependency
 
-`exiftool` (Ubuntu: `libimage-exiftool-perl`) must be on PATH. There are deliberately no
-runtime Python dependencies - a Python EXIF library would cover photos only and would
-not see video container tags or the vendor MakerNotes the screenshot rule depends on.
+`exiftool` (Ubuntu: `libimage-exiftool-perl`) must be on PATH. It is the *only* metadata
+reader: a Python EXIF library would cover photos only and would not see video container
+tags or the vendor MakerNotes the screenshot rule depends on.
+
+Runtime Python dependencies are deliberately minimal and must justify themselves against
+the stdlib - `imagehash` + `pillow` + `pillow-heif` in `truestill-core` (perceptual hashing
+needs image decoding, which the stdlib cannot do), and `starlette` + `uvicorn` in
+`truestill-app`. `truestill-cli` adds none. The authoritative inventory, with the reasoning
+for each, is `IMPLEMENTATION_STANDARDS.md` §7.

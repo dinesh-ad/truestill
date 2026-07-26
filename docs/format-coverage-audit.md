@@ -12,7 +12,7 @@ container-based RAW (CR3, RAF) falls back to exact-only. Verified on real corpus
 
 **End-to-end verification (real corpus HEIC + RAW, this machine):**
 
-| File | vaeon date | category | perceptual (before → after pillow-heif) |
+| File | truestill date | category | perceptual (before → after pillow-heif) |
 | --- | --- | --- | --- |
 | `shelf-christmas-decoration.heic` (Samsung) | `2023-12-13` (EXIF) | Camera | `None` → real hash |
 | `childrens-show-theater.heic` (Apple iPad) | `2022-11-08` (EXIF) | Camera | `None` → real hash |
@@ -21,7 +21,7 @@ container-based RAW (CR3, RAF) falls back to exact-only. Verified on real corpus
 | `sample-nef-files-sample1.nef` (Nikon D3) | `2008-03-15` (EXIF) | Camera | **real hash already** |
 | `sample-dng-files-sample1.dng` (Canon 350D) | `2008-12-14` (EXIF) | Camera | **real hash already** |
 
-**Headline:** vaeon's *recognition* is already strong - HEIC/HEIF, AVIF, and the mainstream RAW
+**Headline:** truestill's *recognition* is already strong - HEIC/HEIF, AVIF, and the mainstream RAW
 family are all on the list. The real findings are two, and neither is "we forgot a common
 format":
 
@@ -44,7 +44,7 @@ format":
 - **Images (21):** `.jpg .jpeg .png .gif .bmp .webp .tif .tiff .heic .heif .avif` · RAW: `.dng
   .raw .cr2 .cr3 .nef .arw .orf .rw2 .raf .srw`
 - **Video (14):** `.mp4 .mov .m4v .3gp .3g2 .avi .mkv .webm .mpg .mpeg .wmv .flv .mts .m2ts`
-- **Audio (7):** `.m4a .aac .opus .ogg .mp3 .wav .amr` (vaeon-specific - messenger voice notes;
+- **Audio (7):** `.m4a .aac .opus .ogg .mp3 .wav .amr` (truestill-specific - messenger voice notes;
   not part of the photo-manager benchmark)
 
 ### Where recognition gates - one hard gate, one soft dependency
@@ -89,9 +89,9 @@ reads dates from HEIC + all major RAW**; **Pillow needs `pillow-heif` (libheif) 
 `rawpy`/LibRaw for RAW** - RAW files carry an embedded JPEG preview `rawpy.extract_thumb()` can
 pull that Pillow can then read.
 
-### Tiered gap table (benchmark has it, vaeon does not)
+### Tiered gap table (benchmark has it, truestill does not)
 
-| Tier | Gap | In benchmark | vaeon cost |
+| Tier | Gap | In benchmark | truestill cost |
 | --- | --- | --- | --- |
 | **T1** standard | `.hif` (HEIF variant, Canon/Fuji) | both | **list-only** (dating+exact); perceptual needs `pillow-heif` like HEIC |
 | **T1** *depth* | HEIC/HEIF perceptual dedup (already recognized) | first-class in both | **needs-dep** (`pillow-heif`) |
@@ -117,7 +117,7 @@ T3 is item (l).
 - **JPEG aliases `.jpe`, `.jfif`** - Pillow opens them as JPEG → *full* support incl. perceptual.
 - **Mainstream RAW the benchmark lists:** `.pef .crw .nrw .sr2 .srf .rwl .3fr .fff .cap .iiq .erf
   .mrw .dcr .kdc .x3f .ari` (+ optionally `.gpr`). Zero cost - RAW perceptual is already N/A for
-  the RAW vaeon *already* lists, so this adds no dependency and no regression, and closes the
+  the RAW truestill *already* lists, so this adds no dependency and no regression, and closes the
   photographer-audience gap in one stroke.
 
 ### Needs-dep - **the one real decision: `pillow-heif`**
@@ -125,7 +125,7 @@ T3 is item (l).
 Adding `pillow-heif` (a maintained libheif binding; prebuilt wheels for Windows/macOS/Linux incl.
 arm64) registers a HEIF opener so `Image.open()` handles `.heic/.heif/.hif`, which makes their
 **perceptual near-dup dedup actually work**. **Written justification:** HEIC has been the iPhone
-default capture format since 2017 - for a large share of a modern user's library, vaeon currently
+default capture format since 2017 - for a large share of a modern user's library, truestill currently
 recognizes and dates the file but cannot detect that an edited/re-saved/shared-and-recompressed
 copy is a near-duplicate (exact-dup still works). That is a launch-quality gap for the single most
 common phone-photo format, and one small dependency closes it. Both benchmark tools treat HEIC as
@@ -142,7 +142,7 @@ perceptual limitation - acceptable for a backup tool, but a visible quality gap.
   byte-identical RAW of every kind.
 - **RAW+JPEG pair handling** (`IMG_1234.CR2` + `IMG_1234.JPG` of the same shot). A real
   photographer expectation - **PhotoPrism stacks them natively** (same folder+basename, JPEG
-  primary); Immich does it partially / via external tooling. vaeon today treats them as two
+  primary); Immich does it partially / via external tooling. truestill today treats them as two
   distinct files (different SHA, different/absent perceptual) → **both kept, neither paired**.
   For a *backup* tool "keep both" is defensible, but adding the RAW extensions above makes this
   more visible. Recommend: **note as a known limitation now**; if built, key pairs on

@@ -1,6 +1,6 @@
-# vaeon - Implementation Standards (the binding contract)
+# truestill - Implementation Standards (the binding contract)
 
-The vaeon-specific rules, stated as checkable facts against this repo. This contract
+The truestill-specific rules, stated as checkable facts against this repo. This contract
 **overrides** [`ENGINEERING_STANDARD.md`](ENGINEERING_STANDARD.md) on any conflict. Every
 rule cites where it is enforced - a source symbol, a hook, a CI step, or a test - or is
 marked **convention - not yet enforced** (a human-process rule with no automated gate).
@@ -14,7 +14,7 @@ Paths are workspace-relative. Symbols are cited over line numbers, which drift.
 | Invariant | Enforced by |
 |---|---|
 | **Original quality is the top priority.** Media pixels are never re-encoded. | The pipeline only copies bytes; the sole content write is metadata-only (see below). |
-| **Copy-only - never move or delete user files, except the two scoped, opt-in exceptions below.** | `organizer.execute` uploads via `LocalDestination.upload` (`shutil.copy2`) / `RcloneDestination.upload` (`rclone copyto`). `rclone` uses `copyto`, never `sync`. The only code paths that delete a **source** are `organizer._move_source` (`--move`) and `reclaim.run_reclaim` (`vaeon reclaim`) - both scoped exactly like the Takeout write path (below). |
+| **Copy-only - never move or delete user files, except the two scoped, opt-in exceptions below.** | `organizer.execute` uploads via `LocalDestination.upload` (`shutil.copy2`) / `RcloneDestination.upload` (`rclone copyto`). `rclone` uses `copyto`, never `sync`. The only code paths that delete a **source** are `organizer._move_source` (`--move`) and `reclaim.run_reclaim` (`truestill reclaim`) - both scoped exactly like the Takeout write path (below). |
 
 **Source-deletion exceptions (feature k), both opt-in and verify-gated:**
 
@@ -22,7 +22,7 @@ Paths are workspace-relative. Symbols are cited over line numbers, which drift.
   destination copy re-hashes to the recorded `copy_sha256`. Ordering is copy → record → re-verify
   → delete, so no interruption leaves a window with zero copies; any verify/delete failure keeps
   the source and reports `MOVE_KEPT`. Only under `apply=True`.
-- **`reclaim.run_reclaim` (`vaeon reclaim`).** Deletes a source **only** after re-hashing a
+- **`reclaim.run_reclaim` (`truestill reclaim`).** Deletes a source **only** after re-hashing a
   destination copy on a **currently-connected** drive at delete time (never trusts a stale
   `last_verified`). Dry-run is the default; `--apply` additionally requires a typed `delete`
   confirmation. `--min-copies N` (default 1) gates on recorded redundancy; single-copy outcomes
@@ -66,12 +66,14 @@ fallback slots into `resolve_capture_datetime` between embedded-EXIF and the fil
 
 ## 2. Architecture contract
 
-- **uv workspace**, two packages (root `pyproject.toml` `[tool.uv.workspace]`):
+- **uv workspace**, three packages (root `pyproject.toml` `[tool.uv.workspace]`):
   - `packages/truestill-core/` - the pure library. The clustering core (`events.py`) does **no
     I/O** and takes no filesystem/interaction dependencies; it operates on passed-in data.
-  - `packages/truestill-cli/` - the thin CLI (`vaeon organize` / `vaeon ingest`), which wires
+  - `packages/truestill-cli/` - the thin CLI (`truestill organize` / `truestill ingest`), which wires
     core stages together and owns all interaction (prompts, printing).
-  - Future packages (e.g. a desktop app) slot **beside** these without restructuring the core.
+  - `packages/truestill-app/` - the local web UI (`truestill-app`). Depends on
+    `truestill-core` **only**, never on `truestill-cli`; `service.py` is the sole bridge.
+  - Further packages (e.g. a native shell) slot **beside** these without restructuring the core.
 - **Destinations behind an interface.** `destinations/base.py::Destination` (ABC:
   `exists`/`upload`/`list`/`describe`). Implementations: `LocalDestination`,
   `RcloneDestination`. Nothing in organize/dedup logic names a specific backend. Relative
@@ -87,13 +89,16 @@ fallback slots into `resolve_capture_datetime` between embedded-EXIF and the fil
 ## 3. Data contract (catalog)
 
 - **Single SQLite file**, stdlib `sqlite3` (`catalog.py::Catalog`). No server.
-- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 5`**.
+- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 9`**.
   Migrations are ordered, idempotent functions in `_MIGRATIONS`; a catalog newer than the code
   is refused (`CatalogVersionError`). Migration coverage tested in `tests/test_catalog.py`.
-- **Table inventory (v5):** `files`, `albums`, `file_albums`, `events`, `skipped_clusters`.
+- **Table inventory (v9):** `files`, `albums`, `file_albums`, `events`, `skipped_clusters`,
+  `drives`, `file_copies`, `settings`, `migration_journal`, `reclaim_journal`.
 - **Migration ledger:** v2 `size`, v3 `original_name`, v4 event tables (`events` +
   `skipped_clusters` + `files.event_id`), v5 Takeout (`files.copy_sha256` + `albums` +
-  `file_albums`).
+  `file_albums`), v6 drive identity (`drives` + `file_copies`), v7 key/value `settings`
+  (first use: the layout template), v8 `migration_journal` (crash-safe layout migration),
+  v9 `reclaim_journal` (audit/resume for `truestill reclaim` deletions).
 - **Dual-hash rule.** `files.sha256` is the **source** (pre-write) hash - the **dedup
   identity**. `files.copy_sha256` is the organized copy's **post-write** hash - the
   **verification identity** (equal to `sha256` for the byte-identical normal pipeline; differs
@@ -180,7 +185,7 @@ Runtime deps must justify themselves against stdlib. Current state:
 | Dependency | Why it exists (vs stdlib) |
 |---|---|
 | `imagehash>=4.3.1` (`truestill-core`) | Perceptual dHash for near-duplicate detection; requires image decoding, which the stdlib cannot do. |
-| `pillow>=10.0.0` (`truestill-core`) | Image decoding backing imagehash and cheap dimension reads. **Large-image policy:** vaeon processes the user's own local library (trusted), not untrusted uploads, so Pillow's ~89 MP decompression-bomb guard is a false positive on legitimate large photos (panoramas/scans). `hashing.MAX_PERCEPTUAL_PIXELS` raises `Image.MAX_IMAGE_PIXELS` to **300 MP** deliberately; above it a pathological image is **skipped for perceptual hashing** (SHA-256 exact dedup still applies) and the bomb *warning* is suppressed locally so **no raw Pillow warning reaches the terminal**. (Immich/PhotoPrism avoid this entirely via libvips streaming.) |
+| `pillow>=10.0.0` (`truestill-core`) | Image decoding backing imagehash and cheap dimension reads. **Large-image policy:** truestill processes the user's own local library (trusted), not untrusted uploads, so Pillow's ~89 MP decompression-bomb guard is a false positive on legitimate large photos (panoramas/scans). `hashing.MAX_PERCEPTUAL_PIXELS` raises `Image.MAX_IMAGE_PIXELS` to **300 MP** deliberately; above it a pathological image is **skipped for perceptual hashing** (SHA-256 exact dedup still applies) and the bomb *warning* is suppressed locally so **no raw Pillow warning reaches the terminal**. (Immich/PhotoPrism avoid this entirely via libvips streaming.) |
 | `pillow-heif>=0.16.0` (`truestill-core`) | Registers a HEIF opener so Pillow can decode **HEIC/HEIF** (the iPhone-default format since 2017), enabling their perceptual near-dup dedup. **Graceful degradation is mandatory:** `hashing._register_heif` guards the import; if it ever fails at runtime, `HEIF_AVAILABLE` is `False`, SHA-256 exact dedup still applies to HEIC, and the run **reports** that HEIC perceptual hashing was skipped - never a silent drop. TIFF-based RAW (CR2/NEF/DNG/…) needs no plugin (Pillow's TIFF decoder content-sniffs it); container-based RAW (CR3, RAF) is exact-dedup-only. |
 | `exiftool` (external **binary**, not a pip dep) | The only tool that reads photo EXIF, **video container tags**, and vendor MakerNotes (e.g. the screenshot marker) through one interface, and the writer used for the scoped Takeout bake. A pip EXIF library would cover photos only. |
 | `truestill-cli` runtime deps | Only `truestill-core` (workspace source). |

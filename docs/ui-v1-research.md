@@ -1,4 +1,4 @@
-# vaeon UI v1 - recon, research & design (Phase 1)
+# truestill UI v1 - recon, research & design (Phase 1)
 
 Design gate for the local web UI (`packages/truestill-app`). **No build in this phase.** Decision
 already fixed: a plain **local web app** (Python server + browser UI on localhost), no
@@ -102,7 +102,7 @@ if taken; bind `127.0.0.1`; open the browser at the exact URL **including the to
 **Home / launch**
 ```
 +------------------------------------------------------+
-|  vaeon                                     [Drives ▸] |
+|  truestill                                     [Drives ▸] |
 |  Organize a folder   |  Rescue a Takeout export       |
 |  [ pick source … ]   |  [ pick takeout dir … ]        |
 |  Recent runs: …                                       |

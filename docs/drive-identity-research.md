@@ -4,6 +4,12 @@ Reconnaissance (code truth) + community research (practitioner truth) for BACKLO
 Ends with recommended scope answers and an implementation plan. **No code yet** - this
 document is the review gate.
 
+> **Historical note.** This document predates the `vaeon` → `truestill` rename and refers to
+> the marker as `.vaeon-drive.json` throughout. The marker written today is
+> `.truestill-drive.json`; the old name is still read for drives initialised before the
+> rename. The binding rules are `IMPLEMENTATION_STANDARDS.md` §3.1 - the design reasoning
+> below is unchanged.
+
 ---
 
 ## Part A - Reconnaissance (code truth, file:line)
@@ -55,7 +61,7 @@ Sources at the bottom. Priority order honoured: tool trackers + practitioner thr
 [catcli](https://github.com/deadc0de6/catcli) indexes external media into a catalog, searches
 and navigates it **while the media is disconnected**, and stores size + md5. JSON catalog,
 git-versionable. It validates the demand - and the gap: **none of these do
-organize + dedup + backup + verification in one tool.** vaeon already has the first three.
+organize + dedup + backup + verification in one tool.** truestill already has the first three.
 
 ### B2. Drive identity: filesystem UUID is the wrong primary key
 - Identity mechanisms are **OS/filesystem-inconsistent**: Linux/macOS expose a UUID; Windows/NTFS
@@ -71,12 +77,12 @@ organize + dedup + backup + verification in one tool.** vaeon already has the fi
 
 ### B3. Marker-file edge cases users actually hit
 - **Cleanup tools delete dotfiles.** A missing marker must not silently create a "new unknown
-  drive." Proposed: `verify`/`where` refuse to guess; `vaeon drives init --uuid <known>` re-attaches
+  drive." Proposed: `verify`/`where` refuse to guess; `truestill drives init --uuid <known>` re-attaches
   a known identity (content-hash match can suggest which drive it was).
 - **Cloning copies the marker too** → duplicate `uuid4`. Fundamentally, clones are identical at
   clone time, so sharing identity is *correct* until they diverge. Proposed: treat same-uuid as the
   same logical drive; **warn** when one uuid is seen at two distinct mount paths in a single run;
-  `vaeon drives init --relabel` mints a fresh uuid for a diverged clone. Do not auto-disambiguate -
+  `truestill drives init --relabel` mints a fresh uuid for a diverged clone. Do not auto-disambiguate -
   surface it, let the human decide.
 - **Verify UX praised vs cursed:** progress on huge drives, resumability, and honest reports are
   what users want; a silent multi-hour hash with no output is what they curse. Proposed: worker-pool
@@ -109,13 +115,13 @@ organize + dedup + backup + verification in one tool.** vaeon already has the fi
   - `record_uploaded` also upserts a `file_copies` row; the CLI resolves the destination's drive
     uuid (from its marker) and passes it in. `files.relative/copy_sha256` retained as "latest copy"
     for back-compat.
-- **`vaeon drives`** - list known drives (uuid, label, counts, sizes, last_seen/verified). `init`
+- **`truestill drives`** - list known drives (uuid, label, counts, sizes, last_seen/verified). `init`
   subcommand to create/re-attach a marker.
-- **`vaeon where <term>`** - offline catalog query → drive label(s), path(s), last-verified.
-- **`vaeon verify <label>`** - connected drive; worker-pool re-hash of vaeon-managed files vs
+- **`truestill where <term>`** - offline catalog query → drive label(s), path(s), last-verified.
+- **`truestill verify <label>`** - connected drive; worker-pool re-hash of truestill-managed files vs
   `file_copies.copy_sha256` (else `sha256`); report verified/MISSING/MISMATCH; **read-only** (never
   repairs without an explicit re-copy). Resumable via `last_verified`.
-- **`vaeon status`** - content with a single `file_copies` row → "at risk: N single-copy files"
+- **`truestill status`** - content with a single `file_copies` row → "at risk: N single-copy files"
   (the 3-2-1 nudge, stated once).
 - **Capability seam:** Pro-tier candidate (convention). Pure logic in core; thin subcommands in cli.
 - **Tests:** two tmp "drives" + markers; corrupt one file + delete another on drive B → verify

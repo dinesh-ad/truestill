@@ -1,4 +1,4 @@
-# vaeon
+# truestill
 
 Categorize and date-organize a photo/video library into a stable, browsable tree:
 
@@ -95,9 +95,9 @@ make install       # uv sync --group dev
 Dry run is the default. Nothing is written without `--apply`:
 
 ```bash
-uv run vaeon <source> <destination>
-uv run vaeon <source> <destination> --report reports/plan.json
-uv run vaeon <source> <destination> --apply
+uv run truestill <source> <destination>
+uv run truestill <source> <destination> --report reports/plan.json
+uv run truestill <source> <destination> --apply
 ```
 
 | Flag | Effect |

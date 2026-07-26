@@ -1,4 +1,4 @@
-# vaeon — Full-App Walkthrough QA Report
+# truestill — Full-App Walkthrough QA Report
 
 > ## ✅ Re-run on the fixed build (2026-07-26) — verdict: **launch-ready**
 >
@@ -21,14 +21,14 @@
 >
 > ---
 
-# vaeon — Full-App Walkthrough QA Report (original pass)
+# truestill — Full-App Walkthrough QA Report (original pass)
 
 **Date:** 2026-07-26 · **Method:** Chrome-driven (Claude-in-Chrome), real app, real corpus, as a
 first-time user. **Rule for this pass:** findings only — **no fixes applied**, awaiting approval.
 
 **Setup:** dev catalog `reports/catalog.sqlite` backed up and set aside; all runs on throwaway
 catalogs. Source (read-only): `/home/dinesh/Damon/vaeon-corpus` (45 files → 22 photos · 10 videos ·
-13 skipped). Destinations under `/tmp/vaeon-qa`. Realistic Backups catalog built via CLI (corpus on
+13 skipped). Destinations under `/tmp/truestill-qa`. Realistic Backups catalog built via CLI (corpus on
 DriveA + a single-copy at-risk set); synthetic clustered fixture for Trips; synthetic mini-Takeout
 for Import. Both first-run-empty and populated states were exercised.
 
@@ -90,7 +90,7 @@ is ever created.
 **Root cause:** `organize_run` (`service.py:122`) does its own `plan()→resolve()→execute()` and never
 calls `run_event_stage`/`apply_events`, so saved events are ignored. The Trips screen
 (`index.html:78-94`) has **no destination field and no apply/organize control** — only Find/Merge/
-Split/Save names. (The core *can* do it — `vaeon organize --events` exists — the UI just never wires
+Split/Save names. (The core *can* do it — `truestill organize --events` exists — the UI just never wires
 it to disk.)
 **Fix direction:** either give Trips a destination + an "Organize into these trips" run that uses the
 event-applied session, or have `organize_run` apply saved catalog events so a later Organize picks up
@@ -160,7 +160,7 @@ named trips. Surface the placement preview; reword the toast to say what happens
 - **Import** — validates the Takeout folder and **recovers dates from `photoTakenTime` sidecars**
   (EXIF stripped, 0 still undated).
 - **Progress + cancel UI exists** (`07-organize-progress.jpg`, "17 / 32 · Cancel").
-- **Console: clean** — 30 messages, all from the Claude-in-Chrome extension; **zero from vaeon**.
+- **Console: clean** — 30 messages, all from the Claude-in-Chrome extension; **zero from truestill**.
 - **Terminal: clean** — every app log is exactly one line (the startup URL); no warnings, no
   tracebacks, no DecompressionBomb, no request noise.
 

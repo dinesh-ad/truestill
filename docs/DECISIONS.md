@@ -1,7 +1,7 @@
-# vaeon - Product Decisions (binding, with rationale)
+# truestill - Product Decisions (binding, with rationale)
 
 Durable product decisions and the reasoning that produced them. Unlike `BACKLOG.md` (approved
-but *unbuilt* work), entries here are **settled stances** that govern what vaeon is - kept so the
+but *unbuilt* work), entries here are **settled stances** that govern what truestill is - kept so the
 rationale outlives chat history. Where a decision is also a binding engineering invariant, the
 short form lives in `IMPLEMENTATION_STANDARDS.md` and this file holds the full "why".
 
@@ -9,14 +9,14 @@ short form lives in `IMPLEMENTATION_STANDARDS.md` and this file holds the full "
 
 ## D1. No accounts, no required telemetry - permanently
 
-**Decision.** vaeon collects **no user accounts** and **no required telemetry**, permanently.
+**Decision.** truestill collects **no user accounts** and **no required telemetry**, permanently.
 There is no login, no sign-up, no device identifier, no phone-home, and no usage beacon compiled
 into the product. This is not a launch-phase posture that relaxes later; it is a permanent
-property of what vaeon is.
+property of what truestill is.
 
 **Scope - what this forbids inside the product:**
 
-- No account creation or authentication of any kind to use vaeon (free **or** Pro).
+- No account creation or authentication of any kind to use truestill (free **or** Pro).
 - No required telemetry, analytics SDK, crash reporter, or usage ping embedded in the CLI, the
   core library, or the local web app.
 - No unique identifier assigned to an install or a user.
@@ -31,7 +31,7 @@ channels already produce. None of it requires instrumenting the software:
 
 1. **PyPI download statistics** - aggregate install counts for the published packages.
 2. **GitHub signals** - stars, clones, and per-release download counts.
-3. **Privacy-friendly site analytics on `vaeon.app`** - a Plausible-class analytics tool: **no
+3. **Privacy-friendly site analytics on `truestill.app`** *(domain not yet registered)* - a Plausible-class analytics tool: **no
    cookies, no personal data, no cross-site tracking**. Page-level aggregates only.
 4. **Purchase records for Pro customers** - name / email / country, held by the **payment
    provider** as the record of a transaction. This is a payment record, not product telemetry:
@@ -43,7 +43,7 @@ telemetry leaving a user's machine.
 ### Rationale - the Audacity 2021 precedent
 
 In 2021 Audacity's new steward proposed **opt-in** telemetry. The reaction from exactly the kind
-of privacy-conscious, self-hosting audience vaeon serves was decisive: roughly **3,500 downvotes**
+of privacy-conscious, self-hosting audience truestill serves was decisive: roughly **3,500 downvotes**
 on the proposal, **50+ forks** within days, and a permanent hostile fork (**Tenacity**) that
 persists. The lesson is not "telemetry is unpopular" - it is that **for this audience, an
 identity or telemetry demand converts trust directly into forks.** A tool whose entire value
@@ -58,7 +58,7 @@ user trust - that makes a local-first media tool worth adopting.
 Should crash reporting ever be introduced, it must be **all** of:
 
 - **Opt-in and off by default** - never enabled without an explicit, informed choice.
-- **Self-hosted** - reports go to infrastructure vaeon controls, never a third-party SaaS.
+- **Self-hosted** - reports go to infrastructure truestill controls, never a third-party SaaS.
 - **Transparent** - the exact payload is documented and inspectable before a user opts in.
 - **Introduced only after community trust exists** - a post-launch, trust-has-been-earned move,
   **never shipped at launch**.

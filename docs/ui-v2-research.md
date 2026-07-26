@@ -1,4 +1,4 @@
-# vaeon - UI v2: Usability & Design Pass (Phase 1: research + design)
+# truestill - UI v2: Usability & Design Pass (Phase 1: research + design)
 
 Status: **Phase 1 deliverable, awaiting approval.** No build. Presentation + UX over the existing
 working API; the engine is untouched. Constraint held: vanilla JS + server-rendered HTML + a
@@ -22,7 +22,7 @@ launch**. Every fix below traces to one of those.
   not blind CSS. No Playwright needed; nexdue ships no `.mcp.json`, so nothing to borrow there.
 - **nexdue** - mirrored only its *documentation discipline* (`docs/BRAND_COLORS.md`: named hex +
   role table + CSS-var mapping + do/don't). **Not** its stack: no React/Next/Tailwind/TypeScript,
-  no violet brand. vaeon gets its own identity (§2).
+  no violet brand. truestill gets its own identity (§2).
 - Other marketplace plugins (LSPs, code tools) - not design-relevant.
 
 ---
@@ -32,7 +32,7 @@ launch**. Every fix below traces to one of those.
 Settled backend fact: browsers deliberately withhold absolute host paths from file inputs and
 drag-drop, so a web app needing the *server's own* path must **list its own filesystem** and let
 the client drill through it. A bare text path field is the universal failure - it's filed as a bug
-against every tool below, and it's exactly what bit vaeon's first user.
+against every tool below, and it's exactly what bit truestill's first user.
 
 **What the category does (with sources):**
 
@@ -57,7 +57,7 @@ against every tool below, and it's exactly what bit vaeon's first user.
   click, like Jellyfin") and **qBittorrent #16195** (no filesystem browser; fixed only by alt
   front-ends) - both confirm the pain is live and the expected mental model is Jellyfin's.
 
-**Recommended model for vaeon - a "Browse…" button → Jellyfin-style modal:**
+**Recommended model for truestill - a "Browse…" button → Jellyfin-style modal:**
 
 1. **Common-roots rail** (server-enumerated, never hardcoded): Home, Pictures, Downloads, Desktop,
    and **mounted drives** (`/media/*`, `/mnt/*`, `/run/media/*`; `/Volumes/*`; drive letters).
@@ -86,10 +86,10 @@ This lists directories only - it does **not** touch the pipeline (see NOT-in-sco
 
 ### Purpose / subject (pinned)
 
-vaeon takes the chaotic pile of someone's photos and videos - **irreplaceable memories** - and
+truestill takes the chaotic pile of someone's photos and videos - **irreplaceable memories** - and
 quietly sorts them, removes duplicates, and makes sure they exist in **more than one place**. The
 home screen's single job: let a non-technical person point at a messy folder and **trust** that
-vaeon will organize it *without losing anything*. The product's real material is **custody of
+truestill will organize it *without losing anything*. The product's real material is **custody of
 memories**; trust is the whole product.
 
 ### Tone
@@ -107,16 +107,16 @@ respect reduced motion.
 
 ### Differentiation - choices specific to *this* subject
 
-- **Type is the signature, and it's true to the subject.** vaeon's world is filenames, counts,
+- **Type is the signature, and it's true to the subject.** truestill's world is filenames, counts,
   dates, and `sha256` - so **data speaks in monospace**. Body/UI uses the system sans; every
   **path, count, hash, and the wordmark** use the system **monospace** stack. This costs zero
-  bytes (no web font), reads "precise file tool that respects your data," and separates vaeon from
+  bytes (no web font), reads "precise file tool that respects your data," and separates truestill from
   the all-sans SaaS default. Structure is information: monospace *is* the vernacular of the subject.
-- **The custody strip (the one memorable element).** vaeon's promise is 3-2-1: your memories live
+- **The custody strip (the one memorable element).** truestill's promise is 3-2-1: your memories live
   in more than one verified place. That truth is made ambient as a tiny monospace indicator -
   `▪ ▪ ▫` filling by verified-copy count, **in the green "safe" semantic** - shown beside each drive
   and in a persistent library line (`1,240 photos · safe in 2 places`). It encodes something real
-  (redundancy), stays quiet, and becomes vaeon's mark. **Not** a big number with a gradient.
+  (redundancy), stays quiet, and becomes truestill's mark. **Not** a big number with a gradient.
 
 ### Design tokens - the accent decision (revised after the §3 survey)
 
@@ -124,7 +124,7 @@ respect reduced motion.
 visual survey (§3) shows every restraint-first peer - Immich `#4250AF`, Linear `#5E6AD2`,
 Filebrowser `#8EB2FF` - independently converges on a **muted indigo-blue**, and flags that a
 backup tool should keep **green reserved for "verified / backed up."** Teal (a blue-green) would
-*compete* with that green-means-safe semantic - the exact thing vaeon's custody strip depends on.
+*compete* with that green-means-safe semantic - the exact thing truestill's custody strip depends on.
 So the accent becomes a **calm indigo (`#4C63C4`)** and **green (`#2f9e57`) becomes the "safe"
 semantic**. This is the more subject-specific choice, not less: two meanings, cleanly separated -
 **indigo = act, green = safe** - with the boldness spent on the *monospace-data + custody-strip*
@@ -191,7 +191,7 @@ independently on a muted blue/indigo single accent** - the strongest signal for 
 **Cross-tool synthesis adopted into §2:** one desaturated blue/indigo accent; neutrals carry
 structure (5–7 near-neutral steps, separated by luminance); never pure black/white canvas;
 dark-mode accent lightens + desaturates; 4px spacing, 1px hairlines, minimal/no shadows, one radius
-family; text hierarchy by luminance tier. The §2 token table is the concrete result - with vaeon's
+family; text hierarchy by luminance tier. The §2 token table is the concrete result - with truestill's
 own move of **reserving green for the "safe/verified" custody semantic**, which the survey
 explicitly recommends for a backup pipeline.
 
@@ -232,7 +232,7 @@ Replace the single scrolling page (all six sections stacked, everything firing o
 
 ```
 ┌──────────────┬─────────────────────────────────────────────┐
-│ vaeon        │                                             │
+│ truestill        │                                             │
 │              │   [ active screen: cards ]                  │
 │ ▸ Organize   │                                             │
 │   Trips      │                                             │
@@ -300,7 +300,7 @@ Below are the six screens (markdown wireframes). Copy uses §4; every result is 
 **Organize (home)**
 ```
 Organize
-Point vaeon at a messy folder; it sorts copies into an organized folder - originals untouched.
+Point truestill at a messy folder; it sorts copies into an organized folder - originals untouched.
 
 Folder to organize   [ /home/you/Pictures/dump          ] [ Browse ]   37 photos here
 Organized folder     [ /media/BackupA                   ] [ Browse ]   ✓ backup drive
@@ -326,7 +326,7 @@ Folder   [ … ] [ Browse ]      [ Find trips ]
 **Import (Google Photos / Takeout)**
 ```
 Import from Google Photos
-Bring in a Google Takeout export - vaeon recovers the real photo dates and removes duplicates.
+Bring in a Google Takeout export - truestill recovers the real photo dates and removes duplicates.
 
 Takeout folder [ … ] [ Browse ]   Organized folder [ … ] [ Browse ]   [ Preview import ]
 
