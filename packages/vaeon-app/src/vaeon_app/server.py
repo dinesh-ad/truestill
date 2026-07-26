@@ -15,9 +15,8 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 from starlette.staticfiles import StaticFiles
-from vaeon_core import event_review
 from vaeon_core.catalog import Catalog
-from vaeon_core.event_review import EventDecision, commit
+from vaeon_core.event_review import EventDecision, commit_catalog
 from vaeon_core.events import merge_candidates, split_candidate
 
 from vaeon_app import service
@@ -122,19 +121,25 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
     # --- Event review (session-based; merge/split are UI-only, no CLI path) ---
     sessions: dict[str, dict[str, Any]] = {}
 
-    def _clusters_payload(session_id: str) -> JSONResponse:
+    def _clusters_payload(session_id: str, **extra: Any) -> JSONResponse:
         clusters = sessions[session_id]["clusters"]
         return JSONResponse(
-            {"session": session_id, "clusters": [service.cluster_json(c) for c in clusters]}
+            {
+                "session": session_id,
+                "clusters": [service.cluster_json(c) for c in clusters],
+                **extra,
+            }
         )
 
     async def events_propose(request: Request) -> JSONResponse:
-        body = await request.json()
-        resolutions, metadata = service.plan_resolve(Path(body["source"]), _db())
-        clusters = event_review.propose(resolutions, metadata)
+        """Review trips on an already-organized connected drive (not a fresh source import)."""
+        path = Path((await request.json())["path"])
+        proposal = service.propose_events(path, _db())
+        if not proposal["ok"]:
+            return JSONResponse({"ok": False, "error": proposal["error"]})
         session_id = uuid.uuid4().hex
-        sessions[session_id] = {"resolutions": resolutions, "clusters": clusters}
-        return _clusters_payload(session_id)
+        sessions[session_id] = {"path": str(path), "clusters": proposal["clusters"]}
+        return _clusters_payload(session_id, ok=True, label=proposal["label"])
 
     async def events_merge(request: Request) -> JSONResponse:
         session_id = request.path_params["session"]
@@ -154,6 +159,11 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
         return _clusters_payload(session_id)
 
     async def events_apply(request: Request) -> JSONResponse:
+        """Name the reviewed trips: record each event and link its files (files.event_id).
+
+        This is the 'Save names' step. It changes only the catalog; the on-disk placement is a
+        separate, previewed, journalled migration (events_preview / events_apply_to_disk).
+        """
         session_id = request.path_params["session"]
         names: list[str | None] = (await request.json())["names"]
         session = sessions[session_id]
@@ -162,14 +172,19 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
             for cluster, name in zip(session["clusters"], names, strict=True)
         ]
         with Catalog(_db()) as catalog:
-            outcome = commit(session["resolutions"], decisions, catalog)
-        session["resolutions"] = outcome.resolutions  # event-applied, ready for a run
-        placements = [
-            {"name": r.decision.source.name, "relative": r.decision.relative.as_posix()}
-            for r in outcome.resolutions
-            if r.decision.category.rule == "device"
-        ]
-        return JSONResponse({"events": len(outcome.event_ids), "placements": placements})
+            named = commit_catalog(catalog, decisions)
+        return JSONResponse({"events": named})
+
+    async def events_preview(request: Request) -> JSONResponse:
+        """Preview where the just-named trips will move the drive's files (moves nothing)."""
+        session = sessions[request.path_params["session"]]
+        return JSONResponse(service.migration_preview(Path(session["path"]), _db()))
+
+    async def events_apply_to_disk(request: Request) -> JSONResponse:
+        """Apply the trip placement: a journalled, resumable relocation on the drive."""
+        session = sessions[request.path_params["session"]]
+        job_id = jobs.start(service.migration_apply(Path(session["path"]), _db()))
+        return JSONResponse({"job_id": job_id})
 
     routes = [
         Route("/", home),
@@ -189,6 +204,8 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
         Route("/api/events/{session}/merge", events_merge, methods=["POST"]),
         Route("/api/events/{session}/split", events_split, methods=["POST"]),
         Route("/api/events/{session}/apply", events_apply, methods=["POST"]),
+        Route("/api/events/{session}/preview", events_preview, methods=["POST"]),
+        Route("/api/events/{session}/apply-to-disk", events_apply_to_disk, methods=["POST"]),
         Route("/api/jobs/{job_id}/events", job_events),
         Route("/api/jobs/{job_id}/cancel", job_cancel, methods=["POST"]),
         Route("/api/drives", drives),

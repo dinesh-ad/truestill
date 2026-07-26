@@ -350,7 +350,14 @@ function renderClusters(clusters) {
   });
 }
 $("ev-propose").onclick = async () => {
-  const r = await api("/api/events/propose", { source: $("ev-source").value.trim() });
+  $("ev-result").innerHTML = "";
+  $("ev-apply-card").classList.add("hidden");
+  const r = await api("/api/events/propose", { path: $("ev-source").value.trim() });
+  if (r.ok === false) {
+    $("ev-clusters").innerHTML = card(`<div class="banner warn"><div>${esc(r.error)}</div></div>`);
+    $("ev-actions-card").classList.add("hidden");
+    return;
+  }
   evSession = r.session;
   renderClusters(r.clusters);
 };
@@ -363,10 +370,42 @@ $("ev-apply").onclick = async () => {
   const names = [...document.querySelectorAll("#ev-clusters .card")].map((row) => {
     const inp = row.querySelector(".ev-name");
     return inp && inp.value.trim() ? inp.value.trim() : null;
-  }).filter((_, i, arr) => arr);
+  });
   const r = await api(`/api/events/${evSession}/apply`, { names });
-  $("ev-result").innerHTML = card(`<div class="headline">Named ${nfmt(r.events)} photo(s) into trips.</div>`);
+  if (!r.events) {
+    $("ev-result").innerHTML = card(`<div class="k">No trips named yet — type a name above, then Save names.</div>`);
+    return;
+  }
+  $("ev-result").innerHTML = card(
+    `<div class="headline">${nfmt(r.events)} trip(s) named.</div>
+     <div class="k">Next: preview where these photos will move on the drive.</div>`);
+  // Preview the on-disk placement (reuses the migrate engine).
+  const p = await api(`/api/events/${evSession}/preview`, {});
+  $("ev-apply-card").classList.remove("hidden");
+  $("ev-disk-result").innerHTML = "";
+  if (!p.ok) { $("ev-moves").innerHTML = `<div class="banner warn"><div>${esc(p.error)}</div></div>`; return; }
+  $("ev-moves").innerHTML = p.moves.length
+    ? `<div class="headline">${nfmt(p.moves.length)} photo(s) will move into trip folders</div>
+       <details class="more"><summary>Show the moves</summary>
+         <div class="mono k">${p.moves.slice(0, 200).map((m) => `${esc(m.old)} → ${esc(m.new)}`).join("<br>")}</div></details>`
+    : `<div class="k">Nothing to move — these photos are already in their trip folders.</div>`;
+  $("ev-apply-disk").classList.toggle("hidden", p.moves.length === 0);
 };
+let evJob = null;
+$("ev-apply-disk").onclick = async () => {
+  const { job_id } = await api(`/api/events/${evSession}/apply-to-disk`, {});
+  evJob = job_id;
+  $("ev-progress").classList.remove("hidden");
+  streamJob(job_id, (d) => setBar("ev-bar", "ev-count", d.done, d.total),
+    (d) => {
+      $("ev-progress").classList.add("hidden");
+      $("ev-apply-disk").classList.add("hidden");
+      $("ev-disk-result").innerHTML = card(`<div class="headline">Moved ${nfmt((d.summary || d).migrated || 0)} photo(s) into trip folders.</div>`);
+      evJob = null;
+      loadCustody();
+    });
+};
+$("ev-cancel").onclick = () => { if (evJob) api(`/api/jobs/${evJob}/cancel`, {}); };
 
 // ---------- Settings: layout + migrate ----------
 function renderLayoutPreview(rows) {

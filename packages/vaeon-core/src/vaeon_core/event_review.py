@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 from vaeon_core.catalog import Catalog
@@ -133,6 +134,58 @@ def commit(
         event_ids,
         [d.cluster for d in decisions],
     )
+
+
+def _parse_dt(value: Any) -> datetime:
+    return datetime.fromisoformat(str(value))
+
+
+def propose_from_catalog(catalog: Catalog, drive_uuid: str) -> list[EventCandidate]:
+    """Propose trips from an *already-organized* drive's dated camera copies (no source re-read).
+
+    This is the web UI's "review trips in place" path: it clusters what the catalog already knows,
+    so naming trips operates on the organized library rather than a fresh import.
+    """
+    items = [
+        EventItem(
+            key=str(row["sha256"]),
+            captured_at=_parse_dt(row["captured_at"]),
+            sha256=str(row["sha256"]),
+        )
+        for row in catalog.camera_copies_for_events(drive_uuid)
+    ]
+    return cluster_camera(items)
+
+
+def commit_catalog(catalog: Catalog, decisions: list[EventDecision]) -> int:
+    """Persist reviewed trip names against the catalog: record each event and link its files.
+
+    Linking ``files.event_id`` is what lets a subsequent migration place each file under its event
+    folder. Returns the number of events named (skips are remembered, not counted).
+    """
+    skipped = catalog.skipped_signatures()
+    named = 0
+    for decision in decisions:
+        cluster = decision.cluster
+        signature = cluster.signature
+        existing = catalog.event_by_signature(signature)
+        if existing is not None:
+            event_id = int(existing["id"])
+        elif decision.name and decision.name.strip():
+            event_id = catalog.record_event(
+                name=decision.name.strip(),
+                slug=slugify(decision.name),
+                start_date=cluster.start.isoformat(),
+                file_count=cluster.count,
+                signature=signature,
+            )
+        else:
+            if signature not in skipped:
+                catalog.record_skip(signature)
+            continue
+        catalog.set_event_id([item.sha256 for item in cluster.items], event_id)
+        named += 1
+    return named
 
 
 def run_event_stage(

@@ -350,6 +350,24 @@ class Catalog:
         ).fetchone()
         return None if row is None else str(row["relative"])
 
+    def camera_copies_for_events(self, drive_uuid: str) -> list[sqlite3.Row]:
+        """Dated camera copies on a drive -- the clustering input for reviewing trips in place.
+
+        Only the device rule's default ``Camera`` label is proposed as trips (by-device layouts
+        are a follow-on); undated files carry no time to cluster on and are excluded.
+        """
+        return list(
+            self._conn.execute(
+                """
+                SELECT fc.sha256, f.captured_at
+                FROM file_copies fc
+                JOIN files f ON f.sha256 = fc.sha256
+                WHERE fc.drive_uuid = ? AND f.category = 'Camera' AND f.captured_at IS NOT NULL
+                """,
+                (drive_uuid,),
+            )
+        )
+
     def record_migration_moves(self, moves: list[tuple[str, str, str, str, str | None]]) -> None:
         """Journal planned moves ``(sha256, drive_uuid, old, new, copy_sha256)`` before touching disk."""
         with self._tx() as conn:
@@ -588,6 +606,17 @@ class Catalog:
             "SELECT id FROM events WHERE signature = ?", (signature,)
         ).fetchone()
         return int(row["id"])
+
+    def set_event_id(self, shas: list[str], event_id: int) -> None:
+        """Link each content hash to a named event, so a migration places it under the event folder."""
+        if not shas:
+            return
+        placeholders = ",".join("?" for _ in shas)
+        with self._tx() as conn:
+            conn.execute(
+                f"UPDATE files SET event_id = ? WHERE sha256 IN ({placeholders})",
+                (event_id, *shas),
+            )
 
     def record_skip(self, signature: str) -> None:
         """Remember that the user skipped this cluster, so it is not re-proposed unchanged."""

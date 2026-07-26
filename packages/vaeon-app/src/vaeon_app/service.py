@@ -19,6 +19,7 @@ from vaeon_core.categorize import build_rules
 from vaeon_core.dedup import DedupIndex
 from vaeon_core.destinations import LocalDestination
 from vaeon_core.drive import read_marker
+from vaeon_core.event_review import EventDecision, commit, propose, propose_from_catalog
 from vaeon_core.exif import read_metadata
 from vaeon_core.hashing import DEFAULT_PHASH_THRESHOLD, HEIF_AVAILABLE, HEIF_EXTENSIONS
 from vaeon_core.layout import (
@@ -140,6 +141,17 @@ def organize_run(
                 progress=progress,
                 cancel=cancel,
             )
+            # Apply any *already-named* trips whose cluster recurs in this source, so a fresh
+            # import lands its camera files under the same event folder (matched by signature).
+            # Only saved events are applied -- unnamed clusters are left untouched (never
+            # auto-skipped), so they stay reviewable in the Trips screen later.
+            saved = [
+                EventDecision(c, None)
+                for c in propose(resolutions, metadata)
+                if catalog.event_by_signature(c.signature) is not None
+            ]
+            if saved:
+                resolutions = commit(resolutions, saved, catalog, template=template).resolutions
             marker = read_marker(destination)
             drive_uuid = None
             if marker is not None:
@@ -470,6 +482,24 @@ def set_layout(template_str: str, db: Path) -> dict[str, Any]:
     with Catalog(db) as catalog:
         catalog.set_setting(LAYOUT_TEMPLATE_KEY, template_str)
     return {"valid": True, **layout_state(db)}
+
+
+def propose_events(path: Path, db: Path) -> dict[str, Any]:
+    """Cluster trips from an already-organized connected drive (the 'review trips in place' path).
+
+    Returns the drive uuid + the cluster objects (the caller keeps them in a session for
+    merge/split/name), or an error when the path is not a connected vaeon drive.
+    """
+    marker = read_marker(path)
+    if marker is None:
+        return {
+            "ok": False,
+            "error": "no .vaeon-drive.json at that path -- is the drive connected?",
+        }
+    with Catalog(db) as catalog:
+        catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+        clusters = propose_from_catalog(catalog, marker.uuid)
+    return {"ok": True, "uuid": marker.uuid, "label": marker.label, "clusters": clusters}
 
 
 def migration_preview(path: Path, db: Path) -> dict[str, Any]:
