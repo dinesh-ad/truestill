@@ -1,4 +1,4 @@
-# vaeon workspace root (virtual: no [project] of its own).
+# truestill workspace root (virtual: no [project] of its own).
 # Members are the real packages under packages/*. Shared tooling config lives here so it
 # applies uniformly across every member; each member's pyproject carries only its own
 # [project] metadata and build config.

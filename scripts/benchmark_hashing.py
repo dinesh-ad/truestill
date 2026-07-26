@@ -20,7 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from vaeon.scan import compute_hashes
+from truestill.scan import compute_hashes
 
 REAL_SET = Path.home() / "gphotos-staging" / "takeout-test" / "extracted" / "takeout-test"
 
@@ -62,7 +62,7 @@ def main() -> None:
         if real:
             _bench("real test set", real)
 
-    tmp = Path(tempfile.mkdtemp(prefix="vaeon-bench-"))
+    tmp = Path(tempfile.mkdtemp(prefix="truestill-bench-"))
     try:
         for count in (2000, 5000):
             subdir = tmp / str(count)

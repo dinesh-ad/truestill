@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS migration_journal (
     PRIMARY KEY (sha256, drive_uuid)
 );
 
--- Audit/resume journal for `vaeon reclaim`: one row per source deletion, written just before
+-- Audit/resume journal for `truestill reclaim`: one row per source deletion, written just before
 -- the delete and cleared just after. A row surviving a crash names a source that was verified-
 -- redundant and about to be freed -- an audit trail, since reclaim never deletes an unverified
 -- source. `freed_bytes` records the space each delete reclaimed.
@@ -127,7 +127,7 @@ CURRENT_SCHEMA_VERSION = 9
 
 
 class CatalogVersionError(RuntimeError):
-    """The catalog on disk was written by a newer vaeon than this one understands."""
+    """The catalog on disk was written by a newer truestill than this one understands."""
 
 
 def _column_names(conn: sqlite3.Connection) -> set[str]:
@@ -230,7 +230,7 @@ def _add_migration_journal(conn: sqlite3.Connection) -> None:
 
 
 def _add_reclaim_journal(conn: sqlite3.Connection) -> None:
-    """v8 -> v9: an audit/resume journal for `vaeon reclaim` source deletions."""
+    """v8 -> v9: an audit/resume journal for `truestill reclaim` source deletions."""
     conn.executescript(
         """
         CREATE TABLE IF NOT EXISTS reclaim_journal (
@@ -275,7 +275,7 @@ class Catalog:
         """Bring the database schema to CURRENT_SCHEMA_VERSION via PRAGMA user_version.
 
         A fresh database gets the whole current schema in one step. An existing one is
-        lifted through the ordered migrations. A database from a *newer* vaeon is refused
+        lifted through the ordered migrations. A database from a *newer* truestill is refused
         rather than risked.
         """
         conn = self._conn
@@ -283,8 +283,8 @@ class Catalog:
 
         if version > CURRENT_SCHEMA_VERSION:
             message = (
-                f"catalog schema is version {version} but this vaeon understands only "
-                f"{CURRENT_SCHEMA_VERSION}; upgrade vaeon to open it"
+                f"catalog schema is version {version} but this truestill understands only "
+                f"{CURRENT_SCHEMA_VERSION}; upgrade truestill to open it"
             )
             raise CatalogVersionError(message)
 

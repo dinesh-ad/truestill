@@ -88,7 +88,7 @@ def local_naive(aware_utc: datetime, offset: timedelta | None) -> datetime:
 
     ``offset`` None means "treat the UTC clock as the wall clock" (documented default). Any
     real offset shifts once via :meth:`datetime.astimezone`; the result is naive to match the
-    rest of vaeon's date model. Near midnight this can move the calendar day -- surfaced in
+    rest of truestill's date model. Near midnight this can move the calendar day -- surfaced in
     the ingest report rather than hidden.
     """
     target = timezone(offset) if offset is not None else UTC

@@ -23,7 +23,7 @@ from typing import Literal
 import imagehash
 from PIL import Image, UnidentifiedImageError
 
-# vaeon processes the user's OWN local library, not untrusted web uploads, so Pillow's ~89 MP
+# truestill processes the user's OWN local library, not untrusted web uploads, so Pillow's ~89 MP
 # "decompression bomb" guard is a false positive on legitimate large photos -- panoramas,
 # medium-format, and flatbed scans routinely exceed it (the corpus has a 144 MP image). Immich and
 # PhotoPrism sidestep the issue entirely by decoding through libvips, which streams arbitrarily

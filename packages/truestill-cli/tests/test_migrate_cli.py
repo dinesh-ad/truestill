@@ -1,4 +1,4 @@
-"""`vaeon migrate-layout`: requires a connected drive, previews by default, applies on request."""
+"""`truestill migrate-layout`: requires a connected drive, previews by default, applies on request."""
 
 from __future__ import annotations
 

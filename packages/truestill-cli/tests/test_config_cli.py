@@ -1,4 +1,4 @@
-"""`vaeon config`: show / set-template / preset / preview, and organize honoring the result."""
+"""`truestill config`: show / set-template / preset / preview, and organize honoring the result."""
 
 from __future__ import annotations
 

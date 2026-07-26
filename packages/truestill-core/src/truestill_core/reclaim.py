@@ -1,6 +1,6 @@
 """Space-safe source reclamation: delete source files whose content is safely backed up.
 
-The standalone half of feature (k) -- `vaeon reclaim`. It frees a source file **only** after
+The standalone half of feature (k) -- `truestill reclaim`. It frees a source file **only** after
 re-hashing a destination copy of that content on a currently-connected drive and confirming it
 matches (the re-verify-always policy: a stale ``last_verified`` is never trusted for an
 irreversible delete). The delete is journalled for audit/resume. `--min-copies` gates on how many

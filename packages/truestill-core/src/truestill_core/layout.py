@@ -51,7 +51,7 @@ _NON_DATE_TOKENS: frozenset[str] = frozenset({"category", "event"})
 #: Every token the v1 grammar accepts.
 KNOWN_TOKENS: frozenset[str] = frozenset(_DATE_TOKENS) | _NON_DATE_TOKENS
 
-#: The structure vaeon has always produced; the default until a catalog stores its own.
+#: The structure truestill has always produced; the default until a catalog stores its own.
 DEFAULT_TEMPLATE_STRING = "{category}/{yyyy}/{mm}"
 
 #: The catalog settings key under which a library's chosen template is persisted.

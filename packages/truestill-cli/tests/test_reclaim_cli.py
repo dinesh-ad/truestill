@@ -1,4 +1,4 @@
-"""`vaeon reclaim`: connected-drive required, dry-run default, typed 'delete' confirmation."""
+"""`truestill reclaim`: connected-drive required, dry-run default, typed 'delete' confirmation."""
 
 from __future__ import annotations
 

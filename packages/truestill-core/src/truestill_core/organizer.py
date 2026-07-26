@@ -133,7 +133,7 @@ def media_kind(name: str) -> str | None:
 
 
 #: Common document / archive extensions, reported separately from unrecognized files so a
-#: skipped ``.pdf`` reads differently from a skipped video format vaeon does not yet organize.
+#: skipped ``.pdf`` reads differently from a skipped video format truestill does not yet organize.
 DOCUMENT_EXTENSIONS: frozenset[str] = frozenset(
     {
         ".pdf",
@@ -174,7 +174,7 @@ class SourceScan:
     """Everything found under a source, partitioned so nothing is silently dropped.
 
     ``media`` is what the pipeline organizes; ``documents`` are known non-media files;
-    ``unrecognized`` is everything else skipped -- which may include video formats vaeon does
+    ``unrecognized`` is everything else skipped -- which may include video formats truestill does
     not yet recognize. The two skipped lists are surfaced in the end-of-run report.
     """
 
@@ -297,7 +297,7 @@ def resolve(
 ) -> list[Resolution]:
     """Hash each file (concurrently) and classify it, updating ``index`` as it goes.
 
-    Hashing is a parallel pass with a size pre-filter (see :mod:`vaeon.scan`); the dedup
+    Hashing is a parallel pass with a size pre-filter (see :mod:`truestill.scan`); the dedup
     classification that follows is sequential because it is order-dependent. Exact (SHA-256)
     is checked before perceptual (dHash). By policy the two tiers differ: an exact duplicate
     is skipped and *not* indexed (its hash is already known); a perceptual near-duplicate is
@@ -428,7 +428,7 @@ def _upload_with_metadata_write(
     the invariant "originals are untouched" holds even though the uploaded copy now differs
     (by metadata only, losslessly) from the source.
     """
-    with tempfile.TemporaryDirectory(prefix="vaeon-ingest-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="truestill-ingest-") as tmp:
         staged = Path(tmp) / decision.relative.name
         shutil.copy2(decision.source, staged)
         write_metadata(

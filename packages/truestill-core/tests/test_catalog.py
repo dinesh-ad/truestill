@@ -74,7 +74,7 @@ def test_fresh_catalog_is_current_version(tmp_path: Path) -> None:
 
 
 def _make_v1_catalog(path: Path) -> None:
-    """Hand-build a pre-``size`` (v1) catalog with one row, as an old vaeon would leave it."""
+    """Hand-build a pre-``size`` (v1) catalog with one row, as an old truestill would leave it."""
     conn = sqlite3.connect(str(path))
     conn.executescript(
         """

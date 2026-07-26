@@ -41,7 +41,7 @@ class Destination(ABC):
 
     # -- optional: in-place relocation, used only by layout migration ---------------------
     # Backends that can move and re-hash their own files override these. The default refuses,
-    # so `vaeon migrate-layout` simply reports the backend as unsupported rather than guessing.
+    # so `truestill migrate-layout` simply reports the backend as unsupported rather than guessing.
 
     def relocate(self, old_relative_path: str, new_relative_path: str) -> None:
         """Copy ``old`` to ``new`` within the destination (does not remove ``old``)."""
