@@ -3,7 +3,9 @@
 > ## ✅ Re-run on the fixed build (2026-07-26) — verdict: **launch-ready**
 >
 > All approved fixes are shipped, each screenshot-verified on a live build; `make check` green
-> (249 tests) throughout. **Both blockers are resolved and both approved features are built.**
+> throughout. **Both blockers are resolved and both approved features are built.**
+> *(This line originally cited a test count as evidence. It has grown since, and the count was
+> never the point - the standard says assert behaviour, not totals. Green is the claim.)*
 >
 > | Original finding | Status on the fixed build |
 > |---|---|

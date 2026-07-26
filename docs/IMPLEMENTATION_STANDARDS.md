@@ -82,8 +82,14 @@ sole date reader. A container-parsing fallback (pymediainfo / hachoir / ffprobe)
 when a real corpus shows a file it - and only it - can *correctly* date; hachoir is disqualified
 (reports EXIF `ModifyDate` as capture). On the evidence to date the designated front-runner, if
 one is ever justified, is **ffprobe** (the only sentinel-safe parser observed). When that happens,
-date **provenance** (`date_tool`, `date_field`) is reserved for catalog **schema v9**, and the
-fallback slots into `resolve_capture_datetime` between embedded-EXIF and the filename tier.
+the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the filename tier.
+
+> **Schema note.** This policy originally reserved catalog **schema v9** for persisted date
+> **provenance** (`date_tool`, `date_field`). v9 shipped as `reclaim_journal` instead, and the
+> `files` table still has no date-source column - so **the next free version is v10**, and that
+> is where provenance lands. `DateSource` is already resolved per file and already aggregated
+> per run by `models.date_quality` and the two report surfaces; only the *library-wide* figure
+> (BACKLOG item (n)) needs the column.
 
 ---
 
@@ -190,12 +196,15 @@ successful upgrade), never automatic.
 
 ## 6. Quality gates
 
-- **`make check`** = `ruff check .` (lint) + `mypy` on both `src` trees + `pytest` (`Makefile`).
-- **`ruff format --check`** is a separate gate in CI (and `make format` applies it).
+- **`make check`** = `ruff check .` (lint) + `ruff format --check` + `mypy` on **all three**
+  `src` trees + `pytest` (`Makefile`).
+- **`ruff format --check`** is also a separate gate in CI (and `make format` applies it).
 - **CI** (`.github/workflows/ci.yml`): matrix **{ubuntu, macos, windows} × Python 3.13**; steps
   = sync → ruff (lint) → ruff (format --check) → mypy → pytest; exiftool installed per-OS.
-- **`uv build --all-packages`** must produce clean wheels for both packages (`make build`);
-  `truestill-core` ships `py.typed`.
+  The mypy step and `.pre-commit-config.yaml` both cover all three packages - keep the three
+  in step with each other.
+- **`uv build --all-packages`** must produce clean wheels for **all three packages**
+  (`make build`); `truestill-core` ships `py.typed`.
 - **Test counts are never hardcoded** as a done-ness signal - they change. Assert behaviour,
   not totals.
 
@@ -217,9 +226,16 @@ SHA-256 (`hashlib`), SQLite (`sqlite3`), concurrency (`concurrent.futures`), and
 work are **stdlib** - no dependency. **BLAKE3 is deliberately absent** (SHA-256 is hardware-
 accelerated and doubles as the dedup + verification hash without a compiled dep).
 
-**Version policy:** `requires-python` = `>=3.12` (core), `>=3.13` (cli). Lower-bound + lock;
+**Version policy:** `requires-python` = **`>=3.13` for all three packages**. Lower-bound + lock;
 `uv.lock` is the single source of truth; no blind upper-pins; updates via periodic
 `uv lock --upgrade` review.
+
+> Core declared `>=3.12` until 2026-07-27. It was **not** a 3.12 incompatibility - core was
+> verified importing and running correctly on 3.12.13 - it was an **untested claim**, since CI
+> only ever ran 3.13. The floor was raised so the declaration matches what is actually
+> exercised. If a real user needs 3.12 (Ubuntu 24.04 LTS ships it as system Python), lowering
+> it back is cheap: add a CI job that installs `truestill-core` alone on 3.12 and runs its
+> tests, then drop the floor. Do not assume incompatibility from the `>=3.13`.
 
 ---
 

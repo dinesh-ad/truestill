@@ -37,7 +37,9 @@ def test_cross_origin_is_rejected(client: TestClient) -> None:
 
 
 def test_static_is_exempt_from_token(client: TestClient) -> None:
-    assert client.get("/static/style.css").status_code == 200
+    # An asset the page actually links -- a test pointing at an orphan file would keep the
+    # orphan alive and stop proving the exemption works for anything real.
+    assert client.get("/static/app.css").status_code == 200
 
 
 def test_home_serves_and_injects_token(client: TestClient) -> None:

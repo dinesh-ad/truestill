@@ -3,14 +3,16 @@ name = "truestill-core"
 version = "0.1.0"
 description = "Core library: categorize, date, de-duplicate and place media into a Category/YYYY/MM tree."
 authors = [{ name = "truestill contributors" }]
-requires-python = ">=3.12"
+# 3.13 to match what CI actually exercises, not a known 3.12 incompatibility: core was
+# verified importing and running correctly on 3.12.13. Lowering this again is cheap -- add a
+# CI job that installs core alone on 3.12 and runs its tests, then drop the floor.
+requires-python = ">=3.13"
 readme = "README.md"
 license = "Apache-2.0"
 keywords = ["photos", "media", "organizer", "deduplication", "backup", "exif"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: End Users/Desktop",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Multimedia :: Graphics",
     "Topic :: System :: Archiving :: Backup",

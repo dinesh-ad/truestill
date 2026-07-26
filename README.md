@@ -1,6 +1,8 @@
 # truestill
 
-Categorize and date-organize a photo/video library into a stable, browsable tree:
+Categorize and date-organize a photo and video library into a stable, browsable tree.
+Audio files (voice memos, `.m4a`/`.mp3`/`.amr` and friends) are recognized, organized and
+counted alongside them, but photos and videos are what truestill is built and tuned for:
 
 ```
 <destination>/
@@ -9,7 +11,7 @@ Categorize and date-organize a photo/video library into a stable, browsable tree
 ├── Screenshots/2026/07/
 ├── Telegram/2024/01/
 ├── Snapseed/2023/05/           <- created on the fly, no code change
-└── Unsorted/Undated/
+└── Saved/Undated/
 ```
 
 The month folder is the bare two-digit month (`07`); the year is already the parent
@@ -22,9 +24,10 @@ but nothing in it is Google-specific.
 
 Labels are **derived from each file's own evidence**, not chosen from a fixed list. A
 library containing Signal, Snapseed, a flatbed scanner or a camera brand the tool has
-never seen grows those folders by itself. Only files with no identifying evidence at all
-land in `Unsorted`, which is deliberately a dead end rather than a dumping ground - a
-growing `Unsorted` is a signal that a rule is worth adding.
+never seen grows those folders by itself. Files whose origin cannot be proven land in
+`Saved` - named that, and not `Unsorted`, because to a normal user "unsorted" reads as a
+failure when these are genuinely just images saved from apps or the web, whose origin is
+unknowable by design (platforms strip EXIF on upload).
 
 ## How a file is classified
 
@@ -37,7 +40,7 @@ Rules run in priority order and the **first** match wins:
 | 3 | `filename_convention` | Extensible table: WhatsApp `-WA<n>`, Telegram (2 conventions), Signal, Instagram, Facebook, Snapchat, Viber, WeChat, Discord, Line, … | medium |
 | 4 | `software` | `Software` tag naming an application → folder named after it | low |
 | 5 | `device` | `Make` + `Model` (or video `SamsungModel`) → `Camera`, or the device itself with `--by-device` | medium |
-| 6 | `fallback` | nothing matched → `Unsorted` | low |
+| 6 | `fallback` | nothing matched → `Saved` | low |
 
 Order is load-bearing. Screenshots are checked **before** device metadata because a
 screenshot often also carries `Make`/`Model` and would otherwise be filed as a camera
