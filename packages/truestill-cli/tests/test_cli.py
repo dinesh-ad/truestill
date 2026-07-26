@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from vaeon_cli.cli import main
+from truestill_cli.cli import main
 
 
 def test_help_exits_zero() -> None:

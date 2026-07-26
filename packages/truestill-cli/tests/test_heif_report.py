@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from truestill_cli.cli import _print_heif_note
 from truestill_core.categorize import CategoryMatch, Confidence
 from truestill_core.models import DateSource, Decision, FileHashes, Resolution
-from vaeon_cli.cli import _print_heif_note
 
 
 def _heic_resolution() -> Resolution:
@@ -32,7 +32,7 @@ def _heic_resolution() -> Resolution:
 def test_note_fires_when_plugin_unavailable(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr("vaeon_cli.cli.HEIF_AVAILABLE", False)
+    monkeypatch.setattr("truestill_cli.cli.HEIF_AVAILABLE", False)
     _print_heif_note([_heic_resolution()])
     out = capsys.readouterr().out
     assert "HEIC/HEIF" in out
@@ -43,6 +43,6 @@ def test_note_fires_when_plugin_unavailable(
 def test_note_silent_when_plugin_available(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr("vaeon_cli.cli.HEIF_AVAILABLE", True)
+    monkeypatch.setattr("truestill_cli.cli.HEIF_AVAILABLE", True)
     _print_heif_note([_heic_resolution()])
     assert capsys.readouterr().out == ""  # nothing to warn about

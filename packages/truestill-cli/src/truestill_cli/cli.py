@@ -55,11 +55,11 @@ from truestill_core.takeout import (
 )
 from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
 
-from vaeon_cli.events_review import Prompt, album_prompt, run_event_stage
+from truestill_cli.events_review import Prompt, album_prompt, run_event_stage
 
 _SEPARATOR = "=" * 100
 _DEFAULT_DB = Path("reports/catalog.sqlite")
-_STATUS_PREVIEW = 20  # how many single-copy files `vaeon status` lists before eliding
+_STATUS_PREVIEW = 20  # how many single-copy files `truestill status` lists before eliding
 
 
 def _parse_tz(value: str) -> timedelta:
@@ -124,7 +124,7 @@ def _add_common_options(parser: argparse.ArgumentParser) -> None:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="vaeon",
+        prog="truestill",
         description="Organize, de-duplicate and back up a media library to a pluggable destination.",
     )
     sub = parser.add_subparsers(dest="command", required=True)
@@ -246,7 +246,7 @@ def _cmd_drives(args: argparse.Namespace) -> int:
 
         drives = catalog.list_drives()
         if not drives:
-            print("No drives known. Initialise one: vaeon drives --init <root> --label <name>")
+            print("No drives known. Initialise one: truestill drives --init <root> --label <name>")
             return 0
         print(f"{'LABEL':<20}{'FILES':>8}{'SIZE(MB)':>12}  {'LAST SEEN':<22}LAST VERIFIED")
         for d in drives:
@@ -321,7 +321,7 @@ def _cmd_verify(args: argparse.Namespace) -> int:
     for result in results:
         if result.status is not CopyStatus.VERIFIED:
             print(f"  {result.status.value.upper():<9} {result.copy.relative}")
-    print("\n  (read-only: vaeon never repairs; re-copy the source to restore a bad file.)")
+    print("\n  (read-only: truestill never repairs; re-copy the source to restore a bad file.)")
     return 1 if (counts.get("missing") or counts.get("mismatch")) else 0
 
 
@@ -364,7 +364,7 @@ def _local_drive_marker(args: argparse.Namespace) -> DriveMarker | None:
 
     rclone remotes are always-online cloud, not drives-in-a-drawer, so drive tracking is scoped
     to local destinations. A local root without a marker is fine -- copies just aren't tracked
-    per-drive until `vaeon drives init` is run there.
+    per-drive until `truestill drives init` is run there.
     """
     if args.rclone:
         return None
@@ -716,7 +716,7 @@ def _print_skipped(scan: SourceScan) -> None:
     if scan.unrecognized:
         print(f"  unrecognized: {len(scan.unrecognized)}  ({_fmt_extensions(scan.unrecognized)})")
         print(
-            "    (not recognized as media; some may be video formats vaeon does not organize yet)"
+            "    (not recognized as media; some may be video formats truestill does not organize yet)"
         )
 
 

@@ -54,9 +54,9 @@ packages/
 │   ├── catalog.py      SQLite state; schema versioned via PRAGMA user_version
 │   ├── destinations/   pluggable Destination backends (local, rclone)
 │   └── organizer.py    pure planning, then opt-in execution
-└── vaeon-cli/src/vaeon_cli/     # the `vaeon` command (thin wrapper over the core)
+└── truestill-cli/src/truestill_cli/     # the `vaeon` command (thin wrapper over the core)
     ├── cli.py          argparse entry point and the decision report
-    └── __main__.py     python -m vaeon_cli
+    └── __main__.py     python -m truestill_cli
 ```
 
 Shared ruff/mypy/pytest config lives in the virtual workspace root `pyproject.toml`.

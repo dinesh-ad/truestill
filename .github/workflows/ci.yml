@@ -53,7 +53,7 @@ jobs:
         run: uv run ruff format --check .
 
       - name: Mypy
-        run: uv run mypy packages/truestill-core/src/truestill_core packages/vaeon-cli/src/vaeon_cli packages/vaeon-app/src/vaeon_app
+        run: uv run mypy packages/truestill-core/src/truestill_core packages/truestill-cli/src/truestill_cli packages/vaeon-app/src/vaeon_app
 
       - name: Pytest
         run: uv run pytest

@@ -3,7 +3,7 @@
 Design gate for the local web UI (`packages/vaeon-app`). **No build in this phase.** Decision
 already fixed: a plain **local web app** (Python server + browser UI on localhost), no
 Tauri/Electron/Rust; a native shell may wrap it later. The engine is untouched - `vaeon-app`
-calls `truestill-core` as a library, exactly as `vaeon-cli` does, and `vaeon-cli` stays co-equal.
+calls `truestill-core` as a library, exactly as `truestill-cli` does, and `truestill-cli` stays co-equal.
 
 ---
 
@@ -12,24 +12,24 @@ calls `truestill-core` as a library, exactly as `vaeon-cli` does, and `vaeon-cli
 ### A1. Interaction inventory (what the UI must expose)
 | Interaction | Where | Shape today |
 |---|---|---|
-| **Event review name/skip** | `vaeon_cli/events_review.py::run_event_stage` (L92); prompt type `Prompt = Callable[[EventCandidate], str \| None]` (L22) | Already **injectable** - the prompt is a callback. `_stdin_prompt` (L83, `input()`/`isatty`) is the CLI's implementation. |
+| **Event review name/skip** | `truestill_cli/events_review.py::run_event_stage` (L92); prompt type `Prompt = Callable[[EventCandidate], str \| None]` (L22) | Already **injectable** - the prompt is a callback. `_stdin_prompt` (L83, `input()`/`isatty`) is the CLI's implementation. |
 | **`--map-albums` auto-name** | `events_review.py::album_prompt` (L67) | A non-interactive `Prompt` that returns the majority album. |
 | **Dry-run vs apply** | `organizer.execute(apply=...)`; CLI `_run_pipeline` | A *mode*, not a prompt - clean to model as a request flag. |
 | **Verify** | `cli.py::_cmd_verify` (L213); `verify.verify_copies` (core) | Core is pure; the CLI prints a single end report. |
 
 **Takeaway:** the one genuinely interactive stage (event review) already takes an injected
-callback - good. But it lives in `vaeon-cli` (see A2).
+callback - good. But it lives in `truestill-cli` (see A2).
 
 ### A2. Purity check - the required refactor
-`run_event_stage` and its helper `camera_items` live in **`vaeon-cli/events_review.py`**, yet
+`run_event_stage` and its helper `camera_items` live in **`truestill-cli/events_review.py`**, yet
 every import they use is from **`truestill-core`** (`catalog`, `events`, `hashing`, `models`,
 `organizer`). The only CLI-specific things inside are `print(...)` calls and `_stdin_prompt`.
 
 > **Refactor R1 (required):** move the *pure orchestration* (cluster → resolve names against
 > the catalog → `apply_events`) into **`truestill-core`** (e.g. `truestill_core/event_review.py`), prompt
-> injected, **no printing** - it returns structured proposals/results. `vaeon-cli` keeps its
+> injected, **no printing** - it returns structured proposals/results. `truestill-cli` keeps its
 > `_stdin_prompt`/`album_prompt`/printing; `vaeon-app` supplies a UI-driven prompt. This is what
-> lets `vaeon-app` **never import `vaeon-cli`** (the architecture rule).
+> lets `vaeon-app` **never import `truestill-cli`** (the architecture rule).
 
 Everything else the UI needs is already pure and injectable: `plan`, `resolve`, `execute`,
 `scan.compute_hashes`, `verify.verify_copies`, `cluster_camera`, the catalog, `drive.py`.
@@ -180,10 +180,10 @@ Python, stdlib `threading` for cancellation).
 ---
 
 ## Part D - Required core refactors before/with the build (summary)
-- **R1** move event-review orchestration `vaeon-cli` → `truestill-core` (prompt injected, no I/O).
+- **R1** move event-review orchestration `truestill-cli` → `truestill-core` (prompt injected, no I/O).
 - **R2** add `progress` + `cancel` to `compute_hashes`, `verify_copies`, `execute`.
 - **R3** evolve the event decision from `(cluster)->str|None` to data-in/decision-out to support
   merge/split.
 
-These keep `vaeon-app` free of any `vaeon-cli` import and give the UI progress, cancellation and
-merge/split. `vaeon-cli` is updated to the new core APIs and stays co-equal; `make check` green.
+These keep `vaeon-app` free of any `truestill-cli` import and give the UI progress, cancellation and
+merge/split. `truestill-cli` is updated to the new core APIs and stays co-equal; `make check` green.

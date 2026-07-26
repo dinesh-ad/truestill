@@ -1,8 +1,8 @@
 [project]
-name = "vaeon-cli"
+name = "truestill-cli"
 version = "0.1.0"
-description = "Command-line interface for vaeon: organize, de-duplicate and back up a media library."
-authors = [{ name = "vaeon contributors" }]
+description = "Command-line interface for truestill: organize, de-duplicate and back up a media library."
+authors = [{ name = "truestill contributors" }]
 requires-python = ">=3.13"
 readme = "README.md"
 license = "Apache-2.0"
@@ -19,18 +19,18 @@ dependencies = [
 ]
 
 [project.scripts]
-vaeon = "vaeon_cli.cli:main"
+truestill = "truestill_cli.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/dinesh-ad/vaeon"
-Repository = "https://github.com/dinesh-ad/vaeon"
+Homepage = "https://github.com/dinesh-ad/truestill"
+Repository = "https://github.com/dinesh-ad/truestill"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/vaeon_cli"]
+packages = ["src/truestill_cli"]
 
 # Resolve the truestill-core dependency from this workspace rather than PyPI.
 [tool.uv.sources]

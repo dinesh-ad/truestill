@@ -34,12 +34,12 @@ unfixable = []
 
 [tool.ruff.lint.per-file-ignores]
 # CLI - stdout IS the output mechanism for the decision report
-"packages/vaeon-cli/src/vaeon_cli/cli.py" = [
+"packages/truestill-cli/src/truestill_cli/cli.py" = [
     "T201",    # print() is intentional here
     "PLR0913", # report/render helpers take many display flags
 ]
 # Event review is CLI-facing: it prints prompts/tables to the terminal.
-"packages/vaeon-cli/src/vaeon_cli/events_review.py" = [
+"packages/truestill-cli/src/truestill_cli/events_review.py" = [
     "T201",    # print()/input() are the interaction mechanism
     "PLR0913", # run_event_stage forwards resolutions/metadata/catalog/apply/prompt/template
 ]
@@ -104,7 +104,7 @@ line-ending = "auto"
 [tool.pytest.ini_options]
 testpaths = [
     "packages/truestill-core/tests",
-    "packages/vaeon-cli/tests",
+    "packages/truestill-cli/tests",
     "packages/vaeon-app/tests",
 ]
 python_files = "test_*.py"

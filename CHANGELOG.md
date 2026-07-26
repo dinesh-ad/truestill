@@ -37,7 +37,7 @@ All notable changes to this project are documented here. The format follows
   (screenshots) are not double-dated and re-runs never stack a prefix; any mismatch keeps
   the authoritative metadata prefix. Originals are never renamed; the catalog records the
   original name alongside the new one. Disable with `--no-rename`.
-- uv workspace layout: `truestill-core` (library) and `vaeon-cli` (the `vaeon` command),
+- uv workspace layout: `truestill-core` (library) and `truestill-cli` (the `vaeon` command),
   ready for future packages (desktop/UI) without restructuring the core.
 - Concurrent hashing scan with a byte-size pre-filter (`truestill_core.scan`); thread/process
   pool selectable via `--pool`, worker count via `--workers`.

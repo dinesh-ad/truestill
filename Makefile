@@ -1,6 +1,6 @@
 PYTHON := uv run
 CORE := packages/truestill-core/src/truestill_core
-CLI := packages/vaeon-cli/src/vaeon_cli
+CLI := packages/truestill-cli/src/truestill_cli
 APP := packages/vaeon-app/src/vaeon_app
 
 .PHONY: install lint format format-check typecheck test check build dryrun
@@ -31,4 +31,4 @@ build:
 
 # Dry run against the staging test set. Writes nothing.
 dryrun:
-	$(PYTHON) vaeon organize ~/gphotos-staging/takeout-test/extracted /tmp/organized-preview
+	$(PYTHON) truestill organize ~/gphotos-staging/takeout-test/extracted /tmp/organized-preview

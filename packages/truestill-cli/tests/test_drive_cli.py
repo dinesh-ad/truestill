@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
-from vaeon_cli.cli import main
+from truestill_cli.cli import main
 
 
 def test_drives_init_and_list(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

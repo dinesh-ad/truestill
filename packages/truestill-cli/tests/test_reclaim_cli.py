@@ -5,10 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from truestill_cli.cli import main
 from truestill_core.catalog import Catalog
 from truestill_core.drive import create_marker
 from truestill_core.hashing import sha256_file
-from vaeon_cli.cli import main
 
 
 def _seed(db: Path, drive: Path, source: Path, content: bytes = b"content") -> None:

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
-from vaeon_cli.cli import main
+from truestill_cli.cli import main
 
 pytestmark = pytest.mark.skipif(shutil.which("exiftool") is None, reason="exiftool not installed")
 

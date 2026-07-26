@@ -1,4 +1,4 @@
-"""Bridge from the web layer to truestill-core. Imports only truestill-core -- never vaeon-cli.
+"""Bridge from the web layer to truestill-core. Imports only truestill-core -- never truestill-cli.
 
 Read helpers return plain dicts for JSON; long operations return :data:`JobTarget`s that the
 job manager runs on a thread with progress + cancellation. Preview writes nothing (the CLI's

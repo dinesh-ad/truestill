@@ -8,9 +8,9 @@ resolution-markers = [
 
 [manifest]
 members = [
+    "truestill-cli",
     "truestill-core",
     "vaeon-app",
-    "vaeon-cli",
 ]
 
 [manifest.dependency-groups]
@@ -770,6 +770,17 @@ wheels = [
 ]
 
 [[package]]
+name = "truestill-cli"
+version = "0.1.0"
+source = { editable = "packages/truestill-cli" }
+dependencies = [
+    { name = "truestill-core" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "truestill-core", editable = "packages/truestill-core" }]
+
+[[package]]
 name = "truestill-core"
 version = "0.1.0"
 source = { editable = "packages/truestill-core" }
@@ -824,17 +835,6 @@ requires-dist = [
     { name = "truestill-core", editable = "packages/truestill-core" },
     { name = "uvicorn", specifier = ">=0.30" },
 ]
-
-[[package]]
-name = "vaeon-cli"
-version = "0.1.0"
-source = { editable = "packages/vaeon-cli" }
-dependencies = [
-    { name = "truestill-core" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "truestill-core", editable = "packages/truestill-core" }]
 
 [[package]]
 name = "virtualenv"

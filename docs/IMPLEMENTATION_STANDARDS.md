@@ -69,7 +69,7 @@ fallback slots into `resolve_capture_datetime` between embedded-EXIF and the fil
 - **uv workspace**, two packages (root `pyproject.toml` `[tool.uv.workspace]`):
   - `packages/truestill-core/` - the pure library. The clustering core (`events.py`) does **no
     I/O** and takes no filesystem/interaction dependencies; it operates on passed-in data.
-  - `packages/vaeon-cli/` - the thin CLI (`vaeon organize` / `vaeon ingest`), which wires
+  - `packages/truestill-cli/` - the thin CLI (`vaeon organize` / `vaeon ingest`), which wires
     core stages together and owns all interaction (prompts, printing).
   - Future packages (e.g. a desktop app) slot **beside** these without restructuring the core.
 - **Destinations behind an interface.** `destinations/base.py::Destination` (ABC:
@@ -162,7 +162,7 @@ Runtime deps must justify themselves against stdlib. Current state:
 | `pillow>=10.0.0` (`truestill-core`) | Image decoding backing imagehash and cheap dimension reads. **Large-image policy:** vaeon processes the user's own local library (trusted), not untrusted uploads, so Pillow's ~89 MP decompression-bomb guard is a false positive on legitimate large photos (panoramas/scans). `hashing.MAX_PERCEPTUAL_PIXELS` raises `Image.MAX_IMAGE_PIXELS` to **300 MP** deliberately; above it a pathological image is **skipped for perceptual hashing** (SHA-256 exact dedup still applies) and the bomb *warning* is suppressed locally so **no raw Pillow warning reaches the terminal**. (Immich/PhotoPrism avoid this entirely via libvips streaming.) |
 | `pillow-heif>=0.16.0` (`truestill-core`) | Registers a HEIF opener so Pillow can decode **HEIC/HEIF** (the iPhone-default format since 2017), enabling their perceptual near-dup dedup. **Graceful degradation is mandatory:** `hashing._register_heif` guards the import; if it ever fails at runtime, `HEIF_AVAILABLE` is `False`, SHA-256 exact dedup still applies to HEIC, and the run **reports** that HEIC perceptual hashing was skipped - never a silent drop. TIFF-based RAW (CR2/NEF/DNG/…) needs no plugin (Pillow's TIFF decoder content-sniffs it); container-based RAW (CR3, RAF) is exact-dedup-only. |
 | `exiftool` (external **binary**, not a pip dep) | The only tool that reads photo EXIF, **video container tags**, and vendor MakerNotes (e.g. the screenshot marker) through one interface, and the writer used for the scoped Takeout bake. A pip EXIF library would cover photos only. |
-| `vaeon-cli` runtime deps | Only `truestill-core` (workspace source). |
+| `truestill-cli` runtime deps | Only `truestill-core` (workspace source). |
 
 SHA-256 (`hashlib`), SQLite (`sqlite3`), concurrency (`concurrent.futures`), and all path/date
 work are **stdlib** - no dependency. **BLAKE3 is deliberately absent** (SHA-256 is hardware-
