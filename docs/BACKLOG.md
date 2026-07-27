@@ -174,3 +174,61 @@ decision context that produced them.
 
   Post-launch build; Pro-tier candidate. Research refs to carry in: the embedded-thumbnail trap,
   the XMP/IPTC/MakerNotes layers, MP4 container metadata boxes, and Live Photo pairing.
+
+- **(r) Analyze-only mode.** An explicit **"Analyze"** entry point (CLI + app) that runs the
+  existing dry-run engine and returns a richer **read-only** report: file counts, photo /
+  video / audio split with per-extension formats, exact duplicates with the bytes they waste,
+  look-alikes with their potential savings, the capture-date range, and the category split.
+  Nothing is written and nothing is organized -- it answers *"what is actually in here?"* for
+  a user who wants insight before, or instead of, committing to a run.
+  - **Free tier by design.** It is the funnel: the moment someone learns something true about
+    their own library is the moment the product earns trust. Gating it would gate the
+    argument for using truestill at all.
+  - **Shares its soul with the web dedup teaser** (parked above): same question, same honest
+    answer, one in the terminal or app and one in a browser. Build them knowing that.
+  - Most of the data already exists in `service._summarize` and the CLI's decision report;
+    this is largely a surfacing and naming job rather than new analysis.
+- **(s) Source-folder names as event evidence.** Generalize the Takeout **album → event**
+  mapping to plain sources: a meaningful source folder name becomes a **pre-named event
+  proposal** in the existing review flow.
+  - **The problem, concretely:** an `Olympics/` input folder scatters by capture date today
+    and its name -- the single best piece of evidence about what those photos *are* -- is
+    discarded. Dates say when; the folder said what.
+  - **Filtered against noise:** `DCIM`, `Camera`, `Pictures`, date-pattern directories
+    (`2024-06-15`, `20240615`) and similar carry no meaning and must not become event names.
+  - **Never auto-applied.** It produces *proposals*; the user confirms, renames or skips, in
+    the review flow that already exists. A folder name is evidence, not a decision -- the
+    same posture as every other derived label.
+  - Reuses `events` + `event_review` machinery; the new part is the evidence source and its
+    noise filter.
+- **(t) Reflink / copy-on-write fast path.** On filesystems that support it (APFS, btrfs, XFS,
+  ReFS) a clone (`FICLONE` / `clonefile`) makes a copy effectively instant and free.
+  **Optimization, not correctness** -- `shutil.copy2` already uses `sendfile`/`fcopyfile` fast
+  paths today, so this is a further step rather than a missing one, and newer Python is
+  growing stdlib support worth waiting for.
+  - ⚠ **Recorded caution, to design against before building:** a clone initially **shares
+    blocks with the source**. That interacts directly with the independent-verified-copy story
+    -- `copy_sha256` would still verify, because the bytes are identical, but "a second copy"
+    that shares extents with the first is not the same thing as an independent one for the
+    purposes truestill's custody model claims. Two files on one drive sharing blocks survive
+    a `verify` and do **not** survive the block going bad. Decide explicitly what a cloned
+    copy means for `file_copies`, for the custody count, and for the at-risk banner **before**
+    any of it ships; the honest answer may be that clones are fine within a drive but must
+    never count toward 3-2-1 redundancy.
+
+## App-surface deferrals (CLI-only for now)
+
+Recorded together because they share one reason: each is a **space-safe or destructive**
+operation whose failure mode is unrecoverable, and the QA walkthrough's B2 lesson -- a UI
+that reported an outcome it had not produced -- is merely confusing for a copy and permanent
+for a move.
+
+- **`organize --move`, `truestill reclaim`, `organize --in-place` + `undo-organize`** stay
+  **CLI-only**. GUI demand is to be judged from **soak and launch feedback**, not assumed.
+  When one does get a surface, the pre-approved shape is advisory same-device detection plus
+  a typed confirmation identical to the CLI's.
+- **`{camera_model}` layout token** -- demand **re-confirmed by the user** during the soak
+  era. Stays **deferred / Pro-tier candidate** as originally recorded in
+  `org-structure-research.md` (§C1 "explicitly NOT v1 tokens"): it needs device metadata
+  plumbed into the template render context. Recorded here so the re-confirmation is not lost
+  the next time the token list is reviewed.
