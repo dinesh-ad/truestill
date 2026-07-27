@@ -15,16 +15,41 @@ async function api(path, body) {
 }
 const get = (path) => api(path);
 
+// Terminal events come in two shapes -- a completion carries `summary`, a failure carries
+// `message` -- and every caller used to read `summary.error`, which a failure never has. The
+// result was a failed verify rendering `nfmt(undefined)` three times: "NaN verified · NaN
+// missing · NaN changed". Normalising here means no caller can get that wrong again.
 function streamJob(jobId, onProgress, onDone) {
   const es = new EventSource(`/api/jobs/${jobId}/events?token=${encodeURIComponent(TOKEN)}`);
   es.onmessage = (e) => {
     const d = JSON.parse(e.data);
     if (d.type === "progress") { onProgress(d); return; }
     es.close();
-    onDone(d);
+    const failed = d.type === "error";
+    onDone({
+      ok: !failed,
+      status: d.status || (failed ? "error" : "done"),
+      error: failed ? (d.message || "something went wrong") : null,
+      code: d.code || null,
+      summary: failed ? {} : (d.summary || {}),
+    });
   };
   es.onerror = () => es.close();
   return es;
+}
+
+// Known failures worth answering with a next step rather than an apology. Matched on an
+// exception name from the server, never on message text, which would break the moment
+// anyone reworded it.
+const FRIENDLY_ERRORS = {
+  NotABackupDriveError:
+    "This folder isn’t a truestill backup yet — use <b>Copy your library to another drive</b> " +
+    "below to create one.",
+};
+
+function jobErrorCard(d) {
+  const friendly = d.code && FRIENDLY_ERRORS[d.code];
+  return card(`<div class="banner warn"><div>${friendly || esc(d.error)}</div></div>`);
 }
 function setBar(barId, countId, done, total) {
   const pct = total ? Math.round((done / total) * 100) : 0;
@@ -460,8 +485,8 @@ $("org-preview").onclick = async () => {
     (d) => {
       orgProgress.stop();
       orgJob = null;
-      const s = d.summary || d;
-      if (s.error) { $("org-result").innerHTML = card(`<div class="banner warn"><div>${esc(s.error)}</div></div>`); return; }
+      const s = d.summary;
+      if (!d.ok) { $("org-result").innerHTML = jobErrorCard(d); return; }
       if (d.status === "cancelled") {
         // Never report a cancelled check as an empty folder: the run stopped, it did not
         // find nothing. Same failure the "Done / nothing to do" blocker was.
@@ -489,7 +514,7 @@ $("org-run").onclick = async () => {
     (d) => orgProgress.update(d),
     (d) => {
       orgProgress.stop();
-      const r = d.summary || d;
+      const r = d.summary;
       if (d.status === "cancelled") {
         // A cancelled run still organized everything it reached, and those files are real.
         // Show the same card, labelled honestly, rather than implying nothing happened.
@@ -510,7 +535,17 @@ async function loadDrives() {
   const [{ drives, at_risk }, lib] = await Promise.all([api("/api/drives"), get("/api/library/status")]);
   const list = $("drives-list");
   if (!drives.length) {
-    list.innerHTML = `<div class="card"><div class="empty">No backup drives yet. Connect one and click “Check now”.</div></div>`;
+    // Guide, do not merely report. The old text ("connect one and click Check now") pointed at
+    // the wrong section for the commonest state -- a library with no backup yet -- where
+    // checking has nothing to check and copying is the actual next step.
+    const hasLibrary = (lib.photos || 0) + (lib.videos || 0) + (lib.audio || 0) > 0;
+    list.innerHTML = `<div class="card"><div class="empty">${hasLibrary
+      ? `<b>Your library isn’t backed up yet.</b><br>
+         You have ${mediaCount(lib)} organized and no second copy of them.<br>
+         Connect a drive, then use <b>Copy your library to another drive</b> below.`
+      : `<b>No backups yet — and nothing to back up.</b><br>
+         Organize some photos first, then come back here to copy them to a second drive.`}
+      </div></div>`;
     return;
   }
   // Library summary (counts + formats only, catalog-driven — deliberately not a dashboard).
@@ -527,19 +562,22 @@ async function loadDrives() {
   }).join("");
   list.innerHTML = summary + cards + risk;
 }
+let verifyJob = null;
 $("verify-run").onclick = async () => {
   const path = $("verify-path").value.trim();
   $("verify-result").innerHTML = card("Checking…");
   const { job_id } = await api("/api/verify/run", { path });
+  verifyJob = job_id;
   verifyProgress.start("checking");
   streamJob(job_id,
     (d) => verifyProgress.update(d),
     (d) => {
       verifyProgress.stop();
-      const s = d.summary || d;
-      $("verify-result").innerHTML = s.error
-        ? card(`<div class="banner warn"><div>${esc(s.error)}</div></div>`)
-        : card(`<div class="headline">Checked ${esc(s.label || "")}</div>
+      verifyJob = null;
+      if (!d.ok) { $("verify-result").innerHTML = jobErrorCard(d); return; }
+      const s = d.summary;
+      $("verify-result").innerHTML =
+        card(`<div class="headline">Checked ${esc(s.label || "")}</div>
            <div class="tally"><div class="n">${nfmt(s.verified)}</div><div class="k">verified</div>
            <div class="n">${nfmt(s.missing)}</div><div class="k">missing</div>
            <div class="n">${nfmt(s.mismatch)}</div><div class="k">changed</div></div>`);
@@ -547,7 +585,7 @@ $("verify-run").onclick = async () => {
       loadDrives();  // refresh the drive card's "last checked" from the verify just recorded
     });
 };
-$("verify-cancel").onclick = () => {};
+$("verify-cancel").onclick = () => { if (verifyJob) api(`/api/jobs/${verifyJob}/cancel`, {}); };
 
 // ---------- Find ----------
 $("where-go").onclick = async () => {
@@ -647,7 +685,9 @@ $("ev-apply-disk").onclick = async () => {
     (d) => {
       evProgress.stop();
       $("ev-apply-disk").classList.add("hidden");
-      $("ev-disk-result").innerHTML = card(`<div class="headline">Moved ${nfmt((d.summary || d).migrated || 0)} photo(s) into trip folders.</div>`);
+      $("ev-disk-result").innerHTML = d.ok
+        ? card(`<div class="headline">Moved ${nfmt(d.summary.migrated || 0)} photo(s) into trip folders.</div>`)
+        : jobErrorCard(d);
       evJob = null;
       loadCustody();
     });
@@ -683,9 +723,9 @@ $("bk-run").onclick = async () => {
     (d) => {
       bkProgress.stop();
       $("bk-run").classList.add("hidden");
-      const s = d.summary || d;
-      $("bk-result").innerHTML = s.error
-        ? card(`<div class="banner warn"><div>${esc(s.error)}</div></div>`)
+      const s = d.summary;
+      $("bk-result").innerHTML = !d.ok
+        ? jobErrorCard(d)
         : card(`<div class="headline">Copied ${nfmt(s.copied || 0)} photo(s) to ${esc(s.to || "the drive")}.</div>`);
       bkJob = null;
       loadDrives();    // per-drive counts + at-risk banner refresh from real state
@@ -743,7 +783,14 @@ $("mig-run").onclick = async () => {
   migJob = job_id;
   migProgress.start("moving");
   streamJob(job_id, (d) => migProgress.update(d),
-    (d) => { migProgress.stop(); $("mig-result").innerHTML = card(`<div class="headline">Moved ${nfmt((d.summary || d).migrated || 0)} file(s).</div>`); migJob = null; loadDrives(); });
+    (d) => {
+      migProgress.stop();
+      $("mig-result").innerHTML = d.ok
+        ? card(`<div class="headline">Moved ${nfmt(d.summary.migrated || 0)} file(s).</div>`)
+        : jobErrorCard(d);
+      migJob = null;
+      loadDrives();
+    });
 };
 $("mig-cancel").onclick = () => { if (migJob) api(`/api/jobs/${migJob}/cancel`, {}); };
 

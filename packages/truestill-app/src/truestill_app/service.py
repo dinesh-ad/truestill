@@ -63,6 +63,19 @@ from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
 from truestill_app.jobs import JobTarget
 
 
+class NotABackupDriveError(ValueError):
+    """The path is a real folder, but not a truestill backup drive.
+
+    Typed rather than a bare ValueError so the UI can answer it with the *next step* ("copy
+    your library here to make one") instead of restating the failure. The client matches on
+    this class name, never on the message text, which would break on any rewording.
+    """
+
+
+def _not_a_drive() -> NotABackupDriveError:
+    return NotABackupDriveError(f"no {MARKER_NAME} at that path -- is the drive connected?")
+
+
 def _now() -> str:
     return datetime.now(UTC).isoformat()
 
@@ -296,9 +309,10 @@ def _result_size(result: ActionResult, destination: Path) -> int:
         if candidate is None:
             continue
         try:
-            return candidate.stat().st_size
+            size: int = candidate.stat().st_size
         except OSError:
             continue
+        return size
     return 0
 
 
@@ -308,8 +322,7 @@ def verify_run(path: Path, db: Path) -> JobTarget:
     def target(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
         marker = read_marker(path)
         if marker is None:
-            message = f"no {MARKER_NAME} at that path -- is the drive connected?"
-            raise ValueError(message)
+            raise _not_a_drive()
         with Catalog(db) as catalog:
             catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
             rows = catalog.copies_on_drive(marker.uuid)
@@ -757,8 +770,7 @@ def migration_apply(path: Path, db: Path) -> JobTarget:
     def target(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
         marker = read_marker(path)
         if marker is None:
-            message = f"no {MARKER_NAME} at that path -- is the drive connected?"
-            raise ValueError(message)
+            raise _not_a_drive()
         with Catalog(db) as catalog:
             catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
             template = resolve_template(catalog.get_setting(LAYOUT_TEMPLATE_KEY))

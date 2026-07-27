@@ -160,13 +160,43 @@ def test_organize_run_summary_matches_files_on_disk(client: TestClient, tmp_path
     assert "uploaded" not in json.dumps(summary)
 
 
-def test_organize_result_handler_unwraps_summary(client: TestClient) -> None:
-    """Guard the frontend fix: the Organize done-handler must read the outcome the same way
-    Verify/Migrate do -- via the ``summary`` wrapper -- not the bare top-level key that caused
-    a successful run to render "nothing to do". (No JS runtime here, so we pin it in source.)"""
+def test_terminal_job_events_are_normalized_before_any_handler_sees_them(
+    client: TestClient,
+) -> None:
+    """Guard two blockers at once, both caused by handlers reading raw terminal events.
+
+    A completion carries ``summary``; a failure carries ``message``. Handlers used to read
+    ``summary.outcomes`` (which a failure lacks -> "Done / nothing to do") and ``summary.error``
+    (which a failure also lacks -> ``nfmt(undefined)`` rendering as **NaN**). streamJob now
+    hands every handler one shape, so neither mistake is reachable. No JS runtime here, so the
+    contract is pinned in source.
+    """
     app_js = client.get(f"/static/app.js?token={_TOKEN}").text
-    assert "d.summary || d" in app_js  # the correct unwrap is present
-    assert '$("org-result").innerHTML = r.organized' in app_js  # reads the unwrapped summary
+    assert "ok: !failed" in app_js  # streamJob normalizes before calling back
+    assert "d.summary || d" not in app_js  # no handler reads the raw event any more
+    assert "s.error" not in app_js  # nor the field a failure never has
+    assert "jobErrorCard" in app_js  # failures render through one shared path
+
+
+def test_a_non_drive_verify_is_answered_with_a_next_step(
+    client: TestClient, tmp_path: Path
+) -> None:
+    """Checking an ordinary folder rendered "NaN verified · NaN missing · NaN changed".
+
+    The server raises a *typed* error so the UI can answer with what to do instead, and the
+    client matches on the class name rather than the message text.
+    """
+    plain = tmp_path / "not-a-drive"
+    plain.mkdir()
+    started = client.post(f"/api/verify/run?token={_TOKEN}", json={"path": str(plain)})
+    done = _stream_to_done(client, started.json()["job_id"])
+
+    assert done["type"] == "error"
+    assert done["code"] == "NotABackupDriveError"  # identifiable without parsing prose
+
+    app_js = client.get(f"/static/app.js?token={_TOKEN}").text
+    assert "NotABackupDriveError" in app_js  # the client knows this case
+    assert "Copy your library to another drive" in app_js  # and names the next step
 
 
 def test_no_backend_jargon_reaches_the_user(client: TestClient) -> None:

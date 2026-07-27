@@ -73,7 +73,16 @@ class JobManager:
                 job.events.put({"type": _SENTINEL_DONE, "status": job.status, "summary": summary})
             except Exception as exc:
                 job.status = "error"
-                job.events.put({"type": _SENTINEL_ERROR, "message": str(exc)})
+                # The exception's class name travels with the message so the UI can answer a
+                # known situation with a next step. Matching on a class is stable; matching on
+                # message text would break the first time anyone rewords it.
+                job.events.put(
+                    {
+                        "type": _SENTINEL_ERROR,
+                        "message": str(exc),
+                        "code": type(exc).__name__,
+                    }
+                )
 
         threading.Thread(target=run, daemon=True).start()
         return job.id
