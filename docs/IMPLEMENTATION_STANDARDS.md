@@ -285,7 +285,11 @@ accelerated and doubles as the dedup + verification hash without a compiled dep)
 - **One disk pass per file per run.** Re-runs skip already-processed content via catalog resume
   (`catalog.known_sizes` seeds the pre-filter; `catalog.seed_rows` seeds the dedup index).
   *A per-path mtime hash cache is **convention - not yet implemented**; catalog resume-by-content
-  currently serves the re-run case.*
+  currently serves the re-run case. It is no longer a standalone item: it is bound to Analyze
+  mode as one feature (`BACKLOG.md` (r)), because Analyze runs the full expensive pass and
+  without the cache the journey Analyze → Organize pays for it twice. When it is built, mtime
+  stays **invalidation-only** - it must never influence placement, and a stale entry must never
+  be able to decide an outcome.*
 - **Concurrency for I/O-bound batches** via a worker pool (`scan.compute_hashes`, thread or
   process, benchmarked default = thread).
 - **No accidental O(n²).** The perceptual dedup is a linear scan per file, documented in

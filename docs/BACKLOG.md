@@ -6,19 +6,46 @@ decision context that produced them.
 
 ## Approved, not yet built
 
-- **Hash cache (size + mtime keyed).** Approved in the PixSort-extras decision as a re-run
-  speedup; never built. mtime is used **only** for change detection, never for date placement
-  (that rule is absolute). Today, catalog resume-by-content (`catalog.known_sizes` +
-  `seed_rows`) covers re-runs; the cache would additionally skip re-hashing unchanged files
-  across runs. Marked convention-not-implemented in `IMPLEMENTATION_STANDARDS.md` §8.
-  - **Reference design:** PixSort `backend/pixsort/utils/hash_cache.py` - a small SQLite table
-    keyed on `(filepath, file_size, mtime)` → content digest; a lookup validates the file is
-    unchanged (size **and** mtime within ~1s) before trusting the cached digest.
-  - **Constraints from the PixSort audit (`PixSort/AUDIT_REPORT.md`):** keep **a single cache
-    layer** - never a second parallel store (PixSort's dual-store drift was a defect). Invalidate
-    an entry on **size OR mtime mismatch**. **Wire cleanup into the run lifecycle** - PixSort
-    *defined* `cleanup_stale_entries()` but **never called it anywhere**, so stale rows
-    accumulated forever; truestill must actually invoke pruning as part of a run.
+- **(r) Analyze mode + the hash cache — one feature, shipped together.** Promoted from
+  "ideas" and bound to the previously-standalone hash-cache item, because the pairing is what
+  makes either worth building.
+  - **Analyze mode.** An explicit **"Analyze"** entry point (CLI + app) that runs the existing
+    dry-run engine and returns a richer **read-only** report: file counts, photo / video /
+    audio split with per-extension formats, exact duplicates with the bytes they waste,
+    look-alikes with their potential savings, the capture-date range, and the category split.
+    Nothing is written and nothing is organized -- it answers *"what is actually in here?"* for
+    someone who wants insight before, or instead of, committing to a run.
+    - **Free tier by design.** It is the funnel: the moment someone learns something true
+      about their own library is the moment the product earns trust. Gating it would gate the
+      argument for using truestill at all.
+    - **Shares its soul with the parked web dedup teaser**: same question, same honest answer,
+      one in the terminal or app and one in a browser. Build them knowing that.
+  - **Why the cache is not a separate item.** Analyze performs the **full expensive pass** --
+    dates, hashes, dedup. Without a cache the natural journey *Analyze → Organize* pays for
+    that pass **twice**, which makes the free analysis feel like a tax on organizing rather
+    than an invitation to it. With it, the second pass is nearly free, and preview→run and
+    repeat batches get faster as a side effect. Shipping Analyze without the cache would ship
+    the funnel and the friction in the same release.
+  - **Design (unchanged from the original entry).** A small SQLite table keyed on
+    `(filepath, file_size, mtime)` → content digest; a lookup validates the file is unchanged
+    (size **and** mtime) before trusting the cached digest. Reference implementation to study:
+    PixSort `backend/pixsort/utils/hash_cache.py`.
+  - **Invariants, restated because they are the whole safety argument:**
+    1. **mtime is for invalidation only, never for dating.** The absolute rule
+       (`IMPLEMENTATION_STANDARDS.md` §1) is untouched: mtime never influences where a file is
+       placed. The cache reads it to ask "did this file change?", which is the one question
+       mtime can answer honestly.
+    2. **Any size *or* mtime mismatch → hash it fresh.** Never a partial-match heuristic.
+    3. **The cache can only ever cost extra work, never produce a wrong answer.** A miss means
+       re-hashing; there is no path where a stale entry decides an outcome. If a design choice
+       ever trades that away for speed, it is the wrong choice.
+    4. **A single cache layer** -- never a second parallel store. PixSort's dual-store drift
+       was a defect, not a design.
+    5. **Cleanup is wired into the run lifecycle.** PixSort *defined*
+       `cleanup_stale_entries()` and **never called it anywhere**, so stale rows accumulated
+       forever. Pruning must actually run as part of a run, not merely exist.
+  - **Placement:** the **first post-launch wave, alongside (n)**. Earlier if the soak shows
+    repeat-run pain at real scale -- that evidence would move it, nothing else needs to.
 - **GPS-derived per-photo timezone.** Deferred during Takeout Rescue Mode. `--tz` is a single
   fixed offset for the whole run, which cannot correctly date a library that spans timezones;
   the real fix derives each photo's timezone from its GPS. The near-midnight caveat is
@@ -140,6 +167,33 @@ decision context that produced them.
      determine, in place, rather than implying more certainty than the evidence supports. This is
      the never-silent rule applied to a UI surface - the existing precedents are the HEIC
      perceptual-skip notice and the Tier A / Tier B date-quality lines.
+
+  **Quality ranking — the layer that makes the review worth doing (research-grounded).**
+  Within each near-duplicate group, rank the candidates by objective quality signals and use
+  that ranking to power the side-by-side review's **default suggestion**.
+
+  - **Never auto-action.** Constraint 3 above stands unchanged: a ranking produces a
+    *suggestion*, and where the evidence is weak it must still suggest nothing. Ranking makes
+    the human's decision cheaper; it does not make it for them.
+  - **Why this is the value, from the literature.** Representative-photo-selection and
+    burst-quality-assessment work (the PhotoCluster lineage through current blur/quality
+    assessment research) consistently finds that in de-duplication and burst review the
+    bottleneck is **review effort, not judgement**: people know which photo they want once
+    they see the pair, and give up long before they finish looking. A good ranked default is
+    therefore the feature -- it turns "review 400 pairs" into "confirm 400 defaults, correct
+    a few". Presenting an unranked pile is what makes duplicate review get abandoned.
+  - **Signals, cheapest first:** sharpness (Laplacian variance and similar classical focus
+    measures), exposure sanity, and resolution -- plus the evidence truestill already has from
+    constraint 2: original-vs-recompressed, and the copy-suffix filename pattern as *negative*
+    evidence.
+  - **Classical metrics first, zero ML dependencies.** They are cheap, explainable in one
+    sentence to a user, and defensible in a UI that promises honesty about what it can
+    determine. A learned model is only ever a justified later step, against measured
+    inadequacy of the simple metrics -- and it would have to earn its dependency against the
+    same policy every other dependency does (`IMPLEMENTATION_STANDARDS.md` §7).
+  - **Positioning:** this is what makes (m) the **Pro-tier crown feature alongside (p)**. The
+    safe-delete flow is the table stakes; knowing which copy to keep is the part worth paying
+    for.
 - **(n) "How your dates were determined" honesty stat — PRIORITIZED for first post-launch.** A
   per-run/library figure in the reports/UI showing the **provenance mix** of capture dates - e.g.
   "82% from embedded EXIF, 11% from filename, 5% from Takeout, 2% Undated" (a metadata-accuracy %).
@@ -175,19 +229,6 @@ decision context that produced them.
   Post-launch build; Pro-tier candidate. Research refs to carry in: the embedded-thumbnail trap,
   the XMP/IPTC/MakerNotes layers, MP4 container metadata boxes, and Live Photo pairing.
 
-- **(r) Analyze-only mode.** An explicit **"Analyze"** entry point (CLI + app) that runs the
-  existing dry-run engine and returns a richer **read-only** report: file counts, photo /
-  video / audio split with per-extension formats, exact duplicates with the bytes they waste,
-  look-alikes with their potential savings, the capture-date range, and the category split.
-  Nothing is written and nothing is organized -- it answers *"what is actually in here?"* for
-  a user who wants insight before, or instead of, committing to a run.
-  - **Free tier by design.** It is the funnel: the moment someone learns something true about
-    their own library is the moment the product earns trust. Gating it would gate the
-    argument for using truestill at all.
-  - **Shares its soul with the web dedup teaser** (parked above): same question, same honest
-    answer, one in the terminal or app and one in a browser. Build them knowing that.
-  - Most of the data already exists in `service._summarize` and the CLI's decision report;
-    this is largely a surfacing and naming job rather than new analysis.
 - **(s) Source-folder names as event evidence.** Generalize the Takeout **album → event**
   mapping to plain sources: a meaningful source folder name becomes a **pre-named event
   proposal** in the existing review flow.
@@ -232,3 +273,26 @@ for a move.
   `org-structure-research.md` (§C1 "explicitly NOT v1 tokens"): it needs device metadata
   plumbed into the template render context. Recorded here so the re-confirmation is not lost
   the next time the token list is reviewed.
+
+## Consciously out of scope (recorded with reasons)
+
+Not "not yet" -- decided **against**, so the question does not get re-litigated every time a
+neighbouring product ships one. Each would be a reasonable feature in a different product.
+
+- **Face recognition / people albums.**
+- **Semantic AI search** ("photos of a beach at sunset").
+- **Auto-generated Memories / highlight reels.**
+
+**Why all three, together:** they are one class -- **ML infrastructure** -- and adopting any of
+them changes what truestill *is*. Each needs models shipped or downloaded, a vector store or
+embedding index beside the catalog, GPU-or-slow inference, and a retraining/refresh story; that
+is a permanent tax on every install, and it lands squarely against the lean, local, no-network,
+minimal-dependency identity recorded in `ENGINEERING_STANDARD.md` §1 and
+`IMPLEMENTATION_STANDARDS.md` §7. It is also **Immich's and Ente's territory**, where they are
+strong and mature: competing there means being a worse version of a server product, while the
+thing truestill does that they do not -- custody of files you can still read without it -- goes
+unfinished.
+
+The honest framing for a user who wants these: run truestill for organizing and custody, and a
+gallery server for browsing and search. They compose. That answer is better than a shallow
+imitation of both.
