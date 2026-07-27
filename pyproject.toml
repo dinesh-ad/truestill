@@ -25,7 +25,7 @@ dev = [
 # --- Ruff (lint + format), applied repo-wide ------------------------------------------
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = [
@@ -128,7 +128,13 @@ addopts = "-v --tb=short"
 
 # --- mypy -----------------------------------------------------------------------------
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
+# Resolve workspace packages from source rather than from an installed copy, so mypy gives the
+# same answer in an isolated pre-commit env as it does under `uv run`. Without this, the
+# pre-commit hook cannot see `truestill_core` at all -- and its upstream default args include
+# `--ignore-missing-imports`, so it answered "fine" to an import of a module that had not
+# existed for two renames. Overriding those args (below) is only safe because of this line.
+mypy_path = "packages/truestill-core/src:packages/truestill-cli/src:packages/truestill-app/src"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

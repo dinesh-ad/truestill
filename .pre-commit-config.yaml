@@ -12,11 +12,20 @@ repos:
     rev: v1.13.0
     hooks:
       - id: mypy
-        # Match the repo's strict config; only type the source packages, not tests.
-        # Every workspace member's src/ is covered -- keep in step with `make typecheck`
-        # and the CI mypy step, which type all three.
-        files: ^packages/(truestill-core|truestill-cli|truestill-app)/src/
-        additional_dependencies: [imagehash, pillow, starlette]
+        # Match the repo's strict config: every workspace member's src/, plus scripts/,
+        # but not tests. Keep in step with `make typecheck` and the CI mypy step, which
+        # cover exactly this set.
+        files: ^(packages/(truestill-core|truestill-cli|truestill-app)/src/|scripts/)
+        # Override the upstream default args, which are `--ignore-missing-imports
+        # --scripts-are-modules`. The first silently answers "fine" to an import that cannot
+        # be resolved -- which is precisely how `scripts/benchmark_hashing.py` kept importing
+        # a module that had not existed since the vaeon -> truestill rename. Workspace
+        # packages resolve via `mypy_path` in pyproject.toml; third-party stub gaps are
+        # handled per-module there, not by a blanket flag.
+        args: []
+        # uvicorn was missing here and nothing noticed, because the blanket
+        # --ignore-missing-imports above was answering for it.
+        additional_dependencies: [imagehash, pillow, starlette, uvicorn]
 
   # Non-negotiable project rule: no AI co-author trailer / Anthropic-Claude email in history.
   # Activate with: uv run pre-commit install --hook-type commit-msg

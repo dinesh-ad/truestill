@@ -80,6 +80,17 @@ All notable changes to this project are documented here. The format follows
   The originals are still never touched - the batch bakes staged copies - and a process that
   dies mid-batch is **detected**, with every unconfirmed file reported failed rather than
   counted as organized.
+- **The type fence now covers `scripts/`, and the pre-commit hook no longer lies.**
+  `scripts/benchmark_hashing.py` imported `truestill.scan` - a module that has never existed
+  under that name - and survived two renames that way, because nothing was pointed at it. It
+  is repaired (correct import, no dead `sys.path` shim, the corpus read from
+  `TRUESTILL_CORPUS` instead of a hard-coded home directory, and one `type: ignore` removed by
+  typing the pool properly). Widening the fence also exposed that the pre-commit mypy hook
+  inherited `--ignore-missing-imports`, which had been silently answering "fine" for that very
+  import; it now runs with `args: []`, resolving workspace packages from source via
+  `mypy_path`. That in turn revealed `uvicorn` missing from the hook's dependencies.
+- **`[tool.mypy] python_version` and `[tool.ruff] target-version` raised 3.12 → 3.13**, to
+  match what all three packages require and what CI actually runs.
 - **The custody strip stopped doing 13x more work than it displays.** "Safe in N places" was
   building and sorting every at-risk row and then taking its length; it now counts. 224 ms →
   17.5 ms at 100,000 files, on a query that runs after every operation and on every load.

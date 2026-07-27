@@ -229,13 +229,20 @@ successful upgrade), never automatic.
 - **`make check`** = `ruff check .` (lint) + `ruff format --check` + `mypy` on the three
   `src` trees + `pytest` (`Makefile`).
 - **`ruff format --check`** is also a separate gate in CI (and `make format` applies it).
-- **The lint fence and the type fence are not the same size, and the difference is
-  deliberate-but-unfinished.** `ruff check .` is **repo-wide**: packages, `tests/e2e/`, and
-  `scripts/` (the last with its own per-file ignores in `[tool.ruff.lint.per-file-ignores]`,
-  because a benchmark script's `print` *is* its output). `mypy` is pointed at
-  `packages/*/src/` **only** - so `scripts/` is linted but **not type-checked**, and does not
-  currently pass mypy if you point it there. Recorded as a known gap rather than quietly
-  widened; closing it means fixing `scripts/` first, not just adding a path.
+- **The fence covers `scripts/` too.** `ruff check .` is repo-wide (packages, `tests/e2e/`,
+  `scripts/` - the last with its own per-file ignores, because a benchmark script's `print`
+  *is* its output), and **mypy covers `packages/*/src/` plus `scripts/`**. Tests stay out.
+  - **Why scripts are in the fence, from the evidence:** `scripts/benchmark_hashing.py` sat
+    outside it and imported `truestill.scan` - a module that has never existed under that
+    name. It survived `vaeon` → `vaeon_core` → `truestill_core` untouched, silently broken,
+    because nothing ever checked it. A script that imports the core is real code.
+  - **`mypy_path` in `pyproject.toml` resolves workspace packages from source**, so mypy gives
+    the same answer under `uv run` as inside pre-commit's isolated environment.
+  - **The pre-commit hook overrides its upstream `args`.** `mirrors-mypy` defaults to
+    `--ignore-missing-imports --scripts-are-modules`; the first is what let the broken import
+    above pass a hook that appeared to be checking it. Set to `args: []`, which is only safe
+    because of `mypy_path`. Stub gaps are handled **per module** in `[[tool.mypy.overrides]]`,
+    never by a blanket flag - a flag that hides one missing stub hides every missing import.
 - **CI** (`.github/workflows/ci.yml`) has **two jobs**:
   - **`check`** - matrix **{ubuntu, macos, windows} × Python 3.13**; steps = sync (`--locked`)
     → ruff (lint) → ruff (format --check) → mypy → pytest → **dependency audit** (Linux only);
@@ -319,6 +326,12 @@ accelerated and doubles as the dedup + verification hash without a compiled dep)
 `uv.lock` is the single source of truth; no blind upper-pins; updates via periodic
 `uv lock --upgrade` review.
 
+> **The checker floors match the declaration.** `[tool.mypy] python_version` and
+> `[tool.ruff] target-version` are both **3.13**, raised on 2026-07-27 from a stale 3.12 that
+> predated the floor change below. They are checker *floors*, so the mismatch was harmless -
+> but a config that claims 3.12 while every package requires 3.13 is a false statement about
+> what is being verified, and the point of this section is that the claim and the check agree.
+>
 > Core declared `>=3.12` until 2026-07-27. It was **not** a 3.12 incompatibility - core was
 > verified importing and running correctly on 3.12.13 - it was an **untested claim**, since CI
 > only ever ran 3.13. The floor was raised so the declaration matches what is actually

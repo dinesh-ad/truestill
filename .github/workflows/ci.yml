@@ -56,7 +56,7 @@ jobs:
         run: uv run ruff format --check .
 
       - name: Mypy
-        run: uv run mypy packages/truestill-core/src/truestill_core packages/truestill-cli/src/truestill_cli packages/truestill-app/src/truestill_app
+        run: uv run mypy packages/truestill-core/src/truestill_core packages/truestill-cli/src/truestill_cli packages/truestill-app/src/truestill_app scripts
 
       - name: Pytest
         run: uv run pytest

@@ -2,6 +2,9 @@ PYTHON := uv run
 CORE := packages/truestill-core/src/truestill_core
 CLI := packages/truestill-cli/src/truestill_cli
 APP := packages/truestill-app/src/truestill_app
+# scripts/ is in the type fence too: it is real code that imports the core, and the one file
+# left out of it silently imported a module that had not existed for two renames.
+SCRIPTS := scripts
 
 .PHONY: install lint format format-check typecheck test check build dryrun e2e e2e-install
 
@@ -19,7 +22,7 @@ format-check:
 	$(PYTHON) ruff format --check .
 
 typecheck:
-	$(PYTHON) mypy $(CORE) $(CLI) $(APP)
+	$(PYTHON) mypy $(CORE) $(CLI) $(APP) $(SCRIPTS)
 
 test:
 	$(PYTHON) pytest

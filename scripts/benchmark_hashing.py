@@ -1,11 +1,13 @@
 """Benchmark thread vs process pool for the concurrent hashing scan.
 
-Not a test (no assertions) -- a decision aid. Run:
+Not a test (no assertions) -- a decision aid behind the `pool` default recorded in
+`docs/IMPLEMENTATION_STANDARDS.md` §8. Run:
 
     uv run python scripts/benchmark_hashing.py
 
-It times the real 8-file test set (if present) and a generated synthetic set of a few
-thousand files of varied sizes, hashing with each pool type and a range of worker counts.
+It times a generated synthetic set of a few thousand files of varied sizes -- and the real
+corpus too, if `TRUESTILL_CORPUS` points at one -- hashing with each pool type across a range
+of worker counts.
 """
 
 from __future__ import annotations
@@ -13,16 +15,16 @@ from __future__ import annotations
 import os
 import random
 import shutil
-import sys
 import tempfile
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+from truestill_core.scan import PoolKind, compute_hashes
 
-from truestill.scan import compute_hashes
-
-REAL_SET = Path.home() / "gphotos-staging" / "takeout-test" / "extracted" / "takeout-test"
+#: The external corpus is machine-specific and deliberately not recorded in the repo, so it is
+#: named by environment variable (`docs/PROJECT_STATUS.md` §6) and simply skipped when unset.
+#: It is read-only here: this script hashes files and writes nothing to them.
+_CORPUS_ENV = "TRUESTILL_CORPUS"
 
 
 def _make_synthetic(root: Path, count: int, *, seed: int = 1) -> list[Path]:
@@ -39,9 +41,9 @@ def _make_synthetic(root: Path, count: int, *, seed: int = 1) -> list[Path]:
     return paths
 
 
-def _time(paths: list[Path], *, pool: str, workers: int) -> float:
+def _time(paths: list[Path], *, pool: PoolKind, workers: int) -> float:
     start = time.perf_counter()
-    compute_hashes(paths, pool=pool, workers=workers)  # type: ignore[arg-type]
+    compute_hashes(paths, pool=pool, workers=workers)
     return time.perf_counter() - start
 
 
@@ -49,7 +51,8 @@ def _bench(label: str, paths: list[Path]) -> None:
     cores = os.cpu_count() or 4
     print(f"\n=== {label}: {len(paths)} files ===")
     print(f"{'pool':<9}{'workers':<9}{'seconds':<10}")
-    for pool in ("thread", "process"):
+    pools: tuple[PoolKind, ...] = ("thread", "process")
+    for pool in pools:
         for workers in (1, cores, cores * 2):
             # warm the page cache identically, then time
             best = min(_time(paths, pool=pool, workers=workers) for _ in range(2))
@@ -57,10 +60,14 @@ def _bench(label: str, paths: list[Path]) -> None:
 
 
 def main() -> None:
-    if REAL_SET.is_dir():
-        real = [p for p in sorted(REAL_SET.iterdir()) if p.is_file()]
+    corpus = os.environ.get(_CORPUS_ENV)
+    if corpus:
+        root = Path(corpus)
+        real = [p for p in sorted(root.rglob("*")) if p.is_file()] if root.is_dir() else []
         if real:
-            _bench("real test set", real)
+            _bench(f"real corpus ({root})", real)
+        else:
+            print(f"{_CORPUS_ENV}={corpus} is not a directory with files in it; skipping")
 
     tmp = Path(tempfile.mkdtemp(prefix="truestill-bench-"))
     try:

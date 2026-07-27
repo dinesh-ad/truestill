@@ -359,15 +359,15 @@ doc and `IMPLEMENTATION_STANDARDS.md` disagree, **the contract wins.**
   layout, marker rules, reclaim/undo, migrations) belongs to the fast cross-OS Python tests;
   the browser lane owns only what a user reads on screen. Re-asserting engine logic through a
   browser buys nothing and costs minutes.
-- **Two config values still say 3.12 while the packages require 3.13**: `[tool.mypy]
-  python_version` and `[tool.ruff] target-version` in the root `pyproject.toml`. Harmless today
-  (both are *floors* for the checkers, and the code is 3.13-clean), but they are stale claims
-  and should be raised in the next code-touching pass. Deliberately **not** changed in the
-  documentation-only pass that found them.
-- **`scripts/` is linted but not type-checked.** `ruff check .` covers the whole repo; mypy is
-  pointed at the three `src` trees only, and `scripts/` does not currently pass it. That is a
-  real (small) gap in the fence, recorded rather than silently widened - see
-  `IMPLEMENTATION_STANDARDS.md` §6.
+- **A checker that is not pointed at a file will not tell you the file is broken.**
+  `scripts/benchmark_hashing.py` sat outside the type fence and imported `truestill.scan`, a
+  module that never existed under that name - through two renames, silently. Closed on
+  2026-07-27: `scripts/` is now type-checked alongside the three `src` trees, and the
+  pre-commit hook no longer inherits `--ignore-missing-imports`, which was answering "fine"
+  for exactly that import. See `IMPLEMENTATION_STANDARDS.md` §6.
+- **When you widen a fence, expect it to catch something immediately.** Dropping that one flag
+  also revealed that `uvicorn` had been missing from the hook's `additional_dependencies` -
+  hidden by the same flag. Both were found the moment the gap was closed, not by review.
 - **Measure before optimizing, and record the number.** The performance audit convicted only
   what evidence convicted, and `PERFORMANCE.md` §4 lists the things that *look* like waste and
   must be left alone. Read it before "improving" the pipeline; the size pre-filter in
