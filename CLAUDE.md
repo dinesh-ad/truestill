@@ -28,8 +28,15 @@ The command is `truestill`; the local web UI is `truestill-app`. Drives are iden
 | What is approved but unbuilt? | [`docs/BACKLOG.md`](docs/BACKLOG.md) |
 | How does the code lay out day to day? | [`docs/CLAUDE.md`](docs/CLAUDE.md) |
 | What does it cost, and what should I not "optimize"? | [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) |
+| How do I report a vulnerability, and what is in scope? | [`SECURITY.md`](SECURITY.md) |
 | What changed and when? | [`CHANGELOG.md`](CHANGELOG.md) |
 
 Research and QA records (`docs/*-research.md`, `docs/walkthrough-qa-report.md`) are
 historical: they record what was investigated and when. Some predate the
-`vaeon` → `truestill` rename and say so inline.
+`vaeon` → `truestill` rename and say so inline; where one has been overtaken by later work it
+carries a dated **superseded-by** header. They are never rewritten to match the present - a
+record that is edited to stay correct stops being a record. **When a research doc and
+`IMPLEMENTATION_STANDARDS.md` disagree, the contract wins.**
+
+New here? `docs/PROJECT_STATUS.md` **§0** is the fresh-clone setup, and **§2.1** is what the
+in-progress soak test has found so far.

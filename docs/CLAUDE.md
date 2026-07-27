@@ -64,12 +64,13 @@ package sits *beside* the core and depends only on it - never on the CLI.
 packages/
 ├── truestill-core/src/truestill_core/   # the library (importable, typed, py.typed)
 │   ├── models.py       dataclasses + enums; Category is a plain str label, by design
-│   ├── exif.py         batched exiftool JSON reads (no per-file process spawn)
+│   ├── exif.py         batched exiftool reads AND writes (never a per-file process spawn)
 │   ├── dates.py        capture-date resolution and filename date conventions
 │   ├── categorize.py   the ordered rule chain; NAME_PATTERNS is the extension point
 │   ├── naming.py       the YYYYMMDD_HHMMSS_<original> copy filename
 │   ├── hashing.py      SHA-256 (content) + dHash (perceptual)
 │   ├── scan.py         concurrent hashing pass with the byte-size pre-filter
+│   ├── hash_cache.py   sidecar cache (catalog.cache.sqlite) so unchanged files aren't re-read
 │   ├── dedup.py        two-tier duplicate index (exact skip, perceptual keep+flag)
 │   ├── catalog.py      SQLite state; schema versioned via PRAGMA user_version
 │   ├── drive.py        drive identity marker (+ legacy-name compatibility)
@@ -96,6 +97,10 @@ packages/
     ├── templates/      server-rendered HTML (no bundler, no npm)
     └── static/         tokens.css + app.css + vanilla-JS app.js
 ```
+
+Tests live beside their package (`packages/*/tests/`, run by `make check`), with one exception:
+`tests/e2e/` at the repo root holds the browser suite. It is deliberately outside pytest's
+`testpaths` so a fresh clone is green without a browser - run it with `make e2e`.
 
 Shared ruff/mypy/pytest config lives in the virtual workspace root `pyproject.toml`.
 

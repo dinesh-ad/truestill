@@ -2,7 +2,49 @@
 
 **The first thing to read in a new session.** It says where the project stands, what happens
 next and in what order, and the rules that govern how work is done here. Everything below is
-current as of **2026-07-26**.
+current as of **2026-07-27**.
+
+---
+
+## 0. First fifteen minutes in a fresh clone
+
+Everything needed to go from `git clone` to a green, trustworthy checkout. Assembled here
+because it was previously spread across three sections and a README.
+
+```sh
+# 1. The one external dependency. Nothing metadata-related works without it.
+sudo apt install -y libimage-exiftool-perl        # macOS: brew install exiftool
+exiftool -ver
+
+# 2. The workspace. --all-packages matters: without it the CLI and app are not installed.
+uv sync --all-packages --group dev
+
+# 3. Hooks. BOTH types - the generated hooks bake in an absolute path to .venv and stop
+#    working silently if the repo directory is ever moved or renamed. Reinstall after a move.
+uv run pre-commit install                          # ruff + mypy
+uv run pre-commit install --hook-type commit-msg   # the no-AI-trailer guard
+
+# 4. Prove the guard BLOCKS, not merely that it runs (see §4 - this is not paranoia,
+#    26 commits once carried the wrong identity because nothing checked).
+git commit --allow-empty -m "test
+Co-Authored-By: someone <x@y.z>"                   # MUST be refused
+
+# 5. Confirm your identity is right. The hook checks the message, never the author field.
+git config user.name && git config user.email      # expect: dinesh-ad
+
+# 6. The gates.
+make check                                         # must be green
+make e2e-install && make e2e                       # optional; needs a ~114 MB chromium
+```
+
+**What "green" looks like:** `make check` runs ruff, ruff-format, mypy over the three `src`
+trees, and the full Python suite. `make e2e` is separate and opt-in - a fresh clone is green
+**without** a browser installed, and that is deliberate (§6).
+
+**If `make check` fails on a fresh clone**, suspect step 2 before suspecting the code: a
+partial sync (missing `--all-packages`) is the usual cause, and `exiftool` being absent makes
+metadata tests *skip* rather than fail - so a green run without it does **not** prove the
+metadata path works.
 
 ---
 
@@ -11,7 +53,7 @@ current as of **2026-07-26**.
 Truestill is a **local-first media organizer, de-duplicator and backup pipeline**. It analyses
 a photo/video library, derives each file's folder label from that file's own metadata, and
 places copies into a stable `<Label>/YYYY/MM/` tree - never re-encoding a pixel, never moving
-or deleting an original except through two explicitly opt-in, verify-gated paths. It was built
+or deleting an original except through three explicitly opt-in paths. It was built
 to rescue a Google Photos Takeout export (where real capture dates survive only in JSON
 sidecars) but nothing in it is Google-specific. Beyond organizing it owns the whole custody
 story: content-addressed drive identity, an offline catalog of which drive holds which copy,
@@ -63,15 +105,45 @@ Full rules and their enforcing tests: `IMPLEMENTATION_STANDARDS.md` §3.1.
 
 | | |
 |---|---|
-| **Feature completeness** | All planned pre-launch features shipped: organize, Takeout ingest, dedup (exact + perceptual), events/trips, drive identity, offline catalog, verify, 3-2-1 backup, configurable layout + migration, reclaim, and the full web UI. |
-| **QA verdict** | **Launch-ready.** Every screen passes on the fixed build (Organize · Trips & events · Import · Backups · Find · Settings · first-run empty states · clean console). All four blockers from the first walkthrough are fixed and regression-tested. See `walkthrough-qa-report.md`. |
-| **Tests** | 259 passing. Assert behaviour, never counts - this number is context, not a gate. |
-| **Quality gates** | `make check` = ruff lint + ruff format-check + mypy (all three `src` trees) + pytest. Green. |
-| **CI** | `.github/workflows/ci.yml` - {ubuntu, macos, windows} × Python 3.13. Green on the rename. |
-| **Catalog schema** | **v9** (`CURRENT_SCHEMA_VERSION`). Tables: `files`, `albums`, `file_albums`, `events`, `skipped_clusters`, `drives`, `file_copies`, `settings`, `migration_journal`, `reclaim_journal`. |
+| **Feature completeness** | All planned pre-launch features shipped: organize, Takeout ingest, dedup (exact + perceptual), events/trips, drive identity, offline catalog, verify, 3-2-1 backup, configurable layout + migration, reclaim, in-place organize + `undo-organize`, and the full web UI. |
+| **QA verdict** | The 2026-07-26 walkthrough returned **launch-ready** (`walkthrough-qa-report.md`), and the **soak test then found ten further defects** - see §2.1. That is the walkthrough working as designed, not failing: a scripted pass over synthetic data cannot find what a real library at real scale does. Treat "launch-ready" as *the state before the soak*, not a current verdict. |
+| **Tests** | 339 Python + 16 browser end-to-end. Assert behaviour, never counts - these numbers are context, not a gate, and **must not be pasted into a doc as a target**. Re-derive with `uv run pytest --collect-only -q`. |
+| **Quality gates** | `make check` = ruff lint + ruff format-check + mypy (three `src` trees) + pytest. Plus `make e2e` (opt-in, needs a browser), `uv build --all-packages`, and CI's lockfile + `pip-audit` gates. All green at `8f77de1`. |
+| **CI** | `.github/workflows/ci.yml`, **two jobs**: `check` ({ubuntu, macos, windows} × Python 3.13, + Linux-only `pip-audit`) and `e2e` (chromium on ubuntu). |
+| **Catalog schema** | **v10** (`CURRENT_SCHEMA_VERSION`). Tables: `files`, `albums`, `file_albums`, `events`, `skipped_clusters`, `drives`, `file_copies`, `settings`, `migration_journal`, `reclaim_journal`, `inplace_runs`, `inplace_moves`. **Next free version is v11** (v10 went to the in-place journal, not to date provenance - see `IMPLEMENTATION_STANDARDS.md` §1). |
+| **Sidecar** | `catalog.cache.sqlite` beside the catalog - the hash cache. Machine-local, disposable, path-keyed; **never** part of the custody record. Delete it and nothing is lost but time. |
 | **Packages** | `truestill-core` (library, `py.typed`), `truestill-cli` (the `truestill` command), `truestill-app` (the `truestill-app` UI). uv workspace, hatchling, all building clean wheels. |
 | **Repo** | `github.com/dinesh-ad/truestill` (renamed from `.../vaeon`; GitHub redirects the old name - **never create a new repo called `vaeon`**, it would kill that redirect). |
 | **Not yet done** | Nothing is published. No PyPI release, no public repo, no domain, no landing page. |
+
+### 2.1 The soak test is IN PROGRESS - and it is producing findings
+
+The user is running truestill on their **real library**. This is the launch gate (§3.1), it is
+**not finished**, and it has already produced ten shipped fixes. A soak finding outranks
+everything else in the queue; when one arrives, drop what you are doing.
+
+**What the soak has found and what shipped for it (all 2026-07-27):**
+
+| # | Finding | Shipped as |
+|---|---|---|
+| 1 | The organize progress display was too bare to tell you anything was happening | `538fad8` - progress display rebuilt (phase, rate, ETA, cancel) |
+| 2 | The completion message said "uploaded" - backend jargon for an event that did not occur - and told no story | `538fad8` - honest completion cards; `status_label` is now the single source of outcome wording |
+| 3 | Preview blocked the UI and could not be cancelled | `ff23059` - Preview runs as a job on the same SSE path as everything else |
+| 4 | "Check now" on a non-backup folder rendered `NaN verified · NaN missing · NaN changed` | `49a5c4b` - `streamJob` normalizes terminal events; the whole bug *class* is gone |
+| 5 | The Backups screen explained nothing about what it was for | `49a5c4b` - the screen explains itself; all six screen headers audited |
+| 6 | **The golden path was broken**: organize never registered its own destination, so the app rejected the library it had just built | `9afb4b7` - `service.attach_drive` on a real organize run (`IMPLEMENTATION_STANDARDS.md` §3.1) |
+| 7 | A path typed into one Backups field had to be typed again in the next | `41d0725` - known values prefill; Browse is for overriding |
+| 8 | After a real backup: stale "isn't a backup yet" state, wrong wording, no completion weight, thin drive cards | `c78222a` |
+| 9 | Preview re-hashed 2,275 unchanged files on every run (~16s each) - **the recorded placement trigger for the hash cache fired** | `bdce242` - `hash_cache.HashCache`, 15.8s → 4.7s |
+| 10 | Every one of the above lived in client-side JavaScript, where pytest cannot reach | `9be7529` + `0103454` - the browser E2E suite, one named regression test per bug |
+
+**The pattern worth carrying forward:** eight of the ten were *client-side truth* defects - the
+screen said something the system had not done. That is what the E2E lane now exists to catch,
+and why its assertions are on **text a user reads**, never element ids.
+
+Two further items shipped in the soak era from recorded backlog work rather than from a
+finding: **(q) in-place organize + `undo-organize`** (`dee4785`) and the
+**performance audit's convictions** (`1e458df`, `39d889a`, `8f77de1` - see `PERFORMANCE.md`).
 
 ---
 
@@ -79,12 +151,27 @@ Full rules and their enforcing tests: `IMPLEMENTATION_STANDARDS.md` §3.1.
 
 Work these **in sequence**. Do not start a later item because an earlier one is slow.
 
-### 1. Soak test - **the launch gate** 🔴
+### 1. Soak test - **the launch gate** 🔴 **IN PROGRESS**
 
 The user runs Truestill on their **real library** for **2-3 weeks**. Nothing ships until this
 passes. This is not a formality: it is the only test that exercises real drives, real volumes,
 real interruptions and real heterogeneous metadata. Bugs found here outrank every other item
 in this list. Treat a soak-test report as the highest-priority work in the queue.
+
+**Status: running, ten findings shipped** (§2.1). It is not closed and there is no date on
+which it closes; it closes when the user says the library is organized and the tool stopped
+surprising them. **Do not start item 2 because the soak looks quiet.**
+
+Three things the soak has already taught, recorded so they are not re-learned:
+
+- **The engine was right; the reporting was wrong.** Not one finding was a mis-placed or
+  lost file. Every one was the product describing itself incorrectly. Weight review effort
+  accordingly - the user-facing string is the defect surface.
+- **A recorded trigger actually fired.** The hash cache had a written placement clause
+  ("earlier if the soak shows repeat-run pain at real scale"); the soak produced exactly that
+  evidence and the item moved. Deferral clauses are worth writing because they get honoured.
+- **Scale changes the answer.** The performance audit was only possible once there was a real
+  library to measure. Two of its three convictions were invisible at fixture scale.
 
 ### 2. Repo-public audit + README with screenshots
 
@@ -104,6 +191,11 @@ docs. What that pass did **not** fix, and what remains for this step:
   (not the personal corpus) - best done **after the soak test**, when there is a real library
   worth photographing. They stay in the repo meanwhile as the QA evidence record.
 - The remaining read-through: fixtures, LICENSE, `.gitignore` completeness.
+- **The root README is the known-worst document and is only partly repaired.** A 2026-07-27
+  pass removed its outright falsehoods (it claimed no runtime dependencies, and documented a
+  pre-subcommand invocation that no longer exists). It is now *true but thin*: it describes
+  organize and says the rest exists. The **full newcomer README with screenshots is this
+  step**, not done.
 
 ### 3. PyPI publish
 
@@ -155,8 +247,17 @@ the full text; this is the short list nobody should have to rediscover.
   Never silently comply and never silently deviate.
 - **Dry-run is the default.** Planning writes nothing; `--apply` is the only writing path.
   A read must never write - this bit the drive marker and is now a binding rule.
-- **Copy-only.** Never move or delete a user's file except via the two scoped, verify-gated,
-  opt-in paths (`--move`, `reclaim`), and never without proving the destination copy re-hashes.
+- **Copy-only.** Never move or delete a user's file except via the three scoped, opt-in paths
+  - and know which gate each one has, because they are not the same gate:
+  - `--move` and `reclaim` are **verify-gated**: the source goes only after a destination copy
+    re-hashes to the recorded `copy_sha256`. Never without that proof.
+  - `--in-place` (and `--move`'s same-filesystem fast path) is an **atomic rename**, which
+    cannot be verify-gated - it produces one inode, so any check is a file checking itself.
+    What is at risk shifts from the data to the *arrangement*, and **`undo-organize` is the
+    gate**. That is why it shipped with the feature rather than after it.
+
+  Full reasoning, and the two landmines this asymmetry created, in
+  `IMPLEMENTATION_STANDARDS.md` §1.
 - **`make check` before done.** Lint, format, types and tests. Green, every time.
 - **One fix per commit.** Focused and reviewable.
 - **Commits as `dinesh-ad`, with no AI co-author trailer** - no `Co-Authored-By`, no
@@ -196,6 +297,8 @@ the full text; this is the short list nobody should have to rediscover.
 | Why is the product this way? (no accounts, no telemetry, Pro model) | `DECISIONS.md` |
 | What is approved but unbuilt? | `BACKLOG.md` |
 | How does the code lay out day to day? | `CLAUDE.md` (root and `docs/`) |
+| What does it cost, and what must I not "optimize"? | `PERFORMANCE.md` |
+| How do I report a vulnerability, and what is in scope? | `../SECURITY.md` |
 | What changed and when? | `CHANGELOG.md` |
 | Why is drive identity a marker file and not a filesystem UUID? | `drive-identity-research.md` |
 | Why is exiftool the only date reader? Why not hachoir/pymediainfo? | `metadata-chain-research.md` |
@@ -241,3 +344,31 @@ doc and `IMPLEMENTATION_STANDARDS.md` disagree, **the contract wins.**
   auditability decision, not laziness.
 - **The UI wordmark is `truestill.`** with an accent-coloured dot, monospace, in a 232px
   sidebar. It was re-checked visually after the rename and fits without wrapping.
+- **The browser suite is opt-in and stays that way.** `tests/e2e/` is deliberately outside
+  pytest's `testpaths`, so a fresh clone runs `make check` green with **no browser installed**.
+  Run it with `make e2e-install` once, then `make e2e`. A clean install of the shipped wheels
+  pulls no browser at all - and that claim is itself tested
+  (`tests/e2e/test_dependency_gating.py` checks the resolver's output rather than trusting the
+  manifests).
+- **The E2E server runs in-process, not as a subprocess.** `create_app` is a plain factory, so
+  the harness binds the socket and picks the token itself. That removes the two classic flake
+  sources (scraping a port out of a child's stdout, racing its startup) and lets a test open
+  the same catalog the UI is writing to. The stated cost: `__main__.py` is bypassed and stays
+  uncovered.
+- **`make check` and `make e2e` do not overlap, on purpose.** Engine truth (dating, dedup,
+  layout, marker rules, reclaim/undo, migrations) belongs to the fast cross-OS Python tests;
+  the browser lane owns only what a user reads on screen. Re-asserting engine logic through a
+  browser buys nothing and costs minutes.
+- **Two config values still say 3.12 while the packages require 3.13**: `[tool.mypy]
+  python_version` and `[tool.ruff] target-version` in the root `pyproject.toml`. Harmless today
+  (both are *floors* for the checkers, and the code is 3.13-clean), but they are stale claims
+  and should be raised in the next code-touching pass. Deliberately **not** changed in the
+  documentation-only pass that found them.
+- **`scripts/` is linted but not type-checked.** `ruff check .` covers the whole repo; mypy is
+  pointed at the three `src` trees only, and `scripts/` does not currently pass it. That is a
+  real (small) gap in the fence, recorded rather than silently widened - see
+  `IMPLEMENTATION_STANDARDS.md` §6.
+- **Measure before optimizing, and record the number.** The performance audit convicted only
+  what evidence convicted, and `PERFORMANCE.md` §4 lists the things that *look* like waste and
+  must be left alone. Read it before "improving" the pipeline; the size pre-filter in
+  particular is the single best optimisation in the codebase and reads like dead weight.
