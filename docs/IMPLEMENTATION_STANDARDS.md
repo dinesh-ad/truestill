@@ -200,9 +200,24 @@ successful upgrade), never automatic.
   `src` trees + `pytest` (`Makefile`).
 - **`ruff format --check`** is also a separate gate in CI (and `make format` applies it).
 - **CI** (`.github/workflows/ci.yml`): matrix **{ubuntu, macos, windows} × Python 3.13**; steps
-  = sync → ruff (lint) → ruff (format --check) → mypy → pytest; exiftool installed per-OS.
-  The mypy step and `.pre-commit-config.yaml` both cover all three packages - keep the three
-  in step with each other.
+  = sync → ruff (lint) → ruff (format --check) → mypy → pytest → **dependency audit** (Linux
+  only); exiftool installed per-OS. The mypy step and `.pre-commit-config.yaml` both cover all
+  three packages - keep the three in step with each other.
+- **The lockfile must be current.** CI syncs with **`uv sync --all-packages --group dev
+  --locked`**, which fails if `uv.lock` has drifted from the `pyproject.toml` manifests
+  instead of silently re-resolving. `uv.lock` is the source of truth for what ships (§7), so
+  drift means CI has quietly stopped testing the real dependency set. Regenerate with
+  `uv lock` and commit it.
+- **Dependency audit.** `pip-audit` runs against the **locked** set
+  (`uv export --no-emit-workspace` → `uvx pip-audit -r …`), Linux-only because it reads a
+  lockfile rather than the installed tree, so all three runners would produce the same answer.
+  **Findings block the build** - a vulnerable dependency is a defect, not a warning.
+  - **Accepting an advisory is allowed, but never silently.** Add `--ignore-vuln <ID>` to the
+    CI step with an adjacent comment giving **the reason and the advisory link**, so every
+    accepted risk is visible in review and in `git blame`. An audit that passes because
+    something was quietly suppressed is worse than no audit.
+  - **Current ignore list: empty.** First run (2026-07-27) was clean: 28 runtime packages and
+    40 including dev, zero known vulnerabilities.
 - **`uv build --all-packages`** must produce clean wheels for **all three packages**
   (`make build`); `truestill-core` ships `py.typed`.
 - **Test counts are never hardcoded** as a done-ness signal - they change. Assert behaviour,

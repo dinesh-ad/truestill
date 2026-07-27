@@ -43,8 +43,11 @@ jobs:
       - name: Set up Python 3.13
         run: uv python install 3.13
 
-      - name: Sync workspace
-        run: uv sync --all-packages --group dev
+      # --locked fails the build if uv.lock is out of date with the pyproject files rather
+      # than silently re-resolving. uv.lock is the single source of truth for what we ship,
+      # so a lockfile that drifts from the manifests means CI stopped testing the real thing.
+      - name: Sync workspace (lockfile must be current)
+        run: uv sync --all-packages --group dev --locked
 
       - name: Ruff (lint)
         run: uv run ruff check .
@@ -57,3 +60,20 @@ jobs:
 
       - name: Pytest
         run: uv run pytest
+
+      # Audits the *locked* dependency set against the PyPI advisory database. Findings
+      # block: a vulnerable dependency is a defect, not a warning. Accepting one is allowed
+      # but must be explicit -- add `--ignore-vuln <ID>` below with a comment giving the
+      # reason and the advisory link, so an accepted risk is always visible in review and
+      # never silently inherited. See IMPLEMENTATION_STANDARDS.md §6.
+      #
+      # Ubuntu only: the audit reads a lockfile, not the installed tree, so the result is
+      # identical on all three runners and there is no reason to hit the advisory API 3x.
+      # Workspace members are local paths with no advisories, hence --no-emit-workspace.
+      - name: Export locked dependencies for audit
+        if: runner.os == 'Linux'
+        run: uv export --format requirements-txt --no-emit-workspace -o requirements-audit.txt
+
+      - name: pip-audit (locked dependencies)
+        if: runner.os == 'Linux'
+        run: uvx pip-audit -r requirements-audit.txt --disable-pip
