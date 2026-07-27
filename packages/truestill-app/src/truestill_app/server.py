@@ -19,7 +19,7 @@ from truestill_core.catalog import Catalog
 from truestill_core.event_review import EventDecision, commit_catalog
 from truestill_core.events import merge_candidates, split_candidate
 
-from truestill_app import service
+from truestill_app import __version__, service
 from truestill_app.jobs import JobManager
 from truestill_app.security import LocalGuard
 
@@ -39,7 +39,8 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
 
     async def home(_request: Request) -> HTMLResponse:
         html = (_TEMPLATES / "index.html").read_text(encoding="utf-8")
-        return HTMLResponse(html.replace("{{TOKEN}}", token))
+        html = html.replace("{{TOKEN}}", token)
+        return HTMLResponse(html.replace("{{VERSION}}", __version__))
 
     async def organize_preview(request: Request) -> JSONResponse:
         body = await request.json()

@@ -6,4 +6,6 @@ list, so new sources create new folders without a code change.
 
 from __future__ import annotations
 
-__version__ = "0.1.0"
+from truestill_core.version import distribution_version
+
+__version__ = distribution_version("truestill-core")

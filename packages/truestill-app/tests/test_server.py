@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 from starlette.testclient import TestClient
+from truestill_app import __version__
 from truestill_app.server import create_app
 from truestill_core.catalog import Catalog
 
@@ -40,6 +41,14 @@ def test_static_is_exempt_from_token(client: TestClient) -> None:
     # An asset the page actually links -- a test pointing at an orphan file would keep the
     # orphan alive and stop proving the exemption works for anything real.
     assert client.get("/static/app.css").status_code == 200
+
+
+def test_home_shows_the_real_version(client: TestClient) -> None:
+    """The Settings footer must carry the installed version, not an unsubstituted template
+    placeholder -- a version a user can read is the point of putting it there."""
+    body = client.get(f"/?token={_TOKEN}").text
+    assert f"truestill {__version__}" in body
+    assert "{{VERSION}}" not in body
 
 
 def test_home_serves_and_injects_token(client: TestClient) -> None:
