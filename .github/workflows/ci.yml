@@ -77,3 +77,63 @@ jobs:
       - name: pip-audit (locked dependencies)
         if: runner.os == 'Linux'
         run: uvx pip-audit -r requirements-audit.txt --disable-pip
+
+  # Browser end-to-end, chromium on ubuntu only. The 3-OS matrix above already owns OS
+  # differences; this lane owns client-side truth, which for a vanilla-JS app with no build
+  # step is browser-uniform enough that a full browser x OS grid would buy coverage we have no
+  # evidence we need. Revisit on evidence -- a real cross-browser bug -- and not before.
+  #
+  # A separate job rather than a matrix entry so its failure is distinguishable at a glance,
+  # and so a browser-layer problem never masks a Python one.
+  e2e:
+    name: e2e (chromium, ubuntu)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install exiftool
+        run: sudo apt-get update && sudo apt-get install -y libimage-exiftool-perl
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Set up Python 3.13
+        run: uv python install 3.13
+
+      - name: Sync workspace (lockfile must be current)
+        run: uv sync --all-packages --group dev --locked
+
+      # Browser binaries are ~114 MB and change only with the playwright version, so they are
+      # cached on that version rather than re-downloaded every run.
+      - name: Resolve playwright version
+        id: pw
+        run: echo "version=$(uv run python -c 'import importlib.metadata as m; print(m.version(\"playwright\"))')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+
+      - name: Install chromium
+        run: uv run playwright install --with-deps chromium
+
+      # No retries, deliberately: a retry-until-green browser suite launders the very
+      # nondeterminism this lane exists to expose. A flaky test is quarantined and filed.
+      - name: E2E
+        run: |
+          uv run pytest tests/e2e --browser chromium \
+            --tracing retain-on-failure --video retain-on-failure \
+            --output tests/e2e/.artifacts
+
+      # A red run should arrive with a replay, not a guess.
+      - name: Upload traces and video from failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-failure-artifacts
+          path: tests/e2e/.artifacts
+          retention-days: 7

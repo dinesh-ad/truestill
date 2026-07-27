@@ -15,6 +15,11 @@ dev = [
     "pytest-cov>=6.0.0",
     "pre-commit>=4.2.0",
     "httpx>=0.28",       # Starlette TestClient (truestill-app tests)
+    # Browser E2E (tests/e2e). The only tool that can execute the client-side JS layer, where
+    # every UI bug the soak found actually lived -- a layer pytest alone cannot reach and
+    # manual checking cannot regression-pin. Dev group only: it is never a runtime dependency
+    # of truestill-core/-cli/-app, and a clean install of any of them pulls no browsers.
+    "pytest-playwright>=0.5",
 ]
 
 # --- Ruff (lint + format), applied repo-wide ------------------------------------------
@@ -92,6 +97,15 @@ unfixable = []
     "PLR0917", # ... including positional
     "T201",    # Print statements allowed in tests
     "DTZ001",  # Naive datetimes are the subject under test (see dates.py rationale)
+]
+# Browser end-to-end suite. Same latitude as the other tests, plus the two it needs of its own.
+"tests/e2e/**/*.py" = [
+    "S101",    # Assert allowed in tests
+    "PLR2004", # Fixture sizes (8 photos, 400 files) read better inline than as constants
+    "PLR0913",
+    "T201",
+    "S603",    # subprocess: exiftool on generated fixtures, and `uv export` in the dep gate
+    "S607",    # ... invoked by name, from PATH, exactly as the app itself does
 ]
 
 [tool.ruff.format]

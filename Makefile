@@ -3,7 +3,7 @@ CORE := packages/truestill-core/src/truestill_core
 CLI := packages/truestill-cli/src/truestill_cli
 APP := packages/truestill-app/src/truestill_app
 
-.PHONY: install lint format format-check typecheck test check build dryrun
+.PHONY: install lint format format-check typecheck test check build dryrun e2e e2e-install
 
 install:
 	uv sync --all-packages --group dev
@@ -25,6 +25,20 @@ test:
 	$(PYTHON) pytest
 
 check: lint format-check typecheck test
+
+# --- browser end-to-end ----------------------------------------------------------------
+# Deliberately outside `check` and outside pytest's testpaths: a fresh clone runs `make check`
+# green with no browser installed. Run `make e2e-install` once, then `make e2e`.
+e2e-install:
+	$(PYTHON) playwright install --with-deps chromium
+
+# No retries, on purpose. A retry-until-green browser suite launders exactly the
+# nondeterminism this layer exists to expose; a flaky test gets quarantined and filed instead.
+# Traces and video are kept only for failures, so a red run arrives with a replay.
+e2e:
+	$(PYTHON) pytest tests/e2e --browser chromium \
+		--tracing retain-on-failure --video retain-on-failure \
+		--output tests/e2e/.artifacts
 
 build:
 	uv build --all-packages

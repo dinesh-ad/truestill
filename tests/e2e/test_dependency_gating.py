@@ -1,0 +1,55 @@
+"""Prove the browser stack never reaches a user.
+
+Playwright is a test tool. If it -- or the ~114 MB of browser binaries behind it -- ever
+appeared in a shipped wheel's dependencies, a user installing a local-first photo organizer
+would silently be installing a browser engine. This asserts the claim rather than trusting the
+file it is written in.
+
+Lives with the E2E suite deliberately: it is the suite that introduced the risk, so it is the
+suite that carries the proof.
+"""
+
+from __future__ import annotations
+
+import subprocess
+import tomllib
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parents[2]
+_PACKAGES = ("truestill-core", "truestill-cli", "truestill-app")
+_TEST_ONLY = ("playwright", "pytest", "ruff", "mypy", "pre-commit", "httpx", "coverage")
+
+
+def test_no_shipped_package_depends_on_a_test_tool() -> None:
+    """Runtime dependency lists carry only what the product needs to run."""
+    for name in _PACKAGES:
+        manifest = tomllib.loads((_ROOT / "packages" / name / "pyproject.toml").read_text())
+        declared = " ".join(manifest["project"].get("dependencies", [])).lower()
+        for tool in _TEST_ONLY:
+            assert tool not in declared, f"{name} declares the test tool {tool!r} at runtime"
+
+
+def test_playwright_is_declared_only_in_the_dev_group() -> None:
+    root = tomllib.loads((_ROOT / "pyproject.toml").read_text())
+    dev = " ".join(root["dependency-groups"]["dev"]).lower()
+    assert "pytest-playwright" in dev
+    assert "dependencies" not in root.get("project", {})  # the workspace root ships nothing
+
+
+def test_a_runtime_install_resolves_without_playwright() -> None:
+    """The claim, checked against the resolver rather than against the manifests.
+
+    ``uv export --no-dev`` is the exact set a user would install. Nothing browser-shaped may
+    appear in it, however the manifests happen to be written.
+    """
+    exported = subprocess.run(
+        ["uv", "export", "--no-dev", "--no-emit-workspace", "--format", "requirements-txt"],
+        cwd=_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.lower()
+
+    assert exported.strip(), "export produced nothing -- the check would be vacuous"
+    for tool in ("playwright", "pytest", "ruff", "mypy"):
+        assert f"\n{tool}" not in f"\n{exported}", f"{tool} is in the runtime install set"

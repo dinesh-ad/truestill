@@ -244,6 +244,33 @@ successful upgrade), never automatic.
     40 including dev, zero known vulnerabilities.
 - **`uv build --all-packages`** must produce clean wheels for **all three packages**
   (`make build`); `truestill-core` ships `py.typed`.
+- **Browser end-to-end** (`tests/e2e/`, `make e2e`): Playwright via `pytest-playwright`, run in
+  CI as its own **chromium-on-ubuntu** lane. It exists because every UI bug the soak era found
+  lived in client-side JavaScript - a layer pytest cannot reach and manual checking cannot
+  regression-pin. Rules:
+  - **Deliberately outside `testpaths`**, so a fresh clone runs `make check` green with no
+    browser installed. E2E is explicit opt-in (`make e2e-install`, then `make e2e`).
+  - **Assertions are on text a user reads**, not element ids. Every bug it pins was a wrong or
+    stale *string*; an id-based assertion would have caught none of them.
+  - **Auto-waiting assertions only. No sleeps** - hard waits are the dominant flake source.
+  - **No retries.** A retry-until-green browser suite launders the nondeterminism this lane
+    exists to expose. A test failing non-deterministically is **quarantined and filed with its
+    trace**, never retried (threshold: 3 failures in 10 consecutive runs).
+  - **Traces and video are kept on failure only** and uploaded as a CI artifact, so a red run
+    arrives with a replay rather than a guess.
+  - **Fixtures are generated, never committed.** Media files do not belong in git whatever
+    their provenance; `tests/e2e/conftest.py` builds exactly the corpus each test needs.
+  - **Scope, honestly.** E2E owns user-visible truth. Engine logic - dating, dedup, layout,
+    drive-marker rules, reclaim/undo, migrations - stays owned by the fast cross-OS Python
+    tests and must not be re-asserted through a browser. `__main__.py` (port selection, arg
+    parsing, browser launch) is bypassed by the in-process harness and remains uncovered.
+  - **Playwright is dev-group only.** A clean install of the shipped wheels pulls no browser;
+    pinned by `tests/e2e/test_dependency_gating.py`, which checks the resolver output rather
+    than trusting the manifests.
+- **Browser × OS matrix is deferred on purpose.** The Python matrix already owns OS
+  differences; this lane owns client truth, which for a no-build vanilla-JS app is uniform
+  enough that a full grid would buy coverage we have no evidence we need. Revisit **on
+  evidence** - a real cross-browser bug - and not before.
 - **Test counts are never hardcoded** as a done-ness signal - they change. Assert behaviour,
   not totals.
 
