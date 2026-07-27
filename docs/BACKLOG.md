@@ -97,6 +97,32 @@ decision context that produced them.
   review still needs a **visual side-by-side compare** (show the two look-alikes at actual pixels
   so a human decides which to keep) - PixSort had no such compare, and a trash-with-restore is
   only trustworthy once the human can actually *see* what they're removing.
+
+  **Binding design constraints, from reviewing PixSort's live duplicate screen:**
+
+  1. **Never auto-select keep/remove by filesystem timestamp.** Observed on real data: PixSort's
+     "keep oldest" chose a `(Copy).jpg` to **keep** and the original to **remove**, because the
+     mtimes lied - a copy operation had rewritten them. This is the **same lie truestill already
+     refuses for dating** (`IMPLEMENTATION_STANDARDS.md` §1: "Dating uses an evidence chain, never
+     filesystem mtime"). That invariant currently governs *placement* only; item (m) extends the
+     identical distrust to **keep/remove selection**, where being wrong is irreversible rather
+     than merely untidy. The corpus already contains this exact shape (`scan-a.jpg` + its
+     `(Copy)`), so it is testable on day one.
+  2. **Rank by evidence, in this order:** embedded capture date → resolution / bitrate →
+     original filename pattern (a `(Copy)`/`(1)`/`-kopie` suffix is evidence *against* being the
+     original) → catalog provenance (what truestill already recorded about where each copy came
+     from). Every one of these is a property of the *file*, not of the filesystem around it.
+  3. **Default to NO pre-selection when the evidence is ambiguous.** A pre-ticked checkbox is a
+     recommendation the user will accept without reading; if truestill cannot prove which copy is
+     the original, it must say so and select nothing. **A reviewed decision, not a trusted
+     heuristic** - and never a heuristic wearing a decision's clothes.
+  4. **Staged trash-with-restore, never a permanent delete**, with the two actions labelled by
+     consequence - **"Recommended"** vs **"Irreversible"** - so the dangerous one is never the
+     path of least resistance. Same spirit as `reclaim`'s typed `delete` confirmation.
+  5. **Adopt the honest capability notice pattern**: state plainly what the screen can and cannot
+     determine, in place, rather than implying more certainty than the evidence supports. This is
+     the never-silent rule applied to a UI surface - the existing precedents are the HEIC
+     perceptual-skip notice and the Tier A / Tier B date-quality lines.
 - **(n) "How your dates were determined" honesty stat — PRIORITIZED for first post-launch.** A
   per-run/library figure in the reports/UI showing the **provenance mix** of capture dates - e.g.
   "82% from embedded EXIF, 11% from filename, 5% from Takeout, 2% Undated" (a metadata-accuracy %).
