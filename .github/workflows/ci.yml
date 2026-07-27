@@ -110,7 +110,12 @@ jobs:
       # cached on that version rather than re-downloaded every run.
       - name: Resolve playwright version
         id: pw
-        run: echo "version=$(uv run python -c 'import importlib.metadata as m; print(m.version(\"playwright\"))')" >> "$GITHUB_OUTPUT"
+        # Guarded: a silently-empty version would still make a valid cache key, and that key
+        # would never invalidate -- leaving a stale browser installed after an upgrade.
+        run: |
+          version="$(uv run playwright --version | awk '{print $NF}')"
+          test -n "$version" || { echo "could not resolve the playwright version"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Cache browsers
         uses: actions/cache@v4
