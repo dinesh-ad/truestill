@@ -64,6 +64,7 @@ from truestill_core.takeout import (
 )
 from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
 
+from truestill_cli import __version__
 from truestill_cli.events_review import Prompt, album_prompt, run_event_stage
 
 _SEPARATOR = "=" * 100
@@ -136,6 +137,10 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="truestill",
         description="Organize, de-duplicate and back up a media library to a pluggable destination.",
     )
+    # Declared on the top-level parser so `truestill --version` works with no subcommand,
+    # despite subparsers being required -- argparse resolves --version before that check.
+    # It is the first thing a bug reporter reaches for; it must never need an argument.
+    parser.add_argument("--version", action="version", version=f"truestill {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
 
     organize = sub.add_parser("organize", help="organize a folder of media files")
@@ -420,7 +425,14 @@ def _short_sha(sha256: str | None) -> str:
 def _format_new(resolution: Resolution, root_label: str) -> str:
     decision = resolution.decision
     when = decision.captured_at.strftime("%Y-%m-%d %H:%M:%S") if decision.captured_at else "-"
-    tag = decision.date_tag or decision.date_source.value
+    # Only sources that name a metadata tag get a `tag=` part. Falling back to the source
+    # name printed it twice ("source=none, tag=none"), which reads as a second, corroborating
+    # piece of evidence when it is just the same word again.
+    origin = (
+        f"source={decision.date_source.value}"
+        if decision.date_tag is None
+        else f"source={decision.date_source.value}, tag={decision.date_tag}"
+    )
     flag = "  <-- REVIEW" if decision.needs_review else ""
     phash = resolution.hashes.perceptual or "n/a (not an image)"
     lines = [
@@ -430,7 +442,7 @@ def _format_new(resolution: Resolution, root_label: str) -> str:
             f"[{decision.category.confidence.value} confidence, rule={decision.category.rule}]"
         ),
         f"      why      : {decision.category.reason}",
-        f"      date     : {when}  (source={decision.date_source.value}, tag={tag}){flag}",
+        f"      date     : {when}  ({origin}){flag}",
         f"      sha256   : {_short_sha(resolution.hashes.sha256)}    dhash: {phash}",
     ]
     if resolution.near_duplicate is not None:
