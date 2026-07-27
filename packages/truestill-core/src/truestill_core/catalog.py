@@ -740,6 +740,24 @@ class Catalog:
             )
         )
 
+    def single_copy_count(self) -> int:
+        """How many files exist on exactly one drive -- the number, without the names.
+
+        The custody strip refreshes on every screen and only ever renders this count, but was
+        calling :meth:`single_copy_shas`, which joins to two tables and sorts every at-risk row
+        by name so it can throw all of it away. Measured at 100k files that was 425 ms per
+        refresh against 27 ms here. Same question, asked directly.
+
+        Equivalent to ``len(single_copy_shas())``: both count sha256 values with exactly one
+        row in ``file_copies``, and `test_single_copy_count_matches_the_listing` holds them
+        together so the cheap answer cannot drift from the detailed one.
+        """
+        cursor = self._conn.execute(
+            "SELECT COUNT(*) FROM "
+            "(SELECT sha256 FROM file_copies GROUP BY sha256 HAVING COUNT(*) = 1)"
+        )
+        return int(cursor.fetchone()[0])
+
     def event_by_signature(self, signature: str) -> sqlite3.Row | None:
         """A previously-named event with this cluster signature, if any."""
         cursor = self._conn.execute("SELECT * FROM events WHERE signature = ?", (signature,))

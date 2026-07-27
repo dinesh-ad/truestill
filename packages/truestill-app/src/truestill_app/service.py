@@ -333,7 +333,7 @@ def organize_run(
             catalog.set_setting(LIBRARY_PATH_HINT, str(destination))
             # The custody nudge, counted rather than assumed: how much of the library really
             # does exist in only one place right now.
-            completion["single_copy"] = len(catalog.single_copy_shas())
+            completion["single_copy"] = catalog.single_copy_count()
         return completion
 
     return target
@@ -661,7 +661,7 @@ def library_status(db: Path) -> dict[str, Any]:
         breakdown = _media_breakdown(catalog.media_names())
         total = catalog.count()
         drives = [d for d in catalog.list_drives() if d["file_count"]]
-        single_copy = len(catalog.single_copy_shas())
+        single_copy = catalog.single_copy_count()
         total_bytes = sum(d["total_size"] or 0 for d in drives)
         # Prefill hints, so no screen asks a user to Browse for a path we already know.
         # Hints only: drive identity is the marker uuid, never a path.

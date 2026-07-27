@@ -193,6 +193,29 @@ def test_status_flags_single_copy_content(tmp_path: Path) -> None:
         assert singles == {"y.jpg"}
 
 
+def test_single_copy_count_matches_the_listing(tmp_path: Path) -> None:
+    """The custody strip's cheap count and the at-risk listing must never disagree.
+
+    They are two queries answering one question -- the count exists only because the strip was
+    paying 425 ms at 100k files to build rows it then measured the length of. This is what
+    stops that shortcut from quietly becoming a different answer.
+    """
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        assert catalog.single_copy_count() == len(catalog.single_copy_shas()) == 0  # empty
+
+        catalog.upsert_drive(uuid="A", label="A")
+        catalog.upsert_drive(uuid="B", label="B")
+        _record_copy_on(catalog, "sha-x", "A", "Camera/x.jpg", "sha-x", 10)
+        _record_copy_on(catalog, "sha-x", "B", "Camera/x.jpg", "sha-x", 10)  # safe: two drives
+        _record_copy_on(catalog, "sha-y", "A", "Camera/y.jpg", "sha-y", 20)  # at risk
+        _record_copy_on(catalog, "sha-z", "B", "Camera/z.jpg", "sha-z", 30)  # at risk
+
+        assert catalog.single_copy_count() == len(catalog.single_copy_shas()) == 2
+
+        _record_copy_on(catalog, "sha-y", "B", "Camera/y.jpg", "sha-y", 20)  # y becomes safe
+        assert catalog.single_copy_count() == len(catalog.single_copy_shas()) == 1
+
+
 def test_where_finds_copies_after_rename(tmp_path: Path) -> None:
     with Catalog(tmp_path / "c.sqlite") as catalog:
         catalog.upsert_drive(uuid="A", label="Drive A")
