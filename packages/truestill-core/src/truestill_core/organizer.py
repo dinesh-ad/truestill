@@ -27,7 +27,7 @@ from truestill_core.categorize import Rule, categorize
 from truestill_core.dates import is_suspect_default, resolve_capture_datetime
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations.base import CrossDeviceError, Destination, DestinationError
-from truestill_core.exif import write_metadata
+from truestill_core.exif import WRITE_BATCH_SIZE, build_metadata_args, write_metadata_batch
 from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import sha256_file
 from truestill_core.layout import DEFAULT_TEMPLATE, LayoutTemplate, RenderContext
@@ -427,32 +427,141 @@ def _apply_timestamp(source: Path, captured_at: datetime | None) -> None:
 
 def _upload_with_metadata_write(
     decision: Decision,
-    write: MetadataWrite,
     final_relative: str,
     destination: Destination,
     *,
+    baker: _MetadataBaker,
     set_timestamps: bool,
 ) -> str:
-    """Stage a copy, bake rescued metadata in, upload it, and return the copy's SHA-256.
+    """Take the baked copy, upload it, and return the copy's SHA-256.
 
     The source is never modified: the metadata write happens on a temporary staged copy, so
     the invariant "originals are untouched" holds even though the uploaded copy now differs
-    (by metadata only, losslessly) from the source.
+    (by metadata only, losslessly) from the source. Staging and baking belong to
+    :class:`_MetadataBaker`, which does both a chunk at a time.
     """
-    with tempfile.TemporaryDirectory(prefix="truestill-ingest-") as tmp:
-        staged = Path(tmp) / decision.relative.name
-        shutil.copy2(decision.source, staged)
-        write_metadata(
-            staged,
-            taken_at_local=write.taken_at_local,
-            gps=write.gps,
-            description=write.description,
-        )
-        if set_timestamps:
-            _apply_timestamp(staged, decision.captured_at)
-        copy_sha = sha256_file(staged)
-        destination.upload(staged, final_relative)
+    staged = baker.staged_copy_of(decision)
+    if set_timestamps:
+        _apply_timestamp(staged, decision.captured_at)
+    copy_sha = sha256_file(staged)
+    destination.upload(staged, final_relative)
+    staged.unlink(missing_ok=True)  # released as soon as it is safe: a chunk is 100 files of disk
     return copy_sha
+
+
+class MetadataBakeError(OSError):
+    """A staged copy's metadata write could not be confirmed, so it was never uploaded.
+
+    An ``OSError`` so it joins the failure path `execute` already has: the file is recorded
+    FAILED and named in the report, rather than counted as organized without the metadata it
+    was supposed to have gained.
+    """
+
+    def __init__(self, source: Path) -> None:
+        super().__init__(
+            f"could not write rescued metadata into {source.name} "
+            "(exiftool did not confirm the write); the original is untouched"
+        )
+
+
+def _bake_queue(
+    resolutions: Sequence[Resolution], ingest: IngestContext, *, skip_undated: bool
+) -> list[tuple[Decision, MetadataWrite]]:
+    """The files `execute` will bake, in the order it will ask for them.
+
+    Mirrors the loop's own skips so the baker never stages a file that is about to be passed
+    over -- staging costs a full copy, and paying for one that is discarded is the kind of
+    waste that only shows up at Takeout scale.
+    """
+    queue: list[tuple[Decision, MetadataWrite]] = []
+    for resolution in resolutions:
+        decision = resolution.decision
+        if resolution.exact_duplicate is not None:
+            continue
+        if skip_undated and decision.captured_at is None:
+            continue
+        write = ingest.writes.get(str(decision.source))
+        if write is not None and write.has_content:
+            queue.append((decision, write))
+    return queue
+
+
+class _MetadataBaker:
+    """Bakes rescued metadata into staged copies a chunk at a time, in execution order.
+
+    One exiftool process per file costs ~225 ms of startup -- measured -- which is ~6 hours on
+    a 100k-file Takeout for work that takes minutes. This stages the next
+    :data:`WRITE_BATCH_SIZE` files that need baking and bakes them in a single process, so the
+    caller still asks for one file at a time and still gets it in the order it asked.
+
+    Chunked rather than all-at-once because staged copies occupy real disk: the peak footprint
+    is one chunk, not one ingest. And staged rather than in-place because **the source is never
+    modified** -- which is also why a batch dying part-way through cannot leave a user's file
+    half-written. The worst case is a temp file nobody uploads.
+    """
+
+    def __init__(self, queue: list[tuple[Decision, MetadataWrite]]) -> None:
+        self._queue = queue
+        self._next = 0
+        self._ready: dict[Path, Path] = {}
+        self._failed: set[Path] = set()
+        self._tmp: tempfile.TemporaryDirectory[str] | None = None
+
+    def staged_copy_of(self, decision: Decision) -> Path:
+        """The baked copy of ``decision.source``, baking the next chunk if it is not ready yet."""
+        while (
+            decision.source not in self._ready
+            and decision.source not in self._failed
+            and self._next < len(self._queue)
+        ):
+            # Normally one chunk; the loop exists so that a caller which skips a queued file
+            # advances past it rather than reaching for something that was never staged.
+            self._bake_next_chunk()
+        if decision.source in self._failed:
+            self._failed.discard(decision.source)
+            raise MetadataBakeError(decision.source)
+        return self._ready.pop(decision.source)
+
+    def _bake_next_chunk(self) -> None:
+        # The previous chunk has been fully consumed by the time we get here (the caller walks
+        # the same order), so its staging directory can go.
+        self.close()
+        chunk = self._queue[self._next : self._next + WRITE_BATCH_SIZE]
+        self._next += len(chunk)
+        if not chunk:
+            return
+        self._tmp = tempfile.TemporaryDirectory(prefix="truestill-ingest-")
+        root = Path(self._tmp.name)
+
+        items: list[tuple[Path, list[str]]] = []
+        for index, (decision, write) in enumerate(chunk):
+            # Indexed name: two sources in one chunk can share a basename, and one silently
+            # overwriting the other would upload the wrong bytes.
+            staged = root / f"{index}-{decision.relative.name}"
+            shutil.copy2(decision.source, staged)
+            self._ready[decision.source] = staged
+            args = build_metadata_args(
+                taken_at_local=write.taken_at_local,
+                gps=write.gps,
+                description=write.description,
+            )
+            if args:
+                items.append((staged, args))
+
+        verdicts = write_metadata_batch(items)
+        for decision, _ in chunk:
+            staged = self._ready[decision.source]
+            if not verdicts.get(staged, True):
+                # Unconfirmed is failed, never assumed fine: this file is reported as failed
+                # rather than uploaded with the metadata it was supposed to have gained.
+                self._failed.add(decision.source)
+                del self._ready[decision.source]
+
+    def close(self) -> None:
+        if self._tmp is not None:
+            self._tmp.cleanup()
+            self._tmp = None
+        self._ready.clear()
 
 
 @dataclass(frozen=True, slots=True)
@@ -597,6 +706,9 @@ def execute(
 
     events = event_ids or {}
     ingest = ingest or IngestContext()
+    baker = _MetadataBaker(
+        _bake_queue(resolutions, ingest, skip_undated=skip_undated) if apply else []
+    )
     albums_by_sha = _aggregate_albums(resolutions, ingest)
     total = len(resolutions)
 
@@ -655,9 +767,9 @@ def execute(
             if bakes_metadata:
                 copy_sha = _upload_with_metadata_write(
                     decision,
-                    write,  # type: ignore[arg-type]  # bakes_metadata proves it is not None
                     final_relative,
                     destination,
+                    baker=baker,
                     set_timestamps=set_timestamps,
                 )
             else:
@@ -727,4 +839,5 @@ def execute(
         except (OSError, DestinationError) as exc:
             record(ActionResult(resolution, ActionStatus.FAILED, None, str(exc)))
 
+    baker.close()
     return results
