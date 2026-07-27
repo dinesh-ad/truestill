@@ -6,7 +6,7 @@ decision context that produced them.
 
 ## Approved, not yet built
 
-- **(r) Analyze mode + the hash cache — one feature, shipped together.** Promoted from
+- **(r) Analyze mode + the hash cache - one feature, shipped together.** Promoted from
   "ideas" and bound to the previously-standalone hash-cache item, because the pairing is what
   makes either worth building.
   - **Analyze mode.** An explicit **"Analyze"** entry point (CLI + app) that runs the existing
@@ -168,7 +168,7 @@ decision context that produced them.
      the never-silent rule applied to a UI surface - the existing precedents are the HEIC
      perceptual-skip notice and the Tier A / Tier B date-quality lines.
 
-  **Quality ranking — the layer that makes the review worth doing (research-grounded).**
+  **Quality ranking - the layer that makes the review worth doing (research-grounded).**
   Within each near-duplicate group, rank the candidates by objective quality signals and use
   that ranking to power the side-by-side review's **default suggestion**.
 
@@ -194,37 +194,37 @@ decision context that produced them.
   - **Positioning:** this is what makes (m) the **Pro-tier crown feature alongside (p)**. The
     safe-delete flow is the table stakes; knowing which copy to keep is the part worth paying
     for.
-- **(n) "How your dates were determined" honesty stat — PRIORITIZED for first post-launch.** A
+- **(n) "How your dates were determined" honesty stat - PRIORITIZED for first post-launch.** A
   per-run/library figure in the reports/UI showing the **provenance mix** of capture dates - e.g.
   "82% from embedded EXIF, 11% from filename, 5% from Takeout, 2% Undated" (a metadata-accuracy %).
   truestill already resolves and could persist `date_source` (see the metadata-chain §1b.3 schema-v9
   note); surfacing it honestly tells a user how much to trust their timeline, in truestill's voice.
   - **Validated by the UI-v2 walkthrough:** the organize result's "**N no date → Undated**" line
-    confused a first user — a bare count with no way in. It must be **explorable**: click it to see
+    confused a first user - a bare count with no way in. It must be **explorable**: click it to see
     *which* files were undated and *why* no date was found (which tags were checked, whether a
-    filename date was tried). Same treatment for the provenance mix — each slice drills to its
+    filename date was tried). Same treatment for the provenance mix - each slice drills to its
     files. This is the concrete first slice of (n) to build first post-launch.
-- **(p) "Share safely" — metadata-stripping export. PRO TIER (behind the capability seam).**
+- **(p) "Share safely" - metadata-stripping export. PRO TIER (behind the capability seam).**
   A dedicated **export** action that writes cleaned copies for sharing, so a user can post a photo
   without leaking where they live or what device they use. Market demand is documented (a whole app
-  category — CleanShots, ExifStrip, etc.; dating / kids / marketplace / forum use cases; email /
+  category - CleanShots, ExifStrip, etc.; dating / kids / marketplace / forum use cases; email /
   Slack / Telegram-file preserve EXIF). **Design decisions, recorded now:**
   1. **Export-only, never a library operation.** The user selects files; truestill writes cleaned
      copies to a dedicated **share-export folder**. The organized library and the originals keep
      their full metadata, untouched. A strip control anywhere near the library would contradict
-     truestill's metadata-preservation identity and invite accidents — it lives only in this export.
+     truestill's metadata-preservation identity and invite accidents - it lives only in this export.
   2. **Complete removal, verified.** `exiftool -all=` on the copy (clears EXIF + XMP + IPTC +
-     MakerNotes + embedded thumbnails — the thumbnail is the classic leak); for video, an exiftool
+     MakerNotes + embedded thumbnails - the thumbnail is the classic leak); for video, an exiftool
      pass **plus** an ffmpeg container rewrite (`-map_metadata -1`, no re-encode) for the
      `uuid`/`udta` boxes; handle **Live Photo** JPEG+MOV pairs together. Then **re-scan each output**
-     and produce a verification report ("0 metadata fields remain") — the never-silent rule applied
+     and produce a verification report ("0 metadata fields remain") - the never-silent rule applied
      to removal. UI states honestly that cleaning affects the *copies*; the originals still exist
      with their metadata (that is the point).
   3. **Folder protection + lineage.** The share-export folder gets a `.truestill-shared.json` marker;
      the scanner **refuses a marked folder as an organize source** with a clear explanation (so
      dateless cleaned copies are never re-swept into `Undated/`). The catalog records lineage
      (cleaned copy ↔ source hash) so dedup never mistakes a stripped copy for a lost original.
-  4. **Modes:** **strip-all** (default) and **GPS-only** — the two the market ships.
+  4. **Modes:** **strip-all** (default) and **GPS-only** - the two the market ships.
 
   Post-launch build; Pro-tier candidate. Research refs to carry in: the embedded-thumbnail trap,
   the XMP/IPTC/MakerNotes layers, MP4 container metadata boxes, and Live Photo pairing.

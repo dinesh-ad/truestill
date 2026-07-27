@@ -206,7 +206,7 @@ in code, the CLI, and docs).
 | Where | Current (system voice) | Replacement (person's voice) |
 | --- | --- | --- |
 | Organize source | `Source folder` + placeholder `/photos/dump` | **Folder to organize** · empty field, grey *example* hint, **Browse** primary |
-| Organize dest | `Destination (drive root)` `/mnt/DriveA` | **Organized folder** (where your sorted copies go) · Browse. *Not* "Backup folder" — this folder is the organized **result**, not the backup; "backup" is reserved for the drives on the Backups screen where it is literally true. |
+| Organize dest | `Destination (drive root)` `/mnt/DriveA` | **Organized folder** (where your sorted copies go) · Browse. *Not* "Backup folder" - this folder is the organized **result**, not the backup; "backup" is reserved for the drives on the Backups screen where it is literally true. |
 | Organize run btn | `Run for real` | **Organize N files** (names the outcome; N from the preview) |
 | Preview btn | `Dry-run preview` | **Preview** (subtext: "see what would happen - nothing is changed") |
 | Skip-undated | `Skip undated files (don't copy to Undated/)` | **Skip files with no date** (they won't be sorted into an Undated folder) |
