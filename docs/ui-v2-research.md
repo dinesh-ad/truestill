@@ -1,6 +1,12 @@
 # truestill - UI v2: Usability & Design Pass (Phase 1: research + design)
 
-Status: **Phase 1 deliverable, awaiting approval.** No build. Presentation + UX over the existing
+Status: **Historical (2026-07-27) - built and since superseded in parts.** Recorded as
+*Phase 1 deliverable, awaiting approval; no build* and approved and built as such. The
+progress display, completion cards and Backups screen described here were **rebuilt during
+the soak test** (`PROJECT_STATUS.md` §2.1); where this document and the shipped UI differ,
+the shipped UI and `IMPLEMENTATION_STANDARDS.md` §9 win. Nothing below is rewritten.
+
+Original status line: *Phase 1 deliverable, awaiting approval.* No build. Presentation + UX over the existing
 working API; the engine is untouched. Constraint held: vanilla JS + server-rendered HTML + a
 hand-written design-tokens CSS layer, no toolchain, no heavy deps.
 

@@ -24,6 +24,17 @@ All notable changes to this project are documented here. The format follows
   each file moved) rather than an audit one (what was destroyed).
 
 ### Added
+- **A browser end-to-end test layer** (`tests/e2e/`, `make e2e`). Playwright via
+  `pytest-playwright` against an in-process app server, run in CI as its own chromium-on-ubuntu
+  lane. Every UI defect the soak found is pinned as a named regression test, and the whole
+  organize → back up → check journey runs as one test because the value is in the handoffs.
+  Deliberately outside `make check`: a fresh clone stays green with no browser installed.
+- **A hash cache** (`catalog.cache.sqlite`, beside the catalog - never inside it). An unchanged
+  file is never read twice: a repeat preview of 2,275 unchanged photos went **15.8s → 4.7s**.
+  It caches the perceptual hash as well as SHA-256, which is where nearly all of the win is.
+  It can only ever remove work - any mismatch, corruption or unknown schema means hashing from
+  scratch - so the answers are identical with it and without it.
+- **`truestill --version`**, and the same version in the app footer, read from package metadata.
 - **`docs/PERFORMANCE.md`** - the measured baseline per pipeline stage, the two known scaling
   limits with their thresholds, and a list of things a future optimizer should **not** "improve"
   (the size pre-filter above all). It carries one binding rule, referenced from the quality
@@ -34,6 +45,26 @@ All notable changes to this project are documented here. The format follows
   so, rather than leaving the trigger in a document nobody reads.
 
 ### Fixed
+- **The Backups screen told four kinds of untruth, found in one real backup.** Checking a
+  folder that was not a backup drive rendered `NaN verified · NaN missing · NaN changed`; the
+  "this isn't a backup yet" state survived the copy that disproved it; the completion had no
+  weight; and the drive cards said less than they knew. The NaN was a whole *class* of bug -
+  handlers were reading raw job events, so every failure path could produce it - and it is
+  fixed at the seam: `streamJob` now normalizes every terminal event before a handler sees it.
+- **The golden path was broken at the organize → backup handoff.** Organizing never registered
+  its own destination as a drive, so the app rejected the library it had just built. Organize
+  destinations and backup targets are now registered on a real run (never on a preview, which
+  must stay pure).
+- **A path typed into one Backups field had to be typed again in the next.** Known values now
+  prefill; Browse is for overriding, not for repeating yourself.
+- **Organize reported "uploaded"** - backend vocabulary for an event that did not occur, and a
+  quiet contradiction of the promise that files never leave the machine. Outcomes are now
+  worded in exactly one place (`models.status_label`), so the CLI and the app cannot drift.
+- **A cancelled run claimed there was nothing to organize.** For a 6,000-photo source, that is
+  a false statement about the user's own library. Cancellation is now reported as cancellation
+  on both the preview and the run paths.
+- **Preview blocked the UI and could not be cancelled**; it now runs as a job on the same
+  progress/SSE path as every other long operation.
 - **`reclaim` can no longer delete the only copy of a file organized in place.** Such a file
   is both the source and the drive copy - one inode - so reclaim's re-verify gate was
   satisfied by the file checking against itself, and it would have deleted content with no

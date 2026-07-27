@@ -38,8 +38,11 @@ web application has, and it means the interesting security questions here are di
 - **Path handling.** Anything that makes truestill read or write outside the source and
   destination you pointed it at, including via crafted filenames or archive contents.
 - **Data-destroying behaviour.** truestill's core promise is that it copies and never destroys.
-  Any path that deletes or overwrites an original outside the two documented, opt-in,
-  verify-gated exceptions (`--move` and `reclaim`) is a **serious** bug - report it as one.
+  Any path that relocates, deletes or overwrites an original outside the three documented,
+  opt-in exceptions - `--move` and `reclaim` (both gated on re-hashing a proven second copy),
+  and `--in-place` (atomic rename, reversible via `truestill undo-organize`) - is a
+  **serious** bug. Report it as one. So is any way to reach one of those three *without* its
+  confirmation, or to defeat the gate that protects it.
 - **Metadata parsing.** Crashes or worse when handling malformed media or Takeout sidecars.
 - **A dependency vulnerability we have missed.** CI runs `pip-audit` against the locked set,
   but it only knows about published advisories.

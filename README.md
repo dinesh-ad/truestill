@@ -75,6 +75,31 @@ exiftool "-FileModifyDate<DateTimeOriginal" -r <folder>
 but driven by the *same* date used for folder placement, so a file's mtime and its
 year/month folder can never disagree. Disable with `--no-timestamps`.
 
+## More than organizing
+
+Organizing is the entry point, not the whole tool. truestill also owns the **custody** of the
+library it builds:
+
+- **De-duplication**, two tiers - exact (SHA-256) skipped, perceptual look-alikes kept and
+  *flagged*, so an original is never silently dropped for a resembling file.
+- **Google Takeout rescue** (`truestill ingest --takeout`) - recovers the capture dates that
+  survive only in the export's JSON sidecars, and bakes them losslessly into the organized
+  copy. The source is never modified.
+- **Drive identity and an offline catalog** - which drive holds which copy, answerable with
+  the drive unplugged (`truestill where`).
+- **Verification and 3-2-1 backup** - re-hash a connected drive against the catalog
+  (`truestill verify`), copy the library to a second drive, and see what still exists in only
+  one place (`truestill status`).
+- **Configurable layout** with crash-safe migration of an existing library.
+- **Trips & events** - opt-in clustering that proposes named events for you to confirm; never
+  auto-named.
+- **Space-safe relocation**, all opt-in and verify-gated: `--move`, `--in-place` (atomic
+  rename, with `truestill undo-organize` to reverse it), and `truestill reclaim`.
+
+There is also **`truestill-app`**, a local web UI on `127.0.0.1` - token-authenticated,
+server-rendered, no bundler and no npm. It is co-equal with the CLI, not a replacement: both
+front-ends call the same core library.
+
 ## Requirements
 
 - Python ≥ 3.13, [uv](https://docs.astral.sh/uv/)
@@ -85,48 +110,84 @@ year/month folder can never disagree. Disable with `--no-timestamps`.
 sudo apt install -y libimage-exiftool-perl
 ```
 
-There are **no runtime Python dependencies**.
+Runtime Python dependencies are deliberately minimal and each is justified in writing
+(`docs/IMPLEMENTATION_STANDARDS.md` §7): `imagehash`, `pillow` and `pillow-heif` in the core
+(perceptual hashing needs image decoding, which the stdlib cannot do), and `starlette` +
+`uvicorn` in the app. The CLI adds none. Hashing, SQLite, concurrency and all path/date work
+are stdlib.
 
 ## Install
 
 ```bash
-make install       # uv sync --group dev
+make install       # uv sync --all-packages --group dev
 ```
 
 ## Usage
 
-Dry run is the default. Nothing is written without `--apply`:
+The CLI is subcommand-based. **Dry run is the default** - nothing is written without
+`--apply`:
 
 ```bash
-uv run truestill <source> <destination>
-uv run truestill <source> <destination> --report reports/plan.json
-uv run truestill <source> <destination> --apply
+uv run truestill organize <source> <destination>
+uv run truestill organize <source> <destination> --report reports/plan.json
+uv run truestill organize <source> <destination> --apply
+
+uv run truestill-app                 # the local web UI
 ```
+
+`truestill --help` lists every subcommand: `organize`, `ingest`, `drives`, `undo-organize`,
+`where`, `verify`, `status`, `config`, `reclaim`, `migrate-layout`.
+
+Frequently used `organize` flags:
 
 | Flag | Effect |
 |------|--------|
 | `--apply` | Actually write files. Without it, nothing is touched. |
 | `--move` | Move instead of copy. Default is copy, leaving the source intact. |
+| `--in-place` | Organize on the drive itself by atomic rename - for a library with no room to copy into. Reversible with `truestill undo-organize`. |
 | `--by-device` | Name capture folders after the device (`samsung SM-A546B`) instead of `Camera`. |
+| `--events` | Propose named events for camera clusters (you name or skip them). |
+| `--skip-undated` | Skip undateable files instead of copying them to `Undated/`. |
 | `--all-files` | Include non-media extensions. |
+| `--no-rename` | Do not add the `YYYYMMDD_HHMMSS_` prefix to copies. |
 | `--no-timestamps` | Do not set mtime from the capture date. |
 | `--report PATH` | Write the full per-file decision report as JSON. |
 
 ## Safety
 
-- **Dry run by default** - `--apply` is the only thing that writes.
-- **Copy, not move, by default** - the source tree survives a bad run.
+- **Dry run by default** - `--apply` is the only thing that writes. A read never writes.
+- **Copy, not move, by default** - the source tree survives a bad run. The three exceptions
+  (`--move`, `--in-place`, `reclaim`) are each opt-in, individually confirmed, and never
+  remove a source without proof that the content survives.
 - **Never overwrites.** On a name collision the file is hashed: identical content is
   reported as a duplicate and skipped; different content is written alongside with a
   `_1` suffix.
 - **Dates are never invented.** No date evidence means `Undated/`.
+- **Nothing is silently dropped.** Skipped, refused and unverifiable outcomes are counted and
+  named in the report - never folded into a success total.
+- **Your files never leave your machine.** No accounts, no telemetry, permanently
+  (`docs/DECISIONS.md` D1).
 
 ## Development
 
 ```bash
-make check     # lint + typecheck + test
+make check         # lint + format-check + typecheck + test
 make lint
 make format
 make typecheck
 make test
+
+make e2e-install   # once: fetch the chromium build
+make e2e           # browser end-to-end suite (opt-in; not part of `make check`)
 ```
+
+`make check` is green on a fresh clone with no browser installed - the E2E layer is
+deliberately opt-in.
+
+## Documentation
+
+Start with [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md): where the project stands, what
+ships next, and the standing rules. [`CLAUDE.md`](CLAUDE.md) carries the full document map.
+
+> **Status:** pre-1.0 and not yet published. This README is deliberately factual rather than
+> promotional; the newcomer-facing rewrite with screenshots is a tracked pre-launch task.

@@ -63,6 +63,31 @@ decision context that produced them.
        forever. Pruning must actually run as part of a run, not merely exist.
   - **Placement:** the **first post-launch wave, alongside (n)**. Earlier if the soak shows
     repeat-run pain at real scale -- that evidence would move it, nothing else needs to.
+- **(u) Metadata (exiftool) cache.** Promised by `IMPLEMENTATION_STANDARDS.md` §8 as "tracked
+  as a separate later item" and recorded here because that pointer had nothing to point at.
+  With the hash cache shipped, **exiftool is essentially the entire cost of a repeat preview**
+  (4.7s of the remaining 4.7s at 2,275 files), so this is the next measured win available.
+  - **It is deliberately NOT the hash cache with a different table.** The hash cache is safe to
+    be wrong because a stale row can only cost a re-read. Metadata feeds **dating**, so a stale
+    row could change *where a photo lands* - a class of risk the hash cache structurally cannot
+    have. Whatever invalidation this uses must be argued on that basis, not inherited.
+  - **Prerequisite for a decision:** state what invalidates a row when an *external* tool edits
+    a file's metadata without changing its size (entirely possible - exiftool itself does it),
+    and whether size+mtime is honestly sufficient there. If the answer is "not sufficient", the
+    correct outcome may be **not to build it**.
+  - Blocked on nothing; wants a research pass before a build pass.
+
+- **(v) BK-tree for perceptual dedup - build on the alarm, not before.** The linear scan is
+  O(n²) *by decision* (`PERFORMANCE.md` §3): 0.7s at 2,275 images, ~22.6 min at 100k. A BK-tree
+  today would be machinery bought before the problem.
+  - **The trigger is instrumented, not remembered:** `dedup.LINEAR_SCAN_ALARM = 10_000` logs one
+    line the first time an index crosses it. **This item is unblocked when that line appears in
+    a real run**, not when someone re-reads this file.
+  - Design already settled: BK-tree over Hamming distance, which fits a *fixed small* threshold
+    like `DEFAULT_PHASH_THRESHOLD`. VP-tree is the more general metric-space answer and buys
+    nothing extra here; LSH is for *approximate* nearest-neighbour at far larger scale and would
+    trade away exactness we currently have. `DedupIndex`'s interface was designed for the swap.
+
 - **GPS-derived per-photo timezone.** Deferred during Takeout Rescue Mode. `--tz` is a single
   fixed offset for the whole run, which cannot correctly date a library that spans timezones;
   the real fix derives each photo's timezone from its GPS. The near-midnight caveat is
@@ -77,8 +102,20 @@ decision context that produced them.
   the whole corpus zoo** (`.swf`, raw `.hevc`/`.mjpeg` elementary streams are not "photos to back
   up"). Each extension added must have its **category and date handling verified via the corpus
   probe** before inclusion. **Post-launch, demand-driven.**
+
 ## Shipped (kept for provenance)
 
+- ~~**Browser end-to-end test layer.**~~ **Delivered** (`9be7529`, `0103454`). Playwright via
+  `pytest-playwright` against an in-process app server, run in CI as its own chromium-on-ubuntu
+  lane. Every UI bug the soak era found is now a **named regression test**, the golden path is
+  one journey rather than six set-up tests, and the "a clean runtime install pulls no browser"
+  claim is itself tested. Rules in `IMPLEMENTATION_STANDARDS.md` §6; scope rulings and the
+  Playwright-over-Docker rationale in `DECISIONS.md` D2/D3.
+- ~~**Performance audit + its convictions.**~~ **Delivered** (`1e458df`, `39d889a`, `8f77de1`).
+  Measured every pipeline stage, then fixed only what evidence convicted: the per-file exiftool
+  write (255ms → 9.3ms/file) and the custody strip's row-building count (224ms → 17.5ms at
+  100k). The O(n²) perceptual scan was **deliberately not fixed** - it became item (v) with a
+  runtime alarm. Baseline, rule and the do-not-touch list in `PERFORMANCE.md`.
 - ~~**(q) In-place organize (same-device optimization).**~~ **Delivered.** `organize --in-place`
   moves files by atomic rename when source and destination share a filesystem: no bytes
   rewritten, no zero-copy window, hash unchanged because the inode is. Plain `--move` takes the

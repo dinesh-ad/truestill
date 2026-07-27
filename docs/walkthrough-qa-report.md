@@ -1,5 +1,13 @@
 # truestill - Full-App Walkthrough QA Report
 
+> **Historical record (2026-07-26). Superseded as a verdict by the soak test (2026-07-27, in
+> progress) and by `tests/e2e/` as the regression mechanism** - see `PROJECT_STATUS.md` §2.1.
+> Its "launch-ready" conclusion was true of the build it tested; the soak then found ten
+> further defects, eight of them in client-side rendering that a scripted walkthrough over
+> synthetic data could not surface. Read this for *what was investigated and when*, not for
+> current state. Nothing below has been rewritten.
+
+
 > ## ✅ Re-run on the fixed build (2026-07-26) - verdict: **launch-ready**
 >
 > All approved fixes are shipped, each screenshot-verified on a live build; `make check` green
