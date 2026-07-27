@@ -31,9 +31,19 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import PurePosixPath
+from typing import Protocol
 
 from truestill_core.events import event_dirname
 from truestill_core.models import UNDATED_DIRNAME
+
+
+class CatalogLike(Protocol):
+    """The slice of `Catalog` the pin needs, so layout does not import the catalog module."""
+
+    def get_setting(self, key: str) -> str | None: ...
+    def set_setting(self, key: str, value: str) -> None: ...
+    def has_placed_files(self) -> bool: ...
+
 
 _TOKEN = re.compile(r"\{([a-z_]+)\}")
 
@@ -97,6 +107,58 @@ def _sanitize_value(value: str) -> str:
 def resolve_template(stored: str | None) -> LayoutTemplate:
     """The active template: the stored one if a catalog has set it, else the default."""
     return LayoutTemplate.parse(stored) if stored else DEFAULT_TEMPLATE
+
+
+#: The layout truestill produced before the year-first default. Written into a catalog that has
+#: already placed files under it, so that changing :data:`DEFAULT_TEMPLATE_STRING` cannot
+#: re-shape a library nobody asked to re-shape. See :func:`pin_existing_layout`.
+LEGACY_TEMPLATE_STRING = "{category}/{yyyy}/{mm}"
+
+
+def pin_existing_layout(catalog: CatalogLike) -> bool:
+    """Write down a library's current layout before a default change could move it.
+
+    A layout is only ever persisted when a user explicitly sets one, so a library organized
+    with the defaults stores nothing and renders through whatever :data:`DEFAULT_TEMPLATE` is
+    at the time. Changing that constant would therefore silently re-shape the **next** run of
+    every existing library - new files in the new structure, the existing tree in the old one,
+    no prompt and no migration. That is exactly the split the "new default applies forward,
+    migration offered never forced" rule exists to prevent, and the rule needs a mechanism.
+
+    The trigger is deliberately narrow: **files have already been placed, and no layout is
+    stored.** A library that has only ever been scanned or previewed has nothing on disk to
+    protect and receives the new default like any fresh library
+    (`catalog.has_placed_files` documents why that signal, and not "the catalog has rows").
+
+    Returns whether it pinned, so the caller can announce it once. Idempotent: a catalog that
+    already stores a layout - pinned or chosen - is never touched again.
+    """
+    if effective_layout_string(catalog) != LEGACY_TEMPLATE_STRING:
+        return False
+    if catalog.get_setting(LAYOUT_TEMPLATE_KEY) is not None:
+        return False
+    catalog.set_setting(LAYOUT_TEMPLATE_KEY, LEGACY_TEMPLATE_STRING)
+    return True
+
+
+def effective_layout_string(catalog: CatalogLike) -> str | None:
+    """The layout in force right now - **pure, never writes.**
+
+    A library that qualifies for the pin renders through the legacy layout *whether or not the
+    pin has run yet*. That equivalence is the point: previews run on read-only paths where
+    writing a setting would break the dry-run invariant (`IMPLEMENTATION_STANDARDS.md` §5), so
+    the preview cannot pin - and if it resolved differently from the run that follows it, the
+    plan a user approved would not be the plan that executed.
+    """
+    stored = catalog.get_setting(LAYOUT_TEMPLATE_KEY)
+    if stored is not None:
+        return stored
+    return LEGACY_TEMPLATE_STRING if catalog.has_placed_files() else None
+
+
+def resolve_for(catalog: CatalogLike) -> LayoutTemplate:
+    """The template to render a catalog's files through. Pure; safe on preview paths."""
+    return resolve_template(effective_layout_string(catalog))
 
 
 @dataclass(frozen=True)

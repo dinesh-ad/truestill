@@ -659,6 +659,26 @@ class Catalog:
     def count(self) -> int:
         return int(self._conn.execute("SELECT COUNT(*) FROM files").fetchone()[0])
 
+    def has_placed_files(self) -> bool:
+        """Whether this catalog has ever actually *placed* a file on disk.
+
+        The signal is a `files` row with ``upload_status = 'uploaded'``, because
+        :meth:`record_uploaded` is the only path that inserts one and it is reached only under
+        ``apply=True``. Deliberately **not** "the catalog has rows": a scan, a preview or an
+        event-review session writes `events`, `skipped_clusters`, `settings` and `drives`
+        without a single file being written, and such a library has no layout worth protecting.
+
+        Nor is `file_copies` the signal, despite being the authoritative location record -
+        organizing into a plain folder that carries no drive marker places files without
+        recording a copy row, so a non-empty `files` table is the wider and correct test.
+        """
+        return (
+            self._conn.execute(
+                "SELECT 1 FROM files WHERE upload_status = 'uploaded' LIMIT 1"
+            ).fetchone()
+            is not None
+        )
+
     def media_names(self) -> list[str]:
         """Every file's name (original if known, else its stored path) for format classification."""
         cursor = self._conn.execute("SELECT COALESCE(original_name, relative) AS n FROM files")

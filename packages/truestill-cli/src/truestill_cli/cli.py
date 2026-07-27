@@ -40,7 +40,9 @@ from truestill_core.layout import (
     SAMPLE_CONTEXTS,
     LayoutTemplate,
     TemplateError,
+    pin_existing_layout,
     preview,
+    resolve_for,
     resolve_template,
 )
 from truestill_core.migrate import run_migration
@@ -80,6 +82,15 @@ from truestill_cli.events_review import Prompt, album_prompt, run_event_stage
 
 _SEPARATOR = "=" * 100
 _DEFAULT_DB = Path("reports/catalog.sqlite")
+
+#: Said once, on the run that pins an existing library's layout. It states what was recorded
+#: and how to change it, because a settings write the user did not ask for must never be silent.
+_PINNED_NOTICE = (
+    "Note: this library was organized before truestill's default layout changed, so its "
+    "current layout ({category}/{yyyy}/{mm}) has been recorded as its own - new files will "
+    "keep landing where the existing ones are. To adopt the new year-first default, run "
+    "`truestill config --preset year-first` and then `truestill migrate-layout` (preview first)."
+)
 _STATUS_PREVIEW = 20  # how many single-copy files `truestill status` lists before eliding
 
 
@@ -781,7 +792,9 @@ def _run_pipeline(
     relocation: Relocation | None = None,
 ) -> int:
     with Catalog(args.db) as catalog, HashCache.beside(args.db) as cache:
-        template = resolve_template(catalog.get_setting(LAYOUT_TEMPLATE_KEY))
+        if getattr(args, "apply", False) and pin_existing_layout(catalog):
+            print(_PINNED_NOTICE)
+        template = resolve_for(catalog)
         decisions = plan(
             files,
             metadata,
@@ -1095,7 +1108,9 @@ def _cmd_migrate_layout(args: argparse.Namespace) -> int:
     destination = LocalDestination(args.path)
     with Catalog(args.db) as catalog:
         catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
-        template = resolve_template(catalog.get_setting(LAYOUT_TEMPLATE_KEY))
+        if args.apply and pin_existing_layout(catalog):
+            print(_PINNED_NOTICE)
+        template = resolve_for(catalog)
         outcome = run_migration(catalog, destination, marker.uuid, template, apply=args.apply)
 
         plan = outcome.plan

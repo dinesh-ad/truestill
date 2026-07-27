@@ -37,7 +37,10 @@ from truestill_core.layout import (
     SAMPLE_CONTEXTS,
     LayoutTemplate,
     TemplateError,
+    effective_layout_string,
+    pin_existing_layout,
     preview,
+    resolve_for,
     resolve_template,
 )
 from truestill_core.migrate import run_migration
@@ -244,7 +247,7 @@ def organize_preview(
         return {"files": 0, "folders": {}, "skipped": _skipped_summary(scan)}
     metadata = read_metadata(files, progress=progress, cancel=cancel)
     with Catalog(db) as catalog, HashCache.beside(db) as cache:
-        template = resolve_template(catalog.get_setting(LAYOUT_TEMPLATE_KEY))
+        template = resolve_for(catalog)
         decisions = plan(files, metadata, build_rules(), template=template)
         index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
         resolutions = resolve(
@@ -285,7 +288,8 @@ def organize_run(
             return _completion([], destination)
         metadata = read_metadata(files, progress=progress)
         with Catalog(db) as catalog, HashCache.beside(db) as cache:
-            template = resolve_template(catalog.get_setting(LAYOUT_TEMPLATE_KEY))
+            pin_existing_layout(catalog)
+            template = resolve_for(catalog)
             decisions = plan(files, metadata, build_rules(), template=template)
             index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
             resolutions = resolve(
@@ -509,7 +513,7 @@ def plan_resolve(source: Path, db: Path) -> tuple[list[Resolution], dict[Path, d
         return [], {}
     metadata = read_metadata(files)
     with Catalog(db) as catalog:
-        template = resolve_template(catalog.get_setting(LAYOUT_TEMPLATE_KEY))
+        template = resolve_for(catalog)
         decisions = plan(files, metadata, build_rules(), template=template)
         index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
         resolutions = resolve(decisions, index, catalog_sizes=catalog.known_sizes())
@@ -538,7 +542,7 @@ def ingest_preview(takeout: Path, destination: Path, db: Path) -> dict[str, Any]
         return {"files": 0, "missing_sidecar": 0}
     metadata = read_metadata(files)
     with Catalog(db) as catalog:
-        template = resolve_template(catalog.get_setting(LAYOUT_TEMPLATE_KEY))
+        template = resolve_for(catalog)
         decisions = plan(files, metadata, build_rules(), takeout=scan.sidecars, template=template)
         index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
         resolutions = resolve(decisions, index, catalog_sizes=catalog.known_sizes())
@@ -703,7 +707,7 @@ def _render_preview(template: LayoutTemplate) -> list[dict[str, Any]]:
 def layout_state(db: Path) -> dict[str, Any]:
     """Current template, whether it is the default, the presets, and a live preview."""
     with Catalog(db) as catalog:
-        stored = catalog.get_setting(LAYOUT_TEMPLATE_KEY)
+        stored = effective_layout_string(catalog)
     current = stored or DEFAULT_TEMPLATE_STRING
     return {
         "template": current,
@@ -889,7 +893,7 @@ def migration_preview(path: Path, db: Path) -> dict[str, Any]:
         }
     with Catalog(db) as catalog:
         catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
-        template = resolve_template(catalog.get_setting(LAYOUT_TEMPLATE_KEY))
+        template = resolve_for(catalog)
         outcome = run_migration(catalog, LocalDestination(path), marker.uuid, template, apply=False)
         pending = [
             d["label"]
@@ -917,7 +921,8 @@ def migration_apply(path: Path, db: Path) -> JobTarget:
             raise _not_a_drive()
         with Catalog(db) as catalog:
             catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
-            template = resolve_template(catalog.get_setting(LAYOUT_TEMPLATE_KEY))
+            pin_existing_layout(catalog)
+            template = resolve_for(catalog)
             outcome = run_migration(
                 catalog,
                 LocalDestination(path),
