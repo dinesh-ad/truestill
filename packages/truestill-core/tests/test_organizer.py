@@ -13,6 +13,7 @@ from truestill_core.destinations import LocalDestination
 from truestill_core.exif import read_metadata
 from truestill_core.hashing import sha256_file
 from truestill_core.models import (
+    _STATUS_LABELS,
     ActionStatus,
     DateSource,
     Decision,
@@ -270,3 +271,15 @@ def test_dry_run_writes_nothing(tmp_path: Path, gradient_png: Path) -> None:
     paired = _run(source, out, tmp_path / "c.sqlite", apply=False)
     assert paired[0][1].status is ActionStatus.PLANNED
     assert not out.exists()
+
+
+def test_status_labels_cover_every_outcome() -> None:
+    """Every outcome needs a deliberate user-facing wording.
+
+    Asserted as map membership, not as "differs from the enum value": some statuses are
+    already the right word (`moved`), and the fault to catch is a *new* status silently
+    falling through the lookup's default and reaching a report as a raw identifier -- which
+    is exactly how "uploaded" once described organizing photos on a local disk.
+    """
+    missing = [s.name for s in ActionStatus if s not in _STATUS_LABELS]
+    assert not missing, f"ActionStatus without user-facing wording: {missing}"

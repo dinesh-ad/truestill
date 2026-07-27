@@ -6,6 +6,7 @@ import threading
 from pathlib import Path
 
 from truestill_core.hashing import sha256_file
+from truestill_core.progress import Phase, Progress
 from truestill_core.scan import compute_hashes
 from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
 
@@ -31,11 +32,13 @@ def test_compute_hashes_reports_progress(tmp_path: Path) -> None:
         p.write_bytes(b"same-size-content")
         paths.append(p)
 
-    seen: list[tuple[int, int]] = []
-    compute_hashes(paths, progress=lambda d, t: seen.append((d, t)))
+    seen: list[Progress] = []
+    compute_hashes(paths, progress=seen.append)
     assert seen  # progress was reported
-    assert seen[-1] == (6, 6)  # finished
-    assert [d for d, _ in seen] == sorted(d for d, _ in seen)  # monotonic
+    assert (seen[-1].done, seen[-1].total) == (6, 6)  # finished
+    assert [u.done for u in seen] == sorted(u.done for u in seen)  # monotonic
+    assert all(u.phase == Phase.HASHING for u in seen)  # the phase is named, not blended
+    assert all(u.item for u in seen)  # and the current file is always identified
 
 
 def test_compute_hashes_cancel_stops_early(tmp_path: Path) -> None:
@@ -55,9 +58,10 @@ def test_verify_reports_progress_including_missing(tmp_path: Path) -> None:
         CopyToVerify("1", "good.bin", sha256_file(good)),
         CopyToVerify("2", "gone.bin", "0" * 64),  # missing
     ]
-    seen: list[tuple[int, int]] = []
-    results = verify_copies(copies, root, progress=lambda d, t: seen.append((d, t)))
-    assert seen[-1] == (2, 2)
+    seen: list[Progress] = []
+    results = verify_copies(copies, root, progress=seen.append)
+    assert (seen[-1].done, seen[-1].total) == (2, 2)
+    assert seen[-1].phase == Phase.VERIFYING
     assert {r.status for r in results} == {CopyStatus.VERIFIED, CopyStatus.MISSING}
 
 

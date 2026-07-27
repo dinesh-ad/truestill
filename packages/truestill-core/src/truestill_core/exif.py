@@ -16,6 +16,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from truestill_core.progress import Phase, Progress, ProgressCallback
+
 EXIFTOOL_BIN = "exiftool"
 
 #: Files handed to exiftool per invocation. Large enough to amortise startup, small
@@ -118,20 +120,29 @@ def write_metadata(
     return proc.returncode == 0
 
 
-def read_metadata(paths: Sequence[Path]) -> dict[Path, dict[str, Any]]:
+def read_metadata(
+    paths: Sequence[Path], *, progress: ProgressCallback | None = None
+) -> dict[Path, dict[str, Any]]:
     """Read the requested tags for ``paths``.
 
     Files that exiftool cannot parse are simply absent from the result; callers treat
     a missing entry as "no metadata", which flows naturally into the Other category
     and the Undated folder.
+
+    ``progress`` is reported per exiftool batch. On a large library this phase is minutes
+    of work before anything else starts, and a run that reports nothing until it is over
+    is indistinguishable from a run that has hung.
     """
     if not paths:
         return {}
 
     binary = ensure_exiftool()
     collected: dict[Path, dict[str, Any]] = {}
+    done = 0
 
     for chunk in _chunked(paths, BATCH_SIZE):
+        if progress is not None:
+            progress(Progress(done, len(paths), Phase.SCANNING, Path(chunk[0]).name))
         args = [binary, "-json", "-q", "-m", "-charset", "filename=utf8"]
         args += [f"-{tag}" for tag in REQUESTED_TAGS]
         args += [f"-{tag}#" for tag in _NUMERIC_TAGS]  # signed decimal degrees for GPS
@@ -147,6 +158,7 @@ def read_metadata(paths: Sequence[Path]) -> dict[Path, dict[str, Any]]:
         except json.JSONDecodeError:
             continue
 
+        done += len(chunk)
         for record in records:
             source = record.get("SourceFile")
             if source:

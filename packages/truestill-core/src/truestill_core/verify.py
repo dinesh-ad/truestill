@@ -18,7 +18,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from truestill_core.hashing import sha256_file
-from truestill_core.progress import ProgressCallback
+from truestill_core.progress import Phase, Progress, ProgressCallback
 from truestill_core.scan import DEFAULT_WORKERS, PoolKind
 
 
@@ -73,7 +73,7 @@ def verify_copies(
 
     total, done = len(copies), len(results)  # missing files are already counted
     if progress is not None and done:
-        progress(done, total)
+        progress(Progress(done, total, Phase.VERIFYING))
 
     if present:
         executor_cls = ProcessPoolExecutor if pool == "process" else ThreadPoolExecutor
@@ -92,6 +92,6 @@ def verify_copies(
                 results.append(VerifyResult(copy, status, actual))
                 done += 1
                 if progress is not None:
-                    progress(done, total)
+                    progress(Progress(done, total, Phase.VERIFYING, Path(copy.relative).name))
 
     return results

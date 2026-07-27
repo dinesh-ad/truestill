@@ -1,7 +1,7 @@
 """Command-line entry point.
 
 Defaults are inert: with no ``--apply`` the tool analyses the source, resolves duplicates
-and prints what it *would* upload, writing nothing to the destination or the catalog.
+and prints what it *would* organize, writing nothing to the destination or the catalog.
 """
 
 from __future__ import annotations
@@ -51,6 +51,7 @@ from truestill_core.models import (
     DuplicateMatch,
     Resolution,
     date_quality,
+    status_label,
 )
 from truestill_core.organizer import (
     Relocation,
@@ -60,7 +61,7 @@ from truestill_core.organizer import (
     resolve,
     scan_source,
 )
-from truestill_core.progress import ProgressCallback
+from truestill_core.progress import Progress, ProgressCallback
 from truestill_core.reclaim import plan_reclaim, run_reclaim
 from truestill_core.scan import DEFAULT_WORKERS
 from truestill_core.takeout import (
@@ -432,11 +433,17 @@ def _now_iso() -> str:
 
 
 def _progress_printer(label: str) -> ProgressCallback:
-    """A terminal progress callback: an in-place ``label: done/total`` counter."""
+    """A terminal progress callback: an in-place ``label: done/total`` counter.
 
-    def report(done: int, total: int) -> None:
-        end = "\n" if done >= total else "\r"
-        print(f"  {label}: {done}/{total}", end=end, flush=True)
+    The op's own phase name wins over ``label`` when it has one, so a run that hashes and then
+    copies says which it is doing rather than showing one pace for two different jobs.
+    """
+
+    def report(update: Progress) -> None:
+        end = "\n" if update.done >= update.total else "\r"
+        what = update.phase or label
+        # Padded so the shorter line of a phase change fully overwrites the longer previous one.
+        print(f"  {what}: {update.done}/{update.total}".ljust(60), end=end, flush=True)
 
     return report
 
@@ -490,7 +497,7 @@ def _format_new(resolution: Resolution, root_label: str) -> str:
         near = resolution.near_duplicate
         distance = f", distance={near.distance}" if near.distance is not None else ""
         lines.append(f"      NEAR-DUP  : looks like {near.matched_path} [{near.origin}{distance}]")
-        lines.append("                  uploaded anyway (kept, not dropped) - review manually")
+        lines.append("                  organized anyway (kept, not dropped) - review manually")
     lines.append(f"      -> {root_label}/{decision.relative.as_posix()}")
     return "\n".join(lines)
 
@@ -513,14 +520,14 @@ def _print_report(resolutions: list[Resolution], root_label: str) -> None:
     exact = [r for r in resolutions if not r.should_upload]
 
     print(_SEPARATOR)
-    print(f"NEW UNIQUE ({len(unique)}) - would be uploaded")
+    print(f"NEW UNIQUE ({len(unique)}) - would be organized")
     print(_SEPARATOR)
     for resolution in unique:
         print(_format_new(resolution, root_label))
         print()
 
     print(_SEPARATOR)
-    print(f"NEAR-DUPLICATES ({len(near)}) - UPLOADED and flagged for your review")
+    print(f"NEAR-DUPLICATES ({len(near)}) - KEPT and flagged for your review")
     print(_SEPARATOR)
     if not near:
         print("  (none)")
@@ -529,7 +536,7 @@ def _print_report(resolutions: list[Resolution], root_label: str) -> None:
         print()
 
     print(_SEPARATOR)
-    print(f"EXACT DUPLICATES ({len(exact)}) - skipped, not uploaded")
+    print(f"EXACT DUPLICATES ({len(exact)}) - skipped, not organized")
     print(_SEPARATOR)
     if not exact:
         print("  (none)")
@@ -590,13 +597,13 @@ def _print_summary(resolutions: list[Resolution]) -> None:
     print("SUMMARY")
     print(_SEPARATOR)
     print(f"  files analysed     : {len(resolutions)}")
-    print(f"  uploaded (unique)  : {len(uploads) - len(near)}")
-    print(f"  uploaded (near-dup): {len(near)}  (kept + flagged for review)")
+    print(f"  organized (unique)  : {len(uploads) - len(near)}")
+    print(f"  organized (near-dup): {len(near)}  (kept + flagged for review)")
     print(f"  skipped (exact dup): {len(exact)}")
     print(f"  folders derived    : {len(labels)}")
     for label, count in labels.most_common():
         print(f"      {label:<28} {count}")
-    print("  date sources (uploaded files):")
+    print("  date sources (organized files):")
     for source, count in sources.most_common():
         print(f"      {source:<28} {count}")
     _print_date_quality(uploads)
@@ -676,12 +683,14 @@ def _print_mechanism_split(results: list[ActionResult]) -> None:
 
 
 def _print_execution(results: list[ActionResult]) -> int:
-    outcomes = Counter(result.status.value for result in results)
+    # Human wording, shared with the app: 'uploaded' is backend vocabulary for an event
+    # that did not happen on a local disk, and never reaches a user.
+    outcomes = Counter(status_label(result.status) for result in results)
     print(_SEPARATOR)
     print("EXECUTED")
     print(_SEPARATOR)
     for status, count in outcomes.most_common():
-        print(f"  {status:<16} {count}")
+        print(f"  {count:>7}  {status}")
     _print_mechanism_split(results)
 
     kept = [r for r in results if r.status is ActionStatus.MOVE_KEPT]
@@ -859,7 +868,7 @@ def _run_pipeline(
     print()
     if not args.apply:
         print(_SEPARATOR)
-        print("DRY RUN - nothing was uploaded or recorded. Re-run with --apply to execute.")
+        print("DRY RUN - nothing was written or recorded. Re-run with --apply to execute.")
         print(_SEPARATOR)
         return 0
     return _print_execution(results)

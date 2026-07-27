@@ -27,7 +27,7 @@ from pathlib import PurePosixPath
 from truestill_core.catalog import Catalog
 from truestill_core.destinations.base import Destination, DestinationError
 from truestill_core.layout import PATH_LENGTH_WARN, LayoutTemplate, RenderContext
-from truestill_core.progress import ProgressCallback
+from truestill_core.progress import Phase, Progress, ProgressCallback
 
 
 @dataclass(frozen=True)
@@ -184,5 +184,5 @@ def run_migration(
         _apply_move(catalog, destination, drive_uuid, move)
         migrated += 1
         if progress is not None:
-            progress(migrated, total)
+            progress(Progress(migrated, total, Phase.MOVING, PurePosixPath(move.new_relative).name))
     return MigrationOutcome(plan=plan, resumed=resumed, migrated=migrated, applied=True)

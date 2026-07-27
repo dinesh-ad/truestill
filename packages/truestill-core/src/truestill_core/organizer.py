@@ -15,6 +15,7 @@ import os
 import shutil
 import tempfile
 import threading
+from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
@@ -37,9 +38,10 @@ from truestill_core.models import (
     Decision,
     DuplicateKind,
     Resolution,
+    status_label,
 )
 from truestill_core.naming import dated_filename
-from truestill_core.progress import ProgressCallback
+from truestill_core.progress import Phase, Progress, ProgressCallback
 from truestill_core.scan import DEFAULT_WORKERS, PoolKind, compute_hashes
 from truestill_core.takeout import IngestContext, MetadataWrite, TakeoutSidecar
 
@@ -575,6 +577,16 @@ def execute(
     """
     resolutions = list(resolutions)
     results: list[ActionResult] = []
+    #: Live outcome counts, sent with each tick so a summary fills in as the run happens
+    #: rather than appearing all at once at the end.
+    tally: Counter[str] = Counter()
+
+    def record(result: ActionResult) -> None:
+        """Append an outcome and keep the live tally in step -- one place, so a new status
+        can never be added to the loop and quietly go uncounted in the UI."""
+        results.append(result)
+        tally[status_label(result.status)] += 1
+
     events = event_ids or {}
     ingest = ingest or IngestContext()
     albums_by_sha = _aggregate_albums(resolutions, ingest)
@@ -583,26 +595,29 @@ def execute(
     for done, resolution in enumerate(resolutions, start=1):
         if cancel is not None and cancel.is_set():
             break
-        if progress is not None:
-            progress(done, total)
         decision = resolution.decision
         relative = decision.relative.as_posix()
+        if progress is not None:
+            # Reported before the work, not after: the item named is the one being handled
+            # right now, which is what keeps a long single file from looking like a freeze.
+            phase = Phase.MOVING if relocation is not None else Phase.ORGANIZING
+            progress(Progress(done, total, phase, decision.source.name, dict(tally)))
 
         if resolution.exact_duplicate is not None:
             match = resolution.exact_duplicate
             detail = f"exact match of {match.matched_path} [{match.origin}]"
-            results.append(ActionResult(resolution, ActionStatus.DUPLICATE, None, detail))
+            record(ActionResult(resolution, ActionStatus.DUPLICATE, None, detail))
             continue
 
         if skip_undated and decision.captured_at is None:
             # Undateable and the caller opted out of the Undated/ bucket. Not written, not
             # recorded -- surfaced as its own status so the report can count and name it.
             detail = "no capture date; skipped (--skip-undated)"
-            results.append(ActionResult(resolution, ActionStatus.SKIPPED_UNDATED, None, detail))
+            record(ActionResult(resolution, ActionStatus.SKIPPED_UNDATED, None, detail))
             continue
 
         if not apply:
-            results.append(ActionResult(resolution, ActionStatus.PLANNED, decision.relative))
+            record(ActionResult(resolution, ActionStatus.PLANNED, decision.relative))
             continue
 
         try:
@@ -617,7 +632,7 @@ def execute(
                 and _already_at_target(decision.source, relocation.dest_root, relative)
             ):
                 detail = "already organized at this path"
-                results.append(
+                record(
                     ActionResult(resolution, ActionStatus.ALREADY_PLACED, decision.relative, detail)
                 )
                 continue
@@ -699,9 +714,9 @@ def execute(
                 # re-verifies. A failed verify keeps the source; a crash before this leaves both.
                 status, note = _move_source(decision.source, destination, final_relative, copy_sha)
                 notes.append(note)
-            results.append(ActionResult(resolution, status, Path(final_relative), "; ".join(notes)))
+            record(ActionResult(resolution, status, Path(final_relative), "; ".join(notes)))
 
         except (OSError, DestinationError) as exc:
-            results.append(ActionResult(resolution, ActionStatus.FAILED, None, str(exc)))
+            record(ActionResult(resolution, ActionStatus.FAILED, None, str(exc)))
 
     return results

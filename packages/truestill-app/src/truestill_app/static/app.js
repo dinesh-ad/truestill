@@ -29,7 +29,109 @@ function streamJob(jobId, onProgress, onDone) {
 function setBar(barId, countId, done, total) {
   const pct = total ? Math.round((done / total) * 100) : 0;
   $(barId).style.width = pct + "%";
-  $(countId).textContent = `${nfmt(done)} / ${nfmt(total)}`;
+  // "0 / 0" before a total is known reads as broken; say nothing until there is a number.
+  $(countId).textContent = total ? `${nfmt(done)} / ${nfmt(total)}` : "";
+}
+
+// ---------- progress ----------
+// One tracker for every long operation, so organize / verify / backup / migrate / trips
+// cannot drift into five different ideas of what a wait looks like.
+//
+// Time remaining is deliberately withheld until the rate settles. An estimate that appears
+// instantly and then swings from "8 minutes" to "40 seconds" and back teaches a user to
+// distrust the whole display; accurate-or-absent is the rule, so nothing is shown until
+// there is enough evidence to be roughly right, and then only coarsely.
+const ETA_MIN_SECONDS = 10;   // both gates must pass, so a fast run never flashes an estimate
+const ETA_MIN_FRACTION = 0.05;
+const RATE_SMOOTHING = 0.25;  // EMA weight on the newest sample
+
+function fmtDuration(seconds) {
+  const s = Math.max(0, Math.round(seconds));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ${String(s % 60).padStart(2, "0")}s`;
+  return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`;
+}
+
+// Coarse buckets on purpose: "about 2 min" stays true for a while, where "1:47" is wrong a
+// second after it is drawn and invites the user to watch it rather than their library.
+function fmtRemaining(seconds) {
+  if (seconds < 45) return "less than a minute remaining";
+  const minutes = Math.round(seconds / 60);
+  if (minutes <= 1) return "about a minute remaining";
+  if (minutes < 10) return `about ${minutes} min remaining`;
+  if (minutes < 60) return `about ${Math.round(minutes / 5) * 5} min remaining`;
+  const hours = seconds / 3600;
+  return `about ${hours < 1.75 ? "an hour" : Math.round(hours) + " hours"} remaining`;
+}
+
+function createProgress(prefix) {
+  const el = (suffix) => $(`${prefix}-${suffix}`);
+  let started = 0, rate = 0, lastDone = 0, lastAt = 0, shownRemaining = "", ticker = null;
+
+  const paint = (done, total) => {
+    const now = performance.now() / 1000;
+    const elapsed = now - started;
+    const parts = [`elapsed ${fmtDuration(elapsed)}`];
+    if (rate > 0) parts.push(`${rate < 10 ? rate.toFixed(1) : Math.round(rate)} files/sec`);
+    // Both gates, per the accurate-or-absent rule: enough seconds AND enough of the work.
+    if (total && elapsed >= ETA_MIN_SECONDS && done / total >= ETA_MIN_FRACTION && rate > 0) {
+      const next = fmtRemaining((total - done) / rate);
+      // Hold the previous wording unless the estimate genuinely moved to another bucket --
+      // that is what stops the line flickering between two neighbouring values.
+      if (next !== shownRemaining) shownRemaining = next;
+      parts.push(shownRemaining);
+    }
+    const meta = el("meta");
+    if (meta) meta.textContent = parts.join(" · ");
+  };
+
+  return {
+    start(label) {
+      started = performance.now() / 1000;
+      rate = 0; lastDone = 0; lastAt = started; shownRemaining = "";
+      el("card").classList.remove("hidden");
+      setBar(`${prefix}-bar`, `${prefix}-count`, 0, 0);
+      const phase = el("phase");
+      if (phase) phase.textContent = label || "starting";
+      const activity = el("activity");
+      if (activity) activity.textContent = "";
+      const tally = el("tally");
+      if (tally) tally.innerHTML = "";
+      // Repaint on a timer as well as on events: elapsed must keep moving while a single
+      // large file is being hashed or copied, or the run looks wedged when it is not.
+      clearInterval(ticker);
+      ticker = setInterval(() => paint(lastDone, this._total || 0), 1000);
+    },
+    update(d) {
+      const now = performance.now() / 1000;
+      const dt = now - lastAt;
+      if (dt > 0.25 && d.done > lastDone) {
+        const sample = (d.done - lastDone) / dt;
+        rate = rate ? rate + RATE_SMOOTHING * (sample - rate) : sample;
+        lastDone = d.done; lastAt = now;
+      }
+      this._total = d.total;
+      setBar(`${prefix}-bar`, `${prefix}-count`, d.done, d.total);
+      const phase = el("phase");
+      if (phase && d.phase) phase.textContent = d.phase;
+      const activity = el("activity");
+      if (activity) activity.textContent = d.item ? `· ${d.item}` : "";
+      const tally = el("tally");
+      if (tally && d.tally) {
+        tally.innerHTML = Object.entries(d.tally)
+          .map(([k, v]) => `<span><b>${nfmt(v)}</b> ${esc(k)}</span>`)
+          .join("");
+      }
+      paint(d.done, d.total);
+    },
+    stop() {
+      clearInterval(ticker);
+      ticker = null;
+      el("card").classList.add("hidden");
+    },
+    elapsed() { return performance.now() / 1000 - started; },
+  };
 }
 function fmtBytes(n) {
   if (!n) return "0 B";
@@ -90,6 +192,103 @@ function dateQualityNotes(s) {
   }
   return notes.length ? `<div class="banner warn">${notes.join("")}</div>` : "";
 }
+
+// Folder chips + their first-timer legend. Shared by the preview and the completion card so
+// the same folders are always described the same way.
+function chipsFor(folders) {
+  return Object.entries(folders || {}).map(([k, v]) =>
+    `<span class="chip" title="${esc(catTip(k))}">${esc(k)} <span class="num">${nfmt(v)}</span></span>`).join("");
+}
+function legendFor(folders) {
+  const names = Object.keys(folders || {}).filter((n) => CAT_INFO[n]);
+  return names.length
+    ? `<div class="k" style="font-size:var(--text-xs);margin-top:var(--space-2);line-height:1.6">${
+        names.map((n) => `<b>${esc(n)}</b> - ${esc(CAT_INFO[n])}`).join("<br>")}</div>` : "";
+}
+
+// ---------- completion ----------
+// The payoff moment, shared by every long operation. Each field renders only when the run
+// actually produced it: an undated batch shows no year range, a run with no duplicates shows
+// no savings line. Nothing here is computed for effect -- the same honesty rule the custody
+// strip obeys applies hardest at the moment a user feels good about the result.
+function completionCard({ headline, sub, stats = [], chips = "", notes = [], legend = "" }) {
+  const statRows = stats
+    .filter((s) => s && s.value)
+    .map((s) => `<div class="n">${s.value}</div><div class="k">${s.label}</div>`)
+    .join("");
+  return card(
+    `<div class="done-mark">Done</div>
+     <div class="headline">${headline}</div>
+     ${sub ? `<div class="k">${sub}</div>` : ""}
+     ${statRows ? `<div class="tally">${statRows}</div>` : ""}
+     ${chips ? `<h3>Into these folders</h3><div class="chips">${chips}</div>${legend}` : ""}
+     ${notes.filter(Boolean).join("")}`
+  );
+}
+
+const yearOf = (iso) => (iso ? String(new Date(iso).getFullYear()) : null);
+
+function spanStory(r) {
+  const from = yearOf(r.oldest), to = yearOf(r.newest);
+  if (!from) return null;                       // undated batch: no range exists to tell
+  return from === to ? `all from ${from}` : `spanning ${from} – ${to}`;
+}
+
+function organizeCompletion(r) {
+  const moved = (r.moved_in_place || 0) + (r.moved_by_copy || 0);
+  const verb = moved && !r.organized ? "moved" : "organized";
+  const kinds = [
+    r.photos ? `${nfmt(r.photos)} photo${r.photos === 1 ? "" : "s"}` : "",
+    r.videos ? `${nfmt(r.videos)} video${r.videos === 1 ? "" : "s"}` : "",
+    r.audio ? `${nfmt(r.audio)} audio` : "",
+  ].filter(Boolean).join(" · ");
+  const span = spanStory(r);
+  const notes = [];
+  if (r.near_dup) {
+    notes.push(`<div class="banner warn"><div>${nfmt(r.near_dup)} look-alike(s) flagged for
+      review — ${fmtBytes(r.bytes_near_dup)} if you decide to remove them. They were kept, not
+      dropped.</div></div>`);
+  }
+  if (r.moved_in_place) {
+    notes.push(`<div class="banner"><div>${nfmt(r.moved_in_place)} moved by rename on the drive
+      (no bytes copied). Undo with <code>truestill undo-organize</code>.</div></div>`);
+  }
+  if (r.single_copy) {
+    notes.push(`<div class="banner warn"><div>${nfmt(r.single_copy)} file(s) now exist in only
+      one place. <a href="#" onclick="showScreen('backups');return false;">Make it safe in 2
+      places</a>.</div></div>`);
+  }
+  if (r.failed) {
+    notes.push(`<div class="banner warn"><div>${nfmt(r.failed)} file(s) could not be
+      ${verb}.</div></div>`);
+  }
+  return completionCard({
+    headline: `${nfmt(r.organized || 0)} file${r.organized === 1 ? "" : "s"} ${verb}`,
+    sub: [kinds, span].filter(Boolean).join(" · "),
+    stats: [
+      { value: fmtBytes(r.bytes_organized), label: "now organized" },
+      r.duplicates
+        ? { value: fmtBytes(r.bytes_saved), label: `saved by skipping ${nfmt(r.duplicates)} duplicate${r.duplicates === 1 ? "" : "s"}` }
+        : null,
+      r.elapsed_seconds ? { value: fmtDuration(r.elapsed_seconds), label: "taken" } : null,
+      Object.keys(r.folders || {}).length
+        ? {
+            value: nfmt(Object.keys(r.folders).length),
+            label: Object.keys(r.folders).length === 1 ? "folder" : "folders",
+          }
+        : null,
+    ],
+    chips: chipsFor(r.folders || {}),
+    legend: legendFor(r.folders || {}),
+    notes,
+  });
+}
+
+const orgProgress = createProgress("org");
+const verifyProgress = createProgress("verify");
+const evProgress = createProgress("ev");
+const bkProgress = createProgress("bk");
+const migProgress = createProgress("mig");
 
 // ---------- navigation ----------
 function showScreen(name) {
@@ -212,13 +411,8 @@ function renderOrganizeResult(s) {
     return;
   }
   const kept = (s.new_unique || 0) + (s.near_dup || 0);
-  const folderNames = Object.keys(s.folders || {});
-  const folders = Object.entries(s.folders || {}).map(([k, v]) =>
-    `<span class="chip" title="${esc(catTip(k))}">${esc(k)} <span class="num">${nfmt(v)}</span></span>`).join("");
-  const legendNames = folderNames.filter((n) => CAT_INFO[n]);
-  const legend = legendNames.length
-    ? `<div class="k" style="font-size:var(--text-xs);margin-top:var(--space-2);line-height:1.6">${
-        legendNames.map((n) => `<b>${esc(n)}</b> - ${esc(CAT_INFO[n])}`).join("<br>")}</div>` : "";
+  const folders = chipsFor(s.folders);
+  const legend = legendFor(s.folders);
   const sk = s.skipped || {};
   const skDocs = Object.entries(sk.documents || {});
   const skUn = Object.entries(sk.unrecognized || {});
@@ -265,14 +459,15 @@ $("org-run").onclick = async () => {
   const skip_undated = $("org-skip-undated").checked;
   const { job_id } = await api("/api/organize/run", { source, destination, skip_undated });
   orgJob = job_id;
-  $("org-progress-card").classList.remove("hidden");
+  orgProgress.start("preparing");
   streamJob(job_id,
-    (d) => setBar("org-bar", "org-count", d.done, d.total),
+    (d) => orgProgress.update(d),
     (d) => {
-      $("org-progress-card").classList.add("hidden");
-      const o = (d.summary || d).outcomes || {};
-      const line = Object.entries(o).map(([k, v]) => `${nfmt(v)} ${k.replace(/_/g, " ")}`).join(" · ");
-      $("org-result").innerHTML = card(`<div class="headline">Done</div><div class="k">${esc(line) || "nothing to do"}</div>`);
+      orgProgress.stop();
+      const r = d.summary || d;
+      $("org-result").innerHTML = r.organized || r.outcomes
+        ? organizeCompletion(r)
+        : card(`<div class="headline">Nothing to organize</div><div class="k">No new photos or videos were found here.</div>`);
       orgJob = null;
       loadCustody();
     });
@@ -305,11 +500,11 @@ $("verify-run").onclick = async () => {
   const path = $("verify-path").value.trim();
   $("verify-result").innerHTML = card("Checking…");
   const { job_id } = await api("/api/verify/run", { path });
-  $("verify-progress").classList.remove("hidden");
+  verifyProgress.start("checking");
   streamJob(job_id,
-    (d) => setBar("verify-bar", "verify-count", d.done, d.total),
+    (d) => verifyProgress.update(d),
     (d) => {
-      $("verify-progress").classList.add("hidden");
+      verifyProgress.stop();
       const s = d.summary || d;
       $("verify-result").innerHTML = s.error
         ? card(`<div class="banner warn"><div>${esc(s.error)}</div></div>`)
@@ -416,10 +611,10 @@ let evJob = null;
 $("ev-apply-disk").onclick = async () => {
   const { job_id } = await api(`/api/events/${evSession}/apply-to-disk`, {});
   evJob = job_id;
-  $("ev-progress").classList.remove("hidden");
-  streamJob(job_id, (d) => setBar("ev-bar", "ev-count", d.done, d.total),
+  evProgress.start("moving");
+  streamJob(job_id, (d) => evProgress.update(d),
     (d) => {
-      $("ev-progress").classList.add("hidden");
+      evProgress.stop();
       $("ev-apply-disk").classList.add("hidden");
       $("ev-disk-result").innerHTML = card(`<div class="headline">Moved ${nfmt((d.summary || d).migrated || 0)} photo(s) into trip folders.</div>`);
       evJob = null;
@@ -452,10 +647,10 @@ $("bk-run").onclick = async () => {
   const source = $("bk-source").value.trim(), target = $("bk-target").value.trim();
   const { job_id } = await api("/api/backup/run", { source, target });
   bkJob = job_id;
-  $("bk-progress").classList.remove("hidden");
-  streamJob(job_id, (d) => setBar("bk-bar", "bk-count", d.done, d.total),
+  bkProgress.start("copying");
+  streamJob(job_id, (d) => bkProgress.update(d),
     (d) => {
-      $("bk-progress").classList.add("hidden");
+      bkProgress.stop();
       $("bk-run").classList.add("hidden");
       const s = d.summary || d;
       $("bk-result").innerHTML = s.error
@@ -515,9 +710,9 @@ let migJob = null;
 $("mig-run").onclick = async () => {
   const { job_id } = await api("/api/migrate/run", { path: $("mig-path").value.trim() });
   migJob = job_id;
-  $("mig-progress").classList.remove("hidden");
-  streamJob(job_id, (d) => setBar("mig-bar", "mig-count", d.done, d.total),
-    (d) => { $("mig-progress").classList.add("hidden"); $("mig-result").innerHTML = card(`<div class="headline">Moved ${nfmt((d.summary || d).migrated || 0)} file(s).</div>`); migJob = null; loadDrives(); });
+  migProgress.start("moving");
+  streamJob(job_id, (d) => migProgress.update(d),
+    (d) => { migProgress.stop(); $("mig-result").innerHTML = card(`<div class="headline">Moved ${nfmt((d.summary || d).migrated || 0)} file(s).</div>`); migJob = null; loadDrives(); });
 };
 $("mig-cancel").onclick = () => { if (migJob) api(`/api/jobs/${migJob}/cancel`, {}); };
 

@@ -39,7 +39,13 @@ from truestill_core.layout import (
     resolve_template,
 )
 from truestill_core.migrate import run_migration
-from truestill_core.models import Resolution, date_quality
+from truestill_core.models import (
+    ActionResult,
+    ActionStatus,
+    Resolution,
+    date_quality,
+    status_label,
+)
 from truestill_core.organizer import (
     MEDIA_EXTENSIONS,
     SourceScan,
@@ -50,7 +56,7 @@ from truestill_core.organizer import (
     resolve,
     scan_source,
 )
-from truestill_core.progress import ProgressCallback
+from truestill_core.progress import Phase, Progress, ProgressCallback
 from truestill_core.takeout import scan_takeout
 from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
 
@@ -147,8 +153,8 @@ def organize_run(
     def target(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
         files = discover(source)
         if not files:
-            return {"uploaded": 0}
-        metadata = read_metadata(files)
+            return _completion([], destination)
+        metadata = read_metadata(files, progress=progress)
         with Catalog(db) as catalog:
             template = resolve_template(catalog.get_setting(LAYOUT_TEMPLATE_KEY))
             decisions = plan(files, metadata, build_rules(), template=template)
@@ -186,10 +192,86 @@ def organize_run(
                 cancel=cancel,
                 drive_uuid=drive_uuid,
             )
-        outcomes = Counter(r.status.value for r in results)
-        return {"outcomes": dict(outcomes)}
+        completion = _completion(results, destination)
+        with Catalog(db) as catalog:
+            # The custody nudge, counted rather than assumed: how much of the library really
+            # does exist in only one place right now.
+            completion["single_copy"] = len(catalog.single_copy_shas())
+        return completion
 
     return target
+
+
+def _completion(results: list[ActionResult], destination: Path) -> dict[str, Any]:
+    """The story of a finished organize, built only from what the run actually did.
+
+    Every number here is counted from the results -- nothing is estimated, rounded up for
+    effect, or inferred. The custody strip's honesty rule applies to the payoff moment too:
+    a run that organized little should say so plainly rather than find a flattering framing.
+    """
+    organized = [r for r in results if r.status in _ORGANIZED_STATUSES]
+    duplicates = [r for r in results if r.status is ActionStatus.DUPLICATE]
+    near = [r for r in organized if r.resolution.near_duplicate is not None]
+    dates = [
+        r.resolution.decision.captured_at
+        for r in organized
+        if r.resolution.decision.captured_at is not None
+    ]
+    labels = Counter(r.resolution.decision.category.label for r in organized)
+    names = [r.resolution.decision.source.name for r in organized]
+    breakdown = _media_breakdown(names)
+    return {
+        "outcomes": dict(Counter(status_label(r.status) for r in results)),
+        "organized": len(organized),
+        "photos": breakdown["photos"],
+        "videos": breakdown["videos"],
+        "audio": breakdown["audio"],
+        "bytes_organized": sum(_result_size(r, destination) for r in organized),
+        "duplicates": len(duplicates),
+        "bytes_saved": sum(_result_size(r, destination) for r in duplicates),
+        "near_dup": len(near),
+        "bytes_near_dup": sum(_result_size(r, destination) for r in near),
+        "folders": dict(labels.most_common()),
+        # None rather than a placeholder year: an undated batch has no range, and inventing
+        # one would be exactly the "computed for effect" the honesty rule forbids.
+        "oldest": min(dates).isoformat() if dates else None,
+        "newest": max(dates).isoformat() if dates else None,
+        "moved_in_place": sum(1 for r in results if r.status is ActionStatus.MOVED_IN_PLACE),
+        "moved_by_copy": sum(1 for r in results if r.status is ActionStatus.MOVED),
+        "failed": sum(1 for r in results if r.status is ActionStatus.FAILED),
+    }
+
+
+#: Outcomes that put a file into the library. `RENAMED` is one of them -- it was organized,
+#: just under a suffixed name to avoid an unrelated clash.
+_ORGANIZED_STATUSES = frozenset(
+    {
+        ActionStatus.UPLOADED,
+        ActionStatus.RENAMED,
+        ActionStatus.MOVED,
+        ActionStatus.MOVED_IN_PLACE,
+    }
+)
+
+
+def _result_size(result: ActionResult, destination: Path) -> int:
+    """Size of what this outcome produced, measured where the file actually ended up.
+
+    The destination is checked first: after a move or an in-place rename the source path no
+    longer exists, so sizing by source would silently report 0 bytes organized for exactly
+    the runs that moved the most data.
+    """
+    for candidate in (
+        destination / result.final_relative if result.final_relative else None,
+        result.resolution.decision.source,
+    ):
+        if candidate is None:
+            continue
+        try:
+            return candidate.stat().st_size
+        except OSError:
+            continue
+    return 0
 
 
 def verify_run(path: Path, db: Path) -> JobTarget:
@@ -588,7 +670,7 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
                     sha256=str(row["sha256"]), drive_uuid=tgt_marker.uuid, when=_now()
                 )
                 copied += 1
-                progress(copied, len(missing))
+                progress(Progress(copied, len(missing), Phase.COPYING, Path(rel).name))
         return {"copied": copied, "to": tgt_marker.label}
 
     return target_job

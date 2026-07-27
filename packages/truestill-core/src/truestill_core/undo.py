@@ -26,7 +26,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from truestill_core.catalog import Catalog
-from truestill_core.progress import ProgressCallback
+from truestill_core.progress import Phase, Progress, ProgressCallback
 
 
 class UndoSkip(StrEnum):
@@ -191,7 +191,7 @@ def run_undo(
         catalog.forget_organized(step.sha256, plan.drive_uuid)
         restored += 1
         if progress is not None:
-            progress(done, total)
+            progress(Progress(done, total, Phase.RESTORING, step.original.name))
 
     # Only a *complete* reversal closes the run. Leaving a partial one open is deliberate: its
     # remaining journal rows are still valid, so once the user resolves whatever blocked them

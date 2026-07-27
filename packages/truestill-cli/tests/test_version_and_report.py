@@ -66,3 +66,22 @@ def test_date_line_omits_the_tag_when_there_is_none() -> None:
 def test_date_line_keeps_the_tag_when_a_metadata_field_supplied_it() -> None:
     out = _format_new(_resolution(DateSource.EXIF, "DateTimeOriginal"), "local")
     assert "(source=exif, tag=DateTimeOriginal)" in out
+
+
+def test_a_real_run_never_says_uploaded(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """The terminal is a user-facing surface too.
+
+    Nothing is uploaded when organizing to a local folder, and saying so contradicts the
+    promise the product is built on. The one legitimate survivor is Google's own
+    "upload time", which names something the user really did do -- to Google.
+    """
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "a.jpg").write_bytes(b"unique-content-one")
+    (src / "b.jpg").write_bytes(b"unique-content-two")
+
+    main(["organize", str(src), str(tmp_path / "out"), "--apply", "--db", str(tmp_path / "c.db")])
+
+    out = capsys.readouterr().out
+    assert "organized" in out  # it did say what happened
+    assert "upload" not in out.lower()

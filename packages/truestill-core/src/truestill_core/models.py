@@ -185,6 +185,33 @@ class Resolution:
         return self.exact_duplicate is None and self.near_duplicate is None
 
 
+#: Human wording for each outcome, shared by the CLI report and the app so the two surfaces
+#: cannot describe the same run differently.
+#:
+#: **"uploaded" never reaches a user.** It is honest *inside* the code -- `Destination.upload`
+#: covers rclone remotes, where an upload is exactly what happens -- but as a word shown to
+#: someone organizing photos on their own disk it is backend vocabulary describing an event
+#: that did not occur, and it quietly contradicts the promise that files never leave the
+#: machine. "Organized" is true of every backend, so one word serves both.
+_STATUS_LABELS: dict[ActionStatus, str] = {
+    ActionStatus.PLANNED: "would be organized",
+    ActionStatus.UPLOADED: "organized",
+    ActionStatus.RENAMED: "organized (renamed to avoid a name clash)",
+    ActionStatus.DUPLICATE: "duplicate, skipped",
+    ActionStatus.SKIPPED_UNDATED: "skipped, no date",
+    ActionStatus.MOVED: "moved",
+    ActionStatus.MOVED_IN_PLACE: "moved on the drive",
+    ActionStatus.MOVE_KEPT: "kept, move not completed",
+    ActionStatus.ALREADY_PLACED: "already in place",
+    ActionStatus.FAILED: "failed",
+}
+
+
+def status_label(status: ActionStatus) -> str:
+    """The user-facing wording for an outcome. Never the raw enum value."""
+    return _STATUS_LABELS.get(status, status.value)
+
+
 class DateQuality(NamedTuple):
     """The two date-quality signals a run must disclose, counted over the files it kept.
 

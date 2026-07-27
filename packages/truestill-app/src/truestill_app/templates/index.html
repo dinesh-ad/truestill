@@ -65,12 +65,21 @@
         </div>
 
         <div id="org-result"></div>
-        <div class="card hidden" id="org-progress-card">
-          <div class="progress">
-            <div class="bar"><i id="org-bar"></i></div>
-            <div class="meta"><span id="org-count"></span><span class="spacer"></span>
-              <button class="btn btn-ghost" id="org-cancel">Cancel</button></div>
+        <!-- shared progress block: see createProgress() in app.js -->
+        <div class="progress-wrap hidden" id="org-card">
+          <div class="prog-head">
+            <span class="phase" id="org-phase"></span>
+            <span class="activity mono" id="org-activity"></span>
+            <span class="spacer"></span>
+            <span class="count mono" id="org-count"></span>
           </div>
+          <div class="bar"><i id="org-bar"></i></div>
+          <div class="prog-foot">
+            <span class="meta mono" id="org-meta"></span>
+            <span class="spacer"></span>
+            <button class="btn btn-ghost" id="org-cancel">Cancel</button>
+          </div>
+          <div class="prog-tally mono" id="org-tally"></div>
         </div>
       </section>
 
@@ -96,10 +105,22 @@
         <div class="card hidden" id="ev-apply-card">
           <div id="ev-moves"></div>
           <div class="actions"><button class="btn btn-primary hidden" id="ev-apply-disk">Move photos into trip folders</button></div>
-          <div class="progress hidden" id="ev-progress">
+          <!-- shared progress block: see createProgress() in app.js -->
+          <div class="progress-wrap hidden" id="ev-card">
+            <div class="prog-head">
+              <span class="phase" id="ev-phase"></span>
+              <span class="activity mono" id="ev-activity"></span>
+              <span class="spacer"></span>
+              <span class="count mono" id="ev-count"></span>
+            </div>
             <div class="bar"><i id="ev-bar"></i></div>
-            <div class="meta"><span id="ev-count"></span><span class="spacer"></span>
-              <button class="btn btn-ghost" id="ev-cancel">Cancel</button></div></div>
+            <div class="prog-foot">
+              <span class="meta mono" id="ev-meta"></span>
+              <span class="spacer"></span>
+              <button class="btn btn-ghost" id="ev-cancel">Cancel</button>
+            </div>
+            <div class="prog-tally mono" id="ev-tally"></div>
+          </div>
           <div id="ev-disk-result"></div>
         </div>
       </section>
@@ -135,10 +156,22 @@
             <span class="hint" id="verify-path-hint"></span></div>
           <div class="actions"><button class="btn btn-primary" id="verify-run">Check now</button></div>
           <div id="verify-result"></div>
-          <div class="progress hidden" id="verify-progress">
+          <!-- shared progress block: see createProgress() in app.js -->
+          <div class="progress-wrap hidden" id="verify-card">
+            <div class="prog-head">
+              <span class="phase" id="verify-phase"></span>
+              <span class="activity mono" id="verify-activity"></span>
+              <span class="spacer"></span>
+              <span class="count mono" id="verify-count"></span>
+            </div>
             <div class="bar"><i id="verify-bar"></i></div>
-            <div class="meta"><span id="verify-count"></span><span class="spacer"></span>
-              <button class="btn btn-ghost" id="verify-cancel">Cancel</button></div></div>
+            <div class="prog-foot">
+              <span class="meta mono" id="verify-meta"></span>
+              <span class="spacer"></span>
+              <button class="btn btn-ghost" id="verify-cancel">Cancel</button>
+            </div>
+            <div class="prog-tally mono" id="verify-tally"></div>
+          </div>
         </div>
         <div class="card">
           <h2>Copy your library to another drive</h2>
@@ -154,10 +187,22 @@
           <div class="actions"><button class="btn btn-secondary" id="bk-preview">Preview copy</button>
             <button class="btn btn-primary hidden" id="bk-run">Copy the library</button></div>
           <div id="bk-result"></div>
-          <div class="progress hidden" id="bk-progress">
+          <!-- shared progress block: see createProgress() in app.js -->
+          <div class="progress-wrap hidden" id="bk-card">
+            <div class="prog-head">
+              <span class="phase" id="bk-phase"></span>
+              <span class="activity mono" id="bk-activity"></span>
+              <span class="spacer"></span>
+              <span class="count mono" id="bk-count"></span>
+            </div>
             <div class="bar"><i id="bk-bar"></i></div>
-            <div class="meta"><span id="bk-count"></span><span class="spacer"></span>
-              <button class="btn btn-ghost" id="bk-cancel">Cancel</button></div></div>
+            <div class="prog-foot">
+              <span class="meta mono" id="bk-meta"></span>
+              <span class="spacer"></span>
+              <button class="btn btn-ghost" id="bk-cancel">Cancel</button>
+            </div>
+            <div class="prog-tally mono" id="bk-tally"></div>
+          </div>
         </div>
       </section>
 
@@ -198,10 +243,22 @@
           <div class="actions"><button class="btn btn-secondary" id="mig-preview">Preview move</button>
             <button class="btn btn-primary hidden" id="mig-run">Move the files</button></div>
           <div id="mig-result"></div>
-          <div class="progress hidden" id="mig-progress">
+          <!-- shared progress block: see createProgress() in app.js -->
+          <div class="progress-wrap hidden" id="mig-card">
+            <div class="prog-head">
+              <span class="phase" id="mig-phase"></span>
+              <span class="activity mono" id="mig-activity"></span>
+              <span class="spacer"></span>
+              <span class="count mono" id="mig-count"></span>
+            </div>
             <div class="bar"><i id="mig-bar"></i></div>
-            <div class="meta"><span id="mig-count"></span><span class="spacer"></span>
-              <button class="btn btn-ghost" id="mig-cancel">Cancel</button></div></div>
+            <div class="prog-foot">
+              <span class="meta mono" id="mig-meta"></span>
+              <span class="spacer"></span>
+              <button class="btn btn-ghost" id="mig-cancel">Cancel</button>
+            </div>
+            <div class="prog-tally mono" id="mig-tally"></div>
+          </div>
         </div>
         <div class="card">
           <h2>Appearance</h2>

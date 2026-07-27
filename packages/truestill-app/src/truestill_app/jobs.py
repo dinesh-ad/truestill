@@ -11,12 +11,13 @@ from __future__ import annotations
 import json
 import queue
 import threading
+import time
 import uuid
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
-from truestill_core.progress import ProgressCallback
+from truestill_core.progress import Progress, ProgressCallback
 
 #: A job target receives a progress callback and a cancel event, and returns a JSON-able summary.
 JobTarget = Callable[[ProgressCallback, threading.Event], Any]
@@ -47,12 +48,27 @@ class JobManager:
             self._jobs[job.id] = job
 
         def run() -> None:
-            def progress(done: int, total: int) -> None:
-                job.events.put({"type": "progress", "done": done, "total": total})
+            started = time.monotonic()
+
+            def progress(update: Progress) -> None:
+                job.events.put(
+                    {
+                        "type": "progress",
+                        "done": update.done,
+                        "total": update.total,
+                        "phase": update.phase,
+                        "item": update.item,
+                        "tally": dict(update.tally),
+                    }
+                )
 
             try:
                 summary = target(progress, job.cancel)
                 job.status = "cancelled" if job.cancel.is_set() else "done"
+                # Measured here rather than in each op: every job wants it, and the job is the
+                # only layer that sees the whole run including setup.
+                if isinstance(summary, dict):
+                    summary = {**summary, "elapsed_seconds": round(time.monotonic() - started, 1)}
                 job.summary = summary
                 job.events.put({"type": _SENTINEL_DONE, "status": job.status, "summary": summary})
             except Exception as exc:

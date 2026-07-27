@@ -31,7 +31,7 @@ from typing import Literal
 
 from truestill_core.hashing import perceptual_hash, sha256_file
 from truestill_core.models import FileHashes
-from truestill_core.progress import ProgressCallback
+from truestill_core.progress import Phase, Progress, ProgressCallback
 
 PoolKind = Literal["thread", "process"]
 
@@ -106,5 +106,5 @@ def compute_hashes(
             results[Path(path_str)] = FileHashes(sha256=sha, perceptual=perceptual)
             done += 1
             if progress is not None:
-                progress(done, total)
+                progress(Progress(done, total, Phase.HASHING, Path(path_str).name))
     return results

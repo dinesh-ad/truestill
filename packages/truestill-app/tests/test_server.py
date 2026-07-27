@@ -124,13 +124,16 @@ def test_organize_run_summary_matches_files_on_disk(client: TestClient, tmp_path
 
     assert done["type"] == "done"
     # The frontend unwraps the target's return from under ``summary`` (jobs.py contract).
-    outcomes = (done.get("summary") or done).get("outcomes")
-    assert outcomes, (
-        "organize done-event must expose non-empty summary.outcomes (else 'nothing to do')"
+    summary = done.get("summary") or done
+    assert summary.get("organized"), (
+        "organize done-event must report what it organized (else 'nothing to do')"
     )
 
     files_on_disk = [p for p in out.rglob("*") if p.is_file()]
-    assert outcomes.get("uploaded", 0) == len(files_on_disk) == 2  # summary == on-disk reality
+    assert summary["organized"] == len(files_on_disk) == 2  # summary == on-disk reality
+    assert summary["bytes_organized"] == sum(p.stat().st_size for p in files_on_disk)
+    # "uploaded" is backend vocabulary for something that did not happen on a local disk.
+    assert "uploaded" not in json.dumps(summary)
 
 
 def test_organize_result_handler_unwraps_summary(client: TestClient) -> None:
@@ -138,8 +141,19 @@ def test_organize_result_handler_unwraps_summary(client: TestClient) -> None:
     Verify/Migrate do -- via the ``summary`` wrapper -- not the bare top-level key that caused
     a successful run to render "nothing to do". (No JS runtime here, so we pin it in source.)"""
     app_js = client.get(f"/static/app.js?token={_TOKEN}").text
-    assert "(d.summary || d).outcomes" in app_js  # the correct unwrap is present
-    assert "d.outcomes" not in app_js  # the bare buggy read is gone
+    assert "d.summary || d" in app_js  # the correct unwrap is present
+    assert '$("org-result").innerHTML = r.organized' in app_js  # reads the unwrapped summary
+
+
+def test_no_backend_jargon_reaches_the_user(client: TestClient) -> None:
+    """ "Uploaded" describes an event that does not happen on a local disk, and contradicts the
+    promise that files never leave the machine. It is honest inside the code -- `Destination`
+    covers rclone remotes -- but it must never be rendered. Guards the whole visible surface."""
+    page = client.get(f"/?token={_TOKEN}").text
+    app_js = client.get(f"/static/app.js?token={_TOKEN}").text
+    for banned in ("uploaded", "Uploaded", "upload"):
+        assert banned not in page, f"{banned!r} is visible in the page"
+        assert banned not in app_js, f"{banned!r} is visible in the app script"
 
 
 def test_dark_theme_toggle_defines_every_media_dark_token(client: TestClient) -> None:

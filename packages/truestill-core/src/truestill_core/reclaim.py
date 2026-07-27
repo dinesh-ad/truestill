@@ -17,7 +17,7 @@ from pathlib import Path
 
 from truestill_core.catalog import Catalog
 from truestill_core.hashing import sha256_file
-from truestill_core.progress import ProgressCallback
+from truestill_core.progress import Phase, Progress, ProgressCallback
 
 
 @dataclass(frozen=True)
@@ -167,5 +167,5 @@ def run_reclaim(
         deleted += 1
         freed += candidate.size
         if progress is not None:
-            progress(done, total)
+            progress(Progress(done, total, Phase.FREEING, candidate.source_path.name))
     return ReclaimOutcome(plan=plan, deleted=deleted, freed_bytes=freed, kept=kept)
