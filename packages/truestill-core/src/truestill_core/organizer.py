@@ -28,6 +28,7 @@ from truestill_core.dates import is_suspect_default, resolve_capture_datetime
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations.base import CrossDeviceError, Destination, DestinationError
 from truestill_core.exif import write_metadata
+from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import sha256_file
 from truestill_core.layout import DEFAULT_TEMPLATE, LayoutTemplate, RenderContext
 from truestill_core.models import (
@@ -297,6 +298,7 @@ def resolve(
     workers: int = DEFAULT_WORKERS,
     progress: ProgressCallback | None = None,
     cancel: threading.Event | None = None,
+    cache: HashCache | None = None,
 ) -> list[Resolution]:
     """Hash each file (concurrently) and classify it, updating ``index`` as it goes.
 
@@ -315,6 +317,7 @@ def resolve(
         workers=workers,
         progress=progress,
         cancel=cancel,
+        cache=cache,
     )
 
     resolutions: list[Resolution] = []

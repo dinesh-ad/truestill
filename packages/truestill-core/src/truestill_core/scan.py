@@ -29,6 +29,7 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_compl
 from pathlib import Path
 from typing import Literal
 
+from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import perceptual_hash, sha256_file
 from truestill_core.models import FileHashes
 from truestill_core.progress import Phase, Progress, ProgressCallback
@@ -52,6 +53,19 @@ def _hash_one(args: tuple[str, bool]) -> tuple[str, str | None, str | None]:
     sha = sha256_file(path) if need_sha else None
     perceptual = perceptual_hash(path)
     return path_str, sha, perceptual
+
+
+def _mtime_ns(path: Path) -> int:
+    """Modification time in integer nanoseconds -- exact, so no float comparison is needed.
+
+    Used only to answer "has this file changed since we hashed it". It never influences where
+    a file is placed; that is `dates.resolve_capture_datetime`, which does not read the
+    filesystem at all (`IMPLEMENTATION_STANDARDS.md` §1).
+    """
+    try:
+        return path.stat().st_mtime_ns
+    except OSError:
+        return -1
 
 
 def _sizes(paths: Sequence[Path]) -> dict[Path, int]:
@@ -78,23 +92,48 @@ def compute_hashes(
     workers: int = DEFAULT_WORKERS,
     progress: ProgressCallback | None = None,
     cancel: threading.Event | None = None,
+    cache: HashCache | None = None,
 ) -> dict[Path, FileHashes]:
     """Hash ``paths`` concurrently, applying the size pre-filter.
 
     Returns a mapping from path to :class:`FileHashes`, where ``sha256`` is ``None`` for a
     unique-size file that was deliberately not hashed. ``progress`` is called ``(done, total)``
     as files finish; ``cancel`` stops early (pending files are cancelled, results are partial).
+
+    ``cache`` skips files whose size and mtime are unchanged since they were last hashed. It
+    can only remove work: a miss, a mismatch or a broken cache all mean hashing from scratch,
+    and the returned hashes are identical either way.
     """
     if not paths:
         return {}
 
     sizes = _sizes(paths)
+    # Computed over *all* paths, cached or not: a collision is a property of the batch, and
+    # dropping cached files from the tally would silently change who needs a SHA-256.
     need_sha = _needs_sha(sizes, catalog_sizes)
-    jobs = [(str(path), path in need_sha) for path in paths]
 
-    executor_cls = ProcessPoolExecutor if pool == "process" else ThreadPoolExecutor
     results: dict[Path, FileHashes] = {}
-    total, done = len(jobs), 0
+    total, done = len(paths), 0
+    to_hash: list[Path] = []
+    if cache is None:
+        to_hash = list(paths)
+    else:
+        # Looked up here rather than inside the worker: the worker stays a pure, picklable
+        # function that a ProcessPoolExecutor can run, and the cache stays single-threaded.
+        for path in paths:
+            hit = cache.get(path, sizes.get(path, -1), _mtime_ns(path), need_sha=path in need_sha)
+            if hit is None:
+                to_hash.append(path)
+            else:
+                results[path] = hit
+        done = len(results)
+        if progress is not None and done:
+            # Report the hits as done in one step -- a run that is entirely cached should show
+            # a completed phase instantly rather than a bar that never moves.
+            progress(Progress(done, total, Phase.HASHING, ""))
+
+    jobs = [(str(path), path in need_sha) for path in to_hash]
+    executor_cls = ProcessPoolExecutor if pool == "process" else ThreadPoolExecutor
     with executor_cls(max_workers=max(1, workers)) as executor:
         futures = [executor.submit(_hash_one, job) for job in jobs]
         for future in as_completed(futures):
@@ -103,7 +142,11 @@ def compute_hashes(
                     pending.cancel()
                 break
             path_str, sha, perceptual = future.result()
-            results[Path(path_str)] = FileHashes(sha256=sha, perceptual=perceptual)
+            path = Path(path_str)
+            hashes = FileHashes(sha256=sha, perceptual=perceptual)
+            results[path] = hashes
+            if cache is not None:
+                cache.put(path, sizes.get(path, -1), _mtime_ns(path), hashes)
             done += 1
             if progress is not None:
                 progress(Progress(done, total, Phase.HASHING, Path(path_str).name))

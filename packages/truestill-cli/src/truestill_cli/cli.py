@@ -31,6 +31,7 @@ from truestill_core.drive import (
     upgrade_marker,
 )
 from truestill_core.exif import ExiftoolMissingError, read_metadata
+from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import DEFAULT_PHASH_THRESHOLD, HEIF_AVAILABLE, HEIF_EXTENSIONS
 from truestill_core.layout import (
     DEFAULT_TEMPLATE_STRING,
@@ -779,7 +780,7 @@ def _run_pipeline(
     drive_marker: DriveMarker | None = None,
     relocation: Relocation | None = None,
 ) -> int:
-    with Catalog(args.db) as catalog:
+    with Catalog(args.db) as catalog, HashCache.beside(args.db) as cache:
         template = resolve_template(catalog.get_setting(LAYOUT_TEMPLATE_KEY))
         decisions = plan(
             files,
@@ -810,6 +811,7 @@ def _run_pipeline(
             pool=args.pool,
             workers=args.workers,
             progress=_progress_printer("hashing"),
+            cache=cache,
         )
 
         event_ids: dict[str, int] = {}

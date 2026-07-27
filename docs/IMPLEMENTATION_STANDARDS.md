@@ -312,12 +312,37 @@ accelerated and doubles as the dedup + verification hash without a compiled dep)
   in-scan or with a catalogued size (`scan._needs_sha`); unique-size files skip the read.
 - **One disk pass per file per run.** Re-runs skip already-processed content via catalog resume
   (`catalog.known_sizes` seeds the pre-filter; `catalog.seed_rows` seeds the dedup index).
-  *A per-path mtime hash cache is **convention - not yet implemented**; catalog resume-by-content
-  currently serves the re-run case. It is no longer a standalone item: it is bound to Analyze
-  mode as one feature (`BACKLOG.md` (r)), because Analyze runs the full expensive pass and
-  without the cache the journey Analyze → Organize pays for it twice. When it is built, mtime
-  stays **invalidation-only** - it must never influence placement, and a stale entry must never
-  be able to decide an outcome.*
+- **Hash cache** (`hash_cache.HashCache`, wired through `scan.compute_hashes`). An unchanged
+  file is never read twice. Measured on 12 MP-class photos: a repeat preview at 2,275 files
+  goes from **15.8s to 4.7s (3.3x)**, and cold-cache overhead is +1.5%.
+  - **It lives beside the catalog** (`catalog.cache.sqlite`), never inside it. Rows are keyed
+    by absolute path, and §3.1 already establishes that identity is never a path - machine-
+    local, disposable, high-churn data does not belong in the record of which drive holds the
+    only copy of someone's photos. Delete the file and nothing is lost but time.
+  - **It caches the perceptual hash as well as SHA-256, and that is the point.** Measured
+    per file at 12 MP: perceptual (a full Pillow decode) ~69.8 ms against ~8.5 ms for SHA-256,
+    and the size pre-filter already spares SHA-256 for ~94% of realistic-size files while the
+    perceptual hash runs for every image. Caching SHA-256 alone would have recovered ~5% of
+    the wait rather than nearly all of it.
+  - **A hit requires size AND `st_mtime_ns` to match exactly** - integer nanoseconds, never a
+    float comparison or a tolerance window. Any mismatch means hashing fresh.
+  - **mtime is read for change detection only, never for dating.** The §1 rule is untouched:
+    `dates.resolve_capture_datetime` does not consult the filesystem. Pinned by
+    `test_mtime_never_reaches_dating`.
+  - **It can only remove work, never change an answer.** A miss, a mismatch, a corrupt file or
+    an unknown schema all mean full hashing; a cache is rebuilt rather than migrated. A row
+    written when the pre-filter skipped SHA-256 is **not** served to a later run that needs one
+    (`test_a_row_without_a_sha_is_not_served_to_a_run_that_needs_one`) - serving it would hand
+    back a null hash and break exact dedup.
+  - **One layer**, and **cleanup runs on every run** rather than being defined and never called
+    (the PixSort mistake), bounded so it cannot become a stat storm.
+  - **Verify is deliberately NOT cached.** It re-hashes the copy on the drive to detect
+    bit-rot, and silent corruption changes content without changing size or mtime. Verify
+    always reads the bytes.
+  - **exiftool results are NOT cached.** At 12 MP it costs ~2.2 ms/file against ~69.8 ms for a
+    perceptual hash, because it reads headers rather than whole files - and metadata is what
+    *dating* depends on, so a stale row could change where a photo lands, which the hash cache
+    structurally cannot. Tracked as a separate later item.
 - **Concurrency for I/O-bound batches** via a worker pool (`scan.compute_hashes`, thread or
   process, benchmarked default = thread).
 - **No accidental O(n²).** The perceptual dedup is a linear scan per file, documented in

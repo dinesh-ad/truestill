@@ -533,6 +533,7 @@ function renderOrganizeResult(s) {
   const dateQuality = dateQualityNotes(s);
   $("org-result").innerHTML = card(
     `<div class="headline">${mediaCount(s)} found</div>
+     ${s.elapsed_seconds ? `<div class="k">checked in ${fmtDuration(s.elapsed_seconds)}</div>` : ""}
      <div class="tally">
        <div class="n">${nfmt(s.new_unique)}</div><div class="k">new - will be organized</div>
        <div class="n">${nfmt(s.near_dup)}</div><div class="k">look-alikes - kept and flagged</div>

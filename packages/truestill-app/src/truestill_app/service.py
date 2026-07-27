@@ -23,6 +23,7 @@ from truestill_core.destinations import LocalDestination
 from truestill_core.drive import MARKER_NAME, create_marker, read_marker
 from truestill_core.event_review import EventDecision, commit, propose, propose_from_catalog
 from truestill_core.exif import read_metadata
+from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import (
     DEFAULT_PHASH_THRESHOLD,
     HEIF_AVAILABLE,
@@ -242,12 +243,17 @@ def organize_preview(
     if not files:
         return {"files": 0, "folders": {}, "skipped": _skipped_summary(scan)}
     metadata = read_metadata(files, progress=progress, cancel=cancel)
-    with Catalog(db) as catalog:
+    with Catalog(db) as catalog, HashCache.beside(db) as cache:
         template = resolve_template(catalog.get_setting(LAYOUT_TEMPLATE_KEY))
         decisions = plan(files, metadata, build_rules(), template=template)
         index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
         resolutions = resolve(
-            decisions, index, catalog_sizes=catalog.known_sizes(), progress=progress, cancel=cancel
+            decisions,
+            index,
+            catalog_sizes=catalog.known_sizes(),
+            progress=progress,
+            cancel=cancel,
+            cache=cache,
         )
     summary = _summarize(resolutions)
     summary["destination_is_drive"] = read_marker(destination) is not None
@@ -278,7 +284,7 @@ def organize_run(
         if not files:
             return _completion([], destination)
         metadata = read_metadata(files, progress=progress)
-        with Catalog(db) as catalog:
+        with Catalog(db) as catalog, HashCache.beside(db) as cache:
             template = resolve_template(catalog.get_setting(LAYOUT_TEMPLATE_KEY))
             decisions = plan(files, metadata, build_rules(), template=template)
             index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
@@ -288,6 +294,7 @@ def organize_run(
                 catalog_sizes=catalog.known_sizes(),
                 progress=progress,
                 cancel=cancel,
+                cache=cache,
             )
             # Apply any *already-named* trips whose cluster recurs in this source, so a fresh
             # import lands its camera files under the same event folder (matched by signature).

@@ -6,7 +6,24 @@ decision context that produced them.
 
 ## Approved, not yet built
 
-- **(r) Analyze mode + the hash cache - one feature, shipped together.** Promoted from
+- **(r) Analyze mode - the hash cache half is SHIPPED.** The placement clause fired: a soak run
+  previewed an unchanged 2,275-file source twice and re-hashed it both times, so the cache was
+  built first. Per the clarified binding, cache-first alone is fine - what the binding forbids
+  is shipping Analyze *without* it, and Analyze will now arrive with it already underneath.
+  - **Shipped:** `hash_cache.HashCache`, a sidecar `catalog.cache.sqlite`. Measured on
+    12 MP-class photos, a repeat preview at 2,275 files went **15.8s -> 4.7s (3.3x)**; the
+    remaining 4.7s is exiftool. Invariants in `IMPLEMENTATION_STANDARDS.md` §8.
+  - **The measurement that changed the recorded spec:** it said "path+size+mtime -> sha256".
+    That alone would have recovered ~5% of the wait - the size pre-filter already spares
+    SHA-256 for ~94% of realistic-size files, while the *perceptual* hash runs for every image
+    at ~69.8 ms against SHA-256's ~8.5 ms. Caching both is the feature.
+  - **Next, on this evidence:** exiftool is now essentially the whole cost of a repeat preview.
+    A metadata cache is the natural follow-on and is deliberately a **separate item** - metadata
+    feeds *dating*, so a stale row could change where a photo lands, a class of risk the hash
+    cache structurally cannot have.
+  - **Still to build:** Analyze mode itself.
+
+- **(r, remaining) Analyze mode.** Promoted from
   "ideas" and bound to the previously-standalone hash-cache item, because the pairing is what
   makes either worth building.
   - **Analyze mode.** An explicit **"Analyze"** entry point (CLI + app) that runs the existing

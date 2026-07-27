@@ -443,6 +443,13 @@ details.more > summary::-webkit-details-marker {
 .progress-wrap .prog-foot {
   margin-top: var(--space-2);
 }
+/* Pin the right-hand items. Without this the spacer has no flex outside `.actions`, so the
+   Cancel button drifts left and right as the elapsed/rate text changes width -- a moving
+   target for a user trying to stop a run, and for anything else trying to click it. */
+.progress-wrap .prog-head .spacer,
+.progress-wrap .prog-foot .spacer {
+  flex: 1;
+}
 .progress-wrap .meta {
   font-size: var(--text-xs);
   color: var(--text-secondary);
