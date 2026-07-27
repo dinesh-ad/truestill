@@ -153,7 +153,8 @@ def test_organize_run_summary_matches_files_on_disk(client: TestClient, tmp_path
         "organize done-event must report what it organized (else 'nothing to do')"
     )
 
-    files_on_disk = [p for p in out.rglob("*") if p.is_file()]
+    # The drive marker is truestill's own bookkeeping, not an organized photo.
+    files_on_disk = [p for p in out.rglob("*") if p.is_file() and p.name != ".truestill-drive.json"]
     assert summary["organized"] == len(files_on_disk) == 2  # summary == on-disk reality
     assert summary["bytes_organized"] == sum(p.stat().st_size for p in files_on_disk)
     # "uploaded" is backend vocabulary for something that did not happen on a local disk.

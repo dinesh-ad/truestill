@@ -11,6 +11,7 @@ import os
 import shutil
 import threading
 from collections import Counter
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -19,7 +20,7 @@ from truestill_core.catalog import Catalog
 from truestill_core.categorize import build_rules
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import LocalDestination
-from truestill_core.drive import MARKER_NAME, read_marker
+from truestill_core.drive import MARKER_NAME, create_marker, read_marker
 from truestill_core.event_review import EventDecision, commit, propose, propose_from_catalog
 from truestill_core.exif import read_metadata
 from truestill_core.hashing import (
@@ -74,6 +75,76 @@ class NotABackupDriveError(ValueError):
 
 def _not_a_drive() -> NotABackupDriveError:
     return NotABackupDriveError(f"no {MARKER_NAME} at that path -- is the drive connected?")
+
+
+#: Remembered paths, for prefilling fields the catalog can already answer. **Hints only.**
+#: Drive *identity* is the marker's uuid and never a path (§3.1) -- mount points move between
+#: sessions and machines. These exist so a user is never asked to Browse for something we
+#: already know, and nothing behind them may ever be trusted as identity.
+LIBRARY_PATH_HINT = "path_hint.library"
+BACKUP_PATH_HINT = "path_hint.backup"
+
+
+@dataclass(frozen=True, slots=True)
+class DriveAttachment:
+    """The result of making a folder usable as a truestill drive."""
+
+    label: str
+    registered: bool  # a marker was written now (the folder was not a drive before)
+    linked: int  # already-organized files newly attached to this drive
+    absent: int  # catalogued files whose copy is not actually on the drive
+
+
+def attach_drive(path: Path, db: Path, *, write: bool) -> DriveAttachment:
+    """Make ``path`` a registered drive, attaching any library already organized into it.
+
+    **Why this exists.** Organizing through the app used to leave its destination unregistered:
+    no marker, so no ``file_copies`` rows, so the app could not verify it, could not copy it
+    anywhere, and counted it as living in zero places. The whole custody half of the product
+    was reachable only by running the CLI's ``drives --init`` first -- a concept a user has no
+    reason to have heard of, standing between "I organized my photos" and "make me a backup".
+
+    Two halves, because a folder can be behind in two different ways:
+
+    * **No marker** -- write one, labelled after the folder. A ~100-byte file at the root of a
+      folder the user just asked us to fill with copies of their library.
+    * **No recorded copies** -- a library organized before its folder was registered has rows
+      in ``files`` but none in ``file_copies``. Each is attached only after confirming the copy
+      is *actually present*; anything missing is counted and reported, never assumed.
+
+    ``write=False`` reports what would happen and touches nothing, so previews stay pure.
+    """
+    marker = read_marker(path)
+    was_registered = marker is not None
+    if marker is None and not write:
+        # Report what would happen without doing it: previews write nothing, ever.
+        return DriveAttachment(label=path.name or "Library", registered=True, linked=0, absent=0)
+    if marker is None:
+        marker = create_marker(path, label=path.name or "Library")
+
+    linked = absent = 0
+    with Catalog(db) as catalog:
+        if write:
+            catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+        known = {row["sha256"] for row in catalog.copies_on_drive(marker.uuid)}
+        for row in catalog.organized_files():
+            if row["sha256"] in known:
+                continue
+            if not (path / str(row["relative"])).is_file():
+                absent += 1
+                continue
+            linked += 1
+            if write:
+                catalog.record_copy(
+                    sha256=str(row["sha256"]),
+                    drive_uuid=marker.uuid,
+                    relative=str(row["relative"]),
+                    copy_sha256=row["copy_sha256"],
+                    size=row["size"],
+                )
+    return DriveAttachment(
+        label=marker.label, registered=not was_registered, linked=linked, absent=absent
+    )
 
 
 def _now() -> str:
@@ -218,11 +289,14 @@ def organize_run(
             ]
             if saved:
                 resolutions = commit(resolutions, saved, catalog, template=template).resolutions
-            marker = read_marker(destination)
-            drive_uuid = None
-            if marker is not None:
-                catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
-                drive_uuid = marker.uuid
+            # Register the destination *before* writing anything, so every copy is recorded
+            # against it. Doing this afterwards would leave the run's own files unattached --
+            # which is exactly the bug this replaced.
+            marker = read_marker(destination) or create_marker(
+                destination, label=destination.name or "Library"
+            )
+            catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+            drive_uuid = marker.uuid
             results = execute(
                 resolutions,
                 LocalDestination(destination),
@@ -234,7 +308,9 @@ def organize_run(
                 drive_uuid=drive_uuid,
             )
         completion = _completion(results, destination)
+        completion["drive_label"] = marker.label
         with Catalog(db) as catalog:
+            catalog.set_setting(LIBRARY_PATH_HINT, str(destination))
             # The custody nudge, counted rather than assumed: how much of the library really
             # does exist in only one place right now.
             completion["single_copy"] = len(catalog.single_copy_shas())
@@ -563,7 +639,13 @@ def library_status(db: Path) -> dict[str, Any]:
         drives = [d for d in catalog.list_drives() if d["file_count"]]
         single_copy = len(catalog.single_copy_shas())
         total_bytes = sum(d["total_size"] or 0 for d in drives)
+        # Prefill hints, so no screen asks a user to Browse for a path we already know.
+        # Hints only: drive identity is the marker uuid, never a path.
+        library_path = catalog.get_setting(LIBRARY_PATH_HINT)
+        backup_path = catalog.get_setting(BACKUP_PATH_HINT)
     return {
+        "library_path": library_path,
+        "backup_path": backup_path,
         "files": total,
         "photos": breakdown["photos"],
         "videos": breakdown["videos"],
@@ -643,23 +725,32 @@ def backup_preview(source: Path, target: Path, db: Path) -> dict[str, Any]:
     Reports how many files (and bytes) are missing on the target, and whether the target has room
     -- a disk-full part-way through is the failure this whole feature exists to prevent.
     """
+    if not source.is_dir():
+        return {"ok": False, "error": "the 'from' folder does not exist."}
+    if not target.is_dir():
+        return {"ok": False, "error": "the 'to' folder does not exist."}
+    if source.resolve() == target.resolve():
+        return {"ok": False, "error": "the 'from' and 'to' folders are the same folder."}
+    # Preview writes nothing, so an unregistered folder is *reported* as one that will be
+    # registered rather than rejected -- the run does the registering.
+    src = attach_drive(source, db, write=False)
+    tgt = attach_drive(target, db, write=False)
     src_marker, tgt_marker = read_marker(source), read_marker(target)
-    if src_marker is None:
-        return {"ok": False, "error": "the 'from' folder is not a connected truestill drive."}
-    if tgt_marker is None:
-        return {"ok": False, "error": "the 'to' folder is not a connected truestill drive."}
-    if src_marker.uuid == tgt_marker.uuid:
+    if src_marker is not None and tgt_marker is not None and src_marker.uuid == tgt_marker.uuid:
         return {"ok": False, "error": "the 'from' and 'to' drives are the same drive."}
     with Catalog(db) as catalog:
-        catalog.upsert_drive(uuid=src_marker.uuid, label=src_marker.label)
-        catalog.upsert_drive(uuid=tgt_marker.uuid, label=tgt_marker.label)
-        missing = _files_missing_on_target(catalog, src_marker.uuid, tgt_marker.uuid)
+        missing = (
+            _files_missing_on_target(catalog, src_marker.uuid, tgt_marker.uuid)
+            if src_marker is not None and tgt_marker is not None
+            else [dict(r) for r in catalog.organized_files()]
+        )
     need = sum(int(r["size"] or 0) for r in missing)
     free = shutil.disk_usage(target).free
     return {
         "ok": True,
-        "from": src_marker.label,
-        "to": tgt_marker.label,
+        "from": src.label,
+        "to": tgt.label,
+        "will_register": [d.label for d in (src, tgt) if d.registered],
         "count": len(missing),
         "bytes": need,
         "free": free,
@@ -671,13 +762,20 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
     """Build a job that copies the library to another drive: verify-after-write, record each copy."""
 
     def target_job(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
+        if not source.is_dir() or not target.is_dir():
+            message = "both the 'from' and 'to' folders must exist."
+            raise ValueError(message)
+        # Register whatever is not yet a drive, and attach a library organized before its
+        # folder was registered. Without this the app rejects the very library it just built.
+        attach_drive(source, db, write=True)
+        attach_drive(target, db, write=True)
         src_marker, tgt_marker = read_marker(source), read_marker(target)
         if src_marker is None or tgt_marker is None:
-            message = "both the 'from' and 'to' folders must be connected truestill drives."
+            raise _not_a_drive()
+        if src_marker.uuid == tgt_marker.uuid:
+            message = "the 'from' and 'to' folders are the same drive."
             raise ValueError(message)
         with Catalog(db) as catalog:
-            catalog.upsert_drive(uuid=src_marker.uuid, label=src_marker.label)
-            catalog.upsert_drive(uuid=tgt_marker.uuid, label=tgt_marker.label)
             missing = _files_missing_on_target(catalog, src_marker.uuid, tgt_marker.uuid)
             need = sum(int(r["size"] or 0) for r in missing)
             free = shutil.disk_usage(target).free
@@ -712,6 +810,7 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
                 )
                 copied += 1
                 progress(Progress(copied, len(missing), Phase.COPYING, Path(rel).name))
+            catalog.set_setting(BACKUP_PATH_HINT, str(target))
         return {"copied": copied, "to": tgt_marker.label}
 
     return target_job

@@ -43,7 +43,7 @@ function streamJob(jobId, onProgress, onDone) {
 // anyone reworded it.
 const FRIENDLY_ERRORS = {
   NotABackupDriveError:
-    "This folder isn’t a truestill backup yet — use <b>Copy your library to another drive</b> " +
+    "This folder isn’t a truestill backup yet - use <b>Copy your library to another drive</b> " +
     "below to create one.",
 };
 
@@ -179,7 +179,7 @@ const CAT_INFO = {
 };
 const catTip = (name) => CAT_INFO[name] || "Folder derived from the file’s own details.";
 
-// "24 photos · 6 videos" — split, honest about the mix, zeros omitted (photos shown if all zero)
+// "24 photos · 6 videos" - split, honest about the mix, zeros omitted (photos shown if all zero)
 function mediaCount(s) {
   const parts = [];
   if (s.photos) parts.push(`${nfmt(s.photos)} photo${s.photos === 1 ? "" : "s"}`);
@@ -187,7 +187,7 @@ function mediaCount(s) {
   if (s.audio) parts.push(`${nfmt(s.audio)} audio`);
   return parts.length ? parts.join(" · ") : "0 photos";
 }
-// collapsible "By format ▾" — extension counts split by photos / videos / audio, monospace
+// collapsible "By format ▾" - extension counts split by photos / videos / audio, monospace
 function byFormat(bf) {
   if (!bf) return "";
   const line = (grp, label) => {
@@ -212,8 +212,8 @@ function dateQualityNotes(s) {
   }
   if (s.suspect_default) {
     notes.push(`<div>${nfmt(s.suspect_default)} file(s) are dated exactly midnight on a day
-      cameras fall back to when their clock battery dies. They are filed by that date — it may
-      well be right — but they are worth a look.</div>`);
+      cameras fall back to when their clock battery dies. They are filed by that date - it may
+      well be right - but they are worth a look.</div>`);
   }
   return notes.length ? `<div class="banner warn">${notes.join("")}</div>` : "";
 }
@@ -271,7 +271,7 @@ function organizeCompletion(r) {
   const notes = [];
   if (r.near_dup) {
     notes.push(`<div class="banner warn"><div>${nfmt(r.near_dup)} look-alike(s) flagged for
-      review — ${fmtBytes(r.bytes_near_dup)} if you decide to remove them. They were kept, not
+      review - ${fmtBytes(r.bytes_near_dup)} if you decide to remove them. They were kept, not
       dropped.</div></div>`);
   }
   if (r.moved_in_place) {
@@ -328,8 +328,21 @@ function showScreen(name) {
 document.querySelectorAll(".nav-item").forEach((item) => { item.onclick = () => showScreen(item.dataset.screen); });
 
 // ---------- custody strip (always true, catalog-driven) ----------
+// Fields the catalog can already answer are filled in, never asked for. Browse stays, for
+// overriding -- but a user should never have to go and find what we already know.
+function prefill(id, value) {
+  const el = $(id);
+  if (el && value && !el.value) el.value = value;
+}
+
 async function loadCustody() {
   const s = await get("/api/library/status");
+  // Organize and Trips work on the library; Backups copies *from* it to somewhere else.
+  prefill("org-dest", s.library_path);
+  prefill("ev-source", s.library_path);
+  prefill("bk-source", s.library_path);
+  prefill("verify-path", s.backup_path || s.library_path);
+  prefill("bk-target", s.backup_path);
   const pips = $("custody-pips"), line = $("custody-line");
   const places = s.places || 0;
   const filled = Math.min(places, 3);
@@ -543,12 +556,12 @@ async function loadDrives() {
       ? `<b>Your library isn’t backed up yet.</b><br>
          You have ${mediaCount(lib)} organized and no second copy of them.<br>
          Connect a drive, then use <b>Copy your library to another drive</b> below.`
-      : `<b>No backups yet — and nothing to back up.</b><br>
+      : `<b>No backups yet - and nothing to back up.</b><br>
          Organize some photos first, then come back here to copy them to a second drive.`}
       </div></div>`;
     return;
   }
-  // Library summary (counts + formats only, catalog-driven — deliberately not a dashboard).
+  // Library summary (counts + formats only, catalog-driven - deliberately not a dashboard).
   const summary = `<div class="card"><div class="headline" style="font-size:var(--text-lg)">Your library</div>
     <div class="k mono">${mediaCount(lib)} · ${fmtBytes(lib.bytes)}</div>${byFormat(lib.by_format)}</div>`;
   const risk = at_risk.length ? `<div class="banner warn"><div>${at_risk.length} file(s) exist in only one place.</div></div>` : "";
@@ -658,7 +671,7 @@ $("ev-apply").onclick = async () => {
   });
   const r = await api(`/api/events/${evSession}/apply`, { names });
   if (!r.events) {
-    $("ev-result").innerHTML = card(`<div class="k">No trips named yet — type a name above, then Save names.</div>`);
+    $("ev-result").innerHTML = card(`<div class="k">No trips named yet - type a name above, then Save names.</div>`);
     return;
   }
   $("ev-result").innerHTML = card(
@@ -673,7 +686,7 @@ $("ev-apply").onclick = async () => {
     ? `<div class="headline">${nfmt(p.moves.length)} photo(s) will move into trip folders</div>
        <details class="more"><summary>Show the moves</summary>
          <div class="mono k">${p.moves.slice(0, 200).map((m) => `${esc(m.old)} → ${esc(m.new)}`).join("<br>")}</div></details>`
-    : `<div class="k">Nothing to move — these photos are already in their trip folders.</div>`;
+    : `<div class="k">Nothing to move - these photos are already in their trip folders.</div>`;
   $("ev-apply-disk").classList.toggle("hidden", p.moves.length === 0);
 };
 let evJob = null;

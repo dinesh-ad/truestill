@@ -638,6 +638,19 @@ class Catalog:
         cursor = self._conn.execute("SELECT source_path, sha256, perceptual FROM files")
         return [(row["source_path"], row["sha256"], row["perceptual"]) for row in cursor]
 
+    def organized_files(self) -> list[sqlite3.Row]:
+        """Every organized file with the relative path it was written to.
+
+        Used to attach an already-organized library to a drive that was registered after the
+        fact: the rows say where each copy *should* be, and the caller confirms it is really
+        there before recording it.
+        """
+        return list(
+            self._conn.execute(
+                "SELECT sha256, copy_sha256, size, relative FROM files WHERE relative IS NOT NULL"
+            )
+        )
+
     def find_by_sha256(self, sha256: str) -> sqlite3.Row | None:
         cursor = self._conn.execute("SELECT * FROM files WHERE sha256 = ?", (sha256,))
         row: sqlite3.Row | None = cursor.fetchone()
