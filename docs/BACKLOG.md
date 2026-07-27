@@ -4,6 +4,29 @@ Things that were **decided** but not yet built - captured here so nothing lives 
 history. This is not a wishlist of everything possible; only items already agreed, with the
 decision context that produced them.
 
+> **Items (w) and (x) came from a three-report external research synthesis (2026-07-27) whose
+> main result was that it changed nothing.** It reviewed the shipped architecture and validated
+> it point-for-point; these two are the entire delta, one of them trivial and one of them
+> post-launch. That outcome is worth recording as loudly as a finding would have been - an
+> external review that produces two small additive items is evidence the recorded decisions
+> have been holding, and it is the kind of result that quietly disappears if only the deltas
+> get written down.
+
+## Item letters
+
+Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDARDS.md` §8 cites
+`(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
+across *all* sections of this file, not per-section.
+
+**Used: (e)-(x). Next free: (y).** Check here before assigning - `(u)` and `(v)` were proposed
+a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
+which letters were spoken for.
+
+Several early letters no longer appear anywhere in this file: their items shipped and the
+Shipped entries describe the work rather than repeating the letter. `(e)` and `(h)` are still
+cited by name in `drive-identity-research.md` and `org-structure-research.md`. **A letter that
+is invisible here is retired, not free.**
+
 ## Approved, not yet built
 
 - **(r) Analyze mode - the hash cache half is SHIPPED.** The placement clause fired: a soak run
@@ -87,6 +110,40 @@ decision context that produced them.
     like `DEFAULT_PHASH_THRESHOLD`. VP-tree is the more general metric-space answer and buys
     nothing extra here; LSH is for *approximate* nearest-neighbour at far larger scale and would
     trade away exactness we currently have. `DedupIndex`'s interface was designed for the swap.
+
+- **(w) Self-describing month preset - `{category}/{yyyy}/{yyyy}-{mm}`.** A folder named
+  `2014-08` explains itself when it is copied, searched, sorted or attached somewhere else;
+  `08` only means anything while you can still see its parent. Same argument the repo already
+  made in the *opposite* direction for the default (`README.md`: the year is the parent, so
+  `2026-07` "would just repeat it") - and both are right, because they optimise for different
+  moments. The default optimises browsing in place; this optimises the folder travelling alone.
+  It is offered as a **preset, not a new default.**
+  - **The template engine already supports it - verified, not assumed.** `{yyyy}-{mm}` in one
+    segment is the same construction the shipped `flat-date` preset already uses. Rendered
+    against `layout.LayoutTemplate` today:
+
+    | context | result |
+    |---|---|
+    | dated | `Camera/2014/2014-08` |
+    | undated | `Screenshots/Undated` (the undated-collapse rule holds) |
+    | named event | `Camera/2014/2014-08/20140820_lisbon` |
+
+  - **The event variant asked for is unnecessary, and that makes this smaller.** Because of the
+    "event append" rule (`layout.py`: when a template has no explicit `{event}` token the event
+    folder is appended), `{category}/{yyyy}/{yyyy}-{mm}` and
+    `{category}/{yyyy}/{yyyy}-{mm}/{event}` render **identically** for event members - both
+    confirmed above. Ship **one** preset. An explicit `{event}` token only earns its place when
+    the event folder needs to go somewhere other than last.
+  - **Scope is genuinely preset + docs.** `PRESETS` is a plain dict and every consumer reads it
+    dynamically: the CLI derives `--preset` choices from `tuple(PRESETS)` and lists
+    `PRESETS.items()`; the app serves `dict(PRESETS)` and the Settings dropdown is populated by
+    iteration. One dict entry reaches both front-ends with no other code change. Wants a
+    rendering test and a name (`category-year-yearmonth` is accurate if graceless).
+  - **State the migration truth in the UI when it ships.** A template change affects **new
+    files only**; an existing library is relocated by `truestill migrate-layout` (preview
+    first, journalled). Someone switching mid-library will otherwise expect their existing
+    folders to rename themselves.
+  - **Pre-launch candidate.** Trivial, and it costs nothing to defer.
 
 - **GPS-derived per-photo timezone.** Deferred during Takeout Rescue Mode. `--tz` is a single
   fixed offset for the whole run, which cannot correctly date a library that spans timezones;
@@ -283,6 +340,28 @@ decision context that produced them.
   Post-launch build; Pro-tier candidate. Research refs to carry in: the embedded-thumbnail trap,
   the XMP/IPTC/MakerNotes layers, MP4 container metadata boxes, and Live Photo pairing.
 
+- **(x) XMP sidecar export for user-generated context.** Post-launch, demand-driven. Trip and
+  event names are the one thing in a truestill library the *user* created rather than the files
+  carrying it - so they are the one thing that is currently lost if someone stops using
+  truestill. Writing them to standard XMP sidecars makes them portable to Lightroom, digiKam,
+  Immich and anything else that reads XMP.
+  - **Why it fits the identity rather than diluting it.** The promise is a library you can
+    still read without the tool. That already holds for *files* (ordinary folders, ordinary
+    names, full metadata). It does **not** yet hold for the context the user added on top.
+    This closes that gap, and it is the no-lock-in argument taken to its own conclusion: the
+    exit path should be complete, not partial.
+  - **Sidecars, never in-place edits, by default.** Writing into originals contradicts §1;
+    a sidecar sits beside the file and can be deleted with no trace. The scoped Takeout bake
+    stays the only path that modifies content, and it stays scoped.
+  - **Open questions for the research pass**, none of them blocking today: which XMP fields
+    carry an "event" honestly across readers, whether sidecars belong beside the organized copy
+    or the source, and what happens on re-export when a user has renamed an event.
+  - **This is export, not a second source of truth.** The catalog stays authoritative;
+    re-importing user context from sidecars is a separate question and is *not* part of this
+    item.
+  - **Virtual views, albums-as-first-class-objects and faces remain out of scope**, unchanged -
+    see "Consciously out of scope" below and the composition stance recorded there. Portable
+    *context* is not the same request as a gallery.
 - **(s) Source-folder names as event evidence.** Generalize the Takeout **album → event**
   mapping to plain sources: a meaningful source folder name becomes a **pre-named event
   proposal** in the existing review flow.
