@@ -638,3 +638,20 @@ details.more > summary::-webkit-details-marker {
   font-size: var(--text-xs);
   color: var(--accent);
 }
+
+/* A drive card's footer: the fact on the left, the action that changes it on the right. */
+.drive-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+.drive-foot .k {
+  font-size: var(--text-xs);
+}
+.drive-foot .drive-check {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--accent);
+}

@@ -3,6 +3,9 @@ const TOKEN = window.TRUESTILL_TOKEN;
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const nfmt = (n) => Number(n).toLocaleString();
+// "2 files", "1 file" -- never "file(s)". Counts are read aloud in a user's head, and the
+// parenthesised plural is the sound of a form letter.
+const plural = (n, word, suffix = "s") => `${nfmt(n)} ${word}${Number(n) === 1 ? "" : suffix}`;
 
 async function api(path, body) {
   const opts = { headers: { "X-Truestill-Token": TOKEN } };
@@ -206,12 +209,12 @@ function byFormat(bf) {
 function dateQualityNotes(s) {
   const notes = [];
   if (s.sentinel_rejected) {
-    notes.push(`<div>${nfmt(s.sentinel_rejected)} file(s) carried only a placeholder date
+    notes.push(`<div>${plural(s.sentinel_rejected, "file")} carried only a placeholder date
       (an all-zero “epoch” timestamp). It was refused, so they went to “Undated” rather than
       being filed under 1904 or 1970.</div>`);
   }
   if (s.suspect_default) {
-    notes.push(`<div>${nfmt(s.suspect_default)} file(s) are dated exactly midnight on a day
+    notes.push(`<div>${plural(s.suspect_default, "file")} dated exactly midnight on a day
       cameras fall back to when their clock battery dies. They are filed by that date - it may
       well be right - but they are worth a look.</div>`);
   }
@@ -270,7 +273,7 @@ function organizeCompletion(r) {
   const span = spanStory(r);
   const notes = [];
   if (r.near_dup) {
-    notes.push(`<div class="banner warn"><div>${nfmt(r.near_dup)} look-alike(s) flagged for
+    notes.push(`<div class="banner warn"><div>${plural(r.near_dup, "look-alike")} flagged for
       review - ${fmtBytes(r.bytes_near_dup)} if you decide to remove them. They were kept, not
       dropped.</div></div>`);
   }
@@ -279,12 +282,12 @@ function organizeCompletion(r) {
       (no bytes copied). Undo with <code>truestill undo-organize</code>.</div></div>`);
   }
   if (r.single_copy) {
-    notes.push(`<div class="banner warn"><div>${nfmt(r.single_copy)} file(s) now exist in only
+    notes.push(`<div class="banner warn"><div>${plural(r.single_copy, "file")} now exist in only
       one place. <a href="#" onclick="showScreen('backups');return false;">Make it safe in 2
       places</a>.</div></div>`);
   }
   if (r.failed) {
-    notes.push(`<div class="banner warn"><div>${nfmt(r.failed)} file(s) could not be
+    notes.push(`<div class="banner warn"><div>${plural(r.failed, "file")} could not be
       ${verb}.</div></div>`);
   }
   return completionCard({
@@ -316,6 +319,35 @@ const verifyProgress = createProgress("verify");
 const evProgress = createProgress("ev");
 const bkProgress = createProgress("bk");
 const migProgress = createProgress("mig");
+
+function backupCompletion(r) {
+  const notes = [];
+  if (r.verified) {
+    notes.push(`<div class="banner"><div><b>Every copy verified.</b> Each file was re-read from
+      ${esc(r.to || "the drive")} and checked against its original before being recorded — a copy
+      that did not match would have stopped the run.</div></div>`);
+  }
+  notes.push(`<div class="k" style="margin-top:var(--space-3)">Check this drive again any time
+    with <b>Check a connected backup drive</b> above — a backup is only as good as its last
+    check.</div>`);
+  return completionCard({
+    headline: `${mediaCount(r)} copied to ${esc(r.to || "the drive")}`,
+    sub: "Your library now lives in more than one place.",
+    stats: [
+      { value: fmtBytes(r.bytes_copied), label: "copied" },
+      r.elapsed_seconds ? { value: fmtDuration(r.elapsed_seconds), label: "taken" } : null,
+    ],
+    notes,
+  });
+}
+
+// Any completed operation that changes drive state refreshes everything that describes it.
+// Without this the page contradicts itself: after a successful copy the Check section still
+// showed "this folder isn't a truestill backup yet" about the drive now listed above it.
+async function refreshDriveState() {
+  $("verify-result").innerHTML = "";  // a verdict about the old state is not about this one
+  await Promise.all([loadDrives(), loadCustody()]);
+}
 
 // ---------- navigation ----------
 function showScreen(name) {
@@ -494,10 +526,10 @@ function renderOrganizeResult(s) {
   if (skTotal) {
     const rows = (label, list) => list.length
       ? `<tr><td>${label}</td><td class="num">${list.map(([e, n]) => `${esc(e)} ×${n}`).join(", ")}</td></tr>` : "";
-    details = `<details class="more"><summary>${skTotal} file(s) skipped (not photos or videos) ▾</summary>
+    details = `<details class="more"><summary>${plural(skTotal, "file")} skipped (not photos or videos) ▾</summary>
       <table class="table"><tbody>${rows("documents", skDocs)}${rows("unrecognized", skUn)}</tbody></table></details>`;
   }
-  const heic = s.heic_perceptual_skipped ? `<div class="banner warn"><div>${s.heic_perceptual_skipped} HEIC file(s) will be backed up, but near-duplicate detection is unavailable for them.</div></div>` : "";
+  const heic = s.heic_perceptual_skipped ? `<div class="banner warn"><div>${plural(s.heic_perceptual_skipped, "HEIC file")} will be backed up, but near-duplicate detection is unavailable for them.</div></div>` : "";
   const dateQuality = dateQualityNotes(s);
   $("org-result").innerHTML = card(
     `<div class="headline">${mediaCount(s)} found</div>
@@ -597,16 +629,33 @@ async function loadDrives() {
   // Library summary (counts + formats only, catalog-driven - deliberately not a dashboard).
   const summary = `<div class="card"><div class="headline" style="font-size:var(--text-lg)">Your library</div>
     <div class="k mono">${mediaCount(lib)} · ${fmtBytes(lib.bytes)}</div>${byFormat(lib.by_format)}</div>`;
-  const risk = at_risk.length ? `<div class="banner warn"><div>${at_risk.length} file(s) exist in only one place.</div></div>` : "";
+  const risk = at_risk.length ? `<div class="banner warn"><div>${plural(at_risk.length, "file")} exist in only one place.</div></div>` : "";
   const cards = drives.map((d) => {
     const pips = Math.min(drives.length, 3);  // ambient: how many places this library lives in
     const strip = [0, 1, 2].map((i) => (i < pips ? "▪" : "▫")).join(" ");
     return `<div class="card"><div class="tally" style="grid-template-columns:1fr auto">
       <div><b>${esc(d.label)}</b><div class="k mono">${mediaCount(d)} · ${fmtBytes(d.size)}</div></div>
       <div class="mono" style="color:var(--success)">${strip}</div></div>
-      <div class="k mono" style="font-size:var(--text-xs)">last checked: ${(d.last_verified || "never").slice(0, 10)}</div></div>`;
+      <div class="drive-foot">
+        <span class="k mono">last checked: ${(d.last_verified || "never").slice(0, 10)}</span>
+        ${d.path
+          ? `<button class="btn btn-ghost drive-check" data-path="${esc(d.path)}">Check now</button>`
+          : ""}
+      </div></div>`;
   }).join("");
   list.innerHTML = summary + cards + risk;
+  // A stated fact should carry its remedy: "last checked: never" is only useful next to the
+  // thing that changes it. Rendered only when we know where the drive is -- offering an action
+  // we cannot honour would be worse than stating the fact plainly.
+  list.querySelectorAll(".drive-check").forEach((btn) => {
+    btn.onclick = () => {
+      const field = $("verify-path");
+      field.value = btn.dataset.path;
+      field.dispatchEvent(new Event("change"));
+      field.scrollIntoView({ behavior: "smooth", block: "center" });
+      $("verify-run").click();
+    };
+  });
 }
 let verifyJob = null;
 $("verify-run").onclick = async () => {
@@ -628,7 +677,7 @@ $("verify-run").onclick = async () => {
            <div class="n">${nfmt(s.missing)}</div><div class="k">missing</div>
            <div class="n">${nfmt(s.mismatch)}</div><div class="k">changed</div></div>`);
       loadCustody();
-      loadDrives();  // refresh the drive card's "last checked" from the verify just recorded
+      loadDrives();  // "last checked" on the card comes from the verify just recorded
     });
 };
 $("verify-cancel").onclick = () => { if (verifyJob) api(`/api/jobs/${verifyJob}/cancel`, {}); };
@@ -708,7 +757,7 @@ $("ev-apply").onclick = async () => {
     return;
   }
   $("ev-result").innerHTML = card(
-    `<div class="headline">${nfmt(r.events)} trip(s) named.</div>
+    `<div class="headline">${plural(r.events, "trip")} named.</div>
      <div class="k">Next: preview where these photos will move on the drive.</div>`);
   // Preview the on-disk placement (reuses the migrate engine).
   const p = await api(`/api/events/${evSession}/preview`, {});
@@ -716,7 +765,7 @@ $("ev-apply").onclick = async () => {
   $("ev-disk-result").innerHTML = "";
   if (!p.ok) { $("ev-moves").innerHTML = `<div class="banner warn"><div>${esc(p.error)}</div></div>`; return; }
   $("ev-moves").innerHTML = p.moves.length
-    ? `<div class="headline">${nfmt(p.moves.length)} photo(s) will move into trip folders</div>
+    ? `<div class="headline">${plural(p.moves.length, "photo")} will move into trip folders</div>
        <details class="more"><summary>Show the moves</summary>
          <div class="mono k">${p.moves.slice(0, 200).map((m) => `${esc(m.old)} → ${esc(m.new)}`).join("<br>")}</div></details>`
     : `<div class="k">Nothing to move - these photos are already in their trip folders.</div>`;
@@ -732,7 +781,7 @@ $("ev-apply-disk").onclick = async () => {
       evProgress.stop();
       $("ev-apply-disk").classList.add("hidden");
       $("ev-disk-result").innerHTML = d.ok
-        ? card(`<div class="headline">Moved ${nfmt(d.summary.migrated || 0)} photo(s) into trip folders.</div>`)
+        ? card(`<div class="headline">Moved ${plural(d.summary.migrated || 0, "photo")} into trip folders.</div>`)
         : jobErrorCard(d);
       evJob = null;
       loadCustody();
@@ -755,7 +804,7 @@ $("bk-preview").onclick = async () => {
       Needs ${fmtBytes(r.bytes)}, but the drive only has ${fmtBytes(r.free)} free.</div></div>`);
     $("bk-run").classList.add("hidden"); return;
   }
-  $("bk-result").innerHTML = card(`<div class="headline">${nfmt(r.count)} photo(s) · ${fmtBytes(r.bytes)} to copy</div>
+  $("bk-result").innerHTML = card(`<div class="headline">${mediaCount(r)} · ${fmtBytes(r.bytes)} to copy</div>
     <div class="k">From ${esc(r.from)} to ${esc(r.to)} · ${fmtBytes(r.free)} free on ${esc(r.to)}.</div>`);
   $("bk-run").classList.remove("hidden");
 };
@@ -770,12 +819,9 @@ $("bk-run").onclick = async () => {
       bkProgress.stop();
       $("bk-run").classList.add("hidden");
       const s = d.summary;
-      $("bk-result").innerHTML = !d.ok
-        ? jobErrorCard(d)
-        : card(`<div class="headline">Copied ${nfmt(s.copied || 0)} photo(s) to ${esc(s.to || "the drive")}.</div>`);
+      $("bk-result").innerHTML = d.ok ? backupCompletion(s) : jobErrorCard(d);
       bkJob = null;
-      loadDrives();    // per-drive counts + at-risk banner refresh from real state
-      loadCustody();   // custody strip "safe in N places" reflects the new second copy
+      refreshDriveState();
     });
 };
 $("bk-cancel").onclick = () => { if (bkJob) api(`/api/jobs/${bkJob}/cancel`, {}); };
@@ -819,7 +865,7 @@ $("layout-save").onclick = async () => {
 $("mig-preview").onclick = async () => {
   const r = await api("/api/migrate/preview", { path: $("mig-path").value.trim() });
   if (!r.ok) { $("mig-result").innerHTML = card(`<div class="banner warn"><div>${esc(r.error)}</div></div>`); $("mig-run").classList.add("hidden"); return; }
-  $("mig-result").innerHTML = card(`<div class="headline">${r.moves.length} file(s) to move</div>
+  $("mig-result").innerHTML = card(`<div class="headline">${plural(r.moves.length, "file")} to move</div>
     <div class="k">${r.unchanged} already in place${r.warnings.length ? " · ⚠ " + esc(r.warnings.join("; ")) : ""}</div>`);
   $("mig-run").classList.toggle("hidden", r.moves.length === 0);
 };
@@ -832,7 +878,7 @@ $("mig-run").onclick = async () => {
     (d) => {
       migProgress.stop();
       $("mig-result").innerHTML = d.ok
-        ? card(`<div class="headline">Moved ${nfmt(d.summary.migrated || 0)} file(s).</div>`)
+        ? card(`<div class="headline">Moved ${plural(d.summary.migrated || 0, "file")}.</div>`)
         : jobErrorCard(d);
       migJob = null;
       loadDrives();

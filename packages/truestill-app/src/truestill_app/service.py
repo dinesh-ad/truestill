@@ -85,6 +85,16 @@ LIBRARY_PATH_HINT = "path_hint.library"
 BACKUP_PATH_HINT = "path_hint.backup"
 
 
+def _drive_path_hint(uuid: str) -> str:
+    """Settings key for where a drive was last seen mounted.
+
+    A *hint*, like the others: it lets a drive card offer "Check now" for the right folder
+    instead of making the user find it again. Identity remains the marker uuid -- a drive that
+    remounts elsewhere is the same drive, and this key is simply stale until it is next seen.
+    """
+    return f"path_hint.drive.{uuid}"
+
+
 @dataclass(frozen=True, slots=True)
 class DriveAttachment:
     """The result of making a folder usable as a truestill drive."""
@@ -126,6 +136,7 @@ def attach_drive(path: Path, db: Path, *, write: bool) -> DriveAttachment:
     with Catalog(db) as catalog:
         if write:
             catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+            catalog.set_setting(_drive_path_hint(marker.uuid), str(path))
         known = {row["sha256"] for row in catalog.copies_on_drive(marker.uuid)}
         for row in catalog.organized_files():
             if row["sha256"] in known:
@@ -296,6 +307,8 @@ def organize_run(
                 destination, label=destination.name or "Library"
             )
             catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+            # Remember where it was seen, so its card can offer to check it.
+            catalog.set_setting(_drive_path_hint(marker.uuid), str(destination))
             drive_uuid = marker.uuid
             results = execute(
                 resolutions,
@@ -449,6 +462,10 @@ def list_drives(db: Path) -> list[dict[str, Any]]:
                     "size": d["total_size"] or 0,
                     "last_seen": d["last_seen"],
                     "last_verified": d["last_verified"],
+                    # Where it was last seen, so a card can offer "Check now" for the right
+                    # folder. Absent when we have never had a path for it -- in which case the
+                    # card states the fact without offering an action it cannot honour.
+                    "path": catalog.get_setting(_drive_path_hint(d["uuid"])),
                 }
             )
         return drives
@@ -746,12 +763,16 @@ def backup_preview(source: Path, target: Path, db: Path) -> dict[str, Any]:
         )
     need = sum(int(r["size"] or 0) for r in missing)
     free = shutil.disk_usage(target).free
+    breakdown = _media_breakdown([str(r["relative"]) for r in missing])
     return {
         "ok": True,
         "from": src.label,
         "to": tgt.label,
         "will_register": [d.label for d in (src, tgt) if d.registered],
         "count": len(missing),
+        "photos": breakdown["photos"],
+        "videos": breakdown["videos"],
+        "audio": breakdown["audio"],
         "bytes": need,
         "free": free,
         "enough": free >= need * _FREE_SPACE_MARGIN,
@@ -786,6 +807,8 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
                 )
                 raise ValueError(message)
             copied = 0
+            copied_names: list[str] = []
+            copied_bytes = 0
             for row in missing:
                 if cancel.is_set():
                     break
@@ -809,9 +832,24 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
                     sha256=str(row["sha256"]), drive_uuid=tgt_marker.uuid, when=_now()
                 )
                 copied += 1
+                copied_names.append(rel)
+                copied_bytes += int(row["size"] or 0)
                 progress(Progress(copied, len(missing), Phase.COPYING, Path(rel).name))
             catalog.set_setting(BACKUP_PATH_HINT, str(target))
-        return {"copied": copied, "to": tgt_marker.label}
+        breakdown = _media_breakdown(copied_names)
+        return {
+            "copied": copied,
+            "to": tgt_marker.label,
+            "photos": breakdown["photos"],
+            "videos": breakdown["videos"],
+            "audio": breakdown["audio"],
+            "bytes_copied": copied_bytes,
+            # Every copy was re-hashed against the recorded digest before being recorded; a
+            # copy that failed that check aborts the run. Saying so is the point of the whole
+            # feature, so the completion card gets to say it.
+            "verified": True,
+            "target_path": str(target),
+        }
 
     return target_job
 

@@ -209,3 +209,82 @@ def test_a_library_organized_before_registration_is_attached_not_rejected(
     assert attached.linked == 3  # all three copies were really there
     assert attached.absent == 0
     assert client.get("/api/library/status").json()["places"] == 1
+
+
+def test_a_completed_copy_reports_photos_and_videos_separately(
+    client: TestClient, tmp_path: Path
+) -> None:
+    """The split rule applies to the backup summary too.
+
+    "Copied 2,269 photo(s)" folded videos into photos and used form-letter grammar. The server
+    must hand the UI the counts it needs to say "2,266 photos · 3 videos".
+    """
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "shot.jpg").write_bytes(b"a-unique-photo")
+    (src / "clip.mp4").write_bytes(b"a-unique-video")
+    library = tmp_path / "Library"
+    _finish(
+        client,
+        client.post(
+            "/api/organize/run",
+            json={"source": str(src), "destination": str(library), "skip_undated": False},
+        ).json()["job_id"],
+    )
+    backup = tmp_path / "Backup"
+    backup.mkdir()
+
+    done = _finish(
+        client,
+        client.post("/api/backup/run", json={"source": str(library), "target": str(backup)}).json()[
+            "job_id"
+        ],
+    )
+    s = done["summary"]
+
+    assert s["copied"] == 2
+    assert s["photos"] == 1  # counted apart, never folded together
+    assert s["videos"] == 1
+    assert s["bytes_copied"] > 0  # the completion card's space story
+    assert s["verified"] is True  # every copy was re-hashed before being recorded
+
+
+def test_a_completed_copy_leaves_no_stale_not_a_backup_message(client: TestClient) -> None:
+    """The page must not contradict itself.
+
+    After a copy succeeded, the Check section still displayed "this folder isn't a truestill
+    backup yet" about the folder now listed above it as a registered drive. Any completed
+    operation that changes drive state clears what described the old one.
+    """
+    app_js = client.get("/static/app.js").text
+
+    assert "async function refreshDriveState()" in app_js
+    assert '$("verify-result").innerHTML = "";' in app_js  # the stale verdict is cleared
+    assert "refreshDriveState();" in app_js  # and the copy handler calls it
+
+
+def test_a_drive_card_can_offer_to_check_itself(client: TestClient, tmp_path: Path) -> None:
+    """ "last checked: never" is only useful beside the thing that changes it.
+
+    The action is offered only when the drive's folder is known -- drives are identified by
+    marker uuid, never by path, so a card whose drive has never been seen at a path states the
+    fact without an action it could not honour.
+    """
+    library = tmp_path / "Library"
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "a.jpg").write_bytes(b"one-photo")
+    _finish(
+        client,
+        client.post(
+            "/api/organize/run",
+            json={"source": str(src), "destination": str(library), "skip_undated": False},
+        ).json()["job_id"],
+    )
+
+    drives = client.get("/api/drives").json()["drives"]
+    assert drives[0]["path"] == str(library)  # remembered where it was seen
+
+    app_js = client.get("/static/app.js").text
+    assert "drive-check" in app_js
+    assert "d.path" in app_js  # rendered conditionally on knowing the path
