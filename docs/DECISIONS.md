@@ -75,3 +75,93 @@ per item 4 live with the payment provider and are a billing artifact, not an in-
 
 **Status:** Settled. Binding invariant recorded in `IMPLEMENTATION_STANDARDS.md §1`; Pro-tier
 seam in `§2`. Related parked Pro-tier ideas are tracked in `BACKLOG.md`.
+
+---
+
+## D2. Browser end-to-end tests run on the host, not in Docker
+
+**Decision.** The E2E layer is **Playwright driven by `pytest-playwright`**, running against an
+**in-process** app server on the developer's own machine and on a plain GitHub runner. **Docker
+is rejected as the test substrate.**
+
+**Why Playwright rather than Selenium or Cypress.** Auto-waiting is the deciding property:
+every assertion retries until it passes or times out, which removes the `sleep` calls that are
+the dominant flake source in browser suites. It drives real Chromium (not a shimmed DOM), ships
+first-party trace/video capture that makes a red CI run arrive with a replay rather than a
+guess, and its `pytest` plugin means the browser lane uses the same runner, fixtures and
+conventions as the rest of the suite instead of introducing a second test language and a Node
+toolchain. Cypress would have imported an npm build step into a project whose entire UI
+architecture is *no build step* (D-adjacent: see `BACKLOG.md` (o) and the no-bundler rule).
+
+**Why not Docker.** It was considered for hermeticity and rejected on cost/benefit:
+
+- The thing being tested is a **local-first desktop-ish tool**. A container is a *less*
+  faithful environment than the developer's own machine, not a more faithful one - it hides
+  exactly the host-filesystem, mount-point and permission behaviour the product exists to
+  handle.
+- The real portability risk is **OS differences**, and that is already owned by the
+  {ubuntu, macos, windows} Python matrix. A single Linux container would have covered less.
+- Playwright's browser binaries are already version-pinned and cached in CI, which is the
+  reproducibility Docker was being considered for.
+- It would add a build-and-image-maintenance burden to a repo whose stated principle is to
+  justify every layer with a measured need (`ENGINEERING_STANDARD.md` §1).
+
+**Status:** Settled. Mechanics and the binding lane rules in `IMPLEMENTATION_STANDARDS.md` §6.
+
+---
+
+## D3. What the browser lane covers - and what it deliberately does not
+
+**Decision.** Four scope rulings, made when the lane was built, recorded so they are not
+quietly relitigated as "more coverage is better".
+
+1. **Chromium on ubuntu only - no browser × OS grid.** The Python matrix already owns OS
+   differences; this lane owns client-side truth, which for a vanilla-JS app with no build step
+   and no framework runtime is browser-uniform enough that a grid would buy coverage there is
+   no evidence we need. **Revisit on evidence** - a real cross-browser bug - and not before.
+2. **Fixtures are generated, never committed.** Media files do not belong in git whatever their
+   provenance; a committed generator (`tests/e2e/conftest.py`) builds exactly the corpus each
+   test needs. This also keeps the personal corpus out of the repo permanently.
+3. **No in-place-organize E2E.** The feature is CLI-only by decision
+   (`BACKLOG.md`, app-surface deferrals), so there is no UI to drive; asserting it through a
+   browser would test a surface that does not exist.
+4. **One golden path as a single long journey, not six tests.** The value is in the *handoffs* -
+   state carried from organize to Backups, a library the app registered being accepted by the
+   copy flow. Split into six set-up tests, the defect that actually shipped (organize never
+   registering its own destination) would have passed all six.
+
+**Status:** Settled. Rules in `IMPLEMENTATION_STANDARDS.md` §6; the journey itself is
+`tests/e2e/test_golden_path.py`.
+
+---
+
+## D4. Batched exiftool writes use an argfile, not a persistent process
+
+**Decision.** The Takeout metadata bake batches through an **argfile with `-execute`
+separators** (`exif.write_metadata_batch`). exiftool's `-stay_open True -@ -` persistent-process
+mode was measured, compared, and **not adopted**.
+
+**The measurement** (300 files, then confirmed at 1,203):
+
+| approach | per file | vs today |
+|---|---|---|
+| one process per file (what shipped before) | 225–255 ms | — |
+| argfile batch | 5.2 ms | ~43× |
+| `-stay_open` persistent process | 4.6 ms | ~48× |
+
+**The rationale is the TCO rule, applied literally.** `-stay_open` is **1.12× on top of a 27×
+win** end to end. What that 1.12× costs is a persistent child process, a reader thread, timeout
+handling and a lifecycle state machine with a mid-batch-death mode - on **the one code path in
+the product that modifies bytes the user keeps**. A component earns its place by solving a
+problem you can point at (`ENGINEERING_STANDARD.md` §1); 12% on a stage that is no longer the
+bottleneck is not that problem.
+
+This decision was flagged to the user as a deviation from a stated preference *before* it
+shipped, and **ratified** on the measurement.
+
+**The known next rung, if the batch ever proves insufficient:** `-stay_open` remains the
+correct escalation and is recorded as such in `PERFORMANCE.md`. It gets built when evidence
+says the argfile batch is the bottleneck - decided by measurement then, not by machinery now.
+
+**Status:** Settled. Performance contract and failure-mode rules in
+`IMPLEMENTATION_STANDARDS.md` §8; the numbers in `PERFORMANCE.md` §1.

@@ -51,7 +51,7 @@ copies to compare - the file *is* the copy.
 > - Undo must clear the catalog rows it reverses (`catalog.forget_organized`), or the content
 >   still looks organized and the next run skips every restored file as an exact duplicate.
 >   Pinned by `test_undo_clears_the_catalog_so_a_reorganize_works`.
-| **Copies are byte-identical to the source EXCEPT the scoped Takeout write.** | Normal path uploads the source unchanged. The only exception is `organizer._upload_with_metadata_write`, reached **only** when an `IngestContext` carries a write (Takeout ingestion); it stages a temp copy, bakes metadata losslessly via `exif.write_metadata` (no pixel re-encode), and never touches the source. |
+| **Copies are byte-identical to the source EXCEPT the scoped Takeout write.** | Normal path uploads the source unchanged. The only exception is `organizer._upload_with_metadata_write`, reached **only** when an `IngestContext` carries a write (Takeout ingestion). Staging and baking belong to `organizer._MetadataBaker`, which copies each file to a temp path and bakes a **chunk at a time** via `exif.write_metadata_batch` (lossless, no pixel re-encode). **The source is never touched** - which is precisely what makes batching safe, since a batch that dies part-way can only damage a staged temp file. A bake that exiftool does not confirm raises `organizer.MetadataBakeError`, and the file is reported FAILED rather than uploaded unbaked. Performance contract in §8. |
 | **Categorization is evidence-derived - no hardcoded taxonomy.** | `categorize.build_rules` is an ordered rule chain; labels are plain `str` (there is no `Category` enum in `models.py`). New sources are added as a `NAME_PATTERNS` row or derived from the `Software`/device rules. |
 | **Dating uses an evidence chain, never filesystem mtime.** | `dates.resolve_capture_datetime`. mtime is only ever *written* (`organizer._apply_timestamp` sets mtime from the resolved capture date); it is never *read* for placement. |
 | **Every source file is accounted for - none silently dropped.** | `organizer.scan_source` partitions a source into `media` / `documents` / `unrecognized`; the CLI end-of-run report (`_print_skipped`) and the app organize summary (`service._skipped_summary`) count the two skipped buckets by extension. Nothing is discarded without appearing in a report. |
@@ -105,12 +105,18 @@ when a real corpus shows a file it - and only it - can *correctly* date; hachoir
 one is ever justified, is **ffprobe** (the only sentinel-safe parser observed). When that happens,
 the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the filename tier.
 
-> **Schema note.** This policy originally reserved catalog **schema v9** for persisted date
-> **provenance** (`date_tool`, `date_field`). v9 shipped as `reclaim_journal` instead, and the
-> `files` table still has no date-source column - so **the next free version is v10**, and that
-> is where provenance lands. `DateSource` is already resolved per file and already aggregated
-> per run by `models.date_quality` and the two report surfaces; only the *library-wide* figure
-> (BACKLOG item (n)) needs the column.
+> **Schema note (twice-moved - read the current line, not the reservation).** This policy
+> originally reserved catalog **schema v9** for persisted date **provenance** (`date_tool`,
+> `date_field`). v9 shipped as `reclaim_journal`; the note was then updated to reserve v10, and
+> **v10 shipped as `inplace_runs` + `inplace_moves`**. The `files` table still has no
+> date-source column, so **the next free version is v11**, and that is where provenance lands.
+>
+> The reservation keeps moving because a *reserved* version number is not a reservation - it is
+> a guess about which feature ships next, and the feature that actually ships takes the number.
+> **Do not reserve a version again.** `DateSource` is already resolved per file and already
+> aggregated per run by `models.date_quality` and the two report surfaces; only the
+> *library-wide* figure (BACKLOG item (n)) needs a column, and it takes whatever version is
+> free on the day it is built.
 
 ---
 
@@ -220,13 +226,25 @@ successful upgrade), never automatic.
 
 ## 6. Quality gates
 
-- **`make check`** = `ruff check .` (lint) + `ruff format --check` + `mypy` on **all three**
+- **`make check`** = `ruff check .` (lint) + `ruff format --check` + `mypy` on the three
   `src` trees + `pytest` (`Makefile`).
 - **`ruff format --check`** is also a separate gate in CI (and `make format` applies it).
-- **CI** (`.github/workflows/ci.yml`): matrix **{ubuntu, macos, windows} × Python 3.13**; steps
-  = sync → ruff (lint) → ruff (format --check) → mypy → pytest → **dependency audit** (Linux
-  only); exiftool installed per-OS. The mypy step and `.pre-commit-config.yaml` both cover all
-  three packages - keep the three in step with each other.
+- **The lint fence and the type fence are not the same size, and the difference is
+  deliberate-but-unfinished.** `ruff check .` is **repo-wide**: packages, `tests/e2e/`, and
+  `scripts/` (the last with its own per-file ignores in `[tool.ruff.lint.per-file-ignores]`,
+  because a benchmark script's `print` *is* its output). `mypy` is pointed at
+  `packages/*/src/` **only** - so `scripts/` is linted but **not type-checked**, and does not
+  currently pass mypy if you point it there. Recorded as a known gap rather than quietly
+  widened; closing it means fixing `scripts/` first, not just adding a path.
+- **CI** (`.github/workflows/ci.yml`) has **two jobs**:
+  - **`check`** - matrix **{ubuntu, macos, windows} × Python 3.13**; steps = sync (`--locked`)
+    → ruff (lint) → ruff (format --check) → mypy → pytest → **dependency audit** (Linux only);
+    exiftool installed per-OS.
+  - **`e2e`** - the browser lane, chromium on ubuntu (below). **A separate job, not a matrix
+    entry**, so a browser-layer failure is distinguishable at a glance and never masks a Python
+    one.
+  - The CI mypy step, `make typecheck` and `.pre-commit-config.yaml` all cover the same three
+    `src` trees - **keep the three in step with each other.**
 - **The lockfile must be current.** CI syncs with **`uv sync --all-packages --group dev
   --locked`**, which fails if `uv.lock` has drifted from the `pyproject.toml` manifests
   instead of silently re-resolving. `uv.lock` is the source of truth for what ships (§7), so
@@ -347,7 +365,7 @@ accelerated and doubles as the dedup + verification hash without a compiled dep)
   - **exiftool results are NOT cached.** At 12 MP it costs ~2.2 ms/file against ~69.8 ms for a
     perceptual hash, because it reads headers rather than whole files - and metadata is what
     *dating* depends on, so a stale row could change where a photo lands, which the hash cache
-    structurally cannot. Tracked as a separate later item.
+    structurally cannot. Tracked as **`BACKLOG.md` item (u)**, deliberately separate.
 - **Concurrency for I/O-bound batches** via a worker pool (`scan.compute_hashes`, thread or
   process, benchmarked default = thread).
 - **Metadata writes are batched** (`exif.write_metadata_batch`, `WRITE_BATCH_SIZE = 100`).
@@ -380,3 +398,27 @@ accelerated and doubles as the dedup + verification hash without a compiled dep)
   that runs after every operation and on every load. The listing form still exists for the
   screen that shows the names, and `test_single_copy_count_matches_the_listing` holds the two
   answers together.
+
+---
+
+## 9. User-facing truth contract
+
+Recorded because the soak test found **eight of its ten defects here** and none in the engine
+(`PROJECT_STATUS.md` §2.1). Not one file was mis-placed or lost; the product described itself
+incorrectly. That makes the user-facing string a first-class defect surface with its own rules,
+not presentation polish.
+
+| Rule | Enforced by |
+|---|---|
+| **One source of outcome wording.** An `ActionStatus` is never rendered from its raw enum value; `models.status_label` is the only place an outcome is worded, so the CLI and the app cannot drift. | `models._STATUS_LABELS` + `models.status_label`. Pinned by `test_organizer.py` importing `_STATUS_LABELS`. |
+| **No backend vocabulary reaches a user.** "Uploaded" is honest *inside* the code (`Destination.upload` covers rclone remotes) and false on screen: it names an event that did not occur and contradicts the promise that files never leave the machine. "Organized" is true of every backend. | The `_STATUS_LABELS` map; pinned by `test_a_finished_organize_says_organized_and_never_uploaded`. |
+| **Counts are grammatical.** `plural(n, word)` in `app.js` - "1 file", "2 files" - never "1 file(s)" and never a bare number glued to a noun. | `static/app.js` `plural`; pinned by `test_a_finished_copy_splits_photos_and_videos_without_form_letter_grammar`. |
+| **A terminal job event is normalized once, at the seam.** `streamJob` converts every SSE terminal event into `{ok, status, error, code, summary}` before any handler sees it. Handlers read `summary.*`; a *failed* job carries `message` at the top level and an empty summary. Handing raw events to handlers is what rendered `NaN verified · NaN missing · NaN changed`. | `static/app.js` `streamJob` vs `jobs.py`'s `done`/`error` events. Pinned by the Backups regression tests. |
+| **Errors are matched on an exception *name*, never on message text.** `FRIENDLY_ERRORS` keys off `type(exc).__name__` (surfaced as `code`), so rewording a message cannot silently disable its guidance. | `jobs.py` sets `code`; `app.js` `FRIENDLY_ERRORS`. |
+| **A cancelled run says cancelled.** Never "nothing to organize here" - that is a false negative about the user's own library, and it shipped once for 6,000 photos. | `d.status === "cancelled"` handled on both the preview and run paths. |
+| **Never-silent, restated for screens.** A skipped, refused, degraded or unverifiable outcome is *counted and named*, never folded into a success total or dropped. Existing precedents: the Tier A / Tier B date lines (§1), the HEIC perceptual-skip notice (§7), the skipped-extension buckets, and an unconfirmed metadata bake (§8). | Per-feature; each cites its own test. |
+| **Known values prefill; Browse is for overriding.** A path the user has already given - or that the app already recorded - is never asked for a second time. | `service` path hints (`LIBRARY_PATH_HINT` / `BACKUP_PATH_HINT`), `app.js` `prefill`. Pinned by `test_prefill_never_proposes_copying_the_library_onto_itself`. |
+
+**Why the browser lane owns this and pytest cannot.** Every rule above is a property of
+rendered text. `tests/e2e/` therefore asserts on **the words a user reads**, never on element
+ids - an id-based assertion would have passed for all eight defects. See §6.

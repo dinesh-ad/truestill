@@ -53,6 +53,13 @@ The metadata-write figure is measured over 1,203 real JPEGs, staging copy includ
 columns — that is why it is 9.3 ms rather than the 5.2 ms of the bake alone. The write path
 had been spawning one exiftool process per file, and process startup, not work, was ~98% of it.
 
+**The known next rung on the metadata write, deliberately not built.** exiftool's persistent
+`-stay_open True -@ -` mode was measured against the argfile batch and is **1.12× faster** —
+on top of a 27× win already banked. That 12% costs a persistent child process, a reader
+thread, timeout handling and a mid-batch-death lifecycle, on the one path that modifies bytes
+the user keeps. It is the correct escalation *if the batch ever becomes the bottleneck again*,
+and it gets built when a measurement says so — not before. Full rationale: `DECISIONS.md` D4.
+
 Also recorded: the **hash cache** (`hash_cache.py`) took a repeat preview of 2,275 unchanged
 files from 15.8 s to 4.7 s by never reading an unchanged file twice.
 

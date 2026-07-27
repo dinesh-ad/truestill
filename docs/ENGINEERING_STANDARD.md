@@ -31,6 +31,25 @@ network API boundary, no untrusted multi-tenant input. Do not import server-SaaS
 3. **Verification.** Run the full gate matrix and report the **exact output**. "Tests pass" is
    not a report; the passing summary line is. If a step is skipped, say so.
 
+**The gate matrix has three layers, and a change is verified at the layer it can break.**
+
+| Layer | Command | Owns |
+|---|---|---|
+| Static | `ruff check` / `ruff format --check` / `mypy` | Style, imports, types |
+| Engine | `pytest` (`make check`) | Behaviour: dating, dedup, layout, catalog, custody, safety gates |
+| Client | `pytest tests/e2e` (`make e2e`) | What a user actually reads on screen |
+
+The third layer is not optional garnish. It exists because a whole class of defect - the
+product describing itself incorrectly - is invisible to the first two, and shipped repeatedly
+before it existed. **If a change alters anything a user reads, it is not verified until the
+browser lane has run.** Conversely, do not re-assert engine behaviour through a browser: it is
+slower, flakier, and already covered. Each layer owns what only it can see.
+
+Two standing rules on that third layer: **no sleeps** (auto-waiting assertions only - hard
+waits are the dominant flake source), and **no retries** (a retry-until-green browser suite
+launders the nondeterminism the layer exists to expose; a flaky test is quarantined and filed
+with its trace).
+
 ## 3. Research priority order
 
 When you need to know how something behaves, consult in this order and stop when answered:
