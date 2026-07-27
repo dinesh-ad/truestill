@@ -23,6 +23,16 @@ All notable changes to this project are documented here. The format follows
 - Catalog **schema v10**: `inplace_runs` + `inplace_moves`, a **reversible** journal (where
   each file moved) rather than an audit one (what was destroyed).
 
+### Added
+- **`docs/PERFORMANCE.md`** - the measured baseline per pipeline stage, the two known scaling
+  limits with their thresholds, and a list of things a future optimizer should **not** "improve"
+  (the size pre-filter above all). It carries one binding rule, referenced from the quality
+  gates: every new pipeline stage declares its complexity in *n*, and anything worse than
+  O(n log n) must justify itself.
+- **A runtime alarm on the one known O(n²).** Perceptual dedup's linear scan is 0.7s at 2,275
+  images and deliberately left alone; the first index to pass 10,000 now logs one line saying
+  so, rather than leaving the trigger in a document nobody reads.
+
 ### Fixed
 - **`reclaim` can no longer delete the only copy of a file organized in place.** Such a file
   is both the source and the drive copy - one inode - so reclaim's re-verify gate was
@@ -31,6 +41,17 @@ All notable changes to this project are documented here. The format follows
   silently dropped.
 
 ### Changed
+- **Takeout metadata baking is ~27x faster.** Writing a rescued date or location into an
+  organized copy spawned one `exiftool` process per file - **254.9 ms/file** measured, almost
+  all of it process startup, which is about **7 hours** for a 100,000-file Takeout and 5
+  minutes for a 1,200-file one. Writes are now batched (100 files per process, staged and
+  baked a chunk at a time): **9.3 ms/file**, staging copy included, or ~15.6 min at 100k.
+  The originals are still never touched - the batch bakes staged copies - and a process that
+  dies mid-batch is **detected**, with every unconfirmed file reported failed rather than
+  counted as organized.
+- **The custody strip stopped doing 13x more work than it displays.** "Safe in N places" was
+  building and sorting every at-risk row and then taking its length; it now counts. 224 ms →
+  17.5 ms at 100,000 files, on a query that runs after every operation and on every load.
 - **Renamed the project `vaeon` → `truestill`.** Distributions are now `truestill-core`,
   `truestill-cli` and `truestill-app`; the import packages are `truestill_core`,
   `truestill_cli` and `truestill_app`; the console commands are `truestill` and

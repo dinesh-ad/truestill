@@ -10,17 +10,28 @@ catalog, so a re-run recognises files it processed before and a forwarded copy o
 backed up last month is caught against that month's original. Only files matching neither
 tier are considered genuinely new.
 
-Perceptual lookup is a linear scan (a 64-bit XOR + popcount per known image). That is
-ample for a single library; if this is ever pointed at hundreds of thousands of images at
-once, swap the scan for a BK-tree without changing this module's interface.
+Perceptual lookup is a linear scan (a 64-bit XOR + popcount per known image), which makes the
+matching pass O(n^2) in the number of images. Measured, that is 0.7s for 10,000 images and
+still the cheapest thing in the pipeline -- a BK-tree today would be machinery bought before
+the problem. So the scan stays, and :data:`LINEAR_SCAN_ALARM` makes the trigger announce
+itself to whoever actually crosses it rather than leaving it in a document nobody reads. The
+swap, when it is due, fits behind this module's interface unchanged.
 """
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable
 
 from truestill_core.hashing import hamming_distance
 from truestill_core.models import DuplicateKind, DuplicateMatch
+
+_log = logging.getLogger(__name__)
+
+#: Index size at which the linear perceptual scan stops being negligible. Chosen from the
+#: measured curve in `docs/PERFORMANCE.md`: quadratic growth means the cost past here rises
+#: 4x for every doubling, so this is the last comfortable point, not the first painful one.
+LINEAR_SCAN_ALARM = 10_000
 
 
 class DedupIndex:
@@ -96,6 +107,15 @@ class DedupIndex:
         if perceptual is not None:
             self._phash_paths.append(path)
             self._phash_values.append(perceptual)
+            if len(self._phash_values) == LINEAR_SCAN_ALARM:
+                # Once per index, on the crossing itself -- so it costs one integer comparison
+                # per registration and reaches the person who hit it, not the person reading
+                # the docs.
+                _log.warning(
+                    "perceptual matching is now the slow path at %d images -- known, planned "
+                    "(see docs/PERFORMANCE.md)",
+                    LINEAR_SCAN_ALARM,
+                )
         if origin == "catalog":
             self._catalog_paths.add(path)
 

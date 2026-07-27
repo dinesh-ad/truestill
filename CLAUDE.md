@@ -27,6 +27,7 @@ The command is `truestill`; the local web UI is `truestill-app`. Drives are iden
 | Why is the product this way? (settled stances, no accounts/telemetry) | [`docs/DECISIONS.md`](docs/DECISIONS.md) |
 | What is approved but unbuilt? | [`docs/BACKLOG.md`](docs/BACKLOG.md) |
 | How does the code lay out day to day? | [`docs/CLAUDE.md`](docs/CLAUDE.md) |
+| What does it cost, and what should I not "optimize"? | [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) |
 | What changed and when? | [`CHANGELOG.md`](CHANGELOG.md) |
 
 Research and QA records (`docs/*-research.md`, `docs/walkthrough-qa-report.md`) are

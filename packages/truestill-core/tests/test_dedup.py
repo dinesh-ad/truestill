@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from truestill_core.dedup import DedupIndex
+import logging
+
+import pytest
+from truestill_core.dedup import LINEAR_SCAN_ALARM, DedupIndex
 from truestill_core.models import DuplicateKind
 
 
@@ -62,3 +65,20 @@ def test_video_without_perceptual_hash_only_matches_exact() -> None:
     index.register("/clip.mp4", "sha-vid", None)
     assert index.check("sha-vid", None) is not None  # exact
     assert index.check("sha-other", None) is None  # nothing perceptual to match
+
+
+def test_the_linear_scan_alarm_fires_once_at_the_threshold(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The known-and-planned O(n^2) has to announce itself to whoever crosses it.
+
+    A threshold recorded only in a document reaches the person who reads documents. This one
+    reaches the person with 10,000 photos.
+    """
+    index = DedupIndex(threshold=5)
+    with caplog.at_level(logging.WARNING, logger="truestill_core.dedup"):
+        for i in range(LINEAR_SCAN_ALARM + 50):
+            index.register(f"/p/{i}.jpg", f"sha{i}", f"{i:016x}")
+
+    warnings = [r for r in caplog.records if "slow path" in r.message]
+    assert len(warnings) == 1  # once per index, not once per file past the line

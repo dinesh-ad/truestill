@@ -242,6 +242,11 @@ successful upgrade), never automatic.
     something was quietly suppressed is worse than no audit.
   - **Current ignore list: empty.** First run (2026-07-27) was clean: 28 runtime packages and
     40 including dev, zero known vulnerabilities.
+- **Complexity is declared, not discovered.** Every new pipeline stage states its complexity
+  in *n* in its module docstring, and anything worse than O(n log n) must say so and justify
+  the trade; new stages get a **measured** row in the baseline table. The rule, the baseline
+  and the non-findings live in [`PERFORMANCE.md`](PERFORMANCE.md) §2 - this is the gate that
+  points at it, so a reviewer has one place to check the claim against.
 - **`uv build --all-packages`** must produce clean wheels for **all three packages**
   (`make build`); `truestill-core` ships `py.typed`.
 - **Browser end-to-end** (`tests/e2e/`, `make e2e`): Playwright via `pytest-playwright`, run in
@@ -345,6 +350,33 @@ accelerated and doubles as the dedup + verification hash without a compiled dep)
     structurally cannot. Tracked as a separate later item.
 - **Concurrency for I/O-bound batches** via a worker pool (`scan.compute_hashes`, thread or
   process, benchmarked default = thread).
+- **Metadata writes are batched** (`exif.write_metadata_batch`, `WRITE_BATCH_SIZE = 100`).
+  One exiftool process per file cost **254.9 ms/file** measured, ~98% of it process startup -
+  about 7 hours at 100k files on the feature the launch story leads with. Batched: **9.3
+  ms/file**, staging copy included, so ~15.6 min at 100k.
+  - **The batch bakes a staged copy, never the source.** That is what makes it safe to batch:
+    a process that dies mid-batch can only leave a temp file half-written, and the user's
+    original is untouched by construction.
+  - **Silence is failure, never success.** exiftool prints one summary line per operation, in
+    order; a short reply means the process stopped early, and every file past that point is
+    reported **failed** rather than assumed baked. Pinned by
+    `test_a_process_that_dies_mid_batch_is_detected` and
+    `test_a_partial_batch_failure_reports_each_file_truthfully`.
+  - **Written with `-m` but deliberately not `-q`:** quiet suppresses the per-file summary
+    that is the only thing tying a batched result back to its file.
+  - **`WRITE_BATCH_SIZE` is the peak scratch footprint** of an ingest (chunk x file size),
+    which is why it is 100 rather than the reader's 200.
 - **No accidental O(n²).** The perceptual dedup is a linear scan per file, documented in
   `dedup.py` as acceptable at current scale with a BK-tree noted as the drop-in for growth.
   Any nested library iteration must carry a comment proving its bound.
+  - **The one known O(n²) carries a runtime alarm rather than premature machinery.**
+    Measured, it is 0.7 s at 2,275 images and ~22.6 min at 100k. Building a BK-tree today
+    would be machinery bought before the problem, so `dedup.LINEAR_SCAN_ALARM = 10_000` logs
+    one line at the crossing instead - the trigger reaches the person who hits it, not only
+    the person who reads docs. See [`PERFORMANCE.md`](PERFORMANCE.md) §3.
+- **The custody strip counts, it does not list.** `Catalog.single_copy_count()` answers the
+  "safe in N places" question with a `COUNT(*)`; it used to build and sort every at-risk row
+  via `single_copy_shas()` and take `len()` of it - **224 ms to 17.5 ms at 100k**, on a query
+  that runs after every operation and on every load. The listing form still exists for the
+  screen that shows the names, and `test_single_copy_count_matches_the_listing` holds the two
+  answers together.
