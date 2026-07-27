@@ -81,6 +81,8 @@ class ActionStatus(StrEnum):
     SKIPPED_UNDATED = "skipped_undated"  # skipped: no capture date and --skip-undated is set
     MOVED = "moved"  # uploaded, verified at the destination, and the source deleted (--move)
     MOVE_KEPT = "move_kept"  # uploaded, but verify/delete failed so the source was kept (--move)
+    MOVED_IN_PLACE = "moved_in_place"  # renamed within one filesystem: no bytes rewritten
+    ALREADY_PLACED = "already_placed"  # in-place re-run: the file is already at its target
     FAILED = "failed"
 
 

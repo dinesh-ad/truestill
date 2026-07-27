@@ -39,6 +39,7 @@ class ReclaimPlan:
     candidates: list[ReclaimCandidate]
     unverified: int  # copies on the drive that failed re-verify -> their sources are NOT offered
     below_min_copies: int  # sources excluded because too few copies exist
+    organized_in_place: int = 0  # source IS the drive copy -- freeing it would delete the only one
 
     @property
     def total_bytes(self) -> int:
@@ -65,6 +66,22 @@ def _safe_size(path: Path) -> int:
         return 0
 
 
+def _is_the_copy_itself(source: Path, mount_root: Path, relative: str) -> bool:
+    """Whether ``source`` and the drive's copy are the *same file*, not two copies of it.
+
+    After an in-place organize the source was renamed into the library rather than copied, so
+    ``files.source_path`` and ``file_copies.relative`` name one inode. Reclaim's safety rests
+    on re-hashing the destination copy before deleting the source -- but a file verifies
+    against itself unconditionally, which would turn the strongest gate in the product into a
+    tautology and delete the only copy of content whose owner, by definition of the feature,
+    has no backup. Such a file is never a reclaim candidate.
+    """
+    try:
+        return (mount_root / relative).samefile(source)
+    except OSError:
+        return False  # one side missing or unreadable -- the normal checks below handle it
+
+
 def _verify(mount_root: Path, relative: str, expected_sha: str) -> bool:
     """Whether the destination copy exists and re-hashes to the expected content hash, now."""
     path = mount_root / relative
@@ -83,10 +100,14 @@ def plan_reclaim(
     candidates: list[ReclaimCandidate] = []
     unverified = 0
     below = 0
+    in_place = 0
     for row in catalog.reclaim_candidates(drive_uuid):
         source = Path(row["source_path"])
         if not source.is_file():
             continue  # source already gone -- nothing to reclaim
+        if _is_the_copy_itself(source, mount_root, str(row["relative"])):
+            in_place += 1
+            continue  # organized in place: deleting the "source" deletes the only copy
         expected = row["copy_sha256"] or row["sha256"]
         if not _verify(mount_root, row["relative"], expected):
             unverified += 1
@@ -105,7 +126,12 @@ def plan_reclaim(
                 expected_sha=str(expected),
             )
         )
-    return ReclaimPlan(candidates=candidates, unverified=unverified, below_min_copies=below)
+    return ReclaimPlan(
+        candidates=candidates,
+        unverified=unverified,
+        below_min_copies=below,
+        organized_in_place=in_place,
+    )
 
 
 def run_reclaim(

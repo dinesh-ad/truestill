@@ -35,6 +35,23 @@ decision context that produced them.
   probe** before inclusion. **Post-launch, demand-driven.**
 ## Shipped (kept for provenance)
 
+- ~~**(q) In-place organize (same-device optimization).**~~ **Delivered.** `organize --in-place`
+  moves files by atomic rename when source and destination share a filesystem: no bytes
+  rewritten, no zero-copy window, hash unchanged because the inode is. Plain `--move` takes the
+  same fast path automatically; `--in-place` *requires* it and refuses a cross-device
+  destination rather than silently copying. Typed `move` confirmation, mechanism split in the
+  report, empty folders left and reported. `truestill undo-organize` ships with it (catalog
+  v10, `inplace_runs` + `inplace_moves`) - reversible, not merely resumable. The `Destination.adopt`
+  seam is on the interface, so `migrate-layout` can adopt it later without rework.
+  **Two landmines found in the build and fixed with it:** `reclaim` would have deleted the only
+  copy of an in-place file (source and drive copy are one inode, so its re-verify gate was a
+  tautology), and an undo that left `files` rows behind would have made the library
+  un-organizable by re-running dedup against itself. Both pinned by tests. See
+  `IMPLEMENTATION_STANDARDS.md` §1. **App UI deliberately deferred** to CLI soak evidence,
+  matching `reclaim`'s CLI-only v1.
+  - **Still open:** cloud tier (server-side move within a remote, never via mounts) waits for
+    the rclone work; a `--prune-empty-dirs` opt-in waits for soak evidence that the folders
+    left behind are actually intolerable.
 - ~~**`--skip-undated` on organize/ingest (j).**~~ Delivered: default OFF (undateable files still
   copy to `Undated/`); with the flag, they are skipped as `SKIPPED_UNDATED` and **counted + named**
   in the report - never silent. CLI on organize/ingest, plus an app organize toggle.
@@ -157,49 +174,3 @@ decision context that produced them.
 
   Post-launch build; Pro-tier candidate. Research refs to carry in: the embedded-thumbnail trap,
   the XMP/IPTC/MakerNotes layers, MP4 container metadata boxes, and Live Photo pairing.
-- **(q) In-place organize (same-device optimization). Strong candidate for first post-soak.**
-  Documented demand: users whose **drive *is* the library** - a pendrive or external HDD as the
-  only copy, with no staging space to copy into (Adobe-forum threads request exactly this).
-  Today truestill always writes a second copy, which such a user has nowhere to put. Widens the
-  addressable audience at low cost on existing machinery. **Final placement decided after soak.**
-
-  **Design (decided):**
-  1. **Mechanism: extends `--move`**, the existing opt-in source-deletion exception - never a
-     default, same honest destructive labelling. When source and destination share a filesystem,
-     use an atomic per-file **rename** instead of copy → verify → delete: zero bytes rewritten,
-     no interruption window, and the content hash is unchanged *by definition* (same inode), so
-     no re-verify is needed. Cross-device falls back to the existing verified copy → delete path
-     automatically.
-  2. **Space story:** today's per-file `--move` already needs only one-file peak overhead; rename
-     mode needs ~zero. Surface it in the preview - *"in place: files will be moved, not copied"*.
-  3. **Cloud tier (later, with the rclone work):** server-side move within a remote for backends
-     that support it - **never via mounts**.
-  4. **UI:** the destination picker detects same-device and offers *"Organize in place (move
-     files)"* behind the explicit opt-in confirm.
-
-  **Engineering notes (verified against the code, 2026-07-27 - read before building):**
-  - **`os.rename` silently overwrites on POSIX.** Measured: renaming onto an existing file
-     destroyed it with no error (Windows raises instead - the semantics differ by platform). So
-     rename mode does **not** inherit the never-overwrite invariant for free. It must route
-     through the existing `organizer._free_relative`, which already resolves a collision by
-     content hash and numeric suffix, and the guarantee then rests on *that*, not on the syscall.
-     Note the TOCTOU window between the check and the rename, and say so in the code.
-  - **Treat `st_dev` as a hint, not a gate.** Prefer *try rename, catch `EXDEV`, fall back to
-     copy → verify → delete*. Equal-`st_dev` is the common case but not a promise (btrfs
-     subvolumes and bind mounts can surprise you), and the fallback path has to exist anyway -
-     so letting the kernel decide is both shorter and more correct than predicting it.
-  - **Journal on the `migration_journal` shape, not `reclaim_journal`.** `reclaim_journal` is
-     `(source_path, sha256, freed_bytes, reclaimed_at)` - an audit record of what was *destroyed*,
-     which cannot reverse anything. `migration_journal` is `(sha256, drive_uuid, old_relative,
-     new_relative, copy_sha256)` - it records *where things moved*, which is what an undo needs.
-     In-place organize should be **reversible**, not merely resumable.
-  - **The safety asymmetry to design against.** Every other destructive path in truestill is
-     gated on a proven second copy: `reclaim` re-verifies a copy on a connected drive, and
-     `--move` re-hashes the destination copy before deleting the source. Rename mode's
-     "verification" is trivially satisfied because it is the same inode - so the strongest
-     safety gate we have becomes a no-op **exactly in the scenario where the user has the least
-     redundancy** (one drive, no backup, by definition of the use case). Nothing here is
-     unsound - a rename cannot lose bytes - but the thing at risk shifts from *the data* to
-     *the arrangement*: a mis-categorized run rearranges someone's only copy with no undo. The
-     reversible journal above is the mitigation, and it is the feature's real safety story
-     rather than an implementation detail. The preview must be unusually explicit about this.

@@ -33,7 +33,7 @@ provably backed up.
 Two front-ends over one core library:
 
 - **`truestill`** - the CLI (organize, ingest, drives, where, verify, status, config,
-  reclaim, migrate-layout).
+  reclaim, migrate-layout, undo-organize).
 - **`truestill-app`** - a local web UI on `127.0.0.1`, token-authenticated, server-rendered,
   no bundler. Co-equal with the CLI, not a replacement.
 
@@ -76,6 +76,7 @@ packages/
 │   ├── layout.py       the destination folder LayoutTemplate and its presets
 │   ├── migrate.py      crash-safe, journalled re-layout of an existing drive
 │   ├── reclaim.py      verify-gated source deletion (opt-in, journalled)
+│   ├── undo.py         reverse a rename-based in-place organize (preview first)
 │   ├── verify.py       re-hash a connected drive's copies against the catalog
 │   ├── events.py       pure camera-event clustering (no I/O)
 │   ├── event_review.py the interactive event naming/merge/split stage

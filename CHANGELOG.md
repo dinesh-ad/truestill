@@ -6,6 +6,30 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **In-place organize (`organize --in-place`)** for libraries that live on the drive itself -
+  a pendrive or external HDD with no staging space to copy into. Files are moved by **atomic
+  rename**: no bytes are rewritten, there is no instant at which the content does not exist,
+  and the content hash is unchanged because the inode is. Plain `--move` now takes the same
+  fast path automatically wherever the filesystem allows; `--in-place` additionally *requires*
+  it, refusing a cross-device destination rather than quietly consuming space the user said
+  they did not have. `--apply` needs a typed `move` confirmation, and the run reports its
+  mechanism split ("3 moved by rename · 1 copied across devices").
+- **`truestill undo-organize`** - reverse an in-place run, restoring every file to its exact
+  prior path. Preview by default, `--apply` to move; `--list` shows recorded runs, and
+  `--source-root`/`--dest-root` handle a drive that has remounted elsewhere. It ships *with*
+  the feature rather than after it: a rename cannot lose bytes, so what is at risk is the
+  *arrangement* of a library whose owner, by definition of this feature, has no second copy.
+- Catalog **schema v10**: `inplace_runs` + `inplace_moves`, a **reversible** journal (where
+  each file moved) rather than an audit one (what was destroyed).
+
+### Fixed
+- **`reclaim` can no longer delete the only copy of a file organized in place.** Such a file
+  is both the source and the drive copy - one inode - so reclaim's re-verify gate was
+  satisfied by the file checking against itself, and it would have deleted content with no
+  backup anywhere. Those files are now excluded, and the count is reported rather than
+  silently dropped.
+
 ### Changed
 - **Renamed the project `vaeon` → `truestill`.** Distributions are now `truestill-core`,
   `truestill-cli` and `truestill-app`; the import packages are `truestill_core`,

@@ -120,10 +120,39 @@ CREATE TABLE IF NOT EXISTS reclaim_journal (
     freed_bytes INTEGER,
     reclaimed_at TEXT
 );
+
+-- Reversible journal for rename-based relocation (in-place organize). Unlike reclaim_journal,
+-- which records what was *destroyed*, this records where each file *moved* -- the difference
+-- between an audit trail and an undo. Paths are stored relative to the two roots in the run
+-- header, not absolutely, so a drive that remounts elsewhere is still undoable.
+--
+-- The journal attaches to the MECHANISM, not to a flag: any rename-based relocation is
+-- recorded, whether the user asked for --in-place or got the same-filesystem optimization
+-- under a plain --move. Two users who performed the identical operation get identical undo
+-- rights regardless of how they spelled it.
+CREATE TABLE IF NOT EXISTS inplace_runs (
+    run_id       TEXT PRIMARY KEY,
+    source_root  TEXT NOT NULL,
+    dest_root    TEXT NOT NULL,
+    drive_uuid   TEXT,
+    started_at   TEXT NOT NULL,
+    completed_at TEXT,
+    status       TEXT NOT NULL   -- in_progress | completed | undone
+);
+
+CREATE TABLE IF NOT EXISTS inplace_moves (
+    run_id       TEXT NOT NULL,
+    sha256       TEXT NOT NULL,
+    old_relative TEXT NOT NULL,
+    new_relative TEXT NOT NULL,
+    moved_at     TEXT NOT NULL,
+    PRIMARY KEY (run_id, old_relative)
+);
+CREATE INDEX IF NOT EXISTS idx_inplace_moves_run ON inplace_moves (run_id);
 """
 
 #: Bump whenever the schema changes, and add a matching entry to _MIGRATIONS.
-CURRENT_SCHEMA_VERSION = 9
+CURRENT_SCHEMA_VERSION = 10
 
 
 class CatalogVersionError(RuntimeError):
@@ -241,6 +270,24 @@ def _add_reclaim_journal(conn: sqlite3.Connection) -> None:
     )
 
 
+def _add_inplace_journal(conn: sqlite3.Connection) -> None:
+    """v9 -> v10: a reversible journal for rename-based relocation (in-place organize)."""
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS inplace_runs (
+            run_id TEXT PRIMARY KEY, source_root TEXT NOT NULL, dest_root TEXT NOT NULL,
+            drive_uuid TEXT, started_at TEXT NOT NULL, completed_at TEXT, status TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS inplace_moves (
+            run_id TEXT NOT NULL, sha256 TEXT NOT NULL, old_relative TEXT NOT NULL,
+            new_relative TEXT NOT NULL, moved_at TEXT NOT NULL,
+            PRIMARY KEY (run_id, old_relative)
+        );
+        CREATE INDEX IF NOT EXISTS idx_inplace_moves_run ON inplace_moves (run_id);
+        """
+    )
+
+
 #: Ordered migrations: ``(target_version, fn)``. Each is idempotent and lifts a database
 #: from ``target_version - 1`` to ``target_version``. Append; never rewrite history.
 _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
@@ -252,6 +299,7 @@ _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (7, _add_settings_table),
     (8, _add_migration_journal),
     (9, _add_reclaim_journal),
+    (10, _add_inplace_journal),
 )
 
 
@@ -451,6 +499,111 @@ class Catalog:
         return list(
             self._conn.execute("SELECT source_path, sha256, freed_bytes FROM reclaim_journal")
         )
+
+    # -- in-place relocation journal (undo) -----------------------------------------------
+
+    def start_inplace_run(
+        self, *, run_id: str, source_root: str, dest_root: str, drive_uuid: str | None
+    ) -> None:
+        """Open a relocation run. Written before the first rename, so a crash leaves a record."""
+        with self._tx() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO inplace_runs (run_id, source_root, dest_root, "
+                "drive_uuid, started_at, completed_at, status) VALUES (?, ?, ?, ?, ?, NULL, ?)",
+                (run_id, source_root, dest_root, drive_uuid, _now(), "in_progress"),
+            )
+
+    def record_inplace_move(
+        self, *, run_id: str, sha256: str, old_relative: str, new_relative: str
+    ) -> None:
+        """Journal one completed rename. Written immediately after the file has moved."""
+        with self._tx() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO inplace_moves (run_id, sha256, old_relative, "
+                "new_relative, moved_at) VALUES (?, ?, ?, ?, ?)",
+                (run_id, sha256, old_relative, new_relative, _now()),
+            )
+
+    def finish_inplace_run(self, run_id: str, *, status: str = "completed") -> None:
+        """Close a run. An interrupted run keeps ``in_progress`` and is still undoable."""
+        with self._tx() as conn:
+            conn.execute(
+                "UPDATE inplace_runs SET status = ?, completed_at = ? WHERE run_id = ?",
+                (status, _now(), run_id),
+            )
+
+    def discard_inplace_run(self, run_id: str) -> None:
+        """Remove a run that moved nothing, so `undo-organize` never offers an empty run."""
+        with self._tx() as conn:
+            conn.execute("DELETE FROM inplace_moves WHERE run_id = ?", (run_id,))
+            conn.execute("DELETE FROM inplace_runs WHERE run_id = ?", (run_id,))
+
+    def inplace_runs(self) -> list[sqlite3.Row]:
+        """Every recorded relocation run, newest first, with its move count."""
+        return list(
+            self._conn.execute(
+                """
+                SELECT r.run_id, r.source_root, r.dest_root, r.drive_uuid, r.started_at,
+                       r.completed_at, r.status,
+                       (SELECT COUNT(*) FROM inplace_moves m WHERE m.run_id = r.run_id) AS moves
+                FROM inplace_runs r
+                ORDER BY r.started_at DESC
+                """
+            )
+        )
+
+    def inplace_run(self, run_id: str) -> sqlite3.Row | None:
+        """One run's header, or ``None`` if there is no such run."""
+        cursor = self._conn.execute("SELECT * FROM inplace_runs WHERE run_id = ?", (run_id,))
+        row: sqlite3.Row | None = cursor.fetchone()
+        return row
+
+    def latest_undoable_run(self) -> sqlite3.Row | None:
+        """The most recent run that has not already been undone."""
+        cursor = self._conn.execute(
+            "SELECT * FROM inplace_runs WHERE status != 'undone' ORDER BY started_at DESC LIMIT 1"
+        )
+        row: sqlite3.Row | None = cursor.fetchone()
+        return row
+
+    def inplace_moves(self, run_id: str) -> list[sqlite3.Row]:
+        """A run's moves in the order they happened; undo walks this reversed."""
+        return list(
+            self._conn.execute(
+                "SELECT sha256, old_relative, new_relative FROM inplace_moves "
+                "WHERE run_id = ? ORDER BY moved_at, old_relative",
+                (run_id,),
+            )
+        )
+
+    def forget_organized(self, sha256: str, drive_uuid: str | None) -> None:
+        """Forget that content was organized: drop this drive's copy, and the file row with it
+        when no copy remains anywhere.
+
+        The second half is what keeps an undo honest. ``files`` is the dedup index, so a row
+        left behind after its only copy moved back would make the content still look organized
+        -- and a re-organize would skip every restored file as an exact duplicate. That is an
+        undo which quietly leaves the library un-organizable, which is worse than no undo.
+
+        ``drive_uuid`` is ``None`` when the destination was not an identified drive; there is
+        then no copy row to drop and the file row goes on the same "nothing holds it" test.
+        """
+        with self._tx() as conn:
+            if drive_uuid is not None:
+                conn.execute(
+                    "DELETE FROM file_copies WHERE sha256 = ? AND drive_uuid = ?",
+                    (sha256, drive_uuid),
+                )
+            remaining = conn.execute(
+                "SELECT COUNT(*) FROM file_copies WHERE sha256 = ?", (sha256,)
+            ).fetchone()[0]
+            if not remaining:
+                conn.execute("DELETE FROM files WHERE sha256 = ?", (sha256,))
+
+    def set_source_path(self, sha256: str, source_path: str) -> None:
+        """Point a file row at where its content now lives (after a move)."""
+        with self._tx() as conn:
+            conn.execute("UPDATE files SET source_path = ? WHERE sha256 = ?", (source_path, sha256))
 
     def __enter__(self) -> Self:
         return self

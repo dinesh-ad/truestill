@@ -16,6 +16,16 @@ class DestinationError(RuntimeError):
     """A destination operation failed. Backends raise a subclass of this."""
 
 
+class CrossDeviceError(DestinationError):
+    """:meth:`Destination.adopt` could not move a file in without rewriting its bytes.
+
+    Distinct from a plain failure because it is *expected* and recoverable: the caller either
+    falls back to the verified copy-then-delete path, or -- when the user asked for in-place
+    specifically, because they have no room for a copy -- reports it rather than quietly
+    consuming the space they said they did not have.
+    """
+
+
 class Destination(ABC):
     """A place organized files can be written to and checked against."""
 
@@ -42,6 +52,23 @@ class Destination(ABC):
     # -- optional: in-place relocation, used only by layout migration ---------------------
     # Backends that can move and re-hash their own files override these. The default refuses,
     # so `truestill migrate-layout` simply reports the backend as unsupported rather than guessing.
+
+    def adopt(self, local: Path, relative_path: str) -> None:  # noqa: ARG002 - base refuses
+        """Take ownership of ``local``, placing it at ``relative_path`` without copying bytes.
+
+        The move counterpart of :meth:`upload`. Backends that can relocate a caller's file into
+        themselves (a same-filesystem rename, a server-side move) override this; the default
+        refuses, so a backend that cannot simply falls back to copy-then-delete.
+
+        Raises :class:`CrossDeviceError` when the move would require rewriting the bytes --
+        that outcome is recoverable and the caller decides what to do about it. As with
+        :meth:`upload`, the caller guarantees ``relative_path`` is free.
+        """
+        message = (
+            f"{self.describe()} cannot adopt {relative_path!r}: "
+            "this destination does not support moving files in"
+        )
+        raise DestinationError(message)
 
     def relocate(self, old_relative_path: str, new_relative_path: str) -> None:
         """Copy ``old`` to ``new`` within the destination (does not remove ``old``)."""

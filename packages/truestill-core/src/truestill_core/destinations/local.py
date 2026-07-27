@@ -6,10 +6,11 @@ mtime via ``copy2`` so a capture-date timestamp set on the source propagates thr
 
 from __future__ import annotations
 
+import errno
 import shutil
 from pathlib import Path
 
-from truestill_core.destinations.base import Destination, DestinationError
+from truestill_core.destinations.base import CrossDeviceError, Destination, DestinationError
 from truestill_core.hashing import sha256_file
 
 
@@ -32,6 +33,31 @@ class LocalDestination(Destination):
         target = self._full(relative_path)
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(local, target)
+
+    def adopt(self, local: Path, relative_path: str) -> None:
+        """Move ``local`` in with an atomic rename, or raise :class:`CrossDeviceError`.
+
+        **The never-overwrite invariant does not come from this call.** POSIX ``os.rename``
+        *silently destroys* an existing destination (measured: no error, no warning); Windows
+        raises instead. The guarantee lives in ``organizer._free_relative``, which resolves
+        collisions by content hash before this is ever reached. There is a TOCTOU window
+        between that check and this rename -- empty for truestill itself, whose execute loop is
+        sequential and single-threaded, but not against another process on the machine.
+        Closing it properly needs ``renameat2(RENAME_NOREPLACE)``, which is Linux-only and
+        absent from the stdlib.
+
+        Device identity is never predicted -- ``st_dev`` can agree across btrfs subvolumes and
+        bind mounts where a rename still fails. The kernel is asked, and its answer is final.
+        """
+        target = self._full(relative_path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            local.rename(target)
+        except OSError as exc:
+            if exc.errno == errno.EXDEV:
+                message = f"{local} and {target} are on different filesystems"
+                raise CrossDeviceError(message) from exc
+            raise
 
     def relocate(self, old_relative_path: str, new_relative_path: str) -> None:
         source = self._full(old_relative_path)

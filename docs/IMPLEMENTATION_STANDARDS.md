@@ -14,9 +14,9 @@ Paths are workspace-relative. Symbols are cited over line numbers, which drift.
 | Invariant | Enforced by |
 |---|---|
 | **Original quality is the top priority.** Media pixels are never re-encoded. | The pipeline only copies bytes; the sole content write is metadata-only (see below). |
-| **Copy-only - never move or delete user files, except the two scoped, opt-in exceptions below.** | `organizer.execute` uploads via `LocalDestination.upload` (`shutil.copy2`) / `RcloneDestination.upload` (`rclone copyto`). `rclone` uses `copyto`, never `sync`. The only code paths that delete a **source** are `organizer._move_source` (`--move`) and `reclaim.run_reclaim` (`truestill reclaim`) - both scoped exactly like the Takeout write path (below). |
+| **Copy-only - never move or delete user files, except the scoped, opt-in exceptions below.** | `organizer.execute` uploads via `LocalDestination.upload` (`shutil.copy2`) / `RcloneDestination.upload` (`rclone copyto`). `rclone` uses `copyto`, never `sync`. The only code paths that remove a source from where the user left it are `organizer._move_source` (`--move`), `reclaim.run_reclaim` (`truestill reclaim`), and the rename path `LocalDestination.adopt` (`--in-place`) - all scoped exactly like the Takeout write path (below). |
 
-**Source-deletion exceptions (feature k), both opt-in and verify-gated:**
+**Source-relocation exceptions (features k and q), all opt-in:**
 
 - **`organizer.execute(move=True)` (`--move`).** Deletes a source **only** after its just-written
   destination copy re-hashes to the recorded `copy_sha256`. Ordering is copy → record → re-verify
@@ -27,9 +27,30 @@ Paths are workspace-relative. Symbols are cited over line numbers, which drift.
   `last_verified`). Dry-run is the default; `--apply` additionally requires a typed `delete`
   confirmation. `--min-copies N` (default 1) gates on recorded redundancy; single-copy outcomes
   are warned. Every deletion is journalled (`reclaim_journal`, schema v9) for audit/resume.
+- **`LocalDestination.adopt` (`--in-place`, and `--move`'s same-filesystem fast path).** Moves a
+  source by **atomic rename**: nothing is copied, nothing is deleted, and there is no instant at
+  which the content does not exist - strictly safer than copy-then-delete, which is why plain
+  `--move` uses it automatically wherever the filesystem allows. `--apply` additionally requires
+  a typed `move` confirmation. Every rename is journalled (`inplace_runs` / `inplace_moves`,
+  schema v10) and reversed by `truestill undo-organize`.
 
-Both are **off by default**, never touch a source whose content is not proven present at the
-destination, and are the *only* sanctioned deletions of user source data.
+All are **off by default**. The first two never touch a source whose content is not proven
+present at the destination; the third does not need that proof, because it never has two
+copies to compare - the file *is* the copy.
+
+> **The safety asymmetry of the rename path, and what answers it.** `--move` and `reclaim` are
+> both gated on a *proven second copy*. A rename cannot be gated that way: it produces one
+> inode, so any verification is a file checking itself. What is at risk therefore shifts from
+> the **data** (a rename cannot lose bytes) to the **arrangement** - a mis-categorized run has
+> rearranged the only copy of a library whose owner, by definition of the feature, has no
+> backup. **`undo-organize` is that gate**, which is why it shipped with the feature rather
+> than after it. Two consequences are binding:
+> - `reclaim` must never offer a file whose source *is* the drive copy
+>   (`reclaim._is_the_copy_itself`), or the re-verify gate becomes a tautology and reclaim
+>   deletes the only copy. Pinned by `test_reclaim_refuses_a_file_organized_in_place`.
+> - Undo must clear the catalog rows it reverses (`catalog.forget_organized`), or the content
+>   still looks organized and the next run skips every restored file as an exact duplicate.
+>   Pinned by `test_undo_clears_the_catalog_so_a_reorganize_works`.
 | **Copies are byte-identical to the source EXCEPT the scoped Takeout write.** | Normal path uploads the source unchanged. The only exception is `organizer._upload_with_metadata_write`, reached **only** when an `IngestContext` carries a write (Takeout ingestion); it stages a temp copy, bakes metadata losslessly via `exif.write_metadata` (no pixel re-encode), and never touches the source. |
 | **Categorization is evidence-derived - no hardcoded taxonomy.** | `categorize.build_rules` is an ordered rule chain; labels are plain `str` (there is no `Category` enum in `models.py`). New sources are added as a `NAME_PATTERNS` row or derived from the `Software`/device rules. |
 | **Dating uses an evidence chain, never filesystem mtime.** | `dates.resolve_capture_datetime`. mtime is only ever *written* (`organizer._apply_timestamp` sets mtime from the resolved capture date); it is never *read* for placement. |
@@ -118,16 +139,18 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
 ## 3. Data contract (catalog)
 
 - **Single SQLite file**, stdlib `sqlite3` (`catalog.py::Catalog`). No server.
-- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 9`**.
+- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 10`**.
   Migrations are ordered, idempotent functions in `_MIGRATIONS`; a catalog newer than the code
   is refused (`CatalogVersionError`). Migration coverage tested in `tests/test_catalog.py`.
-- **Table inventory (v9):** `files`, `albums`, `file_albums`, `events`, `skipped_clusters`,
-  `drives`, `file_copies`, `settings`, `migration_journal`, `reclaim_journal`.
+- **Table inventory (v10):** `files`, `albums`, `file_albums`, `events`, `skipped_clusters`,
+  `drives`, `file_copies`, `settings`, `migration_journal`, `reclaim_journal`,
+  `inplace_runs`, `inplace_moves`.
 - **Migration ledger:** v2 `size`, v3 `original_name`, v4 event tables (`events` +
   `skipped_clusters` + `files.event_id`), v5 Takeout (`files.copy_sha256` + `albums` +
   `file_albums`), v6 drive identity (`drives` + `file_copies`), v7 key/value `settings`
   (first use: the layout template), v8 `migration_journal` (crash-safe layout migration),
-  v9 `reclaim_journal` (audit/resume for `truestill reclaim` deletions).
+  v9 `reclaim_journal` (audit/resume for `truestill reclaim` deletions), v10 `inplace_runs` +
+  `inplace_moves` (**reversible** journal for rename-based relocation).
 - **Dual-hash rule.** `files.sha256` is the **source** (pre-write) hash - the **dedup
   identity**. `files.copy_sha256` is the organized copy's **post-write** hash - the
   **verification identity** (equal to `sha256` for the byte-identical normal pipeline; differs

@@ -10,6 +10,7 @@ import argparse
 import json
 import re
 import sys
+import uuid
 from collections import Counter
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -51,7 +52,14 @@ from truestill_core.models import (
     Resolution,
     date_quality,
 )
-from truestill_core.organizer import SourceScan, execute, plan, resolve, scan_source
+from truestill_core.organizer import (
+    Relocation,
+    SourceScan,
+    execute,
+    plan,
+    resolve,
+    scan_source,
+)
 from truestill_core.progress import ProgressCallback
 from truestill_core.reclaim import plan_reclaim, run_reclaim
 from truestill_core.scan import DEFAULT_WORKERS
@@ -62,6 +70,7 @@ from truestill_core.takeout import (
     TakeoutSidecar,
     scan_takeout,
 )
+from truestill_core.undo import UndoError, plan_undo, run_undo
 from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
 
 from truestill_cli import __version__
@@ -132,6 +141,25 @@ def _add_common_options(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_undo_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    """`undo-organize`: reverse a rename-based run, preview first."""
+    undo = sub.add_parser(
+        "undo-organize", help="put files back where they were before an in-place organize"
+    )
+    undo.add_argument("--db", type=Path, default=_DEFAULT_DB, help="SQLite catalog")
+    undo.add_argument("--run-id", help="which run to reverse (default: the most recent)")
+    undo.add_argument("--list", action="store_true", help="list recorded in-place runs and exit")
+    undo.add_argument(
+        "--source-root", type=Path, help="where the files came from, if the drive has moved"
+    )
+    undo.add_argument(
+        "--dest-root", type=Path, help="where the library is now, if the drive has moved"
+    )
+    undo.add_argument(
+        "--apply", action="store_true", help="actually move files back (default: preview)"
+    )
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="truestill",
@@ -150,6 +178,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "--move",
         action="store_true",
         help="delete each source only after its copy is written and re-verified (needs --apply)",
+    )
+    organize.add_argument(
+        "--in-place",
+        action="store_true",
+        help=(
+            "move files on the drive instead of copying them (implies --move). Requires source "
+            "and destination on one filesystem; refuses rather than falling back to a copy"
+        ),
     )
     _add_common_options(organize)
 
@@ -180,6 +216,9 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="name Camera events after the album their photos came from",
     )
+    # Accepted only so the refusal can explain itself. Without it argparse says
+    # "unrecognized arguments", which tells a user with a full drive nothing useful.
+    ingest.add_argument("--in-place", action="store_true", help=argparse.SUPPRESS)
     _add_common_options(ingest)
 
     drives = sub.add_parser("drives", help="list known backup drives, or init a drive marker")
@@ -196,6 +235,8 @@ def _build_parser() -> argparse.ArgumentParser:
             "marker, keeping its identity and leaving the old file in place"
         ),
     )
+
+    _add_undo_parser(sub)
 
     where = sub.add_parser("where", help="find which drive(s) a file is on (offline)")
     where.add_argument("term", help="filename / path substring to search for")
@@ -610,13 +651,38 @@ def _write_json_report(path: Path, resolutions: list[Resolution]) -> None:
     print(f"\n  JSON report written to {path}")
 
 
+def _print_mechanism_split(results: list[ActionResult]) -> None:
+    """State how files actually got there: renamed in place, or copied across devices.
+
+    A run can legitimately do both -- a source folder spanning two filesystems renames what it
+    can and copies the rest -- and the difference decides how much space was used and what is
+    undoable. Reporting only the total would hide both.
+    """
+    renamed = sum(1 for r in results if r.status is ActionStatus.MOVED_IN_PLACE)
+    copied = sum(1 for r in results if r.status in (ActionStatus.MOVED, ActionStatus.MOVE_KEPT))
+    already = sum(1 for r in results if r.status is ActionStatus.ALREADY_PLACED)
+    if not renamed and not already:
+        return
+    parts = []
+    if renamed:
+        parts.append(f"{renamed} moved by rename (no bytes copied)")
+    if copied:
+        parts.append(f"{copied} copied across devices")
+    if already:
+        parts.append(f"{already} already in place")
+    print(f"  {' · '.join(parts)}")
+    if renamed:
+        print("  Reverse this run with: truestill undo-organize")
+
+
 def _print_execution(results: list[ActionResult]) -> int:
     outcomes = Counter(result.status.value for result in results)
     print(_SEPARATOR)
     print("EXECUTED")
     print(_SEPARATOR)
     for status, count in outcomes.most_common():
-        print(f"  {status:<12} {count}")
+        print(f"  {status:<16} {count}")
+    _print_mechanism_split(results)
 
     kept = [r for r in results if r.status is ActionStatus.MOVE_KEPT]
     for k in kept:
@@ -702,6 +768,7 @@ def _run_pipeline(
     scan: TakeoutScan | None = None,
     event_prompt: Prompt | None = None,
     drive_marker: DriveMarker | None = None,
+    relocation: Relocation | None = None,
 ) -> int:
     with Catalog(args.db) as catalog:
         template = resolve_template(catalog.get_setting(LAYOUT_TEMPLATE_KEY))
@@ -756,6 +823,14 @@ def _run_pipeline(
         if args.report:
             _write_json_report(args.report, resolutions)
 
+        if relocation is not None and args.apply:
+            catalog.start_inplace_run(
+                run_id=relocation.run_id,
+                source_root=str(relocation.source_root),
+                dest_root=str(relocation.dest_root),
+                drive_uuid=drive_uuid,
+            )
+
         results = execute(
             resolutions,
             destination,
@@ -764,11 +839,22 @@ def _run_pipeline(
             set_timestamps=not args.no_timestamps,
             skip_undated=args.skip_undated,
             move=getattr(args, "move", False),
+            relocation=relocation if args.apply else None,
             event_ids=event_ids,
             ingest=ingest_ctx,
             drive_uuid=drive_uuid,
-            progress=_progress_printer("copying") if args.apply else None,
+            progress=_progress_printer("moving" if relocation else "copying")
+            if args.apply
+            else None,
         )
+
+        if relocation is not None and args.apply:
+            moved = sum(1 for r in results if r.status is ActionStatus.MOVED_IN_PLACE)
+            # A run that renamed nothing leaves no journal row to offer as an undo.
+            if moved:
+                catalog.finish_inplace_run(relocation.run_id)
+            else:
+                catalog.discard_inplace_run(relocation.run_id)
 
     print()
     if not args.apply:
@@ -819,12 +905,76 @@ def _cmd_organize(args: argparse.Namespace) -> int:
     except DestinationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 4
-    code = _run_pipeline(args, files, metadata, destination, drive_marker=_local_drive_marker(args))
+    relocation = _build_relocation(args)
+    if relocation is not None and not _confirm_in_place(args, len(files)):
+        return 0
+    code = _run_pipeline(
+        args,
+        files,
+        metadata,
+        destination,
+        drive_marker=_local_drive_marker(args),
+        relocation=relocation,
+    )
     _print_skipped(scan)
     return code
 
 
+def _build_relocation(args: argparse.Namespace) -> Relocation | None:
+    """A relocation context whenever the run has move semantics on a local destination.
+
+    Deliberately built for plain ``--move`` too, not just ``--in-place``: the rename is a
+    strictly better way to satisfy what ``--move`` already promises, and the journal has to
+    follow the *mechanism* so that two users who performed the same operation have the same
+    undo rights however they spelled it. ``--in-place`` only raises the stakes of a
+    cross-device answer from "fall back" to "refuse".
+    """
+    if args.rclone or not (args.move or args.in_place):
+        return None
+    return Relocation(
+        run_id=uuid.uuid4().hex,
+        source_root=args.source,
+        dest_root=Path(args.destination),
+        require_rename=args.in_place,
+    )
+
+
+def _confirm_in_place(args: argparse.Namespace, file_count: int) -> bool:
+    """State plainly what in-place does, then require the word before any file moves."""
+    if not args.in_place:
+        return True
+    print(_SEPARATOR)
+    print("IN-PLACE - files will be MOVED on this drive, not copied.")
+    print(_SEPARATOR)
+    print(f"  {file_count} file(s) under {args.source}")
+    print(f"  will be moved into {args.destination}")
+    print("  Originals will NOT remain in their current locations.")
+    print("  Space needed: ~0 bytes (nothing is copied)")
+    print("  Reversible:   truestill undo-organize  restores every file to where it is now")
+    print("  Empty folders left behind are reported, never deleted.")
+    if not args.apply:
+        print("\nPreview only. Re-run with --apply to move these files.")
+        return True
+    answer = input("\nType 'move' to proceed (anything else aborts): ").strip()
+    if answer != "move":
+        print("Aborted. Nothing was moved.")
+        return False
+    return True
+
+
 def _cmd_ingest(args: argparse.Namespace) -> int:
+    if args.in_place:
+        # Not an arbitrary restriction: Takeout rescue bakes recovered dates into the copy, so
+        # the written file differs from the source. That is a rewrite, and a rewrite is not a
+        # rename -- there is no version of it that needs no space.
+        print(
+            "error: --in-place cannot be used with ingest.\n"
+            "  Takeout rescue writes recovered dates into each copy, so the file that lands is\n"
+            "  not byte-identical to the source and cannot be moved by rename.\n"
+            "  Ingest to a destination with room, then organize --in-place afterwards.",
+            file=sys.stderr,
+        )
+        return 2
     if not args.takeout.is_dir():
         print(f"error: takeout path is not a directory: {args.takeout}", file=sys.stderr)
         return 2
@@ -960,6 +1110,56 @@ def _cmd_migrate_layout(args: argparse.Namespace) -> int:
         return 0
 
 
+def _cmd_undo_organize(args: argparse.Namespace) -> int:
+    with Catalog(args.db) as catalog:
+        if args.list:
+            runs = catalog.inplace_runs()
+            if not runs:
+                print("No in-place organize runs recorded.")
+                return 0
+            print(f"{'run id':<34}{'when':<28}{'files':>7}  status")
+            for row in runs:
+                print(
+                    f"{row['run_id']:<34}{row['started_at']:<28}{row['moves']:>7}  {row['status']}"
+                )
+            return 0
+
+        try:
+            plan = plan_undo(
+                catalog,
+                args.run_id,
+                source_root=args.source_root,
+                dest_root=args.dest_root,
+            )
+        except UndoError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+
+        print(f"Run {plan.run_id} ({plan.status})")
+        print(f"  moved into : {plan.dest_root}")
+        print(f"  came from  : {plan.source_root}")
+        print(f"  restorable : {plan.restorable} file(s)")
+        for skip in plan.skipped:
+            print(f"  cannot restore: {skip.step.current.name} -- {skip.detail}", file=sys.stderr)
+
+        if not args.apply:
+            print("\nPreview only. Re-run with --apply to move these files back.")
+            return 0
+        if not plan.steps:
+            print("\nNothing to restore.")
+            return 0
+
+        outcome = run_undo(catalog, plan, apply=True, progress=_progress_printer("restoring"))
+        print(f"\nRestored {outcome.restored} file(s) to their original locations.")
+        if outcome.skipped:
+            print(
+                f"  {len(outcome.skipped)} file(s) could not be restored; the run stays open so "
+                "you can re-run undo once they are resolved.",
+                file=sys.stderr,
+            )
+        return 1 if outcome.skipped else 0
+
+
 def _cmd_reclaim(args: argparse.Namespace) -> int:
     marker = read_marker(args.path)
     if marker is None:
@@ -982,6 +1182,13 @@ def _cmd_reclaim(args: argparse.Namespace) -> int:
         print(f"  reclaimable: {n} file(s), {gib:.2f} GB would be freed")
         if plan.unverified:
             print(f"  skipped: {plan.unverified} copy(ies) failed re-verification (source kept)")
+        if plan.organized_in_place:
+            # Never silent: these look reclaimable and are the one case where reclaiming
+            # would destroy the only copy, so say so rather than quietly omitting them.
+            print(
+                f"  skipped: {plan.organized_in_place} file(s) organized in place -- the source "
+                "IS the copy on this drive, so freeing it would delete the only one"
+            )
         if plan.below_min_copies:
             print(
                 f"  held back: {plan.below_min_copies} file(s) below --min-copies={args.min_copies}"
@@ -1025,6 +1232,7 @@ def main(argv: list[str] | None = None) -> int:
         "config": _cmd_config,
         "migrate-layout": _cmd_migrate_layout,
         "reclaim": _cmd_reclaim,
+        "undo-organize": _cmd_undo_organize,
     }
     return dispatch[args.command](args)
 
