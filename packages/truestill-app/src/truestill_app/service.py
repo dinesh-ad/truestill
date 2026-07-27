@@ -127,22 +127,50 @@ def _skipped_summary(scan: SourceScan) -> dict[str, dict[str, int]]:
     }
 
 
-def organize_preview(source: Path, destination: Path, db: Path) -> dict[str, Any]:
-    """Plan + dedup with no writes -- the dry-run summary the UI shows before a real run."""
+def organize_preview(
+    source: Path,
+    destination: Path,
+    db: Path,
+    *,
+    progress: ProgressCallback | None = None,
+    cancel: threading.Event | None = None,
+) -> dict[str, Any]:
+    """Plan + dedup with no writes -- the dry-run summary the UI shows before a real run.
+
+    Reports progress through the same phases the real run does, because it does the same
+    work: reading metadata, then hashing. On a large library this is the **first** long wait
+    a user ever experiences with truestill, which makes it the worst possible place to look
+    like nothing is happening.
+    """
     scan = scan_source(source)
     files = scan.media
     if not files:
         return {"files": 0, "folders": {}, "skipped": _skipped_summary(scan)}
-    metadata = read_metadata(files)
+    metadata = read_metadata(files, progress=progress, cancel=cancel)
     with Catalog(db) as catalog:
         template = resolve_template(catalog.get_setting(LAYOUT_TEMPLATE_KEY))
         decisions = plan(files, metadata, build_rules(), template=template)
         index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
-        resolutions = resolve(decisions, index, catalog_sizes=catalog.known_sizes())
+        resolutions = resolve(
+            decisions, index, catalog_sizes=catalog.known_sizes(), progress=progress, cancel=cancel
+        )
     summary = _summarize(resolutions)
     summary["destination_is_drive"] = read_marker(destination) is not None
     summary["skipped"] = _skipped_summary(scan)
     return summary
+
+
+def organize_preview_run(source: Path, destination: Path, db: Path) -> JobTarget:
+    """The preview as a cancellable background job, so it can report progress like the rest.
+
+    Still a dry run in every respect: this writes nothing to the destination or the catalog.
+    Only *how* the answer is delivered changed.
+    """
+
+    def target(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
+        return organize_preview(source, destination, db, progress=progress, cancel=cancel)
+
+    return target
 
 
 def organize_run(

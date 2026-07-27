@@ -5,7 +5,9 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 
+from truestill_core.dedup import DedupIndex
 from truestill_core.hashing import sha256_file
+from truestill_core.organizer import plan, resolve
 from truestill_core.progress import Phase, Progress
 from truestill_core.scan import compute_hashes
 from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
@@ -75,3 +77,24 @@ def test_verify_cancel_stops_early(tmp_path: Path) -> None:
     cancel.set()
     results = verify_copies(copies, root, cancel=cancel)
     assert len(results) < len(copies)  # stopped before hashing all present files
+
+
+def test_resolve_survives_a_cancelled_hashing_pass(tmp_path: Path) -> None:
+    """Cancelling during hashing is a supported outcome, not a crash.
+
+    ``compute_hashes`` returns only what it finished, so ``resolve`` must stop at the first
+    gap rather than raising ``KeyError`` on a file path. This reached the UI as a bare
+    ``PosixPath(...)`` error message when a preview was cancelled mid-run.
+    """
+    paths = []
+    for i in range(6):
+        p = tmp_path / f"f{i}.jpg"
+        p.write_bytes(b"same-size-content")  # identical sizes -> all need hashing
+        paths.append(p)
+    decisions = plan(paths, {}, None)
+
+    cancel = threading.Event()
+    cancel.set()  # cancelled before a single file is hashed: the worst case
+    resolutions = resolve(decisions, DedupIndex(threshold=10), cancel=cancel)
+
+    assert len(resolutions) < len(decisions)  # partial, and no exception

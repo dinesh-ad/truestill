@@ -319,7 +319,12 @@ def resolve(
 
     resolutions: list[Resolution] = []
     for decision in decision_list:
-        file_hashes = hashes[decision.source]
+        # A cancelled hashing pass returns only what it finished, so a decision may have no
+        # entry. Stop cleanly at the first gap and return the partial result: cancelling is a
+        # normal, supported outcome, and it must not surface as a KeyError on a file path.
+        file_hashes = hashes.get(decision.source)
+        if file_hashes is None:
+            break
         match = index.check(file_hashes.sha256, file_hashes.perceptual)
 
         exact = match if match is not None and match.kind is DuplicateKind.EXACT else None

@@ -43,9 +43,14 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
         return HTMLResponse(html.replace("{{VERSION}}", __version__))
 
     async def organize_preview(request: Request) -> JSONResponse:
+        # A job like every other long operation -- on a large source this is the first long
+        # wait a user meets, so it gets the same progress display rather than a frozen card.
+        # Still a dry run: the job writes nothing.
         body = await request.json()
-        summary = service.organize_preview(Path(body["source"]), Path(body["destination"]), _db())
-        return JSONResponse(summary)
+        target = service.organize_preview_run(
+            Path(body["source"]), Path(body["destination"]), _db()
+        )
+        return JSONResponse({"job_id": jobs.start(target)})
 
     async def organize_run(request: Request) -> JSONResponse:
         body = await request.json()

@@ -68,12 +68,36 @@ def test_drives_and_where_empty(client: TestClient) -> None:
 def test_organize_preview_no_media(client: TestClient, tmp_path: Path) -> None:
     src = tmp_path / "empty"
     src.mkdir()
-    r = client.post(
+    started = client.post(
         f"/api/organize/preview?token={_TOKEN}",
         json={"source": str(src), "destination": str(tmp_path / "out")},
     )
-    assert r.status_code == 200
-    assert r.json()["files"] == 0
+    assert started.status_code == 200
+    done = _stream_to_done(client, started.json()["job_id"])
+    assert done["type"] == "done"
+    assert (done.get("summary") or done)["files"] == 0
+
+
+def test_preview_is_a_job_that_still_writes_nothing(client: TestClient, tmp_path: Path) -> None:
+    """Preview moved onto the job/SSE path so it can show progress. It is still a dry run:
+    the whole point of the conversion was *how* the answer arrives, not what it costs."""
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "a.jpg").write_bytes(b"preview-bytes-one")
+    (src / "b.jpg").write_bytes(b"preview-bytes-two")
+    out = tmp_path / "out"
+
+    started = client.post(
+        f"/api/organize/preview?token={_TOKEN}",
+        json={"source": str(src), "destination": str(out)},
+    )
+    done = _stream_to_done(client, started.json()["job_id"])
+    summary = done.get("summary") or done
+
+    assert summary["files"] == 2
+    assert not out.exists()  # nothing written to the destination
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        assert catalog.count() == 0  # and nothing recorded in the catalog
 
 
 def test_verify_job_streams_error_for_non_drive(client: TestClient, tmp_path: Path) -> None:

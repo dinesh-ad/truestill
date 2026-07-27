@@ -211,13 +211,13 @@ function legendFor(folders) {
 // actually produced it: an undated batch shows no year range, a run with no duplicates shows
 // no savings line. Nothing here is computed for effect -- the same honesty rule the custody
 // strip obeys applies hardest at the moment a user feels good about the result.
-function completionCard({ headline, sub, stats = [], chips = "", notes = [], legend = "" }) {
+function completionCard({ headline, sub, stats = [], chips = "", notes = [], legend = "", done = "Done" }) {
   const statRows = stats
     .filter((s) => s && s.value)
     .map((s) => `<div class="n">${s.value}</div><div class="k">${s.label}</div>`)
     .join("");
   return card(
-    `<div class="done-mark">Done</div>
+    `<div class="done-mark">${esc(done)}</div>
      <div class="headline">${headline}</div>
      ${sub ? `<div class="k">${sub}</div>` : ""}
      ${statRows ? `<div class="tally">${statRows}</div>` : ""}
@@ -263,7 +263,9 @@ function organizeCompletion(r) {
       ${verb}.</div></div>`);
   }
   return completionCard({
-    headline: `${nfmt(r.organized || 0)} file${r.organized === 1 ? "" : "s"} ${verb}`,
+    done: r.cancelled ? "Stopped" : "Done",
+    headline: `${nfmt(r.organized || 0)} file${r.organized === 1 ? "" : "s"} ${verb}`
+      + (r.cancelled ? " before you stopped it" : ""),
     sub: [kinds, span].filter(Boolean).join(" · "),
     stats: [
       { value: fmtBytes(r.bytes_organized), label: "now organized" },
@@ -440,19 +442,42 @@ function renderOrganizeResult(s) {
   return kept;
 }
 
+// Shared by preview and run: both are cancellable jobs, and Cancel needs the current one.
+let orgJob = null;
+
 $("org-preview").onclick = async () => {
   const source = $("org-source").value.trim();
   const destination = $("org-dest").value.trim();
   if (!source) { setWhy("Pick a folder to organize first."); return; }
-  $("org-result").innerHTML = card("Checking…");
-  const s = await api("/api/organize/preview", { source, destination });
-  const kept = renderOrganizeResult(s);
-  if (!s.files) { $("org-run").disabled = true; setWhy("Nothing to organize in this folder."); }
-  else if (!destination) { $("org-run").disabled = true; setWhy("Pick the organized folder for the sorted copies."); }
-  else { $("org-run").disabled = false; $("org-run").textContent = `Organize ${nfmt(kept)} files`; setWhy(""); }
+  // Previewing a large source is minutes of real work (metadata, then hashing), so it gets
+  // the same progress display as a run rather than a card that says "Checking…" and freezes.
+  $("org-result").innerHTML = "";
+  orgProgress.start("starting");
+  const { job_id } = await api("/api/organize/preview", { source, destination });
+  orgJob = job_id;
+  streamJob(job_id,
+    (d) => orgProgress.update(d),
+    (d) => {
+      orgProgress.stop();
+      orgJob = null;
+      const s = d.summary || d;
+      if (s.error) { $("org-result").innerHTML = card(`<div class="banner warn"><div>${esc(s.error)}</div></div>`); return; }
+      if (d.status === "cancelled") {
+        // Never report a cancelled check as an empty folder: the run stopped, it did not
+        // find nothing. Same failure the "Done / nothing to do" blocker was.
+        $("org-result").innerHTML = card(
+          `<div class="headline">Check cancelled</div><div class="k">Nothing was changed. Preview again when you are ready.</div>`);
+        $("org-run").disabled = true;
+        setWhy("Preview again to see what would happen.");
+        return;
+      }
+      const kept = renderOrganizeResult(s);
+      if (!s.files) { $("org-run").disabled = true; setWhy("Nothing to organize in this folder."); }
+      else if (!destination) { $("org-run").disabled = true; setWhy("Pick the organized folder for the sorted copies."); }
+      else { $("org-run").disabled = false; $("org-run").textContent = `Organize ${nfmt(kept)} files`; setWhy(""); }
+    });
 };
 
-let orgJob = null;
 $("org-run").onclick = async () => {
   const source = $("org-source").value.trim();
   const destination = $("org-dest").value.trim();
@@ -465,9 +490,15 @@ $("org-run").onclick = async () => {
     (d) => {
       orgProgress.stop();
       const r = d.summary || d;
-      $("org-result").innerHTML = r.organized || r.outcomes
-        ? organizeCompletion(r)
-        : card(`<div class="headline">Nothing to organize</div><div class="k">No new photos or videos were found here.</div>`);
+      if (d.status === "cancelled") {
+        // A cancelled run still organized everything it reached, and those files are real.
+        // Show the same card, labelled honestly, rather than implying nothing happened.
+        $("org-result").innerHTML = organizeCompletion({ ...r, cancelled: true });
+      } else {
+        $("org-result").innerHTML = r.organized || r.outcomes
+          ? organizeCompletion(r)
+          : card(`<div class="headline">Nothing to organize</div><div class="k">No new photos or videos were found here.</div>`);
+      }
       orgJob = null;
       loadCustody();
     });

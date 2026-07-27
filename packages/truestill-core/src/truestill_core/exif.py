@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import threading
 from collections.abc import Iterator, Sequence
 from datetime import datetime
 from pathlib import Path
@@ -121,7 +122,10 @@ def write_metadata(
 
 
 def read_metadata(
-    paths: Sequence[Path], *, progress: ProgressCallback | None = None
+    paths: Sequence[Path],
+    *,
+    progress: ProgressCallback | None = None,
+    cancel: threading.Event | None = None,
 ) -> dict[Path, dict[str, Any]]:
     """Read the requested tags for ``paths``.
 
@@ -129,9 +133,12 @@ def read_metadata(
     a missing entry as "no metadata", which flows naturally into the Other category
     and the Undated folder.
 
-    ``progress`` is reported per exiftool batch. On a large library this phase is minutes
-    of work before anything else starts, and a run that reports nothing until it is over
-    is indistinguishable from a run that has hung.
+    ``progress`` is reported per exiftool batch, and ``cancel`` is checked between them. On a
+    large library this phase is minutes of work before anything else starts: a run that
+    reports nothing until it is over is indistinguishable from one that has hung, and a
+    Cancel button that does nothing until the phase ends is indistinguishable from a broken
+    one. Cancelling returns what was read so far -- callers treat a missing entry as "no
+    metadata", which is already the normal path for an unparseable file.
     """
     if not paths:
         return {}
@@ -141,6 +148,8 @@ def read_metadata(
     done = 0
 
     for chunk in _chunked(paths, BATCH_SIZE):
+        if cancel is not None and cancel.is_set():
+            break
         if progress is not None:
             progress(Progress(done, len(paths), Phase.SCANNING, Path(chunk[0]).name))
         args = [binary, "-json", "-q", "-m", "-charset", "filename=utf8"]
