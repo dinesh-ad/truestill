@@ -155,7 +155,8 @@
           <div class="field"><label for="verify-path">Drive folder</label>
             <div class="row"><input class="input" id="verify-path" placeholder="e.g. /media/BackupA">
               <button class="btn btn-secondary" data-browse="verify-path" data-kind="dest">Browse…</button></div>
-            <span class="hint" id="verify-path-hint"></span></div>
+            <span class="hint" id="verify-path-hint"></span>
+            <span class="carried hidden" id="verify-path-carried">carried over from below - edit if this isn’t right</span></div>
           <div class="actions"><button class="btn btn-primary" id="verify-run">Check now</button></div>
           <div id="verify-result"></div>
           <!-- shared progress block: see createProgress() in app.js -->
@@ -186,7 +187,8 @@
           <div class="field"><label for="bk-target">To (another connected drive)</label>
             <div class="row"><input class="input" id="bk-target" placeholder="e.g. /media/BackupB">
               <button class="btn btn-secondary" data-browse="bk-target" data-kind="dest">Browse…</button></div>
-            <span class="hint" id="bk-target-hint"></span></div>
+            <span class="hint" id="bk-target-hint"></span>
+            <span class="carried hidden" id="bk-target-carried">carried over from above - edit if this isn’t right</span></div>
           <div class="actions"><button class="btn btn-secondary" id="bk-preview">Preview copy</button>
             <button class="btn btn-primary hidden" id="bk-run">Copy the library</button></div>
           <div id="bk-result"></div>

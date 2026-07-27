@@ -230,3 +230,26 @@ def test_dark_theme_toggle_defines_every_media_dark_token(client: TestClient) ->
 def test_catalog_db_is_created(client: TestClient, tmp_path: Path) -> None:
     client.get(f"/api/drives?token={_TOKEN}")  # opening the catalog creates it
     assert Catalog(tmp_path / "c.sqlite").schema_version >= 6
+
+
+def test_the_two_backup_drive_fields_share_what_the_user_typed(client: TestClient) -> None:
+    """Within the Backups page, "Drive folder" and "To" name the same thing: the backup drive.
+
+    Typing it in one offers it to the other. Two properties make that safe rather than
+    presumptuous, and both are pinned here because getting either wrong is worse than the
+    duplication it replaces:
+
+    * only *user* input carries across -- `prefill` assigns without dispatching, and the Check
+      field is prefilled with the **library** path when no backup exists, so reacting to
+      programmatic fills would silently propose copying the library onto itself;
+    * a field the user has already filled is never overwritten.
+    """
+    app_js = client.get(f"/static/app.js?token={_TOKEN}").text
+
+    assert '["verify-path", "bk-target"]' in app_js  # the two backup-drive fields, and only those
+    assert "bk-source" not in app_js.split("BACKUP_DRIVE_FIELDS =")[1].split("]")[0]
+    assert "if (!el || el.value.trim()) continue" in app_js  # never clobbers a typed value
+    # Carried values are labelled, and the label clears once the user makes the value theirs.
+    page = client.get(f"/?token={_TOKEN}").text
+    assert 'id="bk-target-carried"' in page
+    assert 'id="verify-path-carried"' in page

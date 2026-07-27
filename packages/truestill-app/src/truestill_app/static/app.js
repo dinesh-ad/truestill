@@ -429,6 +429,39 @@ async function validatePath(input, hint, kind) {
   else { hint.textContent = v.is_drive ? "Ready · backup drive ✓" : "Ready"; hint.className = "hint ok"; }
   return v;
 }
+// Both of these name the same thing -- the backup drive -- on one page: "Drive folder" in
+// Check, "To" in Copy. Typing it once should be enough. (`bk-source` is deliberately absent:
+// that is the *library*, a different concept that happens to also be a folder.)
+const BACKUP_DRIVE_FIELDS = ["verify-path", "bk-target"];
+
+function offerBackupPath(fromId) {
+  const value = $(fromId).value.trim();
+  if (!value) return;
+  for (const id of BACKUP_DRIVE_FIELDS) {
+    if (id === fromId) continue;
+    const el = $(id);
+    if (!el || el.value.trim()) continue;  // never overwrite something the user typed
+    el.value = value;
+    // Validate it exactly as if typed, so the hint ("Ready", "doesn't exist yet - Create it")
+    // is about the value now in the box rather than the empty one it replaced.
+    el.dispatchEvent(new Event("change"));
+    $(`${id}-carried`)?.classList.remove("hidden");
+  }
+}
+
+// Only user input carries a value across. `prefill()` assigns without dispatching, so the
+// catalog's own suggestions never trigger this -- which matters, because the Check field is
+// prefilled with the *library* path when no backup exists yet, and silently proposing that as
+// the copy target would be offering to copy the library onto itself.
+BACKUP_DRIVE_FIELDS.forEach((id) => {
+  const el = $(id);
+  if (!el) return;
+  el.addEventListener("change", () => offerBackupPath(id));
+  el.addEventListener("blur", () => offerBackupPath(id));
+  // Once the user edits a carried-over value it is theirs, so stop calling it a suggestion.
+  el.addEventListener("input", () => $(`${id}-carried`)?.classList.add("hidden"));
+});
+
 // wire every path field (source + destination) to validate live as you type and on pick
 document.querySelectorAll("[data-browse]").forEach((btn) => {
   const input = $(btn.dataset.browse);

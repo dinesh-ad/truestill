@@ -629,3 +629,12 @@ details.more > summary::-webkit-details-marker {
     padding: var(--space-5) var(--space-4);
   }
 }
+
+/* A value carried across from the other field naming the same drive. Quiet and clearly a
+   suggestion -- it sits under the field, in the accent, and disappears the moment it is edited. */
+.carried {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--accent);
+}
