@@ -24,6 +24,26 @@ All notable changes to this project are documented here. The format follows
   each file moved) rather than an audit one (what was destroyed).
 
 ### Added
+- **`truestill migrate-layout`** - move an existing library to a layout you have chosen. Shows
+  the full plan first (where every label's files are headed, how many, sample paths, and how
+  close the longest path comes to Windows' 260-character limit) and moves nothing until you type
+  `move`. Each file is copied, re-hashed at its new home, and only then removed from the old
+  one, so there is never a moment when it exists nowhere. An interrupted run resumes.
+- **`truestill migrate-layout --undo`** - put a completed migration back. Walks the moves in
+  reverse with the same verification going the other way, and **refuses any file that changed
+  since the migration**, reporting it rather than overwriting your edit. Available until a later
+  migration of the same drive replaces the record.
+- **`truestill clean-empty`** - remove the empty folders a migration leaves behind. Scoped to
+  folders truestill itself emptied - it never sweeps your drive - and it shows three lists before
+  anything happens: what is empty, what holds only operating-system junk (`.DS_Store`,
+  `Thumbs.db` and friends, removed with the folder), and what it is **leaving alone**, naming
+  whatever is still inside. Anything it does not recognise keeps its folder. Removals go to the
+  trash, and you type `clean` to confirm.
+- **`truestill clean-empty --permanent`** - for cloud and network drives, where the trash cannot
+  be used at all (there is nowhere on that mount to trash *to*). Trash is still tried first;
+  only the folders it refuses are deleted outright, the preview says plainly that this is
+  irreversible, and the confirmation is a different phrase - `delete forever` - so the word you
+  typed for a recoverable cleanup can never be reused for a permanent one.
 - **A browser end-to-end test layer** (`tests/e2e/`, `make e2e`). Playwright via
   `pytest-playwright` against an in-process app server, run in CI as its own chromium-on-ubuntu
   lane. Every UI defect the soak found is pinned as a named regression test, and the whole
