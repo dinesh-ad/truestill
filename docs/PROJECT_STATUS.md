@@ -108,7 +108,7 @@ Full rules and their enforcing tests: `IMPLEMENTATION_STANDARDS.md` §3.1.
 |---|---|
 | **Feature completeness** | All planned pre-launch features shipped: organize, Takeout ingest, dedup (exact + perceptual), events/trips, drive identity, offline catalog, verify, 3-2-1 backup, configurable layout + migration, reclaim, in-place organize + `undo-organize`, and the full web UI. |
 | **QA verdict** | The 2026-07-26 walkthrough returned **launch-ready** (`walkthrough-qa-report.md`), and the **soak test then found ten further defects** - see §2.1. That is the walkthrough working as designed, not failing: a scripted pass over synthetic data cannot find what a real library at real scale does. Treat "launch-ready" as *the state before the soak*, not a current verdict. |
-| **Tests** | 447 Python + 16 browser end-to-end. Assert behaviour, never counts - these numbers are context, not a gate, and **must not be pasted into a doc as a target**. Re-derive with `uv run pytest --collect-only -q`. |
+| **Tests** | 447 Python + 16 browser end-to-end. All four CI lanes green. Assert behaviour, never counts - these numbers are context, not a gate, and **must not be pasted into a doc as a target**. Re-derive with `uv run pytest --collect-only -q`. |
 | **Quality gates** | `make check` = ruff lint + ruff format-check + mypy (three `src` trees) + pytest. Plus `make e2e` (opt-in, needs a browser), `uv build --all-packages`, and CI's lockfile + `pip-audit` gates. All green at `8f77de1`. |
 | **CI** | `.github/workflows/ci.yml`, **two jobs**: `check` ({ubuntu, macos, windows} × Python 3.13, + Linux-only `pip-audit`) and `e2e` (chromium on ubuntu). |
 | **Catalog schema** | **v11** (`CURRENT_SCHEMA_VERSION`). Tables: `files`, `albums`, `file_albums`, `events`, `skipped_clusters`, `drives`, `file_copies`, `settings`, `migration_journal`, `reclaim_journal`, `inplace_runs`, `inplace_moves`. **Next free version is v11** (v10 went to the in-place journal, not to date provenance - see `IMPLEMENTATION_STANDARDS.md` §1). |
@@ -136,6 +136,13 @@ rationale: `default-layout-research.md`, `migration-routing-research.md`,
 | **both drives migrated** | The Memory Cabinet and Output, 2,269 files each, verified 2269/0/0 |
 | **clean-empty** (`318d7d3`) · **`--permanent`** (`484a8ae`) | the leftover skeleton removed, behind two distinct confirm words |
 | **2f decommission** | category-first removed entirely; both undo records retired on explicit confirm |
+
+**Both real drives are done.** The Memory Cabinet (pCloud FUSE mount) and Output (local ext4):
+**2,269 files each, migrated, verified 2269/0/0 after migration and again after cleanup.**
+Output's 11 empty folders went **to the trash** (recoverable); the Cabinet's went **permanently**
+via `--permanent`, because `gio` cannot trash across a filesystem boundary onto a cloud mount and
+the design refuses to downgrade a recoverable removal silently. Both undo records were then
+**retired on explicit confirm** - reversibility remains a feature of every future migration.
 
 **What survives from the compat era: nothing but the pin's general job** - a library is never
 silently reshaped by a default change, with no knowledge of any particular layout. `{category}`
@@ -186,9 +193,19 @@ passes. This is not a formality: it is the only test that exercises real drives,
 real interruptions and real heterogeneous metadata. Bugs found here outrank every other item
 in this list. Treat a soak-test report as the highest-priority work in the queue.
 
-**Status: running, ten findings shipped** (§2.1). The default-layout correction (§2.0) is
-being built in parallel because a default is nearly permanent once users exist; a soak finding
-still outranks it. It is not closed and there is no date on
+**Status: running, ten findings shipped** (§2.1), and the layout correction it triggered is now
+closed (§2.0). **What remains before "soak passed":**
+
+- **Tab tour** - walk Trips, Find, Settings and Import on the migrated library. The layout arc
+  exercised Organize and Backups hard; these four have not been used against a real 2,269-file
+  year-first library at all.
+- **In-place maiden voyage**, plus **one deliberate `undo-organize`**. `--in-place` and its undo
+  have never run outside tests on real files. Do the undo on purpose, while nothing depends on
+  the outcome - a reverse gear is only known to work when it has been pulled.
+- **Buy `truestill.app`** (~EUR 13). **Not purchased.** It is the cheapest item on the whole
+  pre-launch list and the only one someone else can take.
+- **~2 weeks of quiet use.** Not a countdown - the point is ordinary days where nothing is being
+  tested, because that is when the surprises show up. It is not closed and there is no date on
 which it closes; it closes when the user says the library is organized and the tool stopped
 surprising them. **Do not start item 2 because the soak looks quiet.**
 
@@ -248,6 +265,18 @@ audience. Read each subreddit's self-promotion rules first. Expect and welcome s
 privacy claims; they hold up, so answer plainly.
 
 ### 6. Post-launch
+
+**Queue order, when the soak closes:**
+
+1. **A soak-driven backlog pick** - whatever the remaining checklist surfaces outranks anything
+   already written down, and the sequencing note in `BACKLOG.md` §Ideas maps the cheap
+   combined orders if the pick lands on `(n)`/`(gg)`/`(hh)`/`(ii)`.
+2. **The licensing-server spec** (`DECISIONS.md` D5 §5) - new infrastructure, its own research
+   and design pass, and the offline-activation fallback story is the part most likely to be
+   regretted if it waits.
+3. **The monetization build** (`DECISIONS.md` D6) - signed keys and the visible-never-gating
+   asks. It depends on the server, so it follows it.
+
 
 **First: BACKLOG item (n)** - the "how your dates were determined" honesty stat: surface the
 provenance mix of capture dates ("82% embedded EXIF, 11% filename, 5% Takeout, 2% Undated").
