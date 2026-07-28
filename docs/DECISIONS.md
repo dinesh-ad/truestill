@@ -249,8 +249,9 @@ explicit EU consent.
 ### 5. Before any of it is built
 
 The licensing server is new infrastructure and gets its **own research and design pass**:
-authentication, storage, GDPR data handling (lawful basis, retention, export, deletion), and
-backup. **Deliverable: an offline-activation fallback story**, decided in that pass - what a
+authentication, the **user database**, GDPR data handling (lawful basis, retention, export,
+deletion), **backups**, and **uptime** - an activation endpoint that is down is a storefront
+that cannot sell, so its availability target is a product decision rather than an ops detail. **Deliverable: an offline-activation fallback story**, decided in that pass - what a
 user does when the server is unreachable, and what happens to activated installs if it is ever
 retired. That question is the one most likely to be regretted if it is left until after launch.
 
