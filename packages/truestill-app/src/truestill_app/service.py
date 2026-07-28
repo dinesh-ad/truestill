@@ -31,18 +31,19 @@ from truestill_core.hashing import (
     sha256_file,
 )
 from truestill_core.layout import (
+    DEFAULT_PRESET,
     DEFAULT_TEMPLATE_STRING,
     LAYOUT_TEMPLATE_KEY,
     PRESETS,
-    SAMPLE_CONTEXTS,
+    LayoutScheme,
     LayoutTemplate,
     TemplateError,
     effective_layout_string,
     parse_timeline_template,
     pin_existing_layout,
-    preview,
+    preview_scheme,
     resolve_for,
-    resolve_template,
+    resolve_scheme,
 )
 from truestill_core.migrate import run_migration
 from truestill_core.models import (
@@ -689,36 +690,56 @@ def library_status(db: Path) -> dict[str, Any]:
 # --- layout Settings screen (template + migration) ------------------------------------
 
 
-def _render_preview(template: LayoutTemplate) -> list[dict[str, Any]]:
-    """The three sample files rendered through a template, for the live preview."""
-    rows = []
-    for context, row in zip(SAMPLE_CONTEXTS, preview(template, SAMPLE_CONTEXTS), strict=True):
-        when = context.captured_at.strftime("%Y-%m-%d") if context.captured_at else "undated"
-        rows.append(
-            {
-                "category": context.category,
-                "when": when,
-                "path": row.path.as_posix(),
-                "warnings": list(row.warnings),
-            }
-        )
-    return rows
+def _render_preview(scheme: LayoutScheme) -> list[dict[str, Any]]:
+    """The sample rows rendered through a whole scheme, so the preview shows the routing split."""
+    return [
+        {
+            "description": row.description,
+            "when": row.context.captured_at.strftime("%Y-%m-%d")
+            if row.context.captured_at
+            else "undated",
+            "path": rendered.path.as_posix(),
+            "warnings": list(rendered.warnings),
+        }
+        for row, rendered in preview_scheme(scheme)
+    ]
 
 
 def layout_state(db: Path) -> dict[str, Any]:
-    """Current template, whether it is the default, the presets, and a live preview."""
+    """What layout is actually in force for this library, plus the presets and a live preview.
+
+    Everything here is derived from `effective_layout_string`, which is **pure** - opening
+    Settings must not write a setting, and previewing must not pin a layout. A legacy library
+    therefore shows its real (category-first) shape truthfully rather than being shown the new
+    default it has not adopted.
+    """
     with Catalog(db) as catalog:
         stored = effective_layout_string(catalog)
-    current = stored or DEFAULT_TEMPLATE_STRING
+        scheme = resolve_scheme(catalog)
     return {
-        "template": current,
+        "template": stored or DEFAULT_TEMPLATE_STRING,
         "is_default": stored is None,
-        # str -> str, deliberately: the payload is JSON and app.js iterates
-        # Object.entries(presets) as [name, template]. Handing it preset objects
-        # would serialize dataclasses into the API. Pinned by a test.
+        "is_legacy": stored is not None and scheme.is_legacy,
+        # Said in the UI rather than inferred there: a pinned library is not "wrong", it simply
+        # predates the year-first default and keeps its shape until its owner chooses to move.
+        "legacy_note": (
+            "Legacy layout - this library was organized before truestill put the year first. "
+            "It keeps its current shape; choose a preset below to move to a year-first layout."
+            if stored is not None and scheme.is_legacy
+            else ""
+        ),
+        # str -> str, deliberately: the payload is JSON and app.js iterates it. Handing it
+        # preset objects would serialize dataclasses into the API. Pinned by a test.
         "presets": {name: p.timeline for name, p in PRESETS.items()},
-        "preview": _render_preview(resolve_template(stored)),
+        "preset_titles": {name: p.title for name, p in PRESETS.items()},
+        "default_preset": DEFAULT_PRESET.key,
+        "preview": _render_preview(scheme),
     }
+
+
+def _scheme_for_timeline(template: LayoutTemplate) -> LayoutScheme:
+    """A scheme for previewing a typed timeline template: fixed side bin, events appended."""
+    return LayoutScheme(timeline=template, timeline_evented=template)
 
 
 def preview_layout(template_str: str) -> dict[str, Any]:
@@ -727,7 +748,7 @@ def preview_layout(template_str: str) -> dict[str, Any]:
         template = parse_timeline_template(template_str)
     except TemplateError as exc:
         return {"valid": False, "error": str(exc)}
-    return {"valid": True, "preview": _render_preview(template)}
+    return {"valid": True, "preview": _render_preview(_scheme_for_timeline(template))}
 
 
 def set_layout(template_str: str, db: Path) -> dict[str, Any]:

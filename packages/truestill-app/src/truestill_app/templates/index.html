@@ -232,11 +232,14 @@
           <h2>Folder layout</h2>
           <p class="lede" style="margin-bottom:var(--space-4)">How organized copies are named on disk.
             Current: <code id="layout-current"></code> <span id="layout-default" style="color:var(--text-muted)"></span></p>
+          <p class="hint warn hidden" id="layout-legacy"></p>
           <div class="field"><label for="layout-preset">Start from a preset</label>
             <select class="input" id="layout-preset" style="font-family:var(--font-sans)"><option value="">- choose a preset -</option></select></div>
           <div class="field"><label for="layout-template">Template</label>
-            <input class="input" id="layout-template" placeholder="{category}/{yyyy}/{mm}"></div>
-          <table class="table" id="layout-preview"><thead><tr><th>Category</th><th>Date</th><th>Lands at</th></tr></thead><tbody></tbody></table>
+            <input class="input" id="layout-template" placeholder="{yyyy}/{yyyy}-{mm}"></div>
+          <p class="hint">Photos are placed by date. Screenshots, WhatsApp and other
+            non-camera sources are filed beside the years in their own folders, automatically.</p>
+          <table class="table" id="layout-preview"><thead><tr><th>File</th><th>Date</th><th>Lands at</th></tr></thead><tbody></tbody></table>
           <div class="hint warn" id="layout-error"></div>
           <div class="actions"><button class="btn btn-primary" id="layout-save" disabled>Save layout</button>
             <span class="why">Changing this only affects files you organize from now on. Files already sorted stay put.</span></div>

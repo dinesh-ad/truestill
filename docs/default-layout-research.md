@@ -244,3 +244,33 @@ root-level year-lookalike collision.
 
 **Then:** `make check` green, all four CI lanes green, and the `migrate-layout` preview on The
 Memory Cabinet presented for your confirm before anything moves.
+
+
+---
+
+## 7. Addendum (2026-07-28): what the Settings surface must report - decided in 2c
+
+Building the live `Current:` label forced a choice the design had not pinned, recorded here
+because getting it wrong would have flipped the default a step early.
+
+**The label reports the layout *in force*, not the layout we are heading towards.** The obvious
+implementation - show `DEFAULT_PRESET` for a library that has stored nothing - is wrong until
+the flip lands: an organize run still renders through `DEFAULT_TEMPLATE_STRING`, so Settings
+would have advertised a year-first shape while runs produced category-first. That is the same
+class of defect the soak found eight times (the screen describing something the system did not
+do). The label derives from `effective_layout_string`, so **the flip in 2d makes Settings and
+runs agree in a single move**, with no second edit here.
+
+**"Legacy" means a library with its own category-first layout written down** - pinned or chosen -
+not "a library whose current default happens to be category-first". Before the flip every fresh
+library sits on a category-first default; framing those as legacy would tell a brand-new user
+their empty library needs migrating. So the flag is `stored is not None and scheme.is_legacy`.
+
+**Rejected: showing the new default with a "will apply after you switch" caption.** It puts two
+shapes on screen and makes the reader work out which one governs their files. One truthful
+answer beats two hedged ones.
+
+**Purity, restated because the surface is a read.** Everything in `layout_state` derives from
+`effective_layout_string`, which never writes. A library that qualifies for the pin can be
+inspected indefinitely without the pin firing; only a real run persists it. Pinned by
+`test_opening_settings_never_writes_a_setting`.

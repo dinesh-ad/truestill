@@ -39,12 +39,12 @@ from truestill_core.layout import (
     LAYOUT_EVENT_TEMPLATE_KEY,
     LAYOUT_TEMPLATE_KEY,
     PRESETS,
-    SAMPLE_CONTEXTS,
+    LayoutScheme,
     LayoutTemplate,
     TemplateError,
     parse_timeline_template,
     pin_existing_layout,
-    preview,
+    preview_scheme,
     resolve_for,
     resolve_template,
 )
@@ -1057,12 +1057,16 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
 
 
 def _print_layout_preview(template: LayoutTemplate) -> None:
-    """Render the three sample files through ``template`` for the CLI preview."""
+    """Render the sample files through ``template``, showing the routing split."""
+    _print_scheme_preview(LayoutScheme(timeline=template, timeline_evented=template))
+
+
+def _print_scheme_preview(scheme: LayoutScheme) -> None:
     print("Preview:")
-    for context, row in zip(SAMPLE_CONTEXTS, preview(template, SAMPLE_CONTEXTS), strict=True):
-        when = context.captured_at.strftime("%Y-%m-%d") if context.captured_at else "undated"
-        print(f"  {context.category:12} {when:10} -> {row.path.as_posix()}")
-        for warning in row.warnings:
+    for row, rendered in preview_scheme(scheme):
+        when = row.context.captured_at.strftime("%Y-%m-%d") if row.context.captured_at else ""
+        print(f"  {row.description:16} {when:10} -> {rendered.path.as_posix()}")
+        for warning in rendered.warnings:
             print(f"      ! {warning}")
 
 

@@ -829,21 +829,27 @@ $("bk-cancel").onclick = () => { if (bkJob) api(`/api/jobs/${bkJob}/cancel`, {})
 
 // ---------- Settings: layout + migrate ----------
 function renderLayoutPreview(rows) {
-  $("layout-preview").querySelector("tbody").innerHTML = rows.map((r) => {
-    const w = r.warnings && r.warnings.length ? ` <span style="color:var(--warning)">⚠ ${esc(r.warnings.join("; "))}</span>` : "";
-    return `<tr><td>${esc(r.category)}</td><td class="mono">${esc(r.when)}</td><td class="path">${esc(r.path)}${w}</td></tr>`;
-  }).join("");
+  $("layout-preview").querySelector("tbody").innerHTML = rows.map((r) => `<tr>
+    <td>${esc(r.description)}</td><td class="k">${esc(r.when)}</td>
+    <td><code>${esc(r.path)}</code>${r.warnings.length ? `<div class="hint warn">${esc(r.warnings.join("; "))}</div>` : ""}</td>
+  </tr>`).join("");
 }
 async function loadLayout() {
   const s = await get("/api/layout");
   $("layout-current").textContent = s.template;
+  // Never a hardcoded label: a pinned library is told it predates the year-first default and
+  // what to do about it, a fresh one is simply told it is on the default.
   $("layout-default").textContent = s.is_default ? "(default)" : "";
+  $("layout-legacy").textContent = s.legacy_note || "";
+  $("layout-legacy").classList.toggle("hidden", !s.legacy_note);
   $("layout-template").value = s.template;
   const preset = $("layout-preset");
   preset.length = 1;
   for (const [name, tmpl] of Object.entries(s.presets)) {
     const o = document.createElement("option");
-    o.value = tmpl; o.textContent = `${name}  (${tmpl})`;
+    const title = (s.preset_titles || {})[name] || name;
+    o.value = tmpl;
+    o.textContent = `${title}  -  ${tmpl}` + (name === s.default_preset ? "  (recommended)" : "");
     preset.appendChild(o);
   }
   renderLayoutPreview(s.preview);
@@ -861,6 +867,8 @@ $("layout-save").onclick = async () => {
   if (r.valid === false) { $("layout-error").textContent = `Invalid: ${r.error}`; return; }
   $("layout-current").textContent = r.template;
   $("layout-default").textContent = "";
+  $("layout-legacy").textContent = r.legacy_note || "";
+  $("layout-legacy").classList.toggle("hidden", !r.legacy_note);
   $("layout-error").textContent = "Saved.";
 };
 $("mig-preview").onclick = async () => {

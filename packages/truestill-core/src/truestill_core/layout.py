@@ -596,10 +596,73 @@ def resolve_scheme(catalog: CatalogLike) -> LayoutScheme:
     )
 
 
-#: Three representative files for the live preview: a dated camera photo, a dated messenger
-#: image, and an undated file -- enough to show date placement and the Undated fallback.
-SAMPLE_CONTEXTS: tuple[RenderContext, ...] = (
-    RenderContext(category="Camera", captured_at=datetime(2023, 8, 20, 14, 30)),  # noqa: DTZ001
-    RenderContext(category="WhatsApp", captured_at=datetime(2024, 1, 15)),  # noqa: DTZ001
-    RenderContext(category="Screenshots", captured_at=None),
+@dataclass(frozen=True, slots=True)
+class SampleRow:
+    """One row of the live layout preview: what kind of file, and where it lands."""
+
+    description: str
+    rule: str
+    context: RenderContext
+
+
+#: The live preview must show the **routing split**, not just date placement, because the split
+#: is the thing a user cannot infer from a template string: camera photos go to the timeline,
+#: everything else to a labelled side bin beside it, and an event gets its own readable folder.
+#: An undated row is included because the collapse rule surprises people otherwise.
+SAMPLE_ROWS: tuple[SampleRow, ...] = (
+    SampleRow(
+        "Camera",
+        TIMELINE_RULE,
+        RenderContext(category="Camera", captured_at=datetime(2014, 8, 20, 14, 30)),  # noqa: DTZ001
+    ),
+    SampleRow(
+        "Camera event",
+        TIMELINE_RULE,
+        RenderContext(
+            category="Camera",
+            captured_at=datetime(2014, 8, 20, 14, 30),  # noqa: DTZ001
+            event=(datetime(2014, 8, 20), "goa-trip"),  # noqa: DTZ001
+            event_name="Goa Trip",
+        ),
+    ),
+    SampleRow("Camera undated", TIMELINE_RULE, RenderContext(category="Camera")),
+    SampleRow(
+        "Screenshots",
+        "screenshot_name",
+        RenderContext(category="Screenshots", captured_at=datetime(2024, 1, 15)),  # noqa: DTZ001
+    ),
 )
+
+
+def preview_scheme(
+    scheme: LayoutScheme, *, filename: str = "sample.jpg"
+) -> list[tuple[SampleRow, PreviewRow]]:
+    """Render :data:`SAMPLE_ROWS` through a whole scheme, router included.
+
+    Renders through the same :meth:`LayoutScheme.render` an organize run uses, so a preview can
+    only ever show what a run would actually do. **O(len(SAMPLE_ROWS))** - a constant.
+    """
+    rendered = [
+        scheme.template_for(row.rule, evented=row.context.event is not None)._render(row.context)
+        for row in SAMPLE_ROWS
+    ]
+    fulls = [directory / filename for directory, _ in rendered]
+
+    lowered: dict[str, int] = {}
+    collisions: set[int] = set()
+    for i, full in enumerate(fulls):
+        key = full.as_posix().lower()
+        if key in lowered:
+            collisions.add(i)
+            collisions.add(lowered[key])
+        lowered[key] = i
+
+    out: list[tuple[SampleRow, PreviewRow]] = []
+    for i, (row, full, (_, notes)) in enumerate(zip(SAMPLE_ROWS, fulls, rendered, strict=True)):
+        warnings = list(notes)
+        if len(full.as_posix()) > PATH_LENGTH_WARN:
+            warnings.append(f"path is {len(full.as_posix())} chars, near the Windows 260 limit")
+        if i in collisions:
+            warnings.append("collides with another sample on a case-insensitive filesystem")
+        out.append((row, PreviewRow(path=full, warnings=tuple(warnings))))
+    return out
