@@ -102,6 +102,18 @@ _MAX_LABEL_LEN = 60
 _GENERIC_SOFTWARE = frozenset({"android", "ios", "iphone os", "windows", "picasa uploader"})
 
 
+def is_messenger_filename(name: str) -> bool:
+    """Whether a filename follows a messenger/social convention (`NAME_PATTERNS`).
+
+    Used by the date chain to refuse those filenames as a *capture* date. Every pattern in
+    `NAME_PATTERNS` belongs to an app that stamps the moment a file was **sent, received or
+    exported**, which is not the moment the photo was taken and is often years later.
+
+    O(len(NAME_PATTERNS)) anchored regex matches - constant in library size.
+    """
+    return any(entry.pattern.match(name) for entry in NAME_PATTERNS)
+
+
 def sanitize_label(raw: str, fallback: str = SAVED_LABEL) -> str:
     """Make an arbitrary metadata string safe to use as a directory name."""
     cleaned = _UNSAFE_CHARS.sub(" ", raw)

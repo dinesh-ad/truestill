@@ -51,7 +51,7 @@ def test_sentinel_rejection_does_not_depend_on_the_sanity_window(
 def test_sentinel_falls_through_to_a_real_later_tier() -> None:
     """A refused sentinel must not poison a file that another tier can date correctly."""
     when, source, _ = resolve_capture_datetime(
-        Path("IMG-20250804-WA0020.jpg"), {"CreateDate": "1904:01:01 00:00:00"}
+        Path("IMG_20250804_120000.jpg"), {"CreateDate": "1904:01:01 00:00:00"}
     )
     assert source is DateSource.FILENAME
     assert when == datetime(2025, 8, 4)

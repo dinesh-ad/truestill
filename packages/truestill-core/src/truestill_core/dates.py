@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, NamedTuple
 
+from truestill_core.categorize import is_messenger_filename
 from truestill_core.models import DateSource
 from truestill_core.takeout import TakeoutSidecar, local_naive
 
@@ -90,6 +91,25 @@ def date_from_filename(name: str) -> datetime | None:
         return _safe_date(int(euro.group(3)), int(euro.group(2)), int(euro.group(1)))
 
     return None
+
+
+def _filename_capture_date(name: str) -> datetime | None:
+    """A filename date only when the filename plausibly encodes a **capture** date.
+
+    A messenger convention is refused outright. ``IMG-20250804-WA0020.jpg`` carries the day
+    WhatsApp *delivered* the file, not the day the photo was taken: forward a 2015 holiday photo
+    today and that name says today. Filing by it would silently move a photo years from where it
+    belongs, which is worse than `Undated/` -- an honest gap the user can fix beats a confident
+    wrong answer (`IMPLEMENTATION_STANDARDS.md` §1, dates are never guessed).
+
+    Screenshot names such as ``Screenshot_20260721_001427.png`` are deliberately still trusted:
+    a screenshot's filename stamp *is* its capture moment, written by the device that made it.
+    That is why this refuses **messenger conventions** rather than the date patterns themselves -
+    the two share a pattern (``YYYYMMDD``) but not a meaning.
+    """
+    if is_messenger_filename(name):
+        return None
+    return date_from_filename(name)
 
 
 def _safe_date(year: int, month: int, day: int) -> datetime | None:
@@ -247,7 +267,7 @@ def resolve_capture_datetime(
             _local(takeout.created_at if takeout else None, tz_offset),
             DateSource.TAKEOUT_UPLOAD,
         ),
-        _Candidate(date_from_filename(path.name), DateSource.FILENAME),
+        _Candidate(_filename_capture_date(path.name), DateSource.FILENAME),
     )
 
     saw_sentinel = embedded.saw_sentinel

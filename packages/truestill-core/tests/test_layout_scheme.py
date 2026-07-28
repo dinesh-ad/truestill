@@ -221,3 +221,27 @@ def test_undated_collapses_per_branch() -> None:
         scheme.render("screenshot_name", RenderContext(category="Screenshots")).as_posix()
         == "Screenshots/Undated"
     )
+
+
+# --- R2: the year is always the top-level parent ------------------------------------------
+
+
+def test_no_shipped_preset_can_put_a_category_above_a_year() -> None:
+    """R2, on the preset side: side bins sit beside the years, never above them."""
+    for preset in PRESETS.values():
+        for template in (preset.timeline, preset.timeline_evented):
+            assert "{category}" not in template, f"{preset.key} names a category on the timeline"
+
+
+@pytest.mark.parametrize(
+    "attempt",
+    [
+        "{category}/{yyyy}/{mm}",  # category-first
+        "{yyyy}/{yyyy}-{mm}/{category}",  # category-last
+        "Photos/{category}/{yyyy}",  # category buried behind a literal
+    ],
+)
+def test_no_template_a_user_can_type_places_a_category_on_the_timeline(attempt: str) -> None:
+    """R2, on the template side: it is structurally impossible, not merely unavailable."""
+    with pytest.raises(TemplateError):
+        parse_timeline_template(attempt)

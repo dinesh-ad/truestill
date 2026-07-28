@@ -73,7 +73,7 @@ def test_skip_undated_names_skipped_files(
     src = tmp_path / "src"
     src.mkdir()
     # A filename-dated file (kept) and an undateable one (no EXIF, no date in name).
-    Image.new("RGB", (16, 16), (1, 2, 3)).save(src / "IMG-20250804-WA0007.jpg", "JPEG")
+    Image.new("RGB", (16, 16), (1, 2, 3)).save(src / "IMG_20250804_120000.jpg", "JPEG")
     Image.new("RGB", (16, 16), (9, 8, 7)).save(src / "mystery-scan.jpg", "JPEG")
     out = tmp_path / "out"
     db = tmp_path / "c.sqlite"
@@ -93,7 +93,7 @@ def test_organize_honors_stored_template(tmp_path: Path) -> None:
     src = tmp_path / "src"
     src.mkdir()
     # Filename convention dates + categorizes this without needing embedded EXIF.
-    Image.new("RGB", (16, 16), (1, 2, 3)).save(src / "IMG-20250804-WA0007.jpg", "JPEG")
+    Image.new("RGB", (16, 16), (1, 2, 3)).save(src / "IMG_20250804_120000.jpg", "JPEG")
     dest = tmp_path / "out"
     db = tmp_path / "c.sqlite"
 

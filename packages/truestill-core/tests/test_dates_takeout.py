@@ -68,5 +68,5 @@ def test_insane_exif_year_falls_through_to_takeout() -> None:
 
 
 def test_filename_below_takeout_upload() -> None:
-    _, source, _ = resolve_capture_datetime(Path("IMG-20250804-WA0020.jpg"), {}, takeout=None)
+    _, source, _ = resolve_capture_datetime(Path("IMG_20250804_120000.jpg"), {}, takeout=None)
     assert source is DateSource.FILENAME

@@ -32,7 +32,7 @@ def test_parse_exif_datetime_rejects_junk(raw: str | None) -> None:
 @pytest.mark.parametrize(
     ("filename", "expected"),
     [
-        ("IMG-20250804-WA0020.jpg", datetime(2025, 8, 4)),
+        ("IMG_20250804_120000.jpg", datetime(2025, 8, 4)),
         ("photo_2024-01-15_12-30-45.jpg", datetime(2024, 1, 15)),
         ("photo_1@29-10-2021_09-30-00.jpg", datetime(2021, 10, 29)),
         ("Screenshot_20260721_001427.png", datetime(2026, 7, 21)),
@@ -49,7 +49,7 @@ def test_date_from_filename_rejects_invalid(filename: str) -> None:
 
 def test_metadata_beats_filename() -> None:
     when, source, tag = resolve_capture_datetime(
-        Path("IMG-20250804-WA0020.mp4"),
+        Path("VID_20250804_120000.mp4"),
         {"CreateDate": "2025:08:04 11:16:38"},
     )
     assert when == datetime(2025, 8, 4, 11, 16, 38)
@@ -108,7 +108,7 @@ def test_container_createdate_still_used_when_no_creationdate() -> None:
 
 
 def test_filename_used_when_metadata_absent() -> None:
-    when, source, tag = resolve_capture_datetime(Path("IMG-20250804-WA0020.mp4"), {})
+    when, source, tag = resolve_capture_datetime(Path("VID_20250804_120000.mp4"), {})
     assert when == datetime(2025, 8, 4)
     assert source is DateSource.FILENAME
     assert tag is None

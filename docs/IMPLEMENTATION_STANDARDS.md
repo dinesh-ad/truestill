@@ -59,6 +59,13 @@ copies to compare - the file *is* the copy.
 
 **Dating tier order (current), from `dates.resolve_capture_datetime`:**
 
+- **A messenger filename is never a capture date.** `IMG-20250804-WA0020.jpg` carries the day
+  the file was *delivered*, not the day it was taken - forward a 2015 photo today and the name
+  says today. Files whose only date is a messenger convention (`categorize.is_messenger_filename`,
+  reusing `NAME_PATTERNS`) go to `Undated/`. **Screenshot filename stamps are still trusted**:
+  they share the `YYYYMMDD` pattern but not its meaning, so the refusal is scoped to the
+  convention, never the pattern. `dates._filename_capture_date`; pinned by
+  `tests/test_messenger_dates.py`; rationale in `docs/messenger-dates-research.md`.
 - Default: **sane embedded EXIF** → **Takeout `photoTakenTime`** (`TAKEOUT`) → **Takeout
   `creationTime`** (`TAKEOUT_UPLOAD`, approximate) → **filename convention** (`FILENAME`) →
   **none** (`NONE` → `Undated/`, or `REJECTED_SENTINEL` when a date was found and refused).
