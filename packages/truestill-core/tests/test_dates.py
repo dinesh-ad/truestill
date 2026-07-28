@@ -85,8 +85,10 @@ def test_quicktime_creationdate_shifts_the_month_folder() -> None:
     )
     assert when == datetime(2023, 8, 1, 1, 30, 0)
     assert tag == "CreationDate"
-    placed = build_destination(Path("/dest"), "Camera", when, "IMG_9.mov")
-    assert placed == Path("/dest/Camera/2023/08/IMG_9.mov")  # 2023/07 under the old behaviour
+    placed = build_destination(Path("/dest"), "Camera", when, "IMG_9.mov", rule="device")
+    assert placed == Path(
+        "/dest/2023/2023-08/2023-08 - Everyday/IMG_9.mov"
+    )  # 2023/07 under the old behaviour
 
 
 def test_creationdate_wiring_is_requested_and_ranked() -> None:
@@ -122,8 +124,10 @@ def test_no_evidence_is_not_guessed() -> None:
 
 def test_destination_layout() -> None:
     root = Path("/dest")
-    dated = build_destination(root, "WhatsApp", datetime(2025, 8, 4), "a.mp4")
-    assert dated == root / "WhatsApp" / "2025" / "08" / "a.mp4"
+    dated = build_destination(
+        root, "WhatsApp", datetime(2025, 8, 4), "a.mp4", rule="filename_convention"
+    )
+    assert dated == root / "WhatsApp" / "2025" / "2025-08" / "a.mp4"  # side bin
 
-    undated = build_destination(root, "Camera", None, "b.jpg")
-    assert undated == root / "Camera" / "Undated" / "b.jpg"
+    undated = build_destination(root, "Camera", None, "b.jpg", rule="device")
+    assert undated == root / "Undated" / "b.jpg"  # timeline undated sits at the root

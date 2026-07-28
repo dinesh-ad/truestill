@@ -21,6 +21,7 @@ from truestill_core.destinations import LocalDestination
 from truestill_core.exif import read_metadata
 from truestill_core.layout import (
     DEFAULT_SCHEME,
+    LEGACY_TEMPLATE_STRING,
     PRESETS,
     LayoutScheme,
     preview_scheme,
@@ -89,7 +90,8 @@ def test_a_real_run_routes_camera_to_the_timeline_and_the_rest_to_side_bins(
     placed = _organize(tmp_path, YEAR_FIRST, [photo, shot])
 
     assert placed == [
-        "2014/2014-08/20140820_143000_IMG_0001.jpg",  # camera -> timeline, no category folder
+        # camera -> timeline, no category folder, ordinary photos in the Everyday bucket
+        "2014/2014-08/2014-08 - Everyday/20140820_143000_IMG_0001.jpg",
         "Screenshots/2024/2024-01/Screenshot_20240115_101500.jpg",  # -> side bin, not double-dated
     ]
 
@@ -128,7 +130,8 @@ def test_a_legacy_scheme_produces_exactly_what_it_always_did(tmp_path: Path) -> 
     photo = _camera_photo(source / "IMG_0001.jpg")
     shot = _screenshot(source / "Screenshot_20240115_101500.jpg")
 
-    placed = _organize(tmp_path, DEFAULT_SCHEME, [photo, shot])
+    legacy = scheme_from_string(LEGACY_TEMPLATE_STRING)
+    placed = _organize(tmp_path, legacy, [photo, shot])
 
     assert placed == [
         "Camera/2014/08/20140820_143000_IMG_0001.jpg",
@@ -156,8 +159,13 @@ def test_a_run_and_a_preview_of_the_same_layout_agree(tmp_path: Path, preset_key
     assert Path(placed[0]).parent.as_posix() == previewed["Camera"]
 
 
-def test_the_default_scheme_is_the_legacy_layout_expressed_as_a_scheme() -> None:
-    """There is no template-only path left; "the default" is a scheme like any other."""
-    assert DEFAULT_SCHEME.is_legacy is True
-    assert DEFAULT_SCHEME.side_bin.template == DEFAULT_SCHEME.timeline.template
-    assert scheme_from_string(DEFAULT_SCHEME.timeline.template) == DEFAULT_SCHEME
+def test_the_default_is_the_year_first_preset() -> None:
+    """After the flip the default IS a year-first scheme, not a legacy one.
+
+    Its two timeline shapes differ (events keep the month as their parent, ordinary photos go
+    to `Everyday`), which is why the default cannot be rebuilt from a single stored string.
+    """
+    assert PRESETS["year-month-event"].scheme() == DEFAULT_SCHEME
+    assert DEFAULT_SCHEME.is_legacy is False
+    assert DEFAULT_SCHEME.side_bin.template == "{category}/{yyyy}/{yyyy}-{mm}"
+    assert DEFAULT_SCHEME.timeline.template != DEFAULT_SCHEME.timeline_evented.template

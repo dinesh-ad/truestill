@@ -217,10 +217,31 @@ successful upgrade), never automatic.
   already in the name - so date-embedded names (screenshots) are not double-dated and re-runs
   never stack a prefix; any mismatch keeps the authoritative prefix. Pinned in
   `tests/test_naming.py` (incl. real screenshot/WhatsApp cases). Disable with `--no-rename`.
-- **Folder structure:** `<Label>/YYYY/MM/` (bare two-digit month). Undated → `<Label>/Undated/`.
-- **Event placement:** named Camera events become `<Label>/YYYY/MM/YYYYMMDD_<slug>/`. A cluster
-  straddling a month boundary is consolidated under its **start** month
-  (`organizer.apply_events`; pinned by `test_apply_events_consolidates_cross_month_under_start_month`).
+- **Folder structure (year-first, default since 2026-07-28).** The timeline is the drive root;
+  categories are labelled **side bins beside the years, never above them**:
+
+  | | Path |
+  |---|---|
+  | Camera, un-evented | `YYYY/YYYY-MM/YYYY-MM - Everyday/` |
+  | Camera, named event | `YYYY/YYYY-MM/YYYY-MM-DD - <Name>/` |
+  | Non-camera (side bin) | `<Label>/YYYY/YYYY-MM/` |
+  | Undated, timeline | `Undated/` (at the root) |
+  | Undated, side bin | `<Label>/Undated/` |
+
+  Months name themselves (`2014-08`, not `08`) so a folder still says what it is once copied
+  away from its parent. The `Everyday` bucket keeps ordinary photos from sitting loose among a
+  month's event folders. The side-bin shape is **fixed and not user-editable**, and `{category}`
+  is rejected in a timeline template at input (§2), so category-first and category-last are
+  structurally impossible rather than merely unavailable.
+- **The previous default, `<Label>/YYYY/MM/`, is not gone - it is pinned.** A library organized
+  before the flip keeps it (`layout.LEGACY_TEMPLATE_STRING`, written by `pin_existing_layout`),
+  renders through it, and is described as a legacy layout in Settings. Migration is offered,
+  never forced. Pinned by `test_a_legacy_scheme_produces_exactly_what_it_always_did`.
+- **Event placement:** a named Camera event's folder is `YYYY-MM-DD - <Name>` under its month,
+  carrying the **human name** the user typed (path-safe per §9), not a slug. A legacy library
+  keeps the old `YYYYMMDD_<slug>` spelling. A cluster straddling a month boundary is consolidated
+  under its **start** month (`organizer.apply_events`; pinned by
+  `test_apply_events_consolidates_cross_month_under_start_month`).
 - **Category set** (derived, ordered; `categorize.build_rules`): screenshot-by-metadata →
   screenshot-by-name → messenger/app filename conventions → editing `Software` →
   capture device (`Camera`, or per-device with `--by-device`) → `Saved/`.

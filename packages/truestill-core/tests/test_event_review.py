@@ -57,7 +57,7 @@ def test_apply_names_and_places(tmp_path: Path) -> None:
         out = run_event_stage(_one_cluster(), {}, catalog, apply=True, prompt=lambda _c: "Goa Trip")
     assert len(out.event_ids) == 10
     assert all(
-        r.decision.relative.as_posix().startswith("Camera/2026/06/20260614_goa-trip/")
+        r.decision.relative.as_posix().startswith("2026/2026-06/2026-06-14 - Goa Trip/")
         for r in out.resolutions
     )
 
@@ -77,7 +77,7 @@ def test_merge_then_commit_places_all_under_one_event(tmp_path: Path) -> None:
 
     assert len(out.event_ids) == 20  # all files belong to the one merged event
     assert all(
-        r.decision.relative.as_posix().startswith("Camera/2026/06/20260614_summer/")
+        r.decision.relative.as_posix().startswith("2026/2026-06/2026-06-14 - Summer/")
         for r in out.resolutions
     )
 

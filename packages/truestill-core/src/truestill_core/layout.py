@@ -63,8 +63,10 @@ _NON_DATE_TOKENS: frozenset[str] = frozenset({"category", "event"})
 #: Every token the v1 grammar accepts.
 KNOWN_TOKENS: frozenset[str] = frozenset(_DATE_TOKENS) | _NON_DATE_TOKENS
 
-#: The structure truestill has always produced; the default until a catalog stores its own.
-DEFAULT_TEMPLATE_STRING = "{category}/{yyyy}/{mm}"
+#: The un-evented timeline of the default layout - the year first, months that name themselves,
+#: and an ``Everyday`` bucket so ordinary photos do not sit loose among a month's event folders.
+#: (Before 2026-07-28 this was ``{category}/{yyyy}/{mm}``; see `docs/default-layout-research.md`.)
+DEFAULT_TEMPLATE_STRING = "{yyyy}/{yyyy}-{mm}/{yyyy}-{mm} - Everyday"
 
 #: The catalog settings key under which a library's chosen timeline template is persisted.
 LAYOUT_TEMPLATE_KEY = "layout_template"
@@ -547,7 +549,9 @@ PRESETS: dict[str, Preset] = {
     "year-month-event": Preset(
         key="year-month-event",
         title="Year / Month / Event",
-        timeline="{yyyy}/{yyyy}-{mm}",
+        # Ordinary photos get an `Everyday` bucket so they do not sit loose beside the month's
+        # event folders; an event keeps the month itself as its parent.
+        timeline="{yyyy}/{yyyy}-{mm}/{yyyy}-{mm} - Everyday",
         timeline_evented="{yyyy}/{yyyy}-{mm}",
     ),
     "year-event": Preset(
@@ -595,10 +599,13 @@ def resolve_scheme(catalog: CatalogLike) -> LayoutScheme:
     so there is no second path that could answer differently -- the divergence the design audit
     found (a preview rendering through a scheme while runs rendered through a bare template).
     """
-    return scheme_from_string(
-        effective_layout_string(catalog) or DEFAULT_TEMPLATE_STRING,
-        catalog.get_setting(LAYOUT_EVENT_TEMPLATE_KEY),
-    )
+    stored = effective_layout_string(catalog)
+    if stored is None:
+        # Falls back to the whole default *scheme*, not to its timeline string: the default's
+        # evented and un-evented shapes differ (events keep the month as their parent, ordinary
+        # photos go to `Everyday`), and a single string cannot express that.
+        return DEFAULT_SCHEME
+    return scheme_from_string(stored, catalog.get_setting(LAYOUT_EVENT_TEMPLATE_KEY))
 
 
 @dataclass(frozen=True, slots=True)
@@ -674,6 +681,7 @@ def preview_scheme(
 
 
 #: The layout a run uses when a catalog has chosen nothing. Derived from
-#: :data:`DEFAULT_TEMPLATE_STRING` through the same factory every stored layout goes through, so
-#: "the default" is a scheme like any other and there is no template-only path anywhere.
-DEFAULT_SCHEME = scheme_from_string(DEFAULT_TEMPLATE_STRING)
+#: the default preset, so "the default" is a scheme like any other and there is no
+#: template-only path anywhere. Built from the preset rather than from
+#: :data:`DEFAULT_TEMPLATE_STRING` because the two timeline shapes differ.
+DEFAULT_SCHEME = DEFAULT_PRESET.scheme()

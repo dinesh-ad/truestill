@@ -18,7 +18,7 @@ def test_config_show_lists_default_and_presets(
 ) -> None:
     assert main(["config", "--db", str(tmp_path / "c.sqlite")]) == 0
     out = capsys.readouterr().out
-    assert "{category}/{yyyy}/{mm}" in out  # the default template (unchanged until the flip)
+    assert "{yyyy}/{yyyy}-{mm}" in out  # the year-first default
     assert "year-month-day" in out  # presets are listed
 
 
@@ -160,7 +160,9 @@ def test_a_preset_with_a_distinct_event_shape_persists_both_and_clears_on_switch
         assert catalog.get_setting(LAYOUT_TEMPLATE_KEY) == "{yyyy}/{yyyy}-{mm}"
         assert catalog.get_setting(LAYOUT_EVENT_TEMPLATE_KEY) == "{yyyy}"
 
-    assert main(["config", "--db", str(db), "--preset", "year-month-event"]) == 0
+    # year-month-day's evented and un-evented shapes are identical, so switching to it must
+    # CLEAR the override rather than leave year-event's behind.
+    assert main(["config", "--db", str(db), "--preset", "year-month-day"]) == 0
     with Catalog(db) as catalog:
         assert catalog.get_setting(LAYOUT_EVENT_TEMPLATE_KEY) is None
 

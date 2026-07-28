@@ -124,8 +124,9 @@ Full rules and their enforcing tests: `IMPLEMENTATION_STANDARDS.md` §3.1.
 as labelled side bins beside the years. Layout and defaults only - dating, dedup, custody and
 every §1 invariant are otherwise untouched.
 
-**The default has NOT flipped yet.** Everything below is landed and green; the constant still
-points at the old shape until step 2d.
+**The default HAS flipped (2026-07-28).** A new library organizes year-first; a library that
+existed before the flip keeps its shape via the pin and is offered migration, never forced into
+it. Step 2e (migration routing) is what remains.
 
 | Step | State |
 |---|---|
@@ -135,8 +136,8 @@ points at the old shape until step 2d.
 | **R1 messenger dates + R2 year-first guards** (`e5d2f26`) | done - see `docs/messenger-dates-research.md` |
 | **2b config rewrite** (`e3f09f1`) · **2b-san path safety** (`868e614`) · **2c Settings surface** (`7dea12f`) | done |
 | **Design audit + seam wiring** (`7dea12f` audit, this commit) | done - the scheme is now actually reached by runs; see `default-layout-research.md` §8 |
-| 2d default flip + contract §4 | **next** |
-| 2e migration per-label routing, then the Memory Cabinet preview | pending |
+| **2d default flip + contract §4** | done - a fresh library is year-first; a pinned one is byte-identical to before |
+| 2e migration per-label routing, then the Memory Cabinet preview | **next** |
 
 **Three rules governing this work, all load-bearing:**
 
@@ -148,6 +149,9 @@ points at the old shape until step 2d.
   input, so the junk quarantine cannot be typed around.
 - **Routing keys on `CategoryMatch.rule`, never on the label.** Under `--by-device` the label is
   the hardware name, so a label test would send an entire library into a side bin.
+- **A new library is year-first; an existing one is never reshaped.** `Undated/` sits at the
+  drive root for the timeline, `<Label>/Undated/` for a side bin, and ordinary photos land in a
+  per-month `Everyday` bucket so they do not sit loose among that month's event folders.
 - **There is one render path and one resolution path.** `plan`/`build_relative`/`apply_events`
   take a `LayoutScheme`, never a bare template; `resolve_scheme` is the only way to ask what a
   catalog is on. A design audit caught the seam being optional and therefore switched off for

@@ -56,7 +56,7 @@ def test_ingest_dedups_recovers_dates_and_bakes_metadata(
     assert len(landed) == 2
 
     # Dates recovered from the sidecar -> filed under 2023/08.
-    assert all("2023/08" in p.as_posix() for p in landed)
+    assert all("2023/2023-08" in p.as_posix() for p in landed)
 
     report = capsys.readouterr().out
     assert "TAKEOUT RESCUE REPORT" in report

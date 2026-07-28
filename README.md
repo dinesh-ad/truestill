@@ -6,16 +6,22 @@ counted alongside them, but photos and videos are what truestill is built and tu
 
 ```
 <destination>/
-├── Camera/2025/08/
-├── WhatsApp/2025/08/
-├── Screenshots/2026/07/
-├── Telegram/2024/01/
-├── Snapseed/2023/05/           <- created on the fly, no code change
-└── Saved/Undated/
+├── 2025/
+│   ├── 2025-08/
+│   │   ├── 2025-08 - Everyday/      <- ordinary photos from that month
+│   │   └── 2025-08-14 - Goa Trip/   <- a named event, if you name one
+│   └── 2025-09/
+├── Screenshots/2026/2026-07/        <- non-camera sources sit beside the years
+├── WhatsApp/2025/2025-08/
+├── Snapseed/2023/2023-05/           <- created on the fly, no code change
+└── Undated/                         <- no trustworthy date; never guessed
 ```
 
-The month folder is the bare two-digit month (`07`); the year is already the parent
-folder, so `2026-07` would just repeat it.
+**Your years are the top level.** A photo library is a timeline first and a set of sources
+second, so the year is the parent and months name themselves - `2025-08`, not a bare `08`, so a
+folder still says what it is once it is copied, searched or attached somewhere on its own.
+Screenshots, WhatsApp images and other non-camera sources are filed *beside* the years rather
+than above them, so they never break the timeline apart.
 
 Built for organizing a Google Photos export before it is pushed to long-term storage,
 but nothing in it is Google-specific.

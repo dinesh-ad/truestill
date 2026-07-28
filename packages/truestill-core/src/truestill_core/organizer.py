@@ -241,9 +241,21 @@ def build_relative(
     return scheme.render(rule, RenderContext(category=label, captured_at=captured_at)) / filename
 
 
-def build_destination(root: Path, label: str, captured_at: datetime | None, filename: str) -> Path:
-    """Absolute local path for a file. Convenience for local previews and tests."""
-    return root / build_relative(label, captured_at, filename)
+def build_destination(
+    root: Path,
+    label: str,
+    captured_at: datetime | None,
+    filename: str,
+    *,
+    rule: str,
+    scheme: LayoutScheme = DEFAULT_SCHEME,
+) -> Path:
+    """Absolute local path for a file. Convenience for local previews and tests.
+
+    ``rule`` is required rather than defaulted: routing keys on it, so a caller that omitted it
+    would silently get timeline placement for a screenshot or a WhatsApp image.
+    """
+    return root / build_relative(label, captured_at, filename, rule=rule, scheme=scheme)
 
 
 def plan(

@@ -111,67 +111,6 @@ is invisible here is retired, not free.**
     nothing extra here; LSH is for *approximate* nearest-neighbour at far larger scale and would
     trade away exactness we currently have. `DedupIndex`'s interface was designed for the swap.
 
-- **(w) Self-describing month preset.** ⚠ **Absorbed by the year-first default correction**
-  (`docs/default-layout-research.md`) - self-describing months are baked into every shipped
-  preset there. Kept until that correction's default flip lands, then closed as delivered-by.
-  The original entry follows.
-
-  A folder named
-  `2014-08` explains itself when it is copied, searched, sorted or attached somewhere else;
-  `08` only means anything while you can still see its parent. Same argument the repo already
-  made in the *opposite* direction for the default (`README.md`: the year is the parent, so
-  `2026-07` "would just repeat it") - and both are right, because they optimise for different
-  moments. The default optimises browsing in place; this optimises the folder travelling alone.
-  It is offered as a **preset, not a new default.**
-  - **The template engine already supports it - verified, not assumed.** `{yyyy}-{mm}` in one
-    segment is an ordinary literal-plus-token construction the parser already accepted.
-    Rendered against `layout.LayoutTemplate` today:
-
-    | context | result |
-    |---|---|
-    | dated | `Camera/2014/2014-08` |
-    | undated | `Screenshots/Undated` (the undated-collapse rule holds) |
-    | named event | `Camera/2014/2014-08/20140820_lisbon` |
-
-  - **The event variant asked for is unnecessary, and that makes this smaller.** Because of the
-    "event append" rule (`layout.py`: when a template has no explicit `{event}` token the event
-    folder is appended), `{category}/{yyyy}/{yyyy}-{mm}` and
-    `{category}/{yyyy}/{yyyy}-{mm}/{event}` render **identically** for event members - both
-    confirmed above. Ship **one** preset. An explicit `{event}` token only earns its place when
-    the event folder needs to go somewhere other than last.
-  - **Scope is genuinely preset + docs.** `PRESETS` is a plain dict and every consumer reads it
-    dynamically: the CLI derives `--preset` choices from `tuple(PRESETS)` and lists
-    `PRESETS.items()`; the app serves `dict(PRESETS)` and the Settings dropdown is populated by
-    iteration. One dict entry reaches both front-ends with no other code change. Wants a
-    rendering test and a name.
-  - **State the migration truth in the UI when it ships.** A template change affects **new
-    files only**; an existing library is relocated by `truestill migrate-layout` (preview
-    first, journalled). Someone switching mid-library will otherwise expect their existing
-    folders to rename themselves.
-  - **Pre-launch candidate.** Trivial, and it costs nothing to defer.
-
-- **GPS-derived per-photo timezone.** Deferred during Takeout Rescue Mode. `--tz` is a single
-  fixed offset for the whole run, which cannot correctly date a library that spans timezones;
-  the real fix derives each photo's timezone from its GPS. The near-midnight caveat is
-  surfaced honestly in the ingest report until this exists.
-- **Zip-direct Takeout ingestion.** `truestill ingest --takeout` takes an already-extracted
-  directory today; reading the Takeout `.zip`(s) directly was flagged as a follow-up in the
-  Phase-2 spec (deferred to avoid complicating v1).
-- **Recognize additional real-world video extensions (l).** The metadata-chain corpus surfaced
-  container formats truestill's `MEDIA_EXTENSIONS` doesn't recognize, so they are skipped (now
-  *reported*, not silent). Recognize the ones that are actually common - **`.vob`, `.ts`, `.m2v`,
-  and the `.asf` family at minimum** - with the final list driven by **prevalence evidence, not
-  the whole corpus zoo** (`.swf`, raw `.hevc`/`.mjpeg` elementary streams are not "photos to back
-  up"). Each extension added must have its **category and date handling verified via the corpus
-  probe** before inclusion. **Post-launch, demand-driven.**
-
-## Pre-launch code-quality pass (from the 2026-07-28 design audit)
-
-Accepted findings from a design-quality audit of `truestill-core` (and `-cli`/`-app` where they
-hold logic). The audit's blocker - the layout seam being optional and therefore unreachable from
-production - was fixed immediately; these are the rest, deliberately deferred so the layout
-correction lands first. Each cites the audit finding that justifies it.
-
 - **(aa) Introduce an `Event` value object** (`start`, `slug`, `name`, `id`). An event is
   currently three parallel dicts that must be kept in sync -
   `assignments: dict[str, tuple[datetime, str]]`, `event_ids: dict[str, int]` and now
@@ -200,6 +139,12 @@ anywhere (the only inheritance is `Destination` -> `Local`/`Rclone`, a genuine i
 no composition refactor to schedule.
 
 ## Shipped (kept for provenance)
+
+- ~~**(w) Self-describing month preset.**~~ **Delivered by the year-first default correction**
+  (2026-07-28). Self-describing months (`2014-08`, never a bare `08`) are baked into every
+  shipped preset and into the default itself, so the standalone preset this item asked for would
+  have been redundant. The argument it recorded - a folder must still say what it is once copied
+  away from its parent - is now `IMPLEMENTATION_STANDARDS.md` §4.
 
 - ~~**Browser end-to-end test layer.**~~ **Delivered** (`9be7529`, `0103454`). Playwright via
   `pytest-playwright` against an in-process app server, run in CI as its own chromium-on-ubuntu

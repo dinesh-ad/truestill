@@ -309,3 +309,35 @@ behaviour. That is the seam working.
 `test_a_legacy_scheme_produces_exactly_what_it_always_did` pins the exact on-disk tree, and no
 existing test needed its expectations rewritten except the one above and a symbol rename where
 `resolve_for` was deleted.
+
+
+---
+
+## 9. Addendum (2026-07-28): the flip, and what it cost
+
+The default is now `{yyyy}/{yyyy}-{mm}/{yyyy}-{mm} - Everyday` for ordinary photos, with events
+keeping the month as their parent (`{yyyy}/{yyyy}-{mm}/{yyyy}-{mm}-{dd} - Name`).
+
+**The `Everyday` bucket forced a structural change.** The default's evented and un-evented
+shapes now *differ*, so `DEFAULT_SCHEME` can no longer be rebuilt from a single template string
+and `resolve_scheme` falls back to the whole default **scheme** rather than to
+`DEFAULT_TEMPLATE_STRING`. This is the same lesson as the event axis itself: one string cannot
+express two shapes, and pretending otherwise is where the bugs live.
+
+**Nineteen tests failed on the flip, and every one was asserting the old default.** That is the
+honest cost of changing a default and the reason it needed full-care acceptance. Two were
+mine and had *changed meaning* rather than merely changed shape: a test named "the default
+scheme is the legacy layout" was true before the flip and false after, and the legacy acceptance
+test had been passing `DEFAULT_SCHEME` when what it meant was *the legacy scheme* - so it would
+have silently stopped testing legacy behaviour at the exact moment that behaviour mattered most.
+Both were rewritten to say what they mean.
+
+**One design smell surfaced and was fixed rather than propagated.** `build_destination` defaulted
+`rule` to `TIMELINE_RULE`, so a caller that forgot the rule silently got timeline placement for a
+screenshot. It is test-only, but the default is the same trap as the optional scheme in §8, so
+`rule` is now required there.
+
+**Acceptance was proved on disk, not from the constant:** a fresh library organizes year-first
+with the `Everyday` bucket and readable event folders; a pinned library still writes
+`Camera/2014/08/...`; and Settings reports year-first for the fresh one and the legacy framing
+for the pinned one, with run and preview still agreeing across every shipped preset.

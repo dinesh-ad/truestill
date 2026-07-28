@@ -33,7 +33,7 @@ def client(tmp_path: Path) -> TestClient:
 
 def test_layout_get_reports_default_and_presets(client: TestClient) -> None:
     state = client.get("/api/layout").json()
-    assert state["template"] == "{category}/{yyyy}/{mm}"
+    assert state["template"] == "{yyyy}/{yyyy}-{mm}/{yyyy}-{mm} - Everyday"
     assert state["is_default"] is True
     assert "year-month-day" in state["presets"]
     assert len(state["preview"]) == 4  # camera, camera event, undated, side bin

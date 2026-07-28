@@ -157,7 +157,7 @@ def test_organize_applies_a_previously_saved_trip(client: TestClient, tmp_path: 
 
     drive = tmp_path / "DriveA"
     _drive_with_library(client, src, drive)  # now organize the fresh files
-    assert list(drive.rglob("*_goa/*.jpg")), "a saved trip was not applied at organize time"
+    assert list(drive.rglob("* - Goa/*.jpg")), "a saved trip was not applied at organize time"
 
 
 def test_propose_rejects_a_non_drive_path(client: TestClient, tmp_path: Path) -> None:

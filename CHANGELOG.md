@@ -72,6 +72,21 @@ All notable changes to this project are documented here. The format follows
   silently dropped.
 
 ### Changed
+- **The default folder layout is now year-first.** Photos land in `YYYY/YYYY-MM/`, with ordinary
+  shots in a per-month `YYYY-MM - Everyday` bucket and named events in `YYYY-MM-DD - Name`
+  beside it. Non-camera sources (Screenshots, WhatsApp, app names) are filed as labelled bins
+  *beside* the years - `Screenshots/2024/2024-01/` - never above them. Undated files sit in
+  `Undated/` at the root, or `<Label>/Undated/` for a bin.
+  - **Months name themselves.** `2025-08`, not a bare `08`, so a folder still says what it is
+    once it is copied, searched or attached somewhere away from its parent.
+  - **Routing is on evidence, not on the label.** The one rule that identifies a camera photo
+    puts it on the timeline; everything else goes to a bin. That keeps working under
+    `--by-device`, where the label is the hardware name rather than `Camera`.
+  - **An existing library is never reshaped.** A library organized before this change keeps its
+    `<Label>/YYYY/MM/` structure, is described as a legacy layout in Settings, and is offered a
+    migration it is never forced into.
+  - **`{category}` is refused in a timeline template**, so source-above-timeline is structurally
+    impossible rather than merely not offered. The side-bin shape is fixed and not editable.
 - **Takeout metadata baking is ~27x faster.** Writing a rescued date or location into an
   organized copy spawned one `exiftool` process per file - **254.9 ms/file** measured, almost
   all of it process startup, which is about **7 hours** for a 100,000-file Takeout and 5

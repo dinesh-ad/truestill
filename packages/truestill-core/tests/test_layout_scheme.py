@@ -48,7 +48,7 @@ def test_every_rule_routes_to_exactly_one_side(rule: str) -> None:
     scheme = _scheme()
     rendered = scheme.render(rule, RenderContext(category="Whatever", captured_at=WHEN))
     if rule == TIMELINE_RULE:
-        assert rendered.as_posix() == "2014/2014-08"
+        assert rendered.as_posix() == "2014/2014-08/2014-08 - Everyday"
     else:
         assert rendered.as_posix() == "Whatever/2014/2014-08"
 
@@ -71,7 +71,7 @@ def test_by_device_photos_stay_on_the_timeline() -> None:
     rendered = scheme.render(
         TIMELINE_RULE, RenderContext(category="Samsung SM-A546B", captured_at=WHEN)
     )
-    assert rendered.as_posix() == "2014/2014-08"  # no device folder anywhere
+    assert rendered.as_posix() == "2014/2014-08/2014-08 - Everyday"  # no device folder anywhere
 
 
 def test_a_side_bin_can_never_be_typed_into_a_timeline_path() -> None:
@@ -104,7 +104,7 @@ def test_year_event_preset_splits_the_two_axes() -> None:
             category="Camera", captured_at=WHEN, event=(WHEN, "goa"), event_name="Goa Trip"
         ),
     )
-    assert plain.as_posix() == "2014/2014-08"  # month catch-all
+    assert plain.as_posix() == "2014/2014-08"  # month catch-all (this preset has no Everyday)
     assert evented.as_posix() == "2014/2014-08-20 - Goa Trip"  # event under the year
 
 
