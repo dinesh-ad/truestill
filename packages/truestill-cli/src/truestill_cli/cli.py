@@ -34,12 +34,15 @@ from truestill_core.exif import ExiftoolMissingError, read_metadata
 from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import DEFAULT_PHASH_THRESHOLD, HEIF_AVAILABLE, HEIF_EXTENSIONS
 from truestill_core.layout import (
+    DEFAULT_PRESET,
     DEFAULT_TEMPLATE_STRING,
+    LAYOUT_EVENT_TEMPLATE_KEY,
     LAYOUT_TEMPLATE_KEY,
     PRESETS,
     SAMPLE_CONTEXTS,
     LayoutTemplate,
     TemplateError,
+    parse_timeline_template,
     pin_existing_layout,
     preview,
     resolve_for,
@@ -271,7 +274,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     config.add_argument("--db", type=Path, default=_DEFAULT_DB, help="SQLite catalog")
     config.add_argument("--set-template", metavar="TEMPLATE", help="set a custom layout template")
-    config.add_argument("--preset", choices=tuple(PRESETS), help="set the layout to a named preset")
+    config.add_argument("--preset", metavar="NAME", help="set the layout to a named preset")
     config.add_argument(
         "--preview", action="store_true", help="render sample files without saving anything"
     )
@@ -1063,8 +1066,27 @@ def _print_layout_preview(template: LayoutTemplate) -> None:
             print(f"      ! {warning}")
 
 
+def _print_presets() -> None:
+    """The shipped layouts, with what each one actually produces."""
+    print("Presets:")
+    for name, preset in PRESETS.items():
+        default = "  (default)" if name == DEFAULT_PRESET.key else ""
+        print(f"  {name:18} {preset.title}{default}")
+        print(f"  {'':18}   photos: {preset.timeline}")
+        if preset.timeline_evented != preset.timeline:
+            print(f"  {'':18}   events: {preset.timeline_evented}/<event>")
+
+
 def _cmd_config(args: argparse.Namespace) -> int:
+    if args.preset is not None and args.preset not in PRESETS:
+        # Never a silent no-op and never a bare traceback: name what was wrong and show every
+        # option, because a user who mistyped a preset has no other way to discover the set.
+        print(f"error: unknown preset {args.preset!r}", file=sys.stderr)
+        print(f"available presets: {', '.join(PRESETS)}", file=sys.stderr)
+        return 2
+
     target = PRESETS[args.preset].timeline if args.preset else args.set_template
+    evented = PRESETS[args.preset].timeline_evented if args.preset else None
 
     with Catalog(args.db) as catalog:
         stored = catalog.get_setting(LAYOUT_TEMPLATE_KEY)
@@ -1074,13 +1096,12 @@ def _cmd_config(args: argparse.Namespace) -> int:
             print(f"Layout template: {current}" + ("" if stored else "  (default)"))
             if args.preview:
                 _print_layout_preview(resolve_template(stored))
-            print("\nPresets:")
-            for name, preset in PRESETS.items():
-                print(f"  {name:24} {preset.timeline}")
+            print()
+            _print_presets()
             return 0
 
         try:
-            template = LayoutTemplate.parse(target)
+            template = parse_timeline_template(target)
         except TemplateError as exc:
             print(f"error: invalid template: {exc}", file=sys.stderr)
             return 2
@@ -1091,6 +1112,10 @@ def _cmd_config(args: argparse.Namespace) -> int:
             return 0
 
         catalog.set_setting(LAYOUT_TEMPLATE_KEY, target)
+        if evented is not None and evented != target:
+            catalog.set_setting(LAYOUT_EVENT_TEMPLATE_KEY, evented)
+        else:
+            catalog.clear_setting(LAYOUT_EVENT_TEMPLATE_KEY)
         print(f"\nSaved. New files will be organized as: {target}")
         print("Existing files are left in place (split-era default).")
         return 0

@@ -111,7 +111,12 @@ is invisible here is retired, not free.**
     nothing extra here; LSH is for *approximate* nearest-neighbour at far larger scale and would
     trade away exactness we currently have. `DedupIndex`'s interface was designed for the swap.
 
-- **(w) Self-describing month preset - `{category}/{yyyy}/{yyyy}-{mm}`.** A folder named
+- **(w) Self-describing month preset.** ⚠ **Absorbed by the year-first default correction**
+  (`docs/default-layout-research.md`) - self-describing months are baked into every shipped
+  preset there. Kept until that correction's default flip lands, then closed as delivered-by.
+  The original entry follows.
+
+  A folder named
   `2014-08` explains itself when it is copied, searched, sorted or attached somewhere else;
   `08` only means anything while you can still see its parent. Same argument the repo already
   made in the *opposite* direction for the default (`README.md`: the year is the parent, so
@@ -119,8 +124,8 @@ is invisible here is retired, not free.**
   moments. The default optimises browsing in place; this optimises the folder travelling alone.
   It is offered as a **preset, not a new default.**
   - **The template engine already supports it - verified, not assumed.** `{yyyy}-{mm}` in one
-    segment is the same construction the shipped `flat-date` preset already uses. Rendered
-    against `layout.LayoutTemplate` today:
+    segment is an ordinary literal-plus-token construction the parser already accepted.
+    Rendered against `layout.LayoutTemplate` today:
 
     | context | result |
     |---|---|
@@ -138,7 +143,7 @@ is invisible here is retired, not free.**
     dynamically: the CLI derives `--preset` choices from `tuple(PRESETS)` and lists
     `PRESETS.items()`; the app serves `dict(PRESETS)` and the Settings dropdown is populated by
     iteration. One dict entry reaches both front-ends with no other code change. Wants a
-    rendering test and a name (`category-year-yearmonth` is accurate if graceless).
+    rendering test and a name.
   - **State the migration truth in the UI when it ships.** A template change affects **new
     files only**; an existing library is relocated by `truestill migrate-layout` (preview
     first, journalled). Someone switching mid-library will otherwise expect their existing

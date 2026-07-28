@@ -38,6 +38,7 @@ from truestill_core.layout import (
     LayoutTemplate,
     TemplateError,
     effective_layout_string,
+    parse_timeline_template,
     pin_existing_layout,
     preview,
     resolve_for,
@@ -723,7 +724,7 @@ def layout_state(db: Path) -> dict[str, Any]:
 def preview_layout(template_str: str) -> dict[str, Any]:
     """Validate a template and render the samples; report the error instead of raising."""
     try:
-        template = LayoutTemplate.parse(template_str)
+        template = parse_timeline_template(template_str)
     except TemplateError as exc:
         return {"valid": False, "error": str(exc)}
     return {"valid": True, "preview": _render_preview(template)}
@@ -732,7 +733,7 @@ def preview_layout(template_str: str) -> dict[str, Any]:
 def set_layout(template_str: str, db: Path) -> dict[str, Any]:
     """Persist a template after validating it; returns the new :func:`layout_state` or an error."""
     try:
-        LayoutTemplate.parse(template_str)
+        parse_timeline_template(template_str)
     except TemplateError as exc:
         return {"valid": False, "error": str(exc)}
     with Catalog(db) as catalog:

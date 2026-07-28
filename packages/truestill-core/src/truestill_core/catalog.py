@@ -659,6 +659,16 @@ class Catalog:
     def count(self) -> int:
         return int(self._conn.execute("SELECT COUNT(*) FROM files").fetchone()[0])
 
+    def clear_setting(self, key: str) -> None:
+        """Remove a setting, so "absent" and "explicitly empty" never diverge.
+
+        Switching between layouts must be able to *unset* the evented-timeline override, not
+        just overwrite it -- a stale override left behind would keep sending events somewhere
+        the newly-chosen preset does not put them.
+        """
+        with self._tx() as conn:
+            conn.execute("DELETE FROM settings WHERE key = ?", (key,))
+
     def has_placed_files(self) -> bool:
         """Whether this catalog has ever actually *placed* a file on disk.
 

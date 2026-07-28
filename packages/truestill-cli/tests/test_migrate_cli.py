@@ -49,7 +49,7 @@ def test_migrate_layout_previews_then_applies(
     root.mkdir()
     db = tmp_path / "c.sqlite"
     _seed_drive(db, root, "Camera/2023/08/x.jpg", b"data")
-    assert main(["config", "--db", str(db), "--set-template", "{category}/{yyyy}"]) == 0
+    assert main(["config", "--db", str(db), "--set-template", "{yyyy}/{yyyy}-{mm}/{dd}"]) == 0
     capsys.readouterr()
 
     # Preview leaves everything in place.
@@ -61,5 +61,5 @@ def test_migrate_layout_previews_then_applies(
 
     # Apply relocates under the stored template.
     assert main(["migrate-layout", str(root), "--db", str(db), "--apply"]) == 0
-    assert (root / "Camera/2023/x.jpg").exists()
+    assert (root / "2023/2023-08/20/x.jpg").exists()
     assert not (root / "Camera/2023/08/x.jpg").exists()

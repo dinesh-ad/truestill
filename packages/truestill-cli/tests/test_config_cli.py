@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
 from PIL import Image
 from truestill_cli.cli import main
 from truestill_core.catalog import Catalog
-from truestill_core.layout import LAYOUT_TEMPLATE_KEY
+from truestill_core.layout import LAYOUT_EVENT_TEMPLATE_KEY, LAYOUT_TEMPLATE_KEY
 
 
 def test_config_show_lists_default_and_presets(
@@ -25,10 +26,10 @@ def test_set_template_persists_and_previews(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     db = tmp_path / "c.sqlite"
-    assert main(["config", "--db", str(db), "--set-template", "{category}/{yyyy}"]) == 0
+    assert main(["config", "--db", str(db), "--set-template", "{yyyy}/{yyyy}-{mm}/{dd}"]) == 0
     assert "Preview:" in capsys.readouterr().out
     with Catalog(db) as catalog:
-        assert catalog.get_setting(LAYOUT_TEMPLATE_KEY) == "{category}/{yyyy}"
+        assert catalog.get_setting(LAYOUT_TEMPLATE_KEY) == "{yyyy}/{yyyy}-{mm}/{dd}"
 
 
 def test_preset_persists_its_template(tmp_path: Path) -> None:
@@ -57,7 +58,9 @@ def test_invalid_template_is_rejected_and_not_saved(
 
 def test_preview_flag_does_not_persist(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     db = tmp_path / "c.sqlite"
-    code = main(["config", "--db", str(db), "--set-template", "{category}/{yyyy}", "--preview"])
+    code = main(
+        ["config", "--db", str(db), "--set-template", "{yyyy}/{yyyy}-{mm}/{dd}", "--preview"]
+    )
     assert code == 0
     out = capsys.readouterr().out
     assert "Preview:" in out
@@ -97,11 +100,96 @@ def test_organize_honors_stored_template(tmp_path: Path) -> None:
     dest = tmp_path / "out"
     db = tmp_path / "c.sqlite"
 
-    assert main(["config", "--db", str(db), "--set-template", "{category}/{yyyy}"]) == 0
+    assert main(["config", "--db", str(db), "--set-template", "{yyyy}/{yyyy}-{mm}/{dd}"]) == 0
     assert main(["organize", str(src), str(dest), "--db", str(db), "--apply"]) == 0
 
     placed = list(dest.rglob("*.jpg"))
     assert placed, "a file should have been organized"
     rel = placed[0].relative_to(dest).as_posix()
-    assert "/2025/" in rel  # honored the stored template...
+    assert rel.startswith("2025/2025-08/04/")  # honored the stored template...
     assert "/2025/08/" not in rel  # ...which dropped the month the default would have added
+
+
+def test_an_unknown_preset_fails_with_an_actionable_message(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A mistyped preset must name the mistake and show the options.
+
+    `flat-date` is one of the five names removed in the year-first correction, so this is also
+    the case a user following an old note or an old README will hit.
+    """
+    db = tmp_path / "c.sqlite"
+    assert main(["config", "--db", str(db), "--preset", "flat-date"]) == 2
+
+    err = capsys.readouterr().err
+    assert "unknown preset" in err
+    assert "flat-date" in err  # what they typed
+    for name in ("year-month-event", "year-event", "year-month-day"):
+        assert name in err  # and every option they actually have
+    with Catalog(db) as catalog:
+        assert catalog.get_setting(LAYOUT_TEMPLATE_KEY) is None  # nothing was written
+
+
+def test_a_category_template_is_refused_at_the_config_door(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """R2: the year is the top-level parent structurally, not by convention."""
+    db = tmp_path / "c.sqlite"
+    assert main(["config", "--db", str(db), "--set-template", "{category}/{yyyy}/{mm}"]) == 2
+
+    assert "{category} cannot be used in the timeline" in capsys.readouterr().err
+    with Catalog(db) as catalog:
+        assert catalog.get_setting(LAYOUT_TEMPLATE_KEY) is None
+
+
+def test_a_preset_with_a_distinct_event_shape_persists_both_and_clears_on_switch(
+    tmp_path: Path,
+) -> None:
+    """`year-event` is the only preset whose evented shape differs, so it needs a second key.
+
+    Switching away must *clear* it: a stale override would keep sending events somewhere the
+    newly-chosen preset does not put them.
+    """
+    db = tmp_path / "c.sqlite"
+    assert main(["config", "--db", str(db), "--preset", "year-event"]) == 0
+    with Catalog(db) as catalog:
+        assert catalog.get_setting(LAYOUT_TEMPLATE_KEY) == "{yyyy}/{yyyy}-{mm}"
+        assert catalog.get_setting(LAYOUT_EVENT_TEMPLATE_KEY) == "{yyyy}"
+
+    assert main(["config", "--db", str(db), "--preset", "year-month-event"]) == 0
+    with Catalog(db) as catalog:
+        assert catalog.get_setting(LAYOUT_EVENT_TEMPLATE_KEY) is None
+
+
+def test_no_removed_preset_name_survives_anywhere_in_the_tree() -> None:
+    """The five names are deleted, not hidden -- proved against the repo, not the registry.
+
+    Only resolved template *strings* are ever persisted, so removing the names cannot orphan a
+    stored setting; what it can do is leave a stale name in help text or a doc that sends
+    someone to a preset that no longer exists.
+    """
+    removed = (
+        "category-year-month-day",
+        "category-year-month",
+        "category-year-event",
+        "category-year",
+        "flat-date",
+    )
+    root = Path(__file__).resolve().parents[3]
+    tracked = subprocess.run(
+        ["git", "ls-files"], cwd=root, capture_output=True, text=True, check=True
+    ).stdout.split()
+
+    offenders: list[str] = []
+    for relative in tracked:
+        path = root / relative
+        # This test names the strings it forbids, and the research docs record the history.
+        if path.suffix in {".png", ".jpg", ".ico"} or relative in {
+            "packages/truestill-cli/tests/test_config_cli.py",
+            "docs/default-layout-research.md",
+        }:
+            continue
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        offenders += [f"{relative}: {name}" for name in removed if name in text]
+
+    assert not offenders, "removed preset names still present: " + "; ".join(offenders)

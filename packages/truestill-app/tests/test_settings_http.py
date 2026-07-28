@@ -33,7 +33,7 @@ def test_layout_get_reports_default_and_presets(client: TestClient) -> None:
 
 
 def test_layout_preview_valid_and_invalid(client: TestClient) -> None:
-    ok = client.post("/api/layout/preview", json={"template": "{category}/{yyyy}"}).json()
+    ok = client.post("/api/layout/preview", json={"template": "{yyyy}/{yyyy}-{mm}/{dd}"}).json()
     assert ok["valid"] is True
     assert len(ok["preview"]) == 3
 
@@ -43,11 +43,11 @@ def test_layout_preview_valid_and_invalid(client: TestClient) -> None:
 
 
 def test_layout_set_persists(client: TestClient) -> None:
-    saved = client.post("/api/layout", json={"template": "{category}/{yyyy}"}).json()
+    saved = client.post("/api/layout", json={"template": "{yyyy}/{yyyy}-{mm}/{dd}"}).json()
     assert saved["valid"] is True
-    assert saved["template"] == "{category}/{yyyy}"
+    assert saved["template"] == "{yyyy}/{yyyy}-{mm}/{dd}"
     assert saved["is_default"] is False
-    assert client.get("/api/layout").json()["template"] == "{category}/{yyyy}"
+    assert client.get("/api/layout").json()["template"] == "{yyyy}/{yyyy}-{mm}/{dd}"
 
 
 def test_layout_set_rejects_invalid_without_saving(client: TestClient) -> None:
@@ -84,8 +84,8 @@ def test_migrate_preview_lists_moves(client: TestClient, tmp_path: Path) -> None
             drive_uuid=marker.uuid,
         )
 
-    client.post("/api/layout", json={"template": "{category}/{yyyy}"})  # drops the month
+    client.post("/api/layout", json={"template": "{yyyy}/{yyyy}-{mm}/{dd}"})  # year-first
     r = client.post("/api/migrate/preview", json={"path": str(drive)}).json()
     assert r["ok"] is True
     assert len(r["moves"]) == 1
-    assert r["moves"][0]["new"] == "Camera/2023/x.jpg"
+    assert r["moves"][0]["new"] == "2023/2023-08/20/x.jpg"
