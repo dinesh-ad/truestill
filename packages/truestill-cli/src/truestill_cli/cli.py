@@ -1164,6 +1164,12 @@ def _add_clean_parser(sub: argparse._SubParsersAction) -> None:  # type: ignore[
     clean.add_argument(
         "--apply", action="store_true", help="actually remove them (default: preview only)"
     )
+    clean.add_argument(
+        "--permanent",
+        action="store_true",
+        help="where the trash refuses (cloud/network mounts), delete outright instead of "
+        "reporting -- requires its own confirmation",
+    )
 
 
 def _print_cleanup_plan(plan: CleanupPlan, backend: str | None) -> None:
@@ -1213,6 +1219,25 @@ def _offer_cleanup(catalog: Catalog, drive_uuid: str, path: Path) -> None:
     )
 
 
+def _confirm_cleanup(count: int, *, permanent: bool) -> bool:
+    """Ask for the word that matches the removal being requested.
+
+    Two removals, two questions, two words. `clean` was given for a recoverable removal; reusing
+    it for an irreversible one would silently stretch an answer the user gave to a smaller ask.
+    Irreversibility is stated **before** the prompt, never discovered after it.
+    """
+    if not permanent:
+        return input(f"\nType 'clean' to remove {count} folder(s): ").strip() == "clean"
+    print(
+        "\n--permanent: where the trash refuses, folders will be DELETED OUTRIGHT and are"
+        "\nNOT recoverable. Removal uses rmdir, so a folder that is no longer empty cannot"
+        "\nbe removed even if it is listed above."
+    )
+    return (
+        input(f"\nType 'delete forever' to remove {count} folder(s): ").strip() == "delete forever"
+    )
+
+
 def _cmd_clean_empty(args: argparse.Namespace) -> int:
     """Remove the folder skeleton a migration left, after showing exactly what will go."""
     marker = read_marker(args.path)
@@ -1239,14 +1264,18 @@ def _cmd_clean_empty(args: argparse.Namespace) -> int:
         print("\nPreview only. Nothing was removed. Re-run with --apply to remove them.")
         return 0
 
-    answer = input(f"\nType 'clean' to remove {len(plan.removable)} folder(s): ")
-    if answer.strip() != "clean":
+    if not _confirm_cleanup(len(plan.removable), permanent=args.permanent):
         print("Aborted. Nothing was removed.")
         return 0
 
-    removed, failures = run_cleanup(args.path, plan, apply=True)
-    print(f"\nRemoved {removed} folder(s).")
-    for failure in failures:
+    outcome = run_cleanup(args.path, plan, apply=True, permanent=args.permanent)
+    parts = []
+    if outcome.trashed:
+        parts.append(f"{outcome.trashed} to the trash")
+    if outcome.deleted:
+        parts.append(f"{outcome.deleted} deleted permanently")
+    print(f"\nRemoved {outcome.removed} folder(s)" + (f" ({', '.join(parts)})." if parts else "."))
+    for failure in outcome.failures:
         print(f"  ! {failure}")
     return 0
 

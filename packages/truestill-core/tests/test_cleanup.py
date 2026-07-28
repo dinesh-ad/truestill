@@ -54,7 +54,8 @@ def test_a_nested_skeleton_collapses_bottom_up(tmp_path: Path) -> None:
     ]
     assert not plan.occupied
 
-    removed, failures = run_cleanup(root, plan, apply=True, backend=None)
+    outcome = run_cleanup(root, plan, apply=True, backend=None)
+    removed, failures = outcome.removed, outcome.failures
     assert removed == 6
     assert not failures
     assert not (root / "Camera").exists()
@@ -123,7 +124,8 @@ def test_a_preview_removes_nothing(tmp_path: Path) -> None:
 
     before = _fingerprint(root)
     plan = plan_cleanup(root, emptied)
-    removed, failures = run_cleanup(root, plan, apply=False)
+    outcome = run_cleanup(root, plan, apply=False)
+    removed, failures = outcome.removed, outcome.failures
 
     assert removed == 0
     assert not failures
@@ -144,7 +146,8 @@ def test_a_trash_failure_is_reported_not_downgraded_to_a_permanent_delete(
     emptied = _skeleton(root)
 
     plan = plan_cleanup(root, emptied)
-    removed, failures = run_cleanup(root, plan, apply=True, backend="gio")
+    outcome = run_cleanup(root, plan, apply=True, backend="gio")
+    removed, failures = outcome.removed, outcome.failures
 
     assert removed == 0
     assert len(failures) == len(plan.removable)
@@ -157,7 +160,8 @@ def test_removal_works_when_there_is_no_trash_to_use(tmp_path: Path) -> None:
     emptied = _skeleton(root)
 
     plan = plan_cleanup(root, emptied)
-    removed, failures = run_cleanup(root, plan, apply=True, backend=None)
+    outcome = run_cleanup(root, plan, apply=True, backend=None)
+    removed, failures = outcome.removed, outcome.failures
 
     assert removed == 6
     assert not failures
@@ -193,7 +197,7 @@ def test_the_junk_list_is_a_named_set_not_a_pattern() -> None:
 def test_an_empty_plan_is_harmless(tmp_path: Path) -> None:
     root = tmp_path / "drive"
     root.mkdir()
-    assert run_cleanup(root, CleanupPlan(), apply=True) == (0, [])
+    assert run_cleanup(root, CleanupPlan(), apply=True).removed == 0
 
 
 def test_a_refused_folder_names_loose_files_alongside_subfolders(tmp_path: Path) -> None:
@@ -214,3 +218,61 @@ def test_a_refused_folder_names_loose_files_alongside_subfolders(tmp_path: Path)
     # already going in this pass, so the loose photo is the whole reason `Camera/2014` stays.
     assert refused["Camera/2014"].contents == ("loose-photo.jpg",)
     assert "Camera" in refused  # and the parent is refused because that child survives
+
+
+def test_permanent_mode_only_applies_where_trash_was_refused(tmp_path: Path) -> None:
+    """Trash is still tried first; permanent only changes what happens when it says no.
+
+    That is why the mode needs no separate "is trash available here?" gate -- it applies per
+    folder, and exactly to the folders trash would not take.
+    """
+    root = tmp_path / "drive"
+    emptied = _skeleton(root)
+
+    # backend="gio" is refused for tmp_path ("system internal mounts"), so every folder falls
+    # through to the permanent path.
+    outcome = run_cleanup(
+        root, plan_cleanup(root, emptied), apply=True, backend="gio", permanent=True
+    )
+
+    assert outcome.trashed == 0
+    assert outcome.deleted == 6
+    assert not outcome.failures
+    assert not (root / "Camera").exists()
+
+
+def test_permanent_removal_cannot_delete_a_folder_that_gained_a_file(tmp_path: Path) -> None:
+    """The race the confirm prompt opens: a preview said empty, then something appeared.
+
+    Removal uses rmdir semantics, so a non-empty folder physically cannot go -- the protection is
+    structural rather than a re-check that could itself race. `rmtree` would have taken it.
+    """
+    root = tmp_path / "drive"
+    emptied = _skeleton(root)
+    plan = plan_cleanup(root, emptied)
+    assert "Camera/2013/09" in {c.relative for c in plan.removable}
+
+    # Between the preview and the confirm, something lands in one of the approved folders.
+    (root / "Camera/2013/09/appeared.jpg").write_bytes(b"a new photo")
+
+    outcome = run_cleanup(root, plan, apply=True, backend=None, permanent=True)
+
+    assert (root / "Camera/2013/09/appeared.jpg").read_bytes() == b"a new photo"
+    assert any("Camera/2013/09" in f for f in outcome.failures)
+    # Its parents are refused too, because the child survives -- the skeleton stops collapsing
+    # at the first thing that is actually in use.
+    assert (root / "Camera/2013").is_dir()
+    assert (root / "Camera").is_dir()
+
+
+def test_permanent_removal_still_takes_named_junk_with_the_folder(tmp_path: Path) -> None:
+    root = tmp_path / "drive"
+    emptied = _skeleton(root)
+    (root / "Camera/2013/09/.DS_Store").write_text("finder")
+
+    outcome = run_cleanup(
+        root, plan_cleanup(root, emptied), apply=True, backend=None, permanent=True
+    )
+
+    assert not outcome.failures
+    assert not (root / "Camera").exists()

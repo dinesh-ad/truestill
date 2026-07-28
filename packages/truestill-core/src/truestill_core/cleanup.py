@@ -176,36 +176,77 @@ def _to_trash(path: Path, backend: str) -> None:
     subprocess.run(["gio", "trash", str(path)], check=True, capture_output=True)
 
 
+@dataclass(frozen=True, slots=True)
+class CleanupOutcome:
+    """What removal achieved, split by how each folder went."""
+
+    trashed: int = 0
+    deleted: int = 0
+    failures: list[str] = field(default_factory=list)
+
+    @property
+    def removed(self) -> int:
+        return self.trashed + self.deleted
+
+
+def _remove_permanently(folder: Path, junk: tuple[str, ...]) -> None:
+    """Delete a folder with **rmdir semantics**: it physically cannot remove a non-empty one.
+
+    Only the entries this plan already classified as junk are unlinked, by name -- never a
+    wildcard and never a recursive walk. Then ``rmdir`` refuses if anything else is present, so a
+    folder that gained a file between the preview and the confirm survives **by construction**
+    rather than by a re-check that could itself race. ``rmtree`` would have taken it.
+    """
+    for name in junk:
+        (folder / name).unlink(missing_ok=True)
+    folder.rmdir()
+
+
 def run_cleanup(
-    root: Path, plan: CleanupPlan, *, apply: bool, backend: str | _Unset | None = _UNSET
-) -> tuple[int, list[str]]:
-    """Remove the removable folders, deepest first. Returns ``(removed, failures)``.
+    root: Path,
+    plan: CleanupPlan,
+    *,
+    apply: bool,
+    backend: str | _Unset | None = _UNSET,
+    permanent: bool = False,
+) -> CleanupOutcome:
+    """Remove the removable folders, deepest first.
 
-    ``backend`` is the trash mechanism to use, defaulting to whatever this machine has. It is a
-    parameter rather than a lookup inside the loop so the caller can **report which one is in
-    force before asking to confirm** -- "these go to the trash" and "these are deleted
-    permanently" are different questions to be asked, and the answer must not be discovered
-    afterwards. ``None`` means a real delete.
+    ``backend`` is the trash mechanism, defaulting to whatever this machine has. It is a
+    parameter rather than a lookup inside the loop so the caller can **say which one is in force
+    before asking to confirm** -- "these go to the trash" and "these are deleted permanently" are
+    different questions, and the answer must not be discovered afterwards.
 
-    A trash failure is recorded, never quietly downgraded to a permanent delete: the user agreed
-    to a recoverable removal, and doing an irreversible one instead would break that agreement.
+    **Trash is always tried first.** ``permanent`` changes only what happens when trash is
+    *refused*: without it the folder is left in place and reported, with it the folder is deleted
+    outright. That is why permanent mode needs no separate "is trash available here?" gate -- it
+    applies per folder, and exactly to the folders trash would not take.
     """
     if not apply:
-        return 0, []
+        return CleanupOutcome()
     if isinstance(backend, _Unset):
         backend = trash_backend()
-    removed = 0
+
+    trashed = deleted = 0
     failures: list[str] = []
     for candidate in plan.removable:
         folder = root / candidate.relative
         if not folder.is_dir():
             continue
-        try:
-            if backend is not None:
+        junk = candidate.contents if candidate.tier is Tier.JUNK_ONLY else ()
+        if backend is not None:
+            try:
                 _to_trash(folder, backend)
+            except (OSError, subprocess.CalledProcessError) as exc:
+                if not permanent:
+                    failures.append(f"{candidate.relative}: {exc}")
+                    continue
             else:
-                shutil.rmtree(folder)
-            removed += 1
-        except (OSError, subprocess.CalledProcessError) as exc:
+                trashed += 1
+                continue
+        try:
+            _remove_permanently(folder, junk)
+            deleted += 1
+        except OSError as exc:
             failures.append(f"{candidate.relative}: {exc}")
-    return removed, failures
+    return CleanupOutcome(trashed=trashed, deleted=deleted, failures=failures)

@@ -24,6 +24,19 @@ confirmed a preview listing every folder and every leftover file by name, with a
 **(d)** it goes to the OS trash where the platform allows, and a trash refusal leaves the folder
 in place rather than being downgraded to a permanent delete. This makes the never-delete rule
 *explicit* rather than weakening it: the four conditions are the whole permission.
+
+**Permanent mode (`clean-empty --permanent`), for mounts with no trash.** A cloud or network
+mount has nowhere to trash *to* (`gio`: "Unable to trash file across filesystem boundaries"), so
+condition (d) can be impossible to satisfy. In that case, and **only** in that case, removal may
+be permanent - under three further conditions: trash is still **tried first** and permanent
+applies per folder, exactly to the ones it refused; the preview states plainly that removal is
+irreversible on this mount **before** asking; and the confirm is a **distinct phrase**,
+`delete forever`, never the `clean` a user typed for a recoverable removal. Removal uses
+**`rmdir` semantics** - only the named junk is unlinked, then the directory must be empty - so a
+folder that gained a file between the preview and the confirm cannot be removed *by
+construction* rather than by a re-check that could race. Pinned by
+`test_permanent_removal_cannot_delete_a_folder_that_gained_a_file` and
+`tests/test_clean_empty_cli.py`.
 Enforced by `cleanup.plan_cleanup` / `cleanup.run_cleanup`; pinned by `tests/test_cleanup.py`.
 
 **Source-relocation exceptions (features k and q), all opt-in:**
