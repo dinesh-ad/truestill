@@ -18,7 +18,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(ii). Next free: (jj).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(jj). Next free: (kk).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -134,6 +134,43 @@ is invisible here is retired, not free.**
   This is not theoretical: the `dict(PRESETS)` regression - dataclasses about to be serialized
   into the API - was invisible to mypy precisely because the return type was `Any`.
 
+- **GPS-derived per-photo timezone.** Deferred during Takeout Rescue Mode. `--tz` is a single
+  fixed offset for the whole run, which cannot correctly date a library that spans timezones;
+  the real fix derives each photo's timezone from its GPS. The near-midnight caveat is
+  surfaced honestly in the ingest report until this exists.
+
+- **(jj) Archive ingestion - read a library straight out of its archives.** Near-launch
+  priority: it is central to the Takeout-rescue pitch, because what a refugee actually has is a
+  pile of archives, not an extracted folder. Generalized from the older "zip-direct Takeout"
+  note, which was too narrow - the problem is archives, not Google's.
+  - **One archive-source interface**, so the pipeline sees a source of media and does not care
+    what it came out of. The same shape `Destination` already demonstrates, at the other end.
+  - **First-class, no system dependencies:** `.zip`, `.tar` and its `.gz`/`.bz2`/`.xz` variants
+    (all stdlib), and `.7z` via a pip package. Anything needing a binary on PATH is not
+    first-class.
+  - **`.rar` is optional and honest about it.** It lights up only when `unrar` is present, and
+    says so plainly when it is not - never a silent skip that loses a user's files without
+    telling them.
+  - ⚠ **A multi-part set is ONE archive.** Google splits an export across `takeout-001.zip`,
+    `-002.zip` and so on, and **a photo and its JSON sidecar can land in different parts**.
+    Treating the parts independently silently breaks date rescue for exactly the files this
+    feature exists to rescue. The set is opened as a unit or not at all.
+  - **Streamed extraction, never a full unpack.** A naive implementation needs the archive plus
+    the extraction plus the organized copy - three times the library's size, on the machines
+    least likely to have it. Entries are streamed and organized as they come.
+  - **Copy-only, as everywhere else: an archive is never modified**, never deleted, never
+    rewritten in place. It is a read-only source.
+  - **Encrypted archives are detected and surfaced**, never silently skipped. "I could not read
+    this, here is why" is the never-silent rule applied to a container.
+
+- **Recognize additional real-world video extensions (l).** The metadata-chain corpus surfaced
+  container formats truestill's `MEDIA_EXTENSIONS` doesn't recognize, so they are skipped (now
+  *reported*, not silent). Recognize the ones that are actually common - **`.vob`, `.ts`, `.m2v`,
+  and the `.asf` family at minimum** - with the final list driven by **prevalence evidence, not
+  the whole corpus zoo** (`.swf`, raw `.hevc`/`.mjpeg` elementary streams are not "photos to back
+  up"). Each extension added must have its **category and date handling verified via the corpus
+  probe** before inclusion. **Post-launch, demand-driven.**
+
 **Not doing, and why:** the audit found no inheritance-for-reuse and no deep hierarchies
 anywhere (the only inheritance is `Destination` -> `Local`/`Rclone`, a genuine is-a), so there is
 no composition refactor to schedule.
@@ -230,6 +267,14 @@ no composition refactor to schedule.
     built) wraps that one process; it does not add a second app runtime.
 
 ## Ideas / deferred
+
+> **Sequencing note - four of these share machinery, and picking them one at a time is the
+> expensive order.** `(n)` (explorable why-undated) and `(ii)` (rescue flow) both need the
+> **date-provenance column** and both surface from the same screen; `(gg)` (adaptive day
+> folders) is a third axis on the **same `LayoutScheme` seam** the event axis already uses; and
+> `(hh)` (`adopt`) shares the **walk-and-classify** machinery with `clean-empty`. When the first
+> of them is chosen, map a combined order before building - the schema step and the UI surface
+> are each worth paying for once.
 
 - **(m) Duplicate-cleanup staging UX.** A **preview → confirm → trash (with restore)** flow for
   removing duplicates - the validated safe-delete pattern (same spirit as `reclaim`'s dry-run +
