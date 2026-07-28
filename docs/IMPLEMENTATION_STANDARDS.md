@@ -156,6 +156,18 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
     any label possible). Ambiguous labels are resolved per file by re-reading metadata for
     **those labels only** (`migrate.rederive_rules`), and are never silently routed. Pinned by
     `test_a_migration_and_an_organize_run_agree_under_the_same_layout`.
+  - **Migrations are reversible until superseded.** A completed migration's journal rows are
+    **kept**, not deleted, and `migrate.undo_migration` walks the newest run's moves in reverse
+    with the forward run's discipline: relocate back, **re-hash at the restored path, and only
+    then remove the migrated copy**. A failed verify raises and leaves both the file and its
+    journal row intact, so an interrupted undo resumes exactly as an interrupted migration does.
+    A file that no longer hashes to what the migration recorded is **refused and reported**, never
+    clobbered - someone edited it since, and putting the old path back would discard that work.
+    Retention is bounded by supersession: the next migration of the same drive clears the
+    previous record, so exactly one run's worth exists per drive and the only record ever dropped
+    is one a newer migration has already made meaningless. Catalog `file_copies` rows are updated
+    per reversed move, so `verify` passes against disk afterwards. Schema **v11**
+    (`migration_journal.run_id` / `completed_at`, plus `migration_runs`).
   - **The unmapped direction is the safe one.** A label with no decision is treated as a side
     bin: a file kept beside the years stays findable and fixable, while one wrongly hoisted onto
     the timeline is mixed into the photo record.
@@ -174,18 +186,20 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
 ## 3. Data contract (catalog)
 
 - **Single SQLite file**, stdlib `sqlite3` (`catalog.py::Catalog`). No server.
-- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 10`**.
+- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 11`**.
   Migrations are ordered, idempotent functions in `_MIGRATIONS`; a catalog newer than the code
   is refused (`CatalogVersionError`). Migration coverage tested in `tests/test_catalog.py`.
-- **Table inventory (v10):** `files`, `albums`, `file_albums`, `events`, `skipped_clusters`,
+- **Table inventory (v11):** `files`, `albums`, `file_albums`, `events`, `skipped_clusters`,
   `drives`, `file_copies`, `settings`, `migration_journal`, `reclaim_journal`,
-  `inplace_runs`, `inplace_moves`.
+  `inplace_runs`, `inplace_moves`, `migration_runs`.
 - **Migration ledger:** v2 `size`, v3 `original_name`, v4 event tables (`events` +
   `skipped_clusters` + `files.event_id`), v5 Takeout (`files.copy_sha256` + `albums` +
   `file_albums`), v6 drive identity (`drives` + `file_copies`), v7 key/value `settings`
   (first use: the layout template), v8 `migration_journal` (crash-safe layout migration),
   v9 `reclaim_journal` (audit/resume for `truestill reclaim` deletions), v10 `inplace_runs` +
-  `inplace_moves` (**reversible** journal for rename-based relocation).
+  `inplace_moves` (**reversible** journal for rename-based relocation), v11 `migration_runs` +
+  `migration_journal.run_id`/`completed_at` (makes a **completed** migration reversible, not
+  merely resumable).
 - **Dual-hash rule.** `files.sha256` is the **source** (pre-write) hash - the **dedup
   identity**. `files.copy_sha256` is the organized copy's **post-write** hash - the
   **verification identity** (equal to `sha256` for the byte-identical normal pipeline; differs

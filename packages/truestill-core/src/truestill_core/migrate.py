@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
+from uuid import uuid4
 
 from truestill_core.catalog import Catalog
 from truestill_core.categorize import build_rules, categorize, deterministic_side_bin_labels
@@ -296,13 +297,13 @@ def _apply_move(catalog: Catalog, destination: Destination, drive_uuid: str, mov
     """Advance one move to completion from whatever state it is in (idempotent)."""
     current = catalog.copy_relative(move.sha256, drive_uuid)
     if current is None:  # copy no longer tracked; nothing to do but forget the journal row
-        catalog.clear_migration_move(move.sha256, drive_uuid)
+        catalog.complete_migration_move(move.sha256, drive_uuid)
         return
 
     if current == move.new_relative:  # catalog already flipped; only the old orphan may remain
         if move.old_relative != move.new_relative:
             destination.remove(move.old_relative)
-        catalog.clear_migration_move(move.sha256, drive_uuid)
+        catalog.complete_migration_move(move.sha256, drive_uuid)
         return
 
     # Catalog still points at the old path: write and verify the new copy first.
@@ -315,7 +316,7 @@ def _apply_move(catalog: Catalog, destination: Destination, drive_uuid: str, mov
     catalog.relocate_copy(move.sha256, drive_uuid, move.new_relative)  # the atomic flip
     if move.old_relative != move.new_relative:
         destination.remove(move.old_relative)
-    catalog.clear_migration_move(move.sha256, drive_uuid)
+    catalog.complete_migration_move(move.sha256, drive_uuid)
 
 
 def resume_migration(catalog: Catalog, destination: Destination, drive_uuid: str) -> int:
@@ -355,8 +356,13 @@ def run_migration(
     if not apply:
         return MigrationOutcome(plan=plan, resumed=0, migrated=0, applied=False)
 
+    run_id = uuid4().hex
+    catalog.start_migration_run(run_id, drive_uuid)
     catalog.record_migration_moves(
-        [(m.sha256, drive_uuid, m.old_relative, m.new_relative, m.copy_sha256) for m in plan.moves]
+        [
+            (m.sha256, drive_uuid, m.old_relative, m.new_relative, m.copy_sha256, run_id)
+            for m in plan.moves
+        ]
     )
     migrated = 0
     total = len(plan.moves)
@@ -367,4 +373,83 @@ def run_migration(
         migrated += 1
         if progress is not None:
             progress(Progress(migrated, total, Phase.MOVING, PurePosixPath(move.new_relative).name))
+    if migrated == total:
+        catalog.finish_migration_run(run_id)
     return MigrationOutcome(plan=plan, resumed=resumed, migrated=migrated, applied=True)
+
+
+@dataclass(frozen=True, slots=True)
+class UndoOutcome:
+    """What reversing a migration achieved, and what it refused to touch."""
+
+    reversed_files: int
+    #: ``(relative, reason)`` for each move left alone -- never silently overwritten.
+    refused: list[tuple[str, str]]
+
+    @property
+    def clean(self) -> bool:
+        return not self.refused
+
+
+def undo_migration(
+    catalog: Catalog,
+    destination: Destination,
+    drive_uuid: str,
+    *,
+    apply: bool,
+    progress: ProgressCallback | None = None,
+) -> UndoOutcome:
+    """Put a completed migration back, move by move, with the forward run's safety discipline.
+
+    Walks the newest run's completed moves **in reverse**, so a path freed by one reversal is
+    available to the next - the mirror of how the forward run built them up. Each move is
+    relocated back, **re-hashed at its old path, and only then is the new copy removed**; a
+    failed verify raises and leaves both the file and its journal row intact, so nothing is lost
+    and the reversal can be retried.
+
+    Interruption is safe for the same reason the forward run is: a row is dropped only after its
+    file is verified back in place, so re-running continues from wherever it stopped.
+
+    **A file that changed since the migration is refused, not clobbered.** If the copy at the new
+    path no longer hashes to what the migration recorded, someone edited or replaced it, and
+    putting the old path back would discard that work.
+
+    ``O(moves in the run)``, paying the same hash-verify the forward path already pays.
+    """
+    record = catalog.reversible_migration(drive_uuid)
+    if record is None:
+        return UndoOutcome(reversed_files=0, refused=[])
+    _, rows = record
+
+    refused: list[tuple[str, str]] = []
+    done = 0
+    for row in rows:
+        new_relative = str(row["new_relative"])
+        old_relative = str(row["old_relative"])
+        expected = row["copy_sha256"]
+
+        if not destination.exists(new_relative):
+            refused.append((new_relative, "the migrated copy is no longer there"))
+            continue
+        if expected and destination.checksum(new_relative) != expected:
+            refused.append((new_relative, "changed since the migration -- left untouched"))
+            continue
+        if not apply:
+            done += 1
+            continue
+
+        destination.relocate(new_relative, old_relative)
+        if not _matches(destination, old_relative, expected):
+            message = f"verification failed after putting {old_relative} back"
+            raise DestinationError(message)
+        catalog.relocate_copy(str(row["sha256"]), drive_uuid, old_relative)
+        # Mirror the forward path exactly: the migrated copy is removed only after the restored
+        # one has been re-hashed, so there is never an instant with zero copies.
+        if old_relative != new_relative:
+            destination.remove(new_relative)
+        catalog.forget_migration_move(str(row["sha256"]), drive_uuid)
+        done += 1
+        if progress is not None:
+            progress(Progress(done, len(rows), Phase.MOVING, PurePosixPath(old_relative).name))
+
+    return UndoOutcome(reversed_files=done, refused=refused)

@@ -55,6 +55,7 @@ from truestill_core.migrate import (
     plan_migration,
     rederive_rules,
     run_migration,
+    undo_migration,
 )
 from truestill_core.models import (
     ActionResult,
@@ -313,6 +314,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "path", type=Path, help="the drive's current mount root (must be connected)"
     )
     migrate.add_argument("--db", type=Path, default=_DEFAULT_DB, help="SQLite catalog")
+    migrate.add_argument(
+        "--undo",
+        action="store_true",
+        help="put the last migration back (preview first, then a typed confirm)",
+    )
     migrate.add_argument(
         "--apply", action="store_true", help="actually move files (default: preview only)"
     )
@@ -1137,6 +1143,37 @@ def _cmd_config(args: argparse.Namespace) -> int:
 MAX_PATH = 260
 
 
+def _cmd_migrate_undo(args: argparse.Namespace, marker: DriveMarker) -> int:
+    """Put a completed migration back. Preview first, then the same typed word as the forward."""
+    destination = LocalDestination(args.path)
+    with Catalog(args.db) as catalog:
+        outcome = undo_migration(catalog, destination, marker.uuid, apply=False)
+        record = catalog.reversible_migration(marker.uuid)
+        if record is None:
+            print(f"Drive '{marker.label}': no migration to undo.")
+            return 0
+
+        print(f"Drive '{marker.label}': {len(record[1])} file(s) from the last migration.")
+        print(f"  {outcome.reversed_files} can be put back.")
+        for relative, reason in outcome.refused:
+            print(f"  ! {relative}: {reason}")
+
+        if not args.apply:
+            print("\nPreview only. Nothing was moved. Re-run with --apply to put them back.")
+            return 0
+
+        answer = input(f"\nType 'undo' to put {outcome.reversed_files} file(s) back: ")
+        if answer.strip() != "undo":
+            print("Aborted. Nothing was moved.")
+            return 0
+
+        applied = undo_migration(catalog, destination, marker.uuid, apply=True)
+        print(f"\nPut {applied.reversed_files} file(s) back.")
+        for relative, reason in applied.refused:
+            print(f"  ! {relative}: {reason}")
+        return 0
+
+
 def _print_routing(routes: list[LabelRoute], rules_by_sha: dict[str, str]) -> bool:
     """Show where each label's files are headed. Returns whether anything is still undecided."""
     print("\nRouting, by label:")
@@ -1163,6 +1200,9 @@ def _cmd_migrate_layout(args: argparse.Namespace) -> int:
         return 2
 
     destination = LocalDestination(args.path)
+    if args.undo:
+        return _cmd_migrate_undo(args, marker)
+
     with Catalog(args.db) as catalog:
         # NOTE: the drive is deliberately NOT upserted here. Refreshing its label is a write, and
         # everything before the confirm has to be a read -- a preview that already touched the

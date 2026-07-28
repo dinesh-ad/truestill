@@ -107,8 +107,19 @@ CREATE TABLE IF NOT EXISTS migration_journal (
     old_relative TEXT NOT NULL,
     new_relative TEXT NOT NULL,
     copy_sha256  TEXT,
+    run_id       TEXT,
+    completed_at TEXT,
     PRIMARY KEY (sha256, drive_uuid)
 );
+
+-- One row per migration run, so a finished run can be found and reversed as a unit.
+CREATE TABLE IF NOT EXISTS migration_runs (
+    run_id       TEXT PRIMARY KEY,
+    drive_uuid   TEXT NOT NULL,
+    started_at   TEXT NOT NULL,
+    completed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_migration_runs_drive ON migration_runs (drive_uuid);
 
 -- Audit/resume journal for `truestill reclaim`: one row per source deletion, written just before
 -- the delete and cleared just after. A row surviving a crash names a source that was verified-
@@ -152,7 +163,7 @@ CREATE INDEX IF NOT EXISTS idx_inplace_moves_run ON inplace_moves (run_id);
 """
 
 #: Bump whenever the schema changes, and add a matching entry to _MIGRATIONS.
-CURRENT_SCHEMA_VERSION = 10
+CURRENT_SCHEMA_VERSION = 11
 
 
 class CatalogVersionError(RuntimeError):
@@ -245,6 +256,29 @@ def _add_settings_table(conn: sqlite3.Connection) -> None:
     )
 
 
+def _add_reversible_migrations(conn: sqlite3.Connection) -> None:
+    """v10 -> v11: a migration becomes reversible, not merely resumable.
+
+    The journal previously deleted each row the moment its move completed, which made it a
+    *resume* record that erased itself on success -- so a finished migration had nothing left to
+    reverse from. Rows now carry the run that made them and the moment they completed, and they
+    survive as the reversal record until a later run of the same drive supersedes them.
+    """
+    conn.executescript(
+        """
+        ALTER TABLE migration_journal ADD COLUMN run_id TEXT;
+        ALTER TABLE migration_journal ADD COLUMN completed_at TEXT;
+        CREATE TABLE IF NOT EXISTS migration_runs (
+            run_id       TEXT PRIMARY KEY,
+            drive_uuid   TEXT NOT NULL,
+            started_at   TEXT NOT NULL,
+            completed_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_migration_runs_drive ON migration_runs (drive_uuid);
+        """
+    )
+
+
 def _add_migration_journal(conn: sqlite3.Connection) -> None:
     """v7 -> v8: a journal of in-flight layout-migration moves (for crash-safe resume)."""
     conn.executescript(
@@ -300,6 +334,7 @@ _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (8, _add_migration_journal),
     (9, _add_reclaim_journal),
     (10, _add_inplace_journal),
+    (11, _add_reversible_migrations),
 )
 
 
@@ -419,27 +454,34 @@ class Catalog:
             )
         )
 
-    def record_migration_moves(self, moves: list[tuple[str, str, str, str, str | None]]) -> None:
-        """Journal planned moves ``(sha256, drive_uuid, old, new, copy_sha256)`` before touching disk."""
+    def record_migration_moves(
+        self, moves: list[tuple[str, str, str, str, str | None, str]]
+    ) -> None:
+        """Journal planned moves ``(sha256, drive, old, new, copy_sha256, run_id)`` before disk."""
         with self._tx() as conn:
             conn.executemany(
                 """
                 INSERT INTO migration_journal
-                    (sha256, drive_uuid, old_relative, new_relative, copy_sha256)
-                VALUES (?, ?, ?, ?, ?)
+                    (sha256, drive_uuid, old_relative, new_relative, copy_sha256, run_id)
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(sha256, drive_uuid) DO UPDATE SET
                     old_relative = excluded.old_relative, new_relative = excluded.new_relative,
-                    copy_sha256 = excluded.copy_sha256
+                    copy_sha256 = excluded.copy_sha256, run_id = excluded.run_id,
+                    completed_at = NULL
                 """,
                 moves,
             )
 
     def pending_migration(self, drive_uuid: str) -> list[sqlite3.Row]:
-        """Journalled moves for a drive left over from an interrupted run."""
+        """Journalled moves for a drive that have **not** completed - an interrupted run.
+
+        Completed rows stay in the table as the reversal record, so "pending" is now a state
+        rather than mere presence: only rows without a ``completed_at`` are replayed forward.
+        """
         return list(
             self._conn.execute(
                 "SELECT sha256, drive_uuid, old_relative, new_relative, copy_sha256 "
-                "FROM migration_journal WHERE drive_uuid = ?",
+                "FROM migration_journal WHERE drive_uuid = ? AND completed_at IS NULL",
                 (drive_uuid,),
             )
         )
@@ -452,13 +494,70 @@ class Catalog:
                 (new_relative, sha256, drive_uuid),
             )
 
-    def clear_migration_move(self, sha256: str, drive_uuid: str) -> None:
-        """Drop a journal row once its move (including old-copy removal) is complete."""
+    def complete_migration_move(self, sha256: str, drive_uuid: str) -> None:
+        """Mark a move done. **The row is kept** -- it is the record undo reverses from.
+
+        This used to delete the row, which made the journal a resume record that erased itself
+        on success: a finished migration had nothing left to reverse. The row now survives until
+        a later run of the same drive supersedes it, or undo consumes it.
+        """
+        with self._tx() as conn:
+            conn.execute(
+                "UPDATE migration_journal SET completed_at = ? WHERE sha256 = ? AND drive_uuid = ?",
+                (_now(), sha256, drive_uuid),
+            )
+
+    def forget_migration_move(self, sha256: str, drive_uuid: str) -> None:
+        """Drop a journal row once undo has put its file back -- the record is spent."""
         with self._tx() as conn:
             conn.execute(
                 "DELETE FROM migration_journal WHERE sha256 = ? AND drive_uuid = ?",
                 (sha256, drive_uuid),
             )
+
+    def start_migration_run(self, run_id: str, drive_uuid: str) -> None:
+        """Open a run, superseding the previous one's journal for this drive.
+
+        Superseding here rather than on a timer is what bounds growth: exactly one run's worth of
+        reversal record exists per drive, and it is always the newest one -- so the only record
+        that can be dropped is one a newer migration has already made meaningless.
+        """
+        with self._tx() as conn:
+            conn.execute("DELETE FROM migration_journal WHERE drive_uuid = ?", (drive_uuid,))
+            conn.execute("DELETE FROM migration_runs WHERE drive_uuid = ?", (drive_uuid,))
+            conn.execute(
+                "INSERT INTO migration_runs (run_id, drive_uuid, started_at) VALUES (?, ?, ?)",
+                (run_id, drive_uuid, _now()),
+            )
+
+    def finish_migration_run(self, run_id: str) -> None:
+        with self._tx() as conn:
+            conn.execute(
+                "UPDATE migration_runs SET completed_at = ? WHERE run_id = ?", (_now(), run_id)
+            )
+
+    def reversible_migration(self, drive_uuid: str) -> tuple[str, list[sqlite3.Row]] | None:
+        """The newest run for a drive and its completed moves, newest move first.
+
+        Reverse order matters: undo walks moves backwards so that a path freed by one reversal is
+        available to the next, exactly as the forward run built them up.
+        """
+        run = self._conn.execute(
+            "SELECT run_id FROM migration_runs WHERE drive_uuid = ? "
+            "ORDER BY started_at DESC LIMIT 1",
+            (drive_uuid,),
+        ).fetchone()
+        if run is None:
+            return None
+        rows = list(
+            self._conn.execute(
+                "SELECT * FROM migration_journal "
+                "WHERE drive_uuid = ? AND completed_at IS NOT NULL "
+                "ORDER BY completed_at DESC, rowid DESC",
+                (drive_uuid,),
+            )
+        )
+        return (str(run["run_id"]), rows) if rows else None
 
     # -- reclaim (space-safe source deletion) --------------------------------------------
 

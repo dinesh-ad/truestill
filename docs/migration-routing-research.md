@@ -68,3 +68,36 @@ The move requires the typed word `move`. There is no default-yes, no bare-Enter 
 that auto-confirms; `--apply` is permission to *ask*. Absent the word, the command's terminal
 state is "previewed, nothing moved". The move itself runs on the existing journalled engine, so
 it stays resumable after an interruption.
+
+
+---
+
+## 6. Addendum: resume is not reversal (2026-07-28)
+
+The plan for this step assumed `undo-organize` could reverse a migration. It could not, and the
+reason is worth recording because the two words look interchangeable and are not.
+
+`migration_journal` **did** store `old_relative` - but every row was deleted the moment its move
+completed. That makes it a **resume** record: it exists precisely while the operation is
+unfinished, and erases itself on success. `undo.py`, meanwhile, reads `inplace_runs` /
+`inplace_moves` and never looked at the migration journal at all. So a *finished* migration had
+nothing left to reverse from, while an *interrupted* one did - the exact opposite of what a user
+would assume.
+
+**The fix keeps the row and adds a lifecycle** (schema v11): a row is inserted pending, marked
+`completed_at` when its move lands, and dropped only when undo consumes it or a later migration
+of the same drive supersedes it. "Pending" became a state rather than mere presence, which is
+what let resume behaviour stay identical.
+
+**Retention is bounded by supersession, not by a timer.** Exactly one run's record exists per
+drive, and it is always the newest, so the only record that can be dropped is one a newer
+migration has already made meaningless.
+
+**The lesson, generalised:** a journal that erases itself on success can only ever answer "what
+was I doing?", never "what did I do?". If the answer to the second question matters - and for
+anything that relocates a user's only organized copy it does - the record has to outlive the
+operation. Worth checking the same question of `reclaim_journal` before trusting it as an audit
+trail.
+
+**Complexity:** undo is O(moves in the run) and pays the same hash-verify per file the forward
+path already pays. No additional per-file work.
