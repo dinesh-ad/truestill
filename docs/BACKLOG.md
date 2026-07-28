@@ -18,7 +18,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(x). Next free: (y).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z). Next free: (aa).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -362,6 +362,47 @@ is invisible here is retired, not free.**
   - **Virtual views, albums-as-first-class-objects and faces remain out of scope**, unchanged -
     see "Consciously out of scope" below and the composition stance recorded there. Portable
     *context* is not the same request as a gallery.
+- **(y) Optional photo / video split - default TOGETHER, and pair-aware or not at all.**
+  Post-layout-correction. An opt-in that separates standalone videos into their own top-level
+  branch, leaving photos on the timeline.
+  - **The default stays together**, because a chronological timeline is the thing the layout
+    correction exists to produce and splitting media types cuts across it. This is a preference,
+    not an improvement.
+  - ⚠ **The constraint that makes or breaks it: a naive split destroys Live / Motion Photos.**
+    An iPhone Live Photo is a **pair** - a `.HEIC`/`.JPG` still plus a `.MOV` sharing a content
+    identifier - and a Samsung Motion Photo is the same idea. A split that routes by extension
+    sends the still to `Photos/` and its motion half to `Videos/`, silently dismembering an asset
+    the user thinks of as one thing. This failure is documented in Apple's own asset model and
+    has been reported repeatedly against Immich; it is not hypothetical.
+  - **Therefore: the pair moves together, and only a STANDALONE video goes to `Videos/`.** A
+    `.MOV` that is the motion half of a Live Photo is not a video for this purpose.
+  - **Depends on asset pairing**, which truestill does not have yet - matching a still to its
+    motion half (content identifier where present, else name + timestamp + duration heuristics).
+    That dependency is the real work; the split itself is a routing branch once pairing exists.
+    **Do not build the split first and pair later** - shipping it in that order is shipping the
+    dismemberment.
+  - Fits the existing router as a third axis (`LayoutScheme` already routes on rule, then on
+    evented), so the mechanism is understood; it is blocked on evidence, not on design.
+
+- **(z) Optional source / device manifest - catalog-first, hash-keyed.**
+  Post-layout-correction, opt-in, **local-only** (no network, D1 unchanged). Answers "what
+  device and which app did this file come from?" across a library.
+  - **Catalog-first, keyed by content hash.** The catalog already keys everything on `sha256`,
+    which is what makes the record survive a rename, a move, a re-layout and an in-place
+    organize. A path-keyed record would be wrong the first time `migrate-layout` ran.
+  - ⚠ **The JSON is a GENERATED EXPORT, never a loose per-file sidecar.** Per-file sidecars
+    orphan the moment a file is renamed or moved - the exact failure the hash key exists to
+    avoid - and they would also scatter truestill-named artifacts across a user's drive, which
+    §3.1 keeps to a single marker file. Export on demand; regenerate rather than maintain.
+  - **The data is largely already known:** device from EXIF `Make`/`Model` (the `device` rule
+    already reads them), platform/app from the derived category, and both are already recorded
+    per file. This is mostly a query and a serializer, not new extraction.
+  - **Opt-in** because it is a reporting feature, not part of custody; nothing about placement
+    or verification should depend on it.
+  - Open question for the research pass: whether it persists a `device` column (a schema
+    version) or derives on demand from stored metadata - decide on measured query cost, not
+    taste.
+
 - **(s) Source-folder names as event evidence.** Generalize the Takeout **album → event**
   mapping to plain sources: a meaningful source folder name becomes a **pre-named event
   proposal** in the existing review flow.
