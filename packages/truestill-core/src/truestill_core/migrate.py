@@ -30,7 +30,7 @@ from uuid import uuid4
 from truestill_core.catalog import Catalog
 from truestill_core.categorize import build_rules, categorize, deterministic_side_bin_labels
 from truestill_core.destinations.base import Destination, DestinationError
-from truestill_core.exif import read_metadata
+from truestill_core.exif import ExiftoolMissingError, read_metadata
 from truestill_core.layout import (
     PATH_LENGTH_WARN,
     TIMELINE_RULE,
@@ -179,7 +179,13 @@ def rederive_rules(
     if not present:
         return {}
 
-    metadata = read_metadata(present)
+    try:
+        metadata = read_metadata(present)
+    except ExiftoolMissingError:
+        # Without the binary there is no evidence to re-derive from. Returning nothing falls the
+        # caller back to the per-label decision, which surfaces the ambiguity for a human --
+        # strictly better than failing the whole migration, and never a silent guess.
+        return {}
     chain = build_rules(by_device=by_device)
     rules: dict[str, str] = {}
     for row, path in zip(rows, paths, strict=True):

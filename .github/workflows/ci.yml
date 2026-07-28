@@ -30,9 +30,14 @@ jobs:
       - name: Install exiftool (macOS)
         if: runner.os == 'macOS'
         run: brew install exiftool
+      # Guarded: choco can return 0 after a feed timeout, and a silently missing exiftool
+      # surfaces minutes later as twenty unrelated-looking test errors instead of one clear
+      # failure here. Verify the binary is actually callable before going further.
       - name: Install exiftool (Windows)
         if: runner.os == 'Windows'
-        run: choco install exiftool --no-progress
+        run: |
+          choco install exiftool --no-progress
+          exiftool -ver
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5

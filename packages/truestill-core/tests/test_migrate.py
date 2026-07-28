@@ -8,12 +8,22 @@ from __future__ import annotations
 
 from pathlib import Path, PurePosixPath
 
+import pytest
+from truestill_core import migrate
 from truestill_core.catalog import Catalog
 from truestill_core.destinations.local import LocalDestination
 from truestill_core.drive import MARKER_NAME
+from truestill_core.exif import ExiftoolMissingError
 from truestill_core.hashing import sha256_file
 from truestill_core.layout import LayoutScheme, LayoutTemplate
-from truestill_core.migrate import Move, plan_migration, run_migration, undo_migration
+from truestill_core.migrate import (
+    Move,
+    label_routes,
+    plan_migration,
+    rederive_rules,
+    run_migration,
+    undo_migration,
+)
 
 
 def _scheme(template: str) -> LayoutScheme:
@@ -22,6 +32,7 @@ def _scheme(template: str) -> LayoutScheme:
     return LayoutScheme(timeline=parsed, timeline_evented=parsed, side_bin=parsed)
 
 
+_NO_EXIFTOOL = "exiftool is not installed"
 _DDL = "{category}/{yyyy}"  # drops the month the default adds -> every dated file must move
 
 
@@ -309,3 +320,25 @@ def test_a_new_migration_supersedes_the_previous_reversal_record(tmp_path: Path)
         assert second is not None
         assert second[0] != first[0]  # a new run
         assert len(second[1]) == 2  # and only its own moves are retained
+
+
+def test_rederivation_degrades_instead_of_failing_when_exiftool_is_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No binary means no evidence -- which is a per-label decision, not a crashed migration.
+
+    Found by a CI run where Chocolatey's feed timed out and exiftool was silently absent: the
+    re-derivation raised instead of degrading, on a path a user reaches with `migrate-layout`.
+    """
+    root = tmp_path / "drive"
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        _two_files(catalog, root)
+
+        def missing(_paths):
+            raise ExiftoolMissingError(_NO_EXIFTOOL)
+
+        monkeypatch.setattr(migrate, "read_metadata", missing)
+        routes = label_routes(catalog, "D1")
+        assert any(r.needs_decision for r in routes)  # there is something to re-derive
+
+        assert rederive_rules(catalog, "D1", root, routes) == {}  # degraded, not raised
