@@ -6,7 +6,7 @@ APP := packages/truestill-app/src/truestill_app
 # left out of it silently imported a module that had not existed for two renames.
 SCRIPTS := scripts
 
-.PHONY: install lint format format-check typecheck test check build dryrun e2e e2e-install
+.PHONY: install lint format format-check typecheck dash-check test check build dryrun e2e e2e-install
 
 install:
 	uv sync --all-packages --group dev
@@ -27,7 +27,12 @@ typecheck:
 test:
 	$(PYTHON) pytest
 
-check: lint format-check typecheck test
+# Prose gates run alongside the code gates: the em-dash sweep of 2026-07-28 was invisible
+# to ruff, mypy and pytest alike, because none of them can see prose.
+dash-check:
+	$(PYTHON) python scripts/normalize_dashes.py --check
+
+check: lint format-check typecheck dash-check test
 
 # --- browser end-to-end ----------------------------------------------------------------
 # Deliberately outside `check` and outside pytest's testpaths: a fresh clone runs `make check`

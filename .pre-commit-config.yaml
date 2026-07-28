@@ -7,6 +7,11 @@ repos:
       - id: ruff
         args: [--fix]
       - id: ruff-format
+        # Markdown too. `ruff format` formats python blocks *inside* markdown, so a docs-only
+        # commit can pass this hook (default types are python/pyi only) and then fail
+        # `make check`, which runs `ruff format --check .` over everything. That is exactly what
+        # happened to b5cba4a. Widening the hook's file types closes the gap at the commit.
+        types_or: [python, pyi, markdown]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.13.0
@@ -26,6 +31,15 @@ repos:
         # uvicorn was missing here and nothing noticed, because the blanket
         # --ignore-missing-imports above was answering for it.
         additional_dependencies: [imagehash, pillow, starlette, uvicorn]
+
+  - repo: local
+    hooks:
+      - id: dash-style
+        name: no em-dashes, and no mangled "word- word" dashes
+        entry: python3 scripts/normalize_dashes.py --check
+        language: system
+        pass_filenames: false
+        types_or: [python, markdown, toml, yaml]
 
   # Non-negotiable project rule: no AI co-author trailer / Anthropic-Claude email in history.
   # Activate with: uv run pre-commit install --hook-type commit-msg
