@@ -117,9 +117,19 @@ is invisible here is retired, not free.**
   `names: dict[str, str]` - which is the **root cause** of the audit's F1: the human name was
   simply never plumbed, because there was no object to carry it. `event_review.py` had already
   eroded the tuple to `tuple[Any, str]`.
-- **(bb) `rule` becomes a `StrEnum`; the router becomes total.** `TIMELINE_RULE = "device"` is
-  compared against a bare `str`, and the seven rule names are re-listed by hand in the tests.
-  An enum makes the set exhaustive and lets the router be checked for totality.
+- **(bb) `rule` becomes a `StrEnum`.** **Half of this shipped in Stage 2a (`1247055`) - read
+  which half before starting.**
+  - **Done: the router is total.** `Placement` is a `StrEnum`, `classify()` is the single router,
+    `LayoutScheme.of` is exhaustiveness-checked with `assert_never`, and `__post_init__` proves a
+    scheme carries a template for every placement. Adding a shape now fails the build until it is
+    given one.
+  - **Still open: the *rule* itself is a bare `str`.** `TIMELINE_RULE = "device"` is compared
+    against an unconstrained string - `classify(rule: str, ...)` accepts any string at all, and a
+    typo routes silently to the side bin rather than failing. The seven rule names are still
+    re-listed by hand in the tests.
+  - **What remains:** make the rule set an enum so it is exhaustive at the *input* to the router,
+    the way `Placement` now is at its output. The two halves are independent; the second is what
+    is left.
 - **(cc) Collapse `preview()` into `preview_scheme()`.** `preview()` has no production caller
   and duplicates the collision + path-length rule character for character (audit F4). Two copies
   of "is this path risky" will diverge.
