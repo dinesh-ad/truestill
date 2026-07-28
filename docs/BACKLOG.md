@@ -18,7 +18,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(jj). Next free: (kk).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(ll). Next free: (mm).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -138,6 +138,43 @@ is invisible here is retired, not free.**
   fixed offset for the whole run, which cannot correctly date a library that spans timezones;
   the real fix derives each photo's timezone from its GPS. The near-midnight caveat is
   surfaced honestly in the ingest report until this exists.
+
+- **(kk) Persist GPS at ingest - it is read and then thrown away.** Found while designing trip
+  grouping (`trip-grouping-research.md` §5), and the scope is much wider than trips.
+  - **The defect.** GPS is read live from exiftool during an organize run and used for the
+    event-clustering jump cut (`event_review.py:80` builds `EventItem.gps`), and then it is
+    **never written to the catalog**. `files` has no latitude/longitude column at all, and
+    `camera_copies_for_events` selects `sha256, captured_at` and nothing else. The data is
+    obtained, used once, and discarded.
+  - **Why it matters beyond trips.** A places / map view is a **high user expectation** in
+    `org-structure-research.md`, and it is unbuildable without stored coordinates. The trip-edge
+    case is only the symptom that exposed it: an arrival evening 80 km from home is trivially
+    distinguishable from an evening at home, and truestill had that fact in memory and dropped it.
+  - **It is permanently lost for already-organised libraries.** Every library placed before this
+    lands has no stored GPS, and recovering it means re-reading every file. **We already pay the
+    read cost** on every run - this is a column, not a pass.
+  - **Scope:** persist latitude/longitude at ingest; persist `GPSDateStamp` alongside, since
+    `date-layering-gap-check.md` §4(b) already ruled it the cross-check for a suspect dead-clock
+    date and it is the same exiftool read. Pairs naturally with the `DateSource` provenance
+    column that `(n)` and `(ii)` both want.
+  - **Open question, deliberately not answered here:** whether existing libraries get a backfill
+    pass. It is a re-read of the whole library, so it is opt-in work with a real cost, and it
+    wants its own decision rather than being smuggled in with the column.
+
+- **(ll) Sub-day event identity that survives a changing file set.** The day-event half of the
+  identity defect recorded in `trip-grouping-research.md` §6.
+  - **The defect.** `EventCandidate.signature` (`events.py:109`) is a SHA-256 over the member
+    `sha256`s, and that is the `UNIQUE` key `event_by_signature` looks up. Membership *is*
+    identity, so ingesting one more photo from an already-named day changes the signature and the
+    event is proposed again as new, with the name already given orphaned.
+  - **The trip fix does NOT apply here, and this is the point of the entry.** Trips are keyed on
+    `trip_days.day` because a day belongs to at most one trip. **Day events are not days.**
+    2014-08-16 alone produced two clusters (565 and 157 files) and 2014-08-17 produced three;
+    keying on the date would collapse a morning outing and an evening one into one identity and
+    silently merge two separately-named events. **Do not apply the day-key remedy to events.**
+  - **What is needed instead:** an identity stable under a changing file set that still separates
+    several events within one day - a time-anchored key (day plus cluster start, tolerance
+    matched) is the obvious candidate and needs its own design pass and its own evidence.
 
 - **(jj) Archive ingestion - read a library straight out of its archives.** Near-launch
   priority: it is central to the Takeout-rescue pitch, because what a refugee actually has is a
