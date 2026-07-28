@@ -27,6 +27,7 @@ Two behavioural rules preserve exactly what the inline code did:
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -102,8 +103,9 @@ class EventNaming(StrEnum):
     SLUG = "slug"
 
 
-#: Longest event *name* allowed in a folder. Names are user input becoming a directory, and a
-#: path component is bounded on every filesystem.
+#: Longest event *name* allowed in a folder, in **bytes** -- deliberately far below
+#: :data:`MAX_COMPONENT_BYTES`, because the name shares its component with a date prefix and a
+#: separator, and a 255-byte trip name is a worse outcome than a shortened one.
 MAX_EVENT_NAME = 60
 
 
@@ -120,7 +122,7 @@ def event_folder(
     """
     if naming is EventNaming.SLUG or not name:
         return event_dirname(start, slug)
-    cleaned = _sanitize_value(name)[:MAX_EVENT_NAME].strip().rstrip(" .")
+    cleaned = _truncate_bytes(_sanitize_value(name), MAX_EVENT_NAME).strip().rstrip(" .")
     if cleaned != name:
         notes.append(f"event name {name!r} was adjusted to {cleaned!r} to be path-safe")
     # "Usable" means it still carries a letter or digit. Emptiness is not the test: the
@@ -136,6 +138,60 @@ def event_folder(
     return folder
 
 
+@dataclass(frozen=True, slots=True)
+class EventFolder:
+    """One event's folder name, after collision handling."""
+
+    key: str  #: the caller's identifier for this event (a slug, a signature, a row id)
+    folder: str
+    note: str | None = None  #: set when the name had to be disambiguated
+
+
+def disambiguate_event_folders(
+    entries: Sequence[tuple[str, datetime, str, str | None]],
+    naming: EventNaming = EventNaming.READABLE,
+) -> list[EventFolder]:
+    """Render event folders and make same-date name collisions distinguishable.
+
+    Two events on one date whose names sanitize to the same string -- ``Goa Trip`` and
+    ``Goa/Trip``, or ``Goa Trip`` and ``goa trip`` on a case-insensitive filesystem -- render one
+    folder name, and their files would merge silently. That is **truestill's own constraint, not
+    the filesystem's**: it was created by making event folders human-readable, so it is
+    truestill's job to detect it *before* anything is written.
+
+    Later collisions get a ``(2)``, ``(3)`` suffix and a note. A numeric suffix rather than a
+    hash on purpose: it keeps the name the user chose and admits the clash, where a hash would
+    destroy the readability this whole change exists to deliver.
+
+    ``entries`` is ``(key, start, slug, name)``. **O(m)** across *m* events - one pass, one dict.
+    """
+    seen: dict[str, int] = {}
+    out: list[EventFolder] = []
+    for key, start, slug, name in entries:
+        notes: list[str] = []
+        folder = event_folder(start, slug, name, naming, notes)
+        # Case-insensitively, because two folders differing only in case collide on APFS/NTFS.
+        marker = folder.casefold()
+        count = seen.get(marker, 0) + 1
+        seen[marker] = count
+        note = notes[0] if notes else None
+        if count > 1:
+            disambiguated = f"{folder} ({count})"
+            out.append(
+                EventFolder(
+                    key=key,
+                    folder=disambiguated,
+                    note=(
+                        f"another event on {start:%Y-%m-%d} already uses {folder!r}; "
+                        f"this one becomes {disambiguated!r}"
+                    ),
+                )
+            )
+            continue
+        out.append(EventFolder(key=key, folder=folder, note=note))
+    return out
+
+
 class TemplateError(ValueError):
     """Raised when a layout template is malformed or references an unknown token."""
 
@@ -146,13 +202,37 @@ def _is_reserved(component: str) -> bool:
     return stem in _WIN_RESERVED
 
 
+#: Every filesystem in play (ext4, APFS, NTFS) caps a path component at 255 **bytes**, not
+#: characters -- a distinction that only shows up on non-Latin names, where one character can
+#: cost four bytes. See `docs/filename-safety-research.md`.
+MAX_COMPONENT_BYTES = 255
+
+
+def _truncate_bytes(value: str, limit: int) -> str:
+    """Shorten ``value`` to at most ``limit`` UTF-8 bytes, never splitting a character.
+
+    Slicing encoded bytes blindly would leave an invalid trailing sequence, which surfaces as a
+    mangled name or an OS error rather than a clean shortening.
+    """
+    encoded = value.encode("utf-8")
+    if len(encoded) <= limit:
+        return value
+    return encoded[:limit].decode("utf-8", errors="ignore")
+
+
 def _sanitize_value(value: str) -> str:
     """Make a rendered token value safe as a single path component (never raises).
 
     Illegal characters (incl. ``/`` and ``\\``) become ``_`` so a value cannot inject a
-    directory level, and trailing dots/spaces are trimmed (Windows silently drops them).
+    directory level; trailing dots/spaces are trimmed (Windows silently drops them, so ``Trip.``
+    and ``Trip`` would otherwise be the same directory under two names); the result is
+    normalized to **NFC** so a name typed on macOS and the same name typed on Linux produce one
+    directory rather than two that look identical; and it is capped at
+    :data:`MAX_COMPONENT_BYTES`.
     """
-    return _VALUE_ILLEGAL.sub("_", value).strip().rstrip(" .")
+    cleaned = _VALUE_ILLEGAL.sub("_", value).strip().rstrip(" .")
+    cleaned = unicodedata.normalize("NFC", cleaned)
+    return _truncate_bytes(cleaned, MAX_COMPONENT_BYTES).strip().rstrip(" .")
 
 
 def resolve_template(stored: str | None) -> LayoutTemplate:
