@@ -87,6 +87,25 @@ re-implementing something the repo already has.
   (compare paths via `.as_posix()`, never `str(Path)`). Prefer fixtures, `parametrize`,
   `tmp_path`, and injected input over TTY. A test that merely restates the implementation is
   not coverage. Test count is never a target - it changes; don't cite it as done-ness.
+- **A regression fixture must be validated by running it against the bug it guards.**
+  **A fixture that cannot fail against the bug is not a regression test** - it is a test of
+  something else that happens to pass. Reintroduce the defect (revert the constant, restore the
+  old branch), confirm the fixture *fails*, then restore and confirm it passes. Until that has
+  been done, a green fixture is evidence of nothing.
+
+  *Worked example - the event-clustering fix, 2026-07-28.* The defect: a cut threshold defined
+  relative to local density, so a burst-shot day shattered into fragments. The first regression
+  fixture used **uniform** 8-second spacing and passed under the broken rule exactly as happily
+  as under the fixed one - a purely relative threshold has nothing to cut on when every gap is
+  identical, so **the fixture reproduced the very flaw it was meant to catch**. The second
+  attempt added 7-minute pauses and still did not discriminate: against an 8-second median that
+  is `ln 420 - ln 8 = 3.85`, just under the 4.0 threshold, so it passed *by luck*. Only a
+  10-minute pause (`4.20`) actually reproduced the failure. Both attempts were green, and both
+  were worthless, and only running them against the bug showed which.
+
+  This is the same reasoning as the E2E lane's no-retry rule and the mutation checks used on the
+  commit-msg hook and the type fence: **a guard is not known to work until it has been seen to
+  fail.**
 - **Errors.** Exceptions typed and specific - no bare `except`. User-facing CLI errors are
   actionable sentences, not tracebacks. Every subprocess call checks its return code and
   surfaces stderr on failure. Partial-failure policy: one bad file never aborts a batch - it
