@@ -1,0 +1,372 @@
+# Trip grouping: multi-day events, and the router that has to carry them
+
+Status: **Design only (2026-07-28). No code changed.** This is the Stage 2 review gate. It
+proposes a shape, states the rules, answers the architectural flag honestly, and stops.
+
+Read [`events-clustering-research.md`](events-clustering-research.md) §7 first: it is the reason
+this document exists.
+
+---
+
+## 1. Why this stage exists
+
+Stage 1 made segmentation correct and, in doing so, made it **within-day only**. Every overnight
+gap exceeds the 60-minute boundary floor, so no cluster can span midnight. All 15 proposals on the
+real library are inside a single day. That was accepted deliberately — but it leaves a real thing
+unrepresented:
+
+> A four-day trip to Wayanad is currently ten separate day-events with the same name typed ten
+> times, or one name typed once and nine days left un-evented.
+
+Multi-day grouping therefore happens **above** clustering, as an explicit second layer, not by
+loosening the boundary rule. Loosening it would re-import the exact failure Stage 1 removed: a
+threshold that spans midnight also spans a sparse tail, and the 5.6-year cluster comes back.
+
+**A trip is a named span of days. A day event is a named span of hours.** They are different
+objects, and the day layer stays untouched.
+
+## 2. The shape
+
+```
+{yyyy}/{yyyy}-{mm}/{yyyy}-{mm}-{dd} - Trip Name/{yyyy}-{mm}-{dd}/
+```
+
+Rendered for the real candidate (assuming Dinesh names Aug 15–17 "Wayanad"):
+
+```
+2014/
+└── 2014-08/
+    └── 2014-08-15 - Wayanad/
+        ├── 2014-08-15/     631 photos
+        ├── 2014-08-16/     722 photos
+        └── 2014-08-17/     651 photos
+```
+
+Against today's shipped year-first shapes:
+
+| | Un-evented | Day event | **Trip (new)** | Side bin |
+|---|---|---|---|---|
+| | `{yyyy}/{yyyy}-{mm}/{yyyy}-{mm} - Everyday` | `{yyyy}/{yyyy}-{mm}/{yyyy}-{mm}-{dd} - Name` | `{yyyy}/{yyyy}-{mm}/{yyyy}-{mm}-{dd} - Name/{yyyy}-{mm}-{dd}` | `{category}/{yyyy}/{yyyy}-{mm}` |
+
+The trip shape is the day-event shape **plus one dated level**. That is deliberate: a trip is
+recognisably the same kind of thing as a day event, one level deeper, so a user who understands
+one understands the other without being told.
+
+## 3. The rules, and why each is what it is
+
+**(a) Named by start date.** The folder is `2014-08-15 - Wayanad`, never a range. The start date
+is the only date about a trip that cannot change: a later ingest can extend a trip's end, and
+re-scanning a forgotten card can add days in the middle, but the first day is fixed once
+confirmed. Naming on anything mutable means renaming folders on the user's disk after the fact,
+which is the one thing a copy-only tool should never do.
+
+**(b) Dated day subfolders, in full ISO form.** `2014-08-16/`, not `16/`. Two reasons, both
+concrete: a trip crossing a month boundary would sort `28, 29, 30, 31, 01, 02` under bare days,
+and a day folder lifted out of its parent by a file manager, a search result or a backup listing
+is meaningless without the date. Every folder in truestill's tree says what it is; the day level
+is not an exception.
+
+**(c) No year suffix in the name.** "Wayanad", not "Wayanad 2014". The `{yyyy}` parent already
+carries the year, and (e) guarantees that the same name never appears twice under one year.
+
+**(d) Filed in the start month.** A trip running 2016-11-28 → 2016-12-02 lives entirely under
+`2016/2016-11/`, including the December days. A trip is one object; splitting it across two month
+folders to satisfy a filing rule would put half of it where nobody looks for it. The month folder
+answers "when did this start", which is how people remember trips.
+
+**(e) A year boundary always splits.** This is [`IMPLEMENTATION_STANDARDS.md`] R2, unchanged and
+not negotiable here: nothing may be filed outside its own year. A trip running
+2016-12-28 → 2017-01-03 becomes **two** trips:
+
+```
+2016/2016-12/2016-12-28 - Goa/{2016-12-28, 2016-12-29, 2016-12-30, 2016-12-31}
+2017/2017-01/2017-01-01 - Goa/{2017-01-01, 2017-01-02, 2017-01-03}
+```
+
+Both named "Goa", no suffix, no collision — different year parents. (c) and (e) are the same
+decision seen from two sides: because the year splits, the name never needs the year.
+
+The split is **structural, not a proposal**: the user names one trip and gets two folders, and
+the UI must say so at confirm time rather than let it be discovered on disk.
+
+**(f) Max span is a setting, default 30 days.** A run of consecutive active days is not bounded by
+anything intrinsic — someone who photographs daily for a year has one 365-day run, and calling
+that "a trip" is meaningless.
+
+*Honest limit:* **this library cannot validate the number.** Its longest active-day run is 4 days
+(§4), so 30 is chosen on principle, not fitted: it is long enough for any real holiday, short
+enough that a habitual daily shooter never trips it. It is a setting precisely because the
+default is unvalidated.
+
+*On exceeding the cap, decline — do not split.* A run past the cap produces **no trip proposal**;
+its days remain individually offerable day events, and the UI states why. Splitting at day 30
+would fabricate a boundary the data does not contain, which is the same sin as fabricating a date.
+
+**(g) Name once, keyed on the day.** See §6 — this is the rule with a real implementation
+consequence, and it is not the one the existing code would give us.
+
+## 4. What the rule proposes on the real library
+
+Trip candidacy = a run of **≥ 2 consecutive active days**, where an *active day* is one that
+produced at least one cluster proposal under the Stage 1 rule.
+
+Measured, not asserted:
+
+```
+active days                     : 10   (2013-09-13 .. 2014-08-17)
+consecutive-active-day runs ≥ 2 :  2
+
+  2013-09-15 .. 2013-09-16    2 days,    32 photos
+  2014-08-14 .. 2014-08-17    4 days, 2,035 photos
+```
+
+**Gating on clusters rather than on "days with any photo" is load-bearing.** The permissive rule
+also finds `2023-08-20 .. 2023-08-21` — a two-day run of **2 photos total**. Under cluster-gating
+it never appears, because neither day clears `min_files = 8`. A trip proposal for two photos would
+be the kind of thing that teaches a user to stop reading proposals.
+
+The 32-photo run (2013-09-15/16, evening clusters of 13 and 19) is a genuine judgement call and is
+exactly why proposals are proposals. It is offered; it costs one keystroke to skip.
+
+## 5. Addition 1 — the proposal is the run; the edges belong to the user
+
+**The rule proposes the whole consecutive active-day run. It never silently trims it and never
+silently pads it.** The start and end are adjustable before the trip is named, and the confirmed
+edges are what get stored.
+
+This is not a general principle looking for an example — it is forced by the one real candidate:
+
+| Day | Clusters | Photos | |
+|---|---|---|---|
+| 2014-08-14 | 2 | **31** | 19:46–21:22 (n=23) and 22:22–22:25 (n=8) |
+| 2014-08-15 | 2 | 631 | |
+| 2014-08-16 | 2 | 722 | |
+| 2014-08-17 | 3 | 651 | |
+
+Ground truth from Dinesh: **the trip was Aug 15–17.** The rule proposes **Aug 14–17.**
+
+Both readings are defensible from the data alone. An evening burst of 31 photos immediately before
+three heavy days is precisely the shape of an arrival evening — and it is also precisely the shape
+of an unrelated evening at home. **Nothing in the timing distinguishes them.**
+
+A GPS cross-check would settle it — an arrival evening is 80 km from home — and **it is not
+available on this path.** GPS is read live from exiftool during a fresh organize
+(`event_review.py:80`), but the catalog never persists it: the query that feeds review on an
+already-organised drive selects `sha256, captured_at` and nothing else
+(`catalog.camera_copies_for_events`), and `files` has no GPS column at all. So for exactly the
+population that matters here — a library already placed on disk — the one signal that could judge
+an edge automatically has been discarded upstream. That is a further argument for the persisted
+provenance column `(n)`/`(ii)` already want, and, for now, a reason the user decides.
+
+So the two tempting automatic rules are both wrong:
+
+- *Trim a day whose count is under some fraction of its neighbours* → silently deletes the arrival
+  evening from the trip whenever the arrival evening is quiet, which is most of the time.
+- *Include any adjacent active day* → silently annexes the evening before departure at home.
+
+Either would be a confident answer to a question the data does not answer. The design's position
+is that **the rule is good at finding candidate spans and bad at judging edges**, so it does the
+first and hands the second to the person who was there. The proposal shows per-day photo counts
+and time ranges so the trim is an informed one — a user seeing `31 / 631 / 722 / 651` can decide
+in a second.
+
+*To confirm at build time:* was Aug 14 evening the drive up to Wayanad, or an evening at home?
+Either answer is fine; the design does not depend on it. It becomes the acceptance fixture.
+
+## 6. Name-once, and a latent defect it exposes
+
+Trips must not re-ask. Two mechanisms are available, and the obvious one is wrong.
+
+**The existing mechanism does not generalise.** `EventCandidate.signature` is
+`packages/truestill-core/src/truestill_core/events.py:109` — a SHA-256 over the sorted member
+`sha256`s — and `events.signature` is the `UNIQUE` key that `event_by_signature` looks up
+(`catalog.py:940`). Membership *is* identity. For a trip that is explicitly user-adjustable (§5)
+and that grows when the next card is ingested, that is exactly backwards: **trimming Aug 14 off
+the trip, or ingesting one more photo from Aug 16, produces a different signature, so the named
+trip is not recognised and is offered again as new, with the old name orphaned.**
+
+**Proposed: a trip's identity is the trip, and name-once is keyed on the *day*.**
+
+```sql
+CREATE TABLE trips (                      -- schema v12
+    id         INTEGER PRIMARY KEY,       -- identity: the row, not the membership
+    name       TEXT NOT NULL,
+    slug       TEXT NOT NULL,
+    start_date TEXT NOT NULL,
+    end_date   TEXT NOT NULL
+);
+CREATE TABLE trip_days (
+    day     TEXT PRIMARY KEY,             -- a day belongs to at most one trip
+    trip_id INTEGER NOT NULL REFERENCES trips(id)
+);
+```
+
+A re-run asks one question per candidate day: *is this day already claimed?* If yes, it is silent.
+Adjusting edges is an update to `trip_days`, not a new identity. Extending a trip on the next
+ingest adds a row. The name survives all of it, which is what "name once" has to mean.
+
+`trip_days.day` as the primary key also states an invariant the layout depends on and makes it
+unviolatable: **a day is in one trip or none**, so a file has exactly one destination.
+
+**Nearby shortfall, flagged and not fixed** (per the standing code bar): the same membership-hash
+identity means an existing *day event* is re-proposed whenever its file set changes — ingest one
+more photo from an already-named day and the signature moves, so the name is asked for again. That
+is a real defect in shipped behaviour, not a hypothetical. It is out of Stage 2's scope, and the
+right fix is likely the same one — key day events on the day rather than on the file set — so it
+should be decided once, not twice. **Recommend a backlog entry rather than a fix inside this
+stage.**
+
+## 7. The architectural flag, answered honestly
+
+**Does `LayoutScheme` still hold at five shapes? No — and the strain is in the router signature,
+not in the idea.**
+
+Route-then-render is right and stays. What does not scale is *how* the route is expressed.
+Today (`layout.py:510`):
+
+```python
+def template_for(self, rule: str, *, evented: bool) -> LayoutTemplate:
+    if rule != TIMELINE_RULE:
+        return self.side_bin
+    return self.timeline_evented if evented else self.timeline
+```
+
+Three shapes, three named fields, one string test and one boolean. It reads perfectly. Now project
+the two shapes already in the queue:
+
+- Stage 2 adds trips → `template_for(rule, *, evented, in_trip)`
+- backlog `(gg)` adds heavy-day buckets → `template_for(rule, *, evented, in_trip, heavy)`
+
+That is **three booleans and eight combinations, of which five are meaningful**. `in_trip and not
+evented` is unreachable; `heavy and in_trip` needs an arbitration nobody has written down; `rule
+!= TIMELINE_RULE` makes every other flag moot. None of that is expressible in the signature — it
+survives only as an ordering of `if`s that the next reader has to re-derive. Adding the fifth shape
+to this router means the router becomes the thing that needs a design document.
+
+**Prerequisite refactor: name the placements.** Replace the boolean axes with one enum and one
+mapping — mechanically, with no behaviour change:
+
+```python
+class Placement(StrEnum):
+    SIDE_BIN   = "side_bin"    # non-timeline category
+    EVERYDAY   = "everyday"    # timeline, un-evented
+    EVENT_DAY  = "event_day"   # timeline, named single-day event
+    TRIP_DAY   = "trip_day"    # timeline, a day inside a named trip     [Stage 2]
+    DAY_BUCKET = "day_bucket"  # timeline, un-evented heavy day          [(gg)]
+
+@dataclass(frozen=True)
+class LayoutScheme:
+    templates: Mapping[Placement, LayoutTemplate]
+
+    def render(self, placement: Placement, context: RenderContext) -> PurePosixPath:
+        return self.templates[placement].render(context)
+
+
+def classify(rule: str, context: RenderContext) -> Placement:
+    """The one router. Every shape decision in the product is made here, exactly once."""
+```
+
+**This is more route-then-render, not less.** The classifier decides once and returns a name;
+templates stay dumb structural descriptions with zero conditionals; the token grammar remains a
+description, never a language. The one-seam rule is satisfied more strictly than today, because
+today the decision is smeared across a signature and a branch order.
+
+What it buys:
+
+- **Exhaustiveness.** `match placement: ... case _ as unreachable: assert_never(unreachable)` —
+  mypy `strict` fails the build when a sixth shape is added and a site is missed. Booleans give no
+  such check.
+- **The vocabulary is the product's.** "Trip day" is a thing Dinesh can say; `evented=True,
+  in_trip=True, heavy=False` is not.
+- **Impossible states stop being expressible.** There is no `Placement` for "side bin that is also
+  a trip day", so no code has to exclude it.
+- **Config, `preview_scheme` and Settings enumerate placements** instead of hard-coding three
+  field names — the preview grows a row per shape for free.
+- **Adding a shape is a member plus a mapping entry**, and the compiler lists every site.
+
+Cost: one mechanical commit across `layout.py`, `config`, `service.py`, `migrate.py` and their
+tests. **Provably behaviour-preserving**: render every `SAMPLE_ROWS` case through the old and new
+schemes and assert path-for-path equality, so the refactor lands green before trips exist.
+
+**Recommendation: sequence it as Stage 2a, before trips — not after.** Piling the fifth shape onto
+the boolean router and refactoring later means doing the trip work twice and reviewing it twice.
+This is the cheapest it will ever be, because today there are three shapes to move, not five.
+
+## 8. Rejected alternatives
+
+| Rejected | Why |
+|---|---|
+| **Date-range names** — `2014-08-15 to 2014-08-17 - Wayanad` | The folder name encodes mutable state. Every trim, extension or late ingest renames a directory on the user's disk. A copy-only tool does not rename what it already placed. |
+| **The `20161100_Name` zero-day convention** | Fabricates a date that is not a date. Day `00` parses nowhere, sorts before day 01, and would have to be excluded by hand from every date-reading path we own. Directly against "dates are never guessed" — it just moves the guess into the folder name. |
+| **Year suffix in the trip name** — `Wayanad 2014` | Redundant under a `{yyyy}` parent, and after a year split (e) the same trip would carry two different names. |
+| **Flat trip folder, no day subfolders** | The Wayanad trip is 2,004 photos. One folder of 2,004 files is the problem `(gg)` exists to solve; creating it here to solve a different problem is a trade in the wrong direction. |
+| **A `{trip}` token, or `{event}` behaving differently when a trip exists** | Requires a conditional inside a template. That is the DSL the one-seam rule forbids. The distinction is a *route*, and routes live in the classifier. |
+| **Loosening the clustering boundary to span midnight** | Re-creates the Stage 1 defect exactly (`events-clustering-research.md` §2). Multi-day grouping is a separate layer for a reason. |
+
+## 9. Complexity
+
+Trip detection runs on the **already-computed** cluster list — no new I/O, no additional exiftool
+pass, no re-read of any file.
+
+- Group clusters by date: `O(C)` over clusters, hash-keyed.
+- Sort the distinct active days: `O(D log D)`, `D ≤ C` and in practice `D ≪ C` (10 days from 15
+  clusters here).
+- One linear scan for consecutive runs, one span check per run: `O(D)`.
+- Name-once lookup: one indexed `trip_days` read per candidate day, `O(1)` each.
+
+**Total `O(D log D)` on top of clustering, dominated by a sort of the distinct-day list.** Layout
+rendering is unchanged in cost: the classifier is one dict lookup and a constant number of tests
+per file, replacing the current constant number of boolean tests.
+
+## 10. Build plan, on approval
+
+**Stage 2a — the placement refactor** (prerequisite, no behaviour change).
+Equality harness over `SAMPLE_ROWS` old-vs-new before anything else lands.
+
+**Stage 2b — trip detection**, pure, in `events.py` or a sibling: candidate runs, the max-span cap
+with its decline path, the year-boundary split.
+
+**Stage 2c — persistence**, schema v12 (`trips`, `trip_days`), day-keyed name-once.
+
+**Stage 2d — the review stage and the layout wiring**: proposals with per-day counts and adjustable
+edges, the `TRIP_DAY` template, the year-split notice at confirm time.
+
+**Stage 2e — adoption for existing libraries.** `migrate-layout` already re-derives rules per file
+and plans moves under the preview-then-confirm gate; trips add a route label, not a mechanism.
+Naming Aug 15–17 on an already-organised drive plans:
+
+```
+2014/2014-08/2014-08-15 - Wayanad/           ->  2014/2014-08/2014-08-15 - Wayanad/2014-08-15/
+2014/2014-08/2014-08-16 - Everyday-ish/...   ->  2014/2014-08/2014-08-15 - Wayanad/2014-08-16/
+```
+
+Nothing about the migration machinery changes: same journal, same `migration_runs`, same v11
+reversibility, same preview and confirm word. **No move happens without the preview being shown
+and confirmed.**
+
+### Validation — and it must be run against the bug
+
+Per [`ENGINEERING_STANDARD.md`](ENGINEERING_STANDARD.md) §4, every regression fixture below is
+worthless until it has been *seen to fail*. Each is listed with the defect it must fail against:
+
+| Fixture | Must fail when |
+|---|---|
+| Trip crossing 2016-12-31 | the year-split is removed → asserts two trips, not one |
+| Trip 2016-11-28 → 12-02 | start-month filing is removed → asserts all days under `2016-11` |
+| Two-day, 2-photo run | cluster-gating is replaced by any-photo days → asserts no proposal |
+| 40-day active run | the max-span cap is removed → asserts *no* trip and no fabricated split |
+| Edge adjustment | edges are auto-trimmed by count ratio → asserts the full run is proposed |
+| Re-ingest one photo into a named trip | identity is membership-hashed → asserts no re-ask |
+
+The last one is the direct regression test for §6, and it is the fixture that would fail today
+against the existing signature scheme. That is the point of writing it.
+
+---
+
+## Open rulings needed before build
+
+1. **Stage 2a first?** Refactor the router before adding the fifth shape, as recommended — or
+   proceed with trips on the boolean router and consolidate later.
+2. **Aug 14** — part of the Wayanad trip or not? Becomes the acceptance fixture either way.
+3. **Max span on exceed** — decline and explain (recommended), or split at the cap.
+4. **The day-event re-ask defect** (§6) — backlog entry, as recommended, or fold into Stage 2c.
