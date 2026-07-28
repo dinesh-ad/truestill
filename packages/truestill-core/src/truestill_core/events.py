@@ -32,17 +32,44 @@ from datetime import datetime
 
 # --- tunables (defaults chosen empirically; see scripts/tune_events.py) ----------------
 
-#: How far above the local baseline (in natural-log seconds) a gap must sit to be a
-#: boundary. Tuned on synthetic scenarios (scripts/tune_events.py): 4.0 is the lowest value
-#: that keeps a multi-day trip whole (overnight gaps do not split it) while still splitting
-#: genuinely separate events days apart. Lower values fragment trips into per-day pieces.
+#: How far above the local baseline (in natural-log seconds) a gap must sit to be a boundary.
+#:
+#: ⚠ **This test no longer decides alone, and the reason is worth reading before changing it.**
+#: On its own it is *relative to local density*, which inverts at both extremes: on a 654-photo
+#: day the median gap is 7 seconds, so a 7-minute pause became a "boundary" and the day
+#: shattered; in a sparse multi-year tail the median gap is 109 days, so nothing ever split and
+#: 11 photos spanning 5.6 years became one "event". :data:`MIN_BOUNDARY_GAP_S` and
+#: :data:`MAX_WITHIN_EVENT_GAP_S` bound it at each end.
+#:
+#: **Correction to the original tuning note**, which claimed 4.0 "keeps a multi-day trip whole".
+#: That was true only of the synthetic fixtures it was tuned on, which have uniform intra-event
+#: spacing -- the one condition under which a purely relative threshold behaves. It is false on
+#: real data, and it is doubly false now: every overnight gap exceeds
+#: :data:`MIN_BOUNDARY_GAP_S`, so **segmentation produces within-day clusters only**. Multi-day
+#: trips are grouped explicitly, above this layer, rather than being hoped for here.
 DEFAULT_SENSITIVITY = 4.0
+
+#: A gap must be at least this long to be a boundary, however unusual it looks locally. A pause
+#: shorter than a coffee break is not the end of an event. Swept against the real 2,238-file
+#: library: with no floor a day breaks into 6-12 fragments; at 30 min still 6-7; at 60 min two
+#: or three recognisable outings; at 90 min distinct morning and evening outings merge.
+MIN_BOUNDARY_GAP_S = 60 * 60
+
+#: A gap this long always ends an event, whatever the local baseline says. This is what stops
+#: sparse data fusing -- it is the cap that removed the 5.6-year cluster. Deliberately on the
+#: **gap**, never on a segment's span: capping span would chop a genuine two-week trip, whose
+#: internal gaps are only hours. 48h lets an event survive one quiet day (travel, weather)
+#: without splitting. Measured: floor alone still yields a 49,068-hour cluster; floor plus cap
+#: caps the longest at 11.8h.
+MAX_WITHIN_EVENT_GAP_S = 48 * 60 * 60
 #: Half-width of the local-baseline window, in gaps.
 DEFAULT_WINDOW = 10
-#: A cluster is only proposed if it has at least this many files ...
+#: A cluster is only proposed if it has at least this many files.
+#:
+#: This is the only size filter. A duration floor used to sit beside it and was removed: it made
+#: a 45-minute birthday with 60 photos unofferable at any sensitivity, while doing nothing the
+#: file count does not already do. `min_files` is the useful half.
 DEFAULT_MIN_FILES = 8
-#: ... spanning at least this long.
-DEFAULT_MIN_DURATION_S = 2 * 3600
 #: A neighbour-to-neighbour GPS jump beyond this many km reinforces a boundary. Kept large
 #: so movement *within* an outing does not shatter it; only real relocations count.
 DEFAULT_GPS_JUMP_KM = 50.0
@@ -118,7 +145,8 @@ def cluster_camera(
     sensitivity: float = DEFAULT_SENSITIVITY,
     window: int = DEFAULT_WINDOW,
     min_files: int = DEFAULT_MIN_FILES,
-    min_duration_s: float = DEFAULT_MIN_DURATION_S,
+    min_boundary_gap_s: float = MIN_BOUNDARY_GAP_S,
+    max_within_event_gap_s: float = MAX_WITHIN_EVENT_GAP_S,
     gps_jump_km: float = DEFAULT_GPS_JUMP_KM,
 ) -> list[EventCandidate]:
     """Return proposed events, largest-first. Items need not be pre-sorted."""
@@ -133,8 +161,13 @@ def cluster_camera(
     log_gaps = [math.log1p(max(0.0, g)) for g in gaps]
 
     boundaries: set[int] = set()
-    for i in range(len(gaps)):
-        if _boundary_after(i, log_gaps, window, sensitivity):
+    for i, gap in enumerate(gaps):
+        # Absolute cap first: a gap this long ends an event whatever the local baseline says.
+        if gap > max_within_event_gap_s:
+            boundaries.add(i)
+            continue
+        # Then the relative test, floored so a locally-unusual but short pause is not a break.
+        if gap >= min_boundary_gap_s and _boundary_after(i, log_gaps, window, sensitivity):
             boundaries.add(i)
         here, nxt = ordered[i].gps, ordered[i + 1].gps
         if here is not None and nxt is not None and haversine_km(here, nxt) > gps_jump_km:
@@ -148,9 +181,7 @@ def cluster_camera(
             segment = ordered[segment_start : i + 1]
             segment_start = i + 1
             if len(segment) >= min_files:
-                span = (segment[-1].captured_at - segment[0].captured_at).total_seconds()
-                if span >= min_duration_s:
-                    candidates.append(EventCandidate(items=tuple(segment)))
+                candidates.append(EventCandidate(items=tuple(segment)))
 
     candidates.sort(key=lambda c: c.count, reverse=True)
     return candidates

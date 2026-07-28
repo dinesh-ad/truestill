@@ -72,9 +72,16 @@ def test_sub_threshold_group_is_not_proposed() -> None:
     assert cluster_camera(items) == []
 
 
-def test_short_group_below_min_duration_is_not_proposed() -> None:
+def test_a_short_but_real_event_is_proposed() -> None:
+    """The inverse of the filter this replaces: brevity is not evidence of unimportance.
+
+    A duration floor used to reject this. A 45-minute birthday with 60 photos is a real event,
+    and was unofferable at any sensitivity; `min_files` is the size filter that does useful work.
+    """
     items = _items(datetime(2026, 6, 14, 9, 0, 0), [i * 60 for i in range(10)])  # 10 files, 9 min
-    assert cluster_camera(items) == []
+    proposed = cluster_camera(items)
+    assert len(proposed) == 1
+    assert proposed[0].count == 10
 
 
 def test_gps_jump_reinforces_a_boundary() -> None:
@@ -147,3 +154,89 @@ def test_split_out_of_range_raises() -> None:
     cluster = cluster_camera(_burst(datetime(2026, 6, 14, 9, 0, 0), 10))[0]
     with pytest.raises(ValueError, match="out of range"):
         split_candidate(cluster, 0)
+
+
+# --- regression: density profiles taken from the real library ------------------------------
+#
+# The previous rule passed every synthetic fixture while being inverted on real data, because
+# the fixtures had uniform intra-event spacing -- the one condition under which a purely
+# relative threshold behaves. These fixtures reproduce the DENSITY PROFILES that broke it:
+# a burst-shot day (median gap ~7-10s over 15-20 hours) and a sparse multi-year tail (median
+# gap ~109 days). They assert shape, not counts, so they survive tuning.
+
+
+def _dense_day(day: datetime, count: int, *, seconds_apart: int = 8) -> list[EventItem]:
+    """A burst-shot day with the real thing's density VARIATION, not a metronome.
+
+    Uniform spacing is exactly what let the old rule pass every synthetic fixture: with no
+    locally-unusual gap there is nothing for a relative threshold to cut on. Real burst days
+    pause every so often -- changing lens, walking to the next place -- and those few-minute
+    pauses are what the old rule mistook for boundaries. Every twentieth frame is a 10-minute
+    one -- chosen because against an 8-second median it clears the old relative threshold
+    (ln 600 - ln 8 = 4.3 > 4.0) and so genuinely reproduces the shattering, while sitting well
+    under the 60-minute floor that now prevents it.
+    """
+    offsets, t = [], 0
+    for i in range(count):
+        offsets.append(t)
+        t += 10 * 60 if i and i % 20 == 0 else seconds_apart
+    return _items(day, offsets)
+
+
+def test_a_burst_shot_day_is_not_shattered_into_fragments() -> None:
+    """The failure that shipped: a 7-second median gap made a 7-minute pause a 'boundary'.
+
+    The day broke into a dozen pieces, almost all of which then died to a duration filter, so a
+    654-photo day produced no proposal at all.
+    """
+    items = _dense_day(datetime(2014, 8, 17, 6, 30), 650)
+
+    proposed = cluster_camera(items)
+
+    assert len(proposed) == 1, f"a steadily-shot day should be one event, got {len(proposed)}"
+    assert proposed[0].count == 650
+
+
+def test_a_sparse_multi_year_tail_is_never_one_event() -> None:
+    """The other half of the inversion: where the median gap is months, nothing ever split.
+
+    11 photos spanning 5.6 years were proposed as a single 'event'. The absolute cap is what
+    makes that impossible, and it is asserted on the span rather than on a count so it cannot
+    pass by accident.
+    """
+    base = datetime(2018, 8, 19, 12, 0)
+    items = _items(base, [i * 109 * 86400 for i in range(11)])  # ~109 days apart, as measured
+
+    proposed = cluster_camera(items)
+
+    for candidate in proposed:
+        span_days = (
+            candidate.items[-1].captured_at - candidate.items[0].captured_at
+        ).total_seconds() / 86400
+        assert span_days <= 2, f"a {span_days:.0f}-day span is not one event"
+
+
+def test_a_pause_shorter_than_the_floor_never_splits_a_day() -> None:
+    """The floor, stated as behaviour: a coffee break is not the end of an event."""
+    morning = _dense_day(datetime(2014, 8, 15, 9, 0), 300)
+    after_a_short_pause = _items(datetime(2014, 8, 15, 10, 20), [i * 8 for i in range(300)])
+
+    proposed = cluster_camera([*morning, *after_a_short_pause])
+
+    assert len(proposed) == 1  # a 20-minute pause is inside the day, not a boundary
+
+
+def test_an_overnight_gap_always_splits() -> None:
+    """The accepted consequence: segmentation now yields WITHIN-DAY clusters only.
+
+    Every overnight gap exceeds the floor, so multi-day trips are no longer discovered here.
+    That is deliberate -- they are grouped explicitly, above this layer -- and it is pinned so
+    the behaviour is a decision rather than a surprise.
+    """
+    day_one = _dense_day(datetime(2014, 8, 15, 9, 0), 100)
+    day_two = _dense_day(datetime(2014, 8, 16, 9, 0), 100)
+
+    proposed = cluster_camera([*day_one, *day_two])
+
+    assert len(proposed) == 2
+    assert {c.items[0].captured_at.date().day for c in proposed} == {15, 16}

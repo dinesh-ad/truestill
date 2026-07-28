@@ -1,6 +1,7 @@
 # Event clustering: why the current rule is inverted, and what replaces it
 
-Status: **Design deliverable, awaiting approval. No code changed.** This document is the review
+Status: **Built (2026-07-28).** Design approved and shipped as described; §7 records the
+consequence the build made explicit. This document is the review
 gate for item 4.5, which is sequenced before backlog `(gg)` because `(gg)` partitions on
 evented-vs-un-evented and therefore needs the evented set to be right first.
 
@@ -153,3 +154,30 @@ comparisons per gap and add nothing asymptotically. No I/O.
 **Not doing without a separate decision:** changing `sensitivity` (4.0) or the `window` (10).
 The sweep shows the floor and cap do the work; touching the relative test as well would make it
 impossible to attribute any change.
+
+
+---
+
+## 7. Built: the multi-day consequence, stated
+
+**Every overnight gap exceeds the 60-minute floor, so segmentation now produces *within-day*
+clusters only.** All 15 proposals on the real library are inside a single day. This is accepted
+and deliberate — multi-day trips are grouped **explicitly**, above this layer — but it must not
+be left to be rediscovered as a bug.
+
+**The original tuning note is now false and has been corrected in the source.** It claimed
+sensitivity 4.0 "keeps a multi-day trip whole (overnight gaps do not split it)". That was true
+of the synthetic fixtures it was tuned against and never true of real data; after this change it
+is false by construction. `DEFAULT_SENSITIVITY`'s docstring says so, in place, so the next
+person to read it is not misled by a comment that outlived its truth.
+
+**The fixtures were mutation-tested, and the first attempt failed that test.** A dense-day
+fixture with *uniform* 8-second spacing passed under the old rule as happily as the new one —
+reproducing the exact flaw being fixed, since a purely relative threshold has nothing to cut on
+when every gap is identical. A second attempt with 7-minute pauses also failed to discriminate:
+against an 8-second median, `ln 420 − ln 8 = 3.85`, just under the 4.0 threshold. Only a
+10-minute pause (`ln 600 − ln 8 = 4.20`) actually reproduces the shattering. With floor and cap
+disabled, **four** fixtures now fail; with them enabled, all pass.
+
+That is the discipline this whole item is about: a fixture that cannot fail against the bug is
+not a regression test, and the way to know is to run it against the bug.
