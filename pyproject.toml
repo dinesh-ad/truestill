@@ -140,7 +140,8 @@ warn_unused_configs = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 
-# imagehash ships no type stubs; Pillow's are partial; pillow-heif ships none. Not worth failing on.
+# imagehash ships no type stubs; Pillow's are partial; pillow-heif and send2trash ship none.
+# send2trash is an OPTIONAL runtime probe (see cleanup.trash_backend), not a dependency.
 [[tool.mypy.overrides]]
-module = ["imagehash", "PIL", "PIL.*", "pillow_heif"]
+module = ["imagehash", "PIL", "PIL.*", "pillow_heif", "send2trash"]
 ignore_missing_imports = true

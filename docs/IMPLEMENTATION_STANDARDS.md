@@ -16,6 +16,16 @@ Paths are workspace-relative. Symbols are cited over line numbers, which drift.
 | **Original quality is the top priority.** Media pixels are never re-encoded. | The pipeline only copies bytes; the sole content write is metadata-only (see below). |
 | **Copy-only - never move or delete user files, except the scoped, opt-in exceptions below.** | `organizer.execute` uploads via `LocalDestination.upload` (`shutil.copy2`) / `RcloneDestination.upload` (`rclone copyto`). `rclone` uses `copyto`, never `sync`. The only code paths that remove a source from where the user left it are `organizer._move_source` (`--move`), `reclaim.run_reclaim` (`truestill reclaim`), and the rename path `LocalDestination.adopt` (`--in-place`) - all scoped exactly like the Takeout write path (below). |
 
+**Folder removal (feature `clean-empty`), the only path that deletes a directory.** truestill
+deletes a folder **only** when all four hold: **(a)** it emptied that folder itself, proven by
+the migration journal - never a drive sweep; **(b)** the folder contains nothing, or only entries
+named in `cleanup.JUNK_NAMES` or zero-byte files - unknown is never junk; **(c)** the user
+confirmed a preview listing every folder and every leftover file by name, with a typed word; and
+**(d)** it goes to the OS trash where the platform allows, and a trash refusal leaves the folder
+in place rather than being downgraded to a permanent delete. This makes the never-delete rule
+*explicit* rather than weakening it: the four conditions are the whole permission.
+Enforced by `cleanup.plan_cleanup` / `cleanup.run_cleanup`; pinned by `tests/test_cleanup.py`.
+
 **Source-relocation exceptions (features k and q), all opt-in:**
 
 - **`organizer.execute(move=True)` (`--move`).** Deletes a source **only** after its just-written

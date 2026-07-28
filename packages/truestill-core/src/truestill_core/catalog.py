@@ -515,6 +515,22 @@ class Catalog:
                 (sha256, drive_uuid),
             )
 
+    def migrated_old_paths(self, drive_uuid: str) -> list[str]:
+        """The paths a completed migration moved files OUT of - the cleanup's entire scope.
+
+        Read from the journal rather than the filesystem on purpose: it is the only record of
+        which folders truestill emptied, and cleaning anything else would be sweeping a user's
+        drive for directories the tool never touched.
+        """
+        return [
+            str(row["old_relative"])
+            for row in self._conn.execute(
+                "SELECT old_relative FROM migration_journal "
+                "WHERE drive_uuid = ? AND completed_at IS NOT NULL",
+                (drive_uuid,),
+            )
+        ]
+
     def start_migration_run(self, run_id: str, drive_uuid: str) -> None:
         """Open a run, superseding the previous one's journal for this drive.
 

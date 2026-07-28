@@ -18,6 +18,14 @@ from typing import Any
 
 from truestill_core.catalog import Catalog
 from truestill_core.categorize import build_rules
+from truestill_core.cleanup import (
+    CleanupPlan,
+    Tier,
+    emptied_directories,
+    plan_cleanup,
+    run_cleanup,
+    trash_backend,
+)
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import Destination, LocalDestination, RcloneDestination
 from truestill_core.destinations.base import DestinationError
@@ -314,6 +322,8 @@ def _build_parser() -> argparse.ArgumentParser:
         "path", type=Path, help="the drive's current mount root (must be connected)"
     )
     migrate.add_argument("--db", type=Path, default=_DEFAULT_DB, help="SQLite catalog")
+    _add_clean_parser(sub)
+
     migrate.add_argument(
         "--undo",
         action="store_true",
@@ -1143,6 +1153,104 @@ def _cmd_config(args: argparse.Namespace) -> int:
 MAX_PATH = 260
 
 
+def _add_clean_parser(sub: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
+    """The `clean-empty` surface, split out because `build_parser` is at its statement ceiling."""
+    clean = sub.add_parser(
+        "clean-empty",
+        help="remove the empty folders a layout migration left behind (preview by default)",
+    )
+    clean.add_argument("path", type=Path, help="the connected drive folder")
+    clean.add_argument("--db", type=Path, default=_DEFAULT_DB, help="SQLite catalog")
+    clean.add_argument(
+        "--apply", action="store_true", help="actually remove them (default: preview only)"
+    )
+
+
+def _print_cleanup_plan(plan: CleanupPlan, backend: str | None) -> None:
+    """Show all three tiers with full paths, and say plainly where removals go."""
+    empties = [c for c in plan.removable if c.tier is Tier.EMPTY]
+    junk = [c for c in plan.removable if c.tier is Tier.JUNK_ONLY]
+
+    print(f"REMOVABLE - empty ({len(empties)}):")
+    for candidate in empties[:_STATUS_PREVIEW]:
+        print(f"  {candidate.relative}")
+    if len(empties) > _STATUS_PREVIEW:
+        print(f"  ... and {len(empties) - _STATUS_PREVIEW} more")
+
+    print(f"\nREMOVABLE - only OS junk ({len(junk)}), removed with the folder:")
+    for candidate in junk:
+        print(f"  {candidate.relative}   [{', '.join(candidate.contents)}]")
+
+    print(f"\nLEFT ALONE - something is in there ({len(plan.occupied)}):")
+    for candidate in plan.occupied:
+        print(f"  {candidate.relative}   [{', '.join(candidate.contents)}]")
+
+    if not plan.removable:
+        return
+    where = (
+        f"to the trash (via {backend}) -- recoverable"
+        if backend
+        else "PERMANENTLY -- this machine has no trash truestill can use"
+    )
+    print(f"\n{len(plan.removable)} folder(s) would be removed {where}.")
+    if backend:
+        print("  Note: trash can be refused on network or cloud-mounted drives; any refusal is")
+        print("  reported and that folder is left in place rather than deleted outright.")
+
+
+def _offer_cleanup(catalog: Catalog, drive_uuid: str, path: Path) -> None:
+    """Mention the empty skeleton a migration just left. **Offered, never done.**
+
+    The typed word the migration asked for authorised a relocation; silently widening it to
+    include deletions is exactly the scope creep copy-only forbids. So this prints a command.
+    """
+    leftovers = plan_cleanup(path, emptied_directories(catalog.migrated_old_paths(drive_uuid)))
+    if not leftovers.removable:
+        return
+    print(
+        f"\n{len(leftovers.removable)} folder(s) are now empty. Review and remove them with:"
+        f"\n  truestill clean-empty {path}"
+    )
+
+
+def _cmd_clean_empty(args: argparse.Namespace) -> int:
+    """Remove the folder skeleton a migration left, after showing exactly what will go."""
+    marker = read_marker(args.path)
+    if marker is None:
+        print(f"error: no {MARKER_NAME} at {args.path} -- connect the drive first", file=sys.stderr)
+        return 2
+
+    with Catalog(args.db) as catalog:
+        emptied = emptied_directories(catalog.migrated_old_paths(marker.uuid))
+    if not emptied:
+        print(f"Drive '{marker.label}': no migration leftovers recorded. Nothing to clean.")
+        return 0
+
+    plan = plan_cleanup(args.path, emptied)
+    backend = trash_backend()
+
+    print(f"Drive '{marker.label}': {len(plan.candidates)} folder(s) the migration emptied.\n")
+    _print_cleanup_plan(plan, backend)
+    if not plan.removable:
+        print("\nNothing to remove.")
+        return 0
+
+    if not args.apply:
+        print("\nPreview only. Nothing was removed. Re-run with --apply to remove them.")
+        return 0
+
+    answer = input(f"\nType 'clean' to remove {len(plan.removable)} folder(s): ")
+    if answer.strip() != "clean":
+        print("Aborted. Nothing was removed.")
+        return 0
+
+    removed, failures = run_cleanup(args.path, plan, apply=True)
+    print(f"\nRemoved {removed} folder(s).")
+    for failure in failures:
+        print(f"  ! {failure}")
+    return 0
+
+
 def _cmd_migrate_undo(args: argparse.Namespace, marker: DriveMarker) -> int:
     """Put a completed migration back. Preview first, then the same typed word as the forward."""
     destination = LocalDestination(args.path)
@@ -1282,6 +1390,7 @@ def _cmd_migrate_layout(args: argparse.Namespace) -> int:
         if outcome.resumed:
             print(f"Recovered {outcome.resumed} move(s) from an interrupted run.")
         print(f"\nMigrated {outcome.migrated} file(s). Sources were never touched.")
+        _offer_cleanup(catalog, marker.uuid, args.path)
         return 0
 
 
@@ -1405,6 +1514,7 @@ def main(argv: list[str] | None = None) -> int:
         "verify": _cmd_verify,
         "status": _cmd_status,
         "config": _cmd_config,
+        "clean-empty": _cmd_clean_empty,
         "migrate-layout": _cmd_migrate_layout,
         "reclaim": _cmd_reclaim,
         "undo-organize": _cmd_undo_organize,
