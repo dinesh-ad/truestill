@@ -48,7 +48,7 @@ Immich and PhotoPrism, and `IMPLEMENTATION_STANDARDS.md` §1 already forbids it.
 
 `ModifyDate` (the EXIF field, distinct from filesystem mtime) deserves the same refusal for a
 related reason: it is the *edit* time. A photo cropped in 2024 carries a 2024 `ModifyDate` and a
-2014 `DateTimeOriginal`. Reading it would silently re-date edited photos — and, worse, it is
+2014 `DateTimeOriginal`. Reading it would silently re-date edited photos - and, worse, it is
 often present when `DateTimeOriginal` is absent, so a naive "any date is better than none" chain
 reaches for it precisely when it is most wrong. **Recommendation: continue to read neither, and
 say so explicitly in the contract, since "we don't do this" is currently only visible as an
@@ -56,26 +56,26 @@ absence.**
 
 ## 4. Real gaps worth considering
 
-**(a) XMP tags — probed, and the answer is no.** ⚠ **Superseded by the corpus probe below.**
+**(a) XMP tags - probed, and the answer is no.** ⚠ **Superseded by the corpus probe below.**
 Original reasoning retained: PhotoPrism consults XMP; we do not request any XMP
 field. `XMP:DateTimeOriginal` and `XMP:CreateDate` matter for two real populations: files edited
 by Adobe tooling, and sidecar-based RAW workflows where the date lives in the `.xmp` beside the
 raw file. Both are plausible in a photographer's library.
 **Recommendation: worth adding**, slotting *after* the embedded EXIF tags and *before* Takeout,
-at a cost of two more names in `REQUESTED_TAGS` — exiftool already reads them in the same pass,
+at a cost of two more names in `REQUESTED_TAGS`- exiftool already reads them in the same pass,
 so this is close to free. Wants a corpus probe first, per the fallback-parser policy.
 
-**(b) `GPSDateStamp`/`GPSDateTime` — narrow but trustworthy.** GPS time comes from satellites,
+**(b) `GPSDateStamp`/`GPSDateTime`- narrow but trustworthy.** GPS time comes from satellites,
 not from a camera clock, so it is immune to the dead-battery defaults our Tier B flags. It is
 absent from most files and only ever a *cross-check*.
-**Recommendation: not a tier.** Its real use is validating a suspect Tier B date — a photo dated
+**Recommendation: not a tier.** Its real use is validating a suspect Tier B date - a photo dated
 `2000-01-01T00:00` with a 2014 GPS timestamp is provably a dead clock. Record as a possible
 input to `(ii)`'s human-confirmation flow rather than as a resolution tier.
 
 **(c) Timezone.** We convert Takeout epochs exactly once and expose `--tz` as a single fixed
 offset; EXIF `DateTimeOriginal` is naive local wall-clock, which is the right reading. The
 `CreationDate` preference over `CreateDate` for QuickTime is already correct and better than
-most — `CreateDate` is UTC per spec and mis-dates near midnight.
+most- `CreateDate` is UTC per spec and mis-dates near midnight.
 **No gap.** The real improvement is the already-recorded backlog item: per-photo timezone from
 GPS. `OffsetTimeOriginal` (EXIF 2.31) would let a modern file date itself exactly, and is a
 cheap addition to the same `REQUESTED_TAGS` change as (a).
@@ -91,14 +91,14 @@ file in a 22-format corpus and that no fallback parser recovered a date it misse
 |---|---|
 | File mtime fallback | **Never.** The others' most-reported bug; already forbidden by §1 |
 | EXIF `ModifyDate` | **Never.** Edit time, and most present exactly when it is most wrong |
-| XMP `DateTimeOriginal`/`CreateDate` | **Add**, after embedded EXIF, before Takeout — corpus probe first |
+| XMP `DateTimeOriginal`/`CreateDate` | **Add**, after embedded EXIF, before Takeout - corpus probe first |
 | `OffsetTimeOriginal` | **Add** alongside XMP; makes modern files exactly datable |
-| `GPSDateStamp` | Not a tier — a **cross-check** for suspect dates; feed into `(ii)` |
+| `GPSDateStamp` | Not a tier - a **cross-check** for suspect dates; feed into `(ii)` |
 | Video container tags | Already complete |
 
 **One structural observation.** PhotoPrism stores a `TakenSrc` field naming which source supplied
 the date. We resolve the same information (`DateSource`) and then discard it at write time. Items
-`(n)` and `(ii)` both need it persisted — this survey is a third argument for that same column,
+`(n)` and `(ii)` both need it persisted - this survey is a third argument for that same column,
 and it is the cheapest of the three to justify.
 
 **Complexity:** every recommendation here is additional *tags requested in the existing exiftool
@@ -109,10 +109,10 @@ Nothing proposed is worse than linear.
 
 ---
 
-## 6. Corpus probe (2026-07-28) — the XMP recommendation is withdrawn
+## 6. Corpus probe (2026-07-28)- the XMP recommendation is withdrawn
 
 §4(a) recommended adding an XMP tier "pending a corpus probe", per the fallback-parser policy
-that a tier is added only when a real corpus shows a file it — and only it — can correctly date.
+that a tier is added only when a real corpus shows a file it - and only it - can correctly date.
 
 **Probed: 400 files from the real library.**
 
@@ -122,16 +122,16 @@ that a tier is added only when a real corpus shows a file it — and only it —
 | with `DateTimeOriginal` | 398 |
 | with **any** XMP date | **0** |
 | that would **gain** a date from XMP | **0** |
-| with `ModifyDate` but no `DateTimeOriginal` | 2 (of 2 such files — **100%**) |
+| with `ModifyDate` but no `DateTimeOriginal` | 2 (of 2 such files- **100%**) |
 
 **Recommendation withdrawn. Do not add the XMP tier.** Not one file in the library carries an
 XMP date, so the tier would add two tag names, a branch and a test for zero files. It stays
-available if a future corpus — an Adobe-heavy or sidecar-RAW library — shows otherwise; the
+available if a future corpus - an Adobe-heavy or sidecar-RAW library - shows otherwise; the
 policy is unchanged, the evidence simply came back negative. **A null result is a result**, and
 recording it stops the same recommendation being re-derived from first principles later.
 
 **The same probe strengthened the `ModifyDate` refusal into a measurement.** Both files lacking
-`DateTimeOriginal` carried a `ModifyDate` — the exact population §3 predicted, at 100% of the
+`DateTimeOriginal` carried a `ModifyDate`- the exact population §3 predicted, at 100% of the
 sample. That refusal is now a named constant with a guard test rather than an absence.
 
 `GPSDateStamp` is unchanged: a cross-check for dead-clock dates, never a tier.

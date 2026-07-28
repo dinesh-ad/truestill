@@ -156,7 +156,7 @@ mode was measured, compared, and **not adopted**.
 
 | approach | per file | vs today |
 |---|---|---|
-| one process per file (what shipped before) | 225–255 ms | — |
+| one process per file (what shipped before) | 225–255 ms |- |
 | argfile batch | 5.2 ms | ~43× |
 | `-stay_open` persistent process | 4.6 ms | ~48× |
 

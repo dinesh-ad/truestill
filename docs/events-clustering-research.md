@@ -25,7 +25,7 @@ extremes**. Measured on the real 2,238-file camera library:
 
 A steadily-shot day gets cut every few minutes and shatters into fragments, almost all of which
 then fail the 2-hour span filter. The whole library produced **4 clusters**, three of them
-2-hour shards of 08-15/08-16 — and one of them this:
+2-hour shards of 08-15/08-16 - and one of them this:
 
 ```
 2014-08-19 00:00 -> 2024-03-24 12:45   n=11   span=49,068 h
@@ -47,8 +47,8 @@ Any purely relative rule has this shape.
 
 **The synthetic fixtures validated it precisely because they lacked real density variation.**
 `scripts/tune_events.py` generates scenarios with roughly uniform intra-event spacing, which is
-the one condition under which a relative threshold is well-behaved. The tuning note — "4.0 is
-the lowest value that keeps a multi-day trip whole" — is *true on those fixtures* and wrong on a
+the one condition under which a relative threshold is well-behaved. The tuning note- "4.0 is
+the lowest value that keeps a multi-day trip whole"- is *true on those fixtures* and wrong on a
 real library. The fixture was not too small; it was the wrong **shape**.
 
 This is why §4 of the build plan adds fixtures derived from real density profiles: a regression
@@ -56,14 +56,14 @@ test for this class has to vary density, not volume.
 
 ## 3. The proposed rule
 
-Four changes. The relative test is **kept** — it is what recognises a natural break — and simply
+Four changes. The relative test is **kept**- it is what recognises a natural break - and simply
 stops being the *only* thing that decides.
 
 **(a) Absolute floor.** A cut requires the gap to beat the local median **and** be at least
 `MIN_BOUNDARY_GAP`. A boundary shorter than a coffee break is not a boundary.
 
 **(b) Hard cap on the GAP.** Any gap beyond `MAX_WITHIN_EVENT_GAP` cuts unconditionally,
-regardless of local median. **The cap is on the gap, never on the segment span** — capping span
+regardless of local median. **The cap is on the gap, never on the segment span**- capping span
 would chop a genuine two-week trip, whose internal gaps are hours. This is what kills the
 5.6-year class.
 
@@ -87,7 +87,7 @@ into one). 60 keeps a day as two or three recognisable outings, which is what th
 actually were.
 
 **Recommended: `MAX_WITHIN_EVENT_GAP = 48 h.** The sweep shows 24/36/48 h are *identical* on this
-library — no real gap falls between them — so the value is chosen on principle rather than fit:
+library - no real gap falls between them - so the value is chosen on principle rather than fit:
 48 h lets a trip survive a full quiet day (a travel day, a rained-out day) without splitting,
 which matches the forum consensus that multi-day trips stay whole. Isolating it confirms it is
 load-bearing:
@@ -100,7 +100,7 @@ floor + cap   : 15 clusters, longest span      11.8 h
 `min_files` stays **8**. Raising it to 15 drops 2014-08-14 (31 photos) entirely, and a 31-photo
 evening is an event.
 
-## 4. What the rule proposes for the real library — **for Dinesh to check**
+## 4. What the rule proposes for the real library- **for Dinesh to check**
 
 This is the ground truth that matters: these should correspond to things that actually happened.
 
@@ -128,7 +128,7 @@ This is the ground truth that matters: these should correspond to things that ac
 **Two judgement calls to confirm:** the last two entries (8 photos over 0.0 h and 0.4 h) are
 bursts, not outings. They are offered because `min_files = 8` with no duration filter. Options
 if they are noise: raise `min_files` to ~10-12, or reinstate a *small* duration floor (~10 min)
-purely to exclude single bursts — deliberately not 2 hours. **I would leave them**: they are
+purely to exclude single bursts - deliberately not 2 hours. **I would leave them**: they are
 *proposals* a user names or skips, and a burst that is genuinely a moment is cheap to skip and
 expensive to have missed.
 
@@ -143,8 +143,8 @@ comparisons per gap and add nothing asymptotically. No I/O.
 
 1. `MIN_BOUNDARY_GAP` and `MAX_WITHIN_EVENT_GAP` as named constants with the reasoning above;
    `min_duration_s` removed.
-2. **Real-data-shaped fixtures**: density profiles derived from the actual library — a dense
-   700-photo day, a sparse multi-year tail, a 45-minute burst — so this class of failure cannot
+2. **Real-data-shaped fixtures**: density profiles derived from the actual library - a dense
+   700-photo day, a sparse multi-year tail, a 45-minute burst - so this class of failure cannot
    pass again. Regression tests assert the *shape* (a dense day is not shattered; a sparse tail
    is not one event), not exact counts.
 3. Both `min_duration_s` settings tested, per the ruling, so removing it is evidenced rather
@@ -162,7 +162,7 @@ impossible to attribute any change.
 
 **Every overnight gap exceeds the 60-minute floor, so segmentation now produces *within-day*
 clusters only.** All 15 proposals on the real library are inside a single day. This is accepted
-and deliberate — multi-day trips are grouped **explicitly**, above this layer — but it must not
+and deliberate - multi-day trips are grouped **explicitly**, above this layer - but it must not
 be left to be rediscovered as a bug.
 
 **The original tuning note is now false and has been corrected in the source.** It claimed
@@ -172,7 +172,7 @@ is false by construction. `DEFAULT_SENSITIVITY`'s docstring says so, in place, s
 person to read it is not misled by a comment that outlived its truth.
 
 **The fixtures were mutation-tested, and the first attempt failed that test.** A dense-day
-fixture with *uniform* 8-second spacing passed under the old rule as happily as the new one —
+fixture with *uniform* 8-second spacing passed under the old rule as happily as the new one-
 reproducing the exact flaw being fixed, since a purely relative threshold has nothing to cut on
 when every gap is identical. A second attempt with 7-minute pauses also failed to discriminate:
 against an 8-second median, `ln 420 − ln 8 = 3.85`, just under the 4.0 threshold. Only a
