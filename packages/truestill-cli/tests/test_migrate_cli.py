@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from truestill_cli.cli import main
 from truestill_core.catalog import Catalog
-from truestill_core.drive import MARKER_NAME, create_marker
+from truestill_core.drive import create_marker
 from truestill_core.hashing import sha256_file
 
 
@@ -39,7 +39,10 @@ def test_migrate_layout_requires_a_connected_drive(
         ["migrate-layout", str(tmp_path / "not-a-drive"), "--db", str(tmp_path / "c.sqlite")]
     )
     assert code == 2
-    assert f"no {MARKER_NAME}" in capsys.readouterr().err
+    # The refusal names what the folder IS and what to do, rather than the marker filename.
+    err = capsys.readouterr().err
+    assert "isn't a truestill drive yet" in err
+    assert "drives --init" in err
 
 
 def test_migrate_layout_previews_then_applies(
@@ -122,3 +125,25 @@ def test_without_the_typed_confirm_nothing_moves(
         assert main(["migrate-layout", str(root), "--db", str(db), "--apply"]) == 0
         assert "Aborted. Nothing was moved." in capsys.readouterr().out
         assert _tree_fingerprint(root) == before_tree
+
+
+def test_a_subfolder_of_a_connected_drive_is_corrected_not_rejected(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The soak finding: pointing at a folder inside a connected drive.
+
+    The old refusal asked "is the drive connected?" -- of a drive that plainly was -- which is
+    both wrong and unactionable. It now names the drive and the root to use instead.
+    """
+    root = tmp_path / "drive"
+    root.mkdir()
+    db = tmp_path / "c.sqlite"
+    _seed_drive(db, root, "Camera/2023/08/x.jpg", b"data")
+    inside = root / "Camera" / "2023"
+
+    assert main(["migrate-layout", str(inside), "--db", str(db)]) == 2
+
+    err = capsys.readouterr().err
+    assert "is a folder inside 'Drive A'" in err
+    assert str(root) in err  # the correction, spelled out
+    assert "connected" not in err  # never asks about a connection that is plainly fine

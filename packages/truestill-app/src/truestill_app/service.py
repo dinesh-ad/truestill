@@ -20,7 +20,7 @@ from truestill_core.catalog import Catalog
 from truestill_core.categorize import build_rules
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import LocalDestination
-from truestill_core.drive import MARKER_NAME, create_marker, read_marker
+from truestill_core.drive import create_marker, locate_drive, read_marker
 from truestill_core.event_review import EventDecision, commit, propose, propose_from_catalog
 from truestill_core.exif import read_metadata
 from truestill_core.hash_cache import HashCache
@@ -78,8 +78,36 @@ class NotABackupDriveError(ValueError):
     """
 
 
-def _not_a_drive() -> NotABackupDriveError:
-    return NotABackupDriveError(f"no {MARKER_NAME} at that path -- is the drive connected?")
+def _not_a_drive_message(path: Path) -> str:
+    """Say what this path actually is, so the user has something to do about it.
+
+    Three outcomes, three answers. Reporting all of them as "is the drive connected?" asks a
+    question whose answer is plainly yes, and leaves someone re-plugging a cable that was never
+    loose. The common real case -- naming a folder *inside* a connected drive -- gets a
+    correction instead of an error.
+    """
+    location = locate_drive(path)
+    if location.is_inside and location.marker is not None:
+        return (
+            f"This is a folder inside '{location.marker.label}'. "
+            f"Use the drive root instead: {location.root}"
+        )
+    return "This folder isn't a truestill drive yet - register it to start tracking copies here."
+
+
+def _drive_correction(path: Path) -> dict[str, Any]:
+    """The machine-readable half of the same answer, so the UI can offer one-click correction."""
+    location = locate_drive(path)
+    return {
+        "error": _not_a_drive_message(path),
+        "suggested_root": str(location.root) if location.is_inside else None,
+        "drive_label": location.marker.label if location.marker else None,
+        "can_register": location.marker is None,
+    }
+
+
+def _not_a_drive(path: Path) -> NotABackupDriveError:
+    return NotABackupDriveError(_not_a_drive_message(path))
 
 
 #: Remembered paths, for prefilling fields the catalog can already answer. **Hints only.**
@@ -423,7 +451,7 @@ def verify_run(path: Path, db: Path) -> JobTarget:
     def target(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
         marker = read_marker(path)
         if marker is None:
-            raise _not_a_drive()
+            raise _not_a_drive(path)
         with Catalog(db) as catalog:
             catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
             rows = catalog.copies_on_drive(marker.uuid)
@@ -835,7 +863,7 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
         attach_drive(target, db, write=True)
         src_marker, tgt_marker = read_marker(source), read_marker(target)
         if src_marker is None or tgt_marker is None:
-            raise _not_a_drive()
+            raise _not_a_drive(source if src_marker is None else target)
         if src_marker.uuid == tgt_marker.uuid:
             message = "the 'from' and 'to' folders are the same drive."
             raise ValueError(message)
@@ -905,10 +933,7 @@ def propose_events(path: Path, db: Path) -> dict[str, Any]:
     """
     marker = read_marker(path)
     if marker is None:
-        return {
-            "ok": False,
-            "error": f"no {MARKER_NAME} at that path -- is the drive connected?",
-        }
+        return {"ok": False, **_drive_correction(path)}
     with Catalog(db) as catalog:
         catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
         clusters = propose_from_catalog(catalog, marker.uuid)
@@ -919,10 +944,7 @@ def migration_preview(path: Path, db: Path) -> dict[str, Any]:
     """Preview relocating a connected drive's files to the current template (moves nothing)."""
     marker = read_marker(path)
     if marker is None:
-        return {
-            "ok": False,
-            "error": f"no {MARKER_NAME} at that path -- is the drive connected?",
-        }
+        return {"ok": False, **_drive_correction(path)}
     with Catalog(db) as catalog:
         catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
         scheme = resolve_scheme(catalog)
@@ -950,7 +972,7 @@ def migration_apply(path: Path, db: Path) -> JobTarget:
     def target(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
         marker = read_marker(path)
         if marker is None:
-            raise _not_a_drive()
+            raise _not_a_drive(path)
         with Catalog(db) as catalog:
             catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
             pin_existing_layout(catalog)

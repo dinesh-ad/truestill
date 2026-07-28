@@ -84,6 +84,48 @@ def existing_marker_path(root: Path) -> Path | None:
     return None
 
 
+@dataclass(frozen=True, slots=True)
+class DriveLocation:
+    """What a path turned out to be, when a command wanted a drive root.
+
+    Three outcomes, and telling them apart is the whole point: the path **is** a drive root, the
+    path is **inside** one (so there is a correction to offer), or there is no drive above it at
+    all (so registration is the answer). Reporting all three as "is the drive connected?" asks a
+    question whose answer is plainly yes, and leaves the user with nothing to do.
+    """
+
+    given: Path
+    root: Path | None = None
+    marker: DriveMarker | None = None
+
+    @property
+    def is_root(self) -> bool:
+        return self.marker is not None and self.root == self.given
+
+    @property
+    def is_inside(self) -> bool:
+        """The path sits below a drive root - the case that used to read as 'not connected'."""
+        return self.marker is not None and self.root != self.given
+
+
+def locate_drive(path: Path) -> DriveLocation:
+    """Find the drive a path belongs to, by walking **up** for a marker.
+
+    A user pointing at ``.../The Memory Cabinet/2014`` has connected the drive; they simply named
+    a folder inside it. Walking the parents turns an unanswerable error into a correction the
+    caller can offer in one click.
+
+    Reads only, and never above the filesystem root. **O(depth)** stat calls - a handful, and
+    independent of library size.
+    """
+    resolved = path.resolve() if path.exists() else path
+    for candidate in (resolved, *resolved.parents):
+        marker = read_marker(candidate)
+        if marker is not None:
+            return DriveLocation(given=resolved, root=candidate, marker=marker)
+    return DriveLocation(given=resolved)
+
+
 def read_marker(root: Path) -> DriveMarker | None:
     """Return the drive's marker, or ``None`` if absent or unreadable/invalid.
 

@@ -683,6 +683,22 @@ $("verify-run").onclick = async () => {
 };
 $("verify-cancel").onclick = () => { if (verifyJob) api(`/api/jobs/${verifyJob}/cancel`, {}); };
 
+// A drive error that carries a correction offers it as a button: the common cause is naming a
+// folder INSIDE a connected drive, and re-typing the root by hand is work the app can do.
+function driveError(r, fieldId) {
+  if (!r.suggested_root) return card(`<div class="banner warn"><div>${esc(r.error)}</div></div>`);
+  return card(`<div class="banner warn"><div>${esc(r.error)}</div>
+    <div class="actions"><button class="btn btn-secondary" data-use-root="${esc(r.suggested_root)}"
+      data-field="${esc(fieldId)}">Use ${esc(r.drive_label || "the drive root")}</button></div></div>`);
+}
+
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-use-root]");
+  if (!btn) return;
+  $(btn.dataset.field).value = btn.dataset.useRoot;
+  $(btn.dataset.field).dispatchEvent(new Event("change"));
+});
+
 // ---------- Find ----------
 let wherePage = 1;
 
@@ -760,7 +776,7 @@ $("ev-propose").onclick = async () => {
   $("ev-apply-card").classList.add("hidden");
   const r = await api("/api/events/propose", { path: $("ev-source").value.trim() });
   if (r.ok === false) {
-    $("ev-clusters").innerHTML = card(`<div class="banner warn"><div>${esc(r.error)}</div></div>`);
+    $("ev-clusters").innerHTML = driveError(r, "ev-source");
     $("ev-actions-card").classList.add("hidden");
     return;
   }
@@ -819,7 +835,7 @@ $("ev-cancel").onclick = () => { if (evJob) api(`/api/jobs/${evJob}/cancel`, {})
 $("bk-preview").onclick = async () => {
   const source = $("bk-source").value.trim(), target = $("bk-target").value.trim();
   const r = await api("/api/backup/preview", { source, target });
-  if (!r.ok) { $("bk-result").innerHTML = card(`<div class="banner warn"><div>${esc(r.error)}</div></div>`); $("bk-run").classList.add("hidden"); return; }
+  if (!r.ok) { $("bk-result").innerHTML = driveError(r, "bk-target"); $("bk-run").classList.add("hidden"); return; }
   if (r.count === 0) {
     $("bk-result").innerHTML = card(`<div class="headline">Already backed up.</div><div class="k">Every photo on ${esc(r.from)} is already on ${esc(r.to)}.</div>`);
     $("bk-run").classList.add("hidden"); return;
@@ -893,7 +909,7 @@ $("layout-save").onclick = async () => {
 };
 $("mig-preview").onclick = async () => {
   const r = await api("/api/migrate/preview", { path: $("mig-path").value.trim() });
-  if (!r.ok) { $("mig-result").innerHTML = card(`<div class="banner warn"><div>${esc(r.error)}</div></div>`); $("mig-run").classList.add("hidden"); return; }
+  if (!r.ok) { $("mig-result").innerHTML = driveError(r, "mig-path"); $("mig-run").classList.add("hidden"); return; }
   $("mig-result").innerHTML = card(`<div class="headline">${plural(r.moves.length, "file")} to move</div>
     <div class="k">${r.unchanged} already in place${r.warnings.length ? " · ⚠ " + esc(r.warnings.join("; ")) : ""}</div>`);
   $("mig-run").classList.toggle("hidden", r.moves.length === 0);

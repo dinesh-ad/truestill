@@ -34,6 +34,7 @@ from truestill_core.drive import (
     DriveMarker,
     create_marker,
     existing_marker_path,
+    locate_drive,
     needs_marker_upgrade,
     read_marker,
     upgrade_marker,
@@ -391,6 +392,30 @@ def _cmd_drives(args: argparse.Namespace) -> int:
     return 0
 
 
+def _drive_or_explain(path: Path) -> DriveMarker | None:
+    """Resolve a drive root, printing a *useful* refusal when the path is not one.
+
+    Pointing at a folder inside a connected drive used to report "connect the drive first",
+    which is both wrong and unactionable. Walking up finds the drive and names the correction.
+    """
+    location = locate_drive(path)
+    if location.is_root:
+        return location.marker
+    if location.is_inside and location.marker is not None:
+        print(
+            f"error: {path} is a folder inside '{location.marker.label}'.\n"
+            f"       Use the drive root instead:  {location.root}",
+            file=sys.stderr,
+        )
+        return None
+    print(
+        f"error: {path} isn't a truestill drive yet.\n"
+        f"       Register it with:  truestill drives --init {path}",
+        file=sys.stderr,
+    )
+    return None
+
+
 def _cmd_where(args: argparse.Namespace) -> int:
     with Catalog(args.db) as catalog:
         total = catalog.count_copies(args.term)
@@ -414,9 +439,8 @@ def _cmd_where(args: argparse.Namespace) -> int:
 
 def _cmd_verify(args: argparse.Namespace) -> int:
     root = args.path
-    marker = read_marker(root)
+    marker = _drive_or_explain(root)
     if marker is None:
-        print(f"error: no {MARKER_NAME} at {root} -- connect the drive first", file=sys.stderr)
         return 2
     when = _now_iso()
     with Catalog(args.db) as catalog:
@@ -1251,9 +1275,8 @@ def _confirm_cleanup(count: int, *, permanent: bool) -> bool:
 
 def _cmd_clean_empty(args: argparse.Namespace) -> int:
     """Remove the folder skeleton a migration left, after showing exactly what will go."""
-    marker = read_marker(args.path)
+    marker = _drive_or_explain(args.path)
     if marker is None:
-        print(f"error: no {MARKER_NAME} at {args.path} -- connect the drive first", file=sys.stderr)
         return 2
 
     with Catalog(args.db) as catalog:
@@ -1339,12 +1362,8 @@ def _print_routing(routes: list[LabelRoute], rules_by_sha: dict[str, str]) -> bo
 
 
 def _cmd_migrate_layout(args: argparse.Namespace) -> int:
-    marker = read_marker(args.path)
+    marker = _drive_or_explain(args.path)
     if marker is None:
-        print(
-            f"error: no {MARKER_NAME} at {args.path} -- connect the drive first",
-            file=sys.stderr,
-        )
         return 2
 
     destination = LocalDestination(args.path)
@@ -1485,12 +1504,8 @@ def _cmd_undo_organize(args: argparse.Namespace) -> int:
 
 
 def _cmd_reclaim(args: argparse.Namespace) -> int:
-    marker = read_marker(args.path)
+    marker = _drive_or_explain(args.path)
     if marker is None:
-        print(
-            f"error: no {MARKER_NAME} at {args.path} -- connect the drive first",
-            file=sys.stderr,
-        )
         return 2
     if args.min_copies < 1:
         print("error: --min-copies must be at least 1", file=sys.stderr)

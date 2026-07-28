@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from truestill_cli.cli import main
 from truestill_core.catalog import Catalog
-from truestill_core.drive import MARKER_NAME, create_marker
+from truestill_core.drive import create_marker
 from truestill_core.hashing import sha256_file
 
 
@@ -39,7 +39,10 @@ def test_reclaim_requires_connected_drive(
 ) -> None:
     code = main(["reclaim", str(tmp_path / "not-a-drive"), "--db", str(tmp_path / "c.sqlite")])
     assert code == 2
-    assert f"no {MARKER_NAME}" in capsys.readouterr().err
+    # The refusal names what the folder IS and what to do, rather than the marker filename.
+    err = capsys.readouterr().err
+    assert "isn't a truestill drive yet" in err
+    assert "drives --init" in err
 
 
 def test_reclaim_preview_deletes_nothing(
