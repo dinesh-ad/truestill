@@ -367,6 +367,7 @@ the full text; this is the short list nobody should have to rediscover.
 | Does the app actually work end to end? | `walkthrough-qa-report.md` + `qa-screenshots/` |
 | Which formats are covered? | `format-coverage-audit.md` |
 | Do we resolve dates the way other organizers do, and what are we missing? | `date-layering-gap-check.md` |
+| Why does Trips propose the clusters it does? | `events-clustering-research.md` |
 | Why is the year the top-level folder, and how was the default changed? | `default-layout-research.md` |
 | How does a migration decide where a file goes, when the catalog stores a label? | `migration-routing-research.md` |
 | Why is a WhatsApp filename date refused when a screenshot's is trusted? | `messenger-dates-research.md` |
