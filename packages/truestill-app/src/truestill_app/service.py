@@ -39,6 +39,7 @@ from truestill_core.layout import (
     PRESETS,
     LayoutScheme,
     LayoutTemplate,
+    Placement,
     TemplateError,
     effective_layout_string,
     parse_timeline_template,
@@ -806,7 +807,7 @@ def layout_state(db: Path) -> dict[str, Any]:
 
 def _scheme_for_timeline(template: LayoutTemplate) -> LayoutScheme:
     """A scheme for previewing a typed timeline template: fixed side bin, events appended."""
-    return LayoutScheme(timeline=template, timeline_evented=template)
+    return LayoutScheme.of(timeline=template, timeline_evented=template)
 
 
 def preview_layout(template_str: str) -> dict[str, Any]:
@@ -990,7 +991,7 @@ def migration_preview(path: Path, db: Path) -> dict[str, Any]:
     return {
         "ok": True,
         "label": marker.label,
-        "template": scheme.timeline.template,
+        "template": scheme.template_for(Placement.EVERYDAY).template,
         "unchanged": plan.unchanged,
         "moves": [{"old": m.old_relative, "new": m.new_relative} for m in plan.moves],
         "warnings": plan.warnings,

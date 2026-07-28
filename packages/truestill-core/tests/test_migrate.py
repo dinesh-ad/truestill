@@ -29,7 +29,7 @@ from truestill_core.migrate import (
 def _scheme(template: str) -> LayoutScheme:
     """A migration scheme from one template -- the legacy shape these tests exercise."""
     parsed = LayoutTemplate.parse(template)
-    return LayoutScheme(timeline=parsed, timeline_evented=parsed, side_bin=parsed)
+    return LayoutScheme.of(timeline=parsed, timeline_evented=parsed, side_bin=parsed)
 
 
 _NO_EXIFTOOL = "exiftool is not installed"

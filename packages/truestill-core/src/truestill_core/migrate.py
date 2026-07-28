@@ -35,6 +35,7 @@ from truestill_core.layout import (
     PATH_LENGTH_WARN,
     TIMELINE_RULE,
     LayoutScheme,
+    Placement,
     RenderContext,
     disambiguate_event_folders,
 )
@@ -245,7 +246,11 @@ def plan_migration(
             )
     folders = disambiguate_event_folders(
         [(key, start, slug, name) for key, (start, slug, name) in events.items()],
-        naming=scheme.timeline.event_naming,
+        # Reads the un-evented template's naming, exactly as before `Placement` existed.
+        # Asking the *timeline* template how an *event* folder is spelled is a latent
+        # trap -- today every template parses with the same default so it cannot differ,
+        # which is why this is flagged rather than changed inside a pure refactor.
+        naming=scheme.template_for(Placement.EVERYDAY).event_naming,
     )
     event_notes = [f.note for f in folders if f.note]
 

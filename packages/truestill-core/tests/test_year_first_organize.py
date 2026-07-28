@@ -24,6 +24,7 @@ from truestill_core.layout import (
     DEFAULT_SCHEME,
     PRESETS,
     LayoutScheme,
+    Placement,
     preview_scheme,
 )
 from truestill_core.migrate import label_routes, plan_migration
@@ -151,8 +152,13 @@ def test_the_default_is_the_year_first_preset() -> None:
     to `Everyday`), which is why the default cannot be rebuilt from a single stored string.
     """
     assert PRESETS["year-month-event"].scheme() == DEFAULT_SCHEME
-    assert DEFAULT_SCHEME.side_bin.template == "{category}/{yyyy}/{yyyy}-{mm}"
-    assert DEFAULT_SCHEME.timeline.template != DEFAULT_SCHEME.timeline_evented.template
+    assert (
+        DEFAULT_SCHEME.template_for(Placement.SIDE_BIN).template == "{category}/{yyyy}/{yyyy}-{mm}"
+    )
+    assert (
+        DEFAULT_SCHEME.template_for(Placement.EVERYDAY).template
+        != DEFAULT_SCHEME.template_for(Placement.EVENT_DAY).template
+    )
 
 
 def test_a_migration_and_an_organize_run_agree_under_the_same_layout(tmp_path: Path) -> None:

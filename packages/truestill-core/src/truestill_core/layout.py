@@ -28,12 +28,12 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from pathlib import PurePosixPath
-from typing import Protocol
+from typing import Protocol, assert_never
 
 from truestill_core.events import event_dirname
 from truestill_core.models import UNDATED_DIRNAME
@@ -493,28 +493,94 @@ def parse_timeline_template(template: str) -> LayoutTemplate:
     return parsed
 
 
-@dataclass(frozen=True)
-class LayoutScheme:
-    """A whole layout: two timeline templates, the fixed side bin, and the router between them.
+class Placement(StrEnum):
+    """**The shapes a file can land in.** One member per structure the product renders.
 
-    Two timeline templates rather than one because an event is a **second routing axis**, not a
-    conditional: "Year / Event" puts an evented file under ``{yyyy}`` and an ordinary one under
-    ``{yyyy}/{yyyy}-{mm}``, which no single template can express. Selecting a template is the
-    entire mechanism - the token grammar stays a description of structure, never a language.
+    This is the routing vocabulary. Every layout decision in truestill is a choice of one of
+    these names, made exactly once by :func:`classify`; a template is then looked up by name and
+    rendered. Naming the shapes rather than passing a set of booleans is what keeps the router
+    from becoming the complexity: three booleans would be eight combinations of which only some
+    are meaningful, and the impossible ones (a side bin that is also an event) would be excluded
+    only by the order of a chain of ``if``s.
     """
 
-    timeline: LayoutTemplate
-    timeline_evented: LayoutTemplate
-    side_bin: LayoutTemplate = SIDE_BIN_TEMPLATE
+    #: Not the timeline: a labelled quarantine beside it (Screenshots, WhatsApp, ...).
+    SIDE_BIN = "side_bin"
+    #: Timeline, no named event.
+    EVERYDAY = "everyday"
+    #: Timeline, a member of a named event.
+    EVENT_DAY = "event_day"
 
-    def template_for(self, rule: str, *, evented: bool) -> LayoutTemplate:
-        """Route: the rule picks timeline vs side bin; the event flag picks which timeline."""
-        if rule != TIMELINE_RULE:
-            return self.side_bin
-        return self.timeline_evented if evented else self.timeline
+
+def classify(rule: str, context: RenderContext) -> Placement:
+    """**The one router.** Every shape decision in the product is made here, exactly once.
+
+    Keys on the **rule, not the label** (see :data:`TIMELINE_RULE`), then on whether the file
+    belongs to a named event. Pure, total, and free of any knowledge of what the shapes *are* -
+    it returns a name, and the rendering is somebody else's job.
+    """
+    if rule != TIMELINE_RULE:
+        return Placement.SIDE_BIN
+    return Placement.EVENT_DAY if context.event is not None else Placement.EVERYDAY
+
+
+@dataclass(frozen=True)
+class LayoutScheme:
+    """A whole layout: one template per :class:`Placement`, and the router between them.
+
+    A mapping rather than a field per shape, because the shapes are open: trips and heavy-day
+    buckets are already designed. Adding one is a new :class:`Placement` member plus an entry
+    here, and :meth:`of` fails to type-check until the new shape has been given a template -
+    so a shape cannot be added and silently left unrendered.
+
+    Selecting a template is the entire mechanism. The token grammar stays a description of
+    structure, never a language: no template contains a conditional, and no caller renders a
+    shape it chose by hand.
+    """
+
+    templates: Mapping[Placement, LayoutTemplate]
+
+    def __post_init__(self) -> None:
+        # Renders are dict lookups, so totality is a construction-time property. Checking it here
+        # turns a `KeyError` deep inside a run into a clear failure at the point of the mistake.
+        if missing := [p for p in Placement if p not in self.templates]:
+            names = ", ".join(sorted(missing))
+            message = f"layout scheme is missing a template for: {names}"
+            raise TemplateError(message)
+
+    @classmethod
+    def of(
+        cls,
+        *,
+        timeline: LayoutTemplate,
+        timeline_evented: LayoutTemplate,
+        side_bin: LayoutTemplate = SIDE_BIN_TEMPLATE,
+    ) -> LayoutScheme:
+        """Build a scheme from the shapes as a caller thinks of them.
+
+        The ``match`` is the **build-time exhaustiveness gate**: add a member to
+        :class:`Placement` and mypy fails here until this method says what template that shape
+        gets. That is deliberate - this is the one place that must grow when the product does.
+        """
+        chosen: dict[Placement, LayoutTemplate] = {}
+        for placement in Placement:
+            match placement:
+                case Placement.SIDE_BIN:
+                    chosen[placement] = side_bin
+                case Placement.EVERYDAY:
+                    chosen[placement] = timeline
+                case Placement.EVENT_DAY:
+                    chosen[placement] = timeline_evented
+                case _ as unreachable:
+                    assert_never(unreachable)
+        return cls(templates=chosen)
+
+    def template_for(self, placement: Placement) -> LayoutTemplate:
+        """The template for an already-decided shape. Total by construction (`__post_init__`)."""
+        return self.templates[placement]
 
     def render(self, rule: str, context: RenderContext) -> PurePosixPath:
-        return self.template_for(rule, evented=context.event is not None).render(context)
+        return self.template_for(classify(rule, context)).render(context)
 
 
 @dataclass(frozen=True)
@@ -527,7 +593,7 @@ class Preset:
     timeline_evented: str
 
     def scheme(self) -> LayoutScheme:
-        return LayoutScheme(
+        return LayoutScheme.of(
             timeline=LayoutTemplate.parse(self.timeline),
             timeline_evented=LayoutTemplate.parse(self.timeline_evented),
         )
@@ -575,7 +641,7 @@ def scheme_from_string(timeline: str, evented: str | None = None) -> LayoutSchem
     """
     parsed = parse_timeline_template(timeline)
     parsed_evented = parse_timeline_template(evented) if evented else parsed
-    return LayoutScheme(timeline=parsed, timeline_evented=parsed_evented)
+    return LayoutScheme.of(timeline=parsed, timeline_evented=parsed_evented)
 
 
 def resolve_scheme(catalog: CatalogLike) -> LayoutScheme:
@@ -641,7 +707,7 @@ def preview_scheme(
     only ever show what a run would actually do. **O(len(SAMPLE_ROWS))** - a constant.
     """
     rendered = [
-        scheme.template_for(row.rule, evented=row.context.event is not None)._render(row.context)
+        scheme.template_for(classify(row.rule, row.context))._render(row.context)
         for row in SAMPLE_ROWS
     ]
     fulls = [directory / filename for directory, _ in rendered]

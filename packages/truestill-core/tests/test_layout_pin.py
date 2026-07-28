@@ -22,6 +22,7 @@ from truestill_core.layout import (
     DEFAULT_TEMPLATE,
     DEFAULT_TEMPLATE_STRING,
     LAYOUT_TEMPLATE_KEY,
+    Placement,
     effective_layout_string,
     pin_existing_layout,
     resolve_scheme,
@@ -82,7 +83,10 @@ def test_an_organized_library_with_no_stored_layout_is_pinned(tmp_path: Path) ->
         assert pin_existing_layout(catalog) is True
 
         assert catalog.get_setting(LAYOUT_TEMPLATE_KEY) == DEFAULT_TEMPLATE_STRING
-        assert resolve_scheme(catalog).timeline.template == DEFAULT_TEMPLATE_STRING
+        assert (
+            resolve_scheme(catalog).template_for(Placement.EVERYDAY).template
+            == DEFAULT_TEMPLATE_STRING
+        )
 
 
 def test_a_scanned_but_never_organized_library_gets_the_new_default(tmp_path: Path) -> None:
@@ -103,7 +107,10 @@ def test_a_scanned_but_never_organized_library_gets_the_new_default(tmp_path: Pa
         assert pin_existing_layout(catalog) is False
 
         assert catalog.get_setting(LAYOUT_TEMPLATE_KEY) is None
-        assert resolve_scheme(catalog).timeline.template == DEFAULT_TEMPLATE.template
+        assert (
+            resolve_scheme(catalog).template_for(Placement.EVERYDAY).template
+            == DEFAULT_TEMPLATE.template
+        )
 
 
 def test_a_chosen_layout_is_never_overwritten(tmp_path: Path) -> None:
@@ -135,11 +142,13 @@ def test_preview_and_run_agree_before_the_pin_has_fired(tmp_path: Path) -> None:
     with Catalog(tmp_path / "c.sqlite") as catalog:
         _place(catalog)
 
-        previewed = resolve_scheme(catalog).timeline.template  # what a preview would render through
+        previewed = (
+            resolve_scheme(catalog).template_for(Placement.EVERYDAY).template
+        )  # what a preview would render through
         assert catalog.get_setting(LAYOUT_TEMPLATE_KEY) is None  # and it wrote nothing
 
         pin_existing_layout(catalog)  # now the run fires the pin
-        assert resolve_scheme(catalog).timeline.template == previewed
+        assert resolve_scheme(catalog).template_for(Placement.EVERYDAY).template == previewed
 
 
 def test_a_fresh_catalog_reports_no_effective_layout(tmp_path: Path) -> None:

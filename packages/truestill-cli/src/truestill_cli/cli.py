@@ -50,6 +50,7 @@ from truestill_core.layout import (
     PRESETS,
     LayoutScheme,
     LayoutTemplate,
+    Placement,
     TemplateError,
     parse_timeline_template,
     pin_existing_layout,
@@ -1116,7 +1117,7 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
 
 def _print_layout_preview(template: LayoutTemplate) -> None:
     """Render the sample files through ``template``, showing the routing split."""
-    _print_scheme_preview(LayoutScheme(timeline=template, timeline_evented=template))
+    _print_scheme_preview(LayoutScheme.of(timeline=template, timeline_evented=template))
 
 
 def _print_scheme_preview(scheme: LayoutScheme) -> None:
@@ -1387,7 +1388,7 @@ def _cmd_migrate_layout(args: argparse.Namespace) -> int:
             catalog, marker.uuid, scheme, routes=decided, rules_by_sha=rules_by_sha
         )
 
-        print(f"Drive '{marker.label}': layout {scheme.timeline.template}")
+        print(f"Drive '{marker.label}': layout {scheme.template_for(Placement.EVERYDAY).template}")
         undecided = _print_routing(routes, rules_by_sha)
 
         print(f"\n{len(plan.moves)} file(s) to relocate, {plan.unchanged} already in place.")

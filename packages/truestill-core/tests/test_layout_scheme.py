@@ -20,9 +20,12 @@ from truestill_core.layout import (
     EventNaming,
     LayoutScheme,
     LayoutTemplate,
+    Placement,
     RenderContext,
     TemplateError,
+    classify,
     parse_timeline_template,
+    preview_scheme,
     scheme_from_string,
 )
 
@@ -83,11 +86,11 @@ def test_a_side_bin_can_never_be_typed_into_a_timeline_path() -> None:
     The side-bin shape is fixed and is not read from user input, so no template anyone can set
     -- including one that tries to erase the category level -- reshapes a side bin.
     """
-    scheme = LayoutScheme(
+    scheme = LayoutScheme.of(
         timeline=LayoutTemplate.parse("{yyyy}"),
         timeline_evented=LayoutTemplate.parse("{yyyy}"),
     )
-    assert scheme.side_bin.template == SIDE_BIN_TEMPLATE_STRING
+    assert scheme.template_for(Placement.SIDE_BIN).template == SIDE_BIN_TEMPLATE_STRING
     landed = scheme.render(
         "screenshot_name", RenderContext(category="Screenshots", captured_at=WHEN)
     )
@@ -208,7 +211,7 @@ def test_an_event_name_that_sanitizes_to_nothing_falls_back_to_the_slug() -> Non
 def test_an_event_without_a_recorded_name_falls_back_to_its_slug() -> None:
     """SLUG naming survives the decommission -- it is what an unnamed event renders as."""
     slugged = LayoutTemplate.parse("{yyyy}/{yyyy}-{mm}", event_naming=EventNaming.SLUG)
-    scheme = LayoutScheme(timeline=slugged, timeline_evented=slugged)
+    scheme = LayoutScheme.of(timeline=slugged, timeline_evented=slugged)
     rendered = scheme.render(
         TIMELINE_RULE,
         RenderContext(category="Camera", captured_at=WHEN, event=(WHEN, "goa"), event_name="Goa"),
@@ -280,3 +283,67 @@ def test_no_category_first_rendering_survives_anywhere_in_the_tree() -> None:
         offenders += [f"{relative}: {name}" for name in forbidden if name in text]
 
     assert not offenders, "category-first references still present: " + "; ".join(offenders)
+
+
+#: Every shipped preset rendered through every sample row. **Written out as literals on
+#: purpose** - a golden matrix compared against the implementation is only worth having if the
+#: expected side was produced by a human reading it, not by the code under test. These are the
+#: exact paths the boolean-router version produced before `Placement` existed, so the refactor
+#: that introduced the enum is pinned as behaviour-preserving rather than merely asserted to be.
+GOLDEN_PLACEMENTS: dict[str, tuple[str, ...]] = {
+    "year-month-event": (
+        "2014/2014-08/2014-08 - Everyday/sample.jpg",
+        "2014/2014-08/2014-08-20 - Goa Trip/sample.jpg",
+        "Undated/sample.jpg",
+        "Screenshots/2024/2024-01/sample.jpg",
+    ),
+    "year-event": (
+        "2014/2014-08/sample.jpg",
+        "2014/2014-08-20 - Goa Trip/sample.jpg",
+        "Undated/sample.jpg",
+        "Screenshots/2024/2024-01/sample.jpg",
+    ),
+    "year-month-day": (
+        "2014/2014-08/2014-08-20/sample.jpg",
+        "2014/2014-08/2014-08-20/2014-08-20 - Goa Trip/sample.jpg",
+        "Undated/sample.jpg",
+        "Screenshots/2024/2024-01/sample.jpg",
+    ),
+}
+
+
+@pytest.mark.parametrize("key", sorted(GOLDEN_PLACEMENTS))
+def test_every_preset_renders_its_known_paths(key: str) -> None:
+    """The routing matrix, pinned. Guards the router against silent re-wiring.
+
+    Swapping two placements in `LayoutScheme.of`, or making `classify` answer differently, is
+    invisible to a test that only checks one shape at a time - each individual assertion still
+    passes against *some* template. Only the whole matrix catches a permutation.
+    """
+    rendered = tuple(row.path.as_posix() for _, row in preview_scheme(PRESETS[key].scheme()))
+    assert rendered == GOLDEN_PLACEMENTS[key]
+
+
+def test_classify_routes_on_the_rule_then_on_the_event() -> None:
+    """The router's whole contract, stated once."""
+    dated = RenderContext(category="Camera", captured_at=WHEN)
+    evented = RenderContext(
+        category="Camera", captured_at=WHEN, event=(WHEN, "goa-trip"), event_name="Goa Trip"
+    )
+    assert classify(TIMELINE_RULE, dated) is Placement.EVERYDAY
+    assert classify(TIMELINE_RULE, evented) is Placement.EVENT_DAY
+    # The rule wins outright: a side-bin file is a side-bin file even carrying an event.
+    assert classify("screenshot_name", dated) is Placement.SIDE_BIN
+    assert classify("screenshot_name", evented) is Placement.SIDE_BIN
+
+
+def test_a_scheme_must_carry_a_template_for_every_placement() -> None:
+    """Totality is checked where the scheme is built, not where a file is being placed."""
+    with pytest.raises(TemplateError, match="missing a template"):
+        LayoutScheme(templates={Placement.EVERYDAY: LayoutTemplate.parse("{yyyy}")})
+
+    complete = LayoutScheme.of(
+        timeline=LayoutTemplate.parse("{yyyy}"),
+        timeline_evented=LayoutTemplate.parse("{yyyy}"),
+    )
+    assert set(complete.templates) == set(Placement)
