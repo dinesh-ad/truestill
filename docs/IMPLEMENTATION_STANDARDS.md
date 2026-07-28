@@ -82,6 +82,15 @@ copies to compare - the file *is* the copy.
 
 **Dating tier order (current), from `dates.resolve_capture_datetime`:**
 
+- **An edit time is never a capture date.** `ModifyDate` and `FileModifyDate` are refused
+  permanently (`dates.REFUSED_DATE_TAGS`), alongside filesystem mtime. They record when a file
+  was last written, not when it was taken - a photo cropped in 2024 carries a 2024 `ModifyDate`
+  beside a 2014 `DateTimeOriginal` - and they are present *precisely* when `DateTimeOriginal` is
+  absent, so a chain that treated "any date beats none" would reach for them exactly where they
+  are least trustworthy. Probed on the real library: of the files with no `DateTimeOriginal`,
+  **every one** carried a `ModifyDate`. Pinned by
+  `test_edit_times_are_never_consulted_for_placement`; survey in
+  `docs/date-layering-gap-check.md`.
 - **A messenger filename is never a capture date.** `IMG-20250804-WA0020.jpg` carries the day
   the file was *delivered*, not the day it was taken - forward a 2015 photo today and the name
   says today. Files whose only date is a messenger convention (`categorize.is_messenger_filename`,

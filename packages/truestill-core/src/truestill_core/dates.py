@@ -28,6 +28,24 @@ from truestill_core.takeout import TakeoutSidecar, local_naive
 #: the offset back on. Re-applying it is the classic double-conversion bug. The UTC ``*Create``
 #: tags are a last resort only, kept as-is; we do not try to convert them using another tag's
 #: offset (that guesses a zone the file never recorded).
+#: Date-bearing tags this chain **refuses to read, permanently**, and why.
+#:
+#: These are not "not yet supported" -- they are wrong answers that look like right ones, and an
+#: absence is easy to erode back in by someone adding "one more fallback". Named here so the
+#: refusal is a decision on the record with a test behind it.
+#:
+#: * ``ModifyDate`` / ``FileModifyDate`` -- the moment the file was last *edited* or *written*,
+#:   never the moment it was taken. A photo cropped in 2024 carries a 2024 ModifyDate beside a
+#:   2014 DateTimeOriginal, so reading it silently re-dates edited photos. Worse, it is present
+#:   precisely when DateTimeOriginal is absent: probed against the real 2,269-file library, of
+#:   the files with no DateTimeOriginal, **every one** carried a ModifyDate. A chain that treats
+#:   "any date beats none" would reach for it exactly where it is least trustworthy.
+#: * Filesystem mtime is refused by the same reasoning and is already forbidden by §1 -- a
+#:   Takeout export, a cloud re-sync or a restore rewrites it, dating a library to the day it
+#:   moved. Every comparable organizer falls back to it, and it is their most-reported dating
+#:   complaint (`docs/date-layering-gap-check.md`).
+REFUSED_DATE_TAGS: frozenset[str] = frozenset({"ModifyDate", "FileModifyDate"})
+
 DATE_TAGS: tuple[str, ...] = (
     "DateTimeOriginal",
     "CreationDate",

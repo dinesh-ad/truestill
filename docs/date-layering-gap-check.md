@@ -56,7 +56,8 @@ absence.**
 
 ## 4. Real gaps worth considering
 
-**(a) XMP tags — the only genuine hole.** PhotoPrism consults XMP; we do not request any XMP
+**(a) XMP tags — probed, and the answer is no.** ⚠ **Superseded by the corpus probe below.**
+Original reasoning retained: PhotoPrism consults XMP; we do not request any XMP
 field. `XMP:DateTimeOriginal` and `XMP:CreateDate` matter for two real populations: files edited
 by Adobe tooling, and sidecar-based RAW workflows where the date lives in the `.xmp` beside the
 raw file. Both are plausible in a photographer's library.
@@ -104,3 +105,33 @@ and it is the cheapest of the three to justify.
 batch*, not additional passes. `REQUESTED_TAGS` grows by a handful of names; the read stays one
 batched invocation per chunk, so cost is unchanged in the number of files and unchanged in I/O.
 Nothing proposed is worse than linear.
+
+
+---
+
+## 6. Corpus probe (2026-07-28) — the XMP recommendation is withdrawn
+
+§4(a) recommended adding an XMP tier "pending a corpus probe", per the fallback-parser policy
+that a tier is added only when a real corpus shows a file it — and only it — can correctly date.
+
+**Probed: 400 files from the real library.**
+
+| | |
+|---|---|
+| files read | 400 |
+| with `DateTimeOriginal` | 398 |
+| with **any** XMP date | **0** |
+| that would **gain** a date from XMP | **0** |
+| with `ModifyDate` but no `DateTimeOriginal` | 2 (of 2 such files — **100%**) |
+
+**Recommendation withdrawn. Do not add the XMP tier.** Not one file in the library carries an
+XMP date, so the tier would add two tag names, a branch and a test for zero files. It stays
+available if a future corpus — an Adobe-heavy or sidecar-RAW library — shows otherwise; the
+policy is unchanged, the evidence simply came back negative. **A null result is a result**, and
+recording it stops the same recommendation being re-derived from first principles later.
+
+**The same probe strengthened the `ModifyDate` refusal into a measurement.** Both files lacking
+`DateTimeOriginal` carried a `ModifyDate` — the exact population §3 predicted, at 100% of the
+sample. That refusal is now a named constant with a guard test rather than an absence.
+
+`GPSDateStamp` is unchanged: a cross-check for dead-clock dates, never a tier.

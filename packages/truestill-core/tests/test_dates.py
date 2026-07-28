@@ -7,7 +7,14 @@ from pathlib import Path
 
 import pytest
 from truestill_core import dates, exif
-from truestill_core.dates import date_from_filename, parse_exif_datetime, resolve_capture_datetime
+from truestill_core.dates import (
+    DATE_TAGS,
+    REFUSED_DATE_TAGS,
+    date_from_filename,
+    parse_exif_datetime,
+    resolve_capture_datetime,
+)
+from truestill_core.exif import REQUESTED_TAGS
 from truestill_core.models import DateSource
 from truestill_core.organizer import build_destination
 
@@ -131,3 +138,22 @@ def test_destination_layout() -> None:
 
     undated = build_destination(root, "Camera", None, "b.jpg", rule="device")
     assert undated == root / "Undated" / "b.jpg"  # timeline undated sits at the root
+
+
+def test_edit_times_are_never_consulted_for_placement() -> None:
+    """ModifyDate is the EDIT time, and it is present exactly when it is least trustworthy.
+
+    Probed against the real library: of the files carrying no DateTimeOriginal, every one had a
+    ModifyDate. A chain that treated "any date beats none" would reach for it precisely there.
+    Pinned as a rule rather than left as an absence, because an absence is easy to erode back in.
+    """
+    for tag in REFUSED_DATE_TAGS:
+        assert tag not in DATE_TAGS  # never a resolution tier
+        assert tag not in REQUESTED_TAGS  # and never even read from the file
+
+    # A file whose ONLY date is an edit time is Undated, not dated by the edit.
+    when, source, _ = resolve_capture_datetime(
+        Path("clip.mp4"), {"ModifyDate": "2024:01:01 12:00:00"}
+    )
+    assert when is None
+    assert source is DateSource.NONE
