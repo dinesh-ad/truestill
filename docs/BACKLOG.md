@@ -18,7 +18,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(gg). Next free: (hh).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(hh). Next free: (ii).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -346,6 +346,24 @@ no composition refactor to schedule.
   - **Virtual views, albums-as-first-class-objects and faces remain out of scope**, unchanged -
     see "Consciously out of scope" below and the composition stance recorded there. Portable
     *context* is not the same request as a gallery.
+- **(hh) `truestill adopt` - bring stray media in an organized drive into the catalog.** Ruled
+  by Dinesh. A drive can hold media truestill does not know about: files copied in by hand, a
+  restore from elsewhere, or anything added after the last run. Today they are invisible to
+  `verify`, to the custody count, and to `clean-empty`'s classification.
+  - **Scan an organized drive for media files not in the catalog, report them named**, and on
+    confirm run them **through the full normal organize pipeline** - EXIF, category rules, dating,
+    dedup all decide placement.
+  - ⚠ **Never the folder they were found in.** A file sitting in `Camera/2019/` is not evidence
+    that it is a 2019 camera photo; someone may have dropped it anywhere. Placement is derived
+    from the file's own metadata like every other file, or truestill would be laundering a
+    guess as a decision - the same mistake the `(m)` selection rules forbid.
+  - **Never automatic, never silent.** Offered after `verify` or `migrate-layout` when unknowns
+    are found, and available standalone. Preview names every file; a typed confirm adopts.
+  - **Precedent:** Lightroom's *Synchronize Folder*, which is the same operation for the same
+    reason and is well understood by the audience.
+  - **Shares the walk-and-classify machinery with `clean-empty`** - both answer "what is on this
+    drive that the catalog does not account for", from opposite ends.
+
 - **(gg) Adaptive day-folder threshold for Everyday photos.** Ruled by Dinesh from a soak
   finding: a heavy un-evented day drowns the monthly `Everyday` bucket, which is exactly the
   problem the year-first layout was meant to solve one level up.

@@ -194,3 +194,23 @@ def test_an_empty_plan_is_harmless(tmp_path: Path) -> None:
     root = tmp_path / "drive"
     root.mkdir()
     assert run_cleanup(root, CleanupPlan(), apply=True) == (0, [])
+
+
+def test_a_refused_folder_names_loose_files_alongside_subfolders(tmp_path: Path) -> None:
+    """Never-silent applies to the refusal report, not just to the decision.
+
+    A loose file must be named, not just counted and not just subfolders. If the listing showed
+    only directories, a preview could not be checked against a file someone knows is there --
+    and a preview you cannot check is one you should not confirm against.
+    """
+    root = tmp_path / "drive"
+    emptied = _skeleton(root)
+    (root / "Camera/2014/loose-photo.jpg").write_bytes(b"a real photo")
+
+    plan = plan_cleanup(root, emptied)
+
+    refused = {c.relative: c for c in plan.occupied}
+    # `contents` names what is KEEPING THE FOLDER ALIVE, not everything inside it: `2014-01` is
+    # already going in this pass, so the loose photo is the whole reason `Camera/2014` stays.
+    assert refused["Camera/2014"].contents == ("loose-photo.jpg",)
+    assert "Camera" in refused  # and the parent is refused because that child survives
