@@ -373,14 +373,17 @@ class Catalog:
     def copies_for_migration(self, drive_uuid: str) -> list[sqlite3.Row]:
         """Every copy on a drive with the fields needed to re-render its path under a template.
 
-        Joins ``file_copies`` to ``files`` (category, captured_at) and any named event (slug,
-        start), so a migration can recompute each copy's destination without re-reading the file.
+        Joins ``file_copies`` to ``files`` (category, captured_at, original_name) and any named
+        event (slug, start, **name**), so a migration can recompute each copy's destination
+        without re-reading the file. The event *name* is what makes a readable folder possible on
+        the migration path -- `slugify` is lossy, so it cannot be rebuilt from the slug.
         """
         return list(
             self._conn.execute(
                 """
                 SELECT fc.sha256, fc.relative, fc.copy_sha256, f.category, f.captured_at,
-                       e.slug AS event_slug, e.start_date AS event_start
+                       f.original_name,
+                       e.slug AS event_slug, e.start_date AS event_start, e.name AS event_name
                 FROM file_copies fc
                 JOIN files f ON f.sha256 = fc.sha256
                 LEFT JOIN events e ON e.id = f.event_id

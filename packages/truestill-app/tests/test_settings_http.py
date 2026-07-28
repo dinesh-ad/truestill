@@ -99,7 +99,7 @@ def test_migrate_preview_lists_moves(client: TestClient, tmp_path: Path) -> None
     r = client.post("/api/migrate/preview", json={"path": str(drive)}).json()
     assert r["ok"] is True
     assert len(r["moves"]) == 1
-    assert r["moves"][0]["new"] == "2023/2023-08/20/x.jpg"
+    assert r["moves"][0]["new"] == "Camera/2023/2023-08/x.jpg"  # no camera evidence -> side bin
 
 
 def _organize_one(db: Path, category: str = "Camera") -> None:

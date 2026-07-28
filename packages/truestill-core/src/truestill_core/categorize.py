@@ -27,6 +27,9 @@ from typing import Any
 
 from truestill_core.models import SAVED_LABEL, CategoryMatch, Confidence
 
+#: The label both screenshot rules emit.
+SCREENSHOT_LABEL = "Screenshots"
+
 # --------------------------------------------------------------------------------------
 # Filename convention table
 # --------------------------------------------------------------------------------------
@@ -102,6 +105,17 @@ _MAX_LABEL_LEN = 60
 _GENERIC_SOFTWARE = frozenset({"android", "ios", "iphone os", "windows", "picasa uploader"})
 
 
+def deterministic_side_bin_labels() -> frozenset[str]:
+    """Labels only a **side-bin** rule can produce, whatever the metadata.
+
+    The screenshot rules, the messenger/social conventions and the `Saved` fallback all emit a
+    label from a fixed set. The two open-ended rules do not: `software` names a folder after
+    whatever an app stamped, and `device` under ``--by-device`` names it after the hardware -
+    so a label outside this set could have come from either, and the migration must not guess.
+    """
+    return frozenset({SCREENSHOT_LABEL, SAVED_LABEL} | {entry.label for entry in NAME_PATTERNS})
+
+
 def is_messenger_filename(name: str) -> bool:
     """Whether a filename follows a messenger/social convention (`NAME_PATTERNS`).
 
@@ -155,7 +169,7 @@ def rule_screenshot_metadata(_path: Path, metadata: dict[str, Any]) -> CategoryM
     """Vendor MakerNotes that state outright that a file is a screen capture."""
     if _text(metadata, "SamsungCaptureInfo").casefold() == "screenshot":
         return CategoryMatch(
-            label="Screenshots",
+            label=SCREENSHOT_LABEL,
             reason="EXIF SamsungCaptureInfo=Screenshot",
             confidence=Confidence.HIGH,
             rule="screenshot_metadata",
@@ -167,7 +181,7 @@ def rule_screenshot_name(path: Path, _metadata: dict[str, Any]) -> CategoryMatch
     """Cross-platform screenshot filename conventions."""
     if _SCREENSHOT_NAME.match(path.name):
         return CategoryMatch(
-            label="Screenshots",
+            label=SCREENSHOT_LABEL,
             reason="filename matches screenshot naming",
             confidence=Confidence.MEDIUM,
             rule="screenshot_name",

@@ -918,9 +918,7 @@ def migration_preview(path: Path, db: Path) -> dict[str, Any]:
     with Catalog(db) as catalog:
         catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
         scheme = resolve_scheme(catalog)
-        outcome = run_migration(
-            catalog, LocalDestination(path), marker.uuid, scheme.timeline, apply=False
-        )
+        outcome = run_migration(catalog, LocalDestination(path), marker.uuid, scheme, apply=False)
         pending = [
             d["label"]
             for d in catalog.list_drives()
@@ -953,7 +951,7 @@ def migration_apply(path: Path, db: Path) -> JobTarget:
                 catalog,
                 LocalDestination(path),
                 marker.uuid,
-                scheme.timeline,
+                scheme,
                 apply=True,
                 progress=progress,
                 cancel=cancel,

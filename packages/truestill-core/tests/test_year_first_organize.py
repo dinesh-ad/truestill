@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
+from truestill_core.catalog import Catalog
 from truestill_core.categorize import build_rules
 from truestill_core.destinations import LocalDestination
 from truestill_core.exif import read_metadata
@@ -27,6 +28,7 @@ from truestill_core.layout import (
     preview_scheme,
     scheme_from_string,
 )
+from truestill_core.migrate import label_routes, plan_migration
 from truestill_core.models import FileHashes, Resolution
 from truestill_core.organizer import apply_events, execute, plan
 
@@ -169,3 +171,37 @@ def test_the_default_is_the_year_first_preset() -> None:
     assert DEFAULT_SCHEME.is_legacy is False
     assert DEFAULT_SCHEME.side_bin.template == "{category}/{yyyy}/{yyyy}-{mm}"
     assert DEFAULT_SCHEME.timeline.template != DEFAULT_SCHEME.timeline_evented.template
+
+
+def test_a_migration_and_an_organize_run_agree_under_the_same_layout(tmp_path: Path) -> None:
+    """Closes the audit's F2: migrate rendered through a bare template and could not route.
+
+    A library that was migrated and a library that was organized fresh must be the same tree,
+    or "adopt the new layout" would mean something different depending on which door you came
+    through.
+    """
+    source = tmp_path / "src"
+    photo = _camera_photo(source / "IMG_0001.jpg")
+    organized = _organize(tmp_path, YEAR_FIRST, [photo])
+
+    # The same file, recorded as a legacy-layout copy on a drive, then re-planned.
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        catalog.upsert_drive(uuid="D1", label="Drive")
+        catalog.record_uploaded(
+            source_path=str(photo),
+            original_name="IMG_0001.jpg",
+            sha256="sha-1",
+            copy_sha256="sha-1",
+            perceptual=None,
+            size=10,
+            captured_at="2014-08-20T14:30:00",
+            category="Camera",
+            relative="Camera/2014/08/20140820_143000_IMG_0001.jpg",
+            event_id=None,
+            albums=[],
+            drive_uuid="D1",
+        )
+        routes = {r.label: "timeline" for r in label_routes(catalog, "D1")}
+        plan = plan_migration(catalog, "D1", YEAR_FIRST, routes=routes)
+
+    assert [m.new_relative for m in plan.moves] == organized

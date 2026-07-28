@@ -11,8 +11,15 @@ from pathlib import Path, PurePosixPath
 from truestill_core.catalog import Catalog
 from truestill_core.destinations.local import LocalDestination
 from truestill_core.hashing import sha256_file
-from truestill_core.layout import LayoutTemplate
+from truestill_core.layout import LayoutScheme, LayoutTemplate
 from truestill_core.migrate import Move, plan_migration, run_migration
+
+
+def _scheme(template: str) -> LayoutScheme:
+    """A migration scheme from one template -- the legacy shape these tests exercise."""
+    parsed = LayoutTemplate.parse(template)
+    return LayoutScheme(timeline=parsed, timeline_evented=parsed, side_bin=parsed)
+
 
 _DDL = "{category}/{yyyy}"  # drops the month the default adds -> every dated file must move
 
@@ -60,9 +67,7 @@ def test_preview_moves_nothing(tmp_path: Path) -> None:
     root = tmp_path / "drive"
     with Catalog(tmp_path / "c.sqlite") as catalog:
         _two_files(catalog, root)
-        outcome = run_migration(
-            catalog, LocalDestination(root), "D1", LayoutTemplate.parse(_DDL), apply=False
-        )
+        outcome = run_migration(catalog, LocalDestination(root), "D1", _scheme(_DDL), apply=False)
     assert outcome.applied is False
     assert outcome.migrated == 0
     assert len(outcome.plan.moves) == 2
@@ -73,9 +78,7 @@ def test_apply_relocates_and_updates_catalog(tmp_path: Path) -> None:
     root = tmp_path / "drive"
     with Catalog(tmp_path / "c.sqlite") as catalog:
         shas = _two_files(catalog, root)
-        outcome = run_migration(
-            catalog, LocalDestination(root), "D1", LayoutTemplate.parse(_DDL), apply=True
-        )
+        outcome = run_migration(catalog, LocalDestination(root), "D1", _scheme(_DDL), apply=True)
         assert outcome.migrated == 2
         assert (root / "Camera/2023/a.jpg").exists()
         assert not (root / "Camera/2023/08/a.jpg").exists()  # old removed
@@ -85,11 +88,11 @@ def test_apply_relocates_and_updates_catalog(tmp_path: Path) -> None:
 
 def test_apply_is_idempotent(tmp_path: Path) -> None:
     root = tmp_path / "drive"
-    template = LayoutTemplate.parse(_DDL)
+    scheme = _scheme(_DDL)
     with Catalog(tmp_path / "c.sqlite") as catalog:
         _two_files(catalog, root)
-        run_migration(catalog, LocalDestination(root), "D1", template, apply=True)
-        again = run_migration(catalog, LocalDestination(root), "D1", template, apply=True)
+        run_migration(catalog, LocalDestination(root), "D1", scheme, apply=True)
+        again = run_migration(catalog, LocalDestination(root), "D1", scheme, apply=True)
     assert again.migrated == 0
     assert again.plan.unchanged == 2
 
@@ -105,9 +108,7 @@ def test_only_the_given_drive_is_touched(tmp_path: Path) -> None:
             "D2",
             [("Camera/2023/08/z.jpg", "Camera", "2023-08-20T14:30:00", b"zzzz")],
         )
-        run_migration(
-            catalog, LocalDestination(root1), "D1", LayoutTemplate.parse(_DDL), apply=True
-        )
+        run_migration(catalog, LocalDestination(root1), "D1", _scheme(_DDL), apply=True)
         # D2's copy is left exactly where it was -- migration is one connected drive at a time.
         assert catalog.copy_relative(other["Camera/2023/08/z.jpg"], "D2") == "Camera/2023/08/z.jpg"
         assert (root2 / "Camera/2023/08/z.jpg").exists()
@@ -136,7 +137,7 @@ def test_resume_after_crash_before_catalog_flip(tmp_path: Path) -> None:
         )
         dest.relocate(move.old_relative, move.new_relative)  # new exists; old still exists
 
-        run_migration(catalog, dest, "D1", LayoutTemplate.parse(_DDL), apply=True)
+        run_migration(catalog, dest, "D1", _scheme(_DDL), apply=True)
 
         assert (root / "Camera/2023/a.jpg").exists()
         assert not (root / "Camera/2023/08/a.jpg").exists()
@@ -159,7 +160,7 @@ def test_resume_after_crash_after_flip_removes_orphan(tmp_path: Path) -> None:
             move.sha256, "D1", move.new_relative
         )  # catalog flipped; old orphan remains
 
-        run_migration(catalog, dest, "D1", LayoutTemplate.parse(_DDL), apply=True)
+        run_migration(catalog, dest, "D1", _scheme(_DDL), apply=True)
 
         assert not (root / "Camera/2023/08/a.jpg").exists()  # orphan cleaned
         assert (root / "Camera/2023/a.jpg").exists()
@@ -180,7 +181,7 @@ def test_resume_repairs_partial_copy(tmp_path: Path) -> None:
         corrupt.parent.mkdir(parents=True, exist_ok=True)
         corrupt.write_bytes(b"XX")  # partial/corrupt -> must not be trusted
 
-        run_migration(catalog, dest, "D1", LayoutTemplate.parse(_DDL), apply=True)
+        run_migration(catalog, dest, "D1", _scheme(_DDL), apply=True)
 
         assert sha256_file(root / "Camera/2023/a.jpg") == move.copy_sha256  # re-copied and verified
         assert not (root / "Camera/2023/08/a.jpg").exists()
@@ -201,5 +202,5 @@ def test_plan_flags_collision(tmp_path: Path) -> None:
                 ("Camera/2023/08/a.jpg", "Camera", "2023-08-20T00:00:00", b"bbbb"),
             ],
         )
-        plan = plan_migration(catalog, "D1", LayoutTemplate.parse("{category}/{yyyy}/{mm}/{dd}"))
+        plan = plan_migration(catalog, "D1", _scheme("{category}/{yyyy}/{mm}/{dd}"))
     assert any("same path" in w for w in plan.warnings)

@@ -148,9 +148,17 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
     catalog is on; `layout.scheme_from_string` is the only interpretation of a stored template.
     Runs, previews and the Settings screen all come through them, which is what makes
     `test_a_run_and_a_preview_of_the_same_layout_agree` (every shipped preset) hold.
-  - **Known exception, tracked:** `migrate.plan_migration` still renders through a bare template
-    and cannot route, because the catalog stores a label rather than a rule. It is fed
-    `scheme.timeline` so behaviour is unchanged; closing it is step 2e of the layout correction.
+  - **Migration renders through the same seam** (`migrate.plan_migration` takes a
+    `LayoutScheme`). The catalog stores a *label*, not the rule an organize run routes by, so
+    `migrate.label_routes` bridges the two: labels only a screenshot/messenger/fallback rule can
+    produce are routed deterministically, and everything else is **ambiguous by construction**
+    (`Camera` is the device rule's default *and* a possible `Software` value; `--by-device` makes
+    any label possible). Ambiguous labels are resolved per file by re-reading metadata for
+    **those labels only** (`migrate.rederive_rules`), and are never silently routed. Pinned by
+    `test_a_migration_and_an_organize_run_agree_under_the_same_layout`.
+  - **The unmapped direction is the safe one.** A label with no decision is treated as a side
+    bin: a file kept beside the years stays findable and fixable, while one wrongly hoisted onto
+    the timeline is mixed into the photo record.
 - **Destinations behind an interface.** `destinations/base.py::Destination` (ABC:
   `exists`/`upload`/`list`/`describe`). Implementations: `LocalDestination`,
   `RcloneDestination`. Nothing in organize/dedup logic names a specific backend. Relative
@@ -261,6 +269,7 @@ successful upgrade), never automatic.
 | **Research-first for every feature** - mine the issue trackers of tools that fought the same battle; write findings down. | Convention; exemplar: `docs/takeout-format.md`. |
 | **One fix per commit** - focused, reviewable commits. | Convention - visible in git history. |
 | **Dry-run before real runs** - planning writes nothing; `--apply` is the only writing path. | Enforced: `organizer.execute(apply=...)`; CLI defaults to dry run. |
+| **A relocation is gated on an explicit typed word, never a default-yes.** `--apply` is permission to *ask*, not permission to move: `migrate-layout` prints the plan and requires the exact word `move`; anything else (including a bare Enter) aborts with nothing moved. The preview itself writes nothing at all - not even a drive-label refresh. | `cli._cmd_migrate_layout`; pinned by `test_a_preview_moves_nothing_and_writes_nothing` and `test_without_the_typed_confirm_nothing_moves`. |
 | **Never push without being asked.** | Convention - not yet enforced. |
 | **Commit identity / no-AI-trailer** - no `Co-Authored-By` trailer, no Anthropic/Claude email or signature in history. | **Enforced:** `scripts/check_commit_msg.py` via the `commit-msg` pre-commit hook (`.pre-commit-config.yaml`, id `no-ai-coauthor`). Activate: `uv run pre-commit install --hook-type commit-msg`. |
 

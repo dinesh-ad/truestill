@@ -20,13 +20,23 @@ crash between those steps leaves a recoverable orphan, never a lost or unrecorde
 from __future__ import annotations
 
 import threading
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
+from typing import Any
 
 from truestill_core.catalog import Catalog
+from truestill_core.categorize import build_rules, categorize, deterministic_side_bin_labels
 from truestill_core.destinations.base import Destination, DestinationError
-from truestill_core.layout import PATH_LENGTH_WARN, LayoutTemplate, RenderContext
+from truestill_core.exif import read_metadata
+from truestill_core.layout import (
+    PATH_LENGTH_WARN,
+    TIMELINE_RULE,
+    LayoutScheme,
+    RenderContext,
+    disambiguate_event_folders,
+)
 from truestill_core.progress import Phase, Progress, ProgressCallback
 
 
@@ -64,25 +74,195 @@ def _parse_dt(value: str | None) -> datetime | None:
     return datetime.fromisoformat(value) if value else None
 
 
-def plan_migration(catalog: Catalog, drive_uuid: str, template: LayoutTemplate) -> MigrationPlan:
-    """Compute the ``old -> new`` relocations ``template`` implies for a drive's copies. Pure."""
+#: How a label's files are routed when the migration re-renders them.
+ROUTE_TIMELINE = "timeline"
+ROUTE_SIDE_BIN = "side bin"
+ROUTE_AMBIGUOUS = "ambiguous"
+
+
+@dataclass(frozen=True, slots=True)
+class LabelRoute:
+    """Where one label's files are headed, and how confident the migration is about it."""
+
+    label: str
+    route: str
+    files: int
+    reason: str
+    #: Set when per-file re-derivation resolved the split rather than the label alone.
+    resolved_per_file: bool = False
+
+    @property
+    def needs_decision(self) -> bool:
+        return self.route == ROUTE_AMBIGUOUS
+
+
+def label_routes(catalog: Catalog, drive_uuid: str) -> list[LabelRoute]:
+    """Decide, per distinct label, whether its files belong on the timeline or in a side bin.
+
+    **The migration cannot ask the organizer.** The catalog records a *label*, not the rule that
+    produced it (`files.category`), and an organize run routes on the rule -- so this is the
+    bridge, and it is only allowed to be certain where the rule chain actually is.
+
+    Certainty comes from `categorize.deterministic_side_bin_labels`: the screenshot rules, the
+    messenger conventions and the `Saved` fallback emit labels from a fixed set, so a file
+    carrying one of those could not have come from the camera rule. Everything else is
+    **ambiguous by construction** - ``Camera`` is the device rule's default label *and* a
+    perfectly possible ``Software`` value, and under ``--by-device`` any label at all could be
+    hardware. Those are surfaced for a decision, never guessed.
+
+    Pure: reads catalog rows, touches no file. **O(files)** for the tally, **O(labels)** after.
+    """
+    counts: dict[str, int] = {}
+    for row in catalog.copies_for_migration(drive_uuid):
+        label = str(row["category"])
+        counts[label] = counts.get(label, 0) + 1
+
+    deterministic = deterministic_side_bin_labels()
+    routes: list[LabelRoute] = []
+    for label, files in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])):
+        if label in deterministic:
+            routes.append(
+                LabelRoute(
+                    label=label,
+                    route=ROUTE_SIDE_BIN,
+                    files=files,
+                    reason="only a screenshot, messenger or fallback rule can produce this label",
+                )
+            )
+        else:
+            routes.append(
+                LabelRoute(
+                    label=label,
+                    route=ROUTE_AMBIGUOUS,
+                    files=files,
+                    reason=(
+                        "the camera rule and the software rule can both produce this label "
+                        "(and --by-device makes any label possible), so it cannot be decided "
+                        "from the catalog alone"
+                    ),
+                )
+            )
+    return routes
+
+
+def rederive_rules(
+    catalog: Catalog,
+    drive_uuid: str,
+    drive_root: Path,
+    routes: Sequence[LabelRoute],
+    *,
+    by_device: bool = False,
+) -> dict[str, str]:
+    """Re-read metadata for the **ambiguous labels only** and recover each file's real rule.
+
+    This is the honest answer to a label that could have come from either side: ask the files.
+    The copies are on the drive being migrated - which is connected by definition, since the
+    migration is about to move them - so the evidence is available, and it is read through the
+    same batched reader and the same rule chain an organize run uses.
+
+    **Bounded to ambiguous labels.** Deterministic side-bin labels are never re-read, so a
+    library whose only ambiguous label is ``Camera`` pays for its camera files and nothing else.
+    Cost is one batched exiftool pass (~2.2 ms/file measured at 12 MP, header reads only) plus
+    an O(1) rule evaluation per file: **O(ambiguous files)**, and zero when nothing is ambiguous.
+
+    Returns ``sha256 -> rule``. A file that cannot be read is simply absent, and the caller falls
+    back to the per-label decision - never to a guess.
+    """
+    ambiguous = {r.label for r in routes if r.needs_decision}
+    if not ambiguous:
+        return {}
+
+    rows = [r for r in catalog.copies_for_migration(drive_uuid) if str(r["category"]) in ambiguous]
+    paths = [drive_root / str(r["relative"]) for r in rows]
+    present = [p for p in paths if p.exists()]
+    if not present:
+        return {}
+
+    metadata = read_metadata(present)
+    chain = build_rules(by_device=by_device)
+    rules: dict[str, str] = {}
+    for row, path in zip(rows, paths, strict=True):
+        if path not in metadata:
+            continue
+        # Categorize against the ORIGINAL filename: the organized copy is renamed
+        # `YYYYMMDD_HHMMSS_<original>`, and the screenshot/messenger rules read the name.
+        original = str(row["original_name"] or path.name)
+        rules[str(row["sha256"])] = categorize(Path(original), metadata[path], chain).rule
+    return rules
+
+
+def rule_for_row(
+    row: Any, routes: dict[str, str], rules_by_sha: dict[str, str] | None = None
+) -> str:
+    """The rule a migration should route this row by, given a per-label decision."""
+    if rules_by_sha:
+        rule = rules_by_sha.get(str(row["sha256"]))
+        if rule is not None:
+            return rule  # the file's own evidence beats any per-label decision
+    decided = routes.get(str(row["category"]), ROUTE_SIDE_BIN)
+    return TIMELINE_RULE if decided == ROUTE_TIMELINE else "fallback"
+
+
+def plan_migration(
+    catalog: Catalog,
+    drive_uuid: str,
+    scheme: LayoutScheme,
+    *,
+    routes: dict[str, str] | None = None,
+    rules_by_sha: dict[str, str] | None = None,
+) -> MigrationPlan:
+    """Compute the ``old -> new`` relocations ``scheme`` implies for a drive's copies. Pure.
+
+    Renders through **the same** :meth:`LayoutScheme.render` an organize run uses, so a migrated
+    library and a freshly organized one are byte-identical under the same layout. ``routes`` maps
+    a label to :data:`ROUTE_TIMELINE` or :data:`ROUTE_SIDE_BIN`; anything unmapped is treated as
+    a side bin, which is the conservative direction (a file kept beside the years is findable and
+    fixable; one wrongly hoisted onto the timeline is mixed into the photo record).
+
+    Event folders are disambiguated across the whole drive before any path is built, so two
+    same-date events whose names collide cannot silently merge into one folder.
+    """
+    routes = routes or {}
+    rows = list(catalog.copies_for_migration(drive_uuid))
+
+    # Every event on this drive is known here, which is the only place a collision *can* be seen.
+    events: dict[str, tuple[datetime, str, str | None]] = {}
+    for r in rows:
+        if r["event_slug"] and r["event_start"]:
+            start = _parse_dt(r["event_start"])
+            assert start is not None
+            events[f"{r['event_slug']}|{r['event_start']}"] = (
+                start,
+                str(r["event_slug"]),
+                r["event_name"],
+            )
+    folders = disambiguate_event_folders(
+        [(key, start, slug, name) for key, (start, slug, name) in events.items()],
+        naming=scheme.timeline.event_naming,
+    )
+    event_notes = [f.note for f in folders if f.note]
+
     moves: list[Move] = []
     unchanged = 0
-    warnings: list[str] = []
+    warnings: list[str] = list(event_notes)
     targets: dict[str, str] = {}  # lower(new) -> new, to spot case-insensitive collisions
 
-    for row in catalog.copies_for_migration(drive_uuid):
+    for row in rows:
         current = str(row["relative"])
         filename = PurePosixPath(current).name
         event = None
+        event_name = None
         if row["event_slug"] and row["event_start"]:
-            event = (_parse_dt(row["event_start"]), row["event_slug"])
-        directory = template.render(
+            event = (_parse_dt(row["event_start"]), str(row["event_slug"]))
+            event_name = row["event_name"]
+        directory = scheme.render(
+            rule_for_row(row, routes, rules_by_sha),
             RenderContext(
                 category=str(row["category"]),
                 captured_at=_parse_dt(row["captured_at"]),
                 event=event,  # type: ignore[arg-type]  # start parsed to datetime above
-            )
+                event_name=event_name,
+            ),
         )
         new_relative = (directory / filename).as_posix()
         if new_relative == current:
@@ -156,9 +336,11 @@ def run_migration(
     catalog: Catalog,
     destination: Destination,
     drive_uuid: str,
-    template: LayoutTemplate,
+    scheme: LayoutScheme,
     *,
     apply: bool,
+    routes: dict[str, str] | None = None,
+    rules_by_sha: dict[str, str] | None = None,
     progress: ProgressCallback | None = None,
     cancel: threading.Event | None = None,
 ) -> MigrationOutcome:
@@ -169,7 +351,7 @@ def run_migration(
     picked up by the next invocation.
     """
     resumed = resume_migration(catalog, destination, drive_uuid) if apply else 0
-    plan = plan_migration(catalog, drive_uuid, template)
+    plan = plan_migration(catalog, drive_uuid, scheme, routes=routes, rules_by_sha=rules_by_sha)
     if not apply:
         return MigrationOutcome(plan=plan, resumed=0, migrated=0, applied=False)
 

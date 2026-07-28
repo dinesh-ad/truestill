@@ -48,7 +48,14 @@ from truestill_core.layout import (
     resolve_scheme,
     resolve_template,
 )
-from truestill_core.migrate import run_migration
+from truestill_core.migrate import (
+    ROUTE_SIDE_BIN,
+    LabelRoute,
+    label_routes,
+    plan_migration,
+    rederive_rules,
+    run_migration,
+)
 from truestill_core.models import (
     ActionResult,
     ActionStatus,
@@ -1125,6 +1132,27 @@ def _cmd_config(args: argparse.Namespace) -> int:
         return 0
 
 
+#: Windows' classic maximum for a full path. The check that matters is the ABSOLUTE one -- a
+#: relative path well under the limit still breaks under a deep mount point.
+MAX_PATH = 260
+
+
+def _print_routing(routes: list[LabelRoute], rules_by_sha: dict[str, str]) -> bool:
+    """Show where each label's files are headed. Returns whether anything is still undecided."""
+    print("\nRouting, by label:")
+    undecided = False
+    for route in routes:
+        if route.needs_decision and rules_by_sha:
+            print(f"  {route.label:20} {route.files:>6} file(s)  resolved per file (re-read)")
+            continue
+        if route.needs_decision:
+            undecided = True
+            print(f"  {route.label:20} {route.files:>6} file(s)  ⚠ AMBIGUOUS -- {route.reason}")
+            continue
+        print(f"  {route.label:20} {route.files:>6} file(s)  -> {route.route}")
+    return undecided
+
+
 def _cmd_migrate_layout(args: argparse.Namespace) -> int:
     marker = read_marker(args.path)
     if marker is None:
@@ -1136,23 +1164,42 @@ def _cmd_migrate_layout(args: argparse.Namespace) -> int:
 
     destination = LocalDestination(args.path)
     with Catalog(args.db) as catalog:
-        catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
-        if args.apply and pin_existing_layout(catalog):
-            print(_PINNED_NOTICE)
+        # NOTE: the drive is deliberately NOT upserted here. Refreshing its label is a write, and
+        # everything before the confirm has to be a read -- a preview that already touched the
+        # catalog is not a preview. It is registered on the apply path instead.
         scheme = resolve_scheme(catalog)
-        outcome = run_migration(
-            catalog, destination, marker.uuid, scheme.timeline, apply=args.apply
+
+        # Everything up to the confirm is PURE: it reads the catalog and (for ambiguous labels
+        # only) reads file metadata. Nothing is written and nothing is moved.
+        routes = label_routes(catalog, marker.uuid)
+        rules_by_sha = rederive_rules(
+            catalog, marker.uuid, args.path, routes, by_device=getattr(args, "by_device", False)
+        )
+        decided = {r.label: (ROUTE_SIDE_BIN if r.needs_decision else r.route) for r in routes}
+        plan = plan_migration(
+            catalog, marker.uuid, scheme, routes=decided, rules_by_sha=rules_by_sha
         )
 
-        plan = outcome.plan
         print(f"Drive '{marker.label}': layout {scheme.timeline.template}")
-        if outcome.resumed:
-            print(f"Recovered {outcome.resumed} move(s) from an interrupted run.")
-        print(f"{len(plan.moves)} file(s) to relocate, {plan.unchanged} already in place.")
+        undecided = _print_routing(routes, rules_by_sha)
+
+        print(f"\n{len(plan.moves)} file(s) to relocate, {plan.unchanged} already in place.")
         for move in plan.moves[:_STATUS_PREVIEW]:
             print(f"  {move.old_relative}  ->  {move.new_relative}")
         if len(plan.moves) > _STATUS_PREVIEW:
             print(f"  ... and {len(plan.moves) - _STATUS_PREVIEW} more")
+
+        # The absolute check, not the relative one: the mount point is part of every path.
+        root_len = len(str(args.path).rstrip("/")) + 1
+        longest = max((m.new_relative for m in plan.moves), key=len, default="")
+        if longest:
+            worst = root_len + len(longest)
+            flag = "  ⚠ OVER THE LIMIT" if worst > MAX_PATH else ""
+            print(
+                f"\nLongest path: {worst} chars of {MAX_PATH} (mount {root_len} + {len(longest)}){flag}"
+            )
+            print(f"  {longest}")
+
         for warning in plan.warnings:
             print(f"  ! {warning}")
 
@@ -1161,8 +1208,39 @@ def _cmd_migrate_layout(args: argparse.Namespace) -> int:
             print(f"  pending: drive '{drive['label']}' has copies too -- reconnect it and re-run")
 
         if not args.apply:
-            print("\nPreview only. Re-run with --apply to move the files.")
+            print("\nPreview only. Nothing was moved. Re-run with --apply to move the files.")
             return 0
+        if undecided:
+            print(
+                "\nRefusing to move: some labels could not be routed and were not re-read "
+                "(are the files on this drive?). Nothing was moved.",
+                file=sys.stderr,
+            )
+            return 2
+
+        # An explicit word, never a default-yes and never a bare Enter. Absent it, the terminal
+        # state of this command is "previewed, nothing moved".
+        answer = input(
+            f"\nType 'move' to relocate {len(plan.moves)} file(s) (anything else aborts): "
+        )
+        if answer.strip() != "move":
+            print("Aborted. Nothing was moved.")
+            return 0
+
+        catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+        if pin_existing_layout(catalog):
+            print(_PINNED_NOTICE)
+        outcome = run_migration(
+            catalog,
+            destination,
+            marker.uuid,
+            scheme,
+            apply=True,
+            routes=decided,
+            rules_by_sha=rules_by_sha,
+        )
+        if outcome.resumed:
+            print(f"Recovered {outcome.resumed} move(s) from an interrupted run.")
         print(f"\nMigrated {outcome.migrated} file(s). Sources were never touched.")
         return 0
 
