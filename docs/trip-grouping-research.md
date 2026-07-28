@@ -1,7 +1,8 @@
 # Trip grouping: multi-day events, and the router that has to carry them
 
-Status: **Design only (2026-07-28). No code changed.** This is the Stage 2 review gate. It
-proposes a shape, states the rules, answers the architectural flag honestly, and stops.
+Status: **Design approved (2026-07-28, `b5cba4a`, rulings `fb60c10`). Stage 2a (`1247055`) and
+Stage 2b (detection only) are built; §11 records what shipped and what remains open.** Stages
+2c-2e (schema, layout wiring, migration) are still to come.
 
 Read [`events-clustering-research.md`](events-clustering-research.md) §7 first: it is the reason
 this document exists.
@@ -411,4 +412,109 @@ against the existing signature scheme. That is the point of writing it.
    proceed with trips on the boolean router and consolidate later.
 2. **Aug 14**- part of the Wayanad trip or not? Becomes the acceptance fixture either way.
 3. **Max span on exceed**- decline and explain (recommended), or split at the cap.
+
+---
+
+## 11. Built: Stage 2b, detection only (2026-07-28)
+
+`detect_trips` lives in **`packages/truestill-core/src/truestill_core/trips.py`**, a sibling
+module to `events.py` rather than an addition to it: `events.py`'s own docstring scopes it to
+within-day clustering, and a trip is explicitly a second, separate layer above that (§1). One new
+module keeps that separation legible rather than growing `events.py` past its stated scope.
+
+**Aug 14 is confirmed: the drive up.** The acceptance fixture
+(`test_the_real_wayanad_run_is_one_full_proposal_no_trim`) feeds the real cluster shape and the
+real day counts (31 / 635 / 737 / 654, per §2's day-claim rule) and asserts exactly one proposal,
+Aug 14-17, untrimmed. Ground truth and the detector agree.
+
+### The signature grew a parameter the design doc did not anticipate
+
+`detect_trips(all_items: Sequence[EventItem], clusters: Sequence[EventCandidate], ...)`, not
+`detect_trips(clusters, ...)` alone. The reason is the acceptance fixture itself: its counts
+(635/737/654) are **all photos that day**, and `EventCandidate` cannot supply them.
+`cluster_camera` silently drops any segment under `min_files` (`events.py`) - the members of a
+too-small segment are not returned as a smaller candidate, they are simply gone. Once clustering
+has run, no `Sequence[EventCandidate]` can recover what fell outside every cluster. `all_items` is
+the same population the clusters were built from, which both existing callers
+(`event_review.gather_camera_items`, `event_review.propose_from_catalog`) already hold before they
+call `cluster_camera` and currently discard on return.
+
+`all_items` is used **only** to total each already-active day. Gating which days are active still
+reads `clusters` alone - a day with entries in `all_items` but no cluster in `clusters` cannot
+start, join, or bridge a run. This preserves the load-bearing rule in §4 exactly: the two-day,
+2-photo fixture proves it (below).
+
+### `max_gap_days`, the parameter §3f's max-span sibling needed
+
+A run bridges an interior dead day (no cluster) up to `max_gap_days` calendar days wide - a travel
+day or a rained-out day does not end a trip. **Default 1**, chosen the same way `max_span_days`
+was: on principle, not fitted. Trip-mining literature and prior art (e.g. Canon US10318816) bridge
+small gaps for exactly this reason - a single quiet day inside an otherwise continuous outing is
+evidence of a lull, not of two separate trips. **Unvalidated on this library**: the one real
+multi-day run (Aug 14-17) has no interior dead day to measure the default against, the same honest
+limit §3f already recorded for the span cap.
+
+A bridged day sits **inside** `[start_date, end_date]` but has **no entry** in `TripProposal.days`
+- the fixture `test_a_bridged_interior_day_stays_inside_the_span_but_absent_from_days` pins this
+exactly, including that it is absent, not present at zero.
+
+### Fixtures, and the mutation each was run against
+
+Per `ENGINEERING_STANDARD.md` §4, every fixture below was proven to *fail* against its named
+defect before being trusted - not merely written to pass:
+
+| Fixture | Mutation | Result before restoring |
+|---|---|---|
+| Real Aug 14-17, no trim | reintroduced a relative-count edge trim (drop a day under 10% of the run's peak) | proposal became Aug 15-17 - Aug 14 (31 vs. a 737 peak) was trimmed exactly as the mutation predicts |
+| Year boundary splits into two | disabled `_split_at_year_boundary` | one Dec 28-Jan 2 proposal instead of two |
+| Two-day/2-photo run never proposes | active-day gating read from `all_items` instead of `clusters` | a trip was proposed from two lone, uncluster-able photos |
+| 40-day run declines, no split | `max_span_days` widened to remove the cap | the 40-day run became one proposal, zero declines |
+| Bridged interior day, present in span, absent from `days` | `max_gap_days` dropped to 0 | one 5-day proposal became two 2-day proposals |
+
+All five pass against the real code; each was confirmed to fail first. The source was restored and
+diffed byte-for-byte against the pre-mutation copy after every test.
+
+### Complexity, as measured against the stated bound
+
+**O(N) to total `all_items` by date + O(D log D) to sort the distinct active-day set + O(D)** for
+the run scan, the year split and the span check - `D` = active days, `N = len(all_items)`,
+`D ≤ C ≤ N`. The `O(N)` term is additional to the `O(D log D)` asked for, and it is unavoidable:
+correctness requires the per-day *all-photos* total, and that total has no source but a single
+pass over `all_items`. Neither sequence is walked more than once, and no pass is nested inside
+another - flagged here rather than left for a reader to notice the bound was not quite what was
+specified.
+
+### Deferred, not silently dropped
+
+Two fixtures from §10's table belong to later stages and were not built here, because they test
+things `detect_trips` does not do:
+
+- **`Trip 2016-11-28 → 12-02`, start-month filing.** Filing is a layout/rendering concern
+  (Stage 2d's `TRIP_DAY` placement), not a detection concern. `detect_trips` returns dates; nothing
+  in it decides which month folder a date renders under.
+- **Re-ingest one photo into a named trip, no re-ask.** Name-once is `trip_days.day` as a primary
+  key against **persisted** state (§6) - Stage 2c. `detect_trips` is pure and stateless between
+  calls; there is nothing here yet to re-ask against.
+
+### A flagged edge case, not exercised by any fixture
+
+A cluster is assumed to fall entirely within one calendar day. `events.py` states this as an
+empirical property of the real library (every overnight gap exceeds `MIN_BOUNDARY_GAP_S`), not a
+structural guarantee of `cluster_camera` itself - a cluster whose members straddle midnight without
+a qualifying gap is possible in principle. Checked against the real 2,238-file library: **zero**
+clusters span more than one calendar day. `detect_trips` takes a cluster's first member's date as
+its sole contribution to `active_days` if this were ever violated; not tested, because nothing in
+the real data exercises it.
+
+### Two consequences of composing already-ruled rules, recorded so they are not mistaken for bugs
+
+- **A two-day run split exactly at Jan 1 can vanish.** Splitting at the year boundary (§3e,
+  structural) followed by discarding any single-day piece (§4, a lone day is never a trip) can
+  compose to leave a genuine two-day active run - one day in each year - with neither a proposal
+  nor a decline. Both rules are individually correct and separately approved; this is their
+  faithful intersection, not a new judgement call.
+- **`migrate.py`'s naming trap (backlog `(mm)`) is now load-bearing, not latent.** It was harmless
+  while every placement shared one naming default; `TRIP_DAY` is the first placement whose
+  template Stage 2d will genuinely need to differ. Resolving `(mm)` is a prerequisite for 2d, not
+  an optional cleanup beside it.
 4. **The day-event re-ask defect** (§6)- backlog entry, as recommended, or fold into Stage 2c.

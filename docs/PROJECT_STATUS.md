@@ -180,7 +180,7 @@ Two further items shipped in the soak era from recorded backlog work rather than
 finding: **(q) in-place organize + `undo-organize`** (`dee4785`) and the
 **performance audit's convictions** (`1e458df`, `39d889a`, `8f77de1` - see `PERFORMANCE.md`).
 
-### 2.2 CURRENT ARC: the tab-tour findings - **Stage 2b is next, and it is blocked**
+### 2.2 CURRENT ARC: the tab-tour findings - **Stage 2b is BUILT (detection only); 2c-2e remain**
 
 **Read this section first if you are resuming.** The layout arc (§2.0) is closed; this is what
 the project is actually doing now. It came out of Dinesh's **tab tour** of the migrated library
@@ -193,29 +193,33 @@ the project is actually doing now. It came out of Dinesh's **tab tour** of the m
 | **Stage 0** | Find pagination (SQL-paged, `FIND_PAGE_SIZE = 50`); the misleading drive-marker error (`locate_drive` walks parents, so "not a drive" no longer means "you pointed at a subfolder"); clickable paths; the date-layering gap check - which **refused `ModifyDate`/`FileModifyDate` as a named constant** and recorded the **XMP null result** (0 of 400 real files carry an XMP date, so the tier was withdrawn, not deferred) |
 | **Stage 1** | The events-clustering fix (`29d6fdc`): a **60-minute absolute boundary floor**, a **48-hour hard gap cap**, `min_duration_s` **removed**, `min_files` stays **8**. Turned 4 clusters into 15 and killed a 5.6-year "event". Its stated consequence: segmentation is now **within-day only** |
 | **Stage 2a** | The `Placement` StrEnum router refactor (`1247055`) - a prerequisite, not part of trips. Pure refactor, proved byte-for-byte identical over 7 schemes x 4 sample rows |
+| **Stage 2b** | `detect_trips` (`packages/truestill-core/src/truestill_core/trips.py`) - pure detection only: active-day gating, run-forming with a bridgeable gap, the year-boundary split, the max-span decline. No schema, no layout, no migration - those are 2c-2e, still pending. Five fixtures, each proven to fail against its named mutation; see `trip-grouping-research.md`'s "Built" note |
 | **Alongside** | `4c9fcf8` prose repair + user-facing copy guard, `2353efd` the docs-only gate gap and the dash gate, `188eb3b` backlog `(mm)` |
 
 **PENDING, in order:**
 
-1. **Stage 2b - trip grouping BUILD.** Design **approved** (`b5cba4a`) with rulings recorded
-   (`fb60c10`); see `trip-grouping-research.md`. **BLOCKED on the open question below.**
-2. **Stage 3 - Trips screen usability.** `min_files` becomes a **setting** (default 8), proposals
+1. **Stage 2c - the schema.** `trips` / `trip_days` (catalog v12), name-once keyed on the day - see
+   `trip-grouping-research.md` §6.
+2. **Stage 2d - the review stage and layout wiring.** The `TRIP_DAY` placement and its template,
+   the preview-then-confirm gate, adjustable edges per the "proposal is the run" rule.
+3. **Stage 2e - adoption for existing libraries** via `migrate-layout`, plus the `(mm)` naming-trap
+   fix it now depends on.
+4. **Stage 3 - Trips screen usability.** `min_files` becomes a **setting** (default 8), proposals
    **sorted by count descending**, small proposals **collapsed**, and a trip offered as **one**
    proposal rather than one per day.
-3. **Stage 4 - backlog `(gg)`**, adaptive day folders. Sequenced last on purpose: it partitions
+5. **Stage 4 - backlog `(gg)`**, adaptive day folders. Sequenced last on purpose: it partitions
    on evented-vs-un-evented, so it needs the evented set to be right first.
 
-#### The open question blocking Stage 2b
+#### The open question that blocked Stage 2b - answered
 
 > Was the evening of 2014-08-14 (23 photos, 19:46-21:22) part of the Wayanad trip (drive up /
-> arrival) or a separate evening at home? Dinesh's own manual folders were Day 1/2/3 = Aug 15-17.
-> The answer becomes the trip-edge acceptance fixture.
+> arrival) or a separate evening at home?
 
-**Do not guess it, and do not build around it.** The trip rule proposes the whole consecutive
-active-day run (Aug 14-17); Dinesh's ground truth is Aug 15-17. Nothing in the timing separates an
-arrival evening from an evening at home, and the GPS that would is **not persisted** on this path
-- that is backlog `(kk)`. Either answer is fine; the design does not depend on which, only on
-having one to test against.
+**Dinesh confirmed: yes, the drive up.** The acceptance fixture
+(`test_the_real_wayanad_run_is_one_full_proposal_no_trim`) asserts the real cluster shape and the
+real day counts (31 / 635 / 737 / 654) produce exactly one proposal, Aug 14-17, untrimmed - ground
+truth and the detector's output now agree. GPS that would settle this kind of edge in general is
+still not persisted on this path - that remains backlog `(kk)`.
 
 ---
 

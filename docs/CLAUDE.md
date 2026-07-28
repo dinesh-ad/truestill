@@ -82,6 +82,7 @@ packages/
 │   ├── verify.py       re-hash a connected drive's copies against the catalog
 │   ├── events.py       pure camera-event clustering (no I/O)
 │   ├── event_review.py the interactive event naming/merge/split stage
+│   ├── trips.py        pure multi-day trip detection above events (no I/O; detection only)
 │   ├── takeout.py      Google Takeout sidecar parsing and date rescue
 │   ├── progress.py     the ProgressCallback seam shared by CLI and app
 │   ├── destinations/   pluggable Destination backends (local, rclone)
