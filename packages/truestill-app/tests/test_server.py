@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 from starlette.testclient import TestClient
-from truestill_app import __version__
+from truestill_app import __version__, service
 from truestill_app.server import create_app
 from truestill_core.catalog import Catalog
 
@@ -326,3 +326,24 @@ def test_a_page_is_fetched_from_the_database_not_sliced_in_python(tmp_path: Path
         assert "SCAN" in plan or "SEARCH" in plan  # a real plan, and LIMIT is inside it
         assert len(catalog.find_copies("holiday", limit=50, offset=0)) == 50
         assert len(catalog.find_copies("holiday")) == 120  # unpaged still available
+
+
+def test_reveal_refuses_a_path_that_is_not_a_folder(client: TestClient, tmp_path: Path) -> None:
+    """A path that cannot be opened says so, rather than pretending it worked."""
+    r = client.post(f"/api/reveal?token={_TOKEN}", json={"path": str(tmp_path / "nope")}).json()
+    assert r["ok"] is False
+    assert "not a folder that exists" in r["error"]
+
+
+def test_reveal_degrades_honestly_without_an_opener(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No file manager on this machine is a fact to report, not a button that no-ops.
+
+    The message carries the path, so someone on a headless box can still act on it.
+    """
+    monkeypatch.setattr(service.shutil, "which", lambda _name: None)
+    r = client.post(f"/api/reveal?token={_TOKEN}", json={"path": str(tmp_path)}).json()
+
+    assert r["ok"] is False
+    assert str(tmp_path) in r["error"]

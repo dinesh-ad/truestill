@@ -79,6 +79,10 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
             {"drives": service.list_drives(_db()), "at_risk": service.at_risk(_db())}
         )
 
+    async def reveal(request: Request) -> JSONResponse:
+        body = await request.json()
+        return JSONResponse(service.reveal_in_file_manager(Path(body["path"])))
+
     async def where(request: Request) -> JSONResponse:
         params = request.query_params
         try:
@@ -231,6 +235,7 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
         Route("/api/jobs/{job_id}/events", job_events),
         Route("/api/jobs/{job_id}/cancel", job_cancel, methods=["POST"]),
         Route("/api/drives", drives),
+        Route("/api/reveal", reveal, methods=["POST"]),
         Route("/api/where", where),
         Route("/api/backup/preview", backup_preview, methods=["POST"]),
         Route("/api/backup/run", backup_run, methods=["POST"]),

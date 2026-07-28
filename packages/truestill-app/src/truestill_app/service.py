@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import os
 import shutil
+import subprocess
+import sys
 import threading
 from collections import Counter
 from dataclasses import dataclass
@@ -116,6 +118,36 @@ def _not_a_drive(path: Path) -> NotABackupDriveError:
 #: already know, and nothing behind them may ever be trusted as identity.
 LIBRARY_PATH_HINT = "path_hint.library"
 BACKUP_PATH_HINT = "path_hint.backup"
+
+
+def reveal_in_file_manager(path: Path) -> dict[str, Any]:
+    """Open a folder in the desktop's own file manager.
+
+    A path printed on screen is a dead end: to actually look at the photos a user has to select
+    it, copy it and paste it somewhere else. This is the one action that makes a displayed path
+    useful.
+
+    **Degrades honestly.** There is no cross-platform way to do this, so the opener is chosen per
+    platform (`xdg-open`, `open`, `explorer`); where none exists the caller is told plainly and
+    given the path, rather than being left with a button that silently does nothing.
+
+    Only ever opens a directory that already exists, and the path goes into an argument vector
+    rather than a shell, so a folder name containing shell metacharacters is just a name.
+    """
+    if not path.is_dir():
+        return {"ok": False, "error": f"{path} is not a folder that exists."}
+    opener = {"darwin": "open", "win32": "explorer"}.get(sys.platform, "xdg-open")
+    if shutil.which(opener) is None:
+        return {
+            "ok": False,
+            "error": f"This machine has no '{opener}', so truestill cannot open a file manager. "
+            f"The folder is: {path}",
+        }
+    try:
+        subprocess.Popen([opener, str(path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError as exc:
+        return {"ok": False, "error": f"Could not open a file manager: {exc}"}
+    return {"ok": True, "path": str(path)}
 
 
 def _drive_path_hint(uuid: str) -> str:

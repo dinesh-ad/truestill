@@ -635,7 +635,8 @@ async function loadDrives() {
     const pips = Math.min(drives.length, 3);  // ambient: how many places this library lives in
     const strip = [0, 1, 2].map((i) => (i < pips ? "▪" : "▫")).join(" ");
     return `<div class="card"><div class="tally" style="grid-template-columns:1fr auto">
-      <div><b>${esc(d.label)}</b><div class="k mono">${mediaCount(d)} · ${fmtBytes(d.size)}</div></div>
+      <div><b>${esc(d.label)}</b><div class="k mono">${mediaCount(d)} · ${fmtBytes(d.size)}</div>
+        ${d.path ? `<div class="k mono"><a href="#" data-open="${esc(d.path)}" title="Open in file manager">${esc(d.path)}</a></div>` : ""}</div>
       <div class="mono" style="color:var(--success)">${strip}</div></div>
       <div class="drive-foot">
         <span class="k mono">last checked: ${(d.last_verified || "never").slice(0, 10)}</span>
@@ -697,6 +698,17 @@ document.addEventListener("click", (e) => {
   if (!btn) return;
   $(btn.dataset.field).value = btn.dataset.useRoot;
   $(btn.dataset.field).dispatchEvent(new Event("change"));
+});
+
+// A displayed path is a dead end unless you can get to it. Anything carrying data-open reveals
+// that folder in the desktop's own file manager; a failure says why, because a control that
+// silently does nothing is worse than no control.
+document.addEventListener("click", async (e) => {
+  const el = e.target.closest("[data-open]");
+  if (!el || !el.dataset.open) return;
+  e.preventDefault();
+  const r = await api("/api/reveal", { path: el.dataset.open });
+  if (!r.ok) { el.title = r.error; el.classList.add("warn"); }
 });
 
 // ---------- Find ----------
