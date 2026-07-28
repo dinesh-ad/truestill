@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+from truestill_core import cleanup
 from truestill_core.cleanup import (
     JUNK_NAMES,
     CleanupPlan,
@@ -132,18 +134,34 @@ def test_a_preview_removes_nothing(tmp_path: Path) -> None:
     assert _fingerprint(root) == before
 
 
+def _refusing_trash(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make the trash refuse, deterministically.
+
+    The refusal is simulated rather than provoked: whether a real `gio trash` succeeds depends on
+    the host -- it declines "system internal mounts" like /tmp on a developer box but accepts the
+    same path on a CI runner. A test that asserts a refusal must not depend on which of those it
+    is running on.
+    """
+
+    def refuse(_path: Path, _backend: str) -> None:
+        message = "Unable to trash file across filesystem boundaries"
+        raise OSError(message)
+
+    monkeypatch.setattr(cleanup, "_to_trash", refuse)
+
+
 def test_a_trash_failure_is_reported_not_downgraded_to_a_permanent_delete(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Trash can be refused per PATH, not just per machine.
 
-    `gio trash` declines "system internal mounts" and network/FUSE mounts, which is exactly
-    where a cloud-synced library lives. When the user agreed to a recoverable removal, silently
-    doing an irreversible one instead would break that agreement -- so the folder stays and the
-    refusal is reported.
+    `gio trash` declines network and FUSE mounts, which is exactly where a cloud-synced library
+    lives. When the user agreed to a recoverable removal, silently doing an irreversible one
+    instead would break that agreement -- so the folder stays and the refusal is reported.
     """
     root = tmp_path / "drive"
     emptied = _skeleton(root)
+    _refusing_trash(monkeypatch)
 
     plan = plan_cleanup(root, emptied)
     outcome = run_cleanup(root, plan, apply=True, backend="gio")
@@ -220,7 +238,9 @@ def test_a_refused_folder_names_loose_files_alongside_subfolders(tmp_path: Path)
     assert "Camera" in refused  # and the parent is refused because that child survives
 
 
-def test_permanent_mode_only_applies_where_trash_was_refused(tmp_path: Path) -> None:
+def test_permanent_mode_only_applies_where_trash_was_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Trash is still tried first; permanent only changes what happens when it says no.
 
     That is why the mode needs no separate "is trash available here?" gate -- it applies per
@@ -228,9 +248,8 @@ def test_permanent_mode_only_applies_where_trash_was_refused(tmp_path: Path) -> 
     """
     root = tmp_path / "drive"
     emptied = _skeleton(root)
+    _refusing_trash(monkeypatch)  # every folder therefore falls through to the permanent path
 
-    # backend="gio" is refused for tmp_path ("system internal mounts"), so every folder falls
-    # through to the permanent path.
     outcome = run_cleanup(
         root, plan_cleanup(root, emptied), apply=True, backend="gio", permanent=True
     )
