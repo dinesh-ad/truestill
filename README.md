@@ -171,8 +171,8 @@ Frequently used `organize` flags:
 - **Dates are never invented.** No date evidence means `Undated/`.
 - **Nothing is silently dropped.** Skipped, refused and unverifiable outcomes are counted and
   named in the report - never folded into a success total.
-- **Your files never leave your machine.** No accounts, no telemetry, permanently
-  (`docs/DECISIONS.md` D1).
+- **Your photos never leave your machine.** No telemetry, and nothing about your library is
+  ever transmitted (`docs/DECISIONS.md` D5).
 
 ## Development
 

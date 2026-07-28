@@ -207,10 +207,11 @@ no composition refactor to schedule.
 
 ## Product / strategy (parked decisions)
 
-> **Settled stance these sit under:** truestill has **no user accounts and no required telemetry,
-> permanently**; Pro is gated by **offline-verified license keys, not a login**. Any Pro-tier item
-> below inherits that constraint. Full decision + rationale: `docs/DECISIONS.md` D1
-> (binding invariant in `IMPLEMENTATION_STANDARDS.md §1`).
+> **Settled stance these sit under:** a user's **photo data never leaves their machine** and
+> there is no telemetry. Pro is gated by a **signed local token** obtained at a one-time account
+> activation - `docs/DECISIONS.md` **D5**, which supersedes D1's no-accounts stance on Dinesh's
+> ruling. Any Pro-tier item below inherits that constraint, and none of the licensing
+> infrastructure is built yet.
 
 - **Web dedup teaser.** A Pro-tier positioning idea (a lightweight web-facing "find your
   duplicates" hook); not started. Reference stack proven in PixSort's browser mode, all
@@ -444,7 +445,8 @@ no composition refactor to schedule.
     evented), so the mechanism is understood; it is blocked on evidence, not on design.
 
 - **(z) Optional source / device manifest - catalog-first, hash-keyed.**
-  Post-layout-correction, opt-in, **local-only** (no network, D1 unchanged). Answers "what
+  Post-layout-correction, opt-in, **local-only** (no network; the no-library-data rule of D5
+  applies). Answers "what
   device and which app did this file come from?" across a library.
   - **Catalog-first, keyed by content hash.** The catalog already keys everything on `sha256`,
     which is what makes the record survive a rename, a move, a re-layout and an in-place

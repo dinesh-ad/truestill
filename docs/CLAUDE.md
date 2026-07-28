@@ -37,7 +37,8 @@ Two front-ends over one core library:
 - **`truestill-app`** - a local web UI on `127.0.0.1`, token-authenticated, server-rendered,
   no bundler. Co-equal with the CLI, not a replacement.
 
-Your files never leave your machine. No accounts, no telemetry - permanently (`DECISIONS.md` D1).
+Your photos never leave your machine: no telemetry, and nothing about your library is ever
+transmitted. A one-time account activation is required for licensing (`DECISIONS.md` D5).
 
 ## Non-negotiable design rules
 

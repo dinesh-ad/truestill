@@ -59,8 +59,9 @@ sidecars) but nothing in it is Google-specific. Beyond organizing it owns the wh
 story: content-addressed drive identity, an offline catalog of which drive holds which copy,
 re-hash verification, 3-2-1 copying to a second drive, crash-safe re-layout, and reclaim of
 source files that are provably backed up. Two co-equal front-ends sit on one core library -
-the `truestill` CLI and `truestill-app`, a token-authenticated local web UI. **Your files never
-leave your machine: no accounts, no telemetry, permanently** (`DECISIONS.md` D1).
+the `truestill` CLI and `truestill-app`, a token-authenticated local web UI. **Your photos never leave your
+machine: no telemetry, and nothing about your library is ever transmitted** (`DECISIONS.md` D5,
+which supersedes D1 and requires a one-time account activation for licensing - unbuilt).
 
 ### The rename: vaeon → truestill (2026-07-26)
 

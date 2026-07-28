@@ -25,9 +25,15 @@ we did not.
 
 ## Scope - what truestill actually exposes
 
-truestill is a local-first tool. It has **no server, no accounts, no telemetry, and makes no
-network calls on your behalf** (`docs/DECISIONS.md` D1). That removes most of the surface a
-web application has, and it means the interesting security questions here are different:
+truestill is a local-first tool. It runs entirely on your machine, sends **no telemetry**, and
+transmits **nothing about your library** - not filenames, not counts, not hashes. That removes
+most of the surface a web application has, and it means the interesting security questions here
+are different.
+
+> **Planned, not yet built:** a one-time account activation against a self-hosted licensing
+> server (`docs/DECISIONS.md` D5). When it ships, the licensing server and the activation
+> exchange become part of this scope, and this section will be rewritten to say so. Nothing in
+> the product contacts a server today.
 
 **In scope, and genuinely worth reporting:**
 

@@ -9,6 +9,18 @@ short form lives in `IMPLEMENTATION_STANDARDS.md` and this file holds the full "
 
 ## D1. No accounts, no required telemetry - permanently
 
+> ## ⚠ SUPERSEDED (2026-07-28) by **D5**, on Dinesh's ruling
+>
+> truestill **will require a user account**, created at activation against a self-hosted
+> licensing server. The reasoning below is preserved unedited because it is the record of why
+> the original stance was taken and what it was weighed against - not because it still governs.
+> **D5 is what governs.** The parts of D1 that survive are narrower and are restated there:
+> photo data still never leaves the machine, and there is still no per-launch phone-home.
+>
+> The engineering recommendation was **against** this change; it is recorded in D5 §4 at
+> Dinesh's instruction rather than dropped.
+
+
 **Decision.** truestill collects **no user accounts** and **no required telemetry**, permanently.
 There is no login, no sign-up, no device identifier, no phone-home, and no usage beacon compiled
 into the product. This is not a launch-phase posture that relaxes later; it is a permanent
@@ -73,8 +85,7 @@ Pro requires no server round-trip, no sign-in, and no online activation that wou
 This keeps the no-accounts invariant intact while still supporting a paid tier. (Purchase records
 per item 4 live with the payment provider and are a billing artifact, not an in-product identity.)
 
-**Status:** Settled. Binding invariant recorded in `IMPLEMENTATION_STANDARDS.md §1`; Pro-tier
-seam in `§2`. Related parked Pro-tier ideas are tracked in `BACKLOG.md`.
+**Status:** **Superseded by D5 (2026-07-28).** Retained as the record of the original stance.
 
 ---
 
@@ -165,3 +176,82 @@ says the argfile batch is the bottleneck - decided by measurement then, not by m
 
 **Status:** Settled. Performance contract and failure-mode rules in
 `IMPLEMENTATION_STANDARDS.md` §8; the numbers in `PERFORMANCE.md` §1.
+
+---
+
+## D5. Accounts, activation, and the licensing server
+
+**Decision (Dinesh, 2026-07-28).** truestill **requires a user account**. It supersedes D1.
+Nothing is built yet: this is post-launch work, and the licensing server is new infrastructure
+that gets its own research and design pass before any of it is written.
+
+### 1. How it works
+
+- **An account is created at activation**, against a **self-hosted licensing server** (Hetzner).
+  Email is verified at signup.
+- The app receives a **signed local token** and **runs fully offline thereafter**. Activation is
+  **one-time**; there is no per-launch phone-home and no periodic revalidation.
+- **Photo data never leaves the machine.** Nothing about a user's library - not filenames, not
+  counts, not hashes - is transmitted at activation or afterwards.
+- The public framing is **"an account for the software, never for your data."** That sentence is
+  only honest while the previous bullet is true, so it is a constraint on the build, not copy.
+
+**The account provides:** license and key management, update entitlement, and the upgrade path.
+
+**Marketing:** periodic email to all registered users, free and paid, carrying upgrade offers.
+Unsubscribe is honoured. **EU consent is captured at signup**, and GDPR obligations attach to
+the account data from day one - it is personal data held on infrastructure truestill controls.
+
+**Key-sharing control:** activation counts per account are monitored server-side.
+
+### 2. Monetization (unchanged from the prior ruling)
+
+**Perpetual licence plus paid annual updates**, with an expected renewal rate around **40-50%**.
+Pricing is deliberately **TBD post-launch**.
+
+### 3. What this changes in the product
+
+The no-accounts invariant in `IMPLEMENTATION_STANDARDS.md` §1 is rewritten to match, and the
+offline-verified-key mechanism described there becomes *token-after-activation* rather than
+*key-with-no-server*. The capability seam (§2) is unaffected - it was always the right shape for
+gating, whatever verifies the entitlement.
+
+### 4. The engineering recommendation, recorded at Dinesh's instruction
+
+**The recommendation was against requiring an account**, and it is recorded here rather than
+dropped, because a decision is easier to revisit when the case against it is written down next
+to it.
+
+The argument: D1's rationale was not privacy sentiment, it was the **Audacity 2021 precedent** -
+for this specific audience, self-hosting and data-hoarding users, an identity requirement
+converts trust into forks. That audience is also the one most likely to notice that a local-first
+photo tool now has a signup screen, and least likely to accept "the account is only for the
+software" without checking. The reputational cost lands hardest at exactly the launch moment
+when there is no track record to weigh against it.
+
+There are also two concrete costs the design has to carry: **truestill now holds personal data**
+(emails, activation records) with the GDPR duties, breach exposure and deletion obligations that
+follow, and **the licensing server becomes a single point of failure for activation** - if it is
+down, unreachable, or eventually shut down, new installs cannot activate. An offline key scheme
+had neither property.
+
+**The counter-arguments, stated fairly:** a perpetual-licence-plus-updates business genuinely
+needs an entitlement record and a way to reach customers about renewals, and offline keys make
+both awkward; one-time activation is a far smaller ask than a login-per-launch and is
+commonplace in paid desktop software; and self-hosting the server keeps the data under
+truestill's control rather than a third party's.
+
+**Ruling: accounts are required.** The mitigations that make it defensible are already in the
+design above and are binding, not optional: one-time activation, no per-launch phone-home,
+**no photo data transmitted ever**, self-hosted infrastructure, honoured unsubscribe, and
+explicit EU consent.
+
+### 5. Before any of it is built
+
+The licensing server is new infrastructure and gets its **own research and design pass**:
+authentication, storage, GDPR data handling (lawful basis, retention, export, deletion), and
+backup. **Deliverable: an offline-activation fallback story**, decided in that pass - what a
+user does when the server is unreachable, and what happens to activated installs if it is ever
+retired. That question is the one most likely to be regretted if it is left until after launch.
+
+**Status:** Settled as a decision, unbuilt. Supersedes D1.
