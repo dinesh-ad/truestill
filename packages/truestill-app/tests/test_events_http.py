@@ -95,14 +95,14 @@ def test_merge_then_apply_to_disk_relocates_into_event_folder(
     preview = client.post(f"/api/events/{sid}/preview", json={}).json()
     # all 20 files move under the merged event's START month/folder.
     assert len(preview["moves"]) == 20
-    assert all("20260614_trip" in m["new"] for m in preview["moves"])
+    assert all(" - Trip" in m["new"] for m in preview["moves"])
 
     job = client.post(f"/api/events/{sid}/apply-to-disk", json={}).json()
     with client.stream("GET", f"/api/jobs/{job['job_id']}/events?token={_TOKEN}") as stream:
         for line in stream.iter_lines():
             if line.startswith("data:") and json.loads(line[5:].strip())["type"] == "done":
                 break
-    landed = list(drive.rglob("20260614_trip/*.jpg"))
+    landed = list(drive.rglob("2026-06-14 - Trip/*.jpg"))
     assert len(landed) == 20  # the trip folder exists on disk with all 20 photos
 
 

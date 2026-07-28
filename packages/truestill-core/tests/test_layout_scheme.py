@@ -7,7 +7,9 @@ inside the template grammar -- the grammar stays a description of structure.
 
 from __future__ import annotations
 
+import subprocess
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 from truestill_core.categorize import build_rules
@@ -21,6 +23,7 @@ from truestill_core.layout import (
     RenderContext,
     TemplateError,
     parse_timeline_template,
+    scheme_from_string,
 )
 
 WHEN = datetime(2014, 8, 20, 14, 30)
@@ -142,9 +145,14 @@ def test_category_is_rejected_in_a_timeline_template_with_an_actionable_message(
     assert "{yyyy}/{yyyy}-{mm}" in message  # tells the user what to do instead
 
 
-def test_a_stored_category_template_still_parses_at_load() -> None:
-    """Reject at input, accept at load -- or the pin would break the libraries it protects."""
-    assert LayoutTemplate.parse("{category}/{yyyy}/{mm}").segments[0] == "{category}"
+def test_category_is_rejected_at_load_too_now_that_no_library_stores_one() -> None:
+    """There is no second interpretation of a stored template any more.
+
+    Load leniency existed solely so a pinned category-first library kept resolving. With that
+    layout decommissioned, `scheme_from_string` parses through the same strict door as Settings.
+    """
+    with pytest.raises(TemplateError):
+        scheme_from_string("{category}/{yyyy}/{mm}")
 
 
 # --- event folder naming, and its sanitizer -----------------------------------------------
@@ -197,18 +205,15 @@ def test_an_event_name_that_sanitizes_to_nothing_falls_back_to_the_slug() -> Non
     assert any("used the slug instead" in note for note in notes)
 
 
-def test_a_legacy_scheme_keeps_slug_event_folders() -> None:
-    """A pinned library must render exactly as it always has, events included."""
-    legacy = LayoutTemplate.parse("{category}/{yyyy}/{mm}", event_naming=EventNaming.SLUG)
-    scheme = LayoutScheme(timeline=legacy, timeline_evented=legacy, side_bin=legacy)
-    assert scheme.is_legacy is True
+def test_an_event_without_a_recorded_name_falls_back_to_its_slug() -> None:
+    """SLUG naming survives the decommission -- it is what an unnamed event renders as."""
+    slugged = LayoutTemplate.parse("{yyyy}/{yyyy}-{mm}", event_naming=EventNaming.SLUG)
+    scheme = LayoutScheme(timeline=slugged, timeline_evented=slugged)
     rendered = scheme.render(
         TIMELINE_RULE,
-        RenderContext(
-            category="Camera", captured_at=WHEN, event=(WHEN, "goa"), event_name="Goa Trip"
-        ),
+        RenderContext(category="Camera", captured_at=WHEN, event=(WHEN, "goa"), event_name="Goa"),
     )
-    assert rendered.as_posix() == "Camera/2014/08/20140820_goa"
+    assert rendered.as_posix() == "2014/2014-08/20140820_goa"
 
 
 # --- undated, on both branches ------------------------------------------------------------
@@ -245,3 +250,33 @@ def test_no_template_a_user_can_type_places_a_category_on_the_timeline(attempt: 
     """R2, on the template side: it is structurally impossible, not merely unavailable."""
     with pytest.raises(TemplateError):
         parse_timeline_template(attempt)
+
+
+def test_no_category_first_rendering_survives_anywhere_in_the_tree() -> None:
+    """The decommission is proved against the repo, not against the registry.
+
+    A living test, in the same style as the removed preset names: what it catches is not a
+    surviving code path -- the type system covers that -- but a surviving *reference* in help
+    text, a doc or a fixture that would send someone toward a layout the product cannot produce.
+    """
+    forbidden = ("LEGACY_TEMPLATE_STRING", "is_legacy", "legacy_note", "Legacy layout")
+    root = Path(__file__).resolve().parents[3]
+    tracked = subprocess.run(
+        ["git", "ls-files"], cwd=root, capture_output=True, text=True, check=True
+    ).stdout.split()
+
+    offenders: list[str] = []
+    for relative in tracked:
+        path = root / relative
+        # This test names the strings it forbids; the research docs record the history on purpose.
+        if path.suffix in {".png", ".jpg", ".ico"} or relative in {
+            "packages/truestill-core/tests/test_layout_scheme.py",
+            "docs/default-layout-research.md",
+            "docs/legacy-decommission-research.md",
+            "CHANGELOG.md",
+        }:
+            continue
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        offenders += [f"{relative}: {name}" for name in forbidden if name in text]
+
+    assert not offenders, "category-first references still present: " + "; ".join(offenders)

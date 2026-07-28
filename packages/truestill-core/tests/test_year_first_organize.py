@@ -22,11 +22,9 @@ from truestill_core.destinations import LocalDestination
 from truestill_core.exif import read_metadata
 from truestill_core.layout import (
     DEFAULT_SCHEME,
-    LEGACY_TEMPLATE_STRING,
     PRESETS,
     LayoutScheme,
     preview_scheme,
-    scheme_from_string,
 )
 from truestill_core.migrate import label_routes, plan_migration
 from truestill_core.models import FileHashes, Resolution
@@ -126,28 +124,13 @@ def test_a_real_run_writes_readable_event_folders(tmp_path: Path) -> None:
     assert all(p.startswith("2014/2014-08/2014-08-20 - Goa Trip/") for p in landed), landed
 
 
-def test_a_legacy_scheme_produces_exactly_what_it_always_did(tmp_path: Path) -> None:
-    """The refactor's safety claim: wiring the seam changed nothing for a legacy library."""
-    source = tmp_path / "src"
-    photo = _camera_photo(source / "IMG_0001.jpg")
-    shot = _screenshot(source / "Screenshot_20240115_101500.jpg")
-
-    legacy = scheme_from_string(LEGACY_TEMPLATE_STRING)
-    placed = _organize(tmp_path, legacy, [photo, shot])
-
-    assert placed == [
-        "Camera/2014/08/20140820_143000_IMG_0001.jpg",
-        "Screenshots/2024/01/Screenshot_20240115_101500.jpg",
-    ]
-
-
 @pytest.mark.parametrize("preset_key", list(PRESETS))
 def test_a_run_and_a_preview_of_the_same_layout_agree(tmp_path: Path, preset_key: str) -> None:
     """One resolution path, one render path -- so a plan a user approved is the plan that runs.
 
     The audit's F1 was exactly this divergence: the preview rendered through a scheme while runs
-    rendered through a bare template, and the two agreed only by accident of the legacy layout.
-    Parametrized across every shipped preset so it holds under year-first, not just legacy.
+    rendered through a bare template, and the two agreed only by accident.
+    Parametrized across every shipped preset.
     """
     scheme = PRESETS[preset_key].scheme()
     source = tmp_path / "src"
@@ -162,13 +145,12 @@ def test_a_run_and_a_preview_of_the_same_layout_agree(tmp_path: Path, preset_key
 
 
 def test_the_default_is_the_year_first_preset() -> None:
-    """After the flip the default IS a year-first scheme, not a legacy one.
+    """The default is a year-first scheme.
 
     Its two timeline shapes differ (events keep the month as their parent, ordinary photos go
     to `Everyday`), which is why the default cannot be rebuilt from a single stored string.
     """
     assert PRESETS["year-month-event"].scheme() == DEFAULT_SCHEME
-    assert DEFAULT_SCHEME.is_legacy is False
     assert DEFAULT_SCHEME.side_bin.template == "{category}/{yyyy}/{yyyy}-{mm}"
     assert DEFAULT_SCHEME.timeline.template != DEFAULT_SCHEME.timeline_evented.template
 

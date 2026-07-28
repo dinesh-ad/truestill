@@ -837,11 +837,8 @@ function renderLayoutPreview(rows) {
 async function loadLayout() {
   const s = await get("/api/layout");
   $("layout-current").textContent = s.template;
-  // Never a hardcoded label: a pinned library is told it predates the year-first default and
-  // what to do about it, a fresh one is simply told it is on the default.
+  // Derived, never a hardcoded label.
   $("layout-default").textContent = s.is_default ? "(default)" : "";
-  $("layout-legacy").textContent = s.legacy_note || "";
-  $("layout-legacy").classList.toggle("hidden", !s.legacy_note);
   $("layout-template").value = s.template;
   const preset = $("layout-preset");
   preset.length = 1;
@@ -867,8 +864,6 @@ $("layout-save").onclick = async () => {
   if (r.valid === false) { $("layout-error").textContent = `Invalid: ${r.error}`; return; }
   $("layout-current").textContent = r.template;
   $("layout-default").textContent = "";
-  $("layout-legacy").textContent = r.legacy_note || "";
-  $("layout-legacy").classList.toggle("hidden", !r.legacy_note);
   $("layout-error").textContent = "Saved.";
 };
 $("mig-preview").onclick = async () => {

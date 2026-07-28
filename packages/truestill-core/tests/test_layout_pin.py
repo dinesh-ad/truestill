@@ -3,7 +3,8 @@
 `layout_template` is persisted only when a user explicitly sets one, so every library organized
 with the defaults renders through whatever the default constant happens to be. Changing that
 constant would move the next run of every such library while leaving its existing tree behind --
-a library split across two structures, with no prompt and no migration.
+a library split across two structures, with no prompt and no migration. The pin writes the
+layout in force at the time, whatever it is; it has no knowledge of any particular shape.
 
 The trigger is narrow on purpose, and both halves of it are pinned here: *files have already
 been placed* and *no layout is stored*. A library that has only ever been scanned or previewed
@@ -19,8 +20,8 @@ from truestill_core.categorize import CategoryMatch, Confidence
 from truestill_core.destinations import LocalDestination
 from truestill_core.layout import (
     DEFAULT_TEMPLATE,
+    DEFAULT_TEMPLATE_STRING,
     LAYOUT_TEMPLATE_KEY,
-    LEGACY_TEMPLATE_STRING,
     effective_layout_string,
     pin_existing_layout,
     resolve_scheme,
@@ -80,8 +81,8 @@ def test_an_organized_library_with_no_stored_layout_is_pinned(tmp_path: Path) ->
 
         assert pin_existing_layout(catalog) is True
 
-        assert catalog.get_setting(LAYOUT_TEMPLATE_KEY) == LEGACY_TEMPLATE_STRING
-        assert resolve_scheme(catalog).timeline.template == LEGACY_TEMPLATE_STRING
+        assert catalog.get_setting(LAYOUT_TEMPLATE_KEY) == DEFAULT_TEMPLATE_STRING
+        assert resolve_scheme(catalog).timeline.template == DEFAULT_TEMPLATE_STRING
 
 
 def test_a_scanned_but_never_organized_library_gets_the_new_default(tmp_path: Path) -> None:
@@ -108,11 +109,11 @@ def test_a_scanned_but_never_organized_library_gets_the_new_default(tmp_path: Pa
 def test_a_chosen_layout_is_never_overwritten(tmp_path: Path) -> None:
     """A user who picked a layout keeps it, placed files or not."""
     with Catalog(tmp_path / "c.sqlite") as catalog:
-        catalog.set_setting(LAYOUT_TEMPLATE_KEY, "{category}/{yyyy}")
+        catalog.set_setting(LAYOUT_TEMPLATE_KEY, "{yyyy}/{yyyy}-{mm}")
         _place(catalog)
 
         assert pin_existing_layout(catalog) is False
-        assert catalog.get_setting(LAYOUT_TEMPLATE_KEY) == "{category}/{yyyy}"
+        assert catalog.get_setting(LAYOUT_TEMPLATE_KEY) == "{yyyy}/{yyyy}-{mm}"  # theirs, kept
 
 
 def test_pinning_is_idempotent(tmp_path: Path) -> None:

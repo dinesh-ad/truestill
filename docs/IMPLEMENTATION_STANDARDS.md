@@ -168,7 +168,10 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   template-only path: an optional seam is a branch, and the branch had already silently switched
   routing off for every production run.
   - **One resolution entry point.** `layout.resolve_scheme` is the only way to ask what layout a
-    catalog is on; `layout.scheme_from_string` is the only interpretation of a stored template.
+    catalog is on; `layout.scheme_from_string` is the only interpretation of a stored template,
+    and it parses through the same strict door as Settings - there is no load-time leniency, so
+    `{category}` is rejected everywhere except inside the fixed side-bin shape, which is not
+    user-supplied.
     Runs, previews and the Settings screen all come through them, which is what makes
     `test_a_run_and_a_preview_of_the_same_layout_agree` (every shipped preset) hold.
   - **Migration renders through the same seam** (`migrate.plan_migration` takes a
@@ -278,13 +281,13 @@ successful upgrade), never automatic.
   month's event folders. The side-bin shape is **fixed and not user-editable**, and `{category}`
   is rejected in a timeline template at input (§2), so category-first and category-last are
   structurally impossible rather than merely unavailable.
-- **The previous default, `<Label>/YYYY/MM/`, is not gone - it is pinned.** A library organized
-  before the flip keeps it (`layout.LEGACY_TEMPLATE_STRING`, written by `pin_existing_layout`),
-  renders through it, and is described as a legacy layout in Settings. Migration is offered,
-  never forced. Pinned by `test_a_legacy_scheme_produces_exactly_what_it_always_did`.
+- **A library is never silently reshaped.** `pin_existing_layout` writes down the layout in
+  force the first time a library that has already placed files is run under a build whose
+  default has moved, so a default change applies forward and an existing tree is migrated only
+  on request. The pin knows nothing about any particular shape - it records whatever is current.
 - **Event placement:** a named Camera event's folder is `YYYY-MM-DD - <Name>` under its month,
   carrying the **human name** the user typed (path-safe per §9), not a slug. A legacy library
-  keeps the old `YYYYMMDD_<slug>` spelling. A cluster straddling a month boundary is consolidated
+  falls back to `YYYYMMDD_<slug>` only when no name was recorded. A cluster straddling a month boundary is consolidated
   under its **start** month (`organizer.apply_events`; pinned by
   `test_apply_events_consolidates_cross_month_under_start_month`).
 - **Category set** (derived, ordered; `categorize.build_rules`): screenshot-by-metadata →

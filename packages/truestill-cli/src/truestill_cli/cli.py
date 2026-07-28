@@ -1287,7 +1287,7 @@ def _cmd_migrate_undo(args: argparse.Namespace, marker: DriveMarker) -> int:
         outcome = undo_migration(catalog, destination, marker.uuid, apply=False)
         record = catalog.reversible_migration(marker.uuid)
         if record is None:
-            print(f"Drive '{marker.label}': no migration to undo.")
+            print(f"Drive '{marker.label}': no reversible migration exists for this drive.")
             return 0
 
         print(f"Drive '{marker.label}': {len(record[1])} file(s) from the last migration.")

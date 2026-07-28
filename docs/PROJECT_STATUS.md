@@ -107,7 +107,7 @@ Full rules and their enforcing tests: `IMPLEMENTATION_STANDARDS.md` §3.1.
 |---|---|
 | **Feature completeness** | All planned pre-launch features shipped: organize, Takeout ingest, dedup (exact + perceptual), events/trips, drive identity, offline catalog, verify, 3-2-1 backup, configurable layout + migration, reclaim, in-place organize + `undo-organize`, and the full web UI. |
 | **QA verdict** | The 2026-07-26 walkthrough returned **launch-ready** (`walkthrough-qa-report.md`), and the **soak test then found ten further defects** - see §2.1. That is the walkthrough working as designed, not failing: a scripted pass over synthetic data cannot find what a real library at real scale does. Treat "launch-ready" as *the state before the soak*, not a current verdict. |
-| **Tests** | 424 Python + 16 browser end-to-end. Assert behaviour, never counts - these numbers are context, not a gate, and **must not be pasted into a doc as a target**. Re-derive with `uv run pytest --collect-only -q`. |
+| **Tests** | 447 Python + 16 browser end-to-end. Assert behaviour, never counts - these numbers are context, not a gate, and **must not be pasted into a doc as a target**. Re-derive with `uv run pytest --collect-only -q`. |
 | **Quality gates** | `make check` = ruff lint + ruff format-check + mypy (three `src` trees) + pytest. Plus `make e2e` (opt-in, needs a browser), `uv build --all-packages`, and CI's lockfile + `pip-audit` gates. All green at `8f77de1`. |
 | **CI** | `.github/workflows/ci.yml`, **two jobs**: `check` ({ubuntu, macos, windows} × Python 3.13, + Linux-only `pip-audit`) and `e2e` (chromium on ubuntu). |
 | **Catalog schema** | **v11** (`CURRENT_SCHEMA_VERSION`). Tables: `files`, `albums`, `file_albums`, `events`, `skipped_clusters`, `drives`, `file_copies`, `settings`, `migration_journal`, `reclaim_journal`, `inplace_runs`, `inplace_moves`. **Next free version is v11** (v10 went to the in-place journal, not to date provenance - see `IMPLEMENTATION_STANDARDS.md` §1). |
@@ -116,51 +116,32 @@ Full rules and their enforcing tests: `IMPLEMENTATION_STANDARDS.md` §3.1.
 | **Repo** | `github.com/dinesh-ad/truestill` (renamed from `.../vaeon`; GitHub redirects the old name - **never create a new repo called `vaeon`**, it would kill that redirect). |
 | **Not yet done** | Nothing is published. No PyPI release, no public repo, no domain, no landing page. |
 
-### 2.0 IN FLIGHT: the default-layout correction (year-first)
+### 2.0 CLOSED: the default-layout correction (year-first)
 
-**This is the work in progress. Read `docs/default-layout-research.md` before touching
-`layout.py`.** The default destination structure is moving from `{category}/{yyyy}/{mm}`
-(source above timeline) to a year-first timeline at the drive root, with non-camera categories
-as labelled side bins beside the years. Layout and defaults only - dating, dedup, custody and
-every §1 invariant are otherwise untouched.
+**The arc is complete.** The default destination structure moved from `{category}/{yyyy}/{mm}`
+(source above timeline) to a year-first timeline at the drive root, both real drives were
+migrated and verified, and the category-first path has been decommissioned. Background and
+rationale: `default-layout-research.md`, `migration-routing-research.md`,
+`legacy-decommission-research.md`.
 
-**The default HAS flipped (2026-07-28).** A new library organizes year-first; a library that
-existed before the flip keeps its shape via the pin and is offered migration, never forced into
-it. Step 2e (migration routing) is what remains.
-
-| Step | State |
+| Step | |
 |---|---|
-| Phase 1 recon + design (`899f6f9`) | done - `docs/default-layout-research.md` is the gate |
-| **Pin** (`149e78b`) | done - an existing library's layout is written down before the default can move it |
-| **2a scheme core** (`ae75ecf`) | done - `LayoutScheme`, routing on rule, events as a second axis, three year-first presets, timeline-only template validation |
-| **R1 messenger dates + R2 year-first guards** (`e5d2f26`) | done - see `docs/messenger-dates-research.md` |
-| **2b config rewrite** (`e3f09f1`) · **2b-san path safety** (`868e614`) · **2c Settings surface** (`7dea12f`) | done |
-| **Design audit + seam wiring** (`7dea12f` audit, this commit) | done - the scheme is now actually reached by runs; see `default-layout-research.md` §8 |
-| **2d default flip + contract §4** | done - a fresh library is year-first; a pinned one is byte-identical to before |
-| **2e migration routing + confirm gate** | done - migrate renders through the same seam as organize; preview is read-only and the move needs a typed word |
-| **2e-undo reversible migrations** | done - a completed migration can be put back (schema v11); resume unchanged |
-| **The Memory Cabinet migration** | **awaiting review** - preview rendered (2,269 copies), not executed. See `docs/migration-routing-research.md`. |
+| Phase 1 recon + design (`899f6f9`) · **pin** (`149e78b`) | the design gate, and the mechanism that stops a default change reshaping an existing library |
+| **2a scheme core** (`ae75ecf`) · **R1/R2** (`e5d2f26`) | routing on rule, events as a second axis, messenger dates refused, year-first guards |
+| **2b config** (`e3f09f1`) · **2b-san path safety** (`868e614`) · **2c Settings** (`7dea12f`) | preset registry replaced, NFC + 255-byte + collision handling, live Settings surface |
+| **seam wiring** (`01fa8ec`) | the audit's F1/F3: the scheme was unreachable from production until this |
+| **2d default flip** (`c0ae0c8`) | year-first becomes the default |
+| **2e migration** (`6676617`) · **2e-undo** (`d15fb79`) | migration routes through the same seam; a completed migration became reversible |
+| **both drives migrated** | The Memory Cabinet and Output, 2,269 files each, verified 2269/0/0 |
+| **clean-empty** (`318d7d3`) · **`--permanent`** (`484a8ae`) | the leftover skeleton removed, behind two distinct confirm words |
+| **2f decommission** | category-first removed entirely; both undo records retired on explicit confirm |
 
-**Three rules governing this work, all load-bearing:**
+**What survives from the compat era: nothing but the pin's general job** - a library is never
+silently reshaped by a default change, with no knowledge of any particular layout. `{category}`
+is valid **only** inside the fixed side-bin shape, which is not user-supplied.
 
-- **The year is the top-level parent, structurally.** No shipped preset and no template a user
-  can type may put a category above a year - `parse_timeline_template` rejects `{category}` at
-  **input**, while `LayoutTemplate.parse` stays lenient at **load** so a pinned library keeps
-  resolving. Both directions are pinned by tests.
-- **The side-bin shape is fixed** (`{category}/{yyyy}/{yyyy}-{mm}`) and never read from user
-  input, so the junk quarantine cannot be typed around.
-- **Routing keys on `CategoryMatch.rule`, never on the label.** Under `--by-device` the label is
-  the hardware name, so a label test would send an entire library into a side bin.
-- **A new library is year-first; an existing one is never reshaped.** `Undated/` sits at the
-  drive root for the timeline, `<Label>/Undated/` for a side bin, and ordinary photos land in a
-  per-month `Everyday` bucket so they do not sit loose among that month's event folders.
-- **There is one render path and one resolution path.** `plan`/`build_relative`/`apply_events`
-  take a `LayoutScheme`, never a bare template; `resolve_scheme` is the only way to ask what a
-  catalog is on. A design audit caught the seam being optional and therefore switched off for
-  every real run - see `default-layout-research.md` §8 before adding a second path.
-
-**Nothing has moved on disk.** Step 2e ends with a `migrate-layout` preview presented for
-explicit confirmation before any file is relocated.
+**Reversibility is still a feature.** Every future migration arms its own undo record; what was
+retired was two specific records pointing back at a layout that no longer exists.
 
 ### 2.1 The soak test is IN PROGRESS - and it is producing findings
 

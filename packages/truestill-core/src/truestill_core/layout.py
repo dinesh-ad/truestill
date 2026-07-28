@@ -101,7 +101,7 @@ class EventNaming(StrEnum):
 
     #: ``2014-08-20 - Goa Trip`` - readable when the folder is copied away from its parents.
     READABLE = "readable"
-    #: ``20140820_goa-trip`` - the pre-year-first spelling, kept so a legacy library is stable.
+    #: ``20140820_goa-trip`` - used when an event has no human name recorded.
     SLUG = "slug"
 
 
@@ -242,12 +242,6 @@ def resolve_template(stored: str | None) -> LayoutTemplate:
     return LayoutTemplate.parse(stored) if stored else DEFAULT_TEMPLATE
 
 
-#: The layout truestill produced before the year-first default. Written into a catalog that has
-#: already placed files under it, so that changing :data:`DEFAULT_TEMPLATE_STRING` cannot
-#: re-shape a library nobody asked to re-shape. See :func:`pin_existing_layout`.
-LEGACY_TEMPLATE_STRING = "{category}/{yyyy}/{mm}"
-
-
 def pin_existing_layout(catalog: CatalogLike) -> bool:
     """Write down a library's current layout before a default change could move it.
 
@@ -266,27 +260,30 @@ def pin_existing_layout(catalog: CatalogLike) -> bool:
     Returns whether it pinned, so the caller can announce it once. Idempotent: a catalog that
     already stores a layout - pinned or chosen - is never touched again.
     """
-    if effective_layout_string(catalog) != LEGACY_TEMPLATE_STRING:
-        return False
     if catalog.get_setting(LAYOUT_TEMPLATE_KEY) is not None:
         return False
-    catalog.set_setting(LAYOUT_TEMPLATE_KEY, LEGACY_TEMPLATE_STRING)
+    if not catalog.has_placed_files():
+        return False
+    catalog.set_setting(LAYOUT_TEMPLATE_KEY, DEFAULT_TEMPLATE_STRING)
+    if DEFAULT_PRESET.timeline_evented != DEFAULT_PRESET.timeline:
+        catalog.set_setting(LAYOUT_EVENT_TEMPLATE_KEY, DEFAULT_PRESET.timeline_evented)
     return True
 
 
 def effective_layout_string(catalog: CatalogLike) -> str | None:
     """The layout in force right now - **pure, never writes.**
 
-    A library that qualifies for the pin renders through the legacy layout *whether or not the
-    pin has run yet*. That equivalence is the point: previews run on read-only paths where
-    writing a setting would break the dry-run invariant (`IMPLEMENTATION_STANDARDS.md` §5), so
-    the preview cannot pin - and if it resolved differently from the run that follows it, the
-    plan a user approved would not be the plan that executed.
+    Nothing stored means the default is in force, and `resolve_scheme` falls back to the whole
+    :data:`DEFAULT_SCHEME` rather than to a single string -- the default's evented and un-evented
+    shapes differ, and a string cannot carry that. Returning a string here instead would silently
+    flatten events into the `Everyday` bucket, which is exactly what it did when tried.
+
+    Pure. Previews run on read-only paths where writing a setting would break the dry-run
+    invariant (`IMPLEMENTATION_STANDARDS.md` §5), so a preview cannot pin -- and if it resolved
+    differently from the run that follows, the plan a user approved would not be the plan that
+    executed.
     """
-    stored = catalog.get_setting(LAYOUT_TEMPLATE_KEY)
-    if stored is not None:
-        return stored
-    return LEGACY_TEMPLATE_STRING if catalog.has_placed_files() else None
+    return catalog.get_setting(LAYOUT_TEMPLATE_KEY)
 
 
 @dataclass(frozen=True)
@@ -510,11 +507,6 @@ class LayoutScheme:
     timeline_evented: LayoutTemplate
     side_bin: LayoutTemplate = SIDE_BIN_TEMPLATE
 
-    @property
-    def is_legacy(self) -> bool:
-        """Whether this is a pinned pre-year-first library (its timeline names a category)."""
-        return any("category" in _TOKEN.findall(seg) for seg in self.timeline.segments)
-
     def template_for(self, rule: str, *, evented: bool) -> LayoutTemplate:
         """Route: the rule picks timeline vs side bin; the event flag picks which timeline."""
         if rule != TIMELINE_RULE:
@@ -576,20 +568,14 @@ DEFAULT_PRESET = PRESETS["year-month-event"]
 def scheme_from_string(timeline: str, evented: str | None = None) -> LayoutScheme:
     """Build a whole layout from stored template strings. **Pure; the single interpretation.**
 
-    A category-bearing timeline means a library organized before the year-first default. Such a
-    library keeps everything it had: its own template *is* its side bin (there was no separate
-    bin), and its events keep their slug spelling. Deriving that here rather than at each call
-    site is what stops a run and a preview from disagreeing about what "legacy" means.
+    The timeline is parsed through :func:`parse_timeline_template`, so a stored value naming a
+    category is rejected here exactly as it would be at the Settings door -- there is no
+    load-time leniency and no second interpretation of what a stored template means.
+    ``{category}`` survives only inside the fixed side-bin shape, which is not user-supplied.
     """
-    legacy = "category" in timeline
-    naming = EventNaming.SLUG if legacy else EventNaming.READABLE
-    parsed = LayoutTemplate.parse(timeline, event_naming=naming)
-    parsed_evented = LayoutTemplate.parse(evented, event_naming=naming) if evented else parsed
-    return LayoutScheme(
-        timeline=parsed,
-        timeline_evented=parsed_evented,
-        side_bin=parsed if legacy else SIDE_BIN_TEMPLATE,
-    )
+    parsed = parse_timeline_template(timeline)
+    parsed_evented = parse_timeline_template(evented) if evented else parsed
+    return LayoutScheme(timeline=parsed, timeline_evented=parsed_evented)
 
 
 def resolve_scheme(catalog: CatalogLike) -> LayoutScheme:

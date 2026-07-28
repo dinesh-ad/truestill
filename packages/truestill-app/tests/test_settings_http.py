@@ -10,11 +10,7 @@ from truestill_app.server import create_app
 from truestill_core.catalog import Catalog
 from truestill_core.drive import create_marker
 from truestill_core.hashing import sha256_file
-from truestill_core.layout import (
-    DEFAULT_TEMPLATE_STRING,
-    LAYOUT_TEMPLATE_KEY,
-    pin_existing_layout,
-)
+from truestill_core.layout import DEFAULT_TEMPLATE_STRING, LAYOUT_TEMPLATE_KEY
 
 _TOKEN = "tok"
 
@@ -128,24 +124,6 @@ def test_a_fresh_library_reports_the_layout_actually_in_force(client: TestClient
     state = client.get("/api/layout").json()
     assert state["template"] == DEFAULT_TEMPLATE_STRING  # whatever the default currently is
     assert state["is_default"] is True
-    assert state["is_legacy"] is False
-    assert state["legacy_note"] == ""  # nothing to migrate, so nothing to warn about
-
-
-def test_a_pinned_legacy_library_is_framed_as_legacy(client: TestClient, db_path: Path) -> None:
-    """A library organized before the year-first default keeps its shape and is told why."""
-
-    _organize_one(db_path)
-    with Catalog(db_path) as catalog:
-        assert pin_existing_layout(catalog) is True
-
-    state = client.get("/api/layout").json()
-    assert state["template"] == "{category}/{yyyy}/{mm}"  # its real shape, truthfully
-    assert state["is_legacy"] is True
-    assert "Legacy layout" in state["legacy_note"]
-    assert "choose a preset" in state["legacy_note"]
-    # A legacy library previews its OWN shape, not the one it has not adopted.
-    assert state["preview"][0]["path"].startswith("Camera/")
 
 
 def test_opening_settings_never_writes_a_setting(client: TestClient, db_path: Path) -> None:

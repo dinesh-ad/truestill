@@ -71,6 +71,20 @@ All notable changes to this project are documented here. The format follows
   backup anywhere. Those files are now excluded, and the count is reported rather than
   silently dropped.
 
+### Removed
+- **The category-first layout is decommissioned.** The compat machinery that carried existing
+  libraries across to year-first - the legacy template constant, the legacy scheme, the
+  load-time leniency that let a stored `{category}` template parse, and the "legacy layout"
+  framing in Settings - is gone. Both real drives are year-first and verified; there are no
+  external users; a bridge kept after the crossing is a path someone can still walk off.
+  `{category}` is now valid **only** inside the fixed side-bin shape, which is not user-supplied.
+- **The two migration undo records were retired** (The Memory Cabinet and Output, 2,269 journal
+  rows each) with an explicit confirm, because after the decommission an undo would have
+  succeeded into a state the product could no longer describe: a category-first tree with a
+  year-first setting, and no supported way to set a matching layout. `migrate-layout --undo` on
+  either drive now answers "no reversible migration exists for this drive". Reversibility itself
+  is unchanged - every future migration arms its own record.
+
 ### Changed
 - **The default folder layout is now year-first.** Photos land in `YYYY/YYYY-MM/`, with ordinary
   shots in a per-month `YYYY-MM - Everyday` bucket and named events in `YYYY-MM-DD - Name`

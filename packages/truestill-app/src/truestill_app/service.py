@@ -718,15 +718,6 @@ def layout_state(db: Path) -> dict[str, Any]:
     return {
         "template": stored or DEFAULT_TEMPLATE_STRING,
         "is_default": stored is None,
-        "is_legacy": stored is not None and scheme.is_legacy,
-        # Said in the UI rather than inferred there: a pinned library is not "wrong", it simply
-        # predates the year-first default and keeps its shape until its owner chooses to move.
-        "legacy_note": (
-            "Legacy layout - this library was organized before truestill put the year first. "
-            "It keeps its current shape; choose a preset below to move to a year-first layout."
-            if stored is not None and scheme.is_legacy
-            else ""
-        ),
         # str -> str, deliberately: the payload is JSON and app.js iterates it. Handing it
         # preset objects would serialize dataclasses into the API. Pinned by a test.
         "presets": {name: p.timeline for name, p in PRESETS.items()},
