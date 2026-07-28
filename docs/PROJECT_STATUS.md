@@ -2,7 +2,7 @@
 
 **The first thing to read in a new session.** It says where the project stands, what happens
 next and in what order, and the rules that govern how work is done here. Everything below is
-current as of **2026-07-27**.
+current as of **2026-07-28**.
 
 ---
 
@@ -107,7 +107,7 @@ Full rules and their enforcing tests: `IMPLEMENTATION_STANDARDS.md` §3.1.
 |---|---|
 | **Feature completeness** | All planned pre-launch features shipped: organize, Takeout ingest, dedup (exact + perceptual), events/trips, drive identity, offline catalog, verify, 3-2-1 backup, configurable layout + migration, reclaim, in-place organize + `undo-organize`, and the full web UI. |
 | **QA verdict** | The 2026-07-26 walkthrough returned **launch-ready** (`walkthrough-qa-report.md`), and the **soak test then found ten further defects** - see §2.1. That is the walkthrough working as designed, not failing: a scripted pass over synthetic data cannot find what a real library at real scale does. Treat "launch-ready" as *the state before the soak*, not a current verdict. |
-| **Tests** | 339 Python + 16 browser end-to-end. Assert behaviour, never counts - these numbers are context, not a gate, and **must not be pasted into a doc as a target**. Re-derive with `uv run pytest --collect-only -q`. |
+| **Tests** | 381 Python + 16 browser end-to-end. Assert behaviour, never counts - these numbers are context, not a gate, and **must not be pasted into a doc as a target**. Re-derive with `uv run pytest --collect-only -q`. |
 | **Quality gates** | `make check` = ruff lint + ruff format-check + mypy (three `src` trees) + pytest. Plus `make e2e` (opt-in, needs a browser), `uv build --all-packages`, and CI's lockfile + `pip-audit` gates. All green at `8f77de1`. |
 | **CI** | `.github/workflows/ci.yml`, **two jobs**: `check` ({ubuntu, macos, windows} × Python 3.13, + Linux-only `pip-audit`) and `e2e` (chromium on ubuntu). |
 | **Catalog schema** | **v10** (`CURRENT_SCHEMA_VERSION`). Tables: `files`, `albums`, `file_albums`, `events`, `skipped_clusters`, `drives`, `file_copies`, `settings`, `migration_journal`, `reclaim_journal`, `inplace_runs`, `inplace_moves`. **Next free version is v11** (v10 went to the in-place journal, not to date provenance - see `IMPLEMENTATION_STANDARDS.md` §1). |
@@ -115,6 +115,41 @@ Full rules and their enforcing tests: `IMPLEMENTATION_STANDARDS.md` §3.1.
 | **Packages** | `truestill-core` (library, `py.typed`), `truestill-cli` (the `truestill` command), `truestill-app` (the `truestill-app` UI). uv workspace, hatchling, all building clean wheels. |
 | **Repo** | `github.com/dinesh-ad/truestill` (renamed from `.../vaeon`; GitHub redirects the old name - **never create a new repo called `vaeon`**, it would kill that redirect). |
 | **Not yet done** | Nothing is published. No PyPI release, no public repo, no domain, no landing page. |
+
+### 2.0 IN FLIGHT: the default-layout correction (year-first)
+
+**This is the work in progress. Read `docs/default-layout-research.md` before touching
+`layout.py`.** The default destination structure is moving from `{category}/{yyyy}/{mm}`
+(source above timeline) to a year-first timeline at the drive root, with non-camera categories
+as labelled side bins beside the years. Layout and defaults only - dating, dedup, custody and
+every §1 invariant are otherwise untouched.
+
+**The default has NOT flipped yet.** Everything below is landed and green; the constant still
+points at the old shape until step 2d.
+
+| Step | State |
+|---|---|
+| Phase 1 recon + design (`899f6f9`) | done - `docs/default-layout-research.md` is the gate |
+| **Pin** (`149e78b`) | done - an existing library's layout is written down before the default can move it |
+| **2a scheme core** (`ae75ecf`) | done - `LayoutScheme`, routing on rule, events as a second axis, three year-first presets, timeline-only template validation |
+| **R1 messenger dates + R2 year-first guards** (`e5d2f26`) | done - see `docs/messenger-dates-research.md` |
+| 2b config rewrite + old preset names removed | **next** |
+| 2b-san sanitizer hardening | pending |
+| 2c Settings surface · 2d default flip + contract §4 · 2e migration | pending |
+
+**Three rules governing this work, all load-bearing:**
+
+- **The year is the top-level parent, structurally.** No shipped preset and no template a user
+  can type may put a category above a year - `parse_timeline_template` rejects `{category}` at
+  **input**, while `LayoutTemplate.parse` stays lenient at **load** so a pinned library keeps
+  resolving. Both directions are pinned by tests.
+- **The side-bin shape is fixed** (`{category}/{yyyy}/{yyyy}-{mm}`) and never read from user
+  input, so the junk quarantine cannot be typed around.
+- **Routing keys on `CategoryMatch.rule`, never on the label.** Under `--by-device` the label is
+  the hardware name, so a label test would send an entire library into a side bin.
+
+**Nothing has moved on disk.** Step 2e ends with a `migrate-layout` preview presented for
+explicit confirmation before any file is relocated.
 
 ### 2.1 The soak test is IN PROGRESS - and it is producing findings
 
@@ -158,7 +193,9 @@ passes. This is not a formality: it is the only test that exercises real drives,
 real interruptions and real heterogeneous metadata. Bugs found here outrank every other item
 in this list. Treat a soak-test report as the highest-priority work in the queue.
 
-**Status: running, ten findings shipped** (§2.1). It is not closed and there is no date on
+**Status: running, ten findings shipped** (§2.1). The default-layout correction (§2.0) is
+being built in parallel because a default is nearly permanent once users exist; a soak finding
+still outranks it. It is not closed and there is no date on
 which it closes; it closes when the user says the library is organized and the tool stopped
 surprising them. **Do not start item 2 because the soak looks quiet.**
 
