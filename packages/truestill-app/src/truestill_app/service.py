@@ -483,17 +483,34 @@ def list_drives(db: Path) -> list[dict[str, Any]]:
         return drives
 
 
-def where(term: str, db: Path) -> list[dict[str, Any]]:
+def where(term: str, db: Path, *, page: int = 1) -> dict[str, Any]:
+    """One page of search results, plus what the caller needs to render a pager.
+
+    Paged in SQL (`Catalog.find_copies`), so a page costs a page of rows however large the
+    library is. The total comes from a separate `COUNT(*)`, which is what makes "page 3 of 12"
+    honest rather than "more results, somewhere".
+    """
+    size = Catalog.FIND_PAGE_SIZE
+    page = max(1, page)
     with Catalog(db) as catalog:
-        return [
+        total = catalog.count_copies(term)
+        rows = catalog.find_copies(term, limit=size, offset=(page - 1) * size)
+        copies = [
             {
                 "name": r["original_name"] or r["relative"],
                 "drive": r["drive_label"],
                 "relative": r["relative"],
                 "last_verified": r["last_verified"],
             }
-            for r in catalog.find_copies(term)
+            for r in rows
         ]
+    return {
+        "copies": copies,
+        "total": total,
+        "page": page,
+        "pages": max(1, -(-total // size)),
+        "page_size": size,
+    }
 
 
 def at_risk(db: Path) -> list[dict[str, Any]]:

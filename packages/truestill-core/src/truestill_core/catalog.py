@@ -855,23 +855,54 @@ class Catalog:
             )
         )
 
-    def find_copies(self, term: str) -> list[sqlite3.Row]:
-        """For ``where``: copies whose original name, relative path or source path match ``term``."""
+    #: Rows per page of search results. Chosen to be scannable rather than exhaustive: at a
+    #: glance a person is looking for *one* file, and a page longer than a screenful is scrolled
+    #: past rather than read. Mainstream file managers and photo tools settle in the 25-100 band
+    #: (Explorer and Finder paginate by viewport; Immich and PhotoPrism default to grids of this
+    #: order), and 50 sits mid-band: two or three scrolls at a typical window height, and small
+    #: enough that the count line beneath it stays meaningful.
+    FIND_PAGE_SIZE = 50
+
+    def count_copies(self, term: str) -> int:
+        """How many copies match ``term``, for the page count. One indexed scan, no rows built."""
         like = f"%{term}%"
-        return list(
-            self._conn.execute(
-                """
-                SELECT f.original_name, f.source_path, fc.relative, fc.last_verified,
-                       d.label AS drive_label, d.uuid AS drive_uuid
-                FROM file_copies fc
-                JOIN files f ON f.sha256 = fc.sha256
-                JOIN drives d ON d.uuid = fc.drive_uuid
-                WHERE f.original_name LIKE ? OR fc.relative LIKE ? OR f.source_path LIKE ?
-                ORDER BY f.original_name, d.label
-                """,
-                (like, like, like),
-            )
-        )
+        row = self._conn.execute(
+            """
+            SELECT COUNT(*)
+            FROM file_copies fc
+            JOIN files f ON f.sha256 = fc.sha256
+            JOIN drives d ON d.uuid = fc.drive_uuid
+            WHERE f.original_name LIKE ? OR fc.relative LIKE ? OR f.source_path LIKE ?
+            """,
+            (like, like, like),
+        ).fetchone()
+        return int(row[0])
+
+    def find_copies(
+        self, term: str, *, limit: int | None = None, offset: int = 0
+    ) -> list[sqlite3.Row]:
+        """For ``where``: copies whose original name, relative path or source path match ``term``.
+
+        **Paged in SQL, not in Python.** ``LIMIT``/``OFFSET`` go to SQLite so a page costs one
+        page of rows; fetching everything and slicing would build the whole result set in memory
+        on every keystroke, which is the shape that only hurts once a library is large. ``limit``
+        of ``None`` keeps the unpaged behaviour for callers that genuinely want every row.
+        """
+        like = f"%{term}%"
+        sql = """
+            SELECT f.original_name, f.source_path, fc.relative, fc.last_verified,
+                   d.label AS drive_label, d.uuid AS drive_uuid
+            FROM file_copies fc
+            JOIN files f ON f.sha256 = fc.sha256
+            JOIN drives d ON d.uuid = fc.drive_uuid
+            WHERE f.original_name LIKE ? OR fc.relative LIKE ? OR f.source_path LIKE ?
+            ORDER BY f.original_name, d.label
+        """
+        params: list[object] = [like, like, like]
+        if limit is not None:
+            sql += " LIMIT ? OFFSET ?"
+            params += [limit, offset]
+        return list(self._conn.execute(sql, params))
 
     def single_copy_shas(self) -> list[sqlite3.Row]:
         """For ``status``: content that exists on exactly one drive (a single point of loss)."""

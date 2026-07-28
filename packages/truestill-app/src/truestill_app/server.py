@@ -80,7 +80,12 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
         )
 
     async def where(request: Request) -> JSONResponse:
-        return JSONResponse({"copies": service.where(request.query_params.get("term", ""), _db())})
+        params = request.query_params
+        try:
+            page = int(params.get("page", "1"))
+        except ValueError:
+            page = 1
+        return JSONResponse(service.where(params.get("term", ""), _db(), page=page))
 
     async def backup_preview(request: Request) -> JSONResponse:
         body = await request.json()

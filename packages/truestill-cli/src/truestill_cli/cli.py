@@ -273,6 +273,12 @@ def _build_parser() -> argparse.ArgumentParser:
     where = sub.add_parser("where", help="find which drive(s) a file is on (offline)")
     where.add_argument("term", help="filename / path substring to search for")
     where.add_argument("--db", type=Path, default=_DEFAULT_DB, help="SQLite catalog")
+    where.add_argument(
+        "--limit",
+        type=int,
+        default=Catalog.FIND_PAGE_SIZE,
+        help=f"how many matches to show (default {Catalog.FIND_PAGE_SIZE}; 0 for all)",
+    )
 
     verify = sub.add_parser("verify", help="re-hash a connected drive's copies against the catalog")
     verify.add_argument(
@@ -387,7 +393,8 @@ def _cmd_drives(args: argparse.Namespace) -> int:
 
 def _cmd_where(args: argparse.Namespace) -> int:
     with Catalog(args.db) as catalog:
-        rows = catalog.find_copies(args.term)
+        total = catalog.count_copies(args.term)
+        rows = catalog.find_copies(args.term, limit=args.limit or None)
     if not rows:
         print(f"No catalogued copies match '{args.term}'.")
         return 0
@@ -398,6 +405,10 @@ def _cmd_where(args: argparse.Namespace) -> int:
         )
         print(f"  {r['original_name'] or r['relative']}")
         print(f"      drive '{r['drive_label']}'  ->  {r['relative']}   ({verified})")
+    if total > len(rows):
+        # Never a silent truncation: a search that quietly showed the first N would let someone
+        # conclude a file is not on any drive when it is simply further down the list.
+        print(f"\n  ... and {total - len(rows)} more. Use --limit to show more.")
     return 0
 
 

@@ -684,14 +684,39 @@ $("verify-run").onclick = async () => {
 $("verify-cancel").onclick = () => { if (verifyJob) api(`/api/jobs/${verifyJob}/cancel`, {}); };
 
 // ---------- Find ----------
-$("where-go").onclick = async () => {
-  const term = $("where-term").value.trim();
-  const { copies } = await api(`/api/where?term=${encodeURIComponent(term)}`);
-  $("where-result").innerHTML = copies.length
-    ? card(`<table class="table"><thead><tr><th>File</th><th>Drive</th><th>Location</th></tr></thead><tbody>${
-        copies.map((c) => `<tr><td>${esc(c.name)}</td><td>${esc(c.drive || "-")}</td><td class="path">${esc(c.relative)}</td></tr>`).join("")}</tbody></table>`)
-    : card(`<div class="empty">No files match “${esc(term)}”.</div>`);
-};
+let wherePage = 1;
+
+async function runWhere(term, page) {
+  const r = await api(`/api/where?term=${encodeURIComponent(term)}&page=${page}`);
+  wherePage = r.page;
+  if (!r.total) {
+    $("where-result").innerHTML = card(`<div class="empty">No files match “${esc(term)}”.</div>`);
+    return;
+  }
+  const first = (r.page - 1) * r.page_size + 1;
+  const last = first + r.copies.length - 1;
+  // The count is stated, not implied: "showing 1-50 of 2,269" is the difference between a
+  // page of results and a page that might be hiding the file you are looking for.
+  const pager = r.pages > 1
+    ? `<div class="row" style="justify-content:space-between;align-items:center">
+         <span class="k">Showing ${nfmt(first)}-${nfmt(last)} of ${nfmt(r.total)}</span>
+         <span class="row">
+           <button class="btn btn-secondary" id="where-prev"${r.page <= 1 ? " disabled" : ""}>Previous</button>
+           <span class="k">Page ${r.page} of ${r.pages}</span>
+           <button class="btn btn-secondary" id="where-next"${r.page >= r.pages ? " disabled" : ""}>Next</button>
+         </span>
+       </div>`
+    : `<div class="k">${plural(r.total, "match", "es")}</div>`;
+  $("where-result").innerHTML = card(
+    `<table class="table"><thead><tr><th>File</th><th>Drive</th><th>Location</th></tr></thead><tbody>${
+      r.copies.map((c) => `<tr><td>${esc(c.name)}</td><td>${esc(c.drive || "-")}</td><td class="path">${esc(c.relative)}</td></tr>`).join("")
+    }</tbody></table>${pager}`);
+  const prev = $("where-prev"), next = $("where-next");
+  if (prev) prev.onclick = () => runWhere(term, wherePage - 1);
+  if (next) next.onclick = () => runWhere(term, wherePage + 1);
+}
+
+$("where-go").onclick = () => runWhere($("where-term").value.trim(), 1);
 
 // ---------- Import (Takeout) ----------
 $("rc-preview").onclick = async () => {

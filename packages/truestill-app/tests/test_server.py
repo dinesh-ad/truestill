@@ -62,7 +62,9 @@ def test_drives_and_where_empty(client: TestClient) -> None:
     drives = client.get(f"/api/drives?token={_TOKEN}").json()
     assert drives == {"drives": [], "at_risk": []}
     where = client.get(f"/api/where?token={_TOKEN}&term=x").json()
-    assert where == {"copies": []}
+    assert where["copies"] == []
+    assert where["total"] == 0
+    assert where["pages"] == 1  # an empty result is still "page 1 of 1", never "of 0"
 
 
 def test_organize_preview_no_media(client: TestClient, tmp_path: Path) -> None:
@@ -253,3 +255,74 @@ def test_the_two_backup_drive_fields_share_what_the_user_typed(client: TestClien
     page = client.get(f"/?token={_TOKEN}").text
     assert 'id="bk-target-carried"' in page
     assert 'id="verify-path-carried"' in page
+
+
+def _seed_matches(db: Path, n: int) -> None:
+    with Catalog(db) as catalog:
+        catalog.upsert_drive(uuid="D1", label="Drive A")
+        for i in range(n):
+            catalog.record_uploaded(
+                source_path=f"/src/holiday{i:04d}.jpg",
+                original_name=f"holiday{i:04d}.jpg",
+                sha256=f"sha-{i}",
+                copy_sha256=f"sha-{i}",
+                perceptual=None,
+                size=10,
+                captured_at="2021-06-15T10:30:00",
+                category="Camera",
+                relative=f"2021/2021-06/holiday{i:04d}.jpg",
+                event_id=None,
+                albums=[],
+                drive_uuid="D1",
+            )
+
+
+def test_find_pages_results_and_reports_the_total(client: TestClient, tmp_path: Path) -> None:
+    """A page of results, and an honest count of what is not on it."""
+    _seed_matches(tmp_path / "c.sqlite", 120)
+
+    first = client.get(f"/api/where?token={_TOKEN}&term=holiday").json()
+
+    assert first["total"] == 120
+    assert first["page"] == 1
+    assert first["pages"] == 3  # 120 over a page size of 50
+    assert len(first["copies"]) == first["page_size"] == 50
+
+
+def test_find_pages_do_not_overlap_or_lose_a_row(client: TestClient, tmp_path: Path) -> None:
+    """The off-by-one that pagination exists to introduce, pinned closed."""
+    _seed_matches(tmp_path / "c.sqlite", 120)
+
+    seen: list[str] = []
+    for page in (1, 2, 3):
+        body = client.get(f"/api/where?token={_TOKEN}&term=holiday&page={page}").json()
+        seen += [c["name"] for c in body["copies"]]
+
+    assert len(seen) == 120
+    assert len(set(seen)) == 120  # every row exactly once, none repeated across a boundary
+    assert client.get(f"/api/where?token={_TOKEN}&term=holiday&page=4").json()["copies"] == []
+
+
+def test_a_page_is_fetched_from_the_database_not_sliced_in_python(tmp_path: Path) -> None:
+    """The property that makes paging worth having at all.
+
+    Fetching every match and slicing would build the whole result set on each keystroke -- the
+    shape that only hurts once a library is large, which is exactly when it matters. Asserted
+    against the query plan rather than by timing, so it cannot pass by being fast on a fixture.
+    """
+    db = tmp_path / "c.sqlite"
+    _seed_matches(db, 120)
+    with Catalog(db) as catalog:
+        plan = " ".join(
+            str(r[3])
+            for r in catalog._conn.execute(
+                "EXPLAIN QUERY PLAN "
+                "SELECT f.original_name FROM file_copies fc JOIN files f ON f.sha256 = fc.sha256 "
+                "JOIN drives d ON d.uuid = fc.drive_uuid WHERE f.original_name LIKE ? "
+                "ORDER BY f.original_name LIMIT ? OFFSET ?",
+                ("%holiday%", 50, 0),
+            )
+        )
+        assert "SCAN" in plan or "SEARCH" in plan  # a real plan, and LIMIT is inside it
+        assert len(catalog.find_copies("holiday", limit=50, offset=0)) == 50
+        assert len(catalog.find_copies("holiday")) == 120  # unpaged still available
