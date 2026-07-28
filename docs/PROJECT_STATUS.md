@@ -297,8 +297,10 @@ with `make build`. Publish core first, then cli/app.
 ### 4. `truestill.app` landing page
 
 Domain is **committed but not yet purchased** - buy it before this step. Static, fast,
-honest. Analytics, if any, must be the Plausible-class cookieless kind described in
-`DECISIONS.md` D1; the no-telemetry promise governs the product, and the site must not
+honest. Analytics, if any, must be the Plausible-class cookieless kind: no cookies, no
+cross-site tracking, page-level aggregates only (`DECISIONS.md` D1's original measurement
+description - D1's *accounts* stance is superseded by D5, but this measurement-channel detail
+is not). The in-product no-telemetry promise, restated in D5, governs, and the site must not
 undermine it in spirit.
 
 ### 5. Community announcement
@@ -328,10 +330,16 @@ The concrete first slice is making the organize result's "**N no date → Undate
 **explorable** rather than a bare count - validated as a real confusion in the UI walkthrough.
 Persisting `date_source` is the enabling schema work.
 
-**Then: monetization.** Open-core. A **one-time Pro license**, never a subscription-by-default.
-**Offline-verified license keys - no accounts, ever** (`DECISIONS.md` D1 is binding here, and
-the Audacity 2021 precedent is the recorded rationale). Pro-tier candidates already sit behind
-a clean capability seam. Get formal trademark clearance before charging money.
+**Then: monetization**, per `DECISIONS.md` D5/D6 - **not** the earlier one-time-Pro-licence
+sketch D6 supersedes. A **perpetual licence**: pay once, keep that version forever, with
+**one year of updates included** and **renewal at ~40-50% of full price** for another year
+(pricing itself deliberately TBD post-launch). Keys are **Ed25519-signed** with the buyer's
+name and email embedded - a share-deterrent by identity, never a lockout. **Accounts are
+required**, created at a **one-time activation** against a self-hosted licensing server (D5,
+which supersedes D1's no-accounts stance); the app then runs fully offline, with **no
+per-launch phone-home** and **photo data never transmitted**, at activation or ever after.
+Pro-tier candidates already sit behind a clean capability seam. Get formal trademark
+clearance before charging money.
 
 ---
 
@@ -403,7 +411,7 @@ the full text; this is the short list nobody should have to rediscover.
 | Where does the project stand? What is next? | **this file** |
 | How do I work here? (workflow, research order, code standard) | `ENGINEERING_STANDARD.md` |
 | What are the binding rules? (invariants, architecture, data, gates) | `IMPLEMENTATION_STANDARDS.md` |
-| Why is the product this way? (no accounts, no telemetry, Pro model) | `DECISIONS.md` |
+| Why is the product this way? (accounts + licensing, no telemetry, Pro model) | `DECISIONS.md` |
 | What is approved but unbuilt? | `BACKLOG.md` |
 | How does the code lay out day to day? | `CLAUDE.md` (root and `docs/`) |
 | What does it cost, and what must I not "optimize"? | `PERFORMANCE.md` |
