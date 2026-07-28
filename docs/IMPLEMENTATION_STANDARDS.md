@@ -329,6 +329,41 @@ successful upgrade), never automatic.
 - **`make check`** = `ruff check .` (lint) + `ruff format --check` + `mypy` on the three
   `src` trees + `pytest` (`Makefile`).
 - **`ruff format --check`** is also a separate gate in CI (and `make format` applies it).
+- **`dash-check`** = `scripts/normalize_dashes.py --check`, in `make check` and in pre-commit.
+  See the prose convention below.
+
+### 6.1 The prose convention: hyphens, not em-dashes
+
+**Repo prose and source use the ASCII hyphen.** This is Dinesh's house style and it is settled;
+do not reintroduce `U+2014`, and do not "restore" the em-dashes in an existing document.
+
+The rule has one detail that matters more than the preference itself, because getting it wrong
+shipped a defect:
+
+- **The replacement preserves spacing.** An em-dash with whatever whitespace hugs it becomes
+  exactly `" - "`. It must **never** produce `word-<space>word` - a hyphen glued to the
+  preceding word with a space only after it. That is not a style; it is mangled prose.
+  (The bad pattern is spelled `<space>` throughout this section on purpose: written literally,
+  it would be "repaired" by the very sweep it documents.)
+- **User-facing surfaces are excluded outright:** `truestill_app/static/`,
+  `truestill_app/templates/`, `CHANGELOG.md`, `README.md`, `SECURITY.md`. **UI typography is a
+  choice, not a sweep target**, and those files are prose a user reads rather than prose we
+  maintain.
+- **`scripts/normalize_dashes.py` is the tool.** `--check` reports, `--apply` rewrites. Use it
+  rather than a hand-rolled `sed`; that is what caused the damage.
+- **The allowlist is explicit and must not silently grow.** Genuine suspended hyphens
+  (`Camera- and app-generated`) are the same *shape* as the damage (`photos-<space>and, worse`), and no
+  regex over English separates them - the first attempt protected the one real case in the repo
+  along with eleven damaged ones. Add a literal, with its file, when a real one appears.
+- **`packages/truestill-app/tests/test_user_facing_copy.py`** guards the shipped strings against
+  `word-<space>word` independently of the sweep.
+
+**Where it came from, so nobody hunts for an in-repo mechanism again:** on 2026-07-28 a
+repo-wide sweep run from **Dinesh's own editor, outside the repo**, replaced every `U+2014` and
+consumed the leading space with it - 61 sites, including two in the web UI's backup banner. There
+is **no git filter, no hook, no script in this repository that does this**; that was checked
+exhaustively before anything was changed. Ruff, mypy and pytest were all green throughout, which
+is the point of the gate: **no other gate we have can see prose.**
 - **The fence covers `scripts/` too.** `ruff check .` is repo-wide (packages, `tests/e2e/`,
   `scripts/` - the last with its own per-file ignores, because a benchmark script's `print`
   *is* its output), and **mypy covers `packages/*/src/` plus `scripts/`**. Tests stay out.

@@ -378,6 +378,12 @@ the full text; this is the short list nobody should have to rediscover.
 
   Verify the guard actually blocks (not merely that it runs) before trusting it: attempt a
   commit carrying a `Co-Authored-By:` trailer and confirm it is **refused**.
+- **Hyphens, not em-dashes, in repo prose and source.** The replacement preserves spacing
+  (`" - "`, never `word-<space>word`), and **user-facing surfaces are excluded** (`static/`,
+  `templates/`, `CHANGELOG`, `README`, `SECURITY`) - UI typography is a choice, not a sweep
+  target. Use `scripts/normalize_dashes.py`, never a hand-rolled `sed`. `dash-check` enforces it
+  in `make check` and pre-commit. The convention, and why there is no in-repo mechanism to hunt
+  for, is `IMPLEMENTATION_STANDARDS.md` §6.1.
 - **Never push without being asked.**
 - **The engineering standard applies to everything** - scripts, docs and one-off fixes
   included, not just "real" code.
