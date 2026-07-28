@@ -204,10 +204,9 @@ the account data from day one - it is personal data held on infrastructure trues
 
 **Key-sharing control:** activation counts per account are monitored server-side.
 
-### 2. Monetization (unchanged from the prior ruling)
+### 2. Monetization
 
-**Perpetual licence plus paid annual updates**, with an expected renewal rate around **40-50%**.
-Pricing is deliberately **TBD post-launch**.
+Recorded in full as **D6**; the shape is a perpetual licence plus paid annual updates.
 
 ### 3. What this changes in the product
 
@@ -256,3 +255,64 @@ user does when the server is unreachable, and what happens to activated installs
 retired. That question is the one most likely to be regretted if it is left until after launch.
 
 **Status:** Settled as a decision, unbuilt. Supersedes D1.
+
+---
+
+## D6. Monetization: perpetual licence, paid annual updates
+
+**Decision (Dinesh, 2026-07-28).** Supersedes the earlier "one-time Pro licence" sketch.
+Post-launch; nothing built.
+
+### 1. The model (Sublime Text / JetBrains shape)
+
+- **Pay once, own that version forever.** A licence never expires and never stops working.
+- **One year of updates included** from purchase.
+- **Renewal at roughly 40-50% of full price** continues updates for another year.
+- **Pricing figures are deliberately TBD post-launch** - set them against real adoption rather
+  than a guess made before anyone has used the thing.
+
+The property that makes this the right shape for truestill: **a lapsed licence still works.** A
+tool that holds someone's photo library must never become a hostage to a missed renewal, and a
+subscription that stops opening a library would contradict the custody promise the whole product
+rests on. What lapses is *new versions*, not access to your own files.
+
+### 2. Keys are signed, not generated
+
+Licence keys are **Ed25519-signed**, with the **buyer's name and email embedded** in the payload.
+
+Two properties follow, and both matter more than obfuscation would:
+
+- **Keygen-proof.** A signature cannot be forged without the private key, so there is no
+  algorithm to reverse-engineer. This is why signing beats any scheme built on a secret format.
+- **Share-deterrent by identity, not by lockout.** A shared key carries the sharer's own name and
+  email. That is a social deterrent rather than a technical restriction, which is deliberate:
+  it costs an honest user nothing, and it never risks locking out someone who has paid.
+
+Verification is local against the embedded public key. Combined with D5's activation-count
+monitoring, this gives two independent signals about sharing without either one gating a
+legitimate user mid-session.
+
+### 3. Asking for money: visible, never gates
+
+**The rule: truestill asks visibly and often enough to be heard, and never withholds function to
+force the question.**
+
+This comes from Dinesh's own twenty years as a free user of other people's software - *"no one
+ever asked me to pay"*. The failure mode being designed against is not piracy; it is the honest
+user who would happily have paid and was simply never asked.
+
+The asks, all non-blocking:
+
+- a note on the **about screen**;
+- a **post-completion line** mentioning Pro after a run finishes - the moment the tool has just
+  demonstrably helped;
+- a **voluntary newsletter** signup on the site;
+- **release notes that name** which additions are Pro.
+
+**What is never done:** a nag on launch, a countdown, a modal that must be dismissed, a
+degraded free experience, or any feature that stops working to make a point. A gate would
+contradict D5's framing of an account "for the software, never for your data" - the same
+instinct applies to function.
+
+**Status:** Settled as a decision, unbuilt. Supersedes the one-time Pro-licence sketch;
+the capability seam (`IMPLEMENTATION_STANDARDS.md` §2) is where Pro features attach.
