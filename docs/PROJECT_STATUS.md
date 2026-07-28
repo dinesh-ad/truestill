@@ -107,7 +107,7 @@ Full rules and their enforcing tests: `IMPLEMENTATION_STANDARDS.md` §3.1.
 |---|---|
 | **Feature completeness** | All planned pre-launch features shipped: organize, Takeout ingest, dedup (exact + perceptual), events/trips, drive identity, offline catalog, verify, 3-2-1 backup, configurable layout + migration, reclaim, in-place organize + `undo-organize`, and the full web UI. |
 | **QA verdict** | The 2026-07-26 walkthrough returned **launch-ready** (`walkthrough-qa-report.md`), and the **soak test then found ten further defects** - see §2.1. That is the walkthrough working as designed, not failing: a scripted pass over synthetic data cannot find what a real library at real scale does. Treat "launch-ready" as *the state before the soak*, not a current verdict. |
-| **Tests** | 381 Python + 16 browser end-to-end. Assert behaviour, never counts - these numbers are context, not a gate, and **must not be pasted into a doc as a target**. Re-derive with `uv run pytest --collect-only -q`. |
+| **Tests** | 417 Python + 16 browser end-to-end. Assert behaviour, never counts - these numbers are context, not a gate, and **must not be pasted into a doc as a target**. Re-derive with `uv run pytest --collect-only -q`. |
 | **Quality gates** | `make check` = ruff lint + ruff format-check + mypy (three `src` trees) + pytest. Plus `make e2e` (opt-in, needs a browser), `uv build --all-packages`, and CI's lockfile + `pip-audit` gates. All green at `8f77de1`. |
 | **CI** | `.github/workflows/ci.yml`, **two jobs**: `check` ({ubuntu, macos, windows} × Python 3.13, + Linux-only `pip-audit`) and `e2e` (chromium on ubuntu). |
 | **Catalog schema** | **v10** (`CURRENT_SCHEMA_VERSION`). Tables: `files`, `albums`, `file_albums`, `events`, `skipped_clusters`, `drives`, `file_copies`, `settings`, `migration_journal`, `reclaim_journal`, `inplace_runs`, `inplace_moves`. **Next free version is v11** (v10 went to the in-place journal, not to date provenance - see `IMPLEMENTATION_STANDARDS.md` §1). |
@@ -133,9 +133,10 @@ points at the old shape until step 2d.
 | **Pin** (`149e78b`) | done - an existing library's layout is written down before the default can move it |
 | **2a scheme core** (`ae75ecf`) | done - `LayoutScheme`, routing on rule, events as a second axis, three year-first presets, timeline-only template validation |
 | **R1 messenger dates + R2 year-first guards** (`e5d2f26`) | done - see `docs/messenger-dates-research.md` |
-| 2b config rewrite + old preset names removed | **next** |
-| 2b-san sanitizer hardening | pending |
-| 2c Settings surface · 2d default flip + contract §4 · 2e migration | pending |
+| **2b config rewrite** (`e3f09f1`) · **2b-san path safety** (`868e614`) · **2c Settings surface** (`7dea12f`) | done |
+| **Design audit + seam wiring** (`7dea12f` audit, this commit) | done - the scheme is now actually reached by runs; see `default-layout-research.md` §8 |
+| 2d default flip + contract §4 | **next** |
+| 2e migration per-label routing, then the Memory Cabinet preview | pending |
 
 **Three rules governing this work, all load-bearing:**
 
@@ -147,6 +148,10 @@ points at the old shape until step 2d.
   input, so the junk quarantine cannot be typed around.
 - **Routing keys on `CategoryMatch.rule`, never on the label.** Under `--by-device` the label is
   the hardware name, so a label test would send an entire library into a side bin.
+- **There is one render path and one resolution path.** `plan`/`build_relative`/`apply_events`
+  take a `LayoutScheme`, never a bare template; `resolve_scheme` is the only way to ask what a
+  catalog is on. A design audit caught the seam being optional and therefore switched off for
+  every real run - see `default-layout-research.md` §8 before adding a second path.
 
 **Nothing has moved on disk.** Step 2e ends with a `migrate-layout` preview presented for
 explicit confirmation before any file is relocated.

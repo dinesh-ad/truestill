@@ -274,3 +274,38 @@ answer beats two hedged ones.
 `effective_layout_string`, which never writes. A library that qualifies for the pin can be
 inspected indefinitely without the pin firing; only a real run persists it. Pinned by
 `test_opening_settings_never_writes_a_setting`.
+
+
+---
+
+## 8. Addendum (2026-07-28): the seam was built but not connected
+
+A design audit found that `LayoutScheme` was **unreachable from any production path**. `plan`
+and `apply_events` accepted an *optional* `scheme`; no caller passed one (`cli.py`,
+`service.py` x4, `event_review.py`); so `build_relative` and `apply_events` always took the
+`template.render(...)` half of a ternary. Routing-on-rule and readable event folders were
+implemented, tested and never executed for a real file.
+
+**Two lessons, recorded because they generalise.**
+
+1. **An optional seam is not a seam.** `scheme.render(...) if scheme is not None else
+   template.render(...)` reads like a safe migration step and is actually two behaviours, one of
+   which nothing exercises. The fix was to make the scheme *required* with the legacy layout
+   expressed as `DEFAULT_SCHEME` - so the default is a scheme like any other and there is no
+   second path to fall back into.
+2. **Two resolution entry points will diverge.** `resolve_for` (template) and `resolve_scheme`
+   (scheme) answered the same question differently, and the preview used one while runs used the
+   other. They agreed only because the legacy scheme sets `side_bin = timeline`; under a
+   year-first layout they would have disagreed the day the default flipped. `resolve_for` is
+   deleted, and a test now renders a real run and a preview of the same library **for every
+   shipped preset** and requires byte-identical paths.
+
+**What the wiring revealed immediately.** `test_organize_honors_stored_template` began failing:
+its fixture carries no camera EXIF, so it is `fallback`, not `device`, and now correctly lands
+in a side bin instead of on the timeline. The old expectation had encoded the *unrouted*
+behaviour. That is the seam working.
+
+**Behaviour for a legacy library is unchanged**, and that is asserted rather than assumed:
+`test_a_legacy_scheme_produces_exactly_what_it_always_did` pins the exact on-disk tree, and no
+existing test needed its expectations rewritten except the one above and a symbol rename where
+`resolve_for` was deleted.

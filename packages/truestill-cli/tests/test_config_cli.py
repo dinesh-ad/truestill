@@ -106,8 +106,12 @@ def test_organize_honors_stored_template(tmp_path: Path) -> None:
     placed = list(dest.rglob("*.jpg"))
     assert placed, "a file should have been organized"
     rel = placed[0].relative_to(dest).as_posix()
-    assert rel.startswith("2025/2025-08/04/")  # honored the stored template...
-    assert "/2025/08/" not in rel  # ...which dropped the month the default would have added
+    # Routing on rule is now live: this fixture carries no camera EXIF, so it is `fallback`,
+    # not `device`, and belongs in a labelled side bin rather than on the timeline. The side-bin
+    # shape is fixed and deliberately NOT the stored timeline template. Timeline routing under a
+    # stored template is covered end to end in test_year_first_organize.py.
+    assert rel == "Saved/2025/2025-08/IMG_20250804_120000.jpg"
+    assert "/2025/08/" not in rel  # not the legacy bare-month shape
 
 
 def test_an_unknown_preset_fails_with_an_actionable_message(

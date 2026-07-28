@@ -287,11 +287,6 @@ def effective_layout_string(catalog: CatalogLike) -> str | None:
     return LEGACY_TEMPLATE_STRING if catalog.has_placed_files() else None
 
 
-def resolve_for(catalog: CatalogLike) -> LayoutTemplate:
-    """The template to render a catalog's files through. Pure; safe on preview paths."""
-    return resolve_template(effective_layout_string(catalog))
-
-
 @dataclass(frozen=True)
 class RenderContext:
     """Everything :meth:`LayoutTemplate.render` needs about one file."""
@@ -574,25 +569,35 @@ PRESETS: dict[str, Preset] = {
 DEFAULT_PRESET = PRESETS["year-month-event"]
 
 
+def scheme_from_string(timeline: str, evented: str | None = None) -> LayoutScheme:
+    """Build a whole layout from stored template strings. **Pure; the single interpretation.**
+
+    A category-bearing timeline means a library organized before the year-first default. Such a
+    library keeps everything it had: its own template *is* its side bin (there was no separate
+    bin), and its events keep their slug spelling. Deriving that here rather than at each call
+    site is what stops a run and a preview from disagreeing about what "legacy" means.
+    """
+    legacy = "category" in timeline
+    naming = EventNaming.SLUG if legacy else EventNaming.READABLE
+    parsed = LayoutTemplate.parse(timeline, event_naming=naming)
+    parsed_evented = LayoutTemplate.parse(evented, event_naming=naming) if evented else parsed
+    return LayoutScheme(
+        timeline=parsed,
+        timeline_evented=parsed_evented,
+        side_bin=parsed if legacy else SIDE_BIN_TEMPLATE,
+    )
+
+
 def resolve_scheme(catalog: CatalogLike) -> LayoutScheme:
     """The whole layout in force for a catalog, router included. Pure; never writes.
 
-    A legacy (pinned) library resolves to a scheme whose timeline still carries ``{category}``,
-    whose side bin *is* that same template, and whose events keep their slug spelling - so it
-    renders exactly as it always has.
+    **The single resolution entry point.** Runs, previews and migration all come through here,
+    so there is no second path that could answer differently -- the divergence the design audit
+    found (a preview rendering through a scheme while runs rendered through a bare template).
     """
-    stored = effective_layout_string(catalog) or DEFAULT_TEMPLATE_STRING
-    legacy = "category" in stored
-    naming = EventNaming.SLUG if legacy else EventNaming.READABLE
-    timeline = LayoutTemplate.parse(stored, event_naming=naming)
-    evented_stored = catalog.get_setting(LAYOUT_EVENT_TEMPLATE_KEY)
-    evented = (
-        LayoutTemplate.parse(evented_stored, event_naming=naming) if evented_stored else timeline
-    )
-    return LayoutScheme(
-        timeline=timeline,
-        timeline_evented=evented,
-        side_bin=timeline if legacy else SIDE_BIN_TEMPLATE,
+    return scheme_from_string(
+        effective_layout_string(catalog) or DEFAULT_TEMPLATE_STRING,
+        catalog.get_setting(LAYOUT_EVENT_TEMPLATE_KEY),
     )
 
 
@@ -666,3 +671,9 @@ def preview_scheme(
             warnings.append("collides with another sample on a case-insensitive filesystem")
         out.append((row, PreviewRow(path=full, warnings=tuple(warnings))))
     return out
+
+
+#: The layout a run uses when a catalog has chosen nothing. Derived from
+#: :data:`DEFAULT_TEMPLATE_STRING` through the same factory every stored layout goes through, so
+#: "the default" is a scheme like any other and there is no template-only path anywhere.
+DEFAULT_SCHEME = scheme_from_string(DEFAULT_TEMPLATE_STRING)

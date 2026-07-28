@@ -45,7 +45,7 @@ from truestill_core.layout import (
     parse_timeline_template,
     pin_existing_layout,
     preview_scheme,
-    resolve_for,
+    resolve_scheme,
     resolve_template,
 )
 from truestill_core.migrate import run_migration
@@ -797,7 +797,7 @@ def _run_pipeline(
     with Catalog(args.db) as catalog, HashCache.beside(args.db) as cache:
         if getattr(args, "apply", False) and pin_existing_layout(catalog):
             print(_PINNED_NOTICE)
-        template = resolve_for(catalog)
+        scheme = resolve_scheme(catalog)
         decisions = plan(
             files,
             metadata,
@@ -806,7 +806,7 @@ def _run_pipeline(
             takeout=takeout,
             tz_offset=tz_offset,
             prefer_takeout=prefer_takeout,
-            template=template,
+            scheme=scheme,
         )
         ingest_ctx = _build_ingest_context(decisions, metadata, scan) if scan is not None else None
 
@@ -838,7 +838,7 @@ def _run_pipeline(
                 catalog,
                 apply=args.apply,
                 prompt=event_prompt,
-                template=template,
+                scheme=scheme,
             )
 
         _print_report(resolutions, destination.describe())
@@ -1139,11 +1139,13 @@ def _cmd_migrate_layout(args: argparse.Namespace) -> int:
         catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
         if args.apply and pin_existing_layout(catalog):
             print(_PINNED_NOTICE)
-        template = resolve_for(catalog)
-        outcome = run_migration(catalog, destination, marker.uuid, template, apply=args.apply)
+        scheme = resolve_scheme(catalog)
+        outcome = run_migration(
+            catalog, destination, marker.uuid, scheme.timeline, apply=args.apply
+        )
 
         plan = outcome.plan
-        print(f"Drive '{marker.label}': layout {template.template}")
+        print(f"Drive '{marker.label}': layout {scheme.timeline.template}")
         if outcome.resumed:
             print(f"Recovered {outcome.resumed} move(s) from an interrupted run.")
         print(f"{len(plan.moves)} file(s) to relocate, {plan.unchanged} already in place.")

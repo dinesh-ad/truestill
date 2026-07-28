@@ -19,7 +19,7 @@ from typing import Any
 from truestill_core.catalog import Catalog
 from truestill_core.events import EventCandidate, EventItem, cluster_camera, slugify
 from truestill_core.hashing import sha256_file
-from truestill_core.layout import DEFAULT_TEMPLATE, LayoutTemplate
+from truestill_core.layout import DEFAULT_SCHEME, LayoutScheme
 from truestill_core.models import Resolution
 from truestill_core.organizer import apply_events
 
@@ -95,7 +95,7 @@ def commit(
     decisions: list[EventDecision],
     catalog: Catalog,
     *,
-    template: LayoutTemplate = DEFAULT_TEMPLATE,
+    scheme: LayoutScheme = DEFAULT_SCHEME,
 ) -> EventStageOutcome:
     """Apply reviewed decisions: name (record event), skip (remember), or reuse a known event.
 
@@ -103,7 +103,8 @@ def commit(
     signature, so a previously-named or previously-skipped cluster is honoured without re-asking.
     """
     skipped = catalog.skipped_signatures()
-    assignments: dict[str, tuple[Any, str]] = {}
+    assignments: dict[str, tuple[datetime, str]] = {}
+    names: dict[str, str] = {}
     event_ids: dict[str, int] = {}
 
     for decision in decisions:
@@ -111,11 +112,15 @@ def commit(
         signature = cluster.signature
         existing = catalog.event_by_signature(signature)
         if existing is not None:
+            # A remembered event carries its own name; `decision` may be empty on a re-run
+            # because the user was never re-prompted for a cluster already named.
             slug, event_id = existing["slug"], int(existing["id"])
+            name = str(existing["name"])
         elif decision.name and decision.name.strip():
+            name = decision.name.strip()
             slug = slugify(decision.name)
             event_id = catalog.record_event(
-                name=decision.name.strip(),
+                name=name,
                 slug=slug,
                 start_date=cluster.start.isoformat(),
                 file_count=cluster.count,
@@ -127,10 +132,13 @@ def commit(
             continue
         for item in cluster.items:
             assignments[item.key] = (cluster.start, slug)
+            # The human name travels with the assignment: slugify is lossy, so a readable
+            # event folder cannot be rebuilt downstream from the slug alone.
+            names[item.key] = name
             event_ids[item.key] = event_id
 
     return EventStageOutcome(
-        apply_events(resolutions, assignments, template=template),
+        apply_events(resolutions, assignments, scheme=scheme, names=names),
         event_ids,
         [d.cluster for d in decisions],
     )
@@ -195,7 +203,7 @@ def run_event_stage(
     *,
     apply: bool,
     prompt: Prompt | None = None,
-    template: LayoutTemplate = DEFAULT_TEMPLATE,
+    scheme: LayoutScheme = DEFAULT_SCHEME,
 ) -> EventStageOutcome:
     """Name/skip convenience over :func:`propose` + :func:`commit` (the CLI's flow).
 
@@ -217,4 +225,4 @@ def run_event_stage(
             continue  # remembered skip -> leave flat, don't re-ask
         else:
             decisions.append(EventDecision(cluster, name=ask(cluster)))
-    return commit(resolutions, decisions, catalog, template=template)
+    return commit(resolutions, decisions, catalog, scheme=scheme)

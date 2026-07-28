@@ -15,7 +15,7 @@ from truestill_core.catalog import Catalog
 from truestill_core.event_review import Prompt
 from truestill_core.event_review import run_event_stage as _core_run_event_stage
 from truestill_core.events import EventCandidate
-from truestill_core.layout import DEFAULT_TEMPLATE, LayoutTemplate
+from truestill_core.layout import DEFAULT_SCHEME, LayoutScheme
 from truestill_core.models import Resolution
 
 __all__ = ["Prompt", "album_prompt", "run_event_stage"]
@@ -56,7 +56,7 @@ def run_event_stage(
     *,
     apply: bool,
     prompt: Prompt | None = None,
-    template: LayoutTemplate = DEFAULT_TEMPLATE,
+    scheme: LayoutScheme = DEFAULT_SCHEME,
 ) -> tuple[list[Resolution], dict[str, int]]:
     """Run the core event stage, printing proposals for the CLI. Returns (resolutions, event_ids)."""
     outcome = _core_run_event_stage(
@@ -65,7 +65,7 @@ def run_event_stage(
         catalog,
         apply=apply,
         prompt=prompt or _stdin_prompt,
-        template=template,
+        scheme=scheme,
     )
     if not outcome.clusters:
         print("\nEvents: no clusters proposed (need enough Camera photos close in time).")

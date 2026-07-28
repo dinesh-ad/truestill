@@ -1,0 +1,163 @@
+"""The scheme, reached by a real run - not only by a preview.
+
+The design audit found that `LayoutScheme` was unreachable from any production path: `plan` and
+`apply_events` took an *optional* scheme, no caller passed one, and every file therefore rendered
+through a bare template. Routing-on-rule and readable event folders existed, were tested, and
+never executed. These tests assert the on-disk tree a run actually produces, which is the thing
+a preview cannot prove.
+"""
+
+from __future__ import annotations
+
+import shutil
+import subprocess
+from datetime import datetime
+from pathlib import Path
+
+import pytest
+from PIL import Image
+from truestill_core.categorize import build_rules
+from truestill_core.destinations import LocalDestination
+from truestill_core.exif import read_metadata
+from truestill_core.layout import (
+    DEFAULT_SCHEME,
+    PRESETS,
+    LayoutScheme,
+    preview_scheme,
+    scheme_from_string,
+)
+from truestill_core.models import FileHashes, Resolution
+from truestill_core.organizer import apply_events, execute, plan
+
+pytestmark = pytest.mark.skipif(shutil.which("exiftool") is None, reason="exiftool not installed")
+
+YEAR_FIRST = PRESETS["year-month-event"].scheme()
+
+
+def _camera_photo(path: Path, when: str = "2014:08:20 14:30:00") -> Path:
+    """A JPEG that really carries camera EXIF, so the `device` rule fires for it."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (48, 32), (10, 120, 200)).save(path, "JPEG")
+    subprocess.run(
+        [
+            "exiftool",
+            "-q",
+            "-m",
+            "-overwrite_original",
+            f"-DateTimeOriginal={when}",
+            "-Make=Samsung",
+            "-Model=SM-A546B",
+            str(path),
+        ],
+        check=False,
+    )
+    return path
+
+
+def _screenshot(path: Path) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (40, 40), (5, 5, 5)).save(path, "JPEG")
+    return path
+
+
+def _organize(tmp_path: Path, scheme: LayoutScheme, files: list[Path]) -> list[str]:
+    """Run the real pipeline and return the relative paths that actually landed on disk."""
+    destination = tmp_path / "out"
+    metadata = read_metadata(files)
+    decisions = plan(files, metadata, build_rules(), scheme=scheme)
+    resolutions = [
+        Resolution(
+            decision=d,
+            hashes=FileHashes(sha256=f"sha-{i}", perceptual=None),
+            exact_duplicate=None,
+            near_duplicate=None,
+        )
+        for i, d in enumerate(decisions)
+    ]
+    execute(resolutions, LocalDestination(destination), apply=True, catalog=None)
+    return sorted(p.relative_to(destination).as_posix() for p in destination.rglob("*.jpg"))
+
+
+def test_a_real_run_routes_camera_to_the_timeline_and_the_rest_to_side_bins(
+    tmp_path: Path,
+) -> None:
+    """The capability the audit found switched off, asserted against the filesystem."""
+    source = tmp_path / "src"
+    photo = _camera_photo(source / "IMG_0001.jpg")
+    shot = _screenshot(source / "Screenshot_20240115_101500.jpg")
+
+    placed = _organize(tmp_path, YEAR_FIRST, [photo, shot])
+
+    assert placed == [
+        "2014/2014-08/20140820_143000_IMG_0001.jpg",  # camera -> timeline, no category folder
+        "Screenshots/2024/2024-01/Screenshot_20240115_101500.jpg",  # -> side bin, not double-dated
+    ]
+
+
+def test_a_real_run_writes_readable_event_folders(tmp_path: Path) -> None:
+    """`2014-08-20 - Goa Trip`, on disk. Previously this rendered only in the preview."""
+    source = tmp_path / "src"
+    photos = [_camera_photo(source / f"IMG_{i:04d}.jpg") for i in range(2)]
+    metadata = read_metadata(photos)
+    decisions = plan(photos, metadata, build_rules(), scheme=YEAR_FIRST)
+    resolutions = [
+        Resolution(
+            decision=d,
+            hashes=FileHashes(sha256=f"sha-{i}", perceptual=None),
+            exact_duplicate=None,
+            near_duplicate=None,
+        )
+        for i, d in enumerate(decisions)
+    ]
+
+    start = datetime(2014, 8, 20)
+    assignments = {str(p): (start, "goa-trip") for p in photos}
+    names = {str(p): "Goa Trip" for p in photos}
+    routed = apply_events(resolutions, assignments, scheme=YEAR_FIRST, names=names)
+
+    destination = tmp_path / "out"
+    execute(routed, LocalDestination(destination), apply=True, catalog=None)
+
+    landed = sorted(p.relative_to(destination).as_posix() for p in destination.rglob("*.jpg"))
+    assert all(p.startswith("2014/2014-08/2014-08-20 - Goa Trip/") for p in landed), landed
+
+
+def test_a_legacy_scheme_produces_exactly_what_it_always_did(tmp_path: Path) -> None:
+    """The refactor's safety claim: wiring the seam changed nothing for a legacy library."""
+    source = tmp_path / "src"
+    photo = _camera_photo(source / "IMG_0001.jpg")
+    shot = _screenshot(source / "Screenshot_20240115_101500.jpg")
+
+    placed = _organize(tmp_path, DEFAULT_SCHEME, [photo, shot])
+
+    assert placed == [
+        "Camera/2014/08/20140820_143000_IMG_0001.jpg",
+        "Screenshots/2024/01/Screenshot_20240115_101500.jpg",
+    ]
+
+
+@pytest.mark.parametrize("preset_key", list(PRESETS))
+def test_a_run_and_a_preview_of_the_same_layout_agree(tmp_path: Path, preset_key: str) -> None:
+    """One resolution path, one render path -- so a plan a user approved is the plan that runs.
+
+    The audit's F1 was exactly this divergence: the preview rendered through a scheme while runs
+    rendered through a bare template, and the two agreed only by accident of the legacy layout.
+    Parametrized across every shipped preset so it holds under year-first, not just legacy.
+    """
+    scheme = PRESETS[preset_key].scheme()
+    source = tmp_path / "src"
+    photo = _camera_photo(source / "IMG_0001.jpg")
+
+    previewed = {
+        row.description: rendered.path.parent.as_posix() for row, rendered in preview_scheme(scheme)
+    }
+    placed = _organize(tmp_path, scheme, [photo])
+
+    assert Path(placed[0]).parent.as_posix() == previewed["Camera"]
+
+
+def test_the_default_scheme_is_the_legacy_layout_expressed_as_a_scheme() -> None:
+    """There is no template-only path left; "the default" is a scheme like any other."""
+    assert DEFAULT_SCHEME.is_legacy is True
+    assert DEFAULT_SCHEME.side_bin.template == DEFAULT_SCHEME.timeline.template
+    assert scheme_from_string(DEFAULT_SCHEME.timeline.template) == DEFAULT_SCHEME

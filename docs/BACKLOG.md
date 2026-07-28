@@ -18,7 +18,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z). Next free: (aa).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(ff). Next free: (gg).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -164,6 +164,40 @@ is invisible here is retired, not free.**
   the whole corpus zoo** (`.swf`, raw `.hevc`/`.mjpeg` elementary streams are not "photos to back
   up"). Each extension added must have its **category and date handling verified via the corpus
   probe** before inclusion. **Post-launch, demand-driven.**
+
+## Pre-launch code-quality pass (from the 2026-07-28 design audit)
+
+Accepted findings from a design-quality audit of `truestill-core` (and `-cli`/`-app` where they
+hold logic). The audit's blocker - the layout seam being optional and therefore unreachable from
+production - was fixed immediately; these are the rest, deliberately deferred so the layout
+correction lands first. Each cites the audit finding that justifies it.
+
+- **(aa) Introduce an `Event` value object** (`start`, `slug`, `name`, `id`). An event is
+  currently three parallel dicts that must be kept in sync -
+  `assignments: dict[str, tuple[datetime, str]]`, `event_ids: dict[str, int]` and now
+  `names: dict[str, str]` - which is the **root cause** of the audit's F1: the human name was
+  simply never plumbed, because there was no object to carry it. `event_review.py` had already
+  eroded the tuple to `tuple[Any, str]`.
+- **(bb) `rule` becomes a `StrEnum`; the router becomes total.** `TIMELINE_RULE = "device"` is
+  compared against a bare `str`, and the seven rule names are re-listed by hand in the tests.
+  An enum makes the set exhaustive and lets the router be checked for totality.
+- **(cc) Collapse `preview()` into `preview_scheme()`.** `preview()` has no production caller
+  and duplicates the collision + path-length rule character for character (audit F4). Two copies
+  of "is this path risky" will diverge.
+- **(dd) Extract `execute()`'s per-file body into named steps.** 180 lines coordinating dedup,
+  collision suffixing, baking, rename-vs-copy, catalog recording, journalling and
+  move-verify-delete. Its own ruff suppressions (`PLR0912`/`PLR0913`/`PLR0915`) admit it. It is
+  the hardest code in the repo to change safely **and** it is the path that writes user bytes.
+- **(ee) Move the pin out of `layout.py`.** `pin_existing_layout` is catalog lifecycle, not
+  layout; it lives there only because it needed a `CatalogLike` Protocol invented to dodge an
+  import cycle - and that Protocol is the tell. Retire it with the move.
+- **(ff) Typed payloads at the app boundary.** `service.py` returns `dict[str, Any]` 27 times.
+  This is not theoretical: the `dict(PRESETS)` regression - dataclasses about to be serialized
+  into the API - was invisible to mypy precisely because the return type was `Any`.
+
+**Not doing, and why:** the audit found no inheritance-for-reuse and no deep hierarchies
+anywhere (the only inheritance is `Destination` -> `Local`/`Rclone`, a genuine is-a), so there is
+no composition refactor to schedule.
 
 ## Shipped (kept for provenance)
 

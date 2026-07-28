@@ -137,6 +137,20 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   - `packages/truestill-app/` - the local web UI (`truestill-app`). Depends on
     `truestill-core` **only**, never on `truestill-cli`; `service.py` is the sole bridge.
   - Further packages (e.g. a native shell) slot **beside** these without restructuring the core.
+- **One layout seam, and no way around it.** Every placement decision renders through
+  `layout.LayoutScheme.render`, which routes on `CategoryMatch.rule` (timeline vs side bin) and
+  then on whether the file belongs to a named event. `plan`, `build_relative` and `apply_events`
+  take a **`LayoutScheme`, never a bare template**, and a library that has chosen nothing gets
+  `layout.DEFAULT_SCHEME` - the legacy layout expressed *as* a scheme. There is deliberately no
+  template-only path: an optional seam is a branch, and the branch had already silently switched
+  routing off for every production run.
+  - **One resolution entry point.** `layout.resolve_scheme` is the only way to ask what layout a
+    catalog is on; `layout.scheme_from_string` is the only interpretation of a stored template.
+    Runs, previews and the Settings screen all come through them, which is what makes
+    `test_a_run_and_a_preview_of_the_same_layout_agree` (every shipped preset) hold.
+  - **Known exception, tracked:** `migrate.plan_migration` still renders through a bare template
+    and cannot route, because the catalog stores a label rather than a rule. It is fed
+    `scheme.timeline` so behaviour is unchanged; closing it is step 2e of the layout correction.
 - **Destinations behind an interface.** `destinations/base.py::Destination` (ABC:
   `exists`/`upload`/`list`/`describe`). Implementations: `LocalDestination`,
   `RcloneDestination`. Nothing in organize/dedup logic names a specific backend. Relative

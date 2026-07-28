@@ -42,7 +42,6 @@ from truestill_core.layout import (
     parse_timeline_template,
     pin_existing_layout,
     preview_scheme,
-    resolve_for,
     resolve_scheme,
 )
 from truestill_core.migrate import run_migration
@@ -249,8 +248,8 @@ def organize_preview(
         return {"files": 0, "folders": {}, "skipped": _skipped_summary(scan)}
     metadata = read_metadata(files, progress=progress, cancel=cancel)
     with Catalog(db) as catalog, HashCache.beside(db) as cache:
-        template = resolve_for(catalog)
-        decisions = plan(files, metadata, build_rules(), template=template)
+        scheme = resolve_scheme(catalog)
+        decisions = plan(files, metadata, build_rules(), scheme=scheme)
         index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
         resolutions = resolve(
             decisions,
@@ -291,8 +290,8 @@ def organize_run(
         metadata = read_metadata(files, progress=progress)
         with Catalog(db) as catalog, HashCache.beside(db) as cache:
             pin_existing_layout(catalog)
-            template = resolve_for(catalog)
-            decisions = plan(files, metadata, build_rules(), template=template)
+            scheme = resolve_scheme(catalog)
+            decisions = plan(files, metadata, build_rules(), scheme=scheme)
             index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
             resolutions = resolve(
                 decisions,
@@ -312,7 +311,7 @@ def organize_run(
                 if catalog.event_by_signature(c.signature) is not None
             ]
             if saved:
-                resolutions = commit(resolutions, saved, catalog, template=template).resolutions
+                resolutions = commit(resolutions, saved, catalog, scheme=scheme).resolutions
             # Register the destination *before* writing anything, so every copy is recorded
             # against it. Doing this afterwards would leave the run's own files unattached --
             # which is exactly the bug this replaced.
@@ -515,8 +514,8 @@ def plan_resolve(source: Path, db: Path) -> tuple[list[Resolution], dict[Path, d
         return [], {}
     metadata = read_metadata(files)
     with Catalog(db) as catalog:
-        template = resolve_for(catalog)
-        decisions = plan(files, metadata, build_rules(), template=template)
+        scheme = resolve_scheme(catalog)
+        decisions = plan(files, metadata, build_rules(), scheme=scheme)
         index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
         resolutions = resolve(decisions, index, catalog_sizes=catalog.known_sizes())
     return resolutions, metadata
@@ -544,8 +543,8 @@ def ingest_preview(takeout: Path, destination: Path, db: Path) -> dict[str, Any]
         return {"files": 0, "missing_sidecar": 0}
     metadata = read_metadata(files)
     with Catalog(db) as catalog:
-        template = resolve_for(catalog)
-        decisions = plan(files, metadata, build_rules(), takeout=scan.sidecars, template=template)
+        scheme = resolve_scheme(catalog)
+        decisions = plan(files, metadata, build_rules(), takeout=scan.sidecars, scheme=scheme)
         index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
         resolutions = resolve(decisions, index, catalog_sizes=catalog.known_sizes())
     uploads = [r for r in resolutions if r.should_upload]
@@ -918,8 +917,10 @@ def migration_preview(path: Path, db: Path) -> dict[str, Any]:
         }
     with Catalog(db) as catalog:
         catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
-        template = resolve_for(catalog)
-        outcome = run_migration(catalog, LocalDestination(path), marker.uuid, template, apply=False)
+        scheme = resolve_scheme(catalog)
+        outcome = run_migration(
+            catalog, LocalDestination(path), marker.uuid, scheme.timeline, apply=False
+        )
         pending = [
             d["label"]
             for d in catalog.list_drives()
@@ -929,7 +930,7 @@ def migration_preview(path: Path, db: Path) -> dict[str, Any]:
     return {
         "ok": True,
         "label": marker.label,
-        "template": template.template,
+        "template": scheme.timeline.template,
         "unchanged": plan.unchanged,
         "moves": [{"old": m.old_relative, "new": m.new_relative} for m in plan.moves],
         "warnings": plan.warnings,
@@ -947,12 +948,12 @@ def migration_apply(path: Path, db: Path) -> JobTarget:
         with Catalog(db) as catalog:
             catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
             pin_existing_layout(catalog)
-            template = resolve_for(catalog)
+            scheme = resolve_scheme(catalog)
             outcome = run_migration(
                 catalog,
                 LocalDestination(path),
                 marker.uuid,
-                template,
+                scheme.timeline,
                 apply=True,
                 progress=progress,
                 cancel=cancel,
