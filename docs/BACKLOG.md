@@ -242,6 +242,18 @@ no composition refactor to schedule.
   catalog v6 (`drives` + `file_copies`), and `truestill drives`/`where`/`verify`/`status`. See the
   CHANGELOG and `docs/drive-identity-research.md`.
 
+## Settled technical stances (recorded so they are not re-litigated)
+
+- **The catalog stays SQLite.** Parquet and Feather were considered and rejected on three
+  grounds, each sufficient alone: they are **immutable** (no row update without rewriting the
+  whole file, and the catalog updates a row per organized file), they offer **no transactional
+  safety** mid-migration (the journal that makes `migrate-layout` resumable and reversible
+  depends on it), and they would add a **heavy `pyarrow` dependency** against §7's stdlib-first
+  policy. Columnar formats are right for analytics over immutable batches; this is a mutable
+  transactional record. JSON remains in exactly one place - the small, human-readable drive
+  marker - where being readable by a person with a text editor is the point. This is also what
+  `(z)` means by catalog-first; **no change is pending.**
+
 ## Product / strategy (parked decisions)
 
 > **Settled stance these sit under:** a user's **photo data never leaves their machine** and
@@ -562,6 +574,18 @@ neighbouring product ships one. Each would be a reasonable feature in a differen
 - **Face recognition / people albums.**
 - **Semantic AI search** ("photos of a beach at sunset").
 - **Auto-generated Memories / highlight reels.**
+
+- **Per-camera or per-person subfolders inside an event.** It fragments **one memory by
+  source** - the same error as an unconditional photo/video split. Four phones at one trip is
+  precisely the case where everything should stay together, and splitting by device turns a
+  shared afternoon into four partial accounts of it. Device identity is real and worth keeping;
+  it belongs in the **catalog**, queryable, not carved into the folder tree - see `(z)`.
+
+- **Conditional `Photos/` + `Videos/` subfolders ("create them only when both are present").**
+  A structure must never rewrite itself because one file arrived: adding a single video to a
+  618-photo day would force **619 files to move**. That is the same instability that rules out
+  date-range folder names, and it is worse here because it triggers on an ordinary import. The
+  optional, always-on, pair-aware split remains available as `(y)`.
 
 **Why all three, together:** they are one class -- **ML infrastructure** -- and adopting any of
 them changes what truestill *is*. Each needs models shipped or downloaded, a vector store or
