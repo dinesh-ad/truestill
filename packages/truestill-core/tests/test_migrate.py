@@ -342,3 +342,38 @@ def test_rederivation_degrades_instead_of_failing_when_exiftool_is_missing(
         assert any(r.needs_decision for r in routes)  # there is something to re-derive
 
         assert rederive_rules(catalog, "D1", root, routes) == {}  # degraded, not raised
+
+
+def test_migrating_one_drive_leaves_another_drives_undo_record_intact(tmp_path: Path) -> None:
+    """Supersession is per drive, so a second library's migration cannot disarm the first's.
+
+    Two drives hold the same content by design (3-2-1), and they are migrated one at a time --
+    so if starting a run cleared the journal globally, migrating the second drive would silently
+    take away the ability to reverse the first.
+    """
+    root_a = tmp_path / "a"
+    root_b = tmp_path / "b"
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        _seed(
+            catalog,
+            root_a,
+            "D1",
+            [("Camera/2023/08/a.jpg", "Camera", "2023-08-20T14:30:00", b"aaaa")],
+        )
+        _seed(
+            catalog,
+            root_b,
+            "D2",
+            [("Camera/2023/08/a.jpg", "Camera", "2023-08-20T14:30:00", b"aaaa")],
+        )
+
+        run_migration(catalog, LocalDestination(root_a), "D1", _scheme(_DDL), apply=True)
+        first = catalog.reversible_migration("D1")
+        assert first is not None
+
+        run_migration(catalog, LocalDestination(root_b), "D2", _scheme(_DDL), apply=True)
+
+        still_there = catalog.reversible_migration("D1")
+        assert still_there is not None
+        assert still_there[0] == first[0]  # the same run, untouched
+        assert catalog.reversible_migration("D2") is not None  # and D2 has its own
