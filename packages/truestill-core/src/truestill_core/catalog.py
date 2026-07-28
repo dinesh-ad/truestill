@@ -160,10 +160,29 @@ CREATE TABLE IF NOT EXISTS inplace_moves (
     PRIMARY KEY (run_id, old_relative)
 );
 CREATE INDEX IF NOT EXISTS idx_inplace_moves_run ON inplace_moves (run_id);
+
+-- A multi-day trip: identity IS the row, never a membership hash. Unlike events.signature
+-- (a hash of member SHA-256s), a trip is user-adjustable and grows on re-ingest -- an edge
+-- trim or an added day must not orphan its name. See trip-grouping-research.md §6.
+CREATE TABLE IF NOT EXISTS trips (
+    id         INTEGER PRIMARY KEY,
+    name       TEXT    NOT NULL,
+    slug       TEXT    NOT NULL,
+    start_date TEXT    NOT NULL,
+    end_date   TEXT    NOT NULL
+);
+
+-- One row per day claimed by a trip. `day` as the PRIMARY KEY makes "a day belongs to at most
+-- one trip" unviolatable rather than merely intended, and is the name-once lookup: a candidate
+-- day already present here is already claimed.
+CREATE TABLE IF NOT EXISTS trip_days (
+    day     TEXT PRIMARY KEY,
+    trip_id INTEGER NOT NULL REFERENCES trips(id)
+);
 """
 
 #: Bump whenever the schema changes, and add a matching entry to _MIGRATIONS.
-CURRENT_SCHEMA_VERSION = 11
+CURRENT_SCHEMA_VERSION = 12
 
 
 class CatalogVersionError(RuntimeError):
@@ -324,6 +343,54 @@ def _add_inplace_journal(conn: sqlite3.Connection) -> None:
 
 #: Ordered migrations: ``(target_version, fn)``. Each is idempotent and lifts a database
 #: from ``target_version - 1`` to ``target_version``. Append; never rewrite history.
+def _add_trip_tables(conn: sqlite3.Connection) -> None:
+    """v11 -> v12: multi-day trips, identified by row -- never by membership hash.
+
+    See the ``trips``/``trip_days`` comment in ``_SCHEMA`` for why; this function exists only so
+    an *existing* v11 catalog gets the same two tables a fresh one is born with.
+    """
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS trips (
+            id         INTEGER PRIMARY KEY,
+            name       TEXT    NOT NULL,
+            slug       TEXT    NOT NULL,
+            start_date TEXT    NOT NULL,
+            end_date   TEXT    NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS trip_days (
+            day     TEXT PRIMARY KEY,
+            trip_id INTEGER NOT NULL REFERENCES trips(id)
+        );
+        """
+    )
+
+
+def downgrade_v12_to_v11(conn: sqlite3.Connection) -> None:
+    """Reverse `_add_trip_tables` in place, leaving a byte-for-byte v11 catalog.
+
+    **The first schema-level down-migration in this codebase.** Every prior migration
+    (`_MIGRATIONS`) is forward-only; nothing before v12 needed reversing at the schema level
+    ("reversible", for the layout migration feature, means an *undoable file move* recorded in
+    `migration_journal`/`migration_runs` -- a data-level undo, not a DDL one). This is safe to
+    add here specifically because v12 only *adds* two self-contained tables and alters nothing
+    that v11 already had; dropping them and resetting the version is therefore exact, not an
+    approximation.
+
+    **Testing/rollback only.** No CLI path calls this, and nothing in `Catalog` wires it in --
+    a fresh clone always migrates forward via `_migrate`. It exists to prove the v12 migration is
+    safely reversible, per the standing rule that a migration must be shown undoable, not merely
+    claimed to be.
+    """
+    conn.executescript(
+        """
+        DROP TABLE IF EXISTS trip_days;
+        DROP TABLE IF EXISTS trips;
+        """
+    )
+    conn.execute("PRAGMA user_version = 11")
+
+
 _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (2, _add_size_column),
     (3, _add_original_name_column),
@@ -335,6 +402,7 @@ _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (9, _add_reclaim_journal),
     (10, _add_inplace_journal),
     (11, _add_reversible_migrations),
+    (12, _add_trip_tables),
 )
 
 
@@ -351,6 +419,10 @@ class Catalog:
             path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(path))
         self._conn.row_factory = sqlite3.Row
+        # Off by default per SQLite connection (not persisted in the file). trip_days.trip_id
+        # is the first declared foreign key in this schema; without this, the REFERENCES clause
+        # is decorative and a bogus trip_id would insert silently.
+        self._conn.execute("PRAGMA foreign_keys = ON")
         self._migrate()
         self._conn.commit()
 
@@ -948,6 +1020,15 @@ class Catalog:
         cursor = self._conn.execute("SELECT signature FROM skipped_clusters")
         return frozenset(row["signature"] for row in cursor)
 
+    def trip_for_day(self, day: str) -> int | None:
+        """The trip a day is already claimed by, if any -- the name-once lookup.
+
+        One indexed lookup on `trip_days.day`'s primary key, O(1). A day present here is
+        claimed regardless of which trip; the caller (a later stage) decides what silence means.
+        """
+        row = self._conn.execute("SELECT trip_id FROM trip_days WHERE day = ?", (day,)).fetchone()
+        return int(row["trip_id"]) if row is not None else None
+
     # -- writes --------------------------------------------------------------------
 
     def record_event(
@@ -979,6 +1060,63 @@ class Catalog:
             conn.execute(
                 f"UPDATE files SET event_id = ? WHERE sha256 IN ({placeholders})",
                 (event_id, *shas),
+            )
+
+    def create_trip(
+        self, *, name: str, slug: str, start_date: str, end_date: str, days: Sequence[str]
+    ) -> int:
+        """Insert a new trip and its claimed days in one transaction. Returns the new trip's id.
+
+        Identity is the row -- never a membership hash. Unlike `events.signature` (a hash of
+        member SHA-256s, which moves the moment membership changes), a trip's id is stable across
+        every edge adjustment and every re-ingest; `update_trip_days` is how membership changes,
+        and it never touches this id. See `trip-grouping-research.md` §6.
+
+        Does not check `trip_for_day` itself -- name-once is the caller's decision to make before
+        calling this, not a rule this method enforces. `trip_days.day`'s primary key still refuses
+        a day already claimed by another trip outright, so a caller that skips the check fails
+        loudly (`sqlite3.IntegrityError`) rather than silently double-booking a day.
+        """
+        if not days:
+            message = "a trip must claim at least one day"
+            raise ValueError(message)
+        with self._tx() as conn:
+            cursor = conn.execute(
+                "INSERT INTO trips (name, slug, start_date, end_date) VALUES (?, ?, ?, ?)",
+                (name, slug, start_date, end_date),
+            )
+            new_id = cursor.lastrowid
+            if new_id is None:
+                message = "insert into trips did not return a rowid"
+                raise RuntimeError(message)
+            conn.executemany(
+                "INSERT INTO trip_days (day, trip_id) VALUES (?, ?)",
+                [(day, new_id) for day in days],
+            )
+        return int(new_id)
+
+    def update_trip_days(self, trip_id: int, days: Sequence[str]) -> None:
+        """Replace a trip's claimed days -- an edge adjustment, never a new identity.
+
+        `trip_id`, `name` and `slug` are untouched; only membership changes, which is the whole
+        point (§6: an edge trim or an added day must not orphan the name). `start_date`/
+        `end_date` on the `trips` row are refreshed to the new membership's min/max so the row
+        never claims a span it no longer covers -- left stale, they would silently lie about
+        what the trip currently spans.
+        """
+        if not days:
+            message = "a trip must claim at least one day"
+            raise ValueError(message)
+        ordered = sorted(days)
+        with self._tx() as conn:
+            conn.execute("DELETE FROM trip_days WHERE trip_id = ?", (trip_id,))
+            conn.executemany(
+                "INSERT INTO trip_days (day, trip_id) VALUES (?, ?)",
+                [(day, trip_id) for day in ordered],
+            )
+            conn.execute(
+                "UPDATE trips SET start_date = ?, end_date = ? WHERE id = ?",
+                (ordered[0], ordered[-1], trip_id),
             )
 
     def record_skip(self, signature: str) -> None:

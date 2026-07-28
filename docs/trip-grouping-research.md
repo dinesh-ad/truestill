@@ -1,8 +1,8 @@
 # Trip grouping: multi-day events, and the router that has to carry them
 
-Status: **Design approved (2026-07-28, `b5cba4a`, rulings `fb60c10`). Stage 2a (`1247055`) and
-Stage 2b (detection only) are built; §11 records what shipped and what remains open.** Stages
-2c-2e (schema, layout wiring, migration) are still to come.
+Status: **Design approved (2026-07-28, `b5cba4a`, rulings `fb60c10`). Stages 2a-2c are built**:
+2a the router refactor (`1247055`), 2b detection (§11), 2c persistence, catalog v12 (§12). Stages
+2d-2e (layout wiring, migration adoption) are still to come, and 2d is blocked on backlog `(mm)`.
 
 Read [`events-clustering-research.md`](events-clustering-research.md) §7 first: it is the reason
 this document exists.
@@ -406,12 +406,21 @@ against the existing signature scheme. That is the point of writing it.
 
 ---
 
-## Open rulings needed before build
+## Open rulings needed before build - **all four now resolved**
+
+*Fixed 2026-07-28: item 4 was left dangling at the end of this file by an earlier edit that
+inserted §11 in the middle of this list. Restored to its place; all four are answered below.*
 
 1. **Stage 2a first?** Refactor the router before adding the fifth shape, as recommended - or
-   proceed with trips on the boolean router and consolidate later.
-2. **Aug 14**- part of the Wayanad trip or not? Becomes the acceptance fixture either way.
-3. **Max span on exceed**- decline and explain (recommended), or split at the cap.
+   proceed with trips on the boolean router and consolidate later. **Resolved: yes** - built as
+   `1247055`.
+2. **Aug 14** - part of the Wayanad trip or not? Becomes the acceptance fixture either way.
+   **Resolved: yes**, the drive up - see §11.
+3. **Max span on exceed** - decline and explain (recommended), or split at the cap. **Resolved:
+   decline and explain** - see §11's max-span mutation and §3f's message contract.
+4. **The day-event re-ask defect** (§6) - backlog entry, as recommended, or fold into Stage 2c.
+   **Resolved: backlog entry** - `(ll)`, carrying the correction that the trip day-key fix must
+   NOT be applied to day events.
 
 ---
 
@@ -517,4 +526,73 @@ the real data exercises it.
   while every placement shared one naming default; `TRIP_DAY` is the first placement whose
   template Stage 2d will genuinely need to differ. Resolving `(mm)` is a prerequisite for 2d, not
   an optional cleanup beside it.
-4. **The day-event re-ask defect** (§6)- backlog entry, as recommended, or fold into Stage 2c.
+
+---
+
+## 12. Built: Stage 2c, persistence only (2026-07-28)
+
+Schema **v12**: `trips` and `trip_days`, exactly as designed in §6 - identity is the row (`id`),
+never a membership hash. `create_trip`, `trip_for_day`, `update_trip_days` live on `Catalog`
+(`packages/truestill-core/src/truestill_core/catalog.py`). `detect_trips` (§11) is wired to
+**nothing** here - it stays pure; the join to persistence is Stage 2d's job.
+
+### The first schema-level down-migration in this codebase, and why it is safe here
+
+`downgrade_v12_to_v11` reverses `_add_trip_tables` - drop `trip_days`, drop `trips`, reset
+`PRAGMA user_version` to 11. Every migration before v12 (`_MIGRATIONS`) is forward-only; "reversible
+migrations" elsewhere in this codebase (`IMPLEMENTATION_STANDARDS.md`, the v11 entry) means an
+*undoable file move* (`migration_journal`/`migration_runs`), not a *schema* undo - there was no
+DDL-reversal precedent to match, so this is new. It is safe to add narrowly, for v12 only: v12
+*adds* two self-contained tables and alters nothing v11 already had, so dropping them back is exact
+rather than an approximation. **Testing/rollback only** - no CLI path calls it, nothing in `Catalog`
+wires it in.
+
+### The first declared foreign key in this codebase
+
+`trip_days.trip_id REFERENCES trips(id)` is the schema's first `REFERENCES` clause. SQLite disables
+foreign-key enforcement by default, per connection, unless `PRAGMA foreign_keys = ON` is set - and
+nothing in `Catalog.__init__` ever had reason to before now. Without setting it, the fixture proving
+the FK would have passed for the wrong reason (nothing to enforce, nothing to catch), so it is now
+set on every connection. Checked for blast radius first: no other table in the schema declares a
+`REFERENCES`, so enabling enforcement changes nothing else's behaviour.
+
+### `update_trip_days` also refreshes the trip's own `start_date`/`end_date`
+
+Not in the original method list, added because leaving them stale is a real correctness bug, not a
+hypothetical one: a trip row whose `start_date` still names a day just trimmed off is a row lying
+about its own span. The identity (`id`, `name`, `slug`) is untouched - only membership and the
+row's own recorded range change, in the same transaction.
+
+### Fixtures, and the mutation each was run against
+
+Per `ENGINEERING_STANDARD.md` §4, proven to fail against its named defect before being trusted:
+
+| Fixture | Mutation | Result before restoring |
+|---|---|---|
+| Up v11→v12, down v12→v11, byte-equivalent | `downgrade_v12_to_v11` forgets to drop `trips` | schema fingerprints differed by exactly the leftover table |
+| `trip_days.day` PK rejects a second trip on the same day | PK dropped from the column | a second `create_trip` on an already-claimed day succeeded instead of raising |
+| Edge adjust keeps `trip_id` and `name` stable | `update_trip_days` rewritten to delete-then-reinsert the trip row | the trip vanished under its original id (see below - the first version of this fixture did not catch this) |
+| `trip_days.trip_id` FK requires a real trip | `PRAGMA foreign_keys = ON` removed | inserting a `trip_days` row with a nonexistent `trip_id` succeeded instead of raising |
+
+**The identity-stability fixture needed a second attempt to actually discriminate.** The first
+version created only the trip under test; a delete-then-reinsert mutation happened to land back on
+the *same* id, because plain `INTEGER PRIMARY KEY` (no `AUTOINCREMENT`) assigns the next rowid as
+`max(existing) + 1` at insert time - with the table otherwise empty, deleting id 1 and reinserting
+produces id 1 again, by coincidence rather than correctness. The fixture now creates a second,
+higher-numbered trip *before* the edit under test, so a genuine delete-and-recreate lands on a
+visibly different id. This is exactly the discipline `ENGINEERING_STANDARD.md` §4 asks for - a
+fixture that cannot fail against the bug is not a regression test - applied one level deeper:
+the first mutation attempt revealed the fixture itself needed strengthening, not just the code.
+
+### Complexity
+
+`create_trip`: one insert plus one insert per claimed day, **O(days)**. `trip_for_day`: one
+`PRIMARY KEY`-indexed lookup, **O(1)**. `update_trip_days`: one delete, one insert per day, one
+row update, **O(days)**. No table scan anywhere in the CRUD surface.
+
+### Not built here, on purpose
+
+No layout wiring, no `TRIP_DAY` template, no UI, no `migrate-layout` adoption - those are Stage 2d
+and 2e. `detect_trips`'s output (`TripProposal`) is not yet converted to `create_trip` calls
+anywhere; that conversion, and the decision of what "silence" means when `trip_for_day` reports a
+day already claimed, belong to whichever stage first has a caller to write it for.
