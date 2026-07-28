@@ -106,6 +106,20 @@ re-implementing something the repo already has.
   This is the same reasoning as the E2E lane's no-retry rule and the mutation checks used on the
   commit-msg hook and the type fence: **a guard is not known to work until it has been seen to
   fail.**
+- **A guard test must be proven not to cry wolf: assert it ignores legitimate look-alikes.**
+  The sibling of the rule above, and the failure it prevents is worse. A fixture that cannot fail
+  is merely worthless; a guard that fires on ordinary input gets **switched off**, taking its real
+  coverage with it. So a guard states both halves: what it catches, and what it must let through.
+
+  *Worked example - the mangled-dash guard, 2026-07-28.* It rejects `word` + hyphen + space +
+  `word`, the shape a botched em-dash sweep leaves in shipped copy. That pattern is one character
+  away from things this repo is full of: `year-first`, `re-hash`, `2014-08-15`, `--apply`. The
+  test asserts all four are accepted, in the same test that asserts the real damaged string is
+  rejected. Without the second half the guard would have been disabled the first time someone
+  wrote a hyphenated compound, and nobody would have recorded why.
+
+  The same shape applies wherever a check is a heuristic over real content: **name the
+  look-alikes and pin them**, or the check has a short life.
 - **Errors.** Exceptions typed and specific - no bare `except`. User-facing CLI errors are
   actionable sentences, not tracebacks. Every subprocess call checks its return code and
   surfaces stderr on failure. Partial-failure policy: one bad file never aborts a batch - it
