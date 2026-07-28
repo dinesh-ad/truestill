@@ -419,6 +419,7 @@ the full text; this is the short list nobody should have to rediscover.
 | What makes a user-typed name safe as a folder (NFC, 255 bytes, collisions)? | `filename-safety-research.md` |
 | What may `clean-empty` delete, and what does it refuse? | `empty-folder-cleanup-research.md` |
 | Why was the category-first layout removed rather than kept for compatibility? | `legacy-decommission-research.md` |
+| How do multi-day trips get grouped and named, and why is a day never split? | `trip-grouping-research.md` |
 
 **Historical caveat:** `docs/*-research.md` and the QA report are records of what was
 investigated and when. Several predate the rename and refer to `vaeon` or
