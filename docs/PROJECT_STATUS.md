@@ -366,6 +366,12 @@ the full text; this is the short list nobody should have to rediscover.
 | What does the UI look like and why? | `ui-v1-research.md`, `ui-v2-research.md` |
 | Does the app actually work end to end? | `walkthrough-qa-report.md` + `qa-screenshots/` |
 | Which formats are covered? | `format-coverage-audit.md` |
+| Why is the year the top-level folder, and how was the default changed? | `default-layout-research.md` |
+| How does a migration decide where a file goes, when the catalog stores a label? | `migration-routing-research.md` |
+| Why is a WhatsApp filename date refused when a screenshot's is trusted? | `messenger-dates-research.md` |
+| What makes a user-typed name safe as a folder (NFC, 255 bytes, collisions)? | `filename-safety-research.md` |
+| What may `clean-empty` delete, and what does it refuse? | `empty-folder-cleanup-research.md` |
+| Why was the category-first layout removed rather than kept for compatibility? | `legacy-decommission-research.md` |
 
 **Historical caveat:** `docs/*-research.md` and the QA report are records of what was
 investigated and when. Several predate the rename and refer to `vaeon` or
