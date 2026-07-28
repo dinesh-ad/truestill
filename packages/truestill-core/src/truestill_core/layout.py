@@ -30,6 +30,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from enum import StrEnum
 from pathlib import PurePosixPath
 from typing import Protocol
 
@@ -64,8 +65,15 @@ KNOWN_TOKENS: frozenset[str] = frozenset(_DATE_TOKENS) | _NON_DATE_TOKENS
 #: The structure truestill has always produced; the default until a catalog stores its own.
 DEFAULT_TEMPLATE_STRING = "{category}/{yyyy}/{mm}"
 
-#: The catalog settings key under which a library's chosen template is persisted.
+#: The catalog settings key under which a library's chosen timeline template is persisted.
 LAYOUT_TEMPLATE_KEY = "layout_template"
+
+#: The evented timeline template, when it differs from the un-evented one (the "Year / Event"
+#: preset puts an event under the year but an ordinary photo under the month). Absent means
+#: "same as the timeline", which is true of every other layout and of every legacy library.
+#: A second key rather than a structured value keeps every already-stored template readable
+#: exactly as it was written.
+LAYOUT_EVENT_TEMPLATE_KEY = "layout_event_template"
 
 #: Characters illegal in a path *component* on Windows (and thus banned for portability),
 #: minus ``/`` which is our segment separator. ``_VALUE`` also bans ``/`` so a token value
@@ -83,6 +91,49 @@ _WIN_RESERVED: frozenset[str] = frozenset(
 #: A rendered relative path longer than this (before the drive root) earns a preview warning;
 #: Windows' classic limit is 260 and we leave headroom for the destination root and filename.
 PATH_LENGTH_WARN = 200
+
+
+class EventNaming(StrEnum):
+    """How a named event's folder is spelled."""
+
+    #: ``2014-08-20 - Goa Trip`` - readable when the folder is copied away from its parents.
+    READABLE = "readable"
+    #: ``20140820_goa-trip`` - the pre-year-first spelling, kept so a legacy library is stable.
+    SLUG = "slug"
+
+
+#: Longest event *name* allowed in a folder. Names are user input becoming a directory, and a
+#: path component is bounded on every filesystem.
+MAX_EVENT_NAME = 60
+
+
+def event_folder(
+    start: datetime, slug: str, name: str | None, naming: EventNaming, notes: list[str]
+) -> str:
+    """The event folder name, path-safe by construction.
+
+    ``name`` is user input that becomes a directory, so it gets exactly what a template literal
+    gets: illegal characters replaced, trailing dots and spaces trimmed, Windows reserved names
+    defused, length bounded. Everything it changes is appended to ``notes`` - which is what makes
+    it **visible at preview time** rather than discovered later on the filesystem
+    (`IMPLEMENTATION_STANDARDS.md` §9, never-silent).
+    """
+    if naming is EventNaming.SLUG or not name:
+        return event_dirname(start, slug)
+    cleaned = _sanitize_value(name)[:MAX_EVENT_NAME].strip().rstrip(" .")
+    if cleaned != name:
+        notes.append(f"event name {name!r} was adjusted to {cleaned!r} to be path-safe")
+    # "Usable" means it still carries a letter or digit. Emptiness is not the test: the
+    # sanitizer *replaces* illegal characters rather than dropping them, so a name of "///"
+    # survives as "___" -- truthy, and a folder nobody could recognise as their trip.
+    if not any(character.isalnum() for character in cleaned):
+        notes.append(f"event name {name!r} left nothing usable; used the slug instead")
+        return event_dirname(start, slug)
+    folder = f"{start:%Y-%m-%d} - {cleaned}"
+    if _is_reserved(folder):
+        folder = f"_{folder}"
+        notes.append(f"event folder {folder!r} avoided a Windows reserved name")
+    return folder
 
 
 class TemplateError(ValueError):
@@ -169,6 +220,9 @@ class RenderContext:
     captured_at: datetime | None = None
     #: ``(start, slug)`` when the file belongs to a named event, else ``None``.
     event: tuple[datetime, str] | None = None
+    #: The event's human name (``events.name``). `slugify` casefolds and hyphenates, so a
+    #: readable folder cannot be rebuilt from the slug - the name has to travel with it.
+    event_name: str | None = None
 
     @property
     def date(self) -> datetime | None:
@@ -182,9 +236,14 @@ class LayoutTemplate:
 
     template: str
     segments: tuple[str, ...]
+    #: How this template spells an event folder. Carried here so organize, migrate and preview
+    #: cannot disagree about it.
+    event_naming: EventNaming = EventNaming.READABLE
 
     @classmethod
-    def parse(cls, template: str) -> LayoutTemplate:
+    def parse(
+        cls, template: str, *, event_naming: EventNaming = EventNaming.READABLE
+    ) -> LayoutTemplate:
         """Parse and fully validate a template, or raise :class:`TemplateError`.
 
         Everything checkable from the template *alone* is caught here, so an invalid template is
@@ -214,7 +273,7 @@ class LayoutTemplate:
             if not _TOKEN.search(segment) and _is_reserved(segment):
                 message = f"segment {segment!r} is a reserved name on Windows"
                 raise TemplateError(message)
-        return cls(template=cleaned, segments=segments)
+        return cls(template=cleaned, segments=segments, event_naming=event_naming)
 
     def has_event_token(self) -> bool:
         """Whether the template places events explicitly (vs. relying on the append rule)."""
@@ -248,7 +307,7 @@ class LayoutTemplate:
 
         path = PurePosixPath(*parts) if parts else PurePosixPath()
         if context.event is not None and not self.has_event_token():
-            path = path / event_dirname(*context.event)
+            path = path / event_folder(*context.event, context.event_name, self.event_naming, notes)
         return path, notes
 
     def _render_segment(
@@ -259,7 +318,11 @@ class LayoutTemplate:
             if token == "category":
                 value = context.category
             elif token == "event":
-                value = event_dirname(*context.event) if context.event is not None else ""
+                value = (
+                    event_folder(*context.event, context.event_name, self.event_naming, notes)
+                    if context.event is not None
+                    else ""
+                )
             else:
                 value = format(date, _DATE_TOKENS[token]) if date is not None else ""
             if not value:
@@ -316,16 +379,142 @@ def preview(
 #: The default layout, parsed once.
 DEFAULT_TEMPLATE = LayoutTemplate.parse(DEFAULT_TEMPLATE_STRING)
 
-#: Named starting points, drawn from what mainstream organizers actually ship (see
-#: docs/org-structure-research.md §1b.4). The first equals the default. Power users can edit
-#: any of these into a custom template.
-PRESETS: dict[str, str] = {
-    "category-year-month": "{category}/{yyyy}/{mm}",
-    "category-year-month-day": "{category}/{yyyy}/{mm}/{dd}",
-    "category-year": "{category}/{yyyy}",
-    "flat-date": "{yyyy}-{mm}-{dd}",
-    "category-year-event": "{category}/{yyyy}/{event}",
+#: The rule whose files are the timeline. Exactly one rule in the chain produces camera photos
+#: (`categorize.make_device_rule`), and routing keys on the **rule, not the label**: under
+#: ``--by-device`` the label is the hardware name, so a label test would send a whole library
+#: into a side bin.
+TIMELINE_RULE = "device"
+
+#: Where everything that is not the timeline goes. **Fixed, never user-editable.** The side bin
+#: is a quarantine - screenshots and messenger images stay out of the photo timeline - so no
+#: template a user can type may reshape a side bin into a timeline path.
+SIDE_BIN_TEMPLATE_STRING = "{category}/{yyyy}/{yyyy}-{mm}"
+SIDE_BIN_TEMPLATE = LayoutTemplate.parse(SIDE_BIN_TEMPLATE_STRING)
+
+#: Tokens forbidden in the editable timeline template. Rejecting ``{category}`` at **input** is
+#: what makes category-first and category-last structurally impossible for the timeline, rather
+#: than merely absent from the preset list.
+TIMELINE_FORBIDDEN_TOKENS: frozenset[str] = frozenset({"category"})
+
+
+def parse_timeline_template(template: str) -> LayoutTemplate:
+    """Parse a timeline template a **user** supplied, rejecting ``{category}``.
+
+    Deliberately not the same door as :meth:`LayoutTemplate.parse`. Input is validated strictly;
+    **stored** values stay leniently parsed, because a library organized before the year-first
+    default has a category-first template written down (`pin_existing_layout`) and must keep
+    resolving. Rejecting at load would break exactly the libraries the pin exists to protect.
+    """
+    parsed = LayoutTemplate.parse(template)
+    for segment in parsed.segments:
+        for token in _TOKEN.findall(segment):
+            if token in TIMELINE_FORBIDDEN_TOKENS:
+                message = (
+                    f"{{{token}}} cannot be used in the timeline layout. The timeline is "
+                    "chronological; category folders are placed automatically beside it "
+                    "(Screenshots/, WhatsApp/ ...). Use date tokens only - for example "
+                    "{yyyy}/{yyyy}-{mm}."
+                )
+                raise TemplateError(message)
+    return parsed
+
+
+@dataclass(frozen=True)
+class LayoutScheme:
+    """A whole layout: two timeline templates, the fixed side bin, and the router between them.
+
+    Two timeline templates rather than one because an event is a **second routing axis**, not a
+    conditional: "Year / Event" puts an evented file under ``{yyyy}`` and an ordinary one under
+    ``{yyyy}/{yyyy}-{mm}``, which no single template can express. Selecting a template is the
+    entire mechanism - the token grammar stays a description of structure, never a language.
+    """
+
+    timeline: LayoutTemplate
+    timeline_evented: LayoutTemplate
+    side_bin: LayoutTemplate = SIDE_BIN_TEMPLATE
+
+    @property
+    def is_legacy(self) -> bool:
+        """Whether this is a pinned pre-year-first library (its timeline names a category)."""
+        return any("category" in _TOKEN.findall(seg) for seg in self.timeline.segments)
+
+    def template_for(self, rule: str, *, evented: bool) -> LayoutTemplate:
+        """Route: the rule picks timeline vs side bin; the event flag picks which timeline."""
+        if rule != TIMELINE_RULE:
+            return self.side_bin
+        return self.timeline_evented if evented else self.timeline
+
+    def render(self, rule: str, context: RenderContext) -> PurePosixPath:
+        return self.template_for(rule, evented=context.event is not None).render(context)
+
+
+@dataclass(frozen=True)
+class Preset:
+    """A named, shippable layout."""
+
+    key: str
+    title: str
+    timeline: str
+    timeline_evented: str
+
+    def scheme(self) -> LayoutScheme:
+        return LayoutScheme(
+            timeline=LayoutTemplate.parse(self.timeline),
+            timeline_evented=LayoutTemplate.parse(self.timeline_evented),
+        )
+
+
+#: The shipped layouts. **Year-first only.** Two independent research syntheses put the year
+#: above the source, so category-first is removed from the product rather than demoted - and
+#: there is no bare-month preset either, because ``YYYY/MM`` stops being self-describing the
+#: moment the folder is copied away from its parent, which is the principle this restores.
+PRESETS: dict[str, Preset] = {
+    "year-month-event": Preset(
+        key="year-month-event",
+        title="Year / Month / Event",
+        timeline="{yyyy}/{yyyy}-{mm}",
+        timeline_evented="{yyyy}/{yyyy}-{mm}",
+    ),
+    "year-event": Preset(
+        key="year-event",
+        title="Year / Event (events sit under the year)",
+        timeline="{yyyy}/{yyyy}-{mm}",
+        timeline_evented="{yyyy}",
+    ),
+    "year-month-day": Preset(
+        key="year-month-day",
+        title="Year / Month / Day",
+        timeline="{yyyy}/{yyyy}-{mm}/{yyyy}-{mm}-{dd}",
+        timeline_evented="{yyyy}/{yyyy}-{mm}/{yyyy}-{mm}-{dd}",
+    ),
 }
+
+#: The preset a library gets when it has not chosen one. **Not yet in force** - the default
+#: constant still points at the legacy shape until the flip commit; this names the destination.
+DEFAULT_PRESET = PRESETS["year-month-event"]
+
+
+def resolve_scheme(catalog: CatalogLike) -> LayoutScheme:
+    """The whole layout in force for a catalog, router included. Pure; never writes.
+
+    A legacy (pinned) library resolves to a scheme whose timeline still carries ``{category}``,
+    whose side bin *is* that same template, and whose events keep their slug spelling - so it
+    renders exactly as it always has.
+    """
+    stored = effective_layout_string(catalog) or DEFAULT_TEMPLATE_STRING
+    legacy = "category" in stored
+    naming = EventNaming.SLUG if legacy else EventNaming.READABLE
+    timeline = LayoutTemplate.parse(stored, event_naming=naming)
+    evented_stored = catalog.get_setting(LAYOUT_EVENT_TEMPLATE_KEY)
+    evented = (
+        LayoutTemplate.parse(evented_stored, event_naming=naming) if evented_stored else timeline
+    )
+    return LayoutScheme(
+        timeline=timeline,
+        timeline_evented=evented,
+        side_bin=timeline if legacy else SIDE_BIN_TEMPLATE,
+    )
+
 
 #: Three representative files for the live preview: a dated camera photo, a dated messenger
 #: image, and an undated file -- enough to show date placement and the Undated fallback.

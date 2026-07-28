@@ -15,6 +15,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from truestill_core.catalog import Catalog
+from truestill_core.categorize import CategoryMatch, Confidence
+from truestill_core.destinations import LocalDestination
 from truestill_core.layout import (
     DEFAULT_TEMPLATE,
     LAYOUT_TEMPLATE_KEY,
@@ -23,6 +25,33 @@ from truestill_core.layout import (
     pin_existing_layout,
     resolve_for,
 )
+from truestill_core.models import (
+    ActionStatus,
+    DateSource,
+    Decision,
+    FileHashes,
+    Resolution,
+)
+from truestill_core.organizer import execute
+
+
+def _resolution(source: Path, sha: str) -> Resolution:
+    decision = Decision(
+        source=source,
+        category=CategoryMatch(
+            label="Camera", reason="t", confidence=Confidence.MEDIUM, rule="device"
+        ),
+        captured_at=None,
+        date_source=DateSource.NONE,
+        date_tag=None,
+        relative=Path("Camera/Undated") / source.name,
+    )
+    return Resolution(
+        decision=decision,
+        hashes=FileHashes(sha256=sha, perceptual=None),
+        exact_duplicate=None,
+        near_duplicate=None,
+    )
 
 
 def _place(catalog: Catalog, sha: str = "sha-1") -> None:
@@ -116,3 +145,36 @@ def test_a_fresh_catalog_reports_no_effective_layout(tmp_path: Path) -> None:
     with Catalog(tmp_path / "c.sqlite") as catalog:
         assert effective_layout_string(catalog) is None
         assert catalog.has_placed_files() is False
+
+
+def test_a_plain_folder_organize_with_no_drive_marker_counts_as_placed(tmp_path: Path) -> None:
+    """The false negative the pin must not have, proved end to end rather than by reading.
+
+    Organizing into an ordinary folder records no `file_copies` row, because there is no drive
+    marker and therefore no drive to attribute the copy to. If "placed" were keyed on
+    `file_copies`, such a library would look untouched and the pin would skip it -- silently
+    re-shaping the very library it exists to protect. The signal is a `files` row.
+    """
+    source = tmp_path / "src"
+    source.mkdir()
+    photo = source / "a.jpg"
+    photo.write_bytes(b"some-bytes")
+    destination = tmp_path / "out"  # a plain folder: no marker is ever written here
+
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        assert catalog.has_placed_files() is False
+
+        results = execute(
+            [_resolution(photo, "sha-plain")],
+            LocalDestination(destination),
+            apply=True,
+            catalog=catalog,
+            drive_uuid=None,  # exactly the no-drive-marker case
+        )
+
+        assert [r.status for r in results] == [ActionStatus.UPLOADED]
+        assert not (destination / ".truestill-drive.json").exists()  # really no marker
+        assert catalog.copies_for_migration("any") == []  # and really no copy row
+        assert catalog.has_placed_files() is True  # yet the pin sees it
+
+        assert pin_existing_layout(catalog) is True

@@ -24,8 +24,12 @@ def test_layout_get_reports_default_and_presets(client: TestClient) -> None:
     state = client.get("/api/layout").json()
     assert state["template"] == "{category}/{yyyy}/{mm}"
     assert state["is_default"] is True
-    assert "category-year-month-day" in state["presets"]
+    assert "year-month-day" in state["presets"]
     assert len(state["preview"]) == 3  # the three sample files
+    # The payload is JSON that app.js iterates as [name, template]. Handing it preset objects
+    # would serialize dataclasses into the API -- invisible to mypy, since the response is
+    # dict[str, Any], and invisible to a test that only checks a key is present.
+    assert all(isinstance(v, str) for v in state["presets"].values())
 
 
 def test_layout_preview_valid_and_invalid(client: TestClient) -> None:

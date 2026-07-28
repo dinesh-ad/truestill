@@ -712,7 +712,10 @@ def layout_state(db: Path) -> dict[str, Any]:
     return {
         "template": current,
         "is_default": stored is None,
-        "presets": dict(PRESETS),
+        # str -> str, deliberately: the payload is JSON and app.js iterates
+        # Object.entries(presets) as [name, template]. Handing it preset objects
+        # would serialize dataclasses into the API. Pinned by a test.
+        "presets": {name: p.timeline for name, p in PRESETS.items()},
         "preview": _render_preview(resolve_template(stored)),
     }
 

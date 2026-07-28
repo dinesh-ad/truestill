@@ -17,8 +17,8 @@ def test_config_show_lists_default_and_presets(
 ) -> None:
     assert main(["config", "--db", str(tmp_path / "c.sqlite")]) == 0
     out = capsys.readouterr().out
-    assert "{category}/{yyyy}/{mm}" in out  # the default template
-    assert "category-year-month-day" in out  # presets are listed
+    assert "{category}/{yyyy}/{mm}" in out  # the default template (unchanged until the flip)
+    assert "year-month-day" in out  # presets are listed
 
 
 def test_set_template_persists_and_previews(
@@ -32,10 +32,17 @@ def test_set_template_persists_and_previews(
 
 
 def test_preset_persists_its_template(tmp_path: Path) -> None:
+    """A preset persists its resolved TEMPLATE, never its name.
+
+    That is the property which lets preset names be renamed or retired without orphaning a
+    stored setting, so it is asserted on the stored value rather than on the name.
+    """
     db = tmp_path / "c.sqlite"
-    assert main(["config", "--db", str(db), "--preset", "flat-date"]) == 0
+    assert main(["config", "--db", str(db), "--preset", "year-month-day"]) == 0
     with Catalog(db) as catalog:
-        assert catalog.get_setting(LAYOUT_TEMPLATE_KEY) == "{yyyy}-{mm}-{dd}"
+        stored = catalog.get_setting(LAYOUT_TEMPLATE_KEY)
+    assert stored == "{yyyy}/{yyyy}-{mm}/{yyyy}-{mm}-{dd}"
+    assert "year-month-day" not in (stored or "")  # the name is not what was written
 
 
 def test_invalid_template_is_rejected_and_not_saved(

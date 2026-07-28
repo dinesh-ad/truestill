@@ -1064,7 +1064,7 @@ def _print_layout_preview(template: LayoutTemplate) -> None:
 
 
 def _cmd_config(args: argparse.Namespace) -> int:
-    target = PRESETS[args.preset] if args.preset else args.set_template
+    target = PRESETS[args.preset].timeline if args.preset else args.set_template
 
     with Catalog(args.db) as catalog:
         stored = catalog.get_setting(LAYOUT_TEMPLATE_KEY)
@@ -1075,8 +1075,8 @@ def _cmd_config(args: argparse.Namespace) -> int:
             if args.preview:
                 _print_layout_preview(resolve_template(stored))
             print("\nPresets:")
-            for name, tmpl in PRESETS.items():
-                print(f"  {name:24} {tmpl}")
+            for name, preset in PRESETS.items():
+                print(f"  {name:24} {preset.timeline}")
             return 0
 
         try:

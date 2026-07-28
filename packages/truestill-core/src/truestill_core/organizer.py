@@ -30,7 +30,13 @@ from truestill_core.destinations.base import CrossDeviceError, Destination, Dest
 from truestill_core.exif import WRITE_BATCH_SIZE, build_metadata_args, write_metadata_batch
 from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import sha256_file
-from truestill_core.layout import DEFAULT_TEMPLATE, LayoutTemplate, RenderContext
+from truestill_core.layout import (
+    DEFAULT_TEMPLATE,
+    TIMELINE_RULE,
+    LayoutScheme,
+    LayoutTemplate,
+    RenderContext,
+)
 from truestill_core.models import (
     ActionResult,
     ActionStatus,
@@ -221,13 +227,18 @@ def build_relative(
     filename: str,
     *,
     template: LayoutTemplate = DEFAULT_TEMPLATE,
+    rule: str = TIMELINE_RULE,
+    scheme: LayoutScheme | None = None,
 ) -> PurePosixPath:
-    """Return the destination-relative path for a non-event file (default ``<Label>/YYYY/MM/``).
+    """Return the destination-relative path for a non-event file.
 
-    Renders through ``template`` (the catalog's layout, or the default); undated files land in
-    ``<Label>/Undated/`` so the category survives even when the date does not.
+    With a ``scheme`` the file is **routed on its rule**, not on its label: the one rule that
+    produces camera photos goes to the timeline, every other rule to a labelled side bin. Label
+    routing would break ``--by-device``, where the label is the hardware name rather than
+    ``Camera``. Without a scheme this renders through ``template`` exactly as before.
     """
-    directory = template.render(RenderContext(category=label, captured_at=captured_at))
+    context = RenderContext(category=label, captured_at=captured_at)
+    directory = scheme.render(rule, context) if scheme is not None else template.render(context)
     return directory / filename
 
 
@@ -246,6 +257,7 @@ def plan(
     tz_offset: timedelta | None = None,
     prefer_takeout: bool = False,
     template: LayoutTemplate = DEFAULT_TEMPLATE,
+    scheme: LayoutScheme | None = None,
 ) -> list[Decision]:
     """Produce one :class:`Decision` per file. Touches nothing on disk.
 
@@ -282,7 +294,14 @@ def plan(
                 date_tag=date_tag,
                 suspect_default=is_suspect_default(captured_at, date_source),
                 relative=Path(
-                    build_relative(category.label, captured_at, new_name, template=template)
+                    build_relative(
+                        category.label,
+                        captured_at,
+                        new_name,
+                        template=template,
+                        rule=category.rule,
+                        scheme=scheme,
+                    )
                 ),
             )
         )
@@ -354,6 +373,8 @@ def apply_events(
     assignments: dict[str, tuple[datetime, str]],
     *,
     template: LayoutTemplate = DEFAULT_TEMPLATE,
+    scheme: LayoutScheme | None = None,
+    names: dict[str, str] | None = None,
 ) -> list[Resolution]:
     """Rewrite named-event members into their event folder (default ``<Label>/YYYY/MM/slug/``).
 
@@ -374,13 +395,14 @@ def apply_events(
         start, slug = assignment
         label = resolution.decision.category.label
         filename = resolution.decision.relative.name
-        directory = template.render(
-            RenderContext(
-                category=label,
-                captured_at=resolution.decision.captured_at,
-                event=(start, slug),
-            )
+        context = RenderContext(
+            category=label,
+            captured_at=resolution.decision.captured_at,
+            event=(start, slug),
+            event_name=names.get(str(resolution.decision.source)) if names else None,
         )
+        rule = resolution.decision.category.rule
+        directory = scheme.render(rule, context) if scheme is not None else template.render(context)
         new_relative = Path(directory / filename)
         new_decision = replace(resolution.decision, relative=new_relative)
         updated.append(replace(resolution, decision=new_decision))
