@@ -18,7 +18,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(hh). Next free: (ii).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(ii). Next free: (jj).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -363,6 +363,39 @@ no composition refactor to schedule.
     reason and is well understood by the audience.
   - **Shares the walk-and-classify machinery with `clean-empty`** - both answer "what is on this
     drive that the catalog does not account for", from opposite ends.
+
+- **(ii) Rescue flow for side-bin and undated files.** Ruled by Dinesh from a soak finding, and
+  the finding is the argument: real memories genuinely do sit in `Saved/`, `WhatsApp/` and
+  `Undated/` - a photo someone sent you of a day you were there is still your memory - and
+  **today there is no durable way to move one onto the timeline.**
+  - **The problem, precisely.** A hand-move is *undone by the next whole-disk operation*. The
+    catalog still records the old location and the old, untrusted date, so `migrate-layout`
+    re-renders the file straight back to the bin it was rescued from. The user's correction is
+    not merely forgotten - it is actively reverted, which is worse than not supporting it.
+  - **A rescue is a CATALOG event, not a file move.** The user confirms the true capture date
+    (and optionally an event); truestill places the file in the timeline itself, through the
+    normal seam, and records the date with provenance **`human-confirmed`**. Nobody drags
+    anything; the tool does the move because the tool owns the placement.
+  - **Human-confirmed provenance outranks machine derivation, permanently.** Every subsequent
+    organize, migrate and verify routes the file by the confirmed date. This is the whole
+    feature: a rescue that does not survive every future whole-disk operation has not happened.
+  - **It fits the existing model rather than bolting on.** `DateSource` already ranks tiers
+    (EXIF → Takeout → filename → none/rejected-sentinel); `human-confirmed` becomes the new
+    highest tier and the resolver's ordering does the rest. Persisting it needs the date-source
+    column that item **(n)** has been waiting on - so (n) and (ii) share a schema step.
+  - **Surfaced from the bins and the Undated view**, and it shares (n)'s UI surface: (n) makes
+    "why is this undated?" explorable, and this is the action offered once the user is looking
+    at the answer. Building either alone builds half a screen.
+  - **Research pass before build:** how Google Photos and Immich handle user date edits, and
+    specifically their *persistence* semantics - whether a corrected date survives re-scan,
+    re-import and library moves, and what they do when embedded metadata later contradicts a
+    human edit. That last case is the design's real question: truestill's answer must be that
+    the human wins, but the disagreement should be visible rather than silent.
+  - ⚠ **Interaction with dedup, to design against:** a rescued file's content hash is unchanged,
+    so a re-run must not treat the rescue as a new file *or* re-place it by its old evidence.
+    The catalog row is the identity; the rescue edits it.
+  - **Sequencing: post-arc.** Priority argued **up** by the soak finding - without it, rescuing
+    anything out of a side bin is not merely unsupported but impossible to do durably.
 
 - **(gg) Adaptive day-folder threshold for Everyday photos.** Ruled by Dinesh from a soak
   finding: a heavy un-evented day drowns the monthly `Everyday` bucket, which is exactly the
