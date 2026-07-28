@@ -144,18 +144,19 @@ when a real corpus shows a file it - and only it - can *correctly* date; hachoir
 one is ever justified, is **ffprobe** (the only sentinel-safe parser observed). When that happens,
 the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the filename tier.
 
-> **Schema note (twice-moved - read the current line, not the reservation).** This policy
+> **Schema note (repeatedly moved - read the current line, not the reservation).** This policy
 > originally reserved catalog **schema v9** for persisted date **provenance** (`date_tool`,
 > `date_field`). v9 shipped as `reclaim_journal`; the note was then updated to reserve v10, and
-> **v10 shipped as `inplace_runs` + `inplace_moves`**. The `files` table still has no
-> date-source column, so **the next free version is v11**, and that is where provenance lands.
+> **v10 shipped as `inplace_runs` + `inplace_moves`**; the note was updated again to reserve
+> v11, and **v11 shipped as `migration_runs`** (completed-migration reversibility); **v12 then
+> shipped as `trips` + `trip_days`**. The `files` table still has no date-source column.
 >
 > The reservation keeps moving because a *reserved* version number is not a reservation - it is
 > a guess about which feature ships next, and the feature that actually ships takes the number.
-> **Do not reserve a version again.** `DateSource` is already resolved per file and already
-> aggregated per run by `models.date_quality` and the two report surfaces; only the
-> *library-wide* figure (BACKLOG item (n)) needs a column, and it takes whatever version is
-> free on the day it is built.
+> **Do not reserve a version again, and this note will not name one.** `DateSource` is already
+> resolved per file and already aggregated per run by `models.date_quality` and the two report
+> surfaces; only the *library-wide* figure (BACKLOG item (n)) needs a column, and it takes
+> whatever version is free on the day it is built - whichever number that turns out to be.
 
 ---
 
@@ -221,12 +222,12 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
 ## 3. Data contract (catalog)
 
 - **Single SQLite file**, stdlib `sqlite3` (`catalog.py::Catalog`). No server.
-- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 11`**.
+- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 12`**.
   Migrations are ordered, idempotent functions in `_MIGRATIONS`; a catalog newer than the code
   is refused (`CatalogVersionError`). Migration coverage tested in `tests/test_catalog.py`.
-- **Table inventory (v11):** `files`, `albums`, `file_albums`, `events`, `skipped_clusters`,
+- **Table inventory (v12):** `files`, `albums`, `file_albums`, `events`, `skipped_clusters`,
   `drives`, `file_copies`, `settings`, `migration_journal`, `reclaim_journal`,
-  `inplace_runs`, `inplace_moves`, `migration_runs`.
+  `inplace_runs`, `inplace_moves`, `migration_runs`, `trips`, `trip_days`.
 - **Migration ledger:** v2 `size`, v3 `original_name`, v4 event tables (`events` +
   `skipped_clusters` + `files.event_id`), v5 Takeout (`files.copy_sha256` + `albums` +
   `file_albums`), v6 drive identity (`drives` + `file_copies`), v7 key/value `settings`
@@ -234,7 +235,14 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   v9 `reclaim_journal` (audit/resume for `truestill reclaim` deletions), v10 `inplace_runs` +
   `inplace_moves` (**reversible** journal for rename-based relocation), v11 `migration_runs` +
   `migration_journal.run_id`/`completed_at` (makes a **completed** migration reversible, not
-  merely resumable).
+  merely resumable), v12 `trips` + `trip_days` (multi-day trips, identity is the **row**
+  - `trips.id` - never a membership hash; `trip_days.day` is a primary key, so a day belongs to
+  at most one trip). v12 is also the first **schema-level down-migration** in this codebase
+  (`downgrade_v12_to_v11`, testing/rollback only - no runtime path calls it) and introduces the
+  first **declared foreign key** (`trip_days.trip_id REFERENCES trips(id)`), which is why
+  `Catalog.__init__` now sets `PRAGMA foreign_keys = ON` per connection - SQLite does not
+  enforce a `REFERENCES` clause unless that pragma is set, and without it the FK fixture would
+  have passed for the wrong reason.
 - **Dual-hash rule.** `files.sha256` is the **source** (pre-write) hash - the **dedup
   identity**. `files.copy_sha256` is the organized copy's **post-write** hash - the
   **verification identity** (equal to `sha256` for the byte-identical normal pipeline; differs
