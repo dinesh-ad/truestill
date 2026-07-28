@@ -18,7 +18,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(ll). Next free: (mm).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(mm). Next free: (nn).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -138,6 +138,23 @@ is invisible here is retired, not free.**
   fixed offset for the whole run, which cannot correctly date a library that spans timezones;
   the real fix derives each photo's timezone from its GPS. The near-midnight caveat is
   surfaced honestly in the ingest report until this exists.
+
+- **(mm) `migrate.py` asks the wrong template how an event folder is spelled.** Flagged during
+  the Stage 2a placement refactor and left in place there, because a pure refactor is the wrong
+  commit to change behaviour in. **Must be resolved as part of, or before, trip migration.**
+  - **The defect.** `plan_migration` reads `scheme.template_for(Placement.EVERYDAY).event_naming`
+    to decide how to spell an *event* folder - the un-evented template, not `EVENT_DAY`. It is
+    the wrong question asked of the wrong shape.
+  - **Why it is harmless today, and only today.** Every template is parsed with the same
+    `EventNaming.READABLE` default, so all placements answer identically and the bug cannot be
+    observed. It is latent, not absent.
+  - **Why trip grouping breaks that.** Trips add `TRIP_DAY` as a fourth shape with its own
+    template, and the whole point of per-placement templates is that they can differ. The moment
+    a scheme carries a different naming for one shape, migration spells trip and event folders
+    using whatever the *Everyday* template happens to say - and a migration that names a folder
+    differently from an organize run relocates files into a second, near-identical tree.
+  - **Fix:** ask each file's own placement for its naming, which is what the router is for. Cheap
+    now; it is the sort of thing that is expensive once a real library has been migrated by it.
 
 - **(kk) Persist GPS at ingest - it is read and then thrown away.** Found while designing trip
   grouping (`trip-grouping-research.md` §5), and the scope is much wider than trips.
