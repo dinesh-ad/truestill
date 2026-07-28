@@ -24,7 +24,7 @@ The command is `truestill`; the local web UI is `truestill-app`. Drives are iden
 | Where does the project stand? What is next? | [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) |
 | How do I work here? (workflow, research order, code standard) | [`docs/ENGINEERING_STANDARD.md`](docs/ENGINEERING_STANDARD.md) |
 | What are the binding rules? (invariants, architecture, data, gates) | [`docs/IMPLEMENTATION_STANDARDS.md`](docs/IMPLEMENTATION_STANDARDS.md) |
-| Why is the product this way? (settled stances, no accounts/telemetry) | [`docs/DECISIONS.md`](docs/DECISIONS.md) |
+| Why is the product this way? (settled stances: accounts, licensing, monetization) | [`docs/DECISIONS.md`](docs/DECISIONS.md) |
 | What is approved but unbuilt? | [`docs/BACKLOG.md`](docs/BACKLOG.md) |
 | How does the code lay out day to day? | [`docs/CLAUDE.md`](docs/CLAUDE.md) |
 | What does it cost, and what should I not "optimize"? | [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) |
@@ -38,5 +38,5 @@ carries a dated **superseded-by** header. They are never rewritten to match the 
 record that is edited to stay correct stops being a record. **When a research doc and
 `IMPLEMENTATION_STANDARDS.md` disagree, the contract wins.**
 
-New here? `docs/PROJECT_STATUS.md` **§0** is the fresh-clone setup, and **§2.1** is what the
-in-progress soak test has found so far.
+New here? `docs/PROJECT_STATUS.md` **§0** is the fresh-clone setup, **§2.0** is the closed
+year-first layout arc, and **§2.1** is what the in-progress soak test has found so far.
