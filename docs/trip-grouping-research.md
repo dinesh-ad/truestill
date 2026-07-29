@@ -1,14 +1,15 @@
 # Trip grouping: multi-day events, and the router that has to carry them
 
-Status: **Design approved (2026-07-28, `b5cba4a`, rulings `fb60c10`). Stages 2a-2c are built**:
-2a the router refactor (`1247055`), 2b detection (§11), 2c persistence, catalog v12 (§12). Backlog
-`(mm)` is resolved (`1ed021e`), which unblocked 2d. **2d is planned as sub-stages 13.0-13.4**
-(§13, 2026-07-29); **13.0** (verification spike, §13.6), **13.1** (the detection-to-persistence
-join, §13.1), **13.2** (`Placement.TRIP_DAY` and the render seam, §13.2), **13.3a** (reveal in
-file manager on the apply-to-disk result, §13.3a) and **13.3b** (the proposal-card redesign - the
-inversion, split/merge as a pair, EVENT/TRIP labelling, §13.3b) are built. **Next: 13.4**
-(migration wiring - the confirmed-trip apply-to-disk step 13.3b deliberately does not reach). 2e
-(migration adoption) remains after the rest of 2d.
+Status: **The trip arc is COMPLETE, end to end (2026-07-29).** Design approved (2026-07-28,
+`b5cba4a`, rulings `fb60c10`); 2a the router refactor (`1247055`), 2b detection (§11), 2c
+persistence, catalog v12 (§12). Backlog `(mm)` resolved (`1ed021e`) unblocked 2d, planned as
+sub-stages 13.0-13.4 (§13): **13.0** (verification spike, §13.6), **13.1** (the
+detection-to-persistence join, §13.1), **13.2** (`Placement.TRIP_DAY` and the render seam, §13.2),
+**13.3a** (reveal in file manager, §13.3a), **13.3b** (the proposal-card redesign, §13.3b) and
+**13.4** (migration wiring, §13.4, `db5e517`) are all built. 13.4 also subsumes what the original
+design called **Stage 2e** (adoption for existing libraries), since it rides the same
+`plan_migration` the CLI's `migrate-layout` already calls - no separate 2e work was needed.
+Nothing in this arc remains open; see `PROJECT_STATUS.md` §2.2 for what is next.
 
 Read [`events-clustering-research.md`](events-clustering-research.md) §7 first: it is the reason
 this document exists.
@@ -754,13 +755,13 @@ as the CLI does.**
   - **No `{trip}` token** - §8 already rejects one (a conditional inside a template is the DSL
     the one-seam rule forbids), so the two-segment append is the *only* way a trip renders,
     unconditionally, exactly like the event append it sits beside.
-  - **The (mm) collision-scoping boundary, baselined, not widened** (as instructed - that is
-    13.4's job): a new test constructs a scheme where `TRIP_DAY`'s naming genuinely diverges
-    from `EVENT_DAY`'s (bypassing the derived default via the `trip_day=` override - no shipped
+  - **The (mm) collision-scoping boundary, baselined here, widened in 13.4 (built).** A test at
+    this stage constructs a scheme where `TRIP_DAY`'s naming genuinely diverges from
+    `EVENT_DAY`'s (bypassing the derived default via the `trip_day=` override - no shipped
     preset does this yet, exactly as no shipped preset ever made `EVENT_DAY` diverge from
-    `EVERYDAY` before `(mm)`), and pins that the render seam can express the divergence. This is
-    a render-level baseline only - it does not exercise `migrate.py`'s grouping, which this
-    sub-stage does not touch.
+    `EVERYDAY` before `(mm)`), and pins that the render seam can express the divergence -
+    render-level only, not yet `migrate.py`'s grouping, which this sub-stage does not touch. 13.4
+    later widened the grouping itself; see its own note for what that found.
   - **A stale cross-reference in this document's own earlier draft, fixed in place**: this
     section's "shape TBD" note pointed at "§13.3's precedence decision," but two different
     sections in this document are both informally "13.3" - the *sub-stage* bullet (review UI,
@@ -893,11 +894,12 @@ changed.
   raw cluster items into one `EventCandidate` (no year/span check possible on a bag of items with
   no calendar structure). Because every merge must now obey §3e/§3f, merging two gap-separated
   day-events - even when neither looks like a "trip" on its own - always produces a `TripProposal`.
-  A trip does not reach `migrate.py`/apply-to-disk yet (that is 13.4, unchanged scope); naming
-  such a merge therefore persists it to the catalog but does not (yet) relocate its files, where
-  the pre-13.3b merge-then-apply-to-disk flow did. The app surfaces this honestly (a named trip's
-  files are called out as not-yet-movable, distinct from an event's real "already in its folder"
-  case) rather than reporting a false "nothing to move."
+  **At this stage** a trip did not yet reach `migrate.py`/apply-to-disk (that was 13.4's job, then
+  unbuilt); naming such a merge persisted it to the catalog but did not relocate its files, where
+  the pre-13.3b merge-then-apply-to-disk flow did, and the app said so honestly rather than
+  reporting a false "nothing to move." **Resolved in 13.4 (built):** a merged trip now previews
+  and applies exactly like a named event always has - the honesty banner this stage added was
+  removed once it had something true to say instead.
 - **A narrow, deliberate labelling edge case:** `split_trip` can split a 2-day trip (the smallest
   a proposal can be) into two 1-day pieces. Each remains a `TripProposal` under the hood - still
   confirmed through `commit_trips` like any other trip - but is *labelled* "event" (`ReviewCard.
@@ -927,7 +929,7 @@ changed.
   13.4's migration wiring (a confirmed trip does not move files); the CLI fresh-organize path for
   trips (§13.3 item 6, unchanged recommendation).
 
-**13.4 - Migration wiring: TRIP_DAY-aware `plan_migration`.**
+**13.4 - Migration wiring: TRIP_DAY-aware `plan_migration`. BUILT 2026-07-29 (`db5e517`).**
 - **Prerequisite cleared:** 13.0 found a real gap (the app's migrate path side-binned `Camera`)
   and it is fixed - §13.7. This sub-stage no longer waits on it.
 - **Builds:** `copies_for_migration` (or a sibling) supplies each row's trip membership (a
@@ -989,7 +991,7 @@ warning for a folder nothing would ever use, confirmed failing, restored); the `
 (mutation: disabling it, confirmed silent, restored); preview alone moves nothing, apply relocates
 exactly what preview showed.
 
-### 13.3 Load-bearing decisions 2d forces, not yet settled
+### 13.3 Load-bearing decisions 2d forced - all now settled
 
 1. **Trip-vs-event precedence when a day has both - RESOLVED, built 13.2.** `classify()` checks
    `context.trip` before `context.event` and returns unconditionally when it is set, exactly the
@@ -1000,23 +1002,22 @@ exactly what preview showed.
    independently-configurable field was added. An explicit `trip_day=` override exists as a
    construction-time escape hatch (used by 13.2's own (mm)-boundary baseline test), but no
    production caller uses it.
-3. **The `(mm)` collision-scoping widening** - named above in 13.4. Real, and this plan places it
-   in 13.4 (migration wiring), not 13.2 (pure render) or 13.3 (review UI, no relocation) - it only
-   matters once two placements' names can actually collide on disk, which nothing before 13.4
-   does.
-4. **Schema:** no new version needed for the join itself. `trip_days.day` (PK, already v12) answers
-   "is this day claimed" for any date; a day-keyed SQL join against `f.captured_at`'s date is
-   sufficient for `copies_for_migration` to attach trip membership, the same way it already joins
-   `events` by `f.event_id`. Flag if 13.1's real build surfaces a reason this is insufficient -
-   none is evident from the design alone.
+3. **The `(mm)` collision-scoping widening - RESOLVED, built 13.4.** Event and trip headers are
+   disambiguated together, grouped by resolved naming rather than placement. Proven there, not
+   assumed: under this schema's day-claim exclusivity, an event and a trip header can never
+   actually collide - see 13.4's own note for the full finding.
+4. **Schema - CONFIRMED, built 13.4 exactly as predicted.** No new version was needed for the
+   join. `trip_days.day` (PK, already v12) answers "is this day claimed" for any date; a
+   day-keyed SQL join against `f.captured_at`'s date is what `copies_for_migration` uses to
+   attach trip membership, the same way it already joins `events` by `f.event_id`.
 5. **The "Trips & events" naming collision** (§13.1) - **RESOLVED, built 13.3b.** A card's `kind`
    ("trip" | "event") is a display label computed from day count, decoupled from the underlying
    `ReviewCard` payload; the screen's copy and per-card badge now say TRIP for a genuine multi-day
    run and EVENT for a standalone day, never "trip" for both.
-6. **Which surface 2d targets.** Recommend the app's review-in-place pattern (13.1 and 13.3, and
-   the migration step in 13.4) as the built surface; the CLI's fresh-organize path
-   (`apply_events`/`run_event_stage`-equivalent for trips) is **not built** unless demand says
-   otherwise - it has no trip-flavoured language today and nothing in the soak record asks for it.
+6. **Which surface 2d targets - RESOLVED as recommended.** The app's review-in-place pattern
+   (13.1, 13.3b, and the migration step in 13.4) is the built surface; the CLI's fresh-organize
+   path (`apply_events`/`run_event_stage`-equivalent for trips) remains **not built** - it has no
+   trip-flavoured language today and nothing in the soak record asks for it.
 
 ### 13.4 Stale or contradicted against what actually shipped
 

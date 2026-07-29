@@ -157,7 +157,7 @@ The user is running truestill on their **real library**. This is the launch gate
 **not finished**, and it has already produced ten shipped fixes. A soak finding outranks
 everything else in the queue; when one arrives, drop what you are doing.
 
-**What the soak has found and what shipped for it (all 2026-07-27).** These ten came from using the app; the **tab tour** that followed produced a separate, still-open arc - see **§2.2**, which is where a resuming session should start.
+**What the soak has found and what shipped for it (all 2026-07-27).** These ten came from using the app; the **tab tour** that followed produced a separate arc, now also closed - see **§2.2**.
 
 | # | Finding | Shipped as |
 |---|---|---|
@@ -193,11 +193,11 @@ calls `label_routes`/`rederive_rules` exactly as the CLI does, at the same bound
 (`O(ambiguous files)`, zero when nothing is ambiguous). Full trace, the (a)/(b) history, and the
 two-sided fixture evidence: `trip-grouping-research.md` §13.6-§13.7.
 
-### 2.2 CURRENT ARC: the tab-tour findings - **the trip arc is COMPLETE (13.0-13.4 built)**
+### 2.2 CLOSED: the tab-tour findings - **the trip arc completed end to end (13.0-13.4, `db5e517`)**
 
-**Read this section first if you are resuming.** The layout arc (§2.0) is closed; this is what
-the project is actually doing now. It came out of Dinesh's **tab tour** of the migrated library
-(the §3.1 soak item), which produced five items, staged and ruled one at a time.
+**Read this section first if you are resuming**, to see what the project just finished before
+picking up something new. It came out of Dinesh's **tab tour** of the migrated library (the §3.1
+soak item), which produced five items, staged and ruled one at a time - all five are now shipped.
 
 **DONE:**
 
@@ -206,8 +206,8 @@ the project is actually doing now. It came out of Dinesh's **tab tour** of the m
 | **Stage 0** | Find pagination (SQL-paged, `FIND_PAGE_SIZE = 50`); the misleading drive-marker error (`locate_drive` walks parents, so "not a drive" no longer means "you pointed at a subfolder"); clickable paths; the date-layering gap check - which **refused `ModifyDate`/`FileModifyDate` as a named constant** and recorded the **XMP null result** (0 of 400 real files carry an XMP date, so the tier was withdrawn, not deferred) |
 | **Stage 1** | The events-clustering fix (`29d6fdc`): a **60-minute absolute boundary floor**, a **48-hour hard gap cap**, `min_duration_s` **removed**, `min_files` stays **8**. Turned 4 clusters into 15 and killed a 5.6-year "event". Its stated consequence: segmentation is now **within-day only** |
 | **Stage 2a** | The `Placement` StrEnum router refactor (`1247055`) - a prerequisite, not part of trips. Pure refactor, proved byte-for-byte identical over 7 schemes x 4 sample rows |
-| **Stage 2b** | `detect_trips` (`packages/truestill-core/src/truestill_core/trips.py`) - pure detection only: active-day gating, run-forming with a bridgeable gap, the year-boundary split, the max-span decline. No schema, no layout, no migration - those are 2c-2e, still pending. Five fixtures, each proven to fail against its named mutation; see `trip-grouping-research.md`'s "Built" note |
-| **Stage 2c** | Trip persistence - catalog **v12**, `trips`/`trip_days` (identity is the row, never a membership hash - §6), `create_trip`/`trip_for_day`/`update_trip_days`, and the first schema-level *down*-migration in this codebase (`downgrade_v12_to_v11`). `detect_trips` (2b) is wired to **nothing** yet - the join is 2d's job. Four fixtures, each proven to fail against its named mutation |
+| **Stage 2b** | `detect_trips` (`packages/truestill-core/src/truestill_core/trips.py`) - pure detection only: active-day gating, run-forming with a bridgeable gap, the year-boundary split, the max-span decline. No schema, no layout, no migration at this point - those followed as 2c and Stage 2d's sub-stages, all now built (see below). Five fixtures, each proven to fail against its named mutation; see `trip-grouping-research.md`'s "Built" note |
+| **Stage 2c** | Trip persistence - catalog **v12**, `trips`/`trip_days` (identity is the row, never a membership hash - §6), `create_trip`/`trip_for_day`/`update_trip_days`, and the first schema-level *down*-migration in this codebase (`downgrade_v12_to_v11`). `detect_trips` (2b) was wired to nothing at this point - the join followed as Stage 2d's 13.1 (below). Four fixtures, each proven to fail against its named mutation |
 | **`(mm)` fix** | `migrate.py` no longer asks `Placement.EVERYDAY`'s template how to spell an event folder; each event's naming now comes from its own placement, resolved via one `classify()` lookup per event in place of the fixed lookup - the router `(mm)` said it should have used all along. Proven both ways: a scheme where `EVERYDAY` and `EVENT_DAY` genuinely differ shows the old code reporting a collision that would never occur on disk, and the same two events on a shared-naming scheme (every shipped preset) still collide exactly as before. **Unblocks Stage 2d.** |
 | **Stage 13.0/13.1** | The app's migrate path side-binning `Camera` found and fixed (the eleventh soak finding above). Then Stage 13.1: `truestill_core.trip_review` (`propose_trips_from_catalog` / `commit_trips`) - the `detect_trips` (2b) to persistence (2c) join, catalog-only. Name-once by day: a day `trip_for_day` already claims is refreshed via `update_trip_days`, never re-created - idempotent on a pure re-ask, an edge adjustment when the confirmed days actually differ. Three fixtures, each proven to fail against its named mutation: the re-ask identity fixture Stage 2c deferred, an edge-trim fixture (confirmed edges persisted, not the raw proposal), and a declined-run fixture (nothing persisted). No layout, no `Placement`, no `TRIP_DAY`, no UI, no file moved. |
 | **Stage 13.2** | `Placement.TRIP_DAY` and the render seam, pure. `classify()` puts a trip ahead of an event unconditionally (§2's "a trip day claims every photo"); `LayoutScheme.of` derives `TRIP_DAY`'s template from `timeline_evented` by default - no new Settings knob; the render seam appends **two** synthesized levels (the trip's own header folder, then the individual day) where an event appends one. mypy `--strict`'s exhaustiveness gate proven live: removing `TRIP_DAY`'s `case` arm alone failed the build at `assert_never`. The existing golden-master preset test passed unchanged - the equality proof that adding the member perturbed nothing. A baseline test pins that `TRIP_DAY` *can* carry a different naming than `EVENT_DAY` (the `(mm)` boundary 13.4 will widen), without touching `migrate.py`. No persistence wiring, no UI, no file moved. |
@@ -222,7 +222,7 @@ the project is actually doing now. It came out of Dinesh's **tab tour** of the m
    **sorted by count descending**, small proposals **collapsed**. ("A trip offered as one
    proposal rather than one per day" - this stage's fourth item - shipped early as part of
    13.3b's inversion.)
-4. **Stage 4 - backlog `(gg)`**, adaptive day folders. Sequenced last on purpose: it partitions
+2. **Stage 4 - backlog `(gg)`**, adaptive day folders. Sequenced last on purpose: it partitions
    on evented-vs-un-evented, so it needs the evented set to be right first.
 
 #### The open question that blocked Stage 2b - answered
@@ -250,13 +250,16 @@ real interruptions and real heterogeneous metadata. Bugs found here outrank ever
 in this list. Treat a soak-test report as the highest-priority work in the queue.
 
 **Status: running, ten findings shipped** (§2.1), the layout correction it triggered is closed
-(§2.0), and the tab tour has opened a second arc that is **still in progress** (§2.2).
+(§2.0), and the second arc the tab tour opened is **also now closed** (§2.2).
 **What remains before "soak passed":**
 
-- **Tab tour** - ✅ **done, and it opened the arc in §2.2.** Walking Trips, Find, Settings and
-  Import on the migrated library produced five items; Stages 0, 1 and 2a have shipped and
-  **Stage 2b is blocked on one question** (§2.2). The tour is finished; the work it started is
-  not. Everything below is still outstanding.
+- **Tab tour** - ✅ **done, and the arc it opened (§2.2) is now complete too.** Walking Trips,
+  Find, Settings and Import on the migrated library produced five items, ending with the
+  trip-grouping arc: detect (`2b`) -> persist (`2c`) -> review (`13.3b`) -> apply (`13.4`,
+  `db5e517`) - the confirmed-trip apply-to-disk step that was the last piece. Old "Stage 2e"
+  (adoption for existing libraries) is subsumed by `13.4`, since it rides the same
+  `plan_migration` the CLI's `migrate-layout` already calls. Nothing from the tab tour remains
+  outstanding; everything below is unrelated to it.
 - **In-place maiden voyage**, plus **one deliberate `undo-organize`**. `--in-place` and its undo
   have never run outside tests on real files. Do the undo on purpose, while nothing depends on
   the outcome - a reverse gear is only known to work when it has been pulled.
