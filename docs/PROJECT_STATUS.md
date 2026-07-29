@@ -108,7 +108,7 @@ Full rules and their enforcing tests: `IMPLEMENTATION_STANDARDS.md` §3.1.
 |---|---|
 | **Feature completeness** | All planned pre-launch features shipped: organize, Takeout ingest, dedup (exact + perceptual), events/trips, drive identity, offline catalog, verify, 3-2-1 backup, configurable layout + migration, reclaim, in-place organize + `undo-organize`, and the full web UI. |
 | **QA verdict** | The 2026-07-26 walkthrough returned **launch-ready** (`walkthrough-qa-report.md`), and the **soak test then found ten further defects** - see §2.1. That is the walkthrough working as designed, not failing: a scripted pass over synthetic data cannot find what a real library at real scale does. Treat "launch-ready" as *the state before the soak*, not a current verdict. |
-| **Tests** | 509 Python + 16 browser end-to-end. All four CI lanes green. Assert behaviour, never counts - these numbers are context, not a gate, and **must not be pasted into a doc as a target**. Re-derive with `uv run pytest --collect-only -q`. |
+| **Tests** | 510 Python + 18 browser end-to-end. All four CI lanes green. Assert behaviour, never counts - these numbers are context, not a gate, and **must not be pasted into a doc as a target**. Re-derive with `uv run pytest --collect-only -q`. |
 | **Quality gates** | `make check` = ruff lint + ruff format-check + mypy (three `src` trees) + pytest. Plus `make e2e` (opt-in, needs a browser), `uv build --all-packages`, and CI's lockfile + `pip-audit` gates. `make check` also runs **`dash-check`** (§4, prose convention). All four CI lanes green at `c80683d`. |
 | **CI** | `.github/workflows/ci.yml`, **two jobs**: `check` ({ubuntu, macos, windows} × Python 3.13, + Linux-only `pip-audit`) and `e2e` (chromium on ubuntu). |
 | **Catalog schema** | **v12** (`CURRENT_SCHEMA_VERSION`). Tables: `files`, `albums`, `file_albums`, `events`, `skipped_clusters`, `drives`, `file_copies`, `settings`, `migration_journal`, `migration_runs`, `reclaim_journal`, `inplace_runs`, `inplace_moves`, `trips`, `trip_days`. Reversible migration added `migration_runs` and made `migration_journal` undoable at v11. **v12 adds `trips`/`trip_days`** - identity is the row, never a membership hash (`trip-grouping-research.md` §6) - plus the first schema-level *down*-migration in this codebase (`downgrade_v12_to_v11`, testing/rollback only, nothing wires it into a runtime path). **Next free version is v13.** (v10 went to the in-place journal, not to date provenance - see `IMPLEMENTATION_STANDARDS.md` §1). |
@@ -192,6 +192,26 @@ threaded the new resolution through. Fixed same-day: `service._resolve_migration
 calls `label_routes`/`rederive_rules` exactly as the CLI does, at the same bounded cost
 (`O(ambiguous files)`, zero when nothing is ambiguous). Full trace, the (a)/(b) history, and the
 two-sided fixture evidence: `trip-grouping-research.md` §13.6-§13.7.
+
+**A twelfth, soak-class finding, 2026-07-29 - found using the app on the real Cabinet library,
+after 13.4 shipped.** Trips & events returned nothing at all - no cards, no error, no "none
+found" message - after previously showing 3. Root cause: the long-running `truestill-app`
+process had been started before 13.2-13.4 landed, so it kept serving the pre-13.3b
+`{"clusters": [...]}` response shape while the freshly-updated `app.js` (served straight from
+disk, unlike the frozen Python routes) expected `{"cards": [...]}`. `renderCards(undefined)`
+threw, and nothing was watching: `api()` never checked the response before parsing it, no
+handler wrapped its call in a try/catch, and there was no global backstop either - a client-side
+soak-class defect in its own right, independent of what triggered it this time.
+
+Fixed: `api()` now rejects a non-2xx (or non-JSON) response with a legible error naming the
+status and body; every handler that calls `api()`/`get()` is wrapped (`guarded()`) so a thrown
+error renders a visible banner instead of a dead screen; `window.onerror`/`unhandledrejection`
+catch anything `guarded()` does not wrap, as a last resort. `home()` also fingerprints its own
+served template + script at process start and on every request, and says so on the page itself
+(server-rendered, no JS required) when they no longer match - the process that hit this bug
+would have told anyone looking at it, rather than requiring a `git log` to explain why "it used
+to work." Three fixtures (2 browser e2e, 1 server unit test), each proven to fail against its
+named mutation.
 
 ### 2.2 CLOSED: the tab-tour findings - **the trip arc completed end to end (13.0-13.4, `db5e517`)**
 

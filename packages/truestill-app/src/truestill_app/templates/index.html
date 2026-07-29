@@ -27,6 +27,14 @@
     </nav>
 
     <main class="main">
+      <!-- Rendered server-side (never JS) whenever this process is stale -- see server.py's
+           _static_fingerprint. Present in the response with nothing for a caller to run. -->
+      {{STALE_WARNING}}
+      <!-- Global failure backstop: any action's error lands here, on every screen, so a thrown
+           error or a bad response is never a silently blank result. See app.js's guarded(). -->
+      <div class="banner warn hidden" id="global-error" role="alert">
+        <div><div class="b-title">Something went wrong</div><div id="global-error-message"></div></div>
+      </div>
       <!-- ORGANIZE (home) -->
       <section class="screen active" id="screen-organize">
         <header>

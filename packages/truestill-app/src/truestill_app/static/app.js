@@ -7,6 +7,12 @@ const nfmt = (n) => Number(n).toLocaleString();
 // parenthesised plural is the sound of a form letter.
 const plural = (n, word, suffix = "s") => `${nfmt(n)} ${word}${Number(n) === 1 ? "" : suffix}`;
 
+// A stale server serving a fresh browser (found for real: a long-running process pinned to
+// pre-13.3b code returned {"clusters": [...]} while the shipped app.js expected {"cards": [...]})
+// used to throw deep inside a handler with nothing checking the response first, and the click
+// that triggered it left a blank screen -- no cards, no error, no "none found" message. `api()`
+// now rejects anything that is not a 2xx with a legible error (status + body), so every caller
+// gets a real `Error` to catch instead of quietly parsing whatever came back.
 async function api(path, body) {
   const opts = { headers: { "X-Truestill-Token": TOKEN } };
   if (body !== undefined) {
@@ -14,9 +20,54 @@ async function api(path, body) {
     opts.headers["Content-Type"] = "application/json";
     opts.body = JSON.stringify(body);
   }
-  return (await fetch(path, opts)).json();
+  const res = await fetch(path, opts);
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(`${path} failed (${res.status} ${res.statusText}): ${text.slice(0, 500) || "no body"}`);
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`${path} did not return JSON: ${text.slice(0, 200)}`);
+  }
 }
 const get = (path) => api(path);
+
+// The one place a thrown error becomes something a user can actually see. Every screen shares
+// this banner (it lives outside the per-screen sections in index.html) so a failure is visible
+// regardless of which screen was open when it happened.
+function showFatalError(message) {
+  $("global-error-message").textContent = message;
+  $("global-error").classList.remove("hidden");
+}
+function hideFatalError() {
+  $("global-error").classList.add("hidden");
+}
+
+// Wraps a click handler (or any async/callback function) so a thrown error or a rejected
+// promise renders as a visible banner instead of vanishing. This is the fix for the class of
+// bug above: every handler that calls `api()`/`get()` goes through this, so a failure -
+// wrong shape, a non-2xx response, a genuine bug - always has somewhere to go.
+function guarded(fn) {
+  return async (...args) => {
+    hideFatalError();
+    try {
+      await fn(...args);
+    } catch (err) {
+      showFatalError(err instanceof Error ? err.message : String(err));
+    }
+  };
+}
+// Last-resort backstop for anything guarded() does not wrap (a rejection from code outside a
+// click handler, a genuine unforeseen bug) - never silent, even when nothing anticipated it.
+window.addEventListener("unhandledrejection", (e) => {
+  const reason = e.reason;
+  showFatalError(reason instanceof Error ? reason.message : String(reason));
+});
+window.onerror = (message) => {
+  showFatalError(String(message));
+  return false;
+};
 
 // Terminal events come in two shapes -- a completion carries `summary`, a failure carries
 // `message` -- and every caller used to read `summary.error`, which a failure never has. The
@@ -450,12 +501,12 @@ async function validatePath(input, hint, kind) {
   if (!v.exists) {
     hint.className = "hint warn";
     hint.innerHTML = `This folder doesn’t exist yet. <button class="btn btn-ghost pk-create" style="padding:0;color:var(--accent);text-decoration:underline">Create it</button>`;
-    hint.querySelector(".pk-create").onclick = async () => {
+    hint.querySelector(".pk-create").onclick = guarded(async () => {
       hint.textContent = "Creating…";
       const r = await api("/api/fs/create", { path });
       if (r.created) validatePath(input, hint, kind);
       else { hint.textContent = `Couldn’t create it: ${r.error || "unknown error"}`; hint.className = "hint warn"; }
-    };
+    });
   } else if (!v.is_dir) { hint.textContent = "That’s a file, not a folder."; hint.className = "hint warn"; }
   else if (!v.writable) { hint.textContent = "This folder isn’t writable ⚠"; hint.className = "hint warn"; }
   else { hint.textContent = v.is_drive ? "Ready · backup drive ✓" : "Ready"; hint.className = "hint ok"; }
@@ -549,7 +600,7 @@ function renderOrganizeResult(s) {
 // Shared by preview and run: both are cancellable jobs, and Cancel needs the current one.
 let orgJob = null;
 
-$("org-preview").onclick = async () => {
+$("org-preview").onclick = guarded(async () => {
   const source = $("org-source").value.trim();
   const destination = $("org-dest").value.trim();
   if (!source) { setWhy("Pick a folder to organize first."); return; }
@@ -580,9 +631,9 @@ $("org-preview").onclick = async () => {
       else if (!destination) { $("org-run").disabled = true; setWhy("Pick the organized folder for the sorted copies."); }
       else { $("org-run").disabled = false; $("org-run").textContent = `Organize ${nfmt(kept)} files`; setWhy(""); }
     });
-};
+});
 
-$("org-run").onclick = async () => {
+$("org-run").onclick = guarded(async () => {
   const source = $("org-source").value.trim();
   const destination = $("org-dest").value.trim();
   const skip_undated = $("org-skip-undated").checked;
@@ -606,8 +657,8 @@ $("org-run").onclick = async () => {
       orgJob = null;
       loadCustody();
     });
-};
-$("org-cancel").onclick = () => { if (orgJob) api(`/api/jobs/${orgJob}/cancel`, {}); };
+});
+$("org-cancel").onclick = guarded(() => { if (orgJob) return api(`/api/jobs/${orgJob}/cancel`, {}); });
 
 // ---------- Backups ----------
 async function loadDrives() {
@@ -660,7 +711,7 @@ async function loadDrives() {
   });
 }
 let verifyJob = null;
-$("verify-run").onclick = async () => {
+$("verify-run").onclick = guarded(async () => {
   const path = $("verify-path").value.trim();
   $("verify-result").innerHTML = card("Checking…");
   const { job_id } = await api("/api/verify/run", { path });
@@ -681,8 +732,8 @@ $("verify-run").onclick = async () => {
       loadCustody();
       loadDrives();  // "last checked" on the card comes from the verify just recorded
     });
-};
-$("verify-cancel").onclick = () => { if (verifyJob) api(`/api/jobs/${verifyJob}/cancel`, {}); };
+});
+$("verify-cancel").onclick = guarded(() => { if (verifyJob) return api(`/api/jobs/${verifyJob}/cancel`, {}); });
 
 // A drive error that carries a correction offers it as a button: the common cause is naming a
 // folder INSIDE a connected drive, and re-typing the root by hand is work the app can do.
@@ -703,13 +754,13 @@ document.addEventListener("click", (e) => {
 // A displayed path is a dead end unless you can get to it. Anything carrying data-open reveals
 // that folder in the desktop's own file manager; a failure says why, because a control that
 // silently does nothing is worse than no control.
-document.addEventListener("click", async (e) => {
+document.addEventListener("click", guarded(async (e) => {
   const el = e.target.closest("[data-open]");
   if (!el || !el.dataset.open) return;
   e.preventDefault();
   const r = await api("/api/reveal", { path: el.dataset.open });
   if (!r.ok) { el.title = r.error; el.classList.add("warn"); }
-});
+}));
 
 // ---------- Find ----------
 let wherePage = 1;
@@ -740,14 +791,14 @@ async function runWhere(term, page) {
       r.copies.map((c) => `<tr><td>${esc(c.name)}</td><td>${esc(c.drive || "-")}</td><td class="path">${esc(c.relative)}</td></tr>`).join("")
     }</tbody></table>${pager}`);
   const prev = $("where-prev"), next = $("where-next");
-  if (prev) prev.onclick = () => runWhere(term, wherePage - 1);
-  if (next) next.onclick = () => runWhere(term, wherePage + 1);
+  if (prev) prev.onclick = guarded(() => runWhere(term, wherePage - 1));
+  if (next) next.onclick = guarded(() => runWhere(term, wherePage + 1));
 }
 
-$("where-go").onclick = () => runWhere($("where-term").value.trim(), 1);
+$("where-go").onclick = guarded(() => runWhere($("where-term").value.trim(), 1));
 
 // ---------- Import (Takeout) ----------
-$("rc-preview").onclick = async () => {
+$("rc-preview").onclick = guarded(async () => {
   const takeout = $("rc-takeout").value.trim(), destination = $("rc-dest").value.trim();
   $("rc-result").innerHTML = card("Scanning…");
   const r = await api("/api/ingest/preview", { takeout, destination });
@@ -761,7 +812,7 @@ $("rc-preview").onclick = async () => {
      </div>
      ${dateQualityNotes(r)}`
   );
-};
+});
 
 // ---------- Trips & events ----------
 // 13.3b's inversion: detect_trips runs first, so a genuine multi-day run already arrives as ONE
@@ -794,7 +845,7 @@ function renderCards(cards) {
     ? cards.map((c, i) => evCardHtml(c, i)).join("")
     : `<div class="card"><div class="empty">No trips or events found - needs enough camera photos taken close together.</div></div>`;
   $("ev-clusters").querySelectorAll(".ev-split").forEach((b) => {
-    b.onclick = async () => {
+    b.onclick = guarded(async () => {
       let body;
       if (b.dataset.kind === "trip") {
         const splittable = b.dataset.days.split(",").slice(0, -1);
@@ -807,7 +858,7 @@ function renderCards(cards) {
         body = { index: +b.dataset.i, at };
       }
       renderCards((await api(`/api/events/${evSession}/split`, body)).cards);
-    };
+    });
   });
 }
 function renderDeclines(declines) {
@@ -818,7 +869,7 @@ function renderDeclines(declines) {
     )
     .join("");
 }
-$("ev-propose").onclick = async () => {
+$("ev-propose").onclick = guarded(async () => {
   $("ev-result").innerHTML = "";
   $("ev-declines").innerHTML = "";
   $("ev-apply-card").classList.add("hidden");
@@ -831,8 +882,8 @@ $("ev-propose").onclick = async () => {
   evSession = r.session;
   renderDeclines(r.declines);
   renderCards(r.cards);
-};
-$("ev-merge").onclick = async () => {
+});
+$("ev-merge").onclick = guarded(async () => {
   const indices = [...document.querySelectorAll(".ev-check:checked")].map((c) => +c.dataset.i);
   if (indices.length < 2) return;
   const r = await api(`/api/events/${evSession}/merge`, { indices });
@@ -844,8 +895,8 @@ $("ev-merge").onclick = async () => {
     return;
   }
   renderCards(r.cards);
-};
-$("ev-apply").onclick = async () => {
+});
+$("ev-apply").onclick = guarded(async () => {
   const names = [...document.querySelectorAll("#ev-clusters .card")].map((row) => {
     const inp = row.querySelector(".ev-name");
     return inp && inp.value.trim() ? inp.value.trim() : null;
@@ -874,7 +925,7 @@ $("ev-apply").onclick = async () => {
          <div class="mono k">${p.moves.slice(0, 200).map((m) => `${esc(m.old)} → ${esc(m.new)}`).join("<br>")}</div></details>`
     : `<div class="k">Nothing to move - these photos are already in their trip and event folders.</div>`;
   $("ev-apply-disk").classList.toggle("hidden", p.moves.length === 0);
-};
+});
 // One row per trip actually named and moved this run, each with a working reveal link -- the
 // folder exists by construction (the migration that just finished wrote it), so unlike Backups'
 // drive-path links there is no disabled/absent state to consider here. Falls back to the plain
@@ -891,7 +942,7 @@ function tripResultCards(summary) {
   )).join("");
 }
 let evJob = null;
-$("ev-apply-disk").onclick = async () => {
+$("ev-apply-disk").onclick = guarded(async () => {
   const { job_id } = await api(`/api/events/${evSession}/apply-to-disk`, {});
   evJob = job_id;
   evProgress.start("moving");
@@ -903,11 +954,11 @@ $("ev-apply-disk").onclick = async () => {
       evJob = null;
       loadCustody();
     });
-};
-$("ev-cancel").onclick = () => { if (evJob) api(`/api/jobs/${evJob}/cancel`, {}); };
+});
+$("ev-cancel").onclick = guarded(() => { if (evJob) return api(`/api/jobs/${evJob}/cancel`, {}); });
 
 // ---------- Backups: copy the library to another drive ----------
-$("bk-preview").onclick = async () => {
+$("bk-preview").onclick = guarded(async () => {
   const source = $("bk-source").value.trim(), target = $("bk-target").value.trim();
   const r = await api("/api/backup/preview", { source, target });
   if (!r.ok) { $("bk-result").innerHTML = driveError(r, "bk-target"); $("bk-run").classList.add("hidden"); return; }
@@ -924,9 +975,9 @@ $("bk-preview").onclick = async () => {
   $("bk-result").innerHTML = card(`<div class="headline">${mediaCount(r)} · ${fmtBytes(r.bytes)} to copy</div>
     <div class="k">From ${esc(r.from)} to ${esc(r.to)} · ${fmtBytes(r.free)} free on ${esc(r.to)}.</div>`);
   $("bk-run").classList.remove("hidden");
-};
+});
 let bkJob = null;
-$("bk-run").onclick = async () => {
+$("bk-run").onclick = guarded(async () => {
   const source = $("bk-source").value.trim(), target = $("bk-target").value.trim();
   const { job_id } = await api("/api/backup/run", { source, target });
   bkJob = job_id;
@@ -940,8 +991,8 @@ $("bk-run").onclick = async () => {
       bkJob = null;
       refreshDriveState();
     });
-};
-$("bk-cancel").onclick = () => { if (bkJob) api(`/api/jobs/${bkJob}/cancel`, {}); };
+});
+$("bk-cancel").onclick = guarded(() => { if (bkJob) return api(`/api/jobs/${bkJob}/cancel`, {}); });
 
 // ---------- Settings: layout + migrate ----------
 function renderLayoutPreview(rows) {
@@ -973,24 +1024,24 @@ async function previewLayout() {
   $("layout-save").disabled = !r.valid;
   if (r.valid) renderLayoutPreview(r.preview);
 }
-$("layout-template").oninput = previewLayout;
-$("layout-preset").onchange = () => { if ($("layout-preset").value) { $("layout-template").value = $("layout-preset").value; previewLayout(); } };
-$("layout-save").onclick = async () => {
+$("layout-template").oninput = guarded(previewLayout);
+$("layout-preset").onchange = guarded(() => { if ($("layout-preset").value) { $("layout-template").value = $("layout-preset").value; return previewLayout(); } });
+$("layout-save").onclick = guarded(async () => {
   const r = await api("/api/layout", { template: $("layout-template").value.trim() });
   if (r.valid === false) { $("layout-error").textContent = `Invalid: ${r.error}`; return; }
   $("layout-current").textContent = r.template;
   $("layout-default").textContent = "";
   $("layout-error").textContent = "Saved.";
-};
-$("mig-preview").onclick = async () => {
+});
+$("mig-preview").onclick = guarded(async () => {
   const r = await api("/api/migrate/preview", { path: $("mig-path").value.trim() });
   if (!r.ok) { $("mig-result").innerHTML = driveError(r, "mig-path"); $("mig-run").classList.add("hidden"); return; }
   $("mig-result").innerHTML = card(`<div class="headline">${plural(r.moves.length, "file")} to move</div>
     <div class="k">${r.unchanged} already in place${r.warnings.length ? " · ⚠ " + esc(r.warnings.join("; ")) : ""}</div>`);
   $("mig-run").classList.toggle("hidden", r.moves.length === 0);
-};
+});
 let migJob = null;
-$("mig-run").onclick = async () => {
+$("mig-run").onclick = guarded(async () => {
   const { job_id } = await api("/api/migrate/run", { path: $("mig-path").value.trim() });
   migJob = job_id;
   migProgress.start("moving");
@@ -1003,8 +1054,8 @@ $("mig-run").onclick = async () => {
       migJob = null;
       loadDrives();
     });
-};
-$("mig-cancel").onclick = () => { if (migJob) api(`/api/jobs/${migJob}/cancel`, {}); };
+});
+$("mig-cancel").onclick = guarded(() => { if (migJob) return api(`/api/jobs/${migJob}/cancel`, {}); });
 
 // theme toggle
 document.querySelectorAll('input[name="theme"]').forEach((r) => {

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 from starlette.testclient import TestClient
-from truestill_app import __version__, service
+from truestill_app import __version__, server, service
 from truestill_app.server import create_app
 from truestill_core.catalog import Catalog
 
@@ -56,6 +56,37 @@ def test_home_serves_and_injects_token(client: TestClient) -> None:
     assert r.status_code == 200
     assert _TOKEN in r.text
     assert "{{TOKEN}}" not in r.text  # placeholder was replaced
+
+
+def test_stale_static_assets_render_a_restart_warning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Found for real: a long-running process kept serving an old backend while its own
+    templates/app.js changed underneath it on disk - no cards, no error, nothing to say a
+    restart was overdue. `home()` now fingerprints its own served files at process start and
+    on every request; a mismatch means this process is stale, and it says so on the page
+    itself (server-rendered, not JS - visible even if the frontend never runs at all).
+    """
+    templates = tmp_path / "templates"
+    static = tmp_path / "static"
+    templates.mkdir()
+    static.mkdir()
+    templates_html = "<html>{{TOKEN}}{{VERSION}}{{STALE_WARNING}}</html>"
+    (templates / "index.html").write_text(templates_html)
+    (static / "app.js").write_text("console.log(1);")
+    monkeypatch.setattr(server, "_TEMPLATES", templates)
+    monkeypatch.setattr(server, "_STATIC", static)
+
+    app = create_app(token=_TOKEN, db=tmp_path / "c.sqlite")
+    fresh_client = TestClient(app, headers={"host": "127.0.0.1:7357"})
+    fresh = fresh_client.get(f"/?token={_TOKEN}").text
+    assert "needs a restart" not in fresh
+
+    # The files this same running app would serve change on disk - exactly what a git pull or
+    # a redeploy does while the process keeps running its already-imported code.
+    (static / "app.js").write_text("console.log(2); // a real change, not this process's")
+    stale = fresh_client.get(f"/?token={_TOKEN}").text
+    assert "needs a restart" in stale
 
 
 def test_drives_and_where_empty(client: TestClient) -> None:

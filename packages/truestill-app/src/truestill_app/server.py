@@ -6,6 +6,8 @@ directly. Every data route is guarded by :class:`~truestill_app.security.LocalGu
 
 from __future__ import annotations
 
+import hashlib
+import logging
 import uuid
 from datetime import date
 from pathlib import Path
@@ -39,16 +41,50 @@ _STATIC = _PKG / "static"
 #: Default catalog the app reads/writes (same default as the CLI).
 _DEFAULT_DB = Path("reports/catalog.sqlite")
 
+_log = logging.getLogger(__name__)
+
+_STALE_BANNER = (
+    '<div class="banner warn"><div><div class="b-title">This server needs a restart</div>'
+    "The app's own files on disk have changed since this process started, so the page you are "
+    "looking at may not match what the running server actually does. Stop truestill-app and "
+    "start it again to pick up the change.</div></div>"
+)
+
+
+def _static_fingerprint() -> str:
+    """A content hash of the served page + script, read fresh from disk right now.
+
+    `create_app` captures this once, at process start; `home` recomputes it on every request.
+    A mismatch means the files on disk have changed since this process was started -- exactly
+    the state that let a stale backend silently serve a fresh frontend a response shape it no
+    longer understood (Stage 2d, 13.4's soak finding). This is a proxy, not a proof: it catches
+    every case in this repo's own practice, where a user-facing change always ships its static
+    assets and its backend in the same commit, but a backend-only change with no template/script
+    diff would not move it. Flagged as a known, accepted gap rather than built around -- catching
+    that case too would mean hashing the whole installed package on every request.
+    """
+    index_html = (_TEMPLATES / "index.html").read_bytes()
+    app_js = (_STATIC / "app.js").read_bytes()
+    return hashlib.sha256(index_html + app_js).hexdigest()
+
 
 def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
     jobs = JobManager()
+    started_fingerprint = _static_fingerprint()
 
     def _db() -> Path:
         return db
 
     async def home(_request: Request) -> HTMLResponse:
         html = (_TEMPLATES / "index.html").read_text(encoding="utf-8")
+        stale = _static_fingerprint() != started_fingerprint
+        if stale:
+            _log.warning(
+                "static assets on disk have changed since this process started -- "
+                "restart truestill-app to serve what is actually on disk"
+            )
         html = html.replace("{{TOKEN}}", token)
+        html = html.replace("{{STALE_WARNING}}", _STALE_BANNER if stale else "")
         return HTMLResponse(html.replace("{{VERSION}}", __version__))
 
     async def organize_preview(request: Request) -> JSONResponse:

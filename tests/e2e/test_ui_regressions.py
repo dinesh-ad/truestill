@@ -236,3 +236,49 @@ def test_the_custody_strip_counts_places_not_wishes(ui: Page, tmp_path: Path, li
 
     expect(ui.locator("#custody-line")).to_contain_text("4 photos")
     expect(ui.locator("#custody-line")).to_contain_text("safe in 1 place")
+
+
+# --- a blank screen is never an acceptable answer to a failure -----------------------------
+
+
+def test_a_server_error_shows_a_visible_error_not_a_blank_screen(ui: Page) -> None:
+    """Found for real: a long-running server process pinned to old code answered Trips &
+    events with a response shape the shipped app.js no longer understood - the screen showed
+    no cards, no error and no "none found" message. Nothing checked the response before using
+    it, and nothing caught the exception that followed.
+
+    This is the HTTP-error half of that defect: `api()` now rejects any non-2xx response with
+    a legible error, and every handler that calls it is wrapped (`guarded()`) so the error
+    lands in the visible global banner instead of vanishing.
+    """
+    ui.route(
+        "**/api/events/propose",
+        lambda route: route.fulfill(status=500, content_type="text/plain", body="boom"),
+    )
+    ui.click('button[data-screen="events"]')
+    ui.fill("#ev-source", "/anything")
+    ui.click("#ev-propose")
+
+    expect(ui.locator("#global-error")).to_be_visible()
+    expect(ui.locator("#global-error")).to_contain_text("500")
+
+
+def test_a_wrong_shape_response_shows_a_visible_error_not_a_blank_screen(ui: Page) -> None:
+    """The other half of the same defect, reproduced exactly: a 200 response in the pre-13.3b
+    shape (`clusters`, not today's `cards`) makes `renderCards(undefined)` throw - previously
+    an uncaught `TypeError` with nothing to see. Now it lands in the same visible banner.
+    """
+    ui.route(
+        "**/api/events/propose",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body='{"ok": true, "session": "x", "clusters": []}',
+        ),
+    )
+    ui.click('button[data-screen="events"]')
+    ui.fill("#ev-source", "/anything")
+    ui.click("#ev-propose")
+
+    expect(ui.locator("#global-error")).to_be_visible()
+    expect(ui.locator("#global-error")).to_contain_text("undefined")
