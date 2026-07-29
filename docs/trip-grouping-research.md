@@ -1258,3 +1258,40 @@ smaller gap, not addressed here.
 
 `make check` (483 tests, ruff/mypy/dash-check) green. 13.0's table entry above and
 `PROJECT_STATUS.md` §2.1 both record this as resolved.
+
+---
+
+## 14. Stage 3.2 - largest-first review and one small-event disclosure
+
+**BUILT 2026-07-29.** Proposal presentation now follows the correction cost: the largest groups
+come first, because overlooking a 2,057-photo trip costs more than overlooking an 8-photo burst.
+`ReviewCard.count` is the single count seam and `order_review_cards` applies one descending sort
+after detection and after every merge or split.
+
+**Small is derived from the configured floor, not a fixed photo count.** A standalone event is
+small while it is within the first two doublings above `min_files`:
+`count < 4 * min_files`. A detected event already meets the lower floor; a manually split event
+may fall below it and remains small. With the default 8, the exclusive limit is 32; the measured
+library's actual hidden range is 8-30. This scales when a heavy shooter raises the floor and names
+the intended class directly: proposals still close to the threshold that admitted them. A card
+backed by `TripProposal` is never eligible, even if a split has reduced it to one day and its
+display label therefore says EVENT.
+
+All eligible events sit behind **one** disclosure. Its summary carries the number of groups,
+minimum and maximum photo counts, and the full date span, so opening it is optional rather than
+required to understand what was hidden. There is no second collapsed tier. Split remains the
+per-card correction; the existing merge checkbox stays small and the global Merge checked action
+uses the existing ghost-button style, visually below Split without inventing another control.
+
+**Reuse and boundaries:** the existing `ReviewCard` and session card list remain authoritative;
+there is no second proposal model or persistence path. `ReviewCardPayload` and the collapsed
+summary are typed API payloads. No dependency was added.
+
+**Complexity:** ordering is `O(P log P)` time and `O(P)` output space for `P` proposal cards.
+Collapse classification and summary are each `O(P)` time; the summary stores only scalar
+aggregates. No catalog setting is re-read and no work is performed per media file.
+
+**Fixtures:** the existing HTTP fixture first reproduced date ordering (`[8, 10]` instead of
+`[10, 8]`). The presentation fixture pins the exclusive boundary (31 hidden, 32 shown), the exact
+small set and trip immunity. Mutating the rule to `count <= limit` and removing the event guard
+failed with `[32, 31, 8, 1]` hidden instead of `[31, 8]`; restored.

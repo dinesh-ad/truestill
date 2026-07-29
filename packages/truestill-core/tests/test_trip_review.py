@@ -18,10 +18,13 @@ from truestill_core.trip_review import (
     TripDecision,
     TripMergeError,
     assemble_trip_review,
+    collapsed_event_cards,
     commit_trips,
     decline_message,
     merge_review_cards,
+    order_review_cards,
     propose_trips_from_catalog,
+    small_event_limit,
     split_trip,
 )
 from truestill_core.trips import TripDecline, TripDeclineReason, TripProposal
@@ -237,6 +240,32 @@ def _event_candidate(day: date, count: int) -> EventCandidate:
         for i in range(count)
     )
     return EventCandidate(items=items)
+
+
+def test_review_order_and_small_set_are_derived_and_trips_never_collapse() -> None:
+    min_files = 8
+    trip = ReviewCard(
+        trip=TripProposal(
+            start_date=date(2026, 8, 5),
+            end_date=date(2026, 8, 5),
+            days={date(2026, 8, 5): 1},
+        )
+    )
+    cards = [
+        ReviewCard(event=_event_candidate(date(2026, 8, 1), 8)),
+        ReviewCard(event=_event_candidate(date(2026, 8, 2), 32)),
+        ReviewCard(event=_event_candidate(date(2026, 8, 3), 31)),
+        ReviewCard(event=_event_candidate(date(2026, 8, 4), 100)),
+        trip,
+    ]
+
+    ordered = order_review_cards(cards)
+    collapsed = collapsed_event_cards(ordered, min_files)
+
+    assert [card.count for card in ordered] == [100, 32, 31, 8, 1]
+    assert small_event_limit(min_files) == 32  # two doublings above the configured floor
+    assert [card.count for card in collapsed] == [31, 8]  # exactly below, not at, the limit
+    assert trip not in collapsed  # underlying TripProposal wins even when display kind is "event"
 
 
 def test_merge_review_cards_combines_two_gap_separated_runs() -> None:

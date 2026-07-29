@@ -243,6 +243,7 @@ def test_propose_bundles_a_detected_multi_day_run_into_one_trip_card(
     by_kind = {c["kind"]: c for c in cards}
     assert set(by_kind) == {"trip", "event"}
     trip = by_kind["trip"]
+    assert trip["collapsed"] is False
     assert trip["start"] == "2026-06-14"
     assert trip["end"] == "2026-06-15"
     assert trip["count"] == 16

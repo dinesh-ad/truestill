@@ -821,6 +821,7 @@ $("rc-preview").onclick = guarded(async () => {
 // a gap detection didn't bridge) and must obey §3e/§3f, which the server enforces and reports
 // back as {error: "..."} - refused, never silently dropped.
 let evSession = null;
+let evCards = [];
 function evCardHtml(c, i) {
   const isTrip = c.kind === "trip";
   const span = isTrip ? `${c.start} → ${c.end}` : `${c.start.slice(0, 10)} → ${c.end.slice(0, 10)}`;
@@ -838,11 +839,20 @@ function evCardHtml(c, i) {
         <div class="row" style="margin-top:var(--space-2)"><input class="input ev-name" data-i="${i}" placeholder="name this ${isTrip ? "trip" : "event"} (leave blank to skip)">
         <button class="btn btn-secondary ev-split" data-i="${i}" ${splitAttrs}>Split</button></div></div>`;
 }
-function renderCards(cards) {
+function renderCards(cards, collapsed) {
+  evCards = cards;
+  const visible = cards.map((c, i) => [c, i]).filter(([c]) => !c.collapsed);
+  const small = cards.map((c, i) => [c, i]).filter(([c]) => c.collapsed);
+  const smallGroups = collapsed
+    ? `<details class="card"><summary>${plural(collapsed.count, "smaller group")},
+         ${nfmt(collapsed.min_photos)}-${nfmt(collapsed.max_photos)} photos ·
+         ${esc(collapsed.start)} → ${esc(collapsed.end)} - show</summary>
+         <div style="margin-top:var(--space-3)">${small.map(([c, i]) => evCardHtml(c, i)).join("")}</div></details>`
+    : "";
   $("ev-actions-card").classList.toggle("hidden", cards.length === 0);
   $("ev-merge").classList.toggle("hidden", cards.length < 2);
   $("ev-clusters").innerHTML = cards.length
-    ? cards.map((c, i) => evCardHtml(c, i)).join("")
+    ? visible.map(([c, i]) => evCardHtml(c, i)).join("") + smallGroups
     : `<div class="card"><div class="empty">No trips or events found - needs enough camera photos taken close together.</div></div>`;
   $("ev-clusters").querySelectorAll(".ev-split").forEach((b) => {
     b.onclick = guarded(async () => {
@@ -857,7 +867,8 @@ function renderCards(cards) {
         if (!at) return;
         body = { index: +b.dataset.i, at };
       }
-      renderCards((await api(`/api/events/${evSession}/split`, body)).cards);
+      const r = await api(`/api/events/${evSession}/split`, body);
+      renderCards(r.cards, r.collapsed);
     });
   });
 }
@@ -881,7 +892,7 @@ $("ev-propose").onclick = guarded(async () => {
   }
   evSession = r.session;
   renderDeclines(r.declines);
-  renderCards(r.cards);
+  renderCards(r.cards, r.collapsed);
 });
 $("ev-merge").onclick = guarded(async () => {
   const indices = [...document.querySelectorAll(".ev-check:checked")].map((c) => +c.dataset.i);
@@ -894,11 +905,11 @@ $("ev-merge").onclick = guarded(async () => {
     );
     return;
   }
-  renderCards(r.cards);
+  renderCards(r.cards, r.collapsed);
 });
 $("ev-apply").onclick = guarded(async () => {
-  const names = [...document.querySelectorAll("#ev-clusters .card")].map((row) => {
-    const inp = row.querySelector(".ev-name");
+  const names = evCards.map((_card, i) => {
+    const inp = document.querySelector(`.ev-name[data-i="${i}"]`);
     return inp && inp.value.trim() ? inp.value.trim() : null;
   });
   const r = await api(`/api/events/${evSession}/apply`, { names });

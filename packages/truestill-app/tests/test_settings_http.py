@@ -99,7 +99,15 @@ def test_event_min_files_setting_changes_proposals_and_unset_keeps_default(
         "is_default": True,
     }
     default_proposals = client.post("/api/events/propose", json={"path": str(drive)}).json()
-    assert sorted(card["count"] for card in default_proposals["cards"]) == [8, 10]
+    assert [card["count"] for card in default_proposals["cards"]] == [10, 8]
+    assert [card["collapsed"] for card in default_proposals["cards"]] == [True, True]
+    assert default_proposals["collapsed"] == {
+        "count": 2,
+        "min_photos": 8,
+        "max_photos": 10,
+        "start": "2026-06-14",
+        "end": "2026-06-20",
+    }
 
     saved = client.post("/api/events/settings", json={"min_files": 9}).json()
     assert saved == {

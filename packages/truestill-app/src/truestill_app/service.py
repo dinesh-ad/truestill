@@ -15,7 +15,7 @@ import threading
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal, TypedDict
 
@@ -27,6 +27,7 @@ from truestill_core.drive import create_marker, locate_drive, read_marker
 from truestill_core.event_review import EventDecision, commit, propose
 from truestill_core.events import (
     EVENT_MIN_FILES_KEY,
+    EventCandidate,
     EventSettings,
     InvalidEventSettingsError,
 )
@@ -78,7 +79,13 @@ from truestill_core.organizer import (
 )
 from truestill_core.progress import Phase, Progress, ProgressCallback
 from truestill_core.takeout import scan_takeout
-from truestill_core.trip_review import ReviewCard, assemble_trip_review, decline_message
+from truestill_core.trip_review import (
+    ReviewCard,
+    assemble_trip_review,
+    collapsed_event_cards,
+    decline_message,
+    is_small_event,
+)
 from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
 
 from truestill_app.jobs import JobTarget
@@ -91,6 +98,13 @@ class NotABackupDriveError(ValueError):
     your library here to make one") instead of restating the failure. The client matches on
     this class name, never on the message text, which would break on any rewording.
     """
+
+
+class DriveCorrectionPayload(TypedDict):
+    error: str
+    suggested_root: str | None
+    drive_label: str | None
+    can_register: bool
 
 
 def _not_a_drive_message(path: Path) -> str:
@@ -110,7 +124,7 @@ def _not_a_drive_message(path: Path) -> str:
     return "This folder isn't a truestill drive yet - register it to start tracking copies here."
 
 
-def _drive_correction(path: Path) -> dict[str, Any]:
+def _drive_correction(path: Path) -> DriveCorrectionPayload:
     """The machine-readable half of the same answer, so the UI can offer one-click correction."""
     location = locate_drive(path)
     return {
@@ -611,36 +625,116 @@ def plan_resolve(source: Path, db: Path) -> tuple[list[Resolution], dict[Path, d
     return resolutions, metadata
 
 
-def cluster_json(cluster: Any) -> dict[str, Any]:
-    """Serialise an EventCandidate for the review UI."""
+class ReviewDayPayload(TypedDict):
+    date: str
+    count: int
+
+
+class ReviewCardPayload(TypedDict):
+    kind: Literal["trip", "event"]
+    start: str
+    end: str
+    count: int
+    days: list[ReviewDayPayload]
+    location: list[float] | None
+    collapsed: bool
+
+
+class CollapsedEventSummaryPayload(TypedDict):
+    count: int
+    min_photos: int
+    max_photos: int
+    start: str
+    end: str
+
+
+class ReviewCardsPayload(TypedDict):
+    session: str
+    cards: list[ReviewCardPayload]
+    collapsed: CollapsedEventSummaryPayload | None
+
+
+class ProposedReviewCardsPayload(ReviewCardsPayload):
+    ok: Literal[True]
+    label: str
+    declines: list[str]
+
+
+def _event_location(cluster: EventCandidate) -> list[float] | None:
     centroid = cluster.gps_centroid()
-    return {
-        "start": cluster.start.isoformat(),
-        "end": cluster.end.isoformat(),
-        "count": cluster.count,
-        "location": list(centroid) if centroid else None,
-    }
+    return list(centroid) if centroid else None
 
 
-def review_card_json(card: ReviewCard) -> dict[str, Any]:
+def review_card_json(card: ReviewCard, min_files: int) -> ReviewCardPayload:
     """Serialise one assembled review card (Stage 2d, 13.3b) - a multi-day trip or a standalone
     day-event - for the review UI. ``kind`` ("trip" | "event") is the label the screen shows;
-    a standalone-day event keeps using :func:`cluster_json` unchanged, so its identity (a
-    signature over member SHA-256s) is untouched by this stage.
+    serialisation does not alter either card's persisted identity.
     """
     if card.trip is not None:
         return {
             "kind": card.kind,
             "start": card.trip.start_date.isoformat(),
             "end": card.trip.end_date.isoformat(),
-            "count": sum(card.trip.days.values()),
+            "count": card.count,
             "days": [
                 {"date": day.isoformat(), "count": count}
                 for day, count in sorted(card.trip.days.items())
             ],
+            "location": None,
+            "collapsed": False,
         }
     assert card.event is not None
-    return {**cluster_json(card.event), "kind": card.kind}
+    return {
+        "kind": card.kind,
+        "start": card.event.start.isoformat(),
+        "end": card.event.end.isoformat(),
+        "count": card.count,
+        "days": [],
+        "location": _event_location(card.event),
+        "collapsed": is_small_event(card, min_files),
+    }
+
+
+def collapsed_event_summary(
+    cards: Sequence[ReviewCard], min_files: int
+) -> CollapsedEventSummaryPayload | None:
+    """Summarise every hidden event so expanding is optional, not required for confidence."""
+    collapsed = collapsed_event_cards(cards, min_files)
+    if not collapsed:
+        return None
+    counts = [card.count for card in collapsed]
+    return {
+        "count": len(collapsed),
+        "min_photos": min(counts),
+        "max_photos": max(counts),
+        "start": min(card.start for card in collapsed).isoformat(),
+        "end": max(card.end for card in collapsed).isoformat(),
+    }
+
+
+def review_cards_payload(
+    session: str, cards: Sequence[ReviewCard], min_files: int
+) -> ReviewCardsPayload:
+    return {
+        "session": session,
+        "cards": [review_card_json(card, min_files) for card in cards],
+        "collapsed": collapsed_event_summary(cards, min_files),
+    }
+
+
+def proposed_review_cards_payload(
+    session: str,
+    cards: Sequence[ReviewCard],
+    min_files: int,
+    label: str,
+    declines: list[str],
+) -> ProposedReviewCardsPayload:
+    return {
+        **review_cards_payload(session, cards, min_files),
+        "ok": True,
+        "label": label,
+        "declines": declines,
+    }
 
 
 # --- Takeout rescue report (Rescue report screen) -------------------------------------
@@ -815,6 +909,20 @@ class InvalidEventSettingsPayload(TypedDict):
 class InvalidEventProposalPayload(TypedDict):
     ok: Literal[False]
     error: str
+
+
+class EventProposalDriveErrorPayload(DriveCorrectionPayload):
+    ok: Literal[False]
+
+
+class EventProposalSuccessPayload(TypedDict):
+    ok: Literal[True]
+    uuid: str
+    label: str
+    cards: list[ReviewCard]
+    day_totals: dict[date, int]
+    min_files: int
+    declines: list[str]
 
 
 def event_settings(db: Path) -> EventSettings:
@@ -1044,7 +1152,9 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
     return target_job
 
 
-def propose_events(path: Path, db: Path) -> dict[str, Any]:
+def propose_events(
+    path: Path, db: Path
+) -> EventProposalSuccessPayload | EventProposalDriveErrorPayload:
     """Assemble trips and standalone day-events from an already-organized connected drive.
 
     Stage 2d, 13.3b's inversion: a genuine multi-day run assembles into ONE card; a standalone
@@ -1071,6 +1181,7 @@ def propose_events(path: Path, db: Path) -> dict[str, Any]:
         "label": marker.label,
         "cards": review.cards,
         "day_totals": review.day_totals,
+        "min_files": settings.min_files,
         "declines": [decline_message(decline) for decline in review.declines],
     }
 

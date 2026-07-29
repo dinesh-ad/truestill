@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import uuid
+from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -27,12 +28,26 @@ from truestill_core.trip_review import (
     TripMergeError,
     commit_trips,
     merge_review_cards,
+    order_review_cards,
     split_trip,
 )
 
 from truestill_app import __version__, service
 from truestill_app.jobs import JobManager
 from truestill_app.security import LocalGuard
+
+
+@dataclass(slots=True)
+class EventReviewSession:
+    """Mutable UI-only review state; persistence still happens only on explicit confirmation."""
+
+    path: str
+    cards: list[ReviewCard]
+    day_totals: dict[date, int]
+    min_files: int
+    named_events: list[dict[str, Any]] = field(default_factory=list)
+    named_trips: list[dict[str, Any]] = field(default_factory=list)
+
 
 _PKG = Path(__file__).resolve().parent
 _TEMPLATES = _PKG / "templates"
@@ -201,16 +216,12 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
         )
 
     # --- Trip/event review (session-based; merge/split are UI-only, no CLI path) ---
-    sessions: dict[str, dict[str, Any]] = {}
+    sessions: dict[str, EventReviewSession] = {}
 
-    def _cards_payload(session_id: str, **extra: Any) -> JSONResponse:
-        cards = sessions[session_id]["cards"]
+    def _cards_payload(session_id: str) -> JSONResponse:
+        session = sessions[session_id]
         return JSONResponse(
-            {
-                "session": session_id,
-                "cards": [service.review_card_json(c) for c in cards],
-                **extra,
-            }
+            service.review_cards_payload(session_id, session.cards, session.min_files)
         )
 
     async def events_propose(request: Request) -> JSONResponse:
@@ -227,13 +238,21 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
         if not proposal["ok"]:
             return JSONResponse({"ok": False, "error": proposal["error"]})
         session_id = uuid.uuid4().hex
-        sessions[session_id] = {
-            "path": str(path),
-            "cards": proposal["cards"],
-            "day_totals": proposal["day_totals"],
-        }
-        return _cards_payload(
-            session_id, ok=True, label=proposal["label"], declines=proposal["declines"]
+        session = EventReviewSession(
+            path=str(path),
+            cards=proposal["cards"],
+            day_totals=proposal["day_totals"],
+            min_files=proposal["min_files"],
+        )
+        sessions[session_id] = session
+        return JSONResponse(
+            service.proposed_review_cards_payload(
+                session_id,
+                session.cards,
+                session.min_files,
+                proposal["label"],
+                proposal["declines"],
+            )
         )
 
     async def events_merge(request: Request) -> JSONResponse:
@@ -246,14 +265,14 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
         session_id = request.path_params["session"]
         indices: list[int] = (await request.json())["indices"]
         session = sessions[session_id]
-        cards: list[ReviewCard] = session["cards"]
+        cards = session.cards
         chosen = [cards[i] for i in indices]
         rest = [c for j, c in enumerate(cards) if j not in set(indices)]
         try:
-            merged = merge_review_cards(chosen, session["day_totals"])
+            merged = merge_review_cards(chosen, session.day_totals)
         except TripMergeError as exc:
             return JSONResponse({"error": str(exc)})
-        session["cards"] = [ReviewCard(trip=merged), *rest]
+        session.cards = order_review_cards([ReviewCard(trip=merged), *rest])
         return _cards_payload(session_id)
 
     async def events_split(request: Request) -> JSONResponse:
@@ -265,7 +284,8 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
         """
         session_id = request.path_params["session"]
         body = await request.json()
-        cards: list[ReviewCard] = sessions[session_id]["cards"]
+        session = sessions[session_id]
+        cards = session.cards
         card = cards[body["index"]]
         if card.event is not None:
             first_event, second_event = split_candidate(card.event, body["at"])
@@ -274,7 +294,9 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
             assert card.trip is not None
             first_trip, second_trip = split_trip(card.trip, date.fromisoformat(body["after_day"]))
             new_cards = [ReviewCard(trip=first_trip), ReviewCard(trip=second_trip)]
-        cards[body["index"] : body["index"] + 1] = new_cards
+        session.cards = order_review_cards(
+            [*cards[: body["index"]], *new_cards, *cards[body["index"] + 1 :]]
+        )
         return _cards_payload(session_id)
 
     async def events_apply(request: Request) -> JSONResponse:
@@ -289,7 +311,7 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
         session_id = request.path_params["session"]
         names: list[str | None] = (await request.json())["names"]
         session = sessions[session_id]
-        cards: list[ReviewCard] = session["cards"]
+        cards = session.cards
         with Catalog(_db()) as catalog:
             event_decisions = [
                 EventDecision(card.event, name)
@@ -343,24 +365,24 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
                         "end": max(card.trip.days).isoformat(),
                     }
                 )
-        session["named_events"] = named_events
-        session["named_trips"] = named_trips
+        session.named_events = named_events
+        session.named_trips = named_trips
         return JSONResponse({"events": named_events_count, "trips": named_trips_count})
 
     async def events_preview(request: Request) -> JSONResponse:
         """Preview where the just-named trips will move the drive's files (moves nothing)."""
         session = sessions[request.path_params["session"]]
-        return JSONResponse(service.migration_preview(Path(session["path"]), _db()))
+        return JSONResponse(service.migration_preview(Path(session.path), _db()))
 
     async def events_apply_to_disk(request: Request) -> JSONResponse:
         """Apply the trip placement: a journalled, resumable relocation on the drive."""
         session = sessions[request.path_params["session"]]
         job_id = jobs.start(
             service.migration_apply(
-                Path(session["path"]),
+                Path(session.path),
                 _db(),
-                session.get("named_events", []),
-                session.get("named_trips", []),
+                session.named_events,
+                session.named_trips,
             )
         )
         return JSONResponse({"job_id": job_id})

@@ -17,6 +17,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
+from typing import Final, Literal
 
 from truestill_core.catalog import Catalog
 from truestill_core.events import (
@@ -39,6 +40,11 @@ from truestill_core.trips import (
 #: label: a trip manually split down to one day is still labelled "event" (`ReviewCard.kind`),
 #: exactly as detection itself never proposes a 1-day trip from scratch.
 _MIN_TRIP_DAYS_FOR_LABEL = 2
+#: "Small" means still close to the configured inclusion floor: below its first two doublings
+#: (`count < 4 * min_files`; detected events already meet the floor, while a manual split may
+#: create a smaller half). Unlike a fixed photo count, this scales with the user's chosen
+#: sensitivity. Only standalone event candidates are eligible; trips never are.
+_SMALL_EVENT_FACTOR: Final[int] = 2**2
 
 
 def _parse_dt(value: object) -> datetime:
@@ -103,13 +109,44 @@ class ReviewCard:
             raise ValueError(message)
 
     @property
-    def kind(self) -> str:
+    def kind(self) -> Literal["trip", "event"]:
         is_multi_day = self.trip is not None and len(self.trip.days) >= _MIN_TRIP_DAYS_FOR_LABEL
         return "trip" if is_multi_day else "event"
 
     @property
     def start(self) -> date:
         return self.trip.start_date if self.trip is not None else self.event.start.date()  # type: ignore[union-attr]
+
+    @property
+    def end(self) -> date:
+        return self.trip.end_date if self.trip is not None else self.event.end.date()  # type: ignore[union-attr]
+
+    @property
+    def count(self) -> int:
+        if self.trip is not None:
+            return sum(self.trip.days.values())
+        assert self.event is not None
+        return self.event.count
+
+
+def small_event_limit(min_files: int) -> int:
+    """Exclusive upper bound for floor-near event groups (two doublings above the floor)."""
+    return min_files * _SMALL_EVENT_FACTOR
+
+
+def is_small_event(card: ReviewCard, min_files: int) -> bool:
+    """Whether this standalone event belongs behind the one summary disclosure."""
+    return card.event is not None and card.count < small_event_limit(min_files)
+
+
+def order_review_cards(cards: Sequence[ReviewCard]) -> list[ReviewCard]:
+    """Return proposals largest-first; sorting card count is the only ordering work."""
+    return sorted(cards, key=lambda card: card.count, reverse=True)
+
+
+def collapsed_event_cards(cards: Sequence[ReviewCard], min_files: int) -> list[ReviewCard]:
+    """The exact floor-near standalone events hidden by default; trips are ineligible."""
+    return [card for card in cards if is_small_event(card, min_files)]
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,7 +188,7 @@ def assemble_trip_review(
         for cluster in clusters
         if cluster.start.date() not in claimed_days
     )
-    cards.sort(key=lambda card: card.start)
+    cards = order_review_cards(cards)
     day_totals: dict[date, int] = {}
     for item in items:
         day = item.captured_at.date()
