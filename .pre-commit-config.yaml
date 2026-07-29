@@ -40,8 +40,16 @@ repos:
         language: system
         pass_filenames: false
         types_or: [python, markdown, toml, yaml]
+      # Accidental ``> 25.9`` / ``-> 2024-03-24`` shell redirects land empty files at the root.
+      # always_run so a previously committed artifact is caught even when untouched.
+      - id: no-redirect-artifacts
+        name: no shell-redirect artifact filenames at repo root
+        entry: python3 scripts/check_redirect_artifacts.py
+        language: system
+        pass_filenames: false
+        always_run: true
 
-  # Non-negotiable project rule: no AI co-author trailer / Anthropic-Claude email in history.
+  # Non-negotiable project rule: no AI co-author trailer / Anthropic/Claude email in history.
   # Activate with: uv run pre-commit install --hook-type commit-msg
   - repo: local
     hooks:

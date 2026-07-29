@@ -347,6 +347,9 @@ successful upgrade), never automatic.
 - **`ruff format --check`** is also a separate gate in CI (and `make format` applies it).
 - **`dash-check`** = `scripts/normalize_dashes.py --check`, in `make check` and in pre-commit.
   See the prose convention below.
+- **`redirect-check`** = `scripts/check_redirect_artifacts.py`, in `make check` and in
+  pre-commit. Refuses repo-root filenames that are bare numbers (`10.0`) or ISO dates
+  (`2024-03-24`) - the shape left by pasting ``> 25.9`` / ``-> 2024-03-24`` into a shell.
 
 ### 6.1 The prose convention: hyphens, not em-dashes
 

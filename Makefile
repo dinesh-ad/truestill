@@ -6,7 +6,7 @@ APP := packages/truestill-app/src/truestill_app
 # left out of it silently imported a module that had not existed for two renames.
 SCRIPTS := scripts
 
-.PHONY: install lint format format-check typecheck dash-check test check build dryrun e2e e2e-install
+.PHONY: install lint format format-check typecheck dash-check redirect-check test check build dryrun e2e e2e-install
 
 install:
 	uv sync --all-packages --group dev
@@ -32,7 +32,11 @@ test:
 dash-check:
 	$(PYTHON) python scripts/normalize_dashes.py --check
 
-check: lint format-check typecheck dash-check test
+# Empty root files named ``10.0`` / ``2024-03-24`` are shell redirects, not product files.
+redirect-check:
+	$(PYTHON) python scripts/check_redirect_artifacts.py
+
+check: lint format-check typecheck dash-check redirect-check test
 
 # --- browser end-to-end ----------------------------------------------------------------
 # Deliberately outside `check` and outside pytest's testpaths: a fresh clone runs `make check`
