@@ -104,7 +104,8 @@ def test_merge_via_http_names_the_combined_trip_and_moves_it_on_disk(
     named = client.post(f"/api/events/{sid}/apply", json={"names": ["Trip"]}).json()
     assert named == {"events": 0, "trips": 1}
 
-    preview = client.post(f"/api/events/{sid}/preview", json={}).json()
+    started = client.post(f"/api/events/{sid}/preview", json={}).json()
+    preview = _stream_until_done(client, started["job_id"])["summary"]
     assert len(preview["moves"]) == 20  # all 20 files move under the trip's header folder
     assert all("2026-06-14 - Trip" in m["new"] for m in preview["moves"])
 
@@ -172,9 +173,8 @@ def test_apply_to_disk_reports_one_row_per_named_group_with_its_real_folder(
     named = client.post(f"/api/events/{sid}/apply", json={"names": ["Goa", "Paris"]}).json()
     assert named == {"events": 2, "trips": 0}
 
-    client.post(
-        f"/api/events/{sid}/preview", json={}
-    )  # exercised by the test above; not re-asserted
+    started = client.post(f"/api/events/{sid}/preview", json={})
+    _stream_until_done(client, started.json()["job_id"])  # exercised by the test above
     job = client.post(f"/api/events/{sid}/apply-to-disk", json={}).json()
     done = _stream_until_done(client, job["job_id"])
 
@@ -293,9 +293,10 @@ def test_ingest_preview_report(client: TestClient, tmp_path: Path) -> None:
         '{"photoTakenTime":{"timestamp":"1692113136"}}', encoding="utf-8"
     )
 
-    report = client.post(
+    started = client.post(
         "/api/ingest/preview",
         json={"takeout": str(tmp_path / "Takeout"), "destination": str(tmp_path / "out")},
     ).json()
+    report = _stream_until_done(client, started["job_id"])["summary"]
     assert report["files"] == 1
     assert report["dates_photo_taken"] == 1

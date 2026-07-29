@@ -151,6 +151,22 @@
             <span class="hint" id="rc-dest-hint"></span></div>
           <div class="actions"><button class="btn btn-primary" id="rc-preview">Preview import</button></div>
         </div>
+        <!-- shared progress block: see createProgress() in app.js -->
+        <div class="progress-wrap hidden" id="rc-card">
+          <div class="prog-head">
+            <span class="phase" id="rc-phase"></span>
+            <span class="activity mono" id="rc-activity"></span>
+            <span class="spacer"></span>
+            <span class="count mono" id="rc-count"></span>
+          </div>
+          <div class="bar"><i id="rc-bar"></i></div>
+          <div class="prog-foot">
+            <span class="meta mono" id="rc-meta"></span>
+            <span class="spacer"></span>
+            <button class="btn btn-ghost" id="rc-cancel">Cancel</button>
+          </div>
+          <div class="prog-tally mono" id="rc-tally"></div>
+        </div>
         <div id="rc-result"></div>
       </section>
 

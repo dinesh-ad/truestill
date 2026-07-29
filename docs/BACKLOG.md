@@ -18,7 +18,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(tt). Next free: (uu).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(uu). Next free: (vv).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -61,6 +61,36 @@ is invisible here is retired, not free.**
     job/`streamJob`/`createProgress` machinery under the plain-call group above, rather than
     inventing a second progress mechanism - but that design call belongs to whichever session
     builds this, not here.
+  - **Not fixed here, on purpose** - recorded only, per instruction.
+
+- **(uu) CORRECTNESS: non-Apple videos with only UTC `CreateDate` are filed as local wall-clock.**
+  Ruled by Dinesh from a discovery pass, 2026-07-29. **Record only - fix needs its own research
+  pass; do not smuggle a conversion into the date chain without that design.**
+  - **The defect.** Video containers (MP4/MOV/QuickTime) store `CreateDate` /
+    `MediaCreateDate` / `TrackCreateDate` in **UTC per spec**; still photos store local time.
+    truestill's chain prefers `DateTimeOriginal` then Apple `CreationDate` (local + offset,
+    offset dropped once - correct and tested), then falls through to the UTC `*CreateDate`
+    family and treats those digits **as local with no conversion** (`dates.py` /
+    `parse_exif_datetime`). Same class of bug as PhotoPrism #1388, Lightroom, Immich: a video
+    and a photo shot together land hours apart, and near midnight on different calendar days.
+  - **Measured on the soak corpus** (`/home/dinesh/TruestillLibrary/Output`, 3 videos):
+    - `MVI_2550.MOV` (Canon): `DateTimeOriginal` wins → aligned with nearby JPGs (~0 delta).
+    - `VID_20140817_102145.mp4` (Android/Saved): no `CreationDate`/DTO; catalog
+      `2014-08-17T04:54:24` vs photo `IMG_20140817_102129.jpg` at `10:21:29` → **~5.5h early**.
+    - `VID_20140817_155317.mp4`: same pattern; catalog `10:25:33` vs photo
+      `IMG_20140817_155241.jpg` at `15:52:46` → **~5.5h early**.
+    - **No day-folder / trip-day split in this corpus** only because the shoots were midday IST
+      (+5:30). A clip after ~18:30 IST would land on the **previous** day - wrong day folder,
+      outside its trip day.
+  - **Candidate signals for a later design (not a prescription):** (1) filename-local time
+    (`VID_YYYYMMDD_HHMMSS` matched the photos here; osxphotos-style single-conversion rules
+    apply - do not double-shift); (2) `GPSDateStamp` as a UTC reference (unread today; backlog
+    `(kk)` already wants it persisted as a dead-clock cross-check); (3) a contemporaneous-photo
+    heuristic when a video sits hours from photos minutes away by filename.
+  - **Documented trap - do not walk into it:** EXIF `OffsetTime` corresponds to the
+    **modification** date (`ModifyDate`), not the original. Using it to convert
+    `DateTimeOriginal` is wrong. Prefer `OffsetTimeOriginal` if that tag is ever added; never
+    borrow `OffsetTime` for capture time.
   - **Not fixed here, on purpose** - recorded only, per instruction.
 
 - **(pp) No in-app undo for a trip/migration apply-to-disk - CLI-only today, and the visible

@@ -164,8 +164,8 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
 
     async def ingest_preview(request: Request) -> JSONResponse:
         body = await request.json()
-        report = service.ingest_preview(Path(body["takeout"]), Path(body["destination"]), _db())
-        return JSONResponse(report)
+        target = service.ingest_preview_run(Path(body["takeout"]), Path(body["destination"]), _db())
+        return JSONResponse({"job_id": jobs.start(target)})
 
     # --- folder picker + library status -------------------------------------------------
 
@@ -207,7 +207,7 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
 
     async def migrate_preview(request: Request) -> JSONResponse:
         body = await request.json()
-        return JSONResponse(service.migration_preview(Path(body["path"]), _db()))
+        return _undo_job_response(service.migration_preview_run(Path(body["path"]), _db()))
 
     async def migrate_run(request: Request) -> JSONResponse:
         body = await request.json()
@@ -392,7 +392,7 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
     async def events_preview(request: Request) -> JSONResponse:
         """Preview where the just-named trips will move the drive's files (moves nothing)."""
         session = sessions[request.path_params["session"]]
-        return JSONResponse(service.migration_preview(Path(session.path), _db()))
+        return _undo_job_response(service.migration_preview_run(Path(session.path), _db()))
 
     async def events_apply_to_disk(request: Request) -> JSONResponse:
         """Apply the trip placement: a journalled, resumable relocation on the drive."""

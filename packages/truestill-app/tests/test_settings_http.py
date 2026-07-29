@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -16,6 +17,26 @@ from truestill_core.hashing import sha256_file
 from truestill_core.layout import DEFAULT_TEMPLATE_STRING, LAYOUT_TEMPLATE_KEY
 
 _TOKEN = "tok"
+
+
+def _finish(client: TestClient, job_id: str) -> dict:
+    """Drain a job's SSE stream to its terminal event (done or error)."""
+    with client.stream("GET", f"/api/jobs/{job_id}/events?token={_TOKEN}") as stream:
+        for line in stream.iter_lines():
+            if line.startswith("data:"):
+                event = json.loads(line[5:].strip())
+                if event["type"] in ("done", "error"):
+                    return event
+    pytest.fail("job never reached a terminal event")  # pragma: no cover
+
+
+def _preview_summary(client: TestClient, path: Path) -> dict:
+    """Start migrate preview and return its done summary (the former sync response body)."""
+    started = client.post("/api/migrate/preview", json={"path": str(path)}).json()
+    assert "job_id" in started, started
+    done = _finish(client, started["job_id"])
+    assert done["type"] == "done", done
+    return done["summary"]
 
 
 @pytest.fixture
@@ -202,7 +223,15 @@ def test_drive_preview_endpoints_never_refresh_the_catalog(
     response = client.post(endpoint, json={"path": str(drive)})
 
     assert response.status_code == 200
-    assert response.json()["ok"] is True
+    body = response.json()
+    if endpoint == "/api/migrate/preview":
+        # Job-ified (backlog oo): drain the dry-run so any write would already have happened.
+        assert "job_id" in body
+        done = _finish(client, body["job_id"])
+        assert done["type"] == "done"
+        assert done["summary"]["ok"] is True
+    else:
+        assert body["ok"] is True
     assert db_path.read_bytes() == before_db
     with Catalog(db_path) as catalog:
         after_row = dict(catalog.list_drives()[0])
@@ -234,7 +263,7 @@ def test_migrate_preview_lists_moves(client: TestClient, tmp_path: Path) -> None
         )
 
     client.post("/api/layout", json={"template": "{yyyy}/{yyyy}-{mm}/{dd}"})  # year-first
-    r = client.post("/api/migrate/preview", json={"path": str(drive)}).json()
+    r = _preview_summary(client, drive)
     assert r["ok"] is True
     assert len(r["moves"]) == 1
     assert r["moves"][0]["new"] == "Camera/2023/2023-08/x.jpg"  # no camera evidence -> side bin
@@ -313,7 +342,7 @@ def test_migrate_preview_routes_a_camera_photo_by_its_own_evidence(
         )
 
     client.post("/api/layout", json={"template": "{yyyy}/{yyyy}-{mm}"})  # year-first
-    r = client.post("/api/migrate/preview", json={"path": str(drive)}).json()
+    r = _preview_summary(client, drive)
     assert r["ok"] is True
     moves = {m["old"]: m["new"] for m in r["moves"]}
 

@@ -744,18 +744,38 @@ def proposed_review_cards_payload(
 # --- Takeout rescue report (Rescue report screen) -------------------------------------
 
 
-def ingest_preview(takeout: Path, destination: Path, db: Path) -> dict[str, Any]:  # noqa: ARG001
-    """Dry-run Takeout rescue: the honest report the Rescue screen shows before any run."""
+def ingest_preview(
+    takeout: Path,
+    destination: Path,  # noqa: ARG001 - kept for API symmetry with organize preview
+    db: Path,
+    *,
+    progress: ProgressCallback | None = None,
+    cancel: threading.Event | None = None,
+) -> dict[str, Any]:
+    """Dry-run Takeout rescue: the honest report the Rescue screen shows before any run.
+
+    Discovery has no progress callback, so the first tick is indeterminate (:attr:`Phase.SCANNING`
+    with ``total=0``) rather than a fake count. Metadata and hashing then reuse the same
+    callbacks :func:`read_metadata` and :func:`resolve` already expose to organize preview.
+    """
+    if progress is not None:
+        progress(Progress(0, 0, Phase.SCANNING, ""))
     scan = scan_takeout(takeout)
     files = discover(takeout)
     if not files:
         return {"files": 0, "missing_sidecar": 0}
-    metadata = read_metadata(files)
+    metadata = read_metadata(files, progress=progress, cancel=cancel)
     with Catalog(db) as catalog:
         scheme = resolve_scheme(catalog)
         decisions = plan(files, metadata, build_rules(), takeout=scan.sidecars, scheme=scheme)
         index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
-        resolutions = resolve(decisions, index, catalog_sizes=catalog.known_sizes())
+        resolutions = resolve(
+            decisions,
+            index,
+            catalog_sizes=catalog.known_sizes(),
+            progress=progress,
+            cancel=cancel,
+        )
     uploads = [r for r in resolutions if r.should_upload]
     dups = [r for r in resolutions if not r.should_upload]
     sources = Counter(r.decision.date_source.value for r in uploads)
@@ -772,6 +792,15 @@ def ingest_preview(takeout: Path, destination: Path, db: Path) -> dict[str, Any]
         **date_quality(uploads)._asdict(),
         "missing_sidecar": len(scan.missing_sidecar),
     }
+
+
+def ingest_preview_run(takeout: Path, destination: Path, db: Path) -> JobTarget:
+    """Takeout rescue preview as a cancellable job - same dry-run, streamed progress."""
+
+    def target(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
+        return ingest_preview(takeout, destination, db, progress=progress, cancel=cancel)
+
+    return target
 
 
 def _safe_size(path: Path) -> int:
@@ -1191,7 +1220,12 @@ def propose_events(
 
 
 def _resolve_migration_routes(
-    catalog: Catalog, drive_uuid: str, path: Path
+    catalog: Catalog,
+    drive_uuid: str,
+    path: Path,
+    *,
+    progress: ProgressCallback | None = None,
+    cancel: threading.Event | None = None,
 ) -> tuple[dict[str, str], dict[str, str]]:
     """Resolve ambiguous labels the same way `truestill migrate-layout` does.
 
@@ -1201,21 +1235,34 @@ def _resolve_migration_routes(
     guess. Without this, `plan_migration`'s conservative default (unmapped -> side bin) fires for
     every `Camera` row, because nothing else in this module ever resolved the ambiguity - the app
     has no `--by-device` equivalent, so re-derivation always runs with the plain device rule.
+
+    ``progress`` / ``cancel`` forward into :func:`rederive_rules` (exiftool) - the silent phase
+    that made events/migrate preview look frozen on a network mount (backlog oo).
     """
     routes = label_routes(catalog, drive_uuid)
-    rules_by_sha = rederive_rules(catalog, drive_uuid, path, routes)
+    rules_by_sha = rederive_rules(
+        catalog, drive_uuid, path, routes, progress=progress, cancel=cancel
+    )
     decided = {r.label: (ROUTE_SIDE_BIN if r.needs_decision else r.route) for r in routes}
     return decided, rules_by_sha
 
 
-def migration_preview(path: Path, db: Path) -> dict[str, Any]:
+def migration_preview(
+    path: Path,
+    db: Path,
+    *,
+    progress: ProgressCallback | None = None,
+    cancel: threading.Event | None = None,
+) -> dict[str, Any]:
     """Preview relocating a connected drive's files to the current template (moves nothing)."""
     marker = read_marker(path)
     if marker is None:
         return {"ok": False, **_drive_correction(path)}
     with Catalog(db) as catalog:
         scheme = resolve_scheme(catalog)
-        routes, rules_by_sha = _resolve_migration_routes(catalog, marker.uuid, path)
+        routes, rules_by_sha = _resolve_migration_routes(
+            catalog, marker.uuid, path, progress=progress, cancel=cancel
+        )
         outcome = run_migration(
             catalog,
             LocalDestination(path),
@@ -1224,6 +1271,8 @@ def migration_preview(path: Path, db: Path) -> dict[str, Any]:
             apply=False,
             routes=routes,
             rules_by_sha=rules_by_sha,
+            progress=progress,
+            cancel=cancel,
         )
         pending = [
             d["label"]
@@ -1240,6 +1289,22 @@ def migration_preview(path: Path, db: Path) -> dict[str, Any]:
         "warnings": plan.warnings,
         "pending_drives": pending,
     }
+
+
+def migration_preview_run(path: Path, db: Path) -> JobTarget | DriveUnavailablePayload:
+    """Migration preview as a cancellable job - streams rederive + plan progress (backlog oo).
+
+    Soft-fails with the drive-correction payload when the path is not a connected drive, matching
+    :func:`migration_undo`, so the UI never starts a job for "not a drive".
+    """
+    marker = read_marker(path)
+    if marker is None:
+        return {"ok": False, **_drive_correction(path)}
+
+    def target(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
+        return migration_preview(path, db, progress=progress, cancel=cancel)
+
+    return target
 
 
 class NamedEventSelection(TypedDict):
@@ -1291,7 +1356,9 @@ def migration_apply(
             catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
             pin_existing_layout(catalog)
             scheme = resolve_scheme(catalog)
-            routes, rules_by_sha = _resolve_migration_routes(catalog, marker.uuid, path)
+            routes, rules_by_sha = _resolve_migration_routes(
+                catalog, marker.uuid, path, progress=progress, cancel=cancel
+            )
             outcome = run_migration(
                 catalog,
                 LocalDestination(path),

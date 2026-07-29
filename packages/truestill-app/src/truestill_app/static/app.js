@@ -371,6 +371,7 @@ const evProgress = createProgress("ev");
 const bkProgress = createProgress("bk");
 const migProgress = createProgress("mig");
 const undoProgress = createProgress("undo");
+const rcProgress = createProgress("rc");
 
 // ---------- typed confirm (reusable) ----------
 // Destructive actions that currently demand a typed word on the CLI (undo, and soon oo/rr)
@@ -952,21 +953,36 @@ async function runWhere(term, page) {
 $("where-go").onclick = guarded(() => runWhere($("where-term").value.trim(), 1));
 
 // ---------- Import (Takeout) ----------
+let rcJob = null;
 $("rc-preview").onclick = guarded(async () => {
   const takeout = $("rc-takeout").value.trim(), destination = $("rc-dest").value.trim();
-  $("rc-result").innerHTML = card("Scanning…");
-  const r = await api("/api/ingest/preview", { takeout, destination });
-  $("rc-result").innerHTML = card(
-    `<div class="headline">${nfmt(r.files)} files found</div>
-     <div class="tally">
-       <div class="n">${nfmt(r.kept)}</div><div class="k">to import</div>
-       <div class="n">${nfmt(r.dup_collapsed)}</div><div class="k">duplicates removed (~${r.reclaimed_mb} MB)</div>
-       <div class="n">${nfmt(r.dates_photo_taken)}</div><div class="k">dates recovered</div>
-       <div class="n">${nfmt(r.undated)}</div><div class="k">still undated</div>
-     </div>
-     ${dateQualityNotes(r)}`
-  );
+  $("rc-result").innerHTML = "";
+  rcProgress.start("scanning");
+  const { job_id } = await api("/api/ingest/preview", { takeout, destination });
+  rcJob = job_id;
+  streamJob(job_id, (d) => rcProgress.update(d), (d) => {
+    rcProgress.stop();
+    rcJob = null;
+    if (!d.ok) { $("rc-result").innerHTML = jobErrorCard(d); return; }
+    if (d.status === "cancelled") {
+      $("rc-result").innerHTML = card(
+        `<div class="headline">Preview cancelled</div><div class="k">Nothing was imported. Preview again when you are ready.</div>`);
+      return;
+    }
+    const r = d.summary;
+    $("rc-result").innerHTML = card(
+      `<div class="headline">${nfmt(r.files)} files found</div>
+       <div class="tally">
+         <div class="n">${nfmt(r.kept)}</div><div class="k">to import</div>
+         <div class="n">${nfmt(r.dup_collapsed)}</div><div class="k">duplicates removed (~${r.reclaimed_mb} MB)</div>
+         <div class="n">${nfmt(r.dates_photo_taken)}</div><div class="k">dates recovered</div>
+         <div class="n">${nfmt(r.undated)}</div><div class="k">still undated</div>
+       </div>
+       ${dateQualityNotes(r)}`
+    );
+  });
 });
+$("rc-cancel").onclick = guarded(() => { if (rcJob) return api(`/api/jobs/${rcJob}/cancel`, {}); });
 
 // ---------- Trips & events ----------
 // 13.3b's inversion: detect_trips runs first, so a genuine multi-day run already arrives as ONE
@@ -1079,17 +1095,37 @@ $("ev-apply").onclick = guarded(async () => {
      <div class="k">Next: preview where these photos will move on the drive.</div>`);
   // Preview the on-disk placement (reuses the migrate engine). A named trip reaches this the
   // same way a named event always has (Stage 13.4) - both are previewed here, and nothing
-  // moves until the button below is actually clicked.
-  const p = await api(`/api/events/${evSession}/preview`, {});
+  // moves until the button below is actually clicked. Preview is a real job: on a large trip
+  // over a network mount it is minutes of rederive+plan (backlog oo), not a quick GET.
   $("ev-apply-card").classList.remove("hidden");
   $("ev-disk-result").innerHTML = "";
-  if (!p.ok) { $("ev-moves").innerHTML = `<div class="banner warn"><div>${esc(p.error)}</div></div>`; return; }
-  $("ev-moves").innerHTML = p.moves.length
-    ? `<div class="headline">${plural(p.moves.length, "photo")} will move into trip and event folders</div>
-       <details class="more"><summary>Show the moves</summary>
-         <div class="mono k">${p.moves.slice(0, 200).map((m) => `${esc(m.old)} → ${esc(m.new)}`).join("<br>")}</div></details>`
-    : `<div class="k">Nothing to move - these photos are already in their trip and event folders.</div>`;
-  $("ev-apply-disk").classList.toggle("hidden", p.moves.length === 0);
+  $("ev-moves").innerHTML = "";
+  $("ev-apply-disk").classList.add("hidden");
+  const started = await api(`/api/events/${evSession}/preview`, {});
+  if (started.ok === false) {
+    $("ev-moves").innerHTML = driveError(started, "ev-source");
+    return;
+  }
+  evJob = started.job_id;
+  evProgress.start("planning");
+  streamJob(started.job_id, (d) => evProgress.update(d), (d) => {
+    evProgress.stop();
+    evJob = null;
+    if (!d.ok) { $("ev-moves").innerHTML = jobErrorCard(d); return; }
+    if (d.status === "cancelled") {
+      $("ev-moves").innerHTML = card(
+        `<div class="headline">Preview cancelled</div><div class="k">Nothing was moved. Save names again when you are ready.</div>`);
+      return;
+    }
+    const p = d.summary;
+    if (!p.ok) { $("ev-moves").innerHTML = `<div class="banner warn"><div>${esc(p.error)}</div></div>`; return; }
+    $("ev-moves").innerHTML = p.moves.length
+      ? `<div class="headline">${plural(p.moves.length, "photo")} will move into trip and event folders</div>
+         <details class="more"><summary>Show the moves</summary>
+           <div class="mono k">${p.moves.slice(0, 200).map((m) => `${esc(m.old)} → ${esc(m.new)}`).join("<br>")}</div></details>`
+      : `<div class="k">Nothing to move - these photos are already in their trip and event folders.</div>`;
+    $("ev-apply-disk").classList.toggle("hidden", p.moves.length === 0);
+  });
 });
 // One row per trip or event actually named and moved this run, each with a working reveal link -
 // folder exists by construction (the migration that just finished wrote it), so unlike Backups'
@@ -1219,14 +1255,34 @@ $("events-settings-save").onclick = guarded(async () => {
   $("events-min-files").value = r.min_files;
   $("events-settings-status").textContent = "Saved. New searches use this value.";
 });
-$("mig-preview").onclick = guarded(async () => {
-  const r = await api("/api/migrate/preview", { path: $("mig-path").value.trim() });
-  if (!r.ok) { $("mig-result").innerHTML = driveError(r, "mig-path"); $("mig-run").classList.add("hidden"); return; }
-  $("mig-result").innerHTML = card(`<div class="headline">${plural(r.moves.length, "file")} to move</div>
-    <div class="k">${r.unchanged} already in place${r.warnings.length ? " · ⚠ " + esc(r.warnings.join("; ")) : ""}</div>`);
-  $("mig-run").classList.toggle("hidden", r.moves.length === 0);
-});
 let migJob = null;
+$("mig-preview").onclick = guarded(async () => {
+  $("mig-result").innerHTML = "";
+  $("mig-run").classList.add("hidden");
+  migProgress.start("planning");
+  const started = await api("/api/migrate/preview", { path: $("mig-path").value.trim() });
+  if (started.ok === false) {
+    migProgress.stop();
+    $("mig-result").innerHTML = driveError(started, "mig-path");
+    return;
+  }
+  migJob = started.job_id;
+  streamJob(started.job_id, (d) => migProgress.update(d), (d) => {
+    migProgress.stop();
+    migJob = null;
+    if (!d.ok) { $("mig-result").innerHTML = jobErrorCard(d); return; }
+    if (d.status === "cancelled") {
+      $("mig-result").innerHTML = card(
+        `<div class="headline">Preview cancelled</div><div class="k">Nothing was moved. Preview again when you are ready.</div>`);
+      return;
+    }
+    const r = d.summary;
+    if (!r.ok) { $("mig-result").innerHTML = driveError(r, "mig-path"); return; }
+    $("mig-result").innerHTML = card(`<div class="headline">${plural(r.moves.length, "file")} to move</div>
+      <div class="k">${r.unchanged} already in place${r.warnings.length ? " · ⚠ " + esc(r.warnings.join("; ")) : ""}</div>`);
+    $("mig-run").classList.toggle("hidden", r.moves.length === 0);
+  });
+});
 $("mig-run").onclick = guarded(async () => {
   const { job_id } = await api("/api/migrate/run", { path: $("mig-path").value.trim() });
   migJob = job_id;
