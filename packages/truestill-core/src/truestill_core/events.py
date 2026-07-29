@@ -29,6 +29,7 @@ import statistics
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Protocol, Self
 
 # --- tunables (defaults chosen empirically; see scripts/tune_events.py) ----------------
 
@@ -77,6 +78,59 @@ EVENT_MIN_FILES_KEY = "events.min_files"
 DEFAULT_GPS_JUMP_KM = 50.0
 
 GeoPoint = tuple[float, float]
+
+
+class SettingsReader(Protocol):
+    """The existing catalog-settings read seam needed by :class:`EventSettings`."""
+
+    def get_setting(self, key: str) -> str | None: ...
+
+
+class InvalidEventSettingsError(ValueError):
+    """A stored or submitted event preference cannot be used safely."""
+
+    @classmethod
+    def submitted(cls) -> Self:
+        return cls("Minimum photos per suggestion must be a whole number of 1 or more.")
+
+    @classmethod
+    def stored(cls, value: str) -> Self:
+        return cls(
+            f"Stored {EVENT_MIN_FILES_KEY} value {value!r} is invalid. "
+            "Open Settings and save a whole number of 1 or more."
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class EventSettings:
+    """Validated per-catalog event preferences with explicit core defaults."""
+
+    min_files: int = DEFAULT_MIN_FILES
+    is_default: bool = True
+
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.min_files, bool)
+            or not isinstance(self.min_files, int)
+            or self.min_files < 1
+        ):
+            raise InvalidEventSettingsError.submitted()
+
+    @classmethod
+    def from_catalog(cls, catalog: SettingsReader) -> Self:
+        """Read and validate the setting once; malformed persisted data is never coerced."""
+        stored = catalog.get_setting(EVENT_MIN_FILES_KEY)
+        if stored is None:
+            return cls()
+        if not stored.isascii() or not stored.isdecimal():
+            raise InvalidEventSettingsError.stored(stored)
+        try:
+            min_files = int(stored)
+        except ValueError as exc:
+            raise InvalidEventSettingsError.stored(stored) from exc
+        if min_files < 1 or str(min_files) != stored:
+            raise InvalidEventSettingsError.stored(stored)
+        return cls(min_files=min_files, is_default=False)
 
 
 @dataclass(frozen=True, slots=True)

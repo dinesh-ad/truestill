@@ -93,6 +93,7 @@ def test_event_min_files_setting_changes_proposals_and_unset_keeps_default(
 
     settings = client.get("/api/events/settings").json()
     assert settings == {
+        "valid": True,
         "min_files": DEFAULT_MIN_FILES,
         "default_min_files": DEFAULT_MIN_FILES,
         "is_default": True,
@@ -112,6 +113,26 @@ def test_event_min_files_setting_changes_proposals_and_unset_keeps_default(
     assert [card["count"] for card in changed_proposals["cards"]] == [10]
     with Catalog(db_path) as catalog:
         assert catalog.get_setting(EVENT_MIN_FILES_KEY) == "9"
+
+
+def test_invalid_stored_event_min_files_is_actionable(
+    client: TestClient, db_path: Path, tmp_path: Path
+) -> None:
+    drive = tmp_path / "drive"
+    drive.mkdir()
+    create_marker(drive, "Drive A")
+    with Catalog(db_path) as catalog:
+        catalog.set_setting(EVENT_MIN_FILES_KEY, "many")
+
+    settings = client.get("/api/events/settings").json()
+    assert settings["valid"] is False
+    assert EVENT_MIN_FILES_KEY in settings["error"]
+    assert "whole number" in settings["error"]
+    assert "Settings" in settings["error"]
+
+    proposals = client.post("/api/events/propose", json={"path": str(drive)}).json()
+    assert proposals["ok"] is False
+    assert proposals["error"] == settings["error"]
 
 
 def test_migrate_preview_requires_a_connected_drive(client: TestClient, tmp_path: Path) -> None:

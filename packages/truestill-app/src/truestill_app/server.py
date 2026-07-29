@@ -20,7 +20,7 @@ from starlette.routing import Route
 from starlette.staticfiles import StaticFiles
 from truestill_core.catalog import Catalog
 from truestill_core.event_review import EventDecision, commit_catalog
-from truestill_core.events import split_candidate
+from truestill_core.events import InvalidEventSettingsError, split_candidate
 from truestill_core.trip_review import (
     ReviewCard,
     TripDecision,
@@ -180,10 +180,15 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
         return JSONResponse(service.preview_layout(body["template"]))
 
     async def event_settings(request: Request) -> JSONResponse:
-        if request.method == "POST":
-            body = await request.json()
-            return JSONResponse(service.set_event_settings(body.get("min_files"), _db()))
-        return JSONResponse(service.event_settings(_db()))
+        try:
+            if request.method == "POST":
+                body = await request.json()
+                settings = service.set_event_settings(body.get("min_files"), _db())
+            else:
+                settings = service.event_settings(_db())
+        except InvalidEventSettingsError as exc:
+            return JSONResponse(service.invalid_event_settings_payload(str(exc)))
+        return JSONResponse(service.event_settings_payload(settings))
 
     async def migrate_preview(request: Request) -> JSONResponse:
         body = await request.json()
@@ -215,7 +220,10 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
         active day still renders as its own (unchanged) day-event card - the 13.3b inversion.
         """
         path = Path((await request.json())["path"])
-        proposal = service.propose_events(path, _db())
+        try:
+            proposal = service.propose_events(path, _db())
+        except InvalidEventSettingsError as exc:
+            return JSONResponse(service.invalid_event_proposal_payload(str(exc)))
         if not proposal["ok"]:
             return JSONResponse({"ok": False, "error": proposal["error"]})
         session_id = uuid.uuid4().hex

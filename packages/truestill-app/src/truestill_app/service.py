@@ -17,7 +17,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, Literal, TypedDict
 
 from truestill_core.catalog import Catalog
 from truestill_core.categorize import build_rules
@@ -25,7 +25,11 @@ from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import LocalDestination
 from truestill_core.drive import create_marker, locate_drive, read_marker
 from truestill_core.event_review import EventDecision, commit, propose
-from truestill_core.events import DEFAULT_MIN_FILES, EVENT_MIN_FILES_KEY
+from truestill_core.events import (
+    EVENT_MIN_FILES_KEY,
+    EventSettings,
+    InvalidEventSettingsError,
+)
 from truestill_core.exif import read_metadata
 from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import (
@@ -796,30 +800,54 @@ def library_status(db: Path) -> dict[str, Any]:
 # --- Settings --------------------------------------------------------------------------
 
 
-def _event_min_files(catalog: Catalog) -> int:
-    stored = catalog.get_setting(EVENT_MIN_FILES_KEY)
-    return DEFAULT_MIN_FILES if stored is None else int(stored)
+class EventSettingsPayload(TypedDict):
+    valid: Literal[True]
+    min_files: int
+    default_min_files: int
+    is_default: bool
 
 
-def event_settings(db: Path) -> dict[str, Any]:
-    """Trips & events proposal settings, with the core default when nothing is stored."""
+class InvalidEventSettingsPayload(TypedDict):
+    valid: Literal[False]
+    error: str
+
+
+class InvalidEventProposalPayload(TypedDict):
+    ok: Literal[False]
+    error: str
+
+
+def event_settings(db: Path) -> EventSettings:
+    """Read the validated preference once through the catalog's existing settings seam."""
     with Catalog(db) as catalog:
-        stored = catalog.get_setting(EVENT_MIN_FILES_KEY)
-        min_files = DEFAULT_MIN_FILES if stored is None else int(stored)
+        return EventSettings.from_catalog(catalog)
+
+
+def event_settings_payload(settings: EventSettings) -> EventSettingsPayload:
     return {
-        "min_files": min_files,
-        "default_min_files": DEFAULT_MIN_FILES,
-        "is_default": stored is None,
+        "valid": True,
+        "min_files": settings.min_files,
+        "default_min_files": EventSettings().min_files,
+        "is_default": settings.is_default,
     }
 
 
-def set_event_settings(min_files: object, db: Path) -> dict[str, Any]:
+def invalid_event_settings_payload(error: str) -> InvalidEventSettingsPayload:
+    return {"valid": False, "error": error}
+
+
+def invalid_event_proposal_payload(error: str) -> InvalidEventProposalPayload:
+    return {"ok": False, "error": error}
+
+
+def set_event_settings(min_files: object, db: Path) -> EventSettings:
     """Persist a positive proposal-size floor, rejecting malformed API input without writing."""
     if isinstance(min_files, bool) or not isinstance(min_files, int) or min_files < 1:
-        return {"valid": False, "error": "Minimum photos per suggestion must be a whole number."}
+        raise InvalidEventSettingsError.submitted()
+    settings = EventSettings(min_files=min_files, is_default=False)
     with Catalog(db) as catalog:
         catalog.set_setting(EVENT_MIN_FILES_KEY, str(min_files))
-    return {"valid": True, **event_settings(db)}
+    return settings
 
 
 # --- layout Settings screen (template + migration) ------------------------------------
@@ -1031,10 +1059,11 @@ def propose_events(path: Path, db: Path) -> dict[str, Any]:
     if marker is None:
         return {"ok": False, **_drive_correction(path)}
     with Catalog(db) as catalog:
+        settings = EventSettings.from_catalog(catalog)
         review = assemble_trip_review(
             catalog,
             marker.uuid,
-            min_files=_event_min_files(catalog),
+            min_files=settings.min_files,
         )
     return {
         "ok": True,

@@ -1002,7 +1002,7 @@ function renderLayoutPreview(rows) {
   </tr>`).join("");
 }
 async function loadLayout() {
-  const [s, eventSettings] = await Promise.all([get("/api/layout"), get("/api/events/settings")]);
+  const [s, eventConfig] = await Promise.all([get("/api/layout"), get("/api/events/settings")]);
   $("layout-current").textContent = s.template;
   // Derived, never a hardcoded label.
   $("layout-default").textContent = s.is_default ? "(default)" : "";
@@ -1017,10 +1017,15 @@ async function loadLayout() {
     preset.appendChild(o);
   }
   renderLayoutPreview(s.preview);
-  $("events-min-files").value = eventSettings.min_files;
-  $("events-settings-status").textContent = eventSettings.is_default
-    ? `Using the default (${eventSettings.default_min_files}).`
-    : "Using your saved value.";
+  if (eventConfig.valid === false) {
+    $("events-min-files").value = "";
+    $("events-settings-status").textContent = eventConfig.error;
+  } else {
+    $("events-min-files").value = eventConfig.min_files;
+    $("events-settings-status").textContent = eventConfig.is_default
+      ? `Using the default (${eventConfig.default_min_files}).`
+      : "Using your saved value.";
+  }
 }
 async function previewLayout() {
   const r = await api("/api/layout/preview", { template: $("layout-template").value.trim() });
