@@ -337,6 +337,121 @@ def test_classify_routes_on_the_rule_then_on_the_event() -> None:
     assert classify("screenshot_name", evented) is Placement.SIDE_BIN
 
 
+# --- axis three: trip days (Stage 2d, 13.2) -----------------------------------------------
+
+
+def test_classify_puts_a_trip_ahead_of_an_event_unconditionally() -> None:
+    """§2: a trip day claims every photo taken that day - never EVENT_DAY, even carrying one.
+
+    The precedence recommendation trip-grouping-research.md §13.3(1) settled on: `classify`
+    ignores `context.event` once `context.trip` is set, so a caller cannot get this wrong by
+    omission (it need not remember to also clear `event` for a trip-claimed day).
+    """
+    trip_and_event = RenderContext(
+        category="Camera",
+        captured_at=WHEN,
+        event=(WHEN, "goa-trip"),
+        event_name="Goa Trip",
+        trip=(WHEN, "wayanad"),
+        trip_name="Wayanad",
+    )
+    trip_only = RenderContext(
+        category="Camera", captured_at=WHEN, trip=(WHEN, "wayanad"), trip_name="Wayanad"
+    )
+    assert classify(TIMELINE_RULE, trip_and_event) is Placement.TRIP_DAY
+    assert classify(TIMELINE_RULE, trip_only) is Placement.TRIP_DAY
+    # The rule still wins outright, exactly as it does over an event.
+    assert classify("screenshot_name", trip_only) is Placement.SIDE_BIN
+
+
+def test_trip_day_renders_the_wayanad_shape() -> None:
+    """§2's exact worked example: the trip's own header folder, then each individual day."""
+    scheme = _scheme()  # year-month-event: TRIP_DAY derives from timeline_evented, unset here
+    start = datetime(2014, 8, 15)
+    for day in (15, 16, 17):
+        context = RenderContext(
+            category="Camera",
+            captured_at=datetime(2014, 8, day, 12, 0),
+            trip=(start, "wayanad"),
+            trip_name="Wayanad",
+        )
+        path = scheme.render(TIMELINE_RULE, context)
+        assert path.as_posix() == f"2014/2014-08/2014-08-15 - Wayanad/2014-08-{day}"
+
+
+def test_trip_day_files_under_its_start_month_even_when_a_member_crosses_into_the_next() -> None:
+    """§3(d): a trip is one object, filed entirely under the month it started in."""
+    scheme = _scheme()
+    start = datetime(2016, 11, 28)
+    context = RenderContext(
+        category="Camera",
+        captured_at=datetime(2016, 12, 2, 9, 0),  # this member's OWN date is in December
+        trip=(start, "goa"),
+        trip_name="Goa",
+    )
+    path = scheme.render(TIMELINE_RULE, context)
+    # Base segments (year/month) come from the trip's start; only the day level is the member's
+    # own date.
+    assert path.as_posix() == "2016/2016-11/2016-11-28 - Goa/2016-12-02"
+
+
+def test_trip_day_defaults_to_the_event_day_templates_naming() -> None:
+    """§13.3(2): "the trip shape is the day-event shape plus one dated level" - no new knob.
+
+    `LayoutScheme.of` derives `TRIP_DAY`'s template from `timeline_evented` when `trip_day` is
+    not given, so a scheme built the same way every shipped preset already is gets a valid trip
+    template for free. Fails against the wrong-template class of bug this could regress to (a
+    fourth shape silently inheriting `EVERYDAY`'s template instead of `EVENT_DAY`'s) - confirmed
+    by temporarily changing `of`'s `TRIP_DAY` arm to `timeline` and re-running: the assertion
+    below caught it (`AssertionError`), restored after.
+    """
+    scheme = LayoutScheme.of(
+        timeline=LayoutTemplate.parse("{yyyy}"),  # EVERYDAY: deliberately different from evented
+        timeline_evented=LayoutTemplate.parse("{yyyy}/{yyyy}-{mm}"),
+    )
+    context = RenderContext(
+        category="Camera", captured_at=WHEN, trip=(WHEN, "goa"), trip_name="Goa"
+    )
+    path = scheme.render(TIMELINE_RULE, context)
+    # If TRIP_DAY had inherited EVERYDAY's template, this would render "2014/2014-08-20 - Goa/..."
+    # under a bare {yyyy} base instead.
+    assert path.as_posix() == "2014/2014-08/2014-08-20 - Goa/2014-08-20"
+
+
+def test_trip_day_can_carry_a_different_naming_than_event_day() -> None:
+    """The `(mm)` boundary, baselined: TRIP_DAY is the first placement whose naming can
+    genuinely diverge from EVENT_DAY's (no shipped preset does this yet, exactly like no shipped
+    preset made EVENT_DAY differ from EVERYDAY before this). Proves the render seam can express
+    the divergence; migrate.py's collision-scoping across that divergence is 13.4's job, not
+    exercised here.
+    """
+    scheme = LayoutScheme.of(
+        timeline=LayoutTemplate.parse("{yyyy}/{yyyy}-{mm}"),
+        timeline_evented=LayoutTemplate.parse(
+            "{yyyy}/{yyyy}-{mm}", event_naming=EventNaming.READABLE
+        ),
+        trip_day=LayoutTemplate.parse("{yyyy}/{yyyy}-{mm}", event_naming=EventNaming.SLUG),
+    )
+    start = datetime(2026, 8, 15)
+    event_path = scheme.render(
+        TIMELINE_RULE,
+        RenderContext(
+            category="Camera", captured_at=start, event=(start, "goa-trip"), event_name="Goa Trip"
+        ),
+    )
+    trip_path = scheme.render(
+        TIMELINE_RULE,
+        RenderContext(
+            category="Camera", captured_at=start, trip=(start, "goa-trip"), trip_name="Goa Trip"
+        ),
+    )
+    # Same date, same name, same slug -- yet genuinely different header folders, because each
+    # placement's own naming was asked, never a fixed guess (the principle (mm) enforced for
+    # migrate.py, now proven expressible at the render seam itself).
+    assert event_path.as_posix() == "2026/2026-08/2026-08-15 - Goa Trip"
+    assert trip_path.as_posix() == "2026/2026-08/20260815_goa-trip/2026-08-15"
+
+
 def test_a_scheme_must_carry_a_template_for_every_placement() -> None:
     """Totality is checked where the scheme is built, not where a file is being placed."""
     with pytest.raises(TemplateError, match="missing a template"):

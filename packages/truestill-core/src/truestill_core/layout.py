@@ -297,10 +297,26 @@ class RenderContext:
     #: The event's human name (``events.name``). `slugify` casefolds and hyphenates, so a
     #: readable folder cannot be rebuilt from the slug - the name has to travel with it.
     event_name: str | None = None
+    #: ``(start, slug)`` when the file's *day* belongs to a confirmed trip, else ``None``. A trip
+    #: day claims every photo taken that day (`trip-grouping-research.md` §2), so this takes
+    #: precedence over ``event`` at the router (`classify`) - a caller does not need to also
+    #: clear ``event`` for a trip-claimed day, but should not rely on that; the two are mutually
+    #: exclusive in intent.
+    trip: tuple[datetime, str] | None = None
+    #: The trip's human name. Same reasoning as ``event_name`` - `slugify` is lossy.
+    trip_name: str | None = None
 
     @property
     def date(self) -> datetime | None:
-        """The date the tokens resolve from: the event start if any, else the capture date."""
+        """The date the tokens resolve from: a trip's start, else an event's, else capture.
+
+        A trip or event that spans a month (or, for a trip, several) boundary still files under
+        its own **start** month - one object, one place, never split because a member's own date
+        happens to fall later (`IMPLEMENTATION_STANDARDS.md` §4's cross-month consolidation rule,
+        now shared by both shapes rather than re-derived for the second one).
+        """
+        if self.trip is not None:
+            return self.trip[0]
         return self.event[0] if self.event is not None else self.captured_at
 
 
@@ -380,9 +396,42 @@ class LayoutTemplate:
                 notes.append(f"segment {segment!r} was empty and dropped")
 
         path = PurePosixPath(*parts) if parts else PurePosixPath()
-        if context.event is not None and not self.has_event_token():
+        if context.trip is not None:
+            path = path / self._trip_segments(context, notes)
+        elif context.event is not None and not self.has_event_token():
             path = path / event_folder(*context.event, context.event_name, self.event_naming, notes)
         return path, notes
+
+    def _trip_segments(self, context: RenderContext, notes: list[str]) -> PurePosixPath:
+        """The trip's own header folder, then the individual day - always two levels (§2).
+
+        The header is spelled by :func:`event_folder`, unchanged - a trip header is a dated,
+        named folder exactly like an event's, so it reuses the same naming/sanitization/
+        reserved-name logic rather than a second copy of it. The day level is the file's own
+        capture date (never the trip's start, which the base segments above already used via
+        `RenderContext.date`) in full ISO form, per §3(b) - `2014-08-16`, not a bare `16`, so the
+        folder still says what it is once copied away from its parent.
+
+        There is no ``{trip}`` token (`trip-grouping-research.md` §8 rejects one: a conditional
+        inside a template is the DSL the one-seam rule forbids), so this unconditional append is
+        the *only* way a trip renders - the same shape the event append already has, extended by
+        one level rather than replaced.
+        """
+        assert context.trip is not None
+        start, slug = context.trip
+        header = event_folder(start, slug, context.trip_name, self.event_naming, notes)
+        # Not reachable today: a trip day's membership is derived from captured_at in the first
+        # place (trip-grouping-research.md §11), so a trip-claimed file is never undated. Kept
+        # explicit rather than assumed, since `render` promises it never raises.
+        day = (
+            context.captured_at.strftime("%Y-%m-%d")
+            if context.captured_at is not None
+            else UNDATED_DIRNAME
+        )
+        if _is_reserved(day):
+            day = f"_{day}"
+            notes.append(f"segment {day!r} avoided a Windows reserved name")
+        return PurePosixPath(header, day)
 
     def _render_segment(
         self, segment: str, context: RenderContext, date: datetime | None, notes: list[str]
@@ -510,17 +559,26 @@ class Placement(StrEnum):
     EVERYDAY = "everyday"
     #: Timeline, a member of a named event.
     EVENT_DAY = "event_day"
+    #: Timeline, a day inside a named multi-day trip. Claims the whole day (see
+    #: `RenderContext.trip`'s docstring) - a sub-day event on a trip-claimed day dissolves into
+    #: the trip and never renders as :data:`EVENT_DAY` (`trip-grouping-research.md` §2).
+    TRIP_DAY = "trip_day"
 
 
 def classify(rule: str, context: RenderContext) -> Placement:
     """**The one router.** Every shape decision in the product is made here, exactly once.
 
-    Keys on the **rule, not the label** (see :data:`TIMELINE_RULE`), then on whether the file
-    belongs to a named event. Pure, total, and free of any knowledge of what the shapes *are* -
-    it returns a name, and the rendering is somebody else's job.
+    Keys on the **rule, not the label** (see :data:`TIMELINE_RULE`), then on trip membership,
+    then on whether the file belongs to a named event. A trip-claimed day takes precedence over
+    an event unconditionally - `context.event` is never consulted once `context.trip` is set, so
+    a caller cannot get the §2 "a trip day claims every photo taken that day" rule wrong by
+    omission. Pure, total, and free of any knowledge of what the shapes *are* - it returns a
+    name, and the rendering is somebody else's job.
     """
     if rule != TIMELINE_RULE:
         return Placement.SIDE_BIN
+    if context.trip is not None:
+        return Placement.TRIP_DAY
     return Placement.EVENT_DAY if context.event is not None else Placement.EVERYDAY
 
 
@@ -555,12 +613,21 @@ class LayoutScheme:
         timeline: LayoutTemplate,
         timeline_evented: LayoutTemplate,
         side_bin: LayoutTemplate = SIDE_BIN_TEMPLATE,
+        trip_day: LayoutTemplate | None = None,
     ) -> LayoutScheme:
         """Build a scheme from the shapes as a caller thinks of them.
 
         The ``match`` is the **build-time exhaustiveness gate**: add a member to
         :class:`Placement` and mypy fails here until this method says what template that shape
         gets. That is deliberate - this is the one place that must grow when the product does.
+
+        ``trip_day`` defaults to **``timeline_evented`` itself** - "the trip shape is the
+        day-event shape plus one dated level" (`trip-grouping-research.md` §2), so a fourth,
+        independently-configurable Settings knob is not warranted; the *rendering* of the extra
+        level (the trip's own header folder, then the day) is what actually differs, not the
+        base template underneath it (see :meth:`LayoutTemplate._render`). Passing ``trip_day``
+        explicitly is an escape hatch for tests that need it to diverge from ``timeline_evented``
+        - no production caller does this yet.
         """
         chosen: dict[Placement, LayoutTemplate] = {}
         for placement in Placement:
@@ -571,6 +638,8 @@ class LayoutScheme:
                     chosen[placement] = timeline
                 case Placement.EVENT_DAY:
                     chosen[placement] = timeline_evented
+                case Placement.TRIP_DAY:
+                    chosen[placement] = trip_day if trip_day is not None else timeline_evented
                 case _ as unreachable:
                     assert_never(unreachable)
         return cls(templates=chosen)

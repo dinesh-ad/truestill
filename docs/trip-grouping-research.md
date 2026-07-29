@@ -3,9 +3,9 @@
 Status: **Design approved (2026-07-28, `b5cba4a`, rulings `fb60c10`). Stages 2a-2c are built**:
 2a the router refactor (`1247055`), 2b detection (§11), 2c persistence, catalog v12 (§12). Backlog
 `(mm)` is resolved (`1ed021e`), which unblocked 2d. **2d is planned as sub-stages 13.0-13.4**
-(§13, 2026-07-29); **13.0** (verification spike, §13.6) and **13.1** (the detection-to-persistence
-join, §13.1) are built. **Next: 13.2**, `Placement.TRIP_DAY` and the render seam. 2e (migration
-adoption) remains after the rest of 2d.
+(§13, 2026-07-29); **13.0** (verification spike, §13.6), **13.1** (the detection-to-persistence
+join, §13.1) and **13.2** (`Placement.TRIP_DAY` and the render seam, §13.2) are built. **Next:
+13.3**, the review UI. 2e (migration adoption) remains after the rest of 2d.
 
 Read [`events-clustering-research.md`](events-clustering-research.md) §7 first: it is the reason
 this document exists.
@@ -726,30 +726,72 @@ as the CLI does.**
 - **STOP point:** a drive's catalog can hold named, edge-adjusted trips. Nothing renders
   differently and nothing on disk moves. `Placement.TRIP_DAY` does not exist yet - 13.2 next.
 
-**13.2 - `Placement.TRIP_DAY` and the render seam, pure.**
-- **Builds:** the `TRIP_DAY` member on `Placement`; `RenderContext` gains a field carrying trip
-  membership for a file's day (shape TBD - see §13.3's precedence decision); `classify()` is
-  extended to return `TRIP_DAY` under the resolved precedence; `LayoutScheme` gains a template
-  slot for it (independently configurable or derived - §13.3); `LayoutTemplate._render`'s
-  single auto-append mechanism is extended to append **two** synthesized segments (the trip's own
-  header folder, then the individual day) instead of one - today's mechanism assumes exactly one
-  synthesized segment per file, and a trip day needs two.
-- **Must NOT touch:** `migrate.py`, `organizer.py`, 13.1's catalog join, any HTTP route, any
-  template file. This sub-stage proves the *router and renderer* can produce the §2 shape given a
-  `RenderContext` - nothing supplies that context from real data yet.
-- **Acceptance fixture:** a Stage-2a-style equality harness (render every existing `SAMPLE_ROWS`
-  case through old and new `LayoutScheme`s, assert path-for-path equality - proving the new member
-  changes nothing for files with no trip context) **plus** direct render tests for the exact
-  shapes in §2-§3: Wayanad rendering to
-  `2014/2014-08/2014-08-15 - Wayanad/2014-08-15/2014-08-16/2014-08-17/` day subfolders, the
-  year-split case (§3e: one trip crossing Dec 31 renders as two, never one folder crossing the
-  boundary), and start-month filing (§3d: a Nov 28 - Dec 2 trip files entirely under `2016-11`).
-  Each proven to fail against a named mutation (e.g., reverting the two-segment append back to
-  one collapses the day level and produces §8's rejected "flat trip folder" shape).
+**13.2 - `Placement.TRIP_DAY` and the render seam, pure. BUILT 2026-07-29.**
+- **Shipped:** the `TRIP_DAY` member on `Placement`. `RenderContext` gains `trip: tuple[datetime,
+  str] | None` and `trip_name: str | None`, mirroring `event`/`event_name` exactly, and its
+  `date` property resolves a trip's **start** date first (a trip stays one object, filed under
+  its own start month - §3d - the same way an event's cross-month member already did; sharing
+  one property rather than re-deriving the rule a second time). `classify()` is extended per
+  the precedence decision below; `LayoutScheme.of` gains an optional `trip_day` parameter,
+  **defaulting to `timeline_evented` itself** - "the trip shape is the day-event shape plus one
+  dated level" (§2) argues for deriving the template rather than adding a fourth
+  independently-configurable Settings knob; every existing scheme-construction call site
+  (`Preset.scheme()`, `scheme_from_string`, `DEFAULT_SCHEME`) needed no change and now also
+  produces a valid `TRIP_DAY` template for free. `LayoutTemplate._render`'s single auto-append
+  branch gains a sibling, `_trip_segments`, appending **two** synthesized levels instead of one:
+  the trip's own header folder (via `event_folder`, unchanged - a trip header is a dated, named
+  folder exactly like an event's, so it reuses the same naming/sanitization/disambiguation-shape
+  logic rather than a second copy of it), then the individual day in full ISO form (§3b) -
+  always the file's **own** capture date, never the trip's start, which the base segments above
+  already used.
+  - **Precedence, resolved as recommended**: `classify()` checks `context.trip` before
+    `context.event` and returns unconditionally when it is set - `context.event` is never
+    consulted once a trip claims the day, so a caller cannot get §2's "a trip day claims every
+    photo taken that day" rule wrong by omission.
+  - **No `{trip}` token** - §8 already rejects one (a conditional inside a template is the DSL
+    the one-seam rule forbids), so the two-segment append is the *only* way a trip renders,
+    unconditionally, exactly like the event append it sits beside.
+  - **The (mm) collision-scoping boundary, baselined, not widened** (as instructed - that is
+    13.4's job): a new test constructs a scheme where `TRIP_DAY`'s naming genuinely diverges
+    from `EVENT_DAY`'s (bypassing the derived default via the `trip_day=` override - no shipped
+    preset does this yet, exactly as no shipped preset ever made `EVENT_DAY` diverge from
+    `EVERYDAY` before `(mm)`), and pins that the render seam can express the divergence. This is
+    a render-level baseline only - it does not exercise `migrate.py`'s grouping, which this
+    sub-stage does not touch.
+  - **A stale cross-reference in this document's own earlier draft, fixed in place**: this
+    section's "shape TBD" note pointed at "§13.3's precedence decision," but two different
+    sections in this document are both informally "13.3" - the *sub-stage* bullet (review UI,
+    below) and the *load-bearing decisions* subsection further down. The precedence and
+    template-derivation guidance actually being referenced lived in the latter (decisions 1 and
+    2); both are now resolved, above, rather than left to be found by guessing which "13.3" was
+    meant. Not renumbered further than this fix - a wholesale renumbering is out of scope for a
+    pure-render sub-stage and risks breaking other already-committed cross-references.
+  - **The year-split case (§3e) was not built as a render-level fixture, and does not belong
+    here.** `_split_at_year_boundary` (Stage 2b, `trips.py`) already guarantees no `TripProposal`
+    crosses a year boundary before it ever reaches persistence or rendering - splitting into two
+    *rows* is a detection-time decision, not something the renderer decides or could decide from
+    a single `RenderContext`. What the renderer *does* guarantee, and what start-month filing
+    (§3d) already tests: a trip entirely within one year files under that year via `context.date`
+    resolving to the trip's start, whichever year that is.
+- **Did not touch:** `migrate.py`, `organizer.py`, 13.1's catalog join (`trip_review.py`), any
+  HTTP route, any template file. Nothing supplies `RenderContext.trip` from real data yet.
+- **Fixtures, each proven to fail against its named mutation first** (`ENGINEERING_STANDARD.md`
+  §4):
+
+  | Fixture | Mutation | Result before restoring |
+  |---|---|---|
+  | mypy exhaustiveness: `LayoutScheme.of` must name `TRIP_DAY`'s template | the `case Placement.TRIP_DAY` arm removed (member added, arm not) | `mypy --strict` failed at the `assert_never` line: `Argument 1 to "assert_never" has incompatible type "Literal[Placement.TRIP_DAY]"; expected "Never"` |
+  | `TRIP_DAY` derives `EVENT_DAY`'s template, not `EVERYDAY`'s | the derivation fallback changed from `timeline_evented` to `timeline` | rendered under a bare `{yyyy}` base instead of `{yyyy}/{yyyy}-{mm}` - `AssertionError` |
+  | Equality: the existing three placements are unperturbed | none needed - the pre-existing golden-master `test_every_preset_renders_its_known_paths` (pinning all three shipped presets' `SAMPLE_ROWS` output) passed unchanged, which *is* the Stage-2a-style equality proof; there is no separate "old scheme" object left to diff against now that `TRIP_DAY` is additive to the one `LayoutScheme` implementation | - |
+
+  Direct render tests (not run against a bug, since nothing existed to regress against): the
+  exact Wayanad shape (§2), start-month filing across a month boundary (§3d), trip-before-event
+  precedence, and the naming-divergence baseline above.
+- **Complexity: unchanged - `O(1)` per file.** `classify` is still a constant number of
+  comparisons (one more branch, not a loop); `template_for` is still a dict lookup;
+  `_trip_segments` is two more `event_folder`/`strftime` calls, not a function of file count.
 - **STOP point:** given a `RenderContext` carrying trip data, the scheme renders the right path.
-  No caller builds that context from real data yet - `mypy --strict`'s exhaustiveness check
-  (`assert_never`) is what proves every existing `LayoutScheme.of()` call site was forced to
-  answer the new member, the same proof Stage 2a used.
+  No caller builds that context from real data yet.
 
 **13.3 - Review UI: propose, adjust edges, name, skip. Catalog only, no relocation.**
 - **Builds:** the app-side surface mirroring `events_propose` / `events_merge` / `events_split` /
@@ -795,19 +837,15 @@ as the CLI does.**
 
 ### 13.3 Load-bearing decisions 2d forces, not yet settled
 
-1. **Trip-vs-event precedence when a day has both.** §2's rule ("a trip day claims every photo
-   taken that day... sub-day clusters merge") means a day inside a confirmed trip must render as
-   `TRIP_DAY`, never `EVENT_DAY`, even if that day also has a named cluster. `classify()`'s
-   *order* of checks must encode this (trip checked before event), and whichever caller builds
-   `RenderContext` must not set `event=` for a trip-claimed day - or `classify()` must ignore
-   `context.event` once `context.trip` is set. Not decided which; recommend the latter (classify
-   ignores `event` when `trip` is set) so a caller cannot get this wrong by omission.
-2. **How much of the `TRIP_DAY` template is configurable vs. derived.** §2 states "the trip shape
-   is the day-event shape plus one dated level" - which argues for *deriving* `TRIP_DAY`'s
-   template from `timeline_evented` mechanically (no new Settings knob) rather than adding a
-   fourth independently-configurable field to `LayoutScheme.of()`/`Preset`. Recommended, not
-   decided: fewer knobs, and it makes the "one level deeper" relationship structural rather than
-   a convention two settings could drift apart from.
+1. **Trip-vs-event precedence when a day has both - RESOLVED, built 13.2.** `classify()` checks
+   `context.trip` before `context.event` and returns unconditionally when it is set, exactly the
+   recommended option: a caller cannot get this wrong by omission, since `context.event` is
+   never consulted once a trip claims the day.
+2. **How much of the `TRIP_DAY` template is configurable vs. derived - RESOLVED, built 13.2.**
+   `LayoutScheme.of` derives `TRIP_DAY`'s default from `timeline_evented` itself; no new
+   independently-configurable field was added. An explicit `trip_day=` override exists as a
+   construction-time escape hatch (used by 13.2's own (mm)-boundary baseline test), but no
+   production caller uses it.
 3. **The `(mm)` collision-scoping widening** - named above in 13.4. Real, and this plan places it
    in 13.4 (migration wiring), not 13.2 (pure render) or 13.3 (review UI, no relocation) - it only
    matters once two placements' names can actually collide on disk, which nothing before 13.4
