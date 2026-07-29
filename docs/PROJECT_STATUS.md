@@ -224,8 +224,9 @@ resolves the marker. What is **not** fine: catalog settings store absolute path 
 `path_hint.backup = .../Crypto Folder/The Memory Cabinet`. After Crypto locked, that
 stale path raises raw `PermissionError` from `Path.exists` inside `locate_drive` - not a
 "drive moved; browse to the new root" correction. Drive cards that still hold a stale
-hint offer "Check now" / open-in-file-manager against the dead path. **Recorded, not
-fixed here.** People move drives; this is a real user scenario. See backlog **(ww)**.
+hint offer "Check now" / open-in-file-manager against the dead path. **Fixed 2026-07-30**
+(`path_is_usable_dir`, soft-fail corrections, clear failed hints). See backlog **(ww)**.
+Portability of absolute `files.source_path` / inplace roots remains open.
 
 ### 2.2 CLOSED: the tab-tour findings - **the trip arc completed end to end (13.0-13.4, `db5e517`)**
 

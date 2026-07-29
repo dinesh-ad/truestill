@@ -201,15 +201,13 @@ is invisible here is retired, not free.**
     corpus** (relocated Memory Cabinet, Output, or `/home/dinesh/pCloudDrive/2015`) - not a
     synthetic fixture, and **not** anything under `Crypto Folder/` (`PROJECT_STATUS.md` §4).
 - **(ww) Stale absolute path hints after a drive moves.** Ruled by Dinesh from a soak
-  finding, 2026-07-30: The Memory Cabinet kept its marker uuid after leaving Crypto Folder,
-  but `path_hint.backup` (and drive-card `path_hint.drive.<uuid>` when set) still pointed at
-  the old Crypto path. With Crypto locked, `locate_drive` / `Path.exists` raise raw
-  `PermissionError` instead of a remount/browse correction; "Check now" / open-folder can
-  target the dead path. Custody rows (`drives` uuid, `file_copies.relative`) need no update.
-  - **Fix direction (not built):** treat missing/unreadable hints as absent; never surface a
-    path that fails `exists`/`stat` without a clear "moved or locked - pick the folder again"
-    path; refresh hints whenever a marked root is successfully used.
-  - **Not fixed here, on purpose** - recorded only, per instruction.
+  finding, 2026-07-30; **fixed 2026-07-30.** `locate_drive` / `path_is_usable_dir` swallow
+  ``OSError`` (ENOENT, PermissionError, …) and return the drive-correction payload instead.
+  Failed hints are **cleared** (not ignored) so Backups does not re-stat a dead mount every
+  load; Check now / open-folder only appear for live paths. Verify soft-fails the same way
+  migration already did. Identity remains the marker uuid.
+  - **Still open (portability, later):** absolute `files.source_path`, `inplace_runs` roots,
+    `reclaim_journal`, and hash-cache path keys - loud failures first, rewrite later.
   - **Not fixed here, on purpose** - recorded only, per instruction.
 
 - **(tt) No fast, no-hashing inventory - progressive disclosure is missing.** Ruled by Dinesh

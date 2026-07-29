@@ -154,18 +154,15 @@ def test_preview_is_a_job_that_still_writes_nothing(client: TestClient, tmp_path
 
 
 def test_verify_job_streams_error_for_non_drive(client: TestClient, tmp_path: Path) -> None:
-    """A verify on a path with no marker surfaces the error over SSE, not a crash."""
+    """A verify on a path with no marker soft-fails immediately with a correction payload.
+
+    Mutation: starting a job that errors over SSE would put ``job_id`` in the body.
+    """
     started = client.post(f"/api/verify/run?token={_TOKEN}", json={"path": str(tmp_path / "nope")})
-    job_id = started.json()["job_id"]
-    events = []
-    with client.stream("GET", f"/api/jobs/{job_id}/events?token={_TOKEN}") as stream:
-        for line in stream.iter_lines():
-            if line.startswith("data:"):
-                events.append(json.loads(line[len("data:") :].strip()))
-                if events[-1]["type"] in ("done", "error"):
-                    break
-    assert events[-1]["type"] == "error"
-    assert "drive" in events[-1]["message"]
+    body = started.json()
+    assert body["ok"] is False
+    assert "job_id" not in body
+    assert "Can't reach" in body["error"] or "isn't a truestill drive" in body["error"]
 
 
 def _stream_to_done(client: TestClient, job_id: str) -> dict:
@@ -235,21 +232,26 @@ def test_terminal_job_events_are_normalized_before_any_handler_sees_them(
 def test_a_non_drive_verify_is_answered_with_a_next_step(
     client: TestClient, tmp_path: Path
 ) -> None:
-    """Checking an ordinary folder rendered "NaN verified · NaN missing · NaN changed".
+    """Checking an ordinary folder must not start a job that dies with NaN tallies.
 
-    The server raises a *typed* error so the UI can answer with what to do instead, and the
-    client matches on the class name rather than the message text.
+    Soft-fails immediately with the drive-correction payload (same shape as migration), so the
+    UI can offer the next step without waiting on SSE. Mutation: returning a JobTarget that
+    raises NotABackupDriveError mid-job would make ``started.json()["job_id"]`` succeed and
+    this assertion fail.
     """
     plain = tmp_path / "not-a-drive"
     plain.mkdir()
     started = client.post(f"/api/verify/run?token={_TOKEN}", json={"path": str(plain)})
-    done = _stream_to_done(client, started.json()["job_id"])
+    body = started.json()
 
-    assert done["type"] == "error"
-    assert done["code"] == "NotABackupDriveError"  # identifiable without parsing prose
+    assert body.get("ok") is False
+    assert "job_id" not in body
+    assert "isn't a truestill drive" in body["error"]
+    assert body["can_register"] is True
+    assert body["suggested_root"] is None
 
     app_js = client.get(f"/static/app.js?token={_TOKEN}").text
-    assert "NotABackupDriveError" in app_js  # the client knows this case
+    assert "startRefusedCard" in app_js  # soft-fail path renders a card, not NaN tallies
     assert "Copy your library to another drive" in app_js  # and names the next step
 
 
@@ -383,7 +385,7 @@ def test_reveal_refuses_a_path_that_is_not_a_folder(client: TestClient, tmp_path
     """A path that cannot be opened says so, rather than pretending it worked."""
     r = client.post(f"/api/reveal?token={_TOKEN}", json={"path": str(tmp_path / "nope")}).json()
     assert r["ok"] is False
-    assert "not a folder that exists" in r["error"]
+    assert "Can't reach" in r["error"]
 
 
 def test_reveal_degrades_honestly_without_an_opener(

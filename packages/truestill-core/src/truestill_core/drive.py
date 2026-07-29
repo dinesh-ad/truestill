@@ -108,6 +108,19 @@ class DriveLocation:
         return self.marker is not None and self.root != self.given
 
 
+def path_is_usable_dir(path: Path) -> bool:
+    """True when ``path`` is an existing directory we can stat.
+
+    Stale mount hints (ENOENT, ENOTDIR, ``PermissionError`` on a locked Crypto folder, dead
+    FUSE) must not escape as raw ``OSError`` to the UI. False means "do not trust this path";
+    identity still lives on the marker uuid elsewhere, never here.
+    """
+    try:
+        return path.is_dir()
+    except OSError:
+        return False
+
+
 def locate_drive(path: Path) -> DriveLocation:
     """Find the drive a path belongs to, by walking **up** for a marker.
 
@@ -116,9 +129,17 @@ def locate_drive(path: Path) -> DriveLocation:
     caller can offer in one click.
 
     Reads only, and never above the filesystem root. **O(depth)** stat calls - a handful, and
-    independent of library size.
+    independent of library size. An unreachable path (missing, not a directory, or raising
+    ``OSError`` on access) returns an empty location - never propagates the OS error.
     """
-    resolved = path.resolve() if path.exists() else path
+    try:
+        exists = path.exists()
+    except OSError:
+        return DriveLocation(given=path)
+    try:
+        resolved = path.resolve() if exists else path
+    except OSError:
+        resolved = path
     for candidate in (resolved, *resolved.parents):
         marker = read_marker(candidate)
         if marker is not None:

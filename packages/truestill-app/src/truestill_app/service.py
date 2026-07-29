@@ -23,7 +23,7 @@ from truestill_core.catalog import Catalog
 from truestill_core.categorize import build_rules
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import LocalDestination
-from truestill_core.drive import create_marker, locate_drive, read_marker
+from truestill_core.drive import create_marker, locate_drive, path_is_usable_dir, read_marker
 from truestill_core.event_review import EventDecision, commit, propose
 from truestill_core.events import (
     EVENT_MIN_FILES_KEY,
@@ -115,8 +115,14 @@ def _not_a_drive_message(path: Path) -> str:
     Three outcomes, three answers. Reporting all of them as "is the drive connected?" asks a
     question whose answer is plainly yes, and leaves someone re-plugging a cable that was never
     loose. The common real case -- naming a folder *inside* a connected drive -- gets a
-    correction instead of an error.
+    correction instead of an error. An unreachable stale hint is a fourth case: ask to browse
+    to the current folder; the marker uuid is still the identity.
     """
+    if not path_is_usable_dir(path):
+        return (
+            f"Can't reach '{path}' - it may have moved, been unmounted, or denied access. "
+            "Browse to where the drive is now. Identity is the marker on the drive, not this path."
+        )
     location = locate_drive(path)
     if location.is_inside and location.marker is not None:
         return (
@@ -128,6 +134,14 @@ def _not_a_drive_message(path: Path) -> str:
 
 def _drive_correction(path: Path) -> DriveCorrectionPayload:
     """The machine-readable half of the same answer, so the UI can offer one-click correction."""
+    if not path_is_usable_dir(path):
+        # Unreachable: never offer "register this" - registering needs a real folder.
+        return {
+            "error": _not_a_drive_message(path),
+            "suggested_root": None,
+            "drive_label": None,
+            "can_register": False,
+        }
     location = locate_drive(path)
     return {
         "error": _not_a_drive_message(path),
@@ -173,10 +187,12 @@ def reveal_in_file_manager(path: Path) -> dict[str, Any]:
     given the path, rather than being left with a button that silently does nothing.
 
     Only ever opens a directory that already exists, and the path goes into an argument vector
-    rather than a shell, so a folder name containing shell metacharacters is just a name.
+    rather than a shell, so a folder name containing shell metacharacters is just a name. A
+    stale/unreachable hint returns the same drive-correction shape as verify - never a raw
+    ``OSError``.
     """
-    if not path.is_dir():
-        return {"ok": False, "error": f"{path} is not a folder that exists."}
+    if not path_is_usable_dir(path):
+        return {"ok": False, **_drive_correction(path)}
     opener = {"darwin": "open", "win32": "explorer"}.get(sys.platform, "xdg-open")
     if shutil.which(opener) is None:
         return {
@@ -199,6 +215,24 @@ def _drive_path_hint(uuid: str) -> str:
     remounts elsewhere is the same drive, and this key is simply stale until it is next seen.
     """
     return f"path_hint.drive.{uuid}"
+
+
+def _take_live_path_hint(catalog: Catalog, key: str) -> str | None:
+    """Return ``key``'s path when it still names a usable directory; otherwise clear it.
+
+    **Failed hints are cleared, not ignored.** A hint is never identity - only a convenience.
+    Leaving a dead path in settings would re-stat it on every Backups/library load (slow and
+    noisy on locked FUSE). Clearing once stops the re-hit; the next successful attach/verify
+    at the real root writes a fresh hint. This is not a custody write: the uuid and
+    ``file_copies`` rows are untouched.
+    """
+    raw = catalog.get_setting(key)
+    if raw is None:
+        return None
+    if path_is_usable_dir(Path(raw)):
+        return raw
+    catalog.clear_setting(key)
+    return None
 
 
 @dataclass(frozen=True, slots=True)
@@ -562,15 +596,20 @@ def _result_size(result: ActionResult, destination: Path) -> int:
     return 0
 
 
-def verify_run(path: Path, db: Path) -> JobTarget:
-    """Build a job target that verifies a connected drive's copies against the catalog."""
+def verify_run(path: Path, db: Path) -> JobTarget | DriveUnavailablePayload:
+    """Build a job target that verifies a connected drive's copies against the catalog.
+
+    Soft-fails with the drive-correction payload when the path is unreachable or unmarked,
+    matching migration/trips - so a stale hint never becomes a job that dies on ``OSError``.
+    """
+    marker = read_marker(path)
+    if marker is None:
+        return {"ok": False, **_drive_correction(path)}
 
     def target(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
-        marker = read_marker(path)
-        if marker is None:
-            raise _not_a_drive(path)
         with Catalog(db) as catalog:
             catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+            catalog.set_setting(_drive_path_hint(marker.uuid), str(path))
             rows = catalog.copies_on_drive(marker.uuid)
             copies = [
                 CopyToVerify(r["sha256"], r["relative"], r["copy_sha256"] or r["sha256"])
@@ -608,6 +647,9 @@ def list_drives(db: Path) -> list[dict[str, Any]]:
         drives = []
         for d in catalog.list_drives():
             breakdown = _media_breakdown(names_by_drive.get(d["uuid"], []))
+            # Live hint only. A dead path is cleared here so the next screen load does not
+            # re-stat it; Check now / open-folder are omitted when path is absent.
+            path = _take_live_path_hint(catalog, _drive_path_hint(d["uuid"]))
             drives.append(
                 {
                     "label": d["label"],
@@ -620,9 +662,10 @@ def list_drives(db: Path) -> list[dict[str, Any]]:
                     "last_seen": d["last_seen"],
                     "last_verified": d["last_verified"],
                     # Where it was last seen, so a card can offer "Check now" for the right
-                    # folder. Absent when we have never had a path for it -- in which case the
-                    # card states the fact without offering an action it cannot honour.
-                    "path": catalog.get_setting(_drive_path_hint(d["uuid"])),
+                    # folder. Absent when we have never had a path for it, or the hint was
+                    # stale and cleared -- in which case the card states the fact without
+                    # offering an action it cannot honour.
+                    "path": path,
                 }
             )
         return drives
@@ -965,9 +1008,9 @@ def library_status(db: Path) -> dict[str, Any]:
         single_copy = catalog.single_copy_count()
         total_bytes = sum(d["total_size"] or 0 for d in drives)
         # Prefill hints, so no screen asks a user to Browse for a path we already know.
-        # Hints only: drive identity is the marker uuid, never a path.
-        library_path = catalog.get_setting(LIBRARY_PATH_HINT)
-        backup_path = catalog.get_setting(BACKUP_PATH_HINT)
+        # Hints only: drive identity is the marker uuid, never a path. Dead hints are cleared.
+        library_path = _take_live_path_hint(catalog, LIBRARY_PATH_HINT)
+        backup_path = _take_live_path_hint(catalog, BACKUP_PATH_HINT)
     return {
         "library_path": library_path,
         "backup_path": backup_path,
