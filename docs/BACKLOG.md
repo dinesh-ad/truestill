@@ -18,7 +18,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(uu). Next free: (vv).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(vv). Next free: (ww).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -32,6 +32,11 @@ is invisible here is retired, not free.**
 - **(oo) Long-running actions must show they are running.** Ruled by Dinesh from a soak
   finding, 2026-07-29, same class as the silent-failure gap fixed in `670ab5d` - that one hid
   **errors**, this one hides **work**.
+  **Built (2026-07-29).** Core progress through rederive/plan; job-ify of migrate/events/ingest
+  preview; server-side per-drive JobManager lock; reusable `withBusy` UI helper (disable for
+  the duration, re-enable on success/cancel/error) covering job-ified and sync triggers;
+  DriveBusy surfaced as its own message; Playwright e2e for disable/progress/second-click/
+  DriveBusy.
   - **The finding.** After "Save names" on a 2,057-photo trip over a pCloud mount, the preview
     step (`/api/events/{session}/preview`) took **~3 minutes with zero UI feedback** - no
     spinner, no progress text, no disabled button. The screen looked frozen. A user in that
@@ -49,18 +54,22 @@ is invisible here is retired, not free.**
     is special; it simply happens to be the one that runs long enough (a real `migrate.py`
     plan over 2,057 files on a network mount) to expose that none of this group has ever had a
     busy state.
-  - **Requirement.** Every action that can exceed ~1s must: (1) show busy state on its own
+  - **Requirement (met).** Every action that can exceed ~1s must: (1) show busy state on its own
     trigger the instant it is clicked (disabled/spinner), (2) show a progress or status line
     naming what is happening **and its scale** ("Planning moves for 2,057 photos…", not just
-    "Working…"), and (3) refuse a second click while the first run is still in flight - the job
-    system already gives (1)/(3) for free (a job has an id and a running state to check against);
-    the plain-call group has none of the three today.
-  - **Scope: audit every long-running action, not just this one** - organize, verify, migrate
-    preview *and* apply, backup, find trips (propose/merge/split/apply), and import all need the
-    same look, per Dinesh's explicit instruction. The likely fix threads the already-existing
-    job/`streamJob`/`createProgress` machinery under the plain-call group above, rather than
-    inventing a second progress mechanism - but that design call belongs to whichever session
-    builds this, not here.
+    "Working…"), and (3) refuse a second click while the first run is still in flight.
+
+- **(vv) Known limit: app per-drive job lock is process-local; CLI↔app overlap is not serialized.**
+  Recorded 2026-07-29 when Commit 3 of (oo) shipped the server-side one-op-per-drive guard.
+  - **What is covered.** Concurrent jobs inside one `truestill-app` process (reload, second tab,
+    double-click) are refused with `DriveBusy`.
+  - **What is not.** The lock lives in `JobManager` memory. A `truestill` CLI invoke in another
+    process does not see it, and a restarted app starts empty (no stale lock - deliberate).
+    Catalog/journal crash-safety still applies; this is not a claim that two writers cannot
+    touch the same drive across processes.
+  - **Do not assume solved** when designing reclaim, migrate, or backup concurrency. A real
+    cross-process guard (e.g. flock on the drive marker or catalog) is a separate design if
+    soak ever shows CLI↔app races mattering in practice.
   - **Not fixed here, on purpose** - recorded only, per instruction.
 
 - **(uu) CORRECTNESS: non-Apple videos with only UTC `CreateDate` are filed as local wall-clock.**

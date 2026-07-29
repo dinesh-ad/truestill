@@ -92,6 +92,13 @@ function streamJob(jobId, onProgress, onDone) {
   return es;
 }
 
+/** Promise form of streamJob so withBusy can await the whole run (and always release). */
+function awaitJob(jobId, onProgress) {
+  return new Promise((resolve) => {
+    streamJob(jobId, onProgress || (() => {}), resolve);
+  });
+}
+
 // Known failures worth answering with a next step rather than an apology. Matched on an
 // exception name from the server, never on message text, which would break the moment
 // anyone reworded it.
@@ -397,6 +404,45 @@ function typedConfirm(host, { word, label, buttonLabel, onConfirm }) {
   input.focus();
 }
 
+// ---------- busy state (reusable) ----------
+// Every trigger that starts work disables itself for the duration and re-enables in finally -
+// success, cancel, and throw alike. An error path that left a button dead would be worse than
+// the silent freeze this exists to fix (backlog oo). Second click while busy is a no-op (UX);
+// the server DriveBusy lock is the real authority across tabs.
+async function withBusy(button, label, work) {
+  if (!button || button.dataset.busy === "1") return;
+  const previousText = button.textContent;
+  const previousDisabled = button.disabled;
+  button.dataset.busy = "1";
+  button.disabled = true;
+  button.setAttribute("aria-busy", "true");
+  const setStatus = (text) => { button.textContent = text; };
+  setStatus(typeof label === "function" ? label() : label);
+  try {
+    await work({ setStatus });
+  } finally {
+    button.textContent = previousText;
+    button.disabled = previousDisabled;
+    delete button.dataset.busy;
+    button.removeAttribute("aria-busy");
+  }
+}
+
+/** DriveBusy gets its own title; other soft-fails keep the drive-correction card. */
+function startRefusedCard(r, fieldId) {
+  if (r && r.code === "DriveBusy") {
+    return card(
+      `<div class="banner warn"><div><div class="b-title">Already running</div>${esc(r.error)}</div></div>`
+    );
+  }
+  return driveError(r, fieldId);
+}
+
+function scaleStatus(verb, done, total, unit) {
+  if (!total) return `${verb}…`;
+  return `${verb} for ${nfmt(total)} ${unit}…`;
+}
+
 // ---------- migration undo affordance (backlog pp) ----------
 // Durable, not a snackbar: the journal lives in the catalog, so the affordance must survive a
 // tab reload and must be re-queried after any migration (the only supersession signal).
@@ -439,24 +485,29 @@ async function refreshUndoAffordance(path, panel) {
 }
 
 async function startUndoPreview(path, panel) {
-  const started = await api("/api/migrate/undo/preview", { path });
-  if (started.ok === false) {
-    panel.innerHTML = driveError(started, panel.id === "mig-undo-panel" ? "mig-path" : "ev-source");
-    return;
-  }
-  undoJob = started.job_id;
-  // Park the shared progress block inside this panel so it is visible on the active screen.
-  let stage = panel.querySelector("[data-undo-stage]");
-  if (!stage) {
-    panel.innerHTML = undoArmedHtml(
-      { file_count: 0 }, path
-    ); // keep a stage host if the armed card was cleared mid-flight
-    stage = panel.querySelector("[data-undo-stage]");
-  }
-  stage.innerHTML = "";
-  stage.appendChild($("undo-card"));
-  undoProgress.start("restoring");
-  streamJob(started.job_id, (d) => undoProgress.update(d), (d) => {
+  const previewBtn = panel.querySelector("[data-undo-preview]");
+  await withBusy(previewBtn, "Checking undo…", async ({ setStatus }) => {
+    const started = await api("/api/migrate/undo/preview", { path });
+    if (started.ok === false) {
+      panel.innerHTML = startRefusedCard(started, panel.id === "mig-undo-panel" ? "mig-path" : "ev-source");
+      return;
+    }
+    undoJob = started.job_id;
+    // Park the shared progress block inside this panel so it is visible on the active screen.
+    let stage = panel.querySelector("[data-undo-stage]");
+    if (!stage) {
+      panel.innerHTML = undoArmedHtml(
+        { file_count: 0 }, path
+      ); // keep a stage host if the armed card was cleared mid-flight
+      stage = panel.querySelector("[data-undo-stage]");
+    }
+    stage.innerHTML = "";
+    stage.appendChild($("undo-card"));
+    undoProgress.start("restoring");
+    const d = await awaitJob(started.job_id, (p) => {
+      undoProgress.update(p);
+      if (p.total) setStatus(scaleStatus("Checking undo", p.done, p.total, "files"));
+    });
     undoProgress.stop();
     undoJob = null;
     document.body.appendChild($("undo-card"));
@@ -477,21 +528,26 @@ async function startUndoPreview(path, panel) {
 }
 
 async function startUndoApply(path, panel) {
-  const started = await api("/api/migrate/undo/apply", { path });
-  if (started.ok === false) {
-    panel.innerHTML = driveError(started, panel.id === "mig-undo-panel" ? "mig-path" : "ev-source");
-    return;
-  }
-  undoJob = started.job_id;
-  let stage = panel.querySelector("[data-undo-stage]");
-  if (!stage) {
-    panel.innerHTML = `<div data-undo-stage></div>`;
-    stage = panel.querySelector("[data-undo-stage]");
-  }
-  stage.innerHTML = "";
-  stage.appendChild($("undo-card"));
-  undoProgress.start("restoring");
-  streamJob(started.job_id, (d) => undoProgress.update(d), async (d) => {
+  const go = panel.querySelector("[data-typed-go]");
+  await withBusy(go, "Putting files back…", async ({ setStatus }) => {
+    const started = await api("/api/migrate/undo/apply", { path });
+    if (started.ok === false) {
+      panel.innerHTML = startRefusedCard(started, panel.id === "mig-undo-panel" ? "mig-path" : "ev-source");
+      return;
+    }
+    undoJob = started.job_id;
+    let stage = panel.querySelector("[data-undo-stage]");
+    if (!stage) {
+      panel.innerHTML = `<div data-undo-stage></div>`;
+      stage = panel.querySelector("[data-undo-stage]");
+    }
+    stage.innerHTML = "";
+    stage.appendChild($("undo-card"));
+    undoProgress.start("restoring");
+    const d = await awaitJob(started.job_id, (p) => {
+      undoProgress.update(p);
+      if (p.total) setStatus(scaleStatus("Putting files back", p.done, p.total, "files"));
+    });
     undoProgress.stop();
     undoJob = null;
     document.body.appendChild($("undo-card"));
@@ -761,57 +817,74 @@ $("org-preview").onclick = guarded(async () => {
   if (!source) { setWhy("Pick a folder to organize first."); return; }
   // Previewing a large source is minutes of real work (metadata, then hashing), so it gets
   // the same progress display as a run rather than a card that says "Checking…" and freezes.
-  $("org-result").innerHTML = "";
-  orgProgress.start("starting");
-  const { job_id } = await api("/api/organize/preview", { source, destination });
-  orgJob = job_id;
-  streamJob(job_id,
-    (d) => orgProgress.update(d),
-    (d) => {
+  await withBusy($("org-preview"), "Checking folder…", async ({ setStatus }) => {
+    $("org-result").innerHTML = "";
+    orgProgress.start("starting");
+    const started = await api("/api/organize/preview", { source, destination });
+    if (started.ok === false) {
       orgProgress.stop();
-      orgJob = null;
-      const s = d.summary;
-      if (!d.ok) { $("org-result").innerHTML = jobErrorCard(d); return; }
-      if (d.status === "cancelled") {
-        // Never report a cancelled check as an empty folder: the run stopped, it did not
-        // find nothing. Same failure the "Done / nothing to do" blocker was.
-        $("org-result").innerHTML = card(
-          `<div class="headline">Check cancelled</div><div class="k">Nothing was changed. Preview again when you are ready.</div>`);
-        $("org-run").disabled = true;
-        setWhy("Preview again to see what would happen.");
-        return;
-      }
-      const kept = renderOrganizeResult(s);
-      if (!s.files) { $("org-run").disabled = true; setWhy("Nothing to organize in this folder."); }
-      else if (!destination) { $("org-run").disabled = true; setWhy("Pick the organized folder for the sorted copies."); }
-      else { $("org-run").disabled = false; $("org-run").textContent = `Organize ${nfmt(kept)} files`; setWhy(""); }
+      $("org-result").innerHTML = startRefusedCard(started, "org-dest");
+      return;
+    }
+    orgJob = started.job_id;
+    const d = await awaitJob(started.job_id, (p) => {
+      orgProgress.update(p);
+      if (p.phase === "scanning") setStatus(scaleStatus("Reading photos", p.done, p.total, "files"));
+      else if (p.phase === "hashing") setStatus(scaleStatus("Checking for duplicates", p.done, p.total, "files"));
+      else if (p.total) setStatus(scaleStatus("Checking folder", p.done, p.total, "files"));
     });
+    orgProgress.stop();
+    orgJob = null;
+    const s = d.summary;
+    if (!d.ok) { $("org-result").innerHTML = jobErrorCard(d); return; }
+    if (d.status === "cancelled") {
+      // Never report a cancelled check as an empty folder: the run stopped, it did not
+      // find nothing. Same failure the "Done / nothing to do" blocker was.
+      $("org-result").innerHTML = card(
+        `<div class="headline">Check cancelled</div><div class="k">Nothing was changed. Preview again when you are ready.</div>`);
+      $("org-run").disabled = true;
+      setWhy("Preview again to see what would happen.");
+      return;
+    }
+    const kept = renderOrganizeResult(s);
+    if (!s.files) { $("org-run").disabled = true; setWhy("Nothing to organize in this folder."); }
+    else if (!destination) { $("org-run").disabled = true; setWhy("Pick the organized folder for the sorted copies."); }
+    else { $("org-run").disabled = false; $("org-run").textContent = `Organize ${nfmt(kept)} files`; setWhy(""); }
+  });
 });
 
 $("org-run").onclick = guarded(async () => {
   const source = $("org-source").value.trim();
   const destination = $("org-dest").value.trim();
   const skip_undated = $("org-skip-undated").checked;
-  const { job_id } = await api("/api/organize/run", { source, destination, skip_undated });
-  orgJob = job_id;
-  orgProgress.start("preparing");
-  streamJob(job_id,
-    (d) => orgProgress.update(d),
-    (d) => {
-      orgProgress.stop();
-      const r = d.summary;
-      if (d.status === "cancelled") {
-        // A cancelled run still organized everything it reached, and those files are real.
-        // Show the same card, labelled honestly, rather than implying nothing happened.
-        $("org-result").innerHTML = organizeCompletion({ ...r, cancelled: true });
-      } else {
-        $("org-result").innerHTML = r.organized || r.outcomes
-          ? organizeCompletion(r)
-          : card(`<div class="headline">Nothing to organize</div><div class="k">No new photos or videos were found here.</div>`);
-      }
-      orgJob = null;
-      loadCustody();
+  await withBusy($("org-run"), "Organizing…", async ({ setStatus }) => {
+    const started = await api("/api/organize/run", { source, destination, skip_undated });
+    if (started.ok === false) {
+      $("org-result").innerHTML = startRefusedCard(started, "org-dest");
+      return;
+    }
+    orgJob = started.job_id;
+    orgProgress.start("preparing");
+    const d = await awaitJob(started.job_id, (p) => {
+      orgProgress.update(p);
+      if (p.total) setStatus(scaleStatus("Organizing", p.done, p.total, "files"));
     });
+    orgProgress.stop();
+    const r = d.summary;
+    if (d.status === "cancelled") {
+      // A cancelled run still organized everything it reached, and those files are real.
+      // Show the same card, labelled honestly, rather than implying nothing happened.
+      $("org-result").innerHTML = organizeCompletion({ ...r, cancelled: true });
+    } else if (!d.ok) {
+      $("org-result").innerHTML = jobErrorCard(d);
+    } else {
+      $("org-result").innerHTML = r.organized || r.outcomes
+        ? organizeCompletion(r)
+        : card(`<div class="headline">Nothing to organize</div><div class="k">No new photos or videos were found here.</div>`);
+    }
+    orgJob = null;
+    loadCustody();
+  });
 });
 $("org-cancel").onclick = guarded(() => { if (orgJob) return api(`/api/jobs/${orgJob}/cancel`, {}); });
 
@@ -868,25 +941,31 @@ async function loadDrives() {
 let verifyJob = null;
 $("verify-run").onclick = guarded(async () => {
   const path = $("verify-path").value.trim();
-  $("verify-result").innerHTML = card("Checking…");
-  const { job_id } = await api("/api/verify/run", { path });
-  verifyJob = job_id;
-  verifyProgress.start("checking");
-  streamJob(job_id,
-    (d) => verifyProgress.update(d),
-    (d) => {
-      verifyProgress.stop();
-      verifyJob = null;
-      if (!d.ok) { $("verify-result").innerHTML = jobErrorCard(d); return; }
-      const s = d.summary;
-      $("verify-result").innerHTML =
-        card(`<div class="headline">Checked ${esc(s.label || "")}</div>
-           <div class="tally"><div class="n">${nfmt(s.verified)}</div><div class="k">verified</div>
-           <div class="n">${nfmt(s.missing)}</div><div class="k">missing</div>
-           <div class="n">${nfmt(s.mismatch)}</div><div class="k">changed</div></div>`);
-      loadCustody();
-      loadDrives();  // "last checked" on the card comes from the verify just recorded
+  await withBusy($("verify-run"), "Checking…", async ({ setStatus }) => {
+    $("verify-result").innerHTML = "";
+    const started = await api("/api/verify/run", { path });
+    if (started.ok === false) {
+      $("verify-result").innerHTML = startRefusedCard(started, "verify-path");
+      return;
+    }
+    verifyJob = started.job_id;
+    verifyProgress.start("checking");
+    const d = await awaitJob(started.job_id, (p) => {
+      verifyProgress.update(p);
+      if (p.total) setStatus(scaleStatus("Checking", p.done, p.total, "files"));
     });
+    verifyProgress.stop();
+    verifyJob = null;
+    if (!d.ok) { $("verify-result").innerHTML = jobErrorCard(d); return; }
+    const s = d.summary;
+    $("verify-result").innerHTML =
+      card(`<div class="headline">Checked ${esc(s.label || "")}</div>
+         <div class="tally"><div class="n">${nfmt(s.verified)}</div><div class="k">verified</div>
+         <div class="n">${nfmt(s.missing)}</div><div class="k">missing</div>
+         <div class="n">${nfmt(s.mismatch)}</div><div class="k">changed</div></div>`);
+    loadCustody();
+    loadDrives();  // "last checked" on the card comes from the verify just recorded
+  });
 });
 $("verify-cancel").onclick = guarded(() => { if (verifyJob) return api(`/api/jobs/${verifyJob}/cancel`, {}); });
 
@@ -956,11 +1035,23 @@ $("where-go").onclick = guarded(() => runWhere($("where-term").value.trim(), 1))
 let rcJob = null;
 $("rc-preview").onclick = guarded(async () => {
   const takeout = $("rc-takeout").value.trim(), destination = $("rc-dest").value.trim();
-  $("rc-result").innerHTML = "";
-  rcProgress.start("scanning");
-  const { job_id } = await api("/api/ingest/preview", { takeout, destination });
-  rcJob = job_id;
-  streamJob(job_id, (d) => rcProgress.update(d), (d) => {
+  await withBusy($("rc-preview"), "Scanning Takeout…", async ({ setStatus }) => {
+    $("rc-result").innerHTML = "";
+    rcProgress.start("scanning");
+    const started = await api("/api/ingest/preview", { takeout, destination });
+    if (started.ok === false) {
+      rcProgress.stop();
+      $("rc-result").innerHTML = startRefusedCard(started, "rc-dest");
+      return;
+    }
+    rcJob = started.job_id;
+    const d = await awaitJob(started.job_id, (p) => {
+      rcProgress.update(p);
+      if (!p.total) setStatus("Scanning Takeout…");
+      else if (p.phase === "scanning") setStatus(scaleStatus("Reading photos", p.done, p.total, "files"));
+      else if (p.phase === "hashing") setStatus(scaleStatus("Checking for duplicates", p.done, p.total, "files"));
+      else setStatus(scaleStatus("Scanning Takeout", p.done, p.total, "files"));
+    });
     rcProgress.stop();
     rcJob = null;
     if (!d.ok) { $("rc-result").innerHTML = jobErrorCard(d); return; }
@@ -1037,8 +1128,10 @@ function renderCards(cards, collapsed) {
         if (!at) return;
         body = { index: +b.dataset.i, at };
       }
-      const r = await api(`/api/events/${evSession}/split`, body);
-      renderCards(r.cards, r.collapsed);
+      await withBusy(b, "Splitting…", async () => {
+        const r = await api(`/api/events/${evSession}/split`, body);
+        renderCards(r.cards, r.collapsed);
+      });
     });
   });
 }
@@ -1051,64 +1144,73 @@ function renderDeclines(declines) {
     .join("");
 }
 $("ev-propose").onclick = guarded(async () => {
-  $("ev-result").innerHTML = "";
-  $("ev-declines").innerHTML = "";
-  $("ev-apply-card").classList.add("hidden");
-  const r = await api("/api/events/propose", { path: $("ev-source").value.trim() });
-  if (r.ok === false) {
-    $("ev-clusters").innerHTML = driveError(r, "ev-source");
-    $("ev-actions-card").classList.add("hidden");
-    return;
-  }
-  evSession = r.session;
-  renderDeclines(r.declines);
-  renderCards(r.cards, r.collapsed);
+  await withBusy($("ev-propose"), "Finding trips & events…", async () => {
+    $("ev-result").innerHTML = "";
+    $("ev-declines").innerHTML = "";
+    $("ev-apply-card").classList.add("hidden");
+    const r = await api("/api/events/propose", { path: $("ev-source").value.trim() });
+    if (r.ok === false) {
+      $("ev-clusters").innerHTML = driveError(r, "ev-source");
+      $("ev-actions-card").classList.add("hidden");
+      return;
+    }
+    evSession = r.session;
+    renderDeclines(r.declines);
+    renderCards(r.cards, r.collapsed);
+  });
 });
 $("ev-merge").onclick = guarded(async () => {
   const indices = [...document.querySelectorAll(".ev-check:checked")].map((c) => +c.dataset.i);
   if (indices.length < 2) return;
-  const r = await api(`/api/events/${evSession}/merge`, { indices });
-  if (r.error) {
-    $("ev-clusters").insertAdjacentHTML(
-      "afterbegin",
-      `<div class="banner warn"><div><div class="b-title">Can't merge these</div>${esc(r.error)}</div></div>`
-    );
-    return;
-  }
-  renderCards(r.cards, r.collapsed);
+  await withBusy($("ev-merge"), "Merging…", async () => {
+    const r = await api(`/api/events/${evSession}/merge`, { indices });
+    if (r.error) {
+      $("ev-clusters").insertAdjacentHTML(
+        "afterbegin",
+        `<div class="banner warn"><div><div class="b-title">Can't merge these</div>${esc(r.error)}</div></div>`
+      );
+      return;
+    }
+    renderCards(r.cards, r.collapsed);
+  });
 });
 $("ev-apply").onclick = guarded(async () => {
-  const names = evCards.map((_card, i) => {
-    const inp = document.querySelector(`.ev-name[data-i="${i}"]`);
-    return inp && inp.value.trim() ? inp.value.trim() : null;
-  });
-  const r = await api(`/api/events/${evSession}/apply`, { names });
-  if (!r.events && !r.trips) {
-    $("ev-result").innerHTML = card(`<div class="k">Nothing named yet - type a name above, then Save names.</div>`);
-    return;
-  }
-  const named = [r.trips ? plural(r.trips, "trip") : null, r.events ? plural(r.events, "event") : null]
-    .filter(Boolean)
-    .join(" and ");
-  $("ev-result").innerHTML = card(
-    `<div class="headline">${named} named.</div>
-     <div class="k">Next: preview where these photos will move on the drive.</div>`);
-  // Preview the on-disk placement (reuses the migrate engine). A named trip reaches this the
-  // same way a named event always has (Stage 13.4) - both are previewed here, and nothing
-  // moves until the button below is actually clicked. Preview is a real job: on a large trip
-  // over a network mount it is minutes of rederive+plan (backlog oo), not a quick GET.
-  $("ev-apply-card").classList.remove("hidden");
-  $("ev-disk-result").innerHTML = "";
-  $("ev-moves").innerHTML = "";
-  $("ev-apply-disk").classList.add("hidden");
-  const started = await api(`/api/events/${evSession}/preview`, {});
-  if (started.ok === false) {
-    $("ev-moves").innerHTML = driveError(started, "ev-source");
-    return;
-  }
-  evJob = started.job_id;
-  evProgress.start("planning");
-  streamJob(started.job_id, (d) => evProgress.update(d), (d) => {
+  await withBusy($("ev-apply"), "Saving names…", async ({ setStatus }) => {
+    const names = evCards.map((_card, i) => {
+      const inp = document.querySelector(`.ev-name[data-i="${i}"]`);
+      return inp && inp.value.trim() ? inp.value.trim() : null;
+    });
+    const r = await api(`/api/events/${evSession}/apply`, { names });
+    if (!r.events && !r.trips) {
+      $("ev-result").innerHTML = card(`<div class="k">Nothing named yet - type a name above, then Save names.</div>`);
+      return;
+    }
+    const named = [r.trips ? plural(r.trips, "trip") : null, r.events ? plural(r.events, "event") : null]
+      .filter(Boolean)
+      .join(" and ");
+    $("ev-result").innerHTML = card(
+      `<div class="headline">${named} named.</div>
+       <div class="k">Next: preview where these photos will move on the drive.</div>`);
+    // Preview the on-disk placement (reuses the migrate engine). A named trip reaches this the
+    // same way a named event always has (Stage 13.4) - both are previewed here, and nothing
+    // moves until the button below is actually clicked. Preview is a real job: on a large trip
+    // over a network mount it is minutes of rederive+plan (backlog oo), not a quick GET.
+    $("ev-apply-card").classList.remove("hidden");
+    $("ev-disk-result").innerHTML = "";
+    $("ev-moves").innerHTML = "";
+    $("ev-apply-disk").classList.add("hidden");
+    setStatus("Planning moves…");
+    const started = await api(`/api/events/${evSession}/preview`, {});
+    if (started.ok === false) {
+      $("ev-moves").innerHTML = startRefusedCard(started, "ev-source");
+      return;
+    }
+    evJob = started.job_id;
+    evProgress.start("planning");
+    const d = await awaitJob(started.job_id, (p) => {
+      evProgress.update(p);
+      if (p.total) setStatus(scaleStatus("Planning moves", p.done, p.total, "photos"));
+    });
     evProgress.stop();
     evJob = null;
     if (!d.ok) { $("ev-moves").innerHTML = jobErrorCard(d); return; }
@@ -1144,56 +1246,72 @@ function reviewResultCards(summary) {
 }
 let evJob = null;
 $("ev-apply-disk").onclick = guarded(async () => {
-  const { job_id } = await api(`/api/events/${evSession}/apply-to-disk`, {});
-  evJob = job_id;
-  evProgress.start("moving");
-  streamJob(job_id, (d) => evProgress.update(d),
-    (d) => {
-      evProgress.stop();
-      $("ev-apply-disk").classList.add("hidden");
-      $("ev-disk-result").innerHTML = d.ok ? reviewResultCards(d.summary) : jobErrorCard(d);
-      evJob = null;
-      loadCustody();
-      // The apply just armed (or superseded) the reversible journal - re-query, never assume.
-      refreshUndoAffordance($("ev-source").value.trim(), $("ev-undo-panel"));
+  await withBusy($("ev-apply-disk"), "Moving photos…", async ({ setStatus }) => {
+    const started = await api(`/api/events/${evSession}/apply-to-disk`, {});
+    if (started.ok === false) {
+      $("ev-disk-result").innerHTML = startRefusedCard(started, "ev-source");
+      return;
+    }
+    evJob = started.job_id;
+    evProgress.start("moving");
+    const d = await awaitJob(started.job_id, (p) => {
+      evProgress.update(p);
+      if (p.total) setStatus(scaleStatus("Moving photos", p.done, p.total, "photos"));
     });
+    evProgress.stop();
+    $("ev-apply-disk").classList.add("hidden");
+    $("ev-disk-result").innerHTML = d.ok ? reviewResultCards(d.summary) : jobErrorCard(d);
+    evJob = null;
+    loadCustody();
+    // The apply just armed (or superseded) the reversible journal - re-query, never assume.
+    refreshUndoAffordance($("ev-source").value.trim(), $("ev-undo-panel"));
+  });
 });
 $("ev-cancel").onclick = guarded(() => { if (evJob) return api(`/api/jobs/${evJob}/cancel`, {}); });
 
 // ---------- Backups: copy the library to another drive ----------
 $("bk-preview").onclick = guarded(async () => {
   const source = $("bk-source").value.trim(), target = $("bk-target").value.trim();
-  const r = await api("/api/backup/preview", { source, target });
-  if (!r.ok) { $("bk-result").innerHTML = driveError(r, "bk-target"); $("bk-run").classList.add("hidden"); return; }
-  if (r.count === 0) {
-    $("bk-result").innerHTML = card(`<div class="headline">Already backed up.</div><div class="k">Every photo on ${esc(r.from)} is already on ${esc(r.to)}.</div>`);
-    $("bk-run").classList.add("hidden"); return;
-  }
-  if (!r.enough) {
-    // A disk-full mid-copy is the failure this feature exists to prevent: warn and block.
-    $("bk-result").innerHTML = card(`<div class="banner warn"><div><div class="b-title">Not enough space on ${esc(r.to)}</div>
-      Needs ${fmtBytes(r.bytes)}, but the drive only has ${fmtBytes(r.free)} free.</div></div>`);
-    $("bk-run").classList.add("hidden"); return;
-  }
-  $("bk-result").innerHTML = card(`<div class="headline">${mediaCount(r)} · ${fmtBytes(r.bytes)} to copy</div>
-    <div class="k">From ${esc(r.from)} to ${esc(r.to)} · ${fmtBytes(r.free)} free on ${esc(r.to)}.</div>`);
-  $("bk-run").classList.remove("hidden");
+  await withBusy($("bk-preview"), "Checking what to copy…", async () => {
+    const r = await api("/api/backup/preview", { source, target });
+    if (!r.ok) { $("bk-result").innerHTML = driveError(r, "bk-target"); $("bk-run").classList.add("hidden"); return; }
+    if (r.count === 0) {
+      $("bk-result").innerHTML = card(`<div class="headline">Already backed up.</div><div class="k">Every photo on ${esc(r.from)} is already on ${esc(r.to)}.</div>`);
+      $("bk-run").classList.add("hidden"); return;
+    }
+    if (!r.enough) {
+      // A disk-full mid-copy is the failure this feature exists to prevent: warn and block.
+      $("bk-result").innerHTML = card(`<div class="banner warn"><div><div class="b-title">Not enough space on ${esc(r.to)}</div>
+        Needs ${fmtBytes(r.bytes)}, but the drive only has ${fmtBytes(r.free)} free.</div></div>`);
+      $("bk-run").classList.add("hidden"); return;
+    }
+    $("bk-result").innerHTML = card(`<div class="headline">${mediaCount(r)} · ${fmtBytes(r.bytes)} to copy</div>
+      <div class="k">From ${esc(r.from)} to ${esc(r.to)} · ${fmtBytes(r.free)} free on ${esc(r.to)}.</div>`);
+    $("bk-run").classList.remove("hidden");
+  });
 });
 let bkJob = null;
 $("bk-run").onclick = guarded(async () => {
   const source = $("bk-source").value.trim(), target = $("bk-target").value.trim();
-  const { job_id } = await api("/api/backup/run", { source, target });
-  bkJob = job_id;
-  bkProgress.start("copying");
-  streamJob(job_id, (d) => bkProgress.update(d),
-    (d) => {
-      bkProgress.stop();
-      $("bk-run").classList.add("hidden");
-      const s = d.summary;
-      $("bk-result").innerHTML = d.ok ? backupCompletion(s) : jobErrorCard(d);
-      bkJob = null;
-      refreshDriveState();
+  await withBusy($("bk-run"), "Copying…", async ({ setStatus }) => {
+    const started = await api("/api/backup/run", { source, target });
+    if (started.ok === false) {
+      $("bk-result").innerHTML = startRefusedCard(started, "bk-target");
+      return;
+    }
+    bkJob = started.job_id;
+    bkProgress.start("copying");
+    const d = await awaitJob(started.job_id, (p) => {
+      bkProgress.update(p);
+      if (p.total) setStatus(scaleStatus("Copying", p.done, p.total, "files"));
     });
+    bkProgress.stop();
+    $("bk-run").classList.add("hidden");
+    const s = d.summary;
+    $("bk-result").innerHTML = d.ok ? backupCompletion(s) : jobErrorCard(d);
+    bkJob = null;
+    refreshDriveState();
+  });
 });
 $("bk-cancel").onclick = guarded(() => { if (bkJob) return api(`/api/jobs/${bkJob}/cancel`, {}); });
 
@@ -1257,17 +1375,21 @@ $("events-settings-save").onclick = guarded(async () => {
 });
 let migJob = null;
 $("mig-preview").onclick = guarded(async () => {
-  $("mig-result").innerHTML = "";
-  $("mig-run").classList.add("hidden");
-  migProgress.start("planning");
-  const started = await api("/api/migrate/preview", { path: $("mig-path").value.trim() });
-  if (started.ok === false) {
-    migProgress.stop();
-    $("mig-result").innerHTML = driveError(started, "mig-path");
-    return;
-  }
-  migJob = started.job_id;
-  streamJob(started.job_id, (d) => migProgress.update(d), (d) => {
+  await withBusy($("mig-preview"), "Planning moves…", async ({ setStatus }) => {
+    $("mig-result").innerHTML = "";
+    $("mig-run").classList.add("hidden");
+    migProgress.start("planning");
+    const started = await api("/api/migrate/preview", { path: $("mig-path").value.trim() });
+    if (started.ok === false) {
+      migProgress.stop();
+      $("mig-result").innerHTML = startRefusedCard(started, "mig-path");
+      return;
+    }
+    migJob = started.job_id;
+    const d = await awaitJob(started.job_id, (p) => {
+      migProgress.update(p);
+      if (p.total) setStatus(scaleStatus("Planning moves", p.done, p.total, "files"));
+    });
     migProgress.stop();
     migJob = null;
     if (!d.ok) { $("mig-result").innerHTML = jobErrorCard(d); return; }
@@ -1284,19 +1406,26 @@ $("mig-preview").onclick = guarded(async () => {
   });
 });
 $("mig-run").onclick = guarded(async () => {
-  const { job_id } = await api("/api/migrate/run", { path: $("mig-path").value.trim() });
-  migJob = job_id;
-  migProgress.start("moving");
-  streamJob(job_id, (d) => migProgress.update(d),
-    (d) => {
-      migProgress.stop();
-      $("mig-result").innerHTML = d.ok
-        ? card(`<div class="headline">Moved ${plural(d.summary.migrated || 0, "file")}.</div>`)
-        : jobErrorCard(d);
-      migJob = null;
-      loadDrives();
-      refreshUndoAffordance($("mig-path").value.trim(), $("mig-undo-panel"));
+  await withBusy($("mig-run"), "Moving files…", async ({ setStatus }) => {
+    const started = await api("/api/migrate/run", { path: $("mig-path").value.trim() });
+    if (started.ok === false) {
+      $("mig-result").innerHTML = startRefusedCard(started, "mig-path");
+      return;
+    }
+    migJob = started.job_id;
+    migProgress.start("moving");
+    const d = await awaitJob(started.job_id, (p) => {
+      migProgress.update(p);
+      if (p.total) setStatus(scaleStatus("Moving files", p.done, p.total, "files"));
     });
+    migProgress.stop();
+    $("mig-result").innerHTML = d.ok
+      ? card(`<div class="headline">Moved ${plural(d.summary.migrated || 0, "file")}.</div>`)
+      : jobErrorCard(d);
+    migJob = null;
+    loadDrives();
+    refreshUndoAffordance($("mig-path").value.trim(), $("mig-undo-panel"));
+  });
 });
 $("mig-cancel").onclick = guarded(() => { if (migJob) return api(`/api/jobs/${migJob}/cancel`, {}); });
 
