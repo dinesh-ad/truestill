@@ -18,7 +18,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(pp). Next free: (qq).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(rr). Next free: (ss).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -93,6 +93,58 @@ is invisible here is retired, not free.**
     apply, an event apply, a plain Settings migrate-layout - retires this window silently
     unless the UI says so. The completion card is exactly the moment to say it, since it is the
     last point at which the record is guaranteed to still be armed.
+  - **Not fixed here, on purpose** - recorded only, per instruction.
+
+- **(qq) The path on a trip/event completion card's reveal link does not open the folder.**
+  Ruled by Dinesh from a soak finding, 2026-07-29, from a live trip apply.
+  - **Verified in code, not taken on faith - and the actual defect is more precise than the
+    reported hypothesis.** The reported cause was "a browser cannot open a local filesystem
+    path from a page - this can never work as a plain link," with the fix framed as routing it
+    through the existing reveal endpoint. Checked `app.js` and `server.py` first: the link is
+    **already** `data-open="..."` through the same delegated `/api/reveal` handler the drive
+    cards use (`tripResultCards`, unchanged since 13.3a, `376663f`) - it is not a raw path
+    link, and drive-card reveal (a different code path, see below) does work. The real defect
+    is one layer upstream, in `service.migration_apply`: the trip and event reveal rows both
+    build their `path` field directly from `catalog.sample_relative_for_trip`/
+    `sample_relative_for_event`'s return value - a **drive-relative** path (`file_copies.
+    relative`, e.g. `2014/2014-08/2014-08-15 - Wayanad`) - and never join it to the connected
+    drive's own mount root (the `path` argument `migration_apply` itself was called with).
+    `/api/reveal` then calls `Path("2014/2014-08/...").is_dir()`, which resolves against the
+    **server process's own working directory**, not the drive, almost never exists there, and
+    `reveal_in_file_manager` reports it as `{"ok": false, "error": "... is not a folder that
+    exists."}` - which the click handler renders only as a tooltip `title` + a `warn` CSS
+    class, never a visible banner. A second, narrower instance of the silent-failure pattern
+    `670ab5d` fixed at the `api()`/handler layer, this time one level further down in a single
+    response field.
+  - **Why drive cards are unaffected.** `service.list_drives`'s `path` field comes from
+    `catalog.get_setting(_drive_path_hint(uuid))` - a remembered **absolute** mount path,
+    never a catalog-relative one. Only the `migration_apply` reveal rows (`named_events` and
+    `named_trips` alike) carry the bug.
+  - **Fix:** join `relative`'s parent(s) onto the drive's own mount `path` before putting it in
+    the `path` field `migration_apply` returns - not a routing change, since the routing was
+    already correct.
+  - **Audit scope:** any other place a bare `file_copies.relative`-shaped value reaches
+    `data-open` (or any reveal call) without first being joined to the drive root it came from.
+  - **Not fixed here, on purpose** - recorded only, per instruction.
+
+- **(rr) A trip/migration apply-to-disk leaves emptied source folders behind and says nothing.**
+  Ruled by Dinesh from a soak finding, 2026-07-29, from the same live trip apply.
+  - **Never auto-deleting a folder is the correct standing rule** (`clean-empty`'s own design:
+    preview by default, trash where supported, `--permanent` only behind its own confirmation
+    for mounts - cloud/network - that refuse trash). The gap is not the rule; it is that
+    **nothing in the app tells the user the rule, or that `clean-empty` exists**, once an apply
+    finishes. A user is left with the folders the migration emptied and no signal to act on
+    them.
+  - **Verified: `clean-empty` is CLI-only today** (`truestill clean-empty <path> [--apply]
+    [--permanent]`, `_add_clean_parser` in `cli.py`) - nothing in `server.py`/`service.py`
+    imports `emptied_directories`/`plan_cleanup`/`run_cleanup` at all. This applies to
+    **every** migration apply through the app (Settings screen too, not only Trips & events),
+    since all of them share `run_migration`/`migration_apply`.
+  - **Fix:** after a completed apply, report the count of folders the operation emptied on the
+    completion card, and offer the existing `clean-empty` flow (preview, then the same typed
+    confirm the CLI requires, trash where supported) from there - reusing
+    `emptied_directories`/`plan_cleanup`/`run_cleanup` directly, not designing a second
+    mechanism. Do not auto-delete.
   - **Not fixed here, on purpose** - recorded only, per instruction.
 
 - **(nn) Prove destination timestamp parity against a live rclone remote.** The destination
