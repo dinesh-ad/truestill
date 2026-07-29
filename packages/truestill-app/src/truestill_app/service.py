@@ -59,6 +59,7 @@ from truestill_core.migrate import (
     label_routes,
     rederive_rules,
     run_migration,
+    undo_migration,
 )
 from truestill_core.models import (
     ActionResult,
@@ -1339,5 +1340,90 @@ def migration_apply(
         if groups:
             result["groups"] = groups
         return result
+
+    return target
+
+
+class DriveUnavailablePayload(TypedDict):
+    """Connected-drive gate failed: same correction shape migration preview already returns."""
+
+    ok: Literal[False]
+    error: str
+    suggested_root: str | None
+    drive_label: str | None
+    can_register: bool
+
+
+class ArmedStatePayload(TypedDict):
+    """Whether the drive still has a reversible migration journal (backlog pp)."""
+
+    ok: Literal[True]
+    armed: bool
+    file_count: int
+    run_id: str | None
+
+
+class UndoRefusalPayload(TypedDict):
+    relative: str
+    reason: str
+
+
+class UndoJobSummary(TypedDict):
+    label: str
+    reversed_files: int
+    refused: list[UndoRefusalPayload]
+    run_id: str | None
+    applied: bool
+
+
+def migration_armed_state(path: Path, db: Path) -> ArmedStatePayload | DriveUnavailablePayload:
+    """Read-only: does this connected drive still have a reversible migration record?
+
+    Answers from ``catalog.reversible_migration`` only. Never upserts the drive, never touches
+    the journal - a tab reload must be able to ask this without changing anything.
+    """
+    marker = read_marker(path)
+    if marker is None:
+        return {"ok": False, **_drive_correction(path)}
+    with Catalog(db) as catalog:
+        record = catalog.reversible_migration(marker.uuid)
+    if record is None:
+        return {"ok": True, "armed": False, "file_count": 0, "run_id": None}
+    run_id, rows = record
+    return {"ok": True, "armed": True, "file_count": len(rows), "run_id": run_id}
+
+
+def migration_undo(path: Path, db: Path, *, apply: bool) -> JobTarget | DriveUnavailablePayload:
+    """Preview or apply the last migration's reversal as a cancellable, progress-streaming job.
+
+    Reuses ``undo_migration`` directly - no parallel journal. Soft-fails with the same drive
+    correction as migration preview when the path is not a connected drive, so the UI never
+    sees a bare job error for "folder inside the drive" / "not a drive yet".
+    """
+    marker = read_marker(path)
+    if marker is None:
+        return {"ok": False, **_drive_correction(path)}
+
+    def target(progress: ProgressCallback, cancel: threading.Event) -> UndoJobSummary:
+        with Catalog(db) as catalog:
+            record = catalog.reversible_migration(marker.uuid)
+            run_id = record[0] if record is not None else None
+            outcome = undo_migration(
+                catalog,
+                LocalDestination(path),
+                marker.uuid,
+                apply=apply,
+                progress=progress,
+                cancel=cancel,
+            )
+        return {
+            "label": marker.label,
+            "reversed_files": outcome.reversed_files,
+            "refused": [
+                {"relative": relative, "reason": reason} for relative, reason in outcome.refused
+            ],
+            "run_id": run_id,
+            "applied": apply,
+        }
 
     return target

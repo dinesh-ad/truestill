@@ -215,6 +215,26 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
             {"job_id": jobs.start(service.migration_apply(Path(body["path"]), _db()))}
         )
 
+    def _undo_job_response(
+        result: service.JobTarget | service.DriveUnavailablePayload,
+    ) -> JSONResponse:
+        """Start an undo job, or return the drive-correction payload without starting one."""
+        if isinstance(result, dict):
+            return JSONResponse(result)
+        return JSONResponse({"job_id": jobs.start(result)})
+
+    async def migrate_undo_armed(request: Request) -> JSONResponse:
+        path = Path(request.query_params.get("path", ""))
+        return JSONResponse(service.migration_armed_state(path, _db()))
+
+    async def migrate_undo_preview(request: Request) -> JSONResponse:
+        body = await request.json()
+        return _undo_job_response(service.migration_undo(Path(body["path"]), _db(), apply=False))
+
+    async def migrate_undo_apply(request: Request) -> JSONResponse:
+        body = await request.json()
+        return _undo_job_response(service.migration_undo(Path(body["path"]), _db(), apply=True))
+
     # --- Trip/event review (session-based; merge/split are UI-only, no CLI path) ---
     sessions: dict[str, EventReviewSession] = {}
 
@@ -402,6 +422,9 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
         Route("/api/events/settings", event_settings, methods=["GET", "POST"]),
         Route("/api/migrate/preview", migrate_preview, methods=["POST"]),
         Route("/api/migrate/run", migrate_run, methods=["POST"]),
+        Route("/api/migrate/undo", migrate_undo_armed),
+        Route("/api/migrate/undo/preview", migrate_undo_preview, methods=["POST"]),
+        Route("/api/migrate/undo/apply", migrate_undo_apply, methods=["POST"]),
         Route("/api/events/propose", events_propose, methods=["POST"]),
         Route("/api/events/{session}/merge", events_merge, methods=["POST"]),
         Route("/api/events/{session}/split", events_split, methods=["POST"]),
