@@ -209,7 +209,10 @@ def test_a_finished_copy_splits_photos_and_videos_without_form_letter_grammar(
     _organize(ui, source, destination)
 
     ui.click('button[data-screen="backups"]')
-    ui.fill("#bk-source", str(destination))
+    # Organize's loadCustody prefills bk-source with the library path. Filling again races that
+    # async write (clear → prefill → type) and has doubled the path on CI. Assert the prefill,
+    # same as the golden-path handoff, instead of re-typing it.
+    expect(ui.locator("#bk-source")).to_have_value(str(destination))
     ui.fill("#bk-target", str(backup))
     ui.click("#bk-preview")
     expect(ui.locator("#bk-run")).to_be_visible()
