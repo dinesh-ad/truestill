@@ -108,7 +108,7 @@ Full rules and their enforcing tests: `IMPLEMENTATION_STANDARDS.md` §3.1.
 |---|---|
 | **Feature completeness** | All planned pre-launch features shipped: organize, Takeout ingest, dedup (exact + perceptual), events/trips, drive identity, offline catalog, verify, 3-2-1 backup, configurable layout + migration, reclaim, in-place organize + `undo-organize`, and the full web UI. |
 | **QA verdict** | The 2026-07-26 walkthrough returned **launch-ready** (`walkthrough-qa-report.md`), and the **soak test then found ten further defects** - see §2.1. That is the walkthrough working as designed, not failing: a scripted pass over synthetic data cannot find what a real library at real scale does. Treat "launch-ready" as *the state before the soak*, not a current verdict. |
-| **Tests** | 480 Python + 16 browser end-to-end. All four CI lanes green. Assert behaviour, never counts - these numbers are context, not a gate, and **must not be pasted into a doc as a target**. Re-derive with `uv run pytest --collect-only -q`. |
+| **Tests** | 482 Python + 16 browser end-to-end. All four CI lanes green. Assert behaviour, never counts - these numbers are context, not a gate, and **must not be pasted into a doc as a target**. Re-derive with `uv run pytest --collect-only -q`. |
 | **Quality gates** | `make check` = ruff lint + ruff format-check + mypy (three `src` trees) + pytest. Plus `make e2e` (opt-in, needs a browser), `uv build --all-packages`, and CI's lockfile + `pip-audit` gates. `make check` also runs **`dash-check`** (§4, prose convention). All four CI lanes green at `c80683d`. |
 | **CI** | `.github/workflows/ci.yml`, **two jobs**: `check` ({ubuntu, macos, windows} × Python 3.13, + Linux-only `pip-audit`) and `e2e` (chromium on ubuntu). |
 | **Catalog schema** | **v12** (`CURRENT_SCHEMA_VERSION`). Tables: `files`, `albums`, `file_albums`, `events`, `skipped_clusters`, `drives`, `file_copies`, `settings`, `migration_journal`, `migration_runs`, `reclaim_journal`, `inplace_runs`, `inplace_moves`, `trips`, `trip_days`. Reversible migration added `migration_runs` and made `migration_journal` undoable at v11. **v12 adds `trips`/`trip_days`** - identity is the row, never a membership hash (`trip-grouping-research.md` §6) - plus the first schema-level *down*-migration in this codebase (`downgrade_v12_to_v11`, testing/rollback only, nothing wires it into a runtime path). **Next free version is v13.** (v10 went to the in-place journal, not to date provenance - see `IMPLEMENTATION_STANDARDS.md` §1). |
@@ -180,7 +180,7 @@ Two further items shipped in the soak era from recorded backlog work rather than
 finding: **(q) in-place organize + `undo-organize`** (`dee4785`) and the
 **performance audit's convictions** (`1e458df`, `39d889a`, `8f77de1` - see `PERFORMANCE.md`).
 
-### 2.2 CURRENT ARC: the tab-tour findings - **Stage 2c is BUILT (persistence only); 2d-2e remain**
+### 2.2 CURRENT ARC: the tab-tour findings - **Stage 2c is BUILT; `(mm)` is resolved; 2d-2e remain**
 
 **Read this section first if you are resuming.** The layout arc (§2.0) is closed; this is what
 the project is actually doing now. It came out of Dinesh's **tab tour** of the migrated library
@@ -195,15 +195,16 @@ the project is actually doing now. It came out of Dinesh's **tab tour** of the m
 | **Stage 2a** | The `Placement` StrEnum router refactor (`1247055`) - a prerequisite, not part of trips. Pure refactor, proved byte-for-byte identical over 7 schemes x 4 sample rows |
 | **Stage 2b** | `detect_trips` (`packages/truestill-core/src/truestill_core/trips.py`) - pure detection only: active-day gating, run-forming with a bridgeable gap, the year-boundary split, the max-span decline. No schema, no layout, no migration - those are 2c-2e, still pending. Five fixtures, each proven to fail against its named mutation; see `trip-grouping-research.md`'s "Built" note |
 | **Stage 2c** | Trip persistence - catalog **v12**, `trips`/`trip_days` (identity is the row, never a membership hash - §6), `create_trip`/`trip_for_day`/`update_trip_days`, and the first schema-level *down*-migration in this codebase (`downgrade_v12_to_v11`). `detect_trips` (2b) is wired to **nothing** yet - the join is 2d's job. Four fixtures, each proven to fail against its named mutation |
-| **Alongside** | `4c9fcf8` prose repair + user-facing copy guard, `2353efd` the docs-only gate gap and the dash gate, `188eb3b` backlog `(mm)` |
+| **`(mm)` fix** | `migrate.py` no longer asks `Placement.EVERYDAY`'s template how to spell an event folder; each event's naming now comes from its own placement, resolved via one `classify()` lookup per event in place of the fixed lookup - the router `(mm)` said it should have used all along. Proven both ways: a scheme where `EVERYDAY` and `EVENT_DAY` genuinely differ shows the old code reporting a collision that would never occur on disk, and the same two events on a shared-naming scheme (every shipped preset) still collide exactly as before. **Unblocks Stage 2d.** |
+| **Alongside** | `4c9fcf8` prose repair + user-facing copy guard, `2353efd` the docs-only gate gap and the dash gate, `188eb3b` backlog `(mm)` tracked |
 
 **PENDING, in order:**
 
 1. **Stage 2d - the review stage and layout wiring.** The `TRIP_DAY` placement and its template,
-   the preview-then-confirm gate, adjustable edges per the "proposal is the run" rule. **Blocked
-   on `(mm)`** - the `migrate.py` naming trap that was latent while every placement shared one
-   naming default, now load-bearing since `TRIP_DAY` is the first placement whose template
-   genuinely needs to differ.
+   the preview-then-confirm gate, adjustable edges per the "proposal is the run" rule.
+   **No longer blocked** - `(mm)` is resolved, so migration now asks each file's own placement
+   for its naming rather than a fixed guess, which is what `TRIP_DAY`'s own naming needs once it
+   exists.
 2. **Stage 2e - adoption for existing libraries** via `migrate-layout`.
 3. **Stage 3 - Trips screen usability.** `min_files` becomes a **setting** (default 8), proposals
    **sorted by count descending**, small proposals **collapsed**, and a trip offered as **one**

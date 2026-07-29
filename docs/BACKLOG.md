@@ -149,23 +149,6 @@ is invisible here is retired, not free.**
   the real fix derives each photo's timezone from its GPS. The near-midnight caveat is
   surfaced honestly in the ingest report until this exists.
 
-- **(mm) `migrate.py` asks the wrong template how an event folder is spelled.** Flagged during
-  the Stage 2a placement refactor and left in place there, because a pure refactor is the wrong
-  commit to change behaviour in. **Must be resolved as part of, or before, trip migration.**
-  - **The defect.** `plan_migration` reads `scheme.template_for(Placement.EVERYDAY).event_naming`
-    to decide how to spell an *event* folder - the un-evented template, not `EVENT_DAY`. It is
-    the wrong question asked of the wrong shape.
-  - **Why it is harmless today, and only today.** Every template is parsed with the same
-    `EventNaming.READABLE` default, so all placements answer identically and the bug cannot be
-    observed. It is latent, not absent.
-  - **Why trip grouping breaks that.** Trips add `TRIP_DAY` as a fourth shape with its own
-    template, and the whole point of per-placement templates is that they can differ. The moment
-    a scheme carries a different naming for one shape, migration spells trip and event folders
-    using whatever the *Everyday* template happens to say - and a migration that names a folder
-    differently from an organize run relocates files into a second, near-identical tree.
-  - **Fix:** ask each file's own placement for its naming, which is what the router is for. Cheap
-    now; it is the sort of thing that is expensive once a real library has been migrated by it.
-
 - **(kk) Persist GPS at ingest - it is read and then thrown away.** Found while designing trip
   grouping (`trip-grouping-research.md` §5), and the scope is much wider than trips.
   - **The defect.** GPS is read live from exiftool during an organize run and used for the
@@ -240,6 +223,28 @@ anywhere (the only inheritance is `Destination` -> `Local`/`Rclone`, a genuine i
 no composition refactor to schedule.
 
 ## Shipped (kept for provenance)
+
+- ~~**(mm) `migrate.py` asks the wrong template how an event folder is spelled.**~~ **Delivered.**
+  `plan_migration` no longer reads `scheme.template_for(Placement.EVERYDAY).event_naming` for
+  every event; each event's naming now comes from its own placement, resolved with one
+  `classify()` lookup per event (a representative row supplies the rule) in place of the fixed
+  lookup - `O(events)` either way, same cost as building the `events` dict already was. Events
+  are grouped by the naming their own placement resolved to before disambiguation, since
+  `disambiguate_event_folders` takes one naming per call; collision detection is therefore
+  scoped per group, not across the whole drive, which is exact today (every event still
+  resolves to `Placement.EVENT_DAY`, so there is exactly one group) and a known, explicitly
+  flagged boundary for whoever adds a second naming (Stage 2d's `TRIP_DAY`) to close with
+  evidence, not guessed here.
+  - **Proven behaviour-preserving today, and proven to actually matter.** Two fixtures, each run
+    against the defect first: a scheme where `EVERYDAY` and `EVENT_DAY` genuinely disagree
+    (`READABLE` vs `SLUG`) shows the old, fixed lookup reporting a same-date, same-name
+    collision that real per-file rendering (which already routed through each row's own
+    placement) would never actually produce - the fix reports none. The same two events on a
+    scheme where every placement shares one naming (every shipped preset, today) still collide
+    exactly as before, proving no regression the other direction.
+  - **Unblocks Stage 2d.** `TRIP_DAY` is the first placement whose template genuinely needs a
+    naming that differs from `EVERYDAY`'s; migration now asks the right question for whichever
+    shape a file's own placement turns out to be.
 
 - ~~**(w) Self-describing month preset.**~~ **Delivered by the year-first default correction**
   (2026-07-28). Self-describing months (`2014-08`, never a bare `08`) are baked into every

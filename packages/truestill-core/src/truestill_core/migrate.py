@@ -34,9 +34,10 @@ from truestill_core.exif import ExiftoolMissingError, read_metadata
 from truestill_core.layout import (
     PATH_LENGTH_WARN,
     TIMELINE_RULE,
+    EventNaming,
     LayoutScheme,
-    Placement,
     RenderContext,
+    classify,
     disambiguate_event_folders,
 )
 from truestill_core.progress import Phase, Progress, ProgressCallback
@@ -228,30 +229,54 @@ def plan_migration(
     fixable; one wrongly hoisted onto the timeline is mixed into the photo record).
 
     Event folders are disambiguated across the whole drive before any path is built, so two
-    same-date events whose names collide cannot silently merge into one folder.
+    same-date events whose names collide cannot silently merge into one folder. Each event's
+    naming style comes from its **own** placement -- one :func:`classify` lookup per event, in
+    place of the fixed :data:`Placement.EVERYDAY` lookup this replaces (backlog ``(mm)``), so a
+    migration spells an event folder exactly as an organize run would. Same asymptotic cost:
+    O(events) either way, since the old code also built the ``events`` dict in one pass.
     """
     routes = routes or {}
     rows = list(catalog.copies_for_migration(drive_uuid))
 
     # Every event on this drive is known here, which is the only place a collision *can* be seen.
-    events: dict[str, tuple[datetime, str, str | None]] = {}
+    # One representative row per event supplies the rule its naming is decided from -- a day's
+    # rows overwhelmingly share one rule, and the per-row loop below still resolves each file's
+    # own rule independently for the path itself; this only decides how the event's name reads.
+    events: dict[str, tuple[datetime, str, str | None, EventNaming]] = {}
     for r in rows:
         if r["event_slug"] and r["event_start"]:
+            key = f"{r['event_slug']}|{r['event_start']}"
+            if key in events:
+                continue
             start = _parse_dt(r["event_start"])
             assert start is not None
-            events[f"{r['event_slug']}|{r['event_start']}"] = (
-                start,
-                str(r["event_slug"]),
-                r["event_name"],
+            slug = str(r["event_slug"])
+            placement = classify(
+                rule_for_row(r, routes, rules_by_sha),
+                RenderContext(category=str(r["category"]), event=(start, slug)),
             )
-    folders = disambiguate_event_folders(
-        [(key, start, slug, name) for key, (start, slug, name) in events.items()],
-        # Reads the un-evented template's naming, exactly as before `Placement` existed.
-        # Asking the *timeline* template how an *event* folder is spelled is a latent
-        # trap -- today every template parses with the same default so it cannot differ,
-        # which is why this is flagged rather than changed inside a pure refactor.
-        naming=scheme.template_for(Placement.EVERYDAY).event_naming,
-    )
+            events[key] = (
+                start,
+                slug,
+                r["event_name"],
+                scheme.template_for(placement).event_naming,
+            )
+
+    # disambiguate_event_folders takes one naming for a whole call, so events are grouped by the
+    # naming their own placement resolved to and disambiguated within each group. Every event
+    # resolves to Placement.EVENT_DAY today (the only placement a named event can carry), so this
+    # is one group and byte-identical to the old, fixed-lookup output. Collision detection is
+    # therefore scoped PER GROUP, not across the whole drive -- correct today (one group); a
+    # second naming (2d's TRIP_DAY) would need cross-group scoping too, which is that stage's
+    # problem to solve against real evidence, not guessed here.
+    by_naming: dict[EventNaming, list[tuple[str, datetime, str, str | None]]] = {}
+    for key, (start, slug, name, naming) in events.items():
+        by_naming.setdefault(naming, []).append((key, start, slug, name))
+    folders = [
+        folder
+        for naming, group in by_naming.items()
+        for folder in disambiguate_event_folders(group, naming=naming)
+    ]
     event_notes = [f.note for f in folders if f.note]
 
     moves: list[Move] = []

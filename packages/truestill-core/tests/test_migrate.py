@@ -15,8 +15,9 @@ from truestill_core.destinations.local import LocalDestination
 from truestill_core.drive import MARKER_NAME
 from truestill_core.exif import ExiftoolMissingError
 from truestill_core.hashing import sha256_file
-from truestill_core.layout import LayoutScheme, LayoutTemplate
+from truestill_core.layout import EventNaming, LayoutScheme, LayoutTemplate
 from truestill_core.migrate import (
+    ROUTE_TIMELINE,
     Move,
     label_routes,
     plan_migration,
@@ -216,6 +217,91 @@ def test_plan_flags_collision(tmp_path: Path) -> None:
         )
         plan = plan_migration(catalog, "D1", _scheme("{category}/{yyyy}/{mm}/{dd}"))
     assert any("same path" in w for w in plan.warnings)
+
+
+# --- (mm): an event's naming must come from its OWN placement, never a fixed EVERYDAY guess ---
+
+
+def _named_event(
+    catalog: Catalog, *, sha: str, name: str, slug: str, start_date: str, signature: str
+) -> None:
+    event_id = catalog.record_event(
+        name=name, slug=slug, start_date=start_date, file_count=1, signature=signature
+    )
+    catalog.set_event_id([sha], event_id)
+
+
+def _two_same_day_events_one_shared_name(catalog: Catalog, root: Path) -> None:
+    """Two distinct events, same date and human name, different slugs.
+
+    Colliding under READABLE naming (same date + same sanitized name) but never under SLUG
+    naming (different slugs) -- the two placement namings genuinely disagree about whether
+    these folders collide, which no shipped preset can show today (backlog (mm)).
+    """
+    catalog.upsert_drive(uuid="D1", label="Drive A")
+    shas = _seed(
+        catalog,
+        root,
+        "D1",
+        [
+            ("Camera/2023/08/a.jpg", "Camera", "2023-08-20T09:00:00", b"aaaa"),
+            ("Camera/2023/08/b.jpg", "Camera", "2023-08-20T18:00:00", b"bbbb"),
+        ],
+    )
+    _named_event(
+        catalog,
+        sha=shas["Camera/2023/08/a.jpg"],
+        name="Goa Trip",
+        slug="goa-trip-morning",
+        start_date="2023-08-20T00:00:00",
+        signature="sig-a",
+    )
+    _named_event(
+        catalog,
+        sha=shas["Camera/2023/08/b.jpg"],
+        name="Goa Trip",
+        slug="goa-trip-evening",
+        start_date="2023-08-20T00:00:00",
+        signature="sig-b",
+    )
+
+
+def test_a_scheme_where_placements_genuinely_differ_disambiguates_by_each_events_own_naming(
+    tmp_path: Path,
+) -> None:
+    """Fails against the pre-fix code, which reads EVERYDAY's naming for every event.
+
+    EVERYDAY is READABLE here and EVENT_DAY is SLUG -- the two same-date, same-name events
+    render identical READABLE folders (a collision) but distinct SLUG ones (no collision). The
+    real per-file paths always route through EVENT_DAY (classify() returns it for any evented,
+    timeline-routed file), so asking EVERYDAY's naming reports a collision that would never
+    occur on disk. The fix (asking each event's own placement) reports none.
+    """
+    root = tmp_path / "drive"
+    scheme = LayoutScheme.of(
+        timeline=LayoutTemplate.parse("{yyyy}/{yyyy}-{mm}"),  # EVERYDAY: default READABLE
+        timeline_evented=LayoutTemplate.parse("{yyyy}/{yyyy}-{mm}", event_naming=EventNaming.SLUG),
+    )
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        _two_same_day_events_one_shared_name(catalog, root)
+        plan = plan_migration(catalog, "D1", scheme, routes={"Camera": ROUTE_TIMELINE})
+    assert not any("already uses" in w for w in plan.warnings)
+
+
+def test_a_real_collision_is_still_caught_on_a_shared_naming_scheme(tmp_path: Path) -> None:
+    """The other side of the same fixture, on the shape every shipped preset actually has.
+
+    Every current scheme gives EVERYDAY and EVENT_DAY the same (READABLE) naming, so the two
+    same-day, same-name events above genuinely do collide under either template -- the fix must
+    not suppress that. Byte-identical to the pre-fix behaviour, since one shared naming is
+    exactly the case backlog (mm) says was harmless.
+    """
+    root = tmp_path / "drive"
+    scheme = _scheme("{yyyy}/{yyyy}-{mm}")  # timeline == timeline_evented == side_bin
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        _two_same_day_events_one_shared_name(catalog, root)
+        plan = plan_migration(catalog, "D1", scheme, routes={"Camera": ROUTE_TIMELINE})
+    assert any("already uses" in w for w in plan.warnings)
 
 
 def _fingerprint(root: Path) -> list[tuple[str, str]]:
