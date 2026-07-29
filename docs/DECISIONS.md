@@ -338,3 +338,36 @@ separate closed codebase.
 **Status:** Settled and current. Recorded here because the packages already shipped
 `Apache-2.0` and the root `LICENSE` existed; the stance itself had not been written into this
 file.
+
+---
+
+## D8. Content hash is SHA-256 - BLAKE3 is deliberately absent
+
+**Decision.** The sole content hash is **SHA-256** (`hashlib`). There is no BLAKE3 dependency,
+no dual-hash catalog column, and no user-facing algorithm toggle.
+
+**Corrected rationale (2026-07-29).** An earlier recorded reason claimed BLAKE3 was rejected
+because it is a compiled dependency that must build across platforms. That is **overstated**:
+the `blake3` PyPI package ships prebuilt wheels for most environments and needs no Rust
+toolchain for typical users. That argument is withdrawn.
+
+**The measured reason, which is stronger** (`docs/preview-performance-profile.md`, Wayanad '14,
+2,064 files, cold pCloud preview):
+
+- SHA-256 ran on **22 of 2,064 files** (~1% after the size pre-filter) and offers about
+  **1.03×** headroom if it went to zero.
+- **exiftool is 74%** of that wall; unconditional perceptual hashing is most of the rest.
+- A faster hash therefore optimizes the **1%**. It is the wrong axis.
+
+Also: BLAKE3's headline speedup comes from **multithreading within a single file**, and it can
+be slower than SHA-256 on inputs below ~1 MB. truestill already parallelizes **across files**
+(`scan.compute_hashes`), which is the correct axis for this library-sized workload.
+
+**Reasons that remain valid:**
+
+- **One hash type in the catalog** - `files.sha256` / `file_copies` are keyed on a single
+  algorithm. Introducing BLAKE3 would mean a dual-hash migration or a rewrite of identity.
+- **No user-facing algorithm toggle** - one catalog column, one verification identity, no
+  setting that splits a library's custody record.
+
+**Status:** Settled. Short form in `IMPLEMENTATION_STANDARDS.md` § dependency inventory.

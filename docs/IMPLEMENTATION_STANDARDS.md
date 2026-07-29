@@ -473,8 +473,11 @@ Runtime deps must justify themselves against stdlib. Current state:
 | `truestill-cli` runtime deps | Only `truestill-core` (workspace source). |
 
 SHA-256 (`hashlib`), SQLite (`sqlite3`), concurrency (`concurrent.futures`), and all path/date
-work are **stdlib** - no dependency. **BLAKE3 is deliberately absent** (SHA-256 is hardware-
-accelerated and doubles as the dedup + verification hash without a compiled dep).
+work are **stdlib** - no dependency. **BLAKE3 is deliberately absent** - not because of a
+compile story (the `blake3` wheels are prebuilt for typical users), but because SHA-256 is
+already ~1% of cold-preview wall after the size pre-filter while exiftool is ~74%
+(`docs/preview-performance-profile.md`), and because the catalog keeps one hash column with no
+algorithm toggle. Full rationale: `DECISIONS.md` **D8**.
 
 **Version policy:** `requires-python` = **`>=3.13` for all three packages**. Lower-bound + lock;
 `uv.lock` is the single source of truth; no blind upper-pins; updates via periodic

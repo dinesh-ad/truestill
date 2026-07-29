@@ -203,7 +203,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Notes
 - SHA-256 is the sole content hash (hardware-accelerated via OpenSSL); BLAKE3 is
-  deliberately not used, keeping one catalog column and no compiled dependency.
+  deliberately not used - one catalog column, no algorithm toggle, and a faster hash would
+  optimize ~1% of cold-preview wall (`DECISIONS.md` D8; profiled 2026-07-29).
 - Dates come from embedded metadata first, filename convention second, `Undated/`
   never from filesystem mtime.
 
