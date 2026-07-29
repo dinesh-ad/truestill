@@ -89,7 +89,7 @@ from truestill_core.trip_review import (
 )
 from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
 
-from truestill_app.jobs import JobTarget
+from truestill_app.jobs import DriveRef, JobTarget
 
 
 class NotABackupDriveError(ValueError):
@@ -134,6 +134,18 @@ def _drive_correction(path: Path) -> DriveCorrectionPayload:
         "drive_label": location.marker.label if location.marker else None,
         "can_register": location.marker is None,
     }
+
+
+def drive_ref_for(path: Path) -> DriveRef:
+    """Lock identity for a path a job will touch (uuid when marked, else resolved path)."""
+    marker = read_marker(path)
+    if marker is not None:
+        return DriveRef(key=f"uuid:{marker.uuid}", label=marker.label)
+    try:
+        resolved = str(path.expanduser().resolve())
+    except OSError:
+        resolved = str(path)
+    return DriveRef(key=f"path:{resolved}", label=path.name or resolved)
 
 
 def _not_a_drive(path: Path) -> NotABackupDriveError:

@@ -33,7 +33,7 @@ from truestill_core.trip_review import (
 )
 
 from truestill_app import __version__, service
-from truestill_app.jobs import JobManager
+from truestill_app.jobs import DriveBusyPayload, JobManager, JobTarget
 from truestill_app.security import LocalGuard
 
 
@@ -90,6 +90,28 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
     def _db() -> Path:
         return db
 
+    def _start_drive_job(
+        target: JobTarget | service.DriveUnavailablePayload,
+        *,
+        paths: list[Path],
+        operation: str,
+    ) -> JSONResponse:
+        """Start a job locked to ``paths``, or return drive-unavailable / drive-busy without racing.
+
+        Soft-fails for a non-drive path the same way undo already did. A second start on an
+        occupied drive returns :class:`DriveBusyPayload` (HTTP 200, ``ok: false``) - never queues.
+        """
+        if isinstance(target, dict):
+            return JSONResponse(target)
+        result: str | DriveBusyPayload = jobs.start(
+            target,
+            drives=[service.drive_ref_for(path) for path in paths],
+            operation=operation,
+        )
+        if isinstance(result, dict):
+            return JSONResponse(result)
+        return JSONResponse({"job_id": result})
+
     async def home(_request: Request) -> HTMLResponse:
         html = (_TEMPLATES / "index.html").read_text(encoding="utf-8")
         stale = _static_fingerprint() != started_fingerprint
@@ -105,26 +127,27 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
     async def organize_preview(request: Request) -> JSONResponse:
         # A job like every other long operation -- on a large source this is the first long
         # wait a user meets, so it gets the same progress display rather than a frozen card.
-        # Still a dry run: the job writes nothing.
+        # Still a dry run: the job writes nothing. Locked on the destination (where copies land).
         body = await request.json()
-        target = service.organize_preview_run(
-            Path(body["source"]), Path(body["destination"]), _db()
-        )
-        return JSONResponse({"job_id": jobs.start(target)})
+        destination = Path(body["destination"])
+        target = service.organize_preview_run(Path(body["source"]), destination, _db())
+        return _start_drive_job(target, paths=[destination], operation="organize preview")
 
     async def organize_run(request: Request) -> JSONResponse:
         body = await request.json()
+        destination = Path(body["destination"])
         target = service.organize_run(
             Path(body["source"]),
-            Path(body["destination"]),
+            destination,
             _db(),
             skip_undated=bool(body.get("skip_undated", False)),
         )
-        return JSONResponse({"job_id": jobs.start(target)})
+        return _start_drive_job(target, paths=[destination], operation="organize")
 
     async def verify_run(request: Request) -> JSONResponse:
         body = await request.json()
-        return JSONResponse({"job_id": jobs.start(service.verify_run(Path(body["path"]), _db()))})
+        path = Path(body["path"])
+        return _start_drive_job(service.verify_run(path, _db()), paths=[path], operation="verify")
 
     async def job_events(request: Request) -> StreamingResponse:
         job_id = request.path_params["job_id"]
@@ -159,13 +182,18 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
 
     async def backup_run(request: Request) -> JSONResponse:
         body = await request.json()
-        job = service.backup_run(Path(body["source"]), Path(body["target"]), _db())
-        return JSONResponse({"job_id": jobs.start(job)})
+        source, target_path = Path(body["source"]), Path(body["target"])
+        return _start_drive_job(
+            service.backup_run(source, target_path, _db()),
+            paths=[source, target_path],
+            operation="backup",
+        )
 
     async def ingest_preview(request: Request) -> JSONResponse:
         body = await request.json()
-        target = service.ingest_preview_run(Path(body["takeout"]), Path(body["destination"]), _db())
-        return JSONResponse({"job_id": jobs.start(target)})
+        destination = Path(body["destination"])
+        target = service.ingest_preview_run(Path(body["takeout"]), destination, _db())
+        return _start_drive_job(target, paths=[destination], operation="import preview")
 
     # --- folder picker + library status -------------------------------------------------
 
@@ -207,21 +235,19 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
 
     async def migrate_preview(request: Request) -> JSONResponse:
         body = await request.json()
-        return _undo_job_response(service.migration_preview_run(Path(body["path"]), _db()))
+        path = Path(body["path"])
+        return _start_drive_job(
+            service.migration_preview_run(path, _db()),
+            paths=[path],
+            operation="migrate preview",
+        )
 
     async def migrate_run(request: Request) -> JSONResponse:
         body = await request.json()
-        return JSONResponse(
-            {"job_id": jobs.start(service.migration_apply(Path(body["path"]), _db()))}
+        path = Path(body["path"])
+        return _start_drive_job(
+            service.migration_apply(path, _db()), paths=[path], operation="migrate"
         )
-
-    def _undo_job_response(
-        result: service.JobTarget | service.DriveUnavailablePayload,
-    ) -> JSONResponse:
-        """Start an undo job, or return the drive-correction payload without starting one."""
-        if isinstance(result, dict):
-            return JSONResponse(result)
-        return JSONResponse({"job_id": jobs.start(result)})
 
     async def migrate_undo_armed(request: Request) -> JSONResponse:
         path = Path(request.query_params.get("path", ""))
@@ -229,11 +255,21 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
 
     async def migrate_undo_preview(request: Request) -> JSONResponse:
         body = await request.json()
-        return _undo_job_response(service.migration_undo(Path(body["path"]), _db(), apply=False))
+        path = Path(body["path"])
+        return _start_drive_job(
+            service.migration_undo(path, _db(), apply=False),
+            paths=[path],
+            operation="undo preview",
+        )
 
     async def migrate_undo_apply(request: Request) -> JSONResponse:
         body = await request.json()
-        return _undo_job_response(service.migration_undo(Path(body["path"]), _db(), apply=True))
+        path = Path(body["path"])
+        return _start_drive_job(
+            service.migration_undo(path, _db(), apply=True),
+            paths=[path],
+            operation="undo",
+        )
 
     # --- Trip/event review (session-based; merge/split are UI-only, no CLI path) ---
     sessions: dict[str, EventReviewSession] = {}
@@ -392,20 +428,27 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
     async def events_preview(request: Request) -> JSONResponse:
         """Preview where the just-named trips will move the drive's files (moves nothing)."""
         session = sessions[request.path_params["session"]]
-        return _undo_job_response(service.migration_preview_run(Path(session.path), _db()))
+        path = Path(session.path)
+        return _start_drive_job(
+            service.migration_preview_run(path, _db()),
+            paths=[path],
+            operation="trip preview",
+        )
 
     async def events_apply_to_disk(request: Request) -> JSONResponse:
         """Apply the trip placement: a journalled, resumable relocation on the drive."""
         session = sessions[request.path_params["session"]]
-        job_id = jobs.start(
+        path = Path(session.path)
+        return _start_drive_job(
             service.migration_apply(
-                Path(session.path),
+                path,
                 _db(),
                 session.named_events,
                 session.named_trips,
-            )
+            ),
+            paths=[path],
+            operation="trip apply",
         )
-        return JSONResponse({"job_id": job_id})
 
     routes = [
         Route("/", home),
