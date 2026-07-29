@@ -195,5 +195,11 @@ deliberately opt-in.
 Start with [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md): where the project stands, what
 ships next, and the standing rules. [`CLAUDE.md`](CLAUDE.md) carries the full document map.
 
+## Licence
+
+truestill is licensed under the [Apache License 2.0](LICENSE). The published source is
+open-core: the repository is Apache-2.0; paid Pro capabilities (when they ship) attach through
+the capability seam rather than a separate closed tree (`docs/DECISIONS.md` D7, D6).
+
 > **Status:** pre-1.0 and not yet published. This README is deliberately factual rather than
 > promotional; the newcomer-facing rewrite with screenshots is a tracked pre-launch task.

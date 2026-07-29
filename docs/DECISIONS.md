@@ -316,3 +316,25 @@ instinct applies to function.
 
 **Status:** Settled as a decision, unbuilt. Supersedes the one-time Pro-licence sketch;
 the capability seam (`IMPLEMENTATION_STANDARDS.md` §2) is where Pro features attach.
+
+---
+
+## D7. Source licence: Apache-2.0, open-core
+
+**Decision.** The truestill source published in this repository is **Apache License 2.0**.
+The commercial shape is **open-core**: the open tree is the product; paid Pro capabilities
+(D6) attach through the capability seam (`IMPLEMENTATION_STANDARDS.md` §2) rather than a
+separate closed codebase.
+
+**What this binds:**
+
+- Root `LICENSE` is the Apache-2.0 text; package metadata (`license = "Apache-2.0"`) matches.
+- Copyright line: `Copyright 2026 Dinesh A`.
+- No copyleft (GPL-family) dependency may be introduced into the published packages without an
+  explicit superseding decision - Apache-2.0 + open-core is incompatible with that surprise.
+- Open-core does **not** mean a free/crippled build and a proprietary build of the same tree.
+  Pro is entitlement and gating (D5/D6), not a second source licence.
+
+**Status:** Settled and current. Recorded here because the packages already shipped
+`Apache-2.0` and the root `LICENSE` existed; the stance itself had not been written into this
+file.
