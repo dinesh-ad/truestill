@@ -14,7 +14,6 @@ exactly once, by the caller, via :func:`local_naive`.
 from __future__ import annotations
 
 import json
-import os
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -222,8 +221,9 @@ def scan_takeout(root: Path) -> TakeoutScan:
     album title.
     """
     scan = TakeoutScan()
-    for folder, _dirs, filenames in os.walk(root):
-        folder_path = Path(folder)
+    # Path.walk, not rglob: matching is per-folder (sidecars never cross directories), so the
+    # dir-tree shape is the algorithm. Same defaults as os.walk (top-down, no symlink follow).
+    for folder_path, _dirs, filenames in root.walk():
         index = SidecarIndex(n for n in filenames if n.lower().endswith(".json"))
         album = None if is_year_folder(folder_path.name) else folder_path.name
 

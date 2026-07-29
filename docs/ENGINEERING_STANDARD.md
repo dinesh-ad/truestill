@@ -45,10 +45,16 @@ before it existed. **If a change alters anything a user reads, it is not verifie
 browser lane has run.** Conversely, do not re-assert engine behaviour through a browser: it is
 slower, flakier, and already covered. Each layer owns what only it can see.
 
-Two standing rules on that third layer: **no sleeps** (auto-waiting assertions only - hard
-waits are the dominant flake source), and **no retries** (a retry-until-green browser suite
+Three standing rules on that third layer: **no sleeps** (auto-waiting assertions only - hard
+waits are the dominant flake source), **no retries** (a retry-until-green browser suite
 launders the nondeterminism the layer exists to expose; a flaky test is quarantined and filed
-with its trace).
+with its trace), and **UI source assertions are not coverage of a flow**. Grep-style checks
+that a string exists in shipped JS/HTML pin wiring; they do not prove a multi-step or
+destructive path works. Any such path needs a real browser test that drives the UI and
+asserts on what a user reads. *Worked example - migration undo resume, 2026-07-29.* After a
+cancelled undo apply, `panel.innerHTML = summary + panel.innerHTML` re-parsed the armed card
+and wiped the Preview onclick - resume looked present and was dead. Source guards still
+passed; only the Playwright e2e caught it.
 
 ## 3. Research priority order
 
@@ -65,12 +71,16 @@ re-implementing something the repo already has.
 
 ## 4. Code standard
 
-- **Idioms (Python 3.13, standard build).** `pathlib` everywhere - never `os.path` string
-  joins. `@dataclass(slots=True)` for internal models. `StrEnum` for enumerations. `match`
-  for structured dispatch, f-strings, `:=` where it reads better. **Not** pydantic/attrs for
-  internal models - truestill has no untrusted-input API boundary, so stdlib dataclasses are the
-  right-sized choice. Validation belongs only at real trust boundaries (CLI args, sidecar
-  JSON, catalog reads).
+- **Idioms (Python 3.13, standard build).** `pathlib.Path` for all path manipulation - never
+  `os.path.*` in source (an audit on 2026-07-29 found zero call sites; this codifies that
+  practice, it is not a migration). Use `os` only for operations pathlib does not expose:
+  `os.access` for permission probes, `os.utime` for setting mtime/atime, `os.cpu_count` for
+  worker sizing. Directory walks that need the dir-tree shape use `Path.walk` (3.12+), not
+  `os.walk` and not `rglob`. `@dataclass(slots=True)` for internal models. `StrEnum` for
+  enumerations. `match` for structured dispatch, f-strings, `:=` where it reads better.
+  **Not** pydantic/attrs for internal models - truestill has no untrusted-input API boundary,
+  so stdlib dataclasses are the right-sized choice. Validation belongs only at real trust
+  boundaries (CLI args, sidecar JSON, catalog reads).
 - **Typing.** mypy `strict` is mandatory. Full annotations incl. return types; modern syntax
   (`X | None`, `list[str]`, `Self`). No untyped defs. No `type: ignore` without a reason code
   and a comment.
