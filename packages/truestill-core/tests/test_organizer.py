@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import os
 import shutil
+import time
 from datetime import datetime
 from pathlib import Path
 
+import pytest
 from truestill_core.catalog import Catalog
 from truestill_core.categorize import CategoryMatch, Confidence
 from truestill_core.dedup import DedupIndex
@@ -26,6 +29,7 @@ from truestill_core.organizer import (
     IMAGE_EXTENSIONS,
     MEDIA_EXTENSIONS,
     VIDEO_EXTENSIONS,
+    Relocation,
     apply_events,
     discover,
     execute,
@@ -114,6 +118,102 @@ def _resolution(source: Path, when: datetime | None, sha: str) -> Resolution:
         exact_duplicate=None,
         near_duplicate=None,
     )
+
+
+def _set_times(path: Path, *, atime_ns: int, mtime_ns: int) -> tuple[int, int]:
+    os.utime(path, ns=(atime_ns, mtime_ns))
+    stat = path.stat()
+    return stat.st_atime_ns, stat.st_mtime_ns
+
+
+def test_normal_dated_copy_stamps_destination_without_touching_source(tmp_path: Path) -> None:
+    source = tmp_path / "src" / "dated.jpg"
+    source.parent.mkdir()
+    source.write_bytes(b"dated-bytes")
+    source_sha = sha256_file(source)
+    atime_ns = time.time_ns()
+    before = _set_times(
+        source,
+        atime_ns=atime_ns,
+        mtime_ns=atime_ns - 3_600_000_000_000,
+    )
+    captured_at = datetime(2023, 1, 1, 12, 30)
+    resolution = _resolution(source, captured_at, source_sha)
+    destination = tmp_path / "out"
+
+    execute([resolution], LocalDestination(destination), apply=True)
+
+    source_stat = source.stat()
+    assert (source_stat.st_atime_ns, source_stat.st_mtime_ns) == before
+    copy_stat = (destination / resolution.decision.relative).stat()
+    expected_ns = int(captured_at.timestamp() * 1_000_000_000)
+    assert (copy_stat.st_atime_ns, copy_stat.st_mtime_ns) == (expected_ns, expected_ns)
+
+
+def test_no_timestamps_preserves_source_and_destination_times(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "src" / "dated.jpg"
+    source.parent.mkdir()
+    source.write_bytes(b"dated-bytes")
+    source_sha = sha256_file(source)
+    atime_ns = time.time_ns()
+    before = _set_times(
+        source,
+        atime_ns=atime_ns,
+        mtime_ns=atime_ns - 3_600_000_000_000,
+    )
+    resolution = _resolution(source, datetime(2023, 1, 1, 12, 30), source_sha)
+    destination = tmp_path / "out"
+    backend = LocalDestination(destination)
+
+    def unexpected_stamp(_relative: str, _captured_at: datetime) -> None:
+        pytest.fail("set_timestamps=False must not stamp the destination")
+
+    monkeypatch.setattr(backend, "set_timestamp", unexpected_stamp)
+    execute(
+        [resolution],
+        backend,
+        apply=True,
+        set_timestamps=False,
+    )
+
+    source_stat = source.stat()
+    assert (source_stat.st_atime_ns, source_stat.st_mtime_ns) == before
+    copy_stat = (destination / resolution.decision.relative).stat()
+    assert copy_stat.st_mtime_ns == before[1]
+
+
+def test_relocation_still_stamps_the_file_it_adopts(tmp_path: Path) -> None:
+    root = tmp_path / "drive"
+    source = root / "incoming" / "dated.jpg"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"dated-bytes")
+    source_sha = sha256_file(source)
+    atime_ns = time.time_ns()
+    _set_times(
+        source,
+        atime_ns=atime_ns,
+        mtime_ns=atime_ns - 3_600_000_000_000,
+    )
+    inode = source.stat().st_ino
+    captured_at = datetime(2023, 1, 1, 12, 30)
+    resolution = _resolution(source, captured_at, source_sha)
+
+    results = execute(
+        [resolution],
+        LocalDestination(root),
+        apply=True,
+        relocation=Relocation(run_id="run-1", source_root=root, dest_root=root),
+    )
+
+    assert results[0].status is ActionStatus.MOVED_IN_PLACE
+    assert not source.exists()
+    adopted = root / resolution.decision.relative
+    adopted_stat = adopted.stat()
+    expected_ns = int(captured_at.timestamp() * 1_000_000_000)
+    assert adopted_stat.st_ino == inode
+    assert (adopted_stat.st_atime_ns, adopted_stat.st_mtime_ns) == (expected_ns, expected_ns)
 
 
 def test_skip_undated_skips_only_undated_files(tmp_path: Path) -> None:

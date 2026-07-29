@@ -5,14 +5,15 @@ Google Drive -- is usable through the same :class:`Destination` interface withou
 project knowing anything provider-specific. The remote is given as an rclone spec such as
 ``pcloud:Photos/GoogleBackup``.
 
-Only ``copyto`` is ever used for writing: it transfers a single file to an exact path and
-never deletes. There is deliberately no code path here that can remove data at the remote.
+Files are written with ``copyto`` and their capture-date mtime is set with ``touch --no-create``.
+There is deliberately no code path here that can remove data at the remote.
 """
 
 from __future__ import annotations
 
 import shutil
 import subprocess
+from datetime import UTC, datetime
 from pathlib import Path
 
 from truestill_core.destinations.base import Destination, DestinationError
@@ -70,3 +71,14 @@ class RcloneDestination(Destination):
         self._run("copyto", str(local), self._target(relative_path))
         if self._listing is not None:
             self._listing.add(relative_path)
+
+    def set_timestamp(self, relative_path: str, captured_at: datetime) -> None:
+        stamp = captured_at.timestamp()
+        utc = datetime.fromtimestamp(stamp, tz=UTC)
+        self._run(
+            "touch",
+            "--no-create",
+            "--timestamp",
+            utc.strftime("%Y-%m-%dT%H:%M:%S.%f"),
+            self._target(relative_path),
+        )

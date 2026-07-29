@@ -442,11 +442,11 @@ def _safe_size(path: Path) -> int | None:
 
 
 def _apply_timestamp(source: Path, captured_at: datetime | None) -> None:
-    """Set the local source copy's mtime to the capture date.
+    """Set a staged or adopted local file's mtime to the capture date.
 
-    Both destination backends preserve source mtime on transfer, so stamping the staged
-    copy is what makes the capture date reach the destination. This mutates only the local
-    staging copy -- never a phone or Google Photos original.
+    A pure copy is stamped through :meth:`Destination.set_timestamp` after upload. This helper
+    is only for a temporary metadata-bake copy or a file being adopted/relocated, where ownership
+    is transferring to the destination.
     """
     if captured_at is None:
         return
@@ -655,6 +655,31 @@ def _adopt_or_copy(
     return True
 
 
+def _upload_copy(
+    source: Path,
+    destination: Destination,
+    final_relative: str,
+    captured_at: datetime | None,
+    *,
+    set_timestamps: bool,
+) -> None:
+    """Upload a pure copy, stamping only the destination and preserving source timestamps."""
+    source_stat = source.stat()
+    try:
+        destination.upload(source, final_relative)
+        if set_timestamps and captured_at is not None:
+            destination.set_timestamp(final_relative, captured_at)
+    finally:
+        # Reading can advance atime on strict-atime filesystems. Put both source timestamps back
+        # exactly so a copy does not invalidate the path+size+mtime hash-cache key.
+        current = source.stat()
+        if (
+            current.st_atime_ns != source_stat.st_atime_ns
+            or current.st_mtime_ns != source_stat.st_mtime_ns
+        ):
+            os.utime(source, ns=(source_stat.st_atime_ns, source_stat.st_mtime_ns))
+
+
 def _move_source(
     source: Path, destination: Destination, final_relative: str, copy_sha: str
 ) -> tuple[ActionStatus, str]:
@@ -801,7 +826,18 @@ def execute(
                     baker=baker,
                     set_timestamps=set_timestamps,
                 )
+            elif relocation is None:
+                _upload_copy(
+                    decision.source,
+                    destination,
+                    final_relative,
+                    decision.captured_at,
+                    set_timestamps=set_timestamps,
+                )
+                copy_sha = source_sha
             else:
+                # Relocation transfers ownership of this inode. Stamp it before the attempted
+                # adopt so a rename and the verified cross-device fallback preserve the date.
                 if set_timestamps:
                     _apply_timestamp(decision.source, decision.captured_at)
                 copy_sha = source_sha  # byte-identical either way: a rename rewrites nothing

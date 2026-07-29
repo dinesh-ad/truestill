@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -37,3 +38,27 @@ def test_rclone_target_format(monkeypatch: pytest.MonkeyPatch) -> None:
     dest = RcloneDestination("pcloud:Photos/GoogleBackup")
     assert dest.describe() == "pcloud:Photos/GoogleBackup"
     assert dest._target("Camera/2025/08/a.jpg") == "pcloud:Photos/GoogleBackup/Camera/2025/08/a.jpg"
+
+
+def test_rclone_stamps_the_uploaded_remote_without_creating_a_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("shutil.which", lambda _name: "/usr/bin/rclone")
+    dest = RcloneDestination("pcloud:Photos")
+    calls: list[tuple[str, ...]] = []
+    monkeypatch.setattr(dest, "_run", lambda *args: calls.append(args))
+
+    dest.set_timestamp(
+        "Camera/2025/08/a.jpg",
+        datetime(2025, 8, 20, 14, 30, tzinfo=UTC),
+    )
+
+    assert calls == [
+        (
+            "touch",
+            "--no-create",
+            "--timestamp",
+            "2025-08-20T14:30:00.000000",
+            "pcloud:Photos/Camera/2025/08/a.jpg",
+        )
+    ]

@@ -9,6 +9,7 @@ private business.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from datetime import datetime
 from pathlib import Path
 
 
@@ -44,6 +45,10 @@ class Destination(ABC):
         Implementations must not overwrite silently; the caller guarantees
         ``relative_path`` is free by consulting :meth:`exists` first.
         """
+
+    @abstractmethod
+    def set_timestamp(self, relative_path: str, captured_at: datetime) -> None:
+        """Set an uploaded copy's timestamp without touching the source file."""
 
     @abstractmethod
     def list(self) -> list[str]:

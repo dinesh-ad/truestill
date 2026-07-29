@@ -1,13 +1,15 @@
 """Local-filesystem destination.
 
 Used for dry-run previews and as the reference implementation of the interface. Preserves
-mtime via ``copy2`` so a capture-date timestamp set on the source propagates through.
+source metadata via ``copy2``; capture-date timestamps are applied to the destination copy.
 """
 
 from __future__ import annotations
 
 import errno
+import os
 import shutil
+from datetime import datetime
 from pathlib import Path
 
 from truestill_core.destinations.base import CrossDeviceError, Destination, DestinationError
@@ -33,6 +35,10 @@ class LocalDestination(Destination):
         target = self._full(relative_path)
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(local, target)
+
+    def set_timestamp(self, relative_path: str, captured_at: datetime) -> None:
+        stamp = captured_at.timestamp()
+        os.utime(self._full(relative_path), (stamp, stamp))
 
     def adopt(self, local: Path, relative_path: str) -> None:
         """Move ``local`` in with an atomic rename, or raise :class:`CrossDeviceError`.
