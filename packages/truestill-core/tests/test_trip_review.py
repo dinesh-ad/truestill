@@ -253,18 +253,19 @@ def test_review_order_and_small_set_are_derived_and_trips_never_collapse() -> No
     )
     cards = [
         ReviewCard(event=_event_candidate(date(2026, 8, 1), 8)),
-        ReviewCard(event=_event_candidate(date(2026, 8, 2), 32)),
-        ReviewCard(event=_event_candidate(date(2026, 8, 3), 31)),
-        ReviewCard(event=_event_candidate(date(2026, 8, 4), 100)),
+        ReviewCard(event=_event_candidate(date(2026, 8, 2), 15)),
+        ReviewCard(event=_event_candidate(date(2026, 8, 3), 16)),
+        ReviewCard(event=_event_candidate(date(2026, 8, 4), 23)),
+        ReviewCard(event=_event_candidate(date(2026, 8, 5), 100)),
         trip,
     ]
 
     ordered = order_review_cards(cards)
     collapsed = collapsed_event_cards(ordered, min_files)
 
-    assert [card.count for card in ordered] == [100, 32, 31, 8, 1]
-    assert small_event_limit(min_files) == 32  # two doublings above the configured floor
-    assert [card.count for card in collapsed] == [31, 8]  # exactly below, not at, the limit
+    assert [card.count for card in ordered] == [100, 23, 16, 15, 8, 1]
+    assert small_event_limit(min_files) == 16  # the first doubling above the configured floor
+    assert [card.count for card in collapsed] == [15, 8]  # survey-claim 23 stays visible
     assert trip not in collapsed  # underlying TripProposal wins even when display kind is "event"
 
 

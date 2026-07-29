@@ -30,6 +30,24 @@ def client(tmp_path: Path) -> TestClient:
     return TestClient(app, headers={"host": "127.0.0.1:7357", "x-truestill-token": _TOKEN})
 
 
+def _seed_camera_group(catalog: Catalog, drive_uuid: str, day: datetime, count: int) -> None:
+    for index in range(count):
+        captured_at = day + timedelta(minutes=5 * index)
+        sha = f"sha-{day:%Y%m%d}-{index}"
+        catalog.record_uploaded(
+            source_path=f"/src/{sha}.jpg",
+            original_name=f"{sha}.jpg",
+            sha256=sha,
+            copy_sha256=sha,
+            perceptual=None,
+            size=10,
+            captured_at=captured_at.isoformat(),
+            category="Camera",
+            relative=f"{day:%Y/%m}/{sha}.jpg",
+            drive_uuid=drive_uuid,
+        )
+
+
 def test_layout_get_reports_default_and_presets(client: TestClient) -> None:
     state = client.get("/api/layout").json()
     assert state["template"] == "{yyyy}/{yyyy}-{mm}/{yyyy}-{mm} - Everyday"
@@ -75,21 +93,7 @@ def test_event_min_files_setting_changes_proposals_and_unset_keeps_default(
     with Catalog(db_path) as catalog:
         catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
         for day, count in ((datetime(2026, 6, 14, 9), 8), (datetime(2026, 6, 20, 9), 10)):
-            for index in range(count):
-                captured_at = day + timedelta(minutes=5 * index)
-                sha = f"sha-{day:%Y%m%d}-{index}"
-                catalog.record_uploaded(
-                    source_path=f"/src/{sha}.jpg",
-                    original_name=f"{sha}.jpg",
-                    sha256=sha,
-                    copy_sha256=sha,
-                    perceptual=None,
-                    size=10,
-                    captured_at=captured_at.isoformat(),
-                    category="Camera",
-                    relative=f"{day:%Y/%m}/{sha}.jpg",
-                    drive_uuid=marker.uuid,
-                )
+            _seed_camera_group(catalog, marker.uuid, day, count)
 
     settings = client.get("/api/events/settings").json()
     assert settings == {
@@ -121,6 +125,34 @@ def test_event_min_files_setting_changes_proposals_and_unset_keeps_default(
     assert [card["count"] for card in changed_proposals["cards"]] == [10]
     with Catalog(db_path) as catalog:
         assert catalog.get_setting(EVENT_MIN_FILES_KEY) == "9"
+
+
+def test_bridged_trip_reports_active_days_not_calendar_span(
+    client: TestClient, db_path: Path, tmp_path: Path
+) -> None:
+    drive = tmp_path / "drive"
+    drive.mkdir()
+    marker = create_marker(drive, "Drive A")
+    with Catalog(db_path) as catalog:
+        catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+        for day in (
+            datetime(2013, 9, 13, 9),
+            datetime(2013, 9, 15, 9),
+            datetime(2013, 9, 16, 9),
+        ):
+            _seed_camera_group(catalog, marker.uuid, day, 8)
+
+    proposed = client.post("/api/events/propose", json={"path": str(drive)}).json()
+    trip = next(card for card in proposed["cards"] if card["kind"] == "trip")
+
+    assert trip["start"] == "2013-09-13"
+    assert trip["end"] == "2013-09-16"  # four calendar dates inclusive
+    assert trip["active_days"] == 3
+    assert [day["date"] for day in trip["days"]] == [
+        "2013-09-13",
+        "2013-09-15",
+        "2013-09-16",
+    ]
 
 
 def test_invalid_stored_event_min_files_is_actionable(

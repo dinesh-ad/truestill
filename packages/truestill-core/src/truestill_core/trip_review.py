@@ -40,11 +40,12 @@ from truestill_core.trips import (
 #: label: a trip manually split down to one day is still labelled "event" (`ReviewCard.kind`),
 #: exactly as detection itself never proposes a 1-day trip from scratch.
 _MIN_TRIP_DAYS_FOR_LABEL = 2
-#: "Small" means still close to the configured inclusion floor: below its first two doublings
-#: (`count < 4 * min_files`; detected events already meet the floor, while a manual split may
+#: "Small" means threshold-adjacent: below the first doubling of the configured inclusion floor
+#: (`count < 2 * min_files`; detected events already meet the floor, while a manual split may
 #: create a smaller half). Unlike a fixed photo count, this scales with the user's chosen
-#: sensitivity. Only standalone event candidates are eligible; trips never are.
-_SMALL_EVENT_FACTOR: Final[int] = 2**2
+#: sensitivity without hiding the 23-photo secondary-survey claim discussed in Stage 3. Only
+#: standalone event candidates are eligible; trips never are.
+_SMALL_EVENT_FACTOR: Final[int] = 2
 
 
 def _parse_dt(value: object) -> datetime:
@@ -130,7 +131,7 @@ class ReviewCard:
 
 
 def small_event_limit(min_files: int) -> int:
-    """Exclusive upper bound for floor-near event groups (two doublings above the floor)."""
+    """Exclusive upper bound for threshold-adjacent event groups (one doubling of the floor)."""
     return min_files * _SMALL_EVENT_FACTOR
 
 

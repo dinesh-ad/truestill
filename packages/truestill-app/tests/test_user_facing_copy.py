@@ -63,3 +63,17 @@ def test_the_guard_can_actually_see_the_defect() -> None:
     # And it must not fire on ordinary hyphenated compounds, or it would be turned off.
     for benign in ("year-first layout", "re-hash the drive", "2014-08-15", "--apply"):
         assert not MALFORMED.search(benign), benign
+
+
+def test_trip_duration_names_active_days_not_calendar_span() -> None:
+    """A Sep 13-16 trip with photos on three dates is three active days, not a three-day span."""
+    app_js = USER_FACING[0].read_text(encoding="utf-8")
+    assert 'plural(c.active_days, "active day")' in app_js
+    assert 'plural(c.days.length, "day")' not in app_js
+
+
+def test_trip_and_event_result_rows_keep_their_kind_label() -> None:
+    app_js = USER_FACING[0].read_text(encoding="utf-8")
+    assert "function reviewResultCards(summary)" in app_js
+    assert "g.kind.toUpperCase()" in app_js
+    assert "tripResultCards" not in app_js

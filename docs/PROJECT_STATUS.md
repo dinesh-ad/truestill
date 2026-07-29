@@ -237,14 +237,15 @@ soak item), which produced five items, staged and ruled one at a time - all five
 | **Stage 13.4** | Migration wiring - the last sub-stage of Stage 2d. `copies_for_migration` gained a day-keyed join against `trip_days`/`trips` (no schema change); `plan_migration` sets a trip-claimed row's `RenderContext.trip`, gated on that row's own rule resolving to the timeline (a trip's day-claim is day-keyed, not category-keyed like an event's, so this guard is not optional - without it a same-day WhatsApp/Screenshot file would be pulled into the trip folder). Rides the exact `migration_preview`/`migration_apply` path an event's migration already used - same preview-then-confirm gate, no new endpoint, no looser guarantee. **`(mm)` widened**: event and trip headers are now disambiguated together, grouped by resolved naming rather than placement - proven, not assumed, that under this schema's day-claim exclusivity (`trip_days.day`'s primary key + full-day dissolution) an event and a trip header can never actually collide; the one residual case (`TRIP_DAY` deliberately given a different naming than `EVENT_DAY`'s - no production caller does this) is alarmed rather than silently uncovered. Six fixtures, each proven to fail against its named mutation. Because `plan_migration` is the same function both the app and `truestill migrate-layout` call, this also completes what the original design called **Stage 2e** (adoption for existing libraries) as a side effect - no separate CLI work was needed. **The trip arc is now complete end to end: detect (2b) -> review (13.3b) -> apply (13.4).** |
 | **Alongside** | `4c9fcf8` prose repair + user-facing copy guard, `2353efd` the docs-only gate gap and the dash gate, `188eb3b` backlog `(mm)` tracked |
 
+**Stage 3 - Trips screen usability: CLOSED.** `min_files` is a typed per-catalog setting with
+default 8; cards are largest-first; threshold-adjacent standalone events (`count < 2 * min_files`)
+sit behind one complete summary while trips stay visible; trip spans name active days explicitly;
+and proposal plus completion rows preserve EVENT/TRIP wording. ("A trip offered as one proposal
+rather than one per day" shipped early as part of 13.3b's inversion.)
+
 **PENDING, in order:**
 
-1. **Stage 3 - Trips screen usability, IN PROGRESS.** `min_files` is now a per-catalog Settings
-   value with the core default still **8**; proposals are now sorted by count descending and only
-   standalone events below two doublings of that floor are collapsed behind one complete summary.
-   The remaining commit verifies/fixes duration and TRIP/EVENT labelling. ("A trip offered as one
-   proposal rather than one per day" shipped early as part of 13.3b's inversion.)
-2. **Stage 4 - backlog `(gg)`**, adaptive day folders. Sequenced last on purpose: it partitions
+1. **Stage 4 - backlog `(gg)`**, adaptive day folders. Sequenced last on purpose: it partitions
    on evented-vs-un-evented, so it needs the evented set to be right first.
 
 #### The open question that blocked Stage 2b - answered

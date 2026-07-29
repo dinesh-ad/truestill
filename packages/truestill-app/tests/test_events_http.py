@@ -110,9 +110,10 @@ def test_merge_via_http_names_the_combined_trip_and_moves_it_on_disk(
 
     job = client.post(f"/api/events/{sid}/apply-to-disk", json={}).json()
     done = _stream_until_done(client, job["job_id"])
-    trips = done["summary"]["trips"]
-    assert len(trips) == 1
-    assert trips[0]["name"] == "Trip"
+    groups = done["summary"]["groups"]
+    assert len(groups) == 1
+    assert groups[0]["kind"] == "trip"
+    assert groups[0]["name"] == "Trip"
     landed_14 = list(drive.rglob("2026-06-14 - Trip/2026-06-14/*.jpg"))
     landed_21 = list(drive.rglob("2026-06-14 - Trip/2026-06-21/*.jpg"))
     assert len(landed_14) == 10
@@ -150,13 +151,13 @@ def _stream_until_done(client: TestClient, job_id: str) -> dict:
     pytest.fail("job never reached a done event")  # pragma: no cover
 
 
-def test_apply_to_disk_reports_one_row_per_named_trip_with_its_real_folder(
+def test_apply_to_disk_reports_one_row_per_named_group_with_its_real_folder(
     client: TestClient, tmp_path: Path
 ) -> None:
-    """13.3a: the aggregate "Moved N photos" line is replaced by one row per named trip, each
+    """13.3a: the aggregate "Moved N photos" line is replaced by one row per named group, each
     carrying its own real destination folder - the data a "reveal in file manager" row needs.
 
-    Two trips named and applied in one run must produce two rows, not one collapsed aggregate
+    Two events named and applied in one run must produce two EVENT rows, not one aggregate
     (that is the mutation this fixture guards - see the report for the seen-to-fail-first proof).
     """
     src = tmp_path / "src"
@@ -177,14 +178,15 @@ def test_apply_to_disk_reports_one_row_per_named_trip_with_its_real_folder(
     job = client.post(f"/api/events/{sid}/apply-to-disk", json={}).json()
     done = _stream_until_done(client, job["job_id"])
 
-    trips = done["summary"]["trips"]
-    assert len(trips) == 2  # NOT collapsed into one aggregate row
-    by_name = {t["name"]: t for t in trips}
+    groups = done["summary"]["groups"]
+    assert len(groups) == 2  # NOT collapsed into one aggregate row
+    assert {group["kind"] for group in groups} == {"event"}
+    by_name = {group["name"]: group for group in groups}
     assert set(by_name) == {"Goa", "Paris"}
     for name, expected_day in (("Goa", "2026-06-14"), ("Paris", "2026-06-21")):
-        trip = by_name[name]
-        assert trip["start"].startswith(expected_day)
-        landed = list((drive / trip["path"]).glob("*.jpg"))
+        group = by_name[name]
+        assert group["start"].startswith(expected_day)
+        landed = list((drive / group["path"]).glob("*.jpg"))
         assert len(landed) == 10  # the reported path is the REAL folder, not guessed
 
 

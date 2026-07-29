@@ -1268,14 +1268,15 @@ come first, because overlooking a 2,057-photo trip costs more than overlooking a
 `ReviewCard.count` is the single count seam and `order_review_cards` applies one descending sort
 after detection and after every merge or split.
 
-**Small is derived from the configured floor, not a fixed photo count.** A standalone event is
-small while it is within the first two doublings above `min_files`:
-`count < 4 * min_files`. A detected event already meets the lower floor; a manually split event
-may fall below it and remains small. With the default 8, the exclusive limit is 32; the measured
-library's actual hidden range is 8-30. This scales when a heavy shooter raises the floor and names
-the intended class directly: proposals still close to the threshold that admitted them. A card
-backed by `TripProposal` is never eligible, even if a split has reduced it to one day and its
-display label therefore says EVENT.
+**Small is derived from the configured floor, not a fixed photo count.** The first implementation
+used two doublings (`count < 4 * min_files`), but review rejected it: at the default 8 it hid
+everything below 32, including the unverified secondary-survey claim's 23-photo average. That
+inverted the intent by treating a typical memory as noise. The retained rule is the **first
+doubling**, `count < 2 * min_files`: default 8 hides threshold-adjacent 8-15-photo events and keeps
+23 visible. A detected event already meets the lower floor; a manually split event may fall below
+it and remains small. The rule still scales when a heavy shooter raises the floor. A card backed
+by `TripProposal` is never eligible, even if a split has reduced it to one day and its display
+label therefore says EVENT.
 
 All eligible events sit behind **one** disclosure. Its summary carries the number of groups,
 minimum and maximum photo counts, and the full date span, so opening it is optional rather than
@@ -1292,6 +1293,32 @@ Collapse classification and summary are each `O(P)` time; the summary stores onl
 aggregates. No catalog setting is re-read and no work is performed per media file.
 
 **Fixtures:** the existing HTTP fixture first reproduced date ordering (`[8, 10]` instead of
-`[10, 8]`). The presentation fixture pins the exclusive boundary (31 hidden, 32 shown), the exact
-small set and trip immunity. Mutating the rule to `count <= limit` and removing the event guard
-failed with `[32, 31, 8, 1]` hidden instead of `[31, 8]`; restored.
+`[10, 8]`). The presentation fixture now pins the corrected exclusive boundary (15 hidden,
+16 shown), keeps 23 visible, and proves trip immunity. Before the correction it failed directly:
+`small_event_limit(8)` was 32 rather than 16. The earlier mutation replacing the exclusive,
+event-only rule with inclusive count-only logic also failed by hiding the boundary and a trip.
+
+## 15. Stage 3.3 - active-day duration and kind-preserving results
+
+**BUILT 2026-07-29.** The reported "3 days" on a Sep 13-16 proposal was not an off-by-one error:
+the proposal carries three active dates (Sep 13, 15 and 16) across four inclusive calendar dates.
+The count was correct but the label was ambiguous. `ReviewCardPayload.active_days` now carries
+the explicit typed count and the card says **3 active days**, while the visible Sep 13 -> Sep 16
+span continues to show the calendar extent.
+
+The screen's completion seam also stopped calling every applied group a trip. Named day-events
+and multi-day trips had both been appended under the backend key `trips`, and the frontend helper
+was consequently named `tripResultCards` even though it rendered both. The typed
+`AppliedReviewGroupPayload.kind` now survives through the job result as `groups`; each completion
+row renders EVENT or TRIP from that value. Proposal badges, name placeholders, named counts,
+move-preview copy and completion copy now use the same two nouns.
+
+**Reuse and complexity:** active-day count reuses the proposal's existing `days` mapping; no
+calendar walk or second count was added. Computing `len(days)` is `O(1)`. Kind is already known
+when each result row is assembled and adds `O(1)` time and space per named result. Detection,
+catalog I/O and layout are unchanged; no dependency was added.
+
+**Fixtures:** the exact Sep 13/15/16 bridge is pinned over HTTP as start Sep 13, end Sep 16,
+three active days. The shipped-copy guard failed first on the old
+`plural(c.days.length, "day")` text. Completion fixtures pin EVENT and TRIP independently;
+mutating a trip result's kind to EVENT failed with the expected `event != trip`.

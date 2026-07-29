@@ -45,8 +45,8 @@ class EventReviewSession:
     cards: list[ReviewCard]
     day_totals: dict[date, int]
     min_files: int
-    named_events: list[dict[str, Any]] = field(default_factory=list)
-    named_trips: list[dict[str, Any]] = field(default_factory=list)
+    named_events: list[service.NamedEventSelection] = field(default_factory=list)
+    named_trips: list[service.NamedTripSelection] = field(default_factory=list)
 
 
 _PKG = Path(__file__).resolve().parent
@@ -331,7 +331,7 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
             # once the migration has actually placed its files there (13.3a) -- not a rename or a
             # guess, just this session's own decisions, looked up again now that they are
             # persisted.
-            named_events = []
+            named_events: list[service.NamedEventSelection] = []
             for card, name in zip(cards, names, strict=True):
                 if card.event is None or not name or not name.strip():
                     continue
@@ -349,7 +349,7 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
             # A trip's id is not returned by `commit_trips` (it persists a count, not the rows),
             # so it is looked up the same way name-once already does: `trip_for_day` on one of the
             # trip's own claimed days, after the commit above has made that lookup answer it.
-            named_trips = []
+            named_trips: list[service.NamedTripSelection] = []
             for card, name in zip(cards, names, strict=True):
                 if card.trip is None or not name or not name.strip():
                     continue

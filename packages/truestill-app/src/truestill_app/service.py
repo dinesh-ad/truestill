@@ -635,6 +635,7 @@ class ReviewCardPayload(TypedDict):
     start: str
     end: str
     count: int
+    active_days: int
     days: list[ReviewDayPayload]
     location: list[float] | None
     collapsed: bool
@@ -676,6 +677,7 @@ def review_card_json(card: ReviewCard, min_files: int) -> ReviewCardPayload:
             "start": card.trip.start_date.isoformat(),
             "end": card.trip.end_date.isoformat(),
             "count": card.count,
+            "active_days": len(card.trip.days),
             "days": [
                 {"date": day.isoformat(), "count": count}
                 for day, count in sorted(card.trip.days.items())
@@ -689,6 +691,7 @@ def review_card_json(card: ReviewCard, min_files: int) -> ReviewCardPayload:
         "start": card.event.start.isoformat(),
         "end": card.event.end.isoformat(),
         "count": card.count,
+        "active_days": 1,
         "days": [],
         "location": _event_location(card.event),
         "collapsed": is_small_event(card, min_files),
@@ -1238,11 +1241,33 @@ def migration_preview(path: Path, db: Path) -> dict[str, Any]:
     }
 
 
+class NamedEventSelection(TypedDict):
+    event_id: int
+    name: str
+    start: str
+    end: str
+
+
+class NamedTripSelection(TypedDict):
+    trip_id: int
+    name: str
+    start: str
+    end: str
+
+
+class AppliedReviewGroupPayload(TypedDict):
+    kind: Literal["trip", "event"]
+    name: str
+    start: str
+    end: str
+    path: str
+
+
 def migration_apply(
     path: Path,
     db: Path,
-    named_events: Sequence[dict[str, Any]] | None = None,
-    named_trips: Sequence[dict[str, Any]] | None = None,
+    named_events: Sequence[NamedEventSelection] | None = None,
+    named_trips: Sequence[NamedTripSelection] | None = None,
 ) -> JobTarget:
     """Build a job target that relocates a connected drive's files under the current template.
 
@@ -1277,13 +1302,14 @@ def migration_apply(
                 progress=progress,
                 cancel=cancel,
             )
-            trips = []
+            groups: list[AppliedReviewGroupPayload] = []
             for event in named_events or ():
                 relative = catalog.sample_relative_for_event(event["event_id"], marker.uuid)
                 if relative is None:
                     continue  # nothing of this event landed on this drive -- nothing to reveal
-                trips.append(
+                groups.append(
                     {
+                        "kind": "event",
                         "name": event["name"],
                         "start": event["start"],
                         "end": event["end"],
@@ -1296,8 +1322,9 @@ def migration_apply(
                     continue  # nothing of this trip landed on this drive -- nothing to reveal
                 # Two levels up, not one: a trip's own header folder holds every one of its days
                 # (`layout._trip_segments`), so the reveal row should open that, not one day's.
-                trips.append(
+                groups.append(
                     {
+                        "kind": "trip",
                         "name": trip["name"],
                         "start": trip["start"],
                         "end": trip["end"],
@@ -1309,8 +1336,8 @@ def migration_apply(
             "migrated": outcome.migrated,
             "resumed": outcome.resumed,
         }
-        if trips:
-            result["trips"] = trips
+        if groups:
+            result["groups"] = groups
         return result
 
     return target
