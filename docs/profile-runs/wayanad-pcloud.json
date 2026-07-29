@@ -1,0 +1,79 @@
+{
+  "accounted_phase_seconds": 312.7308206599846,
+  "files": 2064,
+  "files_per_sec": 6.5998307574317945,
+  "hashing": {
+    "need_sha_count": 22,
+    "need_sha_pct": 1.065891472868217,
+    "perceptual_calls": 2064,
+    "perceptual_ms_per_call": 608.0078112543265,
+    "perceptual_non_null": 2061,
+    "perceptual_seconds_summed": 1254.9281224289298,
+    "sha256_calls": 22,
+    "sha256_ms_per_call": 383.99050445282637,
+    "sha256_seconds_summed": 8.447791097962181,
+    "sha256_skipped_unique_size": 2042
+  },
+  "label": "pcloud",
+  "notes": [
+    "Cold throwaway catalog + hash cache (temp dir).",
+    "Mirrors organize_preview; does not mutate product code paths.",
+    "sha256/perceptual seconds are summed wall time inside workers (can exceed wall when parallel).",
+    "sizes_stat_pass is the timed cost of _sizes inside compute_hashes."
+  ],
+  "opens": {
+    "exiftool_file_args": 2064,
+    "image_open_total": 2064,
+    "note": "path_open = Python Path.open (sha256 streams + any other). image_open = PIL.Image.open. exiftool opens happen in a subprocess and are counted as one per media file passed to read_metadata (batched, but each file is read).",
+    "path_open_total": 22,
+    "per_file": {
+      "estimated_total_opens_mean": 2.010658914728682,
+      "exiftool_args_mean": 1.0,
+      "image_open_mean": 1.0,
+      "path_open_mean": 0.01065891472868217
+    }
+  },
+  "phase_share_pct_of_wall": {
+    "catalog_plan_index": 0.0411193470096956,
+    "compute_hashes_wall": 25.797137457349873,
+    "dedup_classify": 0.21838020625009813,
+    "perceptual_hash_summed": 401.2748653475089,
+    "read_metadata": 73.77844323169876,
+    "sha256_file_summed": 2.7012592791031644,
+    "sizes_stat_pass": 0.10319519098358461,
+    "summarize": 0.003903870876669604,
+    "walk_scan_source": 0.1595860897535196
+  },
+  "phases_per_file_ms": {
+    "catalog_plan_index": 0.06230363856435685,
+    "compute_hashes_wall": 39.08757422044617,
+    "dedup_classify": 0.33088758526753015,
+    "perceptual_hash_summed": 608.0078112543265,
+    "read_metadata": 111.78838661676274,
+    "sha256_file_summed": 4.092922043586328,
+    "sizes_stat_pass": 0.1563603594946443,
+    "summarize": 0.0059151075537408546,
+    "walk_scan_source": 0.24180330620420276
+  },
+  "phases_seconds": {
+    "catalog_plan_index": 0.12859470999683253,
+    "compute_hashes_wall": 80.6767531910009,
+    "dedup_classify": 0.6829519759921823,
+    "perceptual_hash_summed": 1254.9281224289298,
+    "read_metadata": 230.7312299769983,
+    "sha256_file_summed": 8.447791097962181,
+    "sizes_stat_pass": 0.32272778199694585,
+    "summarize": 0.012208781990921125,
+    "walk_scan_source": 0.4990820240054745
+  },
+  "source": "<pCloud FUSE>/Crypto Folder/Photos/Vintage/2014/Wayanad '14",
+  "summary_counts": {
+    "exact_dup": 1,
+    "files": 2064,
+    "near_dup": 152,
+    "new_unique": 1911,
+    "photos": 2061,
+    "videos": 3
+  },
+  "wall_seconds": 312.73529214000155
+}

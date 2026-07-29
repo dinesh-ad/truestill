@@ -1,0 +1,79 @@
+{
+  "accounted_phase_seconds": 23.93027025797346,
+  "files": 2064,
+  "files_per_sec": 86.2208723788346,
+  "hashing": {
+    "need_sha_count": 22,
+    "need_sha_pct": 1.065891472868217,
+    "perceptual_calls": 2064,
+    "perceptual_ms_per_call": 65.67475725967584,
+    "perceptual_non_null": 2061,
+    "perceptual_seconds_summed": 135.5526989839709,
+    "sha256_calls": 22,
+    "sha256_ms_per_call": 10.159856864695692,
+    "sha256_seconds_summed": 0.2235168510233052,
+    "sha256_skipped_unique_size": 2042
+  },
+  "label": "local",
+  "notes": [
+    "Cold throwaway catalog + hash cache (temp dir).",
+    "Mirrors organize_preview; does not mutate product code paths.",
+    "sha256/perceptual seconds are summed wall time inside workers (can exceed wall when parallel).",
+    "sizes_stat_pass is the timed cost of _sizes inside compute_hashes."
+  ],
+  "opens": {
+    "exiftool_file_args": 2064,
+    "image_open_total": 2064,
+    "note": "path_open = Python Path.open (sha256 streams + any other). image_open = PIL.Image.open. exiftool opens happen in a subprocess and are counted as one per media file passed to read_metadata (batched, but each file is read).",
+    "path_open_total": 22,
+    "per_file": {
+      "estimated_total_opens_mean": 2.010658914728682,
+      "exiftool_args_mean": 1.0,
+      "image_open_mean": 1.0,
+      "path_open_mean": 0.01065891472868217
+    }
+  },
+  "phase_share_pct_of_wall": {
+    "catalog_plan_index": 0.4930936475821635,
+    "compute_hashes_wall": 35.71018960015381,
+    "dedup_classify": 2.854669690392887,
+    "perceptual_hash_summed": 566.2534864197451,
+    "read_metadata": 60.648765310738554,
+    "sha256_file_summed": 0.9337121069088847,
+    "sizes_stat_pass": 0.03031474907952521,
+    "summarize": 0.057416241735497794,
+    "walk_scan_source": 0.2014070745012997
+  },
+  "phases_per_file_ms": {
+    "catalog_plan_index": 0.05718959156613771,
+    "compute_hashes_wall": 4.141710541184447,
+    "dedup_classify": 0.33108800823194273,
+    "perceptual_hash_summed": 65.67475725967584,
+    "read_metadata": 7.034116407946082,
+    "sha256_file_summed": 0.10829304797640756,
+    "sizes_stat_pass": 0.0035159408903135663,
+    "summarize": 0.006659204453792127,
+    "walk_scan_source": 0.023359433620244938
+  },
+  "phases_seconds": {
+    "catalog_plan_index": 0.11803931699250825,
+    "compute_hashes_wall": 8.548490557004698,
+    "dedup_classify": 0.6833656489907298,
+    "perceptual_hash_summed": 135.5526989839709,
+    "read_metadata": 14.518416266000713,
+    "sha256_file_summed": 0.2235168510233052,
+    "sizes_stat_pass": 0.007256901997607201,
+    "summarize": 0.01374459799262695,
+    "walk_scan_source": 0.04821387099218555
+  },
+  "source": "<local ext4>/TruestillLibrary/Input/2014/Wayanad '14",
+  "summary_counts": {
+    "exact_dup": 1,
+    "files": 2064,
+    "near_dup": 152,
+    "new_unique": 1911,
+    "photos": 2061,
+    "videos": 3
+  },
+  "wall_seconds": 23.938519096991513
+}

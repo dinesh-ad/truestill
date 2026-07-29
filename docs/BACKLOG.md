@@ -189,19 +189,14 @@ is invisible here is retired, not free.**
     and passes it through to `resolve(...)`, the same cache backlog **(r)** shipped. So the
     slowness is not explained by either mechanism's absence; **do not build them again** -
     whoever picks this up should confirm they are live on the affected path first.
-  - **What is actually unconfirmed, and needs real measurement, not more code reading:**
-    1. Does a **repeat** preview of the *same* pCloud folder actually hit the cache and get
-       meaningfully faster - or does something about this environment (mtime resolution over
-       FUSE, a changing inode, a cache key mismatch) defeat it even though the mechanism exists?
-    2. `_needs_sha`'s own pre-filter still requires a `path.stat()` per file (for size *and*,
-       separately, the cache's own mtime check) before it can decide whether to hash at all -
-       on a network mount a `stat()` is its own round trip, not free, and neither the size
-       pre-filter nor the hash cache reduces the *number* of stats, only the number of full
-       reads. `read_metadata` (exiftool, called before hashing in `organize_preview`) is a
-       second, already-known-nontrivial cost with its own network round trip per file. Measure
-       which of {stat, exiftool, hash-worthy reads} is actually dominant on this real mount
-       before assuming the hash step itself is the target.
-  - **Requirement:** report measured **before/after on the real pCloud folder**, not a
+  - **Cold-preview phase profile measured 2026-07-29** - see
+    [`docs/preview-performance-profile.md`](preview-performance-profile.md). On the real
+    Wayanad '14 folder (2,064 files), **exiftool is 74% of pCloud wall** (231 s); hashing wall
+    is 26% and is almost entirely unconditional `perceptual_hash` (SHA-256 already ~1% of
+    files via `_needs_sha`). FUSE vs local gap is 13×, ~75% of it exiftool. Stat/walk are
+    noise. Repeat-cache behaviour on FUSE is still unmeasured (this profile used a cold
+    throwaway catalog).
+  - **Requirement for any fix:** measured **before/after on the real pCloud folder**, not a
     synthetic fixture - a fixture cannot reproduce FUSE/network latency, which this finding's
     own numbers say is the actual variable.
   - **Not fixed here, on purpose** - recorded only, per instruction.

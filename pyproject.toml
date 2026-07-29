@@ -107,6 +107,11 @@ unfixable = []
     "S603",    # subprocess: exiftool on generated fixtures, and `uv export` in the dep gate
     "S607",    # ... invoked by name, from PATH, exactly as the app itself does
 ]
+# Measurement script: one instrumented pipeline pass, deliberately verbose.
+"scripts/profile_organize_preview.py" = [
+    "PLR0913",
+    "PLR0915",
+]
 
 [tool.ruff.format]
 quote-style = "double"
