@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 from PIL import Image
+from truestill_cli import cli as cli_module
 from truestill_cli.cli import main
 from truestill_core.catalog import Catalog
-from truestill_core.layout import LAYOUT_EVENT_TEMPLATE_KEY, LAYOUT_TEMPLATE_KEY
+from truestill_core.layout import LAYOUT_EVENT_TEMPLATE_KEY, LAYOUT_TEMPLATE_KEY, PRESETS
 
 
 def test_config_show_lists_default_and_presets(
@@ -132,6 +134,22 @@ def test_an_unknown_preset_fails_with_an_actionable_message(
         assert name in err  # and every option they actually have
     with Catalog(db) as catalog:
         assert catalog.get_setting(LAYOUT_TEMPLATE_KEY) is None  # nothing was written
+
+
+def test_every_preset_named_in_user_facing_copy_exists() -> None:
+    """A command or standalone preset key in shipped copy must resolve through the registry."""
+    references = {
+        match
+        for groups in re.findall(
+            r"--preset\s+([a-z][a-z0-9-]*)|`([a-z][a-z0-9-]*)`",
+            cli_module._PINNED_NOTICE,
+        )
+        for match in groups
+        if match
+    }
+
+    assert references
+    assert references <= PRESETS.keys()
 
 
 def test_a_category_template_is_refused_at_the_config_door(

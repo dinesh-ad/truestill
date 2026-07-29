@@ -107,10 +107,11 @@ _DEFAULT_DB = Path("reports/catalog.sqlite")
 #: Said once, on the run that pins an existing library's layout. It states what was recorded
 #: and how to change it, because a settings write the user did not ask for must never be silent.
 _PINNED_NOTICE = (
-    "Note: this library was organized before truestill's default layout changed, so its "
-    "current layout ({category}/{yyyy}/{mm}) has been recorded as its own - new files will "
-    "keep landing where the existing ones are. To adopt the new year-first default, run "
-    "`truestill config --preset year-first` and then `truestill migrate-layout` (preview first)."
+    "Note: this library already contains organized files but had no recorded layout. "
+    f"Truestill recorded the current default (`{DEFAULT_PRESET.key}`) as this library's layout "
+    "so a future default change cannot silently reshape new files. Run `truestill config` to "
+    "review the layout and available presets; after choosing another, preview "
+    "`truestill migrate-layout` before moving existing files."
 )
 _STATUS_PREVIEW = 20  # how many single-copy files `truestill status` lists before eliding
 

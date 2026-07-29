@@ -18,7 +18,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(mm). Next free: (nn).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(nn). Next free: (oo).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -28,6 +28,14 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved, not yet built
+
+- **(nn) Prove destination timestamp parity against a live rclone remote.** The destination
+  timestamp seam is implemented for rclone as `touch --no-create --timestamp`. The installed
+  rclone help was checked and a unit test pins the exact invocation, but **no real remote has
+  exercised it**. That is command-shape evidence, not backend parity. Before claiming parity,
+  run a dated normal copy against a disposable configured remote and verify its reported
+  modification time equals the capture timestamp, the local source timestamps stay unchanged,
+  and the failure path cannot create a zero-byte remote object.
 
 - **(r) Analyze mode - the hash cache half is SHIPPED.** The placement clause fired: a soak run
   previewed an unchanged 2,275-file source twice and re-hashed it both times, so the cache was

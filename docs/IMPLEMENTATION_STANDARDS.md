@@ -306,10 +306,10 @@ successful upgrade), never automatic.
   month's event folders. The side-bin shape is **fixed and not user-editable**, and `{category}`
   is rejected in a timeline template at input (§2), so category-first and category-last are
   structurally impossible rather than merely unavailable.
-- **A library is never silently reshaped.** `pin_existing_layout` writes down the layout in
-  force the first time a library that has already placed files is run under a build whose
-  default has moved, so a default change applies forward and an existing tree is migrated only
-  on request. The pin knows nothing about any particular shape - it records whatever is current.
+- **A library is never silently reshaped.** On an explicit write path, `pin_existing_layout`
+  records the current default when a library has already placed files but has no stored layout.
+  Future default changes therefore apply only to new libraries; an existing tree changes only
+  through an explicit migration. The pin knows nothing about any particular shape.
 - **Event placement:** a named Camera event's folder is `YYYY-MM-DD - <Name>` under its month,
   carrying the **human name** the user typed (path-safe per §9), not a slug. A legacy library
   falls back to `YYYYMMDD_<slug>` only when no name was recorded. A cluster straddling a month boundary is consolidated
