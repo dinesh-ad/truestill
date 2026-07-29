@@ -158,6 +158,8 @@ def rederive_rules(
     routes: Sequence[LabelRoute],
     *,
     by_device: bool = False,
+    progress: ProgressCallback | None = None,
+    cancel: threading.Event | None = None,
 ) -> dict[str, str]:
     """Re-read metadata for the **ambiguous labels only** and recover each file's real rule.
 
@@ -171,8 +173,13 @@ def rederive_rules(
     Cost is one batched exiftool pass (~2.2 ms/file measured at 12 MP, header reads only) plus
     an O(1) rule evaluation per file: **O(ambiguous files)**, and zero when nothing is ambiguous.
 
+    ``progress`` and ``cancel`` are forwarded to :func:`read_metadata` - that exiftool pass is
+    the dominant cost of a migration preview on a slow mount, and silence there is the freeze
+    backlog (oo) recorded. Phase stays :attr:`Phase.SCANNING` (the same work organize reports).
+
     Returns ``sha256 -> rule``. A file that cannot be read is simply absent, and the caller falls
-    back to the per-label decision - never to a guess.
+    back to the per-label decision - never to a guess. A cancelled read returns whatever was
+    finished; absent files fall through to the per-label decision the same way.
     """
     ambiguous = {r.label for r in routes if r.needs_decision}
     if not ambiguous:
@@ -185,7 +192,7 @@ def rederive_rules(
         return {}
 
     try:
-        metadata = read_metadata(present)
+        metadata = read_metadata(present, progress=progress, cancel=cancel)
     except ExiftoolMissingError:
         # Without the binary there is no evidence to re-derive from. Returning nothing falls the
         # caller back to the per-label decision, which surfaces the ambiguity for a human --
@@ -311,6 +318,8 @@ def plan_migration(
     *,
     routes: dict[str, str] | None = None,
     rules_by_sha: dict[str, str] | None = None,
+    progress: ProgressCallback | None = None,
+    cancel: threading.Event | None = None,
 ) -> MigrationPlan:
     """Compute the ``old -> new`` relocations ``scheme`` implies for a drive's copies. Pure.
 
@@ -328,6 +337,10 @@ def plan_migration(
     :data:`Placement.EVERYDAY` lookup `(mm)` originally replaced -- so a migration spells a
     folder exactly as an organize run would. Same asymptotic cost: O(events + trips) either way,
     since the old code also built its lookup dict in one pass.
+
+    ``progress`` fires once per copy with ``total = len(rows)`` known before the loop
+    (:attr:`Phase.PLANNING`), distinct from the exif re-derivation phase. ``cancel`` stops the
+    walk early; the partial plan is returned and writes nothing (this function is pure).
     """
     routes = routes or {}
     rows = list(catalog.copies_for_migration(drive_uuid))
@@ -338,8 +351,11 @@ def plan_migration(
     unchanged = 0
     warnings: list[str] = list(header_notes)
     targets: dict[str, str] = {}  # lower(new) -> new, to spot case-insensitive collisions
+    total = len(rows)
 
-    for row in rows:
+    for index, row in enumerate(rows):
+        if cancel is not None and cancel.is_set():
+            break
         current = str(row["relative"])
         filename = PurePosixPath(current).name
         rule = rule_for_row(row, routes, rules_by_sha)
@@ -376,15 +392,16 @@ def plan_migration(
         new_relative = (directory / filename).as_posix()
         if new_relative == current:
             unchanged += 1
-            continue
-
-        key = new_relative.lower()
-        if key in targets:
-            warnings.append(f"two files would land at the same path: {new_relative}")
-        targets[key] = new_relative
-        if len(new_relative) > PATH_LENGTH_WARN:
-            warnings.append(f"{new_relative} is near the Windows 260-char limit")
-        moves.append(Move(str(row["sha256"]), current, new_relative, row["copy_sha256"]))
+        else:
+            key = new_relative.lower()
+            if key in targets:
+                warnings.append(f"two files would land at the same path: {new_relative}")
+            targets[key] = new_relative
+            if len(new_relative) > PATH_LENGTH_WARN:
+                warnings.append(f"{new_relative} is near the Windows 260-char limit")
+            moves.append(Move(str(row["sha256"]), current, new_relative, row["copy_sha256"]))
+        if progress is not None:
+            progress(Progress(index + 1, total, Phase.PLANNING, filename))
 
     return MigrationPlan(drive_uuid=drive_uuid, moves=moves, unchanged=unchanged, warnings=warnings)
 
@@ -455,14 +472,26 @@ def run_migration(
 ) -> MigrationOutcome:
     """Resume any interrupted run, plan the relocations, and (if ``apply``) carry them out.
 
-    ``progress`` is called ``(done, total)`` per move; ``cancel`` stops the run early (moves
-    already completed stay -- the run is resumable). A cancelled run's remaining journal rows are
-    picked up by the next invocation.
+    Progress covers **both** paths: the planning pass (:attr:`Phase.PLANNING`, every copy) always
+    ticks, including a dry-run preview - silence on that walk is the multi-minute freeze backlog
+    (oo) recorded. On apply, each completed move then ticks :attr:`Phase.MOVING`. ``cancel``
+    stops whichever phase is running; a cancelled apply leaves completed moves in place (the
+    journal is resumable) and never opens a run if planning itself was cancelled.
     """
     resumed = resume_migration(catalog, destination, drive_uuid) if apply else 0
-    plan = plan_migration(catalog, drive_uuid, scheme, routes=routes, rules_by_sha=rules_by_sha)
-    if not apply:
-        return MigrationOutcome(plan=plan, resumed=0, migrated=0, applied=False)
+    plan = plan_migration(
+        catalog,
+        drive_uuid,
+        scheme,
+        routes=routes,
+        rules_by_sha=rules_by_sha,
+        progress=progress,
+        cancel=cancel,
+    )
+    if not apply or (cancel is not None and cancel.is_set()):
+        return MigrationOutcome(
+            plan=plan, resumed=0 if not apply else resumed, migrated=0, applied=False
+        )
 
     run_id = uuid4().hex
     catalog.start_migration_run(run_id, drive_uuid)

@@ -35,6 +35,7 @@ class Phase:
     SCANNING = "scanning"
     HASHING = "hashing"
     ORGANIZING = "organizing"
+    PLANNING = "planning"
     MOVING = "moving"
     COPYING = "copying"
     VERIFYING = "verifying"

@@ -532,7 +532,7 @@ def test_rederivation_degrades_instead_of_failing_when_exiftool_is_missing(
     with Catalog(tmp_path / "c.sqlite") as catalog:
         _two_files(catalog, root)
 
-        def missing(_paths):
+        def missing(_paths, **_kwargs):
             raise ExiftoolMissingError(_NO_EXIFTOOL)
 
         monkeypatch.setattr(migrate, "read_metadata", missing)
@@ -872,3 +872,176 @@ def test_trip_preview_moves_nothing_and_apply_relocates_as_planned(tmp_path: Pat
     assert outcome.migrated == 1
     assert (root / "2014/2014-08/2014-08-15 - Wayanad/2014-08-15/a.jpg").exists()
     assert not (root / "Camera/2014/08/a.jpg").exists()
+
+
+# --- backlog (oo): progress on migration preview phases ---------------------------------
+
+
+def test_migration_preview_emits_planning_ticks_with_row_total(tmp_path: Path) -> None:
+    """Preview used to return after plan_migration with zero ticks - the (oo) silent freeze."""
+    root = tmp_path / "drive"
+    ticks: list[tuple[int, int, str]] = []
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        _two_files(catalog, root)
+        before = (tmp_path / "c.sqlite").read_bytes()
+        outcome = run_migration(
+            catalog,
+            LocalDestination(root),
+            "D1",
+            _scheme(_DDL),
+            apply=False,
+            progress=lambda p: ticks.append((p.done, p.total, p.phase)),
+        )
+    assert outcome.applied is False
+    assert outcome.migrated == 0
+    assert len(ticks) == 2
+    assert [t[0] for t in ticks] == [1, 2]
+    assert {t[1] for t in ticks} == {2}
+    assert {t[2] for t in ticks} == {"planning"}
+    assert (tmp_path / "c.sqlite").read_bytes() == before
+
+
+def test_plan_migration_cancel_stops_mid_loop_and_writes_nothing(tmp_path: Path) -> None:
+    """A cancelled plan is pure: partial result, no catalog or disk change."""
+    root = tmp_path / "drive"
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        _two_files(catalog, root)
+        before_db = (tmp_path / "c.sqlite").read_bytes()
+        before_tree = _fingerprint(root)
+        cancel = threading.Event()
+        seen = 0
+
+        def _progress(_p: Progress) -> None:
+            nonlocal seen
+            seen += 1
+            if seen >= 1:
+                cancel.set()
+
+        plan = plan_migration(catalog, "D1", _scheme(_DDL), progress=_progress, cancel=cancel)
+        assert seen == 1
+        assert len(plan.moves) + plan.unchanged < 2 or len(plan.moves) <= 1
+        assert (tmp_path / "c.sqlite").read_bytes() == before_db
+        assert _fingerprint(root) == before_tree
+
+
+def test_rederive_forwards_progress_with_scanning_phase_and_correct_total(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """rederive_rules used to call read_metadata without progress - the dominant (oo) cost."""
+    root = tmp_path / "drive"
+    forwarded: list[tuple[object, object]] = []
+    ticks: list[tuple[int, int, str]] = []
+
+    def fake_read(paths, *, progress=None, cancel=None):
+        forwarded.append((progress, cancel))
+        result = {}
+        for i, path in enumerate(paths, start=1):
+            if progress is not None:
+                progress(Progress(i, len(paths), "scanning", path.name))
+            result[path] = {"Make": "Canon", "Model": "EOS"}
+        return result
+
+    monkeypatch.setattr(migrate, "read_metadata", fake_read)
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        _two_files(catalog, root)
+        routes = label_routes(catalog, "D1")
+        assert any(r.needs_decision for r in routes)
+        before = (tmp_path / "c.sqlite").read_bytes()
+        rules = rederive_rules(
+            catalog,
+            "D1",
+            root,
+            routes,
+            progress=lambda p: ticks.append((p.done, p.total, p.phase)),
+        )
+    assert forwarded
+    assert forwarded[0][0] is not None
+    # Only Camera is ambiguous; WhatsApp is a deterministic side bin and is never re-read.
+    assert len(ticks) == 1
+    assert ticks[0] == (1, 1, "scanning")
+    assert rules  # categorize produced a rule for the readable Camera file
+    assert (tmp_path / "c.sqlite").read_bytes() == before
+
+
+def test_rederive_cancel_stops_read_and_leaves_no_partial_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Cancel mid-rederive must not write the catalog; unread files get no invented rule."""
+    root = tmp_path / "drive"
+    cancel = threading.Event()
+    seen = 0
+
+    def fake_read(paths, *, progress=None, cancel=None):
+        nonlocal seen
+        result = {}
+        for i, path in enumerate(paths, start=1):
+            if cancel is not None and cancel.is_set():
+                break
+            if progress is not None:
+                progress(Progress(i, len(paths), "scanning", path.name))
+            result[path] = {"Make": "Canon", "Model": "EOS"}
+            seen += 1
+            if seen >= 1 and cancel is not None:
+                cancel.set()
+        return result
+
+    monkeypatch.setattr(migrate, "read_metadata", fake_read)
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        catalog.upsert_drive(uuid="D1", label="Drive A")
+        _seed(
+            catalog,
+            root,
+            "D1",
+            [
+                ("Camera/2023/08/a.jpg", "Camera", "2023-08-20T14:30:00", b"aaaa"),
+                ("Camera/2023/08/b.jpg", "Camera", "2023-08-21T14:30:00", b"bbbb"),
+            ],
+        )
+        routes = label_routes(catalog, "D1")
+        before = (tmp_path / "c.sqlite").read_bytes()
+        before_tree = _fingerprint(root)
+        rules = rederive_rules(catalog, "D1", root, routes, cancel=cancel)
+        assert len(rules) == 1
+        assert (tmp_path / "c.sqlite").read_bytes() == before
+        assert _fingerprint(root) == before_tree
+
+
+def test_preview_run_emits_both_scanning_and_planning_phases(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The two preview costs are distinct phases so the UI can name each honestly."""
+    root = tmp_path / "drive"
+    phases: list[str] = []
+
+    def fake_read(paths, *, progress=None, cancel=None):  # noqa: ARG001
+        result = {}
+        for i, path in enumerate(paths, start=1):
+            if progress is not None:
+                progress(Progress(i, len(paths), "scanning", path.name))
+            result[path] = {"Make": "Canon", "Model": "EOS"}
+        return result
+
+    monkeypatch.setattr(migrate, "read_metadata", fake_read)
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        _two_files(catalog, root)
+        routes = label_routes(catalog, "D1")
+        rules = rederive_rules(
+            catalog,
+            "D1",
+            root,
+            routes,
+            progress=lambda p: phases.append(p.phase),
+        )
+        run_migration(
+            catalog,
+            LocalDestination(root),
+            "D1",
+            _scheme(_DDL),
+            apply=False,
+            routes={r.label: ROUTE_TIMELINE for r in routes},
+            rules_by_sha=rules,
+            progress=lambda p: phases.append(p.phase),
+        )
+    assert "scanning" in phases
+    assert "planning" in phases
+    assert phases.index("scanning") < phases.index("planning")
