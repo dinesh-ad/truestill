@@ -52,8 +52,9 @@ metadata path works.
 
 Truestill is a **local-first media organizer, de-duplicator and backup pipeline**. It analyses
 a photo/video library, derives each file's folder label from that file's own metadata, and
-places copies into a stable `<Label>/YYYY/MM/` tree - never re-encoding a pixel, never moving
-or deleting an original except through three explicitly opt-in paths. It was built
+places copies on a year-first timeline with non-camera sources in labelled side bins - never
+re-encoding a pixel, never moving or deleting an original except through three explicitly
+opt-in paths. It was built
 to rescue a Google Photos Takeout export (where real capture dates survive only in JSON
 sidecars) but nothing in it is Google-specific. Beyond organizing it owns the whole custody
 story: content-addressed drive identity, an offline catalog of which drive holds which copy,
@@ -119,7 +120,7 @@ Full rules and their enforcing tests: `IMPLEMENTATION_STANDARDS.md` §3.1.
 
 ### 2.0 CLOSED: the default-layout correction (year-first)
 
-**The arc is complete.** The default destination structure moved from `{category}/{yyyy}/{mm}`
+**The arc is complete.** The default destination structure moved from category-first
 (source above timeline) to a year-first timeline at the drive root, both real drives were
 migrated and verified, and the category-first path has been decommissioned. Background and
 rationale: `default-layout-research.md`, `migration-routing-research.md`,

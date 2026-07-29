@@ -22,8 +22,9 @@ Settled product stances live in [`DECISIONS.md`](DECISIONS.md); approved-but-unb
 
 **Truestill** - a local-first media organizer, de-duplicator and backup pipeline. It analyses
 a photo/video library, derives a folder label from each file's own metadata, and places copies
-into a `<Label>/YYYY/MM/` tree. Originally built to rescue a Google Photos Takeout export
-(where capture dates survive only in JSON sidecars), but nothing in it is Google-specific.
+on a year-first timeline with non-camera sources in labelled side bins. Originally built to
+rescue a Google Photos Takeout export (where capture dates survive only in JSON sidecars), but
+nothing in it is Google-specific.
 
 Beyond organizing, it owns the whole custody story: content-addressed drive identity, an
 offline catalog of which drive holds which copy, re-hash verification, 3-2-1 backup to a

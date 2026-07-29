@@ -384,7 +384,10 @@ def apply_events(
     scheme: LayoutScheme = DEFAULT_SCHEME,
     names: dict[str, str] | None = None,
 ) -> list[Resolution]:
-    """Rewrite named-event members into their event folder (default ``<Label>/YYYY/MM/slug/``).
+    """Rewrite named-event members through the scheme's event placement.
+
+    With the default scheme and a recorded human name, the folder is
+    ``YYYY/YYYY-MM/YYYY-MM-DD - Name/``.
 
     ``assignments`` maps a member's source path (``str``) to its event's ``(start, slug)``.
     The event's *start* month is used for the whole event, so a cluster that straddles a

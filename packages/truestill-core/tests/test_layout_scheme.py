@@ -255,34 +255,57 @@ def test_no_template_a_user_can_type_places_a_category_on_the_timeline(attempt: 
         parse_timeline_template(attempt)
 
 
-def test_no_category_first_rendering_survives_anywhere_in_the_tree() -> None:
-    """The decommission is proved against the repo, not against the registry.
+def test_no_decommissioned_layout_reference_survives_current_facing_text() -> None:
+    """The decommission is proved against current-facing repo text, not only the registry.
 
     A living test, in the same style as the removed preset names: what it catches is not a
     surviving code path -- the type system covers that -- but a surviving *reference* in help
     text, a doc or a fixture that would send someone toward a layout the product cannot produce.
+
+    Research, the changelog and the dated walkthrough remain immutable evidence. Three negative
+    fixtures also spell the rejected template literally so they can prove it is rejected.
     """
-    forbidden = ("LEGACY_TEMPLATE_STRING", "is_legacy", "legacy_note", "Legacy layout")
+    forbidden = (
+        "LEGACY_TEMPLATE_STRING",
+        "is_legacy",
+        "legacy_note",
+        "Legacy layout",
+        "<Label>/YYYY/MM",
+        "Camera/YYYY/MM",
+        "{category}/{yyyy}/{mm}",
+        "label / %Y / %m",
+    )
     root = Path(__file__).resolve().parents[3]
     tracked = subprocess.run(
         ["git", "ls-files"], cwd=root, capture_output=True, text=True, check=True
     ).stdout.split()
 
+    historical_files = {
+        "CHANGELOG.md",
+        "docs/default-layout-research.md",
+        "docs/legacy-decommission-research.md",
+        "docs/org-structure-research.md",
+        "docs/trip-grouping-research.md",
+        "docs/walkthrough-qa-report.md",
+    }
+    negative_fixture_files = {
+        "packages/truestill-cli/tests/test_config_cli.py",
+        "packages/truestill-core/tests/test_layout_scheme.py",
+        "packages/truestill-core/tests/test_migrate.py",
+    }
     offenders: list[str] = []
     for relative in tracked:
         path = root / relative
-        # This test names the strings it forbids; the research docs record the history on purpose.
-        if path.suffix in {".png", ".jpg", ".ico"} or relative in {
-            "packages/truestill-core/tests/test_layout_scheme.py",
-            "docs/default-layout-research.md",
-            "docs/legacy-decommission-research.md",
-            "CHANGELOG.md",
-        }:
+        if (
+            path.suffix in {".png", ".jpg", ".ico"}
+            or relative in historical_files
+            or relative in negative_fixture_files
+        ):
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")
         offenders += [f"{relative}: {name}" for name in forbidden if name in text]
 
-    assert not offenders, "category-first references still present: " + "; ".join(offenders)
+    assert not offenders, "decommissioned layout references still present: " + "; ".join(offenders)
 
 
 #: Every shipped preset rendered through every sample row. **Written out as literals on

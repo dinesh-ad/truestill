@@ -1,27 +1,24 @@
-"""The destination folder layout, as a token template.
+"""The destination folder layout and its one routing/rendering seam.
 
-Historically the structure ``<Label>/YYYY/MM/`` was built inline in two places
-(``organizer.build_relative`` and ``organizer.apply_events``). This module makes the layout a
-single first-class thing -- a :class:`LayoutTemplate` parsed from a token string -- so both
-sites render through one seam and the structure can later be made configurable.
+A :class:`LayoutTemplate` parses and renders one tokenized path. A :class:`LayoutScheme` owns
+the templates for ordinary timeline files, named events, trips and labelled side bins, while
+``classify`` selects the placement from categorization evidence. Planning, previews, organize
+and migration all use that same seam.
 
-Grammar: ``/``-separated segments of literals and ``{token}`` placeholders. v1 tokens are exactly
-those a :class:`~truestill_core.models.Decision` carries for free:
+Grammar is ``/``-separated literal segments plus ``{token}`` placeholders:
 
-* ``{category}`` -- the derived label (``Camera``, ``WhatsApp``, ...).
-* date tokens ``{yyyy} {yy} {mm} {mon} {month} {dd}`` -- from the capture date (or, for an event
-  member, the event's start date).
-* ``{event}`` -- the event folder ``YYYYMMDD_slug`` for a named-event member.
+* ``{category}`` is the derived label (``Camera``, ``WhatsApp``, ...). The low-level grammar
+  accepts it for the fixed side-bin template; user-supplied timeline templates reject it.
+* ``{yyyy} {yy} {mm} {mon} {month} {dd}`` derive from capture time, or from an event/trip start
+  when rendering the shared parent.
+* ``{event}`` explicitly places a named-event folder; without it, event and trip levels append
+  through the render seam.
 
-Two behavioural rules preserve exactly what the inline code did:
-
-* **Undated collapse.** When there is no date, every date-derived segment is dropped and a single
-  ``Undated`` folder takes their place -- so ``{category}/{yyyy}/{mm}`` becomes
-  ``{category}/Undated``, never ``{category}//``.
-* **Event append.** A named-event member's date tokens resolve from the event *start* (so a
-  cross-month event stays whole under its start month), and when the template has no explicit
-  ``{event}`` token the event folder is appended -- reproducing today's
-  ``{category}/{yyyy}/{mm}/YYYYMMDD_slug``.
+Undated files collapse all date-derived segments to one ``Undated`` folder. Event and trip
+members stay consolidated under their start period rather than splitting at a month boundary.
+The default sends ordinary Camera files to ``YYYY/YYYY-MM/YYYY-MM - Everyday/``, named events
+to ``YYYY/YYYY-MM/YYYY-MM-DD - Name/``, and non-camera sources to
+``<Label>/YYYY/YYYY-MM/`` side bins.
 """
 
 from __future__ import annotations
@@ -65,7 +62,8 @@ KNOWN_TOKENS: frozenset[str] = frozenset(_DATE_TOKENS) | _NON_DATE_TOKENS
 
 #: The un-evented timeline of the default layout - the year first, months that name themselves,
 #: and an ``Everyday`` bucket so ordinary photos do not sit loose among a month's event folders.
-#: (Before 2026-07-28 this was ``{category}/{yyyy}/{mm}``; see `docs/default-layout-research.md`.)
+#: The category-first predecessor and the evidence for this shape are recorded in
+#: `docs/default-layout-research.md`.
 DEFAULT_TEMPLATE_STRING = "{yyyy}/{yyyy}-{mm}/{yyyy}-{mm} - Everyday"
 
 #: The catalog settings key under which a library's chosen timeline template is persisted.

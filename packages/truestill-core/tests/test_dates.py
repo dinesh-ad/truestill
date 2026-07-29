@@ -84,8 +84,8 @@ def test_quicktime_creationdate_beats_utc_container_tags() -> None:
 
 
 def test_quicktime_creationdate_shifts_the_month_folder() -> None:
-    # The <Label>/YYYY/MM folder only moves when the UTC->local shift crosses a month (or year)
-    # edge: here the UTC container tag says July, the local CreationDate says August.
+    # The rendered destination month only changes when the UTC-to-local shift crosses a month
+    # (or year) edge: here the UTC container tag says July, local CreationDate says August.
     when, _, tag = resolve_capture_datetime(
         Path("IMG_9.mov"),
         {"CreationDate": "2023:08:01 01:30:00+05:30", "CreateDate": "2023:07:31 20:00:00"},

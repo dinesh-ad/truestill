@@ -14,10 +14,10 @@ Method -- adaptive temporal-gap clustering, the technique photo apps use:
 * A large GPS jump between neighbours is additional boundary evidence; absent GPS changes
   nothing.
 
-Only clusters worth naming are proposed (enough files, spanning enough time); everything
-else stays flat in ``<Label>/YYYY/MM/``. A cluster's identity is the hash of its sorted
-member SHA-256s, so a skip or a name is remembered across runs and re-proposed only if the
-membership actually changes.
+Only clusters worth naming are proposed (enough files, spanning enough time); everything else
+stays in the active scheme's un-evented timeline folder. A cluster's identity is the hash of its
+sorted member SHA-256s, so a skip or a name is remembered across runs and re-proposed only if
+the membership actually changes.
 """
 
 from __future__ import annotations
