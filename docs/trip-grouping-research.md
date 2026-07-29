@@ -656,6 +656,7 @@ Each lands green independently, in this order. **13.0 is a spike, not a build st
 an answer, not code that ships.
 
 **13.0 - Verification spike: does the app's migrate path route `Camera` correctly today?**
+**Answered 2026-07-29 - see §13.6. No: it side-bins `Camera`, including named events, today.**
 - **Builds:** nothing. Runs the app's existing `/api/migrate/preview` (or `events_preview`) against
   a realistic fixture (a `Camera`-labelled, dated file, year-first layout, no `--by-device`) and
   reads the actual proposed path.
@@ -821,3 +822,138 @@ since Stage 2c shipped. 13.2 (the render seam) is independently buildable in par
 approved, since neither depends on the other's output yet - but building both before either is
 reviewed is exactly the over-scoping this planning pass exists to avoid, so they are proposed as
 separate approvals, not a batch.
+
+---
+
+## §13.6 Stage 13.0 spike, answered (2026-07-29): the app's migrate path side-bins `Camera` today
+
+**Confirmed, with evidence. No code changed - this is a read-only finding.**
+
+### The answer
+
+**The app's migration path (`service.migration_preview` / `migration_apply`) does NOT route a
+`Camera` photo to the timeline. It side-bins it, and it side-bins a NAMED event's folder along
+with it.** This is not a hypothetical edge case: it is the app's actual, currently-shipped,
+already-tested behaviour, on the exact two buttons the Settings screen and the "Trips & events"
+screen both use to physically move a file.
+
+### The trace, with the real lines
+
+`service.migration_preview` and `migration_apply`
+(`packages/truestill-app/src/truestill_app/service.py:976-1023`) both call `run_migration(...)`
+with neither `routes` nor `rules_by_sha` supplied:
+
+```python
+outcome = run_migration(catalog, LocalDestination(path), marker.uuid, scheme, apply=False)
+```
+
+Grepping the whole file for the mechanism that would resolve them turns up nothing:
+
+```
+$ grep -n "label_routes\|rederive_rules\|routes=\|rules_by_sha" packages/truestill-app/src/truestill_app/service.py
+(no output)
+```
+
+`run_migration` -> `plan_migration` -> `rule_for_row`
+(`packages/truestill-core/src/truestill_core/migrate.py:203-212`) then does exactly what its
+signature promises when both are absent:
+
+```python
+def rule_for_row(row, routes, rules_by_sha=None):
+    if rules_by_sha:
+        ...
+    decided = routes.get(str(row["category"]), ROUTE_SIDE_BIN)
+    return TIMELINE_RULE if decided == ROUTE_TIMELINE else "fallback"
+```
+
+With `routes={}` (the `plan_migration` default), `{}.get("Camera", ROUTE_SIDE_BIN)` is always
+`ROUTE_SIDE_BIN` - `Camera` is *always* ambiguous by construction
+(`label_routes`, `migrate.py:102-147`: only screenshot/messenger/fallback labels are
+deterministic; `Camera` is the device rule's own default label). `rule_for_row` therefore always
+returns `"fallback"`, and `classify("fallback", context)` (`layout.py:515-524`,
+`TIMELINE_RULE = "device"`) always returns `Placement.SIDE_BIN`, regardless of `context.event`.
+
+The frontend has no resolution mechanism either - `app.js` and every template have zero mentions
+of "ambiguous", "rederive", or "by_device"/"by-device".
+
+**Contrast with the CLI**, which does not have this gap: `cli._cmd_migrate_layout`
+(`cli.py:1364-1387`) calls `rederive_rules` **unconditionally**, before any user confirmation:
+
+```python
+routes = label_routes(catalog, marker.uuid)
+rules_by_sha = rederive_rules(catalog, marker.uuid, args.path, routes, by_device=...)
+decided = {r.label: (ROUTE_SIDE_BIN if r.needs_decision else r.route) for r in routes}
+plan = plan_migration(catalog, marker.uuid, scheme, routes=decided, rules_by_sha=rules_by_sha)
+```
+
+`rule_for_row` checks `rules_by_sha` **first** - so any file `rederive_rules` can positively
+re-derive (a real exiftool re-read against the actual rule chain, bounded to ambiguous labels
+only) routes correctly regardless of what the label-level default says. The app skips this whole
+step. It is not a missing interactive prompt; it is a missing automatic re-derivation the CLI
+does not even ask permission for.
+
+### Confirmed against the existing test
+
+`test_migrate_preview_lists_moves` (`packages/truestill-app/tests/test_settings_http.py:72-99`)
+already asserts this as the app's real, intended behaviour, and names it in its own comment:
+
+```python
+assert r["moves"][0]["new"] == "Camera/2023/2023-08/x.jpg"  # no camera evidence -> side bin
+```
+
+This is not a test gap - it is the shipped, tested answer for an unresolved ambiguous label. The
+gap is that the app never attempts to resolve it, not that the fallback itself is wrong.
+
+### Empirical confirmation (a throwaway script, not committed, no source touched)
+
+Seeded a catalog exactly as a real organize run would: a `Camera`-labelled file already sitting at
+`2023/2023-08/x.jpg` (the pure year-first timeline), named as an event via `record_event` +
+`set_event_id` - the identical mechanism `event_review.commit_catalog` uses when a user clicks
+"Save names" on the Trips & events screen. Then compared what a fresh organize run would answer
+for the same file against what the app's actual `migration_preview` answers, using
+`resolve_scheme()` - the same layout resolution both paths use:
+
+```
+organize (rule=device, TIMELINE_RULE) would place it under: 2023/2023-08/2023-08 - Everyday/x.jpg
+organize, as a named event, would place it under:            2023/2023-08/2023-08-20 - Goa Trip/x.jpg
+app migration_preview moves: [{'old': '2023/2023-08/x.jpg',
+                                'new': 'Camera/2023/2023-08/2023-08-20 - Goa Trip/x.jpg'}]
+```
+
+The app's own migration path takes a file **already correctly placed on the timeline**, already
+named via the app's own review screen, and relocates it **off** the timeline into
+`Camera/...` the moment "Preview" or "Move photos into trip folders" is clicked.
+
+**Not verified: whether this has actually been exercised against the real production drives.**
+Dinesh may have used the CLI (`truestill migrate-layout`, which does not have this gap) for the
+real year-first migration described in §2.0, in which case this is a live gap that has not yet
+been hit through the app specifically, rather than one that has silently mis-filed real photos.
+That distinction matters for urgency but not for the finding itself: the code path is real, it is
+reachable from two shipped buttons, and it is reproducible on demand.
+
+### Consequence for 13.4 (and for day-events, today, independent of trips)
+
+- **This predates trips entirely and already affects shipped day-events.** Any name given through
+  the "Trips & events" screen and applied via its own "apply-to-disk" button lands under
+  `Camera/...`, not the timeline, today - with or without Stage 2d. It is not caused by `(mm)`
+  and `(mm)`'s fix does not touch it (confirmed above: `rule_for_row` returns `"fallback"` before
+  `classify()` ever sees the event).
+- **13.4 must not build trip-migration wiring on top of this unresolved.** A confirmed trip,
+  applied through the same `migration_preview`/`migration_apply` path, would be relocated under
+  `Camera/2023/2023-08/2023-08-15 - Wayanad/...` instead of the timeline shape §2 specifies -
+  compounding the existing gap with a second, newer feature built on the same broken assumption.
+- **This is a candidate prerequisite fix, not a 2d task**, per 13.0's own acceptance criterion.
+  Options, none built here:
+  1. Have `service.migration_preview`/`migration_apply` call `label_routes` + `rederive_rules`
+     unconditionally, exactly as the CLI does - no interactive step needed, since re-derivation is
+     automatic and only the *unresolved* remainder needs a decision (which the app has no UI for
+     either, a second, smaller gap this option would also expose).
+  2. Surface the ambiguity in the app instead of silently defaulting - closer to
+     `label_routes`'s own intent ("surfaced for a decision, never guessed") but is new UI, not a
+     one-line service fix.
+  3. Do nothing here and treat it as a pre-existing, independent defect to fix on its own schedule,
+     accepting that 2d's app-based trip review (§13.3-§13.4) inherits it until it is.
+  **Recommend option 1** as the minimal fix that makes the app's behaviour match the CLI's already-
+  settled answer to the exact same question, but this is a recommendation, not a decision - it
+  affects day-events today and should probably be judged on its own, separately from whether or
+  when Stage 2d proceeds.
