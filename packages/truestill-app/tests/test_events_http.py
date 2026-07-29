@@ -71,14 +71,17 @@ def _source(root: Path, groups: list[tuple[datetime, int]]) -> None:
             n += 1
 
 
-def test_merge_via_http_names_the_combined_trip(client: TestClient, tmp_path: Path) -> None:
+def test_merge_via_http_names_the_combined_trip_and_moves_it_on_disk(
+    client: TestClient, tmp_path: Path
+) -> None:
     """Merging two gap-separated day-events over HTTP (the 13.3b inversion): the detector did not
     join these two weeks, so the user does it by hand, and the result is a TRIP -- never a
     concatenated event -- because a manual merge must obey the same §3e/§3f rules detection does
     (`trip_review.merge_review_cards`), which a raw event-item concatenation could not enforce.
 
-    Placing a confirmed trip's files on disk is Stage 13.4's job (`server.py`'s `events_apply`
-    docstring); this only proves the merge assembles and names correctly through the catalog.
+    Closes the window 13.3b left open: naming used to persist a merged trip to the catalog with
+    no way to reach disk (13.4 not yet built). Now it previews and applies exactly like a named
+    event always has, landing every file under the trip's own header folder (Stage 2d, 13.4).
     """
     src = tmp_path / "src"
     _source(src, [(datetime(2026, 6, 14, 9), 10), (datetime(2026, 6, 21, 9), 10)])
@@ -100,6 +103,20 @@ def test_merge_via_http_names_the_combined_trip(client: TestClient, tmp_path: Pa
 
     named = client.post(f"/api/events/{sid}/apply", json={"names": ["Trip"]}).json()
     assert named == {"events": 0, "trips": 1}
+
+    preview = client.post(f"/api/events/{sid}/preview", json={}).json()
+    assert len(preview["moves"]) == 20  # all 20 files move under the trip's header folder
+    assert all("2026-06-14 - Trip" in m["new"] for m in preview["moves"])
+
+    job = client.post(f"/api/events/{sid}/apply-to-disk", json={}).json()
+    done = _stream_until_done(client, job["job_id"])
+    trips = done["summary"]["trips"]
+    assert len(trips) == 1
+    assert trips[0]["name"] == "Trip"
+    landed_14 = list(drive.rglob("2026-06-14 - Trip/2026-06-14/*.jpg"))
+    landed_21 = list(drive.rglob("2026-06-14 - Trip/2026-06-21/*.jpg"))
+    assert len(landed_14) == 10
+    assert len(landed_21) == 10
 
 
 def test_merge_via_http_refuses_across_a_year_boundary(client: TestClient, tmp_path: Path) -> None:

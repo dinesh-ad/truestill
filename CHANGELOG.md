@@ -7,6 +7,7 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Trips**: group multi-day photos into one folder, review and apply on disk.
 - **In-place organize (`organize --in-place`)** for libraries that live on the drive itself -
   a pendrive or external HDD with no staging space to copy into. Files are moved by **atomic
   rename**: no bytes are rewritten, there is no instant at which the content does not exist,

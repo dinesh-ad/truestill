@@ -861,25 +861,18 @@ $("ev-apply").onclick = async () => {
   $("ev-result").innerHTML = card(
     `<div class="headline">${named} named.</div>
      <div class="k">Next: preview where these photos will move on the drive.</div>`);
-  // Preview the on-disk placement (reuses the migrate engine). Only named EVENTS reach this
-  // today - a confirmed trip is saved to the catalog but its folder placement is Stage 13.4's
-  // job, so a named trip is called out below rather than silently reported as "already moved".
+  // Preview the on-disk placement (reuses the migrate engine). A named trip reaches this the
+  // same way a named event always has (Stage 13.4) - both are previewed here, and nothing
+  // moves until the button below is actually clicked.
   const p = await api(`/api/events/${evSession}/preview`, {});
   $("ev-apply-card").classList.remove("hidden");
   $("ev-disk-result").innerHTML = "";
   if (!p.ok) { $("ev-moves").innerHTML = `<div class="banner warn"><div>${esc(p.error)}</div></div>`; return; }
-  const tripNote = r.trips
-    ? `<div class="banner warn"><div><div class="b-title">Trip folders aren't available yet</div>
-         ${plural(r.trips, "trip")} named above ${r.trips === 1 ? "is" : "are"} saved, but moving its
-         photos into a trip folder isn't wired up in this build - only named events move below.</div></div>`
-    : "";
-  $("ev-moves").innerHTML =
-    tripNote +
-    (p.moves.length
-      ? `<div class="headline">${plural(p.moves.length, "photo")} will move into event folders</div>
+  $("ev-moves").innerHTML = p.moves.length
+    ? `<div class="headline">${plural(p.moves.length, "photo")} will move into trip and event folders</div>
        <details class="more"><summary>Show the moves</summary>
          <div class="mono k">${p.moves.slice(0, 200).map((m) => `${esc(m.old)} → ${esc(m.new)}`).join("<br>")}</div></details>`
-      : `<div class="k">Nothing to move - these photos are already in their event folders.</div>`);
+    : `<div class="k">Nothing to move - these photos are already in their trip and event folders.</div>`;
   $("ev-apply-disk").classList.toggle("hidden", p.moves.length === 0);
 };
 // One row per trip actually named and moved this run, each with a working reveal link -- the
@@ -889,7 +882,7 @@ $("ev-apply").onclick = async () => {
 function tripResultCards(summary) {
   const trips = summary.trips || [];
   if (!trips.length) {
-    return card(`<div class="headline">Moved ${plural(summary.migrated || 0, "photo")} into event folders.</div>`);
+    return card(`<div class="headline">Moved ${plural(summary.migrated || 0, "photo")} into trip and event folders.</div>`);
   }
   return trips.map((t) => card(
     `<div class="headline">${esc(t.name)}</div>

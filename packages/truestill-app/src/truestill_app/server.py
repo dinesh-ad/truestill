@@ -233,9 +233,8 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
         This is the 'Save names' step. It changes only the catalog: an event links its files
         (`files.event_id`, unchanged) via `commit_catalog`; a trip persists `trips`/`trip_days`
         via `commit_trips` (13.1) - no file is placed or moved by either. On-disk placement is a
-        separate, previewed, journalled migration (events_preview / events_apply_to_disk) that,
-        today, only understands event placements - a confirmed trip does not reach it yet
-        (Stage 13.4's job).
+        separate, previewed, journalled migration (events_preview / events_apply_to_disk), which
+        now understands both (Stage 13.4).
         """
         session_id = request.path_params["session"]
         names: list[str | None] = (await request.json())["names"]
@@ -256,10 +255,10 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
             ]
             named_trips_count = commit_trips(catalog, trip_decisions)
 
-            # Remembered so apply-to-disk can report each named EVENT's real destination folder
+            # Remembered so apply-to-disk can report each named item's real destination folder
             # once the migration has actually placed its files there (13.3a) -- not a rename or a
             # guess, just this session's own decisions, looked up again now that they are
-            # persisted. Trips are not tracked here: they do not reach apply-to-disk yet (13.4).
+            # persisted.
             named_events = []
             for card, name in zip(cards, names, strict=True):
                 if card.event is None or not name or not name.strip():
@@ -275,7 +274,27 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
                         "end": card.event.end.isoformat(),
                     }
                 )
+            # A trip's id is not returned by `commit_trips` (it persists a count, not the rows),
+            # so it is looked up the same way name-once already does: `trip_for_day` on one of the
+            # trip's own claimed days, after the commit above has made that lookup answer it.
+            named_trips = []
+            for card, name in zip(cards, names, strict=True):
+                if card.trip is None or not name or not name.strip():
+                    continue
+                first_day = min(card.trip.days)
+                trip_id = catalog.trip_for_day(first_day.isoformat())
+                if trip_id is None:
+                    continue
+                named_trips.append(
+                    {
+                        "trip_id": trip_id,
+                        "name": name.strip(),
+                        "start": first_day.isoformat(),
+                        "end": max(card.trip.days).isoformat(),
+                    }
+                )
         session["named_events"] = named_events
+        session["named_trips"] = named_trips
         return JSONResponse({"events": named_events_count, "trips": named_trips_count})
 
     async def events_preview(request: Request) -> JSONResponse:
@@ -287,7 +306,12 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
         """Apply the trip placement: a journalled, resumable relocation on the drive."""
         session = sessions[request.path_params["session"]]
         job_id = jobs.start(
-            service.migration_apply(Path(session["path"]), _db(), session.get("named_events", []))
+            service.migration_apply(
+                Path(session["path"]),
+                _db(),
+                session.get("named_events", []),
+                session.get("named_trips", []),
+            )
         )
         return JSONResponse({"job_id": job_id})
 

@@ -463,3 +463,300 @@ def test_migrating_one_drive_leaves_another_drives_undo_record_intact(tmp_path: 
         assert still_there is not None
         assert still_there[0] == first[0]  # the same run, untouched
         assert catalog.reversible_migration("D2") is not None  # and D2 has its own
+
+
+# --- Stage 2d, 13.4: migration wiring -- a confirmed trip actually relocates its files ---
+
+
+def _confirmed_trip(
+    catalog: Catalog, *, name: str, slug: str, start_date: str, end_date: str, days: list[str]
+) -> int:
+    return catalog.create_trip(
+        name=name, slug=slug, start_date=start_date, end_date=end_date, days=days
+    )
+
+
+def test_the_worked_example_plans_the_trip_header_then_day(tmp_path: Path) -> None:
+    """The §10 worked example, built: naming Aug 15-16 on an already-organized drive plans the
+    trip's own header folder, then each claimed day beneath it - through the same preview path
+    an event's migration already used (Stage 2d, 13.4)."""
+    root = tmp_path / "drive"
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        catalog.upsert_drive(uuid="D1", label="Drive A")
+        _seed(
+            catalog,
+            root,
+            "D1",
+            [
+                ("Camera/2014/08/a.jpg", "Camera", "2014-08-15T10:00:00", b"aaaa"),
+                ("Camera/2014/08/b.jpg", "Camera", "2014-08-16T10:00:00", b"bbbb"),
+            ],
+        )
+        _confirmed_trip(
+            catalog,
+            name="Wayanad",
+            slug="wayanad",
+            start_date="2014-08-15",
+            end_date="2014-08-16",
+            days=["2014-08-15", "2014-08-16"],
+        )
+        plan = plan_migration(
+            catalog, "D1", _scheme("{yyyy}/{yyyy}-{mm}"), routes={"Camera": ROUTE_TIMELINE}
+        )
+    by_old = {m.old_relative: m.new_relative for m in plan.moves}
+    assert by_old["Camera/2014/08/a.jpg"] == "2014/2014-08/2014-08-15 - Wayanad/2014-08-15/a.jpg"
+    assert by_old["Camera/2014/08/b.jpg"] == "2014/2014-08/2014-08-15 - Wayanad/2014-08-16/b.jpg"
+
+
+def test_a_camera_photo_in_a_trip_is_routed_by_its_own_evidence_not_side_binned(
+    tmp_path: Path,
+) -> None:
+    """A trip inherits the §13.7 fix, rather than re-solving it: a `Camera`-labelled row is
+    ambiguous by construction, so it still needs `routes`/`rules_by_sha` to reach the timeline.
+    Without a route decision, `plan_migration`'s conservative default (unmapped -> side bin)
+    fires exactly as it would outside any trip; passing the decision `label_routes` +
+    `rederive_rules` would actually resolve to routes it into the trip folder instead.
+    """
+    root = tmp_path / "drive"
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        catalog.upsert_drive(uuid="D1", label="Drive A")
+        _seed(
+            catalog,
+            root,
+            "D1",
+            [("Camera/2014/08/a.jpg", "Camera", "2014-08-15T10:00:00", b"aaaa")],
+        )
+        _confirmed_trip(
+            catalog,
+            name="Wayanad",
+            slug="wayanad",
+            start_date="2014-08-15",
+            end_date="2014-08-15",
+            days=["2014-08-15"],
+        )
+        scheme = _scheme("{yyyy}/{yyyy}-{mm}")
+        side_binned = plan_migration(catalog, "D1", scheme)  # no routes: conservative default
+        timelined = plan_migration(catalog, "D1", scheme, routes={"Camera": ROUTE_TIMELINE})
+
+    side_new = {m.old_relative: m.new_relative for m in side_binned.moves}["Camera/2014/08/a.jpg"]
+    timeline_new = {m.old_relative: m.new_relative for m in timelined.moves}["Camera/2014/08/a.jpg"]
+    assert "Wayanad" not in side_new  # conservative default: side bin, not the trip folder
+    assert "Wayanad" in timeline_new  # routed by its own evidence: lands in the trip folder
+
+
+def test_a_non_camera_file_on_a_trip_day_stays_in_its_side_bin(tmp_path: Path) -> None:
+    """A trip claims every *Camera* photo taken that day (§2) - never a WhatsApp or Screenshot
+    file that happens to share the date. `trip_days` is joined day-keyed (any category), unlike
+    `events` (only ever linked to a Camera cluster's own files by construction), so this is not
+    safe by construction the way the event branch is - it is guarded explicitly.
+
+    Fails against the defect first: with the row-level ``rule == TIMELINE_RULE`` guard on `trip`
+    removed, a WhatsApp file captured on the trip's day is pulled into the trip's day folder,
+    because `LayoutTemplate._render` appends trip segments whenever `context.trip` is set,
+    regardless of which placement's template is actually rendering. Confirmed failing with the
+    guard commented out (the WhatsApp file lands under ``.../Wayanad/2014-08-15/...``); restored.
+    """
+    root = tmp_path / "drive"
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        catalog.upsert_drive(uuid="D1", label="Drive A")
+        _seed(
+            catalog,
+            root,
+            "D1",
+            [
+                ("Camera/2014/08/a.jpg", "Camera", "2014-08-15T10:00:00", b"aaaa"),
+                ("WhatsApp/2014/08/b.jpg", "WhatsApp", "2014-08-15T11:00:00", b"bbbb"),
+            ],
+        )
+        _confirmed_trip(
+            catalog,
+            name="Wayanad",
+            slug="wayanad",
+            start_date="2014-08-15",
+            end_date="2014-08-15",
+            days=["2014-08-15"],
+        )
+        plan = plan_migration(
+            catalog,
+            "D1",
+            _scheme("{category}/{yyyy}/{yyyy}-{mm}"),
+            routes={"Camera": ROUTE_TIMELINE},
+        )
+    by_old = {m.old_relative: m.new_relative for m in plan.moves}
+    assert "Wayanad" not in by_old.get("WhatsApp/2014/08/b.jpg", "")
+
+
+# --- (mm) widened: an event and a trip's naming, not just two events' ---
+
+
+def test_an_event_sharing_a_day_with_a_trip_is_fully_dissolved_not_cross_planned(
+    tmp_path: Path,
+) -> None:
+    """Why a genuine event-vs-trip header collision cannot arise in practice, proved rather than
+    assumed: `trip_days` claims the whole day (§2), so an event dated the SAME day as a trip is
+    dissolved entirely - none of its files plan an EVENT_DAY path; they plan TRIP_DAY like every
+    other file that day, and no collision warning is raised because the event never becomes a
+    disambiguation candidate at all (`_migration_headers`'s exclusion)."""
+    root = tmp_path / "drive"
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        catalog.upsert_drive(uuid="D1", label="Drive A")
+        shas = _seed(
+            catalog,
+            root,
+            "D1",
+            [("Camera/2023/08/a.jpg", "Camera", "2023-08-20T09:00:00", b"aaaa")],
+        )
+        _named_event(
+            catalog,
+            sha=shas["Camera/2023/08/a.jpg"],
+            name="Goa Trip",
+            slug="goa-trip-event",
+            start_date="2023-08-20T00:00:00",
+            signature="sig-event",
+        )
+        _confirmed_trip(
+            catalog,
+            name="Goa Trip",
+            slug="goa-trip-real",
+            start_date="2023-08-20",
+            end_date="2023-08-20",
+            days=["2023-08-20"],
+        )
+        plan = plan_migration(
+            catalog, "D1", _scheme("{yyyy}/{yyyy}-{mm}"), routes={"Camera": ROUTE_TIMELINE}
+        )
+    by_old = {m.old_relative: m.new_relative for m in plan.moves}
+    assert by_old["Camera/2023/08/a.jpg"] == "2023/2023-08/2023-08-20 - Goa Trip/2023-08-20/a.jpg"
+    assert not any("already uses" in w for w in plan.warnings)  # nothing left to collide with
+
+
+def test_two_events_still_collide_correctly_when_a_trip_is_also_present(tmp_path: Path) -> None:
+    """Regression for folding trips into the same disambiguation pass (decision (a) below): two
+    same-day, same-name events must still collide exactly as before (backlog (mm)'s original
+    fixture), even when an unrelated confirmed trip on a different date is migrated in the same
+    run. Fails if unifying `events`/trips into one `headers` dict ever let an unrelated trip
+    entry crowd out or reorder the pre-existing per-naming grouping."""
+    root = tmp_path / "drive"
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        _two_same_day_events_one_shared_name(catalog, root)
+        _seed(
+            catalog,
+            root,
+            "D1",
+            [("Camera/2023/09/c.jpg", "Camera", "2023-09-10T09:00:00", b"cccc")],
+        )
+        _confirmed_trip(
+            catalog,
+            name="Unrelated Trip",
+            slug="unrelated-trip",
+            start_date="2023-09-10",
+            end_date="2023-09-10",
+            days=["2023-09-10"],
+        )
+        plan = plan_migration(
+            catalog, "D1", _scheme("{yyyy}/{yyyy}-{mm}"), routes={"Camera": ROUTE_TIMELINE}
+        )
+    assert any("already uses" in w for w in plan.warnings)  # the two events still collide
+
+
+def test_a_trip_and_an_event_with_different_namings_are_alarmed(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Decision (a) for backlog (mm)'s Stage 13.4 widening - grouping headers by their *resolved
+    naming*, not by event-vs-trip - is what let the regression above pass: an event and a trip
+    that happen to share a naming land in the same disambiguation group automatically. Proven
+    here from the other side: `TRIP_DAY` deliberately configured with a naming that diverges from
+    `EVENT_DAY`'s (13.2's escape hatch; no production caller sets it) puts them in different
+    groups, and - since two different namings render structurally different text (`READABLE` vs
+    `SLUG`) - a real collision between them was never reachable in the first place (see the
+    dissolution proof above: same date always dissolves the event, and different dates always
+    render different date prefixes regardless of naming). The divergence itself is still alarmed
+    (the `dedup.LINEAR_SCAN_ALARM` pattern), so a future caller who *does* diverge the two
+    namings is told, not left to discover it unassisted.
+    """
+    root = tmp_path / "drive"
+    scheme = LayoutScheme.of(
+        timeline=LayoutTemplate.parse("{yyyy}/{yyyy}-{mm}"),
+        timeline_evented=LayoutTemplate.parse(
+            "{yyyy}/{yyyy}-{mm}", event_naming=EventNaming.READABLE
+        ),
+        trip_day=LayoutTemplate.parse("{yyyy}/{yyyy}-{mm}", event_naming=EventNaming.SLUG),
+    )
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        catalog.upsert_drive(uuid="D1", label="Drive A")
+        shas = _seed(
+            catalog,
+            root,
+            "D1",
+            [
+                ("Camera/2023/08/a.jpg", "Camera", "2023-08-20T09:00:00", b"aaaa"),
+                ("Camera/2023/09/b.jpg", "Camera", "2023-09-10T09:00:00", b"bbbb"),
+            ],
+        )
+        _named_event(
+            catalog,
+            sha=shas["Camera/2023/08/a.jpg"],
+            name="Goa Trip",
+            slug="goa-trip-event",
+            start_date="2023-08-20T00:00:00",
+            signature="sig-event",
+        )
+        _confirmed_trip(
+            catalog,
+            name="Goa Trip",
+            slug="goa-trip-real",
+            start_date="2023-09-10",
+            end_date="2023-09-10",
+            days=["2023-09-10"],
+        )
+        with caplog.at_level("WARNING", logger="truestill_core.migrate"):
+            plan = plan_migration(catalog, "D1", scheme, routes={"Camera": ROUTE_TIMELINE})
+    assert not any("already uses" in w for w in plan.warnings)  # different dates: never collide
+    assert any("not cross-checked" in r.message for r in caplog.records)  # but told, not silent
+
+
+def test_trip_preview_moves_nothing_and_apply_relocates_as_planned(tmp_path: Path) -> None:
+    """The file-moving safety rule this stage exists to prove both directions of: preview alone
+    is side-effect-free, and apply moves exactly what preview showed - the same preview-then-
+    confirm gate every other migration in this app already requires, not a looser one for trips.
+    """
+    root = tmp_path / "drive"
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        catalog.upsert_drive(uuid="D1", label="Drive A")
+        _seed(
+            catalog,
+            root,
+            "D1",
+            [("Camera/2014/08/a.jpg", "Camera", "2014-08-15T10:00:00", b"aaaa")],
+        )
+        _confirmed_trip(
+            catalog,
+            name="Wayanad",
+            slug="wayanad",
+            start_date="2014-08-15",
+            end_date="2014-08-15",
+            days=["2014-08-15"],
+        )
+        scheme = _scheme("{yyyy}/{yyyy}-{mm}")
+        preview = run_migration(
+            catalog,
+            LocalDestination(root),
+            "D1",
+            scheme,
+            apply=False,
+            routes={"Camera": ROUTE_TIMELINE},
+        )
+        assert preview.migrated == 0
+        assert (root / "Camera/2014/08/a.jpg").exists()  # untouched by preview alone
+
+        outcome = run_migration(
+            catalog,
+            LocalDestination(root),
+            "D1",
+            scheme,
+            apply=True,
+            routes={"Camera": ROUTE_TIMELINE},
+        )
+    assert outcome.migrated == 1
+    assert (root / "2014/2014-08/2014-08-15 - Wayanad/2014-08-15/a.jpg").exists()
+    assert not (root / "Camera/2014/08/a.jpg").exists()

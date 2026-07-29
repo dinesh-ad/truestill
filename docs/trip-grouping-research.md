@@ -952,6 +952,43 @@ changed.
   connected drive. This is functionally what the design doc called "Stage 2e" (§10) - see §13.4's
   own note below on why the line moved.
 
+**BUILT 2026-07-29 - the trip arc is now complete end to end (detect -> review -> apply).**
+
+`copies_for_migration` gained a day-keyed `LEFT JOIN` against `trip_days`/`trips` (no schema
+change - `trip_days.day`'s existing primary key); `plan_migration` sets `RenderContext.trip` per
+row, gated on that row's own rule resolving to the timeline (a trip's day-claim, unlike an
+event's, is not safe-by-construction against a same-day non-Camera file, since the join is
+day-keyed, not category-keyed - guarded explicitly, and a day a trip claims but an event does not
+survive on is fully dissolved into the trip, never left as a phantom disambiguation candidate).
+Rides the exact `migration_preview`/`migration_apply` path an event's migration already used -
+no new endpoint, no looser confirm gate.
+
+**The `(mm)` widening**, decided: event and trip headers are disambiguated in one pass, grouped by
+their *resolved naming* rather than by placement - the mechanism that already made two same-day
+events collide correctly now covers a trip header for free. Proven, not assumed: under this
+schema's day-claim exclusivity (`trip_days.day` is a primary key, and a day a trip claims
+dissolves any event on it), an event and a trip header can **never** actually collide - collision
+requires an identical date, and an identical date always means dissolution. The grouping is still
+the right general mechanism (and the regression fixture below proves it does not break the
+existing event-vs-event case now that trips share its dict); the one case it does not
+cross-check - `TRIP_DAY` deliberately configured with a naming that diverges from `EVENT_DAY`'s
+(13.2's escape hatch, no production caller sets it) - cannot collide on the rendered string in
+the first place, and is alarmed (once, on the run that crosses it, the `dedup.LINEAR_SCAN_ALARM`
+pattern) rather than assumed away.
+
+**Complexity:** the added join is `trip_days.day`'s primary key, `O(1)` per row; `plan_migration`
+stays `O(rows)` overall, unchanged from before this stage.
+
+**Fixtures, proven against the defect first:** the §10 worked example (Aug 15-16 plans the header
+then each day beneath it); a Camera photo in a trip inherits §13.7's routing (still side-binned
+without a route decision, correctly timelined with one - mutation: dropping the row-level
+`rule == TIMELINE_RULE` guard let a WhatsApp file on a trip's day get pulled into the trip folder,
+confirmed failing, restored); an event sharing a trip's day is fully dissolved, not
+double-planned (mutation: dropping the dissolved-event exclusion produced a spurious collision
+warning for a folder nothing would ever use, confirmed failing, restored); the `(mm)` alarm
+(mutation: disabling it, confirmed silent, restored); preview alone moves nothing, apply relocates
+exactly what preview showed.
+
 ### 13.3 Load-bearing decisions 2d forces, not yet settled
 
 1. **Trip-vs-event precedence when a day has both - RESOLVED, built 13.2.** `classify()` checks

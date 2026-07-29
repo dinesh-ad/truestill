@@ -19,6 +19,7 @@ crash between those steps leaves a recoverable orphan, never a lost or unrecorde
 
 from __future__ import annotations
 
+import logging
 import threading
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -41,6 +42,8 @@ from truestill_core.layout import (
     disambiguate_event_folders,
 )
 from truestill_core.progress import Phase, Progress, ProgressCallback
+
+_log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -212,6 +215,95 @@ def rule_for_row(
     return TIMELINE_RULE if decided == ROUTE_TIMELINE else "fallback"
 
 
+def _migration_headers(
+    rows: Sequence[Any],
+    scheme: LayoutScheme,
+    routes: dict[str, str],
+    rules_by_sha: dict[str, str] | None,
+) -> dict[str, tuple[datetime, str, str | None, EventNaming]]:
+    """One representative row per event and per confirmed trip on this drive, keyed for
+    disambiguation. A day claimed by a trip dissolves its event (Stage 2d §2: the trip claims the
+    whole day, so every one of the event's own rows -- an event never spans more than one day,
+    `events.py` -- is trip-claimed too); such an event is excluded, since none of its rows will
+    ever actually render an EVENT_DAY path.
+
+    A trip candidate additionally requires its representative row's own rule to resolve to the
+    timeline. `trip_days` is joined day-keyed (any file captured that day, any category), unlike
+    `events` (only ever linked to a Camera cluster's own files by construction) -- so, unlike the
+    event branch, a trip's day-claim is **not** safe-by-construction against picking a side-binned
+    row (a same-day screenshot, say) as the naming representative; §2's own table keeps "Side bin"
+    a column separate from "Trip", so an off-timeline row must never decide, or receive, a trip's
+    folder. O(rows) for the scan, O(headers) after.
+    """
+    headers: dict[str, tuple[datetime, str, str | None, EventNaming]] = {}
+    for r in rows:
+        if r["event_slug"] and r["event_start"] and r["trip_id"] is None:
+            key = f"event:{r['event_slug']}|{r['event_start']}"
+            if key not in headers:
+                start = _parse_dt(r["event_start"])
+                assert start is not None
+                placement = classify(
+                    rule_for_row(r, routes, rules_by_sha),
+                    RenderContext(category=str(r["category"]), event=(start, str(r["event_slug"]))),
+                )
+                headers[key] = (
+                    start,
+                    str(r["event_slug"]),
+                    r["event_name"],
+                    scheme.template_for(placement).event_naming,
+                )
+        if r["trip_id"] is not None:
+            key = f"trip:{r['trip_id']}"
+            rule = rule_for_row(r, routes, rules_by_sha)
+            if key not in headers and rule == TIMELINE_RULE:
+                start = _parse_dt(r["trip_start"])
+                assert start is not None
+                placement = classify(
+                    rule,
+                    RenderContext(category=str(r["category"]), trip=(start, str(r["trip_slug"]))),
+                )
+                headers[key] = (
+                    start,
+                    str(r["trip_slug"]),
+                    r["trip_name"],
+                    scheme.template_for(placement).event_naming,
+                )
+    return headers
+
+
+def _disambiguated_folder_notes(
+    headers: dict[str, tuple[datetime, str, str | None, EventNaming]],
+) -> list[str]:
+    """Group headers by their **resolved naming**, not by event-vs-trip, and disambiguate within
+    each group -- an event and a trip that resolve to the same naming land in the same group and
+    are cross-checked against each other (backlog ``(mm)``'s Stage 13.4 widening: **decision (a),
+    cross-group scoping**, achieved for free by grouping on the naming value rather than on
+    `Placement`, since a folder-string collision is only possible between two headers already
+    spelled the same way). The one case this does not cover -- `TRIP_DAY` deliberately configured
+    with a naming that differs from `EVENT_DAY`'s (13.2's escape hatch; no production caller sets
+    it) -- cannot collide on the rendered string in the first place (`READABLE` and `SLUG` produce
+    structurally different text), so it is not a silent gap; :data:`_log` alarms it below if it is
+    ever actually in play, rather than assuming it away.
+    """
+    by_naming: dict[EventNaming, list[tuple[str, datetime, str, str | None]]] = {}
+    for key, (start, slug, name, naming) in headers.items():
+        by_naming.setdefault(naming, []).append((key, start, slug, name))
+    if len(by_naming) > 1:
+        # Crossed once, on the run that first crosses it -- reaches whoever actually configures a
+        # diverging TRIP_DAY naming, not just the person reading this comment.
+        _log.warning(
+            "events and trips are using %d different folder namings this run -- collisions "
+            "between them are not cross-checked (trip-grouping-research.md §13.4)",
+            len(by_naming),
+        )
+    folders = [
+        folder
+        for naming, group in by_naming.items()
+        for folder in disambiguate_event_folders(group, naming=naming)
+    ]
+    return [f.note for f in folders if f.note]
+
+
 def plan_migration(
     catalog: Catalog,
     drive_uuid: str,
@@ -228,77 +320,57 @@ def plan_migration(
     a side bin, which is the conservative direction (a file kept beside the years is findable and
     fixable; one wrongly hoisted onto the timeline is mixed into the photo record).
 
-    Event folders are disambiguated across the whole drive before any path is built, so two
-    same-date events whose names collide cannot silently merge into one folder. Each event's
-    naming style comes from its **own** placement -- one :func:`classify` lookup per event, in
-    place of the fixed :data:`Placement.EVERYDAY` lookup this replaces (backlog ``(mm)``), so a
-    migration spells an event folder exactly as an organize run would. Same asymptotic cost:
-    O(events) either way, since the old code also built the ``events`` dict in one pass.
+    Event and trip folders are disambiguated **together**, across the whole drive, before any
+    path is built, so a same-date event and a confirmed trip whose header names collide cannot
+    silently merge into one folder any more than two events could (Stage 2d, 13.4 -- widens
+    backlog ``(mm)`` from event-only to event-and-trip). Each header's naming style comes from
+    its **own** placement -- one :func:`classify` lookup per event/trip, in place of the fixed
+    :data:`Placement.EVERYDAY` lookup `(mm)` originally replaced -- so a migration spells a
+    folder exactly as an organize run would. Same asymptotic cost: O(events + trips) either way,
+    since the old code also built its lookup dict in one pass.
     """
     routes = routes or {}
     rows = list(catalog.copies_for_migration(drive_uuid))
-
-    # Every event on this drive is known here, which is the only place a collision *can* be seen.
-    # One representative row per event supplies the rule its naming is decided from -- a day's
-    # rows overwhelmingly share one rule, and the per-row loop below still resolves each file's
-    # own rule independently for the path itself; this only decides how the event's name reads.
-    events: dict[str, tuple[datetime, str, str | None, EventNaming]] = {}
-    for r in rows:
-        if r["event_slug"] and r["event_start"]:
-            key = f"{r['event_slug']}|{r['event_start']}"
-            if key in events:
-                continue
-            start = _parse_dt(r["event_start"])
-            assert start is not None
-            slug = str(r["event_slug"])
-            placement = classify(
-                rule_for_row(r, routes, rules_by_sha),
-                RenderContext(category=str(r["category"]), event=(start, slug)),
-            )
-            events[key] = (
-                start,
-                slug,
-                r["event_name"],
-                scheme.template_for(placement).event_naming,
-            )
-
-    # disambiguate_event_folders takes one naming for a whole call, so events are grouped by the
-    # naming their own placement resolved to and disambiguated within each group. Every event
-    # resolves to Placement.EVENT_DAY today (the only placement a named event can carry), so this
-    # is one group and byte-identical to the old, fixed-lookup output. Collision detection is
-    # therefore scoped PER GROUP, not across the whole drive -- correct today (one group); a
-    # second naming (2d's TRIP_DAY) would need cross-group scoping too, which is that stage's
-    # problem to solve against real evidence, not guessed here.
-    by_naming: dict[EventNaming, list[tuple[str, datetime, str, str | None]]] = {}
-    for key, (start, slug, name, naming) in events.items():
-        by_naming.setdefault(naming, []).append((key, start, slug, name))
-    folders = [
-        folder
-        for naming, group in by_naming.items()
-        for folder in disambiguate_event_folders(group, naming=naming)
-    ]
-    event_notes = [f.note for f in folders if f.note]
+    headers = _migration_headers(rows, scheme, routes, rules_by_sha)
+    header_notes = _disambiguated_folder_notes(headers)
 
     moves: list[Move] = []
     unchanged = 0
-    warnings: list[str] = list(event_notes)
+    warnings: list[str] = list(header_notes)
     targets: dict[str, str] = {}  # lower(new) -> new, to spot case-insensitive collisions
 
     for row in rows:
         current = str(row["relative"])
         filename = PurePosixPath(current).name
+        rule = rule_for_row(row, routes, rules_by_sha)
         event = None
         event_name = None
         if row["event_slug"] and row["event_start"]:
             event = (_parse_dt(row["event_start"]), str(row["event_slug"]))
             event_name = row["event_name"]
+        trip = None
+        trip_name = None
+        # Gated on the row's OWN rule, unlike `event` above: `trip_days` is joined day-keyed (any
+        # file captured that day, any category), where `event_id` can only ever be set on a
+        # Camera cluster's own files by construction. Without this, a same-day screenshot or
+        # WhatsApp file would be pulled into the trip's day folder -- §2's own table keeps "Side
+        # bin" a column separate from "Trip", and `LayoutTemplate._render` appends trip segments
+        # whenever `context.trip` is set, regardless of which placement's template is rendering.
+        if row["trip_id"] is not None and rule == TIMELINE_RULE:
+            trip = (_parse_dt(row["trip_start"]), str(row["trip_slug"]))
+            trip_name = row["trip_name"]
         directory = scheme.render(
-            rule_for_row(row, routes, rules_by_sha),
+            rule,
             RenderContext(
                 category=str(row["category"]),
                 captured_at=_parse_dt(row["captured_at"]),
                 event=event,  # type: ignore[arg-type]  # start parsed to datetime above
                 event_name=event_name,
+                trip=trip,  # type: ignore[arg-type]  # start parsed to datetime above
+                trip_name=trip_name,
+                # `classify` gives a trip-claimed day unconditional precedence over `event`
+                # (Stage 2d §2/§13.2), so `event` being set here too for a dissolved event's rows
+                # is harmless -- it is never consulted once `trip` is set.
             ),
         )
         new_relative = (directory / filename).as_posix()

@@ -1067,16 +1067,22 @@ def migration_preview(path: Path, db: Path) -> dict[str, Any]:
 
 
 def migration_apply(
-    path: Path, db: Path, named_events: Sequence[dict[str, Any]] | None = None
+    path: Path,
+    db: Path,
+    named_events: Sequence[dict[str, Any]] | None = None,
+    named_trips: Sequence[dict[str, Any]] | None = None,
 ) -> JobTarget:
     """Build a job target that relocates a connected drive's files under the current template.
 
-    ``named_events`` (each an ``{"event_id", "name", "start", "end"}`` dict, from a just-completed
-    Trips & events naming session) is optional and changes nothing about the migration itself.
-    When given, the result also reports each event's **real** destination folder - looked up
-    from the catalog after the migration has actually placed the files there, never guessed or
-    rendered ahead of time - the data a "reveal in file manager" row needs (13.3a). A plain
-    Settings-screen migration, which has no session to report on, omits it and is unaffected.
+    ``named_events`` (each an ``{"event_id", "name", "start", "end"}`` dict) and ``named_trips``
+    (each a ``{"trip_id", "name", "start", "end"}`` dict), both from a just-completed Trips &
+    events naming session, are optional and change nothing about the migration itself - a
+    confirmed trip reaches this same path, through the same `RenderContext.trip` seam an event
+    already used (Stage 2d, 13.4). When given, the result also reports each named item's **real**
+    destination folder - looked up from the catalog after the migration has actually placed the
+    files there, never guessed or rendered ahead of time - the data a "reveal in file manager" row
+    needs (13.3a). A plain Settings-screen migration, which has no session to report on, omits
+    both and is unaffected.
     """
 
     def target(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
@@ -1110,6 +1116,20 @@ def migration_apply(
                         "start": event["start"],
                         "end": event["end"],
                         "path": str(PurePosixPath(relative).parent),
+                    }
+                )
+            for trip in named_trips or ():
+                relative = catalog.sample_relative_for_trip(trip["trip_id"], marker.uuid)
+                if relative is None:
+                    continue  # nothing of this trip landed on this drive -- nothing to reveal
+                # Two levels up, not one: a trip's own header folder holds every one of its days
+                # (`layout._trip_segments`), so the reveal row should open that, not one day's.
+                trips.append(
+                    {
+                        "name": trip["name"],
+                        "start": trip["start"],
+                        "end": trip["end"],
+                        "path": str(PurePosixPath(relative).parent.parent),
                     }
                 )
         result: dict[str, Any] = {

@@ -480,20 +480,27 @@ class Catalog:
     def copies_for_migration(self, drive_uuid: str) -> list[sqlite3.Row]:
         """Every copy on a drive with the fields needed to re-render its path under a template.
 
-        Joins ``file_copies`` to ``files`` (category, captured_at, original_name) and any named
-        event (slug, start, **name**), so a migration can recompute each copy's destination
-        without re-reading the file. The event *name* is what makes a readable folder possible on
-        the migration path -- `slugify` is lossy, so it cannot be rebuilt from the slug.
+        Joins ``file_copies`` to ``files`` (category, captured_at, original_name), any named
+        event (slug, start, **name**), and any confirmed trip whose day claims this file's own
+        capture date (id, slug, the trip's own start, **name**) -- a day-keyed join against
+        ``trip_days.day`` (its primary key), the same join `trip_for_day` uses, so a migration can
+        recompute each copy's destination without re-reading the file. Both names are what make a
+        readable folder possible on the migration path -- `slugify` is lossy, so neither can be
+        rebuilt from its slug alone.
         """
         return list(
             self._conn.execute(
                 """
                 SELECT fc.sha256, fc.relative, fc.copy_sha256, f.category, f.captured_at,
                        f.original_name,
-                       e.slug AS event_slug, e.start_date AS event_start, e.name AS event_name
+                       e.slug AS event_slug, e.start_date AS event_start, e.name AS event_name,
+                       t.id AS trip_id, t.slug AS trip_slug, t.start_date AS trip_start,
+                       t.name AS trip_name
                 FROM file_copies fc
                 JOIN files f ON f.sha256 = fc.sha256
                 LEFT JOIN events e ON e.id = f.event_id
+                LEFT JOIN trip_days td ON td.day = date(f.captured_at)
+                LEFT JOIN trips t ON t.id = td.trip_id
                 WHERE fc.drive_uuid = ?
                 """,
                 (drive_uuid,),
@@ -1032,6 +1039,26 @@ class Catalog:
             LIMIT 1
             """,
             (event_id, drive_uuid),
+        ).fetchone()
+        return str(row["relative"]) if row is not None else None
+
+    def sample_relative_for_trip(self, trip_id: int, drive_uuid: str) -> str | None:
+        """One copy's current relative path for a confirmed trip, on a drive.
+
+        Mirrors :meth:`sample_relative_for_event`, day-keyed instead of event-keyed: every file
+        whose capture day the trip claims renders under the same trip header (§2's day-claim
+        rule), so any one suffices. Returns `None` when the trip has no copy on this drive. One
+        indexed join, `O(1)` (``trip_days.day`` is the primary key).
+        """
+        row = self._conn.execute(
+            """
+            SELECT fc.relative FROM file_copies fc
+            JOIN files f ON f.sha256 = fc.sha256
+            JOIN trip_days td ON td.day = date(f.captured_at)
+            WHERE td.trip_id = ? AND fc.drive_uuid = ?
+            LIMIT 1
+            """,
+            (trip_id, drive_uuid),
         ).fetchone()
         return str(row["relative"]) if row is not None else None
 
