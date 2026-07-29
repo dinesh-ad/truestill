@@ -73,6 +73,7 @@ from truestill_core.organizer import (
     SourceScan,
     discover,
     execute,
+    inventory_source,
     media_kind,
     plan,
     resolve,
@@ -327,6 +328,24 @@ def _skipped_summary(scan: SourceScan) -> dict[str, dict[str, int]]:
     }
 
 
+def organize_inventory(source: Path) -> dict[str, Any]:
+    """Walk + size only - the (tt) progressive-disclosure tier before a full dedup preview.
+
+    Returns immediately after ``inventory_source``: no exiftool, no hashing. Complexity O(n).
+    """
+    inv = inventory_source(source)
+    return {
+        "tier": "inventory",
+        "files": inv.files,
+        "photos": inv.photos,
+        "videos": inv.videos,
+        "audio": inv.audio,
+        "by_format": inv.by_format,
+        "total_bytes": inv.total_bytes,
+        "skipped": inv.skipped,
+    }
+
+
 def organize_preview(
     source: Path,
     destination: Path,
@@ -345,7 +364,12 @@ def organize_preview(
     scan = scan_source(source)
     files = scan.media
     if not files:
-        return {"files": 0, "folders": {}, "skipped": _skipped_summary(scan)}
+        return {
+            "tier": "dedup",
+            "files": 0,
+            "folders": {},
+            "skipped": _skipped_summary(scan),
+        }
     metadata = read_metadata(files, progress=progress, cancel=cancel)
     with Catalog(db) as catalog, HashCache.beside(db) as cache:
         scheme = resolve_scheme(catalog)
@@ -360,6 +384,7 @@ def organize_preview(
             cache=cache,
         )
     summary = _summarize(resolutions)
+    summary["tier"] = "dedup"
     summary["destination_is_drive"] = read_marker(destination) is not None
     summary["skipped"] = _skipped_summary(scan)
     return summary

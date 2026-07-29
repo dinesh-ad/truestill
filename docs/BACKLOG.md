@@ -205,24 +205,17 @@ is invisible here is retired, not free.**
   from a soak finding, 2026-07-29, the natural complement to **(ss)**: a user who only wants
   "how many photos/videos, which formats, how big" has to wait for the full hashing preview to
   get an answer neither dedup nor dating touches.
-  - **The cheap data already exists, mid-pipeline, never surfaced on its own.**
-    `organizer.scan_source` is a plain directory walk - `path.is_file()` + extension checks,
-    no hashing, no exiftool - partitioning into `media`/`documents`/`unrecognized` in one pass.
-    `service.organize_preview` calls it and then, in the **same** synchronous call, immediately
-    goes on to `read_metadata` and `resolve(...)` (hashing + dedup) before anything is returned.
-    The cheap counts are computed today; they are just never shown before the expensive work
-    that follows them.
+  - **Built 2026-07-29.** `organizer.inventory_source` + `service.organize_inventory` +
+    `POST /api/organize/inventory` return counts by type/extension and total media bytes after
+    the walk + one dedicated `stat` pass - no exiftool, no hashing. UI: **Look inside** shows
+    that card immediately; **Check for duplicates** is the explicit second step that runs the
+    existing full preview job. Size is a dedicated pass (not `compute_hashes._sizes`) so
+    inventory stays off the expensive path; profile evidence puts that `stat` at ~0.3 s on
+    pCloud vs ~231 s for exiftool.
   - **Not the same thing as backlog (r)'s Analyze mode - complementary, likely its precursor.**
     (r)'s Analyze mode explicitly runs "the existing dry-run engine" for a *richer* report
     (duplicates, look-alikes, capture-date range) - it is the same expensive pass as preview,
-    with better output, not a cheaper one. (tt) is the tier **before** that: counts/formats/
-    total size from the walk alone, shown **instantly**, with the full dedup preview (and,
-    later, Analyze) as an explicit next step the user asks for - progressive disclosure, not a
-    replacement for either existing tier.
-  - **Requirement:** an inventory pass - counts by media type and extension, total size, from
-    `scan_source` alone - returned and rendered immediately, before hashing starts; the current
-    full preview becomes an explicit second step from there, not the only entry point.
-  - **Not fixed here, on purpose** - recorded only, per instruction.
+    with better output, not a cheaper one. (tt) is the tier **before** that.
 
 - **(nn) Prove destination timestamp parity against a live rclone remote.** The destination
   timestamp seam is implemented for rclone as `touch --no-create --timestamp`. The installed

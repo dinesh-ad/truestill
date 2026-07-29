@@ -224,6 +224,8 @@ def test_backup_preview_busy_re_enables(ui: Page, tmp_path: Path, library) -> No
     ui.fill("#org-dest", str(dest))
     ui.click("#org-preview")
     expect(ui.locator("#org-result")).to_contain_text("photos found")
+    ui.click("#org-dedup")
+    expect(ui.locator("#org-run")).to_be_enabled()
     ui.click("#org-run")
     expect(ui.locator("#org-result")).to_contain_text("organized")
 

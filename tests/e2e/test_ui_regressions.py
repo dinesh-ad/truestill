@@ -27,6 +27,8 @@ def _organize(ui: Page, source: Path, destination: Path) -> None:
     ui.fill("#org-source", str(source))
     ui.fill("#org-dest", str(destination))
     ui.click("#org-preview")
+    expect(ui.locator("#org-result")).to_contain_text("found")
+    ui.click("#org-dedup")
     expect(ui.locator("#org-run")).to_be_enabled()
     ui.click("#org-run")
     expect(ui.locator("#org-result")).to_contain_text("Done")
@@ -56,6 +58,26 @@ def test_a_failed_job_never_renders_nan(ui: Page, tmp_path: Path) -> None:
 
 
 @_EXIFTOOL
+def test_look_inside_returns_before_duplicate_check(ui: Page, tmp_path: Path, library) -> None:
+    """(tt) Look inside must show counts without enabling Organize; Check for duplicates is
+    the explicit second step that unlocks the run."""
+    source = library(5, name="Album")
+    destination = tmp_path / "Out"
+
+    ui.fill("#org-source", str(source))
+    ui.fill("#org-dest", str(destination))
+    ui.click("#org-preview")
+    expect(ui.locator("#org-result")).to_contain_text("5 photos found")
+    expect(ui.locator("#org-result")).to_contain_text("no dates or duplicates checked yet")
+    expect(ui.locator("#org-run")).to_be_disabled()
+    expect(ui.locator("#org-dedup")).to_be_enabled()
+
+    ui.click("#org-dedup")
+    expect(ui.locator("#org-result")).to_contain_text("new - will be organized")
+    expect(ui.locator("#org-run")).to_be_enabled()
+
+
+@_EXIFTOOL
 def test_cancel_actually_stops_an_organize(ui: Page, tmp_path: Path) -> None:
     """The Cancel button was wired, but cancelling mid-hash crashed the job with a KeyError
     that reached the UI as a bare file path. Asserted on outcome, never on timing: the run
@@ -68,6 +90,8 @@ def test_cancel_actually_stops_an_organize(ui: Page, tmp_path: Path) -> None:
     ui.fill("#org-source", str(source))
     ui.fill("#org-dest", str(destination))
     ui.click("#org-preview")
+    expect(ui.locator("#org-result")).to_contain_text("found")
+    ui.click("#org-dedup")
     expect(ui.locator("#org-run")).to_be_enabled(timeout=60_000)
     ui.click("#org-run")
     expect(ui.locator("#org-card")).to_be_visible()

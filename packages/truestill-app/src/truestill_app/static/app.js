@@ -769,6 +769,34 @@ document.querySelectorAll("[data-browse]").forEach((btn) => {
 // ---------- Organize ----------
 function setWhy(text) { $("org-why").textContent = text; }
 
+function renderSkippedDetails(sk) {
+  const skDocs = Object.entries((sk && sk.documents) || {});
+  const skUn = Object.entries((sk && sk.unrecognized) || {});
+  const skTotal = skDocs.concat(skUn).reduce((a, [, n]) => a + n, 0);
+  if (!skTotal) return "";
+  const rows = (label, list) => list.length
+    ? `<tr><td>${label}</td><td class="num">${list.map(([e, n]) => `${esc(e)} ×${n}`).join(", ")}</td></tr>` : "";
+  return `<details class="more"><summary>${plural(skTotal, "file")} skipped (not photos or videos) ▾</summary>
+    <table class="table"><tbody>${rows("documents", skDocs)}${rows("unrecognized", skUn)}</tbody></table></details>`;
+}
+
+function renderInventoryResult(s) {
+  if (!s.files) {
+    $("org-result").innerHTML = card(
+      `<div class="banner warn"><div><div class="b-title">Nothing to organize here</div>
+       <div>No photos or videos in this folder - is it the right one?</div></div></div>`
+    );
+    return;
+  }
+  $("org-result").innerHTML = card(
+    `<div class="headline">${mediaCount(s)} found</div>
+     <div class="k">${fmtBytes(s.total_bytes || 0)} of media - no dates or duplicates checked yet</div>
+     ${byFormat(s.by_format)}${renderSkippedDetails(s.skipped)}
+     <div class="banner"><div>Next: check for duplicates (reads each file for dates and look-alikes).
+       That is the slow step on a network drive.</div></div>`
+  );
+}
+
 function renderOrganizeResult(s) {
   if (!s.files) {
     $("org-result").innerHTML = card(
@@ -780,17 +808,7 @@ function renderOrganizeResult(s) {
   const kept = (s.new_unique || 0) + (s.near_dup || 0);
   const folders = chipsFor(s.folders);
   const legend = legendFor(s.folders);
-  const sk = s.skipped || {};
-  const skDocs = Object.entries(sk.documents || {});
-  const skUn = Object.entries(sk.unrecognized || {});
-  const skTotal = skDocs.concat(skUn).reduce((a, [, n]) => a + n, 0);
-  let details = "";
-  if (skTotal) {
-    const rows = (label, list) => list.length
-      ? `<tr><td>${label}</td><td class="num">${list.map(([e, n]) => `${esc(e)} ×${n}`).join(", ")}</td></tr>` : "";
-    details = `<details class="more"><summary>${plural(skTotal, "file")} skipped (not photos or videos) ▾</summary>
-      <table class="table"><tbody>${rows("documents", skDocs)}${rows("unrecognized", skUn)}</tbody></table></details>`;
-  }
+  const details = renderSkippedDetails(s.skipped);
   const heic = s.heic_perceptual_skipped ? `<div class="banner warn"><div>${plural(s.heic_perceptual_skipped, "HEIC file")} will be backed up, but near-duplicate detection is unavailable for them.</div></div>` : "";
   const dateQuality = dateQualityNotes(s);
   $("org-result").innerHTML = card(
@@ -813,12 +831,29 @@ let orgJob = null;
 
 $("org-preview").onclick = guarded(async () => {
   const source = $("org-source").value.trim();
+  if (!source) { setWhy("Pick a folder to organize first."); return; }
+  // Cheap inventory only (walk + size). Full dedup is an explicit second step.
+  await withBusy($("org-preview"), "Looking inside…", async () => {
+    $("org-result").innerHTML = "";
+    $("org-dedup").disabled = true;
+    $("org-run").disabled = true;
+    const s = await api("/api/organize/inventory", { source });
+    renderInventoryResult(s);
+    if (!s.files) {
+      setWhy("Nothing to organize in this folder.");
+      return;
+    }
+    $("org-dedup").disabled = false;
+    setWhy("Check for duplicates before organizing.");
+  });
+});
+
+$("org-dedup").onclick = guarded(async () => {
+  const source = $("org-source").value.trim();
   const destination = $("org-dest").value.trim();
   if (!source) { setWhy("Pick a folder to organize first."); return; }
-  // Previewing a large source is minutes of real work (metadata, then hashing), so it gets
-  // the same progress display as a run rather than a card that says "Checking…" and freezes.
-  await withBusy($("org-preview"), "Checking folder…", async ({ setStatus }) => {
-    $("org-result").innerHTML = "";
+  await withBusy($("org-dedup"), "Checking for duplicates…", async ({ setStatus }) => {
+    $("org-run").disabled = true;
     orgProgress.start("starting");
     const started = await api("/api/organize/preview", { source, destination });
     if (started.ok === false) {
@@ -838,12 +873,10 @@ $("org-preview").onclick = guarded(async () => {
     const s = d.summary;
     if (!d.ok) { $("org-result").innerHTML = jobErrorCard(d); return; }
     if (d.status === "cancelled") {
-      // Never report a cancelled check as an empty folder: the run stopped, it did not
-      // find nothing. Same failure the "Done / nothing to do" blocker was.
       $("org-result").innerHTML = card(
-        `<div class="headline">Check cancelled</div><div class="k">Nothing was changed. Preview again when you are ready.</div>`);
+        `<div class="headline">Check cancelled</div><div class="k">Nothing was changed. Check again when you are ready.</div>`);
       $("org-run").disabled = true;
-      setWhy("Preview again to see what would happen.");
+      setWhy("Check for duplicates again to see what would happen.");
       return;
     }
     const kept = renderOrganizeResult(s);

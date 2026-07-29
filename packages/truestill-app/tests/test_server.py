@@ -111,6 +111,26 @@ def test_organize_preview_no_media(client: TestClient, tmp_path: Path) -> None:
     assert (done.get("summary") or done)["files"] == 0
 
 
+def test_organize_inventory_is_sync_and_cheap(client: TestClient, tmp_path: Path) -> None:
+    """Inventory is not a job: the response is the summary, with no SSE and no destination."""
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "a.jpg").write_bytes(b"one")
+    (src / "b.mp4").write_bytes(b"videodata")
+    (src / "c.pdf").write_bytes(b"%PDF")
+
+    r = client.post(f"/api/organize/inventory?token={_TOKEN}", json={"source": str(src)})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["tier"] == "inventory"
+    assert body["files"] == 2
+    assert body["photos"] == 1
+    assert body["videos"] == 1
+    assert body["total_bytes"] == 3 + 9
+    assert body["skipped"]["documents"] == {".pdf": 1}
+    assert "job_id" not in body
+
+
 def test_preview_is_a_job_that_still_writes_nothing(client: TestClient, tmp_path: Path) -> None:
     """Preview moved onto the job/SSE path so it can show progress. It is still a dry run:
     the whole point of the conversion was *how* the answer arrives, not what it costs."""

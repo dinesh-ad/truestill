@@ -191,6 +191,23 @@ class SourceScan:
     unrecognized: list[Path]
 
 
+@dataclass(frozen=True, slots=True)
+class SourceInventory:
+    """Cheap walk + size summary for progressive disclosure (backlog tt).
+
+    No exiftool, no hashing. Complexity: **O(n)** files (one directory walk, one ``stat``
+    per media file for ``total_bytes``).
+    """
+
+    files: int
+    photos: int
+    videos: int
+    audio: int
+    by_format: dict[str, dict[str, int]]
+    total_bytes: int
+    skipped: dict[str, dict[str, int]]
+
+
 def scan_source(source: Path, *, all_files: bool = False) -> SourceScan:
     """Walk ``source`` once, partitioning files into media / documents / unrecognized.
 
@@ -218,6 +235,68 @@ def scan_source(source: Path, *, all_files: bool = False) -> SourceScan:
 def discover(source: Path, *, all_files: bool = False) -> list[Path]:
     """Return media files under ``source``, sorted, skipping hidden paths."""
     return scan_source(source, all_files=all_files).media
+
+
+def _bytes_of(paths: Sequence[Path]) -> int:
+    """Sum ``st_size`` for ``paths``. Unreadable entries contribute 0."""
+    total = 0
+    for path in paths:
+        try:
+            total += path.stat().st_size
+        except OSError:
+            continue
+    return total
+
+
+def _skipped_extension_counts(scan: SourceScan) -> dict[str, dict[str, int]]:
+    return {
+        "documents": dict(Counter(p.suffix.lower() or "(no ext)" for p in scan.documents)),
+        "unrecognized": dict(Counter(p.suffix.lower() or "(no ext)" for p in scan.unrecognized)),
+    }
+
+
+def _media_format_breakdown(
+    paths: Sequence[Path],
+) -> tuple[dict[str, int], dict[str, dict[str, int]]]:
+    """Photo / video / audio counts and per-extension tallies from path suffixes only."""
+    counts = {"photos": 0, "videos": 0, "audio": 0}
+    plural = {"photo": "photos", "video": "videos", "audio": "audio"}
+    fmt: dict[str, Counter[str]] = {
+        "photos": Counter(),
+        "videos": Counter(),
+        "audio": Counter(),
+    }
+    for path in paths:
+        kind = media_kind(path.name)
+        if kind is None:
+            continue
+        group = plural[kind]
+        counts[group] += 1
+        fmt[group][path.suffix.lower().lstrip(".") or "(no ext)"] += 1
+    return counts, {g: dict(c.most_common()) for g, c in fmt.items()}
+
+
+def inventory_source(source: Path, *, all_files: bool = False) -> SourceInventory:
+    """Return counts by type/extension and total media bytes, with no metadata or hashing.
+
+    Size comes from a **dedicated ``stat`` pass over media** after :func:`scan_source`, not
+    from surfacing ``scan._sizes`` inside ``compute_hashes``: inventory must stay off the
+    expensive path, and ``scan_source`` stays a partition-only walk reused by discover /
+    organize. Profile evidence (``docs/preview-performance-profile.md``): that ``stat`` pass
+    is ~0.3 s on pCloud for 2,064 files against ~231 s for exiftool - near-free relative to
+    the full preview.
+    """
+    scan = scan_source(source, all_files=all_files)
+    counts, by_format = _media_format_breakdown(scan.media)
+    return SourceInventory(
+        files=len(scan.media),
+        photos=counts["photos"],
+        videos=counts["videos"],
+        audio=counts["audio"],
+        by_format=by_format,
+        total_bytes=_bytes_of(scan.media),
+        skipped=_skipped_extension_counts(scan),
+    )
 
 
 def build_relative(

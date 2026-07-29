@@ -124,6 +124,11 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
         html = html.replace("{{STALE_WARNING}}", _STALE_BANNER if stale else "")
         return HTMLResponse(html.replace("{{VERSION}}", __version__))
 
+    async def organize_inventory(request: Request) -> JSONResponse:
+        # Sync and cheap: walk + stat only. Not a job - that is the point of (tt).
+        body = await request.json()
+        return JSONResponse(service.organize_inventory(Path(body["source"])))
+
     async def organize_preview(request: Request) -> JSONResponse:
         # A job like every other long operation -- on a large source this is the first long
         # wait a user meets, so it gets the same progress display rather than a frozen card.
@@ -452,6 +457,7 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
 
     routes = [
         Route("/", home),
+        Route("/api/organize/inventory", organize_inventory, methods=["POST"]),
         Route("/api/organize/preview", organize_preview, methods=["POST"]),
         Route("/api/organize/run", organize_run, methods=["POST"]),
         Route("/api/verify/run", verify_run, methods=["POST"]),
