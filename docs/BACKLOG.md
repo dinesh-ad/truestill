@@ -18,7 +18,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(nn). Next free: (oo).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(pp). Next free: (qq).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -28,6 +28,72 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved, not yet built
+
+- **(oo) Long-running actions must show they are running.** Ruled by Dinesh from a soak
+  finding, 2026-07-29, same class as the silent-failure gap fixed in `670ab5d` - that one hid
+  **errors**, this one hides **work**.
+  - **The finding.** After "Save names" on a 2,057-photo trip over a pCloud mount, the preview
+    step (`/api/events/{session}/preview`) took **~3 minutes with zero UI feedback** - no
+    spinner, no progress text, no disabled button. The screen looked frozen. A user in that
+    position will assume it is broken, click the button again, or force-quit mid-operation -
+    the same "did anything happen?" defect the ten soak findings in `PROJECT_STATUS.md` §2.1
+    were made of, just on the *work* axis instead of the *error* axis.
+  - **Root cause, verified in code, not guessed.** Two different mechanisms exist side by side.
+    `organize_preview`/`organize_run`/`verify_run`/`backup_run`/`migrate_run`/
+    `events_apply_to_disk` all go through `jobs.start(...)` - a background job the client polls
+    via `streamJob`/SSE, with a real progress bar (`createProgress`). Everything else is a
+    **plain, blocking request/response** with no progress channel at all:
+    `backup_preview`, `migrate_preview`, `ingest_preview` (Import), `events_propose` (Find
+    trips & events), `events_merge`, `events_split`, `events_apply`, and
+    **`events_preview`** - the exact call this finding is about. Nothing about `events_preview`
+    is special; it simply happens to be the one that runs long enough (a real `migrate.py`
+    plan over 2,057 files on a network mount) to expose that none of this group has ever had a
+    busy state.
+  - **Requirement.** Every action that can exceed ~1s must: (1) show busy state on its own
+    trigger the instant it is clicked (disabled/spinner), (2) show a progress or status line
+    naming what is happening **and its scale** ("Planning moves for 2,057 photos…", not just
+    "Working…"), and (3) refuse a second click while the first run is still in flight - the job
+    system already gives (1)/(3) for free (a job has an id and a running state to check against);
+    the plain-call group has none of the three today.
+  - **Scope: audit every long-running action, not just this one** - organize, verify, migrate
+    preview *and* apply, backup, find trips (propose/merge/split/apply), and import all need the
+    same look, per Dinesh's explicit instruction. The likely fix threads the already-existing
+    job/`streamJob`/`createProgress` machinery under the plain-call group above, rather than
+    inventing a second progress mechanism - but that design call belongs to whichever session
+    builds this, not here.
+  - **Not fixed here, on purpose** - recorded only, per instruction.
+
+- **(pp) No in-app undo for a trip/migration apply-to-disk - CLI-only today, and the visible
+  in-app "undo" is the wrong one.** Ruled by Dinesh from a soak finding, 2026-07-29. **Priority:
+  high for launch** - a destructive, user-facing action whose only undo is a terminal command is
+  not shippable to non-technical users.
+  - **The finding.** `migrate.py`'s reversal (`undo_migration`, keyed on
+    `catalog.reversible_migration(drive_uuid)`) exists and works - it is the mechanism behind
+    `truestill migrate-layout <path> --undo` (preview) / `--undo --apply` (typed `undo`
+    confirm) - but it is wired **only into the CLI** (`cli.py`'s `_cmd_migrate_undo`). Nothing
+    in `server.py` exposes it, and nothing in `app.js` links to it. A user who names trips,
+    applies them to disk from the app, and regrets it has no way back inside the app at all.
+  - **The mismatch is worse than the absence.** The only "undo" string the app shows anywhere
+    is `truestill undo-organize` (in the in-place-organize completion card) - a **different**
+    reversal, for a **different** operation (a rename-based in-place run, `inplace_runs`/
+    `inplace_moves`), sharing no code with `migrate.py`'s journal. A user who applies trips,
+    sees "undo" mentioned elsewhere in the app, and reasonably assumes it covers what they just
+    did would run the wrong command, or find it does nothing for their situation, and conclude
+    truestill has no undo at all.
+  - **Requirement.** An in-app undo for the last migration/trip apply, reachable from the
+    apply-to-disk completion card while `catalog.reversible_migration` for that drive still
+    resolves - i.e. exactly the window in which the CLI command would also still work. Same
+    discipline as every other destructive action in this app: preview first (what would be put
+    back, what would be refused), then a typed confirm, never a single click. Reuses
+    `undo_migration` directly - this is a UI/wiring gap, not a new reversal mechanism to design.
+  - **Must state plainly, in the UI, that only the MOST RECENT migration on that drive is
+    reversible.** `start_migration_run` deletes the previous run's journal the moment a new one
+    starts - "exactly one run's worth of reversal record exists per drive, and it is always the
+    newest one" (`migrate.py`). Running *any* further migration on that drive - another trip
+    apply, an event apply, a plain Settings migrate-layout - retires this window silently
+    unless the UI says so. The completion card is exactly the moment to say it, since it is the
+    last point at which the record is guaranteed to still be armed.
+  - **Not fixed here, on purpose** - recorded only, per instruction.
 
 - **(nn) Prove destination timestamp parity against a live rclone remote.** The destination
   timestamp seam is implemented for rclone as `touch --no-create --timestamp`. The installed
