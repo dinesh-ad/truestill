@@ -1,13 +1,18 @@
 # Organize preview performance profile (backlog ss)
 
 **Status: Research / measurement only (2026-07-29). No product behaviour changed.**
-Raw JSON from the runs lives in [`docs/profile-runs/`](profile-runs/). Re-run with
-[`scripts/profile_organize_preview.py`](../scripts/profile_organize_preview.py).
+Raw JSON from the runs lives in [`docs/profile-runs/`](profile-runs/).
+
+**Corpus fence (2026-07-30):** these numbers were taken on
+`Crypto Folder/Photos/Vintage/.../Wayanad '14`, which is now **OFF LIMITS** (see
+`PROJECT_STATUS.md` §4). Do **not** re-run this script against that tree. Keep the
+figures as a historical FUSE cold-preview record; any new before/after must use an
+allowed target (relocated Memory Cabinet, Output, or `/home/dinesh/pCloudDrive/2015` -
+see `PROJECT_STATUS.md` §4).
 
 This answers the open question in `BACKLOG.md` **(ss)**: which of {stat, exiftool,
-hash-worthy reads} actually dominates on the real pCloud FUSE folder, and what the
-local-vs-FUSE delta is. It does **not** propose a fix; Commit 3 of the (ss)+(tt) series
-is the only place that may change behaviour, and only against these numbers.
+hash-worthy reads} actually dominates on a pCloud FUSE folder, and what the
+local-vs-FUSE delta is. It does **not** propose a fix.
 
 ---
 
@@ -15,9 +20,9 @@ is the only place that may change behaviour, and only against these numbers.
 
 | | |
 |---|---|
-| **Corpus** | Wayanad '14 - **2,064 media** (2,061 images, 3 videos), 0 documents / unrecognized |
-| **pCloud (FUSE)** | `<pCloud FUSE>/Crypto Folder/Photos/Vintage/2014/Wayanad '14` |
-| **Local (ext4)** | `<local ext4>/TruestillLibrary/Input/2014/Wayanad '14` (byte-same library) |
+| **Corpus (historical, OFF LIMITS to re-run)** | Wayanad '14 - **2,064 media** (2,061 images, 3 videos), 0 documents / unrecognized |
+| **pCloud (FUSE) path used 2026-07-29** | `<pCloud FUSE>/Crypto Folder/Photos/Vintage/2014/Wayanad '14` - **do not re-profile** |
+| **Local (ext4) twin used 2026-07-29** | `<local ext4>/TruestillLibrary/Input/2014/Wayanad '14` (byte-same library copy) |
 | **Pipeline** | Same call sequence as `service.organize_preview` (walk → `read_metadata` → plan/index → `compute_hashes` → dedup classify → summarize) |
 | **Catalog / cache** | **Cold** throwaway temp dir each run (empty `catalog.sqlite` + empty hash cache) - matches the first-preview cost (ss) recorded |
 | **Host** | AMD Ryzen 7 4800H (16 threads), Linux, Python 3.13, exiftool present, default thread pool (`os.cpu_count()` workers) |
@@ -121,7 +126,12 @@ FUSE pain is **open/read latency on the two full passes (exiftool + Pillow)**, n
 
 ## 6. Reproducibility
 
+**Do not re-run against `Photos/Vintage`.** The commands below are historical only; they
+document how the JSON in `docs/profile-runs/` was produced. New profiles must use an
+allowed corpus (`PROJECT_STATUS.md` §4).
+
 ```sh
+# HISTORICAL - path is now OFF LIMITS; do not execute against Photos/Vintage
 uv run python scripts/profile_organize_preview.py \
   --source "/path/to/Wayanad '14" --label local \
   --json-out docs/profile-runs/wayanad-local.json
@@ -131,13 +141,17 @@ uv run python scripts/profile_organize_preview.py \
   --json-out docs/profile-runs/wayanad-pcloud.json
 ```
 
-pCloud Crypto Folder must be unlocked; a locked crypto mount returns `PermissionError` mid-hash (observed once during this session before a successful re-run).
+A locked Crypto Folder mount returned `PermissionError` mid-hash once during the original
+session before a successful re-run.
 
 ---
 
-## 7. Follow-up measurement - metadata cache (2026-07-29, same folder)
+## 7. Follow-up measurement - metadata cache (2026-07-29, same historical corpus)
 
-After extending `HashCache` to store requested exiftool tags (same path+size+mtime_ns key):
+After extending `HashCache` to store requested exiftool tags (same path+size+mtime_ns key).
+**Same OFF-LIMITS Vintage Wayanad '14 pCloud folder** as §1-§5 (not Memory Cabinet / Output /
+2015). Catalog + hash-cache sidecars were throwaway temp dirs; warm numbers are that
+sidecar, not a write into the photo tree.
 
 | Pass | Wall | Notes |
 |---|---:|---|
@@ -148,3 +162,7 @@ After extending `HashCache` to store requested exiftool tags (same path+size+mti
 Remaining warm cost is hashing/perceptual (and walk/stat), not metadata. Force re-read
 (`--refresh-metadata` / app checkbox) bypasses the metadata half when an editor changes tags
 without bumping mtime.
+
+A later cold re-profile of the same OFF-LIMITS folder (after 3a, still empty throwaway
+caches) measured **~180 s** wall (exiftool ~56%, hashing wall ~43%) - same corpus
+attribution; variance vs 243 s is mount/cache-state, not a different folder.

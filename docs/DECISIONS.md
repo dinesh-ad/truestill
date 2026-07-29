@@ -351,8 +351,8 @@ because it is a compiled dependency that must build across platforms. That is **
 the `blake3` PyPI package ships prebuilt wheels for most environments and needs no Rust
 toolchain for typical users. That argument is withdrawn.
 
-**The measured reason, which is stronger** (`docs/preview-performance-profile.md`, Wayanad '14,
-2,064 files, cold pCloud preview):
+**The measured reason, which is stronger** (`docs/preview-performance-profile.md`, historical
+Wayanad '14 on `Photos/Vintage` - now OFF LIMITS to re-run; 2,064 files, cold pCloud preview):
 
 - SHA-256 ran on **22 of 2,064 files** (~1% after the size pre-filter) and offers about
   **1.03×** headroom if it went to zero.

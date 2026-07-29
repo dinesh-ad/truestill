@@ -214,6 +214,19 @@ would have told anyone looking at it, rather than requiring a `git log` to expla
 to work." Three fixtures (2 browser e2e, 1 server unit test), each proven to fail against its
 named mutation.
 
+**A thirteenth, soak-class finding, 2026-07-30 - moving a connected drive.** The Memory
+Cabinet was relocated from `.../Crypto Folder/The Memory Cabinet` to
+`/home/dinesh/pCloudDrive/The Memory Cabinet` (same marker uuid
+`6f43b678-cf68-4943-9de7-a5309d82a62f`). Custody data is fine: `drives` is uuid+label only,
+`file_copies.relative` is remount-safe, and `locate_drive` on the **new** root still
+resolves the marker. What is **not** fine: catalog settings store absolute path *hints*
+(`path_hint.backup`, `path_hint.drive.<uuid>`). The soak catalog still has
+`path_hint.backup = .../Crypto Folder/The Memory Cabinet`. After Crypto locked, that
+stale path raises raw `PermissionError` from `Path.exists` inside `locate_drive` - not a
+"drive moved; browse to the new root" correction. Drive cards that still hold a stale
+hint offer "Check now" / open-in-file-manager against the dead path. **Recorded, not
+fixed here.** People move drives; this is a real user scenario. See backlog **(ww)**.
+
 ### 2.2 CLOSED: the tab-tour findings - **the trip arc completed end to end (13.0-13.4, `db5e517`)**
 
 **Read this section first if you are resuming**, to see what the project just finished before
@@ -398,6 +411,15 @@ the full text; this is the short list nobody should have to rediscover.
   Never silently comply and never silently deviate.
 - **Dry-run is the default.** Planning writes nothing; `--apply` is the only writing path.
   A read must never write - this bit the drive marker and is now a binding rule.
+- **Allowed real-library test/profile/soak targets only.** From 2026-07-30 (updated after
+  Cabinet left Crypto Folder): agents may test, profile, or soak against **only**
+  (1) **The Memory Cabinet** at `/home/dinesh/pCloudDrive/The Memory Cabinet`
+  (marker uuid `6f43b678-cf68-4943-9de7-a5309d82a62f` - identity is the marker, not the
+  old Crypto path), (2) **Output** at `/home/dinesh/TruestillLibrary/Output`, and
+  (3) **`/home/dinesh/pCloudDrive/2015`** when that root exists (non-Crypto pCloud).
+  **Everything under `/home/dinesh/pCloudDrive/Crypto Folder/` is OFF LIMITS** - do not
+  traverse, list, or read it (locked or soon locked). If a task appears to need it,
+  **STOP and ask**; do not decide that read-only is safe.
 - **Copy-only.** Never move or delete a user's file except via the three scoped, opt-in paths
   - and know which gate each one has, because they are not the same gate:
   - `--move` and `reclaim` are **verify-gated**: the source goes only after a destination copy

@@ -190,15 +190,26 @@ is invisible here is retired, not free.**
     slowness is not explained by either mechanism's absence; **do not build them again** -
     whoever picks this up should confirm they are live on the affected path first.
   - **Cold-preview phase profile measured 2026-07-29** - see
-    [`docs/preview-performance-profile.md`](preview-performance-profile.md). On the real
-    Wayanad '14 folder (2,064 files), **exiftool is 74% of pCloud wall** (231 s); hashing wall
-    is 26% and is almost entirely unconditional `perceptual_hash` (SHA-256 already ~1% of
-    files via `_needs_sha`). FUSE vs local gap is 13×, ~75% of it exiftool. Stat/walk are
-    noise. Repeat-cache behaviour on FUSE is still unmeasured (this profile used a cold
-    throwaway catalog).
-  - **Requirement for any fix:** measured **before/after on the real pCloud folder**, not a
-    synthetic fixture - a fixture cannot reproduce FUSE/network latency, which this finding's
-    own numbers say is the actual variable.
+    [`docs/preview-performance-profile.md`](preview-performance-profile.md). Numbers came from
+    **`Crypto Folder/Photos/Vintage/.../Wayanad '14`** (2,064 files) - that tree is now
+    **OFF LIMITS** (`PROJECT_STATUS.md` §4); keep the figures as historical only. On that
+    run, **exiftool is 74% of pCloud wall** (231 s); hashing wall is 26% and is almost
+    entirely unconditional `perceptual_hash` (SHA-256 already ~1% of files via `_needs_sha`).
+    FUSE vs local gap is 13×, ~75% of it exiftool. Stat/walk are noise. Local twin was
+    `TruestillLibrary/Input/2014/Wayanad '14`.
+  - **Requirement for any fix:** measured **before/after on an allowed real pCloud / FUSE
+    corpus** (relocated Memory Cabinet, Output, or `/home/dinesh/pCloudDrive/2015`) - not a
+    synthetic fixture, and **not** anything under `Crypto Folder/` (`PROJECT_STATUS.md` §4).
+- **(ww) Stale absolute path hints after a drive moves.** Ruled by Dinesh from a soak
+  finding, 2026-07-30: The Memory Cabinet kept its marker uuid after leaving Crypto Folder,
+  but `path_hint.backup` (and drive-card `path_hint.drive.<uuid>` when set) still pointed at
+  the old Crypto path. With Crypto locked, `locate_drive` / `Path.exists` raise raw
+  `PermissionError` instead of a remount/browse correction; "Check now" / open-folder can
+  target the dead path. Custody rows (`drives` uuid, `file_copies.relative`) need no update.
+  - **Fix direction (not built):** treat missing/unreadable hints as absent; never surface a
+    path that fails `exists`/`stat` without a clear "moved or locked - pick the folder again"
+    path; refresh hints whenever a marked root is successfully used.
+  - **Not fixed here, on purpose** - recorded only, per instruction.
   - **Not fixed here, on purpose** - recorded only, per instruction.
 
 - **(tt) No fast, no-hashing inventory - progressive disclosure is missing.** Ruled by Dinesh
