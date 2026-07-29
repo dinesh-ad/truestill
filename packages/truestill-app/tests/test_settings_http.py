@@ -70,6 +70,36 @@ def test_migrate_preview_requires_a_connected_drive(client: TestClient, tmp_path
     assert "drive" in r["error"]
 
 
+@pytest.mark.parametrize("endpoint", ["/api/migrate/preview", "/api/events/propose"])
+def test_drive_preview_endpoints_never_refresh_the_catalog(
+    client: TestClient, db_path: Path, tmp_path: Path, endpoint: str
+) -> None:
+    """A connected-drive preview is still a read, including its drive discovery.
+
+    The marker deliberately disagrees with the catalog: an accidental `upsert_drive` therefore
+    changes both observable state and the database bytes, proving the guard is not a timestamp
+    coincidence and covering both migration preview and Trips & events review startup.
+    """
+    drive = tmp_path / "drive"
+    drive.mkdir()
+    marker = create_marker(drive, "Marker Label")
+    with Catalog(db_path) as catalog:
+        catalog.upsert_drive(uuid=marker.uuid, label="Catalog Label")
+        before_row = dict(catalog.list_drives()[0])
+    before_db = db_path.read_bytes()
+
+    response = client.post(endpoint, json={"path": str(drive)})
+
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+    assert db_path.read_bytes() == before_db
+    with Catalog(db_path) as catalog:
+        after_row = dict(catalog.list_drives()[0])
+    assert after_row["label"] == "Catalog Label"
+    assert after_row["last_seen"] == before_row["last_seen"]
+    assert after_row == before_row
+
+
 def test_migrate_preview_lists_moves(client: TestClient, tmp_path: Path) -> None:
     drive = tmp_path / "drive"
     drive.mkdir()

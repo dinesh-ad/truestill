@@ -1001,7 +1001,6 @@ def propose_events(path: Path, db: Path) -> dict[str, Any]:
     if marker is None:
         return {"ok": False, **_drive_correction(path)}
     with Catalog(db) as catalog:
-        catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
         review = assemble_trip_review(catalog, marker.uuid)
     return {
         "ok": True,
@@ -1037,7 +1036,6 @@ def migration_preview(path: Path, db: Path) -> dict[str, Any]:
     if marker is None:
         return {"ok": False, **_drive_correction(path)}
     with Catalog(db) as catalog:
-        catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
         scheme = resolve_scheme(catalog)
         routes, rules_by_sha = _resolve_migration_routes(catalog, marker.uuid, path)
         outcome = run_migration(
