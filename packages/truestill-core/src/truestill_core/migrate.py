@@ -506,6 +506,7 @@ def undo_migration(
     *,
     apply: bool,
     progress: ProgressCallback | None = None,
+    cancel: threading.Event | None = None,
 ) -> UndoOutcome:
     """Put a completed migration back, move by move, with the forward run's safety discipline.
 
@@ -517,10 +518,15 @@ def undo_migration(
 
     Interruption is safe for the same reason the forward run is: a row is dropped only after its
     file is verified back in place, so re-running continues from wherever it stopped.
+    ``cancel`` stops the walk early the same way; remaining journal rows stay for a resume.
 
     **A file that changed since the migration is refused, not clobbered.** If the copy at the new
     path no longer hashes to what the migration recorded, someone edited or replaced it, and
     putting the old path back would discard that work.
+
+    Progress fires on **every** row of the walk - preview and apply alike - so a multi-thousand
+    file check over a slow mount is never a silent freeze. Refused rows are reported in
+    ``UndoOutcome.refused`` and still tick the counter.
 
     ``O(moves in the run)``, paying the same hash-verify the forward path already pays.
     """
@@ -528,22 +534,36 @@ def undo_migration(
     if record is None:
         return UndoOutcome(reversed_files=0, refused=[])
     _, rows = record
+    total = len(rows)
 
     refused: list[tuple[str, str]] = []
     done = 0
+    processed = 0
     for row in rows:
+        if cancel is not None and cancel.is_set():
+            break
         new_relative = str(row["new_relative"])
         old_relative = str(row["old_relative"])
         expected = row["copy_sha256"]
+        item = PurePosixPath(old_relative).name
 
         if not destination.exists(new_relative):
             refused.append((new_relative, "the migrated copy is no longer there"))
+            processed += 1
+            if progress is not None:
+                progress(Progress(processed, total, Phase.RESTORING, item))
             continue
         if expected and destination.checksum(new_relative) != expected:
             refused.append((new_relative, "changed since the migration -- left untouched"))
+            processed += 1
+            if progress is not None:
+                progress(Progress(processed, total, Phase.RESTORING, item))
             continue
         if not apply:
             done += 1
+            processed += 1
+            if progress is not None:
+                progress(Progress(processed, total, Phase.RESTORING, item))
             continue
 
         destination.relocate(new_relative, old_relative)
@@ -557,7 +577,8 @@ def undo_migration(
             destination.remove(new_relative)
         catalog.forget_migration_move(str(row["sha256"]), drive_uuid)
         done += 1
+        processed += 1
         if progress is not None:
-            progress(Progress(done, len(rows), Phase.MOVING, PurePosixPath(old_relative).name))
+            progress(Progress(processed, total, Phase.RESTORING, item))
 
     return UndoOutcome(reversed_files=done, refused=refused)

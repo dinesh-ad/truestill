@@ -6,6 +6,7 @@ of the copy -> verify -> flip-catalog -> remove-old sequence, then assert a re-r
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path, PurePosixPath
 
 import pytest
@@ -25,6 +26,7 @@ from truestill_core.migrate import (
     run_migration,
     undo_migration,
 )
+from truestill_core.progress import Progress
 
 
 def _scheme(template: str) -> LayoutScheme:
@@ -388,6 +390,116 @@ def test_undo_refuses_a_file_that_changed_since_the_migration(tmp_path: Path) ->
         assert "changed since the migration" in outcome.refused[0][1]
         assert moved.read_bytes() == b"edited since the migration"
         assert catalog.reversible_migration("D1") is not None  # its record survives for a retry
+
+
+def test_undo_preview_emits_progress_for_every_row(tmp_path: Path) -> None:
+    """Preview pays the exists+checksum walk; silence on that walk is the (oo)-class freeze."""
+    root = tmp_path / "drive"
+    ticks: list[tuple[int, int, str, str]] = []
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        _two_files(catalog, root)
+        dest = LocalDestination(root)
+        run_migration(catalog, dest, "D1", _scheme("{yyyy}/{yyyy}-{mm}"), apply=True)
+        before_tree = _fingerprint(root)
+        before_bytes = (tmp_path / "c.sqlite").read_bytes()
+
+        outcome = undo_migration(
+            catalog,
+            dest,
+            "D1",
+            apply=False,
+            progress=lambda p: ticks.append((p.done, p.total, p.phase, p.item)),
+        )
+
+        assert outcome.reversed_files == 2
+        assert outcome.clean
+        assert len(ticks) == 2
+        assert [t[0] for t in ticks] == [1, 2]
+        assert {t[1] for t in ticks} == {2}
+        assert {t[2] for t in ticks} == {"restoring"}
+        assert _fingerprint(root) == before_tree
+        assert (tmp_path / "c.sqlite").read_bytes() == before_bytes
+
+
+def test_undo_preview_progress_ticks_refused_rows_too(tmp_path: Path) -> None:
+    """A refused row is still work the walk did - the bar must move for it, never freeze."""
+    root = tmp_path / "drive"
+    ticks: list[int] = []
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        _two_files(catalog, root)
+        dest = LocalDestination(root)
+        run_migration(catalog, dest, "D1", _scheme("{yyyy}/{yyyy}-{mm}"), apply=True)
+        record = catalog.reversible_migration("D1")
+        assert record is not None
+        (root / str(record[1][0]["new_relative"])).write_bytes(b"edited")
+
+        outcome = undo_migration(
+            catalog,
+            dest,
+            "D1",
+            apply=False,
+            progress=lambda p: ticks.append(p.done),
+        )
+
+    assert outcome.reversed_files == 1
+    assert len(outcome.refused) == 1
+    assert ticks == [1, 2]
+
+
+def test_undo_cancel_stops_the_walk_and_leaves_the_journal_resumable(tmp_path: Path) -> None:
+    """Cancel mid-apply forgets only verified rows; the rest stay for a resume."""
+    root = tmp_path / "drive"
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        _two_files(catalog, root)
+        before_tree = _fingerprint(root)
+        dest = LocalDestination(root)
+        run_migration(catalog, dest, "D1", _scheme("{yyyy}/{yyyy}-{mm}"), apply=True)
+        before_record = catalog.reversible_migration("D1")
+        assert before_record is not None
+        assert len(before_record[1]) == 2
+
+        cancel = threading.Event()
+        seen = 0
+
+        def _progress(_p: Progress) -> None:
+            nonlocal seen
+            seen += 1
+            if seen >= 1:
+                cancel.set()
+
+        partial = undo_migration(catalog, dest, "D1", apply=True, progress=_progress, cancel=cancel)
+
+        assert partial.reversed_files == 1
+        mid = catalog.reversible_migration("D1")
+        assert mid is not None
+        assert len(mid[1]) == 1  # one row remains; the forgotten one is gone
+
+        resumed = undo_migration(catalog, dest, "D1", apply=True)
+        assert resumed.reversed_files == 1
+        assert resumed.clean
+        assert catalog.reversible_migration("D1") is None
+        assert _fingerprint(root) == before_tree
+
+
+def test_undo_preview_cancel_writes_nothing(tmp_path: Path) -> None:
+    """A cancelled preview is still a preview: no relocate, no journal forget."""
+    root = tmp_path / "drive"
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        _two_files(catalog, root)
+        dest = LocalDestination(root)
+        run_migration(catalog, dest, "D1", _scheme("{yyyy}/{yyyy}-{mm}"), apply=True)
+        before_bytes = (tmp_path / "c.sqlite").read_bytes()
+        before_tree = _fingerprint(root)
+        cancel = threading.Event()
+        cancel.set()
+
+        outcome = undo_migration(catalog, dest, "D1", apply=False, cancel=cancel)
+
+        assert outcome.reversed_files == 0
+        assert outcome.refused == []
+        assert (tmp_path / "c.sqlite").read_bytes() == before_bytes
+        assert _fingerprint(root) == before_tree
+        assert catalog.reversible_migration("D1") is not None
 
 
 def test_a_new_migration_supersedes_the_previous_reversal_record(tmp_path: Path) -> None:
