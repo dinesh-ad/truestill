@@ -18,7 +18,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(rr). Next free: (ss).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(tt). Next free: (uu).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -145,6 +145,59 @@ is invisible here is retired, not free.**
     confirm the CLI requires, trash where supported) from there - reusing
     `emptied_directories`/`plan_cleanup`/`run_cleanup` directly, not designing a second
     mechanism. Do not auto-delete.
+  - **Not fixed here, on purpose** - recorded only, per instruction.
+
+- **(ss) Organize preview hashes every file before showing anything - slow on a network mount.**
+  Ruled by Dinesh from a soak finding, 2026-07-29: measured **9.9 files/sec on a 2,064-file
+  folder over a pCloud FUSE mount, ~8 minutes to see a preview at all** - against an industry
+  baseline of tens of thousands of files/sec for SHA-256 (the bottleneck is I/O, not the
+  algorithm), which points at the network mount, not the hash.
+  - **Checked in code before recording: both proposed fixes are already built.** The size-group
+    pre-filter is not a gap - `scan.py`'s `_needs_sha` already hashes only files whose byte size
+    collides within the scan or is already known to the catalog (`compute_hashes`'s whole
+    stated purpose, "concurrent hashing pass with a byte-size pre-filter"). The hash cache is
+    already wired into preview too - `service.organize_preview` opens `HashCache.beside(db)`
+    and passes it through to `resolve(...)`, the same cache backlog **(r)** shipped. So the
+    slowness is not explained by either mechanism's absence; **do not build them again** -
+    whoever picks this up should confirm they are live on the affected path first.
+  - **What is actually unconfirmed, and needs real measurement, not more code reading:**
+    1. Does a **repeat** preview of the *same* pCloud folder actually hit the cache and get
+       meaningfully faster - or does something about this environment (mtime resolution over
+       FUSE, a changing inode, a cache key mismatch) defeat it even though the mechanism exists?
+    2. `_needs_sha`'s own pre-filter still requires a `path.stat()` per file (for size *and*,
+       separately, the cache's own mtime check) before it can decide whether to hash at all -
+       on a network mount a `stat()` is its own round trip, not free, and neither the size
+       pre-filter nor the hash cache reduces the *number* of stats, only the number of full
+       reads. `read_metadata` (exiftool, called before hashing in `organize_preview`) is a
+       second, already-known-nontrivial cost with its own network round trip per file. Measure
+       which of {stat, exiftool, hash-worthy reads} is actually dominant on this real mount
+       before assuming the hash step itself is the target.
+  - **Requirement:** report measured **before/after on the real pCloud folder**, not a
+    synthetic fixture - a fixture cannot reproduce FUSE/network latency, which this finding's
+    own numbers say is the actual variable.
+  - **Not fixed here, on purpose** - recorded only, per instruction.
+
+- **(tt) No fast, no-hashing inventory - progressive disclosure is missing.** Ruled by Dinesh
+  from a soak finding, 2026-07-29, the natural complement to **(ss)**: a user who only wants
+  "how many photos/videos, which formats, how big" has to wait for the full hashing preview to
+  get an answer neither dedup nor dating touches.
+  - **The cheap data already exists, mid-pipeline, never surfaced on its own.**
+    `organizer.scan_source` is a plain directory walk - `path.is_file()` + extension checks,
+    no hashing, no exiftool - partitioning into `media`/`documents`/`unrecognized` in one pass.
+    `service.organize_preview` calls it and then, in the **same** synchronous call, immediately
+    goes on to `read_metadata` and `resolve(...)` (hashing + dedup) before anything is returned.
+    The cheap counts are computed today; they are just never shown before the expensive work
+    that follows them.
+  - **Not the same thing as backlog (r)'s Analyze mode - complementary, likely its precursor.**
+    (r)'s Analyze mode explicitly runs "the existing dry-run engine" for a *richer* report
+    (duplicates, look-alikes, capture-date range) - it is the same expensive pass as preview,
+    with better output, not a cheaper one. (tt) is the tier **before** that: counts/formats/
+    total size from the walk alone, shown **instantly**, with the full dedup preview (and,
+    later, Analyze) as an explicit next step the user asks for - progressive disclosure, not a
+    replacement for either existing tier.
+  - **Requirement:** an inventory pass - counts by media type and extension, total size, from
+    `scan_source` alone - returned and rendered immediately, before hashing starts; the current
+    full preview becomes an explicit second step from there, not the only entry point.
   - **Not fixed here, on purpose** - recorded only, per instruction.
 
 - **(nn) Prove destination timestamp parity against a live rclone remote.** The destination
