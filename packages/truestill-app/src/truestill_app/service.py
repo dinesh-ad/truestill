@@ -24,7 +24,7 @@ from truestill_core.categorize import build_rules
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import LocalDestination
 from truestill_core.drive import create_marker, locate_drive, read_marker
-from truestill_core.event_review import EventDecision, commit, propose, propose_from_catalog
+from truestill_core.event_review import EventDecision, commit, propose
 from truestill_core.exif import read_metadata
 from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import (
@@ -73,6 +73,7 @@ from truestill_core.organizer import (
 )
 from truestill_core.progress import Phase, Progress, ProgressCallback
 from truestill_core.takeout import scan_takeout
+from truestill_core.trip_review import ReviewCard, assemble_trip_review, decline_message
 from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
 
 from truestill_app.jobs import JobTarget
@@ -616,6 +617,27 @@ def cluster_json(cluster: Any) -> dict[str, Any]:
     }
 
 
+def review_card_json(card: ReviewCard) -> dict[str, Any]:
+    """Serialise one assembled review card (Stage 2d, 13.3b) - a multi-day trip or a standalone
+    day-event - for the review UI. ``kind`` ("trip" | "event") is the label the screen shows;
+    a standalone-day event keeps using :func:`cluster_json` unchanged, so its identity (a
+    signature over member SHA-256s) is untouched by this stage.
+    """
+    if card.trip is not None:
+        return {
+            "kind": card.kind,
+            "start": card.trip.start_date.isoformat(),
+            "end": card.trip.end_date.isoformat(),
+            "count": sum(card.trip.days.values()),
+            "days": [
+                {"date": day.isoformat(), "count": count}
+                for day, count in sorted(card.trip.days.items())
+            ],
+        }
+    assert card.event is not None
+    return {**cluster_json(card.event), "kind": card.kind}
+
+
 # --- Takeout rescue report (Rescue report screen) -------------------------------------
 
 
@@ -965,18 +987,30 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
 
 
 def propose_events(path: Path, db: Path) -> dict[str, Any]:
-    """Cluster trips from an already-organized connected drive (the 'review trips in place' path).
+    """Assemble trips and standalone day-events from an already-organized connected drive.
 
-    Returns the drive uuid + the cluster objects (the caller keeps them in a session for
+    Stage 2d, 13.3b's inversion: a genuine multi-day run assembles into ONE card; a standalone
+    active day still renders as its own (unchanged) day-event card. Returns the drive uuid + the
+    assembled review cards (the caller keeps them, and ``day_totals``, in a session for
     merge/split/name), or an error when the path is not a connected truestill drive.
+
+    A decline is named and explained (§3f), never folded into silence: each carries the exact
+    message detection's own ruling requires.
     """
     marker = read_marker(path)
     if marker is None:
         return {"ok": False, **_drive_correction(path)}
     with Catalog(db) as catalog:
         catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
-        clusters = propose_from_catalog(catalog, marker.uuid)
-    return {"ok": True, "uuid": marker.uuid, "label": marker.label, "clusters": clusters}
+        review = assemble_trip_review(catalog, marker.uuid)
+    return {
+        "ok": True,
+        "uuid": marker.uuid,
+        "label": marker.label,
+        "cards": review.cards,
+        "day_totals": review.day_totals,
+        "declines": [decline_message(decline) for decline in review.declines],
+    }
 
 
 def _resolve_migration_routes(

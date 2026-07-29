@@ -7,6 +7,7 @@ directly. Every data route is guarded by :class:`~truestill_app.security.LocalGu
 from __future__ import annotations
 
 import uuid
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -17,7 +18,15 @@ from starlette.routing import Route
 from starlette.staticfiles import StaticFiles
 from truestill_core.catalog import Catalog
 from truestill_core.event_review import EventDecision, commit_catalog
-from truestill_core.events import merge_candidates, split_candidate
+from truestill_core.events import split_candidate
+from truestill_core.trip_review import (
+    ReviewCard,
+    TripDecision,
+    TripMergeError,
+    commit_trips,
+    merge_review_cards,
+    split_trip,
+)
 
 from truestill_app import __version__, service
 from truestill_app.jobs import JobManager
@@ -144,81 +153,130 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
             {"job_id": jobs.start(service.migration_apply(Path(body["path"]), _db()))}
         )
 
-    # --- Event review (session-based; merge/split are UI-only, no CLI path) ---
+    # --- Trip/event review (session-based; merge/split are UI-only, no CLI path) ---
     sessions: dict[str, dict[str, Any]] = {}
 
-    def _clusters_payload(session_id: str, **extra: Any) -> JSONResponse:
-        clusters = sessions[session_id]["clusters"]
+    def _cards_payload(session_id: str, **extra: Any) -> JSONResponse:
+        cards = sessions[session_id]["cards"]
         return JSONResponse(
             {
                 "session": session_id,
-                "clusters": [service.cluster_json(c) for c in clusters],
+                "cards": [service.review_card_json(c) for c in cards],
                 **extra,
             }
         )
 
     async def events_propose(request: Request) -> JSONResponse:
-        """Review trips on an already-organized connected drive (not a fresh source import)."""
+        """Review trips and events on an already-organized connected drive (not a fresh import).
+
+        A genuine multi-day run (Stage 2b's `detect_trips`) assembles into ONE card; a standalone
+        active day still renders as its own (unchanged) day-event card - the 13.3b inversion.
+        """
         path = Path((await request.json())["path"])
         proposal = service.propose_events(path, _db())
         if not proposal["ok"]:
             return JSONResponse({"ok": False, "error": proposal["error"]})
         session_id = uuid.uuid4().hex
-        sessions[session_id] = {"path": str(path), "clusters": proposal["clusters"]}
-        return _clusters_payload(session_id, ok=True, label=proposal["label"])
+        sessions[session_id] = {
+            "path": str(path),
+            "cards": proposal["cards"],
+            "day_totals": proposal["day_totals"],
+        }
+        return _cards_payload(
+            session_id, ok=True, label=proposal["label"], declines=proposal["declines"]
+        )
 
     async def events_merge(request: Request) -> JSONResponse:
+        """Combine two or more cards the detector did not join into one trip (the gap case).
+
+        Refuses - reporting why, nothing merged - rather than producing a trip that would cross
+        a year boundary or exceed the max-span cap (§3e/§3f); the two rules a manual merge must
+        obey exactly like detection does.
+        """
         session_id = request.path_params["session"]
         indices: list[int] = (await request.json())["indices"]
-        clusters = sessions[session_id]["clusters"]
-        chosen = [clusters[i] for i in indices]
-        rest = [c for j, c in enumerate(clusters) if j not in set(indices)]
-        sessions[session_id]["clusters"] = [merge_candidates(chosen), *rest]
-        return _clusters_payload(session_id)
+        session = sessions[session_id]
+        cards: list[ReviewCard] = session["cards"]
+        chosen = [cards[i] for i in indices]
+        rest = [c for j, c in enumerate(cards) if j not in set(indices)]
+        try:
+            merged = merge_review_cards(chosen, session["day_totals"])
+        except TripMergeError as exc:
+            return JSONResponse({"error": str(exc)})
+        session["cards"] = [ReviewCard(trip=merged), *rest]
+        return _cards_payload(session_id)
 
     async def events_split(request: Request) -> JSONResponse:
+        """Break a wrongly-joined run into two - the primary adjustment.
+
+        An event card splits by file count (unchanged, `events.split_candidate`); a trip card
+        splits at a day boundary (`trip_review.split_trip`) - the two mirror each other, but a
+        trip's natural unit is the day, never an individual file.
+        """
         session_id = request.path_params["session"]
         body = await request.json()
-        clusters = sessions[session_id]["clusters"]
-        first, second = split_candidate(clusters[body["index"]], body["at"])
-        clusters[body["index"] : body["index"] + 1] = [first, second]
-        return _clusters_payload(session_id)
+        cards: list[ReviewCard] = sessions[session_id]["cards"]
+        card = cards[body["index"]]
+        if card.event is not None:
+            first_event, second_event = split_candidate(card.event, body["at"])
+            new_cards = [ReviewCard(event=first_event), ReviewCard(event=second_event)]
+        else:
+            assert card.trip is not None
+            first_trip, second_trip = split_trip(card.trip, date.fromisoformat(body["after_day"]))
+            new_cards = [ReviewCard(trip=first_trip), ReviewCard(trip=second_trip)]
+        cards[body["index"] : body["index"] + 1] = new_cards
+        return _cards_payload(session_id)
 
     async def events_apply(request: Request) -> JSONResponse:
-        """Name the reviewed trips: record each event and link its files (files.event_id).
+        """Name the reviewed trips and events: persist each decision.
 
-        This is the 'Save names' step. It changes only the catalog; the on-disk placement is a
-        separate, previewed, journalled migration (events_preview / events_apply_to_disk).
+        This is the 'Save names' step. It changes only the catalog: an event links its files
+        (`files.event_id`, unchanged) via `commit_catalog`; a trip persists `trips`/`trip_days`
+        via `commit_trips` (13.1) - no file is placed or moved by either. On-disk placement is a
+        separate, previewed, journalled migration (events_preview / events_apply_to_disk) that,
+        today, only understands event placements - a confirmed trip does not reach it yet
+        (Stage 13.4's job).
         """
         session_id = request.path_params["session"]
         names: list[str | None] = (await request.json())["names"]
         session = sessions[session_id]
-        decisions = [
-            EventDecision(cluster, name)
-            for cluster, name in zip(session["clusters"], names, strict=True)
-        ]
+        cards: list[ReviewCard] = session["cards"]
         with Catalog(_db()) as catalog:
-            named = commit_catalog(catalog, decisions)
-            # Remembered so apply-to-disk can report each one's real destination folder once the
-            # migration has actually placed its files there (13.3a) -- not a rename or a guess,
-            # just this session's own decisions, looked up again now that they are persisted.
+            event_decisions = [
+                EventDecision(card.event, name)
+                for card, name in zip(cards, names, strict=True)
+                if card.event is not None
+            ]
+            named_events_count = commit_catalog(catalog, event_decisions)
+
+            trip_decisions = [
+                TripDecision(card.trip, name)
+                for card, name in zip(cards, names, strict=True)
+                if card.trip is not None
+            ]
+            named_trips_count = commit_trips(catalog, trip_decisions)
+
+            # Remembered so apply-to-disk can report each named EVENT's real destination folder
+            # once the migration has actually placed its files there (13.3a) -- not a rename or a
+            # guess, just this session's own decisions, looked up again now that they are
+            # persisted. Trips are not tracked here: they do not reach apply-to-disk yet (13.4).
             named_events = []
-            for decision in decisions:
-                if not decision.name or not decision.name.strip():
+            for card, name in zip(cards, names, strict=True):
+                if card.event is None or not name or not name.strip():
                     continue
-                existing = catalog.event_by_signature(decision.cluster.signature)
+                existing = catalog.event_by_signature(card.event.signature)
                 if existing is None:
                     continue
                 named_events.append(
                     {
                         "event_id": int(existing["id"]),
                         "name": str(existing["name"]),
-                        "start": decision.cluster.start.isoformat(),
-                        "end": decision.cluster.end.isoformat(),
+                        "start": card.event.start.isoformat(),
+                        "end": card.event.end.isoformat(),
                     }
                 )
         session["named_events"] = named_events
-        return JSONResponse({"events": named})
+        return JSONResponse({"events": named_events_count, "trips": named_trips_count})
 
     async def events_preview(request: Request) -> JSONResponse:
         """Preview where the just-named trips will move the drive's files (moves nothing)."""

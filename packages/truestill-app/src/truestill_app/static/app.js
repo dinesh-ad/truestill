@@ -764,27 +764,63 @@ $("rc-preview").onclick = async () => {
 };
 
 // ---------- Trips & events ----------
+// 13.3b's inversion: detect_trips runs first, so a genuine multi-day run already arrives as ONE
+// card (kind "trip"); a standalone active day arrives as its own card (kind "event") exactly as
+// before. Split is the primary adjustment (break a wrongly-joined run); merge is secondary (join
+// a gap detection didn't bridge) and must obey §3e/§3f, which the server enforces and reports
+// back as {error: "..."} - refused, never silently dropped.
 let evSession = null;
-function renderClusters(clusters) {
-  $("ev-actions-card").classList.toggle("hidden", clusters.length === 0);
-  $("ev-merge").classList.toggle("hidden", clusters.length < 2);
-  $("ev-clusters").innerHTML = clusters.length
-    ? clusters.map((c, i) => `<div class="card"><div class="tally" style="grid-template-columns:1fr auto">
-        <div><b>${nfmt(c.count)} photos</b><div class="k mono">${c.start.slice(0, 10)} → ${c.end.slice(0, 10)}</div></div>
+function evCardHtml(c, i) {
+  const isTrip = c.kind === "trip";
+  const span = isTrip ? `${c.start} → ${c.end}` : `${c.start.slice(0, 10)} → ${c.end.slice(0, 10)}`;
+  const days = isTrip
+    ? `<details class="more"><summary>${plural(c.days.length, "day")}</summary>
+         <div class="mono k">${c.days.map((d) => `${d.date}: ${plural(d.count, "photo")}`).join("<br>")}</div></details>`
+    : "";
+  const splitAttrs = isTrip
+    ? `data-kind="trip" data-days="${esc(c.days.map((d) => d.date).join(","))}"`
+    : `data-kind="event" data-count="${c.count}"`;
+  return `<div class="card"><div class="tally" style="grid-template-columns:1fr auto">
+        <div><b>${isTrip ? "TRIP" : "EVENT"} · ${nfmt(c.count)} photos</b><div class="k mono">${span}</div></div>
         <label class="k"><input type="checkbox" class="ev-check" data-i="${i}"> merge</label></div>
-        <div class="row" style="margin-top:var(--space-2)"><input class="input ev-name" data-i="${i}" placeholder="name this trip (leave blank to skip)">
-        <button class="btn btn-secondary ev-split" data-i="${i}" data-count="${c.count}">Split</button></div></div>`).join("")
-    : `<div class="card"><div class="empty">No trips found - needs enough camera photos taken close together.</div></div>`;
+        ${days}
+        <div class="row" style="margin-top:var(--space-2)"><input class="input ev-name" data-i="${i}" placeholder="name this ${isTrip ? "trip" : "event"} (leave blank to skip)">
+        <button class="btn btn-secondary ev-split" data-i="${i}" ${splitAttrs}>Split</button></div></div>`;
+}
+function renderCards(cards) {
+  $("ev-actions-card").classList.toggle("hidden", cards.length === 0);
+  $("ev-merge").classList.toggle("hidden", cards.length < 2);
+  $("ev-clusters").innerHTML = cards.length
+    ? cards.map((c, i) => evCardHtml(c, i)).join("")
+    : `<div class="card"><div class="empty">No trips or events found - needs enough camera photos taken close together.</div></div>`;
   $("ev-clusters").querySelectorAll(".ev-split").forEach((b) => {
     b.onclick = async () => {
-      const at = parseInt(prompt(`Split after how many photos? (1..${b.dataset.count - 1})`), 10);
-      if (!at) return;
-      renderClusters((await api(`/api/events/${evSession}/split`, { index: +b.dataset.i, at })).clusters);
+      let body;
+      if (b.dataset.kind === "trip") {
+        const splittable = b.dataset.days.split(",").slice(0, -1);
+        const after = prompt(`Split after which day? (${splittable.join(", ")})`);
+        if (!after) return;
+        body = { index: +b.dataset.i, after_day: after.trim() };
+      } else {
+        const at = parseInt(prompt(`Split after how many photos? (1..${b.dataset.count - 1})`), 10);
+        if (!at) return;
+        body = { index: +b.dataset.i, at };
+      }
+      renderCards((await api(`/api/events/${evSession}/split`, body)).cards);
     };
   });
 }
+function renderDeclines(declines) {
+  $("ev-declines").innerHTML = (declines || [])
+    .map(
+      (msg) =>
+        `<div class="banner warn"><div><div class="b-title">A run was not proposed as a trip</div>${esc(msg)}</div></div>`
+    )
+    .join("");
+}
 $("ev-propose").onclick = async () => {
   $("ev-result").innerHTML = "";
+  $("ev-declines").innerHTML = "";
   $("ev-apply-card").classList.add("hidden");
   const r = await api("/api/events/propose", { path: $("ev-source").value.trim() });
   if (r.ok === false) {
@@ -793,12 +829,21 @@ $("ev-propose").onclick = async () => {
     return;
   }
   evSession = r.session;
-  renderClusters(r.clusters);
+  renderDeclines(r.declines);
+  renderCards(r.cards);
 };
 $("ev-merge").onclick = async () => {
   const indices = [...document.querySelectorAll(".ev-check:checked")].map((c) => +c.dataset.i);
   if (indices.length < 2) return;
-  renderClusters((await api(`/api/events/${evSession}/merge`, { indices })).clusters);
+  const r = await api(`/api/events/${evSession}/merge`, { indices });
+  if (r.error) {
+    $("ev-clusters").insertAdjacentHTML(
+      "afterbegin",
+      `<div class="banner warn"><div><div class="b-title">Can't merge these</div>${esc(r.error)}</div></div>`
+    );
+    return;
+  }
+  renderCards(r.cards);
 };
 $("ev-apply").onclick = async () => {
   const names = [...document.querySelectorAll("#ev-clusters .card")].map((row) => {
@@ -806,23 +851,35 @@ $("ev-apply").onclick = async () => {
     return inp && inp.value.trim() ? inp.value.trim() : null;
   });
   const r = await api(`/api/events/${evSession}/apply`, { names });
-  if (!r.events) {
-    $("ev-result").innerHTML = card(`<div class="k">No trips named yet - type a name above, then Save names.</div>`);
+  if (!r.events && !r.trips) {
+    $("ev-result").innerHTML = card(`<div class="k">Nothing named yet - type a name above, then Save names.</div>`);
     return;
   }
+  const named = [r.trips ? plural(r.trips, "trip") : null, r.events ? plural(r.events, "event") : null]
+    .filter(Boolean)
+    .join(" and ");
   $("ev-result").innerHTML = card(
-    `<div class="headline">${plural(r.events, "trip")} named.</div>
+    `<div class="headline">${named} named.</div>
      <div class="k">Next: preview where these photos will move on the drive.</div>`);
-  // Preview the on-disk placement (reuses the migrate engine).
+  // Preview the on-disk placement (reuses the migrate engine). Only named EVENTS reach this
+  // today - a confirmed trip is saved to the catalog but its folder placement is Stage 13.4's
+  // job, so a named trip is called out below rather than silently reported as "already moved".
   const p = await api(`/api/events/${evSession}/preview`, {});
   $("ev-apply-card").classList.remove("hidden");
   $("ev-disk-result").innerHTML = "";
   if (!p.ok) { $("ev-moves").innerHTML = `<div class="banner warn"><div>${esc(p.error)}</div></div>`; return; }
-  $("ev-moves").innerHTML = p.moves.length
-    ? `<div class="headline">${plural(p.moves.length, "photo")} will move into trip folders</div>
+  const tripNote = r.trips
+    ? `<div class="banner warn"><div><div class="b-title">Trip folders aren't available yet</div>
+         ${plural(r.trips, "trip")} named above ${r.trips === 1 ? "is" : "are"} saved, but moving its
+         photos into a trip folder isn't wired up in this build - only named events move below.</div></div>`
+    : "";
+  $("ev-moves").innerHTML =
+    tripNote +
+    (p.moves.length
+      ? `<div class="headline">${plural(p.moves.length, "photo")} will move into event folders</div>
        <details class="more"><summary>Show the moves</summary>
          <div class="mono k">${p.moves.slice(0, 200).map((m) => `${esc(m.old)} → ${esc(m.new)}`).join("<br>")}</div></details>`
-    : `<div class="k">Nothing to move - these photos are already in their trip folders.</div>`;
+      : `<div class="k">Nothing to move - these photos are already in their event folders.</div>`);
   $("ev-apply-disk").classList.toggle("hidden", p.moves.length === 0);
 };
 // One row per trip actually named and moved this run, each with a working reveal link -- the
@@ -832,7 +889,7 @@ $("ev-apply").onclick = async () => {
 function tripResultCards(summary) {
   const trips = summary.trips || [];
   if (!trips.length) {
-    return card(`<div class="headline">Moved ${plural(summary.migrated || 0, "photo")} into trip folders.</div>`);
+    return card(`<div class="headline">Moved ${plural(summary.migrated || 0, "photo")} into event folders.</div>`);
   }
   return trips.map((t) => card(
     `<div class="headline">${esc(t.name)}</div>

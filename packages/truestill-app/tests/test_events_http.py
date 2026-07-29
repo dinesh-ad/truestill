@@ -71,10 +71,15 @@ def _source(root: Path, groups: list[tuple[datetime, int]]) -> None:
             n += 1
 
 
-def test_merge_then_apply_to_disk_relocates_into_event_folder(
-    client: TestClient, tmp_path: Path
-) -> None:
-    """The full in-place trip flow: propose on a drive -> merge -> name -> preview -> apply moves."""
+def test_merge_via_http_names_the_combined_trip(client: TestClient, tmp_path: Path) -> None:
+    """Merging two gap-separated day-events over HTTP (the 13.3b inversion): the detector did not
+    join these two weeks, so the user does it by hand, and the result is a TRIP -- never a
+    concatenated event -- because a manual merge must obey the same §3e/§3f rules detection does
+    (`trip_review.merge_review_cards`), which a raw event-item concatenation could not enforce.
+
+    Placing a confirmed trip's files on disk is Stage 13.4's job (`server.py`'s `events_apply`
+    docstring); this only proves the merge assembles and names correctly through the catalog.
+    """
     src = tmp_path / "src"
     _source(src, [(datetime(2026, 6, 14, 9), 10), (datetime(2026, 6, 21, 9), 10)])
     drive = tmp_path / "DriveA"
@@ -82,28 +87,40 @@ def test_merge_then_apply_to_disk_relocates_into_event_folder(
 
     proposed = client.post("/api/events/propose", json={"path": str(drive)}).json()
     assert proposed["ok"] is True
-    assert len(proposed["clusters"]) == 2
+    assert len(proposed["cards"]) == 2
+    assert all(c["kind"] == "event" for c in proposed["cards"])  # too far apart to auto-join
     sid = proposed["session"]
 
     merged = client.post(f"/api/events/{sid}/merge", json={"indices": [0, 1]}).json()
-    assert len(merged["clusters"]) == 1
-    assert merged["clusters"][0]["count"] == 20
+    assert len(merged["cards"]) == 1
+    card = merged["cards"][0]
+    assert card["kind"] == "trip"
+    assert card["count"] == 20
+    assert [d["date"] for d in card["days"]] == ["2026-06-14", "2026-06-21"]
 
     named = client.post(f"/api/events/{sid}/apply", json={"names": ["Trip"]}).json()
-    assert named["events"] == 1  # one trip named (links files.event_id)
+    assert named == {"events": 0, "trips": 1}
 
-    preview = client.post(f"/api/events/{sid}/preview", json={}).json()
-    # all 20 files move under the merged event's START month/folder.
-    assert len(preview["moves"]) == 20
-    assert all(" - Trip" in m["new"] for m in preview["moves"])
 
-    job = client.post(f"/api/events/{sid}/apply-to-disk", json={}).json()
-    with client.stream("GET", f"/api/jobs/{job['job_id']}/events?token={_TOKEN}") as stream:
-        for line in stream.iter_lines():
-            if line.startswith("data:") and json.loads(line[5:].strip())["type"] == "done":
-                break
-    landed = list(drive.rglob("2026-06-14 - Trip/*.jpg"))
-    assert len(landed) == 20  # the trip folder exists on disk with all 20 photos
+def test_merge_via_http_refuses_across_a_year_boundary(client: TestClient, tmp_path: Path) -> None:
+    """The HTTP layer must surface §3e's refusal, not swallow it: nothing merges, and the caller
+    gets the reason back so the screen can show it (never a silent no-op)."""
+    src = tmp_path / "src"
+    _source(src, [(datetime(2025, 12, 30, 9), 8), (datetime(2026, 1, 2, 9), 8)])
+    drive = tmp_path / "DriveA"
+    _drive_with_library(client, src, drive)
+
+    proposed = client.post("/api/events/propose", json={"path": str(drive)}).json()
+    assert len(proposed["cards"]) == 2
+    sid = proposed["session"]
+
+    result = client.post(f"/api/events/{sid}/merge", json={"indices": [0, 1]}).json()
+    assert "error" in result
+    assert "year boundary" in result["error"]
+
+    # refused: the session's two cards are untouched, not partially merged into one trip.
+    named = client.post(f"/api/events/{sid}/apply", json={"names": ["A", "B"]}).json()
+    assert named == {"events": 2, "trips": 0}
 
 
 def _stream_until_done(client: TestClient, job_id: str) -> dict:
@@ -131,11 +148,11 @@ def test_apply_to_disk_reports_one_row_per_named_trip_with_its_real_folder(
     _drive_with_library(client, src, drive)
 
     proposed = client.post("/api/events/propose", json={"path": str(drive)}).json()
-    assert len(proposed["clusters"]) == 2
+    assert len(proposed["cards"]) == 2
     sid = proposed["session"]
 
     named = client.post(f"/api/events/{sid}/apply", json={"names": ["Goa", "Paris"]}).json()
-    assert named["events"] == 2
+    assert named == {"events": 2, "trips": 0}
 
     client.post(
         f"/api/events/{sid}/preview", json={}
@@ -161,14 +178,15 @@ def test_split_via_http_names_both_halves(client: TestClient, tmp_path: Path) ->
     _drive_with_library(client, src, drive)
 
     proposed = client.post("/api/events/propose", json={"path": str(drive)}).json()
-    assert len(proposed["clusters"]) == 1
+    assert len(proposed["cards"]) == 1
+    assert proposed["cards"][0]["kind"] == "event"
     sid = proposed["session"]
 
     split = client.post(f"/api/events/{sid}/split", json={"index": 0, "at": 5}).json()
-    assert sorted(c["count"] for c in split["clusters"]) == [5, 7]
+    assert sorted(c["count"] for c in split["cards"]) == [5, 7]
 
     named = client.post(f"/api/events/{sid}/apply", json={"names": ["First", "Second"]}).json()
-    assert named["events"] == 2  # both halves named
+    assert named == {"events": 2, "trips": 0}  # both halves named
 
 
 def test_organizing_does_not_auto_skip_clusters(client: TestClient, tmp_path: Path) -> None:
@@ -180,7 +198,38 @@ def test_organizing_does_not_auto_skip_clusters(client: TestClient, tmp_path: Pa
     _drive_with_library(client, src, drive)  # organize with NO trips named yet
 
     proposed = client.post("/api/events/propose", json={"path": str(drive)}).json()
-    assert len(proposed["clusters"]) == 1  # the cluster is still reviewable (not auto-skipped)
+    assert len(proposed["cards"]) == 1  # the cluster is still reviewable (not auto-skipped)
+
+
+def test_propose_bundles_a_detected_multi_day_run_into_one_trip_card(
+    client: TestClient, tmp_path: Path
+) -> None:
+    """13.3b's inversion, proven over HTTP: a genuine multi-day run (`detect_trips`, unchanged)
+    assembles into ONE card labelled "trip"; a standalone active day elsewhere still renders as
+    its own card labelled "event" - never both called "trip", the collision 13.2 flagged."""
+    src = tmp_path / "src"
+    _source(
+        src,
+        [
+            (datetime(2026, 6, 14, 9), 8),
+            (datetime(2026, 6, 15, 9), 8),
+            (datetime(2026, 6, 30, 9), 8),  # far enough away not to bridge into the same run
+        ],
+    )
+    drive = tmp_path / "DriveA"
+    _drive_with_library(client, src, drive)
+
+    proposed = client.post("/api/events/propose", json={"path": str(drive)}).json()
+    cards = proposed["cards"]
+    assert len(cards) == 2  # NOT three day-cards - the two consecutive days are one trip
+
+    by_kind = {c["kind"]: c for c in cards}
+    assert set(by_kind) == {"trip", "event"}
+    trip = by_kind["trip"]
+    assert trip["start"] == "2026-06-14"
+    assert trip["end"] == "2026-06-15"
+    assert trip["count"] == 16
+    assert [d["date"] for d in trip["days"]] == ["2026-06-14", "2026-06-15"]
 
 
 def test_organize_applies_a_previously_saved_trip(client: TestClient, tmp_path: Path) -> None:

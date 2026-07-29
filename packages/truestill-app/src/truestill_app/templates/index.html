@@ -86,16 +86,18 @@
       <!-- TRIPS & EVENTS -->
       <section class="screen" id="screen-events">
         <header><h1>Trips &amp; events</h1>
-          <p class="lede">Group the camera photos in your organized library by when they were taken,
-            name the trips, then move them into trip folders on the drive.</p></header>
+          <p class="lede">A multi-day run of camera photos is grouped into one TRIP; a single busy
+            day is its own EVENT. Split apart anything grouped wrong, or merge two runs that
+            should have been one, then name what you want to keep.</p></header>
         <div class="card">
           <div class="field"><label for="ev-source">Your organized library (a connected backup drive)</label>
             <div class="row"><input class="input" id="ev-source" placeholder="e.g. /media/BackupA">
               <button class="btn btn-secondary" data-browse="ev-source" data-kind="dest">Browse…</button></div>
             <span class="hint" id="ev-source-hint"></span>
           </div>
-          <div class="actions"><button class="btn btn-primary" id="ev-propose">Find trips</button></div>
+          <div class="actions"><button class="btn btn-primary" id="ev-propose">Find trips &amp; events</button></div>
         </div>
+        <div id="ev-declines"></div>
         <div id="ev-clusters"></div>
         <div class="card hidden" id="ev-actions-card">
           <div class="actions"><button class="btn btn-secondary hidden" id="ev-merge">Merge checked</button>
@@ -104,7 +106,7 @@
         <div id="ev-result"></div>
         <div class="card hidden" id="ev-apply-card">
           <div id="ev-moves"></div>
-          <div class="actions"><button class="btn btn-primary hidden" id="ev-apply-disk">Move photos into trip folders</button></div>
+          <div class="actions"><button class="btn btn-primary hidden" id="ev-apply-disk">Move photos into event folders</button></div>
           <!-- shared progress block: see createProgress() in app.js -->
           <div class="progress-wrap hidden" id="ev-card">
             <div class="prog-head">

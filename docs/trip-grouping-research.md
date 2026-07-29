@@ -4,9 +4,11 @@ Status: **Design approved (2026-07-28, `b5cba4a`, rulings `fb60c10`). Stages 2a-
 2a the router refactor (`1247055`), 2b detection (§11), 2c persistence, catalog v12 (§12). Backlog
 `(mm)` is resolved (`1ed021e`), which unblocked 2d. **2d is planned as sub-stages 13.0-13.4**
 (§13, 2026-07-29); **13.0** (verification spike, §13.6), **13.1** (the detection-to-persistence
-join, §13.1), **13.2** (`Placement.TRIP_DAY` and the render seam, §13.2) and **13.3a** (reveal in
-file manager on the apply-to-disk result, §13.3a) are built. **Next: 13.3b**, the proposal-card
-redesign. 2e (migration adoption) remains after the rest of 2d.
+join, §13.1), **13.2** (`Placement.TRIP_DAY` and the render seam, §13.2), **13.3a** (reveal in
+file manager on the apply-to-disk result, §13.3a) and **13.3b** (the proposal-card redesign - the
+inversion, split/merge as a pair, EVENT/TRIP labelling, §13.3b) are built. **Next: 13.4**
+(migration wiring - the confirmed-trip apply-to-disk step 13.3b deliberately does not reach). 2e
+(migration adoption) remains after the rest of 2d.
 
 Read [`events-clustering-research.md`](events-clustering-research.md) §7 first: it is the reason
 this document exists.
@@ -845,6 +847,86 @@ real destination folder and a working "Open in file manager" link.
   disk` is changed to always pass an empty event list (`KeyError: 'trips'` - the aggregate-only
   shape), passing after restoring.
 
+**13.3b - Proposal-card redesign: the inversion, split/merge as a pair, EVENT vs TRIP labelling.
+BUILT 2026-07-29.**
+
+Supersedes 13.3's originally-planned edge-trim/extend interaction model (the bullet above,
+written the same planning pass) - flagging the divergence rather than silently overwriting the
+earlier plan. The instruction that actually built this sub-stage required mirroring the shipped
+day-event handlers (`events_propose`/`events_merge`/`events_split`/`events_apply`) exactly, not
+inventing a new "adjust an edge" gesture. Trimming/extending a day off either end of a proposed
+run is **not** built; splitting a run at a day boundary and merging two runs the detector did not
+join **are**, because those are the operations day-events already have muscle memory for
+(`events.split_candidate`/the old `merge_candidates`), and reusing that interaction shape for
+trips - rather than inventing edge-nudging - is what "do not invent a new interaction model" meant
+in practice. §13.3's other decisions (items 1-4 below) are unaffected; only the interaction shape
+changed.
+
+- **THE INVERSION.** Before this stage, every Stage-1 day-cluster rendered as its own review card
+  regardless of whether it was part of a longer run; a user reassembled a trip by hand with a
+  merge checkbox, redoing by hand what `detect_trips` (2b) already knew. `trip_review.
+  assemble_trip_review` now runs detection first: a genuine multi-day proposal renders as ONE
+  card (span, photo total, per-day breakdown); a standalone active day still renders as its own
+  (unchanged) day-event card. Detection assembles up; the user adjusts down (split) or joins
+  across a gap detection left alone (merge).
+- **LABELLING.** Resolves 13.3's item 5 naming collision (below): a card's `kind` ("trip" |
+  "event") is a **display** label computed from day count (`ReviewCard.kind`), decoupled from
+  which of `trip`/`event` the card actually carries - a multi-day run is a TRIP, a standalone day
+  is an EVENT, and the screen's copy and per-card badge both say so.
+- **CONTROLS, kept as a pair.** SPLIT is primary: breaks a wrongly-joined run at a day boundary
+  (`trip_review.split_trip`, the direct trip-shaped inverse of merge) for a trip card, or by file
+  count (`events.split_candidate`, unchanged) for an event card. MERGE is secondary (visually
+  demoted - a small `.k`-styled checkbox beside the card, not its own prominent control) and
+  combines two or more cards the detector did not join (`trip_review.merge_review_cards`), always
+  producing a `TripProposal` - never a raw concatenated `EventCandidate` - because a manual merge
+  must obey the same two locked rules detection does:
+  - **§3e year boundary**: refuses with a stated reason rather than fabricating a cross-year trip.
+  - **§3f max-span**: declines with the exact message format (`trip_review.decline_message`,
+    composed here per §12's deferral) rather than silently splitting or truncating.
+  Both refusals surface to the HTTP caller as `{"error": "..."}` (never a silent no-op) and leave
+  the session's cards untouched.
+- **Nothing is auto-applied.** `assemble_trip_review`'s declines (over-span runs `detect_trips`
+  itself declined) are surfaced as messages too (`decline_message`), not folded into silence. A
+  trip is written to the catalog only on explicit name + confirm, through the same `commit_trips`
+  join 13.1 built.
+- **A consequence, flagged rather than silently absorbed:** the old `events_merge` concatenated
+  raw cluster items into one `EventCandidate` (no year/span check possible on a bag of items with
+  no calendar structure). Because every merge must now obey §3e/§3f, merging two gap-separated
+  day-events - even when neither looks like a "trip" on its own - always produces a `TripProposal`.
+  A trip does not reach `migrate.py`/apply-to-disk yet (that is 13.4, unchanged scope); naming
+  such a merge therefore persists it to the catalog but does not (yet) relocate its files, where
+  the pre-13.3b merge-then-apply-to-disk flow did. The app surfaces this honestly (a named trip's
+  files are called out as not-yet-movable, distinct from an event's real "already in its folder"
+  case) rather than reporting a false "nothing to move."
+- **A narrow, deliberate labelling edge case:** `split_trip` can split a 2-day trip (the smallest
+  a proposal can be) into two 1-day pieces. Each remains a `TripProposal` under the hood - still
+  confirmed through `commit_trips` like any other trip - but is *labelled* "event" (`ReviewCard.
+  kind`'s day-count floor), for the same reason `detect_trips` itself never proposes a 1-day trip.
+  Not reconciled into a genuine cluster-based `EventCandidate`, since that would need member items
+  this function is never given.
+- **Fixtures, proven against the defect first (`ENGINEERING_STANDARD.md` §4):**
+  - A multi-day detected run must render as ONE card, not one per day: mutating `assemble_trip_
+    review`'s claimed-days set to empty reproduced the pre-13.3b bug exactly (`4 == 2`, every
+    cluster rendering separately); restored.
+  - A manual merge across a year boundary must refuse: disabling the year check (`if False:`)
+    made the core-level fixture fail with "DID NOT RAISE TripMergeError"; restored. Reproduced
+    again at the HTTP layer (dropping `events_merge`'s `except TripMergeError` lets the exception
+    surface as an unhandled 500 instead of `{"error": ...}`); restored.
+  - A manual merge past `max_span_days` must decline, not split/truncate: same mutation pattern
+    on the span check, same failure, same restore.
+  - A standalone day is labelled "event", never "trip" - proven directly against `ReviewCard.kind`
+    and again over HTTP against the serialised `kind` field.
+  - `split_trip`/`merge_review_cards` round-trip correctly, including that a merged-in solo
+    cluster's partial count is superseded by the day's full total (§2's day-claim rule).
+- **Complexity.** Detection is unchanged: O(N) over camera items + O(D log D) over active days
+  (§11). `assemble_trip_review` adds one O(N) day-total pass over the same items already read for
+  detection (no extra I/O - one query feeds both) and O(P) to build cards from P proposals/
+  clusters. Each merge/split/decline-message call is O(days involved) - a handful of dates, never
+  a function of the whole library.
+- **Not built here, on purpose:** 13.3's originally-planned edge-trim/extend interaction (above);
+  13.4's migration wiring (a confirmed trip does not move files); the CLI fresh-organize path for
+  trips (§13.3 item 6, unchanged recommendation).
+
 **13.4 - Migration wiring: TRIP_DAY-aware `plan_migration`.**
 - **Prerequisite cleared:** 13.0 found a real gap (the app's migrate path side-binned `Camera`)
   and it is fixed - §13.7. This sub-stage no longer waits on it.
@@ -890,12 +972,10 @@ real destination folder and a working "Open in file manager" link.
    sufficient for `copies_for_migration` to attach trip membership, the same way it already joins
    `events` by `f.event_id`. Flag if 13.1's real build surfaces a reason this is insufficient -
    none is evident from the design alone.
-5. **The "Trips & events" naming collision** (§13.1). Recommend, not decided: the existing
-   single-day screen's copy is disambiguated to "Events" (or similar) as part of 13.3, before or
-   alongside introducing genuine multi-day Trips under that name - shipping both concepts as
-   "trip" in the same screen is exactly the kind of user-facing-truth defect
-   `IMPLEMENTATION_STANDARDS.md` §9 exists to catch, even though neither individual string is
-   presently false.
+5. **The "Trips & events" naming collision** (§13.1) - **RESOLVED, built 13.3b.** A card's `kind`
+   ("trip" | "event") is a display label computed from day count, decoupled from the underlying
+   `ReviewCard` payload; the screen's copy and per-card badge now say TRIP for a genuine multi-day
+   run and EVENT for a standalone day, never "trip" for both.
 6. **Which surface 2d targets.** Recommend the app's review-in-place pattern (13.1 and 13.3, and
    the migration step in 13.4) as the built surface; the CLI's fresh-organize path
    (`apply_events`/`run_event_stage`-equivalent for trips) is **not built** unless demand says

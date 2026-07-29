@@ -14,23 +14,41 @@ to decline -- exactly :class:`truestill_core.event_review.EventDecision`'s shape
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 
 from truestill_core.catalog import Catalog
-from truestill_core.events import EventItem, cluster_camera, slugify
+from truestill_core.events import EventCandidate, EventItem, cluster_camera, slugify
 from truestill_core.trips import (
     DEFAULT_MAX_GAP_DAYS,
     DEFAULT_MAX_SPAN_DAYS,
+    TripDecline,
     TripDetectionResult,
     TripProposal,
     detect_trips,
 )
 
+#: The same floor `trips._MIN_TRIP_DAYS` uses for detection, restated here for the display
+#: label: a trip manually split down to one day is still labelled "event" (`ReviewCard.kind`),
+#: exactly as detection itself never proposes a 1-day trip from scratch.
+_MIN_TRIP_DAYS_FOR_LABEL = 2
+
 
 def _parse_dt(value: object) -> datetime:
     return datetime.fromisoformat(str(value))
+
+
+def _camera_items(catalog: Catalog, drive_uuid: str) -> list[EventItem]:
+    """The dated Camera copies on a drive, as clustering input. Shared by every proposer here."""
+    return [
+        EventItem(
+            key=str(row["sha256"]),
+            captured_at=_parse_dt(row["captured_at"]),
+            sha256=str(row["sha256"]),
+        )
+        for row in catalog.camera_copies_for_events(drive_uuid)
+    ]
 
 
 def propose_trips_from_catalog(
@@ -50,16 +68,186 @@ def propose_trips_from_catalog(
 
     Pure with respect to the catalog: reads rows, writes nothing.
     """
-    items = [
-        EventItem(
-            key=str(row["sha256"]),
-            captured_at=_parse_dt(row["captured_at"]),
-            sha256=str(row["sha256"]),
-        )
-        for row in catalog.camera_copies_for_events(drive_uuid)
-    ]
+    items = _camera_items(catalog, drive_uuid)
     clusters = cluster_camera(items)
     return detect_trips(items, clusters, max_span_days=max_span_days, max_gap_days=max_gap_days)
+
+
+@dataclass(frozen=True, slots=True)
+class ReviewCard:
+    """One assembled review card (Stage 2d, 13.3b): a multi-day TRIP or a standalone-day EVENT.
+
+    Exactly one of ``trip``/``event`` is set. A standalone day keeps its **original**
+    cluster-only membership -- never the whole day's total, stragglers included -- so backlog
+    ``(ll)``'s day-event identity (a signature over member SHA-256s) is untouched by this stage;
+    only a genuine multi-day trip claims a whole day (§2). ``kind`` is a **display label**, not
+    the persistence mechanism: it reads by day count, because a trip manually split all the way
+    down to one day (see :func:`split_trip`) is still a `TripProposal` under the hood -- confirmed
+    through :func:`truestill_core.trip_review.commit_trips` like any other trip -- even though it
+    is *labelled* "event" for the same reason detection never proposes a 1-day trip.
+    """
+
+    trip: TripProposal | None = None
+    event: EventCandidate | None = None
+
+    def __post_init__(self) -> None:
+        if (self.trip is None) == (self.event is None):
+            message = "a review card must carry exactly one of trip or event"
+            raise ValueError(message)
+
+    @property
+    def kind(self) -> str:
+        is_multi_day = self.trip is not None and len(self.trip.days) >= _MIN_TRIP_DAYS_FOR_LABEL
+        return "trip" if is_multi_day else "event"
+
+    @property
+    def start(self) -> date:
+        return self.trip.start_date if self.trip is not None else self.event.start.date()  # type: ignore[union-attr]
+
+
+@dataclass(frozen=True, slots=True)
+class TripReview:
+    """Everything :func:`assemble_trip_review` found: cards to show, declines to explain."""
+
+    cards: list[ReviewCard]
+    declines: list[TripDecline]
+    day_totals: dict[date, int]
+
+
+def assemble_trip_review(
+    catalog: Catalog,
+    drive_uuid: str,
+    *,
+    max_span_days: int = DEFAULT_MAX_SPAN_DAYS,
+    max_gap_days: int = DEFAULT_MAX_GAP_DAYS,
+) -> TripReview:
+    """The 13.3b inversion: a genuine multi-day run assembles into ONE card; a standalone active
+    day still renders as its own (unchanged) day-event card.
+
+    Before this, every Stage-1 cluster rendered as its own card regardless of whether it was
+    part of a longer run, and a user reassembled a trip by hand with a merge checkbox -
+    reassembling what `detect_trips` already knows. Here, detection runs first and its
+    multi-day proposals are rendered whole; only the clusters *outside* every proposal's claimed
+    days still render individually, exactly as they always did.
+
+    One pass over one query feeds both `detect_trips` (2b, unchanged) and the standalone-day
+    clusters, so this costs no extra I/O over calling `propose_trips_from_catalog` alone.
+    """
+    items = _camera_items(catalog, drive_uuid)
+    clusters = cluster_camera(items)
+    result = detect_trips(items, clusters, max_span_days=max_span_days, max_gap_days=max_gap_days)
+    claimed_days = {day for trip in result.proposals for day in trip.days}
+    cards = [ReviewCard(trip=trip) for trip in result.proposals]
+    cards.extend(
+        ReviewCard(event=cluster)
+        for cluster in clusters
+        if cluster.start.date() not in claimed_days
+    )
+    cards.sort(key=lambda card: card.start)
+    day_totals: dict[date, int] = {}
+    for item in items:
+        day = item.captured_at.date()
+        day_totals[day] = day_totals.get(day, 0) + 1
+    return TripReview(cards=cards, declines=result.declines, day_totals=day_totals)
+
+
+class TripMergeError(ValueError):
+    """A manual merge would violate a locked layout rule (§3e year boundary, §3f max span)."""
+
+
+def merge_review_cards(
+    cards: Sequence[ReviewCard],
+    day_totals: Mapping[date, int],
+    *,
+    max_span_days: int = DEFAULT_MAX_SPAN_DAYS,
+) -> TripProposal:
+    """Combine two or more reviewed cards the detector did **not** join into one trip, or refuse.
+
+    The secondary control (§10/13.3b): split is the primary adjustment (breaking a wrongly-joined
+    run), merge is for the gap case - two runs a few days apart the user considers one trip.
+
+    Once any of these days joins a multi-day trip, every photo taken on it belongs to the trip
+    (§2) - so each day's contribution is always its **full** total (``day_totals``), never a
+    solo event's partial cluster count. This is why a merge can change what a standalone day
+    *means* even though it does not touch a single file.
+
+    Refuses rather than silently producing an un-renderable or over-cap trip - the two locked
+    rules a manual merge must obey exactly like detection does:
+
+    - **§3e, year boundary**: `_split_at_year_boundary` guarantees no *detected* proposal ever
+      crosses a year, because the layout has no way to express a trip folder spanning two year
+      parents. A manual merge could otherwise defeat that guarantee, so it is checked again here.
+    - **§3f, max span**: merging past `max_span_days` is declined, in the same words detection's
+      own decline message uses, never silently split or truncated.
+    """
+    claimed: dict[date, int] = {}
+    for card in cards:
+        if card.trip is not None:
+            for day, count in card.trip.days.items():
+                claimed[day] = day_totals.get(day, count)
+        else:
+            assert card.event is not None
+            day = card.event.start.date()
+            claimed[day] = day_totals.get(day, card.event.count)
+
+    start, end = min(claimed), max(claimed)
+    if start.year != end.year:
+        message = (
+            f"These runs span {start.year} and {end.year} - a trip cannot cross a year boundary "
+            "(trip-grouping-research.md §3e). Confirm them as separate trips instead."
+        )
+        raise TripMergeError(message)
+
+    span = (end - start).days + 1
+    if span > max_span_days:
+        message = (
+            f"{span} consecutive days of photos ({start.isoformat()} to {end.isoformat()}) - too "
+            f"long to propose as one trip. Raise trips.max_span_days (currently {max_span_days}) "
+            "if this really was one trip."
+        )
+        raise TripMergeError(message)
+
+    return TripProposal(start_date=start, end_date=end, days=claimed)
+
+
+def decline_message(decline: TripDecline, *, max_span_days: int = DEFAULT_MAX_SPAN_DAYS) -> str:
+    """The §3f message, composed here rather than in detection: name the run length and the
+    setting that governs it, never fold a decline into silence.
+
+    `TripDecline` deliberately carries no message of its own (§12: "composing one is a
+    rendering concern for the stage that displays proposals, not a detection concern") - this
+    is that stage.
+    """
+    return (
+        f"{decline.day_count} consecutive days of photos ({decline.start_date.isoformat()} to "
+        f"{decline.end_date.isoformat()}) - too long to propose as one trip. Raise "
+        f"trips.max_span_days (currently {max_span_days}) if this really was one trip."
+    )
+
+
+def split_trip(proposal: TripProposal, after_day: date) -> tuple[TripProposal, TripProposal]:
+    """Split a trip into two at a day boundary - the direct inverse of :func:`merge_review_cards`.
+
+    ``after_day`` must be one of the trip's own claimed days, and not its last. A 2-day trip (the
+    smallest a proposal can be) splits into two 1-day pieces - each still a `TripProposal`, even
+    though a day that small is *labelled* "event" (:attr:`ReviewCard.kind`) and detection itself
+    never proposes one from scratch (`trips._MIN_TRIP_DAYS`). That is a deliberate, narrow
+    difference between what detection proposes and what a manual split may produce, not an
+    oversight - flagged here rather than reconciled, since building a bridge back to a genuine
+    cluster-based `EventCandidate` would need member items this function was never given.
+    """
+    ordered = sorted(proposal.days)
+    too_short = len(ordered) < _MIN_TRIP_DAYS_FOR_LABEL
+    if too_short or after_day not in ordered or after_day == ordered[-1]:
+        message = f"{after_day.isoformat()} is not a valid split point for this trip"
+        raise ValueError(message)
+    idx = ordered.index(after_day)
+    first_days = {d: proposal.days[d] for d in ordered[: idx + 1]}
+    second_days = {d: proposal.days[d] for d in ordered[idx + 1 :]}
+    return (
+        TripProposal(start_date=min(first_days), end_date=max(first_days), days=first_days),
+        TripProposal(start_date=min(second_days), end_date=max(second_days), days=second_days),
+    )
 
 
 @dataclass(frozen=True, slots=True)

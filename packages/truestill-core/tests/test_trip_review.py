@@ -10,8 +10,21 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+import pytest
 from truestill_core.catalog import Catalog
-from truestill_core.trip_review import TripDecision, commit_trips, propose_trips_from_catalog
+from truestill_core.events import EventCandidate, EventItem
+from truestill_core.trip_review import (
+    ReviewCard,
+    TripDecision,
+    TripMergeError,
+    assemble_trip_review,
+    commit_trips,
+    decline_message,
+    merge_review_cards,
+    propose_trips_from_catalog,
+    split_trip,
+)
+from truestill_core.trips import TripDecline, TripDeclineReason, TripProposal
 
 
 def _seed_day(catalog: Catalog, drive_uuid: str, day: datetime, start_index: int) -> None:
@@ -180,3 +193,151 @@ def test_a_declined_run_persists_nothing(tmp_path: Path) -> None:
 
         count = catalog._conn.execute("SELECT COUNT(*) AS n FROM trips").fetchone()["n"]
         assert count == 0
+
+
+# --- 13.3b: the assembled review surface -----------------------------------------------
+
+
+def test_assemble_trip_review_bundles_a_multi_day_run_into_one_card(tmp_path: Path) -> None:
+    """The inversion (§13.3b): a multi-day run assembles into ONE card, a standalone day into
+    its own -- never one card per raw Stage-1 cluster regardless of which run it belongs to.
+
+    Fails against the pre-13.3b bug this replaces: rendering one card per cluster produces
+    THREE cards here (two trip days plus the standalone), not two.
+    """
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        catalog.upsert_drive(uuid="D1", label="Drive A")
+        _seed_day(catalog, "D1", datetime(2026, 8, 15, 9, 0), start_index=0)
+        _seed_day(catalog, "D1", datetime(2026, 8, 16, 9, 0), start_index=10)
+        _seed_day(catalog, "D1", datetime(2026, 8, 25, 9, 0), start_index=20)  # standalone
+
+        review = assemble_trip_review(catalog, "D1")
+
+        assert len(review.cards) == 2  # NOT three -- the bug this stage replaces
+        by_kind = {card.kind: card for card in review.cards}
+        assert set(by_kind) == {"trip", "event"}
+
+        trip_card = by_kind["trip"]
+        assert trip_card.trip is not None
+        assert sorted(trip_card.trip.days) == [date(2026, 8, 15), date(2026, 8, 16)]
+        assert trip_card.trip.days[date(2026, 8, 15)] == 10  # per-day breakdown, not just a total
+
+        event_card = by_kind["event"]
+        assert event_card.event is not None
+        assert event_card.event.start.date() == date(2026, 8, 25)
+
+
+def _event_candidate(day: date, count: int) -> EventCandidate:
+    items = tuple(
+        EventItem(
+            key=f"k{day.isoformat()}-{i}",
+            captured_at=datetime(day.year, day.month, day.day, 9, i % 60),
+            sha256=f"s{day.isoformat()}-{i}",
+        )
+        for i in range(count)
+    )
+    return EventCandidate(items=items)
+
+
+def test_merge_review_cards_combines_two_gap_separated_runs() -> None:
+    """The gap case (§4/§10): two runs a few days apart the detector did not join."""
+    trip_a = TripProposal(
+        start_date=date(2026, 8, 1),
+        end_date=date(2026, 8, 2),
+        days={date(2026, 8, 1): 10, date(2026, 8, 2): 10},
+    )
+    trip_b = TripProposal(
+        start_date=date(2026, 8, 5), end_date=date(2026, 8, 5), days={date(2026, 8, 5): 8}
+    )
+    day_totals = {date(2026, 8, 1): 10, date(2026, 8, 2): 10, date(2026, 8, 5): 8}
+
+    merged = merge_review_cards([ReviewCard(trip=trip_a), ReviewCard(trip=trip_b)], day_totals)
+
+    assert merged.start_date == date(2026, 8, 1)
+    assert merged.end_date == date(2026, 8, 5)
+    assert sorted(merged.days) == [date(2026, 8, 1), date(2026, 8, 2), date(2026, 8, 5)]
+
+
+def test_merge_review_cards_refuses_across_a_year_boundary() -> None:
+    """§3e: the layout has no way to express a trip folder spanning two year parents."""
+    trip_a = TripProposal(
+        start_date=date(2026, 12, 30),
+        end_date=date(2026, 12, 31),
+        days={date(2026, 12, 30): 5, date(2026, 12, 31): 5},
+    )
+    trip_b = TripProposal(
+        start_date=date(2027, 1, 1), end_date=date(2027, 1, 1), days={date(2027, 1, 1): 5}
+    )
+    day_totals = {date(2026, 12, 30): 5, date(2026, 12, 31): 5, date(2027, 1, 1): 5}
+
+    with pytest.raises(TripMergeError, match="year boundary"):
+        merge_review_cards([ReviewCard(trip=trip_a), ReviewCard(trip=trip_b)], day_totals)
+
+
+def test_merge_review_cards_declines_past_max_span() -> None:
+    """§3f: decline, never silently split or truncate -- the same rule detection obeys."""
+    trip_a = TripProposal(
+        start_date=date(2026, 1, 1), end_date=date(2026, 1, 1), days={date(2026, 1, 1): 5}
+    )
+    trip_b = TripProposal(
+        start_date=date(2026, 2, 15), end_date=date(2026, 2, 15), days={date(2026, 2, 15): 5}
+    )  # 46 days apart -- over DEFAULT_MAX_SPAN_DAYS
+    day_totals = {date(2026, 1, 1): 5, date(2026, 2, 15): 5}
+
+    with pytest.raises(TripMergeError, match="too long to propose as one trip"):
+        merge_review_cards([ReviewCard(trip=trip_a), ReviewCard(trip=trip_b)], day_totals)
+
+
+def test_merge_reclaims_the_whole_day_for_a_merged_in_event() -> None:
+    """§2: once a day joins a trip, ALL its photos belong to it -- not just the clustered ones."""
+    trip = TripProposal(
+        start_date=date(2026, 8, 1), end_date=date(2026, 8, 1), days={date(2026, 8, 1): 10}
+    )
+    event = _event_candidate(
+        date(2026, 8, 3), count=8
+    )  # a solo cluster: only 8 of that day's photos
+    day_totals = {
+        date(2026, 8, 1): 10,
+        date(2026, 8, 3): 15,
+    }  # the day really has 15 (7 stragglers)
+
+    merged = merge_review_cards([ReviewCard(trip=trip), ReviewCard(event=event)], day_totals)
+
+    assert merged.days[date(2026, 8, 3)] == 15  # the full day total, not the cluster's 8
+
+
+def test_split_trip_breaks_a_run_into_the_expected_pieces() -> None:
+    proposal = TripProposal(
+        start_date=date(2026, 8, 15),
+        end_date=date(2026, 8, 17),
+        days={date(2026, 8, 15): 10, date(2026, 8, 16): 10, date(2026, 8, 17): 10},
+    )
+
+    first, second = split_trip(proposal, date(2026, 8, 15))
+
+    assert sorted(first.days) == [date(2026, 8, 15)]
+    assert sorted(second.days) == [date(2026, 8, 16), date(2026, 8, 17)]
+
+
+def test_split_trip_rejects_an_invalid_split_point() -> None:
+    proposal = TripProposal(
+        start_date=date(2026, 8, 15),
+        end_date=date(2026, 8, 16),
+        days={date(2026, 8, 15): 10, date(2026, 8, 16): 10},
+    )
+    with pytest.raises(ValueError, match="not a valid split point"):
+        split_trip(proposal, date(2026, 8, 16))  # the last day -- nothing left after it
+
+
+def test_decline_message_matches_the_section_3f_wording() -> None:
+    decline = TripDecline(
+        start_date=date(2018, 6, 3),
+        end_date=date(2018, 8, 3),
+        day_count=62,
+        reason=TripDeclineReason.MAX_SPAN,
+    )
+    message = decline_message(decline, max_span_days=30)
+    assert message == (
+        "62 consecutive days of photos (2018-06-03 to 2018-08-03) - too long to propose as "
+        "one trip. Raise trips.max_span_days (currently 30) if this really was one trip."
+    )
