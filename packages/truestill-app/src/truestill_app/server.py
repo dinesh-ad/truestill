@@ -179,6 +179,12 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
         body = await request.json()
         return JSONResponse(service.preview_layout(body["template"]))
 
+    async def event_settings(request: Request) -> JSONResponse:
+        if request.method == "POST":
+            body = await request.json()
+            return JSONResponse(service.set_event_settings(body.get("min_files"), _db()))
+        return JSONResponse(service.event_settings(_db()))
+
     async def migrate_preview(request: Request) -> JSONResponse:
         body = await request.json()
         return JSONResponse(service.migration_preview(Path(body["path"]), _db()))
@@ -363,6 +369,7 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
         Route("/api/library/status", library_status),
         Route("/api/layout", layout, methods=["GET", "POST"]),
         Route("/api/layout/preview", layout_preview, methods=["POST"]),
+        Route("/api/events/settings", event_settings, methods=["GET", "POST"]),
         Route("/api/migrate/preview", migrate_preview, methods=["POST"]),
         Route("/api/migrate/run", migrate_run, methods=["POST"]),
         Route("/api/events/propose", events_propose, methods=["POST"]),

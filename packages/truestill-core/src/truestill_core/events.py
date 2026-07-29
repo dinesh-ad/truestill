@@ -70,6 +70,8 @@ DEFAULT_WINDOW = 10
 #: a 45-minute birthday with 60 photos unofferable at any sensitivity, while doing nothing the
 #: file count does not already do. `min_files` is the useful half.
 DEFAULT_MIN_FILES = 8
+#: Per-catalog Settings key for the Trips & events proposal-size floor.
+EVENT_MIN_FILES_KEY = "events.min_files"
 #: A neighbour-to-neighbour GPS jump beyond this many km reinforces a boundary. Kept large
 #: so movement *within* an outing does not shatter it; only real relocations count.
 DEFAULT_GPS_JUMP_KM = 50.0

@@ -236,8 +236,8 @@
       <!-- SETTINGS -->
       <section class="screen" id="screen-settings">
         <header><h1>Settings</h1>
-          <p class="lede">Choose how organized copies are laid out on disk, and how truestill
-            looks. Layout changes apply to files you organize from now on.</p></header>
+          <p class="lede">Choose how trips and events are suggested, how organized copies are
+            laid out on disk, and how truestill looks.</p></header>
         <div class="card">
           <h2>Folder layout</h2>
           <p class="lede" style="margin-bottom:var(--space-4)">How organized copies are named on disk.
@@ -252,6 +252,16 @@
           <div class="hint warn" id="layout-error"></div>
           <div class="actions"><button class="btn btn-primary" id="layout-save" disabled>Save layout</button>
             <span class="why">Changing this only affects files you organize from now on. Files already sorted stay put.</span></div>
+        </div>
+        <div class="card">
+          <h2>Trip &amp; event suggestions</h2>
+          <div class="field"><label for="events-min-files">Minimum photos in a suggestion</label>
+            <input class="input" id="events-min-files" type="number" min="1" step="1"></div>
+          <p class="hint">Lower values show more suggestions, including small groups. Higher
+            values show fewer suggestions and only larger groups. The default is 8; raise it
+            only if a busy library produces too many small suggestions.</p>
+          <div class="actions"><button class="btn btn-primary" id="events-settings-save">Save suggestion setting</button>
+            <span class="why" id="events-settings-status"></span></div>
         </div>
         <div class="card">
           <h2>Move existing files to match</h2>

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -10,6 +11,7 @@ from starlette.testclient import TestClient
 from truestill_app.server import create_app
 from truestill_core.catalog import Catalog
 from truestill_core.drive import create_marker
+from truestill_core.events import DEFAULT_MIN_FILES, EVENT_MIN_FILES_KEY
 from truestill_core.hashing import sha256_file
 from truestill_core.layout import DEFAULT_TEMPLATE_STRING, LAYOUT_TEMPLATE_KEY
 
@@ -62,6 +64,54 @@ def test_layout_set_rejects_invalid_without_saving(client: TestClient) -> None:
     bad = client.post("/api/layout", json={"template": "{category}/a:b"}).json()
     assert bad["valid"] is False
     assert client.get("/api/layout").json()["is_default"] is True  # nothing was stored
+
+
+def test_event_min_files_setting_changes_proposals_and_unset_keeps_default(
+    client: TestClient, db_path: Path, tmp_path: Path
+) -> None:
+    drive = tmp_path / "drive"
+    drive.mkdir()
+    marker = create_marker(drive, "Drive A")
+    with Catalog(db_path) as catalog:
+        catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+        for day, count in ((datetime(2026, 6, 14, 9), 8), (datetime(2026, 6, 20, 9), 10)):
+            for index in range(count):
+                captured_at = day + timedelta(minutes=5 * index)
+                sha = f"sha-{day:%Y%m%d}-{index}"
+                catalog.record_uploaded(
+                    source_path=f"/src/{sha}.jpg",
+                    original_name=f"{sha}.jpg",
+                    sha256=sha,
+                    copy_sha256=sha,
+                    perceptual=None,
+                    size=10,
+                    captured_at=captured_at.isoformat(),
+                    category="Camera",
+                    relative=f"{day:%Y/%m}/{sha}.jpg",
+                    drive_uuid=marker.uuid,
+                )
+
+    settings = client.get("/api/events/settings").json()
+    assert settings == {
+        "min_files": DEFAULT_MIN_FILES,
+        "default_min_files": DEFAULT_MIN_FILES,
+        "is_default": True,
+    }
+    default_proposals = client.post("/api/events/propose", json={"path": str(drive)}).json()
+    assert sorted(card["count"] for card in default_proposals["cards"]) == [8, 10]
+
+    saved = client.post("/api/events/settings", json={"min_files": 9}).json()
+    assert saved == {
+        "valid": True,
+        "min_files": 9,
+        "default_min_files": DEFAULT_MIN_FILES,
+        "is_default": False,
+    }
+
+    changed_proposals = client.post("/api/events/propose", json={"path": str(drive)}).json()
+    assert [card["count"] for card in changed_proposals["cards"]] == [10]
+    with Catalog(db_path) as catalog:
+        assert catalog.get_setting(EVENT_MIN_FILES_KEY) == "9"
 
 
 def test_migrate_preview_requires_a_connected_drive(client: TestClient, tmp_path: Path) -> None:

@@ -994,7 +994,7 @@ $("bk-run").onclick = guarded(async () => {
 });
 $("bk-cancel").onclick = guarded(() => { if (bkJob) return api(`/api/jobs/${bkJob}/cancel`, {}); });
 
-// ---------- Settings: layout + migrate ----------
+// ---------- Settings ----------
 function renderLayoutPreview(rows) {
   $("layout-preview").querySelector("tbody").innerHTML = rows.map((r) => `<tr>
     <td>${esc(r.description)}</td><td class="k">${esc(r.when)}</td>
@@ -1002,7 +1002,7 @@ function renderLayoutPreview(rows) {
   </tr>`).join("");
 }
 async function loadLayout() {
-  const s = await get("/api/layout");
+  const [s, eventSettings] = await Promise.all([get("/api/layout"), get("/api/events/settings")]);
   $("layout-current").textContent = s.template;
   // Derived, never a hardcoded label.
   $("layout-default").textContent = s.is_default ? "(default)" : "";
@@ -1017,6 +1017,10 @@ async function loadLayout() {
     preset.appendChild(o);
   }
   renderLayoutPreview(s.preview);
+  $("events-min-files").value = eventSettings.min_files;
+  $("events-settings-status").textContent = eventSettings.is_default
+    ? `Using the default (${eventSettings.default_min_files}).`
+    : "Using your saved value.";
 }
 async function previewLayout() {
   const r = await api("/api/layout/preview", { template: $("layout-template").value.trim() });
@@ -1032,6 +1036,16 @@ $("layout-save").onclick = guarded(async () => {
   $("layout-current").textContent = r.template;
   $("layout-default").textContent = "";
   $("layout-error").textContent = "Saved.";
+});
+$("events-settings-save").onclick = guarded(async () => {
+  const minFiles = Number($("events-min-files").value);
+  const r = await api("/api/events/settings", { min_files: minFiles });
+  if (r.valid === false) {
+    $("events-settings-status").textContent = r.error;
+    return;
+  }
+  $("events-min-files").value = r.min_files;
+  $("events-settings-status").textContent = "Saved. New searches use this value.";
 });
 $("mig-preview").onclick = guarded(async () => {
   const r = await api("/api/migrate/preview", { path: $("mig-path").value.trim() });

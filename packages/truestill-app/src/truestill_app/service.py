@@ -25,6 +25,7 @@ from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import LocalDestination
 from truestill_core.drive import create_marker, locate_drive, read_marker
 from truestill_core.event_review import EventDecision, commit, propose
+from truestill_core.events import DEFAULT_MIN_FILES, EVENT_MIN_FILES_KEY
 from truestill_core.exif import read_metadata
 from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import (
@@ -792,6 +793,35 @@ def library_status(db: Path) -> dict[str, Any]:
     }
 
 
+# --- Settings --------------------------------------------------------------------------
+
+
+def _event_min_files(catalog: Catalog) -> int:
+    stored = catalog.get_setting(EVENT_MIN_FILES_KEY)
+    return DEFAULT_MIN_FILES if stored is None else int(stored)
+
+
+def event_settings(db: Path) -> dict[str, Any]:
+    """Trips & events proposal settings, with the core default when nothing is stored."""
+    with Catalog(db) as catalog:
+        stored = catalog.get_setting(EVENT_MIN_FILES_KEY)
+        min_files = DEFAULT_MIN_FILES if stored is None else int(stored)
+    return {
+        "min_files": min_files,
+        "default_min_files": DEFAULT_MIN_FILES,
+        "is_default": stored is None,
+    }
+
+
+def set_event_settings(min_files: object, db: Path) -> dict[str, Any]:
+    """Persist a positive proposal-size floor, rejecting malformed API input without writing."""
+    if isinstance(min_files, bool) or not isinstance(min_files, int) or min_files < 1:
+        return {"valid": False, "error": "Minimum photos per suggestion must be a whole number."}
+    with Catalog(db) as catalog:
+        catalog.set_setting(EVENT_MIN_FILES_KEY, str(min_files))
+    return {"valid": True, **event_settings(db)}
+
+
 # --- layout Settings screen (template + migration) ------------------------------------
 
 
@@ -1001,7 +1031,11 @@ def propose_events(path: Path, db: Path) -> dict[str, Any]:
     if marker is None:
         return {"ok": False, **_drive_correction(path)}
     with Catalog(db) as catalog:
-        review = assemble_trip_review(catalog, marker.uuid)
+        review = assemble_trip_review(
+            catalog,
+            marker.uuid,
+            min_files=_event_min_files(catalog),
+        )
     return {
         "ok": True,
         "uuid": marker.uuid,

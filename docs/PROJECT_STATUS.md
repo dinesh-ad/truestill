@@ -239,10 +239,10 @@ soak item), which produced five items, staged and ruled one at a time - all five
 
 **PENDING, in order:**
 
-1. **Stage 3 - Trips screen usability.** `min_files` becomes a **setting** (default 8), proposals
-   **sorted by count descending**, small proposals **collapsed**. ("A trip offered as one
-   proposal rather than one per day" - this stage's fourth item - shipped early as part of
-   13.3b's inversion.)
+1. **Stage 3 - Trips screen usability, IN PROGRESS.** `min_files` is now a per-catalog Settings
+   value with the core default still **8**; the next commit sorts proposals by count descending
+   and collapses only the derived small-event set. ("A trip offered as one proposal rather than
+   one per day" - this stage's fourth item - shipped early as part of 13.3b's inversion.)
 2. **Stage 4 - backlog `(gg)`**, adaptive day folders. Sequenced last on purpose: it partitions
    on evented-vs-un-evented, so it needs the evented set to be right first.
 

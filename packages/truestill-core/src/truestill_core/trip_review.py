@@ -19,7 +19,13 @@ from dataclasses import dataclass
 from datetime import date, datetime
 
 from truestill_core.catalog import Catalog
-from truestill_core.events import EventCandidate, EventItem, cluster_camera, slugify
+from truestill_core.events import (
+    DEFAULT_MIN_FILES,
+    EventCandidate,
+    EventItem,
+    cluster_camera,
+    slugify,
+)
 from truestill_core.trips import (
     DEFAULT_MAX_GAP_DAYS,
     DEFAULT_MAX_SPAN_DAYS,
@@ -55,6 +61,7 @@ def propose_trips_from_catalog(
     catalog: Catalog,
     drive_uuid: str,
     *,
+    min_files: int = DEFAULT_MIN_FILES,
     max_span_days: int = DEFAULT_MAX_SPAN_DAYS,
     max_gap_days: int = DEFAULT_MAX_GAP_DAYS,
 ) -> TripDetectionResult:
@@ -69,7 +76,7 @@ def propose_trips_from_catalog(
     Pure with respect to the catalog: reads rows, writes nothing.
     """
     items = _camera_items(catalog, drive_uuid)
-    clusters = cluster_camera(items)
+    clusters = cluster_camera(items, min_files=min_files)
     return detect_trips(items, clusters, max_span_days=max_span_days, max_gap_days=max_gap_days)
 
 
@@ -118,6 +125,7 @@ def assemble_trip_review(
     catalog: Catalog,
     drive_uuid: str,
     *,
+    min_files: int = DEFAULT_MIN_FILES,
     max_span_days: int = DEFAULT_MAX_SPAN_DAYS,
     max_gap_days: int = DEFAULT_MAX_GAP_DAYS,
 ) -> TripReview:
@@ -134,7 +142,7 @@ def assemble_trip_review(
     clusters, so this costs no extra I/O over calling `propose_trips_from_catalog` alone.
     """
     items = _camera_items(catalog, drive_uuid)
-    clusters = cluster_camera(items)
+    clusters = cluster_camera(items, min_files=min_files)
     result = detect_trips(items, clusters, max_span_days=max_span_days, max_gap_days=max_gap_days)
     claimed_days = {day for trip in result.proposals for day in trip.days}
     cards = [ReviewCard(trip=trip) for trip in result.proposals]

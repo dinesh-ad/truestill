@@ -100,6 +100,20 @@ floor + cap   : 15 clusters, longest span      11.8 h
 `min_files` stays **8**. Raising it to 15 drops 2014-08-14 (31 photos) entirely, and a 31-photo
 evening is an event.
 
+### Stage 3 secondary claim - recorded, not verified
+
+The Stage 3 discussion supplied a secondary claim that multiple 2023-2026 consumer surveys
+(`n > 2,000`) found about 23 photos taken per occasion across graduations, weddings, vacations
+and sporting events. The prescribed web-research command was unavailable in the build
+environment, so no primary report, sample wording or distribution was verified. Treat **23 as
+an unverified secondary claim**, not as evidence this implementation relies on.
+
+The accompanying inference that "a mean of 23 means roughly half of events are below 23" is also
+not established: a mean alone says nothing about the fraction below it without the distribution
+or at least the median. The verified reason to keep 8 remains the measured library above:
+raising the floor to 15 hides a real 31-photo evening, while an unwanted small proposal is visible
+and cheap to skip. A missed proposal is not visible at all.
+
 ## 4. What the rule proposes for the real library- **for Dinesh to check**
 
 This is the ground truth that matters: these should correspond to things that actually happened.
