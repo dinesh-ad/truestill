@@ -502,8 +502,10 @@ async function startUndoApply(path, panel) {
         )
       : jobErrorCard(d);
     await refreshUndoAffordance(path, panel);
-    // Affordance gone when the record is spent; keep the outcome visible either way.
-    panel.innerHTML = summaryHtml + panel.innerHTML;
+    // Prepend the outcome without re-parsing the armed card: assigning panel.innerHTML
+    // would wipe the Preview onclick refreshUndoAffordance just attached, and a cancelled
+    // apply that left rows would show a dead button (resume impossible from the UI).
+    panel.insertAdjacentHTML("afterbegin", summaryHtml);
     loadCustody();
   });
 }

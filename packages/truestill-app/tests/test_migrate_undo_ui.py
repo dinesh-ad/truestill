@@ -1,8 +1,8 @@
 """Source guards for the in-app migration undo affordance (backlog pp).
 
-The journal lives in the catalog, not the browser session: the UI must re-query on screen
-load and after every migration. These tests pin that wiring in the shipped JS/HTML, the same
-way the mangled-dash gate pins prose - a defect in the source is a defect, no browser required.
+These assert that the shipped JS/HTML still contains the wiring strings - they are NOT a
+proof that the flow works in a browser. Behaviour (reload durability, typed confirm, refusals,
+cancel/resume) is covered by ``tests/e2e/test_migrate_undo.py``.
 """
 
 from __future__ import annotations
@@ -61,3 +61,9 @@ def test_undo_uses_job_endpoints_not_a_parallel_mechanism() -> None:
     assert '"/api/migrate/undo/preview"' in APP_JS
     assert '"/api/migrate/undo/apply"' in APP_JS
     assert "/api/migrate/undo?path=" in APP_JS
+
+
+def test_undo_apply_outcome_does_not_wipe_armed_card_handlers() -> None:
+    """innerHTML concat after refresh killed Preview onclick on a partial cancel (e2e catch)."""
+    assert 'insertAdjacentHTML("afterbegin"' in APP_JS
+    assert "panel.innerHTML = summaryHtml + panel.innerHTML" not in APP_JS
