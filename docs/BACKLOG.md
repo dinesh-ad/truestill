@@ -282,19 +282,10 @@ is invisible here is retired, not free.**
        forever. Pruning must actually run as part of a run, not merely exist.
   - **Placement:** the **first post-launch wave, alongside (n)**. Earlier if the soak shows
     repeat-run pain at real scale -- that evidence would move it, nothing else needs to.
-- **(u) Metadata (exiftool) cache.** Promised by `IMPLEMENTATION_STANDARDS.md` §8 as "tracked
-  as a separate later item" and recorded here because that pointer had nothing to point at.
-  With the hash cache shipped, **exiftool is essentially the entire cost of a repeat preview**
-  (4.7s of the remaining 4.7s at 2,275 files), so this is the next measured win available.
-  - **It is deliberately NOT the hash cache with a different table.** The hash cache is safe to
-    be wrong because a stale row can only cost a re-read. Metadata feeds **dating**, so a stale
-    row could change *where a photo lands* - a class of risk the hash cache structurally cannot
-    have. Whatever invalidation this uses must be argued on that basis, not inherited.
-  - **Prerequisite for a decision:** state what invalidates a row when an *external* tool edits
-    a file's metadata without changing its size (entirely possible - exiftool itself does it),
-    and whether size+mtime is honestly sufficient there. If the answer is "not sufficient", the
-    correct outcome may be **not to build it**.
-  - Blocked on nothing; wants a research pass before a build pass.
+- **(u) Metadata (exiftool) cache.** **Built 2026-07-29** into the existing
+  `hash_cache.HashCache` sidecar (same path+size+mtime_ns key; tag-set fingerprint; force
+  re-read via `--refresh-metadata` / app checkbox). Known mtime-without-bump limit documented
+  at the cache site. Verify and reclaim still never use it.
 
 - **(v) BK-tree for perceptual dedup - build on the alarm, not before.** The linear scan is
   O(n²) *by decision* (`PERFORMANCE.md` §3): 0.7s at 2,275 images, ~22.6 min at 100k. A BK-tree

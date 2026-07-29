@@ -353,6 +353,7 @@ def organize_preview(
     *,
     progress: ProgressCallback | None = None,
     cancel: threading.Event | None = None,
+    refresh_metadata: bool = False,
 ) -> dict[str, Any]:
     """Plan + dedup with no writes -- the dry-run summary the UI shows before a real run.
 
@@ -360,6 +361,9 @@ def organize_preview(
     work: reading metadata, then hashing. On a large library this is the **first** long wait
     a user ever experiences with truestill, which makes it the worst possible place to look
     like nothing is happening.
+
+    ``refresh_metadata`` forces a fresh exiftool pass (bypasses the sidecar metadata cache)
+    for tools that edit tags without bumping mtime.
     """
     scan = scan_source(source)
     files = scan.media
@@ -370,8 +374,10 @@ def organize_preview(
             "folders": {},
             "skipped": _skipped_summary(scan),
         }
-    metadata = read_metadata(files, progress=progress, cancel=cancel)
     with Catalog(db) as catalog, HashCache.beside(db) as cache:
+        metadata = read_metadata(
+            files, progress=progress, cancel=cancel, cache=cache, force=refresh_metadata
+        )
         scheme = resolve_scheme(catalog)
         decisions = plan(files, metadata, build_rules(), scheme=scheme)
         index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
@@ -390,7 +396,9 @@ def organize_preview(
     return summary
 
 
-def organize_preview_run(source: Path, destination: Path, db: Path) -> JobTarget:
+def organize_preview_run(
+    source: Path, destination: Path, db: Path, *, refresh_metadata: bool = False
+) -> JobTarget:
     """The preview as a cancellable background job, so it can report progress like the rest.
 
     Still a dry run in every respect: this writes nothing to the destination or the catalog.
@@ -398,13 +406,25 @@ def organize_preview_run(source: Path, destination: Path, db: Path) -> JobTarget
     """
 
     def target(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
-        return organize_preview(source, destination, db, progress=progress, cancel=cancel)
+        return organize_preview(
+            source,
+            destination,
+            db,
+            progress=progress,
+            cancel=cancel,
+            refresh_metadata=refresh_metadata,
+        )
 
     return target
 
 
 def organize_run(
-    source: Path, destination: Path, db: Path, *, skip_undated: bool = False
+    source: Path,
+    destination: Path,
+    db: Path,
+    *,
+    skip_undated: bool = False,
+    refresh_metadata: bool = False,
 ) -> JobTarget:
     """Build a job target that runs the real organize (progress across hashing then copying)."""
 
@@ -412,8 +432,8 @@ def organize_run(
         files = discover(source)
         if not files:
             return _completion([], destination)
-        metadata = read_metadata(files, progress=progress)
         with Catalog(db) as catalog, HashCache.beside(db) as cache:
+            metadata = read_metadata(files, progress=progress, cache=cache, force=refresh_metadata)
             pin_existing_layout(catalog)
             scheme = resolve_scheme(catalog)
             decisions = plan(files, metadata, build_rules(), scheme=scheme)
@@ -801,8 +821,8 @@ def ingest_preview(
     files = discover(takeout)
     if not files:
         return {"files": 0, "missing_sidecar": 0}
-    metadata = read_metadata(files, progress=progress, cancel=cancel)
-    with Catalog(db) as catalog:
+    with Catalog(db) as catalog, HashCache.beside(db) as cache:
+        metadata = read_metadata(files, progress=progress, cancel=cancel, cache=cache)
         scheme = resolve_scheme(catalog)
         decisions = plan(files, metadata, build_rules(), takeout=scan.sidecars, scheme=scheme)
         index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
@@ -812,6 +832,7 @@ def ingest_preview(
             catalog_sizes=catalog.known_sizes(),
             progress=progress,
             cancel=cancel,
+            cache=cache,
         )
     uploads = [r for r in resolutions if r.should_upload]
     dups = [r for r in resolutions if not r.should_upload]

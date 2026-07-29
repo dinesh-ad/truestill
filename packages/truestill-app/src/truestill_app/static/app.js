@@ -851,11 +851,12 @@ $("org-preview").onclick = guarded(async () => {
 $("org-dedup").onclick = guarded(async () => {
   const source = $("org-source").value.trim();
   const destination = $("org-dest").value.trim();
+  const refresh_metadata = $("org-refresh-metadata").checked;
   if (!source) { setWhy("Pick a folder to organize first."); return; }
   await withBusy($("org-dedup"), "Checking for duplicates…", async ({ setStatus }) => {
     $("org-run").disabled = true;
     orgProgress.start("starting");
-    const started = await api("/api/organize/preview", { source, destination });
+    const started = await api("/api/organize/preview", { source, destination, refresh_metadata });
     if (started.ok === false) {
       orgProgress.stop();
       $("org-result").innerHTML = startRefusedCard(started, "org-dest");
@@ -890,8 +891,9 @@ $("org-run").onclick = guarded(async () => {
   const source = $("org-source").value.trim();
   const destination = $("org-dest").value.trim();
   const skip_undated = $("org-skip-undated").checked;
+  const refresh_metadata = $("org-refresh-metadata").checked;
   await withBusy($("org-run"), "Organizing…", async ({ setStatus }) => {
-    const started = await api("/api/organize/run", { source, destination, skip_undated });
+    const started = await api("/api/organize/run", { source, destination, skip_undated, refresh_metadata });
     if (started.ok === false) {
       $("org-result").innerHTML = startRefusedCard(started, "org-dest");
       return;

@@ -132,3 +132,19 @@ uv run python scripts/profile_organize_preview.py \
 ```
 
 pCloud Crypto Folder must be unlocked; a locked crypto mount returns `PermissionError` mid-hash (observed once during this session before a successful re-run).
+
+---
+
+## 7. Follow-up measurement - metadata cache (2026-07-29, same folder)
+
+After extending `HashCache` to store requested exiftool tags (same path+size+mtime_ns key):
+
+| Pass | Wall | Notes |
+|---|---:|---|
+| Cold preview | **243.5 s** | First write into empty sidecar |
+| Warm preview | **1.43 s** | Zero exiftool subprocess calls |
+| Speedup | **170×** | Saved ~242 s |
+
+Remaining warm cost is hashing/perceptual (and walk/stat), not metadata. Force re-read
+(`--refresh-metadata` / app checkbox) bypasses the metadata half when an editor changes tags
+without bumping mtime.

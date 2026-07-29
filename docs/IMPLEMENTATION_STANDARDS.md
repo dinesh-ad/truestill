@@ -531,11 +531,15 @@ algorithm toggle. Full rationale: `DECISIONS.md` **D8**.
     (the PixSort mistake), bounded so it cannot become a stat storm.
   - **Verify is deliberately NOT cached.** It re-hashes the copy on the drive to detect
     bit-rot, and silent corruption changes content without changing size or mtime. Verify
-    always reads the bytes.
-  - **exiftool results are NOT cached.** At 12 MP it costs ~2.2 ms/file against ~69.8 ms for a
-    perceptual hash, because it reads headers rather than whole files - and metadata is what
-    *dating* depends on, so a stale row could change where a photo lands, which the hash cache
-    structurally cannot. Tracked as **`BACKLOG.md` item (u)**, deliberately separate.
+    always reads the bytes. Reclaim likewise always re-hashes.
+  - **exiftool results ARE cached in the same sidecar** (path + size + ``mtime_ns`` + a
+    fingerprint of ``REQUESTED_TAGS``). Profiled 2026-07-29: exiftool was **74%** of cold
+    pCloud preview wall. A warm second pass must make **zero** exiftool subprocess calls
+    (`test_warm_second_read_makes_zero_exiftool_calls`). Known limit: some tools edit tags
+    without bumping mtime (IMatch-class); callers pass ``force=True`` /
+    ``--refresh-metadata`` / the app checkbox to bypass. An expanded tag set changes the
+    fingerprint so old rows miss rather than partially answer. See `DECISIONS.md` is not
+    required here - the contract is this bullet + `hash_cache.py` module docs.
 - **Concurrency for I/O-bound batches** via a worker pool (`scan.compute_hashes`, thread or
   process, benchmarked default = thread).
 - **Metadata writes are batched** (`exif.write_metadata_batch`, `WRITE_BATCH_SIZE = 100`).

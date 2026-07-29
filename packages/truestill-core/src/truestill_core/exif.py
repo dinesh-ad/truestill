@@ -19,6 +19,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from truestill_core.hash_cache import HashCache, tags_fingerprint
 from truestill_core.progress import Phase, Progress, ProgressCallback
 
 EXIFTOOL_BIN = "exiftool"
@@ -202,6 +203,8 @@ def read_metadata(
     *,
     progress: ProgressCallback | None = None,
     cancel: threading.Event | None = None,
+    cache: HashCache | None = None,
+    force: bool = False,
 ) -> dict[Path, dict[str, Any]]:
     """Read the requested tags for ``paths``.
 
@@ -215,15 +218,45 @@ def read_metadata(
     Cancel button that does nothing until the phase ends is indistinguishable from a broken
     one. Cancelling returns what was read so far -- callers treat a missing entry as "no
     metadata", which is already the normal path for an unparseable file.
+
+    ``cache``, when given, serves unchanged files (path + size + ``mtime_ns`` + tag-set
+    fingerprint) without invoking exiftool. ``force=True`` bypasses those hits -- required
+    when an external tool may have edited tags without bumping mtime (IMatch-class editors).
+    Verify and reclaim must never pass a cache: they re-read bytes on disk by design.
     """
     if not paths:
         return {}
 
-    binary = ensure_exiftool()
+    tags_fp = tags_fingerprint(REQUESTED_TAGS, _NUMERIC_TAGS)
     collected: dict[Path, dict[str, Any]] = {}
-    done = 0
+    to_read: list[Path] = []
 
-    for chunk in _chunked(paths, BATCH_SIZE):
+    if cache is not None and not force:
+        for path in paths:
+            try:
+                stat = path.stat()
+            except OSError:
+                to_read.append(path)
+                continue
+            hit = cache.get_metadata(path, stat.st_size, stat.st_mtime_ns, tags_fp)
+            if hit is None:
+                to_read.append(path)
+            else:
+                collected[path] = hit
+    else:
+        to_read = list(paths)
+
+    if progress is not None and collected:
+        # Cache hits count as done so a fully warm run shows a completed scanning phase.
+        progress(Progress(len(collected), len(paths), Phase.SCANNING, ""))
+
+    if not to_read:
+        return collected
+
+    binary = ensure_exiftool()
+    done = len(collected)
+
+    for chunk in _chunked(to_read, BATCH_SIZE):
         if cancel is not None and cancel.is_set():
             break
         if progress is not None:
@@ -236,17 +269,28 @@ def read_metadata(
         proc = subprocess.run(args, capture_output=True, text=True, check=False)
         payload = proc.stdout.strip()
         if not payload:
+            done += len(chunk)
             continue
 
         try:
             records = json.loads(payload)
         except json.JSONDecodeError:
+            done += len(chunk)
             continue
 
         done += len(chunk)
+        by_name = {str(path): path for path in chunk}
         for record in records:
             source = record.get("SourceFile")
-            if source:
-                collected[Path(source)] = record
+            if not source:
+                continue
+            path = by_name.get(source) or Path(source)
+            collected[path] = record
+            if cache is not None:
+                try:
+                    stat = path.stat()
+                except OSError:
+                    continue
+                cache.put_metadata(path, stat.st_size, stat.st_mtime_ns, tags_fp, record)
 
     return collected

@@ -16,7 +16,7 @@ not the speed of one hash call. Two levers, both here:
   choice is machine-dependent, so it is selectable and benchmarked, not assumed.
 
 SHA-256 is the one and only content hash (hardware-accelerated via OpenSSL on modern CPUs).
-No BLAKE3, no algorithm setting, one catalog column.
+No BLAKE3, no algorithm setting, one catalog column (see ``DECISIONS.md`` D8).
 """
 
 from __future__ import annotations

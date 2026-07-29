@@ -135,7 +135,12 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
         # Still a dry run: the job writes nothing. Locked on the destination (where copies land).
         body = await request.json()
         destination = Path(body["destination"])
-        target = service.organize_preview_run(Path(body["source"]), destination, _db())
+        target = service.organize_preview_run(
+            Path(body["source"]),
+            destination,
+            _db(),
+            refresh_metadata=bool(body.get("refresh_metadata", False)),
+        )
         return _start_drive_job(target, paths=[destination], operation="organize preview")
 
     async def organize_run(request: Request) -> JSONResponse:
@@ -146,6 +151,7 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
             destination,
             _db(),
             skip_undated=bool(body.get("skip_undated", False)),
+            refresh_metadata=bool(body.get("refresh_metadata", False)),
         )
         return _start_drive_job(target, paths=[destination], operation="organize")
 

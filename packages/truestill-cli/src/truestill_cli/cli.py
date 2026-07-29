@@ -222,6 +222,14 @@ def _build_parser() -> argparse.ArgumentParser:
             "and destination on one filesystem; refuses rather than falling back to a copy"
         ),
     )
+    organize.add_argument(
+        "--refresh-metadata",
+        action="store_true",
+        help=(
+            "re-read exiftool tags even when the sidecar cache says the file is unchanged "
+            "(for editors that change tags without bumping mtime)"
+        ),
+    )
     _add_common_options(organize)
 
     ingest = sub.add_parser(
@@ -983,7 +991,10 @@ def _cmd_organize(args: argparse.Namespace) -> int:
         return 0
     print(f"Analysing {len(files)} file(s) under {args.source} ...\n")
     try:
-        metadata = read_metadata(files)
+        with HashCache.beside(args.db) as cache:
+            metadata = read_metadata(
+                files, cache=cache, force=bool(getattr(args, "refresh_metadata", False))
+            )
     except ExiftoolMissingError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 3

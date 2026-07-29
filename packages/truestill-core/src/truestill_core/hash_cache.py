@@ -1,4 +1,4 @@
-"""Remember what a file hashed to, so an unchanged file is never read twice.
+"""Remember what a file hashed to (and what exiftool last returned for it).
 
 Measured on a 2,275-file library of 12 MP photos (~11.6 MB each), hashing is **79%** of the
 cost of a preview -- 18.7s of 23.7s -- and within that, the perceptual hash dominates: a full
@@ -7,6 +7,10 @@ spares SHA-256 for ~94% of realistic-size files, but the perceptual hash runs fo
 image, every time. So this caches **both**, and caching only SHA-256 would have recovered
 about 5% of the wait rather than nearly all of it.
 
+The 2026-07-29 cold-preview profile (`docs/preview-performance-profile.md`) then showed
+**exiftool is 74% of wall on pCloud**. The same sidecar therefore also caches the requested
+metadata tags, keyed identically (path + size + ``mtime_ns``). One layer, not a second store.
+
 **It lives beside the catalog, not inside it.** Rows are keyed by absolute path, which is
 machine-specific -- and `IMPLEMENTATION_STANDARDS.md` §3.1 already establishes that identity
 is never a path, which is why drive mount points are hints rather than catalog columns. The
@@ -14,10 +18,15 @@ same reasoning applies here: throwaway, machine-local, high-churn rows have no b
 sharing a file with the record of which drive holds the only copy of someone's photos. Delete
 this file and nothing is lost but time.
 
-**It can only ever save work.** A hit requires size *and* mtime_ns to match exactly; anything
-else -- a mismatch, a corrupt file, a schema from a future version, no file at all -- means
-hashing from scratch. There is no path on which a cached row decides an outcome, which is what
-makes the whole thing safe to be wrong.
+**It can only ever save work for hashes.** A hash hit requires size *and* mtime_ns to match
+exactly; anything else means hashing from scratch. There is no path on which a cached hash
+decides an outcome.
+
+**Metadata is different: a stale row can change where a photo lands.** Size+mtime invalidation
+matches PhotoPrism's rule and is honest when the file bytes or timestamps change. Known limit:
+some tools edit tags **without** bumping mtime (documented case: IMatch). Callers that must be
+sure therefore pass ``force=True`` to :func:`truestill_core.exif.read_metadata`, and **verify /
+reclaim never use this cache** - they re-read bytes on disk by design.
 
 **mtime is read here for change detection only.** It never reaches dating; that chain
 (`dates.resolve_capture_datetime`) does not consult the filesystem at all, and this module does
@@ -26,17 +35,21 @@ not change that.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import sqlite3
 from pathlib import Path
 from types import TracebackType
-from typing import Self
+from typing import Any, Self
 
 from truestill_core.models import FileHashes
 
 #: Bumped when the row shape changes. A cache is derived data, so a version it does not
 #: recognise is dropped and rebuilt rather than migrated -- there is nothing here worth
 #: preserving that a re-read cannot reproduce.
-SCHEMA_VERSION = 1
+#:
+#: v1: hashes only. v2: adds ``tags_fp`` + ``metadata_json`` for the exiftool read cache.
+SCHEMA_VERSION = 2
 
 #: How many absent files to prune per run. Bounded so cleanup cannot degrade into an
 #: O(whole-cache) stat storm on a library that is mostly untouched -- the point is that it
@@ -46,13 +59,18 @@ PRUNE_LIMIT = 2_000
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS hash_cache (
-    path       TEXT PRIMARY KEY,
-    size       INTEGER NOT NULL,
-    mtime_ns   INTEGER NOT NULL,
-    sha256     TEXT,
-    perceptual TEXT
+    path          TEXT PRIMARY KEY,
+    size          INTEGER NOT NULL,
+    mtime_ns      INTEGER NOT NULL,
+    sha256        TEXT,
+    perceptual    TEXT,
+    tags_fp       TEXT,
+    metadata_json TEXT
 );
 """
+
+# Row: size, mtime_ns, sha256, perceptual, tags_fp, metadata_json
+_Row = tuple[int, int, str | None, str | None, str | None, str | None]
 
 
 def cache_path_for(catalog: Path) -> Path:
@@ -60,8 +78,18 @@ def cache_path_for(catalog: Path) -> Path:
     return catalog.with_suffix(".cache.sqlite")
 
 
+def tags_fingerprint(requested: tuple[str, ...], numeric: tuple[str, ...] = ()) -> str:
+    """Stable short digest of the tag set a metadata row was written for.
+
+    If ``REQUESTED_TAGS`` (or the numeric GPS set) grows or shrinks, every cached metadata
+    row misses rather than partially answering a question it was not asked.
+    """
+    payload = "\0".join((*requested, "#", *numeric)).encode()
+    return hashlib.sha256(payload).hexdigest()[:16]
+
+
 class HashCache:
-    """A path→hashes cache that degrades to doing nothing rather than doing harm.
+    """A path→hashes (and path→metadata) cache that degrades to doing nothing rather than harm.
 
     Every failure mode -- unreadable file, corrupt database, unknown schema -- leaves an
     instance that reports misses and swallows writes, so callers never branch on whether the
@@ -70,8 +98,8 @@ class HashCache:
 
     def __init__(self, path: Path | None) -> None:
         self._conn: sqlite3.Connection | None = None
-        self._rows: dict[str, tuple[int, int, str | None, str | None]] = {}
-        self._pending: dict[str, tuple[int, int, str | None, str | None]] = {}
+        self._rows: dict[str, _Row] = {}
+        self._pending: dict[str, _Row] = {}
         self._seen: set[str] = set()
         if path is None:
             return
@@ -87,9 +115,17 @@ class HashCache:
             # One bulk read rather than a query per file: 21 ms for 20,000 rows, measured,
             # against ~10 us x N for individual lookups.
             self._rows = {
-                str(row[0]): (int(row[1]), int(row[2]), row[3], row[4])
+                str(row[0]): (
+                    int(row[1]),
+                    int(row[2]),
+                    row[3],
+                    row[4],
+                    row[5],
+                    row[6],
+                )
                 for row in conn.execute(
-                    "SELECT path, size, mtime_ns, sha256, perceptual FROM hash_cache"
+                    "SELECT path, size, mtime_ns, sha256, perceptual, tags_fp, metadata_json "
+                    "FROM hash_cache"
                 )
             }
             self._conn = conn
@@ -107,6 +143,13 @@ class HashCache:
     def enabled(self) -> bool:
         return self._conn is not None
 
+    def _base_row(self, key: str, size: int, mtime_ns: int) -> _Row:
+        """Pending or stored row when size+mtime still match; else a blank row for this key."""
+        prev = self._pending.get(key) or self._rows.get(key)
+        if prev is not None and prev[0] == size and prev[1] == mtime_ns:
+            return prev
+        return (size, mtime_ns, None, None, None, None)
+
     def get(self, path: Path, size: int, mtime_ns: int, *, need_sha: bool) -> FileHashes | None:
         """The recorded hashes for a file that has not changed, else ``None``.
 
@@ -120,7 +163,7 @@ class HashCache:
         row = self._rows.get(key)
         if row is None:
             return None
-        cached_size, cached_mtime, sha, perceptual = row
+        cached_size, cached_mtime, sha, perceptual, _tags_fp, _meta = row
         if cached_size != size or cached_mtime != mtime_ns:
             return None
         if need_sha and sha is None:
@@ -130,7 +173,50 @@ class HashCache:
     def put(self, path: Path, size: int, mtime_ns: int, hashes: FileHashes) -> None:
         key = str(path)
         self._seen.add(key)
-        self._pending[key] = (size, mtime_ns, hashes.sha256, hashes.perceptual)
+        base = self._base_row(key, size, mtime_ns)
+        self._pending[key] = (
+            size,
+            mtime_ns,
+            hashes.sha256,
+            hashes.perceptual,
+            base[4],
+            base[5],
+        )
+
+    def get_metadata(
+        self, path: Path, size: int, mtime_ns: int, tags_fp: str
+    ) -> dict[str, Any] | None:
+        """Cached exiftool tags when size, mtime, and tag-set fingerprint all match."""
+        key = str(path)
+        self._seen.add(key)
+        row = self._rows.get(key)
+        if row is None:
+            return None
+        cached_size, cached_mtime, _sha, _ph, cached_fp, raw = row
+        if cached_size != size or cached_mtime != mtime_ns:
+            return None
+        if cached_fp != tags_fp or raw is None:
+            return None
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            return None
+        return data if isinstance(data, dict) else None
+
+    def put_metadata(
+        self, path: Path, size: int, mtime_ns: int, tags_fp: str, metadata: dict[str, Any]
+    ) -> None:
+        key = str(path)
+        self._seen.add(key)
+        base = self._base_row(key, size, mtime_ns)
+        self._pending[key] = (
+            size,
+            mtime_ns,
+            base[2],
+            base[3],
+            tags_fp,
+            json.dumps(metadata, separators=(",", ":"), sort_keys=True),
+        )
 
     def commit(self) -> None:
         """Write what this run learned, and prune what it can prove is gone.
@@ -143,10 +229,12 @@ class HashCache:
         try:
             if self._pending:
                 self._conn.executemany(
-                    "INSERT INTO hash_cache (path, size, mtime_ns, sha256, perceptual) "
-                    "VALUES (?, ?, ?, ?, ?) ON CONFLICT(path) DO UPDATE SET "
+                    "INSERT INTO hash_cache "
+                    "(path, size, mtime_ns, sha256, perceptual, tags_fp, metadata_json) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(path) DO UPDATE SET "
                     "size=excluded.size, mtime_ns=excluded.mtime_ns, "
-                    "sha256=excluded.sha256, perceptual=excluded.perceptual",
+                    "sha256=excluded.sha256, perceptual=excluded.perceptual, "
+                    "tags_fp=excluded.tags_fp, metadata_json=excluded.metadata_json",
                     [(k, *v) for k, v in self._pending.items()],
                 )
                 self._pending.clear()
