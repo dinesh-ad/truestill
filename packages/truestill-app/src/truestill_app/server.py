@@ -199,6 +199,25 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
         ]
         with Catalog(_db()) as catalog:
             named = commit_catalog(catalog, decisions)
+            # Remembered so apply-to-disk can report each one's real destination folder once the
+            # migration has actually placed its files there (13.3a) -- not a rename or a guess,
+            # just this session's own decisions, looked up again now that they are persisted.
+            named_events = []
+            for decision in decisions:
+                if not decision.name or not decision.name.strip():
+                    continue
+                existing = catalog.event_by_signature(decision.cluster.signature)
+                if existing is None:
+                    continue
+                named_events.append(
+                    {
+                        "event_id": int(existing["id"]),
+                        "name": str(existing["name"]),
+                        "start": decision.cluster.start.isoformat(),
+                        "end": decision.cluster.end.isoformat(),
+                    }
+                )
+        session["named_events"] = named_events
         return JSONResponse({"events": named})
 
     async def events_preview(request: Request) -> JSONResponse:
@@ -209,7 +228,9 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
     async def events_apply_to_disk(request: Request) -> JSONResponse:
         """Apply the trip placement: a journalled, resumable relocation on the drive."""
         session = sessions[request.path_params["session"]]
-        job_id = jobs.start(service.migration_apply(Path(session["path"]), _db()))
+        job_id = jobs.start(
+            service.migration_apply(Path(session["path"]), _db(), session.get("named_events", []))
+        )
         return JSONResponse({"job_id": job_id})
 
     routes = [

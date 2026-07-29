@@ -106,6 +106,54 @@ def test_merge_then_apply_to_disk_relocates_into_event_folder(
     assert len(landed) == 20  # the trip folder exists on disk with all 20 photos
 
 
+def _stream_until_done(client: TestClient, job_id: str) -> dict:
+    with client.stream("GET", f"/api/jobs/{job_id}/events?token={_TOKEN}") as stream:
+        for line in stream.iter_lines():
+            if line.startswith("data:"):
+                event = json.loads(line[5:].strip())
+                if event["type"] == "done":
+                    return event
+    pytest.fail("job never reached a done event")  # pragma: no cover
+
+
+def test_apply_to_disk_reports_one_row_per_named_trip_with_its_real_folder(
+    client: TestClient, tmp_path: Path
+) -> None:
+    """13.3a: the aggregate "Moved N photos" line is replaced by one row per named trip, each
+    carrying its own real destination folder - the data a "reveal in file manager" row needs.
+
+    Two trips named and applied in one run must produce two rows, not one collapsed aggregate
+    (that is the mutation this fixture guards - see the report for the seen-to-fail-first proof).
+    """
+    src = tmp_path / "src"
+    _source(src, [(datetime(2026, 6, 14, 9), 10), (datetime(2026, 6, 21, 9), 10)])
+    drive = tmp_path / "DriveA"
+    _drive_with_library(client, src, drive)
+
+    proposed = client.post("/api/events/propose", json={"path": str(drive)}).json()
+    assert len(proposed["clusters"]) == 2
+    sid = proposed["session"]
+
+    named = client.post(f"/api/events/{sid}/apply", json={"names": ["Goa", "Paris"]}).json()
+    assert named["events"] == 2
+
+    client.post(
+        f"/api/events/{sid}/preview", json={}
+    )  # exercised by the test above; not re-asserted
+    job = client.post(f"/api/events/{sid}/apply-to-disk", json={}).json()
+    done = _stream_until_done(client, job["job_id"])
+
+    trips = done["summary"]["trips"]
+    assert len(trips) == 2  # NOT collapsed into one aggregate row
+    by_name = {t["name"]: t for t in trips}
+    assert set(by_name) == {"Goa", "Paris"}
+    for name, expected_day in (("Goa", "2026-06-14"), ("Paris", "2026-06-21")):
+        trip = by_name[name]
+        assert trip["start"].startswith(expected_day)
+        landed = list((drive / trip["path"]).glob("*.jpg"))
+        assert len(landed) == 10  # the reported path is the REAL folder, not guessed
+
+
 def test_split_via_http_names_both_halves(client: TestClient, tmp_path: Path) -> None:
     src = tmp_path / "src"
     _source(src, [(datetime(2026, 6, 14, 9), 12)])

@@ -825,6 +825,21 @@ $("ev-apply").onclick = async () => {
     : `<div class="k">Nothing to move - these photos are already in their trip folders.</div>`;
   $("ev-apply-disk").classList.toggle("hidden", p.moves.length === 0);
 };
+// One row per trip actually named and moved this run, each with a working reveal link -- the
+// folder exists by construction (the migration that just finished wrote it), so unlike Backups'
+// drive-path links there is no disabled/absent state to consider here. Falls back to the plain
+// count only when nothing in this session had a folder to show (e.g. everything was skipped).
+function tripResultCards(summary) {
+  const trips = summary.trips || [];
+  if (!trips.length) {
+    return card(`<div class="headline">Moved ${plural(summary.migrated || 0, "photo")} into trip folders.</div>`);
+  }
+  return trips.map((t) => card(
+    `<div class="headline">${esc(t.name)}</div>
+     <div class="k mono">${t.start.slice(0, 10)} → ${t.end.slice(0, 10)}</div>
+     <div class="k mono"><a href="#" data-open="${esc(t.path)}" title="Open in file manager">${esc(t.path)}</a></div>`
+  )).join("");
+}
 let evJob = null;
 $("ev-apply-disk").onclick = async () => {
   const { job_id } = await api(`/api/events/${evSession}/apply-to-disk`, {});
@@ -834,9 +849,7 @@ $("ev-apply-disk").onclick = async () => {
     (d) => {
       evProgress.stop();
       $("ev-apply-disk").classList.add("hidden");
-      $("ev-disk-result").innerHTML = d.ok
-        ? card(`<div class="headline">Moved ${plural(d.summary.migrated || 0, "photo")} into trip folders.</div>`)
-        : jobErrorCard(d);
+      $("ev-disk-result").innerHTML = d.ok ? tripResultCards(d.summary) : jobErrorCard(d);
       evJob = null;
       loadCustody();
     });

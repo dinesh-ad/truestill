@@ -13,9 +13,10 @@ import subprocess
 import sys
 import threading
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from truestill_core.catalog import Catalog
@@ -1031,8 +1032,18 @@ def migration_preview(path: Path, db: Path) -> dict[str, Any]:
     }
 
 
-def migration_apply(path: Path, db: Path) -> JobTarget:
-    """Build a job target that relocates a connected drive's files under the current template."""
+def migration_apply(
+    path: Path, db: Path, named_events: Sequence[dict[str, Any]] | None = None
+) -> JobTarget:
+    """Build a job target that relocates a connected drive's files under the current template.
+
+    ``named_events`` (each an ``{"event_id", "name", "start", "end"}`` dict, from a just-completed
+    Trips & events naming session) is optional and changes nothing about the migration itself.
+    When given, the result also reports each event's **real** destination folder - looked up
+    from the catalog after the migration has actually placed the files there, never guessed or
+    rendered ahead of time - the data a "reveal in file manager" row needs (13.3a). A plain
+    Settings-screen migration, which has no session to report on, omits it and is unaffected.
+    """
 
     def target(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
         marker = read_marker(path)
@@ -1054,6 +1065,26 @@ def migration_apply(path: Path, db: Path) -> JobTarget:
                 progress=progress,
                 cancel=cancel,
             )
-        return {"label": marker.label, "migrated": outcome.migrated, "resumed": outcome.resumed}
+            trips = []
+            for event in named_events or ():
+                relative = catalog.sample_relative_for_event(event["event_id"], marker.uuid)
+                if relative is None:
+                    continue  # nothing of this event landed on this drive -- nothing to reveal
+                trips.append(
+                    {
+                        "name": event["name"],
+                        "start": event["start"],
+                        "end": event["end"],
+                        "path": str(PurePosixPath(relative).parent),
+                    }
+                )
+        result: dict[str, Any] = {
+            "label": marker.label,
+            "migrated": outcome.migrated,
+            "resumed": outcome.resumed,
+        }
+        if trips:
+            result["trips"] = trips
+        return result
 
     return target

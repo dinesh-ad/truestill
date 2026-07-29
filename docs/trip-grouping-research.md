@@ -4,8 +4,9 @@ Status: **Design approved (2026-07-28, `b5cba4a`, rulings `fb60c10`). Stages 2a-
 2a the router refactor (`1247055`), 2b detection (§11), 2c persistence, catalog v12 (§12). Backlog
 `(mm)` is resolved (`1ed021e`), which unblocked 2d. **2d is planned as sub-stages 13.0-13.4**
 (§13, 2026-07-29); **13.0** (verification spike, §13.6), **13.1** (the detection-to-persistence
-join, §13.1) and **13.2** (`Placement.TRIP_DAY` and the render seam, §13.2) are built. **Next:
-13.3**, the review UI. 2e (migration adoption) remains after the rest of 2d.
+join, §13.1), **13.2** (`Placement.TRIP_DAY` and the render seam, §13.2) and **13.3a** (reveal in
+file manager on the apply-to-disk result, §13.3a) are built. **Next: 13.3b**, the proposal-card
+redesign. 2e (migration adoption) remains after the rest of 2d.
 
 Read [`events-clustering-research.md`](events-clustering-research.md) §7 first: it is the reason
 this document exists.
@@ -809,6 +810,40 @@ as the CLI does.**
   `trip_days` rows match the *adjusted* edges, not the raw proposal - the same distinction 13.1's
   fixture proves at the catalog layer, now proven end-to-end through the HTTP surface.
 - **STOP point:** a user can name and edge-adjust a trip through the app. No file has moved.
+
+**13.3a - Reveal in file manager on the apply-to-disk result. BUILT 2026-07-29.** A small,
+independent slice, done ahead of the rest of 13.3 because it stands on its own: the aggregate
+"Moved N photos into trip folders." line on the *existing* day-event screen (real multi-day
+Trips have no UI yet - this is the day-event "Trips & events" screen the naming-collision item
+below already flags) is replaced by one row per named+applied event/trip this run, each with its
+real destination folder and a working "Open in file manager" link.
+
+- **No new endpoint.** `/api/reveal` (`service.reveal_in_file_manager`) already ships, already
+  used on the Backups screen's drive cards (`app.js:639`), with the same `LocalGuard` every other
+  route has. The frontend reuses the exact `[data-open]` pattern unchanged.
+- **The originally-specified root-restriction was proposed, researched, and withdrawn** - it
+  does not defend a threat in scope. `SECURITY.md`'s own model is that an attacker who is
+  already the machine's own user is out of scope; the real threat `LocalGuard` defends against
+  (a web page reaching the local API via token/Host/Origin) is unaffected by which directory a
+  legitimate same-origin request names. Checked first that no existing filesystem endpoint
+  (`fs_dirs`, `fs_validate`, `fs_create`) restricts to a root either - `path.resolve()` there is
+  symlink/`..` normalization, not a boundary check - and confirmed restricting `reveal` alone
+  would have broken the already-shipped Backups reveal, which points at drive paths outside any
+  organize-library root by design.
+- **The originally-specified disabled-for-not-yet-applied-card state was also withdrawn** -
+  there is no per-trip card with a path anywhere in the shipped UI to attach it to. The only
+  existing cards are pre-name, pre-apply proposal cards (`cluster_json`: `start`/`end`/`count`/
+  `location`, no path, no applied-state), and the post-apply view was a single aggregate summary
+  with no per-trip breakdown at all. Reveal only ever makes sense once a real folder exists, so
+  it landed on the one surface that provably has one: the apply-to-disk result, after the files
+  have actually moved there.
+- **The one backend touch**: `Catalog.sample_relative_for_event` (one indexed lookup, `O(1)`) and
+  `service.migration_apply` gaining an optional `named_events` parameter - unused by the plain
+  Settings-screen migration, which keeps behaving exactly as before.
+- **Fixture, proven against the defect first**: two trips named and applied in one run must
+  produce two result rows, not one collapsed aggregate. Confirmed failing when `events_apply_to_
+  disk` is changed to always pass an empty event list (`KeyError: 'trips'` - the aggregate-only
+  shape), passing after restoring.
 
 **13.4 - Migration wiring: TRIP_DAY-aware `plan_migration`.**
 - **Prerequisite cleared:** 13.0 found a real gap (the app's migrate path side-binned `Camera`)

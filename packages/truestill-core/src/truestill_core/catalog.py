@@ -1015,6 +1015,26 @@ class Catalog:
         row: sqlite3.Row | None = cursor.fetchone()
         return row
 
+    def sample_relative_for_event(self, event_id: int, drive_uuid: str) -> str | None:
+        """One copy's current relative path for a named event, on a drive.
+
+        Any one file suffices: every file sharing an event id renders under the same event
+        folder, so the caller takes this row's *parent* directory as the trip's real folder --
+        it is only ever asked for right after a migration has placed the files there, so the
+        path is current, not stale. Returns `None` when the event has no copy on this drive
+        (nothing to show). One indexed lookup, `O(1)`.
+        """
+        row = self._conn.execute(
+            """
+            SELECT fc.relative FROM file_copies fc
+            JOIN files f ON f.sha256 = fc.sha256
+            WHERE f.event_id = ? AND fc.drive_uuid = ?
+            LIMIT 1
+            """,
+            (event_id, drive_uuid),
+        ).fetchone()
+        return str(row["relative"]) if row is not None else None
+
     def skipped_signatures(self) -> frozenset[str]:
         """Cluster signatures the user chose to skip on a previous run."""
         cursor = self._conn.execute("SELECT signature FROM skipped_clusters")
