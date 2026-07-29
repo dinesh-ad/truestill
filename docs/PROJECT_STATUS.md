@@ -200,8 +200,12 @@ the project is actually doing now. It came out of Dinesh's **tab tour** of the m
 
 **PENDING, in order:**
 
-1. **Stage 2d - the review stage and layout wiring.** The `TRIP_DAY` placement and its template,
-   the preview-then-confirm gate, adjustable edges per the "proposal is the run" rule.
+1. **Stage 2d - the review stage and layout wiring - IN PLANNING, not yet built.**
+   `trip-grouping-research.md` §13 (2026-07-29) breaks it into sub-stages (13.0 a verification
+   spike, 13.1 the detection-to-persistence join, 13.2 the `TRIP_DAY` render seam, 13.3 the
+   review UI, 13.4 migration wiring) with an acceptance fixture and an explicit STOP point each -
+   read there before starting any of it. The `TRIP_DAY` placement and its template, the
+   preview-then-confirm gate, adjustable edges per the "proposal is the run" rule.
    **No longer blocked** - `(mm)` is resolved, so migration now asks each file's own placement
    for its naming rather than a fixed guess, which is what `TRIP_DAY`'s own naming needs once it
    exists.

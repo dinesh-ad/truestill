@@ -1,8 +1,9 @@
 # Trip grouping: multi-day events, and the router that has to carry them
 
 Status: **Design approved (2026-07-28, `b5cba4a`, rulings `fb60c10`). Stages 2a-2c are built**:
-2a the router refactor (`1247055`), 2b detection (§11), 2c persistence, catalog v12 (§12). Stages
-2d-2e (layout wiring, migration adoption) are still to come, and 2d is blocked on backlog `(mm)`.
+2a the router refactor (`1247055`), 2b detection (§11), 2c persistence, catalog v12 (§12). Backlog
+`(mm)` is resolved (`1ed021e`), which unblocked 2d. **2d is now in planning** (§13, 2026-07-29) -
+not yet built. 2e (migration adoption) remains after it.
 
 Read [`events-clustering-research.md`](events-clustering-research.md) §7 first: it is the reason
 this document exists.
@@ -596,3 +597,227 @@ No layout wiring, no `TRIP_DAY` template, no UI, no `migrate-layout` adoption - 
 and 2e. `detect_trips`'s output (`TripProposal`) is not yet converted to `create_trip` calls
 anywhere; that conversion, and the decision of what "silence" means when `trip_for_day` reports a
 day already claimed, belong to whichever stage first has a caller to write it for.
+
+---
+
+## 13. Stage 2d planning (2026-07-29) - a plan, not a build
+
+Requested because 2d is the largest stage in this arc (layout wiring + review UI) and over-scoping
+a stage this size has caused reverts before. **Nothing below is built.** No `Placement.TRIP_DAY`,
+no template, no route, no UI. This section exists to be approved sub-stage by sub-stage, the same
+discipline 2b/2c were built under.
+
+### 13.1 What the codebase actually does today, verified before planning on top of it
+
+Three things this plan depends on, checked directly rather than assumed:
+
+- **`disambiguate_event_folders` is called from exactly one place: `migrate.plan_migration`.**
+  `organizer.apply_events` (the CLI's fresh-organize path) never calls it - a fresh organize run
+  has no cross-file collision check for event names at all today. Whatever 2d builds for trips
+  inherits this asymmetry unless it deliberately changes it, which is out of scope here.
+- **The web app's entire trip/event story is "review an already-organized drive, then migrate" -
+  never "propose during a fresh import."** `event_review.propose_from_catalog` clusters from
+  `catalog.camera_copies_for_events` (an already-placed drive's rows), `commit_catalog` only
+  writes `files.event_id`, and the app's own comment is explicit about the split: `events_apply`
+  "changes only the catalog; the on-disk placement is a separate, previewed, journalled migration
+  (`events_preview` / `events_apply_to_disk`)." Those two routes call
+  `service.migration_preview` / `migration_apply`, which call **`migrate.plan_migration` /
+  `run_migration` directly** - the identical function `(mm)` just fixed. The CLI's
+  `apply_events`/`run_event_stage` path (fresh-organize-time naming) is a **separate, parallel**
+  mechanism that the app never uses for events at all, and grepping the CLI source for the word
+  "trip" returns nothing - the CLI has no trip-flavoured language anywhere.
+- **A discovered risk, not a defect I've fixed or fully diagnosed: `service.migration_preview` /
+  `migration_apply` never call `label_routes` or `rederive_rules`, and pass no `routes` or
+  `rules_by_sha` to `run_migration`.** `rule_for_row` then defaults every unmapped label to
+  `ROUTE_SIDE_BIN` - and `Camera` is *always* unmapped (`label_routes` marks it
+  `ROUTE_AMBIGUOUS` by construction, same as any device-rule label). `resolve_scheme` never
+  overrides the side-bin template either (`scheme_from_string` never passes `side_bin=`, so it is
+  always the fixed `{category}/{yyyy}/{yyyy}-{mm}` shape) - so today, migrating through the app
+  (Settings screen **or** the events/trips screen) puts `Camera` files under `Camera/...`, not the
+  timeline, unless something resolves the ambiguity that I could not find anywhere in
+  `service.py`. `test_migrate_preview_lists_moves` confirms this is the app's *current* behaviour
+  and even names it in a comment ("no camera evidence -> side bin") - so it is not a test gap, it
+  is the shipped answer for an un-re-derived label. **I have not verified whether this is a live,
+  user-visible defect in the already-shipped day-events screen, an intentional gap nobody has hit
+  yet, or something a mechanism I haven't traced resolves.** It matters here because 2d's most
+  natural path (mirroring day-events exactly, per the point above) would build trips on the *same*
+  call path. Flagging rather than fixing - it is not `(mm)`, and diagnosing or fixing it is not
+  this planning task's job. **Recommend a short, dedicated verification spike before or as 2d's
+  sub-stage 0**, below.
+- **The existing "Trips & events" screen already calls a single-day named event a "trip" in its
+  own copy** (`templates/index.html`: "Trips & events", "name the trips, then move them into trip
+  folders"; `static/app.js`: `plural(r.events, "trip")`). The CLI never uses this word. Once a
+  genuinely multi-day `TripProposal` exists, the product will have **two different things called
+  "trip"** in the same screen - see §13.3.
+
+### 13.2 Sub-stages, smallest-safe-first
+
+Each lands green independently, in this order. **13.0 is a spike, not a build stage** - it produces
+an answer, not code that ships.
+
+**13.0 - Verification spike: does the app's migrate path route `Camera` correctly today?**
+- **Builds:** nothing. Runs the app's existing `/api/migrate/preview` (or `events_preview`) against
+  a realistic fixture (a `Camera`-labelled, dated file, year-first layout, no `--by-device`) and
+  reads the actual proposed path.
+- **Must NOT touch:** any source file. Read-only, using what already ships.
+- **Acceptance:** a written answer - "yes, `Camera` lands on the timeline via the app today"
+  (meaning I've misread something above and should say exactly what) or "no, it lands in
+  `Camera/...` via the app today" (meaning the gap in §13.1 is real and live, and it is a
+  **prerequisite fix**, not a 2d task, since it predates trips and already affects shipped
+  day-events).
+- **STOP point:** the answer, reported. No code changes either way - this is recon, not a fix.
+
+**13.1 - Detection-to-persistence join, catalog-only.**
+- **Builds:** the trip equivalent of `event_review.propose_from_catalog` / `commit_catalog`: a
+  function that reads a drive's dated camera copies, runs `detect_trips` (2b), and for each
+  confirmed decision (name + confirmed edges, or skip) calls `create_trip` / `update_trip_days`
+  (2c). Silence semantics for an already-claimed day (`trip_for_day` returns non-`None`): **skip
+  it without re-asking**, mirroring day-events' `skipped_signatures` pattern - the specific
+  decision `trip-grouping-research.md` §12 left open for "whichever stage first has a caller to
+  write it for."
+- **Must NOT touch:** `layout.py`, `migrate.py`, `organizer.py`, `RenderContext`, `Placement`, any
+  HTTP route, any template. No file is placed or moved by this sub-stage; it only writes
+  `trips`/`trip_days` rows.
+- **Acceptance fixture:** the deferred fixture from §10's original table, finally buildable now
+  that persistence exists - *"re-ingest one photo into a named trip, no re-ask"* - plus a
+  Wayanad-shaped fixture (31/635/737/654) asserting one confirmed trip claims all four days, and
+  an edge-trim fixture (§5: user narrows the proposed Aug 14-17 run to Aug 15-17) asserting
+  `update_trip_days` reflects exactly the confirmed edges, not the raw proposal. Each proven to
+  fail against its named mutation first, per `ENGINEERING_STANDARD.md` §4.
+- **STOP point:** a drive's catalog can hold named, edge-adjusted trips. Nothing renders
+  differently and nothing on disk moves.
+
+**13.2 - `Placement.TRIP_DAY` and the render seam, pure.**
+- **Builds:** the `TRIP_DAY` member on `Placement`; `RenderContext` gains a field carrying trip
+  membership for a file's day (shape TBD - see §13.3's precedence decision); `classify()` is
+  extended to return `TRIP_DAY` under the resolved precedence; `LayoutScheme` gains a template
+  slot for it (independently configurable or derived - §13.3); `LayoutTemplate._render`'s
+  single auto-append mechanism is extended to append **two** synthesized segments (the trip's own
+  header folder, then the individual day) instead of one - today's mechanism assumes exactly one
+  synthesized segment per file, and a trip day needs two.
+- **Must NOT touch:** `migrate.py`, `organizer.py`, 13.1's catalog join, any HTTP route, any
+  template file. This sub-stage proves the *router and renderer* can produce the §2 shape given a
+  `RenderContext` - nothing supplies that context from real data yet.
+- **Acceptance fixture:** a Stage-2a-style equality harness (render every existing `SAMPLE_ROWS`
+  case through old and new `LayoutScheme`s, assert path-for-path equality - proving the new member
+  changes nothing for files with no trip context) **plus** direct render tests for the exact
+  shapes in §2-§3: Wayanad rendering to
+  `2014/2014-08/2014-08-15 - Wayanad/2014-08-15/2014-08-16/2014-08-17/` day subfolders, the
+  year-split case (§3e: one trip crossing Dec 31 renders as two, never one folder crossing the
+  boundary), and start-month filing (§3d: a Nov 28 - Dec 2 trip files entirely under `2016-11`).
+  Each proven to fail against a named mutation (e.g., reverting the two-segment append back to
+  one collapses the day level and produces §8's rejected "flat trip folder" shape).
+- **STOP point:** given a `RenderContext` carrying trip data, the scheme renders the right path.
+  No caller builds that context from real data yet - `mypy --strict`'s exhaustiveness check
+  (`assert_never`) is what proves every existing `LayoutScheme.of()` call site was forced to
+  answer the new member, the same proof Stage 2a used.
+
+**13.3 - Review UI: propose, adjust edges, name, skip. Catalog only, no relocation.**
+- **Builds:** the app-side surface mirroring `events_propose` / `events_merge` / `events_split` /
+  `events_apply` for trips - **new interactions, not a relabelled reuse**, since adjusting a
+  trip's edges (trim/extend a *day* off either end of a proposed run, per §5) is a different
+  operation from merging or splitting day-event clusters. Proposals render per-day counts (per
+  §5's `31 / 631 / 722 / 651` table) so a user can judge an edge in one glance. Confirming calls
+  13.1's join. The year-split notice (§3e) is shown **at confirm time**, not discovered on disk,
+  per §3's "structural, not a proposal" rule.
+- **Must NOT touch:** `migrate.py`, or the existing day-event routes/templates, except to
+  disambiguate UI copy (§13.3's naming-collision item below) - this sub-stage does not relocate
+  a single file.
+- **Acceptance fixture:** an HTTP-level test proposing the Wayanad-shaped fixture, adjusting the
+  edge from Aug 14-17 to Aug 15-17, confirming a name, and asserting the persisted `trips`/
+  `trip_days` rows match the *adjusted* edges, not the raw proposal - the same distinction 13.1's
+  fixture proves at the catalog layer, now proven end-to-end through the HTTP surface.
+- **STOP point:** a user can name and edge-adjust a trip through the app. No file has moved.
+
+**13.4 - Migration wiring: TRIP_DAY-aware `plan_migration`, gated on 13.0's answer.**
+- **Only proceeds once 13.0's spike is answered and, if it found a real gap, that gap is fixed
+  first** - building trip-aware migration on top of a migration path that already misroutes
+  `Camera` would compound rather than isolate the defect.
+- **Builds:** `copies_for_migration` (or a sibling) supplies each row's trip membership (a
+  day-keyed join against `trip_days` - no schema change needed, §13.3's schema question below);
+  `plan_migration`'s per-row `RenderContext` construction sets the trip field per the precedence
+  decision; **widens `(mm)`'s collision-scoping boundary**, flagged explicitly in the Shipped note
+  as this stage's job - today's fix groups disambiguation by *naming value*, so two placements
+  that happen to share a naming (both `READABLE`, say) are already caught correctly even across
+  `EVENT_DAY`/`TRIP_DAY`, but two placements with *different* namings are not cross-checked. This
+  sub-stage must decide: cross-group scoping, or an explicitly accepted, alarmed limitation (the
+  `dedup.LINEAR_SCAN_ALARM` pattern) - not silently left as today's narrower, single-placement-safe
+  scoping.
+- **Must NOT touch:** `organizer.py` (the CLI fresh-organize path) - per §13.1's finding, the app
+  never uses it for events, and there is no evidence trips need to either, until demand says
+  otherwise.
+- **Acceptance fixture:** the §10 Stage 2e worked example itself - naming Aug 15-17 on an
+  already-organized drive plans the two-line relocation shown there, through the *same* preview
+  gate, same journal, same typed-confirm word as every other migration. Plus a same-naming and a
+  differing-naming collision fixture (mirroring `(mm)`'s two-sided proof) to pin whichever
+  collision-scoping decision this sub-stage makes.
+- **STOP point:** a confirmed trip, previewed and confirmed, actually relocates files on a
+  connected drive. This is functionally what the design doc called "Stage 2e" (§10) - see §13.4's
+  own note below on why the line moved.
+
+### 13.3 Load-bearing decisions 2d forces, not yet settled
+
+1. **Trip-vs-event precedence when a day has both.** §2's rule ("a trip day claims every photo
+   taken that day... sub-day clusters merge") means a day inside a confirmed trip must render as
+   `TRIP_DAY`, never `EVENT_DAY`, even if that day also has a named cluster. `classify()`'s
+   *order* of checks must encode this (trip checked before event), and whichever caller builds
+   `RenderContext` must not set `event=` for a trip-claimed day - or `classify()` must ignore
+   `context.event` once `context.trip` is set. Not decided which; recommend the latter (classify
+   ignores `event` when `trip` is set) so a caller cannot get this wrong by omission.
+2. **How much of the `TRIP_DAY` template is configurable vs. derived.** §2 states "the trip shape
+   is the day-event shape plus one dated level" - which argues for *deriving* `TRIP_DAY`'s
+   template from `timeline_evented` mechanically (no new Settings knob) rather than adding a
+   fourth independently-configurable field to `LayoutScheme.of()`/`Preset`. Recommended, not
+   decided: fewer knobs, and it makes the "one level deeper" relationship structural rather than
+   a convention two settings could drift apart from.
+3. **The `(mm)` collision-scoping widening** - named above in 13.4. Real, and this plan places it
+   in 13.4 (migration wiring), not 13.2 (pure render) or 13.3 (review UI, no relocation) - it only
+   matters once two placements' names can actually collide on disk, which nothing before 13.4
+   does.
+4. **Schema:** no new version needed for the join itself. `trip_days.day` (PK, already v12) answers
+   "is this day claimed" for any date; a day-keyed SQL join against `f.captured_at`'s date is
+   sufficient for `copies_for_migration` to attach trip membership, the same way it already joins
+   `events` by `f.event_id`. Flag if 13.1's real build surfaces a reason this is insufficient -
+   none is evident from the design alone.
+5. **The "Trips & events" naming collision** (§13.1). Recommend, not decided: the existing
+   single-day screen's copy is disambiguated to "Events" (or similar) as part of 13.3, before or
+   alongside introducing genuine multi-day Trips under that name - shipping both concepts as
+   "trip" in the same screen is exactly the kind of user-facing-truth defect
+   `IMPLEMENTATION_STANDARDS.md` §9 exists to catch, even though neither individual string is
+   presently false.
+6. **Which surface 2d targets.** Recommend the app's review-in-place pattern (13.1 and 13.3, and
+   the migration step in 13.4) as the built surface; the CLI's fresh-organize path
+   (`apply_events`/`run_event_stage`-equivalent for trips) is **not built** unless demand says
+   otherwise - it has no trip-flavoured language today and nothing in the soak record asks for it.
+
+### 13.4 Stale or contradicted against what actually shipped
+
+- **`IMPLEMENTATION_STANDARDS.md` §2's "One layout seam" bullet still describes the pre-2a
+  router** ("routes on `CategoryMatch.rule`... then on whether the file belongs to a named
+  event") - it never mentions `Placement`, `classify()`, or the `EVENT_DAY`/`EVERYDAY`/`SIDE_BIN`
+  vocabulary Stage 2a (`1247055`) actually shipped. Not fixed here (planning only); worth a small
+  docs-only pass before or alongside 13.2, since that sub-stage is exactly where a fourth
+  `Placement` member is added to a contract that doesn't yet name the mechanism at all.
+- **This document's own §10 assigns "migration renders through the same seam" to Stage 2e**
+  ("migrate-layout already re-derives rules per file... trips add a route label, not a
+  mechanism"), while the *day-event* precedent already shows the app's entire review flow is
+  migrate.py-based end to end (§13.1). The two framings aren't contradictory so much as
+  differently grained: §10 is right that migration *machinery* doesn't change, but making trips
+  *usable* through the app (the whole point of this arc, per `PROJECT_STATUS.md` §2.2's tab-tour
+  origin) needs *some* migrate.py wiring, which is why 13.4 exists inside this plan rather than
+  being deferred wholesale to a later stage. Flagging the reframing rather than silently
+  relabelling §10.
+- **Nothing else checked here contradicts what 2a/2b/2c/`(mm)` actually built** - the shape in
+  §2-§3, the fixtures in §11-§12, and the `(mm)` Shipped note all still hold.
+
+### 13.5 Recommended first sub-stage
+
+**13.0 (the verification spike), then 13.1.** 13.0 costs nothing to build and its answer changes
+the shape of 13.4 materially - better to know now than to plan 2d's last sub-stage around an
+assumption. 13.1 is the smallest genuinely additive slice after that: it only extends Stage 2c's
+already-built, already-tested CRUD, touches nothing 2a/2c didn't already touch, and its acceptance
+fixture (the re-ask test §12 deferred) is exactly the piece of evidence this arc has been missing
+since Stage 2c shipped. 13.2 (the render seam) is independently buildable in parallel once 13.1 is
+approved, since neither depends on the other's output yet - but building both before either is
+reviewed is exactly the over-scoping this planning pass exists to avoid, so they are proposed as
+separate approvals, not a batch.
