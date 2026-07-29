@@ -2,8 +2,10 @@
 
 Status: **Design approved (2026-07-28, `b5cba4a`, rulings `fb60c10`). Stages 2a-2c are built**:
 2a the router refactor (`1247055`), 2b detection (§11), 2c persistence, catalog v12 (§12). Backlog
-`(mm)` is resolved (`1ed021e`), which unblocked 2d. **2d is now in planning** (§13, 2026-07-29) -
-not yet built. 2e (migration adoption) remains after it.
+`(mm)` is resolved (`1ed021e`), which unblocked 2d. **2d is planned as sub-stages 13.0-13.4**
+(§13, 2026-07-29); **13.0** (verification spike, §13.6) and **13.1** (the detection-to-persistence
+join, §13.1) are built. **Next: 13.2**, `Placement.TRIP_DAY` and the render seam. 2e (migration
+adoption) remains after the rest of 2d.
 
 Read [`events-clustering-research.md`](events-clustering-research.md) §7 first: it is the reason
 this document exists.
@@ -670,25 +672,59 @@ as the CLI does.**
   day-events).
 - **STOP point:** the answer, reported. No code changes either way - this is recon, not a fix.
 
-**13.1 - Detection-to-persistence join, catalog-only.**
-- **Builds:** the trip equivalent of `event_review.propose_from_catalog` / `commit_catalog`: a
-  function that reads a drive's dated camera copies, runs `detect_trips` (2b), and for each
-  confirmed decision (name + confirmed edges, or skip) calls `create_trip` / `update_trip_days`
-  (2c). Silence semantics for an already-claimed day (`trip_for_day` returns non-`None`): **skip
-  it without re-asking**, mirroring day-events' `skipped_signatures` pattern - the specific
-  decision `trip-grouping-research.md` §12 left open for "whichever stage first has a caller to
-  write it for."
-- **Must NOT touch:** `layout.py`, `migrate.py`, `organizer.py`, `RenderContext`, `Placement`, any
-  HTTP route, any template. No file is placed or moved by this sub-stage; it only writes
-  `trips`/`trip_days` rows.
-- **Acceptance fixture:** the deferred fixture from §10's original table, finally buildable now
-  that persistence exists - *"re-ingest one photo into a named trip, no re-ask"* - plus a
-  Wayanad-shaped fixture (31/635/737/654) asserting one confirmed trip claims all four days, and
-  an edge-trim fixture (§5: user narrows the proposed Aug 14-17 run to Aug 15-17) asserting
-  `update_trip_days` reflects exactly the confirmed edges, not the raw proposal. Each proven to
-  fail against its named mutation first, per `ENGINEERING_STANDARD.md` §4.
+**13.1 - Detection-to-persistence join, catalog-only. BUILT 2026-07-29.**
+- **Shipped:** `truestill_core.trip_review` (`propose_trips_from_catalog` / `TripDecision` /
+  `commit_trips`), the trip equivalent of `event_review.propose_from_catalog` / `commit_catalog`,
+  one layer up - a sibling module to `trips.py`, for the same reason `trips.py` is a sibling to
+  `events.py` (§11): `trips.py`'s own docstring scopes it to pure detection, so persistence code
+  does not belong inside it. `propose_trips_from_catalog` reads a drive's dated camera copies and
+  runs `detect_trips` (2b) unchanged; `commit_trips` takes `TripDecision`s (a proposal, a name or
+  `None` to decline, and optional `confirmed_days`) and persists them.
+  - **Name-once semantics, resolved as *refresh via `update_trip_days`*, not a bare skip** - a
+    deliberate refinement of this sub-stage's original wording, flagged here rather than silently
+    diverging from it. Every day in a decision already claimed by the *same* trip calls
+    `update_trip_days` with the confirmed set: idempotent when nothing changed (a pure re-ask),
+    an edge adjustment when it did, and identity-preserving either way since `update_trip_days`
+    never touches `id`/`name`/`slug`. This subsumes "skip without re-asking" (the observable
+    result - no duplicate, no rename - is identical) while also correctly handling "re-ingest one
+    more photo into an already-active day," which a bare skip would not: that day's count changes
+    but its claim does not, so refreshing (not skipping) is what keeps the row accurate.
+    **Mixed claims** (some days already claimed by an *other* trip, alongside unclaimed days) are
+    not reachable by any fixture built here - flagged in the function's own docstring as
+    out-of-scope, not silently handled.
+  - **The Wayanad-shaped (31/635/737/654) fixture was not reproduced here.** That exact shape is
+    already the acceptance fixture for `detect_trips` itself (§11,
+    `test_the_real_wayanad_run_is_one_full_proposal_no_trim`); re-deriving it at this layer would
+    re-assert detection, which this sub-stage does not touch. Built instead: smaller synthetic
+    multi-day fixtures (two and three consecutive active days) that exercise the *persistence*
+    guarantees - name-once, edge-trim, decline - the real shape's job is to prove detection, and
+    this stage's job is to prove what a caller does with whatever detection returns.
+- **Did not touch:** `layout.py`, `migrate.py`, `organizer.py`, `RenderContext`, `Placement`, any
+  HTTP route, any template. No file was placed or moved; only `trips`/`trip_days` rows.
+- **Fixtures, each proven to fail against its named mutation first** (`ENGINEERING_STANDARD.md`
+  §4):
+
+  | Fixture | Mutation | Result before restoring |
+  |---|---|---|
+  | Re-ingest one photo into a named trip, no re-ask, id/name stable | the already-claimed check removed (always `create_trip`) | `sqlite3.IntegrityError` - `trip_days.day`'s primary key refused the second claim |
+  | Confirmed edges (a 3-day proposal trimmed to 2) are what get stored | `confirmed_days` ignored, raw `proposal.days` used | the trimmed day was claimed anyway - the trim silently did not take |
+  | A declined run (span over `DEFAULT_MAX_SPAN_DAYS`) persists nothing | none needed - a decline cannot become a `TripDecision` by construction, so this is a type-level guarantee confirmed at the catalog boundary rather than a mutation test |
+
+  The re-ask fixture reuses the identity-stability discipline `test_edge_adjust_keeps_trip_id_
+  and_name_stable` (§12) already needed: a decoy trip created *after* the trip under test, so a
+  delete-then-reinsert bug cannot land back on the same id by SQLite's rowid-reuse coincidence.
+  - **A fixture-design pitfall worth recording**: an early version of the re-ask fixture seeded
+    the re-ingested photo as a second, separate synthetic burst late at night. On this library's
+    small synthetic scale, that burst's large gap to the existing cluster did not clear the
+    relative-density cut threshold (`events-clustering-research.md` §1-2's own lesson, hit again
+    here), merging two days into one cluster and silently changing which day the fixture actually
+    exercised. Fixed by seeding the re-ingested photo immediately after the existing cluster's
+    last member instead, which is also the more faithful shape for "re-ingest one photo."
+- **Complexity:** `O(days)` per decision for the name-once lookups (one indexed `trip_for_day`
+  read per day) plus `O(days)` for whichever of `create_trip` / `update_trip_days` fires - both
+  already `O(days)` per Stage 2c (§12). No table scan.
 - **STOP point:** a drive's catalog can hold named, edge-adjusted trips. Nothing renders
-  differently and nothing on disk moves.
+  differently and nothing on disk moves. `Placement.TRIP_DAY` does not exist yet - 13.2 next.
 
 **13.2 - `Placement.TRIP_DAY` and the render seam, pure.**
 - **Builds:** the `TRIP_DAY` member on `Placement`; `RenderContext` gains a field carrying trip
