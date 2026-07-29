@@ -370,6 +370,144 @@ const verifyProgress = createProgress("verify");
 const evProgress = createProgress("ev");
 const bkProgress = createProgress("bk");
 const migProgress = createProgress("mig");
+const undoProgress = createProgress("undo");
+
+// ---------- typed confirm (reusable) ----------
+// Destructive actions that currently demand a typed word on the CLI (undo, and soon oo/rr)
+// need the same gate in the app. One helper so each surface does not invent its own.
+function typedConfirm(host, { word, label, buttonLabel, onConfirm }) {
+  host.innerHTML =
+    `<div class="field"><label>${esc(label)}</label>
+       <input class="input" data-typed-confirm autocomplete="off" spellcheck="false"
+              placeholder="type ${esc(word)}"></div>
+     <div class="actions">
+       <button class="btn btn-primary" data-typed-go disabled>${esc(buttonLabel)}</button></div>`;
+  const input = host.querySelector("[data-typed-confirm]");
+  const go = host.querySelector("[data-typed-go]");
+  const sync = () => { go.disabled = input.value.trim() !== word; };
+  input.addEventListener("input", sync);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !go.disabled) go.click();
+  });
+  go.onclick = guarded(async () => {
+    if (input.value.trim() !== word) return;
+    await onConfirm();
+  });
+  input.focus();
+}
+
+// ---------- migration undo affordance (backlog pp) ----------
+// Durable, not a snackbar: the journal lives in the catalog, so the affordance must survive a
+// tab reload and must be re-queried after any migration (the only supersession signal).
+let undoJob = null;
+
+function undoArmedHtml(state, path) {
+  return card(
+    `<div class="headline">Undo the last migration</div>
+     <div class="k">${plural(state.file_count, "file")} from the most recent migration on this
+       drive can be put back. <b>Only the most recent migration on a drive is reversible</b> -
+       running another migration (a trip apply, an event apply, or Move the files) replaces
+       this record.</div>
+     <div class="actions">
+       <button class="btn btn-secondary" data-undo-preview="${esc(path)}">Preview undo…</button>
+     </div>
+     <div data-undo-stage></div>`
+  );
+}
+
+function undoRefusalList(refused) {
+  if (!refused || !refused.length) return "";
+  return `<div class="banner warn"><div><div class="b-title">${plural(refused.length, "file")} left untouched</div>
+    ${refused.map((r) => `<div class="mono">${esc(r.relative)} - ${esc(r.reason)}</div>`).join("")}
+    </div></div>`;
+}
+
+async function refreshUndoAffordance(path, panel) {
+  if (!panel) return;
+  // The shared progress node may be parked inside this panel; move it home before wiping.
+  const progress = $("undo-card");
+  if (progress && panel.contains(progress)) {
+    document.body.appendChild(progress);
+    progress.classList.add("hidden");
+  }
+  if (!path) { panel.innerHTML = ""; return; }
+  const r = await get(`/api/migrate/undo?path=${encodeURIComponent(path)}`);
+  if (!r.ok || !r.armed) { panel.innerHTML = ""; return; }
+  panel.innerHTML = undoArmedHtml(r, path);
+  panel.querySelector("[data-undo-preview]").onclick = guarded(() => startUndoPreview(path, panel));
+}
+
+async function startUndoPreview(path, panel) {
+  const started = await api("/api/migrate/undo/preview", { path });
+  if (started.ok === false) {
+    panel.innerHTML = driveError(started, panel.id === "mig-undo-panel" ? "mig-path" : "ev-source");
+    return;
+  }
+  undoJob = started.job_id;
+  // Park the shared progress block inside this panel so it is visible on the active screen.
+  let stage = panel.querySelector("[data-undo-stage]");
+  if (!stage) {
+    panel.innerHTML = undoArmedHtml(
+      { file_count: 0 }, path
+    ); // keep a stage host if the armed card was cleared mid-flight
+    stage = panel.querySelector("[data-undo-stage]");
+  }
+  stage.innerHTML = "";
+  stage.appendChild($("undo-card"));
+  undoProgress.start("restoring");
+  streamJob(started.job_id, (d) => undoProgress.update(d), (d) => {
+    undoProgress.stop();
+    undoJob = null;
+    document.body.appendChild($("undo-card"));
+    $("undo-card").classList.add("hidden");
+    if (!d.ok) { stage.innerHTML = jobErrorCard(d); return; }
+    const s = d.summary;
+    stage.innerHTML =
+      `<div class="headline">${plural(s.reversed_files, "file")} can be put back</div>
+       ${undoRefusalList(s.refused)}
+       <div data-typed-host></div>`;
+    typedConfirm(stage.querySelector("[data-typed-host]"), {
+      word: "undo",
+      label: `Type undo to put ${plural(s.reversed_files, "file")} back`,
+      buttonLabel: "Put them back",
+      onConfirm: () => startUndoApply(path, panel),
+    });
+  });
+}
+
+async function startUndoApply(path, panel) {
+  const started = await api("/api/migrate/undo/apply", { path });
+  if (started.ok === false) {
+    panel.innerHTML = driveError(started, panel.id === "mig-undo-panel" ? "mig-path" : "ev-source");
+    return;
+  }
+  undoJob = started.job_id;
+  let stage = panel.querySelector("[data-undo-stage]");
+  if (!stage) {
+    panel.innerHTML = `<div data-undo-stage></div>`;
+    stage = panel.querySelector("[data-undo-stage]");
+  }
+  stage.innerHTML = "";
+  stage.appendChild($("undo-card"));
+  undoProgress.start("restoring");
+  streamJob(started.job_id, (d) => undoProgress.update(d), async (d) => {
+    undoProgress.stop();
+    undoJob = null;
+    document.body.appendChild($("undo-card"));
+    $("undo-card").classList.add("hidden");
+    const summaryHtml = d.ok
+      ? card(
+          `<div class="headline">Put ${plural(d.summary.reversed_files, "file")} back.</div>
+           ${undoRefusalList(d.summary.refused)}`
+        )
+      : jobErrorCard(d);
+    await refreshUndoAffordance(path, panel);
+    // Affordance gone when the record is spent; keep the outcome visible either way.
+    panel.innerHTML = summaryHtml + panel.innerHTML;
+    loadCustody();
+  });
+}
+$("undo-cancel").onclick = guarded(() => { if (undoJob) return api(`/api/jobs/${undoJob}/cancel`, {}); });
 
 function backupCompletion(r) {
   const notes = [];
@@ -406,9 +544,23 @@ function showScreen(name) {
   document.querySelectorAll(".nav-item").forEach((n) =>
     n.setAttribute("aria-current", n.dataset.screen === name ? "page" : "false"));
   if (name === "backups") loadDrives();
-  if (name === "settings") loadLayout();
+  if (name === "settings") {
+    loadLayout();
+    refreshUndoAffordance($("mig-path").value.trim(), $("mig-undo-panel"));
+  }
+  if (name === "events") {
+    refreshUndoAffordance($("ev-source").value.trim(), $("ev-undo-panel"));
+  }
 }
 document.querySelectorAll(".nav-item").forEach((item) => { item.onclick = () => showScreen(item.dataset.screen); });
+
+// Re-query when the connected-drive path changes - the catalog answer is per drive, not per
+// session, and a Browse into a different drive must update the affordance without a reload.
+[["ev-source", "ev-undo-panel"], ["mig-path", "mig-undo-panel"]].forEach(([inputId, panelId]) => {
+  const input = $(inputId);
+  if (!input) return;
+  input.addEventListener("change", () => refreshUndoAffordance(input.value.trim(), $(panelId)));
+});
 
 // ---------- custody strip (always true, catalog-driven) ----------
 // Fields the catalog can already answer are filled in, never asked for. Browse stays, for
@@ -964,6 +1116,8 @@ $("ev-apply-disk").onclick = guarded(async () => {
       $("ev-disk-result").innerHTML = d.ok ? reviewResultCards(d.summary) : jobErrorCard(d);
       evJob = null;
       loadCustody();
+      // The apply just armed (or superseded) the reversible journal - re-query, never assume.
+      refreshUndoAffordance($("ev-source").value.trim(), $("ev-undo-panel"));
     });
 });
 $("ev-cancel").onclick = guarded(() => { if (evJob) return api(`/api/jobs/${evJob}/cancel`, {}); });
@@ -1083,6 +1237,7 @@ $("mig-run").onclick = guarded(async () => {
         : jobErrorCard(d);
       migJob = null;
       loadDrives();
+      refreshUndoAffordance($("mig-path").value.trim(), $("mig-undo-panel"));
     });
 });
 $("mig-cancel").onclick = guarded(() => { if (migJob) return api(`/api/jobs/${migJob}/cancel`, {}); });

@@ -105,6 +105,7 @@
           </div>
           <div class="actions"><button class="btn btn-primary" id="ev-propose">Find trips &amp; events</button></div>
         </div>
+        <div id="ev-undo-panel"></div>
         <div id="ev-declines"></div>
         <div id="ev-clusters"></div>
         <div class="card hidden" id="ev-actions-card">
@@ -271,6 +272,7 @@
             <span class="hint" id="mig-path-hint"></span></div>
           <div class="actions"><button class="btn btn-secondary" id="mig-preview">Preview move</button>
             <button class="btn btn-primary hidden" id="mig-run">Move the files</button></div>
+          <div id="mig-undo-panel"></div>
           <div id="mig-result"></div>
           <!-- shared progress block: see createProgress() in app.js -->
           <div class="progress-wrap hidden" id="mig-card">
@@ -298,6 +300,24 @@
         <p class="k mono" id="app-version">truestill {{VERSION}}</p>
       </section>
     </main>
+  </div>
+
+  <!-- Shared progress for migration undo (preview and apply). One instance: only one undo
+       job runs at a time, and createProgress keys off these ids. -->
+  <div class="progress-wrap hidden" id="undo-card" style="margin: 1rem 2rem;">
+    <div class="prog-head">
+      <span class="phase" id="undo-phase"></span>
+      <span class="activity mono" id="undo-activity"></span>
+      <span class="spacer"></span>
+      <span class="count mono" id="undo-count"></span>
+    </div>
+    <div class="bar"><i id="undo-bar"></i></div>
+    <div class="prog-foot">
+      <span class="meta mono" id="undo-meta"></span>
+      <span class="spacer"></span>
+      <button class="btn btn-ghost" id="undo-cancel">Cancel</button>
+    </div>
+    <div class="prog-tally mono" id="undo-tally"></div>
   </div>
 
   <!-- folder picker -->

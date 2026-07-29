@@ -64,36 +64,26 @@ is invisible here is retired, not free.**
   - **Not fixed here, on purpose** - recorded only, per instruction.
 
 - **(pp) No in-app undo for a trip/migration apply-to-disk - CLI-only today, and the visible
-  in-app "undo" is the wrong one.** Ruled by Dinesh from a soak finding, 2026-07-29. **Priority:
-  high for launch** - a destructive, user-facing action whose only undo is a terminal command is
-  not shippable to non-technical users.
+  in-app "undo" is the wrong one.** Ruled by Dinesh from a soak finding, 2026-07-29.
+  **Built (2026-07-29).** `GET /api/migrate/undo`, preview/apply jobs through JobManager,
+  durable affordance on Trips and Settings (re-queried on load and after every migration),
+  reusable `typedConfirm` with the word `undo`, refusals surfaced. Reuses `undo_migration`
+  directly - no parallel journal. The `undo-organize` CLI string on the in-place card is a
+  different mechanism and is unchanged.
   - **The finding.** `migrate.py`'s reversal (`undo_migration`, keyed on
     `catalog.reversible_migration(drive_uuid)`) exists and works - it is the mechanism behind
     `truestill migrate-layout <path> --undo` (preview) / `--undo --apply` (typed `undo`
-    confirm) - but it is wired **only into the CLI** (`cli.py`'s `_cmd_migrate_undo`). Nothing
-    in `server.py` exposes it, and nothing in `app.js` links to it. A user who names trips,
-    applies them to disk from the app, and regrets it has no way back inside the app at all.
-  - **The mismatch is worse than the absence.** The only "undo" string the app shows anywhere
-    is `truestill undo-organize` (in the in-place-organize completion card) - a **different**
-    reversal, for a **different** operation (a rename-based in-place run, `inplace_runs`/
-    `inplace_moves`), sharing no code with `migrate.py`'s journal. A user who applies trips,
-    sees "undo" mentioned elsewhere in the app, and reasonably assumes it covers what they just
-    did would run the wrong command, or find it does nothing for their situation, and conclude
-    truestill has no undo at all.
-  - **Requirement.** An in-app undo for the last migration/trip apply, reachable from the
-    apply-to-disk completion card while `catalog.reversible_migration` for that drive still
-    resolves - i.e. exactly the window in which the CLI command would also still work. Same
-    discipline as every other destructive action in this app: preview first (what would be put
-    back, what would be refused), then a typed confirm, never a single click. Reuses
-    `undo_migration` directly - this is a UI/wiring gap, not a new reversal mechanism to design.
-  - **Must state plainly, in the UI, that only the MOST RECENT migration on that drive is
-    reversible.** `start_migration_run` deletes the previous run's journal the moment a new one
-    starts - "exactly one run's worth of reversal record exists per drive, and it is always the
-    newest one" (`migrate.py`). Running *any* further migration on that drive - another trip
-    apply, an event apply, a plain Settings migrate-layout - retires this window silently
-    unless the UI says so. The completion card is exactly the moment to say it, since it is the
-    last point at which the record is guaranteed to still be armed.
-  - **Not fixed here, on purpose** - recorded only, per instruction.
+    confirm) - but it was wired **only into the CLI** (`cli.py`'s `_cmd_migrate_undo`). Nothing
+    in `server.py` exposed it, and nothing in `app.js` linked to it. A user who names trips,
+    applies them to disk from the app, and regrets it had no way back inside the app at all.
+  - **The mismatch is worse than the absence.** The only "undo" string the app shows for
+    in-place organize is still `truestill undo-organize` - a **different** reversal, for a
+    **different** operation (`inplace_runs`/`inplace_moves`), sharing no code with
+    `migrate.py`'s journal. That CLI hint remains; migration undo is now a separate in-app
+    affordance so the two cannot be confused.
+  - **Requirement (met).** Preview first, typed confirm `undo`, refuse changed files out loud,
+    state plainly that only the most recent migration on a drive is reversible, re-query after
+    every migration because supersession has no other signal.
 
 - **(qq) The path on a trip/event completion card's reveal link does not open the folder.**
   Ruled by Dinesh from a soak finding, 2026-07-29, from a live trip apply.
