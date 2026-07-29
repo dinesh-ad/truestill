@@ -180,6 +180,19 @@ Two further items shipped in the soak era from recorded backlog work rather than
 finding: **(q) in-place organize + `undo-organize`** (`dee4785`) and the
 **performance audit's convictions** (`1e458df`, `39d889a`, `8f77de1` - see `PERFORMANCE.md`).
 
+**An eleventh, soak-class finding, 2026-07-29 - found while planning Stage 2d, not by direct
+use, but real and outranking the plan it interrupted.** The app's `migration_preview`/
+`migration_apply` (behind both the Settings migrate screen and the "Trips & events" apply-to-disk
+button) never resolved `Camera`'s ambiguous label the way `truestill migrate-layout` already
+does, so migrating through the app side-binned every `Camera` photo - including named events -
+instead of placing it on the timeline. Root cause: the app's migrate wiring (`ad34fd6`) predates
+`label_routes`/`rederive_rules` (`6676617`, added for the year-first correction two days later),
+and the mechanical adaptation that kept it compiling under the new function signature never
+threaded the new resolution through. Fixed same-day: `service._resolve_migration_routes` now
+calls `label_routes`/`rederive_rules` exactly as the CLI does, at the same bounded cost
+(`O(ambiguous files)`, zero when nothing is ambiguous). Full trace, the (a)/(b) history, and the
+two-sided fixture evidence: `trip-grouping-research.md` §13.6-§13.7.
+
 ### 2.2 CURRENT ARC: the tab-tour findings - **Stage 2c is BUILT; `(mm)` is resolved; 2d-2e remain**
 
 **Read this section first if you are resuming.** The layout arc (§2.0) is closed; this is what

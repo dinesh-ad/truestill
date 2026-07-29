@@ -656,7 +656,9 @@ Each lands green independently, in this order. **13.0 is a spike, not a build st
 an answer, not code that ships.
 
 **13.0 - Verification spike: does the app's migrate path route `Camera` correctly today?**
-**Answered 2026-07-29 - see §13.6. No: it side-bins `Camera`, including named events, today.**
+**Answered and FIXED, 2026-07-29 - see §13.6 (the finding) and §13.7 (the fix). It side-binned
+`Camera`, including named events; it now routes through `label_routes`/`rederive_rules` exactly
+as the CLI does.**
 - **Builds:** nothing. Runs the app's existing `/api/migrate/preview` (or `events_preview`) against
   a realistic fixture (a `Camera`-labelled, dated file, year-first layout, no `--by-device`) and
   reads the actual proposed path.
@@ -730,10 +732,9 @@ an answer, not code that ships.
   fixture proves at the catalog layer, now proven end-to-end through the HTTP surface.
 - **STOP point:** a user can name and edge-adjust a trip through the app. No file has moved.
 
-**13.4 - Migration wiring: TRIP_DAY-aware `plan_migration`, gated on 13.0's answer.**
-- **Only proceeds once 13.0's spike is answered and, if it found a real gap, that gap is fixed
-  first** - building trip-aware migration on top of a migration path that already misroutes
-  `Camera` would compound rather than isolate the defect.
+**13.4 - Migration wiring: TRIP_DAY-aware `plan_migration`.**
+- **Prerequisite cleared:** 13.0 found a real gap (the app's migrate path side-binned `Camera`)
+  and it is fixed - §13.7. This sub-stage no longer waits on it.
 - **Builds:** `copies_for_migration` (or a sibling) supplies each row's trip membership (a
   day-keyed join against `trip_days` - no schema change needed, §13.3's schema question below);
   `plan_migration`'s per-row `RenderContext` construction sets the trip field per the precedence
@@ -827,7 +828,8 @@ separate approvals, not a batch.
 
 ## §13.6 Stage 13.0 spike, answered (2026-07-29): the app's migrate path side-bins `Camera` today
 
-**Confirmed, with evidence. No code changed - this is a read-only finding.**
+**Confirmed with evidence, then FIXED the same day (2026-07-29) - see §13.7. Soak-class defect:
+outranked 13.1, landed before any trip build resumed.**
 
 ### The answer
 
@@ -957,3 +959,75 @@ reachable from two shipped buttons, and it is reproducible on demand.
   settled answer to the exact same question, but this is a recommendation, not a decision - it
   affects day-events today and should probably be judged on its own, separately from whether or
   when Stage 2d proceeds.
+
+---
+
+## §13.7 Fixed (2026-07-29): option 1, with the (a)/(b) history that justified it
+
+**Determination: (a), an oversight - not a deliberately-deferred interactive step.** Checked
+before fixing, per instruction, rather than assumed:
+
+- The app's trip/event migrate wiring (`ad34fd6`, 2026-07-26 15:30, "make named trips reach disk")
+  was written when `Camera/YYYY/MM/YYYYMMDD_slug/` genuinely **was** the correct destination - its
+  own commit message says so: "relocating the copies into `Camera/YYYY/MM/YYYYMMDD_slug/`."
+  Category-first was still the default; `Placement` and the side-bin/timeline distinction did not
+  exist yet.
+- The year-first default flip (`c0ae0c8`) landed 2026-07-28 12:14, **two days later**.
+- `label_routes`/`rederive_rules` were introduced in `6676617`, 2026-07-28 12:40 - 26 minutes
+  after the flip, and explicitly because of it: "2,224 of 2,269 copies in the real soak catalog
+  carry the label `Camera`. That is not an edge case." That commit added 100+ lines wiring both
+  functions into the CLI's `_cmd_migrate_layout`.
+- **The same commit touched `service.py`** - its whole diff there is two one-line changes
+  adapting `run_migration`'s call shape from `scheme.timeline` to `scheme` (a signature change
+  happening in the same commit), never adding `routes=`/`rules_by_sha=`. No comment, no backlog
+  entry, nothing in `server.py`/`app.js`/any template suggests an interactive app-side review
+  step was ever planned - the mechanical adaptation kept the app compiling under the new
+  signature and stopped there.
+
+### The fix
+
+`service.py` gains `_resolve_migration_routes(catalog, drive_uuid, path)`, calling
+`label_routes` + `rederive_rules` exactly as `cli._cmd_migrate_layout` does (no `--by-device`
+equivalent, since the app has no such toggle - re-derivation runs with the plain device rule,
+matching what the app can actually express). Both `migration_preview` and `migration_apply` now
+pass the resolved `routes`/`rules_by_sha` to `run_migration`, so a `Camera` photo an organize run
+would place on the timeline migrates to the same place - migrate and organize are the same
+placement decision, routed through the same seam, the same principle `(mm)` enforced one layer
+up.
+
+### Complexity
+
+`label_routes` is `O(files)` for the tally, `O(labels)` after. `rederive_rules` is
+`O(ambiguous files)` - one batched exiftool read (~2.2 ms/file at 12 MP, header reads only) plus
+an `O(1)` rule evaluation per file - and **zero when nothing is ambiguous**. This is the exact
+cost the CLI has already paid on every `migrate-layout` run since `6676617`; the app now pays the
+same bounded cost, not a new one.
+
+### Fixtures, proven against the defect first (`ENGINEERING_STANDARD.md` §4)
+
+`test_migrate_preview_routes_a_camera_photo_by_its_own_evidence`
+(`packages/truestill-app/tests/test_settings_http.py`) seeds two `Camera`-labelled files with
+opposite evidence in one fixture: `resolvable` carries metadata a faked `read_metadata` returns
+as the device rule (the same technique `test_rederivation_degrades_instead_of_failing_when_
+exiftool_is_missing` already uses to control `rederive_rules` deterministically); `unresolvable`
+has none. **Confirmed failing against the pre-fix code first** (`git stash` on `service.py`
+alone): the resolvable file reproduced §13.6's exact result,
+`Camera/2023/2023-08/2023-08-20 - Goa Trip/resolvable.jpg` instead of the timeline. After
+restoring the fix: `resolvable` lands at `2023/2023-08/2023-08-20 - Goa Trip/resolvable.jpg` (the
+timeline, under its named event, exactly as organize would place it) and `unresolvable` still
+lands at `Camera/2023/2023-08/unresolvable.jpg` (the conservative default, correctly preserved
+for a label re-derivation genuinely cannot resolve).
+
+**`test_migrate_preview_lists_moves` needed no change and was left exactly as it was.** Checked
+first: its file is a dummy byte string with no real capture metadata at all, so `rederive_rules`
+cannot resolve it either before or after this fix - it is the "genuinely unplaced photo" case the
+task asked to distinguish, not the bug. Its own comment already said so ("no camera evidence ->
+side bin"); it still does, and it still passes unchanged.
+
+**Not in scope, unchanged by this fix:** the app still has no UI for a label re-derivation
+*cannot* resolve (option 2 from §13.6's list) - it silently keeps the conservative side-bin
+default there, identically to the CLI absent an interactive prompt. That remains a separate,
+smaller gap, not addressed here.
+
+`make check` (483 tests, ruff/mypy/dash-check) green. 13.0's table entry above and
+`PROJECT_STATUS.md` §2.1 both record this as resolved.

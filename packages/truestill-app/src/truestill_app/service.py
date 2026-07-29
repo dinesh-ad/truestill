@@ -47,7 +47,12 @@ from truestill_core.layout import (
     preview_scheme,
     resolve_scheme,
 )
-from truestill_core.migrate import run_migration
+from truestill_core.migrate import (
+    ROUTE_SIDE_BIN,
+    label_routes,
+    rederive_rules,
+    run_migration,
+)
 from truestill_core.models import (
     ActionResult,
     ActionStatus,
@@ -973,6 +978,24 @@ def propose_events(path: Path, db: Path) -> dict[str, Any]:
     return {"ok": True, "uuid": marker.uuid, "label": marker.label, "clusters": clusters}
 
 
+def _resolve_migration_routes(
+    catalog: Catalog, drive_uuid: str, path: Path
+) -> tuple[dict[str, str], dict[str, str]]:
+    """Resolve ambiguous labels the same way `truestill migrate-layout` does.
+
+    A `Camera`-labelled row is ambiguous by construction (`label_routes`'s own docstring: it is
+    the device rule's default label *and* a possible `Software` value) -- migrate and organize
+    are the same placement decision, so they must route through the same seam, never a second
+    guess. Without this, `plan_migration`'s conservative default (unmapped -> side bin) fires for
+    every `Camera` row, because nothing else in this module ever resolved the ambiguity - the app
+    has no `--by-device` equivalent, so re-derivation always runs with the plain device rule.
+    """
+    routes = label_routes(catalog, drive_uuid)
+    rules_by_sha = rederive_rules(catalog, drive_uuid, path, routes)
+    decided = {r.label: (ROUTE_SIDE_BIN if r.needs_decision else r.route) for r in routes}
+    return decided, rules_by_sha
+
+
 def migration_preview(path: Path, db: Path) -> dict[str, Any]:
     """Preview relocating a connected drive's files to the current template (moves nothing)."""
     marker = read_marker(path)
@@ -981,7 +1004,16 @@ def migration_preview(path: Path, db: Path) -> dict[str, Any]:
     with Catalog(db) as catalog:
         catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
         scheme = resolve_scheme(catalog)
-        outcome = run_migration(catalog, LocalDestination(path), marker.uuid, scheme, apply=False)
+        routes, rules_by_sha = _resolve_migration_routes(catalog, marker.uuid, path)
+        outcome = run_migration(
+            catalog,
+            LocalDestination(path),
+            marker.uuid,
+            scheme,
+            apply=False,
+            routes=routes,
+            rules_by_sha=rules_by_sha,
+        )
         pending = [
             d["label"]
             for d in catalog.list_drives()
@@ -1010,12 +1042,15 @@ def migration_apply(path: Path, db: Path) -> JobTarget:
             catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
             pin_existing_layout(catalog)
             scheme = resolve_scheme(catalog)
+            routes, rules_by_sha = _resolve_migration_routes(catalog, marker.uuid, path)
             outcome = run_migration(
                 catalog,
                 LocalDestination(path),
                 marker.uuid,
                 scheme,
                 apply=True,
+                routes=routes,
+                rules_by_sha=rules_by_sha,
                 progress=progress,
                 cancel=cancel,
             )

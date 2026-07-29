@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import truestill_core.migrate as migrate_module
 from starlette.testclient import TestClient
 from truestill_app.server import create_app
 from truestill_core.catalog import Catalog
@@ -96,6 +97,92 @@ def test_migrate_preview_lists_moves(client: TestClient, tmp_path: Path) -> None
     assert r["ok"] is True
     assert len(r["moves"]) == 1
     assert r["moves"][0]["new"] == "Camera/2023/2023-08/x.jpg"  # no camera evidence -> side bin
+    # This file has no real capture metadata (dummy bytes) -- genuinely unresolvable, unaffected
+    # by the fix below. Left exactly as-is: it is the correct, still-tested side-bin answer for a
+    # Camera label re-derivation cannot back up with evidence, not the bug §13.6 found.
+
+
+def test_migrate_preview_routes_a_camera_photo_by_its_own_evidence(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """§13.6: `Camera` is ambiguous by construction, and the app never resolved it -- every
+    `Camera` row defaulted to the side bin regardless of real evidence, exactly like migrating
+    through the CLI without `label_routes`/`rederive_rules`. Fails against the pre-fix code: the
+    named-event photo below was proposed for `Camera/2023/2023-08/2023-08-20 - Goa Trip/x.jpg`
+    instead of the timeline -- the exact result §13.6 reproduced.
+
+    Two files, opposite evidence, in one fixture: `resolvable` has metadata `rederive_rules` can
+    read back as the device rule (a fake `read_metadata`, the same technique
+    `test_rederivation_degrades_instead_of_failing_when_exiftool_is_missing` uses to control it
+    deterministically); `unresolvable` has none. Both start under the *same* ambiguous `Camera`
+    label, so only the evidence tells them apart -- proving the fix does not just flip the
+    default the other way.
+    """
+    drive = tmp_path / "drive"
+    drive.mkdir()
+    marker = create_marker(drive, "Drive A")
+
+    resolvable = drive / "2023/2023-08/resolvable.jpg"  # already on the timeline, as organize
+    resolvable.parent.mkdir(parents=True)  # would have placed it -- a real drive's shape
+    resolvable.write_bytes(b"data")
+
+    unresolvable = drive / "Camera/2023/08/unresolvable.jpg"  # no evidence -> stays a side bin
+    unresolvable.parent.mkdir(parents=True)
+    unresolvable.write_bytes(b"different bytes -- distinct content, distinct sha256")
+
+    def fake_read_metadata(_paths: object, **_kwargs: object) -> dict[Path, dict[str, str]]:
+        return {resolvable: {"Model": "Pixel 7"}}  # unresolvable is simply absent -- no evidence
+
+    monkeypatch.setattr(migrate_module, "read_metadata", fake_read_metadata)
+
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        catalog.upsert_drive(uuid=marker.uuid, label="Drive A")
+        sha_resolvable = sha256_file(resolvable)
+        catalog.record_uploaded(
+            source_path="/src/resolvable.jpg",
+            original_name="resolvable.jpg",
+            sha256=sha_resolvable,
+            copy_sha256=sha_resolvable,
+            perceptual=None,
+            size=4,
+            captured_at="2023-08-20T14:30:00",
+            category="Camera",
+            relative="2023/2023-08/resolvable.jpg",
+            drive_uuid=marker.uuid,
+        )
+        event_id = catalog.record_event(
+            name="Goa Trip",
+            slug="goa-trip",
+            start_date="2023-08-20",
+            file_count=1,
+            signature="sig-goa",
+        )
+        catalog.set_event_id([sha_resolvable], event_id)
+        catalog.record_uploaded(
+            source_path="/src/unresolvable.jpg",
+            original_name="unresolvable.jpg",
+            sha256=sha256_file(unresolvable),
+            copy_sha256=sha256_file(unresolvable),
+            perceptual=None,
+            size=unresolvable.stat().st_size,
+            captured_at="2023-08-21T09:00:00",
+            category="Camera",
+            relative="Camera/2023/08/unresolvable.jpg",
+            drive_uuid=marker.uuid,
+        )
+
+    client.post("/api/layout", json={"template": "{yyyy}/{yyyy}-{mm}"})  # year-first
+    r = client.post("/api/migrate/preview", json={"path": str(drive)}).json()
+    assert r["ok"] is True
+    moves = {m["old"]: m["new"] for m in r["moves"]}
+
+    # Real evidence -> the timeline, under its named event, exactly as organize would place it.
+    assert (
+        moves["2023/2023-08/resolvable.jpg"] == "2023/2023-08/2023-08-20 - Goa Trip/resolvable.jpg"
+    )
+    # No evidence -> still the conservative side bin. The fix resolves ambiguity; it does not
+    # remove the safe default for a label that stays genuinely ambiguous.
+    assert moves["Camera/2023/08/unresolvable.jpg"] == "Camera/2023/2023-08/unresolvable.jpg"
 
 
 def _organize_one(db: Path, category: str = "Camera") -> None:
