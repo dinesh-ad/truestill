@@ -81,6 +81,60 @@ def test_the_guard_can_actually_see_the_defect() -> None:
         assert not MALFORMED.search(benign), benign
 
 
+#: A count pluralised by concatenating a suffix inline, instead of calling ``plural``.
+#:
+#: Matches the interpolation body ``n === 1 ? "" : "s"`` - an empty singular branch and a quoted
+#: literal suffix. Deliberately keyed on *that shape* rather than on the word "plural", so it
+#: cannot be dodged by renaming a variable, and so it stays blind to the two things that look
+#: identical and are not: ``plural``'s own definition (whose else-branch is the identifier
+#: ``suffix``, not a quoted literal) and a ternary choosing between two whole words for a stat
+#: label (whose *if*-branch is a word, not ``""``). Both are pinned in
+#: :func:`test_the_inline_plural_guard_does_not_fire_on_the_real_look_alikes`.
+INLINE_PLURAL = re.compile(r'\?\s*""\s*:\s*"[A-Za-z]{1,3}"')
+
+
+def test_counts_are_pluralised_through_the_shared_helper() -> None:
+    """§9 names ``plural`` as *the* place a count is worded; six sites had re-implemented it.
+
+    Each was byte-equivalent to ``plural(n, word)`` on the day it was written, which is exactly
+    why this needs a gate rather than a review: nothing fails when the seventh copy drifts.
+    """
+    app_js = USER_FACING[0].read_text(encoding="utf-8")
+    offenders = [
+        f"app.js:{n}: {line.strip()}"
+        for n, line in enumerate(app_js.splitlines(), 1)
+        if INLINE_PLURAL.search(line)
+    ]
+    assert not offenders, (
+        "count pluralised inline instead of through plural() - see IMPLEMENTATION_STANDARDS 9:\n"
+        + "\n".join(offenders)
+    )
+
+
+def test_the_inline_plural_guard_does_not_fire_on_the_real_look_alikes() -> None:
+    """Both halves: it must catch the shape it names, and let the two real neighbours through.
+
+    A guard that fired on ``plural``'s own definition, or on a two-word label ternary, would be
+    switched off the first time someone hit it - taking its real coverage with it
+    (`ENGINEERING_STANDARD.md` 4).
+    """
+    caught = '`${nfmt(s.photos)} photo${s.photos === 1 ? "" : "s"}`'
+    assert INLINE_PLURAL.search(caught), "the guard would not have caught the six shipped sites"
+    assert INLINE_PLURAL.search('`${n} match${n === 1 ? "" : "es"}`'), "multi-letter suffix"
+
+    # 1. plural's own definition: the else-branch is an identifier, not a quoted suffix.
+    definition = 'const plural = (n, word, suffix = "s") => `${nfmt(n)} ${word}${Number(n) === 1 ? "" : suffix}`;'
+    assert not INLINE_PLURAL.search(definition), "the guard must not fire on plural itself"
+
+    # 2. A stat tile picks a bare noun for its label; the number lives in `value`, so routing
+    #    this through plural() would print the count twice.
+    label = 'label: Object.keys(r.folders).length === 1 ? "folder" : "folders",'
+    assert not INLINE_PLURAL.search(label), "a two-word label ternary is not an inline plural"
+
+    # 3. A mass noun that has no plural form at all.
+    assert not INLINE_PLURAL.search("`${nfmt(s.audio)} audio`")
+
+
 def test_trip_duration_names_active_days_not_calendar_span() -> None:
     """A Sep 13-16 trip with photos on three dates is three active days, not a three-day span."""
     app_js = USER_FACING[0].read_text(encoding="utf-8")

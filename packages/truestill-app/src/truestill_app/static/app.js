@@ -315,8 +315,8 @@ const catTip = (name) => CAT_INFO[name] || "Folder derived from the file’s own
 // "24 photos · 6 videos" - split, honest about the mix, zeros omitted (photos shown if all zero)
 function mediaCount(s) {
   const parts = [];
-  if (s.photos) parts.push(`${nfmt(s.photos)} photo${s.photos === 1 ? "" : "s"}`);
-  if (s.videos) parts.push(`${nfmt(s.videos)} video${s.videos === 1 ? "" : "s"}`);
+  if (s.photos) parts.push(plural(s.photos, "photo"));
+  if (s.videos) parts.push(plural(s.videos, "video"));
   if (s.audio) parts.push(`${nfmt(s.audio)} audio`);
   return parts.length ? parts.join(" · ") : "0 photos";
 }
@@ -499,8 +499,8 @@ function organizeCompletion(r) {
   const moved = (r.moved_in_place || 0) + (r.moved_by_copy || 0);
   const verb = moved && !r.organized ? "moved" : "organized";
   const kinds = [
-    r.photos ? `${nfmt(r.photos)} photo${r.photos === 1 ? "" : "s"}` : "",
-    r.videos ? `${nfmt(r.videos)} video${r.videos === 1 ? "" : "s"}` : "",
+    r.photos ? plural(r.photos, "photo") : "",
+    r.videos ? plural(r.videos, "video") : "",
     r.audio ? `${nfmt(r.audio)} audio` : "",
   ].filter(Boolean).join(" · ");
   const span = spanStory(r);
@@ -528,13 +528,13 @@ function organizeCompletion(r) {
   }
   return completionCard({
     done: r.cancelled ? "Stopped" : "Done",
-    headline: `${nfmt(r.organized || 0)} file${r.organized === 1 ? "" : "s"} ${verb}`
+    headline: `${plural(r.organized || 0, "file")} ${verb}`
       + (r.cancelled ? " before you stopped it" : ""),
     sub: [kinds, span].filter(Boolean).join(" · "),
     stats: [
       { value: fmtBytes(r.bytes_organized), label: "now organized" },
       r.duplicates
-        ? { value: fmtBytes(r.bytes_saved), label: `saved by skipping ${nfmt(r.duplicates)} duplicate${r.duplicates === 1 ? "" : "s"}` }
+        ? { value: fmtBytes(r.bytes_saved), label: `saved by skipping ${plural(r.duplicates, "duplicate")}` }
         : null,
       r.elapsed_seconds ? { value: fmtDuration(r.elapsed_seconds), label: "taken" } : null,
       Object.keys(r.folders || {}).length
