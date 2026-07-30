@@ -46,6 +46,12 @@ REQUESTED_TAGS: tuple[str, ...] = (
     "CreateDate",
     "MediaCreateDate",
     "TrackCreateDate",
+    # Video UTC ladder (backlog (uu)): MakerNotes zone, GPS UTC proof, clip length.
+    # Unexercised on the soak corpus for GPS; requested so the rung can fire when present.
+    "TimeZone",
+    "GPSDateStamp",
+    "GPSTimeStamp",
+    "Duration",
     # informational, surfaced in reports
     "FileType",
     "MIMEType",

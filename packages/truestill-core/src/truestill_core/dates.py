@@ -9,6 +9,7 @@ entire library under the day it was exported.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, NamedTuple
@@ -18,7 +19,7 @@ from truestill_core.models import DateSource
 from truestill_core.takeout import TakeoutSidecar, local_naive
 
 # ---------------------------------------------------------------------------
-# Inferred-local provenance (``DateSource.INFERRED_LOCAL`` / no-UTC-evidence)
+# Inferred-local provenance (``DateSource.INFERRED_LOCAL`` / not-proven-UTC)
 #
 # ``date_tag`` is the durable provenance record a later pass reads. Format:
 #
@@ -26,37 +27,39 @@ from truestill_core.takeout import TakeoutSidecar, local_naive
 #
 # Field separator is ASCII ``|`` (U+007C). Exiftool tag names use ``Group:Tag`` with a
 # colon, never a pipe, so splitting on ``|`` cannot collide with a real tag name we place
-# in field 0 or with evidence tokens such as ``Canon:TimeZone`` / ``filename:VID_``.
+# in field 0 or with evidence tokens such as ``TimeZone`` / ``filename:VID_``.
 # Evidence tokens that combine signals join with ``+`` inside field 1
 # (``GPSDateStamp+filename:VID_``), never with ``|``.
 #
-# Offset is ``+HH:MM`` / ``-HH:MM`` (half-hour grid). Absent only for the no-evidence form.
+# Offset is ``+HH:MM`` / ``-HH:MM`` (half-hour grid). Absent only for the not-proven-UTC form.
 #
 # Examples:
 #   CreateDate|filename:VID_|+05:30
-#   CreateDate|Canon:TimeZone|+06:30
-#   CreateDate|no_utc_evidence          # inspected CreateDate path; left as local digits
+#   CreateDate|TimeZone|+06:30
+#   CreateDate|not_proven_utc  (not proven UTC; treated as local - usually correct)
 # ---------------------------------------------------------------------------
 
 #: Provenance field separator. Must not appear in container tags or evidence tokens.
 INFERRED_DATE_TAG_SEP = "|"
 
-#: Evidence token when a UTC container stamp was considered and left unconverted.
-NO_UTC_EVIDENCE = "no_utc_evidence"
+#: Evidence token when a container stamp was left as local digits.
+#: Means "not proven to be UTC; treated as local" - **not** a defect. Most cameras that
+#: write local into ``CreateDate`` land here correctly; reports must not alarm.
+NOT_PROVEN_UTC = "not_proven_utc"
 
 _OFFSET_RE = re.compile(r"^([+-])(\d{2}):(\d{2})$")
 _SECONDS_PER_MINUTE = 60
 _MINUTES_PER_HOUR = 60
-_NO_EVIDENCE_FIELD_COUNT = 2
+_NOT_PROVEN_FIELD_COUNT = 2
 _INFERRED_FIELD_COUNT = 3
 
 
 class InferredDateTag(NamedTuple):
-    """Parsed ``date_tag`` for an inferred-local (or no-evidence) CreateDate decision."""
+    """Parsed ``date_tag`` for an inferred-local (or not-proven-UTC) CreateDate decision."""
 
     container_tag: str
     evidence: str
-    offset: timedelta | None  # None iff evidence is :data:`NO_UTC_EVIDENCE`
+    offset: timedelta | None  # None iff evidence is :data:`NOT_PROVEN_UTC`
 
 
 def format_offset(offset: timedelta) -> str:
@@ -98,8 +101,8 @@ def format_inferred_date_tag(container_tag: str, evidence: str, offset: timedelt
             f"{container_tag!r} / {evidence!r}"
         )
         raise ValueError(message)
-    if evidence == NO_UTC_EVIDENCE:
-        message = "use format_no_utc_evidence_tag for the no-evidence case"
+    if evidence == NOT_PROVEN_UTC:
+        message = "use format_not_proven_utc_tag when UTC is not proven"
         raise ValueError(message)
     return (
         f"{container_tag}{INFERRED_DATE_TAG_SEP}{evidence}"
@@ -107,32 +110,33 @@ def format_inferred_date_tag(container_tag: str, evidence: str, offset: timedelt
     )
 
 
-def format_no_utc_evidence_tag(container_tag: str) -> str:
-    """Record that a UTC container stamp was left as local digits - not merely absent.
+def format_not_proven_utc_tag(container_tag: str) -> str:
+    """Record that a container stamp was **not proven UTC** and was treated as local.
 
-    Form: ``{container_tag}|no_utc_evidence`` (two fields; no offset).
+    Form: ``{container_tag}|not_proven_utc``. This is the common, usually-correct path for
+    cameras that write local wall-clock into ``CreateDate`` - not a failure flag.
     """
     if INFERRED_DATE_TAG_SEP in container_tag:
         message = f"container_tag must not contain {INFERRED_DATE_TAG_SEP!r}: {container_tag!r}"
         raise ValueError(message)
-    return f"{container_tag}{INFERRED_DATE_TAG_SEP}{NO_UTC_EVIDENCE}"
+    return f"{container_tag}{INFERRED_DATE_TAG_SEP}{NOT_PROVEN_UTC}"
 
 
 def parse_inferred_date_tag(tag: str) -> InferredDateTag | None:
-    """Parse an inferred / no-evidence ``date_tag``, or ``None`` if the shape is wrong.
+    """Parse an inferred / not-proven-UTC ``date_tag``, or ``None`` if the shape is wrong.
 
-    Accepts ``CreateDate|filename:VID_|+05:30`` and ``CreateDate|no_utc_evidence``.
+    Accepts ``CreateDate|filename:VID_|+05:30`` and ``CreateDate|not_proven_utc``.
     Plain EXIF tags such as ``CreationDate`` or ``DateTimeOriginal`` return ``None``.
     """
     parts = tag.split(INFERRED_DATE_TAG_SEP)
-    if len(parts) == _NO_EVIDENCE_FIELD_COUNT:
+    if len(parts) == _NOT_PROVEN_FIELD_COUNT:
         container, evidence = parts
-        if not container or evidence != NO_UTC_EVIDENCE:
+        if not container or evidence != NOT_PROVEN_UTC:
             return None
         return InferredDateTag(container, evidence, None)
     if len(parts) == _INFERRED_FIELD_COUNT:
         container, evidence, offset_text = parts
-        if not container or not evidence or evidence == NO_UTC_EVIDENCE or not offset_text:
+        if not container or not evidence or evidence == NOT_PROVEN_UTC or not offset_text:
             return None
         try:
             offset = parse_offset(offset_text)
@@ -151,8 +155,8 @@ def parse_inferred_date_tag(tag: str) -> InferredDateTag | None:
 #: Single-conversion rule (the osxphotos lesson): ``CreationDate``'s wall-clock is *already*
 #: local, so :func:`parse_exif_datetime` simply drops the offset and keeps it -- we never add
 #: the offset back on. Re-applying it is the classic double-conversion bug. The UTC ``*Create``
-#: tags are a last resort only, kept as-is; we do not try to convert them using another tag's
-#: offset (that guesses a zone the file never recorded).
+#: tags are a last resort; for videos they may be shifted by the evidence ladder below when
+#: stronger evidence proves UTC-ness and supplies an offset.
 #: Date-bearing tags this chain **refuses to read, permanently**, and why.
 #:
 #: These are not "not yet supported" -- they are wrong answers that look like right ones, and an
@@ -178,6 +182,211 @@ DATE_TAGS: tuple[str, ...] = (
     "MediaCreateDate",
     "TrackCreateDate",
 )
+
+
+#: QuickTime/MP4 container stamps that the spec stores in UTC (cameras often ignore this).
+#: Ladder applies only when one of these won and DTO / CreationDate did not.
+_UTC_CONTAINER_TAGS: frozenset[str] = frozenset(
+    {"CreateDate", "MediaCreateDate", "TrackCreateDate"}
+)
+
+#: Video suffixes for the ladder. Duplicated from organizer to avoid an import cycle
+#: (organizer imports ``resolve_capture_datetime``).
+_VIDEO_EXTENSIONS: frozenset[str] = frozenset(
+    {
+        ".mp4",
+        ".mov",
+        ".m4v",
+        ".3gp",
+        ".3g2",
+        ".avi",
+        ".mkv",
+        ".webm",
+        ".mpg",
+        ".mpeg",
+        ".wmv",
+        ".flv",
+        ".mts",
+        ".m2ts",
+    }
+)
+
+# ---------------------------------------------------------------------------
+# Video UTC CreateDate ladder (backlog ``(uu)``)
+#
+# Safety bounds (pinned; mutation-tested in a later commit):
+# * Half-hour grid, ±14 h, excluding 0 -- civil zones include half-hours (IST +05:30);
+#   ±14 h covers the full civil range (UTC-12 .. UTC+14); offset 0 would re-label a
+#   no-op as inferred.
+# * Epsilon 3 s -- soak Android clips matched within 1-2 s after duration accounting;
+#   3 s allows rounding without admitting a neighbouring half-hour.
+# * Unique match only -- two offsets inside epsilon => refuse (never guess).
+# ---------------------------------------------------------------------------
+
+#: Match tolerance for filename↔CreateDate(+duration) and GPS↔CreateDate.
+FILENAME_OFFSET_EPSILON = timedelta(seconds=3)
+GPS_UTC_EPSILON = timedelta(seconds=5)
+
+#: Half-hour steps spanning ±14 h (civil timezone extremes).
+FILENAME_OFFSET_STEP = timedelta(minutes=30)
+FILENAME_OFFSET_MAX = timedelta(hours=14)
+
+#: Contemporaneous-still corroboration window (rung 5). Never invents an offset.
+STILL_CORROBORATION_WINDOW = timedelta(minutes=2)
+
+_DEVICE_LOCAL_TIME = re.compile(
+    r"(?P<prefix>VID|IMG)_(?P<ymd>\d{8})_(?P<hms>\d{6})",
+    re.IGNORECASE,
+)
+_DURATION_SECONDS = re.compile(r"^(\d+(?:\.\d+)?)\s*s$", re.IGNORECASE)
+_GPS_TIME = re.compile(r"^(\d{1,2}):(\d{2}):(\d{2})")
+
+
+_DURATION_HMS_PARTS = 3
+_DURATION_MS_PARTS = 2
+_GPS_TIME_PARTS = 3
+
+
+def parse_duration(raw: Any) -> timedelta | None:
+    """Parse an exiftool ``Duration`` value (``0:02:38``, ``2.52 s``, or numeric seconds)."""
+    if raw is None:
+        return None
+    if isinstance(raw, (int, float)):
+        if raw < 0:
+            return None
+        return timedelta(seconds=float(raw))
+    text = str(raw).strip()
+    if not text:
+        return None
+    seconds_match = _DURATION_SECONDS.fullmatch(text)
+    if seconds_match is not None:
+        return timedelta(seconds=float(seconds_match.group(1)))
+    parts = text.split(":")
+    try:
+        if len(parts) == _DURATION_HMS_PARTS:
+            hours, minutes, secs = (int(parts[0]), int(parts[1]), float(parts[2]))
+            return timedelta(hours=hours, minutes=minutes, seconds=secs)
+        if len(parts) == _DURATION_MS_PARTS:
+            minutes, secs = int(parts[0]), float(parts[1])
+            return timedelta(minutes=minutes, seconds=secs)
+    except ValueError:
+        return None
+    return None
+
+
+def candidate_filename_offsets() -> tuple[timedelta, ...]:
+    """Half-hour offsets in ±14 h, excluding zero (a no-op must not become inferred)."""
+    steps = int(FILENAME_OFFSET_MAX / FILENAME_OFFSET_STEP)
+    return tuple(i * FILENAME_OFFSET_STEP for i in range(-steps, steps + 1) if i != 0)
+
+
+def unique_filename_offset(
+    create_utc: datetime,
+    filename_local: datetime,
+    duration: timedelta | None,
+    *,
+    epsilon: timedelta = FILENAME_OFFSET_EPSILON,
+) -> timedelta | None:
+    """Return the unique half-hour offset matching filename (+optional duration), or None.
+
+    Accepts offset ``O`` when ``|CreateDate + O - filename| <= epsilon`` (start-stamped
+    CreateDate) or ``|CreateDate + O - filename - duration| <= epsilon`` (end-stamped
+    CreateDate, Android). Two distinct matches => refuse.
+    """
+    eps = epsilon.total_seconds()
+    hits: set[timedelta] = set()
+    for offset in candidate_filename_offsets():
+        local_end = create_utc + offset
+        if abs((local_end - filename_local).total_seconds()) <= eps:
+            hits.add(offset)
+        if (
+            duration is not None
+            and abs((local_end - filename_local - duration).total_seconds()) <= eps
+        ):
+            hits.add(offset)
+    if len(hits) == 1:
+        return next(iter(hits))
+    return None
+
+
+def device_filename_local(name: str) -> tuple[datetime, str] | None:
+    """Local wall-clock from ``VID_`` / ``IMG_`` ``YYYYMMDD_HHMMSS``, or None.
+
+    Messenger ``-WA`` names are refused (delivery time, not capture). Search anywhere in
+    the name so organized prefixes like ``20140817_045424_VID_…`` still match.
+    """
+    if is_messenger_filename(name):
+        return None
+    match = _DEVICE_LOCAL_TIME.search(name)
+    if match is None:
+        return None
+    ymd, hms = match.group("ymd"), match.group("hms")
+    try:
+        when = datetime.strptime(f"{ymd}{hms}", "%Y%m%d%H%M%S")
+    except ValueError:
+        return None
+    prefix = match.group("prefix").upper()
+    return when, f"filename:{prefix}_"
+
+
+def gps_utc_datetime(metadata: dict[str, Any]) -> datetime | None:
+    """Combine ``GPSDateStamp`` + ``GPSTimeStamp`` into a naive UTC instant, or None."""
+    date_raw = metadata.get("GPSDateStamp")
+    time_raw = metadata.get("GPSTimeStamp")
+    if date_raw is None or time_raw is None:
+        return None
+    date_text = str(date_raw).strip().replace("-", ":")
+    try:
+        day = datetime.strptime(date_text, "%Y:%m:%d")
+    except ValueError:
+        return None
+    if isinstance(time_raw, (list, tuple)) and len(time_raw) >= _GPS_TIME_PARTS:
+        hours, minutes, secs = int(time_raw[0]), int(time_raw[1]), float(time_raw[2])
+    else:
+        time_match = _GPS_TIME.match(str(time_raw).strip())
+        if time_match is None:
+            return None
+        hours = int(time_match.group(1))
+        minutes = int(time_match.group(2))
+        secs = float(time_match.group(3))
+    try:
+        return day.replace(hour=hours, minute=minutes, second=int(secs), microsecond=0)
+    except ValueError:
+        return None
+
+
+def gps_confirms_utc(
+    metadata: dict[str, Any],
+    create_utc: datetime,
+    *,
+    epsilon: timedelta = GPS_UTC_EPSILON,
+) -> bool:
+    """True when GPS UTC ≈ CreateDate (rung 3). Proves UTC-ness; never supplies an offset."""
+    gps = gps_utc_datetime(metadata)
+    if gps is None:
+        return False
+    return abs((gps - create_utc).total_seconds()) <= epsilon.total_seconds()
+
+
+def stills_corroborate_local(
+    local_start: datetime,
+    neighbor_stills: Sequence[datetime],
+    *,
+    window: timedelta = STILL_CORROBORATION_WINDOW,
+) -> bool | None:
+    """Rung 5: corroborate a *proposed* local start against nearby still capture times.
+
+    Returns ``True`` if any still lies within ``window`` of ``local_start``, ``False`` if
+    stills were supplied but none are near, and ``None`` when ``neighbor_stills`` is empty.
+
+    **Never returns or invents an offset.** Callers may refuse on ``False``; they must not
+    derive ``O`` from stills alone.
+    """
+    if not neighbor_stills:
+        return None
+    bound = window.total_seconds()
+    return any(abs((still - local_start).total_seconds()) <= bound for still in neighbor_stills)
+
 
 _TZ_SUFFIX = re.compile(r"[+-]\d{2}:?\d{2}$")
 
@@ -293,7 +502,7 @@ SUSPECT_DEFAULT_DAYS: frozenset[tuple[int, int, int]] = frozenset(
 #: ``FILENAME`` is deliberately excluded: :func:`date_from_filename` returns **midnight by
 #: construction**, so the exact-midnight test would flag every legitimately filename-dated
 #: file on those days. ``TAKEOUT_UPLOAD`` is an upload time, not a camera clock.
-_CLOCK_SOURCES = frozenset({DateSource.EXIF, DateSource.TAKEOUT})
+_CLOCK_SOURCES = frozenset({DateSource.EXIF, DateSource.TAKEOUT, DateSource.INFERRED_LOCAL})
 
 
 def is_hard_sentinel(value: datetime) -> bool:
@@ -343,6 +552,83 @@ def _local(value: datetime | None, tz_offset: timedelta | None) -> datetime | No
     return None if value is None else local_naive(value, tz_offset)
 
 
+def _is_video(path: Path, metadata: dict[str, Any]) -> bool:
+    mime = str(metadata.get("MIMEType") or "").lower()
+    if mime.startswith("video/"):
+        return True
+    return path.suffix.lower() in _VIDEO_EXTENSIONS
+
+
+def _timezone_from_metadata(metadata: dict[str, Any]) -> timedelta | None:
+    raw = metadata.get("TimeZone")
+    if raw is None:
+        return None
+    text = str(raw).strip()
+    # Canon sometimes appends a city name; take the leading ±HH:MM.
+    match = re.match(r"([+-]\d{2}:\d{2})", text)
+    if match is None:
+        return None
+    try:
+        return parse_offset(match.group(1))
+    except ValueError:
+        return None
+
+
+def _infer_video_local(
+    path: Path,
+    metadata: dict[str, Any],
+    create_utc: datetime,
+    container_tag: str,
+) -> _Candidate | None:
+    """Apply the video UTC ladder; return an inferred candidate or None to leave as local.
+
+    Rungs: (2) TimeZone, (3) GPS proves UTC only, (4) filename+duration. Rung 5 is a
+    separate corroboration helper and never chooses an offset here.
+    """
+    gps_ok = gps_confirms_utc(metadata, create_utc)
+
+    tz = _timezone_from_metadata(metadata)
+    if tz is not None:
+        evidence = "GPSDateStamp+TimeZone" if gps_ok else "TimeZone"
+        return _Candidate(
+            create_utc + tz,
+            DateSource.INFERRED_LOCAL,
+            format_inferred_date_tag(container_tag, evidence, tz),
+        )
+
+    device = device_filename_local(path.name)
+    if device is not None:
+        filename_local, fn_evidence = device
+        duration = parse_duration(metadata.get("Duration"))
+        offset = unique_filename_offset(create_utc, filename_local, duration)
+        if offset is not None:
+            evidence = f"GPSDateStamp+{fn_evidence}" if gps_ok else fn_evidence
+            return _Candidate(
+                filename_local,
+                DateSource.INFERRED_LOCAL,
+                format_inferred_date_tag(container_tag, evidence, offset),
+            )
+
+    # GPS alone proves UTC-ness but supplies no offset - leave digits as local.
+    return None
+
+
+def _exif_tier(path: Path, metadata: dict[str, Any], embedded: _EmbeddedDate) -> _Candidate:
+    """EXIF tier, with the video CreateDate ladder when a UTC-container tag won."""
+    if embedded.value is None or embedded.tag is None:
+        return _Candidate(None, DateSource.EXIF, None)
+    if embedded.tag in _UTC_CONTAINER_TAGS and _is_video(path, metadata):
+        inferred = _infer_video_local(path, metadata, embedded.value, embedded.tag)
+        if inferred is not None:
+            return inferred
+        return _Candidate(
+            embedded.value,
+            DateSource.EXIF,
+            format_not_proven_utc_tag(embedded.tag),
+        )
+    return _Candidate(embedded.value, DateSource.EXIF, embedded.tag)
+
+
 def _embedded_datetime(metadata: dict[str, Any]) -> _EmbeddedDate:
     """First parseable, sane embedded date with the tag that supplied it.
 
@@ -385,6 +671,11 @@ def resolve_capture_datetime(
     the first two, for libraries whose dates were fixed inside Google Photos but whose
     embedded EXIF stayed wrong. Takeout times are converted from UTC to local exactly once.
 
+    For videos whose winning embedded tag is a UTC container stamp (``CreateDate`` family),
+    an evidence ladder may shift to local wall-clock (``DateSource.INFERRED_LOCAL``). With
+    no proof of UTC, the digits stay as local and ``date_tag`` records
+    ``{tag}|not_proven_utc`` (usually correct - not a defect).
+
     **Tier A sentinels are refused at every tier**, not just the EXIF one - a zero-epoch is
     not a date whichever field produced it. When the chain exhausts *because* a sentinel was
     refused, the source is :attr:`DateSource.REJECTED_SENTINEL` rather than
@@ -394,7 +685,7 @@ def resolve_capture_datetime(
     :func:`is_suspect_default`.
     """
     embedded = _embedded_datetime(metadata)
-    exif_tier = _Candidate(embedded.value, DateSource.EXIF, embedded.tag)
+    exif_tier = _exif_tier(path, metadata, embedded)
     taken_tier = _Candidate(
         _local(takeout.taken_at if takeout else None, tz_offset), DateSource.TAKEOUT
     )

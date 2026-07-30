@@ -61,7 +61,8 @@ def test_metadata_beats_filename() -> None:
     )
     assert when == datetime(2025, 8, 4, 11, 16, 38)
     assert source is DateSource.EXIF
-    assert tag == "CreateDate"
+    # Filename time is 43m off CreateDate - not on the half-hour grid -> not proven UTC.
+    assert tag == "CreateDate|not_proven_utc"
 
 
 def test_quicktime_creationdate_beats_utc_container_tags() -> None:
@@ -107,13 +108,13 @@ def test_creationdate_wiring_is_requested_and_ranked() -> None:
 
 
 def test_container_createdate_still_used_when_no_creationdate() -> None:
-    # Non-Apple videos (no CreationDate) must be unaffected: the container tag is still used.
+    # Non-Apple videos (no CreationDate): container digits kept as local when UTC unproven.
     when, source, tag = resolve_capture_datetime(
         Path("clip.mp4"), {"CreateDate": "2025:08:04 11:16:38"}
     )
     assert when == datetime(2025, 8, 4, 11, 16, 38)
     assert source is DateSource.EXIF
-    assert tag == "CreateDate"
+    assert tag == "CreateDate|not_proven_utc"
 
 
 def test_filename_used_when_metadata_absent() -> None:
