@@ -114,7 +114,14 @@ def test_cancel_actually_stops_an_organize(ui: Page, tmp_path: Path) -> None:
 
 
 def test_organize_mode_persists_and_inplace_hides_destination(ui: Page) -> None:
-    ui.check('input[name="org-mode"][value="inplace"]')
+    # Settle the async settings load so it cannot race a later radio pick.
+    expect(ui.locator('input[name="org-mode"][value="copy"]')).to_be_checked()
+    expect(ui.locator("#org-mode-hint")).to_contain_text("Originals stay where they are.")
+
+    with ui.expect_response(
+        lambda r: "/api/organize/settings" in r.url and r.request.method == "POST" and r.ok
+    ):
+        ui.check('input[name="org-mode"][value="inplace"]')
     expect(ui.locator("#org-dest-field")).to_be_hidden()
     expect(ui.locator("#org-mode-hint")).to_contain_text("never falls back to copy")
     expect(ui.locator("#org-mode-hint")).to_contain_text("--in-place")

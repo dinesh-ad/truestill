@@ -922,6 +922,7 @@ document.querySelectorAll("[data-browse]").forEach((btn) => {
 // ---------- Organize ----------
 function setWhy(text) { $("org-why").textContent = text; }
 let orgMode = "copy";
+let organizeModeLoadGeneration = 0;
 let orgMechanism = null;
 let orgUndoJob = null;
 let cleanupOffer = null;
@@ -960,7 +961,10 @@ function reversibilityLine(mechanism) {
 }
 
 async function loadOrganizeMode() {
+  const gen = ++organizeModeLoadGeneration;
   const state = await get("/api/organize/settings");
+  // A user change while this request was in flight must win; do not clobber it.
+  if (gen !== organizeModeLoadGeneration) return;
   orgMode = state.mode || "copy";
   const input = document.querySelector(`input[name="org-mode"][value="${orgMode}"]`);
   if (input) input.checked = true;
@@ -1340,6 +1344,7 @@ $("undo-cancel").onclick = guarded(() => {
 
 document.querySelectorAll('input[name="org-mode"]').forEach((item) => {
   item.addEventListener("change", guarded(async () => {
+    organizeModeLoadGeneration += 1; // invalidate any in-flight settings load
     renderOrganizeMode();
     await saveOrganizeMode(currentOrganizeMode());
     setWhy("Look inside first to see what is in the folder.");
