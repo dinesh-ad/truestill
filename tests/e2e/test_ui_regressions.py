@@ -16,6 +16,8 @@ from pathlib import Path
 import pytest
 from conftest import AppServer, make_photo
 from playwright.sync_api import Page, expect
+from truestill_core.destinations.base import CrossDeviceError
+from truestill_core.destinations.local import LocalDestination
 
 _EXIFTOOL = pytest.mark.skipif(
     __import__("shutil").which("exiftool") is None, reason="exiftool not installed"
@@ -138,6 +140,77 @@ def test_move_mode_reports_mechanism_and_reversibility_before_confirm(
     expect(confirm).to_contain_text("reversible with undo-organize")
 
 
+def test_cross_device_move_is_reported_as_not_reversible_before_confirm(ui: Page) -> None:
+    """The reversibility line is mechanism-driven, not mode-driven."""
+    ui.route(
+        "**/api/organize/inventory",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body='{"tier":"inventory","files":1,"photos":1,"videos":0,"audio":0,"by_format":{"photos":{"jpg":1},"videos":{},"audio":{}},"total_bytes":10,"skipped":{"documents":{},"unrecognized":{}}}',
+        ),
+    )
+    ui.route(
+        "**/api/organize/preview",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=('{"job_id":"x"}' if route.request.method == "POST" else '{"ok":false}'),
+        ),
+    )
+    ui.route(
+        "**/api/jobs/x/events**",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="text/event-stream",
+            body=(
+                'data: {"type":"done","status":"done","summary":{"files":1,"photos":1,'
+                '"videos":0,"audio":0,"new_unique":1,"near_dup":0,"exact_dup":0,'
+                '"undated":0,"folders":{"Camera":1},"skipped":{"documents":{},'
+                '"unrecognized":{}},"mode":"move","mechanism":{"same_filesystem":false,'
+                '"reversible":false,"uses_rename":false,"requires_destination":true}}}\n\n'
+            ),
+        ),
+    )
+    ui.fill("#org-source", "/tmp/src")
+    ui.fill("#org-dest", "/tmp/dst")
+    ui.check('input[name="org-mode"][value="move"]')
+    ui.click("#org-preview")
+    ui.click("#org-dedup")
+    expect(ui.locator("#org-confirm")).to_contain_text("not reversible with undo-organize")
+
+
+@_EXIFTOOL
+def test_inplace_refuses_cross_device_instead_of_falling_back_to_copy(
+    ui: Page, library, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """In-place must refuse a cross-device answer; it cannot silently copy."""
+
+    def always_cross_device(
+        _self: LocalDestination,
+        _source: Path,
+        _relative: str,  # pragma: no cover - mutation guard
+    ) -> None:
+        message = "simulated cross-device"
+        raise CrossDeviceError(message)
+
+    monkeypatch.setattr(LocalDestination, "adopt", always_cross_device)
+
+    source = library(2, name="Source")
+    ui.fill("#org-source", str(source))
+    ui.check('input[name="org-mode"][value="inplace"]')
+    ui.click("#org-preview")
+    ui.click("#org-dedup")
+    typed = ui.locator("#org-confirm [data-typed-confirm]")
+    expect(typed).to_be_visible()
+    typed.fill("move")
+    ui.click("#org-confirm [data-typed-go]")
+
+    expect(ui.locator("#org-result")).to_contain_text("could not be organized")
+    # A copy fallback would have removed the originals from this source root.
+    assert len(list(source.rglob("*.jpg"))) == 2
+
+
 @_EXIFTOOL
 def test_reversible_organize_shows_durable_undo_affordance(
     ui: Page, tmp_path: Path, library
@@ -148,6 +221,8 @@ def test_reversible_organize_shows_durable_undo_affordance(
 
     expect(ui.locator("#org-undo-panel")).to_contain_text("Undo the last reversible organize run")
     expect(ui.locator("#org-undo-panel")).to_contain_text("undo-organize")
+    ui.click("#org-undo-preview")
+    expect(ui.locator("#org-undo-stage [data-typed-confirm]")).to_be_visible()
     ui.reload()
     expect(ui.locator("#org-undo-panel")).to_contain_text("Undo the last reversible organize run")
 
