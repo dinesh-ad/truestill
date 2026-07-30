@@ -29,6 +29,7 @@ from truestill_core.cleanup import (
     run_cleanup,
     trash_backend,
 )
+from truestill_core.dates import format_offset
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import LocalDestination
 from truestill_core.drive import create_marker, locate_drive, path_is_usable_dir, read_marker
@@ -79,6 +80,8 @@ from truestill_core.models import (
     ActionStatus,
     Resolution,
     date_quality,
+    format_inferred_local_shift_line,
+    inferred_local_shifts,
     status_label,
 )
 from truestill_core.organizer import (
@@ -364,6 +367,7 @@ def _summarize(resolutions: list[Resolution]) -> dict[str, Any]:
     heic = sum(1 for r in resolutions if r.decision.source.suffix.lower() in HEIF_EXTENSIONS)
     breakdown = _media_breakdown([r.decision.source.name for r in resolutions])
     quality = date_quality(uploads)
+    shifts = inferred_local_shifts(uploads)
     summary: dict[str, Any] = {
         "files": len(resolutions),
         "photos": breakdown["photos"],
@@ -377,6 +381,19 @@ def _summarize(resolutions: list[Resolution]) -> dict[str, Any]:
         # Never silent: an epoch-zero date that was refused, and a date that may be a dead
         # camera-clock default, are each reported on their own -- never folded into "undated".
         **quality._asdict(),
+        # Informational: videos shifted from UTC CreateDate (names + offsets). Not a defect;
+        # not_proven_utc fallthrough is omitted on purpose.
+        "inferred_local_shifts": [
+            {
+                "name": s.name,
+                "before": s.before.strftime("%H:%M:%S"),
+                "after": s.after.strftime("%H:%M:%S"),
+                "offset": format_offset(s.offset),
+                "evidence": s.evidence,
+                "line": format_inferred_local_shift_line(s),
+            }
+            for s in shifts
+        ],
         "folders": dict(labels.most_common()),
     }
     if heic and not HEIF_AVAILABLE:
@@ -1319,6 +1336,17 @@ def ingest_preview(
         "dates_exif": sources.get("exif", 0),
         "undated": sources.get("none", 0),
         **date_quality(uploads)._asdict(),
+        "inferred_local_shifts": [
+            {
+                "name": s.name,
+                "before": s.before.strftime("%H:%M:%S"),
+                "after": s.after.strftime("%H:%M:%S"),
+                "offset": format_offset(s.offset),
+                "evidence": s.evidence,
+                "line": format_inferred_local_shift_line(s),
+            }
+            for s in inferred_local_shifts(uploads)
+        ],
         "missing_sidecar": len(scan.missing_sidecar),
     }
 

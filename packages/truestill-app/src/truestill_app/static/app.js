@@ -279,6 +279,16 @@ function dateQualityNotes(s) {
   return notes.length ? `<div class="banner warn">${notes.join("")}</div>` : "";
 }
 
+// Informational: videos whose UTC CreateDate was shifted to local. Names + offsets, not a
+// count alone. not_proven_utc fallthrough is omitted (usually correct local digits).
+function inferredLocalShiftNotes(s) {
+  const shifts = s.inferred_local_shifts || [];
+  if (!shifts.length) return "";
+  const rows = shifts.map((x) => `<div class="mono">${esc(x.line || x.name)}</div>`).join("");
+  return `<div class="banner"><div>${plural(shifts.length, "video")} shifted from UTC CreateDate:
+    <div style="margin-top:var(--space-2)">${rows}</div></div></div>`;
+}
+
 // Folder chips + their first-timer legend. Shared by the preview and the completion card so
 // the same folders are always described the same way.
 function chipsFor(folders) {
@@ -1246,6 +1256,7 @@ function renderOrganizeResult(s) {
   const details = renderSkippedDetails(s.skipped);
   const heic = s.heic_perceptual_skipped ? `<div class="banner warn"><div>${plural(s.heic_perceptual_skipped, "HEIC file")} will be backed up, but near-duplicate detection is unavailable for them.</div></div>` : "";
   const dateQuality = dateQualityNotes(s);
+  const inferredShifts = inferredLocalShiftNotes(s);
   $("org-result").innerHTML = card(
     `<div class="headline">${mediaCount(s)} found</div>
      ${s.elapsed_seconds ? `<div class="k">checked in ${fmtDuration(s.elapsed_seconds)}</div>` : ""}
@@ -1256,7 +1267,7 @@ function renderOrganizeResult(s) {
        <div class="n">${nfmt(s.undated)}</div><div class="k">no date - will go to “Undated”</div>
      </div>
      ${folders ? `<h3>Into these folders <span style="font-weight:400;color:var(--text-muted)">- hover a chip for what it means</span></h3><div class="chips">${folders}</div>${legend}` : ""}
-     ${byFormat(s.by_format)}${dateQuality}${heic}${details}`
+     ${byFormat(s.by_format)}${dateQuality}${inferredShifts}${heic}${details}`
   );
   return kept;
 }
@@ -1606,7 +1617,7 @@ $("rc-preview").onclick = guarded(async () => {
          <div class="n">${nfmt(r.dates_photo_taken)}</div><div class="k">dates recovered</div>
          <div class="n">${nfmt(r.undated)}</div><div class="k">still undated</div>
        </div>
-       ${dateQualityNotes(r)}`
+       ${dateQualityNotes(r)}${inferredLocalShiftNotes(r)}`
     );
   });
 });

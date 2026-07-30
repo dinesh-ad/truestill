@@ -83,6 +83,8 @@ from truestill_core.models import (
     DuplicateMatch,
     Resolution,
     date_quality,
+    format_inferred_local_shift_line,
+    inferred_local_shifts,
     status_label,
 )
 from truestill_core.organizer import (
@@ -714,6 +716,19 @@ def _print_date_quality(uploads: list[Resolution]) -> None:
         )
 
 
+def _print_inferred_local_shifts(uploads: list[Resolution]) -> None:
+    """Name each video shifted from UTC CreateDate - never a count alone.
+
+    ``not_proven_utc`` fallthrough is EXIF and is not listed (usually correct local digits).
+    """
+    shifts = inferred_local_shifts(uploads)
+    if not shifts:
+        return
+    print(f"  {len(shifts)} video(s) shifted from UTC CreateDate:")
+    for shift in shifts:
+        print(f"      {format_inferred_local_shift_line(shift)}")
+
+
 def _print_summary(resolutions: list[Resolution]) -> None:
     uploads = [r for r in resolutions if r.should_upload]
     near = [r for r in uploads if r.near_duplicate is not None]
@@ -735,6 +750,7 @@ def _print_summary(resolutions: list[Resolution]) -> None:
     for source, count in sources.most_common():
         print(f"      {source:<28} {count}")
     _print_date_quality(uploads)
+    _print_inferred_local_shifts(uploads)
 
     review = [r for r in uploads if r.decision.needs_review]
     if review:
@@ -887,6 +903,11 @@ def _print_ingest_report(resolutions: list[Resolution], scan: TakeoutScan) -> No
         "  (epoch zero -> Undated/)"
     )
     print(f"  suspicious camera-default dates  : {quality.suspect_default}  (filed, worth a look)")
+    shifts = inferred_local_shifts(uploads)
+    if shifts:
+        print(f"  videos shifted from UTC CreateDate: {len(shifts)}")
+        for shift in shifts:
+            print(f"      {format_inferred_local_shift_line(shift)}")
     print(f"  media without any JSON sidecar   : {len(scan.missing_sidecar)}")
     print(
         "  note: Takeout times are UTC; near midnight a date may shift a day -- pass --tz to correct."

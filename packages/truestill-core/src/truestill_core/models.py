@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
 from typing import NamedTuple
@@ -70,7 +70,7 @@ class DateSource(StrEnum):
 
 
 #: Date sources trusted enough not to warrant manual review.
-_TRUSTED_DATE_SOURCES = frozenset({DateSource.EXIF, DateSource.TAKEOUT})
+_TRUSTED_DATE_SOURCES = frozenset({DateSource.EXIF, DateSource.TAKEOUT, DateSource.INFERRED_LOCAL})
 
 #: Sources that produced no usable date at all. Excluded from the "approximate date" review
 #: list: there is no date to review, and both are reported on their own line instead.
@@ -152,6 +152,10 @@ class Decision:
     #: -- these can be genuine -- and counted in the report for the user to review.
     #: See ``dates.is_suspect_default``.
     suspect_default: bool = False
+    #: UTC container stamp (CreateDate family digits) before an ``INFERRED_LOCAL`` shift.
+    #: None for every other source. Used by the never-silent report so it can name
+    #: ``before -> after`` without re-opening the file.
+    inferred_from: datetime | None = None
 
     @property
     def needs_review(self) -> bool:
@@ -247,6 +251,99 @@ def date_quality(resolutions: Iterable[Resolution]) -> DateQuality:
         if decision.suspect_default:
             suspect += 1
     return DateQuality(sentinel_rejected=sentinel, suspect_default=suspect)
+
+
+class InferredLocalShift(NamedTuple):
+    """One video whose UTC CreateDate was shifted to local wall-clock.
+
+    Informational disclosure - not a defect. ``not_proven_utc`` files are never listed here.
+    """
+
+    name: str
+    before: datetime
+    after: datetime
+    offset: timedelta
+    evidence: str  # short human label: "filename", "TimeZone", …
+
+
+def _evidence_report_label(evidence: str) -> str:
+    """Map a provenance evidence token to the short report label."""
+    # Combined tokens put the offset source last (``GPSDateStamp+filename:VID_``).
+    primary = evidence.rsplit("+", 1)[-1]
+    if primary.startswith("filename:"):
+        return "filename"
+    if primary == "TimeZone":
+        return "TimeZone"
+    return primary
+
+
+_OFFSET_TEXT_LEN = 6  # "+HH:MM"
+_MINUTES_PER_HOUR = 60
+_INFERRED_TAG_FIELDS = 3
+
+
+def _parse_offset_hhmm(text: str) -> timedelta | None:
+    """Parse ``+HH:MM`` / ``-HH:MM`` without importing :mod:`dates` (avoids a cycle)."""
+    text = text.strip()
+    if len(text) < _OFFSET_TEXT_LEN or text[0] not in "+-":
+        return None
+    try:
+        hours = int(text[1:3])
+        minutes = int(text[4:6])
+    except ValueError:
+        return None
+    if text[3] != ":" or minutes >= _MINUTES_PER_HOUR:
+        return None
+    delta = timedelta(hours=hours, minutes=minutes)
+    return delta if text[0] == "+" else -delta
+
+
+def _format_offset_hhmm(offset: timedelta) -> str:
+    total = int(offset.total_seconds())
+    sign = "+" if total >= 0 else "-"
+    total = abs(total)
+    hours, minutes = divmod(total // _MINUTES_PER_HOUR, _MINUTES_PER_HOUR)
+    return f"{sign}{hours:02d}:{minutes:02d}"
+
+
+def inferred_local_shifts(resolutions: Iterable[Resolution]) -> tuple[InferredLocalShift, ...]:
+    """Videos shifted from UTC CreateDate this run, named with before/after/offset.
+
+    Shared by CLI and app. Empty when nothing was inferred. Does **not** include
+    ``not_proven_utc`` fallthrough (those stay EXIF and are usually correct).
+    """
+    shifts: list[InferredLocalShift] = []
+    for resolution in resolutions:
+        decision = resolution.decision
+        if decision.date_source is not DateSource.INFERRED_LOCAL:
+            continue
+        if decision.captured_at is None or decision.inferred_from is None or not decision.date_tag:
+            continue
+        parts = decision.date_tag.split("|")
+        if len(parts) != _INFERRED_TAG_FIELDS:
+            continue
+        offset = _parse_offset_hhmm(parts[2])
+        if offset is None:
+            continue
+        shifts.append(
+            InferredLocalShift(
+                name=decision.source.name,
+                before=decision.inferred_from,
+                after=decision.captured_at,
+                offset=offset,
+                evidence=_evidence_report_label(parts[1]),
+            )
+        )
+    return tuple(shifts)
+
+
+def format_inferred_local_shift_line(shift: InferredLocalShift) -> str:
+    """``VID_….mp4  04:54:24 -> 10:21:45  (+05:30, filename)``."""
+    return (
+        f"{shift.name}  {shift.before.strftime('%H:%M:%S')} -> "
+        f"{shift.after.strftime('%H:%M:%S')}  "
+        f"({_format_offset_hhmm(shift.offset)}, {shift.evidence})"
+    )
 
 
 @dataclass(frozen=True, slots=True)

@@ -24,7 +24,12 @@ from typing import Any
 
 from truestill_core.catalog import Catalog
 from truestill_core.categorize import Rule, categorize
-from truestill_core.dates import is_suspect_default, resolve_capture_datetime
+from truestill_core.dates import (
+    is_suspect_default,
+    parse_exif_datetime,
+    parse_inferred_date_tag,
+    resolve_capture_datetime,
+)
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations.base import CrossDeviceError, Destination, DestinationError
 from truestill_core.exif import WRITE_BATCH_SIZE, build_metadata_args, write_metadata_batch
@@ -426,10 +431,15 @@ def plan(
             tz_offset=tz_offset,
             prefer_takeout=prefer_takeout,
         )
+        inferred_from = None
+        if date_source is DateSource.INFERRED_LOCAL and date_tag:
+            parsed = parse_inferred_date_tag(date_tag)
+            if parsed is not None:
+                inferred_from = parse_exif_datetime(meta.get(parsed.container_tag))
         new_name = dated_filename(
             path.name,
             captured_at,
-            time_known=date_source is DateSource.EXIF,
+            time_known=date_source in (DateSource.EXIF, DateSource.INFERRED_LOCAL),
             enabled=rename,
         )
         day_key = captured_at.date().isoformat() if captured_at is not None else None
@@ -442,6 +452,7 @@ def plan(
                 date_source=date_source,
                 date_tag=date_tag,
                 suspect_default=is_suspect_default(captured_at, date_source),
+                inferred_from=inferred_from,
                 relative=Path(
                     build_relative(
                         category.label,
