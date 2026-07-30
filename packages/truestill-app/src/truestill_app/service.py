@@ -439,13 +439,32 @@ def _normalize_organize_mode(mode: object) -> str:
     return text if text in ORGANIZE_MODES else "copy"
 
 
-def organize_mode_state(db: Path) -> dict[str, Any]:
+class OrganizeModeState(TypedDict):
+    mode: str
+    modes: list[str]
+
+
+class SetOrganizeModeResult(TypedDict):
+    ok: Literal[True]
+    mode: str
+
+
+class SidebarState(TypedDict):
+    collapsed: bool
+
+
+class SetSidebarCollapsedResult(TypedDict):
+    ok: Literal[True]
+    collapsed: bool
+
+
+def organize_mode_state(db: Path) -> OrganizeModeState:
     with Catalog(db) as catalog:
         saved = _normalize_organize_mode(catalog.get_setting(ORGANIZE_MODE_KEY))
     return {"mode": saved, "modes": sorted(ORGANIZE_MODES)}
 
 
-def set_organize_mode(mode: object, db: Path) -> dict[str, Any]:
+def set_organize_mode(mode: object, db: Path) -> SetOrganizeModeResult:
     saved = _normalize_organize_mode(mode)
     with Catalog(db) as catalog:
         catalog.set_setting(ORGANIZE_MODE_KEY, saved)
@@ -460,20 +479,32 @@ def _normalize_sidebar_collapsed(value: object) -> bool:
     return text in {"1", "true", "yes", "collapsed"}
 
 
-def sidebar_state(db: Path) -> dict[str, Any]:
+def sidebar_state(db: Path) -> SidebarState:
     with Catalog(db) as catalog:
         raw = catalog.get_setting(SIDEBAR_COLLAPSED_KEY)
     return {"collapsed": _normalize_sidebar_collapsed(raw)}
 
 
-def set_sidebar_collapsed(collapsed: object, db: Path) -> dict[str, Any]:
+def set_sidebar_collapsed(collapsed: object, db: Path) -> SetSidebarCollapsedResult:
     saved = _normalize_sidebar_collapsed(collapsed)
     with Catalog(db) as catalog:
         catalog.set_setting(SIDEBAR_COLLAPSED_KEY, "true" if saved else "false")
     return {"ok": True, "collapsed": saved}
 
 
-def filesystem_relationship(source: Path, destination: Path) -> dict[str, Any]:
+class FilesystemRelationshipOk(TypedDict):
+    ok: Literal[True]
+    same_filesystem: bool
+
+
+class FilesystemRelationshipErr(TypedDict):
+    ok: Literal[False]
+    error: str
+
+
+def filesystem_relationship(
+    source: Path, destination: Path
+) -> FilesystemRelationshipOk | FilesystemRelationshipErr:
     """Whether source and destination roots are on the same filesystem."""
     if _device_id(source) is None:
         return {

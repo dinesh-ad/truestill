@@ -449,6 +449,7 @@ is invisible here is retired, not free.**
   into the API - was invisible to mypy precisely because the return type was `Any`.
   - **Slice 1 - Built 2026-07-30:** `LayoutState` / preview / set-layout TypedDicts. `presets`
     is `dict[str, str]`; mypy rejects `dict(PRESETS)`. Key-set pins in `test_settings_http`.
+  - **Slice 2 - Built 2026-07-30:** organize mode, sidebar, filesystem-relationship leaves.
 - **(aab) Split `dates.py`.** **Built 2026-07-30.** Video ladder + offset grid + `LadderHit`
   moved to `video_utc.py`; inferred-local ``date_tag`` / ``format_offset`` to cycle-free
   `date_provenance.py`. `models._format_offset_hhmm` / `_parse_offset_hhmm` deleted - both

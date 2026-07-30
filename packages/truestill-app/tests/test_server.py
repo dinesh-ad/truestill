@@ -182,15 +182,21 @@ def test_organize_preview_no_media(client: TestClient, tmp_path: Path) -> None:
 
 
 def test_organize_mode_setting_round_trips_through_catalog(client: TestClient) -> None:
-    assert client.get(f"/api/organize/settings?token={_TOKEN}").json()["mode"] == "copy"
+    state = client.get(f"/api/organize/settings?token={_TOKEN}").json()
+    assert set(state) == {"mode", "modes"}
+    assert state["mode"] == "copy"
     saved = client.post(f"/api/organize/settings?token={_TOKEN}", json={"mode": "inplace"}).json()
+    assert set(saved) == {"ok", "mode"}
     assert saved == {"ok": True, "mode": "inplace"}
     assert client.get(f"/api/organize/settings?token={_TOKEN}").json()["mode"] == "inplace"
 
 
 def test_sidebar_collapsed_setting_round_trips_through_catalog(client: TestClient) -> None:
-    assert client.get(f"/api/sidebar/settings?token={_TOKEN}").json()["collapsed"] is False
+    state = client.get(f"/api/sidebar/settings?token={_TOKEN}").json()
+    assert set(state) == {"collapsed"}
+    assert state["collapsed"] is False
     saved = client.post(f"/api/sidebar/settings?token={_TOKEN}", json={"collapsed": True}).json()
+    assert set(saved) == {"ok", "collapsed"}
     assert saved == {"ok": True, "collapsed": True}
     assert client.get(f"/api/sidebar/settings?token={_TOKEN}").json()["collapsed"] is True
     restored = client.post(
@@ -210,6 +216,7 @@ def test_filesystem_relationship_reports_same_filesystem(
         "/api/fs/relationship",
         params={"token": _TOKEN, "source": str(source), "destination": str(destination)},
     ).json()
+    assert set(body) == {"ok", "same_filesystem"}
     assert body["ok"] is True
     assert body["same_filesystem"] is True
 
