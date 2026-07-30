@@ -107,12 +107,12 @@ def _install_open_hooks(tally: OpenTally) -> Callable[[], None]:
             tally.record_image(fp)
         return orig_image_open(fp, *args, **kwargs)
 
-    Path.open = path_open  # type: ignore[method-assign]
-    Image.open = image_open  # type: ignore[assignment]
+    Path.open = path_open  # type: ignore[method-assign]  # profiling monkeypatch: wrap Path.open to count opens
+    Image.open = image_open
 
     def restore() -> None:
-        Path.open = orig_path_open  # type: ignore[method-assign]
-        Image.open = orig_image_open  # type: ignore[assignment]
+        Path.open = orig_path_open  # type: ignore[method-assign]  # profiling monkeypatch: restore Path.open
+        Image.open = orig_image_open
 
     return restore
 
@@ -247,11 +247,12 @@ def profile_preview(source: Path, *, label: str) -> dict[str, Any]:
     orig_sha = hashing_mod.sha256_file
     orig_phash = hashing_mod.perceptual_hash
     orig_sizes = scan_mod._sizes
-    hashing_mod.sha256_file = timed_sha.wrap(orig_sha)  # type: ignore[assignment]
-    hashing_mod.perceptual_hash = timed_phash.wrap(orig_phash)  # type: ignore[assignment]
-    scan_mod.sha256_file = hashing_mod.sha256_file  # type: ignore[assignment]
-    scan_mod.perceptual_hash = hashing_mod.perceptual_hash  # type: ignore[assignment]
-    scan_mod._sizes = timed_sizes.wrap(orig_sizes)  # type: ignore[assignment]
+    hashing_mod.sha256_file = timed_sha.wrap(orig_sha)
+    hashing_mod.perceptual_hash = timed_phash.wrap(orig_phash)
+    # Monkeypatch scan's bound hashing names (imported for workers; not a public re-export).
+    scan_mod.sha256_file = hashing_mod.sha256_file  # type: ignore[attr-defined]  # profile hook: scan binds hashing for workers
+    scan_mod.perceptual_hash = hashing_mod.perceptual_hash  # type: ignore[attr-defined]  # profile hook: scan binds hashing for workers
+    scan_mod._sizes = timed_sizes.wrap(orig_sizes)
 
     wall0 = time.perf_counter()
     try:
@@ -316,11 +317,11 @@ def profile_preview(source: Path, *, label: str) -> dict[str, Any]:
                 summary=report_summary,
             )
     finally:
-        hashing_mod.sha256_file = orig_sha  # type: ignore[assignment]
-        hashing_mod.perceptual_hash = orig_phash  # type: ignore[assignment]
-        scan_mod.sha256_file = orig_sha  # type: ignore[assignment]
-        scan_mod.perceptual_hash = orig_phash  # type: ignore[assignment]
-        scan_mod._sizes = orig_sizes  # type: ignore[assignment]
+        hashing_mod.sha256_file = orig_sha
+        hashing_mod.perceptual_hash = orig_phash
+        scan_mod.sha256_file = orig_sha  # type: ignore[attr-defined]  # profile hook: restore scan hashing bind
+        scan_mod.perceptual_hash = orig_phash  # type: ignore[attr-defined]  # profile hook: restore scan hashing bind
+        scan_mod._sizes = orig_sizes
         restore_opens()
 
 

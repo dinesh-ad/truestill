@@ -582,7 +582,7 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
     ]
     app = Starlette(routes=routes)
     app.mount("/static", StaticFiles(directory=_STATIC), name="static")
-    app.add_middleware(LocalGuard, token=token)  # type: ignore[arg-type]
+    app.add_middleware(LocalGuard, token=token)
     app.state.token = token
     return app
 

@@ -148,10 +148,8 @@ python_version = "3.13"
 # `--ignore-missing-imports`, so it answered "fine" to an import of a module that had not
 # existed for two renames. Overriding those args (below) is only safe because of this line.
 mypy_path = "packages/truestill-core/src:packages/truestill-cli/src:packages/truestill-app/src"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
+# ENGINEERING_STANDARD.md §4: mypy strict is mandatory. The gate and the claim must agree.
+strict = true
 
 # imagehash ships no type stubs; Pillow's are partial; pillow-heif and send2trash ship none.
 # send2trash is an OPTIONAL runtime probe (see cleanup.trash_backend), not a dependency.

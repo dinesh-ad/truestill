@@ -134,6 +134,16 @@ class DriveCorrectionPayload(TypedDict):
     can_register: bool
 
 
+class DriveUnavailablePayload(TypedDict):
+    """Connected-drive gate failed: same correction shape migration preview already returns."""
+
+    ok: Literal[False]
+    error: str
+    suggested_root: str | None
+    drive_label: str | None
+    can_register: bool
+
+
 def _not_a_drive_message(path: Path) -> str:
     """Say what this path actually is, so the user has something to do about it.
 
@@ -178,6 +188,11 @@ def _drive_correction(path: Path) -> DriveCorrectionPayload:
         "drive_label": location.marker.label if location.marker else None,
         "can_register": location.marker is None,
     }
+
+
+def _drive_unavailable(path: Path) -> DriveUnavailablePayload:
+    """Connected-drive gate failure (explicit TypedDict - mypy 1.13 rejects Union ** spreads)."""
+    return _drive_unavailable(path)
 
 
 def drive_ref_for(path: Path) -> DriveRef:
@@ -237,7 +252,7 @@ def reveal_in_file_manager(path: Path) -> RevealOk | RevealErr:
     ``OSError``.
     """
     if not path_is_usable_dir(path):
-        return {"ok": False, **_drive_correction(path)}
+        return cast(RevealErr, {"ok": False, **_drive_correction(path)})
     opener = {"darwin": "open", "win32": "explorer"}.get(sys.platform, "xdg-open")
     if shutil.which(opener) is None:
         return {
@@ -718,14 +733,18 @@ def organize_preview(
             cache=cache,
         )
     core = _summarize(resolutions)
-    return {
-        **core,
-        "tier": "dedup",
-        "destination_is_drive": read_marker(destination) is not None,
-        "skipped": _skipped_summary(scan),
-        "mode": mode,
-        "mechanism": mechanism,
-    }
+    # TypedDict ** spread cannot prove NotRequired keys; build then cast (mypy strict).
+    return cast(
+        OrganizePreviewSummary,
+        {
+            **core,
+            "tier": "dedup",
+            "destination_is_drive": read_marker(destination) is not None,
+            "skipped": _skipped_summary(scan),
+            "mode": mode,
+            "mechanism": mechanism,
+        },
+    )
 
 
 def organize_preview_run(
@@ -858,13 +877,17 @@ def organize_run(
             # The custody nudge, counted rather than assumed: how much of the library really
             # does exist in only one place right now.
             single_copy = catalog.single_copy_count()
-        done: OrganizeDoneSummary = {
-            **base,
-            "mode": chosen_mode,
-            "mechanism": mechanism,
-            "drive_label": marker.label,
-            "single_copy": single_copy,
-        }
+        # TypedDict ** spread cannot prove NotRequired keys; build then cast (mypy strict).
+        done = cast(
+            OrganizeDoneSummary,
+            {
+                **base,
+                "mode": chosen_mode,
+                "mechanism": mechanism,
+                "drive_label": marker.label,
+                "single_copy": single_copy,
+            },
+        )
         if leftover is not None:
             done["leftover_empty_folders"] = leftover
         return done
@@ -1203,7 +1226,7 @@ def verify_run(path: Path, db: Path) -> JobTarget | DriveUnavailablePayload:
     """
     marker = read_marker(path)
     if marker is None:
-        return {"ok": False, **_drive_correction(path)}
+        return _drive_unavailable(path)
 
     def target(progress: ProgressCallback, cancel: threading.Event) -> VerifyJobSummary:
         with Catalog(db) as catalog:
@@ -2401,7 +2424,7 @@ def propose_events(
     """
     marker = read_marker(path)
     if marker is None:
-        return {"ok": False, **_drive_correction(path)}
+        return _drive_unavailable(path)
     with Catalog(db) as catalog:
         settings = EventSettings.from_catalog(catalog)
         review = assemble_trip_review(
@@ -2475,7 +2498,7 @@ def migration_preview(
     """Preview relocating a connected drive's files to the current template (moves nothing)."""
     marker = read_marker(path)
     if marker is None:
-        return {"ok": False, **_drive_correction(path)}
+        return _drive_unavailable(path)
     with Catalog(db) as catalog:
         scheme = resolve_scheme(catalog)
         routes, rules_by_sha = _resolve_migration_routes(
@@ -2518,7 +2541,7 @@ def migration_preview_run(path: Path, db: Path) -> JobTarget | DriveUnavailableP
     """
     marker = read_marker(path)
     if marker is None:
-        return {"ok": False, **_drive_correction(path)}
+        return _drive_unavailable(path)
 
     def target(progress: ProgressCallback, cancel: threading.Event) -> MigrationPreviewOk:
         result = migration_preview(path, db, progress=progress, cancel=cancel)
@@ -2665,16 +2688,6 @@ def migration_apply(
     return target
 
 
-class DriveUnavailablePayload(TypedDict):
-    """Connected-drive gate failed: same correction shape migration preview already returns."""
-
-    ok: Literal[False]
-    error: str
-    suggested_root: str | None
-    drive_label: str | None
-    can_register: bool
-
-
 class ArmedStatePayload(TypedDict):
     """Whether the drive still has a reversible migration journal (backlog pp)."""
 
@@ -2706,7 +2719,7 @@ def migration_armed_state(path: Path, db: Path) -> ArmedStatePayload | DriveUnav
     """
     marker = read_marker(path)
     if marker is None:
-        return {"ok": False, **_drive_correction(path)}
+        return _drive_unavailable(path)
     with Catalog(db) as catalog:
         record = catalog.reversible_migration(marker.uuid)
     if record is None:
@@ -2724,7 +2737,7 @@ def migration_undo(path: Path, db: Path, *, apply: bool) -> JobTarget | DriveUna
     """
     marker = read_marker(path)
     if marker is None:
-        return {"ok": False, **_drive_correction(path)}
+        return _drive_unavailable(path)
 
     def target(progress: ProgressCallback, cancel: threading.Event) -> UndoJobSummary:
         with Catalog(db) as catalog:
