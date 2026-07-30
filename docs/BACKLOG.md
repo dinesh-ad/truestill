@@ -421,19 +421,11 @@ is invisible here is retired, not free.**
   `names: dict[str, str]` - which is the **root cause** of the audit's F1: the human name was
   simply never plumbed, because there was no object to carry it. `event_review.py` had already
   eroded the tuple to `tuple[Any, str]`.
-- **(bb) `rule` becomes a `StrEnum`.** **Half of this shipped in Stage 2a (`1247055`) - read
-  which half before starting.**
-  - **Done: the router is total.** `Placement` is a `StrEnum`, `classify()` is the single router,
-    `LayoutScheme.of` is exhaustiveness-checked with `assert_never`, and `__post_init__` proves a
-    scheme carries a template for every placement. Adding a shape now fails the build until it is
-    given one.
-  - **Still open: the *rule* itself is a bare `str`.** `TIMELINE_RULE = "device"` is compared
-    against an unconstrained string - `classify(rule: str, ...)` accepts any string at all, and a
-    typo routes silently to the side bin rather than failing. The seven rule names are still
-    re-listed by hand in the tests.
-  - **What remains:** make the rule set an enum so it is exhaustive at the *input* to the router,
-    the way `Placement` now is at its output. The two halves are independent; the second is what
-    is left.
+- **(bb) `rule` becomes a `StrEnum`.** **Built 2026-07-30** (input half; output/`Placement`
+  half shipped earlier in Stage 2a). `RuleName` enumerates the seven emitters;
+  `TIMELINE_RULE = RuleName.DEVICE`; `classify` coerces/`assert_never`-matches on the enum so a
+  typo raises instead of silently side-binning. Not a catalog column - no durable string is
+  validated against the enum.
 - **(cc) Collapse `preview()` into `preview_scheme()`.** **Built 2026-07-30.** Dead
   `preview()` deleted; collision + path-length risk lives once in `_preview_rows`, used by
   `preview_scheme`. Tests retargeted at the shared helper so the rule cannot diverge.

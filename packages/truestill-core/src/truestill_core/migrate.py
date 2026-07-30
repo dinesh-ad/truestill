@@ -47,6 +47,7 @@ from truestill_core.layout import (
     heavy_capture_days,
     normalize_everyday_day_threshold,
 )
+from truestill_core.models import RuleName
 from truestill_core.progress import Phase, Progress, ProgressCallback
 
 _log = logging.getLogger(__name__)
@@ -221,14 +222,14 @@ def rederive_rules(
 
 def rule_for_row(
     row: Any, routes: dict[str, str], rules_by_sha: dict[str, str] | None = None
-) -> str:
+) -> RuleName | str:
     """The rule a migration should route this row by, given a per-label decision."""
     if rules_by_sha:
         rule = rules_by_sha.get(str(row["sha256"]))
         if rule is not None:
             return rule  # the file's own evidence beats any per-label decision
     decided = routes.get(str(row["category"]), ROUTE_SIDE_BIN)
-    return TIMELINE_RULE if decided == ROUTE_TIMELINE else "fallback"
+    return TIMELINE_RULE if decided == ROUTE_TIMELINE else RuleName.FALLBACK
 
 
 def _migration_headers(

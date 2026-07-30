@@ -34,7 +34,7 @@ from pathlib import PurePosixPath
 from typing import Protocol, Self, assert_never
 
 from truestill_core.events import event_dirname
-from truestill_core.models import UNDATED_DIRNAME
+from truestill_core.models import UNDATED_DIRNAME, RuleName
 
 _TOKEN = re.compile(r"\{([a-z_]+)\}")
 
@@ -470,7 +470,7 @@ DEFAULT_DAY_BUCKET_TEMPLATE = LayoutTemplate.parse(DEFAULT_DAY_BUCKET_TEMPLATE_S
 #: (`categorize.make_device_rule`), and routing keys on the **rule, not the label**: under
 #: ``--by-device`` the label is the hardware name, so a label test would send a whole library
 #: into a side bin.
-TIMELINE_RULE = "device"
+TIMELINE_RULE = RuleName.DEVICE
 
 #: Where everything that is not the timeline goes. **Fixed, never user-editable.** The side bin
 #: is a quarantine - screenshots and messenger images stay out of the photo timeline - so no
@@ -709,7 +709,7 @@ def everyday_day_reconcile_reason(
     )
 
 
-def classify(rule: str, context: RenderContext) -> Placement:
+def classify(rule: RuleName | str, context: RenderContext) -> Placement:
     """**The one router.** Every shape decision in the product is made here, exactly once.
 
     Order: side bin → trip day → event day → heavy un-evented day → everyday. A trip-claimed
@@ -718,9 +718,26 @@ def classify(rule: str, context: RenderContext) -> Placement:
     flag only; this function never counts files and never opens a catalog. Pure, total, and free
     of any knowledge of what the shapes *are* - it returns a name, and the rendering is somebody
     else's job.
+
+    ``rule`` must be a known :class:`RuleName` (string values are accepted and coerced). A typo
+    raises ``ValueError`` rather than silently routing to the side bin.
     """
-    if rule != TIMELINE_RULE:
-        return Placement.SIDE_BIN
+    if not isinstance(rule, RuleName):
+        rule = RuleName(rule)
+    match rule:
+        case RuleName.DEVICE:
+            pass
+        case (
+            RuleName.SCREENSHOT_METADATA
+            | RuleName.SCREENSHOT_NAME
+            | RuleName.FILENAME_CONVENTION
+            | RuleName.SOFTWARE
+            | RuleName.SAVED_HEURISTIC
+            | RuleName.FALLBACK
+        ):
+            return Placement.SIDE_BIN
+        case _ as unreachable:
+            assert_never(unreachable)
     if context.trip is not None:
         return Placement.TRIP_DAY
     if context.event is not None:
@@ -805,7 +822,7 @@ class LayoutScheme:
         """The template for an already-decided shape. Total by construction (`__post_init__`)."""
         return self.templates[placement]
 
-    def render(self, rule: str, context: RenderContext) -> PurePosixPath:
+    def render(self, rule: RuleName | str, context: RenderContext) -> PurePosixPath:
         return self.template_for(classify(rule, context)).render(context)
 
 
@@ -875,7 +892,7 @@ class SampleRow:
     """One row of the live layout preview: what kind of file, and where it lands."""
 
     description: str
-    rule: str
+    rule: RuleName
     context: RenderContext
 
 
@@ -902,7 +919,7 @@ SAMPLE_ROWS: tuple[SampleRow, ...] = (
     SampleRow("Camera undated", TIMELINE_RULE, RenderContext(category="Camera")),
     SampleRow(
         "Screenshots",
-        "screenshot_name",
+        RuleName.SCREENSHOT_NAME,
         RenderContext(category="Screenshots", captured_at=datetime(2024, 1, 15)),  # noqa: DTZ001
     ),
 )

@@ -52,6 +52,7 @@ from truestill_core.models import (
     Decision,
     DuplicateKind,
     Resolution,
+    RuleName,
     status_label,
 )
 from truestill_core.naming import dated_filename
@@ -352,7 +353,7 @@ def build_relative(
     captured_at: datetime | None,
     filename: str,
     *,
-    rule: str = TIMELINE_RULE,
+    rule: RuleName | str = TIMELINE_RULE,
     scheme: LayoutScheme = DEFAULT_SCHEME,
     heavy_day: bool = False,
 ) -> PurePosixPath:

@@ -44,6 +44,23 @@ class Confidence(StrEnum):
     LOW = "low"
 
 
+class RuleName(StrEnum):
+    """Which categorization rule produced a :class:`CategoryMatch`.
+
+    The seven members are the full set the router knows. Values are the historical string
+    tokens (unchanged) so comparisons with those literals stay true. This is **not** a
+    catalog column - it is in-memory evidence for the current run / re-derive pass only.
+    """
+
+    SCREENSHOT_METADATA = "screenshot_metadata"
+    SCREENSHOT_NAME = "screenshot_name"
+    FILENAME_CONVENTION = "filename_convention"
+    SOFTWARE = "software"
+    DEVICE = "device"
+    SAVED_HEURISTIC = "saved_heuristic"
+    FALLBACK = "fallback"
+
+
 class DateSource(StrEnum):
     """Where a file's capture date was recovered from, best to worst.
 
@@ -131,7 +148,7 @@ class CategoryMatch:
     label: str
     reason: str
     confidence: Confidence
-    rule: str
+    rule: RuleName
 
 
 @dataclass(frozen=True, slots=True)

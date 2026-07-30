@@ -364,6 +364,12 @@ def test_classify_routes_on_the_rule_then_on_the_event() -> None:
     assert classify("screenshot_name", evented) is Placement.SIDE_BIN
 
 
+def test_classify_refuses_an_unknown_rule_name() -> None:
+    """Intentional tightening: a typo must raise, not silently side-bin."""
+    with pytest.raises(ValueError, match="devcie"):
+        classify("devcie", RenderContext(category="Camera", captured_at=WHEN))
+
+
 # --- axis three: trip days (Stage 2d, 13.2) -----------------------------------------------
 
 

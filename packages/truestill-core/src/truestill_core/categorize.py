@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from truestill_core.models import SAVED_LABEL, CategoryMatch, Confidence
+from truestill_core.models import SAVED_LABEL, CategoryMatch, Confidence, RuleName
 
 #: The label both screenshot rules emit.
 SCREENSHOT_LABEL = "Screenshots"
@@ -172,7 +172,7 @@ def rule_screenshot_metadata(_path: Path, metadata: dict[str, Any]) -> CategoryM
             label=SCREENSHOT_LABEL,
             reason="EXIF SamsungCaptureInfo=Screenshot",
             confidence=Confidence.HIGH,
-            rule="screenshot_metadata",
+            rule=RuleName.SCREENSHOT_METADATA,
         )
     return None
 
@@ -184,7 +184,7 @@ def rule_screenshot_name(path: Path, _metadata: dict[str, Any]) -> CategoryMatch
             label=SCREENSHOT_LABEL,
             reason="filename matches screenshot naming",
             confidence=Confidence.MEDIUM,
-            rule="screenshot_name",
+            rule=RuleName.SCREENSHOT_NAME,
         )
     return None
 
@@ -197,7 +197,7 @@ def rule_filename_convention(path: Path, _metadata: dict[str, Any]) -> CategoryM
                 label=entry.label,
                 reason=f"filename matches {entry.label} convention ({entry.note})",
                 confidence=Confidence.MEDIUM,
-                rule="filename_convention",
+                rule=RuleName.FILENAME_CONVENTION,
             )
     return None
 
@@ -220,7 +220,7 @@ def rule_software(_path: Path, metadata: dict[str, Any]) -> CategoryMatch | None
         label=sanitize_label(family),
         reason=f"Software tag names an application ({raw})",
         confidence=Confidence.LOW,
-        rule="software",
+        rule=RuleName.SOFTWARE,
     )
 
 
@@ -260,7 +260,7 @@ def make_device_rule(*, by_device: bool) -> Rule:
             label=label,
             reason=f"capture metadata present ({detail})",
             confidence=Confidence.MEDIUM,
-            rule="device",
+            rule=RuleName.DEVICE,
         )
 
     return rule_device
@@ -302,7 +302,7 @@ def rule_saved_heuristic(_path: Path, metadata: dict[str, Any]) -> CategoryMatch
         label=SAVED_LABEL,
         reason=f"no camera EXIF and low resolution ({width}x{height}) -- likely a social/web save",
         confidence=Confidence.LOW,
-        rule="saved_heuristic",
+        rule=RuleName.SAVED_HEURISTIC,
     )
 
 
@@ -333,5 +333,5 @@ def categorize(
         label=SAVED_LABEL,
         reason="no origin evidence in filename, software or device metadata",
         confidence=Confidence.LOW,
-        rule="fallback",
+        rule=RuleName.FALLBACK,
     )
