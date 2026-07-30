@@ -33,6 +33,7 @@
   --bg: var(--gray-50);
   --surface: var(--gray-0);
   --surface-sunken: var(--gray-100);
+  --surface-raised: var(--gray-0);
   --border: var(--gray-200);
   --border-strong: var(--gray-300);
   --text: var(--gray-900);
@@ -94,6 +95,7 @@
     --bg: #0b0c0e;
     --surface: #16181c;
     --surface-sunken: #101114;
+    --surface-raised: #1c1f25;
     --border: #24272e;
     --border-strong: #333842;
     --text: #e7e9ee;
@@ -119,6 +121,7 @@
   --bg: #f7f8fa;
   --surface: #ffffff;
   --surface-sunken: #eef0f4;
+  --surface-raised: #ffffff;
   --border: #e2e5ea;
   --border-strong: #cbd0d9;
   --text: #16181d;
@@ -145,6 +148,7 @@
   --bg: #0b0c0e;
   --surface: #16181c;
   --surface-sunken: #101114;
+  --surface-raised: #1c1f25;
   --border: #24272e;
   --border-strong: #333842;
   --text: #e7e9ee;

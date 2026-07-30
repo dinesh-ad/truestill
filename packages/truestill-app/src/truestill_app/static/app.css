@@ -595,7 +595,7 @@ details.more > summary::-webkit-details-marker {
   color: var(--text-muted);
 }
 .progress-wrap .prog-tally b {
-  color: var(--text-primary);
+  color: var(--text);
   font-weight: 600;
 }
 
