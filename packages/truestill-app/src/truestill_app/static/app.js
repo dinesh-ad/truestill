@@ -1167,6 +1167,10 @@ async function startOrganizeUndoPreview() {
     }
     orgUndoJob = started.job_id;
     const stage = $("org-undo-stage");
+    // Park the shared progress block inside this panel so it is visible on Organize
+    // (same hazard as migrate-undo: #undo-card lives under <body>, below the 100vh app grid).
+    stage.innerHTML = "";
+    stage.appendChild($("undo-card"));
     undoProgress.start("checking");
     const d = await awaitJob(started.job_id, (p) => {
       undoProgress.update(p);
@@ -1174,6 +1178,8 @@ async function startOrganizeUndoPreview() {
     });
     undoProgress.stop();
     orgUndoJob = null;
+    document.body.appendChild($("undo-card"));
+    $("undo-card").classList.add("hidden");
     if (!d.ok) { stage.innerHTML = jobErrorCard(d); return; }
     const s = d.summary;
     stage.innerHTML = `<div class="headline">${plural(s.restorable, "file")} can be restored</div>
@@ -1197,6 +1203,9 @@ async function startOrganizeUndoApply() {
       return;
     }
     orgUndoJob = started.job_id;
+    const stage = $("org-undo-stage");
+    stage.innerHTML = "";
+    stage.appendChild($("undo-card"));
     undoProgress.start("restoring");
     const d = await awaitJob(started.job_id, (p) => {
       undoProgress.update(p);
@@ -1204,6 +1213,8 @@ async function startOrganizeUndoApply() {
     });
     undoProgress.stop();
     orgUndoJob = null;
+    document.body.appendChild($("undo-card"));
+    $("undo-card").classList.add("hidden");
     const summaryHtml = d.ok
       ? card(
           `<div class="headline">Restored ${plural(d.summary.restored, "file")}.</div>
