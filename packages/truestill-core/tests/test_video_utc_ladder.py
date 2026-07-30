@@ -10,23 +10,22 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from truestill_core.dates import (
+from truestill_core.date_provenance import NOT_PROVEN_UTC, parse_inferred_date_tag
+from truestill_core.dates import resolve_capture_datetime
+from truestill_core.exif import REQUESTED_TAGS
+from truestill_core.models import DateSource
+from truestill_core.video_utc import (
     FILENAME_OFFSET_EPSILON,
     FILENAME_OFFSET_MAX,
     FILENAME_OFFSET_STEP,
-    NOT_PROVEN_UTC,
     LadderHit,
     gps_confirms_utc,
     parse_duration,
-    parse_inferred_date_tag,
-    resolve_capture_datetime,
     stills_corroborate_local,
     try_rung_filename_duration,
     try_rung_timezone,
     unique_filename_offset,
 )
-from truestill_core.exif import REQUESTED_TAGS
-from truestill_core.models import DateSource
 
 
 def test_ladder_tag_requests_are_wired() -> None:

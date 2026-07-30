@@ -10,15 +10,16 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
-from truestill_core import dates
-from truestill_core.dates import (
+from truestill_core import video_utc
+from truestill_core.categorize import is_messenger_filename
+from truestill_core.dates import resolve_capture_datetime
+from truestill_core.models import DateSource
+from truestill_core.video_utc import (
     FILENAME_OFFSET_EPSILON,
     candidate_filename_offsets,
     device_filename_local,
-    resolve_capture_datetime,
     unique_filename_offset,
 )
-from truestill_core.models import DateSource
 
 _ANDROID = {
     "CreateDate": "2014:08:17 04:54:24",
@@ -62,10 +63,12 @@ def test_mutation_dropping_unique_check_accepts_ambiguity(
                 return offset
         return None
 
-    monkeypatch.setattr(dates, "unique_filename_offset", without_unique)
+    monkeypatch.setattr(video_utc, "unique_filename_offset", without_unique)
     # Production refuses; mutated matcher returns the first of several hits.
     assert (
-        dates.unique_filename_offset(_CREATE, _FILENAME, _DURATION, epsilon=timedelta(minutes=35))
+        video_utc.unique_filename_offset(
+            _CREATE, _FILENAME, _DURATION, epsilon=timedelta(minutes=35)
+        )
         is not None
     )
 
@@ -82,7 +85,7 @@ def test_mutation_dropping_duration_breaks_android(monkeypatch: pytest.MonkeyPat
     ) -> timedelta | None:
         return unique_filename_offset(create_utc, filename_local, None, epsilon=epsilon)
 
-    monkeypatch.setattr(dates, "unique_filename_offset", no_duration)
+    monkeypatch.setattr(video_utc, "unique_filename_offset", no_duration)
     when, source, _ = resolve_capture_datetime(Path("VID_20140817_102145.mp4"), _ANDROID)
     assert when == _CREATE
     assert source is DateSource.EXIF
@@ -90,11 +93,11 @@ def test_mutation_dropping_duration_breaks_android(monkeypatch: pytest.MonkeyPat
 
 def test_mutation_hour_grid_breaks_ist(monkeypatch: pytest.MonkeyPatch) -> None:
     """A 60-minute grid cannot express +05:30, so the Android IST case must not convert."""
-    monkeypatch.setattr(dates, "FILENAME_OFFSET_STEP", timedelta(hours=1))
+    monkeypatch.setattr(video_utc, "FILENAME_OFFSET_STEP", timedelta(hours=1))
     when, source, _ = resolve_capture_datetime(Path("VID_20140817_102145.mp4"), _ANDROID)
     assert when == _CREATE
     assert source is DateSource.EXIF
-    assert _IST not in dates.candidate_filename_offsets()
+    assert _IST not in video_utc.candidate_filename_offsets()
 
 
 def test_mutation_dropping_messenger_refusal_leaks_wa_offset(
@@ -107,18 +110,18 @@ def test_mutation_dropping_messenger_refusal_leaks_wa_offset(
     """
     # WhatsApp pattern is prefix-anchored without ``$``, so a trailing device stamp still matches.
     name = "VID-20140817-WA0001_VID_20140817_102145.mp4"
-    assert dates.is_messenger_filename(name)
+    assert is_messenger_filename(name)
     assert device_filename_local(name) is None
 
     def leaky(stem: str) -> tuple[datetime, str] | None:
-        match = dates._DEVICE_LOCAL_TIME.search(stem)
+        match = video_utc._DEVICE_LOCAL_TIME.search(stem)
         if match is None:
             return None
         ymd, hms = match.group("ymd"), match.group("hms")
         when = datetime.strptime(f"{ymd}{hms}", "%Y%m%d%H%M%S")  # noqa: DTZ007
         return when, f"filename:{match.group('prefix').upper()}_"
 
-    monkeypatch.setattr(dates, "device_filename_local", leaky)
+    monkeypatch.setattr(video_utc, "device_filename_local", leaky)
     when, source, tag = resolve_capture_datetime(Path(name), _ANDROID)
     assert when == _FILENAME
     assert source is DateSource.INFERRED_LOCAL

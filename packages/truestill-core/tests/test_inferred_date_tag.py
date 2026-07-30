@@ -8,8 +8,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 import pytest
-from truestill_core.dates import (
-    DATE_TAGS,
+from truestill_core.date_provenance import (
     INFERRED_DATE_TAG_SEP,
     NOT_PROVEN_UTC,
     format_inferred_date_tag,
@@ -18,6 +17,7 @@ from truestill_core.dates import (
     parse_inferred_date_tag,
     parse_offset,
 )
+from truestill_core.dates import DATE_TAGS
 from truestill_core.models import DateSource
 
 

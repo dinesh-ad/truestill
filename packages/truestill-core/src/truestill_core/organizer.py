@@ -24,10 +24,10 @@ from typing import Any
 
 from truestill_core.catalog import Catalog
 from truestill_core.categorize import Rule, categorize
+from truestill_core.date_provenance import parse_inferred_date_tag
 from truestill_core.dates import (
     is_suspect_default,
     parse_exif_datetime,
-    parse_inferred_date_tag,
     resolve_capture_datetime,
 )
 from truestill_core.dedup import DedupIndex

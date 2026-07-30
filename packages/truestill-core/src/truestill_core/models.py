@@ -18,6 +18,8 @@ from enum import StrEnum
 from pathlib import Path
 from typing import NamedTuple
 
+from truestill_core.date_provenance import format_offset, parse_offset
+
 #: Folder used when a file carries no usable date evidence at all. Files land here
 #: rather than being guessed into a year, so an undated file is always visible as such.
 UNDATED_DIRNAME = "Undated"
@@ -277,33 +279,7 @@ def _evidence_report_label(evidence: str) -> str:
     return primary
 
 
-_OFFSET_TEXT_LEN = 6  # "+HH:MM"
-_MINUTES_PER_HOUR = 60
 _INFERRED_TAG_FIELDS = 3
-
-
-def _parse_offset_hhmm(text: str) -> timedelta | None:
-    """Parse ``+HH:MM`` / ``-HH:MM`` without importing :mod:`dates` (avoids a cycle)."""
-    text = text.strip()
-    if len(text) < _OFFSET_TEXT_LEN or text[0] not in "+-":
-        return None
-    try:
-        hours = int(text[1:3])
-        minutes = int(text[4:6])
-    except ValueError:
-        return None
-    if text[3] != ":" or minutes >= _MINUTES_PER_HOUR:
-        return None
-    delta = timedelta(hours=hours, minutes=minutes)
-    return delta if text[0] == "+" else -delta
-
-
-def _format_offset_hhmm(offset: timedelta) -> str:
-    total = int(offset.total_seconds())
-    sign = "+" if total >= 0 else "-"
-    total = abs(total)
-    hours, minutes = divmod(total // _MINUTES_PER_HOUR, _MINUTES_PER_HOUR)
-    return f"{sign}{hours:02d}:{minutes:02d}"
 
 
 def inferred_local_shifts(resolutions: Iterable[Resolution]) -> tuple[InferredLocalShift, ...]:
@@ -322,8 +298,9 @@ def inferred_local_shifts(resolutions: Iterable[Resolution]) -> tuple[InferredLo
         parts = decision.date_tag.split("|")
         if len(parts) != _INFERRED_TAG_FIELDS:
             continue
-        offset = _parse_offset_hhmm(parts[2])
-        if offset is None:
+        try:
+            offset = parse_offset(parts[2])
+        except ValueError:
             continue
         shifts.append(
             InferredLocalShift(
@@ -342,7 +319,7 @@ def format_inferred_local_shift_line(shift: InferredLocalShift) -> str:
     return (
         f"{shift.name}  {shift.before.strftime('%H:%M:%S')} -> "
         f"{shift.after.strftime('%H:%M:%S')}  "
-        f"({_format_offset_hhmm(shift.offset)}, {shift.evidence})"
+        f"({format_offset(shift.offset)}, {shift.evidence})"
     )
 
 

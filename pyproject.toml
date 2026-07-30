@@ -85,6 +85,11 @@ unfixable = []
     "DTZ007",  # strptime without %z is deliberate; EXIF has no reliable zone
     "PLR0911", # resolve_capture_datetime is a priority chain of early returns, by design
 ]
+# Video UTC ladder - same naive wall-clock policy as dates.py; duration parser is shape-branchy.
+"packages/truestill-core/src/truestill_core/video_utc.py" = [
+    "DTZ007",  # device/GPS stamps are naive local or UTC digits without a zone field
+    "PLR0911", # parse_duration branches on exiftool's several Duration shapes
+]
 # Destination backends shell out to rclone; that is the whole point of the wrapper.
 "packages/truestill-core/src/truestill_core/destinations/rclone.py" = [
     "S603", # subprocess call is intentional

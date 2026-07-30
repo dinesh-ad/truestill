@@ -448,23 +448,11 @@ is invisible here is retired, not free.**
 - **(ff) Typed payloads at the app boundary.** `service.py` returns `dict[str, Any]` 27 times.
   This is not theoretical: the `dict(PRESETS)` regression - dataclasses about to be serialized
   into the API - was invisible to mypy precisely because the return type was `Any`.
-- **(aab) Split `dates.py` - it has crossed the same line as `layout.py`.** Flagged during the
-  `(uu)` video-UTC ship (2026-07-30). ~736 lines holding tag priority, EXIF/filename parsing,
-  Tier A/B sentinels, messenger refusal, provenance `date_tag` encode/decode, the five-rung
-  video ladder, half-hour offset grid, and duration/GPS helpers. Same pattern `(ee)` called out
-  for `layout.py` (too many jobs in one module).
-  - **Strongest evidence is not the line count - it is the import-cycle workaround.**
-    `models.inferred_local_shifts` needed `+HH:MM` formatting and had to **reimplement** a thin
-    offset formatter instead of calling `dates.format_offset`, because `dates` already imports
-    `DateSource` from `models`. Duplicating code to avoid a cycle is the module boundary
-    announcing itself - the same tell `(ee)` used for `layout.py`'s invented `CatalogLike`
-    Protocol. Line count is corroboration; the duplicate formatter is the proof.
-  - **Proposed boundary:** keep `resolve_capture_datetime` + embedded/filename tiers in
-    `dates.py`; move video ladder + offset grid + `LadderHit` rungs to `video_utc.py` (or
-    `dates_video.py`); put shared provenance/offset formatters in a tiny cycle-free module
-    (e.g. `date_provenance.py`) that both `dates` and `models` can import - retire the
-    duplicated `_format_offset_hhmm` in `models`. **Do not do this as a drive-by inside a
-    correctness fix.**
+- **(aab) Split `dates.py`.** **Built 2026-07-30.** Video ladder + offset grid + `LadderHit`
+  moved to `video_utc.py`; inferred-local ``date_tag`` / ``format_offset`` to cycle-free
+  `date_provenance.py`. `models._format_offset_hhmm` / `_parse_offset_hhmm` deleted - both
+  sides share the provenance module. `dates.py` keeps resolve chain, EXIF/filename parsing,
+  and Tier A/B sentinels.
 
 - **GPS-derived per-photo timezone.** Deferred during Takeout Rescue Mode. `--tz` is a single
   fixed offset for the whole run, which cannot correctly date a library that spans timezones;

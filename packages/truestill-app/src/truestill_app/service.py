@@ -29,7 +29,7 @@ from truestill_core.cleanup import (
     run_cleanup,
     trash_backend,
 )
-from truestill_core.dates import format_offset
+from truestill_core.date_provenance import format_offset
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import LocalDestination
 from truestill_core.drive import create_marker, locate_drive, path_is_usable_dir, read_marker
