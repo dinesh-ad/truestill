@@ -35,7 +35,8 @@ def test_organize_then_back_up_then_check(ui: Page, tmp_path: Path, library) -> 
     ui.click("#org-preview")
     expect(ui.locator("#org-result")).to_contain_text("8 photos found")
     expect(ui.locator("#org-result")).to_contain_text("no dates or duplicates checked yet")
-    expect(ui.locator("#org-run")).to_be_disabled()
+    expect(ui.locator("#org-run")).to_have_count(0)
+    expect(ui.locator("#org-confirm [data-typed-go]")).to_have_count(0)
 
     ui.click("#org-dedup")
     expect(ui.locator("#org-confirm [data-typed-confirm]")).to_be_visible()

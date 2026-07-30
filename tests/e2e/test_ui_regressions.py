@@ -61,6 +61,13 @@ def test_a_failed_job_never_renders_nan(ui: Page, tmp_path: Path) -> None:
     expect(ui.locator("body")).not_to_contain_text("NaN")
 
 
+def test_organize_screen_has_no_dead_primary_run_button(ui: Page) -> None:
+    """(F43) #org-run shipped permanently disabled with a no-op handler - delete it."""
+    expect(ui.locator("#org-run")).to_have_count(0)
+    expect(ui.locator("#org-dedup")).to_be_disabled()
+    expect(ui.locator("#org-confirm [data-typed-go]")).to_have_count(0)
+
+
 # --- the two inert Cancel buttons ----------------------------------------------------------
 
 
@@ -76,7 +83,8 @@ def test_look_inside_returns_before_duplicate_check(ui: Page, tmp_path: Path, li
     ui.click("#org-preview")
     expect(ui.locator("#org-result")).to_contain_text("5 photos found")
     expect(ui.locator("#org-result")).to_contain_text("no dates or duplicates checked yet")
-    expect(ui.locator("#org-run")).to_be_disabled()
+    expect(ui.locator("#org-run")).to_have_count(0)
+    expect(ui.locator("#org-confirm [data-typed-go]")).to_have_count(0)
     expect(ui.locator("#org-dedup")).to_be_enabled()
 
     ui.click("#org-dedup")

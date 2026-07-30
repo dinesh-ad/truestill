@@ -1035,8 +1035,6 @@ function renderOrganizeMode() {
   $("org-dest-field").classList.toggle("hidden", !needsDest);
   $("org-mode-hint").textContent = modeLine(orgMode);
   $("org-confirm").innerHTML = "";
-  $("org-run").disabled = true;
-  $("org-run").textContent = "Type move to continue";
   if (!needsDest) {
     $("org-dest-hint").textContent = "Reorganize in this same folder uses the source folder as the destination. In the CLI, this is --in-place.";
     $("org-dest-hint").className = "hint";
@@ -1307,7 +1305,6 @@ $("org-preview").onclick = guarded(async () => {
   await withBusy($("org-preview"), "Looking inside…", async () => {
     $("org-result").innerHTML = "";
     $("org-dedup").disabled = true;
-    $("org-run").disabled = true;
     const s = await api("/api/organize/inventory", { source });
     renderInventoryResult(s);
     if (!s.files) {
@@ -1330,7 +1327,6 @@ $("org-dedup").onclick = guarded(async () => {
     return;
   }
   await withBusy($("org-dedup"), "Checking for duplicates…", async ({ setStatus }) => {
-    $("org-run").disabled = true;
     $("org-confirm").innerHTML = "";
     orgProgress.start("starting");
     const started = await api("/api/organize/preview", { source, destination, refresh_metadata, mode });
@@ -1353,16 +1349,13 @@ $("org-dedup").onclick = guarded(async () => {
     if (d.status === "cancelled") {
       $("org-result").innerHTML = card(
         `<div class="headline">Check cancelled</div><div class="k">Nothing was changed. Check again when you are ready.</div>`);
-      $("org-run").disabled = true;
       setWhy("Check for duplicates again to see what would happen.");
       return;
     }
     const kept = renderOrganizeResult(s);
     orgMechanism = s.mechanism || null;
-    if (!s.files) { $("org-run").disabled = true; setWhy("Nothing to organize in this folder."); }
+    if (!s.files) { setWhy("Nothing to organize in this folder."); }
     else {
-      $("org-run").disabled = true;
-      $("org-run").textContent = "Type move to continue";
       renderOrganizeRunConfirm({ kept, mode, mechanism: orgMechanism });
       setWhy("");
     }
@@ -1412,7 +1405,6 @@ async function startOrganizeRun() {
   });
 }
 
-$("org-run").onclick = guarded(() => {});
 $("org-cancel").onclick = guarded(() => { if (orgJob) return api(`/api/jobs/${orgJob}/cancel`, {}); });
 $("undo-cancel").onclick = guarded(() => {
   if (undoJob) return api(`/api/jobs/${undoJob}/cancel`, {});
