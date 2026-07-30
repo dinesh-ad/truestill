@@ -23,12 +23,7 @@ from typing import Any, Literal, NotRequired, TypedDict, cast
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_startup import inspect_catalog
 from truestill_core.categorize import build_rules
-from truestill_core.cleanup import (
-    emptied_directories,
-    plan_cleanup,
-    run_cleanup,
-    trash_backend,
-)
+from truestill_core.cleanup import emptied_directories, plan_cleanup
 from truestill_core.date_provenance import format_offset
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import LocalDestination
@@ -123,6 +118,7 @@ from truestill_core.undo import UndoError, plan_undo, run_undo
 from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
 
 from truestill_app.jobs import DriveRef, JobTarget
+from truestill_app.service import clean_empty as _clean_empty
 from truestill_app.service import fs_browse as _fs_browse
 
 # Browse (folder picker) lives in its own module; bound here so
@@ -139,6 +135,13 @@ fs_roots = _fs_browse.fs_roots
 fs_dirs = _fs_browse.fs_dirs
 fs_create = _fs_browse.fs_create
 fs_validate = _fs_browse.fs_validate
+
+# Clean-empty preview/apply; leftover detection helpers stay on this facade.
+CleanEmptyOccupied = _clean_empty.CleanEmptyOccupied
+CleanEmptyPreview = _clean_empty.CleanEmptyPreview
+CleanEmptyApply = _clean_empty.CleanEmptyApply
+clean_empty_preview = _clean_empty.clean_empty_preview
+clean_empty_apply = _clean_empty.clean_empty_apply
 
 
 class NotABackupDriveError(ValueError):
@@ -1057,57 +1060,6 @@ def _cleanup_summary_from_old_paths(
         "emptied": emptied,
         "count": len(leftovers),
         "folders": leftovers,
-    }
-
-
-class CleanEmptyOccupied(TypedDict):
-    relative: str
-    contents: list[str]
-
-
-class CleanEmptyPreview(TypedDict):
-    ok: Literal[True]
-    path: str
-    backend: str | None
-    removable: list[str]
-    occupied: list[CleanEmptyOccupied]
-
-
-class CleanEmptyApply(TypedDict):
-    ok: Literal[True]
-    path: str
-    removed: int
-    trashed: int
-    deleted: int
-    failures: list[str]
-
-
-def clean_empty_preview(path: Path, emptied: list[str]) -> CleanEmptyPreview:
-    plan = plan_cleanup(path, emptied)
-    backend = trash_backend()
-    return {
-        "ok": True,
-        "path": str(path),
-        "backend": backend,
-        "removable": [candidate.relative for candidate in plan.removable],
-        "occupied": [
-            {"relative": candidate.relative, "contents": list(candidate.contents)}
-            for candidate in plan.occupied
-        ],
-    }
-
-
-def clean_empty_apply(path: Path, emptied: list[str]) -> CleanEmptyApply:
-    plan = plan_cleanup(path, emptied)
-    backend = trash_backend()
-    outcome = run_cleanup(path, plan, apply=True, backend=backend, permanent=False)
-    return {
-        "ok": True,
-        "path": str(path),
-        "removed": outcome.removed,
-        "trashed": outcome.trashed,
-        "deleted": outcome.deleted,
-        "failures": outcome.failures,
     }
 
 
