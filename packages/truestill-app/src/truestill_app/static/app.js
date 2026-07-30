@@ -1490,11 +1490,20 @@ $("verify-run").onclick = guarded(async () => {
     verifyJob = null;
     if (!d.ok) { $("verify-result").innerHTML = jobErrorCard(d); return; }
     const s = d.summary;
+    const problems = (s.problems || []).map((p) => {
+      const why = p.detail ? ` - ${esc(p.detail)}` : "";
+      return `<div class="mono">${esc(p.status)} · ${esc(p.relative)}${why}</div>`;
+    }).join("");
+    const problemNote = problems
+      ? `<div class="banner warn"><div><div class="b-title">${plural(s.problems.length, "file")} could not be confirmed</div>${problems}</div></div>`
+      : "";
     $("verify-result").innerHTML =
       card(`<div class="headline">Checked ${esc(s.label || "")}</div>
          <div class="tally"><div class="n">${nfmt(s.verified)}</div><div class="k">verified</div>
          <div class="n">${nfmt(s.missing)}</div><div class="k">missing</div>
-         <div class="n">${nfmt(s.mismatch)}</div><div class="k">changed</div></div>`);
+         <div class="n">${nfmt(s.mismatch)}</div><div class="k">changed</div>
+         <div class="n">${nfmt(s.unreadable || 0)}</div><div class="k">unreadable</div></div>
+         ${problemNote}`);
     loadCustody();
     loadDrives();  // "last checked" on the card comes from the verify just recorded
   });

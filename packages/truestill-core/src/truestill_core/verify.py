@@ -12,7 +12,7 @@ the source, and copies written at different times need not match each other); wh
 from __future__ import annotations
 
 import threading
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from concurrent.futures import BrokenExecutor, ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -26,6 +26,7 @@ class CopyStatus(StrEnum):
     VERIFIED = "verified"
     MISSING = "missing"  # the file is gone from the drive
     MISMATCH = "mismatch"  # the file is present but its bytes changed (corruption)
+    UNREADABLE = "unreadable"  # present, but the read failed (EIO, permission, broken pool)
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,7 +42,8 @@ class CopyToVerify:
 class VerifyResult:
     copy: CopyToVerify
     status: CopyStatus
-    actual_hash: str | None  # None when the file was missing
+    actual_hash: str | None  # None when missing or unreadable
+    detail: str | None = None  # OSError / pool text for UNREADABLE
 
 
 def _hash_path(path_str: str) -> str:
@@ -60,7 +62,8 @@ def verify_copies(
     """Verify ``copies`` under ``root``. Missing files short-circuit; present files hash in parallel.
 
     ``progress`` is called ``(done, total)`` across all copies; ``cancel`` stops hashing early
-    (results are then partial). Read-only: nothing is ever repaired.
+    (results are then partial). Read-only: nothing is ever repaired. A present file that cannot
+    be read is recorded as :attr:`CopyStatus.UNREADABLE` rather than aborting the batch.
     """
     results: list[VerifyResult] = []
     present: list[tuple[CopyToVerify, Path]] = []
@@ -85,11 +88,18 @@ def verify_copies(
                         pending.cancel()
                     break
                 copy = futures[future]
-                actual = future.result()
-                status = (
-                    CopyStatus.VERIFIED if actual == copy.expected_hash else CopyStatus.MISMATCH
-                )
-                results.append(VerifyResult(copy, status, actual))
+                try:
+                    actual = future.result()
+                except OSError as exc:
+                    results.append(VerifyResult(copy, CopyStatus.UNREADABLE, None, detail=str(exc)))
+                except BrokenExecutor as exc:
+                    # ProcessPool death is not an OSError; still one bad file must not abort.
+                    results.append(VerifyResult(copy, CopyStatus.UNREADABLE, None, detail=str(exc)))
+                else:
+                    status = (
+                        CopyStatus.VERIFIED if actual == copy.expected_hash else CopyStatus.MISMATCH
+                    )
+                    results.append(VerifyResult(copy, status, actual))
                 done += 1
                 if progress is not None:
                     progress(Progress(done, total, Phase.VERIFYING, Path(copy.relative).name))

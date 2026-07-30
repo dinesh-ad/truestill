@@ -1182,6 +1182,7 @@ def _result_size(result: ActionResult, destination: Path) -> int:
 class VerifyProblem(TypedDict):
     status: str
     relative: str
+    detail: NotRequired[str]
 
 
 class VerifyJobSummary(TypedDict):
@@ -1189,6 +1190,7 @@ class VerifyJobSummary(TypedDict):
     verified: int
     missing: int
     mismatch: int
+    unreadable: int
     problems: list[VerifyProblem]
     elapsed_seconds: NotRequired[float]
 
@@ -1221,16 +1223,21 @@ def verify_run(path: Path, db: Path) -> JobTarget | DriveUnavailablePayload:
                     )
             catalog.set_drive_verified(marker.uuid, when)
         counts = Counter(r.status.value for r in results)
+        problems: list[VerifyProblem] = []
+        for r in results:
+            if r.status is CopyStatus.VERIFIED:
+                continue
+            problem: VerifyProblem = {"status": r.status.value, "relative": r.copy.relative}
+            if r.detail:
+                problem["detail"] = r.detail
+            problems.append(problem)
         return {
             "label": marker.label,
             "verified": counts.get("verified", 0),
             "missing": counts.get("missing", 0),
             "mismatch": counts.get("mismatch", 0),
-            "problems": [
-                {"status": r.status.value, "relative": r.copy.relative}
-                for r in results
-                if r.status is not CopyStatus.VERIFIED
-            ],
+            "unreadable": counts.get("unreadable", 0),
+            "problems": problems,
         }
 
     return target

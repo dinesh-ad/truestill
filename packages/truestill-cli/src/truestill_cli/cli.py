@@ -537,11 +537,13 @@ def _cmd_verify(args: argparse.Namespace) -> int:
     print(f"  verified : {counts.get('verified', 0)}")
     print(f"  MISSING  : {counts.get('missing', 0)}")
     print(f"  MISMATCH : {counts.get('mismatch', 0)}")
+    print(f"  UNREADABLE : {counts.get('unreadable', 0)}")
     for result in results:
         if result.status is not CopyStatus.VERIFIED:
-            print(f"  {result.status.value.upper():<9} {result.copy.relative}")
+            suffix = f" ({result.detail})" if result.detail else ""
+            print(f"  {result.status.value.upper():<10} {result.copy.relative}{suffix}")
     print("\n  (read-only: truestill never repairs; re-copy the source to restore a bad file.)")
-    return 1 if (counts.get("missing") or counts.get("mismatch")) else 0
+    return 1 if (counts.get("missing") or counts.get("mismatch") or counts.get("unreadable")) else 0
 
 
 def _cmd_status(args: argparse.Namespace) -> int:

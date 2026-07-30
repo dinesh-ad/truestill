@@ -88,6 +88,7 @@ def test_organize_to_drive_records_copies_then_verify(
     out = capsys.readouterr().out
     assert "MISMATCH : 0" in out
     assert "MISSING  : 0" in out
+    assert "UNREADABLE : 0" in out
 
     # status: the photo exists on a single drive -> flagged
     assert main(["status", "--db", str(db)]) == 0
