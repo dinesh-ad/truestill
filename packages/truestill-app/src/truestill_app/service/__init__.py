@@ -114,12 +114,12 @@ from truestill_core.trip_review import (
     order_review_cards,
     split_trip,
 )
-from truestill_core.undo import UndoError, plan_undo, run_undo
 from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
 
 from truestill_app.jobs import DriveRef, JobTarget
 from truestill_app.service import clean_empty as _clean_empty
 from truestill_app.service import fs_browse as _fs_browse
+from truestill_app.service import organize_undo as _organize_undo
 
 # Browse (folder picker) lives in its own module; bound here so
 # ``from truestill_app.service import fs_dirs`` and ``service.fs_dirs`` stay unchanged.
@@ -142,6 +142,13 @@ CleanEmptyPreview = _clean_empty.CleanEmptyPreview
 CleanEmptyApply = _clean_empty.CleanEmptyApply
 clean_empty_preview = _clean_empty.clean_empty_preview
 clean_empty_apply = _clean_empty.clean_empty_apply
+
+OrganizeUndoSkipped = _organize_undo.OrganizeUndoSkipped
+OrganizeUndoStateDisarmed = _organize_undo.OrganizeUndoStateDisarmed
+OrganizeUndoStateArmed = _organize_undo.OrganizeUndoStateArmed
+OrganizeUndoJobSummary = _organize_undo.OrganizeUndoJobSummary
+organize_undo_state = _organize_undo.organize_undo_state
+organize_undo = _organize_undo.organize_undo
 
 
 class NotABackupDriveError(ValueError):
@@ -917,97 +924,6 @@ def organize_run(
         if leftover is not None:
             done["leftover_empty_folders"] = leftover
         return done
-
-    return target
-
-
-class OrganizeUndoSkipped(TypedDict):
-    relative: str
-    reason: str
-    detail: str
-
-
-class OrganizeUndoStateDisarmed(TypedDict):
-    ok: Literal[True]
-    armed: Literal[False]
-    restorable: int
-    run_id: None
-
-
-class OrganizeUndoStateArmed(TypedDict):
-    ok: Literal[True]
-    armed: Literal[True]
-    run_id: str
-    status: str
-    source_root: str
-    dest_root: str
-    restorable: int
-    skipped: list[OrganizeUndoSkipped]
-
-
-class OrganizeUndoJobSummary(TypedDict):
-    run_id: str
-    source_root: str
-    dest_root: str
-    restorable: int
-    restored: int
-    applied: bool
-    still_armed: bool
-    skipped: list[OrganizeUndoSkipped]
-    elapsed_seconds: NotRequired[float]
-
-
-def organize_undo_state(db: Path) -> OrganizeUndoStateDisarmed | OrganizeUndoStateArmed:
-    """Durable state for undoing rename-based organize runs."""
-    with Catalog(db) as catalog:
-        try:
-            plan = plan_undo(catalog)
-        except UndoError:
-            return {"ok": True, "armed": False, "restorable": 0, "run_id": None}
-    return {
-        "ok": True,
-        "armed": True,
-        "run_id": plan.run_id,
-        "status": plan.status,
-        "source_root": str(plan.source_root),
-        "dest_root": str(plan.dest_root),
-        "restorable": plan.restorable,
-        "skipped": [
-            {
-                "relative": item.step.current.name,
-                "reason": item.reason.value,
-                "detail": item.detail,
-            }
-            for item in plan.skipped
-        ],
-    }
-
-
-def organize_undo(*, db: Path, apply: bool) -> JobTarget:
-    """Preview/apply organize undo on a worker thread."""
-
-    def target(progress: ProgressCallback, _cancel: threading.Event) -> OrganizeUndoJobSummary:
-        with Catalog(db) as catalog:
-            plan = plan_undo(catalog)
-            outcome = run_undo(catalog, plan, apply=apply, progress=progress if apply else None)
-            still_armed = catalog.latest_undoable_run() is not None
-        return {
-            "run_id": plan.run_id,
-            "source_root": str(plan.source_root),
-            "dest_root": str(plan.dest_root),
-            "restorable": plan.restorable,
-            "restored": outcome.restored,
-            "applied": apply,
-            "still_armed": still_armed,
-            "skipped": [
-                {
-                    "relative": item.step.current.name,
-                    "reason": item.reason.value,
-                    "detail": item.detail,
-                }
-                for item in outcome.skipped
-            ],
-        }
 
     return target
 
