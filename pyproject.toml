@@ -63,9 +63,7 @@ unfixable = []
 ]
 # Organizer - execute() coordinates several opt-in behaviours via keyword-only flags
 "packages/truestill-core/src/truestill_core/organizer.py" = [
-    "PLR0913", # execute(): apply/set_timestamps/skip_undated/event_ids/ingest/drive_uuid/...
-    "PLR0912", # execute() branches over dup/dry-run/skip-undated/write/rename/near-dup outcomes
-    "PLR0915", # execute() coordinates the whole per-file write path in one loop
+    "PLR0913", # execute() and its write-path helpers take many keyword-only opt-in flags
 ]
 # scan.compute_hashes / verify.verify_copies expose pool/workers/progress/cancel as kw-only.
 "packages/truestill-core/src/truestill_core/scan.py" = ["PLR0913"]

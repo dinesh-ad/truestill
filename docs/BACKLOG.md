@@ -432,15 +432,14 @@ is invisible here is retired, not free.**
 - **(cc) Collapse `preview()` into `preview_scheme()`.** **Built 2026-07-30.** Dead
   `preview()` deleted; collision + path-length risk lives once in `_preview_rows`, used by
   `preview_scheme`. Tests retargeted at the shared helper so the rule cannot diverge.
-- **(dd) Extract `execute()`'s per-file body into named steps.** 180 lines coordinating dedup,
-  collision suffixing, baking, rename-vs-copy, catalog recording, journalling and
-  move-verify-delete. Its own ruff suppressions (`PLR0912`/`PLR0913`/`PLR0915`) admit it. It is
-  the hardest code in the repo to change safely **and** it is the path that writes user bytes.
-  - **Matrix half - Built 2026-07-30** (`test_execute_matrix.py`): ActionResult sequence +
-    destination tree + catalog `files` rows + `inplace_moves` journal, for exact-dup, near-dup,
-    undated skip, dry-run, in-place rename, cross-device fallback, Takeout bake, and cancel
-    mid-run. Cancel mid-run was **new** coverage (execute cancel previously untested). Extract
-    Method half still open; matrix must stay byte-identical across it.
+- **(dd) Extract `execute()`'s per-file body into named steps.** **Built 2026-07-30** in two
+  commits. Matrix first (`test_execute_matrix.py`): ActionResult sequence + destination tree +
+  catalog `files` + `inplace_moves` for exact-dup, near-dup, undated skip, dry-run, in-place
+  rename, cross-device fallback, Takeout bake, and cancel mid-run (cancel was **new** coverage).
+  Extract Method second: `_write_organized_bytes` -> `_record_organized_file` ->
+  `_journal_or_delete_source` under `_execute_one_write`, order bake/write -> catalog ->
+  journal/delete unchanged; exception boundary and `baker.close()` unchanged. PLR0912/PLR0915
+  suppressions removed (honestly earned); PLR0913 kept (kwargs API).
 - **(ee) Move the pin out of `layout.py`.** **Built 2026-07-30.** The catalog-touching trio
   (`pin_existing_layout`, `effective_layout_string`, `resolve_scheme`) now lives in
   `layout_settings.py`, which imports `Catalog` directly. Invented `CatalogLike` Protocol

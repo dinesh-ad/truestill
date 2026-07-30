@@ -909,6 +909,229 @@ def _aggregate_albums(
     return by_sha
 
 
+def _write_organized_bytes(
+    decision: Decision,
+    *,
+    destination: Destination,
+    final_relative: str,
+    source_sha: str,
+    baker: _MetadataBaker,
+    set_timestamps: bool,
+    bakes_metadata: bool,
+    relocation: Relocation | None,
+) -> tuple[str, bool]:
+    """Bake (if needed) and write bytes to ``final_relative``.
+
+    Returns ``(copy_sha, moved_in_place)``. Order is intentional: bake/write happen before any
+    catalog or journal mutation.
+    """
+    if bakes_metadata:
+        copy_sha = _upload_with_metadata_write(
+            decision,
+            final_relative,
+            destination,
+            baker=baker,
+            set_timestamps=set_timestamps,
+        )
+        return copy_sha, False
+    if relocation is None:
+        _upload_copy(
+            decision.source,
+            destination,
+            final_relative,
+            decision.captured_at,
+            set_timestamps=set_timestamps,
+        )
+        return source_sha, False
+    # Relocation transfers ownership of this inode. Stamp it before the attempted
+    # adopt so a rename and the verified cross-device fallback preserve the date.
+    if set_timestamps:
+        _apply_timestamp(decision.source, decision.captured_at)
+    # byte-identical either way: a rename rewrites nothing
+    moved_in_place = _adopt_or_copy(decision.source, destination, final_relative, relocation)
+    return source_sha, moved_in_place
+
+
+def _record_organized_file(
+    resolution: Resolution,
+    *,
+    catalog: Catalog,
+    ingest: IngestContext,
+    albums_by_sha: dict[str, set[str]],
+    by_source: dict[str, Event],
+    source_sha: str,
+    copy_sha: str,
+    size: int | None,
+    final_relative: str,
+    moved_in_place: bool,
+    relocation: Relocation | None,
+    drive_uuid: str | None,
+) -> None:
+    """Persist the organized copy in the catalog. Runs only after a successful write."""
+    decision = resolution.decision
+    album_set = set(albums_by_sha.get(source_sha, set()))
+    own_album = ingest.albums.get(str(decision.source))
+    if own_album is not None:
+        album_set.add(own_album)
+    # After a rename the content *is* the organized copy, so the truthful source
+    # path is where it now lives -- `where` and `status` must not cite a ghost.
+    # reclaim._is_the_copy_itself is what keeps that honesty from being dangerous.
+    recorded_source = (
+        str(relocation.dest_root / final_relative)
+        if moved_in_place and relocation is not None
+        else str(decision.source)
+    )
+    catalog.record_uploaded(
+        source_path=recorded_source,
+        original_name=decision.source.name,
+        sha256=source_sha,
+        copy_sha256=copy_sha,
+        perceptual=resolution.hashes.perceptual,
+        size=size,
+        captured_at=decision.captured_at.isoformat() if decision.captured_at else None,
+        category=decision.category.label,
+        relative=final_relative,
+        event_id=(
+            by_source[str(decision.source)].id if str(decision.source) in by_source else None
+        ),
+        albums=sorted(album_set),
+        drive_uuid=drive_uuid,
+    )
+
+
+def _journal_or_delete_source(
+    decision: Decision,
+    *,
+    destination: Destination,
+    catalog: Catalog | None,
+    relocation: Relocation | None,
+    move: bool,
+    source_sha: str,
+    copy_sha: str,
+    final_relative: str,
+    moved_in_place: bool,
+    renamed: bool,
+    resolution: Resolution,
+) -> ActionResult:
+    """Journal an in-place rename, or verify-and-delete under ``--move``, then build the result.
+
+    Journal / delete run only after catalog recording. Never reorder above a write or catalog
+    upsert.
+    """
+    status = ActionStatus.RENAMED if renamed else ActionStatus.UPLOADED
+    notes: list[str] = []
+    if renamed:
+        notes.append("suffixed to avoid an unrelated name collision")
+    if resolution.near_duplicate is not None:
+        near = resolution.near_duplicate
+        distance = f", distance={near.distance}" if near.distance is not None else ""
+        notes.append(f"near-duplicate of {near.matched_path} [{near.origin}{distance}]")
+    if moved_in_place and relocation is not None:
+        # The move already happened, atomically, and rewrote nothing -- there is no
+        # copy to verify and no window in which zero copies existed. Journalling it
+        # here (after the rename, before anything else) is what makes it undoable.
+        status = ActionStatus.MOVED_IN_PLACE
+        notes.append("moved on the drive (no bytes copied)")
+        if catalog is not None:
+            catalog.record_inplace_move(
+                run_id=relocation.run_id,
+                sha256=source_sha,
+                old_relative=relocation.old_relative(decision.source),
+                new_relative=final_relative,
+            )
+    elif move:
+        # Copy-only exception: delete the source, but ONLY after the just-written copy
+        # re-verifies. A failed verify keeps the source; a crash before this leaves both.
+        status, note = _move_source(decision.source, destination, final_relative, copy_sha)
+        notes.append(note)
+    return ActionResult(resolution, status, Path(final_relative), "; ".join(notes))
+
+
+def _execute_one_write(
+    resolution: Resolution,
+    *,
+    destination: Destination,
+    catalog: Catalog | None,
+    set_timestamps: bool,
+    move: bool,
+    relocation: Relocation | None,
+    by_source: dict[str, Event],
+    ingest: IngestContext,
+    albums_by_sha: dict[str, set[str]],
+    baker: _MetadataBaker,
+    drive_uuid: str | None,
+) -> ActionResult:
+    """One file's write path: already-placed check, then bake/write -> catalog -> journal/delete.
+
+    Raises ``OSError`` / ``DestinationError`` for the caller's existing failure boundary.
+    """
+    decision = resolution.decision
+    relative = decision.relative.as_posix()
+    write = ingest.writes.get(str(decision.source))
+    bakes_metadata = write is not None and write.has_content
+
+    # An in-place re-run finds files already at their targets. Checked before collision
+    # resolution, which would otherwise read "occupied" and suffix the file.
+    if (
+        relocation is not None
+        and not bakes_metadata
+        and _already_at_target(decision.source, relocation.dest_root, relative)
+    ):
+        return ActionResult(
+            resolution,
+            ActionStatus.ALREADY_PLACED,
+            decision.relative,
+            "already organized at this path",
+        )
+
+    final_relative, renamed = _free_relative(destination, relative)
+    # Source hash is the dedup identity; computed now for any unique-size file the
+    # scan skipped, since the file is being read for upload anyway.
+    source_sha = resolution.hashes.sha256 or sha256_file(decision.source)
+    size = _safe_size(decision.source)  # read before any move: the old path then vanishes
+
+    copy_sha, moved_in_place = _write_organized_bytes(
+        decision,
+        destination=destination,
+        final_relative=final_relative,
+        source_sha=source_sha,
+        baker=baker,
+        set_timestamps=set_timestamps,
+        bakes_metadata=bakes_metadata,
+        relocation=relocation,
+    )
+
+    if catalog is not None:
+        _record_organized_file(
+            resolution,
+            catalog=catalog,
+            ingest=ingest,
+            albums_by_sha=albums_by_sha,
+            by_source=by_source,
+            source_sha=source_sha,
+            copy_sha=copy_sha,
+            size=size,
+            final_relative=final_relative,
+            moved_in_place=moved_in_place,
+            relocation=relocation,
+            drive_uuid=drive_uuid,
+        )
+
+    return _journal_or_delete_source(
+        decision,
+        destination=destination,
+        catalog=catalog,
+        relocation=relocation,
+        move=move,
+        source_sha=source_sha,
+        copy_sha=copy_sha,
+        final_relative=final_relative,
+        moved_in_place=moved_in_place,
+        renamed=renamed,
+        resolution=resolution,
+    )
+
+
 def execute(
     resolutions: Iterable[Resolution],
     destination: Destination,
@@ -965,7 +1188,6 @@ def execute(
         if cancel is not None and cancel.is_set():
             break
         decision = resolution.decision
-        relative = decision.relative.as_posix()
         if progress is not None:
             # Reported before the work, not after: the item named is the one being handled
             # right now, which is what keeps a long single file from looking like a freeze.
@@ -990,114 +1212,21 @@ def execute(
             continue
 
         try:
-            write = ingest.writes.get(str(decision.source))
-            bakes_metadata = write is not None and write.has_content
-
-            # An in-place re-run finds files already at their targets. Checked before collision
-            # resolution, which would otherwise read "occupied" and suffix the file.
-            if (
-                relocation is not None
-                and not bakes_metadata
-                and _already_at_target(decision.source, relocation.dest_root, relative)
-            ):
-                detail = "already organized at this path"
-                record(
-                    ActionResult(resolution, ActionStatus.ALREADY_PLACED, decision.relative, detail)
-                )
-                continue
-
-            final_relative, renamed = _free_relative(destination, relative)
-            # Source hash is the dedup identity; computed now for any unique-size file the
-            # scan skipped, since the file is being read for upload anyway.
-            source_sha = resolution.hashes.sha256 or sha256_file(decision.source)
-            size = _safe_size(decision.source)  # read before any move: the old path then vanishes
-            moved_in_place = False
-
-            if bakes_metadata:
-                copy_sha = _upload_with_metadata_write(
-                    decision,
-                    final_relative,
-                    destination,
+            record(
+                _execute_one_write(
+                    resolution,
+                    destination=destination,
+                    catalog=catalog,
+                    set_timestamps=set_timestamps,
+                    move=move,
+                    relocation=relocation,
+                    by_source=by_source,
+                    ingest=ingest,
+                    albums_by_sha=albums_by_sha,
                     baker=baker,
-                    set_timestamps=set_timestamps,
-                )
-            elif relocation is None:
-                _upload_copy(
-                    decision.source,
-                    destination,
-                    final_relative,
-                    decision.captured_at,
-                    set_timestamps=set_timestamps,
-                )
-                copy_sha = source_sha
-            else:
-                # Relocation transfers ownership of this inode. Stamp it before the attempted
-                # adopt so a rename and the verified cross-device fallback preserve the date.
-                if set_timestamps:
-                    _apply_timestamp(decision.source, decision.captured_at)
-                copy_sha = source_sha  # byte-identical either way: a rename rewrites nothing
-                moved_in_place = _adopt_or_copy(
-                    decision.source, destination, final_relative, relocation
-                )
-
-            if catalog is not None:
-                album_set = set(albums_by_sha.get(source_sha, set()))
-                own_album = ingest.albums.get(str(decision.source))
-                if own_album is not None:
-                    album_set.add(own_album)
-                # After a rename the content *is* the organized copy, so the truthful source
-                # path is where it now lives -- `where` and `status` must not cite a ghost.
-                # reclaim._is_the_copy_itself is what keeps that honesty from being dangerous.
-                recorded_source = (
-                    str(relocation.dest_root / final_relative)
-                    if moved_in_place and relocation is not None
-                    else str(decision.source)
-                )
-                catalog.record_uploaded(
-                    source_path=recorded_source,
-                    original_name=decision.source.name,
-                    sha256=source_sha,
-                    copy_sha256=copy_sha,
-                    perceptual=resolution.hashes.perceptual,
-                    size=size,
-                    captured_at=decision.captured_at.isoformat() if decision.captured_at else None,
-                    category=decision.category.label,
-                    relative=final_relative,
-                    event_id=by_source[str(decision.source)].id
-                    if str(decision.source) in by_source
-                    else None,
-                    albums=sorted(album_set),
                     drive_uuid=drive_uuid,
                 )
-
-            status = ActionStatus.RENAMED if renamed else ActionStatus.UPLOADED
-            notes = []
-            if renamed:
-                notes.append("suffixed to avoid an unrelated name collision")
-            if resolution.near_duplicate is not None:
-                near = resolution.near_duplicate
-                distance = f", distance={near.distance}" if near.distance is not None else ""
-                notes.append(f"near-duplicate of {near.matched_path} [{near.origin}{distance}]")
-            if moved_in_place and relocation is not None:
-                # The move already happened, atomically, and rewrote nothing -- there is no
-                # copy to verify and no window in which zero copies existed. Journalling it
-                # here (after the rename, before anything else) is what makes it undoable.
-                status = ActionStatus.MOVED_IN_PLACE
-                notes.append("moved on the drive (no bytes copied)")
-                if catalog is not None:
-                    catalog.record_inplace_move(
-                        run_id=relocation.run_id,
-                        sha256=source_sha,
-                        old_relative=relocation.old_relative(decision.source),
-                        new_relative=final_relative,
-                    )
-            elif move:
-                # Copy-only exception: delete the source, but ONLY after the just-written copy
-                # re-verifies. A failed verify keeps the source; a crash before this leaves both.
-                status, note = _move_source(decision.source, destination, final_relative, copy_sha)
-                notes.append(note)
-            record(ActionResult(resolution, status, Path(final_relative), "; ".join(notes)))
-
+            )
         except (OSError, DestinationError) as exc:
             record(ActionResult(resolution, ActionStatus.FAILED, None, str(exc)))
 
