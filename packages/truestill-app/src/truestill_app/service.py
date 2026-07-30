@@ -50,8 +50,13 @@ from truestill_core.hashing import (
 from truestill_core.layout import (
     DEFAULT_PRESET,
     DEFAULT_TEMPLATE_STRING,
+    EVERYDAY_DAY_THRESHOLD_KEY,
+    EVERYDAY_DAY_THRESHOLD_MIGRATE_ANCHOR,
+    EVERYDAY_DAY_THRESHOLD_MIGRATE_WARNING,
     LAYOUT_TEMPLATE_KEY,
     PRESETS,
+    EverydayDaySettings,
+    InvalidEverydayDaySettingsError,
     LayoutScheme,
     LayoutTemplate,
     Placement,
@@ -1539,6 +1544,55 @@ def set_event_settings(min_files: object, db: Path) -> EventSettings:
     with Catalog(db) as catalog:
         catalog.set_setting(EVENT_MIN_FILES_KEY, str(min_files))
     return settings
+
+
+class EverydayDaySettingsPayload(TypedDict):
+    valid: Literal[True]
+    threshold: int
+    default_threshold: int
+    is_default: bool
+    migrate_warning: str | None
+    migrate_anchor: str
+
+
+class InvalidEverydayDaySettingsPayload(TypedDict):
+    valid: Literal[False]
+    error: str
+
+
+def everyday_day_settings(db: Path) -> EverydayDaySettings:
+    """Read the validated Everyday day-folder threshold through the catalog settings seam."""
+    with Catalog(db) as catalog:
+        return EverydayDaySettings.from_catalog(catalog)
+
+
+def everyday_day_settings_payload(
+    settings: EverydayDaySettings, *, changed: bool = False
+) -> EverydayDaySettingsPayload:
+    return {
+        "valid": True,
+        "threshold": settings.threshold,
+        "default_threshold": EverydayDaySettings().threshold,
+        "is_default": settings.is_default,
+        "migrate_warning": EVERYDAY_DAY_THRESHOLD_MIGRATE_WARNING if changed else None,
+        "migrate_anchor": EVERYDAY_DAY_THRESHOLD_MIGRATE_ANCHOR,
+    }
+
+
+def invalid_everyday_day_settings_payload(error: str) -> InvalidEverydayDaySettingsPayload:
+    return {"valid": False, "error": error}
+
+
+def set_everyday_day_settings(threshold: object, db: Path) -> EverydayDaySettingsPayload:
+    """Persist the day-folder threshold; warn when the value actually changes (migrate needed)."""
+    if isinstance(threshold, bool) or not isinstance(threshold, int) or threshold < 1:
+        raise InvalidEverydayDaySettingsError.submitted()
+    settings = EverydayDaySettings(threshold=threshold, is_default=False)
+    with Catalog(db) as catalog:
+        prior = EverydayDaySettings.from_catalog(catalog)
+        catalog.set_setting(EVERYDAY_DAY_THRESHOLD_KEY, str(threshold))
+    changed = prior.threshold != threshold
+    return everyday_day_settings_payload(settings, changed=changed)
 
 
 # --- layout Settings screen (template + migration) ------------------------------------

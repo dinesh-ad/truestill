@@ -24,6 +24,33 @@ def test_typed_confirm_is_a_reusable_helper() -> None:
     assert "data-typed-confirm" in APP_JS
 
 
+def test_settings_migrate_uses_typed_confirm_move() -> None:
+    """Contract gap closed: app Settings migrate requires typed ``move``, like the CLI.
+
+    Mutation: removing ``renderMigrateTypedConfirm`` or wiring ``#mig-run`` as a one-click
+    apply must fail this guard (and the e2e supersession flow).
+    """
+    assert "function renderMigrateTypedConfirm(" in APP_JS
+    assert 'word: "move"' in APP_JS
+    assert "data-mig-typed" in APP_JS
+    assert 'id="mig-confirm"' in INDEX
+    assert 'id="settings-migrate"' in INDEX
+    assert 'id="mig-run"' not in INDEX
+    assert '$("mig-run")' not in APP_JS
+    # Wrong / empty input leaves the go button disabled - same helper as undo.
+    assert "go.disabled = input.value.trim() !== word" in APP_JS
+
+
+def test_everyday_day_threshold_warns_with_route_to_migrate() -> None:
+    """Changing the threshold must not silently affect only future files."""
+    assert "Existing files need a migrate" in APP_JS
+    assert "data-goto-migrate" in APP_JS
+    assert 'id="everyday-day-threshold"' in INDEX
+    assert "Lower values mean more days get their own folder" in INDEX
+    assert 'id="settings-migrate"' in INDEX
+    assert "/api/layout/everyday-day-threshold" in APP_JS
+
+
 def test_undo_affordance_is_durable_not_a_snackbar() -> None:
     """Re-query on Trips and Settings load - the record survives a tab reload."""
     assert 'if (name === "events")' in APP_JS

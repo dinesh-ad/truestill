@@ -156,8 +156,15 @@ def test_armed_panel_disappears_after_a_superseding_migration_is_spent(
     assert layout.ok, layout.text()
 
     ui.click("#mig-preview")
-    expect(ui.locator("#mig-run")).to_be_visible()
-    ui.click("#mig-run")
+    expect(ui.locator("#mig-confirm [data-typed-confirm]")).to_be_visible(timeout=60_000)
+    confirm = ui.locator("#mig-confirm [data-typed-confirm]")
+    go = ui.locator("#mig-confirm [data-typed-go]")
+    expect(go).to_be_disabled()
+    confirm.fill("nope")
+    expect(go).to_be_disabled()
+    confirm.fill("move")
+    expect(go).to_be_enabled()
+    go.click()
     expect(ui.locator("#mig-result")).to_contain_text("Moved", timeout=60_000)
 
     with Catalog(app_server.db) as catalog:

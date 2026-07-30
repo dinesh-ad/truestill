@@ -1,7 +1,7 @@
 # Adaptive day-folder threshold for Everyday photos (backlog gg)
 
-Status: **design approved 2026-07-30.** Default threshold **40**. This document records the
-research behind that default and the placement rules the implementation must follow.
+Status: **built 2026-07-30** (default threshold **40**). This document records the
+research behind that default and the placement rules the implementation follows.
 
 The soak finding: a heavy un-evented day (Dinesh's 2014-08 Everyday bucket held 2,057 photos)
 drowns the monthly `{yyyy}-{mm} - Everyday` folder - the problem the year-first layout was

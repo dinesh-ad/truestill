@@ -824,29 +824,11 @@ no composition refactor to schedule.
   - **Sequencing: post-arc.** Priority argued **up** by the soak finding - without it, rescuing
     anything out of a side bin is not merely unsupported but impossible to do durably.
 
-- **(gg) Adaptive day-folder threshold for Everyday photos.** Ruled by Dinesh from a soak
-  finding: a heavy un-evented day drowns the monthly `Everyday` bucket, which is exactly the
-  problem the year-first layout was meant to solve one level up.
-  - **The rule.** Un-evented photos on a day whose count exceeds a **threshold** get their own
-    `{yyyy}-{mm}-{dd} - Everyday` folder beside that month's events; days under it keep flowing
-    into the monthly `{yyyy}-{mm} - Everyday` bucket exactly as today.
-  - **The threshold is a setting with a researched default**, not a guess. Research task: survey
-    day-clustering behaviour in Google Photos, Immich and PhotoPrism, plus forum norms for "how
-    many photos before a day deserves its own folder". Candidate range **30-50/day**, to be
-    validated rather than assumed.
-  - **Events are unaffected - this applies to un-evented photos only.** On a day that has both,
-    un-evented photos **never mix into the named event folder**: they take their own day folder
-    if over the threshold, else the month bucket. An event folder holds the event.
-  - ⚠ **Determinism is the design risk, and it is addressed rather than deferred.** Adding
-    photos later can push a day over the threshold, so the same file could deserve a different
-    folder on a different day. Placement evaluates **at organize time**, and an existing library
-    is reconciled by a `migrate-layout` run - the same forward/reconcile split the layout
-    correction already uses.
-  - **Mechanically a THIRD rendering axis on the `LayoutScheme` seam**, chosen the same way the
-    event axis is: route-then-render template selection, **never conditionals in the template
-    DSL**. The seam already carries two axes (rule, evented); this adds day-density.
-  - Needs its own research doc and its own migration acceptance before shipping.
-  - **Sequencing: after the current arc closes** (clean-empty, then 2f).
+- **(gg) Adaptive day-folder threshold for Everyday photos.** **Built 2026-07-30.**
+  Un-evented days over `layout.everyday_day_threshold` (default 40) get
+  `{yyyy}-{mm}-{dd} - Everyday`; under stay in the monthly bucket. Both-direction migrate
+  reconcile with per-day reasons; Settings warns on threshold change and routes to migrate;
+  app migrate uses `typedConfirm("move")`. Research: `docs/adaptive-day-folder-research.md`.
 
 - **(y) Optional photo / video split - default TOGETHER, and pair-aware or not at all.**
   Post-layout-correction. An opt-in that separates standalone videos into their own top-level

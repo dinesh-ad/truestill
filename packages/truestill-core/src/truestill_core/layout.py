@@ -31,7 +31,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from enum import StrEnum
 from pathlib import PurePosixPath
-from typing import Protocol, assert_never
+from typing import Protocol, Self, assert_never
 
 from truestill_core.events import event_dirname
 from truestill_core.models import UNDATED_DIRNAME
@@ -595,6 +595,70 @@ def normalize_everyday_day_threshold(value: object) -> int:
     except (TypeError, ValueError):
         return DEFAULT_EVERYDAY_DAY_THRESHOLD
     return number if number >= 1 else DEFAULT_EVERYDAY_DAY_THRESHOLD
+
+
+class InvalidEverydayDaySettingsError(ValueError):
+    """Malformed Everyday day-folder threshold (stored or submitted)."""
+
+    @classmethod
+    def submitted(cls) -> InvalidEverydayDaySettingsError:
+        return cls(
+            "The day-folder threshold must be a whole number of 1 or more. "
+            "Update it in Settings, then save again."
+        )
+
+    @classmethod
+    def stored(cls, value: str) -> InvalidEverydayDaySettingsError:
+        return cls(
+            f"Stored {EVERYDAY_DAY_THRESHOLD_KEY} value {value!r} is invalid. "
+            "Open Settings and save a whole number of 1 or more."
+        )
+
+
+class _SettingsReader(Protocol):
+    def get_setting(self, key: str) -> str | None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class EverydayDaySettings:
+    """Validated per-catalog Everyday day-folder threshold (backlog ``(gg)``)."""
+
+    threshold: int = DEFAULT_EVERYDAY_DAY_THRESHOLD
+    is_default: bool = True
+
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.threshold, bool)
+            or not isinstance(self.threshold, int)
+            or self.threshold < 1
+        ):
+            raise InvalidEverydayDaySettingsError.submitted()
+
+    @classmethod
+    def from_catalog(cls, catalog: _SettingsReader) -> Self:
+        """Read and validate once; malformed persisted data is never coerced here."""
+        stored = catalog.get_setting(EVERYDAY_DAY_THRESHOLD_KEY)
+        if stored is None:
+            return cls()
+        if not stored.isascii() or not stored.isdecimal():
+            raise InvalidEverydayDaySettingsError.stored(stored)
+        try:
+            threshold = int(stored)
+        except ValueError as exc:
+            raise InvalidEverydayDaySettingsError.stored(stored) from exc
+        if threshold < 1 or str(threshold) != stored:
+            raise InvalidEverydayDaySettingsError.stored(stored)
+        return cls(threshold=threshold, is_default=False)
+
+
+#: Shown after the threshold is saved - existing paths do not move until migrate.
+EVERYDAY_DAY_THRESHOLD_MIGRATE_WARNING = (
+    "Saved. Existing files stay where they are until you move them to match. "
+    "Use Move existing files to match below to preview."
+)
+
+#: DOM id of the Settings migrate card - the warning routes here (scroll/focus).
+EVERYDAY_DAY_THRESHOLD_MIGRATE_ANCHOR = "settings-migrate"
 
 
 def count_capture_days(captured_ats: Sequence[datetime | date | None]) -> dict[str, int]:

@@ -328,6 +328,15 @@
           <div class="hint warn" id="layout-error"></div>
           <div class="actions"><button class="btn btn-primary" id="layout-save" disabled>Save layout</button>
             <span class="why">Changing this only affects files you organize from now on. Files already sorted stay put.</span></div>
+          <hr style="border:0;border-top:1px solid var(--border);margin:var(--space-5) 0">
+          <div class="field"><label for="everyday-day-threshold">Heavy-day folder threshold</label>
+            <input class="input" id="everyday-day-threshold" type="number" min="1" step="1"></div>
+          <p class="hint">Un-evented days with more photos than this get their own day folder.
+            Lower values mean more days get their own folder; higher values leave more in the
+            monthly Everyday bucket. The default is 40.</p>
+          <div class="actions"><button class="btn btn-primary" id="everyday-day-threshold-save">Save day-folder threshold</button>
+            <span class="why" id="everyday-day-threshold-status"></span></div>
+          <div id="everyday-day-threshold-warn"></div>
         </div>
         <div class="card">
           <h2>Trip &amp; event suggestions</h2>
@@ -339,14 +348,14 @@
           <div class="actions"><button class="btn btn-primary" id="events-settings-save">Save suggestion setting</button>
             <span class="why" id="events-settings-status"></span></div>
         </div>
-        <div class="card">
+        <div class="card" id="settings-migrate">
           <h2>Move existing files to match</h2>
           <div class="field"><label for="mig-path">Connected drive folder</label>
             <div class="row"><input class="input" id="mig-path" placeholder="e.g. /media/BackupA">
               <button class="btn btn-secondary" data-browse="mig-path" data-kind="dest">Browse…</button></div>
             <span class="hint" id="mig-path-hint"></span></div>
-          <div class="actions"><button class="btn btn-secondary" id="mig-preview">Preview move</button>
-            <button class="btn btn-primary hidden" id="mig-run">Move the files</button></div>
+          <div class="actions"><button class="btn btn-secondary" id="mig-preview">Preview move</button></div>
+          <div id="mig-confirm"></div>
           <div id="mig-undo-panel"></div>
           <div id="mig-result"></div>
           <!-- shared progress block: see createProgress() in app.js -->

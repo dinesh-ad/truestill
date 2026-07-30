@@ -14,7 +14,16 @@ from truestill_core.catalog import Catalog
 from truestill_core.drive import create_marker
 from truestill_core.events import DEFAULT_MIN_FILES, EVENT_MIN_FILES_KEY
 from truestill_core.hashing import sha256_file
-from truestill_core.layout import DEFAULT_TEMPLATE_STRING, LAYOUT_TEMPLATE_KEY
+from truestill_core.layout import (
+    DEFAULT_EVERYDAY_DAY_THRESHOLD,
+    DEFAULT_SCHEME,
+    DEFAULT_TEMPLATE_STRING,
+    EVERYDAY_DAY_THRESHOLD_KEY,
+    EVERYDAY_DAY_THRESHOLD_MIGRATE_ANCHOR,
+    EVERYDAY_DAY_THRESHOLD_MIGRATE_WARNING,
+    LAYOUT_TEMPLATE_KEY,
+)
+from truestill_core.migrate import ROUTE_TIMELINE, plan_migration
 
 _TOKEN = "tok"
 
@@ -395,9 +404,11 @@ def test_opening_settings_never_writes_a_setting(client: TestClient, db_path: Pa
     client.get("/api/layout")
     client.post("/api/layout/preview", json={"template": "{yyyy}/{yyyy}-{mm}"})
     client.get("/api/layout")
+    client.get("/api/layout/everyday-day-threshold")
 
     with Catalog(db_path) as catalog:
         assert catalog.get_setting(LAYOUT_TEMPLATE_KEY) is None  # nothing was persisted
+        assert catalog.get_setting("layout.everyday_day_threshold") is None
 
 
 def test_the_preview_shows_the_routing_split(client: TestClient) -> None:
@@ -422,3 +433,160 @@ def test_presets_carry_titles_and_name_the_default(client: TestClient) -> None:
     assert state["default_preset"] == "year-month-event"
     assert set(state["preset_titles"]) == set(state["presets"])
     assert all(isinstance(t, str) and t for t in state["preset_titles"].values())
+
+
+def test_everyday_day_threshold_change_is_honoured_and_warns_to_migrate(
+    client: TestClient, db_path: Path, tmp_path: Path
+) -> None:
+    """Saving a new threshold persists it, warns to migrate, and changes reconcile placement.
+
+    Mutation targets: (1) ignore stored threshold and keep default 40; (2) omit migrate_warning
+    on change; (3) warn even when the value did not change.
+    """
+    unset = client.get("/api/layout/everyday-day-threshold").json()
+    assert unset == {
+        "valid": True,
+        "threshold": DEFAULT_EVERYDAY_DAY_THRESHOLD,
+        "default_threshold": DEFAULT_EVERYDAY_DAY_THRESHOLD,
+        "is_default": True,
+        "migrate_warning": None,
+        "migrate_anchor": EVERYDAY_DAY_THRESHOLD_MIGRATE_ANCHOR,
+    }
+
+    same = client.post(
+        "/api/layout/everyday-day-threshold", json={"threshold": DEFAULT_EVERYDAY_DAY_THRESHOLD}
+    ).json()
+    assert same["valid"] is True
+    assert same["migrate_warning"] is None  # effective value unchanged - no false alarm
+
+    saved = client.post("/api/layout/everyday-day-threshold", json={"threshold": 5}).json()
+    assert saved == {
+        "valid": True,
+        "threshold": 5,
+        "default_threshold": DEFAULT_EVERYDAY_DAY_THRESHOLD,
+        "is_default": False,
+        "migrate_warning": EVERYDAY_DAY_THRESHOLD_MIGRATE_WARNING,
+        "migrate_anchor": EVERYDAY_DAY_THRESHOLD_MIGRATE_ANCHOR,
+    }
+    assert "Existing files stay where they are" in saved["migrate_warning"]
+    assert "Move existing files to match" in saved["migrate_warning"]
+    with Catalog(db_path) as catalog:
+        assert catalog.get_setting(EVERYDAY_DAY_THRESHOLD_KEY) == "5"
+
+    # Honour the new threshold: 6 unevented photos on one day exceed 5 → day folder + reason.
+    drive = tmp_path / "drive"
+    drive.mkdir()
+    marker = create_marker(drive, "Drive A")
+    day = "2014-08-17"
+    rows = []
+    for i in range(6):
+        relative = f"2014/2014-08/2014-08 - Everyday/img_{i:03d}.jpg"
+        path = drive / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(f"payload-{i}".encode())
+        rows.append((relative, path))
+    with Catalog(db_path) as catalog:
+        catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+        for relative, path in rows:
+            sha = sha256_file(path)
+            catalog.record_uploaded(
+                source_path=f"/src/{path.name}",
+                original_name=path.name,
+                sha256=sha,
+                copy_sha256=sha,
+                perceptual=None,
+                size=path.stat().st_size,
+                captured_at=f"{day}T10:00:00",
+                category="Camera",
+                relative=relative,
+                drive_uuid=marker.uuid,
+            )
+        plan = plan_migration(
+            catalog, marker.uuid, DEFAULT_SCHEME, routes={"Camera": ROUTE_TIMELINE}
+        )
+    assert len(plan.moves) == 6
+    assert all(f"{day} - Everyday" in m.new_relative for m in plan.moves)
+    assert plan.day_folder_reasons == (
+        (f"{day} now has 6 photos, over your threshold of 5 - moving to its own day folder"),
+    )
+
+
+def test_everyday_day_threshold_invalid_submit_writes_nothing(
+    client: TestClient, db_path: Path
+) -> None:
+    bad = client.post("/api/layout/everyday-day-threshold", json={"threshold": 0}).json()
+    assert bad["valid"] is False
+    assert "whole number" in bad["error"]
+    with Catalog(db_path) as catalog:
+        assert catalog.get_setting(EVERYDAY_DAY_THRESHOLD_KEY) is None
+
+
+def test_migrate_reconcile_both_directions_names_reasons_in_preview(
+    client: TestClient, db_path: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One preview: month→day when over, day→month when under; reasons name count + threshold."""
+    drive = tmp_path / "drive"
+    drive.mkdir()
+    marker = create_marker(drive, "Drive A")
+    over_day, under_day = "2014-08-15", "2014-08-16"
+    over_n = DEFAULT_EVERYDAY_DAY_THRESHOLD + 1
+    under_n = 3
+
+    def fake_read_metadata(paths: object, **_kwargs: object) -> dict[Path, dict[str, str]]:
+        return {Path(p): {"Model": "Pixel 7"} for p in paths}  # type: ignore[union-attr]
+
+    monkeypatch.setattr(migrate_module, "read_metadata", fake_read_metadata)
+
+    with Catalog(db_path) as catalog:
+        catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+        catalog.set_setting(EVERYDAY_DAY_THRESHOLD_KEY, str(DEFAULT_EVERYDAY_DAY_THRESHOLD))
+        for i in range(over_n):
+            relative = f"2014/2014-08/2014-08 - Everyday/over_{i:03d}.jpg"
+            path = drive / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(f"over-{i}".encode())
+            sha = sha256_file(path)
+            catalog.record_uploaded(
+                source_path=f"/src/over_{i:03d}.jpg",
+                original_name=path.name,
+                sha256=sha,
+                copy_sha256=sha,
+                perceptual=None,
+                size=path.stat().st_size,
+                captured_at=f"{over_day}T09:00:00",
+                category="Camera",
+                relative=relative,
+                drive_uuid=marker.uuid,
+            )
+        for i in range(under_n):
+            relative = f"2014/2014-08/{under_day} - Everyday/under_{i:03d}.jpg"
+            path = drive / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(f"under-{i}".encode())
+            sha = sha256_file(path)
+            catalog.record_uploaded(
+                source_path=f"/src/under_{i:03d}.jpg",
+                original_name=path.name,
+                sha256=sha,
+                copy_sha256=sha,
+                perceptual=None,
+                size=path.stat().st_size,
+                captured_at=f"{under_day}T09:00:00",
+                category="Camera",
+                relative=relative,
+                drive_uuid=marker.uuid,
+            )
+
+    summary = _preview_summary(client, drive)
+    assert summary["ok"] is True
+    assert len(summary["moves"]) == over_n + under_n
+    reasons = summary["day_folder_reasons"]
+    assert len(reasons) == 2
+    assert over_day in reasons[0]
+    assert f"{over_n} photos" in reasons[0]
+    assert "own day folder" in reasons[0]
+    assert under_day in reasons[1]
+    assert f"{under_n} photos" in reasons[1]
+    assert "monthly Everyday folder" in reasons[1]
+    assert str(DEFAULT_EVERYDAY_DAY_THRESHOLD) in reasons[0]
+    assert str(DEFAULT_EVERYDAY_DAY_THRESHOLD) in reasons[1]

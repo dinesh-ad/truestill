@@ -1862,7 +1862,11 @@ function renderLayoutPreview(rows) {
   </tr>`).join("");
 }
 async function loadLayout() {
-  const [s, eventConfig] = await Promise.all([get("/api/layout"), get("/api/events/settings")]);
+  const [s, eventConfig, dayConfig] = await Promise.all([
+    get("/api/layout"),
+    get("/api/events/settings"),
+    get("/api/layout/everyday-day-threshold"),
+  ]);
   $("layout-current").textContent = s.template;
   // Derived, never a hardcoded label.
   $("layout-default").textContent = s.is_default ? "(default)" : "";
@@ -1885,6 +1889,34 @@ async function loadLayout() {
     $("events-settings-status").textContent = eventConfig.is_default
       ? `Using the default (${eventConfig.default_min_files}).`
       : "Using your saved value.";
+  }
+  renderEverydayDayThreshold(dayConfig);
+}
+function renderEverydayDayThreshold(dayConfig) {
+  const warn = $("everyday-day-threshold-warn");
+  warn.innerHTML = "";
+  if (dayConfig.valid === false) {
+    $("everyday-day-threshold").value = "";
+    $("everyday-day-threshold-status").textContent = dayConfig.error;
+    return;
+  }
+  $("everyday-day-threshold").value = dayConfig.threshold;
+  $("everyday-day-threshold-status").textContent = dayConfig.is_default
+    ? `Using the default (${dayConfig.default_threshold}).`
+    : "Using your saved value.";
+  if (dayConfig.migrate_warning) {
+    warn.innerHTML = `<div class="banner warn"><div>
+      <div class="b-title">Existing files need a migrate</div>
+      <div>${esc(dayConfig.migrate_warning)}</div>
+      <div class="actions">
+        <button class="btn btn-secondary" type="button" data-goto-migrate>Go to Move existing files</button>
+      </div>
+    </div></div>`;
+    warn.querySelector("[data-goto-migrate]").onclick = guarded(() => {
+      const target = $(dayConfig.migrate_anchor || "settings-migrate");
+      if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+      $("mig-path")?.focus();
+    });
   }
 }
 async function previewLayout() {
@@ -1912,11 +1944,67 @@ $("events-settings-save").onclick = guarded(async () => {
   $("events-min-files").value = r.min_files;
   $("events-settings-status").textContent = "Saved. New searches use this value.";
 });
+$("everyday-day-threshold-save").onclick = guarded(async () => {
+  const threshold = Number($("everyday-day-threshold").value);
+  const r = await api("/api/layout/everyday-day-threshold", { threshold });
+  renderEverydayDayThreshold(r);
+  if (r.valid === false) return;
+  if (!r.migrate_warning) {
+    $("everyday-day-threshold-status").textContent = "Saved.";
+  }
+});
 let migJob = null;
+function clearMigrateConfirm() {
+  $("mig-confirm").innerHTML = "";
+}
+async function startMigrateRun() {
+  const go = $("mig-confirm").querySelector("[data-typed-go]");
+  await withBusy(go, "Moving files…", async ({ setStatus }) => {
+    const started = await api("/api/migrate/run", { path: $("mig-path").value.trim() });
+    if (started.ok === false) {
+      clearMigrateConfirm();
+      $("mig-result").innerHTML = startRefusedCard(started, "mig-path");
+      return;
+    }
+    migJob = started.job_id;
+    migProgress.start("moving");
+    const d = await awaitJob(started.job_id, (p) => {
+      migProgress.update(p);
+      if (p.total) setStatus(scaleStatus("Moving files", p.done, p.total, "files"));
+    });
+    migProgress.stop();
+    clearMigrateConfirm();
+    cleanupOffer = d.ok ? (d.summary.leftover_empty_folders || null) : null;
+    $("mig-result").innerHTML = d.ok
+      ? card(`<div class="headline">Moved ${plural(d.summary.migrated || 0, "file")}.</div>`)
+        + (d.summary.leftover_empty_folders ? cleanupOfferNote(d.summary.leftover_empty_folders) : "")
+      : jobErrorCard(d);
+    migJob = null;
+    loadDrives();
+    refreshUndoAffordance($("mig-path").value.trim(), $("mig-undo-panel"));
+  });
+}
+function renderMigrateTypedConfirm(moveCount) {
+  const host = $("mig-confirm");
+  host.innerHTML =
+    `<div class="banner">
+      <div>
+        <div class="b-title">Before you move files</div>
+        <div class="k">Type <code>move</code> to relocate ${plural(moveCount, "file")}.</div>
+      </div>
+    </div>
+    <div data-mig-typed></div>`;
+  typedConfirm(host.querySelector("[data-mig-typed]"), {
+    word: "move",
+    label: `Type move to relocate ${plural(moveCount, "file")}`,
+    buttonLabel: `Move ${nfmt(moveCount)} files`,
+    onConfirm: () => startMigrateRun(),
+  });
+}
 $("mig-preview").onclick = guarded(async () => {
   await withBusy($("mig-preview"), "Planning moves…", async ({ setStatus }) => {
     $("mig-result").innerHTML = "";
-    $("mig-run").classList.add("hidden");
+    clearMigrateConfirm();
     migProgress.start("planning");
     const started = await api("/api/migrate/preview", { path: $("mig-path").value.trim() });
     if (started.ok === false) {
@@ -1949,31 +2037,7 @@ $("mig-preview").onclick = guarded(async () => {
     $("mig-result").innerHTML = card(`<div class="headline">${plural(r.moves.length, "file")} to move</div>
       <div class="k">${r.unchanged} already in place${r.warnings.length ? " · ⚠ " + esc(r.warnings.join("; ")) : ""}</div>
       ${dayBlock}`);
-    $("mig-run").classList.toggle("hidden", r.moves.length === 0);
-  });
-});
-$("mig-run").onclick = guarded(async () => {
-  await withBusy($("mig-run"), "Moving files…", async ({ setStatus }) => {
-    const started = await api("/api/migrate/run", { path: $("mig-path").value.trim() });
-    if (started.ok === false) {
-      $("mig-result").innerHTML = startRefusedCard(started, "mig-path");
-      return;
-    }
-    migJob = started.job_id;
-    migProgress.start("moving");
-    const d = await awaitJob(started.job_id, (p) => {
-      migProgress.update(p);
-      if (p.total) setStatus(scaleStatus("Moving files", p.done, p.total, "files"));
-    });
-    migProgress.stop();
-    cleanupOffer = d.ok ? (d.summary.leftover_empty_folders || null) : null;
-    $("mig-result").innerHTML = d.ok
-      ? card(`<div class="headline">Moved ${plural(d.summary.migrated || 0, "file")}.</div>`)
-        + (d.summary.leftover_empty_folders ? cleanupOfferNote(d.summary.leftover_empty_folders) : "")
-      : jobErrorCard(d);
-    migJob = null;
-    loadDrives();
-    refreshUndoAffordance($("mig-path").value.trim(), $("mig-undo-panel"));
+    if (r.moves.length) renderMigrateTypedConfirm(r.moves.length);
   });
 });
 $("mig-cancel").onclick = guarded(() => { if (migJob) return api(`/api/jobs/${migJob}/cancel`, {}); });

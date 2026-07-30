@@ -23,6 +23,7 @@ from truestill_core.catalog import Catalog
 from truestill_core.catalog_startup import DEFAULT_CATALOG_PATH
 from truestill_core.event_review import EventDecision, commit_catalog
 from truestill_core.events import InvalidEventSettingsError, split_candidate
+from truestill_core.layout import InvalidEverydayDaySettingsError
 from truestill_core.trip_review import (
     ReviewCard,
     TripDecision,
@@ -309,6 +310,16 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
             return JSONResponse(service.invalid_event_settings_payload(str(exc)))
         return JSONResponse(service.event_settings_payload(settings))
 
+    async def everyday_day_settings(request: Request) -> JSONResponse:
+        try:
+            if request.method == "POST":
+                body = await request.json()
+                return JSONResponse(service.set_everyday_day_settings(body.get("threshold"), _db()))
+            settings = service.everyday_day_settings(_db())
+        except InvalidEverydayDaySettingsError as exc:
+            return JSONResponse(service.invalid_everyday_day_settings_payload(str(exc)))
+        return JSONResponse(service.everyday_day_settings_payload(settings))
+
     async def migrate_preview(request: Request) -> JSONResponse:
         body = await request.json()
         path = Path(body["path"])
@@ -548,6 +559,7 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
         Route("/api/library/stats", library_stats),
         Route("/api/layout", layout, methods=["GET", "POST"]),
         Route("/api/layout/preview", layout_preview, methods=["POST"]),
+        Route("/api/layout/everyday-day-threshold", everyday_day_settings, methods=["GET", "POST"]),
         Route("/api/events/settings", event_settings, methods=["GET", "POST"]),
         Route("/api/migrate/preview", migrate_preview, methods=["POST"]),
         Route("/api/migrate/run", migrate_run, methods=["POST"]),
