@@ -1,7 +1,7 @@
 "use strict";
 const TOKEN = window.TRUESTILL_TOKEN;
 const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const nfmt = (n) => Number(n).toLocaleString();
 // "2 files", "1 file" -- never "file(s)". Counts are read aloud in a user's head, and the
 // parenthesised plural is the sound of a form letter.
