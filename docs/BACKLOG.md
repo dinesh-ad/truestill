@@ -18,7 +18,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(eee). Next free: (aab).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff). Next free: (aab).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -275,13 +275,10 @@ is invisible here is retired, not free.**
 - **(aaa) Typed confirmations crash with raw `EOFError` in non-interactive runs.** Ruled by
   Dinesh from the 2026-07-30 maiden voyage: `organize --in-place --apply` aborted with a
   traceback when stdin was non-interactive (pipe/script/CI).
-  - **Defect:** destructive typed-confirm gates must fail clearly, not with a Python stack trace.
-  - **Fix when built:** detect non-interactive stdin at every typed-confirm site and exit with
-    a clear refusal: this operation requires interactive confirmation and cannot run
-    non-interactively.
-  - **Audit scope:** every typed-confirm path in CLI, not just in-place: `move`, `undo`,
-    `clean`, `delete forever`, `delete` (and any equivalent prompts that share this pattern).
-  - **Not fixed here, on purpose** - recorded only, per instruction.
+  - **Built (`f19a45c`).** Shared `_typed_confirmation` catches `EOFError` and exits with a
+    clear refusal: interactive confirmation is required. Wired to every typed-confirm site:
+    in-place `move`, migrate `move`, migrate-undo `undo`, clean `clean`, permanent
+    `delete forever`, reclaim `delete`.
 
 - **(bbb) exiftool `_original` backups are ignored.** Ruled by Dinesh, 2026-07-30. When anyone
   edits a photo's date with exiftool, the default is to leave `file.jpg_original` beside it
@@ -312,14 +309,31 @@ is invisible here is retired, not free.**
   - **Scope:** a read-only view over the catalog - **no file reads**, so it must be fast.
   - **Not fixed here, on purpose** - recorded only, per instruction.
 
-- **(eee) In-place organize is CLI-only.** Ruled by Dinesh, 2026-07-30. `--in-place` renames
-  files where they are (maiden voyage: 60/60 byte-identical after undo, rename-based,
-  sub-second). Users who want their existing folder reorganized **in place** rather than
-  copied elsewhere have no way to do it from the app - a major capability that is invisible.
-  - **Surface when built** with the full destructive discipline: preview, typed confirm,
-    progress, and the `undo-organize` affordance beside it.
-  - **Constraint:** this is a **different mechanism** from migration undo - do not merge them.
-  - **Not fixed here, on purpose** - recorded only, per instruction.
+- **(eee) Three organize modes in the app (copy / move / in-place).** Ruled by Dinesh,
+  2026-07-30; CLI modes already proven. App today is copy-only. **In progress after `(aaa)`.**
+  - **Modes (plain wording):** (1) "Copy into an organized folder" (default) - originals
+    untouched, needs destination; (2) "Move into an organized folder" - needs destination;
+    same-drive is rename, cross-drive is copy-verify-then-delete; (3) "Reorganize this folder
+    in place" - dest wired to source, destination field hidden; refuses rather than falling
+    back across filesystems.
+  - **Reversibility from mechanism, not flag:** rename-based runs get `undo-organize`;
+    cross-device move and default copy do not. Say so before confirm; never offer undo where
+    it does not exist; never wire to migrate-layout undo.
+  - **Discipline:** preview-first, typed confirm, progress+cancel, DriveBusy, empty-folder
+    report + clean-empty offer (closes `(zz)`/`(rr)` on this path).
+  - **Queue:** finish this before **`(fff)`** (collapsible sidebar).
+
+- **(fff) Collapsible sidebar.** Ruled by Dinesh, 2026-07-30. **Queued after `(eee)` - do not
+  interrupt three-mode organize.**
+  - Hamburger toggle: expanded = icon+label; collapsed = icon-only narrow rail.
+  - Collapsed **must** show label tooltips on hover **and** focus (not optional polish).
+  - Persist via existing catalog settings key/value - **no** localStorage / new store.
+  - Custody strip adapts when collapsed: compact indicator only; must not reintroduce path
+    overflow in the narrow rail.
+  - Keyboard: toggle focusable/operable; collapsing must not trap or lose focus.
+  - Short width-transition animation only.
+  - Playwright: collapse/expand; persists across reload; tooltips on hover when collapsed;
+    custody stays inside rail; keyboard toggle works. Break each, watch fail, restore.
 
 - **(tt) No fast, no-hashing inventory - progressive disclosure is missing.** Ruled by Dinesh
   from a soak finding, 2026-07-29, the natural complement to **(ss)**: a user who only wants

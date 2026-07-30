@@ -62,8 +62,8 @@ narrative, or volatile counts.
 
 1. **Finish soak gate**
    - Continue normal use; any new soak finding outranks queued feature work.
-   - Recent maiden-voyage test for in-place + undo is done; follow-up findings are recorded in
-     backlog (`(zz)`, `(aaa)`).
+   - In-progress after typed-confirm fix: app three-mode Organize (`BACKLOG.md` `(eee)`),
+     then collapsible sidebar (`(fff)`). Empty-folder undo messaging (`(zz)`) rides with `(eee)`.
 
 2. **Repo-public audit + newcomer README**
    - Ensure no sensitive/local-only leakage and that user-facing docs/screenshots are current.
@@ -82,8 +82,8 @@ narrative, or volatile counts.
 - **Soak not closed yet.** No launch actions should outrun this gate.
 - **Absolute-path portability remains open** (`BACKLOG.md` `(xx)`, `(yy)`):
   `files.source_path`, inplace roots, reclaim journal path semantics, and reconnect UX.
-- **Destructive-flow UX clarity remains open** (`BACKLOG.md` `(zz)`, `(aaa)`):
-  undo empty-folder messaging parity and non-interactive typed-confirm behavior.
+- **App organize surface incomplete** (`BACKLOG.md` `(eee)`): copy/move/in-place modes + undo
+  discipline; empty-folder report (`(zz)`) not yet wired in the app.
 
 ---
 
