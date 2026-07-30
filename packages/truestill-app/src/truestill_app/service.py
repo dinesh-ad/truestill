@@ -62,10 +62,12 @@ from truestill_core.layout import (
     LayoutTemplate,
     Placement,
     TemplateError,
-    effective_layout_string,
     parse_timeline_template,
-    pin_existing_layout,
     preview_scheme,
+)
+from truestill_core.layout_settings import (
+    effective_layout_string,
+    pin_existing_layout,
     resolve_scheme,
 )
 from truestill_core.migrate import (

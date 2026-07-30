@@ -41,7 +41,7 @@ from truestill_core.dedup import DedupIndex
 from truestill_core.exif import read_metadata
 from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import DEFAULT_PHASH_THRESHOLD
-from truestill_core.layout import resolve_scheme
+from truestill_core.layout_settings import resolve_scheme
 from truestill_core.models import Decision, DuplicateKind, FileHashes, Resolution
 from truestill_core.organizer import plan, scan_source
 from truestill_core.scan import compute_hashes

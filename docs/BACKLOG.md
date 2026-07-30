@@ -441,9 +441,10 @@ is invisible here is retired, not free.**
   collision suffixing, baking, rename-vs-copy, catalog recording, journalling and
   move-verify-delete. Its own ruff suppressions (`PLR0912`/`PLR0913`/`PLR0915`) admit it. It is
   the hardest code in the repo to change safely **and** it is the path that writes user bytes.
-- **(ee) Move the pin out of `layout.py`.** `pin_existing_layout` is catalog lifecycle, not
-  layout; it lives there only because it needed a `CatalogLike` Protocol invented to dodge an
-  import cycle - and that Protocol is the tell. Retire it with the move.
+- **(ee) Move the pin out of `layout.py`.** **Built 2026-07-30.** The catalog-touching trio
+  (`pin_existing_layout`, `effective_layout_string`, `resolve_scheme`) now lives in
+  `layout_settings.py`, which imports `Catalog` directly. Invented `CatalogLike` Protocol
+  retired. `layout.py` stays pure grammar/routing/rendering.
 - **(ff) Typed payloads at the app boundary.** `service.py` returns `dict[str, Any]` 27 times.
   This is not theoretical: the `dict(PRESETS)` regression - dataclasses about to be serialized
   into the API - was invisible to mypy precisely because the return type was `Any`.

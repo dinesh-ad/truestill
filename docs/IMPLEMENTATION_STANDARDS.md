@@ -186,11 +186,11 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   and a library that has chosen nothing gets `layout.DEFAULT_SCHEME` - the legacy layout
   expressed *as* a scheme. There is deliberately no template-only path: an optional seam is a
   branch, and the branch had already silently switched routing off for every production run.
-  - **One resolution entry point.** `layout.resolve_scheme` is the only way to ask what layout a
-    catalog is on; `layout.scheme_from_string` is the only interpretation of a stored template,
-    and it parses through the same strict door as Settings - there is no load-time leniency, so
-    `{category}` is rejected everywhere except inside the fixed side-bin shape, which is not
-    user-supplied.
+  - **One resolution entry point.** `layout_settings.resolve_scheme` is the only way to ask what
+    layout a catalog is on; `layout.scheme_from_string` is the only interpretation of a stored
+    template, and it parses through the same strict door as Settings - there is no load-time
+    leniency, so `{category}` is rejected everywhere except inside the fixed side-bin shape,
+    which is not user-supplied.
     Runs, previews and the Settings screen all come through them, which is what makes
     `test_a_run_and_a_preview_of_the_same_layout_agree` (every shipped preset) hold.
   - **Migration renders through the same seam** (`migrate.plan_migration` takes a
@@ -307,10 +307,11 @@ successful upgrade), never automatic.
   month's event folders. The side-bin shape is **fixed and not user-editable**, and `{category}`
   is rejected in a timeline template at input (§2), so category-first and category-last are
   structurally impossible rather than merely unavailable.
-- **A library is never silently reshaped.** On an explicit write path, `pin_existing_layout`
-  records the current default when a library has already placed files but has no stored layout.
-  Future default changes therefore apply only to new libraries; an existing tree changes only
-  through an explicit migration. The pin knows nothing about any particular shape.
+- **A library is never silently reshaped.** On an explicit write path,
+  `layout_settings.pin_existing_layout` records the current default when a library has already
+  placed files but has no stored layout. Future default changes therefore apply only to new
+  libraries; an existing tree changes only through an explicit migration. The pin knows nothing
+  about any particular shape.
 - **Event placement:** a named Camera event's folder is `YYYY-MM-DD - <Name>` under its month,
   carrying the **human name** the user typed (path-safe per §9), not a slug. A legacy library
   falls back to `YYYYMMDD_<slug>` only when no name was recorded. A cluster straddling a month boundary is consolidated

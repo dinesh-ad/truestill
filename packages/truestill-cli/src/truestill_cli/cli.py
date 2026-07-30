@@ -61,11 +61,10 @@ from truestill_core.layout import (
     Placement,
     TemplateError,
     parse_timeline_template,
-    pin_existing_layout,
     preview_scheme,
-    resolve_scheme,
     resolve_template,
 )
+from truestill_core.layout_settings import pin_existing_layout, resolve_scheme
 from truestill_core.migrate import (
     ROUTE_SIDE_BIN,
     LabelRoute,
