@@ -27,7 +27,7 @@ from truestill_core.cleanup import emptied_directories, plan_cleanup
 from truestill_core.date_provenance import format_offset
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import LocalDestination
-from truestill_core.drive import create_marker, locate_drive, path_is_usable_dir, read_marker
+from truestill_core.drive import create_marker, path_is_usable_dir, read_marker
 from truestill_core.event_review import EventDecision, commit, commit_catalog, propose
 from truestill_core.events import (
     EventCandidate,
@@ -75,7 +75,6 @@ from truestill_core.organizer import (
     execute,
     heavy_days_for_organize,
     inventory_source,
-    media_kind,
     plan,
     resolve,
     scan_source,
@@ -96,9 +95,11 @@ from truestill_core.trip_review import (
 )
 from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
 
-from truestill_app.jobs import DriveRef, JobTarget
+from truestill_app.jobs import JobTarget
 from truestill_app.service import clean_empty as _clean_empty
+from truestill_app.service import drive_support as _drive_support
 from truestill_app.service import fs_browse as _fs_browse
+from truestill_app.service import media_support as _media_support
 from truestill_app.service import organize_undo as _organize_undo
 from truestill_app.service import settings as _settings
 from truestill_app.service import takeout as _takeout
@@ -161,99 +162,19 @@ IngestPreviewSummary = _takeout.IngestPreviewSummary
 ingest_preview = _takeout.ingest_preview
 ingest_preview_run = _takeout.ingest_preview_run
 
-
-class NotABackupDriveError(ValueError):
-    """The path is a real folder, but not a truestill backup drive.
-
-    Typed rather than a bare ValueError so the UI can answer it with the *next step* ("copy
-    your library here to make one") instead of restating the failure. The client matches on
-    this class name, never on the message text, which would break on any rewording.
-    """
-
-
-class DriveCorrectionPayload(TypedDict):
-    error: str
-    suggested_root: str | None
-    drive_label: str | None
-    can_register: bool
-
-
-class DriveUnavailablePayload(TypedDict):
-    """Connected-drive gate failed: same correction shape migration preview already returns."""
-
-    ok: Literal[False]
-    error: str
-    suggested_root: str | None
-    drive_label: str | None
-    can_register: bool
-
-
-def _not_a_drive_message(path: Path) -> str:
-    """Say what this path actually is, so the user has something to do about it.
-
-    Three outcomes, three answers. Reporting all of them as "is the drive connected?" asks a
-    question whose answer is plainly yes, and leaves someone re-plugging a cable that was never
-    loose. The common real case -- naming a folder *inside* a connected drive -- gets a
-    correction instead of an error. An unreachable stale hint is a fourth case: ask to browse
-    to the current folder; the marker uuid is still the identity.
-    """
-    if not path_is_usable_dir(path):
-        return (
-            f"Can't reach '{path}' - it may have moved, been unmounted, or denied access. "
-            "Browse to where the drive is now. Identity is the marker on the drive, not this path."
-        )
-    location = locate_drive(path)
-    if location.is_inside and location.marker is not None:
-        return (
-            f"This is a folder inside '{location.marker.label}'. "
-            f"Use the drive root instead: {location.root}"
-        )
-    return (
-        "This folder isn't set up as a backup drive yet. "
-        "Copy photos here once and truestill will set it up, "
-        "or register this drive first."
-    )
-
-
-def _drive_correction(path: Path) -> DriveCorrectionPayload:
-    """The machine-readable half of the same answer, so the UI can offer one-click correction."""
-    if not path_is_usable_dir(path):
-        # Unreachable: never offer "register this" - registering needs a real folder.
-        return {
-            "error": _not_a_drive_message(path),
-            "suggested_root": None,
-            "drive_label": None,
-            "can_register": False,
-        }
-    location = locate_drive(path)
-    return {
-        "error": _not_a_drive_message(path),
-        "suggested_root": str(location.root) if location.is_inside else None,
-        "drive_label": location.marker.label if location.marker else None,
-        "can_register": location.marker is None,
-    }
-
-
-def _drive_unavailable(path: Path) -> DriveUnavailablePayload:
-    """Connected-drive gate failure (explicit TypedDict - mypy 1.13 rejects Union ** spreads)."""
-    return {"ok": False, **_drive_correction(path)}
-
-
-def drive_ref_for(path: Path) -> DriveRef:
-    """Lock identity for a path a job will touch (uuid when marked, else resolved path)."""
-    marker = read_marker(path)
-    if marker is not None:
-        return DriveRef(key=f"uuid:{marker.uuid}", label=marker.label)
-    try:
-        resolved = str(path.expanduser().resolve())
-    except OSError:
-        resolved = str(path)
-    return DriveRef(key=f"path:{resolved}", label=path.name or resolved)
-
-
-def _not_a_drive(path: Path) -> NotABackupDriveError:
-    return NotABackupDriveError(_not_a_drive_message(path))
-
+# Shared drive/media support - public names for callers; underscored aliases for this facade.
+NotABackupDriveError = _drive_support.NotABackupDriveError
+DriveCorrectionPayload = _drive_support.DriveCorrectionPayload
+DriveUnavailablePayload = _drive_support.DriveUnavailablePayload
+drive_ref_for = _drive_support.drive_ref_for
+_not_a_drive_message = _drive_support.not_a_drive_message
+_drive_correction = _drive_support.drive_correction
+_drive_unavailable = _drive_support.drive_unavailable
+_not_a_drive = _drive_support.not_a_drive
+_drive_path_hint = _drive_support.drive_path_hint
+_take_live_path_hint = _drive_support.take_live_path_hint
+MediaBreakdown = _media_support.MediaBreakdown
+_media_breakdown = _media_support.media_breakdown
 
 #: Remembered paths, for prefilling fields the catalog can already answer. **Hints only.**
 #: Drive *identity* is the marker's uuid and never a path (§3.1) -- mount points move between
@@ -314,34 +235,6 @@ def reveal_in_file_manager(path: Path) -> RevealOk | RevealErr:
             "error": f"Couldn't open a file manager ({exc}). Open the folder yourself in your file manager.",
         }
     return {"ok": True, "path": str(path)}
-
-
-def _drive_path_hint(uuid: str) -> str:
-    """Settings key for where a drive was last seen mounted.
-
-    A *hint*, like the others: it lets a drive card offer "Check now" for the right folder
-    instead of making the user find it again. Identity remains the marker uuid -- a drive that
-    remounts elsewhere is the same drive, and this key is simply stale until it is next seen.
-    """
-    return f"path_hint.drive.{uuid}"
-
-
-def _take_live_path_hint(catalog: Catalog, key: str) -> str | None:
-    """Return ``key``'s path when it still names a usable directory; otherwise clear it.
-
-    **Failed hints are cleared, not ignored.** A hint is never identity - only a convenience.
-    Leaving a dead path in settings would re-stat it on every Backups/library load (slow and
-    noisy on locked FUSE). Clearing once stops the re-hit; the next successful attach/verify
-    at the real root writes a fresh hint. This is not a custody write: the uuid and
-    ``file_copies`` rows are untouched.
-    """
-    raw = catalog.get_setting(key)
-    if raw is None:
-        return None
-    if path_is_usable_dir(Path(raw)):
-        return raw
-    catalog.clear_setting(key)
-    return None
 
 
 @dataclass(frozen=True, slots=True)
@@ -418,35 +311,6 @@ _MB = 1_000_000
 def _gb(n: int) -> str:
     """A human byte size for space messages (GB for anything sizeable, else MB)."""
     return f"{n / _GB:.1f} GB" if n >= _GB else f"{n / _MB:.0f} MB"
-
-
-class MediaBreakdown(TypedDict):
-    """Photo / video / audio counts plus per-extension tallies (shared by status, drives, backup)."""
-
-    photos: int
-    videos: int
-    audio: int
-    by_format: dict[str, dict[str, int]]
-
-
-def _media_breakdown(names: Any) -> MediaBreakdown:
-    """Split a set of file names into photos / videos / audio counts and per-extension formats."""
-    plural = {"photo": "photos", "video": "videos", "audio": "audio"}
-    counts = {"photos": 0, "videos": 0, "audio": 0}
-    fmt: dict[str, Counter[str]] = {"photos": Counter(), "videos": Counter(), "audio": Counter()}
-    for name in names:
-        kind = media_kind(name)
-        if kind is None:
-            continue
-        group = plural[kind]
-        counts[group] += 1
-        fmt[group][Path(name).suffix.lower().lstrip(".")] += 1
-    return {
-        "photos": counts["photos"],
-        "videos": counts["videos"],
-        "audio": counts["audio"],
-        "by_format": {g: dict(c.most_common()) for g, c in fmt.items()},
-    }
 
 
 class OrganizeDedupCore(TypedDict):
@@ -1593,8 +1457,8 @@ class InvalidEventProposalPayload(TypedDict):
     error: str
 
 
-class EventProposalDriveErrorPayload(DriveCorrectionPayload):
-    ok: Literal[False]
+# Same shape as the connected-drive soft-refuse (drive_support.DriveUnavailablePayload).
+EventProposalDriveErrorPayload = DriveUnavailablePayload
 
 
 class EventProposalSuccessPayload(TypedDict):
