@@ -64,11 +64,7 @@ from truestill_core.models import (
     status_label,
 )
 from truestill_core.organizer import (
-    AUDIO_EXTENSIONS,
     EXIFTOOL_BACKUP_LABEL,
-    IMAGE_EXTENSIONS,
-    MEDIA_EXTENSIONS,
-    VIDEO_EXTENSIONS,
     Relocation,
     SourceScan,
     discover,
@@ -93,7 +89,6 @@ from truestill_core.trip_review import (
     order_review_cards,
     split_trip,
 )
-from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
 
 from truestill_app.jobs import JobTarget
 from truestill_app.service import clean_empty as _clean_empty
@@ -102,7 +97,9 @@ from truestill_app.service import fs_browse as _fs_browse
 from truestill_app.service import media_support as _media_support
 from truestill_app.service import organize_undo as _organize_undo
 from truestill_app.service import settings as _settings
+from truestill_app.service import stats as _stats
 from truestill_app.service import takeout as _takeout
+from truestill_app.service import verify as _verify
 
 # Browse (folder picker) lives in its own module; bound here so
 # ``from truestill_app.service import fs_dirs`` and ``service.fs_dirs`` stay unchanged.
@@ -175,6 +172,19 @@ _drive_path_hint = _drive_support.drive_path_hint
 _take_live_path_hint = _drive_support.take_live_path_hint
 MediaBreakdown = _media_support.MediaBreakdown
 _media_breakdown = _media_support.media_breakdown
+
+LibraryStatsDrive = _stats.LibraryStatsDrive
+LibraryStatsSafety = _stats.LibraryStatsSafety
+LibraryStatsUndatedSample = _stats.LibraryStatsUndatedSample
+LibraryStatsCompleteness = _stats.LibraryStatsCompleteness
+LibraryStatsYear = _stats.LibraryStatsYear
+LibraryStatsShape = _stats.LibraryStatsShape
+LibraryStats = _stats.LibraryStats
+library_stats = _stats.library_stats
+
+VerifyProblem = _verify.VerifyProblem
+VerifyJobSummary = _verify.VerifyJobSummary
+verify_run = _verify.verify_run
 
 #: Remembered paths, for prefilling fields the catalog can already answer. **Hints only.**
 #: Drive *identity* is the marker's uuid and never a path (§3.1) -- mount points move between
@@ -959,70 +969,6 @@ def _result_size(result: ActionResult, destination: Path) -> int:
     return 0
 
 
-class VerifyProblem(TypedDict):
-    status: str
-    relative: str
-    detail: NotRequired[str]
-
-
-class VerifyJobSummary(TypedDict):
-    label: str
-    verified: int
-    missing: int
-    mismatch: int
-    unreadable: int
-    problems: list[VerifyProblem]
-    elapsed_seconds: NotRequired[float]
-
-
-def verify_run(path: Path, db: Path) -> JobTarget | DriveUnavailablePayload:
-    """Build a job target that verifies a connected drive's copies against the catalog.
-
-    Soft-fails with the drive-correction payload when the path is unreachable or unmarked,
-    matching migration/trips - so a stale hint never becomes a job that dies on ``OSError``.
-    """
-    marker = read_marker(path)
-    if marker is None:
-        return _drive_unavailable(path)
-
-    def target(progress: ProgressCallback, cancel: threading.Event) -> VerifyJobSummary:
-        with Catalog(db) as catalog:
-            catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
-            catalog.set_setting(_drive_path_hint(marker.uuid), str(path))
-            rows = catalog.copies_on_drive(marker.uuid)
-            copies = [
-                CopyToVerify(r["sha256"], r["relative"], r["copy_sha256"] or r["sha256"])
-                for r in rows
-            ]
-            results = verify_copies(copies, path, progress=progress, cancel=cancel)
-            when = _now()
-            for result in results:
-                if result.status is CopyStatus.VERIFIED:
-                    catalog.mark_copy_verified(
-                        sha256=result.copy.sha256, drive_uuid=marker.uuid, when=when
-                    )
-            catalog.set_drive_verified(marker.uuid, when)
-        counts = Counter(r.status.value for r in results)
-        problems: list[VerifyProblem] = []
-        for r in results:
-            if r.status is CopyStatus.VERIFIED:
-                continue
-            problem: VerifyProblem = {"status": r.status.value, "relative": r.copy.relative}
-            if r.detail:
-                problem["detail"] = r.detail
-            problems.append(problem)
-        return {
-            "label": marker.label,
-            "verified": counts.get("verified", 0),
-            "missing": counts.get("missing", 0),
-            "mismatch": counts.get("mismatch", 0),
-            "unreadable": counts.get("unreadable", 0),
-            "problems": problems,
-        }
-
-    return target
-
-
 class DriveRow(TypedDict):
     label: str
     uuid: str
@@ -1124,139 +1070,6 @@ def at_risk(db: Path) -> list[AtRiskRow]:
             {"name": r["original_name"] or r["sha256"][:12], "drive": r["drive_label"]}
             for r in catalog.single_copy_shas()
         ]
-
-
-class LibraryStatsDrive(TypedDict):
-    label: str
-    files: int
-    size: int
-    last_verified: str | None
-
-
-class LibraryStatsSafety(TypedDict):
-    total_files: int
-    total_size: int
-    photos: int
-    videos: int
-    audio: int
-    files_on_two_plus_drives: int
-    files_on_one_drive: int
-    files_on_zero_drives: int
-    zero_drive_samples: list[str]
-    never_verified_files: int
-    drives: list[LibraryStatsDrive]
-
-
-class LibraryStatsUndatedSample(TypedDict):
-    name: str
-    source_path: str
-    relative: str
-
-
-class LibraryStatsCompleteness(TypedDict):
-    undated_files: int
-    undated_samples: list[LibraryStatsUndatedSample]
-    timeline_files: int
-    side_bin_files: int
-    near_duplicates_flagged: int
-    exact_duplicates_found: None
-    exact_duplicates_omission_reason: str
-
-
-class LibraryStatsYear(TypedDict):
-    year: str
-    count: int
-
-
-class LibraryStatsShape(TypedDict):
-    by_year: list[LibraryStatsYear]
-    by_format: dict[str, int]
-    oldest_capture: str | None
-    newest_capture: str | None
-
-
-class LibraryStats(TypedDict):
-    safety: LibraryStatsSafety
-    completeness: LibraryStatsCompleteness
-    shape: LibraryStatsShape
-    complexity: str
-
-
-def library_stats(db: Path) -> LibraryStats:
-    """Custody-first library stats from catalog-only aggregates.
-
-    Complexity: O(n) aggregate scans over ``files``/``file_copies`` plus grouped rollups for
-    years and formats. No file reads, no hashing, no exiftool, and no per-file Python loops.
-    """
-    with Catalog(db) as catalog:
-        summary = catalog.stats_summary()
-        year_rows = catalog.stats_by_year()
-        drives = catalog.list_drives()
-        near_flagged = catalog.stats_near_duplicate_flagged_count()
-        undated_samples = catalog.stats_undated_samples(limit=12)
-        format_counts = catalog.stats_counts_by_format(MEDIA_EXTENSIONS)
-        zero_drive_samples = catalog.stats_zero_drive_samples(limit=12)
-
-    image_exts = {ext.lstrip(".").lower() for ext in IMAGE_EXTENSIONS}
-    video_exts = {ext.lstrip(".").lower() for ext in VIDEO_EXTENSIONS}
-    audio_exts = {ext.lstrip(".").lower() for ext in AUDIO_EXTENSIONS}
-    photos = sum(count for ext, count in format_counts.items() if ext in image_exts)
-    videos = sum(count for ext, count in format_counts.items() if ext in video_exts)
-    audio = sum(count for ext, count in format_counts.items() if ext in audio_exts)
-
-    return {
-        "safety": {
-            "total_files": int(summary["total_files"]),
-            "total_size": int(summary["total_size"] or 0),
-            "photos": photos,
-            "videos": videos,
-            "audio": audio,
-            "files_on_two_plus_drives": int(summary["files_on_two_plus_drives"] or 0),
-            "files_on_one_drive": int(summary["files_on_one_drive"] or 0),
-            "files_on_zero_drives": int(summary["files_on_zero_drives"] or 0),
-            "zero_drive_samples": zero_drive_samples,
-            "never_verified_files": int(summary["never_verified_files"] or 0),
-            "drives": [
-                {
-                    "label": str(row["label"]),
-                    "files": int(row["file_count"] or 0),
-                    "size": int(row["total_size"] or 0),
-                    "last_verified": row["last_verified"],
-                }
-                for row in drives
-            ],
-        },
-        "completeness": {
-            "undated_files": int(summary["undated_files"] or 0),
-            "undated_samples": [
-                {
-                    "name": str(row["original_name"] or Path(str(row["source_path"])).name),
-                    "source_path": str(row["source_path"]),
-                    "relative": str(row["relative"]),
-                }
-                for row in undated_samples
-            ],
-            "timeline_files": int(summary["timeline_files"] or 0),
-            "side_bin_files": int(summary["side_bin_files"] or 0),
-            "near_duplicates_flagged": near_flagged,
-            # Exact duplicates are intentionally omitted: skipped exact dupes are not persisted
-            # in the catalog, and recomputing them would require a fresh source scan.
-            "exact_duplicates_found": None,
-            "exact_duplicates_omission_reason": (
-                "Exact-duplicate skips are not stored in the catalog; computing this would require "
-                "a new scan outside the read-only stats contract."
-            ),
-        },
-        "shape": {
-            "by_year": [
-                {"year": str(row["year"]), "count": int(row["count"])} for row in year_rows
-            ],
-            "by_format": format_counts,
-            "oldest_capture": summary["oldest_capture"],
-            "newest_capture": summary["newest_capture"],
-        },
-        "complexity": "O(n) aggregate SQL over catalog tables; grouped rollups only.",
-    }
 
 
 # --- event review (used by the Event review screen; merge/split are UI-only) ----------

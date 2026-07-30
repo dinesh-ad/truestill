@@ -116,10 +116,11 @@ _ALLOWED_USER_TERMS = (
     "--phash-threshold",
     "JSON",
 )
-#: service/ is a package (F10); both the facade and the Browse surface carry user-facing strings.
+#: service/ is a package (F10); facade and surface modules that carry user-facing strings.
 _SERVICE_USER_FACING: tuple[Path, ...] = (
     REPO / "packages/truestill-app/src/truestill_app/service/__init__.py",
     REPO / "packages/truestill-app/src/truestill_app/service/fs_browse.py",
+    REPO / "packages/truestill-app/src/truestill_app/service/stats.py",
 )
 _USER_FACING_TEXT = tuple(
     path
