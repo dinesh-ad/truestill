@@ -118,11 +118,12 @@ is invisible here is retired, not free.**
     (`list_drives` path hints - already absolute) and the shared click handler. Find/inventory
     rows show `relative` as display text only, never as a reveal target. No second site.
 
-- **(rr) A trip/migration apply-to-disk leaves emptied source folders behind and says nothing.**
-  - **Built (`7d9830c`, follow-up in Commit 4 of `(eee)`).** Both migrate-layout apply and
-    trips/events apply-to-disk completion cards now report leftover empty folder count + names
-    and offer the same preview+typed-confirm cleanup flow, reusing
-    `emptied_directories`/`plan_cleanup`/`run_cleanup`. No auto-delete was added.
+- **Empty-folder cleanup (provenance: (rr), (zz), (eee) Commit 4).** **Built**
+  (`7d9830c` + Commit 4 of `(eee)`). One shared capability across move / in-place organize,
+  undo-organize, and trip/migrate apply-to-disk: leftover empty folders are **reported**
+  (count + names) and the same preview + typed-confirm `clean-empty` flow is **offered**,
+  reusing `emptied_directories` / `plan_cleanup` / `run_cleanup`. Folders are never
+  auto-deleted. Do not treat `(rr)` / `(zz)` as separate open work - they closed as this.
 
 - **(ss) Organize preview hashes every file before showing anything - slow on a network mount.**
   Ruled by Dinesh from a soak finding, 2026-07-29: measured **9.9 files/sec on a 2,064-file
@@ -208,11 +209,6 @@ is invisible here is retired, not free.**
     Lightroom cascades from the top folder - one action, all descendants.
   - **Not fixed here, on purpose** - recorded only, per instruction.
 
-- **(zz) `undo-organize` overstates what it restored.**
-  - **Built (`7d9830c` + Commit 4 of `(eee)`).** Completion now reports leftover empty folder
-    count + names and offers the same cleanup flow. The standing rule remains unchanged:
-    folders are never auto-deleted.
-
 - **(aaa) Typed confirmations crash with raw `EOFError` in non-interactive runs.** Ruled by
   Dinesh from the 2026-07-30 maiden voyage: `organize --in-place --apply` aborted with a
   traceback when stdin was non-interactive (pipe/script/CI).
@@ -233,7 +229,8 @@ is invisible here is retired, not free.**
     `.jpg_original` extension count. Matcher covers any extension (exiftool appends `_original`
     to the full filename). Collision pinned: a legitimate `vacation_original.jpg` ( `_original`
     before the extension) is **not** a backup and is still organized.
-  - **Recovery - deferred; waits on (ii) / (n).** Full design (do not invent a parallel tool):
+  - **Recovery - deferred; part of the date-provenance program** (see **Converged programs**):
+    not a parallel `_original` tool. Full design (do not invent a separate surface):
     1. **No silent substitution.** Reading `_original` never auto-wins over the live file's
        embedded date in `resolve_capture_datetime`.
     2. **Same provenance as (ii):** if the user accepts the sibling date, record
@@ -241,8 +238,8 @@ is invisible here is retired, not free.**
        **(ii)** share. Machine suggestion only; human commits.
     3. **Same rescue seam:** when the live file has a date *and* a sibling
        `path.name + "_original"` exists with a different parseable capture date, offer a rescue
-       candidate on the (ii)/(n) surface (“why this date?” → action). Wording like: “exiftool
-       backup beside this file still has 2014-08-17 - use that date?” Confirm → place by
+       candidate on the (ii)/(n) surface ("why this date?" → action). Wording like: "exiftool
+       backup beside this file still has 2014-08-17 - use that date?" Confirm → place by
        confirmed date + provenance.
     4. **Disagree visibly:** if live EXIF and `_original` disagree after a human confirm, keep
        human-confirmed; optionally note the embedded conflict (never silent).
@@ -250,8 +247,8 @@ is invisible here is retired, not free.**
        stays an unorganized sidecar (never ingested as a second library copy).
     - **Out of scope for recovery:** inventing merges, rewriting live EXIF from `_original`
       without confirm, treating `_original` as a second library citizen.
-    - **Sequencing:** recovery UI waits on the (ii)/(n) provenance column - same screen, not a
-      parallel “_original tool”. Safety shipped independently so this item is not “untouched”.
+    - **Sequencing:** recovery UI waits on the (ii)/(n) provenance column - same screen. Safety
+      shipped independently so this item is not "untouched".
 
 - **(ccc) Plain-language audit of user-facing copy.** Ruled by Dinesh, 2026-07-30.
   - **Built 2026-07-30.** Inventory + rewrites across app/CLI help/README (CHANGELOG excluded).
@@ -276,8 +273,9 @@ is invisible here is retired, not free.**
   2026-07-30; CLI modes already proven.
   - **Built 2026-07-30.** App surfaces Copy / Move / Reorganize in this same folder with
     mechanism-aware reversibility before typed confirm; durable `undo-organize` affordance;
-    empty-folder report + clean-empty offer on organize and trip/migrate apply (closes
-    `(zz)`/`(rr)` globally). Playwright + mutation coverage.
+    Playwright + mutation coverage. Empty-folder leftovers on these paths are the shared
+    **Empty-folder cleanup** capability (provenance `(rr)` / `(zz)` / Commit 4), not a
+    separate feature.
 
 - **(fff) Collapsible sidebar.** Ruled by Dinesh, 2026-07-30.
   **Built (2026-07-30).** Hamburger toggle (expanded icon+label / collapsed icon-only rail);
@@ -469,8 +467,9 @@ is invisible here is retired, not free.**
     read cost** on every run - this is a column, not a pass.
   - **Scope:** persist latitude/longitude at ingest; persist `GPSDateStamp` alongside, since
     `date-layering-gap-check.md` §4(b) already ruled it the cross-check for a suspect dead-clock
-    date and it is the same exiftool read. Pairs naturally with the `DateSource` provenance
-    column that `(n)` and `(ii)` both want.
+    date and it is the same exiftool read. **`GPSDateStamp` is part of the date-provenance
+    program** with `(n)` / `(ii)` / `(bbb)` recovery (see **Converged programs**) - the lat/lon
+    columns also unlock places/map views, which are a separate product surface on the same write.
   - **Open question, deliberately not answered here:** whether existing libraries get a backfill
     pass. It is a re-read of the whole library, so it is opt-in work with a real cost, and it
     wants its own decision rather than being smuggled in with the column.
@@ -579,8 +578,8 @@ no composition refactor to schedule.
   copy of an in-place file (source and drive copy are one inode, so its re-verify gate was a
   tautology), and an undo that left `files` rows behind would have made the library
   un-organizable by re-running dedup against itself. Both pinned by tests. See
-  `IMPLEMENTATION_STANDARDS.md` §1. **App UI deliberately deferred** to CLI soak evidence,
-  matching `reclaim`'s CLI-only v1.
+  `IMPLEMENTATION_STANDARDS.md` §1. App surface for in-place + move shipped as **`(eee)`**;
+  `reclaim` remains CLI-only (see App-surface deferrals).
   - **Still open:** cloud tier (server-side move within a remote, never via mounts) waits for
     the rclone work; a `--prune-empty-dirs` opt-in waits for soak evidence that the folders
     left behind are actually intolerable.
@@ -592,7 +591,24 @@ no composition refactor to schedule.
   `MOVE_KEPT` on failure, no zero-copy window) and `reclaim.run_reclaim` / `truestill reclaim` (dry-run
   default, re-verify-at-delete on a connected drive, typed `delete` confirmation, `--min-copies N`
   with single-copy warning, `reclaim_journal` at schema v9). The copy-only-invariant exception is
-  documented in `IMPLEMENTATION_STANDARDS.md §1`. CLI-only in v1 (app surface deferred).
+  documented in `IMPLEMENTATION_STANDARDS.md §1`. **`organize --move` is in the app via `(eee)`**;
+  **`reclaim` stays CLI-only** until an app surface is explicitly approved.
+
+- ~~**(gg) Adaptive day-folder threshold for Everyday photos.**~~ **Built 2026-07-30.**
+  Un-evented days over `layout.everyday_day_threshold` (default 40) get
+  `{yyyy}-{mm}-{dd} - Everyday`; under stay in the monthly bucket. Both-direction migrate
+  reconcile with per-day reasons; Settings warns on threshold change and routes to migrate;
+  app migrate uses `typedConfirm("move")`. Research: `docs/adaptive-day-folder-research.md`.
+  - **Soak finding (2026-07-30), recorded so it is not misread later.** `(gg)` is correct but
+    **rare on real data.** One hit in the full soak catalog: **2013-09-30**, 62 photos,
+    un-evented and non-trip-claimed (still in the monthly Everyday folder until migrate). The
+    **2,057-photo 2014-08 Everyday folder that prompted `(gg)` was explained entirely by the
+    Wayanad trip claim**, not by threshold behaviour - the trip work had already solved that
+    folder. Do not treat `(gg)` as the fix for Aug 2014.
+  - **Product implication (note, do not act on):** heavy days are usually trips or named
+    events, so the threshold mostly guards the residual case - a genuinely busy day that
+    belongs to nothing. Worth having; frequency is low. Any future tuning of the default
+    should be judged against that residual rate, not against the Aug 2014 example.
 
 - ~~**Metadata recovery fallback chain - decided on evidence.**~~ A 37-file, 22-format corpus
   test (`docs/metadata-chain-research.md`) showed exiftool already dates every datable file
@@ -651,15 +667,44 @@ no composition refactor to schedule.
     truestill's single-process, server-rendered, no-build local-web UI avoids. A native shell (if ever
     built) wraps that one process; it does not add a second app runtime.
 
+## Converged programs (do not pick in isolation)
+
+These are not duplicates to delete - they are **one job split across lettered items**. Anyone
+picking one up must map the combined order before building.
+
+- **Date provenance → honesty → rescue → optional `_original`.** Items: **`(n)`**, **`(ii)`**,
+  **`(bbb)` recovery**, and **`(kk)`'s `GPSDateStamp`** (lat/lon on `(kk)` also serves
+  places/map, but the stamp is this program's cross-check). **One program:**
+  1. Persist a durable date-provenance column (schema step shared by all of them).
+  2. Honesty drill-down (`(n)`): provenance mix + explorable "why undated / why this date".
+  3. Rescue (`(ii)`): human-confirmed date (and optional event) that survives migrate/organize.
+  4. Optional `_original` offer (`(bbb)` recovery): same surface, same `human-confirmed` tier -
+     never a parallel tool, never silent substitution.
+  Building any slice alone builds half a screen and pays the schema cost twice.
+
+- **Empty-folder leftovers.** Already shipped as one capability - see **Empty-folder cleanup**
+  (provenance `(rr)` / `(zz)` / `(eee)` Commit 4).
+
+- **Walk-and-classify on a drive.** `(hh)` (`adopt`) shares machinery with shipped `clean-empty`;
+  map that reuse when `(hh)` is chosen - do not invent a second walker.
+
+- **Preview cost / progressive disclosure.** `(tt)` + `(u)` Built; remaining is measured
+  `(ss)` work and `(r)` Analyze (richer dry-run report, not a cheaper pass).
+
+- **Loud failure vs portability for absolute paths.** `(ww)` Built; `(xx)` / `(yy)` remain the
+  portability + reconnect half of the same family.
+
+- **LayoutScheme axes.** `(gg)` Built (adaptive day folders); `(y)` / `(z)` are further axes on
+  the same seam - do not rebuild routing.
+
 ## Ideas / deferred
 
-> **Sequencing note - four of these share machinery, and picking them one at a time is the
-> expensive order.** `(n)` (explorable why-undated) and `(ii)` (rescue flow) both need the
-> **date-provenance column** and both surface from the same screen; `(gg)` (adaptive day
-> folders) is a third axis on the **same `LayoutScheme` seam** the event axis already uses; and
-> `(hh)` (`adopt`) shares the **walk-and-classify** machinery with `clean-empty`. When the first
-> of them is chosen, map a combined order before building - the schema step and the UI surface
-> are each worth paying for once.
+> **Sequencing note - several of these share machinery, and picking them one at a time is the
+> expensive order.** See **Converged programs** first. `(n)` and `(ii)` (and `(bbb)` recovery /
+> `(kk)` GPSDateStamp) are one date-provenance program; `(hh)` (`adopt`) shares the
+> **walk-and-classify** machinery with shipped `clean-empty`. When the first of a cluster is
+> chosen, map a combined order before building - the schema step and the UI surface are each
+> worth paying for once.
 
 - **(m) Duplicate-cleanup staging UX.** A **preview → confirm → trash (with restore)** flow for
   removing duplicates - the validated safe-delete pattern (same spirit as `reclaim`'s dry-run +
@@ -720,11 +765,13 @@ no composition refactor to schedule.
   - **Positioning:** this is what makes (m) the **Pro-tier crown feature alongside (p)**. The
     safe-delete flow is the table stakes; knowing which copy to keep is the part worth paying
     for.
-- **(n) "How your dates were determined" honesty stat - PRIORITIZED for first post-launch.** A
-  per-run/library figure in the reports/UI showing the **provenance mix** of capture dates - e.g.
-  "82% from embedded EXIF, 11% from filename, 5% from Takeout, 2% Undated" (a metadata-accuracy %).
-  truestill already resolves and could persist `date_source` (see the metadata-chain §1b.3 schema-v9
-  note); surfacing it honestly tells a user how much to trust their timeline, in truestill's voice.
+- **(n) "How your dates were determined" honesty stat - PRIORITIZED for first post-launch.**
+  **Part of the date-provenance program** (see **Converged programs**) - do not build this
+  alone. A per-run/library figure in the reports/UI showing the **provenance mix** of capture
+  dates - e.g. "82% from embedded EXIF, 11% from filename, 5% from Takeout, 2% Undated" (a
+  metadata-accuracy %). truestill already resolves and could persist `date_source` (see the
+  metadata-chain §1b.3 schema-v9 note); surfacing it honestly tells a user how much to trust
+  their timeline, in truestill's voice.
   - **Validated by the UI-v2 walkthrough:** the organize result's "**N no date → Undated**" line
     confused a first user - a bare count with no way in. It must be **explorable**: click it to see
     *which* files were undated and *why* no date was found (which tags were checked, whether a
@@ -798,7 +845,8 @@ no composition refactor to schedule.
 - **(ii) Rescue flow for side-bin and undated files.** Ruled by Dinesh from a soak finding, and
   the finding is the argument: real memories genuinely do sit in `Saved/`, `WhatsApp/` and
   `Undated/` - a photo someone sent you of a day you were there is still your memory - and
-  **today there is no durable way to move one onto the timeline.**
+  **today there is no durable way to move one onto the timeline.** **Part of the date-provenance
+  program** (see **Converged programs**) - do not build this alone.
   - **The problem, precisely.** A hand-move is *undone by the next whole-disk operation*. The
     catalog still records the old location and the old, untrusted date, so `migrate-layout`
     re-renders the file straight back to the bin it was rescued from. The user's correction is
@@ -826,23 +874,8 @@ no composition refactor to schedule.
     so a re-run must not treat the rescue as a new file *or* re-place it by its old evidence.
     The catalog row is the identity; the rescue edits it.
   - **Sequencing: post-arc.** Priority argued **up** by the soak finding - without it, rescuing
-    anything out of a side bin is not merely unsupported but impossible to do durably.
-
-- **(gg) Adaptive day-folder threshold for Everyday photos.** **Built 2026-07-30.**
-  Un-evented days over `layout.everyday_day_threshold` (default 40) get
-  `{yyyy}-{mm}-{dd} - Everyday`; under stay in the monthly bucket. Both-direction migrate
-  reconcile with per-day reasons; Settings warns on threshold change and routes to migrate;
-  app migrate uses `typedConfirm("move")`. Research: `docs/adaptive-day-folder-research.md`.
-  - **Soak finding (2026-07-30), recorded so it is not misread later.** `(gg)` is correct but
-    **rare on real data.** One hit in the full soak catalog: **2013-09-30**, 62 photos,
-    un-evented and non-trip-claimed (still in the monthly Everyday folder until migrate). The
-    **2,057-photo 2014-08 Everyday folder that prompted `(gg)` was explained entirely by the
-    Wayanad trip claim**, not by threshold behaviour - the trip work had already solved that
-    folder. Do not treat `(gg)` as the fix for Aug 2014.
-  - **Product implication (note, do not act on):** heavy days are usually trips or named
-    events, so the threshold mostly guards the residual case - a genuinely busy day that
-    belongs to nothing. Worth having; frequency is low. Any future tuning of the default
-    should be judged against that residual rate, not against the Aug 2014 example.
+    anything out of a side bin is not merely unsupported but impossible to do durably. **Same
+    program as (n) / (bbb) recovery / (kk) GPSDateStamp** - see **Converged programs**.
 
 - **(y) Optional photo / video split - default TOGETHER, and pair-aware or not at all.**
   Post-layout-correction. An opt-in that separates standalone videos into their own top-level
@@ -914,19 +947,16 @@ no composition refactor to schedule.
     any of it ships; the honest answer may be that clones are fine within a drive but must
     never count toward 3-2-1 redundancy.
 
-## App-surface deferrals (CLI-only for now)
+## App-surface deferrals
 
-Recorded together because they share one reason: each is a **space-safe or destructive**
-operation whose failure mode is unrecoverable, and the QA walkthrough's B2 lesson -- a UI
-that reported an outcome it had not produced -- is merely confusing for a copy and permanent
-for a move.
+Copy / Move / Reorganize-in-place and `undo-organize` are **in the app** - see **`(eee)`**.
+What remains CLI-only shares one reason: each is a **space-safe or irreversible** operation
+whose failure mode is permanent, and GUI demand is still judged from soak / launch feedback
+rather than assumed.
 
-- **`organize --move`, `truestill reclaim`, `organize --in-place` + `undo-organize`** stay
-  **CLI-only** until an app surface is explicitly approved. GUI demand is judged from **soak
-  and launch feedback**, not assumed. When one does get a surface, the pre-approved shape is
-  advisory same-device detection plus a typed confirmation identical to the CLI's.
-  **`(eee)` is that soak demand for in-place + undo** - approved to surface, not built yet;
-  `--move` and `reclaim` remain deferred.
+- **`truestill reclaim`** stays **CLI-only** until an app surface is explicitly approved. When
+  one does get a surface, the pre-approved shape is advisory same-device detection plus a typed
+  confirmation identical to the CLI's.
 - **`{camera_model}` layout token** -- demand **re-confirmed by the user** during the soak
   era. Stays **deferred / Pro-tier candidate** as originally recorded in
   `org-structure-research.md` (§C1 "explicitly NOT v1 tokens"): it needs device metadata
