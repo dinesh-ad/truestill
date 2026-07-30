@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import sqlite3
 import subprocess
 import sys
 import threading
@@ -2243,11 +2244,49 @@ def set_layout(template_str: str, db: Path) -> SetLayoutOk | SetLayoutErr:
 _FREE_SPACE_MARGIN = 1.03  # keep a little headroom so a copy never fills the target drive
 
 
-def _files_missing_on_target(catalog: Catalog, source_uuid: str, target_uuid: str) -> list[Any]:
+@dataclass(frozen=True, slots=True)
+class MissingCopy:
+    """One library file still absent on the backup target.
+
+    Carries both hashes deliberately: ``sha256`` is the content/dedup identity, ``copy_sha256``
+    is the verification identity (§3). The copy-verify loop must never treat them as
+    interchangeable - that is why this is a dataclass, not ``list[Any]`` (audit F8).
+    """
+
+    sha256: str
+    relative: str
+    copy_sha256: str | None
+    size: int | None
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> MissingCopy:
+        """Build from a ``copies_on_drive`` or ``organized_files`` catalog row."""
+        size_raw = row["size"]
+        copy_raw = row["copy_sha256"]
+        return cls(
+            sha256=str(row["sha256"]),
+            relative=str(row["relative"]),
+            copy_sha256=None if copy_raw is None else str(copy_raw),
+            size=None if size_raw is None else int(size_raw),
+        )
+
+    @property
+    def verify_sha(self) -> str:
+        """Digest the on-disk copy must match after write (copy hash, else content hash)."""
+        return self.copy_sha256 or self.sha256
+
+
+def _files_missing_on_target(
+    catalog: Catalog, source_uuid: str, target_uuid: str
+) -> list[MissingCopy]:
     """Copies present on the source drive but not yet on the target -- keyed on per-drive presence,
     not the catalog-global dedup that would wrongly skip a genuine second copy."""
     on_target = {r["sha256"] for r in catalog.copies_on_drive(target_uuid)}
-    return [r for r in catalog.copies_on_drive(source_uuid) if r["sha256"] not in on_target]
+    return [
+        MissingCopy.from_row(r)
+        for r in catalog.copies_on_drive(source_uuid)
+        if r["sha256"] not in on_target
+    ]
 
 
 class BackupPreviewErr(TypedDict):
@@ -2309,11 +2348,11 @@ def backup_preview(source: Path, target: Path, db: Path) -> BackupPreviewOk | Ba
         missing = (
             _files_missing_on_target(catalog, src_marker.uuid, tgt_marker.uuid)
             if src_marker is not None and tgt_marker is not None
-            else [dict(r) for r in catalog.organized_files()]
+            else [MissingCopy.from_row(r) for r in catalog.organized_files()]
         )
-    need = sum(int(r["size"] or 0) for r in missing)
+    need = sum(int(r.size or 0) for r in missing)
     free = shutil.disk_usage(target).free
-    breakdown = _media_breakdown([str(r["relative"]) for r in missing])
+    breakdown = _media_breakdown([r.relative for r in missing])
     return {
         "ok": True,
         "from": src.label,
@@ -2360,7 +2399,7 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
             raise ValueError(message)
         with Catalog(db) as catalog:
             missing = _files_missing_on_target(catalog, src_marker.uuid, tgt_marker.uuid)
-            need = sum(int(r["size"] or 0) for r in missing)
+            need = sum(int(r.size or 0) for r in missing)
             free = shutil.disk_usage(target).free
             if free < need * _FREE_SPACE_MARGIN:
                 message = (
@@ -2374,28 +2413,28 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
             for row in missing:
                 if cancel.is_set():
                     break
-                rel = str(row["relative"])
+                rel = row.relative
                 dst = target / rel
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(source / rel, dst)
-                want = row["copy_sha256"] or row["sha256"]
+                want = row.verify_sha
                 if sha256_file(dst) != want:  # verify-after-write; a bad copy is never recorded
                     dst.unlink(missing_ok=True)
                     message = f"copy of {rel} did not verify -- stopping to stay safe."
                     raise ValueError(message)
                 catalog.record_copy(
-                    sha256=str(row["sha256"]),
+                    sha256=row.sha256,
                     drive_uuid=tgt_marker.uuid,
                     relative=rel,
                     copy_sha256=want,
-                    size=int(row["size"] or 0) or None,
+                    size=int(row.size or 0) or None,
                 )
                 catalog.mark_copy_verified(
-                    sha256=str(row["sha256"]), drive_uuid=tgt_marker.uuid, when=_now()
+                    sha256=row.sha256, drive_uuid=tgt_marker.uuid, when=_now()
                 )
                 copied += 1
                 copied_names.append(rel)
-                copied_bytes += int(row["size"] or 0)
+                copied_bytes += int(row.size or 0)
                 progress(Progress(copied, len(missing), Phase.COPYING, Path(rel).name))
             catalog.set_setting(BACKUP_PATH_HINT, str(target))
         breakdown = _media_breakdown(copied_names)
