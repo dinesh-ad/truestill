@@ -99,6 +99,13 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   **Not** pydantic/attrs for internal models - truestill has no untrusted-input API boundary,
   so stdlib dataclasses are the right-sized choice. Validation belongs only at real trust
   boundaries (CLI args, sidecar JSON, catalog reads).
+- **Absolute imports only (standing, 2026-07-30).** Every import under `packages/` is absolute
+  (`from truestill_app.service.fs_browse import …`, `import truestill_app.service.fs_browse`).
+  No relative imports (`from .…`, `from ..…`, `from . import …`). Relative imports are the
+  natural reach during a package split and make each subsequent move harder to reason about -
+  the importing file no longer names where the symbol lives. Enforced by
+  `packages/truestill-app/tests/test_absolute_imports.py`; a guard that has not been seen to
+  fail is not a guard (§4 below).
 - **Typing.** mypy `strict` is mandatory. Full annotations incl. return types; modern syntax
   (`X | None`, `list[str]`, `Self`). No untyped defs. No `type: ignore` without a reason code
   and a comment.

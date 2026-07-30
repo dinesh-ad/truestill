@@ -123,8 +123,7 @@ from truestill_core.undo import UndoError, plan_undo, run_undo
 from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
 
 from truestill_app.jobs import DriveRef, JobTarget
-
-from . import fs_browse as _fs_browse
+from truestill_app.service import fs_browse as _fs_browse
 
 # Browse (folder picker) lives in its own module; bound here so
 # ``from truestill_app.service import fs_dirs`` and ``service.fs_dirs`` stay unchanged.
