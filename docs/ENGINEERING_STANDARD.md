@@ -155,6 +155,34 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
 
   The same shape applies wherever a check is a heuristic over real content: **name the
   look-alikes and pin them**, or the check has a short life.
+- **A guard must still be AIMED at the thing it guards. A monkeypatch targets the module that
+  *owns* the name, never a re-export of it.** The third member of this family, and the one with
+  no symptom: the two rules above are about a guard that cannot fail, this is about a guard that
+  stopped being connected to its subject and reports success either way.
+
+  Python binds names, not references. `from x import f` in module `b` creates `b.f`; patching
+  `a.f` afterwards does not change what `b` calls. So a patch aimed at a facade re-export reaches
+  the real code only while the caller also goes through that facade - and stops the moment the
+  implementation moves, silently, with the test still green.
+
+  *Worked example - the F10 service split, 2026-07-30.* `truestill_app/service.py` became a
+  package whose `__init__.py` is 78 re-export bindings and zero definitions. Two tests patched
+  through it. `tests/e2e/test_busy_state.py` patched `service.migration_preview` while
+  `service/migrate.py` called its own global: the blocking wrapper never ran, so **one** test
+  failed outright and **two** kept passing without exercising the per-drive lock they exist to
+  pin. `test_inventory.py` patched `service.organize_preview` to prove `organize_inventory` never
+  routes through the expensive path - both functions live in `service/organize.py`, so injecting
+  the exact defect it names left the test **green**. Neither was detectable by reading the test:
+  both looked correct and had been correct when written.
+
+  The failing test is the lucky case. The one that keeps passing is the one that costs you a
+  defect later, because nothing ever goes red to say the coverage left.
+
+  **Enforced** by `packages/truestill-app/tests/test_patch_targets_stay_aimed.py`, which reads
+  submodule-ness from the live package rather than a hardcoded list, so a new surface is covered
+  the day it is added; it is pinned against both real defects above and against the correctly
+  aimed forms it must not disturb. Where a seam cannot be checked mechanically, the rule still
+  stands and the aim is a review question.
 - **Errors.** Exceptions typed and specific - no bare `except`. User-facing CLI errors are
   actionable sentences, not tracebacks. Every subprocess call checks its return code and
   surfaces stderr on failure. Partial-failure policy: one bad file never aborts a batch - it

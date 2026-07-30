@@ -112,7 +112,15 @@ def test_inventory_against_the_bug_would_fail_if_preview_were_called(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Mutation check: if organize_inventory accidentally called organize_preview, the
-    expensive-call guard above would fire. Pin that wiring explicitly."""
+    expensive-call guard above would fire. Pin that wiring explicitly.
+
+    Patched on ``service.organize``, the module that owns both functions - **not** on the
+    ``service`` facade, which is where this pointed until the F10 split made it a re-export.
+    ``organize_inventory`` and ``organize_preview`` are neighbours in one module, so an
+    accidental call resolves through that module's globals and never touches the facade
+    binding: with the old target this test passed with the very defect it names injected.
+    Proven by mutation both ways.
+    """
     _write(tmp_path / "a.jpg", b"x")
     seen: list[str] = []
 
@@ -120,6 +128,6 @@ def test_inventory_against_the_bug_would_fail_if_preview_were_called(
         seen.append("preview")
         return {"tier": "dedup", "files": 1, "photos": 1}
 
-    monkeypatch.setattr("truestill_app.service.organize_preview", fake_preview)
+    monkeypatch.setattr("truestill_app.service.organize.organize_preview", fake_preview)
     organize_inventory(tmp_path)
     assert seen == []  # inventory must not route through the full preview
