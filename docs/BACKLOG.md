@@ -18,7 +18,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(xx). Next free: (yy).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(yy). Next free: (zz).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -238,6 +238,26 @@ is invisible here is retired, not free.**
 
     Prefer leaving the cache disposable over a half-portable key until a concrete trigger
     (measured remount pain that loud failures do not cover) appears.
+  - **Not fixed here, on purpose** - recorded only, per instruction.
+
+- **(yy) Reconnect a moved location (Lightroom-style Find Missing Folder).** Ruled by
+  Dinesh 2026-07-30 after research into how Lightroom Classic repairs a moved library -
+  the closest mature analogue. **Record only - do not build yet.** Cross-reference
+  **(xx)** (`files.source_path` absolute).
+  - **Why Lightroom's version works at scale.** Reconnecting the *top-level* missing
+    folder cascades to every subfolder in one action. That cascade is load-bearing: without
+    it, a moved library is a per-folder slog; with it, the fix is roughly two minutes.
+  - **Scope for truestill - narrow on purpose.** Needed **only** for `files.source_path`
+    (and the reclaim / search / near-dup labels that read it). After a move those absolute
+    sources are dead: reclaim reports missing rows instead of offering deletes, and Find /
+    near-dup display cites old paths. **Drive-relative copies need no repair at all** -
+    custody is uuid + `file_copies.relative` under the marker; do not invent a reconnect
+    flow for organized drive trees or anyone will over-build what already survives a remount
+    (see [`moving-machines.md`](moving-machines.md)).
+  - **Design when built.** Point once at the new root; rewrite the stored absolute prefix
+    for every affected `files.source_path` row; preview-then-typed-confirm like every other
+    bulk change in this product; never silent. Cascade from the chosen root the way
+    Lightroom cascades from the top folder - one action, all descendants.
   - **Not fixed here, on purpose** - recorded only, per instruction.
 
 - **(tt) No fast, no-hashing inventory - progressive disclosure is missing.** Ruled by Dinesh

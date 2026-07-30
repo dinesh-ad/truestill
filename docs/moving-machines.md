@@ -5,6 +5,28 @@ folder / mount point) without losing custody of your photos.
 
 ---
 
+## What you do not have to relink
+
+Adobe Lightroom Classic stores **absolute** paths to every photo (including Windows
+drive letters). After you move a library to a new computer or drive letter, the usual
+result is question marks on every folder and every photo. The published advice is
+literally "do not panic," then walk Find Missing Folder / reconnect paths until the
+catalog matches the new location.
+
+Truestill does not work that way for the copies it organizes onto a drive. Those
+locations are stored as **paths relative to the drive**, keyed by the drive's marker
+uuid (the small `.truestill-drive.json` file at the drive root). When the same marked
+tree lands somewhere else, custody is still intact: no question-mark grid, no
+relinking pass, no reconnect step for the organized copies. Point Truestill at the
+new folder, verify, and move on.
+
+That is the important thing **not** to worry about on the new machine. The rest of
+this page is about the catalog file, the marker, and a few absolute paths that are
+*not* part of that custody model (old source folders for reclaim, undo roots, UI
+prefills). Those need care; your organized library copies do not.
+
+---
+
 ## What to copy
 
 1. **Every library drive root**, including the small marker file at the top of that
