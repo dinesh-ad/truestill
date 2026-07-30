@@ -42,6 +42,9 @@ Notes:
 - **Core product shape is shipped:** organize, ingest, dedup, drive identity, verify, backup,
   configurable layout + migration, reclaim, in-place organize + undo, local web UI.
 - **Launch gate is still soak on real library usage.** Work is prioritized by soak findings.
+- **Trademark residual (live pre-monetization obligation):** TruStile Doors remains a low-risk
+  residual in different IC classes; attorney clearance is still required before monetization
+  (full analysis in `DECISIONS.md`).
 - **Recent critical portability/safety posture:** loud failures are in place (stale hints,
   catalog-open visibility, reclaim/undo stale-path messaging); remaining work is portability
   follow-through, not silent safety failures.
@@ -100,7 +103,22 @@ Full wording and enforcement details live in `IMPLEMENTATION_STANDARDS.md` and `
 
 ---
 
-## 5. Where to look up details
+## 5. Easy-to-rediscover traps (keep these cached)
+
+- Density-relative thresholds invert at both extremes (dense days shatter, sparse years fuse),
+  and synthetic fixtures can hide it - see `events-clustering-research.md`.
+- One string cannot express two shapes (event axis, Everyday bucket, effective-layout truth) -
+  see `trip-grouping-research.md` and `migration-routing-research.md`.
+- A fixture that cannot fail against the bug is not a regression guard - run it against the bug;
+  process + examples in `ENGINEERING_STANDARD.md`.
+- UI source assertions do not prove end-to-end flow correctness (the `innerHTML` re-parse case
+  left resume dead; Playwright caught it) - see `IMPLEMENTATION_STANDARDS.md` and `DECISIONS.md`.
+- Measure before optimizing (SHA-256 ~1% wall vs exiftool ~74%) - see `PERFORMANCE.md` and
+  `preview-performance-profile.md`.
+
+---
+
+## 6. Where to look up details
 
 - Product stance and superseded decisions: `DECISIONS.md`
 - Binding engineering/data/process contract: `IMPLEMENTATION_STANDARDS.md`
