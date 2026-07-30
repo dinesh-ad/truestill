@@ -357,7 +357,8 @@ class LayoutTemplate:
         rejected at set/preview time and can never fail a run: unknown tokens, empty segments,
         illegal characters in literal text, and fully-literal segments that are Windows reserved
         names. Data-dependent risks (empty token values, over-length, case collisions) are
-        surfaced by :func:`preview` instead, since they depend on the files being organized.
+        surfaced by :func:`preview_scheme` (via :func:`_preview_rows`) instead, since they
+        depend on the files being organized.
         """
         cleaned = template.strip().strip("/")
         if not cleaned:
@@ -480,22 +481,20 @@ class PreviewRow:
     warnings: tuple[str, ...]
 
 
-def preview(
-    template: LayoutTemplate,
-    contexts: Sequence[RenderContext],
-    *,
-    filename: str = "sample.jpg",
+def _preview_rows(
+    fulls: Sequence[PurePosixPath],
+    render_notes: Sequence[Sequence[str]],
 ) -> list[PreviewRow]:
-    """Render ``contexts`` through ``template`` for the live preview, collecting warnings.
+    """Attach data-dependent path-risk warnings to already-rendered sample paths.
 
-    Surfaces exactly the risks that cannot be judged from the template alone: an empty token
-    value (and where the file then lands), a relative path approaching the Windows length limit,
-    and two samples that collide on a case-insensitive filesystem. All are warnings, not errors:
-    rendering is total, so a run never fails here.
+    Surfaces exactly the risks that cannot be judged from the template alone: notes already
+    collected during render (empty token values), a relative path approaching the Windows
+    length limit, and two samples that collide on a case-insensitive filesystem. All are
+    warnings, not errors: rendering is total, so a run never fails here.
+
+    The single home for "is this path risky" - shared by :func:`preview_scheme` so the rule
+    cannot drift between two copies.
     """
-    rendered = [template._render(c) for c in contexts]
-    fulls = [directory / filename for directory, _ in rendered]
-
     lowered: dict[str, int] = {}
     collisions: set[int] = set()
     for i, full in enumerate(fulls):
@@ -506,7 +505,7 @@ def preview(
         lowered[key] = i
 
     rows: list[PreviewRow] = []
-    for i, (full, (_, notes)) in enumerate(zip(fulls, rendered, strict=True)):
+    for i, (full, notes) in enumerate(zip(fulls, render_notes, strict=True)):
         warnings = list(notes)
         if len(full.as_posix()) > PATH_LENGTH_WARN:
             warnings.append(f"path is {len(full.as_posix())} chars, near the Windows 260 limit")
@@ -990,25 +989,8 @@ def preview_scheme(
         for row in SAMPLE_ROWS
     ]
     fulls = [directory / filename for directory, _ in rendered]
-
-    lowered: dict[str, int] = {}
-    collisions: set[int] = set()
-    for i, full in enumerate(fulls):
-        key = full.as_posix().lower()
-        if key in lowered:
-            collisions.add(i)
-            collisions.add(lowered[key])
-        lowered[key] = i
-
-    out: list[tuple[SampleRow, PreviewRow]] = []
-    for i, (row, full, (_, notes)) in enumerate(zip(SAMPLE_ROWS, fulls, rendered, strict=True)):
-        warnings = list(notes)
-        if len(full.as_posix()) > PATH_LENGTH_WARN:
-            warnings.append(f"path is {len(full.as_posix())} chars, near the Windows 260 limit")
-        if i in collisions:
-            warnings.append("collides with another sample on a case-insensitive filesystem")
-        out.append((row, PreviewRow(path=full, warnings=tuple(warnings))))
-    return out
+    rows = _preview_rows(fulls, [notes for _, notes in rendered])
+    return list(zip(SAMPLE_ROWS, rows, strict=True))
 
 
 #: The layout a run uses when a catalog has chosen nothing. Derived from

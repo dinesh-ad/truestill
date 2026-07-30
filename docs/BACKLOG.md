@@ -434,9 +434,9 @@ is invisible here is retired, not free.**
   - **What remains:** make the rule set an enum so it is exhaustive at the *input* to the router,
     the way `Placement` now is at its output. The two halves are independent; the second is what
     is left.
-- **(cc) Collapse `preview()` into `preview_scheme()`.** `preview()` has no production caller
-  and duplicates the collision + path-length rule character for character (audit F4). Two copies
-  of "is this path risky" will diverge.
+- **(cc) Collapse `preview()` into `preview_scheme()`.** **Built 2026-07-30.** Dead
+  `preview()` deleted; collision + path-length risk lives once in `_preview_rows`, used by
+  `preview_scheme`. Tests retargeted at the shared helper so the rule cannot diverge.
 - **(dd) Extract `execute()`'s per-file body into named steps.** 180 lines coordinating dedup,
   collision suffixing, baking, rename-vs-copy, catalog recording, journalling and
   move-verify-delete. Its own ruff suppressions (`PLR0912`/`PLR0913`/`PLR0915`) admit it. It is

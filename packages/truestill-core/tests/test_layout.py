@@ -10,9 +10,10 @@ from truestill_core.layout import (
     DEFAULT_TEMPLATE,
     KNOWN_TOKENS,
     LayoutTemplate,
+    PreviewRow,
     RenderContext,
     TemplateError,
-    preview,
+    _preview_rows,
     resolve_template,
 )
 
@@ -111,12 +112,21 @@ def test_empty_event_token_drops_its_segment() -> None:
     assert got == "Camera/2023"
 
 
-# -- preview warnings (data-dependent risks) ----------------------------------------------
+# -- preview warnings (data-dependent risks via the shared path-risk helper) --------------
+
+
+def _rows_for(
+    template: str, contexts: list[RenderContext], *, filename: str = "sample.jpg"
+) -> list[PreviewRow]:
+    """Render through a bare template, then the same risk helper ``preview_scheme`` uses."""
+    rendered = [LayoutTemplate.parse(template)._render(c) for c in contexts]
+    fulls = [directory / filename for directory, _ in rendered]
+    return _preview_rows(fulls, [notes for _, notes in rendered])
 
 
 def test_preview_flags_case_collision() -> None:
-    rows = preview(
-        LayoutTemplate.parse("{category}"),
+    rows = _rows_for(
+        "{category}",
         [RenderContext("Beach", None), RenderContext("beach", None)],
         filename="x.jpg",
     )
@@ -124,10 +134,10 @@ def test_preview_flags_case_collision() -> None:
 
 
 def test_preview_flags_empty_token() -> None:
-    rows = preview(LayoutTemplate.parse("{category}/{event}"), [RenderContext("Camera", None)])
+    rows = _rows_for("{category}/{event}", [RenderContext("Camera", None)])
     assert any("event" in w for w in rows[0].warnings)
 
 
 def test_preview_flags_near_limit_path() -> None:
-    rows = preview(LayoutTemplate.parse("{category}"), [RenderContext("x" * 250, None)])
+    rows = _rows_for("{category}", [RenderContext("x" * 250, None)])
     assert any("260" in w for w in rows[0].warnings)
