@@ -2558,6 +2558,19 @@ class MigrationApplySummary(TypedDict):
     elapsed_seconds: NotRequired[float]
 
 
+def _reveal_folder_on_drive(drive_root: Path, relative: str, *, up: int) -> Path:
+    """Absolute folder for a reveal link, from a drive-relative ``file_copies.relative``.
+
+    ``file_copies.relative`` is never an absolute path. Returning its parent alone made
+    ``/api/reveal`` resolve against the server process cwd ((qq)); join to the connected
+    drive mount first. ``up`` is 1 for an event day folder, 2 for a trip header folder.
+    """
+    folder = PurePosixPath(relative)
+    for _ in range(up):
+        folder = folder.parent
+    return drive_root / folder
+
+
 def migration_apply(
     path: Path,
     db: Path,
@@ -2610,7 +2623,7 @@ def migration_apply(
                         "name": event["name"],
                         "start": event["start"],
                         "end": event["end"],
-                        "path": str(PurePosixPath(relative).parent),
+                        "path": str(_reveal_folder_on_drive(path, relative, up=1)),
                     }
                 )
             for trip in named_trips or ():
@@ -2625,7 +2638,7 @@ def migration_apply(
                         "name": trip["name"],
                         "start": trip["start"],
                         "end": trip["end"],
-                        "path": str(PurePosixPath(relative).parent.parent),
+                        "path": str(_reveal_folder_on_drive(path, relative, up=2)),
                     }
                 )
             leftovers = _cleanup_summary_from_old_paths(

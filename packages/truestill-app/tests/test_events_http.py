@@ -6,7 +6,7 @@ import json
 import shutil
 import subprocess
 from datetime import datetime, timedelta
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import pytest
 from PIL import Image
@@ -153,13 +153,13 @@ def _stream_until_done(client: TestClient, job_id: str) -> dict:
 
 
 def test_apply_to_disk_reports_one_row_per_named_group_with_its_real_folder(
-    client: TestClient, tmp_path: Path
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """13.3a: the aggregate "Moved N photos" line is replaced by one row per named group, each
-    carrying its own real destination folder - the data a "reveal in file manager" row needs.
+    """13.3a + (qq): each named group's reveal path is absolute under the drive mount.
 
-    Two events named and applied in one run must produce two EVENT rows, not one aggregate
-    (that is the mutation this fixture guards - see the report for the seen-to-fail-first proof).
+    A drive-relative parent alone makes ``/api/reveal`` resolve against the server cwd and
+    fail. Removing the join in ``_reveal_folder_on_drive`` fails the absolute/under-drive and
+    reveal-ok assertions below (mutation proof).
     """
     src = tmp_path / "src"
     _source(src, [(datetime(2026, 6, 14, 9), 10), (datetime(2026, 6, 21, 9), 10)])
@@ -183,11 +183,34 @@ def test_apply_to_disk_reports_one_row_per_named_group_with_its_real_folder(
     assert {group["kind"] for group in groups} == {"event"}
     by_name = {group["name"]: group for group in groups}
     assert set(by_name) == {"Goa", "Paris"}
+    monkeypatch.setattr(service.shutil, "which", lambda _name: "/usr/bin/true")
+    monkeypatch.setattr(service.subprocess, "Popen", lambda *_a, **_k: None)
     for name, expected_day in (("Goa", "2026-06-14"), ("Paris", "2026-06-21")):
         group = by_name[name]
         assert group["start"].startswith(expected_day)
-        landed = list((drive / group["path"]).glob("*.jpg"))
+        reveal = Path(group["path"])
+        assert reveal.is_absolute()
+        assert reveal.is_relative_to(drive)
+        assert reveal.is_dir()
+        landed = list(reveal.glob("*.jpg"))
         assert len(landed) == 10  # the reported path is the REAL folder, not guessed
+        opened = client.post(f"/api/reveal?token={_TOKEN}", json={"path": group["path"]}).json()
+        assert opened == {"ok": True, "path": group["path"]}
+
+
+def test_mutation_reveal_folder_without_drive_join_is_not_under_the_mount(
+    tmp_path: Path,
+) -> None:
+    """(qq) without the join: a bare relative parent is not under the drive and is not a dir."""
+    drive = tmp_path / "DriveA"
+    relative = "2026/2026-06/2026-06-14 - Goa/photo.jpg"
+    joined = service._reveal_folder_on_drive(drive, relative, up=1)
+    bare = Path(PurePosixPath(relative).parent.as_posix())
+    assert joined == drive / "2026/2026-06/2026-06-14 - Goa"
+    assert not bare.is_absolute() or not bare.is_relative_to(drive)
+    assert bare != joined
+    # The pre-fix shape fed to Path(...).is_dir() against cwd - almost never a real folder.
+    assert not Path(str(PurePosixPath(relative).parent)).is_dir()
 
 
 def test_split_via_http_names_both_halves(client: TestClient, tmp_path: Path) -> None:

@@ -111,35 +111,12 @@ is invisible here is retired, not free.**
 
 - **(qq) The path on a trip/event completion card's reveal link does not open the folder.**
   Ruled by Dinesh from a soak finding, 2026-07-29, from a live trip apply.
-  - **Verified in code, not taken on faith - and the actual defect is more precise than the
-    reported hypothesis.** The reported cause was "a browser cannot open a local filesystem
-    path from a page - this can never work as a plain link," with the fix framed as routing it
-    through the existing reveal endpoint. Checked `app.js` and `server.py` first: the link is
-    **already** `data-open="..."` through the same delegated `/api/reveal` handler the drive
-    cards use (`tripResultCards`, unchanged since 13.3a, `376663f`) - it is not a raw path
-    link, and drive-card reveal (a different code path, see below) does work. The real defect
-    is one layer upstream, in `service.migration_apply`: the trip and event reveal rows both
-    build their `path` field directly from `catalog.sample_relative_for_trip`/
-    `sample_relative_for_event`'s return value - a **drive-relative** path (`file_copies.
-    relative`, e.g. `2014/2014-08/2014-08-15 - Wayanad`) - and never join it to the connected
-    drive's own mount root (the `path` argument `migration_apply` itself was called with).
-    `/api/reveal` then calls `Path("2014/2014-08/...").is_dir()`, which resolves against the
-    **server process's own working directory**, not the drive, almost never exists there, and
-    `reveal_in_file_manager` reports it as `{"ok": false, "error": "... is not a folder that
-    exists."}` - which the click handler renders only as a tooltip `title` + a `warn` CSS
-    class, never a visible banner. A second, narrower instance of the silent-failure pattern
-    `670ab5d` fixed at the `api()`/handler layer, this time one level further down in a single
-    response field.
-  - **Why drive cards are unaffected.** `service.list_drives`'s `path` field comes from
-    `catalog.get_setting(_drive_path_hint(uuid))` - a remembered **absolute** mount path,
-    never a catalog-relative one. Only the `migration_apply` reveal rows (`named_events` and
-    `named_trips` alike) carry the bug.
-  - **Fix:** join `relative`'s parent(s) onto the drive's own mount `path` before putting it in
-    the `path` field `migration_apply` returns - not a routing change, since the routing was
-    already correct.
-  - **Audit scope:** any other place a bare `file_copies.relative`-shaped value reaches
-    `data-open` (or any reveal call) without first being joined to the drive root it came from.
-  - **Not fixed here, on purpose** - recorded only, per instruction.
+  - **Built.** `migration_apply` joins each `file_copies.relative` ancestor onto the connected
+    drive mount before putting it in the reveal `path` field (`_reveal_folder_on_drive`).
+    `/api/reveal` then receives an absolute folder under the drive, not a cwd-relative fragment.
+  - **Audit (same class):** the only other `data-open` / reveal callers are drive cards
+    (`list_drives` path hints - already absolute) and the shared click handler. Find/inventory
+    rows show `relative` as display text only, never as a reveal target. No second site.
 
 - **(rr) A trip/migration apply-to-disk leaves emptied source folders behind and says nothing.**
   - **Built (`7d9830c`, follow-up in Commit 4 of `(eee)`).** Both migrate-layout apply and
