@@ -23,6 +23,12 @@ from typing import Any, Literal, TypedDict
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_startup import inspect_catalog
 from truestill_core.categorize import build_rules
+from truestill_core.cleanup import (
+    emptied_directories,
+    plan_cleanup,
+    run_cleanup,
+    trash_backend,
+)
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import LocalDestination
 from truestill_core.drive import create_marker, locate_drive, path_is_usable_dir, read_marker
@@ -635,6 +641,10 @@ def organize_run(
         completion = _completion(results, effective_destination)
         completion["mode"] = chosen_mode
         completion["mechanism"] = mechanism
+        if chosen_mode in {"move", "inplace"}:
+            cleanup = _cleanup_summary_from_results(results, source)
+            if cleanup is not None:
+                completion["leftover_empty_folders"] = cleanup
         completion["drive_label"] = marker.label
         with Catalog(db) as catalog:
             catalog.set_setting(LIBRARY_PATH_HINT, str(effective_destination))
@@ -699,6 +709,67 @@ def organize_undo(*, db: Path, apply: bool) -> JobTarget:
         }
 
     return target
+
+
+def _cleanup_summary_from_results(
+    results: list[ActionResult], source_root: Path
+) -> dict[str, Any] | None:
+    """Empty-folder leftovers after move/in-place organize, for completion messaging."""
+    moved_sources = [
+        row.resolution.decision.source
+        for row in results
+        if row.status in {ActionStatus.MOVED, ActionStatus.MOVED_IN_PLACE}
+    ]
+    if not moved_sources:
+        return None
+    old_paths: list[str] = []
+    for source in moved_sources:
+        try:
+            old_paths.append(source.relative_to(source_root).as_posix())
+        except ValueError:
+            continue
+    if not old_paths:
+        return None
+    emptied = emptied_directories(old_paths)
+    plan = plan_cleanup(source_root, emptied)
+    leftovers = [candidate.relative for candidate in plan.removable]
+    if not leftovers:
+        return None
+    return {
+        "source_root": str(source_root),
+        "emptied": emptied,
+        "count": len(leftovers),
+        "folders": leftovers,
+    }
+
+
+def clean_empty_preview(path: Path, emptied: list[str]) -> dict[str, Any]:
+    plan = plan_cleanup(path, emptied)
+    backend = trash_backend()
+    return {
+        "ok": True,
+        "path": str(path),
+        "backend": backend,
+        "removable": [candidate.relative for candidate in plan.removable],
+        "occupied": [
+            {"relative": candidate.relative, "contents": list(candidate.contents)}
+            for candidate in plan.occupied
+        ],
+    }
+
+
+def clean_empty_apply(path: Path, emptied: list[str]) -> dict[str, Any]:
+    plan = plan_cleanup(path, emptied)
+    backend = trash_backend()
+    outcome = run_cleanup(path, plan, apply=True, backend=backend, permanent=False)
+    return {
+        "ok": True,
+        "path": str(path),
+        "removed": outcome.removed,
+        "trashed": outcome.trashed,
+        "deleted": outcome.deleted,
+        "failures": outcome.failures,
+    }
 
 
 def _completion(results: list[ActionResult], destination: Path) -> dict[str, Any]:

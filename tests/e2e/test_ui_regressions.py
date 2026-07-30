@@ -227,6 +227,22 @@ def test_reversible_organize_shows_durable_undo_affordance(
     expect(ui.locator("#org-undo-panel")).to_contain_text("Undo the last reversible organize run")
 
 
+@_EXIFTOOL
+def test_move_completion_reports_empty_folders_and_offers_clean_flow(
+    ui: Page, tmp_path: Path
+) -> None:
+    source = tmp_path / "Source"
+    make_photo(source / "nested" / "IMG_0001.jpg", 1)
+    destination = tmp_path / "Library"
+
+    _organize(ui, source, destination, mode="move")
+    result = ui.locator("#org-result")
+    expect(result).to_contain_text("empty folder")
+    expect(result).to_contain_text("nested")
+    ui.click("[data-org-clean-preview]")
+    expect(ui.locator("[data-org-clean-stage] [data-typed-confirm]")).to_be_visible()
+
+
 def test_the_verify_cancel_button_is_wired_to_something(ui: Page, app_server: AppServer) -> None:
     """Verify's Cancel handler was an empty function -- visible, enabled, and inert.
 

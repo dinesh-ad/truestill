@@ -262,6 +262,18 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
         body = await request.json()
         return JSONResponse(service.fs_create(body["path"]))
 
+    async def clean_empty_preview(request: Request) -> JSONResponse:
+        body = await request.json()
+        path = Path(body["path"])
+        emptied = [str(item) for item in body.get("emptied", [])]
+        return JSONResponse(service.clean_empty_preview(path, emptied))
+
+    async def clean_empty_apply(request: Request) -> JSONResponse:
+        body = await request.json()
+        path = Path(body["path"])
+        emptied = [str(item) for item in body.get("emptied", [])]
+        return JSONResponse(service.clean_empty_apply(path, emptied))
+
     async def library_status(_request: Request) -> JSONResponse:
         return JSONResponse(service.library_status(_db(), explicit_db=_explicit_db()))
 
@@ -520,6 +532,8 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
         Route("/api/fs/validate", fs_validate),
         Route("/api/fs/relationship", fs_relationship),
         Route("/api/fs/create", fs_create, methods=["POST"]),
+        Route("/api/clean-empty/preview", clean_empty_preview, methods=["POST"]),
+        Route("/api/clean-empty/apply", clean_empty_apply, methods=["POST"]),
         Route("/api/library/status", library_status),
         Route("/api/layout", layout, methods=["GET", "POST"]),
         Route("/api/layout/preview", layout_preview, methods=["POST"]),

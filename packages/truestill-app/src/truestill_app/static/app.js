@@ -348,6 +348,9 @@ function organizeCompletion(r) {
     notes.push(`<div class="banner warn"><div>${plural(r.failed, "file")} could not be
       ${verb}.</div></div>`);
   }
+  if (r.leftover_empty_folders && r.leftover_empty_folders.count) {
+    notes.push(cleanupOfferNote(r.leftover_empty_folders));
+  }
   return completionCard({
     done: r.cancelled ? "Stopped" : "Done",
     headline: `${nfmt(r.organized || 0)} file${r.organized === 1 ? "" : "s"} ${verb}`
@@ -825,6 +828,7 @@ function setWhy(text) { $("org-why").textContent = text; }
 let orgMode = "copy";
 let orgMechanism = null;
 let orgUndoJob = null;
+let orgCleanupOffer = null;
 
 function currentOrganizeMode() {
   const picked = document.querySelector('input[name="org-mode"]:checked');
@@ -938,6 +942,61 @@ function organizeUndoSkipped(skipped) {
   return `<div class="banner warn"><div><div class="b-title">${plural(skipped.length, "file")} could not be restored</div>
     ${skipped.map((r) => `<div class="mono">${esc(r.relative)} - ${esc(r.detail || r.reason)}</div>`).join("")}
   </div></div>`;
+}
+
+function cleanupOfferNote(cleanup) {
+  if (!cleanup || !cleanup.count) return "";
+  const listed = cleanup.folders.slice(0, 8).map((name) => `<div class="mono">${esc(name)}</div>`).join("");
+  const more = cleanup.folders.length > 8
+    ? `<div class="k">…and ${nfmt(cleanup.folders.length - 8)} more</div>`
+    : "";
+  return `<div class="banner warn"><div>
+    <div class="b-title">${plural(cleanup.count, "empty folder")} left behind</div>
+    <div>Files were restored/moved, but folders are never auto-deleted.</div>
+    ${listed}${more}
+    <div class="actions">
+      <button class="btn btn-secondary" data-org-clean-preview>Review empty-folder cleanup…</button>
+    </div>
+    <div data-org-clean-stage></div>
+  </div></div>`;
+}
+
+async function startOrganizeCleanupPreview(button) {
+  if (!orgCleanupOffer) return;
+  const host = button.closest(".banner");
+  const stage = host ? host.querySelector("[data-org-clean-stage]") : null;
+  if (!stage) return;
+  await withBusy(button, "Checking empty folders…", async () => {
+    const preview = await api("/api/clean-empty/preview", {
+      path: orgCleanupOffer.source_root,
+      emptied: orgCleanupOffer.emptied,
+    });
+    if (!preview.removable.length) {
+      stage.innerHTML = card("<div class='k'>Nothing to remove now.</div>");
+      return;
+    }
+    const where = preview.backend ? `to the trash (${preview.backend})` : "permanently (no trash backend available)";
+    stage.innerHTML = `<div class="k">${plural(preview.removable.length, "folder")} can be removed ${esc(where)}.</div>
+      <details class="more"><summary>Show folders ▾</summary><div class="mono">${preview.removable.map((p) => esc(p)).join("<br>")}</div></details>
+      <div data-org-clean-typed></div>`;
+    typedConfirm(stage.querySelector("[data-org-clean-typed]"), {
+      word: "clean",
+      label: `Type clean to remove ${plural(preview.removable.length, "folder")}`,
+      buttonLabel: "Remove empty folders",
+      onConfirm: async () => {
+        const applied = await api("/api/clean-empty/apply", {
+          path: orgCleanupOffer.source_root,
+          emptied: orgCleanupOffer.emptied,
+        });
+        stage.innerHTML = card(
+          `<div class="headline">Removed ${plural(applied.removed, "folder")}.</div>
+           ${applied.failures && applied.failures.length
+            ? `<div class="banner warn"><div>${applied.failures.map((f) => esc(f)).join("<br>")}</div></div>`
+            : ""}`
+        );
+      },
+    });
+  });
 }
 
 async function startOrganizeUndoPreview() {
@@ -1160,12 +1219,15 @@ async function startOrganizeRun() {
       // A cancelled run still organized everything it reached, and those files are real.
       // Show the same card, labelled honestly, rather than implying nothing happened.
       $("org-result").innerHTML = organizeCompletion({ ...r, cancelled: true });
+      orgCleanupOffer = r.leftover_empty_folders || null;
     } else if (!d.ok) {
       $("org-result").innerHTML = jobErrorCard(d);
+      orgCleanupOffer = null;
     } else {
       $("org-result").innerHTML = r.organized || r.outcomes
         ? organizeCompletion(r)
         : card(`<div class="headline">Nothing to organize</div><div class="k">No new photos or videos were found here.</div>`);
+      orgCleanupOffer = r.leftover_empty_folders || null;
     }
     orgJob = null;
     loadCustody();
@@ -1284,6 +1346,13 @@ document.addEventListener("click", (e) => {
   $(btn.dataset.field).value = btn.dataset.useRoot;
   $(btn.dataset.field).dispatchEvent(new Event("change"));
 });
+
+document.addEventListener("click", guarded(async (e) => {
+  const btn = e.target.closest("[data-org-clean-preview]");
+  if (!btn) return;
+  e.preventDefault();
+  await startOrganizeCleanupPreview(btn);
+}));
 
 // A displayed path is a dead end unless you can get to it. Anything carrying data-open reveals
 // that folder in the desktop's own file manager; a failure says why, because a control that
