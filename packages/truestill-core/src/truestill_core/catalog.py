@@ -1172,6 +1172,27 @@ class Catalog:
         row = self._conn.execute("SELECT trip_id FROM trip_days WHERE day = ?", (day,)).fetchone()
         return int(row["trip_id"]) if row is not None else None
 
+    def unevented_timeline_captured_ats(self) -> list[str]:
+        """ISO capture timestamps for Everyday density counting (Camera, no event, no trip day).
+
+        One SQL pass. Callers feed the strings (or parsed datetimes) into
+        :func:`truestill_core.layout.count_capture_days` together with the current run's
+        un-evented members. ``category = 'Camera'`` matches the default device-rule label;
+        ``--by-device`` libraries that rename the timeline label are a follow-up.
+        """
+        rows = self._conn.execute(
+            """
+            SELECT f.captured_at
+            FROM files f
+            LEFT JOIN trip_days td ON td.day = date(f.captured_at)
+            WHERE f.captured_at IS NOT NULL
+              AND f.event_id IS NULL
+              AND td.day IS NULL
+              AND f.category = 'Camera'
+            """
+        ).fetchall()
+        return [str(row["captured_at"]) for row in rows]
+
     # -- writes --------------------------------------------------------------------
 
     def record_event(

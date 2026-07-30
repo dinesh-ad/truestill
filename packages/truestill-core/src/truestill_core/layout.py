@@ -625,6 +625,79 @@ def heavy_capture_days(
     return frozenset(day for day, n in counts.items() if n > limit)
 
 
+#: Dated Everyday folder (`DAY_BUCKET`). Checked before the monthly form - a day path must not
+#: be mistaken for a month path.
+_DAY_BUCKET_FOLDER = re.compile(r"(?:^|/)(\d{4}-\d{2}-\d{2}) - Everyday(?:/|$)")
+_MONTH_EVERYDAY_FOLDER = re.compile(r"(?:^|/)(\d{4}-\d{2}) - Everyday(?:/|$)")
+
+
+def is_day_bucket_relative(relative: str) -> bool:
+    """Whether ``relative`` sits under a ``YYYY-MM-DD - Everyday`` folder."""
+    return _DAY_BUCKET_FOLDER.search(relative.replace("\\", "/")) is not None
+
+
+def is_month_everyday_relative(relative: str) -> bool:
+    """Whether ``relative`` sits under a monthly ``YYYY-MM - Everyday`` folder (not a day one)."""
+    path = relative.replace("\\", "/")
+    if is_day_bucket_relative(path):
+        return False
+    return _MONTH_EVERYDAY_FOLDER.search(path) is not None
+
+
+def everyday_axis_changed(old_relative: str, new_relative: str) -> bool | None:
+    """Month↔day Everyday transition, or ``None`` when the move is about something else.
+
+    Returns ``True`` when moving **to** a day folder, ``False`` when moving **back** to the
+    monthly bucket.
+    """
+    old_day = is_day_bucket_relative(old_relative)
+    new_day = is_day_bucket_relative(new_relative)
+    old_month = is_month_everyday_relative(old_relative)
+    new_month = is_month_everyday_relative(new_relative)
+    if old_month and new_day:
+        return True
+    if old_day and new_month:
+        return False
+    return None
+
+
+def heavy_days_from_captures(
+    *groups: Sequence[datetime | date | str | None],
+    threshold: int = DEFAULT_EVERYDAY_DAY_THRESHOLD,
+) -> frozenset[str]:
+    """Union several capture-time sequences, count once, return heavy ISO days.
+
+    Accepts datetimes, dates, or ISO strings (catalog rows). **One** :func:`count_capture_days`
+    pass over the combined length - callers must not recount per file afterwards.
+    """
+    combined: list[datetime | date | None] = []
+    for group in groups:
+        for raw in group:
+            if raw is None:
+                continue
+            if isinstance(raw, datetime | date):
+                combined.append(raw)
+            else:
+                combined.append(datetime.fromisoformat(str(raw)))
+    return heavy_capture_days(count_capture_days(combined), threshold=threshold)
+
+
+def everyday_day_reconcile_reason(
+    day: str, count: int, threshold: int, *, to_day_folder: bool
+) -> str:
+    """One never-silent sentence for a day whose Everyday placement is changing."""
+    limit = normalize_everyday_day_threshold(threshold)
+    if to_day_folder:
+        return (
+            f"{day} now has {count} photos, over your threshold of {limit} "
+            "- moving to its own day folder"
+        )
+    return (
+        f"{day} now has {count} photos, at or under your threshold of {limit} "
+        "- moving back into the monthly Everyday folder"
+    )
+
+
 def classify(rule: str, context: RenderContext) -> Placement:
     """**The one router.** Every shape decision in the product is made here, exactly once.
 

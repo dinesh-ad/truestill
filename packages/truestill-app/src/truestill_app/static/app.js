@@ -1939,8 +1939,16 @@ $("mig-preview").onclick = guarded(async () => {
     }
     const r = d.summary;
     if (!r.ok) { $("mig-result").innerHTML = driveError(r, "mig-path"); return; }
+    const dayReasons = (r.day_folder_reasons || []).map((line) => `<div>${esc(line)}</div>`).join("");
+    const dayBlock = dayReasons
+      ? `<div class="banner" style="margin-top:var(--space-3)"><div>
+           <div class="b-title">Everyday day-folder changes</div>${dayReasons}
+         </div></div>`
+      : "";
+    // Reasons sit with the count so month↔day moves are explained before confirm (never bare).
     $("mig-result").innerHTML = card(`<div class="headline">${plural(r.moves.length, "file")} to move</div>
-      <div class="k">${r.unchanged} already in place${r.warnings.length ? " · ⚠ " + esc(r.warnings.join("; ")) : ""}</div>`);
+      <div class="k">${r.unchanged} already in place${r.warnings.length ? " · ⚠ " + esc(r.warnings.join("; ")) : ""}</div>
+      ${dayBlock}`);
     $("mig-run").classList.toggle("hidden", r.moves.length === 0);
   });
 });

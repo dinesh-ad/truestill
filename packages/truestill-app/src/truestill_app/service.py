@@ -85,6 +85,7 @@ from truestill_core.organizer import (
     SourceScan,
     discover,
     execute,
+    heavy_days_for_organize,
     inventory_source,
     media_kind,
     plan,
@@ -546,7 +547,9 @@ def organize_preview(
             files, progress=progress, cancel=cancel, cache=cache, force=refresh_metadata
         )
         scheme = resolve_scheme(catalog)
-        decisions = plan(files, metadata, build_rules(), scheme=scheme)
+        rules = build_rules()
+        heavy = heavy_days_for_organize(catalog, files, metadata, rules)
+        decisions = plan(files, metadata, rules, scheme=scheme, heavy_days=heavy)
         index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
         resolutions = resolve(
             decisions,
@@ -615,7 +618,9 @@ def organize_run(
             metadata = read_metadata(files, progress=progress, cache=cache, force=refresh_metadata)
             pin_existing_layout(catalog)
             scheme = resolve_scheme(catalog)
-            decisions = plan(files, metadata, build_rules(), scheme=scheme)
+            rules = build_rules()
+            heavy = heavy_days_for_organize(catalog, files, metadata, rules)
+            decisions = plan(files, metadata, rules, scheme=scheme, heavy_days=heavy)
             index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
             resolutions = resolve(
                 decisions,
@@ -1132,7 +1137,9 @@ def plan_resolve(source: Path, db: Path) -> tuple[list[Resolution], dict[Path, d
     metadata = read_metadata(files)
     with Catalog(db) as catalog:
         scheme = resolve_scheme(catalog)
-        decisions = plan(files, metadata, build_rules(), scheme=scheme)
+        rules = build_rules()
+        heavy = heavy_days_for_organize(catalog, files, metadata, rules)
+        decisions = plan(files, metadata, rules, scheme=scheme, heavy_days=heavy)
         index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
         resolutions = resolve(decisions, index, catalog_sizes=catalog.known_sizes())
     return resolutions, metadata
@@ -1279,7 +1286,11 @@ def ingest_preview(
     with Catalog(db) as catalog, HashCache.beside(db) as cache:
         metadata = read_metadata(files, progress=progress, cancel=cancel, cache=cache)
         scheme = resolve_scheme(catalog)
-        decisions = plan(files, metadata, build_rules(), takeout=scan.sidecars, scheme=scheme)
+        rules = build_rules()
+        heavy = heavy_days_for_organize(catalog, files, metadata, rules, takeout=scan.sidecars)
+        decisions = plan(
+            files, metadata, rules, takeout=scan.sidecars, scheme=scheme, heavy_days=heavy
+        )
         index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
         resolutions = resolve(
             decisions,
@@ -1838,6 +1849,7 @@ def migration_preview(
         "unchanged": plan.unchanged,
         "moves": [{"old": m.old_relative, "new": m.new_relative} for m in plan.moves],
         "warnings": plan.warnings,
+        "day_folder_reasons": list(plan.day_folder_reasons),
         "pending_drives": pending,
     }
 

@@ -12,6 +12,7 @@ import re
 import sys
 import uuid
 from collections import Counter
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -88,6 +89,7 @@ from truestill_core.organizer import (
     Relocation,
     SourceScan,
     execute,
+    heavy_days_for_organize,
     plan,
     resolve,
     scan_source,
@@ -909,15 +911,26 @@ def _run_pipeline(
         if getattr(args, "apply", False) and pin_existing_layout(catalog):
             print(_PINNED_NOTICE)
         scheme = resolve_scheme(catalog)
+        rules = build_rules(by_device=args.by_device)
+        heavy = heavy_days_for_organize(
+            catalog,
+            files,
+            metadata,
+            rules,
+            takeout=takeout,
+            tz_offset=tz_offset,
+            prefer_takeout=prefer_takeout,
+        )
         decisions = plan(
             files,
             metadata,
-            build_rules(by_device=args.by_device),
+            rules,
             rename=not args.no_rename,
             takeout=takeout,
             tz_offset=tz_offset,
             prefer_takeout=prefer_takeout,
             scheme=scheme,
+            heavy_days=heavy,
         )
         ingest_ctx = _build_ingest_context(decisions, metadata, scan) if scan is not None else None
 
@@ -1424,6 +1437,39 @@ def _print_routing(routes: list[LabelRoute], rules_by_sha: dict[str, str]) -> bo
     return undecided
 
 
+def _print_day_folder_reasons(reasons: Sequence[str]) -> None:
+    if not reasons:
+        return
+    print("\nEveryday day-folder changes:")
+    for reason in reasons:
+        print(f"  {reason}")
+
+
+def _print_migration_plan_preview(plan: Any, mount: Path) -> None:
+    """Relocate count, Everyday day-folder reasons, sample moves, path length, warnings."""
+    print(f"\n{len(plan.moves)} file(s) to relocate, {plan.unchanged} already in place.")
+    # Reasons before the path list so Everyday month↔day moves are never a bare list.
+    _print_day_folder_reasons(plan.day_folder_reasons)
+    for move in plan.moves[:_STATUS_PREVIEW]:
+        print(f"  {move.old_relative}  ->  {move.new_relative}")
+    if len(plan.moves) > _STATUS_PREVIEW:
+        print(f"  ... and {len(plan.moves) - _STATUS_PREVIEW} more")
+
+    # The absolute check, not the relative one: the mount point is part of every path.
+    root_len = len(str(mount).rstrip("/")) + 1
+    longest = max((m.new_relative for m in plan.moves), key=len, default="")
+    if longest:
+        worst = root_len + len(longest)
+        flag = "  ⚠ OVER THE LIMIT" if worst > MAX_PATH else ""
+        print(
+            f"\nLongest path: {worst} chars of {MAX_PATH} (mount {root_len} + {len(longest)}){flag}"
+        )
+        print(f"  {longest}")
+
+    for warning in plan.warnings:
+        print(f"  ! {warning}")
+
+
 def _cmd_migrate_layout(args: argparse.Namespace) -> int:
     marker = _drive_or_explain(args.path)
     if marker is None:
@@ -1452,26 +1498,7 @@ def _cmd_migrate_layout(args: argparse.Namespace) -> int:
 
         print(f"Drive '{marker.label}': layout {scheme.template_for(Placement.EVERYDAY).template}")
         undecided = _print_routing(routes, rules_by_sha)
-
-        print(f"\n{len(plan.moves)} file(s) to relocate, {plan.unchanged} already in place.")
-        for move in plan.moves[:_STATUS_PREVIEW]:
-            print(f"  {move.old_relative}  ->  {move.new_relative}")
-        if len(plan.moves) > _STATUS_PREVIEW:
-            print(f"  ... and {len(plan.moves) - _STATUS_PREVIEW} more")
-
-        # The absolute check, not the relative one: the mount point is part of every path.
-        root_len = len(str(args.path).rstrip("/")) + 1
-        longest = max((m.new_relative for m in plan.moves), key=len, default="")
-        if longest:
-            worst = root_len + len(longest)
-            flag = "  ⚠ OVER THE LIMIT" if worst > MAX_PATH else ""
-            print(
-                f"\nLongest path: {worst} chars of {MAX_PATH} (mount {root_len} + {len(longest)}){flag}"
-            )
-            print(f"  {longest}")
-
-        for warning in plan.warnings:
-            print(f"  ! {warning}")
+        _print_migration_plan_preview(plan, args.path)
 
         others = [d for d in catalog.list_drives() if d["uuid"] != marker.uuid and d["file_count"]]
         for drive in others:

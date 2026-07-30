@@ -33,13 +33,19 @@ from truestill_core.categorize import build_rules, categorize, deterministic_sid
 from truestill_core.destinations.base import Destination, DestinationError
 from truestill_core.exif import ExiftoolMissingError, read_metadata
 from truestill_core.layout import (
+    EVERYDAY_DAY_THRESHOLD_KEY,
     PATH_LENGTH_WARN,
     TIMELINE_RULE,
     EventNaming,
     LayoutScheme,
     RenderContext,
     classify,
+    count_capture_days,
     disambiguate_event_folders,
+    everyday_axis_changed,
+    everyday_day_reconcile_reason,
+    heavy_capture_days,
+    normalize_everyday_day_threshold,
 )
 from truestill_core.progress import Phase, Progress, ProgressCallback
 
@@ -64,6 +70,9 @@ class MigrationPlan:
     moves: list[Move]
     unchanged: int
     warnings: list[str]
+    #: Per affected capture day: why Everyday files are moving between month and day folders.
+    #: Empty when the threshold axis did not change any path. Never a substitute for ``moves``.
+    day_folder_reasons: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -311,6 +320,67 @@ def _disambiguated_folder_notes(
     return [f.note for f in folders if f.note]
 
 
+def _unevented_day_counts(
+    rows: list[Any],
+    routes: dict[str, str],
+    rules_by_sha: dict[str, str] | None,
+) -> dict[str, int]:
+    """One O(n) pass: capture-day counts for timeline files that are not evented or trip-claimed."""
+    unevented_times: list[datetime | None] = []
+    for row in rows:
+        rule = rule_for_row(row, routes, rules_by_sha)
+        if rule != TIMELINE_RULE:
+            continue
+        if row["trip_id"] is not None:
+            continue
+        if row["event_slug"] and row["event_start"]:
+            continue
+        unevented_times.append(_parse_dt(row["captured_at"]))
+    return count_capture_days(unevented_times)
+
+
+def _render_migration_relative(
+    row: Any,
+    scheme: LayoutScheme,
+    routes: dict[str, str],
+    rules_by_sha: dict[str, str] | None,
+    heavy_days: frozenset[str],
+) -> tuple[str, str, str | None]:
+    """Return ``(current, new_relative, day_key)`` for one migration row."""
+    current = str(row["relative"])
+    filename = PurePosixPath(current).name
+    rule = rule_for_row(row, routes, rules_by_sha)
+    event = None
+    event_name = None
+    if row["event_slug"] and row["event_start"]:
+        event = (_parse_dt(row["event_start"]), str(row["event_slug"]))
+        event_name = row["event_name"]
+    trip = None
+    trip_name = None
+    if row["trip_id"] is not None and rule == TIMELINE_RULE:
+        trip = (_parse_dt(row["trip_start"]), str(row["trip_slug"]))
+        trip_name = row["trip_name"]
+    captured_at = _parse_dt(row["captured_at"])
+    heavy_day = False
+    day_key: str | None = None
+    if rule == TIMELINE_RULE and trip is None and event is None and captured_at is not None:
+        day_key = captured_at.date().isoformat()
+        heavy_day = day_key in heavy_days
+    directory = scheme.render(
+        rule,
+        RenderContext(
+            category=str(row["category"]),
+            captured_at=captured_at,
+            event=event,  # type: ignore[arg-type]
+            event_name=event_name,
+            trip=trip,  # type: ignore[arg-type]
+            trip_name=trip_name,
+            heavy_day=heavy_day,
+        ),
+    )
+    return current, (directory / filename).as_posix(), day_key
+
+
 def plan_migration(
     catalog: Catalog,
     drive_uuid: str,
@@ -338,6 +408,11 @@ def plan_migration(
     folder exactly as an organize run would. Same asymptotic cost: O(events + trips) either way,
     since the old code also built its lookup dict in one pass.
 
+    Everyday day-folder density is counted in **one** pass over the rows
+    (:func:`_unevented_day_counts`), then each file is an O(1) membership check - never a
+    recount per file. ``day_folder_reasons`` names each affected day with its count and the
+    threshold.
+
     ``progress`` fires once per copy with ``total = len(rows)`` known before the loop
     (:attr:`Phase.PLANNING`), distinct from the exif re-derivation phase. ``cancel`` stops the
     walk early; the partial plan is returned and writes nothing (this function is pure).
@@ -347,49 +422,24 @@ def plan_migration(
     headers = _migration_headers(rows, scheme, routes, rules_by_sha)
     header_notes = _disambiguated_folder_notes(headers)
 
+    threshold = normalize_everyday_day_threshold(catalog.get_setting(EVERYDAY_DAY_THRESHOLD_KEY))
+    day_counts = _unevented_day_counts(rows, routes, rules_by_sha)
+    heavy_days = heavy_capture_days(day_counts, threshold=threshold)
+
     moves: list[Move] = []
     unchanged = 0
     warnings: list[str] = list(header_notes)
-    targets: dict[str, str] = {}  # lower(new) -> new, to spot case-insensitive collisions
+    day_axis: dict[str, bool] = {}
+    targets: dict[str, str] = {}
     total = len(rows)
 
     for index, row in enumerate(rows):
         if cancel is not None and cancel.is_set():
             break
-        current = str(row["relative"])
-        filename = PurePosixPath(current).name
-        rule = rule_for_row(row, routes, rules_by_sha)
-        event = None
-        event_name = None
-        if row["event_slug"] and row["event_start"]:
-            event = (_parse_dt(row["event_start"]), str(row["event_slug"]))
-            event_name = row["event_name"]
-        trip = None
-        trip_name = None
-        # Gated on the row's OWN rule, unlike `event` above: `trip_days` is joined day-keyed (any
-        # file captured that day, any category), where `event_id` can only ever be set on a
-        # Camera cluster's own files by construction. Without this, a same-day screenshot or
-        # WhatsApp file would be pulled into the trip's day folder -- §2's own table keeps "Side
-        # bin" a column separate from "Trip", and `LayoutTemplate._render` appends trip segments
-        # whenever `context.trip` is set, regardless of which placement's template is rendering.
-        if row["trip_id"] is not None and rule == TIMELINE_RULE:
-            trip = (_parse_dt(row["trip_start"]), str(row["trip_slug"]))
-            trip_name = row["trip_name"]
-        directory = scheme.render(
-            rule,
-            RenderContext(
-                category=str(row["category"]),
-                captured_at=_parse_dt(row["captured_at"]),
-                event=event,  # type: ignore[arg-type]  # start parsed to datetime above
-                event_name=event_name,
-                trip=trip,  # type: ignore[arg-type]  # start parsed to datetime above
-                trip_name=trip_name,
-                # `classify` gives a trip-claimed day unconditional precedence over `event`
-                # (Stage 2d §2/§13.2), so `event` being set here too for a dissolved event's rows
-                # is harmless -- it is never consulted once `trip` is set.
-            ),
+        current, new_relative, day_key = _render_migration_relative(
+            row, scheme, routes, rules_by_sha, heavy_days
         )
-        new_relative = (directory / filename).as_posix()
+        filename = PurePosixPath(current).name
         if new_relative == current:
             unchanged += 1
         else:
@@ -400,10 +450,24 @@ def plan_migration(
             if len(new_relative) > PATH_LENGTH_WARN:
                 warnings.append(f"{new_relative} is near the Windows 260-char limit")
             moves.append(Move(str(row["sha256"]), current, new_relative, row["copy_sha256"]))
+            axis = everyday_axis_changed(current, new_relative)
+            if axis is not None and day_key is not None:
+                day_axis[day_key] = axis
         if progress is not None:
             progress(Progress(index + 1, total, Phase.PLANNING, filename))
 
-    return MigrationPlan(drive_uuid=drive_uuid, moves=moves, unchanged=unchanged, warnings=warnings)
+    day_folder_reasons = tuple(
+        everyday_day_reconcile_reason(day, day_counts[day], threshold, to_day_folder=to_day)
+        for day, to_day in sorted(day_axis.items())
+        if day in day_counts
+    )
+    return MigrationPlan(
+        drive_uuid=drive_uuid,
+        moves=moves,
+        unchanged=unchanged,
+        warnings=warnings,
+        day_folder_reasons=day_folder_reasons,
+    )
 
 
 def _matches(destination: Destination, relative: str, expected_sha: str | None) -> bool:

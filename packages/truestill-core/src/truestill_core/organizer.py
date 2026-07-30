@@ -32,9 +32,12 @@ from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import sha256_file
 from truestill_core.layout import (
     DEFAULT_SCHEME,
+    EVERYDAY_DAY_THRESHOLD_KEY,
     TIMELINE_RULE,
     LayoutScheme,
     RenderContext,
+    heavy_days_from_captures,
+    normalize_everyday_day_threshold,
 )
 from truestill_core.models import (
     ActionResult,
@@ -306,6 +309,7 @@ def build_relative(
     *,
     rule: str = TIMELINE_RULE,
     scheme: LayoutScheme = DEFAULT_SCHEME,
+    heavy_day: bool = False,
 ) -> PurePosixPath:
     """Return the destination-relative path for a non-event file.
 
@@ -313,11 +317,20 @@ def build_relative(
     photos goes to the timeline, every other rule to a labelled side bin. Label routing would
     break ``--by-device``, where the label is the hardware name rather than ``Camera``.
 
+    ``heavy_day`` is the caller-computed Everyday density flag
+    (`docs/adaptive-day-folder-research.md`); this function does not count.
+
     There is deliberately no template-only path. A scheme is always present -- a library that
     has chosen nothing gets :data:`DEFAULT_SCHEME` -- so routing cannot be silently skipped,
     which is exactly what an optional ``scheme`` parameter allowed.
     """
-    return scheme.render(rule, RenderContext(category=label, captured_at=captured_at)) / filename
+    return (
+        scheme.render(
+            rule,
+            RenderContext(category=label, captured_at=captured_at, heavy_day=heavy_day),
+        )
+        / filename
+    )
 
 
 def build_destination(
@@ -328,13 +341,55 @@ def build_destination(
     *,
     rule: str,
     scheme: LayoutScheme = DEFAULT_SCHEME,
+    heavy_day: bool = False,
 ) -> Path:
     """Absolute local path for a file. Convenience for local previews and tests.
 
     ``rule`` is required rather than defaulted: routing keys on it, so a caller that omitted it
     would silently get timeline placement for a screenshot or a WhatsApp image.
     """
-    return root / build_relative(label, captured_at, filename, rule=rule, scheme=scheme)
+    return root / build_relative(
+        label, captured_at, filename, rule=rule, scheme=scheme, heavy_day=heavy_day
+    )
+
+
+def heavy_days_for_organize(
+    catalog: Catalog,
+    files: Sequence[Path],
+    metadata: dict[Path, dict[str, Any]],
+    rules: tuple[Rule, ...] | None = None,
+    *,
+    takeout: dict[Path, TakeoutSidecar] | None = None,
+    tz_offset: timedelta | None = None,
+    prefer_takeout: bool = False,
+) -> frozenset[str]:
+    """ISO days over the Everyday threshold for this organize run (catalog and source).
+
+    One categorize/date pass over ``files`` plus the catalog's unevented Camera captures, then a
+    single :func:`count_capture_days` - not a per-file recount. Threshold comes from the catalog
+    setting (default 40).
+    """
+    takeout = takeout or {}
+    threshold = normalize_everyday_day_threshold(catalog.get_setting(EVERYDAY_DAY_THRESHOLD_KEY))
+    incoming: list[datetime | None] = []
+    for path in files:
+        meta = metadata.get(path, {})
+        category = categorize(path, meta, rules)
+        if category.rule != TIMELINE_RULE:
+            continue
+        captured_at, _, _ = resolve_capture_datetime(
+            path,
+            meta,
+            takeout=takeout.get(path),
+            tz_offset=tz_offset,
+            prefer_takeout=prefer_takeout,
+        )
+        incoming.append(captured_at)
+    return heavy_days_from_captures(
+        catalog.unevented_timeline_captured_ats(),
+        incoming,
+        threshold=threshold,
+    )
 
 
 def plan(
@@ -347,6 +402,7 @@ def plan(
     tz_offset: timedelta | None = None,
     prefer_takeout: bool = False,
     scheme: LayoutScheme = DEFAULT_SCHEME,
+    heavy_days: frozenset[str] | None = None,
 ) -> list[Decision]:
     """Produce one :class:`Decision` per file. Touches nothing on disk.
 
@@ -354,9 +410,11 @@ def plan(
     ``YYYYMMDD_HHMMSS_<original>`` from the same date evidence used for placement; the
     original source file is never touched. ``takeout`` supplies rescued sidecar dates (Takeout
     ingestion); ``tz_offset``/``prefer_takeout`` control how those interact with EXIF.
-    ``template`` is the destination layout (the catalog's, or the default).
+    ``heavy_days`` is the ISO-day set already computed by the caller (catalog and this run);
+    event membership is applied later and wins over a heavy-day flag at render time.
     """
     takeout = takeout or {}
+    heavy = heavy_days or frozenset()
     decisions: list[Decision] = []
     for path in files:
         meta = metadata.get(path, {})
@@ -374,6 +432,8 @@ def plan(
             time_known=date_source is DateSource.EXIF,
             enabled=rename,
         )
+        day_key = captured_at.date().isoformat() if captured_at is not None else None
+        heavy_day = category.rule == TIMELINE_RULE and day_key is not None and day_key in heavy
         decisions.append(
             Decision(
                 source=path,
@@ -389,6 +449,7 @@ def plan(
                         new_name,
                         rule=category.rule,
                         scheme=scheme,
+                        heavy_day=heavy_day,
                     )
                 ),
             )

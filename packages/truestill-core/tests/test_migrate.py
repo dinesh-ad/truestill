@@ -16,7 +16,13 @@ from truestill_core.destinations.local import LocalDestination
 from truestill_core.drive import MARKER_NAME
 from truestill_core.exif import ExiftoolMissingError
 from truestill_core.hashing import sha256_file
-from truestill_core.layout import EventNaming, LayoutScheme, LayoutTemplate
+from truestill_core.layout import (
+    DEFAULT_EVERYDAY_DAY_THRESHOLD,
+    DEFAULT_SCHEME,
+    EventNaming,
+    LayoutScheme,
+    LayoutTemplate,
+)
 from truestill_core.migrate import (
     ROUTE_TIMELINE,
     Move,
@@ -1045,3 +1051,124 @@ def test_preview_run_emits_both_scanning_and_planning_phases(
     assert "scanning" in phases
     assert "planning" in phases
     assert phases.index("scanning") < phases.index("planning")
+
+
+# --- backlog (gg): Everyday day-folder threshold reconcile ---------------------------------
+
+
+def test_migrate_month_to_day_states_count_and_threshold_per_day(tmp_path: Path) -> None:
+    """Over-threshold unevented day in the monthly bucket moves once, with a named reason."""
+    root = tmp_path / "drive"
+    day = "2014-08-17"
+    n = DEFAULT_EVERYDAY_DAY_THRESHOLD + 1
+    rows = [
+        (
+            f"2014/2014-08/2014-08 - Everyday/img_{i:03d}.jpg",
+            "Camera",
+            f"{day}T10:{i % 60:02d}:00",
+            f"payload-{i}".encode(),
+        )
+        for i in range(n)
+    ]
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        catalog.upsert_drive(uuid="D1", label="Drive A")
+        _seed(catalog, root, "D1", rows)
+        plan = plan_migration(catalog, "D1", DEFAULT_SCHEME, routes={"Camera": ROUTE_TIMELINE})
+    assert len(plan.moves) == n
+    assert all("2014-08-17 - Everyday" in m.new_relative for m in plan.moves)
+    assert all("2014-08 - Everyday" in m.old_relative for m in plan.moves)
+    assert plan.day_folder_reasons == (
+        (
+            f"{day} now has {n} photos, over your threshold of {DEFAULT_EVERYDAY_DAY_THRESHOLD} "
+            "- moving to its own day folder"
+        ),
+    )
+
+
+def test_migrate_day_to_month_states_count_and_threshold_per_day(tmp_path: Path) -> None:
+    """Under-threshold day folder coalesces back to monthly Everyday, with the reverse reason."""
+    root = tmp_path / "drive"
+    day = "2014-08-18"
+    n = 5
+    rows = [
+        (
+            f"2014/2014-08/{day} - Everyday/img_{i:03d}.jpg",
+            "Camera",
+            f"{day}T11:{i % 60:02d}:00",
+            f"under-{i}".encode(),
+        )
+        for i in range(n)
+    ]
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        catalog.upsert_drive(uuid="D1", label="Drive A")
+        _seed(catalog, root, "D1", rows)
+        plan = plan_migration(catalog, "D1", DEFAULT_SCHEME, routes={"Camera": ROUTE_TIMELINE})
+    assert len(plan.moves) == n
+    assert all("2014-08 - Everyday" in m.new_relative for m in plan.moves)
+    assert plan.day_folder_reasons == (
+        (
+            f"{day} now has {n} photos, at or under your threshold of "
+            f"{DEFAULT_EVERYDAY_DAY_THRESHOLD} - moving back into the monthly Everyday folder"
+        ),
+    )
+
+
+def test_migrate_unchanged_day_produces_no_moves_and_no_reason(tmp_path: Path) -> None:
+    """Already correctly placed: no churn."""
+    root = tmp_path / "drive"
+    day = "2014-08-19"
+    n = DEFAULT_EVERYDAY_DAY_THRESHOLD + 1
+    rows = [
+        (
+            f"2014/2014-08/{day} - Everyday/img_{i:03d}.jpg",
+            "Camera",
+            f"{day}T12:{i % 60:02d}:00",
+            f"ok-{i}".encode(),
+        )
+        for i in range(n)
+    ]
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        catalog.upsert_drive(uuid="D1", label="Drive A")
+        _seed(catalog, root, "D1", rows)
+        plan = plan_migration(catalog, "D1", DEFAULT_SCHEME, routes={"Camera": ROUTE_TIMELINE})
+    assert plan.moves == []
+    assert plan.unchanged == n
+    assert plan.day_folder_reasons == ()
+
+
+def test_migrate_both_directions_in_one_reconcile_pass(tmp_path: Path) -> None:
+    """One plan: month→day when over, day→month when under; one reason each."""
+    root = tmp_path / "drive"
+    over_day = "2014-08-15"
+    under_day = "2014-08-16"
+    over_n = DEFAULT_EVERYDAY_DAY_THRESHOLD + 1
+    under_n = 3
+    rows = [
+        (
+            f"2014/2014-08/2014-08 - Everyday/over_{i:03d}.jpg",
+            "Camera",
+            f"{over_day}T09:{i % 60:02d}:00",
+            f"over-{i}".encode(),
+        )
+        for i in range(over_n)
+    ] + [
+        (
+            f"2014/2014-08/{under_day} - Everyday/under_{i:03d}.jpg",
+            "Camera",
+            f"{under_day}T09:{i % 60:02d}:00",
+            f"under-{i}".encode(),
+        )
+        for i in range(under_n)
+    ]
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        catalog.upsert_drive(uuid="D1", label="Drive A")
+        _seed(catalog, root, "D1", rows)
+        plan = plan_migration(catalog, "D1", DEFAULT_SCHEME, routes={"Camera": ROUTE_TIMELINE})
+    assert len(plan.moves) == over_n + under_n
+    assert len(plan.day_folder_reasons) == 2
+    assert plan.day_folder_reasons[0].startswith(over_day)
+    assert "over your threshold" in plan.day_folder_reasons[0]
+    assert f"{over_n} photos" in plan.day_folder_reasons[0]
+    assert plan.day_folder_reasons[1].startswith(under_day)
+    assert "at or under your threshold" in plan.day_folder_reasons[1]
+    assert f"{under_n} photos" in plan.day_folder_reasons[1]
