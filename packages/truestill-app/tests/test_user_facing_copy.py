@@ -121,6 +121,9 @@ _SERVICE_USER_FACING: tuple[Path, ...] = (
     REPO / "packages/truestill-app/src/truestill_app/service/__init__.py",
     REPO / "packages/truestill-app/src/truestill_app/service/fs_browse.py",
     REPO / "packages/truestill-app/src/truestill_app/service/stats.py",
+    REPO / "packages/truestill-app/src/truestill_app/service/drives.py",
+    REPO / "packages/truestill-app/src/truestill_app/service/backup.py",
+    REPO / "packages/truestill-app/src/truestill_app/service/organize.py",
 )
 _USER_FACING_TEXT = tuple(
     path

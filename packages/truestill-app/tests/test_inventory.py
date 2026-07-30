@@ -64,12 +64,12 @@ def test_inventory_does_not_call_exiftool_or_hashing(
         raise RuntimeError
 
     # Patch where the service (and scan workers) would see them if inventory leaked.
-    monkeypatch.setattr("truestill_app.service.read_metadata", boom_exif)
+    monkeypatch.setattr("truestill_app.service.organize.read_metadata", boom_exif)
     monkeypatch.setattr(exif_mod, "read_metadata", boom_exif)
     monkeypatch.setattr(hashing_mod, "sha256_file", boom_sha)
     monkeypatch.setattr(hashing_mod, "perceptual_hash", boom_phash)
     monkeypatch.setattr(scan_mod, "compute_hashes", boom_compute)
-    monkeypatch.setattr("truestill_app.service.resolve", boom_compute)
+    monkeypatch.setattr("truestill_app.service.organize.resolve", boom_compute)
 
     result = organize_inventory(tmp_path)
     assert set(result) == {
