@@ -25,7 +25,13 @@ import os
 import threading
 from collections import Counter
 from collections.abc import Sequence
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from concurrent.futures import (
+    BrokenExecutor,
+    Future,
+    ProcessPoolExecutor,
+    ThreadPoolExecutor,
+    as_completed,
+)
 from pathlib import Path
 from typing import Literal
 
@@ -46,13 +52,27 @@ def _hash_one(args: tuple[str, bool]) -> tuple[str, str | None, str | None]:
 
     Module-level and picklable so it works under a ProcessPoolExecutor. SHA-256 is computed
     only when ``need_sha`` is set (the size pre-filter's decision); perceptual hashing is
-    attempted for every file and simply returns None for non-images.
+    attempted for every file and simply returns None for non-images. An unreadable path
+    returns ``(path, None, None)`` so one bad file cannot abort the batch.
     """
     path_str, need_sha = args
     path = Path(path_str)
-    sha = sha256_file(path) if need_sha else None
-    perceptual = perceptual_hash(path)
+    try:
+        sha = sha256_file(path) if need_sha else None
+        perceptual = perceptual_hash(path)
+    except OSError:
+        return path_str, None, None
     return path_str, sha, perceptual
+
+
+def _take_hash_result(
+    future: Future[tuple[str, str | None, str | None]],
+) -> tuple[str, str | None, str | None] | None:
+    """Unpack one worker future, or ``None`` when the process pool itself has died."""
+    try:
+        return future.result()
+    except BrokenExecutor:
+        return None
 
 
 def _mtime_ns(path: Path) -> int:
@@ -82,6 +102,47 @@ def _needs_sha(sizes: dict[Path, int], catalog_sizes: frozenset[int]) -> set[Pat
     """Files that must be SHA-256'd: size shared within the scan, or known to the catalog."""
     counts = Counter(sizes.values())
     return {path for path, size in sizes.items() if counts[size] > 1 or size in catalog_sizes}
+
+
+def _run_hash_jobs(
+    to_hash: list[Path],
+    need_sha: set[Path],
+    sizes: dict[Path, int],
+    *,
+    pool: PoolKind,
+    workers: int,
+    progress: ProgressCallback | None,
+    cancel: threading.Event | None,
+    cache: HashCache | None,
+    results: dict[Path, FileHashes],
+    done: int,
+    total: int,
+) -> None:
+    """Hash ``to_hash`` into ``results``, defending one unreadable file and a dead process pool."""
+    jobs = [(str(path), path in need_sha) for path in to_hash]
+    executor_cls = ProcessPoolExecutor if pool == "process" else ThreadPoolExecutor
+    with executor_cls(max_workers=max(1, workers)) as executor:
+        futures = [executor.submit(_hash_one, job) for job in jobs]
+        for future in as_completed(futures):
+            if cancel is not None and cancel.is_set():
+                for pending in futures:
+                    pending.cancel()
+                break
+            got = _take_hash_result(future)
+            if got is None:
+                # Pool death is not an OSError; abandon remaining work with empty hashes.
+                for path in to_hash:
+                    results.setdefault(path, FileHashes(None, None))
+                break
+            path_str, sha, perceptual = got
+            path = Path(path_str)
+            hashes = FileHashes(sha256=sha, perceptual=perceptual)
+            results[path] = hashes
+            if cache is not None and (sha is not None or perceptual is not None):
+                cache.put(path, sizes.get(path, -1), _mtime_ns(path), hashes)
+            done += 1
+            if progress is not None:
+                progress(Progress(done, total, Phase.HASHING, Path(path_str).name))
 
 
 def compute_hashes(
@@ -132,22 +193,17 @@ def compute_hashes(
             # a completed phase instantly rather than a bar that never moves.
             progress(Progress(done, total, Phase.HASHING, ""))
 
-    jobs = [(str(path), path in need_sha) for path in to_hash]
-    executor_cls = ProcessPoolExecutor if pool == "process" else ThreadPoolExecutor
-    with executor_cls(max_workers=max(1, workers)) as executor:
-        futures = [executor.submit(_hash_one, job) for job in jobs]
-        for future in as_completed(futures):
-            if cancel is not None and cancel.is_set():
-                for pending in futures:
-                    pending.cancel()
-                break
-            path_str, sha, perceptual = future.result()
-            path = Path(path_str)
-            hashes = FileHashes(sha256=sha, perceptual=perceptual)
-            results[path] = hashes
-            if cache is not None:
-                cache.put(path, sizes.get(path, -1), _mtime_ns(path), hashes)
-            done += 1
-            if progress is not None:
-                progress(Progress(done, total, Phase.HASHING, Path(path_str).name))
+    _run_hash_jobs(
+        to_hash,
+        need_sha,
+        sizes,
+        pool=pool,
+        workers=workers,
+        progress=progress,
+        cancel=cancel,
+        cache=cache,
+        results=results,
+        done=done,
+        total=total,
+    )
     return results
