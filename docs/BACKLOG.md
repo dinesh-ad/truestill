@@ -18,7 +18,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab). Next free: (aac).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aac). Next free: (aad).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -28,6 +28,19 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved, not yet built
+
+- **(aac) Organize must name and count unreadable source files the way verify does.** Ruled by
+  Dinesh, 2026-07-30, from the Pass 1 F2/F1 asymmetry left after the code-quality audit.
+  **Record only - do not fix in the same pass that closed F1/F2.**
+  - **What shipped.** F1 gave `verify` `CopyStatus.UNREADABLE`, a count, and filenames on CLI
+    and app. F2 kept `compute_hashes` alive on an unreadable source (empty hashes +
+    `BrokenExecutor` guard) so an organize preview/run no longer aborts the whole pass.
+  - **What is still silent.** Empty hashes mean no dedup identity and **no user-facing line**.
+    A locked or `EIO` file in the source tree vanishes from the report; quieter than F1's old
+    crash, same never-silent class (`IMPLEMENTATION_STANDARDS.md` §9).
+  - **Requirement.** Organize preview and run summaries must count and name unreadable
+    sources the same way verify reports unreadable copies. Do not treat empty hashes as a
+    finished answer.
 
 - **(oo) Long-running actions must show they are running.** Ruled by Dinesh from a soak
   finding, 2026-07-29, same class as the silent-failure gap fixed in `670ab5d` - that one hid
