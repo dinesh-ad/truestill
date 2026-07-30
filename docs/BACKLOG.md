@@ -18,7 +18,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff). Next free: (aab).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab). Next free: (aac).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -73,34 +73,19 @@ is invisible here is retired, not free.**
   - **Not fixed here, on purpose** - recorded only, per instruction.
 
 - **(uu) CORRECTNESS: non-Apple videos with only UTC `CreateDate` are filed as local wall-clock.**
-  Ruled by Dinesh from a discovery pass, 2026-07-29. **Record only - fix needs its own research
-  pass; do not smuggle a conversion into the date chain without that design.**
-  - **The defect.** Video containers (MP4/MOV/QuickTime) store `CreateDate` /
-    `MediaCreateDate` / `TrackCreateDate` in **UTC per spec**; still photos store local time.
-    truestill's chain prefers `DateTimeOriginal` then Apple `CreationDate` (local + offset,
-    offset dropped once - correct and tested), then falls through to the UTC `*CreateDate`
-    family and treats those digits **as local with no conversion** (`dates.py` /
-    `parse_exif_datetime`). Same class of bug as PhotoPrism #1388, Lightroom, Immich: a video
-    and a photo shot together land hours apart, and near midnight on different calendar days.
-  - **Measured on the soak corpus** (`/home/dinesh/TruestillLibrary/Output`, 3 videos):
-    - `MVI_2550.MOV` (Canon): `DateTimeOriginal` wins → aligned with nearby JPGs (~0 delta).
-    - `VID_20140817_102145.mp4` (Android/Saved): no `CreationDate`/DTO; catalog
-      `2014-08-17T04:54:24` vs photo `IMG_20140817_102129.jpg` at `10:21:29` → **~5.5h early**.
-    - `VID_20140817_155317.mp4`: same pattern; catalog `10:25:33` vs photo
-      `IMG_20140817_155241.jpg` at `15:52:46` → **~5.5h early**.
-    - **No day-folder / trip-day split in this corpus** only because the shoots were midday IST
-      (+5:30). A clip after ~18:30 IST would land on the **previous** day - wrong day folder,
-      outside its trip day.
-  - **Candidate signals for a later design (not a prescription):** (1) filename-local time
-    (`VID_YYYYMMDD_HHMMSS` matched the photos here; osxphotos-style single-conversion rules
-    apply - do not double-shift); (2) `GPSDateStamp` as a UTC reference (unread today; backlog
-    `(kk)` already wants it persisted as a dead-clock cross-check); (3) a contemporaneous-photo
-    heuristic when a video sits hours from photos minutes away by filename.
-  - **Documented trap - do not walk into it:** EXIF `OffsetTime` corresponds to the
-    **modification** date (`ModifyDate`), not the original. Using it to convert
-    `DateTimeOriginal` is wrong. Prefer `OffsetTimeOriginal` if that tag is ever added; never
-    borrow `OffsetTime` for capture time.
-  - **Not fixed here, on purpose** - recorded only, per instruction.
+  Ruled by Dinesh from a discovery pass, 2026-07-29. **Built (2026-07-30).** Evidence ladder
+  after Apple `CreationDate`: MakerNotes `TimeZone`, GPS UTC proof (wired, unexercised by
+  corpus), filename+duration (half-hour grid, unique match, ε=3s). `DateSource.INFERRED_LOCAL`
+  + parseable `date_tag`; fallthrough is `CreateDate|not_proven_utc` (treated as local, usually
+  correct - not a defect). Never-silent report names file + before/after + offset. Canon
+  `MVI_2550.MOV` regression pin stays **14:28:39** via `DateTimeOriginal`. Stills untouched.
+  Rung 5 corroboration-only. Mutation tests lock unique-match, duration, half-hour grid, and
+  messenger refusal. **Do not blanket-convert** - cameras often write local into CreateDate.
+  - **The defect (historical).** Video containers store `CreateDate` in UTC per spec; many
+    cameras write local instead. Treating digits as local without evidence mis-dates Android
+    clips ~5.5h early (IST soak); near midnight, wrong day/trip folder.
+  - **Documented trap - do not walk into it:** EXIF `OffsetTime` is modification time, never
+    use it to convert `DateTimeOriginal`.
 
 - **(pp) No in-app undo for a trip/migration apply-to-disk - CLI-only today, and the visible
   in-app "undo" is the wrong one.** Ruled by Dinesh from a soak finding, 2026-07-29.
@@ -443,6 +428,16 @@ is invisible here is retired, not free.**
 - **(ff) Typed payloads at the app boundary.** `service.py` returns `dict[str, Any]` 27 times.
   This is not theoretical: the `dict(PRESETS)` regression - dataclasses about to be serialized
   into the API - was invisible to mypy precisely because the return type was `Any`.
+- **(aab) Split `dates.py` - it has crossed the same line as `layout.py`.** Flagged during the
+  `(uu)` video-UTC ship (2026-07-30). ~720 lines holding tag priority, EXIF/filename parsing,
+  Tier A/B sentinels, messenger refusal, provenance `date_tag` encode/decode, the five-rung
+  video ladder, half-hour offset grid, and duration/GPS helpers. Same pattern `(ee)` called out
+  for `layout.py` (too many jobs in one module). Proposed boundary: keep
+  `resolve_capture_datetime` + embedded/filename tiers in `dates.py`; move video ladder +
+  offset grid + `LadderHit` rungs to `video_utc.py` (or `dates_video.py`); keep provenance
+  formatters with the ladder or a tiny `date_provenance.py` shared with `models` report helpers
+  (today `models` reimplements a thin offset formatter to avoid an import cycle - that is the
+  tell). **Do not do this as a drive-by inside a correctness fix.**
 
 - **GPS-derived per-photo timezone.** Deferred during Takeout Rescue Mode. `--tz` is a single
   fixed offset for the whole run, which cannot correctly date a library that spans timezones;

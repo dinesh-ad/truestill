@@ -15,11 +15,14 @@ from truestill_core.dates import (
     FILENAME_OFFSET_MAX,
     FILENAME_OFFSET_STEP,
     NOT_PROVEN_UTC,
+    LadderHit,
     gps_confirms_utc,
     parse_duration,
     parse_inferred_date_tag,
     resolve_capture_datetime,
     stills_corroborate_local,
+    try_rung_filename_duration,
+    try_rung_timezone,
     unique_filename_offset,
 )
 from truestill_core.exif import REQUESTED_TAGS
@@ -68,10 +71,14 @@ def test_rung2_timezone_shifts_container_utc() -> None:
     assert tag == "CreateDate|TimeZone|+06:30"
 
 
-def test_canon_with_dto_stays_at_142839_regression() -> None:
-    # Pin: a feature that fixes two Android clips must not move the Canon file.
+def test_canon_mvi_2550_stays_at_142839_regression() -> None:
+    """REGRESSION: Canon ``MVI_2550.MOV`` must stay 14:28:39 through the (uu) change.
+
+    DateTimeOriginal wins over CreateDate+TimeZone. A feature that fixes two Android clips
+    and moves this file is not a fix.
+    """
     when, source, tag = resolve_capture_datetime(
-        Path("20140817_142839_MVI_2550.MOV"),
+        Path("MVI_2550.MOV"),
         {
             "DateTimeOriginal": "2014:08:17 14:28:39",
             "CreateDate": "2014:08:17 07:58:39",
@@ -131,8 +138,25 @@ def test_rung4_second_android_clip() -> None:
 
 
 def test_messenger_wa_filename_is_not_an_offset_source() -> None:
+    # Native WhatsApp dash form has no HHMMSS device stamp - stays not_proven_utc.
     when, source, tag = resolve_capture_datetime(
         Path("VID-20140817-WA0001.mp4"),
+        {
+            "CreateDate": "2014:08:17 04:54:24",
+            "Duration": "0:02:38",
+            "MIMEType": "video/mp4",
+        },
+    )
+    assert when == datetime(2014, 8, 17, 4, 54, 24)
+    assert source is DateSource.EXIF
+    assert tag == f"CreateDate|{NOT_PROVEN_UTC}"
+
+
+def test_messenger_embedded_device_stamp_is_refused_as_offset_source() -> None:
+    # FB_VID_YYYYMMDD_HHMMSS is a messenger name that *contains* a device-local stamp.
+    # Without the messenger refusal it would become an offset source (mutation-tested).
+    when, source, tag = resolve_capture_datetime(
+        Path("FB_VID_20140817_102145.mp4"),
         {
             "CreateDate": "2014:08:17 04:54:24",
             "Duration": "0:02:38",
@@ -220,6 +244,26 @@ def test_unique_match_refuses_when_two_offsets_fit() -> None:
     # Widen epsilon until a neighbouring half-hour also fits -> refuse.
     wide = timedelta(minutes=35)
     assert unique_filename_offset(create, filename, duration, epsilon=wide) is None
+
+
+def test_rungs_are_independent_typed_attempts() -> None:
+    """Each converting rung returns LadderHit | None; orchestration is a sequence, not nests."""
+    create = datetime(2014, 8, 17, 7, 58, 39)
+    tz_hit = try_rung_timezone({"TimeZone": "+06:30"}, create)
+    assert isinstance(tz_hit, LadderHit)
+    assert tz_hit.local == datetime(2014, 8, 17, 14, 28, 39)
+    assert tz_hit.evidence == "TimeZone"
+
+    assert try_rung_timezone({}, create) is None
+
+    fn_hit = try_rung_filename_duration(
+        Path("VID_20140817_102145.mp4"),
+        {"CreateDate": "2014:08:17 04:54:24", "Duration": "0:02:38"},
+        datetime(2014, 8, 17, 4, 54, 24),
+    )
+    assert isinstance(fn_hit, LadderHit)
+    assert fn_hit.offset == timedelta(hours=5, minutes=30)
+    assert fn_hit.evidence == "filename:VID_"
 
 
 def test_parse_duration_shapes() -> None:

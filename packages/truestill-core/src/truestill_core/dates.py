@@ -574,42 +574,62 @@ def _timezone_from_metadata(metadata: dict[str, Any]) -> timedelta | None:
         return None
 
 
+class LadderHit(NamedTuple):
+    """Typed result of one video-UTC ladder rung: local wall-clock + offset + evidence token."""
+
+    local: datetime
+    offset: timedelta
+    evidence: str
+
+
+def try_rung_timezone(metadata: dict[str, Any], create_utc: datetime) -> LadderHit | None:
+    """Rung 2: MakerNotes ``TimeZone`` shifts container UTC to camera-local."""
+    tz = _timezone_from_metadata(metadata)
+    if tz is None:
+        return None
+    return LadderHit(local=create_utc + tz, offset=tz, evidence="TimeZone")
+
+
+def try_rung_filename_duration(
+    path: Path, metadata: dict[str, Any], create_utc: datetime
+) -> LadderHit | None:
+    """Rung 4: unique half-hour match of filename local (+duration) against CreateDate."""
+    device = device_filename_local(path.name)
+    if device is None:
+        return None
+    filename_local, fn_evidence = device
+    duration = parse_duration(metadata.get("Duration"))
+    offset = unique_filename_offset(create_utc, filename_local, duration)
+    if offset is None:
+        return None
+    return LadderHit(local=filename_local, offset=offset, evidence=fn_evidence)
+
+
 def _infer_video_local(
     path: Path,
     metadata: dict[str, Any],
     create_utc: datetime,
     container_tag: str,
 ) -> _Candidate | None:
-    """Apply the video UTC ladder; return an inferred candidate or None to leave as local.
+    """Apply the video UTC ladder as an ordered sequence of named rung attempts.
 
-    Rungs: (2) TimeZone, (3) GPS proves UTC only, (4) filename+duration. Rung 5 is a
-    separate corroboration helper and never chooses an offset here.
+    Rung 1 (CreationDate) wins earlier in ``DATE_TAGS`` and never reaches here.
+    Rung 3 (GPS) only enriches evidence - it never invents an offset.
+    Rung 5 (stills) is a separate corroboration helper and is not called here.
     """
     gps_ok = gps_confirms_utc(metadata, create_utc)
-
-    tz = _timezone_from_metadata(metadata)
-    if tz is not None:
-        evidence = "GPSDateStamp+TimeZone" if gps_ok else "TimeZone"
+    for hit in (
+        try_rung_timezone(metadata, create_utc),
+        try_rung_filename_duration(path, metadata, create_utc),
+    ):
+        if hit is None:
+            continue
+        evidence = f"GPSDateStamp+{hit.evidence}" if gps_ok else hit.evidence
         return _Candidate(
-            create_utc + tz,
+            hit.local,
             DateSource.INFERRED_LOCAL,
-            format_inferred_date_tag(container_tag, evidence, tz),
+            format_inferred_date_tag(container_tag, evidence, hit.offset),
         )
-
-    device = device_filename_local(path.name)
-    if device is not None:
-        filename_local, fn_evidence = device
-        duration = parse_duration(metadata.get("Duration"))
-        offset = unique_filename_offset(create_utc, filename_local, duration)
-        if offset is not None:
-            evidence = f"GPSDateStamp+{fn_evidence}" if gps_ok else fn_evidence
-            return _Candidate(
-                filename_local,
-                DateSource.INFERRED_LOCAL,
-                format_inferred_date_tag(container_tag, evidence, offset),
-            )
-
-    # GPS alone proves UTC-ness but supplies no offset - leave digits as local.
     return None
 
 
