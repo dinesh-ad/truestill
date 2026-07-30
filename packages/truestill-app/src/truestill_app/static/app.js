@@ -1204,16 +1204,18 @@ async function startOrganizeUndoApply() {
     });
     undoProgress.stop();
     orgUndoJob = null;
-    if (!d.ok) {
-      $("org-undo-stage").innerHTML = jobErrorCard(d);
-    } else {
-      $("org-undo-stage").innerHTML = card(
-        `<div class="headline">Restored ${plural(d.summary.restored, "file")}.</div>
-         ${organizeUndoSkipped(d.summary.skipped)}`
-      );
-      loadCustody();
-    }
+    const summaryHtml = d.ok
+      ? card(
+          `<div class="headline">Restored ${plural(d.summary.restored, "file")}.</div>
+           ${organizeUndoSkipped(d.summary.skipped)}`
+        )
+      : jobErrorCard(d);
+    if (d.ok) loadCustody();
     await refreshOrganizeUndoAffordance();
+    // Prepend the outcome without re-parsing the armed card: assigning panel.innerHTML
+    // would wipe the outcome refreshOrganizeUndoAffordance just cleared (spent journal) or
+    // rewrote (still armed after a failed apply) - the migrate-undo twin fixed this first.
+    $("org-undo-panel").insertAdjacentHTML("afterbegin", summaryHtml);
   });
 }
 

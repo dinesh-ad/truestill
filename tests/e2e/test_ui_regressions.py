@@ -237,6 +237,32 @@ def test_reversible_organize_shows_durable_undo_affordance(
 
 
 @_EXIFTOOL
+def test_organize_undo_apply_keeps_the_restored_outcome_visible(
+    ui: Page, tmp_path: Path, library
+) -> None:
+    """(F0) Apply must leave "Restored N files" on screen.
+
+    refreshOrganizeUndoAffordance clears the panel after a spent journal. Writing the outcome
+    into #org-undo-stage and then refreshing wiped it - the migrate-undo twin already uses
+    insertAdjacentHTML after the refresh. This click-through is the coverage that was missing.
+    """
+    source = library(3, name="Source")
+    destination = tmp_path / "Library"
+    _organize(ui, source, destination, mode="move")
+
+    ui.click("#org-undo-preview")
+    expect(ui.locator("#org-undo-stage [data-typed-confirm]")).to_be_visible(timeout=60_000)
+    ui.fill("#org-undo-stage [data-typed-confirm]", "undo")
+    ui.click("#org-undo-stage [data-typed-go]")
+
+    panel = ui.locator("#org-undo-panel")
+    expect(panel).to_contain_text("Restored", timeout=60_000)
+    expect(panel).to_contain_text("3 files")
+    # The armed affordance is spent; the outcome must still be the thing the user reads.
+    expect(panel).not_to_contain_text("Undo the last reversible organize run")
+
+
+@_EXIFTOOL
 def test_move_completion_reports_empty_folders_and_offers_clean_flow(
     ui: Page, tmp_path: Path
 ) -> None:
