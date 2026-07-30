@@ -11,11 +11,13 @@ backed up last month is caught against that month's original. Only files matchin
 tier are considered genuinely new.
 
 Perceptual lookup is a linear scan (a 64-bit XOR + popcount per known image), which makes the
-matching pass O(n^2) in the number of images. Measured, that is 0.7s for 10,000 images and
-still the cheapest thing in the pipeline -- a BK-tree today would be machinery bought before
-the problem. So the scan stays, and :data:`LINEAR_SCAN_ALARM` makes the trigger announce
-itself to whoever actually crosses it rather than leaving it in a document nobody reads. The
-swap, when it is due, fits behind this module's interface unchanged.
+matching pass O(n^2) in the number of images. Measured on the curve in ``docs/PERFORMANCE.md``
+§3: **0.72 s at 2,275 images, 13.5 s at 10,000** (AMD Ryzen 7 4800H, Linux, Python 3.13). At
+10,000 it is no longer the cheapest stage in a cold preview - that is exactly why
+:data:`LINEAR_SCAN_ALARM` fires there. A BK-tree today would still be machinery bought before
+most libraries need it, so the scan stays and the alarm announces the crossing to whoever
+actually hits it rather than leaving the trigger only in a document. The swap, when it is due,
+fits behind this module's interface unchanged.
 """
 
 from __future__ import annotations
