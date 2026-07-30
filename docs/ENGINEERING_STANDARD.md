@@ -60,14 +60,32 @@ passed; only the Playwright e2e caught it.
 
 When you need to know how something behaves, consult in this order and stop when answered:
 
-1. **Official docs / RFCs / language references.**
-2. **Upstream issue trackers & maintainer responses** - especially for tools that already
-   fought the battle you're fighting (the failure modes are catalogued there).
-3. **Existing patterns in this repo** - reuse the helper that exists; don't duplicate it.
-4. **Mature-project practice** - how well-run projects solve it.
+1. **This repo's own docs** - they outrank everything else for product and contract questions.
+   `IMPLEMENTATION_STANDARDS.md` wins on conflict; then `DECISIONS.md`, `BACKLOG.md`,
+   `PROJECT_STATUS.md`, and dated `docs/*-research.md` records. A research record is not
+   rewritten to stay current; when it and the contract disagree, the contract wins.
+2. **The source itself** - read the code; claim behaviour with `file:line`, never from memory.
+3. **Official docs / RFCs / language references** (free and public).
+4. **Upstream issue trackers & maintainer responses** on free public forges - especially for
+   tools that already fought the battle you're fighting (the failure modes are catalogued there).
+5. **Existing patterns in this repo** - reuse the helper that exists; don't duplicate it.
+6. **Mature-project practice** visible in free public sources - how well-run projects solve it.
 
 Forbidden: asserting library behaviour without verifying it; copying a stale blog pattern;
 re-implementing something the repo already has.
+
+### 3.1 No paid third-party research or tooling (standing, 2026-07-30)
+
+**Do not use, authenticate, or suggest any paid third-party service** for research or agent
+work. That includes parallel.ai, commercial research APIs, hosted tools that require an
+account or API key, and anything that would add a paid dependency or credential prompt. This
+is **in addition to** the no-new-dependency rule (§4 Dependencies): even a free trial that
+needs signup is out.
+
+Research is done from: this repo's docs, the source, and **free public** sources. If a question
+cannot be answered without a paid service, **STOP and report the gap plainly** - that is a
+legitimate answer. Do not sign up, do not prompt for credentials, do not add the service as a
+dependency, and do not treat "I could look it up on a paid API" as progress.
 
 ## 4. Code standard
 

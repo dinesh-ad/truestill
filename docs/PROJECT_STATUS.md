@@ -92,6 +92,8 @@ narrative, or volatile counts.
 
 - **Staged workflow:** one requested step at a time; no silent run-ahead.
 - **Research-first + conflict-first:** flag spec/engineering conflicts before coding.
+  Research sources: repo docs (outrank), source, free public only - **no paid third-party
+  research APIs or hosted tools** (`ENGINEERING_STANDARD.md` §3.1).
 - **Dry-run default:** writes happen only on explicit apply paths.
 - **Never push unless asked.**
 - **Commit identity policy:** `dinesh-ad`; no co-author/AI signature trailers.
