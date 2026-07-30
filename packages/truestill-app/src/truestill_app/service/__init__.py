@@ -1262,36 +1262,6 @@ def at_risk(db: Path) -> list[AtRiskRow]:
         ]
 
 
-def _format_counts(catalog: Catalog) -> dict[str, int]:
-    """Counts by extension from one aggregate SQL pass over catalog names."""
-    extensions = sorted({ext.lstrip(".").lower() for ext in MEDIA_EXTENSIONS})
-    case_parts: list[str] = []
-    params: list[str] = []
-    for ext in extensions:
-        case_parts.append("WHEN name LIKE ? THEN ?")
-        params.extend([f"%.{ext}", ext])
-    row_sql = "\n".join(case_parts) if case_parts else "ELSE ''"
-    sql = f"""
-        WITH named AS (
-            SELECT lower(COALESCE(original_name, relative, source_path, '')) AS name
-            FROM files
-        )
-        SELECT ext, COUNT(*) AS count
-        FROM (
-            SELECT CASE
-                {row_sql}
-                ELSE ''
-            END AS ext
-            FROM named
-        )
-        WHERE ext != ''
-        GROUP BY ext
-        ORDER BY count DESC, ext
-    """
-    rows = catalog._conn.execute(sql, params).fetchall()
-    return {str(row["ext"]): int(row["count"]) for row in rows}
-
-
 class LibraryStatsDrive(TypedDict):
     label: str
     files: int
@@ -1360,18 +1330,8 @@ def library_stats(db: Path) -> LibraryStats:
         drives = catalog.list_drives()
         near_flagged = catalog.stats_near_duplicate_flagged_count()
         undated_samples = catalog.stats_undated_samples(limit=12)
-        format_counts = _format_counts(catalog)
-        zero_drive_rows = catalog._conn.execute(
-            """
-            SELECT COALESCE(original_name, sha256) AS name
-            FROM files f
-            WHERE NOT EXISTS (
-                SELECT 1 FROM file_copies fc WHERE fc.sha256 = f.sha256
-            )
-            ORDER BY processed_at DESC
-            LIMIT 12
-            """
-        ).fetchall()
+        format_counts = catalog.stats_counts_by_format(MEDIA_EXTENSIONS)
+        zero_drive_samples = catalog.stats_zero_drive_samples(limit=12)
 
     image_exts = {ext.lstrip(".").lower() for ext in IMAGE_EXTENSIONS}
     video_exts = {ext.lstrip(".").lower() for ext in VIDEO_EXTENSIONS}
@@ -1390,7 +1350,7 @@ def library_stats(db: Path) -> LibraryStats:
             "files_on_two_plus_drives": int(summary["files_on_two_plus_drives"] or 0),
             "files_on_one_drive": int(summary["files_on_one_drive"] or 0),
             "files_on_zero_drives": int(summary["files_on_zero_drives"] or 0),
-            "zero_drive_samples": [str(row["name"]) for row in zero_drive_rows],
+            "zero_drive_samples": zero_drive_samples,
             "never_verified_files": int(summary["never_verified_files"] or 0),
             "drives": [
                 {

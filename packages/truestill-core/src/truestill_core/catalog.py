@@ -12,7 +12,7 @@ One row per processed source file, keyed by SHA-256.
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Collection, Iterator, Sequence
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -951,6 +951,55 @@ class Catalog:
                 (limit,),
             )
         )
+
+    def stats_counts_by_format(self, extensions: Collection[str]) -> dict[str, int]:
+        """How many catalog files match each media extension (one aggregate SQL pass).
+
+        ``extensions`` is the caller's media set (e.g. ``MEDIA_EXTENSIONS``); Catalog does not
+        own the taxonomy. Empty / blank names are ignored. Ordered by count desc, then ext.
+        """
+        normalized = sorted({ext.lstrip(".").lower() for ext in extensions if ext.strip()})
+        case_parts: list[str] = []
+        params: list[str] = []
+        for ext in normalized:
+            case_parts.append("WHEN name LIKE ? THEN ?")
+            params.extend([f"%.{ext}", ext])
+        row_sql = "\n".join(case_parts) if case_parts else "ELSE ''"
+        sql = f"""
+            WITH named AS (
+                SELECT lower(COALESCE(original_name, relative, source_path, '')) AS name
+                FROM files
+            )
+            SELECT ext, COUNT(*) AS count
+            FROM (
+                SELECT CASE
+                    {row_sql}
+                    ELSE ''
+                END AS ext
+                FROM named
+            )
+            WHERE ext != ''
+            GROUP BY ext
+            ORDER BY count DESC, ext
+        """
+        rows = self._conn.execute(sql, params).fetchall()
+        return {str(row["ext"]): int(row["count"]) for row in rows}
+
+    def stats_zero_drive_samples(self, *, limit: int = 12) -> list[str]:
+        """Display names of files that have no ``file_copies`` row (nowhere on a drive)."""
+        rows = self._conn.execute(
+            """
+            SELECT COALESCE(original_name, sha256) AS name
+            FROM files f
+            WHERE NOT EXISTS (
+                SELECT 1 FROM file_copies fc WHERE fc.sha256 = f.sha256
+            )
+            ORDER BY processed_at DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+        return [str(row["name"]) for row in rows]
 
     def clear_setting(self, key: str) -> None:
         """Remove a setting, so "absent" and "explicitly empty" never diverge.

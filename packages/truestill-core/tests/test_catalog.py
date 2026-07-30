@@ -158,3 +158,49 @@ def test_setting_overwrites_and_missing_is_none(tmp_path: Path) -> None:
         catalog.set_setting("k", "second")
         assert catalog.get_setting("k") == "second"
         assert catalog.get_setting("never-set") is None
+
+
+def test_stats_counts_by_format_and_zero_drive_samples(tmp_path: Path) -> None:
+    """F6: format tallies and zero-drive samples the stats view expects, via Catalog methods."""
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        catalog.upsert_drive(uuid="A", label="Drive A")
+        catalog.record_uploaded(
+            source_path="/src/a.jpg",
+            original_name="a.jpg",
+            sha256="sha-a",
+            copy_sha256="sha-a",
+            perceptual=None,
+            size=100,
+            captured_at="2020-01-01T10:00:00",
+            category="Camera",
+            relative="2020/a.jpg",
+            drive_uuid="A",
+        )
+        catalog.record_uploaded(
+            source_path="/src/b.mp4",
+            original_name="b.mp4",
+            sha256="sha-b",
+            copy_sha256="sha-b",
+            perceptual=None,
+            size=200,
+            captured_at="2021-01-01T10:00:00",
+            category="Camera",
+            relative="2021/b.mp4",
+            drive_uuid="A",
+        )
+        catalog.record_uploaded(
+            source_path="/src/orphan.jpg",
+            original_name="orphan.jpg",
+            sha256="sha-orphan",
+            copy_sha256="sha-orphan",
+            perceptual=None,
+            size=50,
+            captured_at=None,
+            category="Saved",
+            relative="Saved/orphan.jpg",
+            drive_uuid=None,
+        )
+        counts = catalog.stats_counts_by_format([".jpg", ".mp4", ".wav"])
+        assert counts == {"jpg": 2, "mp4": 1}
+        assert catalog.stats_zero_drive_samples(limit=12) == ["orphan.jpg"]
+        assert catalog.stats_zero_drive_samples(limit=0) == []
