@@ -646,7 +646,18 @@ async function loadCustody() {
     : places === 0 ? "not on a backup drive yet"
     : `safe in ${places} place${places > 1 ? "s" : ""}`;
   // deliberate two lines (counts, then safety) so nothing orphans at the 232px sidebar width
-  line.innerHTML = `<b>${s.files ? mediaCount(s) : "0 photos"}</b><br><span class="safe">${safe}</span>`;
+  const catalogPath = s.catalog_path
+    ? `<div class="k mono" title="Catalog file this app opened">${esc(s.catalog_path)}</div>`
+    : "";
+  // First-run (will_create) is calm info; empty_with_drives is the only alert-looking case.
+  let catalogNote = "";
+  if (s.catalog_detail) {
+    const cls = s.catalog_tone === "alert" ? "banner warn" : "k";
+    catalogNote = s.catalog_tone === "alert"
+      ? `<div class="${cls}"><div>${esc(s.catalog_detail)}</div></div>`
+      : `<div class="${cls}">${esc(s.catalog_detail)}</div>`;
+  }
+  line.innerHTML = `<b>${s.files ? mediaCount(s) : "0 photos"}</b><br><span class="safe">${safe}</span>${catalogPath}${catalogNote}`;
 }
 
 // ---------- folder picker ----------

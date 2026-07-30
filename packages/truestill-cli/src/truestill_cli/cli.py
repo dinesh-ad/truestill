@@ -17,6 +17,13 @@ from pathlib import Path
 from typing import Any
 
 from truestill_core.catalog import Catalog
+from truestill_core.catalog_startup import (
+    DEFAULT_CATALOG_PATH,
+    CatalogPresence,
+    db_flag_explicit,
+    format_startup_lines,
+    inspect_catalog,
+)
 from truestill_core.categorize import build_rules
 from truestill_core.cleanup import (
     CleanupPlan,
@@ -102,7 +109,7 @@ from truestill_cli import __version__
 from truestill_cli.events_review import Prompt, album_prompt, run_event_stage
 
 _SEPARATOR = "=" * 100
-_DEFAULT_DB = Path("reports/catalog.sqlite")
+_DEFAULT_DB = DEFAULT_CATALOG_PATH
 
 #: Said once, on the run that pins an existing library's layout. It states what was recorded
 #: and how to change it, because a settings write the user did not ask for must never be silent.
@@ -1573,7 +1580,16 @@ def _cmd_reclaim(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     """Run the CLI. Returns a process exit code."""
-    args = _build_parser().parse_args(argv)
+    argv_list = list(argv) if argv is not None else sys.argv[1:]
+    args = _build_parser().parse_args(argv_list)
+    if hasattr(args, "db"):
+        info = inspect_catalog(args.db, explicit_db=db_flag_explicit(argv_list))
+        for line in format_startup_lines(info):
+            # empty_with_drives is the only loud case; first-run stays on stdout.
+            stream = (
+                sys.stderr if info.presence is CatalogPresence.EMPTY_WITH_DRIVES else sys.stdout
+            )
+            print(line, file=stream, flush=True)
     dispatch = {
         "organize": _cmd_organize,
         "ingest": _cmd_ingest,

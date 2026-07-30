@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from starlette.testclient import TestClient
 from truestill_app.server import create_app
+from truestill_core.catalog import Catalog
 
 _TOKEN = "tok"
 
@@ -22,6 +23,20 @@ def test_library_status_is_honest_when_empty(client: TestClient) -> None:
     assert s["photos"] == 0
     assert s["videos"] == 0
     assert s["places"] == 0  # honest zero -> "not backed up yet", never a fake count
+    assert s["catalog_path"].endswith("c.sqlite")
+    assert s["catalog_presence"] in ("will_create", "empty")  # created on open may flip
+    assert "error" not in (s.get("catalog_detail") or "").lower()
+
+
+def test_library_status_empty_with_drives_is_alert(client: TestClient, tmp_path: Path) -> None:
+    db = tmp_path / "c.sqlite"
+    with Catalog(db) as catalog:
+        catalog.upsert_drive(uuid="D1", label="Cabinet")
+    s = client.get("/api/library/status").json()
+    assert s["catalog_presence"] == "empty_with_drives"
+    assert s["catalog_tone"] == "alert"
+    assert "0 files but 1 drive" in s["catalog_detail"]
+    assert s["files"] == 0
 
 
 def _seed_media(db: Path) -> None:

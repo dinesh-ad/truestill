@@ -20,6 +20,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Literal, TypedDict
 
 from truestill_core.catalog import Catalog
+from truestill_core.catalog_startup import inspect_catalog
 from truestill_core.categorize import build_rules
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import LocalDestination
@@ -999,16 +1000,20 @@ def fs_validate(path_str: str, *, cap: int = 10000) -> dict[str, Any]:
 # --- library custody status (the sidebar's always-true status line) -------------------
 
 
-def library_status(db: Path) -> dict[str, Any]:
-    """Honest, catalog-driven totals for the custody strip. Zeros when the catalog is empty."""
+def library_status(db: Path, *, explicit_db: bool = False) -> dict[str, Any]:
+    """Honest, catalog-driven totals for the custody strip.
+
+    Always names the resolved absolute catalog path. A missing file is first-run (info), not
+    an error; an empty file with registered drives is the loud wrong-catalog case.
+    """
+    # Inspect before Catalog() so a missing path stays will_create (Catalog would create it).
+    startup = inspect_catalog(db, explicit_db=explicit_db)
     with Catalog(db) as catalog:
         breakdown = _media_breakdown(catalog.media_names())
         total = catalog.count()
         drives = [d for d in catalog.list_drives() if d["file_count"]]
         single_copy = catalog.single_copy_count()
         total_bytes = sum(d["total_size"] or 0 for d in drives)
-        # Prefill hints, so no screen asks a user to Browse for a path we already know.
-        # Hints only: drive identity is the marker uuid, never a path. Dead hints are cleared.
         library_path = _take_live_path_hint(catalog, LIBRARY_PATH_HINT)
         backup_path = _take_live_path_hint(catalog, BACKUP_PATH_HINT)
     return {
@@ -1022,6 +1027,10 @@ def library_status(db: Path) -> dict[str, Any]:
         "places": len(drives),
         "single_copy": single_copy,
         "bytes": total_bytes,
+        "catalog_path": startup.absolute_path,
+        "catalog_presence": startup.presence.value,
+        "catalog_detail": startup.detail,
+        "catalog_tone": startup.tone,
     }
 
 

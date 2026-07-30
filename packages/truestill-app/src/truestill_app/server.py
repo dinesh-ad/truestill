@@ -20,6 +20,7 @@ from starlette.responses import HTMLResponse, JSONResponse, Response, StreamingR
 from starlette.routing import Route
 from starlette.staticfiles import StaticFiles
 from truestill_core.catalog import Catalog
+from truestill_core.catalog_startup import DEFAULT_CATALOG_PATH
 from truestill_core.event_review import EventDecision, commit_catalog
 from truestill_core.events import InvalidEventSettingsError, split_candidate
 from truestill_core.trip_review import (
@@ -54,7 +55,7 @@ _TEMPLATES = _PKG / "templates"
 _STATIC = _PKG / "static"
 
 #: Default catalog the app reads/writes (same default as the CLI).
-_DEFAULT_DB = Path("reports/catalog.sqlite")
+_DEFAULT_DB = DEFAULT_CATALOG_PATH
 
 _log = logging.getLogger(__name__)
 
@@ -83,12 +84,15 @@ def _static_fingerprint() -> str:
     return hashlib.sha256(index_html + app_js).hexdigest()
 
 
-def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
+def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False) -> Starlette:
     jobs = JobManager()
     started_fingerprint = _static_fingerprint()
 
     def _db() -> Path:
         return db
+
+    def _explicit_db() -> bool:
+        return explicit_db
 
     def _start_drive_job(
         target: JobTarget | service.DriveUnavailablePayload,
@@ -219,7 +223,7 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB) -> Starlette:
         return JSONResponse(service.fs_create(body["path"]))
 
     async def library_status(_request: Request) -> JSONResponse:
-        return JSONResponse(service.library_status(_db()))
+        return JSONResponse(service.library_status(_db(), explicit_db=_explicit_db()))
 
     # --- Settings: destination layout template + migration ------------------------------
 
