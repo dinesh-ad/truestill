@@ -7,13 +7,15 @@ inside the template grammar -- the grammar stays a description of structure.
 
 from __future__ import annotations
 
+import inspect
 import subprocess
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 import pytest
 from truestill_core.categorize import build_rules
 from truestill_core.layout import (
+    DEFAULT_EVERYDAY_DAY_THRESHOLD,
     PRESETS,
     SIDE_BIN_TEMPLATE_STRING,
     TIMELINE_RULE,
@@ -24,6 +26,8 @@ from truestill_core.layout import (
     RenderContext,
     TemplateError,
     classify,
+    count_capture_days,
+    heavy_capture_days,
     parse_timeline_template,
     preview_scheme,
     scheme_from_string,
@@ -485,3 +489,109 @@ def test_a_scheme_must_carry_a_template_for_every_placement() -> None:
         timeline_evented=LayoutTemplate.parse("{yyyy}"),
     )
     assert set(complete.templates) == set(Placement)
+
+
+# --- axis four: heavy un-evented days (backlog gg) ----------------------------------------
+
+
+def test_classify_routes_heavy_day_after_trip_and_event() -> None:
+    """Order: SIDE_BIN → TRIP_DAY → EVENT_DAY → DAY_BUCKET | EVERYDAY."""
+    heavy = RenderContext(category="Camera", captured_at=WHEN, heavy_day=True)
+    assert classify(TIMELINE_RULE, heavy) is Placement.DAY_BUCKET
+    assert classify(TIMELINE_RULE, RenderContext(category="Camera", captured_at=WHEN)) is (
+        Placement.EVERYDAY
+    )
+    # Trip and event still win even when the caller also marked the day heavy.
+    assert (
+        classify(
+            TIMELINE_RULE,
+            RenderContext(
+                category="Camera",
+                captured_at=WHEN,
+                heavy_day=True,
+                event=(WHEN, "goa"),
+                event_name="Goa",
+            ),
+        )
+        is Placement.EVENT_DAY
+    )
+    assert (
+        classify(
+            TIMELINE_RULE,
+            RenderContext(
+                category="Camera",
+                captured_at=WHEN,
+                heavy_day=True,
+                trip=(WHEN, "wayanad"),
+                trip_name="Wayanad",
+            ),
+        )
+        is Placement.TRIP_DAY
+    )
+    assert classify("screenshot_name", heavy) is Placement.SIDE_BIN
+
+
+def test_classify_is_pure_and_never_counts() -> None:
+    """The heavy-day flag arrives on RenderContext; classify must not reach for a catalog.
+
+    Pin by source: the router body names only rule/context fields and Placement members - no
+    Catalog, no threshold helpers, no day-count helpers. Confirmed by temporarily inserting
+    ``count_capture_days`` into ``classify`` and watching this assertion fail, then restoring.
+    """
+    source = inspect.getsource(classify)
+    forbidden = (
+        "Catalog",
+        "get_setting",
+        "count_capture_days",
+        "heavy_capture_days",
+        "normalize_everyday_day_threshold",
+        "EVERYDAY_DAY_THRESHOLD",
+        "DEFAULT_EVERYDAY_DAY_THRESHOLD",
+    )
+    for name in forbidden:
+        assert name not in source, f"classify must stay pure; found {name!r}"
+
+
+def test_day_bucket_renders_the_dated_everyday_shape() -> None:
+    """Product shape from adaptive-day-folder-research.md - not derived from the timeline string."""
+    scheme = _scheme()
+    path = scheme.render(
+        TIMELINE_RULE, RenderContext(category="Camera", captured_at=WHEN, heavy_day=True)
+    )
+    assert path.as_posix() == "2014/2014-08/2014-08-20 - Everyday"
+
+
+def test_day_bucket_defaults_to_the_product_template_not_the_timeline() -> None:
+    """DAY_BUCKET must not silently inherit EVERYDAY's monthly template.
+
+    Confirmed by temporarily pointing of()'s DAY_BUCKET arm at ``timeline`` and re-running:
+    this assertion failed (monthly Everyday path), then restored.
+    """
+    scheme = LayoutScheme.of(
+        timeline=LayoutTemplate.parse("{yyyy}/{yyyy}-{mm}/{yyyy}-{mm} - Everyday"),
+        timeline_evented=LayoutTemplate.parse("{yyyy}/{yyyy}-{mm}"),
+    )
+    path = scheme.render(
+        TIMELINE_RULE, RenderContext(category="Camera", captured_at=WHEN, heavy_day=True)
+    )
+    assert path.as_posix() == "2014/2014-08/2014-08-20 - Everyday"
+    assert "2014-08 - Everyday" not in path.as_posix()
+
+
+def test_count_capture_days_is_one_linear_pass() -> None:
+    """O(n) over the sequence; heavy-day membership is O(1) against the result, not a recount."""
+    days = [
+        datetime(2014, 8, 17, 9, 0),
+        datetime(2014, 8, 17, 10, 0),
+        date(2014, 8, 17),
+        datetime(2014, 8, 18, 11, 0),
+        None,
+    ]
+    counts = count_capture_days(days)
+    assert counts == {"2014-08-17": 3, "2014-08-18": 1}
+    # Exactly at the threshold stays monthly; one over becomes heavy.
+    at_limit = {**counts, "2014-08-17": DEFAULT_EVERYDAY_DAY_THRESHOLD}
+    assert heavy_capture_days(at_limit) == frozenset()
+    over = {**counts, "2014-08-17": DEFAULT_EVERYDAY_DAY_THRESHOLD + 1}
+    assert heavy_capture_days(over) == frozenset({"2014-08-17"})
+    assert heavy_capture_days(over, threshold=2) == frozenset({"2014-08-17"})

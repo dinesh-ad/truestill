@@ -17,7 +17,8 @@ Grammar is ``/``-separated literal segments plus ``{token}`` placeholders:
 Undated files collapse all date-derived segments to one ``Undated`` folder. Event and trip
 members stay consolidated under their start period rather than splitting at a month boundary.
 The default sends ordinary Camera files to ``YYYY/YYYY-MM/YYYY-MM - Everyday/``, named events
-to ``YYYY/YYYY-MM/YYYY-MM-DD - Name/``, and non-camera sources to
+to ``YYYY/YYYY-MM/YYYY-MM-DD - Name/``, heavy un-evented days to
+``YYYY/YYYY-MM/YYYY-MM-DD - Everyday/``, and non-camera sources to
 ``<Label>/YYYY/YYYY-MM/`` side bins.
 """
 
@@ -27,7 +28,7 @@ import re
 import unicodedata
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 from pathlib import PurePosixPath
 from typing import Protocol, assert_never
@@ -65,6 +66,19 @@ KNOWN_TOKENS: frozenset[str] = frozenset(_DATE_TOKENS) | _NON_DATE_TOKENS
 #: The category-first predecessor and the evidence for this shape are recorded in
 #: `docs/default-layout-research.md`.
 DEFAULT_TEMPLATE_STRING = "{yyyy}/{yyyy}-{mm}/{yyyy}-{mm} - Everyday"
+
+#: Heavy un-evented days (backlog ``(gg)``): same year/month parents, but a dated Everyday
+#: folder instead of the monthly bucket. Product shape, not a user DSL branch -
+#: `docs/adaptive-day-folder-research.md`.
+DEFAULT_DAY_BUCKET_TEMPLATE_STRING = "{yyyy}/{yyyy}-{mm}/{yyyy}-{mm}-{dd} - Everyday"
+
+#: Catalog settings key for the Everyday day-folder threshold. Missing/invalid →
+#: :data:`DEFAULT_EVERYDAY_DAY_THRESHOLD`.
+EVERYDAY_DAY_THRESHOLD_KEY = "layout.everyday_day_threshold"
+
+#: Default: days with more un-evented timeline photos than this get :data:`Placement.DAY_BUCKET`.
+#: Researched in `docs/adaptive-day-folder-research.md` (OnePoll/Mixbook ~23/occasion; ~20/day).
+DEFAULT_EVERYDAY_DAY_THRESHOLD = 40
 
 #: The catalog settings key under which a library's chosen timeline template is persisted.
 LAYOUT_TEMPLATE_KEY = "layout_template"
@@ -303,6 +317,11 @@ class RenderContext:
     trip: tuple[datetime, str] | None = None
     #: The trip's human name. Same reasoning as ``event_name`` - `slugify` is lossy.
     trip_name: str | None = None
+    #: True when the caller has already counted this capture day as over the Everyday
+    #: day-folder threshold (`docs/adaptive-day-folder-research.md`). Set **outside**
+    #: :func:`classify` after one day-count pass - the router itself never counts or opens a
+    #: catalog.
+    heavy_day: bool = False
 
     @property
     def date(self) -> datetime | None:
@@ -499,6 +518,7 @@ def preview(
 
 #: The default layout, parsed once.
 DEFAULT_TEMPLATE = LayoutTemplate.parse(DEFAULT_TEMPLATE_STRING)
+DEFAULT_DAY_BUCKET_TEMPLATE = LayoutTemplate.parse(DEFAULT_DAY_BUCKET_TEMPLATE_STRING)
 
 #: The rule whose files are the timeline. Exactly one rule in the chain produces camera photos
 #: (`categorize.make_device_rule`), and routing keys on the **rule, not the label**: under
@@ -553,7 +573,7 @@ class Placement(StrEnum):
 
     #: Not the timeline: a labelled quarantine beside it (Screenshots, WhatsApp, ...).
     SIDE_BIN = "side_bin"
-    #: Timeline, no named event.
+    #: Timeline, no named event, capture day at or under the Everyday day-folder threshold.
     EVERYDAY = "everyday"
     #: Timeline, a member of a named event.
     EVENT_DAY = "event_day"
@@ -561,33 +581,79 @@ class Placement(StrEnum):
     #: `RenderContext.trip`'s docstring) - a sub-day event on a trip-claimed day dissolves into
     #: the trip and never renders as :data:`EVENT_DAY` (`trip-grouping-research.md` §2).
     TRIP_DAY = "trip_day"
+    #: Timeline, un-evented, capture day over the Everyday day-folder threshold
+    #: (`docs/adaptive-day-folder-research.md`). Never applies inside a trip or named event.
+    DAY_BUCKET = "day_bucket"
+
+
+def normalize_everyday_day_threshold(value: object) -> int:
+    """Positive threshold, else :data:`DEFAULT_EVERYDAY_DAY_THRESHOLD`."""
+    if isinstance(value, bool):
+        return DEFAULT_EVERYDAY_DAY_THRESHOLD
+    try:
+        number = int(value)  # type: ignore[call-overload]
+    except (TypeError, ValueError):
+        return DEFAULT_EVERYDAY_DAY_THRESHOLD
+    return number if number >= 1 else DEFAULT_EVERYDAY_DAY_THRESHOLD
+
+
+def count_capture_days(captured_ats: Sequence[datetime | date | None]) -> dict[str, int]:
+    """Count dated files by ISO capture day in **one linear pass**.
+
+    Callers must already have filtered to un-evented timeline members - this helper does not
+    know about events, trips, catalogs or thresholds. Undated entries are skipped (they cannot
+    be heavy days). **O(n)** over the sequence; later membership tests against the returned map
+    (or :func:`heavy_capture_days`) are O(1) / O(d), never a recount per file.
+    """
+    counts: dict[str, int] = {}
+    for captured_at in captured_ats:
+        if captured_at is None:
+            continue
+        day = captured_at.date() if isinstance(captured_at, datetime) else captured_at
+        key = day.isoformat()
+        counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+def heavy_capture_days(
+    counts: Mapping[str, int],
+    *,
+    threshold: int = DEFAULT_EVERYDAY_DAY_THRESHOLD,
+) -> frozenset[str]:
+    """ISO days whose count **exceeds** ``threshold`` (strictly greater). **O(d)** distinct days."""
+    limit = normalize_everyday_day_threshold(threshold)
+    return frozenset(day for day, n in counts.items() if n > limit)
 
 
 def classify(rule: str, context: RenderContext) -> Placement:
     """**The one router.** Every shape decision in the product is made here, exactly once.
 
-    Keys on the **rule, not the label** (see :data:`TIMELINE_RULE`), then on trip membership,
-    then on whether the file belongs to a named event. A trip-claimed day takes precedence over
-    an event unconditionally - `context.event` is never consulted once `context.trip` is set, so
-    a caller cannot get the §2 "a trip day claims every photo taken that day" rule wrong by
-    omission. Pure, total, and free of any knowledge of what the shapes *are* - it returns a
-    name, and the rendering is somebody else's job.
+    Order: side bin → trip day → event day → heavy un-evented day → everyday. A trip-claimed
+    day takes precedence over an event unconditionally - `context.event` is never consulted
+    once `context.trip` is set. Heavy-day uses the caller-supplied :attr:`RenderContext.heavy_day`
+    flag only; this function never counts files and never opens a catalog. Pure, total, and free
+    of any knowledge of what the shapes *are* - it returns a name, and the rendering is somebody
+    else's job.
     """
     if rule != TIMELINE_RULE:
         return Placement.SIDE_BIN
     if context.trip is not None:
         return Placement.TRIP_DAY
-    return Placement.EVENT_DAY if context.event is not None else Placement.EVERYDAY
+    if context.event is not None:
+        return Placement.EVENT_DAY
+    if context.heavy_day:
+        return Placement.DAY_BUCKET
+    return Placement.EVERYDAY
 
 
 @dataclass(frozen=True)
 class LayoutScheme:
     """A whole layout: one template per :class:`Placement`, and the router between them.
 
-    A mapping rather than a field per shape, because the shapes are open: trips and heavy-day
-    buckets are already designed. Adding one is a new :class:`Placement` member plus an entry
-    here, and :meth:`of` fails to type-check until the new shape has been given a template -
-    so a shape cannot be added and silently left unrendered.
+    A mapping rather than a field per shape, because the shapes are open. Adding one is a new
+    :class:`Placement` member plus an entry here, and :meth:`of` fails to type-check until the
+    new shape has been given a template - so a shape cannot be added and silently left
+    unrendered.
 
     Selecting a template is the entire mechanism. The token grammar stays a description of
     structure, never a language: no template contains a conditional, and no caller renders a
@@ -612,6 +678,7 @@ class LayoutScheme:
         timeline_evented: LayoutTemplate,
         side_bin: LayoutTemplate = SIDE_BIN_TEMPLATE,
         trip_day: LayoutTemplate | None = None,
+        day_bucket: LayoutTemplate | None = None,
     ) -> LayoutScheme:
         """Build a scheme from the shapes as a caller thinks of them.
 
@@ -626,6 +693,10 @@ class LayoutScheme:
         base template underneath it (see :meth:`LayoutTemplate._render`). Passing ``trip_day``
         explicitly is an escape hatch for tests that need it to diverge from ``timeline_evented``
         - no production caller does this yet.
+
+        ``day_bucket`` defaults to :data:`DEFAULT_DAY_BUCKET_TEMPLATE` - the product Everyday
+        heavy-day shape (`docs/adaptive-day-folder-research.md`), not a derivation from the
+        user's timeline string (that would be a DSL conditional by another name).
         """
         chosen: dict[Placement, LayoutTemplate] = {}
         for placement in Placement:
@@ -638,6 +709,10 @@ class LayoutScheme:
                     chosen[placement] = timeline_evented
                 case Placement.TRIP_DAY:
                     chosen[placement] = trip_day if trip_day is not None else timeline_evented
+                case Placement.DAY_BUCKET:
+                    chosen[placement] = (
+                        day_bucket if day_bucket is not None else DEFAULT_DAY_BUCKET_TEMPLATE
+                    )
                 case _ as unreachable:
                     assert_never(unreachable)
         return cls(templates=chosen)

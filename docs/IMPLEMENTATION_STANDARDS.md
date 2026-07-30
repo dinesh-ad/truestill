@@ -174,17 +174,18 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   `layout.LayoutScheme.render`, which calls `layout.classify(rule, context)` - **the one
   router**, total and exhaustive over `layout.Placement` (a `StrEnum`: `SIDE_BIN`, `EVERYDAY`,
   `EVENT_DAY`, `TRIP_DAY` - a day inside a named multi-day trip, `trip-grouping-research.md` §2,
-  §13.2). `classify` keys on the **rule** (`CategoryMatch.rule`, timeline vs side bin), then on
-  trip membership, then on whether the file belongs to a named event - a trip-claimed day takes
-  precedence over an event unconditionally, so `context.event` is never consulted once
-  `context.trip` is set. `LayoutScheme.of` is the **build-time exhaustiveness gate**: adding a
-  `Placement` member fails `mypy --strict` there (`assert_never`) until every scheme-construction
-  site says what template that shape gets - demonstrated when `TRIP_DAY` was added: removing its
-  `case` arm alone made mypy fail at exactly that line. `plan`, `build_relative` and
-  `apply_events` take a **`LayoutScheme`, never a bare template**, and a library that has chosen
-  nothing gets `layout.DEFAULT_SCHEME` - the legacy layout expressed *as* a scheme. There is
-  deliberately no template-only path: an optional seam is a branch, and the branch had already
-  silently switched routing off for every production run.
+  §13.2 - and `DAY_BUCKET` - a heavy un-evented Everyday day, `adaptive-day-folder-research.md`).
+  `classify` keys on the **rule** (`CategoryMatch.rule`, timeline vs side bin), then trip,
+  event, then the caller-supplied `heavy_day` flag - never counts or opens a catalog itself. A
+  trip-claimed day takes precedence over an event unconditionally, so `context.event` is never
+  consulted once `context.trip` is set. `LayoutScheme.of` is the **build-time exhaustiveness
+  gate**: adding a `Placement` member fails `mypy --strict` there (`assert_never`) until every
+  scheme-construction site says what template that shape gets - demonstrated for `TRIP_DAY` and
+  again for `DAY_BUCKET`: removing its `case` arm alone made mypy fail at exactly that line.
+  `plan`, `build_relative` and `apply_events` take a **`LayoutScheme`, never a bare template**,
+  and a library that has chosen nothing gets `layout.DEFAULT_SCHEME` - the legacy layout
+  expressed *as* a scheme. There is deliberately no template-only path: an optional seam is a
+  branch, and the branch had already silently switched routing off for every production run.
   - **One resolution entry point.** `layout.resolve_scheme` is the only way to ask what layout a
     catalog is on; `layout.scheme_from_string` is the only interpretation of a stored template,
     and it parses through the same strict door as Settings - there is no load-time leniency, so
