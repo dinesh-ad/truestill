@@ -104,3 +104,32 @@ def test_reclaim_is_idempotent(tmp_path: Path) -> None:
         again = run_reclaim(catalog, "D1", drive)  # re-run: source already gone
         assert again.deleted == 0
         assert again.plan.candidates == []
+        assert again.plan.missing_sources == 1  # gone path is counted, not silently skipped
+
+
+def test_reclaim_reports_missing_sources_with_examples(tmp_path: Path) -> None:
+    """A catalog path that no longer exists must not yield an unexplained empty plan."""
+    drive = tmp_path / "drive"
+    source = tmp_path / "src" / "a.jpg"
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        _seed(catalog, source, drive, "D1", "Camera/a.jpg", b"content-a")
+        source.unlink()  # recorded source_path is now stale
+
+        plan = plan_reclaim(catalog, "D1", drive)
+        assert plan.candidates == []
+        assert plan.missing_sources == 1
+        assert str(source) in plan.missing_examples
+
+
+def test_reclaim_empty_plan_is_calm_when_nothing_is_eligible(tmp_path: Path) -> None:
+    """No candidates and no missing sources = normal; must not look like a failure."""
+    drive = tmp_path / "drive"
+    drive.mkdir()
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        catalog.upsert_drive(uuid="D1", label="Drive A")
+        plan = plan_reclaim(catalog, "D1", drive)
+        assert plan.candidates == []
+        assert plan.missing_sources == 0
+        assert plan.unverified == 0
+        assert plan.below_min_copies == 0
+        assert plan.organized_in_place == 0

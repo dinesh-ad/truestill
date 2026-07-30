@@ -85,3 +85,36 @@ def test_reclaim_apply_deletes_on_confirmation(
     assert main(["reclaim", str(drive), "--db", str(db), "--apply"]) == 0
     assert not source.exists()  # confirmed -> source freed
     assert (drive / "Camera/a.jpg").exists()  # backup copy untouched
+
+
+def test_reclaim_reports_stale_sources_on_stderr(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    drive, db = tmp_path / "drive", tmp_path / "c.sqlite"
+    drive.mkdir()
+    source = tmp_path / "src" / "a.jpg"
+    _seed(db, drive, source)
+    source.unlink()
+
+    assert main(["reclaim", str(drive), "--db", str(db)]) == 0
+    captured = capsys.readouterr()
+    assert "1 recorded source" in captured.err
+    assert "may have moved" in captured.err
+    assert str(source) in captured.err
+    assert "Preview only" not in captured.out  # nothing to apply; do not nag
+    assert "error" not in captured.out.lower()
+
+
+def test_reclaim_empty_plan_reads_as_calm(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    drive, db = tmp_path / "drive", tmp_path / "c.sqlite"
+    drive.mkdir()
+    create_marker(drive, "Drive A")
+
+    assert main(["reclaim", str(drive), "--db", str(db)]) == 0
+    captured = capsys.readouterr()
+    assert "Nothing to reclaim." in captured.out
+    assert "Preview only" not in captured.out
+    assert "recorded source" not in captured.err
+    assert "error" not in captured.out.lower()

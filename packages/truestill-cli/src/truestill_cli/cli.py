@@ -93,7 +93,7 @@ from truestill_core.organizer import (
     scan_source,
 )
 from truestill_core.progress import Progress, ProgressCallback
-from truestill_core.reclaim import plan_reclaim, run_reclaim
+from truestill_core.reclaim import ReclaimPlan, plan_reclaim, run_reclaim
 from truestill_core.scan import DEFAULT_WORKERS
 from truestill_core.takeout import (
     IngestContext,
@@ -1523,6 +1523,38 @@ def _cmd_undo_organize(args: argparse.Namespace) -> int:
         return 1 if outcome.skipped else 0
 
 
+def _print_reclaim_plan(plan: ReclaimPlan, *, label: str, min_copies: int) -> None:
+    """Summarize a reclaim plan. Missing sources go to stderr; calm empty is handled by caller."""
+    n = len(plan.candidates)
+    gib = plan.total_bytes / 1e9
+    print(f"Drive '{label}': {n} source file(s) safely backed up and re-verified.")
+    print(f"  reclaimable: {n} file(s), {gib:.2f} GB would be freed")
+    if plan.unverified:
+        print(f"  skipped: {plan.unverified} copy(ies) failed re-verification (source kept)")
+    if plan.organized_in_place:
+        # Never silent: these look reclaimable and are the one case where reclaiming
+        # would destroy the only copy, so say so rather than quietly omitting them.
+        print(
+            f"  skipped: {plan.organized_in_place} file(s) organized in place -- the source "
+            "IS the copy on this drive, so freeing it would delete the only one"
+        )
+    if plan.below_min_copies:
+        print(f"  held back: {plan.below_min_copies} file(s) below --min-copies={min_copies}")
+    if plan.missing_sources:
+        print(
+            f"  noted: {plan.missing_sources} recorded source(s) no longer exist at their "
+            "catalog path (they may have moved, or were already freed).",
+            file=sys.stderr,
+        )
+        for example in plan.missing_examples:
+            print(f"    e.g. {example}", file=sys.stderr)
+    if plan.single_copy:
+        print(
+            f"  WARNING: {len(plan.single_copy)} file(s) would then exist in only ONE place "
+            f"(raise --min-copies to exclude them)"
+        )
+
+
 def _cmd_reclaim(args: argparse.Namespace) -> int:
     marker = _drive_or_explain(args.path)
     if marker is None:
@@ -1534,37 +1566,19 @@ def _cmd_reclaim(args: argparse.Namespace) -> int:
     with Catalog(args.db) as catalog:
         catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
         plan = plan_reclaim(catalog, marker.uuid, args.path, min_copies=args.min_copies)
+        _print_reclaim_plan(plan, label=marker.label, min_copies=args.min_copies)
 
         n = len(plan.candidates)
-        gib = plan.total_bytes / 1e9
-        print(f"Drive '{marker.label}': {n} source file(s) safely backed up and re-verified.")
-        print(f"  reclaimable: {n} file(s), {gib:.2f} GB would be freed")
-        if plan.unverified:
-            print(f"  skipped: {plan.unverified} copy(ies) failed re-verification (source kept)")
-        if plan.organized_in_place:
-            # Never silent: these look reclaimable and are the one case where reclaiming
-            # would destroy the only copy, so say so rather than quietly omitting them.
-            print(
-                f"  skipped: {plan.organized_in_place} file(s) organized in place -- the source "
-                "IS the copy on this drive, so freeing it would delete the only one"
-            )
-        if plan.below_min_copies:
-            print(
-                f"  held back: {plan.below_min_copies} file(s) below --min-copies={args.min_copies}"
-            )
-        if plan.single_copy:
-            print(
-                f"  WARNING: {len(plan.single_copy)} file(s) would then exist in only ONE place "
-                f"(raise --min-copies to exclude them)"
-            )
-
+        if n == 0:
+            # Calm empty is normal. Stale paths already spoke on stderr; do not urge --apply.
+            if not plan.missing_sources:
+                print("\nNothing to reclaim.")
+            return 0
         if not args.apply:
             print("\nPreview only. Re-run with --apply to delete these sources.")
             return 0
-        if n == 0:
-            print("\nNothing to reclaim.")
-            return 0
 
+        gib = plan.total_bytes / 1e9
         print(f"\nThis PERMANENTLY DELETES {n} source file(s), freeing {gib:.2f} GB.")
         answer = input("Type 'delete' to proceed (anything else aborts): ").strip()
         if answer != "delete":

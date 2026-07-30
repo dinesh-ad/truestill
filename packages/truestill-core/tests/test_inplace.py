@@ -16,7 +16,7 @@ from truestill_core.destinations import LocalDestination
 from truestill_core.models import ActionStatus
 from truestill_core.organizer import Relocation, execute, plan, resolve
 from truestill_core.reclaim import plan_reclaim
-from truestill_core.undo import UndoSkip, plan_undo, run_undo
+from truestill_core.undo import UndoError, UndoSkip, plan_undo, run_undo
 
 _DRIVE = "drive-uuid-inplace"
 
@@ -282,6 +282,30 @@ def test_undo_is_reversible_round_trip(tmp_path: Path) -> None:
 
     second = next(p for p in root.rglob("*.jpg") if p.is_file()).relative_to(root)
     assert second == first
+
+
+def test_undo_names_unreachable_roots_and_override_flags(tmp_path: Path) -> None:
+    """Stored absolute roots that no longer exist must fail loudly, not skip every move."""
+    root = tmp_path / "drive"
+    _jpeg(root / "DCIM" / "a.jpg", 7)
+    db = tmp_path / "c.sqlite"
+    _organize(root, db)
+
+    moved = tmp_path / "remounted"
+    root.rename(moved)
+
+    with Catalog(db) as catalog:
+        with pytest.raises(UndoError, match="unreachable") as raised:
+            plan_undo(catalog)
+        message = str(raised.value)
+        assert str(root) in message
+        assert "--source-root" in message
+        assert "--dest-root" in message
+
+        # Overrides point undo at the remount; the journal's relative paths still apply.
+        plan = plan_undo(catalog, source_root=moved, dest_root=moved)
+        assert plan.restorable == 1
+        assert plan.source_root == moved
 
 
 def test_an_interrupted_run_is_still_undoable(tmp_path: Path) -> None:

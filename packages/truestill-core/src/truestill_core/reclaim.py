@@ -34,12 +34,20 @@ class ReclaimCandidate:
 
 @dataclass(frozen=True)
 class ReclaimPlan:
-    """What reclaim would free (pure; deletes nothing)."""
+    """What reclaim would free (pure; deletes nothing).
+
+    An empty ``candidates`` list is normal when there is nothing left to free. That is distinct
+    from ``missing_sources``: recorded ``files.source_path`` values that are gone or
+    unreachable (moved machine, deleted already, locked mount). Only the latter must read as
+    a problem; a calm empty plan must not.
+    """
 
     candidates: list[ReclaimCandidate]
     unverified: int  # copies on the drive that failed re-verify -> their sources are NOT offered
     below_min_copies: int  # sources excluded because too few copies exist
     organized_in_place: int = 0  # source IS the drive copy -- freeing it would delete the only one
+    missing_sources: int = 0  # catalog rows whose source_path is gone / unreachable
+    missing_examples: tuple[str, ...] = ()  # sample absolute paths for the message
 
     @property
     def total_bytes(self) -> int:
@@ -59,11 +67,22 @@ class ReclaimOutcome:
     kept: int  # candidates that failed the fresh re-verify at delete time (never deleted)
 
 
+_MISSING_EXAMPLE_CAP = 5
+
+
 def _safe_size(path: Path) -> int:
     try:
         return path.stat().st_size
     except OSError:
         return 0
+
+
+def _source_present(path: Path) -> bool:
+    """True when ``path`` is a readable file. ``OSError`` (including PermissionError) = absent."""
+    try:
+        return path.is_file()
+    except OSError:
+        return False
 
 
 def _is_the_copy_itself(source: Path, mount_root: Path, relative: str) -> bool:
@@ -96,15 +115,24 @@ def _verify(mount_root: Path, relative: str, expected_sha: str) -> bool:
 def plan_reclaim(
     catalog: Catalog, drive_uuid: str, mount_root: Path, *, min_copies: int = 1
 ) -> ReclaimPlan:
-    """Find source files safely backed up on the connected drive. Re-verifies; deletes nothing."""
+    """Find source files safely backed up on the connected drive. Re-verifies; deletes nothing.
+
+    Missing ``source_path`` rows are counted and sampled, never silently dropped into an
+    unexplained empty plan.
+    """
     candidates: list[ReclaimCandidate] = []
     unverified = 0
     below = 0
     in_place = 0
+    missing = 0
+    missing_examples: list[str] = []
     for row in catalog.reclaim_candidates(drive_uuid):
         source = Path(row["source_path"])
-        if not source.is_file():
-            continue  # source already gone -- nothing to reclaim
+        if not _source_present(source):
+            missing += 1
+            if len(missing_examples) < _MISSING_EXAMPLE_CAP:
+                missing_examples.append(str(source))
+            continue
         if _is_the_copy_itself(source, mount_root, str(row["relative"])):
             in_place += 1
             continue  # organized in place: deleting the "source" deletes the only copy
@@ -131,6 +159,8 @@ def plan_reclaim(
         unverified=unverified,
         below_min_copies=below,
         organized_in_place=in_place,
+        missing_sources=missing,
+        missing_examples=tuple(missing_examples),
     )
 
 

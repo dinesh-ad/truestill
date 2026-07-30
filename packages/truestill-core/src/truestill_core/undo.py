@@ -26,6 +26,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from truestill_core.catalog import Catalog
+from truestill_core.drive import path_is_usable_dir
 from truestill_core.progress import Phase, Progress, ProgressCallback
 
 
@@ -114,10 +115,33 @@ def plan_undo(
 
     ``source_root`` / ``dest_root`` override what the run recorded, for a drive that has since
     remounted somewhere else -- the journal stores relative paths precisely so this works.
+
+    If a stored (or overridden) root is unreachable, raises :class:`UndoError` naming the path
+    and the override flags - never a silent plan of all-MOVED_AWAY skips.
     """
     rid, recorded_source, recorded_dest, drive_uuid, status = _resolve_run(catalog, run_id)
     src_root = source_root or recorded_source
     dst_root = dest_root or recorded_dest
+
+    problems: list[str] = []
+    if not path_is_usable_dir(src_root):
+        if source_root is None:
+            problems.append(
+                f"stored source root is unreachable: {recorded_source} "
+                "(pass --source-root PATH to the current location)"
+            )
+        else:
+            problems.append(f"source root is unreachable: {src_root}")
+    if not path_is_usable_dir(dst_root):
+        if dest_root is None:
+            problems.append(
+                f"stored dest root is unreachable: {recorded_dest} "
+                "(pass --dest-root PATH to the current location)"
+            )
+        else:
+            problems.append(f"dest root is unreachable: {dst_root}")
+    if problems:
+        raise UndoError("; ".join(problems))
 
     steps: list[UndoStep] = []
     skipped: list[UndoSkipped] = []
