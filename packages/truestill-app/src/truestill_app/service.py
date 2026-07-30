@@ -390,7 +390,35 @@ def _media_breakdown(names: Any) -> MediaBreakdown:
     }
 
 
-def _summarize(resolutions: list[Resolution]) -> dict[str, Any]:
+class InferredLocalShiftPayload(TypedDict):
+    name: str
+    before: str
+    after: str
+    offset: str
+    evidence: str
+    line: str
+
+
+class OrganizeDedupCore(TypedDict):
+    """Counts from :func:`_summarize` before preview wraps with tier/mode/skipped."""
+
+    files: int
+    photos: int
+    videos: int
+    audio: int
+    by_format: dict[str, dict[str, int]]
+    new_unique: int
+    near_dup: int
+    exact_dup: int
+    undated: int
+    sentinel_rejected: int
+    suspect_default: int
+    inferred_local_shifts: list[InferredLocalShiftPayload]
+    folders: dict[str, int]
+    heic_perceptual_skipped: NotRequired[int]
+
+
+def _summarize(resolutions: list[Resolution]) -> OrganizeDedupCore:
     uploads = [r for r in resolutions if r.should_upload]
     near = [r for r in uploads if r.near_duplicate is not None]
     labels = Counter(r.decision.category.label for r in uploads)
@@ -398,7 +426,7 @@ def _summarize(resolutions: list[Resolution]) -> dict[str, Any]:
     breakdown = _media_breakdown([r.decision.source.name for r in resolutions])
     quality = date_quality(uploads)
     shifts = inferred_local_shifts(uploads)
-    summary: dict[str, Any] = {
+    summary: OrganizeDedupCore = {
         "files": len(resolutions),
         "photos": breakdown["photos"],
         "videos": breakdown["videos"],
@@ -410,7 +438,8 @@ def _summarize(resolutions: list[Resolution]) -> dict[str, Any]:
         "undated": sum(1 for r in uploads if r.decision.captured_at is None),
         # Never silent: an epoch-zero date that was refused, and a date that may be a dead
         # camera-clock default, are each reported on their own -- never folded into "undated".
-        **quality._asdict(),
+        "sentinel_rejected": quality.sentinel_rejected,
+        "suspect_default": quality.suspect_default,
         # Informational: videos shifted from UTC CreateDate (names + offsets). Not a defect;
         # not_proven_utc fallthrough is omitted on purpose.
         "inferred_local_shifts": [
@@ -615,6 +644,28 @@ def _mode_mechanism(source: Path, destination: Path, mode: str) -> ModeMechanism
     }
 
 
+class OrganizePreviewEmpty(TypedDict):
+    """No media in source: short dedup-tier reply (no photo/video tallies)."""
+
+    tier: Literal["dedup"]
+    files: int
+    folders: dict[str, int]
+    skipped: dict[str, dict[str, int]]
+    mode: str
+    mechanism: ModeMechanism
+
+
+class OrganizePreviewSummary(OrganizeDedupCore):
+    """Full dedup preview after :func:`_summarize`, plus mode/skipped wrappers."""
+
+    tier: Literal["dedup"]
+    destination_is_drive: bool
+    skipped: dict[str, dict[str, int]]
+    mode: str
+    mechanism: ModeMechanism
+    elapsed_seconds: NotRequired[float]
+
+
 def organize_preview(
     source: Path,
     destination: Path,
@@ -624,7 +675,7 @@ def organize_preview(
     cancel: threading.Event | None = None,
     refresh_metadata: bool = False,
     mode: str = "copy",
-) -> dict[str, Any]:
+) -> OrganizePreviewEmpty | OrganizePreviewSummary:
     """Plan + dedup with no writes -- the dry-run summary the UI shows before a real run.
 
     Reports progress through the same phases the real run does, because it does the same
@@ -666,13 +717,15 @@ def organize_preview(
             cancel=cancel,
             cache=cache,
         )
-    summary = _summarize(resolutions)
-    summary["tier"] = "dedup"
-    summary["destination_is_drive"] = read_marker(destination) is not None
-    summary["skipped"] = _skipped_summary(scan)
-    summary["mode"] = mode
-    summary["mechanism"] = mechanism
-    return summary
+    core = _summarize(resolutions)
+    return {
+        **core,
+        "tier": "dedup",
+        "destination_is_drive": read_marker(destination) is not None,
+        "skipped": _skipped_summary(scan),
+        "mode": mode,
+        "mechanism": mechanism,
+    }
 
 
 def organize_preview_run(
@@ -689,7 +742,9 @@ def organize_preview_run(
     Only *how* the answer is delivered changed.
     """
 
-    def target(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
+    def target(
+        progress: ProgressCallback, cancel: threading.Event
+    ) -> OrganizePreviewEmpty | OrganizePreviewSummary:
         return organize_preview(
             source,
             destination,
@@ -817,7 +872,43 @@ def organize_run(
     return target
 
 
-def organize_undo_state(db: Path) -> dict[str, Any]:
+class OrganizeUndoSkipped(TypedDict):
+    relative: str
+    reason: str
+    detail: str
+
+
+class OrganizeUndoStateDisarmed(TypedDict):
+    ok: Literal[True]
+    armed: Literal[False]
+    restorable: int
+    run_id: None
+
+
+class OrganizeUndoStateArmed(TypedDict):
+    ok: Literal[True]
+    armed: Literal[True]
+    run_id: str
+    status: str
+    source_root: str
+    dest_root: str
+    restorable: int
+    skipped: list[OrganizeUndoSkipped]
+
+
+class OrganizeUndoJobSummary(TypedDict):
+    run_id: str
+    source_root: str
+    dest_root: str
+    restorable: int
+    restored: int
+    applied: bool
+    still_armed: bool
+    skipped: list[OrganizeUndoSkipped]
+    elapsed_seconds: NotRequired[float]
+
+
+def organize_undo_state(db: Path) -> OrganizeUndoStateDisarmed | OrganizeUndoStateArmed:
     """Durable state for undoing rename-based organize runs."""
     with Catalog(db) as catalog:
         try:
@@ -846,7 +937,7 @@ def organize_undo_state(db: Path) -> dict[str, Any]:
 def organize_undo(*, db: Path, apply: bool) -> JobTarget:
     """Preview/apply organize undo on a worker thread."""
 
-    def target(progress: ProgressCallback, _cancel: threading.Event) -> dict[str, Any]:
+    def target(progress: ProgressCallback, _cancel: threading.Event) -> OrganizeUndoJobSummary:
         with Catalog(db) as catalog:
             plan = plan_undo(catalog)
             outcome = run_undo(catalog, plan, apply=apply, progress=progress if apply else None)
@@ -1088,6 +1179,20 @@ def _result_size(result: ActionResult, destination: Path) -> int:
     return 0
 
 
+class VerifyProblem(TypedDict):
+    status: str
+    relative: str
+
+
+class VerifyJobSummary(TypedDict):
+    label: str
+    verified: int
+    missing: int
+    mismatch: int
+    problems: list[VerifyProblem]
+    elapsed_seconds: NotRequired[float]
+
+
 def verify_run(path: Path, db: Path) -> JobTarget | DriveUnavailablePayload:
     """Build a job target that verifies a connected drive's copies against the catalog.
 
@@ -1098,7 +1203,7 @@ def verify_run(path: Path, db: Path) -> JobTarget | DriveUnavailablePayload:
     if marker is None:
         return {"ok": False, **_drive_correction(path)}
 
-    def target(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
+    def target(progress: ProgressCallback, cancel: threading.Event) -> VerifyJobSummary:
         with Catalog(db) as catalog:
             catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
             catalog.set_setting(_drive_path_hint(marker.uuid), str(path))
@@ -1544,6 +1649,27 @@ def proposed_review_cards_payload(
 # --- Takeout rescue report (Rescue report screen) -------------------------------------
 
 
+class IngestPreviewEmpty(TypedDict):
+    files: int
+    missing_sidecar: int
+
+
+class IngestPreviewSummary(TypedDict):
+    files: int
+    kept: int
+    dup_collapsed: int
+    reclaimed_mb: float
+    dates_photo_taken: int
+    dates_upload_approx: int
+    dates_exif: int
+    undated: int
+    sentinel_rejected: int
+    suspect_default: int
+    inferred_local_shifts: list[InferredLocalShiftPayload]
+    missing_sidecar: int
+    elapsed_seconds: NotRequired[float]
+
+
 def ingest_preview(
     takeout: Path,
     destination: Path,  # noqa: ARG001 - kept for API symmetry with organize preview
@@ -1551,7 +1677,7 @@ def ingest_preview(
     *,
     progress: ProgressCallback | None = None,
     cancel: threading.Event | None = None,
-) -> dict[str, Any]:
+) -> IngestPreviewEmpty | IngestPreviewSummary:
     """Dry-run Takeout rescue: the honest report the Rescue screen shows before any run.
 
     Discovery has no progress callback, so the first tick is indeterminate (:attr:`Phase.SCANNING`
@@ -1585,6 +1711,7 @@ def ingest_preview(
     dups = [r for r in resolutions if not r.should_upload]
     sources = Counter(r.decision.date_source.value for r in uploads)
     reclaimed = sum(_safe_size(r.decision.source) for r in dups)
+    quality = date_quality(uploads)
     return {
         "files": len(resolutions),
         "kept": len(uploads),
@@ -1594,7 +1721,8 @@ def ingest_preview(
         "dates_upload_approx": sources.get("takeout_upload", 0),
         "dates_exif": sources.get("exif", 0),
         "undated": sources.get("none", 0),
-        **date_quality(uploads)._asdict(),
+        "sentinel_rejected": quality.sentinel_rejected,
+        "suspect_default": quality.suspect_default,
         "inferred_local_shifts": [
             {
                 "name": s.name,
@@ -1613,7 +1741,9 @@ def ingest_preview(
 def ingest_preview_run(takeout: Path, destination: Path, db: Path) -> JobTarget:
     """Takeout rescue preview as a cancellable job - same dry-run, streamed progress."""
 
-    def target(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
+    def target(
+        progress: ProgressCallback, cancel: threading.Event
+    ) -> IngestPreviewEmpty | IngestPreviewSummary:
         return ingest_preview(takeout, destination, db, progress=progress, cancel=cancel)
 
     return target
@@ -2162,10 +2292,22 @@ def backup_preview(source: Path, target: Path, db: Path) -> BackupPreviewOk | Ba
     }
 
 
+class BackupRunSummary(TypedDict):
+    copied: int
+    to: str
+    photos: int
+    videos: int
+    audio: int
+    bytes_copied: int
+    verified: Literal[True]
+    target_path: str
+    elapsed_seconds: NotRequired[float]
+
+
 def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
     """Build a job that copies the library to another drive: verify-after-write, record each copy."""
 
-    def target_job(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
+    def target_job(progress: ProgressCallback, cancel: threading.Event) -> BackupRunSummary:
         if not source.is_dir() or not target.is_dir():
             message = "both the 'from' and 'to' folders must exist."
             raise ValueError(message)
@@ -2299,13 +2441,30 @@ def _resolve_migration_routes(
     return decided, rules_by_sha
 
 
+class MigrationMove(TypedDict):
+    old: str
+    new: str
+
+
+class MigrationPreviewOk(TypedDict):
+    ok: Literal[True]
+    label: str
+    template: str
+    unchanged: int
+    moves: list[MigrationMove]
+    warnings: list[str]
+    day_folder_reasons: list[str]
+    pending_drives: list[str]
+    elapsed_seconds: NotRequired[float]
+
+
 def migration_preview(
     path: Path,
     db: Path,
     *,
     progress: ProgressCallback | None = None,
     cancel: threading.Event | None = None,
-) -> dict[str, Any]:
+) -> MigrationPreviewOk | DriveUnavailablePayload:
     """Preview relocating a connected drive's files to the current template (moves nothing)."""
     marker = read_marker(path)
     if marker is None:
@@ -2354,8 +2513,10 @@ def migration_preview_run(path: Path, db: Path) -> JobTarget | DriveUnavailableP
     if marker is None:
         return {"ok": False, **_drive_correction(path)}
 
-    def target(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
-        return migration_preview(path, db, progress=progress, cancel=cancel)
+    def target(progress: ProgressCallback, cancel: threading.Event) -> MigrationPreviewOk:
+        result = migration_preview(path, db, progress=progress, cancel=cancel)
+        assert result["ok"] is True  # marker gated above; soft-fail already returned
+        return result
 
     return target
 
@@ -2514,6 +2675,7 @@ class UndoJobSummary(TypedDict):
     refused: list[UndoRefusalPayload]
     run_id: str | None
     applied: bool
+    elapsed_seconds: NotRequired[float]
 
 
 def migration_armed_state(path: Path, db: Path) -> ArmedStatePayload | DriveUnavailablePayload:

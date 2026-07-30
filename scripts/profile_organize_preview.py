@@ -295,8 +295,11 @@ def profile_preview(source: Path, *, label: str) -> dict[str, Any]:
 
             t = time.perf_counter()
             summary = _summarize(resolutions)
-            summary["destination_is_drive"] = False
-            summary["skipped"] = _skipped_summary(scan)
+            report_summary: dict[str, Any] = {
+                **summary,
+                "destination_is_drive": False,
+                "skipped": _skipped_summary(scan),
+            }
             phases["summarize"] = time.perf_counter() - t
 
             return _report(
@@ -310,7 +313,7 @@ def profile_preview(source: Path, *, label: str) -> dict[str, Any]:
                 opens=opens,
                 exiftool_file_opens=len(files),
                 hashes=hashes,
-                summary=summary,
+                summary=report_summary,
             )
     finally:
         hashing_mod.sha256_file = orig_sha  # type: ignore[assignment]

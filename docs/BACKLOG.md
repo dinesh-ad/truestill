@@ -444,9 +444,11 @@ is invisible here is retired, not free.**
   (`pin_existing_layout`, `effective_layout_string`, `resolve_scheme`) now lives in
   `layout_settings.py`, which imports `Catalog` directly. Invented `CatalogLike` Protocol
   retired. `layout.py` stays pure grammar/routing/rendering.
-- **(ff) Typed payloads at the app boundary.** `service.py` returns `dict[str, Any]` many times.
-  This is not theoretical: the `dict(PRESETS)` regression - dataclasses about to be serialized
-  into the API - was invisible to mypy precisely because the return type was `Any`.
+- **(ff) Typed payloads at the app boundary.** **Built 2026-07-30** (six slices). `service.py`
+  returns `dict[str, Any]` many times was not theoretical: the `dict(PRESETS)` regression -
+  dataclasses about to be serialized into the API - was invisible to mypy precisely because the
+  return type was `Any`. Boundary is now TypedDicts mirroring JSON exactly; `-> dict[str, Any]`
+  count at the service boundary is zero.
   - **Slice 1 - Built 2026-07-30:** `LayoutState` / preview / set-layout TypedDicts. `presets`
     is `dict[str, str]`; mypy rejects `dict(PRESETS)`. Key-set pins in `test_settings_http`.
   - **Slice 2 - Built 2026-07-30:** organize mode, sidebar, filesystem-relationship leaves.
@@ -460,6 +462,9 @@ is invisible here is retired, not free.**
     mechanism / drive_label / single_copy; `leftover_empty_folders` NotRequired), shared
     `LeftoverEmptyFolders` used by organize + migration apply. `cancelled` is UI-only (commented);
     `elapsed_seconds` NotRequired - jobs.py injects it on dict summaries (documented boundary).
+  - **Slice 6 - Built 2026-07-30:** remaining job targets and helpers (`_summarize`, organize
+    preview/undo, verify, ingest, backup run, migration preview) typed to zero
+    `-> dict[str, Any]` at the service boundary.
 - **(aab) Split `dates.py`.** **Built 2026-07-30.** Video ladder + offset grid + `LadderHit`
   moved to `video_utc.py`; inferred-local ``date_tag`` / ``format_offset`` to cycle-free
   `date_provenance.py`. `models._format_offset_hhmm` / `_parse_offset_hhmm` deleted - both

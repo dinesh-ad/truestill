@@ -203,7 +203,18 @@ def test_organize_preview_no_media(client: TestClient, tmp_path: Path) -> None:
     assert started.status_code == 200
     done = _stream_to_done(client, started.json()["job_id"])
     assert done["type"] == "done"
-    assert (done.get("summary") or done)["files"] == 0
+    summary = done.get("summary") or done
+    assert set(summary) == {
+        "tier",
+        "files",
+        "folders",
+        "skipped",
+        "mode",
+        "mechanism",
+        "elapsed_seconds",
+    }
+    assert summary["files"] == 0
+    assert summary["tier"] == "dedup"
 
 
 def test_organize_mode_setting_round_trips_through_catalog(client: TestClient) -> None:
@@ -282,6 +293,27 @@ def test_preview_is_a_job_that_still_writes_nothing(client: TestClient, tmp_path
     done = _stream_to_done(client, started.json()["job_id"])
     summary = done.get("summary") or done
 
+    assert set(summary) >= {
+        "tier",
+        "files",
+        "photos",
+        "videos",
+        "audio",
+        "by_format",
+        "new_unique",
+        "near_dup",
+        "exact_dup",
+        "undated",
+        "sentinel_rejected",
+        "suspect_default",
+        "inferred_local_shifts",
+        "folders",
+        "destination_is_drive",
+        "skipped",
+        "mode",
+        "mechanism",
+        "elapsed_seconds",
+    }
     assert summary["files"] == 2
     assert not out.exists()  # nothing written to the destination
     with Catalog(tmp_path / "c.sqlite") as catalog:

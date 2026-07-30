@@ -181,23 +181,23 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
 
     async def organize_undo_preview(_request: Request) -> JSONResponse:
         state = service.organize_undo_state(_db())
-        if not state.get("armed"):
+        if state["armed"] is False:
             return JSONResponse(state)
         target = service.organize_undo(db=_db(), apply=False)
         return _start_drive_job(
             target,
-            paths=[Path(str(state["source_root"])), Path(str(state["dest_root"]))],
+            paths=[Path(state["source_root"]), Path(state["dest_root"])],
             operation="undo organize preview",
         )
 
     async def organize_undo_apply(_request: Request) -> JSONResponse:
         state = service.organize_undo_state(_db())
-        if not state.get("armed"):
+        if state["armed"] is False:
             return JSONResponse(state)
         target = service.organize_undo(db=_db(), apply=True)
         return _start_drive_job(
             target,
-            paths=[Path(str(state["source_root"])), Path(str(state["dest_root"]))],
+            paths=[Path(state["source_root"]), Path(state["dest_root"])],
             operation="undo organize",
         )
 
