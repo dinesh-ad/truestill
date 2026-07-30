@@ -2,6 +2,9 @@
 
 Used for dry-run previews and as the reference implementation of the interface. Preserves
 source metadata via ``copy2``; capture-date timestamps are applied to the destination copy.
+
+Filesystem failures surface as :class:`DestinationError` (the ABC contract), never as raw
+``OSError``, so callers like ``migrate._matches`` can treat every backend uniformly.
 """
 
 from __future__ import annotations
@@ -29,16 +32,28 @@ class LocalDestination(Destination):
         return self._root / relative_path
 
     def exists(self, relative_path: str) -> bool:
-        return self._full(relative_path).exists()
+        try:
+            return self._full(relative_path).exists()
+        except OSError as exc:
+            message = f"cannot probe {relative_path!r}: {exc}"
+            raise DestinationError(message) from exc
 
     def upload(self, local: Path, relative_path: str) -> None:
         target = self._full(relative_path)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(local, target)
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(local, target)
+        except OSError as exc:
+            message = f"cannot upload to {relative_path!r}: {exc}"
+            raise DestinationError(message) from exc
 
     def set_timestamp(self, relative_path: str, captured_at: datetime) -> None:
         stamp = captured_at.timestamp()
-        os.utime(self._full(relative_path), (stamp, stamp))
+        try:
+            os.utime(self._full(relative_path), (stamp, stamp))
+        except OSError as exc:
+            message = f"cannot set timestamp on {relative_path!r}: {exc}"
+            raise DestinationError(message) from exc
 
     def adopt(self, local: Path, relative_path: str) -> None:
         """Move ``local`` in with an atomic rename, or raise :class:`CrossDeviceError`.
@@ -56,14 +71,15 @@ class LocalDestination(Destination):
         bind mounts where a rename still fails. The kernel is asked, and its answer is final.
         """
         target = self._full(relative_path)
-        target.parent.mkdir(parents=True, exist_ok=True)
         try:
+            target.parent.mkdir(parents=True, exist_ok=True)
             local.rename(target)
         except OSError as exc:
             if exc.errno == errno.EXDEV:
                 message = f"{local} and {target} are on different filesystems"
                 raise CrossDeviceError(message) from exc
-            raise
+            message = f"cannot adopt into {relative_path!r}: {exc}"
+            raise DestinationError(message) from exc
 
     def relocate(self, old_relative_path: str, new_relative_path: str) -> None:
         source = self._full(old_relative_path)
@@ -71,22 +87,38 @@ class LocalDestination(Destination):
             message = f"cannot relocate missing copy: {old_relative_path}"
             raise DestinationError(message)
         target = self._full(new_relative_path)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, target)  # overwrites a partial copy left by an interrupted run
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)  # overwrites a partial copy left by an interrupted run
+        except OSError as exc:
+            message = f"cannot relocate {old_relative_path!r} -> {new_relative_path!r}: {exc}"
+            raise DestinationError(message) from exc
 
     def remove(self, relative_path: str) -> None:
-        self._full(relative_path).unlink(missing_ok=True)
+        try:
+            self._full(relative_path).unlink(missing_ok=True)
+        except OSError as exc:
+            message = f"cannot remove {relative_path!r}: {exc}"
+            raise DestinationError(message) from exc
 
     def checksum(self, relative_path: str) -> str:
-        return sha256_file(self._full(relative_path))
+        try:
+            return sha256_file(self._full(relative_path))
+        except OSError as exc:
+            message = f"cannot checksum {relative_path!r}: {exc}"
+            raise DestinationError(message) from exc
 
     def list(self) -> list[str]:
-        if not self._root.exists():
-            return []
-        # POSIX-separated to honour the Destination contract on every OS (matches the rclone
-        # backend); the same relative form upload()/exists() accept.
-        return [
-            path.relative_to(self._root).as_posix()
-            for path in sorted(self._root.rglob("*"))
-            if path.is_file()
-        ]
+        try:
+            if not self._root.exists():
+                return []
+            # POSIX-separated to honour the Destination contract on every OS (matches the rclone
+            # backend); the same relative form upload()/exists() accept.
+            return [
+                path.relative_to(self._root).as_posix()
+                for path in sorted(self._root.rglob("*"))
+                if path.is_file()
+            ]
+        except OSError as exc:
+            message = f"cannot list {self._root}: {exc}"
+            raise DestinationError(message) from exc
