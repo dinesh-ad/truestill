@@ -282,11 +282,18 @@ def _add_reversible_migrations(conn: sqlite3.Connection) -> None:
     *resume* record that erased itself on success -- so a finished migration had nothing left to
     reverse from. Rows now carry the run that made them and the moment they completed, and they
     survive as the reversal record until a later run of the same drive supersedes them.
+
+    Column adds are gated on ``PRAGMA table_info`` so a concurrent opener that already applied
+    the full current ``_SCHEMA`` (which includes ``run_id`` / ``completed_at``) cannot collide
+    with this step when ``user_version`` was still below 11.
     """
+    journal_cols = {row["name"] for row in conn.execute("PRAGMA table_info(migration_journal)")}
+    if "run_id" not in journal_cols:
+        conn.execute("ALTER TABLE migration_journal ADD COLUMN run_id TEXT")
+    if "completed_at" not in journal_cols:
+        conn.execute("ALTER TABLE migration_journal ADD COLUMN completed_at TEXT")
     conn.executescript(
         """
-        ALTER TABLE migration_journal ADD COLUMN run_id TEXT;
-        ALTER TABLE migration_journal ADD COLUMN completed_at TEXT;
         CREATE TABLE IF NOT EXISTS migration_runs (
             run_id       TEXT PRIMARY KEY,
             drive_uuid   TEXT NOT NULL,
