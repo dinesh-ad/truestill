@@ -192,7 +192,7 @@ def _drive_correction(path: Path) -> DriveCorrectionPayload:
 
 def _drive_unavailable(path: Path) -> DriveUnavailablePayload:
     """Connected-drive gate failure (explicit TypedDict - mypy 1.13 rejects Union ** spreads)."""
-    return _drive_unavailable(path)
+    return {"ok": False, **_drive_correction(path)}
 
 
 def drive_ref_for(path: Path) -> DriveRef:
