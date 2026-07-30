@@ -204,6 +204,76 @@ def write_metadata_batch(items: Sequence[tuple[Path, list[str]]]) -> dict[Path, 
     return verdicts
 
 
+def _partition_by_cache(
+    paths: Sequence[Path],
+    *,
+    cache: HashCache | None,
+    force: bool,
+    tags_fp: str,
+) -> tuple[dict[Path, dict[str, Any]], list[Path]]:
+    """Split ``paths`` into cache hits and files that still need an exiftool read."""
+    if cache is None or force:
+        return {}, list(paths)
+
+    collected: dict[Path, dict[str, Any]] = {}
+    to_read: list[Path] = []
+    for path in paths:
+        try:
+            stat = path.stat()
+        except OSError:
+            to_read.append(path)
+            continue
+        hit = cache.get_metadata(path, stat.st_size, stat.st_mtime_ns, tags_fp)
+        if hit is None:
+            to_read.append(path)
+        else:
+            collected[path] = hit
+    return collected, to_read
+
+
+def _read_chunk(binary: str, chunk: Sequence[Path]) -> list[dict[str, Any]]:
+    """One exiftool batch. Empty stdout or unparseable JSON yields ``[]`` (silent skip)."""
+    args = [binary, "-json", "-q", "-m", "-charset", "filename=utf8"]
+    args += [f"-{tag}" for tag in REQUESTED_TAGS]
+    args += [f"-{tag}#" for tag in _NUMERIC_TAGS]  # signed decimal degrees for GPS
+    args += [str(path) for path in chunk]
+
+    proc = subprocess.run(args, capture_output=True, text=True, check=False)
+    payload = proc.stdout.strip()
+    if not payload:
+        return []
+    try:
+        parsed: list[dict[str, Any]] = json.loads(payload)
+    except json.JSONDecodeError:
+        return []
+    return parsed
+
+
+def _cache_records(
+    collected: dict[Path, dict[str, Any]],
+    chunk: Sequence[Path],
+    records: Sequence[dict[str, Any]],
+    *,
+    cache: HashCache | None,
+    tags_fp: str,
+) -> None:
+    """Merge one batch into ``collected`` and, when ``cache`` is set, write each hit back."""
+    by_name = {str(path): path for path in chunk}
+    for record in records:
+        source = record.get("SourceFile")
+        if not source:
+            continue
+        path = by_name.get(source) or Path(source)
+        collected[path] = record
+        if cache is None:
+            continue
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        cache.put_metadata(path, stat.st_size, stat.st_mtime_ns, tags_fp, record)
+
+
 def read_metadata(
     paths: Sequence[Path],
     *,
@@ -234,23 +304,7 @@ def read_metadata(
         return {}
 
     tags_fp = tags_fingerprint(REQUESTED_TAGS, _NUMERIC_TAGS)
-    collected: dict[Path, dict[str, Any]] = {}
-    to_read: list[Path] = []
-
-    if cache is not None and not force:
-        for path in paths:
-            try:
-                stat = path.stat()
-            except OSError:
-                to_read.append(path)
-                continue
-            hit = cache.get_metadata(path, stat.st_size, stat.st_mtime_ns, tags_fp)
-            if hit is None:
-                to_read.append(path)
-            else:
-                collected[path] = hit
-    else:
-        to_read = list(paths)
+    collected, to_read = _partition_by_cache(paths, cache=cache, force=force, tags_fp=tags_fp)
 
     if progress is not None and collected:
         # Cache hits count as done so a fully warm run shows a completed scanning phase.
@@ -267,36 +321,10 @@ def read_metadata(
             break
         if progress is not None:
             progress(Progress(done, len(paths), Phase.SCANNING, Path(chunk[0]).name))
-        args = [binary, "-json", "-q", "-m", "-charset", "filename=utf8"]
-        args += [f"-{tag}" for tag in REQUESTED_TAGS]
-        args += [f"-{tag}#" for tag in _NUMERIC_TAGS]  # signed decimal degrees for GPS
-        args += [str(path) for path in chunk]
-
-        proc = subprocess.run(args, capture_output=True, text=True, check=False)
-        payload = proc.stdout.strip()
-        if not payload:
-            done += len(chunk)
-            continue
-
-        try:
-            records = json.loads(payload)
-        except json.JSONDecodeError:
-            done += len(chunk)
-            continue
-
+        records = _read_chunk(binary, chunk)
         done += len(chunk)
-        by_name = {str(path): path for path in chunk}
-        for record in records:
-            source = record.get("SourceFile")
-            if not source:
-                continue
-            path = by_name.get(source) or Path(source)
-            collected[path] = record
-            if cache is not None:
-                try:
-                    stat = path.stat()
-                except OSError:
-                    continue
-                cache.put_metadata(path, stat.st_size, stat.st_mtime_ns, tags_fp, record)
+        if not records:
+            continue
+        _cache_records(collected, chunk, records, cache=cache, tags_fp=tags_fp)
 
     return collected

@@ -68,8 +68,6 @@ unfixable = []
 # scan.compute_hashes / verify.verify_copies expose pool/workers/progress/cancel as kw-only.
 "packages/truestill-core/src/truestill_core/scan.py" = ["PLR0913"]
 "packages/truestill-core/src/truestill_core/verify.py" = ["PLR0913"]
-# read_metadata: cache/force/progress/cancel + cache-hit vs exiftool branches.
-"packages/truestill-core/src/truestill_core/exif.py" = ["PLR0912", "PLR0915"]
 # organize_preview forwards progress/cancel/refresh_metadata as keyword-only knobs.
 "packages/truestill-app/src/truestill_app/service.py" = ["PLR0913"]
 # run_migration(catalog/destination/drive_uuid/template/apply/progress/cancel) as kw-only knobs.
