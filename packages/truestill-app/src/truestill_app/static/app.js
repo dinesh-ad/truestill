@@ -976,6 +976,12 @@ async function updateUse() {
   use.disabled = false;
   use.textContent = "Use this folder";
   const v = await get(`/api/fs/validate?path=${encodeURIComponent(pk.path)}`);
+  if (v.unreadable) {
+    // Offering a folder truestill cannot read would hand the failure to the next screen.
+    use.disabled = true;
+    use.textContent = "Can't read this folder";
+    return;
+  }
   const n = v.media_capped ? `${v.media}+` : v.media;
   if (pk.kind === "source") use.textContent = v.media > 0 ? `Use this folder · ${n} photos or videos` : "Use this folder · no photos or videos";
   else use.textContent = v.is_drive ? "Use this backup drive" : "Use this folder";
@@ -993,6 +999,14 @@ async function validatePath(input, hint, kind) {
   const path = input.value.trim();
   if (!path) { hint.innerHTML = ""; hint.className = "hint"; return null; }
   const v = await get(`/api/fs/validate?path=${encodeURIComponent(path)}`);
+  // Checked before the source/destination split: the folder is there and the OS will not
+  // describe it, which is the same answer either way -- and specifically NOT "doesn't exist",
+  // because that branch offers "Create it" and the create fails with the same refusal.
+  if (v.unreadable) {
+    hint.textContent = "truestill can't read this folder. Check its permissions, or pick another one.";
+    hint.className = "hint warn";
+    return v;
+  }
   if (kind === "source") {
     if (!v.exists || !v.is_dir) { hint.textContent = "That folder cannot be used. Check the path, then pick an existing folder."; hint.className = "hint warn"; return v; }
     const n = v.media_capped ? `${v.media}+` : v.media;

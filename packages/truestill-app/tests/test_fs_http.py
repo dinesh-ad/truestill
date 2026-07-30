@@ -144,6 +144,7 @@ def test_fs_validate_counts_media(client: TestClient, tmp_path: Path) -> None:
         "is_drive",
         "media",
         "media_capped",
+        "unreadable",
     }
     assert v["is_dir"] is True
     assert v["media"] == 2  # jpg + mp4, not the txt
@@ -160,6 +161,7 @@ def test_fs_validate_missing_path(client: TestClient, tmp_path: Path) -> None:
         "is_drive",
         "media",
         "media_capped",
+        "unreadable",
     }
     assert v["exists"] is False
     assert v["media"] == 0
@@ -177,6 +179,7 @@ def test_fs_create_makes_a_new_backup_folder(client: TestClient, tmp_path: Path)
         "is_drive",
         "media",
         "media_capped",
+        "unreadable",
     }
     assert r["created"] is True
     assert r["is_dir"] is True

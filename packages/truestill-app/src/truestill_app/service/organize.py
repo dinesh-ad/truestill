@@ -50,6 +50,7 @@ from truestill_app.service.leftover_cleanup import (
     cleanup_summary_from_results,
 )
 from truestill_app.service.media_support import media_breakdown
+from truestill_app.service.path_probe import nearest_device, unreadable_message
 from truestill_app.service.takeout import InferredLocalShiftPayload
 
 ORGANIZE_MODE_KEY = "ui.organize.mode"
@@ -232,19 +233,17 @@ class FilesystemRelationshipErr(TypedDict):
 def filesystem_relationship(
     source: Path, destination: Path
 ) -> FilesystemRelationshipOk | FilesystemRelationshipErr:
-    """Whether source and destination roots are on the same filesystem."""
-    if _device_id(source) is None:
-        return {
-            "ok": False,
-            "error": "The source folder was not found. Check the path, then pick an existing folder.",
-        }
-    if _device_id(destination) is None:
-        return {
-            "ok": False,
-            "error": "The organized folder was not found. Check the path, then pick or create a folder.",
-        }
-    same_filesystem = _device_id(source) == _device_id(destination)
-    return {"ok": True, "same_filesystem": same_filesystem}
+    """Whether source and destination roots are on the same filesystem.
+
+    A destination that does not exist yet is answered from the parent it would be created in -
+    that is the common first-run case, not a failure. The one unanswerable case is a folder the
+    OS refuses to describe, and it is reported as that rather than walked past.
+    """
+    src, dst = nearest_device(source), nearest_device(destination)
+    for probe in (src, dst):
+        if probe.blocked_at is not None:
+            return {"ok": False, "error": unreadable_message(probe.blocked_at)}
+    return {"ok": True, "same_filesystem": src.device_id == dst.device_id}
 
 
 def _effective_destination_for_mode(source: Path, destination: Path, mode: str) -> Path:
@@ -252,16 +251,8 @@ def _effective_destination_for_mode(source: Path, destination: Path, mode: str) 
 
 
 def _device_id(path: Path) -> int | None:
-    probe = path
-    while True:
-        if probe.exists():
-            try:
-                return probe.stat().st_dev
-            except OSError:
-                return None
-        if probe.parent == probe:
-            return None
-        probe = probe.parent
+    """The device ``path`` sits on, or ``None`` when a folder refused to be described."""
+    return nearest_device(path).device_id
 
 
 class ModeMechanism(TypedDict):
