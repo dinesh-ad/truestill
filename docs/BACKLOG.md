@@ -456,6 +456,10 @@ is invisible here is retired, not free.**
     `library_stats`, `library_status`, `backup_preview`, plus `list_drives` / `at_risk` element
     types. Shared `MediaBreakdown` helper typed; `_completion` / job summaries deferred (fan-out
     report before typing).
+  - **Slice 5 - Built 2026-07-30:** `CompletionBase` (17 keys), `OrganizeDoneSummary` (plus mode /
+    mechanism / drive_label / single_copy; `leftover_empty_folders` NotRequired), shared
+    `LeftoverEmptyFolders` used by organize + migration apply. `cancelled` is UI-only (commented);
+    `elapsed_seconds` NotRequired - jobs.py injects it on dict summaries (documented boundary).
 - **(aab) Split `dates.py`.** **Built 2026-07-30.** Video ladder + offset grid + `LadderHit`
   moved to `video_utc.py`; inferred-local ``date_tag`` / ``format_offset`` to cycle-free
   `date_provenance.py`. `models._format_offset_hhmm` / `_parse_offset_hhmm` deleted - both

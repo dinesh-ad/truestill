@@ -26,6 +26,10 @@ from typing import Any, Literal, TypedDict
 from truestill_core.progress import Progress, ProgressCallback
 
 #: A job target receives a progress callback and a cancel event, and returns a JSON-able summary.
+#: Heterogeneous return shapes (organize, migrate, verify, backup, …) keep ``JobTarget`` as
+#: ``Any``. For dict summaries, :meth:`JobManager.start` always injects ``elapsed_seconds`` at
+#: runtime; service TypedDicts declare that key ``NotRequired`` rather than inventing a shared
+#: intersection type jobs cannot enforce across every target.
 JobTarget = Callable[[ProgressCallback, threading.Event], Any]
 
 _SENTINEL_DONE = "done"
@@ -154,7 +158,8 @@ class JobManager:
                     summary = target(progress, job.cancel)
                     job.status = "cancelled" if job.cancel.is_set() else "done"
                     # Measured here rather than in each op: every job wants it, and the job is the
-                    # only layer that sees the whole run including setup.
+                    # only layer that sees the whole run including setup. Runtime guarantee for
+                    # dict summaries only -- see JobTarget docstring (NotRequired on service types).
                     if isinstance(summary, dict):
                         summary = {
                             **summary,

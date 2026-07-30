@@ -577,7 +577,16 @@ def _device_id(path: Path) -> int | None:
         probe = probe.parent
 
 
-def _mode_mechanism(source: Path, destination: Path, mode: str) -> dict[str, Any]:
+class ModeMechanism(TypedDict):
+    """How an organize mode will copy or rename on this source/destination pair."""
+
+    same_filesystem: bool
+    reversible: bool
+    uses_rename: bool
+    requires_destination: bool
+
+
+def _mode_mechanism(source: Path, destination: Path, mode: str) -> ModeMechanism:
     """Mechanism briefing used by preview/run messaging and confirm gating."""
     same_filesystem = False
     src_dev = _device_id(source)
@@ -705,12 +714,16 @@ def organize_run(
 ) -> JobTarget:
     """Build a job target that runs the real organize (progress across hashing then copying)."""
 
-    def target(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
+    def target(
+        progress: ProgressCallback, cancel: threading.Event
+    ) -> CompletionBase | OrganizeDoneSummary:
         chosen_mode = _normalize_organize_mode(mode)
         effective_destination = _effective_destination_for_mode(source, destination, chosen_mode)
         mechanism = _mode_mechanism(source, effective_destination, chosen_mode)
         files = discover(source)
         if not files:
+            # Empty source: CompletionBase only -- no mode/mechanism/drive_label/single_copy.
+            # OrganizeDoneSummary is the with-files path below.
             return _completion([], effective_destination)
         with Catalog(db) as catalog, HashCache.beside(db) as cache:
             metadata = read_metadata(files, progress=progress, cache=cache, force=refresh_metadata)
@@ -776,25 +789,30 @@ def organize_run(
                 drive_uuid=drive_uuid,
             )
             if relocation is not None:
-                moved = sum(1 for row in results if row.status is ActionStatus.MOVED_IN_PLACE)
+                moved = sum(1 for r in results if r.status is ActionStatus.MOVED_IN_PLACE)
                 if moved:
                     catalog.finish_inplace_run(relocation.run_id)
                 else:
                     catalog.discard_inplace_run(relocation.run_id)
-        completion = _completion(results, effective_destination)
-        completion["mode"] = chosen_mode
-        completion["mechanism"] = mechanism
+        base = _completion(results, effective_destination)
+        leftover: LeftoverEmptyFolders | None = None
         if chosen_mode in {"move", "inplace"}:
-            cleanup = _cleanup_summary_from_results(results, source)
-            if cleanup is not None:
-                completion["leftover_empty_folders"] = cleanup
-        completion["drive_label"] = marker.label
+            leftover = _cleanup_summary_from_results(results, source)
         with Catalog(db) as catalog:
             catalog.set_setting(LIBRARY_PATH_HINT, str(effective_destination))
             # The custody nudge, counted rather than assumed: how much of the library really
             # does exist in only one place right now.
-            completion["single_copy"] = catalog.single_copy_count()
-        return completion
+            single_copy = catalog.single_copy_count()
+        done: OrganizeDoneSummary = {
+            **base,
+            "mode": chosen_mode,
+            "mechanism": mechanism,
+            "drive_label": marker.label,
+            "single_copy": single_copy,
+        }
+        if leftover is not None:
+            done["leftover_empty_folders"] = leftover
+        return done
 
     return target
 
@@ -854,9 +872,22 @@ def organize_undo(*, db: Path, apply: bool) -> JobTarget:
     return target
 
 
+class LeftoverEmptyFolders(TypedDict):
+    """Empty-folder cleanup offer after move/in-place organize or migration apply.
+
+    Shared by :func:`organize_run` and :func:`migration_apply` (the genuinely shared shape;
+    :func:`_completion` itself is organize-only).
+    """
+
+    source_root: str
+    emptied: list[str]
+    count: int
+    folders: list[str]
+
+
 def _cleanup_summary_from_results(
     results: list[ActionResult], source_root: Path
-) -> dict[str, Any] | None:
+) -> LeftoverEmptyFolders | None:
     """Empty-folder leftovers after move/in-place organize, for completion messaging."""
     moved_sources = [
         row.resolution.decision.source
@@ -878,7 +909,7 @@ def _cleanup_summary_from_results(
 
 def _cleanup_summary_from_old_paths(
     source_root: Path, old_paths: list[str]
-) -> dict[str, Any] | None:
+) -> LeftoverEmptyFolders | None:
     emptied = emptied_directories(old_paths)
     plan = plan_cleanup(source_root, emptied)
     leftovers = [candidate.relative for candidate in plan.removable]
@@ -943,7 +974,48 @@ def clean_empty_apply(path: Path, emptied: list[str]) -> CleanEmptyApply:
     }
 
 
-def _completion(results: list[ActionResult], destination: Path) -> dict[str, Any]:
+class CompletionBase(TypedDict):
+    """The 17 keys :func:`_completion` itself returns (organize-only)."""
+
+    outcomes: dict[str, int]
+    organized: int
+    photos: int
+    videos: int
+    audio: int
+    bytes_organized: int
+    duplicates: int
+    bytes_saved: int
+    near_dup: int
+    bytes_near_dup: int
+    folders: dict[str, int]
+    oldest: str | None
+    newest: str | None
+    moved_in_place: int
+    moved_by_copy: int
+    failed: int
+
+
+class OrganizeDoneSummary(CompletionBase):
+    """Organize job summary after :func:`organize_run` enriches :class:`CompletionBase`.
+
+    ``leftover_empty_folders`` appears only for move/inplace runs that left empty folders.
+    ``elapsed_seconds`` is injected by ``jobs.py`` on every dict done-event (documented
+    boundary -- JobTarget is heterogeneous, so jobs cannot type-guarantee the key on every
+    summary TypedDict).
+
+    ``cancelled`` is added by the UI only (``{ ...summary, cancelled: true }``) and must
+    never appear in this server-side type.
+    """
+
+    mode: str
+    mechanism: ModeMechanism
+    drive_label: str
+    single_copy: int
+    leftover_empty_folders: NotRequired[LeftoverEmptyFolders]
+    elapsed_seconds: NotRequired[float]
+
+
+def _completion(results: list[ActionResult], destination: Path) -> CompletionBase:
     """The story of a finished organize, built only from what the run actually did.
 
     Every number here is counted from the results -- nothing is estimated, rounded up for
@@ -2310,6 +2382,21 @@ class AppliedReviewGroupPayload(TypedDict):
     path: str
 
 
+class MigrationApplySummary(TypedDict):
+    """Migration / events-apply-to-disk job summary.
+
+    Shares :class:`LeftoverEmptyFolders` with organize -- not :class:`CompletionBase`.
+    ``elapsed_seconds`` is injected by ``jobs.py`` (same boundary as organize).
+    """
+
+    label: str
+    migrated: int
+    resumed: int
+    leftover_empty_folders: NotRequired[LeftoverEmptyFolders]
+    groups: NotRequired[list[AppliedReviewGroupPayload]]
+    elapsed_seconds: NotRequired[float]
+
+
 def migration_apply(
     path: Path,
     db: Path,
@@ -2329,7 +2416,7 @@ def migration_apply(
     both and is unaffected.
     """
 
-    def target(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
+    def target(progress: ProgressCallback, cancel: threading.Event) -> MigrationApplySummary:
         marker = read_marker(path)
         if marker is None:
             raise _not_a_drive(path)
@@ -2383,7 +2470,7 @@ def migration_apply(
             leftovers = _cleanup_summary_from_old_paths(
                 path, catalog.migrated_old_paths(marker.uuid)
             )
-        result: dict[str, Any] = {
+        result: MigrationApplySummary = {
             "label": marker.label,
             "migrated": outcome.migrated,
             "resumed": outcome.resumed,

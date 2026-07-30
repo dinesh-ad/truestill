@@ -337,6 +337,35 @@ def test_organize_run_summary_matches_files_on_disk(client: TestClient, tmp_path
     assert summary.get("organized"), (
         "organize done-event must report what it organized (else 'nothing to do')"
     )
+    assert set(summary) >= {
+        "outcomes",
+        "organized",
+        "photos",
+        "videos",
+        "audio",
+        "bytes_organized",
+        "duplicates",
+        "bytes_saved",
+        "near_dup",
+        "bytes_near_dup",
+        "folders",
+        "oldest",
+        "newest",
+        "moved_in_place",
+        "moved_by_copy",
+        "failed",
+        "mode",
+        "mechanism",
+        "drive_label",
+        "single_copy",
+        "elapsed_seconds",
+    }
+    assert set(summary["mechanism"]) == {
+        "same_filesystem",
+        "reversible",
+        "uses_rename",
+        "requires_destination",
+    }
 
     # The drive marker is truestill's own bookkeeping, not an organized photo.
     files_on_disk = [p for p in out.rglob("*") if p.is_file() and p.name != ".truestill-drive.json"]
