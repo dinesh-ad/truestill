@@ -1270,7 +1270,9 @@ after detection and after every merge or split.
 
 **Small is derived from the configured floor, not a fixed photo count.** The first implementation
 used two doublings (`count < 4 * min_files`), but review rejected it: at the default 8 it hid
-everything below 32, including the unverified secondary-survey claim's 23-photo average. That
+everything below 32, including the secondary-survey claim's 23-photo average (OnePoll/Mixbook
+2023; attribution recorded 2026-07-30 in `adaptive-day-folder-research.md` - previously held
+unverified in `events-clustering-research.md`). That
 inverted the intent by treating a typical memory as noise. The retained rule is the **first
 doubling**, `count < 2 * min_files`: default 8 hides threshold-adjacent 8-15-photo events and keeps
 23 visible. A detected event already meets the lower floor; a manually split event may fall below

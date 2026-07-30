@@ -100,19 +100,24 @@ floor + cap   : 15 clusters, longest span      11.8 h
 `min_files` stays **8**. Raising it to 15 drops 2014-08-14 (31 photos) entirely, and a 31-photo
 evening is an event.
 
-### Stage 3 secondary claim - recorded, not verified
+### Stage 3 secondary claim - now attributed (2026-07-30)
 
-The Stage 3 discussion supplied a secondary claim that multiple 2023-2026 consumer surveys
-(`n > 2,000`) found about 23 photos taken per occasion across graduations, weddings, vacations
-and sporting events. The prescribed web-research command was unavailable in the build
-environment, so no primary report, sample wording or distribution was verified. Treat **23 as
-an unverified secondary claim**, not as evidence this implementation relies on.
+The Stage 3 discussion supplied a secondary claim that consumer surveys found about 23 photos
+taken per occasion across graduations, weddings, vacations and sporting events. At the time this
+section was written the prescribed web-research command was unavailable, so the figure was held
+as **unverified**.
 
-The accompanying inference that "a mean of 23 means roughly half of events are below 23" is also
-not established: a mean alone says nothing about the fraction below it without the distribution
-or at least the median. The verified reason to keep 8 remains the measured library above:
-raising the floor to 15 hides a real 31-photo evening, while an unwanted small proposal is visible
-and cheap to skip. A missed proposal is not visible at all.
+**Attribution (recorded 2026-07-30 for backlog `(gg)`):** OnePoll survey for Mixbook, random
+double-opt-in of 2,000 US adults, 15-16 August 2023 - nearly 23 pictures per occasion
+([Talker News](https://talker.news/2023/10/09/average-american-takes-this-many-photos-per-day/),
+[StudyFinds](https://studyfinds.org/taking-pictures-camera-roll/)). Full default-threshold
+reasoning lives in `docs/adaptive-day-folder-research.md`.
+
+The accompanying inference that "a mean of 23 means roughly half of events are below 23" is
+still not established: a mean alone says nothing about the fraction below it without the
+distribution or at least the median. The verified reason to keep `min_files = 8` remains the
+measured library above: raising the floor to 15 hides a real 31-photo evening, while an unwanted
+small proposal is visible and cheap to skip. A missed proposal is not visible at all.
 
 ## 4. What the rule proposes for the real library- **for Dinesh to check**
 
