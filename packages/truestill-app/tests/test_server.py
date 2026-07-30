@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 from starlette.testclient import TestClient
-from truestill_app import __version__, server, service
+from truestill_app import __version__, server
 from truestill_app.server import create_app
 from truestill_core.catalog import Catalog
 
@@ -600,7 +600,7 @@ def test_reveal_degrades_honestly_without_an_opener(
 
     The message carries the path, so someone on a headless box can still act on it.
     """
-    monkeypatch.setattr(service.shutil, "which", lambda _name: None)
+    monkeypatch.setattr("truestill_app.service.drives.shutil.which", lambda _name: None)
     r = client.post(f"/api/reveal?token={_TOKEN}", json={"path": str(tmp_path)}).json()
 
     assert set(r) == {"ok", "error"}

@@ -130,7 +130,7 @@ def test_backup_warns_and_blocks_when_target_is_too_small(
     create_marker(b, "DriveB")
 
     tiny = SimpleNamespace(total=100, used=99, free=8)  # 8 bytes free
-    monkeypatch.setattr(service.shutil, "disk_usage", lambda _p: tiny)
+    monkeypatch.setattr("truestill_app.service.backup.shutil.disk_usage", lambda _p: tiny)
 
     preview = client.post("/api/backup/preview", json={"source": str(a), "target": str(b)}).json()
     assert preview["enough"] is False  # UI blocks the Copy button on this

@@ -192,7 +192,7 @@ def test_reveal_unreachable_returns_correction_not_oserror(
     locked = tmp_path / "locked"
     locked.mkdir()
     with (
-        patch("truestill_app.service.path_is_usable_dir", return_value=False),
+        patch("truestill_app.service.drives.path_is_usable_dir", return_value=False),
         patch("truestill_app.service.drive_support.path_is_usable_dir", return_value=False),
     ):
         body = reveal_in_file_manager(locked)

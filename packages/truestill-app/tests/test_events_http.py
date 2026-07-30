@@ -183,8 +183,8 @@ def test_apply_to_disk_reports_one_row_per_named_group_with_its_real_folder(
     assert {group["kind"] for group in groups} == {"event"}
     by_name = {group["name"]: group for group in groups}
     assert set(by_name) == {"Goa", "Paris"}
-    monkeypatch.setattr(service.shutil, "which", lambda _name: "/usr/bin/true")
-    monkeypatch.setattr(service.subprocess, "Popen", lambda *_a, **_k: None)
+    monkeypatch.setattr("truestill_app.service.drives.shutil.which", lambda _name: "/usr/bin/true")
+    monkeypatch.setattr("truestill_app.service.drives.subprocess.Popen", lambda *_a, **_k: None)
     for name, expected_day in (("Goa", "2026-06-14"), ("Paris", "2026-06-21")):
         group = by_name[name]
         assert group["start"].startswith(expected_day)

@@ -7,27 +7,21 @@ dry-run posture, preserved in the UI).
 
 from __future__ import annotations
 
-import shutil
-import sqlite3
-import subprocess
-import sys
 import threading
 import uuid
 from collections import Counter
 from collections.abc import Sequence
-from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import date
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal, NotRequired, TypedDict, cast
 
 from truestill_core.catalog import Catalog
-from truestill_core.catalog_startup import inspect_catalog
 from truestill_core.categorize import build_rules
 from truestill_core.cleanup import emptied_directories, plan_cleanup
 from truestill_core.date_provenance import format_offset
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import LocalDestination
-from truestill_core.drive import create_marker, path_is_usable_dir, read_marker
+from truestill_core.drive import create_marker, read_marker
 from truestill_core.event_review import EventDecision, commit, commit_catalog, propose
 from truestill_core.events import (
     EventCandidate,
@@ -40,7 +34,6 @@ from truestill_core.hashing import (
     DEFAULT_PHASH_THRESHOLD,
     HEIF_AVAILABLE,
     HEIF_EXTENSIONS,
-    sha256_file,
 )
 from truestill_core.layout import Placement
 from truestill_core.layout_settings import (
@@ -75,7 +68,7 @@ from truestill_core.organizer import (
     resolve,
     scan_source,
 )
-from truestill_core.progress import Phase, Progress, ProgressCallback
+from truestill_core.progress import ProgressCallback
 from truestill_core.trip_review import (
     ReviewCard,
     TripDecision,
@@ -91,8 +84,10 @@ from truestill_core.trip_review import (
 )
 
 from truestill_app.jobs import JobTarget
+from truestill_app.service import backup as _backup
 from truestill_app.service import clean_empty as _clean_empty
 from truestill_app.service import drive_support as _drive_support
+from truestill_app.service import drives as _drives
 from truestill_app.service import fs_browse as _fs_browse
 from truestill_app.service import media_support as _media_support
 from truestill_app.service import organize_undo as _organize_undo
@@ -186,141 +181,39 @@ VerifyProblem = _verify.VerifyProblem
 VerifyJobSummary = _verify.VerifyJobSummary
 verify_run = _verify.verify_run
 
+
+LIBRARY_PATH_HINT = _drives.LIBRARY_PATH_HINT
+BACKUP_PATH_HINT = _drives.BACKUP_PATH_HINT
+RevealOk = _drives.RevealOk
+RevealErr = _drives.RevealErr
+reveal_in_file_manager = _drives.reveal_in_file_manager
+DriveAttachment = _drives.DriveAttachment
+attach_drive = _drives.attach_drive
+DriveRow = _drives.DriveRow
+WhereCopy = _drives.WhereCopy
+WhereResult = _drives.WhereResult
+AtRiskRow = _drives.AtRiskRow
+list_drives = _drives.list_drives
+where = _drives.where
+at_risk = _drives.at_risk
+LibraryStatus = _drives.LibraryStatus
+library_status = _drives.library_status
+
+MissingCopy = _backup.MissingCopy
+BackupPreviewErr = _backup.BackupPreviewErr
+BackupPreviewOk = _backup.BackupPreviewOk
+BackupRunSummary = _backup.BackupRunSummary
+backup_preview = _backup.backup_preview
+backup_run = _backup.backup_run
+_files_missing_on_target = _backup._files_missing_on_target
+
 #: Remembered paths, for prefilling fields the catalog can already answer. **Hints only.**
 #: Drive *identity* is the marker's uuid and never a path (§3.1) -- mount points move between
 #: sessions and machines. These exist so a user is never asked to Browse for something we
 #: already know, and nothing behind them may ever be trusted as identity.
-LIBRARY_PATH_HINT = "path_hint.library"
-BACKUP_PATH_HINT = "path_hint.backup"
 ORGANIZE_MODE_KEY = "ui.organize.mode"
 ORGANIZE_MODES = frozenset({"copy", "move", "inplace"})
 SIDEBAR_COLLAPSED_KEY = "ui.sidebar.collapsed"
-
-
-class RevealOk(TypedDict):
-    ok: Literal[True]
-    path: str
-
-
-class RevealErr(TypedDict):
-    ok: Literal[False]
-    error: str
-    suggested_root: NotRequired[str | None]
-    drive_label: NotRequired[str | None]
-    can_register: NotRequired[bool]
-
-
-def reveal_in_file_manager(path: Path) -> RevealOk | RevealErr:
-    """Open a folder in the desktop's own file manager.
-
-    A path printed on screen is a dead end: to actually look at the photos a user has to select
-    it, copy it and paste it somewhere else. This is the one action that makes a displayed path
-    useful.
-
-    **Degrades honestly.** There is no cross-platform way to do this, so the opener is chosen per
-    platform (`xdg-open`, `open`, `explorer`); where none exists the caller is told plainly and
-    given the path, rather than being left with a button that silently does nothing.
-
-    Only ever opens a directory that already exists, and the path goes into an argument vector
-    rather than a shell, so a folder name containing shell metacharacters is just a name. A
-    stale/unreachable hint returns the same drive-correction shape as verify - never a raw
-    ``OSError``.
-    """
-    if not path_is_usable_dir(path):
-        return cast(RevealErr, {"ok": False, **_drive_correction(path)})
-    opener = {"darwin": "open", "win32": "explorer"}.get(sys.platform, "xdg-open")
-    if shutil.which(opener) is None:
-        return {
-            "ok": False,
-            "error": (
-                f"Can't open a file manager because this machine has no '{opener}'. "
-                f"Open the folder yourself: {path}"
-            ),
-        }
-    try:
-        subprocess.Popen([opener, str(path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except OSError as exc:
-        return {
-            "ok": False,
-            "error": f"Couldn't open a file manager ({exc}). Open the folder yourself in your file manager.",
-        }
-    return {"ok": True, "path": str(path)}
-
-
-@dataclass(frozen=True, slots=True)
-class DriveAttachment:
-    """The result of making a folder usable as a truestill drive."""
-
-    label: str
-    registered: bool  # a marker was written now (the folder was not a drive before)
-    linked: int  # already-organized files newly attached to this drive
-    absent: int  # catalogued files whose copy is not actually on the drive
-
-
-def attach_drive(path: Path, db: Path, *, write: bool) -> DriveAttachment:
-    """Make ``path`` a registered drive, attaching any library already organized into it.
-
-    **Why this exists.** Organizing through the app used to leave its destination unregistered:
-    no marker, so no ``file_copies`` rows, so the app could not verify it, could not copy it
-    anywhere, and counted it as living in zero places. The whole custody half of the product
-    was reachable only by running the CLI's ``drives --init`` first -- a concept a user has no
-    reason to have heard of, standing between "I organized my photos" and "make me a backup".
-
-    Two halves, because a folder can be behind in two different ways:
-
-    * **No marker** -- write one, labelled after the folder. A ~100-byte file at the root of a
-      folder the user just asked us to fill with copies of their library.
-    * **No recorded copies** -- a library organized before its folder was registered has rows
-      in ``files`` but none in ``file_copies``. Each is attached only after confirming the copy
-      is *actually present*; anything missing is counted and reported, never assumed.
-
-    ``write=False`` reports what would happen and touches nothing, so previews stay pure.
-    """
-    marker = read_marker(path)
-    was_registered = marker is not None
-    if marker is None and not write:
-        # Report what would happen without doing it: previews write nothing, ever.
-        return DriveAttachment(label=path.name or "Library", registered=True, linked=0, absent=0)
-    if marker is None:
-        marker = create_marker(path, label=path.name or "Library")
-
-    linked = absent = 0
-    with Catalog(db) as catalog:
-        if write:
-            catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
-            catalog.set_setting(_drive_path_hint(marker.uuid), str(path))
-        known = {row["sha256"] for row in catalog.copies_on_drive(marker.uuid)}
-        for row in catalog.organized_files():
-            if row["sha256"] in known:
-                continue
-            if not (path / str(row["relative"])).is_file():
-                absent += 1
-                continue
-            linked += 1
-            if write:
-                catalog.record_copy(
-                    sha256=str(row["sha256"]),
-                    drive_uuid=marker.uuid,
-                    relative=str(row["relative"]),
-                    copy_sha256=row["copy_sha256"],
-                    size=row["size"],
-                )
-    return DriveAttachment(
-        label=marker.label, registered=not was_registered, linked=linked, absent=absent
-    )
-
-
-def _now() -> str:
-    return datetime.now(UTC).isoformat()
-
-
-_GB = 1_000_000_000
-_MB = 1_000_000
-
-
-def _gb(n: int) -> str:
-    """A human byte size for space messages (GB for anything sizeable, else MB)."""
-    return f"{n / _GB:.1f} GB" if n >= _GB else f"{n / _MB:.0f} MB"
 
 
 class OrganizeDedupCore(TypedDict):
@@ -969,109 +862,6 @@ def _result_size(result: ActionResult, destination: Path) -> int:
     return 0
 
 
-class DriveRow(TypedDict):
-    label: str
-    uuid: str
-    files: int
-    photos: int
-    videos: int
-    audio: int
-    size: int
-    last_seen: str | None
-    last_verified: str | None
-    path: str | None
-
-
-class WhereCopy(TypedDict):
-    name: str
-    drive: str
-    relative: str
-    last_verified: str | None
-
-
-class WhereResult(TypedDict):
-    copies: list[WhereCopy]
-    total: int
-    page: int
-    pages: int
-    page_size: int
-
-
-class AtRiskRow(TypedDict):
-    name: str
-    drive: str
-
-
-def list_drives(db: Path) -> list[DriveRow]:
-    with Catalog(db) as catalog:
-        names_by_drive: dict[str, list[str]] = {}
-        for row in catalog.copy_names_by_drive():
-            names_by_drive.setdefault(row["drive_uuid"], []).append(row["relative"])
-        drives: list[DriveRow] = []
-        for d in catalog.list_drives():
-            breakdown = _media_breakdown(names_by_drive.get(d["uuid"], []))
-            # Live hint only. A dead path is cleared here so the next screen load does not
-            # re-stat it; Check now / open-folder are omitted when path is absent.
-            path = _take_live_path_hint(catalog, _drive_path_hint(d["uuid"]))
-            drives.append(
-                {
-                    "label": d["label"],
-                    "uuid": d["uuid"],
-                    "files": d["file_count"],
-                    "photos": breakdown["photos"],
-                    "videos": breakdown["videos"],
-                    "audio": breakdown["audio"],
-                    "size": d["total_size"] or 0,
-                    "last_seen": d["last_seen"],
-                    "last_verified": d["last_verified"],
-                    # Where it was last seen, so a card can offer "Check now" for the right
-                    # folder. Absent when we have never had a path for it, or the hint was
-                    # stale and cleared -- in which case the card states the fact without
-                    # offering an action it cannot honour.
-                    "path": path,
-                }
-            )
-        return drives
-
-
-def where(term: str, db: Path, *, page: int = 1) -> WhereResult:
-    """One page of search results, plus what the caller needs to render a pager.
-
-    Paged in SQL (`Catalog.find_copies`), so a page costs a page of rows however large the
-    library is. The total comes from a separate `COUNT(*)`, which is what makes "page 3 of 12"
-    honest rather than "more results, somewhere".
-    """
-    size = Catalog.FIND_PAGE_SIZE
-    page = max(1, page)
-    with Catalog(db) as catalog:
-        total = catalog.count_copies(term)
-        rows = catalog.find_copies(term, limit=size, offset=(page - 1) * size)
-        copies: list[WhereCopy] = [
-            {
-                "name": r["original_name"] or r["relative"],
-                "drive": r["drive_label"],
-                "relative": r["relative"],
-                "last_verified": r["last_verified"],
-            }
-            for r in rows
-        ]
-    return {
-        "copies": copies,
-        "total": total,
-        "page": page,
-        "pages": max(1, -(-total // size)),
-        "page_size": size,
-    }
-
-
-def at_risk(db: Path) -> list[AtRiskRow]:
-    with Catalog(db) as catalog:
-        return [
-            {"name": r["original_name"] or r["sha256"][:12], "drive": r["drive_label"]}
-            for r in catalog.single_copy_shas()
-        ]
-
-
 # --- event review (used by the Event review screen; merge/split are UI-only) ----------
 
 
@@ -1206,62 +996,6 @@ def proposed_review_cards_payload(
     }
 
 
-# --- library custody status (the sidebar's always-true status line) -------------------
-
-
-class LibraryStatus(TypedDict):
-    """Honest, catalog-driven totals for the custody strip."""
-
-    library_path: str | None
-    backup_path: str | None
-    files: int
-    photos: int
-    videos: int
-    audio: int
-    by_format: dict[str, dict[str, int]]
-    places: int
-    single_copy: int
-    bytes: int
-    catalog_path: str
-    catalog_presence: str
-    catalog_detail: str
-    catalog_tone: Literal["info", "notice", "alert"]
-
-
-def library_status(db: Path, *, explicit_db: bool = False) -> LibraryStatus:
-    """Honest, catalog-driven totals for the custody strip.
-
-    Always names the resolved absolute catalog path. A missing file is first-run (info), not
-    an error; an empty file with registered drives is the loud wrong-catalog case.
-    """
-    # Inspect before Catalog() so a missing path stays will_create (Catalog would create it).
-    startup = inspect_catalog(db, explicit_db=explicit_db)
-    with Catalog(db) as catalog:
-        breakdown = _media_breakdown(catalog.media_names())
-        total = catalog.count()
-        drives = [d for d in catalog.list_drives() if d["file_count"]]
-        single_copy = catalog.single_copy_count()
-        total_bytes = sum(d["total_size"] or 0 for d in drives)
-        library_path = _take_live_path_hint(catalog, LIBRARY_PATH_HINT)
-        backup_path = _take_live_path_hint(catalog, BACKUP_PATH_HINT)
-    return {
-        "library_path": library_path,
-        "backup_path": backup_path,
-        "files": total,
-        "photos": breakdown["photos"],
-        "videos": breakdown["videos"],
-        "audio": breakdown["audio"],
-        "by_format": breakdown["by_format"],
-        "places": len(drives),
-        "single_copy": single_copy,
-        "bytes": total_bytes,
-        "catalog_path": startup.absolute_path,
-        "catalog_presence": startup.presence.value,
-        "catalog_detail": startup.detail,
-        "catalog_tone": startup.tone,
-    }
-
-
 # --- Trip proposal payloads (Trips surface; settings prefs live in settings.py) --------
 
 
@@ -1286,220 +1020,6 @@ class EventProposalSuccessPayload(TypedDict):
 
 def invalid_event_proposal_payload(error: str) -> InvalidEventProposalPayload:
     return {"ok": False, "error": error}
-
-
-_FREE_SPACE_MARGIN = 1.03  # keep a little headroom so a copy never fills the target drive
-
-
-@dataclass(frozen=True, slots=True)
-class MissingCopy:
-    """One library file still absent on the backup target.
-
-    Carries both hashes deliberately: ``sha256`` is the content/dedup identity, ``copy_sha256``
-    is the verification identity (§3). The copy-verify loop must never treat them as
-    interchangeable - that is why this is a dataclass, not ``list[Any]`` (audit F8).
-    """
-
-    sha256: str
-    relative: str
-    copy_sha256: str | None
-    size: int | None
-
-    @classmethod
-    def from_row(cls, row: sqlite3.Row) -> MissingCopy:
-        """Build from a ``copies_on_drive`` or ``organized_files`` catalog row."""
-        size_raw = row["size"]
-        copy_raw = row["copy_sha256"]
-        return cls(
-            sha256=str(row["sha256"]),
-            relative=str(row["relative"]),
-            copy_sha256=None if copy_raw is None else str(copy_raw),
-            size=None if size_raw is None else int(size_raw),
-        )
-
-    @property
-    def verify_sha(self) -> str:
-        """Digest the on-disk copy must match after write (copy hash, else content hash)."""
-        return self.copy_sha256 or self.sha256
-
-
-def _files_missing_on_target(
-    catalog: Catalog, source_uuid: str, target_uuid: str
-) -> list[MissingCopy]:
-    """Copies present on the source drive but not yet on the target -- keyed on per-drive presence,
-    not the catalog-global dedup that would wrongly skip a genuine second copy."""
-    on_target = {r["sha256"] for r in catalog.copies_on_drive(target_uuid)}
-    return [
-        MissingCopy.from_row(r)
-        for r in catalog.copies_on_drive(source_uuid)
-        if r["sha256"] not in on_target
-    ]
-
-
-class BackupPreviewErr(TypedDict):
-    ok: Literal[False]
-    error: str
-
-
-# ``from`` is a reserved word; functional form keeps the JSON key exact.
-BackupPreviewOk = TypedDict(
-    "BackupPreviewOk",
-    {
-        "ok": Literal[True],
-        "from": str,
-        "to": str,
-        "will_register": list[str],
-        "count": int,
-        "photos": int,
-        "videos": int,
-        "audio": int,
-        "bytes": int,
-        "free": int,
-        "enough": bool,
-    },
-)
-
-
-def backup_preview(source: Path, target: Path, db: Path) -> BackupPreviewOk | BackupPreviewErr:
-    """Preview copying the library from one connected drive to another (writes nothing).
-
-    Reports how many files (and bytes) are missing on the target, and whether the target has room
-    -- a disk-full part-way through is the failure this whole feature exists to prevent.
-    """
-    if not source.is_dir():
-        return {
-            "ok": False,
-            "error": "The From folder was not found. Check the path, then pick an existing folder.",
-        }
-    if not target.is_dir():
-        return {
-            "ok": False,
-            "error": "The To folder was not found. Check the path, then pick or create a folder.",
-        }
-    if source.resolve() == target.resolve():
-        return {
-            "ok": False,
-            "error": "From and To point to the same folder. Pick a different destination drive.",
-        }
-    # Preview writes nothing, so an unregistered folder is *reported* as one that will be
-    # registered rather than rejected -- the run does the registering.
-    src = attach_drive(source, db, write=False)
-    tgt = attach_drive(target, db, write=False)
-    src_marker, tgt_marker = read_marker(source), read_marker(target)
-    if src_marker is not None and tgt_marker is not None and src_marker.uuid == tgt_marker.uuid:
-        return {
-            "ok": False,
-            "error": "From and To are the same drive. Pick a different backup drive.",
-        }
-    with Catalog(db) as catalog:
-        missing = (
-            _files_missing_on_target(catalog, src_marker.uuid, tgt_marker.uuid)
-            if src_marker is not None and tgt_marker is not None
-            else [MissingCopy.from_row(r) for r in catalog.organized_files()]
-        )
-    need = sum(int(r.size or 0) for r in missing)
-    free = shutil.disk_usage(target).free
-    breakdown = _media_breakdown([r.relative for r in missing])
-    return {
-        "ok": True,
-        "from": src.label,
-        "to": tgt.label,
-        "will_register": [d.label for d in (src, tgt) if d.registered],
-        "count": len(missing),
-        "photos": breakdown["photos"],
-        "videos": breakdown["videos"],
-        "audio": breakdown["audio"],
-        "bytes": need,
-        "free": free,
-        "enough": free >= need * _FREE_SPACE_MARGIN,
-    }
-
-
-class BackupRunSummary(TypedDict):
-    copied: int
-    to: str
-    photos: int
-    videos: int
-    audio: int
-    bytes_copied: int
-    verified: Literal[True]
-    target_path: str
-    elapsed_seconds: NotRequired[float]
-
-
-def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
-    """Build a job that copies the library to another drive: verify-after-write, record each copy."""
-
-    def target_job(progress: ProgressCallback, cancel: threading.Event) -> BackupRunSummary:
-        if not source.is_dir() or not target.is_dir():
-            message = "both the 'from' and 'to' folders must exist."
-            raise ValueError(message)
-        # Register whatever is not yet a drive, and attach a library organized before its
-        # folder was registered. Without this the app rejects the very library it just built.
-        attach_drive(source, db, write=True)
-        attach_drive(target, db, write=True)
-        src_marker, tgt_marker = read_marker(source), read_marker(target)
-        if src_marker is None or tgt_marker is None:
-            raise _not_a_drive(source if src_marker is None else target)
-        if src_marker.uuid == tgt_marker.uuid:
-            message = "the 'from' and 'to' folders are the same drive."
-            raise ValueError(message)
-        with Catalog(db) as catalog:
-            missing = _files_missing_on_target(catalog, src_marker.uuid, tgt_marker.uuid)
-            need = sum(int(r.size or 0) for r in missing)
-            free = shutil.disk_usage(target).free
-            if free < need * _FREE_SPACE_MARGIN:
-                message = (
-                    f"not enough space on {tgt_marker.label}: needs {_gb(need)}, "
-                    f"only {_gb(free)} free."
-                )
-                raise ValueError(message)
-            copied = 0
-            copied_names: list[str] = []
-            copied_bytes = 0
-            for row in missing:
-                if cancel.is_set():
-                    break
-                rel = row.relative
-                dst = target / rel
-                dst.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(source / rel, dst)
-                want = row.verify_sha
-                if sha256_file(dst) != want:  # verify-after-write; a bad copy is never recorded
-                    dst.unlink(missing_ok=True)
-                    message = f"copy of {rel} did not verify -- stopping to stay safe."
-                    raise ValueError(message)
-                catalog.record_copy(
-                    sha256=row.sha256,
-                    drive_uuid=tgt_marker.uuid,
-                    relative=rel,
-                    copy_sha256=want,
-                    size=int(row.size or 0) or None,
-                )
-                catalog.mark_copy_verified(
-                    sha256=row.sha256, drive_uuid=tgt_marker.uuid, when=_now()
-                )
-                copied += 1
-                copied_names.append(rel)
-                copied_bytes += int(row.size or 0)
-                progress(Progress(copied, len(missing), Phase.COPYING, Path(rel).name))
-            catalog.set_setting(BACKUP_PATH_HINT, str(target))
-        breakdown = _media_breakdown(copied_names)
-        return {
-            "copied": copied,
-            "to": tgt_marker.label,
-            "photos": breakdown["photos"],
-            "videos": breakdown["videos"],
-            "audio": breakdown["audio"],
-            "bytes_copied": copied_bytes,
-            # Every copy was re-hashed against the recorded digest before being recorded; a
-            # copy that failed that check aborts the run. Saying so is the point of the whole
-            # feature, so the completion card gets to say it.
-            "verified": True,
-            "target_path": str(target),
-        }
-
-    return target_job
 
 
 def propose_events(
