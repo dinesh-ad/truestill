@@ -157,24 +157,10 @@ is invisible here is retired, not free.**
   - **Not fixed here, on purpose** - recorded only, per instruction.
 
 - **(rr) A trip/migration apply-to-disk leaves emptied source folders behind and says nothing.**
-  Ruled by Dinesh from a soak finding, 2026-07-29, from the same live trip apply.
-  - **Never auto-deleting a folder is the correct standing rule** (`clean-empty`'s own design:
-    preview by default, trash where supported, `--permanent` only behind its own confirmation
-    for mounts - cloud/network - that refuse trash). The gap is not the rule; it is that
-    **nothing in the app tells the user the rule, or that `clean-empty` exists**, once an apply
-    finishes. A user is left with the folders the migration emptied and no signal to act on
-    them.
-  - **Verified: `clean-empty` is CLI-only today** (`truestill clean-empty <path> [--apply]
-    [--permanent]`, `_add_clean_parser` in `cli.py`) - nothing in `server.py`/`service.py`
-    imports `emptied_directories`/`plan_cleanup`/`run_cleanup` at all. This applies to
-    **every** migration apply through the app (Settings screen too, not only Trips & events),
-    since all of them share `run_migration`/`migration_apply`.
-  - **Fix:** after a completed apply, report the count of folders the operation emptied on the
-    completion card, and offer the existing `clean-empty` flow (preview, then the same typed
-    confirm the CLI requires, trash where supported) from there - reusing
-    `emptied_directories`/`plan_cleanup`/`run_cleanup` directly, not designing a second
-    mechanism. Do not auto-delete.
-  - **Not fixed here, on purpose** - recorded only, per instruction.
+  - **Built (`7d9830c`, follow-up in Commit 4 of `(eee)`).** Both migrate-layout apply and
+    trips/events apply-to-disk completion cards now report leftover empty folder count + names
+    and offer the same preview+typed-confirm cleanup flow, reusing
+    `emptied_directories`/`plan_cleanup`/`run_cleanup`. No auto-delete was added.
 
 - **(ss) Organize preview hashes every file before showing anything - slow on a network mount.**
   Ruled by Dinesh from a soak finding, 2026-07-29: measured **9.9 files/sec on a 2,064-file
@@ -260,17 +246,10 @@ is invisible here is retired, not free.**
     Lightroom cascades from the top folder - one action, all descendants.
   - **Not fixed here, on purpose** - recorded only, per instruction.
 
-- **(zz) `undo-organize` overstates what it restored.** Ruled by Dinesh from the
-  2026-07-30 maiden voyage (disposable local subset): file bytes, relative paths, mtimes,
-  and file count all restored exactly after undo, but organize-era empty folders remained
-  (**2/2** in the run).
-  - **Standing rule stays correct:** never auto-delete folders on undo.
-  - **The defect is messaging:** completion text implies full restoration when only files are
-    restored.
-  - **Fix when built:** report leftover empty folder count + names, and offer
-    `clean-empty` explicitly. Same class and same remedy as **(rr)** (post-apply empties);
-    build together so the empty-folder story is consistent across migrate and undo.
-  - **Not fixed here, on purpose** - recorded only, per instruction.
+- **(zz) `undo-organize` overstates what it restored.**
+  - **Built (`7d9830c` + Commit 4 of `(eee)`).** Completion now reports leftover empty folder
+    count + names and offers the same cleanup flow. The standing rule remains unchanged:
+    folders are never auto-deleted.
 
 - **(aaa) Typed confirmations crash with raw `EOFError` in non-interactive runs.** Ruled by
   Dinesh from the 2026-07-30 maiden voyage: `organize --in-place --apply` aborted with a

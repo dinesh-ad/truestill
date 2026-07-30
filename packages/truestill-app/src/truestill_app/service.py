@@ -730,6 +730,12 @@ def _cleanup_summary_from_results(
             continue
     if not old_paths:
         return None
+    return _cleanup_summary_from_old_paths(source_root, old_paths)
+
+
+def _cleanup_summary_from_old_paths(
+    source_root: Path, old_paths: list[str]
+) -> dict[str, Any] | None:
     emptied = emptied_directories(old_paths)
     plan = plan_cleanup(source_root, emptied)
     leftovers = [candidate.relative for candidate in plan.removable]
@@ -1757,11 +1763,16 @@ def migration_apply(
                         "path": str(PurePosixPath(relative).parent.parent),
                     }
                 )
+            leftovers = _cleanup_summary_from_old_paths(
+                path, catalog.migrated_old_paths(marker.uuid)
+            )
         result: dict[str, Any] = {
             "label": marker.label,
             "migrated": outcome.migrated,
             "resumed": outcome.resumed,
         }
+        if leftovers is not None:
+            result["leftover_empty_folders"] = leftovers
         if groups:
             result["groups"] = groups
         return result

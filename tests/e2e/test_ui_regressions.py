@@ -239,8 +239,80 @@ def test_move_completion_reports_empty_folders_and_offers_clean_flow(
     result = ui.locator("#org-result")
     expect(result).to_contain_text("empty folder")
     expect(result).to_contain_text("nested")
-    ui.click("[data-org-clean-preview]")
-    expect(ui.locator("[data-org-clean-stage] [data-typed-confirm]")).to_be_visible()
+    ui.click("[data-clean-preview]")
+    expect(ui.locator("[data-clean-stage] [data-typed-confirm]")).to_be_visible()
+
+
+def test_trip_apply_completion_reports_empty_folders_and_offers_clean_flow(ui: Page) -> None:
+    ui.route(
+        "**/api/events/propose",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=(
+                '{"ok":true,"session":"sess","label":"Drive","declines":[],"collapsed":null,'
+                '"cards":[{"kind":"event","start":"2021-01-01","end":"2021-01-01","count":3,'
+                '"active_days":1,"days":[],"location":null,"collapsed":false}]}'
+            ),
+        ),
+    )
+    ui.route(
+        "**/api/events/sess/apply",
+        lambda route: route.fulfill(
+            status=200, content_type="application/json", body='{"events":1,"trips":0}'
+        ),
+    )
+    ui.route(
+        "**/api/events/sess/preview",
+        lambda route: route.fulfill(
+            status=200, content_type="application/json", body='{"job_id":"preview-job"}'
+        ),
+    )
+    ui.route(
+        "**/api/jobs/preview-job/events**",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="text/event-stream",
+            body=(
+                'data: {"type":"done","status":"done","summary":{"ok":true,"moves":[{"old":"a.jpg","new":"Trip/a.jpg"}]}}\n\n'
+            ),
+        ),
+    )
+    ui.route(
+        "**/api/events/sess/apply-to-disk",
+        lambda route: route.fulfill(
+            status=200, content_type="application/json", body='{"job_id":"apply-job"}'
+        ),
+    )
+    ui.route(
+        "**/api/jobs/apply-job/events**",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="text/event-stream",
+            body=(
+                'data: {"type":"done","status":"done","summary":{"migrated":3,"groups":[{"kind":"event","name":"Trip","start":"2021-01-01","end":"2021-01-01","path":"2021/Trip"}],"leftover_empty_folders":{"source_root":"/tmp/src","emptied":["DCIM/100"],"count":1,"folders":["DCIM/100"]}}}\n\n'
+            ),
+        ),
+    )
+    ui.route(
+        "**/api/clean-empty/preview",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body='{"ok":true,"path":"/tmp/src","backend":"gio","removable":["DCIM/100"],"occupied":[]}',
+        ),
+    )
+
+    ui.click('button[data-screen="events"]')
+    ui.fill("#ev-source", "/tmp/src")
+    ui.click("#ev-propose")
+    ui.fill('.ev-name[data-i="0"]', "Trip")
+    ui.click("#ev-apply")
+    ui.click("#ev-apply-disk")
+    expect(ui.locator("#ev-disk-result")).to_contain_text("empty folder")
+    expect(ui.locator("#ev-disk-result")).to_contain_text("DCIM/100")
+    ui.click("#ev-disk-result [data-clean-preview]")
+    expect(ui.locator("#ev-disk-result [data-clean-stage] [data-typed-confirm]")).to_be_visible()
 
 
 def test_the_verify_cancel_button_is_wired_to_something(ui: Page, app_server: AppServer) -> None:

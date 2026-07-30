@@ -828,7 +828,7 @@ function setWhy(text) { $("org-why").textContent = text; }
 let orgMode = "copy";
 let orgMechanism = null;
 let orgUndoJob = null;
-let orgCleanupOffer = null;
+let cleanupOffer = null;
 
 function currentOrganizeMode() {
   const picked = document.querySelector('input[name="org-mode"]:checked');
@@ -955,21 +955,21 @@ function cleanupOfferNote(cleanup) {
     <div>Files were restored/moved, but folders are never auto-deleted.</div>
     ${listed}${more}
     <div class="actions">
-      <button class="btn btn-secondary" data-org-clean-preview>Review empty-folder cleanup…</button>
+      <button class="btn btn-secondary" data-clean-preview>Review empty-folder cleanup…</button>
     </div>
-    <div data-org-clean-stage></div>
+    <div data-clean-stage></div>
   </div></div>`;
 }
 
-async function startOrganizeCleanupPreview(button) {
-  if (!orgCleanupOffer) return;
+async function startCleanupPreview(button) {
+  if (!cleanupOffer) return;
   const host = button.closest(".banner");
-  const stage = host ? host.querySelector("[data-org-clean-stage]") : null;
+  const stage = host ? host.querySelector("[data-clean-stage]") : null;
   if (!stage) return;
   await withBusy(button, "Checking empty folders…", async () => {
     const preview = await api("/api/clean-empty/preview", {
-      path: orgCleanupOffer.source_root,
-      emptied: orgCleanupOffer.emptied,
+      path: cleanupOffer.source_root,
+      emptied: cleanupOffer.emptied,
     });
     if (!preview.removable.length) {
       stage.innerHTML = card("<div class='k'>Nothing to remove now.</div>");
@@ -985,8 +985,8 @@ async function startOrganizeCleanupPreview(button) {
       buttonLabel: "Remove empty folders",
       onConfirm: async () => {
         const applied = await api("/api/clean-empty/apply", {
-          path: orgCleanupOffer.source_root,
-          emptied: orgCleanupOffer.emptied,
+          path: cleanupOffer.source_root,
+          emptied: cleanupOffer.emptied,
         });
         stage.innerHTML = card(
           `<div class="headline">Removed ${plural(applied.removed, "folder")}.</div>
@@ -1219,15 +1219,15 @@ async function startOrganizeRun() {
       // A cancelled run still organized everything it reached, and those files are real.
       // Show the same card, labelled honestly, rather than implying nothing happened.
       $("org-result").innerHTML = organizeCompletion({ ...r, cancelled: true });
-      orgCleanupOffer = r.leftover_empty_folders || null;
+      cleanupOffer = r.leftover_empty_folders || null;
     } else if (!d.ok) {
       $("org-result").innerHTML = jobErrorCard(d);
-      orgCleanupOffer = null;
+      cleanupOffer = null;
     } else {
       $("org-result").innerHTML = r.organized || r.outcomes
         ? organizeCompletion(r)
         : card(`<div class="headline">Nothing to organize</div><div class="k">No new photos or videos were found here.</div>`);
-      orgCleanupOffer = r.leftover_empty_folders || null;
+      cleanupOffer = r.leftover_empty_folders || null;
     }
     orgJob = null;
     loadCustody();
@@ -1348,10 +1348,10 @@ document.addEventListener("click", (e) => {
 });
 
 document.addEventListener("click", guarded(async (e) => {
-  const btn = e.target.closest("[data-org-clean-preview]");
+  const btn = e.target.closest("[data-clean-preview]");
   if (!btn) return;
   e.preventDefault();
-  await startOrganizeCleanupPreview(btn);
+  await startCleanupPreview(btn);
 }));
 
 // A displayed path is a dead end unless you can get to it. Anything carrying data-open reveals
@@ -1604,14 +1604,15 @@ $("ev-apply").onclick = guarded(async () => {
 // count only when nothing in this session had a folder to show (e.g. everything was skipped).
 function reviewResultCards(summary) {
   const groups = summary.groups || [];
+  const cleanup = summary.leftover_empty_folders ? cleanupOfferNote(summary.leftover_empty_folders) : "";
   if (!groups.length) {
-    return card(`<div class="headline">Moved ${plural(summary.migrated || 0, "photo")} into trip and event folders.</div>`);
+    return card(`<div class="headline">Moved ${plural(summary.migrated || 0, "photo")} into trip and event folders.</div>`) + cleanup;
   }
   return groups.map((g) => card(
     `<div class="headline">${esc(g.kind.toUpperCase())} · ${esc(g.name)}</div>
      <div class="k mono">${g.start.slice(0, 10)} → ${g.end.slice(0, 10)}</div>
      <div class="k mono"><a href="#" data-open="${esc(g.path)}" title="Open in file manager">${esc(g.path)}</a></div>`
-  )).join("");
+  )).join("") + cleanup;
 }
 let evJob = null;
 $("ev-apply-disk").onclick = guarded(async () => {
@@ -1629,6 +1630,7 @@ $("ev-apply-disk").onclick = guarded(async () => {
     });
     evProgress.stop();
     $("ev-apply-disk").classList.add("hidden");
+    cleanupOffer = d.ok ? (d.summary.leftover_empty_folders || null) : null;
     $("ev-disk-result").innerHTML = d.ok ? reviewResultCards(d.summary) : jobErrorCard(d);
     evJob = null;
     loadCustody();
@@ -1788,8 +1790,10 @@ $("mig-run").onclick = guarded(async () => {
       if (p.total) setStatus(scaleStatus("Moving files", p.done, p.total, "files"));
     });
     migProgress.stop();
+    cleanupOffer = d.ok ? (d.summary.leftover_empty_folders || null) : null;
     $("mig-result").innerHTML = d.ok
       ? card(`<div class="headline">Moved ${plural(d.summary.migrated || 0, "file")}.</div>`)
+        + (d.summary.leftover_empty_folders ? cleanupOfferNote(d.summary.leftover_empty_folders) : "")
       : jobErrorCard(d);
     migJob = null;
     loadDrives();
