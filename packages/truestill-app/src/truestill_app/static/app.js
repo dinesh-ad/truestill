@@ -1380,6 +1380,7 @@ async function startOrganizeRun() {
     const started = await api("/api/organize/run", { source, destination, skip_undated, refresh_metadata, mode });
     if (started.ok === false) {
       $("org-result").innerHTML = startRefusedCard(started, "org-dest");
+      $("org-confirm").innerHTML = "";
       return;
     }
     orgJob = started.job_id;
@@ -1405,6 +1406,7 @@ async function startOrganizeRun() {
       cleanupOffer = r.leftover_empty_folders || null;
     }
     orgJob = null;
+    $("org-confirm").innerHTML = "";
     loadCustody();
     refreshOrganizeUndoAffordance();
   });

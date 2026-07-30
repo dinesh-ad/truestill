@@ -221,6 +221,19 @@ def test_inplace_refuses_cross_device_instead_of_falling_back_to_copy(
 
 
 @_EXIFTOOL
+def test_organize_clears_typed_confirm_after_the_run(ui: Page, tmp_path: Path, library) -> None:
+    """(F44) After organize finishes, the typed-confirm must not stay live above the card.
+
+    Migrate clears its confirm; organize left ``move`` typed and the button enabled, so one
+    stray click re-ran the organize.
+    """
+    _organize(ui, library(2), tmp_path / "Library")
+    expect(ui.locator("#org-result")).to_contain_text("Done")
+    expect(ui.locator("#org-confirm [data-typed-go]")).to_have_count(0)
+    expect(ui.locator("#org-confirm [data-typed-confirm]")).to_have_count(0)
+
+
+@_EXIFTOOL
 def test_reversible_organize_shows_durable_undo_affordance(
     ui: Page, tmp_path: Path, library
 ) -> None:
