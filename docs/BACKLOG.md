@@ -18,7 +18,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(yy). Next free: (zz).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa). Next free: (aab).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -258,6 +258,29 @@ is invisible here is retired, not free.**
     for every affected `files.source_path` row; preview-then-typed-confirm like every other
     bulk change in this product; never silent. Cascade from the chosen root the way
     Lightroom cascades from the top folder - one action, all descendants.
+  - **Not fixed here, on purpose** - recorded only, per instruction.
+
+- **(zz) `undo-organize` overstates what it restored.** Ruled by Dinesh from the
+  2026-07-30 maiden voyage (disposable local subset): file bytes, relative paths, mtimes,
+  and file count all restored exactly after undo, but organize-era empty folders remained
+  (**2/2** in the run).
+  - **Standing rule stays correct:** never auto-delete folders on undo.
+  - **The defect is messaging:** completion text implies full restoration when only files are
+    restored.
+  - **Fix when built:** report leftover empty folder count + names, and offer
+    `clean-empty` explicitly. Same class and same remedy as **(rr)** (post-apply empties);
+    build together so the empty-folder story is consistent across migrate and undo.
+  - **Not fixed here, on purpose** - recorded only, per instruction.
+
+- **(aaa) Typed confirmations crash with raw `EOFError` in non-interactive runs.** Ruled by
+  Dinesh from the 2026-07-30 maiden voyage: `organize --in-place --apply` aborted with a
+  traceback when stdin was non-interactive (pipe/script/CI).
+  - **Defect:** destructive typed-confirm gates must fail clearly, not with a Python stack trace.
+  - **Fix when built:** detect non-interactive stdin at every typed-confirm site and exit with
+    a clear refusal: this operation requires interactive confirmation and cannot run
+    non-interactively.
+  - **Audit scope:** every typed-confirm path in CLI, not just in-place: `move`, `undo`,
+    `clean`, `delete forever`, `delete` (and any equivalent prompts that share this pattern).
   - **Not fixed here, on purpose** - recorded only, per instruction.
 
 - **(tt) No fast, no-hashing inventory - progressive disclosure is missing.** Ruled by Dinesh
