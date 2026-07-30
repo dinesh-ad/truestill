@@ -17,7 +17,6 @@ from typing import Any, Literal, NotRequired, TypedDict, cast
 
 from truestill_core.catalog import Catalog
 from truestill_core.categorize import build_rules
-from truestill_core.cleanup import emptied_directories, plan_cleanup
 from truestill_core.date_provenance import format_offset
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import LocalDestination
@@ -89,6 +88,7 @@ from truestill_app.service import clean_empty as _clean_empty
 from truestill_app.service import drive_support as _drive_support
 from truestill_app.service import drives as _drives
 from truestill_app.service import fs_browse as _fs_browse
+from truestill_app.service import leftover_cleanup as _leftover_cleanup
 from truestill_app.service import media_support as _media_support
 from truestill_app.service import organize_undo as _organize_undo
 from truestill_app.service import settings as _settings
@@ -206,6 +206,10 @@ BackupRunSummary = _backup.BackupRunSummary
 backup_preview = _backup.backup_preview
 backup_run = _backup.backup_run
 _files_missing_on_target = _backup._files_missing_on_target
+
+LeftoverEmptyFolders = _leftover_cleanup.LeftoverEmptyFolders
+_cleanup_summary_from_results = _leftover_cleanup.cleanup_summary_from_results
+_cleanup_summary_from_old_paths = _leftover_cleanup.cleanup_summary_from_old_paths
 
 #: Remembered paths, for prefilling fields the catalog can already answer. **Hints only.**
 #: Drive *identity* is the marker's uuid and never a path (§3.1) -- mount points move between
@@ -695,57 +699,6 @@ def organize_run(
         return done
 
     return target
-
-
-class LeftoverEmptyFolders(TypedDict):
-    """Empty-folder cleanup offer after move/in-place organize or migration apply.
-
-    Shared by :func:`organize_run` and :func:`migration_apply` (the genuinely shared shape;
-    :func:`_completion` itself is organize-only).
-    """
-
-    source_root: str
-    emptied: list[str]
-    count: int
-    folders: list[str]
-
-
-def _cleanup_summary_from_results(
-    results: list[ActionResult], source_root: Path
-) -> LeftoverEmptyFolders | None:
-    """Empty-folder leftovers after move/in-place organize, for completion messaging."""
-    moved_sources = [
-        row.resolution.decision.source
-        for row in results
-        if row.status in {ActionStatus.MOVED, ActionStatus.MOVED_IN_PLACE}
-    ]
-    if not moved_sources:
-        return None
-    old_paths: list[str] = []
-    for source in moved_sources:
-        try:
-            old_paths.append(source.relative_to(source_root).as_posix())
-        except ValueError:
-            continue
-    if not old_paths:
-        return None
-    return _cleanup_summary_from_old_paths(source_root, old_paths)
-
-
-def _cleanup_summary_from_old_paths(
-    source_root: Path, old_paths: list[str]
-) -> LeftoverEmptyFolders | None:
-    emptied = emptied_directories(old_paths)
-    plan = plan_cleanup(source_root, emptied)
-    leftovers = [candidate.relative for candidate in plan.removable]
-    if not leftovers:
-        return None
-    return {
-        "source_root": str(source_root),
-        "emptied": emptied,
-        "count": len(leftovers),
-        "folders": leftovers,
-    }
 
 
 class CompletionBase(TypedDict):
