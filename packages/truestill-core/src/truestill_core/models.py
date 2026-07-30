@@ -152,6 +152,31 @@ class CategoryMatch:
 
 
 @dataclass(frozen=True, slots=True)
+class Event:
+    """One named event, carried as a single value through placement and catalog link.
+
+    Replaces the parallel-collections anti-pattern of three dicts keyed by source path
+    (``assignments: (start, slug)``, ``names``, ``event_ids``) that had to be kept in sync by
+    hand. Each new need had been adding another array instead of changing the type of the
+    existing one - which is exactly how human names became a third dict, and how the audit's
+    F1 (missing event names on disk) shipped. With one object, a member cannot have a slug
+    without its id, or an id without its start; a forgotten name field is unrepresentable as
+    "present in one map and absent in another."
+
+    ``name`` is optional on purpose: a remembered event with no usable name still renders its
+    slug folder (``YYYYMMDD_<slug>``), matching :func:`truestill_core.layout.event_folder`.
+    ``start`` is the cluster's full timestamp, not a calendar day - day events are not days
+    (``BACKLOG.md`` ``(ll)``): the same date can hold several clusters, and a day key would
+    collapse them.
+    """
+
+    start: datetime
+    slug: str
+    name: str | None
+    id: int
+
+
+@dataclass(frozen=True, slots=True)
 class Decision:
     """A single file's categorization and placement, before anything is written.
 

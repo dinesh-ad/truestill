@@ -415,12 +415,15 @@ is invisible here is retired, not free.**
     nothing extra here; LSH is for *approximate* nearest-neighbour at far larger scale and would
     trade away exactness we currently have. `DedupIndex`'s interface was designed for the swap.
 
-- **(aa) Introduce an `Event` value object** (`start`, `slug`, `name`, `id`). An event is
-  currently three parallel dicts that must be kept in sync -
-  `assignments: dict[str, tuple[datetime, str]]`, `event_ids: dict[str, int]` and now
-  `names: dict[str, str]` - which is the **root cause** of the audit's F1: the human name was
-  simply never plumbed, because there was no object to carry it. `event_review.py` had already
-  eroded the tuple to `tuple[Any, str]`.
+- **(aa) Introduce an `Event` value object** (`start`, `slug`, `name`, `id`). **Built
+  2026-07-30.** One object replaces the three parallel dicts (`assignments`, `event_ids`,
+  `names`) that were the root cause of the audit's F1 (missing names): parallel collections is
+  the anti-pattern where each new need adds another array instead of changing the existing
+  type. `apply_events`, `execute`, CLI review, and app `commit` all take `dict[str, Event]`;
+  a member cannot carry a slug without its id/name slot. Optional `name=None` keeps the slug-
+  folder fallback. Golden paths + catalog event rows pinned in `test_event_value_object.py`.
+  Day/sub-day distinction respected - `start` is the cluster timestamp, not a calendar day
+  (see `(ll)`).
 - **(bb) `rule` becomes a `StrEnum`.** **Built 2026-07-30** (input half; output/`Placement`
   half shipped earlier in Stage 2a). `RuleName` enumerates the seven emitters;
   `TIMELINE_RULE = RuleName.DEVICE`; `classify` coerces/`assert_never`-matches on the enum so a

@@ -21,6 +21,7 @@ from truestill_core.models import (
     DateSource,
     Decision,
     DuplicateKind,
+    Event,
     FileHashes,
     Resolution,
 )
@@ -319,12 +320,12 @@ def test_apply_events_consolidates_cross_month_under_start_month() -> None:
     start = datetime(2026, 6, 30, 23, 0)
     # Key by str(source) exactly as apply_events looks them up, so the test is not sensitive
     # to how Path stringifies the source on the host OS.
-    assignments = {
-        str(r_jun.decision.source): (start, "goa-trip"),
-        str(r_jul.decision.source): (start, "goa-trip"),
+    events = {
+        str(r_jun.decision.source): Event(start=start, slug="goa-trip", name=None, id=1),
+        str(r_jul.decision.source): Event(start=start, slug="goa-trip", name=None, id=1),
     }
 
-    updated = apply_events([r_jun, r_jul], assignments)
+    updated = apply_events([r_jun, r_jul], events)
     relatives = {r.decision.relative.as_posix() for r in updated}
     assert relatives == {
         "2026/2026-06/20260630_goa-trip/a.jpg",

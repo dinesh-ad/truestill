@@ -16,7 +16,7 @@ from truestill_core.event_review import Prompt
 from truestill_core.event_review import run_event_stage as _core_run_event_stage
 from truestill_core.events import EventCandidate
 from truestill_core.layout import DEFAULT_SCHEME, LayoutScheme
-from truestill_core.models import Resolution
+from truestill_core.models import Event, Resolution
 
 __all__ = ["Prompt", "album_prompt", "run_event_stage"]
 
@@ -57,8 +57,8 @@ def run_event_stage(
     apply: bool,
     prompt: Prompt | None = None,
     scheme: LayoutScheme = DEFAULT_SCHEME,
-) -> tuple[list[Resolution], dict[str, int]]:
-    """Run the core event stage, printing proposals for the CLI. Returns (resolutions, event_ids)."""
+) -> tuple[list[Resolution], dict[str, Event]]:
+    """Run the core event stage, printing proposals for the CLI. Returns (resolutions, events)."""
     outcome = _core_run_event_stage(
         resolutions,
         metadata,
@@ -73,4 +73,4 @@ def run_event_stage(
         print(f"\nEvents: {len(outcome.clusters)} cluster(s) proposed (dry run -- not naming):")
         for cluster in outcome.clusters:
             print(f"  - {_describe(cluster)}")
-    return outcome.resolutions, outcome.event_ids
+    return outcome.resolutions, outcome.events

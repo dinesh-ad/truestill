@@ -28,7 +28,7 @@ from truestill_core.layout import (
     preview_scheme,
 )
 from truestill_core.migrate import label_routes, plan_migration
-from truestill_core.models import FileHashes, Resolution
+from truestill_core.models import Event, FileHashes, Resolution
 from truestill_core.organizer import apply_events, execute, plan
 
 pytestmark = pytest.mark.skipif(shutil.which("exiftool") is None, reason="exiftool not installed")
@@ -114,9 +114,8 @@ def test_a_real_run_writes_readable_event_folders(tmp_path: Path) -> None:
     ]
 
     start = datetime(2014, 8, 20)
-    assignments = {str(p): (start, "goa-trip") for p in photos}
-    names = {str(p): "Goa Trip" for p in photos}
-    routed = apply_events(resolutions, assignments, scheme=YEAR_FIRST, names=names)
+    events = {str(p): Event(start=start, slug="goa-trip", name="Goa Trip", id=1) for p in photos}
+    routed = apply_events(resolutions, events, scheme=YEAR_FIRST)
 
     destination = tmp_path / "out"
     execute(routed, LocalDestination(destination), apply=True, catalog=None)

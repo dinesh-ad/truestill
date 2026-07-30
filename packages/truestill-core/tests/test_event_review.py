@@ -48,14 +48,14 @@ def test_preview_returns_clusters_without_naming(tmp_path: Path) -> None:
         out = run_event_stage(_one_cluster(), {}, catalog, apply=False, prompt=_boom)
     assert isinstance(out, EventStageOutcome)
     assert len(out.clusters) == 1  # proposed
-    assert out.event_ids == {}  # but nothing named
+    assert out.events == {}  # but nothing named
     assert all("goa" not in r.decision.relative.as_posix() for r in out.resolutions)
 
 
 def test_apply_names_and_places(tmp_path: Path) -> None:
     with Catalog(tmp_path / "c.sqlite") as catalog:
         out = run_event_stage(_one_cluster(), {}, catalog, apply=True, prompt=lambda _c: "Goa Trip")
-    assert len(out.event_ids) == 10
+    assert len(out.events) == 10
     assert all(
         r.decision.relative.as_posix().startswith("2026/2026-06/2026-06-14 - Goa Trip/")
         for r in out.resolutions
@@ -75,7 +75,7 @@ def test_merge_then_commit_places_all_under_one_event(tmp_path: Path) -> None:
         merged = merge_candidates(clusters)
         out = commit(resolutions, [EventDecision(merged, "Summer")], catalog)
 
-    assert len(out.event_ids) == 20  # all files belong to the one merged event
+    assert len(out.events) == 20  # all files belong to the one merged event
     assert all(
         r.decision.relative.as_posix().startswith("2026/2026-06/2026-06-14 - Summer/")
         for r in out.resolutions
@@ -88,4 +88,4 @@ def test_catalog_reuse_and_skip_memory(tmp_path: Path) -> None:
         run_event_stage(_one_cluster(), {}, catalog, apply=True, prompt=lambda _c: "Goa Trip")
     with Catalog(db) as catalog:  # same signature -> reused, prompt never called
         out = run_event_stage(_one_cluster(), {}, catalog, apply=True, prompt=_boom)
-    assert len(out.event_ids) == 10
+    assert len(out.events) == 10

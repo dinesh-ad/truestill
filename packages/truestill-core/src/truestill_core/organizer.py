@@ -51,6 +51,7 @@ from truestill_core.models import (
     DateSource,
     Decision,
     DuplicateKind,
+    Event,
     Resolution,
     RuleName,
     status_label,
@@ -571,38 +572,37 @@ def resolve(
 
 def apply_events(
     resolutions: Sequence[Resolution],
-    assignments: dict[str, tuple[datetime, str]],
+    events: dict[str, Event],
     *,
     scheme: LayoutScheme = DEFAULT_SCHEME,
-    names: dict[str, str] | None = None,
 ) -> list[Resolution]:
     """Rewrite named-event members through the scheme's event placement.
 
     With the default scheme and a recorded human name, the folder is
-    ``YYYY/YYYY-MM/YYYY-MM-DD - Name/``.
+    ``YYYY/YYYY-MM/YYYY-MM-DD - Name/``. With no name (or an unusable one), the slug form
+    ``YYYYMMDD_<slug>/`` - identical to the pre-``Event`` optional-names path.
 
-    ``assignments`` maps a member's source path (``str``) to its event's ``(start, slug)``.
-    The event's *start* month is used for the whole event, so a cluster that straddles a
-    month boundary lands together under the start month rather than being split. Files not
-    in a named event are returned unchanged. ``template`` is the destination layout.
+    ``events`` maps a member's source path (``str``) to its :class:`Event`. The event's
+    *start* month is used for the whole event, so a cluster that straddles a month boundary
+    lands together under the start month rather than being split. Files not in a named event
+    are returned unchanged.
     """
-    if not assignments:
+    if not events:
         return list(resolutions)
 
     updated: list[Resolution] = []
     for resolution in resolutions:
-        assignment = assignments.get(str(resolution.decision.source))
-        if assignment is None:
+        event = events.get(str(resolution.decision.source))
+        if event is None:
             updated.append(resolution)
             continue
-        start, slug = assignment
         label = resolution.decision.category.label
         filename = resolution.decision.relative.name
         context = RenderContext(
             category=label,
             captured_at=resolution.decision.captured_at,
-            event=(start, slug),
-            event_name=names.get(str(resolution.decision.source)) if names else None,
+            event=(event.start, event.slug),
+            event_name=event.name,
         )
         directory = scheme.render(resolution.decision.category.rule, context)
         new_relative = Path(directory / filename)
@@ -919,7 +919,7 @@ def execute(
     skip_undated: bool = False,
     move: bool = False,
     relocation: Relocation | None = None,
-    event_ids: dict[str, int] | None = None,
+    events: dict[str, Event] | None = None,
     ingest: IngestContext | None = None,
     drive_uuid: str | None = None,
     progress: ProgressCallback | None = None,
@@ -927,12 +927,12 @@ def execute(
 ) -> list[ActionResult]:
     """Upload genuinely-new files; skip duplicates. ``apply=False`` reports only.
 
-    ``event_ids`` maps a source path to its assigned event. ``ingest`` (Takeout only) requests
-    baking rescued metadata into copies and records album membership; when absent, the copy is
-    byte-identical to the source and ``copy_sha256`` equals the source hash. ``drive_uuid``, when
-    the destination is an identified drive, records each copy's location in the catalog.
-    ``progress`` is called ``(done, total)`` per file; ``cancel`` stops the run early (already-
-    uploaded files stay -- the run is resumable).
+    ``events`` maps a source path to its :class:`Event` (catalog id travels on the object).
+    ``ingest`` (Takeout only) requests baking rescued metadata into copies and records album
+    membership; when absent, the copy is byte-identical to the source and ``copy_sha256`` equals
+    the source hash. ``drive_uuid``, when the destination is an identified drive, records each
+    copy's location in the catalog. ``progress`` is called ``(done, total)`` per file; ``cancel``
+    stops the run early (already-uploaded files stay -- the run is resumable).
 
     ``relocation`` turns the write into a **move by rename** where the filesystem allows it:
     no bytes are rewritten, the operation is atomic per file, and ``copy_sha256`` equals the
@@ -953,7 +953,7 @@ def execute(
         results.append(result)
         tally[status_label(result.status)] += 1
 
-    events = event_ids or {}
+    by_source = events or {}
     ingest = ingest or IngestContext()
     baker = _MetadataBaker(
         _bake_queue(resolutions, ingest, skip_undated=skip_undated) if apply else []
@@ -1063,7 +1063,9 @@ def execute(
                     captured_at=decision.captured_at.isoformat() if decision.captured_at else None,
                     category=decision.category.label,
                     relative=final_relative,
-                    event_id=events.get(str(decision.source)),
+                    event_id=by_source[str(decision.source)].id
+                    if str(decision.source) in by_source
+                    else None,
                     albums=sorted(album_set),
                     drive_uuid=drive_uuid,
                 )

@@ -20,7 +20,7 @@ from truestill_core.catalog import Catalog
 from truestill_core.events import EventCandidate, EventItem, cluster_camera, slugify
 from truestill_core.hashing import sha256_file
 from truestill_core.layout import DEFAULT_SCHEME, TIMELINE_RULE, LayoutScheme
-from truestill_core.models import Resolution
+from truestill_core.models import Event, Resolution
 from truestill_core.organizer import apply_events
 
 #: A prompt returns the user's chosen name for a cluster, or None to skip it.
@@ -29,10 +29,10 @@ Prompt = Callable[[EventCandidate], str | None]
 
 @dataclass(frozen=True, slots=True)
 class EventStageOutcome:
-    """Result of the event stage: possibly-rewritten resolutions, event ids, and the proposals."""
+    """Result of the event stage: possibly-rewritten resolutions, events, and the proposals."""
 
     resolutions: list[Resolution]
-    event_ids: dict[str, int]
+    events: dict[str, Event]
     clusters: list[EventCandidate] = field(default_factory=list)
 
 
@@ -103,9 +103,7 @@ def commit(
     signature, so a previously-named or previously-skipped cluster is honoured without re-asking.
     """
     skipped = catalog.skipped_signatures()
-    assignments: dict[str, tuple[datetime, str]] = {}
-    names: dict[str, str] = {}
-    event_ids: dict[str, int] = {}
+    events: dict[str, Event] = {}
 
     for decision in decisions:
         cluster = decision.cluster
@@ -130,16 +128,13 @@ def commit(
             if signature not in skipped:
                 catalog.record_skip(signature)
             continue
+        event = Event(start=cluster.start, slug=slug, name=name, id=event_id)
         for item in cluster.items:
-            assignments[item.key] = (cluster.start, slug)
-            # The human name travels with the assignment: slugify is lossy, so a readable
-            # event folder cannot be rebuilt downstream from the slug alone.
-            names[item.key] = name
-            event_ids[item.key] = event_id
+            events[item.key] = event
 
     return EventStageOutcome(
-        apply_events(resolutions, assignments, scheme=scheme, names=names),
-        event_ids,
+        apply_events(resolutions, events, scheme=scheme),
+        events,
         [d.cluster for d in decisions],
     )
 

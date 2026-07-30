@@ -80,6 +80,7 @@ from truestill_core.models import (
     DateSource,
     Decision,
     DuplicateMatch,
+    Event,
     Resolution,
     date_quality,
     format_inferred_local_shift_line,
@@ -974,9 +975,9 @@ def _run_pipeline(
             cache=cache,
         )
 
-        event_ids: dict[str, int] = {}
+        events: dict[str, Event] = {}
         if args.events or event_prompt is not None:
-            resolutions, event_ids = run_event_stage(
+            resolutions, events = run_event_stage(
                 resolutions,
                 metadata,
                 catalog,
@@ -1011,7 +1012,7 @@ def _run_pipeline(
             skip_undated=args.skip_undated,
             move=getattr(args, "move", False),
             relocation=relocation if args.apply else None,
-            event_ids=event_ids,
+            events=events,
             ingest=ingest_ctx,
             drive_uuid=drive_uuid,
             progress=_progress_printer("moving" if relocation else "copying")

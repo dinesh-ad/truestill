@@ -47,10 +47,10 @@ def test_naming_applies_and_is_remembered(tmp_path: Path) -> None:
     db = tmp_path / "c.sqlite"
 
     with Catalog(db) as catalog:
-        updated, event_ids = run_event_stage(
+        updated, events = run_event_stage(
             resolutions, {}, catalog, apply=True, prompt=lambda _c: "Goa Trip"
         )
-        assert len(event_ids) == 10
+        assert len(events) == 10
         assert all(
             r.decision.relative.as_posix().startswith("2026/2026-06/2026-06-14 - Goa Trip/")
             for r in updated
@@ -58,8 +58,8 @@ def test_naming_applies_and_is_remembered(tmp_path: Path) -> None:
 
     # second run: same cluster signature -> reuse name from catalog, never prompt again
     with Catalog(db) as catalog:
-        updated2, event_ids2 = run_event_stage(resolutions, {}, catalog, apply=True, prompt=_boom)
-        assert len(event_ids2) == 10
+        updated2, events2 = run_event_stage(resolutions, {}, catalog, apply=True, prompt=_boom)
+        assert len(events2) == 10
         assert all("2026-06-14 - Goa Trip" in r.decision.relative.as_posix() for r in updated2)
 
 
@@ -68,21 +68,21 @@ def test_skip_is_remembered_and_not_reasked(tmp_path: Path) -> None:
     db = tmp_path / "c.sqlite"
 
     with Catalog(db) as catalog:
-        updated, event_ids = run_event_stage(
+        updated, events = run_event_stage(
             resolutions, {}, catalog, apply=True, prompt=lambda _c: None
         )
-        assert event_ids == {}
+        assert events == {}
         # paths unchanged -- cluster left flat
         assert all("2026-06-14 - Goa Trip" not in r.decision.relative.as_posix() for r in updated)
 
     with Catalog(db) as catalog:
-        _, event_ids2 = run_event_stage(resolutions, {}, catalog, apply=True, prompt=_boom)
-        assert event_ids2 == {}  # skip remembered, prompt not called
+        _, events2 = run_event_stage(resolutions, {}, catalog, apply=True, prompt=_boom)
+        assert events2 == {}  # skip remembered, prompt not called
 
 
 def test_dry_run_does_not_prompt_or_mutate(tmp_path: Path) -> None:
     resolutions = _one_cluster()
     with Catalog(tmp_path / "c.sqlite") as catalog:
-        updated, event_ids = run_event_stage(resolutions, {}, catalog, apply=False, prompt=_boom)
-    assert event_ids == {}
+        updated, events = run_event_stage(resolutions, {}, catalog, apply=False, prompt=_boom)
+    assert events == {}
     assert updated == resolutions  # untouched in dry run
