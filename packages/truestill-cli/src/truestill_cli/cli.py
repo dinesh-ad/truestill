@@ -110,6 +110,9 @@ from truestill_cli.events_review import Prompt, album_prompt, run_event_stage
 
 _SEPARATOR = "=" * 100
 _DEFAULT_DB = DEFAULT_CATALOG_PATH
+_NON_INTERACTIVE_CONFIRM = (
+    "error: interactive confirmation is required; this operation cannot run non-interactively."
+)
 
 #: Said once, on the run that pins an existing library's layout. It states what was recorded
 #: and how to change it, because a settings write the user did not ask for must never be silent.
@@ -132,6 +135,21 @@ def _parse_tz(value: str) -> timedelta:
     sign, hours, minutes = match.group(1), int(match.group(2)), int(match.group(3))
     delta = timedelta(hours=hours, minutes=minutes)
     return -delta if sign == "-" else delta
+
+
+def _typed_confirmation(prompt: str, expected: str) -> bool | None:
+    """Ask for an exact word, refusing non-interactive stdin with a clear error.
+
+    Returns:
+    - ``True``  : exact word entered
+    - ``False`` : entered something else
+    - ``None``  : no interactive input available (EOF on read)
+    """
+    try:
+        return input(prompt).strip() == expected
+    except EOFError:
+        print(f"\n{_NON_INTERACTIVE_CONFIRM}", file=sys.stderr)
+        return None
 
 
 def _add_common_options(parser: argparse.ArgumentParser) -> None:
@@ -1011,8 +1029,10 @@ def _cmd_organize(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 4
     relocation = _build_relocation(args)
-    if relocation is not None and not _confirm_in_place(args, len(files)):
-        return 0
+    if relocation is not None:
+        confirmed = _confirm_in_place(args, len(files))
+        if confirmed is not True:
+            return 2 if confirmed is None else 0
     code = _run_pipeline(
         args,
         files,
@@ -1044,7 +1064,7 @@ def _build_relocation(args: argparse.Namespace) -> Relocation | None:
     )
 
 
-def _confirm_in_place(args: argparse.Namespace, file_count: int) -> bool:
+def _confirm_in_place(args: argparse.Namespace, file_count: int) -> bool | None:
     """State plainly what in-place does, then require the word before any file moves."""
     if not args.in_place:
         return True
@@ -1060,8 +1080,10 @@ def _confirm_in_place(args: argparse.Namespace, file_count: int) -> bool:
     if not args.apply:
         print("\nPreview only. Re-run with --apply to move these files.")
         return True
-    answer = input("\nType 'move' to proceed (anything else aborts): ").strip()
-    if answer != "move":
+    confirmed = _typed_confirmation("\nType 'move' to proceed (anything else aborts): ", "move")
+    if confirmed is None:
+        return None
+    if not confirmed:
         print("Aborted. Nothing was moved.")
         return False
     return True
@@ -1274,7 +1296,7 @@ def _offer_cleanup(catalog: Catalog, drive_uuid: str, path: Path) -> None:
     )
 
 
-def _confirm_cleanup(count: int, *, permanent: bool) -> bool:
+def _confirm_cleanup(count: int, *, permanent: bool) -> bool | None:
     """Ask for the word that matches the removal being requested.
 
     Two removals, two questions, two words. `clean` was given for a recoverable removal; reusing
@@ -1282,14 +1304,14 @@ def _confirm_cleanup(count: int, *, permanent: bool) -> bool:
     Irreversibility is stated **before** the prompt, never discovered after it.
     """
     if not permanent:
-        return input(f"\nType 'clean' to remove {count} folder(s): ").strip() == "clean"
+        return _typed_confirmation(f"\nType 'clean' to remove {count} folder(s): ", "clean")
     print(
         "\n--permanent: where the trash refuses, folders will be DELETED OUTRIGHT and are"
         "\nNOT recoverable. Removal uses rmdir, so a folder that is no longer empty cannot"
         "\nbe removed even if it is listed above."
     )
-    return (
-        input(f"\nType 'delete forever' to remove {count} folder(s): ").strip() == "delete forever"
+    return _typed_confirmation(
+        f"\nType 'delete forever' to remove {count} folder(s): ", "delete forever"
     )
 
 
@@ -1318,7 +1340,8 @@ def _cmd_clean_empty(args: argparse.Namespace) -> int:
         print("\nPreview only. Nothing was removed. Re-run with --apply to remove them.")
         return 0
 
-    if not _confirm_cleanup(len(plan.removable), permanent=args.permanent):
+    confirmed = _confirm_cleanup(len(plan.removable), permanent=args.permanent)
+    if confirmed is not True:
         print("Aborted. Nothing was removed.")
         return 0
 
@@ -1353,8 +1376,10 @@ def _cmd_migrate_undo(args: argparse.Namespace, marker: DriveMarker) -> int:
             print("\nPreview only. Nothing was moved. Re-run with --apply to put them back.")
             return 0
 
-        answer = input(f"\nType 'undo' to put {outcome.reversed_files} file(s) back: ")
-        if answer.strip() != "undo":
+        confirmed = _typed_confirmation(
+            f"\nType 'undo' to put {outcome.reversed_files} file(s) back: ", "undo"
+        )
+        if confirmed is not True:
             print("Aborted. Nothing was moved.")
             return 0
 
@@ -1447,10 +1472,10 @@ def _cmd_migrate_layout(args: argparse.Namespace) -> int:
 
         # An explicit word, never a default-yes and never a bare Enter. Absent it, the terminal
         # state of this command is "previewed, nothing moved".
-        answer = input(
-            f"\nType 'move' to relocate {len(plan.moves)} file(s) (anything else aborts): "
+        confirmed = _typed_confirmation(
+            f"\nType 'move' to relocate {len(plan.moves)} file(s) (anything else aborts): ", "move"
         )
-        if answer.strip() != "move":
+        if confirmed is not True:
             print("Aborted. Nothing was moved.")
             return 0
 
@@ -1580,8 +1605,10 @@ def _cmd_reclaim(args: argparse.Namespace) -> int:
 
         gib = plan.total_bytes / 1e9
         print(f"\nThis PERMANENTLY DELETES {n} source file(s), freeing {gib:.2f} GB.")
-        answer = input("Type 'delete' to proceed (anything else aborts): ").strip()
-        if answer != "delete":
+        confirmed = _typed_confirmation(
+            "Type 'delete' to proceed (anything else aborts): ", "delete"
+        )
+        if confirmed is not True:
             print("Aborted -- nothing was deleted.")
             return 0
 

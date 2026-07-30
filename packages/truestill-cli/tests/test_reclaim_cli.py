@@ -73,6 +73,20 @@ def test_reclaim_apply_requires_typed_confirmation(
     assert source.exists()  # not confirmed -> nothing deleted
 
 
+def test_reclaim_apply_refuses_non_interactive_stdin(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    drive, db = tmp_path / "drive", tmp_path / "c.sqlite"
+    drive.mkdir()
+    source = tmp_path / "src" / "a.jpg"
+    _seed(db, drive, source)
+
+    monkeypatch.setattr("builtins.input", lambda *_: (_ for _ in ()).throw(EOFError()))
+    assert main(["reclaim", str(drive), "--db", str(db), "--apply"]) == 0
+    assert "interactive confirmation is required" in capsys.readouterr().err
+    assert source.exists()
+
+
 def test_reclaim_apply_deletes_on_confirmation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

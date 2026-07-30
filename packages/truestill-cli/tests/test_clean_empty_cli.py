@@ -71,6 +71,28 @@ def test_the_permanent_warning_is_stated_before_the_prompt(
     assert "rmdir" in out  # and that a folder which is no longer empty cannot go
 
 
+def test_clean_empty_refuses_non_interactive_stdin(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root, db = _drive_with_leftovers(tmp_path)
+    monkeypatch.setattr("builtins.input", lambda *_: (_ for _ in ()).throw(EOFError()))
+
+    assert main(["clean-empty", str(root), "--db", str(db), "--apply"]) == 0
+    assert "interactive confirmation is required" in capsys.readouterr().err
+    assert (root / "Camera/2023/08").is_dir()
+
+
+def test_clean_empty_permanent_refuses_non_interactive_stdin(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root, db = _drive_with_leftovers(tmp_path)
+    monkeypatch.setattr("builtins.input", lambda *_: (_ for _ in ()).throw(EOFError()))
+
+    assert main(["clean-empty", str(root), "--db", str(db), "--apply", "--permanent"]) == 0
+    assert "interactive confirmation is required" in capsys.readouterr().err
+    assert (root / "Camera/2023/08").is_dir()
+
+
 def test_the_exact_phrase_removes_the_skeleton(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:

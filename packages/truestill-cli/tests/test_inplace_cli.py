@@ -49,6 +49,22 @@ def test_in_place_apply_aborts_without_the_typed_word(
     assert sorted(p.relative_to(root) for p in root.rglob("*") if p.is_file()) == before
 
 
+def test_in_place_apply_refuses_non_interactive_stdin(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _library(tmp_path / "drive")
+    before = sorted(p.relative_to(root) for p in root.rglob("*") if p.is_file())
+    monkeypatch.setattr("builtins.input", lambda _="": (_ for _ in ()).throw(EOFError()))
+
+    code = main(
+        ["organize", str(root), str(root), "--in-place", "--apply", "--db", str(tmp_path / "c.db")]
+    )
+
+    assert code == 2
+    assert "interactive confirmation is required" in capsys.readouterr().err
+    assert sorted(p.relative_to(root) for p in root.rglob("*") if p.is_file()) == before
+
+
 def test_in_place_apply_moves_and_reports_the_mechanism(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:

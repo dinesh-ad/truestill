@@ -127,6 +127,42 @@ def test_without_the_typed_confirm_nothing_moves(
         assert _tree_fingerprint(root) == before_tree
 
 
+def test_migrate_apply_refuses_non_interactive_stdin(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "drive"
+    root.mkdir()
+    db = tmp_path / "c.sqlite"
+    _seed_drive(db, root, "Camera/2023/08/x.jpg", b"data")
+    assert main(["config", "--db", str(db), "--set-template", "{yyyy}/{yyyy}-{mm}/{dd}"]) == 0
+    capsys.readouterr()
+
+    monkeypatch.setattr("builtins.input", lambda *_: (_ for _ in ()).throw(EOFError()))
+    assert main(["migrate-layout", str(root), "--db", str(db), "--apply"]) == 0
+    assert "interactive confirmation is required" in capsys.readouterr().err
+    assert (root / "Camera/2023/08/x.jpg").exists()
+
+
+def test_migrate_undo_apply_refuses_non_interactive_stdin(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "drive"
+    root.mkdir()
+    db = tmp_path / "c.sqlite"
+    _seed_drive(db, root, "Camera/2023/08/x.jpg", b"data")
+    assert main(["config", "--db", str(db), "--set-template", "{yyyy}/{yyyy}-{mm}/{dd}"]) == 0
+    capsys.readouterr()
+
+    monkeypatch.setattr("builtins.input", lambda *_: "move")
+    assert main(["migrate-layout", str(root), "--db", str(db), "--apply"]) == 0
+    capsys.readouterr()
+
+    monkeypatch.setattr("builtins.input", lambda *_: (_ for _ in ()).throw(EOFError()))
+    assert main(["migrate-layout", str(root), "--db", str(db), "--undo", "--apply"]) == 0
+    assert "interactive confirmation is required" in capsys.readouterr().err
+    assert (root / "Camera/2023/2023-08/x.jpg").exists()
+
+
 def test_a_subfolder_of_a_connected_drive_is_corrected_not_rejected(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
