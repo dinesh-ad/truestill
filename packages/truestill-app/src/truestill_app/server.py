@@ -277,6 +277,9 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
     async def library_status(_request: Request) -> JSONResponse:
         return JSONResponse(service.library_status(_db(), explicit_db=_explicit_db()))
 
+    async def library_stats(_request: Request) -> JSONResponse:
+        return JSONResponse(service.library_stats(_db()))
+
     # --- Settings: destination layout template + migration ------------------------------
 
     async def layout(request: Request) -> JSONResponse:
@@ -535,6 +538,7 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
         Route("/api/clean-empty/preview", clean_empty_preview, methods=["POST"]),
         Route("/api/clean-empty/apply", clean_empty_apply, methods=["POST"]),
         Route("/api/library/status", library_status),
+        Route("/api/library/stats", library_stats),
         Route("/api/layout", layout, methods=["GET", "POST"]),
         Route("/api/layout/preview", layout_preview, methods=["POST"]),
         Route("/api/events/settings", event_settings, methods=["GET", "POST"]),

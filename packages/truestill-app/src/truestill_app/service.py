@@ -77,7 +77,10 @@ from truestill_core.models import (
     status_label,
 )
 from truestill_core.organizer import (
+    AUDIO_EXTENSIONS,
+    IMAGE_EXTENSIONS,
     MEDIA_EXTENSIONS,
+    VIDEO_EXTENSIONS,
     Relocation,
     SourceScan,
     discover,
@@ -139,7 +142,11 @@ def _not_a_drive_message(path: Path) -> str:
             f"This is a folder inside '{location.marker.label}'. "
             f"Use the drive root instead: {location.root}"
         )
-    return "This folder isn't a truestill drive yet - register it to start tracking copies here."
+    return (
+        "This folder isn't set up as a backup drive yet. "
+        "Copy photos here once and truestill will set it up, "
+        "or register this drive first."
+    )
 
 
 def _drive_correction(path: Path) -> DriveCorrectionPayload:
@@ -209,13 +216,18 @@ def reveal_in_file_manager(path: Path) -> dict[str, Any]:
     if shutil.which(opener) is None:
         return {
             "ok": False,
-            "error": f"This machine has no '{opener}', so truestill cannot open a file manager. "
-            f"The folder is: {path}",
+            "error": (
+                f"Can't open a file manager because this machine has no '{opener}'. "
+                f"Open the folder yourself: {path}"
+            ),
         }
     try:
         subprocess.Popen([opener, str(path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except OSError as exc:
-        return {"ok": False, "error": f"Could not open a file manager: {exc}"}
+        return {
+            "ok": False,
+            "error": f"Couldn't open a file manager ({exc}). Open the folder yourself in your file manager.",
+        }
     return {"ok": True, "path": str(path)}
 
 
@@ -414,9 +426,15 @@ def set_organize_mode(mode: object, db: Path) -> dict[str, Any]:
 def filesystem_relationship(source: Path, destination: Path) -> dict[str, Any]:
     """Whether source and destination roots are on the same filesystem."""
     if _device_id(source) is None:
-        return {"ok": False, "error": "source folder does not exist"}
+        return {
+            "ok": False,
+            "error": "The source folder was not found. Check the path, then pick an existing folder.",
+        }
     if _device_id(destination) is None:
-        return {"ok": False, "error": "destination folder does not exist"}
+        return {
+            "ok": False,
+            "error": "The organized folder was not found. Check the path, then pick or create a folder.",
+        }
     same_filesystem = _device_id(source) == _device_id(destination)
     return {"ok": True, "same_filesystem": same_filesystem}
 
@@ -964,6 +982,123 @@ def at_risk(db: Path) -> list[dict[str, Any]]:
         ]
 
 
+def _format_counts(catalog: Catalog) -> dict[str, int]:
+    """Counts by extension from one aggregate SQL pass over catalog names."""
+    extensions = sorted({ext.lstrip(".").lower() for ext in MEDIA_EXTENSIONS})
+    case_parts: list[str] = []
+    params: list[str] = []
+    for ext in extensions:
+        case_parts.append("WHEN name LIKE ? THEN ?")
+        params.extend([f"%.{ext}", ext])
+    row_sql = "\n".join(case_parts) if case_parts else "ELSE ''"
+    sql = f"""
+        WITH named AS (
+            SELECT lower(COALESCE(original_name, relative, source_path, '')) AS name
+            FROM files
+        )
+        SELECT ext, COUNT(*) AS count
+        FROM (
+            SELECT CASE
+                {row_sql}
+                ELSE ''
+            END AS ext
+            FROM named
+        )
+        WHERE ext != ''
+        GROUP BY ext
+        ORDER BY count DESC, ext
+    """
+    rows = catalog._conn.execute(sql, params).fetchall()
+    return {str(row["ext"]): int(row["count"]) for row in rows}
+
+
+def library_stats(db: Path) -> dict[str, Any]:
+    """Custody-first library stats from catalog-only aggregates.
+
+    Complexity: O(n) aggregate scans over ``files``/``file_copies`` plus grouped rollups for
+    years and formats. No file reads, no hashing, no exiftool, and no per-file Python loops.
+    """
+    with Catalog(db) as catalog:
+        summary = catalog.stats_summary()
+        year_rows = catalog.stats_by_year()
+        drives = catalog.list_drives()
+        near_flagged = catalog.stats_near_duplicate_flagged_count()
+        undated_samples = catalog.stats_undated_samples(limit=12)
+        format_counts = _format_counts(catalog)
+        zero_drive_rows = catalog._conn.execute(
+            """
+            SELECT COALESCE(original_name, sha256) AS name
+            FROM files f
+            WHERE NOT EXISTS (
+                SELECT 1 FROM file_copies fc WHERE fc.sha256 = f.sha256
+            )
+            ORDER BY processed_at DESC
+            LIMIT 12
+            """
+        ).fetchall()
+
+    image_exts = {ext.lstrip(".").lower() for ext in IMAGE_EXTENSIONS}
+    video_exts = {ext.lstrip(".").lower() for ext in VIDEO_EXTENSIONS}
+    audio_exts = {ext.lstrip(".").lower() for ext in AUDIO_EXTENSIONS}
+    photos = sum(count for ext, count in format_counts.items() if ext in image_exts)
+    videos = sum(count for ext, count in format_counts.items() if ext in video_exts)
+    audio = sum(count for ext, count in format_counts.items() if ext in audio_exts)
+
+    return {
+        "safety": {
+            "total_files": int(summary["total_files"]),
+            "total_size": int(summary["total_size"] or 0),
+            "photos": photos,
+            "videos": videos,
+            "audio": audio,
+            "files_on_two_plus_drives": int(summary["files_on_two_plus_drives"] or 0),
+            "files_on_one_drive": int(summary["files_on_one_drive"] or 0),
+            "files_on_zero_drives": int(summary["files_on_zero_drives"] or 0),
+            "zero_drive_samples": [str(row["name"]) for row in zero_drive_rows],
+            "never_verified_files": int(summary["never_verified_files"] or 0),
+            "drives": [
+                {
+                    "label": str(row["label"]),
+                    "files": int(row["file_count"] or 0),
+                    "size": int(row["total_size"] or 0),
+                    "last_verified": row["last_verified"],
+                }
+                for row in drives
+            ],
+        },
+        "completeness": {
+            "undated_files": int(summary["undated_files"] or 0),
+            "undated_samples": [
+                {
+                    "name": str(row["original_name"] or Path(str(row["source_path"])).name),
+                    "source_path": str(row["source_path"]),
+                    "relative": str(row["relative"]),
+                }
+                for row in undated_samples
+            ],
+            "timeline_files": int(summary["timeline_files"] or 0),
+            "side_bin_files": int(summary["side_bin_files"] or 0),
+            "near_duplicates_flagged": near_flagged,
+            # Exact duplicates are intentionally omitted: skipped exact dupes are not persisted
+            # in the catalog, and recomputing them would require a fresh source scan.
+            "exact_duplicates_found": None,
+            "exact_duplicates_omission_reason": (
+                "Exact-duplicate skips are not stored in the catalog; computing this would require "
+                "a new scan outside the read-only stats contract."
+            ),
+        },
+        "shape": {
+            "by_year": [
+                {"year": str(row["year"]), "count": int(row["count"])} for row in year_rows
+            ],
+            "by_format": format_counts,
+            "oldest_capture": summary["oldest_capture"],
+            "newest_capture": summary["newest_capture"],
+        },
+        "complexity": "O(n) aggregate SQL over catalog tables; grouped rollups only.",
+    }
+
+
 # --- event review (used by the Event review screen; merge/split are UI-only) ----------
 
 
@@ -1199,16 +1334,28 @@ def fs_dirs(path_str: str) -> dict[str, Any]:
     try:
         path = path.resolve()
     except OSError:
-        return {"error": "that path could not be read", "roots": fs_roots(), "entries": []}
+        return {
+            "error": "That path could not be read. It may have moved or access may be blocked. Pick another folder.",
+            "roots": fs_roots(),
+            "entries": [],
+        }
     if not path.is_dir():
-        return {"error": "not a folder", "roots": fs_roots(), "entries": []}
+        return {
+            "error": "That path is not a folder. Pick a folder.",
+            "roots": fs_roots(),
+            "entries": [],
+        }
     entries: list[dict[str, str]] = []
     try:
         for child in sorted(path.iterdir(), key=lambda p: p.name.lower()):
             if child.is_dir() and not child.name.startswith("."):
                 entries.append({"name": child.name, "path": str(child)})
     except OSError:
-        return {"error": "that folder could not be read", "roots": fs_roots(), "entries": []}
+        return {
+            "error": "That folder could not be read. Check permissions, then try again.",
+            "roots": fs_roots(),
+            "entries": [],
+        }
     parent = str(path.parent) if path.parent != path else None
     return {"path": str(path), "parent": parent, "roots": fs_roots(), "entries": entries}
 
@@ -1219,7 +1366,13 @@ def fs_create(path_str: str) -> dict[str, Any]:
     try:
         path.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
-        return {"created": False, "error": str(exc)}
+        return {
+            "created": False,
+            "error": (
+                f"Couldn't create this folder ({exc}). "
+                "Choose another location, or create it in your file manager."
+            ),
+        }
     return {"created": True, **fs_validate(str(path))}
 
 
@@ -1438,18 +1591,30 @@ def backup_preview(source: Path, target: Path, db: Path) -> dict[str, Any]:
     -- a disk-full part-way through is the failure this whole feature exists to prevent.
     """
     if not source.is_dir():
-        return {"ok": False, "error": "the 'from' folder does not exist."}
+        return {
+            "ok": False,
+            "error": "The From folder was not found. Check the path, then pick an existing folder.",
+        }
     if not target.is_dir():
-        return {"ok": False, "error": "the 'to' folder does not exist."}
+        return {
+            "ok": False,
+            "error": "The To folder was not found. Check the path, then pick or create a folder.",
+        }
     if source.resolve() == target.resolve():
-        return {"ok": False, "error": "the 'from' and 'to' folders are the same folder."}
+        return {
+            "ok": False,
+            "error": "From and To point to the same folder. Pick a different destination drive.",
+        }
     # Preview writes nothing, so an unregistered folder is *reported* as one that will be
     # registered rather than rejected -- the run does the registering.
     src = attach_drive(source, db, write=False)
     tgt = attach_drive(target, db, write=False)
     src_marker, tgt_marker = read_marker(source), read_marker(target)
     if src_marker is not None and tgt_marker is not None and src_marker.uuid == tgt_marker.uuid:
-        return {"ok": False, "error": "the 'from' and 'to' drives are the same drive."}
+        return {
+            "ok": False,
+            "error": "From and To are the same drive. Pick a different backup drive.",
+        }
     with Catalog(db) as catalog:
         missing = (
             _files_missing_on_target(catalog, src_marker.uuid, tgt_marker.uuid)

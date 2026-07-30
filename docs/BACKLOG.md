@@ -272,38 +272,33 @@ is invisible here is retired, not free.**
     of `_original` metadata into the live file.
   - **Not fixed here, on purpose** - recorded only, per instruction.
 
-- **(ccc) "Tags" is developer wording in user-facing copy.** Ruled by Dinesh, 2026-07-30. The
-  Organize screen says "bypass cache if another tool edited tags without changing the file
-  date" - normal users do not know what tags are.
-  - **Fix when built:** rewrite in plain language (e.g. "if you changed photo dates in another
-    app").
-  - **Audit scope (launch-quality):** every user-facing instance of developer terms -
-    **tags, EXIF, metadata, sidecar, hash, catalog, custody**. List every instance; plain
-    language is a launch-quality item, not polish.
-  - **Not fixed here, on purpose** - recorded only, per instruction.
+- **(ccc) Plain-language audit of user-facing copy.** Ruled by Dinesh, 2026-07-30.
+  - **Built 2026-07-30.** Inventory + rewrites across app/CLI help/README (CHANGELOG excluded).
+    Kept `custody` (defined once), kept `catalog` where it names the file, distinguished
+    folder pattern vs saved folder pattern, bridged UI "in this same folder" to `--in-place`,
+    and rewrote errors as plain sentences that still carry what/why/next without scaffold
+    labels. Living-grep guard + allowlist in `test_user_facing_copy.py`.
 
-- **(ddd) No stats view.** Ruled by Dinesh, 2026-07-30 (asked more than once). "Look inside"
-  gives counts, but there is no place to see the **shape** of a library: totals by year, by
-  type, by format, by category, how many undated, how many backed up vs not, largest folders.
-  - **Scope:** a read-only view over the catalog - **no file reads**, so it must be fast.
-  - **Not fixed here, on purpose** - recorded only, per instruction.
+- **(ddd) Stats view (custody-first).** Ruled by Dinesh, 2026-07-30.
+  - **Built 2026-07-30.** New `Stats` screen in the app with three sections:
+    Custody (photos/videos/size, 2+/1/0-drive counts, per-drive rollup, never-verified),
+    Completeness (undated, timeline-vs-side-bin, near-duplicate flagged), and Shape (by-year,
+    by-format, oldest/newest capture).
+  - **Performance contract kept:** catalog-only aggregate SQL (`service.library_stats` +
+    `Catalog.stats_*`), no file reads, no hashing, no exiftool, no per-file Python loops.
+  - **Actionability:** at-risk and never-verified route to Backups; undated routes to Find and
+    shows sample paths.
+  - **Intentional omission:** exact-duplicate "found" count is not persisted in catalog and is
+    omitted here rather than recomputed by a fresh scan; the UI states this plainly.
 
 - **(eee) Three organize modes in the app (copy / move / in-place).** Ruled by Dinesh,
-  2026-07-30; CLI modes already proven. App today is copy-only. **In progress after `(aaa)`.**
-  - **Modes (plain wording):** (1) "Copy into an organized folder" (default) - originals
-    untouched, needs destination; (2) "Move into an organized folder" - needs destination;
-    same-drive is rename, cross-drive is copy-verify-then-delete; (3) "Reorganize this folder
-    in place" - dest wired to source, destination field hidden; refuses rather than falling
-    back across filesystems.
-  - **Reversibility from mechanism, not flag:** rename-based runs get `undo-organize`;
-    cross-device move and default copy do not. Say so before confirm; never offer undo where
-    it does not exist; never wire to migrate-layout undo.
-  - **Discipline:** preview-first, typed confirm, progress+cancel, DriveBusy, empty-folder
-    report + clean-empty offer (closes `(zz)`/`(rr)` on this path).
-  - **Queue:** finish this before **`(fff)`** (collapsible sidebar).
+  2026-07-30; CLI modes already proven.
+  - **Built 2026-07-30.** App surfaces Copy / Move / Reorganize in this same folder with
+    mechanism-aware reversibility before typed confirm; durable `undo-organize` affordance;
+    empty-folder report + clean-empty offer on organize and trip/migrate apply (closes
+    `(zz)`/`(rr)` globally). Playwright + mutation coverage.
 
-- **(fff) Collapsible sidebar.** Ruled by Dinesh, 2026-07-30. **Queued after `(eee)` - do not
-  interrupt three-mode organize.**
+- **(fff) Collapsible sidebar.** Ruled by Dinesh, 2026-07-30. **Next after `(eee)`.**
   - Hamburger toggle: expanded = icon+label; collapsed = icon-only narrow rail.
   - Collapsed **must** show label tooltips on hover **and** focus (not optional polish).
   - Persist via existing catalog settings key/value - **no** localStorage / new store.

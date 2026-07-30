@@ -18,9 +18,10 @@
         <button class="nav-item" data-screen="import"><span class="ico">↧</span> Import</button>
         <button class="nav-item" data-screen="backups"><span class="ico">▤</span> Backups</button>
         <button class="nav-item" data-screen="find"><span class="ico">⌕</span> Find</button>
+        <button class="nav-item" data-screen="stats"><span class="ico">◫</span> Stats</button>
         <button class="nav-item" data-screen="settings"><span class="ico">⚙</span> Settings</button>
       </div>
-      <div class="custody" id="custody" title="Your library, and how many places it lives in">
+      <div class="custody" id="custody" title="Custody - a verified record of where every file is safe.">
         <div class="pips none" id="custody-pips">▫ ▫ ▫</div>
         <div class="line" id="custody-line">Checking your library…</div>
       </div>
@@ -63,7 +64,7 @@
                 <span><b>Move into an organized folder</b><br><span class="k">Same-drive: rename. Cross-drive: copy, verify, then delete source.</span></span>
               </label>
               <label class="org-mode"><input type="radio" name="org-mode" value="inplace">
-                <span><b>Reorganize this folder in place</b><br><span class="k">Moves by rename only; never falls back to copy.</span></span>
+                <span><b>Reorganize in this same folder</b><br><span class="k">Moves by rename only; never falls back to copy.</span></span>
               </label>
             </div>
             <span class="hint" id="org-mode-hint"></span>
@@ -271,6 +272,13 @@
         <div id="where-result"></div>
       </section>
 
+      <!-- STATS -->
+      <section class="screen" id="screen-stats">
+        <header><h1>Library stats</h1>
+          <p class="lede">Custody - a verified record of where every file is safe. Start there, then check completeness and shape.</p></header>
+        <div id="stats-result"></div>
+      </section>
+
       <!-- SETTINGS -->
       <section class="screen" id="screen-settings">
         <header><h1>Settings</h1>
@@ -280,9 +288,9 @@
           <h2>Folder layout</h2>
           <p class="lede" style="margin-bottom:var(--space-4)">How organized copies are named on disk.
             Current: <code id="layout-current"></code> <span id="layout-default" style="color:var(--text-muted)"></span></p>
-          <div class="field"><label for="layout-preset">Start from a preset</label>
-            <select class="input" id="layout-preset" style="font-family:var(--font-sans)"><option value="">- choose a preset -</option></select></div>
-          <div class="field"><label for="layout-template">Template</label>
+          <div class="field"><label for="layout-preset">Start from a saved folder pattern</label>
+            <select class="input" id="layout-preset" style="font-family:var(--font-sans)"><option value="">- choose a saved folder pattern -</option></select></div>
+          <div class="field"><label for="layout-template">Folder pattern</label>
             <input class="input" id="layout-template" placeholder="{yyyy}/{yyyy}-{mm}"></div>
           <p class="hint">Photos are placed by date. Screenshots, WhatsApp and other
             non-camera sources are filed beside the years in their own folders, automatically.</p>

@@ -98,6 +98,76 @@ def test_drives_and_where_empty(client: TestClient) -> None:
     assert where["pages"] == 1  # an empty result is still "page 1 of 1", never "of 0"
 
 
+def test_library_stats_reports_custody_and_shape(client: TestClient, tmp_path: Path) -> None:
+    db = tmp_path / "c.sqlite"
+    with Catalog(db) as catalog:
+        catalog.upsert_drive(uuid="A", label="Drive A")
+        catalog.upsert_drive(uuid="B", label="Drive B")
+        catalog.record_uploaded(
+            source_path="/src/a.jpg",
+            original_name="a.jpg",
+            sha256="sha-a",
+            copy_sha256="sha-a",
+            perceptual="phash-1",
+            size=100,
+            captured_at="2020-01-01T10:00:00",
+            category="Camera",
+            relative="2020/2020-01/a.jpg",
+            drive_uuid="A",
+        )
+        catalog.record_uploaded(
+            source_path="/src/b.mp4",
+            original_name="b.mp4",
+            sha256="sha-b",
+            copy_sha256="sha-b",
+            perceptual="phash-1",
+            size=200,
+            captured_at="2021-01-01T10:00:00",
+            category="Camera",
+            relative="2021/2021-01/b.mp4",
+            drive_uuid="A",
+        )
+        catalog.record_uploaded(
+            source_path="/src/c.jpg",
+            original_name="c.jpg",
+            sha256="sha-c",
+            copy_sha256="sha-c",
+            perceptual=None,
+            size=300,
+            captured_at=None,
+            category="Saved",
+            relative="Saved/Undated/c.jpg",
+            drive_uuid=None,
+        )
+        catalog.record_copy(
+            sha256="sha-a",
+            drive_uuid="B",
+            relative="2020/2020-01/a.jpg",
+            copy_sha256="sha-a",
+            size=100,
+        )
+        catalog.mark_copy_verified(sha256="sha-a", drive_uuid="A", when="2026-07-30T10:00:00")
+        catalog.set_drive_verified("A", "2026-07-30T10:00:00")
+
+    body = client.get(f"/api/library/stats?token={_TOKEN}").json()
+    assert body["safety"]["photos"] == 2
+    assert body["safety"]["videos"] == 1
+    assert body["safety"]["total_size"] == 600
+    assert body["safety"]["files_on_two_plus_drives"] == 1
+    assert body["safety"]["files_on_one_drive"] == 1
+    assert body["safety"]["files_on_zero_drives"] == 1
+    assert body["completeness"]["undated_files"] == 1
+    assert body["completeness"]["timeline_files"] == 2
+    assert body["completeness"]["side_bin_files"] == 1
+    assert body["shape"]["oldest_capture"] == "2020-01-01T10:00:00"
+    assert body["shape"]["newest_capture"] == "2021-01-01T10:00:00"
+    assert body["shape"]["by_year"] == [{"year": "2020", "count": 1}, {"year": "2021", "count": 1}]
+    assert body["shape"]["by_format"]["jpg"] == 2
+    assert body["shape"]["by_format"]["mp4"] == 1
+    assert body["completeness"]["near_duplicates_flagged"] == 2
+    assert body["completeness"]["exact_duplicates_found"] is None
+
+
 def test_organize_preview_no_media(client: TestClient, tmp_path: Path) -> None:
     src = tmp_path / "empty"
     src.mkdir()
@@ -184,7 +254,7 @@ def test_verify_job_streams_error_for_non_drive(client: TestClient, tmp_path: Pa
     body = started.json()
     assert body["ok"] is False
     assert "job_id" not in body
-    assert "Can't reach" in body["error"] or "isn't a truestill drive" in body["error"]
+    assert "Can't reach" in body["error"] or "isn't set up as a backup drive" in body["error"]
 
 
 def _stream_to_done(client: TestClient, job_id: str) -> dict:
@@ -268,13 +338,16 @@ def test_a_non_drive_verify_is_answered_with_a_next_step(
 
     assert body.get("ok") is False
     assert "job_id" not in body
-    assert "isn't a truestill drive" in body["error"]
+    assert "isn't set up as a backup drive" in body["error"]
+    assert "Copy photos here once" in body["error"] or "register this drive" in body["error"]
     assert body["can_register"] is True
     assert body["suggested_root"] is None
 
     app_js = client.get(f"/static/app.js?token={_TOKEN}").text
     assert "startRefusedCard" in app_js  # soft-fail path renders a card, not NaN tallies
     assert "Copy your library to another drive" in app_js  # and names the next step
+    assert "What happened:" not in app_js  # 3-part structure is a writing guide, not labels
+    assert "What to do:" not in app_js
 
 
 def test_no_backend_jargon_reaches_the_user(client: TestClient) -> None:

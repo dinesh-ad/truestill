@@ -78,7 +78,7 @@ def inspect_catalog(db: Path, *, explicit_db: bool) -> CatalogStartupInfo:
             drive_count=0,
             explicit_db=explicit_db,
             tone="info",
-            detail=f"No catalog yet - will create {absolute} on first use.",
+            detail=f"No catalog yet. Truestill will create catalog file {absolute} on first use.",
         )
 
     with Catalog(absolute) as catalog:
@@ -105,17 +105,17 @@ def inspect_catalog(db: Path, *, explicit_db: bool) -> CatalogStartupInfo:
             explicit_db=explicit_db,
             tone="alert",
             detail=(
-                f"Opened {absolute}: 0 files but {drive_count} drive(s) registered. "
-                "If your library looks missing, this may not be the catalog you think "
-                "(check --db and the working directory)."
+                f"Opened catalog file {absolute}: 0 files but {drive_count} drive(s) are registered. "
+                "If your library looks missing, this may not be the catalog you expect "
+                "(check --db and your working folder)."
             ),
         )
 
     if explicit_db:
-        detail = f"Opened empty catalog at {absolute} (from --db)."
+        detail = f"Opened empty catalog file at {absolute} (from --db)."
     else:
         detail = (
-            f"Opened empty catalog at {absolute}. "
+            f"Opened empty catalog file at {absolute}. "
             "If you expected an existing library, pass --db PATH or run from the folder "
             "that holds your reports/catalog.sqlite."
         )

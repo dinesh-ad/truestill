@@ -863,6 +863,95 @@ class Catalog:
     def count(self) -> int:
         return int(self._conn.execute("SELECT COUNT(*) FROM files").fetchone()[0])
 
+    def stats_summary(self) -> sqlite3.Row:
+        """Library-level custody and completeness totals from aggregate SQL only.
+
+        Complexity: O(n) over ``files`` and ``file_copies`` once each, with grouped aggregates.
+        No per-file Python loops.
+        """
+        row: sqlite3.Row | None = self._conn.execute(
+            """
+            WITH copy_rollup AS (
+                SELECT
+                    sha256,
+                    COUNT(*) AS copies,
+                    MAX(CASE WHEN last_verified IS NOT NULL THEN 1 ELSE 0 END) AS any_verified
+                FROM file_copies
+                GROUP BY sha256
+            )
+            SELECT
+                COUNT(*) AS total_files,
+                COALESCE(SUM(size), 0) AS total_size,
+                COALESCE(SUM(CASE WHEN captured_at IS NULL THEN 1 ELSE 0 END), 0) AS undated_files,
+                COALESCE(SUM(CASE WHEN captured_at IS NOT NULL AND category = 'Camera' THEN 1 ELSE 0 END), 0) AS timeline_files,
+                COALESCE(SUM(CASE WHEN captured_at IS NULL OR category != 'Camera' THEN 1 ELSE 0 END), 0) AS side_bin_files,
+                MIN(captured_at) AS oldest_capture,
+                MAX(captured_at) AS newest_capture,
+                COALESCE(SUM(CASE WHEN COALESCE(cr.copies, 0) >= 2 THEN 1 ELSE 0 END), 0) AS files_on_two_plus_drives,
+                COALESCE(SUM(CASE WHEN COALESCE(cr.copies, 0) = 1 THEN 1 ELSE 0 END), 0) AS files_on_one_drive,
+                COALESCE(SUM(CASE WHEN COALESCE(cr.copies, 0) = 0 THEN 1 ELSE 0 END), 0) AS files_on_zero_drives,
+                COALESCE(SUM(CASE WHEN COALESCE(cr.any_verified, 0) = 0 THEN 1 ELSE 0 END), 0) AS never_verified_files
+            FROM files f
+            LEFT JOIN copy_rollup cr ON cr.sha256 = f.sha256
+            """
+        ).fetchone()
+        if row is None:
+            message = "stats summary query returned no row"
+            raise RuntimeError(message)
+        return row
+
+    def stats_by_year(self) -> list[sqlite3.Row]:
+        """Captured-file counts by year from SQL grouping.
+
+        Complexity: O(n) grouped by ``substr(captured_at, 1, 4)``.
+        """
+        return list(
+            self._conn.execute(
+                """
+                SELECT substr(captured_at, 1, 4) AS year, COUNT(*) AS count
+                FROM files
+                WHERE captured_at IS NOT NULL
+                GROUP BY year
+                ORDER BY year
+                """
+            )
+        )
+
+    def stats_near_duplicate_flagged_count(self) -> int:
+        """How many catalog files are in a perceptual-hash collision group.
+
+        This is a cheap, indexed proxy for "near-duplicates flagged": ``idx_files_perceptual``
+        powers the grouping and no image bytes are read.
+        """
+        row = self._conn.execute(
+            """
+            SELECT COALESCE(SUM(group_count), 0) AS total
+            FROM (
+                SELECT COUNT(*) AS group_count
+                FROM files
+                WHERE perceptual IS NOT NULL
+                GROUP BY perceptual
+                HAVING COUNT(*) > 1
+            )
+            """
+        ).fetchone()
+        return int(row["total"] if row is not None else 0)
+
+    def stats_undated_samples(self, *, limit: int = 12) -> list[sqlite3.Row]:
+        """A small, actionable sample of undated files for the UI."""
+        return list(
+            self._conn.execute(
+                """
+                SELECT original_name, source_path, relative
+                FROM files
+                WHERE captured_at IS NULL
+                ORDER BY processed_at DESC
+                LIMIT ?
+                """,
+                (limit,),
+            )
+        )
+
     def clear_setting(self, key: str) -> None:
         """Remove a setting, so "absent" and "explicitly empty" never diverge.
 

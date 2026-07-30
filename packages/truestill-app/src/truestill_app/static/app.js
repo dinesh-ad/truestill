@@ -104,8 +104,8 @@ function awaitJob(jobId, onProgress) {
 // anyone reworded it.
 const FRIENDLY_ERRORS = {
   NotABackupDriveError:
-    "This folder isn’t a truestill backup yet - use <b>Copy your library to another drive</b> " +
-    "below to create one.",
+    "This folder isn't set up as a backup drive yet. Use <b>Copy your library to another drive</b> " +
+    "below and truestill will set it up.",
 };
 
 function jobErrorCard(d) {
@@ -313,6 +313,99 @@ function completionCard({ headline, sub, stats = [], chips = "", notes = [], leg
 }
 
 const yearOf = (iso) => (iso ? String(new Date(iso).getFullYear()) : null);
+const dayOf = (iso) => (iso ? String(iso).slice(0, 10) : "never");
+
+function statsBars(years) {
+  if (!years.length) return `<div class="k">No dated files yet.</div>`;
+  const max = Math.max(...years.map((row) => row.count), 1);
+  return years.map((row) => {
+    const width = Math.max(2, Math.round((row.count / max) * 100));
+    return `<div class="stats-bar-row">
+      <div class="mono">${esc(row.year)}</div>
+      <div class="stats-bar"><i style="width:${width}%"></i></div>
+      <div class="mono">${nfmt(row.count)}</div>
+    </div>`;
+  }).join("");
+}
+
+function statsFormatRows(byFormat) {
+  const rows = Object.entries(byFormat || {});
+  if (!rows.length) return `<div class="k">Formats are unknown until files are organized.</div>`;
+  return rows.map(([ext, count]) => `<div class="mono">${esc(ext)} · ${nfmt(count)}</div>`).join("");
+}
+
+function renderStatsSummary(stats) {
+  const safety = stats.safety || {};
+  const completeness = stats.completeness || {};
+  const shape = stats.shape || {};
+  if (!safety.total_files) {
+    return card(
+      `<div class="headline">No library data yet</div>
+       <div class="k">Organize or import photos first. This view will then show custody and completeness totals.</div>`
+    );
+  }
+  const undatedList = (completeness.undated_samples || [])
+    .slice(0, 8)
+    .map((row) => `<div class="mono">${esc(row.relative || row.source_path)}</div>`)
+    .join("");
+  const zeroSamples = (safety.zero_drive_samples || [])
+    .slice(0, 8)
+    .map((name) => `<div class="mono">${esc(name)}</div>`)
+    .join("");
+  const drives = (safety.drives || []).length
+    ? safety.drives.map((d) => `<tr><td>${esc(d.label)}</td><td class="num">${nfmt(d.files)}</td><td class="num">${fmtBytes(d.size)}</td><td class="mono">${esc(dayOf(d.last_verified))}</td></tr>`).join("")
+    : `<tr><td colspan="4" class="k">No registered backup drives yet.</td></tr>`;
+  return [
+    card(
+      `<div class="headline">Custody</div>
+       <div class="k">Query cost: ${esc(stats.complexity || "aggregate SQL only")}.</div>
+       <div class="tally">
+         <div class="n">${nfmt(safety.photos || 0)}</div><div class="k">photos</div>
+         <div class="n">${nfmt(safety.videos || 0)}</div><div class="k">videos</div>
+         <div class="n">${fmtBytes(safety.total_size || 0)}</div><div class="k">total size</div>
+         <div class="n">${nfmt(safety.files_on_two_plus_drives || 0)}</div><div class="k">files on 2+ drives</div>
+         <div class="n">${nfmt(safety.files_on_one_drive || 0)}</div><div class="k">files on exactly 1 drive</div>
+         <div class="n">${nfmt(safety.files_on_zero_drives || 0)}</div><div class="k">at risk (0 drives)</div>
+         <div class="n">${nfmt(safety.never_verified_files || 0)}</div><div class="k">never verified</div>
+       </div>
+       <div class="actions">
+         <button class="btn btn-secondary" data-stats-action="backups">Go to Backups</button>
+         <span class="why">Make another copy or run verification for at-risk and never-verified files.</span>
+       </div>
+       ${zeroSamples ? `<details class="more"><summary>At-risk file sample ▾</summary>${zeroSamples}</details>` : ""}
+       <h3>Per drive</h3>
+       <table class="table"><thead><tr><th>Drive</th><th>Files</th><th>Size</th><th>Last verified</th></tr></thead><tbody>${drives}</tbody></table>`
+    ),
+    card(
+      `<div class="headline">Completeness</div>
+       <div class="tally">
+         <div class="n">${nfmt(completeness.undated_files || 0)}</div><div class="k">undated files</div>
+         <div class="n">${nfmt(completeness.timeline_files || 0)}</div><div class="k">in timeline folders</div>
+         <div class="n">${nfmt(completeness.side_bin_files || 0)}</div><div class="k">in side bins</div>
+         <div class="n">${nfmt(completeness.near_duplicates_flagged || 0)}</div><div class="k">near-duplicate flagged files</div>
+       </div>
+       <div class="actions">
+         <button class="btn btn-secondary" data-stats-action="undated">Review undated files</button>
+         <span class="why">Opens Find with “Undated” so you can locate and fix dating gaps.</span>
+       </div>
+       ${undatedList ? `<details class="more"><summary>Undated file sample ▾</summary>${undatedList}</details>` : ""}
+       <div class="k" style="margin-top:var(--space-3)">
+         Exact duplicates are not shown in this view. ${esc(completeness.exact_duplicates_omission_reason || "")}
+       </div>`
+    ),
+    card(
+      `<div class="headline">Shape</div>
+       <div class="tally">
+         <div class="n">${esc(dayOf(shape.oldest_capture))}</div><div class="k">oldest capture date</div>
+         <div class="n">${esc(dayOf(shape.newest_capture))}</div><div class="k">newest capture date</div>
+       </div>
+       <h3>By year</h3>
+       <div class="stats-bars">${statsBars(shape.by_year || [])}</div>
+       <h3>By format</h3>
+       <div class="stats-formats">${statsFormatRows(shape.by_format || {})}</div>`
+    ),
+  ].join("");
+}
 
 function spanStory(r) {
   const from = yearOf(r.oldest), to = yearOf(r.newest);
@@ -615,6 +708,9 @@ function showScreen(name) {
   if (name === "organize") {
     refreshOrganizeUndoAffordance();
   }
+  if (name === "stats") {
+    loadStats();
+  }
 }
 document.querySelectorAll(".nav-item").forEach((item) => { item.onclick = () => showScreen(item.dataset.screen); });
 
@@ -759,10 +855,10 @@ async function validatePath(input, hint, kind) {
   if (!path) { hint.innerHTML = ""; hint.className = "hint"; return null; }
   const v = await get(`/api/fs/validate?path=${encodeURIComponent(path)}`);
   if (kind === "source") {
-    if (!v.exists || !v.is_dir) { hint.textContent = "That folder doesn’t exist."; hint.className = "hint warn"; return v; }
+    if (!v.exists || !v.is_dir) { hint.textContent = "That folder cannot be used. Check the path, then pick an existing folder."; hint.className = "hint warn"; return v; }
     const n = v.media_capped ? `${v.media}+` : v.media;
     if (v.media > 0) { hint.textContent = `${n} photos and videos here`; hint.className = "hint ok"; }
-    else { hint.textContent = "No photos or videos here ⚠"; hint.className = "hint warn"; }
+    else { hint.textContent = "No photos or videos are in this folder yet."; hint.className = "hint warn"; }
     return v;
   }
   // destination: new backup folders are the normal case, so offer to create, don't just warn.
@@ -773,10 +869,10 @@ async function validatePath(input, hint, kind) {
       hint.textContent = "Creating…";
       const r = await api("/api/fs/create", { path });
       if (r.created) validatePath(input, hint, kind);
-      else { hint.textContent = `Couldn’t create it: ${r.error || "unknown error"}`; hint.className = "hint warn"; }
+      else { hint.textContent = `Could not create this folder. ${r.error || "Unknown reason."} Choose another folder or create it with your file manager.`; hint.className = "hint warn"; }
     });
-  } else if (!v.is_dir) { hint.textContent = "That’s a file, not a folder."; hint.className = "hint warn"; }
-  else if (!v.writable) { hint.textContent = "This folder isn’t writable ⚠"; hint.className = "hint warn"; }
+  } else if (!v.is_dir) { hint.textContent = "That path is a file, not a folder. Pick a folder."; hint.className = "hint warn"; }
+  else if (!v.writable) { hint.textContent = "This folder is read-only. Pick a folder you can write to."; hint.className = "hint warn"; }
   else { hint.textContent = v.is_drive ? "Ready · backup drive ✓" : "Ready"; hint.className = "hint ok"; }
   return v;
 }
@@ -842,7 +938,7 @@ function organizeNeedsDestination(mode) {
 function modeLine(mode) {
   if (mode === "copy") return "Originals stay where they are.";
   if (mode === "move") return "Originals are removed only after copy verification.";
-  return "This mode moves by rename only and never falls back to copy.";
+  return "This mode reorganizes in this same folder by rename only, and never falls back to copy. In the CLI, this is --in-place.";
 }
 
 function modeMechanismLine(mode, mechanism) {
@@ -880,7 +976,7 @@ function renderOrganizeMode() {
   $("org-run").disabled = true;
   $("org-run").textContent = "Type move to continue";
   if (!needsDest) {
-    $("org-dest-hint").textContent = "In-place mode uses the source folder as destination.";
+    $("org-dest-hint").textContent = "Reorganize in this same folder uses the source folder as the destination. In the CLI, this is --in-place.";
     $("org-dest-hint").className = "hint";
   }
 }
@@ -1400,6 +1496,28 @@ async function runWhere(term, page) {
 
 $("where-go").onclick = guarded(() => runWhere($("where-term").value.trim(), 1));
 
+async function loadStats() {
+  $("stats-result").innerHTML = card("<div class='k'>Loading library stats…</div>");
+  const stats = await get("/api/library/stats");
+  $("stats-result").innerHTML = renderStatsSummary(stats);
+}
+
+document.addEventListener("click", guarded(async (e) => {
+  const btn = e.target.closest("[data-stats-action]");
+  if (!btn) return;
+  e.preventDefault();
+  if (btn.dataset.statsAction === "backups") {
+    showScreen("backups");
+    await loadDrives();
+    return;
+  }
+  if (btn.dataset.statsAction === "undated") {
+    showScreen("find");
+    $("where-term").value = "Undated";
+    await runWhere("Undated", 1);
+  }
+}));
+
 // ---------- Import (Takeout) ----------
 let rcJob = null;
 $("rc-preview").onclick = guarded(async () => {
@@ -1721,7 +1839,7 @@ async function loadLayout() {
 }
 async function previewLayout() {
   const r = await api("/api/layout/preview", { template: $("layout-template").value.trim() });
-  $("layout-error").textContent = r.valid ? "" : `Invalid: ${r.error}`;
+  $("layout-error").textContent = r.valid ? "" : `That folder pattern is not valid. ${r.error} Update the pattern, then preview again.`;
   $("layout-save").disabled = !r.valid;
   if (r.valid) renderLayoutPreview(r.preview);
 }
@@ -1729,7 +1847,7 @@ $("layout-template").oninput = guarded(previewLayout);
 $("layout-preset").onchange = guarded(() => { if ($("layout-preset").value) { $("layout-template").value = $("layout-preset").value; return previewLayout(); } });
 $("layout-save").onclick = guarded(async () => {
   const r = await api("/api/layout", { template: $("layout-template").value.trim() });
-  if (r.valid === false) { $("layout-error").textContent = `Invalid: ${r.error}`; return; }
+  if (r.valid === false) { $("layout-error").textContent = `That folder pattern is not valid. ${r.error} Update the pattern, then save again.`; return; }
   $("layout-current").textContent = r.template;
   $("layout-default").textContent = "";
   $("layout-error").textContent = "Saved.";

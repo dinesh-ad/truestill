@@ -160,14 +160,20 @@ def _add_common_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--rclone", action="store_true", help="destination is an rclone remote")
     parser.add_argument("--apply", action="store_true", help="actually write (default: dry run)")
     parser.add_argument(
-        "--db", type=Path, default=_DEFAULT_DB, help=f"SQLite catalog (default: {_DEFAULT_DB})"
+        "--db",
+        type=Path,
+        default=_DEFAULT_DB,
+        help=f"path to the catalog file (default: {_DEFAULT_DB})",
     )
     parser.add_argument(
         "--phash-threshold",
         type=int,
         default=DEFAULT_PHASH_THRESHOLD,
         metavar="N",
-        help=f"max Hamming distance for a perceptual duplicate (default: {DEFAULT_PHASH_THRESHOLD})",
+        help=(
+            f"expert setting: near-duplicate sensitivity for perceptual hashing "
+            f"(default: {DEFAULT_PHASH_THRESHOLD})"
+        ),
     )
     parser.add_argument(
         "--by-device", action="store_true", help="name capture folders after the device"
@@ -176,7 +182,7 @@ def _add_common_options(parser: argparse.ArgumentParser) -> None:
         "--no-rename", action="store_true", help="keep original filenames (no date prefix)"
     )
     parser.add_argument(
-        "--events", action="store_true", help="propose Camera event clusters to name"
+        "--events", action="store_true", help="suggest camera photo groups that you can name"
     )
     parser.add_argument(
         "--no-timestamps", action="store_true", help="do not set mtime from the capture date"
@@ -187,28 +193,32 @@ def _add_common_options(parser: argparse.ArgumentParser) -> None:
         help="skip files with no capture date instead of copying them to Undated/",
     )
     parser.add_argument(
-        "--pool", choices=("thread", "process"), default="thread", help="hashing worker pool"
+        "--pool",
+        choices=("thread", "process"),
+        default="thread",
+        help="expert setting: worker style used during hashing",
     )
     parser.add_argument(
         "--workers",
         type=int,
         default=DEFAULT_WORKERS,
         metavar="N",
-        help="number of hashing workers",
+        help="expert setting: number of hashing workers",
     )
     parser.add_argument(
-        "--report", type=Path, metavar="PATH", help="write the full decision report as JSON"
+        "--report", type=Path, metavar="PATH", help="write a full per-file decision report as JSON"
     )
 
 
 def _add_undo_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """`undo-organize`: reverse a rename-based run, preview first."""
     undo = sub.add_parser(
-        "undo-organize", help="put files back where they were before an in-place organize"
+        "undo-organize",
+        help="put files back where they were before reorganize in this same folder (--in-place)",
     )
-    undo.add_argument("--db", type=Path, default=_DEFAULT_DB, help="SQLite catalog")
+    undo.add_argument("--db", type=Path, default=_DEFAULT_DB, help="path to the catalog file")
     undo.add_argument("--run-id", help="which run to reverse (default: the most recent)")
-    undo.add_argument("--list", action="store_true", help="list recorded in-place runs and exit")
+    undo.add_argument("--list", action="store_true", help="list recorded --in-place runs and exit")
     undo.add_argument(
         "--source-root", type=Path, help="where the files came from, if the drive has moved"
     )
@@ -237,13 +247,13 @@ def _build_parser() -> argparse.ArgumentParser:
     organize.add_argument(
         "--move",
         action="store_true",
-        help="delete each source only after its copy is written and re-verified (needs --apply)",
+        help="remove each source only after the new copy is written and verified (needs --apply)",
     )
     organize.add_argument(
         "--in-place",
         action="store_true",
         help=(
-            "move files on the drive instead of copying them (implies --move). Requires source "
+            "reorganize in this same folder by rename (implies --move). Requires source "
             "and destination on one filesystem; refuses rather than falling back to a copy"
         ),
     )
@@ -251,8 +261,8 @@ def _build_parser() -> argparse.ArgumentParser:
         "--refresh-metadata",
         action="store_true",
         help=(
-            "re-read exiftool tags even when the sidecar cache says the file is unchanged "
-            "(for editors that change tags without bumping mtime)"
+            "re-read photo details even when cache says the file is unchanged "
+            "(use this after another app edits tags without updating the file date)"
         ),
     )
     _add_common_options(organize)
@@ -277,7 +287,7 @@ def _build_parser() -> argparse.ArgumentParser:
     ingest.add_argument(
         "--prefer-takeout-dates",
         action="store_true",
-        help="trust photoTakenTime over embedded EXIF (for dates fixed inside Google Photos)",
+        help="prefer Google Photos capture time over embedded EXIF date fields",
     )
     ingest.add_argument(
         "--map-albums",
@@ -289,11 +299,15 @@ def _build_parser() -> argparse.ArgumentParser:
     ingest.add_argument("--in-place", action="store_true", help=argparse.SUPPRESS)
     _add_common_options(ingest)
 
-    drives = sub.add_parser("drives", help="list known backup drives, or init a drive marker")
-    drives.add_argument("--db", type=Path, default=_DEFAULT_DB, help="SQLite catalog")
-    drives.add_argument("--init", type=Path, metavar="ROOT", help="write a drive marker at ROOT")
+    drives = sub.add_parser(
+        "drives", help="list known backup drives, or set up a drive marker file"
+    )
+    drives.add_argument("--db", type=Path, default=_DEFAULT_DB, help="path to the catalog file")
+    drives.add_argument(
+        "--init", type=Path, metavar="ROOT", help="create a drive marker file at ROOT"
+    )
     drives.add_argument("--label", help="human label for --init")
-    drives.add_argument("--uuid", help="re-attach a known uuid instead of minting a new one")
+    drives.add_argument("--uuid", help="re-attach a known drive id instead of creating a new one")
     drives.add_argument(
         "--migrate-marker",
         type=Path,
@@ -306,9 +320,9 @@ def _build_parser() -> argparse.ArgumentParser:
 
     _add_undo_parser(sub)
 
-    where = sub.add_parser("where", help="find which drive(s) a file is on (offline)")
+    where = sub.add_parser("where", help="find which drive(s) hold a file, even when unplugged")
     where.add_argument("term", help="filename / path substring to search for")
-    where.add_argument("--db", type=Path, default=_DEFAULT_DB, help="SQLite catalog")
+    where.add_argument("--db", type=Path, default=_DEFAULT_DB, help="path to the catalog file")
     where.add_argument(
         "--limit",
         type=int,
@@ -316,23 +330,27 @@ def _build_parser() -> argparse.ArgumentParser:
         help=f"how many matches to show (default {Catalog.FIND_PAGE_SIZE}; 0 for all)",
     )
 
-    verify = sub.add_parser("verify", help="re-hash a connected drive's copies against the catalog")
+    verify = sub.add_parser(
+        "verify", help="re-check files on a connected drive against the catalog"
+    )
     verify.add_argument(
         "path", type=Path, help="the drive's current mount root (must be connected)"
     )
-    verify.add_argument("--db", type=Path, default=_DEFAULT_DB, help="SQLite catalog")
+    verify.add_argument("--db", type=Path, default=_DEFAULT_DB, help="path to the catalog file")
     verify.add_argument("--pool", choices=("thread", "process"), default="thread")
     verify.add_argument("--workers", type=int, default=DEFAULT_WORKERS, metavar="N")
 
-    status = sub.add_parser("status", help="report content that exists on only one drive (3-2-1)")
-    status.add_argument("--db", type=Path, default=_DEFAULT_DB, help="SQLite catalog")
+    status = sub.add_parser("status", help="show files that exist on only one drive (3-2-1)")
+    status.add_argument("--db", type=Path, default=_DEFAULT_DB, help="path to the catalog file")
 
     config = sub.add_parser(
-        "config", help="show or change this catalog's destination folder layout"
+        "config", help="show or change this catalog file's destination folder pattern"
     )
-    config.add_argument("--db", type=Path, default=_DEFAULT_DB, help="SQLite catalog")
-    config.add_argument("--set-template", metavar="TEMPLATE", help="set a custom layout template")
-    config.add_argument("--preset", metavar="NAME", help="set the layout to a named preset")
+    config.add_argument("--db", type=Path, default=_DEFAULT_DB, help="path to the catalog file")
+    config.add_argument("--set-template", metavar="TEMPLATE", help="set a custom folder pattern")
+    config.add_argument(
+        "--preset", metavar="NAME", help="set the layout from a saved folder pattern"
+    )
     config.add_argument(
         "--preview", action="store_true", help="render sample files without saving anything"
     )

@@ -23,10 +23,10 @@ REPO = Path(__file__).resolve().parents[3]
 #: which is the list of paths that script refuses to rewrite for this same reason.
 USER_FACING: tuple[Path, ...] = (
     REPO / "packages/truestill-app/src/truestill_app/static/app.js",
-    REPO / "CHANGELOG.md",
+    REPO / "packages/truestill-app/src/truestill_app/templates/index.html",
+    REPO / "packages/truestill-cli/src/truestill_cli/cli.py",
     REPO / "README.md",
     REPO / "SECURITY.md",
-    *sorted((REPO / "packages/truestill-app/src/truestill_app/templates").glob("*.html")),
 )
 
 #: ``word- word``: a hyphen glued to the preceding word with a space only after it. Real prose
@@ -77,3 +77,53 @@ def test_trip_and_event_result_rows_keep_their_kind_label() -> None:
     assert "function reviewResultCards(summary)" in app_js
     assert "g.kind.toUpperCase()" in app_js
     assert "tripResultCards" not in app_js
+
+
+# Phrases from older wording that this audit replaces.
+#
+# We ban exact copy snippets (not generic words) so this guard stays focused on user-facing
+# prose and does not fight internal ids/comments.
+_BANNED_USER_PHRASES = (
+    "This folder isn't a truestill backup yet - use <b>Copy your library to another drive</b> below to create one.",
+    "In-place mode uses the source folder as destination.",
+    "Invalid:",
+    # 3-part structure is a writing guide, not visible scaffolding.
+    "What happened:",
+    "What to do:",
+)
+_ALLOWED_USER_TERMS = (
+    "custody",
+    "catalog file",
+    "template",
+    "preset",
+    "--in-place",
+    "--phash-threshold",
+    "JSON",
+)
+_USER_FACING_TEXT = tuple(
+    path
+    for path in (
+        *USER_FACING,
+        REPO / "packages/truestill-app/src/truestill_app/service.py",
+    )
+    if path.name in {"app.js", "index.html", "cli.py", "README.md", "service.py"}
+)
+
+
+@pytest.mark.parametrize("path", _USER_FACING_TEXT, ids=lambda p: p.name)
+def test_user_facing_copy_avoids_banned_jargon(path: Path) -> None:
+    if not path.exists():
+        pytest.skip(f"{path.name} not present")
+    text = path.read_text(encoding="utf-8")
+    offenders = [phrase for phrase in _BANNED_USER_PHRASES if phrase in text]
+    assert not offenders, (
+        f"banned user-facing terms in {path.relative_to(REPO)}: {', '.join(offenders)}"
+    )
+
+
+def test_user_facing_copy_allowlist_documents_kept_terms() -> None:
+    combined = "\n".join(
+        path.read_text(encoding="utf-8") for path in _USER_FACING_TEXT if path.exists()
+    ).lower()
+    for allowed in _ALLOWED_USER_TERMS:
+        assert allowed.lower() in combined

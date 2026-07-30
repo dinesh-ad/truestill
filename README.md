@@ -83,8 +83,8 @@ year/month folder can never disagree. Disable with `--no-timestamps`.
 
 ## More than organizing
 
-Organizing is the entry point, not the whole tool. truestill also owns the **custody** of the
-library it builds:
+Organizing is the entry point, not the whole tool. truestill also owns the **custody - a verified
+record of where every file is safe** for the library it builds:
 
 - **De-duplication**, two tiers - exact (SHA-256) skipped, perceptual look-alikes kept and
   *flagged*, so an original is never silently dropped for a resembling file.
@@ -150,7 +150,7 @@ Frequently used `organize` flags:
 |------|--------|
 | `--apply` | Actually write files. Without it, nothing is touched. |
 | `--move` | Move instead of copy. Default is copy, leaving the source intact. |
-| `--in-place` | Organize on the drive itself by atomic rename - for a library with no room to copy into. Reversible with `truestill undo-organize`. |
+| `--in-place` | Reorganize in this same folder by atomic rename. Use this when you do not have space for a full copy. Reversible with `truestill undo-organize`. |
 | `--by-device` | Name capture folders after the device (`samsung SM-A546B`) instead of `Camera`. |
 | `--events` | Propose named events for camera clusters (you name or skip them). |
 | `--skip-undated` | Skip undateable files instead of copying them to `Undated/`. |

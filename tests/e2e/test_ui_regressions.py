@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 from conftest import AppServer, make_photo
 from playwright.sync_api import Page, expect
+from truestill_core.catalog import Catalog
 from truestill_core.destinations.base import CrossDeviceError
 from truestill_core.destinations.local import LocalDestination
 
@@ -116,6 +117,7 @@ def test_organize_mode_persists_and_inplace_hides_destination(ui: Page) -> None:
     ui.check('input[name="org-mode"][value="inplace"]')
     expect(ui.locator("#org-dest-field")).to_be_hidden()
     expect(ui.locator("#org-mode-hint")).to_contain_text("never falls back to copy")
+    expect(ui.locator("#org-mode-hint")).to_contain_text("--in-place")
 
     ui.reload()
     expect(ui.locator('input[name="org-mode"][value="inplace"]')).to_be_checked()
@@ -313,6 +315,114 @@ def test_trip_apply_completion_reports_empty_folders_and_offers_clean_flow(ui: P
     expect(ui.locator("#ev-disk-result")).to_contain_text("DCIM/100")
     ui.click("#ev-disk-result [data-clean-preview]")
     expect(ui.locator("#ev-disk-result [data-clean-stage] [data-typed-confirm]")).to_be_visible()
+
+
+def test_stats_view_renders_seeded_catalog_numbers(page: Page, app_server: AppServer) -> None:
+    with Catalog(app_server.db) as catalog:
+        catalog.upsert_drive(uuid="A", label="Drive A")
+        catalog.upsert_drive(uuid="B", label="Drive B")
+        catalog.record_uploaded(
+            source_path="/src/a.jpg",
+            original_name="a.jpg",
+            sha256="sha-a",
+            copy_sha256="sha-a",
+            perceptual="phash-1",
+            size=100,
+            captured_at="2020-01-01T10:00:00",
+            category="Camera",
+            relative="2020/2020-01/a.jpg",
+            drive_uuid="A",
+        )
+        catalog.record_uploaded(
+            source_path="/src/b.mp4",
+            original_name="b.mp4",
+            sha256="sha-b",
+            copy_sha256="sha-b",
+            perceptual="phash-1",
+            size=200,
+            captured_at="2021-01-01T10:00:00",
+            category="Camera",
+            relative="2021/2021-01/b.mp4",
+            drive_uuid="A",
+        )
+        catalog.record_uploaded(
+            source_path="/src/c.jpg",
+            original_name="c.jpg",
+            sha256="sha-c",
+            copy_sha256="sha-c",
+            perceptual=None,
+            size=300,
+            captured_at=None,
+            category="Saved",
+            relative="Saved/Undated/c.jpg",
+            drive_uuid=None,
+        )
+        catalog.record_copy(
+            sha256="sha-a",
+            drive_uuid="B",
+            relative="2020/2020-01/a.jpg",
+            copy_sha256="sha-a",
+            size=100,
+        )
+        catalog.mark_copy_verified(sha256="sha-a", drive_uuid="A", when="2026-07-30T10:00:00")
+        catalog.set_drive_verified("A", "2026-07-30T10:00:00")
+
+    page.goto(app_server.url)
+    page.click('button[data-screen="stats"]')
+    stats = page.locator("#stats-result")
+    expect(stats).to_contain_text("Custody")
+    expect(stats).to_contain_text("photos")
+    expect(stats).to_contain_text("videos")
+    expect(stats).to_contain_text("at risk (0 drives)")
+    at_risk = page.eval_on_selector(
+        "#stats-result",
+        """(root) => {
+          const labels = Array.from(root.querySelectorAll(".tally .k"));
+          const match = labels.find((node) => node.textContent.includes("at risk (0 drives)"));
+          return match && match.previousElementSibling ? match.previousElementSibling.textContent.trim() : "";
+        }""",
+    )
+    assert at_risk == "1"
+    expect(stats).to_contain_text("Undated")
+    expect(stats).to_contain_text("By year")
+    expect(page.locator("#stats-result .stats-bars")).to_contain_text("2020")
+    expect(page.locator("#stats-result .stats-bars")).to_contain_text("2021")
+
+
+def test_stats_view_at_risk_count_is_actionable(page: Page, app_server: AppServer) -> None:
+    with Catalog(app_server.db) as catalog:
+        catalog.record_uploaded(
+            source_path="/src/risk.jpg",
+            original_name="risk.jpg",
+            sha256="sha-risk",
+            copy_sha256="sha-risk",
+            perceptual=None,
+            size=111,
+            captured_at="2024-01-01T09:00:00",
+            category="Camera",
+            relative="2024/2024-01/risk.jpg",
+            drive_uuid=None,
+        )
+    page.goto(app_server.url)
+    page.click('button[data-screen="stats"]')
+    expect(page.locator("#stats-result")).to_contain_text("at risk (0 drives)")
+    at_risk = page.eval_on_selector(
+        "#stats-result",
+        """(root) => {
+          const labels = Array.from(root.querySelectorAll(".tally .k"));
+          const match = labels.find((node) => node.textContent.includes("at risk (0 drives)"));
+          return match && match.previousElementSibling ? match.previousElementSibling.textContent.trim() : "";
+        }""",
+    )
+    assert at_risk == "1"
+    page.click('#stats-result [data-stats-action="backups"]')
+    expect(page.locator("#screen-backups")).to_be_visible()
+
+
+def test_stats_view_empty_catalog_is_calm(ui: Page) -> None:
+    ui.click('button[data-screen="stats"]')
+    expect(ui.locator("#stats-result")).to_contain_text("No library data yet")
+    expect(ui.locator("#stats-result")).to_contain_text("Organize or import photos first")
 
 
 def test_the_verify_cancel_button_is_wired_to_something(ui: Page, app_server: AppServer) -> None:
