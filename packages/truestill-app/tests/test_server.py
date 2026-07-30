@@ -562,23 +562,26 @@ def test_a_page_is_fetched_from_the_database_not_sliced_in_python(tmp_path: Path
 
     Fetching every match and slicing would build the whole result set on each keystroke -- the
     shape that only hurts once a library is large, which is exactly when it matters. Asserted
-    against the query plan rather than by timing, so it cannot pass by being fast on a fixture.
+    against the query plan of the SQL ``find_copies`` actually runs (via ``find_copies_query`` and
+    a trace of the live execute), not a retyped literal that could drift (audit F11).
     """
     db = tmp_path / "c.sqlite"
     _seed_matches(db, 120)
     with Catalog(db) as catalog:
+        sql, params = catalog.find_copies_query("holiday", limit=50, offset=0)
+        assert "LIMIT ?" in sql
+        assert "OFFSET ?" in sql
+
         plan = " ".join(
-            str(r[3])
-            for r in catalog._conn.execute(
-                "EXPLAIN QUERY PLAN "
-                "SELECT f.original_name FROM file_copies fc JOIN files f ON f.sha256 = fc.sha256 "
-                "JOIN drives d ON d.uuid = fc.drive_uuid WHERE f.original_name LIKE ? "
-                "ORDER BY f.original_name LIMIT ? OFFSET ?",
-                ("%holiday%", 50, 0),
-            )
+            str(r[3]) for r in catalog._conn.execute(f"EXPLAIN QUERY PLAN {sql}", params)
         )
-        assert "SCAN" in plan or "SEARCH" in plan  # a real plan, and LIMIT is inside it
+        assert "USING INDEX" in plan, plan
+
+        traced: list[str] = []
+        catalog._conn.set_trace_callback(traced.append)
         assert len(catalog.find_copies("holiday", limit=50, offset=0)) == 50
+        catalog._conn.set_trace_callback(None)
+        assert any("LIMIT 50 OFFSET 0" in q for q in traced), traced
         assert len(catalog.find_copies("holiday")) == 120  # unpaged still available
 
 

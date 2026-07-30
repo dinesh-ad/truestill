@@ -1053,15 +1053,13 @@ class Catalog:
         ).fetchone()
         return int(row[0])
 
-    def find_copies(
+    def find_copies_query(
         self, term: str, *, limit: int | None = None, offset: int = 0
-    ) -> list[sqlite3.Row]:
-        """For ``where``: copies whose original name, relative path or source path match ``term``.
+    ) -> tuple[str, list[object]]:
+        """SQL + params for :meth:`find_copies`.
 
-        **Paged in SQL, not in Python.** ``LIMIT``/``OFFSET`` go to SQLite so a page costs one
-        page of rows; fetching everything and slicing would build the whole result set in memory
-        on every keystroke, which is the shape that only hurts once a library is large. ``limit``
-        of ``None`` keeps the unpaged behaviour for callers that genuinely want every row.
+        Exposed so the paging guard can ``EXPLAIN`` the statement that actually ships, not a
+        retyped twin that could drift (audit F11).
         """
         like = f"%{term}%"
         sql = """
@@ -1077,6 +1075,19 @@ class Catalog:
         if limit is not None:
             sql += " LIMIT ? OFFSET ?"
             params += [limit, offset]
+        return sql, params
+
+    def find_copies(
+        self, term: str, *, limit: int | None = None, offset: int = 0
+    ) -> list[sqlite3.Row]:
+        """For ``where``: copies whose original name, relative path or source path match ``term``.
+
+        **Paged in SQL, not in Python.** ``LIMIT``/``OFFSET`` go to SQLite so a page costs one
+        page of rows; fetching everything and slicing would build the whole result set in memory
+        on every keystroke, which is the shape that only hurts once a library is large. ``limit``
+        of ``None`` keeps the unpaged behaviour for callers that genuinely want every row.
+        """
+        sql, params = self.find_copies_query(term, limit=limit, offset=offset)
         return list(self._conn.execute(sql, params))
 
     def single_copy_shas(self) -> list[sqlite3.Row]:
