@@ -782,7 +782,10 @@ $("sidebar-toggle").onclick = guarded(async () => {
 // overriding -- but a user should never have to go and find what we already know.
 function prefill(id, value) {
   const el = $(id);
-  if (el && value && !el.value) el.value = value;
+  // Never write into a field the user (or a test driver) is editing. A late custody
+  // response used to refill an emptied Check field mid-keystroke, so the typed backup
+  // path was appended to the library path and then carried into "To".
+  if (el && value && !el.value && document.activeElement !== el) el.value = value;
 }
 
 function pathBasename(path) {

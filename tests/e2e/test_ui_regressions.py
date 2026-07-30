@@ -489,11 +489,15 @@ def test_the_backup_target_carries_over_from_the_check_field(
     ui: Page, tmp_path: Path, library
 ) -> None:
     """Both fields name the backup drive; typing it twice on one page is the bug."""
-    _organize(ui, library(3), tmp_path / "Library")
+    destination = tmp_path / "Library"
+    _organize(ui, library(3), destination)
     backup = tmp_path / "Backup"
     backup.mkdir()
 
     ui.click('button[data-screen="backups"]')
+    # Organize's completion fires loadCustody without awaiting it. Wait until the Check
+    # field has the library path so we do not race a late prefill mid-fill.
+    expect(ui.locator("#verify-path")).to_have_value(str(destination))
     ui.fill("#verify-path", str(backup))
     ui.locator("#verify-path").blur()
 
