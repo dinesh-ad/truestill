@@ -298,7 +298,12 @@ is invisible here is retired, not free.**
     empty-folder report + clean-empty offer on organize and trip/migrate apply (closes
     `(zz)`/`(rr)` globally). Playwright + mutation coverage.
 
-- **(fff) Collapsible sidebar.** Ruled by Dinesh, 2026-07-30. **Next after `(eee)`.**
+- **(fff) Collapsible sidebar.** Ruled by Dinesh, 2026-07-30.
+  **Built (2026-07-30).** Hamburger toggle (expanded icon+label / collapsed icon-only rail);
+  required hover **and** focus tooltips when collapsed; persist via catalog setting
+  `ui.sidebar.collapsed` (no localStorage); compact custody pips-only in the rail; keyboard
+  toggle keeps focus; short width transition; Playwright collapse/expand, persistence,
+  tooltips, custody bounds, keyboard; each guard broken once then restored.
   - Hamburger toggle: expanded = icon+label; collapsed = icon-only narrow rail.
   - Collapsed **must** show label tooltips on hover **and** focus (not optional polish).
   - Persist via existing catalog settings key/value - **no** localStorage / new store.

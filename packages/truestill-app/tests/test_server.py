@@ -188,6 +188,17 @@ def test_organize_mode_setting_round_trips_through_catalog(client: TestClient) -
     assert client.get(f"/api/organize/settings?token={_TOKEN}").json()["mode"] == "inplace"
 
 
+def test_sidebar_collapsed_setting_round_trips_through_catalog(client: TestClient) -> None:
+    assert client.get(f"/api/sidebar/settings?token={_TOKEN}").json()["collapsed"] is False
+    saved = client.post(f"/api/sidebar/settings?token={_TOKEN}", json={"collapsed": True}).json()
+    assert saved == {"ok": True, "collapsed": True}
+    assert client.get(f"/api/sidebar/settings?token={_TOKEN}").json()["collapsed"] is True
+    restored = client.post(
+        f"/api/sidebar/settings?token={_TOKEN}", json={"collapsed": False}
+    ).json()
+    assert restored == {"ok": True, "collapsed": False}
+
+
 def test_filesystem_relationship_reports_same_filesystem(
     client: TestClient, tmp_path: Path
 ) -> None:

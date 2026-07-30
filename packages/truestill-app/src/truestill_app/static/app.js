@@ -714,6 +714,51 @@ function showScreen(name) {
 }
 document.querySelectorAll(".nav-item").forEach((item) => { item.onclick = () => showScreen(item.dataset.screen); });
 
+// ---------- collapsible sidebar (catalog-persisted; no localStorage) ----------
+let sidebarLoadGeneration = 0;
+
+function sidebarIsCollapsed() {
+  return $("sidebar").dataset.collapsed === "true";
+}
+
+function applySidebarCollapsed(collapsed) {
+  const sidebar = $("sidebar");
+  const toggle = $("sidebar-toggle");
+  const app = document.querySelector(".app");
+  const next = !!collapsed;
+  sidebar.dataset.collapsed = next ? "true" : "false";
+  app.classList.toggle("sidebar-collapsed", next);
+  const label = next ? "Expand" : "Collapse";
+  toggle.setAttribute("aria-expanded", next ? "false" : "true");
+  toggle.setAttribute("aria-label", `${label} sidebar`);
+  toggle.dataset.label = label;
+  const text = toggle.querySelector(".nav-label");
+  const tip = toggle.querySelector(".nav-tooltip");
+  if (text) text.textContent = label;
+  if (tip) tip.textContent = label;
+  refreshCatalogPathFit();
+}
+
+async function loadSidebar() {
+  const gen = ++sidebarLoadGeneration;
+  const state = await get("/api/sidebar/settings");
+  if (gen !== sidebarLoadGeneration) return;
+  applySidebarCollapsed(!!state.collapsed);
+}
+
+async function saveSidebarCollapsed(collapsed) {
+  await api("/api/sidebar/settings", { collapsed: !!collapsed });
+}
+
+$("sidebar-toggle").onclick = guarded(async () => {
+  sidebarLoadGeneration += 1; // invalidate any in-flight settings load
+  const next = !sidebarIsCollapsed();
+  applySidebarCollapsed(next);
+  // Keep focus on the toggle so collapsing never traps or drops the keyboard user.
+  $("sidebar-toggle").focus();
+  await saveSidebarCollapsed(next);
+});
+
 // Re-query when the connected-drive path changes - the catalog answer is per drive, not per
 // session, and a Browse into a different drive must update the affordance without a reload.
 [["ev-source", "ev-undo-panel"], ["mig-path", "mig-undo-panel"]].forEach(([inputId, panelId]) => {
@@ -1935,5 +1980,6 @@ document.querySelectorAll('input[name="theme"]').forEach((r) => {
 });
 
 loadOrganizeMode();
+loadSidebar();
 loadCustody();
 refreshOrganizeUndoAffordance();

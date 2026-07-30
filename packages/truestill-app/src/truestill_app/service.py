@@ -192,6 +192,7 @@ LIBRARY_PATH_HINT = "path_hint.library"
 BACKUP_PATH_HINT = "path_hint.backup"
 ORGANIZE_MODE_KEY = "ui.organize.mode"
 ORGANIZE_MODES = frozenset({"copy", "move", "inplace"})
+SIDEBAR_COLLAPSED_KEY = "ui.sidebar.collapsed"
 
 
 def reveal_in_file_manager(path: Path) -> dict[str, Any]:
@@ -421,6 +422,27 @@ def set_organize_mode(mode: object, db: Path) -> dict[str, Any]:
     with Catalog(db) as catalog:
         catalog.set_setting(ORGANIZE_MODE_KEY, saved)
     return {"ok": True, "mode": saved}
+
+
+def _normalize_sidebar_collapsed(value: object) -> bool:
+    """True only for an explicit collapsed signal; anything else expands."""
+    if isinstance(value, bool):
+        return value
+    text = str(value or "").strip().lower()
+    return text in {"1", "true", "yes", "collapsed"}
+
+
+def sidebar_state(db: Path) -> dict[str, Any]:
+    with Catalog(db) as catalog:
+        raw = catalog.get_setting(SIDEBAR_COLLAPSED_KEY)
+    return {"collapsed": _normalize_sidebar_collapsed(raw)}
+
+
+def set_sidebar_collapsed(collapsed: object, db: Path) -> dict[str, Any]:
+    saved = _normalize_sidebar_collapsed(collapsed)
+    with Catalog(db) as catalog:
+        catalog.set_setting(SIDEBAR_COLLAPSED_KEY, "true" if saved else "false")
+    return {"ok": True, "collapsed": saved}
 
 
 def filesystem_relationship(source: Path, destination: Path) -> dict[str, Any]:

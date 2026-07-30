@@ -62,7 +62,7 @@ narrative, or volatile counts.
 
 1. **Finish soak gate**
    - Continue normal use; any new soak finding outranks queued feature work.
-   - Next queued UI: collapsible sidebar (`BACKLOG.md` `(fff)`).
+   - Collapsible sidebar (`BACKLOG.md` `(fff)`) is built; pull next from backlog priority.
 
 2. **Repo-public audit + newcomer README**
    - Ensure no sensitive/local-only leakage and that user-facing docs/screenshots are current.

@@ -10,16 +10,46 @@
 </head>
 <body>
   <div class="app">
-    <nav class="sidebar" aria-label="Main">
-      <div class="wordmark">truestill<span class="dot">.</span></div>
+    <nav class="sidebar" id="sidebar" aria-label="Main" data-collapsed="false">
+      <div class="sidebar-head">
+        <div class="wordmark">truestill<span class="dot">.</span></div>
+        <button type="button" class="sidebar-toggle" id="sidebar-toggle"
+                aria-expanded="true" aria-controls="sidebar"
+                data-label="Collapse" aria-label="Collapse sidebar">
+          <span class="ico" aria-hidden="true">☰</span>
+          <span class="nav-label">Collapse</span>
+          <span class="nav-tooltip" role="tooltip">Collapse</span>
+        </button>
+      </div>
       <div class="nav">
-        <button class="nav-item" data-screen="organize" aria-current="page"><span class="ico">◇</span> Organize</button>
-        <button class="nav-item" data-screen="events"><span class="ico">◷</span> Trips &amp; events</button>
-        <button class="nav-item" data-screen="import"><span class="ico">↧</span> Import</button>
-        <button class="nav-item" data-screen="backups"><span class="ico">▤</span> Backups</button>
-        <button class="nav-item" data-screen="find"><span class="ico">⌕</span> Find</button>
-        <button class="nav-item" data-screen="stats"><span class="ico">◫</span> Stats</button>
-        <button class="nav-item" data-screen="settings"><span class="ico">⚙</span> Settings</button>
+        <button class="nav-item" data-screen="organize" data-label="Organize" aria-current="page">
+          <span class="ico" aria-hidden="true">◇</span><span class="nav-label">Organize</span>
+          <span class="nav-tooltip" role="tooltip">Organize</span>
+        </button>
+        <button class="nav-item" data-screen="events" data-label="Trips &amp; events">
+          <span class="ico" aria-hidden="true">◷</span><span class="nav-label">Trips &amp; events</span>
+          <span class="nav-tooltip" role="tooltip">Trips &amp; events</span>
+        </button>
+        <button class="nav-item" data-screen="import" data-label="Import">
+          <span class="ico" aria-hidden="true">↧</span><span class="nav-label">Import</span>
+          <span class="nav-tooltip" role="tooltip">Import</span>
+        </button>
+        <button class="nav-item" data-screen="backups" data-label="Backups">
+          <span class="ico" aria-hidden="true">▤</span><span class="nav-label">Backups</span>
+          <span class="nav-tooltip" role="tooltip">Backups</span>
+        </button>
+        <button class="nav-item" data-screen="find" data-label="Find">
+          <span class="ico" aria-hidden="true">⌕</span><span class="nav-label">Find</span>
+          <span class="nav-tooltip" role="tooltip">Find</span>
+        </button>
+        <button class="nav-item" data-screen="stats" data-label="Stats">
+          <span class="ico" aria-hidden="true">◫</span><span class="nav-label">Stats</span>
+          <span class="nav-tooltip" role="tooltip">Stats</span>
+        </button>
+        <button class="nav-item" data-screen="settings" data-label="Settings">
+          <span class="ico" aria-hidden="true">⚙</span><span class="nav-label">Settings</span>
+          <span class="nav-tooltip" role="tooltip">Settings</span>
+        </button>
       </div>
       <div class="custody" id="custody" title="Custody - a verified record of where every file is safe.">
         <div class="pips none" id="custody-pips">▫ ▫ ▫</div>
