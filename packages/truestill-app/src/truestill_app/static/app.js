@@ -619,6 +619,12 @@ async function startUndoPreview(path, panel) {
     document.body.appendChild($("undo-card"));
     $("undo-card").classList.add("hidden");
     if (!d.ok) { stage.innerHTML = jobErrorCard(d); return; }
+    // Cancel arrives as ok:true — without this branch the typed-confirm success path opens.
+    if (d.status === "cancelled") {
+      stage.innerHTML = card(
+        `<div class="headline">Preview cancelled</div><div class="k">Nothing was changed. Preview again when you are ready.</div>`);
+      return;
+    }
     const s = d.summary;
     stage.innerHTML =
       `<div class="headline">${plural(s.reversed_files, "file")} can be put back</div>
@@ -658,12 +664,20 @@ async function startUndoApply(path, panel) {
     undoJob = null;
     document.body.appendChild($("undo-card"));
     $("undo-card").classList.add("hidden");
-    const summaryHtml = d.ok
-      ? card(
-          `<div class="headline">Put ${plural(d.summary.reversed_files, "file")} back.</div>
-           ${undoRefusalList(d.summary.refused)}`
-        )
-      : jobErrorCard(d);
+    // Cancel is ok:true with a partial summary - files already put back stay put back.
+    let summaryHtml;
+    if (d.status === "cancelled") {
+      summaryHtml = card(
+        `<div class="headline">Stopped</div>
+         <div class="k">Put ${plural(d.summary.reversed_files || 0, "file")} back before you stopped it.</div>
+         ${undoRefusalList(d.summary.refused)}`);
+    } else if (d.ok) {
+      summaryHtml = card(
+        `<div class="headline">Put ${plural(d.summary.reversed_files, "file")} back.</div>
+         ${undoRefusalList(d.summary.refused)}`);
+    } else {
+      summaryHtml = jobErrorCard(d);
+    }
     await refreshUndoAffordance(path, panel);
     // Prepend the outcome without re-parsing the armed card: assigning panel.innerHTML
     // would wipe the Preview onclick refreshUndoAffordance just attached, and a cancelled
@@ -684,7 +698,9 @@ function backupCompletion(r) {
     with <b>Check a connected backup drive</b> above — a backup is only as good as its last
     check.</div>`);
   return completionCard({
-    headline: `${mediaCount(r)} copied to ${esc(r.to || "the drive")}`,
+    done: r.cancelled ? "Stopped" : "Done",
+    headline: `${mediaCount(r)} copied to ${esc(r.to || "the drive")}`
+      + (r.cancelled ? " before you stopped it" : ""),
     sub: "Your library now lives in more than one place.",
     stats: [
       { value: fmtBytes(r.bytes_copied), label: "copied" },
@@ -1184,6 +1200,11 @@ async function startOrganizeUndoPreview() {
     document.body.appendChild($("undo-card"));
     $("undo-card").classList.add("hidden");
     if (!d.ok) { stage.innerHTML = jobErrorCard(d); return; }
+    if (d.status === "cancelled") {
+      stage.innerHTML = card(
+        `<div class="headline">Preview cancelled</div><div class="k">Nothing was changed. Preview again when you are ready.</div>`);
+      return;
+    }
     const s = d.summary;
     stage.innerHTML = `<div class="headline">${plural(s.restorable, "file")} can be restored</div>
       ${organizeUndoSkipped(s.skipped)}
@@ -1222,12 +1243,20 @@ async function startOrganizeUndoApply() {
     orgUndoJob = null;
     document.body.appendChild($("undo-card"));
     $("undo-card").classList.add("hidden");
-    const summaryHtml = d.ok
-      ? card(
-          `<div class="headline">Restored ${plural(d.summary.restored, "file")}.</div>
-           ${organizeUndoSkipped(d.summary.skipped)}`
-        )
-      : jobErrorCard(d);
+    // Cancel is ok:true; restored counts are real files already put back.
+    let summaryHtml;
+    if (d.status === "cancelled") {
+      summaryHtml = card(
+        `<div class="headline">Stopped</div>
+         <div class="k">Restored ${plural(d.summary.restored || 0, "file")} before you stopped it.</div>
+         ${organizeUndoSkipped(d.summary.skipped)}`);
+    } else if (d.ok) {
+      summaryHtml = card(
+        `<div class="headline">Restored ${plural(d.summary.restored, "file")}.</div>
+         ${organizeUndoSkipped(d.summary.skipped)}`);
+    } else {
+      summaryHtml = jobErrorCard(d);
+    }
     if (d.ok) loadCustody();
     await refreshOrganizeUndoAffordance();
     // Prepend the outcome without re-parsing the armed card: assigning panel.innerHTML
@@ -1498,6 +1527,12 @@ $("verify-run").onclick = guarded(async () => {
     verifyProgress.stop();
     verifyJob = null;
     if (!d.ok) { $("verify-result").innerHTML = jobErrorCard(d); return; }
+    // Read-only: cancel changes nothing on disk, but ok:true must not paint "Checked".
+    if (d.status === "cancelled") {
+      $("verify-result").innerHTML = card(
+        `<div class="headline">Check cancelled</div><div class="k">Nothing was changed. Check again when you are ready.</div>`);
+      return;
+    }
     const s = d.summary;
     const problems = (s.problems || []).map((p) => {
       const why = p.detail ? ` - ${esc(p.detail)}` : "";
@@ -1899,9 +1934,21 @@ $("ev-apply-disk").onclick = guarded(async () => {
     });
     evProgress.stop();
     $("ev-apply-disk").classList.add("hidden");
+    evJob = null;
+    // Cancel leaves completed moves in place (resumable journal) - never claim a finished apply.
+    if (d.status === "cancelled") {
+      const s = d.summary || {};
+      cleanupOffer = s.leftover_empty_folders || null;
+      $("ev-disk-result").innerHTML = card(
+        `<div class="headline">Stopped</div>
+         <div class="k">Moved ${plural(s.migrated || 0, "photo")} before you stopped it.</div>`)
+        + (s.leftover_empty_folders ? cleanupOfferNote(s.leftover_empty_folders) : "");
+      loadCustody();
+      refreshUndoAffordance($("ev-source").value.trim(), $("ev-undo-panel"));
+      return;
+    }
     cleanupOffer = d.ok ? (d.summary.leftover_empty_folders || null) : null;
     $("ev-disk-result").innerHTML = d.ok ? reviewResultCards(d.summary) : jobErrorCard(d);
-    evJob = null;
     loadCustody();
     // The apply just armed (or superseded) the reversible journal - re-query, never assume.
     refreshUndoAffordance($("ev-source").value.trim(), $("ev-undo-panel"));
@@ -1947,9 +1994,15 @@ $("bk-run").onclick = guarded(async () => {
     });
     bkProgress.stop();
     $("bk-run").classList.add("hidden");
+    bkJob = null;
+    // Cancel leaves completed copies on the target - same honesty as organizeCompletion.
+    if (d.status === "cancelled") {
+      $("bk-result").innerHTML = backupCompletion({ ...d.summary, cancelled: true });
+      refreshDriveState();
+      return;
+    }
     const s = d.summary;
     $("bk-result").innerHTML = d.ok ? backupCompletion(s) : jobErrorCard(d);
-    bkJob = null;
     refreshDriveState();
   });
 });
@@ -2075,12 +2128,24 @@ async function startMigrateRun() {
     });
     migProgress.stop();
     clearMigrateConfirm();
+    migJob = null;
+    // Cancel leaves completed moves in place - do not paint a finished "Moved N files." card.
+    if (d.status === "cancelled") {
+      const s = d.summary || {};
+      cleanupOffer = s.leftover_empty_folders || null;
+      $("mig-result").innerHTML = card(
+        `<div class="headline">Stopped</div>
+         <div class="k">Moved ${plural(s.migrated || 0, "file")} before you stopped it.</div>`)
+        + (s.leftover_empty_folders ? cleanupOfferNote(s.leftover_empty_folders) : "");
+      loadDrives();
+      refreshUndoAffordance($("mig-path").value.trim(), $("mig-undo-panel"));
+      return;
+    }
     cleanupOffer = d.ok ? (d.summary.leftover_empty_folders || null) : null;
     $("mig-result").innerHTML = d.ok
       ? card(`<div class="headline">Moved ${plural(d.summary.migrated || 0, "file")}.</div>`)
         + (d.summary.leftover_empty_folders ? cleanupOfferNote(d.summary.leftover_empty_folders) : "")
       : jobErrorCard(d);
-    migJob = null;
     loadDrives();
     refreshUndoAffordance($("mig-path").value.trim(), $("mig-undo-panel"));
   });
