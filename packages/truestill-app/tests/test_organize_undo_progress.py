@@ -23,6 +23,18 @@ def _function_body(src: str, name: str) -> str:
     return src[start : i - 1]
 
 
+def test_organize_undo_preview_and_apply_refuse_ok_false() -> None:
+    """(F38 latent) Organize-undo must refuse started.ok === false like migrate-undo.
+
+    Without it, DriveBusy falls through into awaitJob with no job_id.
+    """
+    src = APP_JS.read_text(encoding="utf-8")
+    for name in ("startOrganizeUndoPreview", "startOrganizeUndoApply"):
+        body = _function_body(src, name)
+        assert "started.ok === false" in body, f"{name} must soft-refuse like migrate-undo"
+        assert "startRefusedCard(started" in body, f"{name} must render the refusal card"
+
+
 def test_organize_undo_parks_shared_progress_card_in_the_panel() -> None:
     """Without parking, undoProgress renders below the 100vh app grid ((oo) class)."""
     src = APP_JS.read_text(encoding="utf-8")

@@ -1159,6 +1159,11 @@ async function startOrganizeUndoPreview() {
   const previewBtn = $("org-undo-preview");
   await withBusy(previewBtn, "Checking undo…", async ({ setStatus }) => {
     const started = await api("/api/organize/undo/preview", {});
+    if (started.ok === false) {
+      // Mirror migrate-undo: a DriveBusy / soft-fail must not enter awaitJob with no job id.
+      $("org-undo-panel").innerHTML = startRefusedCard(started, "org-source");
+      return;
+    }
     if (started.ok === true && started.armed === false) {
       await refreshOrganizeUndoAffordance();
       return;
@@ -1196,6 +1201,10 @@ async function startOrganizeUndoApply() {
   const go = document.querySelector("#org-undo-stage [data-typed-go]");
   await withBusy(go, "Putting files back…", async ({ setStatus }) => {
     const started = await api("/api/organize/undo/apply", {});
+    if (started.ok === false) {
+      $("org-undo-panel").innerHTML = startRefusedCard(started, "org-source");
+      return;
+    }
     if (started.ok === true && started.armed === false) {
       await refreshOrganizeUndoAffordance();
       return;

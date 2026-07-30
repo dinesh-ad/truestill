@@ -257,6 +257,44 @@ def test_reversible_organize_shows_durable_undo_affordance(
     expect(ui.locator("#org-undo-panel")).to_contain_text("Undo the last reversible organize run")
 
 
+def test_organize_undo_preview_renders_drive_busy_refusal_not_a_hang(ui: Page) -> None:
+    """(F38 latent A) A refused organize-undo start must show the refusal card.
+
+    Without started.ok === false handling, DriveBusy entered awaitJob with no job id -
+    hang or generic failure instead of "Already running".
+    """
+    ui.route(
+        "**/api/organize/undo",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=(
+                '{"ok":true,"armed":true,"source_root":"/tmp/src","dest_root":"/tmp/dst",'
+                '"restorable":3,"run_id":"run-1","status":"complete","skipped":[]}'
+            ),
+        ),
+    )
+    ui.route(
+        "**/api/organize/undo/preview",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=(
+                '{"ok":false,"code":"DriveBusy","error":'
+                '"Already running: organize on Busy Drive. Wait for it to finish or cancel it."}'
+            ),
+        ),
+    )
+    ui.reload()
+    expect(ui.locator("#org-undo-preview")).to_be_visible()
+    ui.click("#org-undo-preview")
+    panel = ui.locator("#org-undo-panel")
+    expect(panel).to_contain_text("Already running")
+    expect(panel).to_contain_text("Busy Drive")
+    # Must not leave the typed-confirm / progress path as if a job started.
+    expect(ui.locator("#org-undo-stage [data-typed-confirm]")).to_have_count(0)
+
+
 @_EXIFTOOL
 def test_organize_undo_apply_keeps_the_restored_outcome_visible(
     ui: Page, tmp_path: Path, library
