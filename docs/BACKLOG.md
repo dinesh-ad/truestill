@@ -18,7 +18,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(zz), (aaa). Next free: (aab).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(eee). Next free: (aab).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -281,6 +281,44 @@ is invisible here is retired, not free.**
     non-interactively.
   - **Audit scope:** every typed-confirm path in CLI, not just in-place: `move`, `undo`,
     `clean`, `delete forever`, `delete` (and any equivalent prompts that share this pattern).
+  - **Not fixed here, on purpose** - recorded only, per instruction.
+
+- **(bbb) exiftool `_original` backups are ignored.** Ruled by Dinesh, 2026-07-30. When anyone
+  edits a photo's date with exiftool, the default is to leave `file.jpg_original` beside it
+  holding the **original** metadata (only `-overwrite_original` skips this). Truestill neither
+  reads nor mentions these.
+  - **Opportunity (a):** if a file's date looks overwritten and a sibling `_original` exists,
+    the true capture date may be recoverable from it - relates to **(ii)** rescue flow.
+  - **Opportunity (b):** `_original` files are currently treated as unknown media and may be
+    organized as if they were real photos - **verify which**, and record it, before changing
+    behaviour.
+  - **Constraint:** research the recovery path before building; do not invent a silent merge
+    of `_original` metadata into the live file.
+  - **Not fixed here, on purpose** - recorded only, per instruction.
+
+- **(ccc) "Tags" is developer wording in user-facing copy.** Ruled by Dinesh, 2026-07-30. The
+  Organize screen says "bypass cache if another tool edited tags without changing the file
+  date" - normal users do not know what tags are.
+  - **Fix when built:** rewrite in plain language (e.g. "if you changed photo dates in another
+    app").
+  - **Audit scope (launch-quality):** every user-facing instance of developer terms -
+    **tags, EXIF, metadata, sidecar, hash, catalog, custody**. List every instance; plain
+    language is a launch-quality item, not polish.
+  - **Not fixed here, on purpose** - recorded only, per instruction.
+
+- **(ddd) No stats view.** Ruled by Dinesh, 2026-07-30 (asked more than once). "Look inside"
+  gives counts, but there is no place to see the **shape** of a library: totals by year, by
+  type, by format, by category, how many undated, how many backed up vs not, largest folders.
+  - **Scope:** a read-only view over the catalog - **no file reads**, so it must be fast.
+  - **Not fixed here, on purpose** - recorded only, per instruction.
+
+- **(eee) In-place organize is CLI-only.** Ruled by Dinesh, 2026-07-30. `--in-place` renames
+  files where they are (maiden voyage: 60/60 byte-identical after undo, rename-based,
+  sub-second). Users who want their existing folder reorganized **in place** rather than
+  copied elsewhere have no way to do it from the app - a major capability that is invisible.
+  - **Surface when built** with the full destructive discipline: preview, typed confirm,
+    progress, and the `undo-organize` affordance beside it.
+  - **Constraint:** this is a **different mechanism** from migration undo - do not merge them.
   - **Not fixed here, on purpose** - recorded only, per instruction.
 
 - **(tt) No fast, no-hashing inventory - progressive disclosure is missing.** Ruled by Dinesh
@@ -895,9 +933,11 @@ that reported an outcome it had not produced -- is merely confusing for a copy a
 for a move.
 
 - **`organize --move`, `truestill reclaim`, `organize --in-place` + `undo-organize`** stay
-  **CLI-only**. GUI demand is to be judged from **soak and launch feedback**, not assumed.
-  When one does get a surface, the pre-approved shape is advisory same-device detection plus
-  a typed confirmation identical to the CLI's.
+  **CLI-only** until an app surface is explicitly approved. GUI demand is judged from **soak
+  and launch feedback**, not assumed. When one does get a surface, the pre-approved shape is
+  advisory same-device detection plus a typed confirmation identical to the CLI's.
+  **`(eee)` is that soak demand for in-place + undo** - approved to surface, not built yet;
+  `--move` and `reclaim` remain deferred.
 - **`{camera_model}` layout token** -- demand **re-confirmed by the user** during the soak
   era. Stays **deferred / Pro-tier candidate** as originally recorded in
   `org-structure-research.md` (§C1 "explicitly NOT v1 tokens"): it needs device metadata
