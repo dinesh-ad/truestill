@@ -829,6 +829,16 @@ no composition refactor to schedule.
   `{yyyy}-{mm}-{dd} - Everyday`; under stay in the monthly bucket. Both-direction migrate
   reconcile with per-day reasons; Settings warns on threshold change and routes to migrate;
   app migrate uses `typedConfirm("move")`. Research: `docs/adaptive-day-folder-research.md`.
+  - **Soak finding (2026-07-30), recorded so it is not misread later.** `(gg)` is correct but
+    **rare on real data.** One hit in the full soak catalog: **2013-09-30**, 62 photos,
+    un-evented and non-trip-claimed (still in the monthly Everyday folder until migrate). The
+    **2,057-photo 2014-08 Everyday folder that prompted `(gg)` was explained entirely by the
+    Wayanad trip claim**, not by threshold behaviour - the trip work had already solved that
+    folder. Do not treat `(gg)` as the fix for Aug 2014.
+  - **Product implication (note, do not act on):** heavy days are usually trips or named
+    events, so the threshold mostly guards the residual case - a genuinely busy day that
+    belongs to nothing. Worth having; frequency is low. Any future tuning of the default
+    should be judged against that residual rate, not against the Aug 2014 example.
 
 - **(y) Optional photo / video split - default TOGETHER, and pair-aware or not at all.**
   Post-layout-correction. An opt-in that separates standalone videos into their own top-level
