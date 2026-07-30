@@ -299,6 +299,59 @@ def test_move_completion_reports_empty_folders_and_offers_clean_flow(
     expect(ui.locator("[data-clean-stage] [data-typed-confirm]")).to_be_visible()
 
 
+def test_merge_names_the_typed_names_it_can_no_longer_keep(ui: Page) -> None:
+    """(F39) Merge used to wipe every typed trip/event name with no word to the user.
+
+    The DOM was the only store; ``renderCards`` replaces ``innerHTML``, so a Merge (or Split)
+    discarded every name. Naming is the screen's job - never-silent requires those names to
+    survive on unchanged cards or be listed when the merge invalidates them.
+    """
+    propose = (
+        '{"ok":true,"session":"sess","label":"Drive","declines":[],"collapsed":null,"cards":['
+        '{"kind":"event","start":"2021-01-01T10:00:00","end":"2021-01-01T12:00:00","count":5,'
+        '"active_days":1,"days":[],"location":null,"collapsed":false},'
+        '{"kind":"event","start":"2021-01-03T10:00:00","end":"2021-01-03T12:00:00","count":4,'
+        '"active_days":1,"days":[],"location":null,"collapsed":false},'
+        '{"kind":"event","start":"2021-02-01T10:00:00","end":"2021-02-01T12:00:00","count":3,'
+        '"active_days":1,"days":[],"location":null,"collapsed":false}'
+        "]}"
+    )
+    merged = (
+        '{"session":"sess","collapsed":null,"cards":['
+        '{"kind":"trip","start":"2021-01-01","end":"2021-01-03","count":9,'
+        '"active_days":2,"days":[{"date":"2021-01-01","count":5},{"date":"2021-01-03","count":4}],'
+        '"location":null,"collapsed":false},'
+        '{"kind":"event","start":"2021-02-01T10:00:00","end":"2021-02-01T12:00:00","count":3,'
+        '"active_days":1,"days":[],"location":null,"collapsed":false}'
+        "]}"
+    )
+    ui.route(
+        "**/api/events/propose",
+        lambda route: route.fulfill(status=200, content_type="application/json", body=propose),
+    )
+    ui.route(
+        "**/api/events/sess/merge",
+        lambda route: route.fulfill(status=200, content_type="application/json", body=merged),
+    )
+
+    ui.click('button[data-screen="events"]')
+    ui.fill("#ev-source", "/tmp/src")
+    ui.click("#ev-propose")
+    expect(ui.locator(".ev-name")).to_have_count(3)
+    ui.fill('.ev-name[data-i="0"]', "January first")
+    ui.fill('.ev-name[data-i="1"]', "January third")
+    ui.fill('.ev-name[data-i="2"]', "February keep")
+    ui.check('.ev-check[data-i="0"]')
+    ui.check('.ev-check[data-i="1"]')
+    ui.click("#ev-merge")
+
+    # The untouched card keeps its typed name (identity still present after the merge).
+    expect(ui.locator('.ev-name[data-i="1"]')).to_have_value("February keep")
+    # The two merged names must still be readable - never silent discard.
+    expect(ui.locator("#ev-clusters")).to_contain_text("January first")
+    expect(ui.locator("#ev-clusters")).to_contain_text("January third")
+
+
 def test_trip_apply_completion_reports_empty_folders_and_offers_clean_flow(ui: Page) -> None:
     ui.route(
         "**/api/events/propose",

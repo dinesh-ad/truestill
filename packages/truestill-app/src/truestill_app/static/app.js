@@ -1653,6 +1653,60 @@ $("rc-cancel").onclick = guarded(() => { if (rcJob) return api(`/api/jobs/${rcJo
 // back as {error: "..."} - refused, never silently dropped.
 let evSession = null;
 let evCards = [];
+function evCardKey(c) {
+  // Stable across re-sorts (largest-first) so a Split/Merge can restore names on cards that
+  // still exist. Index is not an identity - order_review_cards reshuffles after every edit.
+  if (c.kind === "trip" && Array.isArray(c.days) && c.days.length) {
+    return `t:${c.days.map((d) => d.date).join(",")}`;
+  }
+  return `e:${c.start}|${c.end}|${c.count}`;
+}
+function syncEvNamesFromDom() {
+  for (const inp of $("ev-clusters").querySelectorAll(".ev-name")) {
+    const i = +inp.dataset.i;
+    if (evCards[i]) evCards[i].name = inp.value;
+  }
+}
+function takeEvNamesByKey(cards) {
+  const prior = new Map();
+  for (const c of cards) {
+    const name = (c.name || "").trim();
+    if (name) prior.set(evCardKey(c), name);
+  }
+  return prior;
+}
+function restoreEvNames(cards, priorByKey) {
+  const used = new Set();
+  for (const c of cards) {
+    const key = evCardKey(c);
+    if (priorByKey.has(key) && !used.has(key)) {
+      c.name = priorByKey.get(key);
+      used.add(key);
+    }
+  }
+  return [...priorByKey.entries()].filter(([key]) => !used.has(key)).map(([, name]) => name);
+}
+function showInvalidatedEvNames(names) {
+  if (!names.length) return;
+  $("ev-clusters").insertAdjacentHTML(
+    "afterbegin",
+    `<div class="banner warn"><div><div class="b-title">Names not kept</div>
+     Split or merge changed these cards, so these typed names were cleared: ${names.map(esc).join(", ")}.
+     Type them again where they still apply.</div></div>`
+  );
+}
+async function applyEvCardEdit(endpoint, body) {
+  // Capture names before the round-trip: renderCards replaces innerHTML and would otherwise
+  // discard every typed value with nothing for the user to read (F39).
+  syncEvNamesFromDom();
+  const prior = takeEvNamesByKey(evCards);
+  const r = await api(`/api/events/${evSession}/${endpoint}`, body);
+  if (r.error) return r;
+  const invalidated = restoreEvNames(r.cards, prior);
+  renderCards(r.cards, r.collapsed);
+  showInvalidatedEvNames(invalidated);
+  return r;
+}
 function evCardHtml(c, i) {
   const isTrip = c.kind === "trip";
   const span = isTrip ? `${c.start} → ${c.end}` : `${c.start.slice(0, 10)} → ${c.end.slice(0, 10)}`;
@@ -1663,11 +1717,12 @@ function evCardHtml(c, i) {
   const splitAttrs = isTrip
     ? `data-kind="trip" data-days="${esc(c.days.map((d) => d.date).join(","))}"`
     : `data-kind="event" data-count="${c.count}"`;
+  const nameValue = c.name ? ` value="${esc(c.name)}"` : "";
   return `<div class="card"><div class="tally" style="grid-template-columns:1fr auto">
         <div><b>${isTrip ? "TRIP" : "EVENT"} · ${nfmt(c.count)} photos</b><div class="k mono">${span}</div></div>
         <label class="k"><input type="checkbox" class="ev-check" data-i="${i}"> merge</label></div>
         ${days}
-        <div class="row" style="margin-top:var(--space-2)"><input class="input ev-name" data-i="${i}" placeholder="name this ${isTrip ? "trip" : "event"} (leave blank to skip)">
+        <div class="row" style="margin-top:var(--space-2)"><input class="input ev-name" data-i="${i}"${nameValue} placeholder="name this ${isTrip ? "trip" : "event"} (leave blank to skip)">
         <button class="btn btn-secondary ev-split" data-i="${i}" ${splitAttrs}>Split</button></div></div>`;
 }
 function renderCards(cards, collapsed) {
@@ -1685,6 +1740,12 @@ function renderCards(cards, collapsed) {
   $("ev-clusters").innerHTML = cards.length
     ? visible.map(([c, i]) => evCardHtml(c, i)).join("") + smallGroups
     : `<div class="card"><div class="empty">No trips or events found - needs enough camera photos taken close together.</div></div>`;
+  $("ev-clusters").querySelectorAll(".ev-name").forEach((inp) => {
+    inp.addEventListener("input", () => {
+      const i = +inp.dataset.i;
+      if (evCards[i]) evCards[i].name = inp.value;
+    });
+  });
   $("ev-clusters").querySelectorAll(".ev-split").forEach((b) => {
     b.onclick = guarded(async () => {
       let body;
@@ -1699,8 +1760,7 @@ function renderCards(cards, collapsed) {
         body = { index: +b.dataset.i, at };
       }
       await withBusy(b, "Splitting…", async () => {
-        const r = await api(`/api/events/${evSession}/split`, body);
-        renderCards(r.cards, r.collapsed);
+        await applyEvCardEdit("split", body);
       });
     });
   });
@@ -1733,22 +1793,21 @@ $("ev-merge").onclick = guarded(async () => {
   const indices = [...document.querySelectorAll(".ev-check:checked")].map((c) => +c.dataset.i);
   if (indices.length < 2) return;
   await withBusy($("ev-merge"), "Merging…", async () => {
-    const r = await api(`/api/events/${evSession}/merge`, { indices });
+    const r = await applyEvCardEdit("merge", { indices });
     if (r.error) {
       $("ev-clusters").insertAdjacentHTML(
         "afterbegin",
         `<div class="banner warn"><div><div class="b-title">Can't merge these</div>${esc(r.error)}</div></div>`
       );
-      return;
     }
-    renderCards(r.cards, r.collapsed);
   });
 });
 $("ev-apply").onclick = guarded(async () => {
   await withBusy($("ev-apply"), "Saving names…", async ({ setStatus }) => {
-    const names = evCards.map((_card, i) => {
-      const inp = document.querySelector(`.ev-name[data-i="${i}"]`);
-      return inp && inp.value.trim() ? inp.value.trim() : null;
+    syncEvNamesFromDom();
+    const names = evCards.map((card) => {
+      const name = (card.name || "").trim();
+      return name || null;
     });
     const r = await api(`/api/events/${evSession}/apply`, { names });
     if (!r.events && !r.trips) {
