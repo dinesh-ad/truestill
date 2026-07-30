@@ -57,7 +57,7 @@ def test_a_failed_job_never_renders_nan(ui: Page, tmp_path: Path) -> None:
     ui.fill("#verify-path", str(plain))
     ui.click("#verify-run")
 
-    expect(ui.locator("#verify-result")).to_contain_text("truestill drive yet")
+    expect(ui.locator("#verify-result")).to_contain_text("set up as a backup drive")
     expect(ui.locator("body")).not_to_contain_text("NaN")
 
 
@@ -462,7 +462,7 @@ def test_a_completed_copy_clears_the_stale_not_a_backup_message(
     ui.click('button[data-screen="backups"]')
     ui.fill("#verify-path", str(backup))
     ui.click("#verify-run")
-    expect(ui.locator("#verify-result")).to_contain_text("truestill drive yet")
+    expect(ui.locator("#verify-result")).to_contain_text("set up as a backup drive")
 
     ui.fill("#bk-source", str(destination))
     ui.fill("#bk-target", str(backup))
@@ -471,7 +471,7 @@ def test_a_completed_copy_clears_the_stale_not_a_backup_message(
     ui.click("#bk-run")
     expect(ui.locator("#bk-result")).to_contain_text("copied to")
 
-    expect(ui.locator("#verify-result")).not_to_contain_text("truestill drive yet")
+    expect(ui.locator("#verify-result")).not_to_contain_text("set up as a backup drive")
 
 
 # --- prefill and carry-over ----------------------------------------------------------------

@@ -38,8 +38,9 @@ def test_organize_then_back_up_then_check(ui: Page, tmp_path: Path, library) -> 
     expect(ui.locator("#org-run")).to_be_disabled()
 
     ui.click("#org-dedup")
-    expect(ui.locator("#org-run")).to_be_enabled()
-    ui.click("#org-run")
+    expect(ui.locator("#org-confirm [data-typed-confirm]")).to_be_visible()
+    ui.fill("#org-confirm [data-typed-confirm]", "move")
+    ui.click("#org-confirm [data-typed-go]")
     expect(ui.locator("#org-result")).to_contain_text("8 files organized")
     expect(ui.locator("#org-result")).not_to_contain_text("uploaded")
     assert len(list(destination.rglob("*.jpg"))) == 8  # the screen matches the disk
