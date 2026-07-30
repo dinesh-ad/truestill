@@ -498,6 +498,7 @@ def test_reveal_refuses_a_path_that_is_not_a_folder(client: TestClient, tmp_path
     """A path that cannot be opened says so, rather than pretending it worked."""
     r = client.post(f"/api/reveal?token={_TOKEN}", json={"path": str(tmp_path / "nope")}).json()
     assert r["ok"] is False
+    assert "error" in r
     assert "Can't reach" in r["error"]
 
 
@@ -511,5 +512,6 @@ def test_reveal_degrades_honestly_without_an_opener(
     monkeypatch.setattr(service.shutil, "which", lambda _name: None)
     r = client.post(f"/api/reveal?token={_TOKEN}", json={"path": str(tmp_path)}).json()
 
+    assert set(r) == {"ok", "error"}
     assert r["ok"] is False
     assert str(tmp_path) in r["error"]

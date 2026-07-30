@@ -84,6 +84,7 @@ def test_drives_split_photos_and_videos(client: TestClient, tmp_path: Path) -> N
 
 def test_fs_dirs_returns_roots_when_no_path(client: TestClient) -> None:
     data = client.get("/api/fs/dirs").json()
+    assert set(data) == {"path", "parent", "roots", "entries"}
     assert any(r["label"] == "Home" for r in data["roots"])
     assert data["entries"] == []
 
@@ -94,6 +95,7 @@ def test_fs_dirs_lists_subdirectories(client: TestClient, tmp_path: Path) -> Non
     (tmp_path / ".hidden").mkdir()
     (tmp_path / "file.txt").write_text("x", encoding="utf-8")
     data = client.get("/api/fs/dirs", params={"path": str(tmp_path)}).json()
+    assert set(data) == {"path", "parent", "roots", "entries"}
     names = [e["name"] for e in data["entries"]]
     assert names == ["sub-a", "sub-b"]  # dirs only, hidden excluded, sorted
 
@@ -103,12 +105,31 @@ def test_fs_validate_counts_media(client: TestClient, tmp_path: Path) -> None:
     (tmp_path / "b.mp4").write_bytes(b"x")
     (tmp_path / "notes.txt").write_bytes(b"x")
     v = client.get("/api/fs/validate", params={"path": str(tmp_path)}).json()
+    assert set(v) == {
+        "exists",
+        "is_dir",
+        "readable",
+        "writable",
+        "is_drive",
+        "media",
+        "media_capped",
+    }
     assert v["is_dir"] is True
     assert v["media"] == 2  # jpg + mp4, not the txt
 
 
 def test_fs_validate_missing_path(client: TestClient, tmp_path: Path) -> None:
     v = client.get("/api/fs/validate", params={"path": str(tmp_path / "nope")}).json()
+    # resolve() succeeds for a missing leaf; the full resolved key set is returned with exists=False.
+    assert set(v) == {
+        "exists",
+        "is_dir",
+        "readable",
+        "writable",
+        "is_drive",
+        "media",
+        "media_capped",
+    }
     assert v["exists"] is False
     assert v["media"] == 0
 
@@ -116,6 +137,16 @@ def test_fs_validate_missing_path(client: TestClient, tmp_path: Path) -> None:
 def test_fs_create_makes_a_new_backup_folder(client: TestClient, tmp_path: Path) -> None:
     target = tmp_path / "new" / "BackupA"  # a nested, not-yet-existing destination
     r = client.post("/api/fs/create", json={"path": str(target)}).json()
+    assert set(r) == {
+        "created",
+        "exists",
+        "is_dir",
+        "readable",
+        "writable",
+        "is_drive",
+        "media",
+        "media_capped",
+    }
     assert r["created"] is True
     assert r["is_dir"] is True
     assert r["writable"] is True

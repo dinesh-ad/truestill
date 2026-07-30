@@ -18,7 +18,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path, PurePosixPath
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict, cast
 
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_startup import inspect_catalog
@@ -207,7 +207,20 @@ ORGANIZE_MODES = frozenset({"copy", "move", "inplace"})
 SIDEBAR_COLLAPSED_KEY = "ui.sidebar.collapsed"
 
 
-def reveal_in_file_manager(path: Path) -> dict[str, Any]:
+class RevealOk(TypedDict):
+    ok: Literal[True]
+    path: str
+
+
+class RevealErr(TypedDict):
+    ok: Literal[False]
+    error: str
+    suggested_root: NotRequired[str | None]
+    drive_label: NotRequired[str | None]
+    can_register: NotRequired[bool]
+
+
+def reveal_in_file_manager(path: Path) -> RevealOk | RevealErr:
     """Open a folder in the desktop's own file manager.
 
     A path printed on screen is a dead end: to actually look at the photos a user has to select
@@ -1406,9 +1419,61 @@ def _safe_size(path: Path) -> int:
 # --- server-side folder picker (Browse) -----------------------------------------------
 
 
-def fs_roots() -> list[dict[str, str]]:
+class FsRoot(TypedDict):
+    label: str
+    path: str
+
+
+class FsEntry(TypedDict):
+    name: str
+    path: str
+
+
+class FsDirsOk(TypedDict):
+    path: str
+    parent: str | None
+    roots: list[FsRoot]
+    entries: list[FsEntry]
+
+
+class FsDirsErr(TypedDict):
+    error: str
+    roots: list[FsRoot]
+    entries: list[FsEntry]
+
+
+class FsValidateResolved(TypedDict):
+    exists: bool
+    is_dir: bool
+    readable: bool
+    writable: bool
+    is_drive: bool
+    media: int
+    media_capped: bool
+
+
+class FsValidateUnresolved(TypedDict):
+    """Resolve failed: same keys the API has always returned on that path (no is_drive)."""
+
+    exists: bool
+    is_dir: bool
+    readable: bool
+    writable: bool
+    media: int
+
+
+class FsCreateFailed(TypedDict):
+    created: Literal[False]
+    error: str
+
+
+class FsCreateOk(FsValidateResolved):
+    created: Literal[True]
+
+
+def fs_roots() -> list[FsRoot]:
     """Friendly starting points: Home + common media folders + mounted drives."""
-    roots: list[dict[str, str]] = []
+    roots: list[FsRoot] = []
     home = Path.home()
     roots.append({"label": "Home", "path": str(home)})
     for name in ("Pictures", "Downloads", "Desktop", "Documents"):
@@ -1428,7 +1493,7 @@ def fs_roots() -> list[dict[str, str]]:
     return roots
 
 
-def fs_dirs(path_str: str) -> dict[str, Any]:
+def fs_dirs(path_str: str) -> FsDirsOk | FsDirsErr:
     """List the immediate sub-directories of ``path`` (or the roots when empty)."""
     if not path_str.strip():
         return {"path": "", "parent": None, "roots": fs_roots(), "entries": []}
@@ -1447,7 +1512,7 @@ def fs_dirs(path_str: str) -> dict[str, Any]:
             "roots": fs_roots(),
             "entries": [],
         }
-    entries: list[dict[str, str]] = []
+    entries: list[FsEntry] = []
     try:
         for child in sorted(path.iterdir(), key=lambda p: p.name.lower()):
             if child.is_dir() and not child.name.startswith("."):
@@ -1462,7 +1527,7 @@ def fs_dirs(path_str: str) -> dict[str, Any]:
     return {"path": str(path), "parent": parent, "roots": fs_roots(), "entries": entries}
 
 
-def fs_create(path_str: str) -> dict[str, Any]:
+def fs_create(path_str: str) -> FsCreateOk | FsCreateFailed:
     """Create a folder (and parents) - for the "Create it?" action on a new backup destination."""
     path = Path(path_str).expanduser()
     try:
@@ -1475,10 +1540,12 @@ def fs_create(path_str: str) -> dict[str, Any]:
                 "Choose another location, or create it in your file manager."
             ),
         }
-    return {"created": True, **fs_validate(str(path))}
+    validated = fs_validate(str(path))
+    # Same spread the untyped path used; cast records the post-create resolved shape.
+    return cast(FsCreateOk, {"created": True, **validated})
 
 
-def fs_validate(path_str: str, *, cap: int = 10000) -> dict[str, Any]:
+def fs_validate(path_str: str, *, cap: int = 10000) -> FsValidateResolved | FsValidateUnresolved:
     """Report whether ``path`` is a usable folder and roughly how much media it holds."""
     path = Path(path_str).expanduser()
     try:
