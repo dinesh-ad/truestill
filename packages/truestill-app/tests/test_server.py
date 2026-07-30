@@ -111,6 +111,28 @@ def test_organize_preview_no_media(client: TestClient, tmp_path: Path) -> None:
     assert (done.get("summary") or done)["files"] == 0
 
 
+def test_organize_mode_setting_round_trips_through_catalog(client: TestClient) -> None:
+    assert client.get(f"/api/organize/settings?token={_TOKEN}").json()["mode"] == "copy"
+    saved = client.post(f"/api/organize/settings?token={_TOKEN}", json={"mode": "inplace"}).json()
+    assert saved == {"ok": True, "mode": "inplace"}
+    assert client.get(f"/api/organize/settings?token={_TOKEN}").json()["mode"] == "inplace"
+
+
+def test_filesystem_relationship_reports_same_filesystem(
+    client: TestClient, tmp_path: Path
+) -> None:
+    source = tmp_path / "src"
+    destination = tmp_path / "dest"
+    source.mkdir()
+    destination.mkdir()
+    body = client.get(
+        "/api/fs/relationship",
+        params={"token": _TOKEN, "source": str(source), "destination": str(destination)},
+    ).json()
+    assert body["ok"] is True
+    assert body["same_filesystem"] is True
+
+
 def test_organize_inventory_is_sync_and_cheap(client: TestClient, tmp_path: Path) -> None:
     """Inventory is not a job: the response is the summary, with no SSE and no destination."""
     src = tmp_path / "src"

@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import uuid
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -71,6 +72,7 @@ from truestill_core.models import (
 )
 from truestill_core.organizer import (
     MEDIA_EXTENSIONS,
+    Relocation,
     SourceScan,
     discover,
     execute,
@@ -89,6 +91,7 @@ from truestill_core.trip_review import (
     decline_message,
     is_small_event,
 )
+from truestill_core.undo import UndoError, plan_undo, run_undo
 from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
 
 from truestill_app.jobs import DriveRef, JobTarget
@@ -174,6 +177,8 @@ def _not_a_drive(path: Path) -> NotABackupDriveError:
 #: already know, and nothing behind them may ever be trusted as identity.
 LIBRARY_PATH_HINT = "path_hint.library"
 BACKUP_PATH_HINT = "path_hint.backup"
+ORGANIZE_MODE_KEY = "ui.organize.mode"
+ORGANIZE_MODES = frozenset({"copy", "move", "inplace"})
 
 
 def reveal_in_file_manager(path: Path) -> dict[str, Any]:
@@ -381,6 +386,81 @@ def organize_inventory(source: Path) -> dict[str, Any]:
     }
 
 
+def _normalize_organize_mode(mode: object) -> str:
+    """Return a supported organize mode, defaulting to copy on missing/invalid values."""
+    text = str(mode or "copy").strip().lower()
+    return text if text in ORGANIZE_MODES else "copy"
+
+
+def organize_mode_state(db: Path) -> dict[str, Any]:
+    with Catalog(db) as catalog:
+        saved = _normalize_organize_mode(catalog.get_setting(ORGANIZE_MODE_KEY))
+    return {"mode": saved, "modes": sorted(ORGANIZE_MODES)}
+
+
+def set_organize_mode(mode: object, db: Path) -> dict[str, Any]:
+    saved = _normalize_organize_mode(mode)
+    with Catalog(db) as catalog:
+        catalog.set_setting(ORGANIZE_MODE_KEY, saved)
+    return {"ok": True, "mode": saved}
+
+
+def filesystem_relationship(source: Path, destination: Path) -> dict[str, Any]:
+    """Whether source and destination roots are on the same filesystem."""
+    if _device_id(source) is None:
+        return {"ok": False, "error": "source folder does not exist"}
+    if _device_id(destination) is None:
+        return {"ok": False, "error": "destination folder does not exist"}
+    same_filesystem = _device_id(source) == _device_id(destination)
+    return {"ok": True, "same_filesystem": same_filesystem}
+
+
+def _effective_destination_for_mode(source: Path, destination: Path, mode: str) -> Path:
+    return source if mode == "inplace" else destination
+
+
+def _device_id(path: Path) -> int | None:
+    probe = path
+    while True:
+        if probe.exists():
+            try:
+                return probe.stat().st_dev
+            except OSError:
+                return None
+        if probe.parent == probe:
+            return None
+        probe = probe.parent
+
+
+def _mode_mechanism(source: Path, destination: Path, mode: str) -> dict[str, Any]:
+    """Mechanism briefing used by preview/run messaging and confirm gating."""
+    same_filesystem = False
+    src_dev = _device_id(source)
+    dst_dev = _device_id(destination)
+    if src_dev is not None and dst_dev is not None:
+        same_filesystem = src_dev == dst_dev
+    if mode == "copy":
+        return {
+            "same_filesystem": same_filesystem,
+            "reversible": False,
+            "uses_rename": False,
+            "requires_destination": True,
+        }
+    if mode == "move":
+        return {
+            "same_filesystem": same_filesystem,
+            "reversible": same_filesystem,
+            "uses_rename": same_filesystem,
+            "requires_destination": True,
+        }
+    return {
+        "same_filesystem": same_filesystem,
+        "reversible": same_filesystem,
+        "uses_rename": True,
+        "requires_destination": False,
+    }
+
+
 def organize_preview(
     source: Path,
     destination: Path,
@@ -389,6 +469,7 @@ def organize_preview(
     progress: ProgressCallback | None = None,
     cancel: threading.Event | None = None,
     refresh_metadata: bool = False,
+    mode: str = "copy",
 ) -> dict[str, Any]:
     """Plan + dedup with no writes -- the dry-run summary the UI shows before a real run.
 
@@ -400,6 +481,9 @@ def organize_preview(
     ``refresh_metadata`` forces a fresh exiftool pass (bypasses the sidecar metadata cache)
     for tools that edit tags without bumping mtime.
     """
+    mode = _normalize_organize_mode(mode)
+    destination = _effective_destination_for_mode(source, destination, mode)
+    mechanism = _mode_mechanism(source, destination, mode)
     scan = scan_source(source)
     files = scan.media
     if not files:
@@ -408,6 +492,8 @@ def organize_preview(
             "files": 0,
             "folders": {},
             "skipped": _skipped_summary(scan),
+            "mode": mode,
+            "mechanism": mechanism,
         }
     with Catalog(db) as catalog, HashCache.beside(db) as cache:
         metadata = read_metadata(
@@ -428,11 +514,18 @@ def organize_preview(
     summary["tier"] = "dedup"
     summary["destination_is_drive"] = read_marker(destination) is not None
     summary["skipped"] = _skipped_summary(scan)
+    summary["mode"] = mode
+    summary["mechanism"] = mechanism
     return summary
 
 
 def organize_preview_run(
-    source: Path, destination: Path, db: Path, *, refresh_metadata: bool = False
+    source: Path,
+    destination: Path,
+    db: Path,
+    *,
+    refresh_metadata: bool = False,
+    mode: str = "copy",
 ) -> JobTarget:
     """The preview as a cancellable background job, so it can report progress like the rest.
 
@@ -448,6 +541,7 @@ def organize_preview_run(
             progress=progress,
             cancel=cancel,
             refresh_metadata=refresh_metadata,
+            mode=mode,
         )
 
     return target
@@ -460,13 +554,17 @@ def organize_run(
     *,
     skip_undated: bool = False,
     refresh_metadata: bool = False,
+    mode: str = "copy",
 ) -> JobTarget:
     """Build a job target that runs the real organize (progress across hashing then copying)."""
 
     def target(progress: ProgressCallback, cancel: threading.Event) -> dict[str, Any]:
+        chosen_mode = _normalize_organize_mode(mode)
+        effective_destination = _effective_destination_for_mode(source, destination, chosen_mode)
+        mechanism = _mode_mechanism(source, effective_destination, chosen_mode)
         files = discover(source)
         if not files:
-            return _completion([], destination)
+            return _completion([], effective_destination)
         with Catalog(db) as catalog, HashCache.beside(db) as cache:
             metadata = read_metadata(files, progress=progress, cache=cache, force=refresh_metadata)
             pin_existing_layout(catalog)
@@ -495,31 +593,110 @@ def organize_run(
             # Register the destination *before* writing anything, so every copy is recorded
             # against it. Doing this afterwards would leave the run's own files unattached --
             # which is exactly the bug this replaced.
-            marker = read_marker(destination) or create_marker(
-                destination, label=destination.name or "Library"
+            marker = read_marker(effective_destination) or create_marker(
+                effective_destination, label=effective_destination.name or "Library"
             )
             catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
             # Remember where it was seen, so its card can offer to check it.
-            catalog.set_setting(_drive_path_hint(marker.uuid), str(destination))
+            catalog.set_setting(_drive_path_hint(marker.uuid), str(effective_destination))
             drive_uuid = marker.uuid
+            relocation = None
+            if chosen_mode in {"move", "inplace"} and mechanism["uses_rename"]:
+                relocation = Relocation(
+                    run_id=uuid.uuid4().hex,
+                    source_root=source,
+                    dest_root=effective_destination,
+                    require_rename=chosen_mode == "inplace",
+                )
+                catalog.start_inplace_run(
+                    run_id=relocation.run_id,
+                    source_root=str(relocation.source_root),
+                    dest_root=str(relocation.dest_root),
+                    drive_uuid=drive_uuid,
+                )
             results = execute(
                 resolutions,
-                LocalDestination(destination),
+                LocalDestination(effective_destination),
                 catalog,
                 apply=True,
                 skip_undated=skip_undated,
+                move=chosen_mode in {"move", "inplace"},
+                relocation=relocation,
                 progress=progress,
                 cancel=cancel,
                 drive_uuid=drive_uuid,
             )
-        completion = _completion(results, destination)
+            if relocation is not None:
+                moved = sum(1 for row in results if row.status is ActionStatus.MOVED_IN_PLACE)
+                if moved:
+                    catalog.finish_inplace_run(relocation.run_id)
+                else:
+                    catalog.discard_inplace_run(relocation.run_id)
+        completion = _completion(results, effective_destination)
+        completion["mode"] = chosen_mode
+        completion["mechanism"] = mechanism
         completion["drive_label"] = marker.label
         with Catalog(db) as catalog:
-            catalog.set_setting(LIBRARY_PATH_HINT, str(destination))
+            catalog.set_setting(LIBRARY_PATH_HINT, str(effective_destination))
             # The custody nudge, counted rather than assumed: how much of the library really
             # does exist in only one place right now.
             completion["single_copy"] = catalog.single_copy_count()
         return completion
+
+    return target
+
+
+def organize_undo_state(db: Path) -> dict[str, Any]:
+    """Durable state for undoing rename-based organize runs."""
+    with Catalog(db) as catalog:
+        try:
+            plan = plan_undo(catalog)
+        except UndoError:
+            return {"ok": True, "armed": False, "restorable": 0, "run_id": None}
+    return {
+        "ok": True,
+        "armed": True,
+        "run_id": plan.run_id,
+        "status": plan.status,
+        "source_root": str(plan.source_root),
+        "dest_root": str(plan.dest_root),
+        "restorable": plan.restorable,
+        "skipped": [
+            {
+                "relative": item.step.current.name,
+                "reason": item.reason.value,
+                "detail": item.detail,
+            }
+            for item in plan.skipped
+        ],
+    }
+
+
+def organize_undo(*, db: Path, apply: bool) -> JobTarget:
+    """Preview/apply organize undo on a worker thread."""
+
+    def target(progress: ProgressCallback, _cancel: threading.Event) -> dict[str, Any]:
+        with Catalog(db) as catalog:
+            plan = plan_undo(catalog)
+            outcome = run_undo(catalog, plan, apply=apply, progress=progress if apply else None)
+            still_armed = catalog.latest_undoable_run() is not None
+        return {
+            "run_id": plan.run_id,
+            "source_root": str(plan.source_root),
+            "dest_root": str(plan.dest_root),
+            "restorable": plan.restorable,
+            "restored": outcome.restored,
+            "applied": apply,
+            "still_armed": still_armed,
+            "skipped": [
+                {
+                    "relative": item.step.current.name,
+                    "reason": item.reason.value,
+                    "detail": item.detail,
+                }
+                for item in outcome.skipped
+            ],
+        }
 
     return target
 

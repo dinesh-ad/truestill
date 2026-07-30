@@ -39,8 +39,8 @@
       <section class="screen active" id="screen-organize">
         <header>
           <h1>Organize</h1>
-          <p class="lede">Point truestill at a messy folder. It sorts copies into an organized folder and
-            removes duplicates - your originals are never touched.</p>
+          <p class="lede">Choose how to organize: copy into a destination, move into a destination,
+            or reorganize this folder in place.</p>
         </header>
 
         <div class="card">
@@ -54,6 +54,22 @@
           </div>
 
           <div class="field">
+            <label>How to organize</label>
+            <div class="org-modes" id="org-modes">
+              <label class="org-mode"><input type="radio" name="org-mode" value="copy" checked>
+                <span><b>Copy into an organized folder</b><br><span class="k">Originals stay where they are.</span></span>
+              </label>
+              <label class="org-mode"><input type="radio" name="org-mode" value="move">
+                <span><b>Move into an organized folder</b><br><span class="k">Same-drive: rename. Cross-drive: copy, verify, then delete source.</span></span>
+              </label>
+              <label class="org-mode"><input type="radio" name="org-mode" value="inplace">
+                <span><b>Reorganize this folder in place</b><br><span class="k">Moves by rename only; never falls back to copy.</span></span>
+              </label>
+            </div>
+            <span class="hint" id="org-mode-hint"></span>
+          </div>
+
+          <div class="field" id="org-dest-field">
             <label for="org-dest">Organized folder <span style="color:var(--text-muted);font-weight:400">(where your sorted copies go)</span></label>
             <div class="row">
               <input class="input" id="org-dest" placeholder="e.g. /media/BackupA">
@@ -70,11 +86,13 @@
           <div class="actions">
             <button class="btn btn-secondary" id="org-preview">Look inside</button>
             <button class="btn btn-secondary" id="org-dedup" disabled>Check for duplicates</button>
-            <button class="btn btn-primary" id="org-run" disabled>Organize files</button>
+            <button class="btn btn-primary" id="org-run" disabled>Type move to continue</button>
             <span class="why" id="org-why">Look inside first to see what is in the folder.</span>
           </div>
+          <div id="org-confirm"></div>
         </div>
 
+        <div id="org-undo-panel"></div>
         <div id="org-result"></div>
         <!-- shared progress block: see createProgress() in app.js -->
         <div class="progress-wrap hidden" id="org-card">

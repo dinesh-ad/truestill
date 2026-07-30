@@ -22,15 +22,18 @@ _EXIFTOOL = pytest.mark.skipif(
 )
 
 
-def _organize(ui: Page, source: Path, destination: Path) -> None:
+def _organize(ui: Page, source: Path, destination: Path, *, mode: str = "copy") -> None:
     """Run a real organize through the UI and wait for the completion card."""
+    ui.check(f'input[name="org-mode"][value="{mode}"]')
     ui.fill("#org-source", str(source))
     ui.fill("#org-dest", str(destination))
     ui.click("#org-preview")
     expect(ui.locator("#org-result")).to_contain_text("found")
     ui.click("#org-dedup")
-    expect(ui.locator("#org-run")).to_be_enabled()
-    ui.click("#org-run")
+    typed = ui.locator("#org-confirm [data-typed-confirm]")
+    expect(typed).to_be_visible()
+    typed.fill("move")
+    ui.click("#org-confirm [data-typed-go]")
     expect(ui.locator("#org-result")).to_contain_text("Done")
 
 
@@ -75,7 +78,8 @@ def test_look_inside_returns_before_duplicate_check(ui: Page, tmp_path: Path, li
 
     ui.click("#org-dedup")
     expect(ui.locator("#org-result")).to_contain_text("new - will be organized")
-    expect(ui.locator("#org-run")).to_be_enabled()
+    expect(ui.locator("#org-confirm [data-typed-confirm]")).to_be_visible()
+    expect(ui.locator("#org-confirm")).to_contain_text("Type move to continue")
 
 
 @_EXIFTOOL
@@ -93,8 +97,10 @@ def test_cancel_actually_stops_an_organize(ui: Page, tmp_path: Path) -> None:
     ui.click("#org-preview")
     expect(ui.locator("#org-result")).to_contain_text("found")
     ui.click("#org-dedup")
-    expect(ui.locator("#org-run")).to_be_enabled(timeout=60_000)
-    ui.click("#org-run")
+    typed = ui.locator("#org-confirm [data-typed-confirm]")
+    expect(typed).to_be_visible(timeout=60_000)
+    typed.fill("move")
+    ui.click("#org-confirm [data-typed-go]")
     expect(ui.locator("#org-card")).to_be_visible()
     ui.click("#org-cancel")
 
@@ -102,6 +108,48 @@ def test_cancel_actually_stops_an_organize(ui: Page, tmp_path: Path) -> None:
     expect(ui.locator("body")).not_to_contain_text("NaN")
     organized = list(destination.rglob("*.jpg")) if destination.exists() else []
     assert len(organized) < 400, "cancel did not stop the run"
+
+
+def test_organize_mode_persists_and_inplace_hides_destination(ui: Page) -> None:
+    ui.check('input[name="org-mode"][value="inplace"]')
+    expect(ui.locator("#org-dest-field")).to_be_hidden()
+    expect(ui.locator("#org-mode-hint")).to_contain_text("never falls back to copy")
+
+    ui.reload()
+    expect(ui.locator('input[name="org-mode"][value="inplace"]')).to_be_checked()
+    expect(ui.locator("#org-dest-field")).to_be_hidden()
+
+
+@_EXIFTOOL
+def test_move_mode_reports_mechanism_and_reversibility_before_confirm(
+    ui: Page, tmp_path: Path, library
+) -> None:
+    source = library(3, name="Source")
+    destination = tmp_path / "Library"
+    ui.fill("#org-source", str(source))
+    ui.fill("#org-dest", str(destination))
+    ui.check('input[name="org-mode"][value="move"]')
+    ui.click("#org-preview")
+    ui.click("#org-dedup")
+
+    confirm = ui.locator("#org-confirm")
+    expect(confirm).to_contain_text("Before you organize")
+    expect(confirm).to_contain_text("move by rename")
+    expect(confirm).to_contain_text("reversible with undo-organize")
+
+
+@_EXIFTOOL
+def test_reversible_organize_shows_durable_undo_affordance(
+    ui: Page, tmp_path: Path, library
+) -> None:
+    source = library(3, name="Source")
+    destination = tmp_path / "Library"
+    _organize(ui, source, destination, mode="move")
+
+    expect(ui.locator("#org-undo-panel")).to_contain_text("Undo the last reversible organize run")
+    expect(ui.locator("#org-undo-panel")).to_contain_text("undo-organize")
+    ui.reload()
+    expect(ui.locator("#org-undo-panel")).to_contain_text("Undo the last reversible organize run")
 
 
 def test_the_verify_cancel_button_is_wired_to_something(ui: Page, app_server: AppServer) -> None:

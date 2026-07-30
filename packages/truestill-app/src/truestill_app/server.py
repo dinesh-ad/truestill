@@ -138,26 +138,61 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
         # wait a user meets, so it gets the same progress display rather than a frozen card.
         # Still a dry run: the job writes nothing. Locked on the destination (where copies land).
         body = await request.json()
-        destination = Path(body["destination"])
+        mode = str(body.get("mode", "copy"))
+        destination = Path(body["destination"]) if body.get("destination") else Path(body["source"])
         target = service.organize_preview_run(
             Path(body["source"]),
             destination,
             _db(),
             refresh_metadata=bool(body.get("refresh_metadata", False)),
+            mode=mode,
         )
         return _start_drive_job(target, paths=[destination], operation="organize preview")
 
     async def organize_run(request: Request) -> JSONResponse:
         body = await request.json()
-        destination = Path(body["destination"])
+        mode = str(body.get("mode", "copy"))
+        destination = Path(body["destination"]) if body.get("destination") else Path(body["source"])
         target = service.organize_run(
             Path(body["source"]),
             destination,
             _db(),
             skip_undated=bool(body.get("skip_undated", False)),
             refresh_metadata=bool(body.get("refresh_metadata", False)),
+            mode=mode,
         )
         return _start_drive_job(target, paths=[destination], operation="organize")
+
+    async def organize_settings(request: Request) -> JSONResponse:
+        if request.method == "POST":
+            body = await request.json()
+            return JSONResponse(service.set_organize_mode(body.get("mode"), _db()))
+        return JSONResponse(service.organize_mode_state(_db()))
+
+    async def organize_undo_state(_request: Request) -> JSONResponse:
+        return JSONResponse(service.organize_undo_state(_db()))
+
+    async def organize_undo_preview(_request: Request) -> JSONResponse:
+        state = service.organize_undo_state(_db())
+        if not state.get("armed"):
+            return JSONResponse(state)
+        target = service.organize_undo(db=_db(), apply=False)
+        return _start_drive_job(
+            target,
+            paths=[Path(str(state["source_root"])), Path(str(state["dest_root"]))],
+            operation="undo organize preview",
+        )
+
+    async def organize_undo_apply(_request: Request) -> JSONResponse:
+        state = service.organize_undo_state(_db())
+        if not state.get("armed"):
+            return JSONResponse(state)
+        target = service.organize_undo(db=_db(), apply=True)
+        return _start_drive_job(
+            target,
+            paths=[Path(str(state["source_root"])), Path(str(state["dest_root"]))],
+            operation="undo organize",
+        )
 
     async def verify_run(request: Request) -> JSONResponse:
         body = await request.json()
@@ -217,6 +252,11 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
 
     async def fs_validate(request: Request) -> JSONResponse:
         return JSONResponse(service.fs_validate(request.query_params.get("path", "")))
+
+    async def fs_relationship(request: Request) -> JSONResponse:
+        source = Path(request.query_params.get("source", ""))
+        destination = Path(request.query_params.get("destination", ""))
+        return JSONResponse(service.filesystem_relationship(source, destination))
 
     async def fs_create(request: Request) -> JSONResponse:
         body = await request.json()
@@ -470,10 +510,15 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
         Route("/api/organize/inventory", organize_inventory, methods=["POST"]),
         Route("/api/organize/preview", organize_preview, methods=["POST"]),
         Route("/api/organize/run", organize_run, methods=["POST"]),
+        Route("/api/organize/settings", organize_settings, methods=["GET", "POST"]),
+        Route("/api/organize/undo", organize_undo_state),
+        Route("/api/organize/undo/preview", organize_undo_preview, methods=["POST"]),
+        Route("/api/organize/undo/apply", organize_undo_apply, methods=["POST"]),
         Route("/api/verify/run", verify_run, methods=["POST"]),
         Route("/api/ingest/preview", ingest_preview, methods=["POST"]),
         Route("/api/fs/dirs", fs_dirs),
         Route("/api/fs/validate", fs_validate),
+        Route("/api/fs/relationship", fs_relationship),
         Route("/api/fs/create", fs_create, methods=["POST"]),
         Route("/api/library/status", library_status),
         Route("/api/layout", layout, methods=["GET", "POST"]),

@@ -566,7 +566,6 @@ async function startUndoApply(path, panel) {
     loadCustody();
   });
 }
-$("undo-cancel").onclick = guarded(() => { if (undoJob) return api(`/api/jobs/${undoJob}/cancel`, {}); });
 
 function backupCompletion(r) {
   const notes = [];
@@ -609,6 +608,9 @@ function showScreen(name) {
   }
   if (name === "events") {
     refreshUndoAffordance($("ev-source").value.trim(), $("ev-undo-panel"));
+  }
+  if (name === "organize") {
+    refreshOrganizeUndoAffordance();
   }
 }
 document.querySelectorAll(".nav-item").forEach((item) => { item.onclick = () => showScreen(item.dataset.screen); });
@@ -820,6 +822,183 @@ document.querySelectorAll("[data-browse]").forEach((btn) => {
 
 // ---------- Organize ----------
 function setWhy(text) { $("org-why").textContent = text; }
+let orgMode = "copy";
+let orgMechanism = null;
+let orgUndoJob = null;
+
+function currentOrganizeMode() {
+  const picked = document.querySelector('input[name="org-mode"]:checked');
+  return picked ? picked.value : "copy";
+}
+
+function organizeNeedsDestination(mode) {
+  return mode !== "inplace";
+}
+
+function modeLine(mode) {
+  if (mode === "copy") return "Originals stay where they are.";
+  if (mode === "move") return "Originals are removed only after copy verification.";
+  return "This mode moves by rename only and never falls back to copy.";
+}
+
+function modeMechanismLine(mode, mechanism) {
+  if (mode === "copy") return "This run copies files into the organized folder.";
+  if (!mechanism || !mechanism.same_filesystem) {
+    if (mode === "move") {
+      return "Source and destination are on different filesystems: this run will copy, verify, then delete each source.";
+    }
+    return "In-place requires rename on one filesystem. This run will refuse instead of copying.";
+  }
+  if (mode === "move") return "Source and destination share one filesystem: this run will move by rename.";
+  return "This run reorganizes in place by rename on this filesystem.";
+}
+
+function reversibilityLine(mechanism) {
+  return mechanism && mechanism.reversible
+    ? "This run is reversible with undo-organize."
+    : "This run is not reversible with undo-organize.";
+}
+
+async function loadOrganizeMode() {
+  const state = await get("/api/organize/settings");
+  orgMode = state.mode || "copy";
+  const input = document.querySelector(`input[name="org-mode"][value="${orgMode}"]`);
+  if (input) input.checked = true;
+  renderOrganizeMode();
+}
+
+function renderOrganizeMode() {
+  orgMode = currentOrganizeMode();
+  const needsDest = organizeNeedsDestination(orgMode);
+  $("org-dest-field").classList.toggle("hidden", !needsDest);
+  $("org-mode-hint").textContent = modeLine(orgMode);
+  $("org-confirm").innerHTML = "";
+  $("org-run").disabled = true;
+  $("org-run").textContent = "Type move to continue";
+  if (!needsDest) {
+    $("org-dest-hint").textContent = "In-place mode uses the source folder as destination.";
+    $("org-dest-hint").className = "hint";
+  }
+}
+
+async function saveOrganizeMode(mode) {
+  await api("/api/organize/settings", { mode });
+}
+
+function renderOrganizeRunConfirm({ kept, mode, mechanism }) {
+  const host = $("org-confirm");
+  const lines = [
+    modeMechanismLine(mode, mechanism),
+    reversibilityLine(mechanism),
+  ];
+  host.innerHTML =
+    `<div class="banner">
+      <div>
+        <div class="b-title">Before you organize</div>
+        <div>${esc(lines[0])}</div>
+        <div>${esc(lines[1])}</div>
+        ${mode === "inplace" ? `<div>Originals do not stay in their current folders.</div>` : ""}
+        <div class="k" style="margin-top:var(--space-2)">Type <code>move</code> to continue.</div>
+      </div>
+    </div>
+    <div data-org-typed></div>`;
+  typedConfirm(host.querySelector("[data-org-typed]"), {
+    word: "move",
+    label: `Type move to organize ${plural(kept, "file")}`,
+    buttonLabel: `Organize ${nfmt(kept)} files`,
+    onConfirm: () => startOrganizeRun(),
+  });
+}
+
+function organizeUndoCard(state) {
+  return card(
+    `<div class="headline">Undo the last reversible organize run</div>
+     <div class="k">${plural(state.restorable, "file")} can be put back where they were before this rename-based organize run.
+      This uses <code>truestill undo-organize</code> semantics.</div>
+     <div class="actions">
+       <button class="btn btn-secondary" id="org-undo-preview">Preview undo…</button>
+     </div>
+     <div id="org-undo-stage"></div>`
+  );
+}
+
+async function refreshOrganizeUndoAffordance() {
+  const panel = $("org-undo-panel");
+  const state = await get("/api/organize/undo");
+  if (!state.ok || !state.armed) {
+    panel.innerHTML = "";
+    return;
+  }
+  panel.innerHTML = organizeUndoCard(state);
+  panel.querySelector("#org-undo-preview").onclick = guarded(startOrganizeUndoPreview);
+}
+
+function organizeUndoSkipped(skipped) {
+  if (!skipped || !skipped.length) return "";
+  return `<div class="banner warn"><div><div class="b-title">${plural(skipped.length, "file")} could not be restored</div>
+    ${skipped.map((r) => `<div class="mono">${esc(r.relative)} - ${esc(r.detail || r.reason)}</div>`).join("")}
+  </div></div>`;
+}
+
+async function startOrganizeUndoPreview() {
+  const previewBtn = $("org-undo-preview");
+  await withBusy(previewBtn, "Checking undo…", async ({ setStatus }) => {
+    const started = await api("/api/organize/undo/preview", {});
+    if (started.ok === true && started.armed === false) {
+      await refreshOrganizeUndoAffordance();
+      return;
+    }
+    orgUndoJob = started.job_id;
+    const stage = $("org-undo-stage");
+    undoProgress.start("checking");
+    const d = await awaitJob(started.job_id, (p) => {
+      undoProgress.update(p);
+      if (p.total) setStatus(scaleStatus("Checking undo", p.done, p.total, "files"));
+    });
+    undoProgress.stop();
+    orgUndoJob = null;
+    if (!d.ok) { stage.innerHTML = jobErrorCard(d); return; }
+    const s = d.summary;
+    stage.innerHTML = `<div class="headline">${plural(s.restorable, "file")} can be restored</div>
+      ${organizeUndoSkipped(s.skipped)}
+      <div data-org-undo-typed></div>`;
+    typedConfirm(stage.querySelector("[data-org-undo-typed]"), {
+      word: "undo",
+      label: `Type undo to restore ${plural(s.restorable, "file")}`,
+      buttonLabel: "Put them back",
+      onConfirm: () => startOrganizeUndoApply(),
+    });
+  });
+}
+
+async function startOrganizeUndoApply() {
+  const go = document.querySelector("#org-undo-stage [data-typed-go]");
+  await withBusy(go, "Putting files back…", async ({ setStatus }) => {
+    const started = await api("/api/organize/undo/apply", {});
+    if (started.ok === true && started.armed === false) {
+      await refreshOrganizeUndoAffordance();
+      return;
+    }
+    orgUndoJob = started.job_id;
+    undoProgress.start("restoring");
+    const d = await awaitJob(started.job_id, (p) => {
+      undoProgress.update(p);
+      if (p.total) setStatus(scaleStatus("Restoring", p.done, p.total, "files"));
+    });
+    undoProgress.stop();
+    orgUndoJob = null;
+    if (!d.ok) {
+      $("org-undo-stage").innerHTML = jobErrorCard(d);
+    } else {
+      $("org-undo-stage").innerHTML = card(
+        `<div class="headline">Restored ${plural(d.summary.restored, "file")}.</div>
+         ${organizeUndoSkipped(d.summary.skipped)}`
+      );
+      loadCustody();
+    }
+    await refreshOrganizeUndoAffordance();
+  });
+}
 
 function renderSkippedDetails(sk) {
   const skDocs = Object.entries((sk && sk.documents) || {});
@@ -883,7 +1062,13 @@ let orgJob = null;
 
 $("org-preview").onclick = guarded(async () => {
   const source = $("org-source").value.trim();
+  const mode = currentOrganizeMode();
+  const destination = mode === "inplace" ? source : $("org-dest").value.trim();
   if (!source) { setWhy("Pick a folder to organize first."); return; }
+  if (organizeNeedsDestination(mode) && !destination) {
+    setWhy("Pick the organized destination folder first.");
+    return;
+  }
   // Cheap inventory only (walk + size). Full dedup is an explicit second step.
   await withBusy($("org-preview"), "Looking inside…", async () => {
     $("org-result").innerHTML = "";
@@ -902,13 +1087,19 @@ $("org-preview").onclick = guarded(async () => {
 
 $("org-dedup").onclick = guarded(async () => {
   const source = $("org-source").value.trim();
-  const destination = $("org-dest").value.trim();
+  const mode = currentOrganizeMode();
+  const destination = mode === "inplace" ? source : $("org-dest").value.trim();
   const refresh_metadata = $("org-refresh-metadata").checked;
   if (!source) { setWhy("Pick a folder to organize first."); return; }
+  if (organizeNeedsDestination(mode) && !destination) {
+    setWhy("Pick the organized destination folder first.");
+    return;
+  }
   await withBusy($("org-dedup"), "Checking for duplicates…", async ({ setStatus }) => {
     $("org-run").disabled = true;
+    $("org-confirm").innerHTML = "";
     orgProgress.start("starting");
-    const started = await api("/api/organize/preview", { source, destination, refresh_metadata });
+    const started = await api("/api/organize/preview", { source, destination, refresh_metadata, mode });
     if (started.ok === false) {
       orgProgress.stop();
       $("org-result").innerHTML = startRefusedCard(started, "org-dest");
@@ -933,19 +1124,26 @@ $("org-dedup").onclick = guarded(async () => {
       return;
     }
     const kept = renderOrganizeResult(s);
+    orgMechanism = s.mechanism || null;
     if (!s.files) { $("org-run").disabled = true; setWhy("Nothing to organize in this folder."); }
-    else if (!destination) { $("org-run").disabled = true; setWhy("Pick the organized folder for the sorted copies."); }
-    else { $("org-run").disabled = false; $("org-run").textContent = `Organize ${nfmt(kept)} files`; setWhy(""); }
+    else {
+      $("org-run").disabled = true;
+      $("org-run").textContent = "Type move to continue";
+      renderOrganizeRunConfirm({ kept, mode, mechanism: orgMechanism });
+      setWhy("");
+    }
   });
 });
 
-$("org-run").onclick = guarded(async () => {
+async function startOrganizeRun() {
   const source = $("org-source").value.trim();
-  const destination = $("org-dest").value.trim();
+  const mode = currentOrganizeMode();
+  const destination = mode === "inplace" ? source : $("org-dest").value.trim();
   const skip_undated = $("org-skip-undated").checked;
   const refresh_metadata = $("org-refresh-metadata").checked;
-  await withBusy($("org-run"), "Organizing…", async ({ setStatus }) => {
-    const started = await api("/api/organize/run", { source, destination, skip_undated, refresh_metadata });
+  const trigger = $("org-confirm").querySelector("[data-typed-go]");
+  await withBusy(trigger, "Organizing…", async ({ setStatus }) => {
+    const started = await api("/api/organize/run", { source, destination, skip_undated, refresh_metadata, mode });
     if (started.ok === false) {
       $("org-result").innerHTML = startRefusedCard(started, "org-dest");
       return;
@@ -971,9 +1169,24 @@ $("org-run").onclick = guarded(async () => {
     }
     orgJob = null;
     loadCustody();
+    refreshOrganizeUndoAffordance();
   });
-});
+}
+
+$("org-run").onclick = guarded(() => {});
 $("org-cancel").onclick = guarded(() => { if (orgJob) return api(`/api/jobs/${orgJob}/cancel`, {}); });
+$("undo-cancel").onclick = guarded(() => {
+  if (undoJob) return api(`/api/jobs/${undoJob}/cancel`, {});
+  if (orgUndoJob) return api(`/api/jobs/${orgUndoJob}/cancel`, {});
+});
+
+document.querySelectorAll('input[name="org-mode"]').forEach((item) => {
+  item.addEventListener("change", guarded(async () => {
+    renderOrganizeMode();
+    await saveOrganizeMode(currentOrganizeMode());
+    setWhy("Look inside first to see what is in the folder.");
+  }));
+});
 
 // ---------- Backups ----------
 async function loadDrives() {
@@ -1525,4 +1738,6 @@ document.querySelectorAll('input[name="theme"]').forEach((r) => {
   };
 });
 
+loadOrganizeMode();
 loadCustody();
+refreshOrganizeUndoAffordance();
