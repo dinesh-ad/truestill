@@ -1631,7 +1631,50 @@ def set_everyday_day_settings(threshold: object, db: Path) -> EverydayDaySetting
 # --- layout Settings screen (template + migration) ------------------------------------
 
 
-def _render_preview(scheme: LayoutScheme) -> list[dict[str, Any]]:
+class LayoutPreviewRow(TypedDict):
+    description: str
+    when: str
+    path: str
+    warnings: list[str]
+
+
+class LayoutState(TypedDict):
+    """Settings layout payload. ``presets`` values are timeline *strings*, never preset objects."""
+
+    template: str
+    is_default: bool
+    presets: dict[str, str]
+    preset_titles: dict[str, str]
+    default_preset: str
+    preview: list[LayoutPreviewRow]
+
+
+class PreviewLayoutOk(TypedDict):
+    valid: Literal[True]
+    preview: list[LayoutPreviewRow]
+
+
+class PreviewLayoutErr(TypedDict):
+    valid: Literal[False]
+    error: str
+
+
+class SetLayoutOk(TypedDict):
+    valid: Literal[True]
+    template: str
+    is_default: bool
+    presets: dict[str, str]
+    preset_titles: dict[str, str]
+    default_preset: str
+    preview: list[LayoutPreviewRow]
+
+
+class SetLayoutErr(TypedDict):
+    valid: Literal[False]
+    error: str
+
+
+def _render_preview(scheme: LayoutScheme) -> list[LayoutPreviewRow]:
     """The sample rows rendered through a whole scheme, so the preview shows the routing split."""
     return [
         {
@@ -1646,7 +1689,7 @@ def _render_preview(scheme: LayoutScheme) -> list[dict[str, Any]]:
     ]
 
 
-def layout_state(db: Path) -> dict[str, Any]:
+def layout_state(db: Path) -> LayoutState:
     """What layout is actually in force for this library, plus the presets and a live preview.
 
     Everything here is derived from `effective_layout_string`, which is **pure** - opening
@@ -1674,7 +1717,7 @@ def _scheme_for_timeline(template: LayoutTemplate) -> LayoutScheme:
     return LayoutScheme.of(timeline=template, timeline_evented=template)
 
 
-def preview_layout(template_str: str) -> dict[str, Any]:
+def preview_layout(template_str: str) -> PreviewLayoutOk | PreviewLayoutErr:
     """Validate a template and render the samples; report the error instead of raising."""
     try:
         template = parse_timeline_template(template_str)
@@ -1683,7 +1726,7 @@ def preview_layout(template_str: str) -> dict[str, Any]:
     return {"valid": True, "preview": _render_preview(_scheme_for_timeline(template))}
 
 
-def set_layout(template_str: str, db: Path) -> dict[str, Any]:
+def set_layout(template_str: str, db: Path) -> SetLayoutOk | SetLayoutErr:
     """Persist a template after validating it; returns the new :func:`layout_state` or an error."""
     try:
         parse_timeline_template(template_str)
@@ -1691,7 +1734,16 @@ def set_layout(template_str: str, db: Path) -> dict[str, Any]:
         return {"valid": False, "error": str(exc)}
     with Catalog(db) as catalog:
         catalog.set_setting(LAYOUT_TEMPLATE_KEY, template_str)
-    return {"valid": True, **layout_state(db)}
+    state = layout_state(db)
+    return {
+        "valid": True,
+        "template": state["template"],
+        "is_default": state["is_default"],
+        "presets": state["presets"],
+        "preset_titles": state["preset_titles"],
+        "default_preset": state["default_preset"],
+        "preview": state["preview"],
+    }
 
 
 _FREE_SPACE_MARGIN = 1.03  # keep a little headroom so a copy never fills the target drive

@@ -444,9 +444,11 @@ is invisible here is retired, not free.**
   (`pin_existing_layout`, `effective_layout_string`, `resolve_scheme`) now lives in
   `layout_settings.py`, which imports `Catalog` directly. Invented `CatalogLike` Protocol
   retired. `layout.py` stays pure grammar/routing/rendering.
-- **(ff) Typed payloads at the app boundary.** `service.py` returns `dict[str, Any]` 27 times.
+- **(ff) Typed payloads at the app boundary.** `service.py` returns `dict[str, Any]` many times.
   This is not theoretical: the `dict(PRESETS)` regression - dataclasses about to be serialized
   into the API - was invisible to mypy precisely because the return type was `Any`.
+  - **Slice 1 - Built 2026-07-30:** `LayoutState` / preview / set-layout TypedDicts. `presets`
+    is `dict[str, str]`; mypy rejects `dict(PRESETS)`. Key-set pins in `test_settings_http`.
 - **(aab) Split `dates.py`.** **Built 2026-07-30.** Video ladder + offset grid + `LadderHit`
   moved to `video_utc.py`; inferred-local ``date_tag`` / ``format_offset`` to cycle-free
   `date_provenance.py`. `models._format_offset_hhmm` / `_parse_offset_hhmm` deleted - both

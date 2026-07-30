@@ -80,10 +80,19 @@ def _seed_camera_group(catalog: Catalog, drive_uuid: str, day: datetime, count: 
 
 def test_layout_get_reports_default_and_presets(client: TestClient) -> None:
     state = client.get("/api/layout").json()
+    assert set(state) == {
+        "template",
+        "is_default",
+        "presets",
+        "preset_titles",
+        "default_preset",
+        "preview",
+    }
     assert state["template"] == "{yyyy}/{yyyy}-{mm}/{yyyy}-{mm} - Everyday"
     assert state["is_default"] is True
     assert "year-month-day" in state["presets"]
     assert len(state["preview"]) == 4  # camera, camera event, undated, side bin
+    assert set(state["preview"][0]) == {"description", "when", "path", "warnings"}
     # The payload is JSON that app.js iterates as [name, template]. Handing it preset objects
     # would serialize dataclasses into the API -- invisible to mypy, since the response is
     # dict[str, Any], and invisible to a test that only checks a key is present.
@@ -92,16 +101,27 @@ def test_layout_get_reports_default_and_presets(client: TestClient) -> None:
 
 def test_layout_preview_valid_and_invalid(client: TestClient) -> None:
     ok = client.post("/api/layout/preview", json={"template": "{yyyy}/{yyyy}-{mm}/{dd}"}).json()
+    assert set(ok) == {"valid", "preview"}
     assert ok["valid"] is True
     assert len(ok["preview"]) == 4
 
     bad = client.post("/api/layout/preview", json={"template": "{nope}"}).json()
+    assert set(bad) == {"valid", "error"}
     assert bad["valid"] is False
     assert "unknown" in bad["error"]
 
 
 def test_layout_set_persists(client: TestClient) -> None:
     saved = client.post("/api/layout", json={"template": "{yyyy}/{yyyy}-{mm}/{dd}"}).json()
+    assert set(saved) == {
+        "valid",
+        "template",
+        "is_default",
+        "presets",
+        "preset_titles",
+        "default_preset",
+        "preview",
+    }
     assert saved["valid"] is True
     assert saved["template"] == "{yyyy}/{yyyy}-{mm}/{dd}"
     assert saved["is_default"] is False
