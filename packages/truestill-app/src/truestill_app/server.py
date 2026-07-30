@@ -19,20 +19,10 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 from starlette.staticfiles import StaticFiles
-from truestill_core.catalog import Catalog
 from truestill_core.catalog_startup import DEFAULT_CATALOG_PATH
-from truestill_core.event_review import EventDecision, commit_catalog
-from truestill_core.events import InvalidEventSettingsError, split_candidate
+from truestill_core.events import InvalidEventSettingsError
 from truestill_core.layout import InvalidEverydayDaySettingsError
-from truestill_core.trip_review import (
-    ReviewCard,
-    TripDecision,
-    TripMergeError,
-    commit_trips,
-    merge_review_cards,
-    order_review_cards,
-    split_trip,
-)
+from truestill_core.trip_review import ReviewCard
 
 from truestill_app import __version__, service
 from truestill_app.jobs import DriveBusyPayload, JobManager, JobTarget
@@ -408,14 +398,10 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
         session_id = request.path_params["session"]
         indices: list[int] = (await request.json())["indices"]
         session = sessions[session_id]
-        cards = session.cards
-        chosen = [cards[i] for i in indices]
-        rest = [c for j, c in enumerate(cards) if j not in set(indices)]
-        try:
-            merged = merge_review_cards(chosen, session.day_totals)
-        except TripMergeError as exc:
-            return JSONResponse({"error": str(exc)})
-        session.cards = order_review_cards([ReviewCard(trip=merged), *rest])
+        result = service.merge_event_review_cards(session.cards, session.day_totals, indices)
+        if "error" in result:
+            return JSONResponse({"error": result["error"]})
+        session.cards = result["cards"]
         return _cards_payload(session_id)
 
     async def events_split(request: Request) -> JSONResponse:
@@ -428,17 +414,11 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
         session_id = request.path_params["session"]
         body = await request.json()
         session = sessions[session_id]
-        cards = session.cards
-        card = cards[body["index"]]
-        if card.event is not None:
-            first_event, second_event = split_candidate(card.event, body["at"])
-            new_cards = [ReviewCard(event=first_event), ReviewCard(event=second_event)]
-        else:
-            assert card.trip is not None
-            first_trip, second_trip = split_trip(card.trip, date.fromisoformat(body["after_day"]))
-            new_cards = [ReviewCard(trip=first_trip), ReviewCard(trip=second_trip)]
-        session.cards = order_review_cards(
-            [*cards[: body["index"]], *new_cards, *cards[body["index"] + 1 :]]
+        session.cards = service.split_event_review_card(
+            session.cards,
+            int(body["index"]),
+            at=body.get("at"),
+            after_day=body.get("after_day"),
         )
         return _cards_payload(session_id)
 
@@ -454,63 +434,10 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
         session_id = request.path_params["session"]
         names: list[str | None] = (await request.json())["names"]
         session = sessions[session_id]
-        cards = session.cards
-        with Catalog(_db()) as catalog:
-            event_decisions = [
-                EventDecision(card.event, name)
-                for card, name in zip(cards, names, strict=True)
-                if card.event is not None
-            ]
-            named_events_count = commit_catalog(catalog, event_decisions)
-
-            trip_decisions = [
-                TripDecision(card.trip, name)
-                for card, name in zip(cards, names, strict=True)
-                if card.trip is not None
-            ]
-            named_trips_count = commit_trips(catalog, trip_decisions)
-
-            # Remembered so apply-to-disk can report each named item's real destination folder
-            # once the migration has actually placed its files there (13.3a) -- not a rename or a
-            # guess, just this session's own decisions, looked up again now that they are
-            # persisted.
-            named_events: list[service.NamedEventSelection] = []
-            for card, name in zip(cards, names, strict=True):
-                if card.event is None or not name or not name.strip():
-                    continue
-                existing = catalog.event_by_signature(card.event.signature)
-                if existing is None:
-                    continue
-                named_events.append(
-                    {
-                        "event_id": int(existing["id"]),
-                        "name": str(existing["name"]),
-                        "start": card.event.start.isoformat(),
-                        "end": card.event.end.isoformat(),
-                    }
-                )
-            # A trip's id is not returned by `commit_trips` (it persists a count, not the rows),
-            # so it is looked up the same way name-once already does: `trip_for_day` on one of the
-            # trip's own claimed days, after the commit above has made that lookup answer it.
-            named_trips: list[service.NamedTripSelection] = []
-            for card, name in zip(cards, names, strict=True):
-                if card.trip is None or not name or not name.strip():
-                    continue
-                first_day = min(card.trip.days)
-                trip_id = catalog.trip_for_day(first_day.isoformat())
-                if trip_id is None:
-                    continue
-                named_trips.append(
-                    {
-                        "trip_id": trip_id,
-                        "name": name.strip(),
-                        "start": first_day.isoformat(),
-                        "end": max(card.trip.days).isoformat(),
-                    }
-                )
-        session.named_events = named_events
-        session.named_trips = named_trips
-        return JSONResponse({"events": named_events_count, "trips": named_trips_count})
+        result = service.apply_event_review_names(_db(), session.cards, names)
+        session.named_events = result["named_events"]
+        session.named_trips = result["named_trips"]
+        return JSONResponse({"events": result["events"], "trips": result["trips"]})
 
     async def events_preview(request: Request) -> JSONResponse:
         """Preview where the just-named trips will move the drive's files (moves nothing)."""

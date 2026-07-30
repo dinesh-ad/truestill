@@ -33,12 +33,13 @@ from truestill_core.date_provenance import format_offset
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import LocalDestination
 from truestill_core.drive import create_marker, locate_drive, path_is_usable_dir, read_marker
-from truestill_core.event_review import EventDecision, commit, propose
+from truestill_core.event_review import EventDecision, commit, commit_catalog, propose
 from truestill_core.events import (
     EVENT_MIN_FILES_KEY,
     EventCandidate,
     EventSettings,
     InvalidEventSettingsError,
+    split_candidate,
 )
 from truestill_core.exif import read_metadata
 from truestill_core.hash_cache import HashCache
@@ -107,10 +108,16 @@ from truestill_core.progress import Phase, Progress, ProgressCallback
 from truestill_core.takeout import scan_takeout
 from truestill_core.trip_review import (
     ReviewCard,
+    TripDecision,
+    TripMergeError,
     assemble_trip_review,
     collapsed_event_cards,
+    commit_trips,
     decline_message,
     is_small_event,
+    merge_review_cards,
+    order_review_cards,
+    split_trip,
 )
 from truestill_core.undo import UndoError, plan_undo, run_undo
 from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
@@ -2443,6 +2450,61 @@ def propose_events(
     }
 
 
+class MergeReviewCardsResult(TypedDict):
+    """Outcome of :func:`merge_event_review_cards` - either new cards or a refusal message."""
+
+    cards: NotRequired[list[ReviewCard]]
+    error: NotRequired[str]
+
+
+def merge_event_review_cards(
+    cards: list[ReviewCard],
+    day_totals: dict[date, int],
+    indices: list[int],
+) -> MergeReviewCardsResult:
+    """Combine selected review cards into one trip, or refuse with the §3e/§3f message.
+
+    Domain work for the Trips screen's Merge control - lives in service so ``server.py`` stays
+    a transport shim (§2 sole-bridge rule; audit F7).
+    """
+    chosen = [cards[i] for i in indices]
+    rest = [card for j, card in enumerate(cards) if j not in set(indices)]
+    try:
+        merged = merge_review_cards(chosen, day_totals)
+    except TripMergeError as exc:
+        return {"error": str(exc)}
+    return {"cards": order_review_cards([ReviewCard(trip=merged), *rest])}
+
+
+def split_event_review_card(
+    cards: list[ReviewCard],
+    index: int,
+    *,
+    at: int | None = None,
+    after_day: str | None = None,
+) -> list[ReviewCard]:
+    """Split one review card into two and re-order the session list.
+
+    An event splits by file count; a trip splits at a day boundary. Domain work for the Trips
+    screen's Split control (§2; audit F7).
+    """
+    card = cards[index]
+    if card.event is not None:
+        if at is None:
+            message = "event split requires at"
+            raise ValueError(message)
+        first_event, second_event = split_candidate(card.event, at)
+        new_cards = [ReviewCard(event=first_event), ReviewCard(event=second_event)]
+    else:
+        if after_day is None:
+            message = "trip split requires after_day"
+            raise ValueError(message)
+        assert card.trip is not None
+        first_trip, second_trip = split_trip(card.trip, date.fromisoformat(after_day))
+        new_cards = [ReviewCard(trip=first_trip), ReviewCard(trip=second_trip)]
+    return order_review_cards([*cards[:index], *new_cards, *cards[index + 1 :]])
+
+
 def _resolve_migration_routes(
     catalog: Catalog,
     drive_uuid: str,
@@ -2563,6 +2625,77 @@ class NamedTripSelection(TypedDict):
     name: str
     start: str
     end: str
+
+
+class ApplyReviewNamesResult(TypedDict):
+    events: int
+    trips: int
+    named_events: list[NamedEventSelection]
+    named_trips: list[NamedTripSelection]
+
+
+def apply_event_review_names(
+    db: Path,
+    cards: list[ReviewCard],
+    names: list[str | None],
+) -> ApplyReviewNamesResult:
+    """Persist named trips and events to the catalog (Save names). No files move.
+
+    Domain work for the Trips screen's apply step - catalog writes belong in service, not the
+    HTTP layer (§2; audit F7).
+    """
+    with Catalog(db) as catalog:
+        event_decisions = [
+            EventDecision(card.event, name)
+            for card, name in zip(cards, names, strict=True)
+            if card.event is not None
+        ]
+        named_events_count = commit_catalog(catalog, event_decisions)
+
+        trip_decisions = [
+            TripDecision(card.trip, name)
+            for card, name in zip(cards, names, strict=True)
+            if card.trip is not None
+        ]
+        named_trips_count = commit_trips(catalog, trip_decisions)
+
+        named_events: list[NamedEventSelection] = []
+        for card, name in zip(cards, names, strict=True):
+            if card.event is None or not name or not name.strip():
+                continue
+            existing = catalog.event_by_signature(card.event.signature)
+            if existing is None:
+                continue
+            named_events.append(
+                {
+                    "event_id": int(existing["id"]),
+                    "name": str(existing["name"]),
+                    "start": card.event.start.isoformat(),
+                    "end": card.event.end.isoformat(),
+                }
+            )
+        named_trips: list[NamedTripSelection] = []
+        for card, name in zip(cards, names, strict=True):
+            if card.trip is None or not name or not name.strip():
+                continue
+            first_day = min(card.trip.days)
+            trip_id = catalog.trip_for_day(first_day.isoformat())
+            if trip_id is None:
+                continue
+            named_trips.append(
+                {
+                    "trip_id": trip_id,
+                    "name": name.strip(),
+                    "start": first_day.isoformat(),
+                    "end": max(card.trip.days).isoformat(),
+                }
+            )
+    return {
+        "events": named_events_count,
+        "trips": named_trips_count,
+        "named_events": named_events,
+        "named_trips": named_trips,
+    }
 
 
 class AppliedReviewGroupPayload(TypedDict):
