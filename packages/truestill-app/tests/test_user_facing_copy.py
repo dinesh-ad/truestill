@@ -116,13 +116,15 @@ _ALLOWED_USER_TERMS = (
     "--phash-threshold",
     "JSON",
 )
+#: service/ is a package (F10); both the facade and the Browse surface carry user-facing strings.
+_SERVICE_USER_FACING: tuple[Path, ...] = (
+    REPO / "packages/truestill-app/src/truestill_app/service/__init__.py",
+    REPO / "packages/truestill-app/src/truestill_app/service/fs_browse.py",
+)
 _USER_FACING_TEXT = tuple(
     path
-    for path in (
-        *USER_FACING,
-        REPO / "packages/truestill-app/src/truestill_app/service.py",
-    )
-    if path.name in {"app.js", "index.html", "cli.py", "README.md", "service.py"}
+    for path in (*USER_FACING, *_SERVICE_USER_FACING)
+    if path in _SERVICE_USER_FACING or path.name in {"app.js", "index.html", "cli.py", "README.md"}
 )
 
 
