@@ -86,6 +86,7 @@ from truestill_core.models import (
 )
 from truestill_core.organizer import (
     AUDIO_EXTENSIONS,
+    EXIFTOOL_BACKUP_LABEL,
     IMAGE_EXTENSIONS,
     MEDIA_EXTENSIONS,
     VIDEO_EXTENSIONS,
@@ -403,10 +404,12 @@ def _summarize(resolutions: list[Resolution]) -> dict[str, Any]:
 
 
 def _skipped_summary(scan: SourceScan) -> dict[str, dict[str, int]]:
-    """Skipped files grouped by extension, so the UI can account for what was not organized."""
+    """Skipped files for the UI: extension counts, plus a plain exiftool-backup label."""
+    backups = {EXIFTOOL_BACKUP_LABEL: len(scan.exiftool_backups)} if scan.exiftool_backups else {}
     return {
         "documents": dict(Counter(p.suffix.lower() or "(no ext)" for p in scan.documents)),
         "unrecognized": dict(Counter(p.suffix.lower() or "(no ext)" for p in scan.unrecognized)),
+        "exiftool_backups": backups,
     }
 
 

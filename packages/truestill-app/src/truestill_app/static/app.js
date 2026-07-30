@@ -1217,12 +1217,15 @@ async function startOrganizeUndoApply() {
 function renderSkippedDetails(sk) {
   const skDocs = Object.entries((sk && sk.documents) || {});
   const skUn = Object.entries((sk && sk.unrecognized) || {});
-  const skTotal = skDocs.concat(skUn).reduce((a, [, n]) => a + n, 0);
+  const backupCount = Object.values((sk && sk.exiftool_backups) || {}).reduce((a, n) => a + n, 0);
+  const skTotal = skDocs.concat(skUn).reduce((a, [, n]) => a + n, 0) + backupCount;
   if (!skTotal) return "";
   const rows = (label, list) => list.length
     ? `<tr><td>${label}</td><td class="num">${list.map(([e, n]) => `${esc(e)} ×${n}`).join(", ")}</td></tr>` : "";
+  const backupRow = backupCount
+    ? `<tr><td>exiftool backup</td><td class="num">${backupCount}</td></tr>` : "";
   return `<details class="more"><summary>${plural(skTotal, "file")} skipped (not photos or videos) ▾</summary>
-    <table class="table"><tbody>${rows("documents", skDocs)}${rows("unrecognized", skUn)}</tbody></table></details>`;
+    <table class="table"><tbody>${rows("documents", skDocs)}${rows("unrecognized", skUn)}${backupRow}</tbody></table></details>`;
 }
 
 function renderInventoryResult(s) {

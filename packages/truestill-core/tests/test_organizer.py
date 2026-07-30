@@ -33,6 +33,7 @@ from truestill_core.organizer import (
     apply_events,
     discover,
     execute,
+    is_exiftool_original_backup,
     media_kind,
     plan,
     resolve,
@@ -64,6 +65,7 @@ def test_scan_source_partitions_media_documents_and_unrecognized(tmp_path: Path)
     ]  # recognized media (case-insensitive)
     assert sorted(p.name for p in scan.documents) == ["notes.pdf"]
     assert sorted(p.name for p in scan.unrecognized) == ["clip.vob", "movie.ogv", "weird.xyz"]
+    assert scan.exiftool_backups == []
 
 
 def test_scan_source_all_files_treats_everything_as_media(tmp_path: Path) -> None:
@@ -73,6 +75,42 @@ def test_scan_source_all_files_treats_everything_as_media(tmp_path: Path) -> Non
     assert len(scan.media) == 2
     assert scan.documents == []
     assert scan.unrecognized == []
+    assert scan.exiftool_backups == []
+
+
+def test_scan_source_refuses_exiftool_original_even_under_all_files(tmp_path: Path) -> None:
+    """Default path already skipped these as unrecognized; --all-files must not promote them."""
+    (tmp_path / "holiday.jpg").write_bytes(b"live")
+    (tmp_path / "holiday.jpg_original").write_bytes(b"backup")
+    (tmp_path / "clip.mp4_original").write_bytes(b"video-backup")
+    (tmp_path / "vacation_original.jpg").write_bytes(b"legitimate")
+
+    default = scan_source(tmp_path)
+    assert sorted(p.name for p in default.media) == ["holiday.jpg", "vacation_original.jpg"]
+    assert sorted(p.name for p in default.exiftool_backups) == [
+        "clip.mp4_original",
+        "holiday.jpg_original",
+    ]
+    assert "holiday.jpg_original" not in [p.name for p in default.unrecognized]
+
+    all_files = scan_source(tmp_path, all_files=True)
+    assert sorted(p.name for p in all_files.media) == ["holiday.jpg", "vacation_original.jpg"]
+    assert sorted(p.name for p in all_files.exiftool_backups) == [
+        "clip.mp4_original",
+        "holiday.jpg_original",
+    ]
+    assert all_files.documents == []
+    assert all_files.unrecognized == []
+
+
+def test_is_exiftool_original_backup_distinguishes_sidecar_from_legitimate_name() -> None:
+    assert is_exiftool_original_backup("holiday.jpg_original")
+    assert is_exiftool_original_backup("clip.MP4_original")
+    assert is_exiftool_original_backup("notes.txt_original")
+    assert not is_exiftool_original_backup("vacation_original.jpg")
+    assert not is_exiftool_original_backup("holiday.jpg")
+    assert not is_exiftool_original_backup("_original")
+    assert not is_exiftool_original_backup("file._original")
 
 
 def _camera_resolution(source: str, when: datetime, sha: str) -> Resolution:

@@ -45,3 +45,21 @@ def test_organize_reports_skipped_files_by_extension(
     assert "unrecognized: 2" in out
     assert ".vob x1" in out
     assert ".ogv x1" in out
+
+
+def test_organize_reports_exiftool_backup_plainly_even_with_all_files(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Sidecars are refused at scan; skipped copy says 'exiftool backup', not '.jpg_original'."""
+    source = tmp_path / "src"
+    source.mkdir()
+    (source / "holiday.jpg_original").write_bytes(b"backup")
+    (source / "clip.mp4_original").write_bytes(b"vbackup")
+
+    code = main(["organize", str(source), str(tmp_path / "out"), "--all-files"])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "No media files" in out
+    assert "exiftool backup: 2" in out
+    assert ".jpg_original" not in out
+    assert ".mp4_original" not in out

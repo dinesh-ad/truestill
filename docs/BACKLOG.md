@@ -244,18 +244,37 @@ is invisible here is retired, not free.**
     in-place `move`, migrate `move`, migrate-undo `undo`, clean `clean`, permanent
     `delete forever`, reclaim `delete`.
 
-- **(bbb) exiftool `_original` backups are ignored.** Ruled by Dinesh, 2026-07-30. When anyone
-  edits a photo's date with exiftool, the default is to leave `file.jpg_original` beside it
-  holding the **original** metadata (only `-overwrite_original` skips this). Truestill neither
-  reads nor mentions these.
-  - **Opportunity (a):** if a file's date looks overwritten and a sibling `_original` exists,
-    the true capture date may be recoverable from it - relates to **(ii)** rescue flow.
-  - **Opportunity (b):** `_original` files are currently treated as unknown media and may be
-    organized as if they were real photos - **verify which**, and record it, before changing
-    behaviour.
-  - **Constraint:** research the recovery path before building; do not invent a silent merge
-    of `_original` metadata into the live file.
-  - **Not fixed here, on purpose** - recorded only, per instruction.
+- **(bbb) exiftool `_original` backups.** Ruled by Dinesh, 2026-07-30. When anyone edits a
+  photo's date with exiftool, the default is to leave `file.jpg_original` beside it holding the
+  **original** metadata (only `-overwrite_original` skips this).
+  - **Safety - Built 2026-07-30.** Measured first: on the default path, `*.jpg_original` was
+    already skipped as unrecognized (suffix `.jpg_original`, not `.jpg`). The residual bug was
+    `--all-files`, which organized both the live file and the sidecar as near-copies (same
+    pixels, different SHA/dates). Fix: `is_exiftool_original_backup` refuses
+    `{live_filename}_original` at `scan_source` / `discover` for every caller, including
+    `--all-files`. Skipped report uses the plain label **exiftool backup**, not a bare
+    `.jpg_original` extension count. Matcher covers any extension (exiftool appends `_original`
+    to the full filename). Collision pinned: a legitimate `vacation_original.jpg` ( `_original`
+    before the extension) is **not** a backup and is still organized.
+  - **Recovery - deferred; waits on (ii) / (n).** Full design (do not invent a parallel tool):
+    1. **No silent substitution.** Reading `_original` never auto-wins over the live file's
+       embedded date in `resolve_capture_datetime`.
+    2. **Same provenance as (ii):** if the user accepts the sibling date, record
+       **`human-confirmed`** (highest tier), durable via the date-source column **(n)** and
+       **(ii)** share. Machine suggestion only; human commits.
+    3. **Same rescue seam:** when the live file has a date *and* a sibling
+       `path.name + "_original"` exists with a different parseable capture date, offer a rescue
+       candidate on the (ii)/(n) surface (“why this date?” → action). Wording like: “exiftool
+       backup beside this file still has 2014-08-17 - use that date?” Confirm → place by
+       confirmed date + provenance.
+    4. **Disagree visibly:** if live EXIF and `_original` disagree after a human confirm, keep
+       human-confirmed; optionally note the embedded conflict (never silent).
+    5. **Dedup / identity:** rescue edits the catalog row for the **live** file; `_original`
+       stays an unorganized sidecar (never ingested as a second library copy).
+    - **Out of scope for recovery:** inventing merges, rewriting live EXIF from `_original`
+      without confirm, treating `_original` as a second library citizen.
+    - **Sequencing:** recovery UI waits on the (ii)/(n) provenance column - same screen, not a
+      parallel “_original tool”. Safety shipped independently so this item is not “untouched”.
 
 - **(ccc) Plain-language audit of user-facing copy.** Ruled by Dinesh, 2026-07-30.
   - **Built 2026-07-30.** Inventory + rewrites across app/CLI help/README (CHANGELOG excluded).

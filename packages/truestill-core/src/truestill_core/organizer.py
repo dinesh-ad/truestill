@@ -17,7 +17,7 @@ import tempfile
 import threading
 from collections import Counter
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -185,18 +185,25 @@ DOCUMENT_EXTENSIONS: frozenset[str] = frozenset(
 )
 
 
+#: Plain skipped-report label for exiftool ``*_original`` sidecars (never an extension count).
+EXIFTOOL_BACKUP_LABEL = "exiftool backup"
+
+
 @dataclass(frozen=True)
 class SourceScan:
     """Everything found under a source, partitioned so nothing is silently dropped.
 
     ``media`` is what the pipeline organizes; ``documents`` are known non-media files;
-    ``unrecognized`` is everything else skipped -- which may include video formats truestill does
-    not yet recognize. The two skipped lists are surfaced in the end-of-run report.
+    ``exiftool_backups`` are exiftool ``*_original`` sidecars (never primary media, even
+    under ``--all-files``); ``unrecognized`` is everything else skipped -- which may
+    include video formats truestill does not yet recognize. Skipped lists are surfaced
+    in the end-of-run report.
     """
 
     media: list[Path]
     documents: list[Path]
     unrecognized: list[Path]
+    exiftool_backups: list[Path] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
@@ -216,19 +223,45 @@ class SourceInventory:
     skipped: dict[str, dict[str, int]]
 
 
+def is_exiftool_original_backup(path: Path | str) -> bool:
+    """True when the name is an exiftool sidecar ``{live_filename}_original``.
+
+    Exiftool appends ``_original`` to the *full* filename (``holiday.jpg_original``,
+    ``clip.mp4_original``, ``notes.txt_original``) - any extension, not only JPEG.
+    A legitimate user file ``vacation_original.jpg`` ends with ``.jpg`` and is **not**
+    a backup: the stem may contain ``_original``, but the name does not *end* with
+    ``_original`` after the extension.
+    """
+    name = Path(path).name
+    if not name.endswith("_original"):
+        return False
+    live = name[: -len("_original")]
+    if not live:
+        return False
+    # The live name must look like a real file (has a non-empty, non-dot-only suffix).
+    suffix = Path(live).suffix
+    return len(suffix) > 1
+
+
 def scan_source(source: Path, *, all_files: bool = False) -> SourceScan:
     """Walk ``source`` once, partitioning files into media / documents / unrecognized.
 
-    Hidden paths are skipped. With ``all_files`` every file is treated as media (the
-    ``--all-files`` escape hatch), so both skipped lists are empty.
+    Hidden paths are skipped. Exiftool ``*_original`` sidecars are refused as primary
+    media at this door - including under ``--all-files`` - so every caller inherits the
+    refusal. With ``all_files`` every *other* file is treated as media (the
+    ``--all-files`` escape hatch).
     """
     media: list[Path] = []
     documents: list[Path] = []
     unrecognized: list[Path] = []
+    exiftool_backups: list[Path] = []
     for path in sorted(source.rglob("*")):
         if not path.is_file():
             continue
         if any(part.startswith(".") for part in path.relative_to(source).parts):
+            continue
+        if is_exiftool_original_backup(path):
+            exiftool_backups.append(path)
             continue
         ext = path.suffix.lower()
         if all_files or ext in MEDIA_EXTENSIONS:
@@ -237,7 +270,12 @@ def scan_source(source: Path, *, all_files: bool = False) -> SourceScan:
             documents.append(path)
         else:
             unrecognized.append(path)
-    return SourceScan(media=media, documents=documents, unrecognized=unrecognized)
+    return SourceScan(
+        media=media,
+        documents=documents,
+        unrecognized=unrecognized,
+        exiftool_backups=exiftool_backups,
+    )
 
 
 def discover(source: Path, *, all_files: bool = False) -> list[Path]:
@@ -257,9 +295,11 @@ def _bytes_of(paths: Sequence[Path]) -> int:
 
 
 def _skipped_extension_counts(scan: SourceScan) -> dict[str, dict[str, int]]:
+    backups = {EXIFTOOL_BACKUP_LABEL: len(scan.exiftool_backups)} if scan.exiftool_backups else {}
     return {
         "documents": dict(Counter(p.suffix.lower() or "(no ext)" for p in scan.documents)),
         "unrecognized": dict(Counter(p.suffix.lower() or "(no ext)" for p in scan.unrecognized)),
+        "exiftool_backups": backups,
     }
 
 

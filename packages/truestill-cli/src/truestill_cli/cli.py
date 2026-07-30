@@ -1043,8 +1043,8 @@ def _fmt_extensions(paths: list[Path]) -> str:
 
 
 def _print_skipped(scan: SourceScan) -> None:
-    """Account for every file that was NOT organized, grouped by extension. Never silent."""
-    if not scan.documents and not scan.unrecognized:
+    """Account for every file that was NOT organized, grouped by kind. Never silent."""
+    if not scan.documents and not scan.unrecognized and not scan.exiftool_backups:
         return
     print("\nSkipped (not organized):")
     if scan.documents:
@@ -1054,6 +1054,8 @@ def _print_skipped(scan: SourceScan) -> None:
         print(
             "    (not recognized as media; some may be video formats truestill does not organize yet)"
         )
+    if scan.exiftool_backups:
+        print(f"  exiftool backup: {len(scan.exiftool_backups)}")
 
 
 def _cmd_organize(args: argparse.Namespace) -> int:
@@ -1167,6 +1169,7 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
         media=source_scan.media,
         documents=[p for p in source_scan.documents if p.suffix.lower() not in _takeout_noise],
         unrecognized=source_scan.unrecognized,
+        exiftool_backups=source_scan.exiftool_backups,
     )
     files = source_scan.media
     if not files:
