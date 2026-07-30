@@ -49,6 +49,11 @@ class DateSource(StrEnum):
     (Google's ``creationTime``, i.e. when it was uploaded) and ``FILENAME`` are approximate
     and flagged for review. ``NONE`` means no date evidence -> ``Undated/``.
 
+    ``INFERRED_LOCAL`` is a UTC container stamp (QuickTime ``CreateDate`` family) shifted to
+    local wall-clock by corroborating evidence (MakerNotes ``TimeZone``, filename+duration,
+    etc.). Distinct from raw ``EXIF``: the digits were converted, and ``date_tag`` records
+    how. See :func:`truestill_core.dates.format_inferred_date_tag`.
+
     ``REJECTED_SENTINEL`` is ``NONE`` with a reason: the file *did* carry a date, and it was
     an epoch/container zero (Tier A, ``dates.HARD_SENTINELS``) that we refused. It also lands
     in ``Undated/`` -- the distinction exists purely so the report can say a date was found
@@ -58,6 +63,7 @@ class DateSource(StrEnum):
     EXIF = "exif"
     TAKEOUT = "takeout"  # photoTakenTime -- authoritative capture time
     TAKEOUT_UPLOAD = "takeout_upload"  # creationTime -- upload time, approximate
+    INFERRED_LOCAL = "inferred_local"  # UTC CreateDate shifted by proven offset
     FILENAME = "filename"
     NONE = "none"
     REJECTED_SENTINEL = "rejected_sentinel"  # only date found was an epoch zero -> refused

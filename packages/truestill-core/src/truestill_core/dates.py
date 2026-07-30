@@ -17,6 +17,131 @@ from truestill_core.categorize import is_messenger_filename
 from truestill_core.models import DateSource
 from truestill_core.takeout import TakeoutSidecar, local_naive
 
+# ---------------------------------------------------------------------------
+# Inferred-local provenance (``DateSource.INFERRED_LOCAL`` / no-UTC-evidence)
+#
+# ``date_tag`` is the durable provenance record a later pass reads. Format:
+#
+#   {container_tag}|{evidence}[|{offset}]
+#
+# Field separator is ASCII ``|`` (U+007C). Exiftool tag names use ``Group:Tag`` with a
+# colon, never a pipe, so splitting on ``|`` cannot collide with a real tag name we place
+# in field 0 or with evidence tokens such as ``Canon:TimeZone`` / ``filename:VID_``.
+# Evidence tokens that combine signals join with ``+`` inside field 1
+# (``GPSDateStamp+filename:VID_``), never with ``|``.
+#
+# Offset is ``+HH:MM`` / ``-HH:MM`` (half-hour grid). Absent only for the no-evidence form.
+#
+# Examples:
+#   CreateDate|filename:VID_|+05:30
+#   CreateDate|Canon:TimeZone|+06:30
+#   CreateDate|no_utc_evidence          # inspected CreateDate path; left as local digits
+# ---------------------------------------------------------------------------
+
+#: Provenance field separator. Must not appear in container tags or evidence tokens.
+INFERRED_DATE_TAG_SEP = "|"
+
+#: Evidence token when a UTC container stamp was considered and left unconverted.
+NO_UTC_EVIDENCE = "no_utc_evidence"
+
+_OFFSET_RE = re.compile(r"^([+-])(\d{2}):(\d{2})$")
+_SECONDS_PER_MINUTE = 60
+_MINUTES_PER_HOUR = 60
+_NO_EVIDENCE_FIELD_COUNT = 2
+_INFERRED_FIELD_COUNT = 3
+
+
+class InferredDateTag(NamedTuple):
+    """Parsed ``date_tag`` for an inferred-local (or no-evidence) CreateDate decision."""
+
+    container_tag: str
+    evidence: str
+    offset: timedelta | None  # None iff evidence is :data:`NO_UTC_EVIDENCE`
+
+
+def format_offset(offset: timedelta) -> str:
+    """Format a UTC offset as ``+HH:MM`` / ``-HH:MM`` (minute granularity)."""
+    total = int(offset.total_seconds())
+    if total % _SECONDS_PER_MINUTE != 0:
+        message = f"offset must be whole minutes, got {offset!r}"
+        raise ValueError(message)
+    sign = "+" if total >= 0 else "-"
+    total = abs(total)
+    hours, minutes = divmod(total // _SECONDS_PER_MINUTE, _MINUTES_PER_HOUR)
+    return f"{sign}{hours:02d}:{minutes:02d}"
+
+
+def parse_offset(text: str) -> timedelta:
+    """Parse ``+HH:MM`` / ``-HH:MM`` into a :class:`~datetime.timedelta`."""
+    match = _OFFSET_RE.fullmatch(text.strip())
+    if match is None:
+        message = f"not an offset: {text!r}"
+        raise ValueError(message)
+    sign, hours_s, minutes_s = match.groups()
+    hours, minutes = int(hours_s), int(minutes_s)
+    if minutes >= _MINUTES_PER_HOUR:
+        message = f"not an offset: {text!r}"
+        raise ValueError(message)
+    delta = timedelta(hours=hours, minutes=minutes)
+    return delta if sign == "+" else -delta
+
+
+def format_inferred_date_tag(container_tag: str, evidence: str, offset: timedelta) -> str:
+    """Build a machine-parseable inferred-local ``date_tag``.
+
+    Round-trips with :func:`parse_inferred_date_tag`. ``container_tag`` and ``evidence``
+    must not contain :data:`INFERRED_DATE_TAG_SEP`.
+    """
+    if INFERRED_DATE_TAG_SEP in container_tag or INFERRED_DATE_TAG_SEP in evidence:
+        message = (
+            f"provenance fields must not contain {INFERRED_DATE_TAG_SEP!r}: "
+            f"{container_tag!r} / {evidence!r}"
+        )
+        raise ValueError(message)
+    if evidence == NO_UTC_EVIDENCE:
+        message = "use format_no_utc_evidence_tag for the no-evidence case"
+        raise ValueError(message)
+    return (
+        f"{container_tag}{INFERRED_DATE_TAG_SEP}{evidence}"
+        f"{INFERRED_DATE_TAG_SEP}{format_offset(offset)}"
+    )
+
+
+def format_no_utc_evidence_tag(container_tag: str) -> str:
+    """Record that a UTC container stamp was left as local digits - not merely absent.
+
+    Form: ``{container_tag}|no_utc_evidence`` (two fields; no offset).
+    """
+    if INFERRED_DATE_TAG_SEP in container_tag:
+        message = f"container_tag must not contain {INFERRED_DATE_TAG_SEP!r}: {container_tag!r}"
+        raise ValueError(message)
+    return f"{container_tag}{INFERRED_DATE_TAG_SEP}{NO_UTC_EVIDENCE}"
+
+
+def parse_inferred_date_tag(tag: str) -> InferredDateTag | None:
+    """Parse an inferred / no-evidence ``date_tag``, or ``None`` if the shape is wrong.
+
+    Accepts ``CreateDate|filename:VID_|+05:30`` and ``CreateDate|no_utc_evidence``.
+    Plain EXIF tags such as ``CreationDate`` or ``DateTimeOriginal`` return ``None``.
+    """
+    parts = tag.split(INFERRED_DATE_TAG_SEP)
+    if len(parts) == _NO_EVIDENCE_FIELD_COUNT:
+        container, evidence = parts
+        if not container or evidence != NO_UTC_EVIDENCE:
+            return None
+        return InferredDateTag(container, evidence, None)
+    if len(parts) == _INFERRED_FIELD_COUNT:
+        container, evidence, offset_text = parts
+        if not container or not evidence or evidence == NO_UTC_EVIDENCE or not offset_text:
+            return None
+        try:
+            offset = parse_offset(offset_text)
+        except ValueError:
+            return None
+        return InferredDateTag(container, evidence, offset)
+    return None
+
+
 #: Metadata tags consulted in order. ``DateTimeOriginal`` is the photo capture time.
 #: ``CreationDate`` (Apple's ``com.apple.quicktime.creationdate``) carries a video's local
 #: recording moment *with* its UTC offset, so it is preferred over the ``*CreateDate`` family,
