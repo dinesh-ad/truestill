@@ -629,6 +629,45 @@ function prefill(id, value) {
   if (el && value && !el.value) el.value = value;
 }
 
+function pathBasename(path) {
+  const i = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+  return i >= 0 ? path.slice(i + 1) : path;
+}
+
+/** Paint a middle-ellipsis label that keeps the path start and the filename; full path stays
+ *  in ``data-full`` / ``title`` and remains selectable. Never shortens the stored path. */
+function fitCatalogPath(el) {
+  if (!el) return;
+  const full = el.dataset.full || "";
+  if (!full) return;
+  el.title = full;
+  el.textContent = full;
+  if (el.clientWidth <= 0 || el.scrollWidth <= el.clientWidth) return;
+  const name = pathBasename(full);
+  const head = full.slice(0, Math.max(0, full.length - name.length));
+  let lo = 0;
+  let hi = head.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    el.textContent = `${head.slice(0, mid)}…${name}`;
+    if (el.scrollWidth <= el.clientWidth) lo = mid;
+    else hi = mid - 1;
+  }
+  el.textContent = lo > 0 ? `${head.slice(0, lo)}…${name}` : `…${name}`;
+  // Last resort if even "…filename" is wider than the strip: keep the filename end.
+  if (el.scrollWidth > el.clientWidth) {
+    let n = name.length;
+    while (n > 1 && el.scrollWidth > el.clientWidth) {
+      n -= 1;
+      el.textContent = `…${name.slice(-n)}`;
+    }
+  }
+}
+
+function refreshCatalogPathFit() {
+  fitCatalogPath($("custody-catalog"));
+}
+
 async function loadCustody() {
   const s = await get("/api/library/status");
   // Organize and Trips work on the library; Backups copies *from* it to somewhere else.
@@ -647,7 +686,7 @@ async function loadCustody() {
     : `safe in ${places} place${places > 1 ? "s" : ""}`;
   // deliberate two lines (counts, then safety) so nothing orphans at the 232px sidebar width
   const catalogPath = s.catalog_path
-    ? `<div class="k mono" title="Catalog file this app opened">${esc(s.catalog_path)}</div>`
+    ? `<div class="catalog-path mono" id="custody-catalog" data-full="${esc(s.catalog_path)}" title="${esc(s.catalog_path)}">${esc(s.catalog_path)}</div>`
     : "";
   // First-run (will_create) is calm info; empty_with_drives is the only alert-looking case.
   let catalogNote = "";
@@ -658,7 +697,9 @@ async function loadCustody() {
       : `<div class="${cls}">${esc(s.catalog_detail)}</div>`;
   }
   line.innerHTML = `<b>${s.files ? mediaCount(s) : "0 photos"}</b><br><span class="safe">${safe}</span>${catalogPath}${catalogNote}`;
+  refreshCatalogPathFit();
 }
+window.addEventListener("resize", debounce(refreshCatalogPathFit, 50));
 
 // ---------- folder picker ----------
 const pk = { input: null, kind: "source", path: "" };

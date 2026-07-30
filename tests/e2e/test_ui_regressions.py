@@ -266,6 +266,44 @@ def test_the_custody_strip_counts_places_not_wishes(ui: Page, tmp_path: Path, li
     expect(ui.locator("#custody-line")).to_contain_text("safe in 1 place")
 
 
+def test_catalog_path_stays_inside_custody_at_a_narrow_viewport(
+    ui: Page, app_server: AppServer
+) -> None:
+    """Absolute catalog path must not spill the custody strip (announce-path layout bug).
+
+    Middle-ellipsis keeps the start and the filename; the full path stays in ``title`` /
+    ``data-full`` so it remains unambiguous and copyable.
+    """
+    path = ui.locator("#custody-catalog")
+    expect(path).to_be_visible()
+    full = str(app_server.db.resolve())
+    expect(path).to_have_attribute("data-full", full)
+    expect(path).to_have_attribute("title", full)
+
+    ui.set_viewport_size({"width": 360, "height": 720})
+    ui.evaluate("() => window.dispatchEvent(new Event('resize'))")
+    expect(path).to_be_visible()
+    # Auto-waiting geometry check: painted box inside the strip, no horizontal overflow.
+    ui.wait_for_function(
+        """() => {
+          const path = document.getElementById('custody-catalog');
+          const strip = document.getElementById('custody');
+          if (!path || !strip) return false;
+          const p = path.getBoundingClientRect();
+          const s = strip.getBoundingClientRect();
+          return (
+            p.left >= s.left - 0.5
+            && p.right <= s.right + 0.5
+            && path.scrollWidth <= path.clientWidth + 1
+          );
+        }"""
+    )
+    # Selectable so a user can copy the unambiguous absolute path.
+    assert ui.evaluate(
+        "() => getComputedStyle(document.getElementById('custody-catalog')).userSelect"
+    ) in {"text", "auto", "all"}
+
+
 # --- a blank screen is never an acceptable answer to a failure -----------------------------
 
 

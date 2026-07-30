@@ -92,6 +92,9 @@ code,
   border-radius: var(--radius-md);
   background: var(--surface-sunken);
   border: var(--border-width) solid var(--border);
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 .custody .pips {
   font-family: var(--font-mono);
@@ -108,6 +111,8 @@ code,
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--text-secondary);
+  min-width: 0;
+  overflow: hidden;
 }
 .custody .line b {
   color: var(--text);
@@ -117,6 +122,18 @@ code,
   /* Safety status ("not backed up yet") -- use the stronger secondary tier, not muted, so it
      stays WCAG-AA legible in both themes. */
   color: var(--text-secondary);
+}
+/* Absolute catalog path: full string in title / selection; visually middle-ellipsized so the
+   sidebar never spills. Do not shorten the stored path - only the painted label. */
+.custody .catalog-path {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+  color: var(--text-muted);
 }
 
 /* ---------- main / screens ---------- */
@@ -631,6 +648,8 @@ details.more > summary::-webkit-details-marker {
   }
   .custody {
     margin: 0 0 0 auto;
+    max-width: min(232px, 100%);
+    min-width: 0;
   }
   .main {
     padding: var(--space-5) var(--space-4);
