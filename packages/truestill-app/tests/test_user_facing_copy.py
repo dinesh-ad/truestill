@@ -21,6 +21,7 @@ REPO = Path(__file__).resolve().parents[3]
 
 #: Surfaces whose text a user reads. Kept in step with `scripts/normalize_dashes.EXCLUDED`,
 #: which is the list of paths that script refuses to rewrite for this same reason.
+#: Every path here **must** resolve - a missing file is a broken guard, not a skip (audit F12).
 USER_FACING: tuple[Path, ...] = (
     REPO / "packages/truestill-app/src/truestill_app/static/app.js",
     REPO / "packages/truestill-app/src/truestill_app/templates/index.html",
@@ -29,17 +30,32 @@ USER_FACING: tuple[Path, ...] = (
     REPO / "SECURITY.md",
 )
 
+#: Paths that may be absent without disarming the suite. Empty on purpose today: nothing in
+#: USER_FACING is optional, and a future optional surface must be named here explicitly.
+OPTIONAL_USER_FACING: tuple[Path, ...] = ()
+
 #: ``word- word``: a hyphen glued to the preceding word with a space only after it. Real prose
 #: never does this - it is either a compound (``year-first``, no spaces) or a parenthetical dash
 #: (`` - ``, spaces both sides). Anything in between is a mangled dash.
 MALFORMED = re.compile(r"[0-9A-Za-z]- [0-9A-Za-z]")
 
 
+def test_user_facing_paths_resolve() -> None:
+    """Relocating a USER_FACING file must fail the suite, not skip the guard (audit F12)."""
+    missing = [str(path.relative_to(REPO)) for path in USER_FACING if not path.exists()]
+    assert not missing, "USER_FACING path(s) missing - guard would be silent:\n" + "\n".join(
+        missing
+    )
+
+
 @pytest.mark.parametrize("path", USER_FACING, ids=lambda p: p.name)
 def test_user_facing_copy_has_no_mangled_dash(path: Path) -> None:
     """No shipped string may contain ``word- word``."""
-    if not path.exists():  # SECURITY.md and friends are allowed to not exist yet
-        pytest.skip(f"{path.name} not present")
+    if path in OPTIONAL_USER_FACING and not path.exists():
+        pytest.skip(f"{path.name} not present (optional)")
+    assert path.exists(), (
+        f"{path.relative_to(REPO)} must exist - see test_user_facing_paths_resolve"
+    )
 
     offenders = [
         f"{path.relative_to(REPO)}:{n}: {line.strip()}"
@@ -112,8 +128,9 @@ _USER_FACING_TEXT = tuple(
 
 @pytest.mark.parametrize("path", _USER_FACING_TEXT, ids=lambda p: p.name)
 def test_user_facing_copy_avoids_banned_jargon(path: Path) -> None:
-    if not path.exists():
-        pytest.skip(f"{path.name} not present")
+    assert path.exists(), (
+        f"{path.relative_to(REPO)} must exist - relocating it must fail this guard"
+    )
     text = path.read_text(encoding="utf-8")
     offenders = [phrase for phrase in _BANNED_USER_PHRASES if phrase in text]
     assert not offenders, (
@@ -122,8 +139,8 @@ def test_user_facing_copy_avoids_banned_jargon(path: Path) -> None:
 
 
 def test_user_facing_copy_allowlist_documents_kept_terms() -> None:
-    combined = "\n".join(
-        path.read_text(encoding="utf-8") for path in _USER_FACING_TEXT if path.exists()
-    ).lower()
+    missing = [str(path.relative_to(REPO)) for path in _USER_FACING_TEXT if not path.exists()]
+    assert not missing, "allowlist inputs missing:\n" + "\n".join(missing)
+    combined = "\n".join(path.read_text(encoding="utf-8") for path in _USER_FACING_TEXT).lower()
     for allowed in _ALLOWED_USER_TERMS:
         assert allowed.lower() in combined
