@@ -1172,3 +1172,108 @@ def test_migrate_both_directions_in_one_reconcile_pass(tmp_path: Path) -> None:
     assert plan.day_folder_reasons[1].startswith(under_day)
     assert "at or under your threshold" in plan.day_folder_reasons[1]
     assert f"{under_n} photos" in plan.day_folder_reasons[1]
+
+
+def test_hermetic_41_unevented_plans_day_bucket_with_named_reason(tmp_path: Path) -> None:
+    """Exactly one over the default (41): month Everyday → day folder + reason naming 41 and 40.
+
+    Mutation: commenting out the ``heavy_day`` render flag (always Everyday) fails this test
+    (paths stay monthly, reasons empty). Confirmed fail-then-restore 2026-07-30.
+    """
+    root = tmp_path / "drive"
+    day = "2014-08-21"
+    n = 41
+    assert n == DEFAULT_EVERYDAY_DAY_THRESHOLD + 1
+    rows = [
+        (
+            f"2014/2014-08/2014-08 - Everyday/img_{i:03d}.jpg",
+            "Camera",
+            f"{day}T10:{i % 60:02d}:00",
+            f"h41-{i}".encode(),
+        )
+        for i in range(n)
+    ]
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        catalog.upsert_drive(uuid="D1", label="Drive A")
+        _seed(catalog, root, "D1", rows)
+        plan = plan_migration(catalog, "D1", DEFAULT_SCHEME, routes={"Camera": ROUTE_TIMELINE})
+    assert len(plan.moves) == n
+    assert all(f"{day} - Everyday" in m.new_relative for m in plan.moves)
+    assert plan.day_folder_reasons == (
+        (
+            f"{day} now has 41 photos, over your threshold of {DEFAULT_EVERYDAY_DAY_THRESHOLD} "
+            "- moving to its own day folder"
+        ),
+    )
+
+
+def test_hermetic_39_unevented_plans_monthly_everyday(tmp_path: Path) -> None:
+    """Exactly one under the default (39): day Everyday → monthly bucket + reverse reason.
+
+    Mutation: flipping ``heavy_capture_days`` from ``n > limit`` to ``n >= limit`` would leave
+    a day of 40 in DAY_BUCKET; at 39 this still coalesces, but treating every positive count as
+    heavy (``n > 0``) leaves these in the day folder with no reason. Confirmed fail-then-restore
+    2026-07-30 by forcing ``heavy_day = True`` in migrate render and watching this fail.
+    """
+    root = tmp_path / "drive"
+    day = "2014-08-22"
+    n = 39
+    assert n == DEFAULT_EVERYDAY_DAY_THRESHOLD - 1
+    rows = [
+        (
+            f"2014/2014-08/{day} - Everyday/img_{i:03d}.jpg",
+            "Camera",
+            f"{day}T11:{i % 60:02d}:00",
+            f"h39-{i}".encode(),
+        )
+        for i in range(n)
+    ]
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        catalog.upsert_drive(uuid="D1", label="Drive A")
+        _seed(catalog, root, "D1", rows)
+        plan = plan_migration(catalog, "D1", DEFAULT_SCHEME, routes={"Camera": ROUTE_TIMELINE})
+    assert len(plan.moves) == n
+    assert all("2014-08 - Everyday" in m.new_relative for m in plan.moves)
+    assert all(f"{day} - Everyday" not in m.new_relative for m in plan.moves)
+    assert plan.day_folder_reasons == (
+        (
+            f"{day} now has 39 photos, at or under your threshold of "
+            f"{DEFAULT_EVERYDAY_DAY_THRESHOLD} - moving back into the monthly Everyday folder"
+        ),
+    )
+
+
+def test_hermetic_trip_claimed_100_is_trip_day_not_day_bucket(tmp_path: Path) -> None:
+    """100 photos on a trip-claimed day → TRIP_DAY regardless of threshold; no day-folder reason.
+
+    Mutation: skipping ``_confirmed_trip`` sends these to ``DAY_BUCKET`` with an Everyday
+    reason. Confirmed fail-then-restore 2026-07-30.
+    """
+    root = tmp_path / "drive"
+    day = "2014-08-23"
+    n = 100
+    rows = [
+        (
+            f"2014/2014-08/2014-08 - Everyday/img_{i:03d}.jpg",
+            "Camera",
+            f"{day}T12:{i % 60:02d}:00",
+            f"trip100-{i}".encode(),
+        )
+        for i in range(n)
+    ]
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        catalog.upsert_drive(uuid="D1", label="Drive A")
+        _seed(catalog, root, "D1", rows)
+        _confirmed_trip(
+            catalog,
+            name="Wayanad",
+            slug="wayanad",
+            start_date=day,
+            end_date=day,
+            days=[day],
+        )
+        plan = plan_migration(catalog, "D1", DEFAULT_SCHEME, routes={"Camera": ROUTE_TIMELINE})
+    assert len(plan.moves) == n
+    assert all("Wayanad" in m.new_relative for m in plan.moves)
+    assert all(f"{day} - Everyday" not in m.new_relative for m in plan.moves)
+    assert plan.day_folder_reasons == ()
