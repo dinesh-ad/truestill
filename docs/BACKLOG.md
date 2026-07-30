@@ -18,7 +18,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(vv). Next free: (ww).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(xx). Next free: (yy).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -206,8 +206,38 @@ is invisible here is retired, not free.**
   Failed hints are **cleared** (not ignored) so Backups does not re-stat a dead mount every
   load; Check now / open-folder only appear for live paths. Verify soft-fails the same way
   migration already did. Identity remains the marker uuid.
-  - **Still open (portability, later):** absolute `files.source_path`, `inplace_runs` roots,
-    `reclaim_journal`, and hash-cache path keys - loud failures first, rewrite later.
+  - Remaining absolute-path / hash-cache portability is **(xx)**, not a re-open of this item.
+
+- **(xx) Absolute-path columns and hash-cache keys are not machine-portable.** Ruled by
+  Dinesh from the 2026-07-30 move audit. **Record only - do not fix in the loud-failure
+  series.** Commits 1-3 (**(ww)** path hints, catalog startup announcement, reclaim/undo
+  staleness) made a machine move **survivable by failing loudly**; the remaining work is
+  **portability**, not safety. User procedure:
+  [`docs/moving-machines.md`](moving-machines.md).
+  - **`files.source_path`** - absolute. Used by reclaim and by display labels (`where`,
+    near-dup "matched" paths). After a move the recorded sources are gone; reclaim reports
+    the missing count rather than a silent empty plan. A future rewrite (relative-to-drive,
+    or clear-on-reclaim-only) is product design, not a hotfix.
+  - **`inplace_runs.source_root` / `dest_root`** - absolute. Undo refuses unreachable stored
+    roots and points at `--source-root` / `--dest-root`. Making the journal remount-native
+    (uuid + relatives only) is later work; the overrides already exist.
+  - **`reclaim_journal.source_path`** - absolute. Crash/audit resume only; stale after a
+    move. Low urgency once reclaim no longer pretends mid-flight old paths are live.
+  - **Hash-cache non-portability** (`catalog.cache.sqlite`, keyed by absolute path + size +
+    `mtime_ns`, plus a tag-set fingerprint for metadata). Machine-local and disposable by
+    design (`IMPLEMENTATION_STANDARDS.md` §8). Copying the sidecar to a new machine does
+    **not** preserve the ~170× warm metadata win; first preview is cold.
+
+    | | Absolute keys (today) | Drive-relative (`uuid` + relative) |
+    |---|---|---|
+    | Survives remount with preserved mtimes | No | Yes for **organized drive copies** |
+    | Helps arbitrary unmarked `--source` trees | Yes (path-scoped) | No |
+    | Cross-machine copy that resets mtime | Miss anyway | Miss anyway |
+    | Wrong-file collision risk | Lower | Higher if relative reused / wrong root |
+    | Matches custody model | Intentionally **not** in the catalog | Closer to custody, couples cache to "is this a drive?" |
+
+    Prefer leaving the cache disposable over a half-portable key until a concrete trigger
+    (measured remount pain that loud failures do not cover) appears.
   - **Not fixed here, on purpose** - recorded only, per instruction.
 
 - **(tt) No fast, no-hashing inventory - progressive disclosure is missing.** Ruled by Dinesh

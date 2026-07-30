@@ -226,7 +226,8 @@ stale path raises raw `PermissionError` from `Path.exists` inside `locate_drive`
 "drive moved; browse to the new root" correction. Drive cards that still hold a stale
 hint offer "Check now" / open-in-file-manager against the dead path. **Fixed 2026-07-30**
 (`path_is_usable_dir`, soft-fail corrections, clear failed hints). See backlog **(ww)**.
-Portability of absolute `files.source_path` / inplace roots remains open.
+Portability of absolute `files.source_path` / inplace roots remains open
+(backlog **(xx)**); the user move procedure is [`docs/moving-machines.md`](moving-machines.md).
 
 ### 2.2 CLOSED: the tab-tour findings - **the trip arc completed end to end (13.0-13.4, `db5e517`)**
 
