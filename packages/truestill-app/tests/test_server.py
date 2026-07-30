@@ -93,6 +93,7 @@ def test_drives_and_where_empty(client: TestClient) -> None:
     drives = client.get(f"/api/drives?token={_TOKEN}").json()
     assert drives == {"drives": [], "at_risk": []}
     where = client.get(f"/api/where?token={_TOKEN}&term=x").json()
+    assert set(where) == {"copies", "total", "page", "pages", "page_size"}
     assert where["copies"] == []
     assert where["total"] == 0
     assert where["pages"] == 1  # an empty result is still "page 1 of 1", never "of 0"
@@ -150,6 +151,30 @@ def test_library_stats_reports_custody_and_shape(client: TestClient, tmp_path: P
         catalog.set_drive_verified("A", "2026-07-30T10:00:00")
 
     body = client.get(f"/api/library/stats?token={_TOKEN}").json()
+    assert set(body) == {"safety", "completeness", "shape", "complexity"}
+    assert set(body["safety"]) == {
+        "total_files",
+        "total_size",
+        "photos",
+        "videos",
+        "audio",
+        "files_on_two_plus_drives",
+        "files_on_one_drive",
+        "files_on_zero_drives",
+        "zero_drive_samples",
+        "never_verified_files",
+        "drives",
+    }
+    assert set(body["completeness"]) == {
+        "undated_files",
+        "undated_samples",
+        "timeline_files",
+        "side_bin_files",
+        "near_duplicates_flagged",
+        "exact_duplicates_found",
+        "exact_duplicates_omission_reason",
+    }
+    assert set(body["shape"]) == {"by_year", "by_format", "oldest_capture", "newest_capture"}
     assert body["safety"]["photos"] == 2
     assert body["safety"]["videos"] == 1
     assert body["safety"]["total_size"] == 600
@@ -449,6 +474,8 @@ def test_find_pages_results_and_reports_the_total(client: TestClient, tmp_path: 
 
     first = client.get(f"/api/where?token={_TOKEN}&term=holiday").json()
 
+    assert set(first) == {"copies", "total", "page", "pages", "page_size"}
+    assert set(first["copies"][0]) == {"name", "drive", "relative", "last_verified"}
     assert first["total"] == 120
     assert first["page"] == 1
     assert first["pages"] == 3  # 120 over a page size of 50

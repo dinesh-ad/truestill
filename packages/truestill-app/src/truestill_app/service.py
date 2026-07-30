@@ -361,7 +361,16 @@ def _gb(n: int) -> str:
     return f"{n / _GB:.1f} GB" if n >= _GB else f"{n / _MB:.0f} MB"
 
 
-def _media_breakdown(names: Any) -> dict[str, Any]:
+class MediaBreakdown(TypedDict):
+    """Photo / video / audio counts plus per-extension tallies (shared by status, drives, backup)."""
+
+    photos: int
+    videos: int
+    audio: int
+    by_format: dict[str, dict[str, int]]
+
+
+def _media_breakdown(names: Any) -> MediaBreakdown:
     """Split a set of file names into photos / videos / audio counts and per-extension formats."""
     plural = {"photo": "photos", "video": "videos", "audio": "audio"}
     counts = {"photos": 0, "videos": 0, "audio": 0}
@@ -373,7 +382,12 @@ def _media_breakdown(names: Any) -> dict[str, Any]:
         group = plural[kind]
         counts[group] += 1
         fmt[group][Path(name).suffix.lower().lstrip(".")] += 1
-    return {**counts, "by_format": {g: dict(c.most_common()) for g, c in fmt.items()}}
+    return {
+        "photos": counts["photos"],
+        "videos": counts["videos"],
+        "audio": counts["audio"],
+        "by_format": {g: dict(c.most_common()) for g, c in fmt.items()},
+    }
 
 
 def _summarize(resolutions: list[Resolution]) -> dict[str, Any]:
@@ -428,7 +442,20 @@ def _skipped_summary(scan: SourceScan) -> dict[str, dict[str, int]]:
     }
 
 
-def organize_inventory(source: Path) -> dict[str, Any]:
+class OrganizeInventory(TypedDict):
+    """Cheap walk+size tier before a full dedup preview (backlog tt)."""
+
+    tier: Literal["inventory"]
+    files: int
+    photos: int
+    videos: int
+    audio: int
+    by_format: dict[str, dict[str, int]]
+    total_bytes: int
+    skipped: dict[str, dict[str, int]]
+
+
+def organize_inventory(source: Path) -> OrganizeInventory:
     """Walk + size only - the (tt) progressive-disclosure tier before a full dedup preview.
 
     Returns immediately after ``inventory_source``: no exiftool, no hashing. Complexity O(n).
@@ -865,7 +892,29 @@ def _cleanup_summary_from_old_paths(
     }
 
 
-def clean_empty_preview(path: Path, emptied: list[str]) -> dict[str, Any]:
+class CleanEmptyOccupied(TypedDict):
+    relative: str
+    contents: list[str]
+
+
+class CleanEmptyPreview(TypedDict):
+    ok: Literal[True]
+    path: str
+    backend: str | None
+    removable: list[str]
+    occupied: list[CleanEmptyOccupied]
+
+
+class CleanEmptyApply(TypedDict):
+    ok: Literal[True]
+    path: str
+    removed: int
+    trashed: int
+    deleted: int
+    failures: list[str]
+
+
+def clean_empty_preview(path: Path, emptied: list[str]) -> CleanEmptyPreview:
     plan = plan_cleanup(path, emptied)
     backend = trash_backend()
     return {
@@ -880,7 +929,7 @@ def clean_empty_preview(path: Path, emptied: list[str]) -> dict[str, Any]:
     }
 
 
-def clean_empty_apply(path: Path, emptied: list[str]) -> dict[str, Any]:
+def clean_empty_apply(path: Path, emptied: list[str]) -> CleanEmptyApply:
     plan = plan_cleanup(path, emptied)
     backend = trash_backend()
     outcome = run_cleanup(path, plan, apply=True, backend=backend, permanent=False)
@@ -1010,12 +1059,45 @@ def verify_run(path: Path, db: Path) -> JobTarget | DriveUnavailablePayload:
     return target
 
 
-def list_drives(db: Path) -> list[dict[str, Any]]:
+class DriveRow(TypedDict):
+    label: str
+    uuid: str
+    files: int
+    photos: int
+    videos: int
+    audio: int
+    size: int
+    last_seen: str | None
+    last_verified: str | None
+    path: str | None
+
+
+class WhereCopy(TypedDict):
+    name: str
+    drive: str
+    relative: str
+    last_verified: str | None
+
+
+class WhereResult(TypedDict):
+    copies: list[WhereCopy]
+    total: int
+    page: int
+    pages: int
+    page_size: int
+
+
+class AtRiskRow(TypedDict):
+    name: str
+    drive: str
+
+
+def list_drives(db: Path) -> list[DriveRow]:
     with Catalog(db) as catalog:
         names_by_drive: dict[str, list[str]] = {}
         for row in catalog.copy_names_by_drive():
             names_by_drive.setdefault(row["drive_uuid"], []).append(row["relative"])
-        drives = []
+        drives: list[DriveRow] = []
         for d in catalog.list_drives():
             breakdown = _media_breakdown(names_by_drive.get(d["uuid"], []))
             # Live hint only. A dead path is cleared here so the next screen load does not
@@ -1042,7 +1124,7 @@ def list_drives(db: Path) -> list[dict[str, Any]]:
         return drives
 
 
-def where(term: str, db: Path, *, page: int = 1) -> dict[str, Any]:
+def where(term: str, db: Path, *, page: int = 1) -> WhereResult:
     """One page of search results, plus what the caller needs to render a pager.
 
     Paged in SQL (`Catalog.find_copies`), so a page costs a page of rows however large the
@@ -1054,7 +1136,7 @@ def where(term: str, db: Path, *, page: int = 1) -> dict[str, Any]:
     with Catalog(db) as catalog:
         total = catalog.count_copies(term)
         rows = catalog.find_copies(term, limit=size, offset=(page - 1) * size)
-        copies = [
+        copies: list[WhereCopy] = [
             {
                 "name": r["original_name"] or r["relative"],
                 "drive": r["drive_label"],
@@ -1072,7 +1154,7 @@ def where(term: str, db: Path, *, page: int = 1) -> dict[str, Any]:
     }
 
 
-def at_risk(db: Path) -> list[dict[str, Any]]:
+def at_risk(db: Path) -> list[AtRiskRow]:
     with Catalog(db) as catalog:
         return [
             {"name": r["original_name"] or r["sha256"][:12], "drive": r["drive_label"]}
@@ -1110,7 +1192,63 @@ def _format_counts(catalog: Catalog) -> dict[str, int]:
     return {str(row["ext"]): int(row["count"]) for row in rows}
 
 
-def library_stats(db: Path) -> dict[str, Any]:
+class LibraryStatsDrive(TypedDict):
+    label: str
+    files: int
+    size: int
+    last_verified: str | None
+
+
+class LibraryStatsSafety(TypedDict):
+    total_files: int
+    total_size: int
+    photos: int
+    videos: int
+    audio: int
+    files_on_two_plus_drives: int
+    files_on_one_drive: int
+    files_on_zero_drives: int
+    zero_drive_samples: list[str]
+    never_verified_files: int
+    drives: list[LibraryStatsDrive]
+
+
+class LibraryStatsUndatedSample(TypedDict):
+    name: str
+    source_path: str
+    relative: str
+
+
+class LibraryStatsCompleteness(TypedDict):
+    undated_files: int
+    undated_samples: list[LibraryStatsUndatedSample]
+    timeline_files: int
+    side_bin_files: int
+    near_duplicates_flagged: int
+    exact_duplicates_found: None
+    exact_duplicates_omission_reason: str
+
+
+class LibraryStatsYear(TypedDict):
+    year: str
+    count: int
+
+
+class LibraryStatsShape(TypedDict):
+    by_year: list[LibraryStatsYear]
+    by_format: dict[str, int]
+    oldest_capture: str | None
+    newest_capture: str | None
+
+
+class LibraryStats(TypedDict):
+    safety: LibraryStatsSafety
+    completeness: LibraryStatsCompleteness
+    shape: LibraryStatsShape
+    complexity: str
+
+
+def library_stats(db: Path) -> LibraryStats:
     """Custody-first library stats from catalog-only aggregates.
 
     Complexity: O(n) aggregate scans over ``files``/``file_copies`` plus grouped rollups for
@@ -1576,7 +1714,26 @@ def fs_validate(path_str: str, *, cap: int = 10000) -> FsValidateResolved | FsVa
 # --- library custody status (the sidebar's always-true status line) -------------------
 
 
-def library_status(db: Path, *, explicit_db: bool = False) -> dict[str, Any]:
+class LibraryStatus(TypedDict):
+    """Honest, catalog-driven totals for the custody strip."""
+
+    library_path: str | None
+    backup_path: str | None
+    files: int
+    photos: int
+    videos: int
+    audio: int
+    by_format: dict[str, dict[str, int]]
+    places: int
+    single_copy: int
+    bytes: int
+    catalog_path: str
+    catalog_presence: str
+    catalog_detail: str
+    catalog_tone: Literal["info", "notice", "alert"]
+
+
+def library_status(db: Path, *, explicit_db: bool = False) -> LibraryStatus:
     """Honest, catalog-driven totals for the custody strip.
 
     Always names the resolved absolute catalog path. A missing file is first-run (info), not
@@ -1854,7 +2011,31 @@ def _files_missing_on_target(catalog: Catalog, source_uuid: str, target_uuid: st
     return [r for r in catalog.copies_on_drive(source_uuid) if r["sha256"] not in on_target]
 
 
-def backup_preview(source: Path, target: Path, db: Path) -> dict[str, Any]:
+class BackupPreviewErr(TypedDict):
+    ok: Literal[False]
+    error: str
+
+
+# ``from`` is a reserved word; functional form keeps the JSON key exact.
+BackupPreviewOk = TypedDict(
+    "BackupPreviewOk",
+    {
+        "ok": Literal[True],
+        "from": str,
+        "to": str,
+        "will_register": list[str],
+        "count": int,
+        "photos": int,
+        "videos": int,
+        "audio": int,
+        "bytes": int,
+        "free": int,
+        "enough": bool,
+    },
+)
+
+
+def backup_preview(source: Path, target: Path, db: Path) -> BackupPreviewOk | BackupPreviewErr:
     """Preview copying the library from one connected drive to another (writes nothing).
 
     Reports how many files (and bytes) are missing on the target, and whether the target has room

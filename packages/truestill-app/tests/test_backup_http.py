@@ -52,6 +52,19 @@ def test_backup_copies_library_and_records_per_drive(client: TestClient, tmp_pat
     create_marker(b, "DriveB")
 
     preview = client.post("/api/backup/preview", json={"source": str(a), "target": str(b)}).json()
+    assert set(preview) == {
+        "ok",
+        "from",
+        "to",
+        "will_register",
+        "count",
+        "photos",
+        "videos",
+        "audio",
+        "bytes",
+        "free",
+        "enough",
+    }
     assert preview["ok"] is True
     assert preview["count"] == 4
     assert preview["enough"] is True
@@ -80,6 +93,7 @@ def test_backup_rejects_the_same_folder_twice(client: TestClient, tmp_path: Path
     _library_on(client, a, 2)
 
     same = client.post("/api/backup/preview", json={"source": str(a), "target": str(a)}).json()
+    assert set(same) == {"ok", "error"}
     assert same["ok"] is False
     assert "same folder" in same["error"]
 

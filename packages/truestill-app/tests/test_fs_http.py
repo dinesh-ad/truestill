@@ -20,6 +20,22 @@ def client(tmp_path: Path) -> TestClient:
 
 def test_library_status_is_honest_when_empty(client: TestClient) -> None:
     s = client.get("/api/library/status").json()
+    assert set(s) == {
+        "library_path",
+        "backup_path",
+        "files",
+        "photos",
+        "videos",
+        "audio",
+        "by_format",
+        "places",
+        "single_copy",
+        "bytes",
+        "catalog_path",
+        "catalog_presence",
+        "catalog_detail",
+        "catalog_tone",
+    }
     assert s["photos"] == 0
     assert s["videos"] == 0
     assert s["places"] == 0  # honest zero -> "not backed up yet", never a fake count
@@ -76,10 +92,25 @@ def test_library_status_splits_photos_and_videos(client: TestClient, tmp_path: P
 
 def test_drives_split_photos_and_videos(client: TestClient, tmp_path: Path) -> None:
     _seed_media(tmp_path / "c.sqlite")
-    drives = client.get("/api/drives").json()["drives"]
+    payload = client.get("/api/drives").json()
+    assert set(payload) == {"drives", "at_risk"}
+    drives = payload["drives"]
     assert len(drives) == 1
+    assert set(drives[0]) == {
+        "label",
+        "uuid",
+        "files",
+        "photos",
+        "videos",
+        "audio",
+        "size",
+        "last_seen",
+        "last_verified",
+        "path",
+    }
     assert drives[0]["photos"] == 2
     assert drives[0]["videos"] == 1
+    assert set(payload["at_risk"][0]) == {"name", "drive"}
 
 
 def test_fs_dirs_returns_roots_when_no_path(client: TestClient) -> None:
@@ -151,3 +182,26 @@ def test_fs_create_makes_a_new_backup_folder(client: TestClient, tmp_path: Path)
     assert r["is_dir"] is True
     assert r["writable"] is True
     assert target.is_dir()
+
+
+def test_clean_empty_preview_and_apply_key_sets(client: TestClient, tmp_path: Path) -> None:
+    """Empty-folder cleanup JSON shape for the post-move offer (shared with completion cards)."""
+    root = tmp_path / "drive"
+    (root / "Camera" / "2013" / "09").mkdir(parents=True)
+    emptied = ["Camera/2013/09", "Camera/2013", "Camera"]
+
+    preview = client.post(
+        "/api/clean-empty/preview", json={"path": str(root), "emptied": emptied}
+    ).json()
+    assert set(preview) == {"ok", "path", "backend", "removable", "occupied"}
+    assert preview["ok"] is True
+    assert "Camera/2013/09" in preview["removable"]
+
+    applied = client.post(
+        "/api/clean-empty/apply", json={"path": str(root), "emptied": emptied}
+    ).json()
+    assert set(applied) == {"ok", "path", "removed", "trashed", "deleted", "failures"}
+    assert applied["ok"] is True
+    # Removal may trash, delete, or fail (gio trash often refuses under /tmp); key set is the pin.
+    assert isinstance(applied["removed"], int)
+    assert isinstance(applied["failures"], list)

@@ -452,6 +452,10 @@ is invisible here is retired, not free.**
   - **Slice 2 - Built 2026-07-30:** organize mode, sidebar, filesystem-relationship leaves.
   - **Slice 3 - Built 2026-07-30:** reveal + `fs_dirs` / `fs_create` / `fs_validate` (optional
     keys preserved, including the resolve-failure shape without `is_drive`).
+  - **Slice 4 - Built 2026-07-30:** sync leaves - `organize_inventory`, `clean_empty_*`, `where`,
+    `library_stats`, `library_status`, `backup_preview`, plus `list_drives` / `at_risk` element
+    types. Shared `MediaBreakdown` helper typed; `_completion` / job summaries deferred (fan-out
+    report before typing).
 - **(aab) Split `dates.py`.** **Built 2026-07-30.** Video ladder + offset grid + `LadderHit`
   moved to `video_utc.py`; inferred-local ``date_tag`` / ``format_offset`` to cycle-free
   `date_provenance.py`. `models._format_offset_hhmm` / `_parse_offset_hhmm` deleted - both

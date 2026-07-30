@@ -72,6 +72,16 @@ def test_inventory_does_not_call_exiftool_or_hashing(
     monkeypatch.setattr("truestill_app.service.resolve", boom_compute)
 
     result = organize_inventory(tmp_path)
+    assert set(result) == {
+        "tier",
+        "files",
+        "photos",
+        "videos",
+        "audio",
+        "by_format",
+        "total_bytes",
+        "skipped",
+    }
     assert result["tier"] == "inventory"
     assert result["files"] == 2
     assert result["photos"] == 2
