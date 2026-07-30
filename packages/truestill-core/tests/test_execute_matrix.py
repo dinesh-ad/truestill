@@ -164,18 +164,10 @@ GOLDEN_CANCEL_FILES = (
 GOLDEN_BAKE_RESULTS = (("uploaded", "Camera/2019/04/IMG_0000.jpg", "", "IMG_0000.jpg"),)
 GOLDEN_BAKE_TREE = ("Camera/2019/04/IMG_0000.jpg",)
 GOLDEN_BAKE_SOURCE_SHA = "f1a60c672fe3e9fe8841ebfcf020a6298bc0156f6ca11662b28ef87776a73312"
-GOLDEN_BAKE_COPY_SHA = "2f6c4c69e5a5c3cc05d6c058c26c3bd512e47e912a6b4c57b7bb827af8f58fdc"
-GOLDEN_BAKE_FILES = (
-    (
-        "IMG_0000.jpg",
-        GOLDEN_BAKE_SOURCE_SHA,
-        GOLDEN_BAKE_COPY_SHA,
-        "Camera/2019/04/IMG_0000.jpg",
-        "uploaded",
-        "Camera",
-    ),
-)
 GOLDEN_BAKE_DTO = "2019:04:03 08:15:00"
+# copy_sha256 is deliberately not goldened: exiftool embeds `XMPToolkit: Image::ExifTool
+# <version>` in the baked JPEG, so the copy hash is tool-version-bound and not reproducible
+# across machines. The assertions below check the invariants that actually matter.
 
 
 def _resolution(
@@ -417,7 +409,11 @@ def test_matrix_cancel_mid_run(tmp_path: Path) -> None:
 
 @pytest.mark.skipif(shutil.which("exiftool") is None, reason="exiftool not installed")
 def test_matrix_takeout_bake(tmp_path: Path) -> None:
-    """Already covered; pin UPLOADED + baked DTO + copy_sha256 != source sha256."""
+    """Bake changes bytes and records both hashes; DTO lands; outcome stays UPLOADED.
+
+    Do not pin ``copy_sha256``: the baked JPEG embeds the running exiftool version, so a
+    literal golden only holds on machines that share that version.
+    """
     src = tmp_path / "src"
     src.mkdir()
     photo = src / "IMG_0000.jpg"
@@ -448,8 +444,20 @@ def test_matrix_takeout_bake(tmp_path: Path) -> None:
         results = execute([rp], LocalDestination(out), catalog, apply=True, ingest=ingest)
         assert _snap_results(results) == GOLDEN_BAKE_RESULTS
         assert _snap_tree(out) == GOLDEN_BAKE_TREE
-        assert _snap_files(catalog) == GOLDEN_BAKE_FILES
         copies = list(out.rglob("*.jpg"))
         assert len(copies) == 1
+        copy_sha = sha256_file(copies[0])
+        # Bake must change bytes (otherwise copy_sha256 is pointless) and the catalog must
+        # record both the stable source sha and this run's copy sha.
+        assert copy_sha != GOLDEN_BAKE_SOURCE_SHA
+        assert _snap_files(catalog) == (
+            (
+                "IMG_0000.jpg",
+                GOLDEN_BAKE_SOURCE_SHA,
+                copy_sha,
+                "Camera/2019/04/IMG_0000.jpg",
+                "uploaded",
+                "Camera",
+            ),
+        )
         assert read_metadata(copies)[copies[0]]["DateTimeOriginal"] == GOLDEN_BAKE_DTO
-        assert GOLDEN_BAKE_SOURCE_SHA != GOLDEN_BAKE_COPY_SHA
