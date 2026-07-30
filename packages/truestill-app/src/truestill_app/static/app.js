@@ -99,6 +99,78 @@ function awaitJob(jobId, onProgress) {
   });
 }
 
+/**
+ * Shared job-run skeleton for every awaitJob call site.
+ *
+ * Owns: withBusy (optional), soft-refuse, progress start/stop, job-id handle, optional
+ * #undo-card parking, awaitJob, and the cancelled / error / success dispatch.
+ * Callers own: refuse HTML, cancelled/success/error copy, and post-terminal side effects.
+ *
+ * Cancel arrives as ok:true — the cancelled branch here is what keeps all thirteen sites
+ * honest after a stop (F38 B). Deliberate differences are parameters, not forks of this body.
+ */
+async function runJob({
+  button = null,
+  busyLabel = null,
+  setStatus: outerSetStatus = null,
+  start,
+  setJob,
+  progress,
+  progressLabel,
+  progressBeforeStart = false,
+  parkUndoCardIn = null,
+  onRefuse,
+  abortStart = null,
+  statusVerb = null,
+  unit = "files",
+  statusForProgress = null,
+  onCancelled,
+  onSuccess,
+  onError,
+  beforeOutcome = null,
+  after = null,
+}) {
+  const work = async ({ setStatus }) => {
+    if (progressBeforeStart) progress.start(progressLabel);
+    const started = await start();
+    if (started && started.ok === false) {
+      if (progressBeforeStart) progress.stop();
+      onRefuse(started);
+      return;
+    }
+    if (abortStart && await abortStart(started)) {
+      if (progressBeforeStart) progress.stop();
+      return;
+    }
+    setJob(started.job_id);
+    const stage = typeof parkUndoCardIn === "function" ? parkUndoCardIn() : parkUndoCardIn;
+    if (stage) {
+      stage.innerHTML = "";
+      stage.appendChild($("undo-card"));
+    }
+    if (!progressBeforeStart) progress.start(progressLabel);
+    const d = await awaitJob(started.job_id, (p) => {
+      progress.update(p);
+      if (statusForProgress) statusForProgress(p, setStatus);
+      else if (p.total && statusVerb) setStatus(scaleStatus(statusVerb, p.done, p.total, unit));
+    });
+    progress.stop();
+    setJob(null);
+    if (stage) {
+      document.body.appendChild($("undo-card"));
+      $("undo-card").classList.add("hidden");
+    }
+    if (beforeOutcome) await beforeOutcome(d);
+    // Central cancelled branch: one fix reaches all thirteen (mutation target for F38 commit 2).
+    if (!d.ok) await onError(d);
+    else if (d.status === "cancelled") await onCancelled(d);
+    else await onSuccess(d);
+    if (after) await after(d);
+  };
+  if (button) return withBusy(button, busyLabel, work);
+  return work({ setStatus: outerSetStatus || (() => {}) });
+}
+
 // Known failures worth answering with a next step rather than an apology. Matched on an
 // exception name from the server, never on message text, which would break the moment
 // anyone reworded it.
@@ -592,98 +664,91 @@ async function refreshUndoAffordance(path, panel) {
 
 async function startUndoPreview(path, panel) {
   const previewBtn = panel.querySelector("[data-undo-preview]");
-  await withBusy(previewBtn, "Checking undo…", async ({ setStatus }) => {
-    const started = await api("/api/migrate/undo/preview", { path });
-    if (started.ok === false) {
+  await runJob({
+    button: previewBtn,
+    busyLabel: "Checking undo…",
+    start: () => api("/api/migrate/undo/preview", { path }),
+    setJob: (id) => { undoJob = id; },
+    progress: undoProgress,
+    progressLabel: "restoring",
+    parkUndoCardIn: () => {
+      let stage = panel.querySelector("[data-undo-stage]");
+      if (!stage) {
+        panel.innerHTML = undoArmedHtml({ file_count: 0 }, path);
+        stage = panel.querySelector("[data-undo-stage]");
+      }
+      return stage;
+    },
+    onRefuse: (started) => {
       panel.innerHTML = startRefusedCard(started, panel.id === "mig-undo-panel" ? "mig-path" : "ev-source");
-      return;
-    }
-    undoJob = started.job_id;
-    // Park the shared progress block inside this panel so it is visible on the active screen.
-    let stage = panel.querySelector("[data-undo-stage]");
-    if (!stage) {
-      panel.innerHTML = undoArmedHtml(
-        { file_count: 0 }, path
-      ); // keep a stage host if the armed card was cleared mid-flight
-      stage = panel.querySelector("[data-undo-stage]");
-    }
-    stage.innerHTML = "";
-    stage.appendChild($("undo-card"));
-    undoProgress.start("restoring");
-    const d = await awaitJob(started.job_id, (p) => {
-      undoProgress.update(p);
-      if (p.total) setStatus(scaleStatus("Checking undo", p.done, p.total, "files"));
-    });
-    undoProgress.stop();
-    undoJob = null;
-    document.body.appendChild($("undo-card"));
-    $("undo-card").classList.add("hidden");
-    if (!d.ok) { stage.innerHTML = jobErrorCard(d); return; }
-    // Cancel arrives as ok:true — without this branch the typed-confirm success path opens.
-    if (d.status === "cancelled") {
-      stage.innerHTML = card(
+    },
+    statusVerb: "Checking undo",
+    onError: (d) => {
+      panel.querySelector("[data-undo-stage]").innerHTML = jobErrorCard(d);
+    },
+    onCancelled: (d) => {
+      panel.querySelector("[data-undo-stage]").innerHTML = card(
         `<div class="headline">Preview cancelled</div><div class="k">Nothing was changed. Preview again when you are ready.</div>`);
-      return;
-    }
-    const s = d.summary;
-    stage.innerHTML =
-      `<div class="headline">${plural(s.reversed_files, "file")} can be put back</div>
-       ${undoRefusalList(s.refused)}
-       <div data-typed-host></div>`;
-    typedConfirm(stage.querySelector("[data-typed-host]"), {
-      word: "undo",
-      label: `Type undo to put ${plural(s.reversed_files, "file")} back`,
-      buttonLabel: "Put them back",
-      onConfirm: () => startUndoApply(path, panel),
-    });
+    },
+    onSuccess: (d) => {
+      const stage = panel.querySelector("[data-undo-stage]");
+      const s = d.summary;
+      stage.innerHTML =
+        `<div class="headline">${plural(s.reversed_files, "file")} can be put back</div>
+         ${undoRefusalList(s.refused)}
+         <div data-typed-host></div>`;
+      typedConfirm(stage.querySelector("[data-typed-host]"), {
+        word: "undo",
+        label: `Type undo to put ${plural(s.reversed_files, "file")} back`,
+        buttonLabel: "Put them back",
+        onConfirm: () => startUndoApply(path, panel),
+      });
+    },
   });
 }
 
 async function startUndoApply(path, panel) {
   const go = panel.querySelector("[data-typed-go]");
-  await withBusy(go, "Putting files back…", async ({ setStatus }) => {
-    const started = await api("/api/migrate/undo/apply", { path });
-    if (started.ok === false) {
+  let summaryHtml;
+  await runJob({
+    button: go,
+    busyLabel: "Putting files back…",
+    start: () => api("/api/migrate/undo/apply", { path }),
+    setJob: (id) => { undoJob = id; },
+    progress: undoProgress,
+    progressLabel: "restoring",
+    parkUndoCardIn: () => {
+      let stage = panel.querySelector("[data-undo-stage]");
+      if (!stage) {
+        panel.innerHTML = `<div data-undo-stage></div>`;
+        stage = panel.querySelector("[data-undo-stage]");
+      }
+      return stage;
+    },
+    onRefuse: (started) => {
       panel.innerHTML = startRefusedCard(started, panel.id === "mig-undo-panel" ? "mig-path" : "ev-source");
-      return;
-    }
-    undoJob = started.job_id;
-    let stage = panel.querySelector("[data-undo-stage]");
-    if (!stage) {
-      panel.innerHTML = `<div data-undo-stage></div>`;
-      stage = panel.querySelector("[data-undo-stage]");
-    }
-    stage.innerHTML = "";
-    stage.appendChild($("undo-card"));
-    undoProgress.start("restoring");
-    const d = await awaitJob(started.job_id, (p) => {
-      undoProgress.update(p);
-      if (p.total) setStatus(scaleStatus("Putting files back", p.done, p.total, "files"));
-    });
-    undoProgress.stop();
-    undoJob = null;
-    document.body.appendChild($("undo-card"));
-    $("undo-card").classList.add("hidden");
-    // Cancel is ok:true with a partial summary - files already put back stay put back.
-    let summaryHtml;
-    if (d.status === "cancelled") {
+    },
+    statusVerb: "Putting files back",
+    onCancelled: (d) => {
       summaryHtml = card(
         `<div class="headline">Stopped</div>
          <div class="k">Put ${plural(d.summary.reversed_files || 0, "file")} back before you stopped it.</div>
          ${undoRefusalList(d.summary.refused)}`);
-    } else if (d.ok) {
+    },
+    onSuccess: (d) => {
       summaryHtml = card(
         `<div class="headline">Put ${plural(d.summary.reversed_files, "file")} back.</div>
          ${undoRefusalList(d.summary.refused)}`);
-    } else {
-      summaryHtml = jobErrorCard(d);
-    }
-    await refreshUndoAffordance(path, panel);
-    // Prepend the outcome without re-parsing the armed card: assigning panel.innerHTML
-    // would wipe the Preview onclick refreshUndoAffordance just attached, and a cancelled
-    // apply that left rows would show a dead button (resume impossible from the UI).
-    panel.insertAdjacentHTML("afterbegin", summaryHtml);
-    loadCustody();
+    },
+    onError: (d) => { summaryHtml = jobErrorCard(d); },
+    after: async () => {
+      await refreshUndoAffordance(path, panel);
+      // Prepend the outcome without re-parsing the armed card: assigning panel.innerHTML
+      // would wipe the Preview onclick refreshUndoAffordance just attached, and a cancelled
+      // apply that left rows would show a dead button (resume impossible from the UI).
+      panel.insertAdjacentHTML("afterbegin", summaryHtml);
+      loadCustody();
+    },
   });
 }
 
@@ -1173,96 +1238,89 @@ async function startCleanupPreview(button) {
 
 async function startOrganizeUndoPreview() {
   const previewBtn = $("org-undo-preview");
-  await withBusy(previewBtn, "Checking undo…", async ({ setStatus }) => {
-    const started = await api("/api/organize/undo/preview", {});
-    if (started.ok === false) {
+  await runJob({
+    button: previewBtn,
+    busyLabel: "Checking undo…",
+    start: () => api("/api/organize/undo/preview", {}),
+    setJob: (id) => { orgUndoJob = id; },
+    progress: undoProgress,
+    progressLabel: "checking",
+    parkUndoCardIn: () => $("org-undo-stage"),
+    onRefuse: (started) => {
       // Mirror migrate-undo: a DriveBusy / soft-fail must not enter awaitJob with no job id.
       $("org-undo-panel").innerHTML = startRefusedCard(started, "org-source");
-      return;
-    }
-    if (started.ok === true && started.armed === false) {
-      await refreshOrganizeUndoAffordance();
-      return;
-    }
-    orgUndoJob = started.job_id;
-    const stage = $("org-undo-stage");
-    // Park the shared progress block inside this panel so it is visible on Organize
-    // (same hazard as migrate-undo: #undo-card lives under <body>, below the 100vh app grid).
-    stage.innerHTML = "";
-    stage.appendChild($("undo-card"));
-    undoProgress.start("checking");
-    const d = await awaitJob(started.job_id, (p) => {
-      undoProgress.update(p);
-      if (p.total) setStatus(scaleStatus("Checking undo", p.done, p.total, "files"));
-    });
-    undoProgress.stop();
-    orgUndoJob = null;
-    document.body.appendChild($("undo-card"));
-    $("undo-card").classList.add("hidden");
-    if (!d.ok) { stage.innerHTML = jobErrorCard(d); return; }
-    if (d.status === "cancelled") {
-      stage.innerHTML = card(
+    },
+    abortStart: async (started) => {
+      if (started.ok === true && started.armed === false) {
+        await refreshOrganizeUndoAffordance();
+        return true;
+      }
+      return false;
+    },
+    statusVerb: "Checking undo",
+    onError: (d) => { $("org-undo-stage").innerHTML = jobErrorCard(d); },
+    onCancelled: () => {
+      $("org-undo-stage").innerHTML = card(
         `<div class="headline">Preview cancelled</div><div class="k">Nothing was changed. Preview again when you are ready.</div>`);
-      return;
-    }
-    const s = d.summary;
-    stage.innerHTML = `<div class="headline">${plural(s.restorable, "file")} can be restored</div>
-      ${organizeUndoSkipped(s.skipped)}
-      <div data-org-undo-typed></div>`;
-    typedConfirm(stage.querySelector("[data-org-undo-typed]"), {
-      word: "undo",
-      label: `Type undo to restore ${plural(s.restorable, "file")}`,
-      buttonLabel: "Put them back",
-      onConfirm: () => startOrganizeUndoApply(),
-    });
+    },
+    onSuccess: (d) => {
+      const stage = $("org-undo-stage");
+      const s = d.summary;
+      stage.innerHTML = `<div class="headline">${plural(s.restorable, "file")} can be restored</div>
+        ${organizeUndoSkipped(s.skipped)}
+        <div data-org-undo-typed></div>`;
+      typedConfirm(stage.querySelector("[data-org-undo-typed]"), {
+        word: "undo",
+        label: `Type undo to restore ${plural(s.restorable, "file")}`,
+        buttonLabel: "Put them back",
+        onConfirm: () => startOrganizeUndoApply(),
+      });
+    },
   });
 }
 
 async function startOrganizeUndoApply() {
   const go = document.querySelector("#org-undo-stage [data-typed-go]");
-  await withBusy(go, "Putting files back…", async ({ setStatus }) => {
-    const started = await api("/api/organize/undo/apply", {});
-    if (started.ok === false) {
+  let summaryHtml;
+  await runJob({
+    button: go,
+    busyLabel: "Putting files back…",
+    start: () => api("/api/organize/undo/apply", {}),
+    setJob: (id) => { orgUndoJob = id; },
+    progress: undoProgress,
+    progressLabel: "restoring",
+    parkUndoCardIn: () => $("org-undo-stage"),
+    onRefuse: (started) => {
       $("org-undo-panel").innerHTML = startRefusedCard(started, "org-source");
-      return;
-    }
-    if (started.ok === true && started.armed === false) {
-      await refreshOrganizeUndoAffordance();
-      return;
-    }
-    orgUndoJob = started.job_id;
-    const stage = $("org-undo-stage");
-    stage.innerHTML = "";
-    stage.appendChild($("undo-card"));
-    undoProgress.start("restoring");
-    const d = await awaitJob(started.job_id, (p) => {
-      undoProgress.update(p);
-      if (p.total) setStatus(scaleStatus("Restoring", p.done, p.total, "files"));
-    });
-    undoProgress.stop();
-    orgUndoJob = null;
-    document.body.appendChild($("undo-card"));
-    $("undo-card").classList.add("hidden");
-    // Cancel is ok:true; restored counts are real files already put back.
-    let summaryHtml;
-    if (d.status === "cancelled") {
+    },
+    abortStart: async (started) => {
+      if (started.ok === true && started.armed === false) {
+        await refreshOrganizeUndoAffordance();
+        return true;
+      }
+      return false;
+    },
+    statusVerb: "Restoring",
+    onCancelled: (d) => {
       summaryHtml = card(
         `<div class="headline">Stopped</div>
          <div class="k">Restored ${plural(d.summary.restored || 0, "file")} before you stopped it.</div>
          ${organizeUndoSkipped(d.summary.skipped)}`);
-    } else if (d.ok) {
+    },
+    onSuccess: (d) => {
       summaryHtml = card(
         `<div class="headline">Restored ${plural(d.summary.restored, "file")}.</div>
          ${organizeUndoSkipped(d.summary.skipped)}`);
-    } else {
-      summaryHtml = jobErrorCard(d);
-    }
-    if (d.ok) loadCustody();
-    await refreshOrganizeUndoAffordance();
-    // Prepend the outcome without re-parsing the armed card: assigning panel.innerHTML
-    // would wipe the outcome refreshOrganizeUndoAffordance just cleared (spent journal) or
-    // rewrote (still armed after a failed apply) - the migrate-undo twin fixed this first.
-    $("org-undo-panel").insertAdjacentHTML("afterbegin", summaryHtml);
+    },
+    onError: (d) => { summaryHtml = jobErrorCard(d); },
+    after: async (d) => {
+      if (d.ok) loadCustody();
+      await refreshOrganizeUndoAffordance();
+      // Prepend the outcome without re-parsing the armed card: assigning panel.innerHTML
+      // would wipe the outcome refreshOrganizeUndoAffordance just cleared (spent journal) or
+      // rewrote (still armed after a failed apply) - the migrate-undo twin fixed this first.
+      $("org-undo-panel").insertAdjacentHTML("afterbegin", summaryHtml);
+    },
   });
 }
 
@@ -1364,39 +1422,39 @@ $("org-dedup").onclick = guarded(async () => {
     setWhy("Pick the organized destination folder first.");
     return;
   }
-  await withBusy($("org-dedup"), "Checking for duplicates…", async ({ setStatus }) => {
-    $("org-confirm").innerHTML = "";
-    orgProgress.start("starting");
-    const started = await api("/api/organize/preview", { source, destination, refresh_metadata, mode });
-    if (started.ok === false) {
-      orgProgress.stop();
+  $("org-confirm").innerHTML = "";
+  await runJob({
+    button: $("org-dedup"),
+    busyLabel: "Checking for duplicates…",
+    start: () => api("/api/organize/preview", { source, destination, refresh_metadata, mode }),
+    setJob: (id) => { orgJob = id; },
+    progress: orgProgress,
+    progressLabel: "starting",
+    progressBeforeStart: true,
+    onRefuse: (started) => {
       $("org-result").innerHTML = startRefusedCard(started, "org-dest");
-      return;
-    }
-    orgJob = started.job_id;
-    const d = await awaitJob(started.job_id, (p) => {
-      orgProgress.update(p);
+    },
+    statusForProgress: (p, setStatus) => {
       if (p.phase === "scanning") setStatus(scaleStatus("Reading photos", p.done, p.total, "files"));
       else if (p.phase === "hashing") setStatus(scaleStatus("Checking for duplicates", p.done, p.total, "files"));
       else if (p.total) setStatus(scaleStatus("Checking folder", p.done, p.total, "files"));
-    });
-    orgProgress.stop();
-    orgJob = null;
-    const s = d.summary;
-    if (!d.ok) { $("org-result").innerHTML = jobErrorCard(d); return; }
-    if (d.status === "cancelled") {
+    },
+    onError: (d) => { $("org-result").innerHTML = jobErrorCard(d); },
+    onCancelled: () => {
       $("org-result").innerHTML = card(
         `<div class="headline">Check cancelled</div><div class="k">Nothing was changed. Check again when you are ready.</div>`);
       setWhy("Check for duplicates again to see what would happen.");
-      return;
-    }
-    const kept = renderOrganizeResult(s);
-    orgMechanism = s.mechanism || null;
-    if (!s.files) { setWhy("Nothing to organize in this folder."); }
-    else {
-      renderOrganizeRunConfirm({ kept, mode, mechanism: orgMechanism });
-      setWhy("");
-    }
+    },
+    onSuccess: (d) => {
+      const s = d.summary;
+      const kept = renderOrganizeResult(s);
+      orgMechanism = s.mechanism || null;
+      if (!s.files) { setWhy("Nothing to organize in this folder."); }
+      else {
+        renderOrganizeRunConfirm({ kept, mode, mechanism: orgMechanism });
+        setWhy("");
+      }
+    },
   });
 });
 
@@ -1407,39 +1465,41 @@ async function startOrganizeRun() {
   const skip_undated = $("org-skip-undated").checked;
   const refresh_metadata = $("org-refresh-metadata").checked;
   const trigger = $("org-confirm").querySelector("[data-typed-go]");
-  await withBusy(trigger, "Organizing…", async ({ setStatus }) => {
-    const started = await api("/api/organize/run", { source, destination, skip_undated, refresh_metadata, mode });
-    if (started.ok === false) {
+  await runJob({
+    button: trigger,
+    busyLabel: "Organizing…",
+    start: () => api("/api/organize/run", { source, destination, skip_undated, refresh_metadata, mode }),
+    setJob: (id) => { orgJob = id; },
+    progress: orgProgress,
+    progressLabel: "preparing",
+    onRefuse: (started) => {
       $("org-result").innerHTML = startRefusedCard(started, "org-dest");
       $("org-confirm").innerHTML = "";
-      return;
-    }
-    orgJob = started.job_id;
-    orgProgress.start("preparing");
-    const d = await awaitJob(started.job_id, (p) => {
-      orgProgress.update(p);
-      if (p.total) setStatus(scaleStatus("Organizing", p.done, p.total, "files"));
-    });
-    orgProgress.stop();
-    const r = d.summary;
-    if (d.status === "cancelled") {
+    },
+    statusVerb: "Organizing",
+    onCancelled: (d) => {
       // A cancelled run still organized everything it reached, and those files are real.
       // Show the same card, labelled honestly, rather than implying nothing happened.
+      const r = d.summary;
       $("org-result").innerHTML = organizeCompletion({ ...r, cancelled: true });
       cleanupOffer = r.leftover_empty_folders || null;
-    } else if (!d.ok) {
+    },
+    onError: (d) => {
       $("org-result").innerHTML = jobErrorCard(d);
       cleanupOffer = null;
-    } else {
+    },
+    onSuccess: (d) => {
+      const r = d.summary;
       $("org-result").innerHTML = r.organized || r.outcomes
         ? organizeCompletion(r)
         : card(`<div class="headline">Nothing to organize</div><div class="k">No new photos or videos were found here.</div>`);
       cleanupOffer = r.leftover_empty_folders || null;
-    }
-    orgJob = null;
-    $("org-confirm").innerHTML = "";
-    loadCustody();
-    refreshOrganizeUndoAffordance();
+    },
+    after: () => {
+      $("org-confirm").innerHTML = "";
+      loadCustody();
+      refreshOrganizeUndoAffordance();
+    },
   });
 }
 
@@ -1511,45 +1571,43 @@ async function loadDrives() {
 let verifyJob = null;
 $("verify-run").onclick = guarded(async () => {
   const path = $("verify-path").value.trim();
-  await withBusy($("verify-run"), "Checking…", async ({ setStatus }) => {
-    $("verify-result").innerHTML = "";
-    const started = await api("/api/verify/run", { path });
-    if (started.ok === false) {
+  $("verify-result").innerHTML = "";
+  await runJob({
+    button: $("verify-run"),
+    busyLabel: "Checking…",
+    start: () => api("/api/verify/run", { path }),
+    setJob: (id) => { verifyJob = id; },
+    progress: verifyProgress,
+    progressLabel: "checking",
+    onRefuse: (started) => {
       $("verify-result").innerHTML = startRefusedCard(started, "verify-path");
-      return;
-    }
-    verifyJob = started.job_id;
-    verifyProgress.start("checking");
-    const d = await awaitJob(started.job_id, (p) => {
-      verifyProgress.update(p);
-      if (p.total) setStatus(scaleStatus("Checking", p.done, p.total, "files"));
-    });
-    verifyProgress.stop();
-    verifyJob = null;
-    if (!d.ok) { $("verify-result").innerHTML = jobErrorCard(d); return; }
-    // Read-only: cancel changes nothing on disk, but ok:true must not paint "Checked".
-    if (d.status === "cancelled") {
+    },
+    statusVerb: "Checking",
+    onError: (d) => { $("verify-result").innerHTML = jobErrorCard(d); },
+    onCancelled: () => {
+      // Read-only: cancel changes nothing on disk, but ok:true must not paint "Checked".
       $("verify-result").innerHTML = card(
         `<div class="headline">Check cancelled</div><div class="k">Nothing was changed. Check again when you are ready.</div>`);
-      return;
-    }
-    const s = d.summary;
-    const problems = (s.problems || []).map((p) => {
-      const why = p.detail ? ` - ${esc(p.detail)}` : "";
-      return `<div class="mono">${esc(p.status)} · ${esc(p.relative)}${why}</div>`;
-    }).join("");
-    const problemNote = problems
-      ? `<div class="banner warn"><div><div class="b-title">${plural(s.problems.length, "file")} could not be confirmed</div>${problems}</div></div>`
-      : "";
-    $("verify-result").innerHTML =
-      card(`<div class="headline">Checked ${esc(s.label || "")}</div>
-         <div class="tally"><div class="n">${nfmt(s.verified)}</div><div class="k">verified</div>
-         <div class="n">${nfmt(s.missing)}</div><div class="k">missing</div>
-         <div class="n">${nfmt(s.mismatch)}</div><div class="k">changed</div>
-         <div class="n">${nfmt(s.unreadable || 0)}</div><div class="k">unreadable</div></div>
-         ${problemNote}`);
-    loadCustody();
-    loadDrives();  // "last checked" on the card comes from the verify just recorded
+    },
+    onSuccess: (d) => {
+      const s = d.summary;
+      const problems = (s.problems || []).map((p) => {
+        const why = p.detail ? ` - ${esc(p.detail)}` : "";
+        return `<div class="mono">${esc(p.status)} · ${esc(p.relative)}${why}</div>`;
+      }).join("");
+      const problemNote = problems
+        ? `<div class="banner warn"><div><div class="b-title">${plural(s.problems.length, "file")} could not be confirmed</div>${problems}</div></div>`
+        : "";
+      $("verify-result").innerHTML =
+        card(`<div class="headline">Checked ${esc(s.label || "")}</div>
+           <div class="tally"><div class="n">${nfmt(s.verified)}</div><div class="k">verified</div>
+           <div class="n">${nfmt(s.missing)}</div><div class="k">missing</div>
+           <div class="n">${nfmt(s.mismatch)}</div><div class="k">changed</div>
+           <div class="n">${nfmt(s.unreadable || 0)}</div><div class="k">unreadable</div></div>
+           ${problemNote}`);
+      loadCustody();
+      loadDrives();  // "last checked" on the card comes from the verify just recorded
+    },
   });
 });
 $("verify-cancel").onclick = guarded(() => { if (verifyJob) return api(`/api/jobs/${verifyJob}/cancel`, {}); });
@@ -1649,42 +1707,42 @@ document.addEventListener("click", guarded(async (e) => {
 let rcJob = null;
 $("rc-preview").onclick = guarded(async () => {
   const takeout = $("rc-takeout").value.trim(), destination = $("rc-dest").value.trim();
-  await withBusy($("rc-preview"), "Scanning Takeout…", async ({ setStatus }) => {
-    $("rc-result").innerHTML = "";
-    rcProgress.start("scanning");
-    const started = await api("/api/ingest/preview", { takeout, destination });
-    if (started.ok === false) {
-      rcProgress.stop();
+  $("rc-result").innerHTML = "";
+  await runJob({
+    button: $("rc-preview"),
+    busyLabel: "Scanning Takeout…",
+    start: () => api("/api/ingest/preview", { takeout, destination }),
+    setJob: (id) => { rcJob = id; },
+    progress: rcProgress,
+    progressLabel: "scanning",
+    progressBeforeStart: true,
+    onRefuse: (started) => {
       $("rc-result").innerHTML = startRefusedCard(started, "rc-dest");
-      return;
-    }
-    rcJob = started.job_id;
-    const d = await awaitJob(started.job_id, (p) => {
-      rcProgress.update(p);
+    },
+    statusForProgress: (p, setStatus) => {
       if (!p.total) setStatus("Scanning Takeout…");
       else if (p.phase === "scanning") setStatus(scaleStatus("Reading photos", p.done, p.total, "files"));
       else if (p.phase === "hashing") setStatus(scaleStatus("Checking for duplicates", p.done, p.total, "files"));
       else setStatus(scaleStatus("Scanning Takeout", p.done, p.total, "files"));
-    });
-    rcProgress.stop();
-    rcJob = null;
-    if (!d.ok) { $("rc-result").innerHTML = jobErrorCard(d); return; }
-    if (d.status === "cancelled") {
+    },
+    onError: (d) => { $("rc-result").innerHTML = jobErrorCard(d); },
+    onCancelled: () => {
       $("rc-result").innerHTML = card(
         `<div class="headline">Preview cancelled</div><div class="k">Nothing was imported. Preview again when you are ready.</div>`);
-      return;
-    }
-    const r = d.summary;
-    $("rc-result").innerHTML = card(
-      `<div class="headline">${nfmt(r.files)} files found</div>
-       <div class="tally">
-         <div class="n">${nfmt(r.kept)}</div><div class="k">to import</div>
-         <div class="n">${nfmt(r.dup_collapsed)}</div><div class="k">duplicates removed (~${r.reclaimed_mb} MB)</div>
-         <div class="n">${nfmt(r.dates_photo_taken)}</div><div class="k">dates recovered</div>
-         <div class="n">${nfmt(r.undated)}</div><div class="k">still undated</div>
-       </div>
-       ${dateQualityNotes(r)}${inferredLocalShiftNotes(r)}`
-    );
+    },
+    onSuccess: (d) => {
+      const r = d.summary;
+      $("rc-result").innerHTML = card(
+        `<div class="headline">${nfmt(r.files)} files found</div>
+         <div class="tally">
+           <div class="n">${nfmt(r.kept)}</div><div class="k">to import</div>
+           <div class="n">${nfmt(r.dup_collapsed)}</div><div class="k">duplicates removed (~${r.reclaimed_mb} MB)</div>
+           <div class="n">${nfmt(r.dates_photo_taken)}</div><div class="k">dates recovered</div>
+           <div class="n">${nfmt(r.undated)}</div><div class="k">still undated</div>
+         </div>
+         ${dateQualityNotes(r)}${inferredLocalShiftNotes(r)}`
+      );
+    },
   });
 });
 $("rc-cancel").onclick = guarded(() => { if (rcJob) return api(`/api/jobs/${rcJob}/cancel`, {}); });
@@ -1873,33 +1931,33 @@ $("ev-apply").onclick = guarded(async () => {
     $("ev-moves").innerHTML = "";
     $("ev-apply-disk").classList.add("hidden");
     setStatus("Planning moves…");
-    const started = await api(`/api/events/${evSession}/preview`, {});
-    if (started.ok === false) {
-      $("ev-moves").innerHTML = startRefusedCard(started, "ev-source");
-      return;
-    }
-    evJob = started.job_id;
-    evProgress.start("planning");
-    const d = await awaitJob(started.job_id, (p) => {
-      evProgress.update(p);
-      if (p.total) setStatus(scaleStatus("Planning moves", p.done, p.total, "photos"));
+    await runJob({
+      setStatus,
+      start: () => api(`/api/events/${evSession}/preview`, {}),
+      setJob: (id) => { evJob = id; },
+      progress: evProgress,
+      progressLabel: "planning",
+      onRefuse: (started) => {
+        $("ev-moves").innerHTML = startRefusedCard(started, "ev-source");
+      },
+      statusVerb: "Planning moves",
+      unit: "photos",
+      onError: (d) => { $("ev-moves").innerHTML = jobErrorCard(d); },
+      onCancelled: () => {
+        $("ev-moves").innerHTML = card(
+          `<div class="headline">Preview cancelled</div><div class="k">Nothing was moved. Save names again when you are ready.</div>`);
+      },
+      onSuccess: (d) => {
+        const p = d.summary;
+        if (!p.ok) { $("ev-moves").innerHTML = `<div class="banner warn"><div>${esc(p.error)}</div></div>`; return; }
+        $("ev-moves").innerHTML = p.moves.length
+          ? `<div class="headline">${plural(p.moves.length, "photo")} will move into trip and event folders</div>
+             <details class="more"><summary>Show the moves</summary>
+               <div class="mono k">${p.moves.slice(0, 200).map((m) => `${esc(m.old)} → ${esc(m.new)}`).join("<br>")}</div></details>`
+          : `<div class="k">Nothing to move - these photos are already in their trip and event folders.</div>`;
+        $("ev-apply-disk").classList.toggle("hidden", p.moves.length === 0);
+      },
     });
-    evProgress.stop();
-    evJob = null;
-    if (!d.ok) { $("ev-moves").innerHTML = jobErrorCard(d); return; }
-    if (d.status === "cancelled") {
-      $("ev-moves").innerHTML = card(
-        `<div class="headline">Preview cancelled</div><div class="k">Nothing was moved. Save names again when you are ready.</div>`);
-      return;
-    }
-    const p = d.summary;
-    if (!p.ok) { $("ev-moves").innerHTML = `<div class="banner warn"><div>${esc(p.error)}</div></div>`; return; }
-    $("ev-moves").innerHTML = p.moves.length
-      ? `<div class="headline">${plural(p.moves.length, "photo")} will move into trip and event folders</div>
-         <details class="more"><summary>Show the moves</summary>
-           <div class="mono k">${p.moves.slice(0, 200).map((m) => `${esc(m.old)} → ${esc(m.new)}`).join("<br>")}</div></details>`
-      : `<div class="k">Nothing to move - these photos are already in their trip and event folders.</div>`;
-    $("ev-apply-disk").classList.toggle("hidden", p.moves.length === 0);
   });
 });
 // One row per trip or event actually named and moved this run, each with a working reveal link -
@@ -1920,23 +1978,21 @@ function reviewResultCards(summary) {
 }
 let evJob = null;
 $("ev-apply-disk").onclick = guarded(async () => {
-  await withBusy($("ev-apply-disk"), "Moving photos…", async ({ setStatus }) => {
-    const started = await api(`/api/events/${evSession}/apply-to-disk`, {});
-    if (started.ok === false) {
+  await runJob({
+    button: $("ev-apply-disk"),
+    busyLabel: "Moving photos…",
+    start: () => api(`/api/events/${evSession}/apply-to-disk`, {}),
+    setJob: (id) => { evJob = id; },
+    progress: evProgress,
+    progressLabel: "moving",
+    onRefuse: (started) => {
       $("ev-disk-result").innerHTML = startRefusedCard(started, "ev-source");
-      return;
-    }
-    evJob = started.job_id;
-    evProgress.start("moving");
-    const d = await awaitJob(started.job_id, (p) => {
-      evProgress.update(p);
-      if (p.total) setStatus(scaleStatus("Moving photos", p.done, p.total, "photos"));
-    });
-    evProgress.stop();
-    $("ev-apply-disk").classList.add("hidden");
-    evJob = null;
-    // Cancel leaves completed moves in place (resumable journal) - never claim a finished apply.
-    if (d.status === "cancelled") {
+    },
+    statusVerb: "Moving photos",
+    unit: "photos",
+    beforeOutcome: () => { $("ev-apply-disk").classList.add("hidden"); },
+    onCancelled: (d) => {
+      // Cancel leaves completed moves in place (resumable journal) - never claim a finished apply.
       const s = d.summary || {};
       cleanupOffer = s.leftover_empty_folders || null;
       $("ev-disk-result").innerHTML = card(
@@ -1945,13 +2001,20 @@ $("ev-apply-disk").onclick = guarded(async () => {
         + (s.leftover_empty_folders ? cleanupOfferNote(s.leftover_empty_folders) : "");
       loadCustody();
       refreshUndoAffordance($("ev-source").value.trim(), $("ev-undo-panel"));
-      return;
-    }
-    cleanupOffer = d.ok ? (d.summary.leftover_empty_folders || null) : null;
-    $("ev-disk-result").innerHTML = d.ok ? reviewResultCards(d.summary) : jobErrorCard(d);
-    loadCustody();
-    // The apply just armed (or superseded) the reversible journal - re-query, never assume.
-    refreshUndoAffordance($("ev-source").value.trim(), $("ev-undo-panel"));
+    },
+    onError: (d) => {
+      cleanupOffer = null;
+      $("ev-disk-result").innerHTML = jobErrorCard(d);
+      loadCustody();
+      refreshUndoAffordance($("ev-source").value.trim(), $("ev-undo-panel"));
+    },
+    onSuccess: (d) => {
+      cleanupOffer = d.summary.leftover_empty_folders || null;
+      $("ev-disk-result").innerHTML = reviewResultCards(d.summary);
+      loadCustody();
+      // The apply just armed (or superseded) the reversible journal - re-query, never assume.
+      refreshUndoAffordance($("ev-source").value.trim(), $("ev-undo-panel"));
+    },
   });
 });
 $("ev-cancel").onclick = guarded(() => { if (evJob) return api(`/api/jobs/${evJob}/cancel`, {}); });
@@ -1980,30 +2043,25 @@ $("bk-preview").onclick = guarded(async () => {
 let bkJob = null;
 $("bk-run").onclick = guarded(async () => {
   const source = $("bk-source").value.trim(), target = $("bk-target").value.trim();
-  await withBusy($("bk-run"), "Copying…", async ({ setStatus }) => {
-    const started = await api("/api/backup/run", { source, target });
-    if (started.ok === false) {
+  await runJob({
+    button: $("bk-run"),
+    busyLabel: "Copying…",
+    start: () => api("/api/backup/run", { source, target }),
+    setJob: (id) => { bkJob = id; },
+    progress: bkProgress,
+    progressLabel: "copying",
+    onRefuse: (started) => {
       $("bk-result").innerHTML = startRefusedCard(started, "bk-target");
-      return;
-    }
-    bkJob = started.job_id;
-    bkProgress.start("copying");
-    const d = await awaitJob(started.job_id, (p) => {
-      bkProgress.update(p);
-      if (p.total) setStatus(scaleStatus("Copying", p.done, p.total, "files"));
-    });
-    bkProgress.stop();
-    $("bk-run").classList.add("hidden");
-    bkJob = null;
-    // Cancel leaves completed copies on the target - same honesty as organizeCompletion.
-    if (d.status === "cancelled") {
+    },
+    statusVerb: "Copying",
+    beforeOutcome: () => { $("bk-run").classList.add("hidden"); },
+    onCancelled: (d) => {
+      // Cancel leaves completed copies on the target - same honesty as organizeCompletion.
       $("bk-result").innerHTML = backupCompletion({ ...d.summary, cancelled: true });
-      refreshDriveState();
-      return;
-    }
-    const s = d.summary;
-    $("bk-result").innerHTML = d.ok ? backupCompletion(s) : jobErrorCard(d);
-    refreshDriveState();
+    },
+    onError: (d) => { $("bk-result").innerHTML = jobErrorCard(d); },
+    onSuccess: (d) => { $("bk-result").innerHTML = backupCompletion(d.summary); },
+    after: () => { refreshDriveState(); },
   });
 });
 $("bk-cancel").onclick = guarded(() => { if (bkJob) return api(`/api/jobs/${bkJob}/cancel`, {}); });
@@ -2113,41 +2171,41 @@ function clearMigrateConfirm() {
 }
 async function startMigrateRun() {
   const go = $("mig-confirm").querySelector("[data-typed-go]");
-  await withBusy(go, "Moving files…", async ({ setStatus }) => {
-    const started = await api("/api/migrate/run", { path: $("mig-path").value.trim() });
-    if (started.ok === false) {
+  await runJob({
+    button: go,
+    busyLabel: "Moving files…",
+    start: () => api("/api/migrate/run", { path: $("mig-path").value.trim() }),
+    setJob: (id) => { migJob = id; },
+    progress: migProgress,
+    progressLabel: "moving",
+    onRefuse: (started) => {
       clearMigrateConfirm();
       $("mig-result").innerHTML = startRefusedCard(started, "mig-path");
-      return;
-    }
-    migJob = started.job_id;
-    migProgress.start("moving");
-    const d = await awaitJob(started.job_id, (p) => {
-      migProgress.update(p);
-      if (p.total) setStatus(scaleStatus("Moving files", p.done, p.total, "files"));
-    });
-    migProgress.stop();
-    clearMigrateConfirm();
-    migJob = null;
-    // Cancel leaves completed moves in place - do not paint a finished "Moved N files." card.
-    if (d.status === "cancelled") {
+    },
+    statusVerb: "Moving files",
+    beforeOutcome: () => { clearMigrateConfirm(); },
+    onCancelled: (d) => {
+      // Cancel leaves completed moves in place - do not paint a finished "Moved N files." card.
       const s = d.summary || {};
       cleanupOffer = s.leftover_empty_folders || null;
       $("mig-result").innerHTML = card(
         `<div class="headline">Stopped</div>
          <div class="k">Moved ${plural(s.migrated || 0, "file")} before you stopped it.</div>`)
         + (s.leftover_empty_folders ? cleanupOfferNote(s.leftover_empty_folders) : "");
+    },
+    onError: (d) => {
+      cleanupOffer = null;
+      $("mig-result").innerHTML = jobErrorCard(d);
+    },
+    onSuccess: (d) => {
+      cleanupOffer = d.summary.leftover_empty_folders || null;
+      $("mig-result").innerHTML = card(`<div class="headline">Moved ${plural(d.summary.migrated || 0, "file")}.</div>`)
+        + (d.summary.leftover_empty_folders ? cleanupOfferNote(d.summary.leftover_empty_folders) : "");
+    },
+    after: () => {
       loadDrives();
       refreshUndoAffordance($("mig-path").value.trim(), $("mig-undo-panel"));
-      return;
-    }
-    cleanupOffer = d.ok ? (d.summary.leftover_empty_folders || null) : null;
-    $("mig-result").innerHTML = d.ok
-      ? card(`<div class="headline">Moved ${plural(d.summary.migrated || 0, "file")}.</div>`)
-        + (d.summary.leftover_empty_folders ? cleanupOfferNote(d.summary.leftover_empty_folders) : "")
-      : jobErrorCard(d);
-    loadDrives();
-    refreshUndoAffordance($("mig-path").value.trim(), $("mig-undo-panel"));
+    },
   });
 }
 function renderMigrateTypedConfirm(moveCount) {
@@ -2168,42 +2226,40 @@ function renderMigrateTypedConfirm(moveCount) {
   });
 }
 $("mig-preview").onclick = guarded(async () => {
-  await withBusy($("mig-preview"), "Planning moves…", async ({ setStatus }) => {
-    $("mig-result").innerHTML = "";
-    clearMigrateConfirm();
-    migProgress.start("planning");
-    const started = await api("/api/migrate/preview", { path: $("mig-path").value.trim() });
-    if (started.ok === false) {
-      migProgress.stop();
+  $("mig-result").innerHTML = "";
+  clearMigrateConfirm();
+  await runJob({
+    button: $("mig-preview"),
+    busyLabel: "Planning moves…",
+    start: () => api("/api/migrate/preview", { path: $("mig-path").value.trim() }),
+    setJob: (id) => { migJob = id; },
+    progress: migProgress,
+    progressLabel: "planning",
+    progressBeforeStart: true,
+    onRefuse: (started) => {
       $("mig-result").innerHTML = startRefusedCard(started, "mig-path");
-      return;
-    }
-    migJob = started.job_id;
-    const d = await awaitJob(started.job_id, (p) => {
-      migProgress.update(p);
-      if (p.total) setStatus(scaleStatus("Planning moves", p.done, p.total, "files"));
-    });
-    migProgress.stop();
-    migJob = null;
-    if (!d.ok) { $("mig-result").innerHTML = jobErrorCard(d); return; }
-    if (d.status === "cancelled") {
+    },
+    statusVerb: "Planning moves",
+    onError: (d) => { $("mig-result").innerHTML = jobErrorCard(d); },
+    onCancelled: () => {
       $("mig-result").innerHTML = card(
         `<div class="headline">Preview cancelled</div><div class="k">Nothing was moved. Preview again when you are ready.</div>`);
-      return;
-    }
-    const r = d.summary;
-    if (!r.ok) { $("mig-result").innerHTML = driveError(r, "mig-path"); return; }
-    const dayReasons = (r.day_folder_reasons || []).map((line) => `<div>${esc(line)}</div>`).join("");
-    const dayBlock = dayReasons
-      ? `<div class="banner" style="margin-top:var(--space-3)"><div>
-           <div class="b-title">Everyday day-folder changes</div>${dayReasons}
-         </div></div>`
-      : "";
-    // Reasons sit with the count so month↔day moves are explained before confirm (never bare).
-    $("mig-result").innerHTML = card(`<div class="headline">${plural(r.moves.length, "file")} to move</div>
-      <div class="k">${r.unchanged} already in place${r.warnings.length ? " · ⚠ " + esc(r.warnings.join("; ")) : ""}</div>
-      ${dayBlock}`);
-    if (r.moves.length) renderMigrateTypedConfirm(r.moves.length);
+    },
+    onSuccess: (d) => {
+      const r = d.summary;
+      if (!r.ok) { $("mig-result").innerHTML = driveError(r, "mig-path"); return; }
+      const dayReasons = (r.day_folder_reasons || []).map((line) => `<div>${esc(line)}</div>`).join("");
+      const dayBlock = dayReasons
+        ? `<div class="banner" style="margin-top:var(--space-3)"><div>
+             <div class="b-title">Everyday day-folder changes</div>${dayReasons}
+           </div></div>`
+        : "";
+      // Reasons sit with the count so month↔day moves are explained before confirm (never bare).
+      $("mig-result").innerHTML = card(`<div class="headline">${plural(r.moves.length, "file")} to move</div>
+        <div class="k">${r.unchanged} already in place${r.warnings.length ? " · ⚠ " + esc(r.warnings.join("; ")) : ""}</div>
+        ${dayBlock}`);
+      if (r.moves.length) renderMigrateTypedConfirm(r.moves.length);
+    },
   });
 });
 $("mig-cancel").onclick = guarded(() => { if (migJob) return api(`/api/jobs/${migJob}/cancel`, {}); });

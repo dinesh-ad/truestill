@@ -26,21 +26,24 @@ def _function_body(src: str, name: str) -> str:
 def test_organize_undo_preview_and_apply_refuse_ok_false() -> None:
     """(F38 latent) Organize-undo must refuse started.ok === false like migrate-undo.
 
-    Without it, DriveBusy falls through into awaitJob with no job_id.
+    Soft-refuse lives in runJob; callers pass onRefuse with the refusal card.
     """
     src = APP_JS.read_text(encoding="utf-8")
+    run_job = src.split("async function runJob(", 1)[1].split("\nasync function withBusy(", 1)[0]
+    assert "started.ok === false" in run_job
     for name in ("startOrganizeUndoPreview", "startOrganizeUndoApply"):
         body = _function_body(src, name)
-        assert "started.ok === false" in body, f"{name} must soft-refuse like migrate-undo"
+        assert "onRefuse:" in body, f"{name} must soft-refuse via runJob"
         assert "startRefusedCard(started" in body, f"{name} must render the refusal card"
 
 
 def test_organize_undo_parks_shared_progress_card_in_the_panel() -> None:
     """Without parking, undoProgress renders below the 100vh app grid ((oo) class)."""
     src = APP_JS.read_text(encoding="utf-8")
+    run_job = src.split("async function runJob(", 1)[1].split("\nasync function withBusy(", 1)[0]
+    assert 'appendChild($("undo-card"))' in run_job
+    assert 'document.body.appendChild($("undo-card"))' in run_job
     for name in ("startOrganizeUndoPreview", "startOrganizeUndoApply"):
         body = _function_body(src, name)
-        assert 'appendChild($("undo-card"))' in body, f"{name} must park #undo-card into the stage"
-        assert 'document.body.appendChild($("undo-card"))' in body, (
-            f"{name} must return #undo-card to document.body afterwards"
-        )
+        assert "parkUndoCardIn:" in body, f"{name} must ask runJob to park #undo-card"
+        assert '$("org-undo-stage")' in body, f"{name} must park into #org-undo-stage"
