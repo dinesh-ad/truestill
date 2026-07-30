@@ -1918,6 +1918,23 @@ $("ev-merge").onclick = guarded(async () => {
     }
   });
 });
+// How many moves the preview lists before it starts summarising. A plan that rearranges someone's
+// library must never look complete when it is not, so the hidden count is named in both places a
+// reader can stop: the summary they decide whether to open, and the end of the list they scrolled.
+const MOVE_PREVIEW_LIMIT = 200;
+
+function moveListHtml(moves) {
+  const shown = moves.slice(0, MOVE_PREVIEW_LIMIT);
+  const hidden = moves.length - shown.length;
+  const label = hidden
+    ? `Show the moves (first ${nfmt(shown.length)} of ${nfmt(moves.length)})`
+    : "Show the moves";
+  const rows = shown.map((m) => `${esc(m.old)} → ${esc(m.new)}`).join("<br>");
+  return `<details class="more"><summary>${label}</summary>
+            <div class="mono k">${rows}</div>
+            ${hidden ? `<div class="k">…and ${nfmt(hidden)} more</div>` : ""}</details>`;
+}
+
 $("ev-apply").onclick = guarded(async () => {
   await withBusy($("ev-apply"), "Saving names…", async ({ setStatus }) => {
     syncEvNamesFromDom();
@@ -1966,8 +1983,7 @@ $("ev-apply").onclick = guarded(async () => {
         if (!p.ok) { $("ev-moves").innerHTML = `<div class="banner warn"><div>${esc(p.error)}</div></div>`; return; }
         $("ev-moves").innerHTML = p.moves.length
           ? `<div class="headline">${plural(p.moves.length, "photo")} will move into trip and event folders</div>
-             <details class="more"><summary>Show the moves</summary>
-               <div class="mono k">${p.moves.slice(0, 200).map((m) => `${esc(m.old)} → ${esc(m.new)}`).join("<br>")}</div></details>`
+             ${moveListHtml(p.moves)}`
           : `<div class="k">Nothing to move - these photos are already in their trip and event folders.</div>`;
         $("ev-apply-disk").classList.toggle("hidden", p.moves.length === 0);
       },
