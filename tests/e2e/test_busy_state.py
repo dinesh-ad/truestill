@@ -20,8 +20,8 @@ import pytest
 import uvicorn
 from conftest import AppServer
 from playwright.sync_api import Browser, Page, expect
-from truestill_app import service
 from truestill_app.server import create_app
+from truestill_app.service import migrate as service_migrate
 from truestill_core.catalog import Catalog
 from truestill_core.drive import create_marker
 from truestill_core.hashing import sha256_file
@@ -62,9 +62,18 @@ def _seed_migrate_drive(db: Path, root: Path, *, n: int = 3) -> None:
 def holding_server(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> Iterator[tuple[AppServer, threading.Event]]:
-    """App whose migrate preview blocks until ``hold`` is set - for DriveBusy / cancel races."""
+    """App whose migrate preview blocks until ``hold`` is set - for DriveBusy / cancel races.
+
+    Patched on ``service.migrate``, **not** on the ``service`` facade. ``migration_preview_run``
+    calls ``migration_preview`` through its own module globals, so rebinding the facade's
+    re-export changed nothing: from the F10 split (``46cd403``) until this line was corrected,
+    the wrapper below never ran, the preview finished instantly, and all three tests using this
+    fixture lost the race they exist to pin - one failing outright, the others passing without
+    exercising the lock. A monkeypatch aimed at a re-export is a guard that silently stops
+    guarding the moment its target moves.
+    """
     hold = threading.Event()
-    original = service.migration_preview
+    original = service_migrate.migration_preview
 
     def blocked(
         path: Path,
@@ -83,7 +92,7 @@ def holding_server(
             time.sleep(0.05)
         return original(path, db, progress=progress, cancel=cancel)
 
-    monkeypatch.setattr(service, "migration_preview", blocked)
+    monkeypatch.setattr(service_migrate, "migration_preview", blocked)
 
     token = f"e2e-{secrets.token_urlsafe(16)}"
     db = tmp_path / "catalog.sqlite"
