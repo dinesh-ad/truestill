@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from truestill_core.catalog import Catalog
 from truestill_core.hashing import sha256_file
 from truestill_core.reclaim import plan_reclaim, run_reclaim
@@ -49,6 +50,40 @@ def test_reclaim_frees_a_verified_source(tmp_path: Path) -> None:
         assert not source.exists()  # source freed
         assert (drive / "Camera/a.jpg").exists()  # backup copy untouched
         assert catalog.pending_reclaim() == []  # journal drained
+
+
+def test_reclaim_journals_a_deletion_before_the_unlink(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """§1: every reclaim deletion is journalled for audit/resume.
+
+    ``record_reclaim`` runs just before ``unlink``. A crash that is not ``OSError`` must leave
+    a ``pending_reclaim`` row naming the source - otherwise the contract clause has no test
+    (audit F13). ``OSError`` on unlink clears the journal on purpose; that path is not this one.
+    """
+    drive = tmp_path / "drive"
+    source = tmp_path / "src" / "a.jpg"
+    db = tmp_path / "c.sqlite"
+    with Catalog(db) as catalog:
+        _seed(catalog, source, drive, "D1", "Camera/a.jpg", b"content-a")
+
+    real_unlink = Path.unlink
+
+    def crash_after_journal(self: Path, *args: object, **kwargs: object) -> None:
+        if self.resolve() == source.resolve():
+            message = "simulated crash after reclaim journal"
+            raise RuntimeError(message)
+        real_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", crash_after_journal)
+    with Catalog(db) as catalog, pytest.raises(RuntimeError, match="simulated crash"):
+        run_reclaim(catalog, "D1", drive)
+
+    with Catalog(db) as catalog:
+        pending = catalog.pending_reclaim()
+        assert len(pending) == 1
+        assert pending[0]["source_path"] == str(source)
+        assert source.exists()  # unlink never completed
 
 
 def test_reclaim_never_deletes_when_copy_fails_verify(tmp_path: Path) -> None:
