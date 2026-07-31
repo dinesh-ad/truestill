@@ -272,6 +272,34 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   questions are whether it ran the mutant and whether the mutant was mutated. Only after both
   are answered is "the test is weak" a conclusion rather than a guess.
 
+- **When something's status changes, grep for every reference to it before reporting.** The
+  sixth member of this family, and the one that applies to *documents*. The others are about a
+  guard; this is about a **claim** - something correct where you edited it, while its dependents
+  go on asserting the old answer. A stale cross-reference is a document stating something false,
+  and the reader most likely to hit it is a cold start with no way to tell.
+
+  *Worked examples - 2026-07-31, and the point is that I reported "no stale status" twice and
+  was wrong twice.*
+
+  1. *The restructure.* `BACKLOG.md`'s "Approved, not yet built" was split by real status, and
+     `(n)` and `(ii)` were left in "Ideas / deferred" while their own text said *mostly built*
+     and *half built*. The entries were right; the section contradicted them.
+  2. *The closure.* Closing `(aaj)` left `(bbb)` saying *"the half that is missing is recorded
+     as `(aaj)`"* and the Converged programs block saying *"the unbuilt half of item 4 is
+     `(aaj)`"*. I found the first by grepping after the fact, **missed the second**, and only
+     caught it when building the gate below - a third instance, after two manual sweeps.
+
+  Both times the entry body was checked and the **references to it** were not. One `grep` for
+  the identifier would have found all of them, which is what makes this mechanical rather than a
+  matter of care.
+
+  **Enforced** by `packages/truestill-app/tests/test_backlog_references.py`: an item in a
+  settled section (built, or out of scope) that another line describes as unfinished. Scoped by
+  measurement, not preference - **0** hits before `(aaj)` was closed, **2** at the moment it
+  was, **0** after repair - and the phrase list deliberately excludes "remains" and "deferred",
+  which legitimately describe a settled item's reasoning. Where a dependency cannot be checked
+  mechanically, the rule still stands and the grep is the review step.
+
 - **Errors.** Exceptions typed and specific - no bare `except`. User-facing CLI errors are
   actionable sentences, not tracebacks. Every subprocess call checks its return code and
   surfaces stderr on failure. Partial-failure policy: one bad file never aborts a batch - it

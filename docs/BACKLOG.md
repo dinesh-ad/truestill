@@ -1053,9 +1053,9 @@ picking one up must map the combined order before building.
   3. ✅ **Done.** Rescue (`(ii)`): stored durably, survives every whole-disk operation
      (`date_confirmations`, **v15**; O4 tested by name), and **reachable** since step 5 -
      `POST /api/dates/confirm`, app-only by recorded deferral.
-  4. ◐ **Done, except "note the embedded conflict".** `_original` offer (`(bbb)` recovery):
-     same surface, same `human-confirmed` tier, never a parallel tool and never a silent
-     substitution. The unbuilt half of item 4 is `(aaj)`.
+  4. ✅ **Done.** `_original` offer (`(bbb)` recovery): same surface, same `human-confirmed`
+     tier, never a parallel tool and never a silent substitution. Item 4's "optionally note the
+     embedded conflict" clause was **decided against** - see `(aaj)`, now out of scope.
 
   Also not started: **`(kk)`'s `GPSDateStamp`** - verified 2026-07-31, the catalog has no
   latitude/longitude columns and no `GPSDateStamp`, so no part of `(kk)` has landed.
