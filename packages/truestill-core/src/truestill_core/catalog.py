@@ -23,6 +23,42 @@ from truestill_core.models import DateSource
 
 # Current catalog schema, created whole for a fresh database. Its version is
 # CURRENT_SCHEMA_VERSION; older databases are brought up to it by _MIGRATIONS.
+#
+# ============================================================================================
+# STANDING RULE, before adding ANY column to `files`:
+#
+#   Ask whether the fact is true of the CONTENT, or true of a COPY ON A DRIVE.
+#
+# `files` is keyed by sha256. Every column on it is shared by every copy of that content, on
+# every drive, forever. A fact that can differ between two copies of the same photo does not
+# belong here - it belongs on `file_copies`, which is keyed by (sha256, drive_uuid).
+#
+# This has been got wrong three times, and each was expensive in a different way:
+#
+#   * `files.copy_sha256` - the post-write hash of "the" copy. Attach wrote it onto a per-drive
+#     row, so a Takeout-baked copy would have been verified against a pre-bake hash and reported
+#     as CORRUPTION on a file truestill itself rewrote. (The column now has a legitimate
+#     per-content role - see `_add_drive_tables` - but using it as a per-drive value was the bug.)
+#   * `files.relative` - where "the" copy lives. migrate-layout rewrites `file_copies.relative`
+#     and nothing updates this one, so on the real library 0 of 2,300 of these paths still
+#     existed and re-attach reported 2,300 files absent from a drive holding 2,269 of them.
+#   * `date_confirmations.baked_at` - whether "the" copy has the confirmed date in its bytes.
+#     Baking one drive would have marked the confirmation handled and the backup drive's copy
+#     would never have been written, and never offered again. Now `file_copies.date_baked_at`.
+#
+# **Knowing the pattern did not prevent the third one**, which was written one commit after the
+# second was documented. That is why the rule is here, at the schema, rather than in a research
+# doc or in anyone's memory: this is the last place a person looks before adding a column, and
+# the three instances were each caught by a *different* mechanism - an attach measurement, a
+# reader sweep, and a reporting obligation. None of them was caught by remembering.
+#
+# The third one is also an argument for the never-silent rule (`IMPLEMENTATION_STANDARDS.md`
+# §9) beyond its usual one: the obligation to report *which drives are still behind* is what
+# surfaced it. Being required to tell the truth per drive forced the question "per drive
+# according to what?", and the answer was a column that could not answer it. **An honesty
+# requirement found a data-model bug** - honest reporting is not only how a user learns what
+# happened, it is a design constraint that makes some wrong models impossible to write down.
+# ============================================================================================
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS files (
     id            INTEGER PRIMARY KEY,
