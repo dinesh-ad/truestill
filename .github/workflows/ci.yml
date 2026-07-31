@@ -66,6 +66,21 @@ jobs:
       - name: Pytest
         run: uv run pytest
 
+      # The same suite in a DIFFERENT collection order, because green in one order is not
+      # green. `uv run pytest` uses testpaths (core, cli, app); passing the directory collects
+      # alphabetically (app, cli, core). That difference alone was the whole reason a
+      # shared-temporary-root leak stayed hidden: a test that CREATES the default catalog ran
+      # after the test asserting it does not exist, so the suite passed by arrangement rather
+      # than by isolation. `pytest packages/` is also just what a contributor types.
+      #
+      # Ubuntu only, and it costs nothing in wall-clock: this lane finishes in ~1 min while
+      # Windows takes ~7, so a second ~1 min run lands inside time the job spends idle anyway.
+      # Running it on all three would triple the cost of a check whose answer cannot differ by
+      # platform - the same reasoning as the ubuntu-only dependency audit below.
+      - name: Pytest (different collection order)
+        if: runner.os == 'Linux'
+        run: uv run pytest packages/
+
       # Audits the *locked* dependency set against the PyPI advisory database. Findings
       # block: a vulnerable dependency is a defect, not a warning. Accepting one is allowed
       # but must be explicit -- add `--ignore-vuln <ID>` below with a comment giving the

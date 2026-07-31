@@ -6,7 +6,7 @@ APP := packages/truestill-app/src/truestill_app
 # left out of it silently imported a module that had not existed for two renames.
 SCRIPTS := scripts
 
-.PHONY: install lint format format-check typecheck dash-check redirect-check test check build dryrun e2e e2e-install
+.PHONY: install lint format format-check typecheck dash-check redirect-check test test-order check build dryrun e2e e2e-install
 
 install:
 	uv sync --all-packages --group dev
@@ -31,6 +31,13 @@ typecheck:
 
 test:
 	$(PYTHON) pytest
+
+# The suite in a different collection order - testpaths gives core, cli, app; passing the
+# directory gives app, cli, core. Deliberately NOT in `check`: it doubles the local test wait
+# to catch a class of bug that CI runs on every push (ubuntu, where it is free). Reach for it
+# when touching a fixture that any two tests share.
+test-order:
+	$(PYTHON) pytest packages/
 
 # Prose gates run alongside the code gates: the em-dash sweep of 2026-07-28 was invisible
 # to ruff, mypy and pytest alike, because none of them can see prose.
