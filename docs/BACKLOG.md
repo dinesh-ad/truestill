@@ -18,7 +18,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aac). Next free: (aad).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aad). Next free: (aae).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -28,6 +28,32 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved, not yet built
+
+- **(aad) Desktop installers - LAUNCH-BLOCKING for the paid product.** Ruled by Dinesh,
+  2026-07-31. **Record only - no design pass yet, and it does not block the current
+  date-provenance program.**
+  - **The problem.** PyPI reaches developers only. `pip install` needs Python present, a
+    terminal, and knowing what pip is. The target buyer - someone with a messy photo library -
+    has none of the three. **A perpetual licence (`DECISIONS.md` D6) cannot be sold to a user
+    who cannot install the product**, which is what makes this blocking rather than merely
+    desirable: every other launch item improves a product that person still cannot reach.
+  - **Needed:** download-and-double-click installers per platform - Windows `.exe`/`.msi`,
+    macOS `.dmg`, Linux AppImage or `.deb` - built by CI on tag and served from `truestill.app`.
+  - **PyPI stays**, as the developer / self-hosted channel. It stops being the *primary* one.
+  - **Open questions for the design pass, deliberately not answered here.** Recorded so the
+    pass starts from them rather than rediscovering them:
+    - Packaging approach: PyInstaller, Briefcase, Nuitka, or something else.
+    - The **exiftool binary dependency** and how it ships. It is not a pip package
+      (`IMPLEMENTATION_STANDARDS.md` §7 records it as an external binary), and every metadata
+      path needs it.
+    - **Code signing and notarization** on macOS and Windows. Unsigned installers are blocked
+      or scary-warned on both, which is fatal for a product whose whole proposition is trust.
+    - Installer size and startup time.
+    - How it interacts with the **parked Tauri-vs-local-web decision** (`(o)` and the Product /
+      strategy section) and with **D5's licensing/update server**, which is separately unbuilt.
+  - **Not designed here on purpose.** The questions above are genuinely open and several are
+    coupled (the shell decision changes the packaging answer, which changes the signing answer);
+    picking one now would be guessing in public.
 
 - **(aac) Organize must name and count unreadable source files the way verify does.** Ruled by
   Dinesh, 2026-07-30, from the Pass 1 F2/F1 asymmetry left after the code-quality audit.
