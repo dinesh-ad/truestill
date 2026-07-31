@@ -416,10 +416,33 @@ function statsFormatRows(byFormat) {
   return rows.map(([ext, count]) => `<div class="mono">${esc(ext)} · ${nfmt(count)}</div>`).join("");
 }
 
+// (n) "How your dates were determined" - the honesty view. Percentages are of the RECORDED
+// files only: a share of a population that includes "unknown" is not a share of anything, and on
+// a library organized before this shipped every row is unknown.
+function dateProvenanceRows(dates) {
+  const recorded = dates.recorded || 0;
+  return (dates.rows || [])
+    .map((r) => {
+      // A group with files in it must never render as "0%". Found on the real library: 2
+      // undated files out of 600 round to zero, and a screen that exists to be honest about
+      // dates cannot report "none" for something it is simultaneously listing.
+      const exact = recorded && !r.not_recorded ? (r.files / recorded) * 100 : null;
+      const share = exact === null ? null : exact < 1 ? "<1" : String(Math.round(exact));
+      const pct = share === null ? "" : `<span class="k">${share}%</span>`;
+      const flag = r.review ? ' <span class="k">worth a look</span>' : "";
+      const why = r.evidence ? `<div class="k mono">${esc(r.evidence)}</div>` : "";
+      return `<tr><td>${esc(r.label)}${flag}</td><td class="num">${plural(r.files, "file")}</td>
+              <td class="num">${pct}</td></tr>
+              <tr><td colspan="3" class="k">${esc(r.detail)}${why}</td></tr>`;
+    })
+    .join("");
+}
+
 function renderStatsSummary(stats) {
   const safety = stats.safety || {};
   const completeness = stats.completeness || {};
   const shape = stats.shape || {};
+  const dates = stats.dates || { rows: [], total: 0, recorded: 0, not_recorded: 0 };
   if (!safety.total_files) {
     return card(
       `<div class="headline">No library data yet</div>
@@ -457,6 +480,16 @@ function renderStatsSummary(stats) {
        ${zeroSamples ? `<details class="more"><summary>At-risk file sample ▾</summary>${zeroSamples}</details>` : ""}
        <h3>Per drive</h3>
        <table class="table"><thead><tr><th>Drive</th><th>Files</th><th>Size</th><th>Last verified</th></tr></thead><tbody>${drives}</tbody></table>`
+    ),
+    card(
+      `<div class="headline">How your dates were determined</div>
+       <div class="k">${
+         dates.not_recorded
+           ? `${plural(dates.not_recorded, "file")} of ${plural(dates.total, "file")} predate this record. That is normal and nothing is wrong with them; the shares below are of the ${nfmt(dates.recorded)} truestill has a note for.`
+           : `Where the capture date for each of your ${plural(dates.total, "file")} came from.`
+       }</div>
+       <table class="table"><thead><tr><th>Source</th><th>Files</th><th>Share</th></tr></thead>
+       <tbody>${dateProvenanceRows(dates)}</tbody></table>`
     ),
     card(
       `<div class="headline">Completeness</div>

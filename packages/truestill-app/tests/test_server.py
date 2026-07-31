@@ -152,7 +152,7 @@ def test_library_stats_reports_custody_and_shape(client: TestClient, tmp_path: P
         catalog.set_drive_verified("A", "2026-07-30T10:00:00")
 
     body = client.get(f"/api/library/stats?token={TOKEN}").json()
-    assert set(body) == {"safety", "completeness", "shape", "complexity"}
+    assert set(body) == {"safety", "completeness", "shape", "dates", "complexity"}
     assert set(body["safety"]) == {
         "total_files",
         "total_size",

@@ -231,13 +231,14 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
 ## 3. Data contract (catalog)
 
 - **Single SQLite file**, stdlib `sqlite3` (`catalog.py::Catalog`). No server.
-- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 13`**.
+- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 14`**.
   Migrations are ordered, idempotent functions in `_MIGRATIONS`; a catalog newer than the code
   is refused (`CatalogVersionError`). Migration coverage tested in `tests/test_catalog.py`.
 - **Table inventory (v12):** `files`, `albums`, `file_albums`, `events`, `skipped_clusters`,
   `drives`, `file_copies`, `settings`, `migration_journal`, `reclaim_journal`,
   `inplace_runs`, `inplace_moves`, `migration_runs`, `trips`, `trip_days`.
-  v13 adds no table: it is the single column `files.date_source`.
+  v13 and v14 add no table: they are the columns `files.date_source` and
+  `files.date_tag` (the tier, and the evidence behind it).
 - **Migration ledger:** v2 `size`, v3 `original_name`, v4 event tables (`events` +
   `skipped_clusters` + `files.event_id`), v5 Takeout (`files.copy_sha256` + `albums` +
   `file_albums`), v6 drive identity (`drives` + `file_copies`), v7 key/value `settings`
@@ -245,7 +246,8 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   v9 `reclaim_journal` (audit/resume for `truestill reclaim` deletions), v10 `inplace_runs` +
   `inplace_moves` (**reversible** journal for rename-based relocation), v11 `migration_runs` +
   `migration_journal.run_id`/`completed_at` (makes a **completed** migration reversible, not
-  merely resumable), v13 `files.date_source` (the resolver's tier, persisted at last - see
+  merely resumable), v14 `files.date_tag` (the winning tag, or the container/rung/offset for an
+  inferred video time - the evidence the honesty view shows), v13 `files.date_source` (the resolver's tier, persisted at last - see
   `docs/date-provenance-design.md`; pre-existing rows stay **NULL**, which means "not recorded"
   and is deliberately distinct from any real tier), v12 `trips` + `trip_days` (multi-day trips, identity is the **row**
   - `trips.id` - never a membership hash; `trip_days.day` is a primary key, so a day belongs to

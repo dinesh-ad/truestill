@@ -37,7 +37,8 @@ CREATE TABLE IF NOT EXISTS files (
     upload_status TEXT    NOT NULL,
     processed_at  TEXT    NOT NULL,
     uploaded_at   TEXT,
-    date_source   TEXT
+    date_source   TEXT,
+    date_tag      TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_files_sha256 ON files (sha256);
 CREATE INDEX IF NOT EXISTS idx_files_perceptual ON files (perceptual);
@@ -183,7 +184,7 @@ CREATE TABLE IF NOT EXISTS trip_days (
 """
 
 #: Bump whenever the schema changes, and add a matching entry to _MIGRATIONS.
-CURRENT_SCHEMA_VERSION = 13
+CURRENT_SCHEMA_VERSION = 14
 
 
 class CatalogVersionError(RuntimeError):
@@ -351,6 +352,23 @@ def _add_inplace_journal(conn: sqlite3.Connection) -> None:
 
 #: Ordered migrations: ``(target_version, fn)``. Each is idempotent and lifts a database
 #: from ``target_version - 1`` to ``target_version``. Append; never rewrite history.
+def _add_date_tag_column(conn: sqlite3.Connection) -> None:
+    """v13 -> v14: the evidence behind the tier, not just the tier.
+
+    ``date_source`` says *which kind* of evidence won; this says *which piece*. For EXIF it is
+    the winning tag name (``DateTimeOriginal``, ``CreateDate``); for ``INFERRED_LOCAL`` it is the
+    pipe-encoded container tag, corroborating rung and offset that
+    :func:`truestill_core.date_provenance.format_inferred_date_tag` produced.
+
+    Together they answer the question a user actually asks - "why this date?" - which is what the
+    honesty view shows and what the rescue flow (ii) hangs its action off. NULL for the tiers that
+    have no tag (filename, undated) and for rows written before v14, on the same reasoning as
+    ``date_source``: not recorded is not a guess.
+    """
+    if "date_tag" not in _column_names(conn):
+        conn.execute("ALTER TABLE files ADD COLUMN date_tag TEXT")
+
+
 def _add_date_source_column(conn: sqlite3.Connection) -> None:
     """v12 -> v13: persist which tier a file's capture date came from.
 
@@ -429,6 +447,7 @@ _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (11, _add_reversible_migrations),
     (12, _add_trip_tables),
     (13, _add_date_source_column),
+    (14, _add_date_tag_column),
 )
 
 
@@ -913,6 +932,20 @@ class Catalog:
             message = "stats summary query returned no row"
             raise RuntimeError(message)
         return row
+
+    def stats_date_provenance(self) -> list[sqlite3.Row]:
+        """Counts per (date_source, date_tag). **O(n)** single grouped scan; reads no files.
+
+        NULL ``date_source`` is returned as its own group rather than filtered out: on a library
+        organized before v13 it is every row, so hiding it would make the view claim a confident
+        breakdown of nothing.
+        """
+        return list(
+            self._conn.execute(
+                "SELECT date_source, date_tag, COUNT(*) AS files FROM files "
+                "GROUP BY date_source, date_tag ORDER BY files DESC"
+            )
+        )
 
     def stats_by_year(self) -> list[sqlite3.Row]:
         """Captured-file counts by year from SQL grouping.
@@ -1423,6 +1456,7 @@ class Catalog:
         albums: Sequence[str] = (),
         drive_uuid: str | None = None,
         date_source: str | None = None,
+        date_tag: str | None = None,
     ) -> int:
         """Insert (or refresh) a row marking a file as processed and uploaded; return its id.
 
@@ -1440,8 +1474,8 @@ class Catalog:
                 INSERT INTO files (
                     source_path, original_name, sha256, copy_sha256, perceptual, size,
                     captured_at, category, relative, event_id, upload_status, processed_at,
-                    uploaded_at, date_source
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'uploaded', ?, ?, ?)
+                    uploaded_at, date_source, date_tag
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'uploaded', ?, ?, ?, ?)
                 ON CONFLICT(sha256) DO UPDATE SET
                     source_path   = excluded.source_path,
                     original_name = excluded.original_name,
@@ -1454,7 +1488,8 @@ class Catalog:
                     event_id      = excluded.event_id,
                     upload_status = 'uploaded',
                     uploaded_at   = excluded.uploaded_at,
-                    date_source   = excluded.date_source
+                    date_source   = excluded.date_source,
+                    date_tag      = excluded.date_tag
                 """,
                 (
                     source_path,
@@ -1470,6 +1505,7 @@ class Catalog:
                     now,
                     now,
                     date_source,
+                    date_tag,
                 ),
             )
             row = conn.execute("SELECT id FROM files WHERE sha256 = ?", (sha256,)).fetchone()
