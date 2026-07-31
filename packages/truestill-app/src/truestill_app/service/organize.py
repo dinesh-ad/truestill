@@ -14,6 +14,7 @@ from truestill_core.date_provenance import format_offset
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import LocalDestination
 from truestill_core.drive import create_marker, read_marker
+from truestill_core.duplicate_explain import explain_duplicate
 from truestill_core.event_review import EventDecision, commit, propose
 from truestill_core.exif import read_metadata
 from truestill_core.hash_cache import HashCache
@@ -58,6 +59,59 @@ ORGANIZE_MODES = frozenset({"copy", "move", "inplace"})
 SIDEBAR_COLLAPSED_KEY = "ui.sidebar.collapsed"
 
 
+#: How many matches a payload carries. The rest are counted, never dropped silently (F46 /
+#: §9): every payload that truncates also states the total, so the API cannot imply a short
+#: list is the whole story any more than the screen can. 200 matches the move-preview limit -
+#: enough to scan, small enough that a 40,000-file run does not ship a megabyte of JSON.
+DUPLICATE_SAMPLE_LIMIT = 200
+
+
+class DuplicateSample(TypedDict):
+    """One match, named. The field the app used to drop is ``matched_path``."""
+
+    name: str
+    matched_path: str
+    origin: str
+    detail: str
+    kept: bool
+    distance: NotRequired[int]
+
+
+class DuplicateReport(TypedDict):
+    """Named matches plus the count they were taken from, so truncation is never silent."""
+
+    total: int
+    shown: list[DuplicateSample]
+
+
+def _duplicate_report(resolutions: list[Resolution], *, near: bool) -> DuplicateReport:
+    """Name what each skipped or flagged file matched, up to the sample limit.
+
+    The values are already computed by this same job - the engine has always known them, and
+    the app threw them away at the payload boundary. Nothing here rescans or re-reads.
+    """
+    matched = [
+        (r, r.near_duplicate if near else r.exact_duplicate)
+        for r in resolutions
+        if (r.near_duplicate if near else r.exact_duplicate) is not None
+    ]
+    shown: list[DuplicateSample] = []
+    for resolution, match in matched[:DUPLICATE_SAMPLE_LIMIT]:
+        assert match is not None  # filtered above; narrows for the type checker
+        explanation = explain_duplicate(match)
+        sample: DuplicateSample = {
+            "name": resolution.decision.source.name,
+            "matched_path": explanation.matched_path,
+            "origin": explanation.origin,
+            "detail": explanation.detail,
+            "kept": explanation.kept,
+        }
+        if match.distance is not None:
+            sample["distance"] = match.distance
+        shown.append(sample)
+    return {"total": len(matched), "shown": shown}
+
+
 class OrganizeDedupCore(TypedDict):
     """Counts from :func:`_summarize` before preview wraps with tier/mode/skipped."""
 
@@ -69,6 +123,8 @@ class OrganizeDedupCore(TypedDict):
     new_unique: int
     near_dup: int
     exact_dup: int
+    exact_dup_matches: DuplicateReport
+    near_dup_matches: DuplicateReport
     undated: int
     sentinel_rejected: int
     suspect_default: int
@@ -94,6 +150,9 @@ def _summarize(resolutions: list[Resolution]) -> OrganizeDedupCore:
         "new_unique": len(uploads) - len(near),
         "near_dup": len(near),
         "exact_dup": len(resolutions) - len(uploads),
+        # Named, not just counted (§9). The CLI has always printed these; the app dropped them.
+        "exact_dup_matches": _duplicate_report(resolutions, near=False),
+        "near_dup_matches": _duplicate_report(resolutions, near=True),
         "undated": sum(1 for r in uploads if r.decision.captured_at is None),
         # Never silent: an epoch-zero date that was refused, and a date that may be a dead
         # camera-clock default, are each reported on their own -- never folded into "undated".
@@ -540,8 +599,10 @@ class CompletionBase(TypedDict):
     bytes_organized: int
     duplicates: int
     bytes_saved: int
+    duplicate_matches: DuplicateReport
     near_dup: int
     bytes_near_dup: int
+    near_dup_matches: DuplicateReport
     folders: dict[str, int]
     oldest: str | None
     newest: str | None
@@ -597,8 +658,12 @@ def _completion(results: list[ActionResult], destination: Path) -> CompletionBas
         "bytes_organized": sum(_result_size(r, destination) for r in organized),
         "duplicates": len(duplicates),
         "bytes_saved": sum(_result_size(r, destination) for r in duplicates),
+        # What each skipped file matched. The count alone was the §9 gap: "identical to a kept
+        # file" without saying which kept file is the complaint the CLI never had.
+        "duplicate_matches": _duplicate_report([r.resolution for r in duplicates], near=False),
         "near_dup": len(near),
         "bytes_near_dup": sum(_result_size(r, destination) for r in near),
+        "near_dup_matches": _duplicate_report([r.resolution for r in near], near=True),
         "folders": dict(labels.most_common()),
         # None rather than a placeholder year: an undated batch has no range, and inventing
         # one would be exactly the "computed for effect" the honesty rule forbids.

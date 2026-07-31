@@ -1426,6 +1426,8 @@ function renderOrganizeResult(s) {
        <div class="n">${nfmt(s.exact_dup)}</div><div class="k">duplicates - identical to a kept file, will skip</div>
        <div class="n">${nfmt(s.undated)}</div><div class="k">no date - will go to “Undated”</div>
      </div>
+     ${matchListHtml(s.exact_dup_matches, "Show what each duplicate matched")}
+     ${matchListHtml(s.near_dup_matches, "Show what each look-alike resembles")}
      ${folders ? `<h3>Into these folders <span style="font-weight:400;color:var(--text-muted)">- hover a chip for what it means</span></h3><div class="chips">${folders}</div>${legend}` : ""}
      ${byFormat(s.by_format)}${dateQuality}${inferredShifts}${heic}${details}`
   );
@@ -1788,7 +1790,9 @@ $("rc-preview").onclick = guarded(async () => {
            <div class="n">${nfmt(r.dates_photo_taken)}</div><div class="k">dates recovered</div>
            <div class="n">${nfmt(r.undated)}</div><div class="k">still undated</div>
          </div>
-         ${dateQualityNotes(r)}${inferredLocalShiftNotes(r)}`
+         ${dateQualityNotes(r)}${inferredLocalShiftNotes(r)}
+         ${matchListHtml(r.duplicate_matches, "Show what each duplicate matched")}
+         ${matchListHtml(r.near_dup_matches, "Show what each look-alike resembles")}`
       );
     },
   });
@@ -1956,6 +1960,25 @@ $("ev-merge").onclick = guarded(async () => {
 // library must never look complete when it is not, so the hidden count is named in both places a
 // reader can stop: the summary they decide whether to open, and the end of the list they scrolled.
 const MOVE_PREVIEW_LIMIT = 200;
+
+// A skipped duplicate must say WHAT it matched, not only that it matched something
+// (IMPLEMENTATION_STANDARDS 9: counted AND named). The CLI has always printed this; the app
+// used to render a bare count. Truncation follows the F46 shape - the count the list was taken
+// from is named in the summary you decide whether to open, and again at the end you scrolled.
+function matchListHtml(report, label) {
+  if (!report || !report.total) return "";
+  const shown = report.shown || [];
+  const hidden = report.total - shown.length;
+  const heading = hidden
+    ? `${label} (first ${nfmt(shown.length)} of ${nfmt(report.total)})`
+    : `${label} (${nfmt(report.total)})`;
+  const rows = shown
+    .map((m) => `<div><span class="mono">${esc(m.name)}</span> - ${esc(m.detail)}</div>`)
+    .join("");
+  return `<details class="more"><summary>${heading}</summary>
+            <div class="k">${rows}</div>
+            ${hidden ? `<div class="k">…and ${nfmt(hidden)} more</div>` : ""}</details>`;
+}
 
 function moveListHtml(moves) {
   const shown = moves.slice(0, MOVE_PREVIEW_LIMIT);

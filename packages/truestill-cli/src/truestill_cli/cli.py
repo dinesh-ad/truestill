@@ -47,6 +47,7 @@ from truestill_core.drive import (
     read_marker,
     upgrade_marker,
 )
+from truestill_core.duplicate_explain import origin_phrase
 from truestill_core.exif import ExiftoolMissingError, read_metadata
 from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import DEFAULT_PHASH_THRESHOLD, HEIF_AVAILABLE, HEIF_EXTENSIONS
@@ -624,7 +625,12 @@ def _format_new(resolution: Resolution, root_label: str) -> str:
     if resolution.near_duplicate is not None:
         near = resolution.near_duplicate
         distance = f", distance={near.distance}" if near.distance is not None else ""
-        lines.append(f"      NEAR-DUP  : looks like {near.matched_path} [{near.origin}{distance}]")
+        # Origin wording comes from the shared home so the CLI and the app cannot describe the
+        # same match differently (ENGINEERING_STANDARD.md §4); the report's own layout stays.
+        lines.append(
+            f"      NEAR-DUP  : looks like {near.matched_path} "
+            f"[{origin_phrase(near.origin)}{distance}]"
+        )
         lines.append("                  organized anyway (kept, not dropped) - review manually")
     lines.append(f"      -> {root_label}/{decision.relative.as_posix()}")
     return "\n".join(lines)
@@ -637,7 +643,7 @@ def _format_exact(resolution: Resolution) -> str:
     return (
         f"  {resolution.decision.source.name}  [SKIP: exact duplicate]\n"
         f"      identical to : {match.matched_path}\n"
-        f"      via          : SHA-256, seen this {match.origin}"
+        f"      via          : SHA-256, {origin_phrase(match.origin)}"
     )
 
 
