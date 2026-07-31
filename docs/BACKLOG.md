@@ -582,6 +582,88 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(n) "How your dates were determined" honesty stat - BUILT 2026-07-31 (steps 1, 2 and 5).**
+  **Part of the date-provenance program** (see **Converged programs**) - do not build this
+  alone.
+  - **Built:** the durable provenance column (`files.date_source`, schema **v13**, plus
+    `date_tag` at **v14**), `Catalog.stats_date_provenance`, and the honesty view itself, live
+    in the app at `service/stats.py` (`_date_provenance`). `date_explain.py` is the single place
+    a tier becomes a sentence, including the calm **NOT_RECORDED** wording for libraries
+    organized before v13 - which on the maintainer's own 2,300-row catalog is **every row**.
+  - **The drill-down shipped in step 5** (`Catalog.files_in_date_tier`,
+    `stats.date_tier_files`, `GET /api/dates/files`): each tier opens to the files in it, every
+    row carrying the sha256 the rescue action is keyed on. That answers the walkthrough finding
+    below - a bare count with no way in - for the **files** and not only the **mix**.
+  - ⚠ **This entry read as unstarted until 2026-07-31**, after the column, migrations and view
+    had all shipped, and then read as *partly* built for one more day after the drill-down
+    landed. A cold start would have rebuilt `date_source` from scratch. That is the inverse of
+    `(bb)`'s optimistic marking and the more expensive direction of the two - and it recurred
+    twice in one program, which is why status now lives on the entry and the entry lives in the
+    section matching it.
+
+  The original description, kept because the requirement it states is still the target: a
+  per-run/library figure in the reports/UI showing the **provenance mix** of capture
+  dates - e.g. "82% from embedded EXIF, 11% from filename, 5% from Takeout, 2% Undated" (a
+  metadata-accuracy %). truestill already resolves and could persist `date_source` (see the
+  metadata-chain §1b.3 schema-v9 note); surfacing it honestly tells a user how much to trust
+  their timeline, in truestill's voice.
+  - **Validated by the UI-v2 walkthrough:** the organize result's "**N no date → Undated**" line
+    confused a first user - a bare count with no way in. It must be **explorable**: click it to see
+    *which* files were undated and *why* no date was found (which tags were checked, whether a
+    filename date was tried). Same treatment for the provenance mix - each slice drills to its
+    files. This is the concrete first slice of (n) to build first post-launch.
+
+- **(ii) Rescue flow for side-bin and undated files - BUILT 2026-07-31 (steps 3 and 5).** Ruled by the
+  maintainer from a soak finding, and the finding is the argument: real memories genuinely do sit
+  in `Saved/`, `WhatsApp/` and `Undated/` - a photo someone sent you of a day you were there is
+  still your memory. **Part of the date-provenance program** (see **Converged programs**) - do
+  not build this alone.
+  - **Built - the storage half.** `date_confirmations` (schema **v15**), `Catalog.confirm_date`
+    (one transaction: the durable row plus the `files` update that makes catalog-driven
+    re-render place by the confirmed date) and `Catalog.confirmed_date`. Obligation **O4** is
+    tested against every whole-disk operation by name in `test_confirmation_survives.py`:
+    migrate-layout, re-layout under a different preset, in-place organize, undo-organize, and a
+    re-ingest. The re-ingest case found a real defect - `record_uploaded` reverted a confirmed
+    date while the confirmation sat intact beside it - now fixed and pinned.
+  - **Built - the surface, in step 5.** `POST /api/dates/confirm`
+    (`date_rescue.confirm_file_date`) records the date, refuses a precision the model cannot
+    represent rather than rounding it, and answers with the three states a user needs: what the
+    library now believes, that the file has not moved, and what the file itself still says.
+    Reached from the honesty view's drill-down. **App-only by recorded deferral** - see
+    *App-surface deferrals*.
+  - So the sentence this entry used to open with - *"today there is no durable way to move one
+    onto the timeline"* - is now simply **out of date**, and kept only as the argument that
+    produced the item.
+  - **The problem, precisely.** A hand-move is *undone by the next whole-disk operation*. The
+    catalog still records the old location and the old, untrusted date, so `migrate-layout`
+    re-renders the file straight back to the bin it was rescued from. The user's correction is
+    not merely forgotten - it is actively reverted, which is worse than not supporting it.
+  - **A rescue is a CATALOG event, not a file move.** The user confirms the true capture date
+    (and optionally an event); truestill places the file in the timeline itself, through the
+    normal seam, and records the date with provenance **`human-confirmed`**. Nobody drags
+    anything; the tool does the move because the tool owns the placement.
+  - **Human-confirmed provenance outranks machine derivation, permanently.** Every subsequent
+    organize, migrate and verify routes the file by the confirmed date. This is the whole
+    feature: a rescue that does not survive every future whole-disk operation has not happened.
+  - **It fits the existing model rather than bolting on.** `DateSource` already ranks tiers
+    (EXIF → Takeout → filename → none/rejected-sentinel); `human-confirmed` becomes the new
+    highest tier and the resolver's ordering does the rest. Persisting it needs the date-source
+    column that item **(n)** has been waiting on - so (n) and (ii) share a schema step.
+  - **Surfaced from the bins and the Undated view**, and it shares (n)'s UI surface: (n) makes
+    "why is this undated?" explorable, and this is the action offered once the user is looking
+    at the answer. Building either alone builds half a screen.
+  - **Research pass before build:** how Google Photos and Immich handle user date edits, and
+    specifically their *persistence* semantics - whether a corrected date survives re-scan,
+    re-import and library moves, and what they do when embedded metadata later contradicts a
+    human edit. That last case is the design's real question: truestill's answer must be that
+    the human wins, but the disagreement should be visible rather than silent.
+  - ⚠ **Interaction with dedup, to design against:** a rescued file's content hash is unchanged,
+    so a re-run must not treat the rescue as a new file *or* re-place it by its old evidence.
+    The catalog row is the identity; the rescue edits it.
+  - **Sequencing: post-arc.** Priority argued **up** by the soak finding - without it, rescuing
+    anything out of a side bin is not merely unsupported but impossible to do durably. **Same
+    program as (n) / (bbb) recovery / (kk) GPSDateStamp** - see **Converged programs**.
+
 - **(oo) Long-running actions must show they are running.** Ruled by the maintainer from a soak
   finding, 2026-07-29, same class as the silent-failure gap fixed in `670ab5d` - that one hid
   **errors**, this one hides **work**.
@@ -1068,32 +1150,6 @@ picking one up must map the combined order before building.
   - **Positioning:** this is what makes (m) the **Pro-tier crown feature alongside (p)**. The
     safe-delete flow is the table stakes; knowing which copy to keep is the part worth paying
     for.
-- **(n) "How your dates were determined" honesty stat - MOSTLY BUILT 2026-07-31.**
-  **Part of the date-provenance program** (see **Converged programs**) - do not build this
-  alone.
-  - **Built:** the durable provenance column (`files.date_source`, schema **v13**, plus
-    `date_tag` at **v14**), `Catalog.stats_date_provenance`, and the honesty view itself, live
-    in the app at `service/stats.py` (`_date_provenance`). `date_explain.py` is the single place
-    a tier becomes a sentence, including the calm **NOT_RECORDED** wording for libraries
-    organized before v13 - which on the maintainer's own 2,300-row catalog is **every row**.
-  - **Still to build:** the *drill-down*. The walkthrough finding below - that a bare count with
-    no way in is what confused a first user - is answered for the **mix**, not yet for the
-    **files**: clicking a slice does not yet list which files are in it and why.
-  - ⚠ **This entry read as unstarted until 2026-07-31**, after the column, migrations and view
-    had all shipped. A cold start would have rebuilt `date_source` from scratch. That is the
-    inverse of `(bb)`'s optimistic marking and the more expensive direction of the two.
-
-  The original description, kept because the requirement it states is still the target: a
-  per-run/library figure in the reports/UI showing the **provenance mix** of capture
-  dates - e.g. "82% from embedded EXIF, 11% from filename, 5% from Takeout, 2% Undated" (a
-  metadata-accuracy %). truestill already resolves and could persist `date_source` (see the
-  metadata-chain §1b.3 schema-v9 note); surfacing it honestly tells a user how much to trust
-  their timeline, in truestill's voice.
-  - **Validated by the UI-v2 walkthrough:** the organize result's "**N no date → Undated**" line
-    confused a first user - a bare count with no way in. It must be **explorable**: click it to see
-    *which* files were undated and *why* no date was found (which tags were checked, whether a
-    filename date was tried). Same treatment for the provenance mix - each slice drills to its
-    files. This is the concrete first slice of (n) to build first post-launch.
 - **(p) "Share safely" - metadata-stripping export. PRO TIER (behind the capability seam).**
   A dedicated **export** action that writes cleaned copies for sharing, so a user can post a photo
   without leaking where they live or what device they use. Market demand is documented (a whole app
@@ -1158,53 +1214,6 @@ picking one up must map the combined order before building.
     reason and is well understood by the audience.
   - **Shares the walk-and-classify machinery with `clean-empty`** - both answer "what is on this
     drive that the catalog does not account for", from opposite ends.
-
-- **(ii) Rescue flow for side-bin and undated files - HALF BUILT 2026-07-31.** Ruled by the
-  maintainer from a soak finding, and the finding is the argument: real memories genuinely do sit
-  in `Saved/`, `WhatsApp/` and `Undated/` - a photo someone sent you of a day you were there is
-  still your memory. **Part of the date-provenance program** (see **Converged programs**) - do
-  not build this alone.
-  - **Built - the storage half.** `date_confirmations` (schema **v15**), `Catalog.confirm_date`
-    (one transaction: the durable row plus the `files` update that makes catalog-driven
-    re-render place by the confirmed date) and `Catalog.confirmed_date`. Obligation **O4** is
-    tested against every whole-disk operation by name in `test_confirmation_survives.py`:
-    migrate-layout, re-layout under a different preset, in-place organize, undo-organize, and a
-    re-ingest. The re-ingest case found a real defect - `record_uploaded` reverted a confirmed
-    date while the confirmation sat intact beside it - now fixed and pinned.
-  - **Not built - the surface.** `confirm_date` is reachable from **0 routes and 0 CLI
-    commands**, deliberately: step 3 was ruled catalog-only so a bug in the write path could not
-    cost a correction the user had already made. Nobody can perform a rescue yet.
-  - So the sentence this entry used to open with - *"today there is no durable way to move one
-    onto the timeline"* - is now **half wrong**: the durability exists, the way in does not.
-  - **The problem, precisely.** A hand-move is *undone by the next whole-disk operation*. The
-    catalog still records the old location and the old, untrusted date, so `migrate-layout`
-    re-renders the file straight back to the bin it was rescued from. The user's correction is
-    not merely forgotten - it is actively reverted, which is worse than not supporting it.
-  - **A rescue is a CATALOG event, not a file move.** The user confirms the true capture date
-    (and optionally an event); truestill places the file in the timeline itself, through the
-    normal seam, and records the date with provenance **`human-confirmed`**. Nobody drags
-    anything; the tool does the move because the tool owns the placement.
-  - **Human-confirmed provenance outranks machine derivation, permanently.** Every subsequent
-    organize, migrate and verify routes the file by the confirmed date. This is the whole
-    feature: a rescue that does not survive every future whole-disk operation has not happened.
-  - **It fits the existing model rather than bolting on.** `DateSource` already ranks tiers
-    (EXIF → Takeout → filename → none/rejected-sentinel); `human-confirmed` becomes the new
-    highest tier and the resolver's ordering does the rest. Persisting it needs the date-source
-    column that item **(n)** has been waiting on - so (n) and (ii) share a schema step.
-  - **Surfaced from the bins and the Undated view**, and it shares (n)'s UI surface: (n) makes
-    "why is this undated?" explorable, and this is the action offered once the user is looking
-    at the answer. Building either alone builds half a screen.
-  - **Research pass before build:** how Google Photos and Immich handle user date edits, and
-    specifically their *persistence* semantics - whether a corrected date survives re-scan,
-    re-import and library moves, and what they do when embedded metadata later contradicts a
-    human edit. That last case is the design's real question: truestill's answer must be that
-    the human wins, but the disagreement should be visible rather than silent.
-  - ⚠ **Interaction with dedup, to design against:** a rescued file's content hash is unchanged,
-    so a re-run must not treat the rescue as a new file *or* re-place it by its old evidence.
-    The catalog row is the identity; the rescue edits it.
-  - **Sequencing: post-arc.** Priority argued **up** by the soak finding - without it, rescuing
-    anything out of a side bin is not merely unsupported but impossible to do durably. **Same
-    program as (n) / (bbb) recovery / (kk) GPSDateStamp** - see **Converged programs**.
 
 - **(y) Optional photo / video split - default TOGETHER, and pair-aware or not at all.**
   Post-layout-correction. An opt-in that separates standalone videos into their own top-level
