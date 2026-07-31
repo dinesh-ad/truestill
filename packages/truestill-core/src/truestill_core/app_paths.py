@@ -52,9 +52,15 @@ from pathlib import Path
 
 import platformdirs
 
-#: Application name for the platform directory lookup. One name, used for both roots, so a
-#: user can find everything truestill owns without knowing which kind of file it is.
-APP_NAME = "truestill"
+#: Application name for the platform directory lookup, and the **product** name as a person
+#: sees it: **Truestill**, capitalised. The import package stays ``truestill_core`` and the
+#: command stays ``truestill`` - those are identifiers, and lowercase is right for both - but a
+#: folder in "Application Support" or "AppData" sits among the other installed applications,
+#: and a lowercase name there reads like a stray build artefact rather than a product.
+#:
+#: One name for both roots, so a user finds everything Truestill owns without knowing which
+#: kind of file it is.
+APP_NAME = "Truestill"
 
 #: Environment overrides for the two roots, honoured on **every** platform.
 #:
