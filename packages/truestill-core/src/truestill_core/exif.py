@@ -9,8 +9,8 @@ payload small.
 from __future__ import annotations
 
 import json
+import os
 import re
-import shutil
 import subprocess
 import tempfile
 import threading
@@ -19,10 +19,16 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from truestill_core.binaries import is_bundled_install, resolve_binary
 from truestill_core.hash_cache import HashCache, tags_fingerprint
 from truestill_core.progress import Phase, Progress, ProgressCallback
 
 EXIFTOOL_BIN = "exiftool"
+
+#: Points at one specific exiftool build, overriding both the bundled copy and PATH. The escape
+#: hatch for a user who needs a particular version; set to a nonexistent file it resolves to
+#: nothing rather than silently falling back to a different binary.
+EXIFTOOL_BIN_ENV = "TRUESTILL_EXIFTOOL"
 
 #: Files handed to exiftool per invocation. Large enough to amortise startup, small
 #: enough to stay well clear of ARG_MAX on long paths.
@@ -67,9 +73,29 @@ _NUMERIC_TAGS: tuple[str, ...] = (
     "GPSLongitude",
 )
 
-_MISSING_MSG = (
-    "exiftool was not found on PATH. On Ubuntu install it with: "
-    "sudo apt install -y libimage-exiftool-perl"
+#: Said to someone running a **packaged** copy. exiftool ships inside the application, so its
+#: absence is a broken installation rather than something they forgot to do - and a person who
+#: double-clicked an icon has no terminal to paste an install command into.
+_MISSING_BUNDLED_MSG = (
+    "Truestill could not find exiftool, which it needs to read the dates and camera details "
+    "stored inside your photos. It is normally installed as part of Truestill, so this "
+    "installation looks incomplete. Installing Truestill again should fix it."
+)
+
+#: Said in a source checkout, where the tool genuinely has to be obtained and the reader has a
+#: terminal in front of them.
+_MISSING_SOURCE_MSG = (
+    "exiftool was not found. Truestill needs it to read the dates and camera details stored "
+    "inside your photos. Install it with 'sudo apt install -y libimage-exiftool-perl' on "
+    "Debian or Ubuntu, 'brew install exiftool' on macOS, or from exiftool.org on Windows."
+)
+
+#: Said when an explicit override points at a file that is not there. Naming the variable and
+#: the path is the whole content of the fix, and falling back would hide the mistake.
+_MISSING_OVERRIDE_MSG = (
+    "{env} is set to '{value}', but there is no file there. Truestill will not quietly use a "
+    "different exiftool than the one you asked for. Correct the path, or unset {env} to let "
+    "Truestill find exiftool itself."
 )
 
 
@@ -77,11 +103,28 @@ class ExiftoolMissingError(RuntimeError):
     """Raised when the exiftool binary is unavailable."""
 
 
+def _missing_message() -> str:
+    """The advice that fits the situation the reader is actually in.
+
+    Three audiences, three causes: a mistyped override, a broken packaged install, and a source
+    checkout that has not installed the tool. One message for all three would have to be vague
+    enough to be useless to each.
+    """
+    override = os.environ.get(EXIFTOOL_BIN_ENV)
+    if override:
+        return _MISSING_OVERRIDE_MSG.format(env=EXIFTOOL_BIN_ENV, value=override)
+    return _MISSING_BUNDLED_MSG if is_bundled_install() else _MISSING_SOURCE_MSG
+
+
 def ensure_exiftool() -> str:
-    """Return the path to the exiftool binary, or raise if it is not installed."""
-    found = shutil.which(EXIFTOOL_BIN)
+    """Path to the exiftool binary - bundled copy first, then PATH - or raise saying why not.
+
+    See `binaries` for the resolution order and for why it is not cached (measured at 30.6 us
+    per batch, against an exiftool process start of 50-200 ms).
+    """
+    found = resolve_binary(EXIFTOOL_BIN, override_env=EXIFTOOL_BIN_ENV)
     if found is None:
-        raise ExiftoolMissingError(_MISSING_MSG)
+        raise ExiftoolMissingError(_missing_message())
     return found
 
 
