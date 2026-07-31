@@ -187,12 +187,15 @@ CREATE TABLE IF NOT EXISTS date_confirmations (
     sha256       TEXT PRIMARY KEY,
     captured_at  TEXT NOT NULL,
     confirmed_at TEXT NOT NULL,
-    confirmed_by TEXT
+    confirmed_by TEXT,
+    -- When this confirmation was written into the bytes on disk, NULL until it is. The
+    -- catalog record (step 3) is durable on its own; this says whether the FILE agrees.
+    baked_at     TEXT
 );
 """
 
 #: Bump whenever the schema changes, and add a matching entry to _MIGRATIONS.
-CURRENT_SCHEMA_VERSION = 15
+CURRENT_SCHEMA_VERSION = 16
 
 
 class CatalogVersionError(RuntimeError):
@@ -201,6 +204,12 @@ class CatalogVersionError(RuntimeError):
 
 def _column_names(conn: sqlite3.Connection) -> set[str]:
     return {row["name"] for row in conn.execute("PRAGMA table_info(files)")}
+
+
+def _columns_of(conn: sqlite3.Connection, table: str) -> set[str]:
+    """Column names of any table. `_column_names` answers only for ``files``, and a migration
+    that reused it against another table would silently test the wrong one."""
+    return {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
 
 
 def _add_size_column(conn: sqlite3.Connection) -> None:
@@ -494,6 +503,17 @@ def downgrade_v12_to_v11(conn: sqlite3.Connection) -> None:
     conn.execute("PRAGMA user_version = 11")
 
 
+def _add_confirmation_baked_at(conn: sqlite3.Connection) -> None:
+    """v15 -> v16: record whether a confirmed date reached the bytes, not just the catalog.
+
+    Step 3 made a confirmation durable in the catalog; step 4 writes it into the file. Those are
+    different states, and a user is entitled to know which one a photo is in - a date only
+    truestill knows is not the same promise as a date any other tool will read.
+    """
+    if "baked_at" not in _columns_of(conn, "date_confirmations"):
+        conn.execute("ALTER TABLE date_confirmations ADD COLUMN baked_at TEXT")
+
+
 _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (2, _add_size_column),
     (3, _add_original_name_column),
@@ -509,6 +529,7 @@ _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (13, _add_date_source_column),
     (14, _add_date_tag_column),
     (15, _add_date_confirmations),
+    (16, _add_confirmation_baked_at),
 )
 
 
@@ -906,6 +927,49 @@ class Catalog:
                 "UPDATE files SET captured_at = ?, date_source = ?, date_tag = NULL"
                 " WHERE sha256 = ?",
                 (captured_at, DateSource.HUMAN_CONFIRMED.value, sha256),
+            )
+
+    def confirmations_to_bake(self, drive_uuid: str) -> list[sqlite3.Row]:
+        """Confirmed dates whose copy is on this drive and is not yet written into the bytes.
+
+        Returns ``sha256, captured_at, relative``. Driven by ``baked_at IS NULL`` so a re-run
+        after a partial bake picks up exactly what is left - the same resumability the rest of
+        the product has, for the same reason: a run over a large drive will be interrupted.
+
+        **Complexity: O(confirmations on this drive)**, one indexed join. No I/O.
+        """
+        return list(
+            self._conn.execute(
+                """
+                SELECT dc.sha256, dc.captured_at, fc.relative
+                FROM date_confirmations dc
+                JOIN file_copies fc ON fc.sha256 = dc.sha256
+                WHERE fc.drive_uuid = ? AND dc.baked_at IS NULL
+                ORDER BY fc.relative
+                """,
+                (drive_uuid,),
+            )
+        )
+
+    def record_bake(self, sha256: str, drive_uuid: str, *, copy_sha256: str) -> None:
+        """**O1: the new copy hash and the bake record land in ONE transaction.**
+
+        This is the obligation the whole feature turns on. If the bytes are rewritten and the
+        recorded hash is not updated with them, `verify` compares the new file against the old
+        digest and tells the user their photo is damaged - **a tool reporting corruption on a
+        file it rewrote itself**, which destroys the trust `verify` exists to build. Splitting
+        these into two statements would leave a crash between them doing exactly that.
+
+        ``copy_sha256`` must be read back from the file **on the drive** after the write, never
+        from a staged copy and never from what exiftool reported - see `service.bake`.
+        """
+        with self._tx() as conn:
+            conn.execute(
+                "UPDATE file_copies SET copy_sha256 = ? WHERE sha256 = ? AND drive_uuid = ?",
+                (copy_sha256, sha256, drive_uuid),
+            )
+            conn.execute(
+                "UPDATE date_confirmations SET baked_at = ? WHERE sha256 = ?", (_now(), sha256)
             )
 
     def confirmed_date(self, sha256: str) -> str | None:

@@ -26,7 +26,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aah). Next free: (aai).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aai). Next free: (aaj).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -41,6 +41,33 @@ Everything here has work left. **Two entries are partial and say so in their own
 `(bbb)` (the safety half shipped, the `_original` recovery offer did not) and `(r)` (the hash
 cache shipped, Analyze mode itself did not). A partial entry lives here, not in the built
 section, because what is left is the part that still has to be written.
+
+- **(aai) The plain copy path records the hash of what was SENT, not what landed.** Found
+  2026-07-31 while establishing O1's read-back rule for the date bake. **Record only - do not
+  fix inside the date-provenance program.**
+  - **The observation.** `organizer._upload_with_metadata_write` computes
+    ``copy_sha = sha256_file(staged)`` from the **local staged copy**, then calls
+    `destination.upload(...)`; `_record_organized_file` stores that value as
+    ``file_copies.copy_sha256``. The destination is never re-read on an ordinary copy. §1's
+    "copy → record → re-verify" ordering describes `--move`, where `_move_source` does re-hash
+    the destination before deleting a source - the plain copy has no equivalent step.
+  - **Why it is usually harmless, stated so nobody over-reacts.** `shutil.copy2` to a local disk
+    that returns without error has written the bytes. The recorded hash is then correct, and
+    `verify` re-reads the file later anyway - a bad write surfaces as MISMATCH the first time
+    anyone verifies, which is what verify is for.
+  - **Where it is not harmless: network and FUSE mounts**, where a destination can be visible
+    before it has settled and an `upload` can return before the bytes are durable at the far
+    end. There, "the hash of what we sent" and "the hash of what is there" are different claims,
+    and only the second is what `verify` will check against. This is the same reasoning that
+    made the date bake read back from the drive file (`service/bake.py`, O1).
+  - **Why it was NOT fixed inside step 4.** It is a change to the *organize* write path, which
+    every run uses, on a claim about a mount class not currently measured. Folding it into a
+    date-rescue commit would put an unrelated change to the product's busiest write path behind
+    a feature flag nobody would think to look under.
+  - **Open questions:** whether a post-upload `destination.checksum` is affordable on the copy
+    path at 40,000 files (it is a second full read per file, so probably not unconditionally);
+    whether it should apply only to non-local destinations; and whether `Destination` should
+    expose "has this settled" rather than the caller guessing.
 
 - **(aah) Migrate could verify against the live copy hash instead of its journal snapshot.**
   Found 2026-07-31 while closing condition 3 of the date-provenance program. **Record only - do
