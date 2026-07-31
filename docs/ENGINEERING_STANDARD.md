@@ -200,6 +200,27 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   The question to ask of any guard: *if this assertion passed and the feature were still broken,
   what would that look like?* If you can describe it, you are asserting the wrong subject.
 
+- **When a fix lands on one surface, ask where else the rule is written down - not whether the
+  other surface has a test.** The CLI and the app implement one contract twice (62 core symbols
+  are imported by both), so a repair that reaches one copy and not its twin is a standing risk
+  rather than an accident. It has now happened three times: F0 (migrate-undo fixed,
+  organize-undo not), F38 (twelve job sites updated, one missed), and `cli.py:513`.
+
+  **A second test would have caught the drift; a shared home would have made it impossible.**
+  §9 already proves the pattern works - `models.status_label` and `models.date_quality` have
+  exactly one home each, which is why the CLI and the app *cannot* word an outcome or count a
+  date-quality signal differently. The dual-hash rule never got one: "the expected hash is
+  `copy_sha256`, never `sha256`" was written at two call sites, so correcting one left the other
+  silently wrong, and the CLI had no test because the rule had been **copied instead of
+  shared**. Missing coverage was the symptom; duplication was the cause.
+
+  So the remedy for any instance is usually to delete one of the two copies, not to add a second
+  assertion. **Enforced** by `packages/truestill-app/tests/test_surface_parity.py`, which flags a
+  catalog-row rule expressed at a call site on one surface and not its twin - and which protects
+  the *repair*, not the contract: before the `cli.py:513` fix both surfaces agreed and both were
+  wrong, and it scored zero. A green run there means the two copies match, never that they are
+  right.
+
 - **Errors.** Exceptions typed and specific - no bare `except`. User-facing CLI errors are
   actionable sentences, not tracebacks. Every subprocess call checks its return code and
   surfaces stderr on failure. Partial-failure policy: one bad file never aborts a batch - it
