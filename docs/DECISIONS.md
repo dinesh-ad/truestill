@@ -136,6 +136,19 @@ quietly relitigated as "more coverage is better".
 3. **No in-place-organize E2E.** The feature is CLI-only by decision
    (`BACKLOG.md`, app-surface deferrals), so there is no UI to drive; asserting it through a
    browser would test a surface that does not exist.
+
+   > **⚠ PREMISE SUPERSEDED (2026-07-30) by `BACKLOG.md` `(eee)`.** The ruling above is kept
+   > unedited because it was **correct when it was made**: the app had no in-place surface, and
+   > an e2e for it would have asserted against nothing. `(eee)` then shipped Copy / Move /
+   > Reorganize-in-place as radio options (`templates/index.html`), which removed the premise
+   > rather than reversing the reasoning. `tests/e2e/test_ui_regressions.py` now drives that
+   > surface, correctly.
+   >
+   > **What survives is the rule, not the verdict:** the browser lane covers a surface that
+   > exists and does not invent coverage for one that does not. Applied to today's app, that
+   > same rule produces the opposite answer. Note the deferral this ruling cites has moved on
+   > too - `reclaim` is now the only thing still CLI-only, so a `reclaim` e2e would be the
+   > current instance of the mistake this ruling was written to prevent.
 4. **One golden path as a single long journey, not six tests.** The value is in the *handoffs* -
    state carried from organize to Backups, a library the app registered being accepted by the
    copy flow. Split into six set-up tests, the defect that actually shipped (organize never

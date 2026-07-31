@@ -14,8 +14,19 @@ Two decisions carry this module, both recorded in `docs/empty-folder-cleanup-res
   named in :data:`JUNK_NAMES` (or is a zero-byte file). Anything else -- however small, however
   hidden -- leaves the folder alone and is reported with its contents named.
 
-**O(folders)** in the leftovers: one directory listing each, a set lookup per entry. Nothing
-scales with library size.
+**Complexity, in two halves, because only one of them is bounded by the leftovers.**
+
+* Deriving the candidate set (:func:`emptied_directories`) is **O(moves x depth) + O(F log F)**
+  for the sort, where *moves* is one journal row **per migrated file**. That half does scale
+  with library size.
+* Classifying and removing them (:func:`plan_cleanup`, :func:`run_cleanup`) is **O(folders)**:
+  one directory listing each, a set lookup per entry, and **no file is ever opened**.
+
+The original wording here said "Nothing scales with library size", which was wrong about the
+first half - it is pure string work, so it is cheap rather than absent, but a future optimiser
+reading this module was entitled to a true sentence rather than a reassuring one. The claim that
+matters is the second bullet: the expensive resource is directory I/O, and that is bounded by
+the skeleton, not by the library.
 """
 
 from __future__ import annotations

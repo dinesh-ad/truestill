@@ -18,6 +18,16 @@ Only clusters worth naming are proposed (enough files, spanning enough time); ev
 stays in the active scheme's un-evented timeline folder. A cluster's identity is the hash of its
 sorted member SHA-256s, so a skip or a name is remembered across runs and re-proposed only if
 the membership actually changes.
+
+**Complexity: O(n log n)** in the number of Camera files, dominated entirely by the one sort;
+everything after it is three linear passes (gaps, boundaries, segments).
+
+It is deliberately **not** the quadratic thing it resembles, and the reason is the word *local*
+above: the baseline a gap is judged against is the median of a **fixed window** of neighbours
+(:data:`DEFAULT_WINDOW`, so at most 21 gaps), never of all gaps. That keeps the boundary test
+O(1) per gap instead of O(n), which is the difference between O(n log n) and O(n^2) here.
+`PERFORMANCE.md` §4 lists this stage as one not to "optimise"; that note anticipated a reader
+misjudging these loops, so the argument now also lives where those loops are.
 """
 
 from __future__ import annotations
@@ -234,6 +244,11 @@ def cluster_camera(
     for i in range(len(ordered)):
         is_last = i == len(ordered) - 1
         if is_last or i in boundaries:
+            # A slice inside a loop, and still linear in total: the segments **partition**
+            # `ordered` - `segment_start` always advances past the segment just taken - so
+            # across every iteration each item is copied exactly once, not once per boundary.
+            # ENGINEERING_STANDARD 4 asks for that proof wherever iteration over the library
+            # looks nested; this is the site it was asking about.
             segment = ordered[segment_start : i + 1]
             segment_start = i + 1
             if len(segment) >= min_files:
