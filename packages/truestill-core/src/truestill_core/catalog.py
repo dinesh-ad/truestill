@@ -1020,7 +1020,7 @@ class Catalog:
         return list(
             self._conn.execute(
                 """
-                SELECT d.label AS label, COUNT(*) AS files
+                SELECT d.uuid AS uuid, d.label AS label, COUNT(*) AS files
                 FROM date_confirmations dc
                 JOIN file_copies fc ON fc.sha256 = dc.sha256
                 JOIN drives d ON d.uuid = fc.drive_uuid

@@ -65,7 +65,11 @@ from truestill_core.organizer import VIDEO_EXTENSIONS
 from truestill_core.progress import Phase, Progress, ProgressCallback
 
 from truestill_app.jobs import JobTarget
-from truestill_app.service.drive_support import DriveUnavailablePayload, drive_unavailable
+from truestill_app.service.drive_support import (
+    DriveUnavailablePayload,
+    drive_path_hint,
+    drive_unavailable,
+)
 
 #: The guard runs before **every** file, not once per run. Read by
 #: `test_the_toctou_gap_is_narrowed_not_closed`, so the narrowing is pinned rather than promised.
@@ -286,3 +290,108 @@ def bake_run(path: Path, db: Path) -> JobTarget | DriveUnavailablePayload | Bake
         return summary
 
     return target
+
+
+#: The word a user types to authorise the write. Distinct from every other confirm word in the
+#: product (`undo`, `clean`, `move`, `delete`, `delete forever`) because the actions are
+#: different and a muscle-memory word typed on the wrong screen is not a confirmation.
+CONFIRM_WORD = "set dates"
+
+#: Stated in the preview because it is the part a user cannot infer. `-overwrite_original`
+#: (`exif._WRITE_FLAGS`) means exiftool replaces the file's metadata in place and keeps no
+#: sidecar, so **the date the file used to carry is gone** once this runs. The catalog keeps the
+#: provenance of the new date; it does not keep the old embedded one. `(bbb)` recovery is the
+#: item that would offer to preserve it, and it is not built.
+IRREVERSIBLE_NOTE = (
+    "This changes the date stored inside each photo file. The date it had before is not kept, "
+    "so this cannot be undone from inside truestill."
+)
+
+
+class BakeDriveLine(TypedDict):
+    """One drive in the plan, and whether this run will actually reach it."""
+
+    label: str
+    files: int
+    #: True when the drive's remembered location is reachable **right now**. A hint, never
+    #: identity (§3.1) - it answers "can you plug this in without hunting for it", nothing more.
+    connected: bool
+
+
+class BakePreview(TypedDict):
+    """What a bake would do, computed and displayed. Writes nothing."""
+
+    ok: Literal[True]
+    drive_label: str
+    #: Files on the selected drive that would be written.
+    will_write: int
+    #: Confirmed videos on this drive: shown as excluded, with the reason. Never omitted - a
+    #: file missing from a plan is the same defect class as a silently truncated list.
+    videos_skipped: int
+    videos_reason: str
+    #: Confirmed copies this drive should hold that are not on it.
+    absent: int
+    #: Every other drive with copies that would keep the old date inside them.
+    elsewhere: list[BakeDriveLine]
+    confirm_word: str
+    irreversible: str
+
+
+def _reachable(catalog: Catalog, drive_uuid: str) -> bool:
+    """Whether a drive's remembered path is live and still carries that drive's marker.
+
+    Reads the hint **without clearing it**: `take_live_path_hint` deletes a dead hint, which is
+    correct on a screen load and would be a *write* here. A preview writes nothing, including
+    settings it thinks are stale.
+    """
+    hint = catalog.get_setting(drive_path_hint(drive_uuid))
+    if not hint:
+        return False
+    marker = read_marker(Path(hint))
+    return marker is not None and marker.uuid == drive_uuid
+
+
+def bake_preview(path: Path, db: Path) -> BakePreview | BakeRefusal | DriveUnavailablePayload:
+    """Compute the plan for a bake. **Writes nothing** - see `test_bake_preview_purity`.
+
+    Everything the user needs to decide is here and not after: how many files on this drive
+    would be written, which confirmed videos are excluded and why, which other drives would keep
+    the old date inside them and whether they are currently reachable, and that the change
+    cannot be undone.
+    """
+    refusal = bake_preconditions(path, db)
+    if refusal is not None:
+        return refusal
+    marker = read_marker(path)
+    if marker is None:  # pragma: no cover - bake_preconditions already answered this
+        return drive_unavailable(path)
+
+    will_write = videos = absent = 0
+    with Catalog(db) as catalog:
+        for row in catalog.confirmations_to_bake(marker.uuid):
+            relative = str(row["relative"])
+            if _is_video(relative):
+                videos += 1
+            elif not (path / relative).is_file():
+                absent += 1
+            else:
+                will_write += 1
+        elsewhere: list[BakeDriveLine] = [
+            {
+                "label": str(r["label"]),
+                "files": int(r["files"]),
+                "connected": _reachable(catalog, str(r["uuid"])),
+            }
+            for r in catalog.drives_awaiting_bake(marker.uuid)
+        ]
+    return {
+        "ok": True,
+        "drive_label": marker.label,
+        "will_write": will_write,
+        "videos_skipped": videos,
+        "videos_reason": VIDEO_EXCLUSION_REASON,
+        "absent": absent,
+        "elsewhere": elsewhere,
+        "confirm_word": CONFIRM_WORD,
+        "irreversible": IRREVERSIBLE_NOTE,
+    }
