@@ -804,11 +804,6 @@ class Catalog:
             if not remaining:
                 conn.execute("DELETE FROM files WHERE sha256 = ?", (sha256,))
 
-    def set_source_path(self, sha256: str, source_path: str) -> None:
-        """Point a file row at where its content now lives (after a move)."""
-        with self._tx() as conn:
-            conn.execute("UPDATE files SET source_path = ? WHERE sha256 = ?", (source_path, sha256))
-
     def __enter__(self) -> Self:
         return self
 
@@ -1064,11 +1059,6 @@ class Catalog:
                 """
             )
         )
-
-    def drive_by_label(self, label: str) -> sqlite3.Row | None:
-        cursor = self._conn.execute("SELECT * FROM drives WHERE label = ?", (label,))
-        row: sqlite3.Row | None = cursor.fetchone()
-        return row
 
     def copies_on_drive(self, drive_uuid: str) -> list[sqlite3.Row]:
         """Every recorded copy on a drive: ``sha256, relative, copy_sha256, size``."""

@@ -6,7 +6,6 @@
   /* accent - the one chromatic hue (act) */
   --accent: #4c63c4;
   --accent-hover: #4257ad;
-  --accent-pressed: #384a94;
   --accent-subtle: #eef1fb;
   --accent-ring: rgba(76, 99, 196, 0.45);
 
@@ -18,16 +17,12 @@
   --gray-300: #cbd0d9;
   --gray-400: #9aa1ad;
   --gray-500: #6b7280;
-  --gray-700: #3a3f47;
   --gray-900: #16181d;
 
   /* semantic - backup pipeline states. green = SAFE/VERIFIED (custody). */
   --success: #2f9e57;
-  --success-subtle: #e6f4ec;
   --warning: #c98a1a;
   --warning-subtle: #fbf1de;
-  --danger: #cf4b52;
-  --danger-subtle: #fbeaeb;
 
   /* surfaces / text (light = default) */
   --bg: var(--gray-50);
@@ -49,7 +44,6 @@
   --space-5: 24px;
   --space-6: 32px;
   --space-7: 48px;
-  --space-8: 64px;
 
   /* radius (one family) */
   --radius-sm: 6px;
@@ -81,16 +75,12 @@
   :root {
     --accent: #a9b6f0;
     --accent-hover: #bcc6f5;
-    --accent-pressed: #96a5ea;
     --accent-subtle: #1c2030;
     --accent-ring: rgba(169, 182, 240, 0.45);
 
     --success: #46b46a;
-    --success-subtle: #16241b;
     --warning: #d69a3a;
     --warning-subtle: #241d10;
-    --danger: #e0686e;
-    --danger-subtle: #251316;
 
     --bg: #0b0c0e;
     --surface: #16181c;
@@ -115,9 +105,7 @@
   --accent-subtle: #eef1fb;
   --accent-ring: rgba(76, 99, 196, 0.45);
   --success: #2f9e57;
-  --success-subtle: #e6f4ec;
   --warning: #c98a1a;
-  --danger: #cf4b52;
   --bg: #f7f8fa;
   --surface: #ffffff;
   --surface-sunken: #eef0f4;
@@ -136,15 +124,11 @@
      warning banners once rendered light-on-light). Audited for WCAG AA in both themes. */
   --accent: #a9b6f0;
   --accent-hover: #bcc6f5;
-  --accent-pressed: #96a5ea;
   --accent-subtle: #1c2030;
   --accent-ring: rgba(169, 182, 240, 0.45);
   --success: #46b46a;
-  --success-subtle: #16241b;
   --warning: #d69a3a;
   --warning-subtle: #241d10;
-  --danger: #e0686e;
-  --danger-subtle: #251316;
   --bg: #0b0c0e;
   --surface: #16181c;
   --surface-sunken: #101114;

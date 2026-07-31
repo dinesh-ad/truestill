@@ -9,24 +9,16 @@ from datetime import datetime, timedelta
 from pathlib import Path, PurePosixPath
 
 import pytest
+from conftest import TOKEN
 from PIL import Image
 from starlette.testclient import TestClient
 from truestill_app import service
-from truestill_app.server import create_app
 from truestill_core.catalog import Catalog
 from truestill_core.drive import create_marker
 from truestill_core.event_review import propose as core_propose
 from truestill_core.events import slugify
 
 pytestmark = pytest.mark.skipif(shutil.which("exiftool") is None, reason="exiftool not installed")
-
-_TOKEN = "tok"
-
-
-@pytest.fixture
-def client(tmp_path: Path) -> TestClient:
-    app = create_app(token=_TOKEN, db=tmp_path / "c.sqlite")
-    return TestClient(app, headers={"host": "127.0.0.1:7357", "x-truestill-token": _TOKEN})
 
 
 def _drive_with_library(client: TestClient, src: Path, drive: Path) -> None:
@@ -35,7 +27,7 @@ def _drive_with_library(client: TestClient, src: Path, drive: Path) -> None:
     create_marker(drive, "BackupA")
     started = client.post("/api/organize/run", json={"source": str(src), "destination": str(drive)})
     job_id = started.json()["job_id"]
-    with client.stream("GET", f"/api/jobs/{job_id}/events?token={_TOKEN}") as stream:
+    with client.stream("GET", f"/api/jobs/{job_id}/events?token={TOKEN}") as stream:
         for line in stream.iter_lines():
             if line.startswith("data:") and json.loads(line[5:].strip())["type"] in (
                 "done",
@@ -143,7 +135,7 @@ def test_merge_via_http_refuses_across_a_year_boundary(client: TestClient, tmp_p
 
 
 def _stream_until_done(client: TestClient, job_id: str) -> dict:
-    with client.stream("GET", f"/api/jobs/{job_id}/events?token={_TOKEN}") as stream:
+    with client.stream("GET", f"/api/jobs/{job_id}/events?token={TOKEN}") as stream:
         for line in stream.iter_lines():
             if line.startswith("data:"):
                 event = json.loads(line[5:].strip())
@@ -194,7 +186,7 @@ def test_apply_to_disk_reports_one_row_per_named_group_with_its_real_folder(
         assert reveal.is_dir()
         landed = list(reveal.glob("*.jpg"))
         assert len(landed) == 10  # the reported path is the REAL folder, not guessed
-        opened = client.post(f"/api/reveal?token={_TOKEN}", json={"path": group["path"]}).json()
+        opened = client.post(f"/api/reveal?token={TOKEN}", json={"path": group["path"]}).json()
         assert opened == {"ok": True, "path": group["path"]}
 
 

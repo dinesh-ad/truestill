@@ -10,8 +10,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from conftest import TOKEN
 from starlette.testclient import TestClient
-from truestill_app.server import create_app
 from truestill_app.service import (
     _drive_correction,
     _drive_path_hint,
@@ -20,14 +20,6 @@ from truestill_app.service import (
 )
 from truestill_core.catalog import Catalog
 from truestill_core.drive import create_marker, locate_drive, path_is_usable_dir, read_marker
-
-_TOKEN = "test-token-stale-hints"
-
-
-@pytest.fixture
-def client(tmp_path: Path) -> TestClient:
-    app = create_app(token=_TOKEN, db=tmp_path / "c.sqlite")
-    return TestClient(app, headers={"host": "127.0.0.1:7357"})
 
 
 def _register_drive(db: Path, root: Path, label: str = "Cabinet") -> str:
@@ -178,7 +170,7 @@ def test_moved_drive_found_by_uuid_at_new_root(tmp_path: Path) -> None:
 def test_verify_unreachable_soft_fails_with_correction(client: TestClient, tmp_path: Path) -> None:
     """Mutation: starting a job on a missing path would put ``job_id`` in the body."""
     missing = tmp_path / "was-here"
-    r = client.post(f"/api/verify/run?token={_TOKEN}", json={"path": str(missing)})
+    r = client.post(f"/api/verify/run?token={TOKEN}", json={"path": str(missing)})
     body = r.json()
     assert body["ok"] is False
     assert "job_id" not in body
@@ -199,6 +191,6 @@ def test_reveal_unreachable_returns_correction_not_oserror(
     assert body["ok"] is False
     assert "Can't reach" in body["error"]
 
-    r = client.post(f"/api/reveal?token={_TOKEN}", json={"path": str(tmp_path / "gone")})
+    r = client.post(f"/api/reveal?token={TOKEN}", json={"path": str(tmp_path / "gone")})
     assert r.json()["ok"] is False
     assert "Can't reach" in r.json()["error"]

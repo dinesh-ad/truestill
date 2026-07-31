@@ -399,10 +399,6 @@ code,
 .btn-ghost:hover {
   color: var(--text);
 }
-.btn-danger {
-  background: var(--danger);
-  color: #fff;
-}
 .actions {
   display: flex;
   align-items: center;
@@ -496,31 +492,6 @@ details.more > summary::-webkit-details-marker {
 }
 
 /* ---------- progress ---------- */
-.progress {
-  margin-top: var(--space-4);
-}
-.progress .bar {
-  height: 6px;
-  border-radius: var(--radius-pill);
-  background: var(--surface-sunken);
-  overflow: hidden;
-}
-.progress .bar > i {
-  display: block;
-  height: 100%;
-  width: 0;
-  background: var(--accent);
-  transition: width 150ms ease;
-}
-.progress .meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin-top: var(--space-2);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-}
 
 /* The shared progress block. Quiet by design: a long wait should read as steady work, so
    there is no spinner, no pulse and no motion beyond the bar itself advancing. */

@@ -6,8 +6,8 @@ import json
 from pathlib import Path
 
 import pytest
+from conftest import TOKEN
 from starlette.testclient import TestClient
-from truestill_app.server import create_app
 from truestill_core.catalog import Catalog
 from truestill_core.destinations.local import LocalDestination
 from truestill_core.drive import create_marker
@@ -15,22 +15,14 @@ from truestill_core.hashing import sha256_file
 from truestill_core.layout import LayoutScheme, LayoutTemplate
 from truestill_core.migrate import run_migration
 
-_TOKEN = "tok"
-
 
 @pytest.fixture
 def db_path(tmp_path: Path) -> Path:
     return tmp_path / "c.sqlite"
 
 
-@pytest.fixture
-def client(tmp_path: Path) -> TestClient:
-    app = create_app(token=_TOKEN, db=tmp_path / "c.sqlite")
-    return TestClient(app, headers={"host": "127.0.0.1:7357", "x-truestill-token": _TOKEN})
-
-
 def _finish(client: TestClient, job_id: str) -> dict:
-    with client.stream("GET", f"/api/jobs/{job_id}/events?token={_TOKEN}") as stream:
+    with client.stream("GET", f"/api/jobs/{job_id}/events?token={TOKEN}") as stream:
         for line in stream.iter_lines():
             if line.startswith("data:"):
                 event = json.loads(line[5:].strip())
@@ -88,7 +80,7 @@ def test_armed_state_is_false_when_no_journal(client: TestClient, tmp_path: Path
     drive = tmp_path / "drive"
     drive.mkdir()
     create_marker(drive, "Empty")
-    r = client.get(f"/api/migrate/undo?path={drive}&token={_TOKEN}").json()
+    r = client.get(f"/api/migrate/undo?path={drive}&token={TOKEN}").json()
     assert r == {"ok": True, "armed": False, "file_count": 0, "run_id": None}
 
 
@@ -96,7 +88,7 @@ def test_armed_state_reports_the_reversible_journal(
     client: TestClient, db_path: Path, tmp_path: Path
 ) -> None:
     drive = _migrated_drive(tmp_path, db_path)
-    r = client.get(f"/api/migrate/undo?path={drive}&token={_TOKEN}").json()
+    r = client.get(f"/api/migrate/undo?path={drive}&token={TOKEN}").json()
     assert r["ok"] is True
     assert r["armed"] is True
     assert r["file_count"] == 2
@@ -114,7 +106,7 @@ def test_armed_state_never_writes(client: TestClient, db_path: Path, tmp_path: P
         before_row = dict(catalog.list_drives()[0])
     before_db = db_path.read_bytes()
 
-    r = client.get(f"/api/migrate/undo?path={drive}&token={_TOKEN}").json()
+    r = client.get(f"/api/migrate/undo?path={drive}&token={TOKEN}").json()
 
     assert r["ok"] is True
     assert r["armed"] is False
@@ -129,7 +121,7 @@ def test_armed_state_returns_drive_correction_when_unconnected(
 ) -> None:
     inside = tmp_path / "nope"
     inside.mkdir()
-    r = client.get(f"/api/migrate/undo?path={inside}&token={_TOKEN}").json()
+    r = client.get(f"/api/migrate/undo?path={inside}&token={TOKEN}").json()
     assert r["ok"] is False
     assert "drive" in r["error"].lower() or "folder" in r["error"].lower()
     assert "suggested_root" in r
@@ -191,7 +183,7 @@ def test_undo_apply_job_puts_files_back_and_spends_the_record(
     assert done["summary"]["refused"] == []
     with Catalog(db_path) as catalog:
         assert catalog.reversible_migration(catalog.list_drives()[0]["uuid"]) is None
-    r = client.get(f"/api/migrate/undo?path={drive}&token={_TOKEN}").json()
+    r = client.get(f"/api/migrate/undo?path={drive}&token={TOKEN}").json()
     assert r["armed"] is False
 
 

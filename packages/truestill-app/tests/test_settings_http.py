@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 import truestill_core.migrate as migrate_module
+from conftest import TOKEN
 from starlette.testclient import TestClient
-from truestill_app.server import create_app
 from truestill_core.catalog import Catalog
 from truestill_core.drive import create_marker
 from truestill_core.events import DEFAULT_MIN_FILES, EVENT_MIN_FILES_KEY
@@ -25,12 +25,10 @@ from truestill_core.layout import (
 )
 from truestill_core.migrate import ROUTE_TIMELINE, plan_migration
 
-_TOKEN = "tok"
-
 
 def _finish(client: TestClient, job_id: str) -> dict:
     """Drain a job's SSE stream to its terminal event (done or error)."""
-    with client.stream("GET", f"/api/jobs/{job_id}/events?token={_TOKEN}") as stream:
+    with client.stream("GET", f"/api/jobs/{job_id}/events?token={TOKEN}") as stream:
         for line in stream.iter_lines():
             if line.startswith("data:"):
                 event = json.loads(line[5:].strip())
@@ -52,12 +50,6 @@ def _preview_summary(client: TestClient, path: Path) -> dict:
 def db_path(tmp_path: Path) -> Path:
     """The same catalog the `client` fixture serves, so a test can inspect what it wrote."""
     return tmp_path / "c.sqlite"
-
-
-@pytest.fixture
-def client(tmp_path: Path) -> TestClient:
-    app = create_app(token=_TOKEN, db=tmp_path / "c.sqlite")
-    return TestClient(app, headers={"host": "127.0.0.1:7357", "x-truestill-token": _TOKEN})
 
 
 def _seed_camera_group(catalog: Catalog, drive_uuid: str, day: datetime, count: int) -> None:

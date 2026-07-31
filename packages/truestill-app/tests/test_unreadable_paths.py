@@ -34,18 +34,9 @@ from typing import Any
 
 import pytest
 from starlette.testclient import TestClient
-from truestill_app.server import create_app
 from truestill_app.service.fs_browse import fs_dirs, fs_validate
 from truestill_app.service.organize import filesystem_relationship
 from truestill_app.service.path_probe import PathReach, nearest_device, probe_dir
-
-_TOKEN = "test-token-unreadable"
-
-
-@pytest.fixture
-def client(tmp_path: Path) -> TestClient:
-    app = create_app(token=_TOKEN, db=tmp_path / "c.sqlite")
-    return TestClient(app, headers={"host": "127.0.0.1:7357", "x-truestill-token": _TOKEN})
 
 
 def _deny(monkeypatch: pytest.MonkeyPatch, target: Path) -> None:

@@ -7,24 +7,16 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from conftest import TOKEN
 from PIL import Image
 from starlette.testclient import TestClient
 from truestill_app import service
-from truestill_app.server import create_app
 from truestill_core.catalog import Catalog
 from truestill_core.drive import create_marker
 
-_TOKEN = "tok"
-
-
-@pytest.fixture
-def client(tmp_path: Path) -> TestClient:
-    app = create_app(token=_TOKEN, db=tmp_path / "c.sqlite")
-    return TestClient(app, headers={"host": "127.0.0.1:7357", "x-truestill-token": _TOKEN})
-
 
 def _finish(client: TestClient, job_id: str) -> dict:
-    with client.stream("GET", f"/api/jobs/{job_id}/events?token={_TOKEN}") as stream:
+    with client.stream("GET", f"/api/jobs/{job_id}/events?token={TOKEN}") as stream:
         for line in stream.iter_lines():
             if line.startswith("data:"):
                 event = json.loads(line[5:].strip())
@@ -78,9 +70,9 @@ def test_backup_copies_library_and_records_per_drive(client: TestClient, tmp_pat
 
     # the files are physically on DriveB, byte-verified and recorded as copies there
     assert len(list(b.rglob("*.jpg"))) == 4
-    drives = {d["label"]: d for d in client.get(f"/api/drives?token={_TOKEN}").json()["drives"]}
+    drives = {d["label"]: d for d in client.get(f"/api/drives?token={TOKEN}").json()["drives"]}
     assert drives["DriveB"]["photos"] == 4
-    assert client.get(f"/api/drives?token={_TOKEN}").json()["at_risk"] == []  # now safe in 2 places
+    assert client.get(f"/api/drives?token={TOKEN}").json()["at_risk"] == []  # now safe in 2 places
 
     # second run: everything is already on DriveB -> nothing to copy
     again = client.post("/api/backup/preview", json={"source": str(a), "target": str(b)}).json()

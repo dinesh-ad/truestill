@@ -90,25 +90,6 @@ def _chunked[T](items: Sequence[T], size: int) -> Iterator[Sequence[T]]:
         yield items[start : start + size]
 
 
-def write_metadata(
-    path: Path,
-    *,
-    taken_at_local: datetime | None = None,
-    gps: tuple[float, float] | None = None,
-    description: str = "",
-) -> bool:
-    """Bake rescued metadata into a file in place, losslessly (no pixel re-encode).
-
-    exiftool rewrites only the metadata segment, so image quality is untouched -- but the
-    file's bytes (and hence its hash) change. This is used **only** on organized copies during
-    Takeout ingestion; the normal pipeline never calls it. Returns whether exiftool succeeded.
-    """
-    args = build_metadata_args(taken_at_local=taken_at_local, gps=gps, description=description)
-    if not args:
-        return True
-    return write_metadata_batch([(path, args)]).get(path, False)
-
-
 #: `-m` ignores minor errors rather than refusing the whole write. Deliberately *not* `-q`:
 #: quiet suppresses the per-file "1 image files updated" summary, which is the only signal
 #: tying a batched result back to the file it belongs to.

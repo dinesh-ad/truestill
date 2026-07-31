@@ -7,33 +7,34 @@ import re
 from pathlib import Path
 
 import pytest
+from conftest import TOKEN
 from starlette.testclient import TestClient
 from truestill_app import __version__, server
 from truestill_app.server import create_app
 from truestill_core.catalog import Catalog
 
-_TOKEN = "test-token-123"
 
+def test_missing_token_is_rejected(tmp_path: Path) -> None:
+    """Built token-less on purpose, rather than leaning on a fixture that forgot the header.
 
-@pytest.fixture
-def client(tmp_path: Path) -> TestClient:
-    app = create_app(token=_TOKEN, db=tmp_path / "c.sqlite")
-    # TestClient sends Host: testserver by default; our guard requires a localhost Host.
-    return TestClient(app, headers={"host": "127.0.0.1:7357"})
-
-
-def test_missing_token_is_rejected(client: TestClient) -> None:
-    assert client.get("/api/drives").status_code == 403
+    This used to depend on this module's private `client` fixture silently omitting
+    `x-truestill-token` - one of the two drifted copies the shared fixture replaced (audit F28).
+    A security assertion that passes because of an omission somewhere else is one edit away from
+    passing for no reason at all.
+    """
+    app = create_app(token=TOKEN, db=tmp_path / "c.sqlite")
+    tokenless = TestClient(app, headers={"host": "127.0.0.1:7357"})
+    assert tokenless.get("/api/drives").status_code == 403
 
 
 def test_bad_host_is_rejected(tmp_path: Path) -> None:
-    app = create_app(token=_TOKEN, db=tmp_path / "c.sqlite")
+    app = create_app(token=TOKEN, db=tmp_path / "c.sqlite")
     evil = TestClient(app, headers={"host": "evil.example.com"})
-    assert evil.get(f"/api/drives?token={_TOKEN}").status_code == 421
+    assert evil.get(f"/api/drives?token={TOKEN}").status_code == 421
 
 
 def test_cross_origin_is_rejected(client: TestClient) -> None:
-    r = client.get(f"/api/drives?token={_TOKEN}", headers={"origin": "http://evil.example.com"})
+    r = client.get(f"/api/drives?token={TOKEN}", headers={"origin": "http://evil.example.com"})
     assert r.status_code == 403
 
 
@@ -46,15 +47,15 @@ def test_static_is_exempt_from_token(client: TestClient) -> None:
 def test_home_shows_the_real_version(client: TestClient) -> None:
     """The Settings footer must carry the installed version, not an unsubstituted template
     placeholder -- a version a user can read is the point of putting it there."""
-    body = client.get(f"/?token={_TOKEN}").text
+    body = client.get(f"/?token={TOKEN}").text
     assert f"truestill {__version__}" in body
     assert "{{VERSION}}" not in body
 
 
 def test_home_serves_and_injects_token(client: TestClient) -> None:
-    r = client.get(f"/?token={_TOKEN}")
+    r = client.get(f"/?token={TOKEN}")
     assert r.status_code == 200
-    assert _TOKEN in r.text
+    assert TOKEN in r.text
     assert "{{TOKEN}}" not in r.text  # placeholder was replaced
 
 
@@ -77,22 +78,22 @@ def test_stale_static_assets_render_a_restart_warning(
     monkeypatch.setattr(server, "_TEMPLATES", templates)
     monkeypatch.setattr(server, "_STATIC", static)
 
-    app = create_app(token=_TOKEN, db=tmp_path / "c.sqlite")
+    app = create_app(token=TOKEN, db=tmp_path / "c.sqlite")
     fresh_client = TestClient(app, headers={"host": "127.0.0.1:7357"})
-    fresh = fresh_client.get(f"/?token={_TOKEN}").text
+    fresh = fresh_client.get(f"/?token={TOKEN}").text
     assert "needs a restart" not in fresh
 
     # The files this same running app would serve change on disk - exactly what a git pull or
     # a redeploy does while the process keeps running its already-imported code.
     (static / "app.js").write_text("console.log(2); // a real change, not this process's")
-    stale = fresh_client.get(f"/?token={_TOKEN}").text
+    stale = fresh_client.get(f"/?token={TOKEN}").text
     assert "needs a restart" in stale
 
 
 def test_drives_and_where_empty(client: TestClient) -> None:
-    drives = client.get(f"/api/drives?token={_TOKEN}").json()
+    drives = client.get(f"/api/drives?token={TOKEN}").json()
     assert drives == {"drives": [], "at_risk": []}
-    where = client.get(f"/api/where?token={_TOKEN}&term=x").json()
+    where = client.get(f"/api/where?token={TOKEN}&term=x").json()
     assert set(where) == {"copies", "total", "page", "pages", "page_size"}
     assert where["copies"] == []
     assert where["total"] == 0
@@ -150,7 +151,7 @@ def test_library_stats_reports_custody_and_shape(client: TestClient, tmp_path: P
         catalog.mark_copy_verified(sha256="sha-a", drive_uuid="A", when="2026-07-30T10:00:00")
         catalog.set_drive_verified("A", "2026-07-30T10:00:00")
 
-    body = client.get(f"/api/library/stats?token={_TOKEN}").json()
+    body = client.get(f"/api/library/stats?token={TOKEN}").json()
     assert set(body) == {"safety", "completeness", "shape", "complexity"}
     assert set(body["safety"]) == {
         "total_files",
@@ -197,7 +198,7 @@ def test_organize_preview_no_media(client: TestClient, tmp_path: Path) -> None:
     src = tmp_path / "empty"
     src.mkdir()
     started = client.post(
-        f"/api/organize/preview?token={_TOKEN}",
+        f"/api/organize/preview?token={TOKEN}",
         json={"source": str(src), "destination": str(tmp_path / "out")},
     )
     assert started.status_code == 200
@@ -218,26 +219,24 @@ def test_organize_preview_no_media(client: TestClient, tmp_path: Path) -> None:
 
 
 def test_organize_mode_setting_round_trips_through_catalog(client: TestClient) -> None:
-    state = client.get(f"/api/organize/settings?token={_TOKEN}").json()
+    state = client.get(f"/api/organize/settings?token={TOKEN}").json()
     assert set(state) == {"mode", "modes"}
     assert state["mode"] == "copy"
-    saved = client.post(f"/api/organize/settings?token={_TOKEN}", json={"mode": "inplace"}).json()
+    saved = client.post(f"/api/organize/settings?token={TOKEN}", json={"mode": "inplace"}).json()
     assert set(saved) == {"ok", "mode"}
     assert saved == {"ok": True, "mode": "inplace"}
-    assert client.get(f"/api/organize/settings?token={_TOKEN}").json()["mode"] == "inplace"
+    assert client.get(f"/api/organize/settings?token={TOKEN}").json()["mode"] == "inplace"
 
 
 def test_sidebar_collapsed_setting_round_trips_through_catalog(client: TestClient) -> None:
-    state = client.get(f"/api/sidebar/settings?token={_TOKEN}").json()
+    state = client.get(f"/api/sidebar/settings?token={TOKEN}").json()
     assert set(state) == {"collapsed"}
     assert state["collapsed"] is False
-    saved = client.post(f"/api/sidebar/settings?token={_TOKEN}", json={"collapsed": True}).json()
+    saved = client.post(f"/api/sidebar/settings?token={TOKEN}", json={"collapsed": True}).json()
     assert set(saved) == {"ok", "collapsed"}
     assert saved == {"ok": True, "collapsed": True}
-    assert client.get(f"/api/sidebar/settings?token={_TOKEN}").json()["collapsed"] is True
-    restored = client.post(
-        f"/api/sidebar/settings?token={_TOKEN}", json={"collapsed": False}
-    ).json()
+    assert client.get(f"/api/sidebar/settings?token={TOKEN}").json()["collapsed"] is True
+    restored = client.post(f"/api/sidebar/settings?token={TOKEN}", json={"collapsed": False}).json()
     assert restored == {"ok": True, "collapsed": False}
 
 
@@ -250,7 +249,7 @@ def test_filesystem_relationship_reports_same_filesystem(
     destination.mkdir()
     body = client.get(
         "/api/fs/relationship",
-        params={"token": _TOKEN, "source": str(source), "destination": str(destination)},
+        params={"token": TOKEN, "source": str(source), "destination": str(destination)},
     ).json()
     assert set(body) == {"ok", "same_filesystem"}
     assert body["ok"] is True
@@ -265,7 +264,7 @@ def test_organize_inventory_is_sync_and_cheap(client: TestClient, tmp_path: Path
     (src / "b.mp4").write_bytes(b"videodata")
     (src / "c.pdf").write_bytes(b"%PDF")
 
-    r = client.post(f"/api/organize/inventory?token={_TOKEN}", json={"source": str(src)})
+    r = client.post(f"/api/organize/inventory?token={TOKEN}", json={"source": str(src)})
     assert r.status_code == 200
     body = r.json()
     assert body["tier"] == "inventory"
@@ -287,7 +286,7 @@ def test_preview_is_a_job_that_still_writes_nothing(client: TestClient, tmp_path
     out = tmp_path / "out"
 
     started = client.post(
-        f"/api/organize/preview?token={_TOKEN}",
+        f"/api/organize/preview?token={TOKEN}",
         json={"source": str(src), "destination": str(out)},
     )
     done = _stream_to_done(client, started.json()["job_id"])
@@ -325,7 +324,7 @@ def test_verify_job_streams_error_for_non_drive(client: TestClient, tmp_path: Pa
 
     Mutation: starting a job that errors over SSE would put ``job_id`` in the body.
     """
-    started = client.post(f"/api/verify/run?token={_TOKEN}", json={"path": str(tmp_path / "nope")})
+    started = client.post(f"/api/verify/run?token={TOKEN}", json={"path": str(tmp_path / "nope")})
     body = started.json()
     assert body["ok"] is False
     assert "job_id" not in body
@@ -335,7 +334,7 @@ def test_verify_job_streams_error_for_non_drive(client: TestClient, tmp_path: Pa
 def _stream_to_done(client: TestClient, job_id: str) -> dict:
     """Collect a job's SSE stream and return the terminal (done/error) event."""
     events = []
-    with client.stream("GET", f"/api/jobs/{job_id}/events?token={_TOKEN}") as stream:
+    with client.stream("GET", f"/api/jobs/{job_id}/events?token={TOKEN}") as stream:
         for line in stream.iter_lines():
             if line.startswith("data:"):
                 events.append(json.loads(line[len("data:") :].strip()))
@@ -358,7 +357,7 @@ def test_organize_run_summary_matches_files_on_disk(client: TestClient, tmp_path
     out = tmp_path / "out"
 
     started = client.post(
-        f"/api/organize/run?token={_TOKEN}",
+        f"/api/organize/run?token={TOKEN}",
         json={"source": str(src), "destination": str(out), "skip_undated": False},
     )
     done = _stream_to_done(client, started.json()["job_id"])
@@ -418,7 +417,7 @@ def test_terminal_job_events_are_normalized_before_any_handler_sees_them(
     hands every handler one shape, so neither mistake is reachable. No JS runtime here, so the
     contract is pinned in source.
     """
-    app_js = client.get(f"/static/app.js?token={_TOKEN}").text
+    app_js = client.get(f"/static/app.js?token={TOKEN}").text
     assert "ok: !failed" in app_js  # streamJob normalizes before calling back
     assert "d.summary || d" not in app_js  # no handler reads the raw event any more
     assert "s.error" not in app_js  # nor the field a failure never has
@@ -437,7 +436,7 @@ def test_a_non_drive_verify_is_answered_with_a_next_step(
     """
     plain = tmp_path / "not-a-drive"
     plain.mkdir()
-    started = client.post(f"/api/verify/run?token={_TOKEN}", json={"path": str(plain)})
+    started = client.post(f"/api/verify/run?token={TOKEN}", json={"path": str(plain)})
     body = started.json()
 
     assert body.get("ok") is False
@@ -447,7 +446,7 @@ def test_a_non_drive_verify_is_answered_with_a_next_step(
     assert body["can_register"] is True
     assert body["suggested_root"] is None
 
-    app_js = client.get(f"/static/app.js?token={_TOKEN}").text
+    app_js = client.get(f"/static/app.js?token={TOKEN}").text
     assert "startRefusedCard" in app_js  # soft-fail path renders a card, not NaN tallies
     assert "Copy your library to another drive" in app_js  # and names the next step
     assert "What happened:" not in app_js  # 3-part structure is a writing guide, not labels
@@ -458,8 +457,8 @@ def test_no_backend_jargon_reaches_the_user(client: TestClient) -> None:
     """ "Uploaded" describes an event that does not happen on a local disk, and contradicts the
     promise that files never leave the machine. It is honest inside the code -- `Destination`
     covers rclone remotes -- but it must never be rendered. Guards the whole visible surface."""
-    page = client.get(f"/?token={_TOKEN}").text
-    app_js = client.get(f"/static/app.js?token={_TOKEN}").text
+    page = client.get(f"/?token={TOKEN}").text
+    app_js = client.get(f"/static/app.js?token={TOKEN}").text
     for banned in ("uploaded", "Uploaded", "upload"):
         assert banned not in page, f"{banned!r} is visible in the page"
         assert banned not in app_js, f"{banned!r} is visible in the app script"
@@ -470,7 +469,7 @@ def test_dark_theme_toggle_defines_every_media_dark_token(client: TestClient) ->
     token the ``@media (prefers-color-scheme: dark)`` block does. A token omitted from the toggle
     falls back to the light :root default -- which is exactly how the amber warning banners once
     rendered light-on-light when a user toggled dark. Keeps the two dark palettes from drifting."""
-    css = client.get(f"/static/tokens.css?token={_TOKEN}").text
+    css = client.get(f"/static/tokens.css?token={TOKEN}").text
     media = re.search(r"@media \(prefers-color-scheme: dark\).*?:root\s*\{(.*?)\}", css, re.S)
     toggle = re.search(r':root\[data-theme="dark"\]\s*\{(.*?)\}', css, re.S)
     assert media is not None
@@ -482,7 +481,7 @@ def test_dark_theme_toggle_defines_every_media_dark_token(client: TestClient) ->
 
 
 def test_catalog_db_is_created(client: TestClient, tmp_path: Path) -> None:
-    client.get(f"/api/drives?token={_TOKEN}")  # opening the catalog creates it
+    client.get(f"/api/drives?token={TOKEN}")  # opening the catalog creates it
     assert Catalog(tmp_path / "c.sqlite").schema_version >= 6
 
 
@@ -498,13 +497,13 @@ def test_the_two_backup_drive_fields_share_what_the_user_typed(client: TestClien
       programmatic fills would silently propose copying the library onto itself;
     * a field the user has already filled is never overwritten.
     """
-    app_js = client.get(f"/static/app.js?token={_TOKEN}").text
+    app_js = client.get(f"/static/app.js?token={TOKEN}").text
 
     assert '["verify-path", "bk-target"]' in app_js  # the two backup-drive fields, and only those
     assert "bk-source" not in app_js.split("BACKUP_DRIVE_FIELDS =")[1].split("]")[0]
     assert "if (!el || el.value.trim()) continue" in app_js  # never clobbers a typed value
     # Carried values are labelled, and the label clears once the user makes the value theirs.
-    page = client.get(f"/?token={_TOKEN}").text
+    page = client.get(f"/?token={TOKEN}").text
     assert 'id="bk-target-carried"' in page
     assert 'id="verify-path-carried"' in page
 
@@ -533,7 +532,7 @@ def test_find_pages_results_and_reports_the_total(client: TestClient, tmp_path: 
     """A page of results, and an honest count of what is not on it."""
     _seed_matches(tmp_path / "c.sqlite", 120)
 
-    first = client.get(f"/api/where?token={_TOKEN}&term=holiday").json()
+    first = client.get(f"/api/where?token={TOKEN}&term=holiday").json()
 
     assert set(first) == {"copies", "total", "page", "pages", "page_size"}
     assert set(first["copies"][0]) == {"name", "drive", "relative", "last_verified"}
@@ -549,12 +548,12 @@ def test_find_pages_do_not_overlap_or_lose_a_row(client: TestClient, tmp_path: P
 
     seen: list[str] = []
     for page in (1, 2, 3):
-        body = client.get(f"/api/where?token={_TOKEN}&term=holiday&page={page}").json()
+        body = client.get(f"/api/where?token={TOKEN}&term=holiday&page={page}").json()
         seen += [c["name"] for c in body["copies"]]
 
     assert len(seen) == 120
     assert len(set(seen)) == 120  # every row exactly once, none repeated across a boundary
-    assert client.get(f"/api/where?token={_TOKEN}&term=holiday&page=4").json()["copies"] == []
+    assert client.get(f"/api/where?token={TOKEN}&term=holiday&page=4").json()["copies"] == []
 
 
 def test_a_page_is_fetched_from_the_database_not_sliced_in_python(tmp_path: Path) -> None:
@@ -587,7 +586,7 @@ def test_a_page_is_fetched_from_the_database_not_sliced_in_python(tmp_path: Path
 
 def test_reveal_refuses_a_path_that_is_not_a_folder(client: TestClient, tmp_path: Path) -> None:
     """A path that cannot be opened says so, rather than pretending it worked."""
-    r = client.post(f"/api/reveal?token={_TOKEN}", json={"path": str(tmp_path / "nope")}).json()
+    r = client.post(f"/api/reveal?token={TOKEN}", json={"path": str(tmp_path / "nope")}).json()
     assert r["ok"] is False
     assert "error" in r
     assert "Can't reach" in r["error"]
@@ -601,7 +600,7 @@ def test_reveal_degrades_honestly_without_an_opener(
     The message carries the path, so someone on a headless box can still act on it.
     """
     monkeypatch.setattr("truestill_app.service.drives.shutil.which", lambda _name: None)
-    r = client.post(f"/api/reveal?token={_TOKEN}", json={"path": str(tmp_path)}).json()
+    r = client.post(f"/api/reveal?token={TOKEN}", json={"path": str(tmp_path)}).json()
 
     assert set(r) == {"ok", "error"}
     assert r["ok"] is False
