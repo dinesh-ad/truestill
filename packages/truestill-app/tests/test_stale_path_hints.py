@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from conftest import TOKEN
+from app_support import TOKEN
 from starlette.testclient import TestClient
 from truestill_app.service import (
     _drive_correction,

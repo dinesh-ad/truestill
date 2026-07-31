@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 import uvicorn
-from conftest import AppServer
+from e2e_support import AppServer
 from playwright.sync_api import Browser, Page, expect
 from truestill_app.server import create_app
 from truestill_app.service import migrate as service_migrate

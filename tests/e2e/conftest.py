@@ -21,34 +21,18 @@ from __future__ import annotations
 
 import secrets
 import socket
-import subprocess
 import threading
 from collections.abc import Iterator
-from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 import uvicorn
-from PIL import Image
+from e2e_support import AppServer, make_photo, stamp_capture_date
 from playwright.sync_api import Page
 from truestill_app.server import create_app
 
 _HOST = "127.0.0.1"
 _BOOT_TIMEOUT_SECONDS = 10
-
-
-@dataclass(frozen=True, slots=True)
-class AppServer:
-    """A running app instance, and the catalog behind it."""
-
-    base_url: str
-    token: str
-    db: Path
-
-    @property
-    def url(self) -> str:
-        """The page URL a user would open, token included -- exactly as the app prints it."""
-        return f"{self.base_url}/?token={self.token}"
 
 
 @pytest.fixture
@@ -100,41 +84,6 @@ def ui(page: Page, app_server: AppServer) -> Page:
     page.set_default_timeout(15_000)
     page.goto(app_server.url)
     return page
-
-
-# --- synthetic fixtures ------------------------------------------------------------------
-# Generated, never committed. Media files do not belong in git whatever their provenance, and
-# generating them keeps each test's corpus exactly the shape that test needs.
-
-
-def make_photo(path: Path, seed: int, *, size: tuple[int, int] = (320, 240)) -> Path:
-    """A JPEG with unique content, so dedup treats every generated file as its own file."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    Image.new("RGB", size, ((seed * 37) % 256, (seed * 91) % 256, (seed * 13) % 256)).save(
-        path, "JPEG", quality=90
-    )
-    return path
-
-
-def stamp_capture_date(paths: list[Path], when: str = "2021:06:15 10:30:00") -> None:
-    """Give files a real embedded capture date, so they land in dated folders like real photos.
-
-    Skipped silently when exiftool is absent: the tests that need dating declare it, and the
-    rest do not care.
-    """
-    if not paths:
-        return
-    subprocess.run(
-        [
-            "exiftool",
-            "-q",
-            "-m",
-            "-overwrite_original",
-            f"-DateTimeOriginal={when}",
-            *map(str, paths),
-        ],
-        check=False,
-    )
 
 
 @pytest.fixture

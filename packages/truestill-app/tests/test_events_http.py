@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from pathlib import Path, PurePosixPath
 
 import pytest
-from conftest import TOKEN
+from app_support import TOKEN
 from PIL import Image
 from starlette.testclient import TestClient
 from truestill_app import service

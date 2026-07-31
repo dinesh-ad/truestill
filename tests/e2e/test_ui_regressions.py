@@ -14,7 +14,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from conftest import AppServer, make_photo
+from e2e_support import AppServer, make_photo
 from playwright.sync_api import Page, expect
 from truestill_core.catalog import Catalog
 from truestill_core.destinations.base import CrossDeviceError

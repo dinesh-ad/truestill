@@ -5,9 +5,9 @@ copies had already drifted - two omitted the ``x-truestill-token`` header and le
 query-parameter fallback instead - which is the failure mode a copied fixture always has: the
 divergence is invisible until a test depends on it.
 
-``TOKEN`` is importable because several modules put it in a query string
-(``?token=...``) as well as a header; that is a real second use, not a leak of the fixture's
-internals.
+``TOKEN`` lives in ``app_support.py``, not here. It is a value tests **import**, and a conftest
+is not an importable module - see ``test_shared_test_helpers.py``. This file holds only what
+pytest injects by name.
 """
 
 from __future__ import annotations
@@ -16,12 +16,9 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from app_support import TOKEN
 from starlette.testclient import TestClient
 from truestill_app.server import create_app
-
-#: One value for every app test. The app mints a real token per process; tests only need it to
-#: be consistent between the server they build and the requests they send.
-TOKEN = "test-token"
 
 
 @pytest.fixture

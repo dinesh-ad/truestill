@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 
 import pytest
-from conftest import TOKEN
+from app_support import TOKEN
 from starlette.testclient import TestClient
 from truestill_app import __version__, server
 from truestill_app.server import create_app

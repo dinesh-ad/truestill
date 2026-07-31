@@ -12,7 +12,7 @@ import json
 import os
 from pathlib import Path
 
-from conftest import AppServer
+from e2e_support import AppServer
 from playwright.sync_api import Page, expect
 from truestill_core.catalog import Catalog
 from truestill_core.destinations.local import LocalDestination

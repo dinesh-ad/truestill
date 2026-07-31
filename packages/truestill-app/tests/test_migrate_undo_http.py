@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 import pytest
-from conftest import TOKEN
+from app_support import TOKEN
 from starlette.testclient import TestClient
 from truestill_core.catalog import Catalog
 from truestill_core.destinations.local import LocalDestination

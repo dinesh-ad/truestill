@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 import truestill_core.migrate as migrate_module
-from conftest import TOKEN
+from app_support import TOKEN
 from starlette.testclient import TestClient
 from truestill_core.catalog import Catalog
 from truestill_core.drive import create_marker
