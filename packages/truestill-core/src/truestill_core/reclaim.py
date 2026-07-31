@@ -136,7 +136,12 @@ def plan_reclaim(
         if _is_the_copy_itself(source, mount_root, str(row["relative"])):
             in_place += 1
             continue  # organized in place: deleting the "source" deletes the only copy
-        expected = row["copy_sha256"] or row["sha256"]
+        # No recorded hash means the re-verify gate cannot be satisfied, and reclaim's whole
+        # safety argument is that gate. Counted as unverified, never offered for deletion.
+        expected = row["copy_sha256"]
+        if expected is None:
+            unverified += 1
+            continue
         if not _verify(mount_root, row["relative"], expected):
             unverified += 1
             continue  # the copy on this drive did not re-verify -- never offer to delete

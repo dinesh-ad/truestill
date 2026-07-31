@@ -64,9 +64,14 @@ class MissingCopy:
         )
 
     @property
-    def verify_sha(self) -> str:
-        """Digest the on-disk copy must match after write (copy hash, else content hash)."""
-        return self.copy_sha256 or self.sha256
+    def verify_sha(self) -> str | None:
+        """Digest the on-disk copy must match after write, or ``None`` if none was recorded.
+
+        No fallback to the source hash. That asserted the copy is byte-identical to its source,
+        which the Takeout bake already breaks and date-rescue baking will break again - and it
+        made an un-recorded hash indistinguishable from a legacy row.
+        """
+        return self.copy_sha256
 
 
 def _files_missing_on_target(
@@ -210,8 +215,10 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
                 dst = target / rel
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(source / rel, dst)
+                written = sha256_file(dst)
                 want = row.verify_sha
-                if sha256_file(dst) != want:  # verify-after-write; a bad copy is never recorded
+                if want is not None and written != want:
+                    # verify-after-write; a bad copy is never recorded
                     dst.unlink(missing_ok=True)
                     message = f"copy of {rel} did not verify -- stopping to stay safe."
                     raise ValueError(message)
@@ -219,7 +226,10 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
                     sha256=row.sha256,
                     drive_uuid=tgt_marker.uuid,
                     relative=rel,
-                    copy_sha256=want,
+                    # The hash of the copy just written, not the one inherited from the source
+                    # row. Authoritative by construction, and it means a copy made by backup can
+                    # never be the UNVERIFIABLE case - the unknown stops propagating here.
+                    copy_sha256=written,
                     size=int(row.size or 0) or None,
                 )
                 catalog.mark_copy_verified(

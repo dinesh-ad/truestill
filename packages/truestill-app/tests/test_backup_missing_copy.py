@@ -18,8 +18,16 @@ def test_files_missing_on_target_is_annotated_as_missing_copy() -> None:
     assert hints["return"] == list[MissingCopy]
 
 
-def test_missing_copy_verify_sha_prefers_copy_hash_over_content_hash() -> None:
-    """§3: copy_sha256 is the verification identity; sha256 is the dedup identity."""
+def test_missing_copy_verify_sha_is_the_copy_hash_and_never_the_content_hash() -> None:
+    """§3: copy_sha256 is the verification identity; sha256 is the dedup identity.
+
+    This used to assert that a NULL copy hash **falls back** to the content hash. That fallback
+    is now refused: it asserts the copy is byte-identical to its source, which the Takeout bake
+    already breaks and date-rescue baking breaks again - and it made an un-recorded hash
+    indistinguishable from a legacy row, so a skipped per-drive write would have surfaced as
+    corruption on a file truestill had just rewritten. Unknown is now ``None``, and `backup_run`
+    answers it by recording the hash of the copy it actually writes.
+    """
     row = MissingCopy(
         sha256="content-hash",
         relative="2020/a.jpg",
@@ -27,13 +35,13 @@ def test_missing_copy_verify_sha_prefers_copy_hash_over_content_hash() -> None:
         size=12,
     )
     assert row.verify_sha == "copy-hash"
-    fallback = MissingCopy(
+    unknown = MissingCopy(
         sha256="content-hash",
         relative="2020/a.jpg",
         copy_sha256=None,
         size=12,
     )
-    assert fallback.verify_sha == "content-hash"
+    assert unknown.verify_sha is None, "an unrecorded hash must not borrow the source's"
 
 
 def test_files_missing_on_target_returns_missing_copy_instances(tmp_path: Path) -> None:
