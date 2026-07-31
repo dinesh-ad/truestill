@@ -26,7 +26,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aaj). Next free: (aak).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aak). Next free: (aal).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -41,6 +41,14 @@ Everything here has work left. **Two entries are partial and say so in their own
 `(bbb)` (the safety half shipped, the `_original` recovery offer did not) and `(r)` (the hash
 cache shipped, Analyze mode itself did not). A partial entry lives here, not in the built
 section, because what is left is the part that still has to be written.
+
+- **(aak) The skipped-file summary is written twice.** `organizer._skipped_extension_counts`
+  and `service/organize._skipped_summary` are the same logic in two homes - extension counts
+  plus the plain exiftool-backup label. **Pre-existing; found while building `(aac)`**, which
+  had to thread one new field through both. The companion rule (`ENGINEERING_STANDARD.md` §4)
+  says prefer deleting a copy to guarding two, so the fix is one shared helper in core that the
+  app calls, not a parity test over the pair. Small, and worth doing the next time either is
+  touched rather than as its own errand.
 
 - **(aaj) Note an embedded-metadata conflict against a human-confirmed date.** The unbuilt half
   of `(bbb)` item 4, recorded 2026-07-31 when step 6 closed the rest. **Record only.**
