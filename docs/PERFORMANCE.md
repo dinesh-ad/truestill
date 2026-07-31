@@ -40,6 +40,61 @@ column projects from measured per-file cost, or from measured growth for the sup
 exiftool reads cost 2.2 ms/file against 8.2 ms/file for hashing, which makes hashing ~79% of a
 cold preview. Both orderings are real; which dominates depends on the library.
 
+> **Provenance of this table: unrepeated, and marked as such (audited 2026-07-31).** No row above
+> records a run count, and nothing in the repository reproduces them - `scripts/profile_organize_
+> preview.py` is by its own description "one instrumented pipeline pass", i.e. n = 1. They are
+> therefore **single samples**: still the best evidence we have for those stages, and directly
+> responsible for two decisions that have held up (D4's batching, D8's no-BLAKE3), but not taken
+> to the §2.1 standard and not to be quoted as if they were. The one table it was cheap to re-take
+> has been re-taken (§3, which reproduced). Re-measuring the rest means re-running a full pipeline
+> pass per sample and is worth doing the next time any of it is touched, not as make-work now.
+> **Rows below this line in §1.1 and §3 carry an n; rows in this table do not. That is the
+> difference, and it is deliberate rather than an oversight.**
+
+### 1.1 Stages added after the 2026-07 baseline (measured 2026-07-31)
+
+The table above predates seven stages. This is those stages, taken to the §2.1 method: median
+and p95 over n runs, corpus and machine class named on every row. **Local SSD throughout; the
+pCloud FUSE column is empty because the mount was absent, not because it is fast.**
+
+| Stage | Corpus | n | median | p95 | spread | FUSE |
+|---|---|---|---|---|---|---|
+| catalog startup (`inspect_catalog`) | Output, 2,300-row catalog | 11 | **2.2 ms** | 2.4 ms | 1.19x | not measured |
+| trip detection (`detect_trips`) | Output, 2,224 items -> 15 clusters | 11 | **0.31 ms** | 0.39 ms | 1.26x | not measured |
+| trip review (`assemble_trip_review`) | Output, 2,224 rows -> 5 cards | 9 | **6.8 ms** | 9.1 ms | 1.34x | not measured |
+| migration plan (`plan_migration` alone) | Output, 2,224 moves planned | 5 | **82 ms** | 84 ms | 1.03x | not measured |
+| **migration preview (what a user waits for)** | Output, 2,224 files | 5 | **12.25 s** | 12.29 s | **1.01x** | not measured |
+| migration apply (`run_migration`) | hermetic, 500 files | 5 | **169 ms** | 172 ms | 1.02x | not measured |
+| migration undo (`undo_migration`) | hermetic, 500 files | 5 | **154 ms** | 155 ms | 1.01x | not measured |
+| cleanup plan + run | hermetic, 500-file skeleton | 5 | **11 ms** | 11 ms | 1.04x | not measured |
+| undo plan (`plan_undo`) | hermetic, 500 files | 9 | **8.6 ms** | 9.2 ms | 1.08x | not measured |
+| undo apply (`run_undo`) | hermetic, 500 files | 5 | **81 ms** | 82 ms | 1.01x | not measured |
+
+**Cold/warm, per stage, rather than a duplicated column.** Only one of these stages touches
+exiftool, so only one has a cold/warm axis at all: **migration preview**. The other nine are
+catalog reads, in-memory computation, or renames, and repeating them changes nothing but the OS
+page cache - there is no second number to report, and inventing one would imply a cache that is
+not there.
+
+> **The migration preview row is the finding, and its *lack* of variance is why.** Five runs
+> over the same 2,224 files: 12.27, 12.21, 12.22, 12.28, 12.25 s. **Spread 1.01x - the second
+> pass is not one percent faster than the first.** §8 of the contract says a warm second read
+> "must make **zero** exiftool subprocess calls", and `preview-performance-profile.md` measured
+> exiftool at 74% of cold wall. This path is exempt from that guarantee: `migrate.rederive_rules`
+> calls `read_metadata` with **no `HashCache`**, so every preview of the same drive pays full
+> exiftool cost again, forever. `plan_migration` itself is 82 ms; the other **12.2 s is
+> re-derivation nobody caches**. Recorded in the audit as **F18** (three uncached `read_metadata`
+> sites: `migrate.py`, `cli.py` ingest, `service/organize.py` `plan_resolve`) and not fixed here
+> - this pass measures, it does not change behaviour. A single run would have shown 12 s and
+> looked merely slow; five runs show it is *structurally* uncached.
+
+**Why the destructive four are fixtures, not Output.** Migration apply, migration undo, undo and
+cleanup all rearrange or delete. They are measured on a hermetic 500-file drive with real files
+and real catalog rows, restored from a pristine copy before every run **outside** the stopwatch.
+Per-file they are 0.34 / 0.31 / 0.02 / 0.16 ms, all rename-and-journal work with no hashing, so
+they scale linearly and cheaply; the honest limit is that 500 files is a fixture, not a library,
+and a 100k projection from it would be arithmetic rather than measurement.
+
 ### Fixed in the 2026-07 pass
 
 Two stages in that table used to be the two worst things in the pipeline.
@@ -76,6 +131,30 @@ This is a quality gate, referenced from
 quadratic code; `DedupIndex` is quadratic on purpose (§3). The point is that it must be a
 decision on the record rather than an accident nobody priced.
 
+### 2.1 How a number gets into this document (binding method)
+
+These figures are quoted in decisions and outlive the person who took them, so how they were
+taken is part of the claim. Every row added from 2026-07-31 follows all of this, and a row that
+cannot is written as a **"not measured, because X"** row rather than filled in with a guess.
+
+| Rule | Why |
+|---|---|
+| **`time.perf_counter()` around the stage only**, never around its setup. | Restoring a fixture is not the stage. Timing it inflates the row and hides the thing being measured. |
+| **n >= 5 always; n >= 9 where a run is cheap.** | One run is an anecdote. It cannot tell a 12 s stage from a 12 s stage that should have been 0.1 s warm - see the migration preview row, where the *absence* of variance is the entire finding. |
+| **Report median and p95, never a mean.** | A mean is dragged by one scheduler hiccup. Below n = 20, p95 is reported as the observed **maximum** and means exactly that - no interpolation, which would invent resolution the sample size does not have. |
+| **Report the spread (max/min).** | The number that says whether to trust the median at all. |
+| **Cold and warm are separate rows, never averaged.** | The metadata cache is ~170x. An average of cold and warm describes a run that never happens. Label them cold-cache / warm-cache, never run 1 / run 2. |
+| **State the corpus and its size on every row.** | "0.08 s" is meaningless without "over 2,224 rows". |
+| **State the machine class:** local SSD or pCloud FUSE. | `preview-performance-profile.md` measured **13x** between them. A row without it cannot be compared to anything. |
+| **Corpus fence holds** (`PROJECT_STATUS.md` §4): The Memory Cabinet, Output, or a hermetic fixture. **Never `Crypto Folder/`.** | Not a performance rule, but it binds this document like every other. |
+| **A destructive stage is measured on a hermetic fixture**, restored between runs outside the stopwatch. | A benchmark must never be the thing that rearranges someone's library. This is why apply/undo/cleanup below are fixtures and not Output. |
+
+**Two limits that apply to every local-SSD row here, stated once.** The OS page cache cannot be
+dropped without root, so these are **page-cache-warm** figures; a genuinely cold-disk read is
+not measured and would be slower. And the pCloud FUSE class is **not measured at all** in this
+pass, because the mount was absent when the numbers were taken - see the empty column in §1.1
+rather than an interpolation from the local figures.
+
 ---
 
 ## 3. Known limit: perceptual dedup is O(n²)
@@ -84,14 +163,24 @@ decision on the record rather than an accident nobody priced.
 per comparison is already optimal - a 64-bit XOR and a CPU popcount, ~271 ns including loop
 overhead - so what grows is the *number* of comparisons, not their price.
 
-| n | total | per file |
-|---|---|---|
-| 1,000 | 0.14 s | 0.14 ms |
-| 2,275 | 0.72 s | 0.32 ms |
-| 5,000 | 3.39 s | 0.68 ms |
-| 10,000 | 13.5 s | 1.35 ms |
-| 20,000 | 54.3 s | 2.71 ms |
-| 100,000 | ≈ 22.6 min (projected) | 13.6 ms |
+**Re-measured 2026-07-31 to the §2.1 method.** The original figures carried no run count - like
+every row written before that method existed - so they were re-taken rather than left as a
+weaker number beside stronger ones. They **reproduced**: the table was accurate, it was only its
+provenance that was missing. Hermetic, synthetic 64-bit dHash-shaped values, local SSD.
+
+| n images | total (median) | p95 | runs | per file | original figure |
+|---|---|---|---|---|---|
+| 1,000 | 0.134 s | 0.143 s | 9 | 0.134 ms | 0.14 s |
+| 2,275 | 0.685 s | 0.694 s | 9 | 0.301 ms | 0.72 s |
+| 5,000 | 3.363 s | 3.442 s | 9 | 0.673 ms | 3.39 s |
+| 10,000 | 13.709 s | 13.873 s | 5 | 1.371 ms | 13.5 s |
+| 20,000 | 55.460 s | 59.376 s | 5 | 2.773 ms | 54.3 s |
+| 100,000 | ≈ 23 min (**projected**, never run) | - | 0 | 13.7 ms | ≈ 22.6 min |
+
+Spread is 1.03x to 1.09x across every size: a CPU-bound comparison loop with nothing to vary.
+That tightness is what makes the quadratic growth legible - each doubling of *n* is a clean 4x,
+measured, not fitted. The 100,000 row is and always was an extrapolation and is now labelled as
+one on its own row rather than in a footnote.
 
 **It does not matter below ~10k images in one index, and it is intolerable above ~20k.** At
 today's scale it is 0.7 s, and a BK-tree would be real machinery bought for a real 0.7 s. So it

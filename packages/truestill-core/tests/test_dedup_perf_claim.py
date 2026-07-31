@@ -13,15 +13,21 @@ def test_dedup_docstring_cites_the_measured_10k_cost_not_the_2275_row() -> None:
 
     The bug was taking the 0.72 s @ 2,275 row and writing it as 0.7s for 10,000 - understating
     the cost by ~19x exactly where LINEAR_SCAN_ALARM fires.
+
+    Figures re-measured 2026-07-31 to the PERFORMANCE.md §2.1 method (median over n runs); the
+    docstring and the table are pinned to each other so neither can drift alone.
     """
     doc = DEDUP.read_text(encoding="utf-8")
     module_doc = doc.split('"""', 2)[1]
-    assert "13.5 s at 10,000" in module_doc
-    assert "0.72 s at 2,275" in module_doc
-    assert "0.7s for 10,000" not in module_doc
-    assert "0.7 s for 10,000" not in module_doc
+    assert "13.709 s at 10,000" in module_doc
+    assert "0.685 s at 2,275" in module_doc
+
+    # The original defect and its neighbours: the 2,275 cost worn as the 10,000 cost.
+    for understatement in ("0.7s for 10,000", "0.7 s for 10,000", "0.685 s at 10,000"):
+        assert understatement not in module_doc
     assert "cheapest thing in the pipeline" not in module_doc
 
+    # Both figures must still be the ones §3 actually records, not a stale copy of them.
     perf = PERFORMANCE.read_text(encoding="utf-8")
-    assert "| 2,275 | 0.72 s |" in perf
-    assert "| 10,000 | 13.5 s |" in perf
+    assert "| 2,275 | 0.685 s |" in perf
+    assert "| 10,000 | 13.709 s |" in perf
