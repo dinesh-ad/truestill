@@ -11,7 +11,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import subprocess
 import tempfile
 import threading
 from collections.abc import Iterator, Sequence
@@ -19,6 +18,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from truestill_core import binaries
 from truestill_core.binaries import is_bundled_install, resolve_binary
 from truestill_core.hash_cache import HashCache, tags_fingerprint
 from truestill_core.progress import Phase, Progress, ProgressCallback
@@ -211,7 +211,7 @@ def write_metadata_batch(items: Sequence[tuple[Path, list[str]]]) -> dict[Path, 
             fh.write("\n".join(lines))
             argfile = Path(fh.name)
         try:
-            proc = subprocess.run(
+            proc = binaries.run(
                 [binary, "-@", str(argfile)], capture_output=True, text=True, check=False
             )
             counts = [int(m) for m in _UPDATED.findall(proc.stdout)]
@@ -262,7 +262,7 @@ def _read_chunk(binary: str, chunk: Sequence[Path]) -> list[dict[str, Any]]:
     args += [f"-{tag}#" for tag in _NUMERIC_TAGS]  # signed decimal degrees for GPS
     args += [str(path) for path in chunk]
 
-    proc = subprocess.run(args, capture_output=True, text=True, check=False)
+    proc = binaries.run(args, capture_output=True, text=True, check=False)
     payload = proc.stdout.strip()
     if not payload:
         return []

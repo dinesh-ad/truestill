@@ -119,7 +119,7 @@ def test_a_process_that_dies_mid_batch_is_detected(tmp_path: Path, monkeypatch) 
         proc.stdout = "    1 image files updated\n    1 image files updated\n"  # died after two
         return proc
 
-    monkeypatch.setattr(exif.subprocess, "run", truncated)
+    monkeypatch.setattr(exif.binaries, "run", truncated)
     verdicts = exif.write_metadata_batch([(p, args) for p in photos])
 
     assert [verdicts[p] for p in photos] == [True, True, False, False, False, False]
@@ -134,7 +134,7 @@ def test_exiftool_failing_to_launch_fails_every_file_rather_than_raising(
     def boom(*_args, **_kwargs):
         raise OSError(1, "no fork for you")
 
-    monkeypatch.setattr(exif.subprocess, "run", boom)
+    monkeypatch.setattr(exif.binaries, "run", boom)
 
     assert exif.write_metadata_batch([(p, args) for p in photos]) == dict.fromkeys(photos, False)
 
@@ -174,7 +174,7 @@ def test_a_failed_bake_leaves_the_original_untouched_and_uploads_nothing(
     def nothing_confirmed(*call_args, **_kwargs):
         return subprocess.CompletedProcess(call_args[0], 1, stdout="", stderr="Error: nope")
 
-    monkeypatch.setattr(exif.subprocess, "run", nothing_confirmed)
+    monkeypatch.setattr(exif.binaries, "run", nothing_confirmed)
     results = execute(
         resolutions, LocalDestination(dest), apply=True, ingest=_ingest(photos), catalog=None
     )
@@ -197,7 +197,7 @@ def test_a_partial_batch_failure_reports_each_file_truthfully(tmp_path: Path, mo
         proc.stdout = "    1 image files updated\n    1 image files updated\n"
         return proc
 
-    monkeypatch.setattr(exif.subprocess, "run", truncated)
+    monkeypatch.setattr(exif.binaries, "run", truncated)
     results = execute(
         resolutions, LocalDestination(dest), apply=True, ingest=_ingest(photos), catalog=None
     )

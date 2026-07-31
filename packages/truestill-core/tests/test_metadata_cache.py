@@ -27,7 +27,7 @@ def counted_exif(monkeypatch: pytest.MonkeyPatch) -> dict[str, int]:
         return real(*args, **kwargs)
 
     monkeypatch.setattr(subprocess, "run", wrapped)
-    monkeypatch.setattr(exif_mod.subprocess, "run", wrapped)
+    monkeypatch.setattr(exif_mod.binaries, "run", wrapped)
     return counts
 
 
@@ -178,7 +178,7 @@ def test_mutation_warm_hit_fails_if_cache_is_ignored(
         calls["n"] += 1
         raise RuntimeError
 
-    monkeypatch.setattr(exif_mod.subprocess, "run", boom)
+    monkeypatch.setattr(exif_mod.binaries, "run", boom)
     with HashCache.beside(db) as cache:
         out = read_metadata([photo], cache=cache)
     assert out[photo]["Make"] == "Canon"

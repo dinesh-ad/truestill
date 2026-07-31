@@ -51,7 +51,7 @@ def counted_exif(monkeypatch: pytest.MonkeyPatch) -> dict[str, int]:
         return real(*args, **kwargs)
 
     monkeypatch.setattr(subprocess, "run", wrapped)
-    monkeypatch.setattr(exif_mod.subprocess, "run", wrapped)
+    monkeypatch.setattr(exif_mod.binaries, "run", wrapped)
     return counts
 
 

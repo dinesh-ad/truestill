@@ -16,6 +16,7 @@ import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
+from truestill_core import binaries
 from truestill_core.destinations.base import Destination, DestinationError
 
 
@@ -42,7 +43,7 @@ class RcloneDestination(Destination):
         return f"{self._remote}/{relative_path}"
 
     def _run(self, *args: str) -> subprocess.CompletedProcess[str]:
-        proc = subprocess.run(
+        proc = binaries.run(
             [self._bin, *args],
             capture_output=True,
             text=True,

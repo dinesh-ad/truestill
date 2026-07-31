@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, NotRequired, TypedDict, cast
 
+from truestill_core import binaries
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_startup import inspect_catalog
 from truestill_core.drive import create_marker, path_is_usable_dir, read_marker
@@ -72,7 +73,7 @@ def reveal_in_file_manager(path: Path) -> RevealOk | RevealErr:
             ),
         }
     try:
-        subprocess.Popen([opener, str(path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        binaries.popen([opener, str(path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except OSError as exc:
         return {
             "ok": False,

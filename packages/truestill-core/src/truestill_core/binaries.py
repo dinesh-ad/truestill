@@ -1,4 +1,4 @@
-"""Where truestill looks for the external binaries it shells out to.
+"""How truestill talks to external programs: where it finds them, and how it launches them.
 
 **The defect this closes ((aad)).** Every external binary was found with `shutil.which`, which
 searches PATH and nothing else. That is right for a developer install and wrong for a shipped
@@ -28,6 +28,15 @@ Bundle what we *compute with*; never bundle what we *delegate to*.
 The three PATH-only cases are not an oversight to fix later: for each of them, using a bundled
 copy would be a bug rather than an improvement.
 
+**Finding and launching live together, and that is one concern rather than two.** They are
+different jobs - a path versus a process-creation flag - and on a server they would belong
+apart. Here they share a *cause*: both exist because truestill is becoming a double-clicked
+desktop app. Bundled-first resolution exists because an installed app inherits no useful PATH;
+the no-console-window flag exists because an installed app has no console for a child to pop a
+window over. Splitting them would produce two modules that are always imported together, whose
+docstrings each explain half of `(aad)`, and a reader who found one would have no reason to look
+for the other.
+
 **Complexity: O(number of PATH entries), and deliberately not cached.** `ensure_exiftool` is
 called once per *batch*, outside the chunk loop. Measured: `shutil.which` is **30.6 us** on a
 20-entry PATH against an exiftool process start of 50-200 ms - about 0.02% of a single
@@ -40,8 +49,11 @@ from __future__ import annotations
 
 import os
 import shutil
+import subprocess
 import sys
+from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 #: One directory a packager fills, honoured on every platform. The simplest thing a bundler can
 #: be asked to do, and the escape hatch for a layout nobody anticipated.
@@ -95,6 +107,36 @@ def resolve_binary(name: str, *, override_env: str | None = None) -> str | None:
         if found:
             return found
     return shutil.which(name)
+
+
+#: Suppresses the console window Windows creates for a console application. Resolved by
+#: ``getattr`` because the constant **only exists on Windows** - and this is what keeps the flag
+#: out of every call site: ``creationflags=0`` is accepted on POSIX and does nothing, while any
+#: *non-zero* value there raises ``ValueError: creationflags is only supported on Windows``.
+#: Verified on both counts rather than assumed.
+_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+
+def run(command: Sequence[str | Path], **kwargs: Any) -> subprocess.CompletedProcess[Any]:
+    """`subprocess.run`, with the no-console-window flag applied.
+
+    **Hiding the window changes nothing about output or exit codes.** ``CREATE_NO_WINDOW``
+    suppresses the console *window* Windows would create; it does not touch the child's handles.
+    Redirected streams are redirected either way, and the return code is unaffected. Checked
+    against every call site: all five pass ``capture_output=True`` or explicit ``DEVNULL``, so
+    none of them relies on inheriting a console.
+
+    The cost that *would* exist is worth naming so nobody rediscovers it as a mystery: a child
+    whose output is **not** redirected has nowhere to write in a windowed build. That is not
+    caused by this flag - a packaged app has no console to inherit in the first place - but it
+    means any future call site must redirect rather than assume a terminal.
+    """
+    return subprocess.run(command, creationflags=_NO_WINDOW, **kwargs)  # noqa: PLW1510
+
+
+def popen(command: Sequence[str | Path], **kwargs: Any) -> subprocess.Popen[Any]:
+    """`subprocess.Popen`, with the no-console-window flag applied. See :func:`run`."""
+    return subprocess.Popen(command, creationflags=_NO_WINDOW, **kwargs)
 
 
 def is_bundled_install() -> bool:

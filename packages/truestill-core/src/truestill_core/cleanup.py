@@ -37,6 +37,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path, PurePosixPath
 
+from truestill_core import binaries
+
 #: Operating-system detritus that may be removed **along with** the folder holding it.
 #:
 #: Enumerated on purpose, and short on purpose. The moment this becomes a pattern ("small
@@ -184,7 +186,7 @@ def _to_trash(path: Path, backend: str) -> None:
 
         send2trash.send2trash(str(path))
         return
-    subprocess.run(["gio", "trash", str(path)], check=True, capture_output=True)
+    binaries.run(["gio", "trash", str(path)], check=True, capture_output=True)
 
 
 @dataclass(frozen=True, slots=True)
