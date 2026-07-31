@@ -207,6 +207,26 @@ section, because what is left is the part that still has to be written.
     - Installer size and startup time.
     - How it interacts with the **parked Tauri-vs-local-web decision** (`(o)` and the Product /
       strategy section) and with **D5's licensing/update server**, which is separately unbuilt.
+  - **Settled 2026-07-31: do NOT run a VirusTotal comparison to choose the bundler.** It was
+    proposed, approved, and then withdrawn on the design pass. Recorded here with the reasoning
+    so it is not proposed again from the same premise - *"the AV claim is load-bearing and
+    testable"*. It is load-bearing. It is not testable in a way that would decide anything.
+    - **The deciding argument: signing dominates, and it is the same decision either way.** The
+      gate a user meets is SmartScreen, which is reputation-based per file hash and per
+      certificate. Unsigned, **both** candidates get warned on; signed, **both** accrue
+      reputation on the certificate. So the AV question is **orthogonal to the choice it was
+      meant to inform**.
+    - The artifacts are not comparable anyway. PyInstaller ships a self-extracting bootloader -
+      the packing behaviour heuristics target - while a Briefcase MSI is a native installer that
+      packs nothing. The result would confirm from measurement what the mechanism already
+      predicts, while reading as "Briefcase is safer".
+    - The number would not even be stable. Detection counts track the **bootloader build's**
+      reputation, not the approach (`pyinstaller#8164`: counts change with the PyInstaller
+      version), and VirusTotal's raw count is unweighted, with a handful of engines producing
+      most false positives. A single artifact per tool cannot separate signal from that noise.
+    - **What a scan is still good for**, and where it belongs: a **release smoke test** on the
+      signed artifact we actually ship, to catch a regression. Not a selection input, and not
+      before there is something signed to scan.
   - **Not designed here on purpose.** The questions above are genuinely open and several are
     coupled (the shell decision changes the packaging answer, which changes the signing answer);
     picking one now would be guessing in public.
