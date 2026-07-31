@@ -253,10 +253,37 @@ def _add_takeout_tables(conn: sqlite3.Connection) -> None:
 def _add_drive_tables(conn: sqlite3.Connection) -> None:
     """v5 -> v6: drive identity + per-(content, drive) copy locations.
 
-    ``files.copy_sha256`` is retained but deprecated: it is a per-content field, whereas a
-    copy's integrity hash belongs to the copy. New copies record their hash in ``file_copies``;
-    pre-v6 ``files`` rows are not backfilled (they predate drive identity), and their
-    ``copy_sha256`` remains readable for any legacy path.
+    Copy *locations* and their integrity hashes belong to ``file_copies``, per (content, drive).
+    That is what this migration established, and it stands.
+
+    **``files.copy_sha256`` was deprecated here, and is NOT any more (2026-07-31). Do not
+    re-deprecate it from the old reasoning.** The old reasoning was right about what it is and
+    wrong about what it is *for*. It is per-content data, so using it as a **per-drive** value -
+    which `attach_drive` once did, copying it onto a ``file_copies`` row - was always incorrect,
+    and that misuse is gone.
+
+    What it is now is the **durable per-content record of what the organized copy hashed to
+    after any metadata bake**, and content-matching attach depends on it. ``record_uploaded``
+    writes the baked digest to both this column and ``file_copies``; on a **re-attach**, the
+    per-drive rows are gone *by definition*, so this is the only surviving evidence that a
+    Takeout-baked copy hashes to something other than ``files.sha256``. Drop it and those copies
+    become unrecognisable exactly when the catalog most needs to rebuild - proved by deleting
+    the ``files.copy_sha256`` branch of :meth:`Catalog.attachable_hashes`, which fails
+    ``test_a_baked_copy_is_recognised_by_the_hash_it_actually_has``.
+
+    Pre-v6 ``files`` rows are not backfilled (they predate drive identity); their
+    ``copy_sha256`` is NULL and reads as "no recorded hash", which `verify` reports as
+    UNVERIFIABLE rather than guessing.
+
+    **``files.relative`` is the one that stayed deprecated**, and it is still here for a stated
+    reason rather than as debt. Nothing locates a file by it any more (that misuse ended when
+    attach began matching on content), and it no longer answers "was this organized?" - three
+    queries that asked ``WHERE relative IS NOT NULL`` now ask ``upload_status = 'uploaded'``,
+    which is the question they meant. It remains only as a **name fallback** where
+    ``original_name`` is NULL - ``media_names``, the format breakdown, ``stats_undated_samples``
+    - and those feed the custody strip's photo/video/audio counts. A fallback that never fires
+    costs nothing; removing one that turns out to fire costs a blank column on screen. It is
+    therefore not dropped, and there is no migration for it.
     """
     conn.executescript(
         """
@@ -954,7 +981,8 @@ class Catalog:
         """
         return list(
             self._conn.execute(
-                "SELECT sha256, copy_sha256, size, relative FROM files WHERE relative IS NOT NULL"
+                "SELECT sha256, copy_sha256, size, relative FROM files "
+                "WHERE upload_status = 'uploaded'"
             )
         )
 
@@ -972,7 +1000,7 @@ class Catalog:
         return list(
             self._conn.execute(
                 """
-                SELECT sha256 AS hash, sha256 FROM files WHERE relative IS NOT NULL
+                SELECT sha256 AS hash, sha256 FROM files WHERE upload_status = 'uploaded'
                 UNION
                 SELECT copy_sha256 AS hash, sha256 FROM files WHERE copy_sha256 IS NOT NULL
                 UNION
@@ -986,7 +1014,7 @@ class Catalog:
         return {
             str(row["sha256"]): row["size"]
             for row in self._conn.execute(
-                "SELECT sha256, size FROM files WHERE relative IS NOT NULL"
+                "SELECT sha256, size FROM files WHERE upload_status = 'uploaded'"
             )
         }
 
@@ -1566,8 +1594,11 @@ class Catalog:
         ``copy_sha256`` is the organized copy's hash after any Takeout metadata write (equal to
         ``sha256`` for the byte-identical normal pipeline). When ``drive_uuid`` is given, the copy
         is also recorded in ``file_copies`` (per-content-per-drive), the authoritative location
-        record. ``files.copy_sha256``/``relative`` are retained but deprecated. Album membership
-        is linked many-to-many. Idempotent on ``sha256``.
+        record. Writing ``copy_sha256`` to **both** places is deliberate and load-bearing: the
+        per-drive row is the authoritative one, and the ``files`` row is what survives a lost
+        drive row so a baked copy can still be recognised on re-attach (see
+        :func:`_add_drive_tables`). ``files.relative`` remains a name fallback only, never a
+        location. Album membership is linked many-to-many. Idempotent on ``sha256``.
         """
         now = _now()
         with self._tx() as conn:
