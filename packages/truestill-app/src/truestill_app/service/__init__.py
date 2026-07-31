@@ -11,6 +11,7 @@ here so ``from truestill_app.service import …`` and ``service.…`` stay uncha
 from __future__ import annotations
 
 from truestill_app.service import backup as _backup
+from truestill_app.service import bake as _bake
 from truestill_app.service import clean_empty as _clean_empty
 from truestill_app.service import drive_support as _drive_support
 from truestill_app.service import drives as _drives
@@ -131,6 +132,8 @@ RevealErr = _drives.RevealErr
 reveal_in_file_manager = _drives.reveal_in_file_manager
 DriveAttachment = _drives.DriveAttachment
 attach_drive = _drives.attach_drive
+bake_preview = _bake.bake_preview
+bake_run = _bake.bake_run
 DriveRow = _drives.DriveRow
 WhereCopy = _drives.WhereCopy
 WhereResult = _drives.WhereResult

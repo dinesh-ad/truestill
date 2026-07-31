@@ -590,6 +590,7 @@ const bkProgress = createProgress("bk");
 const migProgress = createProgress("mig");
 const undoProgress = createProgress("undo");
 const rcProgress = createProgress("rc");
+const bakeProgress = createProgress("bake");
 
 // ---------- typed confirm (reusable) ----------
 // Destructive actions that currently demand a typed word on the CLI (undo, and soon oo/rr)
@@ -2371,3 +2372,79 @@ loadOrganizeMode();
 loadSidebar();
 loadCustody();
 refreshOrganizeUndoAffordance();
+
+// ---------- Dates you have corrected: preview -> typed confirm -> job (step 4) ----------
+// Preview is catalog-only so it is a plain request; the run is a job because it writes to user
+// files and must take the per-drive lock, stream progress and be cancellable.
+function bakeDriveLines(elsewhere) {
+  if (!elsewhere.length) return "";
+  const rows = elsewhere
+    .map((d) => `<div>${esc(d.label)} - ${plural(d.files, "file")}${d.connected ? " (connected now)" : " (not connected)"}</div>`)
+    .join("");
+  return `<div class="banner"><div><div class="b-title">These drives keep the old date inside their files</div>
+            ${rows}
+            <div class="k">Connect each one and set the dates again - truestill does not do it on its own.</div></div></div>`;
+}
+
+let bakeJob = null;
+$("bake-preview").onclick = guarded(async () => {
+  const path = $("bake-path").value.trim();
+  await withBusy($("bake-preview"), "Checking…", async () => {
+    const r = await api("/api/dates/bake/preview", { path });
+    $("bake-result").innerHTML = "";
+    if (!r.ok) { $("bake-confirm").innerHTML = driveError(r, "bake-path"); return; }
+    if (!r.will_write) {
+      $("bake-confirm").innerHTML = card(
+        `<div class="headline">Nothing to write on ${esc(r.drive_label)}</div>
+         <div class="k">Every corrected date is already inside the files on this drive.</div>
+         ${r.videos_skipped ? `<div class="k">${esc(r.videos_reason)}</div>` : ""}
+         ${bakeDriveLines(r.elsewhere)}`);
+      return;
+    }
+    $("bake-confirm").innerHTML = card(
+      `<div class="headline">${plural(r.will_write, "file")} on ${esc(r.drive_label)} would be updated</div>
+       ${r.videos_skipped ? `<div class="k">${plural(r.videos_skipped, "video")} left alone. ${esc(r.videos_reason)}</div>` : ""}
+       ${r.absent ? `<div class="k">${plural(r.absent, "file")} the catalog expects here could not be found on this drive.</div>` : ""}
+       ${bakeDriveLines(r.elsewhere)}
+       <div class="banner warn"><div><div class="b-title">This cannot be undone</div>${esc(r.irreversible)}</div></div>
+       <div data-typed-host></div>`);
+    // The warning sits ABOVE the typed field on purpose: it is the thing to read before
+    // typing, not an explanation offered after the decision has been made.
+    typedConfirm($("bake-confirm").querySelector("[data-typed-host]"), {
+      word: r.confirm_word,
+      label: `Type ${r.confirm_word} to update ${plural(r.will_write, "file")}`,
+      buttonLabel: "Set the dates",
+      onConfirm: () => startBake(path),
+    });
+  });
+});
+
+async function startBake(path) {
+  await runJob({
+    button: $("bake-confirm").querySelector("[data-typed-go]"),
+    busyLabel: "Setting dates…",
+    start: () => api("/api/dates/bake/run", { path }),
+    setJob: (id) => { bakeJob = id; },
+    progress: bakeProgress,
+    progressLabel: "updating",
+    statusVerb: "Setting dates",
+    beforeOutcome: () => { $("bake-confirm").innerHTML = ""; },
+    onRefuse: (started) => { $("bake-confirm").innerHTML = startRefusedCard(started, "bake-path"); },
+    onError: (d) => { $("bake-result").innerHTML = jobErrorCard(d); },
+    onCancelled: (d) => { $("bake-result").innerHTML = bakeCompletion(d.summary, true); },
+    onSuccess: (d) => { $("bake-result").innerHTML = bakeCompletion(d.summary, false); },
+    after: () => { refreshDriveState(); },
+  });
+}
+$("bake-cancel").onclick = guarded(() => { if (bakeJob) return api(`/api/jobs/${bakeJob}/cancel`, {}); });
+
+function bakeCompletion(s, cancelled) {
+  return card(
+    `<div class="headline">${cancelled ? "Stopped" : "Dates updated"}</div>
+     <div class="k">${esc(s.completeness || "")}</div>
+     ${cancelled ? `<div class="k">The ${plural(s.baked || 0, "file")} already updated are finished and correct. The rest still have their old date and will be offered again.</div>` : ""}
+     ${s.videos_skipped ? `<div class="k">${plural(s.videos_skipped, "video")} left alone. ${esc(s.videos_reason || "")}</div>` : ""}
+     ${s.failed ? `<div class="banner warn"><div>${plural(s.failed, "file")} could not be updated and were left as they were.</div></div>` : ""}
+     ${s.refused ? `<div class="banner warn"><div>${esc(s.refused)}</div></div>` : ""}
+     ${bakeDriveLines(s.awaiting || [])}`);
+}

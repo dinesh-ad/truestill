@@ -255,10 +255,15 @@ def bake_run(path: Path, db: Path) -> JobTarget | DriveUnavailablePayload | Bake
                     summary["refused"] = migration_unfinished_message(marker.label)
                     break
                 relative = str(row["relative"])
+                target_file = path / relative
+                # Every item ticks, including the ones nothing is written for. Progress that
+                # only advances on success stalls on a run of skips and reads as a hang - the
+                # (oo) finding, which is about hidden *work* rather than hidden errors.
+                if progress is not None:
+                    progress(Progress(index, total, Phase.ORGANIZING, target_file.name))
                 if _is_video(relative):
                     summary["videos_skipped"] += 1
                     continue
-                target_file = path / relative
                 if not target_file.is_file():
                     summary["absent"] += 1
                     continue
@@ -278,8 +283,6 @@ def bake_run(path: Path, db: Path) -> JobTarget | DriveUnavailablePayload | Bake
                     str(row["sha256"]), marker.uuid, copy_sha256=sha256_file(target_file)
                 )
                 summary["baked"] += 1
-                if progress is not None:
-                    progress(Progress(index, total, Phase.ORGANIZING, target_file.name))
             summary["awaiting"] = [
                 {"label": str(r["label"]), "files": int(r["files"])}
                 for r in catalog.drives_awaiting_bake(marker.uuid)

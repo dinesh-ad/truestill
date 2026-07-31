@@ -374,6 +374,34 @@
             <div class="prog-tally mono" id="mig-tally"></div>
           </div>
         </div>
+        <div class="card" id="settings-bake">
+          <h2>Dates you have corrected</h2>
+          <p class="k">Write the dates you confirmed into the photo files themselves, so other
+            apps read them too. Your library keeps them either way.</p>
+          <div class="field"><label for="bake-path">Connected drive folder</label>
+            <div class="row"><input class="input" id="bake-path" placeholder="e.g. /media/BackupA">
+              <button class="btn btn-secondary" data-browse="bake-path" data-kind="dest">Browse…</button></div>
+            <span class="hint" id="bake-path-hint"></span></div>
+          <div class="actions"><button class="btn btn-secondary" id="bake-preview">Check what would change</button></div>
+          <div id="bake-confirm"></div>
+          <div id="bake-result"></div>
+          <!-- shared progress block: see createProgress() in app.js -->
+          <div class="progress-wrap hidden" id="bake-card">
+            <div class="prog-head">
+              <span class="phase" id="bake-phase"></span>
+              <span class="activity mono" id="bake-activity"></span>
+              <span class="spacer"></span>
+              <span class="count mono" id="bake-count"></span>
+            </div>
+            <div class="bar"><i id="bake-bar"></i></div>
+            <div class="prog-foot">
+              <span class="meta mono" id="bake-meta"></span>
+              <span class="spacer"></span>
+              <button class="btn btn-ghost" id="bake-cancel">Cancel</button>
+            </div>
+            <div class="prog-tally mono" id="bake-tally"></div>
+          </div>
+        </div>
         <div class="card">
           <h2>Appearance</h2>
           <div class="checkline"><label><input type="radio" name="theme" value="light"> Light</label>

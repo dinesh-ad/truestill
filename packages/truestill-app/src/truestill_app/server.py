@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -88,7 +89,7 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
         return explicit_db
 
     def _start_drive_job(
-        target: JobTarget | service.DriveUnavailablePayload,
+        target: JobTarget | Mapping[str, object],
         *,
         paths: list[Path],
         operation: str,
@@ -97,9 +98,14 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
 
         Soft-fails for a non-drive path the same way undo already did. A second start on an
         occupied drive returns :class:`DriveBusyPayload` (HTTP 200, ``ok: false``) - never queues.
+
+        ``target`` is either a job to run or **any refusal payload already shaped for the UI** -
+        drive-unavailable, or a feature's own soft-fail such as the bake's MigrationUnfinished.
+        The runtime check has always been "is this a dict", so the annotation says that rather
+        than listing every payload type and needing an edit per feature.
         """
-        if isinstance(target, dict):
-            return JSONResponse(target)
+        if isinstance(target, Mapping):
+            return JSONResponse(dict(target))
         result: str | DriveBusyPayload = jobs.start(
             target,
             drives=[service.drive_ref_for(path) for path in paths],
@@ -321,6 +327,17 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
             operation="migrate preview",
         )
 
+    async def dates_bake_preview(request: Request) -> JSONResponse:
+        """Catalog-only, so a plain request rather than a job: no file is read to build a plan."""
+        body = await request.json()
+        return JSONResponse(service.bake_preview(Path(body["path"]), _db()))
+
+    async def dates_bake_run(request: Request) -> JSONResponse:
+        """Through `_start_drive_job`, so the per-drive lock covers a write to user files."""
+        body = await request.json()
+        path = Path(body["path"])
+        return _start_drive_job(service.bake_run(path, _db()), paths=[path], operation="set dates")
+
     async def migrate_run(request: Request) -> JSONResponse:
         body = await request.json()
         path = Path(body["path"])
@@ -535,6 +552,8 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
         Route("/api/events/settings", event_settings, methods=["GET", "POST"]),
         Route("/api/migrate/preview", migrate_preview, methods=["POST"]),
         Route("/api/migrate/run", migrate_run, methods=["POST"]),
+        Route("/api/dates/bake/preview", dates_bake_preview, methods=["POST"]),
+        Route("/api/dates/bake/run", dates_bake_run, methods=["POST"]),
         Route("/api/migrate/undo", migrate_undo_armed),
         Route("/api/migrate/undo/preview", migrate_undo_preview, methods=["POST"]),
         Route("/api/migrate/undo/apply", migrate_undo_apply, methods=["POST"]),

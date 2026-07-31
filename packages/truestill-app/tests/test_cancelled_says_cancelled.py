@@ -18,9 +18,14 @@ def test_run_job_branches_on_cancelled_before_success() -> None:
 
 
 def test_reference_cancelled_copy_still_present() -> None:
-    """Previews 5/8/9/13 and organize run already said cancelled; extraction keeps that copy."""
+    """Previews 5/8/9/13 and organize run already said cancelled; extraction keeps that copy.
+
+    The handler *count* is not asserted here - `test_run_job.py` owns that, and derives it from
+    the number of job sites rather than pinning the number of features that existed when this
+    was written. Two files hard-coding the same 13 is the duplication the companion rule warns
+    about; this one keeps only what it is really about, which is the wording.
+    """
     src = APP_JS.read_text(encoding="utf-8")
     assert "Check cancelled" in src
     assert "Preview cancelled" in src
     assert "before you stopped it" in src
-    assert src.count("onCancelled:") == 13
