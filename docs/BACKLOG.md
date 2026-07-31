@@ -26,7 +26,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aai). Next free: (aaj).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aaj). Next free: (aak).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -41,6 +41,27 @@ Everything here has work left. **Two entries are partial and say so in their own
 `(bbb)` (the safety half shipped, the `_original` recovery offer did not) and `(r)` (the hash
 cache shipped, Analyze mode itself did not). A partial entry lives here, not in the built
 section, because what is left is the part that still has to be written.
+
+- **(aaj) Note an embedded-metadata conflict against a human-confirmed date.** The unbuilt half
+  of `(bbb)` item 4, recorded 2026-07-31 when step 6 closed the rest. **Record only.**
+  - **What is missing.** A human confirmation wins everywhere and is pinned to survive every
+    whole-disk operation - that half is done. What does not exist is *"note the embedded conflict
+    (never silent)"*: nothing tells a user that the photo's own metadata still says something
+    different from what they confirmed. Today the only visible disagreement is a `_original`
+    sidecar's, surfaced as an offer.
+  - **Why it is not free.** `confirm_date` sets ``date_tag = NULL`` deliberately - the machine's
+    evidence no longer explains the date - so the prior claim is **discarded**. Surfacing a
+    conflict therefore means either keeping the superseded evidence (a schema decision: a column
+    that exists only to be disagreed with) or re-reading the file, which is an I/O pass on a
+    screen that is currently catalog-only and fast.
+  - ⚠ **Inherited trap, stated so it is not rediscovered the hard way.** The comparison must be
+    against **recorded provenance**, never the file's current embedded metadata. After a bake the
+    organized copy carries the confirmed date while the **source** still carries the old one, so
+    a live-metadata comparison would make every rescued-and-baked file report a conflict with
+    itself, permanently. This is the reason the clause was left half-built rather than guessed at.
+  - **Open questions:** whether the superseded evidence is worth a column; whether the conflict
+    belongs on the honesty view or only on the file's own row; and whether "the file disagrees"
+    is even worth saying once the user has been told their answer wins everywhere.
 
 - **(aai) The plain copy path records the hash of what was SENT, not what landed.** Found
   2026-07-31 while establishing O1's read-back rule for the date bake. **Record only - do not
@@ -343,7 +364,34 @@ section, because what is left is the part that still has to be written.
     `.jpg_original` extension count. Matcher covers any extension (exiftool appends `_original`
     to the full filename). Collision pinned: a legitimate `vacation_original.jpg` ( `_original`
     before the extension) is **not** a backup and is still organized.
-  - **Recovery - deferred; part of the date-provenance program** (see **Converged programs**):
+  - **Recovery - BUILT 2026-07-31 (step 6), with item 4 PARTIAL.** The offer ships in the rescue
+    flow: `date_rescue.original_candidates` finds a ``{name}_original`` beside the recorded
+    source, reads its date with the same resolver everything else uses, and offers it **only
+    when it parses and differs**. Accepting pre-fills the rescue field; the commit is the same
+    typed `confirm_file_date`, so a sidecar date is not a second route into `HUMAN_CONFIRMED`.
+    Items 1, 2, 3 and 5 are satisfied as written.
+
+    **Item 4 is half done, and the half that is missing is recorded as `(aaj)` rather than
+    ticked.** Verified against code, not assumed:
+    - *"the human wins"* - **satisfied, structurally.** `confirm_date` writes
+      `captured_at` + `date_source = HUMAN_CONFIRMED`; `migrate` renders from
+      `files.captured_at` and `rederive_rules` re-reads metadata for **ambiguous labels only**,
+      never dates; `record_uploaded` re-applies a confirmation on re-ingest. All five whole-disk
+      operations are pinned by O4 in `test_confirmation_survives.py`.
+    - *"note the embedded conflict (never silent)"* - **not satisfied for the live file.** The
+      only disagreement surfaced anywhere is the **sidecar's**, and only as an offer. Nothing
+      compares the live file's embedded EXIF against a confirmation, and `confirm_date` sets
+      ``date_tag = NULL`` - so the machine's prior evidence is *discarded*, and the catalog can
+      no longer say what the file claimed without re-reading it.
+
+    **Which comparison ships, because the design flagged this as a trap:** against **recorded
+    provenance** (`files.captured_at`), never the file's current embedded metadata. After a bake
+    the organized copy agrees with the confirmation while the *source* still does not, so
+    comparing live metadata would make every rescued file report a conflict with itself forever.
+    That trap is avoided - but honestly, it is avoided because the live comparison was never
+    built, not because it was built carefully. **`(aaj)` inherits the trap.**
+
+  - **Recovery - original design, kept for provenance** (see **Converged programs**):
     not a parallel `_original` tool. Full design (do not invent a separate surface):
     1. **No silent substitution.** Reading `_original` never auto-wins over the live file's
        embedded date in `resolve_capture_datetime`.
@@ -906,16 +954,19 @@ picking one up must map the combined order before building.
   **`(bbb)` recovery**, and **`(kk)`'s `GPSDateStamp`** (lat/lon on `(kk)` also serves
   places/map, but the stamp is this program's cross-check). **One program, now partly built -
   check each step before starting it:**
+  **PROGRAM COMPLETE 2026-07-31**, with one clause carried out as `(aaj)` - see `(bbb)` item 4.
+
   1. ✅ **Done.** Persist a durable date-provenance column: `files.date_source` (**v13**) and
      `date_tag` (**v14**), written by `record_uploaded`, worded once in `date_explain.py`.
-  2. ✅ **Done, except the drill-down.** Honesty view (`(n)`): the provenance **mix** ships in
-     `service/stats.py`. Clicking a slice through to *which files, and why* does not.
-  3. ◐ **Half done.** Rescue (`(ii)`): the human-confirmed date is stored durably and survives
-     every whole-disk operation (`date_confirmations`, **v15**; obligation O4 tested by name).
-     **`confirm_date` is reachable from 0 routes and 0 CLI commands, by ruling** - no user can
-     perform a rescue yet.
-  4. ☐ **Not started.** Optional `_original` offer (`(bbb)` recovery): same surface, same
-     `human-confirmed` tier - never a parallel tool, never silent substitution.
+  2. ✅ **Done.** Honesty view (`(n)`): the provenance **mix** ships in `service/stats.py`, and
+     since step 5 each tier drills down to the files in it, each carrying the sha256 the rescue
+     is keyed on.
+  3. ✅ **Done.** Rescue (`(ii)`): stored durably, survives every whole-disk operation
+     (`date_confirmations`, **v15**; O4 tested by name), and **reachable** since step 5 -
+     `POST /api/dates/confirm`, app-only by recorded deferral.
+  4. ◐ **Done, except "note the embedded conflict".** `_original` offer (`(bbb)` recovery):
+     same surface, same `human-confirmed` tier, never a parallel tool and never a silent
+     substitution. The unbuilt half of item 4 is `(aaj)`.
 
   Also not started: **`(kk)`'s `GPSDateStamp`** - verified 2026-07-31, the catalog has no
   latitude/longitude columns and no `GPSDateStamp`, so no part of `(kk)` has landed.
