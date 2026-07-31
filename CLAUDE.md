@@ -29,6 +29,7 @@ The command is `truestill`; the local web UI is `truestill-app`. Drives are iden
 | How do I move libraries to another machine? | [`docs/moving-machines.md`](docs/moving-machines.md) |
 | How does the code lay out day to day? | [`docs/CLAUDE.md`](docs/CLAUDE.md) |
 | What does it cost, and what should I not "optimize"? | [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) |
+| What does the product look like? (wordmark, colour, icons) | [`docs/brand.md`](docs/brand.md) |
 | How do I report a vulnerability, and what is in scope? | [`SECURITY.md`](SECURITY.md) |
 | What changed and when? | [`CHANGELOG.md`](CHANGELOG.md) |
 
