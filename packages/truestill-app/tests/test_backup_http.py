@@ -49,6 +49,7 @@ def test_backup_copies_library_and_records_per_drive(client: TestClient, tmp_pat
         "from",
         "to",
         "will_register",
+        "will_read",
         "count",
         "photos",
         "videos",

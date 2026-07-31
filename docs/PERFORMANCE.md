@@ -54,8 +54,10 @@ cold preview. Both orderings are real; which dominates depends on the library.
 ### 1.1 Stages added after the 2026-07 baseline (measured 2026-07-31)
 
 The table above predates seven stages. This is those stages, taken to the §2.1 method: median
-and p95 over n runs, corpus and machine class named on every row. **Local SSD throughout; the
-pCloud FUSE column is empty because the mount was absent, not because it is fast.**
+and p95 over n runs, corpus and machine class named on every row. **Local SSD throughout, except
+the two attach rows: the FUSE column was empty in the 2026-07-31 pass because the mount was
+absent, not because it is fast, and it was measured for attach on 2026-07-31 once the mount was
+back.**
 
 | Stage | Corpus | n | median | p95 | spread | FUSE |
 |---|---|---|---|---|---|---|
@@ -71,6 +73,8 @@ pCloud FUSE column is empty because the mount was absent, not because it is fast
 | cleanup plan + run | hermetic, 500-file skeleton | 5 | **11 ms** | 11 ms | 1.04x | not measured |
 | undo plan (`plan_undo`) | hermetic, 500 files | 9 | **8.6 ms** | 9.2 ms | 1.08x | not measured |
 | undo apply (`run_undo`) | hermetic, 500 files | 5 | **81 ms** | 82 ms | 1.01x | not measured |
+| drive attach (`attach_drive`), **cold-cache** | 2,269 copies, 6.2 GB | 5 | **8.885 s** | 14.30 s | 1.96x | **15.92 s** / p95 16.31 s / 1.09x |
+| drive attach (`attach_drive`), **warm-cache** | 2,269 copies, 6.2 GB | 5 | **0.316 s** | 0.339 s | 1.15x | **0.282 s** / p95 0.599 s / 2.26x |
 
 **Cold/warm, per stage, rather than a duplicated column.** Only one of these stages touches
 exiftool, so only one has a cold/warm axis at all: **migration preview**. The other nine are
@@ -93,6 +97,38 @@ not there.
 > calls` counts them. §8's warm-read guarantee now covers this path; it did not before. Both §5
 > preview-purity guards still pass unchanged, because the sidecar is neither the drive nor the
 > catalog and `service.organize_preview` had always written it on a preview.
+
+> **Attach went from instant to a full read on purpose, and this is the price.** It used to
+> record `files.copy_sha256` -- a *per-content* value -- onto a *per-drive* row, which is sound
+> only while every copy of a file is byte-identical to every other. The Takeout bake already
+> breaks that, so the inherited value would have made `verify` compare a baked copy against a
+> pre-bake hash and **report corruption on a file truestill itself wrote**. Attach now hashes
+> what is actually on the drive. **9 s local / 16 s FUSE for a 6.2 GB library, once per drive**,
+> and every attach after that is **0.3 s** because the hash cache answers it. The trade is a
+> one-off wait against a class of false corruption alarm, and it is not close.
+>
+> **Corpus:** the Output drive (local SSD) and The Memory Cabinet (pCloud FUSE) - the same 2,269
+> copies, 6.2 GB, organized from the same source. Measured against a **scratch copy** of the real
+> catalog, restored before every run outside the stopwatch; the drives themselves are only read,
+> and both already carry markers so nothing was written to them.
+>
+> **Three limits, stated rather than smoothed over.** (1) FUSE cold is only **1.8x** local here,
+> not the 13x `preview-performance-profile.md` measured - because pCloud's own local cache was
+> populated for these files. **A genuinely cold cloud fetch is not measured and would be
+> slower**; this row is the re-attach case, not the first-ever read. (2) The local cold spread is
+> **1.96x** (7.3 s to 14.3 s), the widest in this document - one run took nearly double, and with
+> n = 5 that is reported rather than explained. (3) Warm is the same 0.3 s in both classes
+> because a warm attach reads **no file bytes at all** - it stats, hits the cache, and writes
+> catalog rows - so the machine class stops mattering, which is the result the cache exists for.
+>
+> **The fixture needed repairing first, and that is a finding.** On the live catalog
+> `files.relative` is stale: **0 of 2,300** of those paths exist on the drive, while
+> `file_copies.relative` is **2,269 of 2,269** correct - `migrate-layout` rewrites the per-drive
+> rows and leaves the deprecated per-content ones at the pre-migration path. Attach reads
+> `files.relative`, so on a migrated library it finds nothing and reports every file absent. The
+> measurement takes the true path from `file_copies` in the scratch catalog to reproduce the
+> state attach exists for. The same per-content/per-drive confusion that motivated this change
+> is therefore present in a second column, recorded here and not yet fixed.
 
 **Why the destructive four are fixtures, not Output.** Migration apply, migration undo, undo and
 cleanup all rearrange or delete. They are measured on a hermetic 500-file drive with real files

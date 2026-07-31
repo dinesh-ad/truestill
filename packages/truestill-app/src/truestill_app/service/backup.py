@@ -100,6 +100,11 @@ BackupPreviewOk = TypedDict(
         "from": str,
         "to": str,
         "will_register": list[str],
+        #: How many already-organized copies the run will read end to end to establish this
+        #: drive's own hashes. Stated before the run because attach is no longer instant: a
+        #: full read of a library is minutes to hours, and a progress bar that appears without
+        #: warning reads as a hang. Zero on an already-attached drive, which is the usual case.
+        "will_read": int,
         "count": int,
         "photos": int,
         "videos": int,
@@ -156,6 +161,7 @@ def backup_preview(source: Path, target: Path, db: Path) -> BackupPreviewOk | Ba
         "from": src.label,
         "to": tgt.label,
         "will_register": [d.label for d in (src, tgt) if d.registered],
+        "will_read": src.linked + tgt.linked,
         "count": len(missing),
         "photos": breakdown["photos"],
         "videos": breakdown["videos"],
@@ -178,6 +184,21 @@ class BackupRunSummary(TypedDict):
     elapsed_seconds: NotRequired[float]
 
 
+def _nothing_copied(label: str, target: Path) -> BackupRunSummary:
+    """The summary for a run that stopped before copying anything. Still ``verified``: nothing
+    was written, so nothing went unchecked."""
+    return {
+        "copied": 0,
+        "to": label,
+        "photos": 0,
+        "videos": 0,
+        "audio": 0,
+        "bytes_copied": 0,
+        "verified": True,
+        "target_path": str(target),
+    }
+
+
 def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
     """Build a job that copies the library to another drive: verify-after-write, record each copy."""
 
@@ -187,14 +208,23 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
             raise ValueError(message)
         # Register whatever is not yet a drive, and attach a library organized before its
         # folder was registered. Without this the app rejects the very library it just built.
-        attach_drive(source, db, write=True)
-        attach_drive(target, db, write=True)
+        # Attach reads every copy it links to establish that drive's own hashes, so it takes
+        # the job's progress and cancel: on an unattached library this is the long part of the
+        # run, and it must be visible and stoppable rather than a silent wait before copying.
+        attach_drive(source, db, write=True, progress=progress, cancel=cancel)
+        attach_drive(target, db, write=True, progress=progress, cancel=cancel)
         src_marker, tgt_marker = read_marker(source), read_marker(target)
         if src_marker is None or tgt_marker is None:
             raise not_a_drive(source if src_marker is None else target)
         if src_marker.uuid == tgt_marker.uuid:
             message = "the 'from' and 'to' folders are the same drive."
             raise ValueError(message)
+        if cancel.is_set():
+            # Stopped during attach. What was hashed is recorded and the next run resumes from
+            # there. Returning here rather than falling through means a cancelled run cannot be
+            # answered with "not enough space" - a true statement about a run nobody asked to
+            # continue, and a confusing one to be handed after pressing stop.
+            return _nothing_copied(tgt_marker.label, target)
         with Catalog(db) as catalog:
             missing = _files_missing_on_target(catalog, src_marker.uuid, tgt_marker.uuid)
             need = sum(int(r.size or 0) for r in missing)

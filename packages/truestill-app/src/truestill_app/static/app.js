@@ -2089,9 +2089,16 @@ $("bk-preview").onclick = guarded(async () => {
   await withBusy($("bk-preview"), "Checking what to copy…", async () => {
     const r = await api("/api/backup/preview", { source, target });
     if (!r.ok) { $("bk-result").innerHTML = driveError(r, "bk-target"); $("bk-run").classList.add("hidden"); return; }
+    // Attaching a library that was organized before its folder was registered reads every one
+    // of those files end to end, to record what that drive itself holds. On a big library that
+    // is the longest part of the run, so it is said here rather than appearing as a progress
+    // bar nobody was warned about. Usually zero: an already-attached drive reads nothing.
+    const willRead = r.will_read
+      ? `<div class="hint">First it will check ${plural(r.will_read, "file")} already on these drives, reading each one to record exactly what is there. That part can take a while; you can stop it at any time and it picks up where it left off.</div>`
+      : "";
     if (r.count === 0) {
-      $("bk-result").innerHTML = card(`<div class="headline">Already backed up.</div><div class="k">Every photo on ${esc(r.from)} is already on ${esc(r.to)}.</div>`);
-      $("bk-run").classList.add("hidden"); return;
+      $("bk-result").innerHTML = card(`<div class="headline">Already backed up.</div><div class="k">Every photo on ${esc(r.from)} is already on ${esc(r.to)}.</div>${willRead}`);
+      $("bk-run").classList.toggle("hidden", !r.will_read); return;
     }
     if (!r.enough) {
       // A disk-full mid-copy is the failure this feature exists to prevent: warn and block.
@@ -2100,7 +2107,7 @@ $("bk-preview").onclick = guarded(async () => {
       $("bk-run").classList.add("hidden"); return;
     }
     $("bk-result").innerHTML = card(`<div class="headline">${mediaCount(r)} · ${fmtBytes(r.bytes)} to copy</div>
-      <div class="k">From ${esc(r.from)} to ${esc(r.to)} · ${fmtBytes(r.free)} free on ${esc(r.to)}.</div>`);
+      <div class="k">From ${esc(r.from)} to ${esc(r.to)} · ${fmtBytes(r.free)} free on ${esc(r.to)}.</div>${willRead}`);
     $("bk-run").classList.remove("hidden");
   });
 });
