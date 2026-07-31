@@ -74,6 +74,8 @@ narrative, or volatile counts.
 3. **Publish pipeline (when soak closes)**
    - Package release sequence and launch steps are still pending and should be run only after
      soak is explicitly accepted.
+   - **Larger than a PyPI release, and it sits in front of this:** `BACKLOG.md` `(aad)` desktop
+     installers is **launch-blocking** for the paid product - pip is not a channel the buyer can use.
 
 4. **Post-launch queue**
    - Pull from `BACKLOG.md` in written priority order, with soak findings first.

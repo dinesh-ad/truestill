@@ -1650,7 +1650,8 @@ $("verify-run").onclick = guarded(async () => {
            <div class="tally"><div class="n">${nfmt(s.verified)}</div><div class="k">verified</div>
            <div class="n">${nfmt(s.missing)}</div><div class="k">missing</div>
            <div class="n">${nfmt(s.mismatch)}</div><div class="k">changed</div>
-           <div class="n">${nfmt(s.unreadable || 0)}</div><div class="k">unreadable</div></div>
+           <div class="n">${nfmt(s.unreadable || 0)}</div><div class="k">unreadable</div>
+           <div class="n">${nfmt(s.unverifiable || 0)}</div><div class="k">no recorded hash</div></div>
            ${problemNote}`);
       loadCustody();
       loadDrives();  // "last checked" on the card comes from the verify just recorded

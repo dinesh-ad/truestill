@@ -510,7 +510,11 @@ def _cmd_verify(args: argparse.Namespace) -> int:
             CopyToVerify(
                 sha256=r["sha256"],
                 relative=r["relative"],
-                expected_hash=r["copy_sha256"] or r["sha256"],  # NULL -> pre-v6 byte-identical
+                # No fallback to the source hash. Missed when the app path was corrected, and
+                # the miss is the argument: two verify surfaces reading one contract must not
+                # each carry their own copy of the rule (audit F18's shape, in the dual-hash
+                # rule). An unrecorded hash is UNVERIFIABLE, never assumed byte-identical.
+                expected_hash=r["copy_sha256"],
             )
             for r in rows
         ]
@@ -538,6 +542,9 @@ def _cmd_verify(args: argparse.Namespace) -> int:
     print(f"  MISSING  : {counts.get('missing', 0)}")
     print(f"  MISMATCH : {counts.get('mismatch', 0)}")
     print(f"  UNREADABLE : {counts.get('unreadable', 0)}")
+    # Counted, not merely listed: without this line a drive of unrecorded-hash copies reports
+    # four zeros and reads as "nothing happened" (§9).
+    print(f"  UNVERIFIABLE : {counts.get('unverifiable', 0)}  (no recorded hash to check against)")
     for result in results:
         if result.status is not CopyStatus.VERIFIED:
             suffix = f" ({result.detail})" if result.detail else ""

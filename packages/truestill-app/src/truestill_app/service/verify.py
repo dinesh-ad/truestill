@@ -33,6 +33,9 @@ class VerifyJobSummary(TypedDict):
     missing: int
     mismatch: int
     unreadable: int
+    #: Present and readable, but no recorded hash to check against. Its own count so a drive
+    #: of such copies cannot report four zeros and read as a clean verify (§9).
+    unverifiable: int
     problems: list[VerifyProblem]
     elapsed_seconds: NotRequired[float]
 
@@ -80,6 +83,7 @@ def verify_run(path: Path, db: Path) -> JobTarget | DriveUnavailablePayload:
             "missing": counts.get("missing", 0),
             "mismatch": counts.get("mismatch", 0),
             "unreadable": counts.get("unreadable", 0),
+            "unverifiable": counts.get("unverifiable", 0),
             "problems": problems,
         }
 
