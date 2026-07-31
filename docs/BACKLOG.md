@@ -26,7 +26,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aag). Next free: (aah).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aah). Next free: (aai).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -41,6 +41,31 @@ Everything here has work left. **Two entries are partial and say so in their own
 `(bbb)` (the safety half shipped, the `_original` recovery offer did not) and `(r)` (the hash
 cache shipped, Analyze mode itself did not). A partial entry lives here, not in the built
 section, because what is left is the part that still has to be written.
+
+- **(aah) Migrate could verify against the live copy hash instead of its journal snapshot.**
+  Found 2026-07-31 while closing condition 3 of the date-provenance program. **Record only - do
+  not build. This is a change to crash-safety reasoning, not a tidy-up.**
+  - **The observation.** `_apply_move` compares a relocated file against the `copy_sha256`
+    **snapshotted into `migration_journal` at plan time**. If it compared against the live
+    `file_copies.copy_sha256` instead, a bake that legitimately rewrote the file - updating that
+    column in the same transaction (O1) - would verify against the new value and the migration
+    would proceed. **The window step 4 currently forbids would become harmless rather than
+    refused**, and the refusal in `service/bake.py` could then be deleted.
+  - **Real corruption would still be caught.** Corruption does not update the catalog, so the
+    live column still holds the last hash a legitimate writer recorded and a rotting file still
+    mismatches it. The snapshot is not what provides that protection.
+  - **Why it was NOT taken while closing condition 3 - the part worth keeping.** The snapshot
+    exists so a **resume knows what it expected**: a run interrupted between
+    `record_migration_moves` and the catalog flip must be able to say what the file should have
+    hashed to *at the time the plan was made*. Reading live at resume time asks a subtly
+    different question, on a path that moves a user's only copies. That deserves its own
+    analysis and its own evidence, not a decision taken in passing while unblocking a different
+    feature.
+  - **Open questions for that analysis:** whether any path legitimately changes
+    `file_copies.copy_sha256` *without* the file being re-verified at that moment; what a resume
+    should compare against after a bake landed mid-migration; and whether undo
+    (`reversible_migration`, which walks completed rows and refuses changed files) needs the
+    same treatment or is deliberately different.
 
 - **(aaf) Persisted skip record - "show me what was skipped last week".** Ruled by the
   maintainer, 2026-07-31, from the duplicate-naming gap check. **Record only - do not build.**
@@ -190,6 +215,17 @@ section, because what is left is the part that still has to be written.
   - **Do not assume solved** when designing reclaim, migrate, or backup concurrency. A real
     cross-process guard (e.g. flock on the drive marker or catalog) is a separate design if
     soak ever shows CLI↔app races mattering in practice.
+  - **Date-provenance step 4 narrows this, and does not close it (2026-07-31).** The bake
+    refuses to write while a migration is journalled and unfinished on the same drive, reading
+    `Catalog.pending_migration` - the journal lives in the shared catalog, so unlike this lock
+    it **is** visible across processes. It re-checks before **every file**, so the exposure is
+    the gap around a single write rather than the length of a run. **That is a check, not a
+    mutex, and the residual race belongs to this item:** closing it needs the cross-process
+    on-disk lock described above, deliberately not smuggled into step 4. Coverage measured
+    while deciding: app-vs-app is already complete, because every job route goes through
+    `server._start_drive_job` keyed on `uuid:<marker uuid>` (pinned by
+    `test_every_drive_touching_route_starts_through_the_locked_helper`), so the real exposure
+    is CLI-vs-app and CLI-vs-CLI.
   - **Not fixed here, on purpose** - recorded only, per instruction.
 
 - **(ss) Organize preview hashes every file before showing anything - slow on a network mount.**
