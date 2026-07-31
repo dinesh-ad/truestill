@@ -46,6 +46,14 @@ def uvicorn_log_config() -> dict[str, Any]:
 
     With no console the handler writes **nowhere** - `logging.NullHandler` - rather than to a
     stream that is not there. With a console it behaves as before.
+
+    **Before simplifying this: the formatter is the load-bearing part, not the handler.** Both
+    were mutation-tested and the result was not what it looked like. Removing the
+    ``NullHandler`` branch fails only its own test - a `StreamHandler` over a ``None`` stream
+    configures perfectly well and fails per *record*, which logging swallows - so that branch is
+    a correctness refinement. Reverting to uvicorn's own config is what reproduces the startup
+    crash. Anyone collapsing this back to one handler is safe; anyone restoring uvicorn's
+    ``log_level=`` default re-breaks every windowed build.
     """
     if sys.stderr is None:
         handler: dict[str, Any] = {"class": "logging.NullHandler"}

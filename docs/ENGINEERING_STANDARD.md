@@ -305,6 +305,25 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   which legitimately describe a settled item's reasoning. Where a dependency cannot be checked
   mechanically, the rule still stands and the grep is the review step.
 
+- **A test's precondition must be proven to hold at the moment it is asserted, not merely to
+  have been set.** The seventh member, and a mechanism the other six do not cover: the *test
+  framework itself* undoes the setup between the fixture and the assertion, so the test runs
+  without its precondition and passes for the wrong reason.
+
+  *Worked example - 2026-07-31, `(aad)`.* A fixture set `sys.stdout` and `sys.stderr` to `None`
+  to reproduce a windowed launch. **pytest's capture plugin re-assigns both for the call
+  phase, after fixture setup runs**, so by the time the test body executed the streams were
+  ordinary capture objects again. Three tests passed while testing nothing. Verified both ways
+  round before rewriting: fixture-set reads `False`, body-set reads `True`.
+
+  The family resemblance is the ruff cache and the stale worktree - green while proving
+  nothing - and the new cause is that **something between setup and assertion is entitled to
+  change the world back**. Suspect it whenever a test manipulates state the framework also
+  manages: streams, the working directory, signal handlers, the event loop, logging.
+
+  *The check is one line: assert the precondition inside the test body, next to the assertion
+  that depends on it.* If that is awkward, set it in the body too.
+
 - **A test must not be able to write to a real user location - make it impossible, not
   forbidden.** Any code that resolves an OS-conventional directory (`platformdirs`, `~`,
   `%APPDATA%`) will resolve it *for the test suite too*. The remedy is a **session fixture that
