@@ -14,6 +14,7 @@ import pytest
 from truestill_core.catalog import (
     CURRENT_SCHEMA_VERSION,
     Catalog,
+    _add_trip_tables,
     downgrade_v12_to_v11,
 )
 
@@ -205,9 +206,14 @@ def _schema_fingerprint(conn: sqlite3.Connection) -> tuple[object, ...]:
     return (frozenset(tables), tuple(sorted(columns.items())), frozenset(indexes), version)
 
 
-def test_current_schema_version_is_12_and_v11_reference_predates_it() -> None:
-    """Verified, not trusted: confirms the premise every other test in this file depends on."""
-    assert CURRENT_SCHEMA_VERSION == 12
+def test_the_v11_reference_predates_the_current_schema() -> None:
+    """Verified, not trusted: confirms the premise every other test in this file depends on.
+
+    Asserts the *relationship* rather than a literal. The old form pinned ``== 12`` and had to
+    be edited by every later migration, which makes the edit routine - and a premise check that
+    is routinely edited stops being checked.
+    """
+    assert CURRENT_SCHEMA_VERSION > 11, "the v11 reference below must predate the live schema"
 
 
 def test_v11_catalog_migrates_up_to_v12_with_trip_tables(tmp_path: Path) -> None:
@@ -215,7 +221,7 @@ def test_v11_catalog_migrates_up_to_v12_with_trip_tables(tmp_path: Path) -> None
     _make_minimal_v11_catalog(db)
 
     with Catalog(db) as catalog:
-        assert catalog.schema_version == 12
+        assert catalog.schema_version == CURRENT_SCHEMA_VERSION
         # Both new tables exist and are queryable (proves the migration, not just the version bump).
         assert catalog.trip_for_day("2014-08-14") is None
         trip_id = catalog.create_trip(
@@ -235,11 +241,19 @@ def test_v12_downgrades_to_v11_byte_equivalent(tmp_path: Path) -> None:
     reference_conn = sqlite3.connect(str(reference_db))
     reference_conn.row_factory = sqlite3.Row
 
+    # Built as a genuine v12 rather than "a fresh catalog, which happens to be v12" - that
+    # equivalence held only while 12 was the newest version, and quietly stopped being true at
+    # v13. `downgrade_v12_to_v11` is scoped to v12 by name, so it must be handed one.
     live_db = tmp_path / "live.sqlite"
-    with Catalog(live_db) as catalog:  # fresh -> straight to v12
-        assert catalog.schema_version == 12
-        downgrade_v12_to_v11(catalog._conn)
-        catalog._conn.commit()
+    _make_v11_reference_catalog(live_db)
+    live_setup = sqlite3.connect(str(live_db))
+    _add_trip_tables(live_setup)
+    live_setup.execute("PRAGMA user_version = 12")
+    live_setup.commit()
+    assert int(live_setup.execute("PRAGMA user_version").fetchone()[0]) == 12
+    downgrade_v12_to_v11(live_setup)
+    live_setup.commit()
+    live_setup.close()
 
     live_conn = sqlite3.connect(str(live_db))
     live_conn.row_factory = sqlite3.Row

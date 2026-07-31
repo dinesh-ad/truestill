@@ -996,6 +996,9 @@ def _record_organized_file(
         ),
         albums=sorted(album_set),
         drive_uuid=drive_uuid,
+        # The resolver's own verdict, not a second opinion computed here: a re-derivation at
+        # write time could disagree with the placement this same decision produced.
+        date_source=decision.date_source.value,
     )
 
 

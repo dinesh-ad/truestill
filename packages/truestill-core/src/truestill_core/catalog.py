@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS files (
     event_id      INTEGER,
     upload_status TEXT    NOT NULL,
     processed_at  TEXT    NOT NULL,
-    uploaded_at   TEXT
+    uploaded_at   TEXT,
+    date_source   TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_files_sha256 ON files (sha256);
 CREATE INDEX IF NOT EXISTS idx_files_perceptual ON files (perceptual);
@@ -182,7 +183,7 @@ CREATE TABLE IF NOT EXISTS trip_days (
 """
 
 #: Bump whenever the schema changes, and add a matching entry to _MIGRATIONS.
-CURRENT_SCHEMA_VERSION = 12
+CURRENT_SCHEMA_VERSION = 13
 
 
 class CatalogVersionError(RuntimeError):
@@ -350,6 +351,23 @@ def _add_inplace_journal(conn: sqlite3.Connection) -> None:
 
 #: Ordered migrations: ``(target_version, fn)``. Each is idempotent and lifts a database
 #: from ``target_version - 1`` to ``target_version``. Append; never rewrite history.
+def _add_date_source_column(conn: sqlite3.Connection) -> None:
+    """v12 -> v13: persist which tier a file's capture date came from.
+
+    The resolver has always produced this (:class:`~truestill_core.models.DateSource`) and the
+    write path has always discarded it; `date-layering-gap-check.md` §5 recorded that gap, and
+    items (n) and (ii) both need it durable.
+
+    **Existing rows stay NULL, deliberately.** A library organized before this shipped has no
+    retrievable provenance - the evidence chain ran against files that may since have moved -
+    so NULL means "not recorded", which is a different and more honest answer than any value
+    this migration could invent. The honesty view must not be confidently wrong about exactly
+    the files it cannot check.
+    """
+    if "date_source" not in _column_names(conn):
+        conn.execute("ALTER TABLE files ADD COLUMN date_source TEXT")
+
+
 def _add_trip_tables(conn: sqlite3.Connection) -> None:
     """v11 -> v12: multi-day trips, identified by row -- never by membership hash.
 
@@ -410,6 +428,7 @@ _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (10, _add_inplace_journal),
     (11, _add_reversible_migrations),
     (12, _add_trip_tables),
+    (13, _add_date_source_column),
 )
 
 
@@ -1403,6 +1422,7 @@ class Catalog:
         event_id: int | None = None,
         albums: Sequence[str] = (),
         drive_uuid: str | None = None,
+        date_source: str | None = None,
     ) -> int:
         """Insert (or refresh) a row marking a file as processed and uploaded; return its id.
 
@@ -1420,8 +1440,8 @@ class Catalog:
                 INSERT INTO files (
                     source_path, original_name, sha256, copy_sha256, perceptual, size,
                     captured_at, category, relative, event_id, upload_status, processed_at,
-                    uploaded_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'uploaded', ?, ?)
+                    uploaded_at, date_source
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'uploaded', ?, ?, ?)
                 ON CONFLICT(sha256) DO UPDATE SET
                     source_path   = excluded.source_path,
                     original_name = excluded.original_name,
@@ -1433,7 +1453,8 @@ class Catalog:
                     relative      = excluded.relative,
                     event_id      = excluded.event_id,
                     upload_status = 'uploaded',
-                    uploaded_at   = excluded.uploaded_at
+                    uploaded_at   = excluded.uploaded_at,
+                    date_source   = excluded.date_source
                 """,
                 (
                     source_path,
@@ -1448,6 +1469,7 @@ class Catalog:
                     event_id,
                     now,
                     now,
+                    date_source,
                 ),
             )
             row = conn.execute("SELECT id FROM files WHERE sha256 = ?", (sha256,)).fetchone()
