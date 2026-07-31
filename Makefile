@@ -11,8 +11,13 @@ SCRIPTS := scripts
 install:
 	uv sync --all-packages --group dev
 
+# --no-cache is not paranoia, it is the fix for a false green that reached CI twice. Ruff caches
+# a verdict per file, keyed on that file's contents and the config -- so a file appearing
+# ELSEWHERE in the tree, which changed how six untouched files classified their imports, was
+# invisible to it. Six stale "clean" verdicts were replayed and `make check` passed while CI
+# failed. Measured cost of giving that up: 0.04s -> 0.08s on this repo.
 lint:
-	$(PYTHON) ruff check .
+	$(PYTHON) ruff check --no-cache .
 
 format:
 	$(PYTHON) ruff format .

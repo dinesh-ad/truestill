@@ -328,6 +328,27 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
      tracked, nothing else - reproduced CI's failure locally in one run. **Reach for it whenever
      CI fails and local passes**: the difference is almost always untracked state.
 
+     One trap in the technique itself: the copy has no `.git`, so every guard that enumerates
+     via `git ls-files` fails with exit 128 and looks like a real regression. Run `git init -q .
+     && git add -A && git commit` in the copy before trusting its result.
+
+     *Second occurrence, two hours later, and what promotes this from anecdote to rule.* The
+     next CI failure was lint, and local was green again - this time because of a **gitignored
+     `.ruff_cache`**. The sharper lesson, which the first case did not show:
+
+     > **A cached check can be stale for a reason that has nothing to do with the cached file.**
+
+     Ruff caches a verdict per file, keyed on that file's contents plus the config. Adding a
+     root `conftest.py` made the bare name `conftest` resolve as first-party, which changed how
+     **six untouched files** classified their imports. Neither their contents nor the config
+     changed, so the cache could not see it and replayed six stale *clean* verdicts. The same
+     clean-checkout copy caught it on the first run.
+
+     **The consequence, applied.** A gate that can report a stale pass is not a gate, so `make
+     lint` runs `ruff check --no-cache`. Measured cost of giving up the cache on this repo:
+     0.04s to 0.08s. Weigh any local cache the same way - if bypassing it is cheap, bypass it,
+     because the failure mode is not a slow gate but a **silent** one.
+
 - **Errors.** Exceptions typed and specific - no bare `except`. User-facing CLI errors are
   actionable sentences, not tracebacks. Every subprocess call checks its return code and
   surfaces stderr on failure. Partial-failure policy: one bad file never aborts a batch - it
