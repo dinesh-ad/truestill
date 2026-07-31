@@ -13,6 +13,7 @@ import sys
 import threading
 import webbrowser
 from pathlib import Path
+from typing import Any
 
 import uvicorn
 from truestill_core.app_paths import default_catalog_path
@@ -27,6 +28,58 @@ from truestill_app.server import create_app
 
 _HOST = "127.0.0.1"
 _DEFAULT_PORT = 7357
+
+
+def uvicorn_log_config() -> dict[str, Any]:
+    """Logging for uvicorn that does not ask the console whether it is a terminal.
+
+    **Why this exists rather than uvicorn's default.** A double-clicked desktop app has no
+    console - ``pythonw.exe``, a PyInstaller ``--noconsole`` build and a packaged GUI app all
+    leave ``sys.stdout`` and ``sys.stderr`` as ``None``. uvicorn's default formatter calls
+    ``.isatty()`` on the stream to decide about colour, so configuring it raises
+    ``ValueError: Unable to configure formatter 'default'`` (from ``AttributeError: 'NoneType'
+    object has no attribute 'isatty'``) and the process dies **before the server binds**. The
+    user sees nothing happen at all.
+
+    Colour is what the sniffing was for, and a local app that mostly runs windowed has no use
+    for it, so this drops the question rather than answering it more carefully.
+
+    With no console the handler writes **nowhere** - `logging.NullHandler` - rather than to a
+    stream that is not there. With a console it behaves as before.
+    """
+    if sys.stderr is None:
+        handler: dict[str, Any] = {"class": "logging.NullHandler"}
+    else:
+        handler = {
+            "class": "logging.StreamHandler",
+            "formatter": "plain",
+            "stream": "ext://sys.stderr",
+        }
+    return {
+        "version": 1,
+        # Never disable loggers the rest of the process already set up: this config is about
+        # uvicorn's three loggers and has no business silencing anything else.
+        "disable_existing_loggers": False,
+        "formatters": {"plain": {"format": "%(levelname)s: %(message)s"}},
+        "handlers": {"default": handler},
+        "loggers": {
+            "uvicorn": {"handlers": ["default"], "level": "WARNING", "propagate": False},
+            "uvicorn.error": {"handlers": ["default"], "level": "WARNING", "propagate": False},
+            "uvicorn.access": {"handlers": ["default"], "level": "WARNING", "propagate": False},
+        },
+    }
+
+
+def _say(line: str, *, error: bool = False) -> None:
+    """Startup output, through one function so there is one place to change where it goes.
+
+    With a console it prints as it always did. **With no console it goes nowhere**, and that is
+    a decision rather than an accident: `print` happens to be a silent no-op when
+    ``sys.stdout`` is ``None``, and relying on that quietly would leave the next reader unsure
+    whether the case had been considered. There is no channel to route it to at this point;
+    the session URL gets a durable home of its own, which is the line that actually matters.
+    """
+    print(line, file=sys.stderr if error else sys.stdout, flush=True)
 
 
 def _choose_port(preferred: int) -> int:
@@ -57,18 +110,17 @@ def main(argv: list[str] | None = None) -> int:
     db = args.db if explicit_db else default_catalog_path()
     info = inspect_catalog(db, explicit_db=explicit_db)
     for line in format_startup_lines(info):
-        stream = sys.stderr if info.presence is CatalogPresence.EMPTY_WITH_DRIVES else sys.stdout
-        print(line, file=stream, flush=True)
+        _say(line, error=info.presence is CatalogPresence.EMPTY_WITH_DRIVES)
 
     token = new_token()
     port = _choose_port(args.port)
     url = f"http://{_HOST}:{port}/?token={token}"
     app = create_app(token=token, db=db, explicit_db=explicit_db)
 
-    print(f"truestill UI on {url}", flush=True)  # noqa: T201 - the URL (with token) is the point
+    _say(f"truestill UI on {url}")
     if not args.no_browser:
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
-    uvicorn.run(app, host=_HOST, port=port, log_level="warning")
+    uvicorn.run(app, host=_HOST, port=port, log_config=uvicorn_log_config())
     return 0
 
 
