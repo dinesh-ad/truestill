@@ -114,20 +114,33 @@ class ReviewCard:
         is_multi_day = self.trip is not None and len(self.trip.days) >= _MIN_TRIP_DAYS_FOR_LABEL
         return "trip" if is_multi_day else "event"
 
+    def _the_event(self) -> EventCandidate:
+        """The event half, when this card is not a trip.
+
+        ``__post_init__`` guarantees exactly one of trip/event is set, but mypy cannot see that
+        invariant across attributes, so the three properties below used two `union-attr` ignores
+        and one `assert` to say the same thing three ways (audit F23/F33). One accessor says it
+        once - and it **raises** rather than asserts, because `python -O` strips an assert and
+        would turn a broken invariant into an `AttributeError` on `None` further downstream.
+        """
+        if self.event is None:  # pragma: no cover - __post_init__ forbids reaching this
+            message = "a review card with no trip must carry an event"
+            raise ValueError(message)
+        return self.event
+
     @property
     def start(self) -> date:
-        return self.trip.start_date if self.trip is not None else self.event.start.date()  # type: ignore[union-attr]
+        return self.trip.start_date if self.trip is not None else self._the_event().start.date()
 
     @property
     def end(self) -> date:
-        return self.trip.end_date if self.trip is not None else self.event.end.date()  # type: ignore[union-attr]
+        return self.trip.end_date if self.trip is not None else self._the_event().end.date()
 
     @property
     def count(self) -> int:
         if self.trip is not None:
             return sum(self.trip.days.values())
-        assert self.event is not None
-        return self.event.count
+        return self._the_event().count
 
 
 def small_event_limit(min_files: int) -> int:

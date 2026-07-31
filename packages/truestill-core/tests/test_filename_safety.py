@@ -145,3 +145,50 @@ def test_legacy_slug_naming_is_left_alone() -> None:
     """A pinned library keeps its slug folders, collisions and all -- it is already on disk."""
     folders = disambiguate_event_folders([("a", WHEN, "goa", "Goa Trip")], naming=EventNaming.SLUG)
     assert folders[0].folder == "20140820_goa"
+
+
+# --- the repair note must name the offender, not the repair (audit F15) --------------------
+#
+# Only the *segment* site can actually fire. `event_folder` emits "YYYY-MM-DD - Name" and the
+# trip day emits "YYYY-MM-DD"; a Windows device name is the stem before the first dot, so
+# neither shape can ever be reserved. The segment site can: a `{category}` rendering to `CON`
+# is a real, if rare, path. All three were repaired identically, because "unreachable today"
+# is a property of the caller and this module already keeps explicit guards for such cases.
+
+
+def _segment_notes(category: str) -> list[str]:
+    _, notes = LayoutTemplate.parse("{category}/{yyyy}")._render(
+        RenderContext(category=category, captured_at=WHEN)
+    )
+    return [note for note in notes if "reserved" in note]
+
+
+def test_a_reserved_segment_note_names_the_offending_value_not_the_repaired_one() -> None:
+    """§9: every repair is reported - and a report naming the wrong string is not one.
+
+    The note was appended *after* the reassignment, so it read "segment '_CON' avoided a
+    Windows reserved name". `_CON` is not reserved; `CON` was. It tells the user the safe name
+    is the problem, which is the product describing itself incorrectly.
+    """
+    notes = _segment_notes("CON")
+    assert notes, "the repair must still be reported at all"
+    # The offender must be the *subject* of the sentence. Asserting merely that "CON" appears
+    # would pass on the broken note too, since '_CON' contains it - the bug hides inside the
+    # naive check, which is why this pins the position.
+    assert notes[0].startswith("segment 'CON' "), (
+        f"the offending value must be what the note is about: {notes[0]}"
+    )
+
+
+def test_the_repair_note_still_says_what_the_value_became() -> None:
+    """Cry-wolf half: naming the offender must not lose the outcome.
+
+    A note that says only "CON was reserved" leaves someone hunting for a folder under a name
+    that is not on disk. Both halves belong in the one sentence.
+    """
+    assert "_CON" in _segment_notes("CON")[0]
+
+
+def test_an_ordinary_segment_gets_no_reserved_name_note() -> None:
+    """Cry-wolf half: a value that was never reserved must not be reported as repaired."""
+    assert _segment_notes("Camera") == []

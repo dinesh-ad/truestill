@@ -138,8 +138,11 @@ def event_folder(
         return event_dirname(start, slug)
     folder = f"{start:%Y-%m-%d} - {cleaned}"
     if _is_reserved(folder):
+        # Bind before repairing: the note must name what was wrong, not what it became.
+        notes.append(
+            f"event folder {folder!r} avoided a Windows reserved name; used {'_' + folder!r}"
+        )
         folder = f"_{folder}"
-        notes.append(f"event folder {folder!r} avoided a Windows reserved name")
     return folder
 
 
@@ -354,8 +357,13 @@ class LayoutTemplate:
             rendered = self._render_segment(segment, context, date, notes)
             if rendered:
                 if _is_reserved(rendered):
+                    # Bind before repairing: reporting the repaired value told the user that
+                    # the safe name was the problem (audit F15).
+                    notes.append(
+                        f"segment {rendered!r} avoided a Windows reserved name; "
+                        f"used {'_' + rendered!r}"
+                    )
                     rendered = f"_{rendered}"
-                    notes.append(f"segment {rendered!r} avoided a Windows reserved name")
                 parts.append(rendered)
             elif tokens:
                 notes.append(f"segment {segment!r} was empty and dropped")
@@ -394,8 +402,11 @@ class LayoutTemplate:
             else UNDATED_DIRNAME
         )
         if _is_reserved(day):
+            # Bind before repairing, as above. Not reachable today - a day renders as
+            # "YYYY-MM-DD", whose stem is never a device name - kept because `render` promises
+            # it never raises and this module keeps its unreachable guards explicit.
+            notes.append(f"segment {day!r} avoided a Windows reserved name; used {'_' + day!r}")
             day = f"_{day}"
-            notes.append(f"segment {day!r} avoided a Windows reserved name")
         return PurePosixPath(header, day)
 
     def _render_segment(
@@ -535,10 +546,13 @@ class Placement(StrEnum):
 
 def normalize_everyday_day_threshold(value: object) -> int:
     """Positive threshold, else :data:`DEFAULT_EVERYDAY_DAY_THRESHOLD`."""
-    if isinstance(value, bool):
+    if isinstance(value, bool) or not isinstance(value, int | float | str):
+        # `bool` first: it is an `int` subclass, and True would otherwise become a threshold
+        # of 1. Anything outside int/float/str has no honest reading as a count, so narrowing
+        # here replaces a call-overload ignore with the check it was standing in for (F23).
         return DEFAULT_EVERYDAY_DAY_THRESHOLD
     try:
-        number = int(value)  # type: ignore[call-overload]
+        number = int(value)
     except (TypeError, ValueError):
         return DEFAULT_EVERYDAY_DAY_THRESHOLD
     return number if number >= 1 else DEFAULT_EVERYDAY_DAY_THRESHOLD

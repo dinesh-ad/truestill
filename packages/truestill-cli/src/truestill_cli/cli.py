@@ -1060,6 +1060,19 @@ def _print_skipped(scan: SourceScan) -> None:
         print(f"  exiftool backup: {len(scan.exiftool_backups)}")
 
 
+def _destination_or_exit(args: argparse.Namespace) -> Destination | int:
+    """The destination, or the exit code to return. Shared by organize and ingest (audit F34).
+
+    The only block those two commands duplicated verbatim. Returning the code rather than
+    raising keeps both call sites' `return` shape unchanged.
+    """
+    try:
+        return _build_destination(args.destination, rclone=args.rclone)
+    except DestinationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 4
+
+
 def _cmd_organize(args: argparse.Namespace) -> int:
     if not args.source.is_dir():
         print(f"error: source is not a directory: {args.source}", file=sys.stderr)
@@ -1079,11 +1092,9 @@ def _cmd_organize(args: argparse.Namespace) -> int:
     except ExiftoolMissingError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 3
-    try:
-        destination = _build_destination(args.destination, rclone=args.rclone)
-    except DestinationError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 4
+    destination = _destination_or_exit(args)
+    if isinstance(destination, int):
+        return destination
     relocation = _build_relocation(args)
     if relocation is not None:
         confirmed = _confirm_in_place(args, len(files))
@@ -1190,11 +1201,9 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
     except ExiftoolMissingError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 3
-    try:
-        destination = _build_destination(args.destination, rclone=args.rclone)
-    except DestinationError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 4
+    destination = _destination_or_exit(args)
+    if isinstance(destination, int):
+        return destination
 
     event_prompt = None
     if args.map_albums:
@@ -1290,6 +1299,8 @@ def _cmd_config(args: argparse.Namespace) -> int:
 MAX_PATH = 260
 
 
+# argparse publishes no non-private, non-generic type for a subparsers action, so `sub` cannot
+# be annotated without either the ignore below or a lie (audit F23).
 def _add_clean_parser(sub: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
     """The `clean-empty` surface, split out because `build_parser` is at its statement ceiling."""
     clean = sub.add_parser(

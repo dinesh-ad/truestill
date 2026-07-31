@@ -12,7 +12,6 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import Any
 
 from starlette.applications import Starlette
 from starlette.requests import Request
@@ -47,6 +46,9 @@ _STATIC = _PKG / "static"
 
 #: Default catalog the app reads/writes (same default as the CLI).
 _DEFAULT_DB = DEFAULT_CATALOG_PATH
+
+#: Review sessions kept per process. See `remember_session` (audit F17).
+MAX_REVIEW_SESSIONS = 32
 
 _log = logging.getLogger(__name__)
 
@@ -351,8 +353,41 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
     # --- Trip/event review (session-based; merge/split are UI-only, no CLI path) ---
     sessions: dict[str, EventReviewSession] = {}
 
+    def remember_session(session_id: str, session: EventReviewSession) -> None:
+        """Store a review session, evicting the oldest past the cap.
+
+        Nothing ever removed one before (audit F17), so a long-lived local server grew by a
+        whole proposal's cards per "Find trips and events" click, for the life of the process.
+        Bounded by count rather than expired on a timer: the only reader is the person who just
+        created it, insertion order makes the oldest the safest to drop, and a cap cannot fire
+        in the middle of the flow the way a timeout could.
+        """
+        remember_session(session_id, session)
+        while len(sessions) > MAX_REVIEW_SESSIONS:
+            sessions.pop(next(iter(sessions)))
+
+    def expired_session() -> JSONResponse:
+        """A stale session id is a 409 with a sentence, not a KeyError and a 500.
+
+        Reachable in normal use: reload the page after a restart, or come back to a tab whose
+        session has since been evicted. `app.js`'s `api()` raises on a non-2xx and puts the body
+        in the banner, so this arrives as something a user can act on.
+        """
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": (
+                    "This review has expired - the app restarted, or newer reviews replaced it. "
+                    "Run Find trips and events again to start a fresh one."
+                ),
+            },
+            status_code=409,
+        )
+
     def _cards_payload(session_id: str) -> JSONResponse:
-        session = sessions[session_id]
+        session = sessions.get(session_id)
+        if session is None:
+            return expired_session()
         return JSONResponse(
             service.review_cards_payload(session_id, session.cards, session.min_files)
         )
@@ -397,7 +432,9 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
         """
         session_id = request.path_params["session"]
         indices: list[int] = (await request.json())["indices"]
-        session = sessions[session_id]
+        session = sessions.get(session_id)
+        if session is None:
+            return expired_session()
         result = service.merge_event_review_cards(session.cards, session.day_totals, indices)
         if "error" in result:
             return JSONResponse({"error": result["error"]})
@@ -413,7 +450,9 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
         """
         session_id = request.path_params["session"]
         body = await request.json()
-        session = sessions[session_id]
+        session = sessions.get(session_id)
+        if session is None:
+            return expired_session()
         session.cards = service.split_event_review_card(
             session.cards,
             int(body["index"]),
@@ -433,7 +472,9 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
         """
         session_id = request.path_params["session"]
         names: list[str | None] = (await request.json())["names"]
-        session = sessions[session_id]
+        session = sessions.get(session_id)
+        if session is None:
+            return expired_session()
         result = service.apply_event_review_names(_db(), session.cards, names)
         session.named_events = result["named_events"]
         session.named_trips = result["named_trips"]
@@ -441,7 +482,9 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
 
     async def events_preview(request: Request) -> JSONResponse:
         """Preview where the just-named trips will move the drive's files (moves nothing)."""
-        session = sessions[request.path_params["session"]]
+        session = sessions.get(request.path_params["session"])
+        if session is None:
+            return expired_session()
         path = Path(session.path)
         return _start_drive_job(
             service.migration_preview_run(path, _db()),
@@ -451,7 +494,9 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
 
     async def events_apply_to_disk(request: Request) -> JSONResponse:
         """Apply the trip placement: a journalled, resumable relocation on the drive."""
-        session = sessions[request.path_params["session"]]
+        session = sessions.get(request.path_params["session"])
+        if session is None:
+            return expired_session()
         path = Path(session.path)
         return _start_drive_job(
             service.migration_apply(
@@ -512,7 +557,3 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
     app.add_middleware(LocalGuard, token=token)
     app.state.token = token
     return app
-
-
-def app_summary(app: Starlette) -> dict[str, Any]:  # pragma: no cover - convenience
-    return {"token": app.state.token}

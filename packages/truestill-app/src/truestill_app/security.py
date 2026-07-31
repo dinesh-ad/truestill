@@ -15,12 +15,11 @@ A localhost web server is a real attack surface: a malicious page can make the b
 from __future__ import annotations
 
 import secrets
-from collections.abc import Awaitable, Callable
 from urllib.parse import urlsplit
 
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse, Response
-from starlette.types import ASGIApp
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 _ALLOWED_HOSTNAMES = frozenset({"127.0.0.1", "localhost"})
 
@@ -48,7 +47,7 @@ class LocalGuard:
         self._app = app
         self._token = token
 
-    async def __call__(self, scope, receive, send) -> None:  # type: ignore[no-untyped-def]
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             await self._app(scope, receive, send)
             return
@@ -70,6 +69,3 @@ class LocalGuard:
         if not secrets.compare_digest(_request_token(request) or "", self._token):
             return PlainTextResponse("missing or bad token", status_code=403)
         return None
-
-
-Endpoint = Callable[[Request], Awaitable[Response]]

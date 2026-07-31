@@ -362,16 +362,24 @@ def _render_migration_relative(
     current = str(row["relative"])
     filename = PurePosixPath(current).name
     rule = rule_for_row(row, routes, rules_by_sha)
-    event = None
+    # Narrowed rather than silenced: `_parse_dt` returns `datetime | None`, and RenderContext
+    # wants `tuple[datetime, str] | None`. An event or trip whose start will not parse has no
+    # date to render under, so it is simply not one - which is what the ignores here used to
+    # assert without saying (audit F23).
+    event: tuple[datetime, str] | None = None
     event_name = None
     if row["event_slug"] and row["event_start"]:
-        event = (_parse_dt(row["event_start"]), str(row["event_slug"]))
-        event_name = row["event_name"]
-    trip = None
+        event_start = _parse_dt(row["event_start"])
+        if event_start is not None:
+            event = (event_start, str(row["event_slug"]))
+            event_name = row["event_name"]
+    trip: tuple[datetime, str] | None = None
     trip_name = None
     if row["trip_id"] is not None and rule == TIMELINE_RULE:
-        trip = (_parse_dt(row["trip_start"]), str(row["trip_slug"]))
-        trip_name = row["trip_name"]
+        trip_start = _parse_dt(row["trip_start"])
+        if trip_start is not None:
+            trip = (trip_start, str(row["trip_slug"]))
+            trip_name = row["trip_name"]
     captured_at = _parse_dt(row["captured_at"])
     heavy_day = False
     day_key: str | None = None
@@ -383,9 +391,9 @@ def _render_migration_relative(
         RenderContext(
             category=str(row["category"]),
             captured_at=captured_at,
-            event=event,  # type: ignore[arg-type]
+            event=event,
             event_name=event_name,
-            trip=trip,  # type: ignore[arg-type]
+            trip=trip,
             trip_name=trip_name,
             heavy_day=heavy_day,
         ),

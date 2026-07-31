@@ -37,6 +37,9 @@ _SENTINEL_ERROR = "error"
 
 DRIVE_BUSY_CODE: Literal["DriveBusy"] = "DriveBusy"
 
+#: Completed jobs kept per process, newest first. See `_retire_finished` (F17).
+MAX_RETAINED_JOBS = 50
+
 
 @dataclass(frozen=True, slots=True)
 class DriveRef:
@@ -106,6 +109,7 @@ class JobManager:
 
     def __init__(self) -> None:
         self._jobs: dict[str, Job] = {}
+        self._finished: list[str] = []
         self._occupied: dict[str, _Occupant] = {}
         self._lock = threading.Lock()
 
@@ -135,6 +139,7 @@ class JobManager:
                     job_id=job.id, operation=operation, drive_label=drive.label
                 )
             self._jobs[job.id] = job
+            self._retire_finished()
             keys = [drive.key for drive in held]
 
         def run() -> None:
@@ -196,6 +201,18 @@ class JobManager:
 
         threading.Thread(target=run, daemon=True).start()
         return job.id
+
+    def _retire_finished(self) -> None:
+        """Drop the oldest completed jobs past the cap. Call with ``self._lock`` held.
+
+        Nothing removed a job before (audit F17): every run stayed in memory with its whole
+        summary - folder maps, leftover-folder lists - for the life of the process. Only jobs
+        that have reached a terminal state are dropped, so a running job and the SSE stream
+        draining it are never pulled out from under a client.
+        """
+        finished = [jid for jid, job in self._jobs.items() if job.status != "running"]
+        for jid in finished[: max(0, len(finished) - MAX_RETAINED_JOBS)]:
+            del self._jobs[jid]
 
     def get(self, job_id: str) -> Job | None:
         with self._lock:

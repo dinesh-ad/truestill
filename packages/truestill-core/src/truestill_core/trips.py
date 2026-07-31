@@ -147,8 +147,15 @@ def detect_trips(
     Complexity: **O(N) to total ``all_items`` by date** (unavoidable -- it is the only source of
     the straggler count) **+ O(D log D) to sort the distinct active-day set + O(D)** for the run
     scan, the year split and the span check, where ``D`` is the number of active days and
-    ``N = len(all_items)``. Neither sequence is walked more than once; there is no pass nested
-    inside another.
+    ``N = len(all_items)``.
+
+    **The loops below are nested three deep and are still O(D) in total**, which is worth
+    stating precisely because an earlier version of this sentence claimed there was no nesting
+    at all (audit F36) - a reader checking that claim against the code would have found it false
+    and had no reason to trust the bound beside it. The proof: ``runs`` partitions
+    ``ordered_days``, ``_split_at_year_boundary`` partitions each run, and the day comprehension
+    walks each piece once, so across every level each active day is touched exactly once. This
+    is the comment ENGINEERING_STANDARD 4 asks for at nested iteration over the library.
     """
     active_days: set[date] = {cluster.start.date() for cluster in clusters}
     if not active_days:
