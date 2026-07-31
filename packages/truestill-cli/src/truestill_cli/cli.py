@@ -1183,7 +1183,10 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
         f"{len(scan.missing_sidecar)} without.\n"
     )
     try:
-        metadata = read_metadata(files)
+        # Cached like the organize path above: an ingest re-run over the same export is the
+        # normal way people recover from a partial run, and exiftool is the dominant cost of it.
+        with HashCache.beside(args.db) as cache:
+            metadata = read_metadata(files, cache=cache)
     except ExiftoolMissingError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 3
@@ -1514,9 +1517,15 @@ def _cmd_migrate_layout(args: argparse.Namespace) -> int:
         # Everything up to the confirm is PURE: it reads the catalog and (for ambiguous labels
         # only) reads file metadata. Nothing is written and nothing is moved.
         routes = label_routes(catalog, marker.uuid)
-        rules_by_sha = rederive_rules(
-            catalog, marker.uuid, args.path, routes, by_device=getattr(args, "by_device", False)
-        )
+        with HashCache.beside(args.db) as cache:
+            rules_by_sha = rederive_rules(
+                catalog,
+                marker.uuid,
+                args.path,
+                routes,
+                by_device=getattr(args, "by_device", False),
+                cache=cache,
+            )
         decided = {r.label: (ROUTE_SIDE_BIN if r.needs_decision else r.route) for r in routes}
         plan = plan_migration(
             catalog, marker.uuid, scheme, routes=decided, rules_by_sha=rules_by_sha

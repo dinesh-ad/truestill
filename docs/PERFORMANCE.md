@@ -63,7 +63,9 @@ pCloud FUSE column is empty because the mount was absent, not because it is fast
 | trip detection (`detect_trips`) | Output, 2,224 items -> 15 clusters | 11 | **0.31 ms** | 0.39 ms | 1.26x | not measured |
 | trip review (`assemble_trip_review`) | Output, 2,224 rows -> 5 cards | 9 | **6.8 ms** | 9.1 ms | 1.34x | not measured |
 | migration plan (`plan_migration` alone) | Output, 2,224 moves planned | 5 | **82 ms** | 84 ms | 1.03x | not measured |
-| **migration preview (what a user waits for)** | Output, 2,224 files | 5 | **12.25 s** | 12.29 s | **1.01x** | not measured |
+| migration preview, **cold-cache** | Output, 2,224 files | 5 | **12.27 s** | 12.36 s | 1.01x | not measured |
+| migration preview, **warm-cache** | Output, 2,224 files | 5 | **0.168 s** | 0.169 s | 1.02x | not measured |
+| ~~migration preview, before F18~~ | Output, 2,224 files | 5 | ~~12.25 s~~ | ~~12.29 s~~ | ~~1.01x~~ | not measured |
 | migration apply (`run_migration`) | hermetic, 500 files | 5 | **169 ms** | 172 ms | 1.02x | not measured |
 | migration undo (`undo_migration`) | hermetic, 500 files | 5 | **154 ms** | 155 ms | 1.01x | not measured |
 | cleanup plan + run | hermetic, 500-file skeleton | 5 | **11 ms** | 11 ms | 1.04x | not measured |
@@ -76,17 +78,21 @@ catalog reads, in-memory computation, or renames, and repeating them changes not
 page cache - there is no second number to report, and inventing one would imply a cache that is
 not there.
 
-> **The migration preview row is the finding, and its *lack* of variance is why.** Five runs
-> over the same 2,224 files: 12.27, 12.21, 12.22, 12.28, 12.25 s. **Spread 1.01x - the second
-> pass is not one percent faster than the first.** §8 of the contract says a warm second read
-> "must make **zero** exiftool subprocess calls", and `preview-performance-profile.md` measured
-> exiftool at 74% of cold wall. This path is exempt from that guarantee: `migrate.rederive_rules`
-> calls `read_metadata` with **no `HashCache`**, so every preview of the same drive pays full
-> exiftool cost again, forever. `plan_migration` itself is 82 ms; the other **12.2 s is
-> re-derivation nobody caches**. Recorded in the audit as **F18** (three uncached `read_metadata`
-> sites: `migrate.py`, `cli.py` ingest, `service/organize.py` `plan_resolve`) and not fixed here
-> - this pass measures, it does not change behaviour. A single run would have shown 12 s and
-> looked merely slow; five runs show it is *structurally* uncached.
+> **The migration preview row was the finding, and its *lack* of variance is what found it.**
+> Before the fix, five runs over the same 2,224 files: 12.27, 12.21, 12.22, 12.28, 12.25 s.
+> **Spread 1.01x - the second pass was not one percent faster than the first.** §8 says a warm
+> second read "must make **zero** exiftool subprocess calls", and this path was exempt:
+> `migrate.rederive_rules` called `read_metadata` with **no `HashCache`**, so every preview of
+> the same drive paid full exiftool cost again, forever. Planning itself is 82 ms; the other
+> **12.2 s was re-derivation nobody cached.** A single run would have read "12 s, a bit slow";
+> five runs showed it was *structurally* uncached, which is the whole argument for n >= 5.
+>
+> **Fixed 2026-07-31 (audit F18).** Cold is unchanged at 12.27 s - a cold cache must still pay
+> full price - and **warm is 0.168 s, a 73.2x reduction**, with **zero exiftool subprocess
+> calls across five warm runs**, counted the same way `test_warm_second_read_makes_zero_exiftool_
+> calls` counts them. §8's warm-read guarantee now covers this path; it did not before. Both §5
+> preview-purity guards still pass unchanged, because the sidecar is neither the drive nor the
+> catalog and `service.organize_preview` had always written it on a preview.
 
 **Why the destructive four are fixtures, not Output.** Migration apply, migration undo, undo and
 cleanup all rearrange or delete. They are measured on a hermetic 500-file drive with real files

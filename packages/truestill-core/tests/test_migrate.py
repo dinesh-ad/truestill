@@ -938,7 +938,7 @@ def test_rederive_forwards_progress_with_scanning_phase_and_correct_total(
     forwarded: list[tuple[object, object]] = []
     ticks: list[tuple[int, int, str]] = []
 
-    def fake_read(paths, *, progress=None, cancel=None):
+    def fake_read(paths, *, cache=None, progress=None, cancel=None):  # noqa: ARG001
         forwarded.append((progress, cancel))
         result = {}
         for i, path in enumerate(paths, start=1):
@@ -977,7 +977,7 @@ def test_rederive_cancel_stops_read_and_leaves_no_partial_state(
     cancel = threading.Event()
     seen = 0
 
-    def fake_read(paths, *, progress=None, cancel=None):
+    def fake_read(paths, *, cache=None, progress=None, cancel=None):  # noqa: ARG001
         nonlocal seen
         result = {}
         for i, path in enumerate(paths, start=1):
@@ -1019,7 +1019,7 @@ def test_preview_run_emits_both_scanning_and_planning_phases(
     root = tmp_path / "drive"
     phases: list[str] = []
 
-    def fake_read(paths, *, progress=None, cancel=None):  # noqa: ARG001
+    def fake_read(paths, *, cache=None, progress=None, cancel=None):  # noqa: ARG001
         result = {}
         for i, path in enumerate(paths, start=1):
             if progress is not None:

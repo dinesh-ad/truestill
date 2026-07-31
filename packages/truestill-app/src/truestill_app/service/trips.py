@@ -14,6 +14,7 @@ from truestill_core.drive import read_marker
 from truestill_core.event_review import EventDecision, commit_catalog
 from truestill_core.events import EventCandidate, EventSettings, split_candidate
 from truestill_core.exif import read_metadata
+from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import DEFAULT_PHASH_THRESHOLD
 from truestill_core.layout_settings import resolve_scheme
 from truestill_core.models import Resolution
@@ -36,11 +37,18 @@ from truestill_app.service.drive_support import DriveUnavailablePayload, drive_u
 
 
 def plan_resolve(source: Path, db: Path) -> tuple[list[Resolution], dict[Path, dict[str, Any]]]:
-    """Plan + dedup a source (no writes), returning resolutions and metadata for clustering."""
+    """Plan + dedup a source (no writes), returning resolutions and metadata for clustering.
+
+    Cached like every other reader (audit F18). Note this helper is **not on a user path** -
+    ``server.py`` never calls it and its only caller is ``test_events_http``; the cache is here
+    so the file cannot be read later as "the one reader that deliberately does not cache", which
+    is exactly the ambiguity F18 was made of. Its dead-ish status is tracked separately as F22.
+    """
     files = discover(source)
     if not files:
         return [], {}
-    metadata = read_metadata(files)
+    with HashCache.beside(db) as cache:
+        metadata = read_metadata(files, cache=cache)
     with Catalog(db) as catalog:
         scheme = resolve_scheme(catalog)
         rules = build_rules()

@@ -536,6 +536,15 @@ algorithm toggle. Full rationale: `DECISIONS.md` **D8**.
   - **Verify is deliberately NOT cached.** It re-hashes the copy on the drive to detect
     bit-rot, and silent corruption changes content without changing size or mtime. Verify
     always reads the bytes. Reclaim likewise always re-hashes.
+  - **Every other reader caches, and that list is now closed.** `organize` preview/run, Takeout
+    `ingest`, and **migration re-derivation** (`migrate.rederive_rules`) all pass a `HashCache`.
+    Re-derivation was the exception until 2026-07-31, by omission rather than decision: it cost a
+    measured **12.2 s on every preview** of a 2,224-file drive, forever, because nothing was
+    cached (audit F18; `PERFORMANCE.md` §1.1 carries the before/after). **Caching on a preview
+    does not violate §5.** That rule's two guards assert on the drive tree and the catalog bytes;
+    the sidecar is deliberately neither, and `service.organize_preview` has always written it on
+    a preview path. If a future reader is added uncached, the reason belongs at the call site -
+    an unexplained exception here is what F18 was.
   - **exiftool results ARE cached in the same sidecar** (path + size + ``mtime_ns`` + a
     fingerprint of ``REQUESTED_TAGS``). Profiled 2026-07-29: exiftool was **74%** of cold
     pCloud preview wall. A warm second pass must make **zero** exiftool subprocess calls

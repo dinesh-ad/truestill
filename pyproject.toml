@@ -70,6 +70,9 @@ unfixable = []
 "packages/truestill-core/src/truestill_core/verify.py" = ["PLR0913"]
 # organize_preview / organize_run forward progress/cancel/refresh_metadata as keyword-only knobs.
 "packages/truestill-app/src/truestill_app/service/organize.py" = ["PLR0913"]
+# Same shape one module over: _resolve_migration_routes forwards cache/progress/cancel as
+# keyword-only knobs (cache added for F18's warm-read fix).
+"packages/truestill-app/src/truestill_app/service/migrate.py" = ["PLR0913"]
 # run_migration(catalog/destination/drive_uuid/template/apply/progress/cancel) as kw-only knobs.
 "packages/truestill-core/src/truestill_core/migrate.py" = ["PLR0913"]
 # create_app is an application factory: each route is a nested handler closing over the token/db.

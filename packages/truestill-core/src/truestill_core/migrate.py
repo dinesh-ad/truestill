@@ -32,6 +32,7 @@ from truestill_core.catalog import Catalog
 from truestill_core.categorize import build_rules, categorize, deterministic_side_bin_labels
 from truestill_core.destinations.base import Destination, DestinationError
 from truestill_core.exif import ExiftoolMissingError, read_metadata
+from truestill_core.hash_cache import HashCache
 from truestill_core.layout import (
     EVERYDAY_DAY_THRESHOLD_KEY,
     PATH_LENGTH_WARN,
@@ -168,6 +169,7 @@ def rederive_rules(
     routes: Sequence[LabelRoute],
     *,
     by_device: bool = False,
+    cache: HashCache | None = None,
     progress: ProgressCallback | None = None,
     cancel: threading.Event | None = None,
 ) -> dict[str, str]:
@@ -187,6 +189,15 @@ def rederive_rules(
     the dominant cost of a migration preview on a slow mount, and silence there is the freeze
     backlog (oo) recorded. Phase stays :attr:`Phase.SCANNING` (the same work organize reports).
 
+    ``cache`` makes a repeat preview obey §8's warm-read rule ("a warm second pass must make
+    **zero** exiftool subprocess calls"). It was omitted here until 2026-07-31, and the omission
+    was priced before it was fixed: five previews of the real 2,224-file Output drive ran
+    12.27 / 12.21 / 12.22 / 12.28 / 12.25 s - **spread 1.01x**, because nothing was ever cached.
+    Planning itself is 82 ms of that. Passing a cache is safe on a preview for the same reason
+    `service.organize_preview` has always done it: the sidecar is not the catalog and not the
+    drive, which is exactly what §5's two purity guards assert on. Omitting it is still valid and
+    simply re-reads; it can only cost work, never change an answer.
+
     Returns ``sha256 -> rule``. A file that cannot be read is simply absent, and the caller falls
     back to the per-label decision - never to a guess. A cancelled read returns whatever was
     finished; absent files fall through to the per-label decision the same way.
@@ -202,7 +213,7 @@ def rederive_rules(
         return {}
 
     try:
-        metadata = read_metadata(present, progress=progress, cancel=cancel)
+        metadata = read_metadata(present, cache=cache, progress=progress, cancel=cancel)
     except ExiftoolMissingError:
         # Without the binary there is no evidence to re-derive from. Returning nothing falls the
         # caller back to the per-label decision, which surfaces the ambiguity for a human --

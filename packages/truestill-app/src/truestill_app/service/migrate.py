@@ -10,6 +10,7 @@ from typing import Literal, NotRequired, TypedDict
 from truestill_core.catalog import Catalog
 from truestill_core.destinations import LocalDestination
 from truestill_core.drive import read_marker
+from truestill_core.hash_cache import HashCache
 from truestill_core.layout import Placement
 from truestill_core.layout_settings import pin_existing_layout, resolve_scheme
 from truestill_core.migrate import (
@@ -39,6 +40,7 @@ def _resolve_migration_routes(
     drive_uuid: str,
     path: Path,
     *,
+    cache: HashCache | None = None,
     progress: ProgressCallback | None = None,
     cancel: threading.Event | None = None,
 ) -> tuple[dict[str, str], dict[str, str]]:
@@ -52,11 +54,13 @@ def _resolve_migration_routes(
     has no `--by-device` equivalent, so re-derivation always runs with the plain device rule.
 
     ``progress`` / ``cancel`` forward into :func:`rederive_rules` (exiftool) - the silent phase
-    that made events/migrate preview look frozen on a network mount (backlog oo).
+    that made events/migrate preview look frozen on a network mount (backlog oo). ``cache`` is
+    what makes a repeat preview obey 8's warm-read rule; it was missing until 2026-07-31 and cost
+    a measured 12.2 s on every preview of a 2,224-file drive (audit F18, PERFORMANCE.md 1.1).
     """
     routes = label_routes(catalog, drive_uuid)
     rules_by_sha = rederive_rules(
-        catalog, drive_uuid, path, routes, progress=progress, cancel=cancel
+        catalog, drive_uuid, path, routes, cache=cache, progress=progress, cancel=cancel
     )
     decided = {r.label: (ROUTE_SIDE_BIN if r.needs_decision else r.route) for r in routes}
     return decided, rules_by_sha
@@ -90,10 +94,10 @@ def migration_preview(
     marker = read_marker(path)
     if marker is None:
         return drive_unavailable(path)
-    with Catalog(db) as catalog:
+    with Catalog(db) as catalog, HashCache.beside(db) as cache:
         scheme = resolve_scheme(catalog)
         routes, rules_by_sha = _resolve_migration_routes(
-            catalog, marker.uuid, path, progress=progress, cancel=cancel
+            catalog, marker.uuid, path, cache=cache, progress=progress, cancel=cancel
         )
         outcome = run_migration(
             catalog,
@@ -201,12 +205,12 @@ def migration_apply(
         marker = read_marker(path)
         if marker is None:
             raise not_a_drive(path)
-        with Catalog(db) as catalog:
+        with Catalog(db) as catalog, HashCache.beside(db) as cache:
             catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
             pin_existing_layout(catalog)
             scheme = resolve_scheme(catalog)
             routes, rules_by_sha = _resolve_migration_routes(
-                catalog, marker.uuid, path, progress=progress, cancel=cancel
+                catalog, marker.uuid, path, cache=cache, progress=progress, cancel=cancel
             )
             outcome = run_migration(
                 catalog,
