@@ -245,7 +245,7 @@ shipping 4 without 3 would be a write path with nothing to write.
 
 **Before step 4, one thing must be measured, not assumed:** the bake writes to a user's drive, and
 every figure we have for `write_metadata_batch` (9.3 ms/file) was taken on local SSD. `PERFORMANCE.md`
-§1.1 records the FUSE column as unmeasured. A 4,000-file rescue over pCloud is the case to measure
+§1.1 records the FUSE column as unmeasured. A 4,000-file rescue over a cloud mount is the case to measure
 before shipping it, to the §2.1 method.
 
 **Not in this program, recorded so it is not smuggled in:** rewriting live EXIF from `_original`

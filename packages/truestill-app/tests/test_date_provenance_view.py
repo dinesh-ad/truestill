@@ -2,7 +2,7 @@
 
 Validated against the real library before these were written. Two findings shaped them:
 
-* Dinesh's catalog is **2,300 rows, every one of them NULL** - the not-recorded group is the
+* The maintainer's catalog is **2,300 rows, every one NULL** - the not-recorded group is the
   common case on the only real library we have, not an edge. It must read as the ordinary thing
   it is.
 * A 600-file sample of real photos came out 598 EXIF / 2 undated, and the 2 rendered as **"0%"**.

@@ -100,9 +100,9 @@ narrative, or volatile counts.
 - **Never push unless asked.**
 - **Commit identity policy:** `dinesh-ad`; no co-author/AI signature trailers.
 - **Corpus fence for real-library testing/profiling/soak:**
-  - allowed: `/home/dinesh/pCloudDrive/The Memory Cabinet`,
-    `/home/dinesh/TruestillLibrary/Output`, `/home/dinesh/pCloudDrive/2015` (when present)
-  - off limits: everything under `/home/dinesh/pCloudDrive/Crypto Folder/`
+  - allowed: `<cloud mount>/The Memory Cabinet`, `<home>/TruestillLibrary/Output`,
+    `<cloud mount>/2015` (when present)
+  - off limits: everything under `<cloud mount>/Crypto Folder/`
 
 Full wording and enforcement details live in `IMPLEMENTATION_STANDARDS.md` and `BACKLOG.md`.
 

@@ -119,7 +119,7 @@ distribution or at least the median. The verified reason to keep `min_files = 8`
 measured library above: raising the floor to 15 hides a real 31-photo evening, while an unwanted
 small proposal is visible and cheap to skip. A missed proposal is not visible at all.
 
-## 4. What the rule proposes for the real library- **for Dinesh to check**
+## 4. What the rule proposes for the real library- **for the maintainer to check**
 
 This is the ground truth that matters: these should correspond to things that actually happened.
 

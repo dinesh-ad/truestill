@@ -3,7 +3,7 @@
 Wraps the ``rclone`` CLI, so any remote rclone supports -- pCloud, Dropbox, S3, SFTP,
 Google Drive -- is usable through the same :class:`Destination` interface without this
 project knowing anything provider-specific. The remote is given as an rclone spec such as
-``pcloud:Photos/GoogleBackup``.
+``remote:Photos/Backup``.
 
 Files are written with ``copyto`` and their capture-date mtime is set with ``touch --no-create``.
 There is deliberately no code path here that can remove data at the remote.

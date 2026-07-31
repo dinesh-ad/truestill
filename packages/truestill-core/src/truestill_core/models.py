@@ -187,8 +187,8 @@ class Decision:
     """A single file's categorization and placement, before anything is written.
 
     ``relative`` is backend-independent: it is the path *within* a destination
-    (``Camera/2025/08/foo.jpg``), so the same decision can target local disk, pCloud or
-    anything else without change.
+    (``Camera/2025/08/foo.jpg``), so the same decision can target local disk, a cloud remote
+    or anything else without change.
     """
 
     source: Path

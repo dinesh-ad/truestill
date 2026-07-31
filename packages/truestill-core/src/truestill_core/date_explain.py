@@ -34,8 +34,8 @@ class DateExplanation:
     review: bool = False
 
 
-#: The commonest group on any library organized before schema v13, including Dinesh's own
-#: ~2,300-file catalog - so it is written as the calm, ordinary thing it is. It is not an error,
+#: The commonest group on any library organized before schema v13, including the maintainer's
+#: own ~2,300-file catalog - so it is written as the calm, ordinary thing it is. Not an error,
 #: not a gap in the photos, and not something the user did wrong: only the *note* is missing.
 #: Deliberately offers no remedy, because there is no cheap one - a re-organize skips these files
 #: as exact duplicates and would not rewrite the note, and promising otherwise would be a lie.

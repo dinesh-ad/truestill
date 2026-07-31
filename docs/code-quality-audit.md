@@ -156,7 +156,7 @@ actual = future.result()          # <- re-raises the worker's exception
 
 `_hash_path` (`verify.py:47-48`) calls `hashing.sha256_file` (`hashing.py:81-87`), which opens the file
 with no exception handling. A present-but-unreadable copy - an unrecoverable read error on a failing
-disk, `EIO` on a FUSE/pCloud mount, a mount dropped mid-run, a permission change - passes the
+disk, `EIO` on a FUSE cloud mount, a mount dropped mid-run, a permission change - passes the
 `path.is_file()` check at `verify.py:69` and then raises `OSError` inside the worker. `future.result()`
 re-raises it, the `with executor_cls(...)` block unwinds, and `verify_copies` **never returns**. Every
 result already computed is discarded.
@@ -198,7 +198,7 @@ Identical: `path_str, sha, perceptual = future.result()`. One unreadable file in
 the entire hashing pass, so an organize preview or run over a tree containing a single locked or
 unreadable file dies before it reports anything. Graded HIGH rather than CRITICAL because it fails
 before any write, so no data is at risk - but `BACKLOG.md` (ss) records this pipeline being run
-routinely over a pCloud FUSE mount, which is precisely where `EIO` occurs.
+routinely over a cloud FUSE mount, which is precisely where `EIO` occurs.
 
 Note the asymmetry inside one module: `scan.py` defends its two `stat` paths (`:67`, `:76`) and leaves
 its read path open. **Fix: same shape as F1, ~1h.**
@@ -508,7 +508,7 @@ give `stream` a terminal-event replay or a timeout. Cost: ~3h.**
 
 ### F18 - MEDIUM - Three `read_metadata` calls bypass the metadata cache with no recorded reason
 
-`IMPLEMENTATION_STANDARDS.md` §8 records exiftool at **74% of cold pCloud preview wall** and names
+`IMPLEMENTATION_STANDARDS.md` §8 records exiftool at **74% of cold cloud-mount preview wall** and names
 exactly two never-cache paths: "Verify is deliberately NOT cached ... Reclaim likewise always
 re-hashes." Three call sites are neither, and pass no cache:
 

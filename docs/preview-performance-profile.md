@@ -7,11 +7,11 @@ Raw JSON from the runs lives in [`docs/profile-runs/`](profile-runs/).
 `Crypto Folder/Photos/Vintage/.../Wayanad '14`, which is now **OFF LIMITS** (see
 `PROJECT_STATUS.md` §4). Do **not** re-run this script against that tree. Keep the
 figures as a historical FUSE cold-preview record; any new before/after must use an
-allowed target (relocated Memory Cabinet, Output, or `/home/dinesh/pCloudDrive/2015` -
+allowed target (relocated Memory Cabinet, Output, or `<cloud mount>/2015` -
 see `PROJECT_STATUS.md` §4).
 
 This answers the open question in `BACKLOG.md` **(ss)**: which of {stat, exiftool,
-hash-worthy reads} actually dominates on a pCloud FUSE folder, and what the
+hash-worthy reads} actually dominates on a cloud FUSE folder, and what the
 local-vs-FUSE delta is. It does **not** propose a fix.
 
 ---
@@ -21,7 +21,7 @@ local-vs-FUSE delta is. It does **not** propose a fix.
 | | |
 |---|---|
 | **Corpus (historical, OFF LIMITS to re-run)** | Wayanad '14 - **2,064 media** (2,061 images, 3 videos), 0 documents / unrecognized |
-| **pCloud (FUSE) path used 2026-07-29** | `<pCloud FUSE>/Crypto Folder/Photos/Vintage/2014/Wayanad '14` - **do not re-profile** |
+| **Cloud (FUSE) path used 2026-07-29** | `<cloud FUSE>/Crypto Folder/Photos/Vintage/2014/Wayanad '14` - **do not re-profile** |
 | **Local (ext4) twin used 2026-07-29** | `<local ext4>/TruestillLibrary/Input/2014/Wayanad '14` (byte-same library copy) |
 | **Pipeline** | Same call sequence as `service.organize_preview` (walk → `read_metadata` → plan/index → `compute_hashes` → dedup classify → summarize) |
 | **Catalog / cache** | **Cold** throwaway temp dir each run (empty `catalog.sqlite` + empty hash cache) - matches the first-preview cost (ss) recorded |
@@ -34,7 +34,7 @@ Size pre-filter was live: **22 / 2,064 files** needed SHA-256 (**1.07%**); **2,0
 
 ## 2. Wall clock - local vs FUSE
 
-| | Local ext4 | pCloud FUSE | FUSE / local |
+| | Local ext4 | cloud FUSE | FUSE / local |
 |---|---:|---:|---:|
 | **Total wall** | **23.94 s** | **312.74 s** (~5.2 min) | **13.1×** |
 | **files/sec** | 86.2 | 6.6 | - |
@@ -48,7 +48,7 @@ Accounted phase sum matched wall within rounding (no hidden multi-minute gap).
 
 Phases that compose the sequential wall (shares sum to ~100% of wall):
 
-| Phase | Local s | Local ms/file | Local %wall | pCloud s | pCloud ms/file | pCloud %wall | FUSE/local |
+| Phase | Local s | Local ms/file | Local %wall | Cloud s | Cloud ms/file | Cloud %wall | FUSE/local |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | **read_metadata (exiftool)** | **14.52** | **7.03** | **60.6%** | **230.73** | **111.79** | **73.8%** | **15.9×** |
 | **compute_hashes (wall)** | **8.55** | **4.14** | **35.7%** | **80.68** | **39.09** | **25.8%** | **9.4×** |
@@ -59,7 +59,7 @@ Phases that compose the sequential wall (shares sum to ~100% of wall):
 
 Inside hashing (instrumented; **summed** worker time can exceed wall because the pool runs in parallel):
 
-| Sub-cost | Local | pCloud | Notes |
+| Sub-cost | Local | Cloud | Notes |
 |---|---:|---:|---|
 | `_sizes` stat pass | 0.007 s | 0.323 s | One `stat` per file inside `compute_hashes` |
 | `sha256_file` (22 calls) | 0.22 s summed · 10.2 ms/call | 8.45 s summed · 384 ms/call | Almost none of the wall |
@@ -71,7 +71,7 @@ Parallelism check: perceptual summed ÷ hash wall ≈ **15.9×** (local) and **1
 
 ## 4. File opens (more important than bytes on a network mount)
 
-| Counter | Local | pCloud | Per media file |
+| Counter | Local | Cloud | Per media file |
 |---|---:|---:|---:|
 | exiftool file args (subprocess opens) | 2,064 | 2,064 | **1.00** |
 | `PIL.Image.open` | 2,064 | 2,064 | **1.00** |
@@ -89,15 +89,15 @@ Every media file is opened **at least twice** on the cold path: once by exiftool
 **`read_metadata` (exiftool) is the largest single phase on both filesystems**, and it is worse on FUSE:
 
 - Local: 60.6% of wall (14.5 s)
-- pCloud: **73.8% of wall (230.7 s)**
+- Cloud mount: **73.8% of wall (230.7 s)**
 
-Second place is **`compute_hashes` wall**, almost entirely **unconditional `perceptual_hash` on every file** (SHA-256 is already nearly free thanks to `_needs_sha`). On pCloud that is 80.7 s (25.8%).
+Second place is **`compute_hashes` wall**, almost entirely **unconditional `perceptual_hash` on every file** (SHA-256 is already nearly free thanks to `_needs_sha`). On the cloud mount that is 80.7 s (25.8%).
 
 Walk, `_sizes`, catalog/plan, dedup classify, and summarize are **noise** even on FUSE (<1 s combined except walk at 0.5 s).
 
 ### Honest headroom (upper bounds if a phase went to zero - not a design)
 
-| If this went away | pCloud wall left | Max speedup vs 312.7 s |
+| If this went away | cloud-mount wall left | Max speedup vs 312.7 s |
 |---|---:|---:|
 | exiftool only | ~82 s | **~3.8×** |
 | perceptual only (keep exiftool + tiny SHA) | ~232 s | **~1.35×** |
@@ -106,7 +106,7 @@ Walk, `_sizes`, catalog/plan, dedup classify, and summarize are **noise** even o
 
 So:
 
-1. **Size-grouping / partial-hash SHA pipelines are the wrong target** here - SHA is already 1% of files and <3% of pCloud wall.
+1. **Size-grouping / partial-hash SHA pipelines are the wrong target** here - SHA is already 1% of files and <3% of cloud-mount wall.
 2. **(tt) cheap inventory** (walk + optional stats, no exiftool, no perceptual) sits under the largest measured cost and matches the "return something in seconds" need.
 3. Any Commit-3 optimization that ignores exiftool and only trims hashing can win **at most ~1.35×** on this folder unless it also cuts opens/metadata work.
 4. Consolidating opens (exiftool + Pillow + rare SHA) is only interesting if it reduces **FUSE round-trips**; CPU hashing is not the story on this mount.
@@ -137,8 +137,8 @@ uv run python scripts/profile_organize_preview.py \
   --json-out docs/profile-runs/wayanad-local.json
 
 uv run python scripts/profile_organize_preview.py \
-  --source "/path/to/pCloud/.../Wayanad '14" --label pcloud \
-  --json-out docs/profile-runs/wayanad-pcloud.json
+  --source "/path/to/cloud-mount/.../Wayanad '14" --label cloud \
+  --json-out docs/profile-runs/wayanad-cloud.json
 ```
 
 A locked Crypto Folder mount returned `PermissionError` mid-hash once during the original
@@ -149,7 +149,7 @@ session before a successful re-run.
 ## 7. Follow-up measurement - metadata cache (2026-07-29, same historical corpus)
 
 After extending `HashCache` to store requested exiftool tags (same path+size+mtime_ns key).
-**Same OFF-LIMITS Vintage Wayanad '14 pCloud folder** as §1-§5 (not Memory Cabinet / Output /
+**Same OFF-LIMITS Vintage Wayanad '14 cloud folder** as §1-§5 (not Memory Cabinet / Output /
 2015). Catalog + hash-cache sidecars were throwaway temp dirs; warm numbers are that
 sidecar, not a write into the photo tree.
 

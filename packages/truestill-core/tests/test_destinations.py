@@ -30,21 +30,21 @@ def test_local_describe(tmp_path: Path) -> None:
 
 def test_rclone_missing_binary_raises() -> None:
     with pytest.raises(DestinationError):
-        RcloneDestination("pcloud:Photos", binary="rclone-does-not-exist-xyz")
+        RcloneDestination("remote:Photos", binary="rclone-does-not-exist-xyz")
 
 
 def test_rclone_target_format(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("shutil.which", lambda _name: "/usr/bin/rclone")
-    dest = RcloneDestination("pcloud:Photos/GoogleBackup")
-    assert dest.describe() == "pcloud:Photos/GoogleBackup"
-    assert dest._target("Camera/2025/08/a.jpg") == "pcloud:Photos/GoogleBackup/Camera/2025/08/a.jpg"
+    dest = RcloneDestination("remote:Photos/Backup")
+    assert dest.describe() == "remote:Photos/Backup"
+    assert dest._target("Camera/2025/08/a.jpg") == "remote:Photos/Backup/Camera/2025/08/a.jpg"
 
 
 def test_rclone_stamps_the_uploaded_remote_without_creating_a_file(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("shutil.which", lambda _name: "/usr/bin/rclone")
-    dest = RcloneDestination("pcloud:Photos")
+    dest = RcloneDestination("remote:Photos")
     calls: list[tuple[str, ...]] = []
     monkeypatch.setattr(dest, "_run", lambda *args: calls.append(args))
 
@@ -59,6 +59,6 @@ def test_rclone_stamps_the_uploaded_remote_without_creating_a_file(
             "--no-create",
             "--timestamp",
             "2025-08-20T14:30:00.000000",
-            "pcloud:Photos/Camera/2025/08/a.jpg",
+            "remote:Photos/Camera/2025/08/a.jpg",
         )
     ]

@@ -1,6 +1,6 @@
 """The storage-backend interface.
 
-Deliberately tiny and free of any rclone/pCloud vocabulary. A destination is addressed by
+Deliberately tiny and free of any rclone or storage-vendor vocabulary. A destination is addressed by
 POSIX-style *relative paths* (``Camera/2025/08/foo.jpg``); how those map onto a real
 store -- a local directory, an rclone remote, an object-store key -- is the backend's
 private business.
@@ -32,7 +32,7 @@ class Destination(ABC):
 
     @abstractmethod
     def describe(self) -> str:
-        """Human-readable identifier for reports (e.g. ``pcloud:Photos/GoogleBackup``)."""
+        """Human-readable identifier for reports (e.g. ``remote:Photos/Backup``)."""
 
     @abstractmethod
     def exists(self, relative_path: str) -> bool:

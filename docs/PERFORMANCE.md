@@ -107,13 +107,13 @@ not there.
 > and every attach after that is **0.3 s** because the hash cache answers it. The trade is a
 > one-off wait against a class of false corruption alarm, and it is not close.
 >
-> **Corpus:** the Output drive (local SSD) and The Memory Cabinet (pCloud FUSE) - the same 2,269
+> **Corpus:** the Output drive (local SSD) and The Memory Cabinet (cloud FUSE) - the same 2,269
 > copies, 6.2 GB, organized from the same source. Measured against a **scratch copy** of the real
 > catalog, restored before every run outside the stopwatch; the drives themselves are only read,
 > and both already carry markers so nothing was written to them.
 >
 > **Three limits, stated rather than smoothed over.** (1) FUSE cold is only **1.8x** local here,
-> not the 13x `preview-performance-profile.md` measured - because pCloud's own local cache was
+> not the 13x `preview-performance-profile.md` measured - because the mount's own local cache was
 > populated for these files. **A genuinely cold cloud fetch is not measured and would be
 > slower**; this row is the re-attach case, not the first-ever read. (2) The local cold spread is
 > **1.96x** (7.3 s to 14.3 s), the widest in this document - one run took nearly double, and with
@@ -187,13 +187,13 @@ cannot is written as a **"not measured, because X"** row rather than filled in w
 | **Report the spread (max/min).** | The number that says whether to trust the median at all. |
 | **Cold and warm are separate rows, never averaged.** | The metadata cache is ~170x. An average of cold and warm describes a run that never happens. Label them cold-cache / warm-cache, never run 1 / run 2. |
 | **State the corpus and its size on every row.** | "0.08 s" is meaningless without "over 2,224 rows". |
-| **State the machine class:** local SSD or pCloud FUSE. | `preview-performance-profile.md` measured **13x** between them. A row without it cannot be compared to anything. |
+| **State the machine class:** local SSD or cloud FUSE. | `preview-performance-profile.md` measured **13x** between them. A row without it cannot be compared to anything. |
 | **Corpus fence holds** (`PROJECT_STATUS.md` §4): The Memory Cabinet, Output, or a hermetic fixture. **Never `Crypto Folder/`.** | Not a performance rule, but it binds this document like every other. |
 | **A destructive stage is measured on a hermetic fixture**, restored between runs outside the stopwatch. | A benchmark must never be the thing that rearranges someone's library. This is why apply/undo/cleanup below are fixtures and not Output. |
 
 **Two limits that apply to every local-SSD row here, stated once.** The OS page cache cannot be
 dropped without root, so these are **page-cache-warm** figures; a genuinely cold-disk read is
-not measured and would be slower. And the pCloud FUSE class is **not measured at all** in this
+not measured and would be slower. And the cloud FUSE class is **not measured at all** in this
 pass, because the mount was absent when the numbers were taken - see the empty column in §1.1
 rather than an interpolation from the local figures.
 

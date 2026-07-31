@@ -344,7 +344,7 @@ successful upgrade), never automatic.
 | **A relocation is gated on an explicit typed word, never a default-yes.** `--apply` is permission to *ask*, not permission to move: `migrate-layout` prints the plan and requires the exact word `move`; anything else (including a bare Enter) aborts with nothing moved. The app Settings migrate path uses the same gate via `typedConfirm` with word `move` after preview (never a one-click Move). Every migration or Trips & events preview is a read: neither the CLI nor the app may write anything at all, not even refresh a connected drive's label or `last_seen`. | `cli._cmd_migrate_layout`, `static/app.js` `renderMigrateTypedConfirm`, `service.migration_preview`, `service.propose_events`; pinned by `test_a_preview_moves_nothing_and_writes_nothing`, `test_without_the_typed_confirm_nothing_moves`, `test_settings_migrate_uses_typed_confirm_move`, and `test_drive_preview_endpoints_never_refresh_the_catalog`. |
 | **The Everyday day-folder threshold is a per-catalog setting, default 40.** Un-evented days over the threshold get `{yyyy}-{mm}-{dd} - Everyday`; under stay in the monthly bucket. Changing the setting must warn that existing files do not move until migrate, with a route to Settings → Move existing files (`#settings-migrate`). | `layout.EverydayDaySettings` / `EVERYDAY_DAY_THRESHOLD_KEY`; `service.set_everyday_day_settings`; pinned by `test_everyday_day_threshold_change_is_honoured_and_warns_to_migrate`. |
 | **Never push without being asked.** | Convention - not yet enforced. |
-| **Real-library corpus fence (2026-07-30).** Test / profile / soak against **only** The Memory Cabinet at `/home/dinesh/pCloudDrive/The Memory Cabinet` (uuid `6f43b678-...`), Output (`TruestillLibrary/Output`), and `/home/dinesh/pCloudDrive/2015` when present. **Everything under `Crypto Folder/` is OFF LIMITS** even for read-only profiling. If a task appears to need it, STOP and ask. | Convention - human process; recorded in `PROJECT_STATUS.md` §4. |
+| **Real-library corpus fence (2026-07-30).** Test / profile / soak against **only** The Memory Cabinet at `<cloud mount>/The Memory Cabinet` (uuid `6f43b678-...`), Output (`TruestillLibrary/Output`), and `<cloud mount>/2015` when present. **Everything under `Crypto Folder/` is OFF LIMITS** even for read-only profiling. If a task appears to need it, STOP and ask. | Convention - human process; recorded in `PROJECT_STATUS.md` §4. |
 | **Commit identity / no-AI-trailer** - no `Co-Authored-By` trailer, no Anthropic/Claude email or signature in history. | **Enforced:** `scripts/check_commit_msg.py` via the `commit-msg` pre-commit hook (`.pre-commit-config.yaml`, id `no-ai-coauthor`). Activate: `uv run pre-commit install --hook-type commit-msg`. |
 
 ---
@@ -362,7 +362,7 @@ successful upgrade), never automatic.
 
 ### 6.1 The prose convention: hyphens, not em-dashes
 
-**Repo prose and source use the ASCII hyphen.** This is Dinesh's house style and it is settled;
+**Repo prose and source use the ASCII hyphen.** This is the maintainer's house style and it is settled;
 do not reintroduce `U+2014`, and do not "restore" the em-dashes in an existing document.
 
 The rule has one detail that matters more than the preference itself, because getting it wrong
@@ -387,7 +387,7 @@ shipped a defect:
   `word-<space>word` independently of the sweep.
 
 **Where it came from, so nobody hunts for an in-repo mechanism again:** on 2026-07-28 a
-repo-wide sweep run from **Dinesh's own editor, outside the repo**, replaced every `U+2014` and
+repo-wide sweep run from **the maintainer's own editor, outside the repo**, replaced every `U+2014` and
 consumed the leading space with it - 61 sites, including two in the web UI's backup banner. There
 is **no git filter, no hook, no script in this repository that does this**; that was checked
 exhaustively before anything was changed. Ruff, mypy and pytest were all green throughout, which
@@ -552,7 +552,7 @@ algorithm toggle. Full rationale: `DECISIONS.md` **D8**.
     an unexplained exception here is what F18 was.
   - **exiftool results ARE cached in the same sidecar** (path + size + ``mtime_ns`` + a
     fingerprint of ``REQUESTED_TAGS``). Profiled 2026-07-29: exiftool was **74%** of cold
-    pCloud preview wall. A warm second pass must make **zero** exiftool subprocess calls
+    cloud-mount preview wall. A warm second pass must make **zero** exiftool subprocess calls
     (`test_warm_second_read_makes_zero_exiftool_calls`). Known limit: some tools edit tags
     without bumping mtime (IMatch-class); callers pass ``force=True`` /
     ``--refresh-metadata`` / the app checkbox to bypass. An expanded tag set changes the

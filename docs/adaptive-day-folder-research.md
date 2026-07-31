@@ -3,7 +3,7 @@
 Status: **built 2026-07-30** (default threshold **40**). This document records the
 research behind that default and the placement rules the implementation follows.
 
-The soak finding: a heavy un-evented day (Dinesh's 2014-08 Everyday bucket held 2,057 photos)
+The soak finding: a heavy un-evented day (the maintainer's 2014-08 Everyday bucket held 2,057 photos)
 drowns the monthly `{yyyy}-{mm} - Everyday` folder - the problem the year-first layout was
 meant to solve one level up.
 

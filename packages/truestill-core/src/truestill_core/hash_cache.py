@@ -8,7 +8,7 @@ image, every time. So this caches **both**, and caching only SHA-256 would have 
 about 5% of the wait rather than nearly all of it.
 
 The 2026-07-29 cold-preview profile (`docs/preview-performance-profile.md`) then showed
-**exiftool is 74% of wall on pCloud**. The same sidecar therefore also caches the requested
+**exiftool is 74% of wall on a cloud FUSE mount**. The same sidecar also caches the requested
 metadata tags, keyed identically (path + size + ``mtime_ns``). One layer, not a second store.
 
 **It lives beside the catalog, not inside it.** Rows are keyed by absolute path, which is

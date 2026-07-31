@@ -29,7 +29,7 @@ is invisible here is retired, not free.**
 
 ## Approved, not yet built
 
-- **(aad) Desktop installers - LAUNCH-BLOCKING for the paid product.** Ruled by Dinesh,
+- **(aad) Desktop installers - LAUNCH-BLOCKING for the paid product.** Ruled by the maintainer,
   2026-07-31. **Record only - no design pass yet, and it does not block the current
   date-provenance program.**
   - **The problem.** PyPI reaches developers only. `pip install` needs Python present, a
@@ -56,7 +56,7 @@ is invisible here is retired, not free.**
     picking one now would be guessing in public.
 
 - **(aac) Organize must name and count unreadable source files the way verify does.** Ruled by
-  Dinesh, 2026-07-30, from the Pass 1 F2/F1 asymmetry left after the code-quality audit.
+  the maintainer, 2026-07-30, from the Pass 1 F2/F1 asymmetry left after the code-quality audit.
   **Record only - do not fix in the same pass that closed F1/F2.**
   - **What shipped.** F1 gave `verify` `CopyStatus.UNREADABLE`, a count, and filenames on CLI
     and app. F2 kept `compute_hashes` alive on an unreadable source (empty hashes +
@@ -68,7 +68,7 @@ is invisible here is retired, not free.**
     sources the same way verify reports unreadable copies. Do not treat empty hashes as a
     finished answer.
 
-- **(oo) Long-running actions must show they are running.** Ruled by Dinesh from a soak
+- **(oo) Long-running actions must show they are running.** Ruled by the maintainer from a soak
   finding, 2026-07-29, same class as the silent-failure gap fixed in `670ab5d` - that one hid
   **errors**, this one hides **work**.
   **Built (2026-07-29).** Core progress through rederive/plan; job-ify of migrate/events/ingest
@@ -76,7 +76,7 @@ is invisible here is retired, not free.**
   the duration, re-enable on success/cancel/error) covering job-ified and sync triggers;
   DriveBusy surfaced as its own message; Playwright e2e for disable/progress/second-click/
   DriveBusy.
-  - **The finding.** After "Save names" on a 2,057-photo trip over a pCloud mount, the preview
+  - **The finding.** After "Save names" on a 2,057-photo trip over a cloud mount, the preview
     step (`/api/events/{session}/preview`) took **~3 minutes with zero UI feedback** - no
     spinner, no progress text, no disabled button. The screen looked frozen. A user in that
     position will assume it is broken, click the button again, or force-quit mid-operation -
@@ -112,7 +112,7 @@ is invisible here is retired, not free.**
   - **Not fixed here, on purpose** - recorded only, per instruction.
 
 - **(uu) CORRECTNESS: non-Apple videos with only UTC `CreateDate` are filed as local wall-clock.**
-  Ruled by Dinesh from a discovery pass, 2026-07-29. **Built (2026-07-30).** Evidence ladder
+  Ruled by the maintainer from a discovery pass, 2026-07-29. **Built (2026-07-30).** Evidence ladder
   after Apple `CreationDate`: MakerNotes `TimeZone`, GPS UTC proof (wired, unexercised by
   corpus), filename+duration (half-hour grid, unique match, ε=3s). `DateSource.INFERRED_LOCAL`
   + parseable `date_tag`; fallthrough is `CreateDate|not_proven_utc` (treated as local, usually
@@ -127,7 +127,7 @@ is invisible here is retired, not free.**
     use it to convert `DateTimeOriginal`.
 
 - **(pp) No in-app undo for a trip/migration apply-to-disk - CLI-only today, and the visible
-  in-app "undo" is the wrong one.** Ruled by Dinesh from a soak finding, 2026-07-29.
+  in-app "undo" is the wrong one.** Ruled by the maintainer from a soak finding, 2026-07-29.
   **Built (2026-07-29).** `GET /api/migrate/undo`, preview/apply jobs through JobManager,
   durable affordance on Trips and Settings (re-queried on load and after every migration),
   reusable `typedConfirm` with the word `undo`, refusals surfaced. Reuses `undo_migration`
@@ -149,7 +149,7 @@ is invisible here is retired, not free.**
     every migration because supersession has no other signal.
 
 - **(qq) The path on a trip/event completion card's reveal link does not open the folder.**
-  Ruled by Dinesh from a soak finding, 2026-07-29, from a live trip apply.
+  Ruled by the maintainer from a soak finding, 2026-07-29, from a live trip apply.
   - **Built.** `migration_apply` joins each `file_copies.relative` ancestor onto the connected
     drive mount before putting it in the reveal `path` field (`_reveal_folder_on_drive`).
     `/api/reveal` then receives an absolute folder under the drive, not a cwd-relative fragment.
@@ -165,8 +165,8 @@ is invisible here is retired, not free.**
   auto-deleted. Do not treat `(rr)` / `(zz)` as separate open work - they closed as this.
 
 - **(ss) Organize preview hashes every file before showing anything - slow on a network mount.**
-  Ruled by Dinesh from a soak finding, 2026-07-29: measured **9.9 files/sec on a 2,064-file
-  folder over a pCloud FUSE mount, ~8 minutes to see a preview at all** - against an industry
+  Ruled by the maintainer from a soak finding, 2026-07-29: measured **9.9 files/sec on a 2,064-file
+  folder over a cloud FUSE mount, ~8 minutes to see a preview at all** - against an industry
   baseline of tens of thousands of files/sec for SHA-256 (the bottleneck is I/O, not the
   algorithm), which points at the network mount, not the hash.
   - **Checked in code before recording: both proposed fixes are already built.** The size-group
@@ -181,14 +181,14 @@ is invisible here is retired, not free.**
     [`docs/preview-performance-profile.md`](preview-performance-profile.md). Numbers came from
     **`Crypto Folder/Photos/Vintage/.../Wayanad '14`** (2,064 files) - that tree is now
     **OFF LIMITS** (`PROJECT_STATUS.md` §4); keep the figures as historical only. On that
-    run, **exiftool is 74% of pCloud wall** (231 s); hashing wall is 26% and is almost
+    run, **exiftool is 74% of cloud-mount wall** (231 s); hashing wall is 26% and is almost
     entirely unconditional `perceptual_hash` (SHA-256 already ~1% of files via `_needs_sha`).
     FUSE vs local gap is 13×, ~75% of it exiftool. Stat/walk are noise. Local twin was
     `TruestillLibrary/Input/2014/Wayanad '14`.
-  - **Requirement for any fix:** measured **before/after on an allowed real pCloud / FUSE
-    corpus** (relocated Memory Cabinet, Output, or `/home/dinesh/pCloudDrive/2015`) - not a
+  - **Requirement for any fix:** measured **before/after on an allowed real cloud / FUSE
+    corpus** (relocated Memory Cabinet, Output, or `<cloud mount>/2015`) - not a
     synthetic fixture, and **not** anything under `Crypto Folder/` (`PROJECT_STATUS.md` §4).
-- **(ww) Stale absolute path hints after a drive moves.** Ruled by Dinesh from a soak
+- **(ww) Stale absolute path hints after a drive moves.** Ruled by the maintainer from a soak
   finding, 2026-07-30; **fixed 2026-07-30.** `locate_drive` / `path_is_usable_dir` swallow
   ``OSError`` (ENOENT, PermissionError, …) and return the drive-correction payload instead.
   Failed hints are **cleared** (not ignored) so Backups does not re-stat a dead mount every
@@ -197,7 +197,7 @@ is invisible here is retired, not free.**
   - Remaining absolute-path / hash-cache portability is **(xx)**, not a re-open of this item.
 
 - **(xx) Absolute-path columns and hash-cache keys are not machine-portable.** Ruled by
-  Dinesh from the 2026-07-30 move audit. **Record only - do not fix in the loud-failure
+  the maintainer from the 2026-07-30 move audit. **Record only - do not fix in the loud-failure
   series.** Commits 1-3 (**(ww)** path hints, catalog startup announcement, reclaim/undo
   staleness) made a machine move **survivable by failing loudly**; the remaining work is
   **portability**, not safety. User procedure:
@@ -229,7 +229,7 @@ is invisible here is retired, not free.**
   - **Not fixed here, on purpose** - recorded only, per instruction.
 
 - **(yy) Reconnect a moved location (Lightroom-style Find Missing Folder).** Ruled by
-  Dinesh 2026-07-30 after research into how Lightroom Classic repairs a moved library -
+  the maintainer 2026-07-30 after research into how Lightroom Classic repairs a moved library -
   the closest mature analogue. **Record only - do not build yet.** Cross-reference
   **(xx)** (`files.source_path` absolute).
   - **Why Lightroom's version works at scale.** Reconnecting the *top-level* missing
@@ -249,14 +249,14 @@ is invisible here is retired, not free.**
   - **Not fixed here, on purpose** - recorded only, per instruction.
 
 - **(aaa) Typed confirmations crash with raw `EOFError` in non-interactive runs.** Ruled by
-  Dinesh from the 2026-07-30 maiden voyage: `organize --in-place --apply` aborted with a
+  the maintainer from the 2026-07-30 maiden voyage: `organize --in-place --apply` aborted with a
   traceback when stdin was non-interactive (pipe/script/CI).
   - **Built (`f19a45c`).** Shared `_typed_confirmation` catches `EOFError` and exits with a
     clear refusal: interactive confirmation is required. Wired to every typed-confirm site:
     in-place `move`, migrate `move`, migrate-undo `undo`, clean `clean`, permanent
     `delete forever`, reclaim `delete`.
 
-- **(bbb) exiftool `_original` backups.** Ruled by Dinesh, 2026-07-30. When anyone edits a
+- **(bbb) exiftool `_original` backups.** Ruled by the maintainer, 2026-07-30. When anyone edits a
   photo's date with exiftool, the default is to leave `file.jpg_original` beside it holding the
   **original** metadata (only `-overwrite_original` skips this).
   - **Safety - Built 2026-07-30.** Measured first: on the default path, `*.jpg_original` was
@@ -289,14 +289,14 @@ is invisible here is retired, not free.**
     - **Sequencing:** recovery UI waits on the (ii)/(n) provenance column - same screen. Safety
       shipped independently so this item is not "untouched".
 
-- **(ccc) Plain-language audit of user-facing copy.** Ruled by Dinesh, 2026-07-30.
+- **(ccc) Plain-language audit of user-facing copy.** Ruled by the maintainer, 2026-07-30.
   - **Built 2026-07-30.** Inventory + rewrites across app/CLI help/README (CHANGELOG excluded).
     Kept `custody` (defined once), kept `catalog` where it names the file, distinguished
     folder pattern vs saved folder pattern, bridged UI "in this same folder" to `--in-place`,
     and rewrote errors as plain sentences that still carry what/why/next without scaffold
     labels. Living-grep guard + allowlist in `test_user_facing_copy.py`.
 
-- **(ddd) Stats view (custody-first).** Ruled by Dinesh, 2026-07-30.
+- **(ddd) Stats view (custody-first).** Ruled by the maintainer, 2026-07-30.
   - **Built 2026-07-30.** New `Stats` screen in the app with three sections:
     Custody (photos/videos/size, 2+/1/0-drive counts, per-drive rollup, never-verified),
     Completeness (undated, timeline-vs-side-bin, near-duplicate flagged), and Shape (by-year,
@@ -308,7 +308,7 @@ is invisible here is retired, not free.**
   - **Intentional omission:** exact-duplicate "found" count is not persisted in catalog and is
     omitted here rather than recomputed by a fresh scan; the UI states this plainly.
 
-- **(eee) Three organize modes in the app (copy / move / in-place).** Ruled by Dinesh,
+- **(eee) Three organize modes in the app (copy / move / in-place).** Ruled by the maintainer,
   2026-07-30; CLI modes already proven.
   - **Built 2026-07-30.** App surfaces Copy / Move / Reorganize in this same folder with
     mechanism-aware reversibility before typed confirm; durable `undo-organize` affordance;
@@ -316,7 +316,7 @@ is invisible here is retired, not free.**
     **Empty-folder cleanup** capability (provenance `(rr)` / `(zz)` / Commit 4), not a
     separate feature.
 
-- **(fff) Collapsible sidebar.** Ruled by Dinesh, 2026-07-30.
+- **(fff) Collapsible sidebar.** Ruled by the maintainer, 2026-07-30.
   **Built (2026-07-30).** Hamburger toggle (expanded icon+label / collapsed icon-only rail);
   required hover **and** focus tooltips when collapsed; persist via catalog setting
   `ui.sidebar.collapsed` (no localStorage); compact custody pips-only in the rail; keyboard
@@ -332,7 +332,7 @@ is invisible here is retired, not free.**
   - Playwright: collapse/expand; persists across reload; tooltips on hover when collapsed;
     custody stays inside rail; keyboard toggle works. Break each, watch fail, restore.
 
-- **(tt) No fast, no-hashing inventory - progressive disclosure is missing.** Ruled by Dinesh
+- **(tt) No fast, no-hashing inventory - progressive disclosure is missing.** Ruled by the maintainer
   from a soak finding, 2026-07-29, the natural complement to **(ss)**: a user who only wants
   "how many photos/videos, which formats, how big" has to wait for the full hashing preview to
   get an answer neither dedup nor dating touches.
@@ -342,7 +342,7 @@ is invisible here is retired, not free.**
     that card immediately; **Check for duplicates** is the explicit second step that runs the
     existing full preview job. Size is a dedicated pass (not `compute_hashes._sizes`) so
     inventory stays off the expensive path; profile evidence puts that `stat` at ~0.3 s on
-    pCloud vs ~231 s for exiftool.
+    a cloud mount vs ~231 s for exiftool.
   - **Not the same thing as backlog (r)'s Analyze mode - complementary, likely its precursor.**
     (r)'s Analyze mode explicitly runs "the existing dry-run engine" for a *richer* report
     (duplicates, look-alikes, capture-date range) - it is the same expensive pass as preview,
@@ -686,7 +686,7 @@ no composition refactor to schedule.
 
 > **Settled stance these sit under:** a user's **photo data never leaves their machine** and
 > there is no telemetry. Pro is gated by a **signed local token** obtained at a one-time account
-> activation - `docs/DECISIONS.md` **D5**, which supersedes D1's no-accounts stance on Dinesh's
+> activation - `docs/DECISIONS.md` **D5**, which supersedes D1's no-accounts stance on the maintainer's
 > ruling. Any Pro-tier item below inherits that constraint, and none of the licensing
 > infrastructure is built yet.
 
@@ -864,7 +864,7 @@ picking one up must map the combined order before building.
     see "Consciously out of scope" below and the composition stance recorded there. Portable
     *context* is not the same request as a gallery.
 - **(hh) `truestill adopt` - bring stray media in an organized drive into the catalog.** Ruled
-  by Dinesh. A drive can hold media truestill does not know about: files copied in by hand, a
+  by the maintainer. A drive can hold media truestill does not know about: files copied in by hand, a
   restore from elsewhere, or anything added after the last run. Today they are invisible to
   `verify`, to the custody count, and to `clean-empty`'s classification.
   - **Scan an organized drive for media files not in the catalog, report them named**, and on
@@ -881,7 +881,7 @@ picking one up must map the combined order before building.
   - **Shares the walk-and-classify machinery with `clean-empty`** - both answer "what is on this
     drive that the catalog does not account for", from opposite ends.
 
-- **(ii) Rescue flow for side-bin and undated files.** Ruled by Dinesh from a soak finding, and
+- **(ii) Rescue flow for side-bin and undated files.** Ruled by the maintainer from a soak finding, and
   the finding is the argument: real memories genuinely do sit in `Saved/`, `WhatsApp/` and
   `Undated/` - a photo someone sent you of a day you were there is still your memory - and
   **today there is no durable way to move one onto the timeline.** **Part of the date-provenance

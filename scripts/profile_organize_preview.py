@@ -12,7 +12,7 @@ Usage::
         --source "/path/to/Wayanad '14" --label local
 
     uv run python scripts/profile_organize_preview.py \\
-        --source "/path/to/pCloud/.../Wayanad '14" --label pcloud
+        --source "/path/to/cloud-mount/.../Wayanad '14" --label cloud
 
 Writes JSON to stdout (and optionally ``--json-out``). Complexity: O(n) files, same as preview.
 """

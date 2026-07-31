@@ -24,7 +24,7 @@ Both drives carried armed undo records pointing **back** to category-first.
 render code at all - it is pure path restoration from journal rows. So it would have survived
 the decommission *mechanically*.
 
-It was retired anyway, on Dinesh's explicit confirm (`I retire both records`), because it would
+It was retired anyway, on the maintainer's explicit confirm (`I retire both records`), because it would
 have survived into a state the product could no longer describe:
 
 - undo restores a category-first tree but does **not** change the stored layout, which stays

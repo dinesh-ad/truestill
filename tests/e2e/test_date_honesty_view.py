@@ -2,8 +2,8 @@
 
 Asserted through the browser because every claim here is a rendered sentence, and §6 gives that
 to this lane. Two cases, both taken from the real library rather than invented: a catalog where
-every row predates the record (Dinesh's, 2,300 of them), and a group so small its share rounds
-to zero (2 undated files in a 600-file sample).
+every row predates the record (the maintainer's, 2,300 of them), and a group so small its share
+rounds to zero (2 undated files in a 600-file sample).
 """
 
 from __future__ import annotations

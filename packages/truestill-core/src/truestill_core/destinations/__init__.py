@@ -1,8 +1,8 @@
 """Pluggable storage backends.
 
-The organizer talks only to the :class:`Destination` interface; pCloud is one
-implementation, not a built-in assumption. Adding Dropbox, S3 or a NAS means writing one
-new class here and nothing else.
+The organizer talks only to the :class:`Destination` interface; a cloud remote is one
+implementation, not a built-in assumption. Adding another remote, an object store or a NAS
+means writing one new class here and nothing else.
 """
 
 from __future__ import annotations

@@ -44,7 +44,7 @@ Therefore:
 ### A3. "A drive" - LocalDestination vs RcloneDestination
 - `LocalDestination(root: Path)` → `describe()` = `local:{root}` (`destinations/local.py`). A
   local directory = a mounted drive. A marker file at `root` and verify-by-rehash are natural.
-- `RcloneDestination(remote)` → `describe()` = the remote spec, e.g. `pcloud:Photos/GoogleBackup`
+- `RcloneDestination(remote)` → `describe()` = the remote spec, e.g. `remote:Photos/Backup`
   (`destinations/rclone.py`). An always-online cloud remote - not a drive in a drawer.
 
 > **Scope proposal:** v1 drive-identity = **LocalDestination only** (the validated "unplugged in

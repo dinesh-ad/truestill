@@ -9,7 +9,7 @@ short form lives in `IMPLEMENTATION_STANDARDS.md` and this file holds the full "
 
 ## D1. No accounts, no required telemetry - permanently
 
-> ## ⚠ SUPERSEDED (2026-07-28) by **D5**, on Dinesh's ruling
+> ## ⚠ SUPERSEDED (2026-07-28) by **D5**, on the maintainer's ruling
 >
 > truestill **will require a user account**, created at activation against a self-hosted
 > licensing server. The reasoning below is preserved unedited because it is the record of why
@@ -18,7 +18,7 @@ short form lives in `IMPLEMENTATION_STANDARDS.md` and this file holds the full "
 > photo data still never leaves the machine, and there is still no per-launch phone-home.
 >
 > The engineering recommendation was **against** this change; it is recorded in D5 §4 at
-> Dinesh's instruction rather than dropped.
+> the maintainer's instruction rather than dropped.
 
 
 **Decision.** truestill collects **no user accounts** and **no required telemetry**, permanently.
@@ -194,7 +194,7 @@ says the argfile batch is the bottleneck - decided by measurement then, not by m
 
 ## D5. Accounts, activation, and the licensing server
 
-**Decision (Dinesh, 2026-07-28).** truestill **requires a user account**. It supersedes D1.
+**Decision (the maintainer, 2026-07-28).** truestill **requires a user account**. It supersedes D1.
 Nothing is built yet: this is post-launch work, and the licensing server is new infrastructure
 that gets its own research and design pass before any of it is written.
 
@@ -228,7 +228,7 @@ offline-verified-key mechanism described there becomes *token-after-activation* 
 *key-with-no-server*. The capability seam (§2) is unaffected - it was always the right shape for
 gating, whatever verifies the entitlement.
 
-### 4. The engineering recommendation, recorded at Dinesh's instruction
+### 4. The engineering recommendation, recorded at the maintainer's instruction
 
 **The recommendation was against requiring an account**, and it is recorded here rather than
 dropped, because a decision is easier to revisit when the case against it is written down next
@@ -273,7 +273,7 @@ retired. That question is the one most likely to be regretted if it is left unti
 
 ## D6. Monetization: perpetual licence, paid annual updates
 
-**Decision (Dinesh, 2026-07-28).** Supersedes the earlier "one-time Pro licence" sketch.
+**Decision (the maintainer, 2026-07-28).** Supersedes the earlier "one-time Pro licence" sketch.
 Post-launch; nothing built.
 
 ### 1. The model (Sublime Text / JetBrains shape)
@@ -310,7 +310,7 @@ legitimate user mid-session.
 **The rule: truestill asks visibly and often enough to be heard, and never withholds function to
 force the question.**
 
-This comes from Dinesh's own twenty years as a free user of other people's software - *"no one
+This comes from the maintainer's own twenty years as a free user of other people's software - *"no one
 ever asked me to pay"*. The failure mode being designed against is not piracy; it is the honest
 user who would happily have paid and was simply never asked.
 
@@ -365,7 +365,7 @@ the `blake3` PyPI package ships prebuilt wheels for most environments and needs 
 toolchain for typical users. That argument is withdrawn.
 
 **The measured reason, which is stronger** (`docs/preview-performance-profile.md`, historical
-Wayanad '14 on `Photos/Vintage` - now OFF LIMITS to re-run; 2,064 files, cold pCloud preview):
+Wayanad '14 on `Photos/Vintage` - now OFF LIMITS to re-run; 2,064 files, cold cloud-mount preview):
 
 - SHA-256 ran on **22 of 2,064 files** (~1% after the size pre-filter) and offers about
   **1.03×** headroom if it went to zero.

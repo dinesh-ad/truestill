@@ -333,8 +333,8 @@ def inventory_source(source: Path, *, all_files: bool = False) -> SourceInventor
     from surfacing ``scan._sizes`` inside ``compute_hashes``: inventory must stay off the
     expensive path, and ``scan_source`` stays a partition-only walk reused by discover /
     organize. Profile evidence (``docs/preview-performance-profile.md``): that ``stat`` pass
-    is ~0.3 s on pCloud for 2,064 files against ~231 s for exiftool - near-free relative to
-    the full preview.
+    is ~0.3 s on a cloud FUSE mount for 2,064 files against ~231 s for exiftool - near-free
+    relative to the full preview.
     """
     scan = scan_source(source, all_files=all_files)
     counts, by_format = _media_format_breakdown(scan.media)

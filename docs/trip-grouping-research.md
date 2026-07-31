@@ -39,7 +39,7 @@ objects, and the day layer stays untouched.
 {yyyy}/{yyyy}-{mm}/{yyyy}-{mm}-{dd} - Trip Name/{yyyy}-{mm}-{dd}/
 ```
 
-Rendered for the real candidate (assuming Dinesh names Aug 15–17 "Wayanad"):
+Rendered for the real candidate (assuming the maintainer names Aug 15–17 "Wayanad"):
 
 ```
 2014/
@@ -180,7 +180,7 @@ This is not a general principle looking for an example - it is forced by the one
 
 ("All photos" is what the day folder would hold, per §2 - the trip claims the whole day.)
 
-Ground truth from Dinesh: **the trip was Aug 15–17.** The rule proposes **Aug 14–17.**
+Ground truth from the maintainer: **the trip was Aug 15–17.** The rule proposes **Aug 14–17.**
 
 Both readings are defensible from the data alone. An evening burst of 31 photos immediately before
 three heavy days is precisely the shape of an arrival evening - and it is also precisely the shape
@@ -326,7 +326,7 @@ What it buys:
 - **Exhaustiveness.** `match placement: ... case _ as unreachable: assert_never(unreachable)`-
   mypy `strict` fails the build when a sixth shape is added and a site is missed. Booleans give no
   such check.
-- **The vocabulary is the product's.** "Trip day" is a thing Dinesh can say; `evented=True,
+- **The vocabulary is the product's.** "Trip day" is a thing the maintainer can say; `evented=True,
   in_trip=True, heavy=False` is not.
 - **Impossible states stop being expressible.** There is no `Placement` for "side bin that is also
   a trip day", so no code has to exclude it.
@@ -1154,7 +1154,7 @@ named via the app's own review screen, and relocates it **off** the timeline int
 `Camera/...` the moment "Preview" or "Move photos into trip folders" is clicked.
 
 **Not verified: whether this has actually been exercised against the real production drives.**
-Dinesh may have used the CLI (`truestill migrate-layout`, which does not have this gap) for the
+the maintainer may have used the CLI (`truestill migrate-layout`, which does not have this gap) for the
 real year-first migration described in §2.0, in which case this is a live gap that has not yet
 been hit through the app specifically, rather than one that has silently mis-filed real photos.
 That distinction matters for urgency but not for the finding itself: the code path is real, it is

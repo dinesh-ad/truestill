@@ -38,8 +38,8 @@ def _items_on(day: date, n: int) -> list[EventItem]:
 def test_the_real_wayanad_run_is_one_full_proposal_no_trim() -> None:
     """Acceptance fixture: real cluster shape and real day counts from `trip-grouping-research.md`.
 
-    Dinesh confirmed the Aug 14 evening (19:46-21:22, n=23) was the drive up to Wayanad, so the
-    proposal must equal ground truth -- the whole Aug 14-17 run, no edge trimmed.
+    The maintainer confirmed the Aug 14 evening (19:46-21:22, n=23) was the drive up to Wayanad,
+    so the proposal must equal ground truth -- the whole Aug 14-17 run, no edge trimmed.
     """
     clusters = [
         _candidate_on(date(2014, 8, 14), 23, hour=19),

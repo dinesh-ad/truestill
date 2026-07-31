@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Normalize em-dashes to spaced hyphens, without eating the spacing around them.
 
-Dinesh's house style is the plain ASCII hyphen, not ``U+2014``. A repo-wide sweep that
+The maintainer's house style is the plain ASCII hyphen, not ``U+2014``. A repo-wide sweep that
 implemented that preference on 2026-07-28 consumed the *leading* space as well as the dash,
 turning ``recorded - a copy`` into ``recorded- a copy`` in 61 places -- including the backup
 banner in the web UI, where a user reads it. This script is the corrected sweep.
