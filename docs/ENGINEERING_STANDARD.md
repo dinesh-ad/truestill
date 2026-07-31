@@ -96,6 +96,27 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   worker sizing. Directory walks that need the dir-tree shape use `Path.walk` (3.12+), not
   `os.walk` and not `rglob`. `@dataclass(slots=True)` for internal models. `StrEnum` for
   enumerations. `match` for structured dispatch, f-strings, `:=` where it reads better.
+
+  **Creating a file with explicit permissions is NOT one of the exceptions - pathlib does it,
+  and `os.open` here is a bug rather than a style choice.** Settled 2026-08-01 while writing the
+  session URL file, and recorded because `os.open(p, O_CREAT | O_WRONLY | O_TRUNC, 0o600)` looks
+  exactly like the atomic, careful answer. It is not. Measured:
+
+  * `Path.open` has **no** permissions parameter (its `mode=` is `'r'` / `'w'`), and
+    `write_text` alone gives the umask default - **0664** on the machine this was measured on,
+    i.e. a credential readable by the whole group.
+  * `Path.touch(mode=0o600)` **does** set permissions, but only when it creates the file. On an
+    existing file it leaves the mode alone and does not truncate.
+  * A mode is applied **only at creation** - so `os.open(..., 0o600)` over an existing 0644 file
+    leaves it **0644** and writes the secret into it. Verified.
+  * `os.open` with `O_CREAT` **follows a symlink** at the target path and writes through it.
+    Verified: the secret landed in the link's victim file.
+
+  So the sequence is `unlink(missing_ok=True)` → `touch(mode=…)` → `write_text`. It is pure
+  pathlib *and* strictly safer than the one-syscall version: the unlink both guarantees the mode
+  is applied and removes a symlink instead of writing through it. Guarded by
+  `test_session_link.py`, which pins the pre-existing-mode and symlink cases specifically -
+  a test that only writes to a fresh path passes against both implementations.
   **Not** pydantic/attrs for internal models - truestill has no untrusted-input API boundary,
   so stdlib dataclasses are the right-sized choice. Validation belongs only at real trust
   boundaries (CLI args, sidecar JSON, catalog reads).

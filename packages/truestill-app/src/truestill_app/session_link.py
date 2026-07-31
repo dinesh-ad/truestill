@@ -12,12 +12,11 @@ local-web app does not otherwise need, and each would have to be bundled and sig
 costs nothing, behaves identically on three platforms, and can be read out over the phone or
 grepped by whoever is helping.
 
-**It is a credential.** The URL contains the token, so it is created with mode ``0600`` **at
-open time** rather than chmod-ed afterwards - the latter leaves a window, however short, in
-which the file exists with the default mode. Windows ignores POSIX modes; there the protection
-is that the data directory lives inside the user's own profile, whose ACL is user-scoped. That
-is weaker than ``0600`` and is stated rather than glossed: on a shared Windows machine an
-administrator can read it, exactly as they can read anything else in the profile.
+**It is a credential.** The URL contains the token, so the file is created with mode ``0600``
+by the call that creates it, never chmod-ed afterwards. Windows ignores POSIX modes; there the
+protection is that the data directory lives inside the user's own profile, whose ACL is
+user-scoped. That is weaker than ``0600`` and is stated rather than glossed: on a shared Windows
+machine an administrator can read it, exactly as they can read anything else in the profile.
 
 **It is replaced, never appended.** Two URLs in one file is two guesses, and only the newest is
 a way in.
@@ -28,7 +27,6 @@ process is a link that fails confusingly tomorrow.
 
 from __future__ import annotations
 
-import os
 import webbrowser
 from pathlib import Path
 
@@ -54,16 +52,23 @@ def path() -> Path:
 def write(url: str) -> Path:
     """Record ``url`` as the way into this session, readable only by this user.
 
-    ``O_CREAT | O_WRONLY | O_TRUNC`` with mode ``0600``: created private, truncated so a previous
-    session cannot survive underneath, and never appended.
+    Created private, replacing whatever was there, and never appended.
     """
     target = path()
     target.parent.mkdir(parents=True, exist_ok=True)
-    # os.open rather than Path.write_text: the mode has to be applied by the syscall that
-    # creates the file, not by a chmod afterwards.
-    fd = os.open(target, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as handle:
-        handle.write(f"{url}\n{_NOTE}")
+    # Remove first, then create with the mode, then write. All three steps matter and none is
+    # ceremony - see ENGINEERING_STANDARD's pathlib rule, where the measurements live:
+    #
+    #   unlink   - a mode is applied only when a file is CREATED, so writing over an existing
+    #              file keeps whatever mode it already had. It also drops a symlink sitting at
+    #              this path instead of writing the token through it to somewhere else.
+    #   touch    - `Path.touch(mode=...)` sets permissions at creation. `Path.open` has no
+    #              permissions parameter at all, and `write_text` alone yields the umask default
+    #              (0664 on this machine) - the token readable by the whole group.
+    #   write    - truncating is safe now: the file it truncates is the empty 0600 one above.
+    target.unlink(missing_ok=True)
+    target.touch(mode=0o600)
+    target.write_text(f"{url}\n{_NOTE}", encoding="utf-8")
     return target
 
 

@@ -117,6 +117,40 @@ def test_the_file_is_readable_only_by_its_owner(tmp_path: Path) -> None:
     assert written.stat().st_mode & 0o777 == 0o600
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX file modes")
+def test_a_pre_existing_wider_file_is_narrowed_rather_than_written_into() -> None:
+    """A mode is applied only when a file is CREATED, so writing over one keeps its old mode.
+
+    A file left by an older build, or by a run under a different umask, would otherwise receive
+    the token while staying group-readable - and every test that only checks a fresh write would
+    still pass.
+    """
+    stale = session_link.path()
+    stale.parent.mkdir(parents=True, exist_ok=True)
+    stale.touch(mode=0o644)
+    stale.write_text("an older session, world-readable")
+
+    session_link.write("http://127.0.0.1:1/?token=secret")
+
+    assert stale.stat().st_mode & 0o777 == 0o600
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX symlinks")
+def test_a_symlink_at_the_path_is_replaced_not_written_through(tmp_path: Path) -> None:
+    """Otherwise the token is written into whatever the link points at, at that file's mode."""
+    victim = tmp_path / "victim.txt"
+    victim.write_text("do not touch")
+    link = session_link.path()
+    link.parent.mkdir(parents=True, exist_ok=True)
+    link.symlink_to(victim)
+
+    session_link.write("http://127.0.0.1:1/?token=secret")
+
+    assert victim.read_text() == "do not touch", "the token was written through the link"
+    assert not link.is_symlink()
+    assert "token=secret" in link.read_text()
+
+
 def test_each_launch_replaces_the_file_rather_than_appending() -> None:
     """Two URLs in one file is two guesses. The newest session is the only true one."""
     session_link.write("http://127.0.0.1:1/?token=first")
