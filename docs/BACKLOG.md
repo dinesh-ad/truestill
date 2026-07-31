@@ -4,6 +4,14 @@ Things that were **decided** but not yet built - captured here so nothing lives 
 history. This is not a wishlist of everything possible; only items already agreed, with the
 decision context that produced them.
 
+> **How to read this file: status is per ENTRY, never per section. A heading is not a status.**
+> Read the entry's own text before acting on it - several are *partial*, and partial is the
+> normal state here rather than the exception. This is written at the top because it is the
+> defect the 2026-07-31 audit found: 20 of the 36 entries under a heading that said *"not yet
+> built"* were built, and separately `(n)` and `(ii)` described shipped work as unstarted. Both
+> directions cost real money - one hides finished work, the other invites rebuilding a schema
+> that already ships.
+
 > **Items (w) and (x) came from a three-report external research synthesis (2026-07-27) whose
 > main result was that it changed nothing.** It reviewed the shipped architecture and validated
 > it point-for-point; these two are the entire delta, one of them trivial and one of them
@@ -27,7 +35,12 @@ Shipped entries describe the work rather than repeating the letter. `(e)` and `(
 cited by name in `drive-identity-research.md` and `org-structure-research.md`. **A letter that
 is invisible here is retired, not free.**
 
-## Approved, not yet built
+## Approved - still to build
+
+Everything here has work left. **Two entries are partial and say so in their own text:**
+`(bbb)` (the safety half shipped, the `_original` recovery offer did not) and `(r)` (the hash
+cache shipped, Analyze mode itself did not). A partial entry lives here, not in the built
+section, because what is left is the part that still has to be written.
 
 - **(aaf) Persisted skip record - "show me what was skipped last week".** Ruled by the
   maintainer, 2026-07-31, from the duplicate-naming gap check. **Record only - do not build.**
@@ -36,6 +49,8 @@ is invisible here is retired, not free.**
     missing is asking **afterwards**. `stats.py` states the reason in its own payload today:
     `"exact_duplicates_found": None`, because *"Exact-duplicate skips are not stored in the
     catalog; computing this would require a new scan outside the read-only stats contract."*
+    That sentence was written as `(ddd)`'s "intentional omission"; this entry is that omission
+    promoted to an item of its own.
   - **Why it is (m)-sized rather than another payload fix.** `Resolution` objects live only for
     the duration of the job and are discarded with it. Nothing persists a skip, so there is no
     row to read later and no amount of payload plumbing produces one - **it needs a new table**,
@@ -51,7 +66,8 @@ is invisible here is retired, not free.**
     is the same surface as (m)'s inventory of unknown media or a different one.
 
 - **(aag) Near-duplicate grouping and burst review.** Ruled by the maintainer, 2026-07-31, from
-  the same gap check. **Record only - do not build.**
+  the same gap check. **Record only - do not build.** ⚠ **Overlaps `(m)`**, whose "visual
+  side-by-side compare" clause is this item; scope the two together.
   - **This is a review surface over behaviour that is already correct, which is what makes it
     deferrable.** truestill already **keeps** near-duplicates and flags them - `Resolution`
     carries `near_duplicate` and the file is organized anyway, never dropped (`should_upload`
@@ -163,36 +179,6 @@ is invisible here is retired, not free.**
     sources the same way verify reports unreadable copies. Do not treat empty hashes as a
     finished answer.
 
-- **(oo) Long-running actions must show they are running.** Ruled by the maintainer from a soak
-  finding, 2026-07-29, same class as the silent-failure gap fixed in `670ab5d` - that one hid
-  **errors**, this one hides **work**.
-  **Built (2026-07-29).** Core progress through rederive/plan; job-ify of migrate/events/ingest
-  preview; server-side per-drive JobManager lock; reusable `withBusy` UI helper (disable for
-  the duration, re-enable on success/cancel/error) covering job-ified and sync triggers;
-  DriveBusy surfaced as its own message; Playwright e2e for disable/progress/second-click/
-  DriveBusy.
-  - **The finding.** After "Save names" on a 2,057-photo trip over a cloud mount, the preview
-    step (`/api/events/{session}/preview`) took **~3 minutes with zero UI feedback** - no
-    spinner, no progress text, no disabled button. The screen looked frozen. A user in that
-    position will assume it is broken, click the button again, or force-quit mid-operation -
-    the same "did anything happen?" defect the ten soak findings in `PROJECT_STATUS.md` §2.1
-    were made of, just on the *work* axis instead of the *error* axis.
-  - **Root cause, verified in code, not guessed.** Two different mechanisms exist side by side.
-    `organize_preview`/`organize_run`/`verify_run`/`backup_run`/`migrate_run`/
-    `events_apply_to_disk` all go through `jobs.start(...)` - a background job the client polls
-    via `streamJob`/SSE, with a real progress bar (`createProgress`). Everything else is a
-    **plain, blocking request/response** with no progress channel at all:
-    `backup_preview`, `migrate_preview`, `ingest_preview` (Import), `events_propose` (Find
-    trips & events), `events_merge`, `events_split`, `events_apply`, and
-    **`events_preview`** - the exact call this finding is about. Nothing about `events_preview`
-    is special; it simply happens to be the one that runs long enough (a real `migrate.py`
-    plan over 2,057 files on a network mount) to expose that none of this group has ever had a
-    busy state.
-  - **Requirement (met).** Every action that can exceed ~1s must: (1) show busy state on its own
-    trigger the instant it is clicked (disabled/spinner), (2) show a progress or status line
-    naming what is happening **and its scale** ("Planning moves for 2,057 photos…", not just
-    "Working…"), and (3) refuse a second click while the first run is still in flight.
-
 - **(vv) Known limit: app per-drive job lock is process-local; CLI↔app overlap is not serialized.**
   Recorded 2026-07-29 when Commit 3 of (oo) shipped the server-side one-op-per-drive guard.
   - **What is covered.** Concurrent jobs inside one `truestill-app` process (reload, second tab,
@@ -205,59 +191,6 @@ is invisible here is retired, not free.**
     cross-process guard (e.g. flock on the drive marker or catalog) is a separate design if
     soak ever shows CLI↔app races mattering in practice.
   - **Not fixed here, on purpose** - recorded only, per instruction.
-
-- **(uu) CORRECTNESS: non-Apple videos with only UTC `CreateDate` are filed as local wall-clock.**
-  Ruled by the maintainer from a discovery pass, 2026-07-29. **Built (2026-07-30).** Evidence ladder
-  after Apple `CreationDate`: MakerNotes `TimeZone`, GPS UTC proof (wired, unexercised by
-  corpus), filename+duration (half-hour grid, unique match, ε=3s). `DateSource.INFERRED_LOCAL`
-  + parseable `date_tag`; fallthrough is `CreateDate|not_proven_utc` (treated as local, usually
-  correct - not a defect). Never-silent report names file + before/after + offset. Canon
-  `MVI_2550.MOV` regression pin stays **14:28:39** via `DateTimeOriginal`. Stills untouched.
-  Rung 5 corroboration-only. Mutation tests lock unique-match, duration, half-hour grid, and
-  messenger refusal. **Do not blanket-convert** - cameras often write local into CreateDate.
-  - **The defect (historical).** Video containers store `CreateDate` in UTC per spec; many
-    cameras write local instead. Treating digits as local without evidence mis-dates Android
-    clips ~5.5h early (IST soak); near midnight, wrong day/trip folder.
-  - **Documented trap - do not walk into it:** EXIF `OffsetTime` is modification time, never
-    use it to convert `DateTimeOriginal`.
-
-- **(pp) No in-app undo for a trip/migration apply-to-disk - CLI-only today, and the visible
-  in-app "undo" is the wrong one.** Ruled by the maintainer from a soak finding, 2026-07-29.
-  **Built (2026-07-29).** `GET /api/migrate/undo`, preview/apply jobs through JobManager,
-  durable affordance on Trips and Settings (re-queried on load and after every migration),
-  reusable `typedConfirm` with the word `undo`, refusals surfaced. Reuses `undo_migration`
-  directly - no parallel journal. The `undo-organize` CLI string on the in-place card is a
-  different mechanism and is unchanged.
-  - **The finding.** `migrate.py`'s reversal (`undo_migration`, keyed on
-    `catalog.reversible_migration(drive_uuid)`) exists and works - it is the mechanism behind
-    `truestill migrate-layout <path> --undo` (preview) / `--undo --apply` (typed `undo`
-    confirm) - but it was wired **only into the CLI** (`cli.py`'s `_cmd_migrate_undo`). Nothing
-    in `server.py` exposed it, and nothing in `app.js` linked to it. A user who names trips,
-    applies them to disk from the app, and regrets it had no way back inside the app at all.
-  - **The mismatch is worse than the absence.** The only "undo" string the app shows for
-    in-place organize is still `truestill undo-organize` - a **different** reversal, for a
-    **different** operation (`inplace_runs`/`inplace_moves`), sharing no code with
-    `migrate.py`'s journal. That CLI hint remains; migration undo is now a separate in-app
-    affordance so the two cannot be confused.
-  - **Requirement (met).** Preview first, typed confirm `undo`, refuse changed files out loud,
-    state plainly that only the most recent migration on a drive is reversible, re-query after
-    every migration because supersession has no other signal.
-
-- **(qq) The path on a trip/event completion card's reveal link does not open the folder.**
-  Ruled by the maintainer from a soak finding, 2026-07-29, from a live trip apply.
-  - **Built.** `migration_apply` joins each `file_copies.relative` ancestor onto the connected
-    drive mount before putting it in the reveal `path` field (`_reveal_folder_on_drive`).
-    `/api/reveal` then receives an absolute folder under the drive, not a cwd-relative fragment.
-  - **Audit (same class):** the only other `data-open` / reveal callers are drive cards
-    (`list_drives` path hints - already absolute) and the shared click handler. Find/inventory
-    rows show `relative` as display text only, never as a reveal target. No second site.
-
-- **Empty-folder cleanup (provenance: (rr), (zz), (eee) Commit 4).** **Built**
-  (`7d9830c` + Commit 4 of `(eee)`). One shared capability across move / in-place organize,
-  undo-organize, and trip/migrate apply-to-disk: leftover empty folders are **reported**
-  (count + names) and the same preview + typed-confirm `clean-empty` flow is **offered**,
-  reusing `emptied_directories` / `plan_cleanup` / `run_cleanup`. Folders are never
-  auto-deleted. Do not treat `(rr)` / `(zz)` as separate open work - they closed as this.
 
 - **(ss) Organize preview hashes every file before showing anything - slow on a network mount.**
   Ruled by the maintainer from a soak finding, 2026-07-29: measured **9.9 files/sec on a 2,064-file
@@ -283,14 +216,6 @@ is invisible here is retired, not free.**
   - **Requirement for any fix:** measured **before/after on an allowed real cloud / FUSE
     corpus** (relocated Memory Cabinet, Output, or `<cloud mount>/2015`) - not a
     synthetic fixture, and **not** anything under `Crypto Folder/` (`PROJECT_STATUS.md` §4).
-- **(ww) Stale absolute path hints after a drive moves.** Ruled by the maintainer from a soak
-  finding, 2026-07-30; **fixed 2026-07-30.** `locate_drive` / `path_is_usable_dir` swallow
-  ``OSError`` (ENOENT, PermissionError, …) and return the drive-correction payload instead.
-  Failed hints are **cleared** (not ignored) so Backups does not re-stat a dead mount every
-  load; Check now / open-folder only appear for live paths. Verify soft-fails the same way
-  migration already did. Identity remains the marker uuid.
-  - Remaining absolute-path / hash-cache portability is **(xx)**, not a re-open of this item.
-
 - **(xx) Absolute-path columns and hash-cache keys are not machine-portable.** Ruled by
   the maintainer from the 2026-07-30 move audit. **Record only - do not fix in the loud-failure
   series.** Commits 1-3 (**(ww)** path hints, catalog startup announcement, reclaim/undo
@@ -343,14 +268,6 @@ is invisible here is retired, not free.**
     Lightroom cascades from the top folder - one action, all descendants.
   - **Not fixed here, on purpose** - recorded only, per instruction.
 
-- **(aaa) Typed confirmations crash with raw `EOFError` in non-interactive runs.** Ruled by
-  the maintainer from the 2026-07-30 maiden voyage: `organize --in-place --apply` aborted with a
-  traceback when stdin was non-interactive (pipe/script/CI).
-  - **Built (`f19a45c`).** Shared `_typed_confirmation` catches `EOFError` and exits with a
-    clear refusal: interactive confirmation is required. Wired to every typed-confirm site:
-    in-place `move`, migrate `move`, migrate-undo `undo`, clean `clean`, permanent
-    `delete forever`, reclaim `delete`.
-
 - **(bbb) exiftool `_original` backups.** Ruled by the maintainer, 2026-07-30. When anyone edits a
   photo's date with exiftool, the default is to leave `file.jpg_original` beside it holding the
   **original** metadata (only `-overwrite_original` skips this).
@@ -383,65 +300,6 @@ is invisible here is retired, not free.**
       without confirm, treating `_original` as a second library citizen.
     - **Sequencing:** recovery UI waits on the (ii)/(n) provenance column - same screen. Safety
       shipped independently so this item is not "untouched".
-
-- **(ccc) Plain-language audit of user-facing copy.** Ruled by the maintainer, 2026-07-30.
-  - **Built 2026-07-30.** Inventory + rewrites across app/CLI help/README (CHANGELOG excluded).
-    Kept `custody` (defined once), kept `catalog` where it names the file, distinguished
-    folder pattern vs saved folder pattern, bridged UI "in this same folder" to `--in-place`,
-    and rewrote errors as plain sentences that still carry what/why/next without scaffold
-    labels. Living-grep guard + allowlist in `test_user_facing_copy.py`.
-
-- **(ddd) Stats view (custody-first).** Ruled by the maintainer, 2026-07-30.
-  - **Built 2026-07-30.** New `Stats` screen in the app with three sections:
-    Custody (photos/videos/size, 2+/1/0-drive counts, per-drive rollup, never-verified),
-    Completeness (undated, timeline-vs-side-bin, near-duplicate flagged), and Shape (by-year,
-    by-format, oldest/newest capture).
-  - **Performance contract kept:** catalog-only aggregate SQL (`service.library_stats` +
-    `Catalog.stats_*`), no file reads, no hashing, no exiftool, no per-file Python loops.
-  - **Actionability:** at-risk and never-verified route to Backups; undated routes to Find and
-    shows sample paths.
-  - **Intentional omission:** exact-duplicate "found" count is not persisted in catalog and is
-    omitted here rather than recomputed by a fresh scan; the UI states this plainly.
-
-- **(eee) Three organize modes in the app (copy / move / in-place).** Ruled by the maintainer,
-  2026-07-30; CLI modes already proven.
-  - **Built 2026-07-30.** App surfaces Copy / Move / Reorganize in this same folder with
-    mechanism-aware reversibility before typed confirm; durable `undo-organize` affordance;
-    Playwright + mutation coverage. Empty-folder leftovers on these paths are the shared
-    **Empty-folder cleanup** capability (provenance `(rr)` / `(zz)` / Commit 4), not a
-    separate feature.
-
-- **(fff) Collapsible sidebar.** Ruled by the maintainer, 2026-07-30.
-  **Built (2026-07-30).** Hamburger toggle (expanded icon+label / collapsed icon-only rail);
-  required hover **and** focus tooltips when collapsed; persist via catalog setting
-  `ui.sidebar.collapsed` (no localStorage); compact custody pips-only in the rail; keyboard
-  toggle keeps focus; short width transition; Playwright collapse/expand, persistence,
-  tooltips, custody bounds, keyboard; each guard broken once then restored.
-  - Hamburger toggle: expanded = icon+label; collapsed = icon-only narrow rail.
-  - Collapsed **must** show label tooltips on hover **and** focus (not optional polish).
-  - Persist via existing catalog settings key/value - **no** localStorage / new store.
-  - Custody strip adapts when collapsed: compact indicator only; must not reintroduce path
-    overflow in the narrow rail.
-  - Keyboard: toggle focusable/operable; collapsing must not trap or lose focus.
-  - Short width-transition animation only.
-  - Playwright: collapse/expand; persists across reload; tooltips on hover when collapsed;
-    custody stays inside rail; keyboard toggle works. Break each, watch fail, restore.
-
-- **(tt) No fast, no-hashing inventory - progressive disclosure is missing.** Ruled by the maintainer
-  from a soak finding, 2026-07-29, the natural complement to **(ss)**: a user who only wants
-  "how many photos/videos, which formats, how big" has to wait for the full hashing preview to
-  get an answer neither dedup nor dating touches.
-  - **Built 2026-07-29.** `organizer.inventory_source` + `service.organize_inventory` +
-    `POST /api/organize/inventory` return counts by type/extension and total media bytes after
-    the walk + one dedicated `stat` pass - no exiftool, no hashing. UI: **Look inside** shows
-    that card immediately; **Check for duplicates** is the explicit second step that runs the
-    existing full preview job. Size is a dedicated pass (not `compute_hashes._sizes`) so
-    inventory stays off the expensive path; profile evidence puts that `stat` at ~0.3 s on
-    a cloud mount vs ~231 s for exiftool.
-  - **Not the same thing as backlog (r)'s Analyze mode - complementary, likely its precursor.**
-    (r)'s Analyze mode explicitly runs "the existing dry-run engine" for a *richer* report
-    (duplicates, look-alikes, capture-date range) - it is the same expensive pass as preview,
-    with better output, not a cheaper one. (tt) is the tier **before** that.
 
 - **(nn) Prove destination timestamp parity against a live rclone remote.** The destination
   timestamp seam is implemented for rclone as `touch --no-create --timestamp`. The installed
@@ -508,11 +366,6 @@ is invisible here is retired, not free.**
        forever. Pruning must actually run as part of a run, not merely exist.
   - **Placement:** the **first post-launch wave, alongside (n)**. Earlier if the soak shows
     repeat-run pain at real scale -- that evidence would move it, nothing else needs to.
-- **(u) Metadata (exiftool) cache.** **Built 2026-07-29** into the existing
-  `hash_cache.HashCache` sidecar (same path+size+mtime_ns key; tag-set fingerprint; force
-  re-read via `--refresh-metadata` / app checkbox). Known mtime-without-bump limit documented
-  at the cache site. Verify and reclaim still never use it.
-
 - **(v) BK-tree for perceptual dedup - build on the alarm, not before.** The linear scan is
   O(n²) *by decision* (`PERFORMANCE.md` §3): 0.7s at 2,275 images, ~22.6 min at 100k. A BK-tree
   today would be machinery bought before the problem.
@@ -523,62 +376,6 @@ is invisible here is retired, not free.**
     like `DEFAULT_PHASH_THRESHOLD`. VP-tree is the more general metric-space answer and buys
     nothing extra here; LSH is for *approximate* nearest-neighbour at far larger scale and would
     trade away exactness we currently have. `DedupIndex`'s interface was designed for the swap.
-
-- **(aa) Introduce an `Event` value object** (`start`, `slug`, `name`, `id`). **Built
-  2026-07-30.** One object replaces the three parallel dicts (`assignments`, `event_ids`,
-  `names`) that were the root cause of the audit's F1 (missing names): parallel collections is
-  the anti-pattern where each new need adds another array instead of changing the existing
-  type. `apply_events`, `execute`, CLI review, and app `commit` all take `dict[str, Event]`;
-  a member cannot carry a slug without its id/name slot. Optional `name=None` keeps the slug-
-  folder fallback. Golden paths + catalog event rows pinned in `test_event_value_object.py`.
-  Day/sub-day distinction respected - `start` is the cluster timestamp, not a calendar day
-  (see `(ll)`).
-- **(bb) `rule` becomes a `StrEnum`.** **Built 2026-07-30** (input half; output/`Placement`
-  half shipped earlier in Stage 2a). `RuleName` enumerates the seven emitters;
-  `TIMELINE_RULE = RuleName.DEVICE`; `classify` coerces/`assert_never`-matches on the enum so a
-  typo raises instead of silently side-binning. Not a catalog column - no durable string is
-  validated against the enum.
-- **(cc) Collapse `preview()` into `preview_scheme()`.** **Built 2026-07-30.** Dead
-  `preview()` deleted; collision + path-length risk lives once in `_preview_rows`, used by
-  `preview_scheme`. Tests retargeted at the shared helper so the rule cannot diverge.
-- **(dd) Extract `execute()`'s per-file body into named steps.** **Built 2026-07-30** in two
-  commits. Matrix first (`test_execute_matrix.py`): ActionResult sequence + destination tree +
-  catalog `files` + `inplace_moves` for exact-dup, near-dup, undated skip, dry-run, in-place
-  rename, cross-device fallback, Takeout bake, and cancel mid-run (cancel was **new** coverage).
-  Extract Method second: `_write_organized_bytes` -> `_record_organized_file` ->
-  `_journal_or_delete_source` under `_execute_one_write`, order bake/write -> catalog ->
-  journal/delete unchanged; exception boundary and `baker.close()` unchanged. PLR0912/PLR0915
-  suppressions removed (honestly earned); PLR0913 kept (kwargs API).
-- **(ee) Move the pin out of `layout.py`.** **Built 2026-07-30.** The catalog-touching trio
-  (`pin_existing_layout`, `effective_layout_string`, `resolve_scheme`) now lives in
-  `layout_settings.py`, which imports `Catalog` directly. Invented `CatalogLike` Protocol
-  retired. `layout.py` stays pure grammar/routing/rendering.
-- **(ff) Typed payloads at the app boundary.** **Built 2026-07-30** (six slices). `service.py`
-  returns `dict[str, Any]` many times was not theoretical: the `dict(PRESETS)` regression -
-  dataclasses about to be serialized into the API - was invisible to mypy precisely because the
-  return type was `Any`. Boundary is now TypedDicts mirroring JSON exactly; `-> dict[str, Any]`
-  count at the service boundary is zero.
-  - **Slice 1 - Built 2026-07-30:** `LayoutState` / preview / set-layout TypedDicts. `presets`
-    is `dict[str, str]`; mypy rejects `dict(PRESETS)`. Key-set pins in `test_settings_http`.
-  - **Slice 2 - Built 2026-07-30:** organize mode, sidebar, filesystem-relationship leaves.
-  - **Slice 3 - Built 2026-07-30:** reveal + `fs_dirs` / `fs_create` / `fs_validate` (optional
-    keys preserved, including the resolve-failure shape without `is_drive`).
-  - **Slice 4 - Built 2026-07-30:** sync leaves - `organize_inventory`, `clean_empty_*`, `where`,
-    `library_stats`, `library_status`, `backup_preview`, plus `list_drives` / `at_risk` element
-    types. Shared `MediaBreakdown` helper typed; `_completion` / job summaries deferred (fan-out
-    report before typing).
-  - **Slice 5 - Built 2026-07-30:** `CompletionBase` (17 keys), `OrganizeDoneSummary` (plus mode /
-    mechanism / drive_label / single_copy; `leftover_empty_folders` NotRequired), shared
-    `LeftoverEmptyFolders` used by organize + migration apply. `cancelled` is UI-only (commented);
-    `elapsed_seconds` NotRequired - jobs.py injects it on dict summaries (documented boundary).
-  - **Slice 6 - Built 2026-07-30:** remaining job targets and helpers (`_summarize`, organize
-    preview/undo, verify, ingest, backup run, migration preview) typed to zero
-    `-> dict[str, Any]` at the service boundary.
-- **(aab) Split `dates.py`.** **Built 2026-07-30.** Video ladder + offset grid + `LadderHit`
-  moved to `video_utc.py`; inferred-local ``date_tag`` / ``format_offset`` to cycle-free
-  `date_provenance.py`. `models._format_offset_hhmm` / `_parse_offset_hhmm` deleted - both
-  sides share the provenance module. `dates.py` keeps resolve chain, EXIF/filename parsing,
-  and Tier A/B sentinels.
 
 - **GPS-derived per-photo timezone.** Deferred during Takeout Rescue Mode. `--tz` is a single
   fixed offset for the whole run, which cannot correctly date a library that spans timezones;
@@ -654,6 +451,242 @@ is invisible here is retired, not free.**
   the whole corpus zoo** (`.swf`, raw `.hevc`/`.mjpeg` elementary streams are not "photos to back
   up"). Each extension added must have its **category and date handling verified via the corpus
   probe** before inclusion. **Post-launch, demand-driven.**
+
+
+## Approved and built (provenance - do not rebuild)
+
+These were approved here and **are shipped**. They keep their letters, because
+`IMPLEMENTATION_STANDARDS.md` §8 cites `(u)` by letter and a retired letter is not a free one -
+see **Item letters**. They stay in this file rather than moving to **Shipped (kept for
+provenance)** below, which records work that never had a backlog letter.
+
+**Read an entry's own status line, never this heading.** The heading told you these are built;
+only the entry tells you *how much* of it, and two entries elsewhere in this file were found
+recording shipped work as unstarted, which is the more expensive direction of the same mistake.
+
+- **(oo) Long-running actions must show they are running.** Ruled by the maintainer from a soak
+  finding, 2026-07-29, same class as the silent-failure gap fixed in `670ab5d` - that one hid
+  **errors**, this one hides **work**.
+  **Built (2026-07-29).** Core progress through rederive/plan; job-ify of migrate/events/ingest
+  preview; server-side per-drive JobManager lock; reusable `withBusy` UI helper (disable for
+  the duration, re-enable on success/cancel/error) covering job-ified and sync triggers;
+  DriveBusy surfaced as its own message; Playwright e2e for disable/progress/second-click/
+  DriveBusy.
+  - **The finding.** After "Save names" on a 2,057-photo trip over a cloud mount, the preview
+    step (`/api/events/{session}/preview`) took **~3 minutes with zero UI feedback** - no
+    spinner, no progress text, no disabled button. The screen looked frozen. A user in that
+    position will assume it is broken, click the button again, or force-quit mid-operation -
+    the same "did anything happen?" defect the ten soak findings in `PROJECT_STATUS.md` §2.1
+    were made of, just on the *work* axis instead of the *error* axis.
+  - **Root cause, verified in code, not guessed.** Two different mechanisms exist side by side.
+    `organize_preview`/`organize_run`/`verify_run`/`backup_run`/`migrate_run`/
+    `events_apply_to_disk` all go through `jobs.start(...)` - a background job the client polls
+    via `streamJob`/SSE, with a real progress bar (`createProgress`). Everything else is a
+    **plain, blocking request/response** with no progress channel at all:
+    `backup_preview`, `migrate_preview`, `ingest_preview` (Import), `events_propose` (Find
+    trips & events), `events_merge`, `events_split`, `events_apply`, and
+    **`events_preview`** - the exact call this finding is about. Nothing about `events_preview`
+    is special; it simply happens to be the one that runs long enough (a real `migrate.py`
+    plan over 2,057 files on a network mount) to expose that none of this group has ever had a
+    busy state.
+  - **Requirement (met).** Every action that can exceed ~1s must: (1) show busy state on its own
+    trigger the instant it is clicked (disabled/spinner), (2) show a progress or status line
+    naming what is happening **and its scale** ("Planning moves for 2,057 photos…", not just
+    "Working…"), and (3) refuse a second click while the first run is still in flight.
+
+- **(uu) CORRECTNESS: non-Apple videos with only UTC `CreateDate` are filed as local wall-clock.**
+  Ruled by the maintainer from a discovery pass, 2026-07-29. **Built (2026-07-30).** Evidence ladder
+  after Apple `CreationDate`: MakerNotes `TimeZone`, GPS UTC proof (wired, unexercised by
+  corpus), filename+duration (half-hour grid, unique match, ε=3s). `DateSource.INFERRED_LOCAL`
+  + parseable `date_tag`; fallthrough is `CreateDate|not_proven_utc` (treated as local, usually
+  correct - not a defect). Never-silent report names file + before/after + offset. Canon
+  `MVI_2550.MOV` regression pin stays **14:28:39** via `DateTimeOriginal`. Stills untouched.
+  Rung 5 corroboration-only. Mutation tests lock unique-match, duration, half-hour grid, and
+  messenger refusal. **Do not blanket-convert** - cameras often write local into CreateDate.
+  - **The defect (historical).** Video containers store `CreateDate` in UTC per spec; many
+    cameras write local instead. Treating digits as local without evidence mis-dates Android
+    clips ~5.5h early (IST soak); near midnight, wrong day/trip folder.
+  - **Documented trap - do not walk into it:** EXIF `OffsetTime` is modification time, never
+    use it to convert `DateTimeOriginal`.
+
+- **(pp) No in-app undo for a trip/migration apply-to-disk - CLI-only today, and the visible
+  in-app "undo" is the wrong one.** Ruled by the maintainer from a soak finding, 2026-07-29.
+  **Built (2026-07-29).** `GET /api/migrate/undo`, preview/apply jobs through JobManager,
+  durable affordance on Trips and Settings (re-queried on load and after every migration),
+  reusable `typedConfirm` with the word `undo`, refusals surfaced. Reuses `undo_migration`
+  directly - no parallel journal. The `undo-organize` CLI string on the in-place card is a
+  different mechanism and is unchanged.
+  - **The finding.** `migrate.py`'s reversal (`undo_migration`, keyed on
+    `catalog.reversible_migration(drive_uuid)`) exists and works - it is the mechanism behind
+    `truestill migrate-layout <path> --undo` (preview) / `--undo --apply` (typed `undo`
+    confirm) - but it was wired **only into the CLI** (`cli.py`'s `_cmd_migrate_undo`). Nothing
+    in `server.py` exposed it, and nothing in `app.js` linked to it. A user who names trips,
+    applies them to disk from the app, and regrets it had no way back inside the app at all.
+  - **The mismatch is worse than the absence.** The only "undo" string the app shows for
+    in-place organize is still `truestill undo-organize` - a **different** reversal, for a
+    **different** operation (`inplace_runs`/`inplace_moves`), sharing no code with
+    `migrate.py`'s journal. That CLI hint remains; migration undo is now a separate in-app
+    affordance so the two cannot be confused.
+  - **Requirement (met).** Preview first, typed confirm `undo`, refuse changed files out loud,
+    state plainly that only the most recent migration on a drive is reversible, re-query after
+    every migration because supersession has no other signal.
+
+- **(qq) The path on a trip/event completion card's reveal link does not open the folder.**
+  Ruled by the maintainer from a soak finding, 2026-07-29, from a live trip apply.
+  - **Built.** `migration_apply` joins each `file_copies.relative` ancestor onto the connected
+    drive mount before putting it in the reveal `path` field (`_reveal_folder_on_drive`).
+    `/api/reveal` then receives an absolute folder under the drive, not a cwd-relative fragment.
+  - **Audit (same class):** the only other `data-open` / reveal callers are drive cards
+    (`list_drives` path hints - already absolute) and the shared click handler. Find/inventory
+    rows show `relative` as display text only, never as a reveal target. No second site.
+
+- **Empty-folder cleanup (provenance: (rr), (zz), (eee) Commit 4).** **Built**
+  (`7d9830c` + Commit 4 of `(eee)`). One shared capability across move / in-place organize,
+  undo-organize, and trip/migrate apply-to-disk: leftover empty folders are **reported**
+  (count + names) and the same preview + typed-confirm `clean-empty` flow is **offered**,
+  reusing `emptied_directories` / `plan_cleanup` / `run_cleanup`. Folders are never
+  auto-deleted. Do not treat `(rr)` / `(zz)` as separate open work - they closed as this.
+
+- **(ww) Stale absolute path hints after a drive moves.** Ruled by the maintainer from a soak
+  finding, 2026-07-30; **fixed 2026-07-30.** `locate_drive` / `path_is_usable_dir` swallow
+  ``OSError`` (ENOENT, PermissionError, …) and return the drive-correction payload instead.
+  Failed hints are **cleared** (not ignored) so Backups does not re-stat a dead mount every
+  load; Check now / open-folder only appear for live paths. Verify soft-fails the same way
+  migration already did. Identity remains the marker uuid.
+  - Remaining absolute-path / hash-cache portability is **(xx)**, not a re-open of this item.
+
+- **(aaa) Typed confirmations crash with raw `EOFError` in non-interactive runs.** Ruled by
+  the maintainer from the 2026-07-30 maiden voyage: `organize --in-place --apply` aborted with a
+  traceback when stdin was non-interactive (pipe/script/CI).
+  - **Built (`f19a45c`).** Shared `_typed_confirmation` catches `EOFError` and exits with a
+    clear refusal: interactive confirmation is required. Wired to every typed-confirm site:
+    in-place `move`, migrate `move`, migrate-undo `undo`, clean `clean`, permanent
+    `delete forever`, reclaim `delete`.
+
+- **(ccc) Plain-language audit of user-facing copy.** Ruled by the maintainer, 2026-07-30.
+  - **Built 2026-07-30.** Inventory + rewrites across app/CLI help/README (CHANGELOG excluded).
+    Kept `custody` (defined once), kept `catalog` where it names the file, distinguished
+    folder pattern vs saved folder pattern, bridged UI "in this same folder" to `--in-place`,
+    and rewrote errors as plain sentences that still carry what/why/next without scaffold
+    labels. Living-grep guard + allowlist in `test_user_facing_copy.py`.
+
+- **(ddd) Stats view (custody-first).** Ruled by the maintainer, 2026-07-30.
+  - **Built 2026-07-30.** New `Stats` screen in the app with three sections:
+    Custody (photos/videos/size, 2+/1/0-drive counts, per-drive rollup, never-verified),
+    Completeness (undated, timeline-vs-side-bin, near-duplicate flagged), and Shape (by-year,
+    by-format, oldest/newest capture).
+  - **Performance contract kept:** catalog-only aggregate SQL (`service.library_stats` +
+    `Catalog.stats_*`), no file reads, no hashing, no exiftool, no per-file Python loops.
+  - **Actionability:** at-risk and never-verified route to Backups; undated routes to Find and
+    shows sample paths.
+  - **Intentional omission:** exact-duplicate "found" count is not persisted in catalog and is
+    omitted here rather than recomputed by a fresh scan; the UI states this plainly.
+    **That omission is now its own item, `(aaf)`**, with the reason it is (m)-sized: `Resolution`
+    objects die with the job, so there is no row to read later and it needs a new table. Do not
+    treat this bullet as the whole story - `(aaf)` carries the market evidence and the open
+    design questions.
+
+- **(eee) Three organize modes in the app (copy / move / in-place).** Ruled by the maintainer,
+  2026-07-30; CLI modes already proven.
+  - **Built 2026-07-30.** App surfaces Copy / Move / Reorganize in this same folder with
+    mechanism-aware reversibility before typed confirm; durable `undo-organize` affordance;
+    Playwright + mutation coverage. Empty-folder leftovers on these paths are the shared
+    **Empty-folder cleanup** capability (provenance `(rr)` / `(zz)` / Commit 4), not a
+    separate feature.
+
+- **(fff) Collapsible sidebar.** Ruled by the maintainer, 2026-07-30.
+  **Built (2026-07-30).** Hamburger toggle (expanded icon+label / collapsed icon-only rail);
+  required hover **and** focus tooltips when collapsed; persist via catalog setting
+  `ui.sidebar.collapsed` (no localStorage); compact custody pips-only in the rail; keyboard
+  toggle keeps focus; short width transition; Playwright collapse/expand, persistence,
+  tooltips, custody bounds, keyboard; each guard broken once then restored.
+  - Hamburger toggle: expanded = icon+label; collapsed = icon-only narrow rail.
+  - Collapsed **must** show label tooltips on hover **and** focus (not optional polish).
+  - Persist via existing catalog settings key/value - **no** localStorage / new store.
+  - Custody strip adapts when collapsed: compact indicator only; must not reintroduce path
+    overflow in the narrow rail.
+  - Keyboard: toggle focusable/operable; collapsing must not trap or lose focus.
+  - Short width-transition animation only.
+  - Playwright: collapse/expand; persists across reload; tooltips on hover when collapsed;
+    custody stays inside rail; keyboard toggle works. Break each, watch fail, restore.
+
+- **(tt) No fast, no-hashing inventory - progressive disclosure is missing.** Ruled by the maintainer
+  from a soak finding, 2026-07-29, the natural complement to **(ss)**: a user who only wants
+  "how many photos/videos, which formats, how big" has to wait for the full hashing preview to
+  get an answer neither dedup nor dating touches.
+  - **Built 2026-07-29.** `organizer.inventory_source` + `service.organize_inventory` +
+    `POST /api/organize/inventory` return counts by type/extension and total media bytes after
+    the walk + one dedicated `stat` pass - no exiftool, no hashing. UI: **Look inside** shows
+    that card immediately; **Check for duplicates** is the explicit second step that runs the
+    existing full preview job. Size is a dedicated pass (not `compute_hashes._sizes`) so
+    inventory stays off the expensive path; profile evidence puts that `stat` at ~0.3 s on
+    a cloud mount vs ~231 s for exiftool.
+  - **Not the same thing as backlog (r)'s Analyze mode - complementary, likely its precursor.**
+    (r)'s Analyze mode explicitly runs "the existing dry-run engine" for a *richer* report
+    (duplicates, look-alikes, capture-date range) - it is the same expensive pass as preview,
+    with better output, not a cheaper one. (tt) is the tier **before** that.
+
+- **(u) Metadata (exiftool) cache.** **Built 2026-07-29** into the existing
+  `hash_cache.HashCache` sidecar (same path+size+mtime_ns key; tag-set fingerprint; force
+  re-read via `--refresh-metadata` / app checkbox). Known mtime-without-bump limit documented
+  at the cache site. Verify and reclaim still never use it.
+
+- **(aa) Introduce an `Event` value object** (`start`, `slug`, `name`, `id`). **Built
+  2026-07-30.** One object replaces the three parallel dicts (`assignments`, `event_ids`,
+  `names`) that were the root cause of the audit's F1 (missing names): parallel collections is
+  the anti-pattern where each new need adds another array instead of changing the existing
+  type. `apply_events`, `execute`, CLI review, and app `commit` all take `dict[str, Event]`;
+  a member cannot carry a slug without its id/name slot. Optional `name=None` keeps the slug-
+  folder fallback. Golden paths + catalog event rows pinned in `test_event_value_object.py`.
+  Day/sub-day distinction respected - `start` is the cluster timestamp, not a calendar day
+  (see `(ll)`).
+- **(bb) `rule` becomes a `StrEnum`.** **Built 2026-07-30** (input half; output/`Placement`
+  half shipped earlier in Stage 2a). `RuleName` enumerates the seven emitters;
+  `TIMELINE_RULE = RuleName.DEVICE`; `classify` coerces/`assert_never`-matches on the enum so a
+  typo raises instead of silently side-binning. Not a catalog column - no durable string is
+  validated against the enum.
+- **(cc) Collapse `preview()` into `preview_scheme()`.** **Built 2026-07-30.** Dead
+  `preview()` deleted; collision + path-length risk lives once in `_preview_rows`, used by
+  `preview_scheme`. Tests retargeted at the shared helper so the rule cannot diverge.
+- **(dd) Extract `execute()`'s per-file body into named steps.** **Built 2026-07-30** in two
+  commits. Matrix first (`test_execute_matrix.py`): ActionResult sequence + destination tree +
+  catalog `files` + `inplace_moves` for exact-dup, near-dup, undated skip, dry-run, in-place
+  rename, cross-device fallback, Takeout bake, and cancel mid-run (cancel was **new** coverage).
+  Extract Method second: `_write_organized_bytes` -> `_record_organized_file` ->
+  `_journal_or_delete_source` under `_execute_one_write`, order bake/write -> catalog ->
+  journal/delete unchanged; exception boundary and `baker.close()` unchanged. PLR0912/PLR0915
+  suppressions removed (honestly earned); PLR0913 kept (kwargs API).
+- **(ee) Move the pin out of `layout.py`.** **Built 2026-07-30.** The catalog-touching trio
+  (`pin_existing_layout`, `effective_layout_string`, `resolve_scheme`) now lives in
+  `layout_settings.py`, which imports `Catalog` directly. Invented `CatalogLike` Protocol
+  retired. `layout.py` stays pure grammar/routing/rendering.
+- **(ff) Typed payloads at the app boundary.** **Built 2026-07-30** (six slices). `service.py`
+  returns `dict[str, Any]` many times was not theoretical: the `dict(PRESETS)` regression -
+  dataclasses about to be serialized into the API - was invisible to mypy precisely because the
+  return type was `Any`. Boundary is now TypedDicts mirroring JSON exactly; `-> dict[str, Any]`
+  count at the service boundary is zero.
+  - **Slice 1 - Built 2026-07-30:** `LayoutState` / preview / set-layout TypedDicts. `presets`
+    is `dict[str, str]`; mypy rejects `dict(PRESETS)`. Key-set pins in `test_settings_http`.
+  - **Slice 2 - Built 2026-07-30:** organize mode, sidebar, filesystem-relationship leaves.
+  - **Slice 3 - Built 2026-07-30:** reveal + `fs_dirs` / `fs_create` / `fs_validate` (optional
+    keys preserved, including the resolve-failure shape without `is_drive`).
+  - **Slice 4 - Built 2026-07-30:** sync leaves - `organize_inventory`, `clean_empty_*`, `where`,
+    `library_stats`, `library_status`, `backup_preview`, plus `list_drives` / `at_risk` element
+    types. Shared `MediaBreakdown` helper typed; `_completion` / job summaries deferred (fan-out
+    report before typing).
+  - **Slice 5 - Built 2026-07-30:** `CompletionBase` (17 keys), `OrganizeDoneSummary` (plus mode /
+    mechanism / drive_label / single_copy; `leftover_empty_folders` NotRequired), shared
+    `LeftoverEmptyFolders` used by organize + migration apply. `cancelled` is UI-only (commented);
+    `elapsed_seconds` NotRequired - jobs.py injects it on dict summaries (documented boundary).
+  - **Slice 6 - Built 2026-07-30:** remaining job targets and helpers (`_summarize`, organize
+    preview/undo, verify, ingest, backup run, migration preview) typed to zero
+    `-> dict[str, Any]` at the service boundary.
+- **(aab) Split `dates.py`.** **Built 2026-07-30.** Video ladder + offset grid + `LadderHit`
+  moved to `video_utc.py`; inferred-local ``date_tag`` / ``format_offset`` to cycle-free
+  `date_provenance.py`. `models._format_offset_hhmm` / `_parse_offset_hhmm` deleted - both
+  sides share the provenance module. `dates.py` keeps resolve chain, EXIF/filename parsing,
+  and Tier A/B sentinels.
+
 
 **Not doing, and why:** the audit found no inheritance-for-reuse and no deep hierarchies
 anywhere (the only inheritance is `Destination` -> `Local`/`Rclone`, a genuine is-a), so there is
@@ -808,13 +841,24 @@ picking one up must map the combined order before building.
 
 - **Date provenance → honesty → rescue → optional `_original`.** Items: **`(n)`**, **`(ii)`**,
   **`(bbb)` recovery**, and **`(kk)`'s `GPSDateStamp`** (lat/lon on `(kk)` also serves
-  places/map, but the stamp is this program's cross-check). **One program:**
-  1. Persist a durable date-provenance column (schema step shared by all of them).
-  2. Honesty drill-down (`(n)`): provenance mix + explorable "why undated / why this date".
-  3. Rescue (`(ii)`): human-confirmed date (and optional event) that survives migrate/organize.
-  4. Optional `_original` offer (`(bbb)` recovery): same surface, same `human-confirmed` tier -
-     never a parallel tool, never silent substitution.
-  Building any slice alone builds half a screen and pays the schema cost twice.
+  places/map, but the stamp is this program's cross-check). **One program, now partly built -
+  check each step before starting it:**
+  1. ✅ **Done.** Persist a durable date-provenance column: `files.date_source` (**v13**) and
+     `date_tag` (**v14**), written by `record_uploaded`, worded once in `date_explain.py`.
+  2. ✅ **Done, except the drill-down.** Honesty view (`(n)`): the provenance **mix** ships in
+     `service/stats.py`. Clicking a slice through to *which files, and why* does not.
+  3. ◐ **Half done.** Rescue (`(ii)`): the human-confirmed date is stored durably and survives
+     every whole-disk operation (`date_confirmations`, **v15**; obligation O4 tested by name).
+     **`confirm_date` is reachable from 0 routes and 0 CLI commands, by ruling** - no user can
+     perform a rescue yet.
+  4. ☐ **Not started.** Optional `_original` offer (`(bbb)` recovery): same surface, same
+     `human-confirmed` tier - never a parallel tool, never silent substitution.
+
+  Also not started: **`(kk)`'s `GPSDateStamp`** - verified 2026-07-31, the catalog has no
+  latitude/longitude columns and no `GPSDateStamp`, so no part of `(kk)` has landed.
+
+  Building an unbuilt slice alone still builds half a screen; **starting a built one rebuilds a
+  shipped schema.** Steps 1 and 2 read as unstarted in this file until 2026-07-31.
 
 - **Empty-folder leftovers.** Already shipped as one capability - see **Empty-folder cleanup**
   (provenance `(rr)` / `(zz)` / `(eee)` Commit 4).
@@ -840,7 +884,11 @@ picking one up must map the combined order before building.
 > chosen, map a combined order before building - the schema step and the UI surface are each
 > worth paying for once.
 
-- **(m) Duplicate-cleanup staging UX.** A **preview → confirm → trash (with restore)** flow for
+- **(m) Duplicate-cleanup staging UX.** ⚠ **Overlaps `(aag)`** - the visual side-by-side compare
+  described below *is* `(aag)`'s subject. Scope them together or the same review surface gets
+  designed twice; `(aag)` also records why it is deferrable (truestill already keeps and flags
+  near-duplicates, so it is a review surface over correct behaviour, not a correctness gap).
+  A **preview → confirm → trash (with restore)** flow for
   removing duplicates - the validated safe-delete pattern (same spirit as `reclaim`'s dry-run +
   typed confirm, but for dedup). Note the real gap PixSort never closed: truestill's near-duplicate
   review still needs a **visual side-by-side compare** (show the two look-alikes at actual pixels
@@ -899,9 +947,23 @@ picking one up must map the combined order before building.
   - **Positioning:** this is what makes (m) the **Pro-tier crown feature alongside (p)**. The
     safe-delete flow is the table stakes; knowing which copy to keep is the part worth paying
     for.
-- **(n) "How your dates were determined" honesty stat - PRIORITIZED for first post-launch.**
+- **(n) "How your dates were determined" honesty stat - MOSTLY BUILT 2026-07-31.**
   **Part of the date-provenance program** (see **Converged programs**) - do not build this
-  alone. A per-run/library figure in the reports/UI showing the **provenance mix** of capture
+  alone.
+  - **Built:** the durable provenance column (`files.date_source`, schema **v13**, plus
+    `date_tag` at **v14**), `Catalog.stats_date_provenance`, and the honesty view itself, live
+    in the app at `service/stats.py` (`_date_provenance`). `date_explain.py` is the single place
+    a tier becomes a sentence, including the calm **NOT_RECORDED** wording for libraries
+    organized before v13 - which on the maintainer's own 2,300-row catalog is **every row**.
+  - **Still to build:** the *drill-down*. The walkthrough finding below - that a bare count with
+    no way in is what confused a first user - is answered for the **mix**, not yet for the
+    **files**: clicking a slice does not yet list which files are in it and why.
+  - ⚠ **This entry read as unstarted until 2026-07-31**, after the column, migrations and view
+    had all shipped. A cold start would have rebuilt `date_source` from scratch. That is the
+    inverse of `(bb)`'s optimistic marking and the more expensive direction of the two.
+
+  The original description, kept because the requirement it states is still the target: a
+  per-run/library figure in the reports/UI showing the **provenance mix** of capture
   dates - e.g. "82% from embedded EXIF, 11% from filename, 5% from Takeout, 2% Undated" (a
   metadata-accuracy %). truestill already resolves and could persist `date_source` (see the
   metadata-chain §1b.3 schema-v9 note); surfacing it honestly tells a user how much to trust
@@ -976,11 +1038,23 @@ picking one up must map the combined order before building.
   - **Shares the walk-and-classify machinery with `clean-empty`** - both answer "what is on this
     drive that the catalog does not account for", from opposite ends.
 
-- **(ii) Rescue flow for side-bin and undated files.** Ruled by the maintainer from a soak finding, and
-  the finding is the argument: real memories genuinely do sit in `Saved/`, `WhatsApp/` and
-  `Undated/` - a photo someone sent you of a day you were there is still your memory - and
-  **today there is no durable way to move one onto the timeline.** **Part of the date-provenance
-  program** (see **Converged programs**) - do not build this alone.
+- **(ii) Rescue flow for side-bin and undated files - HALF BUILT 2026-07-31.** Ruled by the
+  maintainer from a soak finding, and the finding is the argument: real memories genuinely do sit
+  in `Saved/`, `WhatsApp/` and `Undated/` - a photo someone sent you of a day you were there is
+  still your memory. **Part of the date-provenance program** (see **Converged programs**) - do
+  not build this alone.
+  - **Built - the storage half.** `date_confirmations` (schema **v15**), `Catalog.confirm_date`
+    (one transaction: the durable row plus the `files` update that makes catalog-driven
+    re-render place by the confirmed date) and `Catalog.confirmed_date`. Obligation **O4** is
+    tested against every whole-disk operation by name in `test_confirmation_survives.py`:
+    migrate-layout, re-layout under a different preset, in-place organize, undo-organize, and a
+    re-ingest. The re-ingest case found a real defect - `record_uploaded` reverted a confirmed
+    date while the confirmation sat intact beside it - now fixed and pinned.
+  - **Not built - the surface.** `confirm_date` is reachable from **0 routes and 0 CLI
+    commands**, deliberately: step 3 was ruled catalog-only so a bug in the write path could not
+    cost a correction the user had already made. Nobody can perform a rescue yet.
+  - So the sentence this entry used to open with - *"today there is no durable way to move one
+    onto the timeline"* - is now **half wrong**: the durability exists, the way in does not.
   - **The problem, precisely.** A hand-move is *undone by the next whole-disk operation*. The
     catalog still records the old location and the old, untrusted date, so `migrate-layout`
     re-renders the file straight back to the bin it was rescued from. The user's correction is
