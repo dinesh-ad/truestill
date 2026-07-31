@@ -35,9 +35,12 @@ BACKLOG = Path(__file__).resolve().parents[3] / "docs" / "BACKLOG.md"
 #: Sections whose entries are settled: nothing in them is outstanding work.
 _SETTLED = ("out of scope", "and built")
 
-#: Phrases that assert an item is unfinished. Deliberately narrow - "remains" and "deferred"
-#: are excluded because they legitimately describe a settled item's *reason*, and a guard that
-#: fires on ordinary prose is one someone switches off.
+#: Phrases that assert an item is unfinished. Deliberately narrow, and narrowed **again** on its
+#: first real outing: it flagged `(vv)`'s sentence about a *journal row* still being "pending",
+#: which asserts nothing about any item's status. "pending" is domain vocabulary here -
+#: `Catalog.pending_migration` is an API - so it is gone, alongside "remains" and "deferred",
+#: which legitimately describe a settled item's reasoning. A guard that fires on ordinary prose
+#: is one someone switches off, taking its real coverage with it (§4).
 _PENDING = (
     "is missing",
     "still to build",
@@ -45,7 +48,6 @@ _PENDING = (
     "unbuilt",
     "not yet built",
     "outstanding",
-    "pending",
 )
 
 _ITEM = re.compile(r"- \*\*.*?\((aa[a-z]|[a-z]{1,3})\)")

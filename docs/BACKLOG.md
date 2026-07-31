@@ -87,31 +87,6 @@ section, because what is left is the part that still has to be written.
   - **If it is ever built**, the recorded hash must **stay the source hash**; the verify step is
     an additional check, never a replacement for what is stored.
 
-- **(aah) Migrate could verify against the live copy hash instead of its journal snapshot.**
-  Found 2026-07-31 while closing condition 3 of the date-provenance program. **Record only - do
-  not build. This is a change to crash-safety reasoning, not a tidy-up.**
-  - **The observation.** `_apply_move` compares a relocated file against the `copy_sha256`
-    **snapshotted into `migration_journal` at plan time**. If it compared against the live
-    `file_copies.copy_sha256` instead, a bake that legitimately rewrote the file - updating that
-    column in the same transaction (O1) - would verify against the new value and the migration
-    would proceed. **The window step 4 currently forbids would become harmless rather than
-    refused**, and the refusal in `service/bake.py` could then be deleted.
-  - **Real corruption would still be caught.** Corruption does not update the catalog, so the
-    live column still holds the last hash a legitimate writer recorded and a rotting file still
-    mismatches it. The snapshot is not what provides that protection.
-  - **Why it was NOT taken while closing condition 3 - the part worth keeping.** The snapshot
-    exists so a **resume knows what it expected**: a run interrupted between
-    `record_migration_moves` and the catalog flip must be able to say what the file should have
-    hashed to *at the time the plan was made*. Reading live at resume time asks a subtly
-    different question, on a path that moves a user's only copies. That deserves its own
-    analysis and its own evidence, not a decision taken in passing while unblocking a different
-    feature.
-  - **Open questions for that analysis:** whether any path legitimately changes
-    `file_copies.copy_sha256` *without* the file being re-verified at that moment; what a resume
-    should compare against after a bake landed mid-migration; and whether undo
-    (`reversible_migration`, which walks completed rows and refuses changed files) needs the
-    same treatment or is deliberately different.
-
 - **(aaf) Persisted skip record - "show me what was skipped last week".** Ruled by the
   maintainer, 2026-07-31, from the duplicate-naming gap check. **Record only - do not build.**
   - **What is already done, and what is not.** The *current run* now names every match it
@@ -271,6 +246,13 @@ section, because what is left is the part that still has to be written.
     `server._start_drive_job` keyed on `uuid:<marker uuid>` (pinned by
     `test_every_drive_touching_route_starts_through_the_locked_helper`), so the real exposure
     is CLI-vs-app and CLI-vs-CLI.
+  - **What the residual actually costs, stated so nobody over-corrects for it.** If the check
+    does interleave, migrate compares the relocated file against its journal snapshot, finds the
+    baked bytes, and **raises** - a loud, recoverable stall. `destination.relocate` copies rather
+    than renames, so the file is preserved at its old path with an orphan at the new one and the
+    journal row still pending; nothing is lost. That outcome is *why* `(aah)` was closed rather
+    than built: weakening the comparison to avoid this stall would cost a real check, and the
+    right fix if soak ever shows it biting is the on-disk lock above.
   - **Not fixed here, on purpose** - recorded only, per instruction.
 
 - **(ss) Organize preview hashes every file before showing anything - slow on a network mount.**
@@ -1326,6 +1308,32 @@ rather than assumed.
 
 Not "not yet" -- decided **against**, so the question does not get re-litigated every time a
 neighbouring product ships one. Each would be a reasonable feature in a different product.
+
+- **Migrate verifying against the live copy hash instead of its journal snapshot `(aah)`.**
+  Found 2026-07-31 while closing condition 3 of the date-provenance program. **Decided against
+  2026-07-31**, after the analysis rather than before.
+  - **Live catches no failure the snapshot misses.** On-disk corruption, a partial file from a
+    crash, a half-finished relocate - the snapshot catches every one, and so does live, because
+    corruption never updates the catalog. Every row where live "wins" is a **false alarm
+    avoided, not a detection gained**.
+  - **The snapshot is an independent second record; live collapses to self-consistency.** Two
+    records that must agree catches a class one record checked against itself cannot - a catalog
+    value that drifted from the bytes, or a row that now describes a *different* file after a
+    re-organize. That is the same defect as `(aai)`: **a hash read from the thing it validates
+    is not a check.** It is also what "a resume knows what it expected" buys - a resume finishes
+    a plan made earlier, and must not silently re-derive one.
+  - **Its entire benefit was already bought.** The only realistic source of the false alarm is a
+    bake landing mid-migration, and condition 3 removes it at zero cost to the snapshot: the
+    bake refuses while a migration is journalled and unfinished, re-checked before every file.
+    `(aah)` would trade a real property away for something already secured.
+  - **The hybrid is rejected too.** Accepting the on-disk hash if it matches *either* the
+    journalled or the current value tolerates the bake and still catches corruption - but it
+    reintroduces the self-consistency hole for exactly the case the snapshot exists to cover.
+    *Two records must agree* beats a rule with an escape clause.
+  - ⚠ **Reopening condition, deliberately specific:** evidence that the cross-process race
+    actually bites - a soak run showing a real stall caused by a legitimate bake. Even then the
+    fix is **`(vv)`'s on-disk lock, not weakening the comparison**; the residual and its cost
+    are recorded on `(vv)`.
 
 - **Noting an embedded-metadata conflict against a human-confirmed date `(aaj)`.** The
   "optionally note the embedded conflict" clause of `(bbb)` item 4. **Decided against
