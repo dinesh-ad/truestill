@@ -140,7 +140,16 @@ def migration_preview_run(path: Path, db: Path) -> JobTarget | DriveUnavailableP
 
     def target(progress: ProgressCallback, cancel: threading.Event) -> MigrationPreviewOk:
         result = migration_preview(path, db, progress=progress, cancel=cancel)
-        assert result["ok"] is True  # marker gated above; soft-fail already returned
+        if result["ok"] is not True:
+            # The gate above ran at REQUEST time; this runs later on a worker thread, and
+            # migration_preview re-reads the marker itself - so a drive unplugged in between
+            # makes it return the soft-fail payload it is designed to return. This was an
+            # `assert`, which narrowed the union for mypy and, when the narrowing turned out
+            # false, converted that payload into an AssertionError: no message, not in the UI's
+            # FRIENDLY_ERRORS, rendered as an empty banner. Raising the same typed error the
+            # sibling paths raise (migration_apply, backup_run) gets the user a next step, and
+            # unlike an assert it cannot be stripped by `python -O` (audit F20).
+            raise not_a_drive(path)
         return result
 
     return target
