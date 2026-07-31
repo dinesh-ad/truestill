@@ -17,7 +17,16 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import platformdirs
+from truestill_core.app_paths import (
+    APP_NAME,
+    CATALOG_FILENAME,
+    LEGACY_CATALOG_PATH,
+    cache_path_for,
+    default_catalog_path,
+)
 from truestill_core.catalog import Catalog
+from truestill_core.catalog_move import CatalogMoveOutcome, move_catalog_to_standard
 from truestill_core.catalog_startup import (
     DEFAULT_CATALOG_PATH,
     CatalogPresence,
@@ -348,6 +357,15 @@ def _build_parser() -> argparse.ArgumentParser:
     status = sub.add_parser("status", help="show files that exist on only one drive (3-2-1)")
     status.add_argument("--db", type=Path, default=_DEFAULT_DB, help="path to the catalog file")
 
+    catalog_cmd = sub.add_parser(
+        "catalog", help="show where truestill keeps its catalog, and optionally move it"
+    )
+    catalog_cmd.add_argument(
+        "--move",
+        action="store_true",
+        help="copy a catalog still in reports/ to the standard location for this system",
+    )
+
     config = sub.add_parser(
         "config", help="show or change this catalog file's destination folder pattern"
     )
@@ -541,6 +559,32 @@ def _cmd_verify(args: argparse.Namespace) -> int:
             print(f"  {result.status.value.upper():<10} {result.copy.relative}{suffix}")
     print("\n  (read-only: truestill never repairs; re-copy the source to restore a bad file.)")
     return 1 if (counts.get("missing") or counts.get("mismatch") or counts.get("unreadable")) else 0
+
+
+def _cmd_catalog(args: argparse.Namespace) -> int:
+    """Say where the catalog is, and on ``--move`` copy a legacy one to the standard location.
+
+    Read-only without the flag, because "which catalog am I actually using?" is a question worth
+    being able to ask on its own - it is the same thing the startup banner announces.
+    """
+    standard = Path(platformdirs.user_data_dir(APP_NAME)) / CATALOG_FILENAME
+    current = default_catalog_path()
+    if not args.move:
+        print(f"Catalog in use : {current}")
+        print(f"Standard place : {standard}")
+        print(f"Cache          : {cache_path_for(current)}")
+        if current != standard:
+            print("\n  This catalog is in the old location. To copy it to the standard place:")
+            print("      truestill catalog --move")
+        return 0
+
+    result = move_catalog_to_standard(LEGACY_CATALOG_PATH, standard)
+    print(result.detail)
+    if result.outcome is CatalogMoveOutcome.DESTINATION_EXISTS:
+        return 2
+    if result.outcome is CatalogMoveOutcome.SYMLINK_REFUSED:
+        return 2
+    return 0
 
 
 def _cmd_status(args: argparse.Namespace) -> int:
@@ -1741,6 +1785,7 @@ def main(argv: list[str] | None = None) -> int:
         "where": _cmd_where,
         "verify": _cmd_verify,
         "status": _cmd_status,
+        "catalog": _cmd_catalog,
         "config": _cmd_config,
         "clean-empty": _cmd_clean_empty,
         "migrate-layout": _cmd_migrate_layout,
