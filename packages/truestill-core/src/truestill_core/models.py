@@ -64,6 +64,8 @@ class RuleName(StrEnum):
 class DateSource(StrEnum):
     """Where a file's capture date was recovered from, best to worst.
 
+    ``HUMAN_CONFIRMED`` is above all of them and is never machine-derived; see
+    :meth:`truestill_core.catalog.Catalog.confirm_date`.
     ``EXIF`` and ``TAKEOUT`` (Google's ``photoTakenTime``) are trusted. ``TAKEOUT_UPLOAD``
     (Google's ``creationTime``, i.e. when it was uploaded) and ``FILENAME`` are approximate
     and flagged for review. ``NONE`` means no date evidence -> ``Undated/``.
@@ -79,6 +81,10 @@ class DateSource(StrEnum):
     and rejected, rather than leaving the user to assume the file never had one.
     """
 
+    #: A person told truestill this date. Outranks every machine tier, permanently: the
+    #: resolver never overrides it and no later evidence demotes it. Stored in
+    #: ``date_confirmations``, which survives the operations that rewrite ``files``.
+    HUMAN_CONFIRMED = "human_confirmed"
     EXIF = "exif"
     TAKEOUT = "takeout"  # photoTakenTime -- authoritative capture time
     TAKEOUT_UPLOAD = "takeout_upload"  # creationTime -- upload time, approximate

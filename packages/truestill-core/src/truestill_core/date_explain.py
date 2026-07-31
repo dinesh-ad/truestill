@@ -48,6 +48,13 @@ NOT_RECORDED = DateExplanation(
 )
 
 _EXPLANATIONS: dict[DateSource, DateExplanation] = {
+    DateSource.HUMAN_CONFIRMED: DateExplanation(
+        label="You confirmed this date",
+        detail=(
+            "Someone told truestill when this was taken, and that answer wins over anything the "
+            "file says. It stays put through every later reorganize."
+        ),
+    ),
     DateSource.EXIF: DateExplanation(
         label="From the photo's own data",
         detail="The camera recorded when the photo was taken, and truestill used that.",

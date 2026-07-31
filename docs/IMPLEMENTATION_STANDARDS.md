@@ -231,14 +231,14 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
 ## 3. Data contract (catalog)
 
 - **Single SQLite file**, stdlib `sqlite3` (`catalog.py::Catalog`). No server.
-- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 14`**.
+- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 15`**.
   Migrations are ordered, idempotent functions in `_MIGRATIONS`; a catalog newer than the code
   is refused (`CatalogVersionError`). Migration coverage tested in `tests/test_catalog.py`.
 - **Table inventory (v12):** `files`, `albums`, `file_albums`, `events`, `skipped_clusters`,
   `drives`, `file_copies`, `settings`, `migration_journal`, `reclaim_journal`,
   `inplace_runs`, `inplace_moves`, `migration_runs`, `trips`, `trip_days`.
   v13 and v14 add no table: they are the columns `files.date_source` and
-  `files.date_tag` (the tier, and the evidence behind it).
+  `files.date_tag` (the tier, and the evidence behind it). v15 adds `date_confirmations`.
 - **Migration ledger:** v2 `size`, v3 `original_name`, v4 event tables (`events` +
   `skipped_clusters` + `files.event_id`), v5 Takeout (`files.copy_sha256` + `albums` +
   `file_albums`), v6 drive identity (`drives` + `file_copies`), v7 key/value `settings`

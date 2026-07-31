@@ -19,6 +19,8 @@ from pathlib import Path
 from types import TracebackType
 from typing import Self
 
+from truestill_core.models import DateSource
+
 # Current catalog schema, created whole for a fresh database. Its version is
 # CURRENT_SCHEMA_VERSION; older databases are brought up to it by _MIGRATIONS.
 _SCHEMA = """
@@ -181,10 +183,16 @@ CREATE TABLE IF NOT EXISTS trip_days (
     day     TEXT PRIMARY KEY,
     trip_id INTEGER NOT NULL REFERENCES trips(id)
 );
+CREATE TABLE IF NOT EXISTS date_confirmations (
+    sha256       TEXT PRIMARY KEY,
+    captured_at  TEXT NOT NULL,
+    confirmed_at TEXT NOT NULL,
+    confirmed_by TEXT
+);
 """
 
 #: Bump whenever the schema changes, and add a matching entry to _MIGRATIONS.
-CURRENT_SCHEMA_VERSION = 14
+CURRENT_SCHEMA_VERSION = 15
 
 
 class CatalogVersionError(RuntimeError):
@@ -369,6 +377,31 @@ def _add_date_tag_column(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE files ADD COLUMN date_tag TEXT")
 
 
+def _add_date_confirmations(conn: sqlite3.Connection) -> None:
+    """v14 -> v15: human date confirmations, in their **own table** keyed on content.
+
+    Deliberately not a column on ``files``. ``forget_organized`` deletes the ``files`` row when
+    an undo removes the last copy - correct, because that table is the dedup index and a row
+    left behind makes restored content look organized. But a confirmation is not a record of
+    *organization*, it is the user's own contribution about *content*, and it must outlive every
+    operation that rearranges where that content lives. A column would have been deleted by the
+    first `undo-organize`, which is exactly the failure (ii) exists to prevent.
+
+    Keyed on ``sha256`` for the same reason (z) hash-keys its manifest: content identity survives
+    rename, migrate, re-layout and in-place organize; a path does not.
+    """
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS date_confirmations (
+            sha256       TEXT PRIMARY KEY,
+            captured_at  TEXT NOT NULL,
+            confirmed_at TEXT NOT NULL,
+            confirmed_by TEXT
+        );
+        """
+    )
+
+
 def _add_date_source_column(conn: sqlite3.Connection) -> None:
     """v12 -> v13: persist which tier a file's capture date came from.
 
@@ -448,6 +481,7 @@ _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (12, _add_trip_tables),
     (13, _add_date_source_column),
     (14, _add_date_tag_column),
+    (15, _add_date_confirmations),
 )
 
 
@@ -817,6 +851,42 @@ class Catalog:
                 (run_id,),
             )
         )
+
+    def confirm_date(
+        self, sha256: str, captured_at: str, *, confirmed_by: str | None = None
+    ) -> None:
+        """Record a human-confirmed capture date for content, and apply it to its file row.
+
+        Two writes, one transaction, and the pairing is the point. The confirmation table is the
+        durable record - it survives an undo that deletes the ``files`` row. The ``files`` update
+        is what makes every catalog-driven re-render (migrate-layout, a preset change) place the
+        file by the confirmed date instead of the evidence it was originally filed under, which
+        is (ii)'s actual requirement: a rescue that a later whole-disk operation reverts has not
+        happened.
+
+        Re-confirming the same content overwrites: a person is allowed to change their mind, and
+        the newest human answer is the answer. **O(1)**, two indexed writes.
+        """
+        with self._tx() as conn:
+            conn.execute(
+                "INSERT INTO date_confirmations (sha256, captured_at, confirmed_at, confirmed_by)"
+                " VALUES (?, ?, ?, ?) ON CONFLICT(sha256) DO UPDATE SET"
+                " captured_at = excluded.captured_at, confirmed_at = excluded.confirmed_at,"
+                " confirmed_by = excluded.confirmed_by",
+                (sha256, captured_at, _now(), confirmed_by),
+            )
+            conn.execute(
+                "UPDATE files SET captured_at = ?, date_source = ?, date_tag = NULL"
+                " WHERE sha256 = ?",
+                (captured_at, DateSource.HUMAN_CONFIRMED.value, sha256),
+            )
+
+    def confirmed_date(self, sha256: str) -> str | None:
+        """The human-confirmed capture date for content, or ``None``. **O(1)** on the key."""
+        row = self._conn.execute(
+            "SELECT captured_at FROM date_confirmations WHERE sha256 = ?", (sha256,)
+        ).fetchone()
+        return str(row["captured_at"]) if row is not None else None
 
     def forget_organized(self, sha256: str, drive_uuid: str | None) -> None:
         """Forget that content was organized: drop this drive's copy, and the file row with it
@@ -1507,6 +1577,20 @@ class Catalog:
                     date_source,
                     date_tag,
                 ),
+            )
+            # A human confirmation outranks machine derivation permanently, so an ordinary
+            # re-run must not quietly undo one. `record_uploaded` upserts and refreshes
+            # date_source, which is right for every other row and exactly wrong for a confirmed
+            # one - measured: without this, a re-ingest reverted a confirmed 2011 date to the
+            # 2014 filename evidence, and the next migrate-layout would have re-rendered the
+            # file back. Same transaction, one indexed lookup on the primary key.
+            conn.execute(
+                "UPDATE files SET captured_at = ("
+                "  SELECT captured_at FROM date_confirmations WHERE sha256 = files.sha256"
+                "), date_source = ?, date_tag = NULL"
+                " WHERE sha256 = ?"
+                " AND EXISTS (SELECT 1 FROM date_confirmations WHERE sha256 = ?)",
+                (DateSource.HUMAN_CONFIRMED.value, sha256, sha256),
             )
             row = conn.execute("SELECT id FROM files WHERE sha256 = ?", (sha256,)).fetchone()
             file_id = int(row["id"])
