@@ -71,32 +71,42 @@ section, because what is left is the part that still has to be written.
     belongs on the honesty view or only on the file's own row; and whether "the file disagrees"
     is even worth saying once the user has been told their answer wins everywhere.
 
-- **(aai) The plain copy path records the hash of what was SENT, not what landed.** Found
-  2026-07-31 while establishing O1's read-back rule for the date bake. **Record only - do not
-  fix inside the date-provenance program.**
-  - **The observation.** `organizer._upload_with_metadata_write` computes
-    ``copy_sha = sha256_file(staged)`` from the **local staged copy**, then calls
-    `destination.upload(...)`; `_record_organized_file` stores that value as
-    ``file_copies.copy_sha256``. The destination is never re-read on an ordinary copy. §1's
-    "copy → record → re-verify" ordering describes `--move`, where `_move_source` does re-hash
-    the destination before deleting a source - the plain copy has no equivalent step.
-  - **Why it is usually harmless, stated so nobody over-reacts.** `shutil.copy2` to a local disk
-    that returns without error has written the bytes. The recorded hash is then correct, and
-    `verify` re-reads the file later anyway - a bad write surfaces as MISMATCH the first time
-    anyone verifies, which is what verify is for.
-  - **Where it is not harmless: network and FUSE mounts**, where a destination can be visible
-    before it has settled and an `upload` can return before the bytes are durable at the far
-    end. There, "the hash of what we sent" and "the hash of what is there" are different claims,
-    and only the second is what `verify` will check against. This is the same reasoning that
-    made the date bake read back from the drive file (`service/bake.py`, O1).
-  - **Why it was NOT fixed inside step 4.** It is a change to the *organize* write path, which
-    every run uses, on a claim about a mount class not currently measured. Folding it into a
-    date-rescue commit would put an unrelated change to the product's busiest write path behind
-    a feature flag nobody would think to look under.
-  - **Open questions:** whether a post-upload `destination.checksum` is affordable on the copy
-    path at 40,000 files (it is a second full read per file, so probably not unconditionally);
-    whether it should apply only to non-local destinations; and whether `Destination` should
-    expose "has this settled" rather than the caller guessing.
+- **(aai) The plain copy path does not verify at write time.** Recorded 2026-07-31, and
+  **re-scoped 2026-07-31 after the original reasoning was found to be wrong.** **DEFERRED with
+  the cost stated - not an open item awaiting work.**
+  - ⚠ **The original entry was wrong, and its "fix" would have been a regression.** It said the
+    path records "the hash of what was sent, not what landed", and proposed re-reading the
+    destination so the recorded hash described the bytes that actually arrived. That is
+    backwards. `verify` compares **the file on disk against the recorded hash**, so:
+    - recording the **source** hash (what ships) means a truncated or half-flushed copy
+      **fails** verify - the user is correctly told that copy is bad;
+    - recording **what landed** would have `verify` compare a file against a hash taken from
+      *that same file*. It would **pass**. A corrupted copy would be blessed VERIFIED, forever.
+
+    So the change would have made verify **tautological on the copy path** and destroyed the
+    protection it exists to give. It is recorded here rather than quietly replaced because it
+    would have looked like an obvious improvement to whoever picked it up - and because it is
+    the bake's reasoning applied where it does not belong: a bake needs the landed hash
+    *because it deliberately changes the bytes and no source-truth claim survives*; a plain copy
+    has a source, and the source is the truth.
+  - **What the real gap is: detection latency, not correctness.** `organizer._upload_copy`
+    writes and returns nothing, and `copy_sha` is the source hash. Nothing re-reads the
+    destination, so §1's `copy -> record -> re-verify` ordering - which `_move_source` really
+    does perform for `--move` - has no equivalent on the plain copy path. A bad write is
+    reported as `organized` and is discovered **at the next `verify`, rather than never**. The
+    copy is protected either way; what is missing is catching it at the moment it happens.
+  - **Why it is deferred rather than open.** Two measured constraints, both of which make this a
+    design exercise rather than a fix:
+    - **Cost:** a full re-read of every written file. Proxy measurement from the attach work -
+      ~6.3 s per 6.2 GB local, ~22 s on a cloud FUSE mount - which is roughly **30-50% on the
+      copy phase of every organize**, paid always, to shorten the detection window for something
+      already detected.
+    - **It cannot be unconditional:** `RcloneDestination` has **no `checksum`** and the base
+      raises `DestinationError`. So a post-write verify either skips silently on rclone - a new
+      silent hole, which is worse than the one being closed - or needs its own
+      UNVERIFIABLE-style outcome plumbed through the organize report. That is design.
+  - **If it is ever built**, the recorded hash must **stay the source hash**; the verify step is
+    an additional check, never a replacement for what is stored.
 
 - **(aah) Migrate could verify against the live copy hash instead of its journal snapshot.**
   Found 2026-07-31 while closing condition 3 of the date-provenance program. **Record only - do
