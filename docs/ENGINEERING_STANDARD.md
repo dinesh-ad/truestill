@@ -261,6 +261,11 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   **The requirement: assert BOTH that the mutant is the loaded code AND that the mutation is
   present in that loaded source, before trusting the result.**
 
+  A mutation can also be *correct* and still do harm - it is the one case in this family that
+  does not fail in the reassuring direction. See the isolation rule below: **mutating a guard
+  can disable the isolation that guard provides**, so a proof of a path-resolution bug runs the
+  very code that ignores the redirect.
+
   * *Identity:* `assert str(mutant_root) in module.__file__` for an imported module, the
     equivalent for anything else; for a subprocess, print the resolved path and check it.
   * *Presence:* assert the change is actually there - `assert "<the removed line>" not in
@@ -331,6 +336,33 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
      One trap in the technique itself: the copy has no `.git`, so every guard that enumerates
      via `git ls-files` fails with exit 128 and looks like a real regression. Run `git init -q .
      && git add -A && git commit` in the copy before trusting its result.
+
+  **Isolation has now failed three times, from three different directions.** That is what
+  decides the shape of the check.
+
+  1. *The import-time constant.* The default was frozen at import, so no override could reach it
+     and no test could isolate it. Real catalogs were written on two CI runners and one
+     developer machine.
+  2. *The shared temporary root.* A test that **creates** the standard catalog wrote into the
+     session-wide redirected root. Isolation from the real home held perfectly; isolation
+     between tests did not, and every later test asserting "No catalog yet" failed depending on
+     the order it ran in.
+  3. *The mutation proof itself.* Proving the `catalog` command ignored `TRUESTILL_DATA_DIR`
+     meant **running the code that ignores it**. The redirect was in place and irrelevant: the
+     mutant did not consult it, and the run wrote a real 160 KB catalog into
+     `~/.local/share/Truestill`. The proof was valid; the side effect was not.
+
+  Each one arrived somewhere the previous fix did not cover, and the third was produced *by the
+  act of verifying the second*. So the standing check is not "remember to isolate" - that is
+  what failed each time - but:
+
+  > **Verify the real location is untouched.** Before and after any mutation of a
+  > path-resolution or isolation mechanism, look at the actual OS directory. `ls` it; note
+  > whether it existed and when it was last written.
+
+  A mutation deliberately removes a safety property, and the isolation the suite depends on may
+  *be* that property. Assume the redirect does not hold while the mutant is loaded, and confirm
+  by looking rather than by reasoning - reasoning is what produced all three.
 
      *Second occurrence, two hours later, and what promotes this from anecdote to rule.* The
      next CI failure was lint, and local was green again - this time because of a **gitignored
