@@ -33,6 +33,8 @@ from pathlib import Path
 
 import pytest
 import uvicorn
+from app_support import ImmediateThread, StubServer
+from truestill_app import __main__ as entry
 from truestill_app.__main__ import main, uvicorn_log_config
 
 
@@ -83,14 +85,16 @@ def test_startup_reaches_the_server_without_a_console(
 ) -> None:
     """End to end through `main`, stopping where the real process would block on the socket."""
     _no_console(monkeypatch)
-    served: dict[str, object] = {}
-    monkeypatch.setattr(uvicorn, "run", lambda app, **kw: served.update(kw, app=app))
+    StubServer.instances.clear()
+    monkeypatch.setattr(entry.uvicorn, "Server", StubServer)
+    monkeypatch.setattr(entry.threading, "Thread", ImmediateThread)
 
     code = main(["--db", str(tmp_path / "c.sqlite"), "--no-browser"])
 
     assert code == 0
-    assert served, "the server was never reached"
-    assert served["log_config"] == uvicorn_log_config(), "uvicorn's tty-sniffing default was used"
+    assert StubServer.instances, "the server was never reached"
+    config = StubServer.instances[-1].config
+    assert config.log_config == uvicorn_log_config(), "uvicorn's tty-sniffing default was used"
 
 
 def test_a_console_still_gets_its_log_output(monkeypatch: pytest.MonkeyPatch) -> None:

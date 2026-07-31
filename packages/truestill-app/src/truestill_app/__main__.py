@@ -11,6 +11,7 @@ import argparse
 import socket
 import sys
 import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -29,9 +30,15 @@ from truestill_app.server import create_app
 _HOST = "127.0.0.1"
 _DEFAULT_PORT = 7357
 
-#: Grace before the browser is pointed at the server. Replaced by a real readiness signal in
-#: the commit that fixes the race; kept here so adding the URL file does not change timing.
-_BROWSER_DELAY_SECONDS = 0.5
+#: Pending-connection queue depth for the listening socket. Only ever one browser, but the
+#: kernel default varies and a named constant is cheaper than wondering.
+_BACKLOG = 128
+
+#: How often readiness is re-checked, and how long to wait before giving up on the server ever
+#: starting. A poll interval, not a guess at startup time - the difference from the timer this
+#: replaced is that nothing is assumed about how long binding takes.
+_READY_POLL_SECONDS = 0.02
+_READY_TIMEOUT_SECONDS = 30.0
 
 
 def uvicorn_log_config() -> dict[str, Any]:
@@ -107,16 +114,56 @@ def _attempt_browser(url: str, written: Path) -> None:
     _say(f"Could not open a browser. The address is in {written}", error=True)
 
 
-def _choose_port(preferred: int) -> int:
-    """Return ``preferred`` if free, else an OS-assigned ephemeral port."""
+def bind_listening_socket(preferred: int) -> socket.socket | None:
+    """A socket bound and **listening** on ``preferred``, else an ephemeral port, else ``None``.
+
+    Listening here rather than leaving it to uvicorn is what removes the browser race. From the
+    moment ``listen`` returns, the kernel **queues** incoming connections until uvicorn calls
+    ``accept`` - so a browser opened now waits rather than being refused. Measured: a connect to
+    a listening socket nobody has accepted yet succeeds.
+
+    It also closes a second race that was never noticed. The previous version bound a socket to
+    discover a free port, **closed it**, and let uvicorn bind again - leaving a window in which
+    another process could take the port truestill had just announced. The socket is now held
+    from discovery until it is handed over.
+
+    ``None`` means neither the requested port nor any ephemeral one could be bound, which is a
+    reason not to start rather than something to work around.
+    """
     for candidate in (preferred, 0):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            try:
-                sock.bind((_HOST, candidate))
-                return int(sock.getsockname()[1])
-            except OSError:
-                continue
-    return 0
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            sock.bind((_HOST, candidate))
+            sock.listen(_BACKLOG)
+        except OSError:
+            sock.close()
+            continue
+        return sock
+    return None
+
+
+def open_when_ready(server: Any, url: str, written: Path) -> None:
+    """Open the browser once ``server`` reports itself started, and not before or otherwise.
+
+    **Not uvicorn's ASGI startup hook, which is not the guarantee it looks like.**
+    ``Server.startup`` awaits ``lifespan.startup()`` *before* creating any socket, so a connect
+    from inside that hook is refused. Using it would have traded the timer for a second race
+    wearing a more reassuring name.
+
+    ``server.started`` is set after the listening sockets are in place - the same signal
+    `tests/e2e/conftest.py` waits on. Polling it is a *readiness wait*, not a guess at how long
+    startup takes, which is the difference between this and the timer it replaces.
+
+    If the server exits or never comes up, the browser is **not** opened: a window pointing at
+    an app that failed to start shows a broken page and blames the wrong thing.
+    """
+    deadline = time.monotonic() + _READY_TIMEOUT_SECONDS
+    while not server.started:
+        if server.should_exit or time.monotonic() > deadline:
+            return
+        time.sleep(_READY_POLL_SECONDS)
+    _attempt_browser(url, written)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -137,8 +184,18 @@ def main(argv: list[str] | None = None) -> int:
     for line in format_startup_lines(info):
         _say(line, error=info.presence is CatalogPresence.EMPTY_WITH_DRIVES)
 
+    sock = bind_listening_socket(args.port)
+    if sock is None:
+        # No socket, no app. Nothing is announced and no URL file is written, so nothing is
+        # left claiming an address that was never served.
+        _say(
+            f"Could not listen on {_HOST}. Is another copy of Truestill already running?",
+            error=True,
+        )
+        return 1
+
     token = new_token()
-    port = _choose_port(args.port)
+    port = int(sock.getsockname()[1])
     url = f"http://{_HOST}:{port}/?token={token}"
     app = create_app(token=token, db=db, explicit_db=explicit_db)
 
@@ -146,14 +203,14 @@ def main(argv: list[str] | None = None) -> int:
     # Before the browser is attempted, never after: a failed open must still leave a way in.
     written = session_link.write(url)
 
+    server = uvicorn.Server(
+        uvicorn.Config(app, host=_HOST, port=port, log_config=uvicorn_log_config())
+    )
     if not args.no_browser:
-        # Still deferred, still a timer. Opening it synchronously here would guarantee the
-        # browser reached a port uvicorn has not bound yet - the race is real and is fixed on
-        # its own, not by quietly making it worse while adding the file.
-        threading.Timer(_BROWSER_DELAY_SECONDS, _attempt_browser, (url, written)).start()
+        threading.Thread(target=open_when_ready, args=(server, url, written), daemon=True).start()
 
     try:
-        uvicorn.run(app, host=_HOST, port=port, log_config=uvicorn_log_config())
+        server.run(sockets=[sock])
     finally:
         # Also on crash and on Ctrl-C: a file that outlives its process is a link that fails
         # confusingly tomorrow, against a port that is dead or, worse, answering for someone

@@ -29,7 +29,7 @@ import sys
 from pathlib import Path
 
 import pytest
-import uvicorn
+from app_support import ImmediateThread, StubServer
 from starlette.testclient import TestClient
 from truestill_app import __main__ as entry
 from truestill_app import session_link
@@ -37,35 +37,12 @@ from truestill_app.__main__ import main
 from truestill_app.server import create_app
 
 
-class _ImmediateTimer:
-    """Runs the scheduled call at once, in this thread.
-
-    The launch path defers the browser by a timer so it does not race the server. Waiting on a
-    real 0.5s thread here would make these tests slow and flaky for no gain: what is under test
-    is *what happens when the attempt runs*, not when it runs. The delay itself is the subject
-    of the race fix, and is asserted there.
-    """
-
-    def __init__(self, _delay: float, function: object, args: tuple[object, ...] = ()) -> None:
-        self._call = (function, args)
-
-    def start(self) -> None:
-        function, args = self._call
-        function(*args)  # type: ignore[operator]
-
-
 @pytest.fixture(autouse=True)
-def _run_timers_immediately(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(entry.threading, "Timer", _ImmediateTimer)
-
-
-def _run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, **kwargs: object) -> dict[str, object]:
-    """Drive `main` up to the point the real process would block on the socket."""
-    served: dict[str, object] = {}
-    monkeypatch.setattr(uvicorn, "run", lambda app, **kw: served.update(kw, app=app))
-    argv = ["--db", str(tmp_path / "c.sqlite"), *(kwargs.get("argv") or [])]
-    served["code"] = main(argv)
-    return served
+def _deterministic_launch(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No real server, and no real thread - see `app_support` for why both are stubbed."""
+    StubServer.instances.clear()
+    monkeypatch.setattr(entry.uvicorn, "Server", StubServer)
+    monkeypatch.setattr(entry.threading, "Thread", ImmediateThread)
 
 
 def test_the_url_file_is_written_before_the_browser_is_attempted(
@@ -73,7 +50,6 @@ def test_the_url_file_is_written_before_the_browser_is_attempted(
 ) -> None:
     """The ordering is the whole point: a failed open must still leave the file behind."""
     existed: list[bool] = []
-    monkeypatch.setattr(uvicorn, "run", lambda app, **kw: None)  # noqa: ARG005
     monkeypatch.setattr(
         session_link,
         "open_browser",
@@ -100,7 +76,6 @@ def test_the_file_holds_the_session_url_including_its_token(
         seen["file"] = session_link.path().read_text()
         return True
 
-    monkeypatch.setattr(uvicorn, "run", lambda app, **kw: None)  # noqa: ARG005
     monkeypatch.setattr(session_link, "open_browser", capture)
 
     main(["--db", str(tmp_path / "c.sqlite")])
@@ -175,7 +150,6 @@ def test_the_file_is_removed_when_the_app_exits(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A file that outlives its process is a link that fails confusingly the next day."""
-    monkeypatch.setattr(uvicorn, "run", lambda app, **kw: None)  # noqa: ARG005
     monkeypatch.setattr(session_link, "open_browser", lambda url: True)  # noqa: ARG005
 
     main(["--db", str(tmp_path / "c.sqlite")])
@@ -189,10 +163,11 @@ def test_the_file_is_removed_even_when_the_server_dies(
     """Crashes are exactly when a stale file would be left, so the cleanup cannot be on the
     happy path only."""
 
-    def boom(_app: object, **_kw: object) -> None:
-        raise KeyboardInterrupt
+    class _Dying(StubServer):
+        def run(self, **_kwargs: object) -> None:
+            raise KeyboardInterrupt
 
-    monkeypatch.setattr(uvicorn, "run", boom)
+    monkeypatch.setattr(entry.uvicorn, "Server", _Dying)
     monkeypatch.setattr(session_link, "open_browser", lambda url: True)  # noqa: ARG005
 
     with pytest.raises(KeyboardInterrupt):
@@ -205,7 +180,6 @@ def test_a_failed_browser_open_tells_the_user_where_the_url_is(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """`webbrowser.open` returns False when it finds no browser; discarding that was the bug."""
-    monkeypatch.setattr(uvicorn, "run", lambda app, **kw: None)  # noqa: ARG005
     monkeypatch.setattr(session_link, "open_browser", lambda url: False)  # noqa: ARG005
 
     main(["--db", str(tmp_path / "c.sqlite")])
