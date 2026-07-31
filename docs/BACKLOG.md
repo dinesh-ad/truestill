@@ -26,7 +26,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aak). Next free: (aal).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aal). Next free: (aam).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -49,27 +49,6 @@ section, because what is left is the part that still has to be written.
   says prefer deleting a copy to guarding two, so the fix is one shared helper in core that the
   app calls, not a parity test over the pair. Small, and worth doing the next time either is
   touched rather than as its own errand.
-
-- **(aaj) Note an embedded-metadata conflict against a human-confirmed date.** The unbuilt half
-  of `(bbb)` item 4, recorded 2026-07-31 when step 6 closed the rest. **Record only.**
-  - **What is missing.** A human confirmation wins everywhere and is pinned to survive every
-    whole-disk operation - that half is done. What does not exist is *"note the embedded conflict
-    (never silent)"*: nothing tells a user that the photo's own metadata still says something
-    different from what they confirmed. Today the only visible disagreement is a `_original`
-    sidecar's, surfaced as an offer.
-  - **Why it is not free.** `confirm_date` sets ``date_tag = NULL`` deliberately - the machine's
-    evidence no longer explains the date - so the prior claim is **discarded**. Surfacing a
-    conflict therefore means either keeping the superseded evidence (a schema decision: a column
-    that exists only to be disagreed with) or re-reading the file, which is an I/O pass on a
-    screen that is currently catalog-only and fast.
-  - ⚠ **Inherited trap, stated so it is not rediscovered the hard way.** The comparison must be
-    against **recorded provenance**, never the file's current embedded metadata. After a bake the
-    organized copy carries the confirmed date while the **source** still carries the old one, so
-    a live-metadata comparison would make every rescued-and-baked file report a conflict with
-    itself, permanently. This is the reason the clause was left half-built rather than guessed at.
-  - **Open questions:** whether the superseded evidence is worth a column; whether the conflict
-    belongs on the honesty view or only on the file's own row; and whether "the file disagrees"
-    is even worth saying once the user has been told their answer wins everywhere.
 
 - **(aai) The plain copy path does not verify at write time.** Recorded 2026-07-31, and
   **re-scoped 2026-07-31 after the original reasoning was found to be wrong.** **DEFERRED with
@@ -1105,6 +1084,19 @@ picking one up must map the combined order before building.
 > chosen, map a combined order before building - the schema step and the UI surface are each
 > worth paying for once.
 
+- **(aal) How often is the machine wrong about dates, and about what?** Recorded 2026-07-31,
+  separated from `(aaj)` deliberately. **Idea - do not build schema for it now.**
+  - **The question.** Across a library, where does human correction disagree with machine
+    derivation - which tiers, which cameras, which filename patterns? truestill is the only tool
+    that records both a machine tier and a human override, so it is uniquely able to answer it.
+  - **Why it is not `(aaj)`.** A conflict *note* is one sentence on one file. A conflict *rate*
+    is an aggregate over time, and it is the use that would genuinely justify keeping the
+    superseded evidence - a column holding what the machine thought before it was overruled is
+    debt when its only consumer is explanatory text, and an asset when it is the dataset.
+  - **Nobody has asked for this.** It is recorded so the reasoning is not lost, and explicitly
+    **not** as licence to add the column now. If it is ever built, the column is justified by
+    *this*, and `(aaj)` stays closed on its own merits.
+
 - **(m) Duplicate-cleanup staging UX.** ⚠ **Overlaps `(aag)`** - the visual side-by-side compare
   described below *is* `(aag)`'s subject. Scope them together or the same review surface gets
   designed twice; `(aag)` also records why it is deferrable (truestill already keeps and flags
@@ -1331,6 +1323,28 @@ rather than assumed.
 
 Not "not yet" -- decided **against**, so the question does not get re-litigated every time a
 neighbouring product ships one. Each would be a reasonable feature in a different product.
+
+- **Noting an embedded-metadata conflict against a human-confirmed date `(aaj)`.** The
+  "optionally note the embedded conflict" clause of `(bbb)` item 4. **Decided against
+  2026-07-31**, after the design was worked out rather than before.
+  - **The disagreement is already surfaced where it matters most**: the three-state card shown
+    the moment someone confirms a date says exactly what the file still claims inside
+    (*"The file itself still says 2014 inside"*), computed from the row being overwritten. What
+    `(aaj)` would add is seeing that **later**, on the honesty view.
+  - **Seeing it later needs the prior claim, and `confirm_date` destroys it.** It overwrites
+    `captured_at` / `date_source` and sets `date_tag = NULL`; nothing else holds the old values.
+    So the feature requires **storing a value the system has already decided is wrong** -
+    forever, on every row, with every migration and every `record_uploaded` obliged to reason
+    about it - whose only consumer is a line of explanatory text. *A column that exists only to
+    be disagreed with* is the reason not to add one.
+  - **The alternative was ruled out too.** Re-reading the file is live metadata, which the
+    stated constraint forbids, and it inherits `(xx)`: with the drive disconnected it would read
+    "cannot check" for most rows most of the time.
+  - **The clause said "optionally".** That word was written by someone who already knew this was
+    nice-to-have. The human-wins half of item 4 is built, tested by name against all five
+    whole-disk operations, and is the half that carries the promise.
+  - ⚠ **Do not reopen this to enable a *statistics* feature** - see `(aal)`. That is a different
+    question with different requirements, and it is the use that would justify the column.
 
 - **Face recognition / people albums.**
 - **Semantic AI search** ("photos of a beach at sunset").
