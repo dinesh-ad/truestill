@@ -35,11 +35,24 @@ coverage with it (`ENGINEERING_STANDARD.md` §4), so the scope is the measuremen
 preference. Legitimate divergence is why the wide forms fail: the CLI genuinely passes
 ``pool``/``workers`` knobs the app does not, and that is not drift.
 
-**Measured again after ``CopyToVerify.from_row`` landed: the compared population is now empty.**
-``CopyToVerify`` was the only symbol both surfaces called with catalog-row fields, and giving the
-mapping one home removed it. That is the *intended* end state, not a disarmed guard - the rule
-this file exists to protect is better served by there being nothing to compare - but it changes
-what each test below is for, and each says so rather than being left to imply otherwise.
+**Measured again after ``CopyToVerify.from_row`` landed: the compared population is now empty,
+and why it is empty matters more than the number.** ``CopyToVerify`` was the only symbol both
+surfaces called with catalog-row fields. It is not gone because the risk went away - it is gone
+because **the duplication this file watched was deleted**, which is what the companion rule in
+`ENGINEERING_STANDARD.md` §4 asks for: prefer deleting a copy to guarding two. An empty
+population here is this guard having won, not this guard having rotted.
+
+Two ways to get that backwards, both wrong:
+
+* **Deleting this file as dead.** It is a tripwire, not a report. It has nothing to compare
+  *today*; it fires the day a third surface appears, or a new shared row mapping is written
+  inline on both. ``test_the_row_mapping_has_exactly_one_home`` holds the ground already won,
+  and ``test_the_guard_sees_a_planted_divergence`` proves the mechanism still fires using
+  sources it writes itself - so neither depends on the tree staying as it is.
+* **Repopulating it by reintroducing a copy.** Inlining a mapping on both surfaces so that the
+  guard "has something to watch" would recreate the exact defect it was built for: two copies
+  of one rule, drift a matter of time. The way to give this file work is to write the next
+  shared mapping once, in core, and let this stay quiet.
 """
 
 from __future__ import annotations
