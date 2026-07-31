@@ -14,6 +14,15 @@ become visible before it has settled, which is the third way a hash taken anywhe
 final file can be a confident lie. Get this wrong and `verify` tells a user their photo is
 damaged when truestill rewrote it - the worst failure this feature has.
 
+**O2: a bake is partial by nature, and must never read as complete.** ``copy_sha256`` is per
+drive, so writing a date into the copy on one drive says nothing about the copy on another. A
+confirmation can therefore be *in the bytes* on one drive and *catalog-only* on the next, and
+those are different promises: the first survives leaving truestill entirely, the second survives
+only inside it. The summary names the drives still waiting rather than counting them, because
+"2 other drives" tells a user there is work left and "Backup 2019 and The Memory Cabinet" tells
+them which two to plug in. **Nothing picks the rest up on its own** - there is no background
+sweep, and a bake writes to user files, so it stays an explicit act. The report says so.
+
 **Videos are excluded from the bake, and the exclusion is stated, not silent.** A video whose
 date is confirmed keeps its catalog record - step 3's durability, which works and is untouched -
 and simply does not get written. The reason is on the record below.
@@ -146,11 +155,48 @@ VIDEO_EXCLUSION_REASON = (
 )
 
 
+def completeness_line(drive_label: str, baked: int, awaiting: list[DriveAwaiting]) -> str:
+    """Whether this finished the job, in one sentence, naming what is left.
+
+    **A partial bake must not read as a completed one.** Listing what succeeded and saying
+    nothing about the rest is how a user concludes their whole library is done - so the
+    unfinished half is stated in the same breath as the finished one, with the drives named and
+    what to do about them, because nothing picks them up on its own.
+    """
+    written = f"{baked} {'file' if baked == 1 else 'files'}"
+    if not awaiting:
+        return (
+            f"Done. The dates are written into {written} on {drive_label}, and every other copy "
+            f"truestill knows about already has them."
+        )
+    names = [
+        f"{d['label']} ({d['files']} {'file' if d['files'] == 1 else 'files'})" for d in awaiting
+    ]
+    listed = names[0] if len(names) == 1 else ", ".join(names[:-1]) + f" and {names[-1]}"
+    return (
+        f"Partly done. The dates are now in {written} on {drive_label}. Copies on {listed} "
+        f"still have the old date inside them - the corrected date is safe in your library "
+        f"either way, but to put it into those files, connect each drive and set the dates again."
+    )
+
+
+class DriveAwaiting(TypedDict):
+    """A drive whose copies still hold the old date in their bytes."""
+
+    label: str
+    files: int
+
+
 class BakeSummary(TypedDict):
     """What a bake actually did. Every outcome counted separately (§9)."""
 
     drive_label: str
     baked: int
+    #: Other drives with copies still unbaked - **named**, not counted (O2).
+    awaiting: list[DriveAwaiting]
+    #: One sentence saying whether this finished the job or only part of it. Never omitted:
+    #: a report that lists successes and stays quiet about the rest reads as completion.
+    completeness: str
     #: Confirmed, catalog record intact, file deliberately not written. Named, never silent.
     videos_skipped: int
     videos_reason: str
@@ -186,6 +232,8 @@ def bake_run(path: Path, db: Path) -> JobTarget | DriveUnavailablePayload | Bake
         summary: BakeSummary = {
             "drive_label": marker.label,
             "baked": 0,
+            "awaiting": [],
+            "completeness": "",
             "videos_skipped": 0,
             "videos_reason": VIDEO_EXCLUSION_REASON,
             "failed": 0,
@@ -228,6 +276,13 @@ def bake_run(path: Path, db: Path) -> JobTarget | DriveUnavailablePayload | Bake
                 summary["baked"] += 1
                 if progress is not None:
                     progress(Progress(index, total, Phase.ORGANIZING, target_file.name))
+            summary["awaiting"] = [
+                {"label": str(r["label"]), "files": int(r["files"])}
+                for r in catalog.drives_awaiting_bake(marker.uuid)
+            ]
+        summary["completeness"] = completeness_line(
+            marker.label, summary["baked"], summary["awaiting"]
+        )
         return summary
 
     return target

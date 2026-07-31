@@ -90,6 +90,10 @@ CREATE TABLE IF NOT EXISTS file_copies (
     size          INTEGER,
     copied_at     TEXT,
     last_verified TEXT,
+    -- When a confirmed date was written into THIS drive's copy, NULL until it is. Per
+    -- (content, drive) like copy_sha256 above, because that is exactly what a bake changes:
+    -- baking the photo on one drive says nothing about the copy on another.
+    date_baked_at TEXT,
     PRIMARY KEY (sha256, drive_uuid)
 );
 CREATE INDEX IF NOT EXISTS idx_file_copies_drive ON file_copies (drive_uuid);
@@ -187,10 +191,7 @@ CREATE TABLE IF NOT EXISTS date_confirmations (
     sha256       TEXT PRIMARY KEY,
     captured_at  TEXT NOT NULL,
     confirmed_at TEXT NOT NULL,
-    confirmed_by TEXT,
-    -- When this confirmation was written into the bytes on disk, NULL until it is. The
-    -- catalog record (step 3) is durable on its own; this says whether the FILE agrees.
-    baked_at     TEXT
+    confirmed_by TEXT
 );
 """
 
@@ -303,6 +304,9 @@ def _add_drive_tables(conn: sqlite3.Connection) -> None:
         CREATE TABLE IF NOT EXISTS file_copies (
             sha256 TEXT NOT NULL, drive_uuid TEXT NOT NULL, relative TEXT NOT NULL,
             copy_sha256 TEXT, size INTEGER, copied_at TEXT, last_verified TEXT,
+            -- When a confirmed date was written into THIS drive's copy. Per (content, drive)
+            -- like copy_sha256 beside it, because that is what a bake changes.
+            date_baked_at TEXT,
             PRIMARY KEY (sha256, drive_uuid)
         );
         CREATE INDEX IF NOT EXISTS idx_file_copies_drive ON file_copies (drive_uuid);
@@ -503,15 +507,30 @@ def downgrade_v12_to_v11(conn: sqlite3.Connection) -> None:
     conn.execute("PRAGMA user_version = 11")
 
 
-def _add_confirmation_baked_at(conn: sqlite3.Connection) -> None:
-    """v15 -> v16: record whether a confirmed date reached the bytes, not just the catalog.
+def _add_copy_date_baked_at(conn: sqlite3.Connection) -> None:
+    """v15 -> v16: record, **per drive**, whether a confirmed date reached that copy's bytes.
 
-    Step 3 made a confirmation durable in the catalog; step 4 writes it into the file. Those are
-    different states, and a user is entitled to know which one a photo is in - a date only
+    Step 3 made a confirmation durable in the catalog; step 4 writes it into the files. Those
+    are different states and a user is entitled to know which one a photo is in - a date only
     truestill knows is not the same promise as a date any other tool will read.
+
+    **It belongs on ``file_copies``, not on ``date_confirmations``.** A confirmation is per
+    *content*; a bake changes *one drive's copy*. Putting the flag on the confirmation would
+    mean baking the photo on the laptop marked it done for the backup drive as well, which then
+    never gets written and never reappears in `confirmations_to_bake` - the same per-content /
+    per-drive confusion that produced the ``copy_sha256`` and ``relative`` findings, made a
+    third time. Caught before v16 was ever pushed; no database carries the earlier shape.
     """
-    if "baked_at" not in _columns_of(conn, "date_confirmations"):
-        conn.execute("ALTER TABLE date_confirmations ADD COLUMN baked_at TEXT")
+    columns = _columns_of(conn, "file_copies")
+    if not columns:
+        # No such table. `_SCHEMA` runs only for a brand-new database, so on an existing one a
+        # migration sees whatever is actually there - and a catalog at v15 without `file_copies`
+        # is malformed in a way v16 cannot repair and should not diagnose. Skipping keeps the
+        # failure where it belongs (the first query that needs the table) instead of reporting a
+        # missing *column* on a missing *table*.
+        return
+    if "date_baked_at" not in columns:
+        conn.execute("ALTER TABLE file_copies ADD COLUMN date_baked_at TEXT")
 
 
 _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
@@ -529,7 +548,7 @@ _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (13, _add_date_source_column),
     (14, _add_date_tag_column),
     (15, _add_date_confirmations),
-    (16, _add_confirmation_baked_at),
+    (16, _add_copy_date_baked_at),
 )
 
 
@@ -932,9 +951,10 @@ class Catalog:
     def confirmations_to_bake(self, drive_uuid: str) -> list[sqlite3.Row]:
         """Confirmed dates whose copy is on this drive and is not yet written into the bytes.
 
-        Returns ``sha256, captured_at, relative``. Driven by ``baked_at IS NULL`` so a re-run
-        after a partial bake picks up exactly what is left - the same resumability the rest of
-        the product has, for the same reason: a run over a large drive will be interrupted.
+        Returns ``sha256, captured_at, relative``. Driven by **this drive's**
+        ``file_copies.date_baked_at IS NULL``, so a re-run picks up exactly what is left on
+        *this* drive - which is also what makes the bake resumable, and what makes a second
+        drive's copies still pending after the first drive has been done.
 
         **Complexity: O(confirmations on this drive)**, one indexed join. No I/O.
         """
@@ -944,10 +964,35 @@ class Catalog:
                 SELECT dc.sha256, dc.captured_at, fc.relative
                 FROM date_confirmations dc
                 JOIN file_copies fc ON fc.sha256 = dc.sha256
-                WHERE fc.drive_uuid = ? AND dc.baked_at IS NULL
+                WHERE fc.drive_uuid = ? AND fc.date_baked_at IS NULL
                 ORDER BY fc.relative
                 """,
                 (drive_uuid,),
+            )
+        )
+
+    def drives_awaiting_bake(self, exclude_drive_uuid: str) -> list[sqlite3.Row]:
+        """Other drives holding copies whose confirmed date is not yet in their bytes.
+
+        Returns ``label, files`` per drive, so a report can **name** them rather than counting
+        them - the same courtesy `migrate` and `reclaim` already extend when they cannot reach a
+        drive. "3 other drives" tells a user there is work left; "Backup 2019 and The Memory
+        Cabinet" tells them which two to plug in.
+
+        **Complexity: O(unbaked copies)**, one indexed join and a group-by. No I/O.
+        """
+        return list(
+            self._conn.execute(
+                """
+                SELECT d.label AS label, COUNT(*) AS files
+                FROM date_confirmations dc
+                JOIN file_copies fc ON fc.sha256 = dc.sha256
+                JOIN drives d ON d.uuid = fc.drive_uuid
+                WHERE fc.drive_uuid != ? AND fc.date_baked_at IS NULL
+                GROUP BY d.uuid, d.label
+                ORDER BY d.label
+                """,
+                (exclude_drive_uuid,),
             )
         )
 
@@ -965,11 +1010,9 @@ class Catalog:
         """
         with self._tx() as conn:
             conn.execute(
-                "UPDATE file_copies SET copy_sha256 = ? WHERE sha256 = ? AND drive_uuid = ?",
-                (copy_sha256, sha256, drive_uuid),
-            )
-            conn.execute(
-                "UPDATE date_confirmations SET baked_at = ? WHERE sha256 = ?", (_now(), sha256)
+                "UPDATE file_copies SET copy_sha256 = ?, date_baked_at = ? "
+                "WHERE sha256 = ? AND drive_uuid = ?",
+                (copy_sha256, _now(), sha256, drive_uuid),
             )
 
     def confirmed_date(self, sha256: str) -> str | None:
