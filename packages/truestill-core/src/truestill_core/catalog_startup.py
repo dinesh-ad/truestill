@@ -25,10 +25,14 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Literal
 
+from truestill_core.app_paths import default_catalog_path
 from truestill_core.catalog import Catalog
 
-#: Same relative default the CLI and app have always used. Kept here so both agree.
-DEFAULT_CATALOG_PATH = Path("reports/catalog.sqlite")
+#: The catalog both surfaces use when the caller does not name one. Resolved **once at import**
+#: from `app_paths.default_catalog_path`, so an existing `reports/catalog.sqlite` keeps being
+#: used where it is and a fresh install lands in the OS data directory - see `(aae)` and that
+#: module for why a CWD-relative default is undefined for an installed app.
+DEFAULT_CATALOG_PATH = default_catalog_path()
 
 Tone = Literal["info", "notice", "alert"]
 

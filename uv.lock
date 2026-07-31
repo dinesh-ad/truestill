@@ -1006,6 +1006,7 @@ dependencies = [
     { name = "imagehash" },
     { name = "pillow" },
     { name = "pillow-heif" },
+    { name = "platformdirs" },
 ]
 
 [package.metadata]
@@ -1013,6 +1014,7 @@ requires-dist = [
     { name = "imagehash", specifier = ">=4.3.1" },
     { name = "pillow", specifier = ">=10.0.0" },
     { name = "pillow-heif", specifier = ">=0.16.0" },
+    { name = "platformdirs", specifier = ">=4" },
 ]
 
 [[package]]

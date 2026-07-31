@@ -11,12 +11,14 @@ The 2026-07-29 cold-preview profile (`docs/preview-performance-profile.md`) then
 **exiftool is 74% of wall on a cloud FUSE mount**. The same sidecar also caches the requested
 metadata tags, keyed identically (path + size + ``mtime_ns``). One layer, not a second store.
 
-**It lives beside the catalog, not inside it.** Rows are keyed by absolute path, which is
-machine-specific -- and `IMPLEMENTATION_STANDARDS.md` §3.1 already establishes that identity
-is never a path, which is why drive mount points are hints rather than catalog columns. The
-same reasoning applies here: throwaway, machine-local, high-churn rows have no business
-sharing a file with the record of which drive holds the only copy of someone's photos. Delete
-this file and nothing is lost but time.
+**It is never inside the catalog, and since `(aae)` it is not in the catalog's directory
+either** - `app_paths.cache_path_for` puts it in the cache counterpart of wherever the catalog
+lives, which for a default install is the OS cache directory. Rows are keyed by absolute path,
+which is **machine-specific** -- and `IMPLEMENTATION_STANDARDS.md` §3.1 already establishes that
+identity is never a path, which is why drive mount points are hints rather than catalog columns.
+The same reasoning applies here: throwaway, machine-local, high-churn rows have no business
+sharing a file, or a backup and retention policy, with the record of which drive holds the only
+copy of someone's photos. Delete this file and nothing is lost but time.
 
 **It can only ever save work for hashes.** A hash hit requires size *and* mtime_ns to match
 exactly; anything else means hashing from scratch. There is no path on which a cached hash
@@ -42,6 +44,7 @@ from pathlib import Path
 from types import TracebackType
 from typing import Any, Self
 
+from truestill_core.app_paths import cache_path_for as _cache_path_for
 from truestill_core.models import FileHashes
 
 #: Bumped when the row shape changes. A cache is derived data, so a version it does not
@@ -74,8 +77,12 @@ _Row = tuple[int, int, str | None, str | None, str | None, str | None]
 
 
 def cache_path_for(catalog: Path) -> Path:
-    """The sidecar that belongs to ``catalog`` -- ``…/foo.sqlite`` → ``…/foo.cache.sqlite``."""
-    return catalog.with_suffix(".cache.sqlite")
+    """The cache belonging to ``catalog``. Delegates to `app_paths`, which owns the rule.
+
+    Kept as a re-export so the eleven ``HashCache.beside(db)`` call sites and their tests do not
+    each need to know it - one home for "where does the cache go", per the companion rule.
+    """
+    return _cache_path_for(catalog)
 
 
 def tags_fingerprint(requested: tuple[str, ...], numeric: tuple[str, ...] = ()) -> str:

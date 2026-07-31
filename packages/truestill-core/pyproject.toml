@@ -23,6 +23,9 @@ classifiers = [
 # Runtime Python deps are limited to perceptual hashing (imagehash on Pillow); SHA-256 and
 # SQLite use the stdlib.
 dependencies = [
+    # Only stdlib-unavailable need here: the three OS conventions for user data and
+    # cache directories. Argued in writing at `app_paths.py` per ENGINEERING_STANDARD 4.
+    "platformdirs>=4",
     "imagehash>=4.3.1",
     "pillow>=10.0.0",
     "pillow-heif>=0.16.0",

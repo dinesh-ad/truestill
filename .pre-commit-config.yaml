@@ -30,7 +30,7 @@ repos:
         args: []
         # uvicorn was missing here and nothing noticed, because the blanket
         # --ignore-missing-imports above was answering for it.
-        additional_dependencies: [imagehash, pillow, starlette, uvicorn]
+        additional_dependencies: [imagehash, pillow, platformdirs, starlette, uvicorn]
 
   - repo: local
     hooks:
