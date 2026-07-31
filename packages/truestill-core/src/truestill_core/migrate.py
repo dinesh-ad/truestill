@@ -162,6 +162,33 @@ def label_routes(catalog: Catalog, drive_uuid: str) -> list[LabelRoute]:
     return routes
 
 
+#: Wraps whatever `ensure_exiftool` said, which already names the tool, its job, and the fix for
+#: the situation the reader is in. This adds only the consequence *for this migration*, which
+#: the exif layer cannot know.
+_UNAVAILABLE_REASON = (
+    "Folder names could not be checked against what is stored inside the files, so some were "
+    "sorted by their existing label instead. {detail}"
+)
+
+
+@dataclass(frozen=True, slots=True)
+class RederivedRules:
+    """Re-derived rules, and why the evidence was not read when it was not.
+
+    A bare ``dict`` could not carry the second half, and that is exactly what made the missing
+    binary silent: an empty mapping means both *"the evidence disagreed with nothing"* and
+    *"there was no evidence to read"*, and only one of those is a problem worth telling someone
+    about. §9 asks for a degraded outcome to be counted **and named**; this is the naming.
+    """
+
+    #: ``sha256 -> rule``. Empty is an ordinary answer, not necessarily a failure.
+    rules: dict[str, str]
+    #: A user-facing sentence, or ``""`` when the evidence was read normally. Empty on the
+    #: nothing-to-do path too: a migration with no ambiguous label never needed exiftool, and
+    #: warning it about one would be crying wolf on every ordinary run.
+    unavailable_reason: str = ""
+
+
 def rederive_rules(
     catalog: Catalog,
     drive_uuid: str,
@@ -172,7 +199,7 @@ def rederive_rules(
     cache: HashCache | None = None,
     progress: ProgressCallback | None = None,
     cancel: threading.Event | None = None,
-) -> dict[str, str]:
+) -> RederivedRules:
     """Re-read metadata for the **ambiguous labels only** and recover each file's real rule.
 
     This is the honest answer to a label that could have come from either side: ask the files.
@@ -204,21 +231,25 @@ def rederive_rules(
     """
     ambiguous = {r.label for r in routes if r.needs_decision}
     if not ambiguous:
-        return {}
+        return RederivedRules({})
 
     rows = [r for r in catalog.copies_for_migration(drive_uuid) if str(r["category"]) in ambiguous]
     paths = [drive_root / str(r["relative"]) for r in rows]
     present = [p for p in paths if p.exists()]
     if not present:
-        return {}
+        return RederivedRules({})
 
     try:
         metadata = read_metadata(present, cache=cache, progress=progress, cancel=cancel)
-    except ExiftoolMissingError:
-        # Without the binary there is no evidence to re-derive from. Returning nothing falls the
+    except ExiftoolMissingError as exc:
+        # Without the binary there is no evidence to re-derive from. Returning no rules falls the
         # caller back to the per-label decision, which surfaces the ambiguity for a human --
         # strictly better than failing the whole migration, and never a silent guess.
-        return {}
+        #
+        # The reason travels with the empty result because the degradation is correct but must
+        # not be *quiet*: no rules is indistinguishable from "the evidence said nothing useful",
+        # so without this the run reads as "my dates are wrong" rather than "a tool is missing".
+        return RederivedRules({}, unavailable_reason=_UNAVAILABLE_REASON.format(detail=exc))
     chain = build_rules(by_device=by_device)
     rules: dict[str, str] = {}
     for row, path in zip(rows, paths, strict=True):
@@ -228,7 +259,7 @@ def rederive_rules(
         # `YYYYMMDD_HHMMSS_<original>`, and the screenshot/messenger rules read the name.
         original = str(row["original_name"] or path.name)
         rules[str(row["sha256"])] = categorize(Path(original), metadata[path], chain).rule
-    return rules
+    return RederivedRules(rules)
 
 
 def rule_for_row(

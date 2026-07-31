@@ -43,7 +43,7 @@ def _resolve_migration_routes(
     cache: HashCache | None = None,
     progress: ProgressCallback | None = None,
     cancel: threading.Event | None = None,
-) -> tuple[dict[str, str], dict[str, str]]:
+) -> tuple[dict[str, str], dict[str, str], str]:
     """Resolve ambiguous labels the same way `truestill migrate-layout` does.
 
     A `Camera`-labelled row is ambiguous by construction (`label_routes`'s own docstring: it is
@@ -59,11 +59,11 @@ def _resolve_migration_routes(
     a measured 12.2 s on every preview of a 2,224-file drive (audit F18, PERFORMANCE.md 1.1).
     """
     routes = label_routes(catalog, drive_uuid)
-    rules_by_sha = rederive_rules(
+    rederived = rederive_rules(
         catalog, drive_uuid, path, routes, cache=cache, progress=progress, cancel=cancel
     )
     decided = {r.label: (ROUTE_SIDE_BIN if r.needs_decision else r.route) for r in routes}
-    return decided, rules_by_sha
+    return decided, rederived.rules, rederived.unavailable_reason
 
 
 class MigrationMove(TypedDict):
@@ -96,7 +96,7 @@ def migration_preview(
         return drive_unavailable(path)
     with Catalog(db) as catalog, HashCache.beside(db) as cache:
         scheme = resolve_scheme(catalog)
-        routes, rules_by_sha = _resolve_migration_routes(
+        routes, rules_by_sha, evidence_warning = _resolve_migration_routes(
             catalog, marker.uuid, path, cache=cache, progress=progress, cancel=cancel
         )
         outcome = run_migration(
@@ -122,7 +122,7 @@ def migration_preview(
         "template": scheme.template_for(Placement.EVERYDAY).template,
         "unchanged": plan.unchanged,
         "moves": [{"old": m.old_relative, "new": m.new_relative} for m in plan.moves],
-        "warnings": plan.warnings,
+        "warnings": [*plan.warnings, *([evidence_warning] if evidence_warning else [])],
         "day_folder_reasons": list(plan.day_folder_reasons),
         "pending_drives": pending,
     }
@@ -218,7 +218,7 @@ def migration_apply(
             catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
             pin_existing_layout(catalog)
             scheme = resolve_scheme(catalog)
-            routes, rules_by_sha = _resolve_migration_routes(
+            routes, rules_by_sha, _evidence_warning = _resolve_migration_routes(
                 catalog, marker.uuid, path, cache=cache, progress=progress, cancel=cancel
             )
             outcome = run_migration(

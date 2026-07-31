@@ -92,12 +92,12 @@ def test_a_warm_rederive_makes_zero_exiftool_calls(
         routes = label_routes(catalog, uuid)
         assert any(r.needs_decision for r in routes), "fixture must actually be ambiguous"
         with HashCache.beside(db) as cache:
-            cold = rederive_rules(catalog, uuid, root, routes, cache=cache)
+            cold = rederive_rules(catalog, uuid, root, routes, cache=cache).rules
         assert counted_exif["runs"] >= 1, "the cold pass must really invoke exiftool"
 
         counted_exif["runs"] = 0
         with HashCache.beside(db) as cache:
-            warm = rederive_rules(catalog, uuid, root, routes, cache=cache)
+            warm = rederive_rules(catalog, uuid, root, routes, cache=cache).rules
 
     assert counted_exif["runs"] == 0, "warm re-derive still shelled out to exiftool"
     assert warm == cold, "the cache must not change the answer, only the cost"
@@ -116,11 +116,11 @@ def test_rederive_without_a_cache_still_works_and_still_reads(
 
     with Catalog(db) as catalog:
         routes = label_routes(catalog, uuid)
-        first = rederive_rules(catalog, uuid, root, routes)
+        first = rederive_rules(catalog, uuid, root, routes).rules
         assert counted_exif["runs"] >= 1
 
         counted_exif["runs"] = 0
-        second = rederive_rules(catalog, uuid, root, routes)
+        second = rederive_rules(catalog, uuid, root, routes).rules
 
     assert counted_exif["runs"] >= 1, "no cache means no caching - it must read again"
     assert second == first
@@ -133,9 +133,9 @@ def test_the_cache_does_not_change_which_rule_a_file_resolves_to(tmp_path: Path)
 
     with Catalog(db) as catalog:
         routes = label_routes(catalog, uuid)
-        uncached = rederive_rules(catalog, uuid, root, routes)
+        uncached = rederive_rules(catalog, uuid, root, routes).rules
         with HashCache.beside(db) as cache:
             rederive_rules(catalog, uuid, root, routes, cache=cache)  # populate
-            cached = rederive_rules(catalog, uuid, root, routes, cache=cache)
+            cached = rederive_rules(catalog, uuid, root, routes, cache=cache).rules
 
     assert cached == uncached

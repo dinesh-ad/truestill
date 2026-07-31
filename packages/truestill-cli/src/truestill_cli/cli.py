@@ -1595,7 +1595,7 @@ def _cmd_migrate_layout(args: argparse.Namespace) -> int:
         # only) reads file metadata. Nothing is written and nothing is moved.
         routes = label_routes(catalog, marker.uuid)
         with HashCache.beside(args.db) as cache:
-            rules_by_sha = rederive_rules(
+            rederived = rederive_rules(
                 catalog,
                 marker.uuid,
                 args.path,
@@ -1603,6 +1603,10 @@ def _cmd_migrate_layout(args: argparse.Namespace) -> int:
                 by_device=getattr(args, "by_device", False),
                 cache=cache,
             )
+        rules_by_sha = rederived.rules
+        if rederived.unavailable_reason:
+            # Before the plan, not after: this changes how to read every routing line below it.
+            print(f"warning: {rederived.unavailable_reason}", file=sys.stderr)
         decided = {r.label: (ROUTE_SIDE_BIN if r.needs_decision else r.route) for r in routes}
         plan = plan_migration(
             catalog, marker.uuid, scheme, routes=decided, rules_by_sha=rules_by_sha

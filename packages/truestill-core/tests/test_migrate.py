@@ -533,6 +533,12 @@ def test_rederivation_degrades_instead_of_failing_when_exiftool_is_missing(
 
     Found by a CI run where Chocolatey's feed timed out and exiftool was silently absent: the
     re-derivation raised instead of degrading, on a path a user reaches with `migrate-layout`.
+
+    The degradation is correct and stays. What was missing until `(aad)` is that it was also
+    **silent**: `{}` is indistinguishable from "the evidence said nothing useful", so the run
+    surfaced as *"my dates are wrong"* rather than *"a tool is missing"* - the hardest kind to
+    diagnose, and one installers make likelier, because then it means the shipped app is broken
+    rather than that a developer forgot a package.
     """
     root = tmp_path / "drive"
     with Catalog(tmp_path / "c.sqlite") as catalog:
@@ -545,7 +551,36 @@ def test_rederivation_degrades_instead_of_failing_when_exiftool_is_missing(
         routes = label_routes(catalog, "D1")
         assert any(r.needs_decision for r in routes)  # there is something to re-derive
 
-        assert rederive_rules(catalog, "D1", root, routes) == {}  # degraded, not raised
+        result = rederive_rules(catalog, "D1", root, routes)
+
+        assert result.rules == {}  # degraded, not raised
+        assert result.unavailable_reason, "the degradation was silent (§9: counted AND named)"
+        assert "exiftool" in result.unavailable_reason.lower()
+
+
+def test_a_successful_rederivation_reports_no_reason(tmp_path: Path) -> None:
+    """Cry-wolf half. A warning shown on every ordinary migration is a warning nobody reads."""
+    root = tmp_path / "drive"
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        _two_files(catalog, root)
+        routes = label_routes(catalog, "D1")
+
+        result = rederive_rules(catalog, "D1", root, routes)
+
+        assert result.unavailable_reason == ""
+
+
+def test_nothing_to_rederive_is_not_reported_as_missing_evidence(tmp_path: Path) -> None:
+    """The early return when no label is ambiguous must not look like a degraded read.
+
+    Both produce no rules; only one of them is a problem, and conflating them would put an
+    exiftool warning on migrations that never needed exiftool at all.
+    """
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        result = rederive_rules(catalog, "D1", tmp_path / "drive", [])
+
+        assert result.rules == {}
+        assert result.unavailable_reason == ""
 
 
 def test_migrating_one_drive_leaves_another_drives_undo_record_intact(tmp_path: Path) -> None:
@@ -959,7 +994,7 @@ def test_rederive_forwards_progress_with_scanning_phase_and_correct_total(
             root,
             routes,
             progress=lambda p: ticks.append((p.done, p.total, p.phase)),
-        )
+        ).rules
     assert forwarded
     assert forwarded[0][0] is not None
     # Only Camera is ambiguous; WhatsApp is a deterministic side bin and is never re-read.
@@ -1006,7 +1041,7 @@ def test_rederive_cancel_stops_read_and_leaves_no_partial_state(
         routes = label_routes(catalog, "D1")
         before = (tmp_path / "c.sqlite").read_bytes()
         before_tree = _fingerprint(root)
-        rules = rederive_rules(catalog, "D1", root, routes, cancel=cancel)
+        rules = rederive_rules(catalog, "D1", root, routes, cancel=cancel).rules
         assert len(rules) == 1
         assert (tmp_path / "c.sqlite").read_bytes() == before
         assert _fingerprint(root) == before_tree
@@ -1037,7 +1072,7 @@ def test_preview_run_emits_both_scanning_and_planning_phases(
             root,
             routes,
             progress=lambda p: phases.append(p.phase),
-        )
+        ).rules
         run_migration(
             catalog,
             LocalDestination(root),
