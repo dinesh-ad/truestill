@@ -14,6 +14,8 @@ from truestill_core.organizer import (
     VIDEO_EXTENSIONS,
 )
 
+from truestill_app.service.date_rescue import original_candidates
+
 
 class DateProvenanceRow(TypedDict):
     """One tier's share of the library, with the evidence behind it."""
@@ -241,6 +243,11 @@ class DateTierFile(TypedDict):
     """One file in a provenance tier, with what a person needs in order to judge its date."""
 
     sha256: str
+    #: Whether an exiftool ``_original`` sidecar suggests a different date - "offer", "none"
+    #: (looked, nothing to suggest) or "unreachable" (could not look). Three states, never two.
+    candidate: str
+    #: The suggested date, only when ``candidate`` is "offer".
+    candidate_date: str | None
     name: str
     relative: str
     #: What truestill currently believes, so the user is correcting something concrete rather
@@ -267,14 +274,19 @@ def date_tier_files(
     """
     with Catalog(db) as catalog:
         rows, total = catalog.files_in_date_tier(date_source, limit=limit)
-        files: list[DateTierFile] = [
-            {
-                "sha256": str(row["sha256"]),
-                "name": str(row["original_name"] or Path(str(row["relative"])).name),
-                "relative": str(row["relative"]),
-                "captured_at": None if row["captured_at"] is None else str(row["captured_at"]),
-                "evidence": explain_evidence(date_source, row["date_tag"]),
-            }
-            for row in rows
-        ]
+    # Page-bounded: one stat per row, and exiftool only for the rows that actually have a
+    # sidecar. See `date_rescue.original_candidates` for why that is what makes it eager.
+    candidates = original_candidates(db, [str(row["sha256"]) for row in rows])
+    files: list[DateTierFile] = [
+        {
+            "sha256": str(row["sha256"]),
+            "candidate": candidates[str(row["sha256"])]["status"],
+            "candidate_date": candidates[str(row["sha256"])].get("captured_at"),
+            "name": str(row["original_name"] or Path(str(row["relative"])).name),
+            "relative": str(row["relative"]),
+            "captured_at": None if row["captured_at"] is None else str(row["captured_at"]),
+            "evidence": explain_evidence(date_source, row["date_tag"]),
+        }
+        for row in rows
+    ]
     return {"total": total, "files": files}

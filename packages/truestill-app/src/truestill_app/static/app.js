@@ -2473,6 +2473,7 @@ document.addEventListener("click", guarded(async (event) => {
                      <span class="mono">${esc(f.name)}</span>
                      <span class="k">${f.captured_at ? esc(f.captured_at.slice(0, 10)) : "no date"}</span>
                      ${f.evidence ? `<span class="k mono">${esc(f.evidence)}</span>` : ""}
+                     ${candidateHtml(f)}
                      <input class="input" data-rescue-date placeholder="2011-03-04" size="11">
                      <input class="input" data-rescue-time placeholder="time (optional)" size="12">
                      <button class="btn btn-ghost" data-rescue-go>Set date</button>
@@ -2516,6 +2517,26 @@ document.addEventListener("click", guarded((event) => {
   $(target).focus();
 }));
 
+// An exiftool _original sidecar beside the user's source may hold a different date. truestill
+// never creates these files - its own writes use -overwrite_original - so one that exists came
+// from the user's own exiftool use, which is why this suggests and never decides.
+//
+// Three states, rendered DISTINCTLY rather than in three wordings of one thing: an offer is a
+// button, "nothing to suggest" is muted text, and "could not look" is a warning. A user
+// scanning fifty rows must tell "no sidecar" from "truestill could not reach the source"
+// without reading either one.
+function candidateHtml(f) {
+  if (f.candidate === "offer") {
+    const when = esc(f.candidate_date.slice(0, 10));
+    return `<button class="btn btn-secondary" data-rescue-candidate="${when}"
+              title="A backup file beside your original still has this date">Use ${when}</button>`;
+  }
+  if (f.candidate === "unreachable") {
+    return `<span class="warn" title="The folder this was imported from is not reachable, so no backup file could be checked">could not check</span>`;
+  }
+  return `<span class="k">no backup date</span>`;
+}
+
 // ---------- the rescue action (step 5, part 2) ----------
 // The date field takes a full date only. A partial date is refused by the server with an
 // explanation rather than being completed here - completing it in the browser would put the
@@ -2533,4 +2554,14 @@ document.addEventListener("click", guarded(async (event) => {
     });
     said.innerHTML = r.ok ? confirmedCard(r) : `<span class="warn">${esc(r.error)}</span>`;
   });
+}));
+
+// Accepting a candidate only fills the field. The commit is the same typed action as any other
+// rescue - one home for what a confirmation means, so a sidecar date is not a second way in.
+document.addEventListener("click", guarded((event) => {
+  const button = event.target.closest("[data-rescue-candidate]");
+  if (!button) return;
+  const row = button.closest("[data-rescue-row]");
+  row.querySelector("[data-rescue-date]").value = button.getAttribute("data-rescue-candidate");
+  row.querySelector("[data-rescue-date]").focus();
 }));

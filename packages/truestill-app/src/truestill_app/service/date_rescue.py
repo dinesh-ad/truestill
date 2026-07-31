@@ -20,11 +20,14 @@ transaction. No file is read and nothing is scanned.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime, time
 from pathlib import Path
-from typing import Literal, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 from truestill_core.catalog import Catalog
+from truestill_core.dates import resolve_capture_datetime
+from truestill_core.exif import read_metadata
 from truestill_core.models import DateSource
 
 #: The time of day used when someone supplies a date without one.
@@ -206,3 +209,93 @@ def confirm_file_date(
         "states": _states(now=when, previous=previous, source=source, baked=baked),
         "next_steps": _next_steps(),
     }
+
+
+#: **truestill never creates these files.** Its own metadata writes pass ``-overwrite_original``
+#: (`exif._WRITE_FLAGS`), which keeps no sidecar - a fact pinned by
+#: `test_a_video_write_leaves_no_original_sidecar`. So every ``*_original`` beside a user's photo
+#: came from **their own** exiftool use, on their own terms, at a time truestill knows nothing
+#: about.
+#:
+#: That is the whole reason this is an **offer and never an authority**. truestill cannot tell
+#: whether the sidecar holds the original truth or the mistake its owner was busy correcting, so
+#: it may surface the disagreement and must not resolve it. The framing does not survive in
+#: anyone's head, which is why it is written here rather than in a design doc.
+#:
+#: `(bbb)`'s safety half already ensures these are never ingested as a second photo:
+#: `organizer.is_exiftool_original_backup` routes them to ``SourceScan.exiftool_backups`` at
+#: scan time, for every caller including ``--all-files``.
+_ORIGINAL_SUFFIX = "_original"
+
+
+class Candidate(TypedDict):
+    """What truestill can say about a sidecar for one file.
+
+    Three statuses, kept separate on purpose. ``none`` is a fact about the **file** - we looked
+    and there is nothing to offer. ``unreachable`` is a fact about **truestill's reach** - we
+    could not look at all. Collapsing them would let a screen tell a user their photo has no
+    backup when the truth is that nobody checked.
+    """
+
+    status: Literal["offer", "none", "unreachable"]
+    #: Present only for ``offer``: the sidecar's capture date, for pre-filling the rescue field.
+    captured_at: NotRequired[str]
+
+
+#: Why a sidecar can be unreachable, and it is usually this rather than a bug.
+#:
+#: The sibling lives beside the file exiftool edited, which is the **source**, and the catalog's
+#: only record of that is ``files.source_path`` - **absolute, and not machine-portable: see
+#: `BACKLOG.md` (xx)**. After a machine move it is dead, and in copy mode the user may have
+#: deleted the source directory entirely once the library was organized.
+#:
+#: So this feature will frequently be unavailable, and that is **honest rather than broken** -
+#: it reports that it could not look instead of asserting there is nothing there. **It improves
+#: automatically when (xx) portability or (yy) reconnect lands**; whoever builds those should
+#: know this surface is a beneficiary.
+_UNREACHABLE = "the source this was imported from cannot be reached"
+
+
+def original_candidates(db: Path, sha256s: Sequence[str]) -> dict[str, Candidate]:
+    """Sidecar candidates for one page of files, keyed by content hash.
+
+    **Complexity: O(page)** stats, plus one batched exiftool read for the files that actually
+    have a sidecar - so cost is proportional to **hits, not rows**. That is what makes it
+    affordable to compute eagerly for a page of 50; doing it for a whole tier of 2,300 files
+    would be a multi-minute open.
+
+    A sidecar whose date **equals** the live one is deliberately not offered: accepting it would
+    record ``HUMAN_CONFIRMED`` - the most trusted tier - on the strength of the machine agreeing
+    with itself, and on a screen about trust an offer that changes nothing is worse than noise.
+    """
+    result: dict[str, Candidate] = {sha: {"status": "unreachable"} for sha in sha256s}
+    siblings: dict[Path, tuple[str, datetime | None]] = {}
+    with Catalog(db) as catalog:
+        for sha in sha256s:
+            row = catalog.find_by_sha256(sha)
+            if row is None or not row["source_path"]:
+                continue
+            source = Path(str(row["source_path"]))
+            sidecar = source.with_name(source.name + _ORIGINAL_SUFFIX)
+            try:
+                present = sidecar.is_file()
+            except OSError:
+                continue  # unreadable mount: cannot look, which is not "nothing there"
+            if not source.parent.is_dir():
+                continue
+            if not present:
+                result[sha] = {"status": "none"}
+                continue
+            current = row["captured_at"]
+            siblings[sidecar] = (sha, None if current is None else datetime.fromisoformat(current))
+
+    if siblings:
+        metadata = read_metadata(list(siblings))
+        for sidecar, (sha, current) in siblings.items():
+            when, _source, _tag = resolve_capture_datetime(sidecar, metadata.get(sidecar, {}))
+            # Offered only when it parses AND differs. Same date, or no date, is "none".
+            if when is None or when == current:
+                result[sha] = {"status": "none"}
+            else:
+                result[sha] = {"status": "offer", "captured_at": when.isoformat()}
+    return result
