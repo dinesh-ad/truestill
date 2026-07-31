@@ -92,6 +92,18 @@ narrative, or volatile counts.
 - **Soak not closed yet.** No launch actions should outrun this gate.
 - **Absolute-path portability remains open** (`BACKLOG.md` `(xx)`, `(yy)`):
   `files.source_path`, inplace roots, reclaim journal path semantics, and reconnect UX.
+- **Known coverage gap: the unreadable-directory path is unverified on Windows.**
+  `scan_source` was swapped from `sorted(rglob("*"))` to `Path.walk(on_error=...)`, and the
+  seven `test_unreadable_source.py` tests plus
+  `test_unreadable_paths.py::test_a_real_locked_directory_raises_from_is_dir` **skip on
+  Windows** - `chmod 000` does not deny the owner there, so the fixture cannot create the
+  condition. Ordinary traversal *is* exercised on Windows (`test_organizer.py`, `test_heif.py`,
+  `test_exiftool_original_backups.py`), so what is untested is specifically the part the swap
+  introduced: the `on_error` callback and `SourceScan.unreadable_dirs`.
+  The skip is legitimate. It is **not** coverage, and a green Windows lane must not be read as
+  proof this works. Closing it needs one of: a Windows-specific denial mechanism (an ACL denying
+  the current user via `icacls`, which is the real equivalent of `chmod 000` there), or a
+  deliberate decision to accept the gap and say so here instead. Not yet chosen.
 
 ---
 

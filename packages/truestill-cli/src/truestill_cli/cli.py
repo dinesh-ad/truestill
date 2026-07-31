@@ -17,13 +17,11 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-import platformdirs
 from truestill_core.app_paths import (
-    APP_NAME,
-    CATALOG_FILENAME,
     LEGACY_CATALOG_PATH,
     cache_path_for,
     default_catalog_path,
+    standard_catalog_path,
 )
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_move import CatalogMoveOutcome, move_catalog_to_standard
@@ -577,7 +575,9 @@ def _cmd_catalog(args: argparse.Namespace) -> int:
     Read-only without the flag, because "which catalog am I actually using?" is a question worth
     being able to ask on its own - it is the same thing the startup banner announces.
     """
-    standard = Path(platformdirs.user_data_dir(APP_NAME)) / CATALOG_FILENAME
+    # Via app_paths, never platformdirs directly: this must be the location this install would
+    # actually use, override included. It is both what gets printed and where --move copies to.
+    standard = standard_catalog_path()
     current = default_catalog_path()
     if not args.move:
         print(f"Catalog in use : {current}")

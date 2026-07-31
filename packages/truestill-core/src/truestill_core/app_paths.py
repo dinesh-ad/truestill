@@ -114,6 +114,23 @@ def default_catalog_path() -> Path:
     return _data_dir() / CATALOG_FILENAME
 
 
+def standard_catalog_path() -> Path:
+    """Where the catalog **belongs** - unlike :func:`default_catalog_path`, which says where it
+    currently *is* and prefers a legacy file that exists.
+
+    The pair differ only while someone is still on the old layout, which is precisely when the
+    difference matters: it is what the ``catalog`` command compares to decide whether to offer a
+    move, and it is the destination that move copies to.
+
+    This exists because it was missing. ``app_paths`` owned "where does the catalog go" but had
+    no name for "where does it belong", so the one caller that needed it rebuilt the rule from
+    ``platformdirs`` directly and lost the ``TRUESTILL_DATA_DIR`` override in the process - which
+    made the ``catalog`` command advertise a path the install never uses, and made ``--move``
+    copy to one. A rule with no home gets reimplemented, and the copy is where it goes wrong.
+    """
+    return _data_dir() / CATALOG_FILENAME
+
+
 def default_cache_path() -> Path:
     """The cache for the default catalog: the OS **cache** directory, never the data one."""
     return _cache_dir() / CACHE_FILENAME
