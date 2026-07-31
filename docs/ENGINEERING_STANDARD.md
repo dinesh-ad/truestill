@@ -183,6 +183,23 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   the day it is added; it is pinned against both real defects above and against the correctly
   aimed forms it must not disturb. Where a seam cannot be checked mechanically, the rule still
   stands and the aim is a review question.
+- **A guard must assert what the promise is, not what happens to have survived.** The fourth
+  member of this family, and the subtlest: the first three are about a guard that cannot fail,
+  is switched off, or is aimed at the wrong module. This one is aimed at the right module and
+  the wrong *subject* - it checks a thing that is true while the promise it stands for is
+  broken, and reports success.
+
+  *Worked example - the date confirmation, 2026-07-31.* The obligation was that a human-confirmed
+  date survives a re-ingest. The test asserted that the confirmation row survived in
+  `date_confirmations`. It passed. Measured directly, the **file row had reverted**: a confirmed
+  2011 date was back to the 2014 filename evidence, and the next `migrate-layout` would have
+  re-rendered the file to 2014 with the confirmation sitting intact and ignored beside it. The
+  storage survived; the promise did not. Rewritten to assert **the date the library is actually
+  filed under**, it failed, and found a real defect in `record_uploaded`.
+
+  The question to ask of any guard: *if this assertion passed and the feature were still broken,
+  what would that look like?* If you can describe it, you are asserting the wrong subject.
+
 - **Errors.** Exceptions typed and specific - no bare `except`. User-facing CLI errors are
   actionable sentences, not tracebacks. Every subprocess call checks its return code and
   surfaces stderr on failure. Partial-failure policy: one bad file never aborts a batch - it
