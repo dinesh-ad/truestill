@@ -21,6 +21,8 @@ from starlette.requests import Request
 from starlette.responses import PlainTextResponse, Response
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from truestill_app import session_link
+
 _ALLOWED_HOSTNAMES = frozenset({"127.0.0.1", "localhost"})
 
 
@@ -38,6 +40,27 @@ def _hostname(value: str | None) -> str | None:
 def _request_token(request: Request) -> str | None:
     header = request.headers.get("x-truestill-token")
     return header or request.query_params.get("token")
+
+
+def _stale_link_message() -> str:
+    """What to say to a request whose token is wrong - which is almost always an old link.
+
+    **The case this exists for.** The address changes every launch. Someone who bookmarked or
+    re-opened yesterday's link hits one of two things: a dead port, which the browser reports as
+    a connection error, or - worse - **this** app, alive and answering, refusing them. A bare
+    "missing or bad token" there reads as *the software is broken*, not *that link expired*, and
+    the user has no way to tell the difference or to find the current address.
+
+    **It names the file, never the token.** Telling an unauthenticated caller the live token
+    would defeat the token entirely. A path is not a secret: the file it points at is readable
+    only by this user, so naming it helps the person at the keyboard and nobody else.
+    """
+    return (
+        "This link is from an earlier session, so it no longer works.\n\n"
+        "Truestill is running, and its current address changes every time it starts. "
+        f"You will find the current one in:\n\n    {session_link.path()}\n\n"
+        "Open the first line of that file. If Truestill is not running, start it again."
+    )
 
 
 class LocalGuard:
@@ -67,5 +90,5 @@ class LocalGuard:
         if origin is not None and _hostname(origin) not in _ALLOWED_HOSTNAMES:
             return PlainTextResponse("bad origin", status_code=403)
         if not secrets.compare_digest(_request_token(request) or "", self._token):
-            return PlainTextResponse("missing or bad token", status_code=403)
+            return PlainTextResponse(_stale_link_message(), status_code=403)
         return None

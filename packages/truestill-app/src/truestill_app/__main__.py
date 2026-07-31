@@ -11,7 +11,6 @@ import argparse
 import socket
 import sys
 import threading
-import webbrowser
 from pathlib import Path
 from typing import Any
 
@@ -23,11 +22,16 @@ from truestill_core.catalog_startup import (
     inspect_catalog,
 )
 
+from truestill_app import session_link
 from truestill_app.security import new_token
 from truestill_app.server import create_app
 
 _HOST = "127.0.0.1"
 _DEFAULT_PORT = 7357
+
+#: Grace before the browser is pointed at the server. Replaced by a real readiness signal in
+#: the commit that fixes the race; kept here so adding the URL file does not change timing.
+_BROWSER_DELAY_SECONDS = 0.5
 
 
 def uvicorn_log_config() -> dict[str, Any]:
@@ -90,6 +94,19 @@ def _say(line: str, *, error: bool = False) -> None:
     print(line, file=sys.stderr if error else sys.stdout, flush=True)
 
 
+def _attempt_browser(url: str, written: Path) -> None:
+    """Open the app, and say where the address is when that fails.
+
+    ``webbrowser.open`` returns ``False`` when it finds no browser at all - the ordinary case on
+    a headless Linux box - and discarding that return value is what left a running app
+    unreachable. When there is no console this message goes nowhere, which is precisely why the
+    file is written first and why its location is fixed rather than announced.
+    """
+    if session_link.open_browser(url):
+        return
+    _say(f"Could not open a browser. The address is in {written}", error=True)
+
+
 def _choose_port(preferred: int) -> int:
     """Return ``preferred`` if free, else an OS-assigned ephemeral port."""
     for candidate in (preferred, 0):
@@ -126,9 +143,22 @@ def main(argv: list[str] | None = None) -> int:
     app = create_app(token=token, db=db, explicit_db=explicit_db)
 
     _say(f"truestill UI on {url}")
+    # Before the browser is attempted, never after: a failed open must still leave a way in.
+    written = session_link.write(url)
+
     if not args.no_browser:
-        threading.Timer(0.5, lambda: webbrowser.open(url)).start()
-    uvicorn.run(app, host=_HOST, port=port, log_config=uvicorn_log_config())
+        # Still deferred, still a timer. Opening it synchronously here would guarantee the
+        # browser reached a port uvicorn has not bound yet - the race is real and is fixed on
+        # its own, not by quietly making it worse while adding the file.
+        threading.Timer(_BROWSER_DELAY_SECONDS, _attempt_browser, (url, written)).start()
+
+    try:
+        uvicorn.run(app, host=_HOST, port=port, log_config=uvicorn_log_config())
+    finally:
+        # Also on crash and on Ctrl-C: a file that outlives its process is a link that fails
+        # confusingly tomorrow, against a port that is dead or, worse, answering for someone
+        # else's session.
+        session_link.clear()
     return 0
 
 

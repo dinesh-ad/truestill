@@ -86,6 +86,10 @@ CATALOG_FILENAME = "catalog.sqlite"
 #: Filename of the shared hash/metadata cache in the OS cache directory.
 CACHE_FILENAME = "hashes.cache.sqlite"
 
+#: Filename of the running app's session URL. ``.txt`` on purpose: the one person who ever opens
+#: it is doing so because something went wrong, and it must open in whatever they double-click.
+SESSION_URL_FILENAME = "session-url.txt"
+
 
 def _data_dir() -> Path:
     override = os.environ.get(DATA_DIR_ENV)
@@ -112,6 +116,22 @@ def default_catalog_path() -> Path:
     if LEGACY_CATALOG_PATH.exists():
         return LEGACY_CATALOG_PATH
     return _data_dir() / CATALOG_FILENAME
+
+
+def session_url_path() -> Path:
+    """Where the running app leaves the URL a user needs to reach it.
+
+    In the **data** directory rather than the cache: a cache may be cleared at any moment by the
+    OS, and this file is the only way back into a running app whose browser did not open. It is
+    short-lived but not disposable, which is a different thing.
+
+    Not the OS *runtime* directory either, though that is the semantically closest fit
+    (``XDG_RUNTIME_DIR`` exists for exactly this and is cleared on logout). It resolves
+    inconsistently across the three platforms, and a file whose whole job is to be found by a
+    confused user - or by whoever is helping them - must be in one predictable place per
+    platform, not three differently-shaped ones.
+    """
+    return _data_dir() / SESSION_URL_FILENAME
 
 
 def standard_catalog_path() -> Path:
