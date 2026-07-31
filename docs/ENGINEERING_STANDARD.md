@@ -232,7 +232,7 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   When they do not, the test passes, and a passing test is read as "the mutation was caught by
   something else" or "the guard is fine" rather than "the mutant was never loaded."
 
-  *Two worked examples, one session, 2026-07-31 - different mechanisms, same root cause.*
+  *Three worked examples, one session, 2026-07-31 - different mechanisms, same root cause.*
 
   1. *The editable install.* The mutation was written into a `cp -r` copy of `packages/` under
      the scratch directory, then `pytest` was pointed at the copy's test file. The copy's tests
@@ -245,16 +245,32 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
      *older* than the change rather than absent, it would have run happily against the wrong
      code and passed.
 
-  One resolved past the mutant, the other never contained it. Both **failed in the reassuring
-  direction**, which is the family resemblance: a mutation proof that silently proves nothing
-  leaves a guard everyone now believes has been verified.
+  3. *The mutation that never applied.* An anchor string was replaced in a scratch copy, but the
+     formatter had reflowed that code since it was written, so the replacement matched nothing
+     and silently did nothing. `__file__` **confirmed the mutant tree was loaded** - and the run
+     came back green, which reads as "the guard is weak". It was not evidence at all: the tree
+     was loaded and unmutated. This one is a layer deeper than the other two, because the
+     identity check the rule already demanded *passed*.
 
-  **The requirement: assert the mutant is the code under test, against the mutant path, before
-  trusting the result.** `assert str(mutant_root) in module.__file__` for an imported module, the
-  equivalent identity check for anything else - and for a subprocess run, print the resolved path
-  and check it. *A proof that cannot say which file it loaded is not a proof.* The cheap habit is
-  to make the mutation itself observable: if the mutated run does not fail, the first question is
-  whether it ran the mutant, not whether the test is weak.
+  One resolved past the mutant, one never contained it, one contained the file but not the
+  change. All three **failed in the reassuring direction**, which is the family resemblance: a
+  mutation proof that silently proves nothing leaves a guard everyone now believes has been
+  verified. Three different mechanisms, one root cause - which is what makes this a rule rather
+  than a habit.
+
+  **The requirement: assert BOTH that the mutant is the loaded code AND that the mutation is
+  present in that loaded source, before trusting the result.**
+
+  * *Identity:* `assert str(mutant_root) in module.__file__` for an imported module, the
+    equivalent for anything else; for a subprocess, print the resolved path and check it.
+  * *Presence:* assert the change is actually there - `assert "<the removed line>" not in
+    inspect.getsource(target)`, or have the patch script fail loudly when its anchor does not
+    match. A silent `str.replace` that finds nothing is the failure mode; make it raise.
+
+  *A proof that cannot say which file it loaded is not a proof - and one that cannot say the
+  change is in that file is only half of one.* When a mutated run does not fail, the first two
+  questions are whether it ran the mutant and whether the mutant was mutated. Only after both
+  are answered is "the test is weak" a conclusion rather than a guess.
 
 - **Errors.** Exceptions typed and specific - no bare `except`. User-facing CLI errors are
   actionable sentences, not tracebacks. Every subprocess call checks its return code and
