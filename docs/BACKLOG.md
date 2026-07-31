@@ -368,14 +368,14 @@ section, because what is left is the part that still has to be written.
     typed `confirm_file_date`, so a sidecar date is not a second route into `HUMAN_CONFIRMED`.
     Items 1, 2, 3 and 5 are satisfied as written.
 
-    **Item 4 is half done, and the half that is missing is recorded as `(aaj)` rather than
-    ticked.** Verified against code, not assumed:
+    **Item 4 is one half built and one half DECIDED AGAINST - `(aaj)`, now in *Consciously out
+    of scope*.** Verified against code, not assumed:
     - *"the human wins"* - **satisfied, structurally.** `confirm_date` writes
       `captured_at` + `date_source = HUMAN_CONFIRMED`; `migrate` renders from
       `files.captured_at` and `rederive_rules` re-reads metadata for **ambiguous labels only**,
       never dates; `record_uploaded` re-applies a confirmation on re-ingest. All five whole-disk
       operations are pinned by O4 in `test_confirmation_survives.py`.
-    - *"note the embedded conflict (never silent)"* - **not satisfied for the live file.** The
+    - *"note the embedded conflict (never silent)"* - **not built, and not going to be.** The
       only disagreement surfaced anywhere is the **sidecar's**, and only as an offer. Nothing
       compares the live file's embedded EXIF against a confirmation, and `confirm_date` sets
       ``date_tag = NULL`` - so the machine's prior evidence is *discarded*, and the catalog can
@@ -386,7 +386,10 @@ section, because what is left is the part that still has to be written.
     the organized copy agrees with the confirmation while the *source* still does not, so
     comparing live metadata would make every rescued file report a conflict with itself forever.
     That trap is avoided - but honestly, it is avoided because the live comparison was never
-    built, not because it was built carefully. **`(aaj)` inherits the trap.**
+    built, not because it was built carefully. It was then **decided against** on 2026-07-31,
+    once the design showed the only constraint-satisfying route needs a column storing a value
+    the system has already ruled wrong; see `(aaj)`. **The trap is recorded there, not open
+    here** - and it applies again only if `(aal)` is ever built.
 
   - **Recovery - original design, kept for provenance** (see **Converged programs**):
     not a parallel `_original` tool. Full design (do not invent a separate surface):
