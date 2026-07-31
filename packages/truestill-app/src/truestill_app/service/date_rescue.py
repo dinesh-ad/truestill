@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Literal, TypedDict
 
 from truestill_core.catalog import Catalog
+from truestill_core.models import DateSource
 
 #: The time of day used when someone supplies a date without one.
 #:
@@ -44,12 +45,90 @@ from truestill_core.catalog import Catalog
 ASSUMED_TIME = time(12, 0, 0)
 
 
+#: Tiers whose date came out of the file's own metadata. Only for these can the card say the
+#: file "still says <year> inside" - a filename-dated or undated photo carries nothing, and
+#: claiming otherwise would be a fresh false statement from the screen built to remove them.
+_EMBEDDED_TIERS = frozenset(
+    {
+        DateSource.EXIF.value,
+        DateSource.TAKEOUT.value,
+        DateSource.TAKEOUT_UPLOAD.value,
+        DateSource.INFERRED_LOCAL.value,
+        DateSource.HUMAN_CONFIRMED.value,
+    }
+)
+
+
+def _year(value: str | None) -> str | None:
+    return None if not value else value[:4]
+
+
+def _states(*, now: datetime, previous: str | None, source: str | None, baked: bool) -> list[str]:
+    """The three states, concretely. **Deliberately not generalised.**
+
+    "Changes apply on the next operation" is true and useless - it tells a user nothing about
+    which of their photos is where. Each sentence carries the real value instead.
+    """
+    filed = _year(previous)
+    lines = [f"Recorded. This photo is now dated {now.date().isoformat()} in your library."]
+    lines.append(
+        f"It is still filed under {filed} on disk."
+        if filed
+        else "It has not moved on disk; it is still where it was."
+    )
+    if baked and previous:
+        # The bytes carry the date last written into them, which is a previous confirmation -
+        # not the original evidence and not the new answer.
+        lines.append(f"The file itself still says {filed} inside, from the last time it was set.")
+    elif source in _EMBEDDED_TIERS and filed:
+        lines.append(f"The file itself still says {filed} inside.")
+    else:
+        lines.append("The file itself has no date inside it, and still has none.")
+    return lines
+
+
+def _next_steps() -> list[NextStep]:
+    """Both follow-ups, offered. Neither is performed, and neither is implied to have been."""
+    return [
+        {
+            "action": "bake",
+            "label": "Set the dates in the files",
+            "detail": "Writes the date inside each photo so other apps read it too.",
+            "done": False,
+        },
+        {
+            "action": "migrate",
+            "label": "Move files to match",
+            "detail": "Refiles photos into the folders their corrected dates belong in.",
+            "done": False,
+        },
+    ]
+
+
+class NextStep(TypedDict):
+    """An offer, never an action. Each of these writes to user files and has its own
+    preview-then-typed-confirm; nothing here runs one."""
+
+    action: Literal["bake", "migrate"]
+    label: str
+    detail: str
+    #: Always False. Present so a renderer cannot accidentally imply a step has happened by
+    #: omitting the state - the card's whole job is that a user closing the tab believes
+    #: something true.
+    done: bool
+
+
 class RescueOk(TypedDict):
     ok: Literal[True]
     #: What the library now believes, for a screen that must say it back concretely.
     captured_at: str
     #: True when the time was assumed rather than supplied, so the UI can say which.
     time_assumed: bool
+    #: The three states, as sentences with real values in them. Built here rather than in the
+    #: browser for the same reason `models.status_label` and `date_explain` are: one home, so
+    #: the CLI could say the identical thing if it ever gains this surface.
+    states: list[str]
+    next_steps: list[NextStep]
 
 
 class RescueRefusal(TypedDict):
@@ -105,7 +184,8 @@ def confirm_file_date(
     if when is None:
         return {"ok": False, "error": IMPRECISE_DATE_ERROR}
     with Catalog(db) as catalog:
-        if catalog.find_by_sha256(sha256) is None:
+        row = catalog.find_by_sha256(sha256)
+        if row is None:
             return {
                 "ok": False,
                 "error": (
@@ -113,9 +193,16 @@ def confirm_file_date(
                     "Reload the page to see what is there now."
                 ),
             }
+        # Read the outgoing state BEFORE confirming: the card describes what the file still is,
+        # and after the write the catalog no longer remembers it.
+        previous = None if row["captured_at"] is None else str(row["captured_at"])
+        source = None if row["date_source"] is None else str(row["date_source"])
+        baked = catalog.copy_is_baked(sha256)
         catalog.confirm_date(sha256, when.isoformat(), confirmed_by="app")
     return {
         "ok": True,
         "captured_at": when.isoformat(),
         "time_assumed": not (time_text and time_text.strip()),
+        "states": _states(now=when, previous=previous, source=source, baked=baked),
+        "next_steps": _next_steps(),
     }

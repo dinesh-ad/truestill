@@ -968,7 +968,17 @@ class Catalog:
         happened.
 
         Re-confirming the same content overwrites: a person is allowed to change their mind, and
-        the newest human answer is the answer. **O(1)**, two indexed writes.
+        the newest human answer is the answer.
+
+        **A new answer also un-bakes every copy**, and this is not housekeeping. Step 4 skips a
+        copy whose ``file_copies.date_baked_at`` is set, so without clearing it the sequence
+        confirm -> bake -> change your mind leaves the second answer durable in the catalog and
+        **unable to ever reach the files**: every copy still looks baked, is never offered again,
+        and the photo keeps a date its owner has explicitly replaced. Silent, and exactly the
+        class of failure O4 exists for. The invariant is now sayable: ``date_baked_at`` is
+        non-NULL only while the bytes carry the *current* confirmed date.
+
+        **O(1)**, three indexed writes in one transaction.
         """
         with self._tx() as conn:
             conn.execute(
@@ -978,11 +988,25 @@ class Catalog:
                 " confirmed_by = excluded.confirmed_by",
                 (sha256, captured_at, _now(), confirmed_by),
             )
+            conn.execute("UPDATE file_copies SET date_baked_at = NULL WHERE sha256 = ?", (sha256,))
             conn.execute(
                 "UPDATE files SET captured_at = ?, date_source = ?, date_tag = NULL"
                 " WHERE sha256 = ?",
                 (captured_at, DateSource.HUMAN_CONFIRMED.value, sha256),
             )
+
+    def copy_is_baked(self, sha256: str) -> bool:
+        """Whether any copy of this content currently carries a confirmed date in its bytes.
+
+        Used to word the outcome card truthfully: after a bake the file does not say its
+        *original* evidence date any more, it says whatever was last written into it.
+        **O(1)** on the primary key.
+        """
+        row = self._conn.execute(
+            "SELECT 1 FROM file_copies WHERE sha256 = ? AND date_baked_at IS NOT NULL LIMIT 1",
+            (sha256,),
+        ).fetchone()
+        return row is not None
 
     def confirmations_to_bake(self, drive_uuid: str) -> list[sqlite3.Row]:
         """Confirmed dates whose copy is on this drive and is not yet written into the bytes.

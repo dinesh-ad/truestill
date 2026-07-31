@@ -2489,12 +2489,32 @@ document.addEventListener("click", guarded(async (event) => {
 // with the other two states (still filed under the old year on disk, file itself unchanged) so
 // the wording keeps one home rather than gaining a second copy.
 function confirmedCard(r) {
-  const when = esc(r.captured_at.slice(0, 10));
+  // The three states come from the server so the wording has one home (same reason as
+  // status_label and date_explain). Rendered as separate lines because they are separate
+  // facts: what changed, what did not move, and what the file itself still says.
+  const states = (r.states || []).map((s) => `<div>${esc(s)}</div>`).join("");
   const assumed = r.time_assumed
-    ? ` <span class="k">Time not given, so midday is assumed.</span>`
+    ? `<div class="k">Time not given, so midday is assumed.</div>`
     : "";
-  return `<span>Recorded. This photo is now dated ${when} in your library.${assumed}</span>`;
+  // Offers, not actions. Each of these writes to user files behind its own typed confirm, so
+  // the card sends the user there rather than doing it for them.
+  const steps = (r.next_steps || [])
+    .map((s) => `<div><button class="btn btn-ghost" data-rescue-next="${esc(s.action)}">${esc(s.label)}</button>
+                   <span class="k">${esc(s.detail)}</span></div>`)
+    .join("");
+  return `${states}${assumed}<div class="k">Neither of these has happened yet:</div>${steps}`;
 }
+
+// Both next steps just take the user to the surface that already gates them. Nothing is
+// started here - a card that ran a write would defeat the point of saying it had not.
+document.addEventListener("click", guarded((event) => {
+  const button = event.target.closest("[data-rescue-next]");
+  if (!button) return;
+  showScreen("settings");
+  const target = button.getAttribute("data-rescue-next") === "bake" ? "bake-path" : "mig-path";
+  $(target).scrollIntoView({ block: "center" });
+  $(target).focus();
+}));
 
 // ---------- the rescue action (step 5, part 2) ----------
 // The date field takes a full date only. A partial date is refused by the server with an
