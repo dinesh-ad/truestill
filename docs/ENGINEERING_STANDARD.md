@@ -300,6 +300,34 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   which legitimately describe a settled item's reasoning. Where a dependency cannot be checked
   mechanically, the rule still stands and the grep is the review step.
 
+- **A test must not be able to write to a real user location - make it impossible, not
+  forbidden.** Any code that resolves an OS-conventional directory (`platformdirs`, `~`,
+  `%APPDATA%`) will resolve it *for the test suite too*. The remedy is a **session fixture that
+  points those roots at a temporary directory**, so isolation holds by construction. A rule
+  people remember is not a remedy: nobody writing a feature test is thinking about the
+  developer's home directory.
+
+  *Worked example - `(aae)`, 2026-07-31.* Moving the default catalog to `user_data_dir` froze it
+  in a module constant at import, so no override could reach it and no test could isolate it.
+  Every test running a default-`--db` command wrote a real `catalog.sqlite` into the user's data
+  directory. **Both CI runners did it, and so did the developer's machine** - the stray file was
+  found and deleted afterwards. Fixed by resolving per call, honouring `TRUESTILL_DATA_DIR` /
+  `TRUESTILL_CACHE_DIR` on every platform, and a root `conftest.py` redirecting both roots for
+  the session.
+
+  **Two techniques worth keeping from how it was found, because they generalise.**
+
+  1. *A constant computed at import is unpatchable, and therefore un-isolatable.* Resolve
+     any default that depends on the environment or the filesystem **at the point of use**.
+     The symptom is a
+     test that cannot influence behaviour it obviously should be able to.
+  2. ***`make check` can pass for the wrong reason, and a clean-checkout run is how you find
+     out.*** Here the suite was green locally only because the working copy contained a
+     **gitignored** `reports/catalog.sqlite` that a fresh clone does not have. Reproducing with
+     `git ls-files -z | tar --null -T - -cf - | tar -xf - -C <tmp>` - a copy of exactly what is
+     tracked, nothing else - reproduced CI's failure locally in one run. **Reach for it whenever
+     CI fails and local passes**: the difference is almost always untracked state.
+
 - **Errors.** Exceptions typed and specific - no bare `except`. User-facing CLI errors are
   actionable sentences, not tracebacks. Every subprocess call checks its return code and
   surfaces stderr on failure. Partial-failure policy: one bad file never aborts a batch - it
