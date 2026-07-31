@@ -41,6 +41,11 @@ Notes:
 
 - **Core product shape is shipped:** organize, ingest, dedup, drive identity, verify, backup,
   configurable layout + migration, reclaim, in-place organize + undo, local web UI.
+- **Date-provenance program: COMPLETE (2026-07-31), six steps.** A user can now see **why** each
+  date was chosen, **correct** one that is wrong, have that correction **survive every whole-disk
+  operation**, and optionally **write it into the organized copies** so other apps read it too.
+  Schema v13-v16. One clause of `(bbb)` item 4 was carried out rather than ticked - see `(aaj)`;
+  `(kk)`'s `GPSDateStamp` half was in scope and was **not** built.
 - **Launch gate is still soak on real library usage.** Work is prioritized by soak findings.
 - **Trademark residual (live pre-monetization obligation):** TruStile Doors remains a low-risk
   residual in different IC classes; attorney clearance is still required before monetization

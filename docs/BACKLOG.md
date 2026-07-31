@@ -495,6 +495,13 @@ section, because what is left is the part that still has to be written.
 
 - **(kk) Persist GPS at ingest - it is read and then thrown away.** Found while designing trip
   grouping (`trip-grouping-research.md` §5), and the scope is much wider than trips.
+  - ⚠ **NOTHING OF THIS IS BUILT, and one half was in scope for a program that has now closed.**
+    Verified 2026-07-31: the catalog has **no latitude/longitude columns and no `GPSDateStamp`**.
+    `(kk)` was split by ruling - the **`GPSDateStamp`** half belonged to the date-provenance
+    program (as the cross-check for a suspect dead-clock date), the lat/lon half serves
+    places/map and is separate. **The date-provenance program completed 2026-07-31 without the
+    `GPSDateStamp` half**, so this is not "the rest of a mostly-done item": both halves are
+    unstarted, and a reader should not have to infer that from the program's closure notes.
   - **The defect.** GPS is read live from exiftool during an organize run and used for the
     event-clustering jump cut (`event_review.py:80` builds `EventItem.gps`), and then it is
     **never written to the catalog**. `files` has no latitude/longitude column at all, and
