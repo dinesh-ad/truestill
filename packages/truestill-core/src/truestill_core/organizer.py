@@ -200,12 +200,20 @@ class SourceScan:
     under ``--all-files``); ``unrecognized`` is everything else skipped -- which may
     include video formats truestill does not yet recognize. Skipped lists are surfaced
     in the end-of-run report.
+
+    ``unreadable_dirs`` are folders that could not be **listed**, and they are a different kind
+    of fact from every other list here. The others name files truestill decided about; this one
+    names a place truestill could not see into, so **the number of files inside is precisely
+    what is unknown**. Reporting a count for them would invent the missing number. An unreadable
+    *file*, by contrast, is a named loss and is already handled downstream: it stays in ``media``
+    and surfaces as ``ActionStatus.FAILED`` when the copy raises.
     """
 
     media: list[Path]
     documents: list[Path]
     unrecognized: list[Path]
     exiftool_backups: list[Path] = field(default_factory=list)
+    unreadable_dirs: list[Path] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
@@ -257,26 +265,48 @@ def scan_source(source: Path, *, all_files: bool = False) -> SourceScan:
     documents: list[Path] = []
     unrecognized: list[Path] = []
     exiftool_backups: list[Path] = []
-    for path in sorted(source.rglob("*")):
-        if not path.is_file():
-            continue
-        if any(part.startswith(".") for part in path.relative_to(source).parts):
-            continue
-        if is_exiftool_original_backup(path):
-            exiftool_backups.append(path)
-            continue
-        ext = path.suffix.lower()
-        if all_files or ext in MEDIA_EXTENSIONS:
-            media.append(path)
-        elif ext in DOCUMENT_EXTENSIONS:
-            documents.append(path)
-        else:
-            unrecognized.append(path)
+    unreadable_dirs: list[Path] = []
+
+    def _note_unreadable(error: OSError) -> None:
+        """A folder that could not be listed. **Never raises** - one locked folder must not
+        cost the whole run, the same rule every other partial failure here follows."""
+        if error.filename is not None:
+            unreadable_dirs.append(Path(error.filename))
+
+    # `Path.walk` rather than `rglob` because **rglob swallows the permission error by design**:
+    # an unlisted subtree simply did not appear, so files that are really there were never seen,
+    # counted or mentioned. `walk` hands them to `on_error` instead. (§4 already prefers `walk`
+    # for dir-shaped traversal.) Hidden directories are pruned in place so the walk does not
+    # descend into them at all, which is also why an unreadable *hidden* folder is not reported:
+    # it was never in scope.
+    #
+    # **Complexity: O(entries)** - one pass, unchanged - plus the same terminal sort `rglob`
+    # already paid for. `walk` yields per directory, so the sort is what keeps the global
+    # ordering the reports and golden tests depend on.
+    for dirpath, dirnames, filenames in source.walk(on_error=_note_unreadable):
+        dirnames[:] = [name for name in dirnames if not name.startswith(".")]
+        for filename in filenames:
+            if filename.startswith("."):
+                continue
+            path = dirpath / filename
+            if not path.is_file():
+                continue
+            if is_exiftool_original_backup(path):
+                exiftool_backups.append(path)
+                continue
+            ext = path.suffix.lower()
+            if all_files or ext in MEDIA_EXTENSIONS:
+                media.append(path)
+            elif ext in DOCUMENT_EXTENSIONS:
+                documents.append(path)
+            else:
+                unrecognized.append(path)
     return SourceScan(
-        media=media,
-        documents=documents,
-        unrecognized=unrecognized,
-        exiftool_backups=exiftool_backups,
+        media=sorted(media),
+        documents=sorted(documents),
+        unrecognized=sorted(unrecognized),
+        exiftool_backups=sorted(exiftool_backups),
+        unreadable_dirs=sorted(unreadable_dirs),
     )
 
 

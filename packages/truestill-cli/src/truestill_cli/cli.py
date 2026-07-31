@@ -1048,7 +1048,7 @@ def _fmt_extensions(paths: list[Path]) -> str:
 
 def _print_skipped(scan: SourceScan) -> None:
     """Account for every file that was NOT organized, grouped by kind. Never silent."""
-    if not scan.documents and not scan.unrecognized and not scan.exiftool_backups:
+    if not (scan.documents or scan.unrecognized or scan.exiftool_backups or scan.unreadable_dirs):
         return
     print("\nSkipped (not organized):")
     if scan.documents:
@@ -1060,6 +1060,15 @@ def _print_skipped(scan: SourceScan) -> None:
         )
     if scan.exiftool_backups:
         print(f"  exiftool backup: {len(scan.exiftool_backups)}")
+    if scan.unreadable_dirs:
+        # Folders, named - and deliberately WITHOUT a file count. The number inside is exactly
+        # what could not be read, so printing one would invent the missing figure. Every other
+        # line above counts files truestill decided about; this one names places it could not
+        # see into.
+        print(f"  folders that could not be read: {len(scan.unreadable_dirs)}")
+        for folder in scan.unreadable_dirs:
+            print(f"      {folder}  (contents unknown)")
+        print("    (check the folder's permissions, then run again to include what is inside)")
 
 
 def _destination_or_exit(args: argparse.Namespace) -> Destination | int:
@@ -1185,6 +1194,7 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
         documents=[p for p in source_scan.documents if p.suffix.lower() not in _takeout_noise],
         unrecognized=source_scan.unrecognized,
         exiftool_backups=source_scan.exiftool_backups,
+        unreadable_dirs=source_scan.unreadable_dirs,
     )
     files = source_scan.media
     if not files:

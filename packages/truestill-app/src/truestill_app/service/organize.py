@@ -179,6 +179,12 @@ def _summarize(resolutions: list[Resolution]) -> OrganizeDedupCore:
     return summary
 
 
+def _unreadable_folders(scan: SourceScan) -> list[str]:
+    """Folders that could not be listed, as names. **Never a count of what is inside** - that
+    number is exactly what could not be read, so supplying one would invent it."""
+    return [str(folder) for folder in scan.unreadable_dirs]
+
+
 def _skipped_summary(scan: SourceScan) -> dict[str, dict[str, int]]:
     """Skipped files for the UI: extension counts, plus a plain exiftool-backup label."""
     backups = {EXIFTOOL_BACKUP_LABEL: len(scan.exiftool_backups)} if scan.exiftool_backups else {}
@@ -359,6 +365,9 @@ class OrganizePreviewEmpty(TypedDict):
     files: int
     folders: dict[str, int]
     skipped: dict[str, dict[str, int]]
+    #: Named folders that could not be listed. Present here too: "no media found" is exactly
+    #: the answer a user must not receive when the reason is that a folder could not be opened.
+    unreadable_folders: list[str]
     mode: str
     mechanism: ModeMechanism
 
@@ -369,6 +378,10 @@ class OrganizePreviewSummary(OrganizeDedupCore):
     tier: Literal["dedup"]
     destination_is_drive: bool
     skipped: dict[str, dict[str, int]]
+    #: Folders that could not be listed, **named, without a file count** - the number inside is
+    #: exactly what could not be read. Distinct from `skipped`, which counts files truestill
+    #: decided about.
+    unreadable_folders: list[str]
     mode: str
     mechanism: ModeMechanism
     elapsed_seconds: NotRequired[float]
@@ -405,6 +418,7 @@ def organize_preview(
             "files": 0,
             "folders": {},
             "skipped": _skipped_summary(scan),
+            "unreadable_folders": _unreadable_folders(scan),
             "mode": mode,
             "mechanism": mechanism,
         }
@@ -434,6 +448,7 @@ def organize_preview(
             "tier": "dedup",
             "destination_is_drive": read_marker(destination) is not None,
             "skipped": _skipped_summary(scan),
+            "unreadable_folders": _unreadable_folders(scan),
             "mode": mode,
             "mechanism": mechanism,
         },
