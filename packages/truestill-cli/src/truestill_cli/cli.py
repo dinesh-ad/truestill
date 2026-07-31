@@ -506,18 +506,7 @@ def _cmd_verify(args: argparse.Namespace) -> int:
         if not rows:
             print(f"Drive '{marker.label}' has no recorded copies in the catalog.")
             return 0
-        copies = [
-            CopyToVerify(
-                sha256=r["sha256"],
-                relative=r["relative"],
-                # No fallback to the source hash. Missed when the app path was corrected, and
-                # the miss is the argument: two verify surfaces reading one contract must not
-                # each carry their own copy of the rule (audit F18's shape, in the dual-hash
-                # rule). An unrecorded hash is UNVERIFIABLE, never assumed byte-identical.
-                expected_hash=r["copy_sha256"],
-            )
-            for r in rows
-        ]
+        copies = [CopyToVerify.from_row(r) for r in rows]
         print(f"Verifying {len(copies)} copies on drive '{marker.label}' ...")
         results = verify_copies(
             copies,

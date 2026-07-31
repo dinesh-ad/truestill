@@ -59,7 +59,7 @@ def verify_run(path: Path, db: Path) -> JobTarget | DriveUnavailablePayload:
             catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
             catalog.set_setting(drive_path_hint(marker.uuid), str(path))
             rows = catalog.copies_on_drive(marker.uuid)
-            copies = [CopyToVerify(r["sha256"], r["relative"], r["copy_sha256"]) for r in rows]
+            copies = [CopyToVerify.from_row(r) for r in rows]
             results = verify_copies(copies, path, progress=progress, cancel=cancel)
             when = _now()
             for result in results:

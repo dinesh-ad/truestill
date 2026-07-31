@@ -18,10 +18,28 @@ needed an answer rather than an assumption.
 
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
 
 from truestill_core.hashing import sha256_file
 from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
+
+
+def _row(**fields: object) -> sqlite3.Row:
+    """A genuine ``sqlite3.Row``, built in memory - the exact type ``copies_on_drive`` returns.
+
+    A dict would type-check and lie: ``sqlite3.Row`` raises ``IndexError`` rather than
+    ``KeyError`` on an absent column, so a fixture that is not really a row cannot prove
+    :meth:`CopyToVerify.from_row` reads the columns it claims to.
+    """
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    columns = ", ".join(fields)
+    placeholders = ", ".join(["?"] * len(fields))
+    return conn.execute(
+        f"WITH r({columns}) AS (VALUES ({placeholders})) SELECT * FROM r",
+        tuple(fields.values()),
+    ).fetchone()
 
 
 def _copy(root: Path, relative: str, payload: bytes) -> None:
@@ -68,3 +86,34 @@ def test_a_missing_file_is_still_missing_even_with_no_recorded_hash(tmp_path: Pa
     results = verify_copies([CopyToVerify("src-sha", "gone.jpg", None)], tmp_path)
 
     assert [r.status for r in results] == [CopyStatus.MISSING]
+
+
+# --- one home for the row mapping ----------------------------------------------------------
+#
+# The rule above had one home already (``_partition`` alone decides what NULL means), but the
+# row -> object mapping was still written out on both the CLI and the app. Two copies of a
+# mapping is how the fallback survived on one surface after being removed from the other, so the
+# copy is deleted rather than guarded (ENGINEERING_STANDARD.md §4).
+
+
+def test_from_row_reads_the_columns_copies_on_drive_returns() -> None:
+    """The mapping itself: which column becomes which field, asserted once."""
+    row = _row(sha256="src-sha", relative="Camera/2014/a.jpg", copy_sha256="copy-sha", size=7)
+
+    copy = CopyToVerify.from_row(row)
+
+    assert copy.sha256 == "src-sha"
+    assert copy.relative == "Camera/2014/a.jpg"
+    assert copy.expected_hash == "copy-sha"
+
+
+def test_from_row_carries_a_null_through_as_unknown() -> None:
+    """The mapping must not be where the deleted fallback comes back.
+
+    ``expected_hash=row["copy_sha256"] or row["sha256"]`` would satisfy every other test in this
+    file - the source hash is a real string, and verification would run - while quietly asserting
+    the byte-identity a bake breaks. This is the assertion that refuses it.
+    """
+    row = _row(sha256="src-sha", relative="a.jpg", copy_sha256=None, size=7)
+
+    assert CopyToVerify.from_row(row).expected_hash is None

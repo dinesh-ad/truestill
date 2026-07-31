@@ -14,6 +14,7 @@ corruption on a file truestill had just rewritten.
 
 from __future__ import annotations
 
+import sqlite3
 import threading
 from concurrent.futures import BrokenExecutor, ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -43,6 +44,20 @@ class CopyToVerify:
     relative: str
     #: ``None`` when no hash was ever recorded for this copy: unknown, never assumed.
     expected_hash: str | None
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> CopyToVerify:
+        """Build one from a ``Catalog.copies_on_drive`` row - the only place that mapping lives.
+
+        Every surface that verifies a drive reads the same three columns, and writing that out
+        per surface is how ``copy_sha256 or sha256`` survived on the CLI after being removed from
+        the app. One home means the next correction cannot land on half of them.
+        """
+        return cls(
+            sha256=row["sha256"],
+            relative=row["relative"],
+            expected_hash=row["copy_sha256"],
+        )
 
 
 @dataclass(frozen=True, slots=True)

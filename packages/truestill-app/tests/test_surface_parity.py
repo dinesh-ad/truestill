@@ -34,6 +34,12 @@ Zero false, one true. A guard that fires on ordinary work gets switched off, tak
 coverage with it (`ENGINEERING_STANDARD.md` §4), so the scope is the measurement rather than a
 preference. Legitimate divergence is why the wide forms fail: the CLI genuinely passes
 ``pool``/``workers`` knobs the app does not, and that is not drift.
+
+**Measured again after ``CopyToVerify.from_row`` landed: the compared population is now empty.**
+``CopyToVerify`` was the only symbol both surfaces called with catalog-row fields, and giving the
+mapping one home removed it. That is the *intended* end state, not a disarmed guard - the rule
+this file exists to protect is better served by there being nothing to compare - but it changes
+what each test below is for, and each says so rather than being left to imply otherwise.
 """
 
 from __future__ import annotations
@@ -105,14 +111,38 @@ def test_the_two_surfaces_have_not_drifted_on_a_shared_contract() -> None:
     )
 
 
-def test_the_guard_has_something_to_watch() -> None:
-    """A guard whose population is empty passes forever and protects nothing.
+def test_the_guard_can_still_resolve_the_two_surfaces() -> None:
+    """The scope must stay resolvable: 62 shared core symbols today, and it must not collapse.
 
-    If a refactor ever stops the CLI and the app sharing core symbols, this fails rather than
-    quietly going vacuous - the disarmed-guard failure mode from the F10 sweep.
+    This asserts the guard can still *see* both surfaces - that the paths are right and the
+    imports still parse. It deliberately does **not** claim the compared population is non-empty:
+    since ``from_row``, no symbol is called with row fields on both sides, and that is the goal
+    state rather than a fault. What proves the mechanism can still fire is the planted test
+    below, which supplies its own sources and so cannot go vacuous with the tree.
     """
     shared = _core_imports(CLI_SRC) & _core_imports(APP_SRC)
     assert len(shared) > 20, f"only {len(shared)} shared core symbols; is the scope still right?"
+
+
+def test_the_row_mapping_has_exactly_one_home() -> None:
+    """The copy stays deleted: no surface may rebuild a ``CopyToVerify`` from raw row fields.
+
+    ``_divergent`` cannot catch a mapping re-inlined *identically* on both surfaces - by its own
+    docstring it sees repairs that land on one copy, never a shared contract that is wrong. That
+    is precisely the state the codebase was in before ``cli.py:513`` was found. So the thing
+    actually worth pinning is not that the two copies agree, but that there is only one.
+    """
+    inlined: dict[str, set[str]] = {}
+    for surface, root in (("cli", CLI_SRC), ("app", APP_SRC)):
+        exprs = _row_field_arguments(root, {"CopyToVerify"})["CopyToVerify"]
+        if exprs:
+            inlined[surface] = exprs
+    assert not inlined, (
+        "a catalog row is being unpacked into CopyToVerify at a call site again:\n"
+        + "\n".join(f"  {name}: {sorted(exprs)}" for name, exprs in sorted(inlined.items()))
+        + "\n\nUse CopyToVerify.from_row(row) - the mapping has one home so a correction to it "
+        "cannot reach one surface and miss the other."
+    )
 
 
 def test_the_guard_sees_a_planted_divergence(tmp_path: Path) -> None:
