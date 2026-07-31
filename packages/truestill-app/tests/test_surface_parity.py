@@ -1,6 +1,10 @@
 """A fix that reaches one surface must reach its twin (audit F0/F38/cli.py:513 class).
 
-**This guard protects the REPAIR, not the contract. Read that twice before trusting it green.**
+**Two known blind spots, both measured. Read them before trusting a green run.** A guard whose
+edges are stated is one you can rely on precisely; a guard presented as total is one that will
+eventually be believed about something it never checked.
+
+**Blind spot 1: it protects the REPAIR, not the contract.**
 
 Measured against the real defect, at three points in history:
 
@@ -21,6 +25,24 @@ verify fallback removed, the CLI's left).
 
 Reading a green run here as "the contract is correct" is exactly the false confidence the audit
 was full of, so it is said in the module docstring rather than a comment someone can skip.
+
+**Blind spot 2: it cannot see a surface that OMITS a key rather than calling a shared symbol
+differently.** This guard compares *call sites* - the arguments each surface passes to a symbol
+they both import. A surface that simply never builds the field at all makes no call to compare,
+so there is nothing to diverge and the scan stays silent.
+
+That is not hypothetical: it is exactly how the duplicate payload drifted, found by a product
+gap check on 2026-07-31 rather than by this file. The engine computed
+`DuplicateMatch(matched_path, origin, distance)`; the CLI printed all three; the app dropped them
+at the payload boundary and rendered a bare count. **A §9 violation - an outcome counted but not
+named - living on one surface for the whole life of the feature, and this guard scored zero
+throughout**, because the app was not calling anything differently. It was calling nothing.
+
+The two blind spots are the same shape from different directions: this file sees *disagreement*
+between two expressions, so it is blind both when the two agree and are wrong (1), and when only
+one expression exists to look at (2). What catches the second kind is asserting the promise on
+each surface from one fixture - `test_duplicate_matches_are_named.py` is that, written after this
+gap was found - and, better, giving the fact one home so there is no second surface to omit it.
 
 **Why it is scoped this narrowly**, measured on a clean tree:
 
