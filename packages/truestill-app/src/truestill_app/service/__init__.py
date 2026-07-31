@@ -13,6 +13,7 @@ from __future__ import annotations
 from truestill_app.service import backup as _backup
 from truestill_app.service import bake as _bake
 from truestill_app.service import clean_empty as _clean_empty
+from truestill_app.service import date_rescue as _date_rescue
 from truestill_app.service import drive_support as _drive_support
 from truestill_app.service import drives as _drives
 from truestill_app.service import fs_browse as _fs_browse
@@ -134,6 +135,7 @@ DriveAttachment = _drives.DriveAttachment
 attach_drive = _drives.attach_drive
 bake_preview = _bake.bake_preview
 date_tier_files = _stats.date_tier_files
+confirm_file_date = _date_rescue.confirm_file_date
 bake_run = _bake.bake_run
 DriveRow = _drives.DriveRow
 WhereCopy = _drives.WhereCopy

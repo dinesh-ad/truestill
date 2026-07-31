@@ -2469,12 +2469,48 @@ document.addEventListener("click", guarded(async (event) => {
     const page = await get(`/api/dates/files${key ? `?source=${encodeURIComponent(key)}` : ""}`);
     const hidden = page.total - page.files.length;
     const rows = page.files
-      .map((f) => `<div><span class="mono">${esc(f.name)}</span>
+      .map((f) => `<div class="row" data-rescue-row="${esc(f.sha256)}">
+                     <span class="mono">${esc(f.name)}</span>
                      <span class="k">${f.captured_at ? esc(f.captured_at.slice(0, 10)) : "no date"}</span>
-                     ${f.evidence ? `<span class="k mono">${esc(f.evidence)}</span>` : ""}</div>`)
+                     ${f.evidence ? `<span class="k mono">${esc(f.evidence)}</span>` : ""}
+                     <input class="input" data-rescue-date placeholder="2011-03-04" size="11">
+                     <input class="input" data-rescue-time placeholder="time (optional)" size="12">
+                     <button class="btn btn-ghost" data-rescue-go>Set date</button>
+                   </div>
+                   <div class="k" data-rescue-said></div>`)
       .join("");
     host.innerHTML =
       `<div class="k">${rows}</div>` +
       (hidden > 0 ? `<div class="k">…and ${nfmt(hidden)} more</div>` : "");
+  });
+}));
+
+// What a confirmation says back. Part 2 states the recorded fact; part 3 extends THIS function
+// with the other two states (still filed under the old year on disk, file itself unchanged) so
+// the wording keeps one home rather than gaining a second copy.
+function confirmedCard(r) {
+  const when = esc(r.captured_at.slice(0, 10));
+  const assumed = r.time_assumed
+    ? ` <span class="k">Time not given, so midday is assumed.</span>`
+    : "";
+  return `<span>Recorded. This photo is now dated ${when} in your library.${assumed}</span>`;
+}
+
+// ---------- the rescue action (step 5, part 2) ----------
+// The date field takes a full date only. A partial date is refused by the server with an
+// explanation rather than being completed here - completing it in the browser would put the
+// guess back, one layer further from the person who has to trust it.
+document.addEventListener("click", guarded(async (event) => {
+  const go = event.target.closest("[data-rescue-go]");
+  if (!go) return;
+  const row = go.closest("[data-rescue-row]");
+  const said = row.nextElementSibling;
+  await withBusy(go, "Saving…", async () => {
+    const r = await api("/api/dates/confirm", {
+      sha256: row.getAttribute("data-rescue-row"),
+      date: row.querySelector("[data-rescue-date]").value.trim(),
+      time: row.querySelector("[data-rescue-time]").value.trim(),
+    });
+    said.innerHTML = r.ok ? confirmedCard(r) : `<span class="warn">${esc(r.error)}</span>`;
   });
 }));

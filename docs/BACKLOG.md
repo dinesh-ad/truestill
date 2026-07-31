@@ -1225,6 +1225,14 @@ What remains CLI-only shares one reason: each is a **space-safe or irreversible*
 whose failure mode is permanent, and GUI demand is still judged from soak / launch feedback
 rather than assumed.
 
+- **The date rescue (`confirm_file_date`) is APP-ONLY**, recorded 2026-07-31 when step 5 made it
+  reachable. A rescue is review-shaped - look at a photo, judge it, correct it, with the evidence
+  in front of you - which is what the honesty view already is. A CLI equivalent would need file
+  addressing by hash or path and would be used for bulk correction: a different, more dangerous
+  feature that wants its own design. **Written down explicitly rather than left implicit**,
+  because `test_surface_parity.py`'s second blind spot is a surface that omits a key entirely,
+  so an undocumented single-surface contract is indistinguishable from drift.
+
 - **`truestill reclaim`** stays **CLI-only** until an app surface is explicitly approved. When
   one does get a surface, the pre-approved shape is advisory same-device detection plus a typed
   confirmation identical to the CLI's.

@@ -336,6 +336,18 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
         source = request.query_params.get("source")
         return JSONResponse(service.date_tier_files(_db(), source or None))
 
+    async def dates_confirm(request: Request) -> JSONResponse:
+        """Record a human-confirmed capture date for one file. Catalog-only, so not a job."""
+        body = await request.json()
+        return JSONResponse(
+            service.confirm_file_date(
+                _db(),
+                sha256=str(body["sha256"]),
+                date_text=str(body.get("date", "")),
+                time_text=body.get("time"),
+            )
+        )
+
     async def dates_bake_preview(request: Request) -> JSONResponse:
         """Catalog-only, so a plain request rather than a job: no file is read to build a plan."""
         body = await request.json()
@@ -562,6 +574,7 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
         Route("/api/migrate/preview", migrate_preview, methods=["POST"]),
         Route("/api/migrate/run", migrate_run, methods=["POST"]),
         Route("/api/dates/files", dates_tier_files),
+        Route("/api/dates/confirm", dates_confirm, methods=["POST"]),
         Route("/api/dates/bake/preview", dates_bake_preview, methods=["POST"]),
         Route("/api/dates/bake/run", dates_bake_run, methods=["POST"]),
         Route("/api/migrate/undo", migrate_undo_armed),
