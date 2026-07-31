@@ -15,8 +15,8 @@ import webbrowser
 from pathlib import Path
 
 import uvicorn
+from truestill_core.app_paths import default_catalog_path
 from truestill_core.catalog_startup import (
-    DEFAULT_CATALOG_PATH,
     CatalogPresence,
     format_startup_lines,
     inspect_catalog,
@@ -47,14 +47,14 @@ def main(argv: list[str] | None = None) -> int:
         "--db",
         type=Path,
         default=None,
-        help=f"SQLite catalog (default: {DEFAULT_CATALOG_PATH})",
+        help=f"SQLite catalog (default: {default_catalog_path()})",
     )
     parser.add_argument("--port", type=int, default=_DEFAULT_PORT)
     parser.add_argument("--no-browser", action="store_true", help="do not open a browser")
     args = parser.parse_args(argv)
 
     explicit_db = args.db is not None
-    db = args.db if explicit_db else DEFAULT_CATALOG_PATH
+    db = args.db if explicit_db else default_catalog_path()
     info = inspect_catalog(db, explicit_db=explicit_db)
     for line in format_startup_lines(info):
         stream = sys.stderr if info.presence is CatalogPresence.EMPTY_WITH_DRIVES else sys.stdout

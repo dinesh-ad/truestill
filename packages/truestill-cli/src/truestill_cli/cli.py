@@ -28,7 +28,6 @@ from truestill_core.app_paths import (
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_move import CatalogMoveOutcome, move_catalog_to_standard
 from truestill_core.catalog_startup import (
-    DEFAULT_CATALOG_PATH,
     CatalogPresence,
     db_flag_explicit,
     format_startup_lines,
@@ -123,7 +122,6 @@ from truestill_cli import __version__
 from truestill_cli.events_review import Prompt, album_prompt, run_event_stage
 
 _SEPARATOR = "=" * 100
-_DEFAULT_DB = DEFAULT_CATALOG_PATH
 _NON_INTERACTIVE_CONFIRM = (
     "error: interactive confirmation is required; this operation cannot run non-interactively."
 )
@@ -176,8 +174,8 @@ def _add_common_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--db",
         type=Path,
-        default=_DEFAULT_DB,
-        help=f"path to the catalog file (default: {_DEFAULT_DB})",
+        default=default_catalog_path(),
+        help=f"path to the catalog file (default: {default_catalog_path()})",
     )
     parser.add_argument(
         "--phash-threshold",
@@ -230,7 +228,9 @@ def _add_undo_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -
         "undo-organize",
         help="put files back where they were before reorganize in this same folder (--in-place)",
     )
-    undo.add_argument("--db", type=Path, default=_DEFAULT_DB, help="path to the catalog file")
+    undo.add_argument(
+        "--db", type=Path, default=default_catalog_path(), help="path to the catalog file"
+    )
     undo.add_argument("--run-id", help="which run to reverse (default: the most recent)")
     undo.add_argument("--list", action="store_true", help="list recorded --in-place runs and exit")
     undo.add_argument(
@@ -316,7 +316,9 @@ def _build_parser() -> argparse.ArgumentParser:
     drives = sub.add_parser(
         "drives", help="list known backup drives, or set up a drive marker file"
     )
-    drives.add_argument("--db", type=Path, default=_DEFAULT_DB, help="path to the catalog file")
+    drives.add_argument(
+        "--db", type=Path, default=default_catalog_path(), help="path to the catalog file"
+    )
     drives.add_argument(
         "--init", type=Path, metavar="ROOT", help="create a drive marker file at ROOT"
     )
@@ -336,7 +338,9 @@ def _build_parser() -> argparse.ArgumentParser:
 
     where = sub.add_parser("where", help="find which drive(s) hold a file, even when unplugged")
     where.add_argument("term", help="filename / path substring to search for")
-    where.add_argument("--db", type=Path, default=_DEFAULT_DB, help="path to the catalog file")
+    where.add_argument(
+        "--db", type=Path, default=default_catalog_path(), help="path to the catalog file"
+    )
     where.add_argument(
         "--limit",
         type=int,
@@ -350,12 +354,16 @@ def _build_parser() -> argparse.ArgumentParser:
     verify.add_argument(
         "path", type=Path, help="the drive's current mount root (must be connected)"
     )
-    verify.add_argument("--db", type=Path, default=_DEFAULT_DB, help="path to the catalog file")
+    verify.add_argument(
+        "--db", type=Path, default=default_catalog_path(), help="path to the catalog file"
+    )
     verify.add_argument("--pool", choices=("thread", "process"), default="thread")
     verify.add_argument("--workers", type=int, default=DEFAULT_WORKERS, metavar="N")
 
     status = sub.add_parser("status", help="show files that exist on only one drive (3-2-1)")
-    status.add_argument("--db", type=Path, default=_DEFAULT_DB, help="path to the catalog file")
+    status.add_argument(
+        "--db", type=Path, default=default_catalog_path(), help="path to the catalog file"
+    )
 
     catalog_cmd = sub.add_parser(
         "catalog", help="show where truestill keeps its catalog, and optionally move it"
@@ -369,7 +377,9 @@ def _build_parser() -> argparse.ArgumentParser:
     config = sub.add_parser(
         "config", help="show or change this catalog file's destination folder pattern"
     )
-    config.add_argument("--db", type=Path, default=_DEFAULT_DB, help="path to the catalog file")
+    config.add_argument(
+        "--db", type=Path, default=default_catalog_path(), help="path to the catalog file"
+    )
     config.add_argument("--set-template", metavar="TEMPLATE", help="set a custom folder pattern")
     config.add_argument(
         "--preset", metavar="NAME", help="set the layout from a saved folder pattern"
@@ -385,7 +395,7 @@ def _build_parser() -> argparse.ArgumentParser:
     reclaim.add_argument(
         "path", type=Path, help="the backup drive's mount root (must be connected)"
     )
-    reclaim.add_argument("--db", type=Path, default=_DEFAULT_DB, help="SQLite catalog")
+    reclaim.add_argument("--db", type=Path, default=default_catalog_path(), help="SQLite catalog")
     reclaim.add_argument(
         "--apply", action="store_true", help="actually delete sources (default: preview only)"
     )
@@ -404,7 +414,7 @@ def _build_parser() -> argparse.ArgumentParser:
     migrate.add_argument(
         "path", type=Path, help="the drive's current mount root (must be connected)"
     )
-    migrate.add_argument("--db", type=Path, default=_DEFAULT_DB, help="SQLite catalog")
+    migrate.add_argument("--db", type=Path, default=default_catalog_path(), help="SQLite catalog")
     _add_clean_parser(sub)
 
     migrate.add_argument(
@@ -1364,7 +1374,7 @@ def _add_clean_parser(sub: argparse._SubParsersAction) -> None:  # type: ignore[
         help="remove the empty folders a layout migration left behind (preview by default)",
     )
     clean.add_argument("path", type=Path, help="the connected drive folder")
-    clean.add_argument("--db", type=Path, default=_DEFAULT_DB, help="SQLite catalog")
+    clean.add_argument("--db", type=Path, default=default_catalog_path(), help="SQLite catalog")
     clean.add_argument(
         "--apply", action="store_true", help="actually remove them (default: preview only)"
     )

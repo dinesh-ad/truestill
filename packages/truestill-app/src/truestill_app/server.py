@@ -19,7 +19,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 from starlette.staticfiles import StaticFiles
-from truestill_core.catalog_startup import DEFAULT_CATALOG_PATH
+from truestill_core.app_paths import default_catalog_path
 from truestill_core.events import InvalidEventSettingsError
 from truestill_core.layout import InvalidEverydayDaySettingsError
 from truestill_core.trip_review import ReviewCard
@@ -46,7 +46,7 @@ _TEMPLATES = _PKG / "templates"
 _STATIC = _PKG / "static"
 
 #: Default catalog the app reads/writes (same default as the CLI).
-_DEFAULT_DB = DEFAULT_CATALOG_PATH
+_DEFAULT_DB = default_catalog_path()
 
 #: Review sessions kept per process. See `remember_session` (audit F17).
 MAX_REVIEW_SESSIONS = 32

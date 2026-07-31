@@ -47,6 +47,7 @@ writing against a stdlib alternative). `platformdirs` is added deliberately:
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import platformdirs
@@ -54,6 +55,20 @@ import platformdirs
 #: Application name for the platform directory lookup. One name, used for both roots, so a
 #: user can find everything truestill owns without knowing which kind of file it is.
 APP_NAME = "truestill"
+
+#: Environment overrides for the two roots, honoured on **every** platform.
+#:
+#: They exist for two reasons and both are load-bearing. A portable install - truestill on a USB
+#: stick, or a second isolated library - needs to put its data somewhere the OS convention does
+#: not know about; this is the same escape hatch Terraform's ``TF_DATA_DIR`` provides.
+#:
+#: And **the test suite depends on them for hermeticity**. Without an override the default
+#: catalog resolves into the developer's real home, so any test running a default-`--db` command
+#: writes there - which is exactly what happened when `(aae)` first landed: CI runs and a local
+#: run each created a real ``catalog.sqlite`` in the runner's home. `platformdirs` honours
+#: ``XDG_DATA_HOME`` on Linux only, so a portable override has to be ours.
+DATA_DIR_ENV = "TRUESTILL_DATA_DIR"
+CACHE_DIR_ENV = "TRUESTILL_CACHE_DIR"
 
 #: Where the catalog lived before `(aae)`, relative to the working directory. Still honoured
 #: when it is really there - see :func:`default_catalog_path`.
@@ -66,8 +81,22 @@ CATALOG_FILENAME = "catalog.sqlite"
 CACHE_FILENAME = "hashes.cache.sqlite"
 
 
+def _data_dir() -> Path:
+    override = os.environ.get(DATA_DIR_ENV)
+    return Path(override) if override else Path(platformdirs.user_data_dir(APP_NAME))
+
+
+def _cache_dir() -> Path:
+    override = os.environ.get(CACHE_DIR_ENV)
+    return Path(override) if override else Path(platformdirs.user_cache_dir(APP_NAME))
+
+
 def default_catalog_path() -> Path:
     """The catalog to use when the caller did not name one. **Never creates anything.**
+
+    Resolved on **every call**, never cached in a module constant: an override set after import
+    must still be honoured, and a constant computed at import time is unpatchable by a test and
+    therefore un-isolatable.
 
     An existing legacy catalog wins, and that ordering is the backwards-compatibility promise:
     an upgrade must not silently start writing to a different, empty catalog while the real one
@@ -76,12 +105,12 @@ def default_catalog_path() -> Path:
     """
     if LEGACY_CATALOG_PATH.exists():
         return LEGACY_CATALOG_PATH
-    return Path(platformdirs.user_data_dir(APP_NAME)) / CATALOG_FILENAME
+    return _data_dir() / CATALOG_FILENAME
 
 
 def default_cache_path() -> Path:
     """The cache for the default catalog: the OS **cache** directory, never the data one."""
-    return Path(platformdirs.user_cache_dir(APP_NAME)) / CACHE_FILENAME
+    return _cache_dir() / CACHE_FILENAME
 
 
 def cache_path_for(catalog: Path) -> Path:
@@ -91,6 +120,6 @@ def cache_path_for(catalog: Path) -> Path:
     path - an explicit ``--db``, a test fixture, a catalog on an external drive - there is no
     counterpart, so the cache sits beside it and travels with it.
     """
-    if catalog == Path(platformdirs.user_data_dir(APP_NAME)) / CATALOG_FILENAME:
+    if catalog == _data_dir() / CATALOG_FILENAME:
         return default_cache_path()
     return catalog.with_suffix(".cache.sqlite")
