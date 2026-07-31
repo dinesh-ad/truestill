@@ -221,6 +221,41 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   wrong, and it scored zero. A green run there means the two copies match, never that they are
   right.
 
+- **A mutation proof must show that the mutant is the code under test.** The fifth member of
+  this family. The other four are about a guard that cannot fail, is switched off, is aimed at
+  the wrong module, or asserts the wrong subject. This one is about the *proof of a guard* -
+  the step taken to demonstrate a test can fail - and it goes wrong the same way: it reports
+  success while proving nothing.
+
+  Breaking the code and watching a test go red is what separates a guard from a decoration. But
+  the mutation and the test run are two different things, and **nothing checks that they met.**
+  When they do not, the test passes, and a passing test is read as "the mutation was caught by
+  something else" or "the guard is fine" rather than "the mutant was never loaded."
+
+  *Two worked examples, one session, 2026-07-31 - different mechanisms, same root cause.*
+
+  1. *The editable install.* The mutation was written into a `cp -r` copy of `packages/` under
+     the scratch directory, then `pytest` was pointed at the copy's test file. The copy's tests
+     `import truestill_app...`, which the venv's **editable install resolved back to the real
+     repo**. All ten tests passed against an unmutated implementation. Re-run with `PYTHONPATH`
+     ahead of site-packages, six failed.
+  2. *The stale worktree.* The mutation was applied inside `git worktree add --detach <path>
+     HEAD`, but the code under test was **uncommitted**. The worktree was a faithful copy of a
+     tree that predated the guard entirely, so the import failed - and had the guard merely been
+     *older* than the change rather than absent, it would have run happily against the wrong
+     code and passed.
+
+  One resolved past the mutant, the other never contained it. Both **failed in the reassuring
+  direction**, which is the family resemblance: a mutation proof that silently proves nothing
+  leaves a guard everyone now believes has been verified.
+
+  **The requirement: assert the mutant is the code under test, against the mutant path, before
+  trusting the result.** `assert str(mutant_root) in module.__file__` for an imported module, the
+  equivalent identity check for anything else - and for a subprocess run, print the resolved path
+  and check it. *A proof that cannot say which file it loaded is not a proof.* The cheap habit is
+  to make the mutation itself observable: if the mutated run does not fail, the first question is
+  whether it ran the mutant, not whether the test is weak.
+
 - **Errors.** Exceptions typed and specific - no bare `except`. User-facing CLI errors are
   actionable sentences, not tracebacks. Every subprocess call checks its return code and
   surfaces stderr on failure. Partial-failure policy: one bad file never aborts a batch - it
