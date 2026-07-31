@@ -18,7 +18,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aae). Next free: (aaf).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aag). Next free: (aah).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -28,6 +28,48 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved, not yet built
+
+- **(aaf) Persisted skip record - "show me what was skipped last week".** Ruled by the
+  maintainer, 2026-07-31, from the duplicate-naming gap check. **Record only - do not build.**
+  - **What is already done, and what is not.** The *current run* now names every match it
+    skipped, on both surfaces (`duplicate_explain`, `organize._duplicate_report`). What is
+    missing is asking **afterwards**. `stats.py` states the reason in its own payload today:
+    `"exact_duplicates_found": None`, because *"Exact-duplicate skips are not stored in the
+    catalog; computing this would require a new scan outside the read-only stats contract."*
+  - **Why it is (m)-sized rather than another payload fix.** `Resolution` objects live only for
+    the duration of the job and are discarded with it. Nothing persists a skip, so there is no
+    row to read later and no amount of payload plumbing produces one - **it needs a new table**,
+    plus a retention policy (a 40,000-file re-run would write 40,000 rows nobody asked for) and
+    a decision about whether an undone organize retracts its skip records.
+  - **Market evidence, recorded because it will not be re-derivable later.** The single
+    most-repeated complaint about photo tools, unchanged 2007-2026, is a tool that declares a
+    file a duplicate and will not show *which* file it matched. One Lightroom thread has been
+    open since **2018** with **21,798 views**, and users call it an *"absolute dealbreaker"*.
+    The live half of that complaint is answered; this is the historical half.
+  - **Open questions for the design pass:** which table and whether it belongs beside the
+    catalog or in it; retention; whether the record survives `undo-organize`; and whether this
+    is the same surface as (m)'s inventory of unknown media or a different one.
+
+- **(aag) Near-duplicate grouping and burst review.** Ruled by the maintainer, 2026-07-31, from
+  the same gap check. **Record only - do not build.**
+  - **This is a review surface over behaviour that is already correct, which is what makes it
+    deferrable.** truestill already **keeps** near-duplicates and flags them - `Resolution`
+    carries `near_duplicate` and the file is organized anyway, never dropped (`should_upload`
+    ignores it), and both surfaces now name what each one resembles and say it was kept. On the
+    behaviour the market complains about, truestill is **ahead** of the tools being complained
+    about: the complaint is about tools that silently discard.
+  - **The distinction that decided the order.** The duplicate-naming payload gap was a **§9
+    contract violation** - an outcome counted but not named - and contract violations are not
+    deferrable. This is a **feature**: choosing between look-alikes a user can already see
+    listed. Same subject, different kind of work, and only one of them was a defect.
+  - **Market evidence.** Second most-repeated complaint after the naming one: *"group photos
+    that are not quite duplicates, let me pick which to keep"* - burst shots, bracketed
+    exposures, near-identical retries.
+  - **Open questions for the design pass:** grouping (by perceptual distance, by capture time,
+    or both); what "pick which to keep" does given the copy-only invariant, since truestill does
+    not delete - it would have to be a *reclaim* offer or a side-bin move, and (§1) constrains
+    both; and whether the existing distance threshold is the right grouping key or only the
+    right detection key.
 
 - **(aae) Catalog and cache belong in OS-conventional locations, and are not the same kind of
   data.** Ruled by the maintainer, 2026-07-31. **Record only - do not build.**
