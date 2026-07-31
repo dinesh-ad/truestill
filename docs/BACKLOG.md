@@ -18,7 +18,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aad). Next free: (aae).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aae). Next free: (aaf).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -28,6 +28,59 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved, not yet built
+
+- **(aae) Catalog and cache belong in OS-conventional locations, and are not the same kind of
+  data.** Ruled by the maintainer, 2026-07-31. **Record only - do not build.**
+  - **Current state, verified against code 2026-07-31.** `DEFAULT_CATALOG_PATH =
+    Path("reports/catalog.sqlite")` (`catalog_startup.py:31`), shared by the CLI (`cli.py:116`)
+    and the app (`server.py:48`) so both agree - and **relative, therefore resolved against the
+    working directory**. The cache is `catalog.with_suffix(".cache.sqlite")`
+    (`hash_cache.cache_path_for`), placed beside the catalog by `HashCache.beside(db)` at all
+    eleven call sites. The reading that prompted this entry is confirmed exactly.
+  - **The finding: two different kinds of data sharing one fate.** `catalog.sqlite` is **user
+    data** - the custody record, human-confirmed dates (`date_confirmations`), trip names.
+    Losing it is unrecoverable. `catalog.cache.sqlite` is **cache** - derived, disposable, and
+    its own module already says "delete this file and nothing is lost but time" (~12 s to
+    rebuild). The cross-platform convention separates them precisely because their correct
+    treatment differs: `user_data_dir` vs `user_cache_dir` (XDG on Linux,
+    `~/Library/Application Support` vs `~/Library/Caches` on macOS, `%APPDATA%` vs
+    `%LOCALAPPDATA%` on Windows).
+  - **Why this is more than tidiness.**
+    - A cache in the OS cache location may be **cleared by the OS or excluded from backups** -
+      which is *correct* for a cache and *catastrophic* for a catalog. Today they share a
+      directory, so any such policy hits both.
+    - **CWD-relative defaults produced the silent-empty-catalog trap.** Announcing the resolved
+      path (`catalog_startup.inspect_catalog`) treated the symptom; the cause is that running
+      from a different directory silently addresses a different catalog.
+    - **(aad) installers make it fatal.** A double-clicked desktop app has no meaningful working
+      directory, so a relative default is not merely untidy there - it is undefined.
+  - **The cache is ONE file, deliberately, and that does not change.** Not per-folder and not
+    per-year. It is keyed by absolute path + size + `mtime_ns`, so a single sidecar serves every
+    drive and every run. Scattering cache files through a user's library would make the library
+    non-portable and would leave truestill's droppings inside the very folders it promises only
+    to organize. Moving the file must not become an excuse to split it.
+  - **Open questions, deliberately not answered here.**
+    - **Is `platformdirs` justified under the no-new-dependency rule** (`ENGINEERING_STANDARD.md`
+      §4: every runtime dep justifies itself against a stdlib alternative *in writing*)? It is
+      small, single-purpose, and the alternative is hand-rolling three platform conventions;
+      Black depends on it. The rule is not "never" - it is "argue it in writing", and that
+      argument has not been made yet.
+    - **How is an existing `reports/catalog.sqlite` found or migrated?** It must be adopted, not
+      orphaned - a user whose custody record silently becomes an empty new catalog is the
+      silent-empty-catalog trap again, wearing a fix as a disguise.
+    - **Does `--db` stay the override?** Presumably yes, but the interaction with an explicit
+      path, `explicit_db`, and the startup inspection needs stating.
+    - **Is `catalog.sqlite` the right FILENAME?** Decide it **together with the location**, not
+      separately: both are migrations of the same file, and two migrations of one file is one
+      too many. Context for whoever picks it up: *"catalog"* as a concept is correct and
+      industry-standard (Lightroom's `.lrcat`, Capture One) and is the word the target audience
+      already uses - **do not rename the `Catalog` class**, and (ccc)'s split stands, where
+      user-facing wording is "library record" while the code keeps "catalog". The weak point is
+      that the *file* is anonymous: `catalog.sqlite` says nothing about which app owns it, and
+      Lightroom solved exactly this with a self-describing extension. Options include
+      `truestill.db`, `truestill-catalog.sqlite`, `library.truestill`, or leaving it as
+      `catalog.sqlite` once the enclosing directory is `~/.local/share/truestill` and names the
+      app itself.
 
 - **(aad) Desktop installers - LAUNCH-BLOCKING for the paid product.** Ruled by the maintainer,
   2026-07-31. **Record only - no design pass yet, and it does not block the current
