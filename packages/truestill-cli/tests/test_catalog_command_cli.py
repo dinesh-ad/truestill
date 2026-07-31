@@ -102,7 +102,8 @@ def test_a_legacy_catalog_is_reported_as_in_use_and_offered_a_move(
 
     out = capsys.readouterr().out
     reported = _lines(out)
-    assert reported["Catalog in use"] == str(Path("reports/catalog.sqlite"))
+    # Absolute since (aad) - the same file, named so it cannot shift under a chdir.
+    assert reported["Catalog in use"] == str(legacy)
     assert reported["Catalog in use"] != reported["Standard place"]
     assert "old location" in out
     assert "truestill catalog --move" in out

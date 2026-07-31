@@ -61,7 +61,10 @@ def test_an_existing_legacy_catalog_keeps_being_used(
     legacy.parent.mkdir()
     legacy.write_bytes(b"existing")
 
-    assert default_catalog_path() == Path("reports/catalog.sqlite")
+    # Absolute since (aad): the same file, named in a way that survives a chdir. A relative
+    # answer means a different catalog after any directory change, including one truestill
+    # makes itself.
+    assert default_catalog_path() == legacy
 
 
 def test_resolution_never_creates_anything(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -130,4 +133,4 @@ def test_the_legacy_catalog_keeps_its_cache_beside_it(
     legacy.write_bytes(b"existing")
 
     assert cache_path_for(default_catalog_path()).name == "catalog.cache.sqlite"
-    assert cache_path_for(default_catalog_path()).parent == Path("reports")
+    assert cache_path_for(default_catalog_path()).parent == legacy.parent

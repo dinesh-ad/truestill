@@ -48,6 +48,7 @@ writing against a stdlib alternative). `platformdirs` is added deliberately:
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 import platformdirs
@@ -101,6 +102,30 @@ def _cache_dir() -> Path:
     return Path(override) if override else Path(platformdirs.user_cache_dir(APP_NAME))
 
 
+def _working_directory_was_chosen() -> bool:
+    """Whether *somebody decided* what the working directory is.
+
+    `LEGACY_CATALOG_PATH` is relative, so asking whether it exists is asking about the current
+    directory - which for a double-clicked app is whatever the OS handed the process:
+    ``C:\\Windows\\System32``, ``/``, or the user's home, depending on how it was launched. That
+    question has no meaning there, and the answer it happens to get is an accident.
+
+    **The signal is how the process was started, not what the directory contains.** A windowed
+    launch has no console (``pythonw.exe``, a ``--noconsole`` build, a packaged GUI app), and
+    that is exactly the case where nobody chose a directory. Anything with a console was started
+    by someone typing a command somewhere, and *that somewhere* is a deliberate answer.
+
+    Deliberately **not** an attempt to recognise a developer or a source checkout. A user with a
+    ``reports/`` folder is not a developer, a developer running from elsewhere still deserves
+    their catalog, and a rule that tried to tell them apart would be wrong in both directions.
+
+    This keeps `(aae)`'s promise whole for **everyone who can actually hold a legacy catalog**:
+    the only way to have one is to have run truestill from a terminal, and every terminal
+    invocation still looks. What is skipped is the case that could never have created one.
+    """
+    return sys.stdout is not None or sys.stderr is not None
+
+
 def default_catalog_path() -> Path:
     """The catalog to use when the caller did not name one. **Never creates anything.**
 
@@ -112,9 +137,14 @@ def default_catalog_path() -> Path:
     an upgrade must not silently start writing to a different, empty catalog while the real one
     sits where the user left it. That failure would look exactly like data loss, which is why
     the legacy path is checked first rather than migrated automatically.
+
+    **The legacy path is relative, so it is only asked about where the working directory means
+    something** - see :func:`_working_directory_was_chosen`. It is returned **absolute**: a
+    relative answer names a different file after any ``chdir``, and `Catalog` opens it at the
+    moment it is handed over, not at the moment it was resolved.
     """
-    if LEGACY_CATALOG_PATH.exists():
-        return LEGACY_CATALOG_PATH
+    if _working_directory_was_chosen() and LEGACY_CATALOG_PATH.exists():
+        return LEGACY_CATALOG_PATH.resolve()
     return _data_dir() / CATALOG_FILENAME
 
 
