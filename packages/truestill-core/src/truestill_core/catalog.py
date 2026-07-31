@@ -958,6 +958,38 @@ class Catalog:
             )
         )
 
+    def attachable_hashes(self) -> list[sqlite3.Row]:
+        """``(hash, sha256)`` for every digest a copy of an organized file can present on disk.
+
+        Used to attach a drive by reading it rather than by trusting a remembered path. A
+        copy is **not** always byte-identical to its source: the Takeout bake rewrites metadata,
+        so that copy hashes to its own ``copy_sha256`` and would be unrecognisable if only
+        ``files.sha256`` were matched. Every recorded copy digest is therefore an accepted
+        identity for the same content.
+
+        **Complexity: O(n)** over files plus copies, one scan each, no I/O.
+        """
+        return list(
+            self._conn.execute(
+                """
+                SELECT sha256 AS hash, sha256 FROM files WHERE relative IS NOT NULL
+                UNION
+                SELECT copy_sha256 AS hash, sha256 FROM files WHERE copy_sha256 IS NOT NULL
+                UNION
+                SELECT copy_sha256 AS hash, sha256 FROM file_copies WHERE copy_sha256 IS NOT NULL
+                """
+            )
+        )
+
+    def organized_sizes(self) -> dict[str, int | None]:
+        """``{sha256: size}`` for organized files, so attach can report a scale before reading."""
+        return {
+            str(row["sha256"]): row["size"]
+            for row in self._conn.execute(
+                "SELECT sha256, size FROM files WHERE relative IS NOT NULL"
+            )
+        }
+
     def find_by_sha256(self, sha256: str) -> sqlite3.Row | None:
         cursor = self._conn.execute("SELECT * FROM files WHERE sha256 = ?", (sha256,))
         row: sqlite3.Row | None = cursor.fetchone()

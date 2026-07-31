@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import shutil
-import sqlite3
 import subprocess
 import sys
 import threading
@@ -90,10 +89,14 @@ class DriveAttachment:
     registered: bool  # a marker was written now (the folder was not a drive before)
     linked: int  # already-organized files newly attached to this drive
     absent: int  # catalogued files whose copy is not actually on the drive
-    #: Attached, but the read failed, so the copy carries no hash. Counted separately because a
-    #: gap folded into ``linked`` would read as a clean attach (§9), and because these are the
-    #: copies verify will report UNVERIFIABLE rather than checking.
+    #: Read failed, so the file could not be identified at all. Counted separately because a gap
+    #: folded into ``linked`` would read as a clean attach (§9). Identified by content, an
+    #: unreadable file has no identity: its catalog row stays counted in ``absent``.
     unreadable: int = 0
+    #: On the drive, hashes to nothing the catalog knows. Counted rather than ignored so the
+    #: walk is not silent about what it read; never attached, because claiming it would invent
+    #: a copy of content truestill has no record of.
+    unmatched: int = 0
 
 
 def _copy_hash(path: Path, cache: HashCache) -> str:
@@ -117,34 +120,25 @@ def _copy_hash(path: Path, cache: HashCache) -> str:
     return digest
 
 
-def _copies_present(
-    catalog: Catalog, path: Path, drive_uuid: str | None
-) -> tuple[list[sqlite3.Row], int]:
-    """The organized files really sitting on this drive, and how many are not. Stat only.
+def _unrecorded_files(root: Path, recorded: set[str]) -> list[Path]:
+    """Every file on the drive that is not already a recorded copy at that exact path.
 
-    Settling this before any hashing is what lets the first progress tick say "1 of 4,538"
-    instead of counting up towards a total the user only learns when it stops.
+    ``recorded`` holds ``file_copies.relative`` for this drive - the **per-drive** column, which
+    migration keeps current, and the only path in the catalog that can be trusted. A file sitting
+    where the catalog already says it sits needs no read: that is what keeps an ordinary attach
+    of an already-attached drive cheap now that identification means hashing.
 
-    ``drive_uuid`` is ``None`` when previewing a folder that is not a drive yet: it has no
-    recorded copies by definition, so every organized file present on it is one the run would
-    attach. That case matters most -- an unregistered library is exactly where the scale is
-    largest and where reporting zero would be the least honest.
+    Dotfiles are skipped: the drive marker, and the catalog sidecars if someone keeps them here.
+
+    **Complexity: O(files on the drive)** - one walk, one stat each, no reads.
     """
-    known = (
-        {row["sha256"] for row in catalog.copies_on_drive(drive_uuid)}
-        if drive_uuid is not None
-        else set()
-    )
-    present: list[sqlite3.Row] = []
-    absent = 0
-    for row in catalog.organized_files():
-        if row["sha256"] in known:
-            continue
-        if (path / str(row["relative"])).is_file():
-            present.append(row)
-        else:
-            absent += 1
-    return present, absent
+    return [
+        item
+        for item in sorted(root.rglob("*"))
+        if item.is_file()
+        and not any(part.startswith(".") for part in item.relative_to(root).parts)
+        and item.relative_to(root).as_posix() not in recorded
+    ]
 
 
 def attach_drive(
@@ -171,15 +165,29 @@ def attach_drive(
       in ``files`` but none in ``file_copies``. Each is attached only after confirming the copy
       is *actually present*; anything missing is counted and reported, never assumed.
 
-    **Attach is authoritative about this drive's hashes, which means it reads the drive.** It
-    used to record ``files.copy_sha256`` -- a *per-content* value -- onto a *per-drive* row.
-    That holds only while every copy of a file is byte-identical to every other, and the Takeout
-    bake already breaks it. Inheriting it would make verify compare a baked copy against a hash
-    taken before the bake and report corruption on a file truestill itself wrote. So each copy
-    is hashed from the bytes on this drive. That turns attach from instant into a full read;
-    `docs/PERFORMANCE.md` §1.1 carries the measured cost, and the cost is the justification --
-    an attach that guesses is not detectably wrong until it accuses a user's photo of being
-    damaged.
+    **A copy is identified by its content, never by a remembered path.** Attach used to locate
+    copies through ``files.relative``, a *per-content* column written once at organize time and
+    never updated: ``migrate-layout`` rewrites ``file_copies.relative`` and leaves it behind. On
+    the maintainer's real library **0 of 2,300** of those paths still existed. That cost nothing
+    while a drive was fully attached -- the already-recorded check answers first -- and cost
+    everything on **re-attach**, the disaster-recovery path, where it reported 2,300 files absent
+    from a drive physically holding 2,269 of them. Reading another drive's path instead was
+    measured at **9%**, because drives sit on different layouts. So the drive is walked and each
+    file identified by its hash, which is true regardless of layout or migration history --
+    the same promise the marker already makes (`IMPLEMENTATION_STANDARDS.md` §3.1: identity is
+    never a path). **A drive with no recorded copies at all therefore reads nothing from the
+    catalog about where its files should be**; the original case and the migrated case became
+    one route, which is why the migrated one stopped being special.
+
+    Matching accepts **every digest a copy can present**: a Takeout-baked copy hashes to its own
+    ``copy_sha256`` rather than to ``files.sha256``, and matching only the source hash would
+    leave exactly the baked copies unrecognisable.
+
+    **Attach is also authoritative about this drive's hashes.** It used to record
+    ``files.copy_sha256`` -- per-content again -- onto a per-drive row, which would make verify
+    compare a baked copy against a pre-bake hash and report corruption on a file truestill itself
+    wrote. What is recorded now is the digest that identified the file, which is by construction
+    the hash of the bytes on this drive. `docs/PERFORMANCE.md` §1.1 carries the measured cost.
 
     **Resumable, never rolled back.** Each recorded copy is committed on its own and is
     independently true: that file was on that drive and hashed to that value. ``cancel`` stops
@@ -188,9 +196,10 @@ def attach_drive(
     to undo -- a rollback could only discard knowledge, and on a real drive it would discard
     hours of reading to reach a strictly less informative state.
 
-    An unreadable copy is recorded with **no** hash and counted, rather than aborting the run or
-    inventing a value: "present, unverifiable" is a real outcome (see `truestill_core.verify`),
-    and one bad sector must not cost the user the rest of the library.
+    Two outcomes are counted rather than folded into a total (§9). An **unreadable** file cannot
+    be identified at all, so it is named and its catalog row stays in ``absent`` -- attaching it
+    would mean picking whichever row looked likely, recording a guess as fact. An **unmatched**
+    file is on the drive and hashes to nothing the catalog knows; it is left alone.
 
     ``write=False`` reports what would happen, hashes nothing and touches nothing, so previews
     stay pure -- and its ``linked`` count is the scale the user is shown *before* agreeing to a
@@ -204,46 +213,80 @@ def attach_drive(
         marker = create_marker(path, label=path.name or "Library")
     label = marker.label if marker is not None else (path.name or "Library")
 
-    linked = unreadable = 0
+    linked = unreadable = unmatched = 0
     with Catalog(db) as catalog:
         if write and marker is not None:
             catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
             catalog.set_setting(drive_path_hint(marker.uuid), str(path))
-        present, absent = _copies_present(catalog, path, marker.uuid if marker else None)
+        on_drive = (
+            {str(row["relative"]) for row in catalog.copies_on_drive(marker.uuid)}
+            if marker is not None
+            else set()
+        )
+        attached = (
+            {str(row["sha256"]) for row in catalog.copies_on_drive(marker.uuid)}
+            if marker is not None
+            else set()
+        )
+        # Settled before any reading, so the first progress tick can say "1 of 2,269" rather
+        # than counting up towards a total the user only learns when it stops.
+        candidates = _unrecorded_files(path, on_drive)
         if not write or marker is None:
+            # A preview cannot know which of these will match without reading them, and reading
+            # is the thing being previewed. It reports the files it would read, which is the
+            # scale the user is being asked to agree to.
             return DriveAttachment(
                 label=label,
                 registered=not was_registered,
-                linked=len(present),
-                absent=absent,
+                linked=len(candidates),
+                absent=0,
             )
-        total = len(present)
+
+        by_hash = {str(row["hash"]): str(row["sha256"]) for row in catalog.attachable_hashes()}
+        total = len(candidates)
         with HashCache.beside(db) as cache:
-            for row in present:
+            for item in candidates:
                 if cancel is not None and cancel.is_set():
                     break
-                copy_path = path / str(row["relative"])
                 try:
-                    digest: str | None = _copy_hash(copy_path, cache)
+                    digest = _copy_hash(item, cache)
                 except OSError:
-                    digest = None
+                    # No hash means no identity: there is nothing to attach this file to, and
+                    # picking a likely row would record a guess as fact.
                     unreadable += 1
+                    continue
+                finally:
+                    if progress is not None:
+                        progress(
+                            Progress(
+                                linked + unreadable + unmatched + 1,
+                                total,
+                                Phase.HASHING,
+                                item.name,
+                            )
+                        )
+                sha = by_hash.get(digest)
+                if sha is None or sha in attached:
+                    unmatched += sha is None
+                    continue
                 catalog.record_copy(
-                    sha256=str(row["sha256"]),
+                    sha256=sha,
                     drive_uuid=marker.uuid,
-                    relative=str(row["relative"]),
+                    relative=item.relative_to(path).as_posix(),
+                    # The digest that identified it: by construction the hash of these bytes.
                     copy_sha256=digest,
-                    size=row["size"],
+                    size=item.stat().st_size,
                 )
+                attached.add(sha)
                 linked += 1
-                if progress is not None:
-                    progress(Progress(linked, total, Phase.HASHING, copy_path.name))
+        absent = len(set(catalog.organized_sizes()) - attached)
     return DriveAttachment(
         label=label,
         registered=not was_registered,
         linked=linked,
         absent=absent,
         unreadable=unreadable,
+        unmatched=unmatched,
     )
 
 

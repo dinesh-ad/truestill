@@ -18,7 +18,6 @@ damaged. `docs/PERFORMANCE.md` §1.1 carries the measured cost.
 
 from __future__ import annotations
 
-import errno
 import sqlite3
 import threading
 from pathlib import Path
@@ -40,21 +39,26 @@ STALE_PER_CONTENT_HASH = "f" * 64
 def _organized_library(db: Path, root: Path, names: tuple[str, ...]) -> dict[str, str]:
     """A library organized *before* its folder was registered: ``files`` rows, no ``file_copies``.
 
-    The bytes on disk deliberately differ from the recorded per-content hash, which is the state
-    a metadata bake produces. Returns ``{name: on-disk sha256}``.
+    The ordinary case: the copy is byte-identical to its source, so ``files.sha256`` is the hash
+    of the bytes on disk. What is *wrong* here is the deprecated per-content
+    ``files.copy_sha256``, set to a value matching nothing - an attach that inherits it rather
+    than recording what it read fails every assertion below.
+
+    Returns ``{name: on-disk sha256}``.
     """
     on_disk: dict[str, str] = {}
     with Catalog(db) as catalog:
-        for index, name in enumerate(names):
+        for name in names:
             relative = f"Camera/2014/{name}"
             path = root / relative
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(f"baked-bytes-of-{name}".encode())
-            on_disk[name] = sha256_file(path)
+            path.write_bytes(f"bytes-of-{name}".encode())
+            sha = sha256_file(path)
+            on_disk[name] = sha
             catalog.record_uploaded(
                 source_path=f"/src/{name}",
                 original_name=name,
-                sha256=f"source-sha-{index}",
+                sha256=sha,
                 copy_sha256=STALE_PER_CONTENT_HASH,
                 perceptual=None,
                 size=path.stat().st_size,
@@ -64,6 +68,36 @@ def _organized_library(db: Path, root: Path, names: tuple[str, ...]) -> dict[str
                 # No drive_uuid: this is the pre-registration state, so no copy is recorded.
             )
     return on_disk
+
+
+def _baked_copy(db: Path, root: Path, name: str) -> tuple[str, str]:
+    """A Takeout-baked copy: the bytes on the drive are NOT the source bytes.
+
+    This is the case that makes content-matching non-trivial. The copy hashes to its own
+    ``copy_sha256``, so an attach that matched only ``files.sha256`` would fail to recognise
+    precisely the files the dual-hash rule exists for. Returns ``(source_sha, baked_sha)``.
+    """
+    relative = f"Camera/2014/{name}"
+    path = root / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(f"baked-bytes-of-{name}".encode())
+    baked = sha256_file(path)
+    #: The pre-bake source hash. It is the dedup identity and it is deliberately not the hash of
+    #: anything on this drive - the bake is what made the copy differ.
+    source = "source-only-sha-never-on-disk"
+    with Catalog(db) as catalog:
+        catalog.record_uploaded(
+            source_path=f"/src/{name}",
+            original_name=name,
+            sha256=source,
+            copy_sha256=baked,
+            perceptual=None,
+            size=path.stat().st_size,
+            captured_at="2014-08-20T14:30:00",
+            category="Camera",
+            relative=relative,
+        )
+    return source, baked
 
 
 def _recorded_copies(db: Path) -> dict[str, str | None]:
@@ -195,60 +229,39 @@ def test_a_cancelled_attach_keeps_what_it_finished(
     assert len(_recorded_copies(db)) == 3
 
 
-# --- unreadable files -----------------------------------------------------------------------
+# --- the baked copy, which is why matching accepts more than one digest ----------------------
 
 
-def test_an_unreadable_copy_is_recorded_unverifiable_not_aborted(
-    library: tuple[Path, Path, dict[str, str]], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """One bad sector must not cost the user the other 40,000 files.
+def test_a_baked_copy_is_recognised_by_the_hash_it_actually_has(tmp_path: Path) -> None:
+    """A Takeout-baked copy does not hash to ``files.sha256``, and must still be found.
 
-    Condition 1 made "present, but no hash to check it against" a real state, so attach has
-    somewhere honest to put this: the copy is recorded with a NULL hash and counted, and verify
-    later reports it UNVERIFIABLE rather than VERIFIED or MISMATCH.
+    Matching only the source hash would fail on exactly the files the dual-hash rule exists for -
+    the ones truestill itself rewrote. The recorded copy digest is an accepted identity for the
+    same content, which is what makes the drive walk work on a baked library.
     """
-    db, root, on_disk = library
-    real = sha256_file
-
-    def boom(path: Path) -> str:
-        if path.name == "b.jpg":
-            raise OSError(errno.EIO, "Input/output error", str(path))
-        return real(path)
-
-    monkeypatch.setattr("truestill_app.service.drives.sha256_file", boom)
+    db, root = tmp_path / "c.sqlite", tmp_path / "drive"
+    source, baked = _baked_copy(db, root, "takeout.jpg")
 
     result = attach_drive(root, db, write=True)
 
-    assert result.linked == 3, "the readable files must still be attached"
-    assert result.unreadable == 1, "an unreadable copy must be counted, never folded into linked"
-    recorded = _recorded_copies(db)
-    assert recorded["Camera/2014/b.jpg"] is None, "a guessed hash is worse than an admitted gap"
-    assert recorded["Camera/2014/a.jpg"] == on_disk["a.jpg"]
+    assert result.linked == 1, "the baked copy was not recognised"
+    assert result.unmatched == 0
+    assert _recorded_copies(db) == {"Camera/2014/takeout.jpg": baked}
+    with Catalog(db) as catalog:
+        assert catalog.copy_relative(source, catalog.list_drives()[0]["uuid"]) is not None
 
 
-def test_an_unreadable_copy_verifies_as_unverifiable(
-    library: tuple[Path, Path, dict[str, str]], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The other half of the promise: what attach recorded must read correctly downstream."""
-    db, root, _on_disk = library
-    real = sha256_file
-    monkeypatch.setattr(
-        "truestill_app.service.drives.sha256_file",
-        lambda path: (
-            (_ for _ in ()).throw(OSError(errno.EIO, "boom", str(path)))
-            if path.name == "b.jpg"
-            else real(path)
-        ),
-    )
+def test_a_baked_copy_then_verifies_clean(tmp_path: Path) -> None:
+    """End to end: what attach recorded for a baked copy must satisfy verify, not alarm it."""
+    db, root = tmp_path / "c.sqlite", tmp_path / "drive"
+    _baked_copy(db, root, "takeout.jpg")
     attach_drive(root, db, write=True)
 
     with Catalog(db) as catalog:
         uuid = catalog.list_drives()[0]["uuid"]
         copies = [CopyToVerify.from_row(r) for r in catalog.copies_on_drive(uuid)]
-    by_relative = {r.copy.relative: r.status for r in verify_copies(copies, root)}
 
-    assert by_relative["Camera/2014/b.jpg"] is CopyStatus.UNVERIFIABLE
-    assert by_relative["Camera/2014/a.jpg"] is CopyStatus.VERIFIED
+    assert [r.status for r in verify_copies(copies, root)] == [CopyStatus.VERIFIED]
 
 
 # --- the hash cache -------------------------------------------------------------------------

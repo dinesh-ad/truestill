@@ -73,8 +73,11 @@ back.**
 | cleanup plan + run | hermetic, 500-file skeleton | 5 | **11 ms** | 11 ms | 1.04x | not measured |
 | undo plan (`plan_undo`) | hermetic, 500 files | 9 | **8.6 ms** | 9.2 ms | 1.08x | not measured |
 | undo apply (`run_undo`) | hermetic, 500 files | 5 | **81 ms** | 82 ms | 1.01x | not measured |
-| drive attach (`attach_drive`), **cold-cache** | 2,269 copies, 6.2 GB | 5 | **8.885 s** | 14.30 s | 1.96x | **15.92 s** / p95 16.31 s / 1.09x |
-| drive attach (`attach_drive`), **warm-cache** | 2,269 copies, 6.2 GB | 5 | **0.316 s** | 0.339 s | 1.15x | **0.282 s** / p95 0.599 s / 2.26x |
+| attach, **steady state** (drive already attached) | 2,269 copies, 6.2 GB | 5 | **0.098 s** | 0.106 s | 1.09x | **6.297 s** / p95 6.548 s / 1.09x |
+| attach, **re-attach**, cold-cache | 2,269 copies, 6.2 GB | 5 | **6.302 s** | 8.387 s | 1.34x | **22.248 s** / p95 22.347 s / 1.03x |
+| attach, **re-attach**, warm-cache | 2,269 copies, 6.2 GB | 5 | **0.350 s** | 0.354 s | 1.02x | **1.091 s** / p95 1.113 s / 1.09x |
+| ~~attach by remembered path, cold~~ | 2,269 copies, 6.2 GB | 5 | ~~8.885 s~~ | ~~14.30 s~~ | ~~1.96x~~ | ~~15.92 s~~ |
+| ~~attach by remembered path, warm~~ | 2,269 copies, 6.2 GB | 5 | ~~0.316 s~~ | ~~0.339 s~~ | ~~1.15x~~ | ~~0.282 s~~ |
 
 **Cold/warm, per stage, rather than a duplicated column.** Only one of these stages touches
 exiftool, so only one has a cold/warm axis at all: **migration preview**. The other nine are
@@ -98,37 +101,47 @@ not there.
 > preview-purity guards still pass unchanged, because the sidecar is neither the drive nor the
 > catalog and `service.organize_preview` had always written it on a preview.
 
-> **Attach went from instant to a full read on purpose, and this is the price.** It used to
-> record `files.copy_sha256` -- a *per-content* value -- onto a *per-drive* row, which is sound
-> only while every copy of a file is byte-identical to every other. The Takeout bake already
-> breaks that, so the inherited value would have made `verify` compare a baked copy against a
-> pre-bake hash and **report corruption on a file truestill itself wrote**. Attach now hashes
-> what is actually on the drive. **9 s local / 16 s FUSE for a 6.2 GB library, once per drive**,
-> and every attach after that is **0.3 s** because the hash cache answers it. The trade is a
-> one-off wait against a class of false corruption alarm, and it is not close.
+> **Attach reads the drive on purpose, and this is the price.** It used to record
+> `files.copy_sha256` -- a *per-content* value -- onto a *per-drive* row, which is sound only
+> while every copy of a file is byte-identical to every other. The Takeout bake already breaks
+> that, so the inherited value would have made `verify` compare a baked copy against a pre-bake
+> hash and **report corruption on a file truestill itself wrote**. Attach now identifies each
+> file by hashing it. The trade is a one-off read against a class of false corruption alarm.
+>
+> **Three states, because they cost different amounts and only one is common.** *Steady state* -
+> the drive is already attached - reads nothing it has a record of and costs **0.098 s** locally:
+> a walk and a stat per file. *Re-attach*, where the drive's copy rows are gone and every file
+> must be identified, costs **6.302 s local / 22.248 s FUSE** once, and **0.350 s / 1.091 s**
+> warm, because the hash cache answers the second pass.
+>
+> **The FUSE steady-state figure is the price of files truestill does not know about.** That
+> drive holds **399 files with no catalog row** - they are hashed on every attach, because
+> "unknown" cannot be established without reading them, and that is the whole of its 6.297 s.
+> The local drive has none, hence 0.098 s. So the steady-state cost scales with *unrecognised*
+> files, not with library size, and it is counted and reported (`unmatched`) rather than ignored.
 >
 > **Corpus:** the Output drive (local SSD) and The Memory Cabinet (cloud FUSE) - the same 2,269
 > copies, 6.2 GB, organized from the same source. Measured against a **scratch copy** of the real
 > catalog, restored before every run outside the stopwatch; the drives themselves are only read,
 > and both already carry markers so nothing was written to them.
 >
-> **Three limits, stated rather than smoothed over.** (1) FUSE cold is only **1.8x** local here,
-> not the 13x `preview-performance-profile.md` measured - because the mount's own local cache was
-> populated for these files. **A genuinely cold cloud fetch is not measured and would be
-> slower**; this row is the re-attach case, not the first-ever read. (2) The local cold spread is
-> **1.96x** (7.3 s to 14.3 s), the widest in this document - one run took nearly double, and with
-> n = 5 that is reported rather than explained. (3) Warm is the same 0.3 s in both classes
-> because a warm attach reads **no file bytes at all** - it stats, hits the cache, and writes
-> catalog rows - so the machine class stops mattering, which is the result the cache exists for.
+> **Limits, stated rather than smoothed over.** FUSE cold is **3.5x** local, not the 13x
+> `preview-performance-profile.md` measured, because the mount's own local cache was populated
+> for these files - **a genuinely cold cloud fetch is not measured and would be slower.** The
+> local re-attach spread is **1.34x**, the widest of these rows. Warm still reads no file bytes,
+> which is why the machine class nearly stops mattering.
 >
-> **The fixture needed repairing first, and that is a finding.** On the live catalog
-> `files.relative` is stale: **0 of 2,300** of those paths exist on the drive, while
-> `file_copies.relative` is **2,269 of 2,269** correct - `migrate-layout` rewrites the per-drive
-> rows and leaves the deprecated per-content ones at the pre-migration path. Attach reads
-> `files.relative`, so on a migrated library it finds nothing and reports every file absent. The
-> measurement takes the true path from `file_copies` in the scratch catalog to reproduce the
-> state attach exists for. The same per-content/per-drive confusion that motivated this change
-> is therefore present in a second column, recorded here and not yet fixed.
+> **Correction (2026-07-31): an earlier version of this note overstated the bug it describes.**
+> It said attach "finds nothing and reports every file absent" on a migrated library. Measured,
+> that was wrong in severity. On the live catalog `files.relative` is stale - **0 of 2,300** of
+> those paths exist on the drive, because `migrate-layout` rewrites `file_copies.relative` and
+> nothing ever updates the per-content column - but a fully attached drive answers from its
+> recorded copies first, so it reported **linked=0, absent=31**, and all 31 were genuinely gone.
+> The damage landed on **re-attach**, the disaster-recovery path: **linked=0, absent=2,300 on a
+> drive physically holding 2,269 of those files.** Attach was correct exactly while it had
+> nothing to do and failed completely when it did. Fixed by matching on content; the two struck
+> rows above are the old path-based figures, kept because they are what the fix is measured
+> against.
 
 **Why the destructive four are fixtures, not Output.** Migration apply, migration undo, undo and
 cleanup all rearrange or delete. They are measured on a hermetic 500-file drive with real files
