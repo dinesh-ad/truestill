@@ -1329,6 +1329,25 @@ rather than assumed.
 Not "not yet" -- decided **against**, so the question does not get re-litigated every time a
 neighbouring product ships one. Each would be a reasonable feature in a different product.
 
+- **A `warnings` field on `MigrationApplySummary`.** Found and **decided against 2026-07-31**,
+  while closing the §9 gap where a missing exiftool degraded a migration silently. Recorded so
+  it reads as a boundary someone chose, not a corner someone missed.
+  - **What is still silent, precisely.** `migration_preview` surfaces the "folder names could
+    not be checked against the files" warning through `warnings`, which the UI already renders,
+    and the CLI prints it before the plan. `migration_apply` re-derives the same rules and has
+    nowhere to put the reason, so a **direct apply without a preview** would degrade silently.
+  - **No shipped flow performs that call.** The UI previews and shows the warning *before* the
+    user confirms; `truestill migrate-layout` prints it in the same invocation that then
+    applies. The silent path is reachable only by calling the service function directly, which
+    is not a user flow.
+  - **The cost is out of proportion to the case.** Closing it reaches the `TypedDict`, the
+    payload construction, and the JS render - a public surface change, for a state nothing
+    currently produces.
+  - **What would make it worth doing:** *a caller that applies without previewing.* An API
+    client, a scheduled or unattended migration, or a UI change that lets a user re-apply from
+    a stored plan. Any of those turns this from unreachable into a real silent degradation, and
+    the fix should land with that caller rather than in advance of it.
+
 - **Migrate verifying against the live copy hash instead of its journal snapshot `(aah)`.**
   Found 2026-07-31 while closing condition 3 of the date-provenance program. **Decided against
   2026-07-31**, after the analysis rather than before.

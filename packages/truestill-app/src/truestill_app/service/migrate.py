@@ -168,6 +168,14 @@ class MigrationApplySummary(TypedDict):
 
     Shares :class:`LeftoverEmptyFolders` with organize -- not :class:`CompletionBase`.
     ``elapsed_seconds`` is injected by ``jobs.py`` (same boundary as organize).
+
+    **No ``warnings`` field, on purpose.** The re-derivation warning (a missing exiftool means
+    folders were sorted by their existing label) is carried by
+    :class:`MigrationPreviewOk`, and every shipped flow previews before it applies - the UI shows
+    it before the user confirms, and ``migrate-layout`` prints it in the same invocation. Adding
+    it here would change this public shape and the render for a state nothing currently
+    produces. `BACKLOG.md`, "Consciously out of scope", records the decision and what would
+    reverse it: **a caller that applies without previewing.**
     """
 
     label: str
