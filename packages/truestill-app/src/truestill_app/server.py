@@ -327,6 +327,15 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
             operation="migrate preview",
         )
 
+    async def dates_tier_files(request: Request) -> JSONResponse:
+        """The files behind one row of the honesty view. Read-only, catalog-only.
+
+        ``source`` absent means the *not recorded* tier, which is a real group and the
+        commonest one on a library organized before schema v13 - not an error.
+        """
+        source = request.query_params.get("source")
+        return JSONResponse(service.date_tier_files(_db(), source or None))
+
     async def dates_bake_preview(request: Request) -> JSONResponse:
         """Catalog-only, so a plain request rather than a job: no file is read to build a plan."""
         body = await request.json()
@@ -552,6 +561,7 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
         Route("/api/events/settings", event_settings, methods=["GET", "POST"]),
         Route("/api/migrate/preview", migrate_preview, methods=["POST"]),
         Route("/api/migrate/run", migrate_run, methods=["POST"]),
+        Route("/api/dates/files", dates_tier_files),
         Route("/api/dates/bake/preview", dates_bake_preview, methods=["POST"]),
         Route("/api/dates/bake/run", dates_bake_run, methods=["POST"]),
         Route("/api/migrate/undo", migrate_undo_armed),

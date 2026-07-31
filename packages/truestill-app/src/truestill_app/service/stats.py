@@ -18,6 +18,11 @@ from truestill_core.organizer import (
 class DateProvenanceRow(TypedDict):
     """One tier's share of the library, with the evidence behind it."""
 
+    #: The stored ``date_source`` value, or ``None`` for the not-recorded group. The label is
+    #: for reading; this is for *addressing* - it is what the drill-down asks for. Without it a
+    #: renderer would have to map a translated sentence back to a tier, which breaks the moment
+    #: the wording changes (and `date_explain` exists precisely so wording can change).
+    source: str | None
     label: str
     detail: str
     files: int
@@ -65,6 +70,9 @@ class LibraryStatsSafety(TypedDict):
 
 
 class LibraryStatsUndatedSample(TypedDict):
+    #: Content identity. `confirm_date` is keyed on it, so a sample without it is a file the
+    #: user can see and cannot fix - which is what this list was before step 5.
+    sha256: str
     name: str
     source_path: str
     relative: str
@@ -125,6 +133,7 @@ def _date_provenance(catalog: Catalog) -> DateProvenance:
         seen = evidence.get(source, [])
         rows.append(
             {
+                "source": source,
                 "label": explanation.label,
                 "detail": explanation.detail,
                 "files": files,
@@ -192,6 +201,7 @@ def library_stats(db: Path) -> LibraryStats:
             "undated_files": int(summary["undated_files"] or 0),
             "undated_samples": [
                 {
+                    "sha256": str(row["sha256"]),
                     "name": str(row["original_name"] or Path(str(row["source_path"])).name),
                     "source_path": str(row["source_path"]),
                     "relative": str(row["relative"]),
@@ -220,3 +230,51 @@ def library_stats(db: Path) -> LibraryStats:
         "dates": dates,
         "complexity": "O(n) aggregate SQL over catalog tables; grouped rollups only.",
     }
+
+
+#: Files listed per tier when the honesty view is opened. Same order of magnitude as the search
+#: page size: enough to judge a tier, short enough to read. The total always travels with it.
+DATE_TIER_PAGE = 50
+
+
+class DateTierFile(TypedDict):
+    """One file in a provenance tier, with what a person needs in order to judge its date."""
+
+    sha256: str
+    name: str
+    relative: str
+    #: What truestill currently believes, so the user is correcting something concrete rather
+    #: than supplying a date into a void. ``None`` for the Undated bucket.
+    captured_at: str | None
+    #: The specific evidence, when there is any - the tag that won, or the shifted offset.
+    evidence: str | None
+
+
+class DateTierPage(TypedDict):
+    """A page of a tier, and the size of the tier it came from (F46: never a silent slice)."""
+
+    total: int
+    files: list[DateTierFile]
+
+
+def date_tier_files(
+    db: Path, date_source: str | None, *, limit: int = DATE_TIER_PAGE
+) -> DateTierPage:
+    """The files behind one row of the honesty view. **Read-only.**
+
+    This is what turns `(n)` from a report into a surface: the mix says *how* dates were
+    determined, and this says *which files* - each with the identity `confirm_date` needs.
+    """
+    with Catalog(db) as catalog:
+        rows, total = catalog.files_in_date_tier(date_source, limit=limit)
+        files: list[DateTierFile] = [
+            {
+                "sha256": str(row["sha256"]),
+                "name": str(row["original_name"] or Path(str(row["relative"])).name),
+                "relative": str(row["relative"]),
+                "captured_at": None if row["captured_at"] is None else str(row["captured_at"]),
+                "evidence": explain_evidence(date_source, row["date_tag"]),
+            }
+            for row in rows
+        ]
+    return {"total": total, "files": files}

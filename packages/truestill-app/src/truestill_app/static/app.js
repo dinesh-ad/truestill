@@ -431,9 +431,15 @@ function dateProvenanceRows(dates) {
       const pct = share === null ? "" : `<span class="k">${share}%</span>`;
       const flag = r.review ? ' <span class="k">worth a look</span>' : "";
       const why = r.evidence ? `<div class="k mono">${esc(r.evidence)}</div>` : "";
+      // The row is openable: the mix says HOW dates were determined, the drill-down says which
+      // files - and carries the sha256 the rescue action needs. Addressed by the raw tier value,
+      // never by the label, because the label is wording and wording is allowed to change.
+      const key = r.source === null || r.source === undefined ? "" : r.source;
       return `<tr><td>${esc(r.label)}${flag}</td><td class="num">${plural(r.files, "file")}</td>
               <td class="num">${pct}</td></tr>
-              <tr><td colspan="3" class="k">${esc(r.detail)}${why}</td></tr>`;
+              <tr><td colspan="3" class="k">${esc(r.detail)}${why}
+                <div><button class="btn btn-ghost" data-date-tier="${esc(key)}">Show these files</button></div>
+                <div data-date-tier-list="${esc(key)}"></div></td></tr>`;
     })
     .join("");
 }
@@ -2448,3 +2454,27 @@ function bakeCompletion(s, cancelled) {
      ${s.refused ? `<div class="banner warn"><div>${esc(s.refused)}</div></div>` : ""}
      ${bakeDriveLines(s.awaiting || [])}`);
 }
+
+// ---------- honesty view drill-down (step 5, part 1) ----------
+// Read-only. Turns a tier's percentage into the files behind it, each carrying the sha256 the
+// rescue action is keyed on. Truncation is disclosed the same way every other list does it.
+document.addEventListener("click", guarded(async (event) => {
+  const button = event.target.closest("[data-date-tier]");
+  if (!button) return;
+  const key = button.getAttribute("data-date-tier");
+  const host = document.querySelector(`[data-date-tier-list="${CSS.escape(key)}"]`);
+  if (!host) return;
+  if (host.innerHTML) { host.innerHTML = ""; return; }
+  await withBusy(button, "Loading…", async () => {
+    const page = await get(`/api/dates/files${key ? `?source=${encodeURIComponent(key)}` : ""}`);
+    const hidden = page.total - page.files.length;
+    const rows = page.files
+      .map((f) => `<div><span class="mono">${esc(f.name)}</span>
+                     <span class="k">${f.captured_at ? esc(f.captured_at.slice(0, 10)) : "no date"}</span>
+                     ${f.evidence ? `<span class="k mono">${esc(f.evidence)}</span>` : ""}</div>`)
+      .join("");
+    host.innerHTML =
+      `<div class="k">${rows}</div>` +
+      (hidden > 0 ? `<div class="k">…and ${nfmt(hidden)} more</div>` : "");
+  });
+}));

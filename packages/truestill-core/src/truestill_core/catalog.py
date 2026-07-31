@@ -1257,12 +1257,43 @@ class Catalog:
         ).fetchone()
         return int(row["total"] if row is not None else 0)
 
+    def files_in_date_tier(
+        self, date_source: str | None, *, limit: int
+    ) -> tuple[list[sqlite3.Row], int]:
+        """One page of the files in a provenance tier, and the tier's full size.
+
+        Returns ``sha256, original_name, relative, captured_at, date_tag`` per row - **the
+        sha256 is the point**: `confirm_date` is keyed on it, so a list without it can describe
+        a file but cannot name it to the action that would fix it.
+
+        ``date_source`` of ``None`` selects the *not recorded* group, which is a real tier and
+        the commonest one on any library organized before schema v13 - it must not be the one
+        group a user cannot open.
+
+        The count is a separate query rather than ``len(rows)`` so a truncated page can still
+        say what it was taken from (F46). **Complexity: O(page)** on an indexed scan, plus one
+        counting scan of the tier.
+        """
+        where = "date_source IS NULL" if date_source is None else "date_source = ?"
+        params: tuple[str, ...] = () if date_source is None else (date_source,)
+        total = int(
+            self._conn.execute(f"SELECT COUNT(*) FROM files WHERE {where}", params).fetchone()[0]
+        )
+        rows = list(
+            self._conn.execute(
+                f"SELECT sha256, original_name, relative, captured_at, date_tag "
+                f"FROM files WHERE {where} ORDER BY processed_at DESC LIMIT ?",
+                (*params, limit),
+            )
+        )
+        return rows, total
+
     def stats_undated_samples(self, *, limit: int = 12) -> list[sqlite3.Row]:
         """A small, actionable sample of undated files for the UI."""
         return list(
             self._conn.execute(
                 """
-                SELECT original_name, source_path, relative
+                SELECT sha256, original_name, source_path, relative
                 FROM files
                 WHERE captured_at IS NULL
                 ORDER BY processed_at DESC

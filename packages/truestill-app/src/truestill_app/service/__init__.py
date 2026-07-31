@@ -133,6 +133,7 @@ reveal_in_file_manager = _drives.reveal_in_file_manager
 DriveAttachment = _drives.DriveAttachment
 attach_drive = _drives.attach_drive
 bake_preview = _bake.bake_preview
+date_tier_files = _stats.date_tier_files
 bake_run = _bake.bake_run
 DriveRow = _drives.DriveRow
 WhereCopy = _drives.WhereCopy
