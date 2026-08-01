@@ -93,14 +93,44 @@ def _declared_runtime_dependencies() -> dict[str, set[str]]:
     return found
 
 
-def _documents(name: str, block: str) -> bool:
-    """Is `name` the subject of a row, rather than a substring of one?
+def _normalise(name: str) -> str:
+    """One spelling for a package, applied to **both** sides of the comparison.
 
-    Anchored on the opening backtick and terminated by a version operator or the closing one,
-    because a bare containment test lets `pillow-heif` answer for `pillow` - the guard would
-    then pass while the row it claims to have found does not exist.
+    PEP 503 treats `Pillow`, `pillow` and `pillow_heif` as the same project. Normalising only
+    the declared side, as this did at first, meant a manifest written `Pillow>=12.3.0` - the
+    project's own canonical casing, and perfectly legal - would read as missing against a row
+    spelled the same way, failing on a document that was correct.
     """
-    return re.search(rf"`{re.escape(name)}(?=[`>=<~!])", block) is not None
+    return name.lower().replace("_", "-")
+
+
+def _documented_subjects(block: str) -> set[str]:
+    """The package each table row is **about**: the backticked names in its first cell only.
+
+    Reading the whole row let a package named in another row's *justification* count as
+    documented - `numpy`, `pywt`, `phash` and `dhash` all did, on the strength of the scipy
+    row's prose. The subject of a row is its first cell; everything after it is argument.
+
+    A row may legitimately have two subjects (`scipy` + `pywavelets` share one), so this
+    collects every backticked token in that cell rather than only the first. The version
+    specifier and any `[extras]` suffix are stripped by `_NAME`, which is what lets a row for
+    `uvicorn` still answer a manifest that later writes `uvicorn[standard]>=0.51.0`.
+    """
+    subjects: set[str] = set()
+    for line in block.splitlines():
+        cells = line.split("|")
+        if len(cells) < 2:
+            continue
+        for token in re.findall(r"`([^`]+)`", cells[1]):
+            match = _NAME.match(token.strip())
+            if match is not None:
+                subjects.add(_normalise(match.group(1)))
+    return subjects
+
+
+def _documents(name: str, block: str) -> bool:
+    """Is `name` the subject of a row, rather than a name mentioned somewhere in one?"""
+    return _normalise(name) in _documented_subjects(block)
 
 
 def test_every_declared_runtime_dependency_is_in_the_contract_inventory() -> None:
@@ -150,6 +180,29 @@ def test_the_row_match_does_not_accept_a_substring() -> None:
     real = "| `pillow>=12.3.0` (`truestill-core`) | Image decoding. |"
     assert _documents("pillow", real)
     assert not _documents("uvicorn", real)
+
+
+def test_a_name_named_only_in_another_rows_prose_is_not_documented() -> None:
+    """A row's *justification* is prose, not a claim that its subject earned a place.
+
+    The second defect this guard shipped with, and the sibling of the one above: scoping to the
+    table stopped §7's floors note answering for `starlette`, but the justification **column**
+    was still being searched, so any package named inside another row's argument read as
+    documented. Measured against the real file: `numpy`, `pywt`, `phash` and `dhash` all
+    returned True on the strength of the scipy row's prose, and none of them has a row.
+
+    `numpy` is the one that would have cost something. §7's own scipy row says imagehash
+    "imports it at module level", so it is the most likely next direct runtime dependency here -
+    and declaring it with no row of its own would have left this guard green, which is the exact
+    drift the file exists to catch.
+    """
+    block = _inventory_block()
+
+    for prose_only in ("numpy", "pywt", "phash", "dhash"):
+        assert not _documents(prose_only, block), (
+            f"{prose_only} is named in another row's justification and has no row of its own; "
+            "the check is reading the whole table instead of each row's subject."
+        )
 
 
 def test_only_the_table_counts_not_prose_elsewhere_in_the_section() -> None:

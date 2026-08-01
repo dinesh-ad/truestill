@@ -82,9 +82,49 @@ def _ledger_block() -> str:
     return "\n".join(lines[start:end])
 
 
+#: How far after a version token to look for the subject it introduces. **Measured, not
+#: guessed, and deliberately not load-bearing:** every value from 20 to 70 gives exactly one
+#: defining mention for each of v2..v16 against the real ledger, so the discriminators are the
+#: possessive and the sentence break below, not this number.
+_SUBJECT_WINDOW = 40
+
+
+def _defining_mentions(version: int, ledger: str) -> int:
+    """How often `v{version}` **introduces** an entry, rather than merely naming one.
+
+    Presence was the first rule and it was too weak: `v16` appears three times in the ledger
+    and `v12` twice, because an entry's own reasoning goes on to discuss the version it just
+    described. Deleting a real entry therefore left its commentary behind to answer for it -
+    the "ledger drifts quietly" failure this module's docstring claims to guard, unguarded.
+
+    An entry names its subject in backticks (``v15 `date_confirmations` ``); commentary does
+    not. Two shapes are excluded, and both are real text from this ledger rather than invented
+    ones: a possessive (``v16's flag is on ...``) and a version with no subject after it at all
+    (``caught before v16 shipped.``). A backtick reached only after a sentence break belongs to
+    the next sentence, not to this version.
+
+    Deliberately tolerant of the entries that describe before they name - ``v4 event tables
+    (`events` + ...)`` - because three real entries are written that way and a rule that
+    demanded an immediately-adjacent backtick would fail on correct text (§4: a guard that
+    fires on ordinary prose is one someone switches off).
+    """
+    found = 0
+    for match in re.finditer(rf"\bv{version}\b", ledger):
+        tail = ledger[match.end() : match.end() + _SUBJECT_WINDOW]
+        if tail.startswith("'"):
+            continue  # possessive: the entry is discussing itself, not opening
+        tick = tail.find("`")
+        if tick == -1:
+            continue  # no subject named
+        if ". " in tail[:tick]:
+            continue  # that backtick opens the next sentence
+        found += 1
+    return found
+
+
 def _versions_missing_from_the_ledger() -> list[int]:
     ledger = _ledger_block()
-    return [version for version, _fn in _MIGRATIONS if not re.search(rf"\bv{version}\b", ledger)]
+    return [version for version, _fn in _MIGRATIONS if _defining_mentions(version, ledger) == 0]
 
 
 def test_the_contract_states_the_schema_version_the_code_is_on() -> None:
@@ -126,6 +166,42 @@ def test_every_migration_appears_in_the_contract_ledger() -> None:
         "contract cannot answer. Add the entry - with what it adds and why - in the same commit "
         "as the migration."
     )
+
+
+def test_every_migration_is_defined_once_in_the_ledger_not_merely_mentioned() -> None:
+    """The measured half of the defining-token rule, and its anti-vacuity.
+
+    Exactly one defining mention per version. More than one would mean the rule is counting
+    commentary again and a deletion could hide behind it; zero is the missing-entry case the
+    test above reports. Against the ledger as written this is 1 for every v2..v16, while bare
+    presence counts 3 for `v16` and 2 for `v12`.
+    """
+    ledger = _ledger_block()
+    assert ledger, "the ledger did not resolve"
+
+    counts = {version: _defining_mentions(version, ledger) for version, _fn in _MIGRATIONS}
+    assert all(count == 1 for count in counts.values()), (
+        "a version is defined more or less than once in §3's ledger: "
+        + ", ".join(f"v{v}={c}" for v, c in sorted(counts.items()) if c != 1)
+    )
+
+
+def test_commentary_alone_does_not_define_a_ledger_entry() -> None:
+    """Driven directly against the two commentary shapes this ledger actually contains.
+
+    Both strings below are real text. If a later simplification returns the check to bare
+    presence, these go red rather than the weakness quietly returning.
+    """
+    assert _defining_mentions(16, "v16 `file_copies.date_baked_at` (whether a date reached) ") == 1
+
+    # Possessive, and a subject named right after it - the shape that fooled bare presence.
+    assert (
+        _defining_mentions(16, "**v16's flag is on `file_copies`, not on `date_confirmations`") == 0
+    )
+    # No subject at all.
+    assert _defining_mentions(16, "caught before v16 shipped.") == 0
+    # A backtick that opens the next sentence is not this version's subject.
+    assert _defining_mentions(9, "v9 was skipped. `reclaim_journal` came later") == 0
 
 
 def test_the_ledger_check_discriminates() -> None:
@@ -203,6 +279,15 @@ def test_the_contract_lists_the_tables_the_catalog_actually_creates() -> None:
     catalog's table set, and there is no legitimate reason for it to name a table the code does
     not create or to omit one it does. `date_confirmations` had fallen out of it - named in the
     prose beneath, absent from the list above - which is exactly the drift this closes.
+
+    **One future exception, recorded rather than pre-handled.** SQLite cannot drop or retype a
+    column in place; the supported route is create-a-new-table, copy, drop, rename. The first
+    migration that needs it will create a **scratch table** that exists for three statements and
+    must *not* appear in §3. When this test goes red for that reason it is a **STOP and rule**,
+    not a document to force into alignment - the honest fixes are to name the scratch table by a
+    convention this reader skips, or to say in §3 why it is excluded. Deliberately not built
+    now: no such migration exists, and a rule written for a shape nobody has produced would be
+    guessing at the shape.
     """
     created = _created_tables()
     documented = _documented_tables()
