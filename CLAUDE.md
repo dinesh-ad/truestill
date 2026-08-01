@@ -40,5 +40,7 @@ carries a dated **superseded-by** header. They are never rewritten to match the 
 record that is edited to stay correct stops being a record. **When a research doc and
 `IMPLEMENTATION_STANDARDS.md` disagree, the contract wins.**
 
-New here? `docs/PROJECT_STATUS.md` **§0** is the fresh-clone setup, **§2.0** is the closed
-year-first layout arc, and **§2.1** is what the in-progress soak test has found so far.
+New here? `docs/PROJECT_STATUS.md` **§0** is the fresh-clone setup, **§1** is where the project
+stands, **§2** is what ships next and **§3** is what blocks it. The closed year-first layout arc
+is no longer summarised there; its record is [`docs/default-layout-research.md`](docs/default-layout-research.md)
+and [`docs/legacy-decommission-research.md`](docs/legacy-decommission-research.md).

@@ -173,7 +173,15 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   - `packages/truestill-cli/` - the thin CLI (`truestill organize` / `truestill ingest`), which wires
     core stages together and owns all interaction (prompts, printing).
   - `packages/truestill-app/` - the local web UI (`truestill-app`). Depends on
-    `truestill-core` **only**, never on `truestill-cli`; `service.py` is the sole bridge.
+    `truestill-core` **only**, never on `truestill-cli`. **`service/` is where state and work
+    cross the boundary:** every catalog read and write, and every long-running job, goes through
+    it, and `server.py` constructs no `Catalog` and holds no transaction of its own. `server.py`
+    does reach into core directly for four names, and that is allowed because none of them is
+    state or work: `InvalidEventSettingsError` and `InvalidEverydayDaySettingsError` (turned
+    into HTTP replies), `ReviewCard` (a value type) and `default_catalog_path` (the default
+    `--db`). The older wording said `service.py` was the "sole bridge"; that was never quite
+    true, and it is also no longer one file - `service/` is a package. A contract that is false
+    in the small is one nobody trusts in the large.
   - Further packages (e.g. a native shell) slot **beside** these without restructuring the core.
 - **One layout seam, and no way around it.** Every placement decision renders through
   `layout.LayoutScheme.render`, which calls `layout.classify(rule, context)` - **the one
@@ -640,10 +648,11 @@ algorithm toggle. Full rationale: `DECISIONS.md` **D8**.
 
 ## 9. User-facing truth contract
 
-Recorded because the soak test found **eight of its ten defects here** and none in the engine
-(`PROJECT_STATUS.md` §2.1). Not one file was mis-placed or lost; the product described itself
-incorrectly. That makes the user-facing string a first-class defect surface with its own rules,
-not presentation polish.
+Recorded because the soak test's defects landed **here rather than in the engine**: not one file
+was mis-placed or lost, and what failed was the product describing itself incorrectly. That makes
+the user-facing string a first-class defect surface with its own rules, not presentation polish.
+The rules below are what that pass produced; the per-defect list itself was not kept, and no rule
+here depends on it.
 
 | Rule | Enforced by |
 |---|---|

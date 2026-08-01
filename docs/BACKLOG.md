@@ -909,8 +909,8 @@ recording shipped work as unstarted, which is the more expensive direction of th
     step (`/api/events/{session}/preview`) took **~3 minutes with zero UI feedback** - no
     spinner, no progress text, no disabled button. The screen looked frozen. A user in that
     position will assume it is broken, click the button again, or force-quit mid-operation -
-    the same "did anything happen?" defect the ten soak findings in `PROJECT_STATUS.md` §2.1
-    were made of, just on the *work* axis instead of the *error* axis.
+    the same "did anything happen?" defect the soak test kept surfacing, just on the *work*
+    axis instead of the *error* axis.
   - **Root cause, verified in code, not guessed.** Two different mechanisms exist side by side.
     `organize_preview`/`organize_run`/`verify_run`/`backup_run`/`migrate_run`/
     `events_apply_to_disk` all go through `jobs.start(...)` - a background job the client polls
