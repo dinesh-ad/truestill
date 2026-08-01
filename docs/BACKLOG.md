@@ -227,12 +227,18 @@ section, because what is left is the part that still has to be written.
       with the executable on top**, where a `bin/` sibling is natural - and Windows is the
       platform installers actually matter for. **Do not extrapolate the Linux result to a
       recommendation.** A Windows measurement is the missing input.
-    - **Friction, recorded because it is a real input either way.** Briefcase's `linux system`
-      target took **three failed builds** before it would produce anything: it requires a PEP 639
-      `license` declaration (not `license.text`), an actual licence **file** via `license-files`,
-      and a **changelog** file with a recognised name - and it must run under the **distro's**
-      python3, not a venv's, because the package links against system Python. Defensible for a
-      `.deb`, and not a two-minute build. PyInstaller needed one command.
+    - **Friction - and this entry OVERSTATED it; corrected 2026-08-01.** Briefcase's
+      `linux system` target took **three failed builds** in the throwaway: a PEP 639 `license`
+      declaration (not `license.text`), an actual licence **file** via `license-files`, and a
+      **changelog** with a recognised name. **Two of those three were artifacts of the
+      throwaway being a bare project.** This repo already has `LICENSE` and `CHANGELOG.md` at
+      root, so a real truestill Briefcase project hits **one** of the three, not three. The
+      original wording read as evidence against Briefcase and was not.
+      **What survives as real friction:** it must run under the **distro's** python3 rather than
+      a venv's, because a `linux system` package links against system Python; it downloads a
+      **support package and stub** at build time; it is **pre-1.0** (0.4.4); and `sys.frozen` is
+      absent, so `is_bundled_install()` needs a replacement signal. PyInstaller needed one
+      command and built first try on both platforms.
     - **The `is_bundled_install()` signal for Briefcase, ranked but NOT implemented** - it is
       only needed if Briefcase wins. The criterion is *does it survive the bundle being
       incomplete*, and it does the ranking on its own:
@@ -301,10 +307,61 @@ section, because what is left is the part that still has to be written.
       signal was chosen holds, and **the replacement ranking already stands**: the running
       code's own location is the only candidate that cannot be absent while the code executes -
       here ``...\windows\app\src\app_packages\truestill_core\binaries.py``.
-    - **THE SCORE as it now stands: Briefcase wins zero-config on Windows; windowed-ness is
-      UNDECIDED and unmeasured for both.** The console question turned out to be neither
-      bundler's - it was the measurement - so the comparison rests on one established
-      difference and one open one. Still not a recommendation.
+    - **STOP MEASURING. The remaining questions CANNOT decide the bundler** (2026-08-01, after
+      two runs that produced no measurements, both lost to rig faults rather than to the
+      bundlers). Recorded so nobody restarts the rig looking for an answer it cannot give.
+      - **Windowed-ness is already settled by mechanism, not pending measurement.** PyInstaller
+        `--noconsole` produces a GUI-subsystem binary; Briefcase's stub **is** GUI-subsystem -
+        its PE header was read directly, `Subsystem = 2 (WINDOWS_GUI)`. A GUI-subsystem process
+        gets **no console allocated**, and a double-click from Explorer has **no parent console
+        to inherit**. So both are console-free when double-clicked. A run would confirm that; it
+        cannot decide anything, because **the answer is the same for both**.
+        The one real difference slightly favours *Briefcase*: PyInstaller additionally nulls the
+        streams in software, so run from a terminal it skips the legacy probe even though the
+        user chose that directory, while Briefcase consults it correctly.
+      - **`CREATE_NO_WINDOW` is not a bundler question at all** - see the separate note below.
+      - **What actually decides it was never measured, and no probe could have measured it:**
+
+        | | PyInstaller | Briefcase |
+        |---|---|---|
+        | Produces an **installer** | **No** - a binary; then WiX/Inno, dmgbuild, appimagetool | **Yes** - MSI, DMG, deb/AppImage natively |
+        | **Signing / notarization** | Wire it per platform yourself | Built in |
+        | Build simplicity | One command, first try, both platforms | Project config + support download |
+        | Maturity | 6.x, large install base | 0.4.4, pre-1.0 |
+
+        The rig measured **runtime layout**, which `TRUESTILL_BIN_DIR` already solves in one
+        line for either bundler. Installers and signing are what `(aad)` exists for.
+    - **THE LEAN, recorded as CONDITIONAL rather than decided.**
+      - **Briefcase if all three platforms ship**, on the installer-output and signing column,
+        with the version pinned and its config expected to break on upgrade.
+      - **PyInstaller + Inno Setup if Windows ships first** - more proven and simpler, and the
+        three-platform argument that favours Briefcase does not bite yet.
+      - **This turns on a product question - which platforms launch first - not an engineering
+        one.** Do not resolve it in code.
+    - **When packaging resumes, go straight to a real installer.** Not another probe: a
+      double-click on a real machine answers the console question more directly than any rig,
+      and a real installer answers the table above by existing. Two gates first, and neither is
+      engineering: **the signing decision** (an unsigned installer is fatal for a product
+      selling trust, per this entry's own reasoning, so building one now yields an artifact that
+      cannot ship) and **soak closing** (`PROJECT_STATUS.md` §2 puts installers at #3, behind
+      the soak gate).
+
+  - **`CREATE_NO_WINDOW` suppression is NOT a bundler question, and is recorded separately so it
+    stops riding along in the wrong rig** (moved out of the comparison 2026-08-01).
+    - **It is our flag, not a bundler's.** It lives in `truestill_core.binaries.run` / `.popen`,
+      and whether it suppresses a console window is a Windows question with the **same answer
+      under either bundler**. It was measured inside the bundler rig purely because the rig was
+      the only Windows lane, and that made two runs look like they were about the choice when
+      they were not.
+    - **The technique used was also wrong, independently of the rig.** `AttachConsole`
+      attachability cannot distinguish suppressed from unsuppressed, because
+      `CREATE_NO_WINDOW` creates an **invisible console** - the child *is* attached to one -
+      while `DETACHED_PROCESS` is the flag that yields no console at all. The right observable
+      is the console's **window**: `GetConsoleWindow()` returns `NULL` for a console that has
+      none.
+    - **Its real weight is cosmetic**: black console windows flashing while exiftool runs in
+      batches. Worth fixing, not worth a bundler decision, and cheap to check on any Windows
+      machine once one is to hand. Status recorded in `PROJECT_STATUS.md` §3.
 
   - **Settled 2026-07-31: do NOT run a VirusTotal comparison to choose the bundler.** It was
     proposed, approved, and then withdrawn on the design pass. Recorded here with the reasoning

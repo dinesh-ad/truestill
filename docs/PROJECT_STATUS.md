@@ -147,15 +147,23 @@ narrative, or volatile counts.
   the uvicorn no-console startup crash, was never in this category at all - its failure is in
   *configuration* rather than in windowing, so it is proven on every platform and closed.
 
-- **`(aad)` bundler choice is undecided, and the console question that appeared to block it was
-  a measurement fault rather than a bundler difference.** Briefcase's config applied exactly as
-  written - GUI stub, `formal_name.exe` naming, and the stub's PE header reads
-  `Subsystem = 2 (WINDOWS_GUI)`. The console came from the launcher: a GUI-subsystem process
-  does not get a console *allocated* but still *inherits* one, and the job used PowerShell
-  `Start-Process`. PyInstaller only looked different because its `--noconsole` bootloader nulls
-  the streams in software regardless of launch. **Neither bundler has been measured for what a
-  double-clicked app sees.** Score: Briefcase wins zero-config on Windows; windowed-ness is
-  open. Raw paths in `BACKLOG.md` `(aad)`.
+- **`(aad)` packaging is PARKED, deliberately, and the bundler is not the blocker.** Two
+  measurement runs produced no measurements - both lost to rig faults - and on review the
+  remaining questions **cannot decide the choice**: windowed-ness is settled by mechanism (both
+  bundlers are GUI-subsystem, so both are console-free on a double-click) and
+  `CREATE_NO_WINDOW` is our own flag rather than a bundler's. What *would* decide it - installer
+  output and signing - no probe was ever going to measure. The lean is recorded as **conditional
+  on which platforms launch first**, which is a product question. Packaging resumes as a **real
+  installer**, after the **signing decision** and after **soak closes** (§2 puts it at #3).
+  Full reasoning in `BACKLOG.md` `(aad)`.
+
+- **Kept for the mechanism, since it cost two runs to learn:** the console reading that appeared
+  to block the choice was a **measurement fault**, not a bundler difference. Briefcase's config
+  applied exactly as written - GUI stub, `formal_name.exe` naming, and the stub's PE header reads
+  `Subsystem = 2 (WINDOWS_GUI)`. The console came from the launcher: **a GUI-subsystem process
+  does not get a console *allocated* but still *inherits* one**, and the job used PowerShell
+  `Start-Process` from a shell that owns one. PyInstaller only looked different because its
+  `--noconsole` bootloader nulls the streams in software regardless of launch.
 
 ---
 
