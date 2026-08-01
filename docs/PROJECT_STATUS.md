@@ -67,11 +67,11 @@ narrative, or volatile counts.
 
 1. **Finish soak gate**
    - Continue normal use; any new soak finding outranks queued feature work.
-   - Collapsible sidebar (`BACKLOG.md` `(fff)`) and adaptive day-folder threshold (`(gg)`)
+   - Collapsible sidebar (`SHIPPED.md` `(fff)`) and adaptive day-folder threshold (`(gg)`)
      are built; pull next from backlog priority.
    - **`(gg)` soak note (2026-07-30):** correct but rare on real data - one un-evented hit
      (`2013-09-30`, 62 photos). The 2,057-photo 2014-08 Everyday folder that prompted `(gg)`
-     was the Wayanad trip claim, not threshold behaviour (see `BACKLOG.md` `(gg)`).
+     was the Wayanad trip claim, not threshold behaviour (see `SHIPPED.md` `(gg)`).
 
 2. **Repo-public audit + newcomer README**
    - Ensure no sensitive/local-only leakage and that user-facing docs/screenshots are current.
@@ -199,7 +199,7 @@ Full wording and enforcement details live in `IMPLEMENTATION_STANDARDS.md` and `
   `preview-performance-profile.md`.
 - **`(gg)` is not the fix for the 2,057-photo 2014-08 Everyday folder.** That dump was
   trip-claimed (Wayanad). The threshold guards rare un-evented heavy days (soak: one hit,
-  `2013-09-30` / 62). See `BACKLOG.md` `(gg)`.
+  `2013-09-30` / 62). See `SHIPPED.md` `(gg)`.
 
 ---
 

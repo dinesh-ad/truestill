@@ -137,7 +137,7 @@ quietly relitigated as "more coverage is better".
    (`BACKLOG.md`, app-surface deferrals), so there is no UI to drive; asserting it through a
    browser would test a surface that does not exist.
 
-   > **⚠ PREMISE SUPERSEDED (2026-07-30) by `BACKLOG.md` `(eee)`.** The ruling above is kept
+   > **⚠ PREMISE SUPERSEDED (2026-07-30) by `(eee)`, now in `SHIPPED.md`.** The ruling above is kept
    > unedited because it was **correct when it was made**: the app had no in-place surface, and
    > an e2e for it would have asserted against nothing. `(eee)` then shipped Copy / Move /
    > Reorganize-in-place as radio options (`templates/index.html`), which removed the premise

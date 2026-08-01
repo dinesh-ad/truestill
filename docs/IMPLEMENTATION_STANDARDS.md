@@ -160,7 +160,7 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
 > a guess about which feature ships next, and the feature that actually ships takes the number.
 > **Do not reserve a version again, and this note will not name one.** `DateSource` is already
 > resolved per file and already aggregated per run by `models.date_quality` and the two report
-> surfaces; only the *library-wide* figure (BACKLOG item (n)) needs a column, and it takes
+> surfaces; only the *library-wide* figure (`SHIPPED.md` item `(n)`) needs a column, and it takes
 > whatever version is free on the day it is built - whichever number that turns out to be.
 
 ---
@@ -273,7 +273,7 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   have passed for the wrong reason. v15 `date_confirmations` (human date confirmations, in their
   **own table keyed on content** rather than a column on `files`: `forget_organized` deletes the
   `files` row when an undo removes the last copy, so a column would have been deleted by the
-  first `undo-organize` - exactly the failure `(ii)` exists to prevent. Keyed on `sha256`,
+  first `undo-organize` - exactly the failure `(ii)` (`SHIPPED.md`) exists to prevent. Keyed on `sha256`,
   because content identity survives rename, migrate, re-layout and in-place organize where a
   path does not). v16 `file_copies.date_baked_at` (whether a confirmed date reached that copy's
   bytes - a date only truestill knows is not the same promise as a date any other tool will
