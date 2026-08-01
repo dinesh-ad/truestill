@@ -196,6 +196,19 @@ section, because what is left is the part that still has to be written.
   - **Needed:** download-and-double-click installers per platform - Windows `.exe`/`.msi`,
     macOS `.dmg`, Linux AppImage or `.deb` - built by CI on tag and served from `truestill.app`.
   - **PyPI stays**, as the developer / self-hosted channel. It stops being the *primary* one.
+  - **~90 MB of the install is a code path that never runs** (dependency audit, 2026-08-01).
+    `imagehash` declares `scipy` and `PyWavelets` as hard requirements with **no extras split**,
+    so every install pulls **81 MB scipy + 8.6 MB PyWavelets**. They back `phash` and `whash`,
+    imported lazily inside those functions; truestill defaults to `dhash`, and a `dhash` call in
+    a clean process loads neither (verified). Nothing can be done at the dependency layer - the
+    only levers are a bundler `--exclude-module` or vendoring, which makes this **(aad)'s
+    decision, not core's**. Worth deciding deliberately: 90 MB is a visible fraction of a
+    download aimed at people who will judge the product by how heavy it feels. **Unverified
+    here:** whether the bundlers' static analysis picks up those function-level imports, and so
+    whether an exclude is needed at all - that is a build-time question for the packaging work,
+    and per the "stop measuring" ruling it was not measured now. If the exclude is taken,
+    `phash` must fail loudly rather than at first use: it is reachable today via
+    `perceptual_hash(algorithm="phash")`.
   - **Open questions for the design pass, deliberately not answered here.** Recorded so the
     pass starts from them rather than rediscovering them:
     - Packaging approach: PyInstaller, Briefcase, Nuitka, or something else.
@@ -1309,6 +1322,36 @@ no composition refactor to schedule.
   transactional record. JSON remains in exactly one place - the small, human-readable drive
   marker - where being readable by a person with a text editor is the point. This is also what
   `(z)` means by catalog-first; **no change is pending.**
+
+- **`psutil` for filesystem detection: rejected.** It would delete `parse_proc_mounts` and the
+  `ctypes`/`GetVolumeInformationW` branch in `filesystem.py` - roughly 60 lines including a
+  hand-written parser - and `disk_partitions()` reports `fstype` on macOS via `getfsstat`, which
+  is the one thing truestill currently cannot answer. Rejected anyway, on four counts: it is a
+  **compiled C extension in the runtime graph** of a stdlib-first product; it is a large,
+  general-purpose library carried for one function; `disk_partitions()` returns *mounted*
+  partitions, so the **longest-prefix match still has to be written on top of it**; and what it
+  buys is macOS, which today returns **unknown** and therefore refuses nothing - an honest
+  answer, not a broken one.
+
+  **The gap, named so the trade can be reopened on evidence:** on macOS `facts_for` returns
+  `FilesystemFacts(filesystem=None, max_file_bytes=None)`. Nothing is refused there, so a macOS
+  user copying a >4 GB video to a FAT32 card gets the improved EFBIG *message* after the failure
+  instead of the preflight *before* it. If macOS detection ever becomes load-bearing - a report
+  of that exact failure, or a feature that needs the filesystem name rather than its limit -
+  this is the decision to revisit, and psutil is the candidate to weigh again.
+
+- **`imagehash`: watch, do not move.** Last PyPI release **2025-02-01**, last repository commit
+  **2025-04-17**. That is quiet, and quiet is **not** abandoned - the distinction is worth
+  keeping, because it decides whether to act. The repository is **not archived**, its 26 open
+  issues are open rather than closed en masse, there is no maintainer statement winding it down,
+  and **no fork is positioned as a successor**. That is the opposite of the httpx picture, where
+  the issue tracker and discussions were closed and Pydantic's `httpx2` was named by the
+  maintainers as the path forward - which is why httpx was a move and this is a watch.
+
+  **What would turn it into a move:** an archive notice, a maintainer statement, a security
+  finding left unfixed, or a successor with real adoption. Absent one of those, the cost of
+  switching a perceptual hash is the point: the catalog stores its exact bit output, so any
+  replacement re-hashes every library or silently changes what counts as a near-duplicate.
 
 - **Distributed task queues (Taskiq, Celery, Dramatiq) stay out of the desktop app.** They are
   *distributed* queues: their purpose is dispatching work across a network to separate worker
