@@ -93,7 +93,14 @@ class LocalDestination(Destination):
             raise DestinationError(message) from exc
 
     def adopt(self, local: Path, relative_path: str) -> None:
-        """Move ``local`` in with an atomic rename, or raise :class:`CrossDeviceError`.
+        """Move ``local`` in with a rename, or raise :class:`CrossDeviceError`.
+
+        **What "atomic" means here, and where it stops.** The rename is atomic with respect to
+        other processes on every filesystem truestill runs on: nothing ever observes the file at
+        neither path. It is atomic across a **crash** only where the filesystem journals its
+        metadata - ext4, APFS, NTFS, btrfs. FAT32 and exFAT journal nothing, so a power cut
+        during the directory-entry update can leave the entry in neither place with the clusters
+        orphaned. The undo journal (``inplace_moves``) is what covers that case, not the rename.
 
         **The never-overwrite invariant does not come from this call.** POSIX ``os.rename``
         *silently destroys* an existing destination (measured: no error, no warning); Windows

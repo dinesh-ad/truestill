@@ -173,7 +173,10 @@ def write_findings(destination: Path) -> Path:
     """Write the findings **atomically**, so a partial file can never read as a pass.
 
     A half-written JSON file is worse than none: the job would parse what it could and report a
-    result nobody measured. Written to a sibling and renamed, which is atomic on both platforms.
+    result nobody measured. Written to a sibling and renamed, so no reader ever opens a partial
+    file. This runs in CI on ext4/NTFS, both of which journal, so the rename is crash-safe here
+    too - a claim worth keeping only because the filesystem is known, not because renames are
+    crash-safe in general.
     """
     destination.parent.mkdir(parents=True, exist_ok=True)
     partial = destination.with_name(destination.name + ".partial")

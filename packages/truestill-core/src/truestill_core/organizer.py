@@ -1070,9 +1070,11 @@ def _journal_or_delete_source(
         distance = f", distance={near.distance}" if near.distance is not None else ""
         notes.append(f"near-duplicate of {near.matched_path} [{near.origin}{distance}]")
     if moved_in_place and relocation is not None:
-        # The move already happened, atomically, and rewrote nothing -- there is no
-        # copy to verify and no window in which zero copies existed. Journalling it
-        # here (after the rename, before anything else) is what makes it undoable.
+        # The move already happened and rewrote nothing -- there is no copy to verify and no
+        # window in which another process could observe zero copies. Journalling it here (after
+        # the rename, before anything else) is what makes it undoable, and on a filesystem that
+        # journals nothing (FAT32, exFAT) that journal is also the only thing standing between a
+        # power cut and an orphaned entry -- see `LocalDestination.adopt`.
         status = ActionStatus.MOVED_IN_PLACE
         notes.append("moved on the drive (no bytes copied)")
         if catalog is not None:
@@ -1250,8 +1252,10 @@ def execute(
     stops the run early (already-uploaded files stay -- the run is resumable).
 
     ``relocation`` turns the write into a **move by rename** where the filesystem allows it:
-    no bytes are rewritten, the operation is atomic per file, and ``copy_sha256`` equals the
-    source hash by definition. Every such move is journalled so the run can be reversed with
+    no bytes are rewritten, the operation is atomic per file against concurrent observers, and
+    ``copy_sha256`` equals the source hash by definition. Atomicity across a *power cut* needs a
+    journalling filesystem; on FAT32/exFAT the ``inplace_moves`` journal is what makes such a run
+    recoverable, not the rename (see `LocalDestination.adopt`). Every such move is journalled so the run can be reversed with
     ``undo``. A cross-device destination falls back to the verified copy-then-delete path
     unless the caller required the rename, in which case it is reported as a failure rather
     than silently consuming space the user said they did not have.

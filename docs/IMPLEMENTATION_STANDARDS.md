@@ -51,9 +51,14 @@ Enforced by `cleanup.plan_cleanup` / `cleanup.run_cleanup`; pinned by `tests/tes
   confirmation. `--min-copies N` (default 1) gates on recorded redundancy; single-copy outcomes
   are warned. Every deletion is journalled (`reclaim_journal`, schema v9) for audit/resume.
 - **`LocalDestination.adopt` (`--in-place`, and `--move`'s same-filesystem fast path).** Moves a
-  source by **atomic rename**: nothing is copied, nothing is deleted, and there is no instant at
-  which the content does not exist - strictly safer than copy-then-delete, which is why plain
-  `--move` uses it automatically wherever the filesystem allows. `--apply` additionally requires
+  source by **rename**: nothing is copied, nothing is deleted, and no other process ever
+  observes an instant at which the content does not exist - strictly safer than
+  copy-then-delete, which is why plain `--move` uses it automatically wherever the filesystem
+  allows. **That guarantee is against concurrent observers, not against a power cut.** A rename
+  survives a crash intact only where the filesystem journals its metadata (ext4, APFS, NTFS,
+  btrfs); FAT32 and exFAT journal nothing, so a power loss mid-rename can orphan the entry. On
+  those drives the `inplace_moves` journal is what makes the run recoverable, and it is the
+  thing to rely on - not the rename. `--apply` additionally requires
   a typed `move` confirmation. Every rename is journalled (`inplace_runs` / `inplace_moves`,
   schema v10) and reversed by `truestill undo-organize`.
 

@@ -29,9 +29,11 @@ All notable changes to this project are documented here. The format follows
 ### Added
 - **Trips**: group multi-day photos into one folder, review and apply on disk.
 - **In-place organize (`organize --in-place`)** for libraries that live on the drive itself -
-  a pendrive or external HDD with no staging space to copy into. Files are moved by **atomic
-  rename**: no bytes are rewritten, there is no instant at which the content does not exist,
-  and the content hash is unchanged because the inode is. Plain `--move` now takes the same
+  a pendrive or external HDD with no staging space to copy into. Files are moved by **rename**:
+  no bytes are rewritten, no other process ever sees an instant at which the content does not
+  exist, and the content hash is unchanged because the inode is. (Surviving a *power cut*
+  intact is a property of journalling filesystems; on FAT32/exFAT pendrives the undo journal is
+  what makes such a run recoverable.) Plain `--move` now takes the same
   fast path automatically wherever the filesystem allows; `--in-place` additionally *requires*
   it, refusing a cross-device destination rather than quietly consuming space the user said
   they did not have. `--apply` needs a typed `move` confirmation, and the run reports its

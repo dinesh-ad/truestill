@@ -1233,8 +1233,9 @@ no composition refactor to schedule.
   100k). The O(n²) perceptual scan was **deliberately not fixed** - it became item (v) with a
   runtime alarm. Baseline, rule and the do-not-touch list in `PERFORMANCE.md`.
 - ~~**(q) In-place organize (same-device optimization).**~~ **Delivered.** `organize --in-place`
-  moves files by atomic rename when source and destination share a filesystem: no bytes
-  rewritten, no zero-copy window, hash unchanged because the inode is. Plain `--move` takes the
+  moves files by rename when source and destination share a filesystem: no bytes rewritten, no
+  zero-copy window visible to another process, hash unchanged because the inode is. (Crash
+  atomicity is the filesystem's to give; FAT32/exFAT do not, and the undo journal covers them.) Plain `--move` takes the
   same fast path automatically; `--in-place` *requires* it and refuses a cross-device
   destination rather than silently copying. Typed `move` confirmation, mechanism split in the
   report, empty folders left and reported. `truestill undo-organize` ships with it (catalog

@@ -46,7 +46,7 @@ are different.
 - **Data-destroying behaviour.** truestill's core promise is that it copies and never destroys.
   Any path that relocates, deletes or overwrites an original outside the three documented,
   opt-in exceptions - `--move` and `reclaim` (both gated on re-hashing a proven second copy),
-  and `--in-place` (atomic rename, reversible via `truestill undo-organize`) - is a
+  and `--in-place` (moves by rename, reversible via `truestill undo-organize`) - is a
   **serious** bug. Report it as one. So is any way to reach one of those three *without* its
   confirmation, or to defeat the gate that protects it.
 - **Metadata parsing.** Crashes or worse when handling malformed media or Takeout sidecars.

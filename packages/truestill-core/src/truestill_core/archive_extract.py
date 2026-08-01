@@ -9,6 +9,15 @@ order leaves files the journal does not know about, which is the orphaned-200 GB
 different hat: an unattributable directory on the drive the user just filled. Everything written
 lives under the journalled root, so "a crash left something" always has an answer.
 
+**What that answer is worth on a journal-less drive.** ``fsync`` returns when the bytes are on
+the medium, on FAT32 and exFAT as much as anywhere - so the ordering this relies on holds. What
+those two cannot give is crash-atomicity of the *directory entry*: a power cut while the journal
+file itself is being created can lose it, and a per-file rename below is likewise not
+crash-atomic there. So on FAT the recovery story is **strong but not a guarantee**: an aborted
+or cancelled run is fully attributable, and a power cut can still leave a tree with no journal
+naming it. That is stated rather than rounded up, because rounding it up is what would make
+someone trust an unattributable 200 GB directory to clean itself.
+
 **Entry names are refused, never rewritten.** `zipfile.extractall` silently turns ``../../x``
 into ``x`` - safe, but lossy. A Takeout does not contain such a name, so its presence is a signal
 worth reporting. Streaming forces our own validation anyway: the running byte counter needs
@@ -314,6 +323,15 @@ def extract_archive_set(
 
             # Written to a sibling and renamed: an aborted run must never leave a truncated
             # JPEG where a whole one belongs, because a truncated file still hashes.
+            #
+            # HOW FAR THAT HOLDS. A rename is atomic with respect to other *processes* on every
+            # filesystem truestill runs on - nothing ever observes the name half-moved. It is
+            # atomic across a *crash* only where the filesystem journals its metadata: ext4,
+            # APFS, NTFS, btrfs. FAT32 and exFAT journal nothing, so a power loss during the
+            # directory-entry update can leave the entry in neither place and the clusters
+            # orphaned (what chkdsk turns into .CHK files). On those filesystems this protects
+            # against an aborted *run*, which is the common case, and not against a power cut.
+            # What survives a power cut there is the journal below, not this rename.
             partial = target.with_name(target.name + ".partial")
             source = opener()
             if source is None:  # pragma: no cover - tar members with no payload

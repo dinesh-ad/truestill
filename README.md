@@ -100,8 +100,9 @@ record of where every file is safe** for the library it builds:
 - **Configurable layout** with crash-safe migration of an existing library.
 - **Trips & events** - opt-in clustering that proposes named events for you to confirm; never
   auto-named.
-- **Space-safe relocation**, all opt-in and verify-gated: `--move`, `--in-place` (atomic
-  rename, with `truestill undo-organize` to reverse it), and `truestill reclaim`.
+- **Space-safe relocation**, all opt-in and verify-gated: `--move`, `--in-place` (moves by
+  rename rather than copying, with `truestill undo-organize` to reverse it), and
+  `truestill reclaim`.
 
 There is also **`truestill-app`**, a local web UI on `127.0.0.1` - token-authenticated,
 server-rendered, no bundler and no npm. It is co-equal with the CLI, not a replacement: both
@@ -151,7 +152,7 @@ Frequently used `organize` flags:
 |------|--------|
 | `--apply` | Actually write files. Without it, nothing is touched. |
 | `--move` | Move instead of copy. Default is copy, leaving the source intact. |
-| `--in-place` | Reorganize in this same folder by atomic rename. Use this when you do not have space for a full copy. Reversible with `truestill undo-organize`. |
+| `--in-place` | Reorganize in this same folder by rename, so no second copy is needed and nothing is rewritten. Use this when you do not have space for a full copy. Reversible with `truestill undo-organize` - which is also what covers a power cut on a FAT32 or exFAT drive, since those cannot make a rename crash-safe. |
 | `--by-device` | Name capture folders after the device (`samsung SM-A546B`) instead of `Camera`. |
 | `--events` | Propose named events for camera clusters (you name or skip them). |
 | `--skip-undated` | Skip undateable files instead of copying them to `Undated/`. |
