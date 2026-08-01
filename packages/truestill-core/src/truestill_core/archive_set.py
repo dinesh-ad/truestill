@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import re
 import shutil
+import tarfile
 import zipfile
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -29,9 +30,19 @@ from pathlib import Path
 
 from truestill_core.organizer import AUDIO_EXTENSIONS, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS
 
-#: ``<stem>-<NNN>.zip`` - how Takeout splits one export across many files. The stem is everything
+#: ``<stem>-<NNN>`` - how Takeout splits one export across many files. The stem is everything
 #: before the final numeric group, so two unrelated downloads in one folder stay two sources.
 _PART = re.compile(r"^(?P<stem>.+)-(?P<number>\d{2,4})$")
+
+#: Double extensions whose *whole* tail must come off before the part number is visible.
+#: ``takeout-001.tar.gz`` has a `Path.stem` of ``takeout-001.tar``, which ends in ``.tar`` rather
+#: than a number - so naive stem-splitting sees an unnumbered archive, treats every part as its
+#: own set, and loses the missing-part check entirely.
+_COMPOUND_SUFFIXES = (".tar.gz", ".tar.bz2", ".tar.xz")
+
+#: Formats truestill can open. `.tgz` is the one a Takeout user actually has: Google offers
+#: ``.zip`` and ``.tgz``, so the gzip layer is the real case rather than bare ``.tar``.
+TAR_SUFFIXES = frozenset({".tar", ".tgz", ".tbz2", ".txz"})
 
 #: Extensions truestill will not open **inside** an archive. Recursive extraction is unbounded
 #: depth on untrusted input, and the Takeout case never needs it - see `(jj)`.
@@ -103,10 +114,29 @@ class SpaceCheck:
     enough: bool
 
 
+def is_tar(path: Path) -> bool:
+    """Whether this member of a set is a tar rather than a zip, by name.
+
+    By name and not by sniffing content: the set has already been named by the user, and a file
+    whose extension lies about its format fails loudly at open time rather than being guessed at.
+    """
+    name = path.name.lower()
+    return name.endswith(tuple(TAR_SUFFIXES)) or name.endswith(_COMPOUND_SUFFIXES)
+
+
+def _base_name(path: Path) -> str:
+    """The name with its whole format tail removed, compound extensions included."""
+    lowered = path.name.lower()
+    for compound in _COMPOUND_SUFFIXES:
+        if lowered.endswith(compound):
+            return path.name[: -len(compound)]
+    return path.stem
+
+
 def _split_part(path: Path) -> tuple[str, int | None]:
-    match = _PART.match(path.stem)
+    match = _PART.match(_base_name(path))
     if match is None:
-        return path.stem, None
+        return _base_name(path), None
     return match.group("stem"), int(match.group("number"))
 
 
@@ -121,10 +151,14 @@ def discover_archive_set(paths: Sequence[Path]) -> ArchiveSet:
     grouped: dict[str, list[ArchivePart]] = {}
     for path in paths:
         stem, number = _split_part(path)
-        grouped.setdefault(stem, []).append(ArchivePart(path=path, number=number))
+        # Keyed by format as well as stem: a folder holding photos-001.tgz and photos-002.zip
+        # holds two downloads, not one set with a mixed tail.
+        key = f"{'tar' if is_tar(path) else 'zip'}:{stem}"
+        grouped.setdefault(key, []).append(ArchivePart(path=path, number=number))
 
     built: list[ArchiveSet] = []
-    for stem, parts in sorted(grouped.items()):
+    for key, parts in sorted(grouped.items()):
+        stem = key.split(":", 1)[1]
         ordered = tuple(sorted(parts, key=lambda p: (p.number is None, p.number or 0, p.path.name)))
         numbers = sorted(p.number for p in ordered if p.number is not None)
         missing: tuple[int, ...] = ()
@@ -146,6 +180,24 @@ def discover_archive_set(paths: Sequence[Path]) -> ArchiveSet:
     )
 
 
+def _members(path: Path) -> list[tuple[str, int, bool]]:
+    """``(name, uncompressed size, needs a password)`` for every file member.
+
+    Tar has no encryption concept of its own, so the flag is always ``False`` there - a
+    password-protected tar is an encrypted *container*, which fails at open time rather than
+    per entry.
+    """
+    if is_tar(path):
+        with tarfile.open(path, "r:*") as archive:
+            return [(m.name, m.size, False) for m in archive.getmembers() if m.isfile()]
+    with zipfile.ZipFile(path) as archive:
+        return [
+            (i.filename, i.file_size, bool(i.flag_bits & _ENCRYPTED_FLAG))
+            for i in archive.infolist()
+            if not i.is_dir()
+        ]
+
+
 def inspect_archive_set(archive_set: ArchiveSet) -> ArchiveInspection:
     """Read every part's central directory. Decompresses nothing, writes nothing."""
     claimed = 0
@@ -157,20 +209,17 @@ def inspect_archive_set(archive_set: ArchiveSet) -> ArchiveInspection:
 
     for part in archive_set.parts:
         try:
-            with zipfile.ZipFile(part.path) as archive:
-                for info in archive.infolist():
-                    if info.is_dir():
-                        continue
-                    entries += 1
-                    claimed += info.file_size
-                    suffix = Path(info.filename).suffix.lower()
-                    if suffix in _MEDIA_EXTENSIONS:
-                        media += 1
-                    if suffix in NESTED_ARCHIVE_EXTENSIONS:
-                        nested.append(info.filename)
-                    if info.flag_bits & _ENCRYPTED_FLAG:
-                        encrypted.append(info.filename)
-        except (zipfile.BadZipFile, OSError):
+            for name, size, is_encrypted in _members(part.path):
+                entries += 1
+                claimed += size
+                suffix = Path(name).suffix.lower()
+                if suffix in _MEDIA_EXTENSIONS:
+                    media += 1
+                if suffix in NESTED_ARCHIVE_EXTENSIONS:
+                    nested.append(name)
+                if is_encrypted:
+                    encrypted.append(name)
+        except (zipfile.BadZipFile, tarfile.TarError, OSError):
             # A part that cannot be opened is a finding, not an exception to propagate: the
             # caller is reporting on a set and needs to name which member is unusable.
             unreadable.append(part.path.name)

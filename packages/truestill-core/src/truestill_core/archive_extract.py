@@ -26,13 +26,16 @@ import json
 import os
 import shutil
 import stat
+import tarfile
 import threading
 import zipfile
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path, PurePosixPath
+from typing import IO
 
-from truestill_core.archive_set import ArchiveSet
+from truestill_core.archive_set import ArchiveSet, is_tar
 from truestill_core.progress import Phase, Progress, ProgressCallback
 
 #: Directory under the destination that holds every staging tree. On the destination drive
@@ -124,6 +127,33 @@ def _validate_entry_name(name: str) -> PurePosixPath:
     return relative
 
 
+def _filtered_tar_member(member: tarfile.TarInfo, staging_root: Path) -> None:
+    """Apply tarfile's own ``data`` filter to one member, or refuse naming it.
+
+    **Why tar needs this and zip does not** - measured on 3.13, not assumed:
+
+    * `zipfile` **sanitises unconditionally** (``../../x`` lands as ``x`` inside the
+      destination) and **never creates symlinks** (a symlink entry becomes an ordinary file
+      containing the target string). Nothing is opted into.
+    * `tarfile` **escapes by default**: ``../../x`` is written *outside* the destination with
+      only a ``DeprecationWarning``, because ``TarFile.extraction_filter`` is ``None``.
+
+    A reader who learns a blanket "archives are unsafe" would add pointless defences to the zip
+    path and still miss why tar is different. The difference is one argument, which is exactly
+    the kind of thing a refactor drops silently - hence tar's own tests.
+
+    **Called per member rather than via ``extractall(filter="data")``**, because the filter is a
+    public function. That keeps tar on the *same* streaming byte counter, the *same* staging
+    journal and the *same* partial-then-rename as zip, instead of forking the extractor to buy
+    safety. Verified: called directly it raises `OutsideDestinationError`, `AbsoluteLinkError`
+    and `SpecialFileError` for traversal, absolute symlinks and device nodes.
+    """
+    try:
+        tarfile.data_filter(member, str(staging_root))
+    except tarfile.FilterError as refused:
+        raise ExtractionRefusedError(str(refused)) from refused
+
+
 def _refuse_symlink(info: zipfile.ZipInfo) -> None:
     """`zipfile` happens to write symlink entries as ordinary files; we refuse them instead.
 
@@ -197,6 +227,31 @@ def clear_staging(record: StagingRecord) -> None:
     record.journal_path.unlink(missing_ok=True)
 
 
+def _iter_entries(
+    path: Path, staging_root: Path
+) -> Iterator[tuple[PurePosixPath, Callable[[], IO[bytes] | None]]]:
+    """``(relative path, opener)`` per file member, with each format's refusals already applied.
+
+    One generator for both formats so the caller has a single loop: the byte counter, the
+    partial-then-rename and the journal are shared, and only the *validation* differs - which is
+    the only place the two formats genuinely differ.
+    """
+    if is_tar(path):
+        with tarfile.open(path, "r:*") as archive:
+            for member in archive.getmembers():
+                _filtered_tar_member(member, staging_root)
+                if not member.isfile():
+                    continue
+                yield _validate_entry_name(member.name), partial(archive.extractfile, member)
+        return
+    with zipfile.ZipFile(path) as archive:
+        for info in archive.infolist():
+            if info.is_dir():
+                continue
+            _refuse_symlink(info)
+            yield _validate_entry_name(info.filename), partial(archive.open, info)
+
+
 def extract_archive_set(
     archive_set: ArchiveSet,
     destination: Path,
@@ -211,68 +266,77 @@ def extract_archive_set(
     **One tree for the whole set**, because sidecar matching is per-folder and a
     ``Photos from 2014`` folder can straddle two archives - merging first is what makes the
     existing `takeout.scan_takeout` work unchanged.
+
+    **Zip and tar share this function deliberately.** They differ only in how an entry is
+    validated (see :func:`_filtered_tar_member`); the byte counter, the staging journal and the
+    partial-then-rename are the same for both, so recovery has one path rather than one per
+    format.
     """
     record = _write_journal(destination, archive_set)
     record.staging_root.mkdir(parents=True, exist_ok=True)
 
     claimed = 0
+    total = 0
     for part in archive_set.parts:
-        with zipfile.ZipFile(part.path) as archive:
-            claimed += sum(info.file_size for info in archive.infolist() if not info.is_dir())
+        for _relative, _opener in _iter_entries(part.path, record.staging_root):
+            total += 1
+    for part in archive_set.parts:
+        claimed += _claimed_bytes(part.path)
     budget = (
         staging_budget(destination, claimed_bytes=claimed) if budget_bytes is None else budget_bytes
     )
 
-    total = 0
-    for part in archive_set.parts:
-        with zipfile.ZipFile(part.path) as archive:
-            total += sum(1 for info in archive.infolist() if not info.is_dir())
-
     written = 0
     files = 0
     for part in archive_set.parts:
-        with zipfile.ZipFile(part.path) as archive:
-            for info in archive.infolist():
-                if info.is_dir():
-                    continue
-                if cancel is not None and cancel.is_set():
-                    # Nothing special to do: the journal already describes this tree, so a
-                    # cancel leaves exactly what a crash leaves and recovery has one path.
-                    return ExtractionResult(
-                        staging_root=record.staging_root,
-                        files_written=files,
-                        bytes_written=written,
-                        cancelled=True,
-                    )
-                _refuse_symlink(info)
-                relative = _validate_entry_name(info.filename)
-                target = record.staging_root / relative
-                target.parent.mkdir(parents=True, exist_ok=True)
+        for relative, opener in _iter_entries(part.path, record.staging_root):
+            if cancel is not None and cancel.is_set():
+                # Nothing special to do: the journal already describes this tree, so a cancel
+                # leaves exactly what a crash leaves and recovery has one path.
+                return ExtractionResult(
+                    staging_root=record.staging_root,
+                    files_written=files,
+                    bytes_written=written,
+                    cancelled=True,
+                )
+            target = record.staging_root / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
 
-                # Written to a sibling and renamed: an aborted run must never leave a truncated
-                # JPEG where a whole one belongs, because a truncated file still hashes.
-                partial = target.with_name(target.name + ".partial")
-                with archive.open(info) as source, partial.open("wb") as sink:
-                    while chunk := source.read(CHUNK_BYTES):
-                        written += len(chunk)
-                        if written > budget:
-                            partial.unlink(missing_ok=True)
-                            message = (
-                                f"{part.path.name} expands to more than the "
-                                f"{budget} bytes this extraction is allowed - refusing rather "
-                                f"than filling the disk"
-                            )
-                            raise ExtractionRefusedError(message)
-                        sink.write(chunk)
-                partial.replace(target)
-                files += 1
-                if progress is not None:
-                    # Its own phase: unpacking is the slow part of an archive ingest and must
-                    # not render as a scan that appears to have frozen.
-                    progress(Progress(files, total, Phase.UNPACKING, info.filename))
-                if on_entry is not None:
-                    on_entry(target)
+            # Written to a sibling and renamed: an aborted run must never leave a truncated
+            # JPEG where a whole one belongs, because a truncated file still hashes.
+            partial = target.with_name(target.name + ".partial")
+            source = opener()
+            if source is None:  # pragma: no cover - tar members with no payload
+                continue
+            with source, partial.open("wb") as sink:
+                while chunk := source.read(CHUNK_BYTES):
+                    written += len(chunk)
+                    if written > budget:
+                        partial.unlink(missing_ok=True)
+                        message = (
+                            f"{part.path.name} expands to more than the {budget} bytes this "
+                            f"extraction is allowed - refusing rather than filling the disk"
+                        )
+                        raise ExtractionRefusedError(message)
+                    sink.write(chunk)
+            partial.replace(target)
+            files += 1
+            if progress is not None:
+                # Its own phase: unpacking is the slow part of an archive ingest and must not
+                # render as a scan that appears to have frozen.
+                progress(Progress(files, total, Phase.UNPACKING, str(relative)))
+            if on_entry is not None:
+                on_entry(target)
 
     return ExtractionResult(
         staging_root=record.staging_root, files_written=files, bytes_written=written
     )
+
+
+def _claimed_bytes(path: Path) -> int:
+    """The set's own declared total for one part. Shown to the user, never an enforcement input."""
+    if is_tar(path):
+        with tarfile.open(path, "r:*") as archive:
+            return sum(m.size for m in archive.getmembers() if m.isfile())
+    with zipfile.ZipFile(path) as archive:
+        return sum(i.file_size for i in archive.infolist() if not i.is_dir())
