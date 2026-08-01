@@ -5,6 +5,8 @@ APP := packages/truestill-app/src/truestill_app
 # scripts/ is in the type fence too: it is real code that imports the core, and the one file
 # left out of it silently imported a module that had not existed for two renames.
 SCRIPTS := scripts
+# packaging/ is in the fence for the same reason scripts/ is: real code that imports the core.
+PACKAGING := packaging
 
 .PHONY: install lint format format-check typecheck dash-check redirect-check test test-order check build dryrun e2e e2e-install
 
@@ -27,7 +29,7 @@ format-check:
 	$(PYTHON) ruff format --check .
 
 typecheck:
-	$(PYTHON) mypy $(CORE) $(CLI) $(APP) $(SCRIPTS)
+	$(PYTHON) mypy $(CORE) $(CLI) $(APP) $(SCRIPTS) $(PACKAGING)
 
 test:
 	$(PYTHON) pytest

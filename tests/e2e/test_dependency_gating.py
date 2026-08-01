@@ -17,7 +17,20 @@ from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[2]
 _PACKAGES = ("truestill-core", "truestill-cli", "truestill-app")
-_TEST_ONLY = ("playwright", "pytest", "ruff", "mypy", "pre-commit", "httpx", "coverage")
+#: Tools that exist to test or to BUILD, and must never appear in a shipped package. The
+#: bundlers are here for the same reason Playwright is: a user installing a photo organizer
+#: should not receive the machinery that packages it.
+_TEST_ONLY = (
+    "playwright",
+    "pytest",
+    "ruff",
+    "mypy",
+    "pre-commit",
+    "httpx",
+    "coverage",
+    "pyinstaller",
+    "briefcase",
+)
 
 
 def test_no_shipped_package_depends_on_a_test_tool() -> None:
@@ -27,6 +40,20 @@ def test_no_shipped_package_depends_on_a_test_tool() -> None:
         declared = " ".join(manifest["project"].get("dependencies", [])).lower()
         for tool in _TEST_ONLY:
             assert tool not in declared, f"{name} declares the test tool {tool!r} at runtime"
+
+
+def test_the_build_only_bundlers_are_declared_only_in_the_dev_group() -> None:
+    """(aad)'s bundlers produce artifacts; they must never be inside one.
+
+    Declared dev-only under the build-tool ruling: a tool that never enters the runtime graph
+    carries none of a shipped dependency's burden. This is the guard that keeps that true, so
+    the exemption cannot quietly become a shipped dependency later.
+    """
+    root = tomllib.loads((_ROOT / "pyproject.toml").read_text())
+    dev = " ".join(root["dependency-groups"]["dev"]).lower()
+
+    assert "pyinstaller" in dev
+    assert "briefcase" in dev
 
 
 def test_playwright_is_declared_only_in_the_dev_group() -> None:

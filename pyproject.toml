@@ -20,6 +20,14 @@ dev = [
     # manual checking cannot regression-pin. Dev group only: it is never a runtime dependency
     # of truestill-core/-cli/-app, and a clean install of any of them pulls no browsers.
     "pytest-playwright>=0.5",
+    # BUILD-ONLY bundlers for the (aad) packaging measurement. Dev group, never a runtime
+    # dependency: they produce an artifact and are absent from it. Per the ruling of
+    # 2026-07-31, a build tool that never enters the runtime graph does not carry the §4
+    # written-justification burden a shipped dependency does - it ships to nobody, enters no
+    # user's security surface, and is deleted with the job that uses it. Gated by
+    # `tests/e2e/test_dependency_gating.py` so they cannot drift into a shipped package.
+    "pyinstaller>=6.21",
+    "briefcase>=0.4.4",
 ]
 
 # --- Ruff (lint + format), applied repo-wide ------------------------------------------
@@ -148,7 +156,7 @@ python_version = "3.13"
 # pre-commit hook cannot see `truestill_core` at all -- and its upstream default args include
 # `--ignore-missing-imports`, so it answered "fine" to an import of a module that had not
 # existed for two renames. Overriding those args (below) is only safe because of this line.
-mypy_path = "packages/truestill-core/src:packages/truestill-cli/src:packages/truestill-app/src"
+mypy_path = "packages/truestill-core/src:packages/truestill-cli/src:packages/truestill-app/src:packaging"
 # ENGINEERING_STANDARD.md §4: mypy strict is mandatory. The gate and the claim must agree.
 strict = true
 

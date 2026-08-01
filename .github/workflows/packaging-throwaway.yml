@@ -1,0 +1,172 @@
+# ============================================================================================
+# SCOPE FENCE - read before extending this file.
+#
+# This is a THROWAWAY MEASUREMENT job for BACKLOG (aad). Its entire purpose is to answer three
+# questions that cannot be answered on Linux or in a console:
+#
+#   1. which binary-resolution rule fires under each bundler on Windows;
+#   2. whether a genuinely windowed process skips the legacy-catalog probe;
+#   3. whether CREATE_NO_WINDOW actually suppresses a console window.
+#
+# It is NOT the beginning of the release pipeline. Deliberately absent, and to stay absent:
+# no signing, no notarization, no release upload, no tag trigger, no matrix, no caching of
+# build outputs. `workflow_dispatch` only, so it never runs on a push and never costs a
+# contributor a minute they did not ask for.
+#
+# DELETE OR REPURPOSE THIS FILE once the bundler is chosen. If you are here to add a platform,
+# a signing step, or a release artifact, you are extending a measurement rig into a pipeline
+# it was never designed to be - write the real one instead.
+# ============================================================================================
+name: packaging throwaway (aad)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    name: measure (windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install exiftool
+        shell: pwsh
+        run: |
+          choco install exiftool --no-progress -y
+          # The bundlers need a concrete file to embed, not a shim on PATH.
+          $tool = (Get-Command exiftool.exe -ErrorAction SilentlyContinue).Source
+          if (-not $tool) { $tool = (Get-ChildItem -Path 'C:\ProgramData\chocolatey' -Filter 'exiftool*.exe' -Recurse | Select-Object -First 1).FullName }
+          if (-not $tool) { throw 'exiftool.exe not found after install' }
+          "EXIFTOOL=$tool" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "exiftool: $tool"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Set up Python 3.13
+        run: uv python install 3.13
+
+      - name: Sync workspace
+        run: uv sync --all-packages --group dev --locked
+
+      # --- PyInstaller ------------------------------------------------------------------
+      # Unmeasured on Windows: the Linux run told us about PyInstaller's LINUX layout only.
+      - name: Build (PyInstaller)
+        shell: pwsh
+        run: |
+          uv run pyinstaller --noconfirm --clean --noconsole `
+            --name truestill-probe-pyinstaller `
+            --add-binary "$env:EXIFTOOL;bin" `
+            --paths packaging `
+            packaging/truestill_probe/__main__.py
+
+      # --- Briefcase --------------------------------------------------------------------
+      - name: Build (Briefcase)
+        shell: pwsh
+        working-directory: packaging
+        run: |
+          uv run briefcase create windows app --no-input
+          uv run briefcase build windows app --no-input
+
+      # Placed where the beside-the-executable rule would look, so the measurement reports
+      # which rule fired rather than whether anyone remembered to copy a file.
+      - name: Place exiftool beside the Briefcase executable
+        shell: pwsh
+        working-directory: packaging
+        run: |
+          $exe = Get-ChildItem -Path build -Filter 'TruestillProbe.exe' -Recurse | Select-Object -First 1
+          if (-not $exe) { throw 'Briefcase executable not found' }
+          $bin = Join-Path $exe.Directory.FullName 'bin'
+          New-Item -ItemType Directory -Force -Path $bin | Out-Null
+          Copy-Item $env:EXIFTOOL -Destination $bin
+          "BRIEFCASE_EXE=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "briefcase exe: $($exe.FullName)"
+
+      - name: Measure both artifacts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path findings | Out-Null
+
+          function Measure-Artifact {
+            param([string]$Name, [string]$Exe)
+
+            # A working directory holding a legacy catalog, so the windowed process has
+            # something to ignore. Without it the legacy question is inconclusive by design.
+            $work = Join-Path $PWD "work-$Name"
+            New-Item -ItemType Directory -Force -Path (Join-Path $work 'reports') | Out-Null
+            Set-Content -Path (Join-Path $work 'reports\catalog.sqlite') -Value 'not a real catalog'
+
+            $data = Join-Path $PWD "data-$Name"
+            $env:TRUESTILL_DATA_DIR = $data
+            $env:TRUESTILL_CACHE_DIR = Join-Path $PWD "cache-$Name"
+            $out = Join-Path $PWD "findings\$Name.json"
+
+            $proc = Start-Process -FilePath $Exe -ArgumentList '--probe', $out `
+              -WorkingDirectory $work -PassThru
+            $proc | Wait-Process -Timeout 180 -ErrorAction SilentlyContinue
+
+            # ASSERTION 1, handled explicitly. A windowed process that dies before writing
+            # produces no file, and the job must say WHY rather than fail on a missing path.
+            if (-not (Test-Path $out)) {
+              Write-Host "::error::$Name assertion 1 FAILED - the process did not survive to write findings (exit code: $($proc.ExitCode))"
+              $stub = @{ artifact = $Name; assertion_1 = 'fail'
+                         reason = 'process did not survive to write findings'
+                         exit_code = $proc.ExitCode } | ConvertTo-Json
+              Set-Content -Path $out -Value $stub
+              return $false
+            }
+            Write-Host "::group::$Name findings"
+            Get-Content $out | Write-Host
+            Write-Host "::endgroup::"
+            return $true
+          }
+
+          $ok = $true
+          if (-not (Measure-Artifact -Name 'pyinstaller' -Exe (Join-Path $PWD 'dist\truestill-probe-pyinstaller\truestill-probe-pyinstaller.exe'))) { $ok = $false }
+          if (-not (Measure-Artifact -Name 'briefcase' -Exe $env:BRIEFCASE_EXE)) { $ok = $false }
+          if (-not $ok) { Write-Host '::warning::at least one artifact failed assertion 1; see findings' }
+
+      # Assertions 3 and 4 are checked from OUTSIDE the artifact: a windowed process cannot
+      # report whether it served a page, and asking it to would test the reporter, not the app.
+      - name: Assertions 3 and 4 - URL file and serving (PyInstaller)
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $data = Join-Path $PWD 'serve-data'
+          $env:TRUESTILL_DATA_DIR = $data
+          $env:TRUESTILL_CACHE_DIR = Join-Path $PWD 'serve-cache'
+          $exe = Join-Path $PWD 'dist\truestill-probe-pyinstaller\truestill-probe-pyinstaller.exe'
+          $proc = Start-Process -FilePath $exe -ArgumentList '--port', '0', '--no-browser' -PassThru
+          $urlFile = Join-Path $data 'session-url.txt'
+          $deadline = (Get-Date).AddSeconds(90)
+          while (-not (Test-Path $urlFile) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 200 }
+          if (-not (Test-Path $urlFile)) {
+            Write-Host '::error::assertion 3 FAILED - no session URL file was written'
+          } else {
+            $url = (Get-Content $urlFile)[0]
+            Write-Host "assertion 3 PASS - $url"
+            try {
+              $res = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 30
+              Write-Host "assertion 4 PASS - HTTP $($res.StatusCode), $($res.RawContentLength) bytes"
+            } catch {
+              Write-Host "::error::assertion 4 FAILED - $($_.Exception.Message)"
+            }
+          }
+          Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+
+      # The raw JSON survives the job. Given how much of this work has been about green ticks
+      # proving less than they appear to, the numbers are the deliverable, not the tick.
+      - name: Upload findings
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: packaging-findings
+          path: findings/
+          retention-days: 7
