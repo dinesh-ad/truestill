@@ -236,14 +236,15 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
 ## 3. Data contract (catalog)
 
 - **Single SQLite file**, stdlib `sqlite3` (`catalog.py::Catalog`). No server.
-- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 15`**.
+- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 16`**.
   Migrations are ordered, idempotent functions in `_MIGRATIONS`; a catalog newer than the code
   is refused (`CatalogVersionError`). Migration coverage tested in `tests/test_catalog.py`.
-- **Table inventory (v12):** `files`, `albums`, `file_albums`, `events`, `skipped_clusters`,
-  `drives`, `file_copies`, `settings`, `migration_journal`, `reclaim_journal`,
-  `inplace_runs`, `inplace_moves`, `migration_runs`, `trips`, `trip_days`.
-  v13 and v14 add no table: they are the columns `files.date_source` and
-  `files.date_tag` (the tier, and the evidence behind it). v15 adds `date_confirmations`.
+- **Table inventory (v15 - the last migration that adds a table; v16 adds only a column):**
+  `files`, `albums`, `file_albums`, `events`, `skipped_clusters`, `drives`, `file_copies`,
+  `settings`, `migration_journal`, `reclaim_journal`, `inplace_runs`, `inplace_moves`,
+  `migration_runs`, `trips`, `trip_days`, `date_confirmations`.
+  v13, v14 and v16 add no table: they are the columns `files.date_source`, `files.date_tag`
+  (the tier, and the evidence behind it) and `file_copies.date_baked_at`.
 - **Migration ledger:** v2 `size`, v3 `original_name`, v4 event tables (`events` +
   `skipped_clusters` + `files.event_id`), v5 Takeout (`files.copy_sha256` + `albums` +
   `file_albums`), v6 drive identity (`drives` + `file_copies`), v7 key/value `settings`
@@ -261,7 +262,18 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   first **declared foreign key** (`trip_days.trip_id REFERENCES trips(id)`), which is why
   `Catalog.__init__` now sets `PRAGMA foreign_keys = ON` per connection - SQLite does not
   enforce a `REFERENCES` clause unless that pragma is set, and without it the FK fixture would
-  have passed for the wrong reason.
+  have passed for the wrong reason. v15 `date_confirmations` (human date confirmations, in their
+  **own table keyed on content** rather than a column on `files`: `forget_organized` deletes the
+  `files` row when an undo removes the last copy, so a column would have been deleted by the
+  first `undo-organize` - exactly the failure `(ii)` exists to prevent. Keyed on `sha256`,
+  because content identity survives rename, migrate, re-layout and in-place organize where a
+  path does not). v16 `file_copies.date_baked_at` (whether a confirmed date reached that copy's
+  bytes - a date only truestill knows is not the same promise as a date any other tool will
+  read). **v16's flag is on `file_copies`, not on `date_confirmations`, deliberately:** a
+  confirmation is per *content* and a bake changes *one drive's copy*, so putting it on the
+  confirmation would let a photo baked on the laptop count as baked for a backup drive that
+  never receives it - the same per-content / per-drive confusion behind the `copy_sha256` and
+  `relative` findings, caught before v16 shipped.
 - **Dual-hash rule.** `files.sha256` is the **source** (pre-write) hash - the **dedup
   identity**. `files.copy_sha256` is the organized copy's **post-write** hash - the
   **verification identity** (equal to `sha256` for the byte-identical normal pipeline; differs
