@@ -44,9 +44,14 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import truestill_core.catalog
 from truestill_core.catalog import _MIGRATIONS, CURRENT_SCHEMA_VERSION
 
 _CONTRACT = Path(__file__).resolve().parents[3] / "docs" / "IMPLEMENTATION_STANDARDS.md"
+
+#: Read from the imported module rather than a relative path, so the guard is aimed at the
+#: catalog the tests actually load (§4 - a guard targets the module that owns the name).
+_CATALOG_SOURCE = Path(truestill_core.catalog.__file__)
 
 #: The §3 sentence that names the version. One occurrence is expected; see the anti-vacuity
 #: assertion, which is the whole reason this is `findall` rather than `search`.
@@ -137,6 +142,100 @@ def test_the_ledger_check_discriminates() -> None:
     # `v1` is the base schema, not a migration: `_MIGRATIONS` starts at 2. It must not be
     # satisfied by `v11`/`v12`/`v13`, which is what an unbounded search would do.
     assert not re.search(r"\bv1\b", ledger), "the word boundary is not holding; v11 answered v1"
+
+
+#: §3's table-inventory bullet, located by its heading rather than a line number.
+_INVENTORY_HEAD = "- **Table inventory"
+
+#: `CREATE TABLE [IF NOT EXISTS] name`, tolerating the optional quoting SQLite accepts. Applied
+#: to `catalog.py` only - see `_documented_tables` for why the cache sidecar is out of scope.
+_CREATE_TABLE = re.compile(
+    r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[\"'`\[]?([A-Za-z_][A-Za-z0-9_]*)",
+    re.IGNORECASE,
+)
+
+#: A backticked token inside the inventory bullet.
+_BACKTICKED = re.compile(r"`([^`]+)`")
+
+
+def _created_tables() -> set[str]:
+    """Every table `catalog.py` creates, from `_SCHEMA` and from the migrations alike.
+
+    Names are lowercased, which is how SQLite compares them, and the set is a union: a table
+    appears both in `_SCHEMA` (for a fresh database) and in the migration that introduced it
+    (for an existing one), and both spellings must be the same name.
+    """
+    source = _CATALOG_SOURCE.read_text(encoding="utf-8")
+    return {name.lower() for name in _CREATE_TABLE.findall(source)}
+
+
+def _documented_tables() -> set[str]:
+    """The table names §3's inventory bullet lists.
+
+    Backticked tokens **without a dot**. The bullet's closing sentence names the columns that
+    v13, v14 and v16 add (`files.date_source`, `file_copies.date_baked_at`), and a column is not
+    a table; the dot is what separates them, and it is the document's own notation rather than a
+    convention invented here.
+
+    **Scope: the catalog, not the cache.** `hash_cache.py` creates a `hash_cache` table, and it
+    is deliberately absent from §3 because it lives in a *different database* - §8 states the
+    sidecar sits beside the catalog, never inside it, and is disposable where the catalog is
+    not. So this reads `catalog.py` alone. Widening it to the whole tree would demand a row in
+    the catalog's data contract for a file that contract does not govern.
+    """
+    lines = _contract_text().splitlines()
+    starts = [i for i, line in enumerate(lines) if line.startswith(_INVENTORY_HEAD)]
+    if len(starts) != 1:
+        return set()  # not located; the anti-vacuity assertion turns this into a failure
+    start = starts[0]
+    end = next(
+        (i for i in range(start + 1, len(lines)) if lines[i].startswith(_TOP_LEVEL_BULLET)),
+        len(lines),
+    )
+    block = "\n".join(lines[start:end])
+    return {token.lower() for token in _BACKTICKED.findall(block) if "." not in token}
+
+
+def test_the_contract_lists_the_tables_the_catalog_actually_creates() -> None:
+    """§3's inventory equals the `CREATE TABLE` set, in both directions.
+
+    Unlike the dependency inventory (§7), equality is right here: §3's list claims to *be* the
+    catalog's table set, and there is no legitimate reason for it to name a table the code does
+    not create or to omit one it does. `date_confirmations` had fallen out of it - named in the
+    prose beneath, absent from the list above - which is exactly the drift this closes.
+    """
+    created = _created_tables()
+    documented = _documented_tables()
+
+    assert created, f"no CREATE TABLE found in {_CATALOG_SOURCE.name}; the reader is wrong"
+    assert documented, (
+        f"could not locate exactly one {_INVENTORY_HEAD!r} bullet in {_CONTRACT.name}, or it "
+        "listed nothing - either way this check would compare against an empty set and pass "
+        "for the wrong reason."
+    )
+
+    assert created == documented, (
+        "§3's table inventory and the catalog disagree.\n"
+        f"  created but not listed: {sorted(created - documented) or 'none'}\n"
+        f"  listed but not created: {sorted(documented - created) or 'none'}\n\n"
+        "The inventory is the contract's answer to 'what is in the catalog'. Update it in the "
+        "same commit as the migration."
+    )
+
+
+def test_the_table_reader_separates_a_column_from_a_table() -> None:
+    """Aimed at the reader: the dot rule must keep columns out and let table names through.
+
+    Without it the inventory's closing sentence would contribute `files.date_source` and
+    `file_copies.date_baked_at` as tables, and the equality above would fail for a reason that
+    has nothing to do with the schema.
+    """
+    documented = _documented_tables()
+
+    assert "files" in documented
+    assert "date_confirmations" in documented, "the v15 table is the one that fell out before"
+    assert not any("." in name for name in documented), "a column leaked in as a table"
+    assert "hash_cache" not in documented, "the cache sidecar is not part of the catalog contract"
 
 
 def test_the_ledger_check_does_not_demand_more_than_the_code_has() -> None:

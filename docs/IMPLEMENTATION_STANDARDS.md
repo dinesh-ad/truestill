@@ -446,7 +446,14 @@ is the point of the gate: **no other gate we have can see prose.**
     accepted risk is visible in review and in `git blame`. An audit that passes because
     something was quietly suppressed is worse than no audit.
   - **Current ignore list: empty.** First run (2026-07-27) was clean: 28 runtime packages and
-    40 including dev, zero known vulnerabilities.
+    40 including dev, zero known vulnerabilities. That pair is kept as the **dated record of
+    that run**, not as a live figure. Measured again 2026-08-01 via
+    `uv export --no-emit-workspace`: **14 runtime packages** (`--no-dev`, i.e. what a buyer
+    installs) and **86 including dev**. The two pairs are **not directly comparable** - the
+    method behind the 2026-07-27 figures was not recorded - so the current numbers are given
+    with theirs rather than overwriting them. The dev set grew with the browser lane and the
+    packaging probes; the runtime set is small because most of its weight is `scipy` and
+    `pywavelets`, which are two packages and ~90 MB.
 - **Complexity is declared, not discovered.** Every new pipeline stage states its complexity
   in *n* in its module docstring, and anything worse than O(n log n) must say so and justify
   the trade; new stages get a **measured** row in the baseline table. The rule, the baseline
@@ -488,13 +495,20 @@ is the point of the gate: **no other gate we have can see prose.**
 
 ## 7. Dependency inventory
 
-Runtime deps must justify themselves against stdlib. Current state:
+Runtime deps must justify themselves against stdlib. **This inventory is whole-product**: it
+covers the declared runtime dependencies of all three packages, because its subject is what the
+buyer installs, not what any one package happens to own. Pinned by
+`test_dependency_inventory.py`, which fails when a declared runtime dep has no row here. Current
+state:
 
 | Dependency | Why it exists (vs stdlib) |
 |---|---|
 | `imagehash>=4.3.2` (`truestill-core`) | Perceptual dHash for near-duplicate detection; requires image decoding, which the stdlib cannot do. |
 | `pillow>=12.3.0` (`truestill-core`) | Image decoding backing imagehash and cheap dimension reads. **Large-image policy:** truestill processes the user's own local library (trusted), not untrusted uploads, so Pillow's ~89 MP decompression-bomb guard is a false positive on legitimate large photos (panoramas/scans). `hashing.MAX_PERCEPTUAL_PIXELS` raises `Image.MAX_IMAGE_PIXELS` to **300 MP** deliberately; above it a pathological image is **skipped for perceptual hashing** (SHA-256 exact dedup still applies) and the bomb *warning* is suppressed locally so **no raw Pillow warning reaches the terminal**. (Immich/PhotoPrism avoid this entirely via libvips streaming.) |
 | `pillow-heif>=1.5.0` (`truestill-core`) | Registers a HEIF opener so Pillow can decode **HEIC/HEIF** (the iPhone-default format since 2017), enabling their perceptual near-dup dedup. **Graceful degradation is mandatory:** `hashing._register_heif` guards the import; if it ever fails at runtime, `HEIF_AVAILABLE` is `False`, SHA-256 exact dedup still applies to HEIC, and the run **reports** that HEIC perceptual hashing was skipped - never a silent drop. TIFF-based RAW (CR2/NEF/DNG/…) needs no plugin (Pillow's TIFF decoder content-sniffs it); container-based RAW (CR3, RAF) is exact-dedup-only. |
+| `platformdirs>=4.11.0` (`truestill-core`) | The three OS conventions for user data and cache directories, which the stdlib does not expose. The alternative is hand-rolling XDG (with its `XDG_DATA_HOME` / `XDG_CACHE_HOME` overrides), `~/Library/Application Support` vs `~/Library/Caches`, and `%APPDATA%` vs `%LOCALAPPDATA%` - each with edge cases we would rediscover as bug reports on machines we do not have. Pure Python, no dependencies of its own, two calls used; the de facto standard for this (Black, pip, pipx). Getting it wrong is not cosmetic: a wrong data directory is where someone's custody record goes missing. Full argument at `app_paths.py`. |
+| `starlette>=1.3.1` (`truestill-app`) | The smallest well-tested ASGI: routing, SSE, static files and background tasks. `http.server` is synchronous and would mean hand-rolling all four, which is where a local server gets fragile. **Not FastAPI**, which wraps Starlette plus Pydantic - §4 disallows Pydantic for internal models and a single-user local app needs none of the OpenAPI/validation weight. Rationale in `docs/ui-v1-research.md` §B1/§C4. |
+| `uvicorn>=0.51.0` (`truestill-app`) | The ASGI server that runs Starlette. There is no ASGI server in the stdlib. |
 | `scipy` + `pywavelets` (**transitive, via imagehash - never imported**) | Not chosen; **imported by nothing truestill runs.** imagehash declares both as hard `Requires-Dist` with **no extras split** (`Provides-Extra: None`), so every install pulls them: measured **81 MB scipy + 8.6 MB PyWavelets = ~90 MB**. They back `phash` (`scipy.fftpack`) and `whash` (`pywt`), both imported *lazily inside those functions*; truestill defaults to `dhash`, and a `dhash` call in a clean process loads neither (verified: `scipy in sys.modules` is `False` after computing one). `numpy` is genuinely required - imagehash imports it at module level. **There is no way to exclude them at the dependency layer**; the only levers are a bundler `--exclude-module` at packaging time or vendoring, and the first belongs to `(aad)`. Recorded because an installer for non-technical users carries this weight for a code path it never executes. |
 | `exiftool` (external **binary**, not a pip dep) | The only tool that reads photo EXIF, **video container tags**, and vendor MakerNotes (e.g. the screenshot marker) through one interface, and the writer used for the scoped Takeout bake. A pip EXIF library would cover photos only. |
 | `truestill-cli` runtime deps | Only `truestill-core` (workspace source). |
