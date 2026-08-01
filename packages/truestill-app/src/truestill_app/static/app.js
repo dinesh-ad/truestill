@@ -1761,10 +1761,85 @@ document.addEventListener("click", guarded(async (e) => {
 }));
 
 // ---------- Import (a folder of photos, or archives from any service) ----------
+// One summary renderer for both entry paths (an extracted folder, and an unpacked archive set),
+// extracted rather than copied so the two cannot drift in what they report.
+function rcRenderSummary(d) {
+  const r = d.summary;
+  if (!r) { $("rc-result").innerHTML = archiveRefusalCard(d); return; }
+  $("rc-result").innerHTML = card(
+    `<div class="headline" data-testid="rc-summary">${nfmt(r.files)} files found</div>
+     <div class="tally">
+       <div class="n">${nfmt(r.kept)}</div><div class="k">to import</div>
+       <div class="n">${nfmt(r.dup_collapsed)}</div><div class="k">duplicates removed (~${r.reclaimed_mb} MB)</div>
+       <div class="n">${nfmt(r.dates_photo_taken)}</div><div class="k">dates recovered</div>
+       <div class="n">${nfmt(r.undated)}</div><div class="k">still undated</div>
+     </div>
+     ${dateQualityNotes(r)}${inferredLocalShiftNotes(r)}
+     ${matchListHtml(r.duplicate_matches, "Show what each duplicate matched")}
+     ${matchListHtml(r.near_dup_matches, "Show what each look-alike resembles")}`
+  );
+}
+
 let rcJob = null;
+
+// Every refusal carries its CODE in data-refusal, and the tests key on that rather than on the
+// sentence. Five refusals render similar-looking prose, so matching words lets a test pass
+// because a DIFFERENT refusal fired - guard rule 8, applied to a user-facing surface.
+function archiveRefusalCard(d) {
+  const codes = (d.refusals || []).map((r) => `data-refusal="${esc(r)}"`).join(" ");
+  return card(
+    `<div class="headline" ${codes} data-testid="rc-refusal">Cannot unpack these archives</div>
+     <div class="k" data-testid="rc-refusal-detail">${esc(d.detail)}</div>`);
+}
+
+// The claim is labelled in the copy, not just in the number: a header field is what the archive
+// SAYS it will unpack to, and a user must not read it as something Truestill measured.
+function archiveReadyCard(d) {
+  return card(
+    `<div class="headline" data-testid="rc-ready">${nfmt(d.media_entries)} photos and videos in ${nfmt(d.parts)} file(s)</div>
+     <div class="k" data-testid="rc-claim">${esc(d.detail)}</div>
+     <button class="btn" id="rc-confirm" data-testid="rc-confirm">Unpack and scan</button>`);
+}
+
+async function rcRunArchives(source, destination) {
+  await runJob({
+    button: $("rc-confirm"),
+    busyLabel: "Unpacking…",
+    start: () => api("/api/ingest/archives/run", { takeout: source, destination }),
+    setJob: (id) => { rcJob = id; },
+    progress: rcProgress,
+    progressLabel: "unpacking",
+    progressBeforeStart: true,
+    statusForProgress: (p, setStatus) => {
+      if (p.phase === "unpacking") setStatus(scaleStatus("Unpacking", p.done, p.total, "files"));
+      else if (p.phase === "hashing") setStatus(scaleStatus("Checking for duplicates", p.done, p.total, "files"));
+      else setStatus(scaleStatus("Scanning", p.done, p.total, "files"));
+    },
+    onError: (d) => { $("rc-result").innerHTML = jobErrorCard(d); },
+    onCancelled: () => {
+      $("rc-result").innerHTML = card(
+        `<div class="headline" data-testid="rc-cancelled">Unpacking cancelled</div>
+         <div class="k">Nothing was imported. What was unpacked so far is kept where it is, and
+         starting again picks up from there or clears it.</div>`);
+    },
+    onSuccess: (d) => { rcRenderSummary(d); },
+  });
+}
+
 $("rc-preview").onclick = guarded(async () => {
   const takeout = $("rc-takeout").value.trim(), destination = $("rc-dest").value.trim();
   $("rc-result").innerHTML = "";
+
+  // Archives get preview-then-confirm: a cheap header read, then an explicit decision. An
+  // already-extracted folder keeps the old single-step path, so nothing regresses for it.
+  const pre = await api("/api/ingest/archives/precheck", { takeout, destination });
+  if (pre && pre.parts > 0) {
+    if (!pre.ok) { $("rc-result").innerHTML = archiveRefusalCard(pre); return; }
+    $("rc-result").innerHTML = archiveReadyCard(pre);
+    $("rc-confirm").onclick = guarded(() => rcRunArchives(takeout, destination));
+    return;
+  }
+
   await runJob({
     button: $("rc-preview"),
     busyLabel: "Scanning…",
@@ -1787,21 +1862,7 @@ $("rc-preview").onclick = guarded(async () => {
       $("rc-result").innerHTML = card(
         `<div class="headline">Preview cancelled</div><div class="k">Nothing was imported. Preview again when you are ready.</div>`);
     },
-    onSuccess: (d) => {
-      const r = d.summary;
-      $("rc-result").innerHTML = card(
-        `<div class="headline">${nfmt(r.files)} files found</div>
-         <div class="tally">
-           <div class="n">${nfmt(r.kept)}</div><div class="k">to import</div>
-           <div class="n">${nfmt(r.dup_collapsed)}</div><div class="k">duplicates removed (~${r.reclaimed_mb} MB)</div>
-           <div class="n">${nfmt(r.dates_photo_taken)}</div><div class="k">dates recovered</div>
-           <div class="n">${nfmt(r.undated)}</div><div class="k">still undated</div>
-         </div>
-         ${dateQualityNotes(r)}${inferredLocalShiftNotes(r)}
-         ${matchListHtml(r.duplicate_matches, "Show what each duplicate matched")}
-         ${matchListHtml(r.near_dup_matches, "Show what each look-alike resembles")}`
-      );
-    },
+    onSuccess: (d) => { rcRenderSummary(d); },
   });
 });
 $("rc-cancel").onclick = guarded(() => { if (rcJob) return api(`/api/jobs/${rcJob}/cancel`, {}); });
