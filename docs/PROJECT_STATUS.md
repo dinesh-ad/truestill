@@ -111,39 +111,51 @@ narrative, or volatile counts.
   suppress".
 
   The Windows throwaway (`BACKLOG.md` `(aad)`, run 30692798020) exercised the `AttachConsole`
-  technique for the first time. Under **PyInstaller the technique was sound** - the control
-  child, launched *without* the flag, was attachable - but **the child launched WITH
-  `CREATE_NO_WINDOW` was attachable too**, so on that runner the flag did not demonstrably
-  suppress a console. Under **Briefcase the technique was unsound**: the control failed with
-  `ERROR_ACCESS_DENIED` because that process already owned a console, and the gate correctly
-  refused to report a measurement. Without that control, a failed attach would have been read
-  as proof that suppression worked - the exact false pass it exists to prevent.
+  technique for the first time, and **the technique is measuring the wrong thing.**
+  `CREATE_NO_WINDOW` creates an **invisible console** - the child *is* attached to a console,
+  it simply has no window. `DETACHED_PROCESS` is the flag that yields no console at all. So the
+  flagged child being attachable is **exactly what that flag should produce**, and attachability
+  cannot distinguish suppressed from unsuppressed. This is not a contaminated measurement to be
+  re-run; it is the wrong observable.
+
+  The control still earned its place twice over. Under Briefcase it failed with
+  `ERROR_ACCESS_DENIED` - that process already owned a console - and the gate refused to report
+  a measurement, which is the false pass it exists to prevent, caught on its first run.
+
+  **What would actually measure it:** the console's *window*, not its existence.
+  `GetConsoleWindow()` returns `NULL` for a console that has none, so attaching to the child and
+  then asking for its console window distinguishes the two - the attach stops being the verdict
+  and becomes the setup.
 
   *Green CI still proves the plumbing:* the flag resolves to a real constant on Windows rather
   than the `0` it is on POSIX, and all five call sites capture output and return exit codes
-  through the wrapper. *It does not prove the window is suppressed.* Closing this needs either a
-  better observation technique than `AttachConsole` or a deliberate decision to accept the gap.
+  through the wrapper. *It does not prove the window is suppressed.*
 
-- **CLOSED 2026-08-01: the windowed-launch branch of the legacy-catalog probe.** It was on this
-  list as unprovable in CI; it is now **proven by a real windowed process**. The Windows
-  throwaway's PyInstaller artifact reported `has_console: {stdout: false, stderr: false}` with a
-  `reports\catalog.sqlite` in its working directory, and resolved to the **data directory**
-  anyway (`skipped_the_probe: true`). No faked `sys.stdout = None` involved.
+- **PARTLY CLOSED 2026-08-01: the windowed-launch branch of the legacy-catalog probe.** The
+  Windows throwaway's PyInstaller artifact reported `has_console: {stdout: false, stderr: false}`
+  with a `reports\catalog.sqlite` in its working directory and resolved to the **data
+  directory** anyway (`skipped_the_probe: true`). No faked `sys.stdout = None` involved, so the
+  branch is proven to work when the streams really are absent.
+
+  **The caveat, since the same run's console reading turned out to be a measurement artefact:**
+  that artifact had null streams because PyInstaller's `--noconsole` bootloader nulls them in
+  software, not because the launch was detached. The branch is proven; *that a double-clicked
+  app reaches it* is a separate claim resting on the same unmeasured question as the rest.
 
   Recorded rather than deleted because the pair used to be one entry and are now different in
   kind: **this one is answered; the one above is measured and still open.** The third launch fix,
   the uvicorn no-console startup crash, was never in this category at all - its failure is in
   *configuration* rather than in windowing, so it is proven on every platform and closed.
 
-- **`(aad)` bundler choice is BLOCKED on one question: the Briefcase Windows app has a console
-  despite `console_app = false`.** Measured 2026-08-01. It outranks the rest of the comparison
-  because **every no-console commit assumes a double-clicked app has none** - the uvicorn crash
-  fix, the session URL file, and the windowed legacy probe are all built on that premise. Either
-  our Briefcase configuration is wrong or its windowed mode is not what it appears to be, and
-  until that is answered the choice cannot be made. PyInstaller produced a genuinely windowed
-  process. Score so far, deliberately unresolved: **Briefcase wins zero-config on Windows,
-  PyInstaller wins windowed-ness** - and windowed-ness is the property the recent work was built
-  around. Full measurements with raw paths in `BACKLOG.md` `(aad)`.
+- **`(aad)` bundler choice is undecided, and the console question that appeared to block it was
+  a measurement fault rather than a bundler difference.** Briefcase's config applied exactly as
+  written - GUI stub, `formal_name.exe` naming, and the stub's PE header reads
+  `Subsystem = 2 (WINDOWS_GUI)`. The console came from the launcher: a GUI-subsystem process
+  does not get a console *allocated* but still *inherits* one, and the job used PowerShell
+  `Start-Process`. PyInstaller only looked different because its `--noconsole` bootloader nulls
+  the streams in software regardless of launch. **Neither bundler has been measured for what a
+  double-clicked app sees.** Score: Briefcase wins zero-config on Windows; windowed-ness is
+  open. Raw paths in `BACKLOG.md` `(aad)`.
 
 ---
 

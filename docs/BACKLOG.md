@@ -247,16 +247,33 @@ section, because what is left is the part that still has to be written.
 
   - **WINDOWS measurements, 2026-08-01 (run 30692798020, both builds succeeded). The bundler is
     NOT decided, and the reason is the first item below.**
-    - **THE FINDING THAT OUTRANKS THE REST: the Briefcase Windows app HAS A CONSOLE, despite
-      `console_app = false`.** The probe reported
-      ``has_console: {stdout: true, stderr: true}``. That matters more than any other result
-      here, because **every no-console commit exists on the premise that a double-clicked app
-      has none** - the uvicorn startup crash (`465693f`), the session URL file (`eae8911`), and
-      the windowed legacy probe (`df9bd13`) are all built around it. A bundler that hands the
-      app a console anyway means **either our Briefcase config is wrong, or its windowed mode is
-      not what it appears to be**. Unresolved, and it blocks the choice.
-    - **PyInstaller produced a genuinely windowed process:**
-      ``has_console: {stdout: false, stderr: false}``.
+    - **CORRECTED 2026-08-01, same day: the console result was MY MEASUREMENT, not Briefcase.**
+      The first reading of this run said the Briefcase app "has a console despite
+      `console_app = false`", and scored PyInstaller as winning windowed-ness. **Both claims
+      were wrong**, and the mechanism is the valuable part.
+      - **Briefcase's configuration applied exactly as written**, on three independent
+        confirmations: the build downloaded **`GUI-Stub-3.13-amd64-b11.zip`**
+        (`stub_type = "Console" if is_console_app else "GUI"`); the executable was named
+        `TruestillProbe.exe`, the **`formal_name`** form Briefcase uses for GUI apps rather than
+        the `app_name` form it uses for console ones; and the stub was downloaded and its **PE
+        header read directly - `Subsystem = 2 (WINDOWS_GUI)`**. `console_app` also defaults to
+        `False`, so it would have been GUI even if the setting had been ignored.
+      - **The cause was the launcher. A GUI-subsystem process does not get a console
+        ALLOCATED, but it still INHERITS one from a parent that has it** - the subsystem field
+        controls allocation, not inheritance. The job launched both artifacts with PowerShell
+        `Start-Process`, and the runner's PowerShell owns a console.
+      - **It contaminates PyInstaller equally, in the other direction.** Its `--noconsole`
+        bootloader frees and nulls the standard streams *in software*, so it reports no console
+        **however it is launched**. The two were never compared on equal terms. The run's own
+        `AttachConsole` data shows exactly this asymmetry: PyInstaller's control attached
+        successfully (**no console attached to that process**) while Briefcase's failed with
+        `ERROR_ACCESS_DENIED` (**already attached to one**).
+      - **The narrow true statement, as the current state of knowledge:** PyInstaller guarantees
+        null streams regardless of how it is launched; Briefcase's GUI stub relies on there
+        being no console to inherit. **For a double-clicked shortcut both should be
+        console-free - and that is UNMEASURED.**
+      - **So "PyInstaller wins windowed-ness" is withdrawn.** It rested on a contaminated
+        measurement. The re-run launches both detached, so the comparison is finally fair.
     - **PyInstaller layout - `_internal/` holds on Windows exactly as on Linux.**
       ```
       sys.executable          = D:\a\truestill\truestill\dist\truestill-probe-pyinstaller\truestill-probe-pyinstaller.exe
@@ -284,10 +301,10 @@ section, because what is left is the part that still has to be written.
       signal was chosen holds, and **the replacement ranking already stands**: the running
       code's own location is the only candidate that cannot be absent while the code executes -
       here ``...\windows\app\src\app_packages\truestill_core\binaries.py``.
-    - **THE SCORE, honestly: Briefcase wins zero-config; PyInstaller wins windowed-ness.** And
-      windowed-ness is the property the last several commits were built around, which is why
-      this does not resolve to a recommendation. **The console question has to be answered
-      first, and the answer may be our configuration rather than the bundler.**
+    - **THE SCORE as it now stands: Briefcase wins zero-config on Windows; windowed-ness is
+      UNDECIDED and unmeasured for both.** The console question turned out to be neither
+      bundler's - it was the measurement - so the comparison rests on one established
+      difference and one open one. Still not a recommendation.
 
   - **Settled 2026-07-31: do NOT run a VirusTotal comparison to choose the bundler.** It was
     proposed, approved, and then withdrawn on the design pass. Recorded here with the reasoning
