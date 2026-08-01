@@ -185,11 +185,16 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
     of them is state or work: `InvalidEventSettingsError` and `InvalidEverydayDaySettingsError`
     (turned into HTTP replies), `ReviewCard` (a value type) and `default_catalog_path` (the
     default `--db`, resolved per call inside `create_app`).
+    **Pinned by `packages/truestill-app/tests/test_app_core_import_boundary.py`**, which parses
+    every app module outside `service/` and fails on a core import with no recorded
+    justification - and on a justification for an import that no longer happens. The allow-list
+    lives in that test, one line of reasoning per symbol, `inspect_catalog`'s exception included.
     Two earlier wordings failed here and both are worth remembering: "`service.py` is the sole
     bridge" was false because `server.py` imports those four, and its replacement - "every
     catalog read and write goes through `service/`" - was false because of the startup
     inspection above. A universal is the tempting shape and the fragile one; **the exception is
-    part of the rule**.
+    part of the rule**, and a list kept by hand is what drifted three times before this one was
+    made executable.
   - Further packages (e.g. a native shell) slot **beside** these without restructuring the core.
 - **One layout seam, and no way around it.** Every placement decision renders through
   `layout.LayoutScheme.render`, which calls `layout.classify(rule, context)` - **the one
