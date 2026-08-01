@@ -23,6 +23,11 @@ from truestill_core.archive_set import (
     inspect_archive_set,
     space_for,
 )
+from truestill_core.filesystem import FilesystemFacts, facts_for
+
+#: How many oversized entries are named before the list is truncated. The rest are counted, the
+#: same shape `DestinationPreflight.detail` uses - one habit, not two.
+_NAMED_ENTRIES = 5
 
 
 class ArchiveRefusal(StrEnum):
@@ -43,6 +48,10 @@ class ArchiveRefusal(StrEnum):
     UNREADABLE = "unreadable"
     #: The destination drive cannot hold what the set claims it will unpack to.
     NOT_ENOUGH_SPACE = "not_enough_space"
+    #: A single member is larger than the destination filesystem can store - FAT32's 4 GiB
+    #: ceiling, which 4K video crosses routinely. Caught here because extraction writes to that
+    #: drive *before* organize does, so organize's own preflight never gets a turn.
+    OVERSIZED_ENTRY = "oversized_entry"
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,8 +74,32 @@ class ArchivePrecheck:
         return not self.refusals
 
 
+def _oversized_line(entries: tuple[tuple[str, int], ...], facts: FilesystemFacts) -> str:
+    """Name the members that will not fit, with the count of any beyond the display cap.
+
+    Named rather than counted, and worded the same way `DestinationPreflight.detail` words it:
+    a user who meets this through an ingest and through an organize should not have to work out
+    that they are the same problem.
+    """
+    named = ", ".join(
+        f"{name} ({size / 1024**3:.1f} GB)" for name, size in entries[:_NAMED_ENTRIES]
+    )
+    extra = len(entries) - _NAMED_ENTRIES
+    more = f" and {extra} more" if extra > 0 else ""
+    where = f" ({facts.filesystem})" if facts.known else ""
+    return (
+        f"These files are too large for this drive{where}: {named}{more}. Drives formatted "
+        f"FAT32 cannot hold a single file of 4 GB or more, however much free space they show. "
+        f"Unpack to a drive formatted exFAT or NTFS instead."
+    )
+
+
 def _describe(
-    archive_set: ArchiveSet, inspection: ArchiveInspection, claimed: int, free: int
+    archive_set: ArchiveSet,
+    inspection: ArchiveInspection,
+    claimed: int,
+    free: int,
+    facts: FilesystemFacts,
 ) -> tuple[tuple[ArchiveRefusal, ...], str]:
     refusals: list[ArchiveRefusal] = []
     lines: list[str] = []
@@ -100,6 +133,9 @@ def _describe(
             f"This archive contains another archive, which Truestill does not open: "
             f"{', '.join(inspection.nested_archives[:5])}. Unpack that one yourself first."
         )
+    if inspection.oversized_entries:
+        refusals.append(ArchiveRefusal.OVERSIZED_ENTRY)
+        lines.append(_oversized_line(inspection.oversized_entries, facts))
     if free < claimed:
         refusals.append(ArchiveRefusal.NOT_ENOUGH_SPACE)
         lines.append(
@@ -150,13 +186,22 @@ def archives_at(path: Path) -> list[Path]:
 def precheck_archives(paths: Sequence[Path], destination: Path) -> ArchivePrecheck:
     """Read the set's headers and report. **Writes nothing, extracts nothing.**
 
-    ``destination`` is used only to ask its drive how much room is free - it is not created, so
-    declining costs the user nothing at all.
+    ``destination`` is used only to ask its drive two questions - how much room is free, and
+    what it can hold in a single file. It is not created, so declining costs the user nothing.
+
+    **The per-file limit is asked here rather than left to organize.** Extraction writes a
+    staging tree to this drive *before* organize sees anything, so organize's own preflight
+    never gets a turn: a 5 GB video inside the zip would fail part way through the unpack, with
+    most of the tree already written. Asking now costs nothing, because the header walk that
+    totals the claim already reads each entry's declared size.
     """
     archive_set = discover_archive_set(list(paths))
-    inspection = inspect_archive_set(archive_set)
+    facts = facts_for(destination)
+    inspection = inspect_archive_set(archive_set, max_file_bytes=facts.max_file_bytes)
     space = space_for(inspection, destination if destination.exists() else _nearest(destination))
-    refusals, detail = _describe(archive_set, inspection, space.claimed_bytes, space.free_bytes)
+    refusals, detail = _describe(
+        archive_set, inspection, space.claimed_bytes, space.free_bytes, facts
+    )
     return ArchivePrecheck(
         archive_set=archive_set,
         inspection=inspection,

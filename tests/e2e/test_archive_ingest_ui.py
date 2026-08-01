@@ -15,7 +15,9 @@ import json
 import zipfile
 from pathlib import Path
 
+import pytest
 from playwright.sync_api import Page, expect
+from truestill_core.filesystem import FilesystemFacts
 
 _SIDECAR = json.dumps({"photoTakenTime": {"timestamp": "1403000000"}}).encode()
 
@@ -163,3 +165,26 @@ def test_cancelling_leaves_a_staging_tree_the_next_run_can_clear(ui: Page, tmp_p
     expect(ui.locator("[data-testid='rc-cancelled']")).to_be_visible(timeout=60_000)
     staging = destination / ".truestill-staging"
     assert list(staging.glob("*.json")), "cancel left a tree with no journal to attribute it"
+
+
+def test_an_entry_too_large_for_the_drive_is_refused_by_code(
+    ui: Page, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The FAT32 per-file ceiling, refused before the unpack rather than part way through it.
+
+    Worth a browser test even though the refusal-rendering path is generic: what is unproven at
+    the source level is that the app hands `precheck_archives` a real destination to interrogate.
+    A surface passing the wrong path would detect the wrong filesystem and refuse nothing, and
+    every source-level assertion would still pass.
+    """
+    monkeypatch.setattr(
+        "truestill_core.archive_ingest.facts_for",
+        lambda _target: FilesystemFacts(filesystem="vfat", max_file_bytes=1_000),
+    )
+    source = tmp_path / "src"
+    _zip(source / "photos.zip", {"a/IMG_1.jpg": b"\xff\xd8x", "a/VID_4K.mp4": b"\0" * 5_000})
+
+    _preview(ui, source, tmp_path / "dest")
+
+    expect(ui.locator("[data-refusal='oversized_entry']")).to_be_visible()
+    expect(ui.locator("[data-testid='rc-refusal-detail']")).to_contain_text("a/VID_4K.mp4")

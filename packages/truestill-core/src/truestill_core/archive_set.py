@@ -103,6 +103,11 @@ class ArchiveInspection:
     nested_archives: tuple[str, ...] = ()
     #: Archives that could not be read at all - corrupt, truncated, or not really a zip.
     unreadable: tuple[str, ...] = ()
+    #: ``(entry name, declared size)`` for members too large for the destination filesystem.
+    #: Empty when the caller passed no limit, which is every caller that has no destination in
+    #: hand. Like `claimed_bytes` this is the archive's own declaration, not a measurement - and
+    #: it is trusted for the same reason: it is what the header says the unpacked file will be.
+    oversized_entries: tuple[tuple[str, int], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,14 +203,24 @@ def _members(path: Path) -> list[tuple[str, int, bool]]:
         ]
 
 
-def inspect_archive_set(archive_set: ArchiveSet) -> ArchiveInspection:
-    """Read every part's central directory. Decompresses nothing, writes nothing."""
+def inspect_archive_set(
+    archive_set: ArchiveSet, *, max_file_bytes: int | None = None
+) -> ArchiveInspection:
+    """Read every part's central directory. Decompresses nothing, writes nothing.
+
+    ``max_file_bytes`` is the destination filesystem's per-file ceiling, or ``None`` for "no
+    limit to enforce" - which covers ext4 and NTFS as well as the platforms where the filesystem
+    cannot be determined at all. It is taken here rather than computed afterwards because this
+    walk already reads every entry's declared size to total the claim, so the comparison costs
+    nothing extra and needs no second pass over the headers.
+    """
     claimed = 0
     entries = 0
     media = 0
     encrypted: list[str] = []
     nested: list[str] = []
     unreadable: list[str] = []
+    oversized: list[tuple[str, int]] = []
 
     for part in archive_set.parts:
         try:
@@ -219,6 +234,8 @@ def inspect_archive_set(archive_set: ArchiveSet) -> ArchiveInspection:
                     nested.append(name)
                 if is_encrypted:
                     encrypted.append(name)
+                if max_file_bytes is not None and size > max_file_bytes:
+                    oversized.append((name, size))
         except (zipfile.BadZipFile, tarfile.TarError, OSError):
             # A part that cannot be opened is a finding, not an exception to propagate: the
             # caller is reporting on a set and needs to name which member is unusable.
@@ -231,6 +248,7 @@ def inspect_archive_set(archive_set: ArchiveSet) -> ArchiveInspection:
         encrypted=tuple(encrypted),
         nested_archives=tuple(nested),
         unreadable=tuple(unreadable),
+        oversized_entries=tuple(oversized),
     )
 
 

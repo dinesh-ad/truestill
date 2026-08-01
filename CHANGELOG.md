@@ -25,6 +25,13 @@ All notable changes to this project are documented here. The format follows
   instead of passing the raw errno through. Detected from `/proc/mounts` on Linux and
   `GetVolumeInformationW` on Windows; **macOS reports unknown, and unknown never refuses
   anything**. Both the CLI and the app inherit the refusal, and both previews say so up front.
+- **An archive holding a file too large for the drive is refused before it is unpacked.** The
+  organize preflight above cannot cover this: an archive ingest extracts a staging tree onto the
+  destination *first*, so a 5 GB video inside a zip would fail part way through the unpack with
+  most of the tree already written. The precheck now names such entries from the archive's own
+  headers - free, because the walk that totals the claim already reads every declared size - and
+  the extractor's own write, the one path that does not go through the destination backend,
+  names EFBIG the same way for a header that under-declares.
 
 ### Added
 - **Trips**: group multi-day photos into one folder, review and apply on disk.

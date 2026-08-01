@@ -31,6 +31,7 @@ worth reporting. Streaming forces our own validation anyway: the running byte co
 
 from __future__ import annotations
 
+import errno
 import json
 import os
 import shutil
@@ -45,6 +46,7 @@ from pathlib import Path, PurePosixPath
 from typing import IO, NoReturn
 
 from truestill_core.archive_set import ArchiveSet, is_tar
+from truestill_core.filesystem import facts_for
 from truestill_core.progress import Phase, Progress, ProgressCallback
 
 #: Directory under the destination that holds every staging tree. On the destination drive
@@ -173,6 +175,32 @@ def _refuse_symlink(info: zipfile.ZipInfo) -> None:
     if stat.S_ISLNK(info.external_attr >> 16):
         message = f"{info.filename!r} is a shortcut, which truestill will not extract"
         raise ExtractionRefusedError(message)
+
+
+#: ``EFBIG``. This is the **one write path in the codebase that does not go through**
+#: `LocalDestination`, so it needs the same translation `destinations.local` has: the bare
+#: "File too large" against a drive showing 200 GB free reads as truestill being broken.
+#: The precheck refuses on declared sizes and catches almost all of these first; this covers a
+#: header that under-declares, which is exactly the case nothing else can see coming.
+_FILE_TOO_LARGE = errno.EFBIG
+
+
+def _reraise_named(exc: BaseException, relative: PurePosixPath, staging_root: Path) -> None:
+    """Turn an EFBIG into a sentence naming the file and the reason.
+
+    Everything else returns silently so the caller can re-raise it untouched - a cancel, a
+    Ctrl-C and a disk error must all still leave this function exactly as they found them.
+    """
+    if not isinstance(exc, OSError) or exc.errno != _FILE_TOO_LARGE:
+        return
+    facts = facts_for(staging_root)
+    where = f" ({facts.filesystem})" if facts.known else ""
+    message = (
+        f"{PurePosixPath(relative).name} is too large for this drive{where}. Drives formatted "
+        f"FAT32 cannot hold a single file of 4 GB or more, however much free space they show. "
+        f"Unpack to a drive formatted exFAT or NTFS instead."
+    )
+    raise OSError(exc.errno, message) from exc
 
 
 def _write_journal(destination: Path, archive_set: ArchiveSet) -> StagingRecord:
@@ -355,8 +383,11 @@ def extract_archive_set(
                         if written > budget:
                             _refuse_over_budget(part.path.name, budget)
                         sink.write(chunk)
-            except BaseException:
+            except BaseException as exc:
                 partial.unlink(missing_ok=True)
+                # A no-op unless this is an EFBIG: the test lives in the helper so this handler
+                # stays the single exit it was, rather than growing a second clause beside it.
+                _reraise_named(exc, relative, record.staging_root)
                 raise
             partial.replace(target)
             files += 1
