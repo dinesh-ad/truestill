@@ -454,3 +454,73 @@ be slower than SHA-256 on inputs below ~1 MB. truestill already parallelizes **a
   setting that splits a library's custody record.
 
 **Status:** Settled. Short form in `IMPLEMENTATION_STANDARDS.md` § dependency inventory.
+
+---
+
+## D9. Launch on Windows and Linux. macOS builds but is not published.
+
+**Decision (2026-08-01, maintainer's ruling).** truestill launches on **Windows and Linux only**,
+with **no code-signing certificate purchased - zero spend now**. macOS **continues to build in
+CI**: the lane stays, the tests stay, and nothing about macOS support is removed from the code.
+It is simply not published.
+
+**Why macOS is built but not shipped.** Gatekeeper blocks unsigned applications outright - not a
+warning with a way through, a refusal - and the only way around it is the **$99/yr Apple
+Developer account**. Shipping an unsigned `.dmg` would mean shipping something most users
+physically cannot open. Dropping the lane instead would be worse: macOS support would rot
+silently, and the cost of noticing would land on whoever eventually pays the $99 and finds the
+platform has been broken for months. Building without publishing keeps it honest and cheap.
+
+### What "unsigned" actually costs, per platform
+
+Recorded because it is the whole basis of the ruling, and because "unsigned" is usually treated
+as one condition when it is three different ones:
+
+- **Linux: no gate at all.** Nothing to sign, nothing to warn about. AppImage and `.deb` install
+  and run. This platform costs nothing and is not affected by any of the below.
+- **Windows: SmartScreen shows "Windows protected your PC" / unrecognized app**, with a **hidden
+  "Run anyway"** behind *More info*. It is **reputation-based per file**, and it **clears** once
+  enough people download and run that file - one maintainer reports the threshold falling
+  somewhere between a few dozen and a few hundred downloads. It is a **friction that expires**,
+  not a block and not a permanent state.
+- **Signing does not fully remove it either.** A standard (non-EV) certificate still warns until
+  reputation accrues; it only accrues *faster*. Only an **EV certificate** or **Microsoft Store**
+  distribution removes the warning immediately. So the honest comparison is not
+  "warning vs no warning" - it is "warning for a while vs warning for a shorter while, for
+  money".
+- **This is a normal position, not a corner.** Inkscape and many established open-source projects
+  ship unsigned. The precedent is broad enough that it carries no signal about product quality.
+
+### The cheap paths back, so they are not re-researched
+
+Recorded with what is **verified** separated from what is **reported**, because the point of
+writing them down is that the next person does not repeat the search:
+
+- **Azure Artifact Signing** - Microsoft's own service, and **the one to evaluate first** if
+  signing is ever bought. **Note the rename:** it was called *Azure Trusted Signing* and is now
+  **Azure Artifact Signing**; searching the old name in future will find stale pages. Verified
+  2026-08-01: **$9.99/month** for the Basic tier (5,000 signatures/month, one certificate
+  profile), **$99.99/month** for Premium - so **~$120/yr**, which confirms the figure this
+  ruling was made on. Reported, not verified here: **no hardware token**, and direct **GitHub
+  Actions** integration. Cheaper than the $300-700/yr commonly quoted for EV certificates.
+  Caveat for whoever evaluates it: Microsoft's own pricing page rendered its tiers as
+  placeholders when fetched directly, so confirm against the Azure portal for the actual region.
+- **Microsoft Store with an MSIX** - **Microsoft re-signs automatically**, so users never see
+  SmartScreen at all, and the certificate costs nothing. Worth evaluating **on its own terms
+  rather than as a signing workaround**, because it also changes distribution: discovery,
+  updates, and the payment path all move, and `D6`'s perpetual-licence model would have to be
+  reconciled with Store policy before this is a real option.
+
+### Requirement carried to the launch page
+
+**Windows users must be told what SmartScreen will show, and why, BEFORE they download.** Plain
+language, on the download page, above the button - not in a FAQ and not after the fact.
+
+The reason this is a requirement rather than a nicety: truestill is sold on **trust with
+someone's irreplaceable photos**. A user who meets an unexplained "unrecognized app" warning on
+*that* product draws exactly the wrong conclusion, and they draw it at the moment they were about
+to install. Telling them first converts the same warning from **alarming to expected** - and a
+warning the page predicted accurately is evidence the product is what it says it is.
+
+**Status:** Settled. **This unblocks `(aad)`**: the bundler decision can be made for Windows and
+Linux alone, with no signing step in the pipeline.

@@ -195,6 +195,13 @@ section, because what is left is the part that still has to be written.
     desirable: every other launch item improves a product that person still cannot reach.
   - **Needed:** download-and-double-click installers per platform - Windows `.exe`/`.msi`,
     macOS `.dmg`, Linux AppImage or `.deb` - built by CI on tag and served from `truestill.app`.
+  - **PLATFORM SCOPE RULED (2026-08-01): Windows and Linux only, unsigned - `DECISIONS.md` D9.**
+    Zero spend; no certificate is bought. macOS keeps its CI lane and its tests but is **not
+    published**, because Gatekeeper refuses unsigned apps outright and only the $99/yr Apple
+    Developer account changes that - building without publishing is what stops macOS rotting
+    unnoticed. **This unblocks the bundler decision**, which can now be made for two platforms
+    with no signing step in the pipeline. D9 also carries a launch-page requirement: Windows
+    users are told what SmartScreen will show *before* they download.
   - **PyPI stays**, as the developer / self-hosted channel. It stops being the *primary* one.
   - **~90 MB of the install is a code path that never runs** (dependency audit, 2026-08-01).
     `imagehash` declares `scipy` and `PyWavelets` as hard requirements with **no extras split**,
