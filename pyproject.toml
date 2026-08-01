@@ -51,6 +51,10 @@ unfixable = []
     "T201",    # print() is intentional here
     "PLR0913", # report/render helpers take many display flags
     "PLR0915", # argparse builder lists every subcommand flag in one place
+    # _cmd_ingest refuses early and separately for each precondition - not a source, not a
+    # directory, in-place without room, no media found. Each returns its own exit code with its
+    # own message, which is the point: collapsing them would make one refusal stand for several.
+    "PLR0911",
 ]
 # Event review is CLI-facing: it prints prompts/tables to the terminal.
 "packages/truestill-cli/src/truestill_cli/events_review.py" = [

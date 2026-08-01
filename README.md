@@ -88,7 +88,8 @@ record of where every file is safe** for the library it builds:
 
 - **De-duplication**, two tiers - exact (SHA-256) skipped, perceptual look-alikes kept and
   *flagged*, so an original is never silently dropped for a resembling file.
-- **Google Takeout rescue** (`truestill ingest --takeout`) - recovers the capture dates that
+- **Archive and folder rescue** (`truestill ingest --source`) - reads a folder of photos or the
+  archives a service gave you (`.zip`, `.tar`, `.tgz`), and recovers the capture dates that
   survive only in the export's JSON sidecars, and bakes them losslessly into the organized
   copy. The source is never modified.
 - **Drive identity and an offline catalog** - which drive holds which copy, answerable with

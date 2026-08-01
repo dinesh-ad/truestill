@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- **`ingest --takeout` is now `ingest --source`.** The old name described the motivating case
+  rather than the feature: archive ingestion reads any `.zip`, `.tar`, `.tgz` or `.tar.gz` from
+  any source, and every major photo service hands a user a `.zip`. `--source` is format-neutral
+  and matches `organize`'s existing `source`. **`--takeout` keeps working, permanently** - it is
+  a hidden alias resolving to the same value, not a deprecation, so existing scripts are safe.
+
 ### Added
 - **Trips**: group multi-day photos into one folder, review and apply on disk.
 - **In-place organize (`organize --in-place`)** for libraries that live on the drive itself -

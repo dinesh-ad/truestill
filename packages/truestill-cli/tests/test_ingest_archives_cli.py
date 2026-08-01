@@ -18,7 +18,7 @@ import zipfile
 from pathlib import Path
 
 import pytest
-from truestill_cli.cli import _takeout_root_or_none
+from truestill_cli.cli import _source_root_or_none
 
 _SIDECAR = json.dumps({"photoTakenTime": {"timestamp": "1403000000"}}).encode()
 
@@ -36,7 +36,7 @@ def test_a_directory_is_passed_straight_through(tmp_path: Path) -> None:
     extracted = tmp_path / "Takeout"
     extracted.mkdir()
 
-    assert _takeout_root_or_none(extracted, tmp_path / "dest") == extracted
+    assert _source_root_or_none(extracted, tmp_path / "dest") == extracted
 
 
 def test_pointing_at_one_part_gathers_its_siblings(tmp_path: Path) -> None:
@@ -45,7 +45,7 @@ def test_pointing_at_one_part_gathers_its_siblings(tmp_path: Path) -> None:
     first = _part(tmp_path, 1, {f"{folder}/IMG_0001.jpg": b"\xff\xd8jpeg"})
     _part(tmp_path, 2, {f"{folder}/IMG_0001.jpg.json": _SIDECAR})
 
-    root = _takeout_root_or_none(first, tmp_path / "dest")
+    root = _source_root_or_none(first, tmp_path / "dest")
 
     assert root is not None
     assert (root / folder / "IMG_0001.jpg").exists()
@@ -60,7 +60,7 @@ def test_a_refusal_writes_nothing_and_reports_why(
         _part(tmp_path, number, {f"Takeout/a/IMG_{number}.jpg": b"\xff\xd8x"})
     destination = tmp_path / "dest"
 
-    result = _takeout_root_or_none(tmp_path / "takeout-20260801T000000Z-001.zip", destination)
+    result = _source_root_or_none(tmp_path / "takeout-20260801T000000Z-001.zip", destination)
 
     assert result is None
     assert not destination.exists(), "a refused ingest still touched the destination"
@@ -69,4 +69,4 @@ def test_a_refusal_writes_nothing_and_reports_why(
 
 
 def test_a_path_that_is_neither_file_nor_directory_is_named(tmp_path: Path) -> None:
-    assert _takeout_root_or_none(tmp_path / "nope.zip", tmp_path / "dest") is None
+    assert _source_root_or_none(tmp_path / "nope.zip", tmp_path / "dest") is None

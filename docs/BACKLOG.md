@@ -729,9 +729,12 @@ section, because what is left is the part that still has to be written.
     4. *Tar and `.tgz`*, via `tarfile.data_filter` **per member** rather than
        `extractall(filter="data")`, so tar shares the same counter, journal and rename as zip
        instead of forking the extractor.
-  - **CLI:** `--takeout` takes an archive or a directory, and **pointing at one part finds the
+  - **CLI:** `--source` takes an archive or a directory, and **pointing at one part finds the
     rest**. That is correctness, not convenience: requiring every part would mean forgetting one
     does not fail but *succeeds*, quietly leaving those photos undated.
+    `--takeout` remains as a **permanent hidden alias** - it shipped, scripts use it, it costs
+    one line and resolves to the same `dest`, so there is no second code path and a removal
+    window would break those scripts in exchange for nothing.
   - **REFUSED, with reasons, so they are not proposed again as obvious wins.**
     - **`.7z` is out of scope, and the deciding evidence is demand rather than dependencies**
       (re-examined 2026-08-01 on request, rather than resting on the first refusal).

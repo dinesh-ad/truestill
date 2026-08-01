@@ -288,16 +288,26 @@ def _build_parser() -> argparse.ArgumentParser:
             "(.zip, .tar, .tgz), recovering dates from any sidecars found"
         ),
     )
+    # Deliberately NOT `required=True`: argparse counts the two spellings as separate
+    # arguments, so a script passing only the alias would be told `--source` is missing - the
+    # alias would parse and then fail, which is worse than not having one. The requirement is
+    # enforced after parsing instead, where it can name both spellings.
     ingest.add_argument(
-        "--takeout",
+        "--source",
         type=Path,
-        required=True,
         metavar="PATH",
         help=(
             "folder of photos, or an archive (.zip, .tar, .tgz) - any one part of a "
             "multi-part download will do, the rest are found beside it"
         ),
     )
+    # PERMANENT alias, not a deprecation. `--takeout` named the motivating case rather than the
+    # feature, which reads archives from any source - but it shipped, so scripts use it. Keeping
+    # it costs ONE LINE and has no maintenance burden: it resolves to the same `dest`, so there
+    # is no second code path to keep correct and nothing to test beyond the equivalence.
+    # A removal window would buy nothing and would break those scripts on a schedule. Do not
+    # tidy this away.
+    ingest.add_argument("--takeout", type=Path, dest="source", help=argparse.SUPPRESS)
     ingest.add_argument(
         "--tz",
         type=_parse_tz,
@@ -606,7 +616,7 @@ def _cmd_catalog(args: argparse.Namespace) -> int:
     return 0
 
 
-def _takeout_root_or_none(given: Path, destination: Path) -> Path | None:
+def _source_root_or_none(given: Path, destination: Path) -> Path | None:
     """A directory the scanner can read, unpacking archives first when that is what was given.
 
     **Any archive from any source**, not only Google Takeout: every major photo service hands a
@@ -1278,12 +1288,18 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
-    takeout_root = _takeout_root_or_none(args.takeout, args.destination)
-    if takeout_root is None:
+    if args.source is None:
+        print(
+            "error: ingest needs a source. Pass --source <folder or archive>.",
+            file=sys.stderr,
+        )
         return 2
-    print(f"Scanning {takeout_root} ...")
-    scan = scan_takeout(takeout_root)
-    source_scan = scan_source(takeout_root)
+    source_root = _source_root_or_none(args.source, args.destination)
+    if source_root is None:
+        return 2
+    print(f"Scanning {source_root} ...")
+    scan = scan_takeout(source_root)
+    source_scan = scan_source(source_root)
     # A Takeout export's own .json sidecars and .html scaffolding are consumed here, not skipped,
     # so they are excluded from the skipped report -- only genuinely unhandled files are shown.
     _takeout_noise = {".json", ".html", ".htm"}
@@ -1296,7 +1312,7 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
     )
     files = source_scan.media
     if not files:
-        print(f"No media files found under {takeout_root}")
+        print(f"No media files found under {source_root}")
         _print_skipped(skipped)
         return 0
     print(
