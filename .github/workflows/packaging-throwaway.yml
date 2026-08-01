@@ -16,6 +16,17 @@
 # DELETE OR REPURPOSE THIS FILE once the bundler is chosen. If you are here to add a platform,
 # a signing step, or a release artifact, you are extending a measurement rig into a pipeline
 # it was never designed to be - write the real one instead.
+#
+# ADDING A BUNDLER? TWO INDEPENDENT MEASUREMENTS MUST FAIL INDEPENDENTLY.
+# The first version of this job sequenced both builds ahead of one measure step, so a Briefcase
+# build failure discarded a perfectly good PyInstaller artifact and answered nothing about
+# either. Every build is therefore `continue-on-error`, the measure step runs with
+# `if: always()`, and a bundler whose build failed still gets a findings file SAYING SO - "no
+# file" must never be ambiguous between "the build failed" and "the job never ran", because
+# that ambiguity is exactly what cost the first run its PyInstaller answer.
+#
+# It is the same shape as this repo's guard rules: a step that reports FAILURE where it should
+# report a FINDING. Sequence a third bundler the obvious way and you will reintroduce it.
 # ============================================================================================
 name: packaging throwaway (aad)
 
@@ -58,6 +69,8 @@ jobs:
       # --- PyInstaller ------------------------------------------------------------------
       # Unmeasured on Windows: the Linux run told us about PyInstaller's LINUX layout only.
       - name: Build (PyInstaller)
+        id: pyinstaller
+        continue-on-error: true
         shell: pwsh
         run: |
           uv run pyinstaller --noconfirm --clean --noconsole `
@@ -67,20 +80,33 @@ jobs:
             packaging/truestill_probe/__main__.py
 
       # --- Briefcase --------------------------------------------------------------------
+      # The venv executable directly, NOT `uv run`. `packaging/` contains its own
+      # pyproject.toml - Briefcase requires a project root - and `uv run` from that directory
+      # therefore treats it as a DIFFERENT project: it built a fresh empty .venv there and
+      # reported `Failed to spawn: briefcase - program not found`, ignoring the workspace
+      # environment the sync step had just filled. The "No requires-python value found in the
+      # workspace" warning in that log is uv saying so.
       - name: Build (Briefcase)
+        id: briefcase
+        continue-on-error: true
         shell: pwsh
         working-directory: packaging
         run: |
-          uv run briefcase create windows app --no-input
-          uv run briefcase build windows app --no-input
+          $briefcase = Join-Path $env:GITHUB_WORKSPACE '.venv\Scripts\briefcase.exe'
+          if (-not (Test-Path $briefcase)) { throw "briefcase not found at $briefcase" }
+          & $briefcase create windows app --no-input
+          & $briefcase build windows app --no-input
 
       # Placed where the beside-the-executable rule would look, so the measurement reports
       # which rule fired rather than whether anyone remembered to copy a file.
       - name: Place exiftool beside the Briefcase executable
+        id: briefcase_exiftool
+        if: always()
+        continue-on-error: true
         shell: pwsh
         working-directory: packaging
         run: |
-          $exe = Get-ChildItem -Path build -Filter 'TruestillProbe.exe' -Recurse | Select-Object -First 1
+          $exe = Get-ChildItem -Path build -Filter 'TruestillProbe.exe' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $exe) { throw 'Briefcase executable not found' }
           $bin = Join-Path $exe.Directory.FullName 'bin'
           New-Item -ItemType Directory -Force -Path $bin | Out-Null
@@ -88,14 +114,42 @@ jobs:
           "BRIEFCASE_EXE=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           Write-Host "briefcase exe: $($exe.FullName)"
 
-      - name: Measure both artifacts
+      # `always()`: a bundler whose build failed still needs a findings file saying so.
+      # Skipping here is what made "no file" ambiguous between a failed build and a job that
+      # never ran, and that ambiguity cost the first run its PyInstaller answer.
+      - name: Measure each artifact
+        if: always()
         shell: pwsh
+        env:
+          PYINSTALLER_OUTCOME: ${{ steps.pyinstaller.outcome }}
+          BRIEFCASE_OUTCOME: ${{ steps.briefcase.outcome }}
         run: |
-          $ErrorActionPreference = 'Stop'
+          $ErrorActionPreference = 'Continue'
           New-Item -ItemType Directory -Force -Path findings | Out-Null
 
+          function Write-Findings {
+            param([string]$Path, [hashtable]$Body)
+            $Body | ConvertTo-Json -Depth 6 | Set-Content -Path $Path -Encoding utf8
+          }
+
           function Measure-Artifact {
-            param([string]$Name, [string]$Exe)
+            param([string]$Name, [string]$Exe, [string]$BuildOutcome)
+
+            $out = Join-Path $PWD "findings\$Name.json"
+
+            # The build never produced anything. A finding, not a skip.
+            if ($BuildOutcome -ne 'success') {
+              Write-Host "::error::$Name BUILD FAILED - no artifact to measure (outcome: $BuildOutcome)"
+              Write-Findings -Path $out -Body @{ artifact = $Name; measured = $false
+                                                 reason = 'build failed'; build_outcome = $BuildOutcome }
+              return
+            }
+            if ([string]::IsNullOrWhiteSpace($Exe) -or -not (Test-Path $Exe)) {
+              Write-Host "::error::$Name ARTIFACT MISSING - the build reported success but produced no executable at '$Exe'"
+              Write-Findings -Path $out -Body @{ artifact = $Name; measured = $false
+                                                 reason = 'artifact missing'; expected_path = $Exe }
+              return
+            }
 
             # A working directory holding a legacy catalog, so the windowed process has
             # something to ignore. Without it the legacy question is inconclusive by design.
@@ -103,39 +157,51 @@ jobs:
             New-Item -ItemType Directory -Force -Path (Join-Path $work 'reports') | Out-Null
             Set-Content -Path (Join-Path $work 'reports\catalog.sqlite') -Value 'not a real catalog'
 
-            $data = Join-Path $PWD "data-$Name"
-            $env:TRUESTILL_DATA_DIR = $data
+            $env:TRUESTILL_DATA_DIR = Join-Path $PWD "data-$Name"
             $env:TRUESTILL_CACHE_DIR = Join-Path $PWD "cache-$Name"
-            $out = Join-Path $PWD "findings\$Name.json"
 
             $proc = Start-Process -FilePath $Exe -ArgumentList '--probe', $out `
               -WorkingDirectory $work -PassThru
             $proc | Wait-Process -Timeout 180 -ErrorAction SilentlyContinue
 
-            # ASSERTION 1, handled explicitly. A windowed process that dies before writing
-            # produces no file, and the job must say WHY rather than fail on a missing path.
+            # ASSERTION 1. A windowed process that dies before writing produces no file, and the
+            # job must say WHY rather than fail on a missing path.
             if (-not (Test-Path $out)) {
               Write-Host "::error::$Name assertion 1 FAILED - the process did not survive to write findings (exit code: $($proc.ExitCode))"
-              $stub = @{ artifact = $Name; assertion_1 = 'fail'
-                         reason = 'process did not survive to write findings'
-                         exit_code = $proc.ExitCode } | ConvertTo-Json
-              Set-Content -Path $out -Value $stub
-              return $false
+              Write-Findings -Path $out -Body @{ artifact = $Name; measured = $false
+                                                 assertion_1 = 'fail'
+                                                 reason = 'process did not survive to write findings'
+                                                 exit_code = $proc.ExitCode }
+              return
             }
             Write-Host "::group::$Name findings"
             Get-Content $out | Write-Host
             Write-Host "::endgroup::"
-            return $true
           }
 
-          $ok = $true
-          if (-not (Measure-Artifact -Name 'pyinstaller' -Exe (Join-Path $PWD 'dist\truestill-probe-pyinstaller\truestill-probe-pyinstaller.exe'))) { $ok = $false }
-          if (-not (Measure-Artifact -Name 'briefcase' -Exe $env:BRIEFCASE_EXE)) { $ok = $false }
-          if (-not $ok) { Write-Host '::warning::at least one artifact failed assertion 1; see findings' }
+          Measure-Artifact -Name 'pyinstaller' -BuildOutcome $env:PYINSTALLER_OUTCOME `
+            -Exe (Join-Path $PWD 'dist\truestill-probe-pyinstaller\truestill-probe-pyinstaller.exe')
+          Measure-Artifact -Name 'briefcase' -BuildOutcome $env:BRIEFCASE_OUTCOME `
+            -Exe $env:BRIEFCASE_EXE
+
+          # CONTROL, on the same principle as the probe's AttachConsole control: prove the
+          # reporting mechanism works before trusting any verdict it gives. The
+          # absent-artifact path had never executed - it was written for a case that had not
+          # happened yet - so it is exercised deliberately here against a path that cannot
+          # exist. If THIS file is missing, every other "no file" in this job is untrustworthy,
+          # so the step fails rather than reporting measurements it cannot vouch for.
+          Measure-Artifact -Name '_selfcheck' -BuildOutcome 'success' `
+            -Exe (Join-Path $PWD 'no-such-artifact\does-not-exist.exe')
+          if (-not (Test-Path (Join-Path $PWD 'findings\_selfcheck.json'))) {
+            Write-Host '::error::the absent-artifact reporting path did NOT fire - a missing findings file cannot be trusted to mean anything in this run'
+            exit 1
+          }
+          Write-Host 'control: the absent-artifact path fired and wrote a findings file'
 
       # Assertions 3 and 4 are checked from OUTSIDE the artifact: a windowed process cannot
       # report whether it served a page, and asking it to would test the reporter, not the app.
       - name: Assertions 3 and 4 - URL file and serving (PyInstaller)
+        if: steps.pyinstaller.outcome == 'success'
         shell: pwsh
         continue-on-error: true
         run: |
