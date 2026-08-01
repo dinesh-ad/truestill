@@ -18,6 +18,18 @@ protection is that the data directory lives inside the user's own profile, whose
 user-scoped. That is weaker than ``0600`` and is stated rather than glossed: on a shared Windows
 machine an administrator can read it, exactly as they can read anything else in the profile.
 
+**The mode is verified, not assumed.** FAT32 and exFAT have no permission bits at all: they
+accept ``0600``, ignore it, and report whatever the mount's ``fmask`` says - commonly ``0777``.
+A portable install, a live USB, or a home directory on a removable drive puts this file exactly
+there. So the mode is read back after creation and, when it did not take, **the file says so and
+the console says so**.
+
+*Warn, do not refuse.* Refusing to write would restore the exact defect above - a running,
+listening, unreachable app - and trading a confidentiality weakening for a total loss of access
+is the worse deal. Writing it somewhere else was rejected too: `app_paths` owns where every such
+file lives, and a credential that relocates to a second, unpredictable place is harder to find
+and harder to clean up than one that is where it always is and admits what it could not do.
+
 **It is replaced, never appended.** Two URLs in one file is two guesses, and only the newest is
 a way in.
 
@@ -27,7 +39,9 @@ process is a link that fails confusingly tomorrow.
 
 from __future__ import annotations
 
+import stat
 import webbrowser
+from dataclasses import dataclass
 from pathlib import Path
 
 from truestill_core.app_paths import session_url_path
@@ -44,15 +58,49 @@ is removed when it stops, so an address you saved earlier will not work.
 """
 
 
+#: Appended when the filesystem discarded the mode. Names the filesystem family rather than the
+#: mechanism, because "0600 was not applied" is not something a photo user can act on and
+#: "this drive cannot keep files private" is.
+_NOT_PRIVATE = """
+NOTE: this file could not be made private on this drive. Drives formatted
+FAT32 or exFAT do not store file permissions, so anyone with an account on
+this computer can read the address above. Stop Truestill when you are done,
+which removes this file.
+"""
+
+
 def path() -> Path:
     """Where the file lives. Delegates to `app_paths`, which owns every such answer."""
     return session_url_path()
 
 
-def write(url: str) -> Path:
-    """Record ``url`` as the way into this session, readable only by this user.
+def mode_is_private(mode: int) -> bool:
+    """Whether ``mode`` keeps other users out.
 
-    Created private, replacing whatever was there, and never appended.
+    Asks the question that matters - can anyone else read this - rather than comparing against
+    ``0600`` exactly, which would call a correct ``0400`` file a failure and would still say
+    nothing about who can read it.
+    """
+    return not mode & (stat.S_IRWXG | stat.S_IRWXO)
+
+
+@dataclass(frozen=True, slots=True)
+class SessionLink:
+    """Where the way back in was written, and whether it could be kept to this user."""
+
+    path: Path
+    #: ``False`` when the filesystem ignored the mode (FAT32, exFAT). Never silently ``True``:
+    #: it is read back from the file that was actually created.
+    private: bool
+
+
+def write(url: str) -> SessionLink:
+    """Record ``url`` as the way into this session, readable only by this user where possible.
+
+    Created private, replacing whatever was there, and never appended. When the filesystem
+    ignores the mode, the file is still written - see the module docstring for why warning beats
+    refusing - and it carries the warning itself, because the person reading it is by definition
+    someone with no console to have seen one on.
     """
     target = path()
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -68,8 +116,12 @@ def write(url: str) -> Path:
     #   write    - truncating is safe now: the file it truncates is the empty 0600 one above.
     target.unlink(missing_ok=True)
     target.touch(mode=0o600)
-    target.write_text(f"{url}\n{_NOTE}", encoding="utf-8")
-    return target
+    # Read back rather than trusted: `touch` reports success on a filesystem that discarded the
+    # mode, so the only honest source for "is this private" is the file that now exists.
+    private = mode_is_private(stat.S_IMODE(target.stat().st_mode))
+    warning = "" if private else _NOT_PRIVATE
+    target.write_text(f"{url}\n{_NOTE}{warning}", encoding="utf-8")
+    return SessionLink(path=target, private=private)
 
 
 def clear() -> None:

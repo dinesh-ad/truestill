@@ -43,7 +43,7 @@ def test_the_longest_matching_mount_point_wins() -> None:
     """A file under /media/big/deeper is on ntfs3, not on the / that also matches."""
     assert parse_proc_mounts(_MOUNTS, Path("/media/big/deeper/photos/a.mp4")) == "ntfs3"
     assert parse_proc_mounts(_MOUNTS, Path("/media/usb/a.mp4")) == "vfat"
-    assert parse_proc_mounts(_MOUNTS, Path("/home/dinesh/a.mp4")) == "ext4"
+    assert parse_proc_mounts(_MOUNTS, Path("/home/user/a.mp4")) == "ext4"
 
 
 def test_only_the_fat_family_reports_a_limit() -> None:

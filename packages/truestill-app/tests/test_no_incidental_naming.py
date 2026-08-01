@@ -91,8 +91,20 @@ SKIP = {"packages/truestill-app/tests/test_no_incidental_naming.py"}
 
 
 def _tracked_files() -> list[str]:
+    """Everything that WILL be committed, not only what already is.
+
+    ``git ls-files`` alone lists the index, so a brand-new file is invisible to this guard until
+    the moment it is added - which is after the `make check` that was supposed to catch it. That
+    is a false green with a delay fuse: the run that could act on it passes, and the failure
+    arrives on the next one, or on CI. ``--others --exclude-standard`` adds untracked files while
+    still honouring .gitignore, so the guard sees the working tree the way a reviewer would.
+    """
     out = subprocess.run(
-        ["git", "ls-files"], cwd=REPO, capture_output=True, text=True, check=True
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout
     return [line for line in out.splitlines() if line and line not in SKIP]
 

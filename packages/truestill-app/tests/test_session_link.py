@@ -87,9 +87,10 @@ def test_the_file_holds_the_session_url_including_its_token(
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX file modes")
 def test_the_file_is_readable_only_by_its_owner(tmp_path: Path) -> None:
     """It is a credential. 0600 is set at creation, not after, so there is no readable window."""
-    written = session_link.write(f"http://127.0.0.1:1/?token=secret-{tmp_path.name}")
+    link = session_link.write(f"http://127.0.0.1:1/?token=secret-{tmp_path.name}")
 
-    assert written.stat().st_mode & 0o777 == 0o600
+    assert link.path.stat().st_mode & 0o777 == 0o600
+    assert link.private is True, "the mode took, so the file must not claim otherwise"
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX file modes")

@@ -234,13 +234,23 @@ def main(argv: list[str] | None = None) -> int:
 
     _say(f"truestill UI on {url}")
     # Before the browser is attempted, never after: a failed open must still leave a way in.
-    written = session_link.write(url)
+    link = session_link.write(url)
+    if not link.private:
+        # A drive with no permission bits (FAT32, exFAT) discarded the mode. Said here as well
+        # as in the file, because a user who is watching a console is exactly the one who can
+        # still act on it before anyone else reads the token.
+        _say(
+            f"Note: {link.path} could not be made private on this drive - drives formatted "
+            f"FAT32 or exFAT do not store file permissions, so anyone with an account on this "
+            f"computer can read the address.",
+            error=True,
+        )
 
     server = uvicorn.Server(
         uvicorn.Config(app, host=_HOST, port=port, log_config=uvicorn_log_config())
     )
     if not args.no_browser:
-        threading.Thread(target=open_when_ready, args=(server, url, written), daemon=True).start()
+        threading.Thread(target=open_when_ready, args=(server, url, link.path), daemon=True).start()
 
     # Before server.run: uvicorn snapshots the handlers that exist when it starts and restores
     # them before re-raising, so these are the ones the re-raise lands on. Installed after, they
