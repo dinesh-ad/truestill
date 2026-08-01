@@ -39,9 +39,9 @@ from truestill_core.exif import ExiftoolMissingError, ensure_exiftool
 #: failed run does not leave anything behind for the length of the job.
 _CHILD_SECONDS = 5
 
-#: ``ERROR_INVALID_HANDLE``. What ``AttachConsole`` reports for a process that has no console,
-#: which is the outcome that would prove suppression worked.
-_ERROR_INVALID_HANDLE = 6
+#: ``DETACHED_PROCESS``. The flag that gives a child **no console at all** - which is NOT what
+#: ``CREATE_NO_WINDOW`` does, and that distinction is the whole correction below.
+_DETACHED_PROCESS = 0x00000008
 
 
 def _layout() -> dict[str, Any]:
@@ -88,61 +88,72 @@ def _legacy_probe() -> dict[str, Any]:
     }
 
 
-def _attach_console() -> dict[str, Any]:
-    """Windows-only question 2: does ``CREATE_NO_WINDOW`` really suppress the console?
+def _console_window() -> dict[str, Any]:
+    """Windows-only question 2: does ``CREATE_NO_WINDOW`` suppress the console **window**?
 
-    **The control is the gate, not the test.** ``AttachConsole`` can fail for reasons that have
-    nothing to do with the child - most obviously if *this* process already owns a console, in
-    which case it refuses before ever consulting the child, and a naive reading would score that
-    as "suppression worked". So a child is first launched **without** the flag and must be
-    attachable. If that control does not succeed, the technique is unsound here and the result
-    is reported as such rather than as a measurement.
+    **The first version of this asked the wrong question, and the answer looked like a failure.**
+    It attached to the child and treated attachability as the verdict. But ``CREATE_NO_WINDOW``
+    creates an **invisible console** - the child *is* attached to a console, it simply has no
+    window - and ``DETACHED_PROCESS`` is the flag that yields no console at all. So a flagged
+    child being attachable is exactly what the flag should produce, and attachability cannot
+    distinguish suppressed from unsuppressed. No launcher change fixes that; the observable was
+    wrong.
+
+    The right observable is the **window**. ``GetConsoleWindow`` returns ``NULL`` for a console
+    that has none, so attaching becomes the *setup* and the window handle is the verdict:
+    non-zero for an ordinary child, zero for a suppressed one.
+
+    The control is still the gate. This process must be able to attach at all - if it already
+    owns a console it cannot, and every reading below would be meaningless.
     """
-    # `sys.platform`, not `os.name`: mypy narrows on it, so everything below is checked as the
-    # Windows-only code it is instead of failing on a Linux run where `ctypes.WinDLL` does not
-    # exist. Putting packaging/ in the type fence found that immediately.
     if sys.platform != "win32":
         return {"technique": "unavailable", "reason": "AttachConsole is Windows-only"}
 
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 
-    def attachable(creationflags: int) -> dict[str, Any]:
+    def console_window_of(creationflags: int) -> dict[str, Any]:
         child = subprocess.Popen(
             ["cmd", "/c", "timeout", "/t", str(_CHILD_SECONDS), "/nobreak"],
             creationflags=creationflags,
         )
         try:
             time.sleep(0.7)  # let the child get far enough to own (or not own) a console
-            ok = bool(kernel32.AttachConsole(child.pid))
-            err = ctypes.get_last_error()
-            if ok:
+            kernel32.FreeConsole()
+            attached = bool(kernel32.AttachConsole(child.pid))
+            error = ctypes.get_last_error()
+            window = int(kernel32.GetConsoleWindow()) if attached else 0
+            if attached:
                 kernel32.FreeConsole()
-            return {"attached": ok, "last_error": err}
+            return {"attached": attached, "last_error": error, "console_window": window}
         finally:
             child.kill()
             child.wait(timeout=10)
 
-    no_window = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-    control = attachable(0)
+    no_window_flag = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    control = console_window_of(0)
     if not control["attached"]:
         return {
             "technique": "unsound",
             "reason": (
-                "the control child, launched WITHOUT CREATE_NO_WINDOW, could not be attached to "
-                "either - so a failure to attach proves nothing about suppression"
+                "this process could not attach to the control child's console at all, so no "
+                "reading below distinguishes anything"
             ),
             "control": control,
         }
 
-    suppressed = attachable(no_window)
+    suppressed = console_window_of(no_window_flag)
+    detached = console_window_of(_DETACHED_PROCESS)
     return {
         "technique": "sound",
-        "control": control,
-        "with_no_window": suppressed,
-        "flag_value": no_window,
+        "flag_value": no_window_flag,
+        "ordinary_child": control,
+        "with_create_no_window": suppressed,
+        # The third arm is the reference point: DETACHED_PROCESS is what "no console" looks
+        # like, so it shows whether an unattachable child is even reachable in this harness.
+        "with_detached_process": detached,
         "assertion": (
             "pass"
-            if not suppressed["attached"] and suppressed["last_error"] == _ERROR_INVALID_HANDLE
+            if control["console_window"] != 0 and suppressed["console_window"] == 0
             else "fail"
         ),
     }
@@ -154,7 +165,7 @@ def measure() -> dict[str, Any]:
         "layout": _layout(),
         "exiftool": _exiftool(),
         "legacy_probe": _legacy_probe(),
-        "console_suppression": _attach_console(),
+        "console_suppression": _console_window(),
     }
 
 

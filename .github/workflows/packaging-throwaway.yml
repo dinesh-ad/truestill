@@ -160,9 +160,22 @@ jobs:
             $env:TRUESTILL_DATA_DIR = Join-Path $PWD "data-$Name"
             $env:TRUESTILL_CACHE_DIR = Join-Path $PWD "cache-$Name"
 
-            $proc = Start-Process -FilePath $Exe -ArgumentList '--probe', $out `
-              -WorkingDirectory $work -PassThru
-            $proc | Wait-Process -Timeout 180 -ErrorAction SilentlyContinue
+            # DETACHED, not `Start-Process`, and not `-WindowStyle Hidden` - hidden is not
+            # detached. A GUI-subsystem process does not get a console ALLOCATED but still
+            # INHERITS one from a parent that has it, and this runner's PowerShell owns a
+            # console. The first run measured that inherited console and mis-scored Briefcase
+            # as "has a console despite console_app = false". CREATE_NO_WINDOW would not do
+            # either: it makes an INVISIBLE console, not no console. DETACHED_PROCESS (0x8) is
+            # the one that means what a double-clicked shortcut gets.
+            # .NET's ProcessStartInfo cannot set DETACHED_PROCESS, so the launch goes through
+            # CreateProcess directly via a tiny helper. `Start-Process -WindowStyle Hidden`
+            # would NOT do: hidden is not detached, and the console would still be inherited.
+            $proc = & (Join-Path $env:GITHUB_WORKSPACE 'packaging\launch-detached.ps1') `
+              -Exe $Exe -Arguments @('--probe', $out) -WorkingDirectory $work
+            $deadline = (Get-Date).AddSeconds(180)
+            while ((Get-Process -Id $proc -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) {
+              Start-Sleep -Milliseconds 250
+            }
 
             # ASSERTION 1. A windowed process that dies before writing produces no file, and the
             # job must say WHY rather than fail on a missing path.
@@ -209,7 +222,10 @@ jobs:
           $env:TRUESTILL_DATA_DIR = $data
           $env:TRUESTILL_CACHE_DIR = Join-Path $PWD 'serve-cache'
           $exe = Join-Path $PWD 'dist\truestill-probe-pyinstaller\truestill-probe-pyinstaller.exe'
-          $proc = Start-Process -FilePath $exe -ArgumentList '--port', '0', '--no-browser' -PassThru
+          # Same detached launch as the measure step: a console inherited here would make the
+          # serving check a different experiment from the one above.
+          $pid_ = & (Join-Path $env:GITHUB_WORKSPACE 'packaging\launch-detached.ps1') `
+            -Exe $exe -Arguments @('--port', '0', '--no-browser') -WorkingDirectory $PWD
           $urlFile = Join-Path $data 'session-url.txt'
           $deadline = (Get-Date).AddSeconds(90)
           while (-not (Test-Path $urlFile) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 200 }
@@ -225,7 +241,7 @@ jobs:
               Write-Host "::error::assertion 4 FAILED - $($_.Exception.Message)"
             }
           }
-          Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          Stop-Process -Id $pid_ -Force -ErrorAction SilentlyContinue
 
       # The raw JSON survives the job. Given how much of this work has been about green ticks
       # proving less than they appear to, the numbers are the deliverable, not the tick.
