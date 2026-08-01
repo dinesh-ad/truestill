@@ -233,6 +233,20 @@ def main(argv: list[str] | None = None) -> int:
     app = create_app(token=token, db=db, explicit_db=explicit_db)
 
     _say(f"truestill UI on {url}")
+
+    # BEFORE the file is written, not after. uvicorn snapshots the handlers that exist when it
+    # starts and restores them before re-raising, so these are the ones the re-raise lands on -
+    # that is why they go in before `server.run`. They go in before `session_link.write` for a
+    # second, separate reason: between writing the credential and installing these, a SIGTERM
+    # hit Python's default disposition, the process died without running `release_session_link`,
+    # and the file survived. Small window, real: it showed up as an intermittent failure in
+    # `test_a_real_process_leaves_no_url_file_behind`, which signals the instant the file
+    # appears. A flaky test and a stale credential left on a user's disk were the same bug seen
+    # from two sides. Installing first is free - the handler only unlinks, and unlinking a file
+    # that does not exist yet is already a no-op.
+    for terminating in _TERMINATING_SIGNALS:
+        signal.signal(terminating, release_session_link)
+
     # Before the browser is attempted, never after: a failed open must still leave a way in.
     link = session_link.write(url)
     if not link.private:
@@ -251,13 +265,6 @@ def main(argv: list[str] | None = None) -> int:
     )
     if not args.no_browser:
         threading.Thread(target=open_when_ready, args=(server, url, link.path), daemon=True).start()
-
-    # Before server.run: uvicorn snapshots the handlers that exist when it starts and restores
-    # them before re-raising, so these are the ones the re-raise lands on. Installed after, they
-    # would never be restored and the file would survive every kill - the original bug with
-    # extra code in front of it.
-    for terminating in _TERMINATING_SIGNALS:
-        signal.signal(terminating, release_session_link)
 
     try:
         server.run(sockets=[sock])

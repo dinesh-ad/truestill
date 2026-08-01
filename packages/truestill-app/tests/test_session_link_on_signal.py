@@ -130,3 +130,57 @@ def test_a_real_process_leaves_no_url_file_behind(tmp_path: Path, sig: signal.Si
             child.wait(timeout=10)
 
     assert not url_file.exists(), f"the URL file survived {sig.name}"
+
+
+def test_the_handler_is_installed_before_the_credential_file_exists(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """There must be no instant where the file is on disk and nothing would remove it.
+
+    **Found as a flake in the real-process test above, which is what it was telling us.** That
+    test waits for the URL file to appear and signals the moment it does. The handlers were
+    installed *after* `session_link.write`, so a signal landing in that window hit Python's
+    default disposition, the process died without running `release_session_link`, and the file
+    survived - intermittently, depending on scheduling. A rare flake in CI and a stale credential
+    left on a user's disk are the same bug seen from two sides.
+
+    Asserted on the ORDER of the two events rather than on the file's absence: absence is what
+    the whole-process test already checks, and it can be reached by luck. Order cannot.
+    """
+    order: list[str] = []
+    real_write = session_link.write
+
+    def watched_write(url: str) -> object:
+        order.append("write")
+        return real_write(url)
+
+    def watched_signal(sig: int, handler: object) -> object:
+        if handler is entry.release_session_link:
+            order.append(f"handler:{signal.Signals(sig).name}")
+        return None
+
+    monkeypatch.setattr(entry.session_link, "write", watched_write)
+    monkeypatch.setattr(entry.signal, "signal", watched_signal)
+    monkeypatch.setattr(entry.uvicorn, "Server", _NoopServer)
+    monkeypatch.setattr(entry.threading, "Thread", ImmediateThread)
+
+    entry.main(["--db", str(tmp_path / "c.sqlite"), "--no-browser"])
+
+    assert "write" in order, "precondition: the URL file was written at all"
+    assert order.index("handler:SIGTERM") < order.index("write"), (
+        f"the credential existed before anything would remove it: {order}"
+    )
+    assert order.index("handler:SIGINT") < order.index("write"), (
+        f"the credential existed before anything would remove it: {order}"
+    )
+
+
+class _NoopServer:
+    """A uvicorn stand-in that starts nothing. The ordering under test all happens before run."""
+
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        self.started = False
+        self.should_exit = True
+
+    def run(self, **_kwargs: object) -> None:
+        return None
