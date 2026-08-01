@@ -1,5 +1,20 @@
 # Default layout correction: year-first with side bins - Phase 1 (recon + design)
 
+> **FROZEN RECORD - BUILT AND CLOSED (flip landed 2026-07-28).** The status line immediately
+> below says "awaiting approval. No code written." That was true of Phase 1 and is the original
+> text, kept because a record edited to stay current stops being one. It is also the first thing
+> a reader sees, and the work it describes **shipped**: year-first is the default
+> (`layout.DEFAULT_PRESET`), and this document's own **§9 addendum** records the flip and what it
+> cost - four hundred lines below that status line, which is why this header exists.
+>
+> For the **close** of the arc, read
+> [`legacy-decommission-research.md`](legacy-decommission-research.md) ("Done (2026-07-28). Step
+> 2f"), which retired the compat bridge. The binding shape is
+> [`IMPLEMENTATION_STANDARDS.md`](IMPLEMENTATION_STANDARDS.md) §4.
+>
+> Missed by the 2026-08-01 record-banner pass, which classed this as a design record and
+> therefore not misleading. The status line makes it misleading; the classification was wrong.
+
 Status: **Phase 1 deliverable, awaiting approval. No code written.** This document is the
 review gate.
 

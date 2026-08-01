@@ -174,14 +174,22 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
     core stages together and owns all interaction (prompts, printing).
   - `packages/truestill-app/` - the local web UI (`truestill-app`). Depends on
     `truestill-core` **only**, never on `truestill-cli`. **`service/` is where state and work
-    cross the boundary:** every catalog read and write, and every long-running job, goes through
-    it, and `server.py` constructs no `Catalog` and holds no transaction of its own. `server.py`
-    does reach into core directly for four names, and that is allowed because none of them is
-    state or work: `InvalidEventSettingsError` and `InvalidEverydayDaySettingsError` (turned
-    into HTTP replies), `ReviewCard` (a value type) and `default_catalog_path` (the default
-    `--db`). The older wording said `service.py` was the "sole bridge"; that was never quite
-    true, and it is also no longer one file - `service/` is a package. A contract that is false
-    in the small is one nobody trusts in the large.
+    cross the boundary**, with exactly one exception, named rather than glossed: every catalog
+    access in `truestill-app` goes through `service/` **except the startup inspection** -
+    `__main__.py` calls `catalog_startup.inspect_catalog`, which opens a `Catalog` to read
+    `count()` and `list_drives()` for the launch banner before any route exists. `server.py`
+    itself constructs no `Catalog` and holds no transaction. **This rule is about
+    `truestill-app`:** `truestill-cli` opens its own catalogs throughout, which is its job and
+    not a violation of anything here.
+    `server.py` does reach into core directly for four names, and that is allowed because none
+    of them is state or work: `InvalidEventSettingsError` and `InvalidEverydayDaySettingsError`
+    (turned into HTTP replies), `ReviewCard` (a value type) and `default_catalog_path` (the
+    default `--db`, resolved per call inside `create_app`).
+    Two earlier wordings failed here and both are worth remembering: "`service.py` is the sole
+    bridge" was false because `server.py` imports those four, and its replacement - "every
+    catalog read and write goes through `service/`" - was false because of the startup
+    inspection above. A universal is the tempting shape and the fragile one; **the exception is
+    part of the rule**.
   - Further packages (e.g. a native shell) slot **beside** these without restructuring the core.
 - **One layout seam, and no way around it.** Every placement decision renders through
   `layout.LayoutScheme.render`, which calls `layout.classify(rule, context)` - **the one
@@ -196,8 +204,14 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   scheme-construction site says what template that shape gets - demonstrated for `TRIP_DAY` and
   again for `DAY_BUCKET`: removing its `case` arm alone made mypy fail at exactly that line.
   `plan`, `build_relative` and `apply_events` take a **`LayoutScheme`, never a bare template**,
-  and a library that has chosen nothing gets `layout.DEFAULT_SCHEME` - the legacy layout
-  expressed *as* a scheme. There is deliberately no template-only path: an optional seam is a
+  and a library that has chosen nothing gets `layout.DEFAULT_SCHEME` - the **year-first**
+  default (`DEFAULT_PRESET = PRESETS["year-month-event"]`), which is the shape §4 describes.
+  *(This line read "the legacy layout expressed as a scheme" until 2026-08-01. That was true
+  only before the flip: the legacy scheme was the default while the bridge existed, and
+  `legacy-decommission-research.md` removed it on 2026-07-28. §2 and §4 contradicting each other
+  on the product's most visible default is the kind of drift a reader cannot resolve from the
+  document alone.)*
+  There is deliberately no template-only path: an optional seam is a
   branch, and the branch had already silently switched routing off for every production run.
   - **One resolution entry point.** `layout_settings.resolve_scheme` is the only way to ask what
     layout a catalog is on; `layout.scheme_from_string` is the only interpretation of a stored
@@ -305,7 +319,7 @@ Migration and reclaim journals live in the local catalog, not on the drive. The 
 | **Identity is copied verbatim** - `uuid`, `label`, `created` unchanged. Re-minting a uuid would orphan every recorded copy in `file_copies` and under-report the custody count. | `drive.upgrade_marker`. Pinned by `test_upgrade_preserves_identity_verbatim_and_keeps_the_legacy_file`. |
 | **The legacy file is retained, never deleted.** Deleting on a user drive is what §1 copy-only forbids; keeping it (~100 bytes) means an older build and a current build agree on identity. | `drive.upgrade_marker` writes only. Pinned by the same test. |
 | **Canonical wins if both exist and diverge** - a documented precedence, never a merge. | `drive.existing_marker_path` order. Pinned by `test_canonical_wins_when_both_markers_exist_and_diverge`. |
-| **Marker filenames are never hardcoded in messages.** User-facing text interpolates `MARKER_NAME`. | `cli.py` / `service.py` f-strings; asserted via `MARKER_NAME` in `test_migrate_cli` / `test_reclaim_cli`. |
+| **Marker filenames are never hardcoded in messages.** User-facing text interpolates `MARKER_NAME`. | `cli.py` f-strings and `drive.py`, which owns the constant; asserted via `MARKER_NAME` in `test_migrate_cli` / `test_reclaim_cli` / `test_drive_cli`. **The app is not a site for this rule:** `MARKER_NAME` appears nowhere in `truestill-app`, because the marker filename never reaches a screen - the app names drives by label. This row used to cite `service.py`, which is both the wrong package and no longer a file. |
 
 Retiring the legacy name is a **future, opt-in** step (a flag that removes it after a
 successful upgrade), never automatic.
@@ -651,8 +665,10 @@ algorithm toggle. Full rationale: `DECISIONS.md` **D8**.
 Recorded because the soak test's defects landed **here rather than in the engine**: not one file
 was mis-placed or lost, and what failed was the product describing itself incorrectly. That makes
 the user-facing string a first-class defect surface with its own rules, not presentation polish.
-The rules below are what that pass produced; the per-defect list itself was not kept, and no rule
-here depends on it.
+The section **accumulated** rather than arriving whole: the soak pass opened it, and rules have
+been added since by the feature work that needed them - path-component safety, the proposal size
+floor, and the trip/event duration wording each brought their own. The per-defect list from that
+first pass was not kept, and no rule here depends on it.
 
 | Rule | Enforced by |
 |---|---|
@@ -672,4 +688,6 @@ here depends on it.
 
 **Why the browser lane owns this and pytest cannot.** Every rule above is a property of
 rendered text. `tests/e2e/` therefore asserts on **the words a user reads**, never on element
-ids - an id-based assertion would have passed for all eight defects. See §6.
+ids - an id-based assertion would have passed for every one of the defects that produced
+these rules, because each was a wrong or stale *string* in an element that existed and
+rendered. See §6.

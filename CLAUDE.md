@@ -42,5 +42,7 @@ record that is edited to stay correct stops being a record. **When a research do
 
 New here? `docs/PROJECT_STATUS.md` **§0** is the fresh-clone setup, **§1** is where the project
 stands, **§2** is what ships next and **§3** is what blocks it. The closed year-first layout arc
-is no longer summarised there; its record is [`docs/default-layout-research.md`](docs/default-layout-research.md)
-and [`docs/legacy-decommission-research.md`](docs/legacy-decommission-research.md).
+is no longer summarised there; the record of its **close** is
+[`docs/legacy-decommission-research.md`](docs/legacy-decommission-research.md) ("Done
+2026-07-28"). [`docs/default-layout-research.md`](docs/default-layout-research.md) holds the
+design and the flip, but read its own header first - its status line predates the build.

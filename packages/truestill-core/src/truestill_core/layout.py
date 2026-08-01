@@ -883,8 +883,11 @@ PRESETS: dict[str, Preset] = {
     ),
 }
 
-#: The preset a library gets when it has not chosen one. **Not yet in force** - the default
-#: constant still points at the legacy shape until the flip commit; this names the destination.
+#: The preset a library gets when it has not chosen one. **In force since the flip, 2026-07-28**
+#: - `DEFAULT_SCHEME` below is built from it, and `layout_settings.resolve_scheme` returns that
+#: for any catalog with nothing stored. The comment here read "Not yet in force - the default
+#: constant still points at the legacy shape until the flip commit" until 2026-08-01, describing
+#: a pre-flip world one line above the constant that contradicts it.
 DEFAULT_PRESET = PRESETS["year-month-event"]
 
 

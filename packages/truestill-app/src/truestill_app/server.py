@@ -46,9 +46,6 @@ _PKG = Path(__file__).resolve().parent
 _TEMPLATES = _PKG / "templates"
 _STATIC = _PKG / "static"
 
-#: Default catalog the app reads/writes (same default as the CLI).
-_DEFAULT_DB = default_catalog_path()
-
 #: Review sessions kept per process. See `remember_session` (audit F17).
 MAX_REVIEW_SESSIONS = 32
 
@@ -79,12 +76,27 @@ def _static_fingerprint() -> str:
     return hashlib.sha256(index_html + app_js).hexdigest()
 
 
-def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False) -> Starlette:
+def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False) -> Starlette:
+    """Build the app. ``db`` defaults to the catalog this install resolves **at call time**.
+
+    It used to default to a module constant, `_DEFAULT_DB = default_catalog_path()`, evaluated
+    at import - and doubly frozen, since a default argument is itself bound once at def-time.
+    `app_paths.default_catalog_path` documents the opposite contract in its own docstring:
+    resolved on every call, never cached in a module constant, "an override set after import
+    must still be honoured, and a constant computed at import time is unpatchable by a test and
+    therefore un-isolatable". That is `(aae)`'s rule, and this file was the one place still
+    breaking it.
+
+    Latent rather than live: `__main__.py` resolves per call and passes ``db`` explicitly, so
+    the shipped launch never used the frozen default. What it cost was every caller that omits
+    ``db`` - test harnesses above all, which is precisely the isolation `(aae)` exists to give.
+    """
     jobs = JobManager()
     started_fingerprint = _static_fingerprint()
+    resolved_db = db if db is not None else default_catalog_path()
 
     def _db() -> Path:
-        return db
+        return resolved_db
 
     def _explicit_db() -> bool:
         return explicit_db
