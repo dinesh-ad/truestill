@@ -8,9 +8,12 @@ from __future__ import annotations
 
 import threading
 from collections import Counter
+from collections.abc import Sequence
 from pathlib import Path
 from typing import NotRequired, TypedDict
 
+from truestill_core.archive_extract import extract_archive_set
+from truestill_core.archive_ingest import precheck_archives
 from truestill_core.catalog import Catalog
 from truestill_core.categorize import build_rules
 from truestill_core.date_provenance import format_offset
@@ -127,6 +130,69 @@ def ingest_preview(
         ],
         "missing_sidecar": len(scan.missing_sidecar),
     }
+
+
+class ArchivePrecheckPayload(TypedDict):
+    """What the Rescue screen shows before a single byte is written."""
+
+    ok: bool
+    claimed_bytes: int
+    free_bytes: int
+    media_entries: int
+    parts: int
+    refusals: list[str]
+    detail: str
+
+
+def archive_precheck(archives: Sequence[Path], destination: Path) -> ArchivePrecheckPayload:
+    """Preview-then-confirm for archives: the refusals and the cost, before anything is written.
+
+    Reads headers only. Declining is free, which is the whole point of showing this first - the
+    alternative is finding out 190 GB into 200.
+
+    ``claimed_bytes`` is **the archives' own claim**, and `detail` says so in words. A user must
+    not read a header field as a measurement truestill made.
+    """
+    report = precheck_archives(list(archives), destination)
+    return {
+        "ok": report.may_proceed,
+        "claimed_bytes": report.claimed_bytes,
+        "free_bytes": report.free_bytes,
+        "media_entries": report.media_entries,
+        "parts": len(report.archive_set.parts),
+        "refusals": [str(refusal) for refusal in report.refusals],
+        "detail": report.detail,
+    }
+
+
+def archive_ingest_run(archives: Sequence[Path], destination: Path, db: Path) -> JobTarget:
+    """Unpack an archive set, then run the ordinary Takeout preview over the merged tree.
+
+    **The precheck is re-run inside the job**, not trusted from the earlier call: the user may
+    have unplugged the drive or deleted a part between previewing and confirming, and a refusal
+    is cheaper than a half-extraction.
+
+    Cancel needs no special handling here. `extract_archive_set` leaves the staging tree in the
+    same journalled state a crash leaves, so recovery has one path rather than one for crashes
+    and another for the button.
+    """
+
+    def target(
+        progress: ProgressCallback, cancel: threading.Event
+    ) -> IngestPreviewEmpty | IngestPreviewSummary | ArchivePrecheckPayload:
+        report = precheck_archives(list(archives), destination)
+        if not report.may_proceed:
+            return archive_precheck(archives, destination)
+        extraction = extract_archive_set(
+            report.archive_set, destination, progress=progress, cancel=cancel
+        )
+        if extraction.cancelled:
+            return archive_precheck(archives, destination)
+        return ingest_preview(
+            extraction.staging_root, destination, db, progress=progress, cancel=cancel
+        )
+
+    return target
 
 
 def ingest_preview_run(takeout: Path, destination: Path, db: Path) -> JobTarget:

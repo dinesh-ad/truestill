@@ -36,6 +36,9 @@ class Phase:
     HASHING = "hashing"
     ORGANIZING = "organizing"
     PLANNING = "planning"
+    #: Unpacking an archive set into staging ((jj)). Its own phase because it is the slow part
+    #: of an archive ingest, and rendering it as SCANNING would look like a frozen scan.
+    UNPACKING = "unpacking"
     MOVING = "moving"
     COPYING = "copying"
     VERIFYING = "verifying"

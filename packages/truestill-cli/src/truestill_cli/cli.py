@@ -23,6 +23,8 @@ from truestill_core.app_paths import (
     default_catalog_path,
     standard_catalog_path,
 )
+from truestill_core.archive_extract import extract_archive_set
+from truestill_core.archive_ingest import precheck_archives
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_move import CatalogMoveOutcome, move_catalog_to_standard
 from truestill_core.catalog_startup import (
@@ -286,8 +288,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--takeout",
         type=Path,
         required=True,
-        metavar="DIR",
-        help="extracted Google Takeout directory",
+        metavar="PATH",
+        help=(
+            "extracted Google Takeout directory, or any one of the .zip files Google gave you "
+            "(the other parts are found beside it)"
+        ),
     )
     ingest.add_argument(
         "--tz",
@@ -595,6 +600,38 @@ def _cmd_catalog(args: argparse.Namespace) -> int:
     if result.outcome is CatalogMoveOutcome.SYMLINK_REFUSED:
         return 2
     return 0
+
+
+def _takeout_root_or_none(given: Path, destination: Path) -> Path | None:
+    """A directory `scan_takeout` can read, unpacking archives first when that is what was given.
+
+    A user who downloaded a Takeout has ``.zip`` files, not a folder, so both are accepted.
+
+    **Pointing at one part finds the rest.** Google splits an export across numbered files and a
+    folder can straddle two of them, so requiring every part on the command line would make an
+    easy mistake catastrophic - the run would succeed and quietly lose the dates in the parts
+    that were left out. Siblings are gathered from the same directory instead.
+
+    The archive route **prints the precondition report and refuses on it** before writing
+    anything: a missing part, a password, a nested archive or not enough room are all far cheaper
+    to learn here than 190 GB into 200.
+    """
+    if given.is_dir():
+        return given
+    if not given.is_file():
+        print(f"error: not a file or directory: {given}", file=sys.stderr)
+        return None
+
+    siblings = sorted(given.parent.glob("*.zip"))
+    report = precheck_archives(siblings or [given], destination)
+    print(report.detail)
+    if not report.may_proceed:
+        return None
+
+    print(f"Unpacking {len(report.archive_set.parts)} archive(s) ...")
+    extraction = extract_archive_set(report.archive_set, destination)
+    print(f"Unpacked {extraction.files_written:,} files.")
+    return extraction.staging_root
 
 
 def _cmd_status(args: argparse.Namespace) -> int:
@@ -1234,12 +1271,12 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
-    if not args.takeout.is_dir():
-        print(f"error: takeout path is not a directory: {args.takeout}", file=sys.stderr)
+    takeout_root = _takeout_root_or_none(args.takeout, args.destination)
+    if takeout_root is None:
         return 2
-    print(f"Scanning Takeout export at {args.takeout} ...")
-    scan = scan_takeout(args.takeout)
-    source_scan = scan_source(args.takeout)
+    print(f"Scanning Takeout export at {takeout_root} ...")
+    scan = scan_takeout(takeout_root)
+    source_scan = scan_source(takeout_root)
     # A Takeout export's own .json sidecars and .html scaffolding are consumed here, not skipped,
     # so they are excluded from the skipped report -- only genuinely unhandled files are shown.
     _takeout_noise = {".json", ".html", ".htm"}
@@ -1252,7 +1289,7 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
     )
     files = source_scan.media
     if not files:
-        print(f"No media files found under {args.takeout}")
+        print(f"No media files found under {takeout_root}")
         _print_skipped(skipped)
         return 0
     print(

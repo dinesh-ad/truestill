@@ -26,12 +26,14 @@ import json
 import os
 import shutil
 import stat
+import threading
 import zipfile
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
 from truestill_core.archive_set import ArchiveSet
+from truestill_core.progress import Phase, Progress, ProgressCallback
 
 #: Directory under the destination that holds every staging tree. On the destination drive
 #: rather than the system temp directory: on many machines ``/tmp`` is a tmpfs or a small
@@ -73,6 +75,10 @@ class ExtractionResult:
     staging_root: Path
     files_written: int
     bytes_written: int
+    #: True when a cancel was honoured. The staging tree is left in the **ordinary** journalled
+    #: state, not a special one - so recovery has a single path rather than one for crashes and
+    #: another for the button.
+    cancelled: bool = False
 
 
 def staging_budget(destination: Path, *, claimed_bytes: int) -> int:
@@ -197,6 +203,8 @@ def extract_archive_set(
     *,
     budget_bytes: int | None = None,
     on_entry: Callable[[Path], None] | None = None,
+    progress: ProgressCallback | None = None,
+    cancel: threading.Event | None = None,
 ) -> ExtractionResult:
     """Extract every part into one merged staging tree under ``destination``.
 
@@ -215,6 +223,11 @@ def extract_archive_set(
         staging_budget(destination, claimed_bytes=claimed) if budget_bytes is None else budget_bytes
     )
 
+    total = 0
+    for part in archive_set.parts:
+        with zipfile.ZipFile(part.path) as archive:
+            total += sum(1 for info in archive.infolist() if not info.is_dir())
+
     written = 0
     files = 0
     for part in archive_set.parts:
@@ -222,6 +235,15 @@ def extract_archive_set(
             for info in archive.infolist():
                 if info.is_dir():
                     continue
+                if cancel is not None and cancel.is_set():
+                    # Nothing special to do: the journal already describes this tree, so a
+                    # cancel leaves exactly what a crash leaves and recovery has one path.
+                    return ExtractionResult(
+                        staging_root=record.staging_root,
+                        files_written=files,
+                        bytes_written=written,
+                        cancelled=True,
+                    )
                 _refuse_symlink(info)
                 relative = _validate_entry_name(info.filename)
                 target = record.staging_root / relative
@@ -244,6 +266,10 @@ def extract_archive_set(
                         sink.write(chunk)
                 partial.replace(target)
                 files += 1
+                if progress is not None:
+                    # Its own phase: unpacking is the slow part of an archive ingest and must
+                    # not render as a scan that appears to have frozen.
+                    progress(Progress(files, total, Phase.UNPACKING, info.filename))
                 if on_entry is not None:
                     on_entry(target)
 

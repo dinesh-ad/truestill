@@ -61,6 +61,12 @@ unfixable = []
 "packages/truestill-core/src/truestill_core/event_review.py" = [
     "PLR0913", # run_event_stage(resolutions/metadata/catalog/apply/prompt/template)
 ]
+# extract_archive_set takes four keyword-only opt-ins beyond its two positionals: a budget
+# override for tests, an entry hook, and the progress/cancel pair every long job here carries.
+# Bundling them into an options object would hide the pair that the job machinery expects.
+"packages/truestill-core/src/truestill_core/archive_extract.py" = [
+    "PLR0913", # extract_archive_set(set/destination + budget/on_entry/progress/cancel)
+]
 # Event clustering exposes several tunables as keyword-only knobs.
 "packages/truestill-core/src/truestill_core/events.py" = [
     "PLR0913", # cluster_camera(sensitivity/window/min_files/min_duration/gps_jump)
