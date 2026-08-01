@@ -889,21 +889,29 @@ def _upload_copy(
     *,
     set_timestamps: bool,
 ) -> None:
-    """Upload a pure copy, stamping only the destination and preserving source timestamps."""
-    source_stat = source.stat()
-    try:
-        destination.upload(source, final_relative)
-        if set_timestamps and captured_at is not None:
-            destination.set_timestamp(final_relative, captured_at)
-    finally:
-        # Reading can advance atime on strict-atime filesystems. Put both source timestamps back
-        # exactly so a copy does not invalidate the path+size+mtime hash-cache key.
-        current = source.stat()
-        if (
-            current.st_atime_ns != source_stat.st_atime_ns
-            or current.st_mtime_ns != source_stat.st_mtime_ns
-        ):
-            os.utime(source, ns=(source_stat.st_atime_ns, source_stat.st_mtime_ns))
+    """Upload a pure copy, stamping the destination. **The source is not written to at all.**
+
+    This used to snapshot the source's atime and mtime and put both back afterwards, "so a copy
+    does not invalidate the path+size+mtime hash-cache key". That was wrong in both directions,
+    and both were measured:
+
+    * Reading advances **atime** and never **mtime** (ext4/relatime: atime moved, mtime did
+      not), so the restore fired on essentially every file of every run - and **atime is not in
+      the cache key**. `hash_cache` keys on path + size + ``mtime_ns``. The write could not
+      protect the thing its own comment named.
+    * When **mtime** does differ, nothing here caused it: `copy2` reads the source and writes
+      the destination. It means the file changed underneath the run, and stamping the old value
+      back would make a **stale** cache row look valid - the next run would serve a hash for
+      content that no longer matches. In the only case where the condition could honestly be
+      true, the restore was actively harmful.
+
+    The source is usually a camera card, and FAT32/exFAT have no journal: every metadata write
+    to one is an unjournalled directory-entry update. Once per file per run, for no benefit, is
+    not a tidy no-op.
+    """
+    destination.upload(source, final_relative)
+    if set_timestamps and captured_at is not None:
+        destination.set_timestamp(final_relative, captured_at)
 
 
 def _move_source(

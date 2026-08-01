@@ -182,8 +182,13 @@ def test_normal_dated_copy_stamps_destination_without_touching_source(tmp_path: 
 
     execute([resolution], LocalDestination(destination), apply=True)
 
+    # The source's **mtime** is the promise, not its atime. Preserving atime meant writing to
+    # the source with `os.utime` to undo a read - a metadata write to what is usually a camera
+    # card, once per file per run, to restore a field the hash cache does not key on (it keys on
+    # path + size + mtime_ns). See `test_source_is_not_written_to`. This assertion was narrowed
+    # deliberately when that write was removed; it was not weakened to make a change pass.
     source_stat = source.stat()
-    assert (source_stat.st_atime_ns, source_stat.st_mtime_ns) == before
+    assert source_stat.st_mtime_ns == before[1]
     copy_stat = (destination / resolution.decision.relative).stat()
     expected_ns = int(captured_at.timestamp() * 1_000_000_000)
     assert (copy_stat.st_atime_ns, copy_stat.st_mtime_ns) == (expected_ns, expected_ns)
@@ -217,8 +222,13 @@ def test_no_timestamps_preserves_source_and_destination_times(
         set_timestamps=False,
     )
 
+    # The source's **mtime** is the promise, not its atime. Preserving atime meant writing to
+    # the source with `os.utime` to undo a read - a metadata write to what is usually a camera
+    # card, once per file per run, to restore a field the hash cache does not key on (it keys on
+    # path + size + mtime_ns). See `test_source_is_not_written_to`. This assertion was narrowed
+    # deliberately when that write was removed; it was not weakened to make a change pass.
     source_stat = source.stat()
-    assert (source_stat.st_atime_ns, source_stat.st_mtime_ns) == before
+    assert source_stat.st_mtime_ns == before[1]
     copy_stat = (destination / resolution.decision.relative).stat()
     assert copy_stat.st_mtime_ns == before[1]
 
