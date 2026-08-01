@@ -1310,6 +1310,27 @@ no composition refactor to schedule.
   marker - where being readable by a person with a text editor is the point. This is also what
   `(z)` means by catalog-first; **no change is pending.**
 
+- **Distributed task queues (Taskiq, Celery, Dramatiq) stay out of the desktop app.** They are
+  *distributed* queues: their purpose is dispatching work across a network to separate worker
+  processes, and each requires a broker - Redis, RabbitMQ, NATS or Kafka. Taskiq's own
+  introduction says it exists because nothing could send async functions over distributed queues
+  like RabbitMQ. That is a real problem, and it is not this one.
+
+  truestill is a single-user desktop app: one process, no network, no worker fleet. Adopting one
+  would mean asking a photographer to install and run Redis before organising their photos -
+  precisely the install friction recorded against Immich's Docker requirement in
+  `docs/org-structure-research.md`, and the thing this product is positioned against.
+
+  **What is already there instead:** `JobManager`, roughly one module. Background threads
+  in-process, SSE progress, cancel, and a per-drive lock. It covers every long operation -
+  organize, verify, backup, migrate, trip apply, archive ingest, undo - with no service for the
+  user to run and nothing to keep alive between sessions.
+
+  **Where one WOULD be a reasonable choice, so this rejection is not over-read:** the
+  self-hosted licensing and update server (`docs/DECISIONS.md` **D5**) is a genuinely networked
+  service, and a queue is a fair question there. That is post-launch, unbuilt, and its own
+  decision. Nothing here rules on it.
+
 ## Product / strategy (parked decisions)
 
 > **Settled stance these sit under:** a user's **photo data never leaves their machine** and
