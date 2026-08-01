@@ -696,25 +696,83 @@ section, because what is left is the part that still has to be written.
     several events within one day - a time-anchored key (day plus cluster start, tolerance
     matched) is the obvious candidate and needs its own design pass and its own evidence.
 
-- **(jj) Archive ingestion - read a library straight out of its archives.** Near-launch
-  priority: it is central to the Takeout-rescue pitch, because what a refugee actually has is a
-  pile of archives, not an extracted folder. Generalized from the older "zip-direct Takeout"
-  note, which was too narrow - the problem is archives, not Google's.
+- **(jj) Archive ingestion - read a library straight out of its archives.**
+  **BUILT 2026-08-01 across four commits, zip and tar. The app UI surface is the only part
+  outstanding** - the service functions exist and nothing in the browser calls them yet.
+  - **What shipped.**
+    1. *Preconditions, before anything is written* (`archive_set`, `archive_ingest`). Header
+       reads only - it does not even create the destination, so declining is free. Numbered
+       parts are grouped into one logical set, **gaps are named** (a set missing `-009` would
+       otherwise yield a library with a hole in it, silently), and space is checked against the
+       destination drive. The size shown is labelled in the user-facing text as **the archives'
+       own claim, never a measurement truestill made** - it is a header field whoever built the
+       archive chose.
+    2. *Extraction* (`archive_extract`). The journal is written and **fsynced before any byte
+       exists**, so a crash never leaves files nothing can attribute; recovery is proven against
+       a real `SIGKILL` and asserted **from a fresh process**. Entry names are **refused, not
+       rewritten**. Files are written to a sibling and renamed, because a truncated JPEG still
+       hashes. The byte budget is the *lower* of free space minus a 1 GiB reserve and the claim
+       plus 10%, and it aborts on the **real running total** rather than the declared one.
+    3. *Pipeline wiring* (`scan_takeout` unchanged - **that it needs no change is the claim, and
+       it is asserted**). The multi-part correctness test builds a `Photos from 2014` folder that
+       genuinely straddles two parts and proves the sidecar still matches; its cry-wolf
+       counterpart proves extracting the parts separately **loses the date**.
+    4. *Tar and `.tgz`*, via `tarfile.data_filter` **per member** rather than
+       `extractall(filter="data")`, so tar shares the same counter, journal and rename as zip
+       instead of forking the extractor.
+  - **CLI:** `--takeout` takes an archive or a directory, and **pointing at one part finds the
+    rest**. That is correctness, not convenience: requiring every part would mean forgetting one
+    does not fail but *succeeds*, quietly leaving those photos undated.
+  - **REFUSED, with reasons, so they are not proposed again as obvious wins.**
+    - **`.7z` and `.rar` are out of scope.** Both need **new runtime dependencies** (`py7zr`,
+      `rarfile`), which engages §4's written-justification rule - and `rarfile` **shells out to
+      an unsigned external `unrar` binary**, which is a poor thing to put inside a product whose
+      whole proposition is custody. The honest answer for a user holding a `.rar` is "extract it
+      yourself first": one step for them, no attack surface for us. Google offers `.zip` and
+      `.tgz`, so neither is on the path this feature exists for.
+    - **Archive-inside-archive is refused outright**, naming the entry. Recursive extraction is
+      **unbounded depth on untrusted input**, and the Takeout case never needs it.
+    - **Delete-staged-files-as-you-go is refused, and deliberately NOT built as an option.**
+      It would halve the peak disk requirement, which is exactly why it looks like an obvious
+      win. truestill's whole posture is that **it never destroys the user's source**, and an
+      option to delete the input is a switch that exists only to be regretted at 3am. If disk
+      space is genuinely the blocker, the honest answer is *"extract fewer archives at a time"* -
+      a step for the user, and no invariant lost.
+  - **Still to build:** the app UI surface. Preview-then-confirm, progress and cancel through the
+    existing job machinery, refusals named by entry, and the space figure labelled as a claim.
+  - **Original design notes below, kept for the reasoning that produced the above.** Three of
+    them were **overtaken by what was built** and say so inline, rather than being left as a
+    second, contradictory answer in the same entry.
+  - Near-launch priority: it is central to the Takeout-rescue pitch, because what a refugee
+    actually has is a pile of archives, not an extracted folder. Generalized from the older
+    "zip-direct Takeout" note, which was too narrow - the problem is archives, not Google's.
   - **One archive-source interface**, so the pipeline sees a source of media and does not care
     what it came out of. The same shape `Destination` already demonstrates, at the other end.
-  - **First-class, no system dependencies:** `.zip`, `.tar` and its `.gz`/`.bz2`/`.xz` variants
-    (all stdlib), and `.7z` via a pip package. Anything needing a binary on PATH is not
-    first-class.
-  - **`.rar` is optional and honest about it.** It lights up only when `unrar` is present, and
-    says so plainly when it is not - never a silent skip that loses a user's files without
-    telling them.
+  - ⚠ **SUPERSEDED - `.7z` was to be first-class via a pip package.** It is not: see the refusal
+    above. A pip package is still a **new runtime dependency** under §4, and the format is not on
+    the path this feature exists for - Google offers `.zip` and `.tgz`.
+  - ⚠ **SUPERSEDED - `.rar` was to be optional, lighting up when `unrar` is present.** Refused
+    above instead. "Optional" understated the cost: `rarfile` **shells out to an unsigned
+    external binary**, and a product selling custody should not invoke one on the user's files.
+    The honest-about-absence instinct in the original note is right and survives - it is now
+    applied to the *refusal* (name the format, say to extract it first) rather than to a
+    degraded mode.
   - ⚠ **A multi-part set is ONE archive.** Google splits an export across `takeout-001.zip`,
     `-002.zip` and so on, and **a photo and its JSON sidecar can land in different parts**.
     Treating the parts independently silently breaks date rescue for exactly the files this
     feature exists to rescue. The set is opened as a unit or not at all.
-  - **Streamed extraction, never a full unpack.** A naive implementation needs the archive plus
-    the extraction plus the organized copy - three times the library's size, on the machines
-    least likely to have it. Entries are streamed and organized as they come.
+  - ⚠ **SUPERSEDED - "streamed extraction, never a full unpack".** Extraction to disk was ruled
+    2026-08-01 and is **forced, not chosen**: exiftool is a subprocess that needs a real file,
+    and hashing, EXIF reading and copying all assume one, so a pure stream cannot feed the
+    pipeline. The design question was never *whether* to extract but *where and with what
+    protections*.
+    The cost this bullet was worried about is real and is answered rather than dodged: staging
+    goes on the **destination drive** (not the system temp dir, which on many machines is a
+    tmpfs), the space precondition states the requirement **before** any work starts, and the
+    only way to halve the peak - deleting staged files as you go - is **refused above**. The
+    honest mitigation for a user short of space is to extract fewer archives at a time.
+    What did survive from this bullet is *streaming within* extraction: entries are read in
+    fixed chunks through a running byte counter, never whole into memory.
   - **Copy-only, as everywhere else: an archive is never modified**, never deleted, never
     rewritten in place. It is a read-only source.
   - **Encrypted archives are detected and surfaced**, never silently skipped. "I could not read
