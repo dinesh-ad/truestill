@@ -175,13 +175,20 @@ addopts = "-v --tb=short"
 #   it would make the suite fail intermittently for reasons unrelated to the code under test.
 #   Turning a real deprecation gate into a flaky one is how gates get switched off.
 #
-#   PytestUnraisableExceptionWarning is pytest re-raising exactly those, so it is the same
-#   exception wearing pytest's coat. Narrowed to the unraisable case rather than silencing
-#   pytest's warnings generally.
+#   PytestUnraisableExceptionWarning is pytest re-raising exactly those from a finalizer, so it
+#   is the same exception wearing pytest's coat. It is exempted ONLY when the text it carries
+#   ends in a ResourceWarning, because that category wraps *any* unraisable exception - and a
+#   blanket exemption launders a real deprecation raised from __del__ into a printed warning
+#   that does not fail. That was demonstrated, not theorised, and
+#   `test_warning_gate_has_no_hole.py` is the permanent guard against it reopening.
+#
+#   The regex needs the inline `(?s)` DOTALL flag: the message pytest builds is a multi-line
+#   traceback whose final line names the wrapped exception, and `.` does not cross newlines by
+#   default. It carries no literal `:` on purpose - pytest splits these entries on colons.
 filterwarnings = [
     "error",
     "default::ResourceWarning",
-    "default::pytest.PytestUnraisableExceptionWarning",
+    'default:(?s).*\nResourceWarning:pytest.PytestUnraisableExceptionWarning',
 ]
 
 # --- mypy -----------------------------------------------------------------------------
