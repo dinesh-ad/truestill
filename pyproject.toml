@@ -159,10 +159,6 @@ testpaths = [
     "packages/truestill-cli/tests",
     "packages/truestill-app/tests",
 ]
-# `packaging/` is not an installed distribution - it is the freeze-time layer, kept out of every
-# shipped wheel on purpose. Putting it on the import path here is what lets its shim be unit
-# tested without a sys.path hack in each test module.
-pythonpath = ["packaging"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"

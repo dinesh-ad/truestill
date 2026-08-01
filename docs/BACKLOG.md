@@ -203,52 +203,67 @@ section, because what is left is the part that still has to be written.
     with no signing step in the pipeline. D9 also carries a launch-page requirement: Windows
     users are told what SmartScreen will show *before* they download.
   - **PyPI stays**, as the developer / self-hosted channel. It stops being the *primary* one.
-  - **MEASURED AND SOLVED (2026-08-01): the excluded build is 39.5% smaller.** PyInstaller
-    6.21.0, Linux, whole `dist/` tree, same commit and fixture:
+  - **MEASURED, THEN DECLINED (2026-08-01). The ~90 MB stays in the build.** Ruled on product
+    grounds: at this size the download is unremarkable for a desktop app - **VS Code is ~350 MB
+    and Cursor ~600 MB** - the saving buys nothing functionally, and the mechanism that achieves
+    it is a permanent maintenance surface plus a landmine for whoever adds a hashing-algorithm
+    option later. Recorded with the numbers so it is a decision rather than an oversight.
 
-    | build | bytes | |
+    | build (PyInstaller 6.21.0, Linux, whole `dist/` tree) | bytes | |
     |---|---|---|
-    | baseline | 218,212,013 | **208.1 MiB** |
-    | `--exclude-module scipy --exclude-module pywt` | 132,045,324 | **125.9 MiB** |
-    | saved | 86,166,689 | **82.2 MiB (39.5%)** |
+    | with scipy + PyWavelets | 218,212,013 | **208.1 MiB (218 MB)** |
+    | with both excluded | 132,045,324 | **125.9 MiB (132 MB)** |
+    | difference | 86,166,689 | **82.2 MiB (39.5%)** |
 
-    The baseline is recorded deliberately: 208 MiB is not a number where 82 MiB is a rounding
-    error. **Confirmed from the import graph, not from the size delta** -
-    `build/{name}/xref-{name}.html` (PyInstaller writes it every run) reports `scipy` **absent
-    from all 1,213 modules** and `pywt` as `ExcludedModule, imported by: imagehash`. The only
-    scipy-named file left on disk is `libscipy_openblas64_*.so` inside `numpy.libs`, which is
-    **numpy's own vendored BLAS** and stays correctly. That file is the thing to re-read if
-    anything pulls scipy back in later.
+    **THREE CORRECTIONS TO THE RULING'S PREMISES, verified rather than argued - read these
+    first if this is ever reopened, because each one points the opposite way from the belief it
+    replaces.**
 
-    **What is irreducible after the exclusion:** `libpython3.13.so` 31 MB, `numpy.libs` 27 MB,
-    `pillow_heif.libs` 26 MB, `numpy` 14 MB, `pillow.libs` 11 MB. numpy stays because
-    `imagehash` imports it at module level, so `dhash` genuinely needs it.
+    1. **`--exclude-module` DOES work here.** The ruling assumed it cannot, because `imagehash`
+       imports scipy at module level. It does not: `imagehash/__init__.py` imports only `sys`,
+       `numpy` and `PIL` at module level (lines 33-36); `scipy.fftpack` is imported *inside*
+       `phash` and `phash_simple` (lines 273, 293) and `pywt` *inside* `whash` (line 361). The
+       exclusion was run and it worked - `xref-{name}.html` showed **scipy absent from all
+       1,213 modules** and pywt as `ExcludedModule`. So the 82.2 MiB is genuinely available
+       with two flags and no shim at all. **This is a free-standing option, not a blocked one.**
+    2. **PyInstaller #1584 and #3265 do not establish the limitation they were cited for.** Both
+       are real and both **closed**; they show `--exclude-module` surprising users, but neither
+       documents a module-level-import limitation. Cited accurately here so the next person does
+       not treat a closed issue as a standing blocker.
+    3. **`dhash_int` does not exist in `imagehash`, and no `imagehash` function silently returns
+       a wrong value.** This was carried into the ruling as the decisive danger - that under
+       exclusion `dhash_int` falls back to NumPy and returns wrong hashes while `phash` raises.
+       Verified against the installed source: `grep dhash_int` over `imagehash` 4.3.2 (which is
+       also the newest release) finds **nothing**, and `phash`, `phash_simple` and `whash` each
+       do a bare `import` and raise with **no fallback path**. Removing the module cannot
+       produce a wrong number, only an exception.
 
-    **`dhash` is bit-identical across all three builds** - source, baseline and excluded all
-    return `8bcb9521242eca28` for the fixture. That was the bar rather than "it produced a
-    hash": the catalog stores hash output as identity.
+       **Where the belief comes from, because it is not baseless:** `dhash_int` is a real
+       function in **Ben Hoyt's separate `dhash` package** on PyPI, which is a different library
+       that truestill does not depend on, declare, or install. The asymmetry it describes is not
+       a property of anything in this build.
 
-    **Still untested, and it belongs here rather than in core:** whether the exclusion interacts
-    with the `_MEIPASS` layout on Windows, and the Windows byte figure, which will differ
-    (different compiled artifacts, different binary collection). The *decision* does not depend
-    on either; the download-page number does.
-  - **The shim, and why it exists alongside the exclusion.** `packaging/truestill_freeze` is
-    applied by a PyInstaller `--runtime-hook` and replaces `imagehash.phash`, `phash_simple` and
-    `whash` with a refusal naming **the algorithm and the alternative, never the module**.
-    Without it the exclusion alone leaves the user with `ModuleNotFoundError: No module named
-    'scipy'` from four frames inside a vendored library. **Packaging layer only** - a source
-    checkout keeps all three working, asserted by `test_freeze_shim`, and no shipped package may
-    import it. `test_frozen_algorithm_fence` fails if any shipped module later calls one of the
-    three, so adding a hashing-algorithm option cannot silently ship a build that raises.
-  - **On `--exclude-module` reliability, recorded because it was assumed to be the problem.**
-    PyInstaller issues **#1584** (`excludedimports` in hooks, modules not bundled at all) and
-    **#3265** ("How to exclude specific imports", a user finding pandas bundled regardless) are
-    real and both **closed**; they show exclusion not behaving as users expect, but neither
-    documents a limitation on *module-level* imports specifically. **Our own case contradicts
-    the worry:** the imports are function-level and `--exclude-module` removed them cleanly,
-    confirmed in the xref. So the shim's justification is **diagnosability, not unreliability** -
-    worth stating, because "we shimmed it because exclusion is broken" would be a false reason
-    that outlives the person who wrote it.
+    **What the actual risk is, stated plainly for whoever reopens this:** with scipy excluded,
+    `phash`/`phash_simple`/`whash` raise `ModuleNotFoundError` naming an internal package, from
+    four frames inside a vendored library - undiagnosable for a photo user, but **loud**. There
+    is no silent-wrong-value failure mode to fear. The real cost of reopening is the one the
+    ruling identified correctly: a shim is a permanent maintenance surface, and a build where an
+    algorithm works in a source checkout and raises when frozen is a trap for whoever adds an
+    algorithm option. Nothing in the product calls those three today.
+
+    **The mechanism, if it is ever wanted:** `--exclude-module scipy --exclude-module pywt` for
+    the bytes, plus a packaging-layer shim replacing `imagehash.phash`, `phash_simple` and
+    `whash` with a refusal naming the algorithm and the alternative rather than the module,
+    installed via `--runtime-hook` so a source checkout is untouched. Both halves were built and
+    verified working, then removed under this ruling; `git log` for `feat(aad): drop 82 MiB` has
+    the implementation if it is wanted back.
+
+    **`dhash` is bit-identical with and without the exclusion** - source, baseline and frozen
+    builds all returned `8bcb9521242eca28` for the same fixture. Whatever is decided later, that
+    is the bar: the catalog stores hash output as identity.
+
+    **Untested and belonging to the packaging work:** whether the exclusion interacts with the
+    `_MEIPASS` layout on Windows, and the Windows byte figure, which will differ.
   - **~90 MB of the install is a code path that never runs** (dependency audit, 2026-08-01).
     `imagehash` declares `scipy` and `PyWavelets` as hard requirements with **no extras split**,
     so every install pulls **81 MB scipy + 8.6 MB PyWavelets**. They back `phash` and `whash`,
