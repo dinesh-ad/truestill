@@ -480,9 +480,9 @@ Runtime deps must justify themselves against stdlib. Current state:
 
 | Dependency | Why it exists (vs stdlib) |
 |---|---|
-| `imagehash>=4.3.1` (`truestill-core`) | Perceptual dHash for near-duplicate detection; requires image decoding, which the stdlib cannot do. |
-| `pillow>=10.0.0` (`truestill-core`) | Image decoding backing imagehash and cheap dimension reads. **Large-image policy:** truestill processes the user's own local library (trusted), not untrusted uploads, so Pillow's ~89 MP decompression-bomb guard is a false positive on legitimate large photos (panoramas/scans). `hashing.MAX_PERCEPTUAL_PIXELS` raises `Image.MAX_IMAGE_PIXELS` to **300 MP** deliberately; above it a pathological image is **skipped for perceptual hashing** (SHA-256 exact dedup still applies) and the bomb *warning* is suppressed locally so **no raw Pillow warning reaches the terminal**. (Immich/PhotoPrism avoid this entirely via libvips streaming.) |
-| `pillow-heif>=0.16.0` (`truestill-core`) | Registers a HEIF opener so Pillow can decode **HEIC/HEIF** (the iPhone-default format since 2017), enabling their perceptual near-dup dedup. **Graceful degradation is mandatory:** `hashing._register_heif` guards the import; if it ever fails at runtime, `HEIF_AVAILABLE` is `False`, SHA-256 exact dedup still applies to HEIC, and the run **reports** that HEIC perceptual hashing was skipped - never a silent drop. TIFF-based RAW (CR2/NEF/DNG/…) needs no plugin (Pillow's TIFF decoder content-sniffs it); container-based RAW (CR3, RAF) is exact-dedup-only. |
+| `imagehash>=4.3.2` (`truestill-core`) | Perceptual dHash for near-duplicate detection; requires image decoding, which the stdlib cannot do. |
+| `pillow>=12.3.0` (`truestill-core`) | Image decoding backing imagehash and cheap dimension reads. **Large-image policy:** truestill processes the user's own local library (trusted), not untrusted uploads, so Pillow's ~89 MP decompression-bomb guard is a false positive on legitimate large photos (panoramas/scans). `hashing.MAX_PERCEPTUAL_PIXELS` raises `Image.MAX_IMAGE_PIXELS` to **300 MP** deliberately; above it a pathological image is **skipped for perceptual hashing** (SHA-256 exact dedup still applies) and the bomb *warning* is suppressed locally so **no raw Pillow warning reaches the terminal**. (Immich/PhotoPrism avoid this entirely via libvips streaming.) |
+| `pillow-heif>=1.5.0` (`truestill-core`) | Registers a HEIF opener so Pillow can decode **HEIC/HEIF** (the iPhone-default format since 2017), enabling their perceptual near-dup dedup. **Graceful degradation is mandatory:** `hashing._register_heif` guards the import; if it ever fails at runtime, `HEIF_AVAILABLE` is `False`, SHA-256 exact dedup still applies to HEIC, and the run **reports** that HEIC perceptual hashing was skipped - never a silent drop. TIFF-based RAW (CR2/NEF/DNG/…) needs no plugin (Pillow's TIFF decoder content-sniffs it); container-based RAW (CR3, RAF) is exact-dedup-only. |
 | `exiftool` (external **binary**, not a pip dep) | The only tool that reads photo EXIF, **video container tags**, and vendor MakerNotes (e.g. the screenshot marker) through one interface, and the writer used for the scoped Takeout bake. A pip EXIF library would cover photos only. |
 | `truestill-cli` runtime deps | Only `truestill-core` (workspace source). |
 
@@ -496,6 +496,19 @@ algorithm toggle. Full rationale: `DECISIONS.md` **D8**.
 **Version policy:** `requires-python` = **`>=3.13` for all three packages**. Lower-bound + lock;
 `uv.lock` is the single source of truth; no blind upper-pins; updates via periodic
 `uv lock --upgrade` review.
+
+> **A floor means tested-at, not thought-to-work.** Every `>=` bound must name the version the
+> suite actually runs against, and moves when the lock moves. The floors had drifted years below
+> reality - `starlette>=0.40` while every test ran on 1.3.1, `pillow>=10.0.0` against 12.3.0 -
+> which is a claim of compatibility that had never once been demonstrated: a resolver picking the
+> minimum would hand a user an untested application, and the first report would come from that
+> user. `packages/truestill-core/tests/test_dependency_floors.py` compares every declared floor
+> against `uv.lock` and fails on drift, so a dependency upgrade that leaves its floor behind is
+> caught at the moment it stops being true.
+>
+> **There is deliberately no floor-resolution CI lane.** Resolving and testing at the minimum
+> would be a second matrix to maintain for a configuration nobody is asked to run. The honest
+> fix is to stop claiming support for it, not to start testing it.
 
 > **The checker floors match the declaration.** `[tool.mypy] python_version` and
 > `[tool.ruff] target-version` are both **3.13**, raised on 2026-07-27 from a stale 3.12 that

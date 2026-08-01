@@ -9,30 +9,30 @@ members = ["packages/*"]
 # Development dependencies for the whole workspace. Usage: uv sync --all-packages --group dev
 [dependency-groups]
 dev = [
-    "ruff>=0.9.0",
-    "mypy>=1.13.0",
-    "pytest>=8.0.0",
-    "pytest-cov>=6.0.0",
-    "pre-commit>=4.2.0",
+    "ruff>=0.16.0",
+    "mypy>=2.3.0",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "pre-commit>=4.6.1",
     # Starlette TestClient (truestill-app tests). httpx2 rather than httpx: httpx has had no
     # release since 2024 with issues and discussions closed, Pydantic maintains httpx2 as its
     # continuation, and starlette.testclient now tries `import httpx2` first and warns on the
     # fallback. Not a preference - the warning is starlette telling every consumer where this
     # goes. httpx itself remains INSTALLED as a transitive dependency of briefcase; what changes
     # is that truestill no longer declares or relies on it.
-    "httpx2>=0.28",
+    "httpx2>=2.9.1",
     # Browser E2E (tests/e2e). The only tool that can execute the client-side JS layer, where
     # every UI bug the soak found actually lived -- a layer pytest alone cannot reach and
     # manual checking cannot regression-pin. Dev group only: it is never a runtime dependency
     # of truestill-core/-cli/-app, and a clean install of any of them pulls no browsers.
-    "pytest-playwright>=0.5",
+    "pytest-playwright>=0.8.0",
     # BUILD-ONLY bundlers for the (aad) packaging measurement. Dev group, never a runtime
     # dependency: they produce an artifact and are absent from it. Per the ruling of
     # 2026-07-31, a build tool that never enters the runtime graph does not carry the §4
     # written-justification burden a shipped dependency does - it ships to nobody, enters no
     # user's security surface, and is deleted with the job that uses it. Gated by
     # `tests/e2e/test_dependency_gating.py` so they cannot drift into a shipped package.
-    "pyinstaller>=6.21",
+    "pyinstaller>=6.21.0",
     "briefcase>=0.4.4",
 ]
 
