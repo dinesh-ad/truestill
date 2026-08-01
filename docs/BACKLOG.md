@@ -207,6 +207,44 @@ section, because what is left is the part that still has to be written.
     - Installer size and startup time.
     - How it interacts with the **parked Tauri-vs-local-web decision** (`(o)` and the Product /
       strategy section) and with **D5's licensing/update server**, which is separately unbuilt.
+  - **Throwaway measurements, 2026-08-01. Recorded because they rule things OUT; they do not
+    choose a bundler, and Linux alone cannot.** Both builds ran on Linux, in scratch venvs
+    outside the repo.
+    - **PyInstaller 6.21, one-dir.** App starts, serves a page, writes its URL file. exiftool
+      resolution **failed at first**: `--add-binary` content lands under `_internal/`, and
+      `dirname(sys.executable)` is not `sys._MEIPASS`, so `bundled_bin_dirs()` came back empty
+      inside a bundle that had shipped exiftool. Fixed by adding the `_MEIPASS` rule, then
+      re-measured in the artifact: resolution now finds it.
+    - **Briefcase 0.4.4, `linux system`.** All four assertions pass against the fixed contract.
+      But `sys.frozen` and `sys._MEIPASS` are **both absent** - it ships an ordinary
+      interpreter - so `is_bundled_install()` reads **False**, and the layout is FHS
+      (`usr/bin/<app>` with code under `usr/lib/<app>/{app,app_packages}`), so the
+      beside-the-executable rule looks in `usr/bin/bin/` and **misses**.
+    - **What that rules out:** the hoped-for "Briefcase needs zero packaging config" advantage
+      **does not hold on Linux**. Measured, not assumed.
+    - **What stays open, and why Linux cannot close it.** `linux system` is a *distro package*,
+      so its FHS layout is required rather than chosen. **Windows Briefcase is one directory
+      with the executable on top**, where a `bin/` sibling is natural - and Windows is the
+      platform installers actually matter for. **Do not extrapolate the Linux result to a
+      recommendation.** A Windows measurement is the missing input.
+    - **Friction, recorded because it is a real input either way.** Briefcase's `linux system`
+      target took **three failed builds** before it would produce anything: it requires a PEP 639
+      `license` declaration (not `license.text`), an actual licence **file** via `license-files`,
+      and a **changelog** file with a recognised name - and it must run under the **distro's**
+      python3, not a venv's, because the package links against system Python. Defensible for a
+      `.deb`, and not a two-minute build. PyInstaller needed one command.
+    - **The `is_bundled_install()` signal for Briefcase, ranked but NOT implemented** - it is
+      only needed if Briefcase wins. The criterion is *does it survive the bundle being
+      incomplete*, and it does the ranking on its own:
+      1. **The running code's own location** (`truestill_core.__file__` under `app_packages/`) -
+         the only candidate that **cannot be absent while the code is executing**.
+      2. *Path shape* (`app/` + `app_packages/` siblings) - survives a missing binary; if
+         `app_packages` were gone nothing could import at all.
+      3. *A marker file we ship* - **weakest**: in a bundle broken by missing files, the marker
+         can be the missing file. That is the failure this rule exists to prevent.
+      4. *`BRIEFCASE_*` environment variables* - **none exist at runtime**; not available.
+         `sys.prefix` is `/usr`, indistinguishable from any system-python script.
+
   - **Settled 2026-07-31: do NOT run a VirusTotal comparison to choose the bundler.** It was
     proposed, approved, and then withdrawn on the design pass. Recorded here with the reasoning
     so it is not proposed again from the same premise - *"the AV claim is load-bearing and
