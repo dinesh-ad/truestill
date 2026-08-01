@@ -25,6 +25,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from truestill_core import binaries
 from truestill_core.binaries import BIN_DIR_ENV
 from truestill_core.exif import EXIFTOOL_BIN_ENV, ExiftoolMissingError, ensure_exiftool
 
@@ -68,9 +69,12 @@ def test_a_packaged_install_is_told_its_installation_is_incomplete(
     act on, about a cause that is not theirs.
     """
     _nowhere(monkeypatch, tmp_path)
-    bundled = tmp_path / "bundled"
-    bundled.mkdir()
-    monkeypatch.setenv(BIN_DIR_ENV, str(bundled))
+    # `sys.frozen` is what a real freezer sets, and nothing else does. The previous version of
+    # this test set TRUESTILL_BIN_DIR instead - a state a real bundle never produces, since the
+    # whole point of the bundled layout is that no environment variable has to be set first. It
+    # passed while the packaged app was telling users to run `sudo apt install`; the throwaway
+    # build found that, not the suite.
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
 
     with pytest.raises(ExiftoolMissingError) as raised:
         ensure_exiftool()
@@ -79,6 +83,41 @@ def test_a_packaged_install_is_told_its_installation_is_incomplete(
     assert "install" in message
     offered = [command for command in ("sudo", "apt", "brew") if command in message]
     assert not offered, f"terminal commands {offered} offered to a packaged install: {message}"
+
+
+def test_a_frozen_app_knows_it_is_one_even_when_its_binary_is_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The coupling that was the defect, asserted directly.
+
+    ``is_bundled_install`` used to be derived from ``bundled_bin_dirs()``, so the two failed
+    together: a bundle whose exiftool was missing also stopped believing it was a bundle, and
+    said the one thing guaranteed to be wrong for its user. A bundle with a *missing* binary is
+    still a bundle.
+    """
+    _nowhere(monkeypatch, tmp_path)
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+
+    assert binaries.bundled_bin_dirs() == [], "precondition: nothing bundled is findable"
+    assert binaries.is_bundled_install() is True
+
+
+def test_a_meipass_bin_directory_is_searched(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Where PyInstaller actually puts it, measured rather than predicted.
+
+    A 6.x one-dir build places ``--add-binary`` content under ``_internal/`` and points
+    ``sys._MEIPASS`` there, so ``dirname(sys.executable)`` and ``_MEIPASS`` are different
+    directories. The throwaway build resolved `bundled_bin_dirs()` to ``[]`` for exactly this
+    reason and could not find the exiftool it had shipped with.
+    """
+    _nowhere(monkeypatch, tmp_path)
+    internal = tmp_path / "_internal"
+    (internal / "bin").mkdir(parents=True)
+    monkeypatch.setattr(sys, "_MEIPASS", str(internal), raising=False)
+
+    assert internal / "bin" in binaries.bundled_bin_dirs()
 
 
 def test_a_source_checkout_is_told_how_to_install_it(

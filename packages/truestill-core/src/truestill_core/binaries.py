@@ -75,8 +75,18 @@ def bundled_bin_dirs() -> list[Path]:
     configured = os.environ.get(BIN_DIR_ENV)
     if configured:
         directories.append(Path(configured))
+    # Where a freezer actually unpacks what it shipped. Added after a throwaway PyInstaller
+    # 6.21 build shipped exiftool and then could not find it: a one-dir build puts
+    # `--add-binary` content under `_internal/` and points `_MEIPASS` there, so
+    # `dirname(sys.executable)` and `_MEIPASS` are *different directories*. Predicted from the
+    # 6.0 changelog, then measured - `bundled_bin_dirs()` returned `[]` inside the bundle.
+    frozen_root = getattr(sys, "_MEIPASS", None)
+    if frozen_root:
+        directories.append(Path(frozen_root) / BUNDLED_DIR_NAME)
     # sys.executable is the interpreter when running from source and the app's own executable
-    # once frozen, which is what makes "beside the executable" mean the right thing in both.
+    # once frozen. Kept because it is the zero-configuration rule a bundler can satisfy by
+    # layout alone - PyInstaller does not, but a bundler that lays the binary beside its
+    # executable needs no packaging config at all.
     if sys.executable:
         directories.append(Path(sys.executable).parent / BUNDLED_DIR_NAME)
     return [d for d in directories if d.is_dir()]
@@ -142,9 +152,21 @@ def popen(command: Sequence[str | Path], **kwargs: Any) -> subprocess.Popen[Any]
 def is_bundled_install() -> bool:
     """Whether truestill appears to be a packaged install rather than a source checkout.
 
-    Derived from **our own contract** - a bundled directory exists - rather than from a marker a
-    particular bundler sets, for the same reason the search order avoids one. Used only to choose
-    which advice a missing-binary message gives: "your installation looks incomplete" is right
-    for a packaged copy and useless for a developer who simply has not installed the tool.
+    **Deliberately NOT derived from `bundled_bin_dirs()`, and that coupling was the defect.**
+    It read "a bundled directory exists", so the two failed *together*: a bundle whose exiftool
+    was missing also stopped believing it was a bundle, and told its user to run
+    ``sudo apt install`` - a terminal command, to someone with no terminal, about a cause that
+    was not theirs. The one situation this function exists to describe was the one situation it
+    got wrong. Found by a throwaway PyInstaller build, not by the suite.
+
+    ``sys.frozen`` is the honest signal because it answers a *different* question from the
+    search path: **what kind of process is this**, rather than *what could be found*. A freezer
+    sets it when it builds the executable, so it stays true whether or not anything inside the
+    bundle is intact - which is exactly the property a broken bundle needs.
+
+    **Known limit, stated rather than discovered later:** freezers set ``sys.frozen``
+    (PyInstaller, cx_Freeze, py2exe); a Briefcase-style install ships an ordinary interpreter
+    and does **not**. If Briefcase is chosen in `(aad)`, this needs a second signal, and the
+    Briefcase throwaway is what should establish which one.
     """
-    return bool(bundled_bin_dirs())
+    return bool(getattr(sys, "frozen", False))
