@@ -56,6 +56,23 @@ class FilesystemFacts:
         return self.filesystem is not None
 
 
+#: Filesystems that store no per-file access control of any kind. FAT32 and exFAT have neither
+#: POSIX permission bits nor Windows ACLs, so a file on one is readable by every account on the
+#: machine whatever mode was requested when it was created.
+_NO_ACCESS_CONTROL = _FAT_NAMES | {"exfat"}
+
+
+def stores_access_control(name: str | None) -> bool:
+    """Whether this filesystem can keep a file to one user.
+
+    **Unknown means yes.** Same rule as `max_file_bytes_for`: a guess that says "no" would warn
+    every user of an undetectable filesystem that their credentials are exposed, and a security
+    warning that fires when nothing is wrong is worse than none - it teaches people to ignore
+    the one that matters.
+    """
+    return name is None or name.strip().lower() not in _NO_ACCESS_CONTROL
+
+
 def fat_family(name: str | None) -> bool:
     """Whether ``name`` is one of FAT32's spellings across the platforms that report it."""
     return name is not None and name.strip().lower() in _FAT_NAMES

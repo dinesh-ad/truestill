@@ -18,11 +18,20 @@ protection is that the data directory lives inside the user's own profile, whose
 user-scoped. That is weaker than ``0600`` and is stated rather than glossed: on a shared Windows
 machine an administrator can read it, exactly as they can read anything else in the profile.
 
-**The mode is verified, not assumed.** FAT32 and exFAT have no permission bits at all: they
-accept ``0600``, ignore it, and report whatever the mount's ``fmask`` says - commonly ``0777``.
-A portable install, a live USB, or a home directory on a removable drive puts this file exactly
-there. So the mode is read back after creation and, when it did not take, **the file says so and
-the console says so**.
+**Privacy is verified, not assumed - and the way to verify it differs by platform.** FAT32 and
+exFAT store no per-file access control at all: they accept ``0600``, ignore it, and report
+whatever the mount's ``fmask`` says. A portable install, a live USB, or a home directory on a
+removable drive puts this file exactly there. So it is checked after creation and, when the
+answer is no, **the file says so and the console says so**.
+
+*On POSIX* the file's own mode answers it. *On Windows the mode says nothing*: CPython
+synthesizes ``st_mode`` (``0o666`` writable, ``0o444`` read-only) and ``os.chmod`` honours only
+the read-only flag, so reading it back there reported **every** file as world-readable - which
+would have fired this warning on every Windows start, on NTFS, where the profile ACL does
+protect the file. A security warning that cries wolf is worse than none. So Windows is asked the
+question it can answer: does this volume store access control at all. Stated honestly, that
+verifies the volume *can* carry an ACL rather than reading the ACL itself; the file inherits the
+user-scoped profile ACL described above, which is the protection on that platform.
 
 *Warn, do not refuse.* Refusing to write would restore the exact defect above - a running,
 listening, unreachable app - and trading a confidentiality weakening for a total loss of access
@@ -40,11 +49,13 @@ process is a link that fails confusingly tomorrow.
 from __future__ import annotations
 
 import stat
+import sys
 import webbrowser
 from dataclasses import dataclass
 from pathlib import Path
 
 from truestill_core.app_paths import session_url_path
+from truestill_core.filesystem import facts_for, stores_access_control
 
 #: Written under the URL. The reader is someone whose app did not open, so it explains what the
 #: file is and why it will not work tomorrow - the two things that would otherwise be guessed.
@@ -84,6 +95,20 @@ def mode_is_private(mode: int) -> bool:
     return not mode & (stat.S_IRWXG | stat.S_IRWXO)
 
 
+def _is_private(target: Path) -> bool:
+    """Whether ``target`` is readable only by this user, asked the way this platform can answer.
+
+    The seam between **detecting** and **deciding**. Conflating the two is what shipped a
+    POSIX-only check as a general one; the policy above depends on this answer and not on how it
+    was reached, and each platform's mechanism is tested against that platform.
+    """
+    if sys.platform == "win32":
+        # The mode is synthesized here and carries no access-control information at all, so the
+        # question becomes whether the volume can hold an ACL. FAT32 and exFAT cannot.
+        return stores_access_control(facts_for(target).filesystem)
+    return mode_is_private(stat.S_IMODE(target.stat().st_mode))
+
+
 @dataclass(frozen=True, slots=True)
 class SessionLink:
     """Where the way back in was written, and whether it could be kept to this user."""
@@ -116,9 +141,9 @@ def write(url: str) -> SessionLink:
     #   write    - truncating is safe now: the file it truncates is the empty 0600 one above.
     target.unlink(missing_ok=True)
     target.touch(mode=0o600)
-    # Read back rather than trusted: `touch` reports success on a filesystem that discarded the
-    # mode, so the only honest source for "is this private" is the file that now exists.
-    private = mode_is_private(stat.S_IMODE(target.stat().st_mode))
+    # Checked rather than trusted: `touch` reports success on a filesystem that discarded the
+    # mode, so the only honest source is the file that now exists.
+    private = _is_private(target)
     warning = "" if private else _NOT_PRIVATE
     target.write_text(f"{url}\n{_NOTE}{warning}", encoding="utf-8")
     return SessionLink(path=target, private=private)
