@@ -699,6 +699,15 @@ section, because what is left is the part that still has to be written.
 - **(jj) Archive ingestion - read a library straight out of its archives.**
   **BUILT 2026-08-01 across four commits, zip and tar. The app UI surface is the only part
   outstanding** - the service functions exist and nothing in the browser calls them yet.
+  - ⚠ **SCOPE, corrected 2026-08-01: this is NOT a Takeout feature.** It reads any `.zip`,
+    `.tar`, `.tgz` or `.tar.gz` from any source - a friend's shared folder, an old backup, a
+    phone export, a NAS dump. **Takeout is the motivating case, not the scope**, and the export
+    table below shows why: every major photo service hands a user a `.zip`. Every user-facing
+    string was audited and reworded; six read as Takeout-specific and no longer do.
+    **What stays named "Takeout", correctly:** `scan_takeout`, the JSON sidecar matching and the
+    `photoTakenTime` parsing are **Google's own format**, and `takeout.py` says so at the top so
+    a future sweep does not "fix" a correct name. A second service with its own sidecar format
+    would get its own module, not a widened name here.
   - **What shipped.**
     1. *Preconditions, before anything is written* (`archive_set`, `archive_ingest`). Header
        reads only - it does not even create the destination, so declining is free. Numbered
@@ -724,12 +733,36 @@ section, because what is left is the part that still has to be written.
     rest**. That is correctness, not convenience: requiring every part would mean forgetting one
     does not fail but *succeeds*, quietly leaving those photos undated.
   - **REFUSED, with reasons, so they are not proposed again as obvious wins.**
-    - **`.7z` and `.rar` are out of scope.** Both need **new runtime dependencies** (`py7zr`,
-      `rarfile`), which engages §4's written-justification rule - and `rarfile` **shells out to
-      an unsigned external `unrar` binary**, which is a poor thing to put inside a product whose
-      whole proposition is custody. The honest answer for a user holding a `.rar` is "extract it
-      yourself first": one step for them, no attack surface for us. Google offers `.zip` and
-      `.tgz`, so neither is on the path this feature exists for.
+    - **`.7z` is out of scope, and the deciding evidence is demand rather than dependencies**
+      (re-examined 2026-08-01 on request, rather than resting on the first refusal).
+      **Users do not choose their archive format - the exporter does**, and no major photo
+      service emits `.7z`:
+
+      | Service | Export format |
+      |---|---|
+      | Google Takeout | `.zip` / `.tgz` |
+      | Facebook | `.zip` |
+      | Flickr | `.zip` |
+      | Amazon Photos | `.zip` |
+      | Dropbox | `.zip` |
+      | iCloud | no archive - individual files |
+
+      So `.7z` is not a format users *receive*; it is one someone might *make* by re-compressing
+      by hand. That distinction is what decides it. The dependency argument (`py7zr` is a new
+      runtime dependency under §4) still applies and is now the *second* reason rather than the
+      only one.
+      **Research gap, recorded honestly:** two searches for user voices on whether the
+      DataHoarder audience re-compresses photo archives to `.7z` returned vendor and reference
+      pages, not people. That question is **unanswered**, and the instrument for it is the soak
+      or a direct forum read - not more web search. If it ever turns out to be common, this
+      refusal is the one to revisit, and the export table above is not the evidence that would
+      settle it.
+    - **`.rar` is out of scope for an INDEPENDENT reason that holds whatever the demand.**
+      `rarfile` **shells out to an unsigned external `unrar` binary**, and a product whose whole
+      proposition is custody should not invoke one on a user's files. This reason survives even
+      if `.rar` turned out to be common, which is why it is recorded apart from the demand
+      question rather than bundled with it. The honest answer for a user holding a `.rar` is
+      "extract it yourself first": one step for them, no attack surface for us.
     - **Archive-inside-archive is refused outright**, naming the entry. Recursive extraction is
       **unbounded depth on untrusted input**, and the Takeout case never needs it.
     - **Delete-staged-files-as-you-go is refused, and deliberately NOT built as an option.**

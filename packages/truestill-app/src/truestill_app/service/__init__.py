@@ -84,6 +84,9 @@ set_layout = _settings.set_layout
 InferredLocalShiftPayload = _takeout.InferredLocalShiftPayload
 IngestPreviewEmpty = _takeout.IngestPreviewEmpty
 IngestPreviewSummary = _takeout.IngestPreviewSummary
+ArchivePrecheckPayload = _takeout.ArchivePrecheckPayload
+archive_precheck = _takeout.archive_precheck
+archive_ingest_run = _takeout.archive_ingest_run
 ingest_preview = _takeout.ingest_preview
 ingest_preview_run = _takeout.ingest_preview_run
 

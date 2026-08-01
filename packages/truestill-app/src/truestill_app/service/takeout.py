@@ -8,12 +8,11 @@ from __future__ import annotations
 
 import threading
 from collections import Counter
-from collections.abc import Sequence
 from pathlib import Path
 from typing import NotRequired, TypedDict
 
 from truestill_core.archive_extract import extract_archive_set
-from truestill_core.archive_ingest import precheck_archives
+from truestill_core.archive_ingest import archives_at, precheck_archives
 from truestill_core.catalog import Catalog
 from truestill_core.categorize import build_rules
 from truestill_core.date_provenance import format_offset
@@ -144,8 +143,13 @@ class ArchivePrecheckPayload(TypedDict):
     detail: str
 
 
-def archive_precheck(archives: Sequence[Path], destination: Path) -> ArchivePrecheckPayload:
+def archive_precheck(source: Path, destination: Path) -> ArchivePrecheckPayload:
     """Preview-then-confirm for archives: the refusals and the cost, before anything is written.
+
+    ``source`` is the single path the user pointed at - a folder in the app, since its picker is
+    a folder picker. `archives_at` turns that into the set, and it is shared with the CLI so the
+    two surfaces cannot drift on what "pointing at a Takeout" means. **Neither ever asks the
+    user to enumerate parts**, because forgetting one would succeed rather than fail.
 
     Reads headers only. Declining is free, which is the whole point of showing this first - the
     alternative is finding out 190 GB into 200.
@@ -153,7 +157,7 @@ def archive_precheck(archives: Sequence[Path], destination: Path) -> ArchivePrec
     ``claimed_bytes`` is **the archives' own claim**, and `detail` says so in words. A user must
     not read a header field as a measurement truestill made.
     """
-    report = precheck_archives(list(archives), destination)
+    report = precheck_archives(archives_at(source), destination)
     return {
         "ok": report.may_proceed,
         "claimed_bytes": report.claimed_bytes,
@@ -165,7 +169,7 @@ def archive_precheck(archives: Sequence[Path], destination: Path) -> ArchivePrec
     }
 
 
-def archive_ingest_run(archives: Sequence[Path], destination: Path, db: Path) -> JobTarget:
+def archive_ingest_run(source: Path, destination: Path, db: Path) -> JobTarget:
     """Unpack an archive set, then run the ordinary Takeout preview over the merged tree.
 
     **The precheck is re-run inside the job**, not trusted from the earlier call: the user may
@@ -180,14 +184,14 @@ def archive_ingest_run(archives: Sequence[Path], destination: Path, db: Path) ->
     def target(
         progress: ProgressCallback, cancel: threading.Event
     ) -> IngestPreviewEmpty | IngestPreviewSummary | ArchivePrecheckPayload:
-        report = precheck_archives(list(archives), destination)
+        report = precheck_archives(archives_at(source), destination)
         if not report.may_proceed:
-            return archive_precheck(archives, destination)
+            return archive_precheck(source, destination)
         extraction = extract_archive_set(
             report.archive_set, destination, progress=progress, cancel=cancel
         )
         if extraction.cancelled:
-            return archive_precheck(archives, destination)
+            return archive_precheck(source, destination)
         return ingest_preview(
             extraction.staging_root, destination, db, progress=progress, cancel=cancel
         )

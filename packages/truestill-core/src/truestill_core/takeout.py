@@ -1,5 +1,14 @@
 """Google Takeout intake -- pure pre-processing that sits in front of the pipeline.
 
+**"Takeout" in this module is CORRECT and must not be swept away.** Archive *reading* is
+source-agnostic - every major photo service exports ``.zip`` - and `(jj)` deliberately says so
+in every user-facing string. This module is the opposite case: the
+JSON sidecar convention, the ``photoTakenTime`` / ``creationTime`` fields and the
+``Photos from YYYY`` folder naming are **Google's own format**, documented in
+``docs/takeout-format.md``. Renaming them to something generic would make the code claim to
+handle a format that does not exist. If a second service ever ships a sidecar format, it gets
+its own module beside this one rather than a widened name here.
+
 Takeout scatters each photo's real metadata into a JSON *sidecar*, ships albums as folders
 of byte-identical duplicate copies, and names the sidecars inconsistently. This module makes
 sense of that without forking any organize/dedup logic: it matches each media file to its

@@ -24,7 +24,7 @@ from truestill_core.app_paths import (
     standard_catalog_path,
 )
 from truestill_core.archive_extract import extract_archive_set
-from truestill_core.archive_ingest import precheck_archives
+from truestill_core.archive_ingest import archives_at, precheck_archives
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_move import CatalogMoveOutcome, move_catalog_to_standard
 from truestill_core.catalog_startup import (
@@ -282,7 +282,11 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_common_options(organize)
 
     ingest = sub.add_parser(
-        "ingest", help="rescue + organize a Google Takeout export (dates from JSON sidecars)"
+        "ingest",
+        help=(
+            "rescue + organize photos from a folder or archive "
+            "(.zip, .tar, .tgz), recovering dates from any sidecars found"
+        ),
     )
     ingest.add_argument(
         "--takeout",
@@ -290,8 +294,8 @@ def _build_parser() -> argparse.ArgumentParser:
         required=True,
         metavar="PATH",
         help=(
-            "extracted Google Takeout directory, or any one of the .zip files Google gave you "
-            "(the other parts are found beside it)"
+            "folder of photos, or an archive (.zip, .tar, .tgz) - any one part of a "
+            "multi-part download will do, the rest are found beside it"
         ),
     )
     ingest.add_argument(
@@ -603,9 +607,11 @@ def _cmd_catalog(args: argparse.Namespace) -> int:
 
 
 def _takeout_root_or_none(given: Path, destination: Path) -> Path | None:
-    """A directory `scan_takeout` can read, unpacking archives first when that is what was given.
+    """A directory the scanner can read, unpacking archives first when that is what was given.
 
-    A user who downloaded a Takeout has ``.zip`` files, not a folder, so both are accepted.
+    **Any archive from any source**, not only Google Takeout: every major photo service hands a
+    user a ``.zip``, and an old backup, a shared folder or a NAS dump is the same shape. Takeout
+    is the motivating case, never the scope - the evidence is tabulated in `BACKLOG.md` `(jj)`.
 
     **Pointing at one part finds the rest.** Google splits an export across numbered files and a
     folder can straddle two of them, so requiring every part on the command line would make an
@@ -622,8 +628,9 @@ def _takeout_root_or_none(given: Path, destination: Path) -> Path | None:
         print(f"error: not a file or directory: {given}", file=sys.stderr)
         return None
 
-    siblings = sorted(given.parent.glob("*.zip"))
-    report = precheck_archives(siblings or [given], destination)
+    # archives_at is shared with the app, so "what did the user point at" cannot drift between
+    # the two surfaces - only the gesture differs, never the invariant that parts are discovered.
+    report = precheck_archives(archives_at(given) or [given], destination)
     print(report.detail)
     if not report.may_proceed:
         return None
@@ -1274,7 +1281,7 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
     takeout_root = _takeout_root_or_none(args.takeout, args.destination)
     if takeout_root is None:
         return 2
-    print(f"Scanning Takeout export at {takeout_root} ...")
+    print(f"Scanning {takeout_root} ...")
     scan = scan_takeout(takeout_root)
     source_scan = scan_source(takeout_root)
     # A Takeout export's own .json sidecars and .html scaffolding are consumed here, not skipped,

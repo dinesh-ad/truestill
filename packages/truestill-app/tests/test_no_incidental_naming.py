@@ -52,6 +52,17 @@ BANNED: dict[str, str] = {
 #: line *before* the scan, so these survive without exempting the whole file around them.
 ALLOWED: tuple[tuple[str, str], ...] = (
     (
+        r"\| (Google Takeout|Facebook|Flickr|Amazon Photos|Dropbox|iCloud) \|",
+        (
+            "the (jj) export-format table in BACKLOG.md. These names ARE the evidence: the "
+            "scope decision - archive reading is source-agnostic, and .7z is refused because "
+            "no service emits it - rests on which services export which format. Stripped, the "
+            "table asserts a conclusion with nothing behind it. Same standing as the cited "
+            "evidence below (PhotoPrism, IMatch): a vendor named to justify an invariant. "
+            "Scoped to table rows so the names cannot spread into prose."
+        ),
+    ),
+    (
         r"github\.com/dinesh-ad/truestill",
         (
             "the real repository URL - package metadata, README links and advisories resolve "

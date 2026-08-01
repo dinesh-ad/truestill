@@ -116,6 +116,37 @@ def _describe(
     return tuple(refusals), " ".join(lines)
 
 
+#: Every suffix `discover_archive_set` can open. Used to decide whether the thing a user pointed
+#: at is "a folder of archives" or "an already-extracted tree".
+ARCHIVE_SUFFIXES = (".zip", ".tar", ".tgz", ".tbz2", ".txz", ".tar.gz", ".tar.bz2", ".tar.xz")
+
+
+def archives_at(path: Path) -> list[Path]:
+    """The archive set the user meant, from the one path they gave.
+
+    **One home for "what did the user point at", shared by the CLI and the app**, because a
+    surface that resolves this differently from its twin is the drift this repo keeps catching.
+
+    The gesture differs by surface and the *invariant* does not: **the user never enumerates
+    parts.** Forgetting one would not fail - it would succeed and quietly leave those photos
+    undated - so neither surface ever asks for a list.
+
+    * a **directory** yields the archives inside it (the app's folder picker, and a CLI user who
+      points at their Downloads folder);
+    * a **file** yields its siblings of the same format (a CLI user who tab-completes one part).
+
+    Returns ``[]`` when there are no archives, which is how a caller distinguishes "a folder of
+    archives" from "an already-extracted Takeout tree" without guessing.
+    """
+    if path.is_dir():
+        candidates = sorted(child for child in path.iterdir() if child.is_file())
+    elif path.is_file():
+        candidates = sorted(sibling for sibling in path.parent.iterdir() if sibling.is_file())
+    else:
+        return []
+    return [c for c in candidates if c.name.lower().endswith(ARCHIVE_SUFFIXES)]
+
+
 def precheck_archives(paths: Sequence[Path], destination: Path) -> ArchivePrecheck:
     """Read the set's headers and report. **Writes nothing, extracts nothing.**
 

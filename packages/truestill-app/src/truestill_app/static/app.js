@@ -1760,14 +1760,14 @@ document.addEventListener("click", guarded(async (e) => {
   }
 }));
 
-// ---------- Import (Takeout) ----------
+// ---------- Import (a folder of photos, or archives from any service) ----------
 let rcJob = null;
 $("rc-preview").onclick = guarded(async () => {
   const takeout = $("rc-takeout").value.trim(), destination = $("rc-dest").value.trim();
   $("rc-result").innerHTML = "";
   await runJob({
     button: $("rc-preview"),
-    busyLabel: "Scanning Takeout…",
+    busyLabel: "Scanning…",
     start: () => api("/api/ingest/preview", { takeout, destination }),
     setJob: (id) => { rcJob = id; },
     progress: rcProgress,
@@ -1777,10 +1777,10 @@ $("rc-preview").onclick = guarded(async () => {
       $("rc-result").innerHTML = startRefusedCard(started, "rc-dest");
     },
     statusForProgress: (p, setStatus) => {
-      if (!p.total) setStatus("Scanning Takeout…");
+      if (!p.total) setStatus("Scanning…");
       else if (p.phase === "scanning") setStatus(scaleStatus("Reading photos", p.done, p.total, "files"));
       else if (p.phase === "hashing") setStatus(scaleStatus("Checking for duplicates", p.done, p.total, "files"));
-      else setStatus(scaleStatus("Scanning Takeout", p.done, p.total, "files"));
+      else setStatus(scaleStatus("Scanning", p.done, p.total, "files"));
     },
     onError: (d) => { $("rc-result").innerHTML = jobErrorCard(d); },
     onCancelled: () => {

@@ -244,6 +244,20 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
             operation="backup",
         )
 
+    async def ingest_archives_precheck(request: Request) -> JSONResponse:
+        # NOT a job: header reads only, so it answers in seconds and writes nothing - which is
+        # what makes declining free. A job here would put a progress bar on a question.
+        body = await request.json()
+        return JSONResponse(
+            service.archive_precheck(Path(body["takeout"]), Path(body["destination"]))
+        )
+
+    async def ingest_archives_run(request: Request) -> JSONResponse:
+        body = await request.json()
+        destination = Path(body["destination"])
+        target = service.archive_ingest_run(Path(body["takeout"]), destination, _db())
+        return _start_drive_job(target, paths=[destination], operation="import preview")
+
     async def ingest_preview(request: Request) -> JSONResponse:
         body = await request.json()
         destination = Path(body["destination"])
@@ -559,6 +573,8 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
         Route("/api/organize/undo/apply", organize_undo_apply, methods=["POST"]),
         Route("/api/verify/run", verify_run, methods=["POST"]),
         Route("/api/ingest/preview", ingest_preview, methods=["POST"]),
+        Route("/api/ingest/archives/precheck", ingest_archives_precheck, methods=["POST"]),
+        Route("/api/ingest/archives/run", ingest_archives_run, methods=["POST"]),
         Route("/api/fs/dirs", fs_dirs),
         Route("/api/fs/validate", fs_validate),
         Route("/api/fs/relationship", fs_relationship),
