@@ -255,6 +255,55 @@ currently have.
 
 ---
 
+### 3.1 Known limit: a HEIC costs ~50x a JPEG to perceptually hash, and the reason is fixable
+
+Perceptual hashing works for HEIC/HEIF - `pillow-heif` is a declared dependency, its opener is
+registered at import in `hashing.py`, and `HEIF_AVAILABLE` reports the degraded case. What was
+not recorded until now is what it **costs**.
+
+**The cause, which is the useful half.** `perceptual_hash` calls `image.draft("L", (64, 64))`
+before hashing - a hint asking the decoder for a cheap, small, grayscale read, since a dHash only
+ever needs 8x8. **`draft()` reaches JPEG and does nothing for HEIF.** Measured directly on one
+4000x3000 image saved both ways:
+
+| format | `draft("L", (64,64))` | result |
+|---|---|---|
+| JPEG | `(4000, 3000)` -> `(500, 375)` | **effective** - a DCT-scaled 1/8 decode |
+| HEIC | `(4000, 3000)` -> `(4000, 3000)` | **no-op** - the full 12 MP frame is decoded, then thrown away |
+
+So this is not "HEIF is a heavier codec" so much as **the existing optimisation does not reach
+it**. That distinction is the whole reason to record this.
+
+**Measured 2026-08-02**, to the §2.1 method (median and observed max over n runs, machine class
+named). AMD Ryzen 7 4800H, Linux, Python 3.13, Pillow 12.3.0, pillow-heif 1.5.0.
+
+| content | n | JPEG median | JPEG max | HEIC median | HEIC max | ratio |
+|---|---|---|---|---|---|---|
+| photo-like (smooth + mild texture) | 7 | **6.2 ms** | 6.6 ms | **319.5 ms** | 361.7 ms | **52x** |
+| pure noise | 7 | 49.7 ms | 50.2 ms | 1064.1 ms | 1087.5 ms | 21x |
+
+**Content-dependent, so quote the pair and never one number.** JPEG's `draft()` saving grows the
+more compressible the image is, which is why the ratio moves from 21x on noise to ~50x on
+photo-like content. Real photographs sit nearer the photo-like row; noise is a worst case for
+both codecs and is included only to bracket the range.
+
+**Corpus caveat, stated rather than smoothed over.** These are **synthetic 12 MP fixtures on one
+machine**, not a real library, so this is a *known limit with numbers attached* and **not a
+baseline row** in §1 - it does not describe a pipeline stage over a named corpus the way those
+rows do. Two earlier photo-like runs gave 5.9 ms / 336.7 ms and 6.2 ms / 319.5 ms; treat the
+ratio as "about fifty times", not as 52.
+
+**Why it matters more than it looks.** HEIC has been the iPhone default capture format since
+2017, so on a modern phone library this is the **common** path rather than an edge case, and
+perceptual hashing runs for every image (unlike SHA-256, which the size pre-filter spares for
+~94% of files). It is also parallelised across files by the worker pool, so the wall-clock effect
+is the pool's throughput rather than a straight multiplication.
+
+**Deliberately NOT on the do-not-touch list in §4**, because there is a live hypothesis: pillow-heif
+exposes scaled/thumbnail decode paths, and a dHash needs 8x8. Using one where `draft()` currently
+no-ops would plausibly recover most of the difference. **That is untested** - nobody has measured
+it, and it is written here as the next experiment rather than as a plan.
+
 ## 4. Non-findings - things to leave alone
 
 Recorded so a future optimizer doesn't "improve" them:

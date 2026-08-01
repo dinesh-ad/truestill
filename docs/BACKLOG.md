@@ -486,6 +486,23 @@ section, because what is left is the part that still has to be written.
     (`organizer.py:205-210`) says an unreadable file *"surfaces as `ActionStatus.FAILED` when the
     copy raises"* without saying **run only**, so the code comment currently reads as though this
     item were already closed.
+  - **SECOND SITE, same shape: the perceptual tier (added 2026-08-02).** Found while verifying a
+    proposed HEIC feature that turned out not to exist. `perceptual_hash` returns `None` and the
+    reason is discarded, so **one sentinel carries at least four distinct meanings**: this is a
+    video (correct - no perceptual hash exists for it), this is not an image at all, this image is
+    above the 300 MP ceiling and was deliberately skipped, or **this image could not be decoded**.
+    `DedupIndex.check` skips the perceptual tier when it sees `None` and `register` omits the file
+    from the index - both silently - so a file that failed to decode is indistinguishable
+    downstream from a video that never had a hash to begin with.
+  - **Nothing counts or names a per-file perceptual failure.** No counter, no log line, no report
+    field. What *is* reported loudly is the whole-library case: when `HEIF_AVAILABLE` is false the
+    CLI prints a note and the app emits `heic_perceptual_skipped`. That asymmetry is what makes
+    the per-file case easy to miss - the surface looks covered because its noisiest neighbour is.
+  - **The requirement is the same one, restated for this tier:** distinguish *"no perceptual hash
+    is correct here"* from *"we tried and failed", and count and name only the second. Not
+    HEIC-specific and not new work beyond what this entry already asks for - it is the same
+    overloaded-`None` fix in a second place, which is why it is recorded here rather than as its
+    own letter.
 
 - **(vv) Known limit: app per-drive job lock is process-local; CLI↔app overlap is not serialized.**
   Recorded 2026-07-29 when Commit 3 of (oo) shipped the server-side one-op-per-drive guard.
