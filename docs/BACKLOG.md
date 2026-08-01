@@ -26,7 +26,7 @@ Letters are **permanent identifiers, not an ordering** - `IMPLEMENTATION_STANDAR
 `(u)` by letter, so reusing or renumbering one silently redirects a citation. They are assigned
 across *all* sections of this file, not per-section.
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aam). Next free: (aan).** Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aan). Next free: (aao).** Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -41,6 +41,42 @@ Everything here has work left. **Two entries are partial and say so in their own
 `(bbb)` (the safety half shipped, the `_original` recovery offer did not) and `(r)` (the hash
 cache shipped, Analyze mode itself did not). A partial entry lives here, not in the built
 section, because what is left is the part that still has to be written.
+
+- **(aan) A "verified against code" clause must still resolve.** Recorded 2026-08-01 while
+  moving `(aae)` and `(jj)` into the built section. **Record only - needs its own
+  measured-scope pass before it is built.**
+  - **The failure it prevents.** `(aae)` sat in the wrong section asserting a *"Current state,
+    verified against code 2026-07-31"* that named `DEFAULT_CATALOG_PATH`, `catalog_startup.py`,
+    `cli.py` and `server.py` line numbers. The symbol had been deleted and the line numbers had
+    moved. **A document saying it was code-verified is not evidence**, and a cold start has no
+    way to tell which of those citations still means anything.
+  - **Why the obvious guard is the wrong one, measured before proposing it.** A check keyed on
+    completion vocabulary appearing in the section for open work **misses `(aae)` entirely**,
+    because that entry carried none of it - it said *record only*. It also cry-wolfs
+    immediately on `(bbb)` and `(r)`, which are legitimately partial, say so, and are licensed
+    by this section's own preamble. So the discriminator is not status vocabulary. It is
+    whether the entry's factual claims about code still hold.
+  - **The check that fits:** every backticked **symbol** inside a verified-against-code clause
+    must exist under `packages/*/src`. Symbols, never line numbers -
+    `IMPLEMENTATION_STANDARDS.md` already states that symbols are cited over line numbers
+    because line numbers drift by design.
+  - **The cry-wolf surface, which is why this is recorded and not built.** A backtick in these
+    documents holds a Python symbol, a table name (`file_copies`), a column
+    (`files.date_source`), a CLI flag (`--apply`), a setting key
+    (`layout.everyday_day_threshold`), a typed confirm word (`delete forever`) and a filename.
+    Only the first is checkable this way and no regex separates them by shape. Whatever rule is
+    chosen needs the measured before/after row this repo asks of every guard - the worked
+    example is `test_backlog_references.py`, scoped against the real file rather than a
+    plausible phrase list.
+  - **A second instance of the same class, in case the guard should generalize.**
+    `scripts/benchmark_hashing.py` says `TRUESTILL_CORPUS` is *"named by environment variable
+    (`docs/PROJECT_STATUS.md` §6)"*. §6 exists and documents nothing of the kind - the variable
+    appears nowhere in that file. A live citation to a real section that does not carry the
+    claim, which an anchor-existence check would not catch either.
+  - **Related, not the same.** `test_backlog_references.py` already guards the opposite
+    direction - a settled item described as pending elsewhere - and deliberately scans only
+    settled sections. Noted while here: its `_SETTLED` markers do not match
+    `## Shipped (kept for provenance)`, so that section is currently outside its scope.
 
 - **(aak) The skipped-file summary is written twice.** `organizer._skipped_extension_counts`
   and `service/organize._skipped_summary` are the same logic in two homes - extension counts
@@ -131,59 +167,6 @@ section, because what is left is the part that still has to be written.
     not delete - it would have to be a *reclaim* offer or a side-bin move, and (§1) constrains
     both; and whether the existing distance threshold is the right grouping key or only the
     right detection key.
-
-- **(aae) Catalog and cache belong in OS-conventional locations, and are not the same kind of
-  data.** Ruled by the maintainer, 2026-07-31. **Record only - do not build.**
-  - **Current state, verified against code 2026-07-31.** `DEFAULT_CATALOG_PATH =
-    Path("reports/catalog.sqlite")` (`catalog_startup.py:31`), shared by the CLI (`cli.py:116`)
-    and the app (`server.py:48`) so both agree - and **relative, therefore resolved against the
-    working directory**. The cache is `catalog.with_suffix(".cache.sqlite")`
-    (`hash_cache.cache_path_for`), placed beside the catalog by `HashCache.beside(db)` at all
-    eleven call sites. The reading that prompted this entry is confirmed exactly.
-  - **The finding: two different kinds of data sharing one fate.** `catalog.sqlite` is **user
-    data** - the custody record, human-confirmed dates (`date_confirmations`), trip names.
-    Losing it is unrecoverable. `catalog.cache.sqlite` is **cache** - derived, disposable, and
-    its own module already says "delete this file and nothing is lost but time" (~12 s to
-    rebuild). The cross-platform convention separates them precisely because their correct
-    treatment differs: `user_data_dir` vs `user_cache_dir` (XDG on Linux,
-    `~/Library/Application Support` vs `~/Library/Caches` on macOS, `%APPDATA%` vs
-    `%LOCALAPPDATA%` on Windows).
-  - **Why this is more than tidiness.**
-    - A cache in the OS cache location may be **cleared by the OS or excluded from backups** -
-      which is *correct* for a cache and *catastrophic* for a catalog. Today they share a
-      directory, so any such policy hits both.
-    - **CWD-relative defaults produced the silent-empty-catalog trap.** Announcing the resolved
-      path (`catalog_startup.inspect_catalog`) treated the symptom; the cause is that running
-      from a different directory silently addresses a different catalog.
-    - **(aad) installers make it fatal.** A double-clicked desktop app has no meaningful working
-      directory, so a relative default is not merely untidy there - it is undefined.
-  - **The cache is ONE file, deliberately, and that does not change.** Not per-folder and not
-    per-year. It is keyed by absolute path + size + `mtime_ns`, so a single sidecar serves every
-    drive and every run. Scattering cache files through a user's library would make the library
-    non-portable and would leave truestill's droppings inside the very folders it promises only
-    to organize. Moving the file must not become an excuse to split it.
-  - **Open questions, deliberately not answered here.**
-    - **Is `platformdirs` justified under the no-new-dependency rule** (`ENGINEERING_STANDARD.md`
-      §4: every runtime dep justifies itself against a stdlib alternative *in writing*)? It is
-      small, single-purpose, and the alternative is hand-rolling three platform conventions;
-      Black depends on it. The rule is not "never" - it is "argue it in writing", and that
-      argument has not been made yet.
-    - **How is an existing `reports/catalog.sqlite` found or migrated?** It must be adopted, not
-      orphaned - a user whose custody record silently becomes an empty new catalog is the
-      silent-empty-catalog trap again, wearing a fix as a disguise.
-    - **Does `--db` stay the override?** Presumably yes, but the interaction with an explicit
-      path, `explicit_db`, and the startup inspection needs stating.
-    - **Is `catalog.sqlite` the right FILENAME?** Decide it **together with the location**, not
-      separately: both are migrations of the same file, and two migrations of one file is one
-      too many. Context for whoever picks it up: *"catalog"* as a concept is correct and
-      industry-standard (Lightroom's `.lrcat`, Capture One) and is the word the target audience
-      already uses - **do not rename the `Catalog` class**, and (ccc)'s split stands, where
-      user-facing wording is "library record" while the code keeps "catalog". The weak point is
-      that the *file* is anonymous: `catalog.sqlite` says nothing about which app owns it, and
-      Lightroom solved exactly this with a self-describing extension. Options include
-      `truestill.db`, `truestill-catalog.sqlite`, `library.truestill`, or leaving it as
-      `catalog.sqlite` once the enclosing directory is `~/.local/share/truestill` and names the
-      app itself.
 
 - **(aad) Desktop installers - LAUNCH-BLOCKING for the paid product.** Ruled by the maintainer,
   2026-07-31. **Record only - no design pass yet, and it does not block the current
@@ -777,136 +760,6 @@ section, because what is left is the part that still has to be written.
     several events within one day - a time-anchored key (day plus cluster start, tolerance
     matched) is the obvious candidate and needs its own design pass and its own evidence.
 
-- **(jj) Archive ingestion - read a library straight out of its archives.**
-  **BUILT AND COMPLETE 2026-08-01. Nothing outstanding.** Zip and tar, core through UI, in eight
-  commits: the preconditions (`abcd1fb`), the extractor (`346135c`), the pipeline wiring
-  (`ca6effc`), tar and `.tgz` (`d330fce`), this record (`c08ed03`), the scope correction
-  (`c08eb50`), the `--source` rename (`8dbbb50`) and the UI (`4606713`). Guard rule 8
-  (`720b217`) came out of the tar work and is recorded in `ENGINEERING_STANDARD.md`.
-  - ⚠ **SCOPE, corrected 2026-08-01: this is NOT a Takeout feature.** It reads any `.zip`,
-    `.tar`, `.tgz` or `.tar.gz` from any source - a friend's shared folder, an old backup, a
-    phone export, a NAS dump. **Takeout is the motivating case, not the scope**, and the export
-    table below shows why: every major photo service hands a user a `.zip`. Every user-facing
-    string was audited and reworded; six read as Takeout-specific and no longer do.
-    **What stays named "Takeout", correctly:** `scan_takeout`, the JSON sidecar matching and the
-    `photoTakenTime` parsing are **Google's own format**, and `takeout.py` says so at the top so
-    a future sweep does not "fix" a correct name. A second service with its own sidecar format
-    would get its own module, not a widened name here.
-  - **What shipped.**
-    1. *Preconditions, before anything is written* (`archive_set`, `archive_ingest`). Header
-       reads only - it does not even create the destination, so declining is free. Numbered
-       parts are grouped into one logical set, **gaps are named** (a set missing `-009` would
-       otherwise yield a library with a hole in it, silently), and space is checked against the
-       destination drive. The size shown is labelled in the user-facing text as **the archives'
-       own claim, never a measurement truestill made** - it is a header field whoever built the
-       archive chose.
-    2. *Extraction* (`archive_extract`). The journal is written and **fsynced before any byte
-       exists**, so a crash never leaves files nothing can attribute; recovery is proven against
-       a real `SIGKILL` and asserted **from a fresh process**. Entry names are **refused, not
-       rewritten**. Files are written to a sibling and renamed, because a truncated JPEG still
-       hashes. The byte budget is the *lower* of free space minus a 1 GiB reserve and the claim
-       plus 10%, and it aborts on the **real running total** rather than the declared one.
-    3. *Pipeline wiring* (`scan_takeout` unchanged - **that it needs no change is the claim, and
-       it is asserted**). The multi-part correctness test builds a `Photos from 2014` folder that
-       genuinely straddles two parts and proves the sidecar still matches; its cry-wolf
-       counterpart proves extracting the parts separately **loses the date**.
-    4. *Tar and `.tgz`*, via `tarfile.data_filter` **per member** rather than
-       `extractall(filter="data")`, so tar shares the same counter, journal and rename as zip
-       instead of forking the extractor.
-  - **CLI:** `--source` takes an archive or a directory, and **pointing at one part finds the
-    rest**. That is correctness, not convenience: requiring every part would mean forgetting one
-    does not fail but *succeeds*, quietly leaving those photos undated.
-    `--takeout` remains as a **permanent hidden alias** - it shipped, scripts use it, it costs
-    one line and resolves to the same `dest`, so there is no second code path and a removal
-    window would break those scripts in exchange for nothing.
-  - **REFUSED, with reasons, so they are not proposed again as obvious wins.**
-    - **`.7z` is out of scope, and the deciding evidence is demand rather than dependencies**
-      (re-examined 2026-08-01 on request, rather than resting on the first refusal).
-      **Users do not choose their archive format - the exporter does**, and no major photo
-      service emits `.7z`:
-
-      | Service | Export format |
-      |---|---|
-      | Google Takeout | `.zip` / `.tgz` |
-      | Facebook | `.zip` |
-      | Flickr | `.zip` |
-      | Amazon Photos | `.zip` |
-      | Dropbox | `.zip` |
-      | iCloud | no archive - individual files |
-
-      So `.7z` is not a format users *receive*; it is one someone might *make* by re-compressing
-      by hand. That distinction is what decides it. The dependency argument (`py7zr` is a new
-      runtime dependency under §4) still applies and is now the *second* reason rather than the
-      only one.
-      **Research gap, recorded honestly:** two searches for user voices on whether the
-      DataHoarder audience re-compresses photo archives to `.7z` returned vendor and reference
-      pages, not people. That question is **unanswered**, and the instrument for it is the soak
-      or a direct forum read - not more web search. If it ever turns out to be common, this
-      refusal is the one to revisit, and the export table above is not the evidence that would
-      settle it.
-    - **`.rar` is out of scope for an INDEPENDENT reason that holds whatever the demand.**
-      `rarfile` **shells out to an unsigned external `unrar` binary**, and a product whose whole
-      proposition is custody should not invoke one on a user's files. This reason survives even
-      if `.rar` turned out to be common, which is why it is recorded apart from the demand
-      question rather than bundled with it. The honest answer for a user holding a `.rar` is
-      "extract it yourself first": one step for them, no attack surface for us.
-    - **Archive-inside-archive is refused outright**, naming the entry. Recursive extraction is
-      **unbounded depth on untrusted input**, and the Takeout case never needs it.
-    - **Delete-staged-files-as-you-go is refused, and deliberately NOT built as an option.**
-      It would halve the peak disk requirement, which is exactly why it looks like an obvious
-      win. truestill's whole posture is that **it never destroys the user's source**, and an
-      option to delete the input is a switch that exists only to be regretted at 3am. If disk
-      space is genuinely the blocker, the honest answer is *"extract fewer archives at a time"* -
-      a step for the user, and no invariant lost.
-  - **The UI shipped in `4606713`** and is not outstanding. Preview-then-confirm in the Rescue
-    screen, progress and cancel through the existing job machinery, and the space figure
-    labelled in the copy as the archives' own claim.
-    **Refusals carry their CODE in the DOM** (`data-refusal="<code>"`), and the browser tests key
-    on that rather than on the sentence - five refusals render similar-looking prose, so matching
-    words lets a test pass because a *different* refusal fired. That is guard rule 8, and it is
-    mutation-proved: dropping the codes fails the same three tests as ignoring the refusal
-    entirely, so the provenance assertion is load-bearing rather than decoration.
-    Eight Playwright tests drive the flows rather than asserting about them, per
-    `ENGINEERING_STANDARD.md` §2, and the seven HTTP tests cover the two API routes that were
-    briefly untested.
-  - **Original design notes below, kept for the reasoning that produced the above.** Three of
-    them were **overtaken by what was built** and say so inline, rather than being left as a
-    second, contradictory answer in the same entry.
-  - Near-launch priority: it is central to the Takeout-rescue pitch, because what a refugee
-    actually has is a pile of archives, not an extracted folder. Generalized from the older
-    "zip-direct Takeout" note, which was too narrow - the problem is archives, not Google's.
-  - **One archive-source interface**, so the pipeline sees a source of media and does not care
-    what it came out of. The same shape `Destination` already demonstrates, at the other end.
-  - ⚠ **SUPERSEDED - `.7z` was to be first-class via a pip package.** It is not: see the refusal
-    above. A pip package is still a **new runtime dependency** under §4, and the format is not on
-    the path this feature exists for - Google offers `.zip` and `.tgz`.
-  - ⚠ **SUPERSEDED - `.rar` was to be optional, lighting up when `unrar` is present.** Refused
-    above instead. "Optional" understated the cost: `rarfile` **shells out to an unsigned
-    external binary**, and a product selling custody should not invoke one on the user's files.
-    The honest-about-absence instinct in the original note is right and survives - it is now
-    applied to the *refusal* (name the format, say to extract it first) rather than to a
-    degraded mode.
-  - ⚠ **A multi-part set is ONE archive.** Google splits an export across `takeout-001.zip`,
-    `-002.zip` and so on, and **a photo and its JSON sidecar can land in different parts**.
-    Treating the parts independently silently breaks date rescue for exactly the files this
-    feature exists to rescue. The set is opened as a unit or not at all.
-  - ⚠ **SUPERSEDED - "streamed extraction, never a full unpack".** Extraction to disk was ruled
-    2026-08-01 and is **forced, not chosen**: exiftool is a subprocess that needs a real file,
-    and hashing, EXIF reading and copying all assume one, so a pure stream cannot feed the
-    pipeline. The design question was never *whether* to extract but *where and with what
-    protections*.
-    The cost this bullet was worried about is real and is answered rather than dodged: staging
-    goes on the **destination drive** (not the system temp dir, which on many machines is a
-    tmpfs), the space precondition states the requirement **before** any work starts, and the
-    only way to halve the peak - deleting staged files as you go - is **refused above**. The
-    honest mitigation for a user short of space is to extract fewer archives at a time.
-    What did survive from this bullet is *streaming within* extraction: entries are read in
-    fixed chunks through a running byte counter, never whole into memory.
-  - **Copy-only, as everywhere else: an archive is never modified**, never deleted, never
-    rewritten in place. It is a read-only source.
-  - **Encrypted archives are detected and surfaced**, never silently skipped. "I could not read
-    this, here is why" is the never-silent rule applied to a container.
-
 - **Recognize additional real-world video extensions (l).** The metadata-chain corpus surfaced
   container formats truestill's `MEDIA_EXTENSIONS` doesn't recognize, so they are skipped (now
   *reported*, not silent). Recognize the ones that are actually common - **`.vob`, `.ts`, `.m2v`,
@@ -1266,6 +1119,189 @@ recording shipped work as unstarted, which is the more expensive direction of th
   `date_provenance.py`. `models._format_offset_hhmm` / `_parse_offset_hhmm` deleted - both
   sides share the provenance module. `dates.py` keeps resolve chain, EXIF/filename parsing,
   and Tier A/B sentinels.
+
+- **(aae) Catalog and cache belong in OS-conventional locations, and are not the same kind of
+  data.** Ruled by the maintainer, 2026-07-31.
+  - **Built.** `5db91b9` resolved catalog and cache to OS-conventional locations; `5bf98b1`
+    added the `truestill catalog` command that says where the catalog lives and moves it on
+    request; `42b30d0` made the resolution happen per call and isolated it in tests; `df9bd13`
+    narrowed the legacy question to the case where a working directory was actually chosen.
+  - **Current state, verified against code 2026-08-01.** `default_catalog_path`
+    (`app_paths.py`) resolves **on every call** rather than as a module constant, so an
+    override set after import is still honoured and a test can isolate it. The old
+    `DEFAULT_CATALOG_PATH` is **gone** - `catalog_startup.py` carries a comment at the site
+    saying why it was removed. `TRUESTILL_DATA_DIR` and `TRUESTILL_CACHE_DIR` (`DATA_DIR_ENV`,
+    `CACHE_DIR_ENV`) override both roots on every platform, which is what makes the suite
+    isolatable by construction rather than by discipline. `LEGACY_CATALOG_PATH` wins when it
+    exists and a working directory was genuinely chosen, so an upgrade keeps using the catalog
+    the user already has instead of silently opening an empty new one; `standard_catalog_path`
+    is where it *belongs*, and `move_catalog_to_standard` (`catalog_move.py`) is the explicit,
+    refusing-on-doubt move between the two.
+  - **The open questions are answered.** `platformdirs` **is** justified in writing, at the top
+    of `app_paths.py`, against the stdlib alternative as `ENGINEERING_STANDARD.md` §4 requires.
+    An existing `reports/catalog.sqlite` is **adopted, never orphaned**. The filename stayed
+    `catalog.sqlite` (`CATALOG_FILENAME`), the enclosing directory now naming the app instead -
+    which was the recorded weak point, and the enclosing directory answering it was one of the
+    options this entry listed.
+  - **`--db` stays the override, traced 2026-08-01 because this entry left it open.** Both
+    surfaces take an explicit path ahead of the resolved default: every catalog-touching CLI
+    subcommand declares `--db` with `default=default_catalog_path()`, and the app does
+    `args.db if explicit_db else default_catalog_path()`. Whether the path was **named** rather
+    than **resolved** is carried separately as `explicit_db`, threaded to `inspect_catalog`,
+    `create_app` and `library_status`, so the startup announcement can say which of the two
+    happened rather than printing a path with no provenance.
+  - **The finding that produced it, kept as provenance: two different kinds of data sharing one
+    fate.** `catalog.sqlite` is **user data** - the custody record, human-confirmed dates
+    (`date_confirmations`), trip names. Losing it is unrecoverable. `catalog.cache.sqlite` is
+    **cache** - derived, disposable, and its own module already says "delete this file and
+    nothing is lost but time" (~12 s to rebuild). The cross-platform convention separates them
+    precisely because their correct treatment differs: `user_data_dir` vs `user_cache_dir` (XDG
+    on Linux, `~/Library/Application Support` vs `~/Library/Caches` on macOS, `%APPDATA%` vs
+    `%LOCALAPPDATA%` on Windows).
+  - **Why it was more than tidiness.**
+    - A cache in the OS cache location may be **cleared by the OS or excluded from backups** -
+      which is *correct* for a cache and *catastrophic* for a catalog. Sharing a directory meant
+      any such policy hit both.
+    - **CWD-relative defaults produced the silent-empty-catalog trap.** Announcing the resolved
+      path (`catalog_startup.inspect_catalog`) treated the symptom; the cause was that running
+      from a different directory silently addressed a different catalog.
+    - **(aad) installers make it fatal.** A double-clicked desktop app has no meaningful working
+      directory, so a relative default is not merely untidy there - it is undefined.
+  - **The cache is ONE file, deliberately, and that does not change.** Not per-folder and not
+    per-year. It is keyed by absolute path + size + `mtime_ns`, so a single sidecar serves every
+    drive and every run. Scattering cache files through a user's library would make the library
+    non-portable and would leave truestill's droppings inside the very folders it promises only
+    to organize. Moving the file must not become an excuse to split it.
+
+- **(jj) Archive ingestion - read a library straight out of its archives.**
+  **BUILT AND COMPLETE 2026-08-01. Nothing outstanding.** Zip and tar, core through UI, in eight
+  commits: the preconditions (`abcd1fb`), the extractor (`346135c`), the pipeline wiring
+  (`ca6effc`), tar and `.tgz` (`d330fce`), this record (`c08ed03`), the scope correction
+  (`c08eb50`), the `--source` rename (`8dbbb50`) and the UI (`4606713`). Guard rule 8
+  (`720b217`) came out of the tar work and is recorded in `ENGINEERING_STANDARD.md`.
+  - ⚠ **SCOPE, corrected 2026-08-01: this is NOT a Takeout feature.** It reads any `.zip`,
+    `.tar`, `.tgz` or `.tar.gz` from any source - a friend's shared folder, an old backup, a
+    phone export, a NAS dump. **Takeout is the motivating case, not the scope**, and the export
+    table below shows why: every major photo service hands a user a `.zip`. Every user-facing
+    string was audited and reworded; six read as Takeout-specific and no longer do.
+    **What stays named "Takeout", correctly:** `scan_takeout`, the JSON sidecar matching and the
+    `photoTakenTime` parsing are **Google's own format**, and `takeout.py` says so at the top so
+    a future sweep does not "fix" a correct name. A second service with its own sidecar format
+    would get its own module, not a widened name here.
+  - **What shipped.**
+    1. *Preconditions, before anything is written* (`archive_set`, `archive_ingest`). Header
+       reads only - it does not even create the destination, so declining is free. Numbered
+       parts are grouped into one logical set, **gaps are named** (a set missing `-009` would
+       otherwise yield a library with a hole in it, silently), and space is checked against the
+       destination drive. The size shown is labelled in the user-facing text as **the archives'
+       own claim, never a measurement truestill made** - it is a header field whoever built the
+       archive chose.
+    2. *Extraction* (`archive_extract`). The journal is written and **fsynced before any byte
+       exists**, so a crash never leaves files nothing can attribute; recovery is proven against
+       a real `SIGKILL` and asserted **from a fresh process**. Entry names are **refused, not
+       rewritten**. Files are written to a sibling and renamed, because a truncated JPEG still
+       hashes. The byte budget is the *lower* of free space minus a 1 GiB reserve and the claim
+       plus 10%, and it aborts on the **real running total** rather than the declared one.
+    3. *Pipeline wiring* (`scan_takeout` unchanged - **that it needs no change is the claim, and
+       it is asserted**). The multi-part correctness test builds a `Photos from 2014` folder that
+       genuinely straddles two parts and proves the sidecar still matches; its cry-wolf
+       counterpart proves extracting the parts separately **loses the date**.
+    4. *Tar and `.tgz`*, via `tarfile.data_filter` **per member** rather than
+       `extractall(filter="data")`, so tar shares the same counter, journal and rename as zip
+       instead of forking the extractor.
+  - **CLI:** `--source` takes an archive or a directory, and **pointing at one part finds the
+    rest**. That is correctness, not convenience: requiring every part would mean forgetting one
+    does not fail but *succeeds*, quietly leaving those photos undated.
+    `--takeout` remains as a **permanent hidden alias** - it shipped, scripts use it, it costs
+    one line and resolves to the same `dest`, so there is no second code path and a removal
+    window would break those scripts in exchange for nothing.
+  - **REFUSED, with reasons, so they are not proposed again as obvious wins.**
+    - **`.7z` is out of scope, and the deciding evidence is demand rather than dependencies**
+      (re-examined 2026-08-01 on request, rather than resting on the first refusal).
+      **Users do not choose their archive format - the exporter does**, and no major photo
+      service emits `.7z`:
+
+      | Service | Export format |
+      |---|---|
+      | Google Takeout | `.zip` / `.tgz` |
+      | Facebook | `.zip` |
+      | Flickr | `.zip` |
+      | Amazon Photos | `.zip` |
+      | Dropbox | `.zip` |
+      | iCloud | no archive - individual files |
+
+      So `.7z` is not a format users *receive*; it is one someone might *make* by re-compressing
+      by hand. That distinction is what decides it. The dependency argument (`py7zr` is a new
+      runtime dependency under §4) still applies and is now the *second* reason rather than the
+      only one.
+      **Research gap, recorded honestly:** two searches for user voices on whether the
+      DataHoarder audience re-compresses photo archives to `.7z` returned vendor and reference
+      pages, not people. That question is **unanswered**, and the instrument for it is the soak
+      or a direct forum read - not more web search. If it ever turns out to be common, this
+      refusal is the one to revisit, and the export table above is not the evidence that would
+      settle it.
+    - **`.rar` is out of scope for an INDEPENDENT reason that holds whatever the demand.**
+      `rarfile` **shells out to an unsigned external `unrar` binary**, and a product whose whole
+      proposition is custody should not invoke one on a user's files. This reason survives even
+      if `.rar` turned out to be common, which is why it is recorded apart from the demand
+      question rather than bundled with it. The honest answer for a user holding a `.rar` is
+      "extract it yourself first": one step for them, no attack surface for us.
+    - **Archive-inside-archive is refused outright**, naming the entry. Recursive extraction is
+      **unbounded depth on untrusted input**, and the Takeout case never needs it.
+    - **Delete-staged-files-as-you-go is refused, and deliberately NOT built as an option.**
+      It would halve the peak disk requirement, which is exactly why it looks like an obvious
+      win. truestill's whole posture is that **it never destroys the user's source**, and an
+      option to delete the input is a switch that exists only to be regretted at 3am. If disk
+      space is genuinely the blocker, the honest answer is *"extract fewer archives at a time"* -
+      a step for the user, and no invariant lost.
+  - **The UI shipped in `4606713`** and is not outstanding. Preview-then-confirm in the Rescue
+    screen, progress and cancel through the existing job machinery, and the space figure
+    labelled in the copy as the archives' own claim.
+    **Refusals carry their CODE in the DOM** (`data-refusal="<code>"`), and the browser tests key
+    on that rather than on the sentence - five refusals render similar-looking prose, so matching
+    words lets a test pass because a *different* refusal fired. That is guard rule 8, and it is
+    mutation-proved: dropping the codes fails the same three tests as ignoring the refusal
+    entirely, so the provenance assertion is load-bearing rather than decoration.
+    Eight Playwright tests drive the flows rather than asserting about them, per
+    `ENGINEERING_STANDARD.md` §2, and the seven HTTP tests cover the two API routes that were
+    briefly untested.
+  - **Original design notes below, kept for the reasoning that produced the above.** Three of
+    them were **overtaken by what was built** and say so inline, rather than being left as a
+    second, contradictory answer in the same entry.
+  - Near-launch priority: it is central to the Takeout-rescue pitch, because what a refugee
+    actually has is a pile of archives, not an extracted folder. Generalized from the older
+    "zip-direct Takeout" note, which was too narrow - the problem is archives, not Google's.
+  - **One archive-source interface**, so the pipeline sees a source of media and does not care
+    what it came out of. The same shape `Destination` already demonstrates, at the other end.
+  - ⚠ **SUPERSEDED - `.7z` was to be first-class via a pip package.** It is not: see the refusal
+    above. A pip package is still a **new runtime dependency** under §4, and the format is not on
+    the path this feature exists for - Google offers `.zip` and `.tgz`.
+  - ⚠ **SUPERSEDED - `.rar` was to be optional, lighting up when `unrar` is present.** Refused
+    above instead. "Optional" understated the cost: `rarfile` **shells out to an unsigned
+    external binary**, and a product selling custody should not invoke one on the user's files.
+    The honest-about-absence instinct in the original note is right and survives - it is now
+    applied to the *refusal* (name the format, say to extract it first) rather than to a
+    degraded mode.
+  - ⚠ **A multi-part set is ONE archive.** Google splits an export across `takeout-001.zip`,
+    `-002.zip` and so on, and **a photo and its JSON sidecar can land in different parts**.
+    Treating the parts independently silently breaks date rescue for exactly the files this
+    feature exists to rescue. The set is opened as a unit or not at all.
+  - ⚠ **SUPERSEDED - "streamed extraction, never a full unpack".** Extraction to disk was ruled
+    2026-08-01 and is **forced, not chosen**: exiftool is a subprocess that needs a real file,
+    and hashing, EXIF reading and copying all assume one, so a pure stream cannot feed the
+    pipeline. The design question was never *whether* to extract but *where and with what
+    protections*.
+    The cost this bullet was worried about is real and is answered rather than dodged: staging
+    goes on the **destination drive** (not the system temp dir, which on many machines is a
+    tmpfs), the space precondition states the requirement **before** any work starts, and the
+    only way to halve the peak - deleting staged files as you go - is **refused above**. The
+    honest mitigation for a user short of space is to extract fewer archives at a time.
+    What did survive from this bullet is *streaming within* extraction: entries are read in
+    fixed chunks through a running byte counter, never whole into memory.
+  - **Copy-only, as everywhere else: an archive is never modified**, never deleted, never
+    rewritten in place. It is a read-only source.
+  - **Encrypted archives are detected and surfaced**, never silently skipped. "I could not read
+    this, here is why" is the never-silent rule applied to a container.
 
 
 **Not doing, and why:** the audit found no inheritance-for-reuse and no deep hierarchies
