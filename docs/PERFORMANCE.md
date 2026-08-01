@@ -294,3 +294,36 @@ Two more, added by the pass that wrote this document:
 - **No per-file subprocess anywhere.** Both the read and the write path batch.
 - **No repeated disk pass.** One `rglob`; one read per file per run; `Destination.list()` is
   never called per-file.
+
+---
+
+## 5. CI lane durations (measured 2026-08-01, so they are not re-measured)
+
+Gathered for the self-hosted-runner question, which is **deferred until the repo goes private**
+(a self-hosted runner must never serve a public repo: a fork's pull request would run arbitrary
+code on the machine). Recorded here because the numbers are the input to that decision and they
+will keep.
+
+Mean wall-clock per lane, over the six most recent runs:
+
+| Lane | Mean | GitHub billing multiplier |
+|---|---|---|
+| `check (windows-latest)` | **6.2 min** | 2x |
+| `check (ubuntu-latest)` | 2.3 min | 1x |
+| `e2e (chromium, ubuntu)` | 2.0 min | 1x |
+| `check (macos-latest)` | 1.8 min | 10x |
+
+Two things follow, and both point away from self-hosting as the first move.
+
+**Windows dominates wall-clock, and Hetzner cannot host it.** Hetzner is Linux only, so moving
+the Linux lanes there would shorten the two lanes that already finish while Windows is still
+running - saving nothing a user waits for.
+
+**macOS dominates *billing* despite being the fastest lane.** At the 10x multiplier its 1.8
+minutes cost more against a private-repo quota than Windows' 6.2 at 2x. So the cheapest lever is
+**matrix restriction** (Ubuntu on push, full matrix on tags), not new infrastructure - and it
+needs no machine to patch, monitor, or keep ephemeral.
+
+The full costing was researched and is deliberately not written up until the repo actually
+flips, since GitHub's rates changed in January 2026 and the self-hosted platform fee was
+announced and then postponed rather than cancelled.
