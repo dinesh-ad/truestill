@@ -203,6 +203,52 @@ section, because what is left is the part that still has to be written.
     with no signing step in the pipeline. D9 also carries a launch-page requirement: Windows
     users are told what SmartScreen will show *before* they download.
   - **PyPI stays**, as the developer / self-hosted channel. It stops being the *primary* one.
+  - **MEASURED AND SOLVED (2026-08-01): the excluded build is 39.5% smaller.** PyInstaller
+    6.21.0, Linux, whole `dist/` tree, same commit and fixture:
+
+    | build | bytes | |
+    |---|---|---|
+    | baseline | 218,212,013 | **208.1 MiB** |
+    | `--exclude-module scipy --exclude-module pywt` | 132,045,324 | **125.9 MiB** |
+    | saved | 86,166,689 | **82.2 MiB (39.5%)** |
+
+    The baseline is recorded deliberately: 208 MiB is not a number where 82 MiB is a rounding
+    error. **Confirmed from the import graph, not from the size delta** -
+    `build/{name}/xref-{name}.html` (PyInstaller writes it every run) reports `scipy` **absent
+    from all 1,213 modules** and `pywt` as `ExcludedModule, imported by: imagehash`. The only
+    scipy-named file left on disk is `libscipy_openblas64_*.so` inside `numpy.libs`, which is
+    **numpy's own vendored BLAS** and stays correctly. That file is the thing to re-read if
+    anything pulls scipy back in later.
+
+    **What is irreducible after the exclusion:** `libpython3.13.so` 31 MB, `numpy.libs` 27 MB,
+    `pillow_heif.libs` 26 MB, `numpy` 14 MB, `pillow.libs` 11 MB. numpy stays because
+    `imagehash` imports it at module level, so `dhash` genuinely needs it.
+
+    **`dhash` is bit-identical across all three builds** - source, baseline and excluded all
+    return `8bcb9521242eca28` for the fixture. That was the bar rather than "it produced a
+    hash": the catalog stores hash output as identity.
+
+    **Still untested, and it belongs here rather than in core:** whether the exclusion interacts
+    with the `_MEIPASS` layout on Windows, and the Windows byte figure, which will differ
+    (different compiled artifacts, different binary collection). The *decision* does not depend
+    on either; the download-page number does.
+  - **The shim, and why it exists alongside the exclusion.** `packaging/truestill_freeze` is
+    applied by a PyInstaller `--runtime-hook` and replaces `imagehash.phash`, `phash_simple` and
+    `whash` with a refusal naming **the algorithm and the alternative, never the module**.
+    Without it the exclusion alone leaves the user with `ModuleNotFoundError: No module named
+    'scipy'` from four frames inside a vendored library. **Packaging layer only** - a source
+    checkout keeps all three working, asserted by `test_freeze_shim`, and no shipped package may
+    import it. `test_frozen_algorithm_fence` fails if any shipped module later calls one of the
+    three, so adding a hashing-algorithm option cannot silently ship a build that raises.
+  - **On `--exclude-module` reliability, recorded because it was assumed to be the problem.**
+    PyInstaller issues **#1584** (`excludedimports` in hooks, modules not bundled at all) and
+    **#3265** ("How to exclude specific imports", a user finding pandas bundled regardless) are
+    real and both **closed**; they show exclusion not behaving as users expect, but neither
+    documents a limitation on *module-level* imports specifically. **Our own case contradicts
+    the worry:** the imports are function-level and `--exclude-module` removed them cleanly,
+    confirmed in the xref. So the shim's justification is **diagnosability, not unreliability** -
+    worth stating, because "we shimmed it because exclusion is broken" would be a false reason
+    that outlives the person who wrote it.
   - **~90 MB of the install is a code path that never runs** (dependency audit, 2026-08-01).
     `imagehash` declares `scipy` and `PyWavelets` as hard requirements with **no extras split**,
     so every install pulls **81 MB scipy + 8.6 MB PyWavelets**. They back `phash` and `whash`,
