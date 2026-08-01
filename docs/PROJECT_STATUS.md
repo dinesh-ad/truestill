@@ -105,33 +105,45 @@ narrative, or volatile counts.
   the current user via `icacls`, which is the real equivalent of `chmod 000` there), or a
   deliberate decision to accept the gap and say so here instead. Not yet chosen.
 
-- **Known coverage gap: two `(aad)` fixes cannot be confirmed by CI at all, because CI has a
-  console.** Both concern *windowed* launches, and every CI lane runs with `stdout` and `stderr`
-  attached. A green Windows tick is real but narrower than it looks in each case, so the two are
-  recorded next to what it *does* prove.
+- **Known coverage gap: `CREATE_NO_WINDOW` suppression is unverified - and since 2026-08-01 it
+  is unverified for a MEASURED reason rather than an untried one.** The distinction matters:
+  this is no longer "we have not tried", it is "we tried and the flag did not demonstrably
+  suppress".
 
-  1. **`CREATE_NO_WINDOW` suppression** (`binaries.run` / `binaries.popen`). *Green proves:* the
-     flag resolves to a real constant on Windows rather than the `0` it is on POSIX, and all
-     five call sites still capture output and return exit codes through the wrapper (exiftool,
-     rclone and trash tests all run through it). *Green does not prove:* that a windowed build
-     shows no console window. Suppression is never exercised, because a console session would
-     show no window either way.
-  2. **The windowed-launch branch of the legacy-catalog probe**
-     (`app_paths._working_directory_was_chosen`). *Green proves:* the console branch, and that
-     `Path.resolve()` behaves on the legacy path there - which is worth having after the 8.3
-     short-name failure. *Green does not prove:* that a genuinely windowed process skips the
-     probe. That branch is exercised only by unit tests faking `sys.stdout = None`, which run
-     identically on Linux and add nothing on Windows.
+  The Windows throwaway (`BACKLOG.md` `(aad)`, run 30692798020) exercised the `AttachConsole`
+  technique for the first time. Under **PyInstaller the technique was sound** - the control
+  child, launched *without* the flag, was attachable - but **the child launched WITH
+  `CREATE_NO_WINDOW` was attachable too**, so on that runner the flag did not demonstrably
+  suppress a console. Under **Briefcase the technique was unsound**: the control failed with
+  `ERROR_ACCESS_DENIED` because that process already owned a console, and the gate correctly
+  refused to report a measurement. Without that control, a failed attach would have been read
+  as proof that suppression worked - the exact false pass it exists to prevent.
 
-  **Both close the same way: a packaged build, in `(aad)`.** Until a `pythonw` or bundled
-  artifact exists there is no windowed process to observe, and no test can create one.
+  *Green CI still proves the plumbing:* the flag resolves to a real constant on Windows rather
+  than the `0` it is on POSIX, and all five call sites capture output and return exit codes
+  through the wrapper. *It does not prove the window is suppressed.* Closing this needs either a
+  better observation technique than `AttachConsole` or a deliberate decision to accept the gap.
 
-  **The third `(aad)` launch fix is NOT in this category, and the three must not be treated as
-  one gap.** The no-console crash - uvicorn's default log config calling `.isatty()` on a `None`
-  stream - is **genuinely proven either way**, on every platform, because the failure is in
-  *configuration* rather than in windowing: `test_launch_without_console.py` sets both streams to
-  `None` in the test body and configures logging, and its companion asserts uvicorn's own default
-  still raises under the same conditions. That one is closed.
+- **CLOSED 2026-08-01: the windowed-launch branch of the legacy-catalog probe.** It was on this
+  list as unprovable in CI; it is now **proven by a real windowed process**. The Windows
+  throwaway's PyInstaller artifact reported `has_console: {stdout: false, stderr: false}` with a
+  `reports\catalog.sqlite` in its working directory, and resolved to the **data directory**
+  anyway (`skipped_the_probe: true`). No faked `sys.stdout = None` involved.
+
+  Recorded rather than deleted because the pair used to be one entry and are now different in
+  kind: **this one is answered; the one above is measured and still open.** The third launch fix,
+  the uvicorn no-console startup crash, was never in this category at all - its failure is in
+  *configuration* rather than in windowing, so it is proven on every platform and closed.
+
+- **`(aad)` bundler choice is BLOCKED on one question: the Briefcase Windows app has a console
+  despite `console_app = false`.** Measured 2026-08-01. It outranks the rest of the comparison
+  because **every no-console commit assumes a double-clicked app has none** - the uvicorn crash
+  fix, the session URL file, and the windowed legacy probe are all built on that premise. Either
+  our Briefcase configuration is wrong or its windowed mode is not what it appears to be, and
+  until that is answered the choice cannot be made. PyInstaller produced a genuinely windowed
+  process. Score so far, deliberately unresolved: **Briefcase wins zero-config on Windows,
+  PyInstaller wins windowed-ness** - and windowed-ness is the property the recent work was built
+  around. Full measurements with raw paths in `BACKLOG.md` `(aad)`.
 
 ---
 

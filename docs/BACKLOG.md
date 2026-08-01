@@ -245,6 +245,50 @@ section, because what is left is the part that still has to be written.
       4. *`BRIEFCASE_*` environment variables* - **none exist at runtime**; not available.
          `sys.prefix` is `/usr`, indistinguishable from any system-python script.
 
+  - **WINDOWS measurements, 2026-08-01 (run 30692798020, both builds succeeded). The bundler is
+    NOT decided, and the reason is the first item below.**
+    - **THE FINDING THAT OUTRANKS THE REST: the Briefcase Windows app HAS A CONSOLE, despite
+      `console_app = false`.** The probe reported
+      ``has_console: {stdout: true, stderr: true}``. That matters more than any other result
+      here, because **every no-console commit exists on the premise that a double-clicked app
+      has none** - the uvicorn startup crash (`465693f`), the session URL file (`eae8911`), and
+      the windowed legacy probe (`df9bd13`) are all built around it. A bundler that hands the
+      app a console anyway means **either our Briefcase config is wrong, or its windowed mode is
+      not what it appears to be**. Unresolved, and it blocks the choice.
+    - **PyInstaller produced a genuinely windowed process:**
+      ``has_console: {stdout: false, stderr: false}``.
+    - **PyInstaller layout - `_internal/` holds on Windows exactly as on Linux.**
+      ```
+      sys.executable          = D:\a\truestill\truestill\dist\truestill-probe-pyinstaller\truestill-probe-pyinstaller.exe
+      dirname(sys.executable) = D:\a\truestill\truestill\dist\truestill-probe-pyinstaller
+      sys._MEIPASS            = D:\a\truestill\truestill\dist\truestill-probe-pyinstaller\_internal
+      bundled_bin_dirs()      = [D:\a\truestill\truestill\dist\truestill-probe-pyinstaller\_internal\bin]
+      exiftool resolved       = D:\a\truestill\truestill\dist\truestill-probe-pyinstaller\_internal\bin\exiftool.EXE
+      ```
+      ``dirname(sys.executable) != sys._MEIPASS``, so **the `_MEIPASS` rule is the only reason
+      exiftool resolves at all**. Stated plainly because it justifies `92774fb` retroactively:
+      **without that commit this Windows build fails assertion 2 as well**, not only the Linux
+      one it was written for.
+    - **Briefcase layout - the beside-the-executable rule FIRES on Windows.**
+      ```
+      sys.executable          = D:\a\truestill\truestill\packaging\build\truestill_probe\windows\app\src\TruestillProbe.exe
+      dirname(sys.executable) = D:\a\truestill\truestill\packaging\build\truestill_probe\windows\app\src
+      bundled_bin_dirs()      = [D:\a\truestill\truestill\packaging\build\truestill_probe\windows\app\src\bin]
+      exiftool resolved       = D:\a\truestill\truestill\packaging\build\truestill_probe\windows\app\src\bin\exiftool.EXE
+      ```
+      One directory with the executable on top, so `bin/` beside it is exactly where the
+      zero-configuration rule looks. **The advantage that died on Linux's FHS layout is real on
+      the platform installers actually matter for** - measured, not assumed.
+    - **`sys.frozen` is absent under Briefcase, now confirmed on Windows**
+      (``sys.frozen: null``, ``is_bundled_install(): false``). The limit recorded when that
+      signal was chosen holds, and **the replacement ranking already stands**: the running
+      code's own location is the only candidate that cannot be absent while the code executes -
+      here ``...\windows\app\src\app_packages\truestill_core\binaries.py``.
+    - **THE SCORE, honestly: Briefcase wins zero-config; PyInstaller wins windowed-ness.** And
+      windowed-ness is the property the last several commits were built around, which is why
+      this does not resolve to a recommendation. **The console question has to be answered
+      first, and the answer may be our configuration rather than the bundler.**
+
   - **Settled 2026-07-31: do NOT run a VirusTotal comparison to choose the bundler.** It was
     proposed, approved, and then withdrawn on the design pass. Recorded here with the reasoning
     so it is not proposed again from the same premise - *"the AV claim is load-bearing and
