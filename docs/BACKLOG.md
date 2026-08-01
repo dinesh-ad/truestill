@@ -697,8 +697,11 @@ section, because what is left is the part that still has to be written.
     matched) is the obvious candidate and needs its own design pass and its own evidence.
 
 - **(jj) Archive ingestion - read a library straight out of its archives.**
-  **BUILT 2026-08-01 across four commits, zip and tar. The app UI surface is the only part
-  outstanding** - the service functions exist and nothing in the browser calls them yet.
+  **BUILT AND COMPLETE 2026-08-01. Nothing outstanding.** Zip and tar, core through UI, in eight
+  commits: the preconditions (`abcd1fb`), the extractor (`346135c`), the pipeline wiring
+  (`ca6effc`), tar and `.tgz` (`d330fce`), this record (`c08ed03`), the scope correction
+  (`c08eb50`), the `--source` rename (`8dbbb50`) and the UI (`4606713`). Guard rule 8
+  (`720b217`) came out of the tar work and is recorded in `ENGINEERING_STANDARD.md`.
   - ⚠ **SCOPE, corrected 2026-08-01: this is NOT a Takeout feature.** It reads any `.zip`,
     `.tar`, `.tgz` or `.tar.gz` from any source - a friend's shared folder, an old backup, a
     phone export, a NAS dump. **Takeout is the motivating case, not the scope**, and the export
@@ -774,8 +777,17 @@ section, because what is left is the part that still has to be written.
       option to delete the input is a switch that exists only to be regretted at 3am. If disk
       space is genuinely the blocker, the honest answer is *"extract fewer archives at a time"* -
       a step for the user, and no invariant lost.
-  - **Still to build:** the app UI surface. Preview-then-confirm, progress and cancel through the
-    existing job machinery, refusals named by entry, and the space figure labelled as a claim.
+  - **The UI shipped in `4606713`** and is not outstanding. Preview-then-confirm in the Rescue
+    screen, progress and cancel through the existing job machinery, and the space figure
+    labelled in the copy as the archives' own claim.
+    **Refusals carry their CODE in the DOM** (`data-refusal="<code>"`), and the browser tests key
+    on that rather than on the sentence - five refusals render similar-looking prose, so matching
+    words lets a test pass because a *different* refusal fired. That is guard rule 8, and it is
+    mutation-proved: dropping the codes fails the same three tests as ignoring the refusal
+    entirely, so the provenance assertion is load-bearing rather than decoration.
+    Eight Playwright tests drive the flows rather than asserting about them, per
+    `ENGINEERING_STANDARD.md` §2, and the seven HTTP tests cover the two API routes that were
+    briefly untested.
   - **Original design notes below, kept for the reasoning that produced the above.** Three of
     them were **overtaken by what was built** and say so inline, rather than being left as a
     second, contradictory answer in the same entry.
