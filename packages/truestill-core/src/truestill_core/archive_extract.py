@@ -33,7 +33,7 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path, PurePosixPath
-from typing import IO
+from typing import IO, NoReturn
 
 from truestill_core.archive_set import ArchiveSet, is_tar
 from truestill_core.progress import Phase, Progress, ProgressCallback
@@ -227,6 +227,16 @@ def clear_staging(record: StagingRecord) -> None:
     record.journal_path.unlink(missing_ok=True)
 
 
+def _refuse_over_budget(part_name: str, budget: int) -> NoReturn:
+    """Abort the extraction. Separate from the loop so the `raise` is not lexically inside the
+    `try` whose `except` exists only to close and clean up - that block handles nothing."""
+    message = (
+        f"{part_name} expands to more than the {budget} bytes this extraction is allowed - "
+        f"refusing rather than filling the disk"
+    )
+    raise ExtractionRefusedError(message)
+
+
 def _iter_entries(
     path: Path, staging_root: Path
 ) -> Iterator[tuple[PurePosixPath, Callable[[], IO[bytes] | None]]]:
@@ -308,17 +318,28 @@ def extract_archive_set(
             source = opener()
             if source is None:  # pragma: no cover - tar members with no payload
                 continue
-            with source, partial.open("wb") as sink:
-                while chunk := source.read(CHUNK_BYTES):
-                    written += len(chunk)
-                    if written > budget:
-                        partial.unlink(missing_ok=True)
-                        message = (
-                            f"{part.path.name} expands to more than the {budget} bytes this "
-                            f"extraction is allowed - refusing rather than filling the disk"
-                        )
-                        raise ExtractionRefusedError(message)
-                    sink.write(chunk)
+            # Cleanup lives OUTSIDE the `with`, so the handle is always closed before the
+            # partial is unlinked. POSIX allows unlinking an open file and Windows raises
+            # `PermissionError` (WinError 32), so the original in-block cleanup worked on Linux,
+            # failed on Windows, and turned a deliberate budget refusal into what looked like a
+            # filesystem fault. `test_archive_extract` asserts the *ordering* rather than the
+            # exception, so it reproduces on both platforms.
+            #
+            # `BaseException` on purpose: a Ctrl-C mid-write must not leave the partial either,
+            # and the bare `raise` means nothing is swallowed. This covers **every** abort that
+            # can happen while a handle is open - the budget refusal and any I/O error alike.
+            # The other exits need no equivalent because they abort *before* the file exists:
+            # the entry refusals raise inside `_iter_entries`, and cancel returns above.
+            try:
+                with source, partial.open("wb") as sink:
+                    while chunk := source.read(CHUNK_BYTES):
+                        written += len(chunk)
+                        if written > budget:
+                            _refuse_over_budget(part.path.name, budget)
+                        sink.write(chunk)
+            except BaseException:
+                partial.unlink(missing_ok=True)
+                raise
             partial.replace(target)
             files += 1
             if progress is not None:

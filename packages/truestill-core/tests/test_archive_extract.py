@@ -270,3 +270,74 @@ def test_a_real_kill_leaves_a_state_a_fresh_process_can_clear(tmp_path: Path) ->
 
     assert pending_staging(destination) == []
     assert not leftover[0].staging_root.exists()
+
+
+def test_the_partial_handle_is_closed_before_it_is_unlinked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The property, asserted so it fails on **Linux** where the bug is otherwise invisible.
+
+    POSIX happily unlinks an open file, so a cleanup that runs while the handle is still open
+    works here and raises ``PermissionError`` (WinError 32) on Windows - which meant CI caught
+    this and every local run did not. Asserting the *exception* would only reproduce on Windows;
+    asserting the *ordering* reproduces everywhere.
+
+    The user-visible cost of the bug was worse than a leftover file: the budget abort surfaced
+    as a permission error, so a refusal Truestill makes on purpose read as a filesystem failure.
+    """
+    _zip(tmp_path / "a.zip", {"big.bin": b"x" * 5000})
+    found = discover_archive_set([tmp_path / "a.zip"])
+
+    handles: dict[Path, object] = {}
+    real_open = Path.open
+    real_unlink = Path.unlink
+    unlinked_while_open: list[Path] = []
+
+    def tracking_open(self: Path, *args: object, **kwargs: object) -> object:
+        handle = real_open(self, *args, **kwargs)  # type: ignore[arg-type]
+        if self.name.endswith(".partial"):
+            handles[self] = handle
+        return handle
+
+    def checking_unlink(self: Path, **kwargs: object) -> None:
+        handle = handles.get(self)
+        if handle is not None and not handle.closed:  # type: ignore[attr-defined]
+            unlinked_while_open.append(self)
+        real_unlink(self, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(Path, "open", tracking_open)
+    monkeypatch.setattr(Path, "unlink", checking_unlink)
+
+    with pytest.raises(ExtractionRefusedError, match=r"expands to more than"):
+        extract_archive_set(found, tmp_path / "dest", budget_bytes=1000)
+
+    assert handles, "no .partial was ever opened, so the ordering was never observed"
+    assert unlinked_while_open == [], (
+        "a .partial was unlinked while its handle was still open - POSIX tolerates this and "
+        "Windows raises PermissionError"
+    )
+
+
+def test_an_aborted_extraction_is_still_described_by_its_journal(tmp_path: Path) -> None:
+    """The staging tree stays attributable after an abort, partial files included.
+
+    Now that cleanup happens after the handle closes, a `.partial` can briefly outlive a failed
+    entry - so the thing that matters is that everything left behind is under the journalled
+    root and goes away with it.
+    """
+    _zip(tmp_path / "a.zip", {"big.bin": b"x" * 5000})
+    found = discover_archive_set([tmp_path / "a.zip"])
+    destination = tmp_path / "dest"
+
+    with pytest.raises(ExtractionRefusedError):
+        extract_archive_set(found, destination, budget_bytes=1000)
+
+    leftover = pending_staging(destination)
+    assert leftover, "an aborted extraction left nothing the next run can attribute"
+    for stray in leftover[0].staging_root.rglob("*"):
+        assert stray.is_relative_to(leftover[0].staging_root)
+
+    clear_staging(leftover[0])
+
+    assert pending_staging(destination) == []
+    assert not leftover[0].staging_root.exists()
