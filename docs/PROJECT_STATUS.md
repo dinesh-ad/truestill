@@ -105,6 +105,34 @@ narrative, or volatile counts.
   the current user via `icacls`, which is the real equivalent of `chmod 000` there), or a
   deliberate decision to accept the gap and say so here instead. Not yet chosen.
 
+- **Known coverage gap: two `(aad)` fixes cannot be confirmed by CI at all, because CI has a
+  console.** Both concern *windowed* launches, and every CI lane runs with `stdout` and `stderr`
+  attached. A green Windows tick is real but narrower than it looks in each case, so the two are
+  recorded next to what it *does* prove.
+
+  1. **`CREATE_NO_WINDOW` suppression** (`binaries.run` / `binaries.popen`). *Green proves:* the
+     flag resolves to a real constant on Windows rather than the `0` it is on POSIX, and all
+     five call sites still capture output and return exit codes through the wrapper (exiftool,
+     rclone and trash tests all run through it). *Green does not prove:* that a windowed build
+     shows no console window. Suppression is never exercised, because a console session would
+     show no window either way.
+  2. **The windowed-launch branch of the legacy-catalog probe**
+     (`app_paths._working_directory_was_chosen`). *Green proves:* the console branch, and that
+     `Path.resolve()` behaves on the legacy path there - which is worth having after the 8.3
+     short-name failure. *Green does not prove:* that a genuinely windowed process skips the
+     probe. That branch is exercised only by unit tests faking `sys.stdout = None`, which run
+     identically on Linux and add nothing on Windows.
+
+  **Both close the same way: a packaged build, in `(aad)`.** Until a `pythonw` or bundled
+  artifact exists there is no windowed process to observe, and no test can create one.
+
+  **The third `(aad)` launch fix is NOT in this category, and the three must not be treated as
+  one gap.** The no-console crash - uvicorn's default log config calling `.isatty()` on a `None`
+  stream - is **genuinely proven either way**, on every platform, because the failure is in
+  *configuration* rather than in windowing: `test_launch_without_console.py` sets both streams to
+  `None` in the test body and configures logging, and its companion asserts uvicorn's own default
+  still raises under the same conditions. That one is closed.
+
 ---
 
 ## 4. Standing session rules (short form)
