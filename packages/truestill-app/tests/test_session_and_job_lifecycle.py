@@ -16,11 +16,13 @@ running job, and a *valid* id must still work.
 from __future__ import annotations
 
 import threading
+from pathlib import Path
 
 import pytest
 from starlette.testclient import TestClient
 from truestill_app.jobs import MAX_RETAINED_JOBS, DriveRef, JobManager
 from truestill_app.server import MAX_REVIEW_SESSIONS
+from truestill_core.drive import create_marker
 
 # --- stale review sessions --------------------------------------------------------------
 
@@ -50,9 +52,83 @@ def test_a_stale_session_id_is_answered_not_a_500(
     assert "Find trips and events" in body["error"]
 
 
-def test_the_session_cap_is_small_enough_to_bound_and_large_enough_to_use() -> None:
-    """A cap of 1 would evict the session a user is working in on their next click."""
-    assert 8 <= MAX_REVIEW_SESSIONS <= 256
+def _marked_drive(tmp_path: Path, name: str = "DriveA") -> Path:
+    """A connected drive with nothing on it.
+
+    `service.propose_events` needs a marker and a catalog, not photographs - it assembles from
+    catalog rows, so an empty marked directory yields a real, empty review session. That is what
+    keeps these tests off exiftool: a cap test that skips on a machine without it would be
+    covered in exactly the way the old one was.
+    """
+    drive = tmp_path / name
+    drive.mkdir()
+    create_marker(drive, name)
+    return drive
+
+
+def _propose(client: TestClient, drive: Path) -> str:
+    """Create one review session, returning its id."""
+    body = client.post("/api/events/propose", json={"path": str(drive)}).json()
+    assert body.get("ok") is not False, body
+    return str(body["session"])
+
+
+def _resolves(client: TestClient, session_id: str) -> bool:
+    """Is this session still in the store? 409 is the store's own not-found answer."""
+    return client.post(f"/api/events/{session_id}/apply", json={"names": []}).status_code != 409
+
+
+def test_the_oldest_review_session_is_evicted_past_the_cap(
+    client: TestClient, tmp_path: Path
+) -> None:
+    """The bound the constant asserts, observed rather than asserted.
+
+    The predecessor of this test checked ``8 <= MAX_REVIEW_SESSIONS <= 256`` and passed against a
+    `remember_session` that called itself and was never called - a cap that had never once
+    evicted anything. A range check on an integer cannot fail against that. This creates one
+    session past the cap and looks.
+    """
+    drive = _marked_drive(tmp_path)
+    ids = [_propose(client, drive) for _ in range(MAX_REVIEW_SESSIONS + 1)]
+
+    assert not _resolves(client, ids[0]), "the oldest session survived past the cap"
+    assert _resolves(client, ids[-1]), "the newest session was evicted"
+    assert all(_resolves(client, sid) for sid in ids[1:]), "eviction took more than the oldest"
+
+
+def test_no_session_is_evicted_at_or_under_the_cap(client: TestClient, tmp_path: Path) -> None:
+    """Cry-wolf half (§4): a bound that fires early is worse than none.
+
+    Filling the store exactly to the cap must leave every session usable - including the first,
+    which is the one a user could still be working in.
+    """
+    drive = _marked_drive(tmp_path)
+    ids = [_propose(client, drive) for _ in range(MAX_REVIEW_SESSIONS)]
+
+    survivors = [sid for sid in ids if _resolves(client, sid)]
+    assert len(survivors) == MAX_REVIEW_SESSIONS, (
+        f"{MAX_REVIEW_SESSIONS - len(survivors)} session(s) evicted at the cap, none should be"
+    )
+
+
+def test_applying_to_disk_discards_that_session_and_leaves_the_others(
+    client: TestClient, tmp_path: Path
+) -> None:
+    """The lifecycle hook: the one moment a review is provably finished.
+
+    Without it the cap is the only thing that ever removes an entry, so a finished review sits
+    in the store until 32 more push it out. With it the cap goes back to being the backstop for
+    reviews the user walked away from. The second assertion is the one that matters: discarding
+    must be surgical, not a flush.
+    """
+    drive = _marked_drive(tmp_path)
+    keep, finish = _propose(client, drive), _propose(client, drive)
+
+    applied = client.post(f"/api/events/{finish}/apply-to-disk", json={})
+    assert applied.status_code == 200, applied.text
+
+    assert not _resolves(client, finish), "the applied session was left in the store"
+    assert _resolves(client, keep), "discarding one session disturbed another"
 
 
 # --- finished-job retirement ------------------------------------------------------------

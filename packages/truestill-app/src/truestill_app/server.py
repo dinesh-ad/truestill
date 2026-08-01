@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import threading
 import uuid
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -93,6 +94,7 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
         *,
         paths: list[Path],
         operation: str,
+        on_started: Callable[[], None] | None = None,
     ) -> JSONResponse:
         """Start a job locked to ``paths``, or return drive-unavailable / drive-busy without racing.
 
@@ -103,6 +105,12 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
         drive-unavailable, or a feature's own soft-fail such as the bake's MigrationUnfinished.
         The runtime check has always been "is this a dict", so the annotation says that rather
         than listing every payload type and needing an edit per feature.
+
+        ``on_started`` runs **only when a job was actually accepted**, after the refusal paths
+        have returned. It exists because "the work is under way" is not something a caller can
+        read back out of the `JSONResponse` without parsing its body, and both refusals here are
+        retryable - a caller that cleaned up eagerly would destroy the state a retry needs.
+        Optional, so every existing call site is unchanged.
         """
         if isinstance(target, Mapping):
             return JSONResponse(dict(target))
@@ -113,6 +121,8 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
         )
         if isinstance(result, dict):
             return JSONResponse(result)
+        if on_started is not None:
+            on_started()
         return JSONResponse({"job_id": result})
 
     async def home(_request: Request) -> HTMLResponse:
@@ -405,6 +415,14 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
     # --- Trip/event review (session-based; merge/split are UI-only, no CLI path) ---
     sessions: dict[str, EventReviewSession] = {}
 
+    #: Guards the read-modify-write in `remember_session`. Same type and idiom as
+    #: `JobManager._lock`, and for a weaker but real reason: session **values** leave the event
+    #: loop - `events_preview` and `events_apply_to_disk` hand `named_events`/`named_trips` to a
+    #: job that runs on a worker thread - so "only the loop touches this" is an assumption rather
+    #: than a fact anyone checks. It makes insert-and-evict indivisible; it does not make a
+    #: session's contents thread-safe, and nothing mutates them from a worker today.
+    sessions_lock = threading.Lock()
+
     def remember_session(session_id: str, session: EventReviewSession) -> None:
         """Store a review session, evicting the oldest past the cap.
 
@@ -413,10 +431,32 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
         Bounded by count rather than expired on a timer: the only reader is the person who just
         created it, insertion order makes the oldest the safest to drop, and a cap cannot fire
         in the middle of the flow the way a timeout could.
+
+        **This function existed and did nothing.** Its first statement was a call to itself
+        instead of the store write, and no caller ever reached it - `events_propose` assigned to
+        `sessions` directly - so the cap, the constant and this docstring all described a bound
+        the process did not have. A helper nothing calls is how that survived review; the write
+        now goes through here, and the test observes an eviction rather than the constant.
+
+        **Complexity: O(1) amortized per insert.** One insert, then at most one eviction per
+        call in steady state, since the store can only exceed the cap by the entry just added.
+        `next(iter(sessions))` reads the first key of an insertion-ordered dict without walking
+        it, so each eviction is O(1) too - nothing here is a function of library size, and the
+        loop is a `while` only so a lowered cap drains rather than leaking the difference.
         """
-        remember_session(session_id, session)
-        while len(sessions) > MAX_REVIEW_SESSIONS:
-            sessions.pop(next(iter(sessions)))
+        with sessions_lock:
+            sessions[session_id] = session
+            while len(sessions) > MAX_REVIEW_SESSIONS:
+                sessions.pop(next(iter(sessions)))
+
+    def discard_session(session_id: str) -> None:
+        """Drop a session whose work is finished. Idempotent; a missing id is not an error.
+
+        The cap is a backstop for reviews the user walked away from. This is the one moment a
+        session is *provably* done, so the common case stops relying on the backstop.
+        """
+        with sessions_lock:
+            sessions.pop(session_id, None)
 
     def expired_session() -> JSONResponse:
         """A stale session id is a 409 with a sentence, not a KeyError and a 500.
@@ -464,7 +504,7 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
             day_totals=proposal["day_totals"],
             min_files=proposal["min_files"],
         )
-        sessions[session_id] = session
+        remember_session(session_id, session)
         return JSONResponse(
             service.proposed_review_cards_payload(
                 session_id,
@@ -545,8 +585,22 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
         )
 
     async def events_apply_to_disk(request: Request) -> JSONResponse:
-        """Apply the trip placement: a journalled, resumable relocation on the drive."""
-        session = sessions.get(request.path_params["session"])
+        """Apply the trip placement: a journalled, resumable relocation on the drive.
+
+        Discards the session **once the job is accepted**, not before: this is the one point a
+        review is provably finished, so the count cap goes back to being the backstop for
+        abandoned reviews rather than the only thing that ever removes an entry.
+
+        Ordering is the whole of the safety argument. `migration_apply` is called eagerly and
+        binds the names into the job target, so the worker never reads `sessions` again; and the
+        discard runs through `on_started`, after both refusal paths, because drive-unavailable
+        and drive-busy are retryable and a session dropped on refusal would leave the user with
+        a hidden button and nothing to retry. A later call on this id answers `expired_session`,
+        which is the honest reply once the files have moved - re-previewing an applied session
+        would plan from state that no longer exists.
+        """
+        session_id = request.path_params["session"]
+        session = sessions.get(session_id)
         if session is None:
             return expired_session()
         path = Path(session.path)
@@ -559,6 +613,7 @@ def create_app(*, token: str, db: Path = _DEFAULT_DB, explicit_db: bool = False)
             ),
             paths=[path],
             operation="trip apply",
+            on_started=lambda: discard_session(session_id),
         )
 
     routes = [
