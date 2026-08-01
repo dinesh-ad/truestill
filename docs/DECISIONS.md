@@ -327,8 +327,78 @@ degraded free experience, or any feature that stops working to make a point. A g
 contradict D5's framing of an account "for the software, never for your data" - the same
 instinct applies to function.
 
+### 4. No trial. Free tier forever. (2026-08-01, revises the framing above)
+
+**Decision.** truestill has **no time-limited trial**. There is a **free tier that does not
+expire**.
+
+The reasoning is specific to this product rather than borrowed from SaaS practice: **truestill
+is a job, not a habit.** The user's real task - organise a lifetime of photos - is a *one-time
+event*. A 14-day or 30-day trial is therefore not a taste of the product; it is **exactly long
+enough to finish the job and leave**. The trial would hand over the entire value and then ask
+for money for something the user no longer needs. A free tier that never expires at least keeps
+the relationship alive for the part that recurs.
+
+That sharpens the Pro question rather than answering it, so it is recorded as the open question
+it is.
+
+**OPEN: what does someone buy AFTER the big job is done?** Three candidate answers, none chosen:
+
+1. **Sell what RECURS.** Free organises the library once; Pro keeps it safe over years - ongoing
+   intake of new photos, backup verification, drive health. This is the answer that fits
+   "one-time job" most directly: the job ends, the custody does not.
+2. **Sell CONFIDENCE at the irreversible moment.** Both existing Pro candidates already have
+   this shape - `BACKLOG.md` **(p)** "share safely" (metadata-stripping export, already marked
+   PRO TIER) and **(m)** duplicate review with quality ranking. Each is *"I am about to do
+   something I cannot undo"*, which is when people pay.
+3. **Sell SCALE.** Free handles a normal library; Pro handles the hoarder's.
+
+A fourth candidate shape, from market observation rather than principle: **meter by RATE, not by
+feature.** FocusClean allows "100 photos free each month" - the core works *completely* and only
+volume is limited. Recorded because it is **compatible with the boundary below in a way
+feature-gating is not**: nothing is withheld, nothing is crippled, and the user can always
+finish what they started at a slower pace.
+
+**THE BOUNDARY, which does not move: do not cripple the core organiser.** If free cannot be
+trusted with a user's photos, **Pro cannot either** - trust is the product, and a hobbled free
+tier sells against the thing being sold. This also restates §3 above from the other side: §3
+forbids withholding function to force the question; this forbids designing the free tier as the
+withholding.
+
+**The anti-pattern that defines the boundary more sharply than the boundary does.**
+Photobucket locked users out of **their own photos** and then charged to retrieve them one at a
+time. The "mass exodus of 2017" is still cited in reviews years later - the reputational damage
+outlived the revenue by a decade. So the line is not merely *"do not cripple free"*:
+
+> **Nothing behind the paywall may ever stand between a user and their own files.**
+> Export, retrieval, and reading the catalog stay free **permanently**, whatever else Pro
+> becomes.
+
+**Price anchors - anchors, not conclusions.** Comparable shipping products, gathered 2026-08-01:
+
+| Product | Model | Price |
+|---|---|---|
+| ImageSlip (sorts photos into folders) | pay-once | $5 |
+| Gallery Sort | freemium, pay-once | $18 |
+| ACDSee | licence | $60-150 |
+| FotoStation | licence | $159-459 |
+
+The previously recorded **$29-39** sits between the swipe-sorters and the professional DAMs,
+which is the right neighbourhood for a custody tool. These are **anchors for judgement, not a
+derivation of the price.**
+
+**The research gap, recorded honestly.** Two searches for *users saying why they paid* returned
+**vendor directories, not user voices**. So the price anchors above are real and the
+**motivation evidence is not yet gathered** - what exists is inference from product listings,
+which is not the same thing and must not be cited as if it were.
+
+**The soak is the better instrument.** Real users asking real questions will show what they
+would pay for far more reliably than inference from a listing. **The free/Pro split should not
+be decided before then**, and pricing and the final split stay post-launch regardless.
+
 **Status:** Settled as a decision, unbuilt. Supersedes the one-time Pro-licence sketch;
 the capability seam (`IMPLEMENTATION_STANDARDS.md` §2) is where Pro features attach.
+§4 revises the framing: no trial, free tier forever, and the free/Pro split deliberately open.
 
 ---
 

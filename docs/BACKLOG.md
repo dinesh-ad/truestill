@@ -581,7 +581,8 @@ section, because what is left is the part that still has to be written.
     So an identity in the UI is not scaffolding for a feature that will never exist - it is the
     surface D5 needs. **Cursor is the model:** sign in once, work offline afterwards, identity
     visible in the interface rather than hidden in a settings page.
-  - **Profile header:** avatar, name, and **licence state** (Pro / trial / free) in the position
+  - **Profile header:** avatar, name, and **licence state** (Pro / free - **not** trial; see
+    `DECISIONS.md` D6 §4, which abolished the trial after this entry was written) in the position
     the reference gives a role line. This is also **where the account surface lands when D5's
     licensing server ships**, so it is built once rather than added beside something later.
   - **Wordmark** from [`brand.md`](brand.md), above or beside the profile header. Which of the
