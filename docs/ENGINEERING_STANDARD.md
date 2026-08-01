@@ -345,6 +345,42 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   *The check is one line: assert the precondition inside the test body, next to the assertion
   that depends on it.* If that is awkward, set it in the body too.
 
+- **Where two defences catch the same case, assert PROVENANCE, not the outcome.** The eighth
+  member, and a mechanism none of the others covers. The other seven are about a guard that
+  cannot fail, is switched off, is aimed at the wrong module, asserts the wrong subject, whose
+  proof proves nothing, whose references go stale, or whose precondition is undone. This one is
+  about a guard that is **correct, aimed correctly, and still cannot detect the thing it was
+  written for** - because something *else* also catches it.
+
+  A test that asserts *"this was refused"* answers *whether* something refused, never **which
+  defence did**. Delete either one and the test stays green, so the guard silently stops
+  guarding the specific protection it was written to pin.
+
+  *Worked example - `(jj)` tar support, 2026-08-01.* Tar's safety rests on
+  `tarfile.data_filter`, an argument a refactor drops without anyone noticing, so a test existed
+  purely to fail if it were removed. It matched the word `"outside"` in the refusal message -
+  and **our own `_validate_entry_name` says exactly that**, so it passed with `data_filter`
+  deleted. It was asserting that *something* refused.
+
+  The fix is to assert where the refusal **came from**. `tarfile.FilterError` can only be raised
+  by the filter, and the refusal re-raises `from` it, so:
+
+  ```python
+  assert isinstance(raised.value.__cause__, tarfile.FilterError)
+  ```
+
+  fails the moment the call goes.
+
+  **The honest half, and the reason the chain assertion is necessary rather than tidier:** with
+  the filter removed, the *traversal* test still passes, because the local name validation
+  catches that case too. Only the symlink and device-node tests fail on their own. Overlapping
+  defences are usually good and should not be removed to make a test sharper - so the test is
+  what has to change.
+
+  *Suspect this wherever defence is layered:* validation plus a library's own check, a guard test
+  plus a type, a refusal in two places. Ask **"if I delete the one I am pinning, does this test
+  still pass?"** - and if the answer needs thinking about, assert the provenance.
+
 - **A test must not be able to write to a real user location - make it impossible, not
   forbidden.** Any code that resolves an OS-conventional directory (`platformdirs`, `~`,
   `%APPDATA%`) will resolve it *for the test suite too*. The remedy is a **session fixture that
