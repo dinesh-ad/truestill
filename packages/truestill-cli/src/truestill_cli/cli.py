@@ -102,6 +102,7 @@ from truestill_core.organizer import (
     execute,
     heavy_days_for_organize,
     plan,
+    preflight_for_run,
     resolve,
     scan_source,
 )
@@ -841,6 +842,25 @@ def _print_inferred_local_shifts(uploads: list[Resolution]) -> None:
         print(f"      {format_inferred_local_shift_line(shift)}")
 
 
+def _print_preflight(
+    resolutions: list[Resolution], destination: Destination, *, skip_undated: bool
+) -> None:
+    """Say up front when the destination cannot hold this run.
+
+    Printed during a **preview**, where nothing is written and the refusal would be pointless:
+    a plan that reads as clean and then fails on ``--apply`` moves the discovery to after the
+    user has already committed. ``execute`` refuses the apply itself, from the same answer, so
+    this is a second reading rather than a second check.
+    """
+    preflight = preflight_for_run(resolutions, destination, skip_undated=skip_undated)
+    if preflight.may_proceed:
+        return
+    print(f"\n{_SEPARATOR}")
+    print("THIS DESTINATION CANNOT HOLD THIS RUN")
+    print(_SEPARATOR)
+    print(f"  {preflight.detail()}")
+
+
 def _print_summary(resolutions: list[Resolution]) -> None:
     uploads = [r for r in resolutions if r.should_upload]
     near = [r for r in uploads if r.near_duplicate is not None]
@@ -1102,6 +1122,7 @@ def _run_pipeline(
         _print_summary(resolutions)
         _print_skipped_undated(resolutions, args.skip_undated)
         _print_heif_note(resolutions)
+        _print_preflight(resolutions, destination, skip_undated=args.skip_undated)
         if scan is not None:
             _print_ingest_report(resolutions, scan)
         if args.report:
@@ -1115,22 +1136,29 @@ def _run_pipeline(
                 drive_uuid=drive_uuid,
             )
 
-        results = execute(
-            resolutions,
-            destination,
-            catalog,
-            apply=args.apply,
-            set_timestamps=not args.no_timestamps,
-            skip_undated=args.skip_undated,
-            move=getattr(args, "move", False),
-            relocation=relocation if args.apply else None,
-            events=events,
-            ingest=ingest_ctx,
-            drive_uuid=drive_uuid,
-            progress=_progress_printer("moving" if relocation else "copying")
-            if args.apply
-            else None,
-        )
+        try:
+            results = execute(
+                resolutions,
+                destination,
+                catalog,
+                apply=args.apply,
+                set_timestamps=not args.no_timestamps,
+                skip_undated=args.skip_undated,
+                move=getattr(args, "move", False),
+                relocation=relocation if args.apply else None,
+                events=events,
+                ingest=ingest_ctx,
+                drive_uuid=drive_uuid,
+                progress=_progress_printer("moving" if relocation else "copying")
+                if args.apply
+                else None,
+            )
+        except DestinationError as exc:
+            # A destination that cannot hold the run refuses before the first byte. That is a
+            # user-facing answer, not a crash: it names the files and exits like every other
+            # destination problem (code 4), rather than showing a traceback.
+            print(f"error: {exc}", file=sys.stderr)
+            return 4
 
         if relocation is not None and args.apply:
             moved = sum(1 for r in results if r.status is ActionStatus.MOVED_IN_PLACE)

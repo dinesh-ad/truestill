@@ -33,6 +33,7 @@ from truestill_core.dates import (
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations.base import CrossDeviceError, Destination, DestinationError
 from truestill_core.exif import WRITE_BATCH_SIZE, build_metadata_args, write_metadata_batch
+from truestill_core.filesystem import DestinationPreflight, sizes_of
 from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import sha256_file
 from truestill_core.layout import (
@@ -1166,6 +1167,55 @@ def _execute_one_write(
     )
 
 
+def preflight_for_run(
+    resolutions: Sequence[Resolution],
+    destination: Destination,
+    *,
+    skip_undated: bool = False,
+) -> DestinationPreflight:
+    """Whether ``destination`` can physically hold what this run would write.
+
+    Only files that would actually be **written** are counted: an exact duplicate is never
+    copied, and refusing a run over a duplicate's size would block work that would have
+    succeeded. Complexity: one ``stat`` per candidate, against a hashing pass that has already
+    read every one of them end to end.
+
+    Exposed rather than kept private because a *preview* has to say the same thing without
+    raising: a plan that reads as clean and then fails on ``--apply`` moves the discovery to
+    after the user has committed. One function decides which files count; the report and the
+    refusal are two readings of its answer, not two implementations of it.
+    """
+    candidates = [
+        r.decision.source
+        for r in resolutions
+        if r.should_upload and not (skip_undated and r.decision.captured_at is None)
+    ]
+    return destination.preflight(sizes_of(candidates))
+
+
+def _refuse_impossible_destination(
+    resolutions: Sequence[Resolution],
+    destination: Destination,
+    *,
+    skip_undated: bool,
+) -> None:
+    """Refuse, before the first byte, work this destination cannot physically hold.
+
+    **Why here and not in the callers.** The CLI and the app both call :func:`execute`, so a
+    check placed in either is a check the other silently lacks -- which is exactly how backup's
+    free-space check ended up app-only, leaving the CLI to fill a drive and fail at the end.
+    One home means a third surface cannot be added without it.
+
+    **Why refuse rather than skip.** Skipping the files that will not fit produces a library
+    quietly missing the 4K footage the user cared most about, reported as a success. Naming them
+    and stopping leaves the decision where it belongs.
+    """
+    preflight = preflight_for_run(resolutions, destination, skip_undated=skip_undated)
+    if not preflight.may_proceed:
+        message = f"{destination.describe()} cannot hold this run. {preflight.detail()}"
+        raise DestinationError(message)
+
+
 def execute(
     resolutions: Iterable[Resolution],
     destination: Destination,
@@ -1209,6 +1259,9 @@ def execute(
         can never be added to the loop and quietly go uncounted in the UI."""
         results.append(result)
         tally[status_label(result.status)] += 1
+
+    if apply:
+        _refuse_impossible_destination(resolutions, destination, skip_undated=skip_undated)
 
     by_source = events or {}
     ingest = ingest or IngestContext()

@@ -12,11 +12,42 @@ from __future__ import annotations
 import errno
 import os
 import shutil
+from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
 
 from truestill_core.destinations.base import CrossDeviceError, Destination, DestinationError
+from truestill_core.filesystem import (
+    DestinationPreflight,
+    FilesystemFacts,
+    facts_for,
+    preflight_destination,
+)
 from truestill_core.hashing import sha256_file
+
+#: ``EFBIG``. Raised when a file exceeds what the filesystem can store - on FAT32, anything from
+#: 4 GiB up. Named separately because the bare message, "File too large" against a drive with
+#: 200 GB free, reads as Truestill being broken rather than as the drive being FAT32.
+_FILE_TOO_LARGE = errno.EFBIG
+
+
+def _upload_failure(local: Path, target: Path, relative_path: str, exc: OSError) -> str:
+    """The sentence a user reads when a copy fails, with the FAT32 case named rather than passed
+    through as an errno.
+
+    ``target`` is the **full** destination path, not the relative one: the filesystem is a
+    property of where the file is being written, and asking about a relative path would
+    interrogate the current working directory instead.
+    """
+    if exc.errno == _FILE_TOO_LARGE:
+        facts = facts_for(target.parent)
+        formatted = f" ({facts.filesystem})" if facts.known else ""
+        return (
+            f"{local.name} is too large for this drive{formatted}. Drives formatted FAT32 "
+            f"cannot hold a single file of 4 GB or more, however much free space they show. "
+            f"Copy this file to a drive formatted exFAT or NTFS, or reformat this one."
+        )
+    return f"cannot upload to {relative_path!r}: {exc}"
 
 
 class LocalDestination(Destination):
@@ -31,6 +62,13 @@ class LocalDestination(Destination):
     def _full(self, relative_path: str) -> Path:
         return self._root / relative_path
 
+    def facts(self) -> FilesystemFacts:
+        """What the destination filesystem can hold. Detected once, per call site."""
+        return facts_for(self._root)
+
+    def preflight(self, sized: Iterable[tuple[Path, int]]) -> DestinationPreflight:
+        return preflight_destination(sized, self._root, facts=self.facts())
+
     def exists(self, relative_path: str) -> bool:
         try:
             return self._full(relative_path).exists()
@@ -44,8 +82,7 @@ class LocalDestination(Destination):
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(local, target)
         except OSError as exc:
-            message = f"cannot upload to {relative_path!r}: {exc}"
-            raise DestinationError(message) from exc
+            raise DestinationError(_upload_failure(local, target, relative_path, exc)) from exc
 
     def set_timestamp(self, relative_path: str, captured_at: datetime) -> None:
         stamp = captured_at.timestamp()

@@ -38,6 +38,7 @@ from truestill_core.organizer import (
     heavy_days_for_organize,
     inventory_source,
     plan,
+    preflight_for_run,
     resolve,
     scan_source,
 )
@@ -372,6 +373,22 @@ class OrganizePreviewEmpty(TypedDict):
     mechanism: ModeMechanism
 
 
+class DestinationLimit(TypedDict):
+    """What the destination cannot hold, stated before the button that would start the run.
+
+    Present only when the run would fail: a plan that reads as clean and then fails on Organize
+    moves the discovery to after the user has committed, which on the app is the worse moment
+    because the confirm control is right there.
+    """
+
+    #: The sentence a user reads. Names the offending files rather than counting them.
+    detail: str
+    #: The filesystem as the OS reports it (``vfat``), or ``None`` where it cannot be told.
+    filesystem: str | None
+    #: How many files are too large. Zero when the problem is free space rather than a limit.
+    oversized: int
+
+
 class OrganizePreviewSummary(OrganizeDedupCore):
     """Full dedup preview after :func:`_summarize`, plus mode/skipped wrappers."""
 
@@ -385,6 +402,24 @@ class OrganizePreviewSummary(OrganizeDedupCore):
     mode: str
     mechanism: ModeMechanism
     elapsed_seconds: NotRequired[float]
+    #: Absent whenever the destination can hold the run, so an ordinary preview is unchanged.
+    destination_limit: NotRequired[DestinationLimit]
+
+
+def _destination_limit(resolutions: list[Resolution], destination: Path) -> DestinationLimit | None:
+    """The destination's own refusal, or ``None`` when it can hold the run.
+
+    Reads the same answer `execute` refuses on, through the same function - a preview that
+    disagreed with the run it precedes would be worse than no preview at all.
+    """
+    preflight = preflight_for_run(resolutions, LocalDestination(destination))
+    if preflight.may_proceed:
+        return None
+    return {
+        "detail": preflight.detail(),
+        "filesystem": preflight.facts.filesystem,
+        "oversized": len(preflight.oversized),
+    }
 
 
 def organize_preview(
@@ -441,7 +476,7 @@ def organize_preview(
         )
     core = _summarize(resolutions)
     # TypedDict ** spread cannot prove NotRequired keys; build then cast (mypy strict).
-    return cast(
+    summary = cast(
         OrganizePreviewSummary,
         {
             **core,
@@ -453,6 +488,10 @@ def organize_preview(
             "mechanism": mechanism,
         },
     )
+    limit = _destination_limit(resolutions, destination)
+    if limit is not None:
+        summary["destination_limit"] = limit
+    return summary
 
 
 def organize_preview_run(

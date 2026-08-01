@@ -9,8 +9,11 @@ private business.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
+
+from truestill_core.filesystem import DestinationPreflight, FilesystemFacts
 
 
 class DestinationError(RuntimeError):
@@ -53,6 +56,33 @@ class Destination(ABC):
     @abstractmethod
     def list(self) -> list[str]:
         """Return every relative path currently present at the destination."""
+
+    # -- optional: what this destination can physically hold ------------------------------
+
+    def facts(self) -> FilesystemFacts:
+        """What is known about this destination's storage limits.
+
+        The default is **unknown**, which never refuses anything. A remote has no local
+        filesystem to interrogate and no FAT32 ceiling to hit, so guessing on its behalf could
+        only refuse work that would have succeeded. Backends addressing a real filesystem
+        override this.
+        """
+        return FilesystemFacts(filesystem=None, max_file_bytes=None)
+
+    def preflight(self, sized: Iterable[tuple[Path, int]]) -> DestinationPreflight:
+        """Whether this destination can hold ``(path, size)`` work, before any of it starts.
+
+        Sizes are passed in rather than re-derived because the caller already knows them, and
+        because a caller reading sizes from a catalog (backup) must be able to use this too.
+
+        The default stands down **completely** rather than half-guessing: a remote's free space
+        is not the local disk's, and answering with `shutil.disk_usage` here would refuse an
+        upload to a 10 TB remote because the laptop is full.
+        """
+        need = sum(size for _path, size in sized)
+        return DestinationPreflight(
+            facts=self.facts(), oversized=(), need_bytes=need, free_bytes=need
+        )
 
     # -- optional: in-place relocation, used only by layout migration ---------------------
     # Backends that can move and re-hash their own files override these. The default refuses,

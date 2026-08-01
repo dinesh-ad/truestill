@@ -1424,9 +1424,17 @@ function renderOrganizeResult(s) {
   const heic = s.heic_perceptual_skipped ? `<div class="banner warn"><div>${plural(s.heic_perceptual_skipped, "HEIC file")} will be backed up, but near-duplicate detection is unavailable for them.</div></div>` : "";
   const dateQuality = dateQualityNotes(s);
   const inferredShifts = inferredLocalShiftNotes(s);
+  // Shown above the tallies, not below them: it decides whether the run can happen at all, so
+  // it must be read before the confirm control the preview puts on screen next.
+  const limit = s.destination_limit
+    ? `<div class="banner warn" data-testid="org-destination-limit"><div>
+       <div class="b-title">This drive cannot hold this run</div>
+       <div>${esc(s.destination_limit.detail)}</div></div></div>`
+    : "";
   $("org-result").innerHTML = card(
     `<div class="headline">${mediaCount(s)} found</div>
      ${s.elapsed_seconds ? `<div class="k">checked in ${fmtDuration(s.elapsed_seconds)}</div>` : ""}
+     ${limit}
      <div class="tally">
        <div class="n">${nfmt(s.new_unique)}</div><div class="k">new - will be organized</div>
        <div class="n">${nfmt(s.near_dup)}</div><div class="k">look-alikes - kept and flagged</div>

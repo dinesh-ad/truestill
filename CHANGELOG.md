@@ -13,6 +13,19 @@ All notable changes to this project are documented here. The format follows
   and matches `organize`'s existing `source`. **`--takeout` keeps working, permanently** - it is
   a hidden alias resolving to the same value, not a deprecation, so existing scripts are safe.
 
+### Fixed
+- **A FAT32 drive can no longer swallow most of a run and then fail the videos.** FAT32 cannot
+  store a file of 4 GiB or more, and 4K phone video crosses that routinely. Organize had no
+  preflight of any kind, so a library with a few big videos organized nine thousand files and
+  *then* failed N of them, one `[Errno 27] File too large` at a time, against a drive reporting
+  200 GB free. Organize now checks what the destination can physically hold **before writing
+  anything** and refuses, **naming the files that would fail** rather than counting or skipping
+  them - a run that quietly omitted exactly the footage the user cared most about, and reported
+  success, would be the worse outcome. The errno message itself now names FAT32 as the reason
+  instead of passing the raw errno through. Detected from `/proc/mounts` on Linux and
+  `GetVolumeInformationW` on Windows; **macOS reports unknown, and unknown never refuses
+  anything**. Both the CLI and the app inherit the refusal, and both previews say so up front.
+
 ### Added
 - **Trips**: group multi-day photos into one folder, review and apply on disk.
 - **In-place organize (`organize --in-place`)** for libraries that live on the drive itself -
