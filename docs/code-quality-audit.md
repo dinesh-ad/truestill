@@ -1,5 +1,26 @@
 # truestill - Code Quality Audit (SonarQube-class)
 
+> **FROZEN RECORD - FINDINGS RESOLVED (re-verified 2026-08-01).** A dated audit, not a live
+> defect list. Every **CRITICAL and HIGH** finding below was re-checked against the code on
+> 2026-08-01 and is fixed: both CRITICALs (F0's erased undo outcome, F1's unguarded
+> `future.result()`), and the HIGHs from F2 through F42. Spot-checks that settle the loudest of
+> them: `runJob` replaced F38's thirteen hand-copied job skeletons and `test_run_job.py` pins
+> it; `strict = true` is set (F4); `CopyStatus.UNREADABLE` exists (F1); `MissingCopy` replaced
+> the `list[Any]` backup loop (F8); `read_metadata` is decomposed (F9); `service/` is a package
+> (F10); one `type: ignore` remains in all of `src` where there were seven (F23).
+>
+> **F7 is the one closed by ruling rather than by code.** It asked whether §2's "sole bridge"
+> wording or `server.py` should change; §2 was reworded to the invariant the code actually
+> holds. Findings that became tracked work live in `BACKLOG.md` under their own letters.
+>
+> **§4 IS NOT FROZEN BY THIS HEADER AND IS STILL BINDING.** Its 26 "non-findings" record
+> deliberate choices - the O(n^2) perceptual scan, the raised Pillow decompression ceiling, no
+> pydantic, the single un-bundled `app.js`, the one-journey golden path - that a future reviewer
+> will otherwise "improve". That section is live guidance. Only the *findings* are historical.
+>
+> Read this for what was measured and when, never as a to-do list. Kept for provenance; do not
+> edit it to keep it current.
+
 **Date:** 2026-07-30 | **Scope:** all three packages, `static/`, `scripts/`, `tests/`, hooks, CI
 **Method:** measured. Cognitive complexity scored per the SonarSource specification (nesting-weighted,
 boolean-sequence collapsed) by an AST scorer run over all 633 functions; duplication by token-shingle

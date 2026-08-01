@@ -1,5 +1,21 @@
 # Date provenance: design for (n) + (ii) + (bbb)-recovery, and where (kk) sits
 
+> **FROZEN RECORD - PROGRAM COMPLETE (2026-07-31).** The status line immediately below was true
+> when it was written and is not true now. The program shipped in six steps: schema **v13**
+> (`files.date_source`), **v14** (`date_tag`), **v15** (`date_confirmations`) and **v16**
+> (`file_copies.date_baked_at`), the honesty view, the rescue flow, the bake, and the
+> `_original` candidate offer. Obligation **O4** is a named test file,
+> `packages/truestill-core/tests/test_confirmation_survives.py`.
+>
+> Two carve-outs, so nobody reads the design as fully delivered: one clause of `(bbb)` item 4 -
+> noting an embedded conflict against a confirmed date - was **decided against**
+> (`BACKLOG.md` `(aaj)`, consciously out of scope), and `(kk)`'s `GPSDateStamp` half was **never
+> built**.
+>
+> Read this for the reasoning that produced the design. The built truth is
+> `IMPLEMENTATION_STANDARDS.md` §1 and §3, and `BACKLOG.md`. Kept for provenance; do not edit it
+> to keep it current.
+
 **Status: design only. Nothing built. Awaiting approval.**
 
 One program, because the backlog audit found four items converged on the same schema step and the

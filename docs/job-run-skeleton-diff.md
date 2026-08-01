@@ -1,5 +1,18 @@
 # Job-run skeleton inventory (audit F38, commit 1)
 
+> **FROZEN RECORD - SUPERSEDED (verified 2026-08-01).** An inventory taken *before* the F38
+> extraction, so its "**No extraction yet**" below is no longer true and the thirteen
+> hand-copied call sites no longer exist. `runJob` in
+> `packages/truestill-app/src/truestill_app/static/app.js` is now the single skeleton - it owns
+> the refusal branch and one central cancelled branch, the two behaviours this inventory was
+> written to stop the extraction getting wrong - and
+> `packages/truestill-app/tests/test_run_job.py` pins it.
+>
+> Read this for **why** the extraction was parameterised the way it was: the per-site
+> differences catalogued below are the argument for what `runJob` takes as a parameter and what
+> it hard-codes. The current shape is the code. Kept for provenance; do not edit to keep it
+> current.
+
 Hand inventory of the thirteen `awaitJob` call sites in
 `packages/truestill-app/src/truestill_app/static/app.js`. **No extraction yet** - this
 record exists so commit 2 cannot silently impose one copy's behaviour on the other twelve.
