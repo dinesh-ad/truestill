@@ -8,6 +8,7 @@ first request is authenticated and no configuration is needed.
 from __future__ import annotations
 
 import argparse
+import signal
 import socket
 import sys
 import threading
@@ -99,6 +100,38 @@ def _say(line: str, *, error: bool = False) -> None:
     the session URL gets a durable home of its own, which is the line that actually matters.
     """
     print(line, file=sys.stderr if error else sys.stdout, flush=True)
+
+
+#: Signals that mean "stop now" and are worth cleaning up for. ``SIGBREAK`` exists only on
+#: Windows, so it is looked up rather than imported.
+_TERMINATING_SIGNALS = tuple(
+    sig
+    for sig in (signal.SIGINT, signal.SIGTERM, getattr(signal, "SIGBREAK", None))
+    if sig is not None
+)
+
+
+def release_session_link(signum: int, _frame: object) -> None:
+    """Remove the session URL file, then die the way the signal asked.
+
+    **Why a handler and not just the ``finally``.** uvicorn's `Server.capture_signals` installs
+    its own handlers, shuts down gracefully, restores the **original** ones, and then re-raises
+    the captured signal at itself so the parent sees the conventional exit status. By then the
+    restored handler is in charge, so on ``SIGTERM`` the process dies *inside* ``server.run()``
+    and the ``finally`` below it is never reached. Measured: a bare ``try/finally`` around
+    ``server.run()`` leaves no marker after a ``SIGTERM``.
+
+    ``SIGINT`` happened to work already, for a reason worth knowing rather than relying on:
+    Python's default ``SIGINT`` handler raises `KeyboardInterrupt`, which propagates out of
+    ``server.run()`` and *does* reach the ``finally``. So Ctrl-C cleaned up and ``kill`` did not.
+
+    This rides uvicorn's mechanism instead of fighting it. Installed **before** ``server.run()``,
+    this is the handler uvicorn snapshots and restores, so the re-raise lands here: clear the
+    file, put the default back, and re-raise so the exit status is still the conventional one.
+    """
+    session_link.clear()
+    signal.signal(signum, signal.SIG_DFL)
+    signal.raise_signal(signum)
 
 
 def _attempt_browser(url: str, written: Path) -> None:
@@ -208,6 +241,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     if not args.no_browser:
         threading.Thread(target=open_when_ready, args=(server, url, written), daemon=True).start()
+
+    # Before server.run: uvicorn snapshots the handlers that exist when it starts and restores
+    # them before re-raising, so these are the ones the re-raise lands on. Installed after, they
+    # would never be restored and the file would survive every kill - the original bug with
+    # extra code in front of it.
+    for terminating in _TERMINATING_SIGNALS:
+        signal.signal(terminating, release_session_link)
 
     try:
         server.run(sockets=[sock])
