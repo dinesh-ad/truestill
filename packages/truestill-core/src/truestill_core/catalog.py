@@ -1139,6 +1139,22 @@ class Catalog:
         cursor = self._conn.execute("SELECT source_path, sha256, perceptual FROM files")
         return [(row["source_path"], row["sha256"], row["perceptual"]) for row in cursor]
 
+    def repoint_sources(self, moves: Sequence[tuple[str, str]]) -> int:
+        """Rewrite ``files.source_path`` for ``(sha256, new_path)`` pairs. Returns rows changed.
+
+        One transaction: a repoint half-applied would leave a library split across two roots
+        with nothing recording which rows moved. `sha256` is the key because it is the column
+        with a UNIQUE constraint and the one thing a moved file keeps.
+        """
+        if not moves:
+            return 0
+        with self._conn as conn:
+            cursor = conn.executemany(
+                "UPDATE files SET source_path = ? WHERE sha256 = ?",
+                [(new_path, sha) for sha, new_path in moves],
+            )
+            return int(cursor.rowcount or 0)
+
     def organized_files(self) -> list[sqlite3.Row]:
         """Every organized file with the relative path it was written to.
 

@@ -122,6 +122,7 @@ from truestill_core.organizer import (
 from truestill_core.progress import Progress, ProgressCallback
 from truestill_core.reclaim import ReclaimPlan, plan_reclaim, run_reclaim
 from truestill_core.scan import DEFAULT_WORKERS
+from truestill_core.source_repoint import RepointPlan, plan_repoint
 from truestill_core.takeout import (
     IngestContext,
     MetadataWrite,
@@ -379,6 +380,17 @@ def _build_parser() -> argparse.ArgumentParser:
             f"write a {MARKER_NAME} for a drive that still carries only a pre-rename "
             "marker, keeping its identity and leaving the old file in place"
         ),
+    )
+
+    repoint = sub.add_parser(
+        "repoint-sources",
+        help="after moving the folder photos were imported from, tell truestill where it went",
+    )
+    repoint.add_argument("old_root", type=Path, metavar="OLD-ROOT")
+    repoint.add_argument("new_root", type=Path, metavar="NEW-ROOT")
+    repoint.add_argument("--apply", action="store_true", help="rewrite (default: preview only)")
+    repoint.add_argument(
+        "--db", type=Path, default=default_catalog_path(), help="path to the catalog file"
     )
 
     _add_undo_parser(sub)
@@ -651,6 +663,72 @@ def _drive_or_explain(path: Path) -> DriveMarker | None:
         file=sys.stderr,
     )
     return None
+
+
+def _print_repoint_preview(plan: RepointPlan) -> None:
+    """What the rewrite would change, before anything is written."""
+    print(_SEPARATOR)
+    print("REPOINT SOURCES - PREVIEW")
+    print(_SEPARATOR)
+    print(f"  recorded under : {plan.old_root}")
+    print(f"  would point to : {plan.new_root}")
+    print(f"  rows recorded under the old root : {len(plan.rows)}")
+    print(f"  found at the new root            : {len(plan.movable)}")
+    print(f"  still present at the old root    : {plan.still_present_at_old}")
+    print(f"  content proof                    : {plan.proven}/{plan.hashed} sampled files match")
+    for row in plan.movable[:_STATUS_PREVIEW]:
+        print(f"      {row.old_path}\n        -> {row.new_path}")
+    if len(plan.movable) > _STATUS_PREVIEW:
+        print(f"  ... and {len(plan.movable) - _STATUS_PREVIEW} more.")
+    missing = len(plan.rows) - len(plan.movable)
+    if missing:
+        # Left pointing where they were, on purpose: a dead path is honest, and a confidently
+        # wrong one is what `reclaim` would delete.
+        print(f"  {missing} recorded file(s) are not at the new root and will NOT be changed.")
+
+
+def _cmd_repoint(args: argparse.Namespace) -> int:
+    """Rewrite recorded source paths after their folder moved. Preview, then a typed word."""
+    old_root, new_root = args.old_root, args.new_root
+    if not path_is_usable_dir(new_root):
+        print(f"error: {new_root} is not a folder Truestill can read.", file=sys.stderr)
+        return 2
+    with Catalog(args.db) as catalog:
+        recorded = [(source, sha) for source, sha, _perceptual in catalog.seed_rows()]
+        plan = plan_repoint(recorded, old_root, new_root)
+
+        if not plan.rows:
+            print(f"No catalogued file was recorded under {old_root}. Nothing to repoint.")
+            return 0
+        _print_repoint_preview(plan)
+
+        if plan.verdict is not AdoptionVerdict.PROVEN:
+            # The content at the new root is not the content that was recorded. Refusing is the
+            # whole point: `reclaim` deletes `source_path`, and its gate re-hashes the drive
+            # COPY, never the source - so a wrong path here is a file deleted unverified.
+            print(
+                f"\nerror: {new_root} does not hold the files recorded under {old_root}.\n"
+                f"       {plan.proven} of {plan.hashed} sampled files matched by content. "
+                "Nothing was changed.\n"
+                "       Check the folder is the one that moved, not a different copy.",
+                file=sys.stderr,
+            )
+            return 2
+        if not args.apply:
+            print("\nPreview only. Re-run with --apply to rewrite these paths.")
+            return 0
+
+        confirmed = _typed_confirmation(
+            f"\nType 'repoint' to rewrite {len(plan.movable)} recorded path(s): ", "repoint"
+        )
+        if confirmed is None:
+            return 2
+        if not confirmed:
+            print("Aborted. Nothing was changed.")
+            return 0
+        changed = catalog.repoint_sources([(r.sha256, r.new_path) for r in plan.movable])
+        print(f"Repointed {changed} recorded source path(s) to {new_root}.")
+    return 0
 
 
 def _cmd_where(args: argparse.Namespace) -> int:
@@ -2095,6 +2173,7 @@ def main(argv: list[str] | None = None) -> int:
         "migrate-layout": _cmd_migrate_layout,
         "reclaim": _cmd_reclaim,
         "undo-organize": _cmd_undo_organize,
+        "repoint-sources": _cmd_repoint,
     }
     return dispatch[args.command](args)
 

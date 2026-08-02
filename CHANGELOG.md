@@ -82,6 +82,18 @@ All notable changes to this project are documented here. The format follows
   names EFBIG the same way for a header that under-declares.
 
 ### Added
+- **`truestill repoint-sources` - moved the folder you imported from? Point Truestill at where
+  it went, once.** Truestill records where each photo came from, as a full path. Move or rename
+  that folder and every one of those records goes stale: `reclaim` reports files it cannot find
+  instead of offering to free space, and searches cite folders that no longer exist. Name the
+  old folder and the new one and every record beneath it is updated in a single step - the whole
+  tree, not file by file. **Your organized library needs none of this** and never did: those
+  copies are recorded relative to the drive they live on, so a drive that reappears somewhere
+  else just works.
+  It shows you exactly what it would change and asks you to type `repoint` before changing
+  anything. **It also checks the contents of the new folder before believing you**, and refuses
+  outright if the files there are not the files it recorded - a folder with the right shape and
+  the wrong photos is exactly the mistake that would later let `reclaim` delete the wrong file.
 - **Truestill now says whether each of your backup drives is actually plugged in.** A drive you
   have unplugged reads as *not plugged in* rather than looking like every other drive in the
   list - and, deliberately, never as *missing* or as an error, because disconnecting an external
