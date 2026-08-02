@@ -299,10 +299,40 @@ perceptual hashing runs for every image (unlike SHA-256, which the size pre-filt
 ~94% of files). It is also parallelised across files by the worker pool, so the wall-clock effect
 is the pool's throughput rather than a straight multiplication.
 
-**Deliberately NOT on the do-not-touch list in §4**, because there is a live hypothesis: pillow-heif
-exposes scaled/thumbnail decode paths, and a dHash needs 8x8. Using one where `draft()` currently
-no-ops would plausibly recover most of the difference. **That is untested** - nobody has measured
-it, and it is written here as the next experiment rather than as a plan.
+**The hypothesis was tested on 2026-08-02, and it does not survive the pinned library.** It read:
+pillow-heif exposes an embedded thumbnail, a dHash needs 8x8, so decode the thumbnail instead of
+the frame. The diagnosis was right and the lever does not exist.
+
+- **`pillow-heif 1.5.0` exposes thumbnail *metadata* only.** `info["thumbnails"]` is a list of
+  **integers** - the box sizes present in the container - not decodable images. There is no
+  thumbnail image class among its exports (`HeifAuxImage` and `HeifDepthImage` exist; no
+  thumbnail equivalent), and the library's own source collects those integers and stops. So
+  there is no supported way to ask this version for the thumbnail's pixels. Reported rather
+  than worked around: a private path into the C bindings would be a maintenance surface bought
+  for a speed win, on the one library that reads untrusted media.
+- **`DECODE_THREADS` is not the cheaper lever either.** Measured n=7 per setting on the same
+  12 MP fixture: 1 thread 313.6 ms, 2 -> 335.1, 4 (default) -> 315.3, 8 -> 342.5, 16 -> 326.6.
+  Every value sits inside the run-to-run band, on a 16-core machine. Changing it buys nothing.
+- **Where the time actually goes, for whoever picks this up.** Split per phase, n=7: HEIC spends
+  **285.5 ms decoding and 39.1 ms hashing**; JPEG spends 5.6 ms and 0.8 ms. Both are **88%
+  decode**, so the diagnosis holds - a scaled decode is the right idea. Note the full-resolution
+  frame is paid for twice: once to decode it, then again in the resize, which is why HEIC's hash
+  step alone is 39 ms against JPEG's 0.8 ms (post-`draft()` JPEG is already 500x375).
+- **Correctness was never reached**, so the stored-hash compatibility question is still open and
+  would have to be answered before any future attempt: every HEIC already in a catalog was hashed
+  at full resolution, and a thumbnail-derived dHash is not guaranteed to equal it. A silent
+  near-duplicate regression on the majority format would be worse than a slow hash.
+
+**Fixture caveat, because it limits what this measured.** A generated HEIF has **no embedded
+thumbnail at all** - `img.save(..., format="HEIF")` yields `thumbnails == []`, and passing
+`thumbnails=[256]` writes them but they still come back as sizes. Real iPhone captures normally
+carry one; none were available here, so the thumbnail *presence rate* on real photographs is
+**unmeasured**. That does not change the conclusion - the API to decode one is absent either way -
+but a future attempt on a newer pillow-heif should re-check presence before assuming a win.
+
+**Still not on the do-not-touch list in §4.** The idea is sound and the cost is real; what failed
+is the route. If a later pillow-heif exposes a scaled or thumbnail decode, this is worth
+re-testing - starting with the correctness question above, not the stopwatch.
 
 ## 4. Non-findings - things to leave alone
 
