@@ -25,6 +25,22 @@ All notable changes to this project are documented here. The format follows
   a hidden alias resolving to the same value, not a deprecation, so existing scripts are safe.
 
 ### Fixed
+- **Truestill will no longer register the same library twice as two different drives.** If a
+  drive's marker file went missing - copied to a new machine without it, restored from a backup
+  that skipped hidden files - registering that folder used to create a *second* drive identity
+  for photos truestill already knew about. On the command line the new drive then showed **0
+  files**, as though the backups had never existed. In the app it was quieter and worse: the new
+  drive picked up all the files, and Truestill went on to report *"at least two drive copies"*
+  for photos that existed in exactly one place. Registering now **stops and names the drive the
+  folder already is**, having checked the file contents rather than just the names. If the drive
+  simply moved, `truestill drives --init <folder> --label x --adopt-existing` re-attaches it
+  under its original identity; if you really do have two drives holding the same photos,
+  `--force-new-identity` registers the second one.
+- **An unplugged drive no longer tells you to register it.** Pointing `verify`, `reclaim` or
+  `migrate-layout` at a path that is not there said *"isn't a truestill drive yet - register it
+  with `truestill drives --init`"* - the one piece of advice that causes the problem above. It
+  now asks whether the drive is plugged in. A folder that *is* there and simply is not a drive
+  still gets the register suggestion, unchanged.
 - **A photo truestill could not read is no longer also counted among the ones it says it will
   organize.** The preview said both *"organized (unique): 5"* and *"files that could not be
   read: 2"* about the same seven photos, with the two unreadable ones inside the 5 - a file with

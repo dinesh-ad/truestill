@@ -37,7 +37,12 @@ def _seed(db: Path, drive: Path, source: Path, content: bytes = b"content") -> N
 def test_reclaim_requires_connected_drive(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    code = main(["reclaim", str(tmp_path / "not-a-drive"), "--db", str(tmp_path / "c.sqlite")])
+    # The folder must EXIST. An absent path is a different state with the opposite remedy -
+    # it now says "is it plugged in?" rather than "register it", because sending someone to
+    # `drives --init` for an unmounted drive is what mints a duplicate identity ((aap)).
+    plain = tmp_path / "not-a-drive"
+    plain.mkdir()
+    code = main(["reclaim", str(plain), "--db", str(tmp_path / "c.sqlite")])
     assert code == 2
     # The refusal names what the folder IS and what to do, rather than the marker filename.
     err = capsys.readouterr().err

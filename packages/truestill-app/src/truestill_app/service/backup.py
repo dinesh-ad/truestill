@@ -141,6 +141,21 @@ def backup_preview(source: Path, target: Path, db: Path) -> BackupPreviewOk | Ba
     # registered rather than rejected -- the run does the registering.
     src = attach_drive(source, db, write=False)
     tgt = attach_drive(target, db, write=False)
+    # Refused before anything else is computed: a folder that already holds a known library
+    # must not be registered a second time, or truestill would count one copy of the user's
+    # photos as two and say so on the very screen that promises redundancy ((aap)).
+    for side, attachment in (("From", src), ("To", tgt)):
+        if attachment.blocked_by is not None:
+            return {
+                "ok": False,
+                "error": (
+                    f"That {side} folder already holds the library recorded as "
+                    f"'{attachment.blocked_by.label}'. Registering it again would give one "
+                    "library two drive ids, and truestill would count a single copy of your "
+                    "photos as two. If this drive moved, re-attach it with "
+                    "'truestill drives --init <folder> --label x --adopt-existing'."
+                ),
+            }
     src_marker, tgt_marker = read_marker(source), read_marker(target)
     if src_marker is not None and tgt_marker is not None and src_marker.uuid == tgt_marker.uuid:
         return {

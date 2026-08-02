@@ -35,9 +35,12 @@ def _seed_drive(db: Path, root: Path, relative: str, content: bytes) -> None:
 def test_migrate_layout_requires_a_connected_drive(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    code = main(
-        ["migrate-layout", str(tmp_path / "not-a-drive"), "--db", str(tmp_path / "c.sqlite")]
-    )
+    # The folder must EXIST. An absent path is a different state with the opposite remedy -
+    # it now says "is it plugged in?" rather than "register it", because sending someone to
+    # `drives --init` for an unmounted drive is what mints a duplicate identity ((aap)).
+    plain = tmp_path / "not-a-drive"
+    plain.mkdir()
+    code = main(["migrate-layout", str(plain), "--db", str(tmp_path / "c.sqlite")])
     assert code == 2
     # The refusal names what the folder IS and what to do, rather than the marker filename.
     err = capsys.readouterr().err

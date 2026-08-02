@@ -52,8 +52,16 @@ from truestill_core.drive import (
     existing_marker_path,
     locate_drive,
     needs_marker_upgrade,
+    path_is_usable_dir,
     read_marker,
     upgrade_marker,
+)
+from truestill_core.drive_adoption import (
+    AdoptionOffer,
+    AdoptionVerdict,
+    RecordedDrive,
+    inspect_root,
+    recorded_drive,
 )
 from truestill_core.duplicate_explain import origin_phrase
 from truestill_core.exif import ExiftoolMissingError, read_metadata
@@ -346,6 +354,22 @@ def _build_parser() -> argparse.ArgumentParser:
     drives.add_argument("--label", help="human label for --init")
     drives.add_argument("--uuid", help="re-attach a known drive id instead of creating a new one")
     drives.add_argument(
+        "--adopt-existing",
+        action="store_true",
+        help=(
+            "when --init finds this folder is a drive the catalog already knows, keep that "
+            "drive's identity instead of creating a second one"
+        ),
+    )
+    drives.add_argument(
+        "--force-new-identity",
+        action="store_true",
+        help=(
+            "create a new drive id even though this folder holds a library the catalog "
+            "already knows - correct for a clone, wrong for a drive that simply moved"
+        ),
+    )
+    drives.add_argument(
         "--migrate-marker",
         type=Path,
         metavar="ROOT",
@@ -480,10 +504,7 @@ def _cmd_drives(args: argparse.Namespace) -> int:
             if not args.label:
                 print("error: --init requires --label", file=sys.stderr)
                 return 2
-            marker = create_marker(args.init, args.label, uuid=args.uuid)
-            catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
-            print(f"Drive '{marker.label}' initialised at {args.init}  (uuid {marker.uuid}).")
-            return 0
+            return _init_drive(args, catalog)
 
         drives = catalog.list_drives()
         if not drives:
@@ -496,6 +517,90 @@ def _cmd_drives(args: argparse.Namespace) -> int:
                 f"{d['label']:<20}{d['file_count']:>8}{size_mb:>12.1f}  "
                 f"{(d['last_seen'] or '-')[:19]:<22}{(d['last_verified'] or 'never')[:19]}"
             )
+    return 0
+
+
+def _recorded_drives(catalog: Catalog) -> list[RecordedDrive]:
+    """Every known drive as `drive_adoption` wants it: identity plus where its copies sit.
+
+    A copy is proven against the digest it actually presents: a Takeout-baked copy hashes to its
+    own ``copy_sha256`` and not to ``files.sha256``, so matching only the source hash would make
+    exactly the baked copies look like content that differs.
+    """
+    return [
+        recorded_drive(
+            str(row["uuid"]), str(row["label"]), catalog.copies_on_drive(str(row["uuid"]))
+        )
+        for row in catalog.list_drives()
+    ]
+
+
+def _print_adoption_refusal(path: Path, offers: list[AdoptionOffer]) -> None:
+    """Name the drive this folder already is, and both ways forward. Never choose one."""
+    proven = [o for o in offers if o.verdict is AdoptionVerdict.PROVEN]
+    differing = [o for o in offers if o.verdict is AdoptionVerdict.CONTENT_DIFFERS]
+    if differing and not proven:
+        names = ", ".join(f"'{o.label}'" for o in differing)
+        print(
+            f"error: {path} has the same layout as {names}, but the files there are NOT the "
+            "same files.\n"
+            "       Nothing was written. This is not that drive; if it really is a new one, "
+            "register it with --force-new-identity.",
+            file=sys.stderr,
+        )
+        return
+    names = ", ".join(f"'{o.label}'" for o in proven)
+    print(
+        f"error: {path} already holds the library recorded as {names}.\n"
+        f"       Registering it again would create a SECOND drive id for one library, and "
+        "truestill would then\n"
+        "       count one copy of your photos as two. Nothing was written.\n"
+        "\n"
+        "       If this drive moved:      re-run with --adopt-existing\n"
+        "       If this is a clone, and\n"
+        "       both really exist:        re-run with --force-new-identity",
+        file=sys.stderr,
+    )
+    if len(proven) > 1:
+        print(
+            "       More than one known drive matches, so --adopt-existing cannot choose. "
+            "Pass --uuid <id> to say which.",
+            file=sys.stderr,
+        )
+
+
+def _init_drive(args: argparse.Namespace, catalog: Catalog) -> int:
+    """Register a folder as a drive, refusing to mint a second identity for a known library."""
+    offers = (
+        []
+        if (args.uuid or args.force_new_identity)
+        else inspect_root(args.init, _recorded_drives(catalog))
+    )
+    proven = [o for o in offers if o.verdict is AdoptionVerdict.PROVEN]
+    if offers and not args.adopt_existing:
+        _print_adoption_refusal(args.init, offers)
+        return 2
+
+    adopt: str | None = args.uuid
+    label = args.label
+    if args.adopt_existing:
+        if len(proven) != 1:
+            _print_adoption_refusal(args.init, offers)
+            if not offers:
+                print(
+                    f"error: --adopt-existing found no known library at {args.init}. "
+                    "Nothing was written.",
+                    file=sys.stderr,
+                )
+            return 2
+        # The identity AND the name come from the catalog: this folder *is* that drive, so
+        # renaming it here would leave the user's own label behind for no reason.
+        adopt, label = proven[0].uuid, proven[0].label
+
+    marker = create_marker(args.init, label, uuid=adopt)
+    catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+    verb = "re-attached" if adopt else "initialised"
+    print(f"Drive '{marker.label}' {verb} at {args.init}  (uuid {marker.uuid}).")
     return 0
 
 
@@ -512,6 +617,21 @@ def _drive_or_explain(path: Path) -> DriveMarker | None:
         print(
             f"error: {path} is a folder inside '{location.marker.label}'.\n"
             f"       Use the drive root instead:  {location.root}",
+            file=sys.stderr,
+        )
+        return None
+    if not path_is_usable_dir(path):
+        # A path that is not there and a folder that is not a drive are different states with
+        # OPPOSITE remedies, and this printed the register suggestion for both. Following it on
+        # an unmounted drive is what mints a second identity for a library that already exists
+        # (`BACKLOG.md` (aap)) - so the two must never share wording again.
+        print(
+            f"error: {path} is not there.\n"
+            "       If this is an external drive, is it plugged in and mounted? "
+            "Check the path, then try again.\n"
+            "       Do NOT register the folder again while the drive is disconnected - that "
+            "creates a second\n"
+            "       drive id for a library you already have.",
             file=sys.stderr,
         )
         return None

@@ -14,6 +14,7 @@ from truestill_core import binaries
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_startup import inspect_catalog
 from truestill_core.drive import create_marker, path_is_usable_dir, read_marker
+from truestill_core.drive_adoption import AdoptionOffer, inspect_root, recorded_drive
 from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import sha256_file
 from truestill_core.models import FileHashes
@@ -98,6 +99,10 @@ class DriveAttachment:
     #: walk is not silent about what it read; never attached, because claiming it would invent
     #: a copy of content truestill has no record of.
     unmatched: int = 0
+    #: Set when this folder was NOT registered because it already holds a library the catalog
+    #: knows under another identity. Registering anyway would give one library two drive ids,
+    #: and every place that counts copies would then report one copy of a photo as two.
+    blocked_by: AdoptionOffer | None = None
 
 
 def _copy_hash(path: Path, cache: HashCache) -> str:
@@ -140,6 +145,27 @@ def _unrecorded_files(root: Path, recorded: set[str]) -> list[Path]:
         and not any(part.startswith(".") for part in item.relative_to(root).parts)
         and item.relative_to(root).as_posix() not in recorded
     ]
+
+
+def _adoption_block(
+    path: Path, db: Path, *, cancel: threading.Event | None = None
+) -> AdoptionOffer | None:
+    """The known drive this unmarked folder already is, or ``None`` to go ahead and register.
+
+    A folder whose paths line up but whose bytes do not (`CONTENT_DIFFERS`) also blocks. That is
+    a stricter rule than the CLI's, and deliberately so: the app has no screen on which to
+    explain the difference, and refusing to register is always recoverable while a wrong
+    identity is not.
+    """
+    with Catalog(db) as catalog:
+        recorded = [
+            recorded_drive(
+                str(row["uuid"]), str(row["label"]), catalog.copies_on_drive(str(row["uuid"]))
+            )
+            for row in catalog.list_drives()
+        ]
+    offers = inspect_root(path, recorded, cancel=cancel)
+    return offers[0] if offers else None
 
 
 def attach_drive(
@@ -208,6 +234,24 @@ def attach_drive(
     """
     marker = read_marker(path)
     was_registered = marker is not None
+    if marker is None:
+        # Only ever asked where a marker WOULD be minted. An already-marked drive has an
+        # identity, so inspecting it could only offer to adopt itself, at the cost of real
+        # reads on every backup preview.
+        #
+        # This refuses; it never adopts. The evidence for "this drive moved" and for "this is a
+        # second physical copy of that drive" is identical, and a product whose entire promise
+        # is counting how many places a photo is safe in must not resolve that by guessing.
+        # The CLI's `drives --init --adopt-existing` is where a person decides.
+        blocked = _adoption_block(path, db, cancel=cancel)
+        if blocked is not None:
+            return DriveAttachment(
+                label=path.name or "Library",
+                registered=False,
+                linked=0,
+                absent=0,
+                blocked_by=blocked,
+            )
     # Previews write nothing, ever - including the marker. An unregistered folder is therefore
     # counted without a uuid rather than skipped, so the preview can still state the scale.
     if marker is None and write:
