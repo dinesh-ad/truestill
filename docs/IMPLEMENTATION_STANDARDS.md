@@ -472,6 +472,21 @@ is the point of the gate: **no other gate we have can see prose.**
     CI step with an adjacent comment giving **the reason and the advisory link**, so every
     accepted risk is visible in review and in `git blame`. An audit that passes because
     something was quietly suppressed is worse than no audit.
+  - **KNOWN BLIND SPOT: the audit sees PyPI distributions, not the native libraries inside
+    them.** `pip-audit` is given a locked requirements list, so it reads `pillow-heif==1.5.0`
+    and nothing else. That wheel bundles ~26 MB of C libraries - libheif, libde265, x265 - and
+    **a CVE against one of those is invisible to this gate**: measured 2026-08-02, the audit
+    input contains **zero** mentions of libheif, libde265 or x265. The audit can report a clean
+    build while shipping a vulnerable decoder, and this is the decoder that reads **untrusted
+    user media**, which is the whole of our threat surface.
+    - **Checked 2026-08-02 and the answer was clean**, so this is a recorded gap rather than a
+      live exposure - see the `pillow-heif` row in §7 for the bundled versions and how to read
+      them at runtime. A negative result is recorded here so the next person does not re-derive
+      it, and so the gap outlives the good news.
+    - **Not closed.** Closing it means recording the bundled native versions somewhere a review
+      can see them - the runtime values are one call away (`pillow_heif.libheif_version()`,
+      `libheif_info()`) - so a future advisory against a bundled library can be matched against
+      what we actually ship. Proposal only; nothing built.
   - **Current ignore list: empty.** First run (2026-07-27) was clean: 28 runtime packages and
     40 including dev, zero known vulnerabilities. That pair is kept as the **dated record of
     that run**, not as a live figure. Measured again 2026-08-01 via
@@ -532,7 +547,7 @@ state:
 |---|---|
 | `imagehash>=4.3.2` (`truestill-core`) | Perceptual dHash for near-duplicate detection; requires image decoding, which the stdlib cannot do. |
 | `pillow>=12.3.0` (`truestill-core`) | Image decoding backing imagehash and cheap dimension reads. **Large-image policy:** truestill processes the user's own local library (trusted), not untrusted uploads, so Pillow's ~89 MP decompression-bomb guard is a false positive on legitimate large photos (panoramas/scans). `hashing.MAX_PERCEPTUAL_PIXELS` raises `Image.MAX_IMAGE_PIXELS` to **300 MP** deliberately; above it a pathological image is **skipped for perceptual hashing** (SHA-256 exact dedup still applies) and the bomb *warning* is suppressed locally so **no raw Pillow warning reaches the terminal**. (Immich/PhotoPrism avoid this entirely via libvips streaming.) |
-| `pillow-heif>=1.5.0` (`truestill-core`) | Registers a HEIF opener so Pillow can decode **HEIC/HEIF** (the iPhone-default format since 2017), enabling their perceptual near-dup dedup. **Graceful degradation is mandatory:** `hashing._register_heif` guards the import; if it ever fails at runtime, `HEIF_AVAILABLE` is `False`, SHA-256 exact dedup still applies to HEIC, and the run **reports** that HEIC perceptual hashing was skipped - never a silent drop. TIFF-based RAW (CR2/NEF/DNG/…) needs no plugin (Pillow's TIFF decoder content-sniffs it); container-based RAW (CR3, RAF) is exact-dedup-only. |
+| `pillow-heif>=1.5.0` (`truestill-core`) | Registers a HEIF opener so Pillow can decode **HEIC/HEIF** (the iPhone-default format since 2017), enabling their perceptual near-dup dedup. **Graceful degradation is mandatory:** `hashing._register_heif` guards the import; if it ever fails at runtime, `HEIF_AVAILABLE` is `False`, SHA-256 exact dedup still applies to HEIC, and the run **reports** that HEIC perceptual hashing was skipped - never a silent drop. TIFF-based RAW (CR2/NEF/DNG/…) needs no plugin (Pillow's TIFF decoder content-sniffs it); container-based RAW (CR3, RAF) is exact-dedup-only. **It bundles native code, so its version is two questions, not one:** the wheel is `pillow-heif 1.5.0`, and inside it (measured 2026-08-02) sit **libheif 1.23.1**, libde265 1.1.1 and x265 4.2. Read them with `pillow_heif.libheif_version()` / `libheif_info()` rather than inferring from the wheel version - the dependency audit cannot see them (§6). Checked against the 2026 libheif advisory cluster (CVE-2026-32740, -32814, -49271 and neighbours, fixed in 1.22.0 / 1.22.1): **1.23.1 is newer than every fix, so not affected.** |
 | `platformdirs>=4.11.0` (`truestill-core`) | The three OS conventions for user data and cache directories, which the stdlib does not expose. The alternative is hand-rolling XDG (with its `XDG_DATA_HOME` / `XDG_CACHE_HOME` overrides), `~/Library/Application Support` vs `~/Library/Caches`, and `%APPDATA%` vs `%LOCALAPPDATA%` - each with edge cases we would rediscover as bug reports on machines we do not have. Pure Python, no dependencies of its own, two calls used; the de facto standard for this (Black, pip, pipx). Getting it wrong is not cosmetic: a wrong data directory is where someone's custody record goes missing. Full argument at `app_paths.py`. |
 | `starlette>=1.3.1` (`truestill-app`) | The smallest well-tested ASGI: routing, SSE, static files and background tasks. `http.server` is synchronous and would mean hand-rolling all four, which is where a local server gets fragile. **Not FastAPI**, which wraps Starlette plus Pydantic - §4 disallows Pydantic for internal models and a single-user local app needs none of the OpenAPI/validation weight. Rationale in `docs/ui-v1-research.md` §B1/§C4. |
 | `uvicorn>=0.51.0` (`truestill-app`) | The ASGI server that runs Starlette. There is no ASGI server in the stdlib. |
