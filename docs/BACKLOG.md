@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aan), (aap). Next free: (aao).** `(aap)` was assigned by the maintainer ahead of `(aao)`; letters are identifiers, not an ordering, so the gap stands rather than renumbering a shipped item. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aaq). Next free: (aar).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -1204,6 +1204,58 @@ picking one up must map the combined order before building.
     reason and is well understood by the audience.
   - **Shares the walk-and-classify machinery with `clean-empty`** - both answer "what is on this
     drive that the catalog does not account for", from opposite ends.
+
+- **(aao) Asset pairing: several files that are one photo.** Recorded 2026-08-02. **Post-launch,
+  record only - needs a design pass before any build.** Names the concept that `(y)`, `(p)` and
+  `(aag)` have each been circling without one.
+  - **The gap.** Truestill treats every file as an independent asset, and several ordinary cases
+    are one capture stored as several files: an Apple Live Photo (`.HEIC` + `_HEVC.MOV`), a
+    camera shooting RAW+JPEG (`ABC001.ARW` + `ABC001.JPEG`), exported edits (`ABC001-1.JPEG`),
+    and bursts. **Neither dedup tier pairs them** - SHA-256 sees different bytes, and RAW or HEIC
+    may yield no perceptual hash at all. Verified 2026-08-02: no pairing logic exists anywhere in
+    `src`. A Live Photo pair currently survives organize only by the coincidence of a shared
+    capture time.
+  - **The field has proofs, not just heuristics, and that shapes the tiers.** Both halves of a
+    Live Photo carry the same `ContentIdentifier` UUID, and iPhone bursts share a `BurstUUID`;
+    those are identifiers, not guesses. RAW+JPEG has no such identifier and is matched on
+    basename - PhotoPrism requires *same folder plus same basename* explicitly to avoid scanning
+    the library for a partner per RAW, with the counter-proposal being one pass building
+    `basename -> paths`. Filename matching alone is unreliable, since differing basenames cannot
+    be grouped that way at all. Capture time **corroborates but cannot prove**: Lightroom is
+    criticised for ignoring it, and some cameras record *different* times for the two halves of
+    one RAW+JPEG pair. The framing worth keeping is that the goal is to find duplicate **images**,
+    not duplicate **files**.
+  - **Proposed tiers, mirroring the date-provenance design. A proposal, not a decision.**
+    (1) *Exact* - shared `ContentIdentifier` / `BurstUUID`. (2) *Strong* - same folder, same
+    basename, different extension, corroborated by capture time. (3) *Weak* - export-suffix
+    patterns (`-1`, `~edit`). **Tier 1 has a stated cost:** neither tag is in `REQUESTED_TAGS`,
+    so adopting it changes `tags_fingerprint` and forces one cold exiftool pass over the library -
+    the same cost profile recorded against `GPSAltitude` in `(kk)`. Recorded, not ruled on.
+  - **What matters here is custody, not display, and that is where truestill differs from the
+    galleries.** Stacking as a *view* is largely irrelevant to a tool that is not a gallery. What
+    matters is that an asset survives organize intact. **All three of these need verification
+    before building - they are the questions, not findings:** whether both halves land in the
+    same folder (the risk `(y)` warns of for a future photo/video split); whether date-based
+    renaming severs the basename link when one half gets a collision suffix and the other does
+    not; and whether `reclaim` can delete one half of a pair, which is the safety question,
+    given `plan_reclaim` checks only that the source *exists*.
+  - **Cross-references.** `(y)` calls pairing "the real work" and warns *"do not build the split
+    first and pair later"*; `(p)` needs it for share-export; `(aag)` is burst review, which tier 1
+    would answer with `BurstUUID` rather than a heuristic.
+
+- **(aaq) `categorize.py`'s `SamsungModel` fallback can never fire.** Recorded 2026-08-02 while
+  auditing what device metadata is kept. **Record only - do not fix without deciding which way.**
+  - **The defect.** `rule_device` reads `_text(metadata, "Model") or _text(metadata,
+    "SamsungModel")`, but `SamsungModel` is **not in `REQUESTED_TAGS`**, and exiftool is invoked
+    with an explicit named tag list - so the key is never present and the fallback is unreachable.
+    Confirmed by probe: a file stamped with every device tag returns only the requested ones.
+  - **Two ways out, and they are not equivalent.** *Request the tag* - which changes
+    `tags_fingerprint`, invalidating every cached metadata row and forcing a cold exiftool pass,
+    so it needs a reason beyond tidiness. Or *delete the fallback* and record why, which costs
+    nothing but discards whatever case it was written for.
+  - **Worth checking first: it may have been meant to come from `SamsungCaptureInfo`**, which
+    **is** requested and is already used by the screenshot rule. If the Samsung model is derivable
+    from that tag, the fix is a parse rather than a new request - and free.
 
 - **(y) Optional photo / video split - default TOGETHER, and pair-aware or not at all.**
   Post-layout-correction. An opt-in that separates standalone videos into their own top-level
