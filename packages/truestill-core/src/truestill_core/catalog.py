@@ -634,7 +634,22 @@ class Catalog:
         self.path = path
         if path != Path(":memory:"):
             path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(str(path))
+        # PINNED, NOT ADOPTED. `LEGACY_TRANSACTION_CONTROL` is what an unqualified `connect`
+        # gives today, so this changes no behaviour - it is here because Python's documentation
+        # says the `autocommit` default becomes `False` in a future release. Inheriting it means
+        # a Python upgrade silently changes when every catalog write commits, with no line of
+        # ours changing. Adopting the new semantics is a separate, deliberate decision that has
+        # to consider the whole write path; this only stops it happening by accident.
+        #
+        # The `type: ignore` is a typeshed gap, not a smell: the stub declares
+        # `autocommit: bool`, while the documented sentinel for "keep the old behaviour" is
+        # `sqlite3.LEGACY_TRANSACTION_CONTROL`, which is the int -1. Runtime accepts it; the
+        # annotation is narrower than the API. Deleting the ignore breaks the build; deleting
+        # the argument silently un-pins the transaction model.
+        self._conn = sqlite3.connect(
+            str(path),
+            autocommit=sqlite3.LEGACY_TRANSACTION_CONTROL,  # type: ignore[call-overload]
+        )
         self._conn.row_factory = sqlite3.Row
         # Off by default per SQLite connection (not persisted in the file). trip_days.trip_id
         # is the first declared foreign key in this schema; without this, the REFERENCES clause

@@ -266,6 +266,19 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
 - **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 17`**.
   Migrations are ordered, idempotent functions in `_MIGRATIONS`; a catalog newer than the code
   is refused (`CatalogVersionError`). Migration coverage tested in `tests/test_catalog.py`.
+- **A migration is not a transaction, and three conventions are what make that safe.** Measured
+  2026-08-02: interrupting v17 after its third `ALTER TABLE` left three of five columns
+  committed, because DDL autocommits under Python's legacy transaction control. Nothing was lost
+  because (1) `user_version` is bumped **after** the migration function returns, so a partial
+  upgrade leaves the *old* version and re-runs rather than being skipped; (2) every migration is
+  **idempotent**, so the re-run completes it; and (3) **no migration performs a backfill** - DDL
+  commits while DML rolls back, so a crash between them would commit the column, lose the data,
+  and then have the column guard skip the retry. **Do not add a backfill to a migration, and do
+  not remove a guard, without reading `tests/test_migration_safety.py` first** - it pins all
+  three, and a backfill is the case that would force an explicit transaction. Transaction
+  control is pinned at the connect call to today's `LEGACY_TRANSACTION_CONTROL`, so a future
+  Python default cannot change when writes commit; adopting the new semantics is a separate
+  decision.
 - **Table inventory (v15 - the last migration that adds a table; v16 and v17 add only
   columns):**
   `files`, `albums`, `file_albums`, `events`, `skipped_clusters`, `drives`, `file_copies`,
