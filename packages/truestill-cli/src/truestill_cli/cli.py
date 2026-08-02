@@ -95,6 +95,7 @@ from truestill_core.models import (
     date_quality,
     format_inferred_local_shift_line,
     inferred_local_shifts,
+    partition_for_report,
     status_label,
     unreadable_label,
 )
@@ -759,10 +760,13 @@ def _format_exact(resolution: Resolution) -> str:
 
 
 def _print_report(resolutions: list[Resolution], root_label: str) -> None:
-    uploads = [r for r in resolutions if r.should_upload]
-    unique = [r for r in uploads if r.near_duplicate is None]
-    near = [r for r in uploads if r.near_duplicate is not None]
-    exact = [r for r in resolutions if not r.should_upload]
+    # Disjoint buckets, not `should_upload`: an unreadable file has no hash, so it matches
+    # nothing and would otherwise be listed under "NEW UNIQUE - would be organized" while the
+    # block below says truestill could not read it. `_print_unreadable` names them instead.
+    buckets = partition_for_report(resolutions)
+    unique = buckets.unique
+    near = buckets.near_duplicates
+    exact = buckets.exact_duplicates
 
     print(_SEPARATOR)
     print(f"NEW UNIQUE ({len(unique)}) - would be organized")
@@ -864,29 +868,32 @@ def _print_preflight(
 
 
 def _print_summary(resolutions: list[Resolution]) -> None:
-    uploads = [r for r in resolutions if r.should_upload]
-    near = [r for r in uploads if r.near_duplicate is not None]
-    exact = [r for r in resolutions if not r.should_upload]
-    labels = Counter(r.decision.category.label for r in uploads)
-    sources = Counter(r.decision.date_source.value for r in uploads)
+    buckets = partition_for_report(resolutions)
+    organized = buckets.organized
+    labels = Counter(r.decision.category.label for r in organized)
+    sources = Counter(r.decision.date_source.value for r in organized)
 
     print(_SEPARATOR)
     print("SUMMARY")
     print(_SEPARATOR)
+    # These four must sum to `files analysed`. The buckets are disjoint by construction
+    # (`partition_for_report`) and the sum is asserted by `test_summary_tally_is_disjoint`;
+    # the zero case still prints, because a law a reader cannot add up is not on screen.
     print(f"  files analysed     : {len(resolutions)}")
-    print(f"  organized (unique)  : {len(uploads) - len(near)}")
-    print(f"  organized (near-dup): {len(near)}  (kept + flagged for review)")
-    print(f"  skipped (exact dup): {len(exact)}")
+    print(f"  organized (unique)  : {len(buckets.unique)}")
+    print(f"  organized (near-dup): {len(buckets.near_duplicates)}  (kept + flagged for review)")
+    print(f"  skipped (exact dup): {len(buckets.exact_duplicates)}")
+    print(f"  could not be read  : {len(buckets.unreadable)}")
     print(f"  folders derived    : {len(labels)}")
     for label, count in labels.most_common():
         print(f"      {label:<28} {count}")
     print("  date sources (organized files):")
     for source, count in sources.most_common():
         print(f"      {source:<28} {count}")
-    _print_date_quality(uploads)
-    _print_inferred_local_shifts(uploads)
+    _print_date_quality(organized)
+    _print_inferred_local_shifts(organized)
 
-    review = [r for r in uploads if r.decision.needs_review]
+    review = [r for r in organized if r.decision.needs_review]
     if review:
         print(f"\n  MANUAL REVIEW ({len(review)}) - date from an approximate source:")
         origin_labels = {
@@ -1013,8 +1020,11 @@ def _safe_size(path: Path) -> int:
 
 
 def _print_ingest_report(resolutions: list[Resolution], scan: TakeoutScan) -> None:
-    uploads = [r for r in resolutions if r.should_upload]
-    duplicates = [r for r in resolutions if not r.should_upload]
+    # `ingest` shares `_run_pipeline`, so it already prints the unreadable block - which made it
+    # carry the identical contradiction: a file named as unreadable and counted as kept.
+    buckets = partition_for_report(resolutions)
+    uploads = buckets.organized
+    duplicates = buckets.exact_duplicates
     sources = Counter(r.decision.date_source.value for r in uploads)
     reclaimed = sum(_safe_size(r.decision.source) for r in duplicates)
 
@@ -1023,6 +1033,7 @@ def _print_ingest_report(resolutions: list[Resolution], scan: TakeoutScan) -> No
     print(_SEPARATOR)
     print(f"  media files found                : {len(resolutions)}")
     print(f"  kept (unique)                    : {len(uploads)}")
+    print(f"  could not be read                : {len(buckets.unreadable)}")
     print(
         f"  album duplicate copies collapsed : {len(duplicates)}  (~{reclaimed / 1e6:.1f} MB reclaimed)"
     )

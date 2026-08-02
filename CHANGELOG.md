@@ -25,6 +25,15 @@ All notable changes to this project are documented here. The format follows
   a hidden alias resolving to the same value, not a deprecation, so existing scripts are safe.
 
 ### Fixed
+- **A photo truestill could not read is no longer also counted among the ones it says it will
+  organize.** The preview said both *"organized (unique): 5"* and *"files that could not be
+  read: 2"* about the same seven photos, with the two unreadable ones inside the 5 - a file with
+  no hash matches nothing, so it read as new. Every scanned file is now reported in exactly one
+  bucket, and the buckets add up to the number of files scanned. **The CLI summary has a new
+  `could not be read` line**, printed even when it is zero so the figures can be checked by
+  adding them up; the app's *"new - will be organized"* count and the number on the confirm
+  button both drop accordingly. Nothing about what a run *does* changed - an unreadable file is
+  still attempted and still reported as failed; only the preview stopped promising it.
 - **A photo truestill cannot read is now named, instead of vanishing from the preview.** A file
   that is locked, permission-denied, on a failing disk, or moved away mid-scan produced empty
   hashes - **the same empty hashes** a file gets when the size pre-filter deliberately decides

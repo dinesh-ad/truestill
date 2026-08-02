@@ -289,6 +289,75 @@ class Resolution:
         return self.exact_duplicate is None and self.near_duplicate is None
 
 
+@dataclass(frozen=True, slots=True)
+class ReportBuckets:
+    """Every scanned file in **exactly one** bucket, so a report's numbers can be added up.
+
+    The preview used to say two contradictory things about the same file: *"organized (unique):
+    5"* and *"files that could not be read: 2"*, where the 5 included both. A file that could
+    not be read has no hash, so it matches nothing, so it read as new.
+
+    Buckets are disjoint **and** exhaustive - :attr:`total` equals the number of resolutions
+    partitioned - which is the property worth having rather than the one corrected number: a
+    category added later that forgets to be disjoint fails the conservation test instead of
+    quietly double-counting.
+    """
+
+    unreadable: list[Resolution]
+    exact_duplicates: list[Resolution]
+    near_duplicates: list[Resolution]
+    unique: list[Resolution]
+
+    @property
+    def organized(self) -> list[Resolution]:
+        """What a run will actually put in the library. Replaces filtering on `should_upload`."""
+        return self.unique + self.near_duplicates
+
+    @property
+    def total(self) -> int:
+        return (
+            len(self.unreadable)
+            + len(self.exact_duplicates)
+            + len(self.near_duplicates)
+            + len(self.unique)
+        )
+
+
+def partition_for_report(resolutions: Iterable[Resolution]) -> ReportBuckets:
+    """Split resolutions into the four disjoint buckets a report may count. **O(n)**.
+
+    **Unreadable is tested first, and that ordering is the load-bearing part.** An unreadable
+    file usually has no hashes and could only ever be "unique" - but a *cache hit* gives it real
+    ones (`HashCache` keys on size and mtime, and `stat` succeeds on a file whose bytes cannot be
+    read), so it can genuinely match the exact or perceptual tier. Reporting it as *"identical to
+    a kept file, will skip"* would describe a file truestill could not read this time, and being
+    unable to read it is the fact the user needs. This is the distinction AWS DataSync draws
+    between a *skipped success* and a *skipped error*.
+
+    **This is deliberately not `Resolution.should_upload`, and must not be folded into it.**
+    That property drives the *plan*, not the report: `organizer.preflight_for_run` sizes the
+    destination with it, and on a run an unreadable file **is** attempted - the copy is tried and
+    raises, which is what surfaces it as `ActionStatus.FAILED`. Teaching `should_upload` about
+    readability would under-size the destination and delete the run's only report of the file.
+    The plan still attempts it; only the tally stops promising it. Pinned by
+    `test_report_buckets.py`.
+    """
+    unreadable: list[Resolution] = []
+    exact_duplicates: list[Resolution] = []
+    near_duplicates: list[Resolution] = []
+    unique: list[Resolution] = []
+    for resolution in resolutions:
+        if resolution.hashes.unreadable is not None:
+            unreadable.append(resolution)
+        elif resolution.exact_duplicate is not None:
+            exact_duplicates.append(resolution)
+        elif resolution.near_duplicate is not None:
+            near_duplicates.append(resolution)
+        else:
+            unique.append(resolution)
+    return ReportBuckets(unreadable, exact_duplicates, near_duplicates, unique)
+
+
 #: Human wording for each outcome, shared by the CLI report and the app so the two surfaces
 #: cannot describe the same run differently.
 #:

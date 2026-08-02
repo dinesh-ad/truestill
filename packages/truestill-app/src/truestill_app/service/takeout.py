@@ -25,6 +25,7 @@ from truestill_core.models import (
     date_quality,
     format_inferred_local_shift_line,
     inferred_local_shifts,
+    partition_for_report,
 )
 from truestill_core.organizer import discover, heavy_days_for_organize, plan, resolve
 from truestill_core.progress import Phase, Progress, ProgressCallback
@@ -51,6 +52,10 @@ class IngestPreviewSummary(TypedDict):
     files: int
     kept: int
     dup_collapsed: int
+    #: Named on its own so `files == kept + dup_collapsed + unreadable` holds. A file truestill
+    #: could not read is neither kept nor collapsed, and counting it as kept promised one that
+    #: will not be organized.
+    unreadable: int
     reclaimed_mb: float
     dates_photo_taken: int
     dates_upload_approx: int
@@ -100,8 +105,11 @@ def ingest_preview(
             cancel=cancel,
             cache=cache,
         )
-    uploads = [r for r in resolutions if r.should_upload]
-    dups = [r for r in resolutions if not r.should_upload]
+    # Same disjointness as the organize summary: an unreadable file is neither kept nor a
+    # collapsed duplicate, and counting it as kept promised a file that will not be organized.
+    buckets = partition_for_report(resolutions)
+    uploads = buckets.organized
+    dups = buckets.exact_duplicates
     sources = Counter(r.decision.date_source.value for r in uploads)
     reclaimed = sum(_safe_size(r.decision.source) for r in dups)
     quality = date_quality(uploads)
@@ -109,6 +117,7 @@ def ingest_preview(
         "files": len(resolutions),
         "kept": len(uploads),
         "dup_collapsed": len(dups),
+        "unreadable": len(buckets.unreadable),
         "reclaimed_mb": round(reclaimed / 1e6, 1),
         "dates_photo_taken": sources.get("takeout", 0),
         "dates_upload_approx": sources.get("takeout_upload", 0),

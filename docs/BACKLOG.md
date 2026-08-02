@@ -460,7 +460,7 @@ section, because what is left is the part that still has to be written.
 
 - **(aac) Organize must name and count unreadable source files the way verify does.** Ruled by
   the maintainer, 2026-07-30, from the Pass 1 F2/F1 asymmetry left after the code-quality audit.
-  **Scan tier built 2026-08-02; three residues below keep this entry open.**
+  **Scan tier and residue 1 built 2026-08-02; residues 2 and 3 keep this entry open.**
   - **What shipped.** F1 gave `verify` `CopyStatus.UNREADABLE`, a count, and filenames on CLI
     and app. F2 kept `compute_hashes` alive on an unreadable source (empty hashes +
     `BrokenExecutor` guard) so an organize preview/run no longer aborts the whole pass.
@@ -497,14 +497,25 @@ section, because what is left is the part that still has to be written.
     `app.js` renders it **and the `unreadable_folders` key that had been reaching the browser
     unrendered since it shipped**. A preview that found one now exits `1`. Contract row in
     `IMPLEMENTATION_STANDARDS.md` §9; cost in `PERFORMANCE.md` §3.2.
-  - **RESIDUE 1 - the preview tallies still count an unreadable file as one that will be
-    organized.** Measured on the shipped build: a source with two unreadable photos reports
-    *"organized (unique): 5"* and *"files that could not be read: 2"* in the same summary, and
-    the 5 includes both. The file is still planned, still `should_upload`, because a file with no
-    hash cannot match anything and therefore reads as new. Naming it is the part `(aac)` asked
-    for and is done; **excluding it from the tally changes what an unreadable file *is* to the
-    organizer**, which is a dedup-semantics decision this entry never scoped. Do not fold it in
-    silently - it needs its own ruling.
+  - **RESIDUE 1 - BUILT 2026-08-02. Ruled: disjoint buckets, enforced by a conservation law.**
+    The shipped build reported *"organized (unique): 5"* and *"files that could not be read: 2"*
+    for the same seven files, with both unreadable photos inside the 5. `partition_for_report`
+    now splits every scan into four buckets that are disjoint **and** exhaustive, and
+    `new_unique + near_dup + exact_dup + unreadable == files` is asserted on both the printed
+    summary and the app payload - so a category added later that forgets to be disjoint fails a
+    test instead of double-counting the way this one did. Unreadable is tested **first**, because
+    a cache hit gives an unreadable file real hashes and it can therefore match the exact or
+    perceptual tier; filing it as a routine skip would bury the fact that truestill could not
+    read it (the *skipped error* vs *skipped success* distinction AWS DataSync draws).
+    **The plan was not touched, and that was the finding rather than a compromise.** `execute`
+    never consults `should_upload` - it branches on `exact_duplicate` directly - so the report
+    was separable from the plan. It also *should* be: on a run the unreadable file is still
+    attempted, the copy raises, and that is what produces the `ActionStatus.FAILED` the user
+    sees. `preflight_for_run` must keep sizing the destination for it. Excluding it from the plan
+    would have deleted the run's only report of the file. Fixing the tally alone is what makes
+    preview and run agree: *"4 organized, 1 unreadable"* predicts *"4 organized, 1 failed"*.
+    Applied to all five report sites, `ingest` included - it shares `_run_pipeline` and so
+    already printed the unreadable block beside the same contradiction.
   - **RESIDUE 2 - the app's *run* completion has no `unreadable_files`.** Preview only, matching
     the design that was accepted. The CLI reports on both. An unreadable file that was never
     copied - a cached exact duplicate - therefore has no app-side surface on a run, though the

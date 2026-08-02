@@ -153,8 +153,13 @@ def test_a_preview_over_an_unreadable_file_exits_one_not_zero(
     _jpeg_on_disk(source / "locked.jpg", colour="blue")
 
     clean = main(["organize", str(source), str(tmp_path / "out"), "--db", str(tmp_path / "a.db")])
+    clean_out = capsys.readouterr().out
     assert clean == 0, "fixture check: an all-readable preview must still exit 0"
-    assert "could not be read" not in capsys.readouterr().out
+    # The BLOCK must be absent, and the SUMMARY's term must be present at zero. Two different
+    # rules that read alike: the block is a warning and stays silent when nothing is wrong; the
+    # tally line is a term in a conservation law and is only checkable if it always prints.
+    assert "Files that could not be read:" not in clean_out
+    assert "could not be read  : 0" in clean_out
 
     _deny_open(monkeypatch, name="locked.jpg", exc=PermissionError(errno.EACCES, "denied"))
     code = main(["organize", str(source), str(tmp_path / "out"), "--db", str(tmp_path / "b.db")])

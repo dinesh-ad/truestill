@@ -27,6 +27,7 @@ from truestill_core.models import (
     date_quality,
     format_inferred_local_shift_line,
     inferred_local_shifts,
+    partition_for_report,
     status_label,
     unreadable_label,
 )
@@ -157,8 +158,13 @@ class OrganizeDedupCore(TypedDict):
 
 
 def _summarize(resolutions: list[Resolution]) -> OrganizeDedupCore:
-    uploads = [r for r in resolutions if r.should_upload]
-    near = [r for r in uploads if r.near_duplicate is not None]
+    # Disjoint buckets rather than `should_upload`. An unreadable file has no hash, so it
+    # matches nothing and used to be counted as new *and* reported as unreadable - the same
+    # photo promised and disowned in one payload. `new_unique + near_dup + exact_dup +
+    # unreadable_files.total == files` is asserted by `test_preview_tally_is_disjoint`.
+    buckets = partition_for_report(resolutions)
+    uploads = buckets.organized
+    near = buckets.near_duplicates
     labels = Counter(r.decision.category.label for r in uploads)
     heic = sum(1 for r in resolutions if r.decision.source.suffix.lower() in HEIF_EXTENSIONS)
     breakdown = media_breakdown([r.decision.source.name for r in resolutions])
@@ -170,9 +176,9 @@ def _summarize(resolutions: list[Resolution]) -> OrganizeDedupCore:
         "videos": breakdown["videos"],
         "audio": breakdown["audio"],
         "by_format": breakdown["by_format"],
-        "new_unique": len(uploads) - len(near),
+        "new_unique": len(buckets.unique),
         "near_dup": len(near),
-        "exact_dup": len(resolutions) - len(uploads),
+        "exact_dup": len(buckets.exact_duplicates),
         # Named, not just counted (§9). The CLI has always printed these; the app dropped them.
         "exact_dup_matches": _duplicate_report(resolutions, near=False),
         "near_dup_matches": _duplicate_report(resolutions, near=True),
