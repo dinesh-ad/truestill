@@ -11,6 +11,7 @@ them.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -818,3 +819,71 @@ def test_a_wrong_shape_response_shows_a_visible_error_not_a_blank_screen(ui: Pag
 
     expect(ui.locator("#global-error")).to_be_visible()
     expect(ui.locator("#global-error")).to_contain_text("undefined")
+
+
+def test_an_offline_drive_reads_as_not_plugged_in_never_as_missing(ui: Page) -> None:
+    """Offline is an expected state, and the words have to say so (`(yy)` design, Lightroom 1).
+
+    Asserted in the browser because the defect would be a *word*: "missing" or "error" next to a
+    drive the user simply unplugged is what makes a backup tool feel broken, and an id-based
+    check would pass for any wording at all (§9's rule for this lane).
+    """
+    ui.route(
+        "**/api/drives**",
+        lambda r: r.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "library": {
+                        "files": 2,
+                        "photos": 2,
+                        "videos": 0,
+                        "audio": 0,
+                        "bytes": 100,
+                        "by_format": {},
+                    },
+                    "at_risk": [],
+                    "drives": [
+                        {
+                            "label": "Away HDD",
+                            "uuid": "u1",
+                            "files": 2,
+                            "photos": 2,
+                            "videos": 0,
+                            "audio": 0,
+                            "size": 100,
+                            "last_seen": None,
+                            "last_verified": None,
+                            "path": None,
+                            "reach": "offline",
+                        },
+                        {
+                            "label": "Desk HDD",
+                            "uuid": "u2",
+                            "files": 2,
+                            "photos": 2,
+                            "videos": 0,
+                            "audio": 0,
+                            "size": 100,
+                            "last_seen": None,
+                            "last_verified": None,
+                            "path": "/tmp/desk",
+                            "reach": "connected",
+                        },
+                    ],
+                }
+            ),
+        ),
+    )
+    ui.click('button[data-screen="backups"]')
+
+    offline = ui.locator("[data-testid='drive-offline']")
+    expect(offline).to_be_visible(timeout=30_000)
+    expect(offline).to_contain_text("not plugged in")
+    body = ui.locator("#drives-list")
+    expect(body).to_contain_text("Away HDD")
+    expect(body).to_contain_text("Desk HDD")
+    # The connected drive carries no badge: marking the normal case trains people to ignore it.
+    expect(ui.locator("[data-testid='drive-offline']")).to_have_count(1)
+    expect(body).not_to_contain_text("missing")

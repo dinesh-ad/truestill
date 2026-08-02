@@ -58,7 +58,7 @@ from pathlib import Path
 from typing import Literal, NotRequired, TypedDict
 
 from truestill_core.catalog import Catalog
-from truestill_core.drive import read_marker
+from truestill_core.drive import DriveReach, drive_reach, read_marker
 from truestill_core.exif import build_metadata_args, write_metadata_batch
 from truestill_core.hashing import sha256_file
 from truestill_core.organizer import VIDEO_EXTENSIONS
@@ -348,10 +348,7 @@ def _reachable(catalog: Catalog, drive_uuid: str) -> bool:
     settings it thinks are stale.
     """
     hint = catalog.get_setting(drive_path_hint(drive_uuid))
-    if not hint:
-        return False
-    marker = read_marker(Path(hint))
-    return marker is not None and marker.uuid == drive_uuid
+    return drive_reach(hint, drive_uuid) is DriveReach.CONNECTED
 
 
 def bake_preview(path: Path, db: Path) -> BakePreview | BakeRefusal | DriveUnavailablePayload:

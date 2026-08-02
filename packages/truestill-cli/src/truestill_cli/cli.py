@@ -49,10 +49,12 @@ from truestill_core.drive import (
     MARKER_NAME,
     DriveMarker,
     create_marker,
+    drive_path_hint,
     existing_marker_path,
     locate_drive,
     needs_marker_upgrade,
     path_is_usable_dir,
+    reach_of,
     read_marker,
     upgrade_marker,
 )
@@ -510,11 +512,18 @@ def _cmd_drives(args: argparse.Namespace) -> int:
         if not drives:
             print("No drives known. Initialise one: truestill drives --init <root> --label <name>")
             return 0
-        print(f"{'LABEL':<20}{'FILES':>8}{'SIZE(MB)':>12}  {'LAST SEEN':<22}LAST VERIFIED")
+        print(
+            f"{'LABEL':<20}{'FILES':>8}{'SIZE(MB)':>12}  {'STATUS':<10}"
+            f"{'LAST SEEN':<22}LAST VERIFIED"
+        )
         for d in drives:
             size_mb = (d["total_size"] or 0) / 1e6
+            # Not a boolean. "unknown" is the ordinary state for a drive this machine has never
+            # been pointed at, and printing it as "offline" would tell someone their backup is
+            # gone when Truestill simply has no idea where it lives.
+            reach = reach_of(catalog, str(d["uuid"]))
             print(
-                f"{d['label']:<20}{d['file_count']:>8}{size_mb:>12.1f}  "
+                f"{d['label']:<20}{d['file_count']:>8}{size_mb:>12.1f}  {reach.value:<10}"
                 f"{(d['last_seen'] or '-')[:19]:<22}{(d['last_verified'] or 'never')[:19]}"
             )
     return 0
@@ -599,6 +608,7 @@ def _init_drive(args: argparse.Namespace, catalog: Catalog) -> int:
 
     marker = create_marker(args.init, label, uuid=adopt)
     catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+    catalog.set_setting(drive_path_hint(marker.uuid), str(args.init))
     verb = "re-attached" if adopt else "initialised"
     print(f"Drive '{marker.label}' {verb} at {args.init}  (uuid {marker.uuid}).")
     return 0
@@ -672,6 +682,11 @@ def _cmd_verify(args: argparse.Namespace) -> int:
     when = _now_iso()
     with Catalog(args.db) as catalog:
         catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+        # Remember where this drive was seen. Without it the CLI has no reachability information
+        # at all and `truestill drives` can only ever say "unknown" - which is honest but
+        # useless. Written here and at `--init` because those are the two moments the CLI holds
+        # a resolved drive root and a catalog at the same time. It is a hint, never identity.
+        catalog.set_setting(drive_path_hint(marker.uuid), str(root))
         rows = catalog.copies_on_drive(marker.uuid)
         if not rows:
             print(f"Drive '{marker.label}' has no recorded copies in the catalog.")

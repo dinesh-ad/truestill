@@ -115,9 +115,15 @@ INVOCATION = re.compile(r"truestill (?:" + "|".join(re.escape(s) for s in SUBCOM
 def offences(path: Path) -> list[tuple[int, str]]:
     """Lines in ``path`` where the product name is written lowercase as prose."""
     found: list[tuple[int, str]] = []
+    # A backtick is a code convention in markdown, in Python docstrings and in TOML comments -
+    # and in JavaScript it is SYNTAX, opening a template literal. Every rendered string in
+    # `app.js` lives inside one, so applying the code-span rule there made the guard blind to
+    # the app's own UI copy: the text it most exists to check. Found 2026-08-02, two lines after
+    # it shipped, by writing a lowercase name into a `title=` attribute and watching it pass.
+    is_backtick_code = path.suffix in {".md", ".py", ".toml"}
     in_fence = False
     for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-        if FENCE.match(line):
+        if is_backtick_code and FENCE.match(line):
             in_fence = not in_fence
             continue
         if in_fence:
@@ -126,7 +132,7 @@ def offences(path: Path) -> list[tuple[int, str]]:
             continue
         # Order matters: strip what is presentationally code, then what is an invocation, and
         # only then look for the name. Searching first would match inside both.
-        stripped = INVOCATION.sub("", CODE_SPAN.sub("", line))
+        stripped = INVOCATION.sub("", CODE_SPAN.sub("", line) if is_backtick_code else line)
         if NAME.search(stripped):
             found.append((number, line.strip()))
     return found

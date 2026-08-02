@@ -10,7 +10,12 @@ from pathlib import Path
 from typing import Literal, TypedDict
 
 from truestill_core.catalog import Catalog
-from truestill_core.drive import locate_drive, path_is_usable_dir, read_marker
+from truestill_core.drive import drive_path_hint as _core_drive_path_hint
+from truestill_core.drive import (
+    locate_drive,
+    path_is_usable_dir,
+    read_marker,
+)
 
 from truestill_app.jobs import DriveRef
 
@@ -108,14 +113,10 @@ def not_a_drive(path: Path) -> NotABackupDriveError:
     return NotABackupDriveError(not_a_drive_message(path))
 
 
-def drive_path_hint(uuid: str) -> str:
-    """Settings key for where a drive was last seen mounted.
-
-    A *hint*, like the others: it lets a drive card offer "Check now" for the right folder
-    instead of making the user find it again. Identity remains the marker uuid -- a drive that
-    remounts elsewhere is the same drive, and this key is simply stale until it is next seen.
-    """
-    return f"path_hint.drive.{uuid}"
+#: Re-exported from core, not redefined. The CLI cannot import this package (§2), so the key had
+#: to move down to be shared; keeping the name importable from here leaves every existing call
+#: site working and gives the two surfaces one spelling instead of two.
+drive_path_hint = _core_drive_path_hint
 
 
 def take_live_path_hint(catalog: Catalog, key: str) -> str | None:

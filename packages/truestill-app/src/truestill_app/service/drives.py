@@ -13,7 +13,13 @@ from typing import Literal, NotRequired, TypedDict, cast
 from truestill_core import binaries
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_startup import inspect_catalog
-from truestill_core.drive import create_marker, path_is_usable_dir, read_marker
+from truestill_core.drive import (
+    DriveReach,
+    create_marker,
+    path_is_usable_dir,
+    reach_of,
+    read_marker,
+)
 from truestill_core.drive_adoption import AdoptionOffer, inspect_root, recorded_drive
 from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import sha256_file
@@ -346,6 +352,10 @@ class DriveRow(TypedDict):
     last_seen: str | None
     last_verified: str | None
     path: str | None
+    #: `DriveReach` value: is this drive here right now? Three states, because a boolean would
+    #: have to report "we have never recorded where this drive lives" as either connected or
+    #: missing, and both are lies - the second alarmingly so.
+    reach: str
 
 
 class WhereCopy(TypedDict):
@@ -376,9 +386,17 @@ def list_drives(db: Path) -> list[DriveRow]:
         drives: list[DriveRow] = []
         for d in catalog.list_drives():
             breakdown = media_breakdown(names_by_drive.get(d["uuid"], []))
-            # Live hint only. A dead path is cleared here so the next screen load does not
-            # re-stat it; Check now / open-folder are omitted when path is absent.
-            path = take_live_path_hint(catalog, drive_path_hint(d["uuid"]))
+            # The hint is READ, not taken. `take_live_path_hint` clears a dead path, which was
+            # right when the hint was only a convenience for "Check now" - but it is now the one
+            # thing that lets a drive be reported OFFLINE rather than UNKNOWN. Clearing it would
+            # erase that after a single listing: unplug a drive, look twice, and truestill would
+            # forget it ever knew where the drive was. Cost of keeping it is one marker read per
+            # drive per listing, which is what `drive_reach` already does.
+            hint = catalog.get_setting(drive_path_hint(d["uuid"]))
+            reach = reach_of(catalog, str(d["uuid"]))
+            # Offered as an actionable path only when the drive is actually there; a remembered
+            # path for an absent drive must not become a "Check now" button that cannot work.
+            path = hint if reach is DriveReach.CONNECTED else None
             drives.append(
                 {
                     "label": d["label"],
@@ -390,6 +408,7 @@ def list_drives(db: Path) -> list[DriveRow]:
                     "size": d["total_size"] or 0,
                     "last_seen": d["last_seen"],
                     "last_verified": d["last_verified"],
+                    "reach": reach.value,
                     # Where it was last seen, so a card can offer "Check now" for the right
                     # folder. Absent when we have never had a path for it, or the hint was
                     # stale and cleared -- in which case the card states the fact without

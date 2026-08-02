@@ -1,7 +1,9 @@
 """Stale path hints must correct, not raise - backlog (ww).
 
-Identity is the marker uuid. A hint is disposable convenience. Failed hints are *cleared*
-so list_drives does not re-stat a dead mount on every Backups load.
+Identity is the marker uuid; a hint is convenience and never identity. Failed hints are cleared
+where they are pure convenience - **except in the drive listing**, where the remembered path is
+what distinguishes "offline" from "never located" and is therefore kept. See
+`test_list_drives_omits_the_check_path_for_an_unreachable_hint`.
 """
 
 from __future__ import annotations
@@ -127,8 +129,21 @@ def test_drive_correction_permission_error_is_ask_not_exception(
 # --- list_drives clears failed hints; moved drive found at new root -----------------
 
 
-def test_list_drives_clears_unreachable_hint_and_omits_check_path(tmp_path: Path) -> None:
-    """Mutation: ``get_setting`` without ``_take_live_path_hint`` -> path still returned."""
+def test_list_drives_omits_the_check_path_for_an_unreachable_hint(tmp_path: Path) -> None:
+    """A dead hint must never surface as an action - that promise is unchanged.
+
+    **What changed, 2026-08-02, and why the hint is no longer cleared here.** Clearing was right
+    while the hint was pure convenience: a dead path only cost a re-stat on every Backups load.
+    It is now the one thing that lets a drive be reported **offline** rather than *unknown*, so
+    clearing it would make truestill forget it ever knew where the drive was - after a single
+    listing. Unplug a drive, open the screen twice, and the second look would downgrade an
+    honest "not plugged in" to "we have no idea".
+
+    The cost that clearing bought is real and is accepted knowingly: one marker read per drive
+    per listing on a path that may be a hung network mount (`BACKLOG.md` (yy) D13). It is per
+    drive, not per file - measured 20.8 us for an absent path - and `read_marker` already
+    swallows `OSError`.
+    """
     db = tmp_path / "c.sqlite"
     root = tmp_path / "drive"
     root.mkdir()
@@ -141,9 +156,13 @@ def test_list_drives_clears_unreachable_hint_and_omits_check_path(tmp_path: Path
     assert len(drives) == 1
     assert drives[0]["path"] is None
     with Catalog(db) as catalog:
-        assert catalog.get_setting(_drive_path_hint(uuid)) is None  # cleared, not ignored
+        assert catalog.get_setting(_drive_path_hint(uuid)) == str(gone), (
+            "the remembered path is kept: it is what lets the drive read as offline rather than "
+            "as one truestill has never located"
+        )
 
     assert list_drives(db)[0]["path"] is None
+    assert list_drives(db)[0]["reach"] == "offline"
 
 
 def test_moved_drive_found_by_uuid_at_new_root(tmp_path: Path) -> None:

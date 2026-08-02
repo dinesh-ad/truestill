@@ -491,7 +491,7 @@ function renderStatsSummary(stats) {
       `<div class="headline">How your dates were determined</div>
        <div class="k">${
          dates.not_recorded
-           ? `${plural(dates.not_recorded, "file")} of ${plural(dates.total, "file")} predate this record. That is normal and nothing is wrong with them; the shares below are of the ${nfmt(dates.recorded)} truestill has a note for.`
+           ? `${plural(dates.not_recorded, "file")} of ${plural(dates.total, "file")} predate this record. That is normal and nothing is wrong with them; the shares below are of the ${nfmt(dates.recorded)} Truestill has a note for.`
            : `Where the capture date for each of your ${plural(dates.total, "file")} came from.`
        }</div>
        <table class="table"><thead><tr><th>Source</th><th>Files</th><th>Share</th></tr></thead>
@@ -1626,6 +1626,23 @@ document.querySelectorAll('input[name="org-mode"]').forEach((item) => {
 });
 
 // ---------- Backups ----------
+// Offline is an expected state, not a failure, and the wording carries that: a drive you
+// unplugged is "not plugged in", never "missing". Conflating the two is what makes a backup tool
+// feel broken - the whole reason `reach` is three-valued rather than a boolean.
+//
+// A CONNECTED drive gets no badge on purpose. Marking the normal case trains people to ignore
+// the marks, and every drive on this screen used to be implicitly "fine"; only a departure from
+// that is worth a word.
+function driveReachBadge(reach) {
+  if (reach === "offline") {
+    return `<span class="k" data-testid="drive-offline" title="Truestill knows where this drive was, and it is not there now">- not plugged in</span>`;
+  }
+  if (reach === "unknown") {
+    return `<span class="k" data-testid="drive-unknown" title="Truestill has not seen this drive on this computer yet">- location not known yet</span>`;
+  }
+  return "";
+}
+
 async function loadDrives() {
   const [{ drives, at_risk }, lib] = await Promise.all([api("/api/drives"), get("/api/library/status")]);
   const list = $("drives-list");
@@ -1651,7 +1668,7 @@ async function loadDrives() {
     const pips = Math.min(drives.length, 3);  // ambient: how many places this library lives in
     const strip = [0, 1, 2].map((i) => (i < pips ? "▪" : "▫")).join(" ");
     return `<div class="card"><div class="tally" style="grid-template-columns:1fr auto">
-      <div><b>${esc(d.label)}</b><div class="k mono">${mediaCount(d)} · ${fmtBytes(d.size)}</div>
+      <div><b>${esc(d.label)}</b> ${driveReachBadge(d.reach)}<div class="k mono">${mediaCount(d)} · ${fmtBytes(d.size)}</div>
         ${d.path ? `<div class="k mono"><a href="#" data-open="${esc(d.path)}" title="Open in file manager">${esc(d.path)}</a></div>` : ""}</div>
       <div class="mono" style="color:var(--success)">${strip}</div></div>
       <div class="drive-foot">

@@ -82,6 +82,15 @@ All notable changes to this project are documented here. The format follows
   names EFBIG the same way for a header that under-declares.
 
 ### Added
+- **Truestill now says whether each of your backup drives is actually plugged in.** A drive you
+  have unplugged reads as *not plugged in* rather than looking like every other drive in the
+  list - and, deliberately, never as *missing* or as an error, because disconnecting an external
+  drive is a normal thing to do and reconnecting it fixes everything by itself. A drive Truestill
+  has not yet seen on this computer says so in its own words (*location not known yet*) instead
+  of being reported as gone: not knowing where a drive is and knowing it is absent are different
+  facts, and only one of them is worth worrying about. The command line shows the same three
+  states in a new `STATUS` column, and `truestill verify` now remembers where it found a drive so
+  that column has something to say.
 - **Trips**: group multi-day photos into one folder, review and apply on disk.
 - **In-place organize (`organize --in-place`)** for libraries that live on the drive itself -
   a pendrive or external HDD with no staging space to copy into. Files are moved by **rename**:

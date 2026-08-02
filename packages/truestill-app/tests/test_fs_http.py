@@ -97,6 +97,7 @@ def test_drives_split_photos_and_videos(client: TestClient, tmp_path: Path) -> N
         "last_seen",
         "last_verified",
         "path",
+        "reach",
     }
     assert drives[0]["photos"] == 2
     assert drives[0]["videos"] == 1
