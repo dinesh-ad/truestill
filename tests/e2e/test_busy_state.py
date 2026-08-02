@@ -134,8 +134,10 @@ def test_migrate_preview_disables_trigger_shows_progress_and_re_enables(
     btn.click()
     # Either still busy or already finished - progress card or result must appear.
     expect(ui.locator("#mig-card:not(.hidden), #mig-result .headline")).to_be_visible()
+    # Gated by the same unsound `to_be_enabled` as the backup test below, so it carries its own
+    # timeout rather than inheriting the 5 s default behind it.
     expect(btn).to_be_enabled(timeout=30_000)
-    expect(ui.locator("#mig-result")).to_contain_text("to move")
+    expect(ui.locator("#mig-result")).to_contain_text("to move", timeout=30_000)
 
 
 def test_migrate_preview_re_enables_after_cancel(
@@ -232,12 +234,15 @@ def test_backup_preview_busy_re_enables(ui: Page, tmp_path: Path, library) -> No
     ui.fill("#org-source", str(source))
     ui.fill("#org-dest", str(dest))
     ui.click("#org-preview")
-    expect(ui.locator("#org-result")).to_contain_text("photos found")
+    # Each of the three waits below guards real work on a shared CI runner - a directory walk, an
+    # exiftool+hashing pass, then a run that copies files. The 5 s default is sized for a laptop
+    # and is the same defect the backup assertion at the end of this test hit.
+    expect(ui.locator("#org-result")).to_contain_text("photos found", timeout=30_000)
     ui.click("#org-dedup")
-    expect(ui.locator("#org-confirm [data-typed-confirm]")).to_be_visible()
+    expect(ui.locator("#org-confirm [data-typed-confirm]")).to_be_visible(timeout=60_000)
     ui.fill("#org-confirm [data-typed-confirm]", "move")
     ui.click("#org-confirm [data-typed-go]")
-    expect(ui.locator("#org-result")).to_contain_text("organized")
+    expect(ui.locator("#org-result")).to_contain_text("organized", timeout=60_000)
 
     ui.click('button[data-screen="backups"]')
     target = tmp_path / "Backup"
@@ -248,5 +253,18 @@ def test_backup_preview_busy_re_enables(ui: Page, tmp_path: Path, library) -> No
     ui.fill("#bk-target", str(target))
     btn = ui.locator("#bk-preview")
     btn.click()
-    expect(btn).to_be_enabled(timeout=30_000)
-    expect(ui.locator("#bk-result")).to_contain_text("to copy", timeout=5_000)
+    # ORDER MATTERS HERE, and reversing it is what made this test flaky.
+    #
+    # `to_be_enabled` is not a sound completion signal on its own: it is also true in the window
+    # between `click()` returning and the handler synchronously disabling the button, so it can
+    # pass before the work has even STARTED. The next assertion then races a request still in
+    # flight, and backup preview is not cheap - `attach_drive` walks the library and hashes what
+    # it finds.
+    #
+    # The result text IS sound. `withBusy` re-enables in a `finally` that runs after the handler
+    # has written `#bk-result`, so the text can only appear once the work is done. Waiting on it
+    # first removes the race rather than tolerating it, and the button check that follows is then
+    # instant and can keep the default timeout. Same shape as
+    # `test_migrate_preview_re_enables_after_drive_error` above.
+    expect(ui.locator("#bk-result")).to_contain_text("to copy", timeout=30_000)
+    expect(btn).to_be_enabled()

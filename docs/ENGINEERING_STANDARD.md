@@ -416,6 +416,24 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   **Isolation has now failed three times, from three different directions.** That is what
   decides the shape of the check.
 
+- **Run the browser lane when browser-exercised *behaviour* changes, not when browser *files*
+  change.** The ninth member, and the only one about *deciding to run a gate* rather than about
+  writing one. The diff is a proxy for the wrong thing: a server-side refusal, a payload key or a
+  status change can be invisible in `app.js` and fully visible to a Playwright assertion.
+
+  *Origin, 2026-08-02.* `(aap)` taught `backup_preview` to refuse a folder that already holds a
+  known library, returning the existing `{ok: false, error}` shape. `make e2e` was skipped on the
+  stated grounds that **`app.js` was unchanged** - true, and irrelevant: the browser lane drives
+  `#bk-preview` and reads what comes back, so a new refusal on that endpoint is squarely inside
+  what it tests. The lane happened to stay green, so the wrong criterion cost nothing that day
+  and would not have announced itself if it had been wrong.
+
+  The question to ask is not *did I edit a file the browser loads* but *can a Playwright
+  assertion see a different answer than before*. Anything reached over HTTP by the app - a
+  service function, a payload key, a status code, a refusal string - is a yes. The lane is ~90 s
+  and is not in `make check`, so the cost of running it when unsure is a minute; the cost of
+  skipping it correctly-by-luck is a regression that surfaces on someone else's push.
+
   1. *The import-time constant.* The default was frozen at import, so no override could reach it
      and no test could isolate it. Real catalogs were written on two CI runners and one
      developer machine.
