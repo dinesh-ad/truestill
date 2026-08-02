@@ -392,6 +392,14 @@ successful upgrade), never automatic.
 - **Category set** (derived, ordered; `categorize.build_rules`): screenshot-by-metadata →
   screenshot-by-name → messenger/app filename conventions → editing `Software` →
   capture device (`Camera`, or per-device with `--by-device`) → `Saved/`.
+- **Evidence beats filename.** The filename conventions **stand down when the file names the
+  camera that took it** (`categorize.capture_device_model` - `Model`, or `SamsungModel`; a
+  `Make`, a date or a coordinate alone is not a device). A photo sent as a document keeps its
+  EXIF, and truestill already dates that file from it, so categorising it by its name was one
+  chain contradicting the other. **The stand-down condition is exactly the condition under which
+  the capture-device rule fires**, read from one function by both, so no metadata shape falls
+  through every rule to `Saved/`. The order above is unchanged: deferring touches only files
+  carrying capture evidence, where a reordering would move every convention at once.
 - **`Saved/` heuristic:** a no-camera-EXIF image under `_SOCIAL_MAX_PIXELS` (2 MP) is flagged a
   likely social/web save (`categorize.rule_saved_heuristic`); true unknowns also fall to
   `Saved/` (`rule="fallback"`). No Instagram/Facebook-style categories - undetectable

@@ -1275,41 +1275,11 @@ picking one up must map the combined order before building.
   - **A dead rule still occupies a position in the chain.** `rule_software` sits between the
     filename conventions and the device rule, so anyone reasoning about `build_rules` is reading
     six rules when only five can fire - and any change to that ordering has to say what would
-    happen the day `Software` is requested, not only what happens today. `(aar)` is the first
-    change to run into that.
-
-- **(aar) Categorisation is decided by the filename before the camera evidence is looked at.**
-  Recorded 2026-08-02, measured on three fixtures in one organize run. **This is a defect and
-  needs a fix - not post-launch.**
-  - **The measurement.** Three files, one `organize --apply`, verbatim output tree:
-
-    ```
-    2025/2025-08/2025-08 - Everyday/20250801_150500_IMG_4021.jpg    own phone (control)
-    WhatsApp/2025/2025-08/20250801_143000_IMG-20250801-WA0001.jpg   document-mode, FULL EXIF
-    WhatsApp/Undated/IMG-20250801-WA0002.jpg                        compressed, stripped
-    ```
-
-    The middle file carries `Make=Apple`, `Model=iPhone 15 Pro`, real GPS and a real
-    `DateTimeOriginal`. **Truestill used that EXIF timestamp to name and date it -
-    `20250801_143000`, and the run's own summary reports `date sources: exif 2` - and then
-    side-binned it on its filename anyway.** That is the tell: a file trusted enough to take a
-    capture date from is not trusted enough to leave the messenger bin.
-  - **The cause.** `categorize` is first-match-wins. `rule_filename_convention` sits at position 3
-    in `build_rules` and short-circuits before `make_device_rule` at position 5. Its signature is
-    `rule_filename_convention(path, _metadata)` - the metadata parameter is underscore-prefixed
-    and never read, so **it cannot see the EXIF even in principle**. This is not a threshold that
-    was tuned wrong; the evidence is not on that code path.
-  - **The general shape, which outlives this one fix: categorisation and dating are decided
-    independently and disagree.** Dating is evidence-based and records its provenance
-    (`date_source=exif`); categorisation is source-based. Two chains read the same metadata dict
-    in the same pass and reached opposite conclusions about whether to trust it. Placement was
-    surprising because the two answers were never required to agree.
-  - **What is CORRECT here and must not change: the compressed case.** WhatsApp strips EXIF on a
-    normal send, so that file has no trustworthy capture date, and it went to `WhatsApp/Undated/`
-    rather than to a folder named for the day it was sent. **R1 - never treat a messenger
-    sent-date as a capture date - is honoured in code.** It is also the common case by a wide
-    margin: the filename rule exists for it, and a fix that moves it is a worse defect than the
-    one being repaired.
+    happen the day `Software` is requested, not only what happens today. `(aar)`
+    (`SHIPPED.md`) is the case that ran into it: it deferred within rule 2 rather than moving
+    rule 2 below rule 4, **because a reordering would also hand messenger files to this rule**
+    the day its tag is requested. So the dead rule already constrained a real design choice
+    once, without ever executing.
 
 - **(y) Optional photo / video split - default TOGETHER, and pair-aware or not at all.**
   Post-layout-correction. An opt-in that separates standalone videos into their own top-level

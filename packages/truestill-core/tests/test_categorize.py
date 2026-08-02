@@ -40,13 +40,23 @@ def test_filename_conventions(filename: str, expected: str) -> None:
     assert categorize(Path(filename), {}).label == expected
 
 
-def test_whatsapp_wins_over_camera_exif() -> None:
-    """Messenger naming is stronger evidence of origin than surviving device tags."""
+def test_camera_exif_wins_over_whatsapp_naming() -> None:
+    """**Reversed 2026-08-02** (`BACKLOG.md` ``(aar)``). It read *"messenger naming is stronger
+    evidence of origin than surviving device tags"*, and that premise did not survive contact
+    with a measurement: the same file's EXIF was already being trusted to supply its capture
+    *date*, so calling it untrustworthy for *origin* was one chain contradicting the other.
+    Surviving device tags are the camera's own record of taking the picture; a filename records
+    how a copy travelled afterwards.
+
+    The behaviour this test used to hold is not gone, it is narrowed - see
+    `test_evidence_beats_filename.py`, where the stripped case (the common one) is pinned in
+    place alongside all fourteen conventions.
+    """
     match = categorize(
         Path("VID-20250804-WA0020.mp4"),
         {"Make": "samsung", "Model": "SM-A546B"},
     )
-    assert match.label == "WhatsApp"
+    assert match.label == "Camera"
 
 
 def test_unknown_software_creates_its_own_label() -> None:

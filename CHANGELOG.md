@@ -7,6 +7,23 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- **A photo that still carries its camera's details now joins your timeline, even if it reached
+  you through a messenger.** Truestill used to decide where a file belonged from its *name*
+  first, so a photo sent to you as a *document* - which keeps the full camera information - went
+  to `WhatsApp/` rather than to the month it was taken in. It was already being **dated** from
+  that same camera information, which is what made the old behaviour hard to explain: trusted
+  enough to date, not trusted enough to file. So a photo someone forwards back to you, or one
+  you sent as a document and later re-imported, now joins the timeline instead of sitting in a
+  messenger folder. It is your photo, with your camera's evidence on it.
+  **This applies to files you organize from here on.** Anything already filed under `WhatsApp/`
+  stays there, and `migrate-layout` will not move it either - a re-layout deliberately trusts a
+  messenger folder rather than re-reading the files in it. Re-importing from the originals is
+  what places them the new way.
+  **Nothing changes for the ordinary case.** A photo sent normally through a messenger has its
+  camera information stripped by the app before it ever reaches you, so there is nothing to go
+  on but the name - those files stay exactly where they were, and Truestill still refuses to
+  treat the date in a messenger filename as the date the photo was taken. Screenshots are
+  unaffected too.
 - **Truestill now keeps the camera and the location a photo records, instead of reading them
   and throwing them away.** Nothing shows them yet - this is the storage, and the screens come
   later - but it is worth knowing now, because **only files organized from here on will have

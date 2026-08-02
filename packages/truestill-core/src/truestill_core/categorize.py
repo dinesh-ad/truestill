@@ -7,6 +7,7 @@ load-bearing:
    ``Make``/``Model``, which would otherwise misfile it as a camera photo.
 2. **Filename conventions** -- messengers strip metadata on send, so the filename stamp
    is frequently the only durable evidence of origin. Table-driven and extensible.
+   **Stands down when the file names the camera that took it** -- see below.
 3. **Editing/authoring software** -- a ``Software`` tag that names an application means
    the file came out of that application; the folder is named after it, on the fly.
 4. **Capture device** -- genuine camera metadata. Optionally split per device.
@@ -15,6 +16,23 @@ load-bearing:
 
 Nothing here enumerates the possible folder names. Rules 2-4 all *derive* labels, so a
 library containing Signal, Snapseed or a flatbed scanner grows those folders by itself.
+
+**Why rule 2 defers instead of being moved below rule 4.** A file can arrive through a
+messenger and still carry the camera's own record: WhatsApp's *send as document* preserves
+EXIF, and truestill already trusts that EXIF enough to take the file's capture date from it.
+Filing it by its name anyway meant one chain trusting exactly what the other discarded. The
+repair is a stand-down in rule 2 (:func:`capture_device_model`) rather than a reordering,
+because **reordering changes every convention at once and this changes only the files that
+carry capture evidence**: below rule 4, a messenger filename would also lose to rule 3, which
+is unreachable today (`BACKLOG.md` ``(aaq)``) but would, the day ``Software`` is requested,
+start claiming messenger files for whichever app last touched them. The screenshot rules stay
+ahead of both -- a screenshot carries the phone's ``Make``/``Model`` and is not a photograph
+of anything.
+
+**The accepted consequence, which is a behaviour change and not a side effect:** a photo
+someone forwards back to you, or that you sent as a document and later re-imported, rejoins
+the dated timeline instead of sitting in the messenger bin. It is your photo, with your
+camera's evidence on it.
 """
 
 from __future__ import annotations
@@ -141,6 +159,23 @@ def _text(metadata: dict[str, Any], key: str) -> str:
     return "" if value is None else str(value).strip()
 
 
+def capture_device_model(metadata: dict[str, Any]) -> str:
+    """The capture device this file names, or ``""`` if it names none.
+
+    **One definition read by two rules**, so "did a camera take this?" cannot be answered two
+    ways: `rule_device` needs the value to label the folder, and `rule_filename_convention`
+    needs the answer to know whether to stand down (see the module docstring).
+
+    ``Model`` alone counts - video containers routinely carry one with no ``Make``. A ``Make``
+    alone does not, and neither does a date, a coordinate or a lens. That is not caution: the
+    deferral hands the file to the *rest of the chain*, and `rule_device` is the only rule
+    downstream that claims a camera photo. Standing down on evidence it cannot use would drop
+    the file past every remaining rule into `Saved` - origin unknown - discarding the camera
+    reading and the messenger reading in one move.
+    """
+    return _text(metadata, "Model") or _text(metadata, "SamsungModel")
+
+
 def _software_family(raw: str) -> str:
     """Reduce a ``Software`` string to its application name.
 
@@ -189,8 +224,14 @@ def rule_screenshot_name(path: Path, _metadata: dict[str, Any]) -> CategoryMatch
     return None
 
 
-def rule_filename_convention(path: Path, _metadata: dict[str, Any]) -> CategoryMatch | None:
-    """Table-driven messenger/app filename conventions."""
+def rule_filename_convention(path: Path, metadata: dict[str, Any]) -> CategoryMatch | None:
+    """Table-driven messenger/app filename conventions, unless the file names its camera.
+
+    The stand-down is the whole reason this rule reads metadata at all; the module docstring
+    carries the argument for it.
+    """
+    if capture_device_model(metadata):
+        return None
     for entry in NAME_PATTERNS:
         if entry.pattern.match(path.name):
             return CategoryMatch(
@@ -234,13 +275,11 @@ def make_device_rule(*, by_device: bool) -> Rule:
 
     def rule_device(_path: Path, metadata: dict[str, Any]) -> CategoryMatch | None:
         make = _text(metadata, "Make")
-        model = _text(metadata, "Model") or _text(metadata, "SamsungModel")
+        model = capture_device_model(metadata)
         lens = _text(metadata, "LensModel")
 
         if not model:
             return None
-        # A model with no make is still capture evidence (common in video containers),
-        # but a make alone is not.
         detail = ", ".join(
             part
             for part in (

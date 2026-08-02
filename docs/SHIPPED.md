@@ -198,6 +198,52 @@ recording shipped work as unstarted, which is the more expensive direction of th
   migration already did. Identity remains the marker uuid.
   - Remaining absolute-path / hash-cache portability is **(xx)**, not a re-open of this item.
 
+- **(aar) A messenger filename beat the camera evidence. Evidence wins now.** Recorded and
+  **fixed 2026-08-02**, both the same day: it was filed first so the reasoning existed before the
+  change did, then built against that record.
+  - **The measurement that produced it.** Three files, one `organize --apply`:
+
+    ```
+    2025/2025-08/2025-08 - Everyday/20250801_150500_IMG_4021.jpg    own phone (control)
+    WhatsApp/2025/2025-08/20250801_143000_IMG-20250801-WA0001.jpg   document-mode, FULL EXIF
+    WhatsApp/Undated/IMG-20250801-WA0002.jpg                        compressed, stripped
+    ```
+
+    The middle file carries `Make=Apple`, `Model=iPhone 15 Pro`, real GPS and a real
+    `DateTimeOriginal`. **Truestill used that EXIF to name and date it - `20250801_143000`, and
+    the run's own summary said `date sources: exif 2` - and then side-binned it on its filename
+    anyway.** A file trusted enough to date from its EXIF was not trusted enough to leave the
+    messenger bin. The cause was structural, not a tuning error: `categorize` is first-match-wins,
+    `rule_filename_convention` sat at position 3 with the signature `(path, _metadata)`, and an
+    underscore-prefixed parameter cannot see the evidence even in principle.
+  - **The ruling: evidence-first**, made by the maintainer. Genuine camera evidence decides the
+    category regardless of how the file arrived. **Accepted consequence, and it is user-visible:**
+    a photo someone forwards back to you rejoins the timeline. It is in the CHANGELOG.
+  - **Built as a stand-down inside rule 2, NOT as a reordering**, and the difference is the
+    reason this entry is worth reading. `rule_filename_convention` returns `None` when
+    `capture_device_model` finds a device. Moving the rule below the device rule reaches the same
+    answer for this case *and changes every other convention at once* - including handing
+    messenger files to `rule_software` the day `(aaq)`'s tag is requested. Deferring changes only
+    the files that carry capture evidence.
+  - **"Genuine capture evidence" is defined as `Model` (or `SamsungModel`), and the definition is
+    shared with the rule it defers to.** `Make` alone, a date alone and a coordinate alone are
+    each rejected, for one reason: deferral hands the file to the *rest of the chain*, and
+    `rule_device` is the only rule downstream that claims a camera photo. Standing down on
+    evidence it cannot use would drop the file past every rule into `Saved` - origin unknown -
+    losing the camera reading and the messenger reading together. One function answers for both
+    rules so they cannot drift, and a parametrized test asserts the two agree.
+  - **Forward-only, verified rather than assumed.** Files already filed under `WhatsApp/` stay
+    there, and **`migrate-layout` will not move them**: `WhatsApp` is a deterministic side-bin
+    label, so `rederive_rules` never re-reads those files - checked directly, the route comes back
+    `side bin`, `needs_decision=False`. That optimisation's premise still holds (only the filename
+    rule emits that label), so nothing in `migrate.py` is wrong. But it does mean a pre-existing
+    library diverges from what a fresh run would decide, and only a re-import closes the gap.
+    **Rescuing already-organized side-bin files is a separate question** and belongs with `(ii)`'s
+    rescue flow, not here.
+  - **Exactly one existing expectation moved** across 1,345 tests:
+    `test_whatsapp_wins_over_camera_exif`, whose docstring asserted the premise being reversed. It
+    was rewritten with the reversal and its reason rather than silently updated.
+
 - **(aaa) Typed confirmations crash with raw `EOFError` in non-interactive runs.** Ruled by
   the maintainer from the 2026-07-30 maiden voyage: `organize --in-place --apply` aborted with a
   traceback when stdin was non-interactive (pipe/script/CI).
