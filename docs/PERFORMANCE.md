@@ -392,6 +392,22 @@ Recorded so a future optimizer doesn't "improve" them:
   content without changing size or mtime. Never cache it. (Already contract-recorded.)
 - **exiftool as the sole metadata reader**, batched - the per-file cost is 2.2 ms at 12 MP
   because it reads headers, not whole files.
+- **Defender exclusions do not speed up the Windows CI lane, because Defender real-time
+  scanning is already off there.** Tested 2026-08-02 on the runner itself rather than reasoned
+  about: a step added to the Windows lane excluded pytest's basetemp, `RUNNER_TEMP` and the
+  chocolatey directory, and printed `Get-MpComputerStatus` first. It reported
+  **`RealTimeProtectionEnabled = False`**, so there was nothing for an exclusion to prevent. The
+  Pytest step came in at 1097 s against a 704 s / 1037 s baseline - no change, and the timing
+  carries no information anyway given that lane's 45% run-to-run swing. The **mechanism** is what
+  is ruled out, not the number, which is why one run settles it.
+  **One thing worth keeping from it:** pytest's basetemp on a GitHub Windows runner is
+  `C:\Users\RUNNER~1\AppData\Local\Temp`, while `RUNNER_TEMP` is `D:\a\_temp`. They are
+  different directories. Anything aimed at "where the tests write" on that runner must use the
+  former; the obvious `$env:RUNNER_TEMP` would have excluded a path the suite never touches.
+  **The Windows lane is still ~13.5x ubuntu on the identical command and unexplained.** The
+  measured facts stand: setup is 3 s so caching is a dead end, the Pytest step is 95% of the
+  lane, and the suite performs 20,034 filesystem create/write operations and 287 spawns of a
+  PAR-packed `exiftool.exe`. Those remain the candidates; antivirus is not.
 - **The `(aac)` readability probe runs over *every* path, before the hash-cache split.** It
   looks like an easy 6.7 µs/file to reclaim by probing only files the worker will not read
   anyway. It is not: `HashCache` keys on size and mtime, both from `stat`, and `stat` succeeds

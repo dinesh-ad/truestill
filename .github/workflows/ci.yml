@@ -63,48 +63,6 @@ jobs:
       - name: Mypy
         run: uv run mypy packages/truestill-core/src/truestill_core packages/truestill-cli/src/truestill_cli packages/truestill-app/src/truestill_app scripts packaging
 
-      # ---- EXPERIMENT (2026-08-02): is Defender real-time scanning the Windows tax? ----
-      # Baseline to beat, measured on this lane's *Pytest step*: 704 s and 1037 s, against
-      # ubuntu's 77 s for the identical command - 13.5x, swinging 45% between runs. Setup is not
-      # the cause: `uv sync` is 3 s, so caching was a dead end. The suite performs 20,034
-      # filesystem create/write operations and 287 spawns of a PAR-packed `exiftool.exe`, and
-      # Defender scans both classes.
-      #
-      # $env:TEMP, NOT $env:RUNNER_TEMP. They are different directories on a GitHub Windows
-      # runner: RUNNER_TEMP is D:\a\_temp, while pytest's `tmp_path_factory` resolves through
-      # `tempfile.gettempdir()` to the user-profile temp - which `conftest.py` already documents
-      # as arriving in 8.3 short form (C:\Users\RUNNER~1\...). Excluding RUNNER_TEMP alone
-      # would have measured a directory the tests never touch and produced a false negative.
-      # Both are excluded anyway; the basetemp is printed so the pairing stays checkable.
-      #
-      # The chocolatey directory is excluded in the same step deliberately: the hypothesis under
-      # test is "Defender scanning is the tax", not "which of the two directories". One run
-      # answers the hypothesis; if it wins, both exclusions are kept regardless.
-      #
-      # Never fails the lane. An unprivileged or managed Defender turns this into a no-op with a
-      # note in the log, because a measurement must not become a red build.
-      - name: Defender exclusions (experiment - see comment)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          python -c "import tempfile; print('pytest basetemp parent:', tempfile.gettempdir())"
-          Write-Host "RUNNER_TEMP = $env:RUNNER_TEMP"
-          try {
-            $status = Get-MpComputerStatus -ErrorAction Stop
-            Write-Host "RealTimeProtectionEnabled = $($status.RealTimeProtectionEnabled)"
-          } catch {
-            Write-Host "Get-MpComputerStatus unavailable: $($_.Exception.Message)"
-          }
-          foreach ($p in @($env:TEMP, $env:RUNNER_TEMP, 'C:\ProgramData\chocolatey')) {
-            try {
-              Add-MpPreference -ExclusionPath $p -ErrorAction Stop
-              Write-Host "excluded: $p"
-            } catch {
-              Write-Host "could not exclude $p : $($_.Exception.Message)"
-            }
-          }
-          exit 0
-
       - name: Pytest
         run: uv run pytest
 
