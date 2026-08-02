@@ -725,13 +725,18 @@ algorithm toggle. Full rationale: `DECISIONS.md` **D8**.
   - **`WRITE_BATCH_SIZE` is the peak scratch footprint** of an ingest (chunk x file size),
     which is why it is 100 rather than the reader's 200.
 - **No accidental O(n²).** The perceptual dedup is a linear scan per file, documented in
-  `dedup.py` as acceptable at current scale with a BK-tree noted as the drop-in for growth.
-  Any nested library iteration must carry a comment proving its bound.
-  - **The one known O(n²) carries a runtime alarm rather than premature machinery.**
-    Measured, it is 0.7 s at 2,275 images and ~22.6 min at 100k. Building a BK-tree today
-    would be machinery bought before the problem, so `dedup.LINEAR_SCAN_ALARM = 10_000` logs
-    one line at the crossing instead - the trigger reaches the person who hits it, not only
-    the person who reads docs. See [`PERFORMANCE.md`](PERFORMANCE.md) §3.
+  `dedup.py` and **priced rather than assumed**: the pair count is quadratic, the per-pair cost
+  is not the problem. Any nested library iteration must carry a comment proving its bound.
+  - **The remedy was vectorisation, not a tree, and that was settled by measurement**
+    (2026-08-02). Hashes are packed to `uint64` once at registration and compared with one
+    XOR + `np.bitwise_count` per incoming file: 147 s -> 0.5 s at 33,457 images. A BK-tree
+    prunes only ~85% at threshold 5 and lost by 89x at 150,000, so `(v)` is closed refused,
+    not deferred. See [`PERFORMANCE.md`](PERFORMANCE.md) §3.0 and `SHIPPED.md` `(v)`.
+  - **`LINEAR_SCAN_ALARM` was removed with that change and this clause used to name it.** It
+    warned at 10,000 images that matching had become the slow path; that is false of the packed
+    scan, and there is no larger n to re-aim it at. Recorded rather than deleted because a
+    contract that named a symbol for a day after the symbol went is the failure `(aan)` is
+    filed to catch.
 - **The custody strip counts, it does not list.** `Catalog.single_copy_count()` answers the
   "safe in N places" question with a `COUNT(*)`; it used to build and sort every at-risk row
   via `single_copy_shas()` and take `len()` of it - **224 ms to 17.5 ms at 100k**, on a query

@@ -12,7 +12,9 @@ def test_dedup_docstring_cites_the_measured_10k_cost_not_the_2275_row() -> None:
     """The O(n^2) justification must quote PERFORMANCE.md §3 at the alarm threshold.
 
     The bug was taking the 0.72 s @ 2,275 row and writing it as 0.7s for 10,000 - understating
-    the cost by ~19x exactly where LINEAR_SCAN_ALARM fires.
+    the cost by ~19x at exactly the size where `LINEAR_SCAN_ALARM` then warned. (That constant
+    was removed on 2026-08-02 with the packed matcher; the figures it guards are still the
+    honest cost of the implementation §3 measured, which is why this guard outlives it.)
 
     Figures re-measured 2026-07-31 to the PERFORMANCE.md §2.1 method (median over n runs); the
     docstring and the table are pinned to each other so neither can drift alone.

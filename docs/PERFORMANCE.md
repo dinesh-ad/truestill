@@ -214,6 +214,10 @@ rather than an interpolation from the local figures.
 
 ## 3. Known limit: perceptual dedup is O(n²)
 
+> **The rest of §3 is the pre-2026-08-02 implementation and its conclusions are superseded by
+> §3.0 below.** Kept because it is the measurement that justified replacing it. **Its opening
+> claim - that the per-comparison cost was already optimal - is wrong**, and §3.0 says how.
+
 `DedupIndex.check` compares each incoming file against every known perceptual hash. The cost
 per comparison is already optimal - a 64-bit XOR and a CPU popcount, ~271 ns including loop
 overhead - so what grows is the *number* of comparisons, not their price.
@@ -408,9 +412,15 @@ Recorded so a future optimizer doesn't "improve" them:
   noise.
 - **Event clustering is O(n log n)**- one sort, three linear passes. It is not the quadratic
   thing it resembles.
-- **`hamming_distance`** is already optimal: `int(a,16) ^ int(b,16)` then `.bit_count()`, a CPU
-  popcount at ~271 ns including loop overhead. The O(n²) is the *number* of comparisons, not
-  their cost - replacing this function would win nothing.
+- ⚠ **`hamming_distance` was on this list and should not have been. Withdrawn 2026-08-02.** The
+  entry read *"already optimal … replacing this function would win nothing"*, and replacing it
+  won **291x** (§3.0). The reasoning had one flaw doing all the damage: it priced the XOR and the
+  popcount, which are indeed free, and never priced the `int(hex, 16)` on either side of them -
+  which was ~260 of the ~271 ns. From "the cost per comparison is optimal" it followed that only
+  the *number* of comparisons could be attacked, which is what pointed `(v)` at a BK-tree for a
+  year. **The lesson is this list's own rule: a "leave it alone" entry must name what was
+  measured, not what was inspected.** An unmeasured one does not merely fail to help - it stops
+  the next person looking.
 - **Verify re-reads every byte on purpose.** It exists to catch silent corruption, which changes
   content without changing size or mtime. Never cache it. (Already contract-recorded.)
 - **exiftool as the sole metadata reader**, batched - the per-file cost is 2.2 ms at 12 MP

@@ -199,9 +199,15 @@ recording shipped work as unstarted, which is the more expensive direction of th
   - Remaining absolute-path / hash-cache portability is **(xx)**, not a re-open of this item.
 
 - **(v) BK-tree for perceptual dedup - CLOSED 2026-08-02 WITHOUT BUILDING IT.** The item asked
-  for a tree once `LINEAR_SCAN_ALARM` fired. It fired, the alternatives were measured, and **the
-  tree lost.** Recorded here rather than left open because "not built" and "measured and refused"
+  for a tree once `LINEAR_SCAN_ALARM` fired. The alternatives were measured and **the tree
+  lost.** Recorded here rather than left open because "not built" and "measured and refused"
   are different states, and only one of them stops someone building it.
+  - **The trigger was never a real run, and the first draft of this entry said it was.** `(v)`
+    asked to be unblocked *"when that line appears in a real run"*. It has not: the alarm was
+    made to fire on a **synthetic** 10,000-hash index, and all three implementations below were
+    timed on synthetic corpora. The measurements stand - they are of the algorithms, which do
+    not know their inputs are synthetic - but the provenance does not, and this entry claimed
+    the stronger one for a day. Corrected here rather than quietly reworded.
   - **What was actually wrong.** `PERFORMANCE.md` §3 asserted the per-comparison cost was
     *"already optimal - a 64-bit XOR and a CPU popcount"*. It was not: the comparison was
     `(int(hex_a, 16) ^ int(hex_b, 16)).bit_count()`, and **each pair re-parsed two hex strings
@@ -639,7 +645,9 @@ no composition refactor to schedule.
   Measured every pipeline stage, then fixed only what evidence convicted: the per-file exiftool
   write (255ms → 9.3ms/file) and the custody strip's row-building count (224ms → 17.5ms at
   100k). The O(n²) perceptual scan was **deliberately not fixed** - it became item (v) with a
-  runtime alarm. Baseline, rule and the do-not-touch list in `PERFORMANCE.md`.
+  runtime alarm. Baseline, rule and the do-not-touch list in `PERFORMANCE.md`. *(Both have since
+  moved: the alarm was removed and `(v)` closed on measurement 2026-08-02 - see `(v)` above -
+  and the do-not-touch list's `hamming_distance` entry was withdrawn with it.)*
 - ~~**(q) In-place organize (same-device optimization).**~~ **Delivered.** `organize --in-place`
   moves files by rename when source and destination share a filesystem: no bytes rewritten, no
   zero-copy window visible to another process, hash unchanged because the inode is. (Crash

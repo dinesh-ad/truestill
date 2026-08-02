@@ -108,5 +108,14 @@ def perceptual_hash(path: Path, algorithm: Algorithm = "dhash") -> str | None:
 
 
 def hamming_distance(hex_a: str, hex_b: str) -> int:
-    """Bit-difference between two equal-width hex hash strings."""
+    """Bit-difference between two equal-width hex hash strings.
+
+    **No production caller since 2026-08-02, and kept deliberately - do not delete it as dead
+    code.** `DedupIndex` now packs hashes to ``uint64`` and compares them vectorised, and this
+    is the reference implementation its equivalence test measures that against
+    (`test_dedup_vectorised.py`). Deleting it would not remove the logic, only move a copy of
+    it into the test that needs it - and an oracle living beside the code it checks is how the
+    two drift together and agree about being wrong. It also stays width-agnostic, which the
+    packed index is not: `test_hashing` exercises it on 8-bit values.
+    """
     return (int(hex_a, 16) ^ int(hex_b, 16)).bit_count()

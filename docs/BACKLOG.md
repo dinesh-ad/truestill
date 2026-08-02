@@ -80,6 +80,15 @@ section, because what is left is the part that still has to be written.
     (`docs/PROJECT_STATUS.md` §6)"*. §6 exists and documents nothing of the kind - the variable
     appears nowhere in that file. A live citation to a real section that does not carry the
     claim, which an anchor-existence check would not catch either.
+  - **A third instance, and this one landed in the BINDING CONTRACT.** `956953f` deleted
+    `dedup.LINEAR_SCAN_ALARM`; `IMPLEMENTATION_STANDARDS.md` §8 went on naming
+    `dedup.LINEAR_SCAN_ALARM = 10_000` as live machinery until it was swept a commit later, and
+    `dedup.py`'s own docstring pointed at `BACKLOG.md (v)` after `(v)` had moved to
+    `SHIPPED.md`. **Both were found by a manual grep that only happened because someone asked
+    "why was it built this way?"** - which is not a process. Two things this instance settles
+    about the guard's design: the contract needs to be in scope (it is the document a conflict
+    resolves *toward*), and a backticked `Module.SYMBOL` is the highest-value shape to check
+    first, since it is unambiguous where a bare word is not.
   - **Related, not the same.** `test_backlog_references.py` already guards the opposite
     direction - a settled item described as pending elsewhere - and deliberately scans only
     settled sections. Noted while here: its `_SETTLED` markers do not match

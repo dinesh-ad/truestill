@@ -824,7 +824,8 @@ def test_a_trip_and_an_event_with_different_namings_are_alarmed(
     `SLUG`) - a real collision between them was never reachable in the first place (see the
     dissolution proof above: same date always dissolves the event, and different dates always
     render different date prefixes regardless of naming). The divergence itself is still alarmed
-    (the `dedup.LINEAR_SCAN_ALARM` pattern), so a future caller who *does* diverge the two
+    (announced once at the crossing rather than left to a document), so a future caller who
+    *does* diverge the two
     namings is told, not left to discover it unassisted.
     """
     root = tmp_path / "drive"

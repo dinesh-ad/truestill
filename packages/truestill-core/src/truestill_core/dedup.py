@@ -31,7 +31,7 @@ would cost ~560M entries at 33,457 images and ~11.2B at 150,000. ``scipy``'s ``p
 ``sklearn``'s ``pairwise_distances`` both materialise that matrix *and* work on unpacked
 vectors (64 elements per hash rather than one integer), which is why neither is used here.
 
-**No BK-tree** (`BACKLOG.md` ``(v)``, closed on measurement). At threshold 5 a BK-tree prunes
+**No BK-tree** (`SHIPPED.md` ``(v)``, closed on measurement). At threshold 5 a BK-tree prunes
 only ~85% of the index per query and loses to this by 89x at 150,000 - the reason is in that
 entry and it is a property of the geometry, not of any implementation.
 """
