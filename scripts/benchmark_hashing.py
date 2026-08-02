@@ -22,7 +22,10 @@ from pathlib import Path
 from truestill_core.scan import PoolKind, compute_hashes
 
 #: The external corpus is machine-specific and deliberately not recorded in the repo, so it is
-#: named by environment variable (`docs/PROJECT_STATUS.md` §6) and simply skipped when unset.
+#: named by environment variable and simply skipped when unset. No document defines it - this
+#: line is its definition. (It previously cited `PROJECT_STATUS.md` §6, which says nothing
+#: about it.) Whatever it points at is still bound by the corpus fence in `PROJECT_STATUS.md`
+#: §4.
 #: It is read-only here: this script hashes files and writes nothing to them.
 _CORPUS_ENV = "TRUESTILL_CORPUS"
 

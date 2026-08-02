@@ -206,8 +206,12 @@ class SourceScan:
     of fact from every other list here. The others name files truestill decided about; this one
     names a place truestill could not see into, so **the number of files inside is precisely
     what is unknown**. Reporting a count for them would invent the missing number. An unreadable
-    *file*, by contrast, is a named loss and is already handled downstream: it stays in ``media``
-    and surfaces as ``ActionStatus.FAILED`` when the copy raises.
+    *file*, by contrast, stays in ``media`` and surfaces as ``ActionStatus.FAILED`` **on a run**,
+    when the copy raises. **Not on a preview**, which attempts no copy: there it yields empty
+    hashes and is reported nowhere, and the empty hashes are indistinguishable from the size
+    pre-filter's legitimate skip. That gap is `BACKLOG.md` ``(aac)``; this docstring used to
+    say "already handled downstream" without naming the path, which read as though it were
+    closed.
     """
 
     media: list[Path]

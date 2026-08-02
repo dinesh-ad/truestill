@@ -54,7 +54,7 @@ ALLOWED: tuple[tuple[str, str], ...] = (
     (
         r"\| (Google Takeout|Facebook|Flickr|Amazon Photos|Dropbox|iCloud) \|",
         (
-            "the (jj) export-format table in BACKLOG.md. These names ARE the evidence: the "
+            "the (jj) export-format table in SHIPPED.md. These names ARE the evidence: the "
             "scope decision - archive reading is source-agnostic, and .7z is refused because "
             "no service emits it - rests on which services export which format. Stripped, the "
             "table asserts a conclusion with nothing behind it. Same standing as the cited "

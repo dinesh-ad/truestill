@@ -1,6 +1,6 @@
 """O4: a confirmation survives every whole-disk operation (date-provenance step 3).
 
-`BACKLOG.md` (ii)'s finding, in its own words: *"A hand-move is undone by the next whole-disk
+`SHIPPED.md` (ii)'s finding, in its own words: *"A hand-move is undone by the next whole-disk
 operation ... The user's correction is not merely forgotten - it is actively reverted, which is
 worse than not supporting it."* So the obligation is not "confirmations are stored"; it is that
 each operation which rewrites the library leaves them standing. Each is tested by name below.

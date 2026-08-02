@@ -622,7 +622,7 @@ def _source_root_or_none(given: Path, destination: Path) -> Path | None:
 
     **Any archive from any source**, not only Google Takeout: every major photo service hands a
     user a ``.zip``, and an old backup, a shared folder or a NAS dump is the same shape. Takeout
-    is the motivating case, never the scope - the evidence is tabulated in `BACKLOG.md` `(jj)`.
+    is the motivating case, never the scope - the evidence is tabulated in `SHIPPED.md` `(jj)`.
 
     **Pointing at one part finds the rest.** Google splits an export across numbered files and a
     folder can straddle two of them, so requiring every part on the command line would make an
