@@ -1,8 +1,8 @@
-# truestill
+# Truestill
 
 Categorize and date-organize a photo and video library into a stable, browsable tree.
 Audio files (voice memos, `.m4a`/`.mp3`/`.amr` and friends) are recognized, organized and
-counted alongside them, but photos and videos are what truestill is built and tuned for:
+counted alongside them, but photos and videos are what Truestill is built and tuned for:
 
 ```
 <destination>/
@@ -83,7 +83,7 @@ year/month folder can never disagree. Disable with `--no-timestamps`.
 
 ## More than organizing
 
-Organizing is the entry point, not the whole tool. truestill also owns the **custody - a verified
+Organizing is the entry point, not the whole tool. Truestill also owns the **custody - a verified
 record of where every file is safe** for the library it builds:
 
 - **De-duplication**, two tiers - exact (SHA-256) skipped, perceptual look-alikes kept and
@@ -199,7 +199,7 @@ ships next, and the standing rules. [`CLAUDE.md`](CLAUDE.md) carries the full do
 
 ## Licence
 
-truestill is licensed under the [Apache License 2.0](LICENSE). The published source is
+Truestill is licensed under the [Apache License 2.0](LICENSE). The published source is
 open-core: the repository is Apache-2.0; paid Pro capabilities (when they ship) attach through
 the capability seam rather than a separate closed tree (`docs/DECISIONS.md` D7, D6).
 

@@ -46,7 +46,7 @@ def test_reclaim_requires_connected_drive(
     assert code == 2
     # The refusal names what the folder IS and what to do, rather than the marker filename.
     err = capsys.readouterr().err
-    assert "isn't a truestill drive yet" in err
+    assert "isn't a Truestill drive yet" in err
     assert "drives --init" in err
 
 

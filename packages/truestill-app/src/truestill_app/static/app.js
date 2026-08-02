@@ -177,7 +177,7 @@ async function runJob({
 const FRIENDLY_ERRORS = {
   NotABackupDriveError:
     "This folder isn't set up as a backup drive yet. Use <b>Copy your library to another drive</b> " +
-    "below and truestill will set it up.",
+    "below and Truestill will set it up.",
 };
 
 function jobErrorCard(d) {
@@ -817,7 +817,7 @@ function backupCompletion(r) {
 
 // Any completed operation that changes drive state refreshes everything that describes it.
 // Without this the page contradicts itself: after a successful copy the Check section still
-// showed "this folder isn't a truestill backup yet" about the drive now listed above it.
+// showed "this folder isn't a Truestill backup yet" about the drive now listed above it.
 async function refreshDriveState() {
   $("verify-result").innerHTML = "";  // a verdict about the old state is not about this one
   await Promise.all([loadDrives(), loadCustody()]);
@@ -1017,7 +1017,7 @@ async function updateUse() {
   use.textContent = "Use this folder";
   const v = await get(`/api/fs/validate?path=${encodeURIComponent(pk.path)}`);
   if (v.unreadable) {
-    // Offering a folder truestill cannot read would hand the failure to the next screen.
+    // Offering a folder Truestill cannot read would hand the failure to the next screen.
     use.disabled = true;
     use.textContent = "Can't read this folder";
     return;
@@ -1043,7 +1043,7 @@ async function validatePath(input, hint, kind) {
   // describe it, which is the same answer either way -- and specifically NOT "doesn't exist",
   // because that branch offers "Create it" and the create fails with the same refusal.
   if (v.unreadable) {
-    hint.textContent = "truestill can't read this folder. Check its permissions, or pick another one.";
+    hint.textContent = "Truestill can't read this folder. Check its permissions, or pick another one.";
     hint.className = "hint warn";
     return v;
   }
@@ -1392,11 +1392,11 @@ function renderSkippedDetails(sk) {
     <table class="table"><tbody>${rows("documents", skDocs)}${rows("unrecognized", skUn)}${backupRow}</tbody></table></details>`;
 }
 
-// What truestill could not read, on the preview that is supposed to predict the run.
+// What Truestill could not read, on the preview that is supposed to predict the run.
 //
 // Both halves render here because they are one question to a user - "did you see everything of
 // mine?" - even though they are two different facts underneath. `unreadable_folders` shipped in
-// the payload and was never rendered at all, so a folder truestill could not open produced a
+// the payload and was never rendered at all, so a folder Truestill could not open produced a
 // clean-looking preview; adding its file sibling while leaving that unrendered would have
 // rebuilt the same silence one layer down.
 //
@@ -1472,7 +1472,7 @@ function renderOrganizeResult(s) {
        <div>${esc(s.destination_limit.detail)}</div></div></div>`
     : "";
   // Above the tallies too, and for the same reason: a count of what "will be organized" is
-  // only as true as the set of files truestill managed to read.
+  // only as true as the set of files Truestill managed to read.
   const unreadable = renderUnreadable(s);
   $("org-result").innerHTML = card(
     `<div class="headline">${mediaCount(s)} found</div>
@@ -2501,7 +2501,7 @@ function bakeDriveLines(elsewhere) {
     .join("");
   return `<div class="banner"><div><div class="b-title">These drives keep the old date inside their files</div>
             ${rows}
-            <div class="k">Connect each one and set the dates again - truestill does not do it on its own.</div></div></div>`;
+            <div class="k">Connect each one and set the dates again - Truestill does not do it on its own.</div></div></div>`;
 }
 
 let bakeJob = null;
@@ -2629,13 +2629,13 @@ document.addEventListener("click", guarded((event) => {
   $(target).focus();
 }));
 
-// An exiftool _original sidecar beside the user's source may hold a different date. truestill
+// An exiftool _original sidecar beside the user's source may hold a different date. Truestill
 // never creates these files - its own writes use -overwrite_original - so one that exists came
 // from the user's own exiftool use, which is why this suggests and never decides.
 //
 // Three states, rendered DISTINCTLY rather than in three wordings of one thing: an offer is a
 // button, "nothing to suggest" is muted text, and "could not look" is a warning. A user
-// scanning fifty rows must tell "no sidecar" from "truestill could not reach the source"
+// scanning fifty rows must tell "no sidecar" from "Truestill could not reach the source"
 // without reading either one.
 function candidateHtml(f) {
   if (f.candidate === "offer") {

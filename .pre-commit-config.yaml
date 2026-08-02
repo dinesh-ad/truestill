@@ -40,6 +40,12 @@ repos:
         language: system
         pass_filenames: false
         types_or: [python, markdown, toml, yaml]
+      - id: product-name
+        name: the product name is "Truestill" wherever a person reads it
+        entry: python3 scripts/check_product_name.py
+        language: system
+        pass_filenames: false
+        types_or: [python, markdown, toml, javascript, html]
       # Accidental ``> 25.9`` / ``-> 2024-03-24`` shell redirects land empty files at the root.
       # always_run so a previously committed artifact is caught even when untouched.
       - id: no-redirect-artifacts

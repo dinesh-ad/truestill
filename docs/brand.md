@@ -7,6 +7,9 @@ The product name is **Truestill**, capitalised, wherever a person reads it. The 
 stays `truestill_core`, the command stays `truestill`, and the app entry point stays
 `truestill-app`: those are identifiers, and lowercase is right for all three. See
 `app_paths.APP_NAME`, which carries the same distinction for the OS data directory.
+**Enforced on the surfaces a person reads** by `scripts/check_product_name.py` (`make check`),
+which skips code, identifiers and `truestill <subcommand>` invocations - this paragraph is the
+source it enforces, so change the rule here first.
 
 ---
 
@@ -87,7 +90,7 @@ Committing them when they arrive is not a new precedent: the repo already tracks
 ## 6. Which surfaces use what, and which should not
 
 Worth settling *before* the wiring commit, because most of the set above belongs to a website
-truestill does not have, and adding it anyway would mean carrying web-app scaffolding in a
+Truestill does not have, and adding it anyway would mean carrying web-app scaffolding in a
 desktop tool.
 
 **The local app (`truestill-app`, served on `127.0.0.1`) - yes, but only the favicon.**
@@ -97,7 +100,7 @@ genuine improvement: the tab stops showing a blank page icon. That is the whole 
 **The local app - no, for everything else.**
 
 * `site.webmanifest` describes an **installable web app**: name, icons, `start_url`, display
-  mode. truestill is installed as a desktop application, not added to a home screen, and a
+  mode. Truestill is installed as a desktop application, not added to a home screen, and a
   manifest would advertise a second, different installation route for the same product.
 * `apple-touch-icon.png` is for **iOS home-screen bookmarks** of a website. A localhost server is
   not reachable from a phone.

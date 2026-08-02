@@ -8,7 +8,7 @@ SCRIPTS := scripts
 # packaging/ is in the fence for the same reason scripts/ is: real code that imports the core.
 PACKAGING := packaging
 
-.PHONY: install lint format format-check typecheck dash-check redirect-check test test-order check build dryrun e2e e2e-install
+.PHONY: install lint format format-check typecheck dash-check name-check redirect-check test test-order check build dryrun e2e e2e-install
 
 install:
 	uv sync --all-packages --group dev
@@ -46,11 +46,16 @@ test-order:
 dash-check:
 	$(PYTHON) python scripts/normalize_dashes.py --check
 
+# The product name is "Truestill" wherever a person reads it (docs/brand.md); the command and
+# the `truestill-*` / `truestill_*` identifiers stay lowercase.
+name-check:
+	$(PYTHON) python scripts/check_product_name.py
+
 # Empty root files named ``10.0`` / ``2024-03-24`` are shell redirects, not product files.
 redirect-check:
 	$(PYTHON) python scripts/check_redirect_artifacts.py
 
-check: lint format-check typecheck dash-check redirect-check test
+check: lint format-check typecheck dash-check name-check redirect-check test
 
 # --- browser end-to-end ----------------------------------------------------------------
 # Deliberately outside `check` and outside pytest's testpaths: a fresh clone runs `make check`

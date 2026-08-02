@@ -1,8 +1,8 @@
 [project]
 name = "truestill-cli"
 version = "0.1.0"
-description = "Command-line interface for truestill: organize, de-duplicate and back up a media library."
-authors = [{ name = "truestill contributors" }]
+description = "Command-line interface for Truestill: organize, de-duplicate and back up a media library."
+authors = [{ name = "Truestill contributors" }]
 requires-python = ">=3.13"
 readme = "README.md"
 license = "Apache-2.0"

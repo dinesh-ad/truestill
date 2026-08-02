@@ -8,10 +8,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 - **An organize *preview* now exits `1` instead of `0` when it could not read one of your
-  files.** Read this if you script truestill: `truestill organize <src> <dst> && next_step` used
+  files.** Read this if you script Truestill: `truestill organize <src> <dst> && next_step` used
   to chain in this case and now stops. That is the intended behaviour, not a side effect - a
   preview exists to predict the run, the run exits `1` on those same files, and a `0` here meant
-  the chain continued past a library truestill could not fully account for. Nothing else about
+  the chain continued past a library Truestill could not fully account for. Nothing else about
   the exit codes changed: `1` has always been this CLI's *"finished, but something is wrong"*
   (`verify` uses it for a missing or mismatched copy, `organize --apply` for a failed one,
   `reclaim` for a skipped one), so no new code was introduced. **A preview over a fully readable
@@ -28,7 +28,7 @@ All notable changes to this project are documented here. The format follows
 - **Truestill will no longer register the same library twice as two different drives.** If a
   drive's marker file went missing - copied to a new machine without it, restored from a backup
   that skipped hidden files - registering that folder used to create a *second* drive identity
-  for photos truestill already knew about. On the command line the new drive then showed **0
+  for photos Truestill already knew about. On the command line the new drive then showed **0
   files**, as though the backups had never existed. In the app it was quieter and worse: the new
   drive picked up all the files, and Truestill went on to report *"at least two drive copies"*
   for photos that existed in exactly one place. Registering now **stops and names the drive the
@@ -37,11 +37,11 @@ All notable changes to this project are documented here. The format follows
   under its original identity; if you really do have two drives holding the same photos,
   `--force-new-identity` registers the second one.
 - **An unplugged drive no longer tells you to register it.** Pointing `verify`, `reclaim` or
-  `migrate-layout` at a path that is not there said *"isn't a truestill drive yet - register it
+  `migrate-layout` at a path that is not there said *"isn't a Truestill drive yet - register it
   with `truestill drives --init`"* - the one piece of advice that causes the problem above. It
   now asks whether the drive is plugged in. A folder that *is* there and simply is not a drive
   still gets the register suggestion, unchanged.
-- **A photo truestill could not read is no longer also counted among the ones it says it will
+- **A photo Truestill could not read is no longer also counted among the ones it says it will
   organize.** The preview said both *"organized (unique): 5"* and *"files that could not be
   read: 2"* about the same seven photos, with the two unreadable ones inside the 5 - a file with
   no hash matches nothing, so it read as new. Every scanned file is now reported in exactly one
@@ -50,7 +50,7 @@ All notable changes to this project are documented here. The format follows
   adding them up; the app's *"new - will be organized"* count and the number on the confirm
   button both drop accordingly. Nothing about what a run *does* changed - an unreadable file is
   still attempted and still reported as failed; only the preview stopped promising it.
-- **A photo truestill cannot read is now named, instead of vanishing from the preview.** A file
+- **A photo Truestill cannot read is now named, instead of vanishing from the preview.** A file
   that is locked, permission-denied, on a failing disk, or moved away mid-scan produced empty
   hashes - **the same empty hashes** a file gets when the size pre-filter deliberately decides
   not to hash it. Nothing downstream could tell those apart, so on a preview, which copies
@@ -112,7 +112,7 @@ All notable changes to this project are documented here. The format follows
   since the migration**, reporting it rather than overwriting your edit. Available until a later
   migration of the same drive replaces the record.
 - **`truestill clean-empty`** - remove the empty folders a migration leaves behind. Scoped to
-  folders truestill itself emptied - it never sweeps your drive - and it shows three lists before
+  folders Truestill itself emptied - it never sweeps your drive - and it shows three lists before
   anything happens: what is empty, what holds only operating-system junk (`.DS_Store`,
   `Thumbs.db` and friends, removed with the folder), and what it is **leaving alone**, naming
   whatever is still inside. Anything it does not recognise keeps its folder. Removals go to the

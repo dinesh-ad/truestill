@@ -1,8 +1,8 @@
 [project]
 name = "truestill-app"
 version = "0.1.0"
-description = "Local web UI for truestill: a Starlette server + browser front-end on localhost."
-authors = [{ name = "truestill contributors" }]
+description = "Local web UI for Truestill: a Starlette server + browser front-end on localhost."
+authors = [{ name = "Truestill contributors" }]
 requires-python = ">=3.13"
 readme = "README.md"
 license = "Apache-2.0"

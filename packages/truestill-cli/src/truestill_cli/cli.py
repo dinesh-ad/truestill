@@ -411,7 +411,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     catalog_cmd = sub.add_parser(
-        "catalog", help="show where truestill keeps its catalog, and optionally move it"
+        "catalog", help="show where Truestill keeps its catalog, and optionally move it"
     )
     catalog_cmd.add_argument(
         "--move",
@@ -553,7 +553,7 @@ def _print_adoption_refusal(path: Path, offers: list[AdoptionOffer]) -> None:
     print(
         f"error: {path} already holds the library recorded as {names}.\n"
         f"       Registering it again would create a SECOND drive id for one library, and "
-        "truestill would then\n"
+        "Truestill would then\n"
         "       count one copy of your photos as two. Nothing was written.\n"
         "\n"
         "       If this drive moved:      re-run with --adopt-existing\n"
@@ -636,7 +636,7 @@ def _drive_or_explain(path: Path) -> DriveMarker | None:
         )
         return None
     print(
-        f"error: {path} isn't a truestill drive yet.\n"
+        f"error: {path} isn't a Truestill drive yet.\n"
         f"       Register it with:  truestill drives --init {path}",
         file=sys.stderr,
     )
@@ -708,7 +708,7 @@ def _cmd_verify(args: argparse.Namespace) -> int:
         if result.status is not CopyStatus.VERIFIED:
             suffix = f" ({result.detail})" if result.detail else ""
             print(f"  {result.status.value.upper():<10} {result.copy.relative}{suffix}")
-    print("\n  (read-only: truestill never repairs; re-copy the source to restore a bad file.)")
+    print("\n  (read-only: Truestill never repairs; re-copy the source to restore a bad file.)")
     return 1 if (counts.get("missing") or counts.get("mismatch") or counts.get("unreadable")) else 0
 
 
@@ -882,7 +882,7 @@ def _format_exact(resolution: Resolution) -> str:
 def _print_report(resolutions: list[Resolution], root_label: str) -> None:
     # Disjoint buckets, not `should_upload`: an unreadable file has no hash, so it matches
     # nothing and would otherwise be listed under "NEW UNIQUE - would be organized" while the
-    # block below says truestill could not read it. `_print_unreadable` names them instead.
+    # block below says Truestill could not read it. `_print_unreadable` names them instead.
     buckets = partition_for_report(resolutions)
     unique = buckets.unique
     near = buckets.near_duplicates
@@ -1311,7 +1311,7 @@ def _run_pipeline(
         print(_SEPARATOR)
         # A preview's job is to predict the run. The run will exit 1 on these files through
         # `ActionStatus.FAILED`, so predicting them with a 0 would make `organize && next_step`
-        # chain past a library truestill could not fully account for. Code 1 is already this
+        # chain past a library Truestill could not fully account for. Code 1 is already this
         # CLI's "finished, but something is wrong" (verify, organize, reclaim all use it).
         return 1 if unreadable else 0
     code = _print_execution(results)
@@ -1379,14 +1379,14 @@ def _print_skipped(scan: SourceScan) -> None:
     if scan.unrecognized:
         print(f"  unrecognized: {len(scan.unrecognized)}  ({_fmt_extensions(scan.unrecognized)})")
         print(
-            "    (not recognized as media; some may be video formats truestill does not organize yet)"
+            "    (not recognized as media; some may be video formats Truestill does not organize yet)"
         )
     if scan.exiftool_backups:
         print(f"  exiftool backup: {len(scan.exiftool_backups)}")
     if scan.unreadable_dirs:
         # Folders, named - and deliberately WITHOUT a file count. The number inside is exactly
         # what could not be read, so printing one would invent the missing figure. Every other
-        # line above counts files truestill decided about; this one names places it could not
+        # line above counts files Truestill decided about; this one names places it could not
         # see into.
         print(f"  folders that could not be read: {len(scan.unreadable_dirs)}")
         for folder in scan.unreadable_dirs:
@@ -1685,7 +1685,7 @@ def _print_cleanup_plan(plan: CleanupPlan, backend: str | None) -> None:
     where = (
         f"to the trash (via {backend}) -- recoverable"
         if backend
-        else "PERMANENTLY -- this machine has no trash truestill can use"
+        else "PERMANENTLY -- this machine has no trash Truestill can use"
     )
     print(f"\n{len(plan.removable)} folder(s) would be removed {where}.")
     if backend:

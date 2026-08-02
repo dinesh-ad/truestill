@@ -2,7 +2,7 @@
 name = "truestill-core"
 version = "0.1.0"
 description = "Core library: categorize, date, de-duplicate and place media into a Category/YYYY/MM tree."
-authors = [{ name = "truestill contributors" }]
+authors = [{ name = "Truestill contributors" }]
 # 3.13 to match what CI actually exercises, not a known 3.12 incompatibility: core was
 # verified importing and running correctly on 3.12.13. Lowering this again is cheap -- add a
 # CI job that installs core alone on 3.12 and runs its tests, then drop the floor.

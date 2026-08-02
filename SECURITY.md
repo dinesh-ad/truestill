@@ -23,9 +23,9 @@ we did not.
 
 **No bug bounty.** There is no payment, and none is implied. Reports are welcome regardless.
 
-## Scope - what truestill actually exposes
+## Scope - what Truestill actually exposes
 
-truestill is a local-first tool. It runs entirely on your machine, sends **no telemetry**, and
+Truestill is a local-first tool. It runs entirely on your machine, sends **no telemetry**, and
 transmits **nothing about your library** - not filenames, not counts, not hashes. That removes
 most of the surface a web application has, and it means the interesting security questions here
 are different.
@@ -41,9 +41,9 @@ are different.
   with a per-session token plus `Host` and `Origin` checks (`truestill_app/security.py`).
   Anything that gets past that - a DNS-rebinding path, a token leak, a route that skips the
   guard, a way for a web page you visit to reach the API - is a real finding.
-- **Path handling.** Anything that makes truestill read or write outside the source and
+- **Path handling.** Anything that makes Truestill read or write outside the source and
   destination you pointed it at, including via crafted filenames or archive contents.
-- **Data-destroying behaviour.** truestill's core promise is that it copies and never destroys.
+- **Data-destroying behaviour.** Truestill's core promise is that it copies and never destroys.
   Any path that relocates, deletes or overwrites an original outside the three documented,
   opt-in exceptions - `--move` and `reclaim` (both gated on re-hashing a proven second copy),
   and `--in-place` (moves by rename, reversible via `truestill undo-organize`) - is a
@@ -61,11 +61,11 @@ are different.
 
 **Out of scope:**
 
-- Anything requiring an attacker who already has your user account on your machine. truestill
+- Anything requiring an attacker who already has your user account on your machine. Truestill
   reads and writes files as you; someone who is already you does not need it.
-- The absence of encryption at rest. truestill writes ordinary files to ordinary folders, on
+- The absence of encryption at rest. Truestill writes ordinary files to ordinary folders, on
   purpose - you can read your library with any file manager, forever, without truestill.
-- Denial of service by pointing truestill at a pathological library. It is a tool you run, not
+- Denial of service by pointing Truestill at a pathological library. It is a tool you run, not
   a service that accepts untrusted input.
 
 ## Supported versions
