@@ -36,12 +36,27 @@ def _drive_with_library(client: TestClient, src: Path, drive: Path) -> None:
                 break
 
 
-def _camera_image(path: Path, when: datetime, colour: int) -> None:
-    """A real camera photo: Make/Model (-> Camera category) and DateTimeOriginal (-> dated)."""
-    Image.new("RGB", (32, 32), (colour % 256, 40, 60)).save(path, "JPEG")
-    subprocess.run(
-        [
-            "exiftool",
+def _stamp_camera_tags(planned: list[tuple[Path, datetime]]) -> None:
+    """Write Make/Model/DateTimeOriginal into every planned photo in **one** exiftool process.
+
+    This helper is why this file is no longer the slowest in the suite. Stamping one photo per
+    process cost 112 spawns here, and ~82 ms of each is exiftool's Perl interpreter starting up
+    before it reads a tag - measured 2.2 s to stamp 9 files one-at-a-time against 0.27 s batched,
+    with byte-identical tags.
+
+    **Args go in on stdin (`-@ -`), deliberately, not through an argfile.** The obvious
+    `-@ some/file.txt` has to put that file somewhere, and everything under ``root`` is a source
+    tree these tests then organize - a stray `.txt` would be scanned, counted as an unrecognized
+    skipped file, and quietly change what the assertions see.
+
+    **This is not `-stay_open`, and `DECISIONS.md` D4 is not reopened.** The process starts,
+    does the whole batch, and exits; there is no lifecycle to manage and nothing to leak if a
+    test fails midway. D4 declined a *persistent* process on the path that writes user bytes,
+    which is a different thing in a different place.
+    """
+    args: list[str] = []
+    for path, when in planned:
+        args += [
             "-overwrite_original",
             "-q",
             "-m",
@@ -49,18 +64,22 @@ def _camera_image(path: Path, when: datetime, colour: int) -> None:
             "-Model=X100",
             f"-DateTimeOriginal={when:%Y:%m:%d %H:%M:%S}",
             str(path),
-        ],
-        check=True,
-    )
+            "-execute",
+        ]
+    subprocess.run(["exiftool", "-@", "-"], input="\n".join(args) + "\n", text=True, check=True)
 
 
 def _source(root: Path, groups: list[tuple[datetime, int]]) -> None:
+    """A clustered source of real camera photos: Make/Model (-> Camera) + a date (-> dated)."""
     root.mkdir()
-    n = 0
+    planned: list[tuple[Path, datetime]] = []
     for base, count in groups:
         for k in range(count):
-            _camera_image(root / f"i{n:03d}.jpg", base + timedelta(minutes=20 * k), colour=n)
-            n += 1
+            n = len(planned)
+            path = root / f"i{n:03d}.jpg"
+            Image.new("RGB", (32, 32), (n % 256, 40, 60)).save(path, "JPEG")
+            planned.append((path, base + timedelta(minutes=20 * k)))
+    _stamp_camera_tags(planned)
 
 
 def test_merge_via_http_names_the_combined_trip_and_moves_it_on_disk(
