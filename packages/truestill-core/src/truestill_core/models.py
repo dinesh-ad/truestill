@@ -11,12 +11,12 @@ The organizer never mutates its source tree. Every run produces a list of
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-from dataclasses import dataclass
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 from truestill_core.date_provenance import format_offset, parse_offset
 
@@ -227,6 +227,54 @@ class Event:
 
 
 @dataclass(frozen=True, slots=True)
+class CaptureContext:
+    """What the file says about the device that made it and where it was made.
+
+    Read during categorisation and the event jump-cut and, until `(kk)`, discarded. Carried on
+    the :class:`Decision` rather than re-derived at write time for the reason `date_source` is:
+    a second reading could disagree with the placement this same decision produced.
+
+    ``gps_latitude``/``gps_longitude`` are signed decimal degrees - exiftool is asked for them
+    with a trailing ``#`` so S and W arrive negative. ``None`` means the file carries no
+    location; **0.0 means the equator or the prime meridian and is a real answer.**
+    """
+
+    camera_make: str | None = None
+    camera_model: str | None = None
+    lens_model: str | None = None
+    gps_latitude: float | None = None
+    gps_longitude: float | None = None
+
+    @classmethod
+    def from_metadata(cls, meta: Mapping[str, Any]) -> CaptureContext:
+        """Read the five values out of one exiftool result. **O(1)**, no I/O."""
+        return cls(
+            camera_make=_clean(meta.get("Make")),
+            camera_model=_clean(meta.get("Model")),
+            lens_model=_clean(meta.get("LensModel")),
+            gps_latitude=_coordinate(meta.get("GPSLatitude")),
+            gps_longitude=_coordinate(meta.get("GPSLongitude")),
+        )
+
+
+def _clean(value: Any) -> str | None:
+    text = str(value).strip() if value is not None else ""
+    return text or None
+
+
+def _coordinate(value: Any) -> float | None:
+    """A coordinate, or ``None`` when the file carries none.
+
+    **`isinstance`, never truthiness.** exiftool returns integer ``0`` for a photo on the
+    equator or the prime meridian, and ``0`` is falsy - so ``if value:`` would silently record
+    Null Island as having no location at all. That is the overloaded-sentinel family this repo
+    already paid for in `(aac)`, and it is what a later "simplification" would reintroduce.
+    `event_review._gps` guards the same value the same way; both must stay.
+    """
+    return float(value) if isinstance(value, int | float) else None
+
+
+@dataclass(frozen=True, slots=True)
 class Decision:
     """A single file's categorization and placement, before anything is written.
 
@@ -250,6 +298,9 @@ class Decision:
     #: None for every other source. Used by the never-silent report so it can name
     #: ``before -> after`` without re-opening the file.
     inferred_from: datetime | None = None
+    #: Camera and location as the file reported them, carried here so the write path never
+    #: re-reads the file. Defaulted so the decision can be built without one.
+    capture: CaptureContext = field(default_factory=CaptureContext)
 
     @property
     def needs_review(self) -> bool:

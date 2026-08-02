@@ -19,7 +19,7 @@ from pathlib import Path
 from types import TracebackType
 from typing import Self
 
-from truestill_core.models import DateSource
+from truestill_core.models import CaptureContext, DateSource
 
 # Current catalog schema, created whole for a fresh database. Its version is
 # CURRENT_SCHEMA_VERSION; older databases are brought up to it by _MIGRATIONS.
@@ -76,7 +76,15 @@ CREATE TABLE IF NOT EXISTS files (
     processed_at  TEXT    NOT NULL,
     uploaded_at   TEXT,
     date_source   TEXT,
-    date_tag      TEXT
+    date_tag      TEXT,
+    -- (kk): read during categorisation and the event jump-cut, and until v17 discarded.
+    -- Coordinates are signed decimal degrees; NULL means the file carries no location, and
+    -- 0.0 means the equator or the prime meridian, which is a real answer.
+    camera_make   TEXT,
+    camera_model  TEXT,
+    lens_model    TEXT,
+    gps_latitude  REAL,
+    gps_longitude REAL
 );
 CREATE INDEX IF NOT EXISTS idx_files_sha256 ON files (sha256);
 CREATE INDEX IF NOT EXISTS idx_files_perceptual ON files (perceptual);
@@ -232,7 +240,7 @@ CREATE TABLE IF NOT EXISTS date_confirmations (
 """
 
 #: Bump whenever the schema changes, and add a matching entry to _MIGRATIONS.
-CURRENT_SCHEMA_VERSION = 16
+CURRENT_SCHEMA_VERSION = 17
 
 
 class CatalogVersionError(RuntimeError):
@@ -569,6 +577,32 @@ def _add_copy_date_baked_at(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE file_copies ADD COLUMN date_baked_at TEXT")
 
 
+def _add_capture_columns(conn: sqlite3.Connection) -> None:
+    """v16 -> v17: keep the camera and the coordinates instead of reading them and dropping them.
+
+    `(kk)` and the camera half were one defect: `Make`/`Model`/`LensModel` decide the Camera
+    category and `GPSLatitude`/`GPSLongitude` feed the event jump-cut, and every one of them was
+    discarded once used. All five were already being requested from exiftool, so this is a
+    column rather than a pass - the tag fingerprint is unchanged and no cached metadata is
+    invalidated.
+
+    **No backfill.** A row written before v17 keeps NULLs; recovering the values means re-reading
+    the file, which is a decision of its own and not something a schema migration should do
+    quietly. Five nullable columns, no defaults, no index - an index waits for a query that
+    needs one.
+    """
+    existing = _columns_of(conn, "files")
+    for column, kind in (
+        ("camera_make", "TEXT"),
+        ("camera_model", "TEXT"),
+        ("lens_model", "TEXT"),
+        ("gps_latitude", "REAL"),
+        ("gps_longitude", "REAL"),
+    ):
+        if column not in existing:
+            conn.execute(f"ALTER TABLE files ADD COLUMN {column} {kind}")
+
+
 _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (2, _add_size_column),
     (3, _add_original_name_column),
@@ -585,6 +619,7 @@ _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (14, _add_date_tag_column),
     (15, _add_date_confirmations),
     (16, _add_copy_date_baked_at),
+    (17, _add_capture_columns),
 )
 
 
@@ -1801,6 +1836,7 @@ class Catalog:
         drive_uuid: str | None = None,
         date_source: str | None = None,
         date_tag: str | None = None,
+        capture: CaptureContext | None = None,
     ) -> int:
         """Insert (or refresh) a row marking a file as processed and uploaded; return its id.
 
@@ -1814,6 +1850,9 @@ class Catalog:
         :func:`_add_drive_tables`). ``files.relative`` remains a name fallback only, never a
         location. Album membership is linked many-to-many. Idempotent on ``sha256``.
         """
+        # Bound once so the INSERT reads the same whether or not a caller supplied one: an empty
+        # context is five NULLs, which is exactly what "we were not told" means here.
+        shot = capture if capture is not None else CaptureContext()
         now = _now()
         with self._tx() as conn:
             conn.execute(
@@ -1821,8 +1860,9 @@ class Catalog:
                 INSERT INTO files (
                     source_path, original_name, sha256, copy_sha256, perceptual, size,
                     captured_at, category, relative, event_id, upload_status, processed_at,
-                    uploaded_at, date_source, date_tag
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'uploaded', ?, ?, ?, ?)
+                    uploaded_at, date_source, date_tag,
+                    camera_make, camera_model, lens_model, gps_latitude, gps_longitude
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'uploaded', ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(sha256) DO UPDATE SET
                     source_path   = excluded.source_path,
                     original_name = excluded.original_name,
@@ -1836,7 +1876,12 @@ class Catalog:
                     upload_status = 'uploaded',
                     uploaded_at   = excluded.uploaded_at,
                     date_source   = excluded.date_source,
-                    date_tag      = excluded.date_tag
+                    date_tag      = excluded.date_tag,
+                    camera_make   = excluded.camera_make,
+                    camera_model  = excluded.camera_model,
+                    lens_model    = excluded.lens_model,
+                    gps_latitude  = excluded.gps_latitude,
+                    gps_longitude = excluded.gps_longitude
                 """,
                 (
                     source_path,
@@ -1853,6 +1898,11 @@ class Catalog:
                     now,
                     date_source,
                     date_tag,
+                    shot.camera_make,
+                    shot.camera_model,
+                    shot.lens_model,
+                    shot.gps_latitude,
+                    shot.gps_longitude,
                 ),
             )
             # A human confirmation outranks machine derivation permanently, so an ordinary

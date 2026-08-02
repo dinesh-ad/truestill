@@ -7,6 +7,16 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- **Truestill now keeps the camera and the location a photo records, instead of reading them
+  and throwing them away.** Nothing shows them yet - this is the storage, and the screens come
+  later - but it is worth knowing now, because **only files organized from here on will have
+  them.** Older entries keep the columns empty; re-importing from the original files is what
+  fills them in. Camera make, camera model and lens are kept; the serial number and owner name
+  are **not**, and are not even read - they identify one device and one person, which is not
+  something a tool that transmits nothing about your library should be writing down. Locations
+  are kept exactly as the photo records them: 0N 0E is a real place off the coast of Africa and
+  is stored as such, not confused with "no location recorded". **Your catalog file is upgraded
+  automatically on first open and can no longer be read by an older Truestill.**
 - **An organize *preview* now exits `1` instead of `0` when it could not read one of your
   files.** Read this if you script Truestill: `truestill organize <src> <dst> && next_step` used
   to chain in this case and now stops. That is the intended behaviour, not a side effect - a

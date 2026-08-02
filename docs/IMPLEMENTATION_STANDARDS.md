@@ -263,10 +263,11 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
 ## 3. Data contract (catalog)
 
 - **Single SQLite file**, stdlib `sqlite3` (`catalog.py::Catalog`). No server.
-- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 16`**.
+- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 17`**.
   Migrations are ordered, idempotent functions in `_MIGRATIONS`; a catalog newer than the code
   is refused (`CatalogVersionError`). Migration coverage tested in `tests/test_catalog.py`.
-- **Table inventory (v15 - the last migration that adds a table; v16 adds only a column):**
+- **Table inventory (v15 - the last migration that adds a table; v16 and v17 add only
+  columns):**
   `files`, `albums`, `file_albums`, `events`, `skipped_clusters`, `drives`, `file_copies`,
   `settings`, `migration_journal`, `reclaim_journal`, `inplace_runs`, `inplace_moves`,
   `migration_runs`, `trips`, `trip_days`, `date_confirmations`.
@@ -300,7 +301,16 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   confirmation is per *content* and a bake changes *one drive's copy*, so putting it on the
   confirmation would let a photo baked on the laptop count as baked for a backup drive that
   never receives it - the same per-content / per-drive confusion behind the `copy_sha256` and
-  `relative` findings, caught before v16 shipped.
+  `relative` findings, caught before v16 shipped. v17 `files.camera_make` / `camera_model` /
+  `lens_model` / `gps_latitude` / `gps_longitude` (the camera and the coordinates, which were
+  read on every run and discarded - `Make`/`Model`/`LensModel` decide the Camera category and
+  the coordinates feed the event jump-cut, and none of them was written anywhere durable.
+  **All five tags were already being requested from exiftool**, so this is a column and not a
+  pass: `tags_fingerprint` is unchanged and no cached metadata is invalidated. Coordinates are
+  signed decimal degrees; **NULL means the file carries no location and 0.0 means the equator
+  or the prime meridian**, which is why the reader tests `isinstance` rather than truthiness -
+  exiftool returns integer `0` there and `0` is falsy. No backfill: a pre-v17 row keeps NULLs,
+  because recovering the values means re-reading the file and that is a decision of its own).
 - **Dual-hash rule.** `files.sha256` is the **source** (pre-write) hash - the **dedup
   identity**. `files.copy_sha256` is the organized copy's **post-write** hash - the
   **verification identity** (equal to `sha256` for the byte-identical normal pipeline; differs

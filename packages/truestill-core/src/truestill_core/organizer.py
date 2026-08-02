@@ -48,6 +48,7 @@ from truestill_core.layout import (
 from truestill_core.models import (
     ActionResult,
     ActionStatus,
+    CaptureContext,
     CategoryMatch,
     DateSource,
     Decision,
@@ -530,6 +531,7 @@ def plan(
                 date_tag=date_tag,
                 suspect_default=is_suspect_default(captured_at, date_source),
                 inferred_from=inferred_from,
+                capture=CaptureContext.from_metadata(meta),
                 relative=Path(
                     build_relative(
                         category.label,
@@ -1040,9 +1042,11 @@ def _record_organized_file(
         albums=sorted(album_set),
         drive_uuid=drive_uuid,
         # The resolver's own verdict, not a second opinion computed here: a re-derivation at
-        # write time could disagree with the placement this same decision produced.
+        # write time could disagree with the placement this same decision produced. The capture
+        # context rides the same way, and for the same reason - the file is not re-opened here.
         date_source=decision.date_source.value,
         date_tag=decision.date_tag,
+        capture=decision.capture,
     )
 
 
