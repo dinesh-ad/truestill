@@ -50,8 +50,14 @@ are different.
   **serious** bug. Report it as one. So is any way to reach one of those three *without* its
   confirmation, or to defeat the gate that protects it.
 - **Metadata parsing.** Crashes or worse when handling malformed media or Takeout sidecars.
-- **A dependency vulnerability we have missed.** CI runs `pip-audit` against the locked set,
-  but it only knows about published advisories.
+- **A dependency vulnerability we have missed.** CI runs `pip-audit` against the locked set, but
+  it knows about two things only: published advisories, and **Python distributions**. It does not
+  see the C libraries bundled *inside* a wheel. The one that matters here is `pillow-heif`, which
+  ships libheif, libde265 and x265 - and libheif is what decodes the HEIC files in your library.
+  Because that gap is structural rather than an oversight, the bundled versions are recorded in
+  `docs/IMPLEMENTATION_STANDARDS.md` §7.1 and pinned by a test, so an upgrade that changes the
+  decoder cannot pass unnoticed. **An advisory against a bundled native library is in scope and
+  worth reporting**, even though our own audit will not have flagged it.
 
 **Out of scope:**
 

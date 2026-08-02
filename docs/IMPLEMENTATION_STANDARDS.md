@@ -483,10 +483,12 @@ is the point of the gate: **no other gate we have can see prose.**
       live exposure - see the `pillow-heif` row in §7 for the bundled versions and how to read
       them at runtime. A negative result is recorded here so the next person does not re-derive
       it, and so the gap outlives the good news.
-    - **Not closed.** Closing it means recording the bundled native versions somewhere a review
-      can see them - the runtime values are one call away (`pillow_heif.libheif_version()`,
-      `libheif_info()`) - so a future advisory against a bundled library can be matched against
-      what we actually ship. Proposal only; nothing built.
+    - **Closed as far as it can be from inside the repo (2026-08-02).** §7.1 records the
+      bundled versions and `test_bundled_native_versions.py` pins them two ways: the record must
+      equal what the wheel actually ships, and what ships must be at or above a recorded security
+      floor. The audit still cannot see native libraries - that is `pip-audit`'s scope, not
+      something we can change - but a wheel upgrade can no longer move the decoder silently, and
+      a reviewer meets the versions without knowing to look for them.
   - **Current ignore list: empty.** First run (2026-07-27) was clean: 28 runtime packages and
     40 including dev, zero known vulnerabilities. That pair is kept as the **dated record of
     that run**, not as a live figure. Measured again 2026-08-01 via
@@ -547,13 +549,40 @@ state:
 |---|---|
 | `imagehash>=4.3.2` (`truestill-core`) | Perceptual dHash for near-duplicate detection; requires image decoding, which the stdlib cannot do. |
 | `pillow>=12.3.0` (`truestill-core`) | Image decoding backing imagehash and cheap dimension reads. **Large-image policy:** truestill processes the user's own local library (trusted), not untrusted uploads, so Pillow's ~89 MP decompression-bomb guard is a false positive on legitimate large photos (panoramas/scans). `hashing.MAX_PERCEPTUAL_PIXELS` raises `Image.MAX_IMAGE_PIXELS` to **300 MP** deliberately; above it a pathological image is **skipped for perceptual hashing** (SHA-256 exact dedup still applies) and the bomb *warning* is suppressed locally so **no raw Pillow warning reaches the terminal**. (Immich/PhotoPrism avoid this entirely via libvips streaming.) |
-| `pillow-heif>=1.5.0` (`truestill-core`) | Registers a HEIF opener so Pillow can decode **HEIC/HEIF** (the iPhone-default format since 2017), enabling their perceptual near-dup dedup. **Graceful degradation is mandatory:** `hashing._register_heif` guards the import; if it ever fails at runtime, `HEIF_AVAILABLE` is `False`, SHA-256 exact dedup still applies to HEIC, and the run **reports** that HEIC perceptual hashing was skipped - never a silent drop. TIFF-based RAW (CR2/NEF/DNG/…) needs no plugin (Pillow's TIFF decoder content-sniffs it); container-based RAW (CR3, RAF) is exact-dedup-only. **It bundles native code, so its version is two questions, not one:** the wheel is `pillow-heif 1.5.0`, and inside it (measured 2026-08-02) sit **libheif 1.23.1**, libde265 1.1.1 and x265 4.2. Read them with `pillow_heif.libheif_version()` / `libheif_info()` rather than inferring from the wheel version - the dependency audit cannot see them (§6). Checked against the 2026 libheif advisory cluster (CVE-2026-32740, -32814, -49271 and neighbours, fixed in 1.22.0 / 1.22.1): **1.23.1 is newer than every fix, so not affected.** |
+| `pillow-heif>=1.5.0` (`truestill-core`) | Registers a HEIF opener so Pillow can decode **HEIC/HEIF** (the iPhone-default format since 2017), enabling their perceptual near-dup dedup. **Graceful degradation is mandatory:** `hashing._register_heif` guards the import; if it ever fails at runtime, `HEIF_AVAILABLE` is `False`, SHA-256 exact dedup still applies to HEIC, and the run **reports** that HEIC perceptual hashing was skipped - never a silent drop. TIFF-based RAW (CR2/NEF/DNG/…) needs no plugin (Pillow's TIFF decoder content-sniffs it); container-based RAW (CR3, RAF) is exact-dedup-only. **It bundles native code, so its version is two questions, not one** - the wheel version above, and the C libraries inside it. Those are recorded and pinned separately, immediately below this table. |
 | `platformdirs>=4.11.0` (`truestill-core`) | The three OS conventions for user data and cache directories, which the stdlib does not expose. The alternative is hand-rolling XDG (with its `XDG_DATA_HOME` / `XDG_CACHE_HOME` overrides), `~/Library/Application Support` vs `~/Library/Caches`, and `%APPDATA%` vs `%LOCALAPPDATA%` - each with edge cases we would rediscover as bug reports on machines we do not have. Pure Python, no dependencies of its own, two calls used; the de facto standard for this (Black, pip, pipx). Getting it wrong is not cosmetic: a wrong data directory is where someone's custody record goes missing. Full argument at `app_paths.py`. |
 | `starlette>=1.3.1` (`truestill-app`) | The smallest well-tested ASGI: routing, SSE, static files and background tasks. `http.server` is synchronous and would mean hand-rolling all four, which is where a local server gets fragile. **Not FastAPI**, which wraps Starlette plus Pydantic - §4 disallows Pydantic for internal models and a single-user local app needs none of the OpenAPI/validation weight. Rationale in `docs/ui-v1-research.md` §B1/§C4. |
 | `uvicorn>=0.51.0` (`truestill-app`) | The ASGI server that runs Starlette. There is no ASGI server in the stdlib. |
 | `scipy` + `pywavelets` (**transitive, via imagehash - never imported**) | Not chosen; **imported by nothing truestill runs.** imagehash declares both as hard `Requires-Dist` with **no extras split** (`Provides-Extra: None`), so every install pulls them: measured **81 MB scipy + 8.6 MB PyWavelets = ~90 MB**. They back `phash` (`scipy.fftpack`) and `whash` (`pywt`), both imported *lazily inside those functions*; truestill defaults to `dhash`, and a `dhash` call in a clean process loads neither (verified: `scipy in sys.modules` is `False` after computing one). `numpy` is genuinely required - imagehash imports it at module level. **There is no way to exclude them at the dependency layer**; the only levers are a bundler `--exclude-module` at packaging time or vendoring, and the first belongs to `(aad)`. Recorded because an installer for non-technical users carries this weight for a code path it never executes. |
 | `exiftool` (external **binary**, not a pip dep) | The only tool that reads photo EXIF, **video container tags**, and vendor MakerNotes (e.g. the screenshot marker) through one interface, and the writer used for the scoped Takeout bake. A pip EXIF library would cover photos only. |
 | `truestill-cli` runtime deps | Only `truestill-core` (workspace source). |
+
+### 7.1 Bundled native libraries (the part `pip-audit` cannot see)
+
+`pillow-heif` is a wheel with C libraries inside it - about 26 MB of them - and **the dependency
+audit does not know they exist**: it is handed a locked requirements list, reads
+`pillow-heif==1.5.0`, and stops (§6). So the versions that actually decode a user's photos are
+recorded here, where a release review meets them, and pinned by
+`packages/truestill-core/tests/test_bundled_native_versions.py`.
+
+Deliberately **not** a markdown table: `test_dependency_inventory.py` treats every `|` row in §7
+as an inventory entry, and a second table here would quietly widen what that guard accepts.
+
+- **`libheif`** - shipped **1.23.1**, security floor **1.22.1**. The one with a CVE history that
+  reaches us, and the only one with a clean version accessor.
+- **`libde265`** - shipped **1.1.1**. The HEVC decoder libheif delegates to.
+- **`x265`** - shipped **4.2**. The HEVC encoder; we never encode HEIC, so it is carried, not used.
+
+**Read them at runtime, never inferred from the wheel version:**
+`pillow_heif.libheif_version()` for the first, `pillow_heif.libheif_info()` for all three.
+
+**The floor is a security statement, not a preference.** 1.22.1 is where the 2026 libheif
+advisory cluster was fixed - CVE-2026-32740 (heap overflow in grid-tile compositing),
+CVE-2026-32814 (uninitialised memory disclosed from corrupt grid images), CVE-2026-49271 (OOB
+read in the uncompressed decoder) and neighbours, closed across 1.22.0 and 1.22.1. Checked
+2026-08-02: we ship 1.23.1, above all of them, **not affected**. This matters more here than for
+a pure-Python dependency because libheif is what parses **untrusted user media** - the one thing
+this product does to files it did not create.
 
 SHA-256 (`hashlib`), SQLite (`sqlite3`), concurrency (`concurrent.futures`), and all path/date
 work are **stdlib** - no dependency. **BLAKE3 is deliberately absent** - not because of a
