@@ -237,21 +237,44 @@ That tightness is what makes the quadratic growth legible - each doubling of *n*
 measured, not fitted. The 100,000 row is and always was an extrapolation and is now labelled as
 one on its own row rather than in a footnote.
 
-**It does not matter below ~10k images in one index, and it is intolerable above ~20k.** At
-today's scale it is 0.7 s, and a BK-tree would be real machinery bought for a real 0.7 s. So it
-has deliberately **not** been built.
+**The table above is the implementation that shipped until 2026-08-02**, kept because it is the
+measurement that justified replacing it. Everything below supersedes its conclusions.
 
-**The alarm, so the trigger reaches whoever hits it.** `dedup.LINEAR_SCAN_ALARM` is 10,000: the
-first index to cross it logs one line- *"perceptual matching is now the slow path … known,
-planned"*- at the crossing itself. One integer comparison per registration, once per index.
-A threshold that lives only in a document reaches people who read documents; this one reaches
-the person with 10,000 photos.
+### 3.0 Superseded 2026-08-02: the per-comparison cost was not optimal after all
 
-**When it is due:** a BK-tree over Hamming distance is the literature-standard fit for a fixed
-small threshold like `DEFAULT_PHASH_THRESHOLD`, and `DedupIndex`'s interface was designed for
-the swap. A VP-tree is the more general metric-space answer and buys nothing extra here; LSH
-suits *approximate* nearest-neighbour at far larger scale and would trade away exactness we
-currently have.
+The paragraph opening this section said the cost per comparison *"is already optimal - a 64-bit
+XOR and a CPU popcount"*. **That reading was wrong, and it is the reason the fix took a year to
+find.** The code was `(int(hex_a, 16) ^ int(hex_b, 16)).bit_count()`: the XOR and the popcount
+were indeed nearly free, but each pair first **re-parsed two hex strings into Python integers**.
+Measured 2026-08-02 at **263-269 ns/pair, flat in n** - the parsing was essentially the entire
+number, and "optimal" described the two operations that were not the cost.
+
+Hashes are now packed to `uint64` once at registration and compared with one vectorised
+`np.bitwise_xor` + `np.bitwise_count` per incoming file. **Same O(n²) pair count**; the constant
+falls by ~300x.
+
+| n images | before (per pair) | after (per pair) | before (total) | after (total) | speedup |
+|---|---|---|---|---|---|
+| 10,000 | 269 ns | 1.3 ns | 13.5 s | 0.1 s | 210x |
+| 33,457 | 263 ns | 0.9 ns | 147 s | 0.5 s | 291x |
+| 150,000 | 266 ns | 0.8 ns | 2,996 s | 8.9 s | 338x |
+
+**Method** (§2.1): synthetic 64-bit dHash-shaped values with ~8% planted near-duplicate
+clusters, median of 60 probes against a full index at each n, per-pair cost multiplied by
+N(N+1)/2 for the totals. AMD Ryzen 7 4800H, Linux, Python 3.13, NumPy 2.5.1.
+**The method is validated against this document rather than trusted:** the same extrapolation
+applied to the *old* implementation projects **13.5 s at 10,000** against the **13.709 s**
+measured independently in §3's table above - 1.5% apart.
+
+**The alarm is gone.** `dedup.LINEAR_SCAN_ALARM` warned at 10,000 that *"perceptual matching is
+now the slow path"*. True of the old loop, false of this one - the same 10,000 now costs ~0.1 s -
+and there is no larger n to re-aim it at either: at 150,000 matching is ~9 s against per-file
+stages measured in the thousands of seconds. A threshold with no honest value is worse than no
+threshold, so the constant and its warning were removed rather than adjusted.
+
+**No BK-tree - `(v)` is closed on measurement, not deferred again.** The reasoning is in
+`SHIPPED.md` `(v)`; the number is that it prunes only ~85% at threshold 5 and loses to the
+packed scan by 89x at 150,000.
 
 ---
 

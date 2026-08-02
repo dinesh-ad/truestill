@@ -27,6 +27,9 @@ dependencies = [
     # cache directories. Argued in writing at `app_paths.py` per ENGINEERING_STANDARD 4.
     "platformdirs>=4.11.0",
     "imagehash>=4.3.2",
+    # Imported directly by `dedup.py` for the packed perceptual match, so it is declared
+    # rather than leaned on transitively. Argued in §7 of IMPLEMENTATION_STANDARDS.md.
+    "numpy>=2.5.1",
     "pillow>=12.3.0",
     "pillow-heif>=1.5.0",
 ]

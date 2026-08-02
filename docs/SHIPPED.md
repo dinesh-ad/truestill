@@ -198,6 +198,41 @@ recording shipped work as unstarted, which is the more expensive direction of th
   migration already did. Identity remains the marker uuid.
   - Remaining absolute-path / hash-cache portability is **(xx)**, not a re-open of this item.
 
+- **(v) BK-tree for perceptual dedup - CLOSED 2026-08-02 WITHOUT BUILDING IT.** The item asked
+  for a tree once `LINEAR_SCAN_ALARM` fired. It fired, the alternatives were measured, and **the
+  tree lost.** Recorded here rather than left open because "not built" and "measured and refused"
+  are different states, and only one of them stops someone building it.
+  - **What was actually wrong.** `PERFORMANCE.md` §3 asserted the per-comparison cost was
+    *"already optimal - a 64-bit XOR and a CPU popcount"*. It was not: the comparison was
+    `(int(hex_a, 16) ^ int(hex_b, 16)).bit_count()`, and **each pair re-parsed two hex strings
+    into Python integers**. Measured 263-269 ns/pair, flat in n. The XOR and popcount were free;
+    the parsing was the whole bill. The algorithm was never the problem, so a better algorithm
+    was never the answer.
+  - **Measured, all three, same machine and same corpus** (synthetic 64-bit hashes with ~8%
+    planted near-duplicate clusters):
+
+    | n | linear, hex strings | **packed uint64 + NumPy** | BK-tree at threshold 5 |
+    |---|---|---|---|
+    | 10,000 | 13.5 s | **0.1 s** | 3.2 s |
+    | 33,457 | 147 s | **0.5 s** | 38.4 s |
+    | 150,000 | 2,996 s | **8.9 s** | 794 s |
+
+  - **The number that decides it: the BK-tree prunes only ~85%.** It visits 82.1% / 84.8% / 89.0%
+    of the index per query at those three sizes - not log n, and at the unfavourable end of the
+    power law that BK-trees are known to follow. **The cause is geometric, not implementational,
+    so no better BK-tree exists:** Hamming distances between random 64-bit hashes concentrate
+    tightly around 32 (σ≈4), so the triangle-inequality band `[d-5, d+5]` that the tree prunes on
+    covers most of the mass at every node. A *wider* threshold makes it worse, never better.
+  - **So it lost to vectorisation by 89x at 150,000, for a fraction of the code.** The packed
+    match is one array, one XOR, one `np.bitwise_count`; the tree is a data structure with build,
+    insert and recursive-query paths to maintain and test.
+  - **When a tree would become interesting: millions of images, not hundreds of thousands.** At
+    150,000 the packed scan costs ~9 s against per-file stages measured in the thousands of
+    seconds - it is not the bottleneck and cannot be made into one by growing a library 5x. The
+    superseded design note (BK-tree over Hamming distance; VP-tree more general and buys nothing;
+    LSH trades away exactness) is preserved in this entry's history and remains correct *as a
+    description of the alternatives* - it was the premise about where the cost lay that was wrong.
+
 - **(aar) A messenger filename beat the camera evidence. Evidence wins now.** Recorded and
   **fixed 2026-08-02**, both the same day: it was filed first so the reasoning existed before the
   change did, then built against that record.

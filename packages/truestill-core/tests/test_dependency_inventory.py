@@ -191,14 +191,20 @@ def test_a_name_named_only_in_another_rows_prose_is_not_documented() -> None:
     documented. Measured against the real file: `numpy`, `pywt`, `phash` and `dhash` all
     returned True on the strength of the scipy row's prose, and none of them has a row.
 
-    `numpy` is the one that would have cost something. §7's own scipy row says imagehash
-    "imports it at module level", so it is the most likely next direct runtime dependency here -
-    and declaring it with no row of its own would have left this guard green, which is the exact
-    drift the file exists to catch.
+    **`numpy` was this docstring's worked example, and on 2026-08-02 it stopped being one -
+    exactly the way the example predicted.** It said numpy was "the most likely next direct
+    runtime dependency here", and that declaring it without a row "would have left this guard
+    green". `dedup.py` began importing it directly, it was declared, and it now has a row of its
+    own - so it moved out of this list rather than the list being weakened. The guard did its
+    job twice: once by predicting the case, and once by going red the moment the prediction came
+    true and its example went stale.
+
+    `sklearn` replaces it and is the same shape - named in the numpy row's argument for why it
+    is *not* used, which is prose about a rejected alternative and not a claim on a row.
     """
     block = _inventory_block()
 
-    for prose_only in ("numpy", "pywt", "phash", "dhash"):
+    for prose_only in ("sklearn", "libvips", "pywt", "phash", "dhash"):
         assert not _documents(prose_only, block), (
             f"{prose_only} is named in another row's justification and has no row of its own; "
             "the check is reading the whole table instead of each row's subject."

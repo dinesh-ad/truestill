@@ -815,17 +815,6 @@ section, because what is left is the part that still has to be written.
        forever. Pruning must actually run as part of a run, not merely exist.
   - **Placement:** the **first post-launch wave, alongside (n)**. Earlier if the soak shows
     repeat-run pain at real scale -- that evidence would move it, nothing else needs to.
-- **(v) BK-tree for perceptual dedup - build on the alarm, not before.** The linear scan is
-  O(n²) *by decision* (`PERFORMANCE.md` §3): 0.7s at 2,275 images, ~22.6 min at 100k. A BK-tree
-  today would be machinery bought before the problem.
-  - **The trigger is instrumented, not remembered:** `dedup.LINEAR_SCAN_ALARM = 10_000` logs one
-    line the first time an index crosses it. **This item is unblocked when that line appears in
-    a real run**, not when someone re-reads this file.
-  - Design already settled: BK-tree over Hamming distance, which fits a *fixed small* threshold
-    like `DEFAULT_PHASH_THRESHOLD`. VP-tree is the more general metric-space answer and buys
-    nothing extra here; LSH is for *approximate* nearest-neighbour at far larger scale and would
-    trade away exactness we currently have. `DedupIndex`'s interface was designed for the swap.
-
 - **GPS-derived per-photo timezone.** Deferred during Takeout Rescue Mode. `--tz` is a single
   fixed offset for the whole run, which cannot correctly date a library that spans timezones;
   the real fix derives each photo's timezone from its GPS. The near-midnight caveat is

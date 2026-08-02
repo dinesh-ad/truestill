@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 
 import pytest
-from truestill_core.dedup import LINEAR_SCAN_ALARM, DedupIndex
+from truestill_core.dedup import DedupIndex
 from truestill_core.models import DuplicateKind
 
 
@@ -67,18 +67,24 @@ def test_video_without_perceptual_hash_only_matches_exact() -> None:
     assert index.check("sha-other", None) is None  # nothing perceptual to match
 
 
-def test_the_linear_scan_alarm_fires_once_at_the_threshold(
+def test_a_large_index_says_nothing_because_there_is_nothing_to_announce(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """The known-and-planned O(n^2) has to announce itself to whoever crosses it.
+    """**Replaces `test_the_linear_scan_alarm_fires_once_at_the_threshold`.**
 
-    A threshold recorded only in a document reaches the person who reads documents. This one
-    reaches the person with 10,000 photos.
+    `LINEAR_SCAN_ALARM` warned at 10,000 images that *"perceptual matching is now the slow
+    path"*. That was true of the hex-parsing loop - 13.709 s at 10,000, measured - and it is
+    false of the packed matcher, which does the same 10,000 at about 0.1 s. The warning had no
+    trigger point left: even at 150,000 images matching costs ~9 s against per-file stages
+    measured in the thousands of seconds, so there is no library size at which it becomes the
+    slow path and no honest number to re-aim the constant at.
+
+    Deleting a warning is a behaviour change, so the *absence* is asserted rather than left to
+    the reader: a user past 10,000 photos must no longer be told their library is slow.
     """
     index = DedupIndex(threshold=5)
     with caplog.at_level(logging.WARNING, logger="truestill_core.dedup"):
-        for i in range(LINEAR_SCAN_ALARM + 50):
+        for i in range(10_050):
             index.register(f"/p/{i}.jpg", f"sha{i}", f"{i:016x}")
 
-    warnings = [r for r in caplog.records if "slow path" in r.message]
-    assert len(warnings) == 1  # once per index, not once per file past the line
+    assert not [r for r in caplog.records if "slow path" in r.message]
