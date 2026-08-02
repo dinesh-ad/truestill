@@ -34,13 +34,14 @@ from __future__ import annotations
 
 import os
 import signal
+import socket
 import subprocess
 import sys
 import time
 from pathlib import Path
 
 import pytest
-from app_support import ImmediateThread, StubServer
+from app_support import ImmediateThread, StubServer, release_sockets
 from truestill_app import __main__ as entry
 from truestill_app import session_link
 
@@ -72,7 +73,8 @@ def test_the_handlers_are_installed_before_the_server_starts(
     seen: dict[int, object] = {}
 
     class _RecordingServer(StubServer):
-        def run(self, **_kwargs: object) -> None:
+        def run(self, sockets: list[socket.socket] | None = None, **_kwargs: object) -> None:
+            release_sockets(sockets)
             for sig in (signal.SIGINT, signal.SIGTERM):
                 seen[sig] = signal.getsignal(sig)
 
@@ -182,5 +184,5 @@ class _NoopServer:
         self.started = False
         self.should_exit = True
 
-    def run(self, **_kwargs: object) -> None:
-        return None
+    def run(self, sockets: list[socket.socket] | None = None, **_kwargs: object) -> None:
+        release_sockets(sockets)

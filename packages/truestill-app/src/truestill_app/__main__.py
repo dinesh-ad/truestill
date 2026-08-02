@@ -8,6 +8,7 @@ first request is authenticated and no configuration is needed.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import signal
 import socket
 import sys
@@ -227,44 +228,65 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    token = new_token()
-    port = int(sock.getsockname()[1])
-    url = f"http://{_HOST}:{port}/?token={token}"
-    app = create_app(token=token, db=db, explicit_db=explicit_db)
+    # From here to the handover the process owns two things it must not abandon: the listening
+    # socket, and - once written - the credential file. `ExitStack` rather than nested `try`
+    # blocks because they have different lifetimes (the socket's ownership ends AT the handover,
+    # the link's continues past it) and because any of the eleven statements between can raise.
+    with contextlib.ExitStack() as launching:
+        launching.callback(sock.close)
 
-    _say(f"truestill UI on {url}")
+        token = new_token()
+        port = int(sock.getsockname()[1])
+        url = f"http://{_HOST}:{port}/?token={token}"
+        app = create_app(token=token, db=db, explicit_db=explicit_db)
 
-    # BEFORE the file is written, not after. uvicorn snapshots the handlers that exist when it
-    # starts and restores them before re-raising, so these are the ones the re-raise lands on -
-    # that is why they go in before `server.run`. They go in before `session_link.write` for a
-    # second, separate reason: between writing the credential and installing these, a SIGTERM
-    # hit Python's default disposition, the process died without running `release_session_link`,
-    # and the file survived. Small window, real: it showed up as an intermittent failure in
-    # `test_a_real_process_leaves_no_url_file_behind`, which signals the instant the file
-    # appears. A flaky test and a stale credential left on a user's disk were the same bug seen
-    # from two sides. Installing first is free - the handler only unlinks, and unlinking a file
-    # that does not exist yet is already a no-op.
-    for terminating in _TERMINATING_SIGNALS:
-        signal.signal(terminating, release_session_link)
+        _say(f"truestill UI on {url}")
 
-    # Before the browser is attempted, never after: a failed open must still leave a way in.
-    link = session_link.write(url)
-    if not link.private:
-        # A drive with no permission bits (FAT32, exFAT) discarded the mode. Said here as well
-        # as in the file, because a user who is watching a console is exactly the one who can
-        # still act on it before anyone else reads the token.
-        _say(
-            f"Note: {link.path} could not be made private on this drive - drives formatted "
-            f"FAT32 or exFAT do not store file permissions, so anyone with an account on this "
-            f"computer can read the address.",
-            error=True,
+        # BEFORE the file is written, not after. uvicorn snapshots the handlers that exist when it
+        # starts and restores them before re-raising, so these are the ones the re-raise lands on -
+        # that is why they go in before `server.run`. They go in before `session_link.write` for a
+        # second, separate reason: between writing the credential and installing these, a SIGTERM
+        # hit Python's default disposition, the process died without running `release_session_link`,
+        # and the file survived. Small window, real: it showed up as an intermittent failure in
+        # `test_a_real_process_leaves_no_url_file_behind`, which signals the instant the file
+        # appears. A flaky test and a stale credential left on a user's disk were the same bug seen
+        # from two sides. Installing first is free - the handler only unlinks, and unlinking a file
+        # that does not exist yet is already a no-op.
+        for terminating in _TERMINATING_SIGNALS:
+            signal.signal(terminating, release_session_link)
+
+        # Before the browser is attempted, never after: a failed open must still leave a way in.
+        link = session_link.write(url)
+        launching.callback(session_link.clear)
+        if not link.private:
+            # A drive with no permission bits (FAT32, exFAT) discarded the mode. Said here as well
+            # as in the file, because a user who is watching a console is exactly the one who can
+            # still act on it before anyone else reads the token.
+            _say(
+                f"Note: {link.path} could not be made private on this drive - drives formatted "
+                f"FAT32 or exFAT do not store file permissions, so anyone with an account on this "
+                f"computer can read the address.",
+                error=True,
+            )
+
+        server = uvicorn.Server(
+            uvicorn.Config(app, host=_HOST, port=port, log_config=uvicorn_log_config())
         )
+        if not args.no_browser:
+            threading.Thread(
+                target=open_when_ready, args=(server, url, link.path), daemon=True
+            ).start()
 
-    server = uvicorn.Server(
-        uvicorn.Config(app, host=_HOST, port=port, log_config=uvicorn_log_config())
-    )
-    if not args.no_browser:
-        threading.Thread(target=open_when_ready, args=(server, url, link.path), daemon=True).start()
+        # OWNERSHIP BOUNDARY - the line a refactor will move without realising what it means.
+        # Past here uvicorn owns the socket and closes it in `Server.shutdown()`, so closing it
+        # ourselves would make two owners; closing it any earlier hands over a dead socket and
+        # breaks every normal start. `pop_all` drops both cleanups: the link's is picked up
+        # again by the `finally` below, which has to run after a clean shutdown as well.
+        #
+        # Cleanups run in reverse registration order, so a failure clears the credential BEFORE
+        # releasing the port. That way nothing can take the port while a file still names it
+        # with a live token.
+        launching.pop_all()
 
     try:
         server.run(sockets=[sock])

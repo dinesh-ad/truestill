@@ -33,7 +33,7 @@ import socket
 from pathlib import Path
 
 import pytest
-from app_support import ImmediateThread, StubServer
+from app_support import ImmediateThread, StubServer, release_sockets
 from truestill_app import __main__ as entry
 from truestill_app import session_link
 
@@ -135,7 +135,8 @@ def test_the_url_file_does_not_survive_a_server_that_dies_at_startup(
     """The file must never outlive the address it names, however the run ends."""
 
     class _DyingServer(StubServer):
-        def run(self, **_kwargs: object) -> None:
+        def run(self, sockets: list[socket.socket] | None = None, **_kwargs: object) -> None:
+            release_sockets(sockets)
             raise RuntimeError(_STARTUP_FAILED)
 
     monkeypatch.setattr(entry.uvicorn, "Server", _DyingServer)

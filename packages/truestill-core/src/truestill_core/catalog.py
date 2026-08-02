@@ -11,6 +11,7 @@ One row per processed source file, keyed by SHA-256.
 
 from __future__ import annotations
 
+import contextlib
 import sqlite3
 from collections.abc import Callable, Collection, Iterator, Sequence
 from contextlib import contextmanager
@@ -650,13 +651,25 @@ class Catalog:
             str(path),
             autocommit=sqlite3.LEGACY_TRANSACTION_CONTROL,  # type: ignore[call-overload]
         )
-        self._conn.row_factory = sqlite3.Row
-        # Off by default per SQLite connection (not persisted in the file). trip_days.trip_id
-        # is the first declared foreign key in this schema; without this, the REFERENCES clause
-        # is decorative and a bogus trip_id would insert silently.
-        self._conn.execute("PRAGMA foreign_keys = ON")
-        self._migrate()
-        self._conn.commit()
+        # Everything after the connect is guarded, because `with Catalog(...)` cannot help
+        # here: `__init__` raises, so the object is never returned, `__enter__` is never
+        # reached, and `__exit__` never runs. `_migrate` refusing a newer catalog is a
+        # documented, ordinary path - it left the handle open on every occurrence.
+        try:
+            self._conn.row_factory = sqlite3.Row
+            # Off by default per SQLite connection (not persisted in the file). trip_days.trip_id
+            # is the first declared foreign key in this schema; without this, the REFERENCES
+            # clause is decorative and a bogus trip_id would insert silently.
+            self._conn.execute("PRAGMA foreign_keys = ON")
+            self._migrate()
+            self._conn.commit()
+        except BaseException:
+            # `suppress`, so a failing close can never replace the exception being handled:
+            # "this catalog is from a newer Truestill" must not surface as an unrelated sqlite
+            # error from the cleanup. BaseException so a Ctrl-C mid-migration still closes.
+            with contextlib.suppress(Exception):
+                self._conn.close()
+            raise
 
     def _migrate(self) -> None:
         """Bring the database schema to CURRENT_SCHEMA_VERSION via PRAGMA user_version.

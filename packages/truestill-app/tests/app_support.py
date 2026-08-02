@@ -23,6 +23,17 @@ from typing import Any, ClassVar
 TOKEN = "test-token"
 
 
+def release_sockets(sockets: list[socket.socket] | None) -> None:
+    """Close what the launch path handed the server, as uvicorn's `Server.shutdown` does.
+
+    **Any double that overrides `run` must call this.** In production uvicorn owns these; a stub
+    that records and drops them leaks a listening socket per launch, and the warning then
+    surfaces against whichever test the collector happened to interrupt.
+    """
+    for sock in sockets or ():
+        sock.close()
+
+
 class StubServer:
     """Stands in for `uvicorn.Server`, recording what the launch path handed it.
 
@@ -43,11 +54,7 @@ class StubServer:
 
     def run(self, sockets: list[socket.socket] | None = None) -> None:
         self.sockets = sockets  # recorded, never served
-        # In production uvicorn owns these and closes them; here this stub IS the owner, and
-        # dropping them leaked a listening socket per launch. Closed after recording, so what
-        # the test inspects is unchanged - `self.sockets` still holds what it was handed.
-        for sock in sockets or ():
-            sock.close()
+        release_sockets(sockets)
 
 
 class ImmediateThread:

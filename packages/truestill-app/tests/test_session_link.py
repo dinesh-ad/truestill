@@ -25,11 +25,12 @@ the token is that an unauthenticated request cannot learn it.
 
 from __future__ import annotations
 
+import socket
 import sys
 from pathlib import Path
 
 import pytest
-from app_support import ImmediateThread, StubServer
+from app_support import ImmediateThread, StubServer, release_sockets
 from starlette.testclient import TestClient
 from truestill_app import __main__ as entry
 from truestill_app import session_link
@@ -165,7 +166,8 @@ def test_the_file_is_removed_even_when_the_server_dies(
     happy path only."""
 
     class _Dying(StubServer):
-        def run(self, **_kwargs: object) -> None:
+        def run(self, sockets: list[socket.socket] | None = None, **_kwargs: object) -> None:
+            release_sockets(sockets)
             raise KeyboardInterrupt
 
     monkeypatch.setattr(entry.uvicorn, "Server", _Dying)
