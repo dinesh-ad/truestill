@@ -63,6 +63,22 @@ ALLOWED: tuple[tuple[str, str], ...] = (
         ),
     ),
     (
+        (
+            r"pCloud / Dropbox / OneDrive \*\*mounted as a drive\*\*|"
+            r"Google Drive API, S3, iCloud web"
+        ),
+        (
+            "the two enumerations in BACKLOG.md's `(aav)` scope decision, and they are the "
+            "entry's whole function: it exists so a prospective user learns in one line whether "
+            "their setup is supported, and 'a cloud FUSE mount' does not answer 'does it work "
+            "with mine?'. The distinction being drawn - mounted filesystem yes, web API no - is "
+            "also invisible without examples on both sides, since the same company can appear "
+            "on either. Same standing as the (jj) export-format table: vendors named to make a "
+            "scope ruling checkable rather than to decorate it. Scoped to the two exact phrases "
+            "so the names cannot spread into surrounding prose."
+        ),
+    ),
+    (
         r"github\.com/dinesh-ad/truestill",
         (
             "the real repository URL - package metadata, README links and advisories resolve "

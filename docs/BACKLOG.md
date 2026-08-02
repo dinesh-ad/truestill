@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aar). Next free: (aas).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aav). Next free: (aaw).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -93,6 +93,46 @@ section, because what is left is the part that still has to be written.
     direction - a settled item described as pending elsewhere - and deliberately scans only
     settled sections. Noted while here: its `_SETTLED` markers do not match
     `## Shipped (kept for provenance)`, so that section is currently outside its scope.
+
+- **(aas) An undated file cannot be assigned to an event the user knows it belongs to.**
+  Recorded 2026-08-02 while ruling on `(aar)`. **Post-launch. A missing convenience rather than a
+  defect - nothing here is wrong, something is absent.**
+  - **The gap is structural, not an oversight.** `camera_copies_for_events` selects
+    `WHERE ... f.captured_at IS NOT NULL`, so Trips & events excludes undated files **by
+    construction**: the one screen that could group them cannot see them. No other surface
+    assigns a file to an event.
+  - **The case that produces it.** A friend sends photos from a shared trip over WhatsApp. A
+    normal send strips EXIF, so there is no trustworthy capture date and R1 correctly declines to
+    invent one from the sent-date - the file lands in `Undated/`. **The tool is right not to
+    guess. The user knows exactly where those photos belong and has no way to say so.** Declining
+    to guess is correct; declining to *ask* is the gap.
+  - **Scope, now that `(aar)` has shipped.** A document-mode send keeps its EXIF and is dated and
+    placed from it, so it never reaches this. What is left is files with genuinely no recoverable
+    date - the smaller and harder set.
+  - **Shape, unruled:** it is an assignment, so it inherits the event flow's posture - a proposal
+    the user confirms, never an inferred date written back as though it were evidence. Whether
+    assigning an event also implies a date is the open question.
+
+- **(aau) A zero-warning test lane, and why it is not one today.** Recorded 2026-08-02 after two
+  cleanup commits took the suite from **36 `ResourceWarning`s to 1**. **Record only - the lane
+  cannot land until the last warning is either owned or proven un-ownable.**
+  - **A gate that cannot pass on the day it is added is a broken gate.** One warning survives, and
+    a lane that fails on its own first commit teaches everyone to ignore it.
+  - **The survivor, described rather than blamed.** An unclosed `sqlite3.Connection` is collected
+    during `test_layout.py::test_parse_rejects_empty_and_empty_segments`, reported against stdlib
+    `inspect.py`. **That test opens no catalog, and `test_layout.py` constructs no `Catalog`
+    anywhere** - the connection was allocated by something else and merely finalised there. That
+    is the whole difficulty: a collector-timed warning lands on whichever test happens to be
+    running. Without `tracemalloc` the allocation site is unknown, and enabling it across the
+    suite costs more than the warning does.
+  - **The existing policy stays, for its recorded reason.** `pyproject.toml` exempts
+    `ResourceWarning` from `filterwarnings = ["error"]` because it is about *when* the collector
+    runs, not about an API: *"turning a real deprecation gate into a flaky one is how gates get
+    switched off."* A zero-warning lane sits beside that policy; it never replaces it.
+  - **The shape it should take if the survivor proves un-ownable:** assert **no warning
+    attributable to our code** - keyed on whether any frame under `packages/` appears - rather
+    than a raw count of zero. A count gate fails on someone else's finalizer; an attribution gate
+    fails on ours, which is the only one worth waking up for.
 
 - **(aak) The skipped-file summary is written twice.** `organizer._skipped_extension_counts`
   and `service/organize._skipped_summary` are the same logic in two homes - extension counts
@@ -920,6 +960,24 @@ section, because what is left is the part that still has to be written.
 
 ## Settled technical stances (recorded so they are not re-litigated)
 
+- **(aat) `(aar)` is forward-only, and `migrate-layout` will not carry it backwards.** Recorded
+  2026-08-02, found while writing `(aar)`'s CHANGELOG entry and checked against the code rather
+  than reasoned about. **A known limit with an accepted workaround.**
+  - **The mechanism.** `WhatsApp` is a deterministic side-bin label
+    (`categorize.deterministic_side_bin_labels`), so `label_routes` returns route `side bin` with
+    `needs_decision=False` - *"only a screenshot, messenger or fallback rule can produce this
+    label"* - and `rederive_rules` re-reads **ambiguous labels only**. Files already filed under
+    `WhatsApp/` are never re-examined, whatever their EXIF says.
+  - **`migrate.py` is not wrong.** Its premise survives `(aar)` intact: the filename rule is still
+    the only producer of those labels. Re-reading every side-binned file would buy an exiftool
+    pass over the largest bin in most libraries to change a handful of them.
+  - **The consequence is real, though.** A library organized before 2026-08-02 diverges from what
+    a fresh run decides on the same files, and only a re-import from the originals closes it.
+  - **Why this is a stance and not work.** Deleting the output and re-running from source is
+    acceptable here - the sources are never touched, so it always is. Should rescuing
+    already-organized side-bin files ever be wanted, `(ii)`'s rescue flow is the surface that owns
+    that question.
+
 - **The catalog stays SQLite.** Parquet and Feather were considered and rejected on three
   grounds, each sufficient alone: they are **immutable** (no row update without rewriting the
   whole file, and the catalog updates a row per organized file), they offer **no transactional
@@ -1396,6 +1454,23 @@ neighbouring product ships one. Each would be a reasonable feature in a differen
     client, a scheduled or unattended migration, or a UI change that lets a user re-apply from
     a stored plan. Any of those turns this from unreachable into a real silent degradation, and
     the fix should land with that caller rather than in advance of it.
+
+- **Cloud storage reached over a web API rather than a mounted filesystem `(aav)`.** Recorded
+  2026-08-02. **A scope decision, not a limitation** - it follows directly from the product's
+  promise that files stay readable without Truestill, in ordinary folders on the user's own disks.
+  - **What works: anything the OS presents as a path.** Internal and external drives, NAS over SMB
+    or NFS, and pCloud / Dropbox / OneDrive **mounted as a drive**. Truestill opens paths and does
+    not care what is behind them, which is why the supported list needs no maintenance.
+  - **What does not, and why it is a different product.** Google Drive API, S3, iCloud web. These
+    are not filesystems: each needs a provider adapter, an OAuth flow, token refresh, rate
+    limiting and its own failure taxonomy - and none of that makes anyone's photos more durable.
+  - **Mounted is not local, in performance.** A FUSE or NAS path pays a round trip per file across
+    tens of thousands of them. Projected from a measured 5 GB sample: for a 33,457-file library,
+    network I/O dominates CPU by **3.6x to 36x** at every plausible transfer rate, so the mount
+    decides the runtime and the pipeline does not. See `(ss)` and `PERFORMANCE.md` §3.0.
+  - **Mounted is not always present, either.** A drive can vanish mid-run, which is what the
+    `.truestill-drive.json` marker and `DriveReach.OFFLINE` exist for, and why identity is the
+    marker uuid rather than a path.
 
 - **Migrate verifying against the live copy hash instead of its journal snapshot `(aah)`.**
   Found 2026-07-31 while closing condition 3 of the date-provenance program. **Decided against
