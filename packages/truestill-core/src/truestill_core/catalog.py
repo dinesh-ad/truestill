@@ -737,11 +737,15 @@ class Catalog:
 
         Only the device rule's default ``Camera`` label is proposed as trips (by-device layouts
         are a follow-on); undated files carry no time to cluster on and are excluded.
+
+        **The coordinates are part of the clustering input, not decoration.** `cluster_camera`
+        cuts an event boundary on a GPS jump, and omitting them here is what made this path
+        disagree with a fresh import over the same photos - the jump-cut simply could not fire.
         """
         return list(
             self._conn.execute(
                 """
-                SELECT fc.sha256, f.captured_at
+                SELECT fc.sha256, f.captured_at, f.gps_latitude, f.gps_longitude
                 FROM file_copies fc
                 JOIN files f ON f.sha256 = fc.sha256
                 WHERE fc.drive_uuid = ? AND f.category = 'Camera' AND f.captured_at IS NOT NULL

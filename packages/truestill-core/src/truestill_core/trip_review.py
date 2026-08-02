@@ -27,6 +27,7 @@ from truestill_core.events import (
     cluster_camera,
     slugify,
 )
+from truestill_core.models import geo_point
 from truestill_core.trips import (
     DEFAULT_MAX_GAP_DAYS,
     DEFAULT_MAX_SPAN_DAYS,
@@ -59,6 +60,7 @@ def _camera_items(catalog: Catalog, drive_uuid: str) -> list[EventItem]:
             key=str(row["sha256"]),
             captured_at=_parse_dt(row["captured_at"]),
             sha256=str(row["sha256"]),
+            gps=geo_point(row["gps_latitude"], row["gps_longitude"]),
         )
         for row in catalog.camera_copies_for_events(drive_uuid)
     ]

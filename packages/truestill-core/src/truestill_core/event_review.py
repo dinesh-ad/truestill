@@ -20,7 +20,7 @@ from truestill_core.catalog import Catalog
 from truestill_core.events import EventCandidate, EventItem, cluster_camera, slugify
 from truestill_core.hashing import sha256_file
 from truestill_core.layout import DEFAULT_SCHEME, TIMELINE_RULE, LayoutScheme
-from truestill_core.models import Event, Resolution
+from truestill_core.models import Event, Resolution, geo_point
 from truestill_core.organizer import apply_events
 
 #: A prompt returns the user's chosen name for a cluster, or None to skip it.
@@ -49,10 +49,8 @@ class EventDecision:
 
 
 def _gps(meta: dict[str, Any]) -> tuple[float, float] | None:
-    lat, lon = meta.get("GPSLatitude"), meta.get("GPSLongitude")
-    if isinstance(lat, int | float) and isinstance(lon, int | float):
-        return (float(lat), float(lon))
-    return None
+    """The pair as exiftool spells it. `geo_point` owns the rule; this owns the key names."""
+    return geo_point(meta.get("GPSLatitude"), meta.get("GPSLongitude"))
 
 
 def gather_camera_items(
@@ -154,6 +152,7 @@ def propose_from_catalog(catalog: Catalog, drive_uuid: str) -> list[EventCandida
             key=str(row["sha256"]),
             captured_at=_parse_dt(row["captured_at"]),
             sha256=str(row["sha256"]),
+            gps=geo_point(row["gps_latitude"], row["gps_longitude"]),
         )
         for row in catalog.camera_copies_for_events(drive_uuid)
     ]

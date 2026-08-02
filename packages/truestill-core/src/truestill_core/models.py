@@ -262,6 +262,18 @@ def _clean(value: Any) -> str | None:
     return text or None
 
 
+def geo_point(latitude: Any, longitude: Any) -> tuple[float, float] | None:
+    """A coordinate pair, or ``None`` unless **both** halves are real numbers.
+
+    One rule, three vocabularies: exiftool hands back ``GPSLatitude``/``GPSLongitude``, the
+    catalog stores ``gps_latitude``/``gps_longitude``, and both must reach the same verdict.
+    Spelling this out twice is how one of them ends up with the truthiness bug below and the
+    other does not - which is exactly the state the trip clustering was in before `(kk)`.
+    """
+    lat, lon = _coordinate(latitude), _coordinate(longitude)
+    return None if lat is None or lon is None else (lat, lon)
+
+
 def _coordinate(value: Any) -> float | None:
     """A coordinate, or ``None`` when the file carries none.
 

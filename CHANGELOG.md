@@ -17,6 +17,15 @@ All notable changes to this project are documented here. The format follows
   are kept exactly as the photo records them: 0N 0E is a real place off the coast of Africa and
   is stored as such, not confused with "no location recorded". **Your catalog file is upgraded
   automatically on first open and can no longer be read by an older Truestill.**
+- **Reviewing trips on a drive you already organized now finds the same trips as reviewing
+  them during an import.** It did not before. Truestill ends one outing and starts another when
+  consecutive photos jump a long distance, and that check only ran on a fresh import - the
+  screen that reviews an already-organized drive had no locations to work with, so it grouped on
+  time alone. The same photos could therefore be offered as one trip on one screen and two on
+  the other. **Trip suggestions on that screen may differ from what you saw before, and the new
+  answer is the one the import path was already giving.** Nothing you have named or applied
+  changes; this affects suggestions only. Photos with no location are unaffected and still group
+  by time, which is most libraries.
 - **An organize *preview* now exits `1` instead of `0` when it could not read one of your
   files.** Read this if you script Truestill: `truestill organize <src> <dst> && next_step` used
   to chain in this case and now stops. That is the intended behaviour, not a side effect - a
