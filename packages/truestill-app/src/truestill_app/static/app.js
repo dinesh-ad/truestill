@@ -1392,6 +1392,43 @@ function renderSkippedDetails(sk) {
     <table class="table"><tbody>${rows("documents", skDocs)}${rows("unrecognized", skUn)}${backupRow}</tbody></table></details>`;
 }
 
+// What truestill could not read, on the preview that is supposed to predict the run.
+//
+// Both halves render here because they are one question to a user - "did you see everything of
+// mine?" - even though they are two different facts underneath. `unreadable_folders` shipped in
+// the payload and was never rendered at all, so a folder truestill could not open produced a
+// clean-looking preview; adding its file sibling while leaving that unrendered would have
+// rebuilt the same silence one layer down.
+//
+// FILES CARRY A COUNT AND FOLDERS DO NOT, deliberately. For a folder the number of files inside
+// is exactly what could not be read, so stating one would invent the missing figure. For a file
+// the number is known exactly. Do not "make these consistent".
+function renderUnreadable(s) {
+  const files = s.unreadable_files || { total: 0, shown: [] };
+  const folders = s.unreadable_folders || [];
+  if (!files.total && !folders.length) return "";
+  const fileRows = files.shown
+    .map((f) => `<div class="mono">${esc(f.name)} - ${esc(f.reason)}</div>`)
+    .join("");
+  // Truncation is never silent: if the payload capped the list, say how many are not shown.
+  const more = files.total > files.shown.length
+    ? `<div class="k">… and ${nfmt(files.total - files.shown.length)} more.</div>` : "";
+  const filesBlock = files.total
+    ? `<div class="b-title">${plural(files.total, "file")} could not be read</div>
+       ${fileRows}${more}
+       <div class="k">Not organized. Fix the permission or check the disk, then preview again.</div>`
+    : "";
+  const folderRows = folders
+    .map((f) => `<div class="mono">${esc(f)} - contents unknown</div>`)
+    .join("");
+  const foldersBlock = folders.length
+    ? `<div class="b-title">${plural(folders.length, "folder")} could not be opened</div>
+       ${folderRows}
+       <div class="k">Whatever is inside was not counted. Check the folder's permissions, then preview again.</div>`
+    : "";
+  return `<div class="banner warn" data-testid="org-unreadable"><div>${filesBlock}${foldersBlock}</div></div>`;
+}
+
 function renderInventoryResult(s) {
   if (!s.files) {
     $("org-result").innerHTML = card(
@@ -1411,8 +1448,11 @@ function renderInventoryResult(s) {
 
 function renderOrganizeResult(s) {
   if (!s.files) {
+    // The unreadable block goes FIRST here: when a folder could not be opened, "nothing to
+    // organize" is very likely the wrong answer, and the reason must be read before it.
     $("org-result").innerHTML = card(
-      `<div class="banner warn"><div><div class="b-title">Nothing to organize here</div>
+      `${renderUnreadable(s)}
+       <div class="banner warn"><div><div class="b-title">Nothing to organize here</div>
        <div>No photos or videos in this folder - is it the right one?</div></div></div>`
     );
     return;
@@ -1431,10 +1471,13 @@ function renderOrganizeResult(s) {
        <div class="b-title">This drive cannot hold this run</div>
        <div>${esc(s.destination_limit.detail)}</div></div></div>`
     : "";
+  // Above the tallies too, and for the same reason: a count of what "will be organized" is
+  // only as true as the set of files truestill managed to read.
+  const unreadable = renderUnreadable(s);
   $("org-result").innerHTML = card(
     `<div class="headline">${mediaCount(s)} found</div>
      ${s.elapsed_seconds ? `<div class="k">checked in ${fmtDuration(s.elapsed_seconds)}</div>` : ""}
-     ${limit}
+     ${limit}${unreadable}
      <div class="tally">
        <div class="n">${nfmt(s.new_unique)}</div><div class="k">new - will be organized</div>
        <div class="n">${nfmt(s.near_dup)}</div><div class="k">look-alikes - kept and flagged</div>

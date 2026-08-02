@@ -91,10 +91,12 @@ from truestill_core.models import (
     DuplicateMatch,
     Event,
     Resolution,
+    UnreadableReason,
     date_quality,
     format_inferred_local_shift_line,
     inferred_local_shifts,
     status_label,
+    unreadable_label,
 )
 from truestill_core.organizer import (
     Relocation,
@@ -1170,16 +1172,70 @@ def _run_pipeline(
 
     print()
     if not args.apply:
+        # Nothing was copied, so nothing can have FAILED: a preview names every unreadable
+        # source, or no one does.
+        unreadable = _print_unreadable(resolutions)
         print(_SEPARATOR)
         print("DRY RUN - nothing was written or recorded. Re-run with --apply to execute.")
         print(_SEPARATOR)
-        return 0
-    return _print_execution(results)
+        # A preview's job is to predict the run. The run will exit 1 on these files through
+        # `ActionStatus.FAILED`, so predicting them with a 0 would make `organize && next_step`
+        # chain past a library truestill could not fully account for. Code 1 is already this
+        # CLI's "finished, but something is wrong" (verify, organize, reclaim all use it).
+        return 1 if unreadable else 0
+    code = _print_execution(results)
+    failed = frozenset(
+        r.resolution.decision.source for r in results if r.status is ActionStatus.FAILED
+    )
+    # Whatever FAILED has already been named above; this catches the rest - most often an
+    # unreadable file whose cached hashes made it an exact duplicate, so it was never copied
+    # and never failed, and would otherwise be the one file nobody mentions.
+    named = _print_unreadable(resolutions, failed)
+    return code or (1 if named else 0)
 
 
 def _fmt_extensions(paths: list[Path]) -> str:
     counts = Counter(p.suffix.lower() or "(no ext)" for p in paths)
     return ", ".join(f"{ext} x{n}" for ext, n in counts.most_common())
+
+
+def _print_unreadable(
+    resolutions: Sequence[Resolution], failed: frozenset[Path] = frozenset()
+) -> int:
+    """Name the source files that could not be read. Returns how many were named.
+
+    **Printed from the resolutions rather than from the scan**, because that is the one place
+    both surfaces meet: a preview and a run reach it through the same `_run_pipeline`, so the
+    two cannot describe the same library differently. `scan_source` never opens a file and so
+    has no opinion to offer here - its `unreadable_dirs` is a different fact, gathered by the
+    walk itself.
+
+    ``failed`` is the set of sources that already produced an `ActionStatus.FAILED`, which only
+    a run can have. Those are subtracted: `_print_execution` has already named them with the
+    real ``OSError`` text, and that is the better line of the two - later, and more specific.
+    On a preview the set is empty, so a preview names every one.
+    """
+    named = [
+        r
+        for r in resolutions
+        if r.hashes.unreadable is not None and r.decision.source not in failed
+    ]
+    if not named:
+        return 0
+    print("\nFiles that could not be read:")
+    # A count here, and deliberately NONE on the "folders that could not be read" line above.
+    # For a folder the number of files inside is exactly what could not be read, so printing
+    # one would invent the missing figure; for a file the number is known exactly. The
+    # asymmetry is the point, not an oversight - do not "make these consistent".
+    print(f"  files that could not be read: {len(named)}")
+    for resolution in named[:_STATUS_PREVIEW]:
+        reason: UnreadableReason | None = resolution.hashes.unreadable
+        assert reason is not None  # filtered above; narrows for the type checker
+        print(f"      {resolution.decision.source.name}  ({unreadable_label(reason)})")
+    if len(named) > _STATUS_PREVIEW:
+        print(f"  ... and {len(named) - _STATUS_PREVIEW} more.")
+    print("    (not organized; fix the permission or check the disk, then run again)")
+    return len(named)
 
 
 def _print_skipped(scan: SourceScan) -> None:

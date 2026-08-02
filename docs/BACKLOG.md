@@ -460,7 +460,7 @@ section, because what is left is the part that still has to be written.
 
 - **(aac) Organize must name and count unreadable source files the way verify does.** Ruled by
   the maintainer, 2026-07-30, from the Pass 1 F2/F1 asymmetry left after the code-quality audit.
-  **Record only - do not fix in the same pass that closed F1/F2.**
+  **Scan tier built 2026-08-02; three residues below keep this entry open.**
   - **What shipped.** F1 gave `verify` `CopyStatus.UNREADABLE`, a count, and filenames on CLI
     and app. F2 kept `compute_hashes` alive on an unreadable source (empty hashes +
     `BrokenExecutor` guard) so an organize preview/run no longer aborts the whole pass.
@@ -482,30 +482,49 @@ section, because what is left is the part that still has to be written.
   - **Requirement.** Organize preview and run summaries must count and name unreadable sources
     the way verify reports unreadable copies - which first needs the scan to stop conflating
     "could not read" with "did not need to". Do not treat empty hashes as a finished answer.
-  - **The docstring that read as though this were already closed: fixed 2026-08-02, the item is
-    not.** `SourceScan`'s docstring said an unreadable file *"surfaces as `ActionStatus.FAILED`
-    when the copy raises"* full stop, with no **run only** qualifier - so the comment standing
-    next to this code announced a resolution the code has not reached. It now names the run path
-    it is true of, states that a preview attempts no copy and reports nothing, and cites `(aac)`.
-    **A comment correction, not a fix:** the preview is still silent, and everything this entry
-    requires is still outstanding.
-  - **SECOND SITE, same shape: the perceptual tier (added 2026-08-02).** Found while verifying a
-    proposed HEIC feature that turned out not to exist. `perceptual_hash` returns `None` and the
-    reason is discarded, so **one sentinel carries at least four distinct meanings**: this is a
-    video (correct - no perceptual hash exists for it), this is not an image at all, this image is
-    above the 300 MP ceiling and was deliberately skipped, or **this image could not be decoded**.
-    `DedupIndex.check` skips the perceptual tier when it sees `None` and `register` omits the file
-    from the index - both silently - so a file that failed to decode is indistinguishable
-    downstream from a video that never had a hash to begin with.
-  - **Nothing counts or names a per-file perceptual failure.** No counter, no log line, no report
-    field. What *is* reported loudly is the whole-library case: when `HEIF_AVAILABLE` is false the
-    CLI prints a note and the app emits `heic_perceptual_skipped`. That asymmetry is what makes
-    the per-file case easy to miss - the surface looks covered because its noisiest neighbour is.
-  - **The requirement is the same one, restated for this tier:** distinguish *"no perceptual hash
-    is correct here"* from *"we tried and failed", and count and name only the second. Not
-    HEIC-specific and not new work beyond what this entry already asks for - it is the same
-    overloaded-`None` fix in a second place, which is why it is recorded here rather than as its
-    own letter.
+  - **The docstring that read as though this were already closed: fixed 2026-08-02.**
+    `SourceScan`'s docstring said an unreadable file *"surfaces as `ActionStatus.FAILED` when the
+    copy raises"* full stop, with no **run only** qualifier, so the comment standing next to this
+    code announced a resolution the code had not reached. It now names the run path it is true
+    of and cites this entry.
+  - **THE SCAN TIER IS BUILT (2026-08-02). THE ENTRY IS NOT CLOSED.** `UnreadableReason`
+    (permission / I/O error / missing / other) rides on `FileHashes`, so *"could not read"* and
+    *"correctly did not hash"* are no longer one value. `scan._probe_readability` opens every
+    path and reads one byte **before the hash-cache split** - `stat` succeeds on an unreadable
+    file, so a stale-cache hit would otherwise skip the worker entirely - and `_hash_one` keeps
+    its own handler for the late failure a 1-byte probe cannot see. The CLI names the files on
+    preview and run with the FAILED set subtracted; the app payload carries `{total, shown}`;
+    `app.js` renders it **and the `unreadable_folders` key that had been reaching the browser
+    unrendered since it shipped**. A preview that found one now exits `1`. Contract row in
+    `IMPLEMENTATION_STANDARDS.md` §9; cost in `PERFORMANCE.md` §3.2.
+  - **RESIDUE 1 - the preview tallies still count an unreadable file as one that will be
+    organized.** Measured on the shipped build: a source with two unreadable photos reports
+    *"organized (unique): 5"* and *"files that could not be read: 2"* in the same summary, and
+    the 5 includes both. The file is still planned, still `should_upload`, because a file with no
+    hash cannot match anything and therefore reads as new. Naming it is the part `(aac)` asked
+    for and is done; **excluding it from the tally changes what an unreadable file *is* to the
+    organizer**, which is a dedup-semantics decision this entry never scoped. Do not fold it in
+    silently - it needs its own ruling.
+  - **RESIDUE 2 - the app's *run* completion has no `unreadable_files`.** Preview only, matching
+    the design that was accepted. The CLI reports on both. An unreadable file that was never
+    copied - a cached exact duplicate - therefore has no app-side surface on a run, though the
+    CLI names it.
+  - **RESIDUE 3, and what changed about it: the perceptual tier's overloaded `None`.** Recorded
+    2026-08-02 while verifying a proposed HEIC feature that turned out not to exist.
+    `perceptual_hash` returns `None` and discards the reason, so one sentinel carried four
+    meanings: a video (correct - none exists for it), not an image at all, above the 300 MP
+    ceiling, or **could not be decoded**. `DedupIndex.check` skips the tier on `None` and
+    `register` omits the file, both silently.
+    **The scan fix evacuated the unreadable meaning from those four**: a file that cannot be
+    opened is now named by the probe, so its perceptual `None` is no longer the only trace of it.
+    What remains is narrower and is the honest statement of this residue: **a file that is
+    readable but undecodable** - a truncated JPEG, a corrupt HEIC - still returns `None` and is
+    still indistinguishable from a video that never had a hash. That is a *corruption* report,
+    with a different remedy from a permission one, which is why it is deliberately not folded
+    into the scan fix: `test_a_corrupt_but_readable_image_is_not_called_unreadable` exists to
+    keep the two apart. Nothing counts or names a per-file perceptual failure; the whole-library
+    case is loud (`heic_perceptual_skipped`, and the CLI's note when `HEIF_AVAILABLE` is false),
+    which is exactly what makes the per-file case easy to believe is covered.
 
 - **(vv) Known limit: app per-drive job lock is process-local; CLI↔app overlap is not serialized.**
   Recorded 2026-07-29 when Commit 3 of (oo) shipped the server-side one-op-per-drive guard.

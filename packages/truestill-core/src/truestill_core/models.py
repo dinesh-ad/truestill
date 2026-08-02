@@ -124,17 +124,61 @@ class DuplicateKind(StrEnum):
     PERCEPTUAL = "perceptual"  # visually the same image (dHash within threshold)
 
 
+class UnreadableReason(StrEnum):
+    """Why a source file could not be read, when truestill tried and failed.
+
+    **Not another ``None``.** Every ``None`` in :class:`FileHashes` records a hash that was
+    *correctly* not computed - the size pre-filter's skip, a video with no perceptual hash.
+    This records one that was wanted and could not be had, which is the distinction the scan
+    used to destroy (`BACKLOG.md` ``(aac)``).
+
+    Four members rather than a boolean because each is a **different next action** for the
+    person reading the report: a permission is theirs to fix, an I/O error points at the disk,
+    and a file that vanished mid-run was moved by something else and is not a defect at all.
+    """
+
+    PERMISSION = "permission"  # EACCES/EPERM - the user can fix this
+    IO_ERROR = "io_error"  # EIO - points at the disk, not at the permissions
+    MISSING = "missing"  # ENOENT - vanished between the walk and the read
+    OTHER = "other"  # named rather than folded into one of the three above
+
+
+#: User-facing wording for a read failure, kept here for the reason `_STATUS_LABELS` is here:
+#: §9's "one source of outcome wording" rule. The CLI and the app both render through
+#: :func:`unreadable_label`, so the two surfaces cannot drift, and no ``errno`` name or raw
+#: enum value ever reaches a user.
+_UNREADABLE_LABELS: dict[UnreadableReason, str] = {
+    UnreadableReason.PERMISSION: "permission denied",
+    UnreadableReason.IO_ERROR: "input/output error",
+    UnreadableReason.MISSING: "disappeared during the scan",
+    UnreadableReason.OTHER: "could not be opened",
+}
+
+
+def unreadable_label(reason: UnreadableReason) -> str:
+    """The user-facing wording for a read failure. Never the raw enum value."""
+    return _UNREADABLE_LABELS.get(reason, reason.value)
+
+
 @dataclass(frozen=True, slots=True)
 class FileHashes:
-    """The two content signals computed for a file.
+    """The two content signals computed for a file, and whether it could be read at all.
 
     ``sha256`` is ``None`` when the size pre-filter skipped hashing a unique-size file (it
     cannot be an exact duplicate of anything); it is computed lazily if the file is later
     uploaded. ``perceptual`` is ``None`` for non-images.
+
+    ``unreadable`` is what tells those apart from a failure. Both of the fields above are
+    ``None`` for a file that could not be read, and that collision is what made an unreadable
+    source **invisible in a preview** - indistinguishable from the pre-filter's legitimate
+    skip. It is ``None`` for every readable file, so the ordinary case is untouched, and it is
+    never persisted: `HashCache.put` writes the two hashes only, and `scan._run_hash_jobs`
+    already declines to cache a file with neither.
     """
 
     sha256: str | None
     perceptual: str | None
+    unreadable: UnreadableReason | None = None
 
 
 @dataclass(frozen=True, slots=True)

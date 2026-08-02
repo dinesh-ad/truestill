@@ -231,6 +231,10 @@ def _report(
                 "(can exceed wall when parallel)."
             ),
             "sizes_stat_pass is the timed cost of _sizes inside compute_hashes.",
+            (
+                "readability_probe_pass is the (aac) open+1-byte probe, added 2026-08-02. "
+                "Absent from profile runs recorded before that date."
+            ),
         ],
     }
 
@@ -241,18 +245,21 @@ def profile_preview(source: Path, *, label: str) -> dict[str, Any]:
     timed_sha = TimedFn("sha256_file")
     timed_phash = TimedFn("perceptual_hash")
     timed_sizes = TimedFn("_sizes")
+    timed_probe = TimedFn("_probe_readability")
     opens = OpenTally()
     restore_opens = _install_open_hooks(opens)
 
     orig_sha = hashing_mod.sha256_file
     orig_phash = hashing_mod.perceptual_hash
     orig_sizes = scan_mod._sizes
+    orig_probe = scan_mod._probe_readability
     hashing_mod.sha256_file = timed_sha.wrap(orig_sha)
     hashing_mod.perceptual_hash = timed_phash.wrap(orig_phash)
     # Monkeypatch scan's bound hashing names (imported for workers; not a public re-export).
     scan_mod.sha256_file = hashing_mod.sha256_file  # type: ignore[attr-defined]  # profile hook: scan binds hashing for workers
     scan_mod.perceptual_hash = hashing_mod.perceptual_hash  # type: ignore[attr-defined]  # profile hook: scan binds hashing for workers
     scan_mod._sizes = timed_sizes.wrap(orig_sizes)
+    scan_mod._probe_readability = timed_probe.wrap(orig_probe)
 
     wall0 = time.perf_counter()
     try:
@@ -287,6 +294,7 @@ def profile_preview(source: Path, *, label: str) -> dict[str, Any]:
                 )
                 phases["compute_hashes_wall"] = time.perf_counter() - t
                 phases["sizes_stat_pass"] = timed_sizes.seconds
+                phases["readability_probe_pass"] = timed_probe.seconds
                 phases["sha256_file_summed"] = timed_sha.seconds
                 phases["perceptual_hash_summed"] = timed_phash.seconds
 
@@ -322,6 +330,7 @@ def profile_preview(source: Path, *, label: str) -> dict[str, Any]:
         scan_mod.sha256_file = orig_sha  # type: ignore[attr-defined]  # profile hook: restore scan hashing bind
         scan_mod.perceptual_hash = orig_phash  # type: ignore[attr-defined]  # profile hook: restore scan hashing bind
         scan_mod._sizes = orig_sizes
+        scan_mod._probe_readability = orig_probe
         restore_opens()
 
 

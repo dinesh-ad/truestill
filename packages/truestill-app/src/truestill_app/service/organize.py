@@ -28,6 +28,7 @@ from truestill_core.models import (
     format_inferred_local_shift_line,
     inferred_local_shifts,
     status_label,
+    unreadable_label,
 )
 from truestill_core.organizer import (
     EXIFTOOL_BACKUP_LABEL,
@@ -66,6 +67,11 @@ SIDEBAR_COLLAPSED_KEY = "ui.sidebar.collapsed"
 #: enough to scan, small enough that a 40,000-file run does not ship a megabyte of JSON.
 DUPLICATE_SAMPLE_LIMIT = 200
 
+#: Same idea for unreadable sources. Separate constant rather than a shared one: these are
+#: different lists with different failure shapes, and tying them together would mean tuning one
+#: could only be done by changing the other.
+UNREADABLE_SAMPLE_LIMIT = 200
+
 
 class DuplicateSample(TypedDict):
     """One match, named. The field the app used to drop is ``matched_path``."""
@@ -83,6 +89,22 @@ class DuplicateReport(TypedDict):
 
     total: int
     shown: list[DuplicateSample]
+
+
+class UnreadableSample(TypedDict):
+    """One source file truestill could not read, and the wording the user sees for why."""
+
+    name: str
+    path: str
+    #: Already worded for a person by `models.unreadable_label` - never the raw enum value.
+    reason: str
+
+
+class UnreadableReport(TypedDict):
+    """Named unreadable files plus the count they were taken from. Same bargain as above."""
+
+    total: int
+    shown: list[UnreadableSample]
 
 
 def _duplicate_report(resolutions: list[Resolution], *, near: bool) -> DuplicateReport:
@@ -184,6 +206,34 @@ def _unreadable_folders(scan: SourceScan) -> list[str]:
     """Folders that could not be listed, as names. **Never a count of what is inside** - that
     number is exactly what could not be read, so supplying one would invent it."""
     return [str(folder) for folder in scan.unreadable_dirs]
+
+
+def _unreadable_files(resolutions: list[Resolution]) -> UnreadableReport:
+    """Source files that could not be read, named with the reason for each.
+
+    The sibling of :func:`_unreadable_folders`, and deliberately a different shape. A folder
+    carries no count because the number of files inside it is exactly what could not be read;
+    a file carries one because the number is known exactly.
+
+    ``{total, shown}`` rather than a bare list, for the reason `_duplicate_report` uses it: a
+    tree of readable directories full of unreadable files can produce thousands, and a
+    truncated list that does not say it was truncated reads as a complete one.
+    """
+    named = [r for r in resolutions if r.hashes.unreadable is not None]
+    shown: list[UnreadableSample] = []
+    for resolution in named[:UNREADABLE_SAMPLE_LIMIT]:
+        reason = resolution.hashes.unreadable
+        assert reason is not None  # filtered above; narrows for the type checker
+        shown.append(
+            {
+                "name": resolution.decision.source.name,
+                "path": str(resolution.decision.source),
+                # Worded here, through the one function §9 allows, so the app and the CLI
+                # cannot describe the same failure differently.
+                "reason": unreadable_label(reason),
+            }
+        )
+    return {"total": len(named), "shown": shown}
 
 
 def _skipped_summary(scan: SourceScan) -> dict[str, dict[str, int]]:
@@ -369,6 +419,10 @@ class OrganizePreviewEmpty(TypedDict):
     #: Named folders that could not be listed. Present here too: "no media found" is exactly
     #: the answer a user must not receive when the reason is that a folder could not be opened.
     unreadable_folders: list[str]
+    #: **No `unreadable_files` here, on purpose.** An unreadable *file* was still found by the
+    #: walk and classified by its extension, so it is in `scan.media` and this branch - reached
+    #: only when `scan.media` is empty - cannot have one. Its sibling above is present precisely
+    #: because the opposite is true of a folder: an unlistable one is *why* nothing was found.
     mode: str
     mechanism: ModeMechanism
 
@@ -399,6 +453,9 @@ class OrganizePreviewSummary(OrganizeDedupCore):
     #: exactly what could not be read. Distinct from `skipped`, which counts files truestill
     #: decided about.
     unreadable_folders: list[str]
+    #: Source files that could not be read, named with a reason each. Its sibling above carries
+    #: no count on purpose; this one does, because for a file the number is known exactly.
+    unreadable_files: UnreadableReport
     mode: str
     mechanism: ModeMechanism
     elapsed_seconds: NotRequired[float]
@@ -484,6 +541,7 @@ def organize_preview(
             "destination_is_drive": read_marker(destination) is not None,
             "skipped": _skipped_summary(scan),
             "unreadable_folders": _unreadable_folders(scan),
+            "unreadable_files": _unreadable_files(resolutions),
             "mode": mode,
             "mechanism": mechanism,
         },

@@ -21,6 +21,7 @@ No BLAKE3, no algorithm setting, one catalog column (see ``DECISIONS.md`` D8).
 
 from __future__ import annotations
 
+import errno
 import os
 import threading
 from collections import Counter
@@ -32,12 +33,13 @@ from concurrent.futures import (
     ThreadPoolExecutor,
     as_completed,
 )
+from dataclasses import replace
 from pathlib import Path
 from typing import Literal
 
 from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import perceptual_hash, sha256_file
-from truestill_core.models import FileHashes
+from truestill_core.models import FileHashes, UnreadableReason
 from truestill_core.progress import Phase, Progress, ProgressCallback
 
 PoolKind = Literal["thread", "process"]
@@ -47,27 +49,80 @@ PoolKind = Literal["thread", "process"]
 DEFAULT_WORKERS = os.cpu_count() or 4
 
 
-def _hash_one(args: tuple[str, bool]) -> tuple[str, str | None, str | None]:
-    """Worker body: return ``(path, sha256_or_None, perceptual_or_None)``.
+#: One worker's answer: ``(path, sha256, perceptual, why_it_could_not_be_read)``.
+HashJobResult = tuple[str, str | None, str | None, UnreadableReason | None]
+
+
+def _reason_for(exc: OSError) -> UnreadableReason:
+    """Classify a failed read into the wording the user will eventually see.
+
+    Split by ``errno`` rather than by message text, for the reason §9 gives for error matching
+    generally: a message is free to be reworded and an ``errno`` is not.
+    """
+    if isinstance(exc, PermissionError):
+        return UnreadableReason.PERMISSION
+    if isinstance(exc, FileNotFoundError):
+        return UnreadableReason.MISSING
+    if exc.errno == errno.EIO:
+        return UnreadableReason.IO_ERROR
+    return UnreadableReason.OTHER
+
+
+def _probe_readability(paths: Sequence[Path]) -> dict[Path, UnreadableReason]:
+    """Which of ``paths`` cannot be opened, and why. One ``open`` plus a 1-byte read each.
+
+    **This runs over every path, and must keep doing so. Do not move it into the worker.**
+    ``HashCache.get`` keys on size and mtime, both of which come from ``stat`` - and ``stat``
+    SUCCEEDS on a file whose contents cannot be read. So a file that was readable when it was
+    last hashed and is unreadable now returns a cache **hit**, never reaches :func:`_hash_one`,
+    and would be invisible to a probe living there. On a repeat preview - the ordinary way
+    someone uses this tool - that is the common path, not the corner one. Pinned by
+    ``test_a_cached_file_that_became_unreadable_is_still_named``.
+
+    **An explicit open, deliberately, and not a reason read off ``perceptual_hash``.** That
+    function already opens every file, so the information looks free. It is not: Pillow raises
+    a plain ``OSError`` for *"image file is truncated"* - a corrupt but perfectly readable
+    JPEG. Deriving readability from Pillow's exception taxonomy would report a corruption
+    problem as a permission problem, which sends the user after the wrong remedy. ``open``
+    answers exactly the question asked and ``errno`` answers why. Pinned by
+    ``test_a_corrupt_but_readable_image_is_not_called_unreadable``.
+
+    Cost: **O(n)** syscalls and **no extra bytes read**. Measured 6.9 us/file against
+    ``perceptual_hash`` at 58 us/file on the same pass (`docs/PERFORMANCE.md` §3.2).
+    """
+    unreadable: dict[Path, UnreadableReason] = {}
+    for path in paths:
+        try:
+            with path.open("rb") as handle:
+                handle.read(1)
+        except OSError as exc:
+            unreadable[path] = _reason_for(exc)
+    return unreadable
+
+
+def _hash_one(args: tuple[str, bool]) -> HashJobResult:
+    """Worker body: return ``(path, sha256_or_None, perceptual_or_None, unreadable_or_None)``.
 
     Module-level and picklable so it works under a ProcessPoolExecutor. SHA-256 is computed
     only when ``need_sha`` is set (the size pre-filter's decision); perceptual hashing is
     attempted for every file and simply returns None for non-images. An unreadable path
-    returns ``(path, None, None)`` so one bad file cannot abort the batch.
+    returns empty hashes so one bad file cannot abort the batch.
+
+    The handler stays even though :func:`_probe_readability` has already opened every file,
+    because it catches a **different** failure: opened fine, then failed at byte N. A 1-byte
+    probe cannot see that, and a large file on a failing disk is exactly where it happens.
     """
     path_str, need_sha = args
     path = Path(path_str)
     try:
         sha = sha256_file(path) if need_sha else None
         perceptual = perceptual_hash(path)
-    except OSError:
-        return path_str, None, None
-    return path_str, sha, perceptual
+    except OSError as exc:
+        return path_str, None, None, _reason_for(exc)
+    return path_str, sha, perceptual, None
 
 
-def _take_hash_result(
-    future: Future[tuple[str, str | None, str | None]],
-) -> tuple[str, str | None, str | None] | None:
+def _take_hash_result(future: Future[HashJobResult]) -> HashJobResult | None:
     """Unpack one worker future, or ``None`` when the process pool itself has died."""
     try:
         return future.result()
@@ -115,6 +170,7 @@ def _run_hash_jobs(
     cancel: threading.Event | None,
     cache: HashCache | None,
     results: dict[Path, FileHashes],
+    unreadable: dict[Path, UnreadableReason],
     done: int,
     total: int,
 ) -> None:
@@ -130,15 +186,22 @@ def _run_hash_jobs(
                 break
             got = _take_hash_result(future)
             if got is None:
-                # Pool death is not an OSError; abandon remaining work with empty hashes.
+                # Pool death is not an OSError; abandon remaining work with empty hashes. The
+                # probe's verdict still rides along: a file we already know we cannot read is
+                # not made unknown again by the pool dying underneath it.
                 for path in to_hash:
-                    results.setdefault(path, FileHashes(None, None))
+                    results.setdefault(path, FileHashes(None, None, unreadable.get(path)))
                 break
-            path_str, sha, perceptual = got
+            path_str, sha, perceptual, late = got
             path = Path(path_str)
-            hashes = FileHashes(sha256=sha, perceptual=perceptual)
+            # The worker's reason wins where it has one: it read further than the probe did.
+            hashes = FileHashes(
+                sha256=sha, perceptual=perceptual, unreadable=late or unreadable.get(path)
+            )
             results[path] = hashes
             if cache is not None and (sha is not None or perceptual is not None):
+                # An unreadable file has neither hash, so it is never cached and the reason is
+                # never persisted - `put` writes the two hashes and nothing else either way.
                 cache.put(path, sizes.get(path, -1), _mtime_ns(path), hashes)
             done += 1
             if progress is not None:
@@ -169,6 +232,10 @@ def compute_hashes(
         return {}
 
     sizes = _sizes(paths)
+    # Over *all* paths and before the cache split below, which is the whole point: `stat`
+    # succeeds on a file whose bytes cannot be read, so an unreadable file can still produce a
+    # cache hit and skip the worker entirely. See `_probe_readability`.
+    unreadable = _probe_readability(paths)
     # Computed over *all* paths, cached or not: a collision is a property of the batch, and
     # dropping cached files from the tally would silently change who needs a SHA-256.
     need_sha = _needs_sha(sizes, catalog_sizes)
@@ -186,7 +253,11 @@ def compute_hashes(
             if hit is None:
                 to_hash.append(path)
             else:
-                results[path] = hit
+                # The cached hashes stay usable for dedup - they describe content that has not
+                # changed. What has changed is that the file cannot be read *now*, so the copy
+                # will fail, and a preview that omits it is predicting the wrong run.
+                reason = unreadable.get(path)
+                results[path] = hit if reason is None else replace(hit, unreadable=reason)
         done = len(results)
         if progress is not None and done:
             # Report the hits as done in one step -- a run that is entirely cached should show
@@ -203,6 +274,7 @@ def compute_hashes(
         cancel=cancel,
         cache=cache,
         results=results,
+        unreadable=unreadable,
         done=done,
         total=total,
     )

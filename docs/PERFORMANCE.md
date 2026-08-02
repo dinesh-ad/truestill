@@ -334,6 +334,45 @@ but a future attempt on a newer pillow-heif should re-check presence before assu
 is the route. If a later pillow-heif exposes a scaled or thumbnail decode, this is worth
 re-testing - starting with the correctness question above, not the stopwatch.
 
+### 3.2 The `(aac)` readability probe costs 3% of a pass that was already opening every file
+
+Added 2026-08-02 with `(aac)`. `compute_hashes` now opens every path and reads one byte before
+the cache split, so a file that cannot be read is **named** instead of collapsing into the same
+`FileHashes(None, None)` the size pre-filter produces for a file it legitimately skipped.
+
+Recorded here because it is new per-file I/O on the preview path, which is the one place this
+document says to be suspicious of, and because the obvious cheaper alternative was rejected on
+correctness rather than on cost - see below.
+
+**Measured 2026-08-02.** Hermetic fixture of 2,000 generated JPEGs (3.7 MB total), local SSD,
+page-cache warm, AMD Ryzen 7 4800H, Linux, Python 3.13. n = 9 for the probe and the stat pass,
+n = 5 for the two hashing passes. p95 is the observed maximum at these sample sizes.
+
+| Pass, over the same 2,000 files | median | p95 (max) | spread | per file |
+|---|---|---|---|---|
+| **`_probe_readability` (new)** | **13.5 ms** | 14.3 ms | 1.08x | **6.7 us** |
+| `_sizes` stat pass | 4.6 ms | 6.9 ms | 1.60x | 2.3 us |
+| `sha256_file` | 19.5 ms | 19.8 ms | 1.03x | 9.7 us |
+| `perceptual_hash` | 472.1 ms | 494.6 ms | 1.06x | 236.0 us |
+
+**The probe is 3% of the perceptual pass, and 3% of all four combined.** It is dominated by
+exiftool, which §1 has as the preview's real cost at ~231 s for 2,064 files on FUSE. **O(n)**
+syscalls; **no extra bytes are read** - one byte, not one file.
+
+**Why not read the answer off `perceptual_hash` for free.** That function already opens every
+file, so the information looks like it costs nothing. Rejected on correctness: Pillow raises a
+plain `OSError` for *"image file is truncated"*, a corrupt but perfectly **readable** JPEG.
+Deriving readability from Pillow's exception taxonomy would report a corruption problem as a
+permission problem, sending the user to fix a file mode that was never wrong. The saving would
+have been 6.7 us per file. Pinned by
+`test_a_corrupt_but_readable_image_is_not_called_unreadable`.
+
+**Not a candidate for "only probe what the worker will not read anyway".** Probing only
+unique-size files would halve nothing measurable and would reopen the cache hole: `HashCache`
+keys on size and mtime, both from `stat`, and `stat` succeeds on an unreadable file - so a file
+that was readable last run returns a cache hit and never reaches a worker at all. The probe
+must stay ahead of the cache split. See §4.
+
 ## 4. Non-findings - things to leave alone
 
 Recorded so a future optimizer doesn't "improve" them:
@@ -353,6 +392,14 @@ Recorded so a future optimizer doesn't "improve" them:
   content without changing size or mtime. Never cache it. (Already contract-recorded.)
 - **exiftool as the sole metadata reader**, batched - the per-file cost is 2.2 ms at 12 MP
   because it reads headers, not whole files.
+- **The `(aac)` readability probe runs over *every* path, before the hash-cache split.** It
+  looks like an easy 6.7 µs/file to reclaim by probing only files the worker will not read
+  anyway. It is not: `HashCache` keys on size and mtime, both from `stat`, and `stat` succeeds
+  on a file whose bytes cannot be read - so a file that was readable last run and is unreadable
+  now returns a cache **hit** and never reaches a worker. Narrowing the probe restores the exact
+  silence `(aac)` closed, on the repeat preview that is the ordinary way people use this tool.
+  Measured in §3.2 at 3% of a pass that already opens every file. Pinned by
+  `test_a_cached_file_that_became_unreadable_is_still_named`.
 
 Two more, added by the pass that wrote this document:
 

@@ -7,6 +7,17 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- **An organize *preview* now exits `1` instead of `0` when it could not read one of your
+  files.** Read this if you script truestill: `truestill organize <src> <dst> && next_step` used
+  to chain in this case and now stops. That is the intended behaviour, not a side effect - a
+  preview exists to predict the run, the run exits `1` on those same files, and a `0` here meant
+  the chain continued past a library truestill could not fully account for. Nothing else about
+  the exit codes changed: `1` has always been this CLI's *"finished, but something is wrong"*
+  (`verify` uses it for a missing or mismatched copy, `organize --apply` for a failed one,
+  `reclaim` for a skipped one), so no new code was introduced. **A preview over a fully readable
+  source still exits `0`**, and `--apply` runs are unchanged. If you want the old
+  keep-going behaviour, test the code explicitly (`code=$?; [ $code -le 1 ] && next_step`)
+  rather than discarding it.
 - **`ingest --takeout` is now `ingest --source`.** The old name described the motivating case
   rather than the feature: archive ingestion reads any `.zip`, `.tar`, `.tgz` or `.tar.gz` from
   any source, and every major photo service hands a user a `.zip`. `--source` is format-neutral
@@ -14,6 +25,18 @@ All notable changes to this project are documented here. The format follows
   a hidden alias resolving to the same value, not a deprecation, so existing scripts are safe.
 
 ### Fixed
+- **A photo truestill cannot read is now named, instead of vanishing from the preview.** A file
+  that is locked, permission-denied, on a failing disk, or moved away mid-scan produced empty
+  hashes - **the same empty hashes** a file gets when the size pre-filter deliberately decides
+  not to hash it. Nothing downstream could tell those apart, so on a preview, which copies
+  nothing and therefore never reaches the run's "failed" outcome, the file was reported
+  **nowhere at all** and the library looked clean. Both the CLI and the app now count these and
+  name them one by one, with the reason for each - *permission denied*, *input/output error*,
+  *disappeared during the scan* - because those are three different things to do about it. A
+  long list is capped and says how many it hid. Unreadable **folders**, which the app has known
+  about since the feature shipped but never actually drew on screen, are now displayed too;
+  they are still named without a file count, because the number inside a folder that cannot be
+  opened is precisely what is unknown.
 - **A FAT32 drive can no longer swallow most of a run and then fail the videos.** FAT32 cannot
   store a file of 4 GiB or more, and 4K phone video crosses that routinely. Organize had no
   preflight of any kind, so a library with a few big videos organized nine thousand files and
