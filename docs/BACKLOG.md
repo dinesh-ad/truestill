@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aaq). Next free: (aar).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aar). Next free: (aas).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -1243,19 +1243,73 @@ picking one up must map the combined order before building.
     first and pair later"*; `(p)` needs it for share-export; `(aag)` is burst review, which tier 1
     would answer with `BurstUUID` rather than a heuristic.
 
-- **(aaq) `categorize.py`'s `SamsungModel` fallback can never fire.** Recorded 2026-08-02 while
-  auditing what device metadata is kept. **Record only - do not fix without deciding which way.**
-  - **The defect.** `rule_device` reads `_text(metadata, "Model") or _text(metadata,
-    "SamsungModel")`, but `SamsungModel` is **not in `REQUESTED_TAGS`**, and exiftool is invoked
-    with an explicit named tag list - so the key is never present and the fallback is unreachable.
-    Confirmed by probe: a file stamped with every device tag returns only the requested ones.
+- **(aaq) Two paths in `categorize.py` read tags that are never requested, so neither can fire.**
+  Recorded 2026-08-02 while auditing what device metadata is kept; second half added the same day.
+  **Record only - do not fix without deciding which way.** One entry and not two, because it is
+  one decision made twice: both are unreachable for the same reason and both have the same two
+  ways out.
+  - **The `SamsungModel` fallback.** `rule_device` reads `_text(metadata, "Model") or
+    _text(metadata, "SamsungModel")`, but `SamsungModel` is **not in `REQUESTED_TAGS`**, and
+    exiftool is invoked with an explicit named tag list - so the key is never present and the
+    fallback is unreachable. Confirmed by probe: a file stamped with every device tag returns
+    only the requested ones.
+  - **`rule_software`, the whole rule.** It reads `Software`, which is **not in `REQUESTED_TAGS`**
+    either. Measured 2026-08-02: a JPEG stamped `Software=Adobe Photoshop 24.0 (Windows)` comes
+    back from `read_metadata` with keys `DateTimeOriginal`, `FileType`, `ImageHeight`,
+    `ImageWidth`, `MIMEType`, `SourceFile` - no `Software` - and categorises as `Saved` through
+    `RuleName.FALLBACK`. Its own docstring calls it *"the main open-ended path: any application
+    that stamps `Software` gets its own folder"*, and that path is unreachable. `_software_family`
+    and `_GENERIC_SOFTWARE` exist only to serve it, and `layout.py`'s `RuleName.SOFTWARE` side-bin
+    branch is only reachable through it. The module docstring's rule 3 describes behaviour the
+    product does not have.
   - **Two ways out, and they are not equivalent.** *Request the tag* - which changes
     `tags_fingerprint`, invalidating every cached metadata row and forcing a cold exiftool pass,
-    so it needs a reason beyond tidiness. Or *delete the fallback* and record why, which costs
-    nothing but discards whatever case it was written for.
-  - **Worth checking first: it may have been meant to come from `SamsungCaptureInfo`**, which
-    **is** requested and is already used by the screenshot rule. If the Samsung model is derivable
-    from that tag, the fix is a parse rather than a new request - and free.
+    so it needs a reason beyond tidiness. Or *delete the dead path* and record why, which costs
+    nothing but discards whatever case it was written for. `Software` is the more consequential
+    of the two: requesting it turns an open-ended folder-per-application rule on across every
+    library at once, which is a product decision and not a repair.
+  - **Worth checking first for `SamsungModel`: it may have been meant to come from
+    `SamsungCaptureInfo`**, which **is** requested and is already used by the screenshot rule. If
+    the Samsung model is derivable from that tag, the fix is a parse rather than a new request -
+    and free.
+  - **A dead rule still occupies a position in the chain.** `rule_software` sits between the
+    filename conventions and the device rule, so anyone reasoning about `build_rules` is reading
+    six rules when only five can fire - and any change to that ordering has to say what would
+    happen the day `Software` is requested, not only what happens today. `(aar)` is the first
+    change to run into that.
+
+- **(aar) Categorisation is decided by the filename before the camera evidence is looked at.**
+  Recorded 2026-08-02, measured on three fixtures in one organize run. **This is a defect and
+  needs a fix - not post-launch.**
+  - **The measurement.** Three files, one `organize --apply`, verbatim output tree:
+
+    ```
+    2025/2025-08/2025-08 - Everyday/20250801_150500_IMG_4021.jpg    own phone (control)
+    WhatsApp/2025/2025-08/20250801_143000_IMG-20250801-WA0001.jpg   document-mode, FULL EXIF
+    WhatsApp/Undated/IMG-20250801-WA0002.jpg                        compressed, stripped
+    ```
+
+    The middle file carries `Make=Apple`, `Model=iPhone 15 Pro`, real GPS and a real
+    `DateTimeOriginal`. **Truestill used that EXIF timestamp to name and date it -
+    `20250801_143000`, and the run's own summary reports `date sources: exif 2` - and then
+    side-binned it on its filename anyway.** That is the tell: a file trusted enough to take a
+    capture date from is not trusted enough to leave the messenger bin.
+  - **The cause.** `categorize` is first-match-wins. `rule_filename_convention` sits at position 3
+    in `build_rules` and short-circuits before `make_device_rule` at position 5. Its signature is
+    `rule_filename_convention(path, _metadata)` - the metadata parameter is underscore-prefixed
+    and never read, so **it cannot see the EXIF even in principle**. This is not a threshold that
+    was tuned wrong; the evidence is not on that code path.
+  - **The general shape, which outlives this one fix: categorisation and dating are decided
+    independently and disagree.** Dating is evidence-based and records its provenance
+    (`date_source=exif`); categorisation is source-based. Two chains read the same metadata dict
+    in the same pass and reached opposite conclusions about whether to trust it. Placement was
+    surprising because the two answers were never required to agree.
+  - **What is CORRECT here and must not change: the compressed case.** WhatsApp strips EXIF on a
+    normal send, so that file has no trustworthy capture date, and it went to `WhatsApp/Undated/`
+    rather than to a folder named for the day it was sent. **R1 - never treat a messenger
+    sent-date as a capture date - is honoured in code.** It is also the common case by a wide
+    margin: the filename rule exists for it, and a fix that moves it is a worse defect than the
+    one being repaired.
 
 - **(y) Optional photo / video split - default TOGETHER, and pair-aware or not at all.**
   Post-layout-correction. An opt-in that separates standalone videos into their own top-level
