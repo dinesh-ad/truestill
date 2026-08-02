@@ -482,10 +482,13 @@ section, because what is left is the part that still has to be written.
   - **Requirement.** Organize preview and run summaries must count and name unreadable sources
     the way verify reports unreadable copies - which first needs the scan to stop conflating
     "could not read" with "did not need to". Do not treat empty hashes as a finished answer.
-  - **Flagged for the follow-up, not fixed here:** `SourceScan`'s docstring
-    (`organizer.py:205-210`) says an unreadable file *"surfaces as `ActionStatus.FAILED` when the
-    copy raises"* without saying **run only**, so the code comment currently reads as though this
-    item were already closed.
+  - **The docstring that read as though this were already closed: fixed 2026-08-02, the item is
+    not.** `SourceScan`'s docstring said an unreadable file *"surfaces as `ActionStatus.FAILED`
+    when the copy raises"* full stop, with no **run only** qualifier - so the comment standing
+    next to this code announced a resolution the code has not reached. It now names the run path
+    it is true of, states that a preview attempts no copy and reports nothing, and cites `(aac)`.
+    **A comment correction, not a fix:** the preview is still silent, and everything this entry
+    requires is still outstanding.
   - **SECOND SITE, same shape: the perceptual tier (added 2026-08-02).** Found while verifying a
     proposed HEIC feature that turned out not to exist. `perceptual_hash` returns `None` and the
     reason is discarded, so **one sentinel carries at least four distinct meanings**: this is a
