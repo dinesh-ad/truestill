@@ -30,10 +30,12 @@ rather than letting it land silently.
 from __future__ import annotations
 
 import ast
+import contextlib
 import inspect
 import re
 import sqlite3
 import textwrap
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -73,14 +75,23 @@ def _schema_of(conn: sqlite3.Connection) -> list[tuple[str, str]]:
     )
 
 
-def _migrated_from_v1() -> sqlite3.Connection:
-    """A connection carrying every migration applied in order from the v1 shape."""
+@contextlib.contextmanager
+def _migrated_from_v1() -> Iterator[sqlite3.Connection]:
+    """A connection carrying every migration applied in order from the v1 shape.
+
+    A context manager so the handle closes deterministically: returning a bare connection leaked
+    one per parametrised case, and a `ResourceWarning` surfaces wherever the collector happens
+    to run - which lands it on an unrelated test.
+    """
     conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    conn.executescript(_V1_FILES)
-    for _version, migrate in catalog_module._MIGRATIONS:
-        migrate(conn)
-    return conn
+    try:
+        conn.row_factory = sqlite3.Row
+        conn.executescript(_V1_FILES)
+        for _version, migrate in catalog_module._MIGRATIONS:
+            migrate(conn)
+        yield conn
+    finally:
+        conn.close()
 
 
 def _sql_literals(function: object) -> list[str]:
@@ -130,12 +141,12 @@ def test_every_migration_is_idempotent(version: int, migrate: object) -> None:
     This is the property that lets an interrupted upgrade finish on the next open, and §3 states
     it in prose ("ordered, idempotent functions"). Stated in prose is not enforced.
     """
-    conn = _migrated_from_v1()
-    before = _schema_of(conn)
+    with _migrated_from_v1() as conn:
+        before = _schema_of(conn)
+        migrate(conn)  # type: ignore[operator]
+        after = _schema_of(conn)
 
-    migrate(conn)  # type: ignore[operator]
-
-    assert _schema_of(conn) == before, (
+    assert after == before, (
         f"v{version} changed the schema when applied a second time. An interrupted upgrade "
         "re-runs every migration from the recorded version, so a non-idempotent one turns a "
         "recoverable partial upgrade into an error the user cannot get past."
@@ -148,13 +159,13 @@ def test_the_whole_chain_is_idempotent_end_to_end() -> None:
     Each migration passing alone would not prove the *sequence* is safe to replay, which is what
     actually happens: `_migrate` re-runs every entry above the recorded version.
     """
-    conn = _migrated_from_v1()
-    before = _schema_of(conn)
+    with _migrated_from_v1() as conn:
+        before = _schema_of(conn)
+        for _version, migrate in catalog_module._MIGRATIONS:
+            migrate(conn)
+        after = _schema_of(conn)
 
-    for _version, migrate in catalog_module._MIGRATIONS:
-        migrate(conn)
-
-    assert _schema_of(conn) == before
+    assert after == before
 
 
 # --- pin 2: the version never claims a schema that is not there ----------------------------
@@ -170,10 +181,9 @@ def test_an_interrupted_migration_leaves_the_old_version_and_then_self_heals(
     level up. Injection rather than a real process kill, so this runs on all three CI lanes.
     """
     db = tmp_path / "c.sqlite"
-    conn = sqlite3.connect(str(db))
-    conn.executescript(f"{_V1_FILES}\nPRAGMA user_version = 16;")
-    conn.commit()
-    conn.close()
+    with contextlib.closing(sqlite3.connect(str(db))) as conn:
+        conn.executescript(f"{_V1_FILES}\nPRAGMA user_version = 16;")
+        conn.commit()
 
     def interrupted(connection: sqlite3.Connection) -> None:
         for index, (column, kind) in enumerate(_V17_COLUMNS):
@@ -192,10 +202,9 @@ def test_an_interrupted_migration_leaves_the_old_version_and_then_self_heals(
     with pytest.raises(_PowerLossError):
         Catalog(db)
 
-    probe = sqlite3.connect(str(db))
-    version = int(probe.execute("PRAGMA user_version").fetchone()[0])
-    columns = {row[1] for row in probe.execute("PRAGMA table_info(files)")}
-    probe.close()
+    with contextlib.closing(sqlite3.connect(str(db))) as probe:
+        version = int(probe.execute("PRAGMA user_version").fetchone()[0])
+        columns = {row[1] for row in probe.execute("PRAGMA table_info(files)")}
 
     partial = {name for name, _kind in _V17_COLUMNS} & columns
     assert partial, "fixture check: the interruption must leave some work committed"
@@ -208,24 +217,22 @@ def test_an_interrupted_migration_leaves_the_old_version_and_then_self_heals(
     monkeypatch.undo()
     with Catalog(db) as healed:
         assert healed.schema_version == CURRENT_SCHEMA_VERSION
-    probe = sqlite3.connect(str(db))
-    columns = {row[1] for row in probe.execute("PRAGMA table_info(files)")}
-    probe.close()
+    with contextlib.closing(sqlite3.connect(str(db))) as probe:
+        columns = {row[1] for row in probe.execute("PRAGMA table_info(files)")}
     assert {name for name, _kind in _V17_COLUMNS} <= columns, "the next open must finish the job"
 
 
 def test_a_normal_migration_still_arrives_complete(tmp_path: Path) -> None:
     """Cry-wolf half: an uninterrupted upgrade reaches the current version with its rows."""
     db = tmp_path / "c.sqlite"
-    conn = sqlite3.connect(str(db))
-    conn.executescript(
-        f"{_V1_FILES}\n"
-        "INSERT INTO files (source_path, sha256, category, relative, upload_status, "
-        "processed_at) VALUES ('/a.jpg','sha-a','Camera','C/a.jpg','uploaded','2026-01-01');\n"
-        "PRAGMA user_version = 1;"
-    )
-    conn.commit()
-    conn.close()
+    with contextlib.closing(sqlite3.connect(str(db))) as conn:
+        conn.executescript(
+            f"{_V1_FILES}\n"
+            "INSERT INTO files (source_path, sha256, category, relative, upload_status, "
+            "processed_at) VALUES ('/a.jpg','sha-a','Camera','C/a.jpg','uploaded','2026-01-01');\n"
+            "PRAGMA user_version = 1;"
+        )
+        conn.commit()
 
     with Catalog(db) as catalog:
         assert catalog.schema_version == CURRENT_SCHEMA_VERSION

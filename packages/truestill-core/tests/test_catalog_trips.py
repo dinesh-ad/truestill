@@ -257,9 +257,14 @@ def test_v12_downgrades_to_v11_byte_equivalent(tmp_path: Path) -> None:
 
     live_conn = sqlite3.connect(str(live_db))
     live_conn.row_factory = sqlite3.Row
-
-    assert _schema_fingerprint(live_conn) == _schema_fingerprint(reference_conn)
-    assert int(live_conn.execute("PRAGMA user_version").fetchone()[0]) == 11
+    try:
+        assert _schema_fingerprint(live_conn) == _schema_fingerprint(reference_conn)
+        assert int(live_conn.execute("PRAGMA user_version").fetchone()[0]) == 11
+    finally:
+        # Both handles are the test's to close; leaving them open leaked one per run and the
+        # warning surfaced on whichever test the collector happened to interrupt.
+        live_conn.close()
+        reference_conn.close()
 
 
 def test_trip_days_primary_key_rejects_a_second_trip_claiming_the_same_day(tmp_path: Path) -> None:

@@ -486,7 +486,8 @@ def test_dark_theme_toggle_defines_every_media_dark_token(client: TestClient) ->
 
 def test_catalog_db_is_created(client: TestClient, tmp_path: Path) -> None:
     client.get(f"/api/drives?token={TOKEN}")  # opening the catalog creates it
-    assert Catalog(tmp_path / "c.sqlite").schema_version >= 6
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        assert catalog.schema_version >= 6
 
 
 def test_the_two_backup_drive_fields_share_what_the_user_typed(client: TestClient) -> None:

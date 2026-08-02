@@ -12,6 +12,7 @@ is invalidated: `Make`, `Model`, `LensModel` were already requested for categori
 
 from __future__ import annotations
 
+import contextlib
 import shutil
 import sqlite3
 import subprocess
@@ -199,11 +200,12 @@ def test_a_v16_catalog_upgrades_and_its_existing_rows_survive_as_null(tmp_path: 
 
 def test_the_migration_is_idempotent_on_a_catalog_that_already_has_the_columns() -> None:
     """`_columns_of` guards each ADD COLUMN; running it twice must not raise."""
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row  # `_columns_of` reads rows by name, as `Catalog` configures
-    conn.executescript("CREATE TABLE files (id INTEGER PRIMARY KEY); PRAGMA user_version = 16;")
-    _add_capture_columns(conn)
-    _add_capture_columns(conn)
+    with contextlib.closing(sqlite3.connect(":memory:")) as conn:
+        # `_columns_of` reads rows by name, as `Catalog` configures.
+        conn.row_factory = sqlite3.Row
+        conn.executescript("CREATE TABLE files (id INTEGER PRIMARY KEY); PRAGMA user_version = 16;")
+        _add_capture_columns(conn)
+        _add_capture_columns(conn)
+        columns = {r[1] for r in conn.execute("PRAGMA table_info(files)")}
 
-    columns = {r[1] for r in conn.execute("PRAGMA table_info(files)")}
     assert {"camera_make", "gps_latitude"} <= columns

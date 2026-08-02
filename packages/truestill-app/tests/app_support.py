@@ -43,6 +43,11 @@ class StubServer:
 
     def run(self, sockets: list[socket.socket] | None = None) -> None:
         self.sockets = sockets  # recorded, never served
+        # In production uvicorn owns these and closes them; here this stub IS the owner, and
+        # dropping them leaked a listening socket per launch. Closed after recording, so what
+        # the test inspects is unchanged - `self.sockets` still holds what it was handed.
+        for sock in sockets or ():
+            sock.close()
 
 
 class ImmediateThread:

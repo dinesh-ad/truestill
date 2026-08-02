@@ -18,6 +18,7 @@ needed an answer rather than an assumption.
 
 from __future__ import annotations
 
+import contextlib
 import sqlite3
 from pathlib import Path
 
@@ -32,14 +33,17 @@ def _row(**fields: object) -> sqlite3.Row:
     ``KeyError`` on an absent column, so a fixture that is not really a row cannot prove
     :meth:`CopyToVerify.from_row` reads the columns it claims to.
     """
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    columns = ", ".join(fields)
-    placeholders = ", ".join(["?"] * len(fields))
-    return conn.execute(
-        f"WITH r({columns}) AS (VALUES ({placeholders})) SELECT * FROM r",
-        tuple(fields.values()),
-    ).fetchone()
+    # Closed once the row is materialised: a `sqlite3.Row` holds its values, not the cursor, so
+    # it outlives the connection - and leaving the handle open leaked one per call.
+    with contextlib.closing(sqlite3.connect(":memory:")) as conn:
+        conn.row_factory = sqlite3.Row
+        columns = ", ".join(fields)
+        placeholders = ", ".join(["?"] * len(fields))
+        row: sqlite3.Row = conn.execute(
+            f"WITH r({columns}) AS (VALUES ({placeholders})) SELECT * FROM r",
+            tuple(fields.values()),
+        ).fetchone()
+    return row
 
 
 def _copy(root: Path, relative: str, payload: bytes) -> None:
