@@ -178,3 +178,18 @@ def test_an_ordinary_preview_grows_no_warning_at_all(ui: Page) -> None:
 
     expect(ui.locator("#org-result")).to_contain_text("found", timeout=30_000)
     expect(ui.locator("[data-testid='org-unreadable']")).to_have_count(0)
+
+
+def test_a_skipped_group_the_engine_adds_reaches_the_screen(ui: Page) -> None:
+    """The renderer must show whatever groups the payload carries, not three it names by hand.
+
+    `hidden` was added to the engine's skipped census on 2026-08-04. `app.js` listed
+    `documents`, `unrecognized` and `exiftool_backups` literally, so the new group would have
+    reached the browser and stopped there - the same way `unreadable_folders` did, which is the
+    defect this whole file exists for. Asserted through the browser because a payload can be
+    perfectly correct while nothing on the page reads it.
+    """
+    _preview(ui, _summary(skipped={"hidden": {".picasa.ini": 1}, "documents": {}}))
+    result = ui.locator("#org-result")
+    expect(result).to_contain_text("hidden")
+    expect(result).to_contain_text(".picasa.ini")

@@ -7,6 +7,18 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- **Truestill now tells you when it has passed over a hidden file or a hidden folder.** It
+  still skips them, and that is deliberate: the hidden folders on a typical computer are
+  `.Trash`, `.thumbnails` and the caches your operating system keeps, and sweeping those into
+  your library would be worse than leaving them alone. What was wrong is that it said nothing.
+  **If you keep photos in a hidden folder, you saw no sign of them at all** - not a count, not a
+  name, nothing. Now the folder is named, so you can rename it without the leading dot and run
+  again to bring those photos in.
+  Hidden *files* are listed by name, so you can see that the thing skipped was your own
+  `.picasa.ini` rather than something anonymous. And **Truestill's own `.truestill-drive.json`
+  is listed separately** rather than counted among yours - it is hidden too, and one of the
+  hidden files being ours is exactly the sort of thing that makes a count confusing.
+  **Nothing about which photos get organized has changed.**
 - **`truestill analyze` now shows you what it is doing while it does it, and its report survives
   being saved to a file.** On a 192 GB library the census appeared in 21 seconds and then
   **nothing happened on screen for 53 minutes** - the work was running the whole time, but there

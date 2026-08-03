@@ -1383,18 +1383,25 @@ async function startOrganizeUndoApply() {
   });
 }
 
+// Renders WHATEVER groups the payload carries, rather than the three it used to name by hand.
+// That hand-kept list is the third copy of one vocabulary this repo has been bitten by: adding
+// `hidden` in core would have left the app silently short, which is precisely the "skipped but
+// never counted" defect the group exists to fix. The engine decides what the groups are; this
+// decides how they look. Keys are snake_case there and read as words here.
 function renderSkippedDetails(sk) {
-  const skDocs = Object.entries((sk && sk.documents) || {});
-  const skUn = Object.entries((sk && sk.unrecognized) || {});
-  const backupCount = Object.values((sk && sk.exiftool_backups) || {}).reduce((a, n) => a + n, 0);
-  const skTotal = skDocs.concat(skUn).reduce((a, [, n]) => a + n, 0) + backupCount;
+  const groups = Object.entries(sk || {})
+    .map(([name, counts]) => [name, Object.entries(counts || {})])
+    .filter(([, entries]) => entries.length);
+  const skTotal = groups.reduce((a, [, entries]) => a + entries.reduce((b, [, n]) => b + n, 0), 0);
   if (!skTotal) return "";
-  const rows = (label, list) => list.length
-    ? `<tr><td>${label}</td><td class="num">${list.map(([e, n]) => `${esc(e)} ×${n}`).join(", ")}</td></tr>` : "";
-  const backupRow = backupCount
-    ? `<tr><td>exiftool backup</td><td class="num">${backupCount}</td></tr>` : "";
+  const rows = groups
+    .map(([name, entries]) =>
+      `<tr><td>${esc(name.replace(/_/g, " "))}</td><td class="num">${entries
+        .map(([e, n]) => `${esc(e)} ×${n}`)
+        .join(", ")}</td></tr>`)
+    .join("");
   return `<details class="more"><summary>${plural(skTotal, "file")} skipped (not photos or videos) ▾</summary>
-    <table class="table"><tbody>${rows("documents", skDocs)}${rows("unrecognized", skUn)}${backupRow}</tbody></table></details>`;
+    <table class="table"><tbody>${rows}</tbody></table></details>`;
 }
 
 // What Truestill could not read, on the preview that is supposed to predict the run.

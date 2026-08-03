@@ -1827,12 +1827,22 @@ def _print_inventory_skipped(inventory: SourceInventory) -> None:
     formats, deliberately, so a 33,000-file census never builds a per-file structure.
     """
     groups = {name: counts for name, counts in inventory.skipped.items() if counts}
-    if not groups and not inventory.unreadable_dirs:
+    if not groups and not inventory.unreadable_dirs and not inventory.hidden_dirs:
         return
     print("\nSkipped (not counted as media):")
     for name, counts in groups.items():
         total = sum(counts.values())
         print(f"  {name.replace('_', ' ')}: {total:,}  ({_format_extension_census(counts)})")
+    if inventory.hidden_dirs:
+        # The same rule as unreadable folders below, for the same reason: the walk never went
+        # in, so the number of photos inside is exactly what is unknown. A user with an album
+        # in a hidden folder used to see nothing at all - not a count, not a name.
+        print(f"  hidden folders (not looked inside): {len(inventory.hidden_dirs):,}")
+        for folder in inventory.hidden_dirs[:_STATUS_PREVIEW]:
+            print(f"      {folder}  (contents unknown)")
+        if len(inventory.hidden_dirs) > _STATUS_PREVIEW:
+            print(f"      ... and {len(inventory.hidden_dirs) - _STATUS_PREVIEW:,} more.")
+        print("    (rename one without the leading dot, then run again to include what is in it)")
     if inventory.unreadable_dirs:
         # Named, and deliberately WITHOUT a file count: the number inside is exactly what could
         # not be read, so stating one would invent the missing figure.

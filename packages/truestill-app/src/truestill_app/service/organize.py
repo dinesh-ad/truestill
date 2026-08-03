@@ -33,7 +33,6 @@ from truestill_core.models import (
     unreadable_label,
 )
 from truestill_core.organizer import (
-    EXIFTOOL_BACKUP_LABEL,
     Relocation,
     SourceScan,
     discover,
@@ -44,6 +43,7 @@ from truestill_core.organizer import (
     preflight_for_run,
     resolve,
     scan_source,
+    skipped_extension_counts,
 )
 from truestill_core.progress import ProgressCallback
 
@@ -259,13 +259,16 @@ def _unreadable_files(resolutions: list[Resolution]) -> UnreadableReport:
 
 
 def _skipped_summary(scan: SourceScan) -> dict[str, dict[str, int]]:
-    """Skipped files for the UI: extension counts, plus a plain exiftool-backup label."""
-    backups = {EXIFTOOL_BACKUP_LABEL: len(scan.exiftool_backups)} if scan.exiftool_backups else {}
-    return {
-        "documents": dict(Counter(p.suffix.lower() or "(no ext)" for p in scan.documents)),
-        "unrecognized": dict(Counter(p.suffix.lower() or "(no ext)" for p in scan.unrecognized)),
-        "exiftool_backups": backups,
-    }
+    """Skipped files for the UI. **A thin alias, deliberately not a second implementation.**
+
+    This was a verbatim copy of `organizer.skipped_extension_counts` until 2026-08-04, and a
+    group added to one would have left the other silently short - the drift that
+    `test_layout_scheme.ALL_RULES` and `check_product_name.SUBCOMMANDS` each produced once
+    already. Kept as a named function because the payload builder reads better for it, and
+    because deleting the name would be a change to this module's shape rather than to its
+    behaviour.
+    """
+    return skipped_extension_counts(scan)
 
 
 class OrganizeInventory(TypedDict):

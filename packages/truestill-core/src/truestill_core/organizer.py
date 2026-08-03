@@ -32,6 +32,7 @@ from truestill_core.dates import (
 )
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations.base import CrossDeviceError, Destination, DestinationError
+from truestill_core.drive import LEGACY_MARKER_NAMES, MARKER_NAME
 from truestill_core.exif import WRITE_BATCH_SIZE, build_metadata_args, write_metadata_batch
 from truestill_core.filesystem import DestinationPreflight, sizes_of
 from truestill_core.hash_cache import HashCache
@@ -194,6 +195,17 @@ DOCUMENT_EXTENSIONS: frozenset[str] = frozenset(
 #: Plain skipped-report label for exiftool ``*_original`` sidecars (never an extension count).
 EXIFTOOL_BACKUP_LABEL = "exiftool backup"
 
+#: Census group for the user's own hidden files. They stay skipped - a dot-file is not a photo -
+#: but a skip that is never counted is the `(aac)` defect, and `.picasa.ini` is real user
+#: metadata that used to vanish from the report entirely.
+HIDDEN_LABEL = "hidden"
+
+#: Census group for Truestill's own drive marker, counted **apart** from the user's hidden
+#: files. Folded into their tally it would report a hidden file on every organized drive that
+#: the user did not create and cannot act on; dropped, the number would stop matching what
+#: ``ls -a`` shows. Snake_case like every other group key - the CLI renders `_` as a space.
+TRUESTILL_MARKER_LABEL = "truestill_marker"
+
 
 @dataclass(frozen=True)
 class SourceScan:
@@ -222,6 +234,15 @@ class SourceScan:
     unrecognized: list[Path]
     exiftool_backups: list[Path] = field(default_factory=list)
     unreadable_dirs: list[Path] = field(default_factory=list)
+    #: The user's own hidden files - skipped, and now counted rather than dropped.
+    hidden: list[Path] = field(default_factory=list)
+    #: Truestill's own marker files, kept apart from ``hidden`` so a count of the user's
+    #: hidden files never includes one of ours.
+    markers: list[Path] = field(default_factory=list)
+    #: Hidden folders, **named without a count**. The walk never descends into one, so the
+    #: number of files inside is precisely what is unknown - the same rule ``unreadable_dirs``
+    #: follows above, and for the same reason: a number here would be invented.
+    hidden_dirs: list[Path] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
@@ -244,6 +265,10 @@ class SourceInventory:
     #: the same answer -- `(aac)`'s defect on a cheaper surface. Carried as paths and never as a
     #: count: the number of files inside is exactly what is unknown, so any figure is invented.
     unreadable_dirs: list[Path] = field(default_factory=list)
+    #: Hidden folders the walk deliberately did not enter. Same shape and same reason as
+    #: ``unreadable_dirs``: a place, never a count. A user with an album in one used to get no
+    #: acknowledgement at all that anything had been passed over.
+    hidden_dirs: list[Path] = field(default_factory=list)
 
 
 def is_exiftool_original_backup(path: Path | str) -> bool:
@@ -279,6 +304,9 @@ def scan_source(source: Path, *, all_files: bool = False) -> SourceScan:
     unrecognized: list[Path] = []
     exiftool_backups: list[Path] = []
     unreadable_dirs: list[Path] = []
+    hidden: list[Path] = []
+    markers: list[Path] = []
+    hidden_dirs: list[Path] = []
 
     def _note_unreadable(error: OSError) -> None:
         """A folder that could not be listed. **Never raises** - one locked folder must not
@@ -297,9 +325,21 @@ def scan_source(source: Path, *, all_files: bool = False) -> SourceScan:
     # already paid for. `walk` yields per directory, so the sort is what keeps the global
     # ordering the reports and golden tests depend on.
     for dirpath, dirnames, filenames in source.walk(on_error=_note_unreadable):
-        dirnames[:] = [name for name in dirnames if not name.startswith(".")]
+        kept: list[str] = []
+        for name in dirnames:
+            if name.startswith("."):
+                # Named, then pruned. The walk still does not go in - reporting the folder is
+                # free, counting what is inside would mean descending `.git` on every scan -
+                # so this records a place that was skipped, never a number for it.
+                hidden_dirs.append(dirpath / name)
+            else:
+                kept.append(name)
+        dirnames[:] = kept
         for filename in filenames:
             if filename.startswith("."):
+                # Ours or theirs: the distinction is the whole reason both lists exist.
+                target = markers if filename in _MARKER_NAMES else hidden
+                target.append(dirpath / filename)
                 continue
             path = dirpath / filename
             if not path.is_file():
@@ -320,6 +360,9 @@ def scan_source(source: Path, *, all_files: bool = False) -> SourceScan:
         unrecognized=sorted(unrecognized),
         exiftool_backups=sorted(exiftool_backups),
         unreadable_dirs=sorted(unreadable_dirs),
+        hidden=sorted(hidden),
+        markers=sorted(markers),
+        hidden_dirs=sorted(hidden_dirs),
     )
 
 
@@ -339,13 +382,55 @@ def _bytes_of(paths: Sequence[Path]) -> int:
     return total
 
 
-def _skipped_extension_counts(scan: SourceScan) -> dict[str, dict[str, int]]:
-    backups = {EXIFTOOL_BACKUP_LABEL: len(scan.exiftool_backups)} if scan.exiftool_backups else {}
-    return {
-        "documents": dict(Counter(p.suffix.lower() or "(no ext)" for p in scan.documents)),
-        "unrecognized": dict(Counter(p.suffix.lower() or "(no ext)" for p in scan.unrecognized)),
-        "exiftool_backups": backups,
+#: Truestill's own hidden filenames, **imported rather than retyped**. `drive` owns them, and a
+#: second hand-kept copy is the failure this repo has now hit twice - `test_layout_scheme`'s
+#: `ALL_RULES` and `check_product_name`'s `SUBCOMMANDS` both silently stopped covering the thing
+#: that had changed.
+_MARKER_NAMES: frozenset[str] = frozenset({MARKER_NAME, *LEGACY_MARKER_NAMES})
+
+
+def skipped_extension_counts(scan: SourceScan) -> dict[str, dict[str, int]]:
+    """Per-extension counts for every group of files a scan did **not** treat as media.
+
+    **One home, called by both surfaces.** The app kept a verbatim copy of this function until
+    2026-08-04; adding a group to one of them would have left the other silently short, which is
+    the same drift `ALL_RULES` and `SUBCOMMANDS` produced. Two copies of a vocabulary is one
+    copy too many.
+
+    A group with nothing in it is **absent**, not zero: never-silent is about what happened, not
+    about what did not, and an ordinary folder should not sprout a row explaining that it has no
+    hidden files.
+    """
+    by_extension = {
+        "documents": scan.documents,
+        "unrecognized": scan.unrecognized,
     }
+    groups = {
+        name: dict(Counter(p.suffix.lower() or "(no ext)" for p in paths))
+        for name, paths in by_extension.items()
+    }
+    # **Hidden files are counted by NAME, not by extension**, and the difference is the whole
+    # value of the row. `.DS_Store` has no suffix at all by `Path`'s rules, so an extension
+    # census reports `(no ext) x1` and teaches nobody anything; the names are what a user
+    # recognises, and `.picasa.ini` being their own Picasa metadata is the case that matters.
+    # The `._IMG_*` AppleDouble family is the one that could sprawl, and the census renderer
+    # already bounds by count *and* width and says how many of the hidden ones were seen once.
+    groups[HIDDEN_LABEL] = dict(Counter(p.name for p in scan.hidden))
+    # These two are counted by NAME rather than by extension: "exiftool backup" and the marker
+    # are what the file *is*, and `.json x1` would name the format instead of the fact.
+    # The GROUP key is `exiftool_backups`; `EXIFTOOL_BACKUP_LABEL` is the row inside it. They
+    # are different strings on purpose - the group name is a payload key the app and its
+    # browser tests read, the label is the plain wording a person sees - and collapsing them
+    # renamed the key under three call sites before the existing tests caught it.
+    groups["exiftool_backups"] = (
+        {EXIFTOOL_BACKUP_LABEL: len(scan.exiftool_backups)} if scan.exiftool_backups else {}
+    )
+    groups[TRUESTILL_MARKER_LABEL] = dict(Counter(p.name for p in scan.markers))
+    return groups
+
+
+#: Kept as the private name three call sites already import.
+_skipped_extension_counts = skipped_extension_counts
 
 
 def _media_format_breakdown(
@@ -409,8 +494,9 @@ def inventory_from_scan(scan: SourceScan, sizes: Mapping[Path, int]) -> SourceIn
         audio=counts["audio"],
         by_format=by_format,
         total_bytes=sum(sizes.values()),
-        skipped=_skipped_extension_counts(scan),
+        skipped=skipped_extension_counts(scan),
         unreadable_dirs=list(scan.unreadable_dirs),
+        hidden_dirs=list(scan.hidden_dirs),
     )
 
 
