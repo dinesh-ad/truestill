@@ -155,3 +155,90 @@ def sizes_for(resolutions: Sequence[Resolution]) -> dict[Path, int]:
         except OSError:
             continue
     return found
+
+
+#: Extensions whose perceptual hash costs ~52x a JPEG's, because `Image.draft()` reaches JPEG
+#: and is a no-op for HEIF - a full 12 MP frame is decoded to produce 8x8 pixels
+#: (`PERFORMANCE.md` §3.1: 319.5 ms against 6.2 ms median on photo-like content, n=7).
+#: pillow-heif 1.5.0 exposes thumbnails as integers only, with no decode path, so this is not
+#: avoidable today - checked 2026-08-03 in the installed source.
+SLOW_PERCEPTUAL_EXTENSIONS: frozenset[str] = frozenset({"heic", "heif", "hif"})
+
+#: Below this share, a HEIC warning would fire on a handful of stray files and be ignored on
+#: the run that matters.
+#:
+#: **This is a judgement, not a measurement, and whoever revisits it should know there is no
+#: data behind it.** A quarter is where the tier's cost changes character rather than merely
+#: rising, but nothing was measured to choose it. It was deliberately **not** tuned against the
+#: format-diverse test corpus either: that set is 868 SVGs and one HEIC, so any threshold fitted
+#: to it would encode a test suite's shape rather than a library's. The number to tune against
+#: is a real HEIC-heavy library, which this project has not had access to.
+SLOW_PERCEPTUAL_WARN_SHARE = 0.25
+
+
+@dataclass(frozen=True, slots=True)
+class ExactDuplicateForecast:
+    """What tier 2a would have to read, predicted from the size census alone."""
+
+    files: int
+    total_bytes: int
+    colliding_files: int
+    bytes_to_read: int
+
+    @property
+    def share(self) -> float:
+        """Fraction of the library's bytes the check would read. ``0.0`` when there is nothing."""
+        return self.bytes_to_read / self.total_bytes if self.total_bytes else 0.0
+
+
+@dataclass(frozen=True, slots=True)
+class LookalikeForecast:
+    """How expensive tier 2b will be for *this* library's format mix."""
+
+    images: int
+    slow_images: int
+
+    @property
+    def slow_share(self) -> float:
+        return self.slow_images / self.images if self.images else 0.0
+
+    @property
+    def materially_slower(self) -> bool:
+        return self.slow_share >= SLOW_PERCEPTUAL_WARN_SHARE
+
+
+def forecast_exact_duplicate_read(sizes: Mapping[Path, int]) -> ExactDuplicateForecast:
+    """Predict tier 2a's read cost from tier 0's data. Free, and available before the wait.
+
+    **The rule is `scan._needs_sha`'s, deliberately not a second opinion.** A file whose byte
+    size is unique in the batch cannot have an identical twin, so it is never hashed; only
+    size-colliding files are read. Pinned against `_needs_sha` itself, so a change to the
+    pre-filter cannot leave this quietly predicting the old behaviour.
+
+    The catalog's known sizes are **not** consulted: Analyze has no catalog by design, so this
+    forecasts the within-source check it will actually perform.
+    """
+    counts = Counter(sizes.values())
+    colliding = [size for size in sizes.values() if counts[size] > 1]
+    return ExactDuplicateForecast(
+        files=len(sizes),
+        total_bytes=sum(sizes.values()),
+        colliding_files=len(colliding),
+        bytes_to_read=sum(colliding),
+    )
+
+
+def forecast_lookalike_cost(by_extension: Mapping[str, int]) -> LookalikeForecast:
+    """How much of this library decodes slowly, from the extension census.
+
+    **Reported as the user's own proportion rather than a general claim.** The corpus this
+    project was built against is 100% JPEG, which is a fact about one person: HEIC has been the
+    iPhone default since 2017, and copying files off by cable or cloud sync yields the original
+    ``.heic`` rather than Apple's converted copy. A product that generalised from our sample
+    would tell most phone users the wrong thing.
+    """
+    counted = {ext.lower(): n for ext, n in by_extension.items()}
+    return LookalikeForecast(
+        images=sum(counted.values()),
+        slow_images=sum(n for ext, n in counted.items() if ext in SLOW_PERCEPTUAL_EXTENSIONS),
+    )

@@ -16,7 +16,7 @@ import shutil
 import tempfile
 import threading
 from collections import Counter
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from pathlib import Path, PurePosixPath
@@ -378,6 +378,27 @@ def inventory_source(source: Path, *, all_files: bool = False) -> SourceInventor
     relative to the full preview.
     """
     scan = scan_source(source, all_files=all_files)
+    return inventory_from_scan(scan, sizes_of_media(scan.media))
+
+
+def sizes_of_media(paths: Sequence[Path]) -> dict[Path, int]:
+    """One ``stat`` per media file. Unreadable entries are omitted rather than raising."""
+    found: dict[Path, int] = {}
+    for path in paths:
+        try:
+            found[path] = path.stat().st_size
+        except OSError:
+            continue
+    return found
+
+
+def inventory_from_scan(scan: SourceScan, sizes: Mapping[Path, int]) -> SourceInventory:
+    """The census, from a walk and a size map the caller already has.
+
+    Split out so a caller that needs the **per-file** sizes -- Analyze, to forecast what the
+    duplicate check will read -- does not pay for a second ``stat`` pass over the whole source
+    to get them. `inventory_source` remains the one-call form.
+    """
     counts, by_format = _media_format_breakdown(scan.media)
     return SourceInventory(
         files=len(scan.media),
@@ -385,7 +406,7 @@ def inventory_source(source: Path, *, all_files: bool = False) -> SourceInventor
         videos=counts["videos"],
         audio=counts["audio"],
         by_format=by_format,
-        total_bytes=_bytes_of(scan.media),
+        total_bytes=sum(sizes.values()),
         skipped=_skipped_extension_counts(scan),
         unreadable_dirs=list(scan.unreadable_dirs),
     )
@@ -563,8 +584,14 @@ def resolve(
     progress: ProgressCallback | None = None,
     cancel: threading.Event | None = None,
     cache: HashCache | None = None,
+    perceptual: bool = True,
 ) -> list[Resolution]:
     """Hash each file (concurrently) and classify it, updating ``index`` as it goes.
+
+    ``perceptual=False`` is Analyze's tier 2a: exact duplicates only, reading just the
+    size-colliding minority instead of decoding every image. It requires a read-only cache -
+    `compute_hashes` refuses the writable pairing, because a partially-hashed row cannot be
+    told from a genuine one later.
 
     Hashing is a parallel pass with a size pre-filter (see :mod:`truestill.scan`); the dedup
     classification that follows is sequential because it is order-dependent. Exact (SHA-256)
@@ -582,6 +609,7 @@ def resolve(
         progress=progress,
         cancel=cancel,
         cache=cache,
+        perceptual=perceptual,
     )
 
     resolutions: list[Resolution] = []

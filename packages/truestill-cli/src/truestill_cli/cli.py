@@ -11,6 +11,7 @@ import json
 import re
 import sqlite3
 import sys
+import threading
 import time
 import uuid
 from collections import Counter
@@ -76,6 +77,8 @@ from truestill_core.insights import (
     capture_span,
     capture_years,
     duplicate_bytes,
+    forecast_exact_duplicate_read,
+    forecast_lookalike_cost,
     largest_files,
     sizes_for,
 )
@@ -125,11 +128,12 @@ from truestill_core.organizer import (
     SourceScan,
     execute,
     heavy_days_for_organize,
-    inventory_source,
+    inventory_from_scan,
     plan,
     preflight_for_run,
     resolve,
     scan_source,
+    sizes_of_media,
 )
 from truestill_core.progress import Progress, ProgressCallback
 from truestill_core.reclaim import ReclaimPlan, plan_reclaim, run_reclaim
@@ -1680,7 +1684,7 @@ def _format_duration(seconds: float) -> str:
 _NOT_YET_ANALYSED = (
     ("dates", "the capture-date range, and how many files carry no trustworthy date"),
     ("duplicates", "identical copies, and the space they waste"),
-    ("look-alikes", "the same photo at a different size or quality"),
+    ("look-alikes", "the same photo at a different size or quality (decodes every image)"),
 )
 
 
@@ -1753,17 +1757,84 @@ def _print_inventory_skipped(inventory: SourceInventory) -> None:
         print("    (check the folder's permissions, then run again to include what is inside)")
 
 
-def _print_not_yet_analysed() -> None:
-    """State the shape of the answer this report does not contain."""
+def _print_not_yet_analysed(*, deep_done: bool) -> None:
+    """State the shape of the answer this report does not contain.
+
+    ``deep_done`` narrows it to the one tier that genuinely did not run. Listing dates and
+    duplicates here after reporting them would be the mirror of the defect this block exists
+    to prevent: saying a measured thing was not measured.
+    """
+    remaining = [
+        entry for entry in _NOT_YET_ANALYSED if not (deep_done and entry[0] != "look-alikes")
+    ]
     print("\nNOT YET ANALYSED")
-    print("  This report reads file names and sizes only, which is why it is fast. It has not")
-    print("  opened any of your files, so it cannot yet tell you about:")
-    for name, description in _NOT_YET_ANALYSED:
+    for name, description in remaining:
         print(f"      {name:<12} {description}")
     print("  No number is shown for those above because none has been measured -- a zero here")
     print("  would mean 'none found', and nothing has looked yet.")
-    print("\n  To find duplicates and check dates today, preview an organize run:")
-    print("      truestill organize <folder> --destination <folder>")
+    if not deep_done:
+        print("\n  To find duplicates and check dates today, preview an organize run:")
+        print("      truestill organize <folder> --destination <folder>")
+
+
+def _print_forecast(inventory: SourceInventory, sizes: dict[Path, int]) -> None:
+    """Say what is about to run and what it will cost, before the wait rather than after.
+
+    The identical-copy forecast is free: the size pre-filter is a pure function of the size
+    census tier 0 already has, so a user can decide whether to wait **before** waiting. That is
+    the entire argument for the forecast existing, and it is why this prints here.
+    """
+    duplicates = forecast_exact_duplicate_read(sizes)
+    print(
+        f"\n  Checking for identical copies -- needs to read "
+        f"{duplicates.bytes_to_read / 1e9:.2f} GB of your {duplicates.total_bytes / 1e9:.2f} GB "
+        f"({duplicates.colliding_files:,} of {duplicates.files:,} files could have a twin)."
+    )
+    photos = inventory.by_format.get("photos") or {}
+    lookalikes = forecast_lookalike_cost(photos)
+    if lookalikes.materially_slower:
+        # Actionable only here: the user can still decide not to wait. Their own proportion,
+        # never a general claim -- see `insights.forecast_lookalike_cost`.
+        print(
+            f"  Note: {lookalikes.slow_share:.0%} of your photos are HEIC, which decode far "
+            f"slower than JPEG. Looking for look-alikes on this library would be much slower "
+            f"still; that check is not part of this report."
+        )
+    print("  Press Ctrl-C to stop and keep everything above.")
+
+
+def _print_deep(resolutions: list[Resolution], sizes: dict[Path, int]) -> None:
+    """Tier 1 and tier 2a, once both have completed over every file."""
+    print()
+    _print_capture_timeline(resolutions)
+    counted = duplicate_bytes(resolutions, sizes)
+    print(
+        f"  identical copies   : {counted.exact_files:,} file(s), "
+        f"{counted.reclaimable_bytes:,} bytes that need not be copied"
+    )
+
+
+def _analyze_deep(
+    files: list[Path], inventory: SourceInventory, sizes: dict[Path, int]
+) -> list[Resolution] | None:
+    """Run tiers 1 and 2a, or ``None`` if the user interrupted.
+
+    **A read-only cache, and that is not optional.** Skipping the perceptual hash means the
+    rows this pass could write would be indistinguishable from genuine ones later;
+    `compute_hashes` refuses the writable pairing outright. Reading still helps: hashes an
+    earlier organize recorded are reused.
+    """
+    _print_forecast(inventory, sizes)
+    cancel = threading.Event()
+    try:
+        with HashCache.beside_readonly(default_catalog_path()) as cache:
+            metadata = read_metadata(files, cache=cache, cancel=cancel)
+            decisions = plan(files, metadata, build_rules())
+            index = DedupIndex(DEFAULT_PHASH_THRESHOLD)
+            return resolve(decisions, index, cache=cache, perceptual=False, cancel=cancel)
+    except KeyboardInterrupt:
+        cancel.set()
+        return None
 
 
 def _cmd_analyze(args: argparse.Namespace) -> int:
@@ -1777,11 +1848,25 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
         print(f"error: not a folder: {args.path}", file=sys.stderr)
         return 2
     started = _CLOCK()
-    inventory = inventory_source(args.path, all_files=args.all_files)
+    scan = scan_source(args.path, all_files=args.all_files)
+    sizes = sizes_of_media(scan.media)
+    inventory = inventory_from_scan(scan, sizes)
     elapsed = _CLOCK() - started
     _print_inventory(inventory, args.path, elapsed)
     _print_inventory_skipped(inventory)
-    _print_not_yet_analysed()
+
+    # The census is on screen before anything expensive begins: a user who wanted only that
+    # has it in under a second and can stop. Sequential printing, not the streamed payload of
+    # `(r)` commit 3b.
+    resolutions = _analyze_deep(scan.media, inventory, sizes) if scan.media else []
+    if resolutions is None:
+        print("\n  Stopped. Everything above is complete; dates and identical copies were not")
+        print("  finished, so no number is shown for them -- a partial count would be wrong")
+        print("  rather than incomplete, since an unscanned file may be the twin of a scanned one.")
+        return 0
+    if resolutions:
+        _print_deep(resolutions, sizes)
+    _print_not_yet_analysed(deep_done=bool(resolutions))
     # Worded this way because "writes nothing" would be FALSE and a user who checked would find
     # it out: the hash-cache sidecar is written by the expensive tiers, and `Catalog(db)` creates
     # an empty catalog on a machine that has never run truestill. Neither is a photo and neither

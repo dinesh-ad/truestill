@@ -146,10 +146,17 @@ uv run truestill-app                 # the local web UI
 ```
 
 **Start with `analyze`** if you have not used Truestill before. It needs only a folder - no
-destination, no library, no setup - and reports the file count, total size, the photo / video /
-audio split and every format it found, in about a second. It reads names and sizes only and
-never opens your files, so it also says plainly what it has *not* worked out: dates, duplicates
-and look-alikes need the full read that `organize`'s preview does.
+destination, no library, no setup.
+
+**The count, size, photo / video / audio split and every format it found appear in about a
+second**, from file names and sizes alone. It then tells you what it is about to do and roughly
+what it will cost - *"checking for identical copies, needs to read 12 GB of your 192 GB"* - and
+goes on to work out the **date range** of your photos and how much space **identical copies**
+are wasting. Press Ctrl-C at any point and everything already on screen is yours to keep.
+
+The one thing it does not do is look for **look-alikes** - the same photo at a different size or
+quality - because that means decoding every image, which is far slower. It says so rather than
+reporting a zero.
 
 `truestill --help` lists every subcommand: `analyze`, `organize`, `ingest`, `drives`,
 `undo-organize`, `where`, `verify`, `status`, `config`, `reclaim`, `migrate-layout`.

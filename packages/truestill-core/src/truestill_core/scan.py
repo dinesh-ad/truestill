@@ -100,7 +100,7 @@ def _probe_readability(paths: Sequence[Path]) -> dict[Path, UnreadableReason]:
     return unreadable
 
 
-def _hash_one(args: tuple[str, bool]) -> HashJobResult:
+def _hash_one(args: tuple[str, bool, bool]) -> HashJobResult:
     """Worker body: return ``(path, sha256_or_None, perceptual_or_None, unreadable_or_None)``.
 
     Module-level and picklable so it works under a ProcessPoolExecutor. SHA-256 is computed
@@ -112,11 +112,11 @@ def _hash_one(args: tuple[str, bool]) -> HashJobResult:
     because it catches a **different** failure: opened fine, then failed at byte N. A 1-byte
     probe cannot see that, and a large file on a failing disk is exactly where it happens.
     """
-    path_str, need_sha = args
+    path_str, need_sha, need_perceptual = args
     path = Path(path_str)
     try:
         sha = sha256_file(path) if need_sha else None
-        perceptual = perceptual_hash(path)
+        perceptual = perceptual_hash(path) if need_perceptual else None
     except OSError as exc:
         return path_str, None, None, _reason_for(exc)
     return path_str, sha, perceptual, None
@@ -169,13 +169,14 @@ def _run_hash_jobs(
     progress: ProgressCallback | None,
     cancel: threading.Event | None,
     cache: HashCache | None,
+    want_perceptual: bool,
     results: dict[Path, FileHashes],
     unreadable: dict[Path, UnreadableReason],
     done: int,
     total: int,
 ) -> None:
     """Hash ``to_hash`` into ``results``, defending one unreadable file and a dead process pool."""
-    jobs = [(str(path), path in need_sha) for path in to_hash]
+    jobs = [(str(path), path in need_sha, want_perceptual) for path in to_hash]
     executor_cls = ProcessPoolExecutor if pool == "process" else ThreadPoolExecutor
     with executor_cls(max_workers=max(1, workers)) as executor:
         futures = [executor.submit(_hash_one, job) for job in jobs]
@@ -217,6 +218,7 @@ def compute_hashes(
     progress: ProgressCallback | None = None,
     cancel: threading.Event | None = None,
     cache: HashCache | None = None,
+    perceptual: bool = True,
 ) -> dict[Path, FileHashes]:
     """Hash ``paths`` concurrently, applying the size pre-filter.
 
@@ -230,6 +232,13 @@ def compute_hashes(
     """
     if not paths:
         return {}
+    if not perceptual and cache is not None and cache.writable:
+        # Refused rather than documented. A row carrying `perceptual=None` because it was never
+        # computed is indistinguishable from one carrying it because the file is not an image,
+        # so a later run would take it as a hit and lose near-duplicate detection silently.
+        # `HashCache(..., writable=False)` is the supported pairing.
+        message = "a partial hashing pass needs a read-only cache; see IMPLEMENTATION_STANDARDS 8"
+        raise ValueError(message)
 
     sizes = _sizes(paths)
     # Over *all* paths and before the cache split below, which is the whole point: `stat`
@@ -273,6 +282,7 @@ def compute_hashes(
         progress=progress,
         cancel=cancel,
         cache=cache,
+        want_perceptual=perceptual,
         results=results,
         unreadable=unreadable,
         done=done,

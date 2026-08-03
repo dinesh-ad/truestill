@@ -1086,7 +1086,7 @@ section, because what is left is the part that still has to be written.
     |---|---|---|
     | 1 | `truestill analyze`, tier 0 over the shipped `inventory_source` | **shipped** `e8c2692`, polished `58f40fe` |
     | 2 | the facts that existed but were unreachable, moved to `insights.py` | **shipped** `dc9a7d7` |
-    | 3a | tiers 1 and 2a reachable from `analyze`, no destination | unbuilt |
+    | 3a | tiers 1 and 2a reachable from `analyze`, no destination | **shipped 2026-08-03** |
     | 3b | tier streaming and partial-truth reporting | unbuilt |
     | 4 | the app screen, plus export | unbuilt |
 
@@ -1096,6 +1096,20 @@ section, because what is left is the part that still has to be written.
       requires a destination** the funnel's audience has not chosen). 3b is the risk. Splitting
       lets the value ship without waiting on the correctness feature, and 3b waits on tier 2a
       being timed against a real library.
+    - **3a's sequencing, ruled 2026-08-03: print tier 0, then continue.** The census reaches
+      the screen in under a second - the property commit 1 shipped for - and only then does the
+      expensive work begin. **This is sequential printing, not 3b**: 3b is the app payload and
+      the never-render-zero field tagging.
+      - **A forecast prints before the wait**, which is the whole reason the forecast exists:
+        *"checking for identical copies, needs to read X GB of your Y GB"*, plus the HEIC note
+        when it applies, plus that Ctrl-C keeps what is above. An unexplained wait becomes an
+        informed one, and the user can still decide not to have it.
+      - **An interrupt reports the unfinished tier as not analysed, never as a partial count.**
+        A duplicate total is a claim about the whole set: an unscanned file may be the twin of a
+        scanned one, so the pairs found understate by an unknown amount. Unlike a file count it
+        has **no honest partial reading**. Tiers complete in sequence, so an interrupt during 2a
+        still reports tier 1 in full.
+      - **The README's "about a second" claim was reworded** rather than left to become false.
     - **3a has a prerequisite, shipped 2026-08-03:** the read-only hash cache. Tier 2a wants
       SHA-256 without the perceptual hash, and recording that would poison the cache - see the
       hash-cache bullet in `IMPLEMENTATION_STANDARDS.md` §8. Found before building rather than

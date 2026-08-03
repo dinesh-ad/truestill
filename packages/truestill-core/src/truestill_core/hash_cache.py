@@ -180,9 +180,26 @@ class HashCache:
         """Open the sidecar for ``catalog``, or a disabled cache when there is no catalog."""
         return cls(cache_path_for(catalog) if catalog is not None else None)
 
+    @classmethod
+    def beside_readonly(cls, catalog: Path | None) -> Self:
+        """The sidecar for ``catalog``, opened so it can be read and never written.
+
+        For a caller that computes only part of a file's hashes -- see :meth:`__init__`. It
+        still takes hits an earlier full run recorded, so the work is not repeated; it simply
+        contributes nothing back, which is the only safe arrangement until the cache can tell
+        "not computed" from "not an image".
+        """
+        return cls(cache_path_for(catalog) if catalog is not None else None, writable=False)
+
     @property
     def enabled(self) -> bool:
         return self._conn is not None
+
+    @property
+    def writable(self) -> bool:
+        """Whether this cache records what a run learns. Read by `scan.compute_hashes`, which
+        refuses to pair a partial hashing pass with a cache that would record it."""
+        return self._writable
 
     def _base_row(self, key: str, size: int, mtime_ns: int) -> _Row:
         """Pending or stored row when size+mtime still match; else a blank row for this key."""

@@ -33,7 +33,6 @@ MIX: dict[str, int] = {
     "mystery.xyz": 137,
 }
 MEDIA_BYTES = 101 + 103 + 107 + 109 + 113 + 127
-_NO_SUBPROCESS = "analyze must not run a subprocess"
 
 
 @pytest.fixture
@@ -151,22 +150,33 @@ def test_no_destination_no_catalog_and_no_registered_drive_are_needed(
     assert "--db" in capsys.readouterr().err
 
 
-def test_no_file_is_opened_and_exiftool_is_never_invoked(
+def test_the_census_is_complete_before_any_subprocess_runs(
     library: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Tier 0's cost claim, enforced rather than documented.
 
-    `binaries.run` is the one door to exiftool. Made to explode, so a change that quietly adds
-    a metadata pass to this report fails here instead of turning a sub-second command into a
-    multi-minute one on someone's library.
+    Analyze now continues into the expensive tiers, so "no subprocess ever" stopped being the
+    property (rewritten 2026-08-03 when tier 1 landed). What still holds, and is the whole
+    reason the census prints first, is that **tier 0 completes before exiftool is reached**:
+    a user who wanted only the census has it in under a second and can stop.
+
+    `binaries.run` is the one door to exiftool, so the output captured at its first call is
+    exactly what had printed before anything expensive began.
     """
+    printed_first: list[str] = []
+    real = binaries.run
 
-    def explode(*_args: object, **_kwargs: object) -> object:
-        raise AssertionError(_NO_SUBPROCESS)
+    def spy(*args: object, **kwargs: object) -> object:
+        printed_first.append(capsys.readouterr().out)
+        return real(*args, **kwargs)  # type: ignore[arg-type]
 
-    monkeypatch.setattr(binaries, "run", explode)
+    monkeypatch.setattr(binaries, "run", spy)
     code, _out, err = _run(["analyze", str(library)], capsys)
+
     assert code == 0, err
+    assert printed_first, "exiftool was never reached; this test would prove nothing"
+    assert "files found" in printed_first[0]
+    assert "total size" in printed_first[0]
 
 
 # --- honesty about what it did not do ---------------------------------------------------------
@@ -179,8 +189,11 @@ def test_the_report_says_what_it_has_not_analysed(
     _code, out, _ = _run(["analyze", str(library)], capsys)
     lowered = out.lower()
     assert "not yet analysed" in lowered
-    for absent in ("duplicate", "look-alike", "date"):
-        assert absent in lowered, f"{absent} must be named as not-yet-analysed"
+    # Only look-alikes now: dates and identical copies genuinely run (2026-08-03). Listing a
+    # measured tier as unmeasured would be this block's own defect, mirrored.
+    tail = lowered.split("not yet analysed", 1)[1]
+    assert "look-alike" in tail
+    assert "date" not in tail, "dates are measured now and must not be listed as unanalysed"
 
 
 @pytest.mark.parametrize("forbidden", ["duplicates         : 0", "duplicates: 0", "0 duplicates"])
