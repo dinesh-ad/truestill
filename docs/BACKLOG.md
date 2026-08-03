@@ -954,7 +954,28 @@ section, because what is left is the part that still has to be written.
     A metadata cache is the natural follow-on and is deliberately a **separate item** - metadata
     feeds *dating*, so a stale row could change where a photo lands, a class of risk the hash
     cache structurally cannot have.
-  - **Still to build:** Analyze mode itself.
+  - **Still to build:** Analyze mode itself, minus tier 0 (below).
+  - **Tier 0 SHIPPED on the CLI, 2026-08-03** - `truestill analyze <folder>`. The census only:
+    file count, total bytes, photo/video/audio split, per-extension formats, the skipped and
+    unrecognized census, and folders that could not be listed. **Measured 0.31 s wall for
+    2,269 files / 6.65 GB** on a local disk, which is what makes it the tier that earns trust:
+    it answers before a user wonders whether anything is happening.
+    - **It jumped the post-launch placement deliberately**, and only this tier. It is a
+      reporting layer over `inventory_source`, which `(tt)` had already shipped app-only; the
+      asymmetry - a fact the app could state and the CLI could not - was most of what tier 0
+      cost. Nothing in the expensive path moved.
+    - **Requires a folder and nothing else**: no destination, no catalog, no registered drive,
+      and it deliberately does **not** accept `--db`. Pinned by
+      `test_no_destination_no_catalog_and_no_registered_drive_are_needed`, because a later
+      refactor that added a destination parameter would kill the funnel silently.
+    - **The one engine change:** `SourceInventory` now carries `unreadable_dirs`.
+      `scan_source` already found them and `inventory_source` discarded them, which made "no
+      files found" and "that folder could not be opened" the same answer - `(aac)`'s defect on
+      a new surface. Plumbing, not a new fact: no extra walk, no extra `stat`.
+    - **Known gap, recorded not built:** the app's `/api/organize/inventory` payload still
+      omits `unreadable_folders`, while the preview's empty branch carries it. That asymmetry
+      predates this commit and belongs with the app work.
+    - **Tiers 1-4 are unchanged and still post-launch**, per the placement clause below.
 
 - **(r, remaining) Analyze mode.** Promoted from
   "ideas" and bound to the previously-standalone hash-cache item, because the pairing is what

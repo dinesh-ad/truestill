@@ -136,6 +136,8 @@ The CLI is subcommand-based. **Dry run is the default** - nothing is written wit
 `--apply`:
 
 ```bash
+uv run truestill analyze <folder>    # what is in here? -- reads nothing, changes nothing
+
 uv run truestill organize <source> <destination>
 uv run truestill organize <source> <destination> --report reports/plan.json
 uv run truestill organize <source> <destination> --apply
@@ -143,8 +145,14 @@ uv run truestill organize <source> <destination> --apply
 uv run truestill-app                 # the local web UI
 ```
 
-`truestill --help` lists every subcommand: `organize`, `ingest`, `drives`, `undo-organize`,
-`where`, `verify`, `status`, `config`, `reclaim`, `migrate-layout`.
+**Start with `analyze`** if you have not used Truestill before. It needs only a folder - no
+destination, no library, no setup - and reports the file count, total size, the photo / video /
+audio split and every format it found, in about a second. It reads names and sizes only and
+never opens your files, so it also says plainly what it has *not* worked out: dates, duplicates
+and look-alikes need the full read that `organize`'s preview does.
+
+`truestill --help` lists every subcommand: `analyze`, `organize`, `ingest`, `drives`,
+`undo-organize`, `where`, `verify`, `status`, `config`, `reclaim`, `migrate-layout`.
 
 Frequently used `organize` flags:
 

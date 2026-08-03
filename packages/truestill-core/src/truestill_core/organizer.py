@@ -237,6 +237,11 @@ class SourceInventory:
     by_format: dict[str, dict[str, int]]
     total_bytes: int
     skipped: dict[str, dict[str, int]]
+    #: Folders that could not be **listed**. `scan_source` already finds these and this summary
+    #: used to discard them, which made "no files found" and "that folder could not be opened"
+    #: the same answer -- `(aac)`'s defect on a cheaper surface. Carried as paths and never as a
+    #: count: the number of files inside is exactly what is unknown, so any figure is invented.
+    unreadable_dirs: list[Path] = field(default_factory=list)
 
 
 def is_exiftool_original_backup(path: Path | str) -> bool:
@@ -382,6 +387,7 @@ def inventory_source(source: Path, *, all_files: bool = False) -> SourceInventor
         by_format=by_format,
         total_bytes=_bytes_of(scan.media),
         skipped=_skipped_extension_counts(scan),
+        unreadable_dirs=list(scan.unreadable_dirs),
     )
 
 

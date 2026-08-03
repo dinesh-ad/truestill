@@ -113,9 +113,11 @@ from truestill_core.models import (
 )
 from truestill_core.organizer import (
     Relocation,
+    SourceInventory,
     SourceScan,
     execute,
     heavy_days_for_organize,
+    inventory_source,
     plan,
     preflight_for_run,
     resolve,
@@ -417,6 +419,17 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=Catalog.FIND_PAGE_SIZE,
         help=f"how many matches to show (default {Catalog.FIND_PAGE_SIZE}; 0 for all)",
+    )
+
+    analyze = sub.add_parser(
+        "analyze",
+        help="say what is in a folder, without changing anything (fast; reads names and sizes)",
+    )
+    analyze.add_argument("path", type=Path, help="the folder to look at")
+    analyze.add_argument(
+        "--all-files",
+        action="store_true",
+        help="count every file, not only the ones Truestill recognizes as media",
     )
 
     verify = sub.add_parser(
@@ -1499,6 +1512,101 @@ def _print_skipped(scan: SourceScan) -> None:
         print("    (check the folder's permissions, then run again to include what is inside)")
 
 
+#: What tier 0 deliberately does not know, and what would answer each today. Named rather than
+#: rendered as zero: nothing looked, so "0 duplicates" would not be a finding but the absence of
+#: one - `(aac)`'s rule applied to a whole tier instead of a single file.
+_NOT_YET_ANALYSED = (
+    ("dates", "the capture-date range, and how many files carry no trustworthy date"),
+    ("duplicates", "identical copies, and the space they waste"),
+    ("look-alikes", "the same photo at a different size or quality"),
+)
+
+
+def _print_inventory(inventory: SourceInventory, source: Path) -> None:
+    """The tier-0 census.
+
+    Kind counts are printed with an ``other`` line whenever they do not add up to the file
+    count, rather than only when it looks tidy: three numbers a reader cannot sum are worse
+    than four that they can, and under ``--all-files`` the source legitimately holds files
+    that belong to no media kind.
+    """
+    print(_SEPARATOR)
+    print(f"ANALYZE  {source}")
+    print(_SEPARATOR)
+    print(f"  files found        : {inventory.files:,}")
+    print(
+        f"  total size         : {inventory.total_bytes / 1e9:.2f} GB "
+        f"({inventory.total_bytes:,} bytes)"
+    )
+    print(f"  photos             : {inventory.photos:,}")
+    print(f"  videos             : {inventory.videos:,}")
+    print(f"  audio              : {inventory.audio:,}")
+    other = inventory.files - (inventory.photos + inventory.videos + inventory.audio)
+    if other:
+        print(f"  other              : {other:,}  (counted, but not a photo, video or audio file)")
+
+    for group in ("photos", "videos", "audio"):
+        formats = inventory.by_format.get(group) or {}
+        if formats:
+            listed = ", ".join(f"{ext} x{count:,}" for ext, count in formats.items())
+            print(f"      {group:<10} {listed}")
+
+
+def _print_inventory_skipped(inventory: SourceInventory) -> None:
+    """Account for what was NOT counted as media. Never silent.
+
+    Mirrors `_print_skipped`, which does this from a `SourceScan` on the organize surface. It
+    cannot be reused directly: this tier keeps counts rather than the path lists that one
+    formats, deliberately, so a 33,000-file census never builds a per-file structure.
+    """
+    groups = {name: counts for name, counts in inventory.skipped.items() if counts}
+    if not groups and not inventory.unreadable_dirs:
+        return
+    print("\nSkipped (not counted as media):")
+    for name, counts in groups.items():
+        total = sum(counts.values())
+        listed = ", ".join(f"{ext} x{n:,}" for ext, n in counts.items())
+        print(f"  {name.replace('_', ' ')}: {total:,}  ({listed})")
+    if inventory.unreadable_dirs:
+        # Named, and deliberately WITHOUT a file count: the number inside is exactly what could
+        # not be read, so stating one would invent the missing figure.
+        print(f"  folders that could not be read: {len(inventory.unreadable_dirs):,}")
+        for folder in inventory.unreadable_dirs:
+            print(f"      {folder}  (contents unknown)")
+        print("    (check the folder's permissions, then run again to include what is inside)")
+
+
+def _print_not_yet_analysed() -> None:
+    """State the shape of the answer this report does not contain."""
+    print("\nNOT YET ANALYSED")
+    print("  This report reads file names and sizes only, which is why it is fast. It has not")
+    print("  opened any of your files, so it cannot yet tell you about:")
+    for name, description in _NOT_YET_ANALYSED:
+        print(f"      {name:<12} {description}")
+    print("  No number is shown for those above because none has been measured -- a zero here")
+    print("  would mean 'none found', and nothing has looked yet.")
+    print("\n  To find duplicates and check dates today, preview an organize run:")
+    print("      truestill organize <folder> --destination <folder>")
+
+
+def _cmd_analyze(args: argparse.Namespace) -> int:
+    """Tier 0 of Analyze: what is in this folder, from the directory walk alone.
+
+    Needs a folder and nothing else -- no destination, no catalog, no registered drive. That is
+    the point rather than an oversight: the audience is someone who has never organized
+    anything, and any further requirement would put the free answer behind the paid journey.
+    """
+    if not args.path.is_dir():
+        print(f"error: not a folder: {args.path}", file=sys.stderr)
+        return 2
+    inventory = inventory_source(args.path, all_files=args.all_files)
+    _print_inventory(inventory, args.path)
+    _print_inventory_skipped(inventory)
+    _print_not_yet_analysed()
+    print("\n  Analyze never changes your photos and never adds anything to your library.")
+    return 0
+
+
 def _destination_or_exit(args: argparse.Namespace) -> Destination | int:
     """The destination, or the exit code to return. Shared by organize and ingest (audit F34).
 
@@ -2197,6 +2305,7 @@ def _dispatch(argv: list[str] | None) -> int:
             )
             print(line, file=stream, flush=True)
     dispatch = {
+        "analyze": _cmd_analyze,
         "organize": _cmd_organize,
         "ingest": _cmd_ingest,
         "drives": _cmd_drives,

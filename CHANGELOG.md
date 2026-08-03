@@ -60,6 +60,20 @@ All notable changes to this project are documented here. The format follows
   and matches `organize`'s existing `source`. **`--takeout` keeps working, permanently** - it is
   a hidden alias resolving to the same value, not a deprecation, so existing scripts are safe.
 
+### Added
+- **`truestill analyze <folder>` tells you what is in a folder, in about a second, without
+  changing anything.** Point it at any folder - one you have never organized, one you are not
+  sure you want to organize - and it reports how many files are there, how much space they take,
+  the split between photos, videos and audio, and every file format it found, with counts. It
+  needs nothing else: no destination, no library, no setup. **It reads file names and sizes
+  only and never opens your files**, which is why it is fast on a folder that would take much
+  longer to organize.
+  **It also tells you what it has *not* worked out.** Dates, duplicates and look-alikes need
+  Truestill to actually read your photos, which this does not do - so instead of showing you a
+  zero, it says plainly that nothing has looked yet, and points you at the organize preview,
+  which does. A folder it could not open is named too, rather than counted as empty.
+  **Analyze never changes your photos and never adds anything to your library.**
+
 ### Changed
 - **Truestill now refuses, out loud, to write outside the folder you pointed it at.** It never
   did - every destination path it builds is assembled from a single filename it read off your
