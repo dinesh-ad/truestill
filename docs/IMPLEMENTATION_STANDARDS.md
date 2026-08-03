@@ -208,6 +208,17 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   gate**: adding a `Placement` member fails `mypy --strict` there (`assert_never`) until every
   scheme-construction site says what template that shape gets - demonstrated for `TRIP_DAY` and
   again for `DAY_BUCKET`: removing its `case` arm alone made mypy fail at exactly that line.
+  **What that gate cannot reach, and the rule that covers it: ask timeline membership with
+  `layout.TIMELINE_RULES`, never by comparing against `TIMELINE_RULE`.** `assert_never` forces a
+  new `RuleName` member to be handled inside `classify`; it cannot force the callers that ask
+  *"is this file on the timeline?"* for themselves - event clustering, migration routing and
+  headers, trip placement, heavy-day counting, placement. There were seven, each an equality, and
+  missing one when a rule joins the timeline would land a file there while silently excluding it
+  from event naming or trip placement. `TIMELINE_RULE` stays the value to **construct** with
+  (`migrate` maps a route back to it, the layout samples render with it); only the membership
+  question is a set. Enforced by `test_timeline_rules_membership.py`, which reads every source
+  file under `packages/*/src` and also pins that membership and equality agree for every input,
+  which is what makes today's one-member set provably behaviour-neutral.
   `plan`, `build_relative` and `apply_events` take a **`LayoutScheme`, never a bare template**,
   and a library that has chosen nothing gets `layout.DEFAULT_SCHEME` - the **year-first**
   default (`DEFAULT_PRESET = PRESETS["year-month-event"]`), which is the shape §4 describes.

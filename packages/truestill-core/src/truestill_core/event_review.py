@@ -19,7 +19,7 @@ from typing import Any
 from truestill_core.catalog import Catalog
 from truestill_core.events import EventCandidate, EventItem, cluster_camera, slugify
 from truestill_core.hashing import sha256_file
-from truestill_core.layout import DEFAULT_SCHEME, TIMELINE_RULE, LayoutScheme
+from truestill_core.layout import DEFAULT_SCHEME, TIMELINE_RULES, LayoutScheme
 from truestill_core.models import Event, Resolution, geo_point
 from truestill_core.organizer import apply_events
 
@@ -65,7 +65,7 @@ def gather_camera_items(
     items: list[EventItem] = []
     for resolution in resolutions:
         decision = resolution.decision
-        if not resolution.should_upload or decision.category.rule != TIMELINE_RULE:
+        if not resolution.should_upload or decision.category.rule not in TIMELINE_RULES:
             continue
         if decision.captured_at is None:
             continue

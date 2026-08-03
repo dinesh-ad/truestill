@@ -40,6 +40,7 @@ from truestill_core.layout import (
     DEFAULT_SCHEME,
     EVERYDAY_DAY_THRESHOLD_KEY,
     TIMELINE_RULE,
+    TIMELINE_RULES,
     LayoutScheme,
     RenderContext,
     heavy_days_from_captures,
@@ -485,7 +486,7 @@ def heavy_days_for_organize(
     for path in files:
         meta = metadata.get(path, {})
         category = categorize(path, meta, rules)
-        if category.rule != TIMELINE_RULE:
+        if category.rule not in TIMELINE_RULES:
             continue
         captured_at, _, _ = resolve_capture_datetime(
             path,
@@ -548,7 +549,7 @@ def plan(
             enabled=rename,
         )
         day_key = captured_at.date().isoformat() if captured_at is not None else None
-        heavy_day = category.rule == TIMELINE_RULE and day_key is not None and day_key in heavy
+        heavy_day = category.rule in TIMELINE_RULES and day_key is not None and day_key in heavy
         decisions.append(
             Decision(
                 source=path,

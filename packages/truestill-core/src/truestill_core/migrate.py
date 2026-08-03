@@ -37,6 +37,7 @@ from truestill_core.layout import (
     EVERYDAY_DAY_THRESHOLD_KEY,
     PATH_LENGTH_WARN,
     TIMELINE_RULE,
+    TIMELINE_RULES,
     EventNaming,
     LayoutScheme,
     RenderContext,
@@ -314,7 +315,7 @@ def _migration_headers(
         if r["trip_id"] is not None:
             key = f"trip:{r['trip_id']}"
             rule = rule_for_row(r, routes, rules_by_sha)
-            if key not in headers and rule == TIMELINE_RULE:
+            if key not in headers and rule in TIMELINE_RULES:
                 start = _parse_dt(r["trip_start"])
                 assert start is not None
                 placement = classify(
@@ -372,7 +373,7 @@ def _unevented_day_counts(
     unevented_times: list[datetime | None] = []
     for row in rows:
         rule = rule_for_row(row, routes, rules_by_sha)
-        if rule != TIMELINE_RULE:
+        if rule not in TIMELINE_RULES:
             continue
         if row["trip_id"] is not None:
             continue
@@ -406,7 +407,7 @@ def _render_migration_relative(
             event_name = row["event_name"]
     trip: tuple[datetime, str] | None = None
     trip_name = None
-    if row["trip_id"] is not None and rule == TIMELINE_RULE:
+    if row["trip_id"] is not None and rule in TIMELINE_RULES:
         trip_start = _parse_dt(row["trip_start"])
         if trip_start is not None:
             trip = (trip_start, str(row["trip_slug"]))
@@ -414,7 +415,7 @@ def _render_migration_relative(
     captured_at = _parse_dt(row["captured_at"])
     heavy_day = False
     day_key: str | None = None
-    if rule == TIMELINE_RULE and trip is None and event is None and captured_at is not None:
+    if rule in TIMELINE_RULES and trip is None and event is None and captured_at is not None:
         day_key = captured_at.date().isoformat()
         heavy_day = day_key in heavy_days
     directory = scheme.render(

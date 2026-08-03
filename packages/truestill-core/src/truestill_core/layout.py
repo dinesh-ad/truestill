@@ -483,6 +483,22 @@ DEFAULT_DAY_BUCKET_TEMPLATE = LayoutTemplate.parse(DEFAULT_DAY_BUCKET_TEMPLATE_S
 #: into a side bin.
 TIMELINE_RULE = RuleName.DEVICE
 
+#: Every rule whose files belong on the **timeline** rather than in a labelled side bin.
+#:
+#: **A set rather than an equality, so adding a rule is one edit and not seven.** Membership was
+#: asked by comparing a rule for equality against :data:`TIMELINE_RULE` in seven places - event
+#: clustering, migration routing and headers, trip placement, heavy-day counting, placement.
+#: (Spelled out rather than shown, because the guard that bans that shape reads source lines and
+#: cannot tell a comment from code - and it is better blunt than full of exceptions.)
+#: `classify` has an ``assert_never``, so
+#: mypy forces a new :class:`RuleName` member to be handled *there*; nothing can force those
+#: seven, and missing one would put a file on the timeline while silently excluding it from
+#: event naming or trip placement.
+#:
+#: ``TIMELINE_RULE`` remains the representative rule to **construct** with (`migrate` maps a
+#: route back to it, the layout samples render with it). Only the membership question moved.
+TIMELINE_RULES: frozenset[RuleName] = frozenset({TIMELINE_RULE})
+
 #: Where everything that is not the timeline goes. **Fixed, never user-editable.** The side bin
 #: is a quarantine - screenshots and messenger images stay out of the photo timeline - so no
 #: template a user can type may reshape a side bin into a timeline path.
