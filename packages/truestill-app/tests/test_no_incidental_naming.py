@@ -79,6 +79,17 @@ ALLOWED: tuple[tuple[str, str], ...] = (
         ),
     ),
     (
+        r'for vendor in \("pcloud", "icedrive", "dropbox", "onedrive"\):',
+        (
+            "the assertion in `test_run_health.py` that proves the disk-full message names NO "
+            "cloud vendor. The names ARE the assertion here: the design ruling was to report "
+            "the free-space DELTA rather than maintain a per-vendor cache-path table, and a "
+            "test that checked for a genericised placeholder would assert nothing. Same "
+            "standing as the (jj) export-format table and (aav)'s scope enumeration - vendors "
+            "named to make a ruling checkable. Scoped to the one line."
+        ),
+    ),
+    (
         r"github\.com/dinesh-ad/truestill",
         (
             "the real repository URL - package metadata, README links and advisories resolve "

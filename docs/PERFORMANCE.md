@@ -503,6 +503,31 @@ The full costing was researched and is deliberately not written up until the rep
 flips, since GitHub's rates changed in January 2026 and the self-hosted platform fee was
 announced and then postponed rather than cancelled.
 
+### 5.0 What a long write's health check costs (measured 2026-08-03)
+
+Recorded so nobody re-derives whether watching a run is affordable. Local disk, temp dir,
+20,000 iterations each:
+
+| operation | cost |
+|---|---|
+| `shutil.disk_usage()` | **1.96 us** |
+| `Path.exists()` on a marker | 1.94 us |
+| `read_marker()` (opens + parses JSON) | 21.18 us |
+| a `stat` on a cloud FUSE mount | **~600 us** (from tier 0's measured 1,661 files/second) |
+
+**Per file is unaffordable on the medium that matters**: 32,628 files x ~600 us is **~20 s**,
+the entire tier-0 budget spent again on every run. At `run_health.TICK_SECONDS` it is
+**~0.2 s over a thirty-minute run**, even assuming FUSE inflates every read.
+
+`run_health`'s tick, its 3-strike rule and its span window are **judgement, not measurement** -
+no dropping mount was available to time them against and one cannot be staged. They are
+recorded that way in the code, the same way `insights.SLOW_PERCEPTUAL_WARN_SHARE` is.
+
+**The honest limit, stated so the checks do not read as a guarantee:** they detect the ground
+*moving* - a drive that disappears, a local disk that drains. They do **not** detect a mount
+that is silently returning *wrong data* rather than going away. There is no evidence that
+happens, and nothing was built for it speculatively.
+
 ### 5.1 The Windows lane's problem is variance, not trend (measured 2026-08-03)
 
 **The rule, first, because it is what the next person needs:** reach for `pytest-xdist` when the
