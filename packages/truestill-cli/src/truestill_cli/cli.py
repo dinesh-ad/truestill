@@ -1782,6 +1782,10 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
     _print_inventory(inventory, args.path, elapsed)
     _print_inventory_skipped(inventory)
     _print_not_yet_analysed()
+    # Worded this way because "writes nothing" would be FALSE and a user who checked would find
+    # it out: the hash-cache sidecar is written by the expensive tiers, and `Catalog(db)` creates
+    # an empty catalog on a machine that has never run truestill. Neither is a photo and neither
+    # is the library, which is what this sentence promises and can keep. Do not shorten it.
     print("\n  Analyze never changes your photos and never adds anything to your library.")
     return 0
 

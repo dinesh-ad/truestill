@@ -1011,8 +1011,11 @@ section, because what is left is the part that still has to be written.
         so a linear bar saturates and a log bar makes a proportion claim that is not true.
       - **Still tier 1-2 facts.** They appear in the organize *preview*, which does the
         expensive pass. `truestill analyze` remains tier 0 and still says *not yet analysed*.
-    - **Tiers 3-4 (streaming, app screen) are unchanged and still post-launch**, per the
-      placement clause below.
+    - **Commits 3 and 4 are unbuilt and still post-launch**, per the placement clause on
+      `(r, remaining)`. **"Commit" and "tier" are different numberings** - see the staging note
+      there. An earlier version of this line said *"Tiers 3-4 (streaming, app screen)"*, which
+      is a category error: there is no data tier 3 or 4, and it made "tier 2" ambiguous between
+      the data tier and the commit. Corrected 2026-08-03.
 
 - **(r, remaining) Analyze mode.** Promoted from
   "ideas" and bound to the previously-standalone hash-cache item, because the pairing is what
@@ -1028,10 +1031,61 @@ section, because what is left is the part that still has to be written.
       argument for using truestill at all.
     - **Shares its soul with the parked web dedup teaser**: same question, same honest answer,
       one in the terminal or app and one in a browser. Build them knowing that.
-  - **Why the cache is not a separate item.** Analyze performs the **full expensive pass** --
-    dates, hashes, dedup. Without a cache the natural journey *Analyze → Organize* pays for
-    that pass **twice**, which makes the free analysis feel like a tax on organizing rather
-    than an invitation to it. With it, the second pass is nearly free, and preview→run and
+  - **THE TIERS (designed 2026-08-03). Four data tiers, reported as each completes.** Numbered
+    0/1/2a/2b, and **that numbering is data tiers only** -- the *commits* that build them are
+    numbered separately below, and the two vocabularies must not be mixed.
+
+    | tier | what it answers | what it reads | cost at 32,628 files / 192 GB |
+    |---|---|---|---|
+    | **0** census | counts, bytes, formats | directory entries + one `stat` | **sub-second** (measured) |
+    | **1** dating | date range, per-year, undated | file *headers*, via exiftool | minutes of CPU, bounded I/O |
+    | **2a** exact duplicates | identical copies and the bytes they waste | full bytes of the size-colliding minority | **~12 GB** read |
+    | **2b** look-alikes | the same photo at another size or quality | **full bytes of every image** | **~200 GB** read -- the hours |
+
+    - **The split at 2a/2b is the load-bearing part, and collapsing it throws away ~15x on the
+      fact users most want.** `compute_hashes` applies a size pre-filter, so SHA-256 runs only
+      for files whose byte size collides -- it spares ~94% of realistic-size files
+      (`PERFORMANCE.md` §4, and the same figure in the hash-cache entry above). The *perceptual*
+      hash has no such filter: it decodes every image, so it reads the whole file. **The
+      headline number -- "you are wasting N GB on identical copies" -- therefore needs only
+      2a**, the cheap tier. One undifferentiated "duplicates" tier would price the cheap answer
+      at the expensive one's cost.
+    - **2b's savings are a softer claim and must be worded as one.** Truestill *keeps*
+      near-duplicates by design, so their bytes are never reclaimable -- see `insights.py`,
+      where `reclaimable_bytes` is exact-only for exactly this reason.
+    - **Order is 0 → 1 → 2a → 2b, by measured cost.** Tier 1 is not a prerequisite for 2:
+      metadata and hashing are independent passes in `resolve`. Cost is the only reason for the
+      ordering.
+    - **Not separately invocable; stoppable at any tier, keeping what completed.** Four entry
+      points would multiply the surface and invite someone to run 2b without 0. One entry point
+      that streams gives the same control under one name -- and the engine already supports the
+      stop: `resolve` returns the partial result on cancel, and `HashCache` means a resumed run
+      skips what it already hashed.
+  - **THE STAGING: four commits, and commit 3 is the one to be careful with.** These are
+    **commit** numbers, not tier numbers - commit 1 shipped tier 0, and commit 3 does not build
+    a "tier 3".
+
+    | commit | what it does | status |
+    |---|---|---|
+    | 1 | `truestill analyze`, tier 0 over the shipped `inventory_source` | **shipped** `e8c2692`, polished `58f40fe` |
+    | 2 | the facts that existed but were unreachable, moved to `insights.py` | **shipped** `dc9a7d7` |
+    | 3 | tier streaming and partial-truth reporting | unbuilt |
+    | 4 | the app screen, plus export | unbuilt |
+
+    - **Commit 3 is where this stops being a formatting feature and becomes a correctness one.**
+      A tier that has not run must say *not yet analysed* and **never render a zero**. Get that
+      wrong and the tool tells someone *"no duplicates"* when it has not looked - the worst lie
+      this product could tell, and `(aac)`'s discipline arriving on a new surface. Concretely:
+      every tier-scoped field is absent-or-tagged rather than defaulted, and the conservation
+      law `new_unique + near_dup + exact_dup + unreadable == files` holds **only** once tier 2
+      completed, so a partial report must not print a summing block that does not sum.
+    - Commits 1 and 2 were each independently valuable and shipped alone, which is the property
+      to keep: 3 and 4 must not become one commit.
+  - **Why the cache is not a separate item.** Analyze's expensive tiers (1, 2a and 2b above)
+    are the same dates-and-hashes pass an organize does. Without a cache the natural journey
+    *Analyze → Organize* pays for that pass **twice**, which makes the free analysis feel like a
+    tax on organizing rather than an invitation to it. With it, the second pass is nearly free,
+    and preview→run and
     repeat batches get faster as a side effect. Shipping Analyze without the cache would ship
     the funnel and the friction in the same release.
   - **Design (unchanged from the original entry).** A small SQLite table keyed on
@@ -1177,6 +1231,30 @@ section, because what is left is the part that still has to be written.
   transactional record. JSON remains in exactly one place - the small, human-readable drive
   marker - where being readable by a person with a text editor is the point. This is also what
   `(z)` means by catalog-first; **no change is pending.**
+
+- **No charting library for Analyze's screens: rejected, hand-rolled SVG instead.** Ruled
+  2026-08-03 while designing Analyze, and recorded before the screens are built so commit 4 does
+  not re-open it. The app is **offline-first with no build step** and one deliberately
+  un-bundled `app.js`, so a chart library cannot be a dependency line - it has to be **vendored
+  into `static/`**, which is a permanent maintenance surface, installer weight, and a file
+  nobody in this repo wrote. Against that: two bar charts. **The 2026 landscape was checked
+  rather than assumed** - Chart.js, ECharts and ApexCharts are the live vanilla-JS options;
+  Recharts is React-only and this app is vanilla; Google Charts has been unmaintained since
+  2014. The conclusion is not ignorance of the options, it is that none of them is worth
+  vendoring for this. Same shape as the `psutil` ruling below: a dependency declined to keep a
+  small amount of code we own. Revisit only if a screen genuinely needs interactive charting,
+  which two bar charts do not.
+
+- **Treemaps for Analyze: rejected.** Ruled 2026-08-03. Every well-known disk analyzer leads
+  with one, so this will be proposed again, and the reason it is wrong here is specific rather
+  than aesthetic. **A treemap answers "which subtree is eating my disk?", which presumes a
+  hierarchy the user built and understands.** Analyze's whole premise is the opposite: it is
+  pointed at an unsorted pile whose folder structure carries no signal, so a treemap of
+  `Camera Uploads/` is one large rectangle and tells nobody anything. The proportions worth
+  showing are **by media kind and by year**, which are bars or a sparkline, not a treemap. Note
+  also what the terminal report already ruled for the same data: **counts, not bars**, because a
+  real library spans three orders of magnitude between its quietest and busiest year, so a
+  linear bar saturates and a log bar makes a proportion claim that is not true.
 
 - **`psutil` for filesystem detection: rejected.** It would delete `parse_proc_mounts` and the
   `ctypes`/`GetVolumeInformationW` branch in `filesystem.py` - roughly 60 lines including a
