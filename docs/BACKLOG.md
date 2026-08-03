@@ -975,6 +975,20 @@ section, because what is left is the part that still has to be written.
     - **Known gap, recorded not built:** the app's `/api/organize/inventory` payload still
       omits `unreadable_folders`, while the preview's empty branch carries it. That asymmetry
       predates this commit and belongs with the app work.
+    - **Polished 2026-08-03 from the first real-library run** (32,628 files / 192.49 GB on a
+      cloud FUSE mount), which surfaced two things 2,269 test files could not:
+      - **The unrecognized extension list was unbounded** - 279 files carried 200+ distinct
+        one-off extensions (apparently truncated transfers) and printing them all buried the
+        report. Now capped by **two** bounds, count and rendered width, with the total left
+        exact. A count alone does not bound a line: those artefacts are ~25 characters each,
+        so a twelve-entry cap still produced a ~300-character line. The elision names how many
+        of the hidden extensions were **seen once**, which is arithmetic; it does not say they
+        are truncated transfers, which would be a diagnosis the census cannot support.
+      - **Elapsed wall time is now reported**, with a files-per-second figure **withheld below
+        one second** - under that it describes interpreter startup and the page cache rather
+        than the source. This is expectation-setting, not a benchmark: tier 0's wall time is a
+        direct signal of how the source behaves, so a slow one tells a user the expensive
+        tiers will be long before they commit to them. `PERFORMANCE.md` still owns benchmarks.
     - **Tiers 1-4 are unchanged and still post-launch**, per the placement clause below.
 
 - **(r, remaining) Analyze mode.** Promoted from

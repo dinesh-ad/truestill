@@ -73,6 +73,13 @@ All notable changes to this project are documented here. The format follows
   zero, it says plainly that nothing has looked yet, and points you at the organize preview,
   which does. A folder it could not open is named too, rather than counted as empty.
   **Analyze never changes your photos and never adds anything to your library.**
+  It also says **how long it took**, and on a run of more than a second how many files a second
+  it managed. That is there to set expectations rather than to boast: this report only reads
+  names and sizes, so if it is slow, the parts of Truestill that have to read your actual photos
+  will be much slower - useful to know before you start one.
+  Folders with a long tail of odd file types stay readable: the file types are listed
+  most-common-first and the rest are summarised (*"and 190 more (190 seen once each)"*) instead
+  of filling the screen. **The totals are always exact** - only the list of names is shortened.
 
 ### Changed
 - **Truestill now refuses, out loud, to write outside the folder you pointed it at.** It never

@@ -11,9 +11,10 @@ import json
 import re
 import sqlite3
 import sys
+import time
 import uuid
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -1515,6 +1516,76 @@ def _print_skipped(scan: SourceScan) -> None:
 #: What tier 0 deliberately does not know, and what would answer each today. Named rather than
 #: rendered as zero: nothing looked, so "0 duplicates" would not be a finding but the absence of
 #: one - `(aac)`'s rule applied to a whole tier instead of a single file.
+#: How many extensions one census line names before it elides the rest. Chosen to keep a census
+#: line inside about two 80-column terminal lines, which is the constraint a real library
+#: actually broke: 279 unrecognized files carried 200+ distinct one-off extensions (truncated
+#: transfer artefacts) and printing them all buried the rest of the report.
+_EXTENSION_PREVIEW = 12
+
+#: Below this, a files-per-second figure describes interpreter startup and the page cache rather
+#: than the source, so it is withheld rather than shown. Same accurate-or-absent rule the
+#: progress display already applies to time remaining: a number that swings teaches a user to
+#: distrust the whole display.
+#: And a width bound alongside the count, because a count alone does not bound a line: the real
+#: library's artefacts were ~25 characters each, so twelve of them still overflowed. Roughly two
+#: 80-column lines, leaving room for the label and the elision note.
+_EXTENSION_LINE_BUDGET = 120
+
+_RATE_FLOOR_SECONDS = 1.0
+
+_SECONDS_PER_MINUTE = 60
+
+#: The clock the analyze report times itself with, named so a test can inject one rather than
+#: sleep. An intermittent gate is worse than none.
+_CLOCK = time.monotonic
+
+
+def _format_extension_census(counts: Mapping[str, int]) -> str:
+    """``ext xN`` for the most common extensions, then how many were elided.
+
+    **Only the enumeration is capped; the caller's total is untouched.** A cap that also
+    changed a count would be the tally-conservation defect in a new place.
+
+    Ordered by count so the informative entries survive - ``.db x32`` says something, one
+    ``.us0130646897127380003-31`` does not - with the name as a tie-break so the same source
+    renders identically on every platform.
+
+    The note counts how many elided extensions were seen **once**, and stops there. The real
+    library's tail looked like truncated transfers, but this report cannot know that, and a
+    census that guesses at causes is worth less than one that counts.
+    """
+    ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+    shown: list[str] = []
+    width = 0
+    for ext, n in ranked[:_EXTENSION_PREVIEW]:
+        entry = f"{ext} x{n:,}"
+        # Two bounds, tighter wins. A count alone does not bound the line: the artefacts that
+        # caused this are ~25 characters each, so twelve of them still overflow a terminal.
+        if shown and width + len(entry) + 2 > _EXTENSION_LINE_BUDGET:
+            break
+        shown.append(entry)
+        width += len(entry) + 2
+    listed = ", ".join(shown)
+    hidden = ranked[len(shown) :]
+    if not hidden:
+        return listed
+    singletons = sum(1 for _ext, n in hidden if n == 1)
+    tail = f", and {len(hidden):,} more"
+    if singletons:
+        tail += f" ({singletons:,} seen once each)"
+    return listed + tail
+
+
+def _format_duration(seconds: float) -> str:
+    """A wall time that reads naturally at both ends of this command's range."""
+    if seconds < 1:
+        return f"{seconds:.2f} s"
+    if seconds < _SECONDS_PER_MINUTE:
+        return f"{seconds:.1f} s"
+    minutes, rest = divmod(int(seconds), _SECONDS_PER_MINUTE)
+    return f"{minutes} min {rest} s"
+
+
 _NOT_YET_ANALYSED = (
     ("dates", "the capture-date range, and how many files carry no trustworthy date"),
     ("duplicates", "identical copies, and the space they waste"),
@@ -1522,7 +1593,20 @@ _NOT_YET_ANALYSED = (
 )
 
 
-def _print_inventory(inventory: SourceInventory, source: Path) -> None:
+def _rate_note(files: int, elapsed: float) -> str:
+    """`` (N files/second)``, or nothing when the run was too short for that to mean anything.
+
+    The rate is what separates a slow *mount* from a large *library*, which is the distinction
+    a user needs before committing to the expensive tiers. Below `_RATE_FLOOR_SECONDS` it
+    separates nothing, so it is not printed. This is an observation about one run on one
+    source, never a benchmark - `PERFORMANCE.md` owns those and their method.
+    """
+    if elapsed < _RATE_FLOOR_SECONDS or not files:
+        return ""
+    return f"  ({round(files / elapsed):,} files/second)"
+
+
+def _print_inventory(inventory: SourceInventory, source: Path, elapsed: float) -> None:
     """The tier-0 census.
 
     Kind counts are printed with an ``other`` line whenever they do not add up to the file
@@ -1545,11 +1629,14 @@ def _print_inventory(inventory: SourceInventory, source: Path) -> None:
     if other:
         print(f"  other              : {other:,}  (counted, but not a photo, video or audio file)")
 
+    print(
+        f"  time taken         : {_format_duration(elapsed)}{_rate_note(inventory.files, elapsed)}"
+    )
+
     for group in ("photos", "videos", "audio"):
         formats = inventory.by_format.get(group) or {}
         if formats:
-            listed = ", ".join(f"{ext} x{count:,}" for ext, count in formats.items())
-            print(f"      {group:<10} {listed}")
+            print(f"      {group:<10} {_format_extension_census(formats)}")
 
 
 def _print_inventory_skipped(inventory: SourceInventory) -> None:
@@ -1565,8 +1652,7 @@ def _print_inventory_skipped(inventory: SourceInventory) -> None:
     print("\nSkipped (not counted as media):")
     for name, counts in groups.items():
         total = sum(counts.values())
-        listed = ", ".join(f"{ext} x{n:,}" for ext, n in counts.items())
-        print(f"  {name.replace('_', ' ')}: {total:,}  ({listed})")
+        print(f"  {name.replace('_', ' ')}: {total:,}  ({_format_extension_census(counts)})")
     if inventory.unreadable_dirs:
         # Named, and deliberately WITHOUT a file count: the number inside is exactly what could
         # not be read, so stating one would invent the missing figure.
@@ -1599,8 +1685,10 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
     if not args.path.is_dir():
         print(f"error: not a folder: {args.path}", file=sys.stderr)
         return 2
+    started = _CLOCK()
     inventory = inventory_source(args.path, all_files=args.all_files)
-    _print_inventory(inventory, args.path)
+    elapsed = _CLOCK() - started
+    _print_inventory(inventory, args.path, elapsed)
     _print_inventory_skipped(inventory)
     _print_not_yet_analysed()
     print("\n  Analyze never changes your photos and never adds anything to your library.")
