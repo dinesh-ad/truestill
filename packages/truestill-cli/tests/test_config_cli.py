@@ -97,8 +97,10 @@ def test_skip_undated_names_skipped_files(
 def test_organize_honors_stored_template(tmp_path: Path) -> None:
     src = tmp_path / "src"
     src.mkdir()
-    # Filename convention dates + categorizes this without needing embedded EXIF.
-    Image.new("RGB", (16, 16), (1, 2, 3)).save(src / "IMG_20250804_120000.jpg", "JPEG")
+    # A dateable name that names no origin. It must NOT be a capture convention: this test's
+    # subject is the side-bin shape, and `IMG_20250804_120000.jpg` - what it used to be - is
+    # Android's own naming, so it now routes to the timeline and tested nothing here.
+    Image.new("RGB", (16, 16), (1, 2, 3)).save(src / "scan-20250804.jpg", "JPEG")
     dest = tmp_path / "out"
     db = tmp_path / "c.sqlite"
 
@@ -108,11 +110,11 @@ def test_organize_honors_stored_template(tmp_path: Path) -> None:
     placed = list(dest.rglob("*.jpg"))
     assert placed, "a file should have been organized"
     rel = placed[0].relative_to(dest).as_posix()
-    # Routing on rule is now live: this fixture carries no camera EXIF, so it is `fallback`,
-    # not `device`, and belongs in a labelled side bin rather than on the timeline. The side-bin
-    # shape is fixed and deliberately NOT the stored timeline template. Timeline routing under a
+    # Routing on rule is now live: this fixture carries no camera EXIF and no capture-convention
+    # name, so it belongs in a labelled side bin rather than on the timeline. The side-bin shape
+    # is fixed and deliberately NOT the stored timeline template. Timeline routing under a
     # stored template is covered end to end in test_year_first_organize.py.
-    assert rel == "Saved/2025/2025-08/IMG_20250804_120000.jpg"
+    assert rel == "Saved/2025/2025-08/scan-20250804.jpg"
     assert "/2025/08/" not in rel  # not the legacy bare-month shape
 
 

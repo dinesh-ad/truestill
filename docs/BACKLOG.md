@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aba). Next free: (abb).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(abb). Next free: (abc).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -43,6 +43,24 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(abb) The other capture-filename conventions.** Recorded 2026-08-03, when
+  `rule_camera_filename` shipped with **one** pattern: Android's `IMG_`/`VID_` plus a full date
+  and time, verified against the AOSP Camera commits that introduced it. Deliberately scoped to
+  the convention the real library actually held.
+  - **What is not covered, and why each is a separate decision rather than more regex.**
+    `PANO_`, `MVIMG_` (Google Motion Photo) and `TRIM_`/`VID_TRIM_` share the date-and-time
+    shape and are plausibly the same rule. `IMG_1234.JPG` (iPhone, Canon), `DSC_2286.JPG`
+    (Nikon, Sony) and `P1010101.JPG` (Panasonic, Olympus) are **not**: they are counters, they
+    carry no capture record, and a rule claiming them would put every unlabelled file with a
+    camera-ish prefix onto someone's timeline on the strength of three letters. That is the
+    cry-wolf `test_camera_filename_convention.py` already pins against, so widening this needs
+    an argument, not an entry.
+  - **What would make the counter conventions safe** is a second signal - a plausible capture
+    date from somewhere, or sibling files sharing the convention in one folder - which is a
+    different rule shape from a filename table and should not be smuggled into one.
+  - **Cost of being wrong is asymmetric and worth restating**: a file wrongly left in `Saved/`
+    is findable, and a file wrongly placed among the owner's own photos is not.
 
 Everything here has work left. **Two entries are partial and say so in their own text:**
 `(bbb)` (the safety half shipped, the `_original` recovery offer did not) and `(r)` (the hash

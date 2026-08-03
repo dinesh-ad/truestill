@@ -80,7 +80,7 @@ copies to compare - the file *is* the copy.
 >   still looks organized and the next run skips every restored file as an exact duplicate.
 >   Pinned by `test_undo_clears_the_catalog_so_a_reorganize_works`.
 | **Copies are byte-identical to the source EXCEPT the scoped Takeout write.** | The normal path uploads the source bytes unchanged, preserves the source's atime/mtime exactly, then applies the resolved capture timestamp to the **destination copy** through `Destination.set_timestamp`. It must never stamp `decision.source`: besides violating copy-only, changing source mtime invalidates that file's hash-cache entry. An adopt/relocate is deliberately different - ownership of that inode is transferring, so it is stamped before the rename or verified cross-device fallback. The only byte-changing exception is `organizer._upload_with_metadata_write`, reached **only** when an `IngestContext` carries a write (Takeout ingestion). Staging and baking belong to `organizer._MetadataBaker`, which copies each file to a temp path and bakes a **chunk at a time** via `exif.write_metadata_batch` (lossless, no pixel re-encode). A bake that exiftool does not confirm raises `organizer.MetadataBakeError`, and the file is reported FAILED rather than uploaded unbaked. Performance contract in §8. |
-| **Categorization is evidence-derived - no hardcoded taxonomy.** | `categorize.build_rules` is an ordered rule chain; labels are plain `str` (there is no `Category` enum in `models.py`). New sources are added as a `NAME_PATTERNS` row or derived from the `Software`/device rules. |
+| **Categorization is evidence-derived - no hardcoded taxonomy.** | `categorize.build_rules` is an ordered rule chain; labels are plain `str` (there is no `Category` enum in `models.py`). New sources are added as a `NAME_PATTERNS` row, a `CAMERA_NAME_PATTERNS` row (§4 - the two tables are deliberately separate), or derived from the `Software`/device rules. |
 | **Dating uses an evidence chain, never filesystem mtime.** | `dates.resolve_capture_datetime`. Capture mtime is only ever *written* to an uploaded destination copy (`Destination.set_timestamp`), a staged Takeout copy, or a file being adopted/relocated (`organizer._apply_timestamp`); a pure-copy source is preserved exactly. Filesystem mtime is never *read* for placement. |
 | **Every source file is accounted for - none silently dropped.** | `organizer.scan_source` partitions a source into `media` / `documents` / `unrecognized` / `exiftool_backups`; the CLI end-of-run report (`_print_skipped`) and the app organize summary (`service._skipped_summary`) surface the skipped buckets. Exiftool `*_original` sidecars are refused as primary media at scan (including under `--all-files`) and reported as **exiftool backup**, never as a bare extension count. Nothing is discarded without appearing in a report. |
 | **Your photo data never leaves your machine.** No telemetry, no usage beacon, no phone-home in the CLI, core, or app, and **nothing about a library** - not filenames, not counts, not hashes - is ever transmitted. An **account is required at activation** (`DECISIONS.md` D5, which supersedes D1): one-time, email-verified against a self-hosted licensing server, after which the app holds a signed local token and runs fully offline. Usage is otherwise measured externally and in aggregate. Any future crash reporting must be opt-in, off by default, self-hosted, transparent, and post-launch only. | No network path in the product transmits user activity or library content; the capability seam (`§2`) gates on the local token. **Unbuilt** - post-launch, and the licensing server needs its own design pass first. |
@@ -217,8 +217,11 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   from event naming or trip placement. `TIMELINE_RULE` stays the value to **construct** with
   (`migrate` maps a route back to it, the layout samples render with it); only the membership
   question is a set. Enforced by `test_timeline_rules_membership.py`, which reads every source
-  file under `packages/*/src` and also pins that membership and equality agree for every input,
-  which is what makes today's one-member set provably behaviour-neutral.
+  file under `packages/*/src`. **The set holds `DEVICE` and `CAMERA_FILENAME`** (§4), so it is
+  no longer true that membership equals equality - the same test now pins the stronger and
+  durable rule instead: over **every** `RuleName`, membership in `TIMELINE_RULES` agrees with
+  what `classify` does with it. Those are the two edits a new timeline rule needs, in two
+  files, and each is exactly what would be forgotten without the other.
   `plan`, `build_relative` and `apply_events` take a **`LayoutScheme`, never a bare template**,
   and a library that has chosen nothing gets `layout.DEFAULT_SCHEME` - the **year-first**
   default (`DEFAULT_PRESET = PRESETS["year-month-event"]`), which is the shape §4 describes.
@@ -402,7 +405,25 @@ successful upgrade), never automatic.
   `test_apply_events_consolidates_cross_month_under_start_month`).
 - **Category set** (derived, ordered; `categorize.build_rules`): screenshot-by-metadata →
   screenshot-by-name → messenger/app filename conventions → editing `Software` →
-  capture device (`Camera`, or per-device with `--by-device`) → `Saved/`.
+  capture device (`Camera`, or per-device with `--by-device`) → capture filename convention →
+  `Saved/`.
+- **A capture convention is evidence; a timestamp is not.** A device that names its own files
+  `IMG_YYYYMMDD_HHMMSS` / `VID_YYYYMMDD_HHMMSS` has signed them, so those reach `Camera` even
+  with no `Make`/`Model` to read (`categorize.CAMERA_NAME_PATTERNS`, `rule_camera_filename`).
+  **The predicate is the convention, never a bare embedded date** - a film saved from the web
+  carries a `CreateDate` too, and `IMG_1234.JPG` is a counter, not a capture record. The table
+  is **separate from `NAME_PATTERNS` and must stay separate**: that one also drives
+  `is_messenger_filename`, which makes the date chain *refuse* a filename as a capture date, so
+  an entry added there would cost these files the dates they do have. Pinned in
+  `test_camera_filename_convention.py`, cry-wolf half included.
+  - **Blank device tags are not a device-rule bug**, and this rule is not compensating for one.
+    Every rule reads tags through `categorize._text`, so absent, `None`, `""` and whitespace are
+    one state at the only place that decides - `rule_device` correctly declines all four,
+    because a present-but-empty `Make` asserts nothing. Pinned in the same file, structurally as
+    well as behaviourally, so a rule growing its own `metadata.get` is caught.
+  - **Two rules now reach the timeline, so `layout.TIMELINE_RULES` and `layout.classify` must
+    agree** - see §2. `test_timeline_rules_membership.py` asserts that agreement over every
+    `RuleName`, which is the check that makes a third one safe to add.
 - **Evidence beats filename.** The filename conventions **stand down when the file names the
   camera that took it** (`categorize.capture_device_model` - `Model`, or `SamsungModel`; a
   `Make`, a date or a coordinate alone is not a device). A photo sent as a document keeps its

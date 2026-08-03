@@ -11,7 +11,11 @@ load-bearing:
 3. **Editing/authoring software** -- a ``Software`` tag that names an application means
    the file came out of that application; the folder is named after it, on the fly.
 4. **Capture device** -- genuine camera metadata. Optionally split per device.
-5. **Saved** -- origin cannot be proven (metadata-stripped social/web saves, or no evidence):
+5. **Capture filename convention** -- the device's own ``IMG_``/``VID_`` naming, for the files
+   rule 4 declined because their ``Make``/``Model`` was blank. Weaker evidence than rule 4 and
+   deliberately below it, but still positive evidence of origin rather than the absence of
+   evidence to the contrary -- which is all rule 6 has.
+6. **Saved** -- origin cannot be proven (metadata-stripped social/web saves, or no evidence):
    anything landing here is a signal that a new rule may be worth adding.
 
 Nothing here enumerates the possible folder names. Rules 2-4 all *derive* labels, so a
@@ -53,6 +57,11 @@ from truestill_core.models import (
 
 #: The label both screenshot rules emit.
 SCREENSHOT_LABEL = "Screenshots"
+
+#: The label every camera rule emits. Two rules now reach the timeline and both must spell it
+#: the same way: a second spelling would not raise anything, it would quietly open a second
+#: folder next to the first.
+CAMERA_LABEL = "Camera"
 
 # --------------------------------------------------------------------------------------
 # Filename convention table
@@ -110,6 +119,35 @@ NAME_PATTERNS: tuple[NamePattern, ...] = (
         "Downloads",
         re.compile(r"^(?:download|unnamed|image)\s*\(\d+\)", re.IGNORECASE),
         "browser save naming",
+    ),
+)
+
+
+@dataclass(frozen=True, slots=True)
+class CapturePattern:
+    """A filename convention a **capture device** writes for itself."""
+
+    pattern: re.Pattern[str]
+    note: str
+
+
+#: Capture conventions - deliberately **not** :data:`NAME_PATTERNS`, and the separation is the
+#: point rather than tidiness. That table has a second job: `is_messenger_filename` uses it to
+#: make the date chain **refuse** those names as capture dates, because a messenger stamps when
+#: a file was sent. A device's own name stamps when the shutter fired, so an entry added there
+#: would silently cost these files their dates - the opposite of what this rule is for.
+#:
+#: Shaped like the date chain's own patterns (`dates._COMPACT_DATE`): a real century, a real
+#: month, a real day, a real time, and no digit may follow. So this claims a file only when the
+#: name carries an instant the date chain would also read, rather than on a prefix alone.
+CAMERA_NAME_PATTERNS: tuple[CapturePattern, ...] = (
+    CapturePattern(
+        re.compile(
+            r"^(?:IMG|VID)_(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])"
+            r"_(?:[01]\d|2[0-3])[0-5]\d[0-5]\d(?!\d)",
+            re.IGNORECASE,
+        ),
+        "Android IMG_/VID_ date-and-time naming",
     ),
 )
 
@@ -304,9 +342,9 @@ def make_device_rule(*, by_device: bool) -> Rule:
         )
 
         if by_device:
-            label = sanitize_label(f"{make} {model}".strip(), fallback="Camera")
+            label = sanitize_label(f"{make} {model}".strip(), fallback=CAMERA_LABEL)
         else:
-            label = "Camera"
+            label = CAMERA_LABEL
 
         return CategoryMatch(
             label=label,
@@ -316,6 +354,35 @@ def make_device_rule(*, by_device: bool) -> Rule:
         )
 
     return rule_device
+
+
+def rule_camera_filename(path: Path, _metadata: dict[str, Any]) -> CategoryMatch | None:
+    """A device's own capture-filename convention, when the device left no tags to read.
+
+    **Runs after the device rule, and only reaches files it declined.** Real ``Make``/``Model``
+    is the stronger evidence and stays the stronger evidence; this fills the gap it cannot
+    reach. Found on a real library where fifteen ``IMG_`` photos and two ``VID_`` videos carried
+    a good ``DateTimeOriginal`` and **empty** ``Make``/``Model``, so nothing downstream could
+    claim them and all seventeen fell to ``Saved`` - which in that library was every file it
+    held. `(aar)`'s asymmetry in a new place: trusted enough to date from, not to file.
+
+    **Why a convention and not a bare embedded date**, which is the cheaper predicate and the
+    wrong one. A film saved from the web carries a ``CreateDate`` too, so "has a timestamp and
+    no messenger signal" would sweep downloads into a personal timeline. ``IMG_``/``VID_`` plus
+    a full date *and* time is the device's own signature: positive evidence of origin, rather
+    than the absence of evidence to the contrary. ``IMG_1234.JPG`` - the iPhone and Canon
+    convention - is deliberately **not** claimed: it is a counter, and it carries no evidence
+    at all beyond a prefix.
+    """
+    for entry in CAMERA_NAME_PATTERNS:
+        if entry.pattern.match(path.name):
+            return CategoryMatch(
+                label=CAMERA_LABEL,
+                reason=f"filename follows a capture convention ({entry.note})",
+                confidence=Confidence.MEDIUM,
+                rule=RuleName.CAMERA_FILENAME,
+            )
+    return None
 
 
 #: Below this pixel count, an image with no camera EXIF is almost certainly a social/web
@@ -366,6 +433,7 @@ def build_rules(*, by_device: bool = False) -> tuple[Rule, ...]:
         rule_filename_convention,
         rule_software,
         make_device_rule(by_device=by_device),
+        rule_camera_filename,
         rule_saved_heuristic,
     )
 

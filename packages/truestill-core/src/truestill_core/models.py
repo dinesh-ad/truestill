@@ -66,7 +66,7 @@ class Confidence(StrEnum):
 class RuleName(StrEnum):
     """Which categorization rule produced a :class:`CategoryMatch`.
 
-    The seven members are the full set the router knows. Values are the historical string
+    The eight members are the full set the router knows. Values are the historical string
     tokens (unchanged) so comparisons with those literals stay true. This is **not** a
     catalog column - it is in-memory evidence for the current run / re-derive pass only.
     """
@@ -76,6 +76,7 @@ class RuleName(StrEnum):
     FILENAME_CONVENTION = "filename_convention"
     SOFTWARE = "software"
     DEVICE = "device"
+    CAMERA_FILENAME = "camera_filename"
     SAVED_HEURISTIC = "saved_heuristic"
     FALLBACK = "fallback"
 

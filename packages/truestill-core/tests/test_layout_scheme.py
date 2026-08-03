@@ -19,6 +19,7 @@ from truestill_core.layout import (
     PRESETS,
     SIDE_BIN_TEMPLATE_STRING,
     TIMELINE_RULE,
+    TIMELINE_RULES,
     EventNaming,
     LayoutScheme,
     LayoutTemplate,
@@ -32,17 +33,13 @@ from truestill_core.layout import (
     preview_scheme,
     scheme_from_string,
 )
+from truestill_core.models import RuleName
 
 WHEN = datetime(2014, 8, 20, 14, 30)
-ALL_RULES = (
-    "screenshot_metadata",
-    "screenshot_name",
-    "filename_convention",
-    "software",
-    "device",
-    "saved_heuristic",
-    "fallback",
-)
+#: Derived, not transcribed. This was a hand-kept tuple of the same seven strings until
+#: `camera_filename` was added and it silently did not contain the new rule - so the routing
+#: guard below stopped covering the only rule whose routing had changed.
+ALL_RULES: tuple[RuleName, ...] = tuple(RuleName)
 
 
 def _scheme() -> LayoutScheme:
@@ -54,18 +51,23 @@ def _scheme() -> LayoutScheme:
 
 @pytest.mark.parametrize("rule", ALL_RULES)
 def test_every_rule_routes_to_exactly_one_side(rule: str) -> None:
-    """All seven rules, so a new rule cannot be added without deciding where its files go."""
+    """Every rule, so a new one cannot be added without deciding where its files go."""
     scheme = _scheme()
     rendered = scheme.render(rule, RenderContext(category="Whatever", captured_at=WHEN))
-    if rule == TIMELINE_RULE:
+    if rule in TIMELINE_RULES:
         assert rendered.as_posix() == "2014/2014-08/2014-08 - Everyday"
     else:
         assert rendered.as_posix() == "Whatever/2014/2014-08"
 
 
-def test_the_rule_chain_produces_exactly_one_timeline_rule() -> None:
-    """Routing rests on there being one camera rule; this fails loudly if that changes."""
-    assert TIMELINE_RULE in ALL_RULES
+def test_every_rule_name_but_the_fallback_has_a_function_in_the_chain() -> None:
+    """A `RuleName` nothing emits is a routing arm nothing exercises.
+
+    This read "exactly one timeline rule" until `camera_filename` made that false. The count
+    is the durable half; which rules reach the timeline is pinned in
+    `test_timeline_rules_membership.py`, against the router rather than against a literal.
+    """
+    assert set(ALL_RULES) >= TIMELINE_RULES
     # `fallback` is emitted by `categorize` itself when no rule matches, so the chain holds
     # one fewer function than there are rule names.
     assert len(build_rules()) == len(ALL_RULES) - 1

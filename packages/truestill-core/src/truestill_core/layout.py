@@ -497,7 +497,7 @@ TIMELINE_RULE = RuleName.DEVICE
 #:
 #: ``TIMELINE_RULE`` remains the representative rule to **construct** with (`migrate` maps a
 #: route back to it, the layout samples render with it). Only the membership question moved.
-TIMELINE_RULES: frozenset[RuleName] = frozenset({TIMELINE_RULE})
+TIMELINE_RULES: frozenset[RuleName] = frozenset({TIMELINE_RULE, RuleName.CAMERA_FILENAME})
 
 #: Where everything that is not the timeline goes. **Fixed, never user-editable.** The side bin
 #: is a quarantine - screenshots and messenger images stay out of the photo timeline - so no
@@ -755,7 +755,7 @@ def classify(rule: RuleName | str, context: RenderContext) -> Placement:
     if not isinstance(rule, RuleName):
         rule = RuleName(rule)
     match rule:
-        case RuleName.DEVICE:
+        case RuleName.DEVICE | RuleName.CAMERA_FILENAME:
             pass
         case (
             RuleName.SCREENSHOT_METADATA

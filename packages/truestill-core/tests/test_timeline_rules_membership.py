@@ -8,9 +8,14 @@ would land a file on the timeline while silently excluding it from event naming 
 placement, which is the "a fix reached one copy and not its twin" failure
 `ENGINEERING_STANDARD.md` §4 records as this repo's recurring one.
 
-**Provably behaviour-neutral.** `TIMELINE_RULES` holds exactly one member, and `RuleName` is a
-`StrEnum`, so `x in TIMELINE_RULES` and `x == TIMELINE_RULE` agree for every input including
-the plain strings some callers pass. That equivalence is asserted below rather than assumed.
+**The set and the router must agree, and that is now the load-bearing check.** Until
+`CAMERA_FILENAME` arrived, `TIMELINE_RULES` held one member and the whole file could rest on
+"membership equals equality". It holds two, so that equivalence is simply false and asserting
+it would be asserting a lie. What replaced it is stronger and total over the enum: for **every**
+`RuleName`, membership in `TIMELINE_RULES` agrees with what `classify` does with it. Those are
+the two edits a new timeline rule needs, in two files, and each is exactly what would be
+forgotten without the other - a rule in the router's timeline arm but not the set gets timeline
+placement with no event or trip; in the set but not the router, the reverse.
 """
 
 from __future__ import annotations
@@ -19,7 +24,7 @@ import re
 from pathlib import Path
 
 import pytest
-from truestill_core.layout import TIMELINE_RULE, TIMELINE_RULES
+from truestill_core.layout import TIMELINE_RULE, TIMELINE_RULES, Placement, RenderContext, classify
 from truestill_core.models import RuleName
 
 REPO = Path(__file__).resolve().parents[3]
@@ -33,23 +38,39 @@ SOURCE_ROOTS = (
 _COMPARISON = re.compile(r"[!=]=\s*TIMELINE_RULE\b|TIMELINE_RULE\s*[!=]=")
 
 
-def test_the_set_holds_exactly_the_representative_rule_today() -> None:
-    """One member, which is what makes the conversion carry no behaviour change at all."""
-    assert frozenset({TIMELINE_RULE}) == TIMELINE_RULES
+def test_the_set_holds_exactly_the_rules_that_reach_the_timeline_today() -> None:
+    """Stated as a literal, so growing the set is a decision somebody made on purpose.
+
+    A rule reaching the timeline is a product change - the file lands in a dated month folder
+    among the owner's own photos rather than in a labelled bin - and it should never be
+    something a refactor can do quietly.
+    """
+    assert frozenset({RuleName.DEVICE, RuleName.CAMERA_FILENAME}) == TIMELINE_RULES
     assert TIMELINE_RULE is RuleName.DEVICE
 
 
-@pytest.mark.parametrize(
-    "rule",
-    [RuleName.DEVICE, RuleName.SOFTWARE, RuleName.FALLBACK, RuleName.SCREENSHOT_NAME, "device"],
-)
-def test_membership_and_equality_agree_for_every_input(rule: RuleName | str) -> None:
-    """The equivalence the refactor rests on, asserted rather than assumed.
+@pytest.mark.parametrize("rule", list(RuleName))
+def test_the_set_and_the_router_agree_about_every_rule(rule: RuleName) -> None:
+    """Total over the enum: `TIMELINE_RULES` and `classify` cannot drift apart.
 
-    `RuleName` is a `StrEnum`, so it hashes and compares as its own string - which is why a
-    caller passing the bare `"device"` gets the same answer from a set as from `==`.
+    These are the two edits a new timeline rule needs, and each is what would be forgotten
+    without the other. `assert_never` forces the router arm; nothing forces the set. An empty
+    `RenderContext` is used deliberately - with no trip, event or heavy day, a timeline rule
+    can only produce `EVERYDAY`, so any non-side-bin answer is the timeline answer.
     """
-    assert (rule in TIMELINE_RULES) == (rule == TIMELINE_RULE)
+    placement = classify(rule, RenderContext(category="X"))
+    assert (rule in TIMELINE_RULES) == (placement is not Placement.SIDE_BIN)
+
+
+@pytest.mark.parametrize("rule", list(RuleName))
+def test_the_bare_string_a_caller_passes_answers_the_same_as_the_member(rule: RuleName) -> None:
+    """`RuleName` is a `StrEnum`, so it hashes as its own string.
+
+    Not decoration: `migrate._rule_for` is typed `RuleName | str` and callers do pass the plain
+    token. A set keyed on members that silently said "no" to every string would send every
+    migrated camera file to a side bin.
+    """
+    assert (str(rule) in TIMELINE_RULES) == (rule in TIMELINE_RULES)
 
 
 def test_no_source_file_compares_against_the_representative_rule() -> None:

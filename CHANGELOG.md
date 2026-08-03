@@ -7,6 +7,20 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- **Photos and videos your phone named itself now join your timeline instead of landing in
+  `Saved/`.** Android's camera writes files called `IMG_20140105_181210.jpg` and
+  `VID_20140817_155317.mp4` - the date and time the shutter fired, in the name. On some phones,
+  and after some copies between computers, that name is *all* that survives: the camera make and
+  model come through blank. Truestill was already reading the date out of those files and filing
+  them correctly by month - it just would not call them your photos, so they went to `Saved/`,
+  the folder for files whose origin is unknown. On the library this was found in, **every single
+  file in `Saved/` was one of these**. They now go where they always belonged.
+  **A timestamp alone is still not enough**, and that is deliberate: a film you saved from the
+  web has a date inside it too. It takes the camera's own naming - the `IMG_`/`VID_` prefix
+  *and* a full date and time - before Truestill will call something your photo. `IMG_1234.JPG`,
+  which iPhones and Canon cameras use, is just a counter and is left alone.
+  **This applies to files you organize from here on.** Anything already sitting in `Saved/`
+  stays there; re-importing from the originals is what moves it.
 - **A photo that still carries its camera's details now joins your timeline, even if it reached
   you through a messenger.** Truestill used to decide where a file belonged from its *name*
   first, so a photo sent to you as a *document* - which keeps the full camera information - went

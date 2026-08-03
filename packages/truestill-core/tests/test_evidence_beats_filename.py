@@ -256,5 +256,6 @@ def test_the_rule_chain_is_the_one_these_tests_reason_about() -> None:
         "rule_filename_convention",
         "rule_software",
         "rule_device",
+        "rule_camera_filename",
         "rule_saved_heuristic",
     ]
