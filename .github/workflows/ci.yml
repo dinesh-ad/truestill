@@ -24,6 +24,13 @@ jobs:
       # exiftool is a runtime dependency of truestill-core (metadata extraction). Install it
       # per-OS so the tests that shell out to it can run. Tests that need it skip cleanly
       # when it is absent, but CI should exercise the real path on at least Linux/macOS.
+      # Stopwatch around the fixed-cost step. Marker steps rather than timing inside the
+      # install blocks: the Windows one is a guarded choco invocation and an instrument must
+      # not put a hand on the thing it measures.
+      - name: Timing mark (before exiftool)
+        shell: bash
+        run: echo "TS_EXIFTOOL_START=$(date +%s)" >> "$GITHUB_ENV"
+
       - name: Install exiftool (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libimage-exiftool-perl
@@ -38,6 +45,10 @@ jobs:
         run: |
           choco install exiftool --no-progress
           exiftool -ver
+
+      - name: Timing mark (after exiftool)
+        shell: bash
+        run: echo "TS_EXIFTOOL_END=$(date +%s)" >> "$GITHUB_ENV"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v9.0.0
@@ -64,7 +75,13 @@ jobs:
         run: uv run mypy packages/truestill-core/src/truestill_core packages/truestill-cli/src/truestill_cli packages/truestill-app/src/truestill_app scripts packaging
 
       - name: Pytest
-        run: uv run pytest
+        shell: bash
+        run: |
+          start=$(date +%s)
+          status=0
+          uv run pytest || status=$?
+          echo "TS_PYTEST_SECONDS=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
+          exit $status
 
       # The same suite in a DIFFERENT collection order, because green in one order is not
       # green. `uv run pytest` uses testpaths (core, cli, app); passing the directory collects
@@ -80,6 +97,14 @@ jobs:
       - name: Pytest (different collection order)
         if: runner.os == 'Linux'
         run: uv run pytest packages/
+
+      - name: Timing summary
+        if: always()
+        continue-on-error: true
+        shell: bash
+        env:
+          TS_LANE: ${{ matrix.os }}
+        run: uv run python scripts/ci_timing_summary.py
 
       # Audits the *locked* dependency set against the PyPI advisory database. Findings
       # block: a vulnerable dependency is a defect, not a warning. Accepting one is allowed

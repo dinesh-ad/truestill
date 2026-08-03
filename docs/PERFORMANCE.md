@@ -502,3 +502,37 @@ needs no machine to patch, monitor, or keep ephemeral.
 The full costing was researched and is deliberately not written up until the repo actually
 flips, since GitHub's rates changed in January 2026 and the self-hosted platform fee was
 announced and then postponed rather than cancelled.
+
+### 5.1 The Windows lane's problem is variance, not trend (measured 2026-08-03)
+
+**The rule, first, because it is what the next person needs:** reach for `pytest-xdist` when the
+lane's **median** rises, not when its maximum does. Parallelism does not reduce variance; it
+gives a slow machine more to do at once.
+
+A 23-minute Windows run (`37ee466`, pytest step **1308 s**) looked like a regression against the
+~450 s the exiftool-batching win had established. It was not. Three measurements, in order of
+how conclusive they are:
+
+| evidence | reading |
+|---|---|
+| **Ubuntu ran the same commits at 115-201 s throughout**, with `37ee466` at 158 s - dead average | the suite did not slow down |
+| **`Install exiftool` moved 12 s -> 42 s -> 55 s** on exactly the three slow runs, `r = 0.75` against the pytest step | it is fixed work our code cannot touch, so the *machine* was slow |
+| **exiftool spawns fell to 139**, from the 182 measured after batching | no test reintroduced per-file spawning |
+
+Windows pytest ranged **405-1308 s** over fourteen runs on a suite that grew 1,313 -> 1,455
+tests, while Ubuntu's mean *fell* from 166 s to 135 s across the same span. **Cost per test went
+down.** The growth was absorbed.
+
+**The instrument that makes this answerable without a `gh` dig** is
+`scripts/ci_timing_summary.py`, which writes the pytest-to-fixed-cost ratio into each run's
+summary. It discriminates because a fixed-cost step cannot be affected by our code:
+
+| run | pytest | exiftool | ratio |
+|---|---|---|---|
+| `c719875` (healthy, 9 min) | 497 s | 12 s | **41x** |
+| `37ee466` (slow, 23 min) | 1308 s | 55 s | **24x** |
+
+The slow run scores *lower*, which is the whole point: both numbers rose together. A genuinely
+slower suite raises the ratio instead. It is **recorded and never enforced** - a threshold would
+fire on this variance, and a gate that fires on noise gets switched off and takes its signal
+with it.
