@@ -30,6 +30,64 @@ class CrossDeviceError(DestinationError):
     """
 
 
+def device_of(path: Path) -> int | None:
+    """The filesystem device id for ``path``, or ``None`` when it cannot be read.
+
+    Read through this one function so a test can inject a change no test could stage for real:
+    dropping an actual mount needs privileges and a real cloud client.
+    """
+    try:
+        return path.stat().st_dev
+    except OSError:
+        return None
+
+
+class DestinationDevice:
+    """Latches the destination root's filesystem, and refuses to build on a different one.
+
+    **The failure this exists for.** A cloud FUSE mount that drops under load leaves its
+    mountpoint as an ordinary empty directory. Writes into it succeed, and because every write
+    path calls ``mkdir(parents=True, exist_ok=True)`` first, Truestill would **rebuild the whole
+    library tree on the local disk** and fill it - the exact outcome observed on a real
+    migration. Refusing to *create* is what stops that, so the guard sits in front of the
+    ``mkdir`` rather than in front of the copy.
+
+    **Why the device and not the mount table.** The same migration found a dead mount lingering
+    in the table with no process behind it, listing nothing - so the table can say "mounted"
+    when it is not. A mount *is* a filesystem, so losing it changes the root's device id. It
+    also works for a destination that was never a registered drive, which a marker cannot.
+
+    **The baseline latches on the first real sighting**, not at construction: organizing into a
+    folder Truestill is about to create is ordinary, and there is nothing to compare against
+    until the folder exists. Once a device is seen, any later disagreement - including the root
+    becoming unreadable - is refused. ``None`` is a changed answer, not an absence of opinion.
+    """
+
+    def __init__(self) -> None:
+        self._baseline: int | None = None
+
+    @property
+    def baseline(self) -> int | None:
+        """The device this destination was first seen on, or ``None`` before the first sighting."""
+        return self._baseline
+
+    def check(self, root: Path) -> None:
+        """Raise :class:`DestinationError` if ``root`` is no longer the filesystem we started on."""
+        current = device_of(root)
+        if self._baseline is None:
+            self._baseline = current
+            return
+        if current == self._baseline:
+            return
+        message = (
+            f"{root} is no longer the drive this run started on -- it looks like the drive was "
+            f"disconnected or unmounted. Nothing was written for this file, and Truestill did "
+            f"not re-create the folders on this computer's own disk, which would have filled "
+            f"it. Reconnect the drive and run again; Truestill continues from where it stopped."
+        )
+        raise DestinationError(message)
+
+
 def check_contained(relative_path: str) -> None:
     """Raise unless ``relative_path`` can only ever land inside the destination root.
 

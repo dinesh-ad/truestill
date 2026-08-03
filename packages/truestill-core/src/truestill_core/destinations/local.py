@@ -19,6 +19,7 @@ from pathlib import Path
 from truestill_core.destinations.base import (
     CrossDeviceError,
     Destination,
+    DestinationDevice,
     DestinationError,
     check_contained,
 )
@@ -60,9 +61,21 @@ class LocalDestination(Destination):
 
     def __init__(self, root: Path) -> None:
         self._root = root
+        #: Latched on the first write. A drive that disappears mid-run must not have its folder
+        #: tree rebuilt on the local disk -- see `DestinationDevice`.
+        self._device = DestinationDevice()
 
     def describe(self) -> str:
         return f"local:{self._root}"
+
+    def _make_parent(self, target: Path) -> None:
+        """Create ``target``'s folder, unless the drive we started on has gone.
+
+        Every creating path goes through here rather than calling ``mkdir`` itself, so the
+        guard cannot reach one write path and miss its twin.
+        """
+        self._device.check(self._root)
+        target.parent.mkdir(parents=True, exist_ok=True)
 
     def _full(self, relative_path: str) -> Path:
         """The absolute path for ``relative_path``, refused if it could leave the root.
@@ -92,7 +105,7 @@ class LocalDestination(Destination):
     def upload(self, local: Path, relative_path: str) -> None:
         target = self._full(relative_path)
         try:
-            target.parent.mkdir(parents=True, exist_ok=True)
+            self._make_parent(target)
             shutil.copy2(local, target)
         except OSError as exc:
             raise DestinationError(_upload_failure(local, target, relative_path, exc)) from exc
@@ -129,7 +142,7 @@ class LocalDestination(Destination):
         """
         target = self._full(relative_path)
         try:
-            target.parent.mkdir(parents=True, exist_ok=True)
+            self._make_parent(target)
             local.rename(target)
         except OSError as exc:
             if exc.errno == errno.EXDEV:
@@ -145,7 +158,7 @@ class LocalDestination(Destination):
             raise DestinationError(message)
         target = self._full(new_relative_path)
         try:
-            target.parent.mkdir(parents=True, exist_ok=True)
+            self._make_parent(target)
             shutil.copy2(source, target)  # overwrites a partial copy left by an interrupted run
         except OSError as exc:
             message = f"cannot relocate {old_relative_path!r} -> {new_relative_path!r}: {exc}"

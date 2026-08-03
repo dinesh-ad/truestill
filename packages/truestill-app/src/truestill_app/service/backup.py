@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Literal, NotRequired, TypedDict
 
 from truestill_core.catalog import Catalog
+from truestill_core.destinations.base import DestinationDevice
 from truestill_core.drive import read_marker
 from truestill_core.hashing import sha256_file
 from truestill_core.progress import Phase, Progress, ProgressCallback
@@ -253,11 +254,17 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
             copied = 0
             copied_names: list[str] = []
             copied_bytes = 0
+            # A backup writes into a mounted drive for as long as an organize does, and the
+            # verify-after-write below cannot catch a dropped mount: it would re-read the copy
+            # we just made on the LOCAL disk and find it correct. The guard has to stop the
+            # folder being created at all -- see `DestinationDevice`.
+            device = DestinationDevice()
             for row in missing:
                 if cancel.is_set():
                     break
                 rel = row.relative
                 dst = target / rel
+                device.check(target)
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(source / rel, dst)
                 written = sha256_file(dst)

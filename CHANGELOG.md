@@ -104,6 +104,17 @@ All notable changes to this project are documented here. The format follows
   mistake your arrangement for an escape.
 
 ### Fixed
+- **If a drive disconnects while Truestill is writing to it, Truestill now stops instead of
+  quietly refilling your computer's own disk.** This is the one that could cost you real space
+  without any warning. When a network or cloud drive drops - which they do under a long copy -
+  the folder it was mounted at turns back into an ordinary empty folder on your computer.
+  Writing to it *works*, so Truestill would carry on, **rebuild your whole library structure on
+  your computer's disk**, and fill it. Now it notices the drive is no longer the one it started
+  on, stops before creating anything, and tells you: nothing was written, reconnect the drive
+  and run again, and it continues from where it stopped.
+  **Moving files is covered by the same stop** - a `--move` run cannot delete an original,
+  because the copy it would check is never made.
+
 - **A photo that claims to have been taken in the future is no longer filed by that date.** Found
   on a real 32,628-photo library that reported its range as *2002 to 2051*: two files carried a
   capture date 25 years ahead, and Truestill believed them - which would have put them in a
