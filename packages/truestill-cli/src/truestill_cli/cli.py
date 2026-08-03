@@ -1878,6 +1878,25 @@ def _print_forecast(inventory: SourceInventory, sizes: dict[Path, int]) -> None:
     The identical-copy forecast is free: the size pre-filter is a pure function of the size
     census tier 0 already has, so a user can decide whether to wait **before** waiting. That is
     the entire argument for the forecast existing, and it is why this prints here.
+
+    **There is deliberately no time estimate here, and it is not an oversight.** The obvious
+    signal is tier 0's own measured throughput, and it cannot carry the claim: tier 0 measures
+    ``stat`` calls against directory metadata, while this tier reads file *contents* over the
+    same mount. Those are not slow and fast versions of one thing. A FUSE client that serves
+    directory listings from its local cache - which is the common case - gives a fast tier 0 on
+    an arbitrarily slow link, so the correlation is not merely weak, it can be **absent or
+    inverted**: the faster the cache, the more confident and more wrong the estimate.
+
+    The scale is on the record. Measured on a 32,628-file, 192 GB encrypted cloud mount, tier 0
+    took 21 s while the expensive tiers moved 29.4 GB at ~9 MB/s over 53 minutes - and the
+    maintainer's own advance projection from a 5 GB sample of *content reads*, a far better
+    predictor than a stat rate, still spanned **3.6x to 36x**. A forecast built on the weaker
+    signal would be worse than that tenfold spread, and a wrong time estimate is worse than
+    none: it is the number a user plans their evening around.
+
+    This is the accurate-or-absent rule `_rate_note` already follows, where a files-per-second
+    figure is withheld below a second because it would describe interpreter startup rather than
+    the source. `docs/PERFORMANCE.md` §5.2 records the measurement itself.
     """
     duplicates = forecast_exact_duplicate_read(sizes)
     print(
@@ -1885,6 +1904,15 @@ def _print_forecast(inventory: SourceInventory, sizes: dict[Path, int]) -> None:
         f"{duplicates.bytes_to_read / 1e9:.2f} GB of your {duplicates.total_bytes / 1e9:.2f} GB "
         f"({duplicates.colliding_files:,} of {duplicates.files:,} files could have a twin)."
     )
+    if duplicates.bytes_to_read:
+        # **Deliberately not a time estimate.** See `_print_forecast`'s docstring for why tier
+        # 0's rate cannot honestly predict this one. What IS honest is the contrast, which is
+        # the thing a user actually needs to know: the fast answer above stays fast on any
+        # mount, and this one scales with the connection.
+        print(
+            "  The census above was quick because it read folder listings; this reads the "
+            "files themselves, so how long it takes depends on your disk or connection."
+        )
     photos = inventory.by_format.get("photos") or {}
     lookalikes = forecast_lookalike_cost(photos)
     if lookalikes.materially_slower:

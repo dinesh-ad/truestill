@@ -7,6 +7,27 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- **What Truestill costs on a cloud drive is now written down, and it still will not guess how
+  long a run will take.** Measured on one encrypted cloud mount: a 32,628-file census took
+  **21 seconds**, while reading those files for duplicates and dates moved 29.4 GB at about
+  **9 MB/s** - roughly 53 minutes, with the processor 3% busy the whole time. The wait is your
+  connection, not your computer. Encryption adds its own cost on top, because the files are
+  decrypted on your machine as well as pulled over the wire. `README.md` carries the short
+  version and `docs/PERFORMANCE.md` §5.2 the detail, including that this is **one mount on one
+  connection** and not a claim about Truestill's speed.
+  **No finishing time is shown, on purpose.** The obvious way to guess one is to time the fast
+  census and scale it up - but that reads folder listings while the slow part reads the files
+  themselves, and a cloud client that keeps listings on your machine makes the census fast no
+  matter how slow the link is. The guess would be confident and wrong. Truestill tells you how
+  much it needs to read before it starts, and says plainly that how long that takes depends on
+  your disk or connection.
+- **If your Linux desktop indexes your files, exclude your cloud drive from it.** GNOME's file
+  indexer opens every file it finds to read metadata - and on a cloud drive, *opening* a file
+  **downloads** it. Organize into a cloud folder inside your home directory and the indexer can
+  quietly pull your entire library back down behind you, filling your disk and saturating your
+  connection, looking for all the world like Truestill being slow. `docs/moving-machines.md`
+  has the settings that stop it, including the measured detail that **adding an exclusion did
+  not work** and narrowing the indexed folders did.
 - **Truestill now tells you when it has passed over a hidden file or a hidden folder.** It
   still skips them, and that is deliberate: the hidden folders on a typical computer are
   `.Trash`, `.thumbnails` and the caches your operating system keeps, and sweeping those into

@@ -124,6 +124,23 @@ Runtime Python dependencies are deliberately minimal and each is justified in wr
 `uvicorn` in the app. The CLI adds none. Hashing, SQLite, concurrency and all path/date work
 are stdlib.
 
+### Working on a mounted or cloud filesystem
+
+Truestill runs against a mounted drive or a cloud filesystem (an rclone remote, a NAS, a sync client's mount) as
+happily as a local disk, and **the cheap answers stay cheap wherever the files live**:
+`truestill analyze` censused 32,628 files in 21 seconds over a cloud mount, because a census
+reads folder listings rather than the files themselves.
+
+**The expensive answers scale with your connection, not with your computer.** Finding duplicates
+or checking dates has to read the file contents. On one encrypted pCloud mount that meant
+29.4 GB at about 9 MB/s - roughly 53 minutes - with the CPU 3% busy the whole time, so the wait
+is the link and not the work. **Encryption is a cost of its own on top of that**: pCloud Crypto
+decrypts on your machine, so every byte goes through their client as well as over the wire.
+
+One mount on one connection - yours will differ, and Truestill deliberately does not guess a
+finishing time from it (`docs/PERFORMANCE.md` §5.2 says why). It tells you how much it needs to
+read before it starts, so the decision is yours.
+
 ## Install
 
 ```bash

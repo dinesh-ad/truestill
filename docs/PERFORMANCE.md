@@ -528,6 +528,63 @@ recorded that way in the code, the same way `insights.SLOW_PERCEPTUAL_WARN_SHARE
 that is silently returning *wrong data* rather than going away. There is no evidence that
 happens, and nothing was built for it speculatively.
 
+### 5.2 What an encrypted cloud mount costs, and why no time is forecast (observed 2026-08-04)
+
+**This is an OBSERVATION, not a benchmark row, and §2.1 is why.** That method binds every figure
+here: n >= 5, median and p95, spread, cold and warm apart. This is **n = 1** - a single
+54-minute run over the maintainer's own 192 GB library - and §2.1's own instruction for a figure
+that cannot meet the method is to write it as *"not measured, because X"* rather than fill it in
+with a guess. So: **not benchmarked, because the run is 54 minutes long on a real library behind
+the corpus fence, and five of them is not a reasonable ask.** Recorded because the *scale* is
+decision-shaping even when the precision is not.
+
+| what | observed |
+|---|---|
+| corpus | 32,628 files / 192.49 GB, encrypted pCloud mount (client-side decryption) |
+| machine class | **cloud FUSE, encrypted** - a class §1.1 leaves empty |
+| tier 0 (walk + `stat`) | **21 s** for all 32,628 files |
+| tiers 1 + 2a (content) | **29.4 GB at ~9 MB/s**, ~53 minutes |
+| CPU over the run | **3%** |
+| I/O to CPU | **~31x** (~105 s of computation inside 54 minutes of waiting) |
+| advance projection | 3.6x-36x, from a 5 GB sample - **it held**, at the low-middle of a 10x range |
+
+**One mount, one connection, one evening.** A different provider, link or time of day moves
+every row. Nothing here should be quoted as "Truestill's speed".
+
+**Encryption is a separate cost from the network**, and is worth its own line.
+pCloud Crypto decrypts client-side, so every byte passes through their client **in addition
+to** being pulled over the link. An unencrypted mount on the same connection is not this
+measurement.
+
+**The contrast is the useful part, and it is the one thing here that generalises.** Tier 0 reads
+**directory metadata**; the expensive tiers read **contents**. That is why 32,628 files can be
+censused in 21 s on a mount that then needs 53 minutes for 29.4 GB - and why the cheap answer
+stays cheap on any mount while the expensive ones scale with the connection.
+
+#### Why there is no in-product time forecast
+
+The obvious signal is tier 0's own measured throughput, and it **cannot carry the claim**. Tier 0
+times `stat` calls against directory metadata; tier 2a reads file contents. Those are not the
+slow and fast versions of one thing, and a FUSE client that serves directory listings from its
+local cache - the common case - produces a **fast tier 0 on an arbitrarily slow link**. The
+correlation is therefore not merely weak; it can be **absent or inverted**, and the better the
+cache, the more confident and more wrong the estimate would be.
+
+The 3.6x-36x projection above is the evidence that settles it. That spread came from a sample of
+**content reads** - a far better predictor than a stat rate - and it still spans **tenfold**. A
+forecast built on the weaker signal would be worse than that, and **a wrong time estimate is
+worse than none**: it is the number a user plans their evening around.
+
+So the report states what it will read and says the honest half of the rest - the census was
+quick because it read folder listings, this reads the files themselves - and no number. That is
+the accurate-or-absent rule `cli._rate_note` already follows, where a files-per-second figure is
+withheld below one second because it would describe interpreter startup rather than the source.
+Pinned by `test_forecast_makes_no_time_claim.py`, which is a guard against a **future good
+intention**: adding an estimate should fail and force this conversation rather than land because
+it looked helpful.
+
+---
+
 ### 5.1 The Windows lane's problem is variance, not trend (measured 2026-08-03)
 
 **The rule, first, because it is what the next person needs:** reach for `pytest-xdist` when the

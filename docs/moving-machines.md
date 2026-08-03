@@ -124,6 +124,38 @@ again once the cache rebuilds.
 
 ---
 
+## If your desktop indexes files, exclude the cloud mount
+
+**Linux desktops with `localsearch-3` (GNOME's tracker/indexer) will re-download a library you
+just organized onto a cloud mount**, and nothing points at the cause. The indexer opens every
+file under its roots to extract metadata, and *opening* a file on a cloud FUSE mount **downloads
+it**. Organize into a mount inside `$HOME` and the indexer will quietly pull the whole library
+back down behind you - filling the local disk, saturating the link, and looking exactly like
+Truestill being slow.
+
+**Excluding the directory did not stop it.** Measured on the affected machine:
+
+| setting | result |
+|---|---|
+| `ignored-directories` including the mount | **+862 files in 5 minutes** - still indexing |
+| `index-recursive-directories` narrowed to the XDG folders | **0 growth over 6 minutes** |
+
+So set the roots, do not add exclusions:
+
+```bash
+gsettings set org.freedesktop.Tracker3.Miner.Files index-recursive-directories \
+    "['&xdg-documents&', '&xdg-music&', '&xdg-pictures&', '&xdg-videos&']"
+```
+
+Check what is happening with `localsearch3 status` (or `tracker3 status` on older builds); the
+file count climbing while nothing is running is the symptom.
+
+**This is documentation, not a Truestill setting.** Truestill cannot see another program reading
+the mount, and changing a user's desktop configuration on their behalf is not something a photo
+organizer should do. The run health check added in `56bb6f3` will stop a run when this fills the
+local disk, and will say the disk is full - which is true, and still will not name the indexer.
+That is exactly why this page has to.
+
 ## What survives without repair
 
 Once the markered drives and the right catalog are in place, these keep working

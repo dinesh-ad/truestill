@@ -52,6 +52,20 @@ BANNED: dict[str, str] = {
 #: line *before* the scan, so these survive without exempting the whole file around them.
 ALLOWED: tuple[tuple[str, str], ...] = (
     (
+        r"encrypted pCloud mount|pCloud Crypto",
+        (
+            "the 2026-08-04 throughput observation (PERFORMANCE.md 5.2, README's mounted-"
+            "filesystem section). The vendor IS the measurement here on two counts. PERFORMANCE "
+            "2.1 binds every figure to state its machine class - 'a row without it cannot be "
+            "compared to anything' - and 'an encrypted cloud mount' is not a machine class. And "
+            "the client-side-decryption cost is a property of THAT product's crypto, so "
+            "generalising it would assert something about every encrypted mount from a sample "
+            "of one. Scoped to the two phrases that carry the claim, so the name cannot spread "
+            "into prose that does not need it - the plain example list in the same README "
+            "section names no vendor at all."
+        ),
+    ),
+    (
         r"\| (Google Takeout|Facebook|Flickr|Amazon Photos|Dropbox|iCloud) \|",
         (
             "the (jj) export-format table in SHIPPED.md. These names ARE the evidence: the "
