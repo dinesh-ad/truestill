@@ -16,7 +16,12 @@ from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
 
-from truestill_core.destinations.base import CrossDeviceError, Destination, DestinationError
+from truestill_core.destinations.base import (
+    CrossDeviceError,
+    Destination,
+    DestinationError,
+    check_contained,
+)
 from truestill_core.filesystem import (
     DestinationPreflight,
     FilesystemFacts,
@@ -60,6 +65,14 @@ class LocalDestination(Destination):
         return f"local:{self._root}"
 
     def _full(self, relative_path: str) -> Path:
+        """The absolute path for ``relative_path``, refused if it could leave the root.
+
+        The check lives here rather than at each caller because ``_full`` is the single place
+        this backend turns a relative path into a real one -- ``exists``, ``upload``,
+        ``set_timestamp``, ``adopt``, ``relocate`` and ``remove`` all come through it, so one
+        guard covers every write instead of six that have to be kept in step.
+        """
+        check_contained(relative_path)
         return self._root / relative_path
 
     def facts(self) -> FilesystemFacts:

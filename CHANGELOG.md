@@ -60,6 +60,16 @@ All notable changes to this project are documented here. The format follows
   and matches `organize`'s existing `source`. **`--takeout` keeps working, permanently** - it is
   a hidden alias resolving to the same value, not a deprecation, so existing scripts are safe.
 
+### Changed
+- **Truestill now refuses, out loud, to write outside the folder you pointed it at.** It never
+  did - every destination path it builds is assembled from a single filename it read off your
+  disk - but nothing was actually *checking*, so the guarantee rested on how the code happened
+  to be arranged rather than on a rule. There is now a rule. A path that is absolute, names a
+  drive, or contains `..` is refused before anything is written, and the message names the path.
+  **Folders you have symlinked elsewhere keep working** - a year folder living on a second disk
+  is an ordinary setup, and the check reads the path rather than following it, so it cannot
+  mistake your arrangement for an escape.
+
 ### Fixed
 - **Organizing the same photo twice no longer puts two dates in its name.** A photo whose date
   came from its filename gets a name like `20140815_IMG_0001.jpg`. If Truestill later organized
