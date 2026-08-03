@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aay). Next free: (aaz).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aaz). Next free: (aba).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -48,6 +48,20 @@ Everything here has work left. **Two entries are partial and say so in their own
 `(bbb)` (the safety half shipped, the `_original` recovery offer did not) and `(r)` (the hash
 cache shipped, Analyze mode itself did not). A partial entry lives here, not in the built
 section, because what is left is the part that still has to be written.
+
+- **(aaz) `ModifyDate < DateTimeOriginal` as a back-dating signal. RECORD ONLY - do not build.**
+  Filed 2026-08-03 alongside the future-date refusal, which found its case on the real library.
+  - **The signal.** A file cannot logically be modified before it was created, so
+    `ModifyDate` earlier than `DateTimeOriginal` is characteristic of a date that was edited
+    after the fact. It would catch back-dating, which the future check cannot: a date moved
+    *backwards* is not impossible, merely wrong.
+  - **`ModifyDate` is NOT in `REQUESTED_TAGS` today** (checked, not assumed), so this is not
+    free. Adding it changes `tags_fingerprint`, which invalidates every cached metadata row and
+    forces one cold exiftool pass over the whole library - the same cost profile recorded for
+    `GPSAltitude`. That is the reason this is filed rather than built.
+  - **And the signal is weaker than it looks.** Any lossless rewrite - our own metadata bake
+    included - updates `ModifyDate`, so a true positive and an ordinary edit are the same
+    shape. It would need to be reported as a question, never as a verdict.
 
 - **(aay) JPEG XL (`.jxl`) is classified as unrecognized. RECORD ONLY - do not build.**
   Found 2026-08-03 by running `truestill analyze` over a deliberately format-diverse corpus,

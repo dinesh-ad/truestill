@@ -104,6 +104,19 @@ All notable changes to this project are documented here. The format follows
   mistake your arrangement for an escape.
 
 ### Fixed
+- **A photo that claims to have been taken in the future is no longer filed by that date.** Found
+  on a real 32,628-photo library that reported its range as *2002 to 2051*: two files carried a
+  capture date 25 years ahead, and Truestill believed them - which would have put them in a
+  `2051/` folder and stretched the library's timeline by three decades. A date after today is
+  impossible, so it is now **refused**, and Truestill carries on looking: if the file has another
+  usable date it is used, and only if nothing is left does the photo go to `Undated/`.
+  **It tells you when this happens**, because it usually means a camera's clock was wrong or the
+  details were edited - and the original date cannot be recovered by any tool once it has been
+  overwritten. **Photos taken today are never affected**: a full day of leeway is allowed for
+  cameras running slightly fast and for timezone differences.
+  Very old dates are still accepted. A scanned negative may genuinely be from 1962, and refusing
+  it would throw away a true date that someone took care to record.
+
 - **Organizing the same photo twice no longer puts two dates in its name.** A photo whose date
   came from its filename gets a name like `20140815_IMG_0001.jpg`. If Truestill later organized
   that same photo again once it could read the camera's own date - after you installed

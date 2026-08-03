@@ -94,6 +94,12 @@ class DateSource(StrEnum):
     etc.). Distinct from raw ``EXIF``: the digits were converted, and ``date_tag`` records
     how. See :func:`truestill_core.dates.format_inferred_date_tag`.
 
+    ``REJECTED_FUTURE`` is the same shape as ``REJECTED_SENTINEL`` and deliberately a
+    *different* member: a placeholder date says the device never set its clock, while a future
+    date says the clock was wrong or the metadata was edited. Different causes, different
+    remedies, so folding them into one count would hide the *why* the never-silent rule exists
+    to disclose.
+
     ``REJECTED_SENTINEL`` is ``NONE`` with a reason: the file *did* carry a date, and it was
     an epoch/container zero (Tier A, ``dates.HARD_SENTINELS``) that we refused. It also lands
     in ``Undated/`` -- the distinction exists purely so the report can say a date was found
@@ -111,6 +117,7 @@ class DateSource(StrEnum):
     FILENAME = "filename"
     NONE = "none"
     REJECTED_SENTINEL = "rejected_sentinel"  # only date found was an epoch zero -> refused
+    REJECTED_FUTURE = "rejected_future"  # only date found was after now -> refused
 
 
 #: Date sources trusted enough not to warrant manual review.
@@ -118,7 +125,9 @@ _TRUSTED_DATE_SOURCES = frozenset({DateSource.EXIF, DateSource.TAKEOUT, DateSour
 
 #: Sources that produced no usable date at all. Excluded from the "approximate date" review
 #: list: there is no date to review, and both are reported on their own line instead.
-_DATELESS_SOURCES = frozenset({DateSource.NONE, DateSource.REJECTED_SENTINEL})
+_DATELESS_SOURCES = frozenset(
+    {DateSource.NONE, DateSource.REJECTED_SENTINEL, DateSource.REJECTED_FUTURE}
+)
 
 
 class ActionStatus(StrEnum):
@@ -477,6 +486,9 @@ class DateQuality(NamedTuple):
 
     #: Files whose only date was a Tier A epoch zero. Refused -> they went to ``Undated/``.
     sentinel_rejected: int
+    #: Files whose only date was **after now**. Refused -> ``Undated/``. Usually a wrong device
+    #: clock or edited metadata, which is why it is counted apart from the placeholder case.
+    future_rejected: int
     #: Files dated by a Tier B camera default (exact midnight on a clock-reset day). These
     #: are **filed by that date** -- they may well be right -- and merely flagged for review.
     suspect_default: int
@@ -488,14 +500,16 @@ def date_quality(resolutions: Iterable[Resolution]) -> DateQuality:
     Shared by the CLI and the app so the two front-ends can never drift into reporting
     different numbers for the same run.
     """
-    sentinel = suspect = 0
+    sentinel = suspect = future = 0
     for resolution in resolutions:
         decision = resolution.decision
         if decision.date_source is DateSource.REJECTED_SENTINEL:
             sentinel += 1
+        if decision.date_source is DateSource.REJECTED_FUTURE:
+            future += 1
         if decision.suspect_default:
             suspect += 1
-    return DateQuality(sentinel_rejected=sentinel, suspect_default=suspect)
+    return DateQuality(sentinel_rejected=sentinel, future_rejected=future, suspect_default=suspect)
 
 
 class InferredLocalShift(NamedTuple):

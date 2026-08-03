@@ -152,6 +152,7 @@ class OrganizeDedupCore(TypedDict):
     near_dup_matches: DuplicateReport
     undated: int
     sentinel_rejected: int
+    future_rejected: int
     suspect_default: int
     inferred_local_shifts: list[InferredLocalShiftPayload]
     folders: dict[str, int]
@@ -187,6 +188,7 @@ def _summarize(resolutions: list[Resolution]) -> OrganizeDedupCore:
         # Never silent: an epoch-zero date that was refused, and a date that may be a dead
         # camera-clock default, are each reported on their own -- never folded into "undated".
         "sentinel_rejected": quality.sentinel_rejected,
+        "future_rejected": quality.future_rejected,
         "suspect_default": quality.suspect_default,
         # Informational: videos shifted from UTC CreateDate (names + offsets). Not a defect;
         # not_proven_utc fallthrough is omitted on purpose.

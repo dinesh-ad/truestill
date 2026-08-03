@@ -1077,6 +1077,12 @@ def _print_date_quality(uploads: list[Resolution]) -> None:
             f"  {quality.sentinel_rejected} file(s) carried only a placeholder date"
             " (1904/1970 epoch zero); it was refused and they went to Undated/"
         )
+    if quality.future_rejected:
+        print(
+            f"  {quality.future_rejected} file(s) claimed a capture date in the future;"
+            " it was refused and they went to Undated/ (a wrong device clock, or edited"
+            " metadata -- the original date cannot be recovered)"
+        )
     if quality.suspect_default:
         print(
             f"  {quality.suspect_default} file(s) dated by a suspicious camera-default"
@@ -1380,6 +1386,9 @@ def _print_ingest_report(resolutions: list[Resolution], scan: TakeoutScan) -> No
     print(
         f"  placeholder date refused         : {quality.sentinel_rejected}"
         "  (epoch zero -> Undated/)"
+    )
+    print(
+        f"  future date refused              : {quality.future_rejected}  (after today -> Undated/)"
     )
     print(f"  suspicious camera-default dates  : {quality.suspect_default}  (filed, worth a look)")
     shifts = inferred_local_shifts(uploads)

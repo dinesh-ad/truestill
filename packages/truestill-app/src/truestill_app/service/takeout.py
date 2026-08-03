@@ -62,6 +62,7 @@ class IngestPreviewSummary(TypedDict):
     dates_exif: int
     undated: int
     sentinel_rejected: int
+    future_rejected: int
     suspect_default: int
     inferred_local_shifts: list[InferredLocalShiftPayload]
     missing_sidecar: int
@@ -124,6 +125,7 @@ def ingest_preview(
         "dates_exif": sources.get("exif", 0),
         "undated": sources.get("none", 0),
         "sentinel_rejected": quality.sentinel_rejected,
+        "future_rejected": quality.future_rejected,
         "suspect_default": quality.suspect_default,
         "inferred_local_shifts": [
             {

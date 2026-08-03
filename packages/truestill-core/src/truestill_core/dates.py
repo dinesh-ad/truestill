@@ -205,6 +205,7 @@ class _EmbeddedDate(NamedTuple):
     value: datetime | None
     tag: str | None
     saw_sentinel: bool
+    saw_future: bool = False
 
 
 class _Candidate(NamedTuple):
@@ -240,12 +241,19 @@ def _exif_tier(path: Path, metadata: dict[str, Any], embedded: _EmbeddedDate) ->
     return _Candidate(embedded.value, DateSource.EXIF, embedded.tag)
 
 
-def _embedded_datetime(metadata: dict[str, Any]) -> _EmbeddedDate:
-    """First parseable, sane embedded date with the tag that supplied it.
+def _embedded_datetime(metadata: dict[str, Any], *, now: datetime) -> _EmbeddedDate:
+    """First parseable, sane, not-yet-happened embedded date with the tag that supplied it.
 
     One pass over :data:`DATE_TAGS` (5 entries, ordered by trust); the first usable hit wins.
+
+    **The future check is here as well as in the tier loop, and both are needed.** This one
+    lets a valid ``CreateDate`` win when ``DateTimeOriginal`` is impossible - the fall-through
+    *within* the embedded tier. The loop's copy covers the tiers this function never sees, the
+    Takeout timestamp and the filename. The sentinel check is duplicated for exactly the same
+    reason and has been since it was written.
     """
     saw_sentinel = False
+    saw_future = False
     for tag in DATE_TAGS:
         parsed = parse_exif_datetime(metadata.get(tag))
         if parsed is None:
@@ -253,11 +261,25 @@ def _embedded_datetime(metadata: dict[str, Any]) -> _EmbeddedDate:
         if is_hard_sentinel(parsed):
             saw_sentinel = True
             continue
+        if is_future(parsed, now=now):
+            saw_future = True
+            continue
         if _MIN_SANE_YEAR <= parsed.year <= _MAX_SANE_YEAR:
-            return _EmbeddedDate(parsed, tag, saw_sentinel)
-    return _EmbeddedDate(None, None, saw_sentinel)
+            return _EmbeddedDate(parsed, tag, saw_sentinel, saw_future)
+    return _EmbeddedDate(None, None, saw_sentinel, saw_future)
 
 
+#: **The floor and the ceiling are deliberately asymmetric, and tidying them into symmetry
+#: would be a regression.** The ceiling is now `now` (see :data:`FUTURE_TOLERANCE`), which is
+#: *logically* impossible to exceed: no photograph was taken after this moment, for anyone,
+#: ever, so it needs no year and it stays correct forever. The floor is only *improbable*, and
+#: for one real group of users it is wrong: someone scanning family negatives sets
+#: `DateTimeOriginal` to when the shutter fired - 1962 - which is exactly the distinction
+#: `DateTimeDigitized` exists to draw. Refusing a future date costs nothing, because the value
+#: was impossible; refusing an early one discards a **true** date belonging to the users who
+#: curated theirs most carefully. Tier A already catches the zeroed-clock cases a tighter floor
+#: would find, so tightening it would buy nothing and risk that. Ruled 2026-08-03.
+#:
 #: EXIF dates outside this range are treated as a reset/garbage clock, so a Takeout date
 #: (if any) is preferred over them even in the default EXIF-wins mode. The floor is 1900,
 #: not the film era's start: scanned negatives and slides carry genuine early dates, and
@@ -266,14 +288,35 @@ def _embedded_datetime(metadata: dict[str, Any]) -> _EmbeddedDate:
 _MIN_SANE_YEAR = 1900
 _MAX_SANE_YEAR = 2100
 
+#: How far ahead of "now" a capture date may sit before it is refused as impossible.
+#:
+#: **A day, and the asymmetry is deliberate.** Clock skew is ordinary - a camera minutes fast, a
+#: timezone-unaware stamp read as UTC when the shooter was ahead of it, a device that never
+#: adjusted for travel. Refusing those would send correctly-dated photos to ``Undated/``, which
+#: is both worse and far commoner than accepting a date a few hours out. A day is generous
+#: enough that no real photo is refused, and tight enough to catch the case this was written
+#: for: a library reporting a range ending in **2051**.
+FUTURE_TOLERANCE = timedelta(days=1)
 
-def resolve_capture_datetime(
+
+def is_future(value: datetime, *, now: datetime) -> bool:
+    """Whether ``value`` claims a capture instant that has not happened yet.
+
+    Impossible evidence, not merely improbable. No library can recover a date someone
+    overwrote, so the only honest response is to refuse it and let the chain fall through -
+    the same principle the messenger sent-date rule already applies.
+    """
+    return value > now + FUTURE_TOLERANCE
+
+
+def resolve_capture_datetime(  # noqa: PLR0913 - each argument is a distinct evidence source
     path: Path,
     metadata: dict[str, Any],
     *,
     takeout: TakeoutSidecar | None = None,
     tz_offset: timedelta | None = None,
     prefer_takeout: bool = False,
+    now: datetime | None = None,
 ) -> tuple[datetime | None, DateSource, str | None]:
     """Return ``(datetime, source, tag)`` for a file.
 
@@ -295,7 +338,12 @@ def resolve_capture_datetime(
     appear here at all: those dates are **accepted**, and callers flag them via
     :func:`is_suspect_default`.
     """
-    embedded = _embedded_datetime(metadata)
+    # Naive local, deliberately, and `DTZ005` is suppressed for that reason rather than
+    # silenced: every EXIF datetime in this module is naive local wall-clock, so an aware
+    # `datetime.now(UTC)` could not be compared with one without raising. The comparison is
+    # local-to-local, which is what a camera clock actually records.
+    moment = now if now is not None else datetime.now()  # noqa: DTZ005 - naive local by design
+    embedded = _embedded_datetime(metadata, now=moment)
     exif_tier = _exif_tier(path, metadata, embedded)
     taken_tier = _Candidate(
         _local(takeout.taken_at if takeout else None, tz_offset), DateSource.TAKEOUT
@@ -316,12 +364,21 @@ def resolve_capture_datetime(
     )
 
     saw_sentinel = embedded.saw_sentinel
+    saw_future = embedded.saw_future
     for tier in tiers:
         if tier.value is None:
             continue
         if is_hard_sentinel(tier.value):  # Tier A applies to every tier, not just EXIF
             saw_sentinel = True
             continue
+        if is_future(tier.value, now=moment):
+            # Beside the sentinel check for the same reason it is here rather than inside
+            # `_embedded_datetime`: a filename like `20510301_...` and a Takeout timestamp can
+            # both be in the future, and the old plausibility band reached neither.
+            saw_future = True
+            continue
         return tier.value, tier.source, tier.tag
 
+    if saw_future:
+        return None, DateSource.REJECTED_FUTURE, None
     return None, (DateSource.REJECTED_SENTINEL if saw_sentinel else DateSource.NONE), None

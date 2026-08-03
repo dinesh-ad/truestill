@@ -338,6 +338,11 @@ function byFormat(bf) {
 // Both render only when non-zero -- a clean library says nothing rather than "0".
 function dateQualityNotes(s) {
   const notes = [];
+  if (s.future_rejected) {
+    notes.push(`<div>${plural(s.future_rejected, "file")} claimed a date in the future, so it was
+      refused and they went to <span class="mono">Undated/</span>. That usually means a wrong
+      camera clock or edited details; the original date cannot be recovered.</div>`);
+  }
   if (s.sentinel_rejected) {
     notes.push(`<div>${plural(s.sentinel_rejected, "file")} carried only a placeholder date
       (an all-zero “epoch” timestamp). It was refused, so they went to “Undated” rather than
