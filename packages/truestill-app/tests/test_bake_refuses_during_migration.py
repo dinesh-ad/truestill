@@ -15,10 +15,12 @@ cannot clear it either - `reversible_migration` walks *completed* rows. So the u
 permanent stall, a duplicate on the drive, and the words "verification failed" about a file
 truestill itself rewrote.
 
-**Why a refusal rather than a proof.** The app's per-drive job lock already covers app-vs-app
-fully - every job route goes through `_start_drive_job`, which keys on `uuid:<marker uuid>`. It
-is process-local by design (`BACKLOG.md` **(vv)**), so a CLI `migrate-layout` running beside an
-app bake is not serialized at all, and there is nothing to prove closed for that pair.
+**Why a refusal rather than a proof.** The app's per-drive job lock covers everything inside one
+app process - every job route goes through `_start_drive_job`, which keys on `uuid:<marker
+uuid>`. It is process-local by design (`BACKLOG.md` **(vv)**), so a CLI `migrate-layout` running
+beside an app bake is not serialized at all, and there is nothing to prove closed for that pair.
+(Corrected 2026-08-03: this said "covers app-vs-app fully", which is true only within one
+process - a second app instance takes an ephemeral port and gets its own `JobManager`.)
 
 **How the bake knows across processes.** The journal is in the shared catalog:
 `Catalog.pending_migration(drive_uuid)` returns rows with ``completed_at IS NULL``, which every
@@ -148,11 +150,12 @@ def test_the_toctou_gap_is_narrowed_not_closed() -> None:
 def test_every_drive_touching_route_starts_through_the_locked_helper() -> None:
     """BINDING: a bake must start via ``_start_drive_job``, or it opts out of existing coverage.
 
-    The app-vs-app half of this problem is *already solved* - `_start_drive_job` calls
+    The *same-process* half of this problem is solved - `_start_drive_job` calls
     `jobs.start(drives=[drive_ref_for(path)])`, keyed on ``uuid:<marker uuid>``, and
     `JobManager` refuses a second job on an occupied drive. A bake wired straight to
     `jobs.start`, or to no job at all, would silently forfeit that and leave only the journal
-    check standing.
+    check standing. (Corrected 2026-08-03 from "the app-vs-app half is already solved": a
+    second app *process* holds a separate `JobManager`, so this helper cannot see it.)
 
     Asserted structurally rather than left as a comment: every ``jobs.start`` in the server goes
     through the one helper. If a future route calls it directly, this fails and says why.

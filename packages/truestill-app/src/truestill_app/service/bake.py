@@ -36,11 +36,13 @@ renames - but the migration stalls permanently (a resume repeats the same compar
 copy is left at the new path, and the user is shown the word "verification" about a file
 truestill itself rewrote.
 
-**Why a check here rather than a lock.** The app's per-drive job lock already covers app-vs-app
-completely: every job route goes through ``server._start_drive_job``, which keys on
+**Why a check here rather than a lock.** The app's per-drive job lock covers everything *inside
+one app process*: every job route goes through ``server._start_drive_job``, which keys on
 ``uuid:<marker uuid>``. It is process-local **by design** (`BACKLOG.md` **(vv)**), so a CLI
-``migrate-layout`` beside an app bake is not serialized at all. The journal, unlike the lock,
-lives in the shared catalog and every process can read it.
+``migrate-layout`` beside an app bake is not serialized at all -- and neither is a **second app
+process**, which starts happily on an ephemeral port with its own ``JobManager`` (corrected
+2026-08-03; this file previously said app-vs-app was covered "completely"). The journal, unlike
+the lock, lives in the shared catalog and every process can read it.
 
 **This narrows the race; it does not close it.** Between a check and the write that follows it,
 another process can still journal a migration. Re-checking before *every file* reduces the

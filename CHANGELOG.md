@@ -61,6 +61,18 @@ All notable changes to this project are documented here. The format follows
   a hidden alias resolving to the same value, not a deprecation, so existing scripts are safe.
 
 ### Fixed
+- **Using Truestill in two places at once now says so plainly, instead of showing you a
+  crash.** Running a command in a terminal while the app is open is an ordinary thing to do, and
+  the two share one library catalog. Only one of them can write to it at a time - which is
+  correct, and is what keeps your library consistent - but the one that had to wait used to give
+  up after five seconds with a wall of technical output ending in `database is locked`. It looked
+  like something had broken. Nothing had. Both surfaces now stop with a sentence that says
+  another Truestill operation is using the catalog, that a file is recorded only after it has
+  been copied safely, and to try again once the other one finishes. **On the command line this
+  has its own exit code (`5`), so a script can tell "try again shortly" apart from "you typed
+  something wrong".** Real problems - a failing disk, a damaged catalog - are untouched and still
+  report themselves in full, because being told to wait for a fault that will never clear is
+  worse than seeing the error.
 - **Truestill will no longer register the same library twice as two different drives.** If a
   drive's marker file went missing - copied to a new machine without it, restored from a backup
   that skipped hidden files - registering that folder used to create a *second* drive identity

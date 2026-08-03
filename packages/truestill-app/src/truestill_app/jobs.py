@@ -23,6 +23,7 @@ from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal, TypedDict
 
+from truestill_core.catalog_busy import CATALOG_BUSY_CODE, CATALOG_BUSY_MESSAGE, is_catalog_busy
 from truestill_core.progress import Progress, ProgressCallback
 
 #: A job target receives a progress callback and a cancel event, and returns a JSON-able summary.
@@ -181,10 +182,19 @@ class JobManager:
                     # The exception's class name travels with the message so the UI can answer a
                     # known situation with a next step. Matching on a class is stable; matching on
                     # message text would break the first time anyone rewords it.
+                    #
+                    # A catalog held by another process is the one failure whose own words are
+                    # useless to the person reading them: `str(exc)` is "database is locked",
+                    # which describes SQLite's internals and no action. It is also not a fault
+                    # -- an `--apply` run in a terminal while the app is open is ordinary -- so
+                    # it is reworded here rather than left to read as a crash. Recognition and
+                    # wording come from core because the CLI answers the same condition and the
+                    # two must not drift.
+                    busy = is_catalog_busy(exc)
                     terminal = {
                         "type": _SENTINEL_ERROR,
-                        "message": str(exc),
-                        "code": type(exc).__name__,
+                        "message": CATALOG_BUSY_MESSAGE if busy else str(exc),
+                        "code": CATALOG_BUSY_CODE if busy else type(exc).__name__,
                     }
             finally:
                 # Always release, including cancel and exception - a stuck lock is worse than

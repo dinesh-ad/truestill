@@ -52,6 +52,13 @@ ALLOWED: dict[str, dict[str, str]] = {
     "jobs.py": {
         "Progress": "a value type - one progress tick, passed by value to callers",
         "ProgressCallback": "a typing alias for the callback shape; not a runtime object",
+        "CATALOG_BUSY_CODE": "a string constant; the terminal event's `code` for a held catalog",
+        "CATALOG_BUSY_MESSAGE": "a string constant - the refusal's wording, shared with the CLI",
+        "is_catalog_busy": (
+            "a pure predicate over an exception's `sqlite_errorcode`; opens nothing and reads "
+            "nothing. It is here rather than in `service/` because the exception is caught here "
+            "- `JobManager` owns the one place a worker's failure becomes a terminal event"
+        ),
     },
     "__main__.py": {
         "default_catalog_path": "resolves a path per call and returns it; opens nothing",

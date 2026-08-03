@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sqlite3
 import sys
 import uuid
 from collections import Counter
@@ -26,6 +27,7 @@ from truestill_core.app_paths import (
 from truestill_core.archive_extract import extract_archive_set
 from truestill_core.archive_ingest import archives_at, precheck_archives
 from truestill_core.catalog import Catalog
+from truestill_core.catalog_busy import CATALOG_BUSY_MESSAGE, is_catalog_busy
 from truestill_core.catalog_move import CatalogMoveOutcome, move_catalog_to_standard
 from truestill_core.catalog_startup import (
     CatalogPresence,
@@ -151,6 +153,16 @@ _PINNED_NOTICE = (
     "`truestill migrate-layout` before moving existing files."
 )
 _STATUS_PREVIEW = 20  # how many single-copy files `truestill status` lists before eliding
+
+#: Exit code for "another process holds the catalog; nothing to fix, try again shortly".
+#:
+#: Its own code rather than `1` or `2`, because a script's only reason to read one is to decide
+#: what to do next, and this is the single case where the answer is *retry*. `2` is a usage or
+#: validation error, which never becomes valid by waiting; `1` is this CLI's "the run finished
+#: and something is wrong with the library", and the run did not finish. The precedent is how
+#: the codes here are already allocated -- `3` a missing exiftool, `4` an unusable destination
+#: -- one per failure family that a caller would act on differently.
+CATALOG_BUSY_EXIT = 5
 
 
 def _parse_tz(value: str) -> timedelta:
@@ -2149,7 +2161,31 @@ def _cmd_reclaim(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the CLI. Returns a process exit code."""
+    """Run the CLI. Returns a process exit code.
+
+    The one seam that converts a held catalog into a refusal. It sits here, around every
+    subcommand at once, because the lock can be met anywhere a command touches the catalog --
+    at the startup banner, on the first write, or a thousand files into a run -- and a handler
+    per mutating command would be seven copies of one rule, which is the duplication
+    ENGINEERING_STANDARD.md §4 records as this repo's recurring defect. Read-only commands pass
+    through it harmlessly: they cannot raise this in the first place, since SQLite blocks only
+    a second *writer*.
+
+    Anything that is not a busy catalog keeps its traceback. That is the point of the check
+    rather than the point of the message: `OperationalError` also covers a disk I/O error and a
+    corrupt schema, and answering those with "wait for the other operation to finish" would
+    send someone to wait out a fault that never clears.
+    """
+    try:
+        return _dispatch(argv)
+    except sqlite3.Error as exc:
+        if not is_catalog_busy(exc):
+            raise
+        print(f"error: {CATALOG_BUSY_MESSAGE}", file=sys.stderr)
+        return CATALOG_BUSY_EXIT
+
+
+def _dispatch(argv: list[str] | None) -> int:
     argv_list = list(argv) if argv is not None else sys.argv[1:]
     args = _build_parser().parse_args(argv_list)
     if hasattr(args, "db"):
