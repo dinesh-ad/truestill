@@ -5,6 +5,7 @@ from __future__ import annotations
 import shutil
 import sqlite3
 import threading
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -15,6 +16,7 @@ from truestill_core.destinations.base import DestinationDevice
 from truestill_core.drive import read_marker
 from truestill_core.hashing import sha256_file
 from truestill_core.progress import Phase, Progress, ProgressCallback
+from truestill_core.run_health import RunHealth, watcher_for
 
 from truestill_app.jobs import JobTarget
 from truestill_app.service.drive_support import not_a_drive
@@ -215,6 +217,33 @@ def _nothing_copied(label: str, target: Path) -> BackupRunSummary:
     }
 
 
+def _stop_if_ground_moved(health: RunHealth | None, *, ahead: int, written: int) -> None:
+    """Stop the backup if the ground under it has moved. Silent when all is well.
+
+    **Raised, not returned, because this loop already stops this way**: an unverifiable copy
+    raises `ValueError` a few lines into the loop and the app renders it as the run's error. A
+    second mechanism for the same class of event would be a second thing to keep in step. What
+    was copied is already recorded per file, so the next run resumes from there.
+    """
+    if health is None:
+        return
+    verdict = health.check(largest_remaining=ahead, written_bytes=written)
+    if not verdict.ok:
+        raise ValueError(verdict.detail)
+
+
+def _largest_copy_ahead(missing: Sequence[MissingCopy]) -> list[int]:
+    """For each position, the biggest copy at or after it. A suffix maximum in one pass.
+
+    Sizes come from the catalog rows this loop already holds - no `stat`, and none is wanted:
+    the point of watching is to cost nothing next to the copying.
+    """
+    suffix = [0] * (len(missing) + 1)
+    for index in range(len(missing) - 1, -1, -1):
+        suffix[index] = max(suffix[index + 1], int(missing[index].size or 0))
+    return suffix
+
+
 def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
     """Build a job that copies the library to another drive: verify-after-write, record each copy."""
 
@@ -259,9 +288,17 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
             # we just made on the LOCAL disk and find it correct. The guard has to stop the
             # folder being created at all -- see `DestinationDevice`.
             device = DestinationDevice()
-            for row in missing:
+            # The free-space check above measures `target`. On a mounted cloud drive that is the
+            # REMOTE's free space, while the disk that actually fills is this computer's - the
+            # client caches everything written to it. That is the confusion `RunHealth` exists to
+            # correct, and backup had it too. The device half is already covered above, and more
+            # strictly: `device.check` fails closed on the first bad reading.
+            health = watcher_for(target, db)
+            ahead = _largest_copy_ahead(missing)
+            for index, row in enumerate(missing):
                 if cancel.is_set():
                     break
+                _stop_if_ground_moved(health, ahead=ahead[index], written=copied_bytes)
                 rel = row.relative
                 dst = target / rel
                 device.check(target)

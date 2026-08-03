@@ -99,6 +99,26 @@ def free_bytes(path: Path) -> int:
         return 0
 
 
+def watcher_for(local_root: Path | None, catalog_path: Path | None) -> RunHealth | None:
+    """The watcher for one long write, or ``None`` when there is nothing to watch.
+
+    **One builder, because three loops need it** - `organizer.execute`, `migrate.run_migration`
+    and the app's backup - and three copies of "is this worth watching" is how one of them ends
+    up with a subtly different answer. Taking a path and a path rather than a `Destination` and
+    a `Catalog` keeps this module free of both imports, and makes the two conditions readable
+    without knowing either type.
+
+    Both must be present. **No local root** means a destination with no local filesystem: a
+    remote has no device id to lose, and `Destination.local_root` stands down for it. **No
+    catalog path** means no local probe, and the probe is never substituted - the disk that
+    fills is the one a cloud client caches to, so measuring the destination instead would
+    rebuild the very mistake this module exists to correct.
+    """
+    if local_root is None or catalog_path is None:
+        return None
+    return RunHealth(root=local_root, local_probe=catalog_path.parent)
+
+
 def _gb(value: int) -> str:
     return f"{value / 1e9:.2f} GB"
 
@@ -130,6 +150,13 @@ class RunHealth:
         self._due = clock() + TICK_SECONDS
         self._strikes = 0
         self._first_strike_at = 0.0
+
+    @property
+    def probe(self) -> Path:
+        """The **local** path whose free space is watched. Exposed so a test can assert which
+        disk was chosen: picking the destination here is the defect, and a wiring that made
+        that mistake would otherwise look identical from outside."""
+        return self._probe
 
     def check(self, *, largest_remaining: int, written_bytes: int) -> HealthVerdict:
         """Carry on, or stop. Returns immediately unless the tick has elapsed."""

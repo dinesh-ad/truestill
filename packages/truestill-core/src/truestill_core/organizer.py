@@ -61,7 +61,7 @@ from truestill_core.models import (
 )
 from truestill_core.naming import dated_filename
 from truestill_core.progress import Phase, Progress, ProgressCallback
-from truestill_core.run_health import RunHealth
+from truestill_core.run_health import RunHealth, watcher_for
 from truestill_core.scan import DEFAULT_WORKERS, PoolKind, compute_hashes
 from truestill_core.takeout import IngestContext, MetadataWrite, TakeoutSidecar
 
@@ -1299,25 +1299,6 @@ _BYTES_WRITTEN_STATUSES = frozenset(
 )
 
 
-def _watcher(destination: Destination, catalog: Catalog | None) -> RunHealth | None:
-    """Build the run watcher, or ``None`` when there is nothing to watch.
-
-    **Built here rather than taken from the caller**, for the reason
-    `_refuse_impossible_destination` records: the CLI and the app both call `execute`, so a
-    check either one has to remember is a check the other silently lacks.
-
-    Two things must be true. The destination must have a **local root** - a remote has no device
-    id to lose, and `Destination.local_root` stands down for it. And a **catalog** must be
-    present to supply a local probe: the disk that fills is the one the cloud client caches to,
-    never the destination, and substituting the destination here would rebuild the very mistake
-    `RunHealth` exists to correct. Neither is guessed at.
-    """
-    root = destination.local_root()
-    if root is None or catalog is None:
-        return None
-    return RunHealth(root=root, local_probe=catalog.path.parent)
-
-
 @dataclass(slots=True)
 class _GroundWatch:
     """The watcher, the sizes it needs, and what the run has written so far.
@@ -1351,7 +1332,7 @@ def _ground_watch(
     if not apply:
         return _GroundWatch(health=None, largest_ahead=[], sizes={})
     sizes = _refuse_impossible_destination(resolutions, destination, skip_undated=skip_undated)
-    health = _watcher(destination, catalog)
+    health = watcher_for(destination.local_root(), catalog.path if catalog else None)
     ahead = _largest_still_ahead(resolutions, sizes) if health is not None else []
     return _GroundWatch(health=health, largest_ahead=ahead, sizes=sizes)
 

@@ -51,6 +51,7 @@ from truestill_core.layout import (
 )
 from truestill_core.models import RuleName
 from truestill_core.progress import Phase, Progress, ProgressCallback
+from truestill_core.run_health import watcher_for
 
 _log = logging.getLogger(__name__)
 
@@ -63,6 +64,11 @@ class Move:
     old_relative: str
     new_relative: str
     copy_sha256: str | None
+    #: Bytes, from the catalog row the plan was built from - **never a `stat`**. `relocate` is
+    #: a `copy2`, so a migration writes every one of these again, and the run watcher needs to
+    #: know how big the biggest one still ahead of it is. ``None`` for a legacy row that never
+    #: recorded a size; such a file contributes 0 and the absolute floor still applies.
+    size: int | None = None
 
 
 @dataclass(frozen=True)
@@ -86,6 +92,12 @@ class MigrationOutcome:
     resumed: int  # moves recovered from a prior interrupted run
     migrated: int  # moves applied this run (0 in preview)
     applied: bool
+    #: Why the run stopped short, in the words a user reads, or ``None`` if it did not.
+    #: A field rather than an exception because a migration that stops half-way has **done**
+    #: something - `migrated` is the count and the journal makes the rest resumable - and
+    #: raising would throw that away along with the reason. Defaulted, so nothing that
+    #: already builds this had to change.
+    stopped: str | None = None
 
 
 def _parse_dt(value: str | None) -> datetime | None:
@@ -501,7 +513,9 @@ def plan_migration(
             targets[key] = new_relative
             if len(new_relative) > PATH_LENGTH_WARN:
                 warnings.append(f"{new_relative} is near the Windows 260-char limit")
-            moves.append(Move(str(row["sha256"]), current, new_relative, row["copy_sha256"]))
+            moves.append(
+                Move(str(row["sha256"]), current, new_relative, row["copy_sha256"], row["size"])
+            )
             axis = everyday_axis_changed(current, new_relative)
             if axis is not None and day_key is not None:
                 day_axis[day_key] = axis
@@ -574,6 +588,19 @@ def resume_migration(catalog: Catalog, destination: Destination, drive_uuid: str
     return len(pending)
 
 
+def _largest_move_ahead(moves: Sequence[Move]) -> list[int]:
+    """For each position, the biggest move at or after it. A suffix maximum in one pass.
+
+    The suffix is load-bearing, not tidiness: `RunHealth` reserves twice this, so a plain
+    maximum would keep holding back room for a 4 GB video long after it was written and could
+    refuse the last few small files on a disk with plenty of space for them.
+    """
+    suffix = [0] * (len(moves) + 1)
+    for index in range(len(moves) - 1, -1, -1):
+        suffix[index] = max(suffix[index + 1], moves[index].size or 0)
+    return suffix
+
+
 def run_migration(
     catalog: Catalog,
     destination: Destination,
@@ -619,16 +646,32 @@ def run_migration(
     )
     migrated = 0
     total = len(plan.moves)
-    for move in plan.moves:
+    # `relocate` is a `copy2`, so this rewrites every byte of the library - and on a mounted
+    # cloud drive those bytes pass through the client's LOCAL cache. That is the run this guard
+    # was written for. The device half is already covered, and more strictly: every relocate
+    # goes through `LocalDestination._make_parent`, which fails closed on a changed `st_dev`.
+    health = watcher_for(destination.local_root(), catalog.path)
+    ahead = _largest_move_ahead(plan.moves)
+    written = 0
+    stopped: str | None = None
+    for index, move in enumerate(plan.moves):
         if cancel is not None and cancel.is_set():
             break
+        if health is not None:
+            verdict = health.check(largest_remaining=ahead[index], written_bytes=written)
+            if not verdict.ok:
+                stopped = verdict.detail
+                break
         _apply_move(catalog, destination, drive_uuid, move)
+        written += move.size or 0
         migrated += 1
         if progress is not None:
             progress(Progress(migrated, total, Phase.MOVING, PurePosixPath(move.new_relative).name))
     if migrated == total:
         catalog.finish_migration_run(run_id)
-    return MigrationOutcome(plan=plan, resumed=resumed, migrated=migrated, applied=True)
+    return MigrationOutcome(
+        plan=plan, resumed=resumed, migrated=migrated, applied=True, stopped=stopped
+    )
 
 
 @dataclass(frozen=True, slots=True)

@@ -19,7 +19,11 @@ All notable changes to this project are documented here. The format follows
   **It is deliberately slow to complain.** A drive that hiccups for a moment is not a drive that
   has gone: it takes three bad readings over fifteen seconds before Truestill will stop a run.
   A check that interrupts healthy work gets switched off, and takes its real protection with it.
-  This applies to organizing for now; migrating and backing up follow.
+  **This now covers all three long jobs** - organizing, changing your folder layout, and backing
+  up to a second drive. Changing the layout is the one worth knowing about: it rewrites every
+  file, so on a cloud drive it pushes your whole library through that client's cache, and it
+  previously had no free-space check of any kind. Backing up had one, but it was measuring the
+  *drive*, which is exactly the disk that is not the problem.
 - **When Truestill skips duplicates, it now tells you where their twins are.** A run used to
   report a number - *"2,057 duplicates, skipped"* - and stop there. That number meant two
   completely different things and gave you no way to tell which: either **Truestill already had

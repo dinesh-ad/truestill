@@ -736,7 +736,8 @@ class Catalog:
         return list(
             self._conn.execute(
                 """
-                SELECT fc.sha256, fc.relative, fc.copy_sha256, f.category, f.captured_at,
+                SELECT fc.sha256, fc.relative, fc.copy_sha256, fc.size, f.category,
+                       f.captured_at,
                        f.original_name,
                        e.slug AS event_slug, e.start_date AS event_start, e.name AS event_name,
                        t.id AS trip_id, t.slug AS trip_slug, t.start_date AS trip_start,
