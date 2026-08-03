@@ -122,6 +122,9 @@ class RunHealth:
         self._root = root
         self._probe = local_probe
         self._clock = clock
+        #: ``None`` until a real device is seen - see :meth:`_check_device`, which is where
+        #: that matters. (`read_device` never reports a device *and* uncertainty, so a
+        #: non-``None`` reading is always one worth keeping.)
         self._baseline_device = read_device(root).device
         self._baseline_free = free_bytes(local_probe)
         self._due = clock() + TICK_SECONDS
@@ -162,6 +165,20 @@ class RunHealth:
     def _check_device(self, now: float) -> HealthVerdict:
         """Three consecutive bad readings, spanning the window, before declaring anything."""
         reading = read_device(self._root)
+        if self._baseline_device is None:
+            # **Never let an absence serve as the baseline.** A `None` there would mean two
+            # things at once - "not yet established" and "the device id is None" - and every
+            # later `None` reading would compare equal to it, so a watcher built during one bad
+            # moment would stay silently switched off for the whole run. `DestinationDevice`
+            # latches on the first real sighting for the same reason; the two differ in what
+            # they do afterwards, not in what counts as a baseline.
+            #
+            # Until one is latched this stands down rather than striking: the guard detects the
+            # ground *moving*, and with nothing ever seen there is no movement to detect. A run
+            # whose destination was never readable fails at the write, per file, with the real
+            # ``OSError`` - which names the file, where a stop here would not.
+            self._baseline_device = reading.device
+            return HealthVerdict(ok=True)
         healthy = reading.definite and reading.device == self._baseline_device
         if healthy:
             self._strikes = 0

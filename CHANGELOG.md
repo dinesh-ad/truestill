@@ -7,6 +7,19 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- **If your drive is unplugged part-way through organizing, Truestill now stops and tells you,
+  instead of quietly filling up your computer.** A cloud drive that drops out under a long copy
+  leaves an ordinary empty folder behind where it used to be - so writing carried on, into your
+  computer's own disk, rebuilding the library there. Truestill already refused to *create*
+  folders that way; now a long run also checks, every few seconds, that the drive it started on
+  is still the drive it is writing to, and that this computer still has room. If either stops
+  being true it stops, says which, and says what to do about it.
+  **Everything already copied stays, and the run picks up where it left off** when you plug the
+  drive back in and run again. Nothing is left half-written.
+  **It is deliberately slow to complain.** A drive that hiccups for a moment is not a drive that
+  has gone: it takes three bad readings over fifteen seconds before Truestill will stop a run.
+  A check that interrupts healthy work gets switched off, and takes its real protection with it.
+  This applies to organizing for now; migrating and backing up follow.
 - **When Truestill skips duplicates, it now tells you where their twins are.** A run used to
   report a number - *"2,057 duplicates, skipped"* - and stop there. That number meant two
   completely different things and gave you no way to tell which: either **Truestill already had

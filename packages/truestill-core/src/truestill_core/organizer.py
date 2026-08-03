@@ -61,6 +61,7 @@ from truestill_core.models import (
 )
 from truestill_core.naming import dated_filename
 from truestill_core.progress import Phase, Progress, ProgressCallback
+from truestill_core.run_health import RunHealth
 from truestill_core.scan import DEFAULT_WORKERS, PoolKind, compute_hashes
 from truestill_core.takeout import IngestContext, MetadataWrite, TakeoutSidecar
 
@@ -1238,12 +1239,21 @@ def preflight_for_run(
     after the user has committed. One function decides which files count; the report and the
     refusal are two readings of its answer, not two implementations of it.
     """
-    candidates = [
+    return destination.preflight(sizes_of(write_candidates(resolutions, skip_undated=skip_undated)))
+
+
+def write_candidates(resolutions: Sequence[Resolution], *, skip_undated: bool) -> list[Path]:
+    """The sources a run would actually write. One predicate, because three places ask.
+
+    A preview sizes them, the refusal sizes them, and a run in progress needs to know how big
+    the largest one still ahead of it is. Three copies of "would this be written" is how the
+    preflight and the run come to disagree about what the run is.
+    """
+    return [
         r.decision.source
         for r in resolutions
         if r.should_upload and not (skip_undated and r.decision.captured_at is None)
     ]
-    return destination.preflight(sizes_of(candidates))
 
 
 def _refuse_impossible_destination(
@@ -1251,8 +1261,13 @@ def _refuse_impossible_destination(
     destination: Destination,
     *,
     skip_undated: bool,
-) -> None:
+) -> dict[Path, int]:
     """Refuse, before the first byte, work this destination cannot physically hold.
+
+    **Returns the sizes it gathered**, because it has already paid for them: one ``stat`` per
+    candidate, which on a FUSE-mounted library is ~600 us each and the entire tier-0 budget
+    again if a second pass asks for the same numbers (`PERFORMANCE.md` §3.1). The run watcher
+    needs exactly this map and must not go and get its own.
 
     **Why here and not in the callers.** The CLI and the app both call :func:`execute`, so a
     check placed in either is a check the other silently lacks -- which is exactly how backup's
@@ -1263,10 +1278,121 @@ def _refuse_impossible_destination(
     quietly missing the 4K footage the user cared most about, reported as a success. Naming them
     and stopping leaves the decision where it belongs.
     """
-    preflight = preflight_for_run(resolutions, destination, skip_undated=skip_undated)
+    sized = sizes_of(write_candidates(resolutions, skip_undated=skip_undated))
+    preflight = destination.preflight(sized)
     if not preflight.may_proceed:
         message = f"{destination.describe()} cannot hold this run. {preflight.detail()}"
         raise DestinationError(message)
+    return dict(sized)
+
+
+#: Statuses whose file really had its bytes copied. `MOVED_IN_PLACE` and `ALREADY_PLACED` are
+#: deliberately absent: a rename writes nothing, and counting one would put a number in the
+#: disk-filling message that no disk ever saw.
+_BYTES_WRITTEN_STATUSES = frozenset(
+    {
+        ActionStatus.UPLOADED,
+        ActionStatus.RENAMED,
+        ActionStatus.MOVED,
+        ActionStatus.MOVE_KEPT,
+    }
+)
+
+
+def _watcher(destination: Destination, catalog: Catalog | None) -> RunHealth | None:
+    """Build the run watcher, or ``None`` when there is nothing to watch.
+
+    **Built here rather than taken from the caller**, for the reason
+    `_refuse_impossible_destination` records: the CLI and the app both call `execute`, so a
+    check either one has to remember is a check the other silently lacks.
+
+    Two things must be true. The destination must have a **local root** - a remote has no device
+    id to lose, and `Destination.local_root` stands down for it. And a **catalog** must be
+    present to supply a local probe: the disk that fills is the one the cloud client caches to,
+    never the destination, and substituting the destination here would rebuild the very mistake
+    `RunHealth` exists to correct. Neither is guessed at.
+    """
+    root = destination.local_root()
+    if root is None or catalog is None:
+        return None
+    return RunHealth(root=root, local_probe=catalog.path.parent)
+
+
+@dataclass(slots=True)
+class _GroundWatch:
+    """The watcher, the sizes it needs, and what the run has written so far.
+
+    One object rather than three locals in `execute`, so the three cannot be built in the wrong
+    order or one of them left unbound on a path that later reads it - `sizes` was exactly that,
+    assigned only under ``apply`` and read from inside the write branch.
+    """
+
+    health: RunHealth | None
+    #: For each position, the biggest file at or after it this run would write.
+    largest_ahead: list[int]
+    sizes: dict[Path, int]
+    written: int = 0
+
+
+def _ground_watch(
+    resolutions: Sequence[Resolution],
+    destination: Destination,
+    catalog: Catalog | None,
+    *,
+    apply: bool,
+    skip_undated: bool,
+) -> _GroundWatch:
+    """Refuse an impossible destination, then set up the watch over what remains.
+
+    The refusal and the watch share one ``stat`` pass, which is the reason they are built
+    together: the numbers are the same numbers, and paying for them twice on a FUSE library
+    costs the whole tier-0 budget again (`PERFORMANCE.md` §3.1).
+    """
+    if not apply:
+        return _GroundWatch(health=None, largest_ahead=[], sizes={})
+    sizes = _refuse_impossible_destination(resolutions, destination, skip_undated=skip_undated)
+    health = _watcher(destination, catalog)
+    ahead = _largest_still_ahead(resolutions, sizes) if health is not None else []
+    return _GroundWatch(health=health, largest_ahead=ahead, sizes=sizes)
+
+
+def _health_stop(
+    health: RunHealth, resolution: Resolution, *, ahead: int, written: int
+) -> ActionResult | None:
+    """The run's verdict on the ground beneath it, as a result to record, or ``None``.
+
+    **Asked after the skips and immediately before the write.** A duplicate and an undated skip
+    put nothing on the drive, so stopping a run whose remaining work writes nothing would be
+    the cry-wolf this guard is most at risk of.
+
+    **Reported as `FAILED` rather than as a new `ActionStatus`.** Nothing type-checks
+    exhaustiveness over that enum - there is no ``assert_never`` for it - so a new member is a
+    set of call sites that must be found by hand, in `_STATUS_LABELS`, in both surfaces'
+    counters and in the organized-status sets. `FAILED` already carries exactly what is true
+    here: this file is not in your library, and this is the message. Both surfaces already show
+    that message prominently and exit non-zero on it.
+
+    **The honest limit:** the files after this one are unattempted and therefore absent from
+    the results, which is the shape `cancel` has always had. The wording carries the remedy -
+    the run is resumable and says so.
+    """
+    verdict = health.check(largest_remaining=ahead, written_bytes=written)
+    if verdict.ok:
+        return None
+    return ActionResult(resolution, ActionStatus.FAILED, None, verdict.detail)
+
+
+def _largest_still_ahead(resolutions: Sequence[Resolution], sizes: Mapping[Path, int]) -> list[int]:
+    """For each position, the biggest file at or after it that this run would write.
+
+    A suffix maximum, computed once in one backward pass, because the alternative is a scan of
+    the remainder per file - quadratic on the libraries this guard exists for. ``sizes`` holds
+    only write candidates, so anything skipped contributes 0 and falls out for free.
+    """
+    suffix = [0] * (len(resolutions) + 1)
+    for index in range(len(resolutions) - 1, -1, -1):
+        suffix[index] = max(suffix[index + 1], sizes.get(resolutions[index].decision.source, 0))
+    return suffix
 
 
 def execute(
@@ -1315,8 +1441,9 @@ def execute(
         results.append(result)
         tally[status_label(result.status)] += 1
 
-    if apply:
-        _refuse_impossible_destination(resolutions, destination, skip_undated=skip_undated)
+    ground = _ground_watch(
+        resolutions, destination, catalog, apply=apply, skip_undated=skip_undated
+    )
 
     by_source = events or {}
     ingest = ingest or IngestContext()
@@ -1353,6 +1480,17 @@ def execute(
             record(ActionResult(resolution, ActionStatus.PLANNED, decision.relative))
             continue
 
+        if ground.health is not None:
+            stop = _health_stop(
+                ground.health,
+                resolution,
+                ahead=ground.largest_ahead[done - 1],
+                written=ground.written,
+            )
+            if stop is not None:
+                record(stop)
+                break
+
         try:
             record(
                 _execute_one_write(
@@ -1369,6 +1507,8 @@ def execute(
                     drive_uuid=drive_uuid,
                 )
             )
+            if results[-1].status in _BYTES_WRITTEN_STATUSES:
+                ground.written += ground.sizes.get(decision.source, 0)
         except (OSError, DestinationError) as exc:
             record(ActionResult(resolution, ActionStatus.FAILED, None, str(exc)))
 

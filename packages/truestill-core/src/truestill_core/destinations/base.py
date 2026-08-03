@@ -148,6 +148,19 @@ class Destination(ABC):
     def list(self) -> list[str]:
         """Return every relative path currently present at the destination."""
 
+    # -- optional: is there local ground under this destination to watch? -----------------
+
+    def local_root(self) -> Path | None:
+        """The local filesystem path this destination writes into, or ``None``.
+
+        Used by a long run to notice the drive going away underneath it. The default is
+        ``None`` - **stand down completely**, the same bargain :meth:`preflight` makes and for
+        the same reason: a remote has no local filesystem, so it has no device id to lose, and
+        the only thing a guess could do on its behalf is stop work that would have succeeded.
+        Backends addressing a real filesystem override this.
+        """
+        return None
+
     # -- optional: what this destination can physically hold ------------------------------
 
     def facts(self) -> FilesystemFacts:

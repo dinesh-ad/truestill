@@ -68,6 +68,10 @@ class LocalDestination(Destination):
     def describe(self) -> str:
         return f"local:{self._root}"
 
+    def local_root(self) -> Path:
+        """The tree this backend writes into - the ground a long run stands on."""
+        return self._root
+
     def _make_parent(self, target: Path) -> None:
         """Create ``target``'s folder, unless the drive we started on has gone.
 
