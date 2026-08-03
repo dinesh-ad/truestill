@@ -103,22 +103,31 @@ class HashCache:
     cache is working. The only observable difference is how long the run takes.
     """
 
-    def __init__(self, path: Path | None) -> None:
+    def __init__(self, path: Path | None, *, writable: bool = True) -> None:
+        """Open the sidecar. ``writable=False`` takes hits and can never write one.
+
+        **Read-only exists for a specific hazard, not for tidiness.** A caller that computes
+        only *some* of a file's hashes -- Analyze's tier 2a wants SHA-256 without the
+        perceptual hash -- must not record that, because ``perceptual`` is nullable and carries
+        **two meanings in one value**: "not an image" and "not computed". :meth:`get` takes
+        ``need_sha`` precisely because ``sha256`` has that ambiguity, and there is no
+        ``need_perceptual`` counterpart. Such a row would return as a hit and silently delete
+        near-duplicate detection for those files. Reading is safe; only writing poisons.
+
+        **Enforced by SQLite, not by agreement.** The connection is opened ``mode=ro``, so a
+        write raises rather than relying on every future caller to remember. A missing file
+        simply fails to open, which the class already treats as a cache that misses -- and
+        crucially it is **not created**, so a read-only session leaves no trace at all.
+        """
         self._conn: sqlite3.Connection | None = None
         self._rows: dict[str, _Row] = {}
         self._pending: dict[str, _Row] = {}
         self._seen: set[str] = set()
+        self._writable = writable
         if path is None:
             return
         try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            conn = sqlite3.connect(path)
-            if conn.execute("PRAGMA user_version").fetchone()[0] != SCHEMA_VERSION:
-                conn.executescript("DROP TABLE IF EXISTS hash_cache;")
-                conn.executescript(_SCHEMA)
-                conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
-                conn.commit()
-            conn.executescript(_SCHEMA)
+            conn = self._connect(path, writable=writable)
             # One bulk read rather than a query per file: 21 ms for 20,000 rows, measured,
             # against ~10 us x N for individual lookups.
             self._rows = {
@@ -136,10 +145,35 @@ class HashCache:
                 )
             }
             self._conn = conn
-        except (sqlite3.Error, OSError):
+        except (sqlite3.Error, OSError, ValueError):
             # A cache that cannot be read is simply a cache that misses.
             self._conn = None
             self._rows = {}
+
+    @staticmethod
+    def _connect(path: Path, *, writable: bool) -> sqlite3.Connection:
+        """The connection, prepared for its mode. Raises for anything unusable.
+
+        Read-only never creates the file, never creates its parent, and never repairs a schema
+        it does not recognise -- an unknown version is refused rather than migrated, because
+        migrating is a write.
+        """
+        if not writable:
+            conn = sqlite3.connect(f"{path.absolute().as_uri()}?mode=ro", uri=True)
+            if conn.execute("PRAGMA user_version").fetchone()[0] != SCHEMA_VERSION:
+                conn.close()
+                message = "read-only hash cache is at an unrecognised schema version"
+                raise sqlite3.DatabaseError(message)
+            return conn
+        path.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(path)
+        if conn.execute("PRAGMA user_version").fetchone()[0] != SCHEMA_VERSION:
+            conn.executescript("DROP TABLE IF EXISTS hash_cache;")
+            conn.executescript(_SCHEMA)
+            conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+            conn.commit()
+        conn.executescript(_SCHEMA)
+        return conn
 
     @classmethod
     def beside(cls, catalog: Path | None) -> Self:
@@ -178,6 +212,8 @@ class HashCache:
         return FileHashes(sha256=sha, perceptual=perceptual)
 
     def put(self, path: Path, size: int, mtime_ns: int, hashes: FileHashes) -> None:
+        if not self._writable:
+            return
         key = str(path)
         self._seen.add(key)
         base = self._base_row(key, size, mtime_ns)
@@ -213,6 +249,8 @@ class HashCache:
     def put_metadata(
         self, path: Path, size: int, mtime_ns: int, tags_fp: str, metadata: dict[str, Any]
     ) -> None:
+        if not self._writable:
+            return
         key = str(path)
         self._seen.add(key)
         base = self._base_row(key, size, mtime_ns)
@@ -231,7 +269,9 @@ class HashCache:
         Cleanup is here, in the path every run takes, rather than in a method somebody has to
         remember to call.
         """
-        if self._conn is None:
+        if self._conn is None or not self._writable:
+            # Pruning lives here too, and pruning is a write. A read-only session must decide
+            # nothing about rows it did not put there.
             return
         try:
             if self._pending:

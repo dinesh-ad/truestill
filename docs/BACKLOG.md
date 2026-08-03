@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aax). Next free: (aay).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aay). Next free: (aaz).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -48,6 +48,23 @@ Everything here has work left. **Two entries are partial and say so in their own
 `(bbb)` (the safety half shipped, the `_original` recovery offer did not) and `(r)` (the hash
 cache shipped, Analyze mode itself did not). A partial entry lives here, not in the built
 section, because what is left is the part that still has to be written.
+
+- **(aay) JPEG XL (`.jxl`) is classified as unrecognized. RECORD ONLY - do not build.**
+  Found 2026-08-03 by running `truestill analyze` over a deliberately format-diverse corpus,
+  which put 7 `.jxl` files in the skipped census.
+  - **It is genuinely media.** JPEG XL is an ISO/IEC 18181 still-image format, not an oddity,
+    and it is a plausible future capture format rather than only an archival one.
+  - **Recognising it is not enough, which is why this is recorded and not fixed.** Pillow still
+    has **no native JXL support** (checked 2026-08-03); it needs the third-party
+    `pillow-jxl-plugin` (Rust bindings, actively maintained). Adding `.jxl` to
+    `IMAGE_EXTENSIONS` without that plugin would produce files truestill dates and categorises
+    but **cannot perceptually hash** - near-duplicate detection silently absent for a format we
+    just told the user we support. Exact dedup would still work.
+  - **So it is a dependency decision, not a one-line extension.** §7's stdlib-first policy
+    applies, and the honest options are: add the plugin and support JXL fully; or leave `.jxl`
+    unrecognized, which is at least never-silent because the skipped census names it.
+  - **Not urgent.** Zero `.jxl` in either real corpus measured so far - the 7 came from a test
+    suite. Revisit when a real library contains them.
 
 - **(aax) `time_known` is derived from provenance, not from the value. POST-LAUNCH.** Filed
   2026-08-03 while fixing the stacked date prefix, which this shape is what made possible.
@@ -1069,8 +1086,20 @@ section, because what is left is the part that still has to be written.
     |---|---|---|
     | 1 | `truestill analyze`, tier 0 over the shipped `inventory_source` | **shipped** `e8c2692`, polished `58f40fe` |
     | 2 | the facts that existed but were unreachable, moved to `insights.py` | **shipped** `dc9a7d7` |
-    | 3 | tier streaming and partial-truth reporting | unbuilt |
+    | 3a | tiers 1 and 2a reachable from `analyze`, no destination | unbuilt |
+    | 3b | tier streaming and partial-truth reporting | unbuilt |
     | 4 | the app screen, plus export | unbuilt |
+
+    - **Five, not four (corrected 2026-08-03).** Commit 3 split once building it began: 3a is
+      the value (the free tier currently stops one tier short of its own headline number,
+      because dates and duplicates are reachable only through `organize --dry-run`, **which
+      requires a destination** the funnel's audience has not chosen). 3b is the risk. Splitting
+      lets the value ship without waiting on the correctness feature, and 3b waits on tier 2a
+      being timed against a real library.
+    - **3a has a prerequisite, shipped 2026-08-03:** the read-only hash cache. Tier 2a wants
+      SHA-256 without the perceptual hash, and recording that would poison the cache - see the
+      hash-cache bullet in `IMPLEMENTATION_STANDARDS.md` §8. Found before building rather than
+      after.
 
     - **Commit 3 is where this stops being a formatting feature and becomes a correctness one.**
       A tier that has not run must say *not yet analysed* and **never render a zero**. Get that

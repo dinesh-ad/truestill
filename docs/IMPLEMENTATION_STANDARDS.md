@@ -686,6 +686,18 @@ algorithm toggle. Full rationale: `DECISIONS.md` **D8**.
     back a null hash and break exact dedup.
   - **One layer**, and **cleanup runs on every run** rather than being defined and never called
     (the PixSort mistake), bounded so it cannot become a stat storm.
+  - **A caller that computes only SOME of a file's hashes must open the cache `writable=False`**
+    (added 2026-08-03 for Analyze's tier 2a, which wants SHA-256 without the perceptual hash).
+    `perceptual` is nullable and carries **two meanings in one value** - *"not an image"* and
+    *"not computed"* - and `get` has a `need_sha` parameter precisely because `sha256` has the
+    same ambiguity, with **no `need_perceptual` counterpart**. A partially-hashed row would come
+    back as a hit on the next organize preview and **silently delete near-duplicate detection**
+    for those files. Reading is safe; only writing poisons, so read-only keeps every hit and
+    removes the hazard. **Enforced by SQLite** (`mode=ro`), not by agreement: writes raise, the
+    file is never created, and pruning - itself a write - does not run. Pinned by
+    `test_hash_cache_readonly.py`, including that the connection itself refuses a write.
+    Closing the ambiguity properly (a `need_perceptual` counterpart) would be a cache **schema**
+    change and is deliberately not smuggled in here.
   - **Verify is deliberately NOT cached.** It re-hashes the copy on the drive to detect
     bit-rot, and silent corruption changes content without changing size or mtime. Verify
     always reads the bytes. Reclaim likewise always re-hashes.
