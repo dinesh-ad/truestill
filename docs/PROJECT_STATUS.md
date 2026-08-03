@@ -187,6 +187,13 @@ Full wording and enforcement details live in `IMPLEMENTATION_STANDARDS.md` and `
 
 ## 5. Easy-to-rediscover traps (keep these cached)
 
+- **Two stacked `@pytest.mark.skipif` decorators do not short-circuit.** Every decorator's
+  condition is evaluated at import, so `skipif(os.name == "nt")` above `skipif(os.getuid() == 0)`
+  raises `AttributeError` on Windows and the **whole module fails to collect** - its tests stop
+  running on that lane while the others stay green. Write one condition:
+  `sys.platform == "win32" or os.geteuid() == 0`. Enforced by
+  `packages/truestill-app/tests/test_platform_skips_collect_everywhere.py`.
+
 - Density-relative thresholds invert at both extremes (dense days shatter, sparse years fuse),
   and synthetic fixtures can hide it - see `events-clustering-research.md`.
 - One string cannot express two shapes (event axis, Everyday bucket, effective-layout truth) -

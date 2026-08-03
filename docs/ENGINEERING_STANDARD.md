@@ -293,6 +293,21 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
     inspect.getsource(target)`, or have the patch script fail loudly when its anchor does not
     match. A silent `str.replace` that finds nothing is the failure mode; make it raise.
 
+    **A presence assertion must name the CODE that was removed, never a bare identifier that
+    also appears in prose.** Added 2026-08-03 after this failed twice in one session, and it
+    fails in the *opposite* direction from the rest of this rule: the mutation was applied
+    correctly and the check reported it as absent, which reads as "the patch did not land" and
+    sends you re-patching working code.
+    Both times the identifier appeared in the target's own **docstring** - these functions
+    document their constants, so `assert "_RATE_FLOOR_SECONDS" not in getsource(f)` matched the
+    prose that explains the constant rather than the `if` that used it. Once it was subtler
+    still: the removed line was the only *printed* use of `inventory.audio`, but the same name
+    survived in a reconciliation expression two lines down, so no single identifier could
+    distinguish mutant from original.
+    Assert the statement - `"elapsed < _RATE_FLOOR_SECONDS"`, `'audio  : {inventory.audio'` -
+    and the check discriminates. The rule above already said *line*; this says why saying
+    *identifier* instead is not a shortcut.
+
   *A proof that cannot say which file it loaded is not a proof - and one that cannot say the
   change is in that file is only half of one.* When a mutated run does not fail, the first two
   questions are whether it ran the mutant and whether the mutant was mutated. Only after both

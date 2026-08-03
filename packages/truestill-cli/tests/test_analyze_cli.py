@@ -239,8 +239,10 @@ def test_a_file_is_not_a_folder(library: Path, capsys: pytest.CaptureFixture[str
     assert "notes.pdf" in err
 
 
-@pytest.mark.skipif(os.name == "nt", reason="POSIX permission bits; Windows ACLs differ")
-@pytest.mark.skipif(os.getuid() == 0, reason="root can list any directory")
+@pytest.mark.skipif(
+    sys.platform == "win32" or os.geteuid() == 0,
+    reason="chmod 000 does not deny the owner on Windows, nor root anywhere",
+)
 def test_a_folder_that_cannot_be_listed_is_named_not_counted_as_empty(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -392,22 +394,19 @@ def test_a_census_line_stays_readable_even_when_every_extension_is_long(
     assert len(line) < 200, f"census line is {len(line)} characters: {line!r}"
 
 
-def test_at_least_one_extension_is_always_named(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_at_least_one_extension_is_always_named() -> None:
     """Cry-wolf for the width bound: a single absurdly long extension must still be shown.
 
     A budget applied before the first entry would elide everything and report `and 1 more`,
     which tells a user strictly less than the name would have.
-    """
-    root = tmp_path / "OneLong"
-    root.mkdir()
-    (root / f"file.{'z' * 180}").write_bytes(b"x")
 
-    _code, out, _ = _run(["analyze", str(root)], capsys)
-    line = _census_line(out, "unrecognized")
-    assert "zzz" in line
-    assert "more" not in line
+    Asserted on the formatter rather than through a real file: the property is the
+    formatter's, and a 180-character filename would exceed Windows' 260-character path limit
+    under a CI temporary directory -- a platform failure that says nothing about this rule.
+    """
+    rendered = cli._format_extension_census({"." + "z" * 180: 1})
+    assert "zzz" in rendered
+    assert "more" not in rendered
 
 
 def test_a_short_extension_list_is_printed_whole(
