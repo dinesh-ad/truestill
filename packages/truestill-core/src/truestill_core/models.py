@@ -210,13 +210,32 @@ class FileHashes:
     unreadable: UnreadableReason | None = None
 
 
+class DuplicateOrigin(StrEnum):
+    """Where a duplicate's twin was found.
+
+    The two values are the tokens `DedupIndex` has always written, so this names an existing
+    vocabulary rather than introducing one - nothing compared or displayed changed when it
+    arrived. It exists because the distinction is now **counted**, not only described per file,
+    and a count keyed on a literal repeated across three modules is a count that can drift into
+    the wrong bucket without anything failing.
+    """
+
+    #: Matched a file seen earlier in the batch being processed now.
+    RUN = "run"
+    #: Matched a file a previous run already put in the library.
+    CATALOG = "catalog"
+
+
 @dataclass(frozen=True, slots=True)
 class DuplicateMatch:
     """A duplicate finding: what the file matched, how, and how closely."""
 
     kind: DuplicateKind
     matched_path: str
-    origin: str  # "run" (earlier this run) or "catalog" (a previous run)
+    #: Where the twin is. A plain ``str`` is still accepted, and deliberately: the display path
+    #: promises to survive a token it does not recognise (`duplicate_explain.origin_phrase`),
+    #: and a count that meets one must name it rather than drop it.
+    origin: DuplicateOrigin | str
     distance: int | None = None  # Hamming distance for perceptual matches; None for exact
 
 

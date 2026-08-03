@@ -14,7 +14,7 @@ from truestill_core.date_provenance import format_offset
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import LocalDestination
 from truestill_core.drive import create_marker, read_marker
-from truestill_core.duplicate_explain import explain_duplicate
+from truestill_core.duplicate_explain import explain_duplicate, split_by_origin
 from truestill_core.event_review import EventDecision, commit, propose
 from truestill_core.exif import read_metadata
 from truestill_core.hash_cache import HashCache
@@ -91,6 +91,12 @@ class DuplicateReport(TypedDict):
 
     total: int
     shown: list[DuplicateSample]
+    #: The split by where the twin is, over **every** match rather than over ``shown``. The
+    #: tile renders a number long before anyone opens the list, and a split taken from the
+    #: capped sample would read `DUPLICATE_SAMPLE_LIMIT` on a large library and look plausible.
+    already_in_library: int
+    within_this_batch: int
+    unclassified: int
 
 
 class UnreadableSample(TypedDict):
@@ -134,7 +140,14 @@ def _duplicate_report(resolutions: list[Resolution], *, near: bool) -> Duplicate
         if match.distance is not None:
             sample["distance"] = match.distance
         shown.append(sample)
-    return {"total": len(matched), "shown": shown}
+    split = split_by_origin(m for _, m in matched if m is not None)
+    return {
+        "total": len(matched),
+        "shown": shown,
+        "already_in_library": split.already_in_library,
+        "within_this_batch": split.within_this_batch,
+        "unclassified": split.unclassified,
+    }
 
 
 class OrganizeDedupCore(TypedDict):

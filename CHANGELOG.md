@@ -7,6 +7,18 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- **When Truestill skips duplicates, it now tells you where their twins are.** A run used to
+  report a number - *"2,057 duplicates, skipped"* - and stop there. That number meant two
+  completely different things and gave you no way to tell which: either **Truestill already had
+  those photos in your library**, in which case the copies in your source folder are redundant
+  and you can clear them out, or **your source folder simply contained each photo twice**, which
+  tells you nothing about your library at all. The count is now split - *"5 already in your
+  library, 3 earlier in this batch"* - in the preview, in the run summary, in Analyze and on the
+  screen in the app.
+  **Nothing was deleted, then or now.** A skipped duplicate is a file that was not *copied* a
+  second time; your originals are untouched, which is what the wording now says plainly. The
+  screen also used to describe every duplicate as *"identical to a kept file"*, which was simply
+  wrong when the twin was already in your library and there was no such file in the batch.
 - **Photos and videos your phone named itself now join your timeline instead of landing in
   `Saved/`.** Android's camera writes files called `IMG_20140105_181210.jpg` and
   `VID_20140817_155317.mp4` - the date and time the shutter fired, in the name. On some phones,

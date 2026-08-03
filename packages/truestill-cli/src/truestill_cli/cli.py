@@ -15,7 +15,7 @@ import threading
 import time
 import uuid
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -69,7 +69,7 @@ from truestill_core.drive_adoption import (
     inspect_root,
     recorded_drive,
 )
-from truestill_core.duplicate_explain import origin_phrase
+from truestill_core.duplicate_explain import describe_split, origin_phrase, split_by_origin
 from truestill_core.exif import ExiftoolMissingError, read_metadata
 from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import DEFAULT_PHASH_THRESHOLD, HEIF_AVAILABLE, HEIF_EXTENSIONS
@@ -1009,6 +1009,19 @@ def _format_exact(resolution: Resolution) -> str:
     )
 
 
+def _print_duplicate_origins(resolutions: Iterable[Resolution], indent: str = "  ") -> None:
+    """Name where the skipped duplicates' twins are, beneath whatever counted them.
+
+    Printed on every surface that shows a duplicate count, because a person meets that number
+    in three places and one of them saying less than the others is how a report stops being
+    trusted. The phrases come from `duplicate_explain`, so the tally and the per-file line
+    cannot describe the same match in two vocabularies.
+    """
+    matches = [r.exact_duplicate for r in resolutions if r.exact_duplicate is not None]
+    for line in describe_split(split_by_origin(matches)):
+        print(f"{indent}{line}")
+
+
 def _print_report(resolutions: list[Resolution], root_label: str) -> None:
     # Disjoint buckets, not `should_upload`: an unreadable file has no hash, so it matches
     # nothing and would otherwise be listed under "NEW UNIQUE - would be organized" while the
@@ -1036,6 +1049,7 @@ def _print_report(resolutions: list[Resolution], root_label: str) -> None:
 
     print(_SEPARATOR)
     print(f"EXACT DUPLICATES ({len(exact)}) - skipped, not organized")
+    _print_duplicate_origins(exact)
     print(_SEPARATOR)
     if not exact:
         print("  (none)")
@@ -1316,6 +1330,7 @@ def _print_execution(results: list[ActionResult]) -> int:
     print(_SEPARATOR)
     for status, count in outcomes.most_common():
         print(f"  {count:>7}  {status}")
+    _print_duplicate_origins((r.resolution for r in results), indent="           ")
     _print_mechanism_split(results)
 
     kept = [r for r in results if r.status is ActionStatus.MOVE_KEPT]
@@ -1821,6 +1836,9 @@ def _print_deep(resolutions: list[Resolution], sizes: dict[Path, int]) -> None:
         f"  identical copies   : {counted.exact_files:,} file(s), "
         f"{counted.reclaimable_bytes:,} bytes that need not be copied"
     )
+    # Analyze seeds no catalog rows, so every match it can find is inside this folder.
+    # An unqualified count here reads as "you already have these", which is the opposite.
+    _print_duplicate_origins(resolutions, indent="                       ")
 
 
 def _analyze_deep(

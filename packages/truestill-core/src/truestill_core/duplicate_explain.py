@@ -26,20 +26,25 @@ dual-hash rule proves the cost of skipping it. **Both surfaces phrase a match fr
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 
-from truestill_core.models import DuplicateKind, DuplicateMatch
+from truestill_core.models import DuplicateKind, DuplicateMatch, DuplicateOrigin
 
 #: Where the match was seen. ``run`` means earlier in the batch being processed now; ``catalog``
 #: means a previous run put it in the library. The distinction matters to a user deciding
 #: whether something is already safely stored, so it is never collapsed into "a duplicate".
+# Keyed by :class:`DuplicateOrigin` members but typed `str`, and that is the point rather
+# than a looseness: a `StrEnum` member hashes as its own string, so the bare tokens the
+# engine has always written find the same row - while the signature still admits the
+# unrecognised token this function promises not to raise on.
 _ORIGINS: dict[str, str] = {
-    "run": "earlier in this batch",
-    "catalog": "already in your library",
+    DuplicateOrigin.RUN: "earlier in this batch",
+    DuplicateOrigin.CATALOG: "already in your library",
 }
 
 
-def origin_phrase(origin: str) -> str:
+def origin_phrase(origin: DuplicateOrigin | str) -> str:
     """Where the match lives, in words. Unknown values degrade to the raw token rather than
     raising: this is a display path, and a newer engine must not be able to break the screen
     describing it."""
@@ -91,3 +96,71 @@ def explain_duplicate(match: DuplicateMatch) -> DuplicateExplanation:
         ),
         kept=True,
     )
+
+
+#: The one sentence that introduces a split, shared so the surfaces cannot disagree about what
+#: happened to the files. **"Not copied again" is the whole claim** - nothing of the user's was
+#: deleted, and an exact-duplicate report that reads as a deletion report is the single
+#: most-repeated fear this module was written to answer.
+ORIGIN_HEADLINE = "identical copies, not copied again"
+
+
+@dataclass(frozen=True, slots=True)
+class DuplicateSplit:
+    """How many skipped duplicates matched where.
+
+    **A count per origin, not a list per origin.** The lists are separately capped for display
+    (`DUPLICATE_SAMPLE_LIMIT`); these are taken from every match, so the two can never imply
+    different totals.
+    """
+
+    already_in_library: int = 0
+    within_this_batch: int = 0
+    #: Matches whose origin token neither value recognises. Kept rather than discarded so the
+    #: parts always sum to the whole - see :func:`split_by_origin`.
+    unclassified: int = 0
+
+    @property
+    def total(self) -> int:
+        return self.already_in_library + self.within_this_batch + self.unclassified
+
+
+def split_by_origin(matches: Iterable[DuplicateMatch]) -> DuplicateSplit:
+    """Count matches by where their twin is.
+
+    **An unrecognised origin is counted, never dropped.** `origin_phrase` is allowed to degrade
+    an unknown token to itself because it is a display path and a newer engine must not be able
+    to break a screen. A count has no such licence: silently discarding a match would make the
+    parts stop summing to the whole, and a total that does not add up is exactly the kind of
+    number a user cannot act on.
+    """
+    library = batch = other = 0
+    for match in matches:
+        if match.origin == DuplicateOrigin.CATALOG:
+            library += 1
+        elif match.origin == DuplicateOrigin.RUN:
+            batch += 1
+        else:
+            other += 1
+    return DuplicateSplit(library, batch, other)
+
+
+def describe_split(split: DuplicateSplit) -> list[str]:
+    """The lines a surface prints beneath a duplicate count. Empty when there is nothing to say.
+
+    **A zero bucket prints no line.** Never-silent is about what happened, not about what did
+    not: "0 already in your library" reads as a finding and invites someone to wonder what went
+    wrong, when the honest report is the one statement that is true.
+    """
+    lines: list[str] = []
+    if split.already_in_library:
+        lines.append(f"{split.already_in_library:,} {origin_phrase(DuplicateOrigin.CATALOG)}")
+    if split.within_this_batch:
+        lines.append(
+            f"{split.within_this_batch:,} matched another file {origin_phrase(DuplicateOrigin.RUN)}"
+        )
+    if split.unclassified:
+        lines.append(
+            f"{split.unclassified:,} matched a file recorded somewhere this build does not name"
+        )
+    return lines

@@ -42,7 +42,7 @@ from collections.abc import Iterable
 
 import numpy as np
 
-from truestill_core.models import DuplicateKind, DuplicateMatch
+from truestill_core.models import DuplicateKind, DuplicateMatch, DuplicateOrigin
 
 #: Both perceptual algorithms are built at ``hash_size=8`` (`hashing._HASH_SIDE`), so every
 #: stored hash is exactly 64 bits. That is what lets one ``uint64`` be the whole
@@ -96,7 +96,7 @@ class DedupIndex:
         """Seed an index from ``(path, sha256, perceptual)`` rows, e.g. from the catalog."""
         index = cls(threshold)
         for path, sha256, perceptual in rows:
-            index.register(path, sha256, perceptual, origin="catalog")
+            index.register(path, sha256, perceptual, origin=DuplicateOrigin.CATALOG)
         return index
 
     def check(self, sha256: str | None, perceptual: str | None) -> DuplicateMatch | None:
@@ -145,7 +145,7 @@ class DedupIndex:
         sha256: str | None,
         perceptual: str | None,
         *,
-        origin: str = "run",
+        origin: DuplicateOrigin = DuplicateOrigin.RUN,
     ) -> None:
         """Add a file's hashes so later files can be compared against it.
 
@@ -163,8 +163,10 @@ class DedupIndex:
             self._packed[self._count] = pack_hash(perceptual)
             self._count += 1
             self._phash_paths.append(path)
-        if origin == "catalog":
+        if origin is DuplicateOrigin.CATALOG:
             self._catalog_paths.add(path)
 
-    def _origin_of(self, path: str) -> str:
-        return "catalog" if path in self._catalog_paths else "run"
+    def _origin_of(self, path: str) -> DuplicateOrigin:
+        if path in self._catalog_paths:
+            return DuplicateOrigin.CATALOG
+        return DuplicateOrigin.RUN

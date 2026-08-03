@@ -1486,7 +1486,7 @@ function renderOrganizeResult(s) {
      <div class="tally">
        <div class="n">${nfmt(s.new_unique)}</div><div class="k">new - will be organized</div>
        <div class="n">${nfmt(s.near_dup)}</div><div class="k">look-alikes - kept and flagged</div>
-       <div class="n">${nfmt(s.exact_dup)}</div><div class="k">duplicates - identical to a kept file, will skip</div>
+       <div class="n">${nfmt(s.exact_dup)}</div><div class="k">duplicates - not copied again${dupOrigins(s.exact_dup_matches)}</div>
        <div class="n">${nfmt(s.undated)}</div><div class="k">no date - will go to “Undated”</div>
      </div>
      ${matchListHtml(s.exact_dup_matches, "Show what each duplicate matched")}
@@ -2106,6 +2106,21 @@ const MOVE_PREVIEW_LIMIT = 200;
 // (IMPLEMENTATION_STANDARDS 9: counted AND named). The CLI has always printed this; the app
 // used to render a bare count. Truncation follows the F46 shape - the count the list was taken
 // from is named in the summary you decide whether to open, and again at the end you scrolled.
+// "2,057 duplicates" answers nothing a person is asking. Whether their twin is ALREADY IN THE
+// LIBRARY or merely earlier in the same batch leads to opposite next actions: the first says the
+// source copies are redundant, the second says nothing about the library at all. The old clause
+// here - "identical to a kept file" - was worse than silent, because for a library match there is
+// no kept file in this batch to be identical to. Counts come from the payload, split over every
+// match rather than over the capped sample; the wording is the engine's, not a second copy.
+function dupOrigins(report) {
+  if (!report) return "";
+  const parts = [];
+  if (report.already_in_library) parts.push(`${nfmt(report.already_in_library)} already in your library`);
+  if (report.within_this_batch) parts.push(`${nfmt(report.within_this_batch)} earlier in this batch`);
+  if (report.unclassified) parts.push(`${nfmt(report.unclassified)} matched elsewhere`);
+  return parts.length ? `<br>${esc(parts.join(", "))}` : "";
+}
+
 function matchListHtml(report, label) {
   if (!report || !report.total) return "";
   const shown = report.shown || [];

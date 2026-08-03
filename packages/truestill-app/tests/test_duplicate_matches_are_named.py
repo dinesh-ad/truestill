@@ -177,3 +177,56 @@ def test_the_shared_wording_is_the_only_home() -> None:
     assert payload["shown"][0]["detail"] == explanation.detail, (
         "the payload is wording matches itself rather than through the shared home"
     )
+
+
+# --- the count, not only the named list ---------------------------------------------------------
+
+
+def test_the_report_splits_the_total_by_origin() -> None:
+    """The tile shows a number long before anyone opens the list beneath it.
+
+    `2,057 duplicates` answers nothing a person is asking at that moment. The per-match
+    wording has distinguished the two origins since this module was written; the count had
+    not, which is the same "counted but not named" gap in a second place.
+    """
+    report = _duplicate_report(
+        [
+            _resolution("a.jpg", exact=_exact("catalog")),
+            _resolution("b.jpg", exact=_exact("catalog")),
+            _resolution("c.jpg", exact=_exact("run")),
+        ],
+        near=False,
+    )
+    assert report["total"] == 3
+    assert report["already_in_library"] == 2
+    assert report["within_this_batch"] == 1
+
+
+def test_the_split_counts_every_match_not_the_shown_sample() -> None:
+    """The failure this ordering exists to prevent.
+
+    `DUPLICATE_SAMPLE_LIMIT` caps `shown` at 200. A split computed from that list would read
+    `200` on a library with thousands and look entirely plausible - a wrong number that no one
+    could tell was wrong.
+    """
+    over = DUPLICATE_SAMPLE_LIMIT + 17
+    report = _duplicate_report(
+        [_resolution(f"{i}.jpg", exact=_exact("catalog")) for i in range(over)], near=False
+    )
+    assert len(report["shown"]) == DUPLICATE_SAMPLE_LIMIT
+    assert report["total"] == over
+    assert report["already_in_library"] == over
+
+
+def test_the_parts_always_sum_to_the_total() -> None:
+    """Including a token this build does not recognise: a total that does not add up is worse
+    than one that names something unfamiliar."""
+    report = _duplicate_report(
+        [
+            _resolution("a.jpg", exact=_exact("catalog")),
+            _resolution("z.jpg", exact=_exact("somewhere-new")),
+        ],
+        near=False,
+    )
+    parts = report["already_in_library"] + report["within_this_batch"] + report["unclassified"]
+    assert parts == report["total"]
