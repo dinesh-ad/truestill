@@ -34,7 +34,7 @@ from pathlib import PurePosixPath
 from typing import Protocol, Self, assert_never
 
 from truestill_core.events import event_dirname
-from truestill_core.models import UNDATED_DIRNAME, RuleName
+from truestill_core.models import UNDATED_DIRNAME, RuleName, strip_component_tail
 
 _TOKEN = re.compile(r"\{([a-z_]+)\}")
 
@@ -127,7 +127,7 @@ def event_folder(
     """
     if naming is EventNaming.SLUG or not name:
         return event_dirname(start, slug)
-    cleaned = _truncate_bytes(_sanitize_value(name), MAX_EVENT_NAME).strip().rstrip(" .")
+    cleaned = strip_component_tail(_truncate_bytes(_sanitize_value(name), MAX_EVENT_NAME))
     if cleaned != name:
         notes.append(f"event name {name!r} was adjusted to {cleaned!r} to be path-safe")
     # "Usable" means it still carries a letter or digit. Emptiness is not the test: the
@@ -238,9 +238,9 @@ def _sanitize_value(value: str) -> str:
     directory rather than two that look identical; and it is capped at
     :data:`MAX_COMPONENT_BYTES`.
     """
-    cleaned = _VALUE_ILLEGAL.sub("_", value).strip().rstrip(" .")
+    cleaned = strip_component_tail(_VALUE_ILLEGAL.sub("_", value))
     cleaned = unicodedata.normalize("NFC", cleaned)
-    return _truncate_bytes(cleaned, MAX_COMPONENT_BYTES).strip().rstrip(" .")
+    return strip_component_tail(_truncate_bytes(cleaned, MAX_COMPONENT_BYTES))
 
 
 def resolve_template(stored: str | None) -> LayoutTemplate:

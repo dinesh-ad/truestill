@@ -43,7 +43,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from truestill_core.models import SAVED_LABEL, CategoryMatch, Confidence, RuleName
+from truestill_core.models import (
+    SAVED_LABEL,
+    CategoryMatch,
+    Confidence,
+    RuleName,
+    strip_component_tail,
+)
 
 #: The label both screenshot rules emit.
 SCREENSHOT_LABEL = "Screenshots"
@@ -147,10 +153,17 @@ def is_messenger_filename(name: str) -> bool:
 
 
 def sanitize_label(raw: str, fallback: str = SAVED_LABEL) -> str:
-    """Make an arbitrary metadata string safe to use as a directory name."""
+    """Make an arbitrary metadata string safe to use as a directory name.
+
+    The tail is trimmed **after** the length cap, not only before it. Trimming first and
+    cutting second is what made this non-idempotent: a 60-character cut landing on a dot kept
+    it, and a later pass removed it, so the same camera model yielded two labels. See
+    :func:`truestill_core.models.strip_component_tail` for why a trailing dot is a
+    cross-platform defect rather than an untidiness.
+    """
     cleaned = _UNSAFE_CHARS.sub(" ", raw)
     cleaned = _WHITESPACE.sub(" ", cleaned).strip(" .")
-    cleaned = cleaned[:_MAX_LABEL_LEN].strip()
+    cleaned = strip_component_tail(cleaned[:_MAX_LABEL_LEN])
     return cleaned or fallback
 
 

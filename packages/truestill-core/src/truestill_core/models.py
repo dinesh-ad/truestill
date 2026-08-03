@@ -31,6 +31,25 @@ UNDATED_DIRNAME = "Undated"
 SAVED_LABEL = "Saved"
 
 
+def strip_component_tail(value: str) -> str:
+    """Trim what a path component may not end with: whitespace, then dots and spaces.
+
+    **One rule, two callers.** `layout._sanitize_value` and `categorize.sanitize_label` both
+    have to answer "is this safe as a single path component", and they had different answers:
+    the layout one trimmed the tail, the label one did not, because its length cap ran *after*
+    its trim (``cleaned[:60].strip()`` drops whitespace but not a dot, so a cut landing on one
+    kept it). ENGINEERING_STANDARD.md §4 asks for the duplicated rule to have one home rather
+    than a second test, and this is that home -- the two functions stay separate because they
+    legitimately differ elsewhere (60 characters vs 255 bytes, ``' '`` vs ``'_'`` as the
+    replacement, NFC, a fallback), and only the tail rule was ever shared.
+
+    It matters beyond tidiness: Windows and FAT drop a trailing dot or space when the file is
+    created, so ``Trip.`` and ``Trip`` are one directory there and two on ext4 -- the same
+    library reading differently on two machines.
+    """
+    return value.strip().rstrip(" .")
+
+
 class Confidence(StrEnum):
     """How strong the evidence behind a category label is.
 

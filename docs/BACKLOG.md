@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aaw). Next free: (aax).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aax). Next free: (aay).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -48,6 +48,32 @@ Everything here has work left. **Two entries are partial and say so in their own
 `(bbb)` (the safety half shipped, the `_original` recovery offer did not) and `(r)` (the hash
 cache shipped, Analyze mode itself did not). A partial entry lives here, not in the built
 section, because what is left is the part that still has to be written.
+
+- **(aax) `time_known` is derived from provenance, not from the value. POST-LAUNCH.** Filed
+  2026-08-03 while fixing the stacked date prefix, which this shape is what made possible.
+  **Record only - do not build.**
+  - **The shape.** `organizer.py:520` sets `time_known=date_source in (EXIF, INFERRED_LOCAL)`.
+    That asks *where did this date come from*, and then uses the answer for *does this date
+    have a time*. **Precision is a property of the value; trust is a property of the source**,
+    and deriving one from the other is the defect - the two questions have different answers.
+  - **Where they already disagree.** `TAKEOUT` is in `_TRUSTED_DATE_SOURCES` (`models.py:117`),
+    so a Google `photoTakenTime` is trusted enough to file by without review - yet it is
+    **not** in the `time_known` pair, so the copy is named date-only. `photoTakenTime` is a
+    real capture instant with a time in it. The time is discarded for no stated reason, and
+    `dated_filename`'s own justification ("embedded metadata" vs "filename-derived") describes
+    a distinction Takeout falls between and no longer matches either side of.
+  - **It is what made the stacking bug reachable.** A Takeout or filename-dated file gets the
+    short name; the same content organized again once EXIF is readable derives the long stamp,
+    and before 2026-08-03 that stacked. The anchored-prefix fix closes the *symptom* on every
+    path. This entry is the *cause*, and closing it would have prevented the class.
+  - **Why post-launch and not now.** Changing `time_known` changes the **names of organized
+    copies** for every Takeout-sourced file, which is a migration question (existing libraries
+    keep their names; new ones would differ) rather than a bug fix. It also needs a ruling on
+    whether `TAKEOUT_UPLOAD` - an upload time, genuinely not a capture time - should be
+    date-only for the opposite reason: its value has a time and its *meaning* does not.
+  - **The shape to aim at, not a design:** resolve a date to a value that knows its own
+    precision, so naming asks the value and review asks the source. Do not smuggle this into a
+    naming change.
 
 - **(aaw) Cross-process drive lock ("P1-lite"): design settled, build POST-SOAK.** Designed
   2026-08-03; filed as its own entry rather than folded into `(vv)` because `(vv)` is a recorded

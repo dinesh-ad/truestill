@@ -61,6 +61,24 @@ All notable changes to this project are documented here. The format follows
   a hidden alias resolving to the same value, not a deprecation, so existing scripts are safe.
 
 ### Fixed
+- **Organizing the same photo twice no longer puts two dates in its name.** A photo whose date
+  came from its filename gets a name like `20140815_IMG_0001.jpg`. If Truestill later organized
+  that same photo again once it could read the camera's own date - after you installed
+  `exiftool`, say - it added the fuller stamp in front of the one already there, giving
+  `20140815_143022_20140815_IMG_0001.jpg`, and again on every pass after that. The date Truestill
+  wrote is now **upgraded in place** instead: you get `20140815_143022_IMG_0001.jpg`, the same
+  answer you would have got by organizing once with everything known. **Only a date at the very
+  start of the name, and only for the same day, is treated as Truestill's own** - a photo called
+  `VID-20250804-WA0020.mp4` or `IMG_20140815_143000.jpg` is left to be stamped exactly as before,
+  and if your own filename says a different day from the photo's metadata, your name is kept and
+  the metadata date is added in front rather than replacing it. **Files already organized are not
+  renamed**; this applies to copies made from here on.
+- **A camera or app name that had to be shortened can no longer end in a dot, which Windows
+  would have silently dropped.** Folder names were already protected against this; the label
+  Truestill records for a source was not, so a very long camera model cut at 60 characters could
+  keep a trailing dot. On Windows `Photos.` and `Photos` are the same folder and on Linux they
+  are two, which is how one library starts reading differently on two machines. Both now follow
+  one shared rule.
 - **Using Truestill in two places at once now says so plainly, instead of showing you a
   crash.** Running a command in a terminal while the app is open is an ordinary thing to do, and
   the two share one library catalog. Only one of them can write to it at a time - which is
