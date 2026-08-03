@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(abb). Next free: (abc).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(abc). Next free: (abd).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -43,6 +43,19 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(abc) `check_product_name.SUBCOMMANDS` should be derived, not transcribed.** Recorded
+  2026-08-04, when Analyze 3b tripped over it: the list had never gained `analyze` or
+  `repoint-sources`, so writing either invocation in prose was flagged as the product name in
+  lowercase. Both entries were added; the class was not fixed.
+  - **Why it is a class and not a typo.** The guard's own docstring says the list *"mirrors the
+    parser rather than guessing"*. It does not mirror anything - it is a copy, and it has now
+    drifted twice. Same shape as the `ALL_RULES` tuple in `test_layout_scheme.py`, which stopped
+    covering the one rule whose routing had changed, and was fixed by deriving it from the enum.
+  - **Why it was not done here.** The authority is `cli.py`'s dispatch table, so deriving it
+    means a repo script importing `truestill_cli` - a direction nothing in `scripts/` currently
+    takes, and one that changes what `make check` needs installed to run. That is its own
+    decision, not a footnote to a streaming commit.
 
 - **(abb) The other capture-filename conventions.** Recorded 2026-08-03, when
   `rule_camera_filename` shipped with **one** pattern: Android's `IMG_`/`VID_` plus a full date
@@ -1107,7 +1120,40 @@ section, because what is left is the part that still has to be written.
         so a linear bar saturates and a log bar makes a proportion claim that is not true.
       - **Still tier 1-2 facts.** They appear in the organize *preview*, which does the
         expensive pass. `truestill analyze` remains tier 0 and still says *not yet analysed*.
-    - **Commits 3 and 4 are unbuilt and still post-launch**, per the placement clause on
+    - **Commit 3b shipped 2026-08-04: each tier reaches the screen as it completes.**
+      `(r)`'s own escape clause - *"earlier if the soak shows repeat-run pain at real scale"* -
+      was satisfied by evidence rather than argument: `truestill analyze` on the 192 GB library
+      took **54 minutes at 3% CPU**, about 105 s of computation stretched over 54 minutes of
+      waiting on the mount (~31x I/O to CPU). Tier 0 finished in 21 s and **the remaining 53
+      minutes produced nothing at all**.
+      - **The sequencing was already right, which is the finding that shaped the commit.**
+        `test_the_census_prints_before_the_expensive_work_starts` has pinned since 3a that the
+        census prints first. It was invisible anyway, for two reasons that are not ordering:
+        **nothing reported progress** during the slow tiers (`_analyze_deep` passed no
+        `progress=` to either `read_metadata` or `resolve`), and **stdout is block-buffered when
+        it is not a terminal** - demonstrated before the fix: a redirect file stays *empty* for
+        the whole of the slow tier. So the work was progress, a stream split and a flush; no
+        write was re-ordered.
+      - **Results to stdout, progress to stderr** (`IMPLEMENTATION_STANDARDS.md` §9), so
+        `truestill analyze <path> > report.txt` leaves a clean report while the terminal shows
+        the run. **Nothing that reads the output moved**: every result line stayed on stdout,
+        which is where all 42 existing analyze assertions read it, and no test anywhere asserted
+        progress text. Verified: no script or package shells out to this CLI.
+      - **The `\r` flooding is fixed as a side effect**, which is why it belonged here rather
+        than in the ergonomics pass: the same branch decides it. A non-terminal gets no carriage
+        return, no 60-column padding, and a line only every `_PROGRESS_INTERVAL_SECONDS` -
+        without `\r` to overwrite with, one line per file is the same flood in a new shape. The
+        real run left **127 KB** of it; the equivalent piped run now leaves a handful of lines.
+      - **The throttle got its own clock.** Borrowing `_CLOCK` - the report's elapsed-time
+        source - broke five unrelated timing tests, whose fixtures yield an exact number of
+        readings. Two measurements with nothing to say to each other should not share one
+        injection point.
+      - **Three of the tests were weak and mutations proved it**, each fixed rather than
+        accepted: one "some progress appeared" check that tier 2a alone satisfied (so tier 1
+        could go silent unnoticed), one flush check that the forecast's own flush satisfied (so
+        the census could stop being flushed), and one absent-or-tagged check driven through the
+        interrupt path, which returns *before* `_print_not_yet_analysed` is ever reached.
+    - **Commits 4 and 5 are unbuilt and still post-launch**, per the placement clause on
       `(r, remaining)`. **"Commit" and "tier" are different numberings** - see the staging note
       there. An earlier version of this line said *"Tiers 3-4 (streaming, app screen)"*, which
       is a category error: there is no data tier 3 or 4, and it made "tier 2" ambiguous between

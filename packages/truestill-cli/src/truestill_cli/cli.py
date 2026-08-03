@@ -923,18 +923,79 @@ def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
 
+#: How often a **non-terminal** run repeats its progress line. On a terminal the counter
+#: overwrites itself and costs one line however often it moves; in a file or a pipe every
+#: update is kept forever, so the cadence *is* the size of the log. Five seconds is a judgement
+#: rather than a measurement - recorded the way `run_health.TICK_SECONDS` is - chosen so an
+#: hour-long run leaves a readable ~700 lines instead of one per file.
+_PROGRESS_INTERVAL_SECONDS = 5.0
+
+#: The throttle's own clock, **deliberately not `_CLOCK`**. That one is the report's
+#: elapsed-time source and tests drive it with a fixture yielding an exact number of readings;
+#: a counter borrowing it consumed one of them and broke five unrelated timing tests. Two
+#: measurements that have nothing to say to each other should not share one injection point.
+_PROGRESS_CLOCK = time.monotonic
+
+
+def _stderr_is_terminal() -> bool:
+    """Whether progress is being watched by a person or captured by something.
+
+    A function rather than a module-level constant so it is asked at the moment it matters and
+    can be substituted in a test: the two branches have opposite failure modes and a guard that
+    could only ever exercise one of them would be half a guard.
+    """
+    return sys.stderr.isatty()
+
+
+def _end_of_tier() -> None:
+    """Push a completed tier's report out of the buffer, now rather than at exit.
+
+    **Ordering the writes is not enough.** Python block-buffers stdout when it is not a
+    terminal, so a redirected run holds tier 0's census until the buffer fills or the process
+    ends - measured before this was written: the redirect file stays *empty* for the whole of
+    the slow tier. Analyze's whole promise is that a cheap answer arrives while an expensive one
+    is still running, and on the 54-minute run that promise was kept in a buffer.
+    """
+    sys.stdout.flush()
+
+
 def _progress_printer(label: str) -> ProgressCallback:
-    """A terminal progress callback: an in-place ``label: done/total`` counter.
+    """A progress callback for one phase of work. **Writes to stderr, never to stdout.**
+
+    Results go to stdout and progress goes to stderr, so ``truestill analyze <path> >
+    report.txt`` leaves a clean report while the terminal still shows the run - the split git
+    and docker use, and the one the rest of Analyze's streaming rests on.
 
     The op's own phase name wins over ``label`` when it has one, so a run that hashes and then
     copies says which it is doing rather than showing one pace for two different jobs.
+
+    **The two branches are not cosmetic.** On a terminal, ``\r`` rewrites one line. Written to a
+    file it is *stored*, so the same code left one padded 60-column counter per file - **127 KB
+    of unreadable scrollback** on a real 32,628-file run. A non-terminal therefore gets no
+    carriage return, no padding, and a line only every `_PROGRESS_INTERVAL_SECONDS` or at the
+    end: without ``\r`` to overwrite with, one line per file is the same flood in a new shape.
     """
+    last = _PROGRESS_CLOCK()
 
     def report(update: Progress) -> None:
-        end = "\n" if update.done >= update.total else "\r"
         what = update.phase or label
-        # Padded so the shorter line of a phase change fully overwrites the longer previous one.
-        print(f"  {what}: {update.done}/{update.total}".ljust(60), end=end, flush=True)
+        done = update.done >= update.total
+        if _stderr_is_terminal():
+            # Padded so the shorter line of a phase change fully overwrites the longer previous.
+            end = "\n" if done else "\r"
+            print(
+                f"  {what}: {update.done}/{update.total}".ljust(60),
+                end=end,
+                file=sys.stderr,
+                flush=True,
+            )
+            return
+        nonlocal last
+        now = _PROGRESS_CLOCK()
+        if not done and now - last < _PROGRESS_INTERVAL_SECONDS:
+            return
+        last = now
+        print(f"  {what}: {update.done}/{update.total}", file=sys.stderr, flush=True)
 
     return report
 
@@ -1852,13 +1913,23 @@ def _analyze_deep(
     earlier organize recorded are reused.
     """
     _print_forecast(inventory, sizes)
+    _end_of_tier()
     cancel = threading.Event()
     try:
         with HashCache.beside_readonly(default_catalog_path()) as cache:
-            metadata = read_metadata(files, cache=cache, cancel=cancel)
+            metadata = read_metadata(
+                files, cache=cache, cancel=cancel, progress=_progress_printer("reading dates")
+            )
             decisions = plan(files, metadata, build_rules())
             index = DedupIndex(DEFAULT_PHASH_THRESHOLD)
-            return resolve(decisions, index, cache=cache, perceptual=False, cancel=cancel)
+            return resolve(
+                decisions,
+                index,
+                cache=cache,
+                perceptual=False,
+                cancel=cancel,
+                progress=_progress_printer("checking for identical copies"),
+            )
     except KeyboardInterrupt:
         cancel.set()
         return None
@@ -1881,6 +1952,7 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
     elapsed = _CLOCK() - started
     _print_inventory(inventory, args.path, elapsed)
     _print_inventory_skipped(inventory)
+    _end_of_tier()
 
     # The census is on screen before anything expensive begins: a user who wanted only that
     # has it in under a second and can stop. Sequential printing, not the streamed payload of
@@ -1893,6 +1965,7 @@ def _cmd_analyze(args: argparse.Namespace) -> int:
         return 0
     if resolutions:
         _print_deep(resolutions, sizes)
+        _end_of_tier()
     _print_not_yet_analysed(deep_done=bool(resolutions))
     # Worded this way because "writes nothing" would be FALSE and a user who checked would find
     # it out: the hash-cache sidecar is written by the expensive tiers, and `Catalog(db)` creates

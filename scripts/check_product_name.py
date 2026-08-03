@@ -65,8 +65,15 @@ CHECKED: tuple[str, ...] = (
 #: Subcommands of the `truestill` CLI. A name followed by one of these is an invocation the user
 #: types, never prose. Mirrors `cli._build_parser`; a new subcommand quoted in prose will fail
 #: here until it is added, which points at the right list rather than at a clever regex.
+#: **Hand-kept, and it had drifted twice by 2026-08-04** - `analyze` and `repoint-sources` both
+#: shipped without being added, so an invocation of either read as prose and was flagged. The
+#: docstring above says this "mirrors the parser"; today that is a convention, not a mechanism.
+#: Deriving it from the dispatch table is filed as `(abc)` rather than done here, because the
+#: import direction (a repo script reaching into a package) deserves its own decision.
 SUBCOMMANDS: tuple[str, ...] = (
+    "analyze",
     "organize",
+    "repoint-sources",
     "ingest",
     "drives",
     "undo-organize",

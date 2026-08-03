@@ -7,6 +7,23 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- **`truestill analyze` now shows you what it is doing while it does it, and its report survives
+  being saved to a file.** On a 192 GB library the census appeared in 21 seconds and then
+  **nothing happened on screen for 53 minutes** - the work was running the whole time, but there
+  was no way to tell that from the outside. Now each stage reports as it finishes, and a counter
+  shows the slow stages moving.
+  **Saving the report works properly.** `truestill analyze <folder> > report.txt` puts the
+  report in the file and the progress counter on your screen, so the file stays clean and
+  readable - the same way `git` and `docker` behave. It used to write the progress counter into
+  the file too: **127 KB of it** on that library, one line per file, which made the report
+  almost unusable. Piping into `less`, `tee` or a log file all behave now.
+  **And the report no longer waits for the end.** Redirected to a file, nothing at all appeared
+  until the whole run finished; the early answers are now written out as soon as they are ready,
+  which is the entire point of getting a cheap answer first.
+  **What is not measured still says so.** A stage that has not run is named and left without a
+  number, never shown as a `0` - a zero would mean "none found", and nothing has looked yet.
+  Stopping with Ctrl-C still keeps everything printed so far and still refuses to give a partial
+  duplicate count, because a half-finished count is a wrong answer rather than an incomplete one.
 - **If your drive is unplugged part-way through organizing, Truestill now stops and tells you,
   instead of quietly filling up your computer.** A cloud drive that drops out under a long copy
   leaves an ordinary empty folder behind where it used to be - so writing carried on, into your
