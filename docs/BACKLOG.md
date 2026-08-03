@@ -989,7 +989,30 @@ section, because what is left is the part that still has to be written.
         than the source. This is expectation-setting, not a benchmark: tier 0's wall time is a
         direct signal of how the source behaves, so a slow one tells a user the expensive
         tiers will be long before they commit to them. `PERFORMANCE.md` still owns benchmarks.
-    - **Tiers 1-4 are unchanged and still post-launch**, per the placement clause below.
+    - **Commit 2 shipped 2026-08-03: the facts that existed but were unreachable.**
+      `bytes_saved`, `bytes_near_dup`, `oldest` and `newest` were computed inside the app's
+      `_completion` and were therefore available only *after* an organize - the wrong way round
+      for a preview. They now live in `truestill_core.insights`, which the CLI preview, the app
+      run and (later) Analyze all call. **Sizes are injected rather than measured**: a finished
+      run sizes the file where it landed, a preview can only size the source, and baking either
+      choice into core would make one of the two lie.
+      - **Near-duplicate bytes are not savings, and the type refuses to imply otherwise.**
+        Truestill *keeps* a near-duplicate, so no operation returns those bytes;
+        `reclaimable_bytes` is exact-duplicates only. Pinned on the **wording** as well as the
+        numbers - a rewording to "freed" would be a promise the product does not keep, and no
+        numeric assertion would catch it.
+      - **The move is proven, not assumed.** `test_insights_match_the_run_summary.py` is a
+        characterization test that was green **before** the refactor and stays green after. It
+        matters because the two sides select differently: `_completion` filters on
+        `ActionStatus`, the core producers partition on the resolution's duplicate fields.
+      - **New:** a per-year capture histogram (undated counted, never dropped, so the column
+        reconciles with the file count) and a capped largest-files list. **Counts, not bars** -
+        a real library spans three orders of magnitude between its quietest and busiest year,
+        so a linear bar saturates and a log bar makes a proportion claim that is not true.
+      - **Still tier 1-2 facts.** They appear in the organize *preview*, which does the
+        expensive pass. `truestill analyze` remains tier 0 and still says *not yet analysed*.
+    - **Tiers 3-4 (streaming, app screen) are unchanged and still post-launch**, per the
+      placement clause below.
 
 - **(r, remaining) Analyze mode.** Promoted from
   "ideas" and bound to the previously-standalone hash-cache item, because the pairing is what

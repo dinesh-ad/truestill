@@ -72,6 +72,13 @@ from truestill_core.duplicate_explain import origin_phrase
 from truestill_core.exif import ExiftoolMissingError, read_metadata
 from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import DEFAULT_PHASH_THRESHOLD, HEIF_AVAILABLE, HEIF_EXTENSIONS
+from truestill_core.insights import (
+    capture_span,
+    capture_years,
+    duplicate_bytes,
+    largest_files,
+    sizes_for,
+)
 from truestill_core.layout import (
     DEFAULT_PRESET,
     DEFAULT_TEMPLATE_STRING,
@@ -1106,6 +1113,85 @@ def _print_preflight(
     print(f"  {preflight.detail()}")
 
 
+#: Largest files named before the list elides. Small on purpose: this answers "what is eating
+#: the space", which the top handful settles; a longer list is a file manager's job.
+_LARGEST_PREVIEW = 5
+
+
+def _print_capture_timeline(resolutions: list[Resolution]) -> None:
+    """The date range and a per-year count. Printed even when empty, so it can be added up.
+
+    **Counts, not bars.** A real library spans three orders of magnitude between its quietest
+    and busiest year, so a linear bar saturates on one year and says nothing, and a log bar
+    makes a visual claim about proportion that is not true. Aligned numbers answer the question
+    a timeline is actually asked - which years do I have, and how much - without decorating it.
+    Rendered as a compact `YYYY x N` sequence in the same idiom as the format census, wrapped
+    rather than one line per year, because twenty lines of two numbers is not a summary.
+    """
+    span = capture_span(resolutions)
+    years = capture_years(resolutions)
+    if span is None:
+        print("  capture dates      : none of these files carries a capture date")
+    else:
+        print(
+            f"  capture dates      : {span.oldest.date().isoformat()} "
+            f"to {span.newest.date().isoformat()}"
+        )
+    entries = [f"{year} x{count:,}" for year, count in years.by_year.items()]
+    for line in _wrapped(entries, width=_EXTENSION_LINE_BUDGET):
+        print(f"      {line}")
+    # Never folded into a year: a file with no date belongs to none of them, and dropping it
+    # would make the histogram disagree with the file count.
+    print(f"      undated x{years.undated:,}")
+
+
+def _print_duplicate_space(resolutions: list[Resolution], sizes: dict[Path, int]) -> None:
+    """What duplicates cost, with reclaimable space kept strictly apart from look-alikes.
+
+    A near-duplicate is **kept** - uploaded and flagged for review - so no operation returns
+    its bytes. Calling them saved would promise space that never arrives, which is why the two
+    lines are worded differently rather than summed.
+    """
+    counted = duplicate_bytes(resolutions, sizes)
+    print(
+        f"  identical copies   : {counted.exact_files:,} file(s), "
+        f"{counted.reclaimable_bytes:,} bytes not copied"
+    )
+    print(
+        f"  look-alikes        : {counted.near_files:,} file(s), "
+        f"{counted.near_bytes:,} bytes (kept and flagged, not removed)"
+    )
+
+
+def _print_largest(sizes: dict[Path, int]) -> None:
+    """The biggest files, capped, with the total exact."""
+    listed = largest_files(sizes, limit=_LARGEST_PREVIEW)
+    if not listed.shown:
+        return
+    print(f"  largest files      : {listed.total:,} sized")
+    for entry in listed.shown:
+        print(f"      {entry.size / 1e6:>10,.1f} MB  {entry.path.name}")
+    hidden = listed.total - len(listed.shown)
+    if hidden:
+        print(f"      ... and {hidden:,} more")
+
+
+def _wrapped(entries: list[str], *, width: int) -> list[str]:
+    """Join ``entries`` into lines no wider than ``width``. Never drops one."""
+    lines: list[str] = []
+    current: list[str] = []
+    used = 0
+    for entry in entries:
+        if current and used + len(entry) + 2 > width:
+            lines.append(", ".join(current))
+            current, used = [], 0
+        current.append(entry)
+        used += len(entry) + 2
+    if current:
+        lines.append(", ".join(current))
+    return lines
+
+
 def _print_summary(resolutions: list[Resolution]) -> None:
     buckets = partition_for_report(resolutions)
     organized = buckets.organized
@@ -1131,6 +1217,11 @@ def _print_summary(resolutions: list[Resolution]) -> None:
         print(f"      {source:<28} {count}")
     _print_date_quality(organized)
     _print_inferred_local_shifts(organized)
+    # Sized once, here, and shared by both blocks below: one stat pass rather than two.
+    sizes = sizes_for(resolutions)
+    _print_capture_timeline(organized)
+    _print_duplicate_space(resolutions, sizes)
+    _print_largest(sizes)
 
     review = [r for r in organized if r.decision.needs_review]
     if review:

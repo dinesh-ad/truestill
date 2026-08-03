@@ -19,6 +19,7 @@ from truestill_core.event_review import EventDecision, commit, propose
 from truestill_core.exif import read_metadata
 from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import DEFAULT_PHASH_THRESHOLD, HEIF_AVAILABLE, HEIF_EXTENSIONS
+from truestill_core.insights import capture_span, duplicate_bytes
 from truestill_core.layout_settings import pin_existing_layout, resolve_scheme
 from truestill_core.models import (
     ActionResult,
@@ -759,11 +760,13 @@ def _completion(results: list[ActionResult], destination: Path) -> CompletionBas
     organized = [r for r in results if r.status in _ORGANIZED_STATUSES]
     duplicates = [r for r in results if r.status is ActionStatus.DUPLICATE]
     near = [r for r in organized if r.resolution.near_duplicate is not None]
-    dates = [
-        r.resolution.decision.captured_at
-        for r in organized
-        if r.resolution.decision.captured_at is not None
-    ]
+    # Bytes and the date range come from `truestill_core.insights` so a *preview* can state
+    # them too -- they used to be computed here and were therefore unreachable from anywhere
+    # but a finished run. Selection stays here, where the run's statuses live: the span is over
+    # what the run ORGANIZED, so a skipped duplicate's date must not widen it.
+    sizes = {r.resolution.decision.source: _result_size(r, destination) for r in results}
+    counted = duplicate_bytes([r.resolution for r in results], sizes)
+    span = capture_span([r.resolution for r in organized])
     labels = Counter(r.resolution.decision.category.label for r in organized)
     names = [r.resolution.decision.source.name for r in organized]
     breakdown = media_breakdown(names)
@@ -775,18 +778,18 @@ def _completion(results: list[ActionResult], destination: Path) -> CompletionBas
         "audio": breakdown["audio"],
         "bytes_organized": sum(_result_size(r, destination) for r in organized),
         "duplicates": len(duplicates),
-        "bytes_saved": sum(_result_size(r, destination) for r in duplicates),
+        "bytes_saved": counted.reclaimable_bytes,
         # What each skipped file matched. The count alone was the §9 gap: "identical to a kept
         # file" without saying which kept file is the complaint the CLI never had.
         "duplicate_matches": _duplicate_report([r.resolution for r in duplicates], near=False),
         "near_dup": len(near),
-        "bytes_near_dup": sum(_result_size(r, destination) for r in near),
+        "bytes_near_dup": counted.near_bytes,
         "near_dup_matches": _duplicate_report([r.resolution for r in near], near=True),
         "folders": dict(labels.most_common()),
         # None rather than a placeholder year: an undated batch has no range, and inventing
         # one would be exactly the "computed for effect" the honesty rule forbids.
-        "oldest": min(dates).isoformat() if dates else None,
-        "newest": max(dates).isoformat() if dates else None,
+        "oldest": span.oldest.isoformat() if span else None,
+        "newest": span.newest.isoformat() if span else None,
         "moved_in_place": sum(1 for r in results if r.status is ActionStatus.MOVED_IN_PLACE),
         "moved_by_copy": sum(1 for r in results if r.status is ActionStatus.MOVED),
         "failed": sum(1 for r in results if r.status is ActionStatus.FAILED),

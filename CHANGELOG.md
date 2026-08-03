@@ -82,6 +82,18 @@ All notable changes to this project are documented here. The format follows
   of filling the screen. **The totals are always exact** - only the list of names is shortened.
 
 ### Changed
+- **The organize preview now tells you what is in your library, not just what it would do with
+  it.** Before you commit to anything, it reports the **span of dates** your photos cover and how
+  many fall in each year, how much space **identical copies** are wasting, and which files are
+  the largest. These numbers existed before but only appeared *after* an organize had finished,
+  which is the wrong way round for a preview.
+  **Identical copies and look-alikes are counted separately, and only identical copies are
+  described as space you get back.** A look-alike - the same photo at a different size or quality
+  - is *kept* by Truestill and flagged for you to review, so calling its bytes "saved" would
+  promise space that never arrives. Undated photos are counted on their own line rather than
+  quietly left out of the years, so the numbers still add up to the number of files.
+
+### Changed
 - **Truestill now refuses, out loud, to write outside the folder you pointed it at.** It never
   did - every destination path it builds is assembled from a single filename it read off your
   disk - but nothing was actually *checking*, so the guarantee rested on how the code happened
