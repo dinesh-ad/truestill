@@ -459,6 +459,29 @@ section, because what is left is the part that still has to be written.
     unnoticed. **This unblocks the bundler decision**, which can now be made for two platforms
     with no signing step in the pipeline. D9 also carries a launch-page requirement: Windows
     users are told what SmartScreen will show *before* they download.
+  - **ACCEPTANCE CRITERION, added 2026-08-04: the frozen artifact must run
+    `cleanup.trash_backend()` and report a real backend.** Not a nice-to-have check on the
+    bundle - a **safety** one, and the reason is that the consequence of dropping this dependency
+    changed on the same day the criterion was written.
+    - **What the bundle can silently lose.** `trash_backend` reaches `send2trash` through an
+      `import` inside a `try`, which is the shape a bundler's static analysis misses. PyInstaller
+      6.21.0 ships **no hook** for it (checked 2026-08-04), and the platform sub-imports inside
+      `send2trash/__init__.py` are themselves guarded, so the risk is real rather than theoretical.
+    - **Why it is worse than losing the trash.** Before 2026-08-04 a missing backend meant folders
+      were **destroyed** instead of trashed. That branch is now closed - an absent backend is a
+      refusal (`IMPLEMENTATION_STANDARDS.md` §1) - **but a bundle that drops the dependency
+      restores the conditions the closed branch existed for**: on Windows and macOS, with no
+      `gio` either, empty-folder cleanup would refuse every folder on every run. Loud rather than
+      destructive, which is the improvement, and still a shipped feature that never works on the
+      launch platform.
+    - ⚠ **The CI guard from commit 1 does NOT cover this, and must not be read as covering it.**
+      `test_trash_backend_is_available.py` runs against the *source tree* on the
+      {ubuntu, macos, windows} matrix. It says nothing about a frozen artifact, where the
+      collection question lives. A green matrix plus a broken bundle is exactly the state that
+      would read as verified.
+    - **What satisfies it:** the artifact itself printing the resolved backend, the way the
+      windowed-launch probe reports console state - not an inspection of the spec file, which is
+      a claim about what should be collected rather than what was.
   - **PyPI stays**, as the developer / self-hosted channel. It stops being the *primary* one.
   - **MEASURED, THEN DECLINED (2026-08-01). The ~90 MB stays in the build.** Ruled on product
     grounds: at this size the download is unremarkable for a desktop app - **VS Code is ~350 MB

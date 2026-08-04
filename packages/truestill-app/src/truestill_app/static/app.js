@@ -1271,7 +1271,23 @@ async function startCleanupPreview(button) {
       stage.innerHTML = card("<div class='k'>Nothing to remove now.</div>");
       return;
     }
-    const where = preview.backend ? `to the trash (${preview.backend})` : "permanently (no trash backend available)";
+    // No trash on this machine is a REFUSAL now, not a permanent delete (core `run_cleanup`,
+    // 2026-08-04). This branch used to read "permanently (no trash backend available)" and then
+    // offer the typed confirm anyway - a sentence describing something the run can no longer do,
+    // followed by a button that could only ever report failures. The app has no `--permanent`,
+    // by the same App-surface-deferral reasoning that keeps `reclaim` on the CLI: an
+    // irreversible removal is not a thing to reach for by accident.
+    if (!preview.backend) {
+      stage.innerHTML = card(
+        `<div class="banner warn" data-testid="clean-no-trash"><div>
+         <div class="b-title">These folders cannot be removed here</div>
+         <div>This computer has no trash Truestill can use, and Truestill will not delete a
+         folder outright. ${plural(preview.removable.length, "folder")} left exactly where
+         ${preview.removable.length === 1 ? "it is" : "they are"}.</div></div></div>`
+      );
+      return;
+    }
+    const where = `to the trash (${preview.backend})`;
     stage.innerHTML = `<div class="k">${plural(preview.removable.length, "folder")} can be removed ${esc(where)}.</div>
       <details class="more"><summary>Show folders ▾</summary><div class="mono">${preview.removable.map((p) => esc(p)).join("<br>")}</div></details>
       <div data-org-clean-typed></div>`;

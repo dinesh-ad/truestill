@@ -253,7 +253,9 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   When they do not, the test passes, and a passing test is read as "the mutation was caught by
   something else" or "the guard is fine" rather than "the mutant was never loaded."
 
-  *Three worked examples, one session, 2026-07-31 - different mechanisms, same root cause.*
+  *Four worked examples - different mechanisms, same root cause. The first three are one
+  session, 2026-07-31; the fourth is 2026-08-04 and is what promotes this from "three ways one
+  session went wrong" to a shape that keeps recurring.*
 
   1. *The editable install.* The mutation was written into a `cp -r` copy of `packages/` under
      the scratch directory, then `pytest` was pointed at the copy's test file. The copy's tests
@@ -273,8 +275,24 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
      was loaded and unmutated. This one is a layer deeper than the other two, because the
      identity check the rule already demanded *passed*.
 
+  4. *The package manager put it back.* Proving a guard fires when a dependency is missing meant
+     uninstalling it and running the suite. The runner was `uv run pytest`, and **`uv run`
+     re-syncs the environment before it runs anything** - it reinstalled the package that had
+     just been removed, and the suite went green against an unmutated world. The tell was in the
+     probe printed beside the run: it reported the dependency **present** immediately after the
+     uninstall reported removing it. The fix is to stop going through the runner: invoke the
+     venv interpreter directly (`.venv/bin/python -m pytest`), or block the import with a
+     `PYTHONPATH` shim the runner has no opinion about.
+     Same family as the editable install above - something between the mutation and the
+     assertion restores the world - but a different mechanism, and a more inviting one, because
+     the command that undoes the mutation is the same command everything else in the repo is run
+     with. **Suspect it whenever the mutation is to the *environment* rather than to the source:
+     a dependency, a lockfile, an installed binary.** A source mutation the runner cannot see is
+     safe from this; an environment one is exactly what it exists to repair.
+
   One resolved past the mutant, one never contained it, one contained the file but not the
-  change. All three **failed in the reassuring direction**, which is the family resemblance: a
+  change, one had it removed by the tool used to run the test. All four **failed in the
+  reassuring direction**, which is the family resemblance: a
   mutation proof that silently proves nothing leaves a guard everyone now believes has been
   verified. Three different mechanisms, one root cause - which is what makes this a rule rather
   than a habit.

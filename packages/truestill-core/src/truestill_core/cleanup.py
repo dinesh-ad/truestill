@@ -192,6 +192,16 @@ def trash_backend() -> str | None:
         return "send2trash"
 
 
+#: Why a folder was left alone when this machine has no trash at all. **One home for the
+#: wording**, because the CLI and the app both render `CleanupOutcome.failures` verbatim and §9
+#: forbids the two surfaces wording one outcome differently. Phrased as the reason half of a
+#: `"{folder}: {reason}"` line, which is the shape every other entry in that list already has.
+NO_TRASH_REASON = (
+    "left in place - this machine has no trash Truestill can use, and Truestill will not "
+    "delete a folder outright without being asked (clean-empty --permanent)"
+)
+
+
 def _to_trash(path: Path, backend: str) -> None:
     if backend == "send2trash":
         import send2trash  # noqa: PLC0415 - resolved at runtime, see trash_backend
@@ -259,7 +269,17 @@ def run_cleanup(
         if not folder.is_dir():
             continue
         junk = candidate.contents if candidate.tier is Tier.JUNK_ONLY else ()
-        if backend is not None:
+        if backend is None:
+            # No trash on this machine is a REFUSAL, not permission. Until 2026-08-04 this
+            # branch did not exist: control fell straight through to the permanent removal
+            # below without ever reading `permanent`, so the two states a user cannot tell
+            # apart - "this drive would not accept it" and "this computer has no trash" -
+            # produced opposite outcomes, and the destructive one needed no decision from
+            # anybody. See `test_no_trash_backend_is_a_refusal_not_a_licence_to_destroy`.
+            if not permanent:
+                failures.append(f"{candidate.relative}: {NO_TRASH_REASON}")
+                continue
+        else:
             try:
                 _to_trash(folder, backend)
             except (OSError, subprocess.CalledProcessError) as exc:

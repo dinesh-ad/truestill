@@ -25,6 +25,20 @@ confirmed a preview listing every folder and every leftover file by name, with a
 in place rather than being downgraded to a permanent delete. This makes the never-delete rule
 *explicit* rather than weakening it: the four conditions are the whole permission.
 
+**An absent trash backend is treated as a refusal** (clarified 2026-08-04, and it is a
+clarification because condition (d) already said what should happen and named only the refusal
+that reaches it). `cleanup.run_cleanup` consulted `permanent` **only** where trash was tried and
+said no; where `trash_backend()` returned `None` the flag was never read and removal was
+unconditional - so "this drive would not accept it" and "this computer has no trash" produced
+opposite outcomes for a user who cannot tell the two apart, and the destructive one was the one
+that required no decision from anybody. Both now leave the folder in place and report it by name
+with `cleanup.NO_TRASH_REASON`, so **permanent mode below is the only way any folder is ever
+destroyed**, which is what makes the typed word match the outcome on every path without the
+outcome having to be inferred from a flag. Pinned by
+`test_no_trash_backend_is_a_refusal_not_a_licence_to_destroy`, whose cry-wolf half
+(`test_permanent_still_removes_when_there_is_no_trash_at_all`) holds permanent mode open for the
+mounts it was written for.
+
 **Permanent mode (`clean-empty --permanent`), for mounts with no trash.** A cloud or network
 mount has nowhere to trash *to* (`gio`: "Unable to trash file across filesystem boundaries"), so
 condition (d) can be impossible to satisfy. In that case, and **only** in that case, removal may

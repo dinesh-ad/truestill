@@ -7,6 +7,21 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- **If Truestill cannot reach a trash, it now leaves the folders alone instead of deleting
+  them.** This is the second half of the change below, and it is the one that matters. Truestill
+  removes leftover empty folders by putting them in the trash, and it always refused to do
+  anything else when a *drive* turned the trash down - a network or cloud drive often does. But
+  when the whole *machine* had no trash it did the opposite: it removed the folders outright.
+  Those are two situations you cannot tell apart from the outside, and they had opposite
+  outcomes, with the permanent one happening on its own.
+  Now they behave the same way. Every folder is left exactly where it is, and each one is named
+  on screen with the reason, so nothing is quietly skipped either. **The only way Truestill will
+  ever delete a folder outright is `truestill clean-empty --permanent`**, which asks you to type
+  `delete forever` rather than `clean` - a different question for a different answer. That was
+  always the intent; it is now the only route.
+  If you have been using Truestill on Linux, nothing changes for you: you had a trash and still
+  do. Nothing about your photos was ever at risk here - only the empty folders left behind after
+  a move, which by then contain nothing but system files like `.DS_Store`.
 - **Removing leftover empty folders now uses your system's trash on every platform, not only on
   a Linux desktop.** Truestill has always tried to put a removed folder in the trash so you can
   get it back. What it could not do was guarantee it had a trash to use: it looked for an

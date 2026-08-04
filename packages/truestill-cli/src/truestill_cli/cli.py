@@ -2280,8 +2280,15 @@ def _add_clean_parser(sub: argparse._SubParsersAction) -> None:  # type: ignore[
     )
 
 
-def _print_cleanup_plan(plan: CleanupPlan, backend: str | None) -> None:
-    """Show all three tiers with full paths, and say plainly where removals go."""
+def _print_cleanup_plan(plan: CleanupPlan, backend: str | None, *, permanent: bool) -> None:
+    """Show all three tiers with full paths, and say plainly where removals go.
+
+    ``permanent`` arrived on 2026-08-04 with the refusal change, and it is not decoration: with
+    no backend and no flag, the answer to "where would these go" became **nowhere**, and the
+    sentence here still said "PERMANENTLY". A plan that describes a removal the run can no
+    longer perform is the same defect class as the outcome wording §9 exists for, one step
+    earlier.
+    """
     empties = [c for c in plan.removable if c.tier is Tier.EMPTY]
     junk = [c for c in plan.removable if c.tier is Tier.JUNK_ONLY]
 
@@ -2301,6 +2308,15 @@ def _print_cleanup_plan(plan: CleanupPlan, backend: str | None) -> None:
 
     if not plan.removable:
         return
+    if backend is None and not permanent:
+        print(
+            f"\n{len(plan.removable)} folder(s) COULD NOT be removed: this machine has no trash"
+            "\nTruestill can use, and Truestill will not delete a folder outright without being"
+            "\nasked. Each one is reported and left exactly where it is."
+            "\n  If you want them gone anyway, re-run with --permanent, which asks for a"
+            "\n  different word because it cannot be undone."
+        )
+        return
     where = (
         f"to the trash (via {backend}) -- recoverable"
         if backend
@@ -2309,7 +2325,10 @@ def _print_cleanup_plan(plan: CleanupPlan, backend: str | None) -> None:
     print(f"\n{len(plan.removable)} folder(s) would be removed {where}.")
     if backend:
         print("  Note: trash can be refused on network or cloud-mounted drives; any refusal is")
-        print("  reported and that folder is left in place rather than deleted outright.")
+        if permanent:
+            print("  where --permanent applies, and that folder is deleted outright instead.")
+        else:
+            print("  reported and that folder is left in place rather than deleted outright.")
 
 
 def _offer_cleanup(catalog: Catalog, drive_uuid: str, path: Path) -> None:
@@ -2337,9 +2356,9 @@ def _confirm_cleanup(count: int, *, permanent: bool) -> bool | None:
     if not permanent:
         return _typed_confirmation(f"\nType 'clean' to remove {count} folder(s): ", "clean")
     print(
-        "\n--permanent: where the trash refuses, folders will be DELETED OUTRIGHT and are"
-        "\nNOT recoverable. Removal uses rmdir, so a folder that is no longer empty cannot"
-        "\nbe removed even if it is listed above."
+        "\n--permanent: where the trash refuses OR is unavailable, folders will be DELETED"
+        "\nOUTRIGHT and are NOT recoverable. Removal uses rmdir, so a folder that is no longer"
+        "\nempty cannot be removed even if it is listed above."
     )
     return _typed_confirmation(
         f"\nType 'delete forever' to remove {count} folder(s): ", "delete forever"
@@ -2362,7 +2381,7 @@ def _cmd_clean_empty(args: argparse.Namespace) -> int:
     backend = trash_backend()
 
     print(f"Drive '{marker.label}': {len(plan.candidates)} folder(s) the migration emptied.\n")
-    _print_cleanup_plan(plan, backend)
+    _print_cleanup_plan(plan, backend, permanent=args.permanent)
     if not plan.removable:
         print("\nNothing to remove.")
         return 0

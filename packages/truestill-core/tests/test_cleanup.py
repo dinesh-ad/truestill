@@ -13,6 +13,7 @@ import pytest
 from truestill_core import cleanup
 from truestill_core.cleanup import (
     JUNK_NAMES,
+    NO_TRASH_REASON,
     CleanupPlan,
     Tier,
     emptied_directories,
@@ -56,7 +57,10 @@ def test_a_nested_skeleton_collapses_bottom_up(tmp_path: Path) -> None:
     ]
     assert not plan.occupied
 
-    outcome = run_cleanup(root, plan, apply=True, backend=None)
+    # permanent=True is not the subject here - it is how this test still reaches a real
+    # removal now that an absent backend refuses. What it asserts is which folders are
+    # removable, which the 2026-08-04 refusal change did not touch.
+    outcome = run_cleanup(root, plan, apply=True, backend=None, permanent=True)
     removed, failures = outcome.removed, outcome.failures
     assert removed == 6
     assert not failures
@@ -77,7 +81,10 @@ def test_a_junk_only_folder_is_removed_with_its_junk(tmp_path: Path) -> None:
     assert junk["Camera/2013/09"].contents == (".DS_Store",)
     assert junk["Camera/2014/01"].contents == ("empty.log",)
 
-    run_cleanup(root, plan, apply=True, backend=None)
+    # permanent=True is not the subject here - it is how this test still reaches a real
+    # removal now that an absent backend refuses. What it asserts is which folders are
+    # removable, which the 2026-08-04 refusal change did not touch.
+    run_cleanup(root, plan, apply=True, backend=None, permanent=True)
     assert not (root / "Camera").exists()  # the junk went with the folders
 
 
@@ -109,7 +116,10 @@ def test_a_folder_holding_a_real_file_is_never_touched(tmp_path: Path) -> None:
 
     before = _fingerprint(root)
     plan = plan_cleanup(root, emptied)
-    run_cleanup(root, plan, apply=True, backend=None)
+    # permanent=True is not the subject here - it is how this test still reaches a real
+    # removal now that an absent backend refuses. What it asserts is which folders are
+    # removable, which the 2026-08-04 refusal change did not touch.
+    run_cleanup(root, plan, apply=True, backend=None, permanent=True)
 
     assert keeper.read_bytes() == b"a real photo"
     assert "Camera/2014/01" in {c.relative for c in plan.occupied}
@@ -172,17 +182,105 @@ def test_a_trash_failure_is_reported_not_downgraded_to_a_permanent_delete(
     assert (root / "Camera/2013/09").is_dir()  # nothing was deleted behind the user's back
 
 
-def test_removal_works_when_there_is_no_trash_to_use(tmp_path: Path) -> None:
-    """The disclosed-permanent path. Covered because only one of the two is recoverable."""
+def test_no_trash_backend_is_a_refusal_not_a_licence_to_destroy(tmp_path: Path) -> None:
+    """No trash on this machine means the folder is LEFT IN PLACE and reported.
+
+    **This test replaces one that asserted the opposite, and the promise it asserted was
+    withdrawn on 2026-08-04 rather than quietly reinterpreted.** The old test was
+    ``test_removal_works_when_there_is_no_trash_to_use``, and its docstring called this "the
+    disclosed-permanent path". It asserted ``removed == 6``, no failures, and the tree gone.
+
+    **Why the old promise was wrong.** ``permanent`` was consulted only where trash was *tried
+    and refused*; where there was no backend at all, the flag was never read and removal was
+    unconditional. So two states that a user cannot tell apart - "your drive would not accept a
+    trashed folder" and "this computer has no trash" - produced opposite outcomes, and the
+    destructive one was the one that needed no decision from anybody. ``gio`` is a GLib tool, so
+    "no backend" was the ordinary condition on Windows and macOS while a Linux desktop took the
+    recoverable path; the safer behaviour was an accident of the developer's platform.
+
+    Disclosure was never the problem - both surfaces did say which was about to happen. The
+    problem is that the answer was decided by the machine rather than by the user, and the
+    machine's default answer was the irreversible one. Destruction now requires ``permanent``,
+    which is the flag whose whole purpose is to be asked for.
+    """
     root = tmp_path / "drive"
     emptied = _skeleton(root)
 
     plan = plan_cleanup(root, emptied)
     outcome = run_cleanup(root, plan, apply=True, backend=None)
-    removed, failures = outcome.removed, outcome.failures
 
-    assert removed == 6
-    assert not failures
+    assert outcome.removed == 0
+    assert outcome.trashed == 0
+    assert outcome.deleted == 0
+    assert (root / "Camera/2013/09").is_dir(), "a folder was destroyed with no trash and no flag"
+    assert (root / "Camera").is_dir()
+
+    # Never-silent: refused is reported per folder, by name, with a reason - not skipped.
+    assert len(outcome.failures) == len(plan.removable)
+    for candidate in plan.removable:
+        assert any(f.startswith(f"{candidate.relative}:") for f in outcome.failures)
+    assert all(NO_TRASH_REASON in failure for failure in outcome.failures)
+
+
+def test_a_drive_that_cannot_hold_a_trash_is_reported_not_silently_skipped(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The external-backup-drive case, asserted with the REAL exception type.
+
+    On Freedesktop platforms `send2trash` raises `TrashPermissionError` for a file on a device
+    whose root has no `.Trash` and where a `.Trash-$UID` cannot be created - which is an ordinary
+    external drive, and therefore the single most likely refusal a user of this product meets.
+
+    Asserted with the real class rather than a bare `OSError` because the two are only equivalent
+    while `TrashPermissionError` stays in that hierarchy: it subclasses `PermissionError`, which
+    subclasses `OSError`, and `run_cleanup` catches `OSError`. If upstream ever reparents it, our
+    handler stops catching it and the folder removal raises out of the loop instead of being
+    reported - and a stand-in `OSError` would go on passing. This is the §4 provenance rule
+    applied to a dependency's exception tree.
+    """
+    root = tmp_path / "drive"
+    emptied = _skeleton(root)
+
+    from send2trash import TrashPermissionError  # noqa: PLC0415 - the subject of this test
+
+    assert issubclass(TrashPermissionError, OSError), (
+        "TrashPermissionError left the OSError hierarchy upstream; run_cleanup no longer catches "
+        "it and a refusal on an external drive would raise instead of being reported"
+    )
+
+    def refuse(_path: Path, _backend: str) -> None:
+        raise TrashPermissionError(str(root))
+
+    monkeypatch.setattr(cleanup, "_to_trash", refuse)
+
+    plan = plan_cleanup(root, emptied)
+    outcome = run_cleanup(root, plan, apply=True, backend="send2trash")
+
+    assert outcome.removed == 0
+    assert (root / "Camera/2013/09").is_dir(), "a folder went with a refusal we said we handled"
+    # Told, not silently skipped: one named line per folder that was left alone.
+    assert len(outcome.failures) == len(plan.removable)
+    for candidate in plan.removable:
+        assert any(f.startswith(f"{candidate.relative}:") for f in outcome.failures)
+
+
+def test_permanent_still_removes_when_there_is_no_trash_at_all(tmp_path: Path) -> None:
+    """The cry-wolf half: the refusal above must not have disabled ``--permanent`` itself.
+
+    ``--permanent`` exists for mounts with nowhere to trash to
+    (`IMPLEMENTATION_STANDARDS.md` §1). If the change above had made an absent backend refuse
+    *unconditionally*, that mode would have become unreachable on the machines it was written
+    for, and every test here would still have been green. This is the assertion that fails if
+    the refusal is widened past the case it was for.
+    """
+    root = tmp_path / "drive"
+    emptied = _skeleton(root)
+
+    plan = plan_cleanup(root, emptied)
+    outcome = run_cleanup(root, plan, apply=True, backend=None, permanent=True)
+
+    assert outcome.deleted == 6
+    assert not outcome.failures
     assert not (root / "Camera").exists()
 
 
