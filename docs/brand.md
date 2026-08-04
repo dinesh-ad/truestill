@@ -32,18 +32,20 @@ The word **Truestill**, set in a serif, filled with the indigo gradient below.
 }
 ```
 
-> **SHIPPED 2026-08-04 as outlined SVG, in the app rail. What follows was the ruling that
-> produced it and is kept.**
+> **AUTHORED 2026-08-04. Artwork lives in `brand/`; provenance and licence in
+> `brand/PROVENANCE.md`. What follows is the original sheet, kept as the source of the palette.**
 >
-> - **Outlined from DejaVu Serif Bold**, whose Bitstream Vera licence permits modifying glyph
->   designs and redistributing. Licence + attribution: `brand/LICENSE-DejaVu.txt`.
-> - **Not derived from Georgia.** Outlining does not end a font EULA; the Microsoft core fonts
->   cannot be redistributed in any format, outlines included.
-> - **The gradient below is for a LIGHT page and is not what the app rail uses.** The rail is
->   dark in both themes, and `#2A3B8C` measures **1.81:1** against it. The rail's gradient is
->   authored separately: `#a9b6f0` -> `#7d90e6`, 9.17:1 and 6.04:1.
+> - **Outlined from Libre Caslon Text (SIL OFL 1.1).** Artwork is *not* subject to the OFL - OFL
+>   condition 5 and OFL-FAQ 1.13. No licence file required; no attribution required.
+> - **Not Georgia.** It cannot be redistributed in any format, outlines included.
+> - **Superseded: DejaVu Serif Bold**, used briefly in `c7c923e`. Wrong for the brief - a
+>   low-contrast slab, not a high-contrast old-style.
+> - **Three marks, not one:** wordmark, TS monogram for the 64px rail, and the **pillar T alone**
+>   for 16px, where TS closes up. The ICO carries the T at 16/24 and TS above.
+> - **The gradient below is for a LIGHT ground.** On the dark rail `#2A3B8C` measures **1.81:1**;
+>   the dark variant is authored separately as `#A9B6F0` -> `#7D90E6`.
 > - **Inline SVG is a conscious exception** to the "no SVG" line in the UI inventory, which was
->   about icon libraries. One authored asset, no library, no request.
+>   about icon libraries. Authored assets, no library, no request.
 
 > **Georgia is a placeholder, and the shipped wordmark must be a vector.**
 > Georgia is absent on most Linux systems, so the CSS above falls through to whatever the

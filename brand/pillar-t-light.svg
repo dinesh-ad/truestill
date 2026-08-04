@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 736.00 770.00"
+     role="img" aria-label="Truestill" focusable="false">
+  <title>Truestill</title>
+  <desc>Truestill pillar-t (light). Outlined from Libre Caslon Text (SIL OFL 1.1).
+  Artwork is not subject to the OFL - see OFL condition 5 and OFL-FAQ 1.13.
+  Provenance: brand/PROVENANCE.md</desc>
+  <defs>
+    <linearGradient id="tsg-pillar-t-light" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#4C63C4"/>
+      <stop offset="1" stop-color="#2A3B8C"/>
+    </linearGradient>
+  </defs>
+  <path d="M317.00 728.00V40.00H116.00Q62.00 111.00 24.00 220.00H0.00L37.00 0.00H699.00L736.00 220.00H712.00Q674.00 111.00 620.00 40.00H422.00V728.00L531.00 747.00V770.00H207.00V747.00Z" fill="url(#tsg-pillar-t-light)"/>
+</svg>

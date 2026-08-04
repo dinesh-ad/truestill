@@ -211,5 +211,8 @@ strict = true
 # Why it is required rather than probed: see the dependency's own comment in
 # packages/truestill-core/pyproject.toml and §7 of IMPLEMENTATION_STANDARDS.md.
 [[tool.mypy.overrides]]
-module = ["imagehash", "PIL", "PIL.*", "pillow_heif", "send2trash"]
+# fontTools is not a project dependency at all: `scripts/build_brand_assets.py` is a
+# one-shot authoring tool run with `uv run --with fonttools --with pillow`. It is in the
+# mypy fence because §6 puts every script there, so its imports need an entry here.
+module = ["imagehash", "PIL", "PIL.*", "pillow_heif", "send2trash", "fontTools.*"]
 ignore_missing_imports = true

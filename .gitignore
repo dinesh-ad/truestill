@@ -17,3 +17,5 @@ reports/
 requirements-audit.txt
 # Playwright traces/video kept from failed E2E runs, and its browser download marker.
 tests/e2e/.artifacts/
+# Local scratch notes and throwaway files; never tracked.
+.scratch/
