@@ -141,6 +141,30 @@ named trips. Surface the placement preview; reword the toast to say what happens
    nav scrolls out of view; navigating from a scrolled page lands the next screen scrolled down into
    empty space.
 
+   > **FIXED 2026-08-04 - both halves. Annotation added later; the finding above is unaltered.**
+   > It was open for ten days and recorded neither as fixed nor as outstanding, which is the part
+   > worth not repeating - the finding was correct on the day and nothing after it said so.
+   >
+   > **Mechanism, half 1.** `.main` had carried `overflow-y: auto` the whole time, so the
+   > containment was written; it never engaged. `.app` used `min-height: 100vh` rather than
+   > `height`, and the grid declares columns only - so its single implicit row sized to content,
+   > grew past the viewport, left `.main` never overflowed, and the **document** scrolled instead,
+   > taking the sidebar with it. Measured before the change at **-1200px on a 1200px scroll**, at
+   > both 1280x800 and 700x800. One word: `min-height` to `height`.
+   >
+   > **Mechanism, half 2.** `showScreen` toggles a class rather than loading a page, so nothing
+   > reset the scroller and the offset survived into the next screen. Now reset explicitly, and
+   > **both** scrollers are reset - `.main` above the 720px breakpoint, the document below it -
+   > because resetting one leaves the defect at the other width.
+   >
+   > **Deliberately NOT fixed below 720px**, where the sidebar is a wrapping top bar: seven items
+   > plus wordmark plus custody strip, pinned to a short window, spends most of the viewport on
+   > navigation. Ruled 2026-08-04 and pinned by a test, so it reads as a decision rather than an
+   > oversight.
+   >
+   > Pinned by `tests/e2e/test_sidebar_stays_put.py`; the CSS carries both rules as "RULE 1 OF 2"
+   > and "RULE 2 OF 2" so neither reads as an accident.
+
 ## POLISH (nice-to-have)
 
 - Three unlabeled grey pips in the custody strip when 0 drives are connected - a first user may wonder

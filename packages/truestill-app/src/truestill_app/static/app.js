@@ -831,6 +831,14 @@ async function refreshDriveState() {
 // ---------- navigation ----------
 function showScreen(name) {
   document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("active", s.id === `screen-${name}`));
+  // Land at the top. Switching screens is a class toggle, not a page load, so nothing resets
+  // the scroller and the offset used to survive into the next screen - the second half of
+  // papercut #9, "lands the next screen scrolled down into empty space".
+  // BOTH are reset on purpose: `.main` is the scroller above the 720px breakpoint and the
+  // document is the scroller below it, so resetting only one leaves the defect at one width.
+  const main = document.querySelector(".main");
+  if (main) main.scrollTop = 0;
+  window.scrollTo(0, 0);
   document.querySelectorAll(".nav-item").forEach((n) =>
     n.setAttribute("aria-current", n.dataset.screen === name ? "page" : "false"));
   if (name === "backups") loadDrives();

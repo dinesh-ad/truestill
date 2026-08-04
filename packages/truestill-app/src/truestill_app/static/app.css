@@ -28,11 +28,18 @@ code,
 }
 
 /* ---------- app shell ---------- */
+/* RULE 1 OF 2: above the breakpoint the shell is exactly the viewport, so `.main` scrolls and
+   the sidebar does not. `height`, not `min-height`, and that one word is the whole fix.
+   `.main` has carried `overflow-y: auto` since it was written, but this grid declares columns
+   only, so its single implicit row sizes to content: under `min-height` the row simply grew
+   past the viewport, `.main` was therefore never overflowed, and the *document* scrolled -
+   taking the sidebar with it. Measured at -1200px on a 1200px scroll before this changed.
+   Papercut #9, `docs/walkthrough-qa-report.md`. Rule 2 is in the 720px media query below. */
 .app {
   --sidebar-width: 232px;
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
-  min-height: 100vh;
+  height: 100vh;
   transition: grid-template-columns 160ms ease;
 }
 .app.sidebar-collapsed {
@@ -46,7 +53,12 @@ code,
   background: var(--surface);
   border-right: var(--border-width) solid var(--border);
   min-width: 0;
-  overflow: hidden;
+  /* X stays hidden - that is the collapsed rail's clipping, and it predates this. Y becomes
+     scrollable *because* the shell is now viewport-height: on a short window the nav would
+     otherwise be clipped by the rule above and the last items would be unreachable, which is
+     a worse defect than the one being fixed. */
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 .sidebar-head {
   display: flex;
@@ -718,10 +730,18 @@ details.more > summary::-webkit-details-marker {
 
 /* responsive: collapse the sidebar to a top bar */
 @media (max-width: 720px) {
+  /* RULE 2 OF 2, AND IT IS DELIBERATE - do not "make this consistent" with the rule above.
+     Here the sidebar is a wrapping top bar: seven items plus the wordmark plus the custody
+     strip. Pinning that to a short window spends most of the viewport on navigation. Sticky
+     nav pays when the nav is small relative to the content, and at this width it is not, so
+     the bar scrolls away exactly as it did before. Ruled 2026-08-04; the design target is a
+     1000-1400px desktop window. Pinned by `test_below_the_breakpoint_the_top_bar_still_
+     scrolls_away`, so changing it back means arguing with a test rather than tidying a file. */
   .app,
   .app.sidebar-collapsed {
     --sidebar-width: auto;
     grid-template-columns: 1fr;
+    height: auto;
   }
   .sidebar,
   .sidebar[data-collapsed="true"] {

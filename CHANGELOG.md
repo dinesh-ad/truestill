@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **The sidebar stays where it is when you scroll a long screen.** On a tall screen - Settings,
+  or a big result - scrolling moved the whole window, so the navigation slid up off the top and
+  you had to scroll back to reach it. The navigation now stays put and only the content moves.
+  **And switching screens takes you to the top of the new one.** It used to keep whatever
+  scroll position you were at, so moving from a scrolled screen to another one dropped you into
+  the middle of it, often into blank space below the content.
+  **On a narrow window nothing changes, on purpose.** There the navigation is a bar across the
+  top rather than a column, and holding it in place would spend most of a short window on
+  navigation instead of on your photos.
+
 ### Changed
 - **After cleaning up empty folders, the app now tells you where they went.** It used to say
   "Removed 3 folders", which is the same sentence whether they are sitting in your trash and can
