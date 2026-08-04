@@ -12,7 +12,45 @@
   <div class="app">
     <nav class="sidebar" id="sidebar" aria-label="Main" data-collapsed="false">
       <div class="sidebar-head">
-        <div class="wordmark">Truestill<span class="dot">.</span></div>
+        <div class="wordmark">
+          <!-- OUTLINED ARTWORK, not text in a font. Georgia is absent from a stock Linux
+               install - a launch platform - so a font-rendered wordmark is a different shape
+               per machine. Outlines from DejaVu Serif Bold, whose Bitstream Vera licence
+               permits modifying glyph designs and redistributing; the licence ships at
+               brand/LICENSE-DejaVu.txt. Deriving from Georgia would not have been legal:
+               outlining does not end a font EULA.
+               THE GRADIENT IS AUTHORED FOR THIS RAIL, not taken from the brand sheet. The
+               sheet's low stop #2A3B8C measures 1.81:1 here and is effectively invisible;
+               the sheet is for a light page. Stops below measure 9.17:1 and 6.04:1. -->
+          <svg data-brand="wordmark" class="brand-mark brand-wordmark"
+               viewBox="0 0 480.3 81.4" role="img" aria-label="Truestill"
+               xmlns="http://www.w3.org/2000/svg" focusable="false">
+            <title>Truestill</title>
+            <defs>
+              <linearGradient id="brand-rail-gradient" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" stop-color="#a9b6f0"/>
+                <stop offset="1" stop-color="#7d90e6"/>
+              </linearGradient>
+            </defs>
+            <path d="M19.0 78.0V72.1H28.7V11.8H8.7V23.3H2.0V5.1H74.3V23.3H67.7V11.8H47.6V72.1H57.3V78.0ZM129.0 25.5V41.0H123.5Q123.2 36.8 121.2 34.8Q119.3 32.8 115.6 32.8Q109.9 32.8 106.6 37.7Q103.4 42.7 103.4 51.6V72.1H112.8V78.0H78.7V72.1H86.1V32.0H78.2V26.1H103.4V35.3Q105.9 29.9 110.1 27.3Q114.3 24.7 120.3 24.7Q121.8 24.7 124.0 24.9Q126.2 25.1 129.0 25.5ZM189.9 26.1V72.1H197.3V78.0H172.6V70.7Q169.5 75.3 165.5 77.3Q161.5 79.4 155.4 79.4Q146.6 79.4 142.2 74.2Q137.7 69.1 137.7 59.1V32.0H130.3V26.1H155.0V56.4Q155.0 66.1 156.6 68.7Q158.2 71.3 162.5 71.3Q167.7 71.3 170.1 67.4Q172.6 63.6 172.6 55.2V32.0H166.3V26.1ZM240.8 48.7Q240.8 38.4 238.9 34.3Q237.0 30.2 232.4 30.2Q227.9 30.2 226.0 34.2Q224.1 38.3 224.1 47.8V48.7ZM259.8 54.5H224.1V54.9Q224.1 64.9 227.1 69.4Q230.1 73.9 236.9 73.9Q242.5 73.9 245.9 70.9Q249.4 67.9 250.4 62.3H258.5Q256.4 71.1 250.1 75.2Q243.9 79.4 232.7 79.4Q219.2 79.4 212.0 72.3Q204.8 65.2 204.8 52.0Q204.8 39.1 212.2 31.9Q219.5 24.7 232.7 24.7Q245.6 24.7 252.4 32.2Q259.3 39.8 259.8 54.5ZM269.0 76.5V62.0H274.5Q275.2 67.8 278.9 70.8Q282.5 73.9 288.8 73.9Q294.1 73.9 296.9 72.0Q299.7 70.2 299.7 66.8Q299.7 63.7 297.9 62.0Q296.1 60.3 291.0 59.0L283.9 57.2Q275.8 55.2 272.2 51.4Q268.6 47.7 268.6 41.4Q268.6 32.9 274.5 28.8Q280.3 24.7 292.5 24.7Q297.1 24.7 302.3 25.4Q307.5 26.2 313.8 27.8V40.9H308.3Q307.9 35.5 304.5 32.9Q301.2 30.2 294.9 30.2Q289.6 30.2 286.9 31.9Q284.2 33.5 284.2 36.8Q284.2 39.4 285.8 40.9Q287.4 42.4 291.4 43.5L298.5 45.3Q308.7 47.8 312.6 51.7Q316.5 55.5 316.5 62.3Q316.5 71.0 310.2 75.2Q304.0 79.4 290.7 79.4Q285.9 79.4 280.5 78.7Q275.0 77.9 269.0 76.5ZM330.5 32.0H323.0V26.1H330.5V10.0H347.8V26.1H362.2V32.0H347.8V63.8Q347.8 70.6 348.9 72.2Q349.9 73.9 352.8 73.9Q355.9 73.9 357.4 71.8Q358.9 69.7 359.0 65.3H366.3Q365.9 73.1 362.0 76.2Q358.2 79.4 348.8 79.4Q338.1 79.4 334.3 76.0Q330.5 72.7 330.5 63.8ZM376.0 11.4Q376.0 7.4 378.7 4.7Q381.4 2.0 385.4 2.0Q389.3 2.0 392.0 4.7Q394.7 7.4 394.7 11.4Q394.7 15.2 392.0 17.9Q389.3 20.7 385.4 20.7Q381.4 20.7 378.7 18.0Q376.0 15.3 376.0 11.4ZM394.9 72.1H402.3V78.0H370.2V72.1H377.6V32.0H370.2V26.1H394.9ZM432.9 72.1H440.3V78.0H408.2V72.1H415.6V7.9H408.2V2.0H432.9ZM470.8 72.1H478.3V78.0H446.2V72.1H453.6V7.9H446.2V2.0H470.8Z" fill="url(#brand-rail-gradient)"/>
+          </svg>
+          <!-- ITS OWN GRADIENT, not a reference to the wordmark's. A hidden SVG's `defs` do
+               not resolve, and the wordmark is `display: none` exactly when this one is shown -
+               so a shared id painted the monogram with nothing at the only moment it is on
+               screen. Pinned by `test_each_mark_carries_its_own_gradient...`. -->
+          <svg data-brand="monogram" class="brand-mark brand-monogram"
+               viewBox="0 0 143.5 79.6" role="img" aria-label="Truestill"
+               xmlns="http://www.w3.org/2000/svg" focusable="false">
+            <title>Truestill</title>
+            <defs>
+              <linearGradient id="brand-monogram-gradient" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" stop-color="#a9b6f0"/>
+                <stop offset="1" stop-color="#7d90e6"/>
+              </linearGradient>
+            </defs>
+            <path d="M19.0 76.2V70.3H28.7V10.0H8.7V21.5H2.0V3.3H74.3V21.5H67.7V10.0H47.6V70.3H57.3V76.2ZM83.0 72.7V55.4H89.2Q90.6 63.6 95.9 67.7Q101.2 71.7 110.5 71.7Q118.1 71.7 122.0 68.8Q126.0 66.0 126.0 60.4Q126.0 56.0 123.3 53.6Q120.6 51.1 112.2 49.0L101.3 46.3Q90.6 43.6 86.2 38.7Q81.9 33.9 81.9 24.9Q81.9 14.1 89.1 8.0Q96.3 2.0 109.3 2.0Q115.7 2.0 122.6 3.1Q129.5 4.1 136.9 6.3V22.4H130.7Q129.3 14.9 124.5 11.4Q119.7 7.9 110.9 7.9Q103.7 7.9 100.0 10.4Q96.3 12.9 96.3 17.9Q96.3 22.5 98.8 24.8Q101.4 27.2 111.3 29.7L122.2 32.4Q132.4 35.0 136.9 40.3Q141.5 45.7 141.5 55.1Q141.5 66.2 133.9 71.9Q126.3 77.6 111.5 77.6Q104.3 77.6 97.3 76.4Q90.3 75.2 83.0 72.7Z" fill="url(#brand-monogram-gradient)"/>
+          </svg>
+        </div>
         <button type="button" class="sidebar-toggle" id="sidebar-toggle"
                 aria-expanded="true" aria-controls="sidebar"
                 data-label="Collapse" aria-label="Collapse sidebar">
@@ -22,6 +60,10 @@
         </button>
       </div>
       <div class="nav">
+        <!-- Grouping, not hierarchy. `(aam)` closed as NO nested submenus: the seven
+             screens stay flat and these labels only say which of them are the work and
+             which is configuration. -->
+        <div class="nav-section-label" aria-hidden="true">Main</div>
         <button class="nav-item" data-screen="organize" data-label="Organize" aria-current="page">
           <span class="ico" aria-hidden="true">◇</span><span class="nav-label">Organize</span>
           <span class="nav-tooltip" role="tooltip">Organize</span>
@@ -46,6 +88,7 @@
           <span class="ico" aria-hidden="true">◫</span><span class="nav-label">Stats</span>
           <span class="nav-tooltip" role="tooltip">Stats</span>
         </button>
+        <div class="nav-section-label" aria-hidden="true">Settings</div>
         <button class="nav-item" data-screen="settings" data-label="Settings">
           <span class="ico" aria-hidden="true">⚙</span><span class="nav-label">Settings</span>
           <span class="nav-tooltip" role="tooltip">Settings</span>

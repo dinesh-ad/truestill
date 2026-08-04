@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- **Truestill has a wordmark, and the sidebar it sits in is now a dark rail in both light and
+  dark mode.** The name is drawn artwork rather than text in a font, so it looks the same on
+  every computer - a font would have rendered differently on Linux, where the one the brand
+  sheet names is not installed. Collapsing the sidebar swaps the full name for a **TS** mark.
+  The seven screens are unchanged and still flat; they are only grouped now under **Main** and
+  **Settings**.
+
 ### Fixed
 - **The sidebar stays where it is when you scroll a long screen.** On a tall screen - Settings,
   or a big result - scrolling moved the whole window, so the navigation slid up off the top and

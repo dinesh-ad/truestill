@@ -28,6 +28,31 @@ code,
 }
 
 /* ---------- app shell ---------- */
+/* ---------- the rail's own tokens ----------
+   THEME-INDEPENDENT ON PURPOSE: the rail is dark in light mode too, so these are declared once
+   here and are NOT restated in the dark override. Every other surface follows the theme; this
+   one does not, which is why it gets its own group rather than borrowing from the ladder.
+
+   The two borrowed values were RE-DERIVED against this background rather than reused, and the
+   ratios are measured, not asserted:
+     --text-muted #6f7580 on this rail = 3.91:1  -> BELOW AA. Its own source annotation says
+       "4.6:1 on white", which is true on white and false here. Replaced by #9aa2b1 = 7.05:1.
+     --success    #2f9e57 on this rail = 5.30:1  -> passes, but it was tuned against white and
+       reads muddy on dark. Re-derived to #56c47f = 8.27:1.
+   For reference, the values NOT chosen: --success dark #46b46a = 6.89:1 (a reuse, not a
+   re-derivation), and the brand sheet's gradient low stop #2A3B8C = 1.81:1, which fails every
+   threshold and is why the wordmark gradient on this rail is authored separately. */
+:root {
+  --rail-bg: #14161b;
+  --rail-border: #23262e;
+  --rail-text: #d7dbe6; /* 13.07:1 on the rail */
+  --rail-muted: #9aa2b1; /* 7.05:1 - replaces --text-muted, which is 3.91:1 here */
+  --rail-success: #56c47f; /* 8.27:1 - replaces --success, tuned for white at 5.30:1 */
+  --rail-active-bg: #232838;
+  --rail-hover-bg: #1c2029;
+  --rail-accent: #a9b6f0; /* 9.17:1 */
+}
+
 /* RULE 1 OF 2: above the breakpoint the shell is exactly the viewport, so `.main` scrolls and
    the sidebar does not. `height`, not `min-height`, and that one word is the whole fix.
    `.main` has carried `overflow-y: auto` since it was written, but this grid declares columns
@@ -50,8 +75,9 @@ code,
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-4) var(--space-3);
-  background: var(--surface);
-  border-right: var(--border-width) solid var(--border);
+  background: var(--rail-bg);
+  border-right: var(--border-width) solid var(--rail-border);
+  color: var(--rail-text);
   min-width: 0;
   /* X stays hidden - that is the collapsed rail's clipping, and it predates this. Y becomes
      scrollable *because* the shell is now viewport-height: on a short window the nav would
@@ -67,17 +93,42 @@ code,
   min-width: 0;
 }
 .wordmark {
-  font-family: var(--font-mono);
-  font-size: var(--text-lg);
-  font-weight: var(--weight-semibold);
-  letter-spacing: -0.02em;
-  color: var(--text);
-  padding: var(--space-2) var(--space-3) var(--space-2);
-  white-space: nowrap;
-  overflow: hidden;
+  display: flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  min-width: 0;
 }
-.wordmark .dot {
-  color: var(--accent);
+/* The artwork is sized by HEIGHT and keeps its own aspect ratio; a width would squash it. */
+.brand-mark {
+  display: block;
+  height: 22px;
+  width: auto;
+}
+.brand-monogram {
+  display: none;
+  height: 26px;
+}
+.sidebar[data-collapsed="true"] .wordmark {
+  justify-content: center;
+  padding: var(--space-2) 0;
+}
+.sidebar[data-collapsed="true"] .brand-wordmark {
+  display: none;
+}
+.sidebar[data-collapsed="true"] .brand-monogram {
+  display: block;
+}
+/* Grouping label. Not a control, not focusable, hidden from screen readers - the nav items
+   below it already say what they are, and a second announcement is noise. */
+.nav-section-label {
+  padding: var(--space-3) var(--space-3) var(--space-1);
+  font: var(--weight-semibold) var(--text-xs) / 1.2 var(--font-sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rail-muted);
+}
+.sidebar[data-collapsed="true"] .nav-section-label {
+  display: none;
 }
 .sidebar-toggle,
 .nav-item {
@@ -89,7 +140,7 @@ code,
   border: none;
   background: transparent;
   border-radius: var(--radius-md);
-  color: var(--text-secondary);
+  color: var(--rail-muted);
   font: var(--weight-medium) var(--text-sm) / 1.2 var(--font-sans);
   text-align: left;
   cursor: pointer;
@@ -98,17 +149,17 @@ code,
 }
 .sidebar-toggle:hover,
 .nav-item:hover {
-  background: var(--surface-sunken);
-  color: var(--text);
+  background: var(--rail-hover-bg);
+  color: var(--rail-text);
 }
 .sidebar-toggle:focus-visible,
 .nav-item:focus-visible {
-  outline: 2px solid var(--accent-ring);
+  outline: 2px solid var(--rail-accent);
   outline-offset: 2px;
 }
 .nav-item[aria-current="page"] {
-  background: var(--accent-subtle);
-  color: var(--accent);
+  background: var(--rail-active-bg);
+  color: var(--rail-accent);
 }
 .sidebar-toggle .ico,
 .nav-item .ico {
@@ -130,8 +181,8 @@ code,
   z-index: 20;
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-md);
-  background: var(--gray-900);
-  color: var(--gray-0);
+  background: #2c3140;
+  color: #eef0f6;
   font: var(--weight-medium) var(--text-xs) / 1.2 var(--font-sans);
   white-space: nowrap;
   pointer-events: none;
@@ -145,14 +196,6 @@ code,
 }
 
 /* Collapsed rail: icons only; labels stay in the DOM for AT; tooltips on hover/focus. */
-.sidebar[data-collapsed="true"] .wordmark {
-  font-size: var(--text-sm);
-  padding: var(--space-2) 0;
-  text-align: center;
-}
-.sidebar[data-collapsed="true"] .wordmark .dot {
-  display: none;
-}
 .sidebar[data-collapsed="true"] .nav-label {
   position: absolute;
   width: 1px;
@@ -183,8 +226,8 @@ code,
   margin-top: auto;
   padding: var(--space-3);
   border-radius: var(--radius-md);
-  background: var(--surface-sunken);
-  border: var(--border-width) solid var(--border);
+  background: #1b1f27;
+  border: var(--border-width) solid var(--rail-border);
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
@@ -193,28 +236,28 @@ code,
   font-family: var(--font-mono);
   font-size: var(--text-lg);
   letter-spacing: 3px;
-  color: var(--success);
+  color: var(--rail-success);
   line-height: 1;
 }
 .custody .pips.none {
-  color: var(--text-muted);
+  color: var(--rail-muted);
 }
 .custody .line {
   margin-top: var(--space-2);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  color: var(--text-secondary);
+  color: var(--rail-muted);
   min-width: 0;
   overflow: hidden;
 }
 .custody .line b {
-  color: var(--text);
+  color: var(--rail-text);
   font-weight: var(--weight-semibold);
 }
 .custody .line .safe {
   /* Safety status ("not backed up yet") -- use the stronger secondary tier, not muted, so it
      stays WCAG-AA legible in both themes. */
-  color: var(--text-secondary);
+  color: var(--rail-muted);
 }
 /* Absolute catalog path: full string in title / selection; visually middle-ellipsized so the
    sidebar never spills. Do not shorten the stored path - only the painted label. */
@@ -758,13 +801,19 @@ details.more > summary::-webkit-details-marker {
   .sidebar-toggle {
     display: none;
   }
+  /* Below the breakpoint the collapse toggle is hidden, so a rail can be left in the collapsed
+     state by a wider window and then have no way back. The full wordmark is restored here for
+     that case - the top bar has the width for it, and the monogram is the 64px rail's answer,
+     not this one's. */
   .sidebar[data-collapsed="true"] .wordmark {
-    font-size: var(--text-lg);
+    justify-content: flex-start;
     padding: var(--space-2) var(--space-3);
-    text-align: left;
   }
-  .sidebar[data-collapsed="true"] .wordmark .dot {
-    display: inline;
+  .sidebar[data-collapsed="true"] .brand-wordmark {
+    display: block;
+  }
+  .sidebar[data-collapsed="true"] .brand-monogram {
+    display: none;
   }
   .sidebar[data-collapsed="true"] .nav-label {
     position: static;

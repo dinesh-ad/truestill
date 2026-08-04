@@ -32,6 +32,19 @@ The word **Truestill**, set in a serif, filled with the indigo gradient below.
 }
 ```
 
+> **SHIPPED 2026-08-04 as outlined SVG, in the app rail. What follows was the ruling that
+> produced it and is kept.**
+>
+> - **Outlined from DejaVu Serif Bold**, whose Bitstream Vera licence permits modifying glyph
+>   designs and redistributing. Licence + attribution: `brand/LICENSE-DejaVu.txt`.
+> - **Not derived from Georgia.** Outlining does not end a font EULA; the Microsoft core fonts
+>   cannot be redistributed in any format, outlines included.
+> - **The gradient below is for a LIGHT page and is not what the app rail uses.** The rail is
+>   dark in both themes, and `#2A3B8C` measures **1.81:1** against it. The rail's gradient is
+>   authored separately: `#a9b6f0` -> `#7d90e6`, 9.17:1 and 6.04:1.
+> - **Inline SVG is a conscious exception** to the "no SVG" line in the UI inventory, which was
+>   about icon libraries. One authored asset, no library, no request.
+
 > **Georgia is a placeholder, and the shipped wordmark must be a vector.**
 > Georgia is absent on most Linux systems, so the CSS above falls through to whatever the
 > platform calls `serif` - DejaVu Serif, Liberation Serif, Times, or something else again. The
