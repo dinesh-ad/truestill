@@ -1240,6 +1240,28 @@ function organizeUndoSkipped(skipped) {
   </div></div>`;
 }
 
+// What actually happened to the folders, named per disposition rather than summed.
+//
+// `removed` is a DERIVED property - trashed + deleted - so rendering it added core's two
+// answers together and threw away the only distinction that matters afterwards: whether a
+// folder is recoverable from the trash or gone. The CLI has always split them.
+//
+// Built from whichever counts are non-zero, which is `dupOrigins`' shape and, since 2026-08-04,
+// the only one that stays honest: an absent trash backend is a refusal, so `deleted` is now
+// non-zero only under `clean-empty --permanent`, which the app does not offer. A hand-written
+// "N moved to the trash" would therefore be right today and wrong the day an app permanent mode
+// exists. A zero bucket prints nothing - never-silent is about what happened, not what did not.
+//
+// Complexity: O(1). Two integers already in the payload; nothing is re-counted or re-read.
+function cleanupDisposition(applied) {
+  const parts = [];
+  if (applied.trashed) parts.push(`${plural(applied.trashed, "folder")} moved to the trash`);
+  if (applied.deleted) parts.push(`${plural(applied.deleted, "folder")} deleted permanently`);
+  // Never "Removed 0 folders": a run that removed nothing is not a removal, and the failures
+  // banner below it carries the reason for each one.
+  return parts.length ? `${esc(parts.join(", "))}.` : "No folders were removed.";
+}
+
 function cleanupOfferNote(cleanup) {
   if (!cleanup || !cleanup.count) return "";
   const listed = cleanup.folders.slice(0, 8).map((name) => `<div class="mono">${esc(name)}</div>`).join("");
@@ -1278,12 +1300,20 @@ async function startCleanupPreview(button) {
     // by the same App-surface-deferral reasoning that keeps `reclaim` on the CLI: an
     // irreversible removal is not a thing to reach for by accident.
     if (!preview.backend) {
+      // A refusal that names no route is a dead end, and this one has a route: the CLI's
+      // --permanent, which exists for exactly this case and asks for `delete forever` rather
+      // than `clean`. Naming it is not a suggestion to use it - it is the difference between
+      // "you cannot do this" and "you cannot do this here".
       stage.innerHTML = card(
         `<div class="banner warn" data-testid="clean-no-trash"><div>
          <div class="b-title">These folders cannot be removed here</div>
          <div>This computer has no trash Truestill can use, and Truestill will not delete a
          folder outright. ${plural(preview.removable.length, "folder")} left exactly where
-         ${preview.removable.length === 1 ? "it is" : "they are"}.</div></div></div>`
+         ${preview.removable.length === 1 ? "it is" : "they are"} - nothing was changed.</div>
+         <div class="k">To remove them anyway, from a terminal:</div>
+         <div class="mono">truestill clean-empty ${esc(cleanupOffer.source_root)} --apply --permanent</div>
+         <div class="k">That deletes them outright and cannot be undone, so it asks you to type
+         <code>delete forever</code> rather than <code>clean</code>.</div></div></div>`
       );
       return;
     }
@@ -1301,7 +1331,7 @@ async function startCleanupPreview(button) {
           emptied: cleanupOffer.emptied,
         });
         stage.innerHTML = card(
-          `<div class="headline">Removed ${plural(applied.removed, "folder")}.</div>
+          `<div class="headline">${cleanupDisposition(applied)}</div>
            ${applied.failures && applied.failures.length
             ? `<div class="banner warn"><div>${applied.failures.map((f) => esc(f)).join("<br>")}</div></div>`
             : ""}`

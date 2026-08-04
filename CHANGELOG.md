@@ -7,6 +7,17 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- **After cleaning up empty folders, the app now tells you where they went.** It used to say
+  "Removed 3 folders", which is the same sentence whether they are sitting in your trash and can
+  be put back or are gone for good. Truestill knew which; the screen added the two numbers
+  together and showed the total. It now says **"3 folders moved to the trash"**, and names a
+  permanent removal as permanent when that is what happened. A run that removed nothing says so
+  plainly rather than reporting a removal with a zero in it.
+- **And when there is no trash to use, the app now tells you what to do about it.** The previous
+  release stopped Truestill from deleting those folders outright, which is right - but the
+  message said only that they could not be removed, which left you correct and stuck. It now
+  shows the exact command that will remove them from a terminal, and says in the same breath
+  that it cannot be undone and asks for a different word because of that.
 - **If Truestill cannot reach a trash, it now leaves the folders alone instead of deleting
   them.** This is the second half of the change below, and it is the one that matters. Truestill
   removes leftover empty folders by putting them in the trash, and it always refused to do

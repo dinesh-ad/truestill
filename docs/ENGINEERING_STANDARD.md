@@ -253,9 +253,10 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   When they do not, the test passes, and a passing test is read as "the mutation was caught by
   something else" or "the guard is fine" rather than "the mutant was never loaded."
 
-  *Four worked examples - different mechanisms, same root cause. The first three are one
-  session, 2026-07-31; the fourth is 2026-08-04 and is what promotes this from "three ways one
-  session went wrong" to a shape that keeps recurring.*
+  *Five worked examples - different mechanisms, same root cause. The first three are one
+  session, 2026-07-31; the fourth and fifth are 2026-08-04, and they are what promote this from
+  "three ways one session went wrong" to a shape that keeps recurring. The last two are a
+  mirrored pair: one restored what the mutation removed, the other removed what the work added.*
 
   1. *The editable install.* The mutation was written into a `cp -r` copy of `packages/` under
      the scratch directory, then `pytest` was pointed at the copy's test file. The copy's tests
@@ -290,9 +291,28 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
      a dependency, a lockfile, an installed binary.** A source mutation the runner cannot see is
      safe from this; an environment one is exactly what it exists to repair.
 
+  5. *The restore threw away the work.* Not a mutation that failed to apply - a **restore** that
+     removed more than the mutation. After proving one mutant, the file was put back with
+     `git checkout -- <file>`, which restores from **HEAD**: the change being developed was
+     uncommitted, so it went with the mutation. The next mutation would then have run against a
+     file that no longer contained the feature, and every assertion about it would have been
+     measuring the old code while reading as a result about the new.
+     The tell was the presence check: a restore that is supposed to be a no-op reported the
+     feature's own constant **absent** - `grep -c` returned 0 - immediately after a "restore".
+     The fix is to save the original **by content** before mutating, write it back afterwards,
+     and **assert the file is byte-identical** to what was saved. `git` cannot tell your work
+     from your mutation; a saved string can.
+     **This is the mirror of the case above, and worth stating as a pair.** There, the
+     environment restored what had been removed and the mutant never survived; here, the tool
+     removed what had been kept and the *feature* never survived. Both leave a green suite that
+     is measuring something other than the thing under test, and neither announces itself - so
+     the check is the same in both directions: **verify the world is what you think it is at the
+     moment the assertion runs, before and after.**
+
   One resolved past the mutant, one never contained it, one contained the file but not the
-  change, one had it removed by the tool used to run the test. All four **failed in the
-  reassuring direction**, which is the family resemblance: a
+  change, one had it removed by the tool used to run the test, one had the *feature* removed by
+  the tool used to undo the test. All five **failed in the reassuring direction**, which is the
+  family resemblance: a
   mutation proof that silently proves nothing leaves a guard everyone now believes has been
   verified. Three different mechanisms, one root cause - which is what makes this a rule rather
   than a habit.
