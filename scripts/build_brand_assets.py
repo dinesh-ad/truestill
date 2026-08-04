@@ -106,8 +106,28 @@ def gradient_image(width: int, height: int) -> Image.Image:
     return image
 
 
-def raster_mark(font_path: Path, text: str, size: int, supersample: int = 8) -> Image.Image:
-    """A square transparent PNG with the mark centred on its ink box and gradient-filled."""
+def rounded_tile(size: int, radius_ratio: float = 0.22) -> Image.Image:
+    """An opaque gradient tile with rounded corners - the ground the mark is knocked out of."""
+    tile = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    mask = Image.new("L", (size, size), 0)
+    ImageDraw.Draw(mask).rounded_rectangle(
+        (0, 0, size - 1, size - 1), radius=int(size * radius_ratio), fill=255
+    )
+    tile.paste(gradient_image(size, size), (0, 0), mask)
+    return tile
+
+
+def raster_mark(
+    font_path: Path, text: str, size: int, supersample: int = 8, *, tile: bool = False
+) -> Image.Image:
+    """The mark centred on its ink box.
+
+    ``tile=False`` gives a transparent PNG with the glyph gradient-filled - correct where we own
+    the background. ``tile=True`` knocks the glyph out of an opaque gradient tile instead, which
+    is what an icon needs: a transparent mark in the light gradient measures **1.61:1** on a dark
+    browser tab and is effectively invisible. One colour cannot serve both grounds, so the icon
+    carries its own.
+    """
     canvas = size * supersample
     padding = int(canvas * 0.10)
     inner = canvas - 2 * padding
@@ -131,8 +151,14 @@ def raster_mark(font_path: Path, text: str, size: int, supersample: int = 8) -> 
     dy = padding + (inner - (box[3] - box[1])) // 2 - box[1]
     ImageDraw.Draw(mask).text((dx, dy), text, fill=255, font=face)
 
-    out = Image.new("RGBA", (canvas, canvas), (0, 0, 0, 0))
-    out.paste(gradient_image(canvas, canvas), (0, 0), mask)
+    if tile:
+        out = rounded_tile(canvas)
+        # Knock the glyph out by clearing its alpha, so the tile's own ground shows the shape.
+        cleared = Image.new("RGBA", (canvas, canvas), (0, 0, 0, 0))
+        out.paste(cleared, (0, 0), mask)
+    else:
+        out = Image.new("RGBA", (canvas, canvas), (0, 0, 0, 0))
+        out.paste(gradient_image(canvas, canvas), (0, 0), mask)
     return out.resize((size, size), Image.Resampling.LANCZOS)
 
 
@@ -173,8 +199,8 @@ def main(argv: list[str]) -> int:
     icons.mkdir(parents=True, exist_ok=True)
     for size in PNG_SIZES:
         art = "T" if size in TINY_SIZES else "TS"
-        raster_mark(font_path, art, size).save(icons / f"truestill-{size}.png")
-    raster_mark(font_path, "TS", 1024).save(OUT / "master-1024.png")
+        raster_mark(font_path, art, size, tile=True).save(icons / f"truestill-{size}.png")
+    raster_mark(font_path, "TS", 1024, tile=True).save(OUT / "master-1024.png")
 
     frames = []
     for size in ICO_SIZES:

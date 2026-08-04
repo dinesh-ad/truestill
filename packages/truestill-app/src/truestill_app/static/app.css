@@ -161,6 +161,53 @@ code,
   background: var(--rail-active-bg);
   color: var(--rail-accent);
 }
+
+/* The collapse chevron. Sized and placed as an affordance ON the rail rather than a row IN
+   the nav - a destination and an action should not share a shape. The visible word is gone, so
+   `aria-label` carries the (fff) accessible name on its own and flips with the state. */
+.sidebar-head {
+  position: relative;
+}
+.sidebar-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--rail-muted);
+}
+.sidebar-toggle .nav-label {
+  /* Kept in the DOM but not painted: the chevron is the affordance, the word is not. */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+.sidebar-toggle .chevron {
+  font-size: var(--text-xl);
+  line-height: 1;
+  transition: transform 160ms ease;
+}
+.sidebar[data-collapsed="true"] .sidebar-toggle .chevron {
+  transform: rotate(180deg);
+}
+/* Collapsed, the rail is 64px: the chevron goes back into flow and centres under the mark. */
+.sidebar[data-collapsed="true"] .sidebar-toggle {
+  position: static;
+  width: 100%;
+}
+
+/* The reserved account slot. Renders nothing and occupies nothing until D5 exists. */
+.account-slot:empty {
+  display: none;
+}
+
 .sidebar-toggle .ico,
 .nav-item .ico {
   width: 18px;

@@ -58,22 +58,26 @@ and would also have discarded the per-size artwork.
 **Re-derivable, but not from this repo alone**, because the font is not committed. Fetch Libre
 Caslon Text 1.100 and re-run the authoring script recorded in the commit that added these.
 
-## Known limitation - transparent icons on dark chrome
+## Icons carry their own ground - measured, then built
 
-Measured, so it is a known state rather than a surprise:
+A transparent mark cannot serve both grounds. Measured on the light gradient:
 
 | stop | white tab | dark tab (`#202124`) |
 |---|---|---|
 | `#4C63C4` | 5.40:1 | 2.98:1 |
 | `#2A3B8C` | 9.99:1 | **1.61:1** |
 
-A transparent mark in the light gradient is close to invisible on a dark browser tab. Inherent
-to a transparent icon: one colour cannot serve both grounds.
+Not an AA failure - a favicon is not UI text - but invisible, which is worse. So the **raster**
+marks are an opaque rounded gradient tile with the glyph **knocked out**: the tile supplies the
+contrast, and the knockout shows the host background through the letterform, so it reads light
+on light chrome and dark on dark. Verified at 16, 24, 32 and 64 on both grounds.
 
-**The remedy, not built:** give the raster icons an opaque gradient **tile** with the mark
-knocked out, so the host background stops mattering. That is what app icons normally do, and it
-would replace the transparent PNG for installers. Not done here because the brief asked for
-transparent PNGs; raise it if the dark-tab case matters.
+**The in-app SVGs stay transparent** - they sit on surfaces we control, and the rail is dark in
+both themes.
+
+Known edge: a knockout over a *patterned* background shows the pattern through the letter. Every
+place these are used - browser tab, Windows taskbar, Linux launcher - paints a solid ground, so
+this has not been designed around.
 
 ## Not in this repo
 

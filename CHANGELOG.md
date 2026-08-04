@@ -12,7 +12,10 @@ All notable changes to this project are documented here. The format follows
   every computer - a font would have rendered differently on Linux, where the one the brand
   sheet names is not installed. Collapsing the sidebar swaps the full name for a **TS** mark.
   The seven screens are unchanged and still flat; they are only grouped now under **Main** and
-  **Settings**.
+  **Settings**. **The browser tab shows a Truestill icon** instead of a blank page.
+  Collapsing is now a small chevron on the rail rather than a row that looked like a place you
+  could go to. It still works from the keyboard and still announces itself as Collapse or
+  Expand.
 
 ### Fixed
 - **The sidebar stays where it is when you scroll a long screen.** On a tall screen - Settings,
