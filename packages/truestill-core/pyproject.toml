@@ -32,6 +32,13 @@ dependencies = [
     "numpy>=2.5.1",
     "pillow>=12.3.0",
     "pillow-heif>=1.5.0",
+    # Required, not probed. It was an optional import until 2026-08-04, and "optional" is what
+    # made an absent trash backend a *destructive* state rather than a degraded one: with no
+    # send2trash and no `gio`, `cleanup.trash_backend` returned None and folders were removed
+    # outright. `gio` is a GLib tool, so that was the ordinary condition on Windows and macOS.
+    # Pure `py3-none-any` wheel, BSD-3-Clause, no required dependencies of its own. Argued in
+    # §7 of IMPLEMENTATION_STANDARDS.md.
+    "send2trash>=2.1.0",
 ]
 
 [project.urls]

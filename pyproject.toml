@@ -204,7 +204,12 @@ mypy_path = "packages/truestill-core/src:packages/truestill-cli/src:packages/tru
 strict = true
 
 # imagehash ships no type stubs; Pillow's are partial; pillow-heif and send2trash ship none.
-# send2trash is an OPTIONAL runtime probe (see cleanup.trash_backend), not a dependency.
+# send2trash is a REQUIRED runtime dependency of truestill-core as of 2026-08-04. It was an
+# optional probe, and this comment said so for as long as that was true; the line is rewritten
+# rather than left because a comment asserting the opposite of the dependency list is the drift
+# shape BACKLOG records twice already (`ALL_RULES`, `check_product_name.SUBCOMMANDS`).
+# Why it is required rather than probed: see the dependency's own comment in
+# packages/truestill-core/pyproject.toml and §7 of IMPLEMENTATION_STANDARDS.md.
 [[tool.mypy.overrides]]
 module = ["imagehash", "PIL", "PIL.*", "pillow_heif", "send2trash"]
 ignore_missing_imports = true

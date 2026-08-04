@@ -7,6 +7,20 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- **Removing leftover empty folders now uses your system's trash on every platform, not only on
+  a Linux desktop.** Truestill has always tried to put a removed folder in the trash so you can
+  get it back. What it could not do was guarantee it had a trash to use: it looked for an
+  optional helper, then for a Linux tool called `gio`, and where it found neither it removed the
+  folder outright instead. Because `gio` is a Linux component, "neither" was the ordinary
+  situation on **Windows and macOS** - so the recoverable behaviour was the one Linux users got
+  by accident, and the permanent one was the default everywhere else. Truestill said which of
+  the two was about to happen before asking you to confirm, so nothing was ever hidden, but the
+  answer depended on the machine rather than on anything you chose.
+  The helper is now a required part of Truestill rather than an optional one, so the trash is
+  always available. On Windows that means the Recycle Bin; on macOS and Linux, the desktop
+  trash. It adds no download of any size worth mentioning and brings nothing else with it.
+  **A test now checks this on Windows, macOS and Linux on every build**, because the old
+  behaviour was decided by a value nobody had ever measured on the platforms it affected.
 - **What Truestill costs on a cloud drive is now written down, and it still will not guess how
   long a run will take.** Measured on one encrypted cloud mount: a 32,628-file census took
   **21 seconds**, while reading those files for duplicates and dates moved 29.4 GB at about

@@ -167,10 +167,22 @@ def _classify_with(folder: Path, removed: set[str], relative: str) -> tuple[Tier
 def trash_backend() -> str | None:
     """How this machine can send something to the trash, or ``None`` if it cannot.
 
-    Resolved at runtime rather than by taking a dependency: adding one to `truestill-core` for a
-    cleanup command fails the §7 test, and `pillow-heif` already sets the graceful-degradation
-    precedent. When this returns ``None`` the caller must **say so before asking to confirm** --
-    a permanent delete is never disguised as a recoverable one.
+    **``send2trash`` is a required dependency as of 2026-08-04, and it is probed FIRST**, so on
+    any correctly installed copy this returns ``"send2trash"`` without ever consulting ``gio``.
+    That ordering is what makes the guarantee portable: ``gio`` is a GLib tool absent from stock
+    Windows and macOS, and while this dependency was *optional* those were exactly the platforms
+    where the answer was ``None``.
+
+    This docstring used to say the opposite - that a dependency was avoided here because "adding
+    one to `truestill-core` for a cleanup command fails the §7 test". That was true when it was
+    written and is not any more: §7 now carries the row, and the argument it carries is that the
+    optionality was the defect rather than the saving.
+
+    **The two fallbacks are kept deliberately, and they are no longer the expected path.** A
+    declared dependency can still be missing from a *bundle* - an import inside a ``try`` is what
+    a bundler's static analysis misses - so ``gio`` remains a second chance rather than a plan.
+    When this does return ``None`` the caller must **say so before asking to confirm**; a
+    permanent delete is never disguised as a recoverable one.
     """
     try:
         import send2trash  # noqa: F401, PLC0415 - probing availability, not importing for use
