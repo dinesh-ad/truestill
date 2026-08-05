@@ -13,9 +13,11 @@ All notable changes to this project are documented here. The format follows
   sheet names is not installed. Collapsing the sidebar swaps the full name for a **TS** mark.
   The seven screens are unchanged and still flat; they are only grouped now under **Main** and
   **Settings**. **The browser tab shows a Truestill icon** instead of a blank page.
-  Collapsing is now a small chevron on the rail rather than a row that looked like a place you
-  could go to. It still works from the keyboard and still announces itself as Collapse or
-  Expand.
+  Collapsing is now a small round chevron sitting on the edge between the sidebar and the page,
+  rather than a row that looked like another place you could go to. It moves with the edge when
+  the sidebar opens and closes, still works from the keyboard, and still announces itself as
+  Collapse or Expand. On a narrow window, where the sidebar becomes a bar across the top and
+  there is no edge to sit on, it is not shown.
 
 ### Fixed
 - **The sidebar stays where it is when you scroll a long screen.** On a tall screen - Settings,

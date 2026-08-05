@@ -61,6 +61,7 @@ code,
    taking the sidebar with it. Measured at -1200px on a 1200px scroll before this changed.
    Papercut #9, `docs/walkthrough-qa-report.md`. Rule 2 is in the 720px media query below. */
 .app {
+  position: relative; /* the collapse knob is positioned against the rail boundary */
   --sidebar-width: 232px;
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
@@ -130,7 +131,6 @@ code,
 .sidebar[data-collapsed="true"] .nav-section-label {
   display: none;
 }
-.sidebar-toggle,
 .nav-item {
   position: relative;
   display: flex;
@@ -147,12 +147,10 @@ code,
   width: 100%;
   min-width: 0;
 }
-.sidebar-toggle:hover,
 .nav-item:hover {
   background: var(--rail-hover-bg);
   color: var(--rail-text);
 }
-.sidebar-toggle:focus-visible,
 .nav-item:focus-visible {
   outline: 2px solid var(--rail-accent);
   outline-offset: 2px;
@@ -162,25 +160,41 @@ code,
   color: var(--rail-accent);
 }
 
-/* The collapse chevron. Sized and placed as an affordance ON the rail rather than a row IN
-   the nav - a destination and an action should not share a shape. The visible word is gone, so
-   `aria-label` carries the (fff) accessible name on its own and flips with the state. */
-.sidebar-head {
-  position: relative;
-}
+/* The collapse chevron, ON the boundary. A child of the shell, not the rail - see the note in
+   index.html for why that is forced rather than chosen. Pinned to `--sidebar-width`, so it
+   follows the edge as the rail animates rather than jumping after it.
+   It is deliberately NOT part of the `.nav-item` block any more: sharing that rule is how this
+   control rendered 207px wide once, losing on source order at equal specificity. */
 .sidebar-toggle {
   position: absolute;
-  top: 0;
-  right: 0;
-  width: 28px;
-  height: 28px;
-  padding: 0;
+  top: 18px;
+  left: var(--sidebar-width);
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
   justify-content: center;
-  border-radius: var(--radius-sm);
-  color: var(--rail-muted);
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: left 160ms ease, background 120ms ease, color 120ms ease;
+}
+.sidebar-toggle:hover {
+  background: var(--surface-sunken);
+  color: var(--text);
+}
+.sidebar-toggle:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
 }
 .sidebar-toggle .nav-label {
-  /* Kept in the DOM but not painted: the chevron is the affordance, the word is not. */
+  /* Kept in the DOM but not painted: the chevron is the affordance, the word is not - and no
+     (fff) guard should have to switch sides for a visual change. */
   position: absolute;
   width: 1px;
   height: 1px;
@@ -190,17 +204,12 @@ code,
   white-space: nowrap;
 }
 .sidebar-toggle .chevron {
-  font-size: var(--text-xl);
+  font-size: var(--text-lg);
   line-height: 1;
   transition: transform 160ms ease;
 }
-.sidebar[data-collapsed="true"] .sidebar-toggle .chevron {
+.app.sidebar-collapsed .sidebar-toggle .chevron {
   transform: rotate(180deg);
-}
-/* Collapsed, the rail is 64px: the chevron goes back into flow and centres under the mark. */
-.sidebar[data-collapsed="true"] .sidebar-toggle {
-  position: static;
-  width: 100%;
 }
 
 /* The reserved account slot. Renders nothing and occupies nothing until D5 exists. */
@@ -208,7 +217,6 @@ code,
   display: none;
 }
 
-.sidebar-toggle .ico,
 .nav-item .ico {
   width: 18px;
   flex: 0 0 18px;
@@ -254,14 +262,11 @@ code,
   white-space: nowrap;
   border: 0;
 }
-.sidebar[data-collapsed="true"] .sidebar-toggle,
 .sidebar[data-collapsed="true"] .nav-item {
   justify-content: center;
   padding: var(--space-2);
   gap: 0;
 }
-.sidebar[data-collapsed="true"] .sidebar-toggle:hover .nav-tooltip,
-.sidebar[data-collapsed="true"] .sidebar-toggle:focus .nav-tooltip,
 .sidebar[data-collapsed="true"] .nav-item:hover .nav-tooltip,
 .sidebar[data-collapsed="true"] .nav-item:focus .nav-tooltip {
   opacity: 1;

@@ -222,3 +222,91 @@ def test_the_account_slot_is_reserved_and_empty(ui: Page) -> None:
     assert ui.eval_on_selector("#account-slot", "el => el.children.length") == 0
     assert ui.eval_on_selector("#account-slot", "el => el.textContent.trim()") == ""
     expect(slot).to_be_hidden()
+
+
+def test_the_chevron_rides_the_boundary_between_rail_and_content(ui: Page) -> None:
+    """The control sits ON the edge, straddling it - not inside the rail beside the wordmark.
+
+    **It had to leave `.sidebar` to do this, and that was forced rather than chosen.** The rail
+    carries `overflow-x: hidden` to keep the catalog path inside the 64px form (`(fff)`, pinned
+    by `test_collapsed_custody_stays_inside_the_rail`), which would clip an overhanging child.
+    Relaxing it is not available: the rail also needs `overflow-y: auto` so a short window can
+    reach every nav item, and a box with one axis `auto` computes the other from `visible` to
+    `auto` - verified in a browser, not assumed. So the button is a child of the shell instead.
+
+    **The size is asserted, not eyeballed.** This exact control already rendered 207px wide once,
+    because its rule sat before the shared `.sidebar-toggle, .nav-item { width: 100% }` block and
+    lost on source order at equal specificity. Moving the element moves its cascade position
+    again, so the assertion travels with it.
+    """
+    toggle = ui.locator("#sidebar-toggle")
+    rail = ui.locator("#sidebar")
+    expect(toggle).to_be_visible()
+
+    box = toggle.bounding_box()
+    rail_box = rail.bounding_box()
+    assert box is not None
+    assert rail_box is not None
+
+    # Small and round, not a row.
+    assert box["width"] <= 32, f"the chevron is {box['width']}px wide - that is a row, not a knob"
+    assert abs(box["width"] - box["height"]) <= 1, "not a circle"
+
+    # Straddling: its centre is on the rail's right edge, so roughly half overhangs.
+    edge = rail_box["x"] + rail_box["width"]
+    centre = box["x"] + box["width"] / 2
+    assert abs(centre - edge) <= 3, (
+        f"the chevron's centre is {centre}px but the boundary is {edge}px - it is not on the edge"
+    )
+
+    # And it is NOT clipped: its full width is painted, which is what leaving the rail bought.
+    assert box["width"] > 0
+    assert box["x"] < edge < box["x"] + box["width"], "the chevron does not cross the boundary"
+
+
+def test_the_chevron_follows_the_boundary_when_the_rail_collapses(ui: Page) -> None:
+    """It rides the edge, so it moves with the edge rather than staying where it was."""
+    rail = ui.locator("#sidebar")
+    before = ui.locator("#sidebar-toggle").bounding_box()
+    assert before is not None
+
+    ui.click("#sidebar-toggle")
+    expect(rail).to_have_attribute("data-collapsed", "true")
+    ui.wait_for_timeout(400)  # the shell animates its columns over 160ms
+
+    after = ui.locator("#sidebar-toggle").bounding_box()
+    rail_box = rail.bounding_box()
+    assert after is not None
+    assert rail_box is not None
+    assert after["x"] < before["x"], "the chevron did not follow the rail inwards"
+    edge = rail_box["x"] + rail_box["width"]
+    assert abs((after["x"] + after["width"] / 2) - edge) <= 3, "it left the boundary"
+
+
+def test_the_chevron_keeps_its_accessible_name_and_keyboard_operation(ui: Page) -> None:
+    """(fff) must not regress for a visual change. It carries the name alone now."""
+    toggle = ui.locator("#sidebar-toggle")
+    assert ui.eval_on_selector("#sidebar-toggle", "el => el.tagName") == "BUTTON"
+    assert ui.eval_on_selector("#sidebar-toggle", "el => el.getAttribute('aria-label')") == (
+        "Collapse sidebar"
+    )
+
+    toggle.focus()
+    expect(toggle).to_be_focused()
+    ui.keyboard.press("Enter")
+    expect(ui.locator("#sidebar")).to_have_attribute("data-collapsed", "true")
+    expect(toggle).to_be_focused()
+    assert ui.eval_on_selector("#sidebar-toggle", "el => el.getAttribute('aria-label')") == (
+        "Expand sidebar"
+    )
+
+
+def test_below_the_breakpoint_the_chevron_is_gone(ui: Page) -> None:
+    """There is no edge to ride when the rail is a top bar, so the control is not shown.
+
+    Collapsing a horizontal bar means nothing, and `(fff)`'s own rule already hid the toggle at
+    this width. Asserted here because the element moved to the shell, where a media query that
+    used to reach it might not.
+    """
+    ui.set_viewport_size({"width": 700, "height": 800})
+    expect(ui.locator("#sidebar-toggle")).to_be_hidden()
