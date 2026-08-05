@@ -519,13 +519,15 @@ def test_stats_view_renders_seeded_catalog_numbers(page: Page, app_server: AppSe
     expect(stats).to_contain_text("Custody")
     expect(stats).to_contain_text("photos")
     expect(stats).to_contain_text("videos")
-    expect(stats).to_contain_text("not on a registered drive")
+    expect(stats).to_contain_text("not on any drive")
     at_risk = page.eval_on_selector(
         "#stats-result",
         """(root) => {
-          const labels = Array.from(root.querySelectorAll(".tally .k"));
-          const match = labels.find((node) => node.textContent.includes("not on a registered drive"));
-          return match && match.previousElementSibling ? match.previousElementSibling.textContent.trim() : "";
+          // The custody tallies became metrics, and the label reads "not on any drive".
+          const labels = Array.from(root.querySelectorAll(".metric-label"));
+          const match = labels.find((node) => node.textContent.includes("not on any drive"));
+          const metric = match ? match.closest(".metric") : null;
+          return metric ? metric.querySelector(".metric-value").textContent.trim() : "";
         }""",
     )
     assert at_risk == "1"
@@ -563,9 +565,11 @@ def test_stats_view_at_risk_count_is_actionable(page: Page, app_server: AppServe
     at_risk = page.eval_on_selector(
         "#stats-result",
         """(root) => {
-          const labels = Array.from(root.querySelectorAll(".tally .k"));
-          const match = labels.find((node) => node.textContent.includes("not on a registered drive"));
-          return match && match.previousElementSibling ? match.previousElementSibling.textContent.trim() : "";
+          // The custody tallies became metrics, and the label reads "not on any drive".
+          const labels = Array.from(root.querySelectorAll(".metric-label"));
+          const match = labels.find((node) => node.textContent.includes("not on any drive"));
+          const metric = match ? match.closest(".metric") : null;
+          return metric ? metric.querySelector(".metric-value").textContent.trim() : "";
         }""",
     )
     assert at_risk == "1"
@@ -574,9 +578,15 @@ def test_stats_view_at_risk_count_is_actionable(page: Page, app_server: AppServe
 
 
 def test_stats_view_empty_catalog_is_calm(ui: Page) -> None:
+    """REWRITTEN 2026-08-05: the empty state became an invitation rather than a notice.
+
+    It is the common case on this screen - a new user reaches Stats before organizing anything -
+    so it now says what the screen will report and offers the two ways in.
+    """
     ui.click('button[data-screen="stats"]')
-    expect(ui.locator("#stats-result")).to_contain_text("No library data yet")
-    expect(ui.locator("#stats-result")).to_contain_text("Organize or import photos first")
+    expect(ui.locator("#stats-result")).to_contain_text("Nothing to report yet")
+    expect(ui.locator("#stats-result")).to_contain_text("custody")
+    expect(ui.locator('#stats-result [data-stats-action="organize"]')).to_be_visible()
 
 
 def test_the_verify_cancel_button_is_wired_to_something(ui: Page, app_server: AppServer) -> None:

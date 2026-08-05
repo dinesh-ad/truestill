@@ -432,7 +432,7 @@ function statsBars(years) {
     const width = Math.max(2, Math.round((row.count / max) * 100));
     return `<div class="stats-bar-row">
       <div class="mono">${esc(row.year)}</div>
-      <div class="stats-bar"><i style="width:${width}%"></i></div>
+      <div class="proportion"><i style="width:${width}%"></i></div>
       <div class="mono">${nfmt(row.count)}</div>
     </div>`;
   }).join("");
@@ -472,15 +472,57 @@ function dateProvenanceRows(dates) {
     .join("");
 }
 
+
+// CUSTODY LEADS WITH THE NUMBERS THAT DECIDE SOMETHING. Seven equal tallies ranked nothing;
+// the reference set's rule is a few figures with nothing competing. Three answer "is my
+// library safe": none, one, or more than one copy. Photos/videos/size are library SIZE, not
+// custody, so they rank below in the compact tier rather than being dropped.
+//
+// Colour carries meaning and nothing else: amber is the at-risk tier and green the safe one,
+// the same pair the custody strip uses. A fully backed-up library shows no amber at all.
+function custodyMetrics(safety) {
+  const none = safety.files_on_zero_drives || 0;
+  const one = safety.files_on_one_drive || 0;
+  const many = safety.files_on_two_plus_drives || 0;
+  const metric = (value, label, tone = "") =>
+    `<div class="metric"><div class="metric-value${tone ? " " + tone : ""}">${value}</div>
+     <div class="metric-label">${label}</div></div>`;
+
+  const lead = [
+    none ? metric(nfmt(none), "not on any drive", "at-risk") : "",
+    one ? metric(nfmt(one), "on one drive only", "at-risk") : "",
+    metric(nfmt(many), "on two or more drives", many ? "safe" : ""),
+  ].filter(Boolean).join("");
+
+  const secondary = [
+    metric(nfmt(safety.photos || 0), "photos"),
+    metric(nfmt(safety.videos || 0), "videos"),
+    metric(fmtBytes(safety.total_size || 0), "total size"),
+    metric(nfmt(safety.never_verified_files || 0), "never verified"),
+  ].join("");
+
+  return `<div class="metrics">${lead}</div>
+          <div class="metrics compact">${secondary}</div>`;
+}
+
 function renderStatsSummary(stats) {
   const safety = stats.safety || {};
   const completeness = stats.completeness || {};
   const shape = stats.shape || {};
   const dates = stats.dates || { rows: [], total: 0, recorded: 0, not_recorded: 0 };
+  // THE EMPTY STATE IS THE COMMON CASE HERE, not the edge: a new user reaches Stats before
+  // they have organized anything. A dashboard of zeros would be both useless and faintly
+  // accusing, so this says what the screen will tell them and offers the two ways in.
   if (!safety.total_files) {
     return card(
-      `<div class="headline">No library data yet</div>
-       <div class="k">Organize or import photos first. This view will then show custody and completeness totals.</div>`
+      `<div class="headline">Nothing to report yet</div>
+       <div class="k">Once you have organized or imported photos, this screen answers one
+       question first - <b>custody</b>: how many copies of each file exist, and on which
+       drives. Then completeness, then the shape of your library over time.</div>
+       <div class="actions">
+         <button class="btn btn-primary" data-stats-action="organize">Organize photos</button>
+         <button class="btn btn-secondary" data-stats-action="import">Import from Google Photos</button>
+       </div>`
     );
   }
   const undatedList = (completeness.undated_samples || [])
@@ -498,15 +540,7 @@ function renderStatsSummary(stats) {
     card(
       `<div class="headline">Custody</div>
        <div class="k">Query cost: ${esc(stats.complexity || "aggregate SQL only")}.</div>
-       <div class="tally">
-         <div class="n">${nfmt(safety.photos || 0)}</div><div class="k">photos</div>
-         <div class="n">${nfmt(safety.videos || 0)}</div><div class="k">videos</div>
-         <div class="n">${fmtBytes(safety.total_size || 0)}</div><div class="k">total size</div>
-         <div class="n">${nfmt(safety.files_on_two_plus_drives || 0)}</div><div class="k">files on 2+ drives</div>
-         <div class="n">${nfmt(safety.files_on_one_drive || 0)}</div><div class="k">files on exactly 1 drive</div>
-         <div class="n">${nfmt(safety.files_on_zero_drives || 0)}</div><div class="k">not on a registered drive</div>
-         <div class="n">${nfmt(safety.never_verified_files || 0)}</div><div class="k">never verified</div>
-       </div>
+       ${custodyMetrics(safety)}
        <div class="actions">
          <button class="btn btn-secondary" data-stats-action="backups">Go to Backups</button>
          <span class="why">Make another copy or run verification for at-risk and never-verified files.</span>
@@ -537,11 +571,17 @@ function renderStatsSummary(stats) {
     ),
     card(
       `<div class="headline">Completeness</div>
-       <div class="tally">
-         <div class="n">${nfmt(completeness.undated_files || 0)}</div><div class="k">undated files</div>
-         <div class="n">${nfmt(completeness.timeline_files || 0)}</div><div class="k">in timeline folders</div>
-         <div class="n">${nfmt(completeness.side_bin_files || 0)}</div><div class="k">in side bins</div>
-         <div class="n">${nfmt(completeness.near_duplicates_flagged || 0)}</div><div class="k">near-duplicate flagged files</div>
+       <div class="metrics">
+         <div class="metric"><div class="metric-value${completeness.undated_files ? " at-risk" : ""}">${nfmt(completeness.undated_files || 0)}</div>
+           <div class="metric-label">undated files</div></div>
+         <div class="metric"><div class="metric-value">${nfmt(completeness.timeline_files || 0)}</div>
+           <div class="metric-label">in timeline folders</div></div>
+       </div>
+       <div class="metrics compact">
+         <div class="metric"><div class="metric-value">${nfmt(completeness.side_bin_files || 0)}</div>
+           <div class="metric-label">in side bins</div></div>
+         <div class="metric"><div class="metric-value">${nfmt(completeness.near_duplicates_flagged || 0)}</div>
+           <div class="metric-label">near-duplicate flagged</div></div>
        </div>
        <div class="actions">
          <button class="btn btn-secondary" data-stats-action="undated">Review undated files</button>
@@ -554,9 +594,11 @@ function renderStatsSummary(stats) {
     ),
     card(
       `<div class="headline">Shape</div>
-       <div class="tally">
-         <div class="n">${esc(dayOf(shape.oldest_capture))}</div><div class="k">oldest capture date</div>
-         <div class="n">${esc(dayOf(shape.newest_capture))}</div><div class="k">newest capture date</div>
+       <div class="metrics compact">
+         <div class="metric"><div class="metric-value">${esc(dayOf(shape.oldest_capture))}</div>
+           <div class="metric-label">oldest capture date</div></div>
+         <div class="metric"><div class="metric-value">${esc(dayOf(shape.newest_capture))}</div>
+           <div class="metric-label">newest capture date</div></div>
        </div>
        <h3>By year</h3>
        <div class="stats-bars">${statsBars(shape.by_year || [])}</div>
@@ -2059,6 +2101,10 @@ document.addEventListener("click", guarded(async (e) => {
   if (btn.dataset.statsAction === "backups") {
     showScreen("backups");
     await loadDrives();
+    return;
+  }
+  if (btn.dataset.statsAction === "organize" || btn.dataset.statsAction === "import") {
+    showScreen(btn.dataset.statsAction);
     return;
   }
   if (btn.dataset.statsAction === "undated") {

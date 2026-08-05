@@ -96,8 +96,10 @@ def test_only_the_metric_uses_the_metric_size() -> None:
     If a heading or a hero number quietly takes `--text-3xl`, the metric stops being the biggest
     element on the screen and the whole hierarchy argument goes with it.
     """
+    # Comments stripped: a comment naming the token is not a use of it.
+    stripped = re.sub(r"/\*.*?\*/", "", APP_CSS, flags=re.S)
     users = []
-    for block in re.finditer(r"([^{}]+)\{([^}]*)\}", APP_CSS):
+    for block in re.finditer(r"([^{}]+)\{([^}]*)\}", stripped):
         selector, body = block.group(1).strip(), block.group(2)
         if "--text-3xl" in body:
             users.append(selector.splitlines()[-1].strip())
