@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 from truestill_cli.cli import main
+from truestill_core.drive import MARKER_NAME
 
 pytestmark = pytest.mark.skipif(shutil.which("exiftool") is None, reason="exiftool not installed")
 
@@ -52,7 +53,10 @@ def test_ingest_dedups_recovers_dates_and_bakes_metadata(
     assert code == 0
 
     # The album duplicate of A collapsed: exactly two unique files landed.
-    landed = [p for p in dest.rglob("*") if p.is_file()]
+    # The drive marker is excluded by NAME, not by a dotfile rule: since 2026-08-05 the CLI
+    # registers its destination like the app does, so the folder holds one artifact that is
+    # ours rather than the user's. Imported from `drive` so a rename cannot make this stale.
+    landed = [p for p in dest.rglob("*") if p.is_file() and p.name != MARKER_NAME]
     assert len(landed) == 2
 
     # Dates recovered from the sidecar -> filed under 2023/08.

@@ -1478,6 +1478,37 @@ def _print_ingest_report(resolutions: list[Resolution], scan: TakeoutScan) -> No
     )
 
 
+def _register_destination(
+    args: argparse.Namespace, marker: DriveMarker | None
+) -> DriveMarker | None:
+    """Give the destination a drive identity before the run, so the run's own files attach.
+
+    **The gap this closes.** Until 2026-08-05 the CLI read a marker and never created one, so
+    organizing into an ordinary folder wrote `files` rows with **no** `file_copies` row: in the
+    dedup index, so a re-run skips those files forever, and outside custody, so `verify`,
+    `status` and `where` cannot see them. The app has done the opposite since the bug it
+    replaced - `service/organize.py` does `read_marker(dest) or create_marker(dest, ...)` with a
+    comment saying that doing it afterwards "would leave the run's own files unattached". Same
+    operation, two custody outcomes, decided by which surface the user picked.
+
+    `IMPLEMENTATION_STANDARDS.md` §3.1 already sanctions the creation - it "happens automatically
+    where the user's action already implies it", and names the organize destination.
+
+    **Gated on ``--apply``**, so a preview registers nothing; that is why no opt-out flag was
+    added rather than one being argued for. **rclone destinations are excluded**, for the reason
+    `_local_drive_marker` gives: always-online cloud is not a drive-in-a-drawer.
+
+    An existing marker is returned untouched - re-minting a uuid would orphan every copy already
+    recorded against the old one (§3.1).
+    """
+    if marker is not None or not getattr(args, "apply", False) or args.rclone:
+        return marker
+    root = Path(args.destination)
+    created = create_marker(root, label=root.name or "Library")
+    print(f"Registered '{created.label}' as a drive so its copies can be verified.")
+    return created
+
+
 def _run_pipeline(
     args: argparse.Namespace,
     files: list[Path],
@@ -1524,6 +1555,7 @@ def _run_pipeline(
             print(f"Catalog {args.db} holds {catalog.count()} previously-processed file(s).\n")
 
         drive_uuid: str | None = None
+        drive_marker = _register_destination(args, drive_marker)
         if drive_marker is not None:
             catalog.upsert_drive(uuid=drive_marker.uuid, label=drive_marker.label)
             drive_uuid = drive_marker.uuid

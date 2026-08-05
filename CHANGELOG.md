@@ -7,6 +7,21 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **Photos organized from the command line are now actually in Truestill's care.** Organizing
+  into an ordinary folder recorded the photos but never registered the folder, so they existed
+  in a strange half-state: Truestill knew about them well enough to skip them as duplicates on a
+  later run, but `truestill verify` could not check them, `truestill status` did not count them
+  toward keeping copies in two places, and `truestill where` could not find them. **The app has
+  never had this problem** - it registers the destination before it writes anything - so which
+  of the two you used silently decided whether your photos were being looked after.
+  The command line now registers the destination too, which writes one small
+  `.truestill-drive.json` file into it, exactly as the app does. **A preview still writes
+  nothing at all**, so trying Truestill out against a scratch folder leaves it untouched unless
+  you ask for the real run with `--apply`. A folder that is already a registered drive keeps the
+  identity and the name it has.
+  **Photos organized this way before today are not repaired by this** - the fix stops it
+  happening again, it does not go back. If `truestill status` reports fewer files than you
+  expect, that is why.
 - **The sidebar strip was telling you your photos were safe when they were not.** It read
   *"safe in 2 places"*, and the 2 was the number of backup drives holding *anything at all* -
   not the number of places your photos are. Organize into one drive, then organize different
