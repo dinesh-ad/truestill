@@ -1915,6 +1915,18 @@ document.querySelectorAll('input[name="org-mode"]').forEach((item) => {
 // A CONNECTED drive gets no badge on purpose. Marking the normal case trains people to ignore
 // the marks, and every drive on this screen used to be implicitly "fine"; only a departure from
 // that is worth a word.
+// `last_seen` (the drive was present) is not `last_verified` (its files were checked), and
+// only one of them speaks to custody. RULED: show it where it changes a reading - on a drive
+// that is not here, "not plugged in" alone does not say whether the copy is a day or two years
+// old, which is `(abg)`'s concern. On a connected drive it is noise, and two dates side by side
+// invite confusion.
+function lastSeenNote(d) {
+  if (d.reach === "connected") return "";
+  return d.last_seen
+    ? `<span class="k mono">last seen: ${String(d.last_seen).slice(0, 10)}</span>`
+    : `<span class="k">never seen on this computer</span>`;
+}
+
 function driveReachBadge(reach) {
   if (reach === "offline") {
     return `<span class="k" data-testid="drive-offline" title="Truestill knows where this drive was, and it is not there now">- not plugged in</span>`;
@@ -1945,7 +1957,17 @@ async function loadDrives() {
   // Library summary (counts + formats only, catalog-driven - deliberately not a dashboard).
   const summary = `<div class="card"><div class="headline" style="font-size:var(--text-lg)">Your library</div>
     <div class="k mono">${mediaCount(lib)} · ${fmtBytes(lib.bytes)}</div>${byFormat(lib.by_format)}</div>`;
-  const risk = at_risk.length ? `<div class="banner warn"><div>${plural(at_risk.length, "file")} exist in only one place.</div></div>` : "";
+  // A stated risk with no way to act on it is a complaint. Stats offers a button for this
+  // exact fact; Backups stated the count and stopped. The remedy lives on THIS screen, so the
+  // action points at it rather than navigating away.
+  const risk = at_risk.length
+    ? `<div class="banner warn" data-testid="backups-at-risk"><div>
+         <div class="b-title">${plural(at_risk.length, "file")} exist in only one place</div>
+         <div class="k">A second copy is what makes them safe. Copy your library to another
+         drive below.</div>
+         <button class="btn btn-secondary" data-risk-action="copy">Copy to another drive</button>
+       </div></div>`
+    : "";
   const cards = drives.map((d) => {
     const pips = Math.min(drives.length, 3);  // ambient: how many places this library lives in
     const strip = [0, 1, 2].map((i) => (i < pips ? "▪" : "▫")).join(" ");
@@ -1955,6 +1977,7 @@ async function loadDrives() {
       <div class="mono" style="color:var(--success)">${strip}</div></div>
       <div class="drive-foot">
         <span class="k mono">last checked: ${(d.last_verified || "never").slice(0, 10)}</span>
+        ${lastSeenNote(d)}
         ${d.path
           ? `<button class="btn btn-ghost drive-check" data-path="${esc(d.path)}">Check now</button>`
           : ""}
@@ -1964,6 +1987,14 @@ async function loadDrives() {
   // A stated fact should carry its remedy: "last checked: never" is only useful next to the
   // thing that changes it. Rendered only when we know where the drive is -- offering an action
   // we cannot honour would be worse than stating the fact plainly.
+  const riskAction = list.querySelector("[data-risk-action='copy']");
+  if (riskAction) {
+    riskAction.onclick = () => {
+      const field = $("bk-source");
+      field.scrollIntoView({ behavior: "smooth", block: "center" });
+      field.focus();
+    };
+  }
   list.querySelectorAll(".drive-check").forEach((btn) => {
     btn.onclick = () => {
       const field = $("verify-path");
@@ -2543,6 +2574,18 @@ $("ev-apply-disk").onclick = guarded(async () => {
 });
 $("ev-cancel").onclick = guarded(() => { if (evJob) return api(`/api/jobs/${evJob}/cancel`, {}); });
 
+// A backup run WRITES A DRIVE MARKER into the folder and records it as a drive. The preview
+// has always known which folders that applies to and never said so, which made registering
+// something a user discovered afterwards - on the one screen whose subject is what is written
+// where. Silent when both drives are already registered, which is the ordinary case.
+function willRegister(r) {
+  const labels = r.will_register || [];
+  if (!labels.length) return "";
+  const named = labels.map((l) => `<b>${esc(l)}</b>`).join(" and ");
+  return `<div class="hint" data-testid="bk-will-register">This run will register ${named} as a
+    backup drive, writing a small marker file so Truestill can recognise it again.</div>`;
+}
+
 // ---------- Backups: copy the library to another drive ----------
 $("bk-preview").onclick = guarded(async () => {
   const source = $("bk-source").value.trim(), target = $("bk-target").value.trim();
@@ -2557,7 +2600,7 @@ $("bk-preview").onclick = guarded(async () => {
       ? `<div class="hint">First it will check ${plural(r.will_read, "file")} already on these drives, reading each one to record exactly what is there. That part can take a while; you can stop it at any time and it picks up where it left off.</div>`
       : "";
     if (r.count === 0) {
-      $("bk-result").innerHTML = card(`<div class="headline">Already backed up.</div><div class="k">Every photo on ${esc(r.from)} is already on ${esc(r.to)}.</div>${willRead}`);
+      $("bk-result").innerHTML = card(`<div class="headline">Already backed up.</div><div class="k">Every photo on ${esc(r.from)} is already on ${esc(r.to)}.</div>${willRead}${willRegister(r)}`);
       $("bk-run").classList.toggle("hidden", !r.will_read); return;
     }
     if (!r.enough) {
@@ -2567,7 +2610,7 @@ $("bk-preview").onclick = guarded(async () => {
       $("bk-run").classList.add("hidden"); return;
     }
     $("bk-result").innerHTML = card(`<div class="headline">${mediaCount(r)} · ${fmtBytes(r.bytes)} to copy</div>
-      <div class="k">From ${esc(r.from)} to ${esc(r.to)} · ${fmtBytes(r.free)} free on ${esc(r.to)}.</div>${willRead}`);
+      <div class="k">From ${esc(r.from)} to ${esc(r.to)} · ${fmtBytes(r.free)} free on ${esc(r.to)}.</div>${willRead}${willRegister(r)}`);
     $("bk-run").classList.remove("hidden");
   });
 });
