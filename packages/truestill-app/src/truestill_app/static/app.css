@@ -206,6 +206,11 @@ code,
   border-radius: 999px;
   background: var(--surface);
   color: var(--text-secondary);
+  /* On the scale rather than on the UA default (13.333px). HYGIENE, NOT A REPAIR: nothing
+     visible depended on it - `.chevron` sets its own size and `.nav-label` is clipped to 1px -
+     so this fixes no rendering. It stops a later visible child inheriting a size no token
+     chose, which is the trap an untokenised button leaves behind. */
+  font-size: var(--text-sm);
   cursor: pointer;
   transition: left 160ms ease, background 120ms ease, color 120ms ease;
 }
@@ -243,8 +248,16 @@ code,
 }
 
 .nav-item .ico {
+  /* 18px is the reserved COLUMN that keeps every label on one left edge. It is not the icon's
+     size and never was - the glyph takes `--icon-size`, below. Leaving the size unstated is
+     how these rendered at 13px, inherited from the row's `font` shorthand. */
   width: 18px;
   flex: 0 0 18px;
+  font-size: var(--icon-size);
+  /* Not the inherited line-height: at 16px that box is 19.2px tall and every row grows with
+     it (31.6 -> 35.2px, and the nav block by 25px). `1` keeps the glyph out of the row's
+     height calculation. Same pattern as `.sidebar-toggle .chevron`. */
+  line-height: 1;
   text-align: center;
   opacity: 0.9;
 }

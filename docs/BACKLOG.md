@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(abg). Next free: (abh).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(abh). Next free: (abi).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -160,6 +160,29 @@ is invisible here is retired, not free.**
     real complaint or a theoretical one.
   - The data is already there - `drives.last_verified`, `drives.last_seen`, and `DriveReach` -
     so this is a wording-and-policy question, not a plumbing one.
+
+- **(abh) The nav icons are Unicode glyphs, so their letterform varies per machine.** Recorded
+  2026-08-05, alongside the commit that sized them to 16px. **The size is settled; the origin is
+  not.**
+  - **What they are.** `◇ ◷ ↧ ▤ ⌕ ◫ ⚙` in `<span class="ico">`, drawn by whatever font on the
+    machine happens to cover those codepoints. That is **the same class of problem the mono
+    bundle closed on 2026-08-05** for paths, counts and hashes: an appearance that looks
+    deliberate on the developer's box and is actually the OS answering. Sizing them did not
+    touch it.
+  - **Why it is worse than the text case was.** Text at least degrades to another monospace.
+    These are geometric and dingbat codepoints, so coverage is thinner and the substitute can be
+    a different *shape*, not merely a different cut - and one of them, `⚙`, is in the range where
+    a platform may render a colour emoji instead of a glyph.
+  - **Not fixable by bundling the mono face**, which is why it is filed rather than folded in:
+    `--font-mono` is DejaVu Sans Mono and the icons take `--font-sans`. Even pointed at DejaVu
+    they would be one machine's idea of these shapes rather than authored artwork.
+  - **The fix is an arc, not an edit: icons become artwork.** Inline SVG (the wordmark and
+    monogram already are), or a tiny authored set in `brand/`. That decision drags in the
+    accessible-name question, the 64px collapsed rail, and whether the set is authored or
+    adapted - `brand/PROVENANCE.md` would gain a section either way.
+  - **Deliberately not done here.** The 16px change is CSS with a measured blast radius; this is
+    new artwork with a licence question attached. Bundling them would have made a two-line
+    commit unreviewable.
 
 - **(abc) `check_product_name.SUBCOMMANDS` should be derived, not transcribed.** Recorded
   2026-08-04, when Analyze 3b tripped over it: the list had never gained `analyze` or

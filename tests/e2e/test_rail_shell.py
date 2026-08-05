@@ -332,3 +332,126 @@ def test_the_wordmark_is_flat_with_an_accent_dot_not_a_gradient(ui: Page) -> Non
     assert dot != word["colour"], (
         f"the accent dot is the same colour as the word ({dot}) - it has stopped being an accent"
     )
+
+
+def test_the_nav_icons_are_sized_as_icons_not_as_body_text(ui: Page) -> None:
+    """The glyphs are 16px, and that is a deliberate size rather than an inherited one.
+
+    They were 13px, and nothing said so: `.nav-item .ico` sets `width: 18px` and no font-size,
+    so the glyph took `--text-sm` from the row's `font` shorthand. The 18px is a reserved
+    COLUMN for label alignment; it never sized anything. Asserting the computed size pins the
+    distinction, because a reader who sees `width: 18px` will assume the icon is 18px.
+    """
+    size = ui.eval_on_selector(".nav-item .ico", "el => getComputedStyle(el).fontSize")
+    assert size == "16px", f"the nav icon is {size}, not the intended 16px"
+
+    row = ui.eval_on_selector(".nav-item", "el => getComputedStyle(el).fontSize")
+    assert row != size, (
+        "the icon is the same size as the row's text again, which is how it became 13px - "
+        "it must carry its own size, not inherit one"
+    )
+
+
+def test_the_icon_size_does_not_inflate_the_row(ui: Page) -> None:
+    """`line-height: 1` on the glyph, or every row grows and the nav block grows with it.
+
+    Measured before writing: at 16px with the inherited line-height the icon box becomes 19.2px
+    tall, each row grows 31.6 -> 35.2px, and the nav block grows by 25px. With `line-height: 1`
+    the row moves 31.6 -> 32.0 and the block by under 3px. The chevron already uses exactly this
+    pattern (`.sidebar-toggle .chevron`), so this is the house answer, not a new trick.
+    """
+    line_height = ui.eval_on_selector(".nav-item .ico", "el => getComputedStyle(el).lineHeight")
+    assert line_height == "16px", (
+        f"the icon's line-height is {line_height}; it must be 1 (= its own font-size) so the "
+        "glyph does not drive the row's height"
+    )
+
+    box = ui.eval_on_selector_all(
+        ".nav-item", "els => els.map(e => +e.getBoundingClientRect().height.toFixed(1))"
+    )
+    assert max(box) <= 33, f"a nav row is {max(box)}px tall - the icon is inflating it"
+
+
+def test_the_icon_box_and_the_label_position_are_unchanged(ui: Page) -> None:
+    """The size change must buy nothing at the label's expense.
+
+    The 18px column and the label's left edge are what a bigger glyph would disturb first, so
+    both are pinned. The widest glyph measures 15px at 16px type, which is why 16 was taken and
+    18 was not - 18px type measures 17px in an 18px box, which is the edge.
+    """
+    ico = ui.eval_on_selector(
+        ".nav-item .ico",
+        "el => { const r = el.getBoundingClientRect();"
+        " return {w: +r.width.toFixed(1), x: +r.x.toFixed(1)}; }",
+    )
+    label = ui.eval_on_selector(
+        ".nav-item .nav-label", "el => +el.getBoundingClientRect().x.toFixed(1)"
+    )
+    assert ico["w"] == 18, f"the reserved icon column is {ico['w']}px, not 18px"
+    assert ico["x"] == 24, f"the icon column moved to x={ico['x']}"
+    assert label == 54, f"the label moved to x={label}; the icon column pushed it"
+
+    # THE GLYPH'S OWN INK, not the box. `flex: 0 0 18px` pins the box, so an oversized glyph
+    # overflows it while width, x and the label all stay exactly where they were - every
+    # assertion above passes at 24px and at 32px. Proven, not supposed: this is what the
+    # mutation caught. A Range over the text node measures what is actually painted.
+    widest = ui.evaluate(
+        "() => Math.max(...[...document.querySelectorAll('.nav-item .ico')].map(el => {"
+        " const r = document.createRange(); r.selectNodeContents(el);"
+        " return r.getBoundingClientRect().width; }))"
+    )
+    assert widest <= 18, (
+        f"the widest glyph paints {widest:.1f}px inside an 18px column - it is overflowing, "
+        "which no box measurement can see"
+    )
+
+
+def test_the_collapsed_rail_is_unaffected_by_the_icon_size(ui: Page) -> None:
+    """64px is the tightest case: 23px of inner room for an 18px column.
+
+    Measured with a FRESH catalog, because the collapse state is persisted - a run that reuses
+    a catalog loads already-collapsed and the toggle expands it instead. That mistake produced
+    a 232px "collapsed" reading during this work, which is why the state is asserted here rather
+    than assumed from the click.
+    """
+    ui.click("#sidebar-toggle")
+    expect(ui.locator("#sidebar")).to_have_attribute("data-collapsed", "true")
+    ui.wait_for_timeout(400)  # the shell animates its columns over 160ms
+
+    rail = ui.eval_on_selector("#sidebar", "el => +el.getBoundingClientRect().width.toFixed(1)")
+    assert rail == 64, f"the collapsed rail is {rail}px, not 64px"
+
+    # Painted ink against the row's real inner width. The 64px rail leaves 23px inside a
+    # nav-item's padding, so this is the tightest place the glyph has to fit - and, as above,
+    # the box alone cannot report a glyph that has outgrown it.
+    fit = ui.evaluate(
+        "() => { const rows = [...document.querySelectorAll('.nav-item')];"
+        " const ink = rows.map(row => { const el = row.querySelector('.ico');"
+        "   const r = document.createRange(); r.selectNodeContents(el);"
+        "   return r.getBoundingClientRect().width; });"
+        " const row = rows[0].getBoundingClientRect().width;"
+        " const pad = parseFloat(getComputedStyle(rows[0]).paddingLeft) * 2;"
+        " return {widest: Math.max(...ink), room: row - pad}; }"
+    )
+    assert fit["widest"] <= fit["room"], (
+        f"the widest glyph paints {fit['widest']:.1f}px with only {fit['room']:.1f}px of room "
+        "inside the collapsed rail"
+    )
+
+
+def test_the_collapse_chevron_is_on_the_type_scale(ui: Page) -> None:
+    """Regression guard for the button this commit also touches.
+
+    `.sidebar-toggle` itself carried no font-size and fell to the UA default 13.333px. Nothing
+    visible depended on it - `.chevron` sets its own 18px and `.nav-label` is clipped to 1px -
+    so this is hygiene, not a repaired defect, and it is recorded that way. What it prevents is
+    a later visible child inheriting a size no token chose.
+    """
+    button = ui.eval_on_selector("#sidebar-toggle", "el => getComputedStyle(el).fontSize")
+    assert button.endswith("px")
+    assert not button.startswith("13.3"), (
+        f"the toggle is back on the UA default ({button}); it must take a token"
+    )
+
+    chevron = ui.eval_on_selector(".sidebar-toggle .chevron", "el => getComputedStyle(el).fontSize")
+    assert chevron == "18px", f"the chevron glyph is {chevron}, not the 18px it has always been"

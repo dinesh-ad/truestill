@@ -113,6 +113,18 @@
   --text-lg: 18px;
   --text-xl: 22px;
   --text-2xl: 28px;
+
+  /* ICON SIZE - deliberately NOT a --text-* step, and the distinction is the point.
+     The nav icons are Unicode glyphs, so their size is expressed as a font-size; that is a
+     rendering mechanism, not a statement that they are text. Being on the type scale is
+     exactly how they ended up at 13px: `.nav-item .ico` set a width and no size, so the
+     glyph silently took `--text-sm` from the row. A separate token means the next person to
+     change body text does not move the icons by accident, and the next person to change the
+     icons has to mean it.
+     16px, not 18px: the widest glyph measures 15px at 16px type and 17px at 18px, against an
+     18px column. 16 is free; 18 is at the edge and buys little. */
+  --icon-size: 16px;
+
   --weight-normal: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
