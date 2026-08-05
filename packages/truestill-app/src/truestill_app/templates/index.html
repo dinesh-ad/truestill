@@ -129,6 +129,10 @@
         <div class="card">
           <div class="field">
             <label for="org-source">Folder to organize</label>
+            <!-- QUICK ACCESS. The folder picker has always had a places rail; it was buried
+                 in a modal, so every run began by typing a path or opening a dialogue. Same
+                 data (`/api/fs/dirs` roots), surfaced where the folder is chosen. -->
+            <div class="quick" data-testid="org-quick" id="org-quick"></div>
             <div class="row">
               <input class="input" id="org-source" placeholder="e.g. /home/you/Pictures">
               <button class="btn btn-secondary" data-browse="org-source" data-kind="source">Browse…</button>

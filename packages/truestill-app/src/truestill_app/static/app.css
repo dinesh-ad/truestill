@@ -428,7 +428,13 @@ code,
 .screen > header {
   margin-bottom: var(--space-5);
 }
+/* THE LEAD COLOUR, on every screen. Indigo was confined to the rail and to primary buttons,
+   which left the working surface black and white. `--accent-strong` rather than `--accent`:
+   the fill colour is 5.40:1 on white and fine behind a button, this is 9.99:1 and reads as
+   ink. Amber and green are not used here - they mean `needs attention` and `safe`, and a
+   heading in either would spend that meaning on decoration. */
 .screen h1 {
+  color: var(--accent-strong);
   font-size: var(--text-2xl);
   font-weight: var(--weight-semibold);
   letter-spacing: -0.02em;
@@ -606,7 +612,14 @@ select.input {
 }
 
 /* ---------- result cards ---------- */
+/* Card titles take the lead colour too - this is what puts indigo in every result rather than
+   only behind a button. */
+.result .headline,
+.card > .headline {
+  color: var(--accent-strong);
+}
 .result .headline {
+  color: var(--accent-strong);
   font-size: var(--text-xl);
   font-weight: var(--weight-semibold);
   margin-bottom: var(--space-4);
@@ -1233,4 +1246,36 @@ details.more > summary::-webkit-details-marker {
 }
 .metrics.compact .metric-label {
   font-size: var(--text-xs);
+}
+
+/* Quick access: the picker's places, inline, so choosing a folder does not begin with a modal. */
+.quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.quick:empty {
+  display: none;
+}
+.quick-place {
+  font: var(--weight-medium) var(--text-sm) / 1.2 var(--font-sans);
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--accent-strong);
+  cursor: pointer;
+}
+.quick-place:hover {
+  background: var(--accent-subtle);
+  border-color: var(--accent);
+}
+.quick-place:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
+}
+/* Status colour inside the panel keeps its meaning; nothing else there is coloured. */
+.panel .at-risk {
+  color: var(--warning);
 }

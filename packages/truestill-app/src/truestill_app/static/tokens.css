@@ -49,23 +49,33 @@
   /* accent - the one chromatic hue (act) */
   --accent: #4c63c4;
   --accent-hover: #4257ad;
-  --accent-subtle: #eef1fb;
+  --accent-subtle: #eef0fb;
+  /* The lead colour where it must carry text weight - headings and card titles. #4C63C4 is
+     5.40:1 on white and fine for a button fill; this is 9.99:1 and reads as ink. */
+  --accent-strong: #2a3b8c;
   --accent-ring: rgba(76, 99, 196, 0.45);
 
-  /* neutral scale (cool gray, 7 steps) */
+  /* NEUTRAL SCALE - WARM, not cool. Every step carries more red than blue, which is the
+     whole change: a blue-tinted grey page reads clinical however good the layout is. The
+     ground is warm and cards stay white, so a card lifts off the page instead of merging
+     with it. Ratios are asserted in the browser by `test_palette_and_resting_panel.py`,
+     against the computed style rather than against these comments. */
   --gray-0: #ffffff;
-  --gray-50: #f7f8fa;
-  --gray-100: #eef0f4;
-  --gray-200: #e2e5ea;
-  --gray-300: #cbd0d9;
-  --gray-400: #9aa1ad;
-  --gray-500: #6b7280;
-  --gray-900: #16181d;
+  --gray-50: #faf8f5; /* the ground */
+  --gray-100: #f2efe9;
+  --gray-200: #e8e3db;
+  --gray-300: #d6cfc3;
+  --gray-400: #a09689;
+  --gray-500: #5f574c; /* 7.11:1 on white */
+  --gray-900: #1c1a17; /* 17.36:1 on white */
 
   /* semantic - backup pipeline states. green = SAFE/VERIFIED (custody). */
-  --success: #2f9e57;
-  --warning: #c98a1a;
-  --warning-subtle: #fbf1de;
+  /* STATUS, and these are DARKER than they were on purpose. Measured: the old light-mode
+     amber was 2.94:1 on white and green 3.42:1 - both below AA for text, and amber below
+     even the 3:1 large-text floor a 40px metric needs. */
+  --success: #1f7a41; /* 5.36:1 on white */
+  --warning: #8a5f0a; /* 5.64:1 on white */
+  --warning-subtle: #fdf3e0;
 
   /* surfaces / text (light = default) */
   --bg: var(--gray-50);
@@ -76,7 +86,7 @@
   --border-strong: var(--gray-300);
   --text: var(--gray-900);
   --text-secondary: var(--gray-500);
-  --text-muted: #6f7580; /* WCAG AA: 4.6:1 on white (gray-400 was 2.6:1, sub-AA) */
+  --text-muted: #6e665a; /* 5.66:1 on white; warm, and gray-400 is 2.6:1 */
   --on-accent: #ffffff;
 
   /* spacing (4px base) */
@@ -158,16 +168,17 @@
     --warning: #d69a3a;
     --warning-subtle: #241d10;
 
-    --bg: #0b0c0e;
-    --surface: #16181c;
-    --surface-sunken: #101114;
-    --surface-raised: #1c1f25;
-    --border: #24272e;
-    --border-strong: #333842;
-    --text: #e7e9ee;
-    --text-secondary: #a3a9b5;
-    --text-muted: #868d99; /* WCAG AA: 5.3:1 on surface (was 3.9:1, sub-AA) */
-    --on-accent: #0b0c0e;
+    --bg: #12110f;
+    --surface: #1b1917;
+    --surface-sunken: #141311;
+    --surface-raised: #211f1c;
+    --border: #2b2823;
+    --border-strong: #3a352e;
+    --text: #ece8e1;
+    --text-secondary: #a8a096;
+    --text-muted: #938b80; /* 5.2:1 on the dark surface */
+    --accent-strong: #a9b6f0;
+    --on-accent: #12110f;
 
     --shadow-sm: none;
     --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
@@ -178,19 +189,23 @@
 :root[data-theme="light"] {
   --accent: #4c63c4;
   --accent-hover: #4257ad;
-  --accent-subtle: #eef1fb;
+  --accent-subtle: #eef0fb;
+  /* The lead colour where it must carry text weight - headings and card titles. #4C63C4 is
+     5.40:1 on white and fine for a button fill; this is 9.99:1 and reads as ink. */
+  --accent-strong: #2a3b8c;
   --accent-ring: rgba(76, 99, 196, 0.45);
-  --success: #2f9e57;
-  --warning: #c98a1a;
-  --bg: #f7f8fa;
+  --success: #1f7a41;
+  --warning: #8a5f0a;
+  --bg: #faf8f5;
   --surface: #ffffff;
-  --surface-sunken: #eef0f4;
+  --surface-sunken: #f2efe9;
   --surface-raised: #ffffff;
-  --border: #e2e5ea;
-  --border-strong: #cbd0d9;
-  --text: #16181d;
-  --text-secondary: #6b7280;
-  --text-muted: #6f7580;
+  --border: #e8e3db;
+  --border-strong: #d6cfc3;
+  --text: #1c1a17;
+  --text-secondary: #5f574c;
+  --text-muted: #6e665a;
+  --accent-strong: #2a3b8c;
   --on-accent: #ffffff;
   --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
 }
@@ -205,16 +220,17 @@
   --success: #46b46a;
   --warning: #d69a3a;
   --warning-subtle: #241d10;
-  --bg: #0b0c0e;
-  --surface: #16181c;
-  --surface-sunken: #101114;
-  --surface-raised: #1c1f25;
-  --border: #24272e;
-  --border-strong: #333842;
-  --text: #e7e9ee;
-  --text-secondary: #a3a9b5;
-  --text-muted: #868d99;
-  --on-accent: #0b0c0e;
+  --bg: #12110f;
+  --surface: #1b1917;
+  --surface-sunken: #141311;
+  --surface-raised: #211f1c;
+  --border: #2b2823;
+  --border-strong: #3a352e;
+  --text: #ece8e1;
+  --text-secondary: #a8a096;
+  --text-muted: #938b80;
+  --accent-strong: #a9b6f0;
+  --on-accent: #12110f;
   --shadow-sm: none;
   --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
 }

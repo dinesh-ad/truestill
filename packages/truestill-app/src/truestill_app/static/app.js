@@ -900,7 +900,7 @@ function backupCompletion(r) {
 // showed "this folder isn't a Truestill backup yet" about the drive now listed above it.
 async function refreshDriveState() {
   $("verify-result").innerHTML = "";  // a verdict about the old state is not about this one
-  await Promise.all([loadDrives(), loadCustody()]);
+  await Promise.all([loadDrives(), loadCustody(), loadQuickPlaces()]);
 }
 
 // ---------- navigation ----------
@@ -1077,8 +1077,64 @@ function refreshCatalogPathFit() {
   catalogFitObserver.observe(el);
 }
 
+// THE PANEL AT REST. It only ever appeared after a run, so the third column did not exist
+// when the app opened - the state a person is in most of the time. Everything here comes from
+// the library-status payload the custody strip already fetches, so it costs no extra request.
+//
+// NOT SHOWN, because the data does not exist and inventing it would be worse than omitting it:
+// biggest folders (no per-folder query in the catalog) and the capture span (computed only by
+// the Stats query, which is not fetched at startup and should not be added to it).
+function renderRestingPanel(s) {
+  const panel = $("panel");
+  if (!panel) return;
+  const files = s.files || 0;
+  if (!files) { panel.innerHTML = ""; return; }   // no zeros, and no column either
+
+  const one = s.files_one_copy || 0;
+  const none = s.files_no_copy || 0;
+  const rows = [
+    `<div class="panel-fact"><div class="panel-k">Your library</div>
+      <div class="mono">${mediaCount(s)}</div>
+      <div class="mono">${fmtBytes(s.bytes || 0)}</div></div>`,
+    s.places
+      ? `<div class="panel-fact"><div class="panel-k">Kept in</div>
+         <div class="mono">${plural(s.places, "place")}</div></div>`
+      : "",
+    one
+      ? `<div class="panel-fact"><div class="panel-k">In one place only</div>
+         <div class="mono at-risk">${nfmt(one)}</div></div>`
+      : "",
+    none
+      ? `<div class="panel-fact"><div class="panel-k">Not on any drive</div>
+         <div class="mono at-risk">${nfmt(none)}</div></div>`
+      : "",
+  ].filter(Boolean).join("");
+  panel.innerHTML = `<h3 class="panel-title">Your library</h3>${rows}`;
+}
+
+// The picker's own roots, rendered inline. Nothing new is computed or stored: a recent-folder
+// history with timestamps does NOT exist anywhere in the app, so it is not faked here.
+async function loadQuickPlaces() {
+  const host = $("org-quick");
+  if (!host) return;
+  const data = await get("/api/fs/dirs?path=");
+  const roots = (data.roots || []).slice(0, 6);
+  if (!roots.length) { host.innerHTML = ""; return; }
+  host.innerHTML = roots
+    .map((r) => `<button type="button" class="quick-place" data-path="${esc(r.path)}">${esc(r.label)}</button>`)
+    .join("");
+  host.querySelectorAll(".quick-place").forEach((btn) => {
+    btn.onclick = () => {
+      const field = $("org-source");
+      field.value = btn.dataset.path;
+      field.dispatchEvent(new Event("change"));
+    };
+  });
+}
+
 async function loadCustody() {
   const s = await get("/api/library/status");
+  renderRestingPanel(s);
   // Organize and Trips work on the library; Backups copies *from* it to somewhere else.
   prefill("org-dest", s.library_path);
   prefill("ev-source", s.library_path);
@@ -2850,6 +2906,7 @@ document.querySelectorAll('input[name="theme"]').forEach((r) => {
 loadOrganizeMode();
 loadSidebar();
 loadCustody();
+loadQuickPlaces();
 refreshOrganizeUndoAffordance();
 
 // ---------- Dates you have corrected: preview -> typed confirm -> job (step 4) ----------
