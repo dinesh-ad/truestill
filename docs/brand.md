@@ -32,6 +32,13 @@ The word **Truestill**, set in a serif, filled with the indigo gradient below.
 }
 ```
 
+> **THE MONOSPACE FACE IS BUNDLED, 2026-08-05.** `--font-mono` now leads with **DejaVu Sans
+> Mono 2.37** (Book + Bold), shipped in `truestill-app/static/fonts/` with the Bitstream Vera
+> notice beside it. The old stack named five faces and none exists on a stock Linux box, so the
+> wordmark and every path, count and hash resolved to a different typeface per OS. Chosen on
+> measurement, not taste - see `IMPLEMENTATION_STANDARDS.md` §7. **Never subset, never
+> `local()`.** The wordmark's `--weight-semibold` resolves to the real Bold; no SemiBold ships.
+
 > **AUTHORED 2026-08-04. Artwork lives in `brand/`; provenance and licence in
 > `brand/PROVENANCE.md`. What follows is the original sheet, kept as the source of the palette.**
 >

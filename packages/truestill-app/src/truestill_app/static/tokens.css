@@ -2,6 +2,49 @@
    Indigo accent (act), green reserved for safe/verified, monospace for all data.
    Neutrals carry structure; surfaces separate by luminance + 1px hairlines. */
 
+/* THE MONOSPACE FACE IS BUNDLED, NOT BORROWED FROM THE MACHINE.
+   The old stack named five faces and none of them exists on a stock Linux box, so fontconfig
+   fell through to DejaVu - which looked right, but only by accident of one machine. A Mac
+   resolved SF Mono and Windows resolved Consolas, so the product's own type signature (every
+   path, count and hash, and the wordmark that heads them) differed per user.
+
+   WHY DejaVu, on evidence rather than taste: best separation of the confusable pairs in three
+   of four measured at 13px, and the widest coverage at 3,322 codepoints. IBM Plex Mono was
+   eliminated outright - it has no U+26A0, U+25AA or U+25AB, so the custody pips and warning
+   mark fell back to Times New Roman inside the one line the sidebar exists to make
+   trustworthy. Not fixable by bundling; the glyphs are not in the font.
+
+   NO local(). It would look like a free optimisation and would hand the rendering back to
+   whatever DejaVu the machine happens to have, reintroducing exactly the variance this
+   removes. NOT SUBSET: coverage is why this face won, and a subset would drop the non-ASCII
+   filenames a user actually has.
+
+   Book and Bold only. `--weight-semibold` (600) resolves to Bold by CSS weight matching -
+   verified by rendering, not assumed - so no third file ships. No italic face: the only
+   italic in app.css is `.input::placeholder`, which resets to `var(--font-sans)`.
+
+   Licence: Bitstream Vera REQUIRES its notice to travel with every copy of the typefaces, so
+   it sits beside them in static/fonts/LICENSE-DejaVu.txt rather than in brand/, which is not
+   packaged. See that file for the clause and the upstream checksums. */
+@font-face {
+  font-family: "DejaVu Sans Mono";
+  src: url("/static/fonts/DejaVuSansMono.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  /* `swap`, not `optional` (which may skip the bundled face on first load - the one thing we
+     are buying) and not `block` (which can hide text). Over loopback the block period is not
+     reached in practice; on this machine the fallback is the same face, so nothing flashes at
+     all, but on a Mac the swap is real and `swap` is still the right side to fail on. */
+  font-display: swap;
+}
+@font-face {
+  font-family: "DejaVu Sans Mono";
+  src: url("/static/fonts/DejaVuSansMono-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* accent - the one chromatic hue (act) */
   --accent: #4c63c4;
@@ -59,7 +102,11 @@
   /* type */
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  /* Bundled first. The old stack is KEPT behind it deliberately: if a frozen build ever fails
+     to carry the data file, the app degrades to exactly today's behaviour rather than to an
+     unstyled default. See the @font-face block above. */
+  --font-mono: "DejaVu Sans Mono", ui-monospace, "SF Mono", "JetBrains Mono", Menlo,
+    Consolas, monospace;
   --text-xs: 12px;
   --text-sm: 13px;
   --text-base: 15px;

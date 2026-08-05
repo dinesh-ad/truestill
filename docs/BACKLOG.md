@@ -599,6 +599,22 @@ section, because what is left is the part that still has to be written.
     - **What satisfies it:** the artifact itself printing the resolved backend, the way the
       windowed-launch probe reports console state - not an inspection of the spec file, which is
       a claim about what should be collected rather than what was.
+  - **ACCEPTANCE CRITERION, added 2026-08-05: the frozen artifact must serve
+    `/static/fonts/DejaVuSansMono.ttf` with a 200 and the byte count of the source file.**
+    - **Why it needs saying.** Bundlers collect *imports*; a font is a **data file**, and no
+      bundler collects one from a directory unless told (PyInstaller `datas`, or the equivalent).
+      The hatchling wheel does carry it - verified, `favicon.ico` is already in there - but the
+      wheel is not the installer.
+    - ⚠ **Severity is LOWER than the send2trash criterion above, and must not be read as equal.**
+      A dropped font falls through to the retained CSS stack, which is exactly the pre-2026-08-05
+      behaviour: the type signature varies per OS again. **Cosmetic drift, not a safety
+      regression.** It is listed because it is silent, not because it is dangerous.
+    - **The CI guard does not cover it.** `test_bundled_font_ships_with_its_licence.py` and
+      `test_bundled_mono_font.py` both test the source tree; a green suite plus an installer that
+      dropped the file is exactly the state that reads as verified.
+    - **The licence rides on the same check.** Bitstream Vera binds the notice to *copies of the
+      typefaces*, so an artifact carrying the fonts without `LICENSE-DejaVu.txt` is a licence
+      defect, not just a missing file. Assert both paths serve.
   - **PyPI stays**, as the developer / self-hosted channel. It stops being the *primary* one.
   - **MEASURED, THEN DECLINED (2026-08-01). The ~90 MB stays in the build.** Ruled on product
     grounds: at this size the download is unremarkable for a desktop app - **VS Code is ~350 MB

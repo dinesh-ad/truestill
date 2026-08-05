@@ -18,7 +18,10 @@ classifiers = [
 #     Starlette+Pydantic; Pydantic is disallowed for our models and unneeded for one user).
 #   uvicorn -- the ASGI server to run Starlette (no stdlib ASGI server exists).
 # The browser front-end is server-rendered HTML + a small vanilla-JS layer (EventSource for
-# SSE, fetch for the API): no npm/bundler/build step, and nothing third-party to vendor.
+# SSE, fetch for the API): no npm/bundler/build step, and no third-party CODE to vendor.
+# One third-party ASSET is vendored: DejaVu Sans Mono (Book + Bold) in static/fonts/, because
+# the monospace stack resolved to a different face on every OS. Bitstream Vera licence and
+# upstream checksums ship beside it. Not a pip dependency; no build step; no network.
 dependencies = [
     "truestill-core",
     "starlette>=1.3.1",
