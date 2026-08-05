@@ -339,6 +339,11 @@ code,
   color: var(--rail-muted);
   min-width: 0;
   overflow: hidden;
+  /* The catalog note embeds a filesystem path, which is one unbreakable token. It could
+     already overflow the rail with a long enough home directory; text that can grow only made
+     it reachable sooner. The path stays selectable and complete - it wraps instead of spilling.
+     `.catalog-path` is separate and keeps its own middle-ellipsis fitting. */
+  overflow-wrap: anywhere;
 }
 .custody .line b {
   color: var(--rail-text);
@@ -448,7 +453,9 @@ code,
 }
 .field > label {
   display: block;
-  font-size: var(--text-sm);
+  /* Control labels and their inputs are main-column CONTENT; the rail's chrome sizes stay
+     below them so the two surfaces stop reading at the same weight. */
+  font-size: var(--text-base);
   font-weight: var(--weight-medium);
   margin-bottom: var(--space-2);
 }
@@ -456,10 +463,16 @@ code,
   display: flex;
   gap: var(--space-2);
 }
+/* A <select> sizes to its longest option and ignores `min-width: 0`, so `#layout-preset` (78
+   characters) grew past its field as soon as text could scale. Constrained to the field; the
+   full text is still in the dropdown. */
+select.input {
+  width: 100%;
+}
 .input {
   flex: 1;
   min-width: 0;
-  font: var(--weight-normal) var(--text-sm) / 1.4 var(--font-mono);
+  font: var(--weight-normal) var(--text-base) / 1.4 var(--font-mono);
   color: var(--text);
   background: var(--surface);
   border: var(--border-width) solid var(--border-strong);
@@ -479,7 +492,9 @@ code,
 .field .hint {
   display: block;
   margin-top: var(--space-2);
-  font-size: var(--text-xs);
+  /* A hint is read while making a decision, so it is content and not chrome. `xs` is for
+     incidental labelling only. */
+  font-size: var(--text-sm);
   min-height: 1.1em;
 }
 .hint.ok {

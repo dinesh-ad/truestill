@@ -107,12 +107,25 @@
      unstyled default. See the @font-face block above. */
   --font-mono: "DejaVu Sans Mono", ui-monospace, "SF Mono", "JetBrains Mono", Menlo,
     Consolas, monospace;
-  --text-xs: 12px;
-  --text-sm: 13px;
-  --text-base: 15px;
-  --text-lg: 18px;
-  --text-xl: 22px;
-  --text-2xl: 28px;
+  /* rem, so a raised browser default font-size reaches the app. px ignored a preference the
+     user had already set once, globally, leaving per-profile zoom as the only recourse - which
+     is why there is no font-size setting in the product. NO root font-size is declared: the
+     root is the user's, and 1rem = whatever they chose (16px unless they changed it).
+     12 and 13px were not two steps, they were two names for "small", and between them they
+     carried 30 of 37 uses. sm is now 14 and base is 16, so the scale has a floor a person can
+     read and a gap you can see. */
+  /* STAYS px, deliberately - do not "finish the conversion":
+     --icon-size, and the 18px icon column it sits in - an icon is a fixed object, and a
+       collapsed 64px rail that grew with body text would clip it;
+     --sidebar-width (232/64px) - the rail is a layout frame, not type;
+     --border-width, --radius-* - hairlines and corners are not reading sizes;
+     --space-* - spacing that scaled with type would compound every gap in a nested layout. */
+  --text-xs: 0.75rem; /* 12px - incidental chrome only */
+  --text-sm: 0.875rem; /* 14px - was 13 */
+  --text-base: 1rem; /* 16px - was 15 */
+  --text-lg: 1.125rem; /* 18px */
+  --text-xl: 1.375rem; /* 22px */
+  --text-2xl: 1.75rem; /* 28px */
 
   /* ICON SIZE - deliberately NOT a --text-* step, and the distinction is the point.
      The nav icons are Unicode glyphs, so their size is expressed as a font-size; that is a
