@@ -528,6 +528,61 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
      0.04s to 0.08s. Weigh any local cache the same way - if bypassing it is cheap, bypass it,
      because the failure mode is not a slow gate but a **silent** one.
 
+- **When the thing under test SHARES A NAME with a system-provided equivalent, assert the
+  DELIVERY MECHANISM, not the rendered result.** The tenth member. Closest to the eighth, and
+  distinct from it in the way that matters: there, the competing defence is **ours**, so the
+  question is which of two things we wrote did the work. Here the competitor is **the operating
+  system**, which we did not write, do not ship, and cannot delete to find out - and on the
+  developer's machine it is usually present, so the guard is at its weakest exactly where it is
+  written.
+
+  An assertion can be **non-vacuous in method and still vacuous in effect**. The method can be
+  the strongest one available and the effect still nil, because the environment satisfies it
+  independently of the artifact.
+
+  *Worked example - bundling DejaVu Sans Mono, 2026-08-05.* The requirement was that the app ship
+  its own monospace face rather than resolve one per OS. `getComputedStyle().fontFamily` was
+  correctly rejected as vacuous: it echoes the declaration and passes with no font present. The
+  replacement was CDP `CSS.getPlatformFontsForNode`, which reports what the **rasteriser** used -
+  a genuinely stronger instrument, and the right one.
+
+  It was still vacuous, because **the bundled family and the system font have the same name**.
+  `DejaVu Sans Mono` is installed on the developer's Linux box, so CDP returns the expected
+  string whether the bundle shipped or not.
+
+  **The tell, and it only appeared because the mutation was run.** With the entire bundle
+  stripped - no `@font-face`, the old stack restored - **7 of 10 browser tests still passed,
+  including every one of the three CDP surface checks.** Review had read that suite as strong.
+  It was strong against the wrong failure.
+
+  The fix is to assert the **delivery mechanism**, each leg of which the operating system cannot
+  satisfy:
+
+  1. the **network response** - a 200 for the asset from our own origin (a *request* is not
+     enough: a 404 still fires one, and the page falls back silently);
+  2. **`document.fonts`** - it contains only `@font-face`-declared faces, never system ones, so a
+     `loaded` entry there cannot have come from the OS;
+  3. the **reachable `@font-face` rule** itself, asserted to use `url()` and not `local()` -
+     `local()` would re-admit the system copy and make the whole distinction unobservable again.
+
+  Those three are exactly the tests that failed under the mutant. Keep the rendered-result
+  assertion too - it catches per-glyph fallback, which is a real and separate defect - but never
+  let it stand alone.
+
+  *Suspect this whenever the artifact under test has a same-named counterpart the machine may
+  already provide:* a bundled font, a vendored library that is also installed, a shipped binary
+  that is also on `PATH`, a config file that also exists in `/etc`. Ask **"if this artifact were
+  absent, would the environment answer in its place?"** The name is what makes the substitution
+  invisible, so the assertion has to reach for something the name does not confer.
+
+  **This is the third time in one session (2026-08-04/05) that a mutation caught what review did
+  not.** The other two are not recorded as rules because they were *badly aimed mutants* rather
+  than new mechanisms - one changed a `viewBox` while the test compared path data, one changed a
+  value the fixture rendered identically either way - and in both the mutation, not the reading,
+  is what exposed it. Review reads a test and asks whether it looks strong; only the mutation
+  asks whether it *is*. Where the two disagree the mutation is right, and the cost of skipping it
+  is a suite everyone believes has been verified.
+
 - **Errors.** Exceptions typed and specific - no bare `except`. User-facing CLI errors are
   actionable sentences, not tracebacks. Every subprocess call checks its return code and
   surfaces stderr on failure. Partial-failure policy: one bad file never aborts a batch - it
