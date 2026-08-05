@@ -100,7 +100,10 @@ code,
 .wordmark {
   display: flex;
   align-items: center;
-  padding: var(--space-2) var(--space-3);
+  /* Vertical space here is deliberately small: the rail already pads 16px at the top, and the
+     first section label pads below. Three sources stacked to ~28px of band under a 28px word,
+     while the nav rows sat 2px apart. */
+  padding: var(--space-1) var(--space-3);
   min-width: 0;
 }
 /* The wordmark: monospace text, the type signature `ui-v2-research` §2 argues for. Rail tokens,
@@ -156,6 +159,12 @@ code,
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--rail-muted);
+}
+/* The first one follows the wordmark, which has already left space; only the second is a
+   separator between two groups and needs the full step above it. Padding ONLY - everything
+   else stays shared, or the second label silently loses its type and colour. */
+.nav-section-label:first-child {
+  padding-top: var(--space-1);
 }
 .sidebar[data-collapsed="true"] .nav-section-label {
   display: none;
@@ -289,7 +298,8 @@ code,
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  /* The other half of the same complaint: a generous band over a crowded list. */
+  gap: var(--space-1);
 }
 
 /* Collapsed rail: icons only; labels stay in the DOM for AT; tooltips on hover/focus. */
@@ -1066,11 +1076,20 @@ details.more > summary::-webkit-details-marker {
   font-size: var(--text-sm);
   color: var(--text-secondary);
 }
+/* TWO-UP, not wrap-and-hope. Four metrics in a 760px column laid out 3 + 1, which reads as a
+   ragged afterthought. A grid gives 2 x 2; the alternative was shrinking the number, and the
+   number being the biggest thing on the screen is the whole point of the component. */
 .metrics {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-6);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5) var(--space-6);
   margin-bottom: var(--space-5);
+}
+/* One column where two would leave nothing but a number and a truncated label. */
+@media (max-width: 480px) {
+  .metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* PROPORTION BAR - the canonical one, and now the run block's.

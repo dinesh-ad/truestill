@@ -111,6 +111,13 @@
       <div class="banner warn hidden" id="global-error" role="alert">
         <div><div class="b-title">Something went wrong</div><div id="global-error-message"></div></div>
       </div>
+      <!-- WHICH CATALOG THIS PROCESS OPENED - a startup fact about the program, not about the
+           library. It used to render inside the custody strip, whose contract is "where your
+           files are"; "pass --db PATH" is CLI instruction, and on a narrow window the strip
+           detached and floated it mid-page. Two of the four startup states carry text and they
+           are not the same message: EMPTY_WITH_DRIVES says the wrong catalog may be open and is
+           an alert; EMPTY is a first-run aside. `.hidden` until there is something to say. -->
+      <div class="banner hidden" id="catalog-notice"></div>
       <!-- ORGANIZE (home) -->
       <section class="screen active" id="screen-organize">
         <header>

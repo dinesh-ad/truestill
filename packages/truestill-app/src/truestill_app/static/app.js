@@ -1005,6 +1005,26 @@ function fitCatalogPath(el) {
  */
 let catalogFitObserver = null;
 
+// WHICH CATALOG THIS PROCESS OPENED. A page-level fact, so it renders beside the global error
+// rather than inside the rail - the custody strip says where files are, and "pass --db PATH" is
+// not that. The two states that carry text stay distinct: `alert` means the wrong catalog may be
+// open, `notice` is a first-run aside, and flattening them would make the loud one ignorable.
+function renderCatalogNotice(s) {
+  const host = $("catalog-notice");
+  if (!host) return;
+  if (!s.catalog_detail) {
+    host.className = "banner hidden";
+    host.innerHTML = "";
+    return;
+  }
+  const alert = s.catalog_tone === "alert";
+  host.className = alert ? "banner warn" : "banner";
+  host.innerHTML = alert
+    ? `<div><div class="b-title">This may not be the catalog you expect</div>
+       <div>${esc(s.catalog_detail)}</div></div>`
+    : `<div class="k">${esc(s.catalog_detail)}</div>`;
+}
+
 function refreshCatalogPathFit() {
   const el = $("custody-catalog");
   if (!el) return;
@@ -1066,16 +1086,9 @@ async function loadCustody() {
   const catalogPath = s.catalog_path
     ? `<div class="catalog-path mono" id="custody-catalog" data-full="${esc(s.catalog_path)}" title="${esc(s.catalog_path)}">${esc(s.catalog_path)}</div>`
     : "";
-  // First-run (will_create) is calm info; empty_with_drives is the only alert-looking case.
-  let catalogNote = "";
-  if (s.catalog_detail) {
-    const cls = s.catalog_tone === "alert" ? "banner warn" : "k";
-    catalogNote = s.catalog_tone === "alert"
-      ? `<div class="${cls}"><div>${esc(s.catalog_detail)}</div></div>`
-      : `<div class="${cls}">${esc(s.catalog_detail)}</div>`;
-  }
+  renderCatalogNotice(s);
   const tone = atRisk ? "at-risk" : anyDrive && s.files ? "safe" : "neutral";
-  line.innerHTML = `<span class="${tone}">${esc(safe)}</span>${catalogPath}${catalogNote}`;
+  line.innerHTML = `<span class="${tone}">${esc(safe)}</span>${catalogPath}`;
   refreshCatalogPathFit();
 }
 window.addEventListener("resize", debounce(refreshCatalogPathFit, 50));
