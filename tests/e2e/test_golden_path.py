@@ -29,7 +29,7 @@ def test_organize_then_back_up_then_check(ui: Page, tmp_path: Path, library) -> 
     backup.mkdir()
 
     # --- 1. Organize -----------------------------------------------------------------
-    expect(ui.locator("#custody-line")).to_contain_text("not backed up yet")
+    expect(ui.locator("#custody-line")).to_contain_text("nothing organized yet")
     ui.fill("#org-source", str(source))
     ui.fill("#org-dest", str(destination))
     ui.click("#org-preview")
@@ -47,7 +47,9 @@ def test_organize_then_back_up_then_check(ui: Page, tmp_path: Path, library) -> 
     assert len(list(destination.rglob("*.jpg"))) == 8  # the screen matches the disk
 
     # Organizing registered its own destination, so the library lives somewhere the app knows.
-    expect(ui.locator("#custody-line")).to_contain_text("safe in 1 place")
+    # One drive means every file is in exactly one place, and the strip now says the
+    # risk rather than a per-drive count. This is the journey the rewrite exists for.
+    expect(ui.locator("#custody-line")).to_contain_text("in only one place")
 
     # --- 2. Backups: the library is already known ------------------------------------
     ui.click('button[data-screen="backups"]')
@@ -65,7 +67,9 @@ def test_organize_then_back_up_then_check(ui: Page, tmp_path: Path, library) -> 
     assert len(list(backup.rglob("*.jpg"))) == 8
 
     # --- 4. The promise, kept ---------------------------------------------------------
-    expect(ui.locator("#custody-line")).to_contain_text("safe in 2 places")
+    # ...and after the second drive holds the same files, the reassurance is TRUE of
+    # every file, which is the only condition under which it is offered.
+    expect(ui.locator("#custody-line")).to_contain_text("every file in 2 places")
     expect(ui.locator("#drives-list")).to_contain_text("TruestillBackup")
 
     # --- 5. Check the new backup, from its own card -----------------------------------

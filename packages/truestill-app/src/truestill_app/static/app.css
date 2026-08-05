@@ -311,6 +311,19 @@ code,
      stays WCAG-AA legible in both themes. */
   color: var(--rail-muted);
 }
+/* Below the width where even "…filename" fits, the label hides rather than degrading into a
+   fragment. `title`/`data-full` keep the real path reachable. */
+.custody .catalog-path.too-narrow {
+  display: none;
+}
+/* Risk tone on the rail. #e0a83f measures 8.48:1 there; --warning #c98a1a is 6.15:1 but was
+   tuned against white, so it is re-derived here like the rest of the rail's colours. */
+.custody .at-risk {
+  color: #e0a83f;
+}
+.custody .pips.at-risk {
+  color: #e0a83f;
+}
 /* Absolute catalog path: full string in title / selection; visually middle-ellipsized so the
    sidebar never spills. Do not shorten the stored path - only the painted label. */
 .custody .catalog-path {

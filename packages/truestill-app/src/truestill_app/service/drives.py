@@ -469,6 +469,14 @@ class LibraryStatus(TypedDict):
     by_format: dict[str, dict[str, int]]
     places: int
     single_copy: int
+    #: Files with no recorded copy at all - invisible to `single_copy`, which reads
+    #: `file_copies`, and the most exposed thing in the library.
+    files_no_copy: int
+    #: Files with exactly one recorded copy.
+    files_one_copy: int
+    #: The minimum copy count across every file. One unprotected file holds it down, which is
+    #: what makes it safe to write a sentence against.
+    redundancy_floor: int
     bytes: int
     catalog_path: str
     catalog_presence: str
@@ -489,6 +497,10 @@ def library_status(db: Path, *, explicit_db: bool = False) -> LibraryStatus:
         total = catalog.count()
         drives = [d for d in catalog.list_drives() if d["file_count"]]
         single_copy = catalog.single_copy_count()
+        # Per-FILE custody, because the strip makes a per-file claim. `places` below counts
+        # DRIVES and is kept only for callers that want it; it must never be the number a
+        # sentence about files is written against.
+        custody = catalog.custody_floor()
         total_bytes = sum(d["total_size"] or 0 for d in drives)
         library_path = take_live_path_hint(catalog, LIBRARY_PATH_HINT)
         backup_path = take_live_path_hint(catalog, BACKUP_PATH_HINT)
@@ -502,6 +514,9 @@ def library_status(db: Path, *, explicit_db: bool = False) -> LibraryStatus:
         "by_format": breakdown["by_format"],
         "places": len(drives),
         "single_copy": single_copy,
+        "files_no_copy": int(custody["no_copy"]),
+        "files_one_copy": int(custody["one_copy"]),
+        "redundancy_floor": int(custody["floor"]),
         "bytes": total_bytes,
         "catalog_path": startup.absolute_path,
         "catalog_presence": startup.presence.value,

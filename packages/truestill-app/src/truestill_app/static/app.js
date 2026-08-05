@@ -947,18 +947,39 @@ function fitCatalogPath(el) {
     else hi = mid - 1;
   }
   el.textContent = lo > 0 ? `${head.slice(0, lo)}…${name}` : `…${name}`;
-  // Last resort if even "…filename" is wider than the strip: keep the filename end.
+  // If even "…filename" will not fit, the honest answer is to show nothing rather than a
+  // fragment: `…e` identifies no file and reads as damage. The full path stays in `title` and
+  // `data-full`, so it is still reachable and still selectable.
+  el.classList.remove("too-narrow");
   if (el.scrollWidth > el.clientWidth) {
-    let n = name.length;
-    while (n > 1 && el.scrollWidth > el.clientWidth) {
-      n -= 1;
-      el.textContent = `…${name.slice(-n)}`;
-    }
+    el.textContent = full;
+    el.classList.add("too-narrow");
   }
 }
 
+/** Re-fit whenever the box actually changes size, not only when the text is written.
+ *
+ *  THE `…e` DEFECT. `fitCatalogPath`'s last resort shortens the FILENAME one character at a
+ *  time while the box is narrower than `…filename`, so a measurement taken while the rail is
+ *  mid-animation - the shell transitions its columns over 160ms - ate `catalog.sqlite` down to
+ *  a single letter and left it there. The label is only re-painted when `loadCustody` runs, so
+ *  the fragment then survived until the next custody refresh, which is why it was visible in a
+ *  screenshot rather than being a flicker.
+ *
+ *  A ResizeObserver answers the real question: fit the label to the box it actually has, every
+ *  time that box settles. Cheaper than a timer and correct for the window resize case too,
+ *  which nothing handled before.
+ */
+let catalogFitObserver = null;
+
 function refreshCatalogPathFit() {
-  fitCatalogPath($("custody-catalog"));
+  const el = $("custody-catalog");
+  if (!el) return;
+  fitCatalogPath(el);
+  if (catalogFitObserver) catalogFitObserver.disconnect();
+  if (typeof ResizeObserver === "undefined") return;
+  catalogFitObserver = new ResizeObserver(() => fitCatalogPath(el));
+  catalogFitObserver.observe(el);
 }
 
 async function loadCustody() {
@@ -970,14 +991,29 @@ async function loadCustody() {
   prefill("verify-path", s.backup_path || s.library_path);
   prefill("bk-target", s.backup_path);
   const pips = $("custody-pips"), line = $("custody-line");
-  const places = s.places || 0;
-  const filled = Math.min(places, 3);
+  // PER-FILE, NOT PER-DRIVE. This used to read `safe in N places` with N = the number of drives
+  // holding any copy, which is a per-drive count under a per-file sentence. Organize into drive
+  // A, then into drive B with no overlap, and every file is in exactly one place while the strip
+  // said "safe in 2 places". `redundancy_floor` is the weakest file's copy count, so one
+  // unprotected file holds it down and the strip can never over-promise.
+  const noCopy = s.files_no_copy || 0;
+  const oneCopy = s.files_one_copy || 0;
+  const floor = s.redundancy_floor || 0;
+  const atRisk = noCopy + oneCopy;
+  const filled = s.files ? Math.min(floor, 3) : 0;
   pips.textContent = [0, 1, 2].map((i) => (i < filled ? "▪" : "▫")).join(" ");
-  pips.classList.toggle("none", places === 0);
-  const safe = !s.files ? "not backed up yet"
-    : places === 0 ? "not on a backup drive yet"
-    : `safe in ${places} place${places > 1 ? "s" : ""}`;
-  // deliberate two lines (counts, then safety) so nothing orphans at the 232px sidebar width
+  pips.classList.toggle("none", filled === 0);
+  pips.classList.toggle("at-risk", Boolean(s.files) && atRisk > 0);
+  // RISK FIRST: an exposed file is a reason to act, so it is what the strip says. The
+  // reassurance is only offered when it is true of every file, never as an average.
+  // `files_no_copy` is named separately because `single_copy_count` cannot see it - that query
+  // reads FROM file_copies, so a file with no copy row at all is in neither bucket.
+  const safe = !s.files ? "nothing organized yet"
+    : noCopy ? `${plural(noCopy, "file")} not on a drive yet`
+    : oneCopy ? `${plural(oneCopy, "file")} in only one place`
+    : `every file in ${filled} places`;
+  // One custody sentence, not an inventory. The photos/videos line that used to sit above this
+  // never changed and asked nothing of anyone; custody is what this strip is for.
   const catalogPath = s.catalog_path
     ? `<div class="catalog-path mono" id="custody-catalog" data-full="${esc(s.catalog_path)}" title="${esc(s.catalog_path)}">${esc(s.catalog_path)}</div>`
     : "";
@@ -989,7 +1025,7 @@ async function loadCustody() {
       ? `<div class="${cls}"><div>${esc(s.catalog_detail)}</div></div>`
       : `<div class="${cls}">${esc(s.catalog_detail)}</div>`;
   }
-  line.innerHTML = `<b>${s.files ? mediaCount(s) : "0 photos"}</b><br><span class="safe">${safe}</span>${catalogPath}${catalogNote}`;
+  line.innerHTML = `<span class="${atRisk ? "at-risk" : "safe"}">${safe}</span>${catalogPath}${catalogNote}`;
   refreshCatalogPathFit();
 }
 window.addEventListener("resize", debounce(refreshCatalogPathFit, 50));

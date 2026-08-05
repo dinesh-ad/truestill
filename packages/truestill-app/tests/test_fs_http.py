@@ -20,6 +20,11 @@ def test_library_status_is_honest_when_empty(client: TestClient) -> None:
         "by_format",
         "places",
         "single_copy",
+        # Per-file custody, added 2026-08-05. `places` counts DRIVES and stays for callers that
+        # want it, but no sentence about files may be written against it again.
+        "files_no_copy",
+        "files_one_copy",
+        "redundancy_floor",
         "bytes",
         "catalog_path",
         "catalog_presence",
@@ -28,7 +33,12 @@ def test_library_status_is_honest_when_empty(client: TestClient) -> None:
     }
     assert s["photos"] == 0
     assert s["videos"] == 0
-    assert s["places"] == 0  # honest zero -> "not backed up yet", never a fake count
+    assert s["places"] == 0  # honest zero -> never a fake count
+    # An empty library has no exposed files and no redundancy to claim; the strip reads
+    # "nothing organized yet" rather than reassuring about nothing.
+    assert s["files_no_copy"] == 0
+    assert s["files_one_copy"] == 0
+    assert s["redundancy_floor"] == 0
     assert s["catalog_path"].endswith("c.sqlite")
     assert s["catalog_presence"] in ("will_create", "empty")  # created on open may flip
     assert "error" not in (s.get("catalog_detail") or "").lower()

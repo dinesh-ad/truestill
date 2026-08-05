@@ -796,12 +796,21 @@ algorithm toggle. Full rationale: `DECISIONS.md` **D8**.
     scan, and there is no larger n to re-aim it at. Recorded rather than deleted because a
     contract that named a symbol for a day after the symbol went is the failure `(aan)` is
     filed to catch.
-- **The custody strip counts, it does not list.** `Catalog.single_copy_count()` answers the
-  "safe in N places" question with a `COUNT(*)`; it used to build and sort every at-risk row
-  via `single_copy_shas()` and take `len()` of it - **224 ms to 17.5 ms at 100k**, on a query
-  that runs after every operation and on every load. The listing form still exists for the
-  screen that shows the names, and `test_single_copy_count_matches_the_listing` holds the two
-  answers together.
+- **The custody strip counts, it does not list.** `Catalog.single_copy_count()` answers *how
+  many files sit on exactly one drive* with a `COUNT(*)`; it used to build and sort every
+  at-risk row via `single_copy_shas()` and take `len()` of it - **224 ms to 17.5 ms at 100k**,
+  on a query that runs after every operation and on every load. That measurement is unchanged
+  and still true of the method. The listing form still exists for the screen that shows the
+  names, and `test_single_copy_count_matches_the_listing` holds the two answers together.
+  - **Corrected 2026-08-05: this row used to say the method answers the "safe in N places"
+    question. It did not.** That sentence was written against `len(drives-with-any-copy)` - a
+    per-drive count under a per-file claim - and `single_copy_count` was computed on the same
+    request and dropped. The strip is now per-file and risk-first: `Catalog.custody_floor()`
+    returns the weakest file's copy count plus the no-copy and one-copy tallies in one grouped
+    query, and the sentence is written against those. **`single_copy_count` alone could not have
+    carried it either**: it reads `FROM file_copies`, so a `files` row with no copy at all is in
+    neither bucket, which is the most exposed state a file can be in. Pinned by
+    `tests/e2e/test_custody_strip.py`.
 
 ---
 

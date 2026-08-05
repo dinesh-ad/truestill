@@ -6,6 +6,23 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **The sidebar strip was telling you your photos were safe when they were not.** It read
+  *"safe in 2 places"*, and the 2 was the number of backup drives holding *anything at all* -
+  not the number of places your photos are. Organize into one drive, then organize different
+  photos into a second, and every single photo sat in exactly one place while the strip said
+  two. On the maintainer's own library it said "safe in 2 places" while **31 files had no
+  recorded copy on any drive**.
+  It now counts your **files**, not your drives, and it leads with the risk: *"31 files not on a
+  drive yet"*, or *"4 files in only one place"*. The reassuring version - *"every file in 2
+  places"* - appears only when it is true of **every** file, and the three squares fill from the
+  least-protected file, so they can never promise more than your worst-off photo has.
+  **The word "safe" is gone**, deliberately. Truestill knows where copies were recorded; that is
+  not the same as having checked they are still there. Use **Check now** on the Backups screen
+  for that.
+  The photo and video totals have gone from the strip - they never changed and asked nothing.
+  And the catalog path no longer collapses to a fragment like `…e` when the sidebar animates.
+
 ### Changed
 - **Truestill has a wordmark, and the sidebar it sits in is now a dark rail in both light and
   dark mode.** The name is drawn artwork rather than text in a font, so it looks the same on

@@ -724,17 +724,29 @@ def test_a_finished_copy_splits_photos_and_videos_without_form_letter_grammar(
 
 
 def test_the_custody_strip_is_honest_when_the_catalog_is_empty(ui: Page) -> None:
-    expect(ui.locator("#custody-line")).to_contain_text("0 photos")
-    expect(ui.locator("#custody-line")).to_contain_text("not backed up yet")
+    """REWRITTEN 2026-08-05. It asserted "0 photos" and "not backed up yet".
+
+    The inventory half was removed by ruling - it never changed and asked nothing - and the
+    strip now states custody only. The honesty this test exists for is unchanged: an empty
+    library must not be reassured about.
+    """
+    expect(ui.locator("#custody-line")).to_contain_text("nothing organized yet")
+    expect(ui.locator("#custody-line")).not_to_contain_text("safe")
 
 
 @_EXIFTOOL
 def test_the_custody_strip_counts_places_not_wishes(ui: Page, tmp_path: Path, library) -> None:
-    """One organized library is one place -- and says so, rather than implying safety."""
+    """One organized library is one place - and says so, rather than implying safety.
+
+    REWRITTEN 2026-08-05, and the name still fits: it asserted "safe in 1 place", which was a
+    per-DRIVE count under a per-FILE sentence. Four photos on one drive are four files in one
+    place, and that is now what it says - the same intent, finally computed the way the sentence
+    reads. "safe" is gone entirely: recorded copies are not verified safety.
+    """
     _organize(ui, library(4), tmp_path / "Library")
 
-    expect(ui.locator("#custody-line")).to_contain_text("4 photos")
-    expect(ui.locator("#custody-line")).to_contain_text("safe in 1 place")
+    expect(ui.locator("#custody-line")).to_contain_text("4 files in only one place")
+    expect(ui.locator("#custody-line")).not_to_contain_text("safe in")
 
 
 def test_catalog_path_stays_inside_custody_at_a_narrow_viewport(

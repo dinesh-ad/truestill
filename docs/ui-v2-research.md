@@ -124,6 +124,18 @@ respect reduced motion.
   and in a persistent library line (`1,240 photos · safe in 2 places`). It encodes something real
   (redundancy), stays quiet, and becomes truestill's mark. **Not** a big number with a gradient.
 
+  > **ANNOTATION 2026-08-05 - the intent above was right and the build did not match it.**
+  > Left unedited because this is a dated record of what was designed, not a description of what
+  > shipped. "Filling by verified-copy count" is what the pips do **now**; until 2026-08-05 they
+  > filled by `Math.min(places, 3)`, the number of drives holding any copy, so two drives with no
+  > overlap lit two pips while every file sat in one place. They now fill by the **weakest file's
+  > copy count**, which cannot over-promise.
+  > **One word of the intent is still not met, deliberately:** *verified*. The pips count
+  > recorded copies, and `last_verified` is not consulted - a drive that is offline, whose
+  > location was never known, or that has never been verified still contributes. The strip
+  > therefore no longer says "safe"; it says where files are, which is what the catalog knows.
+  > Verified redundancy would need `verify` to have run, and that is a different claim.
+
 ### Design tokens - the accent decision (revised after the §3 survey)
 
 **Changed from my first pass, and why.** My first pass proposed a *verified-teal* accent. The

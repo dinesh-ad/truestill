@@ -1611,10 +1611,16 @@ class Catalog:
     def single_copy_count(self) -> int:
         """How many files exist on exactly one drive -- the number, without the names.
 
-        The custody strip refreshes on every screen and only ever renders this count, but was
-        calling :meth:`single_copy_shas`, which joins to two tables and sorts every at-risk row
-        by name so it can throw all of it away. Measured at 100k files that was 425 ms per
+        Was calling :meth:`single_copy_shas`, which joins to two tables and sorts every at-risk
+        row by name so it can throw all of it away. Measured at 100k files that was 425 ms per
         refresh against 27 ms here. Same question, asked directly.
+
+        **Corrected 2026-08-05.** This used to say "the custody strip refreshes on every screen
+        and only ever renders this count". Both halves were false: the strip does not refresh on
+        a screen switch (`showScreen` does not call it), and it never rendered this count at all
+        - it rendered a per-drive number instead. The strip now uses :meth:`custody_floor`,
+        which this method cannot replace: reading ``FROM file_copies`` makes a file with no copy
+        row invisible here.
 
         Equivalent to ``len(single_copy_shas())``: both count sha256 values with exactly one
         row in ``file_copies``, and `test_single_copy_count_matches_the_listing` holds them
@@ -1625,6 +1631,39 @@ class Catalog:
             "(SELECT sha256 FROM file_copies GROUP BY sha256 HAVING COUNT(*) = 1)"
         )
         return int(cursor.fetchone()[0])
+
+    def custody_floor(self) -> sqlite3.Row:
+        """Per-FILE redundancy: how many copies the *weakest* file has, and how many are exposed.
+
+        The custody strip makes a per-file claim in English - "in only one place" - so it has to
+        be answered with a per-file number. `single_copy_count` cannot do it alone: it reads
+        ``FROM file_copies``, so a `files` row with **no** copy row at all is invisible to it and
+        counts as neither safe nor at risk. That file is the most exposed thing in the library.
+
+        ``floor`` is the minimum copy count across every file, so it can never over-promise: one
+        unprotected file holds the whole library's floor down, which is the point of a
+        risk-first reading.
+
+        Complexity: **O(n)** over `files` LEFT JOINed to `file_copies`, grouped once - the same
+        shape as :meth:`single_copy_count`, one query rather than three.
+        """
+        cursor = self._conn.execute(
+            """
+            WITH per_file AS (
+                SELECT f.sha256 AS sha, COUNT(fc.sha256) AS copies
+                FROM files f
+                LEFT JOIN file_copies fc ON fc.sha256 = f.sha256
+                GROUP BY f.sha256
+            )
+            SELECT
+                COALESCE(SUM(CASE WHEN copies = 0 THEN 1 ELSE 0 END), 0) AS no_copy,
+                COALESCE(SUM(CASE WHEN copies = 1 THEN 1 ELSE 0 END), 0) AS one_copy,
+                COALESCE(MIN(copies), 0) AS floor
+            FROM per_file
+            """
+        )
+        row: sqlite3.Row = cursor.fetchone()
+        return row
 
     def event_by_signature(self, signature: str) -> sqlite3.Row | None:
         """A previously-named event with this cluster signature, if any."""
