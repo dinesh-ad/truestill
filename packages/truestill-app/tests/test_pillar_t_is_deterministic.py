@@ -145,13 +145,21 @@ def test_the_geometric_t_does_not_claim_a_font_origin() -> None:
             )
 
 
-def test_the_geometric_t_has_not_replaced_the_libre_caslon_one() -> None:
-    """Both exist on purpose; the shipped favicon is still the Libre Caslon T.
+def test_there_is_exactly_one_t_in_the_repo_and_no_monogram() -> None:
+    """REVERSED 2026-08-05: the geometric T now IS the mark, and the alternatives are deleted.
 
-    CORRECTION to the rationale committed with these files in `19b896d`: nothing *reads* these
-    SVGs. `scripts/build_brand_assets.py` WRITES them from the font, and rasterises the ICO's
-    small entries straight from the same font glyph. So the geometric T is not in the favicon
-    path at all, and cannot be until that script is taught to consume it.
+    This asserted that the Libre Caslon pair still existed, because the favicon was built from
+    the font. `(abi)` closed that: the generator reads the geometric artwork, so a second
+    letterform of the same letter is only something to confuse a later reader with.
     """
-    for name in ("pillar-t-light.svg", "pillar-t-dark.svg"):
-        assert (BRAND / name).is_file(), f"brand/{name} is gone"
+    for gone in (
+        "monogram-light.svg",
+        "monogram-dark.svg",
+        "pillar-t-light.svg",
+        "pillar-t-dark.svg",
+    ):
+        assert not (BRAND / gone).exists(), f"brand/{gone} is back - there is one mark"
+
+    # The wordmark stays: `brand/PROVENANCE.md` keeps it for a possible website header, where a
+    # serif at display size is a different question from a serif at 18px in a rail.
+    assert (BRAND / "wordmark-dark.svg").is_file()

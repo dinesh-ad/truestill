@@ -1,4 +1,4 @@
-"""The rail: dark in both themes, an outlined wordmark, a monogram when collapsed.
+"""The rail: dark in both themes, a monospace wordmark, the pillar T when collapsed.
 
 Shell only. Nothing here asserts screen content.
 
@@ -65,55 +65,41 @@ def test_the_wordmark_is_monospace_text_not_artwork(ui: Page) -> None:
     expect(ui.locator(".wordmark .dot")).to_have_text(".")
 
 
-def test_the_wordmark_gradient_is_authored_for_the_rail_not_the_brand_sheet(ui: Page) -> None:
-    """The supplied gradient cannot be used here, and this pins why.
+def test_the_rail_mark_paints_when_the_rail_is_collapsed(ui: Page) -> None:
+    """The defect this has always guarded: a mark that is present, sized, and invisible.
 
-    `#2A3B8C`, the brand sheet's low stop, measures **1.81:1** against the rail - it fails every
-    threshold. The sheet's gradient is for a light page. The rail's is authored separately, and
-    this asserts the unusable stop is not what shipped.
+    It used to be a shared `<linearGradient>` declared inside the wordmark SVG - when the rail
+    collapsed the wordmark became `display: none`, and a hidden SVG's `defs` do not resolve, so
+    the monogram painted nothing at its full 39x26 box. The mark is now flat-filled, which makes
+    that failure structurally impossible; what is asserted is the property itself, so a future
+    gradient cannot quietly reintroduce it.
     """
-    stops = ui.eval_on_selector_all(
-        ".wordmark svg[data-brand='monogram'] linearGradient stop",
-        "els => els.map(e => (e.getAttribute('stop-color') || '').toLowerCase())",
+    ui.click("#sidebar-toggle")
+    expect(ui.locator("#sidebar")).to_have_attribute("data-collapsed", "true")
+    ui.wait_for_timeout(400)
+
+    painted = ui.eval_on_selector(
+        "svg[data-brand='pillar-t']",
+        "el => { const box = el.getBoundingClientRect();"
+        " const fill = getComputedStyle(el.querySelector('path')).fill;"
+        " return {w: box.width, h: box.height, fill}; }",
     )
-    assert stops, "no gradient stops found"
-    assert "#2a3b8c" not in stops, (
-        "the brand sheet's light-page gradient stop is on the dark rail, where it measures "
-        "1.81:1 and is effectively invisible"
+    assert painted["w"] > 0, "the mark has no width"
+    assert painted["h"] > 0, "the mark has no height"
+    assert painted["fill"] not in ("none", "rgba(0, 0, 0, 0)"), (
+        f"the collapsed mark resolves to {painted['fill']!r} - present, sized and invisible"
     )
 
 
-def test_each_mark_carries_its_own_gradient_so_it_paints_when_its_sibling_is_hidden(
-    ui: Page,
-) -> None:
-    """The defect this caught: a shared gradient that stops resolving when collapsed.
-
-    Both marks first referenced one `<linearGradient>` declared inside the wordmark SVG. When
-    the rail collapses, the wordmark is `display: none` - and **a hidden SVG's `defs` do not
-    resolve**, so the monogram rendered at its full 39x26 box and painted nothing at all. It was
-    present, measurable, correctly sized and invisible, which is why the geometry assertions
-    above did not notice. Each mark now declares its own gradient.
-    """
-    for mark in ("monogram",):  # the wordmark is text again; only this one is artwork
-        own = ui.eval_on_selector(
-            f".wordmark svg[data-brand='{mark}']",
-            "el => { const g = el.querySelector('linearGradient');"
-            " if (!g) return null;"
-            " const fill = el.querySelector('path').getAttribute('fill') || '';"
-            " return fill.includes(g.id); }",
-        )
-        assert own is True, f"the {mark} does not reference a gradient it declares itself"
-
-
-def test_collapsing_swaps_the_wordmark_for_the_monogram(ui: Page) -> None:
-    """The 64px rail gets the monogram; the full wordmark does not fit and is not shrunk into it."""
+def test_collapsing_swaps_the_wordmark_for_the_pillar_t(ui: Page) -> None:
+    """The 64px rail gets the mark; the full wordmark does not fit and is not shrunk into it."""
     expect(ui.locator(".wordmark .wordmark-text")).to_be_visible()
-    expect(ui.locator(".wordmark svg[data-brand='monogram']")).to_be_hidden()
+    expect(ui.locator(".wordmark svg[data-brand='pillar-t']")).to_be_hidden()
 
     ui.click("#sidebar-toggle")
     expect(ui.locator("#sidebar")).to_have_attribute("data-collapsed", "true")
 
-    expect(ui.locator(".wordmark svg[data-brand='monogram']")).to_be_visible()
+    expect(ui.locator(".wordmark svg[data-brand='pillar-t']")).to_be_visible()
     expect(ui.locator(".wordmark .wordmark-text")).to_be_hidden()
 
 
@@ -155,16 +141,18 @@ def test_the_rail_artwork_matches_the_authored_source(ui: Page) -> None:
     `brand/*-dark.svg`. Dark, because this rail is dark in both themes.
     """
     root = Path(__file__).resolve().parents[2]
-    for mark in ("monogram",):  # the wordmark is text; only this one comes from brand/
-        source = (root / "brand" / f"{mark}-dark.svg").read_text(encoding="utf-8")
-        expected = re.search(r'<path d="([^"]+)"', source)
-        assert expected is not None, f"no path data in brand/{mark}-dark.svg"
-        rendered = ui.eval_on_selector(
-            f".wordmark svg[data-brand='{mark}'] path", "el => el.getAttribute('d')"
-        )
-        assert rendered == expected.group(1), (
-            f"the {mark} in index.html has drifted from brand/{mark}-dark.svg"
-        )
+    # The flute-less variant: this renders ~26px tall and the hairline is sub-pixel below ~61px.
+    source = (root / "brand" / "pillar-t-geometric-noflute.svg").read_text(encoding="utf-8")
+    expected = [" ".join(d.split()) for d in re.findall(r'\sd="(.*?)"', source, re.S)]
+    assert expected, "no path data in brand/pillar-t-geometric-noflute.svg"
+
+    rendered = ui.eval_on_selector_all(
+        ".wordmark svg[data-brand='pillar-t'] path",
+        "els => els.map(e => e.getAttribute('d').split(/\\s+/).join(' ').trim())",
+    )
+    assert rendered == expected, (
+        "the rail mark in index.html has drifted from brand/pillar-t-geometric-noflute.svg"
+    )
 
 
 def test_the_tab_icon_is_served(ui: Page) -> None:

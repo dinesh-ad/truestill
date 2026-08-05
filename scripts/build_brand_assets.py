@@ -1,13 +1,19 @@
-"""Build the Truestill brand marks from Libre Caslon Text.
+"""Build the Truestill icon set from the geometric pillar T, and the legacy marks from a font.
+
+THE ICONS COME FROM ``brand/pillar-t-geometric*.svg`` and need no font at all. There is one
+mark in this product and it is the pillar T; the TS monogram is gone from the rail and the tab.
+Below 128px the flute is sub-pixel, so those sizes take the ``-noflute`` variant.
 
 One-shot authoring tool, not part of any gate. It is committed so the artwork in ``brand/`` is
 re-derivable rather than being a binary someone has to trust.
 
-**It needs two things this repo does not ship**: ``fonttools`` and ``pillow``, neither a runtime
-dependency, and the Libre Caslon Text font file, which is not committed because the product
-ships no font. Run it as::
+``pillow`` is needed either way; ``fonttools`` and the font only for the legacy marks. Run::
 
+    uv run --with pillow python scripts/build_brand_assets.py                    # icons only
     uv run --with fonttools --with pillow python scripts/build_brand_assets.py <path-to.ttf>
+
+The second form also rewrites the Libre Caslon SVGs, which are ORPHANED - kept as a record and
+for a possible website header, consumed by nothing.
 
 Licence position for what it produces: outlined glyphs are artwork, not Font Software, so the
 output is not subject to the OFL. See ``brand/PROVENANCE.md`` for the clauses.
@@ -15,17 +21,18 @@ output is not subject to the OFL. See ``brand/PROVENANCE.md`` for the clauses.
 
 from __future__ import annotations
 
+import re
 import struct
 import sys
 from io import BytesIO
+from itertools import pairwise
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from fontTools.misc.transform import Transform
-from fontTools.pens.boundsPen import BoundsPen
-from fontTools.pens.svgPathPen import SVGPathPen
-from fontTools.pens.transformPen import TransformPen
-from fontTools.ttLib import TTFont
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw
+
+if TYPE_CHECKING:  # fontTools is needed only for the orphaned Libre Caslon marks, so the
+    from fontTools.ttLib import TTFont  # real imports are deferred into `outline` and `main`.
 
 OUT = Path(__file__).resolve().parents[1] / "brand"
 
@@ -33,19 +40,30 @@ OUT = Path(__file__).resolve().parents[1] / "brand"
 #: low stop measures 1.81:1 on the dark rail, which is unusable.
 GRADIENTS = {"light": ("#4C63C4", "#2A3B8C"), "dark": ("#A9B6F0", "#7D90E6")}
 
-#: The T alone carries the sizes where an interlocked pair closes up.
-TINY_SIZES = frozenset({16, 24})
+#: Below this the hairline flute is sub-pixel and renders as a grey smudge; measured across
+#: 16-128px, it only reaches paper white at 128. Same threshold `brand/PROVENANCE.md` records.
+FLUTE_MIN_SIZE = 128
 PNG_SIZES = (16, 24, 32, 48, 64, 128, 256, 512, 1024)
 ICO_SIZES = (16, 24, 32, 48, 64, 128, 256)
 
-#: name, glyphs, tracking in em units per gap
-MARKS = (("wordmark", "Truestill", 0.0), ("monogram", "TS", 0.012), ("pillar-t", "T", 0.0))
+#: name, glyphs, tracking in em units per gap.
+#: The monogram and the Libre Caslon T are GONE, not merely unused: there is one mark in this
+#: product and it is the geometric pillar T. Only the wordmark is still derived from the font,
+#: and only because a website header may still want a set wordmark - it has no consumer today.
+MARKS = (("wordmark", "Truestill", 0.0),)
 
 
 def outline(
     font: TTFont, text: str, tracking: float, height: float = 1000.0
 ) -> tuple[str, float, float]:
     """Outlined path data plus the tight ink box, y flipped into SVG's coordinate sense."""
+    # Deferred: the icons need no font, and requiring fontTools to build them would put the
+    # dependency back that this whole change removed.
+    from fontTools.misc.transform import Transform  # noqa: PLC0415
+    from fontTools.pens.boundsPen import BoundsPen  # noqa: PLC0415
+    from fontTools.pens.svgPathPen import SVGPathPen  # noqa: PLC0415
+    from fontTools.pens.transformPen import TransformPen  # noqa: PLC0415
+
     glyph_set = font.getGlyphSet()
     cmap = font.getBestCmap()
     upm = font["head"].unitsPerEm
@@ -117,48 +135,146 @@ def rounded_tile(size: int, radius_ratio: float = 0.22) -> Image.Image:
     return tile
 
 
-def raster_mark(
-    font_path: Path, text: str, size: int, supersample: int = 8, *, tile: bool = False
-) -> Image.Image:
-    """The mark centred on its ink box.
+#: Absolute M L H V Q C Z is the whole vocabulary `make_pillar_t.py` emits. A parser that
+#: silently ignored a command it did not know would produce a subtly wrong mark, so unknown
+#: commands raise rather than being skipped.
+_PATH_TOKENS = re.compile(r"([A-Za-z])|(-?\d+(?:\.\d+)?)")
 
-    ``tile=False`` gives a transparent PNG with the glyph gradient-filled - correct where we own
-    the background. ``tile=True`` knocks the glyph out of an opaque gradient tile instead, which
-    is what an icon needs: a transparent mark in the light gradient measures **1.61:1** on a dark
-    browser tab and is effectively invisible. One colour cannot serve both grounds, so the icon
-    carries its own.
+
+def flatten_path(  # noqa: PLR0915 - one dispatch table; splitting it hides the vocabulary
+    data: str, steps: int = 48
+) -> list[list[tuple[float, float]]]:
+    """SVG path data to closed polygons, Beziers sampled at ``steps`` per segment."""
+
+    def bezier(
+        start: tuple[float, float], points: list[tuple[float, float]]
+    ) -> list[tuple[float, float]]:
+        out = []
+        for index in range(1, steps + 1):
+            t = index / steps
+            control = [start, *points]
+            while len(control) > 1:
+                control = [
+                    (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
+                    for a, b in pairwise(control)
+                ]
+            out.append(control[0])
+        return out
+
+    tokens = [command or number for command, number in _PATH_TOKENS.findall(data)]
+    polygons: list[list[tuple[float, float]]] = []
+    current: list[tuple[float, float]] = []
+    position = start = (0.0, 0.0)
+    index = 0
+    command = ""
+
+    def number() -> float:
+        nonlocal index
+        value = float(tokens[index])
+        index += 1
+        return value
+
+    while index < len(tokens):
+        if tokens[index].isalpha():
+            command = tokens[index]
+            index += 1
+            if command == "Z":
+                if current:
+                    polygons.append(current)
+                    current = []
+                position = start
+                continue
+        if command == "M":
+            position = (number(), number())
+            start = position
+            current = [position]
+        elif command == "L":
+            position = (number(), number())
+            current.append(position)
+        elif command == "H":
+            position = (number(), position[1])
+            current.append(position)
+        elif command == "V":
+            position = (position[0], number())
+            current.append(position)
+        elif command == "Q":
+            control = (number(), number())
+            end = (number(), number())
+            current += bezier(position, [control, end])
+            position = end
+        elif command == "C":
+            first = (number(), number())
+            second = (number(), number())
+            end = (number(), number())
+            current += bezier(position, [first, second, end])
+            position = end
+        else:
+            message = f"unsupported path command {command!r}"
+            raise ValueError(message)
+    if current:
+        polygons.append(current)
+    return polygons
+
+
+def mark_mask(svg_path: Path, canvas: int, padding_fraction: float = 0.10) -> Image.Image:
+    """An alpha mask of the mark, centred on its own INK box rather than on its viewBox.
+
+    The viewBox is taller and wider than the drawing, so centring on it would leave the mark
+    high and small inside the tile - the same mistake as sizing a glyph by its em square.
+    """
+    svg = svg_path.read_text(encoding="utf-8")
+    # `(?<![a-zA-Z])` or the `d` of `id="..."` matches and every path becomes its own id.
+    # Grouped per <path>, because even-odd is resolved within one element, not across the file.
+    elements = [flatten_path(data) for data in re.findall(r'(?<![a-zA-Z])d="(.*?)"', svg, re.S)]
+    polygons = [polygon for element in elements for polygon in element]
+    if not polygons:
+        message = f"no path data in {svg_path}"
+        raise ValueError(message)
+
+    xs = [x for polygon in polygons for x, _ in polygon]
+    ys = [y for polygon in polygons for _, y in polygon]
+    ink_width, ink_height = max(xs) - min(xs), max(ys) - min(ys)
+
+    padding = int(canvas * padding_fraction)
+    inner = canvas - 2 * padding
+    scale = min(inner / ink_width, inner / ink_height)
+    offset_x = padding + (inner - ink_width * scale) / 2 - min(xs) * scale
+    offset_y = padding + (inner - ink_height * scale) / 2 - min(ys) * scale
+
+    mask = Image.new("L", (canvas, canvas), 0)
+    for element in elements:
+        # EVEN-ODD, per subpath. The flute is a cutout inside the body: filling it like any
+        # other polygon welds it into the stem, which is how the 128px icon first shipped with
+        # no flute. Each path element is resolved on its own, then OR-ed into the whole.
+        layer = Image.new("L", (canvas, canvas), 0)
+        piece = Image.new("L", (canvas, canvas), 0)
+        for polygon in element:
+            piece.paste(0, (0, 0, canvas, canvas))
+            ImageDraw.Draw(piece).polygon(
+                [(x * scale + offset_x, y * scale + offset_y) for x, y in polygon], fill=255
+            )
+            layer = ImageChops.difference(layer, piece)
+        mask = ImageChops.lighter(mask, layer)
+    return mask
+
+
+def icon_source(size: int) -> Path:
+    """Which variant a given size takes. Below 128 the flute cannot survive."""
+    name = "pillar-t-geometric.svg" if size >= FLUTE_MIN_SIZE else "pillar-t-geometric-noflute.svg"
+    return OUT / name
+
+
+def raster_pillar_t(size: int, supersample: int = 8) -> Image.Image:
+    """The tile with the pillar T knocked out of it.
+
+    Knockout rather than a filled glyph: a transparent mark in the light gradient measures
+    1.61:1 on a dark browser tab. The tile carries the contrast and the letterform shows the
+    host background through itself, so one asset reads on light chrome and dark.
     """
     canvas = size * supersample
-    padding = int(canvas * 0.10)
-    inner = canvas - 2 * padding
-
-    low, high, chosen = 4, inner * 4, None
-    while low <= high:
-        middle = (low + high) // 2
-        candidate = ImageFont.truetype(str(font_path), middle)
-        box = candidate.getbbox(text)
-        if (box[2] - box[0]) <= inner and (box[3] - box[1]) <= inner:
-            chosen = (middle, box)
-            low = middle + 1
-        else:
-            high = middle - 1
-    assert chosen is not None, "no point size fits the canvas"
-    point_size, box = chosen
-
-    face = ImageFont.truetype(str(font_path), point_size)
-    mask = Image.new("L", (canvas, canvas), 0)
-    dx = padding + (inner - (box[2] - box[0])) // 2 - box[0]
-    dy = padding + (inner - (box[3] - box[1])) // 2 - box[1]
-    ImageDraw.Draw(mask).text((dx, dy), text, fill=255, font=face)
-
-    if tile:
-        out = rounded_tile(canvas)
-        # Knock the glyph out by clearing its alpha, so the tile's own ground shows the shape.
-        cleared = Image.new("RGBA", (canvas, canvas), (0, 0, 0, 0))
-        out.paste(cleared, (0, 0), mask)
-    else:
-        out = Image.new("RGBA", (canvas, canvas), (0, 0, 0, 0))
-        out.paste(gradient_image(canvas, canvas), (0, 0), mask)
+    mask = mark_mask(icon_source(size), canvas)
+    out = rounded_tile(canvas)
+    out.paste(Image.new("RGBA", (canvas, canvas), (0, 0, 0, 0)), (0, 0), mask)
     return out.resize((size, size), Image.Resampling.LANCZOS)
 
 
@@ -181,26 +297,16 @@ def write_ico(target: Path, frames: list[tuple[int, bytes]]) -> None:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) != 2:
+    """Icons always; the orphaned Libre Caslon SVGs only when a font is supplied."""
+    if len(argv) > 2:
         print(__doc__)
         return 2
-    font_path = Path(argv[1])
-    font = TTFont(font_path)
-
-    for mark, text, tracking in MARKS:
-        data, width, height = outline(font, text, tracking)
-        for variant in GRADIENTS:
-            (OUT / f"{mark}-{variant}.svg").write_text(
-                svg_document(mark, data, width, height, variant)
-            )
-        print(f"{mark:9} viewBox 0 0 {width:.1f} {height:.1f}")
 
     icons = OUT / "icons"
     icons.mkdir(parents=True, exist_ok=True)
     for size in PNG_SIZES:
-        art = "T" if size in TINY_SIZES else "TS"
-        raster_mark(font_path, art, size, tile=True).save(icons / f"truestill-{size}.png")
-    raster_mark(font_path, "TS", 1024, tile=True).save(OUT / "master-1024.png")
+        raster_pillar_t(size).save(icons / f"truestill-{size}.png")
+    raster_pillar_t(1024).save(OUT / "master-1024.png")
 
     frames = []
     for size in ICO_SIZES:
@@ -208,7 +314,21 @@ def main(argv: list[str]) -> int:
         Image.open(icons / f"truestill-{size}.png").save(buffer, format="PNG", optimize=True)
         frames.append((size, buffer.getvalue()))
     write_ico(OUT / "favicon.ico", frames)
-    print(f"png {list(PNG_SIZES)} (16/24 = pillar T)\nico {list(ICO_SIZES)}")
+    fluted = [s for s in ICO_SIZES if s >= FLUTE_MIN_SIZE]
+    print(f"png {list(PNG_SIZES)}\nico {list(ICO_SIZES)}  fluted at {fluted}, flute-less below")
+
+    if len(argv) == 2:
+        from fontTools.ttLib import TTFont  # noqa: PLC0415 - see `outline`
+
+        font_path = Path(argv[1])
+        font = TTFont(font_path)
+        for mark, text, tracking in MARKS:
+            data, width, height = outline(font, text, tracking)
+            for variant in GRADIENTS:
+                (OUT / f"{mark}-{variant}.svg").write_text(
+                    svg_document(mark, data, width, height, variant)
+                )
+            print(f"{mark:9} viewBox 0 0 {width:.1f} {height:.1f}  (ORPHANED - no consumer)")
     return 0
 
 
