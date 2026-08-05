@@ -275,10 +275,19 @@
       <section class="screen" id="screen-find">
         <header><h1>Find a file</h1>
           <p class="lede">Search your whole library - it works even when the drives are unplugged.</p></header>
-        <div class="card">
-          <div class="field"><label for="where-term">Search</label>
-            <div class="row"><input class="input" id="where-term" placeholder="e.g. beach 2019">
-              <button class="btn btn-primary" id="where-go">Search</button></div></div>
+        <!-- Spotlight, not a dashboard. The field IS the screen until there is something to
+             show, so it leads at `--text-lg` and carries no card chrome competing with it.
+             THE PLACEHOLDER IS ONE WORD ON PURPOSE: `find_copies_query` builds a single
+             substring LIKE over three columns - no whitespace split, no AND - so "beach 2019"
+             matches only that literal string, and a photo in `2019-07-04 - Beach/` never has
+             it. Teaching a query the search cannot answer is worse than teaching none. -->
+        <div class="field search-hero">
+          <label for="where-term">Search</label>
+          <div class="row">
+            <input class="input" id="where-term" placeholder="e.g. Wayanad">
+            <button class="btn btn-primary" id="where-go">Search</button>
+          </div>
+          <span class="hint">Matches part of a file name or folder path. One word works best.</span>
         </div>
         <div id="where-result"></div>
       </section>

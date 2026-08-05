@@ -1221,3 +1221,13 @@ details.more > summary::-webkit-details-marker {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Find's search field leads the screen: it is the only thing there until a query runs, and a
+   16px input inside a card reads as one more form row on a screen that is nothing but this. */
+.search-hero .input {
+  font-size: var(--text-lg);
+  padding: var(--space-3) var(--space-4);
+}
+.search-hero > label {
+  font-size: var(--text-lg);
+}
