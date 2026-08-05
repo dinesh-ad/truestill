@@ -911,12 +911,10 @@ details.more > summary::-webkit-details-marker {
 /* responsive: collapse the sidebar to a top bar */
 @media (max-width: 720px) {
   /* RULE 2 OF 2, AND IT IS DELIBERATE - do not "make this consistent" with the rule above.
-     Here the sidebar is a wrapping top bar: seven items plus the wordmark plus the custody
-     strip. Pinning that to a short window spends most of the viewport on navigation. Sticky
-     nav pays when the nav is small relative to the content, and at this width it is not, so
-     the bar scrolls away exactly as it did before. Ruled 2026-08-04; the design target is a
-     1000-1400px desktop window. Pinned by `test_below_the_breakpoint_the_top_bar_still_
-     scrolls_away`, so changing it back means arguing with a test rather than tidying a file. */
+     Here the rail is a TOP BAR and it scrolls away with the page. Pinning a bar to a short
+     window spends most of the viewport on navigation; sticky nav pays when the nav is small
+     relative to the content, and at this width it is not. Ruled 2026-08-04, pinned by
+     `test_below_the_breakpoint_the_top_bar_still_scrolls_away`. */
   .app,
   .app.sidebar-collapsed {
     --sidebar-width: auto;
@@ -928,8 +926,10 @@ details.more > summary::-webkit-details-marker {
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-2) var(--space-3);
     border-right: none;
-    border-bottom: var(--border-width) solid var(--border);
+    border-bottom: var(--border-width) solid var(--rail-border);
   }
   .sidebar-head {
     flex-direction: row;
@@ -938,50 +938,91 @@ details.more > summary::-webkit-details-marker {
   .sidebar-toggle {
     display: none;
   }
-  /* Below the breakpoint the collapse toggle is hidden, so a rail can be left in the collapsed
-     state by a wider window and then have no way back. The full wordmark is restored here for
-     that case - the top bar has the width for it, and the monogram is the 64px rail's answer,
-     not this one's. */
+  /* The collapse control is hidden here, so a rail left collapsed by a wider window must not
+     stay collapsed with no way back. The wordmark is restored for that case: the bar has room
+     for the word, and the mark is the 64px rail's answer rather than this one's. */
   .sidebar[data-collapsed="true"] .wordmark {
     justify-content: flex-start;
-    padding: var(--space-2) var(--space-3);
+    padding: var(--space-1) var(--space-3);
   }
   .sidebar[data-collapsed="true"] .wordmark-text {
     display: inline;
   }
-  .sidebar[data-collapsed="true"] .brand-monogram {
+  .sidebar[data-collapsed="true"] svg[data-brand="pillar-t"] {
     display: none;
   }
-  .sidebar[data-collapsed="true"] .nav-label {
-    position: static;
-    width: auto;
-    height: auto;
-    margin: 0;
-    clip: auto;
-    overflow: visible;
-  }
-  .sidebar[data-collapsed="true"] .nav-item {
-    justify-content: flex-start;
-    padding: var(--space-2) var(--space-3);
-    gap: var(--space-3);
-  }
-  .sidebar[data-collapsed="true"] .nav-tooltip {
+  .nav-section-label,
+  .sidebar[data-collapsed="true"] .nav-section-label {
     display: none;
   }
   .nav {
     flex-direction: row;
     flex-wrap: wrap;
+    gap: var(--space-1);
+    margin-left: auto;
   }
+  /* THE FIX. `width: 100%` from the base rule is why seven items became seven rows: the wrap
+     had nothing to wrap. Auto width lets them sit side by side. */
+  .nav-item,
+  .sidebar[data-collapsed="true"] .nav-item {
+    width: auto;
+    justify-content: center;
+    padding: var(--space-2);
+    gap: 0;
+  }
+  /* ICONS ONLY, label in the tooltip - the collapsed rail's mechanism, reused. Seven text
+     labels do not fit one row at this width, and a horizontally scrolling strip hides
+     destinations behind a gesture people do not find. The label stays in the DOM for AT. */
+  .nav-label,
+  .sidebar[data-collapsed="true"] .nav-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .nav-item:hover .nav-tooltip,
+  .nav-item:focus .nav-tooltip,
+  .sidebar[data-collapsed="true"] .nav-item:hover .nav-tooltip,
+  .sidebar[data-collapsed="true"] .nav-item:focus .nav-tooltip {
+    opacity: 1;
+    visibility: visible;
+  }
+  /* Below the bar rather than inside it. It floated to the right edge on `margin-left: auto`
+     and took 219px of the 619px bar. It is the only ambient answer to "where are my files",
+     so it is not dropped here - it becomes a full-width band, which also gives the catalog
+     path far more room than the 232px rail ever did. */
   .custody,
   .sidebar[data-collapsed="true"] .custody {
-    margin: 0 0 0 auto;
-    max-width: min(232px, 100%);
-    min-width: 0;
-    display: block;
-    padding: var(--space-3);
+    order: 10;
+    /* The basis has to include the negative margins: `100%` is the container's CONTENT box,
+       so a full-bleed band is 100% plus the padding it is pulling back over. */
+    flex: 0 0 calc(100% + 2 * var(--space-3));
+    margin: var(--space-2) calc(-1 * var(--space-3)) calc(-1 * var(--space-2));
+    max-width: none;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border-radius: 0;
+    border: none;
+    border-top: var(--border-width) solid var(--rail-border);
   }
+  .custody .pips,
+  .sidebar[data-collapsed="true"] .custody .pips {
+    font-size: var(--text-sm);
+    letter-spacing: 3px;
+  }
+  .custody .line,
   .sidebar[data-collapsed="true"] .custody .line {
     display: block;
+    margin-top: 0;
+    min-width: 0;
+    flex: 1;
   }
   .main {
     padding: var(--space-5) var(--space-4);
