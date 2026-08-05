@@ -417,10 +417,25 @@ code,
   padding: var(--space-7) var(--space-6);
   overflow-y: auto;
 }
+/* 760px left ~250px of empty page beside the content once the panel existed, which reads as
+   broken rather than as breathing room. The column grows to fill what is there, and stops at
+   1080 so a 2400px window does not get one enormous line.
+
+   760 EXISTED TO PROTECT PROSE, so that constraint moves onto the text rather than being
+   dropped: `.lede` already capped itself at 56ch, and the card-body prose now caps at 68ch.
+   What gains the width is what benefits from it - a path field that shows the whole path, a
+   results table, a row of metrics. Controls are not prose. */
 .screen {
   display: none;
-  max-width: 760px;
+  max-width: 1080px;
   margin: 0 auto;
+}
+/* Long-form text inside a card. Not `.card` itself: the card holds fields and tables that
+   should use the full column. */
+.screen .card .k,
+.screen .card .hint,
+.screen .banner .k {
+  max-width: 68ch;
 }
 .screen.active {
   display: block;
