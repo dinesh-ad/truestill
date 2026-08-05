@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(abc). Next free: (abd).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(abg). Next free: (abh).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -43,6 +43,123 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(abd) ONE CATALOG OR MANY - the question is unanswered, and it may be the wrong default.**
+  Recorded 2026-08-05. **Ranked above the three entries below it.** The question, not a ruling:
+  a user who keeps library A and library B deliberately apart gets one catalog, and every
+  library-wide number sums across both.
+  - **What the code does.** `app_paths.default_catalog_path` resolves, per call: `--db` if
+    given; else `./reports/catalog.sqlite` **if a working directory was "chosen"**; else
+    `TRUESTILL_DATA_DIR` or `platformdirs.user_data_dir`. "Chosen" is
+    `sys.stdout is not None or sys.stderr is not None` - *was this launched from a terminal* -
+    because a double-clicked app inherits a meaningless directory. **The destination is never
+    consulted.** The catalog is a property of how you launched, not of what you organized into.
+  - **THREE CONSEQUENCES, recorded separately because they need different fixes.**
+    1. **Wrong totals.** Every reporting surface sums across both libraries - the custody strip,
+       Stats, `truestill status`, `where`/Find.
+    2. **PRIVACY, and this is the sharpest one for a product whose pitch is custody.** Working in
+       A reveals B through: the custody strip; Stats totals, the per-drive table naming B's drive
+       **label**, and `undated_samples` / `zero_drive_samples`, which are real filenames; the
+       Backups cards (label, path hint, counts); **Find and `truestill where`, whose query joins
+       `drives` and selects `d.label` with no drive filter at all**; `truestill status`; and the
+       startup banner. There is no active-library concept and no scoping control anywhere.
+    3. **DEDUP REFUSES THE SECOND COPY - behavioural, not cosmetic, and neither the maintainer
+       nor this agent anticipated it.** `DedupIndex` seeds from catalog content, so the same
+       photo organized into library B after library A is an exact duplicate of itself and is
+       **skipped**. Deliberately keeping one photo in two separate libraries does not work at
+       all. A user would read this as Truestill silently refusing to copy their file.
+  - **`--db` separation is genuinely clean.** Two catalogs share nothing: no totals, no leak, no
+    cross-library dedup. The whole problem is the default, not the architecture.
+  - **Separation is possible and undocumented.** `--db` on both surfaces, or
+    `TRUESTILL_DATA_DIR`. Neither is presented as a multi-library feature - `--db`'s help says
+    "SQLite catalog", and the env var is documented as a *test-isolation* override. Forgetting
+    the flag once merges the two permanently.
+  - **PRIOR ART - WEB RESEARCH SUPPLIED BY THE MAINTAINER, not repo evidence and not verified
+    by this agent, which has no web access. Treat it as his findings, recorded verbatim:**
+    - **Adobe's own docs** tell users to work with the same catalog every time, and Lightroom
+      experts call deliberate splitting unnecessary and "a recipe for total confusion".
+    - **But the reported pain is almost entirely ACCIDENTAL multiplication** - users with
+      fourteen catalogs they never meant to create, or jumping between catalogs after a machine
+      change and losing work already done. The deliberate case is a defended minority: one
+      catalog per drive so a single drive can travel.
+    - **Immich and PhotoPrism answer it differently** - per-user private libraries - and
+      PhotoPrism has an open, unresolved discussion asking for exactly that.
+  - ⚠ **Truestill's per-directory behaviour is closer to Lightroom's accident than to anyone's
+    intent.** `reports/catalog.sqlite` was picked up because the app ran from the repo. The
+    same install, double-clicked, would have used the OS data directory. Nothing warns that the
+    answer changed.
+  - **Is one catalog a recorded decision? NO - checked, and this is the finding.** `DECISIONS.md`
+    holds D1-D9 and **none is about catalog scope**. The nearest, D8, argues "one catalog column,
+    one verification identity, no setting that splits a library's custody record" - that is about
+    *hash algorithms*, not libraries. `IMPLEMENTATION_STANDARDS.md` §3's "Single SQLite file" is
+    the *no-server, stdlib-sqlite3* choice in context. No research doc examines it; no backlog
+    item raised it before this one. **The architecture assumes one library per machine and the
+    code serves that assumption well, but nobody weighed it.**
+  - **THE SHAPE A RULING WOULD TAKE - noted, deliberately NOT made.** On the evidence above, one
+    catalog is likely the right default; **accidental multiplication is the disease**, not
+    deliberate separation; and today's launch-mechanism resolution is closer to Lightroom's
+    accident than to anyone's intent. What still has to be answered: is one-catalog-per-machine
+    the intended product with `--db` as the escape hatch, is a named-library concept wanted, or
+    is the per-directory pickup itself the bug? All three are consistent with today's code.
+    **Post-launch.**
+
+- **(abe) CLI-organized files were invisible to custody, and pre-existing rows are not repaired.**
+  Recorded 2026-08-05, fixed forward the same day in `a0091cf`.
+  - **The mechanism.** `organizer.py` has one `record_uploaded` call site, and `file_copies` is
+    written only when `drive_uuid` is given. `cli.py` read a drive marker and never created one,
+    so `truestill organize` into an ordinary folder wrote a `files` row with **no** copy row: in
+    the dedup index, so a re-run skips that file forever, and outside custody, so `verify`,
+    `status` and `where` cannot see it. The app never had this - it registers the destination
+    before writing (`service/organize.py`).
+  - **Fixed forward** by `cli._register_destination`, gated on `--apply`, rclone excluded.
+  - ⚠ **Pre-existing rows are NOT repaired**, and that is the open half. On the maintainer's own
+    catalog, 31 rows (ids 1-31, all 2026-07-25) sit in this state; every row from 2026-07-27
+    onward has a copy. They now surface on Stats as "not on a registered drive".
+  - **Is a repair path wanted? Undecided, and here is what it would cost.** A repair cannot be
+    inferred: the catalog records no destination for those rows, so nothing knows *which* drive
+    they were written to, or whether the files are still there. The honest options are
+    (1) re-import from the originals, which the Stats copy already suggests and which needs no
+    code; (2) a `truestill adopt`-style scan of a named drive, matching content by hash and
+    writing the missing `file_copies` rows - which is `(hh)`, already filed for a related need;
+    or (3) leave them and let the Stats count explain itself. **Option 2 is the only one that is
+    new code, and `(hh)` would already cover it** - which argues for doing nothing here beyond
+    making sure `(hh)` knows about this case.
+
+- **(abf) A fix does not retroactively clean what it prevented.** Recorded 2026-08-05.
+  - Row **id=1** in the maintainer's catalog has a `source_path` under a pytest temp directory -
+    `/tmp/pytest-of-<user>/pytest-81/test_skip_undated_names_skippe0/src/…` - naming the test that
+    created it. A **test run** wrote into a real catalog. (The username is elided here on
+    purpose; the load-bearing part is the tmpdir and the test name.)
+  - **`(aae)` is recorded as fixed and it was** - `TRUESTILL_DATA_DIR` / `TRUESTILL_CACHE_DIR`
+    honoured on every platform, a root `conftest.py` redirecting both for the session, and
+    `default_catalog_path` resolved per call so a test can isolate it. Nothing here reopens it.
+  - **The point is the general one, and it is why this has its own letter:** a prevention fix
+    leaves its own history behind. `(aae)`'s entry describes the stray file it found and deleted;
+    this row is a *different* survivor, in a different catalog, still counted today - it is one
+    of `(abe)`'s 31. **When a fix stops a class of damage, ask separately whether existing damage
+    is being carried**, and record the answer either way. The two questions look like one.
+
+- **(abg) The reassured state has no notion of staleness - "Schrodinger's backup".**
+  Recorded 2026-08-05. **Record only; the product question wants soak evidence, not a design.**
+  - **What the strip claims.** "every file in 2 places" is true of the **catalog record**, not of
+    the disks. `library_status` counts `file_copies` rows and never consults reachability:
+    **offline drives, drives whose location was never known, and drives never verified all
+    count.** `last_verified` is recorded on every copy and **is not read on this path**.
+  - **Why the wording already hedges.** "safe" was removed from the strip on 2026-08-05 precisely
+    because recorded copies are not verified copies; it says where files are, which is what the
+    catalog knows. So this is a known limit that is *stated*, not a lie - but the reassurance
+    still does not age.
+  - **The forum name for it is "Schrodinger's backup": never tested, so simultaneously valid and
+    invalid.** A copy written two years ago to a drive not seen since reads identically to one
+    verified this morning.
+  - **The product question, deliberately unanswered:** should the claim decay - a verified-within
+    window, a "last checked N months ago" qualifier, or a distinct state once a drive has not
+    been seen for long enough? Every version risks nagging about a drive-in-a-drawer that is
+    perfectly fine, which is exactly the trade `(gg)` and the risk-first strip ruling had to make
+    elsewhere. **Soak is the instrument**: real usage will show whether stale reassurance is a
+    real complaint or a theoretical one.
+  - The data is already there - `drives.last_verified`, `drives.last_seen`, and `DriveReach` -
+    so this is a wording-and-policy question, not a plumbing one.
 
 - **(abc) `check_product_name.SUBCOMMANDS` should be derived, not transcribed.** Recorded
   2026-08-04, when Analyze 3b tripped over it: the list had never gained `analyze` or
@@ -1719,6 +1836,11 @@ picking one up must map the combined order before building.
     reason and is well understood by the audience.
   - **Shares the walk-and-classify machinery with `clean-empty`** - both answer "what is on this
     drive that the catalog does not account for", from opposite ends.
+  - **(abe) needs this too, recorded 2026-08-05.** Files organized by the CLI before it
+    registered its destination are in `files` with no `file_copies` row - the same
+    "content is on the drive, the catalog does not know" shape from the other side. If
+    this is built, it is the repair path for those rows, and `(abe)` argues no separate
+    mechanism should be written for them.
 
 - **(aao) Asset pairing: several files that are one photo.** Recorded 2026-08-02. **Post-launch,
   record only - needs a design pass before any build.** Names the concept that `(y)`, `(p)` and
