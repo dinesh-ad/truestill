@@ -32,7 +32,9 @@ redistributed in any format, and outlining does not end a font EULA.
 
 ## Files
 
-- `wordmark-{light,dark}.svg` - "Truestill", expanded sidebar and website header
+- `wordmark-{light,dark}.svg` - "Truestill". **No consumer as of 2026-08-05**: the rail
+  wordmark reverted to monospace text (`docs/brand.md`). Kept for a possible website header,
+  not deleted, because a serif at display size is a different question from one at 18px.
 - `monogram-{light,dark}.svg` - "TS", the 64px collapsed rail
 - `pillar-t-{light,dark}.svg` - the T alone, for 16px where TS closes up
 - `master-1024.png`, `icons/truestill-*.png`, `favicon.ico`

@@ -7,6 +7,10 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- **The Truestill name in the sidebar is back to the monospace lettering, with the indigo dot.**
+  It was briefly set in a serif; that took the name out of the one thing it was chosen to lead,
+  since every path, count and date in Truestill is set in the same monospace. The **TS** mark on
+  the collapsed sidebar and the app icons are unchanged.
 - **The sidebar no longer warns you about the step you are in the middle of.** If nothing has
   been copied to a backup drive yet, that is progress rather than a problem, and it now reads
   quietly - *"not on a backup drive yet"* - instead of in the warning colour. This is also the
@@ -53,10 +57,11 @@ All notable changes to this project are documented here. The format follows
   And the catalog path no longer collapses to a fragment like `…e` when the sidebar animates.
 
 ### Changed
-- **Truestill has a wordmark, and the sidebar it sits in is now a dark rail in both light and
-  dark mode.** The name is drawn artwork rather than text in a font, so it looks the same on
-  every computer - a font would have rendered differently on Linux, where the one the brand
-  sheet names is not installed. Collapsing the sidebar swaps the full name for a **TS** mark.
+- **The sidebar is now a dark rail in both light and dark mode.** Collapsing it swaps the name
+  for a **TS** mark, which is drawn artwork rather than text in a font, so it looks the same on
+  every computer - a font would have rendered differently on Linux, where the one the brand sheet
+  names is not installed. (The full name itself is set in Truestill's own monospace; see the
+  entry at the top of this release.)
   The seven screens are unchanged and still flat; they are only grouped now under **Main** and
   **Settings**. **The browser tab shows a Truestill icon** instead of a blank page.
   Collapsing is now a small round chevron sitting on the edge between the sidebar and the page,

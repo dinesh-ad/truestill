@@ -99,6 +99,34 @@ code,
   padding: var(--space-2) var(--space-3);
   min-width: 0;
 }
+/* The wordmark: monospace text, the type signature `ui-v2-research` §2 argues for. Rail tokens,
+   not `--text`: the rail is dark in both themes, so the theme's text colour would be near-black
+   on it in light mode.
+
+   FLAT, NOT GRADIENT, and the reason is not contrast - both gradient stops measure clear of AA
+   on this rail (9.17:1 and 6.04:1). Rendered at 3x and compared: across nine characters at 18px
+   the shift from #a9b6f0 to #7d90e6 is imperceptible, so it reads as "indigo text" rather than
+   as a gradient - and it swallows the accent dot, whose colour IS the gradient's high stop. The
+   dot is the one deliberate chromatic note in the mark; a gradient that erases it costs more
+   than it adds. The sheet's gradient belongs where it has room: the monogram, the icons and the
+   website header. */
+.wordmark-text {
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  color: var(--rail-text);
+}
+/* The one chromatic note in the mark, and the reason the word itself stays neutral. */
+.wordmark-text .dot {
+  color: var(--rail-accent);
+}
+.sidebar[data-collapsed="true"] .wordmark-text {
+  display: none;
+}
+
 /* The artwork is sized by HEIGHT and keeps its own aspect ratio; a width would squash it. */
 .brand-mark {
   display: block;
@@ -112,9 +140,6 @@ code,
 .sidebar[data-collapsed="true"] .wordmark {
   justify-content: center;
   padding: var(--space-2) 0;
-}
-.sidebar[data-collapsed="true"] .brand-wordmark {
-  display: none;
 }
 .sidebar[data-collapsed="true"] .brand-monogram {
   display: block;
@@ -879,8 +904,8 @@ details.more > summary::-webkit-details-marker {
     justify-content: flex-start;
     padding: var(--space-2) var(--space-3);
   }
-  .sidebar[data-collapsed="true"] .brand-wordmark {
-    display: block;
+  .sidebar[data-collapsed="true"] .wordmark-text {
+    display: inline;
   }
   .sidebar[data-collapsed="true"] .brand-monogram {
     display: none;

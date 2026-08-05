@@ -36,33 +36,33 @@ def test_the_rail_is_dark_in_light_mode_too(ui: Page) -> None:
     assert max(channels) < 60, f"the rail is not dark: {light}"
 
 
-def test_the_wordmark_is_outlined_artwork_with_an_accessible_name(ui: Page) -> None:
-    """Outlined paths, not a font - so it is identical wherever it renders.
+def test_the_wordmark_is_monospace_text_not_artwork(ui: Page) -> None:
+    """REWRITTEN 2026-08-05. It asserted the wordmark was outlined SVG; that ruling was reversed.
 
-    Georgia is absent from a stock Linux install, which is a launch platform, so a font-rendered
-    wordmark is a different shape per machine. The accessible name is asserted because outlining
-    turns readable text into geometry: without it the product's own name stops existing for a
-    screen reader.
+    `ui-v2-research` §2 argues monospace as the product's TYPE SIGNATURE - every path, count and
+    hash is monospace, and the wordmark heads that system. A serif mark took the wordmark out of
+    the one thing it was chosen to lead. The earlier reasoning about Georgia still holds and is
+    why no serif *font* is used; what changed is that the answer is not a serif at all.
+
+    Being real text has a second benefit the SVG had to work for: the product's own name is
+    selectable, searchable and available to a screen reader without an `aria-label` standing in
+    for it.
     """
-    mark = ui.locator(".wordmark svg[data-brand='wordmark']")
+    mark = ui.locator(".wordmark")
     expect(mark).to_be_visible()
+    expect(mark).to_contain_text("Truestill")
 
-    assert (
-        ui.eval_on_selector(
-            ".wordmark svg[data-brand='wordmark']", "el => el.querySelectorAll('path').length"
-        )
-        > 0
-    ), "the wordmark has no path data - it is not outlined artwork"
+    # `locator().count()`, not `eval_on_selector`, which RAISES on a missing element rather
+    # than returning None - an absence has to be asserted with something that can express one.
+    assert ui.locator(".wordmark svg[data-brand='wordmark']").count() == 0, (
+        "the wordmark is still an SVG"
+    )
 
-    assert (
-        ui.eval_on_selector(
-            ".wordmark svg[data-brand='wordmark']", "el => el.getAttribute('aria-label')"
-        )
-        == "Truestill"
-    )
-    assert "Truestill" in ui.eval_on_selector(
-        ".wordmark svg[data-brand='wordmark'] title", "el => el.textContent"
-    )
+    family = ui.eval_on_selector(".wordmark-text", "el => getComputedStyle(el).fontFamily")
+    assert "mono" in family.lower(), f"the wordmark is not monospace: {family!r}"
+
+    # The trailing dot is part of the mark and carries its own colour.
+    expect(ui.locator(".wordmark .dot")).to_have_text(".")
 
 
 def test_the_wordmark_gradient_is_authored_for_the_rail_not_the_brand_sheet(ui: Page) -> None:
@@ -73,7 +73,7 @@ def test_the_wordmark_gradient_is_authored_for_the_rail_not_the_brand_sheet(ui: 
     this asserts the unusable stop is not what shipped.
     """
     stops = ui.eval_on_selector_all(
-        ".wordmark svg linearGradient stop",
+        ".wordmark svg[data-brand='monogram'] linearGradient stop",
         "els => els.map(e => (e.getAttribute('stop-color') || '').toLowerCase())",
     )
     assert stops, "no gradient stops found"
@@ -94,7 +94,7 @@ def test_each_mark_carries_its_own_gradient_so_it_paints_when_its_sibling_is_hid
     present, measurable, correctly sized and invisible, which is why the geometry assertions
     above did not notice. Each mark now declares its own gradient.
     """
-    for mark in ("wordmark", "monogram"):
+    for mark in ("monogram",):  # the wordmark is text again; only this one is artwork
         own = ui.eval_on_selector(
             f".wordmark svg[data-brand='{mark}']",
             "el => { const g = el.querySelector('linearGradient');"
@@ -107,14 +107,14 @@ def test_each_mark_carries_its_own_gradient_so_it_paints_when_its_sibling_is_hid
 
 def test_collapsing_swaps_the_wordmark_for_the_monogram(ui: Page) -> None:
     """The 64px rail gets the monogram; the full wordmark does not fit and is not shrunk into it."""
-    expect(ui.locator(".wordmark svg[data-brand='wordmark']")).to_be_visible()
+    expect(ui.locator(".wordmark .wordmark-text")).to_be_visible()
     expect(ui.locator(".wordmark svg[data-brand='monogram']")).to_be_hidden()
 
     ui.click("#sidebar-toggle")
     expect(ui.locator("#sidebar")).to_have_attribute("data-collapsed", "true")
 
     expect(ui.locator(".wordmark svg[data-brand='monogram']")).to_be_visible()
-    expect(ui.locator(".wordmark svg[data-brand='wordmark']")).to_be_hidden()
+    expect(ui.locator(".wordmark .wordmark-text")).to_be_hidden()
 
 
 def test_the_nav_is_grouped_but_still_seven_flat_items(ui: Page) -> None:
@@ -155,7 +155,7 @@ def test_the_rail_artwork_matches_the_authored_source(ui: Page) -> None:
     `brand/*-dark.svg`. Dark, because this rail is dark in both themes.
     """
     root = Path(__file__).resolve().parents[2]
-    for mark in ("wordmark", "monogram"):
+    for mark in ("monogram",):  # the wordmark is text; only this one comes from brand/
         source = (root / "brand" / f"{mark}-dark.svg").read_text(encoding="utf-8")
         expected = re.search(r'<path d="([^"]+)"', source)
         assert expected is not None, f"no path data in brand/{mark}-dark.svg"
@@ -310,3 +310,25 @@ def test_below_the_breakpoint_the_chevron_is_gone(ui: Page) -> None:
     """
     ui.set_viewport_size({"width": 700, "height": 800})
     expect(ui.locator("#sidebar-toggle")).to_be_hidden()
+
+
+def test_the_wordmark_is_flat_with_an_accent_dot_not_a_gradient(ui: Page) -> None:
+    """The gradient was tried on the rail and rejected on evidence, not on taste.
+
+    Not a contrast failure - both stops measure clear of AA there (9.17:1 and 6.04:1). Rendered
+    at 3x and compared: across nine characters at 18px the shift is imperceptible, and it
+    swallows the accent dot, whose colour IS the gradient's high stop. The dot is the mark's one
+    deliberate chromatic note. This pins the outcome so the gradient is not reapplied here later;
+    it still belongs on the monogram, the icons and the website header, where there is room.
+    """
+    word = ui.eval_on_selector(
+        ".wordmark-text",
+        "el => { const s = getComputedStyle(el);"
+        " return {img: s.backgroundImage, colour: s.color}; }",
+    )
+    assert word["img"] == "none", f"a gradient is back on the wordmark: {word['img']!r}"
+
+    dot = ui.eval_on_selector(".wordmark-text .dot", "el => getComputedStyle(el).color")
+    assert dot != word["colour"], (
+        f"the accent dot is the same colour as the word ({dot}) - it has stopped being an accent"
+    )

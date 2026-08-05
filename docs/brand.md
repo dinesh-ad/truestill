@@ -35,6 +35,21 @@ The word **Truestill**, set in a serif, filled with the indigo gradient below.
 > **AUTHORED 2026-08-04. Artwork lives in `brand/`; provenance and licence in
 > `brand/PROVENANCE.md`. What follows is the original sheet, kept as the source of the palette.**
 >
+> **⚠ REVERSED 2026-08-05 for the WORDMARK ONLY.** The rail wordmark is `Truestill.` in
+> `var(--font-mono)` again, with the accent dot - which is what `ui-v2-research` §2 argued for:
+> monospace is the product's type signature, every path, count and hash is set in it, and the
+> wordmark heads that system. A serif mark took the wordmark out of the one thing it was chosen
+> to lead. The Georgia reasoning below still holds and is why no serif *font* is used; what
+> changed is that the answer is not a serif at all.
+> **The gradient was tried on the rail and rejected on evidence:** both stops clear AA there
+> (9.17:1, 6.04:1), but across nine characters at 18px the shift is imperceptible and it
+> swallows the accent dot, whose colour is the gradient's own high stop.
+> **The MONOGRAM and the icons are unchanged** and still Libre Caslon.
+> **Orphaned by this, kept deliberately:** `brand/wordmark-light.svg` and
+> `brand/wordmark-dark.svg` now have no consumer. They are NOT deleted - the website header may
+> still want a set wordmark, where a serif at size is a different question from a serif at 18px
+> in a rail, and the monogram question is still open.
+>
 > - **Outlined from Libre Caslon Text (SIL OFL 1.1).** Artwork is *not* subject to the OFL - OFL
 >   condition 5 and OFL-FAQ 1.13. No licence file required; no attribution required.
 > - **Not Georgia.** It cannot be redistributed in any format, outlines included.
