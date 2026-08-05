@@ -24,8 +24,13 @@ So the artwork is Apache-2.0 with the rest of the repo, and may be used commerci
 Software"* and *"only the primary font name as presented to the users"*. Separately, Libre Caslon
 Text declares no Reserved Font Name at all.
 
-**Contrast with DejaVu** (`LICENSE-DejaVu.txt`, superseded): Bitstream Vera has **no** equivalent
-carve-out, so its notice genuinely had to ship with the outlines derived from it.
+**Contrast with DejaVu:** Bitstream Vera has **no** equivalent carve-out, so its notice genuinely
+had to ship with the outlines derived from it. That obligation ended when those outlines left
+(`8b31b03`) and **returned on 2026-08-05 for a stronger reason** - the app now bundles the DejaVu
+**font files** themselves. The notice lives with them, at
+`packages/truestill-app/src/truestill_app/static/fonts/LICENSE-DejaVu.txt`, because Vera binds it
+to copies of the typefaces and `brand/` is not packaged. Nothing in *this* directory derives from
+DejaVu.
 
 **Not used, and deliberately:** Georgia, from the original brand sheet. It cannot be
 redistributed in any format, and outlining does not end a font EULA.
@@ -36,7 +41,9 @@ redistributed in any format, and outlining does not end a font EULA.
   wordmark reverted to monospace text (`docs/brand.md`). Kept for a possible website header,
   not deleted, because a serif at display size is a different question from one at 18px.
 - `monogram-{light,dark}.svg` - "TS", the 64px collapsed rail
-- `pillar-t-{light,dark}.svg` - the T alone, for 16px where TS closes up
+- `pillar-t-{light,dark}.svg` - the T alone, for 16px where TS closes up. **Libre Caslon**, and
+  still the pair the favicon's 16/24 entries are built from
+- `pillar-t-geometric{,-solid}.svg` - **a different mark with a different origin.** See below
 - `master-1024.png`, `icons/truestill-*.png`, `favicon.ico`
 
 **Light and dark are authored, not filtered.** The dark variant is a different gradient chosen
@@ -45,6 +52,48 @@ for a dark ground, not a CSS filter on the light one:
 - light ground: `#4C63C4` to `#2A3B8C` (the brand sheet's own)
 - dark ground: `#A9B6F0` to `#7D90E6` (authored - the sheet's low stop measures **1.81:1** on the
   dark rail and is unusable there)
+
+## The geometric pillar T - ORIGINAL ARTWORK, no font involved
+
+`pillar-t-geometric.svg` (gradient) and `pillar-t-geometric-solid.svg` are **drawn, not
+outlined.** Every point comes from named constants in `scripts/make_pillar_t.py`; no typeface was
+traced or referenced. **No font licence attaches, and no attribution is required.**
+
+Stated explicitly because every other mark in this directory *is* Libre Caslon derived, and a
+reader who assumes one provenance covers the folder would be wrong about this one. Asserted, not
+just documented: `test_pillar_t_is_deterministic.py` fails if these files ever claim a font
+origin.
+
+**Regenerate:** `python scripts/make_pillar_t.py`. Output is pinned byte-for-byte by that same
+test, so a constant cannot drift from the committed SVG. `TOP_BAR_EXTRA` is a deliberate knob -
+the test pins its current value (`0`), it does not forbid changing it.
+
+**What it supersedes: NOTHING YET.** It is an added candidate, not a replacement.
+
+- The favicon is **unchanged**; `scripts/build_brand_assets.py` still reads
+  `pillar-t-{light,dark}.svg` for the ICO's 16 and 24 entries.
+- The collapsed rail is **unchanged**; it still shows the Libre Caslon `TS` monogram.
+- So the product currently carries **two different T letterforms from two different origins**.
+  That is a real inconsistency and a decision the maintainer has not yet taken.
+
+**Two measured limits, before it can replace anything:**
+
+1. **It is a light-ground mark only.** Its ramp is `#35558F` to `#121E3F`, which is not the brand
+   indigo and has no dark variant. On the dark rail `#14161b` the stops measure **2.45:1** and
+   **1.11:1** - the foot is effectively invisible. Compare the Libre Caslon dark pair, authored
+   for that ground at 9.17:1 and 6.04:1.
+2. **The hairline flute does not survive small sizes** - it is 12% of the stem by design:
+
+   | size | flute | result |
+   |---|---|---|
+   | 16px | 0.26px | gone |
+   | 24px | 0.39px | gone |
+   | 32px | 0.52px | grey trace |
+   | 64px | 1.05px | grey trace |
+   | 128px | 2.09px | clean |
+
+   A flute-less variant is needed for tab sizes; scaling this one down yields a smudge, not a
+   hairline.
 
 ## Raster derivation
 

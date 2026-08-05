@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 1000 1100"
+    width="1000"
+    height="1100"
+    role="img"
+    aria-labelledby="title desc"
+>
+  <title id="title">Truestill pillar T (gradient)</title>
+  <desc id="desc">
+    Truestill pillar T. TOP_BAR_EXTRA=0.
+  </desc>
+
+  <defs>
+    <linearGradient id="pillar-gradient"
+        x1="500" y1="82" x2="500" y2="960"
+        gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#35558F"/>
+      <stop offset="100%" stop-color="#121E3F"/>
+    </linearGradient>
+  </defs>
+
+  <g id="truestill-pillar-t" fill="url(#pillar-gradient)">
+    <path id="top-cap" d="
+      M 131 96
+      Q 131 82 139 82
+      H 861
+      Q 869 82 869 96
+      V 177
+      C 802.5799999999999 144 666.05 140 500 140
+      C 333.95 140 197.42000000000002 144 131 177
+      Z
+    "/>
+    <path
+        id="main-body"
+        fill-rule="evenodd"
+        clip-rule="evenodd"
+        d="
+      M 124 217
+      C 191.68 175 330.79999999999995 171 500 171
+      C 669.2 171 808.3199999999999 175 876 217
+      C 878 300 878 345 871 383
+      Q 857.0 392 843 373
+      C 843 314 770 246 677 246
+      L 594 246
+      Q 576 246 576 264
+      V 902
+      C 576 922 662 934 662 948
+      V 960
+      H 338
+      V 948
+      C 338 934 424 922 424 902
+      V 264
+      Q 424 246 406 246
+      L 323 246
+      C 230 246 157 314 157 373
+      Q 143.0 392 129 383
+      C 122 345 122 300 124 217
+      Z
+
+      M 491 265
+      Q 500 256 509 265
+      V 918
+      Q 500 927 491 918
+      Z
+    "
+    />
+  </g>
+</svg>
