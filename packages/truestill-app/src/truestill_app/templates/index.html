@@ -169,21 +169,7 @@
         <div id="org-undo-panel"></div>
         <div id="org-result"></div>
         <!-- shared progress block: see createProgress() in app.js -->
-        <div class="progress-wrap hidden" id="org-card">
-          <div class="prog-head">
-            <span class="phase" id="org-phase"></span>
-            <span class="activity mono" id="org-activity"></span>
-            <span class="spacer"></span>
-            <span class="count mono" id="org-count"></span>
-          </div>
-          <div class="bar"><i id="org-bar"></i></div>
-          <div class="prog-foot">
-            <span class="meta mono" id="org-meta"></span>
-            <span class="spacer"></span>
-            <button class="btn btn-ghost" id="org-cancel">Cancel</button>
-          </div>
-          <div class="prog-tally mono" id="org-tally"></div>
-        </div>
+        <div class="run-mount" data-run="org"></div>
       </section>
 
       <!-- TRIPS & EVENTS -->
@@ -212,21 +198,7 @@
           <div id="ev-moves"></div>
           <div class="actions"><button class="btn btn-primary hidden" id="ev-apply-disk">Move photos into trip and event folders</button></div>
           <!-- shared progress block: see createProgress() in app.js -->
-          <div class="progress-wrap hidden" id="ev-card">
-            <div class="prog-head">
-              <span class="phase" id="ev-phase"></span>
-              <span class="activity mono" id="ev-activity"></span>
-              <span class="spacer"></span>
-              <span class="count mono" id="ev-count"></span>
-            </div>
-            <div class="bar"><i id="ev-bar"></i></div>
-            <div class="prog-foot">
-              <span class="meta mono" id="ev-meta"></span>
-              <span class="spacer"></span>
-              <button class="btn btn-ghost" id="ev-cancel">Cancel</button>
-            </div>
-            <div class="prog-tally mono" id="ev-tally"></div>
-          </div>
+          <div class="run-mount" data-run="ev"></div>
           <div id="ev-disk-result"></div>
         </div>
       </section>
@@ -247,21 +219,7 @@
           <div class="actions"><button class="btn btn-primary" id="rc-preview">Preview import</button></div>
         </div>
         <!-- shared progress block: see createProgress() in app.js -->
-        <div class="progress-wrap hidden" id="rc-card">
-          <div class="prog-head">
-            <span class="phase" id="rc-phase"></span>
-            <span class="activity mono" id="rc-activity"></span>
-            <span class="spacer"></span>
-            <span class="count mono" id="rc-count"></span>
-          </div>
-          <div class="bar"><i id="rc-bar"></i></div>
-          <div class="prog-foot">
-            <span class="meta mono" id="rc-meta"></span>
-            <span class="spacer"></span>
-            <button class="btn btn-ghost" id="rc-cancel">Cancel</button>
-          </div>
-          <div class="prog-tally mono" id="rc-tally"></div>
-        </div>
+        <div class="run-mount" data-run="rc"></div>
         <div id="rc-result"></div>
       </section>
 
@@ -282,21 +240,7 @@
           <div class="actions"><button class="btn btn-primary" id="verify-run">Check now</button></div>
           <div id="verify-result"></div>
           <!-- shared progress block: see createProgress() in app.js -->
-          <div class="progress-wrap hidden" id="verify-card">
-            <div class="prog-head">
-              <span class="phase" id="verify-phase"></span>
-              <span class="activity mono" id="verify-activity"></span>
-              <span class="spacer"></span>
-              <span class="count mono" id="verify-count"></span>
-            </div>
-            <div class="bar"><i id="verify-bar"></i></div>
-            <div class="prog-foot">
-              <span class="meta mono" id="verify-meta"></span>
-              <span class="spacer"></span>
-              <button class="btn btn-ghost" id="verify-cancel">Cancel</button>
-            </div>
-            <div class="prog-tally mono" id="verify-tally"></div>
-          </div>
+          <div class="run-mount" data-run="verify"></div>
         </div>
         <div class="card">
           <h2>Copy your library to another drive</h2>
@@ -315,21 +259,7 @@
             <button class="btn btn-primary hidden" id="bk-run">Copy the library</button></div>
           <div id="bk-result"></div>
           <!-- shared progress block: see createProgress() in app.js -->
-          <div class="progress-wrap hidden" id="bk-card">
-            <div class="prog-head">
-              <span class="phase" id="bk-phase"></span>
-              <span class="activity mono" id="bk-activity"></span>
-              <span class="spacer"></span>
-              <span class="count mono" id="bk-count"></span>
-            </div>
-            <div class="bar"><i id="bk-bar"></i></div>
-            <div class="prog-foot">
-              <span class="meta mono" id="bk-meta"></span>
-              <span class="spacer"></span>
-              <button class="btn btn-ghost" id="bk-cancel">Cancel</button>
-            </div>
-            <div class="prog-tally mono" id="bk-tally"></div>
-          </div>
+          <div class="run-mount" data-run="bk"></div>
         </div>
       </section>
 
@@ -402,21 +332,7 @@
           <div id="mig-undo-panel"></div>
           <div id="mig-result"></div>
           <!-- shared progress block: see createProgress() in app.js -->
-          <div class="progress-wrap hidden" id="mig-card">
-            <div class="prog-head">
-              <span class="phase" id="mig-phase"></span>
-              <span class="activity mono" id="mig-activity"></span>
-              <span class="spacer"></span>
-              <span class="count mono" id="mig-count"></span>
-            </div>
-            <div class="bar"><i id="mig-bar"></i></div>
-            <div class="prog-foot">
-              <span class="meta mono" id="mig-meta"></span>
-              <span class="spacer"></span>
-              <button class="btn btn-ghost" id="mig-cancel">Cancel</button>
-            </div>
-            <div class="prog-tally mono" id="mig-tally"></div>
-          </div>
+          <div class="run-mount" data-run="mig"></div>
         </div>
         <div class="card" id="settings-bake">
           <h2>Dates you have corrected</h2>
@@ -430,21 +346,7 @@
           <div id="bake-confirm"></div>
           <div id="bake-result"></div>
           <!-- shared progress block: see createProgress() in app.js -->
-          <div class="progress-wrap hidden" id="bake-card">
-            <div class="prog-head">
-              <span class="phase" id="bake-phase"></span>
-              <span class="activity mono" id="bake-activity"></span>
-              <span class="spacer"></span>
-              <span class="count mono" id="bake-count"></span>
-            </div>
-            <div class="bar"><i id="bake-bar"></i></div>
-            <div class="prog-foot">
-              <span class="meta mono" id="bake-meta"></span>
-              <span class="spacer"></span>
-              <button class="btn btn-ghost" id="bake-cancel">Cancel</button>
-            </div>
-            <div class="prog-tally mono" id="bake-tally"></div>
-          </div>
+          <div class="run-mount" data-run="bake"></div>
         </div>
         <div class="card">
           <h2>Appearance</h2>
@@ -455,25 +357,17 @@
         <p class="k mono" id="app-version">truestill {{VERSION}}</p>
       </section>
     </main>
+
+    <!-- LIVE PANEL - supplementary by construction, and reserved rather than filled.
+         It is not rendered below a wide window, so nothing needed to finish a task may live
+         here: no control, no link, no form field. That is a guard, not a convention -
+         `test_shared_pattern.py` fails if one appears. Empty means it costs no column. -->
+    <aside class="panel" id="panel" aria-label="Library facts"></aside>
   </div>
 
   <!-- Shared progress for migration undo (preview and apply). One instance: only one undo
        job runs at a time, and createProgress keys off these ids. -->
-  <div class="progress-wrap hidden" id="undo-card" style="margin: 1rem 2rem;">
-    <div class="prog-head">
-      <span class="phase" id="undo-phase"></span>
-      <span class="activity mono" id="undo-activity"></span>
-      <span class="spacer"></span>
-      <span class="count mono" id="undo-count"></span>
-    </div>
-    <div class="bar"><i id="undo-bar"></i></div>
-    <div class="prog-foot">
-      <span class="meta mono" id="undo-meta"></span>
-      <span class="spacer"></span>
-      <button class="btn btn-ghost" id="undo-cancel">Cancel</button>
-    </div>
-    <div class="prog-tally mono" id="undo-tally"></div>
-  </div>
+  <div class="run-mount" data-run="undo" data-run-class="undo-margin"></div>
 
   <!-- folder picker -->
   <div class="modal-backdrop hidden" id="picker">
@@ -491,6 +385,28 @@
       </footer>
     </div>
   </div>
+
+  <!-- THE RUN BLOCK, AUTHORED ONCE. This markup existed eight times, structurally identical,
+       and any change to it had to be made eight times. `mountRunBlocks()` clones it into every
+       `[data-run]` and stamps `<prefix>-<part>` ids, which is the contract `createProgress()`
+       and thirty top-level handlers already address. -->
+  <template id="tpl-run">
+    <div class="progress-wrap hidden" data-id="card">
+      <div class="prog-head">
+        <span class="phase" data-id="phase"></span>
+        <span class="activity mono" data-id="activity"></span>
+        <span class="spacer"></span>
+        <span class="count mono" data-id="count"></span>
+      </div>
+      <div class="bar"><i data-id="bar"></i></div>
+      <div class="prog-foot">
+        <span class="meta mono" data-id="meta"></span>
+        <span class="spacer"></span>
+        <button class="btn btn-ghost" data-id="cancel">Cancel</button>
+      </div>
+      <div class="prog-tally mono" data-id="tally"></div>
+    </div>
+  </template>
 
   <script src="/static/app.js"></script>
 </body>

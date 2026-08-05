@@ -63,6 +63,10 @@ code,
 .app {
   position: relative; /* the collapse knob is positioned against the rail boundary */
   --sidebar-width: 232px;
+  /* Layout frames, not type: these stay px through the rem conversion. 232 + 760 + 320 plus
+     gaps is the ~1336px below which the panel cannot appear without squeezing the content
+     column past a comfortable measure. */
+  --panel-width: 320px;
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
   height: 100vh;
@@ -1024,4 +1028,105 @@ details.more > summary::-webkit-details-marker {
 .stats-formats {
   display: grid;
   gap: var(--space-1);
+}
+
+/* ============================================================================================
+   THE SHARED PATTERN - components defined once, before any screen adopts them.
+
+   Six of the seven screens are task forms, not dashboards, so the pattern that unifies them is
+   the lifecycle (setup -> run -> result), not a metric grid. `.metric` and the panel therefore
+   serve the result state and the one true dashboard (Stats); they are deliberately unused until
+   a screen is moved onto them.
+   ============================================================================================ */
+
+/* METRIC - the biggest element on a screen, because it is the thing being reported.
+   Monospace and tabular, so a number that updates does not shift its neighbours. */
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.metric-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-semibold);
+  line-height: 1.05;
+  color: var(--text);
+}
+/* Meaning, never decoration: amber and green already carry risk and custody elsewhere. */
+.metric-value.at-risk {
+  color: var(--warning);
+}
+.metric-value.safe {
+  color: var(--success);
+}
+.metric-label {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  margin-bottom: var(--space-5);
+}
+
+/* PROPORTION BAR - the canonical one. `.bar` (job progress, 6px) and `.stats-bar` (composition,
+   8px) are the same idea drawn twice and DO NOT use this yet: they differ in height, so folding
+   them in would change what is on screen, which this commit may not do. They migrate when their
+   screens do. Until then this is the third implementation, deliberately and briefly. */
+.proportion {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+.proportion > i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 160ms ease;
+}
+.proportion > i.at-risk {
+  background: var(--warning);
+}
+.proportion > i.safe {
+  background: var(--success);
+}
+
+/* LIVE PANEL - the third column on wide windows.
+   SUPPLEMENTARY BY CONSTRUCTION: it is not rendered below `--panel-min`, so nothing needed to
+   finish a task may live in it. Enforced by test, not by convention. Empty costs nothing, the
+   same reservation the account slot uses. */
+.panel {
+  padding: var(--space-5) var(--space-4);
+  border-left: var(--border-width) solid var(--border);
+  background: var(--surface);
+  overflow-y: auto;
+  min-width: 0;
+}
+.panel:empty {
+  display: none;
+}
+/* Below the threshold the panel is gone entirely - not squeezed, not stacked under the content,
+   where it would push the task off the screen it belongs to. */
+@media (max-width: 1335px) {
+  .panel {
+    display: none;
+  }
+}
+/* The third track appears only when the panel has something to show AND there is room. Without
+   `:has()` an empty panel would still hold a column and the content would narrow for nothing. */
+@media (min-width: 1336px) {
+  .app:has(.panel:not(:empty)) {
+    grid-template-columns: var(--sidebar-width) 1fr var(--panel-width);
+  }
+}
+
+/* The migration undo block sits outside a screen, so it carries its own margin. Was an inline
+   style on the element; it is a class now that the markup comes from one template. */
+.undo-margin {
+  margin: var(--space-4) var(--space-6);
 }

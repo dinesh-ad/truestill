@@ -126,6 +126,10 @@
   --text-lg: 1.125rem; /* 18px */
   --text-xl: 1.375rem; /* 22px */
   --text-2xl: 1.75rem; /* 28px */
+  /* Metric only. A metric has to outrank everything around it, and 28px does not - it is the
+     h1 size, so a metric set in it competes with the page title instead of leading. Nothing
+     else may use this; `test_shared_pattern.py` fails if anything does. */
+  --text-3xl: 2.5rem; /* 40px */
 
   /* ICON SIZE - deliberately NOT a --text-* step, and the distinction is the point.
      The nav icons are Unicode glyphs, so their size is expressed as a font-size; that is a

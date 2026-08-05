@@ -1,6 +1,27 @@
 "use strict";
 const TOKEN = window.TRUESTILL_TOKEN;
 const $ = (id) => document.getElementById(id);
+
+// The run block is authored once in index.html and cloned into every `[data-run]` mount, with
+// `<prefix>-<part>` ids stamped on. It runs HERE, at the top, and not in a DOMContentLoaded
+// handler: thirty statements later in this file wire `$("org-cancel").onclick` and friends at
+// top level, so the elements have to exist by the time execution reaches them.
+function mountRunBlocks() {
+  // No `if (!template) return` on purpose: a missing template means every job's controls are
+  // absent, and failing quietly here would surface as thirty unrelated null-derefs instead.
+  const template = document.getElementById("tpl-run");
+  for (const mount of document.querySelectorAll("[data-run]")) {
+    const prefix = mount.dataset.run;
+    const clone = template.content.cloneNode(true);
+    for (const el of clone.querySelectorAll("[data-id]")) {
+      el.id = `${prefix}-${el.dataset.id}`;
+      el.removeAttribute("data-id");
+    }
+    if (mount.dataset.runClass) clone.firstElementChild.classList.add(mount.dataset.runClass);
+    mount.replaceWith(clone);
+  }
+}
+mountRunBlocks();
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const nfmt = (n) => Number(n).toLocaleString();
 // "2 files", "1 file" -- never "file(s)". Counts are read aloud in a user's head, and the
