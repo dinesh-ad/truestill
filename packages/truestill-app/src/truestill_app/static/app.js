@@ -1093,7 +1093,9 @@ function renderRestingPanel(s) {
   const one = s.files_one_copy || 0;
   const none = s.files_no_copy || 0;
   const rows = [
-    `<div class="panel-fact"><div class="panel-k">Your library</div>
+    // No label on the first fact: the panel title already says "Your library", and repeating
+    // it put the same three words twice at the top of the column.
+    `<div class="panel-fact">
       <div class="mono">${mediaCount(s)}</div>
       <div class="mono">${fmtBytes(s.bytes || 0)}</div></div>`,
     s.places
