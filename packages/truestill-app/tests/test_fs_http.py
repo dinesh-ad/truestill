@@ -25,6 +25,10 @@ def test_library_status_is_honest_when_empty(client: TestClient) -> None:
         "files_no_copy",
         "files_one_copy",
         "redundancy_floor",
+        # Files that HAVE a copy, and the weakest of those. The rail reports on these; a file
+        # with no copy at all is a Stats finding and must not drag the rail's floor to zero.
+        "files_on_a_drive",
+        "held_floor",
         "bytes",
         "catalog_path",
         "catalog_presence",
@@ -39,6 +43,8 @@ def test_library_status_is_honest_when_empty(client: TestClient) -> None:
     assert s["files_no_copy"] == 0
     assert s["files_one_copy"] == 0
     assert s["redundancy_floor"] == 0
+    assert s["files_on_a_drive"] == 0
+    assert s["held_floor"] == 0
     assert s["catalog_path"].endswith("c.sqlite")
     assert s["catalog_presence"] in ("will_create", "empty")  # created on open may flip
     assert "error" not in (s.get("catalog_detail") or "").lower()

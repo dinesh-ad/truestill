@@ -519,12 +519,12 @@ def test_stats_view_renders_seeded_catalog_numbers(page: Page, app_server: AppSe
     expect(stats).to_contain_text("Custody")
     expect(stats).to_contain_text("photos")
     expect(stats).to_contain_text("videos")
-    expect(stats).to_contain_text("at risk (0 drives)")
+    expect(stats).to_contain_text("not on a registered drive")
     at_risk = page.eval_on_selector(
         "#stats-result",
         """(root) => {
           const labels = Array.from(root.querySelectorAll(".tally .k"));
-          const match = labels.find((node) => node.textContent.includes("at risk (0 drives)"));
+          const match = labels.find((node) => node.textContent.includes("not on a registered drive"));
           return match && match.previousElementSibling ? match.previousElementSibling.textContent.trim() : "";
         }""",
     )
@@ -536,6 +536,14 @@ def test_stats_view_renders_seeded_catalog_numbers(page: Page, app_server: AppSe
 
 
 def test_stats_view_at_risk_count_is_actionable(page: Page, app_server: AppServer) -> None:
+    """LABEL CHANGED 2026-08-05: "at risk (0 drives)" -> "not on a registered drive".
+
+    The count is the same and still actionable; what moved is the claim. "At risk" reads as an
+    unfinished step, and after the CLI began registering its destination this state has two
+    ordinary causes - a cloud remote reached with `--rclone`, where it is permanent and correct,
+    and rows organized before that fix. Truestill cannot tell which from the catalog, so it names
+    the fact and both readings rather than diagnosing one.
+    """
     with Catalog(app_server.db) as catalog:
         catalog.record_uploaded(
             source_path="/src/risk.jpg",
@@ -551,12 +559,12 @@ def test_stats_view_at_risk_count_is_actionable(page: Page, app_server: AppServe
         )
     page.goto(app_server.url)
     page.click('button[data-screen="stats"]')
-    expect(page.locator("#stats-result")).to_contain_text("at risk (0 drives)")
+    expect(page.locator("#stats-result")).to_contain_text("not on a registered drive")
     at_risk = page.eval_on_selector(
         "#stats-result",
         """(root) => {
           const labels = Array.from(root.querySelectorAll(".tally .k"));
-          const match = labels.find((node) => node.textContent.includes("at risk (0 drives)"));
+          const match = labels.find((node) => node.textContent.includes("not on a registered drive"));
           return match && match.previousElementSibling ? match.previousElementSibling.textContent.trim() : "";
         }""",
     )

@@ -6,6 +6,20 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- **The sidebar no longer warns you about the step you are in the middle of.** If nothing has
+  been copied to a backup drive yet, that is progress rather than a problem, and it now reads
+  quietly - *"not on a backup drive yet"* - instead of in the warning colour. This is also the
+  normal, permanent state for anyone organizing to a cloud remote with `--rclone`, who was being
+  told their photos were at risk for a choice they had made deliberately.
+  The warning colour is now kept for the one case you can act on: *"N files in only one place"*.
+  It carries a **⚠ marker** as well as the colour, so the difference does not depend on seeing
+  colour at all.
+  **Files Truestill has no copy of anywhere have moved to the Stats screen**, where there is
+  room to say what they are and what to do. They are counted as *"not on a registered drive"*
+  with both ordinary explanations - a cloud remote, or files organized from the command line
+  before it registered its destination - and Truestill does not guess which applies to you.
+
 ### Fixed
 - **Photos organized from the command line are now actually in Truestill's care.** Organizing
   into an ordinary folder recorded the photos but never registered the folder, so they existed

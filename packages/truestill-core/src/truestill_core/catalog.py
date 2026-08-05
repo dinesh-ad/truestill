@@ -1644,6 +1644,14 @@ class Catalog:
         unprotected file holds the whole library's floor down, which is the point of a
         risk-first reading.
 
+        ``held`` and ``held_floor`` answer the same question over files that have **at least
+        one** copy. The strip needs both: a file with no copy at all is reported on the Stats
+        screen rather than in the rail, so it must not drag the rail's floor to zero and leave it
+        with nothing to say - but it must also not be papered over, which is why a library that
+        has any keeps the *count* wording ("N files in M places") instead of the universal
+        ("every file in M places"). A universal that silently excludes rows is the same defect
+        this method was written to remove, one level down.
+
         Complexity: **O(n)** over `files` LEFT JOINed to `file_copies`, grouped once - the same
         shape as :meth:`single_copy_count`, one query rather than three.
         """
@@ -1658,7 +1666,9 @@ class Catalog:
             SELECT
                 COALESCE(SUM(CASE WHEN copies = 0 THEN 1 ELSE 0 END), 0) AS no_copy,
                 COALESCE(SUM(CASE WHEN copies = 1 THEN 1 ELSE 0 END), 0) AS one_copy,
-                COALESCE(MIN(copies), 0) AS floor
+                COALESCE(MIN(copies), 0) AS floor,
+                COALESCE(SUM(CASE WHEN copies > 0 THEN 1 ELSE 0 END), 0) AS held,
+                COALESCE(MIN(CASE WHEN copies > 0 THEN copies END), 0) AS held_floor
             FROM per_file
             """
         )

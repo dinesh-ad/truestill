@@ -321,6 +321,11 @@ code,
 .custody .at-risk {
   color: #e0a83f;
 }
+/* Neutral is not a lesser amber: no drive yet is progress, and it reads in the rail's own
+   muted tone rather than a warning one. */
+.custody .neutral {
+  color: var(--rail-muted);
+}
 .custody .pips.at-risk {
   color: #e0a83f;
 }

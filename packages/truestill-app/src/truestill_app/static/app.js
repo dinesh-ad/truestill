@@ -298,6 +298,8 @@ function fmtBytes(n) {
   while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
   return `${v.toFixed(v < 10 && i > 0 ? 1 : 0)} ${u[i]}`;
 }
+//: Risk is marked, not merely coloured - colour alone cannot carry a state distinction.
+const WARN_MARK = "\u26a0 ";
 function card(html) { return `<div class="card result">${html}</div>`; }
 function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
 
@@ -481,12 +483,22 @@ function renderStatsSummary(stats) {
          <div class="n">${fmtBytes(safety.total_size || 0)}</div><div class="k">total size</div>
          <div class="n">${nfmt(safety.files_on_two_plus_drives || 0)}</div><div class="k">files on 2+ drives</div>
          <div class="n">${nfmt(safety.files_on_one_drive || 0)}</div><div class="k">files on exactly 1 drive</div>
-         <div class="n">${nfmt(safety.files_on_zero_drives || 0)}</div><div class="k">at risk (0 drives)</div>
+         <div class="n">${nfmt(safety.files_on_zero_drives || 0)}</div><div class="k">not on a registered drive</div>
          <div class="n">${nfmt(safety.never_verified_files || 0)}</div><div class="k">never verified</div>
        </div>
        <div class="actions">
          <button class="btn btn-secondary" data-stats-action="backups">Go to Backups</button>
          <span class="why">Make another copy or run verification for at-risk and never-verified files.</span>
+       </div>
+       ${safety.files_on_zero_drives ? `<div class="banner"><div>
+         <div class="b-title">${plural(safety.files_on_zero_drives, "file")} not on a registered drive</div>
+         <div class="k">Truestill has these in its records but no copy on any drive it knows, so
+         it cannot check them. Two ordinary reasons: the destination is a cloud remote reached
+         with <code>--rclone</code>, which is not a drive; or they were organized from the
+         command line before it registered its destination. Re-importing from the originals
+         puts them back in custody. Truestill does not guess which of the two applies.</div>
+       </div></div>` : ""}
+       <div class="actions">
        </div>
        ${zeroSamples ? `<details class="more"><summary>At-risk file sample ▾</summary>${zeroSamples}</details>` : ""}
        <h3>Per drive</h3>
@@ -998,19 +1010,35 @@ async function loadCustody() {
   // unprotected file holds it down and the strip can never over-promise.
   const noCopy = s.files_no_copy || 0;
   const oneCopy = s.files_one_copy || 0;
-  const floor = s.redundancy_floor || 0;
-  const atRisk = noCopy + oneCopy;
-  const filled = s.files ? Math.min(floor, 3) : 0;
+  const onADrive = s.files_on_a_drive || 0;
+  const heldFloor = s.held_floor || 0;
+  // `places` picks the STATE and never becomes the number in a sentence. Writing a per-file
+  // claim against a per-drive count is the defect this whole strip was rebuilt to remove.
+  const anyDrive = (s.places || 0) > 0;
+  // RISK is exposure among files that HAVE a home: one copy and no more. A file with no copy at
+  // all is a Stats finding, not a rail sentence - it cannot be acted on from here.
+  const atRisk = oneCopy > 0;
+  const filled = s.files && onADrive ? Math.min(heldFloor, 3) : 0;
   pips.textContent = [0, 1, 2].map((i) => (i < filled ? "▪" : "▫")).join(" ");
   pips.classList.toggle("none", filled === 0);
-  pips.classList.toggle("at-risk", Boolean(s.files) && atRisk > 0);
+  pips.classList.toggle("at-risk", atRisk);
   // RISK FIRST: an exposed file is a reason to act, so it is what the strip says. The
   // reassurance is only offered when it is true of every file, never as an average.
   // `files_no_copy` is named separately because `single_copy_count` cannot see it - that query
   // reads FROM file_copies, so a file with no copy row at all is in neither bucket.
+  // Four states. NEUTRAL is not a lesser amber - it is a different fact.
+  //  - nothing organized yet          : empty catalog, never reassured about
+  //  - not on a backup drive yet      : NEUTRAL. No drive holds anything, which is where an
+  //    rclone user permanently lives ("always-online cloud, not drives-in-a-drawer") and where
+  //    anyone is before their first registered destination. Progress, not risk.
+  //  - N files in only one place      : AMBER. Exposure with a remedy the user can act on.
+  //  - every file / N files in M places: reassured. The universal is used ONLY when no file
+  //    is missing a copy entirely; otherwise the count, because "every" would exclude rows in
+  //    silence and that is the defect this strip was rebuilt to remove.
   const safe = !s.files ? "nothing organized yet"
-    : noCopy ? `${plural(noCopy, "file")} not on a drive yet`
-    : oneCopy ? `${plural(oneCopy, "file")} in only one place`
+    : !anyDrive ? "not on a backup drive yet"
+    : oneCopy ? `${WARN_MARK}${plural(oneCopy, "file")} in only one place`
+    : noCopy ? `${plural(onADrive, "file")} in ${filled} places`
     : `every file in ${filled} places`;
   // One custody sentence, not an inventory. The photos/videos line that used to sit above this
   // never changed and asked nothing of anyone; custody is what this strip is for.
@@ -1025,7 +1053,8 @@ async function loadCustody() {
       ? `<div class="${cls}"><div>${esc(s.catalog_detail)}</div></div>`
       : `<div class="${cls}">${esc(s.catalog_detail)}</div>`;
   }
-  line.innerHTML = `<span class="${atRisk ? "at-risk" : "safe"}">${safe}</span>${catalogPath}${catalogNote}`;
+  const tone = atRisk ? "at-risk" : anyDrive && s.files ? "safe" : "neutral";
+  line.innerHTML = `<span class="${tone}">${esc(safe)}</span>${catalogPath}${catalogNote}`;
   refreshCatalogPathFit();
 }
 window.addEventListener("resize", debounce(refreshCatalogPathFit, 50));

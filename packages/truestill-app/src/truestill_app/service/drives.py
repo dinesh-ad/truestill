@@ -477,6 +477,11 @@ class LibraryStatus(TypedDict):
     #: The minimum copy count across every file. One unprotected file holds it down, which is
     #: what makes it safe to write a sentence against.
     redundancy_floor: int
+    #: Files with at least one recorded copy, and the weakest of those. The strip reports on
+    #: these; files with no copy at all are a Stats finding, so they must neither drag this to
+    #: zero nor be papered over by a universal that quietly excludes them.
+    files_on_a_drive: int
+    held_floor: int
     bytes: int
     catalog_path: str
     catalog_presence: str
@@ -517,6 +522,8 @@ def library_status(db: Path, *, explicit_db: bool = False) -> LibraryStatus:
         "files_no_copy": int(custody["no_copy"]),
         "files_one_copy": int(custody["one_copy"]),
         "redundancy_floor": int(custody["floor"]),
+        "files_on_a_drive": int(custody["held"]),
+        "held_floor": int(custody["held_floor"]),
         "bytes": total_bytes,
         "catalog_path": startup.absolute_path,
         "catalog_presence": startup.presence.value,
