@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(abh). Next free: (abi).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(abi). Next free: (abj).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -160,6 +160,13 @@ is invisible here is retired, not free.**
     real complaint or a theoretical one.
   - The data is already there - `drives.last_verified`, `drives.last_seen`, and `DriveReach` -
     so this is a wording-and-policy question, not a plumbing one.
+
+- **(abi) The geometric pillar T reaches nothing.** Recorded 2026-08-05. `brand/pillar-t-geometric*.svg`
+  is committed and pinned, but `scripts/build_brand_assets.py` still generates every icon and the
+  ICO from the Libre Caslon font, so the mark is in the repo and in no output. Wiring it means
+  teaching that script to consume an SVG, and deciding whether the T replaces the `TS` monogram
+  (one mark or two). Blocked on a dark-rail ramp - the current stops measure 2.45:1 and 1.11:1 on
+  `#14161b`.
 
 - **(abh) The nav icons are Unicode glyphs, so their letterform varies per machine.** Recorded
   2026-08-05, alongside the commit that sized them to 16px. **The size is settled; the origin is
