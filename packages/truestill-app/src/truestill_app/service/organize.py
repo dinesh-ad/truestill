@@ -19,7 +19,7 @@ from truestill_core.event_review import EventDecision, commit, propose
 from truestill_core.exif import read_metadata
 from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import DEFAULT_PHASH_THRESHOLD, HEIF_AVAILABLE, HEIF_EXTENSIONS
-from truestill_core.insights import capture_span, duplicate_bytes
+from truestill_core.insights import capture_span, duplicate_bytes, largest_files, sizes_for
 from truestill_core.layout_settings import pin_existing_layout, resolve_scheme
 from truestill_core.models import (
     ActionResult,
@@ -150,6 +150,30 @@ def _duplicate_report(resolutions: list[Resolution], *, near: bool) -> Duplicate
     }
 
 
+class SizedFilePayload(TypedDict):
+    name: str
+    bytes: int
+
+
+class LargestFilesPayload(TypedDict):
+    """`{total, shown}` - the cap never changes the count."""
+
+    total: int
+    shown: list[SizedFilePayload]
+
+
+class DuplicateBytesPayload(TypedDict):
+    """Reclaimable and near bytes stay apart: a kept near-duplicate saves nothing."""
+
+    reclaimable: int
+    near: int
+
+
+class CaptureSpanPayload(TypedDict):
+    oldest: str
+    newest: str
+
+
 class OrganizeDedupCore(TypedDict):
     """Counts from :func:`_summarize` before preview wraps with tier/mode/skipped."""
 
@@ -170,6 +194,11 @@ class OrganizeDedupCore(TypedDict):
     inferred_local_shifts: list[InferredLocalShiftPayload]
     folders: dict[str, int]
     heic_perceptual_skipped: NotRequired[int]
+    #: Panel facts. Supplementary by construction - the panel is not rendered on a narrow
+    #: window, so nothing here may be needed to finish the task.
+    largest_files: LargestFilesPayload
+    duplicate_bytes: DuplicateBytesPayload
+    capture_span: CaptureSpanPayload | None
 
 
 def _summarize(resolutions: list[Resolution]) -> OrganizeDedupCore:
@@ -185,6 +214,7 @@ def _summarize(resolutions: list[Resolution]) -> OrganizeDedupCore:
     breakdown = media_breakdown([r.decision.source.name for r in resolutions])
     quality = date_quality(uploads)
     shifts = inferred_local_shifts(uploads)
+    facts = _library_facts(resolutions, uploads)
     summary: OrganizeDedupCore = {
         "files": len(resolutions),
         "photos": breakdown["photos"],
@@ -198,6 +228,13 @@ def _summarize(resolutions: list[Resolution]) -> OrganizeDedupCore:
         "exact_dup_matches": _duplicate_report(resolutions, near=False),
         "near_dup_matches": _duplicate_report(resolutions, near=True),
         "undated": sum(1 for r in uploads if r.decision.captured_at is None),
+        # LIBRARY FACTS for the panel. `capture_span` and `duplicate_bytes` reached only a
+        # finished run; `largest_files` reached only the CLI. One `stat` pass serves all three,
+        # measured in PERFORMANCE.md at ~0.3 s per 2,064 files against ~231 s for exiftool on
+        # the same preview.
+        "largest_files": facts[0],
+        "duplicate_bytes": facts[1],
+        "capture_span": facts[2],
         # Never silent: an epoch-zero date that was refused, and a date that may be a dead
         # camera-clock default, are each reported on their own -- never folded into "undated".
         "sentinel_rejected": quality.sentinel_rejected,
@@ -222,6 +259,37 @@ def _summarize(resolutions: list[Resolution]) -> OrganizeDedupCore:
         # Never silent: HEIC was exact-deduped but not perceptually hashed.
         summary["heic_perceptual_skipped"] = heic
     return summary
+
+
+_LARGEST_SHOWN = 5
+
+
+def _library_facts(
+    resolutions: list[Resolution], uploads: list[Resolution]
+) -> tuple[LargestFilesPayload, DuplicateBytesPayload, CaptureSpanPayload | None]:
+    """Panel facts: biggest files, duplicate bytes, and the capture span.
+
+    `capture_span` is over what would be ORGANIZED, matching the run's own reading - a skipped
+    duplicate must not widen the range the library covers.
+    """
+    sizes = sizes_for(resolutions)
+    counted = duplicate_bytes(resolutions, sizes)
+    largest = largest_files(sizes, limit=_LARGEST_SHOWN)
+    span = capture_span(uploads)
+    biggest: LargestFilesPayload = {
+        "total": largest.total,
+        "shown": [{"name": f.path.name, "bytes": f.size} for f in largest.shown],
+    }
+    # Reclaimable and near bytes stay separate: truestill KEEPS a near-duplicate, so those
+    # bytes are never saved and `DuplicateBytes` refuses to imply they are.
+    bytes_split: DuplicateBytesPayload = {
+        "reclaimable": counted.reclaimable_bytes,
+        "near": counted.near_bytes,
+    }
+    window: CaptureSpanPayload | None = (
+        {"oldest": span.oldest.isoformat(), "newest": span.newest.isoformat()} if span else None
+    )
+    return biggest, bytes_split, window
 
 
 def _unreadable_folders(scan: SourceScan) -> list[str]:
@@ -282,6 +350,11 @@ class OrganizeInventory(TypedDict):
     by_format: dict[str, dict[str, int]]
     total_bytes: int
     skipped: dict[str, dict[str, int]]
+    #: Folders the walk could not list. `SourceInventory` has carried these all along and this
+    #: payload dropped them, so "Look inside" could answer *Nothing to organize here* about a
+    #: folder it had failed to open - the same conflation `(aac)` closed on the dedup tier.
+    #: No unreadable *files* at this tier: a walk never opens one, so none is known.
+    unreadable_folders: list[str]
 
 
 def organize_inventory(source: Path) -> OrganizeInventory:
@@ -299,6 +372,7 @@ def organize_inventory(source: Path) -> OrganizeInventory:
         "by_format": inv.by_format,
         "total_bytes": inv.total_bytes,
         "skipped": inv.skipped,
+        "unreadable_folders": [str(folder) for folder in inv.unreadable_dirs],
     }
 
 

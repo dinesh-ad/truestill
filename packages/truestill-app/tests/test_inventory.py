@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -81,6 +83,10 @@ def test_inventory_does_not_call_exiftool_or_hashing(
         "by_format",
         "total_bytes",
         "skipped",
+        # Comes from the walk `scan_source` already did - no open, no read. It is here because
+        # dropping it let "Look inside" answer "nothing to organize" about a folder it had
+        # failed to open; the `calls` assertion below is what keeps it cheap.
+        "unreadable_folders",
     }
     assert result["tier"] == "inventory"
     assert result["files"] == 2
@@ -131,3 +137,33 @@ def test_inventory_against_the_bug_would_fail_if_preview_were_called(
     monkeypatch.setattr("truestill_app.service.organize.organize_preview", fake_preview)
     organize_inventory(tmp_path)
     assert seen == []  # inventory must not route through the full preview
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32" or os.geteuid() == 0,
+    reason="needs POSIX permissions and a non-root user",
+)
+def test_inventory_reports_a_folder_it_could_not_open(tmp_path: Path) -> None:
+    """The cheap tier has to say what it could not see.
+
+    `SourceInventory.unreadable_dirs` has always carried this; the payload dropped it, so
+    "Look inside" could answer *Nothing to organize here* about a folder it had failed to open.
+    Guarded here rather than only in the browser, where the payload is stubbed.
+    """
+    _write(tmp_path / "keep.jpg", b"\xff\xd8" + b"x" * 900)
+    locked = tmp_path / "locked"
+    locked.mkdir()
+    _write(locked / "hidden.jpg", b"\xff\xd8" + b"y" * 900)
+    locked.chmod(0o000)
+    try:
+        result = organize_inventory(tmp_path)
+    finally:
+        locked.chmod(0o755)
+
+    assert [Path(p).name for p in result["unreadable_folders"]] == ["locked"]
+
+
+def test_an_ordinary_inventory_reports_no_unreadable_folders(tmp_path: Path) -> None:
+    """Anti-cry-wolf: a clean folder must not grow a warning."""
+    _write(tmp_path / "a.jpg", b"\xff\xd8" + b"x" * 900)
+    assert organize_inventory(tmp_path)["unreadable_folders"] == []

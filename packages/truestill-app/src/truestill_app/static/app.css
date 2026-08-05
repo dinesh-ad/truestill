@@ -1073,12 +1073,13 @@ details.more > summary::-webkit-details-marker {
   margin-bottom: var(--space-5);
 }
 
-/* PROPORTION BAR - the canonical one. `.bar` (job progress, 6px) and `.stats-bar` (composition,
-   8px) are the same idea drawn twice and DO NOT use this yet: they differ in height, so folding
-   them in would change what is on screen, which this commit may not do. They migrate when their
-   screens do. Until then this is the third implementation, deliberately and briefly. */
+/* PROPORTION BAR - the canonical one, and now the run block's.
+   6px, which is the height the run bar already had: the run block is ONE template shared by
+   eight screens, so it could not migrate for Organize alone, and sizing the component to its
+   first consumer makes that migration invisible. `.stats-bar` (8px, composition on Stats) still
+   has its own rule and moves when Stats does. */
 .proportion {
-  height: 8px;
+  height: 6px;
   border-radius: var(--radius-pill);
   background: var(--surface-sunken);
   overflow: hidden;
@@ -1129,4 +1130,34 @@ details.more > summary::-webkit-details-marker {
    style on the element; it is a class now that the markup comes from one template. */
 .undo-margin {
   margin: var(--space-4) var(--space-6);
+}
+
+/* Panel contents. Facts only - see `.panel` above for why nothing here may be a control. */
+.panel-title {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+.panel-fact {
+  margin-bottom: var(--space-5);
+  font-size: var(--text-sm);
+  min-width: 0;
+}
+.panel-k {
+  color: var(--text-secondary);
+  margin-bottom: var(--space-1);
+}
+.panel-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+/* A filename is the one thing here that can be arbitrarily long. */
+.panel-row > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

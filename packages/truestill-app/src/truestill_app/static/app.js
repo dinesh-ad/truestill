@@ -1582,9 +1582,18 @@ function renderUnreadable(s) {
 }
 
 function renderInventoryResult(s) {
+  // The cheap tier knows none of the panel's facts (no sizes, no dates), and a stale panel
+  // from a previous folder would be worse than none.
+  renderPanel({});
+  // The unreadable block belongs on THIS tier too, and first. A walk that could not open a
+  // folder has not established that there is nothing in it, so "Nothing to organize here" is
+  // very likely the wrong answer and the reason has to be read before it. The dedup tier has
+  // always done this; the cheap tier dropped the fact on the way out of the service.
+  const unreadable = renderUnreadable(s);
   if (!s.files) {
     $("org-result").innerHTML = card(
-      `<div class="banner warn"><div><div class="b-title">Nothing to organize here</div>
+      `${unreadable}
+       <div class="banner warn"><div><div class="b-title">Nothing to organize here</div>
        <div>No photos or videos in this folder - is it the right one?</div></div></div>`
     );
     return;
@@ -1592,10 +1601,80 @@ function renderInventoryResult(s) {
   $("org-result").innerHTML = card(
     `<div class="headline">${mediaCount(s)} found</div>
      <div class="k">${fmtBytes(s.total_bytes || 0)} of media - no dates or duplicates checked yet</div>
-     ${byFormat(s.by_format)}${renderSkippedDetails(s.skipped)}
+     ${unreadable}${byFormat(s.by_format)}${renderSkippedDetails(s.skipped)}
      <div class="banner"><div>Next: check for duplicates (reads each file for dates and look-alikes).
        That is the slow step on a network drive.</div></div>`
   );
+}
+
+// THE PANEL. Facts about the library, never a control: it is not rendered below 1336px, so
+// anything needed to finish the task would vanish with it. Written empty when there is nothing
+// to say, because `:empty` is what stops it taking a column.
+function renderPanel(s) {
+  const panel = $("panel");
+  if (!panel) return;
+  const span = s.capture_span;
+  const dup = s.duplicate_bytes || {};
+  const largest = s.largest_files || { total: 0, shown: [] };
+
+  const rows = [
+    span
+      ? `<div class="panel-fact"><div class="panel-k">Photos span</div>
+         <div class="mono">${esc(span.oldest)} → ${esc(span.newest)}</div></div>`
+      : "",
+    dup.reclaimable
+      ? `<div class="panel-fact"><div class="panel-k">Space duplicates would have cost</div>
+         <div class="mono">${fmtBytes(dup.reclaimable)}</div></div>`
+      : "",
+    // Near-duplicate bytes are NOT savings - Truestill keeps those files - so they are named
+    // separately and never added to the line above.
+    dup.near
+      ? `<div class="panel-fact"><div class="panel-k">Look-alikes kept</div>
+         <div class="mono">${fmtBytes(dup.near)}</div></div>`
+      : "",
+    largest.shown.length
+      ? `<div class="panel-fact"><div class="panel-k">Biggest files</div>
+         ${largest.shown.map((f) => `<div class="mono panel-row"><span>${esc(f.name)}</span>
+            <span>${fmtBytes(f.bytes)}</span></div>`).join("")}</div>`
+      : "",
+  ].filter(Boolean).join("");
+
+  panel.innerHTML = rows ? `<h3 class="panel-title">This folder</h3>${rows}` : "";
+}
+
+// The four DISJOINT buckets, and only those. `partition_for_report` guarantees
+// `new_unique + near_dup + exact_dup + unreadable == files`, and BACKLOG forbids printing a
+// summing block that does not sum.
+//
+// `undated` is NOT a bucket and never was: it is counted over `buckets.organized`
+// (`unique + near_duplicates`), so as a fourth row it double-counted against the first two
+// while the real fourth bucket sat in a banner above. It is a property of what will be
+// organized, so it is stated as one.
+function organizeTally(s) {
+  const unreadable = (s.unreadable_files && s.unreadable_files.total) || 0;
+  const buckets = [
+    [s.new_unique, "new - will be organized"],
+    [s.near_dup, "look-alikes - kept and flagged"],
+    [s.exact_dup, `duplicates - not copied again${dupOrigins(s.exact_dup_matches)}`],
+    // Only when there are any: a zero row here is noise, and the sum holds without it.
+    [unreadable, "could not be read - not organized"],
+  ].filter(([n]) => Number(n) > 0);
+
+  const metrics = buckets
+    .map(([n, label]) => `<div class="metric"><div class="metric-value">${nfmt(n)}</div>
+         <div class="metric-label">${label}</div></div>`)
+    .join("");
+
+  // Stated against the two rows it actually belongs to, so it reads as a property rather than
+  // as a fifth bucket competing with them.
+  const undated = Number(s.undated) > 0
+    ? `<div class="k" data-testid="org-undated">Of those organized, ${plural(s.undated, "file")}
+       ${Number(s.undated) === 1 ? "has" : "have"} no date and will go to “Undated”.</div>`
+    : "";
+
+  return `<div class="metrics" data-testid="org-tally" data-files="${Number(s.files) || 0}">
+            ${metrics}
+          </div>${undated}`;
 }
 
 function renderOrganizeResult(s) {
@@ -1626,16 +1705,12 @@ function renderOrganizeResult(s) {
   // Above the tallies too, and for the same reason: a count of what "will be organized" is
   // only as true as the set of files Truestill managed to read.
   const unreadable = renderUnreadable(s);
+  renderPanel(s);
   $("org-result").innerHTML = card(
     `<div class="headline">${mediaCount(s)} found</div>
      ${s.elapsed_seconds ? `<div class="k">checked in ${fmtDuration(s.elapsed_seconds)}</div>` : ""}
      ${limit}${unreadable}
-     <div class="tally">
-       <div class="n">${nfmt(s.new_unique)}</div><div class="k">new - will be organized</div>
-       <div class="n">${nfmt(s.near_dup)}</div><div class="k">look-alikes - kept and flagged</div>
-       <div class="n">${nfmt(s.exact_dup)}</div><div class="k">duplicates - not copied again${dupOrigins(s.exact_dup_matches)}</div>
-       <div class="n">${nfmt(s.undated)}</div><div class="k">no date - will go to “Undated”</div>
-     </div>
+     ${organizeTally(s)}
      ${matchListHtml(s.exact_dup_matches, "Show what each duplicate matched")}
      ${matchListHtml(s.near_dup_matches, "Show what each look-alike resembles")}
      ${folders ? `<h3>Into these folders <span style="font-weight:400;color:var(--text-muted)">- hover a chip for what it means</span></h3><div class="chips">${folders}</div>${legend}` : ""}
