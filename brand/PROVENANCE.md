@@ -55,9 +55,11 @@ for a dark ground, not a CSS filter on the light one:
 
 ## The geometric pillar T - ORIGINAL ARTWORK, no font involved
 
-`pillar-t-geometric.svg` (gradient) and `pillar-t-geometric-solid.svg` are **drawn, not
-outlined.** Every point comes from named constants in `scripts/make_pillar_t.py`; no typeface was
-traced or referenced. **No font licence attaches, and no attribution is required.**
+`pillar-t-geometric*.svg` are **drawn, not outlined.** Every point comes from named constants in
+`scripts/make_pillar_t.py`; no typeface was traced or referenced. **No font licence attaches, and
+no attribution is required.**
+
+Four files, two flags: gradient or solid paint, flute or no flute.
 
 Stated explicitly because every other mark in this directory *is* Libre Caslon derived, and a
 reader who assumes one provenance covers the folder would be wrong about this one. Asserted, not
@@ -70,8 +72,10 @@ the test pins its current value (`0`), it does not forbid changing it.
 
 **What it supersedes: NOTHING YET.** It is an added candidate, not a replacement.
 
-- The favicon is **unchanged**; `scripts/build_brand_assets.py` still reads
-  `pillar-t-{light,dark}.svg` for the ICO's 16 and 24 entries.
+- The favicon is **unchanged**, and nothing reads these files.
+  `scripts/build_brand_assets.py` *writes* `pillar-t-{light,dark}.svg` from the font and
+  rasterises the ICO's small entries from the same font glyph. The geometric T is not in the
+  favicon path until that script is taught to consume an SVG.
 - The collapsed rail is **unchanged**; it still shows the Libre Caslon `TS` monogram.
 - So the product currently carries **two different T letterforms from two different origins**.
   That is a real inconsistency and a decision the maintainer has not yet taken.
@@ -82,18 +86,24 @@ the test pins its current value (`0`), it does not forbid changing it.
    indigo and has no dark variant. On the dark rail `#14161b` the stops measure **2.45:1** and
    **1.11:1** - the foot is effectively invisible. Compare the Libre Caslon dark pair, authored
    for that ground at 9.17:1 and 6.04:1.
-2. **The hairline flute does not survive small sizes** - it is 12% of the stem by design:
 
-   | size | flute | result |
+   A dark-rail variant needs **both** stops at relative luminance >= 0.124 (3:1 on the rail,
+   the non-text threshold); `#5B6FCB` is the darkest usable stop at 3.95:1. Not built - the
+   ramp is a design choice, not a computation.
+2. **The flute needs 128px.** It is 12% of the stem, so it is sub-pixel below ~61px and only
+   reaches paper white at 128. Measured as the lightest interior pixel against the darkest ink
+   across the stem:
+
+   | size | flute px | reads as |
    |---|---|---|
-   | 16px | 0.26px | gone |
-   | 24px | 0.39px | gone |
-   | 32px | 0.52px | grey trace |
-   | 64px | 1.05px | grey trace |
-   | 128px | 2.09px | clean |
+   | 16-28 | 0.26-0.46 | invisible |
+   | 32-80 | 0.52-1.31 | grey smudge |
+   | 96-128 | 1.57-2.09 | hairline |
 
-   A flute-less variant is needed for tab sizes; scaling this one down yields a smudge, not a
-   hairline.
+   **Rule: use `-noflute` at 64px and below, the fluted form at 128 and above.** The cut sits
+   there rather than at the measured 96 because the generated ladder is
+   16/24/32/48/64/128/256/512/1024 - nothing is emitted in the ambiguous 80-112 band, so the
+   threshold is unambiguous in practice. A 96px asset, if one is ever added, takes `-noflute`.
 
 ## Raster derivation
 

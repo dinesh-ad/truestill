@@ -7,9 +7,9 @@
     role="img"
     aria-labelledby="title desc"
 >
-  <title id="title">Truestill pillar T (gradient)</title>
+  <title id="title">Truestill pillar T (gradient, no flute)</title>
   <desc id="desc">
-    Truestill pillar T. TOP_BAR_EXTRA=0. flute=yes.
+    Truestill pillar T. TOP_BAR_EXTRA=0. flute=no.
   </desc>
 
   <defs>
@@ -57,12 +57,6 @@
       C 230 246 157 314 157 373
       Q 143.0 392 129 383
       C 122 345 122 300 124 217
-      Z
-    
-      M 491 265
-      Q 500 256 509 265
-      V 918
-      Q 500 927 491 918
       Z
     "
     />

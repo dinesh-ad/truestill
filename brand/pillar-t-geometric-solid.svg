@@ -9,7 +9,7 @@
 >
   <title id="title">Truestill pillar T (solid)</title>
   <desc id="desc">
-    Truestill pillar T. TOP_BAR_EXTRA=0.
+    Truestill pillar T. TOP_BAR_EXTRA=0. flute=yes.
   </desc>
 
   <g id="truestill-pillar-t" fill="#2E4A85">
@@ -49,7 +49,7 @@
       Q 143.0 392 129 383
       C 122 345 122 300 124 217
       Z
-
+    
       M 491 265
       Q 500 256 509 265
       V 918

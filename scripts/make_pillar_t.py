@@ -126,8 +126,13 @@ FLUTE_BOW_TOP_Y = 256  # y of the top cap control (rounds the end)
 FLUTE_BOW_BOT_Y = 927  # y of the bottom cap control
 
 
-def _svg(*, gradient: bool, title: str) -> str:
-    """Build the SVG document string."""
+def _svg(*, gradient: bool, title: str, flute: bool = True) -> str:
+    """Build the SVG document string.
+
+    ``flute=False`` drops the central hairline. It is 12% of the stem, so it is sub-pixel
+    below ~61px and only reaches paper white at 128px; between those it renders as a grey
+    smudge rather than a hairline. Use the flute-less form at 64px and below.
+    """
     if gradient:
         paint = "url(#pillar-gradient)"
         defs = f"""
@@ -209,7 +214,10 @@ def _svg(*, gradient: bool, title: str) -> str:
       Q {tip_mid_l} {tip_bot} {hook_l} {ARM_TIP_Y}
       C {tip_bulge_l} 345 {tip_bulge_l} 300 {BODY_TIP_L} {BODY_SHOULDER_Y}
       Z
+    """
 
+    if flute:
+        main_body += f"""
       M {FLUTE_L} {FLUTE_TOP_Y}
       Q {CX} {FLUTE_BOW_TOP_Y} {FLUTE_R} {FLUTE_TOP_Y}
       V {FLUTE_BOTTOM_Y}
@@ -232,7 +240,7 @@ def _svg(*, gradient: bool, title: str) -> str:
 >
   <title id="title">{title}</title>
   <desc id="desc">
-    Truestill pillar T. TOP_BAR_EXTRA={e}.
+    Truestill pillar T. TOP_BAR_EXTRA={e}. flute={"yes" if flute else "no"}.
   </desc>
 {defs}
   <g id="truestill-pillar-t" fill="{paint}">
@@ -248,21 +256,42 @@ def _svg(*, gradient: bool, title: str) -> str:
 """
 
 
-def write_pillar_t(*, gradient: bool = True, filename: str | None = None) -> Path:
-    """Write the pillar-T SVG into ``assets/`` and return its path."""
+def variant_name(*, gradient: bool, flute: bool) -> str:
+    """Filename for a variant. Named for the FEATURE, not a size policy.
+
+    The 64px threshold lives in the docs and can move; a file called "-small" would have to be
+    renamed if it did.
+    """
+    return "pillar-t-geometric{}{}.svg".format(
+        "" if flute else "-noflute", "" if gradient else "-solid"
+    )
+
+
+def variant_title(*, gradient: bool, flute: bool) -> str:
+    paint = "gradient" if gradient else "solid"
+    return f"Truestill pillar T ({paint}{'' if flute else ', no flute'})"
+
+
+def write_pillar_t(*, gradient: bool = True, flute: bool = True) -> Path:
+    """Write one variant into ``brand/`` and return its path."""
     BRAND.mkdir(parents=True, exist_ok=True)
-    if filename is None:
-        filename = "pillar-t-geometric.svg" if gradient else "pillar-t-geometric-solid.svg"
-    path = BRAND / filename
-    title = "Truestill pillar T (gradient)" if gradient else "Truestill pillar T (solid)"
-    path.write_text(_svg(gradient=gradient, title=title), encoding="utf-8")
+    path = BRAND / variant_name(gradient=gradient, flute=flute)
+    path.write_text(
+        _svg(gradient=gradient, title=variant_title(gradient=gradient, flute=flute), flute=flute),
+        encoding="utf-8",
+    )
     return path
 
 
+VARIANTS = (
+    {"gradient": True, "flute": True},
+    {"gradient": False, "flute": True},
+    {"gradient": True, "flute": False},
+    {"gradient": False, "flute": False},
+)
+
+
 if __name__ == "__main__":
-    # Two files, not three. The scratch version also wrote a third copy under a neutral name
-    # as the "active" one; with the outputs committed, a duplicate is just a second thing to
-    # drift.
     print(f"TOP_BAR_EXTRA={TOP_BAR_EXTRA}")
-    print(f"gradient: {write_pillar_t(gradient=True)}")
-    print(f"solid:    {write_pillar_t(gradient=False)}")
+    for spec in VARIANTS:
+        print(f"  {write_pillar_t(**spec)}")

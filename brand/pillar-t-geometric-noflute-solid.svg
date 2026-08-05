@@ -7,21 +7,12 @@
     role="img"
     aria-labelledby="title desc"
 >
-  <title id="title">Truestill pillar T (gradient)</title>
+  <title id="title">Truestill pillar T (solid, no flute)</title>
   <desc id="desc">
-    Truestill pillar T. TOP_BAR_EXTRA=0. flute=yes.
+    Truestill pillar T. TOP_BAR_EXTRA=0. flute=no.
   </desc>
 
-  <defs>
-    <linearGradient id="pillar-gradient"
-        x1="500" y1="82" x2="500" y2="960"
-        gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#35558F"/>
-      <stop offset="100%" stop-color="#121E3F"/>
-    </linearGradient>
-  </defs>
-
-  <g id="truestill-pillar-t" fill="url(#pillar-gradient)">
+  <g id="truestill-pillar-t" fill="#2E4A85">
     <path id="top-cap" d="
       M 131 96
       Q 131 82 139 82
@@ -57,12 +48,6 @@
       C 230 246 157 314 157 373
       Q 143.0 392 129 383
       C 122 345 122 300 124 217
-      Z
-    
-      M 491 265
-      Q 500 256 509 265
-      V 918
-      Q 500 927 491 918
       Z
     "
     />

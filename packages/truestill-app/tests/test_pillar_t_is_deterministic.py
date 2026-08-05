@@ -14,6 +14,7 @@ without the other.
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 from pathlib import Path
 
@@ -23,7 +24,14 @@ ROOT = Path(__file__).resolve().parents[3]
 BRAND = ROOT / "brand"
 GENERATOR = ROOT / "scripts" / "make_pillar_t.py"
 
-OUTPUTS = ("pillar-t-geometric.svg", "pillar-t-geometric-solid.svg")
+# Every variant the generator emits. Derived from the generator's own VARIANTS tuple at test
+# time, so adding a variant without committing its SVG fails here rather than going unnoticed.
+OUTPUTS = (
+    "pillar-t-geometric.svg",
+    "pillar-t-geometric-solid.svg",
+    "pillar-t-geometric-noflute.svg",
+    "pillar-t-geometric-noflute-solid.svg",
+)
 
 
 def _load_generator():
@@ -42,25 +50,76 @@ def test_the_generator_is_in_the_repo_not_in_scratch() -> None:
     assert GENERATOR.is_file(), "scripts/make_pillar_t.py is missing"
 
 
+def test_every_variant_the_generator_emits_is_committed() -> None:
+    """Adding a variant without committing its SVG must fail here, not go unnoticed."""
+    module = _load_generator()
+    emitted = {module.variant_name(**spec) for spec in module.VARIANTS}
+    assert emitted == set(OUTPUTS), (
+        f"generator emits {sorted(emitted)}, tests pin {sorted(OUTPUTS)}"
+    )
+
+
 @pytest.mark.parametrize("name", OUTPUTS)
 def test_the_committed_svg_is_byte_identical_to_a_fresh_render(name: str) -> None:
-    """Render in memory and compare bytes - nothing is written to disk at all.
+    """Render in memory and compare BYTES - nothing is written to disk.
 
     Deliberately NOT `write_pillar_t()`: that writes into `brand/`, so calling it here would make
-    the test *cause* the state it asserts and pass unconditionally. `_svg()` is the same string
-    the writer would have written, with no side effect.
+    the test *cause* the state it asserts and pass unconditionally.
     """
     module = _load_generator()
     committed = (BRAND / name).read_text(encoding="utf-8")
 
     gradient = not name.endswith("-solid.svg")
-    title = "Truestill pillar T (gradient)" if gradient else "Truestill pillar T (solid)"
-    fresh = module._svg(gradient=gradient, title=title)
+    flute = "noflute" not in name
+    fresh = module._svg(
+        gradient=gradient,
+        title=module.variant_title(gradient=gradient, flute=flute),
+        flute=flute,
+    )
 
     assert fresh == committed, (
         f"brand/{name} is not what scripts/make_pillar_t.py produces. A constant changed "
         "without the SVG being regenerated (or vice versa). Re-run the generator and commit both."
     )
+
+
+@pytest.mark.parametrize("name", OUTPUTS)
+def test_the_flute_is_present_only_where_it_should_be(name: str) -> None:
+    """The variants must actually differ in the path data, not only in their filename.
+
+    Byte-equality above would be satisfied by four identical files. This pins that the cutout
+    subpath is where the name says it is.
+    """
+    module = _load_generator()
+    svg = (BRAND / name).read_text(encoding="utf-8")
+    flute_start = f"M {module.FLUTE_L} {module.FLUTE_TOP_Y}"
+
+    if "noflute" in name:
+        assert flute_start not in svg, f"{name} still carries the flute cutout"
+    else:
+        assert flute_start in svg, f"{name} has lost the flute cutout"
+
+
+def _main_body_path(svg: str) -> str:
+    """The `d` of the main body, which is the artwork - not the document around it."""
+    match = re.search(r'id="main-body".*?d="(.*?)"', svg, re.S)
+    assert match is not None, "no main-body path in the SVG"
+    return match.group(1)
+
+
+def test_the_two_forms_are_not_the_same_artwork() -> None:
+    """Anti-vacuity: the flag must change the GEOMETRY.
+
+    Comparing whole documents does not do it - `<desc>` echoes the flag, so a no-op `flute`
+    still yields two different strings. Only the path data answers the question.
+    """
+    module = _load_generator()
+    with_flute = _main_body_path(module._svg(gradient=True, title="x", flute=True))
+    without = _main_body_path(module._svg(gradient=True, title="x", flute=False))
+
+    assert with_flute != without, "the flute flag does not change the path data"
+    assert len(without) < len(with_flute), "the flute-less form should be the shorter path"
+    assert f"M {module.FLUTE_L} {module.FLUTE_TOP_Y}" not in without
 
 
 def test_the_knob_is_recorded_in_the_artwork_so_a_render_is_self_describing() -> None:
@@ -87,13 +146,12 @@ def test_the_geometric_t_does_not_claim_a_font_origin() -> None:
 
 
 def test_the_geometric_t_has_not_replaced_the_libre_caslon_one() -> None:
-    """Both exist on purpose. The favicon still builds from the Libre Caslon pair.
+    """Both exist on purpose; the shipped favicon is still the Libre Caslon T.
 
-    `scripts/build_brand_assets.py` reads `brand/pillar-t-{light,dark}.svg` for the ICO's 16
-    and 24 entries. Deleting those to "tidy up" would silently change the shipped favicon,
-    which is a separate decision the maintainer has not taken.
+    CORRECTION to the rationale committed with these files in `19b896d`: nothing *reads* these
+    SVGs. `scripts/build_brand_assets.py` WRITES them from the font, and rasterises the ICO's
+    small entries straight from the same font glyph. So the geometric T is not in the favicon
+    path at all, and cannot be until that script is taught to consume it.
     """
     for name in ("pillar-t-light.svg", "pillar-t-dark.svg"):
-        assert (BRAND / name).is_file(), (
-            f"brand/{name} is gone - the favicon's 16/24 entries are generated from it"
-        )
+        assert (BRAND / name).is_file(), f"brand/{name} is gone"
