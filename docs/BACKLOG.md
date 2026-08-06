@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(abk). Next free: (abl).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(abl). Next free: (abm).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -43,6 +43,24 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(abl) THE PREVIEW TALLY SAYS "will be organized" ABOUT ONLY PART OF WHAT IS ORGANIZED.**
+  Recorded 2026-08-06, found by running the overlapping-organize sequence on real photos rather
+  than on fixtures. Eight photos from one event: the tally read `2 new - will be organized`,
+  `1 look-alike - kept and flagged`, `5 duplicates`, and the run organized **3**. Both labels
+  are individually true - a near-duplicate IS kept and flagged - and together they mislead,
+  because the row that says *will be organized* is not the set that gets organized. **Same class
+  as the summing block one layer down**: the block sums correctly, and one of its rows describes
+  itself wrongly. It fires on any folder of photos taken at one event, which is most folders.
+  - **Not a counting defect.** `partition_for_report` is right and the buckets stay disjoint;
+    `new_unique + near_dup + exact_dup + unreadable == files` still holds. Only the wording of
+    the first row is wrong, and only because the second row is also organized.
+  - **The fix is wording and belongs with whichever screen commit reaches this tally**, not as a
+    change on its own - the two rows have to be re-worded together or the pair stays incoherent.
+    Do not "fix" it by moving near-duplicates into the first row: the flagging is the point.
+  - Pinned by nothing today, deliberately: the assertion that would pin it is the wording, and
+    writing it now would fix the wording before it is chosen. The behaviour is covered by
+    `test_preview_tally_is_disjoint.py`.
 
 - **(abd) ONE CATALOG OR MANY - the question is unanswered, and it may be the wrong default.**
   Recorded 2026-08-05. **Ranked above the three entries below it.** The question, not a ruling:
