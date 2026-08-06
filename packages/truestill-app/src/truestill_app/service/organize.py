@@ -13,7 +13,7 @@ from truestill_core.categorize import build_rules
 from truestill_core.date_provenance import format_offset
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import LocalDestination
-from truestill_core.drive import create_marker, read_marker
+from truestill_core.drive import DriveReach, create_marker, drive_path_hint, reach_of, read_marker
 from truestill_core.duplicate_explain import explain_duplicate, split_by_origin
 from truestill_core.event_review import EventDecision, commit, propose
 from truestill_core.exif import read_metadata
@@ -24,6 +24,7 @@ from truestill_core.layout_settings import pin_existing_layout, resolve_scheme
 from truestill_core.models import (
     ActionResult,
     ActionStatus,
+    DuplicateOrigin,
     Resolution,
     date_quality,
     format_inferred_local_shift_line,
@@ -48,7 +49,6 @@ from truestill_core.organizer import (
 from truestill_core.progress import ProgressCallback
 
 from truestill_app.jobs import JobTarget
-from truestill_app.service.drive_support import drive_path_hint
 from truestill_app.service.drives import LIBRARY_PATH_HINT
 from truestill_app.service.leftover_cleanup import (
     LeftInSource,
@@ -150,6 +150,41 @@ def _duplicate_report(resolutions: list[Resolution], *, near: bool) -> Duplicate
         "within_this_batch": split.within_this_batch,
         "unclassified": split.unclassified,
     }
+
+
+class MatchedDrivePayload(TypedDict):
+    """One drive that physically holds part of what this preview matched."""
+
+    label: str
+    #: Distinct CONTENT held here, so two source files with the same bytes count once.
+    files: int
+    #: ``connected`` / ``offline`` / ``unknown``, never folded to a boolean: a drive that is not
+    #: plugged in is not a drive that is gone, and a drive truestill has never seen on this
+    #: computer is neither.
+    reach: str
+    #: Only for a CONNECTED drive. A remembered path for a drive that is not there is not a
+    #: place anything can act on, and offering it would invite exactly that.
+    path: str | None
+
+
+class MatchedDrivesPayload(TypedDict):
+    """Where the matched files already are - the fact a pointer at the library needs.
+
+    **`matched_path` could never answer this.** It is `files.source_path`, where content was
+    first read from and deliberately never repointed, so it names the user's old folder. Only
+    `file_copies`, keyed by ``(sha256, drive_uuid)``, knows where a copy sits.
+
+    Two drives yield two entries. Collapsing to one would answer the two-destination case -
+    copied into X, later compared against Y - with a confident wrong drive.
+    """
+
+    #: Matches whose twin is in the catalog. `unplaced + sum(drives.files)` need not equal this
+    #: when content sits on two drives, which is why both are stated rather than one derived.
+    total: int
+    drives: list[MatchedDrivePayload]
+    #: Matches the catalog knows but has no copy row for - the orphan state a CLI organize used
+    #: to leave. Counted rather than dropped, so a zero here is a fact and not an omission.
+    unplaced: int
 
 
 class SizedFilePayload(TypedDict):
@@ -292,6 +327,56 @@ def _library_facts(
         {"oldest": span.oldest.isoformat(), "newest": span.newest.isoformat()} if span else None
     )
     return biggest, bytes_split, window
+
+
+def _matched_drives(catalog: Catalog, resolutions: list[Resolution]) -> MatchedDrivesPayload:
+    """Where the catalog-matched files physically live. Two queries, plus one marker read a drive.
+
+    **Only ``CATALOG`` matches are looked up.** A twin found earlier in this same batch is not in
+    the library yet, so attributing it to a drive would claim a copy that is not there.
+
+    **Everything here counts distinct CONTENT, not matched files**, and the payload says so. Two
+    source files with the same bytes are one copy on the drive, and reporting two would say the
+    library holds more than it does. The *file* counts a person reads come from
+    ``exact_dup_matches``; this answers only "where is it".
+
+    **Complexity:** ``O(m log n)`` index seeks over `file_copies` for *m* distinct hashes, twice -
+    once for the per-drive counts and once for which hashes are placed at all. Both ride the
+    primary key's own index (`Catalog.drives_holding`), so no index is added. Then one
+    `read_marker` per drive NAMED, which is a handful of paths rather than a per-file cost.
+    """
+    shas = list(
+        dict.fromkeys(
+            r.hashes.sha256
+            for r in resolutions
+            if r.exact_duplicate is not None
+            and r.exact_duplicate.origin == DuplicateOrigin.CATALOG
+            and r.hashes.sha256 is not None
+        )
+    )
+    if not shas:
+        return {"total": 0, "drives": [], "unplaced": 0}
+    drives: list[MatchedDrivePayload] = []
+    for holding in catalog.drives_holding(shas):
+        reach = reach_of(catalog, holding.drive_uuid)
+        hint = catalog.get_setting(drive_path_hint(holding.drive_uuid))
+        drives.append(
+            {
+                "label": holding.label,
+                "files": holding.files,
+                "reach": reach.value,
+                # A remembered path for a drive that is not there is not a place anything can
+                # act on, and offering it would invite exactly that.
+                "path": hint if reach is DriveReach.CONNECTED else None,
+            }
+        )
+    return {
+        "total": len(shas),
+        "drives": drives,
+        # The orphan state a CLI organize used to leave: a `files` row with no `file_copies`
+        # row. Counted rather than dropped - silence would make the parts stop summing.
+        "unplaced": len(shas) - len(catalog.placed_shas(shas)),
+    }
 
 
 def _unreadable_folders(scan: SourceScan) -> list[str]:
@@ -559,6 +644,9 @@ class OrganizePreviewSummary(OrganizeDedupCore):
     unreadable_files: UnreadableReport
     mode: str
     mechanism: ModeMechanism
+    #: WHERE the matched files already are. `matched_path` names where content was first read
+    #: from and never where it now lives, so nothing else in this payload can answer it.
+    matched_drives: MatchedDrivesPayload
     elapsed_seconds: NotRequired[float]
     #: Absent whenever the destination can hold the run, so an ordinary preview is unchanged.
     destination_limit: NotRequired[DestinationLimit]
@@ -632,6 +720,9 @@ def organize_preview(
             cancel=cancel,
             cache=cache,
         )
+        # Inside the open catalog, because it asks the catalog. Two index seeks over the
+        # matched hashes; the preview has just hashed every file, so this is not the cost.
+        matched_drives = _matched_drives(catalog, resolutions)
     core = _summarize(resolutions)
     # TypedDict ** spread cannot prove NotRequired keys; build then cast (mypy strict).
     summary = cast(
@@ -645,6 +736,7 @@ def organize_preview(
             "unreadable_files": _unreadable_files(resolutions),
             "mode": mode,
             "mechanism": mechanism,
+            "matched_drives": matched_drives,
         },
     )
     limit = _destination_limit(resolutions, destination)

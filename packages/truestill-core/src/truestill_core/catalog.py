@@ -13,14 +13,30 @@ from __future__ import annotations
 
 import contextlib
 import sqlite3
+from collections import Counter
 from collections.abc import Callable, Collection, Iterator, Sequence
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from types import TracebackType
 from typing import Self
 
 from truestill_core.models import CaptureContext, DateSource
+
+
+@dataclass(frozen=True, slots=True)
+class DriveHolding:
+    """One drive and how much of a queried content set it physically holds.
+
+    See :meth:`Catalog.drives_holding`. ``files`` counts distinct CONTENT, so two source files
+    with the same bytes count once - the drive holds one copy of them.
+    """
+
+    drive_uuid: str
+    label: str
+    files: int
+
 
 # Current catalog schema, created whole for a fresh database. Its version is
 # CURRENT_SCHEMA_VERSION; older databases are brought up to it by _MIGRATIONS.
@@ -1531,6 +1547,93 @@ class Catalog:
                 "SELECT sha256, relative, copy_sha256, size FROM file_copies WHERE drive_uuid = ?",
                 (drive_uuid,),
             )
+        )
+
+    #: How many hashes go into one ``IN (...)``. SQLite refuses more bound parameters than
+    #: ``SQLITE_MAX_VARIABLE_NUMBER``, which is 999 on builds predating 3.32 and 32,766 after -
+    #: and the caller here is a preview over a whole folder, so 40,000 is an ordinary size.
+    #: 900 clears the older limit rather than probing for the newer one; the cost of a smaller
+    #: chunk is more index seeks in the same order, not more work per hash.
+    _SHA_CHUNK = 900
+
+    def drives_holding(self, shas: Sequence[str]) -> list[DriveHolding]:
+        """Which drives physically hold this content: ``drive_uuid, label, files``, biggest first.
+
+        **`file_copies` is the only table that knows.** `files.source_path` is where content was
+        first read from and is deliberately never repointed, so it names a user's old folder
+        rather than their library; `file_copies`, keyed by ``(sha256, drive_uuid)``, is where a
+        copy actually sits. A surface that wants to act on "your library" has to ask this.
+
+        Content on two drives yields **two rows**, on purpose. Collapsing to one would answer the
+        two-destination case - copied into X, later compared against Y - with a confident wrong
+        drive, which is worse than the honest pair.
+
+        A hash with no copy row contributes to nothing here; the caller counts those as unplaced
+        rather than having one invented for them.
+
+        **Complexity: O(m log n)** index seeks for *m* distinct hashes over an *n*-row table -
+        ``PRIMARY KEY (sha256, drive_uuid)`` leads with ``sha256``, so its automatic index already
+        serves this and **no new index is added**. Pinned by
+        ``test_the_lookup_uses_an_index_rather_than_scanning_every_copy``, because a later schema
+        change that reordered that key would turn this into a table scan per preview with nothing
+        to notice it.
+        """
+        unique = list(dict.fromkeys(shas))  # one seek per CONTENT, not per matched file
+        if not unique:
+            return []
+        counts: Counter[str] = Counter()
+        labels: dict[str, str] = {}
+        for start in range(0, len(unique), self._SHA_CHUNK):
+            chunk = unique[start : start + self._SHA_CHUNK]
+            for row in self._conn.execute(self._drives_holding_sql(chunk), chunk):
+                counts[row["drive_uuid"]] += int(row["files"])
+                labels[row["drive_uuid"]] = row["label"]
+        ordered = sorted(counts.items(), key=lambda item: (-item[1], labels[item[0]]))
+        # A typed record rather than a `sqlite3.Row` like its neighbours, and deliberately: the
+        # counts are summed ACROSS chunks, so no single statement produced this and pretending
+        # otherwise would invite someone to add a column to the SQL and expect it here.
+        return [DriveHolding(uuid, labels[uuid], count) for uuid, count in ordered]
+
+    @staticmethod
+    def _drives_holding_sql(chunk: Sequence[str]) -> str:
+        placeholders = ",".join("?" for _ in chunk)
+        return f"""
+            SELECT fc.drive_uuid AS drive_uuid, d.label AS label, COUNT(*) AS files
+            FROM file_copies fc
+            JOIN drives d ON d.uuid = fc.drive_uuid
+            WHERE fc.sha256 IN ({placeholders})
+            GROUP BY fc.drive_uuid
+        """
+
+    def placed_shas(self, shas: Sequence[str]) -> set[str]:
+        """Which of these hashes have a copy row at all, on any drive.
+
+        The complement is the orphan state: a `files` row with no `file_copies` row, which a CLI
+        organize left behind until `test_organize_registers_the_destination.py`. A caller that
+        subtracted `drives_holding`'s counts from its input would get this wrong the moment
+        content sits on two drives, so it is asked rather than derived.
+
+        **Complexity:** the same index seek as :meth:`drives_holding`, chunked the same way.
+        """
+        unique = list(dict.fromkeys(shas))
+        found: set[str] = set()
+        for start in range(0, len(unique), self._SHA_CHUNK):
+            chunk = unique[start : start + self._SHA_CHUNK]
+            placeholders = ",".join("?" for _ in chunk)
+            found.update(
+                row["sha256"]
+                for row in self._conn.execute(
+                    f"SELECT DISTINCT sha256 FROM file_copies WHERE sha256 IN ({placeholders})",
+                    chunk,
+                )
+            )
+        return found
+
+    def explain_drives_holding(self, shas: Sequence[str]) -> list[sqlite3.Row]:
+        """The query plan for :meth:`drives_holding`, so a test can assert it is not a scan."""
+        chunk = list(dict.fromkeys(shas))[: self._SHA_CHUNK]
+        return list(
+            self._conn.execute(f"EXPLAIN QUERY PLAN {self._drives_holding_sql(chunk)}", chunk)
         )
 
     #: Rows per page of search results. Chosen to be scannable rather than exhaustive: at a
