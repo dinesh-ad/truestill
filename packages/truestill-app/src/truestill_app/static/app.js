@@ -3119,8 +3119,40 @@ document.querySelectorAll('input[name="theme"]').forEach((r) => {
   };
 });
 
+// TEXT SIZE - a `data-text-size` attribute on the root, and nothing else. The steps are
+// percentages declared in tokens.css, so the browser's own default is what they adjust; MEDIUM
+// REMOVES THE ATTRIBUTE rather than setting a value, because the absence of a declaration is
+// precisely what lets a raised browser default through untouched.
+//
+// Nothing here validates the value: the server normalises on both directions of the wire, and a
+// second vocabulary in the browser is how the two drift.
+function applyTextSize(size) {
+  const root = document.documentElement;
+  if (!size || size === "medium") root.removeAttribute("data-text-size");
+  else root.setAttribute("data-text-size", size);
+  const chosen = document.querySelector(`input[name="text-size"][value="${size || "medium"}"]`);
+  if (chosen) chosen.checked = true;
+}
+
+async function loadTextSize() {
+  // KNOWN COST, recorded rather than hidden: this lands after first paint, so a reader on small
+  // or large sees one reflow on load. Same shape as the sidebar's collapse, which is the pattern
+  // this follows. Removing it means rendering the attribute into the template server-side, which
+  // puts a catalog read on the page request - worth doing, and not worth smuggling in here.
+  const state = await get("/api/text-size/settings");
+  applyTextSize(state.size);
+}
+
+document.querySelectorAll('input[name="text-size"]').forEach((radio) => {
+  radio.onchange = guarded(async () => {
+    applyTextSize(radio.value);
+    await api("/api/text-size/settings", { size: radio.value });
+  });
+});
+
 loadOrganizeMode();
 loadSidebar();
+loadTextSize();
 loadCustody();
 loadQuickPlaces();
 refreshOrganizeUndoAffordance();

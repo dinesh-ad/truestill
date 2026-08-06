@@ -337,16 +337,6 @@
             <span class="why" id="everyday-day-threshold-status"></span></div>
           <div id="everyday-day-threshold-warn"></div>
         </div>
-        <div class="card">
-          <h2>Trip &amp; event suggestions</h2>
-          <div class="field"><label for="events-min-files">Minimum photos in a suggestion</label>
-            <input class="input" id="events-min-files" type="number" min="1" step="1"></div>
-          <p class="hint">Lower values show more suggestions, including small groups. Higher
-            values show fewer suggestions and only larger groups. The default is 8; raise it
-            only if a busy library produces too many small suggestions.</p>
-          <div class="actions"><button class="btn btn-primary" id="events-settings-save">Save suggestion setting</button>
-            <span class="why" id="events-settings-status"></span></div>
-        </div>
         <div class="card" id="settings-migrate">
           <h2>Rearrange your library into different folders</h2>
           <div class="field"><label for="mig-path">Connected drive folder</label>
@@ -359,6 +349,16 @@
           <div id="mig-result"></div>
           <!-- shared progress block: see createProgress() in app.js -->
           <div class="run-mount" data-run="mig"></div>
+        </div>
+        <div class="card">
+          <h2>Trip &amp; event suggestions</h2>
+          <div class="field"><label for="events-min-files">Minimum photos in a suggestion</label>
+            <input class="input" id="events-min-files" type="number" min="1" step="1"></div>
+          <p class="hint">Lower values show more suggestions, including small groups. Higher
+            values show fewer suggestions and only larger groups. The default is 8; raise it
+            only if a busy library produces too many small suggestions.</p>
+          <div class="actions"><button class="btn btn-primary" id="events-settings-save">Save suggestion setting</button>
+            <span class="why" id="events-settings-status"></span></div>
         </div>
         <div class="card" id="settings-bake">
           <h2>Dates you have corrected</h2>
@@ -376,9 +376,17 @@
         </div>
         <div class="card">
           <h2>Appearance</h2>
-          <div class="checkline"><label><input type="radio" name="theme" value="light"> Light</label>
-            <label><input type="radio" name="theme" value="dark"> Dark</label>
-            <label><input type="radio" name="theme" value="system" checked> Match system</label></div>
+          <div class="field"><label>Theme</label>
+            <div class="checkline"><label><input type="radio" name="theme" value="light"> Light</label>
+              <label><input type="radio" name="theme" value="dark"> Dark</label>
+              <label><input type="radio" name="theme" value="system" checked> Match system</label></div></div>
+          <div class="field"><label>Text size</label>
+            <div class="checkline"><label><input type="radio" name="text-size" value="small"> Small</label>
+              <label><input type="radio" name="text-size" value="medium" checked> Medium</label>
+              <label><input type="radio" name="text-size" value="large"> Large</label></div></div>
+          <p class="hint">This adjusts your browser’s own text size rather than replacing it, so
+            if you have already made text bigger everywhere, Medium keeps that and Large is one
+            step above it. Spacing, icons and the sidebar stay put - only the reading size moves.</p>
         </div>
         <p class="k mono" id="app-version">truestill {{VERSION}}</p>
       </section>

@@ -196,6 +196,12 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             return JSONResponse(service.set_sidebar_collapsed(body.get("collapsed"), _db()))
         return JSONResponse(service.sidebar_state(_db()))
 
+    async def text_size_settings(request: Request) -> JSONResponse:
+        if request.method == "POST":
+            body = await request.json()
+            return JSONResponse(service.set_text_size(body.get("size"), _db()))
+        return JSONResponse(service.text_size_state(_db()))
+
     async def organize_undo_state(_request: Request) -> JSONResponse:
         return JSONResponse(service.organize_undo_state(_db()))
 
@@ -635,6 +641,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         Route("/api/organize/run", organize_run, methods=["POST"]),
         Route("/api/organize/settings", organize_settings, methods=["GET", "POST"]),
         Route("/api/sidebar/settings", sidebar_settings, methods=["GET", "POST"]),
+        Route("/api/text-size/settings", text_size_settings, methods=["GET", "POST"]),
         Route("/api/organize/undo", organize_undo_state),
         Route("/api/organize/undo/preview", organize_undo_preview, methods=["POST"]),
         Route("/api/organize/undo/apply", organize_undo_apply, methods=["POST"]),

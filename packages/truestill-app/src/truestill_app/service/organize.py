@@ -63,6 +63,12 @@ from truestill_app.service.takeout import InferredLocalShiftPayload
 ORGANIZE_MODE_KEY = "ui.organize.mode"
 ORGANIZE_MODES = frozenset({"copy", "move", "inplace"})
 SIDEBAR_COLLAPSED_KEY = "ui.sidebar.collapsed"
+TEXT_SIZE_KEY = "ui.text.size"
+#: Named steps rather than a number. A free px field invites a value that breaks the layout, and
+#: the answer to "how big" already belongs to the browser - this only nudges it. Ordered
+#: smallest-first because the stylesheet and the radio group read in the same order.
+TEXT_SIZES = ("small", "medium", "large")
+DEFAULT_TEXT_SIZE = "medium"
 
 
 #: How many matches a payload carries. The rest are counted, never dropped silently (F46 /
@@ -520,6 +526,40 @@ def set_sidebar_collapsed(collapsed: object, db: Path) -> SetSidebarCollapsedRes
     with Catalog(db) as catalog:
         catalog.set_setting(SIDEBAR_COLLAPSED_KEY, "true" if saved else "false")
     return {"ok": True, "collapsed": saved}
+
+
+class TextSizeState(TypedDict):
+    size: str
+
+
+class SetTextSizeResult(TypedDict):
+    ok: Literal[True]
+    size: str
+
+
+def _normalize_text_size(value: object) -> str:
+    """Anything unrecognised is ``medium``, which declares no root size at all.
+
+    Total by construction, on both directions of the wire. A stored value is user data by the
+    time it is read back - a hand-edited catalog, a downgrade, a step that no longer exists -
+    and an unknown one written onto the root element would be an invalid ``font-size`` the
+    browser drops silently, leaving a page that looks like the setting was ignored.
+    """
+    text = str(value if isinstance(value, str) else "").strip().lower()
+    return text if text in TEXT_SIZES else DEFAULT_TEXT_SIZE
+
+
+def text_size_state(db: Path) -> TextSizeState:
+    with Catalog(db) as catalog:
+        raw = catalog.get_setting(TEXT_SIZE_KEY)
+    return {"size": _normalize_text_size(raw)}
+
+
+def set_text_size(size: object, db: Path) -> SetTextSizeResult:
+    saved = _normalize_text_size(size)
+    with Catalog(db) as catalog:
+        catalog.set_setting(TEXT_SIZE_KEY, saved)
+    return {"ok": True, "size": saved}
 
 
 class FilesystemRelationshipOk(TypedDict):

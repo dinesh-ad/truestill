@@ -118,9 +118,17 @@
   --font-mono: "DejaVu Sans Mono", ui-monospace, "SF Mono", "JetBrains Mono", Menlo,
     Consolas, monospace;
   /* rem, so a raised browser default font-size reaches the app. px ignored a preference the
-     user had already set once, globally, leaving per-profile zoom as the only recourse - which
-     is why there is no font-size setting in the product. NO root font-size is declared: the
-     root is the user's, and 1rem = whatever they chose (16px unless they changed it).
+     user had already set once, globally, leaving per-profile zoom as the only recourse.
+     NO root font-size is declared here: the root is the user's, and 1rem = whatever they
+     chose (16px unless they changed it).
+
+     THIS COMMENT USED TO END "which is why there is no font-size setting in the product", and
+     that reasoning held against an ABSOLUTE setting only. The case it did not cover is wanting
+     text SMALLER than the browser default, where zoom is a poor answer because it scales the
+     layout with the type. The steps below are therefore PERCENTAGES of whatever the root
+     already is, and `medium` declares nothing at all - the setting nudges the browser's answer
+     and can never replace it. A reader whose own default is 24px gets 27px on large, not 18.
+
      12 and 13px were not two steps, they were two names for "small", and between them they
      carried 30 of 37 uses. sm is now 14 and base is 16, so the scale has a floor a person can
      read and a gap you can see. */
@@ -155,6 +163,19 @@
   --weight-normal: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
+}
+
+/* TEXT SIZE - a nudge to the root, never a replacement for it.
+   `medium` has no rule on purpose: the absence of a declaration is what lets a raised browser
+   default through untouched, and writing `100%` would look equivalent while quietly making
+   `medium` a value the app asserts rather than one it declines to.
+   +/- 12.5%: one visible step either way. A larger multiplier compounds on a default that is
+   already raised, which is the failure mode this setting is most likely to be used with. */
+:root[data-text-size="small"] {
+  font-size: 87.5%;
+}
+:root[data-text-size="large"] {
+  font-size: 112.5%;
 }
 
 @media (prefers-color-scheme: dark) {

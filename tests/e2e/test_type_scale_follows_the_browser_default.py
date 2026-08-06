@@ -86,6 +86,30 @@ def test_no_text_token_is_declared_in_px(ui: Page) -> None:
     assert declared, "no --text-* tokens found at all"
 
 
+def test_every_step_of_the_scale_actually_resolves(ui: Page) -> None:
+    """THE HOLE THE TEST ABOVE HAD, closed by the defect that walked through it.
+
+    A stray `*/` in `tokens.css` ended a comment two lines early, and CSS error recovery ate the
+    declaration that followed - `--text-xs` simply stopped existing. Nothing failed: `ruff`,
+    `mypy` and 1802 pytest cases do not read a stylesheet, and the test above passed because an
+    EMPTY value does not end in `px`. What noticed was two unrelated browser tests, by three
+    pixels of top-bar height.
+
+    A missing token is not a smaller token. It is no rule at all, so the element falls back to
+    whatever it inherits - which is how a 12px label silently became body size.
+    """
+    resolved = ui.evaluate(
+        "() => { const cs = getComputedStyle(document.documentElement);"
+        " return ['xs','sm','base','lg','xl','2xl','3xl'].map("
+        "   n => [n, cs.getPropertyValue('--text-' + n).trim()]); }"
+    )
+    missing = [f"--text-{n}" for n, v in resolved if not v]
+    assert not missing, (
+        f"type token(s) resolve to nothing: {missing}. A declaration was dropped - most likely "
+        "swallowed by a malformed comment above it."
+    )
+
+
 @pytest.mark.parametrize("root_px", [20, 24])
 def test_nothing_overflows_its_container_at_a_raised_default(ui: Page, root_px: int) -> None:
     """The scale change must not simply move the failure into a clipped container.
