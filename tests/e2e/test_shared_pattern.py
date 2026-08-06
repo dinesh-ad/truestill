@@ -83,11 +83,21 @@ def test_the_run_blocks_start_hidden_exactly_as_before(ui: Page) -> None:
 
 
 def test_the_metric_size_token_exists_and_is_rem(ui: Page) -> None:
-    """A metric must outrank everything else; 28px was not enough to be 'the biggest element'."""
+    """A metric must outrank everything else; 28px was not enough to be 'the biggest element'.
+
+    ASSERT THE PROMISE, NOT THE STRING. This read `== "2.5rem"`, which is the *value* the token
+    happened to have rather than the property it is here for - the token became fluid and the
+    promise ("rem, so the root still governs, and 2.5rem at its floor") held throughout. §4's
+    fourth member, applied to my own guard.
+    """
     value = ui.evaluate(
         "() => getComputedStyle(document.documentElement).getPropertyValue('--text-3xl').trim()"
     )
-    assert value == "2.5rem", f"--text-3xl is {value!r}, expected 2.5rem"
+    assert value, "--text-3xl resolves to nothing"
+    assert "px" not in value, f"--text-3xl is pinned in px ({value!r}); the root cannot raise it"
+    assert value.startswith(("2.5rem", "clamp(2.5rem")), (
+        f"--text-3xl no longer floors at 2.5rem: {value!r}"
+    )
 
 
 def test_only_the_metric_uses_the_metric_size() -> None:

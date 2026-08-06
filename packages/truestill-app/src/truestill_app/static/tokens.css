@@ -138,16 +138,26 @@
      --sidebar-width (232/64px) - the rail is a layout frame, not type;
      --border-width, --radius-* - hairlines and corners are not reading sizes;
      --space-* - spacing that scaled with type would compound every gap in a nested layout. */
-  --text-xs: 0.75rem; /* 12px - incidental chrome only */
-  --text-sm: 0.875rem; /* 14px - was 13 */
-  --text-base: 1rem; /* 16px - was 15 */
-  --text-lg: 1.125rem; /* 18px */
-  --text-xl: 1.375rem; /* 22px */
-  --text-2xl: 1.75rem; /* 28px */
+  /* FLUID, and the bounds are rem for the reason the whole file is rem: a clamp in px
+     (`clamp(14px, 1vw, 18px)`) is fluid and DEAD to the root, so it would silently undo both a
+     raised browser default and the text-size setting - the same failure as the widely-copied
+     `body.zoom = 1 / devicePixelRatio` trick. Only the middle term carries `vw`; the floor and
+     the ceiling move with the root, so the two mechanisms compose instead of fighting.
+
+     BAND: full size at 1366 CSS px, +12.5% by 2560, capped there. Beyond 2560 the extra width
+     goes to CONTENT, not to type - a 3072px monitor does not want 20px body copy, it wants a
+     column that is not 720px of empty page on each side. Constants are solved, not eyeballed:
+     each middle term is the line through (1366, min) and (2560, max). */
+  --text-xs: clamp(0.75rem, 0.6427rem + 0.1256vw, 0.84375rem); /* 12 -> 13.5px */
+  --text-sm: clamp(0.875rem, 0.7499rem + 0.1466vw, 0.984375rem); /* 14 -> 15.75px */
+  --text-base: clamp(1rem, 0.857rem + 0.1675vw, 1.125rem); /* 16 -> 18px */
+  --text-lg: clamp(1.125rem, 0.9641rem + 0.1884vw, 1.265625rem); /* 18 -> 20.25px */
+  --text-xl: clamp(1.375rem, 1.1784rem + 0.2303vw, 1.546875rem); /* 22 -> 24.75px */
+  --text-2xl: clamp(1.75rem, 1.4997rem + 0.2931vw, 1.96875rem); /* 28 -> 31.5px */
   /* Metric only. A metric has to outrank everything around it, and 28px does not - it is the
      h1 size, so a metric set in it competes with the page title instead of leading. Nothing
      else may use this; `test_shared_pattern.py` fails if anything does. */
-  --text-3xl: 2.5rem; /* 40px */
+  --text-3xl: clamp(2.5rem, 2.1425rem + 0.4188vw, 2.8125rem); /* 40 -> 45px */
 
   /* ICON SIZE - deliberately NOT a --text-* step, and the distinction is the point.
      The nav icons are Unicode glyphs, so their size is expressed as a font-size; that is a

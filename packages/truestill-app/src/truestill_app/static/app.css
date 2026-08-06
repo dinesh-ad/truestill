@@ -65,8 +65,13 @@ code,
   --sidebar-width: 232px;
   /* Layout frames, not type: these stay px through the rem conversion. 232 + 760 + 320 plus
      gaps is the ~1336px below which the panel cannot appear without squeezing the content
-     column past a comfortable measure. */
-  --panel-width: 320px;
+     column past a comfortable measure.
+
+     THE PANEL SCALES, ITS FLOOR DOES NOT. The 320 minimum is what the 1336 threshold was
+     derived from, so it has to survive or that number stops meaning anything: at 1336px,
+     20vw is 267 and the clamp holds it at 320. The ceiling is 440 because the panel carries
+     short library facts - a wider one is empty space with a border, not more information. */
+  --panel-width: clamp(320px, 20vw, 440px);
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
   height: 100vh;
@@ -75,7 +80,22 @@ code,
 .app.sidebar-collapsed {
   --sidebar-width: 64px;
 }
+/* FLUID TYPE STOPS AT THE RAIL, and this is the one thing the viewport-keyed scale gets wrong
+   on its own. `vw` asks how wide the WINDOW is; the rail asks how wide the RAIL is, and the rail
+   is 232px (or 64px) at every window size. Letting its text grow with the viewport made the
+   custody path truncate MORE on the bigger monitor - caught by the refit test, which is what it
+   is for. Redeclaring the tokens at their floor is enough: they are still rem, so a raised
+   browser default and the text-size setting both still reach the rail; only the `vw` term is
+   dropped, because there is no `vw` relationship here to express.
+
+   This is the case container queries exist for. They are not used, because one declaration at
+   the container that owns the exception is the whole fix - a container query would add a
+   mechanism to express what "the rail is a fixed frame" already says. */
 .sidebar {
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -418,16 +438,29 @@ code,
   overflow-y: auto;
 }
 /* 760px left ~250px of empty page beside the content once the panel existed, which reads as
-   broken rather than as breathing room. The column grows to fill what is there, and stops at
-   1080 so a 2400px window does not get one enormous line.
+   broken rather than as breathing room. The column grows to fill what is there, and stops at a
+   ceiling so a very wide window does not get one enormous line.
 
    760 EXISTED TO PROTECT PROSE, so that constraint moves onto the text rather than being
    dropped: `.lede` already capped itself at 56ch, and the card-body prose now caps at 68ch.
    What gains the width is what benefits from it - a path field that shows the whole path, a
-   results table, a row of metrics. Controls are not prose. */
+   results table, a row of metrics. Controls are not prose.
+
+   1080 -> 1600, MEASURED on the maintainer's own three monitors (mutter reports 1920, 2560 and
+   3072 CSS px - the 4K panel runs at scale 1.25, so it is 3072 and not 3840). At 1080 the dead
+   space beside the column was 144px at 1920, 464px at 2560 and 720px at 3072; the last two read
+   as a broken layout rather than as margin.
+
+   THE CEILING IS DEFENDED BY WHAT SITS IN IT, not by a round number. The widest real element is
+   a Find result row carrying a full event-folder path: measured at ~1030px natural width, which
+   the old cap only just cleared and a longer event name would not. 1600 gives that ~570px of
+   headroom and lands inside the 1600-1800 range current guidance settles on.
+
+   AND THE REMAINING GUTTER AT 3072 IS THE ANSWER, NOT A SHORTFALL. Filling that width with one
+   column would put a 2400px-wide text input on screen. The COLUMN is capped; the page is not. */
 .screen {
   display: none;
-  max-width: 1080px;
+  max-width: 1600px;
   margin: 0 auto;
 }
 /* Long-form text inside a card. Not `.card` itself: the card holds fields and tables that
@@ -1149,6 +1182,16 @@ details.more > summary::-webkit-details-marker {
 /* TWO-UP, not wrap-and-hope. Four metrics in a 760px column laid out 3 + 1, which reads as a
    ragged afterthought. A grid gives 2 x 2; the alternative was shrinking the number, and the
    number being the biggest thing on the screen is the whole point of the component. */
+/* TWO-UP, AND IT STAYS TWO-UP. Tried and reverted in the same commit that widened the column:
+   `repeat(auto-fit, minmax(260px, 1fr))` looked like the obvious way to spend the new width, and
+   it reintroduced the exact 3+1 wrap that `test_metrics_go_two_up_rather_than_wrapping_three_and_one`
+   exists to prevent.
+
+   It is not a tuning problem. Auto-fit packs as many tracks as fit, so with four metrics there is
+   always a width band where three fit and the fourth wraps alone; solving the minimum to exclude
+   three at the narrow end only moves that band, and at any minimum it lands somewhere inside the
+   1080-1700px range this app is actually used at - including a rotated QHD monitor at 1440. Two
+   columns is a design decision with its own guard, not a leftover, so it keeps its rule. */
 .metrics {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

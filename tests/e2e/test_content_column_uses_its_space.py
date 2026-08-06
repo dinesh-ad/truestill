@@ -75,11 +75,16 @@ def test_no_empty_band_between_the_content_and_the_panel(ui: Page) -> None:
 
 
 def test_the_column_still_stops_growing_on_a_very_wide_window(ui: Page) -> None:
-    """Filling 2500px would be worse than the band it replaced."""
+    """Filling 2500px would be worse than the band it replaced.
+
+    The CEILING moved 1080 -> 1600 when the maintainer's own monitors were measured (1920, 2560
+    and 3072 CSS px); the PROPERTY this guards - that there is a ceiling at all - did not. The
+    number here follows the cap and stays below what a form row can carry without looking absurd.
+    """
     ui.set_viewport_size({"width": 2400, "height": 950})
     ui.wait_for_timeout(250)
     width = ui.eval_on_selector(".screen.active", "el => el.getBoundingClientRect().width")
-    assert width <= 1200, f"the content column grew to {width:.0f}px"
+    assert width <= 1700, f"the content column grew to {width:.0f}px"
 
 
 def test_prose_keeps_a_readable_measure_however_wide_the_column(ui: Page) -> None:
