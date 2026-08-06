@@ -51,8 +51,10 @@ from truestill_app.jobs import JobTarget
 from truestill_app.service.drive_support import drive_path_hint
 from truestill_app.service.drives import LIBRARY_PATH_HINT
 from truestill_app.service.leftover_cleanup import (
+    LeftInSource,
     LeftoverEmptyFolders,
     cleanup_summary_from_results,
+    left_in_source_from_results,
 )
 from truestill_app.service.media_support import media_breakdown
 from truestill_app.service.path_probe import nearest_device, unreadable_message
@@ -774,8 +776,12 @@ def organize_run(
                     catalog.discard_inplace_run(relocation.run_id)
         base = _completion(results, effective_destination)
         leftover: LeftoverEmptyFolders | None = None
+        # The two halves of what a move left behind, gated together on the mode. A copy leaves
+        # every original where it is by definition, so neither is news there.
+        left_behind: LeftInSource | None = None
         if chosen_mode in {"move", "inplace"}:
             leftover = cleanup_summary_from_results(results, source)
+            left_behind = left_in_source_from_results(results, source)
         with Catalog(db) as catalog:
             catalog.set_setting(LIBRARY_PATH_HINT, str(effective_destination))
             # The custody nudge, counted rather than assumed: how much of the library really
@@ -794,6 +800,8 @@ def organize_run(
         )
         if leftover is not None:
             done["leftover_empty_folders"] = leftover
+        if left_behind is not None:
+            done["left_in_source"] = left_behind
         return done
 
     return target
@@ -825,7 +833,9 @@ class CompletionBase(TypedDict):
 class OrganizeDoneSummary(CompletionBase):
     """Organize job summary after :func:`organize_run` enriches :class:`CompletionBase`.
 
-    ``leftover_empty_folders`` appears only for move/inplace runs that left empty folders.
+    ``leftover_empty_folders`` appears only for move/inplace runs that left empty folders, and
+    ``left_in_source`` only for move/inplace runs that left files behind - the two halves of
+    what the move left, and absent rather than zero when there is nothing to say.
     ``elapsed_seconds`` is injected by ``jobs.py`` on every dict done-event (documented
     boundary -- JobTarget is heterogeneous, so jobs cannot type-guarantee the key on every
     summary TypedDict).
@@ -839,6 +849,7 @@ class OrganizeDoneSummary(CompletionBase):
     drive_label: str
     single_copy: int
     leftover_empty_folders: NotRequired[LeftoverEmptyFolders]
+    left_in_source: NotRequired[LeftInSource]
     elapsed_seconds: NotRequired[float]
 
 

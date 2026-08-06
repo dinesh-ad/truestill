@@ -97,6 +97,11 @@ from truestill_core.layout import (
     resolve_template,
 )
 from truestill_core.layout_settings import pin_existing_layout, resolve_scheme
+from truestill_core.left_behind import (
+    describe_left_behind,
+    files_left_in_source,
+    will_remain_line,
+)
 from truestill_core.migrate import (
     ROUTE_SIDE_BIN,
     LabelRoute,
@@ -1083,6 +1088,39 @@ def _print_duplicate_origins(resolutions: Iterable[Resolution], indent: str = " 
         print(f"{indent}{line}")
 
 
+def _has_move_semantics(args: argparse.Namespace, relocation: Relocation | None) -> bool:
+    """Whether this run takes the originals. ``--in-place`` is a move that never leaves the
+    drive, so it reaches the same answer through `relocation` rather than through the flag."""
+    return bool(getattr(args, "move", False)) or relocation is not None
+
+
+def _print_will_remain(
+    args: argparse.Namespace, relocation: Relocation | None, resolutions: list[Resolution]
+) -> None:
+    """What a move preview says about the files it will not take. Nothing, when there are none.
+
+    Counted over every match rather than a sample, and only over the catalog origin: a twin
+    found earlier in this same batch will still be moved in by this run, so it is not a file
+    that stays behind.
+    """
+    if not _has_move_semantics(args, relocation):
+        return
+    matches = [r.exact_duplicate for r in resolutions if r.exact_duplicate is not None]
+    line = will_remain_line(split_by_origin(matches).already_in_library)
+    if line is not None:
+        print(f"\n  {line}")
+
+
+def _print_left_in_source(
+    args: argparse.Namespace, relocation: Relocation | None, results: list[ActionResult]
+) -> None:
+    """What the move left in the source, after the fact. Nothing, when it left nothing."""
+    if not _has_move_semantics(args, relocation):
+        return
+    for line in describe_left_behind(files_left_in_source(results, args.source)):
+        print(f"  {line}")
+
+
 def _print_report(resolutions: list[Resolution], root_label: str) -> None:
     # Disjoint buckets, not `should_upload`: an unreadable file has no hash, so it matches
     # nothing and would otherwise be listed under "NEW UNIQUE - would be organized" while the
@@ -1637,6 +1675,10 @@ def _run_pipeline(
         # Nothing was copied, so nothing can have FAILED: a preview names every unreadable
         # source, or no one does.
         unreadable = _print_unreadable(resolutions)
+        # What a move will NOT take, stated before the user commits to it and above the DRY RUN
+        # banner so it is read as part of the plan. A move only: a copy leaves every original
+        # where it is by definition, so there is nothing the user did not already ask for.
+        _print_will_remain(args, relocation, resolutions)
         print(_SEPARATOR)
         print("DRY RUN - nothing was written or recorded. Re-run with --apply to execute.")
         print(_SEPARATOR)
@@ -1646,6 +1688,11 @@ def _run_pipeline(
         # CLI's "finished, but something is wrong" (verify, organize, reclaim all use it).
         return 1 if unreadable else 0
     code = _print_execution(results)
+    # And what it left, after the fact. The result answers a different question from the
+    # preview - not what will happen, but what to do now - and it is the only place the files
+    # still sitting in the source are explained at all: the empty-folder offer that follows
+    # names the folders the move DID empty and is silent about these by construction.
+    _print_left_in_source(args, relocation, results)
     failed = frozenset(
         r.resolution.decision.source for r in results if r.status is ActionStatus.FAILED
     )

@@ -614,6 +614,43 @@ function spanStory(r) {
   return from === to ? `all from ${from}` : `spanning ${from} – ${to}`;
 }
 
+// WHAT THE MOVE LEFT. A move skips a file already in the library and never touches its
+// original - right, and it was silent, so the source came back PARTIALLY emptied with no
+// explanation for the files still in it. The sentence names the folder because "3 files remain"
+// is weaker than "3 files remain in D/E", and the payload carries the folder.
+//
+// The wording mirrors `truestill_core.left_behind.describe_left_behind`, which the CLI prints;
+// `tests/e2e/test_the_move_says_what_it_left.py` pins these words, per §9.
+function leftInSourceNote(left) {
+  if (!left || !left.total) return "";
+  const folders = left.folders || [];
+  const named = (f) => f.folder || "the folder you selected";
+  const hidden = (left.folders_total || folders.length) - folders.length;
+  // The bare "in D/E" reads best, and is only honest when D/E is the whole story - one folder
+  // AND nothing cut by the cap. Otherwise the counted list, which admits what it left out.
+  const where = folders.length === 1 && hidden <= 0
+    ? `in ${esc(named(folders[0]))}`
+    : `in ${esc(folders.map((f) => `${named(f)} (${nfmt(f.files)})`).join(", "))}`
+      + (hidden > 0 ? `, and ${nfmt(hidden)} more folders` : "");
+  const head = `${plural(left.total, "file")} ${left.total === 1 ? "remains" : "remain"} ${where}`;
+  // With both reasons present no single "because" clause is true of every file, so the sentence
+  // stops claiming one and states the split instead - the same rule the CLI follows.
+  const reasons = [
+    [left.already_in_library, "they were already in your library",
+      `${nfmt(left.already_in_library)} already in your library`],
+    [left.within_this_batch, "an identical file from this batch was moved instead",
+      `${nfmt(left.within_this_batch)} matched another file earlier in this batch`],
+    [left.unclassified, "they matched a file recorded somewhere this build does not name",
+      `${nfmt(left.unclassified)} matched a file recorded somewhere this build does not name`],
+  ].filter(([n]) => Number(n) > 0);
+  const body = reasons.length === 1
+    ? `${head} because ${reasons[0][1]}.`
+    : `${head}. Of those, ${reasons.map((r) => r[2]).join("; ")}.`;
+  return `<div class="banner warn" data-testid="org-left-in-source"><div>
+    <div class="b-title">Not everything was moved</div>
+    <div>${body} Nothing of yours was deleted.</div></div></div>`;
+}
+
 function organizeCompletion(r) {
   const moved = (r.moved_in_place || 0) + (r.moved_by_copy || 0);
   const verb = moved && !r.organized ? "moved" : "organized";
@@ -642,6 +679,11 @@ function organizeCompletion(r) {
     notes.push(`<div class="banner warn"><div>${plural(r.failed, "file")} could not be
       ${verb}.</div></div>`);
   }
+  // BEFORE the cleanup offer, deliberately. The offer names the folders the move emptied and
+  // is silent about the ones it did not (`plan_cleanup` drops anything OCCUPIED), so reading
+  // it first leaves a person thinking the source is now tidy while their photos sit in it.
+  const behind = leftInSourceNote(r.left_in_source);
+  if (behind) notes.push(behind);
   if (r.leftover_empty_folders && r.leftover_empty_folders.count) {
     notes.push(cleanupOfferNote(r.leftover_empty_folders));
   }
@@ -1787,7 +1829,22 @@ function organizeTally(s) {
 
   return `<div class="metrics" data-testid="org-tally" data-files="${Number(s.files) || 0}">
             ${metrics}
-          </div>${undated}`;
+          </div>${undated}${willRemainNote(s)}`;
+}
+
+// A MOVE preview says what it will NOT take, because that is the half of the plan the mode
+// makes surprising: the run empties the folder around these files and leaves them in it.
+// Only the catalog origin counts - a twin found earlier in this same batch WILL be moved in by
+// this run, so it is not a file that stays behind. Copy mode says nothing: originals always
+// stay there, which is what the mode is called.
+function willRemainNote(s) {
+  if (s.mode !== "move" && s.mode !== "inplace") return "";
+  const n = (s.exact_dup_matches && s.exact_dup_matches.already_in_library) || 0;
+  if (!n) return "";
+  const subject = n === 1 ? "file here is" : "files here are";
+  const stays = n === 1 ? "It stays where it is." : "They stay where they are.";
+  return `<div class="k" data-testid="org-will-remain">${nfmt(n)} ${subject} already in your
+    library and will not be moved. ${stays}</div>`;
 }
 
 function renderOrganizeResult(s) {

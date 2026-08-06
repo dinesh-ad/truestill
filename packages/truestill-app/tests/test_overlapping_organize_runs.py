@@ -216,6 +216,64 @@ def test_the_same_photo_copied_to_x_is_not_moved_to_y(tmp_path: Path) -> None:
 # ------------------------------------------------- the leftover-empty-folder offer
 
 
+def test_the_move_result_names_the_folder_the_leftovers_are_in(tmp_path: Path) -> None:
+    """The other half of the offer above: what is still there, not just what is now empty.
+
+    The engine has always known this - a DUPLICATE result carries the source path it declined
+    to move - and the payload dropped it, so the screen could only ever have said nothing.
+    """
+    src, dest, db = tmp_path / "src", tmp_path / "dest", tmp_path / "c.sqlite"
+    _tree(src)
+    _run(src / "A" / "D" / "E", dest, db)
+    result = _run(src / "A", dest, db, mode="move")
+
+    left = result["left_in_source"]
+    assert left["total"] == 3, left
+    assert left["already_in_library"] == 3, left
+    assert [(f["folder"], f["files"]) for f in left["folders"]] == [("D/E", 3)]
+
+
+def test_the_leftovers_and_the_cleanup_offer_agree(tmp_path: Path) -> None:
+    """Two halves of one answer, and they must not contradict each other on screen.
+
+    A folder that still holds files is offered for removal by neither.
+    """
+    src, dest, db = tmp_path / "src", tmp_path / "dest", tmp_path / "c.sqlite"
+    _tree(src)
+    _run(src / "A" / "D" / "E", dest, db)
+    result = _run(src / "A", dest, db, mode="move")
+
+    occupied = {f["folder"] for f in result["left_in_source"]["folders"]}
+    offered = set(result.get("leftover_empty_folders", {}).get("folders", []))
+    assert not (occupied & offered), f"a folder is both empty and occupied: {occupied & offered}"
+
+
+def test_copy_mode_says_nothing_about_files_it_never_intended_to_take(tmp_path: Path) -> None:
+    """CRY-WOLF HALF, and the answer to "does copy mode have the same silence".
+
+    It does not. A copy leaves every original where it is - that is what the mode is called -
+    so there is nothing a user did not already ask for, and a note after every copy run would
+    be noise rather than news.
+    """
+    src, dest, db = tmp_path / "src", tmp_path / "dest", tmp_path / "c.sqlite"
+    _tree(src)
+    _run(src / "A" / "D" / "E", dest, db)
+    result = _run(src / "A", dest, db)
+
+    assert result["duplicates"] == 3, result
+    assert "left_in_source" not in result, result["left_in_source"]
+
+
+def test_a_move_that_left_nothing_behind_says_nothing(tmp_path: Path) -> None:
+    """The second cry-wolf half: a clean move must not gain a note about leftovers."""
+    src, dest, db = tmp_path / "src", tmp_path / "dest", tmp_path / "c.sqlite"
+    _tree(src)
+    result = _run(src / "A", dest, db, mode="move")
+
+    assert result["duplicates"] == 0, result
+    assert "left_in_source" not in result, result["left_in_source"]
+
+
 def test_the_cleanup_offer_never_names_a_folder_that_still_holds_files(tmp_path: Path) -> None:
     """CHECKED because it would be a second lie on top of the first.
 
