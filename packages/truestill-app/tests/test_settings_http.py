@@ -22,6 +22,7 @@ from truestill_core.layout import (
     EVERYDAY_DAY_THRESHOLD_MIGRATE_ANCHOR,
     EVERYDAY_DAY_THRESHOLD_MIGRATE_WARNING,
     LAYOUT_TEMPLATE_KEY,
+    MIGRATE_CARD_NAME,
 )
 from truestill_core.migrate import ROUTE_TIMELINE, plan_migration
 
@@ -481,7 +482,7 @@ def test_everyday_day_threshold_change_is_honoured_and_warns_to_migrate(
         "migrate_anchor": EVERYDAY_DAY_THRESHOLD_MIGRATE_ANCHOR,
     }
     assert "Existing files stay where they are" in saved["migrate_warning"]
-    assert "Move existing files to match" in saved["migrate_warning"]
+    assert MIGRATE_CARD_NAME in saved["migrate_warning"]
     with Catalog(db_path) as catalog:
         assert catalog.get_setting(EVERYDAY_DAY_THRESHOLD_KEY) == "5"
 

@@ -628,10 +628,17 @@ class EverydayDaySettings:
         return cls(threshold=threshold, is_default=False)
 
 
+#: What the Settings card that runs `migrate-layout` is CALLED, in one place. It was retyped in
+#: four - this warning, the card's own heading, the button that jumps to it, and the contract -
+#: and the old name ("Move existing files to match") did not say what it matched, so nobody
+#: looking for "rearrange my library into dated folders" found it. Pinned by
+#: `test_the_rearrange_card_is_called_the_same_thing_everywhere`.
+MIGRATE_CARD_NAME = "Rearrange your library"
+
 #: Shown after the threshold is saved - existing paths do not move until migrate.
 EVERYDAY_DAY_THRESHOLD_MIGRATE_WARNING = (
-    "Saved. Existing files stay where they are until you move them to match. "
-    "Use Move existing files to match below to preview."
+    "Saved. Existing files stay where they are until you rearrange them. "
+    f"Use {MIGRATE_CARD_NAME} below to preview."
 )
 
 #: DOM id of the Settings migrate card - the warning routes here (scroll/focus).

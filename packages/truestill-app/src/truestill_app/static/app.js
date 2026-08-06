@@ -1832,19 +1832,89 @@ function organizeTally(s) {
           </div>${undated}${willRemainNote(s)}`;
 }
 
-// A MOVE preview says what it will NOT take, because that is the half of the plan the mode
-// makes surprising: the run empties the folder around these files and leaves them in it.
-// Only the catalog origin counts - a twin found earlier in this same batch WILL be moved in by
-// this run, so it is not a file that stays behind. Copy mode says nothing: originals always
-// stay there, which is what the mode is called.
+// WHAT THE PREVIEW SAYS ABOUT FILES IT ALREADY HAS. Two answers, and only ever ONE of them:
+// they open on the same count, so stacking them reads as the app repeating itself.
+//
+// Above the threshold the user is not really asking to organize. Someone re-pointing organize at
+// their own library is asking how it is ARRANGED, and re-copying cannot answer that - the
+// question Lightroom answers with a seven-step yearly procedure or a catalogue rebuild that
+// loses flags, virtual copies and develop history. `migrate-layout` is the answer and lives on
+// Settings, so the banner takes them there.
+//
+// Below it, the move line exactly as it shipped. Copy mode says nothing at all: originals always
+// stay, which is what the mode is called.
+//
+// Only the catalog origin counts anywhere here - a twin found earlier in this same batch WILL be
+// moved in by this run, so it is neither a file that stays behind nor evidence about the library.
 function willRemainNote(s) {
-  if (s.mode !== "move" && s.mode !== "inplace") return "";
   const n = (s.exact_dup_matches && s.exact_dup_matches.already_in_library) || 0;
   if (!n) return "";
+  const moving = s.mode === "move" || s.mode === "inplace";
+  if (pointsAtRearranging(s, n)) return rearrangeNote(s, n, moving);
+  if (!moving) return "";
   const subject = n === 1 ? "file here is" : "files here are";
   const stays = n === 1 ? "It stays where it is." : "They stay where they are.";
   return `<div class="k" data-testid="org-will-remain">${nfmt(n)} ${subject} already in your
     library and will not be moved. ${stays}</div>`;
+}
+
+// THE THRESHOLD. Both must hold: a ratio alone fires on a three-file folder somebody is testing
+// with, a floor alone fires on a 5,000-file import that is 90% new.
+//
+// 0.8, not 0.95: the person who asks this has usually added a few photos since, so a near-100%
+// gate stays silent exactly when they are most active. Below 0.8 a real minority IS new,
+// organizing is the right action, and redirecting would be the same failure as answering "use
+// metadata instead" - a response to a question nobody asked.
+//
+// 20 is JUDGEMENT, not measurement, and it is the first number to tune. It exists only so that
+// 3-of-3 does not read as "most of your library".
+const REARRANGE_RATIO = 0.8;
+const REARRANGE_FLOOR = 20;
+
+function pointsAtRearranging(s, alreadyInLibrary) {
+  const files = Number(s.files) || 0;
+  return files > 0
+    && alreadyInLibrary >= REARRANGE_FLOOR
+    && alreadyInLibrary / files >= REARRANGE_RATIO;
+}
+
+// Where the matched files ACTUALLY are, which `matched_path` could never say - it names where
+// content was first read from. Reach is three-valued and stays that way: "not plugged in" is not
+// "gone", and "never seen on this computer" is neither.
+function rearrangeWhere(drives) {
+  if (!drives.length) return "";
+  const named = drives.slice(0, 2).map((d) => d.label);
+  const rest = drives.length - named.length;
+  const list = named.join(" and ") + (rest > 0 ? `, and ${nfmt(rest)} more` : "");
+  const state = drives.length === 1 ? REACH_NOTE[drives[0].reach] || "" : "";
+  return ` on ${esc(list)}${state}`;
+}
+
+const REACH_NOTE = {
+  offline: " (not plugged in)",
+  unknown: " (location not known yet)",
+};
+
+function rearrangeNote(s, alreadyInLibrary, moving) {
+  const where = s.matched_drives || { drives: [] };
+  const drives = where.drives || [];
+  // One CONNECTED library is the only case we can fill the field in for. Two would mean
+  // choosing one silently, which is the exact failure the payload was added to prevent; an
+  // offline one has no path to give. Both still jump - the card is where they need to be.
+  const only = drives.length === 1 && drives[0].reach === "connected" ? drives[0].path : "";
+  const tail = moving ? " They stay where they are." : "";
+  const action = drives.length
+    ? `<div class="actions"><button class="btn btn-secondary" type="button"
+         data-rearrange-go data-path="${esc(only || "")}">Rearrange my library</button></div>`
+    : "";
+  return `<div class="banner" data-testid="org-rearrange"><div>
+    <div class="b-title">These are already organized</div>
+    <div>${nfmt(alreadyInLibrary)} of ${nfmt(Number(s.files) || 0)} files here are already in
+      your library${rearrangeWhere(drives)}. Organizing this folder again will not change how
+      they are arranged.${tail}</div>
+    <div>To arrange your library differently - by year, by month, by event - rearrange it where
+      it is, without re-copying anything.</div>
+    ${action}</div></div>`;
 }
 
 function renderOrganizeResult(s) {
@@ -2173,6 +2243,24 @@ function driveError(r, fieldId) {
     <div class="actions"><button class="btn btn-secondary" data-use-root="${esc(r.suggested_root)}"
       data-field="${esc(fieldId)}">Use ${esc(r.drive_label || "the drive root")}</button></div></div>`);
 }
+
+// The pointer's action. Delegated because the banner is re-rendered on every preview, and it
+// reuses the jump the day-folder warning already established rather than inventing a second one.
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-rearrange-go]");
+  if (!btn) return;
+  showScreen("settings");
+  const card = $("settings-migrate");
+  if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+  const path = btn.dataset.path || "";
+  // Filled in only when there is exactly one connected library. An empty value is left ALONE
+  // rather than written: a guess here sends a rearrange at the wrong drive.
+  if (path) {
+    $("mig-path").value = path;
+    $("mig-path").dispatchEvent(new Event("change"));
+  }
+  $("mig-path")?.focus();
+});
 
 document.addEventListener("click", (e) => {
   const btn = e.target.closest("[data-use-root]");
@@ -2810,7 +2898,7 @@ function renderEverydayDayThreshold(dayConfig) {
       <div class="b-title">Existing files need a migrate</div>
       <div>${esc(dayConfig.migrate_warning)}</div>
       <div class="actions">
-        <button class="btn btn-secondary" type="button" data-goto-migrate>Go to Move existing files</button>
+        <button class="btn btn-secondary" type="button" data-goto-migrate>Go to Rearrange your library</button>
       </div>
     </div></div>`;
     warn.querySelector("[data-goto-migrate]").onclick = guarded(() => {
