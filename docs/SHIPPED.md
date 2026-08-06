@@ -481,6 +481,10 @@ recording shipped work as unstarted, which is the more expensive direction of th
     phone export, a NAS dump. **Takeout is the motivating case, not the scope**, and the export
     table below shows why: every major photo service hands a user a `.zip`. Every user-facing
     string was audited and reworded; six read as Takeout-specific and no longer do.
+    **Two strings survived that audit, corrected 2026-08-06:** the Import screen's own `<h1>`
+    ("Import from Google Photos") and the button on the Stats empty state that points at it.
+    Prose was not something any gate could read; there is one now - `SERVICE_SCOPED_IMPORT` in
+    `test_user_facing_copy.py`, keyed on the shape rather than on this vendor's name.
     **What stays named "Takeout", correctly:** `scan_takeout`, the JSON sidecar matching and the
     `photoTakenTime` parsing are **Google's own format**, and `takeout.py` says so at the top so
     a future sweep does not "fix" a correct name. A second service with its own sidecar format

@@ -93,6 +93,11 @@ class ProposedReviewCardsPayload(ReviewCardsPayload):
     ok: Literal[True]
     label: str
     declines: list[str]
+    #: The proposal-size floor this run filtered with, so a screen with NO cards can say which
+    #: number it fell short of. It rides the proposal and not :class:`ReviewCardsPayload`, because
+    #: propose is the only path that can render an empty review: split and merge rearrange cards
+    #: that already exist and cannot reduce them to none.
+    min_files: int
 
 
 def _event_location(cluster: EventCandidate) -> list[float] | None:
@@ -171,6 +176,7 @@ def proposed_review_cards_payload(
         "ok": True,
         "label": label,
         "declines": declines,
+        "min_files": min_files,
     }
 
 

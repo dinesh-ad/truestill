@@ -217,8 +217,13 @@
 
       <!-- IMPORT -->
       <section class="screen" id="screen-import">
-        <header><h1>Import from Google Photos</h1>
-          <p class="lede">Bring in a folder of photos, or the archives a service gave you - Truestill recovers the real photo dates and removes duplicates.</p></header>
+        <!-- NOT a Takeout screen. `ingest` reads any folder and any `.zip`, `.tar`, `.tgz` or
+             `.tar.gz` from any source; Takeout is the motivating case, not the scope. The
+             heading said otherwise until 2026-08-06 - see SHIPPED (jj). -->
+        <header><h1>Import</h1>
+          <p class="lede">Bring in a folder of photos, or the archives any service gave you - a
+            phone export, an old backup, a shared folder. Truestill recovers the real photo dates
+            and removes duplicates.</p></header>
         <div class="card">
           <div class="field"><label for="rc-takeout">Photos folder or archives</label>
             <div class="row"><input class="input" id="rc-takeout" placeholder="e.g. /home/you/Downloads/Takeout or a folder of .zip files">

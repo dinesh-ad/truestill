@@ -655,6 +655,18 @@ select.input {
 .tally .k {
   color: var(--text-secondary);
 }
+/* A review card's header row: what the group is on the left, its merge checkbox on the right.
+   It used `.tally` with an inline `grid-template-columns` override, which borrowed a number
+   block for its grid and nothing else. Measured identical to what that override produced. */
+.ev-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-2) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.ev-name-row {
+  margin-top: var(--space-2);
+}
 .chips {
   display: flex;
   flex-wrap: wrap;

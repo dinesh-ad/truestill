@@ -142,6 +142,47 @@ def test_trip_duration_names_active_days_not_calendar_span() -> None:
     assert 'plural(c.days.length, "day")' not in app_js
 
 
+#: ``Import from <Service>`` - the shape that scopes a source-agnostic feature to one vendor.
+#:
+#: Keyed on the shape rather than on one vendor's name, so re-introducing the heading for a
+#: different service fails the same way. The capital is what makes it a service name:
+#: ``Import from a folder`` and ``Import from anywhere`` describe the real scope and must pass.
+SERVICE_SCOPED_IMPORT = re.compile(r"Import from [A-Z]")
+
+
+@pytest.mark.parametrize("path", [USER_FACING[0], USER_FACING[1]], ids=lambda p: p.name)
+def test_no_surface_scopes_import_to_one_service(path: Path) -> None:
+    """`ingest` reads any folder and any archive from any source.
+
+    SHIPPED's (jj) scope correction says every user-facing string was audited and six reworded.
+    Two were missed - the Import heading and the button on the Stats empty state that points at
+    it - and nothing in the suite could see them, because prose is not something ruff or mypy
+    reads. This is that gate, in the file written for exactly this failure.
+    """
+    offenders = [
+        f"{path.relative_to(REPO)}:{n}: {line.strip()}"
+        for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+        if SERVICE_SCOPED_IMPORT.search(line)
+    ]
+    assert not offenders, "import scoped to one service:\n" + "\n".join(offenders)
+
+
+def test_the_service_scope_guard_catches_the_shipped_string_and_spares_the_real_ones() -> None:
+    """A guard is not known to work until it has been seen to fail."""
+    assert SERVICE_SCOPED_IMPORT.search("<h1>Import from Google Photos</h1>")
+    assert SERVICE_SCOPED_IMPORT.search('data-stats-action="import">Import from Apple Photos<')
+
+    # The motivating case may still be NAMED as an example - it is the scope that was wrong.
+    # `takeout.py`, `scan_takeout` and the sidecar parsing are Google's own format and keep it.
+    for benign in (
+        'placeholder="e.g. /home/you/Downloads/Takeout or a folder of .zip files"',
+        "Import from a folder of photos",
+        "Import from anywhere",
+        'start: () => api("/api/ingest/preview", { takeout, destination }),',
+    ):
+        assert not SERVICE_SCOPED_IMPORT.search(benign), benign
+
+
 def test_trip_and_event_result_rows_keep_their_kind_label() -> None:
     app_js = USER_FACING[0].read_text(encoding="utf-8")
     assert "function reviewResultCards(summary)" in app_js

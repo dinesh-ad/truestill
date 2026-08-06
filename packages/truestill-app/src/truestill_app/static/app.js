@@ -521,7 +521,7 @@ function renderStatsSummary(stats) {
        drives. Then completeness, then the shape of your library over time.</div>
        <div class="actions">
          <button class="btn btn-primary" data-stats-action="organize">Organize photos</button>
-         <button class="btn btn-secondary" data-stats-action="import">Import from Google Photos</button>
+         <button class="btn btn-secondary" data-stats-action="import">Import photos</button>
        </div>`
     );
   }
@@ -2351,17 +2351,50 @@ document.addEventListener("click", guarded(async (e) => {
 // ---------- Import (a folder of photos, or archives from any service) ----------
 // One summary renderer for both entry paths (an extracted folder, and an unpacked archive set),
 // extracted rather than copied so the two cannot drift in what they report.
+// THE IMPORT SUMMARY DID NOT SUM, which is the defect `ab0a76a` fixed on Organize, in a payload
+// that already guarantees the identity it needed: `ingest_preview` states
+// `files == kept + dup_collapsed + unreadable` and says why in a comment on the field.
+//
+// The old block showed kept, duplicates, dates-recovered and undated as one column of numbers
+// under "N files found". The last two are counted over `kept`, so they double-counted against it -
+// 6 + 3 + 4 + 2 reading as an account of 10 files. And `unreadable`, the bucket that makes the
+// identity hold, reached no surface at all: an unreadable file was silently neither imported
+// nor mentioned.
+//
+// Three disjoint buckets now, a zero one omitted rather than shown as a zero row, and the two
+// date facts stated as what they are - properties of what will be imported.
 function rcRenderSummary(d) {
   const r = d.summary;
   if (!r) { $("rc-result").innerHTML = archiveRefusalCard(d); return; }
+
+  const buckets = [
+    [r.kept, "to import"],
+    // Reclaimed space belongs to this bucket and rides its label, rather than floating beside
+    // four numbers as a fifth thing a reader has to attach to one of them.
+    [r.dup_collapsed, `duplicates - not imported again (~${r.reclaimed_mb} MB)`],
+    [r.unreadable, "could not be read - not imported"],
+  ].filter(([n]) => Number(n) > 0);
+
+  const metrics = buckets
+    .map(([n, label]) => `<div class="metric"><div class="metric-value">${nfmt(n)}</div>
+         <div class="metric-label">${label}</div></div>`)
+    .join("");
+
+  const dates = [
+    Number(r.dates_photo_taken) > 0
+      ? `${plural(r.dates_photo_taken, "file")} had a real capture date recovered from the export`
+      : "",
+    Number(r.undated) > 0
+      ? `${plural(r.undated, "file")} still ${Number(r.undated) === 1 ? "has" : "have"} no date and will go to “Undated”`
+      : "",
+  ].filter(Boolean);
+
   $("rc-result").innerHTML = card(
     `<div class="headline" data-testid="rc-summary">${nfmt(r.files)} files found</div>
-     <div class="tally">
-       <div class="n">${nfmt(r.kept)}</div><div class="k">to import</div>
-       <div class="n">${nfmt(r.dup_collapsed)}</div><div class="k">duplicates removed (~${r.reclaimed_mb} MB)</div>
-       <div class="n">${nfmt(r.dates_photo_taken)}</div><div class="k">dates recovered</div>
-       <div class="n">${nfmt(r.undated)}</div><div class="k">still undated</div>
+     <div class="metrics" data-testid="rc-tally" data-files="${Number(r.files) || 0}">
+       ${metrics}
      </div>
+     ${dates.length ? `<div class="k" data-testid="rc-dates">Of those to import, ${dates.join("; ")}.</div>` : ""}
      ${dateQualityNotes(r)}${inferredLocalShiftNotes(r)}
      ${matchListHtml(r.duplicate_matches, "Show what each duplicate matched")}
      ${matchListHtml(r.near_dup_matches, "Show what each look-alike resembles")}`
@@ -2463,6 +2496,38 @@ $("rc-cancel").onclick = guarded(() => { if (rcJob) return api(`/api/jobs/${rcJo
 // back as {error: "..."} - refused, never silently dropped.
 let evSession = null;
 let evCards = [];
+// The proposal-size floor the LAST proposal filtered with, kept so the empty state can name the
+// number it fell short of. Held here rather than read per render, because split and merge answer
+// with the shared review payload, which carries no threshold and has no use for one.
+let evMinFiles = null;
+
+// WHAT AN EMPTY REVIEW SCREEN OWES THE READER. The old sentence - "needs enough camera photos
+// taken close together" - was wrong twice.
+//
+// It described CLUSTERING and wore the name of a TRIP. Those are two rules, one on top of the
+// other: a day qualifies on photos taken in one stretch (`cluster_camera`, min_files), and a trip
+// is two or more such days IN A ROW (`detect_trips`). A four-day trip is not "close together",
+// and a reader told that has been handed the wrong mental model of the feature.
+//
+// And "enough" states no number, while that exact number is a field on the Settings screen of the
+// same product. Somebody two photos short and somebody two hundred short read the identical
+// sentence and neither can act on it.
+//
+// The two silent exclusions are named too: `camera_copies_for_events` filters
+// `category = 'Camera' AND captured_at IS NOT NULL`, and either one alone explains an empty screen
+// on a library visibly full of pictures.
+const EV_MIN_FILES_SETTING = "Minimum photos in a suggestion";
+function evEmptyState(minFiles) {
+  const bar = minFiles
+    ? `${plural(minFiles, "camera photo")} taken in one stretch`
+    : "enough camera photos taken in one stretch";
+  return `<div class="card"><div class="empty" data-testid="ev-empty">
+      <div class="b-title">No trips or events found</div>
+      A day becomes an EVENT once it has ${bar}, and two or more such days in a row become a TRIP.
+      Photos with no date, and pictures that did not come from a camera, are never grouped.
+      <div class="k">Change the bar under “${EV_MIN_FILES_SETTING}” in Settings.</div>
+    </div></div>`;
+}
 function evCardKey(c) {
   // Stable across re-sorts (largest-first) so a Split/Merge can restore names on cards that
   // still exist. Index is not an identity - order_review_cards reshuffles after every edit.
@@ -2528,11 +2593,14 @@ function evCardHtml(c, i) {
     ? `data-kind="trip" data-days="${esc(c.days.map((d) => d.date).join(","))}"`
     : `data-kind="event" data-count="${c.count}"`;
   const nameValue = c.name ? ` value="${esc(c.name)}"` : "";
-  return `<div class="card"><div class="tally" style="grid-template-columns:1fr auto">
+  // `.ev-head`, not `.tally` with an inline grid override: `.tally` is the two-column
+  // number/label block, and using it for a card header meant every future change to that
+  // component landed here, on markup that holds no tally at all.
+  return `<div class="card"><div class="ev-head">
         <div><b>${isTrip ? "TRIP" : "EVENT"} · ${nfmt(c.count)} photos</b><div class="k mono">${span}</div></div>
         <label class="k"><input type="checkbox" class="ev-check" data-i="${i}"> merge</label></div>
         ${days}
-        <div class="row" style="margin-top:var(--space-2)"><input class="input ev-name" data-i="${i}"${nameValue} placeholder="name this ${isTrip ? "trip" : "event"} (leave blank to skip)">
+        <div class="row ev-name-row"><input class="input ev-name" data-i="${i}"${nameValue} placeholder="name this ${isTrip ? "trip" : "event"} (leave blank to skip)">
         <button class="btn btn-secondary ev-split" data-i="${i}" ${splitAttrs}>Split</button></div></div>`;
 }
 function renderCards(cards, collapsed) {
@@ -2549,7 +2617,7 @@ function renderCards(cards, collapsed) {
   $("ev-merge").classList.toggle("hidden", cards.length < 2);
   $("ev-clusters").innerHTML = cards.length
     ? visible.map(([c, i]) => evCardHtml(c, i)).join("") + smallGroups
-    : `<div class="card"><div class="empty">No trips or events found - needs enough camera photos taken close together.</div></div>`;
+    : evEmptyState(evMinFiles);
   $("ev-clusters").querySelectorAll(".ev-name").forEach((inp) => {
     inp.addEventListener("input", () => {
       const i = +inp.dataset.i;
@@ -2595,6 +2663,7 @@ $("ev-propose").onclick = guarded(async () => {
       return;
     }
     evSession = r.session;
+    evMinFiles = r.min_files || null;
     renderDeclines(r.declines);
     renderCards(r.cards, r.collapsed);
   });
