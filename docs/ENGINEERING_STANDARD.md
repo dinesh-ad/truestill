@@ -583,6 +583,26 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   asks whether it *is*. Where the two disagree the mutation is right, and the cost of skipping it
   is a suite everyone believes has been verified.
 
+- **Assert that a stylesheet token RESOLVES, not that its text looks right.** The eleventh
+  member, and the only one about a gate that cannot see the artifact at all. `make check` runs
+  ruff, mypy and pytest; **none of them reads CSS**, so a stylesheet is unguarded except by the
+  browser lane.
+
+  *Origin, 2026-08-06.* A stray `*/` ended a comment in `tokens.css` two lines early. CSS error
+  recovery discards the declaration that follows a parse error, so `--text-xs` stopped existing -
+  silently, with the whole Python gate green. The existing guard read the token and asserted it
+  did not end in `px`; an **empty value does not end in `px`**, so it passed too. What caught it
+  was two unrelated browser tests, by three pixels of top-bar height.
+
+  A missing token is not a smaller token: there is no rule, so the element inherits, and a 12px
+  label becomes body size. Any guard that reads a custom property must therefore assert it is
+  **non-empty first** and only then assert its shape - the shape check alone is satisfied by
+  absence.
+
+  The guard was proved against **the real malformed comment**, restored byte-for-byte, not a
+  synthetic empty token. A synthetic one proves the assertion works; only the real defect proves
+  it fires on the thing that actually happened.
+
 - **Errors.** Exceptions typed and specific - no bare `except`. User-facing CLI errors are
   actionable sentences, not tracebacks. Every subprocess call checks its return code and
   surfaces stderr on failure. Partial-failure policy: one bad file never aborts a batch - it
