@@ -59,7 +59,13 @@ def _run(source: Path, destination: Path, db: Path, *, mode: str = "copy") -> An
 
 
 def _files_under(root: Path) -> set[str]:
-    return {str(p.relative_to(root)) for p in root.rglob("*.jpg")}
+    """Source-relative paths in POSIX form, never `str(Path)` (ENGINEERING_STANDARD 4).
+
+    `str(Path)` renders `D\\E\\IMG_0040.jpg` on Windows, so the separator reached the `"D/E"`
+    comparison below and the lane failed against correct behaviour - the three originals really
+    were still there. The comparison was wrong, not the product.
+    """
+    return {p.relative_to(root).as_posix() for p in root.rglob("*.jpg")}
 
 
 # --------------------------------------------------------------------------- copy mode
