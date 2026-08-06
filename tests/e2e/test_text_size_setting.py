@@ -117,13 +117,38 @@ def test_small_is_smaller_and_large_is_larger_than_medium(ui: Page) -> None:
     assert large > medium, f"large ({large}px) is not above medium ({medium}px)"
 
 
+def test_each_step_is_big_enough_to_be_seen(ui: Page) -> None:
+    """THE HALF THE FIRST BAND WAS MISSING, and the reason it shipped feeling broken.
+
+    +/-12.5% (14/16/18) satisfies "small < medium < large" perfectly and reads as nothing
+    happening - the maintainer changed the setting and reported no effect. "There is an
+    ordering" was the only thing asserted, so a band too small to perceive passed.
+
+    >= 20% either way. Chrome's own Small and Large are 12 and 20 against a 16 medium (25%);
+    this leaves room to tune without letting it collapse back to invisible.
+    """
+    _pick(ui, "medium")
+    medium = _body_px(ui)
+    _pick(ui, "small")
+    small = _body_px(ui)
+    _pick(ui, "large")
+    large = _body_px(ui)
+
+    assert small <= medium * 0.8, f"small is {small}px against {medium}px - not a visible step"
+    assert large >= medium * 1.2, f"large is {large}px against {medium}px - not a visible step"
+
+
 def test_the_step_is_a_nudge_and_not_a_multiplier_that_compounds() -> None:
-    """The other half of relative: it must not mean unbounded. A 150% step on top of a 24px
-    default is 36px, which is the compounding the brief asked about. Declared steps are +/-12.5%,
-    so the worst case the app can be asked for is 24 -> 27px."""
+    """The other half of relative: it must not mean unbounded.
+
+    The band was WIDENED from +/-12.5% to 75%/125% - 12 / 16 / 20px at the common default, which
+    is Chrome's own Small and Large. The first band was too timid to read as a setting: the
+    maintainer changed it and saw nothing. Bounded still, because these are percentages: a 24px
+    default gives 18 / 24 / 30, large by choice rather than by accident.
+    """
     for name, value in _steps().items():
         percent = float(value.strip().rstrip("%"))
-        assert 80 <= percent <= 125, f"{name} is {percent}% - it compounds a raised default too far"
+        assert 70 <= percent <= 130, f"{name} is {percent}% - it compounds a raised default too far"
 
 
 # ------------------------------------------------- what it costs the frame that is not type

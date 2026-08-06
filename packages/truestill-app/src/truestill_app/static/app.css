@@ -13,7 +13,7 @@ body {
 body {
   font-family: var(--font-sans);
   font-size: var(--text-base);
-  line-height: 1.55;
+  line-height: 1.45;
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
@@ -433,8 +433,10 @@ code,
 }
 
 /* ---------- main / screens ---------- */
+/* DENSITY, 2026-08-06. 48px above the first element on every screen is a landing page's
+   opening, not a tool's. 32/32 keeps the page off the rail without announcing itself. */
 .main {
-  padding: var(--space-7) var(--space-6);
+  padding: var(--space-6) var(--space-6);
   overflow-y: auto;
 }
 /* 760px left ~250px of empty page beside the content once the panel existed, which reads as
@@ -474,7 +476,7 @@ code,
   display: block;
 }
 .screen > header {
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-4);
 }
 /* THE LEAD COLOUR, on every screen. Indigo was confined to the rail and to primary buttons,
    which left the working surface black and white. `--accent-strong` rather than `--accent`:
@@ -499,9 +501,9 @@ code,
   background: var(--surface);
   border: var(--border-width) solid var(--border);
   border-radius: var(--radius-lg);
-  padding: var(--space-5);
+  padding: var(--space-4) var(--space-5);
   box-shadow: var(--shadow-sm);
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-3);
 }
 .card h2 {
   font-size: var(--text-lg);
@@ -516,8 +518,10 @@ code,
 }
 
 /* ---------- fields ---------- */
+/* BETWEEN groups, never within one: `.field > label` keeps its own gap to its input, which is
+   what makes a label read as belonging to a control rather than floating between two. */
 .field {
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-3);
 }
 .field > label {
   display: block;
@@ -579,15 +583,19 @@ select.input {
   color: var(--text-secondary);
   margin-bottom: var(--space-4);
 }
+/* The mode picker is the tallest block on the busiest screen - three options, each two lines.
+   Its height is INFORMATION (the second line explains what each mode does to your files) so the
+   copy stays; what tightens is the box around it. `--space-1` vertical keeps each option ~50px,
+   still a large click target, because the target is sized by its two lines and not by padding. */
 .org-modes {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 .org-mode {
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-1) var(--space-3);
   border: var(--border-width) solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
@@ -1233,12 +1241,30 @@ details.more > summary::-webkit-details-marker {
    SUPPLEMENTARY BY CONSTRUCTION: it is not rendered below `--panel-min`, so nothing needed to
    finish a task may live in it. Enforced by test, not by convention. Empty costs nothing, the
    same reservation the account slot uses. */
+/* THE PANEL IS A COLUMN; THE CARD INSIDE IT IS THE REGION. It used to be the region itself -
+   a full-height slab of `--surface` with a border on one edge, square corners and no container -
+   so on a page where every other region is a card it read as text floating against the page.
+   The column now carries only scroll and alignment; `.panel-card` is the card, and it takes the
+   same treatment as any other so it changes with them rather than beside them.
+
+   AND IT STARTS LEVEL WITH THE FIRST CONTENT CARD. The column begins at the grid row, which is
+   `--space-6` of `.main` padding plus the screen header above the first card - 178px of offset
+   that read as the right column being detached from the middle one. The padding-top here is that
+   distance, so the two line up; it is a layout constant beside the layout constants that produce
+   it, and `test_the_panel_starts_level_with_the_first_content_card` fails if either moves. */
 .panel {
-  padding: var(--space-5) var(--space-4);
-  border-left: var(--border-width) solid var(--border);
-  background: var(--surface);
+  /* padding-top is set by `alignPanelWithContent` - see app.js. The value here is the resting
+     one, used before the first measurement and below the breakpoint where the panel is absent. */
+  padding: var(--space-6) var(--space-4) var(--space-5);
   overflow-y: auto;
   min-width: 0;
+}
+.panel-card {
+  background: var(--surface);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-sm);
 }
 .panel:empty {
   display: none;

@@ -152,7 +152,10 @@ def test_library_stats_reports_custody_and_shape(client: TestClient, tmp_path: P
         catalog.set_drive_verified("A", "2026-07-30T10:00:00")
 
     body = client.get(f"/api/library/stats?token={TOKEN}").json()
-    assert set(body) == {"safety", "completeness", "shape", "dates", "complexity"}
+    # `complexity` is gone on purpose: it carried an engineering cost annotation that Stats
+    # rendered as description ("Query cost: O(n) aggregate SQL over catalog tables..."). A key
+    # nothing may display is a key that should not exist, or the next reader displays it again.
+    assert set(body) == {"safety", "completeness", "shape", "dates"}
     assert set(body["safety"]) == {
         "total_files",
         "total_size",

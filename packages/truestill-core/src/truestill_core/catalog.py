@@ -1293,6 +1293,19 @@ class Catalog:
     def count(self) -> int:
         return int(self._conn.execute("SELECT COUNT(*) FROM files").fetchone()[0])
 
+    def total_content_bytes(self) -> int:
+        """How big the library is: DISTINCT content, never the sum over drives.
+
+        `library_status` summed `file_copies.size` across every drive, so a backed-up library
+        reported twice its size and the panel disagreed with Stats about the same photos. A
+        second copy is custody - which is what `places` and `single_copy` beside it are for -
+        not volume.
+
+        Same aggregate `stats_summary` already reports as `total_size`, so the two surfaces
+        read one number by construction rather than by agreement.
+        """
+        return int(self._conn.execute("SELECT COALESCE(SUM(size), 0) FROM files").fetchone()[0])
+
     def stats_summary(self) -> sqlite3.Row:
         """Library-level custody and completeness totals from aggregate SQL only.
 

@@ -506,7 +506,10 @@ def library_status(db: Path, *, explicit_db: bool = False) -> LibraryStatus:
         # DRIVES and is kept only for callers that want it; it must never be the number a
         # sentence about files is written against.
         custody = catalog.custody_floor()
-        total_bytes = sum(d["total_size"] or 0 for d in drives)
+        # DISTINCT CONTENT, not the sum over drives. Summing `total_size` per drive made a
+        # backed-up library report twice its size - the panel said 5.2 GB where Stats said 4.9
+        # about the same 1,997 photos, and the gap was exactly the backup drive.
+        total_bytes = catalog.total_content_bytes()
         library_path = take_live_path_hint(catalog, LIBRARY_PATH_HINT)
         backup_path = take_live_path_hint(catalog, BACKUP_PATH_HINT)
     return {

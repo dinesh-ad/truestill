@@ -20,6 +20,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 from starlette.staticfiles import StaticFiles
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from truestill_core.app_paths import default_catalog_path
 from truestill_core.events import InvalidEventSettingsError
 from truestill_core.layout import InvalidEverydayDaySettingsError
@@ -146,6 +147,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
                 "restart truestill-app to serve what is actually on disk"
             )
         html = html.replace("{{TOKEN}}", token)
+        html = html.replace("{{STATIC_FINGERPRINT}}", started_fingerprint)
         html = html.replace("{{STALE_WARNING}}", _STALE_BANNER if stale else "")
         return HTMLResponse(html.replace("{{VERSION}}", __version__))
 
@@ -684,8 +686,40 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         Route("/api/backup/preview", backup_preview, methods=["POST"]),
         Route("/api/backup/run", backup_run, methods=["POST"]),
     ]
+
+    class StampStaticFingerprint:
+        """Put this process's static fingerprint on every response.
+
+        The page compares it with the one baked into its own HTML, so a TAB older than the
+        server can say so. `_static_fingerprint` already covers the other direction (a server
+        older than the files); this is the half that was missing, and it is what a user
+        experiences as "the new setting does nothing".
+
+        Read once at startup, not per response: this answers "which build served this page",
+        which cannot change while the process lives - and `home` already recomputes from disk
+        for its own, different question.
+        """
+
+        def __init__(self, app: ASGIApp) -> None:
+            self._app = app
+
+        async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+            if scope["type"] != "http":
+                await self._app(scope, receive, send)
+                return
+
+            async def stamped(message: Message) -> None:
+                if message["type"] == "http.response.start":
+                    message.setdefault("headers", []).append(
+                        (b"x-truestill-static", started_fingerprint.encode("ascii"))
+                    )
+                await send(message)
+
+            await self._app(scope, receive, stamped)
+
     app = Starlette(routes=routes)
     app.mount("/static", StaticFiles(directory=_STATIC), name="static")
+    app.add_middleware(StampStaticFingerprint)
     app.add_middleware(LocalGuard, token=token)
     app.state.token = token
     return app

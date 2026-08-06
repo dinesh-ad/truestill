@@ -179,13 +179,17 @@
    `medium` has no rule on purpose: the absence of a declaration is what lets a raised browser
    default through untouched, and writing `100%` would look equivalent while quietly making
    `medium` a value the app asserts rather than one it declines to.
-   +/- 12.5%: one visible step either way. A larger multiplier compounds on a default that is
-   already raised, which is the failure mode this setting is most likely to be used with. */
+   75% / 125%, which is 12 / 16 / 20px at the common 16px default - Chrome's own Small and Large
+   presets. It started at +/-12.5% (14/16/18) out of caution about compounding on an already
+   raised default, and that was too timid to read as a setting at all: the maintainer changed it
+   and saw nothing. Compounding is still bounded because these are PERCENTAGES - a 24px default
+   gives 18 / 24 / 30, which is large by choice rather than by accident, where an absolute step
+   would have handed that reader 20px and called it Large. */
 :root[data-text-size="small"] {
-  font-size: 87.5%;
+  font-size: 75%;
 }
 :root[data-text-size="large"] {
-  font-size: 112.5%;
+  font-size: 125%;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -199,12 +203,12 @@
     --warning: #d69a3a;
     --warning-subtle: #241d10;
 
-    --bg: #12110f;
-    --surface: #1b1917;
-    --surface-sunken: #141311;
-    --surface-raised: #211f1c;
-    --border: #2b2823;
-    --border-strong: #3a352e;
+    --bg: #0e0d0b;
+    --surface: #242220;
+    --surface-sunken: #171614;
+    --surface-raised: #2e2b27;
+    --border: #3a352e;
+    --border-strong: #4a443b;
     --text: #ece8e1;
     --text-secondary: #a8a096;
     --text-muted: #938b80; /* 5.2:1 on the dark surface */
@@ -251,12 +255,12 @@
   --success: #46b46a;
   --warning: #d69a3a;
   --warning-subtle: #241d10;
-  --bg: #12110f;
-  --surface: #1b1917;
-  --surface-sunken: #141311;
-  --surface-raised: #211f1c;
-  --border: #2b2823;
-  --border-strong: #3a352e;
+  --bg: #0e0d0b;
+  --surface: #242220;
+  --surface-sunken: #171614;
+  --surface-raised: #2e2b27;
+  --border: #3a352e;
+  --border-strong: #4a443b;
   --text: #ece8e1;
   --text-secondary: #a8a096;
   --text-muted: #938b80;

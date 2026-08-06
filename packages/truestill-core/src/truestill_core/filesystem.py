@@ -29,6 +29,8 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from truestill_core.units import format_bytes
+
 #: The largest file FAT32 can store: 4 GiB **minus one byte**. A file of exactly 4 GiB does not
 #: fit, which is why the comparison is ``>`` against this value rather than ``>=`` against 4 GiB.
 FAT32_MAX_FILE_BYTES = 4 * 1024**3 - 1
@@ -216,7 +218,7 @@ class DestinationPreflight:
         is not something anyone can act on."""
         if self.oversized:
             named = ", ".join(
-                f"{path.name} ({size / 1024**3:.1f} GB)"
+                f"{path.name} ({format_bytes(size)})"
                 for path, size in self.oversized[:_NAMED_LIMIT]
             )
             extra = len(self.oversized) - _NAMED_LIMIT
@@ -229,8 +231,8 @@ class DestinationPreflight:
             )
         if not self.enough_space:
             return (
-                f"Not enough room: this needs about {self.need_bytes / 1024**3:.1f} GB and the "
-                f"drive has {self.free_bytes / 1024**3:.1f} GB free."
+                f"Not enough room: this needs about {format_bytes(self.need_bytes)} and the "
+                f"drive has {format_bytes(self.free_bytes)} free."
             )
         return ""
 

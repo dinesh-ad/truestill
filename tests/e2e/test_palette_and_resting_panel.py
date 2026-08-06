@@ -185,10 +185,21 @@ def test_the_panel_shows_the_library_at_rest_on_organize(ui: Page) -> None:
     expect(panel).to_contain_text("GB")
 
 
-def test_the_resting_panel_names_what_is_on_one_copy_only(ui: Page) -> None:
+def test_what_is_on_one_copy_only_is_named_exactly_once(ui: Page) -> None:
+    """MOVED, not dropped. This asserted the PANEL named it - and the rail's custody line named
+    the same number at the same moment, in different words, on every screen.
+
+    The rail keeps it: it is the ambient custody line and it is always present, while the panel
+    is not rendered below 1336px. So the panel is the copy that can go without the fact going
+    with it. The property this test was written for - that a user is told - is unchanged.
+    """
     ui.set_viewport_size({"width": 1500, "height": 900})
     _status(ui)
-    expect(ui.locator("#panel")).to_contain_text("400")
+
+    expect(ui.locator("#custody")).to_contain_text("400")
+    assert "400" not in ui.eval_on_selector("#panel", "el => el.innerText"), (
+        "the panel repeats the rail's one-copy count"
+    )
 
 
 def test_an_empty_library_gets_no_panel_rather_than_a_row_of_zeros(ui: Page) -> None:

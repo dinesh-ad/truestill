@@ -603,6 +603,28 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   synthetic empty token. A synthetic one proves the assertion works; only the real defect proves
   it fires on the thing that actually happened.
 
+- **A stub that never matched is indistinguishable from a stub that matched and returned
+  nothing.** The twelfth member. Every assertion downstream of an unmatched stub is vacuous, and
+  the test passes.
+
+  *Origin, 2026-08-06 - three times in one session.* `ui.route("**/api/stats**", ...)` never
+  matched, because the endpoint is `/api/library/stats`. The screen fell through to the real
+  (empty) catalog, rendered its "Nothing to report yet" state, and a test looking for a string in
+  the custody card found no string - and passed. The same shape twice more: a Backups test that
+  stubbed the library total but not `/api/drives`, and a panel test whose `#panel` was
+  `display: none` for want of a payload, so every measurement in it read zero.
+
+  **The tell is that the screen renders NOTHING**, not that it renders something wrong. A test
+  whose subject is missing entirely should be suspected of not being wired up, because a page
+  with no data looks exactly like a page whose data said nothing.
+
+  > **Assert the stub was HIT, not only that the page looks right.** Count the interception, or
+  > assert a value that can only have come from the stub.
+
+  All three passed review and all three were exposed by a mutation - the mutation removed the
+  behaviour under test and the test still passed, which is the only signal that says *this test
+  was never watching*.
+
 - **Errors.** Exceptions typed and specific - no bare `except`. User-facing CLI errors are
   actionable sentences, not tracebacks. Every subprocess call checks its return code and
   surfaces stderr on failure. Partial-failure policy: one bad file never aborts a batch - it

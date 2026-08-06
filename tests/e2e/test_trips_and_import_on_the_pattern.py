@@ -224,7 +224,7 @@ def test_the_lede_carries_the_scope_the_heading_gave_up(ui: Page) -> None:
 def test_the_way_in_from_stats_is_not_scoped_to_one_service_either(ui: Page) -> None:
     """The audit missed two strings, not one: this button is the other."""
     ui.route(
-        "**/api/stats**",
+        "**/api/library/stats**",
         lambda r: _json_route(r, {"safety": {"total_files": 0}, "completeness": {}, "shape": {}}),
     )
     ui.click('button[data-screen="stats"]')

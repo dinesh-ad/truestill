@@ -108,7 +108,6 @@ class LibraryStats(TypedDict):
     shape: LibraryStatsShape
     #: (n) the honesty view: how this library's dates were determined.
     dates: DateProvenance
-    complexity: str
 
 
 def _date_provenance(catalog: Catalog) -> DateProvenance:
@@ -230,7 +229,6 @@ def library_stats(db: Path) -> LibraryStats:
             "newest_capture": summary["newest_capture"],
         },
         "dates": dates,
-        "complexity": "O(n) aggregate SQL over catalog tables; grouped rollups only.",
     }
 
 

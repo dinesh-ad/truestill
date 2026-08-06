@@ -24,6 +24,7 @@ from truestill_core.archive_set import (
     space_for,
 )
 from truestill_core.filesystem import FilesystemFacts, facts_for
+from truestill_core.units import format_bytes
 
 #: How many oversized entries are named before the list is truncated. The rest are counted, the
 #: same shape `DestinationPreflight.detail` uses - one habit, not two.
@@ -81,9 +82,7 @@ def _oversized_line(entries: tuple[tuple[str, int], ...], facts: FilesystemFacts
     a user who meets this through an ingest and through an organize should not have to work out
     that they are the same problem.
     """
-    named = ", ".join(
-        f"{name} ({size / 1024**3:.1f} GB)" for name, size in entries[:_NAMED_ENTRIES]
-    )
+    named = ", ".join(f"{name} ({format_bytes(size)})" for name, size in entries[:_NAMED_ENTRIES])
     extra = len(entries) - _NAMED_ENTRIES
     more = f" and {extra} more" if extra > 0 else ""
     where = f" ({facts.filesystem})" if facts.known else ""

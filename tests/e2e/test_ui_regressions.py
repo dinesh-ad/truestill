@@ -132,8 +132,12 @@ def test_organize_mode_persists_and_inplace_hides_destination(ui: Page) -> None:
     ):
         ui.check('input[name="org-mode"][value="inplace"]')
     expect(ui.locator("#org-dest-field")).to_be_hidden()
-    expect(ui.locator("#org-mode-hint")).to_contain_text("never falls back to copy")
-    expect(ui.locator("#org-mode-hint")).to_contain_text("--in-place")
+    # Reworded when the sweep removed "In the CLI, this is --in-place." from this hint. The
+    # PROPERTY is unchanged and is what is asserted: in-place renames and never copies.
+    expect(ui.locator("#org-mode-hint")).to_contain_text("never by copying them")
+    # The assertion that this hint names `--in-place` is GONE, not relaxed. It pinned a CLI flag
+    # into a hint on the first screen a new user meets, which is what the developer-language
+    # sweep removed; `test_no_developer_language_on_screen.py` now fails if it returns.
 
     ui.reload()
     expect(ui.locator('input[name="org-mode"][value="inplace"]')).to_be_checked()

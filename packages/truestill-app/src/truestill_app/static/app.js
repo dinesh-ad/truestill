@@ -34,6 +34,34 @@ const plural = (n, word, suffix = "s") => `${nfmt(n)} ${word}${Number(n) === 1 ?
 // that triggered it left a blank screen -- no cards, no error, no "none found" message. `api()`
 // now rejects anything that is not a 2xx with a legible error (status + body), so every caller
 // gets a real `Error` to catch instead of quietly parsing whatever came back.
+// THIS PAGE IS OLDER THAN THE SERVER, and nothing used to say so. `_static_fingerprint` warns in
+// the other direction - a server older than the files on disk - and the gap between them is where
+// "the text-size setting does nothing" comes from: the app is ONE page, screen switches never
+// reload it, so a tab open across an upgrade keeps running the JS it loaded hours ago and a new
+// control silently fails to exist. No error, nothing to click, no way to learn to reload.
+//
+// COSTS NO REQUEST. Every action already calls the API, so the server stamps its fingerprint on
+// each response and this compares it with the one baked into the served HTML. No polling, no
+// timer, no endpoint. Said once: the header rides every response, so a naive version stacks a
+// banner per call.
+let pageStaleNoticed = false;
+function noticeIfPageIsStale(res) {
+  if (pageStaleNoticed) return;
+  const served = res.headers.get("x-truestill-static");
+  if (!served || !window.TRUESTILL_STATIC || served === window.TRUESTILL_STATIC) return;
+  pageStaleNoticed = true;
+  document.body.insertAdjacentHTML(
+    "afterbegin",
+    `<div class="banner warn page-stale" data-testid="page-stale" role="alert"><div>
+       <div class="b-title">This page is out of date</div>
+       Truestill has been updated since this tab was opened, so anything added in that update is
+       missing here. Reload to pick it up - nothing in progress is lost.
+       <div class="actions"><button class="btn btn-primary" data-testid="page-stale-reload"
+         onclick="location.reload()">Reload the page</button></div>
+     </div></div>`
+  );
+}
+
 async function api(path, body) {
   const opts = { headers: { "X-Truestill-Token": TOKEN } };
   if (body !== undefined) {
@@ -42,6 +70,7 @@ async function api(path, body) {
     opts.body = JSON.stringify(body);
   }
   const res = await fetch(path, opts);
+  noticeIfPageIsStale(res);
   const text = await res.text();
   if (!res.ok) {
     throw new Error(`${path} failed (${res.status} ${res.statusText}): ${text.slice(0, 500) || "no body"}`);
@@ -312,12 +341,22 @@ function createProgress(prefix) {
     elapsed() { return performance.now() / 1000 - started; },
   };
 }
+// A MIRROR of `truestill_core.units.format_bytes`, the way `plural` is - the browser cannot
+// import Python. `tests/e2e/test_one_byte_formatter.py` runs both over one table and fails on
+// any drift, because a mirror with no gate is two implementations sharing a name.
+//
+// DECIMAL, and this used to be 1024-based while still printing "GB". The number a user checks a
+// size against is their drive's advertised capacity, which is decimal, and so are GNOME Files
+// and macOS Finder; 1024-based labelled GB is ~7% low at gigabyte scale and reads as the app
+// being wrong about their disk. It was also only one of THREE implementations - two more sat
+// inline in Python as `f"{n / 1024**3:.1f} GB"`.
 function fmtBytes(n) {
-  if (!n) return "0 B";
+  let v = Number(n);
+  if (!(v > 0)) return "0 B";
   const u = ["B", "KB", "MB", "GB", "TB"];
-  let i = 0, v = n;
-  while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
-  return `${v.toFixed(v < 10 && i > 0 ? 1 : 0)} ${u[i]}`;
+  let i = 0;
+  while (v >= 1000 && i < u.length - 1) { v /= 1000; i++; }
+  return i === 0 ? `${Math.trunc(v)} B` : `${v.toFixed(1)} ${u[i]}`;
 }
 //: Risk is marked, not merely coloured - colour alone cannot carry a state distinction.
 const WARN_MARK = "\u26a0 ";
@@ -539,7 +578,6 @@ function renderStatsSummary(stats) {
   return [
     card(
       `<div class="headline">Custody</div>
-       <div class="k">Query cost: ${esc(stats.complexity || "aggregate SQL only")}.</div>
        ${custodyMetrics(safety)}
        <div class="actions">
          <button class="btn btn-secondary" data-stats-action="backups">Go to Backups</button>
@@ -946,6 +984,30 @@ async function refreshDriveState() {
 }
 
 // ---------- navigation ----------
+// THE PANEL STARTS LEVEL WITH THE FIRST CONTENT CARD, not with the grid row. It began 178px
+// higher - `.main`'s padding plus the screen header - and the right column read as detached from
+// the middle one.
+//
+// MEASURED RATHER THAN DECLARED, because the header is not a constant: its height changes with
+// the screen (each lede is a different length), with the text-size setting and with a raised
+// browser default. A CSS `padding-top` would be right on exactly one screen at exactly one size.
+// The cost is one `getBoundingClientRect` per screen switch and per debounced resize - no new
+// listener, no timer, and it reuses the resize handler the catalog-path fit already installed.
+function alignPanelWithContent() {
+  const panel = document.querySelector("#panel");
+  const header = document.querySelector(".screen.active > header");
+  if (!panel) return;
+  // Built from layout metrics rather than from viewport rects, so it is the same answer whether
+  // or not `.main` happens to be scrolled when it is measured. The header's own margin counts:
+  // it is the gap between the header and the card, not part of either.
+  const main = document.querySelector(".main");
+  const top = main ? parseFloat(getComputedStyle(main).paddingTop) : 0;
+  const head = header
+    ? header.offsetHeight + parseFloat(getComputedStyle(header).marginBottom)
+    : 0;
+  panel.style.paddingTop = `${Math.round(top + head)}px`;
+}
+
 function showScreen(name) {
   document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("active", s.id === `screen-${name}`));
   // Land at the top. Switching screens is a class toggle, not a page load, so nothing resets
@@ -958,6 +1020,7 @@ function showScreen(name) {
   window.scrollTo(0, 0);
   document.querySelectorAll(".nav-item").forEach((n) =>
     n.setAttribute("aria-current", n.dataset.screen === name ? "page" : "false"));
+  alignPanelWithContent();
   if (name === "backups") loadDrives();
   if (name === "settings") {
     loadLayout();
@@ -1144,16 +1207,20 @@ function renderRestingPanel(s) {
       ? `<div class="panel-fact"><div class="panel-k">Kept in</div>
          <div class="mono">${plural(s.places, "place")}</div></div>`
       : "",
-    one
-      ? `<div class="panel-fact"><div class="panel-k">In one place only</div>
-         <div class="mono at-risk">${nfmt(one)}</div></div>`
-      : "",
+    // "In one place only" USED TO BE HERE and is deliberately gone: the rail's custody line
+    // states the same number, in different words, at the same moment. The RAIL keeps it - it is
+    // the ambient custody line and it is on every screen, while this panel is not rendered below
+    // 1336px, so the panel is the copy that can vanish without the fact being lost.
+    //
+    // `files_no_copy` below is NOT the same fact and stays: on no drive at all is a different
+    // state from on exactly one, and the rail does not say it.
     none
       ? `<div class="panel-fact"><div class="panel-k">Not on any drive</div>
          <div class="mono at-risk">${nfmt(none)}</div></div>`
       : "",
   ].filter(Boolean).join("");
-  panel.innerHTML = `<h3 class="panel-title">Your library</h3>${rows}`;
+  alignPanelWithContent();
+  panel.innerHTML = `<div class="panel-card"><h3 class="panel-title">Your library</h3>${rows}</div>`;
 }
 
 // The picker's own roots, rendered inline. Nothing new is computed or stored: a recent-folder
@@ -1233,7 +1300,7 @@ async function loadCustody() {
   line.innerHTML = `<span class="${tone}">${esc(safe)}</span>${catalogPath}`;
   refreshCatalogPathFit();
 }
-window.addEventListener("resize", debounce(refreshCatalogPathFit, 50));
+window.addEventListener("resize", debounce(() => { refreshCatalogPathFit(); alignPanelWithContent(); }, 50));
 
 // ---------- folder picker ----------
 const pk = { input: null, kind: "source", path: "" };
@@ -1386,7 +1453,7 @@ function organizeNeedsDestination(mode) {
 function modeLine(mode) {
   if (mode === "copy") return "Originals stay where they are.";
   if (mode === "move") return "Originals are removed only after copy verification.";
-  return "This mode reorganizes in this same folder by rename only, and never falls back to copy. In the CLI, this is --in-place.";
+  return "This mode reorganizes in this same folder by renaming files, never by copying them. Nothing leaves the folder.";
 }
 
 function modeMechanismLine(mode, mechanism) {
@@ -1425,7 +1492,7 @@ function renderOrganizeMode() {
   $("org-mode-hint").textContent = modeLine(orgMode);
   $("org-confirm").innerHTML = "";
   if (!needsDest) {
-    $("org-dest-hint").textContent = "Reorganize in this same folder uses the source folder as the destination. In the CLI, this is --in-place.";
+    $("org-dest-hint").textContent = "Reorganize in this same folder writes back into the folder you chose, so there is no second folder to pick.";
     $("org-dest-hint").className = "hint";
   }
 }
@@ -2140,8 +2207,15 @@ async function loadDrives() {
     return;
   }
   // Library summary (counts + formats only, catalog-driven - deliberately not a dashboard).
-  const summary = `<div class="card"><div class="headline" style="font-size:var(--text-lg)">Your library</div>
-    <div class="k mono">${mediaCount(lib)} · ${fmtBytes(lib.bytes)}</div>${byFormat(lib.by_format)}</div>`;
+  //
+  // ONLY ONCE A SECOND DRIVE EXISTS. With a single drive "Your library" and that drive are
+  // necessarily the same set, so the screen opened with two identical blocks stacked - and that
+  // is the NEW USER's view, the one place it should read most clearly. The total becomes a fact
+  // of its own the moment the drives can disagree with it.
+  const summary = drives.length > 1
+    ? `<div class="card"><div class="headline" style="font-size:var(--text-lg)">Your library</div>
+    <div class="k mono">${mediaCount(lib)} · ${fmtBytes(lib.bytes)}</div>${byFormat(lib.by_format)}</div>`
+    : "";
   // A stated risk with no way to act on it is a complaint. Stats offers a button for this
   // exact fact; Backups stated the count and stopped. The remedy lives on THIS screen, so the
   // action points at it rather than navigating away.
