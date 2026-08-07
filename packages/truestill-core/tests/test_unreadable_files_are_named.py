@@ -129,7 +129,13 @@ def test_a_cached_file_that_became_unreadable_is_still_named(
     stat = photo.stat()
 
     with HashCache(cache_path_for(db)) as cache:
-        cache.put(photo, stat.st_size, stat.st_mtime_ns, compute_hashes([photo])[photo])
+        cache.put(
+            photo,
+            stat.st_size,
+            stat.st_mtime_ns,
+            compute_hashes([photo])[photo],
+            perceptual_computed=True,
+        )
 
     _deny_open(monkeypatch, name="cached.jpg", exc=PermissionError(errno.EACCES, "denied"))
     with HashCache(cache_path_for(db)) as cache:

@@ -653,6 +653,7 @@ def _rescan_hashes(candidates: dict[str, Path], db: Path) -> tuple[dict[str, str
         for relative, path in candidates.items():
             try:
                 stat = path.stat()
+                # SHA-only, so `need_perceptual` stays False - see `_rescan_hashes`.
                 cached = cache.get(path, stat.st_size, stat.st_mtime_ns, need_sha=True)
                 identified[relative] = (
                     cached.sha256
@@ -1215,7 +1216,17 @@ def _format_new(resolution: Resolution, root_label: str) -> str:
         else f"source={decision.date_source.value}, tag={decision.date_tag}"
     )
     flag = "  <-- REVIEW" if decision.needs_review else ""
-    phash = resolution.hashes.perceptual or "n/a (not an image)"
+    # Three states, not two. `perceptual is None` used to render "not an image" whatever the
+    # reason, so a run that never hashed the pixels told a user their photograph was not one -
+    # 392 of 403 JPEGs on a real library. The fingerprint, the honest absence, or the honest
+    # "we did not look".
+    hashes = resolution.hashes
+    if hashes.perceptual:
+        phash = hashes.perceptual
+    elif hashes.perceptual_computed:
+        phash = "n/a (not an image)"
+    else:
+        phash = "not compared for look-alikes"
     lines = [
         f"  {decision.source.name}",
         (

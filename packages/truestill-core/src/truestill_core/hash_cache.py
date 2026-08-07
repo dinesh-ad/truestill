@@ -52,7 +52,7 @@ from truestill_core.models import FileHashes
 #: preserving that a re-read cannot reproduce.
 #:
 #: v1: hashes only. v2: adds ``tags_fp`` + ``metadata_json`` for the exiftool read cache.
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 #: How many absent files to prune per run. Bounded so cleanup cannot degrade into an
 #: O(whole-cache) stat storm on a library that is mostly untouched -- the point is that it
@@ -67,13 +67,21 @@ CREATE TABLE IF NOT EXISTS hash_cache (
     mtime_ns      INTEGER NOT NULL,
     sha256        TEXT,
     perceptual    TEXT,
+    -- **The third state, and the reason this table has a version 3.** `perceptual` alone carried
+    -- two meanings - *not an image* and *not computed* - and `get` had no way to tell them
+    -- apart. That single ambiguity was two live defects: `attach_drive` wrote SHA-only rows that
+    -- a later organize preview took as hits, and `read_metadata` writes a row for a path nothing
+    -- has hashed, which did the same. 1 means a perceptual pass ran for this exact
+    -- (path, size, mtime) and `perceptual` is its answer, NULL included. 0 means nobody has
+    -- looked, so a run that needs one must MISS rather than believe the NULL.
+    perceptual_computed INTEGER NOT NULL DEFAULT 0,
     tags_fp       TEXT,
     metadata_json TEXT
 );
 """
 
-# Row: size, mtime_ns, sha256, perceptual, tags_fp, metadata_json
-_Row = tuple[int, int, str | None, str | None, str | None, str | None]
+# Row: size, mtime_ns, sha256, perceptual, perceptual_computed, tags_fp, metadata_json
+_Row = tuple[int, int, str | None, str | None, int, str | None, str | None]
 
 
 def cache_path_for(catalog: Path) -> Path:
@@ -136,12 +144,13 @@ class HashCache:
                     int(row[2]),
                     row[3],
                     row[4],
-                    row[5],
+                    int(row[5] or 0),
                     row[6],
+                    row[7],
                 )
                 for row in conn.execute(
-                    "SELECT path, size, mtime_ns, sha256, perceptual, tags_fp, metadata_json "
-                    "FROM hash_cache"
+                    "SELECT path, size, mtime_ns, sha256, perceptual, perceptual_computed, "
+                    "tags_fp, metadata_json FROM hash_cache"
                 )
             }
             self._conn = conn
@@ -202,33 +211,63 @@ class HashCache:
         return self._writable
 
     def _base_row(self, key: str, size: int, mtime_ns: int) -> _Row:
-        """Pending or stored row when size+mtime still match; else a blank row for this key."""
+        """Pending or stored row when size+mtime still match; else a blank row for this key.
+
+        A blank row carries ``perceptual_computed = 0``, which is what makes a metadata-only
+        write honest: `read_metadata` does not hash, so a row it creates must not claim anybody
+        looked at the pixels.
+        """
         prev = self._pending.get(key) or self._rows.get(key)
         if prev is not None and prev[0] == size and prev[1] == mtime_ns:
             return prev
-        return (size, mtime_ns, None, None, None, None)
+        return (size, mtime_ns, None, None, 0, None, None)
 
-    def get(self, path: Path, size: int, mtime_ns: int, *, need_sha: bool) -> FileHashes | None:
+    def get(
+        self, path: Path, size: int, mtime_ns: int, *, need_sha: bool, need_perceptual: bool = False
+    ) -> FileHashes | None:
         """The recorded hashes for a file that has not changed, else ``None``.
 
         ``need_sha`` is part of the question, not an afterthought: a row written when the size
         pre-filter skipped SHA-256 carries ``sha256=None``, which is a perfectly good answer
         for a run that still does not need it and an insufficient one for a run that does.
         Treating that as a hit would quietly hand back a null hash and break exact dedup.
+
+        ``need_perceptual`` is the counterpart, and it is the one that was missing. Without it a
+        row nobody had perceptually hashed came back as a **hit** carrying ``perceptual=None``,
+        and the caller read that as *not an image* - so near-duplicate detection silently stopped
+        for those files. Measured on a real library: 2,221 of 2,239 image rows in that state, and
+        an organize preview reporting ``look-alikes: 0`` as though it had looked. It defaults to
+        ``False`` so a SHA-only caller is unaffected and asks nothing it does not need.
         """
         key = str(path)
         self._seen.add(key)
         row = self._rows.get(key)
         if row is None:
             return None
-        cached_size, cached_mtime, sha, perceptual, _tags_fp, _meta = row
+        cached_size, cached_mtime, sha, perceptual, computed, _tags_fp, _meta = row
         if cached_size != size or cached_mtime != mtime_ns:
             return None
         if need_sha and sha is None:
             return None
-        return FileHashes(sha256=sha, perceptual=perceptual)
+        if need_perceptual and not computed:
+            return None
+        return FileHashes(sha256=sha, perceptual=perceptual, perceptual_computed=bool(computed))
 
-    def put(self, path: Path, size: int, mtime_ns: int, hashes: FileHashes) -> None:
+    def put(
+        self,
+        path: Path,
+        size: int,
+        mtime_ns: int,
+        hashes: FileHashes,
+        *,
+        perceptual_computed: bool,
+    ) -> None:
+        """Record what this pass learned. ``perceptual_computed`` is required, not inferred.
+
+        Whether the pixels were looked at is knowable only to the caller - `perceptual=None` is
+        the answer for a video AND for a pass that never tried - so it is passed in rather than
+        guessed from the value, which is the guess this column exists to end.
+        """
         if not self._writable:
             return
         key = str(path)
@@ -239,8 +278,11 @@ class HashCache:
             mtime_ns,
             hashes.sha256,
             hashes.perceptual,
-            base[4],
+            # Never downgrade a row that already knows: a SHA-only pass over a file an earlier
+            # full pass hashed must not erase that answer.
+            1 if (perceptual_computed or base[4]) else 0,
             base[5],
+            base[6],
         )
 
     def get_metadata(
@@ -252,7 +294,7 @@ class HashCache:
         row = self._rows.get(key)
         if row is None:
             return None
-        cached_size, cached_mtime, _sha, _ph, cached_fp, raw = row
+        cached_size, cached_mtime, _sha, _ph, _computed, cached_fp, raw = row
         if cached_size != size or cached_mtime != mtime_ns:
             return None
         if cached_fp != tags_fp or raw is None:
@@ -276,6 +318,10 @@ class HashCache:
             mtime_ns,
             base[2],
             base[3],
+            # Carried, never set: reading exiftool tags says nothing about the pixels, and a row
+            # this created for a path nobody has hashed must read as "not computed" (0) so a
+            # later full pass MISSES instead of believing its NULL.
+            base[4],
             tags_fp,
             json.dumps(metadata, separators=(",", ":"), sort_keys=True),
         )
@@ -293,11 +339,12 @@ class HashCache:
         try:
             if self._pending:
                 self._conn.executemany(
-                    "INSERT INTO hash_cache "
-                    "(path, size, mtime_ns, sha256, perceptual, tags_fp, metadata_json) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(path) DO UPDATE SET "
+                    "INSERT INTO hash_cache (path, size, mtime_ns, sha256, perceptual, "
+                    "perceptual_computed, tags_fp, metadata_json) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(path) DO UPDATE SET "
                     "size=excluded.size, mtime_ns=excluded.mtime_ns, "
                     "sha256=excluded.sha256, perceptual=excluded.perceptual, "
+                    "perceptual_computed=excluded.perceptual_computed, "
                     "tags_fp=excluded.tags_fp, metadata_json=excluded.metadata_json",
                     [(k, *v) for k, v in self._pending.items()],
                 )

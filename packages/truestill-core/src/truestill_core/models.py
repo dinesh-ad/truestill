@@ -195,7 +195,9 @@ class FileHashes:
 
     ``sha256`` is ``None`` when the size pre-filter skipped hashing a unique-size file (it
     cannot be an exact duplicate of anything); it is computed lazily if the file is later
-    uploaded. ``perceptual`` is ``None`` for non-images.
+    uploaded. ``perceptual`` is ``None`` for non-images **and** for a pass that did not compute
+    one, which is why :attr:`perceptual_computed` exists: without it those two are the same
+    value, and every reader has to guess which it got.
 
     ``unreadable`` is what tells those apart from a failure. Both of the fields above are
     ``None`` for a file that could not be read, and that collision is what made an unreadable
@@ -208,6 +210,11 @@ class FileHashes:
     sha256: str | None
     perceptual: str | None
     unreadable: UnreadableReason | None = None
+    #: Whether a perceptual pass actually ran. ``perceptual=None`` answers two different
+    #: questions - *not an image* and *nobody looked* - and a report that cannot tell them apart
+    #: told users their photographs were not images. Defaults to ``True`` because a caller
+    #: constructing hashes is stating an answer; the passes that compute only SOME of them say so.
+    perceptual_computed: bool = True
 
 
 class DuplicateOrigin(StrEnum):

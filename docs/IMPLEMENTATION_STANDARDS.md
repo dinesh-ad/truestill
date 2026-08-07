@@ -751,8 +751,17 @@ algorithm toggle. Full rationale: `DECISIONS.md` **D8**.
     removes the hazard. **Enforced by SQLite** (`mode=ro`), not by agreement: writes raise, the
     file is never created, and pruning - itself a write - does not run. Pinned by
     `test_hash_cache_readonly.py`, including that the connection itself refuses a write.
-    Closing the ambiguity properly (a `need_perceptual` counterpart) would be a cache **schema**
-    change and is deliberately not smuggled in here.
+    **Closed 2026-08-07 at cache schema v3**, after the ambiguity produced a second live
+    defect: `read_metadata` writes a row for a path nothing has hashed, and `_cmd_organize`
+    closes that cache before `_run_pipeline` opens a fresh one, so the metadata-only rows
+    became hits **within one command** - measured on the real library as 2,221 of 2,239
+    image rows with no perceptual hash and an organize preview reporting `look-alikes: 0`
+    as though it had looked. A guard on `put_metadata` cannot be written correctly, because
+    `read_metadata` does not know whether anybody hashed the file. `perceptual_computed`
+    records whether a pass ran, `get` takes `need_perceptual`, and `put` **requires** the
+    flag rather than defaulting it - a default is the guess the column exists to end.
+    The version bump rebuilds the cache, which is also the repair; a targeted delete was
+    measured against it and saved 18 rows of 2,239.
   - **Verify is deliberately NOT cached.** It re-hashes the copy on the drive to detect
     bit-rot, and silent corruption changes content without changing size or mtime. Verify
     always reads the bytes. Reclaim likewise always re-hashes.

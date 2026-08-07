@@ -134,6 +134,8 @@ def _copy_hash(path: Path, cache: HashCache) -> str:
     everyone remembering -- writes raise and the file is never created.
     """
     stat = path.stat()
+    # `need_perceptual` stays False: this pass wants SHA-256 and nothing else, so a row
+    # without a perceptual hash is a perfectly good answer to the question being asked.
     cached = cache.get(path, stat.st_size, stat.st_mtime_ns, need_sha=True)
     if cached is not None and cached.sha256 is not None:
         return cached.sha256

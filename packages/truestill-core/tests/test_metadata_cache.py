@@ -146,6 +146,8 @@ def test_hash_put_preserves_cached_metadata(tmp_path: Path) -> None:
             st.st_size,
             st.st_mtime_ns,
             FileHashes(sha256="abc", perceptual=None),
+            # A full pass that found no image, not a pass that skipped one.
+            perceptual_computed=True,
         )
 
     with HashCache.beside(db) as cache:

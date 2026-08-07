@@ -318,7 +318,13 @@ def test_attach_still_takes_a_cache_hit_a_full_run_recorded(
     target = root / "Camera/2014/a.jpg"
     stat = target.stat()
     with HashCache(cache_path_for(db)) as cache:
-        cache.put(target, stat.st_size, stat.st_mtime_ns, FileHashes(on_disk["a.jpg"], "phash-a"))
+        cache.put(
+            target,
+            stat.st_size,
+            stat.st_mtime_ns,
+            FileHashes(on_disk["a.jpg"], "phash-a"),
+            perceptual_computed=True,
+        )
 
     reads: list[Path] = []
     real = sha256_file
@@ -345,7 +351,13 @@ def test_attach_leaves_the_cache_exactly_as_it_found_it(
     target = root / "Camera/2014/a.jpg"
     stat = target.stat()
     with HashCache(cache_path_for(db)) as cache:
-        cache.put(target, stat.st_size, stat.st_mtime_ns, FileHashes(None, "phash-abc"))
+        cache.put(
+            target,
+            stat.st_size,
+            stat.st_mtime_ns,
+            FileHashes(None, "phash-abc"),
+            perceptual_computed=True,
+        )
     before = cache_path_for(db).read_bytes()
 
     attach_drive(root, db, write=True)

@@ -36,7 +36,7 @@ def _seed(cache_path: Path, target: Path) -> None:
     target.write_bytes(b"x" * 10)
     stat = target.stat()
     with HashCache(cache_path) as cache:
-        cache.put(target, stat.st_size, stat.st_mtime_ns, _HASHES)
+        cache.put(target, stat.st_size, stat.st_mtime_ns, _HASHES, perceptual_computed=True)
 
 
 def _read(cache: HashCache, target: Path) -> FileHashes | None:
@@ -85,7 +85,7 @@ def test_a_put_through_a_read_only_cache_reaches_the_file_never(tmp_path: Path) 
     stat = other.stat()
 
     with HashCache(cache_path, writable=False) as cache:
-        cache.put(other, stat.st_size, stat.st_mtime_ns, _HASHES)
+        cache.put(other, stat.st_size, stat.st_mtime_ns, _HASHES, perceptual_computed=True)
 
     with HashCache(cache_path) as cache:
         assert _read(cache, other) is None, "a read-only cache wrote a row"

@@ -191,19 +191,33 @@ def _run_hash_jobs(
                 # probe's verdict still rides along: a file we already know we cannot read is
                 # not made unknown again by the pool dying underneath it.
                 for path in to_hash:
-                    results.setdefault(path, FileHashes(None, None, unreadable.get(path)))
+                    results.setdefault(
+                        path,
+                        FileHashes(None, None, unreadable.get(path), perceptual_computed=False),
+                    )
                 break
             path_str, sha, perceptual, late = got
             path = Path(path_str)
             # The worker's reason wins where it has one: it read further than the probe did.
             hashes = FileHashes(
-                sha256=sha, perceptual=perceptual, unreadable=late or unreadable.get(path)
+                sha256=sha,
+                perceptual=perceptual,
+                unreadable=late or unreadable.get(path),
+                # The pass's own flag, not the value: `perceptual` is None for a video AND for a
+                # pass that never tried, and only the caller knows which.
+                perceptual_computed=want_perceptual,
             )
             results[path] = hashes
             if cache is not None and (sha is not None or perceptual is not None):
                 # An unreadable file has neither hash, so it is never cached and the reason is
                 # never persisted - `put` writes the two hashes and nothing else either way.
-                cache.put(path, sizes.get(path, -1), _mtime_ns(path), hashes)
+                cache.put(
+                    path,
+                    sizes.get(path, -1),
+                    _mtime_ns(path),
+                    hashes,
+                    perceptual_computed=want_perceptual,
+                )
             done += 1
             if progress is not None:
                 progress(Progress(done, total, Phase.HASHING, Path(path_str).name))
@@ -258,7 +272,15 @@ def compute_hashes(
         # Looked up here rather than inside the worker: the worker stays a pure, picklable
         # function that a ProcessPoolExecutor can run, and the cache stays single-threaded.
         for path in paths:
-            hit = cache.get(path, sizes.get(path, -1), _mtime_ns(path), need_sha=path in need_sha)
+            hit = cache.get(
+                path,
+                sizes.get(path, -1),
+                _mtime_ns(path),
+                need_sha=path in need_sha,
+                # A run that wants perceptual hashes must MISS a row nobody perceptually hashed,
+                # rather than take its NULL as "not an image".
+                need_perceptual=perceptual,
+            )
             if hit is None:
                 to_hash.append(path)
             else:
