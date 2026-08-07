@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(abo). Next free: (abp).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(abp). Next free: (abq).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -61,6 +61,25 @@ is invisible here is retired, not free.**
   - Pinned by nothing today, deliberately: the assertion that would pin it is the wording, and
     writing it now would fix the wording before it is chosen. The behaviour is covered by
     `test_preview_tally_is_disjoint.py`.
+
+- **(abp) The body sans face is not bundled, so prose renders differently on every machine.**
+  Recorded 2026-08-07, found because a browser test had been asserting the CI runner's fonts.
+  §7 bundles DejaVu Sans Mono for exactly this reason - *"the old stack named five faces and
+  none exists on a stock Linux box"* - and the **sans** stack
+  (`ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, ...`) still has the whole
+  problem: **measured `1ch` = 10.2812px on the maintainer's machine and 11.4520px on a CI
+  runner, a 11% difference in line length from identical CSS.**
+  - **This is a product question, not the test defect that surfaced it.** The test now measures
+    characters rather than pixels and is correct on any face; what is unresolved is whether
+    Truestill should have one type signature for prose the way it does for paths and counts.
+  - **Not a copy of §7's ruling.** The mono face earned bundling on a stated argument - it
+    carries every path, count and hash - and on measurement: glyph separation at 13px, 3,322
+    codepoints, IBM Plex eliminated for missing U+26A0. A sans face wants the same process and
+    the same weight budget (mono Book+Bold is 661 KB), not an assumption that the answer
+    carries over.
+  - **Also unasserted:** the companion `max-width: 68ch` on `.card .k` / `.hint` / `.banner .k`
+    has no browser test at all. A coverage gap rather than a defect, and the cheapest thing to
+    add whenever this is picked up.
 
 - **(abo) The hash cache cannot say "I computed one hash and not the other".** Recorded
   2026-08-07 when that ambiguity produced a live defect: `attach_drive` wrote `perceptual=NULL`

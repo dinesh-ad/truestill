@@ -151,12 +151,46 @@ def test_the_laptop_is_unchanged_in_kind(ui: Page) -> None:
 
 def test_prose_stays_at_its_measure_however_wide_the_column_gets(ui: Page) -> None:
     """The 760px column existed to protect prose; that constraint moved onto the TEXT when the
-    column first grew, and widening it again must not undo that. `1ch` of the body face is
-    ~8px, so 56ch is ~450px and 68ch ~545px - both far below the column."""
+    column first grew, and widening it again must not undo that.
+
+    **Measured in `ch`, never in pixels, and that is the whole point.** A readable measure is a
+    number of CHARACTERS per line - which is what `ch` means and what `max-width: 56ch` says -
+    so a pixel threshold is a proxy for it that holds only while the font does. This assertion
+    used `<= 600` and had been red on CI since 2026-08-06 at **641.3125px**, because `1ch` is
+    the width of the font's `0` glyph and nothing in the sans stack
+    (`ui-sans-serif, system-ui, -apple-system, "Segoe UI", ...`) is bundled:
+
+        this machine  1ch = 10.2812px -> 56ch = 575.75px  (passed)
+        CI runner     1ch = 11.4520px -> 56ch = 641.31px  (failed)
+        uncapped at UHD                              ~140ch
+
+    Both renders were CORRECT - 641px really is a 56-character line in that face. The test was
+    asserting the environment's fonts, not the product, which is `ENGINEERING_STANDARD.md` §4's
+    tenth member on the face §7 never bundled. Dividing by the element's own `ch` asks the same
+    question the stylesheet asks, so it is font-independent by construction.
+    """
     _at(ui, UHD)
 
-    lede = ui.eval_on_selector(".screen.active .lede", "el => el.getBoundingClientRect().width")
-    assert lede <= 600, f"the lede ran to {lede:.0f}px - that is not a readable measure"
+    measured = ui.eval_on_selector(
+        ".screen.active .lede",
+        """el => {
+            const probe = document.createElement('span');
+            probe.style.cssText = 'position:absolute;visibility:hidden;width:1ch';
+            el.appendChild(probe);
+            const ch = probe.getBoundingClientRect().width;
+            probe.remove();
+            return {px: el.getBoundingClientRect().width, ch};
+        }""",
+    )
+    characters = measured["px"] / measured["ch"]
+    assert characters <= 57, (
+        f"the lede runs to {characters:.0f} characters ({measured['px']:.0f}px at "
+        f"{measured['ch']:.2f}px/ch) - that is not a readable measure"
+    )
+    assert characters >= 40, (
+        f"the lede is only {characters:.0f} characters wide - it is not filling to its cap, "
+        "so this test is measuring a collapsed element rather than the constraint"
+    )
 
 
 def test_a_table_may_take_the_whole_column(ui: Page) -> None:
