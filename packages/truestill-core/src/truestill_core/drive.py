@@ -34,6 +34,7 @@ working, so:
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -175,6 +176,91 @@ def reach_of(settings: _SettingsReader, uuid: str) -> DriveReach:
     correctly: the pair that drifts is the one where only one side later learns something.
     """
     return drive_reach(settings.get_setting(drive_path_hint(uuid)), uuid)
+
+
+class DriveGhostError(Exception):
+    """Refusal: this path is a known drive's recorded location and its marker is not there.
+
+    One type in core rather than one per surface, so `jobs.py` reports the same `code` the CLI
+    exits on and neither can word the refusal differently (§9).
+    """
+
+
+@dataclass(frozen=True, slots=True)
+class GhostDrive:
+    """A registered drive the catalog places at a path where its marker is no longer present."""
+
+    uuid: str
+    label: str
+    #: The path the catalog recorded for it, which is the path being written to.
+    recorded_at: str
+
+
+def ghost_drive_at(
+    path: Path, settings: _SettingsReader, drives: Iterable[tuple[str, str]]
+) -> GhostDrive | None:
+    """The known drive this path is recorded as, when no marker is there. **O(drives)**.
+
+    **The failure this exists for, and it is a data-loss one.** A FUSE mountpoint with nothing
+    mounted on it is an ordinary empty directory: writes into it succeed, and they land on the
+    computer's own disk. `DestinationDevice` cannot see it - that guard latches the device on
+    **first sighting**, so a run that STARTS in this state adopts the local disk as its baseline
+    and never fires. The marker cannot see it either: an empty directory has none, and absence is
+    what makes the surfaces mint a *new* identity for a library the catalog already knows, which
+    is `(aap)` arriving through the one door `(aap)`'s content-based guard is blind to - it
+    recognises a folder that HOLDS a known library, and this one holds nothing.
+
+    **Only a recorded path discriminates it**, which is why this reads the hint. An empty
+    directory carries no information about which drive it was, so the answer has to come from
+    outside it. Measured alternatives that do not work: `os.path.ismount` is true only while
+    something IS mounted, so it returns False for exactly this case; the mount table and
+    `/etc/fstab` keep no record once a FUSE mount is gone; and matching the drive LABEL against
+    the directory name is a coin toss, because `create_marker` defaults the label to that same
+    directory name and every second `Backup` folder would be refused.
+
+    **Fails open on purpose.** No hint, a differently-spelled path, or a marker actually present
+    all mean "no opinion" - this must never block a genuine new destination. Compared lexically
+    rather than through `resolve()`, for the reason `check_contained` gives: a path that cannot
+    be resolved (a stale mount raises `ENOTCONN`) must still get an answer.
+    """
+    if existing_marker_path(path) is not None:
+        return None  # a marker is here: whatever this is, it is not a ghost
+    for uuid, label in drives:
+        hint = settings.get_setting(drive_path_hint(uuid))
+        if hint and Path(hint) == path:
+            return GhostDrive(uuid=uuid, label=label, recorded_at=hint)
+    return None
+
+
+def drives_without_a_known_location(
+    settings: _SettingsReader, drives: Iterable[tuple[str, str]]
+) -> tuple[str, ...]:
+    """Labels of registered drives the catalog cannot place. **O(drives)**.
+
+    These are the ones :func:`ghost_drive_at` can say nothing about: with no recorded path there
+    is no way to tell an empty folder that is one of them from an empty folder that is new. The
+    caller asks before minting a *second* identity, so the person who does know can answer.
+    """
+    return tuple(label for uuid, label in drives if not settings.get_setting(drive_path_hint(uuid)))
+
+
+def ghost_drive_refusal(ghost: GhostDrive) -> str:
+    """What to say. One home, so the CLI and the app cannot word this differently (§9).
+
+    Three facts, and the third is the one nobody can discover for themselves: files written into
+    a mountpoint while nothing is mounted there are **shadowed the moment the filesystem returns**
+    while still occupying the disk. `verify` then reports them missing and `df` shows the space
+    gone, and the only way to see them again is to unmount - which nobody thinks to do.
+    """
+    return (
+        f"{ghost.recorded_at} is where Truestill recorded the drive '{ghost.label}', "
+        f"but that drive's marker file is not there.\n"
+        f"       The drive is probably not plugged in or not mounted.\n"
+        f"       Anything written here now would go onto THIS computer's disk, and would "
+        f"DISAPPEAR from view the moment the drive comes back - while still using the space.\n"
+        f"       Connect the drive and run again. If this folder is genuinely a different "
+        f"place now, re-run with --force-new-identity."
+    )
 
 
 def path_is_usable_dir(path: Path) -> bool:

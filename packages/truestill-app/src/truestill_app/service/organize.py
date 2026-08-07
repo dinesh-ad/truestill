@@ -13,7 +13,17 @@ from truestill_core.categorize import build_rules
 from truestill_core.date_provenance import format_offset
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import LocalDestination
-from truestill_core.drive import DriveReach, create_marker, drive_path_hint, reach_of, read_marker
+from truestill_core.drive import (
+    DriveGhostError,
+    DriveMarker,
+    DriveReach,
+    create_marker,
+    drive_path_hint,
+    ghost_drive_at,
+    ghost_drive_refusal,
+    reach_of,
+    read_marker,
+)
 from truestill_core.duplicate_explain import explain_duplicate, split_by_origin
 from truestill_core.event_review import EventDecision, commit, propose
 from truestill_core.exif import read_metadata
@@ -815,6 +825,27 @@ def organize_preview_run(
     return target
 
 
+def _identity_for(destination: Path, catalog: Catalog) -> DriveMarker:
+    """This destination's drive identity, minting one only when that is safe.
+
+    **Refuses to mint a SECOND identity over a known drive's ghost.** An unmounted mountpoint is
+    an ordinary empty directory: it has no marker, and absence is exactly what made both
+    surfaces register a new drive for a library the catalog already knows - while the files went
+    onto this computer's disk. The app registers here as well as the CLI, so a refusal on one
+    surface only is the drift §4 names; the discriminating rule lives in core and both call it.
+
+    **Complexity: O(drives)** - one settings read per registered drive, a handful.
+    """
+    existing = read_marker(destination)
+    if existing is not None:
+        return existing
+    drives = [(str(d["uuid"]), str(d["label"])) for d in catalog.list_drives()]
+    ghost = ghost_drive_at(destination, catalog, drives)
+    if ghost is not None:
+        raise DriveGhostError(ghost_drive_refusal(ghost))
+    return create_marker(destination, label=destination.name or "Library")
+
+
 def organize_run(
     source: Path,
     destination: Path,
@@ -867,9 +898,7 @@ def organize_run(
             # Register the destination *before* writing anything, so every copy is recorded
             # against it. Doing this afterwards would leave the run's own files unattached --
             # which is exactly the bug this replaced.
-            marker = read_marker(effective_destination) or create_marker(
-                effective_destination, label=effective_destination.name or "Library"
-            )
+            marker = _identity_for(effective_destination, catalog)
             catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
             # Remember where it was seen, so its card can offer to check it.
             catalog.set_setting(drive_path_hint(marker.uuid), str(effective_destination))

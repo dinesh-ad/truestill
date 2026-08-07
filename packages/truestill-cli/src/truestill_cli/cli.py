@@ -51,10 +51,14 @@ from truestill_core.destinations import Destination, LocalDestination, RcloneDes
 from truestill_core.destinations.base import DestinationError
 from truestill_core.drive import (
     MARKER_NAME,
+    DriveGhostError,
     DriveMarker,
     create_marker,
     drive_path_hint,
+    drives_without_a_known_location,
     existing_marker_path,
+    ghost_drive_at,
+    ghost_drive_refusal,
     locate_drive,
     needs_marker_upgrade,
     path_is_usable_dir,
@@ -222,6 +226,14 @@ def _add_common_options(parser: argparse.ArgumentParser) -> None:
         help="local directory path, or an rclone remote spec with --rclone",
     )
     parser.add_argument("--rclone", action="store_true", help="destination is an rclone remote")
+    parser.add_argument(
+        "--force-new-identity",
+        action="store_true",
+        help=(
+            "register this folder as a NEW drive even though Truestill recorded a known drive "
+            "here. Use only if the folder really is a different place now"
+        ),
+    )
     parser.add_argument("--apply", action="store_true", help="actually write (default: dry run)")
     parser.add_argument(
         "--db",
@@ -1706,9 +1718,65 @@ def _register_destination(
     if marker is not None or not getattr(args, "apply", False) or args.rclone:
         return marker
     root = Path(args.destination)
+    with Catalog(args.db) as catalog:
+        drives = [(str(d["uuid"]), str(d["label"])) for d in catalog.list_drives()]
+        ghost = ghost_drive_at(root, catalog, drives)
+        if ghost is not None and not getattr(args, "force_new_identity", False):
+            raise DriveGhostError(ghost_drive_refusal(ghost))
+        unplaced = drives_without_a_known_location(catalog, drives)
+    if unplaced and not _confirm_new_drive(unplaced, root):
+        cancelled = "Registration cancelled. Nothing was written and no drive was registered."
+        raise DriveGhostError(cancelled)
     created = create_marker(root, label=root.name or "Library")
+    with Catalog(args.db) as catalog:
+        # Record WHERE, not just that it happened. Five other sites write this hint and this one
+        # did not, which is why a CLI-only user accumulates drives whose location is unknown -
+        # and why nothing could tell an unmounted mountpoint from a new folder.
+        catalog.set_setting(drive_path_hint(created.uuid), str(root))
     print(f"Registered '{created.label}' as a drive so its copies can be verified.")
     return created
+
+
+def _confirm_new_drive(unplaced: tuple[str, ...], root: Path) -> bool:
+    """Ask before minting a SECOND identity while known drives have no recorded location.
+
+    **A confirm rather than a refusal**, deliberately. With no recorded path there is no way to
+    tell an empty folder that is one of those drives from an empty folder that is new, so
+    refusing would block legitimate work. The friction lands once, on a first ``--apply``, and it
+    shrinks by itself: every registration from now on records where it happened.
+    """
+    named = ", ".join(f"'{label}'" for label in unplaced)
+    print(_SEPARATOR)
+    print("REGISTERING A NEW DRIVE")
+    print(_SEPARATOR)
+    print(f"  {root} will be registered as a new drive.")
+    print(f"  Truestill already knows {named} but has no record of where it is.")
+    print("  If this folder IS one of them and it is simply not mounted, stop: writing here")
+    print("  would put files on this computer's disk, and they would DISAPPEAR from view when")
+    print("  the drive came back - while still using the space.")
+    return _typed_confirmation("\nType 'new' if this really is a new drive: ", "new") is True
+
+
+def _registered_or_refused(
+    args: argparse.Namespace, marker: DriveMarker | None, catalog: Catalog
+) -> tuple[DriveMarker | None, str | None] | int:
+    """The destination's drive identity and uuid, or the exit code to return.
+
+    Shaped like `_destination_or_exit` and for the same reason: the refusal is an actionable
+    sentence rather than a traceback (ENGINEERING_STANDARD 4), and doing the upsert here keeps
+    `_run_pipeline` under its branch ceiling rather than raising the ceiling.
+    """
+    try:
+        resolved = _register_destination(args, marker)
+    except DriveGhostError as refusal:
+        # Exit 4 is this repo's "unusable destination", alongside 3 for a missing exiftool.
+        print(f"error: {refusal}", file=sys.stderr)
+        return 4
+    if resolved is None:
+        return None, None
+    catalog.upsert_drive(uuid=resolved.uuid, label=resolved.label)
+    print(f"Destination is drive '{resolved.label}' ({resolved.uuid[:8]}...).\n")
+    return resolved, resolved.uuid
 
 
 def _run_pipeline(
@@ -1756,12 +1824,10 @@ def _run_pipeline(
         if catalog.count():
             print(f"Catalog {args.db} holds {catalog.count()} previously-processed file(s).\n")
 
-        drive_uuid: str | None = None
-        drive_marker = _register_destination(args, drive_marker)
-        if drive_marker is not None:
-            catalog.upsert_drive(uuid=drive_marker.uuid, label=drive_marker.label)
-            drive_uuid = drive_marker.uuid
-            print(f"Destination is drive '{drive_marker.label}' ({drive_marker.uuid[:8]}...).\n")
+        resolved = _registered_or_refused(args, drive_marker, catalog)
+        if isinstance(resolved, int):
+            return resolved
+        drive_marker, drive_uuid = resolved
 
         resolutions = resolve(
             decisions,
