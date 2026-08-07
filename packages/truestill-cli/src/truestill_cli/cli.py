@@ -72,7 +72,12 @@ from truestill_core.drive_adoption import (
 from truestill_core.duplicate_explain import describe_split, origin_phrase, split_by_origin
 from truestill_core.exif import ExiftoolMissingError, read_metadata
 from truestill_core.hash_cache import HashCache
-from truestill_core.hashing import DEFAULT_PHASH_THRESHOLD, HEIF_AVAILABLE, HEIF_EXTENSIONS
+from truestill_core.hashing import (
+    DEFAULT_PHASH_THRESHOLD,
+    HEIF_AVAILABLE,
+    HEIF_EXTENSIONS,
+    sha256_file,
+)
 from truestill_core.insights import (
     capture_span,
     capture_years,
@@ -142,6 +147,7 @@ from truestill_core.organizer import (
 )
 from truestill_core.progress import Progress, ProgressCallback
 from truestill_core.reclaim import ReclaimPlan, plan_reclaim, run_reclaim
+from truestill_core.rescan import RescanReport, reconcile
 from truestill_core.scan import DEFAULT_WORKERS
 from truestill_core.source_repoint import RepointPlan, plan_repoint
 from truestill_core.takeout import (
@@ -517,6 +523,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     migrate.add_argument("--db", type=Path, default=default_catalog_path(), help="SQLite catalog")
     _add_clean_parser(sub)
+    _add_rescan_parser(sub)
 
     migrate.add_argument(
         "--undo",
@@ -528,6 +535,163 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     return parser
+
+
+def _add_rescan_parser(sub: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
+    """The `rescan` surface, split out for the reason `_add_clean_parser` is: statement ceiling."""
+    rescan = sub.add_parser(
+        "rescan",
+        help="say whether the catalog still matches what is on a drive (reads only, changes nothing)",
+    )
+    rescan.add_argument("path", type=Path, help="the connected drive folder")
+    rescan.add_argument("--db", type=Path, default=default_catalog_path(), help="SQLite catalog")
+
+
+#: How many names one section prints before it stops. The count beside it is always the real
+#: one - a drive with 30,000 unrecorded files must say 30,000 and show a sample, never show 20
+#: and imply that is all there was. Same shape as `left_behind.FOLDER_LIMIT`.
+RESCAN_SAMPLE_LIMIT = 20
+
+
+def _print_rescan_section(title: str, names: Sequence[str], note: str) -> None:
+    """One bucket: its real count, a bounded sample, and what the bucket means.
+
+    A bucket with nothing in it prints nothing. Never-silent is about what happened, not about
+    what did not - the same rule the skipped-census and duplicate-origin lines already follow.
+    """
+    if not names:
+        return
+    print(f"\n  {title}: {len(names)}")
+    print(f"      {note}")
+    for name in names[:RESCAN_SAMPLE_LIMIT]:
+        print(f"      {name}")
+    if len(names) > RESCAN_SAMPLE_LIMIT:
+        print(f"      ... and {len(names) - RESCAN_SAMPLE_LIMIT} more, not shown")
+
+
+def _print_rescan(report: RescanReport, root: Path, label: str, elapsed: float) -> None:
+    """The whole report, including what it deliberately cannot tell you.
+
+    The closing block is not padding. Every remedy for what this finds lives in work that does
+    not exist yet, so a bare count would leave someone holding a number with no next step -
+    which is the defect the sidebar's at-risk banner was corrected for.
+    """
+    print("\n" + "=" * 100)
+    print(f"RESCAN  {root}")
+    print("=" * 100)
+    print(f"  drive              : {label}")
+    print(f"  time taken         : {elapsed:.2f} s")
+    print(f"  in place           : {len(report.placed)}, where the catalog says they are")
+
+    _print_rescan_section(
+        "MOVED",
+        [f"{m.recorded}  ->  {'  and  '.join(m.found)}" for m in report.moved],
+        "on the drive, but not where the catalog says. Same content, matched by its hash.",
+    )
+    _print_rescan_section(
+        "ON THE DRIVE, NOT IN THE CATALOG",
+        list(report.stray),
+        "files Truestill has no record of. Copied in by hand, restored, or added since.",
+    )
+    _print_rescan_section(
+        "NOT ACCOUNTED FOR",
+        list(report.unaccounted),
+        "the catalog names these and they are not on this drive. Could be deleted, could be"
+        " on another drive - Truestill does not guess which.",
+    )
+
+    if not report.complete:
+        print("\n  ! SOME OF THIS DRIVE COULD NOT BE READ, so the list above is incomplete.")
+        for folder in report.unreadable_dirs:
+            print(f"      folder, could not be opened : {folder}")
+        for name in report.unreadable_files[:RESCAN_SAMPLE_LIMIT]:
+            print(f"      file, could not be read     : {name}")
+        extra = len(report.unreadable_files) - RESCAN_SAMPLE_LIMIT
+        if extra > 0:
+            print(f"      ... and {extra} more file(s), not shown")
+        print("      Anything inside them is counted as NOT ACCOUNTED FOR whether it is there")
+        print("      or not, so treat that number as a floor rather than an answer.")
+
+    if report.reconciled:
+        print("\n  Everything the catalog records for this drive is where it says it is.")
+
+    print("\nWHAT THIS DOES AND DOES NOT TELL YOU")
+    print("  This is a snapshot taken while the drive was being read. A file changed during")
+    print("  the read may be described as it was a moment before.")
+    print("  It answers WHERE your files are, never whether their contents are still good.")
+    print("  Silent damage to a file changes neither its name nor its size, so only")
+    print("  'truestill verify' can find it - that reads every byte and this reads none.")
+    print("  Nothing was changed: not your files, not the drive, not the catalog.")
+    print("  No command repairs any of the above yet. This one only tells you.")
+
+
+def _rescan_hashes(candidates: dict[str, Path], db: Path) -> tuple[dict[str, str], list[str]]:
+    """Identify the candidates by content. Returns ``(relative -> sha256, unreadable)``.
+
+    **The cache is opened read-only, and that is required rather than cautious** (§8): this
+    computes SHA-256 and never a perceptual hash, and `perceptual` carries "not an image" and
+    "not computed" in one value with no `need_perceptual` to tell them apart. A row written
+    here would come back as a hit to a later organize preview and silently switch off
+    near-duplicate detection for those files. Reading still takes every hit an earlier full
+    run recorded, so nothing is repeated; it simply contributes nothing back.
+    """
+    identified: dict[str, str] = {}
+    unreadable: list[str] = []
+    with HashCache.beside_readonly(db) as cache:
+        for relative, path in candidates.items():
+            try:
+                stat = path.stat()
+                cached = cache.get(path, stat.st_size, stat.st_mtime_ns, need_sha=True)
+                identified[relative] = (
+                    cached.sha256
+                    if cached is not None and cached.sha256 is not None
+                    else sha256_file(path)
+                )
+            except OSError:
+                # One unreadable file must not cost the whole drive its report.
+                unreadable.append(relative)
+    return identified, unreadable
+
+
+def _cmd_rescan(args: argparse.Namespace) -> int:
+    """Reconcile a drive's recorded locations with what is on it. Reads; writes nothing.
+
+    Exit **1** when anything did not reconcile or anything could not be read, so
+    ``truestill rescan X && next_step`` cannot chain past a drive Truestill could not account
+    for - the same reason an organize preview that found an unreadable file exits 1.
+    """
+    root = args.path
+    marker = _drive_or_explain(root)
+    if marker is None:
+        return 2
+    if not args.db.is_file():
+        # Refused rather than created. `Catalog(db)` would make an empty one, and reconciling a
+        # drive against a catalog that has never seen it would report the whole drive as
+        # unrecorded - a frightening answer to a question nobody asked.
+        print(f"error: no catalog at {args.db}; nothing to reconcile against.", file=sys.stderr)
+        return 2
+
+    started = _CLOCK()
+    scan = scan_source(root)
+    on_disk = {path.relative_to(root).as_posix(): path for path in scan.media}
+    with Catalog(args.db) as catalog:
+        recorded = {
+            str(row["relative"]): str(row["sha256"]) for row in catalog.copies_on_drive(marker.uuid)
+        }
+    # The PLACED rule: a file where the catalog says it is, is not read. This subtraction is
+    # what makes the cost proportional to what changed rather than to the size of the library.
+    candidates = {rel: path for rel, path in on_disk.items() if rel not in recorded}
+    identified, unreadable_files = _rescan_hashes(candidates, args.db)
+
+    report = reconcile(
+        recorded=recorded,
+        on_disk=on_disk.keys(),
+        identified=identified,
+        unreadable_dirs=[p.relative_to(root).as_posix() for p in scan.unreadable_dirs],
+        unreadable_files=unreadable_files,
+    )
+    _print_rescan(report, root, marker.label, _CLOCK() - started)
+    return 0 if report.reconciled else 1
 
 
 def _migrate_marker(root: Path, catalog: Catalog) -> int:
@@ -2819,6 +2983,7 @@ def _dispatch(argv: list[str] | None) -> int:
         "catalog": _cmd_catalog,
         "config": _cmd_config,
         "clean-empty": _cmd_clean_empty,
+        "rescan": _cmd_rescan,
         "migrate-layout": _cmd_migrate_layout,
         "reclaim": _cmd_reclaim,
         "undo-organize": _cmd_undo_organize,

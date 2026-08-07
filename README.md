@@ -176,7 +176,8 @@ quality - because that means decoding every image, which is far slower. It says 
 reporting a zero.
 
 `truestill --help` lists every subcommand: `analyze`, `organize`, `ingest`, `drives`,
-`undo-organize`, `where`, `verify`, `status`, `config`, `reclaim`, `migrate-layout`.
+`repoint-sources`, `undo-organize`, `where`, `verify`, `status`, `catalog`, `config`,
+`reclaim`, `migrate-layout`, `clean-empty`, `rescan`.
 
 Frequently used `organize` flags:
 
