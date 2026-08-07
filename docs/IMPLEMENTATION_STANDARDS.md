@@ -735,7 +735,14 @@ algorithm toggle. Full rationale: `DECISIONS.md` **D8**.
   - **One layer**, and **cleanup runs on every run** rather than being defined and never called
     (the PixSort mistake), bounded so it cannot become a stat storm.
   - **A caller that computes only SOME of a file's hashes must open the cache `writable=False`**
-    (added 2026-08-03 for Analyze's tier 2a, which wants SHA-256 without the perceptual hash).
+    (added 2026-08-03 for Analyze's tier 2a, which wants SHA-256 without the perceptual hash;
+    **`service/drives._copy_hash` was found violating it on 2026-08-07** - it opened
+    `HashCache.beside` and wrote `perceptual=None` for every file with no prior row, so
+    attaching a drive silently switched off near-duplicate detection for its files. Measured:
+    `near_dup=1` without an attach, `near_dup=0` after one, no message either way.
+    **The rule was already enforced at the only door that checks it** - `compute_hashes` raises
+    on the pairing - and `_copy_hash` called `cache.put` directly and went round it, which is
+    the shape to look for: a guard on the shared path and a caller that does not use it).
     `perceptual` is nullable and carries **two meanings in one value** - *"not an image"* and
     *"not computed"* - and `get` has a `need_sha` parameter precisely because `sha256` has the
     same ambiguity, with **no `need_perceptual` counterpart**. A partially-hashed row would come

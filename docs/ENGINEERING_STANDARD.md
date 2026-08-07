@@ -625,6 +625,35 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   behaviour under test and the test still passed, which is the only signal that says *this test
   was never watching*.
 
+- **A fixture whose SUBJECT never entered the code path produces the same observable as a
+  successful run.** The thirteenth member. The others are about a guard that cannot fail, is
+  switched off, is aimed at the wrong module, asserts the wrong subject, whose proof proves
+  nothing, whose references go stale, whose precondition is undone, that a second defence also
+  catches, that the OS satisfies, that reads a stylesheet, or that stubs a URL nothing requests.
+  This one is about a **confirmation** - a fixture built to demonstrate a defect, which appears
+  to demonstrate it while the code under test never ran.
+
+  *Worked example - the rescan MOVED case, 2026-08-07.* The claim was that a hand-moved file
+  reaches a specific branch and is then counted in no bucket. The fixture built a drive with
+  catalog rows but **no marker on disk**, so `attach_drive` never reached that branch at all -
+  the adoption guard answered first. The observables were **identical to a true confirmation**:
+  the record still named the old path, and `linked` / `unmatched` / `unreadable` were all zero.
+  Every assertion about the outcome passed. What separated them was a probe on the *subject*:
+  `files hashed: []`. The file never became a candidate, so nothing about the branch was shown.
+
+  The family resemblance to the mutation rules is exact, and so is the remedy. There, the
+  question is *did the mutant load and was it mutated*; here it is **did the input reach the
+  code you are making a claim about**. Both fail in the reassuring direction, and in both the
+  outcome alone cannot tell you.
+
+  > **Assert that the subject ENTERED the path, not only that the outcome looks right.** Count
+  > the call, log the candidate, print what was actually read. An outcome reproduced for the
+  > wrong reason is worse than no reproduction: it retires the question.
+
+  *Suspect it whenever a fixture must satisfy preconditions to reach the code under test* - a
+  marker file, a registered row, a mode flag, a non-empty index. The more setup a repro needs,
+  the more ways it has to succeed without ever arriving.
+
 - **Errors.** Exceptions typed and specific - no bare `except`. User-facing CLI errors are
   actionable sentences, not tracebacks. Every subprocess call checks its return code and
   surfaces stderr on failure. Partial-failure policy: one bad file never aborts a batch - it

@@ -267,13 +267,21 @@ def test_a_baked_copy_then_verifies_clean(tmp_path: Path) -> None:
 # --- the hash cache -------------------------------------------------------------------------
 
 
-def test_a_re_attach_is_warm(
+def test_a_re_attach_re_reads_because_attach_no_longer_writes_the_cache(
     library: tuple[Path, Path, dict[str, str]], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Re-attaching an unchanged drive must not re-read it.
+    """**A withdrawn promise, stated rather than quietly dropped.**
 
-    Re-attach is a real path - it happens whenever a drive is registered again after the copies
-    were forgotten - and without the cache it would cost a second full read of the whole drive.
+    This used to assert `reads == []` - a warm re-attach re-read nothing. That speedup existed
+    only because attach wrote its own cache rows, and those rows carried `perceptual=None`,
+    which a later organize preview took as a hit and used to skip near-duplicate detection
+    (measured `near_dup=1` without an attach, `0` after one). The speedup was produced by the
+    defect, so it went with it: attach now reads the cache and never writes it (§8).
+
+    The cost is real and is recorded in `PERFORMANCE.md` §1.1 with the struck row: a repeat
+    re-attach pays the cold price again. It lands only on repeated re-attaches - the ordinary
+    already-attached case reads nothing at all, because a file at its recorded path is skipped
+    before any hashing.
     """
     db, root, _on_disk = library
     attach_drive(root, db, write=True)
@@ -291,27 +299,59 @@ def test_a_re_attach_is_warm(
     result = attach_drive(root, db, write=True)
 
     assert result.linked == 3
-    assert reads == [], f"a warm re-attach re-read the drive: {reads}"
+    assert len(reads) == 3, (
+        "a re-attach must re-read: attach contributes nothing to the cache, so there is "
+        f"nothing warm to hit. Got {reads}"
+    )
 
 
-def test_attach_does_not_evict_a_cached_perceptual_hash(
+def test_attach_still_takes_a_cache_hit_a_full_run_recorded(
+    library: tuple[Path, Path, dict[str, str]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Read-only means *contributes nothing*, never *uses nothing* - the surviving half.
+
+    A row an organize run wrote carries both hashes, so attach may take it and skip the read.
+    Without this, "attach does not write the cache" could be satisfied by ignoring it entirely,
+    which would make every attach cold forever for no reason.
+    """
+    db, root, on_disk = library
+    target = root / "Camera/2014/a.jpg"
+    stat = target.stat()
+    with HashCache(cache_path_for(db)) as cache:
+        cache.put(target, stat.st_size, stat.st_mtime_ns, FileHashes(on_disk["a.jpg"], "phash-a"))
+
+    reads: list[Path] = []
+    real = sha256_file
+    monkeypatch.setattr(
+        "truestill_app.service.drives.sha256_file",
+        lambda path: (reads.append(path), real(path))[1],
+    )
+    attach_drive(root, db, write=True)
+
+    assert target not in reads, "attach ignored a complete cache row and re-read the file"
+
+
+def test_attach_leaves_the_cache_exactly_as_it_found_it(
     library: tuple[Path, Path, dict[str, str]],
 ) -> None:
-    """Cry-wolf half: writing the SHA into the cache must not throw away the expensive half.
+    """Stronger than the eviction rule it replaces, and true for a simpler reason.
 
-    A perceptual hash costs a full image decode (~70 ms/file, `hash_cache` docstring) against
-    ~8.5 ms for SHA-256. Storing ``FileHashes(sha256=..., perceptual=None)`` would blank it and
-    make the next organize preview pay for a decode attach had no reason to discard.
+    This used to assert that attach, *while writing the SHA*, preserved a perceptual hash it had
+    not computed. Attach no longer writes at all, so the question is not "did it preserve the
+    expensive half" but "did it touch anything" - and the answer has to be no, because the row
+    it would have written is the one that silently disabled near-duplicate detection (§8).
     """
     db, root, _on_disk = library
     target = root / "Camera/2014/a.jpg"
     stat = target.stat()
     with HashCache(cache_path_for(db)) as cache:
         cache.put(target, stat.st_size, stat.st_mtime_ns, FileHashes(None, "phash-abc"))
+    before = cache_path_for(db).read_bytes()
 
     attach_drive(root, db, write=True)
 
+    assert cache_path_for(db).read_bytes() == before, "attach wrote to the hash cache"
     with HashCache(cache_path_for(db)) as cache:
-        hit = cache.get(target, stat.st_size, stat.st_mtime_ns, need_sha=True)
-    assert hit is not None, "attach did not record the sha it just computed"
+        hit = cache.get(target, stat.st_size, stat.st_mtime_ns, need_sha=False)
+    assert hit is not None
     assert hit.perceptual == "phash-abc", "attach evicted a perceptual hash it did not compute"

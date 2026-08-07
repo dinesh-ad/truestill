@@ -23,7 +23,6 @@ from truestill_core.drive import (
 from truestill_core.drive_adoption import AdoptionOffer, inspect_root, recorded_drive
 from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import sha256_file
-from truestill_core.models import FileHashes
 from truestill_core.progress import Phase, Progress, ProgressCallback
 
 from truestill_app.service.drive_support import (
@@ -117,24 +116,28 @@ class DriveAttachment:
 
 
 def _copy_hash(path: Path, cache: HashCache) -> str:
-    """This drive's own hash for one copy, from the cache when the file has not changed.
+    """This drive's own hash for one copy, taking a cache hit when the file has not changed.
 
-    The cached row's perceptual hash is carried through rather than blanked. A perceptual hash
-    costs a full image decode against a few milliseconds for SHA-256 (`hash_cache` docstring),
-    and attach has no reason to make the next organize preview pay for one again.
+    **It reads the cache and never writes it, and that is a correctness rule rather than a
+    preference** (§8). Attach computes SHA-256 and never a perceptual hash, and ``perceptual``
+    carries *"not an image"* and *"not computed"* in one value with no ``need_perceptual`` to
+    tell them apart -- so a row written here comes back as a **hit** to a later organize
+    preview, which then skips near-duplicate detection for that file with no message and
+    nothing a user could notice.
+
+    Measured before it was removed, on a drive holding one photograph saved at two qualities:
+    ``near_dup=1`` without an attach, ``near_dup=0`` after one.
+
+    ``scan.compute_hashes`` refuses this pairing outright with a ``ValueError``; this function
+    called ``cache.put`` directly and walked around that door. The cache is now opened
+    ``beside_readonly`` by the caller, so the refusal is enforced by SQLite instead of by
+    everyone remembering -- writes raise and the file is never created.
     """
     stat = path.stat()
-    cached = cache.get(path, stat.st_size, stat.st_mtime_ns, need_sha=False)
+    cached = cache.get(path, stat.st_size, stat.st_mtime_ns, need_sha=True)
     if cached is not None and cached.sha256 is not None:
         return cached.sha256
-    digest = sha256_file(path)
-    cache.put(
-        path,
-        stat.st_size,
-        stat.st_mtime_ns,
-        FileHashes(sha256=digest, perceptual=cached.perceptual if cached else None),
-    )
-    return digest
+    return sha256_file(path)
 
 
 @dataclass(frozen=True, slots=True)
@@ -338,7 +341,10 @@ def attach_drive(
 
         by_hash = {str(row["hash"]): str(row["sha256"]) for row in catalog.attachable_hashes()}
         total = len(candidates)
-        with HashCache.beside(db) as cache:
+        # Read-only, enforced by SQLite rather than by agreement: this pass computes
+        # SHA-256 and never a perceptual hash, and a partial row is served as a hit to a
+        # later full pass (§8). See `_copy_hash`.
+        with HashCache.beside_readonly(db) as cache:
             for item in candidates:
                 if cancel is not None and cancel.is_set():
                     break

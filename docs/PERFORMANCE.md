@@ -75,9 +75,18 @@ back.**
 | undo apply (`run_undo`) | hermetic, 500 files | 5 | **81 ms** | 82 ms | 1.01x | not measured |
 | attach, **steady state** (drive already attached) | 2,269 copies, 6.2 GB | 5 | **0.098 s** | 0.106 s | 1.09x | **6.297 s** / p95 6.548 s / 1.09x |
 | attach, **re-attach**, cold-cache | 2,269 copies, 6.2 GB | 5 | **6.302 s** | 8.387 s | 1.34x | **22.248 s** / p95 22.347 s / 1.03x |
-| attach, **re-attach**, warm-cache | 2,269 copies, 6.2 GB | 5 | **0.350 s** | 0.354 s | 1.02x | **1.091 s** / p95 1.113 s / 1.09x |
+| ~~attach, **re-attach**, warm-cache~~ | 2,269 copies, 6.2 GB | 5 | ~~0.350 s~~ | ~~0.354 s~~ | ~~1.02x~~ | ~~1.091 s~~ / ~~p95 1.113 s~~ |
 | ~~attach by remembered path, cold~~ | 2,269 copies, 6.2 GB | 5 | ~~8.885 s~~ | ~~14.30 s~~ | ~~1.96x~~ | ~~15.92 s~~ |
 | ~~attach by remembered path, warm~~ | 2,269 copies, 6.2 GB | 5 | ~~0.316 s~~ | ~~0.339 s~~ | ~~1.15x~~ | ~~0.282 s~~ |
+
+> **The warm re-attach row is struck because the speedup was produced by a defect (2026-08-07).**
+> Attach's second pass was fast because its first pass had written its own cache rows - and those
+> rows carried `perceptual=None`, which a later organize preview took as a hit and used to skip
+> near-duplicate detection for those files (§8; measured `near_dup=1` without an attach,
+> `near_dup=0` after one). Attach now reads the cache and never writes it, so a repeat re-attach
+> pays the cold price - **6.302 s local / 22.248 s FUSE** - unless something else hashed those
+> paths. That is the honest cost of the fix, and it lands only on repeated re-attaches: the
+> steady-state row is unaffected, because a file already at its recorded path is never read.
 
 **Cold/warm, per stage, rather than a duplicated column.** Only one of these stages touches
 exiftool, so only one has a cold/warm axis at all: **migration preview**. The other nine are
