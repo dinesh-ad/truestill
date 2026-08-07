@@ -162,11 +162,31 @@ is invisible here is retired, not free.**
     `validatePath`), so the button moves - measured **+4.9px** - inside the click window.
     Waiting for `#bk-source-hint` / `#bk-target-hint` to become non-empty before clicking
     removes the race at source and keeps real mouse-event coverage.
-  - ⚠ **The mechanism is not proven, and knowingly so.** Two candidates fit the evidence: a lost
-    click, or `withBusy`'s silent early return (`app.js` `if (!button || button.dataset.busy ===
-    "1") return;`) - which writes nothing, says nothing, and is a **product-side** silence worth
-    its own look. The final-state snapshot cannot separate them; only a trace can, and there was
-    none. **Let it recur once now that traces upload**, then fix on evidence.
+  - ✅ **MECHANISM PROVEN 2026-08-07: the click is lost.** It recurred on run `31208332669` and
+    this time the trace uploaded, which is exactly the condition this entry was waiting on.
+    From the replay: the organize flow completed in **0.90 s**, then **no `/api/backup/preview`
+    request was ever issued**, `#bk-result` was still empty when the assertion gave up 30 s
+    later, and `"Checking what to copy…"` - the label `withBusy` sets *before* doing any work -
+    **never appears in the trace at all**. So the handler never ran. Not a timeout: raising it
+    treats a symptom that does not exist.
+  - **What separates the two candidates**, which the final-state snapshot could not. `withBusy`'s
+    early return needs `dataset.busy === "1"`, which needs a prior invocation still in flight on
+    that same button. The trace's action list shows this is the **first and only** click on
+    `#bk-preview` in the test, and `dataset.busy` is written in exactly one place (`app.js:888`).
+    So the early return was unreachable, and `!button` is ruled out by the element being static
+    markup that Playwright successfully clicked. **A lost click is the only survivor** - and the
+    product-side silence candidate is therefore *not* implicated here, though `withBusy`'s
+    write-nothing-say-nothing return is still worth its own look on its own merits.
+  - ⚠ **The proposed fix above is CONTRADICTED by the tree and must not be applied on faith.**
+    `test_backups_on_the_pattern.py` already does exactly it - both hint waits, at its own site -
+    and records that it was *not* enough: *"waiting on the hints, on networkidle, and on both
+    together all still lose the race"*, which is why that one site uses `dispatch_event`. Either
+    that note or this proposal is wrong, and nothing here establishes which. Whoever takes this
+    reconciles those two records **first**; a settle-wait added to the other four sites on the
+    strength of this entry alone would be a guess wearing a citation.
+  - **Not reproducible locally**: 15 runs of the test alone and 5 of the whole file, 0 failures.
+    It wants a loaded runner, so the trace is the evidence and CI artifacts expire - the numbers
+    above are copied here for that reason.
 
 - **(abp) The body sans face is not bundled, so prose renders differently on every machine.**
   Recorded 2026-08-07, found because a browser test had been asserting the CI runner's fonts.

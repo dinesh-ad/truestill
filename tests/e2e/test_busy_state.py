@@ -266,5 +266,11 @@ def test_backup_preview_busy_re_enables(ui: Page, tmp_path: Path, library) -> No
     # first removes the race rather than tolerating it, and the button check that follows is then
     # instant and can keep the default timeout. Same shape as
     # `test_migrate_preview_re_enables_after_drive_error` above.
+    #
+    # STILL FLAKY ON CI, AND THE TIMEOUT IS NOT WHY - do not raise it. Backlog `(abq)`, proven
+    # 2026-08-07 from run `31208332669`'s trace: the click below is LOST. No
+    # `/api/backup/preview` request is issued at all, and `"Checking what to copy…"` - the label
+    # `withBusy` sets before any work - never appears. Thirty seconds of a request that was
+    # never made. Reordering (above) fixed a different, real race; it did not fix this one.
     expect(ui.locator("#bk-result")).to_contain_text("to copy", timeout=30_000)
     expect(btn).to_be_enabled()
