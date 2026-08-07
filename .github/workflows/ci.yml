@@ -180,10 +180,24 @@ jobs:
             --output tests/e2e/.artifacts
 
       # A red run should arrive with a replay, not a guess.
+      #
+      # `include-hidden-files` is required, not optional: `.artifacts` is a HIDDEN directory and
+      # upload-artifact v4+ excludes hidden files by default (they often carry credentials).
+      # Everything under this one is generated test output, so the default's reason does not
+      # apply - but its effect did, and the step reported success while uploading nothing on
+      # every run since the uploader went to v4. Every browser failure this project has
+      # diagnosed was diagnosed without the replay §6 promises.
+      #
+      # `if-no-files-found: error` is the durable half. The bug was not that files were
+      # excluded, it was that being excluded was SILENT: a green step is what lied. This step
+      # only runs when the lane already failed, so a second failure costs nothing and a missing
+      # replay stops being something you have to notice.
       - name: Upload traces and video from failures
         if: failure()
         uses: actions/upload-artifact@v7
         with:
           name: e2e-failure-artifacts
           path: tests/e2e/.artifacts
+          include-hidden-files: true
+          if-no-files-found: error
           retention-days: 7

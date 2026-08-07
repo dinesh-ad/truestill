@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(abp). Next free: (abq).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(abq). Next free: (abr).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -61,6 +61,29 @@ is invisible here is retired, not free.**
   - Pinned by nothing today, deliberately: the assertion that would pin it is the wording, and
     writing it now would fix the wording before it is chosen. The behaviour is covered by
     `test_preview_tally_is_disjoint.py`.
+
+- **(abq) `#bk-preview` is clicked five ways and only one of them is race-free.** Recorded
+  2026-08-07 from the `test_backup_preview_busy_re_enables` flake (2 failures in 4 consecutive
+  CI runs, green locally every time).
+  - **The `(aak)` shape again.** `dispatch_event("click")` was applied to
+    `test_backups_on_the_pattern.py` with its trade-off documented at the site - *"WHAT THIS
+    STOPS EXERCISING: mouse-event delivery to this one button"* - and never carried to the four
+    siblings (`test_busy_state.py`, `test_golden_path.py`, `test_ui_regressions.py` x2). All
+    four fill path fields and click immediately.
+  - **`dispatch_event` is the WRONG remedy for the rest**, and this is the finding rather than
+    the observation. It bypasses hit-testing **and** actionability, so it would pass on a
+    button that is disabled, covered or off-screen - hiding exactly the class of regression the
+    browser lane exists to catch. Making a test immune is not making it correct.
+  - **The deterministic fix is the settle signal the product already emits.** Path validation is
+    `debounce(run, 400)` and writes into the hint spans **above** the button (`app.js`
+    `validatePath`), so the button moves - measured **+4.9px** - inside the click window.
+    Waiting for `#bk-source-hint` / `#bk-target-hint` to become non-empty before clicking
+    removes the race at source and keeps real mouse-event coverage.
+  - ⚠ **The mechanism is not proven, and knowingly so.** Two candidates fit the evidence: a lost
+    click, or `withBusy`'s silent early return (`app.js` `if (!button || button.dataset.busy ===
+    "1") return;`) - which writes nothing, says nothing, and is a **product-side** silence worth
+    its own look. The final-state snapshot cannot separate them; only a trace can, and there was
+    none. **Let it recur once now that traces upload**, then fix on evidence.
 
 - **(abp) The body sans face is not bundled, so prose renders differently on every machine.**
   Recorded 2026-08-07, found because a browser test had been asserting the CI runner's fonts.

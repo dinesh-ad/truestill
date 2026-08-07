@@ -654,6 +654,34 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   marker file, a registered row, a mode flag, a non-empty index. The more setup a repro needs,
   the more ways it has to succeed without ever arriving.
 
+- **A step that reports success is not evidence that it did anything.** The fourteenth member,
+  and the one that reaches outside the test suite: the others are about a guard, a fixture or a
+  proof, this is about **any mechanism whose green is the only thing anybody checks.**
+
+  *Worked example - the CI trace upload, 2026-08-07.* §6 promises *"a red run arrives with a
+  replay rather than a guess"*. The step ran on every failure, reported **success**, and
+  uploaded **nothing**: `actions/upload-artifact` v4+ excludes hidden files by default and the
+  output directory is `tests/e2e/.artifacts`, which is hidden. Artifact count on every run in
+  the repository's history: **0**. Every browser failure this project has diagnosed was
+  diagnosed without the replay, and nobody noticed, because the thing that would have said so
+  was the step's own status.
+
+  The family resemblance is exact. The stub whose route never matched rendered a page with no
+  data and passed. The bundled font's absence left every CDP check green because the OS
+  answered in its place. Here a collector collected nothing and went green. **In all three the
+  mechanism is intact, aimed correctly, and producing nothing** - and in all three the signal
+  that would reveal it is the one signal nobody reads, because it is already the colour you
+  want.
+
+  > **Assert the OUTPUT, not the exit status.** Ask what the step is supposed to produce, then
+  > check that it exists. Where the tool can do it for you, make absence an error rather than a
+  > warning (`if-no-files-found: error`) - a warning in a log nobody opens is the same silence
+  > with extra steps.
+
+  *Suspect it for anything whose product is a side effect rather than a return value:* an
+  upload, a cache write, a report file, a notification, a metrics push. Its success field
+  describes whether the code ran, never whether the work happened.
+
 - **Errors.** Exceptions typed and specific - no bare `except`. User-facing CLI errors are
   actionable sentences, not tracebacks. Every subprocess call checks its return code and
   surfaces stderr on failure. Partial-failure policy: one bad file never aborts a batch - it
