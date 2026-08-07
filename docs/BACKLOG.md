@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(abl). Next free: (abm).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(abm). Next free: (abn).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -178,6 +178,22 @@ is invisible here is retired, not free.**
     real complaint or a theoretical one.
   - The data is already there - `drives.last_verified`, `drives.last_seen`, and `DriveReach` -
     so this is a wording-and-policy question, not a plumbing one.
+
+- **(abm) Attach counts three things and shows none of them.** Recorded 2026-08-06 while fixing
+  the walk that produced the third.
+  - `DriveAttachment.unreadable` (files), `.unmatched` (on the drive, unknown to the catalog) and
+    now `.unreadable_dirs` (folders that could not be listed) are all computed, tested, and read
+    by nobody: `service/backup.py` uses `src.linked + tgt.linked` for `will_read` and **discards
+    the return value entirely on the run path**. So a drive can attach with folders skipped and
+    the screen says only how many files were linked.
+  - **Deliberately not fixed with the walk.** The walk fix stops the fact being *destroyed*;
+    showing it is a payload key plus a render plus a browser test, and doing one of the three
+    siblings would leave the other two - which is how they got here.
+  - **`service/fs_browse.py:188` rides along.** Its `rglob` undercounts a locked subfolder in the
+    browse dialog's media estimate. Left as `rglob` on purpose: that number is already advisory
+    and already truncated by `cap` (`media_capped`), which distorts it more than a locked folder
+    does, and there is nowhere on a file-picker row to name a folder. Swapping the walk without a
+    surface would recreate exactly the computed-and-dropped value this entry exists to close.
 
 - **(abk) The library has no per-folder view - "where is all this actually sitting".** Recorded
   2026-08-05, dropped from the resting panel because the data does not exist rather than because

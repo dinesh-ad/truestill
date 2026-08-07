@@ -105,6 +105,11 @@ class DriveAttachment:
     #: walk is not silent about what it read; never attached, because claiming it would invent
     #: a copy of content truestill has no record of.
     unmatched: int = 0
+    #: Folders on the drive that could not be listed, drive-relative and POSIX. **Named without a
+    #: count**, the asymmetry `SourceScan.unreadable_dirs` already carries (§9): the walk never
+    #: went inside, so any number would be invented. Whatever they hold has no copy row, which
+    #: `absent` describes as *not on the drive* - true of the record and false of the disk.
+    unreadable_dirs: tuple[str, ...] = ()
     #: Set when this folder was NOT registered because it already holds a library the catalog
     #: knows under another identity. Registering anyway would give one library two drive ids,
     #: and every place that counts copies would then report one copy of a photo as two.
@@ -132,7 +137,15 @@ def _copy_hash(path: Path, cache: HashCache) -> str:
     return digest
 
 
-def _unrecorded_files(root: Path, recorded: set[str]) -> list[Path]:
+@dataclass(frozen=True, slots=True)
+class _DriveWalk:
+    """What one pass over the drive found: files to identify, and folders it could not open."""
+
+    files: list[Path]
+    unreadable_dirs: tuple[str, ...]
+
+
+def _unrecorded_files(root: Path, recorded: set[str]) -> _DriveWalk:
     """Every file on the drive that is not already a recorded copy at that exact path.
 
     ``recorded`` holds ``file_copies.relative`` for this drive - the **per-drive** column, which
@@ -142,15 +155,40 @@ def _unrecorded_files(root: Path, recorded: set[str]) -> list[Path]:
 
     Dotfiles are skipped: the drive marker, and the catalog sidecars if someone keeps them here.
 
-    **Complexity: O(files on the drive)** - one walk, one stat each, no reads.
+    ``Path.walk`` rather than ``rglob``, for the reason ``organizer.scan_source`` already gives on
+    the source side: **rglob swallows the permission error by design**, so a folder this process
+    cannot list simply does not appear, and the copies inside it get no ``file_copies`` row - no
+    verify, no 3-2-1 count, no ``where``. Measured before the change: three files present on the
+    drive, zero rows, ``unreadable=0`` because they never became candidates, and ``absent=3``
+    saying their copies were not on a drive that was holding them. ``walk`` hands the folder to
+    ``on_error`` instead. Hidden folders are pruned in place, which is also why an unreadable
+    *hidden* folder is not reported: it was never in scope.
+
+    **Complexity: O(entries on the drive)** - one pass, one stat each, no reads, plus the same
+    terminal sort ``rglob`` already paid for.
     """
-    return [
-        item
-        for item in sorted(root.rglob("*"))
-        if item.is_file()
-        and not any(part.startswith(".") for part in item.relative_to(root).parts)
-        and item.relative_to(root).as_posix() not in recorded
-    ]
+    files: list[Path] = []
+    unreadable: list[str] = []
+
+    def _note_unreadable(error: OSError) -> None:
+        """A folder that could not be listed. **Never raises** - one locked folder must not cost
+        the rest of the drive, the partial-failure policy every other read here follows."""
+        if error.filename is None:
+            return
+        try:
+            unreadable.append(Path(error.filename).relative_to(root).as_posix())
+        except ValueError:
+            unreadable.append(str(error.filename))
+
+    for dirpath, dirnames, filenames in root.walk(on_error=_note_unreadable):
+        dirnames[:] = [name for name in dirnames if not name.startswith(".")]
+        for name in filenames:
+            if name.startswith("."):
+                continue
+            item = dirpath / name
+            if item.is_file() and item.relative_to(root).as_posix() not in recorded:
+                files.append(item)
+    return _DriveWalk(sorted(files), tuple(sorted(unreadable)))
 
 
 def _adoption_block(
@@ -281,16 +319,21 @@ def attach_drive(
         )
         # Settled before any reading, so the first progress tick can say "1 of 2,269" rather
         # than counting up towards a total the user only learns when it stops.
-        candidates = _unrecorded_files(path, on_drive)
+        walk = _unrecorded_files(path, on_drive)
+        candidates = walk.files
         if not write or marker is None:
             # A preview cannot know which of these will match without reading them, and reading
             # is the thing being previewed. It reports the files it would read, which is the
             # scale the user is being asked to agree to.
+            # The preview walked, so it already knows which folders it could not open. Saying so
+            # here costs nothing and is the honest place: this is the screen where the user is
+            # still deciding, and naming a folder writes nothing, so §5 purity holds.
             return DriveAttachment(
                 label=label,
                 registered=not was_registered,
                 linked=len(candidates),
                 absent=0,
+                unreadable_dirs=walk.unreadable_dirs,
             )
 
         by_hash = {str(row["hash"]): str(row["sha256"]) for row in catalog.attachable_hashes()}
@@ -338,6 +381,7 @@ def attach_drive(
         absent=absent,
         unreadable=unreadable,
         unmatched=unmatched,
+        unreadable_dirs=walk.unreadable_dirs,
     )
 
 
