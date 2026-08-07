@@ -30,6 +30,7 @@ The command is `truestill`; the local web UI is `truestill-app`. Drives are iden
 | How does the code lay out day to day? | [`docs/CLAUDE.md`](docs/CLAUDE.md) |
 | What does it cost, and what should I not "optimize"? | [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) |
 | What does the product look like? (wordmark, colour, icons) | [`docs/brand.md`](docs/brand.md) |
+| What is wrong with the UI, surface by surface? | [`docs/ui-inventory.md`](docs/ui-inventory.md) |
 | How do I report a vulnerability, and what is in scope? | [`SECURITY.md`](SECURITY.md) |
 | What changed and when? | [`CHANGELOG.md`](CHANGELOG.md) |
 
