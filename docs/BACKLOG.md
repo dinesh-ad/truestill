@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(abt). Next free: (abu).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(abu). Next free: (abv).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -61,6 +61,38 @@ is invisible here is retired, not free.**
   - Pinned by nothing today, deliberately: the assertion that would pin it is the wording, and
     writing it now would fix the wording before it is chosen. The behaviour is covered by
     `test_preview_tally_is_disjoint.py`.
+
+- **(abu) A failed copy leaves the bytes it managed to write, and nothing owns them.**
+  Recorded 2026-08-07 from the first real organize onto the maintainer's library. **Ranked at
+  the top: it is the only known path that puts a file into a library that nothing accounts for.**
+  - **Observed, not theorised.** `VID_20150730_000606.mp4` failed with `[Errno 5]` at 802 MB of
+    852 MB. `shutil.copy2` raises and leaves what it wrote, so Morrowkeep now holds an
+    **802,684,928-byte truncated video carrying a correct organized name**
+    (`20150729_184159_VID_20150730_000606.mp4`) with no `files` row and no `file_copies` row.
+    The run said `1 failed`. It did not say 802 MB of it arrived.
+  - **What the invariants DID hold**, so the ranking is about debris rather than loss: the source
+    was untouched (copy mode), and nothing was recorded as copied - `upload` raises before
+    `record_uploaded` is reached. `verify` will never check the partial; `rescan` reports it as
+    STRAY, which is exactly right and is how it was found.
+  - ⚠ **A retry makes it worse, and that is the sharp end.** `_free_target` suffixes rather than
+    overwrites - *"never lose data"*, correct for its real case of two distinct `IMG_0001.jpg` -
+    so a second attempt sees the partial, treats it as an incumbent, and writes
+    `..._1.mp4` beside it. **Every retry leaves another 802 MB.**
+  - **THREE SITES, one shape**: `LocalDestination.upload` (organize), `LocalDestination.relocate`
+    (migrate-layout) and `service/backup.py`'s copy loop all use `shutil.copy2` and all leave the
+    partial. `relocate` already **knows** - its comment says it *"overwrites a partial copy left
+    by an interrupted run"* - so the debris was met once and answered with overwrite-next-time
+    rather than remove-on-failure. That works where the path is re-derived identically and fails
+    where a suffix intervenes.
+  - **THE FIX IS BOTH, and remove-on-failure is the load-bearing half.** Unlink the target inside
+    the `except` before raising, so a failure leaves nothing; and name the partial in the report,
+    because a user who watched 800 MB cross a slow link deserves to know it was discarded rather
+    than wonder. Reporting alone is not enough: it leaves the retry-accumulates behaviour intact.
+    A temp-name-then-rename would also work and is the stronger shape, but it changes the write
+    path for every backend rather than one `except` clause, so it wants its own decision.
+  - **The unlink must itself be guarded**: the failure that produced the partial is often the one
+    that will refuse the delete, and a cleanup that raises would replace a reported failure with
+    an unreported one.
 
 - **(abs) The ghost-drive rule refuses REGISTRATION and warns nobody else.** Recorded
   2026-08-07 with the fix, and **chosen deliberately rather than discovered** - which is the
