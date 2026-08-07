@@ -12,9 +12,44 @@ two-destination case - copy into X, later preview against Y - makes that guess w
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 from truestill_core.catalog import Catalog
+
+
+@contextmanager
+def _seeded_in_one_transaction(catalog: Catalog) -> Iterator[None]:
+    """Seed through the PRODUCTION write path, committing once instead of once per row.
+
+    `record_uploaded` is called exactly as a real run calls it and issues exactly the SQL it
+    issues in production, so the rows this leaves are the rows a run leaves - verified by
+    comparing all 18 `files` columns and every `file_copies` row against an unbatched seed.
+    **Only `_tx`'s per-call commit is suspended**, which is durability the fixture does not need:
+    a `tmp_path` catalog that does not survive a crash mid-seed costs nothing.
+
+    Why it is worth the machinery: 40,000 commits is **5.1s on Linux and 19m58s on the Windows
+    lane** - 73% of that lane's entire runtime, and 162x its next-slowest test. One commit is
+    0.57s here. The assertion below is unchanged; only the scaffolding is.
+    """
+    real_tx = type(catalog)._tx
+    seen: list[str] = []
+
+    @contextmanager
+    def without_committing(self: Catalog) -> Iterator[object]:
+        seen.append("x")
+        yield self._conn
+
+    type(catalog)._tx = without_committing  # type: ignore[method-assign]
+    try:
+        yield
+    finally:
+        type(catalog)._tx = real_tx  # type: ignore[method-assign]
+        catalog._conn.commit()
+    # A seed that wrote nothing would make the assertion vacuous, and swapping a method out is
+    # exactly the change that could silently stop reaching it.
+    assert seen, "the batched write path was never entered - the seed did nothing"
 
 
 def _seed(catalog: Catalog, sha: str, drive: str, relative: str) -> None:
@@ -101,8 +136,9 @@ def test_a_set_larger_than_sqlites_parameter_limit_is_answered_in_full(tmp_path:
     with Catalog(tmp_path / "c.sqlite") as catalog:
         catalog.upsert_drive(uuid="u-x", label="BackupA")
         shas = [f"{i:064x}" for i in range(40_000)]
-        for sha in shas:
-            _seed(catalog, sha, "u-x", "x.jpg")
+        with _seeded_in_one_transaction(catalog):
+            for sha in shas:
+                _seed(catalog, sha, "u-x", "x.jpg")
 
         rows = catalog.drives_holding(shas)
 

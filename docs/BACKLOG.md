@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(abq). Next free: (abr).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(abr). Next free: (abs).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -61,6 +61,19 @@ is invisible here is retired, not free.**
   - Pinned by nothing today, deliberately: the assertion that would pin it is the wording, and
     writing it now would fix the wording before it is chosen. The behaviour is covered by
     `test_preview_tally_is_disjoint.py`.
+
+- **(abr) `rcRunArchives` passes no `onRefuse`, so a refused start would throw.** Recorded
+  2026-08-07. One of **15** `runJob` call sites; the other fourteen all pass one.
+  - `runJob` does `if (started && started.ok === false) { ...; onRefuse(started); return; }`, so
+    an `{ok: false}` from `/api/ingest/archives/run` calls `undefined` and lands in `guarded`'s
+    fatal-error banner instead of the refusal card.
+  - **Probably unreachable today** - archive refusals are answered at `precheck`, and the run
+    endpoint is not known to return `{ok: false}` - which is why this is filed rather than fixed.
+    It was found by routing that endpoint to a refusal in a test, not by a real run.
+  - **Filed because of the shape, not the severity.** One site of many differing from its
+    siblings is `(aak)` / `(abq)` again, and the two before it were each found only after they
+    cost something. The fix is one line; the value is that the next reader of `runJob` sees
+    fifteen call sites that agree.
 
 - **(abq) `#bk-preview` is clicked five ways and only one of them is race-free.** Recorded
   2026-08-07 from the `test_backup_preview_busy_re_enables` flake (2 failures in 4 consecutive
