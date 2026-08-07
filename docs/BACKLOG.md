@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(abr). Next free: (abs).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(abt). Next free: (abu).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -61,6 +61,44 @@ is invisible here is retired, not free.**
   - Pinned by nothing today, deliberately: the assertion that would pin it is the wording, and
     writing it now would fix the wording before it is chosen. The behaviour is covered by
     `test_preview_tally_is_disjoint.py`.
+
+- **(abs) The ghost-drive rule refuses REGISTRATION and warns nobody else.** Recorded
+  2026-08-07 with the fix, and **chosen deliberately rather than discovered** - which is the
+  point of writing it down. `ghost_drive_at` is called by `_register_destination` (CLI) and
+  `service/organize._identity_for` (app), the two places that MINT an identity. `rescan`,
+  `verify` and `backup` read markers and never mint, so the data-loss path does not run through
+  them and none of them needs the refusal.
+  - **But "refuses to register" and "warns you this is a ghost" are different promises**, and
+    only the first exists. Point `verify` at a drive whose recorded path is now an empty folder
+    and it reports every copy MISSING - true of the record, and it never says the likely reason
+    is that the drive is not mounted. `rescan` would call the whole library UNACCOUNTED for the
+    same reason. Both are honest and both bury the one fact that explains them.
+  - **The shape is the one-site-of-many again** - `(aak)`, `(abq)`, `(abr)`, the nine cancel
+    buttons - so it is recorded as a decision with its reason instead of being found later by
+    someone wondering why only two callers know the rule. The reason: minting is irreversible
+    custody damage, reporting is not.
+  - **What closing it looks like:** the read-only surfaces do not refuse, they *lead with it* -
+    "this is where drive X was recorded and its marker is gone" before the counts, so the number
+    is explained rather than alarming. That is a wording change on three surfaces, not a rule
+    change, and it wants `(aba)`'s reconciliation vocabulary rather than its own.
+
+- **(abt) The unhinted-residue prompt is CLI-only, because the app cannot ask mid-job.**
+  Recorded 2026-08-07 with the fix.
+  - **What exists.** Minting a drive identity while the catalog holds drives with no recorded
+    location prompts for the typed word `new` in the CLI. It cannot be reached from the app:
+    `service/organize` registers inside a running job, and a job has no way to stop and ask.
+  - **The app is not unprotected, and the difference is worth stating precisely.** App organize
+    has always written a path hint (`service/organize.py`), so app users accumulate the
+    discriminating fact with every run and `(abs)`'s refusal covers them from the second run
+    onward. **The gap is the FIRST run** - a user whose drives were all registered before hints
+    existed, organizing into an unmounted mountpoint, gets no prompt.
+  - **What closes it is a UI decision, not a core one.** The obvious shape is a **pre-run**
+    confirmation on the Organize screen - the typed-confirm component already exists and is used
+    for Rearrange and the date bake - shown before the job starts, where asking is still
+    possible. The rule and its wording are already in core (`drives_without_a_known_location`),
+    so this is a surface, not a second mechanism.
+  - **Not urgent for the maintainer specifically:** his own path now records hints on every CLI
+    run, so his first-run window closes the next time he organizes with `--apply`.
 
 - **(abr) `rcRunArchives` passes no `onRefuse`, so a refused start would throw.** Recorded
   2026-08-07. One of **15** `runJob` call sites; the other fourteen all pass one.
