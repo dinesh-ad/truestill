@@ -593,7 +593,7 @@ def test_stats_view_empty_catalog_is_calm(ui: Page) -> None:
     expect(ui.locator('#stats-result [data-stats-action="organize"]')).to_be_visible()
 
 
-def test_the_verify_cancel_button_is_wired_to_something(ui: Page, app_server: AppServer) -> None:
+def test_the_verify_cancel_button_is_wired_to_something(ui: Page) -> None:
     """Verify's Cancel handler was an empty function -- visible, enabled, and inert.
 
     Deliberately a wiring assertion rather than a browser race. A verify of any corpus small
@@ -604,12 +604,16 @@ def test_the_verify_cancel_button_is_wired_to_something(ui: Page, app_server: Ap
     work to be deterministic. What is left to guard here is that this particular button is
     connected to it, which is precisely what regressed.
     """
-    app_js = ui.request.get(f"{app_server.base_url}/static/app.js").text()
-
-    handler = app_js.split('$("verify-cancel").onclick')[1].split("\n")[0]
-    assert "verifyJob" in handler  # it knows which job it is cancelling
-    assert "cancel" in handler  # and it asks the server to stop it
-    assert "() => {}" not in handler  # the empty function that shipped
+    # Asserted on the LIVE button, not by parsing app.js for `$("verify-cancel").onclick`.
+    # That handler is gone: wiring each cancel beside its own job variable is what let this
+    # button ship inert once and then let every other one drop a click made before the job was
+    # named (2026-08-07). `createProgress` owns the button inside the card it shows, so the
+    # question "is this one connected" is now answered by the DOM rather than by a string.
+    wired = ui.eval_on_selector(
+        "#verify-cancel", "el => ({ id: el.id, wired: !!el.onclick, disabled: el.disabled })"
+    )
+    assert wired["wired"], "verify's Cancel is connected to nothing"
+    assert not wired["disabled"], "verify's Cancel is disabled at rest"
 
 
 # --- the stale message ---------------------------------------------------------------------

@@ -4,8 +4,10 @@ const $ = (id) => document.getElementById(id);
 
 // The run block is authored once in index.html and cloned into every `[data-run]` mount, with
 // `<prefix>-<part>` ids stamped on. It runs HERE, at the top, and not in a DOMContentLoaded
-// handler: thirty statements later in this file wire `$("org-cancel").onclick` and friends at
-// top level, so the elements have to exist by the time execution reaches them.
+// handler: `createProgress` wires each block's Cancel button at top level, so the elements have
+// to exist by the time execution reaches it. (This used to name the per-button
+// `$("org-cancel").onclick` handlers, which are gone - the reason survived them, the example
+// did not.)
 function mountRunBlocks() {
   // No `if (!template) return` on purpose: a missing template means every job's controls are
   // absent, and failing quietly here would surface as thirty unrelated null-derefs instead.
@@ -180,7 +182,7 @@ async function runJob({
   beforeOutcome = null,
   after = null,
 }) {
-  const work = async ({ setStatus }) => {
+  const inner = async ({ setStatus }) => {
     if (progressBeforeStart) progress.start(progressLabel);
     const started = await start();
     if (started && started.ok === false) {
@@ -193,6 +195,10 @@ async function runJob({
       return;
     }
     setJob(started.job_id);
+    // Hands the name to the cancel owner, which fires immediately if the user already asked to
+    // stop while this request was in flight. Placed with the caller's `setJob` so the two can
+    // never disagree about when a job exists.
+    await progress.setJob(started.job_id);
     const stage = typeof parkUndoCardIn === "function" ? parkUndoCardIn() : parkUndoCardIn;
     if (stage) {
       stage.innerHTML = "";
@@ -216,6 +222,17 @@ async function runJob({
     else if (d.status === "cancelled") await onCancelled(d);
     else await onSuccess(d);
     if (after) await after(d);
+  };
+  // `finally`, so a refusal, an abort or a throw all clear the queued intent. A start request
+  // that FAILS after the user clicked Cancel must not leave an intent armed for the next run,
+  // and there is no job to cancel - the refusal card is the honest outcome.
+  const work = async (ctx) => {
+    progress.beginRun();
+    try {
+      await inner(ctx);
+    } finally {
+      progress.endRun();
+    }
   };
   if (button) return withBusy(button, busyLabel, work);
   return work({ setStatus: outerSetStatus || (() => {}) });
@@ -277,6 +294,62 @@ function createProgress(prefix) {
   const el = (suffix) => $(`${prefix}-${suffix}`);
   let started = 0, rate = 0, lastDone = 0, lastAt = 0, shownRemaining = "", ticker = null;
 
+  // ---- cancel, owned here because the button lives inside the card this object shows ----
+  //
+  // **A click before the job has a name is QUEUED, never dropped.** `runJob` reveals this card
+  // and then awaits the start request, so there is a window - as long as that request takes -
+  // where Cancel is visible, enabled, and was previously inert: the handler read a job id that
+  // did not exist yet and returned having done nothing, with no request and no message. On a
+  // fast machine the window is milliseconds and nobody reaches it; on a loaded machine, a big
+  // archive or a cloud mount it is wide, which is exactly when stopping matters most. Found
+  // 2026-08-07 from the first CI trace this project ever captured: every click landed, and no
+  // cancel request was ever sent.
+  //
+  // One home rather than nine: every long-running operation clones this block from `tpl-run`
+  // and drives it through `runJob`, so the same window existed on organize, verify, import,
+  // trips, backup, migrate, bake and both undo paths.
+  let jobId = null;    // named by the server, once the start request has returned
+  let running = false; // a run is in flight - it may not have an id yet
+  let wanted = false;  // the user has asked to stop
+
+  const cancelButton = el("cancel");
+  const cancelLabel = cancelButton ? cancelButton.textContent : "Cancel";
+
+  // **Silence is what hid this for three CI runs**, so the click is acknowledged the moment it
+  // is accepted rather than when it takes effect.
+  const showStopping = () => {
+    if (!cancelButton) return;
+    cancelButton.textContent = "Stopping…";
+    cancelButton.disabled = true;
+  };
+  const resetCancel = () => {
+    if (!cancelButton) return;
+    cancelButton.textContent = cancelLabel;
+    cancelButton.disabled = false;
+  };
+
+  const sendCancel = async (id) => {
+    try {
+      await api(`/api/jobs/${id}/cancel`, {});
+    } catch (err) {
+      // A queued cancel can arrive after the work finished on its own: the job is gone and the
+      // route answers 404. That is the truthful outcome of "it beat you to it", not a fault to
+      // put a red banner in front of someone - and the terminal event still reports what really
+      // happened. Any other failure keeps its error.
+      if (!String(err && err.message).includes("(404")) throw err;
+    }
+  };
+
+  if (cancelButton) {
+    cancelButton.onclick = guarded(async () => {
+      if (!running) return; // nothing is in flight, so there is nothing to stop
+      wanted = true;
+      showStopping();
+      if (jobId) await sendCancel(jobId);
+      // else: recorded, and `setJob` fires it the instant the server names the job
+    });
+  }
+
   const paint = (done, total) => {
     const now = performance.now() / 1000;
     const elapsed = now - started;
@@ -295,6 +368,27 @@ function createProgress(prefix) {
   };
 
   return {
+    // The cancel lifecycle is driven by `runJob`, NOT by `start`/`stop`: those are about the
+    // card being visible, and the window this closes is the one where the card is already
+    // visible and the job is not yet named. Tying them together would reintroduce it.
+    beginRun() {
+      running = true;
+      wanted = false;
+      jobId = null;
+      resetCancel();
+    },
+    setJob(id) {
+      jobId = id;
+      // The whole point: a click made before the server named this job is honoured now.
+      if (id && wanted) return sendCancel(id);
+      return undefined;
+    },
+    endRun() {
+      running = false;
+      wanted = false;
+      jobId = null;
+      resetCancel();
+    },
     start(label) {
       started = performance.now() / 1000;
       rate = 0; lastDone = 0; lastAt = started; shownRemaining = "";
@@ -2144,11 +2238,9 @@ async function startOrganizeRun() {
   });
 }
 
-$("org-cancel").onclick = guarded(() => { if (orgJob) return api(`/api/jobs/${orgJob}/cancel`, {}); });
-$("undo-cancel").onclick = guarded(() => {
-  if (undoJob) return api(`/api/jobs/${undoJob}/cancel`, {});
-  if (orgUndoJob) return api(`/api/jobs/${orgUndoJob}/cancel`, {});
-});
+// Cancel is wired by `createProgress`, which owns the button inside the card it shows -
+// see the queued-intent note there. A per-button handler here would overwrite it, and
+// each one carried the `if (<job>) return` that silently dropped an early click.
 
 document.querySelectorAll('input[name="org-mode"]').forEach((item) => {
   item.addEventListener("change", guarded(async () => {
@@ -2307,7 +2399,6 @@ $("verify-run").onclick = guarded(async () => {
     },
   });
 });
-$("verify-cancel").onclick = guarded(() => { if (verifyJob) return api(`/api/jobs/${verifyJob}/cancel`, {}); });
 
 // A drive error that carries a correction offers it as a button: the common cause is naming a
 // folder INSIDE a connected drive, and re-typing the root by hand is work the app can do.
@@ -2560,7 +2651,6 @@ $("rc-preview").onclick = guarded(async () => {
     onSuccess: (d) => { rcRenderSummary(d); },
   });
 });
-$("rc-cancel").onclick = guarded(() => { if (rcJob) return api(`/api/jobs/${rcJob}/cancel`, {}); });
 
 // ---------- Trips & events ----------
 // 13.3b's inversion: detect_trips runs first, so a genuine multi-day run already arrives as ONE
@@ -2918,7 +3008,6 @@ $("ev-apply-disk").onclick = guarded(async () => {
     },
   });
 });
-$("ev-cancel").onclick = guarded(() => { if (evJob) return api(`/api/jobs/${evJob}/cancel`, {}); });
 
 // A backup run WRITES A DRIVE MARKER into the folder and records it as a drive. The preview
 // has always known which folders that applies to and never said so, which made registering
@@ -2984,7 +3073,6 @@ $("bk-run").onclick = guarded(async () => {
     after: () => { refreshDriveState(); },
   });
 });
-$("bk-cancel").onclick = guarded(() => { if (bkJob) return api(`/api/jobs/${bkJob}/cancel`, {}); });
 
 // ---------- Settings ----------
 function renderLayoutPreview(rows) {
@@ -3182,7 +3270,6 @@ $("mig-preview").onclick = guarded(async () => {
     },
   });
 });
-$("mig-cancel").onclick = guarded(() => { if (migJob) return api(`/api/jobs/${migJob}/cancel`, {}); });
 
 // theme toggle
 document.querySelectorAll('input[name="theme"]').forEach((r) => {
@@ -3294,7 +3381,6 @@ async function startBake(path) {
     after: () => { refreshDriveState(); },
   });
 }
-$("bake-cancel").onclick = guarded(() => { if (bakeJob) return api(`/api/jobs/${bakeJob}/cancel`, {}); });
 
 function bakeCompletion(s, cancelled) {
   return card(
