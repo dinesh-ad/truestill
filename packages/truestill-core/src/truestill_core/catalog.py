@@ -1842,6 +1842,34 @@ class Catalog:
         cursor = self._conn.execute("SELECT signature FROM skipped_clusters")
         return frozenset(row["signature"] for row in cursor)
 
+    def source_hints_for_drive(self, drive_uuid: str) -> list[sqlite3.Row]:
+        """Where each of a drive's dated Camera copies was first read from. **O(rows).**
+
+        The input a folder-name suggestion is derived from, deliberately SEPARATE from
+        `camera_copies_for_events` rather than a widening of it. That query decides what
+        CLUSTERS; carrying `source_path` on it would let a display concern change the grouping it
+        is only supposed to describe.
+
+        The two share a filter - same drive, Camera, dated - and that is load-bearing rather than
+        incidental: a hint for a file no cluster holds could never be shown, and a cluster member
+        with no hint would silently drop out of the denominator and strengthen every majority.
+        `test_it_matches_the_clustering_population_exactly` is what keeps them in step.
+
+        A row whose ``source_path`` is NULL is still returned, for the same reason: missing
+        evidence weakens a claim rather than being quietly excluded from it.
+        """
+        return list(
+            self._conn.execute(
+                """
+                SELECT fc.sha256, f.source_path, f.captured_at
+                FROM file_copies fc
+                JOIN files f ON f.sha256 = fc.sha256
+                WHERE fc.drive_uuid = ? AND f.category = 'Camera' AND f.captured_at IS NOT NULL
+                """,
+                (drive_uuid,),
+            )
+        )
+
     def named_event_signatures(self) -> dict[str, str]:
         """``{event signature: that event's name}`` for every named event. **O(named events).**
 
