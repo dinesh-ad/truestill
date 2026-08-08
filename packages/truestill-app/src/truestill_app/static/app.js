@@ -127,9 +127,14 @@ window.onerror = (message) => {
 // missing · NaN changed". Normalising here means no caller can get that wrong again.
 function streamJob(jobId, onProgress, onDone) {
   const es = new EventSource(`/api/jobs/${jobId}/events?token=${encodeURIComponent(TOKEN)}`);
+  // `onDone` resolves a promise, so it must fire exactly once: a terminal message and a late
+  // error must not both settle it.
+  let settled = false;
   es.onmessage = (e) => {
     const d = JSON.parse(e.data);
     if (d.type === "progress") { onProgress(d); return; }
+    if (settled) return;
+    settled = true;
     es.close();
     const failed = d.type === "error";
     onDone({
@@ -140,7 +145,33 @@ function streamJob(jobId, onProgress, onDone) {
       summary: failed ? {} : (d.summary || {}),
     });
   };
-  es.onerror = () => es.close();
+  es.onerror = () => {
+    // A DEAD STREAM IS A TERMINAL STATE AND MUST BE REPORTED AS ONE. This used to close and stop
+    // there, so `awaitJob`'s promise never resolved: `runJob` awaited it forever and
+    // `progress.stop()`, `setJob(null)` and the entire onCancelled/onSuccess/onError branch never
+    // ran. The screen kept whatever card it had before the run, the trigger stayed disabled, and
+    // the person had no outcome, no error and no way to learn the job was gone (§9).
+    //
+    // Seen on CI as a cancel accepted with 202 followed by NO events request at all: the queued
+    // cancel is awaited before the stream is opened, so a job that finishes first is already
+    // reaped when the stream is attempted. That ordering is worth revisiting on its own; this is
+    // the guarantee that does not depend on it, because it covers every way a stream can die.
+    //
+    // Closing rather than letting EventSource retry keeps the previous behaviour - it always gave
+    // up on the first error - so the only change is that giving up now says so.
+    if (settled) return;
+    settled = true;
+    es.close();
+    onDone({
+      ok: false,
+      status: "error",
+      error:
+        "Lost contact with this job, so Truestill cannot say how it ended. It may have finished, "
+        + "or been stopped. Check the folder before running it again.",
+      code: null,
+      summary: {},
+    });
+  };
   return es;
 }
 

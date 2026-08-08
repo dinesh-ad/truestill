@@ -62,6 +62,33 @@ is invisible here is retired, not free.**
     writing it now would fix the wording before it is chosen. The behaviour is covered by
     `test_preview_tally_is_disjoint.py`.
 
+- **(acb) CLOSED 2026-08-08: a dead event stream froze the screen with no outcome at all.**
+  Found by reading a CI trace rather than re-running it. **Ranked as the worst UI defect this
+  session produced**: the person is given no outcome, no error, and no way to learn the job is
+  gone.
+  - **The mechanism.** `streamJob`'s `es.onerror = () => es.close()` closed the stream and never
+    called `onDone`, so `awaitJob`'s promise never resolved and `runJob` awaited it forever.
+    `progress.stop()`, `setJob(null)` and the whole onCancelled/onSuccess/onError branch never
+    ran. The screen kept the card it had before the run and the trigger stayed disabled.
+  - **Observed, not theorised.** CI run `31276824490`: `POST /api/ingest/archives/run` 200,
+    `POST /api/jobs/<id>/cancel` **202 accepted**, and then **no `/api/jobs/<id>/events` request
+    at all** - zero occurrences in the network log and in the trace. The final DOM still held the
+    precheck card and its "Unpack and scan" button, 60 seconds later.
+  - **It was never archive ingest's defect.** `streamJob` and `runJob` are the shared job
+    skeleton for thirteen call sites - organize, backup, verify, migrate, rescan, ingest. Pinning
+    it where it surfaced would have left the other twelve silent, so the test drives it through
+    organize and kills the stream outright rather than racing a cancel: a timing test passes on a
+    fast machine and proves nothing.
+  - **PROVENANCE, not apology.** The ordering that exposes it is mine, from `6fbb4d3`: the queued
+    cancel is awaited BEFORE the stream is opened, so a job that finishes first is already reaped
+    when the stream is attempted. That path was correct; the gap is that opening the stream was
+    not made unconditional alongside it. **Left open deliberately**: reordering deserves its own
+    thought, and the fix here holds whatever the order, because it covers every way a stream can
+    die rather than one race.
+  - **Still worth doing**, named not built: open the stream before firing a queued cancel, so
+    that window reports "Cancelled" rather than "lost contact". Honest either way, but one names
+    what happened.
+
 - **(aca) The app and the CLI disagree about when an organize run needs confirming.** Recorded
   2026-08-08 while making the app's confirm word mode-aware.
   - **The divergence.** The app gates all three modes behind a typed word. The CLI's
@@ -335,6 +362,14 @@ is invisible here is retired, not free.**
     `validatePath`), so the button moves - measured **+4.9px** - inside the click window.
     Waiting for `#bk-source-hint` / `#bk-target-hint` to become non-empty before clicking
     removes the race at source and keeps real mouse-event coverage.
+  - ⚠ **2026-08-08: THIS DIAGNOSIS DOES NOT GENERALISE, and a second instance contradicts it.**
+    `(acb)` is a cancel failure in the same browser lane and the same family, and its mechanism is
+    the OPPOSITE: the cancel request was issued and accepted with a 202, and what failed was the
+    event stream afterwards. A lost click and an unreported dead stream look identical from the
+    outside - a cancel that does nothing - and folding them together would have lost both. This
+    entry's finding stands **for this test only**. Anyone reaching for it as the explanation for a
+    cancel flake elsewhere should read the trace first; that is what separated them here, and this
+    entry already carried one flagged contradiction nobody had reconciled.
   - ✅ **MECHANISM PROVEN 2026-08-07: the click is lost.** It recurred on run `31208332669` and
     this time the trace uploaded, which is exactly the condition this entry was waiting on.
     From the replay: the organize flow completed in **0.90 s**, then **no `/api/backup/preview`

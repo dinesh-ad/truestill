@@ -20,6 +20,14 @@ All notable changes to this project are documented here. The format follows
   A group you have already named shows its name instead, and is never offered a suggestion.
 
 ### Fixed
+- **A run that loses contact with Truestill now tells you, instead of freezing.** If the live
+  connection to a running job died - which could happen when you pressed Cancel just as the work
+  finished - the screen simply stopped. It kept whatever it was showing before the run, the button
+  stayed greyed out, and there was **no message, no error, and no way to find out what had
+  happened**. It now says plainly that contact was lost, that the job may have finished or been
+  stopped, and to check the folder before running it again. This affects every kind of run -
+  organizing, backing up, checking, rearranging, importing - because they all share the same
+  machinery.
 - **Organizing by copy no longer asks you to type "move".** The confirm box wanted the same word
   whichever mode you chose, so copying - which leaves your originals exactly where they are -
   asked you to type *move* to go ahead. It now asks for the word that matches what will happen:
