@@ -598,17 +598,33 @@ is invisible here is retired, not free.**
 - **(abg) The reassured state has no notion of staleness - "Schrodinger's backup".**
   - **THREE OBSERVED INSTANCES, 2026-08-07/09, on the maintainer's own library. None is
     hypothetical.** Ordered by exposure, not by discovery.
-  - **(1) LIVE EXPOSURE - 395 copies recorded on a drive that has never uploaded.** The catalog
-    records 395 copies on a cloud-mount destination. The mount lists all 395, 3.39 GB, and every
-    byte reads back correctly. **The vendor's own server index holds about 5 of them**; 391 are
-    still queued behind an upload task dated 18 July that has not moved across two client
-    restarts. The files exist in exactly one place - a local cache on this machine - and the
-    catalog has been counting them as a second copy since 2026-08-07.
-    **`rescan` reports them IN PLACE**, in 0.15 s for 395 files. That timing is the tell: the
-    local index answered, not the disk. A tool whose whole purpose is telling someone where their
-    files are reported full custody on a drive whose contents have never left the machine, and it
-    was not wrong by its own definition - it says plainly that it reads no bytes. **The definition
-    is the defect.**
+  - **(1) THE WORKED EXAMPLE - written, believed, verified in place, and gone.** Follow one
+    instance the whole way, because it is more instructive than the abstract statement:
+    1. **Written.** An organize run copied 395 files to a cloud-mount destination. Every write
+       returned success, so custody recorded a second copy.
+    2. **Believed.** `status` counted all 395 toward the 3-2-1 goal for two days.
+    3. **Verified in place.** `rescan` reported *"395, where the catalog says they are"* in
+       **0.15 s** - the local index answering, not the disk. Not wrong by its own definition: it
+       states that it reads no bytes. **The definition is the defect.**
+    4. **Never actually stored.** The vendor's server index held about 5 of them; 391 sat behind
+       an upload task dated 18 July that never moved.
+    5. **GONE.** The vendor application was uninstalled on 2026-08-08 and its cache directory went
+       with it. **Those 395 organized copies no longer exist anywhere.** Verified: the cache
+       directory absent, the mount absent from `/proc/mounts`, free space back to 65 G.
+    **And the catalog asserted custody at every one of those five steps**, including the last.
+  - **THE VOCABULARY GAP IS THE FINDING.** After all of that, the drive list still reads
+    `Morrowkeep  395  offline  LAST VERIFIED: never`, and `status` reports the 395 as
+    *"exist on only ONE drive (3-2-1 wants >=2)"* - **recommending a second copy for files that
+    have none.** `offline` is the same word the system would use for a USB disk in a drawer, and
+    it is the closest thing available. **There is no state meaning "recorded, and the place it was
+    recorded no longer exists".** Until there is, the honest answer and the reassuring one are
+    spelled identically.
+  - **WHAT WAS NOT LOST, so this is not read as a data-loss story.** The 2015 originals are on the
+    vendor's servers, untouched, and `TruestillLibrary/Input` still holds the sources. **What was
+    lost is an organize run, not photographs** - the arrangement, the naming and the placement,
+    all of which can be produced again from material that still exists. The cost is real but it is
+    work, not memory.
+
   - **(2) 2,269 copies recorded on an empty folder, and the tool cannot look.**
     `TruestillLibrary/Output` was emptied by hand - 0 files, 0 bytes - having held 2,269 files
     when `rescan` checked it the same day. The catalog still records 2,269 copies there and
