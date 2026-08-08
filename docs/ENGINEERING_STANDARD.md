@@ -682,6 +682,29 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   upload, a cache write, a report file, a notification, a metrics push. Its success field
   describes whether the code ran, never whether the work happened.
 
+- **A mutation must be asserted PRESENT and UNIQUE, or its scope stated.** The fifteenth member,
+  and the one the presence rule above does not reach. Presence answers "did the change land";
+  it does not answer "did it land in one place". A mutation that matches several sites is a
+  different failure and it fails green: the extra sites can mask the one under test, or the
+  blast radius can exceed what the test was scoped to observe, and either way the suite reports
+  a pass that means nothing.
+
+  Recorded 2026-08-08 from a real instance. `Catalog.source_hints_for_drive` was mutated by
+  removing ` AND f.captured_at IS NOT NULL` from its `WHERE` clause - a clause **shared verbatim
+  with `camera_copies_for_events`**, so the anchor matched twice. The presence assertion counted
+  occurrences and refused, which is the only reason it was caught; a `str.replace` with no count
+  would have mutated both queries, kept them in step with each other, and passed the parity test
+  it was meant to break.
+
+  > **Count, do not just find.** `assert t.count(anchor) == 1` before replacing, and include
+  > enough surrounding lines - the `SELECT` list, the function's own signature - to make the
+  > anchor unique. Where a mutation genuinely must hit several sites, say so and say why, so a
+  > reader can tell a deliberate sweep from an accidental one.
+
+  *Suspect it wherever code is deliberately duplicated:* two queries over one population, a
+  constant repeated in a migration and its schema, a guard applied at several call sites. Those
+  are exactly the places a single-site mutation is most valuable and least likely to be unique.
+
 - **Errors.** Exceptions typed and specific - no bare `except`. User-facing CLI errors are
   actionable sentences, not tracebacks. Every subprocess call checks its return code and
   surfaces stderr on failure. Partial-failure policy: one bad file never aborts a batch - it

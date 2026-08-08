@@ -43,6 +43,10 @@ class EventReviewSession:
     #: without touching the catalog, so re-reading per action could answer the same question
     #: differently within one review; holding it on the session cannot drift.
     existing_names: service.ExistingNames | None = None
+    #: Where the clustered files came from, read once when this review opened. Merge and split
+    #: rebuild cards without touching the catalog, so re-reading per action would spend a full
+    #: drive scan on every click and could answer differently mid-review.
+    source_hints: service.SourceHints | None = None
     named_events: list[service.NamedEventSelection] = field(default_factory=list)
     named_trips: list[service.NamedTripSelection] = field(default_factory=list)
 
@@ -506,7 +510,11 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             return expired_session()
         return JSONResponse(
             service.review_cards_payload(
-                session_id, session.cards, session.min_files, session.existing_names
+                session_id,
+                session.cards,
+                session.min_files,
+                session.existing_names,
+                session.source_hints,
             )
         )
 
@@ -530,6 +538,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             day_totals=proposal["day_totals"],
             min_files=proposal["min_files"],
             existing_names=proposal["existing_names"],
+            source_hints=proposal["source_hints"],
         )
         remember_session(session_id, session)
         return JSONResponse(service.proposed_review_cards_payload(session_id, proposal))

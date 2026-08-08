@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Literal, NotRequired, TypedDict
 
 from truestill_core.catalog import Catalog
@@ -15,6 +16,7 @@ from truestill_core.drive import read_marker
 from truestill_core.event_review import EventDecision, commit_catalog
 from truestill_core.events import EventCandidate, EventSettings, split_candidate
 from truestill_core.exif import read_metadata
+from truestill_core.folder_hint import suggest_name
 from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import DEFAULT_PHASH_THRESHOLD
 from truestill_core.layout_settings import resolve_scheme
@@ -65,6 +67,14 @@ class ReviewDayPayload(TypedDict):
     count: int
 
 
+#: Below this many cards, "a name in most cards" cannot mean anything: with one card every
+#: ancestor is in 100% of them. See `_suggestion_roots`.
+_MIN_CARDS_FOR_ROOTS = 3
+
+#: Share of a proposal's cards a name must appear in to be treated as library plumbing.
+_ROOT_SHARE = 0.8
+
+
 class ReviewCardPayload(TypedDict):
     kind: Literal["trip", "event"]
     #: The name this trip ALREADY has in the CATALOG, or None when it has none yet. Deliberately
@@ -77,6 +87,11 @@ class ReviewCardPayload(TypedDict):
     #: the screen could not tell the two apart and showed an empty box for a question
     #: `commit_trips` will not accept an answer to.
     existing_name: str | None
+    #: A name PROPOSED from the folders this card's members came from, or None. Its own field:
+    #: `name` is the browser's store for what the user typed and `existing_name` is what the
+    #: catalog already holds. Three meanings, three fields - collapsing any two makes a
+    #: suggestion indistinguishable from an answer.
+    suggested_name: str | None
     start: str
     end: str
     count: int
@@ -135,6 +150,72 @@ class ExistingNames:
     events_by_signature: Mapping[str, str]
 
 
+@dataclass(frozen=True, slots=True)
+class SourceHints:
+    """Where a drive's clustered files came from, in the two shapes a card needs to be read.
+
+    A trip card carries no member identities - `TripProposal` holds day COUNTS - so its members
+    are derived by date from the days it claims (the day-claim rule, `trip-grouping-research.md`
+    §2). An event card reads its own `items`. Both end at the same per-file ancestor chains.
+    """
+
+    chain_by_sha: Mapping[str, tuple[str, ...]]
+    shas_by_day: Mapping[str, tuple[str, ...]]
+
+    @classmethod
+    def of(cls, rows: Sequence[Any]) -> SourceHints:
+        chains: dict[str, tuple[str, ...]] = {}
+        by_day: dict[str, list[str]] = {}
+        for row in rows:
+            sha = str(row["sha256"])
+            # `files.source_path` is TEXT NOT NULL, so the degenerate value is "" rather than
+            # NULL. Either way the member keeps its place in the denominator with an empty
+            # chain: missing evidence weakens a claim, it does not leave the count.
+            parent = PurePosixPath(str(row["source_path"] or "")).parent
+            chains[sha] = tuple(part for part in reversed(parent.parts) if part != "/")
+            by_day.setdefault(str(row["captured_at"])[:10], []).append(sha)
+        return cls(chains, {day: tuple(shas) for day, shas in by_day.items()})
+
+    def chains_for(self, card: ReviewCard) -> list[tuple[str, ...]]:
+        if card.trip is not None:
+            shas = [
+                sha for day in card.trip.days for sha in self.shas_by_day.get(day.isoformat(), ())
+            ]
+        else:
+            shas = [item.sha256 for item in card.event.items] if card.event else []
+        return [self.chain_by_sha.get(sha, ()) for sha in shas]
+
+
+def suggested_card_name(
+    card: ReviewCard, hints: SourceHints | None, names: ExistingNames | None, roots: frozenset[str]
+) -> str | None:
+    """A name to propose for this card, or ``None``.
+
+    Gated on the card having no name yet: proposing one for something already named would offer a
+    confident answer to a question `commit_catalog` discards. Never raises - a suggestion sits
+    behind a naming screen and may not block it.
+    """
+    if hints is None or existing_card_name(card, names) is not None:
+        return None
+    return suggest_name(hints.chains_for(card), year=card.start.year, roots=roots)
+
+
+def _suggestion_roots(cards: Sequence[ReviewCard], hints: SourceHints | None) -> frozenset[str]:
+    """Names present in >= 80% of this proposal's cards - library plumbing, never an event.
+
+    Only computed at three cards or more: with one card every ancestor is in 100% of them, which
+    would silence everything. Below that the junk list carries it alone, and the depth cap keeps
+    the climb short.
+    """
+    if hints is None or len(cards) < _MIN_CARDS_FOR_ROOTS:
+        return frozenset()
+    seen: Counter[str] = Counter()
+    for card in cards:
+        for name in {part for chain in hints.chains_for(card) for part in chain}:
+            seen[name] += 1
+    return frozenset(name for name, held in seen.items() if held >= len(cards) * _ROOT_SHARE)
+
+
 def existing_card_name(card: ReviewCard, names: ExistingNames | None) -> str | None:
     """The name the catalog already holds for this exact card, if any.
 
@@ -149,7 +230,10 @@ def existing_card_name(card: ReviewCard, names: ExistingNames | None) -> str | N
 
 
 def review_card_json(
-    card: ReviewCard, min_files: int, names: ExistingNames | None = None
+    card: ReviewCard,
+    min_files: int,
+    names: ExistingNames | None = None,
+    suggested: str | None = None,
 ) -> ReviewCardPayload:
     """Serialise one assembled review card (Stage 2d, 13.3b) - a multi-day trip or a standalone
     day-event - for the review UI. ``kind`` ("trip" | "event") is the label the screen shows;
@@ -159,6 +243,7 @@ def review_card_json(
         return {
             "kind": card.kind,
             "existing_name": existing_card_name(card, names),
+            "suggested_name": suggested,
             "start": card.trip.start_date.isoformat(),
             "end": card.trip.end_date.isoformat(),
             "count": card.count,
@@ -174,6 +259,7 @@ def review_card_json(
     return {
         "kind": card.kind,
         "existing_name": existing_card_name(card, names),
+        "suggested_name": suggested,
         "start": card.event.start.isoformat(),
         "end": card.event.end.isoformat(),
         "count": card.count,
@@ -206,10 +292,15 @@ def review_cards_payload(
     cards: Sequence[ReviewCard],
     min_files: int,
     names: ExistingNames | None = None,
+    hints: SourceHints | None = None,
 ) -> ReviewCardsPayload:
+    roots = _suggestion_roots(cards, hints)
     return {
         "session": session,
-        "cards": [review_card_json(card, min_files, names) for card in cards],
+        "cards": [
+            review_card_json(card, min_files, names, suggested_card_name(card, hints, names, roots))
+            for card in cards
+        ],
         "collapsed": collapsed_event_summary(cards, min_files),
     }
 
@@ -226,7 +317,11 @@ def proposed_review_cards_payload(
     """
     return {
         **review_cards_payload(
-            session, proposal["cards"], proposal["min_files"], proposal["existing_names"]
+            session,
+            proposal["cards"],
+            proposal["min_files"],
+            proposal["existing_names"],
+            proposal["source_hints"],
         ),
         "ok": True,
         "label": proposal["label"],
@@ -256,6 +351,8 @@ class EventProposalSuccessPayload(TypedDict):
     #: the proposal so merge and split, which rebuild cards without touching the catalog, keep
     #: answering the question consistently.
     existing_names: ExistingNames
+    #: Where each clustered file came from, read once with the proposal - see `SourceHints`.
+    source_hints: SourceHints
 
 
 def invalid_event_proposal_payload(error: str) -> InvalidEventProposalPayload:
@@ -285,6 +382,7 @@ def propose_events(
             marker.uuid,
             min_files=settings.min_files,
         )
+        hints = SourceHints.of(catalog.source_hints_for_drive(marker.uuid))
         existing = ExistingNames(
             trips_by_day=catalog.named_trip_days(),
             events_by_signature=catalog.named_event_signatures(),
@@ -298,6 +396,7 @@ def propose_events(
         "min_files": settings.min_files,
         "declines": [decline_message(decline) for decline in review.declines],
         "existing_names": existing,
+        "source_hints": hints,
     }
 
 
