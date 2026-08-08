@@ -146,6 +146,24 @@ def event_folder(
     return folder
 
 
+def _decided_folder(
+    context: RenderContext,
+    started: tuple[datetime, str],
+    name: str | None,
+    naming: EventNaming,
+    notes: list[str],
+) -> str:
+    """``context``'s already-decided folder, else spell one from this file alone.
+
+    Every place a render turns an event or trip into a folder goes through here, so a caller that
+    had to decide across a set of events - :func:`disambiguate_event_folders`, the only one - is
+    honoured everywhere rather than at whichever site someone remembered.
+    """
+    if context.folder_override:
+        return context.folder_override
+    return event_folder(*started, name, naming, notes)
+
+
 @dataclass(frozen=True, slots=True)
 class EventFolder:
     """One event's folder name, after collision handling."""
@@ -272,6 +290,20 @@ class RenderContext:
     #: :func:`classify` after one day-count pass - the router itself never counts or opens a
     #: catalog.
     heavy_day: bool = False
+    #: The already-spelled event or trip folder, when the caller has had to decide it across a
+    #: SET of events rather than from this one file. :func:`disambiguate_event_folders` is the
+    #: only such decision: two events on one date whose names spell one folder are separated by a
+    #: ``(2)`` suffix, and that suffix cannot be recomputed here because it depends on the other
+    #: events. Before this field existed the caller computed the suffix, reported it, and threw
+    #: it away, so the folder it promised was never the folder used.
+    #:
+    #: It carries the WHOLE folder (``2015-10-25 - Goa Trip (2)``), not a name, because
+    #: :func:`event_folder` truncates a name to :data:`MAX_EVENT_NAME` *before* composing the
+    #: folder - a suffix appended to the name could be truncated away, reintroducing the
+    #: collision at exactly the length where it is hardest to see. It is already path-safe by
+    #: construction: only :func:`disambiguate_event_folders` produces one, from
+    #: :func:`event_folder`'s own output.
+    folder_override: str | None = None
 
     @property
     def date(self) -> datetime | None:
@@ -372,7 +404,9 @@ class LayoutTemplate:
         if context.trip is not None:
             path = path / self._trip_segments(context, notes)
         elif context.event is not None and not self.has_event_token():
-            path = path / event_folder(*context.event, context.event_name, self.event_naming, notes)
+            path = path / _decided_folder(
+                context, context.event, context.event_name, self.event_naming, notes
+            )
         return path, notes
 
     def _trip_segments(self, context: RenderContext, notes: list[str]) -> PurePosixPath:
@@ -392,7 +426,20 @@ class LayoutTemplate:
         """
         assert context.trip is not None
         start, slug = context.trip
-        header = event_folder(start, slug, context.trip_name, self.event_naming, notes)
+        # Honoured here too, though **no collision can currently reach this site**. Three facts
+        # make it unreachable, and it is handled uniformly rather than skipped because none of
+        # them is permanent - whoever changes one should find this note:
+        #   1. `trip_days.day` is the PRIMARY KEY, so a day belongs to at most one trip and two
+        #      trips can never share a start date.
+        #   2. `classify` returns TRIP_DAY before EVENT_DAY, so a file on a trip-claimed day
+        #      never renders an event folder that could collide with this header.
+        #   3. An event never spans more than one day (`events.py`), so a trip-claimed event has
+        #      no leftover day to render from - `migrate._migration_headers` excludes it outright.
+        # Change any one of those and this site becomes reachable; a reachability argument would
+        # rot silently, an unconditional lookup cannot.
+        header = _decided_folder(
+            context, (start, slug), context.trip_name, self.event_naming, notes
+        )
         # Not reachable today: a trip day's membership is derived from captured_at in the first
         # place (trip-grouping-research.md §11), so a trip-claimed file is never undated. Kept
         # explicit rather than assumed, since `render` promises it never raises.
@@ -418,7 +465,9 @@ class LayoutTemplate:
                 value = context.category
             elif token == "event":
                 value = (
-                    event_folder(*context.event, context.event_name, self.event_naming, notes)
+                    _decided_folder(
+                        context, context.event, context.event_name, self.event_naming, notes
+                    )
                     if context.event is not None
                     else ""
                 )

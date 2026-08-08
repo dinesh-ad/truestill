@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **Two events on the same day with the same name now get separate folders, as the preview always
+  said they would.** Truestill has always noticed that a second event named *Goa Trip* on the same
+  date would spell the same folder as the first, and the preview offered to file it as
+  *Goa Trip (2)*. It worked out that name and then did not use it: both events were placed in one
+  folder, and the note described something that never happened. The preview and the result now
+  agree. Nothing was lost - the photos were all there, under one folder instead of two - but where
+  they landed was not what you were told.
+  If you already have events that merged this way, a **Rearrange your library** run will now offer
+  to separate them.
+
 ### Changed
 - **The Truestill name in the sidebar is back to the monospace lettering, with the indigo dot.**
   It was briefly set in a serif; that took the name out of the one thing it was chosen to lead,

@@ -62,6 +62,44 @@ is invisible here is retired, not free.**
     writing it now would fix the wording before it is chosen. The behaviour is covered by
     `test_preview_tally_is_disjoint.py`.
 
+- **(abv) CLOSED 2026-08-08: the disambiguated event folder was computed and thrown away.**
+  Found while planning folder-name suggestions, fixed in the same commit as this entry. Recorded
+  because what it says about the *tests* outlives the one-line cause.
+  - **The defect.** `disambiguate_event_folders` separates two events that spell one folder on
+    one date with a `(2)` suffix. `migrate._disambiguated_folder_notes` returned
+    `[f.note for f in folders if f.note]` - the notes, never the folders - so the render spelled
+    each event from its own name and every collision landed in **one directory**, while the
+    preview stated that one of them *became* `... (2)`.
+  - **Severity, measured rather than assumed.** Not byte loss: `plan_migration` guards duplicate
+    targets on the full relative path *including the filename*, and the real case
+    (2015-10-25 on the maintainer's library) holds **146 files and 146 distinct filenames**. The
+    wrong part is that folders merge contrary to intent and **the preview promises a folder that
+    is never created** (§9). `test_filename_safety.py` already called this "data loss by
+    presentation", which is the accurate phrase and the one used here.
+  - **Why five existing tests missed it.** `test_filename_safety.py` covers the helper thoroughly
+    - collisions, case-insensitivity, three-way, different dates, slug naming - and **every one
+    asserts what the function computes, never that the computed folder is what gets used**.
+    `ENGINEERING_STANDARD.md` §4's own failure mode, in the tests written to prevent it. The new
+    tests assert the *placement*, so they cannot pass while the render ignores the decision.
+  - **Three render sites spell an event folder, not one**: the event append, the `{event}` token,
+    and the trip header. Each is now routed through `layout._decided_folder`. Mutating the
+    `{event}` site alone fails only the `{event}` test while the other four pass - the append-site
+    tests do not cover it, which is exactly how a partial fix would have shipped unnoticed.
+  - **The trip-header site is UNREACHABLE today, and is handled anyway.** No test was written for
+    it, because a test that cannot fail is worse than none. Three facts make it unreachable, all
+    named in a comment at the site: `trip_days.day` is the PRIMARY KEY so two trips can never
+    share a start date; `classify` returns TRIP_DAY before EVENT_DAY; and an event never spans
+    more than one day, so `_migration_headers` excludes a trip-claimed event outright. None is
+    permanent - a reachability argument would rot silently where an unconditional lookup cannot.
+  - **Named, not fixed.** (a) Libraries whose events already merged will now see
+    `migrate-layout` propose moves that separate them - correct, but a behaviour change on
+    existing data. (b) `organizer.py:_apply_events` renders event folders with **no
+    disambiguation pass at all**, so two identically-named events in one organize run merge with
+    no note whatsoever - same defect class, untouched here. (c) `plan_migration` warns about a
+    same-path collision and then **still plans both moves**, so a genuine filename collision
+    would have the second overwrite the first - narrower, and the only one of the three that is
+    about bytes.
+
 - **(abu) A failed copy leaves the bytes it managed to write, and nothing owns them.**
   Recorded 2026-08-07 from the first real organize onto the maintainer's library. **Ranked at
   the top: it is the only known path that puts a file into a library that nothing accounts for.**

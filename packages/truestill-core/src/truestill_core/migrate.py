@@ -343,9 +343,9 @@ def _migration_headers(
     return headers
 
 
-def _disambiguated_folder_notes(
+def _disambiguated_folders(
     headers: dict[str, tuple[datetime, str, str | None, EventNaming]],
-) -> list[str]:
+) -> tuple[dict[str, str], list[str]]:
     """Group headers by their **resolved naming**, not by event-vs-trip, and disambiguate within
     each group -- an event and a trip that resolve to the same naming land in the same group and
     are cross-checked against each other (backlog ``(mm)``'s Stage 13.4 widening: **decision (a),
@@ -373,7 +373,10 @@ def _disambiguated_folder_notes(
         for naming, group in by_naming.items()
         for folder in disambiguate_event_folders(group, naming=naming)
     ]
-    return [f.note for f in folders if f.note]
+    # Both halves are returned, and that is the fix. This used to return the notes alone and
+    # drop the folders it had just decided, so the render spelled each event from its own name
+    # and every collision landed in one directory while the note said one of them became "(2)".
+    return {f.key: f.folder for f in folders}, [f.note for f in folders if f.note]
 
 
 def _unevented_day_counts(
@@ -401,8 +404,16 @@ def _render_migration_relative(
     routes: dict[str, str],
     rules_by_sha: dict[str, str] | None,
     heavy_days: frozenset[str],
+    *,
+    header_folders: dict[str, str] | None = None,
 ) -> tuple[str, str, str | None]:
-    """Return ``(current, new_relative, day_key)`` for one migration row."""
+    """Return ``(current, new_relative, day_key)`` for one migration row.
+
+    ``header_folders`` carries the folder each event/trip was *decided* to use once every header
+    on the drive was known - see :func:`_disambiguated_folders`. A same-date name collision can
+    only be resolved across the set, never from one row, so the decision has to arrive here
+    rather than be recomputed.
+    """
     current = str(row["relative"])
     filename = PurePosixPath(current).name
     rule = rule_for_row(row, routes, rules_by_sha)
@@ -430,6 +441,14 @@ def _render_migration_relative(
     if rule in TIMELINE_RULES and trip is None and event is None and captured_at is not None:
         day_key = captured_at.date().isoformat()
         heavy_day = day_key in heavy_days
+    # Keyed exactly as `_migration_headers` keyed them; a row whose event dissolved into a trip
+    # has no event key by construction, so trip is checked first.
+    override = None
+    if header_folders:
+        if trip is not None:
+            override = header_folders.get(f"trip:{row['trip_id']}")
+        elif event is not None:
+            override = header_folders.get(f"event:{row['event_slug']}|{row['event_start']}")
     directory = scheme.render(
         rule,
         RenderContext(
@@ -440,6 +459,7 @@ def _render_migration_relative(
             trip=trip,
             trip_name=trip_name,
             heavy_day=heavy_day,
+            folder_override=override,
         ),
     )
     return current, (directory / filename).as_posix(), day_key
@@ -484,7 +504,7 @@ def plan_migration(
     routes = routes or {}
     rows = list(catalog.copies_for_migration(drive_uuid))
     headers = _migration_headers(rows, scheme, routes, rules_by_sha)
-    header_notes = _disambiguated_folder_notes(headers)
+    header_folders, header_notes = _disambiguated_folders(headers)
 
     threshold = normalize_everyday_day_threshold(catalog.get_setting(EVERYDAY_DAY_THRESHOLD_KEY))
     day_counts = _unevented_day_counts(rows, routes, rules_by_sha)
@@ -501,7 +521,7 @@ def plan_migration(
         if cancel is not None and cancel.is_set():
             break
         current, new_relative, day_key = _render_migration_relative(
-            row, scheme, routes, rules_by_sha, heavy_days
+            row, scheme, routes, rules_by_sha, heavy_days, header_folders=header_folders
         )
         filename = PurePosixPath(current).name
         if new_relative == current:
