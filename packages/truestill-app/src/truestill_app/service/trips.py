@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Any, Literal, NotRequired, TypedDict
@@ -115,19 +116,40 @@ def _event_location(cluster: EventCandidate) -> list[float] | None:
     return list(centroid) if centroid else None
 
 
-def existing_trip_name(card: ReviewCard, trip_names: Mapping[str, str] | None) -> str | None:
-    """The name the catalog already holds for this card's trip, if any.
+@dataclass(frozen=True, slots=True)
+class ExistingNames:
+    """What the catalog has already named, in the two shapes identity takes.
 
-    Keyed on the card's first claimed DAY, not on a position in the card list: merge and split
-    reorder cards, and an index-keyed lookup would start naming the wrong one.
+    One object rather than two loose maps threaded side by side: they are read together, from one
+    catalog, about one review, and a third would otherwise be added as a third parameter.
+
+    The two are keyed differently because the two identities ARE different, and that is the whole
+    design decision here rather than an implementation detail. A trip is identified by the days it
+    claims (`trip_days.day` is a primary key), so it survives its membership changing. An event is
+    identified by its membership itself (`events.signature`, a hash over member SHA-256s), so a
+    cluster that gained or lost a photo is a NEW event that merely overlaps a named one - and must
+    still be offered a name, or every cluster that ever grew would fall silent.
     """
-    if card.trip is None or not trip_names:
+
+    trips_by_day: Mapping[str, str]
+    events_by_signature: Mapping[str, str]
+
+
+def existing_card_name(card: ReviewCard, names: ExistingNames | None) -> str | None:
+    """The name the catalog already holds for this exact card, if any.
+
+    A trip is looked up by its first claimed DAY, not by a position in the card list: merge and
+    split reorder cards, and an index-keyed lookup would start naming the wrong one.
+    """
+    if names is None:
         return None
-    return trip_names.get(min(card.trip.days).isoformat())
+    if card.trip is not None:
+        return names.trips_by_day.get(min(card.trip.days).isoformat())
+    return names.events_by_signature.get(card.event.signature) if card.event else None
 
 
 def review_card_json(
-    card: ReviewCard, min_files: int, trip_names: Mapping[str, str] | None = None
+    card: ReviewCard, min_files: int, names: ExistingNames | None = None
 ) -> ReviewCardPayload:
     """Serialise one assembled review card (Stage 2d, 13.3b) - a multi-day trip or a standalone
     day-event - for the review UI. ``kind`` ("trip" | "event") is the label the screen shows;
@@ -136,7 +158,7 @@ def review_card_json(
     if card.trip is not None:
         return {
             "kind": card.kind,
-            "existing_name": existing_trip_name(card, trip_names),
+            "existing_name": existing_card_name(card, names),
             "start": card.trip.start_date.isoformat(),
             "end": card.trip.end_date.isoformat(),
             "count": card.count,
@@ -151,10 +173,7 @@ def review_card_json(
     assert card.event is not None
     return {
         "kind": card.kind,
-        # Events are re-offered when already named too, and `commit_catalog` ignores a name for
-        # an existing signature exactly as `commit_trips` does. Recorded as an open item rather
-        # than half-answered here: this commit fixes the trip half it was scoped to.
-        "existing_name": None,
+        "existing_name": existing_card_name(card, names),
         "start": card.event.start.isoformat(),
         "end": card.event.end.isoformat(),
         "count": card.count,
@@ -186,11 +205,11 @@ def review_cards_payload(
     session: str,
     cards: Sequence[ReviewCard],
     min_files: int,
-    trip_names: Mapping[str, str] | None = None,
+    names: ExistingNames | None = None,
 ) -> ReviewCardsPayload:
     return {
         "session": session,
-        "cards": [review_card_json(card, min_files, trip_names) for card in cards],
+        "cards": [review_card_json(card, min_files, names) for card in cards],
         "collapsed": collapsed_event_summary(cards, min_files),
     }
 
@@ -207,7 +226,7 @@ def proposed_review_cards_payload(
     """
     return {
         **review_cards_payload(
-            session, proposal["cards"], proposal["min_files"], proposal["trip_names"]
+            session, proposal["cards"], proposal["min_files"], proposal["existing_names"]
         ),
         "ok": True,
         "label": proposal["label"],
@@ -233,10 +252,10 @@ class EventProposalSuccessPayload(TypedDict):
     day_totals: dict[date, int]
     min_files: int
     declines: list[str]
-    #: ``{claimed day: trip name}`` for trips the catalog already holds - see
-    #: `ReviewCardPayload.name`. Read once with the proposal so merge and split, which rebuild
-    #: cards without touching the catalog, keep answering the question consistently.
-    trip_names: dict[str, str]
+    #: What the catalog has already named - see `ReviewCardPayload.existing_name`. Read once with
+    #: the proposal so merge and split, which rebuild cards without touching the catalog, keep
+    #: answering the question consistently.
+    existing_names: ExistingNames
 
 
 def invalid_event_proposal_payload(error: str) -> InvalidEventProposalPayload:
@@ -266,7 +285,10 @@ def propose_events(
             marker.uuid,
             min_files=settings.min_files,
         )
-        trip_names = catalog.named_trip_days()
+        existing = ExistingNames(
+            trips_by_day=catalog.named_trip_days(),
+            events_by_signature=catalog.named_event_signatures(),
+        )
     return {
         "ok": True,
         "uuid": marker.uuid,
@@ -275,7 +297,7 @@ def propose_events(
         "day_totals": review.day_totals,
         "min_files": settings.min_files,
         "declines": [decline_message(decline) for decline in review.declines],
-        "trip_names": trip_names,
+        "existing_names": existing,
     }
 
 

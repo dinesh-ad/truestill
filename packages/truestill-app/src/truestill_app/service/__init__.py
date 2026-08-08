@@ -214,6 +214,7 @@ review_card_json = _trips.review_card_json
 collapsed_event_summary = _trips.collapsed_event_summary
 review_cards_payload = _trips.review_cards_payload
 proposed_review_cards_payload = _trips.proposed_review_cards_payload
+ExistingNames = _trips.ExistingNames
 InvalidEventProposalPayload = _trips.InvalidEventProposalPayload
 EventProposalSuccessPayload = _trips.EventProposalSuccessPayload
 invalid_event_proposal_payload = _trips.invalid_event_proposal_payload

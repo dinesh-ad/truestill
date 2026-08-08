@@ -7,11 +7,14 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
-- **A trip you have already named no longer asks you to name it again.** Opening Trips & events
+- **A trip or an event you have already named no longer asks you to name it again.** Opening Trips & events
   re-offers every trip it can see, including ones you named earlier. Those came back with an empty
   name box, exactly like a trip that had never been named - and anything you typed into it was
-  discarded without a word. An already-named trip now shows its name instead of a box, and says
-  that renaming is not available on that screen rather than pretending to accept one.
+  discarded without a word. Anything you have already named now shows its name instead of a box,
+  and says that renaming is not available on that screen rather than pretending to accept one.
+  **A group of photos that has since grown or shrunk still asks**, and that is deliberate: adding
+  one photo to an evening makes it a different group from the one you named, so Truestill treats
+  it as new rather than quietly filing it under the old name.
 - **Two events on the same day with the same name now get separate folders, as the preview always
   said they would.** Truestill has always noticed that a second event named *Goa Trip* on the same
   date would spell the same folder as the first, and the preview offered to file it as

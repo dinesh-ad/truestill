@@ -105,6 +105,20 @@ is invisible here is retired, not free.**
       forward/reconcile split a layout-template change already uses, and `record_event` already
       renames an event on re-commit with exactly this consequence - but it has not been costed,
       and it is what must be answered before the invariant is broken.
+    - **(4) CLOSED. The event half of the screen defect.** `existing_name` is now answered for
+      event cards from `Catalog.named_event_signatures()`, so an already-named event shows its
+      name as text instead of an empty box, exactly as trips do. **"Already named" turned out to
+      be two questions**, and deciding which one is asked was the whole job:
+      - **Same signature** - the identical file set, already named. The trip bug again: show the
+        name, invite nothing.
+      - **Different signature** - membership changed, so this is a NEW cluster that merely
+        *overlaps* a named one. It is not that event, and it must still be offered a name.
+      Collapsing them silences every cluster that ever grew, or claims named-ness for something
+      unnamed. Both are pinned, and a mutation that collapses them fails the second case - the
+      difference in behaviour is the feature, not an edge of it. `ExistingNames` carries the two
+      keyings side by side (day for trips, signature for events) because the two identities
+      genuinely differ; it is one object rather than two loose maps so a third does not arrive as
+      a third parameter.
     - **EVENTS HAVE THE IDENTICAL DISCARD, AND THERE ARE FAR MORE OF THEM.** This is the larger
       half of the finding, not a footnote to it. `event_review.commit_catalog` reads
       `event_by_signature` first and, when a row exists, takes its id and **never looks at
@@ -116,8 +130,9 @@ is invisible here is retired, not free.**
       an already-named event still renders an empty box exactly as trips did before this commit.
       Fixing the event half needs its own reproduction, because event identity is a membership
       hash (`events.signature`) rather than a day: adding one photo changes the signature, so a
-      re-offered event is not always the same object, and "already named" is a harder question
-      there than it is for trips.
+      re-offered event is not always the same object. The SCREEN half of that is now closed by
+      (4) above; what remains open is the same thing that remains open for trips - `commit_catalog`
+      still discards a name for an existing signature, and nothing on the screen reaches it.
     - Work in progress exists for this and is preserved, not discarded: a `Catalog.rename_trip`
       that decides "did anything change" in its own `WHERE` clause, plus five tests including the
       one that matters - a blank reply must never erase an existing name, or a bare Save would

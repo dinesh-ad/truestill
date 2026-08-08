@@ -12,7 +12,7 @@ already exist and cannot reduce them to none.
 from __future__ import annotations
 
 from truestill_app.service import proposed_review_cards_payload, review_cards_payload
-from truestill_app.service.trips import EventProposalSuccessPayload
+from truestill_app.service.trips import EventProposalSuccessPayload, ExistingNames
 from truestill_core.events import DEFAULT_MIN_FILES
 
 
@@ -26,7 +26,7 @@ def _proposal(min_files: int) -> EventProposalSuccessPayload:
         "day_totals": {},
         "min_files": min_files,
         "declines": [],
-        "trip_names": {},
+        "existing_names": ExistingNames({}, {}),
     }
 
 

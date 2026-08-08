@@ -1842,6 +1842,19 @@ class Catalog:
         cursor = self._conn.execute("SELECT signature FROM skipped_clusters")
         return frozenset(row["signature"] for row in cursor)
 
+    def named_event_signatures(self) -> dict[str, str]:
+        """``{event signature: that event's name}`` for every named event. **O(named events).**
+
+        Keyed by SIGNATURE because that is what event identity IS - a SHA-256 over the sorted
+        member SHA-256s (`events.signature`, the UNIQUE key `event_by_signature` looks up). A
+        cluster whose membership changed hashes differently and correctly misses: it is a new
+        object that merely overlaps a named one, not that event.
+        """
+        return {
+            str(row["signature"]): str(row["name"])
+            for row in self._conn.execute("SELECT signature, name FROM events")
+        }
+
     def named_trip_days(self) -> dict[str, str]:
         """``{claimed day: that trip's name}`` for every day any trip holds. **O(claimed days).**
 
