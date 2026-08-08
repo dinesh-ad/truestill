@@ -596,6 +596,48 @@ is invisible here is retired, not free.**
     is being carried**, and record the answer either way. The two questions look like one.
 
 - **(abg) The reassured state has no notion of staleness - "Schrodinger's backup".**
+  - **THE MOST IMPORTANT OPEN ITEM ON THIS PROJECT.** Everything below is evidence for the
+    paragraph that follows; the paragraph is the point.
+  - **THE GENERAL CASE, in the maintainer's framing.** A user copies A -> B. Truestill records two
+    copies. The user then **deletes A**, which is normal and is often the whole point of
+    organizing. Truestill never looks at A again. **It keeps reporting two places for files that
+    now exist in one.**
+    Every instance recorded here is that shape with a different cause - a queued write that never
+    uploaded, a folder emptied by hand, a mount that vanished. **The defect is none of those. It
+    is that the catalog reports HISTORY as if it were STATE.** A `file_copies` row is a true
+    statement about the moment it was written and is read as a true statement about now.
+  - **WHAT THE CODE SAYS, checked rather than assumed.**
+    - **Nothing re-checks a `source_path` after the copy that recorded it.** The only code that
+      looks is `reclaim`, which counts `missing_sources` - *"catalog rows whose source_path is
+      gone / unreachable"* - and it looks only when a user runs it, for a different purpose
+      entirely: deciding what is safe to free. **Custody never asks.** A source deleted the day
+      after an organize is indistinguishable, to every count in the product, from one still there.
+    - **The custody count carries no freshness.** `last_verified` exists on both `file_copies` and
+      `drives` and is surfaced per-drive in the drive list and in stats - but `library_status`,
+      which produces the number a person actually reads, counts `file_copies` rows and **never
+      consults it**. So *"kept in 3 places"* appears with no date beside it, and it is a claim the
+      system cannot back: the data to qualify it is recorded and simply not carried to the place
+      the claim is made.
+  - **THE SHAPE OF A FIX - a design note, not a TODO, because it is schema and vocabulary and
+    wants thinking rather than a patch.** Truestill needs a drive state meaning **"recorded, and
+    the place it was recorded no longer exists"**, distinct from `offline`, and **custody must
+    exclude it from the count.**
+    - **Suggested name: `GONE`.** Not `missing` - that reads as "we cannot find it", which invites
+      looking again, and is what `offline` already implies. Not `lost`, which sounds like
+      Truestill's fault and may be untrue. `GONE` is short, unambiguous, and admits no hope of
+      the drive coming back on its own. The existing `DriveReach` triple is
+      `CONNECTED` / `OFFLINE` / `UNKNOWN`, and `GONE` sits naturally beside them as the fourth:
+      the three current values all mean *we have not looked recently*, and this one means
+      *we looked, and it is not there.*
+    - **What `status` should say.** Not *"exists on only ONE drive (3-2-1 wants >=2)"*, which is
+      what it says today about 395 files that have **no** copies. It should lead with the count it
+      can stand behind and name the shortfall separately - along the lines of
+      *"2,300 files in 2 places. 395 files have NO copy: recorded on 'Morrowkeep', which is gone."*
+      The number a person reads must never include a drive in this state, and the drive must be
+      named, because the name is the only clue to what happened.
+    - **Why a label is the wrong lever, recorded so it is not tried.** Renaming the drive
+      `Morrowkeep (gone)` makes the list read better while the count stays wrong. **A cosmetic fix
+      on a wrong number is worse than the wrong number, because it looks handled.**
   - **THREE OBSERVED INSTANCES, 2026-08-07/09, on the maintainer's own library. None is
     hypothetical.** Ordered by exposure, not by discovery.
   - **(1) THE WORKED EXAMPLE - written, believed, verified in place, and gone.** Follow one
