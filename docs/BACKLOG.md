@@ -62,6 +62,42 @@ is invisible here is retired, not free.**
     writing it now would fix the wording before it is chosen. The behaviour is covered by
     `test_preview_tally_is_disjoint.py`.
 
+- **(abx) FIRST RUN never asks where the library should live.** Recorded 2026-08-08 from the
+  maintainer's own Organize run. **A design gap, not a copy gap** - a hint sentence would paper
+  over it.
+  - **Measured on a genuinely empty catalog**, not reasoned from the code: `library_path` is
+    `None`, `backup_path` is `None`, `catalog_presence` is `'empty'`. The Organized-folder field
+    therefore renders blank, and the only guidance on the screen is `#org-why`, *"Look inside
+    first to see what is in the folder"* - which is about the SOURCE, not the destination.
+  - **All three modes presume a folder that does not exist yet.** Copy into an organized folder,
+    move into an organized folder, reorganize this same folder: on a first run there is no
+    organized folder, and the user's actual first question - where should my library live - is
+    never asked. The destination IS remembered afterwards (`loadCustody` prefills from
+    `library_path`), so the gap is only the first run; but the first run is the one that decides.
+  - **Maintainer's framing, recorded as HIS input rather than a finding of mine** (no web access
+    to verify): PhotoPrism declares originals and import folders in setup before the app is
+    usable, and Immich configures an upload location and external libraries in admin. Both treat
+    the library location as a ONE-TIME decision; Truestill re-asks it every run.
+
+- **(aby) Organize screen: copy that repeats itself or explains its own button.** Recorded
+  2026-08-08. **Editorial, no behaviour, deliberately kept out of the behavioural fix** - bundling
+  it would drag a defect repair through a prose review.
+  - *"Originals stay where they are."* is emitted from TWO sites onto one screen:
+    `index.html:148` as the radio subtitle, and `app.js:1548` (`modeLine("copy")`) into
+    `#org-mode-hint`.
+  - The **Look inside** button is explained by a sentence next to it that says the same word:
+    `index.html:177` and `app.js:2250`, *"Look inside first to see what is in the folder."*
+  - The confirm banner prints the typed-word instruction twice, four lines apart -
+    `app.js:1611` in the banner and again in the input label.
+
+- **(abz) Organize shows one population three ways and connects none of them.** Recorded
+  2026-08-08, editorial. On one flow: *"2109 photos and videos here"* (`app.js:1468`, from
+  `/api/fs/validate`), then *"2,106 photos - 3 videos found"* (the preview summary, split by
+  kind), then *"2,109 duplicates"* (`app.js:1974`, `s.exact_dup`). `2106 + 3 = 2109`: the SAME
+  files each time, framed first as a location count, then a composition, then a verdict. Nothing
+  says so, so the reader must infer that the third number is the first one again rather than a
+  new pile of 2,109 things.
+
 - **(abw) An already-named trip is re-asked, and until this commit the answer was discarded.**
   Three findings, recorded 2026-08-08 while checking a premise for folder-name suggestions. The
   first two are **closed here**; the third is **open and deliberately not fixed**.
@@ -502,6 +538,16 @@ is invisible here is retired, not free.**
     is being carried**, and record the answer either way. The two questions look like one.
 
 - **(abg) The reassured state has no notion of staleness - "Schrodinger's backup".**
+  - **A CONCRETE INSTANCE, observed 2026-08-08 on the maintainer's own library.**
+    `TruestillLibrary/Output` was emptied by hand - 1 directory, 0 files, 0 bytes, mtime
+    `Aug 7 20:34` - having held 2,269 files when `rescan` checked it the same day. **The catalog
+    still records 2,269 copies there**, and `status` still counts them toward custody. Nothing
+    noticed and nothing could: only `rescan` or `verify` would find out, and neither runs on its
+    own.
+    This is the same shape as a cloud mount accepting a write into an upload queue while the
+    catalog calls it a second copy - **a record of a past moment presented as the present**. It is the strongest
+    argument in this entry, because it is not hypothetical and it cost real custody: the drive
+    marker is also gone, so the app now refuses the drive entirely while the count stands.
   Recorded 2026-08-05. **Record only; the product question wants soak evidence, not a design.**
   - **What the strip claims.** "every file in 2 places" is true of the **catalog record**, not of
     the disks. `library_status` counts `file_copies` rows and never consults reachability:

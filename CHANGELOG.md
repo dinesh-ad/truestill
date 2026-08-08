@@ -7,6 +7,19 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **Organizing by copy no longer asks you to type "move".** The confirm box wanted the same word
+  whichever mode you chose, so copying - which leaves your originals exactly where they are -
+  asked you to type *move* to go ahead. It now asks for the word that matches what will happen:
+  **copy** when copying, **move** when moving or reorganizing in place. That is also the word the
+  command line already uses, so the two do not disagree.
+  The same box used to warn *"This run is not reversible with undo-organize"* while copying. True,
+  but it read as a hazard warning on the one mode that changes nothing. It now says what actually
+  matters - *your originals are not changed, so there is nothing for undo-organize to put back*.
+- **A folder with nothing left to organize says so, instead of asking you to type a word first.**
+  Organizing the same folder twice showed the full confirmation ceremony and ended in a button
+  reading **"Organize 0 files"**. It was counting the files it FOUND to decide whether to ask, and
+  counting the files it would ORGANIZE on the button. It now checks the second one and simply
+  tells you everything there is already organized.
 - **A trip or an event you have already named no longer asks you to name it again.** Opening Trips & events
   re-offers every trip it can see, including ones you named earlier. Those came back with an empty
   name box, exactly like a trip that had never been named - and anything you typed into it was

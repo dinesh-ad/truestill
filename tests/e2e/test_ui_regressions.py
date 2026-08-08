@@ -36,7 +36,10 @@ def _organize(ui: Page, source: Path, destination: Path, *, mode: str = "copy") 
     ui.click("#org-dedup")
     typed = ui.locator("#org-confirm [data-typed-confirm]")
     expect(typed).to_be_visible()
-    typed.fill("move")
+    # Type whatever the box asks for. The confirm word names the operation - `copy` when
+    # copying, `move` when moving - and these tests are about other behaviour entirely;
+    # `test_the_confirm_word_names_the_run` is what guards the word itself.
+    typed.fill((typed.get_attribute("placeholder") or "type move").removeprefix("type "))
     ui.click("#org-confirm [data-typed-go]")
     expect(ui.locator("#org-result")).to_contain_text("Done")
 
@@ -91,7 +94,9 @@ def test_look_inside_returns_before_duplicate_check(ui: Page, tmp_path: Path, li
     ui.click("#org-dedup")
     expect(ui.locator("#org-result")).to_contain_text("new - will be organized")
     expect(ui.locator("#org-confirm [data-typed-confirm]")).to_be_visible()
-    expect(ui.locator("#org-confirm")).to_contain_text("Type move to continue")
+    # `copy`, not `move`: this flow is in the default copy mode and the confirm word now names
+    # the operation the run performs.
+    expect(ui.locator("#org-confirm")).to_contain_text("Type copy to continue")
 
 
 @_EXIFTOOL
@@ -111,7 +116,10 @@ def test_cancel_actually_stops_an_organize(ui: Page, tmp_path: Path) -> None:
     ui.click("#org-dedup")
     typed = ui.locator("#org-confirm [data-typed-confirm]")
     expect(typed).to_be_visible(timeout=60_000)
-    typed.fill("move")
+    # Type whatever the box asks for. The confirm word names the operation - `copy` when
+    # copying, `move` when moving - and these tests are about other behaviour entirely;
+    # `test_the_confirm_word_names_the_run` is what guards the word itself.
+    typed.fill((typed.get_attribute("placeholder") or "type move").removeprefix("type "))
     ui.click("#org-confirm [data-typed-go]")
     expect(ui.locator("#org-card")).to_be_visible()
     ui.click("#org-cancel")
@@ -225,7 +233,10 @@ def test_inplace_refuses_cross_device_instead_of_falling_back_to_copy(
     ui.click("#org-dedup")
     typed = ui.locator("#org-confirm [data-typed-confirm]")
     expect(typed).to_be_visible()
-    typed.fill("move")
+    # Type whatever the box asks for. The confirm word names the operation - `copy` when
+    # copying, `move` when moving - and these tests are about other behaviour entirely;
+    # `test_the_confirm_word_names_the_run` is what guards the word itself.
+    typed.fill((typed.get_attribute("placeholder") or "type move").removeprefix("type "))
     ui.click("#org-confirm [data-typed-go]")
 
     expect(ui.locator("#org-result")).to_contain_text("could not be organized")

@@ -1562,10 +1562,22 @@ function modeMechanismLine(mode, mechanism) {
   return "This run reorganizes in place by rename on this filesystem.";
 }
 
-function reversibilityLine(mechanism) {
+function reversibilityLine(mechanism, mode) {
+  // Copy is the one mode that changes nothing: originals are untouched and the worst case is
+  // files the reader can delete. "Not reversible with undo-organize" is TRUE of it, and shown
+  // at the moment of decision it reads as a hazard warning about the safest thing on the screen.
+  // The fact is kept and reframed as the REASON undo does not apply, rather than dropped.
+  if (mode === "copy") return "Your originals are not changed, so there is nothing for undo-organize to put back.";
   return mechanism && mechanism.reversible
     ? "This run is reversible with undo-organize."
     : "This run is not reversible with undo-organize.";
+}
+
+// The typed word must name the operation the run will perform. `move` for the two modes that
+// genuinely move files - which is also the word the CLI's `_confirm_in_place` already requires,
+// so the two surfaces do not grow separate vocabularies - and `copy` for the one that copies.
+function confirmWordFor(mode) {
+  return mode === "copy" ? "copy" : "move";
 }
 
 async function loadOrganizeMode() {
@@ -1597,9 +1609,10 @@ async function saveOrganizeMode(mode) {
 
 function renderOrganizeRunConfirm({ kept, mode, mechanism }) {
   const host = $("org-confirm");
+  const word = confirmWordFor(mode);
   const lines = [
     modeMechanismLine(mode, mechanism),
-    reversibilityLine(mechanism),
+    reversibilityLine(mechanism, mode),
   ];
   host.innerHTML =
     `<div class="banner">
@@ -1608,13 +1621,13 @@ function renderOrganizeRunConfirm({ kept, mode, mechanism }) {
         <div>${esc(lines[0])}</div>
         <div>${esc(lines[1])}</div>
         ${mode === "inplace" ? `<div>Originals do not stay in their current folders.</div>` : ""}
-        <div class="k" style="margin-top:var(--space-2)">Type <code>move</code> to continue.</div>
+        <div class="k" style="margin-top:var(--space-2)">Type <code>${esc(word)}</code> to continue.</div>
       </div>
     </div>
     <div data-org-typed></div>`;
   typedConfirm(host.querySelector("[data-org-typed]"), {
-    word: "move",
-    label: `Type move to organize ${plural(kept, "file")}`,
+    word,
+    label: `Type ${word} to organize ${plural(kept, "file")}`,
     buttonLabel: `Organize ${nfmt(kept)} files`,
     onConfirm: () => startOrganizeRun(),
   });
@@ -2184,7 +2197,10 @@ $("org-dedup").onclick = guarded(async () => {
       const s = d.summary;
       const kept = renderOrganizeResult(s);
       orgMechanism = s.mechanism || null;
-      if (!s.files) { setWhy("Nothing to organize in this folder."); }
+      // `kept`, not `s.files`. A folder whose every file is already a duplicate has files to
+      // FIND and nothing to ORGANIZE, and the gate used to render anyway and offer a typed word
+      // guarding a button that read "Organize 0 files".
+      if (!kept) { setWhy(s.files ? "Everything here is already organized." : "Nothing to organize in this folder."); }
       else {
         renderOrganizeRunConfirm({ kept, mode, mechanism: orgMechanism });
         setWhy("");

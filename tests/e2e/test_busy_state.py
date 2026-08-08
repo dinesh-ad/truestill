@@ -240,7 +240,9 @@ def test_backup_preview_busy_re_enables(ui: Page, tmp_path: Path, library) -> No
     expect(ui.locator("#org-result")).to_contain_text("photos found", timeout=30_000)
     ui.click("#org-dedup")
     expect(ui.locator("#org-confirm [data-typed-confirm]")).to_be_visible(timeout=60_000)
-    ui.fill("#org-confirm [data-typed-confirm]", "move")
+    # `copy`, not `move`: the confirm word names the operation the run performs, and this
+    # flow is in the default copy mode. Changed with the fix that made the word mode-aware.
+    ui.fill("#org-confirm [data-typed-confirm]", "copy")
     ui.click("#org-confirm [data-typed-go]")
     expect(ui.locator("#org-result")).to_contain_text("organized", timeout=60_000)
 

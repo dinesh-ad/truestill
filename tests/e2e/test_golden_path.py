@@ -40,7 +40,9 @@ def test_organize_then_back_up_then_check(ui: Page, tmp_path: Path, library) -> 
 
     ui.click("#org-dedup")
     expect(ui.locator("#org-confirm [data-typed-confirm]")).to_be_visible()
-    ui.fill("#org-confirm [data-typed-confirm]", "move")
+    # `copy`, not `move`: the confirm word names the operation the run performs, and this
+    # flow is in the default copy mode. Changed with the fix that made the word mode-aware.
+    ui.fill("#org-confirm [data-typed-confirm]", "copy")
     ui.click("#org-confirm [data-typed-go]")
     expect(ui.locator("#org-result")).to_contain_text("8 files organized")
     expect(ui.locator("#org-result")).not_to_contain_text("uploaded")
