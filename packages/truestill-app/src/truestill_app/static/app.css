@@ -1382,3 +1382,23 @@ details.more > summary::-webkit-details-marker {
   flex: 1;
   min-width: 0;
 }
+
+/* The suggestion sits BELOW its box and is never written into it: an empty box on this screen
+   means "skip this card", so a prefill would make doing nothing accept a guess. */
+.ev-name-wrap {
+  flex: 1;
+  min-width: 0;
+}
+.ev-suggest.hidden {
+  display: none;
+}
+.btn-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin-left: var(--space-1);
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}

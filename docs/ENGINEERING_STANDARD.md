@@ -682,6 +682,31 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   upload, a cache write, a report file, a notification, a metrics push. Its success field
   describes whether the code ran, never whether the work happened.
 
+- **Wait for a signal that only the post-condition can produce - never one that is already
+  true.** The sixteenth member. §3's browser rules already forbid *hard* waits ("auto-waiting
+  assertions only"); this is the failure that survives them. An auto-waiting assertion is only as
+  good as the thing it waits ON, and one that is satisfied by the state BEFORE the work returns
+  immediately, reporting a pass for a post-condition that never happened.
+
+  **The test is not wrong about what it checks. It is wrong about when it is allowed to look.**
+
+  Recorded 2026-08-08. A test organized a folder twice and asserted that the second run offered no
+  typed-word confirm: `expect("#org-result").to_contain_text("duplicate")` then
+  `expect("#org-confirm [data-typed-confirm]").to_have_count(0)`. Both were satisfiable before the
+  second run finished - `#org-result` still held the FIRST run's text, and `#org-confirm` is
+  emptied at the START of the click rather than replaced at its end. **The test passed against the
+  live defect**, and nothing revealed it except a mutation that failed to fire.
+
+  > **Assert on something that BECOMES true, not on something that is already true.** An element
+  > that survives a previous render, one that is cleared rather than replaced, and an absence of
+  > any kind are all satisfied by the starting state. Pick the sentence, count or element that
+  > only the finished work can produce, and wait on that.
+
+  *Suspect it for:* `to_have_count(0)` and every `not_to_*`; any assertion on a container the
+  handler empties before it works; any second run over a surface the first already wrote. The
+  reliable tell is to ask **"was this true one millisecond after the click?"** - if yes, the
+  assertion is a coin toss dressed as a wait.
+
 - **A mutation must be asserted PRESENT and UNIQUE, or its scope stated.** The fifteenth member,
   and the one the presence rule above does not reach. Presence answers "did the change land";
   it does not answer "did it land in one place". A mutation that matches several sites is a
@@ -704,6 +729,11 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   *Suspect it wherever code is deliberately duplicated:* two queries over one population, a
   constant repeated in a migration and its schema, a guard applied at several call sites. Those
   are exactly the places a single-site mutation is most valuable and least likely to be unique.
+
+  **It paid again the day after it was written.** A patch to `tests/e2e/test_ui_regressions.py`
+  asserted two `typed.fill("move")` sites; there were three. The count refused and the patch did
+  not half-apply, leaving one site on the old vocabulary and a suite that would have failed for a
+  reason unrelated to the change. Two saves in two days, both from counting rather than finding.
 
 - **Errors.** Exceptions typed and specific - no bare `except`. User-facing CLI errors are
   actionable sentences, not tracebacks. Every subprocess call checks its return code and

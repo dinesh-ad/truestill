@@ -2788,7 +2788,16 @@ function evCardHtml(c, i) {
             // defect this replaced. Renaming is a separate, open piece of work.
             ? `<div class="ev-named"><b>${esc(c.existing_name)}</b>
                  <span class="carried">already named - renaming is not available here</span></div>`
-            : `<input class="input ev-name" data-i="${i}"${nameValue} placeholder="name this ${isTrip ? "trip" : "event"} (leave blank to skip)">`
+            : `<div class="ev-name-wrap"><input class="input ev-name" data-i="${i}"${nameValue} placeholder="name this ${isTrip ? "trip" : "event"} (leave blank to skip)">${
+                // BELOW the box, never inside it. An empty box here means "skip this card", so a
+                // prefilled value would make doing nothing silently accept a guess - the one
+                // difference from how `.carried` is used on Backups, where an empty field means
+                // the run cannot proceed at all.
+                c.suggested_name
+                  ? `<span class="carried ev-suggest">from your folders: <b>${esc(c.suggested_name)}</b>
+                       <button type="button" class="btn-link ev-suggest-use" data-i="${i}">Use</button></span>`
+                  : ""
+              }</div>`
         }
         <button class="btn btn-secondary ev-split" data-i="${i}" ${splitAttrs}>Split</button></div></div>`;
 }
@@ -2811,6 +2820,22 @@ function renderCards(cards, collapsed) {
     inp.addEventListener("input", () => {
       const i = +inp.dataset.i;
       if (evCards[i]) evCards[i].name = inp.value;
+      // `.carried`'s own rule: once the user has written something it is theirs, so stop calling
+      // it a suggestion. Hidden rather than removed, so accepting and then clearing the box does
+      // not silently lose the offer.
+      inp.parentElement?.querySelector(".ev-suggest")?.classList.add("hidden");
+    });
+  });
+  $("ev-clusters").querySelectorAll(".ev-suggest-use").forEach((btn) => {
+    btn.onclick = guarded(async () => {
+      const i = +btn.dataset.i;
+      const inp = $("ev-clusters").querySelector(`.ev-name[data-i="${i}"]`);
+      if (!inp) return;
+      // Dispatched, not assigned: `input` is what records the name on the card and stands the
+      // offer down, so clicking Use must go through exactly the path typing does.
+      inp.value = evCards[i] && evCards[i].suggested_name ? evCards[i].suggested_name : inp.value;
+      inp.dispatchEvent(new Event("input"));
+      inp.focus();
     });
   });
   $("ev-clusters").querySelectorAll(".ev-split").forEach((b) => {
