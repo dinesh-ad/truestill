@@ -6,6 +6,19 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Naming a trip or event now suggests a name taken from your own folders.** If the photos in a
+  group came from a folder you named - `Sea Diving`, `Phoenix Mall 2015` - Truestill offers that
+  name under the box, with a **Use** button. It is only ever an offer: **the box stays empty until
+  you click Use or type something**, so leaving a card alone still skips it exactly as before.
+  Typing your own name puts the offer away.
+  The suggestion is tidied but never invented. Apostrophes are dropped because they break shell
+  scripts, `~` and `_` read as spaces, and a year that only repeats the year in the folder above
+  is removed - `Wayanad '14` becomes **Wayanad**. Hyphens inside a name are left alone, so
+  `TCS-M05-Batch` arrives as it is. **Nothing is spell-checked**: your places and people are not
+  in any dictionary, and a confidently wrong correction would be worse than no suggestion at all.
+  A group you have already named shows its name instead, and is never offered a suggestion.
+
 ### Fixed
 - **Organizing by copy no longer asks you to type "move".** The confirm box wanted the same word
   whichever mode you chose, so copying - which leaves your originals exactly where they are -
