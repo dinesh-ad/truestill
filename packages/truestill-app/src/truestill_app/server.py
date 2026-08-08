@@ -39,6 +39,10 @@ class EventReviewSession:
     cards: list[ReviewCard]
     day_totals: dict[date, int]
     min_files: int
+    #: ``{claimed day: trip name}`` read once with the proposal. Merge and split rebuild cards
+    #: without touching the catalog, so re-reading per action could answer the same question
+    #: differently within one review; holding it on the session cannot drift.
+    trip_names: dict[str, str] = field(default_factory=dict)
     named_events: list[service.NamedEventSelection] = field(default_factory=list)
     named_trips: list[service.NamedTripSelection] = field(default_factory=list)
 
@@ -501,7 +505,9 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         if session is None:
             return expired_session()
         return JSONResponse(
-            service.review_cards_payload(session_id, session.cards, session.min_files)
+            service.review_cards_payload(
+                session_id, session.cards, session.min_files, session.trip_names
+            )
         )
 
     async def events_propose(request: Request) -> JSONResponse:
@@ -523,6 +529,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             cards=proposal["cards"],
             day_totals=proposal["day_totals"],
             min_files=proposal["min_files"],
+            trip_names=proposal["trip_names"],
         )
         remember_session(session_id, session)
         return JSONResponse(
@@ -532,6 +539,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
                 session.min_files,
                 proposal["label"],
                 proposal["declines"],
+                trip_names=session.trip_names,
             )
         )
 

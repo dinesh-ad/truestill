@@ -2764,7 +2764,16 @@ function evCardHtml(c, i) {
         <div><b>${isTrip ? "TRIP" : "EVENT"} · ${nfmt(c.count)} photos</b><div class="k mono">${span}</div></div>
         <label class="k"><input type="checkbox" class="ev-check" data-i="${i}"> merge</label></div>
         ${days}
-        <div class="row ev-name-row"><input class="input ev-name" data-i="${i}"${nameValue} placeholder="name this ${isTrip ? "trip" : "event"} (leave blank to skip)">
+        <div class="row ev-name-row">${
+          c.existing_name
+            // Already named in the catalog: show the name as TEXT, never as a box. `commit_trips`
+            // does not accept a new name for a trip whose days are already claimed, so an
+            // editable field here would be asking a question whose answer is discarded - the
+            // defect this replaced. Renaming is a separate, open piece of work.
+            ? `<div class="ev-named"><b>${esc(c.existing_name)}</b>
+                 <span class="carried">already named - renaming is not available here</span></div>`
+            : `<input class="input ev-name" data-i="${i}"${nameValue} placeholder="name this ${isTrip ? "trip" : "event"} (leave blank to skip)">`
+        }
         <button class="btn btn-secondary ev-split" data-i="${i}" ${splitAttrs}>Split</button></div></div>`;
 }
 function renderCards(cards, collapsed) {

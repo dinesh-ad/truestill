@@ -1842,6 +1842,22 @@ class Catalog:
         cursor = self._conn.execute("SELECT signature FROM skipped_clusters")
         return frozenset(row["signature"] for row in cursor)
 
+    def named_trip_days(self) -> dict[str, str]:
+        """``{claimed day: that trip's name}`` for every day any trip holds. **O(claimed days).**
+
+        Keyed by DAY rather than by trip id because the review screen has to answer "is the trip
+        this card describes already named?" for a card that carries no trip id - a proposal is
+        recomputed from clusters every visit and knows only its days. A day is claimed by at most
+        one trip (`trip_days.day` is the primary key), so the mapping cannot be ambiguous.
+        """
+        return {
+            str(row["day"]): str(row["name"])
+            for row in self._conn.execute(
+                "SELECT td.day AS day, t.name AS name"
+                " FROM trip_days td JOIN trips t ON t.id = td.trip_id"
+            )
+        }
+
     def trip_for_day(self, day: str) -> int | None:
         """The trip a day is already claimed by, if any -- the name-once lookup.
 

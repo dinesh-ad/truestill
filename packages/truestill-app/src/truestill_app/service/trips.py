@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import date
 from pathlib import Path
 from typing import Any, Literal, NotRequired, TypedDict
@@ -66,6 +66,16 @@ class ReviewDayPayload(TypedDict):
 
 class ReviewCardPayload(TypedDict):
     kind: Literal["trip", "event"]
+    #: The name this trip ALREADY has in the CATALOG, or None when it has none yet. Deliberately
+    #: NOT ``name``: the browser already uses ``card.name`` as its own store for whatever the user
+    #: has typed (`app.js` `syncEvNamesFromDom`, carried across merge/split by
+    #: `takeEvNamesByKey`), so putting a catalog name there would make it indistinguishable from
+    #: something the user wrote. A proposal is
+    #: recomputed from clusters on every visit and `assemble_trip_review` never consults
+    #: `trip_for_day`, so an already-named trip is re-offered like any other card; without this
+    #: the screen could not tell the two apart and showed an empty box for a question
+    #: `commit_trips` will not accept an answer to.
+    existing_name: str | None
     start: str
     end: str
     count: int
@@ -105,7 +115,20 @@ def _event_location(cluster: EventCandidate) -> list[float] | None:
     return list(centroid) if centroid else None
 
 
-def review_card_json(card: ReviewCard, min_files: int) -> ReviewCardPayload:
+def existing_trip_name(card: ReviewCard, trip_names: Mapping[str, str] | None) -> str | None:
+    """The name the catalog already holds for this card's trip, if any.
+
+    Keyed on the card's first claimed DAY, not on a position in the card list: merge and split
+    reorder cards, and an index-keyed lookup would start naming the wrong one.
+    """
+    if card.trip is None or not trip_names:
+        return None
+    return trip_names.get(min(card.trip.days).isoformat())
+
+
+def review_card_json(
+    card: ReviewCard, min_files: int, trip_names: Mapping[str, str] | None = None
+) -> ReviewCardPayload:
     """Serialise one assembled review card (Stage 2d, 13.3b) - a multi-day trip or a standalone
     day-event - for the review UI. ``kind`` ("trip" | "event") is the label the screen shows;
     serialisation does not alter either card's persisted identity.
@@ -113,6 +136,7 @@ def review_card_json(card: ReviewCard, min_files: int) -> ReviewCardPayload:
     if card.trip is not None:
         return {
             "kind": card.kind,
+            "existing_name": existing_trip_name(card, trip_names),
             "start": card.trip.start_date.isoformat(),
             "end": card.trip.end_date.isoformat(),
             "count": card.count,
@@ -127,6 +151,10 @@ def review_card_json(card: ReviewCard, min_files: int) -> ReviewCardPayload:
     assert card.event is not None
     return {
         "kind": card.kind,
+        # Events are re-offered when already named too, and `commit_catalog` ignores a name for
+        # an existing signature exactly as `commit_trips` does. Recorded as an open item rather
+        # than half-answered here: this commit fixes the trip half it was scoped to.
+        "existing_name": None,
         "start": card.event.start.isoformat(),
         "end": card.event.end.isoformat(),
         "count": card.count,
@@ -155,24 +183,29 @@ def collapsed_event_summary(
 
 
 def review_cards_payload(
-    session: str, cards: Sequence[ReviewCard], min_files: int
+    session: str,
+    cards: Sequence[ReviewCard],
+    min_files: int,
+    trip_names: Mapping[str, str] | None = None,
 ) -> ReviewCardsPayload:
     return {
         "session": session,
-        "cards": [review_card_json(card, min_files) for card in cards],
+        "cards": [review_card_json(card, min_files, trip_names) for card in cards],
         "collapsed": collapsed_event_summary(cards, min_files),
     }
 
 
-def proposed_review_cards_payload(
+def proposed_review_cards_payload(  # noqa: PLR0913 - one parameter per payload field
     session: str,
     cards: Sequence[ReviewCard],
     min_files: int,
     label: str,
     declines: list[str],
+    *,
+    trip_names: Mapping[str, str] | None = None,
 ) -> ProposedReviewCardsPayload:
     return {
-        **review_cards_payload(session, cards, min_files),
+        **review_cards_payload(session, cards, min_files, trip_names),
         "ok": True,
         "label": label,
         "declines": declines,
@@ -197,6 +230,10 @@ class EventProposalSuccessPayload(TypedDict):
     day_totals: dict[date, int]
     min_files: int
     declines: list[str]
+    #: ``{claimed day: trip name}`` for trips the catalog already holds - see
+    #: `ReviewCardPayload.name`. Read once with the proposal so merge and split, which rebuild
+    #: cards without touching the catalog, keep answering the question consistently.
+    trip_names: dict[str, str]
 
 
 def invalid_event_proposal_payload(error: str) -> InvalidEventProposalPayload:
@@ -226,6 +263,7 @@ def propose_events(
             marker.uuid,
             min_files=settings.min_files,
         )
+        trip_names = catalog.named_trip_days()
     return {
         "ok": True,
         "uuid": marker.uuid,
@@ -234,6 +272,7 @@ def propose_events(
         "day_totals": review.day_totals,
         "min_files": settings.min_files,
         "declines": [decline_message(decline) for decline in review.declines],
+        "trip_names": trip_names,
     }
 
 

@@ -1375,3 +1375,10 @@ details.more > summary::-webkit-details-marker {
 .panel .at-risk {
   color: var(--warning);
 }
+
+/* An already-named trip states its name instead of offering a box. `commit_trips` will not take
+   a new name for a trip whose days are already claimed, so the row must not read as editable. */
+.ev-named {
+  flex: 1;
+  min-width: 0;
+}

@@ -329,7 +329,13 @@ def commit_trips(catalog: Catalog, decisions: Sequence[TripDecision]) -> int:
     """Persist reviewed trip decisions. Returns how many trips were newly named.
 
     **Name-once, by day** (``trip-grouping-research.md`` §6): a day :meth:`Catalog.trip_for_day`
-    already reports claimed is never re-created and never re-asked.
+    already reports claimed is never re-**created**. It **is** re-asked, and this docstring used
+    to deny it: :func:`assemble_trip_review` never consults ``trip_for_day``, so an already-named
+    trip is re-offered as a card on every visit. Believing the denial is what left the branch
+    below discarding a reply in silence. The screen now shows such a trip's existing name
+    (``ReviewCardPayload.existing_name``) as text rather than an empty box, so nothing invites an
+    answer this function will not take - backlog ``(abw)``, where honouring a rename here is
+    recorded as open rather than assumed safe.
 
     - **No day in this decision is claimed yet:** a brand-new trip. A ``name`` creates it
       (:meth:`Catalog.create_trip`); an empty or missing ``name`` is a decline and persists
@@ -341,7 +347,11 @@ def commit_trips(catalog: Catalog, decisions: Sequence[TripDecision]) -> int:
       ``update_trip_days`` never touches the trip's id, name or slug, so re-ingesting a day
       already claimed by a named trip can never re-create it or orphan its name -- and any
       ``name`` this decision carries is ignored, exactly as a remembered day-event ignores a
-      re-prompt (``event_review.commit_catalog``).
+      re-prompt (``event_review.commit_catalog``). **That discard is deliberate and pinned**
+      (``test_re_ingest_one_photo_into_a_named_trip_does_not_re_ask``): §6 exists so a
+      re-proposal, recomputed from a fresh scan and knowing nothing about the name, cannot
+      overwrite one a person chose. Whether it should still hold now that the only caller passes
+      user-typed names is ``(abw)``'s open question, and it is not settled here.
     - **Mixed** (some days already claimed, by one or more OTHER trips, alongside unclaimed
       days): not reachable by any fixture here. Flagged, not solved -- persists nothing for that
       decision rather than guessing which trip it belongs to.

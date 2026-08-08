@@ -62,6 +62,54 @@ is invisible here is retired, not free.**
     writing it now would fix the wording before it is chosen. The behaviour is covered by
     `test_preview_tally_is_disjoint.py`.
 
+- **(abw) An already-named trip is re-asked, and until this commit the answer was discarded.**
+  Three findings, recorded 2026-08-08 while checking a premise for folder-name suggestions. The
+  first two are **closed here**; the third is **open and deliberately not fixed**.
+  - **(1) CLOSED. Already-named trips are re-offered as cards.** `assemble_trip_review` never
+    consults `trip_for_day` - its `claimed_days` set means "claimed by a proposal in THIS run".
+    `trip_for_day` is called in exactly two places, both at commit time. Proven against the real
+    catalog: it holds `('Wayanad', 2014-08-14, 2014-08-17)` and the card is offered anyway.
+  - **(2) CLOSED. The screen could not tell.** `ReviewCardPayload` carried no name, so the card
+    rendered an empty box indistinguishable from an unnamed one. It now carries `existing_name`,
+    from `Catalog.named_trip_days()` (one read, O(claimed days), keyed by DAY so it survives the
+    reordering merge and split do). The card shows the name as **text, not a field**, and says
+    renaming is not available there - a question that is asked must be answerable.
+    - **`existing_name`, not `name`, and the distinction is load-bearing.** The browser already
+      uses `card.name` as its own store for what the user has typed (`syncEvNamesFromDom`,
+      carried across merge/split by `takeEvNamesByKey`). A catalog name in that field would be
+      indistinguishable from something the user wrote, and would be sent back as their answer.
+      The plan for this work called that branch "dead"; it is not.
+  - **(3) OPEN. `commit_trips` discards a new name for an already-claimed trip.**
+    `decision.name` is never read on the `update_trip_days` branch, and `update_trip_days`
+    documents that name and slug are untouched. Downstream, `apply_event_review_names` reports
+    `"name": name.strip()` - what the user typed - so the reveal row would have named a trip the
+    catalog had not renamed. Finding (2) removes the way to reach it from the screen; the code
+    path is unchanged.
+    - **Why it was not simply fixed.** The discard is deliberate and pinned by
+      `test_re_ingest_one_photo_into_a_named_trip_does_not_re_ask`, whose docstring says a
+      differing name proves "it is ignored, never used to rename". That pins
+      `trip-grouping-research.md` §6 *"Trips must not re-ask"*, which exists so a re-proposal -
+      recomputed from a fresh scan, knowing nothing about the name - cannot overwrite a name the
+      user chose.
+    - **The §6 threat model has no instance today, recorded so it is not re-derived.**
+      `commit_trips` has exactly one production caller, `service/trips.py`'s
+      `apply_event_review_names`, whose names come straight from the screen's `names[]` array and
+      are always user-typed. There is no CLI trips path at all - neither `commit_trips` nor
+      `assemble_trip_review` appears anywhere in `truestill-cli`. A re-offered card renders an
+      empty box, so doing nothing already sends `null`. Every name that reaches the branch is a
+      deliberate keystroke. A folder-name suggestion would not change that: the suggestion is
+      never prefilled into `value=` and requires a click.
+    - **THE OPEN QUESTION, which decides the cost rather than the staleness.** A trip already
+      placed on disk spells its old name in every folder path (`2014-08-14 - Wayanad/...`), so
+      renaming leaves the catalog and the disk disagreeing until a migration. That is the same
+      forward/reconcile split a layout-template change already uses, and `record_event` already
+      renames an event on re-commit with exactly this consequence - but it has not been costed,
+      and it is what must be answered before the invariant is broken.
+    - Work in progress exists for this and is preserved, not discarded: a `Catalog.rename_trip`
+      that decides "did anything change" in its own `WHERE` clause, plus five tests including the
+      one that matters - a blank reply must never erase an existing name, or a bare Save would
+      strip every named trip in the library.
+
 - **(abv) CLOSED 2026-08-08: the disambiguated event folder was computed and thrown away.**
   Found while planning folder-name suggestions, fixed in the same commit as this entry. Recorded
   because what it says about the *tests* outlives the one-line cause.
