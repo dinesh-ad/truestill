@@ -596,16 +596,57 @@ is invisible here is retired, not free.**
     is being carried**, and record the answer either way. The two questions look like one.
 
 - **(abg) The reassured state has no notion of staleness - "Schrodinger's backup".**
-  - **A CONCRETE INSTANCE, observed 2026-08-08 on the maintainer's own library.**
-    `TruestillLibrary/Output` was emptied by hand - 1 directory, 0 files, 0 bytes, mtime
-    `Aug 7 20:34` - having held 2,269 files when `rescan` checked it the same day. **The catalog
-    still records 2,269 copies there**, and `status` still counts them toward custody. Nothing
-    noticed and nothing could: only `rescan` or `verify` would find out, and neither runs on its
-    own.
-    This is the same shape as a cloud mount accepting a write into an upload queue while the
-    catalog calls it a second copy - **a record of a past moment presented as the present**. It is the strongest
-    argument in this entry, because it is not hypothetical and it cost real custody: the drive
-    marker is also gone, so the app now refuses the drive entirely while the count stands.
+  - **THREE OBSERVED INSTANCES, 2026-08-07/09, on the maintainer's own library. None is
+    hypothetical.** Ordered by exposure, not by discovery.
+  - **(1) LIVE EXPOSURE - 395 copies recorded on a drive that has never uploaded.** The catalog
+    records 395 copies on a cloud-mount destination. The mount lists all 395, 3.39 GB, and every
+    byte reads back correctly. **The vendor's own server index holds about 5 of them**; 391 are
+    still queued behind an upload task dated 18 July that has not moved across two client
+    restarts. The files exist in exactly one place - a local cache on this machine - and the
+    catalog has been counting them as a second copy since 2026-08-07.
+    **`rescan` reports them IN PLACE**, in 0.15 s for 395 files. That timing is the tell: the
+    local index answered, not the disk. A tool whose whole purpose is telling someone where their
+    files are reported full custody on a drive whose contents have never left the machine, and it
+    was not wrong by its own definition - it says plainly that it reads no bytes. **The definition
+    is the defect.**
+  - **(2) 2,269 copies recorded on an empty folder, and the tool cannot look.**
+    `TruestillLibrary/Output` was emptied by hand - 0 files, 0 bytes - having held 2,269 files
+    when `rescan` checked it the same day. The catalog still records 2,269 copies there and
+    `status` still counts them. **`rescan` refuses**: the drive marker went with the contents, so
+    it answers *"isn't a Truestill drive yet"*. **The shape is worth naming on its own - the drive
+    most in need of examination is the one the tool cannot be pointed at.**
+  - **(3) A write accepted into a queue and recorded as a copy.** The original instance: a cloud
+    mount returns success for a write that has only been queued locally, and custody records a
+    second copy on the strength of the return value.
+  - **METHOD - how to tell a cache read from a server read on a cloud mount, with numbers.**
+    Measured on this mount: **cache reads 2-92 ms; cold server reads 3.9 MB/s.** A 6.3 MB file
+    therefore takes about **1.6 s** from the server and about **85 ms** from cache, so **a read
+    faster than roughly `size / 3.9 MB/s` did not come from the server.**
+    Written down because it is the check that would have caught a wrong conclusion in this very
+    investigation: 13 files were hash-verified off the mount in 2-92 ms and reported as proof the
+    server held them. It was proof the *cache* held them. The argument rested on the cache having
+    been emptied, which the same turn had already measured to be false (38.73 -> 40.35 GB).
+    **Anyone measuring a cloud mount will make this mistake without the ratio in front of them.**
+  - **THE PRODUCT FINDING, and it is not the clean negative it looks like.** Truestill cannot read
+    another vendor's private database and will not ship that. But **it is not true that no signal
+    exists. Truestill HAS signals it does not use, and none of them proves storage.**
+    - `filesystem.facts_for()` **already** parses `/proc/mounts` on Linux and queries Windows
+      directly. It would return `fuse` for this mount. Archive ingest consults it for FAT32 size
+      limits; **custody never consults it at all.**
+    - `archive_extract.py` **fsyncs and documents why**, while `LocalDestination.upload` is
+      `shutil.copy2` with no flush. The write path that records custody never asks the filesystem
+      for durability. On this mount `fsync` would very likely return success anyway - but then the
+      false statement is the vendor's, not Truestill's silence.
+    - A **vendor-neutral tell** exists and was measured: writing 3.39 GB to this mount grew local
+      disk usage by 3.41 GB, **1:1**. A destination whose writes grow *local* storage by the same
+      amount is being cached locally, whoever makes it. No private database required.
+    - **None of the three proves storage.** All three can distinguish "not obviously a local
+      disk"; none can say the bytes are on a server. So: **custody today cannot distinguish
+      WRITTEN from STORED, and does not even distinguish LOCAL from NETWORK-BACKED, which it
+      could.** That is a finding about the product, not about one mount.
+  - **Record only. Nothing here is fixed**, and no catalog row, drive or file was modified in
+    reaching it.
+
   Recorded 2026-08-05. **Record only; the product question wants soak evidence, not a design.**
   - **What the strip claims.** "every file in 2 places" is true of the **catalog record**, not of
     the disks. `library_status` counts `file_copies` rows and never consults reachability:
