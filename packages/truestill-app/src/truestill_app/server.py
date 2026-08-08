@@ -532,16 +532,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             trip_names=proposal["trip_names"],
         )
         remember_session(session_id, session)
-        return JSONResponse(
-            service.proposed_review_cards_payload(
-                session_id,
-                session.cards,
-                session.min_files,
-                proposal["label"],
-                proposal["declines"],
-                trip_names=session.trip_names,
-            )
-        )
+        return JSONResponse(service.proposed_review_cards_payload(session_id, proposal))
 
     async def events_merge(request: Request) -> JSONResponse:
         """Combine two or more cards the detector did not join into one trip (the gap case).

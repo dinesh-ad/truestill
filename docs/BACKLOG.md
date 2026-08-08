@@ -105,6 +105,19 @@ is invisible here is retired, not free.**
       forward/reconcile split a layout-template change already uses, and `record_event` already
       renames an event on re-commit with exactly this consequence - but it has not been costed,
       and it is what must be answered before the invariant is broken.
+    - **EVENTS HAVE THE IDENTICAL DISCARD, AND THERE ARE FAR MORE OF THEM.** This is the larger
+      half of the finding, not a footnote to it. `event_review.commit_catalog` reads
+      `event_by_signature` first and, when a row exists, takes its id and **never looks at
+      `decision.name`** - exactly what `commit_trips` does. `record_event` would have renamed it
+      (`ON CONFLICT(signature) DO UPDATE SET name = excluded.name`); it is simply not called on
+      that branch. A library has one trip for every several events - the maintainer's own has 1
+      trip against 21 clusters - so by volume this is where the discard actually bites, and it is
+      **still live**: `ReviewCardPayload.existing_name` is hardcoded `None` for event cards, so
+      an already-named event still renders an empty box exactly as trips did before this commit.
+      Fixing the event half needs its own reproduction, because event identity is a membership
+      hash (`events.signature`) rather than a day: adding one photo changes the signature, so a
+      re-offered event is not always the same object, and "already named" is a harder question
+      there than it is for trips.
     - Work in progress exists for this and is preserved, not discarded: a `Catalog.rename_trip`
       that decides "did anything change" in its own `WHERE` clause, plus five tests including the
       one that matters - a blank reply must never erase an existing name, or a bare Save would

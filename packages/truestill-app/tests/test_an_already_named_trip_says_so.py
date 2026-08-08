@@ -74,14 +74,7 @@ def _trip_card(root: Path, db: Path) -> dict:
     """
     proposal = propose_events(root, db)
     assert proposal["ok"] is True
-    payload = proposed_review_cards_payload(
-        "sess",
-        proposal["cards"],
-        proposal["min_files"],
-        proposal["label"],
-        proposal["declines"],
-        trip_names=proposal["trip_names"],
-    )
+    payload = proposed_review_cards_payload("sess", proposal)
     cards = [card for card in payload["cards"] if card["kind"] == "trip"]
     assert len(cards) == 1, f"expected one trip card, got {len(cards)}"
     return dict(cards[0])

@@ -195,21 +195,24 @@ def review_cards_payload(
     }
 
 
-def proposed_review_cards_payload(  # noqa: PLR0913 - one parameter per payload field
-    session: str,
-    cards: Sequence[ReviewCard],
-    min_files: int,
-    label: str,
-    declines: list[str],
-    *,
-    trip_names: Mapping[str, str] | None = None,
+def proposed_review_cards_payload(
+    session: str, proposal: EventProposalSuccessPayload
 ) -> ProposedReviewCardsPayload:
+    """Serialise a whole proposal for the screen.
+
+    Takes the proposal object rather than its fields one by one. The caller used to pass five
+    values drawn from TWO sources - three off the session it had just built, two off the proposal
+    - which is five chances for them to disagree about the same review, and one argument short of
+    a lint rule that exists precisely to stop a sixth being added quietly.
+    """
     return {
-        **review_cards_payload(session, cards, min_files, trip_names),
+        **review_cards_payload(
+            session, proposal["cards"], proposal["min_files"], proposal["trip_names"]
+        ),
         "ok": True,
-        "label": label,
-        "declines": declines,
-        "min_files": min_files,
+        "label": proposal["label"],
+        "declines": proposal["declines"],
+        "min_files": proposal["min_files"],
     }
 
 

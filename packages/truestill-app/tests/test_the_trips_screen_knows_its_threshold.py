@@ -12,11 +12,26 @@ already exist and cannot reduce them to none.
 from __future__ import annotations
 
 from truestill_app.service import proposed_review_cards_payload, review_cards_payload
+from truestill_app.service.trips import EventProposalSuccessPayload
 from truestill_core.events import DEFAULT_MIN_FILES
 
 
+def _proposal(min_files: int) -> EventProposalSuccessPayload:
+    """An empty proposal at a given threshold - the shape `propose_events` returns."""
+    return {
+        "ok": True,
+        "uuid": "U1",
+        "label": "BackupA",
+        "cards": [],
+        "day_totals": {},
+        "min_files": min_files,
+        "declines": [],
+        "trip_names": {},
+    }
+
+
 def test_the_proposal_carries_the_threshold_it_filtered_with() -> None:
-    payload = proposed_review_cards_payload("sess", [], 25, "BackupA", [])
+    payload = proposed_review_cards_payload("sess", _proposal(25))
 
     assert payload["min_files"] == 25
 
@@ -24,14 +39,14 @@ def test_the_proposal_carries_the_threshold_it_filtered_with() -> None:
 def test_the_default_travels_too_rather_than_being_assumed_by_the_screen() -> None:
     """A screen that falls back to its own constant is a second copy of the default, and the two
     drift the day the default moves."""
-    payload = proposed_review_cards_payload("sess", [], DEFAULT_MIN_FILES, "BackupA", [])
+    payload = proposed_review_cards_payload("sess", _proposal(DEFAULT_MIN_FILES))
 
     assert payload["min_files"] == DEFAULT_MIN_FILES
 
 
 def test_the_empty_proposal_is_exactly_where_the_number_is_needed() -> None:
     """No cards is the state the sentence exists for, and it must not be the state that loses it."""
-    payload = proposed_review_cards_payload("sess", [], 12, "BackupA", [])
+    payload = proposed_review_cards_payload("sess", _proposal(12))
 
     assert payload["cards"] == []
     assert payload["min_files"] == 12
