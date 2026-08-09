@@ -618,6 +618,60 @@ is invisible here is retired, not free.**
       consults it**. So *"kept in 3 places"* appears with no date beside it, and it is a claim the
       system cannot back: the data to qualify it is recorded and simply not carried to the place
       the claim is made.
+  - **THE JOB IS SMALLER THAN "ADD FRESHNESS TRACKING".** `last_verified` already exists on
+    `file_copies` and on `drives`, and is already surfaced per-drive in the drive list and in
+    stats. `library_status` - which produces the number a person actually reads - never consults
+    it. **So this is not building a new capability. It is carrying data that already exists to the
+    place the claim is made.** That changes the size of the work and should be stated before
+    anyone scopes it as a schema project.
+
+  - **PRIOR ART, and it is better than anything invented here.** `git-annex` solved this directly:
+    - **Believed versus verified.** `Annex/NumCopies.hs` states that the ordinary count compares
+      copies *"believed to exist"*, and that this *"is good enough for everything except dropping
+      the file, which requires active verification of the copies."* **Truestill counts believed
+      copies and presents them as custody. That is the defect in one line**, and it is the
+      distinction this entry has been circling.
+    - **It refuses what it cannot back.** `drop` fails with *"Could only verify the existence of 0
+      out of 1 necessary copies"* rather than deleting on the strength of a record.
+    - **It arrived independently at `GONE`.** Its trust states are trusted / semitrusted /
+      untrusted / **DEAD**, where dead *"indicates the repository has been irretrievably lost."*
+      Corroboration for the name, from a system that has lived with the problem for years.
+    - **Anything another process can write to is untrusted BY DEFAULT.** `importtree` remotes are
+      always untrusted, on the stated grounds that something else could delete or change any file
+      at any time, so trusting one for the only copy would cause data loss. Amazon Glacier is
+      untrusted because its inventories may not represent the current state. **Every destination
+      Truestill writes to is of exactly this kind** - a folder on a disk the user also uses.
+    - **Consumer prior art for the interface.** Lightroom badges missing photos with an
+      exclamation mark, greys missing folders with a question mark, and offers
+      *Library > Find All Missing Photos*, which users run as weekly housekeeping. It does not
+      prevent editing outside the app; it **detects and marks**. One documented gotcha worth
+      inheriting the lesson from: that count is **not dynamic** and refreshes only when re-run, and
+      users are confused by the stale number - which is this entry's defect in a competitor.
+      Immich moves external assets to trash on rescan when they vanish.
+
+  - **SETTLED PRODUCT DECISION (the maintainer, 2026-08-09).** **Organizing is the product.
+    Custody is a REPORT, not a promise.** Truestill will not become responsible for backups: no
+    scheduling, no monitoring, no syncing, nothing requiring a daemon it has decided not to have.
+    Custody exists only because copying inevitably teaches Truestill where things went, and that
+    knowledge is reported as **dated fact**, never as an ongoing guarantee.
+    **The consequence is the direction the fix should take:** *"kept in 3 places"* is a claim the
+    system cannot back. *"394 files copied here on 7 August, not checked since"* is a fact that
+    **cannot go stale - it only gets older.** Same data, no promise.
+
+  - **SHOULD A SOURCE EVER HAVE COUNTED AS A COPY? It never did, and the premise is worth
+    correcting because it moves the defect.** Checked: `file_copies` is keyed
+    `(sha256, drive_uuid)`, a source has no `drive_uuid` and never gets a row, and
+    `library_status` reads `file_copies` and not `source_path`. **Truestill already agrees with
+    `git-annex` here** - the folder a user is about to empty was never counted.
+    So the 2,269 were **destination** copies, genuinely written to a registered drive, and the
+    failure is not that a source was trusted. It is that **a destination copy is written once and
+    never looked at again.** git-annex's answer applies anyway, just one step further along: a
+    destination is *also* a place another process can write to, which is exactly why it treats
+    such remotes as untrusted by default.
+    **What the count should have said all along:** not *"2,269 files in 2 places"*, but
+    *"2,269 files copied to Output on 28 July 2026, not checked since."* Both sentences carry the
+    same data. Only the second stays true after the folder is emptied.
+
   - **THE SHAPE OF A FIX - a design note, not a TODO, because it is schema and vocabulary and
     wants thinking rather than a patch.** Truestill needs a drive state meaning **"recorded, and
     the place it was recorded no longer exists"**, distinct from `offline`, and **custody must
