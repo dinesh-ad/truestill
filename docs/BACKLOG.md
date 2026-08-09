@@ -62,6 +62,33 @@ is invisible here is retired, not free.**
     writing it now would fix the wording before it is chosen. The behaviour is covered by
     `test_preview_tally_is_disjoint.py`.
 
+- **(acc) A decisions document on a drive would be found by nothing that currently looks.**
+  Recorded 2026-08-09, from code, while building the decisions-on-drive feature (Stages 1-3
+  landed; `truestill_core.decisions`). **Load-bearing for Stage 4** - moved out of a plan file in
+  a home directory and into the repository, because a plan file does not survive a new machine
+  and `docs/ui-inventory.md` was lost twice for exactly that reason.
+  - **The design.** A copy of the decisions a rescan cannot recompute - trip and event names,
+    drive label, settings, dismissed clusters, corrected dates - written as
+    `.truestill-decisions.json` beside `.truestill-drive.json` at a drive root. Lose the catalog,
+    plug in any drive, the names come back.
+  - **NEITHER PATH THAT TOUCHES A DRIVE WOULD NOTICE IT**, checked rather than assumed:
+    - `drive.reach_of` reads only the settings path hint and the marker. **It never looks at
+      drive contents**, which is exactly why it is cheap enough to run on every listing.
+    - `rescan` walks the drive, but `scan_source` prunes hidden entries into a census group that
+      is deliberately skipped - *"a dot-file is not a photo"* - so a dotfile at the root never
+      surfaces as stray.
+    So a user who has just lost their machine, plugged a drive in, and is looking at the screen
+    that lists it **would be told nothing**, and the restore path would sit one command away with
+    nothing pointing at it. **That is the Adobe failure one step later**: their catalog backups
+    existed and users could not find them. Storage was never the problem there either.
+  - **SMALLEST HONEST FIX, for Stage 4.** The drive-listing path already opens the marker at that
+    root, so reading a sibling costs **one extra `stat` and no walk**. When a reached drive
+    carries a decisions document and the catalog holds none for it - the lost-machine case
+    exactly - the listing says so and names the restore command. No new scan, no new surface, and
+    it appears on the screen someone opens first after plugging a drive in.
+  - **Not a reason to widen `reach_of`.** Its cheapness is the feature; a listing that walked
+    drives would be worse than the problem. The `stat` belongs where the marker read already is.
+
 - **(acb) CLOSED 2026-08-08: a dead event stream froze the screen with no outcome at all.**
   Found by reading a CI trace rather than re-running it. **Ranked as the worst UI defect this
   session produced**: the person is given no outcome, no error, and no way to learn the job is
