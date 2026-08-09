@@ -27,7 +27,7 @@ from pathlib import Path
 
 import pytest
 import uvicorn
-from e2e_support import AppServer, make_photo, stamp_capture_date
+from e2e_support import AppServer, RetiringServers, make_photo, stamp_capture_date
 from playwright.sync_api import Page
 from truestill_app.server import create_app
 
@@ -35,8 +35,21 @@ _HOST = "127.0.0.1"
 _BOOT_TIMEOUT_SECONDS = 10
 
 
+@pytest.fixture(scope="session")
+def retiring() -> Iterator[RetiringServers]:
+    """The one piece of shared state in this lane, and it holds no application state at all.
+
+    Session-scoped so a server signalled by the last test is still waited for: without the drain
+    a run could end with a thread mid-shutdown, which is the leak this has to not have. It is
+    torn down after every test has finished, so nothing it holds can reach a running test.
+    """
+    servers = RetiringServers()
+    yield servers
+    servers.drain()
+
+
 @pytest.fixture
-def app_server(tmp_path: Path) -> Iterator[AppServer]:
+def app_server(tmp_path: Path, retiring: RetiringServers) -> Iterator[AppServer]:
     """A real app on an ephemeral port with an empty catalog, torn down after each test.
 
     Function-scoped on purpose: these tests assert on custody counts and drive registration,
@@ -69,9 +82,11 @@ def app_server(tmp_path: Path) -> Iterator[AppServer]:
 
     yield AppServer(base_url=f"http://{_HOST}:{port}", token=token, db=db)
 
+    # Signalled, then handed over: the 197 ms uvicorn takes to notice is not this test's problem,
+    # and the next test does not wait for it. See `RetiringServers` for why nothing is shared and
+    # why the socket cannot be closed under a live server.
     server.should_exit = True
-    thread.join(timeout=_BOOT_TIMEOUT_SECONDS)
-    sock.close()
+    retiring.retire(server, thread, sock)
 
 
 @pytest.fixture
