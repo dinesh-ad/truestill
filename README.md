@@ -209,6 +209,25 @@ Frequently used `organize` flags:
 - **Your photos never leave your machine.** No telemetry, and nothing about your library is
   ever transmitted (`docs/DECISIONS.md` D5).
 
+## How the repository is laid out
+
+Three packages in a [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/), one
+lockfile at the root:
+
+| package | what it is | open it when you are changing |
+|---|---|---|
+| `packages/truestill-core` | the library, and everything safety-critical: dating, dedup, layout, the catalog, custody | behaviour - what Truestill decides and what it writes |
+| `packages/truestill-cli` | the `truestill` command | the terminal surface: flags, prompts, printed output |
+| `packages/truestill-app` | `truestill-app`, the local web UI | the browser surface: screens, wording, what a person clicks |
+
+Each surface depends on **core** and never on the other, so a decision lives in one place and
+both surfaces read it. If a change would need editing two packages, it usually belongs in core.
+
+Tests sit beside their package. **The browser suite is separate** - `tests/e2e`, run by
+`make e2e` - because it needs a real browser download, and `make check` must stay green on a
+fresh clone without one. It exists to catch a class of defect the other layers cannot see: the
+product describing itself incorrectly on screen.
+
 ## Development
 
 ```bash
@@ -224,6 +243,9 @@ make e2e           # browser end-to-end suite (opt-in; not part of `make check`)
 
 `make check` is green on a fresh clone with no browser installed - the E2E layer is
 deliberately opt-in.
+
+Contributing: [`docs/CLAUDE.md`](docs/CLAUDE.md) is the day-to-day guide - repo shape, what to
+run, and which document answers which question.
 
 ## Documentation
 
