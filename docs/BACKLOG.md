@@ -639,8 +639,10 @@ is invisible here is retired, not free.**
     - **Anything another process can write to is untrusted BY DEFAULT.** `importtree` remotes are
       always untrusted, on the stated grounds that something else could delete or change any file
       at any time, so trusting one for the only copy would cause data loss. Amazon Glacier is
-      untrusted because its inventories may not represent the current state. **Every destination
-      Truestill writes to is of exactly this kind** - a folder on a disk the user also uses.
+      untrusted because its inventories may not represent the current state. **There is no
+      category of place Truestill writes to that this does not describe** - every destination is a
+      folder on a disk the user also uses. That is the general statement; the three instances
+      below are only evidence for it.
     - **Consumer prior art for the interface.** Lightroom badges missing photos with an
       exclamation mark, greys missing folders with a question mark, and offers
       *Library > Find All Missing Photos*, which users run as weekly housekeeping. It does not
