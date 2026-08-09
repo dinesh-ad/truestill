@@ -423,3 +423,39 @@ Opening the drive screen opens the catalog, and the **first** open of a catalog 
 feature writes its decisions to every reachable drive. So the first card a user sees after
 upgrading says "saved just now" - the upgrade write doing its job. Pinned by a test, and the other
 card tests take it out of the picture rather than working around it.
+
+## Job 3 closed: what the feature is, end to end
+
+**The sentence that started this: restore now works AND something points at it.** For most of
+today it did the first only - a rescue file, a working command, and no way to learn either
+existed, which is the Adobe failure one step later rather than a fix for it.
+
+**What it does now.**
+
+| | |
+|---|---|
+| **Writes** | after any work that changed the catalog, to every reachable registered drive, plus once on the first run after upgrading |
+| **What** | trip and event names, drive labels, dismissed groups, corrected dates, layout and UI settings - about a kilobyte of plain readable JSON |
+| **Where** | `.truestill-decisions.json`, beside the drive marker at the drive root |
+| **Reads back** | `truestill restore <root>` - preview by default, typed word `restore`, works on an empty catalog with no registered drives |
+| **Says so** | both CLI drive screens and the app's drive card: the date it was saved, whether the copy is behind, whether the drive is carrying names this computer lacks, and why a save failed |
+
+**What it deliberately does not do.** It is not a backup of photographs and restores nothing if
+every drive is lost. It does not restore a partial catalog: it puts decisions onto a catalog
+rebuilt by scanning. It cannot recover decisions made before it shipped. It does not make custody
+honest - that is `(abg)`. It will not help someone who never registered a drive. And it is not a
+server: the catalog holds GPS and timestamps, so "we only take folder names" would have been
+false.
+
+**Still open, named rather than implied:** the app has **no restore** - it can tell you a drive is
+carrying decisions and the command is a CLI one; `(abw)` album membership does not travel, because
+`file_albums` is two rowids; `(aby)` is closed by `--discard`; and the Windows Defender exclusion
+added for CI is still unmeasured.
+
+### The one report to expect
+
+**"It said my decisions were saved just now and I did not save anything."** Opening the drive
+screen opens the catalog, and the first open of a catalog that predates this feature writes its
+decisions to every reachable drive. That is the upgrade write doing its job, and the first card
+after upgrading will always say so. It is pinned by a test rather than left to be rediscovered as
+a bug.

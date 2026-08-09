@@ -7,6 +7,17 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **If you lose your catalog, your names come back from your drives.** `truestill restore <path>`
+  reads the decisions file Truestill keeps on each drive and puts your trip and event names,
+  dismissed groups and corrected dates back. It works on a brand-new machine with an empty
+  catalog and nothing registered, which is the whole point of it. It **shows you what it would do
+  first** and only acts when you type `restore`, and it tells you what it could *not* place -
+  a name whose photos have changed, or a correction for a photo this computer has not scanned
+  yet - rather than reporting only the good half.
+- **Your drives now tell you what they are carrying.** Both `truestill drives` and the Backups
+  screen say when each drive's copy was saved, when it is behind what is on this computer, when
+  it holds names this computer does not have, and when a save to it failed - which is the first
+  time a failed save has been visible anywhere.
 - **Your names now live on your drives, so losing the catalog no longer loses them.** Truestill
   keeps a small file - `.truestill-decisions.json`, beside the drive marker at the top of each
   registered drive - holding **only what a person decided**: trip and event names, the drive's
