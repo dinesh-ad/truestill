@@ -291,7 +291,7 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
 ## 3. Data contract (catalog)
 
 - **Single SQLite file**, stdlib `sqlite3` (`catalog.py::Catalog`). No server.
-- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 17`**.
+- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 18`**.
   Migrations are ordered, idempotent functions in `_MIGRATIONS`; a catalog newer than the code
   is refused (`CatalogVersionError`). Migration coverage tested in `tests/test_catalog.py`.
 - **A migration is not a transaction, and three conventions are what make that safe.** Measured
@@ -308,7 +308,7 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   Python default cannot change when writes commit; adopting the new semantics is a separate
   decision.
 - **Table inventory (v15 - the last migration that adds a table; v16 and v17 add only
-  columns):**
+  columns, and v18 only drops an index):**
   `files`, `albums`, `file_albums`, `events`, `skipped_clusters`, `drives`, `file_copies`,
   `settings`, `migration_journal`, `reclaim_journal`, `inplace_runs`, `inplace_moves`,
   `migration_runs`, `trips`, `trip_days`, `date_confirmations`.
@@ -352,6 +352,14 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   or the prime meridian**, which is why the reader tests `isinstance` rather than truthiness -
   exiftool returns integer `0` there and `0` is falsy. No backfill: a pre-v17 row keeps NULLs,
   because recovering the values means re-reading the file and that is a decision of its own).
+  v18 **drops** `idx_files_sha256` - the first migration that removes rather than adds.
+  `files.sha256` is `NOT NULL UNIQUE`, so SQLite already maintains `sqlite_autoindex_files_1`
+  over exactly that column; the explicit index was a second B-tree on the same key, costing
+  **196 KB and one extra write per insert** for nothing a query needed. Measured on two clean
+  copies rather than by dropping it in place: every query touching `files.sha256` was planned
+  both ways, the three that chose it moved to the autoindex, and `library_status` - the only full
+  scan among them - ran **0.844 ms with and 0.848 ms without**. *An in-place drop first suggested
+  a 1.7x slowdown; that was the freed pages, not the plan.*
 - **Dual-hash rule.** `files.sha256` is the **source** (pre-write) hash - the **dedup
   identity**. `files.copy_sha256` is the organized copy's **post-write** hash - the
   **verification identity** (equal to `sha256` for the byte-identical normal pipeline; differs

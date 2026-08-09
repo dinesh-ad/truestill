@@ -103,7 +103,6 @@ CREATE TABLE IF NOT EXISTS files (
     gps_latitude  REAL,
     gps_longitude REAL
 );
-CREATE INDEX IF NOT EXISTS idx_files_sha256 ON files (sha256);
 CREATE INDEX IF NOT EXISTS idx_files_perceptual ON files (perceptual);
 CREATE INDEX IF NOT EXISTS idx_files_size ON files (size);
 
@@ -257,7 +256,7 @@ CREATE TABLE IF NOT EXISTS date_confirmations (
 """
 
 #: Bump whenever the schema changes, and add a matching entry to _MIGRATIONS.
-CURRENT_SCHEMA_VERSION = 17
+CURRENT_SCHEMA_VERSION = 18
 
 
 class CatalogVersionError(RuntimeError):
@@ -620,6 +619,27 @@ def _add_capture_columns(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE files ADD COLUMN {column} {kind}")
 
 
+def _drop_redundant_sha256_index(conn: sqlite3.Connection) -> None:
+    """v17 -> v18: drop `idx_files_sha256`, which duplicated a constraint SQLite already indexes.
+
+    `files.sha256` is `NOT NULL UNIQUE`, so SQLite maintains `sqlite_autoindex_files_1` over
+    exactly that column. The explicit index was a second B-tree on the same key: **196 KB of the
+    file and one more write on every insert**, for nothing a query needed.
+
+    **Measured on two clean copies rather than by dropping it in place**, which is what makes the
+    claim safe. Every query touching `files.sha256` was planned with the index and without it -
+    point lookups, both `UPDATE ... WHERE sha256`, the migration and event joins, the
+    `library_status` count and the dedup seed. Three chose the explicit index and all three moved
+    to the autoindex; `library_status`, the only full scan among them, measured **0.844 ms with
+    and 0.848 ms without**.
+
+    *An in-place drop-and-remeasure first suggested a 1.7x slowdown. It was the freed pages, not
+    the plan: on VACUUMed copies the two are indistinguishable. The fair comparison is two clean
+    databases, never one database before and after.*
+    """
+    conn.execute("DROP INDEX IF EXISTS idx_files_sha256")
+
+
 _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (2, _add_size_column),
     (3, _add_original_name_column),
@@ -637,6 +657,7 @@ _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (15, _add_date_confirmations),
     (16, _add_copy_date_baked_at),
     (17, _add_capture_columns),
+    (18, _drop_redundant_sha256_index),
 )
 
 

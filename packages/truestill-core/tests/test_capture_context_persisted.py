@@ -22,6 +22,7 @@ import pytest
 from PIL import Image
 from truestill_cli.cli import main
 from truestill_core.catalog import (
+    _MIGRATIONS,
     CURRENT_SCHEMA_VERSION,
     Catalog,
     _add_capture_columns,
@@ -160,8 +161,14 @@ def test_no_new_exiftool_tag_was_requested() -> None:
 
 
 def test_the_schema_version_moved_with_the_columns() -> None:
-    """Anti-vacuity: columns added without a version bump leave older databases unupgraded."""
-    assert CURRENT_SCHEMA_VERSION == 17
+    """Anti-vacuity: columns added without a version bump leave older databases unupgraded.
+
+    Asserts the capture columns arrived AT v17, not that v17 is the newest version. The original
+    wrote `== 17` when 17 happened to be the latest, so the next migration failed a test about a
+    change it had not touched.
+    """
+    assert dict(_MIGRATIONS)[17] is _add_capture_columns
+    assert CURRENT_SCHEMA_VERSION >= 17
 
 
 def test_a_v16_catalog_upgrades_and_its_existing_rows_survive_as_null(tmp_path: Path) -> None:
@@ -192,7 +199,8 @@ def test_a_v16_catalog_upgrades_and_its_existing_rows_survive_as_null(tmp_path: 
         version = int(catalog._conn.execute("PRAGMA user_version").fetchone()[0])
         row = dict(catalog._conn.execute("SELECT * FROM files").fetchone())
 
-    assert version == CURRENT_SCHEMA_VERSION == 17
+    # The point is that a v16 file is brought fully current, whatever current is today.
+    assert version == CURRENT_SCHEMA_VERSION
     assert row["sha256"] == "sha-a", "the pre-existing row must survive the upgrade"
     for column in ("camera_make", "camera_model", "lens_model", "gps_latitude", "gps_longitude"):
         assert row[column] is None
