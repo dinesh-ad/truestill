@@ -932,6 +932,15 @@ is invisible here is retired, not free.**
     `FIND_PAGE_SIZE` already bounds what is returned rather than what is scanned.
   - **Not free to get wrong:** an empty term, or a term that is only spaces, must not become
     an unfiltered scan of every copy.
+  - **MEASURED 2026-08-09, and it reframes the whole entry: this is an FTS5 question, not an
+    index question.** `find_copies` plans as `SCAN file_copies` on the real catalog, and **no
+    index can change that** - a leading-wildcard `LIKE` defeats a B-tree by construction, so
+    adding one would cost writes and buy nothing. The 2026-08-09 catalog audit checked every
+    other query for missing indexes and found none; this is the only scan that is a *design*
+    consequence rather than an oversight. Measured cost today: **4.59 ms at 2,695 files, 2.15 ms
+    once `ANALYZE` had run** - so the AND-the-terms fix above is affordable now, and FTS5 over
+    the searchable columns is the answer if Find ever needs to be fast rather than correct.
+    See `PERFORMANCE.md` §7.
 
 - **(abi) The geometric pillar T reaches nothing.** Recorded 2026-08-05. `brand/pillar-t-geometric*.svg`
   is committed and pinned, but `scripts/build_brand_assets.py` still generates every icon and the
