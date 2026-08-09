@@ -86,6 +86,7 @@ SUBCOMMANDS: tuple[str, ...] = (
     "migrate-layout",
     "clean-empty",
     "rescan",
+    "restore",
 )
 
 #: Ambiguous lines kept lowercase on purpose, each with the reason it is not prose.

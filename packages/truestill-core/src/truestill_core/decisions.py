@@ -441,6 +441,8 @@ def _apply_trips(
     catalog: Any,
     trips: tuple[dict[str, Any], ...],
     bump: Callable[[str], None],
+    *,
+    apply: bool,
 ) -> tuple[list[str], list[str]]:
     """Restore trips by their own days. Returns ``(conflicting, dayless)`` names.
 
@@ -469,13 +471,14 @@ def _apply_trips(
             # another's days with nothing saying so.
             conflicting.append(name)
             continue
-        catalog.create_trip(
-            name=name,
-            slug=str(trip["slug"]),
-            start_date=str(trip["start"]),
-            end_date=str(trip["end"]),
-            days=days,
-        )
+        if apply:
+            catalog.create_trip(
+                name=name,
+                slug=str(trip["slug"]),
+                start_date=str(trip["start"]),
+                end_date=str(trip["end"]),
+                days=days,
+            )
         for day in days:
             claimed_days[day] = name
         bump("trips")
@@ -483,7 +486,7 @@ def _apply_trips(
     return conflicting, dayless
 
 
-def apply_decisions(catalog: Any, decisions: Decisions) -> ApplyReport:  # noqa: PLR0912
+def apply_decisions(catalog: Any, decisions: Decisions, *, apply: bool = True) -> ApplyReport:  # noqa: PLR0912
     """Write the decisions into a catalog. **Idempotent**: a second apply changes nothing.
 
     Every branch asks whether the catalog already holds this decision before writing, so the count
@@ -503,15 +506,19 @@ def apply_decisions(catalog: Any, decisions: Decisions) -> ApplyReport:  # noqa:
     if decisions.drive_uuid:
         row = catalog.drive_row(decisions.drive_uuid)
         if row is None or (decisions.drive_label and row["label"] != decisions.drive_label):
-            catalog.upsert_drive(uuid=decisions.drive_uuid, label=decisions.drive_label or "drive")
+            if apply:
+                catalog.upsert_drive(
+                    uuid=decisions.drive_uuid, label=decisions.drive_label or "drive"
+                )
             bump("drive")
 
     for key, value in decisions.settings.items():
         if catalog.get_setting(key) != value:
-            catalog.set_setting(key, value)
+            if apply:
+                catalog.set_setting(key, value)
             bump("settings")
 
-    conflicting, dayless = _apply_trips(catalog, decisions.trips, bump)
+    conflicting, dayless = _apply_trips(catalog, decisions.trips, bump, apply=apply)
 
     for event in decisions.events:
         signature = str(event["signature"])
@@ -522,19 +529,21 @@ def apply_decisions(catalog: Any, decisions: Decisions) -> ApplyReport:  # noqa:
             unmatched.append(str(event["name"]))
             continue
         if existing["name"] != event["name"]:
-            catalog.record_event(
-                name=str(event["name"]),
-                slug=str(event["slug"]),
-                start_date=str(event["start"]),
-                file_count=int(existing["file_count"] or 0),
-                signature=signature,
-            )
+            if apply:
+                catalog.record_event(
+                    name=str(event["name"]),
+                    slug=str(event["slug"]),
+                    start_date=str(event["start"]),
+                    file_count=int(existing["file_count"] or 0),
+                    signature=signature,
+                )
             bump("events")
 
     known_skips = catalog.skipped_signatures()
     for signature in decisions.skipped_clusters:
         if signature not in known_skips:
-            catalog.record_skip(signature)
+            if apply:
+                catalog.record_skip(signature)
             bump("skipped_clusters")
 
     for confirmation in decisions.date_confirmations:
@@ -557,11 +566,12 @@ def apply_decisions(catalog: Any, decisions: Decisions) -> ApplyReport:  # noqa:
             # why it is counted somewhere else - see `(abx)`.
             count(awaiting, "date_confirmations")
             continue
-        catalog.confirm_date(
-            sha,
-            str(confirmation["captured_at"]),
-            confirmed_by=confirmation.get("confirmed_by"),
-        )
+        if apply:
+            catalog.confirm_date(
+                sha,
+                str(confirmation["captured_at"]),
+                confirmed_by=confirmation.get("confirmed_by"),
+            )
         bump("date_confirmations")
 
     return ApplyReport(
@@ -583,7 +593,9 @@ class RestoreReport:
     applied: ApplyReport
 
 
-def apply_documents(catalog: Any, documents: Sequence[Decisions]) -> RestoreReport:
+def apply_documents(
+    catalog: Any, documents: Sequence[Decisions], *, apply: bool = True
+) -> RestoreReport:
     """Reconcile the documents from several drives and apply the result. **One call, both halves.**
 
     **The per-drive loop is structural rather than remembered.** `reconcile_documents` returns a
@@ -596,7 +608,7 @@ def apply_documents(catalog: Any, documents: Sequence[Decisions]) -> RestoreRepo
     A label is a decision: the user typed it. It is simply the one decision that cannot be merged.
     """
     merged, reconciled = reconcile_documents(documents)
-    report = apply_decisions(catalog, merged)
+    report = apply_decisions(catalog, merged, apply=apply)
 
     restored_drives = 0
     for document in documents:
@@ -604,7 +616,10 @@ def apply_documents(catalog: Any, documents: Sequence[Decisions]) -> RestoreRepo
             continue
         row = catalog.drive_row(document.drive_uuid)
         if row is None or (document.drive_label and str(row["label"]) != document.drive_label):
-            catalog.upsert_drive(uuid=document.drive_uuid, label=document.drive_label or "drive")
+            if apply:
+                catalog.upsert_drive(
+                    uuid=document.drive_uuid, label=document.drive_label or "drive"
+                )
             restored_drives += 1
 
     if restored_drives:

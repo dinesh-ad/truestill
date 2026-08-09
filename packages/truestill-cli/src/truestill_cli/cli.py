@@ -17,6 +17,7 @@ import uuid
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from contextlib import AbstractContextManager
+from dataclasses import replace as _dataclass_replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -48,7 +49,19 @@ from truestill_core.cleanup import (
     run_cleanup,
     trash_backend,
 )
-from truestill_core.decisions import PROBLEM_OUTCOMES, DriveSave, SaveOutcome
+from truestill_core.decisions import (
+    PROBLEM_OUTCOMES,
+    Decisions,
+    DriveSave,
+    RestoreReport,
+    SaveOutcome,
+    apply_documents,
+    gather_decisions,
+    merge_onto_drive,
+    read_decisions,
+    would_lose,
+    write_decisions,
+)
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import Destination, LocalDestination, RcloneDestination
 from truestill_core.destinations.base import DestinationError
@@ -56,8 +69,10 @@ from truestill_core.drive import (
     MARKER_NAME,
     DriveGhostError,
     DriveMarker,
+    DriveReach,
     create_marker,
     drive_path_hint,
+    drive_reach,
     drives_without_a_known_location,
     existing_marker_path,
     ghost_drive_at,
@@ -446,6 +461,23 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     _add_undo_parser(sub)
+
+    restore = sub.add_parser(
+        "restore",
+        help="restore the decisions a drive is carrying into this catalog",
+    )
+    restore.add_argument("root", type=Path, metavar="ROOT", help="the drive to read")
+    restore.add_argument(
+        "--db", type=Path, default=default_catalog_path(), help="path to the catalog file"
+    )
+    restore.add_argument(
+        "--apply", action="store_true", help="actually restore (default: preview only)"
+    )
+    restore.add_argument(
+        "--discard",
+        action="store_true",
+        help="DESTRUCTIVE: overwrite the drive's decisions with this catalog's",
+    )
 
     where = sub.add_parser("where", help="find which drive(s) hold a file, even when unplugged")
     where.add_argument("term", help="filename / path substring to search for")
@@ -981,6 +1013,151 @@ def _cmd_repoint(args: argparse.Namespace) -> int:
             return 0
         changed = catalog.repoint_sources([(r.sha256, r.new_path) for r in plan.movable])
         print(f"Repointed {changed} recorded source path(s) to {new_root}.")
+    return 0
+
+
+def _restore_stamp() -> str:
+    """Now, in the same shape the documents already carry."""
+    return datetime.now(UTC).isoformat()
+
+
+def _restore_documents_for(root: Path, catalog: object) -> tuple[list[Decisions], str | None]:
+    """Every document worth merging: the drive the user named, plus any other reachable drive.
+
+    **The named root is read from the PATH, never from a lookup.** On the machine this command
+    exists for the catalog is empty and no drive is registered, so a version that found documents
+    by asking the catalog would work for everybody except the person who needs it.
+
+    Other registered drives join in when there are any, because two drives that disagree is the
+    case the reconciliation was written for - and on a fresh machine that list is simply empty.
+    """
+    found = read_decisions(root)
+    if found.error is not None:
+        return [], found.error
+    if found.decisions is None:
+        return [], f"no decisions document at {root}"
+
+    documents = [found.decisions]
+    seen = {root.resolve()}
+    for row in catalog.registered_drives():  # type: ignore[attr-defined]
+        uuid = str(row["uuid"])
+        hint = catalog.get_setting(drive_path_hint(uuid))  # type: ignore[attr-defined]
+        if drive_reach(hint, uuid) is not DriveReach.CONNECTED:
+            continue
+        other = Path(str(hint)).resolve()
+        if other in seen:
+            continue
+        seen.add(other)
+        alongside = read_decisions(other)
+        if alongside.decisions is not None:
+            documents.append(alongside.decisions)
+    return documents, None
+
+
+def _print_restore_plan(report: RestoreReport, documents: int) -> None:
+    """What would come back, and - the half that is easy to leave out - what would not.
+
+    A restore that reports 40 applied and says nothing about 12 corrections it could not place
+    lets the user confirm on the good half only.
+    """
+    print(f"\nRead {documents} decisions document(s).")
+    applied = report.applied
+    if applied.applied:
+        for section, count in sorted(applied.applied.items()):
+            print(f"  {count:>4}  {section.replace('_', ' ')}")
+    else:
+        print("  nothing this catalog does not already have")
+
+    for name in applied.unmatched_events:
+        print(f"\n  ! event '{name}' does not match anything here - its photos have changed,")
+        print("    so its name is reported rather than guessed at.")
+    for section, count in sorted(applied.awaiting_content.items()):
+        print(f"\n  ! {count} {section.replace('_', ' ')} are waiting for photos this catalog")
+        print("    has not scanned. Plug in the drive holding them, scan, and restore again.")
+    for section, count in sorted(applied.already_newer_locally.items()):
+        print(f"\n  - {count} {section.replace('_', ' ')} on the drive were older than this")
+        print("    machine's and were ignored. Nothing to do.")
+    for loss in report.reconciled.superseded:
+        print(
+            f"\n  - {loss.count} {loss.section.replace('_', ' ')} on {loss.drive_label} were"
+            " older and were not used."
+        )
+    for label in report.reconciled.undated:
+        print(f"\n  - {label}'s document carries no date, so it could not overrule any other.")
+
+
+def _cmd_restore(args: argparse.Namespace) -> int:
+    """Put a drive's decisions back into this catalog. **Offers; never restores silently.**"""
+    root: Path = args.root
+    if not root.is_dir():
+        print(f"error: {root} is not a folder.", file=sys.stderr)
+        return 2
+
+    with _catalog(args.db) as catalog:
+        documents, problem = _restore_documents_for(root, catalog)
+        if problem is not None:
+            print(f"error: {problem}", file=sys.stderr)
+            return 2
+
+        if args.discard:
+            return _discard_to_drive(root, catalog, apply=args.apply)
+
+        report = apply_documents(catalog, documents, apply=False)
+        _print_restore_plan(report, len(documents))
+        if not args.apply:
+            print(f"\nPreview only. Restore with:  truestill restore {root} --apply")
+            return 0
+
+        if (
+            _typed_confirmation("\nType 'restore' to put these decisions back: ", "restore")
+            is not True
+        ):
+            print("Nothing was restored.", file=sys.stderr)
+            return 1
+
+        report = apply_documents(catalog, documents, apply=True)
+        print(f"\nRestored into {args.db}.")
+        return 0
+
+
+def _discard_to_drive(root: Path, catalog: object, *, apply: bool) -> int:
+    """Overwrite the drive's document with this catalog's. **The destructive branch.**
+
+    Closes `(aby)`: a decision deleted on this machine leaves the drive holding something the
+    catalog does not, so every later save refuses with WOULD_LOSE and the drive copy quietly
+    stops being updated - permanently, because nothing else reconciles the two. This is the user
+    saying "mine is right". One forced write, after which the drive matches the catalog and the
+    guard has nothing left to fire on. No override flag is stored, so there is no state to go
+    stale.
+    """
+    found = read_decisions(root)
+    theirs = found.decisions
+    marker = read_marker(root)
+    uuid = marker.uuid if marker is not None else ""
+    mine = gather_decisions(catalog, uuid)
+
+    losing = would_lose(theirs, mine) if theirs is not None else ()
+    if not losing:
+        print("\nThis drive holds nothing this catalog is missing. Nothing to discard.")
+        return 0
+
+    print(f"\nDISCARD will overwrite the decisions on {root} with this catalog's.")
+    print(f"These sections exist there and NOT here, and will be gone: {', '.join(losing)}.")
+    if not apply:
+        print(f"\nPreview only. Discard with:  truestill restore {root} --discard --apply")
+        return 0
+
+    if _typed_confirmation("\nType 'discard' to overwrite the drive: ", "discard") is not True:
+        print("The drive was not changed.", file=sys.stderr)
+        return 1
+
+    outcome = write_decisions(
+        root, merge_onto_drive(theirs, _dataclass_replace(mine, written=_restore_stamp()))
+    )
+    if not outcome.written:
+        print(f"error: {outcome.error}", file=sys.stderr)
+        return 2
+    print("\nThe drive now matches this catalog.")
     return 0
 
 
@@ -3089,6 +3266,7 @@ def _dispatch(argv: list[str] | None) -> int:
         "ingest": _cmd_ingest,
         "drives": _cmd_drives,
         "where": _cmd_where,
+        "restore": _cmd_restore,
         "verify": _cmd_verify,
         "status": _cmd_status,
         "catalog": _cmd_catalog,

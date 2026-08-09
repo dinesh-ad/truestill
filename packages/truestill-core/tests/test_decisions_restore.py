@@ -169,3 +169,65 @@ def test_restoring_twice_reports_nothing_the_second_time(tmp_path: Path) -> None
     assert first.applied.applied.get("drive") == 2
     assert second.applied.applied.get("drive", 0) == 0, "a second restore re-counted every drive"
     assert sum(second.applied.applied.values()) == 0
+
+
+# --- previewing: the same answer, without touching the catalog ------------------------------
+
+
+def _one_document() -> list[Decisions]:
+    return [
+        Decisions(
+            drive_uuid=_A,
+            drive_label="Output",
+            written="2026-08-01T00:00:00+00:00",
+            trips=(
+                {
+                    "name": "Wayanad",
+                    "slug": "wayanad",
+                    "start": "2014-08-14",
+                    "end": "2014-08-14",
+                    "days": ["2014-08-14"],
+                },
+            ),
+            skipped_clusters=("b" * 64,),
+            events=({"name": "Gokul", "slug": "g", "start": "2015-10-25", "signature": "a" * 64},),
+            date_confirmations=(
+                {
+                    "sha256": "e" * 64,
+                    "captured_at": "2015-01-01T00:00:00",
+                    "confirmed_at": "2026-01-01",
+                },
+            ),
+        )
+    ]
+
+
+def test_a_preview_reports_exactly_what_an_apply_would_do(tmp_path: Path) -> None:
+    """THE USER DECIDES ON THE FULL PICTURE, so the preview cannot be a different calculation
+    from the apply - a second implementation would drift and the drift would be invisible until
+    someone confirmed a restore that did something else.
+
+    One code path with an `apply` flag, the same shape `organizer.execute` already uses.
+    """
+    with Catalog(tmp_path / "preview.sqlite") as catalog:
+        preview = apply_documents(catalog, _one_document(), apply=False)
+    with Catalog(tmp_path / "real.sqlite") as catalog:
+        real = apply_documents(catalog, _one_document(), apply=True)
+
+    assert preview.applied.applied == real.applied.applied
+    assert preview.applied.awaiting_content == real.applied.awaiting_content
+    assert preview.applied.unmatched_events == real.applied.unmatched_events
+
+
+def test_a_preview_writes_nothing_at_all(tmp_path: Path) -> None:
+    """The cry-wolf half: a preview that agreed with the apply because it WAS the apply would
+    pass the test above and restore a library nobody confirmed."""
+    db = tmp_path / "c.sqlite"
+    with Catalog(db) as catalog:
+        report = apply_documents(catalog, _one_document(), apply=False)
+
+    with Catalog(db) as after:
+        assert after.all_trips() == []
+        assert after.skipped_signatures() == frozenset()
+        assert after.registered_drives() == []
+    assert report.applied.applied.get("trips") == 1, "the preview reported nothing to do"

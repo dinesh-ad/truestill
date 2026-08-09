@@ -7,14 +7,20 @@
 > multi-drive save with its read-merge-replace and its upgrade gate
 > (`save_decisions_to_reachable_drives`, `ensure_decisions_on_drives`).
 >
+> **Restore shipped 2026-08-09: `truestill restore <root>`.** Preview by default, `--apply` to
+> act, typed word `restore`. Works with an empty catalog and no registered drives, which is the
+> whole case: the drive is found by the path the user typed, never by a catalog lookup.
+> `--discard --apply` is the destructive branch, word `discard`.
+>
 > **Wired since 2026-08-09.** `catalog_session.open_catalog` is how both surfaces open a catalog -
 > all **56** sites, 15 in the CLI and 41 in the app - and it saves the decisions when the work
 > finishes, plus once on the first run after upgrading. So documents do now reach drives in
 > ordinary use.
 >
-> **NOT built, and nothing here should be read as claiming otherwise:** **restore**, the
-> multi-drive reconciliation, `(acc)`'s discoverability, and every surface. The app is **silent
-> about a failed save** until the drive card is built - a named gap, not a covered one.
+> **NOT built, and nothing here should be read as claiming otherwise:** `(acc)`'s
+> discoverability - **nothing points a user at the restore command**, so it works and is unfindable
+> - and every app surface. The app is **silent about a failed save** and has no restore at all,
+> both named gaps rather than covered ones. `(abw)` album membership is still not carried.
 > `(acc)` in `BACKLOG.md` said "Stages 1-3 landed" and was corrected on 2026-08-09 for exactly
 > this reason - a status line that claims more than the code is the error this header exists to
 > avoid.
@@ -327,3 +333,50 @@ copy of the real 6.4 MB catalog through a real file on disk.
 confirmations**, so until `(abv)` the restore path had only ever met *seeded* examples of the
 decisions it exists to protect. Its one trip is why the fixture had one trip, and why a defect
 that only appears at two survived - see `ENGINEERING_STANDARD.md` §4's seventeenth member.
+
+## The restore command
+
+`truestill restore <root>` - preview by default, `--apply` to act, typed word **`restore`**.
+
+**The words come from the CLI's existing dialect, not a new one.** Every typed confirm here is the
+operation's own verb - `move`, `clean`, `undo`, `delete`, `repoint`, `new` - so `restore` and
+`discard` extend a pattern rather than adding a third vocabulary on top of the two `(aca)` already
+records.
+
+**It works with an empty catalog and no registered drives, and that is the whole case.** Every
+other decisions path starts from a catalog that already knows something; this one cannot, because
+the catalog is what was lost. So the named root is read **from the path**, and other registered
+drives join the merge only when the catalog happens to have any - on a fresh machine that list is
+empty and the command still works.
+
+**What it says before asking.** The counts it would apply, and then the half that is easy to leave
+out: unmatched event signatures **by name**, the `awaiting_content` count with its remedy ("plug
+in the drive holding them, scan, and restore again"), decisions ignored because this machine's are
+newer, and reconciliation's losers. A restore that reports 40 applied and stays silent about 12 it
+could not place lets the user confirm on the good half only.
+
+### `--discard`, and how `(aby)` closes
+
+`(aby)` is the loss guard's one false positive: a decision **deleted on purpose** locally leaves
+the drive holding something this catalog does not, so every later save refuses with `WOULD_LOSE` -
+permanently, because nothing reconciles the two.
+
+`restore <root> --discard --apply` is the user saying *"mine is right"*: **one forced write**,
+after which the drive matches the catalog and the guard has nothing left to fire on. **No override
+flag is stored**, so there is no state to go stale - which is why this is better than a suppression
+setting.
+
+It is the destructive branch and it is spelled that way: it names the sections that exist on the
+drive and nowhere else before asking, its word is `discard` and **not** `restore` (a word typed
+once, understood to mean one thing, must not authorise another - `clean-empty` learned this), and
+it previews by default like everything else that writes.
+
+**It still keeps what it cannot read.** Sections from a newer version are not decisions this
+catalog is overruling - they are ones it does not understand - so discard merges them forward. A
+second discard finds nothing to do and does not ask again; asking for a destructive word when
+nothing is at stake teaches people to type it without reading.
+
+**One interaction worth knowing.** After a restore that could not place everything - corrections
+for photos this catalog has not scanned - the drive legitimately holds decisions the catalog does
+not, so the ordinary save will report `WOULD_LOSE` for that drive until those photos are scanned.
+That is the guard working, not a defect, and the restore output says what to do about it.
