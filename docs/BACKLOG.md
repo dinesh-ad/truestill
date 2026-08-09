@@ -469,6 +469,19 @@ is invisible here is retired, not free.**
   - **Not reproducible locally**: 15 runs of the test alone and 5 of the whole file, 0 failures.
     It wants a loaded runner, so the trace is the evidence and CI artifacts expire - the numbers
     above are copied here for that reason.
+  - ✅ **RECURRED 2026-08-09, run `31315728976`, and the signature is identical.** Recorded from
+    that run's trace before the artifact expired: **zero `/api/backup/preview` entries** in
+    `trace.network`, and `"Checking what to copy…"` absent from the trace entirely. Third
+    failure now, all on CI, still nothing locally.
+  - **Ruled out as the cause: the decisions trigger landed in the same push** (`befcccf`), which
+    changed how every app catalog is opened. It cannot be this. **The label `withBusy` sets
+    before any request never appeared**, so the handler never ran and nothing left the browser -
+    server-side code cannot suppress a fetch that was never issued. Written down because "the
+    flake started failing right after your change" is the first thing anyone will think, and the
+    trace answers it rather than the timing.
+  - **Still not fixed here, deliberately.** The contradiction flagged above is unreconciled, and
+    this entry's own instruction is that a settle-wait added on the strength of it would be a
+    guess wearing a citation. A third data point does not reconcile two records.
 
 - **(abp) The body sans face is not bundled, so prose renders differently on every machine.**
   Recorded 2026-08-07, found because a browser test had been asserting the CI runner's fonts.
