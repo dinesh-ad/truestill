@@ -10,6 +10,18 @@ separate interpreter taking a real ``BEGIN IMMEDIATE`` lock, and the CLI is a re
 ``python -m truestill_cli`` that has to discover it the way a user would. The cost is the 5 s
 ``busy_timeout`` the CLI waits out before it gives up, and that wait *is* the behaviour under
 test -- shortening it would test something else.
+
+**Measured 2026-08-09, because these two are the slowest tests in the suite and someone will
+come for them.** 5.45 s and 5.37 s, and the answer is still no: the 5 s is
+``sqlite3.connect(timeout=5.0)``'s default, so it is the product's wait rather than a test-side
+sleep, and a test that did not wait it out would not be testing the refusal.
+
+What changed is that it stopped mattering. Serially these were 10.8 s of a 90 s suite - 12%, the
+single biggest concentration in it. In parallel the suite is ~16 s and these run alongside
+everything else, so they cost close to nothing. **They do set the floor**: no amount of hardware
+takes the suite below ~5.5 s while the slowest single test is 5.45 s. That is the number to
+remember if the suite ever needs to be faster than that, and nothing else here is worth touching
+first.
 """
 
 from __future__ import annotations
