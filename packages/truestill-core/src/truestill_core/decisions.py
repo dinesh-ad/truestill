@@ -37,9 +37,13 @@ import errno
 import json
 import os
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
+
+from truestill_core.drive import DriveReach, drive_path_hint, drive_reach
 
 #: Bumped only when a reader must REFUSE a document, never for an added field. Adding a field is
 #: forward-compatible by construction (see :func:`from_document`), so a bump would be a false alarm
@@ -50,7 +54,15 @@ FORMAT_VERSION = 1
 #: username, a folder layout, and in one real library the existence of a Crypto Folder. This file
 #: lands on a drive the user may lend or sell, and a path from another machine is useless anyway.
 #: Matched by PREFIX so a future `path_hint.something` is excluded without another edit.
-_EXCLUDED_SETTING_PREFIXES = ("path_hint.",)
+#:
+#: `decisions.` is this feature's own bookkeeping and is excluded for a different reason: it is
+#: not a decision, and restoring it onto another machine would carry that machine's answer to
+#: "have I written the upgrade copy yet" - the document would ship the reason it is never written
+#: again. Machine-local notes about the backup do not belong in the backup.
+_EXCLUDED_SETTING_PREFIXES = ("path_hint.", "decisions.")
+
+#: When this catalog last put its decisions on a drive. Machine-local; see the exclusion above.
+DECISIONS_SAVED_AT_KEY = "decisions.saved_at"
 
 #: Top-level keys this version writes. Anything else in a document came from a newer version and
 #: is carried through untouched - see :func:`from_document`.
@@ -172,21 +184,17 @@ class ApplyReport:
     not_applied: tuple[str, ...] = ()
 
 
-def gather_decisions(catalog: Any, drive_uuid: str) -> Decisions:
-    """Read the decisions a rescan could not recompute. **Read-only; writes nothing.**
+def _shared_decisions(catalog: Any) -> Decisions:
+    """Every decision except the drive block, which is the only part that differs per drive.
 
-    Column-by-column rather than ``SELECT *``, and that is the privacy guard rather than a style
-    preference: a new column added to `files` or `settings` later cannot arrive on a user's drive
-    by default. Every field here was chosen; nothing is inherited.
+    Split out so a save to N drives is **one pass over the catalog plus O(1) per drive** rather
+    than N passes: the decision tables are catalog-wide, and re-reading them once per drive would
+    make the cost of owning a second backup drive a second full read.
     """
-    drive = catalog.drive_row(drive_uuid)
     days_by_trip: dict[int, list[str]] = {}
     for day, trip_id in catalog.all_trip_days().items():
         days_by_trip.setdefault(int(trip_id), []).append(str(day))
     return Decisions(
-        drive_uuid=str(drive["uuid"]) if drive else drive_uuid,
-        drive_label=str(drive["label"]) if drive else "",
-        drive_notes=drive["notes"] if drive else None,
         settings=publishable_settings(catalog.all_settings()),
         trips=tuple(
             {
@@ -220,6 +228,26 @@ def gather_decisions(catalog: Any, drive_uuid: str) -> Decisions:
         ),
         albums=tuple({"name": name} for name in catalog.all_album_names()),
     )
+
+
+def _with_drive(shared: Decisions, drive: Any, drive_uuid: str) -> Decisions:
+    """The shared decisions, addressed to one drive."""
+    return replace(
+        shared,
+        drive_uuid=str(drive["uuid"]) if drive else drive_uuid,
+        drive_label=str(drive["label"]) if drive else "",
+        drive_notes=drive["notes"] if drive else None,
+    )
+
+
+def gather_decisions(catalog: Any, drive_uuid: str) -> Decisions:
+    """Read the decisions a rescan could not recompute. **Read-only; writes nothing.**
+
+    Column-by-column rather than ``SELECT *``, and that is the privacy guard rather than a style
+    preference: a new column added to `files` or `settings` later cannot arrive on a user's drive
+    by default. Every field here was chosen; nothing is inherited.
+    """
+    return _with_drive(_shared_decisions(catalog), catalog.drive_row(drive_uuid), drive_uuid)
 
 
 def _apply_trips(
@@ -422,3 +450,188 @@ def write_decisions(root: Path, decisions: Decisions) -> WriteOutcome:
             temp.unlink(missing_ok=True)
         return WriteOutcome(written=False, error=_explain(error))
     return WriteOutcome(written=True, path=target)
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentOnDrive:
+    """What is already at a drive root. **Never an exception.**"""
+
+    #: A file is there. True even when it could not be read - which is the case that matters.
+    found: bool = False
+    decisions: Decisions | None = None
+    #: Why it could not be read. `None` when there was nothing to read, or the read worked.
+    error: str | None = None
+
+
+def read_decisions(root: Path) -> DocumentOnDrive:
+    """Read the document at a drive root, if there is one. **Never raises.**
+
+    **`found` and `decisions` are separate answers on purpose.** "Nothing is there" and "something
+    is there and I cannot read it" lead to opposite actions: the first may be written over freely,
+    the second must not be touched. Collapsing them to `None` is how a damaged copy of somebody's
+    names becomes no copy at all.
+    """
+    target = root / DECISIONS_NAME
+    try:
+        text = target.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return DocumentOnDrive()
+    except OSError as error:
+        return DocumentOnDrive(found=True, error=_explain(error))
+    try:
+        document = json.loads(text)
+    except ValueError:
+        return DocumentOnDrive(found=True, error="the file on the drive is not readable JSON")
+    if not isinstance(document, dict):
+        return DocumentOnDrive(
+            found=True, error="the file on the drive is not a decisions document"
+        )
+    return DocumentOnDrive(found=True, decisions=from_document(document))
+
+
+#: Sections compared before a write, to refuse one that would lose decisions the drive already
+#: holds. `settings` is deliberately absent: UI preferences churn per machine and per version, so
+#: a difference there is not evidence of another catalog's work.
+_LOSS_KEYS: tuple[tuple[str, Callable[[Decisions], set[str]]], ...] = (
+    ("trips", lambda d: {str(t.get("name")) for t in d.trips}),
+    ("events", lambda d: {str(e.get("signature")) for e in d.events}),
+    ("skipped_clusters", lambda d: {str(s) for s in d.skipped_clusters}),
+    ("date_confirmations", lambda d: {str(c.get("sha256")) for c in d.date_confirmations}),
+    ("albums", lambda d: {str(a.get("name")) for a in d.albums}),
+)
+
+
+def would_lose(existing: Decisions, fresh: Decisions) -> tuple[str, ...]:
+    """Sections where the drive holds decisions ``fresh`` does not. **`O(document)`.**
+
+    **This is the same rule as the unknown-section merge, applied to sections we understand.** A
+    re-attached drive carries names a rebuilt catalog has never seen; writing over them destroys
+    the only copy, which is precisely what this feature exists to prevent. So the write does not
+    happen and the caller is told which sections stopped it.
+
+    Its one false positive is a decision the user DELETED locally: the drive still holds it, so
+    the write refuses until a restore reconciles the two. Reported rather than silently resolved,
+    because guessing which side is intentional is how the other direction loses data.
+    """
+    return tuple(name for name, of in _LOSS_KEYS if of(existing) - of(fresh))
+
+
+def merge_onto_drive(existing: Decisions | None, fresh: Decisions) -> Decisions:
+    """``fresh``, carrying forward sections only the drive's copy understands.
+
+    **Read-merge-replace, never write.** :func:`to_document` preserves unknown sections out of a
+    `Decisions` that came from a document - but a trigger's object comes from
+    :func:`gather_decisions`, and the catalog has never held those sections, so its `unknown` is
+    empty. Without this read, a user who downgrades and renames one trip loses the newer version's
+    captions to the code written to keep them.
+    """
+    if existing is None or not existing.unknown:
+        return fresh
+    return replace(fresh, unknown={**existing.unknown, **fresh.unknown})
+
+
+class SaveOutcome(StrEnum):
+    """What happened to one drive. Four states, because three of them need different words."""
+
+    WRITTEN = "written"
+    UNREACHABLE = "unreachable"  # not plugged in, or something else is at the remembered path
+    WOULD_LOSE = "would_lose"  # its copy holds decisions this catalog does not
+    FAILED = "failed"  # read-only, full, unreadable copy, pulled out mid-write
+
+
+@dataclass(frozen=True, slots=True)
+class DriveSave:
+    """One drive's result, in a form a surface can turn into a sentence."""
+
+    uuid: str
+    label: str
+    outcome: SaveOutcome
+    #: Plain words for a person: what stopped it, or which sections would have been lost.
+    detail: str = ""
+
+
+def _utc_now() -> str:
+    return datetime.now(UTC).isoformat()
+
+
+def save_decisions_to_reachable_drives(
+    catalog: Any, *, stamp: str | None = None
+) -> tuple[DriveSave, ...]:
+    """Put the catalog's decisions on every reachable registered drive. **Never raises.**
+
+    **One catalog pass, then `O(1)` per drive** plus one read and one write each: the decision
+    tables are catalog-wide and only the drive block differs, so a second backup drive costs a
+    second file write rather than a second full read.
+
+    **One stamp for the whole run.** Restore resolves disagreement by newest `written`, so two
+    drives saved by the same run must not be able to disagree about which is newer.
+
+    **A failure here never reaches the user's own operation.** Naming a trip must succeed even
+    when the backup of that name does not; the outcome is reported instead.
+    """
+    drives = catalog.registered_drives()
+    if not drives:
+        return ()
+
+    shared = replace(_shared_decisions(catalog), written=stamp or _utc_now())
+    results: list[DriveSave] = []
+    for row in drives:
+        uuid = str(row["uuid"])
+        label = str(row["label"] or "")
+        hint = catalog.get_setting(drive_path_hint(uuid))
+        if drive_reach(hint, uuid) is not DriveReach.CONNECTED:
+            results.append(DriveSave(uuid, label, SaveOutcome.UNREACHABLE, "not connected"))
+            continue
+
+        root = Path(str(hint))
+        found = read_decisions(root)
+        if found.error is not None:
+            results.append(DriveSave(uuid, label, SaveOutcome.FAILED, found.error))
+            continue
+
+        fresh = _with_drive(shared, row, uuid)
+        if found.decisions is not None:
+            lost = would_lose(found.decisions, fresh)
+            if lost:
+                results.append(
+                    DriveSave(
+                        uuid,
+                        label,
+                        SaveOutcome.WOULD_LOSE,
+                        f"this drive holds {', '.join(lost)} this catalog does not; restore first",
+                    )
+                )
+                continue
+            fresh = merge_onto_drive(found.decisions, fresh)
+
+        outcome = write_decisions(root, fresh)
+        results.append(
+            DriveSave(uuid, label, SaveOutcome.WRITTEN)
+            if outcome.written
+            else DriveSave(uuid, label, SaveOutcome.FAILED, outcome.error or "")
+        )
+    return tuple(results)
+
+
+def ensure_decisions_on_drives(
+    catalog: Any, *, stamp: str | None = None
+) -> tuple[DriveSave, ...] | None:
+    """The upgrade write: put the decisions on the drives ONCE for a catalog that predates this.
+
+    Returns `None` when it has already happened, so a caller can stay silent.
+
+    **Existing users are the ones this protects**, and a trigger of "after a decision changes"
+    reaches them only when they next rename something. The user most at risk has a finished
+    library and has stopped naming things, so for them that trigger never fires at all.
+
+    **Recorded only when a drive actually took it.** A user whose drive was in a drawer at upgrade
+    time must get the write when they next plug it in; recording the attempt would mean they never
+    do, which is the Lightroom failure - a backup the user believes in and does not have.
+    """
+    if catalog.get_setting(DECISIONS_SAVED_AT_KEY):
+        return None
+    when = stamp or _utc_now()
+    results = save_decisions_to_reachable_drives(catalog, stamp=when)
+    if any(r.outcome is SaveOutcome.WRITTEN for r in results):
+        catalog.set_setting(DECISIONS_SAVED_AT_KEY, when)
+    return results

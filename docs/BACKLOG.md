@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(abx). Next free: (aby).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aby). Next free: (abz).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -61,6 +61,18 @@ is invisible here is retired, not free.**
   - Pinned by nothing today, deliberately: the assertion that would pin it is the wording, and
     writing it now would fix the wording before it is chosen. The behaviour is covered by
     `test_preview_tally_is_disjoint.py`.
+
+- **(aby) A DELETED DECISION BLOCKS DRIVE SAVES UNTIL A RESTORE RECONCILES THEM.**
+  Recorded 2026-08-09 while building the decisions save, as the known false positive of its
+  loss guard. Closed by restore; recorded so it is not rediscovered as a bug.
+  - The save refuses to write a document that would lose decisions the drive already holds, which
+    is what protects a re-attached drive from a rebuilt catalog. **A decision the user deleted
+    locally looks identical**: the drive still carries it, so every later save reports
+    `WOULD_LOSE` and the drive's copy stops being updated.
+  - **Reported, never silently resolved.** Guessing which side is intentional is how the other
+    direction loses data, and the other direction is unrecoverable.
+  - **Restore closes it**: once the two can be reconciled, the user resolves it once and saves
+    resume. Until then the drive keeps the older, larger set - the safe direction.
 
 - **(abw) ALBUM MEMBERSHIP CANNOT LEAVE THIS MACHINE - the same class as `(abv)`, waiting.**
   Recorded 2026-08-09 from the schema while fixing `(abv)`. `file_albums` is

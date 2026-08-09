@@ -3,14 +3,18 @@
 > **LIVE DESIGN, not a frozen record. Status as of 2026-08-09.**
 >
 > **Built:** the document itself (`truestill_core.decisions`) - the dataclass, the serialiser,
-> the forward-compatible parser, the catalog gather and apply, and an atomic drive write.
+> the forward-compatible parser, the catalog gather and apply, an atomic drive write, and the
+> multi-drive save with its read-merge-replace and its upgrade gate
+> (`save_decisions_to_reachable_drives`, `ensure_decisions_on_drives`).
 >
-> **NOT built, and nothing in this document should be read as claiming otherwise:**
-> `write_decisions` **has zero callers**, so **no document has ever been written to a drive**.
-> The write trigger, the first-run-after-upgrade write, restore, the multi-drive merge and every
-> surface are unbuilt. `(acc)` in `BACKLOG.md` said "Stages 1-3 landed" and was corrected on
-> 2026-08-09 for exactly this reason - a status line that claims more than the code is the error
-> this header exists to avoid.
+> **NOT built, and nothing in this document should be read as claiming otherwise:** the save has
+> **no call sites**, so **no document reaches a drive during ordinary use**. The per-command
+> trigger and the upgrade call site are unwired - the CLI opens a catalog at **15 separate
+> `with Catalog(...)` sites** and has no single choke point, so the wiring is a design question
+> of its own rather than a line. Restore, the multi-drive reconciliation and every surface are
+> also unbuilt. `(acc)` in `BACKLOG.md` said "Stages 1-3 landed" and was corrected on 2026-08-09
+> for exactly this reason - a status line that claims more than the code is the error this header
+> exists to avoid.
 >
 > Moved out of a plan file in a home directory on 2026-08-09. A plan file does not survive a new
 > machine, which is the failure this whole feature is about; `docs/ui-inventory.md` was lost twice
@@ -113,6 +117,45 @@ churning document in the path of every drive detection.
 which is the whole point. Carries a `written` timestamp and a `format` version. Written
 **atomically** (temp in the same directory, flush, fsync, `os.replace`): a truncated file at the
 right path is worse than no file, because it looks like a backup.
+
+## The write is a read-merge-replace, never a write
+
+Two ways a write to a drive can destroy the thing it is backing up, both found while building the
+save and both closed there.
+
+**1. The unknown-section hole.** `to_document` carries unknown sections back out of a `Decisions`
+that came **from a document** - but the trigger's object comes from `gather_decisions`, and the
+catalog has never held those sections, so its `unknown` is empty. A user downgrades, restores,
+renames one trip, the trigger fires, and the newer version's captions are deleted **by the code
+written to preserve them**. Preserving on write-back is not preserving on write. The save reads
+what is at the root first and carries its unknown sections forward.
+
+**2. The same rule, applied to sections we understand.** A re-attached drive carries names a
+rebuilt catalog has never seen - that is the lost-machine case, and job 1 ships before restore
+does. Writing this catalog's decisions over them destroys the only copy. So a write that would
+lose `trips`, `events`, `skipped_clusters`, `date_confirmations` or `albums` **does not happen**
+and is reported instead. `settings` is deliberately not compared: UI preferences churn per machine
+and per version, so a difference there is not evidence of another catalog's work.
+
+**The one false positive, recorded rather than hidden:** a decision the user **deleted** locally
+still sits on the drive, so the write refuses until a restore reconciles the two. Reported, not
+guessed at - `(aby)`. Guessing which side is intentional is how the other direction loses data.
+
+**An unreadable document is never overwritten either.** Half a JSON file is still someone's names
+and a human can often recover them; replacing it because we could not parse it turns a damaged
+copy into no copy.
+
+## What a restore does with a NEWER document
+
+Decided rather than left to fall out of the code, and it honours `FORMAT_VERSION`'s existing
+contract rather than inventing a second rule: *bumped only when a reader must REFUSE.*
+
+- **`format == 1` carrying unknown sections** (an additive newer version): restore everything
+  known, leave the rest untouched, and **say what was not touched in the user's terms** - "this
+  drive also carries captions, which this version does not understand and has not changed."
+  Silence would read as a complete restore.
+- **`format > 1`**: refuse, preserve the file, and **name the version to run**. A refusal without
+  a remedy is the stranded-names failure this feature exists to prevent.
 
 ## Privacy - and there was a real finding
 

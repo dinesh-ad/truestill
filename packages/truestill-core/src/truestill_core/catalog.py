@@ -2037,6 +2037,15 @@ class Catalog:
             for r in self._conn.execute("SELECT key, value FROM settings")
         }
 
+    def registered_drives(self) -> list[sqlite3.Row]:
+        """Every drive's identity and label. **No join** - `O(drives)`.
+
+        `list_drives` counts copies and sums their bytes over `file_copies`, which is right for a
+        listing and wrong for a decisions write that fires after ordinary commands: it would make
+        a 1.3 KB backup pay for an aggregate over every copy on every drive.
+        """
+        return list(self._conn.execute("SELECT uuid, label, notes FROM drives ORDER BY label"))
+
     def all_trips(self) -> list[sqlite3.Row]:
         """Every trip, id included -- the id is how a caller joins `all_trip_days` back to it.
 
