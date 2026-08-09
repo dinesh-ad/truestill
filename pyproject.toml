@@ -7,6 +7,12 @@
 members = ["packages/*"]
 
 # Development dependencies for the whole workspace. Usage: uv sync --all-packages --group dev
+#
+# **A FLOOR MEANS TESTED-AT, NOT THOUGHT-TO-WORK.** Every `>=` here is a claim that the suite has
+# run against that version; a lower one claims support for something nothing has ever executed.
+# Raise a floor to the locked version when you bump it - `test_dependency_floors.py` refuses
+# otherwise, and it caught `pytest-xdist>=3.6.1` against a lockfile pinning 3.8.0 on the day the
+# dependency was added.
 [dependency-groups]
 dev = [
     "ruff>=0.16.0",

@@ -789,6 +789,33 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   Corollary, from the same day: the real catalog held zero events and zero date confirmations, so
   the feature had only ever met seeded examples of the thing it exists to protect.
 
+- **Three points is not a trend, and a live metric is not a constant.** The eighteenth member.
+  Two ways to be confidently wrong about a measurement, both recorded 2026-08-09 from the same
+  afternoon.
+
+  **The trend.** A Windows CI step measured 566 s, 1009 s, 1472 s on three commits, and was
+  reported here as a regression. The fourth run was **596 s** - on the commit carrying *every*
+  change of that session and **more tests than the 1009 s run**. The series is noise with a 2.6x
+  spread, and the retraction was written the same day.
+
+  > **The tell was available before the fourth point and was not used: the newest run should have
+  > been the slowest and was not.** A trend that needs the newest measurement to be exceptional
+  > is not a trend. Before reporting one, ask what the next point would have to be to disprove it
+  > - and if the answer is "anything", say variance instead.
+
+  *What to do instead:* report the ratio that holds within a single run, where the machine is
+  constant. Windows at **2.1x ubuntu on one commit** was the real finding, and it survived.
+
+  **The live metric.** `test_space_is_checked_against_the_destination_drive` compared a recorded
+  `free_bytes` against a **second** `shutil.disk_usage` reading of the same disk. Two samples of
+  a moving quantity, and it was green only because nothing else was writing - the first parallel
+  run failed it, intermittently, because other workers were. It now asserts **which path was
+  measured**, which is the claim its name makes and cannot race.
+
+  > **A test may compare a live metric against a recorded one only if it controls both.** Disk
+  > free space, wall-clock time, memory, and file mtimes are readings, not values. Assert the
+  > input that produced them, or pin the reading.
+
 - **Errors.** Exceptions typed and specific - no bare `except`. User-facing CLI errors are
   actionable sentences, not tracebacks. Every subprocess call checks its return code and
   surfaces stderr on failure. Partial-failure policy: one bad file never aborts a batch - it
