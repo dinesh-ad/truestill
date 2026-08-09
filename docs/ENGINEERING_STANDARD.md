@@ -789,6 +789,23 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   Corollary, from the same day: the real catalog held zero events and zero date confirmations, so
   the feature had only ever met seeded examples of the thing it exists to protect.
 
+- **A report about state must say what it does not cover.** The twenty-second member. `"tree
+  clean"` is a claim about **tracked content versus HEAD** and nothing else. It does not say that
+  no file was written, that no mtime moved, or that another tool will agree.
+
+  Recorded 2026-08-09. After `git checkout -- .` undid a repo-wide corruption, **219 files were
+  rewritten on disk with identical bytes.** `git status` was correctly empty and was reported as
+  "tree clean"; the maintainer's editor showed three files modified, because an editor that
+  caches git state or reads mtimes sees a mass rewrite. Both reports were true and they appeared
+  to contradict each other, which costs more trust than a wrong report does.
+
+  > **When you have just done something that touches every file - a checkout, a formatter over
+  > the tree, a bulk rename - say so alongside the status line.** The conclusion is not wrong; it
+  > is answering a narrower question than the reader thinks.
+
+  *The same applies to any summarised state:* "no failures" (which tests ran?), "nothing to do"
+  (over what scope?), "up to date" (compared against what?).
+
 - **One library is a test bed, never a specification.** The twenty-first member, and it governs
   how every measurement in this repo is reported.
 
