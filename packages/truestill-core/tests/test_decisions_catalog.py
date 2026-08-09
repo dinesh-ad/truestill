@@ -21,6 +21,7 @@ from pathlib import Path
 
 from truestill_core.catalog import Catalog
 from truestill_core.decisions import (
+    Decisions,
     apply_decisions,
     gather_decisions,
     to_document,
@@ -107,7 +108,7 @@ def test_the_gather_still_carries_the_decisions(tmp_path: Path) -> None:
     assert gathered.drive_label == "Output"
     assert gathered.settings["layout_template"] == "{yyyy}/{yyyy}-{mm}"
     assert [t["name"] for t in gathered.trips] == ["Wayanad"]
-    assert gathered.trip_days
+    assert gathered.trips[0]["days"] == ["2014-08-14", "2014-08-15"]
     assert gathered.skipped_clusters == ("b" * 64,)
     assert [d["sha256"] for d in gathered.date_confirmations] == [_SHA]
 
@@ -237,6 +238,216 @@ def test_a_newer_local_confirmation_is_never_overwritten_by_an_older_one(tmp_pat
 
     assert kept["captured_at"] == "2020-01-01T00:00:00", "an older correction overwrote a newer one"
     assert "date_confirmations" in report.skipped_newer_locally
+
+
+# --- trips: identity has to survive leaving this catalog -----------------------------------
+
+
+def _days_by_trip(catalog: Catalog) -> dict[str, list[str]]:
+    """Trip name -> the days it claims, read straight out of the tables.
+
+    Asserted on days rather than on names because a trip that came back under the right name
+    holding the WRONG days is the failure this file exists to catch, and a name-only assertion
+    is satisfied by it.
+    """
+    rows = catalog._conn.execute(
+        "SELECT t.name AS name, d.day AS day FROM trip_days d"
+        " JOIN trips t ON t.id = d.trip_id ORDER BY d.day"
+    )
+    days: dict[str, list[str]] = {}
+    for row in rows:
+        days.setdefault(str(row["name"]), []).append(str(row["day"]))
+    return days
+
+
+def _two_trips(db: Path) -> Catalog:
+    """Two trips on disjoint days. **One trip proves nothing here**: the day -> trip mapping is
+    only exercised when there is more than one trip to map to, and both the fixture above and the
+    real library hold exactly one."""
+    catalog = Catalog(db)
+    catalog.upsert_drive(uuid=_UUID, label="Output")
+    catalog.create_trip(
+        name="Wayanad",
+        slug="wayanad",
+        start_date="2014-08-14",
+        end_date="2014-08-15",
+        days=["2014-08-14", "2014-08-15"],
+    )
+    catalog.create_trip(
+        name="Goa",
+        slug="goa",
+        start_date="2015-01-01",
+        end_date="2015-01-02",
+        days=["2015-01-01", "2015-01-02"],
+    )
+    return catalog
+
+
+def test_two_trips_come_back_holding_their_own_days(tmp_path: Path) -> None:
+    """A TRIP'S IDENTITY MUST SURVIVE LEAVING THIS CATALOG, and a rowid does not.
+
+    `trip_days` maps a day to `trips.id`, which is local to the catalog that minted it. A
+    document that carries those ids and no way to resolve them has lost the mapping, and the
+    damage is not that a trip goes missing - it is that the FIRST trip comes back claiming every
+    other trip's days. A missing trip is visible to the user; a trip that quietly absorbed
+    another's days renders those photos under the wrong folder and looks like a successful
+    restore.
+
+    Events do not have this problem and the difference is structural: `events.signature` travels
+    inside the event's own row, so identity is self-contained. Whatever identifies a trip has to
+    do the same.
+    """
+    with _two_trips(tmp_path / "source.sqlite") as catalog:
+        original = _days_by_trip(catalog)
+        gathered = gather_decisions(catalog, _UUID)
+
+    assert original == {
+        "Wayanad": ["2014-08-14", "2014-08-15"],
+        "Goa": ["2015-01-01", "2015-01-02"],
+    }, "the source catalog is not the one this test describes"
+
+    with Catalog(tmp_path / "fresh.sqlite") as fresh:
+        report = apply_decisions(fresh, gathered)
+        restored = _days_by_trip(fresh)
+
+    assert restored.get("Wayanad") == original["Wayanad"], (
+        "a restored trip absorbed another trip's days - it did not merely fail to restore"
+    )
+    assert restored == original, "trips did not come back as they went out"
+    assert report.applied.get("trips") == 2, (
+        f"the report claims {report.applied.get('trips')} trips restored out of 2, so a user "
+        "reading it would not learn that anything was lost"
+    )
+
+
+def test_the_document_carries_a_trip_s_days_and_no_catalog_rowid(tmp_path: Path) -> None:
+    """WHAT MAKES IT SURVIVE: the days ride inside the trip, the way a signature rides inside an
+    event. A rowid is meaningless on a machine that has never seen this catalog, so carrying one
+    is not merely useless - it is the thing that looked like a mapping and was not."""
+    with _two_trips(tmp_path / "source.sqlite") as catalog:
+        gathered = gather_decisions(catalog, _UUID)
+    document = to_document(gathered)
+
+    by_name = {str(t["name"]): t for t in document["trips"]}
+    assert by_name["Wayanad"]["days"] == ["2014-08-14", "2014-08-15"]
+    assert by_name["Goa"]["days"] == ["2015-01-01", "2015-01-02"]
+    assert "trip_days" not in document, (
+        "a second representation of trip membership; the two can disagree and the one that wins "
+        "is the one that caused this defect"
+    )
+
+
+def test_applying_two_trips_twice_changes_nothing_and_reports_no_conflict(tmp_path: Path) -> None:
+    """Idempotence has to hold PER TRIP, not just in total. The obvious implementation of the
+    conflict check reports every trip as conflicting on the second run - the days really are
+    claimed by then - which would make an honest restore look like a broken one."""
+    with _two_trips(tmp_path / "source.sqlite") as catalog:
+        gathered = gather_decisions(catalog, _UUID)
+
+    with Catalog(tmp_path / "fresh.sqlite") as fresh:
+        first = apply_decisions(fresh, gathered)
+        second = apply_decisions(fresh, gathered)
+
+    assert first.applied.get("trips") == 2
+    assert second.applied.get("trips", 0) == 0, "a second apply re-created trips"
+    assert second.conflicting_trips == (), (
+        f"a trip already restored was reported as a conflict: {second.conflicting_trips}"
+    )
+
+
+def test_a_trip_whose_days_another_trip_already_claims_is_reported_not_absorbed(
+    tmp_path: Path,
+) -> None:
+    """THE CHANNEL THAT DID NOT EXIST. A day is claimed by at most one trip, so a document whose
+    trip wants a day this catalog has already given to another trip cannot be applied at all.
+
+    Skipping silently is exactly how the absorbed-days defect stayed invisible: the count said
+    what it restored and nothing said what it did not. The local trip must also come out
+    untouched - refusing must not become its own quieter way of rewriting somebody's days.
+    """
+    with _two_trips(tmp_path / "source.sqlite") as catalog:
+        gathered = gather_decisions(catalog, _UUID)
+
+    with Catalog(tmp_path / "local.sqlite") as local:
+        local.create_trip(
+            name="Kerala",
+            slug="kerala",
+            start_date="2014-08-14",
+            end_date="2014-08-14",
+            days=["2014-08-14"],  # one day Wayanad also wants
+        )
+        report = apply_decisions(local, gathered)
+        after = _days_by_trip(local)
+
+    assert report.conflicting_trips == ("Wayanad",), (
+        f"the conflict was not reported: {report.conflicting_trips}"
+    )
+    assert after["Kerala"] == ["2014-08-14"], "the local trip's days were rewritten"
+    assert "Wayanad" not in after, "a trip was half-created over a day it could not have"
+    assert after["Goa"] == ["2015-01-01", "2015-01-02"], (
+        "one trip's conflict stopped an unrelated trip from being restored"
+    )
+
+
+def test_two_trips_in_one_document_claiming_the_same_day_do_not_crash_a_restore(
+    tmp_path: Path,
+) -> None:
+    """A DOCUMENT IS A FILE ON A DISK THE USER CAN EDIT, so it can say things a catalog cannot.
+
+    `trip_days.day` is a primary key, so a second trip claiming a day the first just took raises
+    `IntegrityError` from `create_trip` - a restore that dies part way through, with some
+    decisions applied and no report. The conflict check has to see trips created earlier in this
+    same apply, not just the ones the catalog held when it started.
+
+    Added after a mutation that deleted exactly that bookkeeping did not fire.
+    """
+    hand_edited = Decisions(
+        trips=(
+            {
+                "name": "Wayanad",
+                "slug": "wayanad",
+                "start": "2014-08-14",
+                "end": "2014-08-15",
+                "days": ["2014-08-14", "2014-08-15"],
+            },
+            {
+                "name": "Goa",
+                "slug": "goa",
+                "start": "2014-08-15",
+                "end": "2014-08-16",
+                "days": ["2014-08-15", "2014-08-16"],  # 08-15 is Wayanad's
+            },
+        ),
+    )
+
+    with Catalog(tmp_path / "fresh.sqlite") as fresh:
+        report = apply_decisions(fresh, hand_edited)
+        after = _days_by_trip(fresh)
+
+    assert report.applied.get("trips") == 1
+    assert report.conflicting_trips == ("Goa",), (
+        f"the second claim on 2014-08-15 was not reported: {report.conflicting_trips}"
+    )
+    assert after == {"Wayanad": ["2014-08-14", "2014-08-15"]}
+
+
+def test_a_trip_the_document_carries_no_days_for_is_reported(tmp_path: Path) -> None:
+    """A trip with no days cannot be placed - `create_trip` refuses one, correctly. Reported
+    under its own name rather than as a conflict: nothing is competing for those days, the
+    document simply does not say which they are, and the two need different words to a user."""
+    with _two_trips(tmp_path / "source.sqlite") as catalog:
+        gathered = gather_decisions(catalog, _UUID)
+    stripped = Decisions(
+        trips=({"name": "Wayanad", "slug": "wayanad", "start": "2014-08-14", "end": "2014-08-15"},),
+        written=gathered.written,
+    )
+
+    with Catalog(tmp_path / "fresh.sqlite") as fresh:
+        report = apply_decisions(fresh, stripped)
+
+    assert report.trips_without_days == ("Wayanad",)
+    assert report.conflicting_trips == (), "a missing day list was reported as a conflict"
+    assert report.applied.get("trips", 0) == 0
 
 
 # --- events re-attach only on a signature match -------------------------------------------

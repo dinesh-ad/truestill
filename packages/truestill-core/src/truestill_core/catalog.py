@@ -2038,8 +2038,13 @@ class Catalog:
         }
 
     def all_trips(self) -> list[sqlite3.Row]:
+        """Every trip, id included -- the id is how a caller joins `all_trip_days` back to it.
+
+        The id is local to this catalog and must not leave it; `decisions.gather_decisions`
+        resolves the days with it and writes the DAYS, never the id.
+        """
         return list(
-            self._conn.execute("SELECT name, slug, start_date, end_date FROM trips ORDER BY id")
+            self._conn.execute("SELECT id, name, slug, start_date, end_date FROM trips ORDER BY id")
         )
 
     def all_trip_days(self) -> dict[str, int]:

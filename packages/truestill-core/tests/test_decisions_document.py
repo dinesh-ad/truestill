@@ -34,8 +34,17 @@ _FULL = Decisions(
     drive_label="Output",
     drive_notes="the spare disk",
     settings={"layout_template": "{yyyy}/{yyyy}-{mm}", "ui.text.size": "medium"},
-    trips=({"name": "Wayanad", "slug": "wayanad", "start": "2014-08-14", "end": "2014-08-17"},),
-    trip_days={"2014-08-14": 1, "2014-08-15": 1},
+    trips=(
+        {
+            "name": "Wayanad",
+            "slug": "wayanad",
+            "start": "2014-08-14",
+            "end": "2014-08-17",
+            # A trip's days ride inside the trip. A catalog rowid does not survive the machine
+            # that minted it, and carrying one is what let a restore hand every day to trip one.
+            "days": ["2014-08-14", "2014-08-15"],
+        },
+    ),
     events=(
         {
             "name": "Gokul Marriage",

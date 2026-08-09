@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(abu). Next free: (abv).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(abx). Next free: (aby).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -62,11 +62,44 @@ is invisible here is retired, not free.**
     writing it now would fix the wording before it is chosen. The behaviour is covered by
     `test_preview_tally_is_disjoint.py`.
 
+- **(abw) ALBUM MEMBERSHIP CANNOT LEAVE THIS MACHINE - the same class as `(abv)`, waiting.**
+  Recorded 2026-08-09 from the schema while fixing `(abv)`. `file_albums` is
+  `PRIMARY KEY (file_id, album_id)`: **both are catalog rowids**, and `file_id` is a rowid rather
+  than a sha256, so album membership is **doubly** unresolvable on a machine that never saw this
+  catalog. Not live only because `gather_decisions` takes album *names* and `apply_decisions`
+  reports them under `not_applied` - the albums tables are empty today.
+  - **Whoever implements albums inherits `(abv)`'s bug** unless membership travels as content
+    hashes. The rule is already written in `decisions.py`'s module docstring: identity travels
+    inside the row it identifies. A sha256 does; a rowid does not.
+  - **`file_id` is the sharper half.** Even a self-contained album key leaves membership pointing
+    at rowids. The document must carry member **sha256s**, which is what the approved plan said
+    (`albums: name + member sha256s`) and what the gather does not yet do.
+
+- **(abx) `ApplyReport.skipped_newer_locally` carries two meanings that need opposite words.**
+  Recorded 2026-08-09 from code. Deferred **to Stage 4 deliberately**, where the multi-drive
+  merge builds the reporting this feeds - Stage 4 widens the channel rather than inventing it.
+  - `decisions.py`'s `date_confirmations` loop appends the same field from two branches: one when
+    a local confirmation is **newer** (refused, correctly), one when the catalog has **never
+    scanned that content**. Nothing is newer in the second case and nothing is overwritten.
+  - **The user actions are opposite.** "Your machine has a later correction, the drive's was
+    ignored" needs no action. "This drive holds a correction for a photo you have not scanned"
+    means: scan the other drive, re-apply. `dict.fromkeys` then collapses both to one entry, so a
+    restore hitting both reports one indistinguishable line.
+  - The field's own docstring documents only the first meaning, which is how it stayed invisible.
+    `(abv)`'s fix added two single-meaning fields rather than a third overloaded one; do the same
+    here.
+
 - **(acc) A decisions document on a drive would be found by nothing that currently looks.**
-  Recorded 2026-08-09, from code, while building the decisions-on-drive feature (Stages 1-3
-  landed; `truestill_core.decisions`). **Load-bearing for Stage 4** - moved out of a plan file in
+  Recorded 2026-08-09, from code, while building the decisions-on-drive feature
+  (`truestill_core.decisions`). **Load-bearing for Stage 4** - moved out of a plan file in
   a home directory and into the repository, because a plan file does not survive a new machine
   and `docs/ui-inventory.md` was lost twice for exactly that reason.
+  - **CORRECTED 2026-08-09: this entry said "Stages 1-3 landed" and Stage 3 is half of one.**
+    `write_decisions` exists, is atomic and is tested - and has **zero callers**. Stage 3 was
+    "the write trigger and the file"; only the file was built. **So no document has ever been
+    written to a drive**, the ongoing trigger is unbuilt, and so is the first-run-after-upgrade
+    write - the one addition aimed at the user most at risk, who has a finished library and has
+    stopped naming things. Checked by grep across core, CLI and app, not assumed.
   - **The design.** A copy of the decisions a rescan cannot recompute - trip and event names,
     drive label, settings, dismissed clusters, corrected dates - written as
     `.truestill-decisions.json` beside `.truestill-drive.json` at a drive root. Lose the catalog,

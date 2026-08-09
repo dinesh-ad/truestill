@@ -20,6 +20,14 @@ over its sorted member SHA-256s, so a restore re-clusters and matches. Identical
 reproduces the signature and the name re-attaches; a mismatch means membership changed, which is
 exactly when the name must NOT be auto-applied. Correctness first - being 221 KB smaller at full
 membership is the side effect.
+
+**IDENTITY MUST TRAVEL INSIDE THE ROW IT IDENTIFIES.** That is what makes the signature work, and
+trips needed the same treatment: their membership lives in `trip_days`, keyed by `trips.id`, and a
+rowid is meaningless on a machine that has never seen this catalog. A document that carried those
+ids looked like a mapping and was not - the first trip came back holding every other trip's days,
+which is worse than a trip going missing because a wrong trip looks like a successful restore. So
+a trip carries its OWN days. `trip_days.day` is a primary key, so days are disjoint across trips
+and a day list identifies a trip exactly, the way a signature identifies an event.
 """
 
 from __future__ import annotations
@@ -28,6 +36,7 @@ import contextlib
 import errno
 import json
 import os
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -52,7 +61,6 @@ _KNOWN_KEYS = frozenset(
         "drive",
         "settings",
         "trips",
-        "trip_days",
         "events",
         "skipped_clusters",
         "date_confirmations",
@@ -69,8 +77,8 @@ class Decisions:
     drive_label: str = ""
     drive_notes: str | None = None
     settings: dict[str, str] = field(default_factory=dict)
+    #: Each trip carries its own ``days``; see the module note on identity travelling in the row.
     trips: tuple[dict[str, Any], ...] = ()
-    trip_days: dict[str, int] = field(default_factory=dict)
     events: tuple[dict[str, Any], ...] = ()
     skipped_clusters: tuple[str, ...] = ()
     date_confirmations: tuple[dict[str, Any], ...] = ()
@@ -107,7 +115,6 @@ def to_document(decisions: Decisions) -> dict[str, Any]:
             },
             "settings": publishable_settings(decisions.settings),
             "trips": [dict(trip) for trip in decisions.trips],
-            "trip_days": dict(decisions.trip_days),
             "events": [dict(event) for event in decisions.events],
             "skipped_clusters": list(decisions.skipped_clusters),
             "date_confirmations": [dict(row) for row in decisions.date_confirmations],
@@ -135,7 +142,6 @@ def from_document(document: dict[str, Any]) -> Decisions:
         drive_notes=drive.get("notes"),
         settings=dict(document.get("settings") or {}),
         trips=tuple(dict(trip) for trip in document.get("trips") or ()),
-        trip_days=dict(document.get("trip_days") or {}),
         events=tuple(dict(event) for event in document.get("events") or ()),
         skipped_clusters=tuple(document.get("skipped_clusters") or ()),
         date_confirmations=tuple(dict(r) for r in document.get("date_confirmations") or ()),
@@ -155,6 +161,13 @@ class ApplyReport:
     #: Event names whose signature matched nothing here, so membership changed. Reported, never
     #: guessed at.
     unmatched_events: tuple[str, ...] = ()
+    #: Trips whose days are already claimed by a DIFFERENT trip here. A day belongs to at most one
+    #: trip, so these cannot be applied at all - and a skip with no channel is how the absorbed-
+    #: days defect stayed invisible. One meaning per field, deliberately.
+    conflicting_trips: tuple[str, ...] = ()
+    #: Trips the document carries no days for, so there is nowhere to put them. Distinct from a
+    #: conflict: nothing is competing, the document simply does not say which days they are.
+    trips_without_days: tuple[str, ...] = ()
     #: Sections this version carries but cannot yet apply.
     not_applied: tuple[str, ...] = ()
 
@@ -167,16 +180,25 @@ def gather_decisions(catalog: Any, drive_uuid: str) -> Decisions:
     by default. Every field here was chosen; nothing is inherited.
     """
     drive = catalog.drive_row(drive_uuid)
+    days_by_trip: dict[int, list[str]] = {}
+    for day, trip_id in catalog.all_trip_days().items():
+        days_by_trip.setdefault(int(trip_id), []).append(str(day))
     return Decisions(
         drive_uuid=str(drive["uuid"]) if drive else drive_uuid,
         drive_label=str(drive["label"]) if drive else "",
         drive_notes=drive["notes"] if drive else None,
         settings=publishable_settings(catalog.all_settings()),
         trips=tuple(
-            {"name": r["name"], "slug": r["slug"], "start": r["start_date"], "end": r["end_date"]}
+            {
+                "name": r["name"],
+                "slug": r["slug"],
+                "start": r["start_date"],
+                "end": r["end_date"],
+                # The days, not the rowid that found them. See the module note.
+                "days": sorted(days_by_trip.get(int(r["id"]), [])),
+            }
             for r in catalog.all_trips()
         ),
-        trip_days=catalog.all_trip_days(),
         events=tuple(
             {
                 "name": r["name"],
@@ -198,6 +220,52 @@ def gather_decisions(catalog: Any, drive_uuid: str) -> Decisions:
         ),
         albums=tuple({"name": name} for name in catalog.all_album_names()),
     )
+
+
+def _apply_trips(
+    catalog: Any,
+    trips: tuple[dict[str, Any], ...],
+    bump: Callable[[str], None],
+) -> tuple[list[str], list[str]]:
+    """Restore trips by their own days. Returns ``(conflicting, dayless)`` names.
+
+    **A day belongs to at most one trip** (`trip_days.day` is a primary key), which is what makes
+    a day list an identity rather than a hint - and what makes every outcome here decidable
+    without a rowid.
+    """
+    conflicting: list[str] = []
+    dayless: list[str] = []
+    # Day -> the name of the trip holding it. Read once and kept in step as trips are created, so
+    # a document that names one day twice cannot make `create_trip` fail on the day primary key.
+    claimed_days: dict[str, str] = catalog.named_trip_days()
+
+    for trip in trips:
+        name = str(trip["name"])
+        days = sorted(str(day) for day in trip.get("days") or ())
+        if not days:
+            dayless.append(name)
+            continue
+        holders = {claimed_days.get(day) for day in days}
+        if holders == {name}:
+            continue  # already restored, every day of it: a second apply is a no-op, not a clash
+        if holders != {None}:
+            # A partial claim is not a partial restore - it is a trip that cannot be applied at
+            # all. Reported rather than skipped: silence here is what let one trip absorb
+            # another's days with nothing saying so.
+            conflicting.append(name)
+            continue
+        catalog.create_trip(
+            name=name,
+            slug=str(trip["slug"]),
+            start_date=str(trip["start"]),
+            end_date=str(trip["end"]),
+            days=days,
+        )
+        for day in days:
+            claimed_days[day] = name
+        bump("trips")
+
+    return conflicting, dayless
 
 
 def apply_decisions(catalog: Any, decisions: Decisions) -> ApplyReport:  # noqa: PLR0912
@@ -224,20 +292,7 @@ def apply_decisions(catalog: Any, decisions: Decisions) -> ApplyReport:  # noqa:
             catalog.set_setting(key, value)
             bump("settings")
 
-    for trip in decisions.trips:
-        days = sorted(d for d, _ in decisions.trip_days.items())
-        if not days:
-            continue
-        if catalog.trip_for_day(days[0]) is not None:
-            continue  # already claimed: name-once, and re-creating would mint a second identity
-        catalog.create_trip(
-            name=str(trip["name"]),
-            slug=str(trip["slug"]),
-            start_date=str(trip["start"]),
-            end_date=str(trip["end"]),
-            days=days,
-        )
-        bump("trips")
+    conflicting, dayless = _apply_trips(catalog, decisions.trips, bump)
 
     for event in decisions.events:
         signature = str(event["signature"])
@@ -291,6 +346,8 @@ def apply_decisions(catalog: Any, decisions: Decisions) -> ApplyReport:  # noqa:
         applied=applied,
         skipped_newer_locally=tuple(dict.fromkeys(skipped)),
         unmatched_events=tuple(unmatched),
+        conflicting_trips=tuple(conflicting),
+        trips_without_days=tuple(dayless),
         not_applied=("albums",) if decisions.albums else (),
     )
 

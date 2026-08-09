@@ -752,6 +752,30 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   > The family resemblance across all of these: **a change you believe you made and did not.** The
   > suite is green either way, and green is exactly what it looks like.
 
+- **A fixture modelled on the current library inherits its blind spots.** The seventeenth member.
+  Not "use more rows" - that says nothing about where to look. **Ask which property of your data
+  is currently accidental, and put the second one in the fixture.**
+
+  Recorded 2026-08-09 from `(abv)`. A restore gave the first trip every other trip's days. The
+  decisions fixture seeded **one** trip, so the day-to-trip mapping was never exercised - and the
+  reason it seeded one is that **the real catalog holds exactly one trip**. The fixture was
+  faithful to the library, and being faithful to a one-trip library is what hid a defect that only
+  appears at two.
+
+  **The suite was not naively single-instance**, which is why "more rows" would have missed it:
+  `test_catalog_trips.py` creates five trips and `test_trip_review.py` two. Only the round-trip
+  that had to carry identity *off the machine* used one.
+
+  > **A count of one is not a fixture, it is a coincidence.** One trip, one drive, one event, one
+  > album, one copy - each hides every defect that needs two things to tell apart. Where the code
+  > maps, joins, merges or de-duplicates, the fixture needs two of the mapped thing, and they must
+  > be **distinguishable**: two trips on the same days would have passed this too.
+
+  *The tell:* a fixture that mirrors the maintainer's own library. It is the most tempting kind -
+  realistic, easy to justify - and it can only find bugs the maintainer has already hit.
+  Corollary, from the same day: the real catalog held zero events and zero date confirmations, so
+  the feature had only ever met seeded examples of the thing it exists to protect.
+
 - **Errors.** Exceptions typed and specific - no bare `except`. User-facing CLI errors are
   actionable sentences, not tracebacks. Every subprocess call checks its return code and
   surfaces stderr on failure. Partial-failure policy: one bad file never aborts a batch - it

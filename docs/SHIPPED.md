@@ -609,6 +609,40 @@ recording shipped work as unstarted, which is the more expensive direction of th
 anywhere (the only inheritance is `Destination` -> `Local`/`Rclone`, a genuine is-a), so there is
 no composition refactor to schedule.
 
+- **(abv) A RESTORE GAVE THE FIRST TRIP EVERY OTHER TRIP'S DAYS - FIXED 2026-08-09**, in the
+  same commit as the test that proved it. Found by reading `decisions.py`, **disputed, and then
+  demonstrated before anything was changed** - the claim was four inferences deep and plausible
+  is not proven.
+  - **The defect.** `gather_decisions` wrote `trip_days` as `day -> trips.id`, a rowid local to
+    the catalog that minted it, while the trip entries carried no id. The mapping was present in
+    the document and **unresolvable by any reader**. `apply_decisions` then handed *every* trip
+    the *entire* day set and gated on `days[0]`.
+  - **IT CORRUPTED RATHER THAN OMITTED, which is the part that matters.** Two trips in, one trip
+    out - holding all four days. Not "Goa was skipped": **Wayanad came back owning Goa's days**,
+    so those photos render under the wrong folder. `applied["trips"]` said `1`, and no channel
+    said anything else. A missing trip is visible to a user; a trip that absorbed another's days
+    is not.
+  - **Fixed at the gather, because apply cannot repair what the document discarded.** A trip now
+    carries its own `days`. `trip_days.day` is a primary key, so days are disjoint across trips
+    and a day list identifies a trip exactly - the same property that makes `events.signature`
+    work, which is why events were never affected (proved by a passing two-event test written at
+    the same time). The redundant top-level `trip_days` map is gone: two representations of one
+    fact can disagree, and the one that would have won is the one that caused this.
+  - **Rejected: keying by slug.** `trips.slug` has **no UNIQUE constraint** (checked in the
+    schema, not assumed), unlike `events.signature` - two trips may legally share one and the
+    mapping would be ambiguous again. No schema change was needed.
+  - **A silent skip now has a channel.** `ApplyReport` gained `conflicting_trips` (days already
+    claimed by a different trip) and `trips_without_days`, deliberately two single-meaning fields
+    rather than one overloaded one - see `(abx)` for the field that got that wrong.
+  - **Why it survived: the real catalog holds exactly one trip.** The suite is not naively
+    single-instance - `test_catalog_trips.py` creates five - but the decisions fixture was
+    modelled on the library and inherited its blind spot. That lesson is now
+    `ENGINEERING_STANDARD.md` §4's seventeenth member.
+  - **The real catalog also holds zero events and zero date confirmations**, so until this commit
+    the restore path had only ever met *seeded* examples of the decisions it exists to protect.
+    The round-trip was run against a copy of the real 6.4 MB catalog as part of the fix: two
+    trips, 5 settings and 6 skipped clusters out and back identical, 1,353 bytes, no `path_hint`.
+
 ## Shipped (kept for provenance)
 
 - ~~**(mm) `migrate.py` asks the wrong template how an event folder is spelled.**~~ **Delivered.**
