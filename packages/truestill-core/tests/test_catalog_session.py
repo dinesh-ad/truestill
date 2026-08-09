@@ -196,12 +196,13 @@ def test_a_failed_save_is_recorded_where_a_surface_can_find_it(tmp_path: Path) -
         _drive(setup, root)
         _already_upgraded(setup)
 
-    root.chmod(0o500)
-    try:
-        with open_catalog(db) as catalog:
-            catalog.record_skip("b" * 64)
-    finally:
-        root.chmod(0o700)
+    # A directory where the document goes, rather than a read-only drive: `chmod` on a directory
+    # is a no-op on Windows, so a permission-based obstruction would leave this property proven
+    # on two platforms out of three.
+    (root / DECISIONS_NAME).mkdir()
+
+    with open_catalog(db) as catalog:
+        catalog.record_skip("b" * 64)
 
     with Catalog(db) as after:
         assert after.get_setting(f"decisions.problem.{_UUID}")

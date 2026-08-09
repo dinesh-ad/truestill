@@ -17,8 +17,11 @@ lose them does not happen and is reported instead.
 from __future__ import annotations
 
 import json
+import os
+import sys
 from pathlib import Path
 
+import pytest
 from truestill_core.catalog import Catalog
 from truestill_core.decisions import (
     DECISIONS_NAME,
@@ -189,15 +192,44 @@ def test_an_unreachable_drive_is_reported_and_nothing_is_written(tmp_path: Path)
     assert not list(gone.iterdir()), "a document was written to a path this drive is not at"
 
 
-def test_a_read_only_drive_is_reported_and_the_others_still_get_theirs(tmp_path: Path) -> None:
-    """One bad drive never costs the others their copy. The user's own operation must not fail
-    either - naming a trip that succeeds locally and reports a failed backup is the trade."""
-    locked = tmp_path / "locked"
+def test_a_drive_that_cannot_take_the_document_never_costs_the_others_theirs(
+    tmp_path: Path,
+) -> None:
+    """ONE BAD DRIVE NEVER COSTS THE OTHERS THEIR COPY, on every platform.
+
+    The obstruction is a directory sitting where the document goes, rather than a read-only
+    drive: `chmod` on a directory does nothing on Windows, so a permission-based version of this
+    test passes there for the wrong reason and proves isolation on two platforms out of three.
+    The realistic read-only case is covered below, POSIX-only and marked as such.
+    """
+    blocked = tmp_path / "blocked"
     fine = tmp_path / "fine"
 
     with Catalog(tmp_path / "c.sqlite") as catalog:
-        _register(catalog, locked, _UUID_A, "Locked")
+        _register(catalog, blocked, _UUID_A, "Blocked")
         _register(catalog, fine, _UUID_B, "Fine")
+        _with_a_trip(catalog)
+        (blocked / DECISIONS_NAME).mkdir()
+        results = save_decisions_to_reachable_drives(catalog, stamp=_STAMP)
+
+    by_uuid = {r.uuid: r for r in results}
+    assert by_uuid[_UUID_A].outcome is SaveOutcome.FAILED
+    assert by_uuid[_UUID_A].detail
+    assert by_uuid[_UUID_B].outcome is SaveOutcome.WRITTEN
+    assert (fine / DECISIONS_NAME).exists()
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32" or os.geteuid() == 0,
+    reason="a read-only directory is POSIX permissions, and root ignores them",
+)
+def test_a_read_only_drive_is_reported_rather_than_written_to(tmp_path: Path) -> None:
+    """The realistic shape of the case above: a disk with the write-protect tab on, which is a
+    normal Tuesday for removable media rather than an exception."""
+    locked = tmp_path / "locked"
+
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        _register(catalog, locked, _UUID_A, "Locked")
         _with_a_trip(catalog)
         locked.chmod(0o500)
         try:
@@ -205,11 +237,8 @@ def test_a_read_only_drive_is_reported_and_the_others_still_get_theirs(tmp_path:
         finally:
             locked.chmod(0o700)
 
-    by_uuid = {r.uuid: r for r in results}
-    assert by_uuid[_UUID_A].outcome is SaveOutcome.FAILED
-    assert by_uuid[_UUID_A].detail
-    assert by_uuid[_UUID_B].outcome is SaveOutcome.WRITTEN
-    assert (fine / DECISIONS_NAME).exists()
+    assert results[0].outcome is SaveOutcome.FAILED
+    assert not (locked / DECISIONS_NAME).exists()
 
 
 # --- the upgrade write ---------------------------------------------------------------------

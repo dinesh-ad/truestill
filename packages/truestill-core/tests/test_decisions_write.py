@@ -18,6 +18,7 @@ from __future__ import annotations
 import errno
 import json
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -117,8 +118,17 @@ def test_the_temporary_file_sits_beside_the_target(tmp_path: Path) -> None:
 # --- failure is reported, never raised ----------------------------------------------------
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32" or os.geteuid() == 0,
+    reason="a read-only directory is POSIX permissions, and root ignores them",
+)
 def test_a_read_only_drive_is_reported_rather_than_raised(tmp_path: Path) -> None:
-    """A disk with the write-protect tab on is a normal Tuesday, not an exception."""
+    """A disk with the write-protect tab on is a normal Tuesday, not an exception.
+
+    POSIX-only, and it took a Windows CI lane to find out: `chmod(0o500)` on a directory does
+    nothing there, so this asserted a failure that could not happen. One condition, platform
+    first - see `test_platform_skips_collect_everywhere.py`.
+    """
     root = tmp_path / "drive"
     root.mkdir()
     root.chmod(0o500)
