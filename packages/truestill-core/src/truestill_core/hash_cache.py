@@ -166,9 +166,18 @@ class HashCache:
         Read-only never creates the file, never creates its parent, and never repairs a schema
         it does not recognise -- an unknown version is refused rather than migrated, because
         migrating is a write.
+
+        **`foreign_keys` is set on both, and it changes nothing today.** SQLite defaults it OFF
+        per connection, and this schema declares no `REFERENCES` clause - so this is set for the
+        day one is added, because an unenforced foreign key does not fail: it silently accepts
+        orphans while the schema says it cannot. This is the only connection in the codebase that
+        is not a `Catalog` (three `sqlite3.connect` sites in `packages/*/src`, `scripts/` and
+        `packaging/`; the other is `Catalog.__init__`), so it is the one place the setting could
+        drift out of step unnoticed.
         """
         if not writable:
             conn = sqlite3.connect(f"{path.absolute().as_uri()}?mode=ro", uri=True)
+            conn.execute("PRAGMA foreign_keys = ON")
             if conn.execute("PRAGMA user_version").fetchone()[0] != SCHEMA_VERSION:
                 conn.close()
                 message = "read-only hash cache is at an unrecognised schema version"
@@ -176,6 +185,7 @@ class HashCache:
             return conn
         path.parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(path)
+        conn.execute("PRAGMA foreign_keys = ON")
         if conn.execute("PRAGMA user_version").fetchone()[0] != SCHEMA_VERSION:
             conn.executescript("DROP TABLE IF EXISTS hash_cache;")
             conn.executescript(_SCHEMA)
