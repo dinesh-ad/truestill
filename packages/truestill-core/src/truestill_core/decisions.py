@@ -36,7 +36,7 @@ import contextlib
 import errno
 import json
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -160,6 +160,184 @@ def from_document(document: dict[str, Any]) -> Decisions:
         albums=tuple(dict(a) for a in document.get("albums") or ()),
         written=str(document.get("written") or ""),
         unknown={k: v for k, v in document.items() if k not in _KNOWN_KEYS},
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class Superseded:
+    """One drive's values for one section that were older and were not used.
+
+    Structured rather than a sentence: `IMPLEMENTATION_STANDARDS` §2 leaves wording to the
+    surfaces, and "3 trip names on Backup B were older and were not used" is one phrasing of
+    this, not the only one a screen might want.
+    """
+
+    section: str
+    drive_label: str
+    count: int
+
+
+@dataclass(frozen=True, slots=True)
+class ReconcileReport:
+    """What the merge chose against, so a winner is never silent.
+
+    A silent winner is the same defect as a silent skip: the user is told what came back and
+    never told what did not, and the decision they are missing is the one they will look for.
+    """
+
+    superseded: tuple[Superseded, ...] = ()
+    #: Drives whose document carried no `written` stamp. They contribute, but never overrule.
+    undated: tuple[str, ...] = ()
+
+
+def _ranked(documents: Sequence[Decisions]) -> list[Decisions]:
+    """Documents newest first, and **deterministically** so.
+
+    Two sorts rather than one key, because the two directions differ: `drive_uuid` ascending
+    breaks ties, `written` descending orders the rest. Python's sort is stable, so the uuid order
+    survives inside each stamp.
+
+    **Ties are ordinary, not exotic:** one save writes to every reachable drive with a single
+    stamp, so most reconciles are entirely ties. Falling back to argument order would make the
+    answer depend on the order drives happened to be listed in, which is dict order wearing a
+    different hat.
+
+    **An undated document sorts last, and is not dropped.** Hand-edited or truncated, it is still
+    someone's names, so it supplies anything nothing else has - but it cannot be trusted to
+    overrule a document that says when it was written.
+    """
+    ordered = sorted(documents, key=lambda d: d.drive_uuid)
+    # `""` is lexicographically below every stamp, so descending order puts undated documents
+    # last with no special case. A `bool(d.written)` component was written here first and a
+    # mutation removing it killed no test - it could not, because it can never change the order.
+    ordered.sort(key=lambda d: d.written, reverse=True)
+    return ordered
+
+
+def _merge_section(
+    ranked: Sequence[Decisions],
+    section: str,
+    rows_of: Callable[[Decisions], Sequence[dict[str, Any]]],
+    key_of: Callable[[dict[str, Any]], object],
+    losses: list[Superseded],
+) -> tuple[dict[str, Any], ...]:
+    """First value per identity key wins, in ranked order. **Per decision, never per document.**
+
+    That is the whole distinction: "take the newest document's sections" would let a freshly
+    formatted drive - whose empty document is by definition the newest - erase a full one.
+
+    A later document holding an **identical** value is not reported. One save writes the same
+    document to every drive, so most reconciles see several identical copies, and calling each a
+    superseded loser would bury the one real disagreement in a list of non-events.
+    """
+    chosen: dict[object, dict[str, Any]] = {}
+    beaten: dict[str, int] = {}
+    for document in ranked:
+        for row in rows_of(document):
+            key = key_of(row)
+            if key not in chosen:
+                chosen[key] = row
+            elif chosen[key] != row:
+                label = document.drive_label or document.drive_uuid
+                beaten[label] = beaten.get(label, 0) + 1
+    losses.extend(Superseded(section, label, count) for label, count in beaten.items())
+    return tuple(chosen.values())
+
+
+def _merge_confirmations(
+    ranked: Sequence[Decisions], losses: list[Superseded]
+) -> tuple[dict[str, Any], ...]:
+    """Corrected dates, resolved on the ROW's ``confirmed_at`` rather than the document's stamp.
+
+    **The exception, and it is not a detail.** A drive written last week can carry a correction a
+    human made today on another machine: the document is old, the decision inside it is not.
+    Every other section resolves on `written` because that is when the drive last heard about it;
+    this one cannot, because a corrected date is the only decision with no second source. Losing
+    it is unrecoverable - re-reading the file reproduces the wrong answer the human overruled.
+
+    Ties on `confirmed_at` fall back to document rank, so the answer stays deterministic.
+    """
+    best: dict[str, tuple[str, str, dict[str, Any]]] = {}  # sha -> (confirmed_at, label, row)
+    beaten: dict[str, int] = {}
+
+    def lost(label: str) -> None:
+        beaten[label] = beaten.get(label, 0) + 1
+
+    for document in ranked:
+        label = document.drive_label or document.drive_uuid
+        for row in document.date_confirmations:
+            sha = str(row.get("sha256") or "")
+            at = str(row.get("confirmed_at") or "")
+            current = best.get(sha)
+            if current is None:
+                best[sha] = (at, label, row)
+            elif at > current[0]:
+                if row != current[2]:
+                    lost(current[1])
+                best[sha] = (at, label, row)
+            elif row != current[2]:
+                lost(label)
+
+    losses.extend(Superseded("date_confirmations", label, n) for label, n in beaten.items())
+    return tuple(row for _, _, row in (best[sha] for sha in sorted(best)))
+
+
+def _trip_key(trip: dict[str, Any]) -> object:
+    """A trip's identity is its DAY SET, not its name.
+
+    `(abv)`: the days are what survive leaving a catalog, and `trip_days.day` is a primary key so
+    they are disjoint across trips. The consequence here is that **same days with a different
+    name is a RENAME** - the newer name wins - rather than two trips or a conflict to escalate.
+    """
+    return tuple(sorted(str(day) for day in trip.get("days") or ()))
+
+
+def reconcile_documents(documents: Sequence[Decisions]) -> tuple[Decisions, ReconcileReport]:
+    """Merge the documents from several drives into one set of decisions.
+
+    **Newest wins per decision.** Every section resolves on the document's `written` stamp, with
+    one exception that is not a detail: `date_confirmations` resolves on its own `confirmed_at`.
+    A drive written last week can carry a correction a human made today on another machine, and a
+    corrected date is the only decision with no second source - re-reading the file reproduces
+    the wrong answer they overruled. Resolving it by document stamp loses it silently.
+
+    **The drive block is not merged.** Each document describes a different drive, so there is no
+    single answer; the result carries none and the caller applies each document's own. Collapsing
+    them would invent a drive that does not exist.
+    """
+    ranked = _ranked(documents)
+    losses: list[Superseded] = []
+    confirmations = _merge_confirmations(ranked, losses)
+
+    # Newest document wins per key; oldest applied first so later ones overwrite. Disagreements
+    # are NOT reported: UI preferences churn per machine and per version, so a difference here is
+    # not evidence of anyone's decision being overruled - the same reason `would_lose` ignores
+    # them.
+    settings: dict[str, str] = {}
+    for document in reversed(ranked):
+        settings.update(document.settings)
+
+    skipped: dict[str, None] = {}
+    for document in ranked:
+        for signature in document.skipped_clusters:
+            skipped.setdefault(str(signature), None)
+
+    merged = Decisions(
+        settings=settings,
+        trips=_merge_section(ranked, "trips", lambda d: d.trips, _trip_key, losses),
+        events=_merge_section(
+            ranked, "events", lambda d: d.events, lambda e: str(e.get("signature") or ""), losses
+        ),
+        skipped_clusters=tuple(sorted(skipped)),
+        date_confirmations=confirmations,
+        albums=_merge_section(
+            ranked, "albums", lambda d: d.albums, lambda a: str(a.get("name") or ""), losses
+        ),
+        written=ranked[0].written if ranked else "",
+    )
+    return merged, ReconcileReport(
+        superseded=tuple(losses),
+        undated=tuple(d.drive_label or d.drive_uuid for d in ranked if not d.written),
     )
 
 

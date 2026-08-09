@@ -246,10 +246,43 @@ exception of the path hints, which is why they go.
   output, and a plain sentence when a reachable drive's copy is older than the catalog's newest
   decision. That single line is the entire lesson from the Adobe threads. Not a modal: a one-off
   notice that must be dismissed is a worse version of Lightroom's weekly prompt.
-- **Disagreement, when restore is built.** Newest `written` wins per decision, and the loser is
-  **reported, not discarded**. Decisions for files a drive does not contain are **kept** - a trip
-  name is not owned by the drive that happens to hold a copy. Event names re-attach only where a
-  re-clustered signature matches; the rest are reported as needing review.
+- **Disagreement, when restore is built.** Decisions for files a drive does not contain are
+  **kept** - a trip name is not owned by the drive that happens to hold a copy. Event names
+  re-attach only where a re-clustered signature matches; the rest are reported as needing review.
+
+## Reconciling several drives (built 2026-08-09)
+
+**Newest wins PER DECISION, never per document**, and that distinction is the whole design. "Take
+the newest document's sections" is the obvious implementation, and it is how a freshly formatted
+backup drive - whose empty document is by definition the newest - erases a full one. Pinned by a
+test that plugs a blank newest drive in beside a full old one and asserts nothing is lost.
+
+**`date_confirmations` is the exception.** Everything else resolves on the document's `written`
+stamp, because that is when the drive last heard about it. A corrected date resolves on its own
+**`confirmed_at`**: a drive written last week can carry a correction a human made today on
+another machine, and it is the only decision with no second source, so resolving it by document
+stamp discards it silently. That is the first test in the file, written before the exception
+existed and watched to fail.
+
+**A trip's identity is its day set** (`(abv)`), so the same days under a different name is a
+**rename** - newest name wins - rather than a conflict.
+
+Three cases decided rather than left to fall out:
+
+| case | rule | why |
+|---|---|---|
+| same `written` on two documents | lower `drive_uuid` wins | one save writes to every drive with one stamp, so ties are the *ordinary* case; argument order would be dict order wearing a different hat |
+| no `written` at all | participates, sorts last | hand-edited or truncated, it is still someone's names - but it cannot be trusted to overrule a dated document, so it supplies only what nothing else has |
+| a document that is empty | supplies nothing, overwrites nothing | falls out of resolving per decision rather than per document |
+
+**The loser is reported, never discarded** - `ReconcileReport.superseded` carries section, drive
+label and count, so a surface can say *"3 trip names on Backup B were older and were not used"*.
+A silent winner is the same defect as a silent skip. **Identical copies are not reported**: one
+save writes the same document to every drive, so most reconciles see several, and calling each a
+loser would bury the one real disagreement in a list of non-events.
+
+**Settings are the one section whose disagreements are not reported**, because UI preferences
+churn per machine and per version - the same reason the write-side loss guard ignores them.
 
 ## What the tests are worth, and one honest gap
 
