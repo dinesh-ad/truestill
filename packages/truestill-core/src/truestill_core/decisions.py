@@ -630,6 +630,66 @@ def apply_documents(
     return RestoreReport(reconciled=reconciled, applied=report)
 
 
+@dataclass(frozen=True, slots=True)
+class DriveNotice:
+    """What a surface should say about the decisions sitting on one drive.
+
+    **Recognition and wording live here; presentation stays with each surface** - the same split
+    `catalog_busy` makes, and for the same reason: `truestill-cli` and `truestill-app` share only
+    core, and §4 rules that one contract written twice gets one home rather than a second test.
+    """
+
+    #: The document's own `written` stamp, read from the drive. Never stored locally: the drive's
+    #: copy is the truth about the drive, and a second copy here could disagree with it.
+    saved_at: str = ""
+    #: Sections this drive carries that the catalog does not - the offer to restore. Empty on
+    #: every ordinary re-attach, which is what keeps this signal rather than noise.
+    awaiting_restore: tuple[str, ...] = ()
+    #: The three-line refusal, when this version must not read the document at all.
+    refusal: str | None = None
+
+
+def refusal_for(root: Path, version: int) -> str:
+    """What a person sees when their drive's document is newer than this Truestill.
+
+    **The order is the message.** Safe and readable first, because the person hitting this is
+    least equipped to diagnose it and most likely to be mid-crisis - "we cannot read your backup"
+    without that line reads as data loss. Then why. Then the remedy, naming the command.
+
+    **Nothing here offers to fix, convert or overwrite it.** The dangerous action is the one an
+    anxious user would most want, and it must not be on offer.
+    """
+    return (
+        f"Your names are safe and readable: {root / DECISIONS_NAME}\n"
+        "is plain text and opens in any editor, with no Truestill at all.\n"
+        f"This version cannot use them - they were written by a newer Truestill "
+        f"(format {version}; this one reads {FORMAT_VERSION}).\n"
+        f"Upgrade Truestill, then run:  truestill restore {root}"
+    )
+
+
+def notice_for(root: Path, mine: Decisions) -> DriveNotice | None:
+    """What to say about ``root``'s decisions, given what this catalog already holds.
+
+    ``None`` when the drive carries no document at all, which is most folders: silence rather
+    than a line reporting the absence of something.
+
+    **The caller gathers ``mine`` once.** A listing walks every reachable drive, and gathering the
+    catalog's decisions per drive would turn one full read into N.
+    """
+    found = read_decisions(root)
+    if not found.found:
+        return None
+    if found.too_new:
+        return DriveNotice(refusal=refusal_for(root, found.format_version))
+    if found.decisions is None:
+        return DriveNotice()
+    return DriveNotice(
+        saved_at=found.decisions.written,
+        awaiting_restore=would_lose(found.decisions, mine),
+    )
+
+
 #: The document's filename, beside `.truestill-drive.json` at a drive root. A sibling rather than
 #: a section of the marker: the marker is identity - tiny, stable, read on every reach check - and
 #: this churns.

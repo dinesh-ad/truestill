@@ -13,10 +13,25 @@ from __future__ import annotations
 from pathlib import Path
 
 from truestill_core.catalog import Catalog
-from truestill_core.decisions import Decisions, apply_documents, reconcile_documents
+from truestill_core.decisions import (
+    DECISIONS_NAME,
+    Decisions,
+    apply_documents,
+    notice_for,
+    reconcile_documents,
+    write_decisions,
+)
 
 _A = "19411f16-8a00-4873-9b32-04c595eebbe1"
 _B = "7641a720-2c1f-4f0e-9a5f-2b1d3c4e5f60"
+_WRITTEN = "2026-08-01T00:00:00+00:00"
+_TRIP = {
+    "name": "Wayanad",
+    "slug": "w",
+    "start": "2014-08-14",
+    "end": "2014-08-14",
+    "days": ["2014-08-14"],
+}
 
 
 def test_the_reconciled_result_carries_no_drive_block() -> None:
@@ -231,3 +246,73 @@ def test_a_preview_writes_nothing_at_all(tmp_path: Path) -> None:
         assert after.skipped_signatures() == frozenset()
         assert after.registered_drives() == []
     assert report.applied.applied.get("trips") == 1, "the preview reported nothing to do"
+
+
+# --- what a surface should say about one drive ---------------------------------------------
+
+
+def test_a_drive_carrying_decisions_this_catalog_lacks_is_offered(tmp_path: Path) -> None:
+    """THE LOST-MACHINE SIGNAL. The drive is plugged in and carries names this catalog has never
+    had; without this the user has a rescue file, a working command, and no way to learn either
+    exists."""
+    root = tmp_path / "drive"
+    root.mkdir()
+    write_decisions(
+        root, Decisions(drive_uuid=_A, drive_label="Output", written=_WRITTEN, trips=(_TRIP,))
+    )
+
+    notice = notice_for(root, Decisions())
+
+    assert notice is not None
+    assert notice.awaiting_restore == ("trips",)
+    assert notice.saved_at == _WRITTEN
+    assert notice.refusal is None
+
+
+def test_a_drive_whose_decisions_this_catalog_already_holds_is_not_offered(tmp_path: Path) -> None:
+    """CRY-WOLF HALF, and the one that decides whether this is signal or noise. Every ordinary
+    re-attach hits this: the drive's copy is the catalog's copy, so an offer to restore it would
+    appear on every drive, every listing, forever - and be learned as something to ignore."""
+    root = tmp_path / "drive"
+    root.mkdir()
+    mine = Decisions(drive_uuid=_A, drive_label="Output", written=_WRITTEN, trips=(_TRIP,))
+    write_decisions(root, mine)
+
+    notice = notice_for(root, mine)
+
+    assert notice is not None
+    assert notice.awaiting_restore == ()
+    assert notice.saved_at == _WRITTEN
+
+
+def test_a_root_with_no_document_has_nothing_to_say(tmp_path: Path) -> None:
+    """Most folders are not carrying decisions. Silence, not a line saying there is nothing."""
+    root = tmp_path / "drive"
+    root.mkdir()
+
+    assert notice_for(root, Decisions()) is None
+
+
+def test_a_refused_document_leads_with_the_names_being_safe(tmp_path: Path) -> None:
+    """THE ORDER IS THE POINT. The person hitting this is least equipped to diagnose it and most
+    likely to be mid-crisis, and "we cannot read your backup" without the first line reads as
+    data loss. Safe and readable, then why, then the remedy - and no offer to fix, convert or
+    overwrite, because the dangerous action is the one an anxious user would most want.
+    """
+    root = tmp_path / "drive"
+    root.mkdir()
+    (root / DECISIONS_NAME).write_text('{"format": 9, "written": "2026-09-01"}', encoding="utf-8")
+
+    notice = notice_for(root, Decisions())
+
+    assert notice is not None
+    assert notice.refusal is not None
+    lines = notice.refusal.splitlines()
+    safe = next(i for i, line in enumerate(lines) if "safe" in line.lower())
+    cannot = next(i for i, line in enumerate(lines) if "cannot" in line.lower())
+    remedy = next(i for i, line in enumerate(lines) if "upgrade" in line.lower())
+    assert safe < cannot < remedy, f"the refusal leads with the wrong thing:\n{notice.refusal}"
+    assert "restore" in notice.refusal, "the remedy does not name the command to run"
+    for dangerous in ("overwrite", "convert", "discard", "delete"):
+        assert dangerous not in notice.refusal.lower(), f"the refusal offers to {dangerous}"
+    assert notice.awaiting_restore == (), "a refused document was also offered for restore"

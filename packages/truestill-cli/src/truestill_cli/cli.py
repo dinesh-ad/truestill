@@ -58,6 +58,7 @@ from truestill_core.decisions import (
     apply_documents,
     gather_decisions,
     merge_onto_drive,
+    notice_for,
     read_decisions,
     would_lose,
     write_decisions,
@@ -813,6 +814,7 @@ def _cmd_drives(args: argparse.Namespace) -> int:
             f"{'LABEL':<20}{'FILES':>8}{'SIZE(MB)':>12}  {'STATUS':<10}"
             f"{'LAST SEEN':<22}LAST VERIFIED"
         )
+        connected: list[tuple[Path, str]] = []
         for d in drives:
             size_mb = (d["total_size"] or 0) / 1e6
             # Not a boolean. "unknown" is the ordinary state for a drive this machine has never
@@ -823,6 +825,19 @@ def _cmd_drives(args: argparse.Namespace) -> int:
                 f"{d['label']:<20}{d['file_count']:>8}{size_mb:>12.1f}  {reach.value:<10}"
                 f"{(d['last_seen'] or '-')[:19]:<22}{(d['last_verified'] or 'never')[:19]}"
             )
+            if reach is DriveReach.CONNECTED:
+                connected.append(
+                    (
+                        Path(str(catalog.get_setting(drive_path_hint(d["uuid"])))),
+                        str(d["label"]),
+                    )
+                )
+        # Gathered ONCE, after the rows: doing it per drive would turn one full catalog read
+        # into one per drive, on a screen people open often.
+        if connected:
+            mine = gather_decisions(catalog, "")
+            for root, label in connected:
+                _print_drive_notice(root, mine, label)
     return 0
 
 
@@ -875,6 +890,28 @@ def _print_adoption_refusal(path: Path, offers: list[AdoptionOffer]) -> None:
         )
 
 
+def _print_drive_notice(root: Path, mine: Decisions, label: str) -> None:
+    """Say what a drive is carrying, when there is something to say.
+
+    **Two screens, because neither covers the other.** This is the lost-machine path from
+    `--init` and the partial case from the listing; `drives` on an empty catalog iterates zero
+    rows and touches no path, so it cannot be the only place. `(acc)` was corrected on 2026-08-09
+    to say so.
+
+    Costs one document read at a root the caller already has open - no walk, no scan.
+    """
+    notice = notice_for(root, mine)
+    if notice is None:
+        return
+    if notice.refusal is not None:
+        print(f"\n{notice.refusal}")
+        return
+    if notice.awaiting_restore:
+        sections = ", ".join(s.replace("_", " ") for s in notice.awaiting_restore)
+        print(f"\n{label} is carrying decisions this catalog does not have: {sections}.")
+        print(f"Look at them, and restore them, with:  truestill restore {root}")
+
+
 def _init_drive(args: argparse.Namespace, catalog: Catalog) -> int:
     """Register a folder as a drive, refusing to mint a second identity for a known library."""
     offers = (
@@ -908,6 +945,7 @@ def _init_drive(args: argparse.Namespace, catalog: Catalog) -> int:
     catalog.set_setting(drive_path_hint(marker.uuid), str(args.init))
     verb = "re-attached" if adopt else "initialised"
     print(f"Drive '{marker.label}' {verb} at {args.init}  (uuid {marker.uuid}).")
+    _print_drive_notice(args.init, gather_decisions(catalog, marker.uuid), "This drive")
     return 0
 
 

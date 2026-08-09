@@ -133,6 +133,20 @@ is invisible here is retired, not free.**
     carries a decisions document and the catalog holds none for it - the lost-machine case
     exactly - the listing says so and names the restore command. No new scan, no new surface, and
     it appears on the screen someone opens first after plugging a drive in.
+  - ⚠ **CORRECTED 2026-08-09: THE LISTING IS THE WRONG PLACE FOR THE CASE THIS ENTRY NAMES**, and
+    the error is mine - the finding was approved without checking where the listing looks.
+    `_cmd_drives` iterates `catalog.list_drives()`. **On a lost-machine catalog that is zero
+    rows**, so it prints the initialise hint and touches no path at all: the sibling `stat` never
+    happens for the very user this was filed for.
+    - **The lost-machine path is `drives --init <root>`**, which already holds the root, already
+      reads the marker there, and already has `--adopt-existing` for re-attach.
+    - **The listing keeps its stat too, for the PARTIAL case** - a catalog that exists, a drive
+      that is registered, and decisions on it this machine does not have. Neither place covers
+      the other, which is why both are wired.
+    - **BUILT 2026-08-09.** `decisions.notice_for` decides what to say; both CLI screens print
+      it. Measured rather than assumed: the catalog read the listing gained is **0.10 ms** on the
+      real catalog against `list_drives`' existing 1.79 ms, and **4.48 ms** on a catalog stressed
+      to 501 trips, 2000 events and 2006 skipped clusters - far past any real library.
   - **Not a reason to widen `reach_of`.** Its cheapness is the feature; a listing that walked
     drives would be worse than the problem. The `stat` belongs where the marker read already is.
 
