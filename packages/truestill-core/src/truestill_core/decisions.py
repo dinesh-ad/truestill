@@ -138,3 +138,153 @@ def from_document(document: dict[str, Any]) -> Decisions:
         written=str(document.get("written") or ""),
         unknown={k: v for k, v in document.items() if k not in _KNOWN_KEYS},
     )
+
+
+@dataclass(frozen=True, slots=True)
+class ApplyReport:
+    """What an apply changed, and what it deliberately did not."""
+
+    applied: dict[str, int] = field(default_factory=dict)
+    #: Decisions the catalog already held in a NEWER form. Skipped, never overwritten.
+    skipped_newer_locally: tuple[str, ...] = ()
+    #: Event names whose signature matched nothing here, so membership changed. Reported, never
+    #: guessed at.
+    unmatched_events: tuple[str, ...] = ()
+    #: Sections this version carries but cannot yet apply.
+    not_applied: tuple[str, ...] = ()
+
+
+def gather_decisions(catalog: Any, drive_uuid: str) -> Decisions:
+    """Read the decisions a rescan could not recompute. **Read-only; writes nothing.**
+
+    Column-by-column rather than ``SELECT *``, and that is the privacy guard rather than a style
+    preference: a new column added to `files` or `settings` later cannot arrive on a user's drive
+    by default. Every field here was chosen; nothing is inherited.
+    """
+    drive = catalog.drive_row(drive_uuid)
+    return Decisions(
+        drive_uuid=str(drive["uuid"]) if drive else drive_uuid,
+        drive_label=str(drive["label"]) if drive else "",
+        drive_notes=drive["notes"] if drive else None,
+        settings=publishable_settings(catalog.all_settings()),
+        trips=tuple(
+            {"name": r["name"], "slug": r["slug"], "start": r["start_date"], "end": r["end_date"]}
+            for r in catalog.all_trips()
+        ),
+        trip_days=catalog.all_trip_days(),
+        events=tuple(
+            {
+                "name": r["name"],
+                "slug": r["slug"],
+                "start": r["start_date"],
+                "signature": r["signature"],
+            }
+            for r in catalog.all_events()
+        ),
+        skipped_clusters=tuple(str(r) for r in sorted(catalog.skipped_signatures())),
+        date_confirmations=tuple(
+            {
+                "sha256": r["sha256"],
+                "captured_at": r["captured_at"],
+                "confirmed_at": r["confirmed_at"],
+                "confirmed_by": r["confirmed_by"],
+            }
+            for r in catalog.all_date_confirmations()
+        ),
+        albums=tuple({"name": name} for name in catalog.all_album_names()),
+    )
+
+
+def apply_decisions(catalog: Any, decisions: Decisions) -> ApplyReport:  # noqa: PLR0912
+    """Write the decisions into a catalog. **Idempotent**: a second apply changes nothing.
+
+    Every branch asks whether the catalog already holds this decision before writing, so the count
+    reported is what actually changed rather than what was offered.
+    """
+    applied: dict[str, int] = {}
+    skipped: list[str] = []
+    unmatched: list[str] = []
+
+    def bump(section: str) -> None:
+        applied[section] = applied.get(section, 0) + 1
+
+    if decisions.drive_uuid:
+        row = catalog.drive_row(decisions.drive_uuid)
+        if row is None or (decisions.drive_label and row["label"] != decisions.drive_label):
+            catalog.upsert_drive(uuid=decisions.drive_uuid, label=decisions.drive_label or "drive")
+            bump("drive")
+
+    for key, value in decisions.settings.items():
+        if catalog.get_setting(key) != value:
+            catalog.set_setting(key, value)
+            bump("settings")
+
+    for trip in decisions.trips:
+        days = sorted(d for d, _ in decisions.trip_days.items())
+        if not days:
+            continue
+        if catalog.trip_for_day(days[0]) is not None:
+            continue  # already claimed: name-once, and re-creating would mint a second identity
+        catalog.create_trip(
+            name=str(trip["name"]),
+            slug=str(trip["slug"]),
+            start_date=str(trip["start"]),
+            end_date=str(trip["end"]),
+            days=days,
+        )
+        bump("trips")
+
+    for event in decisions.events:
+        signature = str(event["signature"])
+        existing = catalog.event_by_signature(signature)
+        if existing is None:
+            # Membership changed, so this is not that event. Reported, never guessed at - the same
+            # distinction the screen makes when it declines to claim a grown cluster is named.
+            unmatched.append(str(event["name"]))
+            continue
+        if existing["name"] != event["name"]:
+            catalog.record_event(
+                name=str(event["name"]),
+                slug=str(event["slug"]),
+                start_date=str(event["start"]),
+                file_count=int(existing["file_count"] or 0),
+                signature=signature,
+            )
+            bump("events")
+
+    known_skips = catalog.skipped_signatures()
+    for signature in decisions.skipped_clusters:
+        if signature not in known_skips:
+            catalog.record_skip(signature)
+            bump("skipped_clusters")
+
+    for confirmation in decisions.date_confirmations:
+        sha = str(confirmation["sha256"])
+        incoming_at = str(confirmation.get("confirmed_at") or "")
+        held = catalog.date_confirmation_for(sha)
+        if held is not None:
+            # NEVER overwrite a later correction with an earlier one. This is the only decision
+            # with no second source: the file reproduces the wrong answer the human corrected, so
+            # an overwrite is unrecoverable. Ties count as already-held, not as a change.
+            if str(held["confirmed_at"] or "") >= incoming_at:
+                if str(held["captured_at"]) != str(confirmation["captured_at"]):
+                    skipped.append("date_confirmations")
+                continue
+        elif not catalog.knows_content(sha):
+            # The content is not in this catalog yet. The confirmation is kept in the document and
+            # simply not applied; a later scan plus a re-apply lands it.
+            skipped.append("date_confirmations")
+            continue
+        catalog.confirm_date(
+            sha,
+            str(confirmation["captured_at"]),
+            confirmed_by=confirmation.get("confirmed_by"),
+        )
+        bump("date_confirmations")
+
+    return ApplyReport(
+        applied=applied,
+        skipped_newer_locally=tuple(dict.fromkeys(skipped)),
+        unmatched_events=tuple(unmatched),
+        not_applied=("albums",) if decisions.albums else (),
+    )

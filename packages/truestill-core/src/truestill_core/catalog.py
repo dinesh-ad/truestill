@@ -2019,6 +2019,66 @@ class Catalog:
                 (ordered[0], ordered[-1], trip_id),
             )
 
+    # --- decision snapshot -------------------------------------------------------------
+    # Reads for `decisions.py`, which carries the choices a rescan cannot recompute onto a drive.
+    # Column-by-column, never `SELECT *`: a column added later must not reach a user's drive by
+    # default, and that is a privacy guarantee rather than a style preference.
+
+    def drive_row(self, uuid: str) -> sqlite3.Row | None:
+        """A drive's own record, or ``None``. **O(1)** on the primary key."""
+        cursor = self._conn.execute("SELECT uuid, label, notes FROM drives WHERE uuid = ?", (uuid,))
+        row: sqlite3.Row | None = cursor.fetchone()
+        return row
+
+    def all_settings(self) -> dict[str, str]:
+        """Every stored setting. Callers publishing these must filter them first."""
+        return {
+            str(r["key"]): str(r["value"])
+            for r in self._conn.execute("SELECT key, value FROM settings")
+        }
+
+    def all_trips(self) -> list[sqlite3.Row]:
+        return list(
+            self._conn.execute("SELECT name, slug, start_date, end_date FROM trips ORDER BY id")
+        )
+
+    def all_trip_days(self) -> dict[str, int]:
+        return {
+            str(r["day"]): int(r["trip_id"])
+            for r in self._conn.execute("SELECT day, trip_id FROM trip_days ORDER BY day")
+        }
+
+    def all_events(self) -> list[sqlite3.Row]:
+        return list(
+            self._conn.execute("SELECT name, slug, start_date, signature FROM events ORDER BY id")
+        )
+
+    def all_date_confirmations(self) -> list[sqlite3.Row]:
+        return list(
+            self._conn.execute(
+                "SELECT sha256, captured_at, confirmed_at, confirmed_by"
+                " FROM date_confirmations ORDER BY sha256"
+            )
+        )
+
+    def date_confirmation_for(self, sha256: str) -> sqlite3.Row | None:
+        """The confirmation this catalog already holds for content, or ``None``. **O(1)**."""
+        cursor = self._conn.execute(
+            "SELECT captured_at, confirmed_at FROM date_confirmations WHERE sha256 = ?", (sha256,)
+        )
+        row: sqlite3.Row | None = cursor.fetchone()
+        return row
+
+    def all_album_names(self) -> list[str]:
+        return [str(r["name"]) for r in self._conn.execute("SELECT name FROM albums ORDER BY id")]
+
+    def knows_content(self, sha256: str) -> bool:
+        """Whether this catalog has a `files` row for this content. **O(1)**."""
+        return (
+            self._conn.execute("SELECT 1 FROM files WHERE sha256 = ?", (sha256,)).fetchone()
+            is not None
+        )
+
     def record_skip(self, signature: str) -> None:
         """Remember that the user skipped this cluster, so it is not re-proposed unchanged."""
         with self._tx() as conn:
