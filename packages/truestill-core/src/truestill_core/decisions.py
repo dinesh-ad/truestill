@@ -24,7 +24,12 @@ membership is the side effect.
 
 from __future__ import annotations
 
+import contextlib
+import errno
+import json
+import os
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 #: Bumped only when a reader must REFUSE a document, never for an added field. Adding a field is
@@ -288,3 +293,75 @@ def apply_decisions(catalog: Any, decisions: Decisions) -> ApplyReport:  # noqa:
         unmatched_events=tuple(unmatched),
         not_applied=("albums",) if decisions.albums else (),
     )
+
+
+#: The document's filename, beside `.truestill-drive.json` at a drive root. A sibling rather than
+#: a section of the marker: the marker is identity - tiny, stable, read on every reach check - and
+#: this churns.
+DECISIONS_NAME = ".truestill-decisions.json"
+
+
+@dataclass(frozen=True, slots=True)
+class WriteOutcome:
+    """What happened when a document was offered to a drive. **Never an exception.**"""
+
+    written: bool
+    path: Path | None = None
+    #: Plain words for a person, when the drive would not take it. `None` on success.
+    error: str | None = None
+
+
+def _explain(error: OSError) -> str:
+    """What went wrong, in words a person can act on rather than an errno."""
+    if error.errno in (errno.EROFS, errno.EACCES, errno.EPERM):
+        return "the drive is read-only, or this account cannot write to it"
+    if error.errno == errno.ENOSPC:
+        return "there is no space left on the drive"
+    if error.errno in (errno.ENOENT, errno.ENOTDIR):
+        return "the drive is not there any more"
+    if error.errno == errno.EIO:
+        return "the drive stopped responding part way through"
+    return error.strerror or str(error)
+
+
+def write_decisions(root: Path, decisions: Decisions) -> WriteOutcome:
+    """Put the document on a drive, atomically, and **never raise**.
+
+    **Atomic, because this is the only copy of names a human typed.** Written to a sibling temp
+    file, flushed, `fsync`ed, then `os.replace`d over the target - so a crash leaves either the
+    previous good document or the new one, never a half of either. A truncated file at the right
+    path is worse than no file, because it looks like a backup.
+
+    **The temp sits in the SAME directory as the target**, which is what makes the rename atomic:
+    a temp in the system temp directory would turn the final step into a copy across filesystems,
+    which is exactly the non-atomic write this exists to avoid.
+
+    **Nothing here may propagate into the caller.** Naming a trip must succeed even when the drive
+    write does not - a decision lost because its own backup failed is the worst trade available -
+    so every failure comes back as a reported outcome. A read-only disk, a full one and one pulled
+    out mid-write are ordinary events for removable media, not exceptions.
+    """
+    if not root.is_absolute():
+        # `Path("")` normalises to `Path(".")`, which IS a directory - so an `is_dir` check alone
+        # lets an empty root write the document into the working directory. Caught by this
+        # module's own test doing exactly that. A drive root is always absolute in practice;
+        # requiring it turns a silent misfile into a reported refusal.
+        return WriteOutcome(written=False, error="a drive root must be a full path")
+    if not root.is_dir():
+        return WriteOutcome(written=False, error="the drive is not there any more")
+
+    target = root / DECISIONS_NAME
+    temp = root / f"{DECISIONS_NAME}.writing"
+    try:
+        payload = json.dumps(to_document(decisions), indent=2, sort_keys=True) + "\n"
+        with temp.open("w", encoding="utf-8") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        temp.replace(target)
+    except OSError as error:
+        # A drive that will not take the write may not take the cleanup either.
+        with contextlib.suppress(OSError):
+            temp.unlink(missing_ok=True)
+        return WriteOutcome(written=False, error=_explain(error))
+    return WriteOutcome(written=True, path=target)
