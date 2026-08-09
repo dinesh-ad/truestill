@@ -28,6 +28,7 @@ from truestill_core.decisions import (
     DECISIONS_SAVED_AT_KEY,
     SaveOutcome,
     ensure_decisions_on_drives,
+    read_decisions,
     save_decisions_to_reachable_drives,
 )
 from truestill_core.drive import DriveMarker, drive_path_hint, write_marker
@@ -300,3 +301,99 @@ def test_the_bookkeeping_key_never_reaches_a_drive(tmp_path: Path) -> None:
     text = (root / DECISIONS_NAME).read_text(encoding="utf-8")
     assert DECISIONS_SAVED_AT_KEY not in text
     assert "decisions." not in text
+
+
+# --- the format gate: a newer document is never overwritten by an older reader --------------
+
+
+def _document(root: Path, body: dict[str, object]) -> str:
+    root.mkdir(parents=True, exist_ok=True)
+    (root / DECISIONS_NAME).write_text(json.dumps(body), encoding="utf-8")
+    return (root / DECISIONS_NAME).read_text(encoding="utf-8")
+
+
+def test_a_document_from_a_newer_truestill_is_never_overwritten(tmp_path: Path) -> None:
+    """THE LOSS THIS CLOSES, and it was live. A `format: 2` document was read, its unknown
+    sections carried forward, and its KNOWN sections overwritten by this version's - so a user
+    who downgraded lost every trip name the newer version had recorded differently, while the
+    sections we could not understand survived. Exactly backwards.
+
+    `FORMAT_VERSION`'s contract is that a bump means a reader must refuse, and until now nothing
+    read the field at all.
+    """
+    root = tmp_path / "drive"
+    before = _document(
+        root,
+        {
+            "format": 2,
+            "written": "2026-09-01T00:00:00+00:00",
+            "trips": [{"name": "Ooty", "slug": "ooty", "start": "2013-09-13", "end": "2013-09-16"}],
+            "captions": {"a" * 64: "written by a version this one predates"},
+        },
+    )
+
+    with Catalog(tmp_path / "c.sqlite") as catalog:
+        _register(catalog, root, _UUID_A, "Output")
+        _with_a_trip(catalog)
+        results = save_decisions_to_reachable_drives(catalog, stamp=_STAMP)
+
+    assert results[0].outcome is SaveOutcome.NEWER_VERSION
+    assert (root / DECISIONS_NAME).read_text(encoding="utf-8") == before, (
+        "an older Truestill rewrote a newer version's document"
+    )
+
+
+def test_the_refusal_names_the_remedy_rather_than_the_errno(tmp_path: Path) -> None:
+    """A refusal without a remedy is the stranded-names failure this feature exists to prevent.
+    The names are on the disk and readable; the user needs to be told what to run."""
+    root = tmp_path / "drive"
+    _document(root, {"format": 99, "written": "2026-09-01T00:00:00+00:00"})
+
+    found = read_decisions(root)
+
+    assert found.too_new is True
+    assert found.format_version == 99
+    assert found.error is not None
+    assert "newer" in found.error.lower()
+    assert "upgrade" in found.error.lower(), f"no remedy named: {found.error!r}"
+
+
+def test_a_document_of_this_version_is_still_read(tmp_path: Path) -> None:
+    """CRY-WOLF HALF. A gate that refused everything would pass the two tests above and stop the
+    feature working at all."""
+    root = tmp_path / "drive"
+    _document(root, {"format": 1, "written": "2026-08-01T00:00:00+00:00", "skipped_clusters": []})
+
+    found = read_decisions(root)
+
+    assert found.too_new is False
+    assert found.decisions is not None
+    assert found.error is None
+
+
+def test_a_document_that_does_not_say_its_format_is_read_rather_than_refused(
+    tmp_path: Path,
+) -> None:
+    """Missing reads as current, the same way a missing section reads as empty: a hand-written or
+    truncated-by-an-editor document is not evidence of a newer version, and refusing it would
+    strand names on a disk the user can see."""
+    root = tmp_path / "drive"
+    _document(root, {"written": "2026-08-01T00:00:00+00:00", "skipped_clusters": ["b" * 64]})
+
+    found = read_decisions(root)
+
+    assert found.too_new is False
+    assert found.decisions is not None
+    assert found.decisions.skipped_clusters == ("b" * 64,)
+
+
+def test_a_format_that_is_not_a_number_is_refused_rather_than_crashing(tmp_path: Path) -> None:
+    """`int("banana")` raises, and this module's whole contract is that it never does."""
+    root = tmp_path / "drive"
+    before = _document(root, {"format": "banana", "written": "2026-08-01T00:00:00+00:00"})
+
+    found = read_decisions(root)
+
+    assert found.error is not None
+    assert found.decisions is None
+    assert (root / DECISIONS_NAME).read_text(encoding="utf-8") == before

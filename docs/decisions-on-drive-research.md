@@ -185,6 +185,22 @@ contract rather than inventing a second rule: *bumped only when a reader must RE
 - **`format > 1`**: refuse, preserve the file, and **name the version to run**. A refusal without
   a remedy is the stranded-names failure this feature exists to prevent.
 
+**Built 2026-08-09, and until then NOTHING READ THE FIELD AT ALL.** `FORMAT_VERSION` was written
+into every document and no code path ever read it back, so the rule above existed only as prose.
+**The write side was the dangerous half:** a `format: 2` document was read, its unknown sections
+carried forward, and its **known** sections overwritten by an older reader - the newer version's
+trip names lost while the sections we could not understand survived, which is exactly backwards.
+That was live from the day the save shipped.
+
+The gate lives in `read_decisions`, which both the save and the restore go through, so one check
+covers both paths. A refused document produces `SaveOutcome.NEWER_VERSION` - a separate member
+rather than `FAILED`, because nothing is wrong with the drive and the remedy is an upgrade rather
+than a repair, and one field standing for two situations that need opposite words is `(abx)`.
+
+*Missing reads as current*, the same way a missing section reads as empty: a hand-edited document
+is not evidence of a newer version. *A non-numeric `format` is refused* rather than crashing -
+`int("banana")` raises, and this module's whole contract is that it does not.
+
 ## Privacy - and there was a real finding
 
 **`settings` held full local paths including the username.** Shape only - the real values are not

@@ -461,6 +461,17 @@ class DocumentOnDrive:
     decisions: Decisions | None = None
     #: Why it could not be read. `None` when there was nothing to read, or the read worked.
     error: str | None = None
+    #: The document's own `format`. `0` when there was nothing readable to ask.
+    format_version: int = 0
+
+    @property
+    def too_new(self) -> bool:
+        """Written by a version this one must refuse rather than interpret.
+
+        Derived rather than stored: two fields that can disagree about one fact is the defect
+        `(abv)` was, in miniature.
+        """
+        return self.format_version > FORMAT_VERSION
 
 
 def read_decisions(root: Path) -> DocumentOnDrive:
@@ -482,11 +493,41 @@ def read_decisions(root: Path) -> DocumentOnDrive:
         document = json.loads(text)
     except ValueError:
         return DocumentOnDrive(found=True, error="the file on the drive is not readable JSON")
+    return _interpret(document)
+
+
+def _interpret(document: Any) -> DocumentOnDrive:
+    """Version-gate a parsed document, then read it. Split from the I/O above so each half has
+    one job: that one turns a disk into a value, this one decides whether we may act on it."""
     if not isinstance(document, dict):
         return DocumentOnDrive(
             found=True, error="the file on the drive is not a decisions document"
         )
-    return DocumentOnDrive(found=True, decisions=from_document(document))
+
+    # Missing reads as current, the same way a missing section reads as empty: a hand-edited
+    # document is not evidence of a newer version, and refusing it would strand names on a disk
+    # the user can see.
+    try:
+        version = int(document.get("format", FORMAT_VERSION))
+    except (TypeError, ValueError):
+        return DocumentOnDrive(
+            found=True, error="the file on the drive does not say which format it is"
+        )
+
+    if version > FORMAT_VERSION:
+        # A bump means a reader must REFUSE - that is what `FORMAT_VERSION` is for. Refusing is
+        # not the stranded-names failure: the names are still there, still readable in a text
+        # editor, and the remedy is one upgrade away, which is why the message names it.
+        return DocumentOnDrive(
+            found=True,
+            format_version=version,
+            error=(
+                f"these decisions were written by a newer Truestill (format {version}; "
+                f"this one reads {FORMAT_VERSION}) - upgrade Truestill to use them"
+            ),
+        )
+
+    return DocumentOnDrive(found=True, decisions=from_document(document), format_version=version)
 
 
 #: Sections compared before a write, to refuse one that would lose decisions the drive already
@@ -537,6 +578,21 @@ class SaveOutcome(StrEnum):
     UNREACHABLE = "unreachable"  # not plugged in, or something else is at the remembered path
     WOULD_LOSE = "would_lose"  # its copy holds decisions this catalog does not
     FAILED = "failed"  # read-only, full, unreadable copy, pulled out mid-write
+    #: Its copy was written by a newer Truestill. Separate from `FAILED` deliberately: nothing is
+    #: wrong with the drive, the remedy is an upgrade rather than a repair, and one field standing
+    #: for two situations that need opposite words is `(abx)`.
+    NEWER_VERSION = "newer_version"
+
+
+#: Outcomes a person may need to act on, defined by EXCLUSION rather than by listing them.
+#: A new `SaveOutcome` is far more likely to be a new way of not saving than a new way of
+#: saving, so an unlisted member defaults to "tell them" rather than to silence. `NEWER_VERSION`
+#: was added after this rule existed and needed no edit anywhere, which is the property bought.
+#:
+#: Lives here, beside the enum, because both surfaces need it: the CLI prints these and the
+#: session layer records them. It was briefly spelled out at both call sites, which is two
+#: representations of one fact and the defect `(abv)` was.
+PROBLEM_OUTCOMES = frozenset(SaveOutcome) - {SaveOutcome.WRITTEN, SaveOutcome.UNREACHABLE}
 
 
 @dataclass(frozen=True, slots=True)
@@ -585,6 +641,12 @@ def save_decisions_to_reachable_drives(
 
         root = Path(str(hint))
         found = read_decisions(root)
+        if found.too_new:
+            # The dangerous half of the format rule, and the one that was missing: preserving a
+            # newer version's UNKNOWN sections while overwriting its KNOWN ones is exactly
+            # backwards, and it is what happened here until the gate existed.
+            results.append(DriveSave(uuid, label, SaveOutcome.NEWER_VERSION, found.error or ""))
+            continue
         if found.error is not None:
             results.append(DriveSave(uuid, label, SaveOutcome.FAILED, found.error))
             continue

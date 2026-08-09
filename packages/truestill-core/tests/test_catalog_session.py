@@ -245,3 +245,24 @@ def test_the_surface_is_told_what_happened_rather_than_core_printing_it(tmp_path
     assert told == [("Output", SaveOutcome.WRITTEN, False)], (
         "the ordinary save was reported as the once-per-catalog first one"
     )
+
+
+def test_a_newer_version_on_the_drive_is_recorded_like_any_other_problem(tmp_path: Path) -> None:
+    """A new outcome that no surface records is a refusal nobody hears. `SaveOutcome` grew a
+    member for the format gate, and the recording list is the place that silently does not."""
+    db = tmp_path / "c.sqlite"
+    root = tmp_path / "drive"
+    with Catalog(db) as setup:
+        _drive(setup, root)
+        _already_upgraded(setup)
+    (root / DECISIONS_NAME).write_text(
+        '{"format": 2, "written": "2026-09-01T00:00:00+00:00"}', encoding="utf-8"
+    )
+
+    with open_catalog(db) as catalog:
+        catalog.record_skip("b" * 64)
+
+    with Catalog(db) as after:
+        problem = after.get_setting(f"decisions.problem.{_UUID}")
+    assert problem is not None, "a newer document on the drive was refused and never reported"
+    assert "upgrade" in problem.lower()

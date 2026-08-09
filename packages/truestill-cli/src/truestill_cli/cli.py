@@ -48,7 +48,7 @@ from truestill_core.cleanup import (
     run_cleanup,
     trash_backend,
 )
-from truestill_core.decisions import DriveSave, SaveOutcome
+from truestill_core.decisions import PROBLEM_OUTCOMES, DriveSave, SaveOutcome
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import Destination, LocalDestination, RcloneDestination
 from truestill_core.destinations.base import DestinationError
@@ -680,7 +680,7 @@ def _report_decision_saves(results: tuple[DriveSave, ...], *, upgrade: bool) -> 
     and never again.
     """
     for result in results:
-        if result.outcome in (SaveOutcome.FAILED, SaveOutcome.WOULD_LOSE):
+        if result.outcome in PROBLEM_OUTCOMES:
             print(
                 f"note: decisions were not saved to {result.label}: {result.detail}",
                 file=sys.stderr,

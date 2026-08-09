@@ -27,6 +27,7 @@ from typing import Protocol
 
 from truestill_core.catalog import Catalog
 from truestill_core.decisions import (
+    PROBLEM_OUTCOMES,
     DriveSave,
     SaveOutcome,
     ensure_decisions_on_drives,
@@ -62,7 +63,7 @@ def _record(catalog: Catalog, results: tuple[DriveSave, ...]) -> None:
     """
     for result in results:
         key = problem_key(result.uuid)
-        if result.outcome in (SaveOutcome.FAILED, SaveOutcome.WOULD_LOSE):
+        if result.outcome in PROBLEM_OUTCOMES:
             catalog.set_setting(key, result.detail)
         elif result.outcome is SaveOutcome.WRITTEN and catalog.get_setting(key):
             catalog.clear_setting(key)
