@@ -735,6 +735,23 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   not half-apply, leaving one site on the old vocabulary and a suite that would have failed for a
   reason unrelated to the change. Two saves in two days, both from counting rather than finding.
 
+  **The same rule governs ORDINARY EDITS, not only mutations, and a formatter can stale a proof.**
+  Recorded 2026-08-09 after this bit twice more in one session, both caught by the author and
+  neither by a test:
+
+  * A `str.replace` that matches nothing **succeeds**. Two edits to `decisions.py` silently did not
+    apply because `ruff format` had reshaped the blocks between writing the patch and running it;
+    the file was left referencing a name that no longer existed. **An edit applied by string
+    replacement must assert its match count exactly as a mutation does** - `assert
+    t.count(anchor) == 1` before replacing, and a check that the new text is present afterwards.
+  * **A mutation proof taken BEFORE a formatter ran is stale.** Reformatting moves the anchors a
+    mutation targets and can reshape the very assertion it was proved against, so the proof no
+    longer describes the code that will be committed. **Re-prove after the last formatter run, not
+    before** - and re-prove after editing a test the mutation targets, for the same reason.
+
+  > The family resemblance across all of these: **a change you believe you made and did not.** The
+  > suite is green either way, and green is exactly what it looks like.
+
 - **Errors.** Exceptions typed and specific - no bare `except`. User-facing CLI errors are
   actionable sentences, not tracebacks. Every subprocess call checks its return code and
   surfaces stderr on failure. Partial-failure policy: one bad file never aborts a batch - it
