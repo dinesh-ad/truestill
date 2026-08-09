@@ -640,6 +640,18 @@ _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
 )
 
 
+#: Where the planner's statistics were last refreshed, as `files.id`'s high-water mark. Machine-
+#: local: it describes THIS file's planner, so it is excluded from the decisions document by the
+#: `catalog.` prefix - restored onto another machine it would describe a database that is not
+#: there.
+ANALYZED_AT_KEY = "catalog.analyzed_at_row"
+
+#: New `files` rows before the statistics are refreshed again. Generous on purpose: `ANALYZE`
+#: measured 1.8 ms on the real 2,695-file catalog and 17 ms against a 172,480-row table, so the
+#: cost of running it slightly too often is far below the cost of a planner guessing at joins.
+ANALYZE_GROWTH_ROWS = 1000
+
+
 def _now() -> str:
     return datetime.now(UTC).isoformat()
 
@@ -2063,6 +2075,26 @@ class Catalog:
             str(r["key"]): str(r["value"])
             for r in self._conn.execute("SELECT key, value FROM settings")
         }
+
+    def refresh_statistics_if_stale(self) -> bool:
+        """Run `ANALYZE` when the library has grown enough to make the old statistics wrong.
+
+        **Never on open**, which would charge `status` and `where` for something they cannot use.
+        Called when a unit of work that WROTE finishes - see `catalog_session.open_catalog` - so
+        the check itself costs one `max(id)` (`O(1)` on the primary key) and one settings read,
+        and only on a command that changed something.
+
+        `ANALYZE` had never run at all before 2026-08-09: there was no `sqlite_stat1`, so every
+        join was planned on guesses. Measured on the real catalog, Find went 4.59 ms -> 2.15 ms.
+        """
+        high_water = self._conn.execute("SELECT COALESCE(MAX(id), 0) FROM files").fetchone()[0]
+        last = self.get_setting(ANALYZED_AT_KEY)
+        if last is not None and int(high_water) - int(last) < ANALYZE_GROWTH_ROWS:
+            return False
+        with self._tx() as conn:
+            conn.execute("ANALYZE")
+        self.set_setting(ANALYZED_AT_KEY, str(int(high_water)))
+        return True
 
     def registered_drives(self) -> list[sqlite3.Row]:
         """Every drive's identity and label. **No join** - `O(drives)`.

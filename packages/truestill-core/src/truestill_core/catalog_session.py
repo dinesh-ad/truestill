@@ -108,5 +108,7 @@ def open_catalog(db: Path, *, report: SaveReport | None = None) -> Iterator[Cata
         yield catalog
 
         if catalog.dirty:
+            # Before the decisions gather, so the gather is planned with current statistics.
+            catalog.refresh_statistics_if_stale()
             results = save_decisions_to_reachable_drives(catalog)
             _refresh(catalog, results, report, upgrade=False)

@@ -700,3 +700,67 @@ nightly that finds it has several commits to choose between.
 *One honesty note about the condition:* this repo has had exactly one pull request ever, a
 throwaway CI experiment, and zero merge commits. `pull_request` in that trigger is completeness,
 not a second safety net - in practice this runs nightly.
+
+## 7. Catalog audit (measured 2026-08-09)
+
+Read-only audit of the schema and its use, against the real 6.37 MB catalog (2,695 files, 4,933
+copies). Everything here is a measurement or a query plan, not an inspection.
+
+### Acted on
+
+**`ANALYZE` had never run.** No `sqlite_stat1` existed, so the planner had no statistics and was
+guessing at every join. Measured on a copy:
+
+| query | no statistics | after `ANALYZE` |
+|---|---|---|
+| Find (`find_copies`) | 4.59 ms | **2.15 ms** |
+| drive listing | 2.04 ms | **1.79 ms** |
+
+**When it runs, decided rather than left to a schedule this app does not have:** after a unit of
+work that WROTE, and only once the library has grown by `ANALYZE_GROWTH_ROWS` (1,000) `files`
+rows since the last time. Never on open - that would charge `status` and `where` for statistics
+they cannot use. The check itself is one `MAX(id)` (`O(1)` on the primary key) and one settings
+read, on a dirty close only. `ANALYZE` costs **1.8 ms** here and **17 ms** against a 172,480-row
+table, so the trigger can afford to be generous.
+
+### Declined, with the reason, so nobody revisits them as obvious wins
+
+**WAL - CONSIDERED AND DECLINED ON MEASUREMENT.** `journal_mode` is `delete`. WAL is the standard
+recommendation for a local-first app and the 5 s busy-timeout test looks like evidence of
+contention, but that test *deliberately* holds `BEGIN IMMEDIATE` from a second process. Measured
+against exactly that case: **two writers block identically in both modes** (301 ms to fail at a
+0.3 s timeout), and a reader was never blocked in either mode at this scale. WAL's real win is
+readers not blocking writers, and no measurement here shows that problem existing. It is a lever
+with no measured problem to fix; revisit it with a measurement, not with reputation.
+
+**STRICT tables - available and declined on cost.** 0 of 16 tables are STRICT (SQLite 3.50.4
+supports it), so `TEXT` columns holding sha256s, ISO dates and uuids will accept an integer.
+STRICT cannot be added by `ALTER TABLE`: every table must be recreated, copied and re-indexed, on
+a live user file, for a bug class this project has not hit.
+
+**`VACUUM` - not run anywhere, and not worth running.** The real file carries **149 free pages of
+1,554 - 9.6%, about 596 KB** on a 6.37 MB file. Recorded as the baseline for a future decision.
+
+**The album insert loop** (`catalog.py:2281`) inserts row by row with a follow-up `SELECT` per
+album. Albums are unbuilt and the table is empty, so it costs nothing today; fix it when albums
+are built, not before.
+
+### `find_copies` is an FTS question, not a missing index - see `(abj)`
+
+It plans as `SCAN file_copies` and cannot be indexed as written: it filters
+`LIKE '%term%'` across three columns with `OR`, and a leading wildcard defeats a B-tree **by
+construction**. No index would change that plan. If Find ever needs to be faster, the answer is
+FTS5 over the searchable columns, which is `(abj)`'s subject.
+
+### The account question, decided so it is not re-derived
+
+**An account is one row in `settings`, never a column on every table.** The catalog is already
+per-user by construction - a file in one person's home directory, resolved per process - and the
+filesystem is stronger isolation than a column. True multi-user sharing one catalog is a different
+product, and a column now does not get there.
+
+**The decisions document should not carry an origin field yet.** Unknown sections are preserved by
+construction, so adding one later is exactly as cheap as adding it now - and a field added now
+would still be absent from every document already on a drive, so a restore must handle "no origin"
+either way. **If one ever lands, it reports rather than gates:** a new refusal on a rescue path,
+hitting someone mid-crisis, to enforce a field that is documentation, is the wrong trade.

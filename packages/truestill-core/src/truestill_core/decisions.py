@@ -59,7 +59,9 @@ FORMAT_VERSION = 1
 #: not a decision, and restoring it onto another machine would carry that machine's answer to
 #: "have I written the upgrade copy yet" - the document would ship the reason it is never written
 #: again. Machine-local notes about the backup do not belong in the backup.
-_EXCLUDED_SETTING_PREFIXES = ("path_hint.", "decisions.")
+#: `catalog.` is this file's own bookkeeping about its query planner - where `ANALYZE` last ran -
+#: and describes a database that exists only here.
+_EXCLUDED_SETTING_PREFIXES = ("path_hint.", "decisions.", "catalog.")
 
 #: When this catalog last put its decisions on a drive. Machine-local; see the exclusion above.
 DECISIONS_SAVED_AT_KEY = "decisions.saved_at"
