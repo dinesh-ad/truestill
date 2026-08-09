@@ -27,6 +27,8 @@ import struct
 import zipfile
 from pathlib import Path
 
+import pytest
+from truestill_core import archive_set
 from truestill_core.archive_set import (
     discover_archive_set,
     inspect_archive_set,
@@ -170,15 +172,34 @@ def test_media_entries_are_counted_separately_from_everything_else(tmp_path: Pat
     assert inspection.media_entries == 2
 
 
-def test_space_is_checked_against_the_destination_drive(tmp_path: Path) -> None:
-    """The check is about the drive the user chose, which is why staging goes there too."""
+def test_space_is_checked_against_the_destination_drive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The check is about the drive the user chose, which is why staging goes there too.
+
+    **Asserts WHICH path was measured, not what the number came back as.** This used to compare
+    `check.free_bytes` against a second `shutil.disk_usage` reading, which is two samples of a
+    live metric taken at different moments: anything writing to the disk in between - another
+    test worker, a browser, the OS - moves the second one. Serial runs hid it because nothing
+    else was writing; it failed on the first parallel run. The recorded path is the claim this
+    test's name makes, and it cannot race.
+    """
     _zip(tmp_path / "photos.zip", {"a/IMG_1.jpg": b"x" * 100})
     inspection = inspect_archive_set(discover_archive_set([tmp_path / "photos.zip"]))
 
+    measured: list[Path] = []
+    real = shutil.disk_usage
+
+    def record(path: Path) -> object:
+        measured.append(Path(path))
+        return real(path)
+
+    # Aimed at the module under test's own reference, which is what it resolves at call time.
+    monkeypatch.setattr(archive_set.shutil, "disk_usage", record)
     check = space_for(inspection, tmp_path)
 
+    assert measured == [tmp_path], f"the space check measured {measured}, not the destination"
     assert check.claimed_bytes == 100
-    assert check.free_bytes == shutil.disk_usage(tmp_path).free
     assert check.enough is True
 
 

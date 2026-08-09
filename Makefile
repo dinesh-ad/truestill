@@ -31,13 +31,20 @@ format-check:
 typecheck:
 	$(PYTHON) mypy $(CORE) $(CLI) $(APP) $(SCRIPTS) $(PACKAGING)
 
+# `-n auto` here rather than in `addopts`, deliberately: addopts would sweep in `test-order`
+# below, whose whole value is a single deterministic collection order. Measured 89.95s -> 30.00s
+# on 16 cores; expect roughly half that gain on a 2-4 core CI runner.
 test:
-	$(PYTHON) pytest
+	$(PYTHON) pytest -n auto
 
 # The suite in a different collection order - testpaths gives core, cli, app; passing the
 # directory gives app, cli, core. Deliberately NOT in `check`: it doubles the local test wait
 # to catch a class of bug that CI runs on every push (ubuntu, where it is free). Reach for it
 # when touching a fixture that any two tests share.
+#
+# SERIAL, and that is the point: this pass exists to ask "is the suite green in a different
+# ORDER", and a parallel run has no single order to be green in. Speeding it up would remove
+# the property it tests.
 test-order:
 	$(PYTHON) pytest packages/
 

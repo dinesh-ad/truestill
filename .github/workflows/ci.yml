@@ -79,7 +79,7 @@ jobs:
         run: |
           start=$(date +%s)
           status=0
-          uv run pytest || status=$?
+          uv run pytest -n auto || status=$?
           echo "TS_PYTEST_SECONDS=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
           exit $status
 

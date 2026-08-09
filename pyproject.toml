@@ -13,6 +13,15 @@ dev = [
     "mypy>=2.3.0",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
+    # Parallel test execution. Measured on this suite: 1,968 tests, 89.95s serial -> 30.00s at
+    # `-n auto` on 16 cores, zero failures. It is safe here for a reason that predates it: the
+    # root `conftest.py` already gives every test a data/cache root no other test can name, and
+    # a session-scoped version of that was tried and REJECTED because it let tests into each
+    # other's state. There is no session- or module-scoped fixture anywhere in the suite. So
+    # xdist's classic failure - two workers sharing a temp dir - is the exact thing this repo
+    # engineered against for an unrelated reason.
+    # NOT applied to the collection-order pass: see the Makefile's `test-order`.
+    "pytest-xdist>=3.8.0",
     "pre-commit>=4.6.1",
     # Starlette TestClient (truestill-app tests). httpx2 rather than httpx: httpx has had no
     # release since 2024 with issues and discussions closed, Pydantic maintains httpx2 as its
