@@ -789,6 +789,27 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   Corollary, from the same day: the real catalog held zero events and zero date confirmations, so
   the feature had only ever met seeded examples of the thing it exists to protect.
 
+- **One library is a test bed, never a specification.** The twenty-first member, and it governs
+  how every measurement in this repo is reported.
+
+  Truestill is a product for the world. The maintainer's library is the only one anyone here can
+  measure, which makes it evidence about *his* files and nothing more. Generalising from it to
+  the product needs a separate argument, stated out loud.
+
+  > **When you report a measurement, say which of the two it is.** "3.6% of these files carry
+  > GPS" is a fact about a 2013-2014 library. "GPS is a weak signal" is a claim about the
+  > product, and it is false: a user arriving today with any modern phone has coordinates on
+  > nearly every photo.
+
+  **It cuts both ways**, which is why it is a rule and not a caution. A feature useless to this
+  library may be the primary one for everybody else - GPS is exactly that, and it is the *only*
+  naming evidence available to someone whose folders are all `DCIM`, which is most people. And a
+  feature that works perfectly on these 2,695 files may fail on a real phone dump.
+
+  Recorded 2026-08-09, correcting `(kk)`: a measurement showing one phone in nine geotagging was
+  read as a finding about the feature, when it was a finding about that decade's default
+  settings.
+
 - **The fair comparison for a storage change is two clean databases, never one database before
   and after.** The twentieth member, and the same shape as the eighteenth one day later in a
   different domain - which is what makes it a rule rather than an anecdote.

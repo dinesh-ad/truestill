@@ -2250,7 +2250,15 @@ section, because what is left is the part that still has to be written.
 
 - **(kk) Persist GPS at ingest - it is read and then thrown away.** Found while designing trip
   grouping (`trip-grouping-research.md` §5), and the scope is much wider than trips.
-  - ⚠ **NOTHING OF THIS IS BUILT, and one half was in scope for a program that has now closed.**
+  - ✅ **CORRECTED 2026-08-09: THE CAPTURE HALF SHIPPED AT v17 AND THIS ENTRY WAS WRONG.**
+    Traced end to end rather than assumed: `exif.py:72-73` requests `GPSLatitude`/`GPSLongitude`,
+    `models.py:310` converts them into `CaptureContext`, `catalog.py` writes
+    `files.gps_latitude`/`gps_longitude`. Measured on the real catalog: of 395 files ingested
+    after v17, **388 carry a camera and 138 carry coordinates**; the 2,300 ingested before it
+    carry neither, because v17 deliberately does no backfill. `GPSDateStamp` is still not stored.
+  - ⚠ **The paragraph below is the ORIGINAL 2026-07-31 finding and was true when written.** It is
+    kept rather than edited because a record that is rewritten to stay correct stops being one -
+    but read the correction above first: the catalog has had the columns since v17.
     Verified 2026-07-31: the catalog has **no latitude/longitude columns and no `GPSDateStamp`**.
     `(kk)` was split by ruling - the **`GPSDateStamp`** half belonged to the date-provenance
     program (as the cross-check for a suspect dead-clock date), the lat/lon half serves
@@ -2262,6 +2270,34 @@ section, because what is left is the part that still has to be written.
     **never written to the catalog**. `files` has no latitude/longitude column at all, and
     `camera_copies_for_events` selects `sha256, captured_at` and nothing else. The data is
     obtained, used once, and discarded.
+  - **WHAT THIS MAINTAINER'S LIBRARY SAYS, AND WHAT IT DOES NOT.** Measured 2026-08-09 with
+    exiftool over the real 2013-2014 source: **83 of 2,275 files carry GPS - 3.6%** - and they
+    come from **one phone out of nine**. The Lumia 820 geotagged 83 of its 114 photos; the P780,
+    the Canon IXY, the C5502, the Nexus 5 and four others recorded none at all. Location was off
+    by default on that generation.
+    **That is a fact about his files and not about the product.** A user arriving today with any
+    modern phone has coordinates on nearly every photo, and for them GPS is not a 3.6% signal but
+    the **primary** one - and the only naming evidence available to someone whose folders are all
+    `DCIM`, which is most people and exactly the user the folder-name suggester has nothing to
+    offer. A measurement of one library is a test bed, never a specification.
+  - **PRODUCT-LEVEL CAUTION THAT DOES GENERALISE: dense-urban lookup is where this fails.** Both
+    measured sets collapse into a handful of ~1.1 km buckets in one metro area - 4 buckets for
+    the 83 source points, 7 for the 138 in the catalog. Offline reverse geocoding from GeoNames
+    `cities500` gives each place a **single centre point**, so a lookup in a dense area is
+    nearest-point and often wrong: Immich issue #8941 (neighbourhoods classified as cities) and
+    discussion #12641 (one town's coordinates 12 km out; a 7,000-person district absent from
+    `cities500` entirely) are real users hitting exactly this, open since April 2024. Taking the
+    **modal place across a whole cluster** rather than tagging one photo is a genuinely safer
+    design than theirs - but only if clusters have coordinates.
+  - **THE REAL BLOCKER: it cannot be BUILT next because it cannot be TESTED here.** The catalog
+    holds **zero events**, so there is no cluster to take a modal place across, and the 138 points
+    that exist sit in one metro area. Building against fixtures we invent is how the junk
+    classifier came to be written and never once fired. §4's rule is that a fixture modelled on
+    the current library inherits its blind spots; the inverse applies here - **a fixture modelled
+    on nothing inherits nothing.**
+  - **The cheap unblock, the maintainer's to provide:** a few dozen photos from a current phone
+    with location on, taken in two or three different places. That makes the whole thing testable
+    at once, including whether non-Western place names come back usably from `cities500`.
   - **Why it matters beyond trips.** A places / map view is a **high user expectation** in
     `org-structure-research.md`, and it is unbuildable without stored coordinates. The trip-edge
     case is only the symptom that exposed it: an arrival evening 80 km from home is trivially
