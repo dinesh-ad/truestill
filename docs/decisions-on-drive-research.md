@@ -283,6 +283,39 @@ loser would bury the one real disagreement in a list of non-events.
 
 **Settings are the one section whose disagreements are not reported**, because UI preferences
 churn per machine and per version - the same reason the write-side loss guard ignores them.
+*Which is why the precedence itself needs a test:* a section nothing reports on is a section
+where a reversal is invisible to every other signal in the system. That gap was found by a
+mutation, not by a failure.
+
+## Applying it: what came back, and what did not
+
+**Two single-meaning fields where there was one** - `(abx)`, closed:
+
+| field | meaning | what the user does |
+|---|---|---|
+| `already_newer_locally` | this catalog holds a newer form of that decision | nothing; the drive's copy was correctly ignored |
+| `awaiting_content` | this catalog has never scanned the photo it belongs to | plug in the drive that holds it, scan, re-apply |
+
+They shared one field and `dict.fromkeys` then collapsed them, so a restore hitting both produced
+**one indistinguishable line** for two situations needing opposite words. Counted rather than
+named, so a surface can say *"12 corrections are waiting for photos this catalog has not scanned
+yet"* - a restore that reports 40 applied and stays silent about 12 unscanned is the same silence
+class as a preview that tallies only part of what it organizes.
+
+**Nothing is dropped in the `awaiting_content` case.** The decision stays in the document on the
+drive; a later scan plus a re-apply lands it.
+
+### The per-drive loop is structural, not remembered
+
+`reconcile_documents` returns a result with an **empty drive block** - each document describes a
+different drive, so there is no single answer - which means drive labels come back only by walking
+the documents themselves. A restore command that had to *remember* that loop would one day not,
+and the symptom is a drive returning unnamed, indistinguishable from one the user never named.
+
+So `apply_documents(catalog, documents)` does both halves in one call and there is no sequence for
+a caller to get wrong. The empty drive block is itself pinned by a test, so nobody later "fixes"
+it by populating it from whichever document happened to be newest - that would invent a drive and
+quietly make the loop look unnecessary.
 
 ## What the tests are worth, and one honest gap
 

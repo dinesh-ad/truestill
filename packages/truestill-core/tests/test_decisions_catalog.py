@@ -172,7 +172,11 @@ def test_a_confirmation_for_content_this_catalog_has_not_scanned_is_kept_not_los
         report = apply_decisions(empty, gathered)
 
     assert report.applied.get("date_confirmations", 0) == 0
-    assert "date_confirmations" in report.skipped_newer_locally
+    # `awaiting_content`, not `already_newer_locally`: nothing here is newer, this catalog has
+    # simply never seen the photo. The two used to share one field, so this assertion passed
+    # whichever branch fired - see `(abx)`.
+    assert report.awaiting_content == {"date_confirmations": 1}
+    assert report.already_newer_locally == {}
 
 
 # --- date confirmations: the entry with no second source ----------------------------------
@@ -237,7 +241,10 @@ def test_a_newer_local_confirmation_is_never_overwritten_by_an_older_one(tmp_pat
         ).fetchone()
 
     assert kept["captured_at"] == "2020-01-01T00:00:00", "an older correction overwrote a newer one"
-    assert "date_confirmations" in report.skipped_newer_locally
+    # The opposite meaning to the test above, and now a different field: the local copy is newer,
+    # so there is nothing for the user to do. Both assertions used to read the same field.
+    assert report.already_newer_locally == {"date_confirmations": 1}
+    assert report.awaiting_content == {}
 
 
 # --- trips: identity has to survive leaving this catalog -----------------------------------
@@ -471,3 +478,38 @@ def test_an_event_name_re_attaches_only_where_the_signature_matches(tmp_path: Pa
 
     assert "Gokul Marriage" in report.unmatched_events
     assert report.applied.get("events", 0) == 0
+
+
+def test_the_two_reasons_a_correction_was_not_applied_are_counted_apart(tmp_path: Path) -> None:
+    """(abx) IN ONE TEST. One restore can hit both reasons at once, and they need opposite words:
+    "your machine has a later correction, the drive's was ignored" needs no action, while "this
+    drive holds a correction for a photo you have not scanned" means plug in the other drive and
+    re-apply. They shared one field, and `dict.fromkeys` then collapsed them to one entry, so a
+    restore hitting both reported a single indistinguishable line.
+    """
+    known, unknown = "e" * 64, "f" * 64
+    document = Decisions(
+        date_confirmations=(
+            {"sha256": known, "captured_at": "2015-01-01T00:00:00", "confirmed_at": "2019-01-01"},
+            {"sha256": unknown, "captured_at": "2016-01-01T00:00:00", "confirmed_at": "2026-01-01"},
+        ),
+    )
+
+    with Catalog(tmp_path / "local.sqlite") as local:
+        local.record_uploaded(
+            source_path="/src/known.jpg",
+            original_name="known.jpg",
+            sha256=known,
+            copy_sha256=known,
+            perceptual=None,
+            size=10,
+            captured_at="2015-06-01T00:00:00",
+            category="Camera",
+            relative="2015/known.jpg",
+        )
+        local.confirm_date(known, "2015-09-09T00:00:00", confirmed_by="user")  # later than the doc
+        report = apply_decisions(local, document)
+
+    assert report.already_newer_locally == {"date_confirmations": 1}
+    assert report.awaiting_content == {"date_confirmations": 1}
+    assert report.applied.get("date_confirmations", 0) == 0

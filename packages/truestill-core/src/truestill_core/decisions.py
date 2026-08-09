@@ -346,8 +346,17 @@ class ApplyReport:
     """What an apply changed, and what it deliberately did not."""
 
     applied: dict[str, int] = field(default_factory=dict)
-    #: Decisions the catalog already held in a NEWER form. Skipped, never overwritten.
-    skipped_newer_locally: tuple[str, ...] = ()
+    #: Decisions this catalog already held in a NEWER form. The drive's copy was correctly
+    #: ignored and **there is nothing for the user to do**.
+    already_newer_locally: dict[str, int] = field(default_factory=dict)
+    #: Decisions kept in the document and not applied because this catalog has never scanned the
+    #: content they belong to. **There IS an action**: plug in the drive that holds those photos,
+    #: scan, re-apply. Nothing is dropped in the meantime.
+    #:
+    #: Separate from `already_newer_locally` since `(abx)`: they shared one field, and a restore
+    #: hitting both produced one indistinguishable line for two situations needing opposite
+    #: words. Counted rather than named, so a surface can say how many are waiting.
+    awaiting_content: dict[str, int] = field(default_factory=dict)
     #: Event names whose signature matched nothing here, so membership changed. Reported, never
     #: guessed at.
     unmatched_events: tuple[str, ...] = ()
@@ -481,11 +490,15 @@ def apply_decisions(catalog: Any, decisions: Decisions) -> ApplyReport:  # noqa:
     reported is what actually changed rather than what was offered.
     """
     applied: dict[str, int] = {}
-    skipped: list[str] = []
+    newer_locally: dict[str, int] = {}
+    awaiting: dict[str, int] = {}
     unmatched: list[str] = []
 
     def bump(section: str) -> None:
         applied[section] = applied.get(section, 0) + 1
+
+    def count(where: dict[str, int], section: str) -> None:
+        where[section] = where.get(section, 0) + 1
 
     if decisions.drive_uuid:
         row = catalog.drive_row(decisions.drive_uuid)
@@ -534,12 +547,15 @@ def apply_decisions(catalog: Any, decisions: Decisions) -> ApplyReport:  # noqa:
             # an overwrite is unrecoverable. Ties count as already-held, not as a change.
             if str(held["confirmed_at"] or "") >= incoming_at:
                 if str(held["captured_at"]) != str(confirmation["captured_at"]):
-                    skipped.append("date_confirmations")
+                    # Ours is newer and different: theirs was correctly ignored, no action.
+                    count(newer_locally, "date_confirmations")
                 continue
         elif not catalog.knows_content(sha):
-            # The content is not in this catalog yet. The confirmation is kept in the document and
-            # simply not applied; a later scan plus a re-apply lands it.
-            skipped.append("date_confirmations")
+            # The content is not in this catalog yet. The confirmation is KEPT in the document
+            # and simply not applied; a later scan plus a re-apply lands it. A different
+            # situation from the branch above, with a different answer for the user, which is
+            # why it is counted somewhere else - see `(abx)`.
+            count(awaiting, "date_confirmations")
             continue
         catalog.confirm_date(
             sha,
@@ -550,12 +566,53 @@ def apply_decisions(catalog: Any, decisions: Decisions) -> ApplyReport:  # noqa:
 
     return ApplyReport(
         applied=applied,
-        skipped_newer_locally=tuple(dict.fromkeys(skipped)),
+        already_newer_locally=newer_locally,
+        awaiting_content=awaiting,
         unmatched_events=tuple(unmatched),
         conflicting_trips=tuple(conflicting),
         trips_without_days=tuple(dayless),
         not_applied=("albums",) if decisions.albums else (),
     )
+
+
+@dataclass(frozen=True, slots=True)
+class RestoreReport:
+    """Everything one restore did, and everything it deliberately did not."""
+
+    reconciled: ReconcileReport
+    applied: ApplyReport
+
+
+def apply_documents(catalog: Any, documents: Sequence[Decisions]) -> RestoreReport:
+    """Reconcile the documents from several drives and apply the result. **One call, both halves.**
+
+    **The per-drive loop is structural rather than remembered.** `reconcile_documents` returns a
+    result with an empty drive block - each document is about a different drive, so there is no
+    single answer - which means drive labels are restored only by walking the documents
+    themselves. A restore command that had to remember that loop would one day not, and the
+    symptom is a drive coming back unnamed, indistinguishable from one the user never named. So
+    the loop lives here, where the merge is, and there is no sequence for a caller to get wrong.
+
+    A label is a decision: the user typed it. It is simply the one decision that cannot be merged.
+    """
+    merged, reconciled = reconcile_documents(documents)
+    report = apply_decisions(catalog, merged)
+
+    restored_drives = 0
+    for document in documents:
+        if not document.drive_uuid:
+            continue
+        row = catalog.drive_row(document.drive_uuid)
+        if row is None or (document.drive_label and str(row["label"]) != document.drive_label):
+            catalog.upsert_drive(uuid=document.drive_uuid, label=document.drive_label or "drive")
+            restored_drives += 1
+
+    if restored_drives:
+        report = replace(
+            report,
+            applied={**report.applied, "drive": report.applied.get("drive", 0) + restored_drives},
+        )
+    return RestoreReport(reconciled=reconciled, applied=report)
 
 
 #: The document's filename, beside `.truestill-drive.json` at a drive root. A sibling rather than
