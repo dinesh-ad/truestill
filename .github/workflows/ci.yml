@@ -74,6 +74,26 @@ jobs:
       - name: Mypy
         run: uv run mypy packages/truestill-core/src/truestill_core packages/truestill-cli/src/truestill_cli packages/truestill-app/src/truestill_app scripts packaging
 
+      # Windows Defender real-time scanning is ON by default on GitHub's Windows runners, and
+      # this suite creates thousands of short-lived SQLite files and temp trees. Every one is
+      # scanned on create and on close. Excluding the workspace and the temp directory is the
+      # standard remedy and costs about a second.
+      #
+      # UNMEASURED AT THE TIME IT LANDED, and that is stated rather than implied: the Windows
+      # pytest step has run 566 s, 1009 s, 1472 s and 596 s on four commits whose test counts
+      # differ by under 2%. A 2.6x spread means a single run cannot tell this step's effect from
+      # noise, so nobody should read one green run as proof it worked. What settles it is
+      # TS_PYTEST_SECONDS across several runs, which the timing summary below already records.
+      # If the median does not move, delete this step - an unmeasured optimisation that stays
+      # forever is how a workflow accumulates cargo.
+      - name: Exclude the workspace from Defender (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          Add-MpPreference -ExclusionPath "${{ github.workspace }}"
+          Add-MpPreference -ExclusionPath "$env:RUNNER_TEMP"
+
       - name: Pytest
         shell: bash
         run: |
