@@ -946,7 +946,7 @@ class Catalog:
             return None
         rows = list(
             self._conn.execute(
-                "SELECT * FROM migration_journal "
+                "SELECT sha256, drive_uuid, old_relative, new_relative, copy_sha256, run_id, completed_at FROM migration_journal "
                 "WHERE drive_uuid = ? AND completed_at IS NOT NULL "
                 "ORDER BY completed_at DESC, rowid DESC",
                 (drive_uuid,),
@@ -1051,14 +1051,18 @@ class Catalog:
 
     def inplace_run(self, run_id: str) -> sqlite3.Row | None:
         """One run's header, or ``None`` if there is no such run."""
-        cursor = self._conn.execute("SELECT * FROM inplace_runs WHERE run_id = ?", (run_id,))
+        cursor = self._conn.execute(
+            "SELECT run_id, source_root, dest_root, drive_uuid, started_at, completed_at, status FROM inplace_runs WHERE run_id = ?",
+            (run_id,),
+        )
         row: sqlite3.Row | None = cursor.fetchone()
         return row
 
     def latest_undoable_run(self) -> sqlite3.Row | None:
         """The most recent run that has not already been undone."""
         cursor = self._conn.execute(
-            "SELECT * FROM inplace_runs WHERE status != 'undone' ORDER BY started_at DESC LIMIT 1"
+            "SELECT run_id, source_root, dest_root, drive_uuid, started_at, completed_at, status FROM inplace_runs "
+            "WHERE status != 'undone' ORDER BY started_at DESC LIMIT 1"
         )
         row: sqlite3.Row | None = cursor.fetchone()
         return row
@@ -1346,7 +1350,10 @@ class Catalog:
         }
 
     def find_by_sha256(self, sha256: str) -> sqlite3.Row | None:
-        cursor = self._conn.execute("SELECT * FROM files WHERE sha256 = ?", (sha256,))
+        cursor = self._conn.execute(
+            "SELECT id, source_path, original_name, sha256, copy_sha256, perceptual, size, captured_at, category, relative, event_id, upload_status, processed_at, uploaded_at, date_source, date_tag, camera_make, camera_model, lens_model, gps_latitude, gps_longitude FROM files WHERE sha256 = ?",
+            (sha256,),
+        )
         row: sqlite3.Row | None = cursor.fetchone()
         return row
 
@@ -1604,7 +1611,8 @@ class Catalog:
         return list(
             self._conn.execute(
                 """
-                SELECT d.*, COUNT(fc.sha256) AS file_count, COALESCE(SUM(fc.size), 0) AS total_size
+                SELECT d.uuid, d.label, d.first_seen, d.last_seen, d.last_verified, d.notes, COUNT(fc.sha256) AS file_count,
+                       COALESCE(SUM(fc.size), 0) AS total_size
                 FROM drives d
                 LEFT JOIN file_copies fc ON fc.drive_uuid = d.uuid
                 GROUP BY d.uuid
@@ -1853,7 +1861,10 @@ class Catalog:
 
     def event_by_signature(self, signature: str) -> sqlite3.Row | None:
         """A previously-named event with this cluster signature, if any."""
-        cursor = self._conn.execute("SELECT * FROM events WHERE signature = ?", (signature,))
+        cursor = self._conn.execute(
+            "SELECT id, name, slug, start_date, file_count, signature FROM events WHERE signature = ?",
+            (signature,),
+        )
         row: sqlite3.Row | None = cursor.fetchone()
         return row
 

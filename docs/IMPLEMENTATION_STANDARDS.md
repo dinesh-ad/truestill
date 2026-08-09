@@ -360,6 +360,16 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   both ways, the three that chose it moved to the autoindex, and `library_status` - the only full
   scan among them - ran **0.844 ms with and 0.848 ms without**. *An in-place drop first suggested
   a 1.7x slowdown; that was the freed pages, not the plan.*
+- **Every catalog query names its columns; none selects `*`.** It began as a privacy guarantee
+  in `decisions.gather_decisions` - reading column by column so a column added to `files` or
+  `settings` later cannot arrive on a user's drive by default - and that reasoning is not
+  specific to the drive document. A `SELECT *` hands every future column to whatever consumes
+  the row, and the person adding the column is not the person who wrote the consumer. **The safe
+  behaviour is what you get when someone forgets**, the same shape as the exclusion-by-default
+  rules elsewhere here. Six sites in `catalog.py` were converted on 2026-08-09 by naming exactly
+  the columns that existed that day - behaviour-identical then, and a guarantee from then on.
+  Pinned by `test_queries_name_their_columns.py`, which parses string literals rather than
+  grepping, because the rule's own prose contains the pattern it forbids.
 - **Dual-hash rule.** `files.sha256` is the **source** (pre-write) hash - the **dedup
   identity**. `files.copy_sha256` is the organized copy's **post-write** hash - the
   **verification identity** (equal to `sha256` for the byte-identical normal pipeline; differs
