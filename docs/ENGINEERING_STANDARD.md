@@ -789,6 +789,28 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   Corollary, from the same day: the real catalog held zero events and zero date confirmations, so
   the feature had only ever met seeded examples of the thing it exists to protect.
 
+- **A guard that is silently cancelled is worse than one never scheduled, because the calendar
+  says it ran.** The nineteenth member. It generalises past the workflow it came from: whenever a
+  check is moved somewhere cheaper - a nightly, a separate job, a background task, a slower tier -
+  the move is only done when you have checked **what can stop it running and how you would find
+  out.** A guard nobody scheduled is an obvious gap. A guard that starts and is killed leaves
+  green ticks and a schedule entry, and reads as coverage.
+
+  Recorded 2026-08-09. The collection-order pass was moved to a nightly because parallelism had
+  made it the largest step in the job. The workflow's `concurrency` group was
+  `ci-${{ github.ref }}` with `cancel-in-progress: true`, so a scheduled run and a push to `main`
+  share one group - **the first morning push would have cancelled the nightly mid-flight**, and
+  the nightly was by then the only trigger that ran that pass. Caught before it shipped, by
+  asking what could stop it rather than by assuming a cron fires.
+
+  > *Ask three things before moving a check off the main path:* what cancels or skips it, who
+  > sees the result, and what the symptom would be if it silently stopped. If the answer to the
+  > third is "everything looks the same", the move needs a signal before it needs a schedule.
+
+  *Same family, different mechanism:* a `skipif` whose condition is always true, an allow-list
+  entry nobody prunes, a matrix leg that quietly stopped being included. Each reports success for
+  work it did not do.
+
 - **Three points is not a trend, and a live metric is not a constant.** The eighteenth member.
   Two ways to be confidently wrong about a measurement, both recorded 2026-08-09 from the same
   afternoon.
