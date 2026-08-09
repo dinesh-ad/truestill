@@ -41,12 +41,18 @@ def test_migrate_matches_returns_false_when_checksum_is_unreadable(
 
 
 def _copy_fails_with(monkeypatch: pytest.MonkeyPatch, number: int, text: str) -> None:
-    """Make the copy raise a given errno, on the module that performs it (guard rule 3)."""
+    """Make the copy raise a given errno, on the module that performs it (guard rule 3).
+
+    That module changed on 2026-08-10: `LocalDestination.upload` no longer calls `shutil.copy2`
+    itself, it calls `safe_copy.copy_leaving_nothing`, which does - and which removes a partial
+    it wrote before the error is reported (`(abu)`). The rule is unchanged and the aim moved with
+    the code; patching `destinations.local` would now patch a name that is not there.
+    """
 
     def boom(_src: Path, _dst: Path) -> Path:
         raise OSError(number, text)
 
-    monkeypatch.setattr("truestill_core.destinations.local.shutil.copy2", boom)
+    monkeypatch.setattr("truestill_core.safe_copy.shutil.copy2", boom)
 
 
 def test_efbig_is_named_as_the_fat32_limit_rather_than_passed_through(

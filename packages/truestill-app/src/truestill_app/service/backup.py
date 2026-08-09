@@ -18,6 +18,7 @@ from truestill_core.drive import read_marker
 from truestill_core.hashing import sha256_file
 from truestill_core.progress import Phase, Progress, ProgressCallback
 from truestill_core.run_health import RunHealth, watcher_for
+from truestill_core.safe_copy import copy_leaving_nothing
 
 from truestill_app.jobs import JobTarget
 from truestill_app.service.drive_support import not_a_drive
@@ -233,6 +234,30 @@ def _stop_if_ground_moved(health: RunHealth | None, *, ahead: int, written: int)
         raise ValueError(verdict.detail)
 
 
+def _copy_or_raise(source_file: Path, dst: Path, rel: str) -> None:
+    """Copy one file, leaving nothing behind if it fails - `(abu)`.
+
+    **Removes only what this call created.** The work list comes from the CATALOG
+    (`_files_missing_on_target`), not from the disk, so a file the catalog does not know about
+    can already be sitting at `dst` - a partial from an earlier failed run, or anything the user
+    put there. That one is not ours to delete.
+
+    When the cleanup itself fails the partial survives and the message says where it is and how
+    big: the run stops either way, and the user should not have to find 800 MB with `rescan`.
+    """
+    outcome = copy_leaving_nothing(source_file, dst)
+    if outcome.ok:
+        return
+    assert outcome.error is not None
+    if outcome.leftover is None:
+        raise outcome.error
+    message = (
+        f"copying {rel} failed: {outcome.error}. {outcome.leftover_bytes:,} bytes are still "
+        f"at {outcome.leftover} and could not be removed."
+    )
+    raise OSError(message) from outcome.error
+
+
 def _largest_copy_ahead(missing: Sequence[MissingCopy]) -> list[int]:
     """For each position, the biggest copy at or after it. A suffix maximum in one pass.
 
@@ -304,7 +329,7 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
                 dst = target / rel
                 device.check(target)
                 dst.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(source / rel, dst)
+                _copy_or_raise(source / rel, dst, rel)
                 written = sha256_file(dst)
                 want = row.verify_sha
                 if want is not None and written != want:

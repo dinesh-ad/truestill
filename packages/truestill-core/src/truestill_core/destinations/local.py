@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import errno
 import os
-import shutil
 from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
@@ -30,6 +29,7 @@ from truestill_core.filesystem import (
     preflight_destination,
 )
 from truestill_core.hashing import sha256_file
+from truestill_core.safe_copy import CopyOutcome, copy_leaving_nothing
 
 #: ``EFBIG``. Raised when a file exceeds what the filesystem can store - on FAT32, anything from
 #: 4 GiB up. Named separately because the bare message, "File too large" against a drive with
@@ -37,7 +37,7 @@ from truestill_core.hashing import sha256_file
 _FILE_TOO_LARGE = errno.EFBIG
 
 
-def _upload_failure(local: Path, target: Path, relative_path: str, exc: OSError) -> str:
+def _upload_failure(local: Path, target: Path, relative_path: str, outcome: CopyOutcome) -> str:
     """The sentence a user reads when a copy fails, with the FAT32 case named rather than passed
     through as an errno.
 
@@ -45,15 +45,26 @@ def _upload_failure(local: Path, target: Path, relative_path: str, exc: OSError)
     property of where the file is being written, and asking about a relative path would
     interrogate the current working directory instead.
     """
-    if exc.errno == _FILE_TOO_LARGE:
+    if outcome.leftover is not None:
+        # The cleanup could not run either - usually the same fault that produced the partial.
+        # A user who watched 800 MB cross a slow link is told what is on their disk and where,
+        # rather than left to find it with `rescan`.
+        left = (
+            f" {outcome.leftover_bytes:,} bytes of it are still at {outcome.leftover}, "
+            "and could not be removed."
+        )
+    else:
+        left = ""
+    exc = outcome.error
+    if exc is not None and exc.errno == _FILE_TOO_LARGE:
         facts = facts_for(target.parent)
         formatted = f" ({facts.filesystem})" if facts.known else ""
         return (
             f"{local.name} is too large for this drive{formatted}. Drives formatted FAT32 "
             f"cannot hold a single file of 4 GB or more, however much free space they show. "
-            f"Copy this file to a drive formatted exFAT or NTFS, or reformat this one."
+            f"Copy this file to a drive formatted exFAT or NTFS, or reformat this one.{left}"
         )
-    return f"cannot upload to {relative_path!r}: {exc}"
+    return f"cannot upload to {relative_path!r}: {exc}{left}"
 
 
 class LocalDestination(Destination):
@@ -110,9 +121,18 @@ class LocalDestination(Destination):
         target = self._full(relative_path)
         try:
             self._make_parent(target)
-            shutil.copy2(local, target)
         except OSError as exc:
-            raise DestinationError(_upload_failure(local, target, relative_path, exc)) from exc
+            message = f"cannot upload to {relative_path!r}: {exc}"
+            raise DestinationError(message) from exc
+        # A failed copy leaves nothing it wrote - `(abu)`. It cannot remove what was already
+        # there, which at this site is almost never anything: `_free_relative` has just chosen a
+        # path nothing occupies.
+        outcome = copy_leaving_nothing(local, target)
+        if not outcome.ok:
+            assert outcome.error is not None
+            raise DestinationError(
+                _upload_failure(local, target, relative_path, outcome)
+            ) from outcome.error
 
     def set_timestamp(self, relative_path: str, captured_at: datetime) -> None:
         stamp = captured_at.timestamp()
@@ -163,10 +183,25 @@ class LocalDestination(Destination):
         target = self._full(new_relative_path)
         try:
             self._make_parent(target)
-            shutil.copy2(source, target)  # overwrites a partial copy left by an interrupted run
         except OSError as exc:
             message = f"cannot relocate {old_relative_path!r} -> {new_relative_path!r}: {exc}"
             raise DestinationError(message) from exc
+        # Still overwrites a partial left by an interrupted run - that is why the target may
+        # legitimately exist here, and why the cleanup below removes only what IT wrote.
+        outcome = copy_leaving_nothing(source, target)
+        if not outcome.ok:
+            assert outcome.error is not None
+            left = (
+                f" {outcome.leftover_bytes:,} bytes are still at {outcome.leftover} and could "
+                "not be removed."
+                if outcome.leftover is not None
+                else ""
+            )
+            message = (
+                f"cannot relocate {old_relative_path!r} -> {new_relative_path!r}: "
+                f"{outcome.error}{left}"
+            )
+            raise DestinationError(message) from outcome.error
 
     def remove(self, relative_path: str) -> None:
         try:

@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aby). Next free: (abz).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(acc). Next free: (acd).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -350,6 +350,19 @@ is invisible here is retired, not free.**
     would have the second overwrite the first - narrower, and the only one of the three that is
     about bytes.
 
+- **(abz) Write to a temp name and rename, instead of writing straight to the target.**
+  Recorded 2026-08-10, deferred out of `(abu)` deliberately rather than forgotten.
+  - **The stronger shape.** `(abu)` removes a partial in an `except`; a temp-then-rename never
+    creates one at the target path at all, because the bytes only take the real name once they
+    are all there. It is the same reasoning `decisions.write_decisions` already uses for the
+    drive document: temp in the same directory, flush, fsync, `os.replace`.
+  - **Why it was not done with `(abu)`:** it changes the write path for **every** backend rather
+    than one `except` clause, and the rename must be same-filesystem to be atomic - which is a
+    property of each destination, not of the caller. That is a decision someone makes, not a
+    detail that rides in on a bug fix.
+  - **What it would still not fix:** a rename across filesystems degrades to a copy, so the
+    guarantee is not free everywhere. `(abu)`'s cleanup stays useful underneath it.
+
 - **(abu) A failed copy leaves the bytes it managed to write, and nothing owns them.**
   Recorded 2026-08-07 from the first real organize onto the maintainer's library. **Ranked at
   the top: it is the only known path that puts a file into a library that nothing accounts for.**
@@ -381,6 +394,37 @@ is invisible here is retired, not free.**
   - **The unlink must itself be guarded**: the failure that produced the partial is often the one
     that will refuse the delete, and a cleanup that raises would replace a reported failure with
     an unreported one.
+  - ✅ **BUILT 2026-08-10 as `safe_copy.copy_leaving_nothing`**, called from all three sites.
+  - ⚠ **THE FINDING THAT SHAPED THE FIX, and it is not what the entry above assumed: a blind
+    unlink would delete files this run did not write.** `shutil.copy2` opens the SOURCE first, so
+    a failure before the destination is opened - unreadable source, denied permission, a parent
+    that could not be made - leaves the target **untouched**. And at two of the three sites that
+    target can legitimately be occupied: `relocate` overwrites an interrupted run's partial by
+    design, and `backup` builds its work list from the CATALOG
+    (`_files_missing_on_target`), so anything the catalog does not know about can be sitting
+    there. The rule is therefore **remove only what this call created**, decided by an
+    `exists()` taken immediately before the copy and never accepted from a caller -
+    `organizer._free_relative` also checks, some lines earlier, and a stale "it was free" is
+    exactly the input that would turn the cleanup into a deletion.
+  - **`relocate`'s overwrite was a red herring.** Once `copy2` has opened the destination the
+    incumbent is already truncated, so removing it afterwards destroys nothing that survived.
+    What makes that site different is only that its target is often occupied, which is a value
+    of the same flag rather than a second design.
+  - **`backup.py` already unlinked on a bad checksum** (`:312`), so remove-on-failure was not a
+    new idea here - it existed at one of the three sites for the neighbouring case.
+  - **RETRY-ACCUMULATION IS CLOSED WHEN CLEANUP SUCCEEDS AND REPORTED WHEN IT DOES NOT**, and
+    nobody should read this entry as fully closed. If the unlink fails the partial survives, and
+    a surviving partial **should** be treated as an incumbent: we could not delete it, so
+    pretending it is not there would be the dishonest option, and `_free_relative` suffixing
+    beside it is the "never lose data" rule doing its job. What closes the gap is the message -
+    the path and the byte count of what was left - not different behaviour.
+  - **The TOCTOU at `upload` is not a data-loss path**, stated with the reason rather than tested
+    with something that proves nothing: `_free_relative` checks `exists()` some lines before the
+    write, so a file could appear in between - but the helper takes its own `exists()`
+    immediately before copying, so it would see that file as an incumbent and refuse to remove
+    it. The window can cost an overwrite, which is `_free_relative`'s pre-existing hazard, and
+    cannot cost a wrong deletion. Pinned by a test asserting the helper's signature offers no way
+    to pass an opinion in.
 
 - **(abs) The ghost-drive rule refuses REGISTRATION and warns nobody else.** Recorded
   2026-08-07 with the fix, and **chosen deliberately rather than discovered** - which is the
