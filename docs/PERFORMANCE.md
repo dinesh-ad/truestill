@@ -627,3 +627,49 @@ The slow run scores *lower*, which is the whole point: both numbers rose togethe
 slower suite raises the ratio instead. It is **recorded and never enforced** - a threshold would
 fire on this variance, and a gate that fires on noise gets switched off and takes its signal
 with it.
+
+## 6. Local lane durations, and the ceilings that hold them (measured 2026-08-09)
+
+**Both lanes got materially faster on 2026-08-09, and the numbers below are the state after
+that, not before.** They exist so the next person can tell drift from a bad afternoon.
+
+| Lane | Before | After | What changed |
+|---|---|---|---|
+| `make test` (1,968 tests) | 89.95 s | **15.7-18.8 s**, median 17.2 s | `pytest -n auto` |
+| `make e2e` (387 tests) | 417-423 s | **362.7 s** | deferred server teardown |
+
+**Where the browser lane's time actually goes**, measured by running the same suite four ways:
+
+| Capture | Wall clock |
+|---|---|
+| neither | **252.2 s** |
+| `--video retain-on-failure` only | 295.7 s (+43 s) |
+| `--tracing retain-on-failure` only | **322.5 s (+70 s)** |
+| both (what `make e2e` runs) | 362.7 s (+110 s) |
+
+**The trace is the expensive one, not the video** - the opposite of the guess that prompted the
+measurement. It is also the one that has paid: `(abq)`'s mechanism was proven from `trace.network`
+showing that no request was ever issued. The video contributed nothing to that diagnosis. So the
+70 s stays, and **the 43 s of video is the candidate if this lane ever has to be cheaper** -
+recorded rather than acted on, because it trades a debugging capability for time.
+
+**Per-test server cost** (the reason the lane moved): booting one costs 6.2 ms and `create_app`
+1.5 ms; **tearing one down costs 196.9 ms**, 96% of it uvicorn noticing `should_exit` on a 0.1 s
+main-loop tick, twice. `force_exit` does not change it. Sharing the server would have bought the
+6.2 ms and cost isolation, since `create_app` builds a live `JobManager()` per app.
+
+**A floor no hardware beats:** the suite cannot go below ~5.5 s while its slowest single test is
+5.45 s - `test_catalog_busy_refusal`, which waits out `sqlite3.connect`'s own 5 s `busy_timeout`
+because that wait *is* the behaviour under test.
+
+### The ceilings
+
+`TEST_SECONDS_MAX = 45` and `E2E_SECONDS_MAX = 600` in the Makefile: **limits that fail the
+build**, at roughly 2.5x and 1.6x the medians above. They catch a doubling and ignore a busy
+laptop. Raising one is a decision made on purpose, in its own commit, with a new measurement -
+the failure message says so.
+
+**Not enforced in CI, deliberately.** The same Windows step measured 566 s, 1009 s, 1472 s and
+596 s on commits whose test counts differ by under 2%. A ceiling there would fire on variance
+rather than drift, and a gate that fires on noise gets switched off and takes its signal with it -
+the same reasoning §5 already applies to its own ratio.

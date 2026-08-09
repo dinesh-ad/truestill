@@ -34,8 +34,38 @@ typecheck:
 # `-n auto` here rather than in `addopts`, deliberately: addopts would sweep in `test-order`
 # below, whose whole value is a single deterministic collection order. Measured 89.95s -> 30.00s
 # on 16 cores; expect roughly half that gain on a 2-4 core CI runner.
+# --- wall-clock ceilings ----------------------------------------------------------------
+# A LIMIT THAT FAILS, NOT A TARGET NOBODY READS. §4 asks for impossible rather than unlikely,
+# and a suite gets slow the way it gets untested: nobody decides to, it just drifts. These are
+# calibrated on the machine below with ~2.5x headroom, so they catch a doubling and ignore a
+# busy laptop. Raising one is a decision to be made ON PURPOSE, with a new measurement.
+#
+# Calibrated 2026-08-09, 16 cores: `test` five samples 15.7-18.8s (median 17.2s); `e2e` 362.7s
+# with tracing and video, 252.2s without. Override for a slower machine:
+#   make check TEST_SECONDS_MAX=90
+#
+# NOT enforced in CI, deliberately: the same Windows step measured 566s, 1009s, 1472s and 596s
+# on commits within 2% of each other, so a CI ceiling would fail on variance rather than on
+# drift and would be switched off within a week. See §4's eighteenth member.
+TEST_SECONDS_MAX ?= 45
+E2E_SECONDS_MAX ?= 600
+
+# `$$` throughout: this is one shell line per recipe, so the variables are the shell's, not
+# make's. The test's own exit status is preserved - a ceiling must not turn a red suite green.
+define time_ceiling
+start=$$(date +%s); $(1); status=$$?; elapsed=$$(( $$(date +%s) - start )); \
+if [ $$status -ne 0 ]; then exit $$status; fi; \
+if [ $$elapsed -gt $(2) ]; then \
+	echo ""; \
+	echo "TOO SLOW: $(3) took $${elapsed}s, ceiling is $(2)s."; \
+	echo "Measure before raising it: pytest --durations=25 names where the time went."; \
+	echo "If the cost is real and wanted, raise $(4) in the Makefile in its own commit."; \
+	exit 1; \
+fi
+endef
+
 test:
-	$(PYTHON) pytest -n auto
+	@$(call time_ceiling,$(PYTHON) pytest -n auto,$(TEST_SECONDS_MAX),the test lane,TEST_SECONDS_MAX)
 
 # The suite in a different collection order - testpaths gives core, cli, app; passing the
 # directory gives app, cli, core. Deliberately NOT in `check`: it doubles the local test wait
@@ -74,9 +104,9 @@ e2e-install:
 # nondeterminism this layer exists to expose; a flaky test gets quarantined and filed instead.
 # Traces and video are kept only for failures, so a red run arrives with a replay.
 e2e:
-	$(PYTHON) pytest tests/e2e --browser chromium \
+	@$(call time_ceiling,$(PYTHON) pytest tests/e2e --browser chromium \
 		--tracing retain-on-failure --video retain-on-failure \
-		--output tests/e2e/.artifacts
+		--output tests/e2e/.artifacts,$(E2E_SECONDS_MAX),the browser lane,E2E_SECONDS_MAX)
 
 build:
 	uv build --all-packages
