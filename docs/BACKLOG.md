@@ -93,7 +93,9 @@ is invisible here is retired, not free.**
   Recorded 2026-08-09, from code, while building the decisions-on-drive feature
   (`truestill_core.decisions`). **Load-bearing for Stage 4** - moved out of a plan file in
   a home directory and into the repository, because a plan file does not survive a new machine
-  and `docs/ui-inventory.md` was lost twice for exactly that reason.
+  and `docs/ui-inventory.md` was lost twice for exactly that reason. **The design itself now
+  lives in [`decisions-on-drive-research.md`](decisions-on-drive-research.md)**; this entry is
+  one finding out of it, not the design.
   - **CORRECTED 2026-08-09: this entry said "Stages 1-3 landed" and Stage 3 is half of one.**
     `write_decisions` exists, is atomic and is tested - and has **zero callers**. Stage 3 was
     "the write trigger and the file"; only the file was built. **So no document has ever been
