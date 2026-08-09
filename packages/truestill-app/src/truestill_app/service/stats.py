@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import TypedDict
 
 from truestill_core.catalog import Catalog
+from truestill_core.catalog_session import open_catalog
 from truestill_core.date_explain import explain, explain_evidence
 from truestill_core.organizer import (
     AUDIO_EXTENSIONS,
@@ -159,7 +160,7 @@ def library_stats(db: Path) -> LibraryStats:
     Complexity: O(n) aggregate scans over ``files``/``file_copies`` plus grouped rollups for
     years and formats. No file reads, no hashing, no exiftool, and no per-file Python loops.
     """
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         summary = catalog.stats_summary()
         year_rows = catalog.stats_by_year()
         drives = catalog.list_drives()
@@ -270,7 +271,7 @@ def date_tier_files(
     This is what turns `(n)` from a report into a surface: the mix says *how* dates were
     determined, and this says *which files* - each with the identity `confirm_date` needs.
     """
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         rows, total = catalog.files_in_date_tier(date_source, limit=limit)
     # Page-bounded: one stat per row, and exiftool only for the rows that actually have a
     # sidecar. See `date_rescue.original_candidates` for why that is what makes it eager.

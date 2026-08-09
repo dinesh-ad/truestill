@@ -13,7 +13,7 @@ from typing import NotRequired, TypedDict
 
 from truestill_core.archive_extract import extract_archive_set
 from truestill_core.archive_ingest import archives_at, precheck_archives
-from truestill_core.catalog import Catalog
+from truestill_core.catalog_session import open_catalog
 from truestill_core.categorize import build_rules
 from truestill_core.date_provenance import format_offset
 from truestill_core.dedup import DedupIndex
@@ -89,7 +89,7 @@ def ingest_preview(
     files = discover(takeout)
     if not files:
         return {"files": 0, "missing_sidecar": 0}
-    with Catalog(db) as catalog, HashCache.beside(db) as cache:
+    with open_catalog(db) as catalog, HashCache.beside(db) as cache:
         metadata = read_metadata(files, progress=progress, cancel=cancel, cache=cache)
         scheme = resolve_scheme(catalog)
         rules = build_rules()

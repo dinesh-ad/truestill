@@ -12,6 +12,7 @@ from typing import Literal, NotRequired, TypedDict, cast
 
 from truestill_core import binaries
 from truestill_core.catalog import Catalog
+from truestill_core.catalog_session import open_catalog
 from truestill_core.catalog_startup import inspect_catalog
 from truestill_core.drive import (
     DriveReach,
@@ -206,7 +207,7 @@ def _adoption_block(
     explain the difference, and refusing to register is always recoverable while a wrong
     identity is not.
     """
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         recorded = [
             recorded_drive(
                 str(row["uuid"]), str(row["label"]), catalog.copies_on_drive(str(row["uuid"]))
@@ -308,7 +309,7 @@ def attach_drive(
     label = marker.label if marker is not None else (path.name or "Library")
 
     linked = unreadable = unmatched = 0
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         if write and marker is not None:
             catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
             catalog.set_setting(drive_path_hint(marker.uuid), str(path))
@@ -431,7 +432,7 @@ class AtRiskRow(TypedDict):
 
 
 def list_drives(db: Path) -> list[DriveRow]:
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         names_by_drive: dict[str, list[str]] = {}
         for row in catalog.copy_names_by_drive():
             names_by_drive.setdefault(row["drive_uuid"], []).append(row["relative"])
@@ -480,7 +481,7 @@ def where(term: str, db: Path, *, page: int = 1) -> WhereResult:
     """
     size = Catalog.FIND_PAGE_SIZE
     page = max(1, page)
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         total = catalog.count_copies(term)
         rows = catalog.find_copies(term, limit=size, offset=(page - 1) * size)
         copies: list[WhereCopy] = [
@@ -502,7 +503,7 @@ def where(term: str, db: Path, *, page: int = 1) -> WhereResult:
 
 
 def at_risk(db: Path) -> list[AtRiskRow]:
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         return [
             {"name": r["original_name"] or r["sha256"][:12], "drive": r["drive_label"]}
             for r in catalog.single_copy_shas()
@@ -549,7 +550,7 @@ def library_status(db: Path, *, explicit_db: bool = False) -> LibraryStatus:
     """
     # Inspect before Catalog() so a missing path stays will_create (Catalog would create it).
     startup = inspect_catalog(db, explicit_db=explicit_db)
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         breakdown = media_breakdown(catalog.media_names())
         total = catalog.count()
         drives = [d for d in catalog.list_drives() if d["file_count"]]

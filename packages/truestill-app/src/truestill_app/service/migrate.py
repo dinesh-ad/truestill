@@ -8,6 +8,7 @@ from pathlib import Path, PurePosixPath
 from typing import Literal, NotRequired, TypedDict
 
 from truestill_core.catalog import Catalog
+from truestill_core.catalog_session import open_catalog
 from truestill_core.destinations import LocalDestination
 from truestill_core.drive import read_marker
 from truestill_core.hash_cache import HashCache
@@ -94,7 +95,7 @@ def migration_preview(
     marker = read_marker(path)
     if marker is None:
         return drive_unavailable(path)
-    with Catalog(db) as catalog, HashCache.beside(db) as cache:
+    with open_catalog(db) as catalog, HashCache.beside(db) as cache:
         scheme = resolve_scheme(catalog)
         routes, rules_by_sha, evidence_warning = _resolve_migration_routes(
             catalog, marker.uuid, path, cache=cache, progress=progress, cancel=cancel
@@ -222,7 +223,7 @@ def migration_apply(
         marker = read_marker(path)
         if marker is None:
             raise not_a_drive(path)
-        with Catalog(db) as catalog, HashCache.beside(db) as cache:
+        with open_catalog(db) as catalog, HashCache.beside(db) as cache:
             catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
             pin_existing_layout(catalog)
             scheme = resolve_scheme(catalog)
@@ -318,7 +319,7 @@ def migration_armed_state(path: Path, db: Path) -> ArmedStatePayload | DriveUnav
     marker = read_marker(path)
     if marker is None:
         return drive_unavailable(path)
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         record = catalog.reversible_migration(marker.uuid)
     if record is None:
         return {"ok": True, "armed": False, "file_count": 0, "run_id": None}
@@ -338,7 +339,7 @@ def migration_undo(path: Path, db: Path, *, apply: bool) -> JobTarget | DriveUna
         return drive_unavailable(path)
 
     def target(progress: ProgressCallback, cancel: threading.Event) -> UndoJobSummary:
-        with Catalog(db) as catalog:
+        with open_catalog(db) as catalog:
             record = catalog.reversible_migration(marker.uuid)
             run_id = record[0] if record is not None else None
             outcome = undo_migration(

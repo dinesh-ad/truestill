@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Literal, NotRequired, TypedDict
 
 from truestill_core.catalog import Catalog
+from truestill_core.catalog_session import open_catalog
 from truestill_core.destinations.base import DestinationDevice
 from truestill_core.drive import read_marker
 from truestill_core.hashing import sha256_file
@@ -165,7 +166,7 @@ def backup_preview(source: Path, target: Path, db: Path) -> BackupPreviewOk | Ba
             "ok": False,
             "error": "From and To are the same drive. Pick a different backup drive.",
         }
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         missing = (
             _files_missing_on_target(catalog, src_marker.uuid, tgt_marker.uuid)
             if src_marker is not None and tgt_marker is not None
@@ -270,7 +271,7 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
             # answered with "not enough space" - a true statement about a run nobody asked to
             # continue, and a confusing one to be handed after pressing stop.
             return _nothing_copied(tgt_marker.label, target)
-        with Catalog(db) as catalog:
+        with open_catalog(db) as catalog:
             missing = _files_missing_on_target(catalog, src_marker.uuid, tgt_marker.uuid)
             need = sum(int(r.size or 0) for r in missing)
             free = shutil.disk_usage(target).free

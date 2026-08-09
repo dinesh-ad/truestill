@@ -7,6 +7,20 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Your names now live on your drives, so losing the catalog no longer loses them.** Truestill
+  keeps a small file - `.truestill-decisions.json`, beside the drive marker at the top of each
+  registered drive - holding **only what a person decided**: trip and event names, the drive's
+  label, dismissed groups, and dates you corrected by hand. Everything else it knows is
+  recomputable by reading your photos again; those names are not, because nobody but you ever
+  knew them.
+  It is written after any work that changed the catalog, to every drive that is plugged in, and
+  it is **plain readable text** - you can open it in any text editor, on any machine, with
+  Truestill nowhere in sight. That is the point of it. About a kilobyte.
+  **The first time you run this version it saves a copy straight away**, so a library you
+  finished naming months ago is covered without you having to rename anything, and it says so
+  once. After that it is silent unless something goes wrong: a drive that is full, write-
+  protected, or that already holds names this catalog does not have is reported rather than
+  written over.
 - **Naming a trip or event now suggests a name taken from your own folders.** If the photos in a
   group came from a folder you named - `Sea Diving`, `Phoenix Mall 2015` - Truestill offers that
   name under the box, with a **Use** button. It is only ever an offer: **the box stays empty until

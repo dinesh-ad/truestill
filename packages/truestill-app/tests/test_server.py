@@ -12,6 +12,8 @@ from starlette.testclient import TestClient
 from truestill_app import __version__, server
 from truestill_app.server import create_app
 from truestill_core.catalog import Catalog
+from truestill_core.decisions import DECISIONS_NAME
+from truestill_core.drive import MARKER_NAME
 
 
 def test_missing_token_is_rejected(tmp_path: Path) -> None:
@@ -406,7 +408,11 @@ def test_organize_run_summary_matches_files_on_disk(client: TestClient, tmp_path
     }
 
     # The drive marker is truestill's own bookkeeping, not an organized photo.
-    files_on_disk = [p for p in out.rglob("*") if p.is_file() and p.name != ".truestill-drive.json"]
+    # Truestill's own files at a drive root, by name rather than by a dotfile rule so a
+    # stray dotfile would still fail this: the marker, and the decisions document the
+    # session trigger refreshes after a run that wrote to the catalog.
+    ours = {MARKER_NAME, DECISIONS_NAME}
+    files_on_disk = [p for p in out.rglob("*") if p.is_file() and p.name not in ours]
     assert summary["organized"] == len(files_on_disk) == 2  # summary == on-disk reality
     assert summary["bytes_organized"] == sum(p.stat().st_size for p in files_on_disk)
     # "uploaded" is backend vocabulary for something that did not happen on a local disk.

@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal, TypedDict
 
-from truestill_core.catalog import Catalog
+from truestill_core.catalog_session import open_catalog
 from truestill_core.events import EVENT_MIN_FILES_KEY, EventSettings, InvalidEventSettingsError
 from truestill_core.layout import (
     DEFAULT_PRESET,
@@ -45,7 +45,7 @@ class InvalidEventSettingsPayload(TypedDict):
 
 def event_settings(db: Path) -> EventSettings:
     """Read the validated preference once through the catalog's existing settings seam."""
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         return EventSettings.from_catalog(catalog)
 
 
@@ -67,7 +67,7 @@ def set_event_settings(min_files: object, db: Path) -> EventSettings:
     if isinstance(min_files, bool) or not isinstance(min_files, int) or min_files < 1:
         raise InvalidEventSettingsError.submitted()
     settings = EventSettings(min_files=min_files, is_default=False)
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         catalog.set_setting(EVENT_MIN_FILES_KEY, str(min_files))
     return settings
 
@@ -88,7 +88,7 @@ class InvalidEverydayDaySettingsPayload(TypedDict):
 
 def everyday_day_settings(db: Path) -> EverydayDaySettings:
     """Read the validated Everyday day-folder threshold through the catalog settings seam."""
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         return EverydayDaySettings.from_catalog(catalog)
 
 
@@ -114,7 +114,7 @@ def set_everyday_day_settings(threshold: object, db: Path) -> EverydayDaySetting
     if isinstance(threshold, bool) or not isinstance(threshold, int) or threshold < 1:
         raise InvalidEverydayDaySettingsError.submitted()
     settings = EverydayDaySettings(threshold=threshold, is_default=False)
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         prior = EverydayDaySettings.from_catalog(catalog)
         catalog.set_setting(EVERYDAY_DAY_THRESHOLD_KEY, str(threshold))
     changed = prior.threshold != threshold
@@ -187,7 +187,7 @@ def layout_state(db: Path) -> LayoutState:
     therefore shows its real (category-first) shape truthfully rather than being shown the new
     default it has not adopted.
     """
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         stored = effective_layout_string(catalog)
         scheme = resolve_scheme(catalog)
     return {
@@ -222,7 +222,7 @@ def set_layout(template_str: str, db: Path) -> SetLayoutOk | SetLayoutErr:
         parse_timeline_template(template_str)
     except TemplateError as exc:
         return {"valid": False, "error": str(exc)}
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         catalog.set_setting(LAYOUT_TEMPLATE_KEY, template_str)
     state = layout_state(db)
     return {

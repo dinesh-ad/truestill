@@ -663,6 +663,7 @@ class Catalog:
         # `sqlite3.LEGACY_TRANSACTION_CONTROL`, which is the int -1. Runtime accepts it; the
         # annotation is narrower than the API. Deleting the ignore breaks the build; deleting
         # the argument silently un-pins the transaction model.
+        self._dirty = False
         self._conn = sqlite3.connect(
             str(path),
             autocommit=sqlite3.LEGACY_TRANSACTION_CONTROL,  # type: ignore[call-overload]
@@ -1212,6 +1213,32 @@ class Catalog:
         except Exception:
             self._conn.rollback()
             raise
+        # After the commit, never before: a rolled-back transaction changed nothing and must not
+        # look as though it did.
+        self._dirty = True
+
+    @property
+    def dirty(self) -> bool:
+        """Whether **any** write has been committed since this catalog was opened or marked clean.
+
+        **Any write, not "a decision" - and that is deliberate.** Telling the two apart would mean
+        maintaining a list of which methods count, and the day someone adds a decision table and
+        forgets the list, the drive copy goes quiet with nothing saying so. Every write in this
+        class goes through one :meth:`_tx`, so this cannot drift; a list would.
+
+        Interpreting it is the caller's job. `catalog_session.open_catalog` reads it as "this unit
+        of work may have changed a decision, so refresh the drives".
+        """
+        return self._dirty
+
+    def mark_clean(self) -> None:
+        """Forget the writes seen so far. Called after the drive copies have been refreshed.
+
+        Without it the refresh's own bookkeeping write - it records outcomes through this same
+        catalog - would leave the catalog looking dirty and fire a second, identical save. That is
+        harmless today and a loop the day the fire point moves.
+        """
+        self._dirty = False
 
     # -- reads ---------------------------------------------------------------------
 

@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import NotRequired, TypedDict
 
-from truestill_core.catalog import Catalog
+from truestill_core.catalog_session import open_catalog
 from truestill_core.drive import read_marker
 from truestill_core.progress import ProgressCallback
 from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
@@ -55,7 +55,7 @@ def verify_run(path: Path, db: Path) -> JobTarget | DriveUnavailablePayload:
         return drive_unavailable(path)
 
     def target(progress: ProgressCallback, cancel: threading.Event) -> VerifyJobSummary:
-        with Catalog(db) as catalog:
+        with open_catalog(db) as catalog:
             catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
             catalog.set_setting(drive_path_hint(marker.uuid), str(path))
             rows = catalog.copies_on_drive(marker.uuid)

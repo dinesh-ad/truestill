@@ -9,7 +9,7 @@ import threading
 from pathlib import Path
 from typing import Literal, NotRequired, TypedDict
 
-from truestill_core.catalog import Catalog
+from truestill_core.catalog_session import open_catalog
 from truestill_core.progress import ProgressCallback
 from truestill_core.undo import UndoError, plan_undo, run_undo
 
@@ -54,7 +54,7 @@ class OrganizeUndoJobSummary(TypedDict):
 
 def organize_undo_state(db: Path) -> OrganizeUndoStateDisarmed | OrganizeUndoStateArmed:
     """Durable state for undoing rename-based organize runs."""
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         try:
             plan = plan_undo(catalog)
         except UndoError:
@@ -82,7 +82,7 @@ def organize_undo(*, db: Path, apply: bool) -> JobTarget:
     """Preview/apply organize undo on a worker thread."""
 
     def target(progress: ProgressCallback, _cancel: threading.Event) -> OrganizeUndoJobSummary:
-        with Catalog(db) as catalog:
+        with open_catalog(db) as catalog:
             plan = plan_undo(catalog)
             outcome = run_undo(catalog, plan, apply=apply, progress=progress if apply else None)
             still_armed = catalog.latest_undoable_run() is not None

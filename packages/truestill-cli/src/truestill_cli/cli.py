@@ -16,6 +16,7 @@ import time
 import uuid
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
+from contextlib import AbstractContextManager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -31,6 +32,7 @@ from truestill_core.archive_ingest import archives_at, precheck_archives
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_busy import CATALOG_BUSY_MESSAGE, is_catalog_busy
 from truestill_core.catalog_move import CatalogMoveOutcome, move_catalog_to_standard
+from truestill_core.catalog_session import open_catalog
 from truestill_core.catalog_startup import (
     CatalogPresence,
     db_flag_explicit,
@@ -46,6 +48,7 @@ from truestill_core.cleanup import (
     run_cleanup,
     trash_backend,
 )
+from truestill_core.decisions import DriveSave, SaveOutcome
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import Destination, LocalDestination, RcloneDestination
 from truestill_core.destinations.base import DestinationError
@@ -666,6 +669,37 @@ def _rescan_hashes(candidates: dict[str, Path], db: Path) -> tuple[dict[str, str
     return identified, unreadable
 
 
+def _report_decision_saves(results: tuple[DriveSave, ...], *, upgrade: bool) -> None:
+    """The CLI's voice for the decisions backup. Core hands over outcomes and prints nothing (§2).
+
+    **Silence on success, deliberately.** A 1.2 KB write after an operation the user just waited
+    seconds for is not news, and the standing signal is a date on the drive rather than a notice
+    to dismiss - Lightroom's weekly prompt is what people learned to click through.
+
+    The exception is the **first** write, once per catalog: it says what happened, in one line,
+    and never again.
+    """
+    for result in results:
+        if result.outcome in (SaveOutcome.FAILED, SaveOutcome.WOULD_LOSE):
+            print(
+                f"note: decisions were not saved to {result.label}: {result.detail}",
+                file=sys.stderr,
+            )
+    if upgrade:
+        saved = [r.label for r in results if r.outcome is SaveOutcome.WRITTEN]
+        if saved:
+            print(f"Saved a copy of your decisions to {', '.join(saved)}.")
+
+
+def _catalog(db: Path) -> AbstractContextManager[Catalog]:
+    """``open_catalog`` with this surface's voice attached.
+
+    Every CLI catalog open goes through here, so the trigger cannot be missed at a sixteenth
+    call site - and `test_catalog_opens_go_through_the_session` refuses a bare `Catalog(...)`.
+    """
+    return open_catalog(db, report=_report_decision_saves)
+
+
 def _cmd_rescan(args: argparse.Namespace) -> int:
     """Reconcile a drive's recorded locations with what is on it. Reads; writes nothing.
 
@@ -687,7 +721,7 @@ def _cmd_rescan(args: argparse.Namespace) -> int:
     started = _CLOCK()
     scan = scan_source(root)
     on_disk = {path.relative_to(root).as_posix(): path for path in scan.media}
-    with Catalog(args.db) as catalog:
+    with _catalog(args.db) as catalog:
         recorded = {
             str(row["relative"]): str(row["sha256"]) for row in catalog.copies_on_drive(marker.uuid)
         }
@@ -729,7 +763,7 @@ def _migrate_marker(root: Path, catalog: Catalog) -> int:
 
 
 def _cmd_drives(args: argparse.Namespace) -> int:
-    with Catalog(args.db) as catalog:
+    with _catalog(args.db) as catalog:
         if args.migrate_marker is not None:
             return _migrate_marker(args.migrate_marker, catalog)
 
@@ -912,7 +946,7 @@ def _cmd_repoint(args: argparse.Namespace) -> int:
     if not path_is_usable_dir(new_root):
         print(f"error: {new_root} is not a folder Truestill can read.", file=sys.stderr)
         return 2
-    with Catalog(args.db) as catalog:
+    with _catalog(args.db) as catalog:
         recorded = [(source, sha) for source, sha, _perceptual in catalog.seed_rows()]
         plan = plan_repoint(recorded, old_root, new_root)
 
@@ -951,7 +985,7 @@ def _cmd_repoint(args: argparse.Namespace) -> int:
 
 
 def _cmd_where(args: argparse.Namespace) -> int:
-    with Catalog(args.db) as catalog:
+    with _catalog(args.db) as catalog:
         total = catalog.count_copies(args.term)
         rows = catalog.find_copies(args.term, limit=args.limit or None)
     if not rows:
@@ -977,7 +1011,7 @@ def _cmd_verify(args: argparse.Namespace) -> int:
     if marker is None:
         return 2
     when = _now_iso()
-    with Catalog(args.db) as catalog:
+    with _catalog(args.db) as catalog:
         catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
         # Remember where this drive was seen. Without it the CLI has no reachability information
         # at all and `truestill drives` can only ever say "unknown" - which is honest but
@@ -1088,7 +1122,7 @@ def _source_root_or_none(given: Path, destination: Path) -> Path | None:
 
 
 def _cmd_status(args: argparse.Namespace) -> int:
-    with Catalog(args.db) as catalog:
+    with _catalog(args.db) as catalog:
         singles = catalog.single_copy_shas()
     if not singles:
         print("All catalogued content has at least two drive copies. Nicely redundant.")
@@ -1729,7 +1763,7 @@ def _register_destination(
     if marker is not None or not getattr(args, "apply", False) or args.rclone:
         return marker
     root = Path(args.destination)
-    with Catalog(args.db) as catalog:
+    with _catalog(args.db) as catalog:
         drives = [(str(d["uuid"]), str(d["label"])) for d in catalog.list_drives()]
         ghost = ghost_drive_at(root, catalog, drives)
         if ghost is not None and not getattr(args, "force_new_identity", False):
@@ -1739,7 +1773,7 @@ def _register_destination(
         cancelled = "Registration cancelled. Nothing was written and no drive was registered."
         raise DriveGhostError(cancelled)
     created = create_marker(root, label=root.name or "Library")
-    with Catalog(args.db) as catalog:
+    with _catalog(args.db) as catalog:
         # Record WHERE, not just that it happened. Five other sites write this hint and this one
         # did not, which is why a CLI-only user accumulates drives whose location is unknown -
         # and why nothing could tell an unmounted mountpoint from a new folder.
@@ -1804,7 +1838,7 @@ def _run_pipeline(
     drive_marker: DriveMarker | None = None,
     relocation: Relocation | None = None,
 ) -> int:
-    with Catalog(args.db) as catalog, HashCache.beside(args.db) as cache:
+    with _catalog(args.db) as catalog, HashCache.beside(args.db) as cache:
         if getattr(args, "apply", False) and pin_existing_layout(catalog):
             print(_PINNED_NOTICE)
         scheme = resolve_scheme(catalog)
@@ -2541,7 +2575,7 @@ def _cmd_config(args: argparse.Namespace) -> int:
     target = PRESETS[args.preset].timeline if args.preset else args.set_template
     evented = PRESETS[args.preset].timeline_evented if args.preset else None
 
-    with Catalog(args.db) as catalog:
+    with _catalog(args.db) as catalog:
         stored = catalog.get_setting(LAYOUT_TEMPLATE_KEY)
 
         if target is None:  # show (optionally previewing the current template)
@@ -2691,7 +2725,7 @@ def _cmd_clean_empty(args: argparse.Namespace) -> int:
     if marker is None:
         return 2
 
-    with Catalog(args.db) as catalog:
+    with _catalog(args.db) as catalog:
         emptied = emptied_directories(catalog.migrated_old_paths(marker.uuid))
     if not emptied:
         print(f"Drive '{marker.label}': no migration leftovers recorded. Nothing to clean.")
@@ -2730,7 +2764,7 @@ def _cmd_clean_empty(args: argparse.Namespace) -> int:
 def _cmd_migrate_undo(args: argparse.Namespace, marker: DriveMarker) -> int:
     """Put a completed migration back. Preview first, then the same typed word as the forward."""
     destination = LocalDestination(args.path)
-    with Catalog(args.db) as catalog:
+    with _catalog(args.db) as catalog:
         outcome = undo_migration(catalog, destination, marker.uuid, apply=False)
         record = catalog.reversible_migration(marker.uuid)
         if record is None:
@@ -2818,7 +2852,7 @@ def _cmd_migrate_layout(args: argparse.Namespace) -> int:
     if args.undo:
         return _cmd_migrate_undo(args, marker)
 
-    with Catalog(args.db) as catalog:
+    with _catalog(args.db) as catalog:
         # NOTE: the drive is deliberately NOT upserted here. Refreshing its label is a write, and
         # everything before the confirm has to be a read -- a preview that already touched the
         # catalog is not a preview. It is registered on the apply path instead.
@@ -2893,7 +2927,7 @@ def _cmd_migrate_layout(args: argparse.Namespace) -> int:
 
 
 def _cmd_undo_organize(args: argparse.Namespace) -> int:
-    with Catalog(args.db) as catalog:
+    with _catalog(args.db) as catalog:
         if args.list:
             runs = catalog.inplace_runs()
             if not runs:
@@ -2982,7 +3016,7 @@ def _cmd_reclaim(args: argparse.Namespace) -> int:
         print("error: --min-copies must be at least 1", file=sys.stderr)
         return 2
 
-    with Catalog(args.db) as catalog:
+    with _catalog(args.db) as catalog:
         catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
         plan = plan_reclaim(catalog, marker.uuid, args.path, min_copies=args.min_copies)
         _print_reclaim_plan(plan, label=marker.label, min_copies=args.min_copies)

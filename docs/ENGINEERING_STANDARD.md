@@ -752,6 +752,19 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   > The family resemblance across all of these: **a change you believe you made and did not.** The
   > suite is green either way, and green is exactly what it looks like.
 
+  **THE COST IS THE METHOD, NOT WASTE - recorded so nobody later trims it as overhead.** A
+  mutation is one full suite run: about **20 seconds** here, so eight mutations is roughly three
+  minutes of wall clock. That is the whole price, and it has been paid back three times in two
+  days. On 2026-08-09 the **fifth** mutation against the decisions writer failed to fire and
+  earned a test for a hand-edited document naming one day under two trips - a case that would
+  otherwise have killed a restore part way through, with some decisions applied and no report.
+  **Stopping at four would have shipped it.** The same day, a mutation that killed nothing proved
+  a defensive branch was unreachable, and it was deleted rather than left to look load-bearing.
+
+  *Two distinct outcomes, both valuable, and neither available from a green suite:* a mutation
+  that does not fire means **either** the guard is missing **or** the code is dead. Find out
+  which before writing the test - the answer is a test in one case and a deletion in the other.
+
 - **A fixture modelled on the current library inherits its blind spots.** The seventeenth member.
   Not "use more rows" - that says nothing about where to look. **Ask which property of your data
   is currently accidental, and put the second one in the fixture.**

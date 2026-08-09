@@ -60,6 +60,7 @@ from pathlib import Path
 from typing import Literal, NotRequired, TypedDict
 
 from truestill_core.catalog import Catalog
+from truestill_core.catalog_session import open_catalog
 from truestill_core.drive import DriveReach, drive_reach, read_marker
 from truestill_core.exif import build_metadata_args, write_metadata_batch
 from truestill_core.hashing import sha256_file
@@ -129,7 +130,7 @@ def bake_preconditions(path: Path, db: Path) -> BakeRefusal | DriveUnavailablePa
     marker = read_marker(path)
     if marker is None:
         return drive_unavailable(path)
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         if migration_unfinished(catalog, marker.uuid):
             return {
                 "ok": False,
@@ -245,7 +246,7 @@ def bake_run(path: Path, db: Path) -> JobTarget | DriveUnavailablePayload | Bake
             "failed": 0,
             "absent": 0,
         }
-        with Catalog(db) as catalog:
+        with open_catalog(db) as catalog:
             pending = catalog.confirmations_to_bake(marker.uuid)
             total = len(pending)
             for index, row in enumerate(pending, start=1):
@@ -369,7 +370,7 @@ def bake_preview(path: Path, db: Path) -> BakePreview | BakeRefusal | DriveUnava
         return drive_unavailable(path)
 
     will_write = videos = absent = 0
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         for row in catalog.confirmations_to_bake(marker.uuid):
             relative = str(row["relative"])
             if _is_video(relative):

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Literal, NotRequired, TypedDict, cast
 
 from truestill_core.catalog import Catalog
+from truestill_core.catalog_session import open_catalog
 from truestill_core.categorize import build_rules
 from truestill_core.date_provenance import format_offset
 from truestill_core.dedup import DedupIndex
@@ -505,14 +506,14 @@ class SetSidebarCollapsedResult(TypedDict):
 
 
 def organize_mode_state(db: Path) -> OrganizeModeState:
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         saved = _normalize_organize_mode(catalog.get_setting(ORGANIZE_MODE_KEY))
     return {"mode": saved, "modes": sorted(ORGANIZE_MODES)}
 
 
 def set_organize_mode(mode: object, db: Path) -> SetOrganizeModeResult:
     saved = _normalize_organize_mode(mode)
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         catalog.set_setting(ORGANIZE_MODE_KEY, saved)
     return {"ok": True, "mode": saved}
 
@@ -526,14 +527,14 @@ def _normalize_sidebar_collapsed(value: object) -> bool:
 
 
 def sidebar_state(db: Path) -> SidebarState:
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         raw = catalog.get_setting(SIDEBAR_COLLAPSED_KEY)
     return {"collapsed": _normalize_sidebar_collapsed(raw)}
 
 
 def set_sidebar_collapsed(collapsed: object, db: Path) -> SetSidebarCollapsedResult:
     saved = _normalize_sidebar_collapsed(collapsed)
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         catalog.set_setting(SIDEBAR_COLLAPSED_KEY, "true" if saved else "false")
     return {"ok": True, "collapsed": saved}
 
@@ -560,14 +561,14 @@ def _normalize_text_size(value: object) -> str:
 
 
 def text_size_state(db: Path) -> TextSizeState:
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         raw = catalog.get_setting(TEXT_SIZE_KEY)
     return {"size": _normalize_text_size(raw)}
 
 
 def set_text_size(size: object, db: Path) -> SetTextSizeResult:
     saved = _normalize_text_size(size)
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         catalog.set_setting(TEXT_SIZE_KEY, saved)
     return {"ok": True, "size": saved}
 
@@ -753,7 +754,7 @@ def organize_preview(
             "mode": mode,
             "mechanism": mechanism,
         }
-    with Catalog(db) as catalog, HashCache.beside(db) as cache:
+    with open_catalog(db) as catalog, HashCache.beside(db) as cache:
         metadata = read_metadata(
             files, progress=progress, cancel=cancel, cache=cache, force=refresh_metadata
         )
@@ -868,7 +869,7 @@ def organize_run(
             # Empty source: CompletionBase only -- no mode/mechanism/drive_label/single_copy.
             # OrganizeDoneSummary is the with-files path below.
             return _completion([], effective_destination)
-        with Catalog(db) as catalog, HashCache.beside(db) as cache:
+        with open_catalog(db) as catalog, HashCache.beside(db) as cache:
             metadata = read_metadata(files, progress=progress, cache=cache, force=refresh_metadata)
             pin_existing_layout(catalog)
             scheme = resolve_scheme(catalog)
@@ -943,7 +944,7 @@ def organize_run(
         if chosen_mode in {"move", "inplace"}:
             leftover = cleanup_summary_from_results(results, source)
             left_behind = left_in_source_from_results(results, source)
-        with Catalog(db) as catalog:
+        with open_catalog(db) as catalog:
             catalog.set_setting(LIBRARY_PATH_HINT, str(effective_destination))
             # The custody nudge, counted rather than assumed: how much of the library really
             # does exist in only one place right now.

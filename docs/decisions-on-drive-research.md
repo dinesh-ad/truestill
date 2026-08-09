@@ -7,14 +7,17 @@
 > multi-drive save with its read-merge-replace and its upgrade gate
 > (`save_decisions_to_reachable_drives`, `ensure_decisions_on_drives`).
 >
-> **NOT built, and nothing in this document should be read as claiming otherwise:** the save has
-> **no call sites**, so **no document reaches a drive during ordinary use**. The per-command
-> trigger and the upgrade call site are unwired - the CLI opens a catalog at **15 separate
-> `with Catalog(...)` sites** and has no single choke point, so the wiring is a design question
-> of its own rather than a line. Restore, the multi-drive reconciliation and every surface are
-> also unbuilt. `(acc)` in `BACKLOG.md` said "Stages 1-3 landed" and was corrected on 2026-08-09
-> for exactly this reason - a status line that claims more than the code is the error this header
-> exists to avoid.
+> **Wired since 2026-08-09.** `catalog_session.open_catalog` is how both surfaces open a catalog -
+> all **56** sites, 15 in the CLI and 41 in the app - and it saves the decisions when the work
+> finishes, plus once on the first run after upgrading. So documents do now reach drives in
+> ordinary use.
+>
+> **NOT built, and nothing here should be read as claiming otherwise:** **restore**, the
+> multi-drive reconciliation, `(acc)`'s discoverability, and every surface. The app is **silent
+> about a failed save** until the drive card is built - a named gap, not a covered one.
+> `(acc)` in `BACKLOG.md` said "Stages 1-3 landed" and was corrected on 2026-08-09 for exactly
+> this reason - a status line that claims more than the code is the error this header exists to
+> avoid.
 >
 > Moved out of a plan file in a home directory on 2026-08-09. A plan file does not survive a new
 > machine, which is the failure this whole feature is about; `docs/ui-inventory.md` was lost twice
@@ -144,6 +147,31 @@ guessed at - `(aby)`. Guessing which side is intentional is how the other direct
 **An unreadable document is never overwritten either.** Half a JSON file is still someone's names
 and a human can often recover them; replacing it because we could not parse it turns a damaged
 copy into no copy.
+
+## Where the trigger fires, and why not at the call sites
+
+**One choke point, found one layer below where it was being looked for.** `Catalog` has exactly
+one `_tx()` and all eight decision-writing methods go through it, so "did anything change?" is one
+line rather than 56 judgements. `catalog_session.open_catalog` reads that flag and saves on a
+**clean exit only**.
+
+**The flag is "wrote anything", not "wrote a decision", deliberately.** Telling them apart means
+maintaining a list of which writes count, and the day someone adds a decision table and forgets
+the list, the drive copy goes quiet with nothing saying so. A refresh after `organize` costs about
+a kilobyte and keeps the `written` stamp current, which is what the staleness line reads.
+
+**Not in `Catalog.__exit__`, and the reason is a safety property rather than taste.** Storage does
+no drive I/O - but the sharper point is that ~1,200 tests open catalogs, so a save fired from
+`Catalog` would fire in all of them. Keeping the trigger in the session wrapper means **tests use
+bare `Catalog(...)` and cannot write to a drive at all**. §4 asks for impossible rather than
+unlikely, and this one **fell out of the design instead of being remembered** - which is worth
+more than a rule someone has to keep in mind.
+
+**Pinned by `test_catalog_opens_go_through_the_session.py`**, which parses every surface module and
+fails on a direct `Catalog(...)`, following `test_app_core_import_boundary.py`'s shape including
+the half that rots: an allow-list entry for a call that no longer happens also fails. The
+allow-list is empty, and it stayed empty on the first attempt - the staleness check refused the
+one entry written for it.
 
 ## What a restore does with a NEWER document
 

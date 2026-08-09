@@ -9,7 +9,7 @@ from datetime import date
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal, NotRequired, TypedDict
 
-from truestill_core.catalog import Catalog
+from truestill_core.catalog_session import open_catalog
 from truestill_core.categorize import build_rules
 from truestill_core.dedup import DedupIndex
 from truestill_core.drive import read_marker
@@ -52,7 +52,7 @@ def plan_resolve(source: Path, db: Path) -> tuple[list[Resolution], dict[Path, d
         return [], {}
     with HashCache.beside(db) as cache:
         metadata = read_metadata(files, cache=cache)
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         scheme = resolve_scheme(catalog)
         rules = build_rules()
         heavy = heavy_days_for_organize(catalog, files, metadata, rules)
@@ -375,7 +375,7 @@ def propose_events(
     marker = read_marker(path)
     if marker is None:
         return drive_unavailable(path)
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         settings = EventSettings.from_catalog(catalog)
         review = assemble_trip_review(
             catalog,
@@ -486,7 +486,7 @@ def apply_event_review_names(
     Domain work for the Trips screen's apply step - catalog writes belong in service, not the
     HTTP layer (§2; audit F7).
     """
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         event_decisions = [
             EventDecision(card.event, name)
             for card, name in zip(cards, names, strict=True)

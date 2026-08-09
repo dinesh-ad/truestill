@@ -25,7 +25,7 @@ from datetime import datetime, time
 from pathlib import Path
 from typing import Literal, NotRequired, TypedDict
 
-from truestill_core.catalog import Catalog
+from truestill_core.catalog_session import open_catalog
 from truestill_core.dates import resolve_capture_datetime
 from truestill_core.exif import read_metadata
 from truestill_core.models import DateSource
@@ -186,7 +186,7 @@ def confirm_file_date(
     when = _parse(date_text, time_text)
     if when is None:
         return {"ok": False, "error": IMPRECISE_DATE_ERROR}
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         row = catalog.find_by_sha256(sha256)
         if row is None:
             return {
@@ -270,7 +270,7 @@ def original_candidates(db: Path, sha256s: Sequence[str]) -> dict[str, Candidate
     """
     result: dict[str, Candidate] = {sha: {"status": "unreachable"} for sha in sha256s}
     siblings: dict[Path, tuple[str, datetime | None]] = {}
-    with Catalog(db) as catalog:
+    with open_catalog(db) as catalog:
         for sha in sha256s:
             row = catalog.find_by_sha256(sha)
             if row is None or not row["source_path"]:
