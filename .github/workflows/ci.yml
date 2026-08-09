@@ -5,9 +5,17 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Nightly, for the collection-order pass only - see the step's own comment for the cost that
+  # moved it here. 03:17 rather than on the hour: GitHub's scheduler queues heavily at :00.
+  schedule:
+    - cron: "17 3 * * *"
 
+# The event is part of the group ON PURPOSE. Without it a scheduled run and a push to main share
+# `refs/heads/main`, so the first morning push would cancel the nightly mid-flight - and the one
+# thing the nightly exists to run is the one thing no other trigger runs. A guard that is
+# silently cancelled is worse than one that was never scheduled, because the calendar says it ran.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
@@ -110,12 +118,30 @@ jobs:
       # after the test asserting it does not exist, so the suite passed by arrangement rather
       # than by isolation. `pytest packages/` is also just what a contributor types.
       #
-      # Ubuntu only, and it costs nothing in wall-clock: this lane finishes in ~1 min while
-      # Windows takes ~7, so a second ~1 min run lands inside time the job spends idle anyway.
-      # Running it on all three would triple the cost of a check whose answer cannot differ by
-      # platform - the same reasoning as the ubuntu-only dependency audit below.
+      # Ubuntu only: running it on all three would triple the cost of a check whose answer
+      # cannot differ by platform - the same reasoning as the ubuntu-only dependency audit below.
+      #
+      # NOT ON EVERY PUSH SINCE 2026-08-09, and the reason is measured. The line above used to
+      # say this "costs nothing in wall-clock", because both passes took about the same time and
+      # the ubuntu lane finished long before Windows either way. Parallelising the main suite
+      # ended that: on run 31321298111 the main pass took **157 s** and this one **290 s**, making
+      # the double-check nearly twice the cost of the thing it checks, and the largest single step
+      # in the job. It stays serial - a parallel run has no order to be green in - so it moved
+      # instead.
+      #
+      # What that trades, stated rather than glossed: order-dependence can now sit on main for up
+      # to a day, and the nightly that finds it has several commits to choose from. Accepted
+      # because the bug class it was written for is prevented by construction now - the root
+      # conftest gives every test a data root no other test can name - so this is a backstop
+      # rather than a live catch, and it guards a slow-moving class.
+      #
+      # `pull_request` is in the condition for completeness rather than coverage: this repo has
+      # had exactly one PR ever and it was a throwaway CI experiment, so in practice this runs
+      # nightly. Said plainly so nobody reads the condition as two independent safety nets.
       - name: Pytest (different collection order)
-        if: runner.os == 'Linux'
+        if: >-
+          runner.os == 'Linux' &&
+          (github.event_name == 'schedule' || github.event_name == 'pull_request')
         run: uv run pytest packages/
 
       - name: Timing summary

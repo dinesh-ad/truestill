@@ -673,3 +673,30 @@ the failure message says so.
 596 s on commits whose test counts differ by under 2%. A ceiling there would fire on variance
 rather than drift, and a gate that fires on noise gets switched off and takes its signal with it -
 the same reasoning §5 already applies to its own ratio.
+
+### What speeding up the suite did to the collection-order pass
+
+**A second cost moved when the first one did**, which is the part worth recording. CI run
+`31321298111`, ubuntu lane:
+
+| step | wall clock |
+|---|---|
+| `Pytest` (parallel) | **157 s** |
+| `Pytest (different collection order)` (serial) | **290 s** |
+
+The order pass stayed serial on purpose - a parallel run has no single order to be green in - so
+parallelising the main suite made the **double-check nearly twice the cost of the thing it
+checks**, and the largest single step in the job. Its own comment used to say it "costs nothing
+in wall-clock", which was true when both passes took the same time and the ubuntu lane finished
+long before Windows regardless. That sentence was correct when written and stopped being correct
+without anyone touching it.
+
+**Moved to nightly (plus pull requests) rather than dropped.** Order-dependence is a real class,
+but a slow-moving one, and the specific bug it was written for is now prevented by construction:
+the root `conftest.py` gives every test a data root no other test can name. So it is a backstop,
+not a live catch. What that trades: order-dependence can sit on `main` for up to a day, and the
+nightly that finds it has several commits to choose between.
+
+*One honesty note about the condition:* this repo has had exactly one pull request ever, a
+throwaway CI experiment, and zero merge commits. `pull_request` in that trigger is completeness,
+not a second safety net - in practice this runs nightly.
