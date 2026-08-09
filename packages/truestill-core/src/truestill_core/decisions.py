@@ -645,6 +645,18 @@ class DriveNotice:
     #: Sections this drive carries that the catalog does not - the offer to restore. Empty on
     #: every ordinary re-attach, which is what keeps this signal rather than noise.
     awaiting_restore: tuple[str, ...] = ()
+    #: Sections the catalog holds that this drive's copy does not - the staleness line, and the
+    #: exact mirror of the offer above.
+    #:
+    #: **Not a timestamp comparison, because the data for one does not exist:** `trips`, `events`,
+    #: `albums` and `settings` carry no date at all, so a `MAX` over the decision tables covers
+    #: two sixths of them and reports a drive current while it is missing a rename made today.
+    #: The stamp was only ever a proxy for "does this copy match", so the copy is compared.
+    #:
+    #: **Every reachable drive is meant to hold every decision** - the save writes the
+    #: catalog-wide set to all of them - so a difference here is staleness rather than a drive
+    #: legitimately holding less.
+    stale: tuple[str, ...] = ()
     #: The three-line refusal, when this version must not read the document at all.
     refusal: str | None = None
 
@@ -687,6 +699,7 @@ def notice_for(root: Path, mine: Decisions) -> DriveNotice | None:
     return DriveNotice(
         saved_at=found.decisions.written,
         awaiting_restore=would_lose(found.decisions, mine),
+        stale=would_lose(mine, found.decisions),
     )
 
 

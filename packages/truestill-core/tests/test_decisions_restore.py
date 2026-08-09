@@ -316,3 +316,43 @@ def test_a_refused_document_leads_with_the_names_being_safe(tmp_path: Path) -> N
     for dangerous in ("overwrite", "convert", "discard", "delete"):
         assert dangerous not in notice.refusal.lower(), f"the refusal offers to {dangerous}"
     assert notice.awaiting_restore == (), "a refused document was also offered for restore"
+
+
+def test_a_drive_missing_decisions_this_catalog_has_is_stale(tmp_path: Path) -> None:
+    """STALENESS IS THE MIRROR OF THE OFFER, and it is exact rather than dated.
+
+    `would_lose(theirs, mine)` is what the drive has and we do not - the restore offer.
+    `would_lose(mine, theirs)` is what we have and the drive does not, which is precisely "this
+    copy is out of date". No timestamp is involved, which matters because four of the six
+    decision tables carry none: a rename would move no clock and the drive would be reported
+    current while missing it.
+    """
+    root = tmp_path / "drive"
+    root.mkdir()
+    write_decisions(root, Decisions(drive_uuid=_A, drive_label="Output", written=_WRITTEN))
+
+    notice = notice_for(root, Decisions(trips=(_TRIP,)))
+
+    assert notice is not None
+    assert notice.stale == ("trips",)
+
+
+def test_a_drive_holding_everything_this_catalog_has_is_not_stale(tmp_path: Path) -> None:
+    """CRY-WOLF HALF, and the one that decides whether this line is signal.
+
+    **Every reachable drive is meant to hold every decision**, because the save writes the
+    catalog-wide set to all of them - `_shared_decisions` is not filtered per drive. So a
+    difference really is staleness, and there is no "decisions this drive was never meant to
+    hold" case to exclude. An implementation that filtered by whether the drive carries the
+    content would nag forever about corrections for photos kept elsewhere.
+    """
+    root = tmp_path / "drive"
+    root.mkdir()
+    mine = Decisions(drive_uuid=_A, drive_label="Output", written=_WRITTEN, trips=(_TRIP,))
+    write_decisions(root, mine)
+
+    notice = notice_for(root, mine)
+
+    assert notice is not None
+    assert notice.stale == ()
+    assert notice.awaiting_restore == ()

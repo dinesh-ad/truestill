@@ -2318,6 +2318,39 @@ function lastSeenNote(d) {
     : `<span class="k">never seen on this computer</span>`;
 }
 
+// A drive's decisions, on the card that shows the drive.
+//
+// TWO KINDS OF FACT, TWO RULES. `last_verified` and `last_seen` above are facts about what
+// Truestill DID - recorded here, so they survive the drive being unplugged. The saved date is a
+// fact about WHAT IS ON THE DRIVE, and the drive is the only authority for it, so the server
+// sends it only when the drive is reachable and this shows nothing rather than the last value it
+// happened to see. Caching that would be a second copy of a fact this machine does not own.
+//
+// The refusal is printed VERBATIM from the server. It is one wording in core, shared by three
+// surfaces, and a screen that rewords it becomes a fourth dialect - read by someone mid-crisis.
+function driveDecisionsNote(d) {
+  const dec = d.decisions;
+  if (!dec) return "";
+  if (dec.refusal) {
+    return `<div class="k" data-testid="drive-decisions-refusal">${esc(dec.refusal).replace(/\n/g, "<br>")}</div>`;
+  }
+  const lines = [];
+  const words = (xs) => esc(xs.join(", ").replace(/_/g, " "));
+  if (dec.saved_at) {
+    lines.push(`<span class="k mono" data-testid="drive-decisions-saved">decisions saved here: ${esc(String(dec.saved_at).slice(0, 10))}</span>`);
+  }
+  if (dec.stale.length) {
+    lines.push(`<div class="k" data-testid="drive-decisions-stale">this copy is behind: ${words(dec.stale)} on this computer are not on it yet</div>`);
+  }
+  if (dec.awaiting_restore.length) {
+    lines.push(`<div class="k" data-testid="drive-decisions-offer">this drive is carrying ${words(dec.awaiting_restore)} this computer does not have</div>`);
+  }
+  if (dec.problem) {
+    lines.push(`<div class="k" data-testid="drive-decisions-problem">decisions were not saved here: ${esc(dec.problem)}</div>`);
+  }
+  return lines.join("");
+}
+
 function driveReachBadge(reach) {
   if (reach === "offline") {
     return `<span class="k" data-testid="drive-offline" title="Truestill knows where this drive was, and it is not there now">- not plugged in</span>`;
@@ -2376,6 +2409,7 @@ async function loadDrives() {
       <div class="drive-foot">
         <span class="k mono">last checked: ${(d.last_verified || "never").slice(0, 10)}</span>
         ${lastSeenNote(d)}
+        ${driveDecisionsNote(d)}
         ${d.path
           ? `<button class="btn btn-ghost drive-check" data-path="${esc(d.path)}">Check now</button>`
           : ""}

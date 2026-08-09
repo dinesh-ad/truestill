@@ -12,8 +12,9 @@ from typing import Literal, NotRequired, TypedDict, cast
 
 from truestill_core import binaries
 from truestill_core.catalog import Catalog
-from truestill_core.catalog_session import open_catalog
+from truestill_core.catalog_session import open_catalog, problem_key
 from truestill_core.catalog_startup import inspect_catalog
+from truestill_core.decisions import Decisions, gather_decisions, notice_for
 from truestill_core.drive import (
     DriveReach,
     create_marker,
@@ -394,6 +395,32 @@ def attach_drive(
     )
 
 
+class DriveDecisions(TypedDict):
+    """What this drive is carrying, and what Truestill last failed to write to it.
+
+    **One nested field on `DriveRow` rather than five flat ones**, so a consumer that does not
+    care about decisions is unchanged and the browser reads one object.
+
+    **Two kinds of fact live here and they follow different rules.** `problem` is what Truestill
+    DID - a save it attempted and could not finish - recorded locally, so it survives the drive
+    being unplugged exactly as `last_verified` does. Everything else is what is ON THE DRIVE, and
+    the drive is the only authority for it, so those are read when it is here and absent when it
+    is not. Caching them would be a second representation of a fact this machine does not own.
+    """
+
+    #: The document's own `written` stamp. `None` when the drive is not reachable.
+    saved_at: str | None
+    #: Sections this catalog holds that the drive's copy does not: its copy is behind.
+    stale: list[str]
+    #: Sections the drive holds that this catalog does not: the offer to restore.
+    awaiting_restore: list[str]
+    #: The three-line refusal from core, verbatim, when the document is from a newer Truestill.
+    refusal: str | None
+    #: Why the last save to this drive did not happen. Recorded by the save since `c5f36ff`;
+    #: shown here since the drive card learned to read it.
+    problem: str | None
+
+
 class DriveRow(TypedDict):
     label: str
     uuid: str
@@ -409,6 +436,8 @@ class DriveRow(TypedDict):
     #: have to report "we have never recorded where this drive lives" as either connected or
     #: missing, and both are lies - the second alarmingly so.
     reach: str
+    #: What this drive is carrying, or `None` when there is nothing to say about it.
+    decisions: DriveDecisions | None
 
 
 class WhereCopy(TypedDict):
@@ -431,8 +460,35 @@ class AtRiskRow(TypedDict):
     drive: str
 
 
+def _drive_decisions(
+    catalog: Catalog, uuid: str, root: Path | None, mine: Decisions | None
+) -> DriveDecisions | None:
+    """What to say about one drive's decisions, or `None` when there is nothing.
+
+    ``root`` is `None` for a drive that is not reachable: the document cannot be read, and the
+    last date this machine happened to see is not offered in its place.
+    """
+    problem = catalog.get_setting(problem_key(uuid))
+    notice = notice_for(root, mine) if root is not None and mine is not None else None
+    if notice is None:
+        # A recorded failure outlives the drive being unplugged, so it is still worth saying.
+        if not problem:
+            return None
+        return DriveDecisions(
+            saved_at=None, stale=[], awaiting_restore=[], refusal=None, problem=problem
+        )
+    return DriveDecisions(
+        saved_at=notice.saved_at or None,
+        stale=list(notice.stale),
+        awaiting_restore=list(notice.awaiting_restore),
+        refusal=notice.refusal,
+        problem=problem,
+    )
+
+
 def list_drives(db: Path) -> list[DriveRow]:
     with open_catalog(db) as catalog:
+        mine: Decisions | None = None
         names_by_drive: dict[str, list[str]] = {}
         for row in catalog.copy_names_by_drive():
             names_by_drive.setdefault(row["drive_uuid"], []).append(row["relative"])
@@ -450,6 +506,10 @@ def list_drives(db: Path) -> list[DriveRow]:
             # Offered as an actionable path only when the drive is actually there; a remembered
             # path for an absent drive must not become a "Check now" button that cannot work.
             path = hint if reach is DriveReach.CONNECTED else None
+            # Gathered ONCE, lazily: a listing of offline drives never pays for it, and a
+            # listing of ten connected ones pays for it once rather than ten times.
+            if path is not None and mine is None:
+                mine = gather_decisions(catalog, "")
             drives.append(
                 {
                     "label": d["label"],
@@ -467,6 +527,9 @@ def list_drives(db: Path) -> list[DriveRow]:
                     # stale and cleared -- in which case the card states the fact without
                     # offering an action it cannot honour.
                     "path": path,
+                    "decisions": _drive_decisions(
+                        catalog, str(d["uuid"]), Path(path) if path else None, mine
+                    ),
                 }
             )
         return drives

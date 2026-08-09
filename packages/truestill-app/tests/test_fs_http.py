@@ -114,6 +114,10 @@ def test_drives_split_photos_and_videos(client: TestClient, tmp_path: Path) -> N
         "last_verified",
         "path",
         "reach",
+        # Added 2026-08-09 with the drive card's decisions lines. ONE nested field rather than
+        # five flat ones, so this contract grows by a single key and a consumer that does not
+        # care about decisions is unchanged.
+        "decisions",
     }
     assert drives[0]["photos"] == 2
     assert drives[0]["videos"] == 1

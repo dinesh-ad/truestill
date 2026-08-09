@@ -17,10 +17,14 @@
 > finishes, plus once on the first run after upgrading. So documents do now reach drives in
 > ordinary use.
 >
-> **NOT built, and nothing here should be read as claiming otherwise:** `(acc)`'s
-> discoverability - **nothing points a user at the restore command**, so it works and is unfindable
-> - and every app surface. The app is **silent about a failed save** and has no restore at all,
-> both named gaps rather than covered ones. `(abw)` album membership is still not carried.
+> **Discoverability, 2026-08-09:** both CLI drive screens and the app's drive card now say what a
+> drive is carrying, how old its copy is, when it is behind, and when a save to it failed - which
+> closes job 1b's app gap. `(acc)` is corrected in `BACKLOG.md`: the listing was the wrong place
+> for the lost-machine case, because it iterates zero rows on a rebuilt catalog.
+>
+> **NOT built, and nothing here should be read as claiming otherwise:** the app has **no restore**
+> - it can say a drive is carrying decisions, and the command to run is a CLI one - and `(abw)`
+> album membership is still not carried.
 > `(acc)` in `BACKLOG.md` said "Stages 1-3 landed" and was corrected on 2026-08-09 for exactly
 > this reason - a status line that claims more than the code is the error this header exists to
 > avoid.
@@ -380,3 +384,42 @@ nothing is at stake teaches people to type it without reading.
 for photos this catalog has not scanned - the drive legitimately holds decisions the catalog does
 not, so the ordinary save will report `WOULD_LOSE` for that drive until those photos are scanned.
 That is the guard working, not a defect, and the restore output says what to do about it.
+
+## The drive card, and a distinction worth keeping
+
+**Two kinds of fact live on that card and they follow different rules.**
+
+- `last_verified` and `last_seen` are facts about **what Truestill did**. They are recorded here,
+  so they are legitimately shown for a drive that is not plugged in.
+- The decisions date is a fact about **what is on the drive**, and the drive is the only authority
+  for it. So it is read when the drive is reachable and **absent** when it is not - not the last
+  value this machine happened to see.
+
+A cached copy would be a second representation of a fact this machine does not own, which is the
+defect `(abv)` was and the reason the duplicate `trip_days` map went. **The rule generalises past
+this card:** the next time something wants to cache a drive's own state for an offline drive, the
+question is which of these two kinds of fact it is.
+
+`decisions.problem.<uuid>` follows the FIRST rule, not the second: a save Truestill attempted and
+could not finish is something it did, so it survives the drive being unplugged.
+
+### Staleness is a comparison of copies, not of clocks
+
+*"Is the drive's copy behind?"* is answered by `would_lose(mine, theirs)` - the exact mirror of
+the restore offer. **A timestamp comparison was ruled for and then withdrawn on a schema fact:**
+`trips`, `events`, `albums` and `settings` carry **no date column at all**, so a `MAX` over the
+decision tables covers two sixths of the decisions and would report a drive current while it is
+missing a trip renamed the same day. That is a false reassurance in the one direction this feature
+must never fail.
+
+Comparing copies is exact, needs no new query, and needs no schema. **Every reachable drive is
+meant to hold every decision** - the save writes the catalog-wide set to all of them - so a
+difference really is staleness, and there is no "decisions this drive was never meant to hold"
+case to filter out.
+
+### One interaction, found by tests failing for a reason that was not their own
+
+Opening the drive screen opens the catalog, and the **first** open of a catalog that predates this
+feature writes its decisions to every reachable drive. So the first card a user sees after
+upgrading says "saved just now" - the upgrade write doing its job. Pinned by a test, and the other
+card tests take it out of the picture rather than working around it.
