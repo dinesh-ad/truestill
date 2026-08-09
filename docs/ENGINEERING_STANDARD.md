@@ -789,6 +789,39 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   Corollary, from the same day: the real catalog held zero events and zero date confirmations, so
   the feature had only ever met seeded examples of the thing it exists to protect.
 
+- **The fair comparison for a storage change is two clean databases, never one database before
+  and after.** The twentieth member, and the same shape as the eighteenth one day later in a
+  different domain - which is what makes it a rule rather than an anecdote.
+
+  Recorded 2026-08-09, dropping a redundant index. Measured **in place**: drop it, re-measure,
+  and `library_status` was **1.7x slower** (0.967 ms -> 1.692 ms). That number was real and the
+  conclusion drawn from it was wrong. **It was the freed pages, not the plan.** Prepared as two
+  clean copies - each `ANALYZE`d and `VACUUM`ed, one with the index and one without - the same
+  query measured **0.844 ms and 0.848 ms**.
+
+  > **A mutation of a database is not a controlled experiment.** Dropping an index, deleting rows
+  > or rewriting a table leaves free pages, stale statistics and a changed layout behind, and the
+  > next measurement reads all three at once. Build each state from the same source and compare
+  > them; do not compare a database to its own past.
+
+  *Suspect it whenever a measurement follows a `DROP`, a `DELETE`, an `ALTER` or a bulk write.*
+  The tell is the same as the eighteenth member's: **the number is real and it is not measuring
+  what you think.** There, three CI runs were a slope that the fourth erased; here, one file was
+  a comparison that a second file erased.
+
+- **A test that pins "the newest version" breaks on the next version by construction.** Corollary,
+  recorded from the same commit. Two tests asserted `CURRENT_SCHEMA_VERSION == 17`, written when
+  17 *was* the newest - so the next migration failed two tests about a change it had never
+  touched, and the fix looked like editing tests to make a change pass.
+
+  > **Assert what the change did, not where it sits in a sequence.** "The capture columns arrived
+  > at v17" and "a v16 file is brought fully current, whatever current is" are the same intent,
+  > survive every later migration, and are *stronger*: the first would catch v17 being
+  > renumbered, which `== 17` never could.
+
+  *Same family:* a test pinning "the last item", "the newest run", "the current release" or the
+  length of a list that grows.
+
 - **A guard that is silently cancelled is worse than one never scheduled, because the calendar
   says it ran.** The nineteenth member. It generalises past the workflow it came from: whenever a
   check is moved somewhere cheaper - a nightly, a separate job, a background task, a slower tier -

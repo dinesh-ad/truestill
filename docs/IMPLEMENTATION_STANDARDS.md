@@ -370,6 +370,12 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   the columns that existed that day - behaviour-identical then, and a guarantee from then on.
   Pinned by `test_queries_name_their_columns.py`, which parses string literals rather than
   grepping, because the rule's own prose contains the pattern it forbids.
+  **Do not "finish the job" by narrowing those lists to what each consumer currently reads.**
+  That was considered and rejected on 2026-08-09: the consumers are spread across three modules,
+  so it would be a behaviour change dressed as a refactor - a result set quietly narrowed, and
+  the `row["column"]` that stops resolving found by whoever runs that path next rather than by a
+  test. The lists are what the tables held on the day they were written; that is the whole point
+  of them.
 - **Dual-hash rule.** `files.sha256` is the **source** (pre-write) hash - the **dedup
   identity**. `files.copy_sha256` is the organized copy's **post-write** hash - the
   **verification identity** (equal to `sha256` for the byte-identical normal pipeline; differs
