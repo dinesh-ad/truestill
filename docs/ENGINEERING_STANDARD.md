@@ -789,6 +789,32 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   Corollary, from the same day: the real catalog held zero events and zero date confirmations, so
   the feature had only ever met seeded examples of the thing it exists to protect.
 
+- **For an intermittent failure, repetition is evidence. For a mechanism that could lie, only a
+  differential is.** The twenty-fifth member, and it decides which instrument to reach for.
+
+  A flake fails *sometimes*, so each additional green run lowers the chance you simply missed it -
+  counting is the right tool, and `(abq)` is gated on 8. A mechanism that could be wrong fails the
+  opposite way: **a signal that lies produces green runs.** Counting greens on a suite that does
+  not yet depend on it measures nothing about it, and counting them after it does is worse -
+  that is precisely the state the count would be certifying as safe.
+
+  > **Ask what a green run would look like if the thing were broken.** If the answer is "the
+  > same", stop counting and build a differential: break the thing the code claims to depend on,
+  > and require the test to go RED. A dependency you have not seen fail is a dependency you have
+  > not seen.
+
+  Measured 2026-08-10, three times over, which is why this is a finding rather than an argument.
+  A load's DOM write deferred by `setTimeout` left **all ten** readiness tests green. Removing the
+  wait from `open_screen` left its 37 green. Removing it from the `ui` fixture left **all 407**
+  green. In each case the mechanism was absent and repetition reported health. The differential
+  said the opposite immediately: with one screen's load broken, the converted test failed and the
+  same test in its old form passed - the one result that distinguishes a real dependency from a
+  decorative one.
+
+  *Corollary:* a run count still has a use, but name it honestly. Five green runs of new
+  timing-sensitive tests is **smoke-aging**, reported and not gating. It is not evidence the
+  mechanism is sound, and calling it that is how a count ends up certifying itself.
+
 - **A signal tests wait on must be derived from the writes it claims to cover, never asserted
   beside them.** The twenty-fourth member, and the failure it prevents is worse than the one it
   fixes. A readiness flag that flips early does not produce a flaky suite - it produces a

@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from PIL import Image
+from playwright.sync_api import Page, expect
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,19 +125,55 @@ class RetiringServers:
         return len(self._pending)
 
 
-def open_backups(ui: object) -> None:
-    """Switch to Backups and wait for the screen to stop being rewritten.
+def open_app(page: Page, url: str) -> Page:
+    """Open the app and wait until the screen it lands on has finished loading.
 
-    **`loadDrives` and `loadCustody` run together on arrival and both rewrite the screen**, and
-    the controls sit BELOW what they write - so acting while that is in flight clicks a button
-    the page is still moving. `(abq)` measured the movement at +4.9px.
-
-    `test_backups_on_the_pattern._open` has done exactly this since it was written; the other
-    three files that open this screen do not, which is why the wait lives here now rather than in
-    a fourth copy.
-
-    Not a sleep: both waits are conditions the page satisfies or fails, per §3's browser rules.
+    `goto` returns on `load`, which says nothing about the six requests the shell makes after
+    that - so every test that read the page immediately was racing them. Organize ships open, and
+    its readiness folds in the shell's loads, so waiting here covers both.
     """
-    ui.click('[data-screen="backups"]')  # type: ignore[attr-defined]
-    ui.wait_for_selector("#drives-list *", timeout=15_000)  # type: ignore[attr-defined]
-    ui.wait_for_load_state("networkidle")  # type: ignore[attr-defined]
+    page.set_default_timeout(15_000)
+    page.goto(url)
+    expect(page.locator(".screen.active")).to_have_attribute("data-ready", "ready")
+    return page
+
+
+def open_screen(ui: Page, name: str) -> None:
+    """Switch to a screen and wait until it has finished loading.
+
+    One condition, `data-ready="ready"`, which the screen sets after every load it owes has
+    settled - see `settleScreen` in `app.js`. It replaces the per-site guesses that came before:
+    a `wait_for_selector` on some element the load happens to write, or `networkidle`, or a
+    sleep. Each of those is a **proxy** for "the screen is done", and each is wrong in a case the
+    others are not - the selector never appears when the result is legitimately empty,
+    `networkidle` is satisfied by a screen that fetched nothing, and a sleep is satisfied by
+    everything.
+
+    A screen that FAILED to load never becomes ready, so this times out rather than proceeding
+    against a half-rendered page. That is deliberate: the alternative is a test that runs on
+    whatever the failure left behind.
+    """
+    ui.click(f'[data-screen="{name}"]')
+    expect(ui.locator(f"#screen-{name}")).to_have_attribute("data-ready", "ready")
+
+
+def open_backups(ui: Page) -> None:
+    """Switch to Backups and wait for it to finish loading.
+
+    **The reasoning this docstring used to carry was wrong, and it is corrected rather than
+    quietly dropped**, because a wrong comment surviving a fix is how the next person re-learns
+    the wrong lesson. It said `loadDrives` and `loadCustody` both rewrite the screen and blamed
+    the pair for the +4.9px in `(abq)`. There are two movers on this screen and neither is
+    `loadCustody`, which writes into the rail and into the fields themselves, not above the
+    controls:
+
+    * `loadDrives` writes `#drives-list`, which sits above the cards holding the controls, on
+      screen OPEN. That one this wait covers, and it is filed as `(acd)` - unmeasured, derived
+      from DOM order.
+    * `validatePath` writes the hint spans immediately above `#bk-preview`, on a 400ms debounce,
+      AFTER typing. **That is the one `(abq)` measured at +4.9px**, it happens long after this
+      wait returns, and nothing here touches it.
+
+    So this closes the screen-open race and leaves `(abq)`'s alone.
+    """
+    open_screen(ui, "backups")

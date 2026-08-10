@@ -27,7 +27,7 @@ from pathlib import Path
 
 import pytest
 import uvicorn
-from e2e_support import AppServer, RetiringServers, make_photo, stamp_capture_date
+from e2e_support import AppServer, RetiringServers, make_photo, open_app, stamp_capture_date
 from playwright.sync_api import Page
 from truestill_app.server import create_app
 
@@ -91,14 +91,33 @@ def app_server(tmp_path: Path, retiring: RetiringServers) -> Iterator[AppServer]
 
 @pytest.fixture
 def ui(page: Page, app_server: AppServer) -> Page:
-    """The app, open and authenticated, with a short default timeout.
+    """The app, open and authenticated, with a short default timeout - and **loaded**.
 
-    Every wait in these tests is an auto-retrying assertion, never a sleep, so a low timeout
-    costs nothing when things work and fails fast when they do not.
+    A low timeout costs nothing when things work and fails fast when they do not.
+
+    `goto` resolves on the `load` event, which says nothing about the six requests the shell
+    fires afterwards - `loadCustody` alone rewrites the rail, the catalog banner and five input
+    fields. Every test using this fixture used to begin racing those, and the ones that noticed
+    re-derived a wait of their own: `wait_for_selector(".nav-item")` at eleven sites (markup the
+    server rendered, so it proves nothing about the fetches), a sleep at several more.
+
+    **This makes every test stricter, and measurement says none of them currently need it.**
+    Removing this wait leaves all 407 green (measured 2026-08-10). That is the honest state: the
+    wait is insurance against a class of race, not an assertion any test's outcome rests on
+    today. It costs nothing measurable - the run without it was 409s against 397s with it, which
+    is variance, and in the wrong direction to be a cost.
+
+    What proves the wait works is not this suite passing - it passed before. It is the
+    differential: with a screen's load broken so it never lands, a converted test FAILS and the
+    same test in its old form PASSES. A green run cannot tell those apart, which is the whole
+    reason the gate for depending on this signal is a differential rather than a run count.
+
+    The claim this docstring used to make - "every wait in these tests is an auto-retrying
+    assertion, never a sleep" - was false when written: 63 `wait_for_timeout` calls across 19
+    files say otherwise. It is now an aspiration with a plan behind it rather than a description,
+    and it is recorded that way instead of being repeated.
     """
-    page.set_default_timeout(15_000)
-    page.goto(app_server.url)
-    return page
+    return open_app(page, app_server.url)
 
 
 @pytest.fixture

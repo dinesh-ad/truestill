@@ -44,34 +44,6 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(acf) STAGE 1 OF THE READINESS SIGNAL - WHERE THE SUITE STARTS DEPENDING ON IT, AND THE
-  EVIDENCE THAT SHOULD COME FIRST.** Planned 2026-08-10, gated on the maintainer's word. Stage 1
-  is the two entry points: `open_app` / `open_screen` in `e2e_support.py`, the `ui` fixture
-  (`conftest.py:94-101`) waiting on readiness after `goto`, the six direct `goto` sites, and
-  `open_backups` rewritten as a one-line wrapper. Stage 0 shipped in `af782a0`; nothing depends
-  on the signal yet, which is the point.
-  - ⚠ **The evidence is a different KIND, not a bigger number, and this is the whole entry.**
-    `(abq)` wants 8 green runs because it is a **flake**: an intermittent failure, where each
-    additional green run lowers the chance of having missed it. A readiness signal fails the
-    opposite way - **a flag that lies produces green runs.** Counting greens on a suite that does
-    not yet depend on the signal measures almost nothing about the signal, and counting them
-    after it does is worse, because that is the state the count would be certifying as safe.
-  - **The number, and what it is actually for: 5 consecutive green e2e runs**, and it buys
-    timing stability of the *new tests*, not trust in the mechanism. They are the most
-    timing-sensitive code in the suite - held routes, a two-second negative assertion - and
-    **only the ubuntu lane runs e2e**, so a CI run is one exposure, not three; cross-OS
-    repetition buys nothing here. Fewer than `(abq)`'s 8 because nothing intermittent is being
-    outlasted - this is new test code being smoke-aged.
-  - ✅ **The load-bearing half is differential, not repetitive.** On the FIRST file converted to
-    `open_screen`, prove it still goes **red** when the app is broken - break the load the screen
-    waits on and confirm the test fails rather than waiting and passing. A signal nothing depends
-    on is untested *as a signal*, and the entire risk of Stage 1 is that depending on it makes
-    things pass. **If one of the two has to be dropped, drop the count.** Five green runs of a
-    suite that cannot fail is five measurements of nothing.
-  - Precedent for why repetition is the weaker instrument here: M8 on 2026-08-10 left all ten
-    browser tests green against a genuinely deferred DOM write. Running them 5 more times would
-    have produced 50 more green results and the same wrong conclusion.
-
 - **(ace) THE MUTATION RESTORE RULE EXISTS, IS CORRECT, AND WAS VIOLATED TWICE IN ONE DAY -
   MAKE IT EXECUTABLE.** Recorded 2026-08-10. `ENGINEERING_STANDARD.md` §4 item 5 already names
   this exact failure: restoring a mutant with `git checkout -- <file>` restores from **HEAD**, so

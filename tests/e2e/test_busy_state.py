@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 import uvicorn
-from e2e_support import AppServer, open_backups
+from e2e_support import AppServer, open_app, open_backups, open_screen
 from playwright.sync_api import Browser, Page, expect
 from truestill_app.server import create_app
 from truestill_app.service import migrate as service_migrate
@@ -128,7 +128,7 @@ def test_migrate_preview_disables_trigger_shows_progress_and_re_enables(
     """Guards the freeze: button must look busy, progress must render, then unlock."""
     drive = tmp_path / "drive"
     _seed_migrate_drive(app_server.db, drive, n=4)
-    ui.click('button[data-screen="settings"]')
+    open_screen(ui, "settings")
     ui.fill("#mig-path", str(drive))
     btn = ui.locator("#mig-preview")
     btn.click()
@@ -148,9 +148,8 @@ def test_migrate_preview_re_enables_after_cancel(
     drive = tmp_path / "drive"
     _seed_migrate_drive(app.db, drive, n=2)
     page = browser.new_page()
-    page.set_default_timeout(15_000)
-    page.goto(app.url)
-    page.click('button[data-screen="settings"]')
+    open_app(page, app.url)
+    open_screen(page, "settings")
     page.fill("#mig-path", str(drive))
     btn = page.locator("#mig-preview")
     btn.click()
@@ -181,9 +180,8 @@ def test_second_click_while_busy_starts_no_second_run(
     drive = tmp_path / "drive"
     _seed_migrate_drive(app.db, drive, n=2)
     page = browser.new_page()
-    page.set_default_timeout(15_000)
-    page.goto(app.url)
-    page.click('button[data-screen="settings"]')
+    open_app(page, app.url)
+    open_screen(page, "settings")
     page.fill("#mig-path", str(drive))
     btn = page.locator("#mig-preview")
     btn.click()
@@ -204,17 +202,15 @@ def test_drive_busy_from_server_renders_actionable_message(
     _seed_migrate_drive(app.db, drive, n=2)
 
     page1 = browser.new_page()
-    page1.set_default_timeout(15_000)
-    page1.goto(app.url)
-    page1.click('button[data-screen="settings"]')
+    open_app(page1, app.url)
+    open_screen(page1, "settings")
     page1.fill("#mig-path", str(drive))
     page1.click("#mig-preview")
     expect(page1.locator("#mig-preview")).to_be_disabled()
 
     page2 = browser.new_page()
-    page2.set_default_timeout(15_000)
-    page2.goto(app.url)
-    page2.click('button[data-screen="settings"]')
+    open_app(page2, app.url)
+    open_screen(page2, "settings")
     page2.fill("#mig-path", str(drive))
     page2.click("#mig-preview")
     expect(page2.locator("#mig-result")).to_contain_text("Already running")

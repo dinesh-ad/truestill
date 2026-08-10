@@ -15,7 +15,7 @@ import json
 from pathlib import Path
 
 import pytest
-from e2e_support import AppServer, make_photo
+from e2e_support import AppServer, make_photo, open_app, open_screen
 from playwright.sync_api import Page, expect
 from truestill_core.catalog import Catalog
 from truestill_core.destinations.base import CrossDeviceError
@@ -528,8 +528,8 @@ def test_stats_view_renders_seeded_catalog_numbers(page: Page, app_server: AppSe
         catalog.mark_copy_verified(sha256="sha-a", drive_uuid="A", when="2026-07-30T10:00:00")
         catalog.set_drive_verified("A", "2026-07-30T10:00:00")
 
-    page.goto(app_server.url)
-    page.click('button[data-screen="stats"]')
+    open_app(page, app_server.url)
+    open_screen(page, "stats")
     stats = page.locator("#stats-result")
     expect(stats).to_contain_text("Custody")
     expect(stats).to_contain_text("photos")
@@ -574,8 +574,8 @@ def test_stats_view_at_risk_count_is_actionable(page: Page, app_server: AppServe
             relative="2024/2024-01/risk.jpg",
             drive_uuid=None,
         )
-    page.goto(app_server.url)
-    page.click('button[data-screen="stats"]')
+    open_app(page, app_server.url)
+    open_screen(page, "stats")
     expect(page.locator("#stats-result")).to_contain_text("not on a registered drive")
     at_risk = page.eval_on_selector(
         "#stats-result",

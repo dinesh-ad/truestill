@@ -22,6 +22,29 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(acf) Stage 1 of the readiness signal: the suite depends on it - BUILT 2026-08-10.**
+  The two entry points (`open_app`, `open_screen` in `e2e_support.py`), the `ui` fixture waiting
+  after `goto`, `open_backups` reduced to a wrapper with its reasoning corrected, and the six
+  direct `goto` sites. Stage 0 (the mechanism and its proof) shipped in `af782a0`.
+  - ✅ **Gated on a differential, not a run count, and the maintainer changed the gate to that
+    after the reasoning was laid out.** The count originally proposed here (5 green e2e runs) was
+    kept only as **smoke-aging: reported, not gating**. Why, in one line: a flake fails
+    intermittently so repetition is evidence; a signal that lies produces green runs, so
+    repetition certifies the very state it is meant to test. Recorded as `ENGINEERING_STANDARD.md`
+    §4's twenty-fifth member.
+  - ✅ **The differential, run before the rest of the file was converted.** With `loadLayout`
+    broken so it never resolves: the converted test **failed**, and the same test in its old form
+    **passed**. That pair is the whole proof - it separates a real dependency from a decorative
+    one, which no green run can do.
+  - ⚠ **Measured, and it qualifies the change rather than selling it:** removing the wait from
+    `open_screen` leaves its 37 tests green, and removing it from the `ui` fixture leaves **all
+    407** green. No test's outcome rests on these waits today; they are insurance against a class
+    of race, and they cost nothing measurable. Anyone reading a green lane as proof this works
+    has read the wrong thing - the differential is the proof.
+  - **Not in scope, deliberately:** the ~25 remaining bare screen switches (Stage 2), the 63
+    fixed sleeps (Stage 3), the ~39 raw one-shot reads and their ratchet (Stage 4). One screen
+    switch in `test_busy_state.py` was converted early because it was the differential's subject.
+
 - **(n) "How your dates were determined" honesty stat - BUILT 2026-07-31.**
   **Part of the date-provenance program, and that program is complete.** Step numbers are
   deliberately not repeated here: this entry and `BACKLOG.md`'s **Converged programs** block
