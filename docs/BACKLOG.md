@@ -2426,7 +2426,8 @@ section, because what is left is the part that still has to be written.
     - ⚠ **Class P breached the 1 GB memory ceiling in this naive form: 1,682 MB peak RSS** to
       hold 5.2M points and a KD-tree, against 145 MB for `cities500`. Any use of it needs a
       packed on-disk index rather than "load it all", and that is a build, not a download.
-    Full numbers in the P33 measurement report; nothing was committed and no dependency added.
+    **Full record: `reverse-geocoding-research.md`** - tiers, accuracy, name forms, licence,
+    and the two questions the design must answer. Nothing committed, no dependency added.
   - ✅ **P34, 2026-08-10: THE DISTRICT IS REACHABLE AS AN ATTRIBUTE, NOT AS A LOOKUP TARGET.**
     The maintainer's hypothesis, verified: every class-P row carries `admin1_code` and
     `admin2_code`, and the nearest populated place to the Wayanad fixture point (`Polacchikuni`,
