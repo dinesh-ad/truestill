@@ -64,3 +64,13 @@ repos:
         entry: python3 scripts/check_commit_msg.py
         language: system
         stages: [commit-msg]
+      # The other direction of the closure rule. A letter that LEAVES BACKLOG.md must be
+      # declared closed in this commit's message and must arrive in SHIPPED.md in the same
+      # commit. It is a hook rather than a test because the corpus form is not honestly
+      # checkable - 31 of SHIPPED.md's 32 entries predate the trailer, and a guard that goes
+      # red on the past gets switched off. Reads only the staged diff, so it has no past.
+      - id: entry-closure
+        name: an entry that leaves the backlog is closed, and closed in this commit
+        entry: python3 scripts/check_entry_closure.py
+        language: system
+        stages: [commit-msg]

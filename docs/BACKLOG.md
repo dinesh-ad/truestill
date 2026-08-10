@@ -37,11 +37,41 @@ own text. Replaced with citations verified present on 2026-08-01.)*
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
-**AN ENTRY IS CLOSED BY A COMMIT WHOSE MESSAGE SAYS `Closes (xyz).` ON A LINE OF ITS OWN, AND BY
+**AN ENTRY IS CLOSED BY A COMMIT WHOSE MESSAGE SAYS `Closes (xyz)` ON A LINE OF ITS OWN, AND BY
 NOTHING ELSE** (standing, 2026-08-10). A ruling in conversation is not a closure until a commit
 records it, and that commit moves the entry to [`SHIPPED.md`](SHIPPED.md) - this file carries open
-work only. Enforced by `test_closed_entries_leave_the_backlog.py`, which fails when a letter
-declared closed is still declared here.
+work only.
+
+**The trailing full stop is conventional and is deliberately not required**, corrected 2026-08-10
+because this line said *exactly* `Closes (xyz).` while the pattern had always accepted both. Of
+the two possible reconciliations only one fails safely: requiring the period means a commit that
+omits it stops counting as a closure at all, so a shipped entry sits in the open-work file with
+nothing to say so - the silence the rule exists to end. A wider marker costs nothing here, because
+the line must still be a trailer of its own, which nobody writes by accident.
+
+**Both directions are enforced, in two places, because only one of them is checkable against
+history.**
+
+- *Declared closed, but still open work here* - **`test_closed_entries_leave_the_backlog.py`**,
+  over the whole corpus. It also fails when a declared letter is in **neither** document, which is
+  what deleting an entry outright would look like.
+- *Left this file without ever being declared* - **`scripts/check_entry_closure.py`**, a
+  `commit-msg` hook (activate with `uv run pre-commit install --hook-type commit-msg`). It refuses
+  a commit that removes an entry title from here unless the message declares the letter closed
+  **and** the entry arrives in `SHIPPED.md` in the same commit.
+
+**Why that half is a hook and not a test, stated so nobody "finishes the job" later.** As a check
+over the corpus it is not honest: *a letter in `SHIPPED.md` must carry a trailer* fails **31 of its
+32 entries** on the day it is written, because the whole history holds exactly one; and *an
+allocated letter is in one of the two files* is false as well - `(e)`, `(h)` and `(gg)` are retired
+and legitimately in neither. A guard that goes red on the past gets switched off and takes its real
+signal with it (`ENGINEERING_STANDARD.md` §4).
+
+**And the boundary is structural, not a date.** The hook reads only the staged diff of the commit
+being made, so it has no opinion about anything already committed - there is no "from now on" to
+record and nothing to grandfather. An undated "from now on" would be the next drift; this way there
+is no list of exceptions to maintain and no date to go stale. What it cannot see is stated in its
+own docstring: an amend that only edits the message stages nothing, and hooks do not run in CI.
 
 *`(acr)` is the instance that proved the rule.* It was closed by the maintainer in conversation;
 neither its entry nor any commit said so, and no repo check could ever have seen it - it sat here
