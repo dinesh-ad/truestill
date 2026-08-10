@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(acr). Next free: (acs).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(acs). Next free: (act).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -43,6 +43,57 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(acs) THE DRIVE CARD ALREADY SHOWS THE FULL PATH. THIS IS A REVIEW OF WHAT IS EXPOSED, NOT A
+  FEATURE WITH A TOGGLE.** Recorded 2026-08-10, and the framing is the finding: the question
+  looked like *"should custody warnings say where a drive is, and should that be hideable?"* It is
+  not. **`app.js:2510` already renders every drive's absolute path as a clickable link, with the
+  path repeated in `title`, unconditionally.** The sensitive data is on screen today. So the work
+  is to decide what should have been shown all along and to whom - not to add locations to the
+  strip and then offer to hide them.
+  - **The need, in the maintainer's words:** he wants to know **where** a drive is, and wants a way
+    to hide **the provider's name and the path** - for screenshots and over-the-shoulder viewing -
+    **while keeping the folder name**. Both halves are real: a warning naming only `Morrowkeep` is
+    a riddle, and a warning naming the service he pays for is a disclosure.
+  - **Where a drive names itself, today:** the drive card (label **+ full path**, `app.js:2510`)
+    and `drives --init` (label + path) show a location; the custody strip, the resting panel,
+    `status`, `verify`, `where` and the decisions notice show **label only**. **A setting reaching
+    some and not others is worse than none** - a user who hides the path on the card and then
+    reads a bare label in the strip has been told nothing, twice.
+  - ⚠ **Location is not in the marker, by design.** `DriveMarker` is `{uuid, label, created}` -
+    checked against the real file on disk. So a drive's whereabouts exists **only** as the
+    settings key `path_hint.drive.<uuid>`, and **one of the three drives in the real catalog
+    (`The Memory Cabinet`) has none at all**. Any design must answer for a drive that cannot say
+    where it is.
+  - 🚫 **THE "KIND OF PLACE" MIDDLE IS NOT AVAILABLE, and this is a measurement rather than a
+    reservation.** The attractive compromise - say *external drive / cloud / this computer* and
+    name neither vendor nor path - has no honest source today. `facts_for` is the only candidate
+    and it fails three ways: it needs the path **reachable**, so it is blind exactly when the
+    warning fires; it returns `None` on **macOS** entirely, by deliberate refusal to guess; and
+    worst, **it does not fail silently**. It falls back to `_nearest_existing()`, so measured on
+    the real unreachable cloud path it returns **`ext4`** - the filesystem of `/home`. **A kind
+    derived from it would tell the user their cloud drive is on this computer, and would be wrong
+    precisely when it mattered.** A reassuring-direction failure is the worst thing to build into
+    a privacy feature, and it is why the middle is unavailable rather than merely imperfect.
+  - **The version that could work, named as what it is:** derive the kind **at registration**,
+    when the place is reachable, and store it. That is a **schema change and a migration**, not a
+    display option, and **every existing drive would read `unknown`** on day one. Worth doing only
+    if the kind is judged to carry its own weight.
+  - **Precedent, and it is this repo's own instinct** (`decisions.py:53-55`): `path_hint.` is
+    excluded from the decisions document because it holds *"an absolute local path - a username, a
+    folder layout, and in one real library the existence of a Crypto Folder"*, on a file that
+    *"lands on a drive the user may lend or sell"*. The same reasoning applies to a screenshot.
+  - ✅ **THE INVARIANT, whatever the design:**
+    > **Hiding may reduce detail. It may never reduce the count, the drive's identity as a
+    > distinct thing, or the fact that something is unverified.** A privacy setting may turn
+    > *"never checked: Morrowkeep at /home/…"* into *"never checked: 1 drive"* - but never into
+    > silence, and never into a number that omits it.
+
+    The earlier phrasing - *never whether a problem is stated* - has a hole: it permits stating
+    the problem while dropping the drive, which on a **label collision (`(acr)`)** collapses two
+    distinct drives into one warning. **Identity preserved**, not merely *problem stated*.
+  - **Related:** `(acr)` labels are not unique and are minted from folder names; `(abg)` is the
+    custody claim this would qualify.
 
 - **(acr) A DRIVE'S LABEL IS NOT UNIQUE, AND CUSTODY WARNINGS NAME DRIVES BY LABEL ALONE.**
   Found by the maintainer on screen 2026-08-10, reading `(abg)` Stage 0's own output: the strip
