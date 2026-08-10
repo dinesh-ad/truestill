@@ -750,6 +750,15 @@ details.more > summary {
 details.more > summary::-webkit-details-marker {
   display: none;
 }
+/* The drive card's location reveal sits INLINE among the card's facts rather than at its foot,
+   so it takes the mechanism and drops the separator. `details.more` is a section break by
+   design - used unmodified here it draws a rule through the middle of the card, which is a
+   design change, and a privacy fix is not the place to smuggle one in. `(acs)`. */
+details.more.inline {
+  margin-top: 0;
+  border-top: 0;
+  padding-top: 0;
+}
 
 /* banners (warnings / empty states) */
 .banner {

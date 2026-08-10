@@ -2516,12 +2516,36 @@ async function loadDrives() {
          <button class="btn btn-secondary" data-risk-action="copy">Copy to another drive</button>
        </div></div>`
     : "";
+  // A PATH IS SHOWN UNASKED ONLY WHEN IT IS DOING IDENTITY WORK. `(acs)`.
+  //
+  // This card was the one place a full absolute path - a provider's name, a username, a folder
+  // layout - appeared on screen every time Backups opened, asked for by nobody. It is now behind
+  // a disclosure, EXCEPT where the label alone cannot identify the drive.
+  //
+  // ⚠ THIS DEFENDS AGAINST A GLANCE AND A SCREENSHOT, NOT AGAINST INSPECTION, because
+  // `data-open` and `data-path` below carry the path for the buttons. Making it
+  // inspection-proof means those buttons take a uuid the server resolves - a real change, not
+  // needed here, not proposed. Overselling this as privacy would be worse than not doing it.
+  //
+  // COLLIDING LABELS RENDER EXPANDED, and that is the rule above rather than an exception to it.
+  // Two cards both titled `Morrowkeep` are told apart by nothing else, so collapsing there would
+  // collapse two drives into one indistinguishable card - which is precisely what `(acs)`'s
+  // invariant forbids: hiding may reduce detail, never the count, a drive's identity as a
+  // distinct thing, or the fact that something is unverified. Same rule the panel obeys when
+  // `(acr)` writes "Morrowkeep at /mnt/photos".
+  const sharedLabel = new Map();
+  drives.forEach((d) => sharedLabel.set(d.label, (sharedLabel.get(d.label) || 0) + 1));
   const cards = drives.map((d) => {
     const pips = Math.min(drives.length, 3);  // ambient: how many places this library lives in
     const strip = [0, 1, 2].map((i) => (i < pips ? "▪" : "▫")).join(" ");
+    const collides = (sharedLabel.get(d.label) || 0) > 1;
     return `<div class="card"><div class="tally" style="grid-template-columns:1fr auto">
       <div><b>${esc(d.label)}</b> ${driveReachBadge(d.reach)}<div class="k mono">${mediaCount(d)} · ${fmtBytes(d.size)}</div>
-        ${d.path ? `<div class="k mono"><a href="#" data-open="${esc(d.path)}" title="Open in file manager">${esc(d.path)}</a></div>` : ""}</div>
+        ${d.path
+          ? `<details class="more inline"${collides ? " open" : ""}>
+             <summary>Show location ▾</summary>
+             <div class="k mono"><a href="#" data-open="${esc(d.path)}" title="Open in file manager">${esc(d.path)}</a></div></details>`
+          : ""}</div>
       <div class="mono" style="color:var(--success)">${strip}</div></div>
       <div class="drive-foot">
         <span class="k mono">last checked: ${(d.last_verified || "never").slice(0, 10)}</span>

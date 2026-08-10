@@ -111,6 +111,40 @@ is invisible here is retired, not free.**
     distinct drives into one warning. **Identity preserved**, not merely *problem stated*.
   - **Related:** `(acr)` labels are not unique and are minted from folder names; `(abg)` is the
     custody claim this would qualify.
+  - ✅ **BUILT 2026-08-10, narrowed by the maintainer to the concern that actually exists:** nobody
+    glancing at the app should learn which cloud service he uses. Not a demo mode, not redaction,
+    **and not a setting** - there is no state to store, so there is nothing to configure.
+    - **The rule, which answers both directions:** *a path is shown unasked only when it is doing
+      identity work.* The drive card's path is now behind `<details class="more inline">`,
+      collapsed by default and **expanded where two drives share a label** - because two cards
+      both titled `Morrowkeep` are told apart by nothing else, and collapsing there would collapse
+      two drives into one indistinguishable card, which is exactly what the invariant above
+      forbids. The same rule the panel obeys when `(acr)` writes *"Morrowkeep at /mnt/photos"*.
+    - ⚠ **It defends against a glance and a screenshot, NOT against inspection.** `data-open` and
+      `data-path` still carry the path because the Open and *Check now* buttons take it. Making it
+      inspection-proof means those buttons take a uuid the server resolves - a real change, not
+      needed for this concern and not made. The tests assert on rendered **text**, never on the
+      attribute's absence, so they describe the protection that actually exists.
+    - **The mechanism was reused, not invented:** `<details class="more">` already appears three
+      times (`app.js:530`, `:732`, `:764`), which brings keyboard and touch support for free.
+      Hover was never viable - it does not exist on touch, and `title` is hover-only. It gained an
+      `inline` modifier because `details.more` is a section break with a border-top meant for a
+      card's foot, and unmodified it drew a rule through the middle of the card; a privacy fix is
+      not the place to smuggle in a design change. Measured by a test, per the `<fieldset>`
+      precedent.
+    - ⚠ **A correction to this entry as filed:** it said the drive card repeats the path in
+      `title`. It does not - `title` is the literal *"Open in file manager"*. The path-in-`title`
+      is a **different site**, the rail's catalog path (`app.js:1525`), and the entry conflated
+      them.
+    - **Everything else that prints a path, from a search rather than assumption, and deliberately
+      left alone:** the rail's catalog path (`app.js:1525`, on every screen) names no provider and
+      is the one path a user needs to quote when something is wrong; the prefilled fields
+      `org-dest`, `ev-source`, `bk-source`, `verify-path` and **`bk-target`** (`:1479-1483`) are
+      **latent, not live** - both hints are `None` on the real catalog - and `bk-target` is where a
+      cloud path would appear, so the maintainer ruled to wait until it is visible on the screen he
+      opens daily rather than guess now. `truestill drives` prints no path at all; the CLI's other
+      commands echo the path just typed on the command line, which reveals nothing a
+      shoulder-surfer did not watch being typed.
 
 - **(acr) A DRIVE'S LABEL IS NOT UNIQUE, AND CUSTODY WARNINGS NAME DRIVES BY LABEL ALONE.**
   Found by the maintainer on screen 2026-08-10, reading `(abg)` Stage 0's own output: the strip
