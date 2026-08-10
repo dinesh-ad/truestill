@@ -789,6 +789,23 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   Corollary, from the same day: the real catalog held zero events and zero date confirmations, so
   the feature had only ever met seeded examples of the thing it exists to protect.
 
+- **A branch the common case masks is the one nothing exercises.** The twenty-third member. When
+  two paths produce the *same observable outcome*, tests written against the outcome cover only
+  whichever path the default takes - and the other can be deleted without a single failure.
+
+  Recorded 2026-08-10. A backup copy that fails re-raises the original error; a backup copy that
+  fails **and cannot clean up** raises a longer message naming the surviving partial and its
+  size. From outside, both are "the run stopped with an OSError". A mutation deleting the second
+  branch entirely killed no test, because every test reached the first.
+
+  > **Ask which branch your fixture takes, then write the test that takes the other one.** The
+  > tell is a conditional whose arms differ in *detail* rather than in *kind* - a longer message,
+  > an extra field, a second attempt - where the caller's assertion sees neither.
+
+  *Same family:* a third call site untested because the default scheme never reaches it; an
+  `else` that only fires on a filesystem CI does not have; a fallback that only runs when an
+  optional dependency is missing. Each is live code with no test and a green suite.
+
 - **A report about state must say what it does not cover.** The twenty-second member. `"tree
   clean"` is a claim about **tracked content versus HEAD** and nothing else. It does not say that
   no file was written, that no mtime moved, or that another tool will agree.

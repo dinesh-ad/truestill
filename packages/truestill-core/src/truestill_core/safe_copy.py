@@ -59,6 +59,13 @@ def _size_of(path: Path) -> int:
 def copy_leaving_nothing(source: Path, target: Path) -> CopyOutcome:
     """Copy ``source`` to ``target``; on failure remove the bytes **this call** wrote.
 
+    **The signature is the guarantee. Do not add an ``existed=`` parameter**, however convenient
+    it looks at a call site that has already checked - `organizer._free_relative` has, some lines
+    earlier. A caller's answer is stale by the time it arrives, and a stale "it was free" is the
+    single input that turns the cleanup below into deleting somebody else's file. Taking only the
+    two paths is what makes that unreachable rather than unlikely, and
+    `test_the_decision_is_taken_here_and_never_passed_in` fails if a third parameter appears.
+
     Returns rather than raises: see the module note on why a cleanup must never replace a
     reported failure with an unreported one.
     """
