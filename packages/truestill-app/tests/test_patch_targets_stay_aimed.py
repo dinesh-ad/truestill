@@ -33,6 +33,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 from types import ModuleType
+from uuid import uuid4
 
 import pytest
 from truestill_app import service
@@ -177,7 +178,7 @@ def test_no_monkeypatch_aims_at_a_service_facade_re_export() -> None:
     ],
 )
 def test_the_guard_catches_the_two_real_defects_and_spares_the_look_alikes(
-    tmp_path: Path, source: str, should_flag: bool, why: str
+    source: str, should_flag: bool, why: str
 ) -> None:
     """Both halves, using the two defects that actually shipped and the forms that did not.
 
@@ -185,10 +186,13 @@ def test_the_guard_catches_the_two_real_defects_and_spares_the_look_alikes(
     are what ``test_busy_state`` and ``test_inventory`` literally contained, and the third
     through fifth are what the rest of the suite already does correctly and must keep doing.
     """
-    probe = tmp_path / "test_probe.py"
-    probe.write_text(source, encoding="utf-8")
-    # _offenders_in reports paths relative to REPO, so run it on a file inside the repo tree.
-    staged = REPO / "packages/truestill-app/tests/.probe_test_tmp.py"
+    # `_offenders_in` labels paths relative to REPO, so the probe must live inside the repo tree -
+    # `tmp_path` cannot serve. **The name must be UNIQUE**: a fixed one raced itself under
+    # `-n auto`, because the five parametrised cases run on different xdist workers and each wrote
+    # and unlinked the same path. One worker parsed a half-written file (`SyntaxError`) while
+    # another found it already unlinked (`FileNotFoundError`). Red on CI run 31399973530, and
+    # reproduced locally 8 times in 12 at `-n 5`.
+    staged = REPO / "packages/truestill-app/tests" / f".probe_{uuid4().hex}.py"
     staged.write_text(source, encoding="utf-8")
     try:
         offenders = _offenders_in(staged)
