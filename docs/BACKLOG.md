@@ -72,6 +72,33 @@ is invisible here is retired, not free.**
   (`index.html:249`) renders **above** the card holding `#bk-preview` (`index.html:276`) in the
   same section, so when `loadDrives` writes it every control below shifts down. A person reaching
   for *Preview copy* inside that window clicks where the button **was**.
+  - ✅ **MEASURED 2026-08-10, and it is 30-115x larger than `(abq)`'s mover.** Taken with
+    `/api/drives` held open, `#bk-preview`'s box read before and after the write lands, under
+    stubbed drive counts. **This entry is confirmed, not retired.**
+
+    | drives | `#drives-list` height | `#bk-preview` moves | click-to-ready |
+    |---|---|---|---|
+    | 0 | 0 -> 130.4 px | **+142.4 px** | 80 ms |
+    | 1 | 0 -> 144.0 px | **+156.0 px** | 87 ms |
+    | 3 | 0 -> 551.1 px | **+563.1 px** | 100 ms |
+
+    - ⚠ **There is no no-shift case.** Zero drives still moves the button 142 px, because
+      `loadDrives` renders an empty-state card rather than nothing. A library with no registered
+      drive - the first-run user - gets the defect too.
+    - **The control is LIVE throughout**: `#bk-preview` is visible and enabled for the whole
+      window, so nothing refuses the click and Playwright's actionability checks would not help.
+    - **A click at the old position is silently swallowed.** Measured with `elementFromPoint` in
+      a viewport tall enough to hold both positions: with one drive it lands on
+      `#bk-source-hint`, a text span; with three, on an `<h2>`. Nothing happens and nothing says
+      anything.
+    - **The window tracks endpoint latency about 1:1** - 98 ms local, 329 ms with a 250 ms
+      delay, 1,085 ms with 1,000 ms. It is the slower of the two requests in `loadDrives`'
+      `Promise.all`, not their sum. On a large catalog or a cloud-mounted library the button is
+      mispositioned for **over a second**.
+    - *Measurement note:* a first attempt reported "nothing at the old position" and that was an
+      artifact - at the default viewport the button already sits below the fold, so
+      `elementFromPoint` was querying outside the viewport. Re-run at 1280x1600.
+
   - **Two movers on this screen, and they are not the same defect.** This entry owns the
     **screen-open** mover: `loadDrives` → `#drives-list`, above the whole card. `(abq)` owns the
     **after-typing** mover: `validatePath` is `debounce(run, 400)` and writes into
