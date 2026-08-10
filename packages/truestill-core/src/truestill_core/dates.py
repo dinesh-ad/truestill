@@ -290,13 +290,24 @@ _MAX_SANE_YEAR = 2100
 
 #: How far ahead of "now" a capture date may sit before it is refused as impossible.
 #:
-#: **A day, and the asymmetry is deliberate.** Clock skew is ordinary - a camera minutes fast, a
-#: timezone-unaware stamp read as UTC when the shooter was ahead of it, a device that never
-#: adjusted for travel. Refusing those would send correctly-dated photos to ``Undated/``, which
-#: is both worse and far commoner than accepting a date a few hours out. A day is generous
-#: enough that no real photo is refused, and tight enough to catch the case this was written
-#: for: a library reporting a range ending in **2051**.
-FUTURE_TOLERANCE = timedelta(days=1)
+#: **TWO days, and the first of them is not slack - it is the width of the world.** The gap
+#: between where a photo is TAKEN and where it is IMPORTED is at most **26 hours**: UTC+14
+#: (Kiritimati) to UTC-12 (Baker Island). A photo taken moments ago on one side carries a local
+#: wall clock up to 26 hours ahead of the importing computer's naive `datetime.now()`, which is
+#: the only machine-clock reading anywhere in this chain. **Do not trim this below 26 hours.**
+#:
+#: Measured rather than reasoned (P41, 2026-08-10): at one day, a photo taken in Kiritimati and
+#: imported on a UTC-12 machine went to ``Undated/`` as ``REJECTED_FUTURE``, while the same file
+#: imported on UTC+14 or UTC+05:30 landed correctly. That is a folder decided by the importing
+#: computer's clock rather than by the photograph - the failure this project exists not to have,
+#: and the one Adobe's own date-folder bug has had open since 2011.
+#:
+#: The second day is the original allowance and its reasoning is unchanged: clock skew is
+#: ordinary - a camera minutes fast, a device that never adjusted for travel - and refusing those
+#: would send correctly-dated photos to ``Undated/``, which is both worse and far commoner than
+#: accepting a date a few hours out. Two days remains tight enough to catch the case this was
+#: written for: a library reporting a range ending in **2051**.
+FUTURE_TOLERANCE = timedelta(days=2)
 
 
 def is_future(value: datetime, *, now: datetime) -> bool:

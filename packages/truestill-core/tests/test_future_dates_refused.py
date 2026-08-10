@@ -168,3 +168,41 @@ def test_the_clock_is_injected_so_the_suite_is_not_time_of_day_dependent() -> No
     )
     assert refused is None
     assert refused_source is DateSource.REJECTED_FUTURE
+
+
+#: The widest gap possible between where a photo was taken and where it is imported. UTC+14
+#: (Kiritimati) to UTC-12 (Baker Island) is **26 hours**, so a photo taken moments ago on one
+#: side can carry a local wall clock 26 hours ahead of the importing computer's.
+_MAX_TIMEZONE_SPREAD = timedelta(hours=26)
+
+
+def test_a_photo_from_the_far_side_of_the_dateline_is_not_refused() -> None:
+    """**Measured, not reasoned** (P41): a photo taken in Kiritimati and imported on a UTC-12
+    machine went to `Undated/` as `rejected_future`, while the same file imported on UTC+14 or
+    UTC+05:30 landed correctly. The gap is 26 hours and the tolerance was one day.
+
+    This is the Adobe shape - a folder decided by the importing computer's clock rather than by
+    the photo - and it is the only place the machine's timezone reaches a placement decision.
+
+    Asserted in ABSOLUTE hours rather than against `FUTURE_TOLERANCE`, deliberately. The
+    neighbouring boundary tests are written relative to the constant, so they hold at any value
+    and cannot catch the constant being too small. This one states the requirement the world
+    imposes, so trimming the tolerance back under 26 hours fails here.
+    """
+    when, source, _tag = _resolve(
+        {
+            "DateTimeOriginal": (_NOW + _MAX_TIMEZONE_SPREAD).strftime("%Y:%m:%d %H:%M:%S"),
+        }
+    )
+
+    assert when is not None, "a fresh photo from UTC+14 imported on UTC-12 must still be dated"
+    assert source is DateSource.EXIF
+
+
+def test_a_wrong_device_clock_is_still_refused() -> None:
+    """The other side, so widening the tolerance does not quietly retire the case it was written
+    for: the real library reporting a range ending in 2051."""
+    when, source, _tag = _resolve({"DateTimeOriginal": "2051:03:01 09:00:00"})
+
+    assert when is None
+    assert source is DateSource.REJECTED_FUTURE
