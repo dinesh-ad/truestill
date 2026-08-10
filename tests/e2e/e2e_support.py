@@ -122,3 +122,21 @@ class RetiringServers:
     @property
     def outstanding(self) -> int:
         return len(self._pending)
+
+
+def open_backups(ui: object) -> None:
+    """Switch to Backups and wait for the screen to stop being rewritten.
+
+    **`loadDrives` and `loadCustody` run together on arrival and both rewrite the screen**, and
+    the controls sit BELOW what they write - so acting while that is in flight clicks a button
+    the page is still moving. `(abq)` measured the movement at +4.9px.
+
+    `test_backups_on_the_pattern._open` has done exactly this since it was written; the other
+    three files that open this screen do not, which is why the wait lives here now rather than in
+    a fourth copy.
+
+    Not a sleep: both waits are conditions the page satisfies or fails, per §3's browser rules.
+    """
+    ui.click('[data-screen="backups"]')  # type: ignore[attr-defined]
+    ui.wait_for_selector("#drives-list *", timeout=15_000)  # type: ignore[attr-defined]
+    ui.wait_for_load_state("networkidle")  # type: ignore[attr-defined]

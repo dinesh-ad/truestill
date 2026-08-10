@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 import uvicorn
-from e2e_support import AppServer
+from e2e_support import AppServer, open_backups
 from playwright.sync_api import Browser, Page, expect
 from truestill_app.server import create_app
 from truestill_app.service import migrate as service_migrate
@@ -246,7 +246,11 @@ def test_backup_preview_busy_re_enables(ui: Page, tmp_path: Path, library) -> No
     ui.click("#org-confirm [data-typed-go]")
     expect(ui.locator("#org-result")).to_contain_text("organized", timeout=60_000)
 
-    ui.click('button[data-screen="backups"]')
+    # NOT a bare screen switch: `loadDrives` and `loadCustody` rewrite this screen on arrival
+    # and the controls sit below what they write, so filling and clicking while that is in
+    # flight aims at a button the page is still moving - `(abq)`, measured at +4.9px. The
+    # sibling file has waited this out since it was written; this test never did.
+    open_backups(ui)
     target = tmp_path / "Backup"
     target.mkdir()
     # Prefill can name the library drive; set both ends explicitly so the preview is about

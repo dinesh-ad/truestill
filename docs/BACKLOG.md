@@ -537,9 +537,38 @@ is invisible here is retired, not free.**
     server-side code cannot suppress a fetch that was never issued. Written down because "the
     flake started failing right after your change" is the first thing anyone will think, and the
     trace answers it rather than the timing.
-  - **Still not fixed here, deliberately.** The contradiction flagged above is unreconciled, and
-    this entry's own instruction is that a settle-wait added on the strength of it would be a
-    guess wearing a citation. A third data point does not reconcile two records.
+  - ✅ **RECURRED 2026-08-10, run `31364810632` - FOURTH failure, identical signature.** Zero
+    `/api/backup/preview` entries in `trace.network`; `"Checking what to copy…"` absent from the
+    trace entirely. Ruled out first, because the same push changed `service/backup.py` for
+    `(abu)`: the click never left the browser, so server code cannot be implicated - and the
+    failing test is a **preview**, which never reaches `_copy_or_raise` (called only from
+    `backup_run`).
+  - ✅ **THE CONTRADICTION IS RECONCILED, and the two records were never in conflict.** They
+    describe different waits at different moments:
+    - `test_backups_on_the_pattern._open` waits for the SCREEN to settle after switching -
+      `#drives-list *` then `networkidle` - because *"`loadDrives` and `loadCustody` run together
+      and both rewrite the screen"*. Its later note, that hint waits and networkidle *"all still
+      lose the race"*, is about the **path-validation** race at its own click site, AFTER it has
+      already settled the screen.
+    - `test_busy_state`'s failing test settles **nothing**. It switches screen and immediately
+      fills and clicks, while the two loads that rewrite that screen are still in flight.
+    So one record is "a residual race after settling" and the other is a test that never settles.
+    The proposed hint-wait was rightly refused; the missing wait was a different one.
+  - **RULED OUT ALONG THE WAY**, so the next reader does not re-walk it: the handler is attached
+    once at module level (`app.js:3140`), so it is never absent when the button is clickable;
+    `#bk-preview` is static markup and only its SIBLING `#bk-result` is rewritten, so the node is
+    never replaced; and neither `guarded` nor `withBusy` can swallow a first click.
+  - ⚠ **FIXED AT ONE SITE OF FOUR, and that is the `(aak)` shape this entry already names.**
+    `e2e_support.open_backups` now does the settle, and only `test_busy_state` uses it. The other
+    three - `test_golden_path:57` and `test_ui_regressions:60,:645` - switch to this screen and
+    act immediately too. They were **not** changed blind: their fixtures may render a drives list
+    with no children, where `wait_for_selector("#drives-list *")` would hang for 15 s and fail a
+    passing test. Closing them needs a settle that tolerates the empty case, which is its own
+    small piece of work.
+  - **VERIFICATION IS CI, NOT LOCAL, and passing locally means nothing here.** This entry already
+    records 15 local runs of the test alone and 5 of the file with 0 failures; 5 more after the
+    change also passed. It wants a loaded runner, so several green CI runs are the only evidence
+    that will count.
 
 - **(abp) The body sans face is not bundled, so prose renders differently on every machine.**
   Recorded 2026-08-07, found because a browser test had been asserting the CI runner's fonts.
