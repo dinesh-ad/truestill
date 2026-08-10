@@ -12,6 +12,11 @@ Repository-local guidance for day-to-day work in this repo.
 
 For document ownership and map-by-question, use root `../CLAUDE.md`.
 
+**Before building anything from `BACKLOG.md`, check `SHIPPED.md`.** The two share one letter
+namespace and answer opposite questions; a letter missing from the backlog is shipped or retired,
+never free. Neither doc map named `SHIPPED.md` until 2026-08-10, which left a cold start with no
+route to *"is this already built?"* - the question the file exists to answer.
+
 ## What this file is (and is not)
 
 - This is a **quick orientation** for contributors already inside the repo.

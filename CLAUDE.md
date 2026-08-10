@@ -26,6 +26,7 @@ The command is `truestill`; the local web UI is `truestill-app`. Drives are iden
 | What are the binding rules? (invariants, architecture, data, gates) | [`docs/IMPLEMENTATION_STANDARDS.md`](docs/IMPLEMENTATION_STANDARDS.md) |
 | Why is the product this way? (settled stances: accounts, licensing, monetization) | [`docs/DECISIONS.md`](docs/DECISIONS.md) |
 | What is approved but unbuilt? | [`docs/BACKLOG.md`](docs/BACKLOG.md) |
+| **Is this already built?** (provenance - read before building anything) | [`docs/SHIPPED.md`](docs/SHIPPED.md) |
 | How do I move libraries to another machine? | [`docs/moving-machines.md`](docs/moving-machines.md) |
 | How does the code lay out day to day? | [`docs/CLAUDE.md`](docs/CLAUDE.md) |
 | What does it cost, and what should I not "optimize"? | [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) |
@@ -33,6 +34,11 @@ The command is `truestill`; the local web UI is `truestill-app`. Drives are iden
 | What is wrong with the UI, surface by surface? | [`docs/ui-inventory.md`](docs/ui-inventory.md) |
 | How do I report a vulnerability, and what is in scope? | [`SECURITY.md`](SECURITY.md) |
 | What changed and when? | [`CHANGELOG.md`](CHANGELOG.md) |
+
+`BACKLOG.md` and `SHIPPED.md` share one letter namespace and answer opposite questions - open work
+and provenance. The pair was split on 2026-08-01 because one file doing both jobs let `(aae)` and
+`(jj)` sit in the wrong section while they were shipping, so **a letter absent from the backlog is
+not free**; look for it in `SHIPPED.md` before treating it as unbuilt.
 
 Research and QA records (`docs/*-research.md`, `docs/walkthrough-qa-report.md`) are
 historical: they record what was investigated and when. Some predate the
