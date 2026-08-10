@@ -107,7 +107,7 @@ jobs:
         run: |
           start=$(date +%s)
           status=0
-          uv run pytest -n auto || status=$?
+          uv run pytest -n auto --junitxml=test-results.xml || status=$?
           echo "TS_PYTEST_SECONDS=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
           exit $status
 
@@ -143,6 +143,16 @@ jobs:
           runner.os == 'Linux' &&
           (github.event_name == 'schedule' || github.event_name == 'pull_request')
         run: uv run pytest packages/
+
+      # See the E2E lane's copy for why this exists and why it is not a gate.
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ matrix.os }}
+          path: test-results.xml
+          if-no-files-found: warn
+          retention-days: 30
 
       - name: Timing summary
         if: always()
@@ -222,8 +232,22 @@ jobs:
       - name: E2E
         run: |
           uv run pytest tests/e2e --browser chromium \
+            --junitxml=test-results.xml \
             --tracing retain-on-failure --video retain-on-failure \
             --output tests/e2e/.artifacts
+
+      # WHICH tests failed, per run, so nobody has to count green runs by hand in a backlog
+      # entry. `always()` because a green run's file is the baseline that makes a red one
+      # readable, and it is a few KB. Read with `scripts/flake_report.py`, on demand - there is
+      # deliberately no dashboard, no store and nothing here in the critical path.
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-e2e
+          path: test-results.xml
+          if-no-files-found: warn
+          retention-days: 30
 
       # A red run should arrive with a replay, not a guess.
       #

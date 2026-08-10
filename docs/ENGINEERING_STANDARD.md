@@ -789,6 +789,32 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   Corollary, from the same day: the real catalog held zero events and zero date confirmations, so
   the feature had only ever met seeded examples of the thing it exists to protect.
 
+- **A guard proven by the problem it hunts dies at the moment it succeeds.** The twenty-eighth
+  member. The family is any assertion whose validity depends on the defect still existing:
+  a cry-wolf test that demonstrates a matcher works by pointing at real findings, a fixture built
+  from the bad data, a check pinned to a count that is supposed to fall. Each is honest the day
+  it is written and vacuous the day the work lands - and it goes quiet precisely when the guard
+  becomes load-bearing, because there is nothing left for it to find.
+
+  Recorded 2026-08-10. The screen-switch ratchet proved its matcher by asserting the allowlist
+  was non-empty and equal to what the scan returned. That was sound at 8 violations and expired
+  at 0, where **"found nothing" and "looks at nothing" become indistinguishable** - the state the
+  whole ratchet exists to hold.
+
+  > **Prove the matcher on input you construct, never on the backlog it is draining.** The
+  > rebuilt version runs the rule over source written to violate, including one case that must
+  > still be caught (an action behind a *sleep*), so it says the same thing at 8 findings and at
+  > 0.
+
+  *The tell:* the guard gets weaker every time someone does the right thing.
+
+- **A rule written only where it is enforced will be re-derived by whoever has not read that
+  file.** The twenty-seventh member, and it is a pattern in this repo rather than a coincidence:
+  the mutation-restore rule lived in §4 but was broken twice in one day (`(ace)`), and the
+  no-retry rule lived as a comment at `Makefile:103` and `ci.yml:220` and nowhere teachable.
+  Enforcement sites are read by people already doing that task; a rule needs a home someone
+  reaches for *before* they know they need it.
+
 - **Never retry a failing test to get a green build - and never let "most red lanes are flaky"
   become the reason you stopped looking.** The twenty-sixth member. Two rules, deliberately in
   one entry, because each is what makes the other survivable.
