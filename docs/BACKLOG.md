@@ -37,6 +37,18 @@ own text. Replaced with citations verified present on 2026-08-01.)*
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
+**AN ENTRY IS CLOSED BY A COMMIT WHOSE MESSAGE SAYS `Closes (xyz).` ON A LINE OF ITS OWN, AND BY
+NOTHING ELSE** (standing, 2026-08-10). A ruling in conversation is not a closure until a commit
+records it, and that commit moves the entry to [`SHIPPED.md`](SHIPPED.md) - this file carries open
+work only. Enforced by `test_closed_entries_leave_the_backlog.py`, which fails when a letter
+declared closed is still declared here.
+
+*`(acr)` is the instance that proved the rule.* It was closed by the maintainer in conversation;
+neither its entry nor any commit said so, and no repo check could ever have seen it - it sat here
+as open work while shipped. Two of the three entries stale that day *were* catchable, because
+their commits said so and nothing checked. The trailer is what turns a ruling into something the
+repository can observe.
+
 Several early letters no longer appear anywhere in this file: their items shipped and the
 Shipped entries describe the work rather than repeating the letter. `(e)` and `(h)` are still
 cited by name in `drive-identity-research.md` and `org-structure-research.md`. **A letter that
