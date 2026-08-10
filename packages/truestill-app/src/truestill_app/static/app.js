@@ -1497,6 +1497,12 @@ async function loadCustody() {
   // RISK is exposure among files that HAVE a home: one copy and no more. A file with no copy at
   // all is a Stats finding, not a rail sentence - it cannot be acted on from here.
   const atRisk = oneCopy > 0;
+  // A DRAWING CONSTANT, NOT THE CLAIM. The strip is three glyphs, so the number it can draw is
+  // capped at three - and that cap used to be the number the sentence below was written against,
+  // so a library with every file on four drives read "every file in 3 places" while the panel,
+  // reading `held_floor` straight, said four. Two surfaces disagreeing in one render, and the
+  // understating one was the ambient sentence on every screen. The pips keep the cap; the
+  // sentence states the floor.
   const filled = s.files && onADrive ? Math.min(heldFloor, 3) : 0;
   pips.textContent = [0, 1, 2].map((i) => (i < filled ? "▪" : "▫")).join(" ");
   pips.classList.toggle("none", filled === 0);
@@ -1517,8 +1523,12 @@ async function loadCustody() {
   const safe = !s.files ? "nothing organized yet"
     : !anyDrive ? "not on a backup drive yet"
     : oneCopy ? `${WARN_MARK}${plural(oneCopy, "file")} in only one place`
-    : noCopy ? `${plural(onADrive, "file")} in ${filled} places`
-    : `every file in ${filled} places`;
+    // `heldFloor`, never `filled` - see above. Through `plural` rather than a glued "places",
+    // which is the house form and also removes a latent "1 places": both branches are only
+    // reached when no file has exactly one copy, so the floor is at least two, and that is a
+    // fact about the data rather than something the string should be trusting.
+    : noCopy ? `${plural(onADrive, "file")} in ${plural(heldFloor, "place")}`
+    : `every file in ${plural(heldFloor, "place")}`;
   // One custody sentence, not an inventory. The photos/videos line that used to sit above this
   // never changed and asked nothing of anyone; custody is what this strip is for.
   const catalogPath = s.catalog_path

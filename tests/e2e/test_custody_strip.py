@@ -299,6 +299,79 @@ def test_the_number_is_the_file_floor_even_when_a_third_drive_exists(ui: Page, a
     assert _pips(ui).count("▪") == 2, "the pips followed the drive count, not the weakest file"
 
 
+def test_the_sentence_states_the_floor_the_pips_can_only_draw_three_of(
+    ui: Page, app_server: AppServer
+) -> None:
+    """The pip strip has three glyphs; the sentence has no such limit, and must not inherit one.
+
+    `filled` is `Math.min(held_floor, 3)` - correct for the pips, which are three characters -
+    and it is also the number the sentence is written against. At a floor of four the rail
+    understates its own claim while the panel, reading `held_floor` directly, states it in full:
+    two surfaces disagreeing in one render, and the strip is the one that is wrong.
+
+    Every existing fixture here has a floor of one or two, so the cap has nothing to bite on and
+    the two readings are indistinguishable. Four drives is the smallest set that separates them.
+
+    **Both directions, per §4's thirty-first member.** The sentence must say four; the pips must
+    still draw three, because a fix that let them draw four would be a different defect. Only the
+    pair kills the second one: the clamp and the three-slot row are overlapping defences, and
+    removing either alone leaves the strip drawing three (§4's eighth member - the honest move is
+    to say what the assertion covers, not to delete a defence so a mutation bites harder).
+
+    **The panel line here is corroboration, not a guard, and says so because the fixture cannot
+    discriminate:** four drives and a floor of four make `places` and `held_floor` read alike.
+    What holds the panel to the file floor is `test_the_panel_counts_the_weakest_file_not_the_drives`,
+    where the two differ - proved by mutating the panel to `s.places`, which kills that test and
+    not this one.
+    """
+    ui.set_viewport_size({"width": 1500, "height": 900})
+    with Catalog(app_server.db) as catalog:
+        for uuid in ("A", "B", "C", "D"):
+            catalog.upsert_drive(uuid=uuid, label=f"Drive {uuid}")
+            catalog.set_drive_verified(uuid, "2026-08-01T09:00:00+00:00")
+        # Two files, not one: a count of one cannot show that the floor is a minimum over files.
+        for n in range(2):
+            for uuid in ("A", "B", "C", "D"):
+                _record(catalog, f"sha{n}", uuid, f"{n}.jpg")
+
+    ui.reload()
+    text = _strip(ui)
+    assert "every file in 4 places" in text, f"the sentence is capped by the pips: {text!r}"
+    assert "3 places" not in text, f"a display constant is being claimed as custody: {text!r}"
+
+    # The cry-wolf half: three glyphs is what the strip has, and that stays true.
+    assert _pips(ui).count("▪") == 3, "the pips grew a fourth glyph"
+
+    # And the panel, which reads `held_floor` directly, agreed all along.
+    expect(ui.locator("#panel")).to_contain_text("In at least")
+    expect(ui.locator("#panel")).to_contain_text("4 places")
+
+
+def test_the_counted_wording_states_the_floor_too(ui: Page, app_server: AppServer) -> None:
+    """The other branch, which the universal above masks - §4's twenty-third member.
+
+    A library with an orphan keeps the COUNT wording instead of "every file", and that sentence
+    carries the same number. `test_orphans_do_not_drag_the_strip_but_are_not_papered_over` pins
+    the wording at a floor of two, where the cap has nothing to bite on, so the two readings are
+    identical there and only this fixture separates them.
+    """
+    ui.set_viewport_size({"width": 1500, "height": 900})
+    with Catalog(app_server.db) as catalog:
+        for uuid in ("A", "B", "C", "D"):
+            catalog.upsert_drive(uuid=uuid, label=f"Drive {uuid}")
+        for n in range(2):
+            for uuid in ("A", "B", "C", "D"):
+                _record(catalog, f"sha{n}", uuid, f"{n}.jpg")
+        _record(catalog, "sha-orphan", "A", "orphan.jpg")
+        catalog._conn.execute("DELETE FROM file_copies WHERE sha256 = 'sha-orphan'")
+        catalog._conn.commit()
+
+    ui.reload()
+    text = _strip(ui)
+    assert "every file" not in text, f"a universal was claimed beside an orphan: {text!r}"
+    assert "2 files in 4 places" in text, f"the counted wording is capped: {text!r}"
+
+
 def test_the_strip_says_when_it_last_looked(ui: Page, app_server: AppServer) -> None:
     """`(abg)` Stage 0: the count carries its age, on the screen as well as in the CLI.
 
