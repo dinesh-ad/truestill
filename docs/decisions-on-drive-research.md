@@ -1,5 +1,13 @@
 # Decisions on the drive: surviving a lost catalog
 
+> **Letter reallocation, 2026-08-10.** The items this document cites as `(abw)`, `(abx)`, `(aby)`
+> and `(abv)` are now `(acg)`, `(ach)`, `(aci)` and `(ack)`. Those four letters had each been
+> assigned twice -
+> once on 2026-08-08 and again during this work - so the citations below had stopped resolving.
+> The 2026-08-08 entries keep the letters, per `BACKLOG.md`'s rule that a letter is a permanent
+> identifier. The pointers are corrected rather than the findings; nothing about what was
+> investigated has changed.
+
 > **LIVE DESIGN, not a frozen record. Status as of 2026-08-09.**
 >
 > **Built:** the document itself (`truestill_core.decisions`) - the dataclass, the serialiser,
@@ -23,7 +31,7 @@
 > for the lost-machine case, because it iterates zero rows on a rebuilt catalog.
 >
 > **NOT built, and nothing here should be read as claiming otherwise:** the app has **no restore**
-> - it can say a drive is carrying decisions, and the command to run is a CLI one - and `(abw)`
+> - it can say a drive is carrying decisions, and the command to run is a CLI one - and `(acg)`
 > album membership is still not carried.
 > `(acc)` in `BACKLOG.md` said "Stages 1-3 landed" and was corrected on 2026-08-09 for exactly
 > this reason - a status line that claims more than the code is the error this header exists to
@@ -73,7 +81,7 @@ trips        name, slug, start, end, and the trip's own days
 events       name, slug, start, signature
 skipped      dismissed cluster signatures
 dates        sha256 -> corrected captured_at, confirmed_by
-albums       name (membership NOT yet carried - see (abw))
+albums       name (membership NOT yet carried - see (acg))
 ```
 
 **Corrections to the original list, from the code:** there is **no duplicate-resolution table** -
@@ -93,12 +101,12 @@ which is exactly when the name must **not** be auto-applied.
 equivalent: they are keyed by day, and `trip_days` is already tiny."* That was the assumption that
 failed. `trip_days` maps a day to `trips.id`, and **a rowid is meaningless on a machine that has
 never seen this catalog** - the document carried a mapping no reader could resolve, so a restore
-gave the first trip every other trip's days. `(abv)` in `SHIPPED.md` has the full record; the fix
+gave the first trip every other trip's days. `(ack)` in `SHIPPED.md` has the full record; the fix
 is that a trip carries its **own days**, which works because `trip_days.day` is a primary key, so
 days are disjoint across trips and a day list identifies a trip exactly.
 
 **The general rule, and it is the one to apply to albums next:** a key that only means something
-inside this catalog cannot be the thing that carries identity out of it. `(abw)` records that
+inside this catalog cannot be the thing that carries identity out of it. `(acg)` records that
 `file_albums` is `PRIMARY KEY (file_id, album_id)` - both rowids - so album membership must travel
 as sha256s when albums are built.
 
@@ -113,7 +121,7 @@ as sha256s when albums are built.
 Against a **6,365,184-byte** catalog: two hundredths of one percent. Enumeration is the only thing
 that could have made this megabytes, and the signature removes it.
 
-**The 1,353 is smaller than the 1,508 measured before `(abv)`, while carrying strictly more.**
+**The 1,353 is smaller than the 1,508 measured before `(ack)`, while carrying strictly more.**
 Dropping the duplicate top-level `trip_days` map more than paid for per-trip day lists: **removing
 the second representation was cheaper AND correct.** Two representations of one fact can disagree,
 and the one that would have won was the one that caused the defect.
@@ -152,7 +160,7 @@ and per version, so a difference there is not evidence of another catalog's work
 
 **The one false positive, recorded rather than hidden:** a decision the user **deleted** locally
 still sits on the drive, so the write refuses until a restore reconciles the two. Reported, not
-guessed at - `(aby)`. Guessing which side is intentional is how the other direction loses data.
+guessed at - `(aci)`. Guessing which side is intentional is how the other direction loses data.
 
 **An unreadable document is never overwritten either.** Half a JSON file is still someone's names
 and a human can often recover them; replacing it because we could not parse it turns a damaged
@@ -205,7 +213,7 @@ That was live from the day the save shipped.
 The gate lives in `read_decisions`, which both the save and the restore go through, so one check
 covers both paths. A refused document produces `SaveOutcome.NEWER_VERSION` - a separate member
 rather than `FAILED`, because nothing is wrong with the drive and the remedy is an upgrade rather
-than a repair, and one field standing for two situations that need opposite words is `(abx)`.
+than a repair, and one field standing for two situations that need opposite words is `(ach)`.
 
 *Missing reads as current*, the same way a missing section reads as empty: a hand-edited document
 is not evidence of a newer version. *A non-numeric `format` is refused* rather than crashing -
@@ -274,7 +282,7 @@ another machine, and it is the only decision with no second source, so resolving
 stamp discards it silently. That is the first test in the file, written before the exception
 existed and watched to fail.
 
-**A trip's identity is its day set** (`(abv)`), so the same days under a different name is a
+**A trip's identity is its day set** (`(ack)`), so the same days under a different name is a
 **rename** - newest name wins - rather than a conflict.
 
 Three cases decided rather than left to fall out:
@@ -299,7 +307,7 @@ mutation, not by a failure.
 
 ## Applying it: what came back, and what did not
 
-**Two single-meaning fields where there was one** - `(abx)`, closed:
+**Two single-meaning fields where there was one** - `(ach)`, closed:
 
 | field | meaning | what the user does |
 |---|---|---|
@@ -334,7 +342,7 @@ document: a format test only ever sees what a test built. The round-trip has bee
 copy of the real 6.4 MB catalog through a real file on disk.
 
 **The gap, recorded rather than glossed:** the real catalog holds **zero events and zero date
-confirmations**, so until `(abv)` the restore path had only ever met *seeded* examples of the
+confirmations**, so until `(ack)` the restore path had only ever met *seeded* examples of the
 decisions it exists to protect. Its one trip is why the fixture had one trip, and why a defect
 that only appears at two survived - see `ENGINEERING_STANDARD.md` §4's seventeenth member.
 
@@ -359,9 +367,9 @@ in the drive holding them, scan, and restore again"), decisions ignored because 
 newer, and reconciliation's losers. A restore that reports 40 applied and stays silent about 12 it
 could not place lets the user confirm on the good half only.
 
-### `--discard`, and how `(aby)` closes
+### `--discard`, and how `(aci)` closes
 
-`(aby)` is the loss guard's one false positive: a decision **deleted on purpose** locally leaves
+`(aci)` is the loss guard's one false positive: a decision **deleted on purpose** locally leaves
 the drive holding something this catalog does not, so every later save refuses with `WOULD_LOSE` -
 permanently, because nothing reconciles the two.
 
@@ -396,7 +404,7 @@ That is the guard working, not a defect, and the restore output says what to do 
   value this machine happened to see.
 
 A cached copy would be a second representation of a fact this machine does not own, which is the
-defect `(abv)` was and the reason the duplicate `trip_days` map went. **The rule generalises past
+defect `(ack)` was and the reason the duplicate `trip_days` map went. **The rule generalises past
 this card:** the next time something wants to cache a drive's own state for an offline drive, the
 question is which of these two kinds of fact it is.
 
@@ -448,8 +456,8 @@ server: the catalog holds GPS and timestamps, so "we only take folder names" wou
 false.
 
 **Still open, named rather than implied:** the app has **no restore** - it can tell you a drive is
-carrying decisions and the command is a CLI one; `(abw)` album membership does not travel, because
-`file_albums` is two rowids; `(aby)` is closed by `--discard`; and the Windows Defender exclusion
+carrying decisions and the command is a CLI one; `(acg)` album membership does not travel, because
+`file_albums` is two rowids; `(aci)` is closed by `--discard`; and the Windows Defender exclusion
 added for CI is still unmeasured.
 
 ### The one report to expect

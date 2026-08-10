@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(acf). Next free: (acg).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ack). Next free: (acl).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -126,7 +126,7 @@ is invisible here is retired, not free.**
     writing it now would fix the wording before it is chosen. The behaviour is covered by
     `test_preview_tally_is_disjoint.py`.
 
-- **(aby) A DELETED DECISION BLOCKS DRIVE SAVES UNTIL A RESTORE RECONCILES THEM.**
+- **(aci) A DELETED DECISION BLOCKS DRIVE SAVES UNTIL A RESTORE RECONCILES THEM.**
   Recorded 2026-08-09 while building the decisions save, as the known false positive of its
   loss guard. Closed by restore; recorded so it is not rediscovered as a bug.
   - The save refuses to write a document that would lose decisions the drive already holds, which
@@ -138,20 +138,20 @@ is invisible here is retired, not free.**
   - **Restore closes it**: once the two can be reconciled, the user resolves it once and saves
     resume. Until then the drive keeps the older, larger set - the safe direction.
 
-- **(abw) ALBUM MEMBERSHIP CANNOT LEAVE THIS MACHINE - the same class as `(abv)`, waiting.**
-  Recorded 2026-08-09 from the schema while fixing `(abv)`. `file_albums` is
+- **(acg) ALBUM MEMBERSHIP CANNOT LEAVE THIS MACHINE - the same class as `(ack)`, waiting.**
+  Recorded 2026-08-09 from the schema while fixing `(ack)`. `file_albums` is
   `PRIMARY KEY (file_id, album_id)`: **both are catalog rowids**, and `file_id` is a rowid rather
   than a sha256, so album membership is **doubly** unresolvable on a machine that never saw this
   catalog. Not live only because `gather_decisions` takes album *names* and `apply_decisions`
   reports them under `not_applied` - the albums tables are empty today.
-  - **Whoever implements albums inherits `(abv)`'s bug** unless membership travels as content
+  - **Whoever implements albums inherits `(ack)`'s bug** unless membership travels as content
     hashes. The rule is already written in `decisions.py`'s module docstring: identity travels
     inside the row it identifies. A sha256 does; a rowid does not.
   - **`file_id` is the sharper half.** Even a self-contained album key leaves membership pointing
     at rowids. The document must carry member **sha256s**, which is what the approved plan said
     (`albums: name + member sha256s`) and what the gather does not yet do.
 
-- **(abx) `ApplyReport.skipped_newer_locally` carries two meanings that need opposite words.**
+- **(ach) `ApplyReport.skipped_newer_locally` carries two meanings that need opposite words.**
   Recorded 2026-08-09 from code. Deferred **to Stage 4 deliberately**, where the multi-drive
   merge builds the reporting this feeds - Stage 4 widens the channel rather than inventing it.
   - `decisions.py`'s `date_confirmations` loop appends the same field from two branches: one when
@@ -162,7 +162,7 @@ is invisible here is retired, not free.**
     means: scan the other drive, re-apply. `dict.fromkeys` then collapses both to one entry, so a
     restore hitting both reports one indistinguishable line.
   - The field's own docstring documents only the first meaning, which is how it stayed invisible.
-    `(abv)`'s fix added two single-meaning fields rather than a third overloaded one; do the same
+    `(ack)`'s fix added two single-meaning fields rather than a third overloaded one; do the same
     here.
 
 - **(acc) A decisions document on a drive would be found by nothing that currently looks.**
@@ -213,33 +213,6 @@ is invisible here is retired, not free.**
       to 501 trips, 2000 events and 2006 skipped clusters - far past any real library.
   - **Not a reason to widen `reach_of`.** Its cheapness is the feature; a listing that walked
     drives would be worse than the problem. The `stat` belongs where the marker read already is.
-
-- **(acb) CLOSED 2026-08-08: a dead event stream froze the screen with no outcome at all.**
-  Found by reading a CI trace rather than re-running it. **Ranked as the worst UI defect this
-  session produced**: the person is given no outcome, no error, and no way to learn the job is
-  gone.
-  - **The mechanism.** `streamJob`'s `es.onerror = () => es.close()` closed the stream and never
-    called `onDone`, so `awaitJob`'s promise never resolved and `runJob` awaited it forever.
-    `progress.stop()`, `setJob(null)` and the whole onCancelled/onSuccess/onError branch never
-    ran. The screen kept the card it had before the run and the trigger stayed disabled.
-  - **Observed, not theorised.** CI run `31276824490`: `POST /api/ingest/archives/run` 200,
-    `POST /api/jobs/<id>/cancel` **202 accepted**, and then **no `/api/jobs/<id>/events` request
-    at all** - zero occurrences in the network log and in the trace. The final DOM still held the
-    precheck card and its "Unpack and scan" button, 60 seconds later.
-  - **It was never archive ingest's defect.** `streamJob` and `runJob` are the shared job
-    skeleton for thirteen call sites - organize, backup, verify, migrate, rescan, ingest. Pinning
-    it where it surfaced would have left the other twelve silent, so the test drives it through
-    organize and kills the stream outright rather than racing a cancel: a timing test passes on a
-    fast machine and proves nothing.
-  - **PROVENANCE, not apology.** The ordering that exposes it is mine, from `6fbb4d3`: the queued
-    cancel is awaited BEFORE the stream is opened, so a job that finishes first is already reaped
-    when the stream is attempted. That path was correct; the gap is that opening the stream was
-    not made unconditional alongside it. **Left open deliberately**: reordering deserves its own
-    thought, and the fix here holds whatever the order, because it covers every way a stream can
-    die rather than one race.
-  - **Still worth doing**, named not built: open the stream before firing a queued cancel, so
-    that window reports "Cancelled" rather than "lost contact". Honest either way, but one names
-    what happened.
 
 - **(aca) The app and the CLI disagree about when an organize run needs confirming.** Recorded
   2026-08-08 while making the app's confirm word mode-aware.
@@ -376,45 +349,7 @@ is invisible here is retired, not free.**
       one that matters - a blank reply must never erase an existing name, or a bare Save would
       strip every named trip in the library.
 
-- **(abv) CLOSED 2026-08-08: the disambiguated event folder was computed and thrown away.**
-  Found while planning folder-name suggestions, fixed in the same commit as this entry. Recorded
-  because what it says about the *tests* outlives the one-line cause.
-  - **The defect.** `disambiguate_event_folders` separates two events that spell one folder on
-    one date with a `(2)` suffix. `migrate._disambiguated_folder_notes` returned
-    `[f.note for f in folders if f.note]` - the notes, never the folders - so the render spelled
-    each event from its own name and every collision landed in **one directory**, while the
-    preview stated that one of them *became* `... (2)`.
-  - **Severity, measured rather than assumed.** Not byte loss: `plan_migration` guards duplicate
-    targets on the full relative path *including the filename*, and the real case
-    (2015-10-25 on the maintainer's library) holds **146 files and 146 distinct filenames**. The
-    wrong part is that folders merge contrary to intent and **the preview promises a folder that
-    is never created** (§9). `test_filename_safety.py` already called this "data loss by
-    presentation", which is the accurate phrase and the one used here.
-  - **Why five existing tests missed it.** `test_filename_safety.py` covers the helper thoroughly
-    - collisions, case-insensitivity, three-way, different dates, slug naming - and **every one
-    asserts what the function computes, never that the computed folder is what gets used**.
-    `ENGINEERING_STANDARD.md` §4's own failure mode, in the tests written to prevent it. The new
-    tests assert the *placement*, so they cannot pass while the render ignores the decision.
-  - **Three render sites spell an event folder, not one**: the event append, the `{event}` token,
-    and the trip header. Each is now routed through `layout._decided_folder`. Mutating the
-    `{event}` site alone fails only the `{event}` test while the other four pass - the append-site
-    tests do not cover it, which is exactly how a partial fix would have shipped unnoticed.
-  - **The trip-header site is UNREACHABLE today, and is handled anyway.** No test was written for
-    it, because a test that cannot fail is worse than none. Three facts make it unreachable, all
-    named in a comment at the site: `trip_days.day` is the PRIMARY KEY so two trips can never
-    share a start date; `classify` returns TRIP_DAY before EVENT_DAY; and an event never spans
-    more than one day, so `_migration_headers` excludes a trip-claimed event outright. None is
-    permanent - a reachability argument would rot silently where an unconditional lookup cannot.
-  - **Named, not fixed.** (a) Libraries whose events already merged will now see
-    `migrate-layout` propose moves that separate them - correct, but a behaviour change on
-    existing data. (b) `organizer.py:_apply_events` renders event folders with **no
-    disambiguation pass at all**, so two identically-named events in one organize run merge with
-    no note whatsoever - same defect class, untouched here. (c) `plan_migration` warns about a
-    same-path collision and then **still plans both moves**, so a genuine filename collision
-    would have the second overwrite the first - narrower, and the only one of the three that is
-    about bytes.
-
-- **(abz) Write to a temp name and rename, instead of writing straight to the target.**
+- **(acj) Write to a temp name and rename, instead of writing straight to the target.**
   Recorded 2026-08-10, deferred out of `(abu)` deliberately rather than forgotten.
   - **The stronger shape.** `(abu)` removes a partial in an `except`; a temp-then-rename never
     creates one at the target path at all, because the bytes only take the real name once they

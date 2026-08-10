@@ -795,7 +795,7 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   Not "use more rows" - that says nothing about where to look. **Ask which property of your data
   is currently accidental, and put the second one in the fixture.**
 
-  Recorded 2026-08-09 from `(abv)`. A restore gave the first trip every other trip's days. The
+  Recorded 2026-08-09 from `(ack)`. A restore gave the first trip every other trip's days. The
   decisions fixture seeded **one** trip, so the day-to-trip mapping was never exercised - and the
   reason it seeded one is that **the real catalog holds exactly one trip**. The fixture was
   faithful to the library, and being faithful to a one-trip library is what hid a defect that only

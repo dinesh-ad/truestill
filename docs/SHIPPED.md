@@ -653,7 +653,7 @@ recording shipped work as unstarted, which is the more expensive direction of th
 anywhere (the only inheritance is `Destination` -> `Local`/`Rclone`, a genuine is-a), so there is
 no composition refactor to schedule.
 
-- **(abv) A RESTORE GAVE THE FIRST TRIP EVERY OTHER TRIP'S DAYS - FIXED 2026-08-09**, in the
+- **(ack) A RESTORE GAVE THE FIRST TRIP EVERY OTHER TRIP'S DAYS - FIXED 2026-08-09**, in the
   same commit as the test that proved it. Found by reading `decisions.py`, **disputed, and then
   demonstrated before anything was changed** - the claim was four inferences deep and plausible
   is not proven.
@@ -677,7 +677,7 @@ no composition refactor to schedule.
     mapping would be ambiguous again. No schema change was needed.
   - **A silent skip now has a channel.** `ApplyReport` gained `conflicting_trips` (days already
     claimed by a different trip) and `trips_without_days`, deliberately two single-meaning fields
-    rather than one overloaded one - see `(abx)` for the field that got that wrong.
+    rather than one overloaded one - see `(ach)` for the field that got that wrong.
   - **Why it survived: the real catalog holds exactly one trip.** The suite is not naively
     single-instance - `test_catalog_trips.py` creates five - but the decisions fixture was
     modelled on the library and inherited its blind spot. That lesson is now
@@ -688,6 +688,71 @@ no composition refactor to schedule.
     trips, 5 settings and 6 skipped clusters out and back identical, 1,353 bytes, no `path_hint`.
 
 ## Shipped (kept for provenance)
+
+- **(abv) CLOSED 2026-08-08: the disambiguated event folder was computed and thrown away.**
+  Found while planning folder-name suggestions, fixed in the same commit as this entry. Recorded
+  because what it says about the *tests* outlives the one-line cause.
+  - **The defect.** `disambiguate_event_folders` separates two events that spell one folder on
+    one date with a `(2)` suffix. `migrate._disambiguated_folder_notes` returned
+    `[f.note for f in folders if f.note]` - the notes, never the folders - so the render spelled
+    each event from its own name and every collision landed in **one directory**, while the
+    preview stated that one of them *became* `... (2)`.
+  - **Severity, measured rather than assumed.** Not byte loss: `plan_migration` guards duplicate
+    targets on the full relative path *including the filename*, and the real case
+    (2015-10-25 on the maintainer's library) holds **146 files and 146 distinct filenames**. The
+    wrong part is that folders merge contrary to intent and **the preview promises a folder that
+    is never created** (§9). `test_filename_safety.py` already called this "data loss by
+    presentation", which is the accurate phrase and the one used here.
+  - **Why five existing tests missed it.** `test_filename_safety.py` covers the helper thoroughly
+    - collisions, case-insensitivity, three-way, different dates, slug naming - and **every one
+    asserts what the function computes, never that the computed folder is what gets used**.
+    `ENGINEERING_STANDARD.md` §4's own failure mode, in the tests written to prevent it. The new
+    tests assert the *placement*, so they cannot pass while the render ignores the decision.
+  - **Three render sites spell an event folder, not one**: the event append, the `{event}` token,
+    and the trip header. Each is now routed through `layout._decided_folder`. Mutating the
+    `{event}` site alone fails only the `{event}` test while the other four pass - the append-site
+    tests do not cover it, which is exactly how a partial fix would have shipped unnoticed.
+  - **The trip-header site is UNREACHABLE today, and is handled anyway.** No test was written for
+    it, because a test that cannot fail is worse than none. Three facts make it unreachable, all
+    named in a comment at the site: `trip_days.day` is the PRIMARY KEY so two trips can never
+    share a start date; `classify` returns TRIP_DAY before EVENT_DAY; and an event never spans
+    more than one day, so `_migration_headers` excludes a trip-claimed event outright. None is
+    permanent - a reachability argument would rot silently where an unconditional lookup cannot.
+  - **Named, not fixed.** (a) Libraries whose events already merged will now see
+    `migrate-layout` propose moves that separate them - correct, but a behaviour change on
+    existing data. (b) `organizer.py:_apply_events` renders event folders with **no
+    disambiguation pass at all**, so two identically-named events in one organize run merge with
+    no note whatsoever - same defect class, untouched here. (c) `plan_migration` warns about a
+    same-path collision and then **still plans both moves**, so a genuine filename collision
+    would have the second overwrite the first - narrower, and the only one of the three that is
+    about bytes.
+
+- **(acb) CLOSED 2026-08-08: a dead event stream froze the screen with no outcome at all.**
+  Found by reading a CI trace rather than re-running it. **Ranked as the worst UI defect this
+  session produced**: the person is given no outcome, no error, and no way to learn the job is
+  gone.
+  - **The mechanism.** `streamJob`'s `es.onerror = () => es.close()` closed the stream and never
+    called `onDone`, so `awaitJob`'s promise never resolved and `runJob` awaited it forever.
+    `progress.stop()`, `setJob(null)` and the whole onCancelled/onSuccess/onError branch never
+    ran. The screen kept the card it had before the run and the trigger stayed disabled.
+  - **Observed, not theorised.** CI run `31276824490`: `POST /api/ingest/archives/run` 200,
+    `POST /api/jobs/<id>/cancel` **202 accepted**, and then **no `/api/jobs/<id>/events` request
+    at all** - zero occurrences in the network log and in the trace. The final DOM still held the
+    precheck card and its "Unpack and scan" button, 60 seconds later.
+  - **It was never archive ingest's defect.** `streamJob` and `runJob` are the shared job
+    skeleton for thirteen call sites - organize, backup, verify, migrate, rescan, ingest. Pinning
+    it where it surfaced would have left the other twelve silent, so the test drives it through
+    organize and kills the stream outright rather than racing a cancel: a timing test passes on a
+    fast machine and proves nothing.
+  - **PROVENANCE, not apology.** The ordering that exposes it is mine, from `6fbb4d3`: the queued
+    cancel is awaited BEFORE the stream is opened, so a job that finishes first is already reaped
+    when the stream is attempted. That path was correct; the gap is that opening the stream was
+    not made unconditional alongside it. **Left open deliberately**: reordering deserves its own
+    thought, and the fix here holds whatever the order, because it covers every way a stream can
+    die rather than one race.
+  - **Still worth doing**, named not built: open the stream before firing a queued cancel, so
+    that window reports "Cancelled" rather than "lost contact". Honest either way, but one names
+    what happened.
 
 - ~~**(mm) `migrate.py` asks the wrong template how an event folder is spelled.**~~ **Delivered.**
   `plan_migration` no longer reads `scheme.template_for(Placement.EVERYDAY).event_naming` for
