@@ -32,7 +32,25 @@ def _record(catalog: Catalog, sha: str, drive: str, name: str) -> None:
     )
 
 
+#: The placeholder `index.html:102` ships in the markup, before `library/status` has answered.
+_STILL_LOADING = "Checking your library…"
+
+
 def _strip(ui: Page) -> str:
+    """The rail's sentence, read only once the load that fills it has finished.
+
+    **§3's auto-waiting rule, on the READ side.** `#custody-line` carries a placeholder from the
+    markup and is overwritten when `library/status` returns, so a one-shot `eval_on_selector`
+    after `ui.reload()` samples whichever happens to be there. On a laptop that is the answer; on
+    a loaded CI runner it is the placeholder, and the test fails claiming the sentence is wrong
+    when it simply had not arrived. Observed on run 31368093253.
+
+    **Sound as a `not_to_have_text` even though §4 warns about absences**, and the distinction is
+    the point: the placeholder IS present at load, so this transitions false -> true. An absence
+    that is already true when the page opens would prove nothing; this one cannot be satisfied
+    until the load has replaced it.
+    """
+    expect(ui.locator("#custody-line")).not_to_have_text(_STILL_LOADING)
     return ui.eval_on_selector("#custody-line", "el => el.textContent")
 
 
