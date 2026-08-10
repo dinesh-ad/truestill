@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(acp). Next free: (acq).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(acq). Next free: (acr).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -43,6 +43,39 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(acq) "PLACE" MEANS "SOMEWHERE TRUESTILL ORGANIZED INTO", NOT "SOMEWHERE A COPY IS KEPT" -
+  and custody counts it as the latter.** Recorded 2026-08-10 while verifying `(abg)`'s premises.
+  A separate defect from a stale number: `(abg)` is about a count that was true once, this is
+  about a count that was **never** the thing its word implies.
+  - **What the code does.** `service/organize.py:902-906` registers the **destination as a drive
+    on every organize run**, and `_identity_for` (`organize.py:829`) mints a marker for *any*
+    directory - there is no removable-media test, and none would be right, since a backup drive
+    is just a folder. In **in-place mode the destination IS the source**
+    (`_effective_destination_for_mode`, `organize.py:602`), so the source folder itself becomes a
+    drive with a `file_copies` row per file.
+  - **The consequence a user reads.** After a plain organize with no backup at all,
+    `places = 1` - and the panel says *"Kept in 1 place"*. True, and useless: the one place is the
+    folder they just organized into, on the disk they were already using. Organize a second
+    folder and it can read **"2 places" for two folders on one disk that dies together**, which is
+    the opposite of what 3-2-1 means and the opposite of what the sentence promises.
+  - ⚠ **This also corrects a premise in `(abg)`.** That entry says the folder a user is about to
+    empty *"was never counted"*, on the grounds that a source has no `drive_uuid`. That holds for
+    copy mode and **fails for in-place**, where source and destination are the same path and it is
+    registered like any other drive.
+  - **Three candidate fixes, and the entry is open because they are not equivalent:**
+    - **The word.** Stop saying "places" for drives and say what it is - *"organized into 1
+      folder"* - reserving custody language for copies that are somewhere else. Cheapest, changes
+      no counting, and may be the whole fix.
+    - **The registration.** Do not register a destination as a drive unless it is distinguishable
+      from the library itself. Attractive and probably wrong: it would break the attach/verify
+      path that legitimately treats the library as a drive, and there is no reliable test for
+      "different disk" that survives a bind mount or a symlink.
+    - **The count.** Exclude same-device places from custody arithmetic. Honest, but `st_dev` is
+      not a durable identity (`(xx)` already records absolute paths and device ids as
+      non-portable), so it would be right on this machine and wrong after a move.
+  - **Do not fix this by renaming the drive.** `(abg)` already records the general form: a
+    cosmetic fix on a wrong number is worse than the wrong number, because it looks handled.
 
 - **(acp) GPS-DERIVED TIMEZONE - understood, costed, and deliberately NOT built.** Recorded
   2026-08-10 from the P41 date/timezone measurement. **This entry exists so the idea is not
@@ -978,6 +1011,26 @@ is invisible here is retired, not free.**
     is being carried**, and record the answer either way. The two questions look like one.
 
 - **(abg) The reassured state has no notion of staleness - "Schrodinger's backup".**
+  - 📌 **READ THIS FIRST: THE EXPOSURE RANKING IN THIS ENTRY IS INVERTED, measured 2026-08-10 on
+    the maintainer's own catalog.** The 395 on `Morrowkeep` are **already reported** - `status`
+    says *"395 file(s) exist on only ONE drive"* and names the drive. The user is being told.
+    The silent case is the other one: `Output` and `The Memory Cabinet` hold the **same 2,269
+    files** (full overlap, checked), so those read as **safe in 2 places** - while `Output` is
+    reachable, carries its marker, and contains **zero media files**. Nobody is told anything.
+    **It is larger, it is silent, and it is the only one that is checkable.** Lead any fix with it.
+  - ⚠ **AND `Morrowkeep` CAN NEVER LEGITIMATELY REACH `GONE`.** Its path is absent because the
+    **entire cloud mount it lived on is absent**, so *gone* and *unplugged* are indistinguishable there. A
+    `GONE` that fired on it would be the cry-wolf failure on the very case that motivated this
+    entry. Reachability is a **precondition** for the state, not a detail of it.
+  - ⚠ **`GONE`'s justification is narrower than this entry claims, and the narrower one is the
+    real one.** `OFFLINE` is not "we have not looked recently": `drive_reach` is a **live** marker
+    read and `drive.py:128` says verbatim *"we know where it was; it is not there now"*. So `GONE`
+    is **not** the first state meaning we looked. What it adds is **durability** - it persists an
+    observation that is currently computed and thrown away (`service/verify.py:72-79` produces
+    `CopyStatus.MISSING` per copy and records nothing; `mark_copy_verified` fires only on
+    success). A narrower claim honestly stated beats a flattering one.
+  - **Related, and filed separately because it is a different defect:** `(acq)` - "place" counts
+    somewhere Truestill organized INTO, not somewhere a copy is kept.
   - **THE MOST IMPORTANT OPEN ITEM ON THIS PROJECT.** Everything below is evidence for the
     paragraph that follows; the paragraph is the point.
   - **THE GENERAL CASE, in the maintainer's framing.** A user copies A -> B. Truestill records two
