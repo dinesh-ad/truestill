@@ -41,9 +41,30 @@ recording shipped work as unstarted, which is the more expensive direction of th
     407** green. No test's outcome rests on these waits today; they are insurance against a class
     of race, and they cost nothing measurable. Anyone reading a green lane as proof this works
     has read the wrong thing - the differential is the proof.
-  - **Not in scope, deliberately:** the ~25 remaining bare screen switches (Stage 2), the 63
-    fixed sleeps (Stage 3), the ~39 raw one-shot reads and their ratchet (Stage 4). One screen
-    switch in `test_busy_state.py` was converted early because it was the differential's subject.
+  - **Stage 2 - BUILT 2026-08-10.** A ratchet on screen switches, plus the 8 live races closed by
+    screen. **Its honest yield was 8 sites out of 68**: 23 were legitimately bare (12 to screens
+    that fetch nothing, 11 acting only above what their screen writes) and were deliberately never
+    converted, and 18 already carried an ad-hoc wait. The guard encodes the position rule rather
+    than banning bare switches, so those 23 never enter an allowlist and the allowlist reached 0.
+  - ✅ **Stage 3 (the 63 fixed sleeps) is CLOSED, not abandoned, and closed on measurement.**
+    Three independent results this week say these waits change no test's outcome today: removing
+    the wait from `open_screen` left its 37 green, removing it from the `ui` fixture left all 407
+    green, and Stage 2 - the same class of fix - yielded 8 real sites from 68. Converting 63
+    sleeps across 19 files would touch nineteen files to fix nothing currently broken, which is
+    the sweep the staging existed to avoid, and its yield could not be named in advance.
+    **The telemetry is now the instrument** (`scripts/flake_report.py`): letting a specific sleep
+    fail and be recorded is evidence, whereas converting 63 on principle spends it. What replaces
+    the stage:
+    - the "sleep guarding a read of an element a screen load writes" kind folds into whatever
+      commit next touches those files - `test_large_viewports.py:201` was one, and removing it
+      was a genuine fix. The ratchet already refuses new ones, so this shrinks without a campaign.
+    - the rAF / resize / EventSource / post-paint kind is left alone until a specific sleep
+      actually fails. Some have **no becomes-true anchor available** and may legitimately stay.
+  - **Stage 4** (the ~39 raw one-shot reads and their ratchet) is unbuilt and still open on its
+    own merits - it is a different failure mode from the sleeps: a read that never waited at all,
+    rather than one that waited by the clock.
+  - One screen switch in `test_busy_state.py` was converted during Stage 1 because it was the
+    differential's subject.
 
 - **(n) "How your dates were determined" honesty stat - BUILT 2026-07-31.**
   **Part of the date-provenance program, and that program is complete.** Step numbers are

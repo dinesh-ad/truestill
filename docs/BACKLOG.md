@@ -544,6 +544,18 @@ is invisible here is retired, not free.**
 - **(abq) `#bk-preview` is clicked five ways and only one of them is race-free.** Recorded
   2026-08-07 from the `test_backup_preview_busy_re_enables` flake (2 failures in 4 consecutive
   CI runs, green locally every time).
+  - 📌 **STATUS 2026-08-10: STILL OPEN, and the readiness work did NOT close it.** Stages 0-2
+    shipped a screen-readiness signal and closed the screen-OPEN race on this very screen
+    (`test_cancel_renders_cancelled.py`'s backup site, which filled `#bk-source`/`#bk-target`
+    below `#drives-list`). That is not this entry's mover. **This entry's measured +4.9px is
+    `validatePath`'s debounced hint spans, ~400ms AFTER typing** - long after
+    `data-ready="ready"` - and readiness is scoped to screen open, so it never reaches it. The
+    fix recorded below (wait for the hint spans to become non-empty before clicking) still
+    stands and is unbuilt. The screen-open mover is `(acd)`.
+  - ⚠ **Stage 3 of that work - converting the 63 fixed sleeps - was CLOSED ON MEASUREMENT rather
+    than abandoned**; the reasoning is on `(acf)` in `SHIPPED.md`. It matters here because this
+    entry's own fix is a wait, and the standing answer is now: **let a specific sleep fail and be
+    recorded** by `scripts/flake_report.py`, rather than converting on principle.
   - 📌 **READ THIS FIRST: the contradiction that held this entry up was reconciled 2026-08-10,
     and the two records were never in conflict.** One describes a residual race AFTER the screen
     has settled; the other is a click that never settles at all. Nobody could choose between them

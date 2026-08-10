@@ -654,6 +654,32 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   marker file, a registered row, a mode flag, a non-empty index. The more setup a repro needs,
   the more ways it has to succeed without ever arriving.
 
+  **THE SECOND ARRIVAL: THE DOUBLE THAT SHORT-CIRCUITS.** Added 2026-08-10, because the example
+  above reaches the failure by an unmet *precondition* and this one reaches it through a stub
+  that worked perfectly. **The tell is that the stub sits UPSTREAM of the thing under test**, and
+  the value it returns makes the code exit before the subject runs. Note the boundary against the
+  twelfth member: there the stub never matched; here it matched exactly as designed.
+
+  *Worked example - the flake report's verdict guard.* The rule it enforces is that the script may
+  never call a test flaky. It stubbed `_gh` to return `None`, which makes `main()` return at
+  *"no runs to read"* - so it asserted on output the script had never produced. A mutation making
+  it print `flaky: no` passed. The fix was to drive the stub through `run list` *and*
+  `run download` against fabricated runs, so the assertions reach the lines they name.
+
+  Two details from that repair are worth carrying:
+
+  * **Assert on the OUTPUT, not the source**, when the rule is about what a program says. The
+    docstrings arguing for this rule necessarily use the forbidden word, and a source scan would
+    have been satisfied by them - and by any future column hiding behind them.
+  * **A stub returning the "nothing here" value is the dangerous one.** `None`, `[]`, `{}` and
+    `""` are exactly the values that make callers return early, so the most convenient stub to
+    write is the one most likely to skip the code you are asking about.
+
+  *Four instances in four subsystems inside two days* - the decisions fixture that seeded one
+  trip, the `{event}` token under a scheme that never reaches it, a privacy filter test, and this
+  one. That rate is the argument for treating "did my input arrive?" as a routine question rather
+  than a post-mortem one.
+
 - **A step that reports success is not evidence that it did anything.** The fourteenth member,
   and the one that reaches outside the test suite: the others are about a guard, a fixture or a
   proof, this is about **any mechanism whose green is the only thing anybody checks.**
