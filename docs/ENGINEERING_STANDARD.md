@@ -828,6 +828,29 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
     longer describes the code that will be committed. **Re-prove after the last formatter run, not
     before** - and re-prove after editing a test the mutation targets, for the same reason.
 
+- **A single mutation only ever proves the tests aimed one way.** The thirty-first member, and the
+  last gap in the mutation family: the fifth asks whether the mutant was loaded, the fifteenth
+  whether it was present and unique, and both are satisfied by a proof that measures one direction
+  of a two-directional rule.
+
+  > **The tell is a test that survives a mutation you expected to kill it.** The reflex is to call
+  > it weak and strengthen it. Ask first what the OPPOSITE mutation would prove - a survivor is
+  > often not weak but *pointing the other way*, and weakening the distinction to make it die
+  > would destroy the half of the rule it was covering.
+
+  *Worked instance, 2026-08-10.* `distinguishing_names` (`(acr)`) qualifies a drive's label only
+  when it collides within the set being named - a rule with two halves, **disambiguate when you
+  must** and **stay silent when you must not**. The mutation that never disambiguates killed the
+  four collision cases and left `test_only_the_colliding_label_is_qualified` alive, because that
+  test asserts the **unique** element sitting beside the colliding pair. The inverse mutant -
+  qualify every drive - killed that test plus all three cry-wolf guards. Neither mutation alone
+  covered the suite; together every test bites in at least one direction.
+
+  **Ask it of any rule with a condition**, which is most of them: a guard that fires and must not
+  over-fire, a cache that hits and must not serve stale, a filter that admits and must not leak.
+  Mutating the condition to *always* and to *never* measures both obligations; mutating it once
+  measures whichever you happened to pick.
+
   > The family resemblance across all of these: **a change you believe you made and did not.** The
   > suite is green either way, and green is exactly what it looks like.
 

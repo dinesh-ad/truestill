@@ -1356,7 +1356,11 @@ def _cmd_status(args: argparse.Namespace) -> int:
     with _catalog(args.db) as catalog:
         singles = catalog.single_copy_shas()
         # The same rule the app's custody strip uses, from core, so the two surfaces cannot drift.
-        freshness = custody_freshness([d for d in catalog.list_drives() if d["file_count"]])
+        # That is why `(acr)`'s unambiguous naming arrives here without this line asking for it.
+        registered = catalog.list_drives()
+        freshness = custody_freshness(
+            catalog, [d for d in registered if d["file_count"]], registered
+        )
     if not singles:
         print("All catalogued content has at least two drive copies. Nicely redundant.")
         print(_custody_age_line(freshness))

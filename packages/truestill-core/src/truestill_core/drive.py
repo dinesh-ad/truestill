@@ -160,15 +160,37 @@ class CustodyFreshness(NamedTuple):
     #: weakest leg. `None` when any of them has never been checked - no single date would then be
     #: true of the whole claim.
     checked_at: str | None
-    #: Labels of counted places never checked. Named, not counted: the name is the only clue a
-    #: reader has to what happened.
+    #: Counted places never checked, **named unambiguously** - see :func:`distinguishing_names`.
+    #: Named, not counted: the name is the only clue a reader has to what happened, which is also
+    #: why an ambiguous one is worse than none. `(acr)`.
     never_checked: tuple[str, ...]
 
 
-def custody_freshness(drives: Iterable[Any]) -> CustodyFreshness:
-    """Freshness for the drives that HOLD copies. Filtering to those is the caller's job."""
-    never = sorted(str(d["label"]) for d in drives if not d["last_verified"])
-    checked = [str(d["last_verified"]) for d in drives if d["last_verified"]]
+def custody_freshness(
+    settings: _SettingsReader, holding: Iterable[Any], registered: Iterable[Any]
+) -> CustodyFreshness:
+    """Freshness for the drives that HOLD copies, naming them unambiguously.
+
+    Filtering `holding` is the caller's job - a registered drive with no copies is not one of the
+    places the claim is about, so it can neither supply the date nor withhold it.
+
+    **`registered` is every known drive, and it is a SEPARATE argument because a collision is not
+    a property of the sentence - it is a property of what the user owns.** Judging collisions among
+    `holding` alone leaves a hole: with two drives called `Morrowkeep` and only one of them never
+    checked, the warning would print a bare `Morrowkeep` and the reader still could not tell which.
+    Passing the wider set costs nothing - `library_status` has already fetched these rows - and
+    closes it.
+    """
+    rows = list(registered)
+    named = dict(
+        zip(
+            (str(r["uuid"]) for r in rows),
+            distinguishing_names(settings, [(str(r["uuid"]), str(r["label"])) for r in rows]),
+            strict=True,
+        )
+    )
+    never = sorted(named[str(d["uuid"])] for d in holding if not d["last_verified"])
+    checked = [str(d["last_verified"]) for d in holding if d["last_verified"]]
     return CustodyFreshness(
         checked_at=min(checked) if checked and not never else None,
         never_checked=tuple(never),

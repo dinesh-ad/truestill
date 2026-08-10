@@ -165,6 +165,25 @@ is invisible here is retired, not free.**
     - **No detail-level parameter.** An unused seam built for an undecided feature is a guess with
       a type signature; `(acs)` adds it in one line when it is ruled on.
     - The `Library` fallback that collides with itself is filed as `(act)`, not fixed here.
+  - ✅ **Stage 2 built 2026-08-10: wired into `custody_freshness`, and it reached BOTH surfaces
+    without a line of JavaScript.** `app.js:1441` (panel) and `app.js:1540` (rail) render the same
+    `never_checked_drives` field, so one payload edit fixes both - proved by a browser test that
+    asserts the string on each, and by a mutant removing the panel's row which kills it. `app.js`
+    has **no diff**.
+    - ⚠ **Two callers, not one.** The plan said one; `cli.py` `status` calls `custody_freshness`
+      too, so the CLI's *"Never checked: ..."* line gets the same naming without asking for it -
+      which is §9's one-home rule paying out rather than a coincidence.
+    - **A collision is a property of what the USER owns, not of the sentence**, and this closes a
+      hole the plan's own wording would have left. `library_status` filters to drives holding
+      copies; judging collisions among those alone would print a bare `Morrowkeep` when a second
+      `Morrowkeep` holds nothing. `custody_freshness` now takes the registered set separately -
+      same rows, no extra query.
+    - ⚠ **What the real catalog did and did NOT show.** Its three drives have **no colliding
+      label**, so the run confirmed only the **guard**: output byte-identical, `['Morrowkeep']`,
+      bare, on the app and the CLI alike. `The Memory Cabinet` has no hint - the unplaceable
+      *condition* is live - but with no collision its hint is never read and it is never
+      qualified. **The collision case and the unplaceable-and-colliding case exist today only in
+      fixtures**, and the real-catalog run must not be read as evidence for them.
   - ⚠ **`(abg)` Stage 1 inherits this and must not deepen it.** The resting panel will name drives
     in a NEW place, so the ambiguous name gains a third surface. That is recorded rather than
     fixed there: a per-surface repair would be one fix per surface and would leave registration

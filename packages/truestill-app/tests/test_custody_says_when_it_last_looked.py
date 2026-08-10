@@ -26,6 +26,7 @@ from pathlib import Path
 
 from truestill_app import service
 from truestill_core.catalog import Catalog
+from truestill_core.drive import drive_path_hint
 
 
 def _seed(db: Path, drives: dict[str, str | None], *, files: int = 2) -> None:
@@ -105,3 +106,78 @@ def test_a_library_with_no_places_offers_no_date_and_names_nobody(tmp_path: Path
 
     assert status["custody_checked_at"] is None
     assert status["never_checked_drives"] == []
+
+
+# ------------------------------------------- (acr): the name the claim carries is unambiguous
+
+
+def _drive(catalog: Catalog, uuid: str, label: str, *, verified: str | None, files: int) -> None:
+    """One drive, by uuid, so two of them may share a label - which `_seed`'s dict cannot express
+    and which is the entire subject here."""
+    catalog.upsert_drive(uuid=uuid, label=label)
+    for n in range(files):
+        catalog.record_uploaded(
+            source_path=f"/src/{uuid}{n}.jpg",
+            original_name=f"{n}.jpg",
+            sha256=f"sha{uuid}{n}",
+            copy_sha256=f"sha{uuid}{n}",
+            perceptual=None,
+            size=10,
+            captured_at=None,
+            category="Camera",
+            relative=f"Camera/{n}.jpg",
+            drive_uuid=uuid,
+        )
+    if verified is not None:
+        catalog.set_drive_verified(uuid, verified)
+
+
+def test_two_drives_sharing_a_label_are_named_apart_in_the_claim(tmp_path: Path) -> None:
+    """`(acr)` reaching the payload. Both are `Morrowkeep`; only one has never been checked, and
+    the warning must not send the reader to the wrong one - a confident wrong pointer ends the
+    search where no pointer would not have."""
+    db = tmp_path / "c.sqlite"
+    with Catalog(db) as catalog:
+        _drive(catalog, "D0", "Morrowkeep", verified="2026-07-28T13:00:00+00:00", files=2)
+        _drive(catalog, "D1", "Morrowkeep", verified=None, files=2)
+        catalog.set_setting(drive_path_hint("D0"), "/mnt/photos")
+
+    status = service.library_status(db)
+
+    assert status["never_checked_drives"] == ["Morrowkeep (location not known)"]
+
+
+def test_a_collision_with_a_drive_holding_nothing_still_counts_as_a_collision(
+    tmp_path: Path,
+) -> None:
+    """**A collision is a property of what the USER owns, not of the sentence.**
+
+    The empty drive is not one of the places the claim counts - it can neither supply the date nor
+    withhold it, which `test_a_drive_holding_nothing_does_not_drag_the_date_down` above pins. But
+    the reader still owns two things called `Morrowkeep`. Judging collisions among the counted
+    drives alone would print a bare `Morrowkeep` here and leave them exactly as stuck as before.
+    """
+    db = tmp_path / "c.sqlite"
+    with Catalog(db) as catalog:
+        _drive(catalog, "D0", "Morrowkeep", verified=None, files=2)
+        catalog.upsert_drive(uuid="EMPTY", label="Morrowkeep")
+
+    status = service.library_status(db)
+
+    assert status["never_checked_drives"] == ["Morrowkeep (location not known)"]
+
+
+def test_distinctly_named_drives_are_named_exactly_as_before(tmp_path: Path) -> None:
+    """A GUARD, and it passes before and after by design - which is the point of it.
+
+    `(acr)`'s cry-wolf half: a user whose drives are named distinctly must see nothing new. This
+    is the same assertion `test_one_never_checked_place_removes_the_date_and_names_the_drive`
+    above already makes, kept separately because that one is about the DATE and this one is about
+    the NAME, and they would now fail for different reasons.
+    """
+    db = tmp_path / "c.sqlite"
+    _seed(db, {"The Memory Cabinet": "2026-07-28T13:00:00+00:00", "Morrowkeep": None})
+
+    status = service.library_status(db)
+
+    assert status["never_checked_drives"] == ["Morrowkeep"]

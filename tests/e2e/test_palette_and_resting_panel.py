@@ -364,3 +364,37 @@ def test_a_library_with_no_copies_says_nothing_rather_than_a_floor(ui: Page) -> 
     # row reading "1 place". The label is what proves the row itself vanished.
     expect(panel).not_to_contain_text("In at least")
     expect(panel).to_contain_text("Not on any drive")
+
+
+def test_one_payload_field_names_the_drive_on_both_surfaces(ui: Page) -> None:
+    """`(acr)` Stage 2, and this test exists to PROVE the claim the change was argued on rather
+    than restate it: the panel (`app.js:1441`) and the rail (`app.js:1540`) render the **same**
+    `never_checked_drives` field, so disambiguating it server-side fixes both at once and no
+    JavaScript changed.
+
+    If either surface had its own copy of this string, one of these two assertions would fail.
+    """
+    ui.set_viewport_size({"width": 1500, "height": 900})
+    _status(
+        ui,
+        places=2,
+        held_floor=1,
+        never_checked_drives=["Morrowkeep (location not known)"],
+        custody_checked_at=None,
+    )
+
+    for where in ("#panel", "#custody"):
+        expect(ui.locator(where)).to_contain_text("Morrowkeep (location not known)")
+
+
+def test_a_distinct_name_still_reads_bare_on_both_surfaces(ui: Page) -> None:
+    """A GUARD, passing before and after by design. Whatever `(acr)` adds must be invisible when
+    there is no collision - so the un-collided name must carry no parenthetical and no path."""
+    ui.set_viewport_size({"width": 1500, "height": 900})
+    _status(
+        ui, places=2, held_floor=1, never_checked_drives=["Morrowkeep"], custody_checked_at=None
+    )
+
+    for where in ("#panel", "#custody"):
+        expect(ui.locator(where)).to_contain_text("Morrowkeep")
+        expect(ui.locator(where)).not_to_contain_text("location not known")

@@ -625,11 +625,17 @@ def library_status(db: Path, *, explicit_db: bool = False) -> LibraryStatus:
     with open_catalog(db) as catalog:
         breakdown = media_breakdown(catalog.media_names())
         total = catalog.count()
-        drives = [d for d in catalog.list_drives() if d["file_count"]]
+        registered = catalog.list_drives()
+        drives = [d for d in registered if d["file_count"]]
         # Freshness for the claim, from the rows just fetched - no extra query, and nothing on
         # disk is touched. `last_verified` has existed on `drives` all along and is already shown
         # per drive; it simply never reached the number a person reads. `(abg)`.
-        freshness = custody_freshness(drives)
+        #
+        # `registered` goes in as well as `drives` so a name is judged ambiguous against every
+        # drive the USER owns, not merely the ones this sentence counts - `(acr)`. Same rows,
+        # no second query. A collision is only qualified where one exists, so a library with
+        # distinctly named drives gets byte-identical output and reads no path hint at all.
+        freshness = custody_freshness(catalog, drives, registered)
         single_copy = catalog.single_copy_count()
         # Per-FILE custody, because the strip makes a per-file claim. `places` below counts
         # DRIVES and is kept only for callers that want it; it must never be the number a
