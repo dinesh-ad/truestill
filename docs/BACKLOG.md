@@ -2396,7 +2396,39 @@ section, because what is left is the part that still has to be written.
     `cities500` entirely) are real users hitting exactly this, open since April 2024. Taking the
     **modal place across a whole cluster** rather than tagging one photo is a genuinely safer
     design than theirs - but only if clusters have coordinates.
-  - **THE REAL BLOCKER: it cannot be BUILT next because it cannot be TESTED here.** The catalog
+  - ✅ **CORRECTED 2026-08-10: THE BLOCKER BELOW IS TRUE OF THE INTEGRATION AND FALSE OF THE
+    LOOKUP.** Reverse geocoding is a **pure function** - coordinates in, place name out - and is
+    testable with a table of known coordinates and **no photos at all**. What needs clusters is
+    taking a *modal place across a cluster*; that half is still blocked exactly as described.
+    Conflating the two is what made this read as unbuildable. Measured the same day against a
+    16-point fixture (Tamil Nadu across scale, a district, four continents, two adversarial
+    points), all five GeoNames tiers, licence CC BY 4.0 throughout:
+    - **The village case is a tier problem, not a GeoNames problem.** `cities500` misses every
+      village under its threshold and answers with a neighbour 2-6 km away; `allCountries`
+      filtered to class P (5,220,666 entries) returns `Mūngittoluvu` and `Ūrmenalagiyan` at
+      **0 km**. On the 14 non-adversarial points, `cities500` scored 6 exact / 7 right-region /
+      1 wrong; class-P scored 5 exact / 9 right-region / **0 wrong**.
+    - **But class P is worse where it matters most**, and this is the finding: it answers Chennai
+      with `Vepery` (a neighbourhood, population 0) and Paris with an arrondissement. More
+      entries buys villages and loses cities, unless lookups are ranked by feature code and
+      population - which is exactly what HoudahGeo does and what Immich issue #8941 is about.
+    - ⚠ **`Wayanad` does not exist as a populated place.** One row in the whole dump, feature
+      class **A** (`ADM2`), population 817,420. Every reverse geocoder filters to class P, so a
+      district name is unreachable by construction. This is the motivating case and no tier fixes
+      it; it needs admin polygons, which is a different dataset and a different problem.
+    - **The name-form question is answered and it is not blocking.** The lookup returns the
+      canonical long form (`Tiruchirappalli`, `Thanjavur`), and `Trichy` / `Tanjore` are both
+      present in the `alternatenames` column **already inside the tier files** - 81.7% of
+      `cities500` rows carry it. The separate `alternateNamesV2.zip` is 193 MB and is **not
+      needed** for this. So a subtraction rule can fire on either form.
+    - **Cost is not a constraint.** 150,000 lookups is 0.25 s on `cities500` and 0.39 s on
+      class P; the index build is the whole cost (0.5 s versus 10.8 s).
+    - ⚠ **Class P breached the 1 GB memory ceiling in this naive form: 1,682 MB peak RSS** to
+      hold 5.2M points and a KD-tree, against 145 MB for `cities500`. Any use of it needs a
+      packed on-disk index rather than "load it all", and that is a build, not a download.
+    Full numbers in the P33 measurement report; nothing was committed and no dependency added.
+  - **THE REAL BLOCKER: it cannot be BUILT next because it cannot be TESTED here.** *(Read the
+    correction above first - this is true of the cluster integration only.)* The catalog
     holds **zero events**, so there is no cluster to take a modal place across, and the 138 points
     that exist sit in one metro area. Building against fixtures we invent is how the junk
     classifier came to be written and never once fired. §4's rule is that a fixture modelled on
