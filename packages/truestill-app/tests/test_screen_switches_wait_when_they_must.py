@@ -80,8 +80,6 @@ _EXEMPT_FILES = {"test_screen_readiness.py"}
 #: deletes its entry; the test below fails if an entry stops violating, so a stale allowlist
 #: cannot accumulate and quietly re-authorise a bare switch later.
 _ALLOWED: set[tuple[str, str]] = {
-    # Backups - `(abq)`'s own shape: fills `#bk-source`/`#bk-target`, which sit below `#drives-list`.
-    ("test_cancel_renders_cancelled.py", "test_backup_run_cancel_renders_stopped_not_done"),
     # Settings - fills `#mig-path`, below the layout block `loadLayout` writes.
     (
         "test_cancel_renders_cancelled.py",

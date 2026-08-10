@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 
+from e2e_support import open_screen
 from playwright.sync_api import Page, expect
 
 _CANCELLED = {"type": "done", "status": "cancelled"}
@@ -71,7 +72,7 @@ def test_backup_run_cancel_renders_stopped_not_done(ui: Page) -> None:
             },
         ),
     )
-    ui.click('button[data-screen="backups"]')
+    open_screen(ui, "backups")
     ui.fill("#bk-source", "/tmp/lib")
     ui.fill("#bk-target", "/tmp/backup")
     # Preview is a separate sync call; this test owns the run's cancelled terminal only.
