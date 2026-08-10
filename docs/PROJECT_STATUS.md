@@ -176,10 +176,16 @@ narrative, or volatile counts.
 - **Dry-run default:** writes happen only on explicit apply paths.
 - **Never push unless asked.**
 - **Commit identity policy:** `dinesh-ad`; no co-author/AI signature trailers.
-- **Corpus fence for real-library testing/profiling/soak:**
-  - allowed: `<cloud mount>/The Memory Cabinet`, `<home>/TruestillLibrary/Output`,
-    `<cloud mount>/2015` (when present)
-  - off limits: everything under `<cloud mount>/Crypto Folder/`
+- **Corpus fence for real-library testing/profiling/soak** (short form; the binding wording is
+  `IMPLEMENTATION_STANDARDS.md` §5, which is the source - do not restate it here):
+  - test / profile / soak against **only** source `~/TruestillLibrary/Input` → destination
+    `~/TruestillLibrary/Output`. `Input/Testing-new` stays out.
+  - `~/pCloudDrive/` is **READ-ONLY**: resolve, stat and read a path to understand structure;
+    never write to it, organize into it, or walk it broadly. **More than a handful of entries -
+    ask first.** The cost is the maintainer's disk: a scan pulls gigabytes through the local
+    cache.
+  - `~/pCloudDrive/Crypto Folder/` is **OFF LIMITS, unconditionally** - do not resolve into it,
+    stat inside it, or descend. No task-scoped exception exists; only the maintainer grants one.
 
 Full wording and enforcement details live in `IMPLEMENTATION_STANDARDS.md` and `BACKLOG.md`.
 

@@ -852,6 +852,33 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
     longer describes the code that will be committed. **Re-prove after the last formatter run, not
     before** - and re-prove after editing a test the mutation targets, for the same reason.
 
+- **A binding clause that asserts a MACHINE STATE expires silently.** The thirty-second member.
+  The sixth is about a claim whose *dependents* go stale when you change its status; this one
+  needs nobody to change anything at all. The world moves and the sentence stays, and because the
+  document is the thing people consult *instead of* looking, nothing ever compares the two.
+
+  > **The tell: a binding document making a claim about the world rather than about intent.** An
+  > instruction - *do not walk this* - stays true whatever the machine does. A fact - *this cannot
+  > be reached* - is a measurement with no expiry date printed on it.
+
+  *Worked instance, 2026-08-10.* The corpus fence recorded that the cloud client *"was uninstalled
+  on 2026-08-08 and the mountpoint removed"*, so the material *"no longer exists on this machine
+  and cannot be reached by any means."* True when written. The maintainer reinstalled the client;
+  the mount was live, on its own device, while both documents said it could not exist. It was
+  caught only because a request to propagate that sentence into a second document was measured
+  first - `mount` disagreed with the contract - and the propagation would have doubled the error
+  rather than exposing it.
+
+  **The repair is to say the same thing as an instruction with its reason**, which is also more
+  useful: *this path is read-only and a broad walk costs the maintainer disk* survives an
+  uninstall, a reinstall, a new machine and a rename, where *it is gone* survives none of them.
+  Same family as pinning "the newest version" or a live test count: the number and the fact are
+  both **readings**, and a document that stores a reading has to be re-measured to stay true.
+
+  *Suspect it wherever a document states:* what is installed, what is mounted, what exists on
+  disk, what is running, how big something is, or what a machine cannot do. Each is a measurement
+  wearing a rule's clothes.
+
 - **A single mutation only ever proves the tests aimed one way.** The thirty-first member, and the
   last gap in the mutation family: the fifth asks whether the mutant was loaded, the fifteenth
   whether it was present and unique, and both are satisfied by a proof that measures one direction

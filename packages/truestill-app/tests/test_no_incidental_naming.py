@@ -104,6 +104,22 @@ ALLOWED: tuple[tuple[str, str], ...] = (
         ),
     ),
     (
+        r"~/pCloudDrive",
+        (
+            "the corpus fence itself (IMPLEMENTATION_STANDARDS.md 5, PROJECT_STATUS.md 4), and "
+            "this file's own docstring already rules the case one level down: 'Crypto Folder is "
+            "the off-limits fence, and a fence nobody can name is a fence nobody can enforce.' "
+            "The same holds for the mount the fence is drawn around, and more strongly - the "
+            "rule is 'do not walk THIS path', so it is obeyed by matching a literal, and 'a "
+            "cloud FUSE mount' cannot be matched against anything. Scoped to the path prefix, "
+            "so the vendor cannot spread into the prose beside it; the reason given for the rule "
+            "names no vendor, because the cost is the local cache and that is true of any "
+            "syncing mount. The maintainer's home directory is NOT allowlisted with it - the "
+            "absolute form was reworded to `~/` rather than exempted, because the personal name "
+            "is exactly the incidental kind this guard exists to catch."
+        ),
+    ),
+    (
         r"github\.com/dinesh-ad/truestill",
         (
             "the real repository URL - package metadata, README links and advisories resolve "
