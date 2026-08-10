@@ -789,6 +789,35 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   Corollary, from the same day: the real catalog held zero events and zero date confirmations, so
   the feature had only ever met seeded examples of the thing it exists to protect.
 
+- **Never retry a failing test to get a green build - and never let "most red lanes are flaky"
+  become the reason you stopped looking.** The twenty-sixth member. Two rules, deliberately in
+  one entry, because each is what makes the other survivable.
+
+  **No automatic retries, no re-running a red lane hoping for a different answer.** A test that
+  fails and then passes on retry turns the build green and takes the defect with it, and the
+  industry is unanimous on this. It is already refused at both enforcement points - `Makefile`
+  and `ci.yml` both say so at the site - but it was only ever written where it is *enforced*,
+  never where it is *taught*, which is how a practice survives on habit. Habits do not survive a
+  bad afternoon at the end of a long week. A flaky test is **quarantined and filed**, never
+  retried.
+
+  **And the fact that makes that hard: measured externally, ~84% of pass-to-fail transitions are
+  flakes rather than real regressions**, with async waiting the single largest root cause at
+  about 45%. That number is dangerous knowledge. A team that internalises it learns to shrug at a
+  red lane, and the one regression in six walks straight through - the failure mode is not
+  disbelieving the suite, it is believing the base rate instead of the evidence in front of you.
+
+  > **The counter is the rule already in force: prove unrelated, never assert it.** A red lane is
+  > a claim about your change until something else is *shown* to explain it. "Probably flaky" is
+  > a hypothesis, and the base rate is why it is a tempting one, not why it is true.
+
+  Done correctly on `(abq)` this week: the failure looked like a known flake, **and the push under
+  test had touched the same file**, so the trace was read before the flake was blamed - zero
+  `/api/backup/preview` requests and no `withBusy` label, which proved the handler never ran. That
+  is what "prove unrelated" costs, and it is the whole reason the two rules belong in one entry:
+  a suite you cannot retry is only bearable if you can find out *why* it went red, and a base rate
+  is not a reason.
+
 - **For an intermittent failure, repetition is evidence. For a mechanism that could lie, only a
   differential is.** The twenty-fifth member, and it decides which instrument to reach for.
 
