@@ -1409,8 +1409,12 @@ function renderRestingPanel(s) {
     // Zero is not a floor and renders nothing. `held_floor` is the minimum over files that HAVE
     // a copy, so it is 0 only when none does - and "0 places" would put a number where the
     // honest answer is silence. "Not on any drive" below is what states that case.
+    // "IN AT LEAST", not "Kept in". The number is a FLOOR - the weakest file's copy count - and
+    // "Kept in 1 place" states it as an exact quantity, which is false for every file that has
+    // more. "In at least 1 place" is the same number saying what it actually guarantees, and it
+    // is the maintainer's wording.
     s.held_floor
-      ? `<div class="panel-fact"><div class="panel-k">Kept in</div>
+      ? `<div class="panel-fact"><div class="panel-k">In at least</div>
          <div class="mono">${plural(s.held_floor, "place")}</div></div>`
       : "",
     // "In one place only" USED TO BE HERE and is deliberately gone: the rail's custody line

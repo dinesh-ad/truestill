@@ -183,7 +183,7 @@ def test_the_panel_still_says_what_only_it_says(ui: Page) -> None:
 
     assert "1,997" in panel, panel
     assert "GB" in panel, panel
-    assert "Kept in" in panel, panel
+    assert "In at least" in panel, panel
     assert "1 place" in panel, panel
 
 

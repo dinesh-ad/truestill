@@ -182,8 +182,11 @@ is invisible here is retired, not free.**
       nothing can: `local.py:164` already rules that `st_dev` can agree across subvolumes and
       bind mounts, and the converse is worse - two partitions of one physical disk differ in
       `st_dev` and die together. The claim is per-FILE and makes no hardware promise.
-    - **Still open:** the word "place" itself (Stage B), and `IMPLEMENTATION_STANDARDS.md`
-      §3.1's "countable toward 3-2-1" clause, which asserts the equivalence this disproves.
+  - ✅ **Stage B, the wording, built 2026-08-10.** The label is **"In at least"**, the
+    maintainer's choice: `held_floor` is a FLOOR, and "Kept in 1 place" states a floor as an
+    exact quantity - false for every file that has more. Same number, saying what it guarantees.
+    - **Still open:** `IMPLEMENTATION_STANDARDS.md` §3.1's "countable toward 3-2-1" clause,
+      which asserts the equivalence this disproves.
 
 - **(acp) GPS-DERIVED TIMEZONE - understood, costed, and deliberately NOT built.** Recorded
   2026-08-10 from the P41 date/timezone measurement. **This entry exists so the idea is not

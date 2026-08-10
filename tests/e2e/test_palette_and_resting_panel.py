@@ -360,7 +360,7 @@ def test_a_library_with_no_copies_says_nothing_rather_than_a_floor(ui: Page) -> 
     _status(ui, places=1, held_floor=0, files_on_a_drive=0, files_one_copy=0, files_no_copy=2695)
 
     panel = ui.locator("#panel")
-    # The ROW must be gone, not merely the digit: asserting "0 place" is absent passes today,
-    # when the row renders "1 place" from the drive count. The label is what proves it vanished.
-    expect(panel).not_to_contain_text("Kept in")
+    # The ROW must be gone, not merely the digit: asserting "0 place" is absent would pass on a
+    # row reading "1 place". The label is what proves the row itself vanished.
+    expect(panel).not_to_contain_text("In at least")
     expect(panel).to_contain_text("Not on any drive")
