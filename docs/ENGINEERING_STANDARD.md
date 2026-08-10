@@ -852,6 +852,36 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
     longer describes the code that will be committed. **Re-prove after the last formatter run, not
     before** - and re-prove after editing a test the mutation targets, for the same reason.
 
+- **A design is not checked against the contract until somebody QUOTES the clause it touches.**
+  The thirty-third member, and the one with no artifact to catch it. Every other member here
+  guards something that exists - a test, a guard, a document, a commit. A design under discussion
+  produces **no diff**, so no gate runs, no reviewer reads it, and nothing in the repository has
+  been asked whether it is allowed.
+
+  > **The tell: a feature discussed more than once without anybody citing the binding sentence by
+  > name.** Agreement is not a check. Two people can agree at length about a design the contract
+  > forbids, and the agreement itself is what makes it feel settled.
+
+  *Worked instance, 2026-08-10.* An optional naming layer that sends **folder names** to a
+  service was designed across two sessions. §1's privacy invariant read *"nothing about a library
+  - not filenames, not counts, not hashes - is ever transmitted"*, and a folder name is a filename
+  by that sentence's own enumeration. The online half was forbidden by the document that
+  overrides every other document, and it surfaced only during an audit asking what was *recorded*
+  rather than what was *right*. Nothing was built, so nothing was broken - this is a near miss,
+  recorded because the next one might not be.
+
+  **The check costs one grep and it has to happen before the design is written down, not after.**
+  Name the invariant the feature touches and paste it. If the clause forbids the design, the
+  ruling to narrow it is a decision somebody makes on purpose, with the hole given edges - which
+  is what happened here. If you cannot find the clause, say that you looked and did not find one;
+  *"I did not check"* and *"there is no rule"* are different states and only one of them is
+  evidence.
+
+  *Suspect it wherever a design is discussed before it is drafted:* anything touching the network,
+  the copy-only rule, dry-run, deletion, or what reaches a user's disk. Those are exactly the
+  areas where the contract speaks in absolutes, and an absolute is the easiest kind of sentence to
+  design straight past, because nobody expects to be the one who breaks it.
+
 - **A binding clause that asserts a MACHINE STATE expires silently.** The thirty-second member.
   The sixth is about a claim whose *dependents* go stale when you change its status; this one
   needs nobody to change anything at all. The world moves and the sentence stays, and because the
