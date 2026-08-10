@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ack). Next free: (acl).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(acn). Next free: (aco).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -43,6 +43,51 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(acn) DOES A GPS FIX TIME COUNT AS CAPTURE EVIDENCE? A RULING, NOT A BUG.** Recorded
+  2026-08-10 from the independent corpus measurement (`format-coverage-audit.md` §0). Three files
+  carry `GPSDateStamp` + `GPSTimeStamp` and **no capture tag at all**, so they land in `Undated`
+  while holding a satellite-stamped time. **Truestill already reads both tags** - nothing needs
+  building to obtain them, which is why this is a question about what the product will assert
+  rather than an extension list. Left open deliberately; the maintainer rules.
+  - **For:** a GPS fix is **contemporaneous with the exposure** - the receiver stamped it while
+    the photographer stood there. It is strictly better evidence than a filename convention,
+    which `(kk)` already accepts and flags for review. And `Undated/` is not free: it is the bin
+    a user must sort by hand.
+  - **Against:** it is **not the camera's own claim about the photo**. Every other accepted source
+    is the device asserting when it made this image; a GPS timestamp asserts when the *receiver*
+    had a fix, which can precede or outlast the shutter, and on some devices is a cached
+    almanac rather than a live fix. Truestill's promise is that a date is evidence, never a
+    guess, and the line between the two is what this decides.
+  - **Where it belongs:** with the date-provenance program, beside `(aax)` (`time_known` derived
+    from provenance) - it would need its own `date_source` value so the honesty view can say
+    *"from the GPS fix"* rather than laundering it into "from the file".
+  - ⚠ **Also unresolved: GPS time is UTC.** Adopting it means choosing a local wall clock, which
+    is the same problem the video UTC ladder (`(uu)`) exists for. Do not adopt one without the
+    other.
+
+- **(acm) A RIFF `DateCreated` IS NOT REQUESTED, SO SOME AVIs ARE DATELESS ON A FILE THAT HAS A
+  DATE.** Recorded 2026-08-10. `avi/100_0306.AVI` in the metadata-extractor corpus carries its
+  date only in RIFF `DateCreated: 2020:08:28`. `.avi` **is** in `MEDIA_EXTENSIONS`, so Truestill
+  opens the file and finds nothing - a depth gap, not a breadth one.
+  - **Small and bounded:** one file in 1,322, and `DateCreated` here is **date-only, no time**, so
+    adopting it needs the resolver to accept a dayless-precision source or to say why it will not.
+  - **Do not add it blindly with the tag list.** `DateCreated` is also an IPTC field on stills
+    where it means something else, so requesting it globally would feed the resolver a value it
+    has not been designed to weigh. Scope it to RIFF/AVI or leave it.
+
+- **(acl) JPEG 2000 IS NOT RECOGNISED - the one breadth gap in 2,825 media files.** Recorded
+  2026-08-10. `.jp2`, `.jpf` and `.j2k` are absent from the 62-extension gate, so such a file is
+  never handed to exiftool: not dated, not categorised, not organised. Observed once, on
+  `jpg2000/balloon.jp2`.
+  - **Its rarity is the argument for and against.** One real instance across two public corpora
+    and 72 makes - no consumer camera in either wrote it - so almost nobody is affected. Equally,
+    adding three extensions is nearly free, and a scanner or archival workflow that emits JPEG
+    2000 currently has its photos silently skipped.
+  - **Check the second half before adding the first.** Recognition is the extension set; Pillow
+    also has to open it for perceptual dedup. Unverified - `format-coverage-audit.md` records that
+    RAW recognition and RAW *hashing* were two different answers, and this deserves the same
+    check rather than the same assumption.
 
 - **(ace) THE MUTATION RESTORE RULE EXISTS, IS CORRECT, AND WAS VIOLATED TWICE IN ONE DAY -
   MAKE IT EXECUTABLE.** Recorded 2026-08-10. `ENGINEERING_STANDARD.md` §4 item 5 already names
@@ -124,6 +169,10 @@ is invisible here is retired, not free.**
       the fold. Accepted on the grounds that a control which cannot be reliably clicked is worse
       than one met before its context. Two shipped strings said "below" and now say "above"; both
       live inside the moved region, so they travelled with it.
+    - ⚠ **REVISIT WHEN `(abg)` REACHES THIS REGION.** The inversion is accepted, not settled. The
+      at-risk warning below the fold on a short viewport is a live cost, and `(abg)` - the most
+      important open item on this project - will put more state into exactly this region. Whoever
+      builds it must re-price the order rather than inherit it.
     - *Not a cost:* `test_user_facing_copy.py` was reported as pinning a third "below" string and
       does not - that list BANS retired wording. Editing it would have weakened a guard.
     - *Available if ever needed:* the exact registered-drive count is one binding away in

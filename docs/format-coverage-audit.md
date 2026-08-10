@@ -1,5 +1,76 @@
 # Format Coverage Audit - Phase 1 (recon + research)
 
+> **CORROBORATED ON INDEPENDENT EVIDENCE, 2026-08-10.** Everything below Phase 2 was argued from
+> this maintainer's own library plus a handful of samples - nine devices. It now has **1,322 files
+> across 72 camera makes** behind it, from two public corpora this project has no hand in
+> (`metadata-extractor-images`, `exif-samples`). The conclusion held. Details in §0.
+
+## 0. Independent re-measurement, 2026-08-10
+
+Two public corpora, read-only, nothing copied into this repo (see §0.4 - **nothing from either may
+be committed**). 2,825 files that exiftool calls media; 1,322 of them pass Truestill's
+62-extension gate. Method: exiftool asked for a WIDER tag set than Truestill requests, so a date
+Truestill misses is visible rather than assumed.
+
+### 0.1 The headline: nothing we look at goes unread
+
+**Zero files that passed the gate produced no date where exiftool found one.** Not one parse
+failure, across 72 makes including Casio, Sanyo, HMD Global, NVIDIA, Kodak and both Olympus
+vendor strings. The Phase-1 finding - *"a depth gap, not a breadth gap"* - survives contact with
+a corpus twenty times wider than the one that produced it.
+
+### 0.2 The one genuine breadth gap: JPEG 2000
+
+`.jp2`, `.jpf` and `.j2k` are absent from the extension gate, so such a file is never handed to
+exiftool at all. One real instance observed (`jpg2000/balloon.jp2`). Filed as `(acl)`.
+
+*The raw number looked far worse and was not:* 1,157 dated files sat outside the gate, but
+**1,156 were `.fuzzed` crash-test artifacts** - deliberately corrupted files the corpus ships to
+crash parsers. Ignoring them is correct. Counting them would have manufactured a breadth crisis
+out of a fuzzing directory.
+
+### 0.3 A depth gap, and a measurement that nearly became a wrong feature
+
+`avi/100_0306.AVI` carries its date only in RIFF `DateCreated`, which Truestill does not request.
+`.avi` **is** in the gate, so the file is opened and nothing is found. Filed as `(acm)`.
+
+⚠ **And the finding that matters most here, because it points the other way.** The first pass of
+this measurement reported **six** files with dates Truestill fails to read. All six were wrong.
+Their dates lived only in `ModifyDate` (an EXIF *edit* time) and `ProfileDateTime` (the ICC colour
+profile's own creation date). Neither says when the shutter opened. The classifier had counted any
+tag whose name contains `"Date"`.
+
+Had that gone unchecked it would have produced a **wrong feature from a right-looking
+measurement** - reading `ModifyDate` as capture evidence is precisely the defect this product
+exists to avoid, and `(aaz)` already records it as deliberate non-evidence. A measurement that
+recommends work is worth re-deriving before the work starts.
+
+Separately and legitimately: three files carry `GPSDateStamp` + `GPSTimeStamp` and **no** capture
+tag, so they land in `Undated` while holding evidence of when the shutter opened. Truestill
+already reads those tags. Whether a GPS fix counts as capture evidence is a ruling, not a bug -
+filed as `(acn)`, open.
+
+### 0.4 Licences: measure against both, commit nothing from either
+
+Whoever next wants test fixtures will ask this, and the answer should be here rather than
+re-derived from a README.
+
+* **`exif-samples`** (`github.com/ianare/exif-samples`) - **archived**, and **no `LICENSE` file
+  anywhere in the tree**. The README states that user-contributed images "will be released under
+  **Attribution-ShareAlike 4.0**". That is **copyleft**: redistributing them would carry ShareAlike
+  into an Apache-2.0 repository. The wording is also forward-looking and scoped to *contributed*
+  images, so its authority over the files already there is unclear. **Nothing may be committed.**
+* **`metadata-extractor-images`** (`github.com/drewnoakes/metadata-extractor-images`) - no
+  `LICENSE` file anywhere; the README says *"You are free to use these media files however you
+  wish."* Permissive in intent, but it is one sentence from one maintainer covering a corpus
+  contributed by many people over a decade of bug reports, with no per-file provenance and no
+  SPDX identifier. **Nothing should be committed** on that basis alone.
+
+**Neither restriction cost anything.** These are real photographs from real people - 74 of them
+carry real coordinates - and every number in §0 was obtained without copying a single file.
+
+---
+
 Status: **Implemented (Phase 2).** Added `pillow-heif` (graceful-degradation guarded) so
 HEIC/HEIF get perceptual dedup, and the full list-only extension set (`.hif` + JPEG aliases + the
 mainstream RAW family). Legacy video remains backlog item (l); RAW+JPEG pairing remains deferred.

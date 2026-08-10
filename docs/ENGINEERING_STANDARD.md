@@ -832,6 +832,16 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   > still be caught (an action behind a *sleep*), so it says the same thing at 8 findings and at
   > 0.
 
+  ✅ **First observed instance, four days after this member was written - and it happened to the
+  guard this member was written beside.** The screen-switch ratchet proved its matcher on a
+  fixture where `#bk-source` sat below `#drives-list`. Fixing `(acd)` moved that region below every
+  control, so the fixture stopped describing anything unsafe and **went green for the wrong
+  reason** - the rule was still enforced, but the proof that it could see anything had quietly
+  expired. Repointed at Settings, where `#mig-path` really does sit below `#layout-preview`.
+
+  *That a rule predicted its own next violation is the point:* a member that only describes a past
+  failure is a story, and one that catches the next one is a control.
+
   *The tell:* the guard gets weaker every time someone does the right thing.
 
 - **A rule that depends on somebody remembering to read it is not a control.** The twenty-seventh
