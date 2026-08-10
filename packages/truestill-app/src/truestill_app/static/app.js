@@ -110,6 +110,17 @@ function guarded(fn) {
     }
   };
 }
+// A background load nobody clicked: the screen's own loads and the six at boot. These are the
+// largest category of work `guarded()` does not cover, and until now their only route to a user
+// was the last-resort backstop below - which is meant for the UNFORESEEN, not for an endpoint
+// returning 500. Routing them here says the failure was anticipated, and leaves the backstop
+// meaning what its name says.
+//
+// Deliberately NOT `guarded()`: that opens with `hideFatalError()`, which would wipe an error
+// the user has not read yet merely because they navigated to another screen.
+function reportLoadFailure(err) {
+  showFatalError(err instanceof Error ? err.message : String(err));
+}
 // Last-resort backstop for anything guarded() does not wrap (a rejection from code outside a
 // click handler, a genuine unforeseen bug) - never silent, even when nothing anticipated it.
 window.addEventListener("unhandledrejection", (e) => {
@@ -1146,19 +1157,19 @@ function showScreen(name) {
   document.querySelectorAll(".nav-item").forEach((n) =>
     n.setAttribute("aria-current", n.dataset.screen === name ? "page" : "false"));
   alignPanelWithContent();
-  if (name === "backups") loadDrives();
+  if (name === "backups") loadDrives().catch(reportLoadFailure);
   if (name === "settings") {
-    loadLayout();
-    refreshUndoAffordance($("mig-path").value.trim(), $("mig-undo-panel"));
+    loadLayout().catch(reportLoadFailure);
+    refreshUndoAffordance($("mig-path").value.trim(), $("mig-undo-panel")).catch(reportLoadFailure);
   }
   if (name === "events") {
-    refreshUndoAffordance($("ev-source").value.trim(), $("ev-undo-panel"));
+    refreshUndoAffordance($("ev-source").value.trim(), $("ev-undo-panel")).catch(reportLoadFailure);
   }
   if (name === "organize") {
-    refreshOrganizeUndoAffordance();
+    refreshOrganizeUndoAffordance().catch(reportLoadFailure);
   }
   if (name === "stats") {
-    loadStats();
+    loadStats().catch(reportLoadFailure);
   }
 }
 document.querySelectorAll(".nav-item").forEach((item) => { item.onclick = () => showScreen(item.dataset.screen); });
@@ -3426,12 +3437,14 @@ document.querySelectorAll('input[name="text-size"]').forEach((radio) => {
   });
 });
 
-loadOrganizeMode();
-loadSidebar();
-loadTextSize();
-loadCustody();
-loadQuickPlaces();
-refreshOrganizeUndoAffordance();
+// The shell's six. Failures reach the banner deliberately rather than through the last-resort
+// backstop - see `reportLoadFailure`.
+loadOrganizeMode().catch(reportLoadFailure);
+loadSidebar().catch(reportLoadFailure);
+loadTextSize().catch(reportLoadFailure);
+loadCustody().catch(reportLoadFailure);
+loadQuickPlaces().catch(reportLoadFailure);
+refreshOrganizeUndoAffordance().catch(reportLoadFailure);
 
 // ---------- Dates you have corrected: preview -> typed confirm -> job (step 4) ----------
 // Preview is catalog-only so it is a plain request; the run is a job because it writes to user
