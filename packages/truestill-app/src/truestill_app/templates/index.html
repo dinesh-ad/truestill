@@ -141,8 +141,13 @@
             <span class="hint" id="org-source-hint"></span>
           </div>
 
-          <div class="field">
-            <label>How to organize</label>
+          <!-- A FIELDSET, so the question is announced with the options rather than lost: a
+               bare <label> over a radio set has no control to name, and a screen reader read
+               "Copy into an organized folder, radio, 1 of 3" with no idea what it was choosing
+               between. The browser's fieldset chrome is reset in app.css - this is semantics,
+               not a design change. -->
+          <fieldset class="field">
+            <legend>How to organize</legend>
             <div class="org-modes" id="org-modes">
               <label class="org-mode"><input type="radio" name="org-mode" value="copy" checked>
                 <span><b>Copy into an organized folder</b><br><span class="k">Originals stay where they are.</span></span>
@@ -155,7 +160,7 @@
               </label>
             </div>
             <span class="hint" id="org-mode-hint"></span>
-          </div>
+          </fieldset>
 
           <div class="field" id="org-dest-field">
             <label for="org-dest">Organized folder <span style="color:var(--text-muted);font-weight:400">(where your sorted copies go)</span></label>
@@ -388,14 +393,14 @@
         </div>
         <div class="card">
           <h2>Appearance</h2>
-          <div class="field"><label>Theme</label>
+          <fieldset class="field"><legend>Theme</legend>
             <div class="checkline"><label><input type="radio" name="theme" value="light"> Light</label>
               <label><input type="radio" name="theme" value="dark"> Dark</label>
-              <label><input type="radio" name="theme" value="system" checked> Match system</label></div></div>
-          <div class="field"><label>Text size</label>
+              <label><input type="radio" name="theme" value="system" checked> Match system</label></div></fieldset>
+          <fieldset class="field"><legend>Text size</legend>
             <div class="checkline"><label><input type="radio" name="text-size" value="small"> Small</label>
               <label><input type="radio" name="text-size" value="medium" checked> Medium</label>
-              <label><input type="radio" name="text-size" value="large"> Large</label></div></div>
+              <label><input type="radio" name="text-size" value="large"> Large</label></div></fieldset>
           <p class="hint">This adjusts your browser’s own text size rather than replacing it, so
             if you have already made text bigger everywhere, Medium keeps that and Large is one
             step above it. Spacing, icons and the sidebar stay put - only the reading size moves.</p>

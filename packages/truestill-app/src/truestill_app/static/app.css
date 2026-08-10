@@ -523,6 +523,17 @@ code,
 .field {
   margin-bottom: var(--space-3);
 }
+/* A radio set is a <fieldset> so the question is announced with its options - see index.html.
+   The browser's own fieldset chrome is undone here so the change is semantic and nothing moves:
+   no border, no padding, and `min-inline-size: 0` because a fieldset otherwise refuses to shrink
+   below its content's intrinsic width and would break the narrow layouts. `<legend>` takes the
+   same rules as `.field > label`, which it replaces. */
+fieldset.field {
+  border: 0;
+  padding: 0;
+  min-inline-size: 0;
+}
+.field > legend,
 .field > label {
   display: block;
   /* Control labels and their inputs are main-column CONTENT; the rail's chrome sizes stay

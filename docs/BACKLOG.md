@@ -3310,6 +3310,40 @@ rather than assumed.
 
 ## Consciously out of scope (recorded with reasons)
 
+- **A JavaScript FORMATTER, permanently. Ruled 2026-08-10 after measuring Biome 2.5.7.**
+  Running it once would rewrite `app.js` wholesale - **3,733 source lines, 5,665 differing** - and
+  `app.css` and `tokens.css` with it.
+  - ⚠ **The cost lands on documentation that no test protects.** `docs/` carries **314**
+    `file:line` references, of which **65 point into files the formatter would rewrite** (45 into
+    `app.js` alone). Among them are `(abg)`'s, `(acd)`'s, `(acq)`'s, and several `ENGINEERING_STANDARD.md`
+    §4 members written that week.
+  - **Nothing would tell us.** Checked: **no test or guard asserts a line number.** Every
+    `node.lineno` in the suite builds an error *message* (`test_absolute_imports`,
+    `test_patch_targets_stay_aimed`, `test_subprocess_has_one_home`, `test_preview_gate_holds`);
+    one docstring mentions `index.html:102`. So a reformat is green on every lane and silently
+    invalidates 65 pointers.
+  - **The benefit is consistency in a file one person edits**, and the cost includes routing every
+    future `git blame` on `app.js` through one formatting commit. Not a close call.
+
+- **Biome as a DEPENDENCY. Ruled 2026-08-10; the findings were taken, the tool was not.**
+  A one-off `biome lint` run over `static/` and `templates/` found **90 diagnostics in 179 ms**:
+  36 `useButtonType`, 16 `useOptionalChain`, 10 `noUnusedVariables`, 8 `noDescendingSpecificity`,
+  6 `useTemplate`, and singles elsewhere. **Roughly 84 were opinions and 4 were real** - the four
+  were fixed by hand in the commit that records this, with no Biome in the tree.
+  - **Against adoption:** **63-80 MB per platform** (linux-x64 63.3, darwin-arm64 55.6, win32-x64
+    79.6) across four CI lanes and three operating systems, as the **second** non-Python tool in a
+    Makefile that has one; and our template **does not parse at all** without a committed
+    `biome.json` enabling `html.parser.interpolation`, because Biome rejects `{{STALE_WARNING}}`.
+    Adoption therefore starts with config, not with a binary.
+  - **The 36 `useButtonType` findings stay unfixed, deliberately.** A `<button>` defaults to
+    `type="submit"`, which only misbehaves inside a form - and there are **zero `<form>` elements
+    in the app** (checked, not assumed: 0 in `index.html`, 0 in `app.js`). Inert today, real the
+    day someone adds a form. **That check is the durable artifact here**, not the finding.
+  - **Not a refusal of static analysis for the browser.** If it is revisited, the honest shape is
+    a *small enabled rule set* - the a11y group, plus `suspicious/noDuplicateCustomProperties` -
+    with `--formatter-enabled=false`, never the default 517 rules, which would mean fixing ~84
+    non-defects or maintaining a suppression list as its own surface.
+
 Not "not yet" -- decided **against**, so the question does not get re-litigated every time a
 neighbouring product ships one. Each would be a reasonable feature in a different product.
 
