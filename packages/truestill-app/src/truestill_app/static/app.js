@@ -1493,7 +1493,20 @@ async function loadCustody() {
     : "";
   renderCatalogNotice(s);
   const tone = atRisk ? "at-risk" : anyDrive && s.files ? "safe" : "neutral";
-  line.innerHTML = `<span class="${tone}">${esc(safe)}</span>${catalogPath}`;
+  // THE AGE OF THE CLAIM, said ALWAYS rather than only when it is bad - `(abg)`. A count of
+  // copies is a true statement about the moment each row was written, read as a statement about
+  // now. Showing the date only once it is stale would teach a reader that its absence means
+  // fresh, which is the same defect one level up. A date that only gets older cannot mislead.
+  // Never invented: the drives carry `last_verified` already, and a place never checked is
+  // NAMED rather than dated, because no date would be true of the whole claim.
+  // A COMMA, never a middot. `test_the_inventory_line_is_gone` forbids "·" in this strip: it was
+  // the separator of the photos/videos inventory that was deliberately removed, so the character
+  // is the tell. A comma also reads as one sentence, which is what this strip is for.
+  const age = !anyDrive || !s.files ? ""
+    : (s.never_checked_drives || []).length
+      ? `, never checked: ${s.never_checked_drives.map(esc).join(", ")}`
+      : s.custody_checked_at ? `, last checked ${dayOf(s.custody_checked_at)}` : "";
+  line.innerHTML = `<span class="${tone}">${esc(safe)}</span><span class="k">${age}</span>${catalogPath}`;
   refreshCatalogPathFit();
 }
 window.addEventListener("resize", debounce(() => { refreshCatalogPathFit(); alignPanelWithContent(); }, 50));

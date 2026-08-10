@@ -18,6 +18,7 @@ from truestill_core.decisions import Decisions, gather_decisions, notice_for
 from truestill_core.drive import (
     DriveReach,
     create_marker,
+    custody_freshness,
     path_is_usable_dir,
     reach_of,
     read_marker,
@@ -584,6 +585,14 @@ class LibraryStatus(TypedDict):
     audio: int
     by_format: dict[str, dict[str, int]]
     places: int
+    #: When the custody claim was last checked, as the OLDEST `last_verified` across the drives
+    #: holding copies - a claim is only as fresh as its weakest leg. `None` when any of those
+    #: drives has never been checked, because no single date would then be true of the whole
+    #: claim. See `never_checked_drives`, which names them. `(abg)`.
+    custody_checked_at: str | None
+    #: Labels of drives that hold copies and have never been verified. Named rather than counted:
+    #: the name is the only clue a reader has to what happened.
+    never_checked_drives: list[str]
     single_copy: int
     #: Files with no recorded copy at all - invisible to `single_copy`, which reads
     #: `file_copies`, and the most exposed thing in the library.
@@ -617,6 +626,10 @@ def library_status(db: Path, *, explicit_db: bool = False) -> LibraryStatus:
         breakdown = media_breakdown(catalog.media_names())
         total = catalog.count()
         drives = [d for d in catalog.list_drives() if d["file_count"]]
+        # Freshness for the claim, from the rows just fetched - no extra query, and nothing on
+        # disk is touched. `last_verified` has existed on `drives` all along and is already shown
+        # per drive; it simply never reached the number a person reads. `(abg)`.
+        freshness = custody_freshness(drives)
         single_copy = catalog.single_copy_count()
         # Per-FILE custody, because the strip makes a per-file claim. `places` below counts
         # DRIVES and is kept only for callers that want it; it must never be the number a
@@ -637,6 +650,8 @@ def library_status(db: Path, *, explicit_db: bool = False) -> LibraryStatus:
         "audio": breakdown["audio"],
         "by_format": breakdown["by_format"],
         "places": len(drives),
+        "custody_checked_at": freshness.checked_at,
+        "never_checked_drives": list(freshness.never_checked),
         "single_copy": single_copy,
         "files_no_copy": int(custody["no_copy"]),
         "files_one_copy": int(custody["one_copy"]),

@@ -39,7 +39,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Protocol
+from typing import Any, NamedTuple, Protocol
 from uuid import uuid4
 
 #: Marker filename written at a drive's root. The only name this code ever writes.
@@ -138,6 +138,40 @@ def drive_path_hint(uuid: str) -> str:
     §2), and a second key spelled the same way in two packages is how they drift apart.
     """
     return f"path_hint.drive.{uuid}"
+
+
+class CustodyFreshness(NamedTuple):
+    """How old the custody claim is, and which places have never been looked at.
+
+    `(abg)`. The catalog reports history as if it were state: a `file_copies` row is a true
+    statement about the moment it was written and is read as a true statement about now. This
+    carries the age of that statement to the surfaces that make the claim.
+
+    **Pure, and it touches nothing.** It reads rows the caller already has - `last_verified` has
+    been on `drives` all along and is already shown per drive; it simply never reached the number
+    a person reads. No disk access, no query, no freshness *tracking* being added.
+
+    **Lives in core because both surfaces make the claim.** The CLI's `status` and the app's
+    custody strip would otherwise each grow their own version, which is the drift §4 names.
+    """
+
+    #: The OLDEST check across the places counted, because a claim is only as fresh as its
+    #: weakest leg. `None` when any of them has never been checked - no single date would then be
+    #: true of the whole claim.
+    checked_at: str | None
+    #: Labels of counted places never checked. Named, not counted: the name is the only clue a
+    #: reader has to what happened.
+    never_checked: tuple[str, ...]
+
+
+def custody_freshness(drives: Iterable[Any]) -> CustodyFreshness:
+    """Freshness for the drives that HOLD copies. Filtering to those is the caller's job."""
+    never = sorted(str(d["label"]) for d in drives if not d["last_verified"])
+    checked = [str(d["last_verified"]) for d in drives if d["last_verified"]]
+    return CustodyFreshness(
+        checked_at=min(checked) if checked and not never else None,
+        never_checked=tuple(never),
+    )
 
 
 def drive_reach(hint: str | None, uuid: str) -> DriveReach:

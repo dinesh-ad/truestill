@@ -13,6 +13,7 @@ corrected in the commit that adds this file.
 
 from __future__ import annotations
 
+from e2e_support import AppServer
 from playwright.sync_api import Page, expect
 from truestill_core.catalog import Catalog
 
@@ -296,3 +297,41 @@ def test_the_number_is_the_file_floor_even_when_a_third_drive_exists(ui: Page, a
     assert "every file in 2 places" in text, f"the file floor is not the number: {text!r}"
     assert "3 places" not in text, f"the per-drive count is the number again: {text!r}"
     assert _pips(ui).count("▪") == 2, "the pips followed the drive count, not the weakest file"
+
+
+def test_the_strip_says_when_it_last_looked(ui: Page, app_server: AppServer) -> None:
+    """`(abg)` Stage 0: the count carries its age, on the screen as well as in the CLI.
+
+    A copy count is a true statement about the moment each row was written and is read as a
+    statement about now. The date is shown ALWAYS - reporting it only once stale would teach a
+    reader that its absence means fresh, which is the same defect one level up.
+    """
+    with Catalog(app_server.db) as catalog:
+        catalog.upsert_drive(uuid="A", label="Cabinet")
+        catalog.upsert_drive(uuid="B", label="Desk HDD")
+        for n in range(2):
+            for drive in ("A", "B"):
+                _record(catalog, f"sha{n}", drive, f"{n}.jpg")
+        catalog.set_drive_verified("A", "2026-07-28T13:00:00+00:00")
+        catalog.set_drive_verified("B", "2026-08-01T09:00:00+00:00")
+    ui.reload()
+
+    # The OLDER of the two: the claim is only as fresh as its weakest leg.
+    expect(ui.locator("#custody-line")).to_contain_text(", last checked 2026-07-28")
+
+
+def test_the_strip_names_a_place_it_has_never_looked_at(ui: Page, app_server: AppServer) -> None:
+    """The Morrowkeep shape from the real catalog. No date is offered, because none would be true
+    of the whole claim, and the drive is NAMED - the name is the only clue to what happened."""
+    with Catalog(app_server.db) as catalog:
+        catalog.upsert_drive(uuid="A", label="Cabinet")
+        catalog.upsert_drive(uuid="B", label="Morrowkeep")
+        for n in range(2):
+            for drive in ("A", "B"):
+                _record(catalog, f"sha{n}", drive, f"{n}.jpg")
+        catalog.set_drive_verified("A", "2026-07-28T13:00:00+00:00")
+    ui.reload()
+
+    strip = ui.locator("#custody-line")
+    expect(strip).to_contain_text(", never checked: Morrowkeep")
+    expect(strip).not_to_contain_text("last checked")

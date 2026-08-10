@@ -19,6 +19,14 @@ def test_library_status_is_honest_when_empty(client: TestClient) -> None:
         "audio",
         "by_format",
         "places",
+        # The AGE of the custody claim, added 2026-08-10 for `(abg)`. Not new tracking:
+        # `last_verified` has been on `drives` all along and is already shown per drive; these
+        # two carry it to the number a person reads. `custody_checked_at` is the OLDEST check
+        # across the places counted and is None when any of them has never been checked, in
+        # which case `never_checked_drives` NAMES them - no date would be true of the whole
+        # claim, and the name is the only clue to what happened.
+        "custody_checked_at",
+        "never_checked_drives",
         "single_copy",
         # Per-file custody, added 2026-08-05. `places` counts DRIVES and stays for callers that
         # want it, but no sentence about files may be written against it again.

@@ -68,10 +68,12 @@ from truestill_core.destinations import Destination, LocalDestination, RcloneDes
 from truestill_core.destinations.base import DestinationError
 from truestill_core.drive import (
     MARKER_NAME,
+    CustodyFreshness,
     DriveGhostError,
     DriveMarker,
     DriveReach,
     create_marker,
+    custody_freshness,
     drive_path_hint,
     drive_reach,
     drives_without_a_known_location,
@@ -1336,17 +1338,35 @@ def _source_root_or_none(given: Path, destination: Path) -> Path | None:
     return extraction.staging_root
 
 
+def _custody_age_line(freshness: CustodyFreshness) -> str:
+    """The age of the claim, said ALWAYS rather than only when it is bad.
+
+    Reporting freshness only once it is stale teaches a reader that its absence means fresh,
+    which is the same defect one level up. A date that only gets older cannot mislead. `(abg)`.
+    """
+    if freshness.never_checked:
+        names = ", ".join(f"'{n}'" for n in freshness.never_checked)
+        return f"Never checked: {names}. Truestill has not looked since the copy was written."
+    if freshness.checked_at is None:
+        return "Nothing is on a drive yet, so there is nothing to have checked."
+    return f"Last checked: {freshness.checked_at[:10]} (the oldest of the drives holding copies)."
+
+
 def _cmd_status(args: argparse.Namespace) -> int:
     with _catalog(args.db) as catalog:
         singles = catalog.single_copy_shas()
+        # The same rule the app's custody strip uses, from core, so the two surfaces cannot drift.
+        freshness = custody_freshness([d for d in catalog.list_drives() if d["file_count"]])
     if not singles:
         print("All catalogued content has at least two drive copies. Nicely redundant.")
+        print(_custody_age_line(freshness))
         return 0
     print(f"At risk: {len(singles)} file(s) exist on only ONE drive (3-2-1 wants >=2):")
     for r in singles[:_STATUS_PREVIEW]:
         print(f"  {r['original_name'] or r['sha256'][:12]}   only on '{r['drive_label']}'")
     if len(singles) > _STATUS_PREVIEW:
         print(f"  ... and {len(singles) - _STATUS_PREVIEW} more.")
+    print(_custody_age_line(freshness))
     return 0
 
 
