@@ -308,3 +308,59 @@ def test_a_never_checked_place_is_stated_not_alarmed(ui: Page) -> None:
     expect(ui.locator("#panel .at-risk")).to_have_count(0)
     expect(ui.locator("#panel")).not_to_contain_text("gone")
     expect(ui.locator("#panel")).not_to_contain_text("lost")
+
+
+# --------------------------------- the panel counts copies per file, not drives -------------
+
+
+def test_the_panel_counts_the_weakest_file_not_the_drives(ui: Page) -> None:
+    """`(acq)`. The panel rendered `places` - a DRIVE count - under a custody sentence, which
+    `service/drives.py:632-634` already forbids: *"`places` counts DRIVES and is kept only for
+    callers that want it; it must never be the number a sentence about files is written against."*
+
+    Measured on the real catalog: the panel said **3** while `held_floor` was **1**, because 395
+    files sat on one drive only. Three drives, and the weakest file in one place.
+    """
+    ui.set_viewport_size({"width": 1500, "height": 900})
+    _status(ui, places=3, held_floor=1, files_on_a_drive=2664, files_one_copy=395)
+
+    panel = ui.locator("#panel")
+    expect(panel).to_contain_text("1 place")
+    expect(panel).not_to_contain_text("3 places")
+
+
+def test_a_good_backup_still_reads_two(ui: Page) -> None:
+    """**The cry-wolf half, and the constraint that decides this ships.** A count that falls
+    because it was overstating is correct; a count that falls while a real second copy exists is
+    the failure.
+
+    Two drives holding every file give `held_floor = 2` before and after, because the number IS
+    the per-file minimum - it cannot drop while a real second copy exists. Structural, not
+    careful. This is the shape `test_backup_http.py:181` already asserts at the payload level.
+
+    **This one passes before the change as well as after, and is named as a guard rather than
+    counted as a red.** That is the point of it: the correct case must be untouched, so a test
+    that went red here would mean the change had broken something.
+    """
+    ui.set_viewport_size({"width": 1500, "height": 900})
+    _status(ui, places=2, held_floor=2, files_on_a_drive=2269, files_one_copy=0, files_no_copy=0)
+
+    expect(ui.locator("#panel")).to_contain_text("2 places")
+
+
+def test_a_library_with_no_copies_says_nothing_rather_than_a_floor(ui: Page) -> None:
+    """Files organized but on no registered drive: `held_floor` is 0, because it is the minimum
+    over files that HAVE a copy and there are none.
+
+    The row must vanish rather than read "0 places" - a floor of zero is not a custody fact, and
+    printing it would put a number where the honest answer is silence. "Not on any drive" below
+    is the line that states this, and it keeps its own risk styling.
+    """
+    ui.set_viewport_size({"width": 1500, "height": 900})
+    _status(ui, places=1, held_floor=0, files_on_a_drive=0, files_one_copy=0, files_no_copy=2695)
+
+    panel = ui.locator("#panel")
+    # The ROW must be gone, not merely the digit: asserting "0 place" is absent passes today,
+    # when the row renders "1 place" from the drive count. The label is what proves it vanished.
+    expect(panel).not_to_contain_text("Kept in")
+    expect(panel).to_contain_text("Not on any drive")

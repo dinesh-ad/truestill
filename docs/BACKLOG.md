@@ -164,6 +164,26 @@ is invisible here is retired, not free.**
       non-portable), so it would be right on this machine and wrong after a move.
   - **Do not fix this by renaming the drive.** `(abg)` already records the general form: a
     cosmetic fix on a wrong number is worse than the wrong number, because it looks handled.
+  - ✅ **Stage A built 2026-08-10, and it is none of the three candidates above.** The fix was
+    already in the payload: the panel renders `held_floor` - the copy count of the **weakest
+    file** - instead of `places`. This is not a new rule, it is a stated rule the panel was
+    violating; `service/drives.py:632-634` already says `places` *"must never be the number a
+    sentence about files is written against."* On the maintainer's catalog: **3 -> 1**, which is
+    what the rail's custody strip had been saying all along. No schema change, no backfill.
+    - **What ruled out "the registration"** - the candidate that looked most principled - is
+      **not** the attach/verify path guessed at above. It is `decisions.py:953-955`:
+      `drives = catalog.registered_drives(); if not drives: return ()`. Un-registering the
+      destination would leave a single-folder user's trip names, event names and settings
+      **written nowhere outside the catalog**. A data-durability regression, found only by
+      searching every caller.
+    - **The cry-wolf case is safe by construction, not by care:** `held_floor` is the per-file
+      minimum, so it cannot fall while a real second copy exists.
+    - **Two folders on one disk still count as two.** Nothing here knows about hardware, and
+      nothing can: `local.py:164` already rules that `st_dev` can agree across subvolumes and
+      bind mounts, and the converse is worse - two partitions of one physical disk differ in
+      `st_dev` and die together. The claim is per-FILE and makes no hardware promise.
+    - **Still open:** the word "place" itself (Stage B), and `IMPLEMENTATION_STANDARDS.md`
+      §3.1's "countable toward 3-2-1" clause, which asserts the equivalence this disproves.
 
 - **(acp) GPS-DERIVED TIMEZONE - understood, costed, and deliberately NOT built.** Recorded
   2026-08-10 from the P41 date/timezone measurement. **This entry exists so the idea is not

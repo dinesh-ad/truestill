@@ -168,13 +168,23 @@ def test_the_one_place_count_is_not_stated_twice_at_once(ui: Page) -> None:
 
 
 def test_the_panel_still_says_what_only_it_says(ui: Page) -> None:
-    """CRY-WOLF HALF. Dropping the duplicated row must not empty the panel of its own facts."""
+    """CRY-WOLF HALF. Dropping the duplicated row must not empty the panel of its own facts.
+
+    **This assertion changed with `(acq)` Stage A, and it was asserting the defect.** It read
+    `"2" in panel`, which matched the `places` count - and this fixture is precisely the shape
+    `(acq)` is about: two drives, but 1,836 of 1,997 files on one of them, so `held_floor` is 1.
+    The panel now reads "1 place" and the old assertion failed on the *correct* output.
+
+    Stronger, not merely different: it names the row and its value instead of substring-matching
+    a lone digit that any number on the panel could have satisfied.
+    """
     _with_library(ui)
     panel = ui.eval_on_selector("#panel", "el => el.innerText")
 
     assert "1,997" in panel, panel
     assert "GB" in panel, panel
-    assert "2" in panel, panel
+    assert "Kept in" in panel, panel
+    assert "1 place" in panel, panel
 
 
 # --------------------------------------------------------- 8. Backups' conditional block

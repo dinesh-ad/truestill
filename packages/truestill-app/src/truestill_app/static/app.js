@@ -1399,9 +1399,19 @@ function renderRestingPanel(s) {
     `<div class="panel-fact">
       <div class="mono">${mediaCount(s)}</div>
       <div class="mono">${fmtBytes(s.bytes || 0)}</div></div>`,
-    s.places
+    // `held_floor`, NOT `places`. `places` counts DRIVES; this sentence is about FILES, and
+    // `service/drives.py:632-634` already forbids writing one against the other. On the
+    // maintainer's catalog the two read 3 and 1 - three drives, and 395 files on one of them.
+    //
+    // The floor cannot fall while a real second copy exists, because it IS the per-file minimum:
+    // the cry-wolf case is excluded structurally rather than by care.
+    //
+    // Zero is not a floor and renders nothing. `held_floor` is the minimum over files that HAVE
+    // a copy, so it is 0 only when none does - and "0 places" would put a number where the
+    // honest answer is silence. "Not on any drive" below is what states that case.
+    s.held_floor
       ? `<div class="panel-fact"><div class="panel-k">Kept in</div>
-         <div class="mono">${plural(s.places, "place")}</div></div>`
+         <div class="mono">${plural(s.held_floor, "place")}</div></div>`
       : "",
     // "In one place only" USED TO BE HERE and is deliberately gone: the rail's custody line
     // states the same number, in different words, at the same moment. The RAIL keeps it - it is
