@@ -815,6 +815,42 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   Corollary, from the same day: the real catalog held zero events and zero date confirmations, so
   the feature had only ever met seeded examples of the thing it exists to protect.
 
+- **A test written in terms of the constant it guards cannot falsify the constant.** The
+  twenty-ninth member, and it is **not** a member of the vacuous-assertion family. Those tests
+  assert something that never ran - an unmatched stub, a subject that never entered the path, a
+  guard whose defect has been fixed. This one runs, and what it asserts is **true and useless**:
+  it restates the constant against itself. A tautology passes at every value, including a wrong
+  one.
+
+  > **The tell: would the test still pass after you changed the constant?** If yes, it is testing
+  > the plumbing rather than the value - that the comparison happens, not that the number is
+  > right.
+
+  *Worked instance, 2026-08-10.* `FUTURE_TOLERANCE` decides how far ahead of now a capture date
+  may sit. Two tests pinned its boundary, written as `FUTURE_TOLERANCE - 1 minute` (accepted) and
+  `FUTURE_TOLERANCE + 1 minute` (refused). Both are correct, both are useful for catching an
+  off-by-one in the comparison, and **both pass at one day, at two days, and at five minutes.**
+  The constant was `timedelta(days=1)` while the real gap between where a photo is taken and
+  where it is imported is **26 hours** - so a fresh photo from UTC+14 imported on UTC-12 went to
+  `Undated/`, and the suite was green throughout. The tests pinned *where* the boundary was and
+  never *whether it belonged there*.
+
+  **The repair is to assert what the world imposes, in the world's units.** The added test says
+  26 hours in absolute terms, so trimming the tolerance back fails there rather than silently
+  re-passing. Keep the relative tests too - they catch a different bug - but do not mistake them
+  for cover.
+
+  **And the cry-wolf half, because loosening a bound is the easy direction.** Widening a tolerance
+  can quietly retire the case it was written for, so pin that case absolutely as well: the 2051
+  library that motivated the future check is now asserted refused by year, not by offset from the
+  constant. One test says "must still accept 26 hours"; the other says "must still refuse 2051".
+  Neither can be satisfied by moving the number.
+
+  *Same shape, worth naming so it is recognised elsewhere:* a test asserting a limit equals its
+  own constant; a threshold test that reads the threshold; a timeout test parameterised by the
+  timeout; a retry test that loops the configured retry count. Each proves the mechanism consults
+  its setting, and none proves the setting is right.
+
 - **A guard proven by the problem it hunts dies at the moment it succeeds.** The twenty-eighth
   member. The family is any assertion whose validity depends on the defect still existing:
   a cry-wolf test that demonstrates a matcher works by pointing at real findings, a fixture built
