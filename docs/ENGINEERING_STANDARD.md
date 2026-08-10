@@ -39,6 +39,25 @@ reassuring answer about code that was fine. Quote the expansion, pass the argume
 run the check under `sh -c` - and when a verification comes back green faster or quieter than
 expected, suspect the harness before believing it.
 
+**Commit freely; push in batches** (standing, 2026-08-10, maintainer's ruling). Push when the
+change touches something only CI can test - platform-shaped, schema, migration, packaging - or
+when a batch of real work has accumulated. Not for a docs edit, a backlog move, or a single
+function `make gate` already covered locally. A commit sitting on disk behind a green local gate
+loses nothing; the lanes see everything eventually.
+
+> **And pushing again CANCELS the run in flight.** `ci.yml` sets `cancel-in-progress: true`, so a
+> push while the previous run is still going kills it. Measured 2026-08-10: **6 of the last 40
+> runs ended `cancelled`** - 15% that verified nothing. The Windows lane is ~11 minutes and the
+> slowest to finish, so it is the one most often killed, which means push-after-every-commit was
+> quietly *reducing* platform coverage rather than merely delaying it. Batching is not only
+> politeness about queue time; it is how a run gets to finish.
+
+**A command's timeout is a ceiling, not a wait - so size it to catch a hang, not to be safe.** It
+costs nothing when the command works, because the command returns when it returns. It costs
+exactly once: when something hangs, you sit blocked for the whole ceiling before you find out.
+**Roughly 2x the measured runtime.** A 25-minute ceiling on a 7-minute gate is not caution, it is
+18 minutes of not-knowing bought for nothing.
+
 **The gate matrix has three layers, and a change is verified at the layer it can break.**
 
 | Layer | Command | Owns |

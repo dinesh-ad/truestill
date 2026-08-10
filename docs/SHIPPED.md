@@ -22,6 +22,229 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(acq) "PLACE" MEANS "SOMEWHERE TRUESTILL ORGANIZED INTO", NOT "SOMEWHERE A COPY IS KEPT" -
+  and custody counts it as the latter.** Recorded 2026-08-10 while verifying `(abg)`'s premises.
+  A separate defect from a stale number: `(abg)` is about a count that was true once, this is
+  about a count that was **never** the thing its word implies.
+  - **What the code does.** `service/organize.py:902-906` registers the **destination as a drive
+    on every organize run**, and `_identity_for` (`organize.py:829`) mints a marker for *any*
+    directory - there is no removable-media test, and none would be right, since a backup drive
+    is just a folder. In **in-place mode the destination IS the source**
+    (`_effective_destination_for_mode`, `organize.py:602`), so the source folder itself becomes a
+    drive with a `file_copies` row per file.
+  - **The consequence a user reads.** After a plain organize with no backup at all,
+    `places = 1` - and the panel says *"Kept in 1 place"*. True, and useless: the one place is the
+    folder they just organized into, on the disk they were already using. Organize a second
+    folder and it can read **"2 places" for two folders on one disk that dies together**, which is
+    the opposite of what 3-2-1 means and the opposite of what the sentence promises.
+  - ⚠ **This also corrects a premise in `(abg)`.** That entry says the folder a user is about to
+    empty *"was never counted"*, on the grounds that a source has no `drive_uuid`. That holds for
+    copy mode and **fails for in-place**, where source and destination are the same path and it is
+    registered like any other drive.
+  - **Three candidate fixes, and the entry is open because they are not equivalent:**
+    - **The word.** Stop saying "places" for drives and say what it is - *"organized into 1
+      folder"* - reserving custody language for copies that are somewhere else. Cheapest, changes
+      no counting, and may be the whole fix.
+    - **The registration.** Do not register a destination as a drive unless it is distinguishable
+      from the library itself. Attractive and probably wrong: it would break the attach/verify
+      path that legitimately treats the library as a drive, and there is no reliable test for
+      "different disk" that survives a bind mount or a symlink.
+    - **The count.** Exclude same-device places from custody arithmetic. Honest, but `st_dev` is
+      not a durable identity (`(xx)` already records absolute paths and device ids as
+      non-portable), so it would be right on this machine and wrong after a move.
+  - **Do not fix this by renaming the drive.** `(abg)` already records the general form: a
+    cosmetic fix on a wrong number is worse than the wrong number, because it looks handled.
+  - ✅ **Stage A built 2026-08-10, and it is none of the three candidates above.** The fix was
+    already in the payload: the panel renders `held_floor` - the copy count of the **weakest
+    file** - instead of `places`. This is not a new rule, it is a stated rule the panel was
+    violating; `service/drives.py:632-634` already says `places` *"must never be the number a
+    sentence about files is written against."* On the maintainer's catalog: **3 -> 1**, which is
+    what the rail's custody strip had been saying all along. No schema change, no backfill.
+    - **What ruled out "the registration"** - the candidate that looked most principled - is
+      **not** the attach/verify path guessed at above. It is `decisions.py:953-955`:
+      `drives = catalog.registered_drives(); if not drives: return ()`. Un-registering the
+      destination would leave a single-folder user's trip names, event names and settings
+      **written nowhere outside the catalog**. A data-durability regression, found only by
+      searching every caller.
+    - **The cry-wolf case is safe by construction, not by care:** `held_floor` is the per-file
+      minimum, so it cannot fall while a real second copy exists.
+    - **Two folders on one disk still count as two.** Nothing here knows about hardware, and
+      nothing can: `local.py:164` already rules that `st_dev` can agree across subvolumes and
+      bind mounts, and the converse is worse - two partitions of one physical disk differ in
+      `st_dev` and die together. The claim is per-FILE and makes no hardware promise.
+  - ✅ **Stage B, the wording, built 2026-08-10.** The label is **"In at least"**, the
+    maintainer's choice: `held_floor` is a FLOOR, and "Kept in 1 place" states a floor as an
+    exact quantity - false for every file that has more. Same number, saying what it guarantees.
+  - ✅ **Stage C, the contract, amended 2026-08-10.** §3.1's marker-creation row said registering
+    is what makes a folder *"countable toward 3-2-1"* - the binding contract asserting the exact
+    equivalence `(acq)` disproves. **The contract was wrong, not the code**: registration is
+    necessary for a copy to be counted and never sufficient for it to count as redundancy.
+    Searched every doc and source file for the same equivalence stated elsewhere; it appears once.
+    `drives.py:169` and both CLI sites state necessity or make per-file claims, and are true.
+  - **Closed.**
+
+- **(acr) A DRIVE'S LABEL IS NOT UNIQUE, AND CUSTODY WARNINGS NAME DRIVES BY LABEL ALONE.**
+  Found by the maintainer on screen 2026-08-10, reading `(abg)` Stage 0's own output: the strip
+  says *"never checked: Morrowkeep"* and he cannot tell **which** Morrowkeep - a local folder, a
+  cloud folder and an external disk may all carry that name.
+  - **Not enforced, and not unique by accident either.** `drives.label` is `TEXT NOT NULL` with
+    **no UNIQUE constraint and no unique index** (`catalog.py:133-140`). Three drives labelled
+    `Morrowkeep` insert cleanly - checked, not assumed.
+  - ⚠ **Collisions are LIKELY, not merely possible, because the label DEFAULTS TO THE FOLDER
+    NAME.** Three of the four registration sites do `label=path.name or "Library"`
+    (`service/drives.py:310`, `service/organize.py:847`, `cli.py:2010`); only `drives --init`
+    takes a typed one. Two folders called `Backup` on two disks become two drives called
+    `Backup`, and any unnamed root falls back to the literal string `Library`, which collides
+    with itself.
+  - **Why it is sharper on a custody warning than anywhere else.** A wrong pointer sends someone
+    to check a drive that is fine; they find their files, conclude nothing is wrong, and stop
+    looking. **A confident wrong pointer is worse than no pointer** - it does not merely fail to
+    help, it actively ends the search.
+  - **What is available to disambiguate, per drive, and it is uneven:**
+    - `uuid` - always present, and **unusable to a human**. Never show it as the answer.
+    - the path hint (`settings['path_hint.drive.<uuid>']`) - usable, and **not always there**:
+      of the three drives in the maintainer's catalog, `The Memory Cabinet` has **no hint at all**.
+    - `last_seen`, `first_seen`, `file_count`, `size` - present, but none identifies a place.
+  - **The smallest honest disambiguation, argued rather than chosen:** show the path **only when
+    the label is ambiguous among the drives being named** - always showing it is noise on the
+    common case where names are distinct - and when there is no hint, **say that** rather than
+    pointing at nothing: *"Truestill does not know where this one is"* is honest and actionable
+    (it tells the user to plug it in and let it be seen), where silence is not.
+  - **The deeper fix may be upstream and is the real argument for filing this separately.** The
+    surface is not where the defect is: labels collide because registration mints them from
+    folder names. Options are to stop defaulting to the folder name, to disambiguate at
+    registration, or to enforce uniqueness in the schema - all of which touch every surface that
+    names a drive (`status`, `where`, the drive cards, stats), not one sentence.
+  - ✅ **Stage 1 built 2026-08-10: `drive.distinguishing_names`, core only, nothing user-visible.**
+    A name per drive, disambiguated **only** where the label collides within the set being named.
+    **The invariant is not that labels are unique - it is that Truestill never names a drive
+    ambiguously**, which is a property of the moment of naming, where the set is known, and cannot
+    be established at registration, where it is not. That dissolves the registration-or-display
+    question: it is neither surface nor schema, it is one function every namer calls.
+    - **A prior ruling honoured, not a new one invented.** `ghost_drive_at` already decided that
+      matching a label against a directory name is *"a coin toss, because `create_marker` defaults
+      the label to that same directory name and every second `Backup` folder would be refused."*
+      This project met label collisions before and concluded that treating one as an error refuses
+      legitimate drives.
+    - **Nothing is renamed and no schema changed.** A label lives in the marker on the user's own
+      disk, so renaming would mean writing to their drive to fix our bookkeeping - the copy-only
+      instinct applied to metadata.
+    - **`file_count`, `size` and `first_seen` are refused as discriminators**, and the reasoning is
+      in the docstring because they will look tempting to whoever extends this: they discriminate
+      but do not locate, and answering *where is it* with *how big is it* is a change of subject
+      dressed as an answer.
+    - **No detail-level parameter.** An unused seam built for an undecided feature is a guess with
+      a type signature; `(acs)` adds it in one line when it is ruled on.
+    - The `Library` fallback that collides with itself is filed as `(act)`, not fixed here.
+  - ✅ **Stage 2 built 2026-08-10: wired into `custody_freshness`, and it reached BOTH surfaces
+    without a line of JavaScript.** `app.js:1441` (panel) and `app.js:1540` (rail) render the same
+    `never_checked_drives` field, so one payload edit fixes both - proved by a browser test that
+    asserts the string on each, and by a mutant removing the panel's row which kills it. `app.js`
+    has **no diff**.
+    - ⚠ **Two callers, not one.** The plan said one; `cli.py` `status` calls `custody_freshness`
+      too, so the CLI's *"Never checked: ..."* line gets the same naming without asking for it -
+      which is §9's one-home rule paying out rather than a coincidence.
+    - **A collision is a property of what the USER owns, not of the sentence**, and this closes a
+      hole the plan's own wording would have left. `library_status` filters to drives holding
+      copies; judging collisions among those alone would print a bare `Morrowkeep` when a second
+      `Morrowkeep` holds nothing. `custody_freshness` now takes the registered set separately -
+      same rows, no extra query.
+    - ⚠ **What the real catalog did and did NOT show.** Its three drives have **no colliding
+      label**, so the run confirmed only the **guard**: output byte-identical, `['Morrowkeep']`,
+      bare, on the app and the CLI alike. `The Memory Cabinet` has no hint - the unplaceable
+      *condition* is live - but with no collision its hint is never read and it is never
+      qualified. **The collision case and the unplaceable-and-colliding case exist today only in
+      fixtures**, and the real-catalog run must not be read as evidence for them.
+  - ⚠ **`(abg)` Stage 1 inherits this and must not deepen it.** The resting panel will name drives
+    in a NEW place, so the ambiguous name gains a third surface. That is recorded rather than
+    fixed there: a per-surface repair would be one fix per surface and would leave registration
+    still minting collisions.
+
+- **(acs) THE DRIVE CARD ALREADY SHOWS THE FULL PATH. THIS IS A REVIEW OF WHAT IS EXPOSED, NOT A
+  FEATURE WITH A TOGGLE.** Recorded 2026-08-10, and the framing is the finding: the question
+  looked like *"should custody warnings say where a drive is, and should that be hideable?"* It is
+  not. **`app.js:2510` already renders every drive's absolute path as a clickable link, with the
+  path repeated in `title`, unconditionally.** The sensitive data is on screen today. So the work
+  is to decide what should have been shown all along and to whom - not to add locations to the
+  strip and then offer to hide them.
+  - **The need, in the maintainer's words:** he wants to know **where** a drive is, and wants a way
+    to hide **the provider's name and the path** - for screenshots and over-the-shoulder viewing -
+    **while keeping the folder name**. Both halves are real: a warning naming only `Morrowkeep` is
+    a riddle, and a warning naming the service he pays for is a disclosure.
+  - **Where a drive names itself, today:** the drive card (label **+ full path**, `app.js:2510`)
+    and `drives --init` (label + path) show a location; the custody strip, the resting panel,
+    `status`, `verify`, `where` and the decisions notice show **label only**. **A setting reaching
+    some and not others is worse than none** - a user who hides the path on the card and then
+    reads a bare label in the strip has been told nothing, twice.
+  - ⚠ **Location is not in the marker, by design.** `DriveMarker` is `{uuid, label, created}` -
+    checked against the real file on disk. So a drive's whereabouts exists **only** as the
+    settings key `path_hint.drive.<uuid>`, and **one of the three drives in the real catalog
+    (`The Memory Cabinet`) has none at all**. Any design must answer for a drive that cannot say
+    where it is.
+  - 🚫 **THE "KIND OF PLACE" MIDDLE IS NOT AVAILABLE, and this is a measurement rather than a
+    reservation.** The attractive compromise - say *external drive / cloud / this computer* and
+    name neither vendor nor path - has no honest source today. `facts_for` is the only candidate
+    and it fails three ways: it needs the path **reachable**, so it is blind exactly when the
+    warning fires; it returns `None` on **macOS** entirely, by deliberate refusal to guess; and
+    worst, **it does not fail silently**. It falls back to `_nearest_existing()`, so measured on
+    the real unreachable cloud path it returns **`ext4`** - the filesystem of `/home`. **A kind
+    derived from it would tell the user their cloud drive is on this computer, and would be wrong
+    precisely when it mattered.** A reassuring-direction failure is the worst thing to build into
+    a privacy feature, and it is why the middle is unavailable rather than merely imperfect.
+  - **The version that could work, named as what it is:** derive the kind **at registration**,
+    when the place is reachable, and store it. That is a **schema change and a migration**, not a
+    display option, and **every existing drive would read `unknown`** on day one. Worth doing only
+    if the kind is judged to carry its own weight.
+  - **Precedent, and it is this repo's own instinct** (`decisions.py:53-55`): `path_hint.` is
+    excluded from the decisions document because it holds *"an absolute local path - a username, a
+    folder layout, and in one real library the existence of a Crypto Folder"*, on a file that
+    *"lands on a drive the user may lend or sell"*. The same reasoning applies to a screenshot.
+  - ✅ **THE INVARIANT, whatever the design:**
+    > **Hiding may reduce detail. It may never reduce the count, the drive's identity as a
+    > distinct thing, or the fact that something is unverified.** A privacy setting may turn
+    > *"never checked: Morrowkeep at /home/…"* into *"never checked: 1 drive"* - but never into
+    > silence, and never into a number that omits it.
+
+    The earlier phrasing - *never whether a problem is stated* - has a hole: it permits stating
+    the problem while dropping the drive, which on a **label collision (`(acr)`)** collapses two
+    distinct drives into one warning. **Identity preserved**, not merely *problem stated*.
+  - **Related:** `(acr)` labels are not unique and are minted from folder names; `(abg)` is the
+    custody claim this would qualify.
+  - ✅ **BUILT 2026-08-10, narrowed by the maintainer to the concern that actually exists:** nobody
+    glancing at the app should learn which cloud service he uses. Not a demo mode, not redaction,
+    **and not a setting** - there is no state to store, so there is nothing to configure.
+    - **The rule, which answers both directions:** *a path is shown unasked only when it is doing
+      identity work.* The drive card's path is now behind `<details class="more inline">`,
+      collapsed by default and **expanded where two drives share a label** - because two cards
+      both titled `Morrowkeep` are told apart by nothing else, and collapsing there would collapse
+      two drives into one indistinguishable card, which is exactly what the invariant above
+      forbids. The same rule the panel obeys when `(acr)` writes *"Morrowkeep at /mnt/photos"*.
+    - ⚠ **It defends against a glance and a screenshot, NOT against inspection.** `data-open` and
+      `data-path` still carry the path because the Open and *Check now* buttons take it. Making it
+      inspection-proof means those buttons take a uuid the server resolves - a real change, not
+      needed for this concern and not made. The tests assert on rendered **text**, never on the
+      attribute's absence, so they describe the protection that actually exists.
+    - **The mechanism was reused, not invented:** `<details class="more">` already appears three
+      times (`app.js:530`, `:732`, `:764`), which brings keyboard and touch support for free.
+      Hover was never viable - it does not exist on touch, and `title` is hover-only. It gained an
+      `inline` modifier because `details.more` is a section break with a border-top meant for a
+      card's foot, and unmodified it drew a rule through the middle of the card; a privacy fix is
+      not the place to smuggle in a design change. Measured by a test, per the `<fieldset>`
+      precedent.
+    - ⚠ **A correction to this entry as filed:** it said the drive card repeats the path in
+      `title`. It does not - `title` is the literal *"Open in file manager"*. The path-in-`title`
+      is a **different site**, the rail's catalog path (`app.js:1525`), and the entry conflated
+      them.
+    - **Everything else that prints a path, from a search rather than assumption, and deliberately
+      left alone:** the rail's catalog path (`app.js:1525`, on every screen) names no provider and
+      is the one path a user needs to quote when something is wrong; the prefilled fields
+      `org-dest`, `ev-source`, `bk-source`, `verify-path` and **`bk-target`** (`:1479-1483`) are
+      **latent, not live** - both hints are `None` on the real catalog - and `bk-target` is where a
+      cloud path would appear, so the maintainer ruled to wait until it is visible on the screen he
+      opens daily rather than guess now. `truestill drives` prints no path at all; the CLI's other
+      commands echo the path just typed on the command line, which reveals nothing a
+      shoulder-surfer did not watch being typed.
+
 - **(acf) Stage 1 of the readiness signal: the suite depends on it - BUILT 2026-08-10.**
   The two entry points (`open_app`, `open_screen` in `e2e_support.py`), the `ui` fixture waiting
   after `goto`, `open_backups` reduced to a wrapper with its reasoning corrected, and the six
