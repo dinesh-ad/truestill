@@ -31,6 +31,14 @@ network API boundary, no untrusted multi-tenant input. Do not import server-SaaS
 3. **Verification.** Run the full gate matrix and report the **exact output**. "Tests pass" is
    not a report; the passing summary line is. If a step is skipped, say so.
 
+**A check run in the wrong shell is a measurement error, and this one flatters.** `zsh` does not
+word-split an unquoted variable, so `FILES="a b"; cmd $FILES` passes **one** argument where `sh`
+passes two - and a `git diff -- $PATHS` or a `pytest $TARGETS` built that way silently matches
+nothing and reports **clean**. It happened twice in one session, both times returning the
+reassuring answer about code that was fine. Quote the expansion, pass the arguments literally, or
+run the check under `sh -c` - and when a verification comes back green faster or quieter than
+expected, suspect the harness before believing it.
+
 **The gate matrix has three layers, and a change is verified at the layer it can break.**
 
 | Layer | Command | Owns |
