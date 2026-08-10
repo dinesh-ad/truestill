@@ -21,7 +21,12 @@ Shell loads are deliberately out of scope: the `ui` fixture waits for them since
    unsafe action further down is invisible to this guard. That is a deliberate trade: widening
    the window past the next control-flow boundary produces false positives, and a guard that
    cries wolf gets suppressed, which is worse than one with a known blind spot.
-2. **Selector resolution is partial.** Only `#id` selectors are matched against the markup.
+2. **A wait anywhere in the window counts, even after the unsafe action.** Two sites in
+   `test_cancel_renders_cancelled.py` fill and click and only then assert; the assertion falls
+   inside the window, so the guard passes them although the fill still races. Catching those
+   needs the guard to order actions rather than scan text. Recorded rather than fixed - it is
+   why this guard under-reports.
+3. **Selector resolution is partial.** Only `#id` selectors are matched against the markup.
    Sites acting through a class, a `data-testid`, or a computed selector are not classified -
    19 of the original 68 fell here - and are treated as **not violating**. Fail-open again, and
    the same reasoning.
@@ -80,14 +85,6 @@ _EXEMPT_FILES = {"test_screen_readiness.py"}
 #: deletes its entry; the test below fails if an entry stops violating, so a stale allowlist
 #: cannot accumulate and quietly re-authorise a bare switch later.
 _ALLOWED: set[tuple[str, str]] = {
-    # Settings - fills `#mig-path`, below the layout block `loadLayout` writes.
-    (
-        "test_cancel_renders_cancelled.py",
-        "test_migrate_undo_apply_cancel_renders_stopped_with_partial_count",
-    ),
-    ("test_migrate_undo.py", "_open_settings_drive"),
-    # Settings - the only one masked by a sleep rather than bare; the sleep is not a wait.
-    ("test_large_viewports.py", "test_a_table_may_take_the_whole_column"),
     # Trips - acts on `#ev-apply`, below `#ev-undo-panel`.
     (
         "test_cancel_renders_cancelled.py",

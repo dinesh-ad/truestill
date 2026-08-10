@@ -12,7 +12,7 @@ import json
 import os
 from pathlib import Path
 
-from e2e_support import AppServer
+from e2e_support import AppServer, open_screen
 from playwright.sync_api import Page, expect
 from truestill_core.catalog import Catalog
 from truestill_core.destinations.local import LocalDestination
@@ -78,7 +78,7 @@ def _seed_armed_drive(
 
 
 def _open_settings_drive(ui: Page, drive: Path) -> None:
-    ui.click('button[data-screen="settings"]')
+    open_screen(ui, "settings")
     ui.fill("#mig-path", str(drive))
     ui.locator("#mig-path").blur()
 

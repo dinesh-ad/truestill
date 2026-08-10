@@ -25,6 +25,7 @@ import json
 import re
 from pathlib import Path
 
+from e2e_support import open_screen
 from playwright.sync_api import Page, expect
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -198,8 +199,7 @@ def test_a_table_may_take_the_whole_column(ui: Page) -> None:
     1080 cap only just cleared and a longer event name would not. Controls and tables take the
     width; prose does not."""
     _at(ui, UHD)
-    ui.click('.nav-item[data-screen="settings"]')
-    ui.wait_for_timeout(200)
+    open_screen(ui, "settings")
 
     table = ui.eval_on_selector("#layout-preview", "el => el.getBoundingClientRect().width")
     card = ui.eval_on_selector(

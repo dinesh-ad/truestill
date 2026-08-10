@@ -252,7 +252,7 @@ def test_migrate_undo_apply_cancel_renders_stopped_with_partial_count(ui: Page) 
         "**/api/jobs/undo-apply/events**",
         lambda r: _events(r, {"reversed_files": 2, "refused": []}),
     )
-    ui.click('button[data-screen="settings"]')
+    open_screen(ui, "settings")
     ui.fill("#mig-path", "/tmp/drive")
     ui.locator("#mig-path").blur()
     ui.locator("#mig-undo-panel button", has_text="Preview undo").click()
