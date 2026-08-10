@@ -480,6 +480,11 @@ is invisible here is retired, not free.**
 - **(abq) `#bk-preview` is clicked five ways and only one of them is race-free.** Recorded
   2026-08-07 from the `test_backup_preview_busy_re_enables` flake (2 failures in 4 consecutive
   CI runs, green locally every time).
+  - 📌 **READ THIS FIRST: the contradiction that held this entry up was reconciled 2026-08-10,
+    and the two records were never in conflict.** One describes a residual race AFTER the screen
+    has settled; the other is a click that never settles at all. Nobody could choose between them
+    without that distinction, which is why the entry sat from April-era reasoning through four
+    failures. The detail is below under RECONCILED; the fix that followed is the smaller half.
   - **The `(aak)` shape again.** `dispatch_event("click")` was applied to
     `test_backups_on_the_pattern.py` with its trade-off documented at the site - *"WHAT THIS
     STOPS EXERCISING: mouse-event delivery to this one button"* - and never carried to the four
@@ -567,8 +572,26 @@ is invisible here is retired, not free.**
     small piece of work.
   - **VERIFICATION IS CI, NOT LOCAL, and passing locally means nothing here.** This entry already
     records 15 local runs of the test alone and 5 of the file with 0 failures; 5 more after the
-    change also passed. It wants a loaded runner, so several green CI runs are the only evidence
-    that will count.
+    change also passed. It wants a loaded runner, so green CI runs are the only evidence that
+    counts.
+  - 🔢 **WHAT WOULD COUNT AS EVIDENCE, written down so nobody calls it fixed on the second green.**
+    At the observed rate of roughly **one failure in three runs**, an unfixed flake survives N
+    consecutive green runs with probability `(2/3)^N`:
+
+    | consecutive green e2e runs | chance an UNFIXED flake produced them |
+    |---|---|
+    | 2 | 44% - proves nothing |
+    | 4 | 20% |
+    | **8** | **4% - the minimum bar** |
+    | **12** | **1% - call it fixed** |
+
+    **Do not close this before 8, and prefer 12.** Two greens is the number that will feel
+    convincing and is worth 44% odds of being wrong. The denominator is approximate - the
+    failures are known (four), the total e2e runs in the window are not counted precisely - so
+    treat 1-in-3 as the rate this entry has always assumed rather than as a measurement.
+  - **And a green run does not clear the other three sites**, which still act without settling.
+    Only `test_busy_state` changed, so any of the others firing is the same defect at a site that
+    was never fixed - not a regression of this one.
 
 - **(abp) The body sans face is not bundled, so prose renders differently on every machine.**
   Recorded 2026-08-07, found because a browser test had been asserting the CI runner's fonts.
