@@ -834,12 +834,32 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
 
   *The tell:* the guard gets weaker every time someone does the right thing.
 
-- **A rule written only where it is enforced will be re-derived by whoever has not read that
-  file.** The twenty-seventh member, and it is a pattern in this repo rather than a coincidence:
-  the mutation-restore rule lived in §4 but was broken twice in one day (`(ace)`), and the
-  no-retry rule lived as a comment at `Makefile:103` and `ci.yml:220` and nowhere teachable.
-  Enforcement sites are read by people already doing that task; a rule needs a home someone
-  reaches for *before* they know they need it.
+- **A rule that depends on somebody remembering to read it is not a control.** The twenty-seventh
+  member. **Three instances in one week, in three subsystems**, which is why this is a property of
+  how rules are written here rather than three unlucky days:
+
+  1. The mutation-restore rule lived in §4, precise and correct, naming the command and the fix -
+    and was broken **twice in one day** (`(ace)`).
+  2. The no-retry rule lived as a comment at `Makefile:103` and `ci.yml:220`, at both enforcement
+    points and nowhere teachable.
+  3. `BACKLOG.md`'s *Item letters* section carried the rule, an allocation line recording the next
+    free letter, **and a warning that `(u)` and `(v)` had already been taken twice**. Five letters
+    were then assigned twice across three days, breaking citations in four documents.
+
+  **This member originally said the fix was to give a rule a findable home, and the third instance
+  disproves that.** Instance 3 had the best placement available - the right file, the right
+  section, a machine-readable allocation line, and a worked example of the exact failure - and it
+  still failed, because consulting it was voluntary. Placement is necessary and it is not
+  sufficient. Where a rule lives only changes *who could* have read it.
+
+  > **Ask what happens when nobody reads it.** If the answer is "the rule is broken and nothing
+  > says so", the rule is documentation. Make it executable, or accept that it will be broken and
+  > say so honestly - the two acceptable answers, and "write it more clearly" is neither.
+
+  *The tell:* the rule is phrased as an instruction to a person - *check here before assigning*,
+  *save the original before mutating*, *never re-run a red lane*. Prose can describe a control; it
+  cannot be one. The duplicate-letter guard added for instance 3 is the shape that works: it
+  cannot be forgotten, because nobody has to remember it.
 
 - **Never retry a failing test to get a green build - and never let "most red lanes are flaky"
   become the reason you stopped looking.** The twenty-sixth member. Two rules, deliberately in
