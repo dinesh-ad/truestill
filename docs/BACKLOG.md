@@ -185,8 +185,13 @@ is invisible here is retired, not free.**
   - ✅ **Stage B, the wording, built 2026-08-10.** The label is **"In at least"**, the
     maintainer's choice: `held_floor` is a FLOOR, and "Kept in 1 place" states a floor as an
     exact quantity - false for every file that has more. Same number, saying what it guarantees.
-    - **Still open:** `IMPLEMENTATION_STANDARDS.md` §3.1's "countable toward 3-2-1" clause,
-      which asserts the equivalence this disproves.
+  - ✅ **Stage C, the contract, amended 2026-08-10.** §3.1's marker-creation row said registering
+    is what makes a folder *"countable toward 3-2-1"* - the binding contract asserting the exact
+    equivalence `(acq)` disproves. **The contract was wrong, not the code**: registration is
+    necessary for a copy to be counted and never sufficient for it to count as redundancy.
+    Searched every doc and source file for the same equivalence stated elsewhere; it appears once.
+    `drives.py:169` and both CLI sites state necessity or make per-file claims, and are true.
+  - **Closed.**
 
 - **(acp) GPS-DERIVED TIMEZONE - understood, costed, and deliberately NOT built.** Recorded
   2026-08-10 from the P41 date/timezone measurement. **This entry exists so the idea is not
