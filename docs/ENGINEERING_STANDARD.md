@@ -239,6 +239,41 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   The question to ask of any guard: *if this assertion passed and the feature were still broken,
   what would that look like?* If you can describe it, you are asserting the wrong subject.
 
+- **A test that must change when a defect is fixed was usually testing the defect.** The
+  thirtieth member, and the **mirror** of the one above: that one passes while the promise is
+  broken, this one *fails while the code is right*. Same error, opposite symptom.
+
+  > **The tell is the strongest in this whole family: the test fails on output you believe is
+  > correct.** That belief is the signal. Do not reach for the assertion to make it green -
+  > read what the old assertion was pinning, because a test cannot fail on correct output unless
+  > it was written against something else.
+
+  The trap is that updating it feels like bookkeeping. It is not: it is the one moment the test's
+  real subject is visible, and the moment it gets overwritten if you hurry.
+
+  *Four instances, 2026-08-04 to 2026-08-10, and the pattern is why they are recorded together
+  rather than fixed separately:*
+
+  - **A conflation, pinned.** Tests asserted `skipped_newer_locally`. Splitting it into
+    `already_newer_locally` and `awaiting_content` broke them - because the single field had
+    carried two situations needing opposite words on screen, and the tests had been pinning the
+    conflation as though it were the contract (`b1d52a3`).
+  - **A tautology, twice.** `CURRENT_SCHEMA_VERSION == 17` and the `FUTURE_TOLERANCE` boundary
+    pair. Both are also instances of the twenty-ninth member below - **the same tests seen from
+    the other side**, and they are counted here for that reason, not as independent evidence. A
+    tautology restates the constant, so correcting the constant is exactly when it must change.
+  - **An overstatement, substring-matched.** `test_the_panel_still_says_what_only_it_says`
+    asserted `"2" in panel` against a fixture that IS the `(acq)` shape - two drives, 1,836 of
+    1,997 files on one. When the panel stopped counting drives under a sentence about files it
+    read "1 place" and the test went red **on the correct output**. It had been pinning the
+    overstatement, via a lone digit any number on the panel could have satisfied. Repaired to
+    name the row and its value (`1f35258`).
+
+  **The repair is always the same and it is always stronger:** assert the thing the sentence
+  actually promises, in terms that cannot be satisfied by the defect returning. And when a
+  changed test IS justified, the commit must say what the old assertion was pinning - "updated
+  to match" is the sentence that hides all four of these.
+
 - **When a fix lands on one surface, ask where else the rule is written down - not whether the
   other surface has a test.** The CLI and the app implement one contract twice (62 core symbols
   are imported by both), so a repair that reaches one copy and not its twin is a standing risk
