@@ -128,10 +128,49 @@ e2e:
 # existing hook here is sub-second, and one that can demand six minutes would be routinely
 # bypassed with `--no-verify`, which is worse than an honest nudge. CI is the backstop.
 BROWSER_PATHS := packages/truestill-app/src/ tests/e2e/
-BASE ?= HEAD
+# THE BASE IS WHAT HAS NOT BEEN PUSHED, NOT WHAT IS UNCOMMITTED - changed from HEAD 2026-08-10.
+# `HEAD` asks "does THIS commit reach the browser", which was right while every commit was pushed
+# on its own. Under the standing commit-freely-push-in-batches ruling it is the wrong question:
+# the batch is the unit CI sees, so a batch whose last commit is a docs edit skipped the lane
+# while carrying an app.js change three commits back. Found on a real batch - 03c06b9 was docs,
+# 172e3e2 was the custody sentence - where the default printed SKIPPED and `BASE=origin/main` ran
+# 436 browser tests.
+#
+# origin/main rather than `@{upstream}`, which is the tempting general answer: on a feature branch
+# the upstream is that branch's own remote copy, so the diff would NARROW to what is unpushed on
+# the branch, while what CI eventually sees is the merge into main. An origin/main that is stale
+# or behind only ever widens the diff, which errs toward running the lane.
+#
+# HEAD stays as the override, for the intermediate commits of a long batch where the lane has
+# already been run once and seven minutes per commit would get `gate` abandoned for `check`.
+BASE ?= origin/main
 
+# A BASE THAT DOES NOT RESOLVE MUST NOT READ AS "NOTHING CHANGED". Measured before making the
+# change above, and it is what turns a one-word edit into two branches: `git diff --name-only
+# no-such-ref` exits 128 and prints nothing to stdout, so `touched` comes back empty and the old
+# shape skipped the browser lane with a reassuring message. `HEAD` always resolves and could never
+# reach that state; `origin/main` can be absent - no remote, a clone of a clone, a fork whose
+# default branch is named something else - so moving the default INTRODUCES the failure and has to
+# answer for it in the same breath. Unreadable means RUN: seven minutes costs less than a
+# regression on someone else's push.
 gate: check
-	@touched=$$(git diff --name-only $(BASE) -- $(BROWSER_PATHS); 	            git diff --cached --name-only -- $(BROWSER_PATHS)); 	if [ -n "$$touched" ]; then 	  echo ""; echo "The diff reaches the browser, so the e2e lane applies:"; 	  echo "$$touched" | sort -u | sed 's/^/    /'; echo ""; 	  $(MAKE) --no-print-directory e2e; 	else 	  echo ""; echo "e2e SKIPPED: nothing in the diff touches $(BROWSER_PATHS)"; 	  echo "  (checked against $(BASE); override with 'make gate BASE=origin/main')"; 	fi
+	@if ! git rev-parse --verify --quiet $(BASE) >/dev/null; then \
+	  echo ""; echo "e2e RUNNING: BASE=$(BASE) does not resolve, so the diff cannot be read."; \
+	  echo "  An unreadable base must not be reported as 'nothing changed'."; echo ""; \
+	  $(MAKE) --no-print-directory e2e; \
+	else \
+	  touched=$$(git diff --name-only $(BASE) -- $(BROWSER_PATHS); \
+	             git diff --cached --name-only -- $(BROWSER_PATHS)); \
+	  if [ -n "$$touched" ]; then \
+	    echo ""; echo "The diff reaches the browser, so the e2e lane applies:"; \
+	    echo "$$touched" | sort -u | sed 's/^/    /'; echo ""; \
+	    $(MAKE) --no-print-directory e2e; \
+	  else \
+	    echo ""; echo "e2e SKIPPED: nothing in the diff touches $(BROWSER_PATHS)"; \
+	    echo "  (checked against $(BASE). The default base is origin/main - everything"; \
+	    echo "   not yet pushed; 'make gate BASE=HEAD' narrows it to the working commit.)"; \
+	  fi; \
+	fi
 
 build:
 	uv build --all-packages

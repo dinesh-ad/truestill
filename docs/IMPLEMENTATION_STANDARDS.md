@@ -540,6 +540,21 @@ maintain, and a lane that grows into one fails loudly rather than being re-measu
 **The condition, and it is checkable:** the diff touches `packages/truestill-app/src/` or
 `tests/e2e/`. Measured over 60 commits: **15 fire, 45 skip.**
 
+**The base is `origin/main` - everything not yet pushed - not `HEAD`** (changed 2026-08-10).
+`HEAD` asks *does this commit reach the browser*, which was the right question while every commit
+was pushed on its own; under the **commit-freely-push-in-batches** ruling the batch is the unit CI
+sees, so a batch whose last commit is a docs edit reported SKIPPED while carrying an `app.js`
+change three commits back. That is not hypothetical - it happened on the batch ending `03c06b9`,
+where the default said skip and `BASE=origin/main` ran 436 browser tests. `BASE=HEAD` remains the
+override for the intermediate commits of a long batch. Not `@{upstream}`: on a feature branch that
+narrows to what is unpushed *on the branch*, while what CI eventually sees is the merge into main.
+
+**And an unresolvable base RUNS the lane rather than skipping it.** `git diff --name-only
+no-such-ref` exits 128 and prints nothing, so an empty result means *"could not read"* and *"nothing
+changed"* alike - the old shape would have reported the reassuring one. `HEAD` always resolves and
+could never reach that state, so moving the default is what introduced the failure, and the target
+answers for it in the same change.
+
 - `static/` and `templates/` alone would fire on **5** - and would have **skipped the e2e tests'
   own commits**, eight of them in one session, including every readiness change. A commit that
   edits the browser tests and does not run them is the case the rule most needs to catch.

@@ -70,6 +70,9 @@ exactly once: when something hangs, you sit blocked for the whole ceiling before
 the inner loop, seconds. `make check` before every commit. **`make gate`** before a commit whose
 diff reaches the browser: it runs `check`, then `e2e` only when the diff touches
 `packages/truestill-app/src/` or `tests/e2e/`, and prints the files that decided it either way.
+**It measures against `origin/main`, not `HEAD`, and that is the batching rule above paying its
+own bill:** if the batch is what CI sees, the batch is what the gate must read, or a batch whose
+last commit is a docs edit skips a lane its third-from-last commit reached.
 The justification for skipping the client layer must be output you can paste. Measured
 2026-08-10: check 19-21 s against a 45 s ceiling, e2e ~6:50 against 600 s. **Seconds, not test
 counts** - a count is stale the next time anyone adds a test, and §6 of the contract already
