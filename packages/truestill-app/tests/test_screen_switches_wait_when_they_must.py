@@ -81,22 +81,13 @@ _REAL_WAITS = (
 #: prove the signal is honest.
 _EXEMPT_FILES = {"test_screen_readiness.py"}
 
-#: Frozen at the count on 2026-08-10. **This may only shrink.** A commit that converts a site
-#: deletes its entry; the test below fails if an entry stops violating, so a stale allowlist
-#: cannot accumulate and quietly re-authorise a bare switch later.
-_ALLOWED: set[tuple[str, str]] = {
-    # Trips - acts on `#ev-apply`, below `#ev-undo-panel`.
-    (
-        "test_cancel_renders_cancelled.py",
-        "test_trip_apply_to_disk_cancel_renders_stopped_with_partial_count",
-    ),
-    ("test_cleanup_outcome_is_named.py", "_stage_a_cleanup_offer"),
-    ("test_truncated_lists_say_so.py", "_drive_to_preview"),
-    (
-        "test_ui_regressions.py",
-        "test_trip_apply_completion_reports_empty_folders_and_offers_clean_flow",
-    ),
-}
+#: Frozen at 8 on 2026-08-10 and emptied by Stage 2. **This may only shrink**, and it is now at
+#: the floor: every site the rule can see either waits or is legitimately bare.
+#:
+#: An empty allowlist is NOT a claim that the suite is race-free - the three fail-open limits in
+#: the module docstring mean this guard under-reports by construction. It means nothing it CAN
+#: see is unguarded, and that anything new must be too.
+_ALLOWED: set[tuple[str, str]] = set()
 
 
 def _screen_dom_order() -> dict[str, list[str]]:
@@ -123,29 +114,39 @@ def _enclosing_test(lines: list[str], index: int) -> str:
     return "<module>"
 
 
+def _scan(name: str, text: str) -> set[tuple[str, str]]:
+    """The rule itself, over one file's source. Split out from `violations` so it can be proven
+    on input written to violate - once the allowlist reaches zero there are no real findings
+    left to demonstrate the matcher still works, and a matcher nobody can demonstrate is the
+    thing this whole file exists to avoid."""
+    order = _screen_dom_order()
+    found: set[tuple[str, str]] = set()
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        switch = re.search(r"""click\(\s*['"][^'"]*data-screen=.?["']?(\w+)""", line)
+        if not switch:
+            continue
+        screen = switch.group(1)
+        topmost = _TOPMOST_LOAD_WRITE.get(screen)
+        if topmost is None or topmost not in order.get(screen, []):
+            continue  # the screen loads nothing of its own - nothing can move
+        limit = order[screen].index(topmost)
+        window = "\n".join(lines[i + 1 : i + 1 + _WINDOW])
+        if any(wait in window for wait in _REAL_WAITS):
+            continue
+        touched = re.findall(r"#([\w-]+)", window)
+        if any(t in order[screen] and order[screen].index(t) >= limit for t in touched):
+            found.add((name, _enclosing_test(lines, i)))
+    return found
+
+
 def violations() -> set[tuple[str, str]]:
     """Every switch that acts on something its screen's loads can move, with no retrying wait."""
-    order = _screen_dom_order()
     found: set[tuple[str, str]] = set()
     for path in sorted(E2E.glob("test_*.py")):
         if path.name in _EXEMPT_FILES:
             continue
-        lines = path.read_text(encoding="utf-8").splitlines()
-        for i, line in enumerate(lines):
-            switch = re.search(r"""click\(\s*['"][^'"]*data-screen=.?["']?(\w+)""", line)
-            if not switch:
-                continue
-            screen = switch.group(1)
-            topmost = _TOPMOST_LOAD_WRITE.get(screen)
-            if topmost is None or topmost not in order.get(screen, []):
-                continue  # the screen loads nothing of its own - nothing can move
-            limit = order[screen].index(topmost)
-            window = "\n".join(lines[i + 1 : i + 1 + _WINDOW])
-            if any(wait in window for wait in _REAL_WAITS):
-                continue
-            touched = re.findall(r"#([\w-]+)", window)
-            if any(t in order[screen] and order[screen].index(t) >= limit for t in touched):
-                found.add((path.name, _enclosing_test(lines, i)))
+        found |= _scan(path.name, path.read_text(encoding="utf-8"))
     return found
 
 
@@ -169,13 +170,27 @@ def test_the_allowlist_only_shrinks() -> None:
 
 
 def test_the_guard_can_see_a_violation_at_all() -> None:
-    """Without this, a matcher that silently matches nothing reports a race-free suite.
+    """Four cases, on source written for the purpose. The allowlist is empty, so real findings
+    can no longer serve as the demonstration - and "it found nothing" has to be distinguishable
+    from "it looks at nothing"."""
+    head = "def test_x(ui):\n    ui.click('button[data-screen=\"backups\"]')\n"
 
-    Pinned to real data rather than a fixture string: the frozen allowlist is non-empty, so the
-    matcher demonstrably finds sites, and it finds exactly the ones recorded.
-    """
-    assert _ALLOWED, "the allowlist is empty - freeze it against real findings, not an empty set"
-    assert violations() == _ALLOWED
+    # Unsafe: #bk-source sits below #drives-list, which loadDrives writes.
+    assert _scan("f.py", head + '    ui.fill("#bk-source", "/x")\n') == {("f.py", "test_x")}
+
+    # Safe: an auto-retrying wait first.
+    assert (
+        _scan("f.py", head + '    expect(x).to_be_visible()\n    ui.fill("#bk-source", "/x")\n')
+        == set()
+    )
+
+    # Safe: acts only on the section itself, above everything the load writes.
+    assert _scan("f.py", head + '    ui.locator("#screen-backups").click()\n') == set()
+
+    # Unsafe still: a sleep is not a wait, and this is the case a blunter guard gets wrong.
+    assert _scan(
+        "f.py", head + '    ui.wait_for_timeout(200)\n    ui.fill("#bk-source", "/x")\n'
+    ) == {("f.py", "test_x")}
 
 
 def test_every_screen_that_loads_has_a_topmost_write_recorded() -> None:

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 
+from e2e_support import open_screen
 from playwright.sync_api import Page, expect
 
 #: Mirrors ``MOVE_PREVIEW_LIMIT`` in app.js. Duplicated on purpose: if someone changes the
@@ -81,7 +82,7 @@ def _drive_to_preview(ui: Page, move_count: int) -> None:
             + "\n\n",
         ),
     )
-    ui.click('button[data-screen="events"]')
+    open_screen(ui, "events")
     ui.fill("#ev-source", "/tmp/src")
     ui.click("#ev-propose")
     ui.fill('.ev-name[data-i="0"]', "Trip")

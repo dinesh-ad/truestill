@@ -466,7 +466,7 @@ def test_trip_apply_completion_reports_empty_folders_and_offers_clean_flow(ui: P
         ),
     )
 
-    ui.click('button[data-screen="events"]')
+    open_screen(ui, "events")
     ui.fill("#ev-source", "/tmp/src")
     ui.click("#ev-propose")
     ui.fill('.ev-name[data-i="0"]', "Trip")

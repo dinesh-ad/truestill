@@ -149,7 +149,7 @@ def test_trip_apply_to_disk_cancel_renders_stopped_with_partial_count(ui: Page) 
         "**/api/jobs/apply-job/events**",
         lambda r: _events(r, {"migrated": 2, "groups": []}),
     )
-    ui.click('button[data-screen="events"]')
+    open_screen(ui, "events")
     ui.fill("#ev-source", "/tmp/src")
     ui.click("#ev-propose")
     ui.fill('.ev-name[data-i="0"]', "Trip")

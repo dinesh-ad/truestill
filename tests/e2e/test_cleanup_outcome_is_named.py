@@ -25,6 +25,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from e2e_support import open_screen
 from playwright.sync_api import Page, expect
 
 _SOURCE = "/tmp/src"
@@ -116,7 +117,7 @@ def _stage_a_cleanup_offer(ui: Page, *, preview: dict[str, Any], applied: dict[s
         ),
     )
 
-    ui.click('button[data-screen="events"]')
+    open_screen(ui, "events")
     ui.fill("#ev-source", _SOURCE)
     ui.click("#ev-propose")
     ui.fill('.ev-name[data-i="0"]', "Trip")
