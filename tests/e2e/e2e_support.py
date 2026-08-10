@@ -13,6 +13,7 @@ import subprocess
 import threading
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from PIL import Image
 from playwright.sync_api import Page, expect
@@ -167,9 +168,10 @@ def open_backups(ui: Page) -> None:
     `loadCustody`, which writes into the rail and into the fields themselves, not above the
     controls:
 
-    * `loadDrives` writes `#drives-list`, which sits above the cards holding the controls, on
-      screen OPEN. That one this wait covers, and it is filed as `(acd)` - unmeasured, derived
-      from DOM order.
+    * `loadDrives` writes `#drives-list`. It used to sit ABOVE the cards holding the controls, so
+      writing it moved them - measured at +142px with no drives and +563px with three, `(acd)`.
+      **Fixed by moving that region below every control**, so it can no longer move one; this
+      wait no longer stands between a caller and that defect.
     * `validatePath` writes the hint spans immediately above `#bk-preview`, on a 400ms debounce,
       AFTER typing. **That is the one `(abq)` measured at +4.9px**, it happens long after this
       wait returns, and nothing here touches it.
@@ -177,3 +179,43 @@ def open_backups(ui: Page) -> None:
     So this closes the screen-open race and leaves `(abq)`'s alone.
     """
     open_screen(ui, "backups")
+
+
+def hold_route(ui: Page, url: str) -> list[Any]:
+    """Hold the next request to ``url`` open, and hand back the handle that releases it.
+
+    The route handler stores the route and returns without fulfilling, so the request stays
+    pending while the driver stays responsive. A handler that slept instead would block the same
+    connection the assertions travel over, and nothing could be observed mid-flight.
+
+    Lifted here from `test_screen_readiness.py` when a second file needed it: this module is
+    where anything a test *imports* lives, by the rule in its own docstring.
+    """
+    held: list[Any] = []
+    # The lambda is required, not stylistic: Playwright stamps an attribute onto the handler it
+    # is given, and a built-in method (`held.append`) has no `__dict__` to stamp - it raises
+    # AttributeError at route registration. Ruff's PLW0108 is a false positive here.
+    ui.route(url, lambda route: held.append(route))  # noqa: PLW0108
+    return held
+
+
+def release_held(held: list[Any], *, body: str | None = None) -> None:
+    """Let the held request through - to the real server, or to a stubbed ``body``.
+
+    No polling loop is needed, and a sleep would be wrong: the auto-retrying assertions that run
+    before every call site pump the driver's message loop, which is when the route handler
+    actually fires. If `held` is still empty by here, the load never happened - a missing
+    registry entry or a wrong glob - and that deserves to be said, not waited out.
+
+    Every held route is drained, not just the first. One screen holds more than one: filling
+    `#ev-source` fires a `change` listener that refreshes the same panel, so the field and the
+    screen open each ask once. Releasing only the first leaves the screen at "loading" for a
+    reason that has nothing to do with the flag being wrong.
+    """
+    assert held, "the load never fired: check the SCREEN_LOADS entry and the URL pattern"
+    for route in held:
+        if body is None:
+            route.continue_()
+        else:
+            route.fulfill(status=200, content_type="application/json", body=body)
+    held.clear()

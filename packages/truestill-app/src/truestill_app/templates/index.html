@@ -246,7 +246,6 @@
         <header><h1>Backups</h1>
           <p class="lede">Keep your photos safe in more than one place. Copy your library to a
             second drive, and check your backups stay healthy.</p></header>
-        <div id="drives-list"></div>
         <div class="card">
           <h2>Check a connected backup drive</h2>
           <p class="lede">Already have a backup? Re-verify every file on it is still perfect.</p>
@@ -279,6 +278,18 @@
           <!-- shared progress block: see createProgress() in app.js -->
           <div class="run-mount" data-run="bk"></div>
         </div>
+        <!-- BELOW THE CONTROLS, DELIBERATELY - `(acd)`. loadDrives writes this region on arrival,
+             and anything above a control moves it: measured at +142px with no drives and +563px
+             with three, while the control was visible and enabled, so a click at the old position
+             landed on an <h2> and was silently swallowed.
+             The cost is real and accepted: the Backups pass put state above remedy on purpose, so
+             the at-risk banner pointed DOWN at the copy form. It now points up, and a user with
+             files in one place meets the forms before the warning. A control that cannot be
+             reliably clicked was judged the worse product.
+             Reserving space instead was built and measured and is why this is a move rather than
+             a min-height: a card's height is content-driven, so a skeleton left 30-91px and
+             introduced a -316px SHRINK that the empty region could never produce. -->
+        <div id="drives-list"></div>
       </section>
 
       <!-- FIND -->

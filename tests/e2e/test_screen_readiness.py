@@ -25,9 +25,9 @@ than before. So the tests here are aimed at the flag itself, not at the screens.
 from __future__ import annotations
 
 import re
-from typing import Any
 
 import pytest
+from e2e_support import hold_route, release_held
 from playwright.sync_api import Page, expect
 
 _ACTIVE = re.compile(r"\bactive\b")
@@ -43,47 +43,13 @@ _LOADING_SCREENS = [
 ]
 
 
-def _hold(ui: Page, url: str) -> list[Any]:
-    """Hold the next request to ``url`` open, and hand back the handle that releases it.
-
-    The route handler stores the route and returns without fulfilling, so the request stays
-    pending while the driver stays responsive. A handler that slept instead would block the
-    same connection the assertions travel over, and nothing could be observed mid-flight.
-    """
-    held: list[Any] = []
-    # The lambda is required, not stylistic: Playwright stamps an attribute onto the handler it
-    # is given, and a built-in method (`held.append`) has no `__dict__` to stamp - it raises
-    # AttributeError at route registration. Ruff's PLW0108 is a false positive here.
-    ui.route(url, lambda route: held.append(route))  # noqa: PLW0108
-    return held
-
-
-def _release(held: list[Any]) -> None:
-    """Let the held request through.
-
-    No polling loop is needed, and a sleep would be wrong: the auto-retrying assertions that run
-    before every call site pump the driver's message loop for up to two seconds, which is when
-    the route handler actually fires. If `held` is still empty by here, the load never happened -
-    a missing registry entry or a wrong glob - and that deserves to be said, not waited out.
-
-    Every held route is drained, not just the first. One screen holds more than one: filling
-    `#ev-source` fires a `change` listener that refreshes the same panel (app.js), so the field
-    and the screen open each ask once. Releasing only the first leaves the screen at "loading"
-    for a reason that has nothing to do with the flag being wrong.
-    """
-    assert held, "the load never fired: check the SCREEN_LOADS entry and the URL pattern"
-    for route in held:
-        route.continue_()
-    held.clear()
-
-
 @pytest.mark.parametrize(("screen", "url"), _LOADING_SCREENS)
 def test_a_screen_is_not_ready_while_its_load_is_outstanding(
     ui: Page, screen: str, url: str
 ) -> None:
     """Table-driven on purpose. Proving the mechanism on one screen and assuming the other three
     is exactly how a `null` gets into a registry and nobody notices."""
-    held = _hold(ui, url)
+    held = hold_route(ui, url)
     section = ui.locator(f"#screen-{screen}")
 
     ui.click(f'button[data-screen="{screen}"]')
@@ -94,7 +60,7 @@ def test_a_screen_is_not_ready_while_its_load_is_outstanding(
     expect(section).to_have_attribute("data-ready", "loading")
     expect(section).not_to_have_attribute("data-ready", "ready", timeout=2_000)
 
-    _release(held)
+    release_held(held)
     expect(section).to_have_attribute("data-ready", "ready")
 
 
@@ -107,7 +73,7 @@ def test_events_waits_for_the_load_it_only_sometimes_makes(ui: Page) -> None:
     ui.click('button[data-screen="events"]')
     expect(section).to_have_attribute("data-ready", "ready")
 
-    held = _hold(ui, "**/api/migrate/undo*")
+    held = hold_route(ui, "**/api/migrate/undo*")
     ui.fill("#ev-source", "/anything")
     ui.click('button[data-screen="organize"]')
     ui.click('button[data-screen="events"]')
@@ -115,7 +81,7 @@ def test_events_waits_for_the_load_it_only_sometimes_makes(ui: Page) -> None:
     expect(section).to_have_class(_ACTIVE)
     expect(section).not_to_have_attribute("data-ready", "ready", timeout=2_000)
 
-    _release(held)
+    release_held(held)
     expect(section).to_have_attribute("data-ready", "ready")
 
 
@@ -157,14 +123,14 @@ def test_returning_to_a_screen_clears_ready_before_it_reloads(ui: Page) -> None:
     ui.click('button[data-screen="backups"]')
     expect(backups).to_have_attribute("data-ready", "ready")
 
-    held = _hold(ui, "**/api/drives")
+    held = hold_route(ui, "**/api/drives")
     ui.click('button[data-screen="find"]')
     ui.click('button[data-screen="backups"]')
 
     expect(backups).to_have_class(_ACTIVE)
     expect(backups).to_have_attribute("data-ready", "loading")
 
-    _release(held)
+    release_held(held)
     expect(backups).to_have_attribute("data-ready", "ready")
 
 

@@ -2443,7 +2443,7 @@ async function loadDrives() {
     list.innerHTML = `<div class="card"><div class="empty">${hasLibrary
       ? `<b>Your library isn’t backed up yet.</b><br>
          You have ${mediaCount(lib)} organized and no second copy of them.<br>
-         Connect a drive, then use <b>Copy your library to another drive</b> below.`
+         Connect a drive, then use <b>Copy your library to another drive</b> above.`
       : `<b>No backups yet - and nothing to back up.</b><br>
          Organize some photos first, then come back here to copy them to a second drive.`}
       </div></div>`;
@@ -2466,7 +2466,7 @@ async function loadDrives() {
     ? `<div class="banner warn" data-testid="backups-at-risk"><div>
          <div class="b-title">${plural(at_risk.length, "file")} exist in only one place</div>
          <div class="k">A second copy is what makes them safe. Copy your library to another
-         drive below.</div>
+         drive above.</div>
          <button class="btn btn-secondary" data-risk-action="copy">Copy to another drive</button>
        </div></div>`
     : "";

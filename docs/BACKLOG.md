@@ -99,6 +99,37 @@ is invisible here is retired, not free.**
       artifact - at the default viewport the button already sits below the fold, so
       `elementFromPoint` was querying outside the viewport. Re-run at 1280x1600.
 
+  - ✅ **FIXED 2026-08-10 by moving `#drives-list` below every control.** `#bk-preview` now moves
+    **0.0px** at zero, one and three drives - exact, with no bound to declare, because a control's
+    position is no longer a function of how many drives arrive. Pinned by
+    `tests/e2e/test_the_backups_controls_do_not_move.py`, which asserts the harm directly:
+    `elementFromPoint` at the position the button occupied must still be the button. Restoring the
+    old order turns all three red.
+    - **RESERVING SPACE WAS BUILT, MEASURED AND REJECTED - the numbers are why this is a move.**
+      A skeleton sized from the exact registered-drive count cut the shift 4-6x (165->40, 156->30,
+      563->91) and **still left it 2-5 button heights**: `#bk-preview` is 34.8px, so the harm
+      needs the shift under ~17px, and a card's height is content-driven (optional reach badge,
+      optional last-seen note, up to four decisions lines, 68ch wrapping). Matching the fixture's
+      cards would have been overfitting to the test.
+    - ⚠ **And it introduced a direction that did not exist.** Reserving from a count learned at
+      boot can over-reserve, so the region SHRINKS and the button moves **up** - measured at
+      **-316.6px** when the boot count said three and the answer was one. Before the skeleton a
+      shrink was impossible: the region grew from empty, always downwards. That is a trade for a
+      worse defect, not a partial fix.
+    - **THE COST, accepted by the maintainer and stated rather than softened.** The Backups pass
+      deliberately put state ABOVE remedy so the at-risk banner pointed down at the copy form.
+      That is inverted: the forms come first and the state below them. The sharpest form of it is
+      that the at-risk banner renders **inside** `#drives-list`, so a user with files in only one
+      place now meets two forms before the warning, and on a short viewport that warning is below
+      the fold. Accepted on the grounds that a control which cannot be reliably clicked is worse
+      than one met before its context. Two shipped strings said "below" and now say "above"; both
+      live inside the moved region, so they travelled with it.
+    - *Not a cost:* `test_user_facing_copy.py` was reported as pinning a third "below" string and
+      does not - that list BANS retired wording. Editing it would have weakened a guard.
+    - *Available if ever needed:* the exact registered-drive count is one binding away in
+      `library_status` (`catalog.list_drives()` is already materialised and `places` is a filtered
+      view of it). Not added, because nothing reads it - that is `(abm)`'s shape.
+
   - **Two movers on this screen, and they are not the same defect.** This entry owns the
     **screen-open** mover: `loadDrives` → `#drives-list`, above the whole card. `(abq)` owns the
     **after-typing** mover: `validatePath` is `debounce(run, 400)` and writes into

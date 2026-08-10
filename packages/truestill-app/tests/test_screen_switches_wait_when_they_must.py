@@ -172,24 +172,32 @@ def test_the_allowlist_only_shrinks() -> None:
 def test_the_guard_can_see_a_violation_at_all() -> None:
     """Four cases, on source written for the purpose. The allowlist is empty, so real findings
     can no longer serve as the demonstration - and "it found nothing" has to be distinguishable
-    from "it looks at nothing"."""
-    head = "def test_x(ui):\n    ui.click('button[data-screen=\"backups\"]')\n"
+    from "it looks at nothing".
 
-    # Unsafe: #bk-source sits below #drives-list, which loadDrives writes.
-    assert _scan("f.py", head + '    ui.fill("#bk-source", "/x")\n') == {("f.py", "test_x")}
+    **Aimed at SETTINGS, and it used to be aimed at Backups.** `(acd)` moved `#drives-list` below
+    every Backups control, so `#bk-source` stopped being below a written region and this fixture
+    stopped describing anything unsafe - it went green for the wrong reason the moment the defect
+    was fixed. That is §4's twenty-eighth member happening to the guard that member was written
+    beside: a check proven by the problem it hunts dies when the problem dies. Settings is used
+    because `#mig-path` really does sit below `#layout-preview`, which `loadLayout` writes.
+    """
+    head = "def test_x(ui):\n    ui.click('button[data-screen=\"settings\"]')\n"
+
+    # Unsafe: #mig-path sits below #layout-current, which loadLayout writes on screen open.
+    assert _scan("f.py", head + '    ui.fill("#mig-path", "/x")\n') == {("f.py", "test_x")}
 
     # Safe: an auto-retrying wait first.
     assert (
-        _scan("f.py", head + '    expect(x).to_be_visible()\n    ui.fill("#bk-source", "/x")\n')
+        _scan("f.py", head + '    expect(x).to_be_visible()\n    ui.fill("#mig-path", "/x")\n')
         == set()
     )
 
     # Safe: acts only on the section itself, above everything the load writes.
-    assert _scan("f.py", head + '    ui.locator("#screen-backups").click()\n') == set()
+    assert _scan("f.py", head + '    ui.locator("#screen-settings").click()\n') == set()
 
     # Unsafe still: a sleep is not a wait, and this is the case a blunter guard gets wrong.
     assert _scan(
-        "f.py", head + '    ui.wait_for_timeout(200)\n    ui.fill("#bk-source", "/x")\n'
+        "f.py", head + '    ui.wait_for_timeout(200)\n    ui.fill("#mig-path", "/x")\n'
     ) == {("f.py", "test_x")}
 
 
