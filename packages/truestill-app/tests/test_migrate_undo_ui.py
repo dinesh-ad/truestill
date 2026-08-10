@@ -52,11 +52,19 @@ def test_everyday_day_threshold_warns_with_route_to_migrate() -> None:
 
 
 def test_undo_affordance_is_durable_not_a_snackbar() -> None:
-    """Re-query on Trips and Settings load - the record survives a tab reload."""
-    assert 'if (name === "events")' in APP_JS
-    assert 'if (name === "settings")' in APP_JS
-    assert 'refreshUndoAffordance($("ev-source").value.trim(), $("ev-undo-panel"))' in APP_JS
-    assert 'refreshUndoAffordance($("mig-path").value.trim(), $("mig-undo-panel"))' in APP_JS
+    """Re-query on Trips and Settings load - the record survives a tab reload.
+
+    Read from ``SCREEN_LOADS`` rather than from the ``if (name === "events")`` chain that used to
+    live in ``showScreen``. **Stronger than the assertion it replaces, not merely different**: the
+    old form proved only that the calls existed *somewhere in the file*, and would have stayed
+    green if the branch that fired them had been deleted. Requiring them inside the registry
+    proves both that they run on screen open and that the screen WAITS for them - a re-query
+    wired up anywhere else would still refresh the panel but would never be part of readiness.
+    """
+    start = APP_JS.index("const SCREEN_LOADS = {")
+    registry = APP_JS[start : APP_JS.index("\n};", start)]
+    assert 'refreshUndoAffordance($("ev-source").value.trim(), $("ev-undo-panel"))' in registry
+    assert 'refreshUndoAffordance($("mig-path").value.trim(), $("mig-undo-panel"))' in registry
     assert 'id="ev-undo-panel"' in INDEX
     assert 'id="mig-undo-panel"' in INDEX
 

@@ -789,6 +789,29 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   Corollary, from the same day: the real catalog held zero events and zero date confirmations, so
   the feature had only ever met seeded examples of the thing it exists to protect.
 
+- **A signal tests wait on must be derived from the writes it claims to cover, never asserted
+  beside them.** The twenty-fourth member, and the failure it prevents is worse than the one it
+  fixes. A readiness flag that flips early does not produce a flaky suite - it produces a
+  **quiet** one, because every test then waits on a lie and passes. The suite looks healthier the
+  moment it stops being able to see.
+
+  Recorded 2026-08-10, building `data-ready` for the app's screens. Derivation is the whole of
+  it: the flag is assigned textually downstream of the `await` of the same promises that perform
+  the DOM writes, in one function, and the markup ships `loading` so `ready` can never be
+  satisfied by the starting state. A flag set from a timer, a count, a `readyState` or "the last
+  thing I remember starting" is a **proxy**, and a proxy that leads its subject is indistinguishable
+  from a correct signal until something silently breaks.
+
+  > **Prove it with the dangerous idiom on purpose.** The test that earns its place waits for the
+  > flag and then does a deliberately non-retrying read. If the flag ever leads the DOM, that one
+  > named test goes red instead of a flake appearing somewhere else three weeks later.
+
+  *And say where the proof stops.* Measured the same day: wrapping one load's DOM write in
+  `setTimeout(…, 0)` left **all ten** browser tests green, including the deliberate one-shot read -
+  the deferred write lands before a separate round trip can read it. That case has no reliable
+  browser proof and is defended by a static scan instead. A mechanism whose weak spot is written
+  down is worth more than one whose weak spot is assumed absent.
+
 - **A branch the common case masks is the one nothing exercises.** The twenty-third member. When
   two paths produce the *same observable outcome*, tests written against the outcome cover only
   whichever path the default takes - and the other can be deleted without a single failure.

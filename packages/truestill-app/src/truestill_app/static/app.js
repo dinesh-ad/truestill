@@ -1144,6 +1144,77 @@ function alignPanelWithContent() {
   panel.style.paddingTop = `${Math.round(top + head)}px`;
 }
 
+// ---------- screen readiness ----------
+// WHAT A SCREEN OWES BEFORE IT IS READY, in one table rather than in a branch chain inside
+// showScreen. The table is the point: after this, showScreen contains NO per-screen call at
+// all, so a load added to a screen has exactly one correct home, and putting it there earns
+// readiness without anyone remembering to. That is prevention by construction, and it is worth
+// more than any test below it.
+//
+// Arrows, not calls: the values are STARTERS. They read the DOM (`ev-source`, `mig-path`) at the
+// moment the screen opens, which a pre-built promise could not.
+const SCREEN_LOADS = {
+  organize: [() => refreshOrganizeUndoAffordance()],
+  events: [() => refreshUndoAffordance($("ev-source").value.trim(), $("ev-undo-panel"))],
+  import: [],
+  backups: [() => loadDrives()],
+  find: [],
+  stats: [() => loadStats()],
+  settings: [
+    () => loadLayout(),
+    () => refreshUndoAffordance($("mig-path").value.trim(), $("mig-undo-panel")),
+  ],
+};
+
+//: The shell's loads, as PROMISES rather than starters - they run once, at boot, and every
+//: screen waits on the same five. Folded into each screen's readiness rather than published as
+//: a second flag: `loadCustody` prefills `bk-source`/`bk-target`, so Backups is not usable until
+//: a SHELL load lands, and a backups-only signal would be a proxy for the wrong condition. One
+//: thing to wait on means nobody can wait on the wrong one.
+let shellLoads = [];
+
+//: Per-screen, so a superseded run cannot stamp a terminal value over a newer run's "loading".
+//: Same idiom as `sidebarLoadGeneration` and `organizeModeLoadGeneration`.
+const screenGeneration = {};
+
+// The ONLY place `data-ready` is assigned. Everything below depends on that being true: the
+// mutation proof aims at a single line, and the "one writer" guard fails if a second appears.
+//
+// `allSettled`, never `all`. With `all` the combined promise settles on the FIRST rejection,
+// while the other loads are still writing - so "ready" or "failed" would be stamped with writes
+// outstanding. That is a cry-wolf by construction, which is the one failure this whole mechanism
+// exists to avoid.
+//
+// Failure is `failed`, a third terminal value, not `ready` and not a permanent `loading`.
+// `ready` would be the lie itself: `#stats-result` still reads "Loading library stats…" after a
+// 500 (it is never cleared), so a test waiting on `ready` would read the placeholder and assert
+// against it. A permanent `loading` tells a waiter only that it timed out, naming the symptom and
+// never the cause - and leaves `aria-busy="true"` claiming work is in progress when none is.
+function settleScreen(name) {
+  const section = $(`screen-${name}`);
+  if (!section) return Promise.resolve();
+  // Synchronous, BEFORE any await: leaving a screen and returning must not find the previous
+  // visit's "ready" still standing while the loads re-run. A stale-true flag is the same defect
+  // this mechanism is meant to remove, wearing its clothes.
+  const generation = (screenGeneration[name] = (screenGeneration[name] || 0) + 1);
+  section.dataset.ready = "loading";
+  section.setAttribute("aria-busy", "true");
+  const started = (SCREEN_LOADS[name] || []).map((start) => start());
+  return Promise.allSettled([...shellLoads, ...started]).then((results) => {
+    if (generation !== screenGeneration[name]) return;
+    const failures = results.filter((r) => r.status === "rejected");
+    for (const failure of failures) reportLoadFailure(failure.reason);
+    if (failures.length) {
+      const first = failures[0].reason;
+      section.dataset.readyError = first instanceof Error ? first.message : String(first);
+    } else {
+      delete section.dataset.readyError;
+    }
+    section.dataset.ready = failures.length ? "failed" : "ready";
+    section.setAttribute("aria-busy", "false");
+  });
+}
+
 function showScreen(name) {
   document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("active", s.id === `screen-${name}`));
   // Land at the top. Switching screens is a class toggle, not a page load, so nothing resets
@@ -1157,20 +1228,9 @@ function showScreen(name) {
   document.querySelectorAll(".nav-item").forEach((n) =>
     n.setAttribute("aria-current", n.dataset.screen === name ? "page" : "false"));
   alignPanelWithContent();
-  if (name === "backups") loadDrives().catch(reportLoadFailure);
-  if (name === "settings") {
-    loadLayout().catch(reportLoadFailure);
-    refreshUndoAffordance($("mig-path").value.trim(), $("mig-undo-panel")).catch(reportLoadFailure);
-  }
-  if (name === "events") {
-    refreshUndoAffordance($("ev-source").value.trim(), $("ev-undo-panel")).catch(reportLoadFailure);
-  }
-  if (name === "organize") {
-    refreshOrganizeUndoAffordance().catch(reportLoadFailure);
-  }
-  if (name === "stats") {
-    loadStats().catch(reportLoadFailure);
-  }
+  // Everything above is synchronous on purpose: readiness never gates rendering, so navigation
+  // stays instant and a screen appears the moment it is asked for. Only its CONTENT waits.
+  return settleScreen(name);
 }
 document.querySelectorAll(".nav-item").forEach((item) => { item.onclick = () => showScreen(item.dataset.screen); });
 
@@ -2590,8 +2650,9 @@ document.addEventListener("click", guarded(async (e) => {
   if (!btn) return;
   e.preventDefault();
   if (btn.dataset.statsAction === "backups") {
-    showScreen("backups");
-    await loadDrives();
+    // `showScreen` now returns the screen's readiness, so awaiting it covers `loadDrives`.
+    // It used to call `loadDrives` a second time here, on top of the one `showScreen` fired.
+    await showScreen("backups");
     return;
   }
   if (btn.dataset.statsAction === "organize" || btn.dataset.statsAction === "import") {
@@ -3437,14 +3498,21 @@ document.querySelectorAll('input[name="text-size"]').forEach((radio) => {
   });
 });
 
-// The shell's six. Failures reach the banner deliberately rather than through the last-resort
-// backstop - see `reportLoadFailure`.
-loadOrganizeMode().catch(reportLoadFailure);
-loadSidebar().catch(reportLoadFailure);
-loadTextSize().catch(reportLoadFailure);
-loadCustody().catch(reportLoadFailure);
-loadQuickPlaces().catch(reportLoadFailure);
-refreshOrganizeUndoAffordance().catch(reportLoadFailure);
+// The shell's five, kept as RAW promises: `settleScreen` reports their failures through
+// `reportLoadFailure` after `allSettled` inspects them, so catching here would hide the
+// rejection from the very thing that has to see it. Nothing observes them unhandled, because
+// the settle call below attaches its handlers in this same tick.
+//
+// `refreshOrganizeUndoAffordance` used to sit in this list and is now `SCREEN_LOADS.organize`.
+// It was only ever here because Organize is the screen that ships open - it is a screen load,
+// not a shell load, and leaving it in both places would fetch it twice on every visit.
+shellLoads = [loadOrganizeMode(), loadSidebar(), loadTextSize(), loadCustody(), loadQuickPlaces()];
+
+// `showScreen` is never called at boot - Organize ships with `class="screen active"` in the
+// markup - so without this the screen a user actually lands on would sit at "loading" forever.
+// Read from the DOM rather than hardcoded, so moving `active` in the markup cannot desync it.
+const bootScreen = document.querySelector(".screen.active");
+if (bootScreen) settleScreen(bootScreen.id.replace("screen-", ""));
 
 // ---------- Dates you have corrected: preview -> typed confirm -> job (step 4) ----------
 // Preview is catalog-only so it is a plain request; the run is a job because it writes to user

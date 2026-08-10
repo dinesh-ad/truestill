@@ -45,6 +45,13 @@ All notable changes to this project are documented here. The format follows
   A group you have already named shows its name instead, and is never offered a suggestion.
 
 ### Fixed
+- **Screens now announce that they are still loading.** Each screen marks itself busy while the
+  content it opens with is on its way, and clear when it has arrived, so a screen reader says so
+  instead of reading a half-filled page as finished. A failure in one of those background
+  requests is now reported deliberately rather than through the catch-all that exists for
+  unforeseen bugs. **A screen that fails still shows its placeholder** - replacing that with a
+  failure card is a separate change, not yet made.
+
 - **A run that loses contact with Truestill now tells you, instead of freezing.** If the live
   connection to a running job died - which could happen when you pressed Cancel just as the work
   finished - the screen simply stopped. It kept whatever it was showing before the run, the button

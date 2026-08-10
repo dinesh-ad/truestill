@@ -120,7 +120,7 @@
            an alert; EMPTY is a first-run aside. `.hidden` until there is something to say. -->
       <div class="banner hidden" id="catalog-notice"></div>
       <!-- ORGANIZE (home) -->
-      <section class="screen active" id="screen-organize">
+      <section class="screen active" id="screen-organize" data-ready="loading" aria-busy="true">
         <header>
           <h1>Organize</h1>
           <p class="lede">Choose how to organize: copy into a destination, move into a destination,
@@ -186,7 +186,7 @@
       </section>
 
       <!-- TRIPS & EVENTS -->
-      <section class="screen" id="screen-events">
+      <section class="screen" id="screen-events" data-ready="loading" aria-busy="true">
         <header><h1>Trips &amp; events</h1>
           <p class="lede">A multi-day run of camera photos is grouped into one TRIP; a single busy
             day is its own EVENT. Split apart anything grouped wrong, or merge two runs that
@@ -217,7 +217,7 @@
       </section>
 
       <!-- IMPORT -->
-      <section class="screen" id="screen-import">
+      <section class="screen" id="screen-import" data-ready="loading" aria-busy="true">
         <!-- NOT a Takeout screen. `ingest` reads any folder and any `.zip`, `.tar`, `.tgz` or
              `.tar.gz` from any source; Takeout is the motivating case, not the scope. The
              heading said otherwise until 2026-08-06 - see SHIPPED (jj). -->
@@ -242,7 +242,7 @@
       </section>
 
       <!-- BACKUPS -->
-      <section class="screen" id="screen-backups">
+      <section class="screen" id="screen-backups" data-ready="loading" aria-busy="true">
         <header><h1>Backups</h1>
           <p class="lede">Keep your photos safe in more than one place. Copy your library to a
             second drive, and check your backups stay healthy.</p></header>
@@ -282,7 +282,7 @@
       </section>
 
       <!-- FIND -->
-      <section class="screen" id="screen-find">
+      <section class="screen" id="screen-find" data-ready="loading" aria-busy="true">
         <header><h1>Find a file</h1>
           <p class="lede">Search your whole library - it works even when the drives are unplugged.</p></header>
         <!-- Spotlight, not a dashboard. The field IS the screen until there is something to
@@ -303,14 +303,14 @@
       </section>
 
       <!-- STATS -->
-      <section class="screen" id="screen-stats">
+      <section class="screen" id="screen-stats" data-ready="loading" aria-busy="true">
         <header><h1>Library stats</h1>
           <p class="lede">Custody - a verified record of where every file is safe. Start there, then check completeness and shape.</p></header>
         <div id="stats-result"></div>
       </section>
 
       <!-- SETTINGS -->
-      <section class="screen" id="screen-settings">
+      <section class="screen" id="screen-settings" data-ready="loading" aria-busy="true">
         <header><h1>Settings</h1>
           <p class="lede">Choose how trips and events are suggested, how organized copies are
             laid out on disk, and how Truestill looks.</p></header>
