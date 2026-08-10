@@ -27,8 +27,13 @@ For document ownership and map-by-question, use root `../CLAUDE.md`.
 
 ## Practical reminders
 
-- Run `make check` before considering work done.
-- Browser lane is explicit (`make e2e`), separate from `make check`.
+- **Inner loop: targeted tests only.** Never the full gate on an edit.
+- **`make check` before every commit** - 19-33 s for 2,080 tests, which is not friction.
+- **`make gate` when the diff reaches the browser.** It runs `check`, then `e2e` only if the diff
+  touches `packages/truestill-app/src/` or `tests/e2e/`, and prints what decided it. The reason
+  for skipping the browser lane is a command's output, never a recollection.
+- The browser lane stays separate from `make check` and out of a fresh clone's path: `make check`
+  is green with no browser installed. `IMPLEMENTATION_STANDARDS.md` §6.1 is the binding rule.
 - `exiftool` must be installed and on PATH for metadata paths.
 - Treat `docs/*-research.md` as historical records: keep findings/rejections, do not rewrite
   them into present-tense truth.

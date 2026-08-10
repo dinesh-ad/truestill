@@ -505,7 +505,56 @@ successful upgrade), never automatic.
   pre-commit. Refuses repo-root filenames that are bare numbers (`10.0`) or ISO dates
   (`2024-03-24`) - the shape left by pasting ``> 25.9`` / ``-> 2024-03-24`` into a shell.
 
-### 6.1 The prose convention: hyphens, not em-dashes
+- **`make gate`** = `check`, then `e2e` **only when the diff reaches the browser**. It prints
+  which files decided it, either way. See 6.1.
+
+### 6.1 Which lane to run, and when
+
+**The rule is a command, not a judgement.** `make gate` decides from the diff and shows its
+reasoning; the justification for skipping the browser lane must be output you can paste, never a
+recollection.
+
+| when | run | cost, measured 2026-08-10 |
+|---|---|---|
+| inner loop, on an edit | the targeted test(s) only | seconds |
+| before every commit | **`make check`** | **19-33 s for 2,080 tests** |
+| before a commit whose diff reaches the browser | **`make gate`** (check + e2e) | **+ ~6.5 min for 412 tests** |
+
+**Never the full gate on an edit.** That premise was the problem, not the policy.
+
+**The condition, and it is checkable:** the diff touches `packages/truestill-app/src/` or
+`tests/e2e/`. Measured over 60 commits: **15 fire, 45 skip.**
+
+- `static/` and `templates/` alone would fire on **5** - and would have **skipped the e2e tests'
+  own commits**, eight of them in one session, including every readiness change. A commit that
+  edits the browser tests and does not run them is the case the rule most needs to catch.
+- `packages/truestill-app/src/` is included, not just its `static/`, because the app's Python
+  builds the payloads the browser renders: a field renamed in a service breaks a screen without
+  touching a `.js` file.
+
+**THE COVERAGE BOUNDARY, which is what makes skipping sound rather than convenient.** `make check`
+covers everything **except client-side behaviour**, because `app.js` is not imported by Python and
+no Python test can execute it. Both readiness defects found in the 2026-08-10 session were
+invisible to `check` **by construction**. That is not a gap to be closed - it is why the e2e lane
+exists, and it is precisely why the lane may be skipped when the diff cannot reach it.
+
+**Not CI-only.** CI is ~5.5 min plus queue, and a red lane on `main` costs more than a local wait.
+Local when it applies; CI as the backstop.
+
+**No curated smoke suite.** A subset is a second artifact that drifts from the real one and gives
+its false confidence exactly when it matters. Run the e2e **file** for the screen you touched -
+the same targeting already used for unit tests - and no new artifact to rot.
+
+**`make gate` is a nudge, not a control**, and §4's twenty-seventh member requires saying so: you
+must still choose to type `gate` rather than `check`, so **it will sometimes be skipped**. A
+blocking pre-commit hook was considered and refused - every existing hook here is sub-second, and
+one that can demand six minutes would be bypassed with `--no-verify`, which is worse than an
+honest nudge. The residual is accepted and CI is what catches it.
+
+The two ceilings from the timing work already stop either lane drifting:
+`TEST_SECONDS_MAX ?= 45` and `E2E_SECONDS_MAX ?= 600` (`Makefile`).
+
+### 6.2 The prose convention: hyphens, not em-dashes
 
 **Repo prose and source use the ASCII hyphen.** This is the maintainer's house style and it is settled;
 do not reintroduce `U+2014`, and do not "restore" the em-dashes in an existing document.

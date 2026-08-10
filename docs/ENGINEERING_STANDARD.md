@@ -39,6 +39,16 @@ network API boundary, no untrusted multi-tenant input. Do not import server-SaaS
 | Engine | `pytest` (`make check`) | Behaviour: dating, dedup, layout, catalog, custody, safety gates |
 | Client | `pytest tests/e2e` (`make e2e`) | What a user actually reads on screen |
 
+**Which layer to run, and when - the decision is a command, not a judgement.** Targeted tests in
+the inner loop, seconds. `make check` before every commit. **`make gate`** before a commit whose
+diff reaches the browser: it runs `check`, then `e2e` only when the diff touches
+`packages/truestill-app/src/` or `tests/e2e/`, and prints the files that decided it either way.
+The justification for skipping the client layer must be output you can paste. Measured
+2026-08-10: check 19-33 s for 2,080 tests, e2e ~6.5 min for 412. Full rule and its costs:
+`IMPLEMENTATION_STANDARDS.md` §6.1, which is binding.
+
+**Never the full gate on an edit.** That premise is what made the gate feel expensive.
+
 The third layer is not optional garnish. It exists because a whole class of defect - the
 product describing itself incorrectly - is invisible to the first two, and shipped repeatedly
 before it existed. **If a change alters anything a user reads, it is not verified until the

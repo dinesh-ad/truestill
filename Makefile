@@ -108,6 +108,31 @@ e2e:
 		--tracing retain-on-failure --video retain-on-failure \
 		--output tests/e2e/.artifacts,$(E2E_SECONDS_MAX),the browser lane,E2E_SECONDS_MAX)
 
+# --- the pre-commit gate: check always, e2e only when the diff reaches the browser ----------
+# WHY A TARGET RATHER THAN A JUDGEMENT. `make check` covers everything except client-side
+# behaviour, because `app.js` is not imported by Python - so no amount of it can see a defect in
+# the browser. That is not a gap to close; it is why the e2e lane exists, and it is what makes
+# skipping e2e sound rather than convenient. The condition must therefore be CHECKABLE, and this
+# target prints its own reasoning either way so the justification can be shown rather than
+# asserted.
+#
+# WHY THIS PATH SET, measured over 60 commits rather than chosen: `static/` and `templates/`
+# alone fires on 5 and would have SKIPPED THE E2E TESTS' OWN COMMITS - eight of them in one
+# session, including every readiness change. `tests/e2e/` is in the set for that reason.
+# `packages/truestill-app/src/` is in it because the app's Python builds the payloads the browser
+# renders, so a field renamed there breaks a screen without touching a `.js` file. Core-only and
+# CLI-only work skips the lane: 45 of those 60 commits.
+#
+# NOT A CONTROL, and §4's twenty-seventh member says to say so: you must still choose to type
+# `gate` rather than `check`. A blocking pre-commit hook was considered and refused - every
+# existing hook here is sub-second, and one that can demand six minutes would be routinely
+# bypassed with `--no-verify`, which is worse than an honest nudge. CI is the backstop.
+BROWSER_PATHS := packages/truestill-app/src/ tests/e2e/
+BASE ?= HEAD
+
+gate: check
+	@touched=$$(git diff --name-only $(BASE) -- $(BROWSER_PATHS); 	            git diff --cached --name-only -- $(BROWSER_PATHS)); 	if [ -n "$$touched" ]; then 	  echo ""; echo "The diff reaches the browser, so the e2e lane applies:"; 	  echo "$$touched" | sort -u | sed 's/^/    /'; echo ""; 	  $(MAKE) --no-print-directory e2e; 	else 	  echo ""; echo "e2e SKIPPED: nothing in the diff touches $(BROWSER_PATHS)"; 	  echo "  (checked against $(BASE); override with 'make gate BASE=origin/main')"; 	fi
+
 build:
 	uv build --all-packages
 
