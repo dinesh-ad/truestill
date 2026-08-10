@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(acn). Next free: (aco).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(acp). Next free: (acq).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -43,6 +43,73 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(acp) GPS-DERIVED TIMEZONE - understood, costed, and deliberately NOT built.** Recorded
+  2026-08-10 from the P41 date/timezone measurement. **This entry exists so the idea is not
+  re-derived from scratch; the record is worth more than the feature.**
+  - **It is a DIFFERENT CLASS of work from the place-name geocoding in
+    `reverse-geocoding-research.md`, not a harder version of it.** Naming is a human question -
+    Wayanad is a district and not a populated place, Chennai's nearest point is a neighbourhood,
+    `Tiruchirappalli` or `Trichy` depends on who is asking - and there is no ground truth, only
+    conventions. Timezone lookup asks **which polygon contains this point** and returns one IANA
+    identifier: no synonyms, no administrative history, no phrasing expectation. Closed-form.
+  - **Cost, for whoever prices it later.** `timezone-boundary-builder` is the standard source,
+    **ODbL**, roughly 50-90 MB as GeoJSON and a few MB packed - against the 400 MB download and
+    **1,683 MB peak RSS** that GeoNames class P cost. Point-in-polygon has an honest failure
+    mode the place-name lookup lacked: a point at sea returns **no timezone**, where the
+    nearest-neighbour place lookup confidently returned an island 920 km away.
+  - **The asymmetry that would justify it:** a wrong place name is cosmetic and visible - the
+    user reads it and shrugs. A **wrong timezone silently moves a photo to the wrong day**, and
+    near midnight the wrong month, into a tree the user then trusts.
+  - ⚠ **Two cautions, and together they are why this is filed rather than built.**
+    1. **It inherits the anachronism problem in a WORSE form than place names had it.** Zone
+       boundaries and DST rules change, so a 2013 photo needs the **historical** rule as of the
+       capture instant, not today's. IANA `tzdata` provides that, but only if the lookup resolves
+       the zone *and then* the rule for that moment - two steps, and skipping the second is the
+       silent-wrong-day failure this would exist to prevent.
+    2. **Coverage is small.** GPS is on **3.6%** of this maintainer's library and 1-20% of the
+       public corpora, so it would answer the question for a minority of photos and still need a
+       fallback for the rest.
+  - ✅ **And the closing argument: we may not need it.** P41 measured six midnight-straddling
+    fixtures end to end and **five of six land correctly**, because Truestill never converts -
+    `parse_exif_datetime` strips any offset and keeps the naive local wall clock, which is what
+    `DateTimeOriginal` actually means. Placement was **identical across four extreme machine
+    timezones**. The one wrong case is `(aco)`, and a timezone dataset is not the cheapest way to
+    close it. Reopen this only if `(aco)` is ruled to need correcting rather than reporting.
+
+- **(aco) A STILL WHOSE CAMERA WROTE UTC INTO `DateTimeOriginal` LANDS ON THE WRONG DAY.**
+  Recorded 2026-08-10, measured in P41. Fixture: `DateTimeOriginal = 2026:07:31 20:30:00Z`,
+  taken in India. 20:30 UTC is 02:00 IST on 1 August, so the photo belongs in `2026-08` and
+  lands in **`2026/2026-07/`**. One of six midnight fixtures; the other five are correct.
+  - **Why it is the only wrong one.** `parse_exif_datetime` strips `Z` and any `±HH:MM` and
+    keeps the digits as local wall clock. That is right for every camera that writes local time -
+    which is what the tag means - and wrong only for one that writes UTC into it.
+  - ⚠ **A fix is not obvious, and this is the substance of the entry: knowing the stamp is UTC
+    does not tell us where the camera was.** Converting needs a local zone, and there are only
+    three sources for one, each with a real cost:
+    - **GPS** - present on 3.6% of this library, and drags in `(acp)`'s historical-rule problem.
+    - **A user-supplied zone** - the `--tz` flag already exists for Takeout, and could apply
+      here. Honest, but it asks the user a question they may not be able to answer for a photo
+      taken years ago on a trip.
+    - **Refusal** - send it to `Undated/` and say why. Loses a date we partly have.
+  - **The argument for doing nothing:** the digits are only wrong by the shooter's offset, so
+    the photo is at most one day out and usually in the right month. `Undated/` is worse for a
+    user than a date that is one day off, and the current behaviour is silently *right* for the
+    far commoner camera.
+  - **The argument against:** it is silent. The user is never told the stamp was UTC-marked,
+    which is exactly the "wrong folder, no explanation" shape. **Reporting it costs nothing and
+    is separable from correcting it** - the date-provenance view could say *"this file's time is
+    marked UTC and was read as local"* without any zone lookup at all. That is probably the
+    cheapest honest move and it is not a fix.
+  - ⚠ **`OffsetTimeOriginal` does NOT solve this, and the claim that it would was wrong.**
+    Measured across both public corpora, **1,434 stills**: only **25 (1.7%)** carry
+    `OffsetTimeOriginal` at all, and in every observed case it **confirms what Truestill already
+    assumes** - the digits are local - so placement is unchanged. Of the four UTC-marked stills
+    found, the one that could be inspected (`exif-samples/jpg/tests/30-type_error.jpg`, a
+    deliberately malformed test file) carries **no `OffsetTimeOriginal` at all**. The tag is
+    EXIF 2.31 (2016); a camera broken enough to put UTC in `DateTimeOriginal` is not one that
+    implements it. **Reading it would change placement in zero observed cases** - it is
+    diagnostic only, and absent in precisely the case a diagnosis would help.
 
 - **(acn) DOES A GPS FIX TIME COUNT AS CAPTURE EVIDENCE? A RULING, NOT A BUG.** Recorded
   2026-08-10 from the independent corpus measurement (`format-coverage-audit.md` §0). Three files
