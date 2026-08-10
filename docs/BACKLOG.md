@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(acc). Next free: (acd).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(acd). Next free: (ace).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -43,6 +43,48 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(acd) THE BACKUPS CONTROLS MOVE AFTER THE SCREEN IS INTERACTIVE - and the readiness signal
+  is about to remove the only thing that reports it.** Recorded 2026-08-10, found while planning
+  the readiness signal, **from the DOM order rather than from a failure**. `#drives-list`
+  (`index.html:249`) renders **above** the card holding `#bk-preview` (`index.html:276`) in the
+  same section, so when `loadDrives` writes it every control below shifts down. A person reaching
+  for *Preview copy* inside that window clicks where the button **was**.
+  - **Two movers on this screen, and they are not the same defect.** This entry owns the
+    **screen-open** mover: `loadDrives` → `#drives-list`, above the whole card. `(abq)` owns the
+    **after-typing** mover: `validatePath` is `debounce(run, 400)` and writes into
+    `#bk-source-hint` / `#bk-target-hint` (`index.html:270, 274`), immediately above the button.
+    **The measured +4.9px on `(abq)` is that second mover, not this one.** This one is derived
+    from DOM order and is **unmeasured** - measuring it is the first task here, and the number
+    may be larger, since a drive card is taller than a line of hint text.
+  - **This is not the flake it was mistaken for.** `(abq)` was read as a click on a not-yet-live
+    control. It is not: the `#bk-preview` handler reads only `#bk-source`/`#bk-target` and POSTs
+    `/api/backup/preview`, so it needs **neither** endpoint `loadDrives` fetches, and those two
+    fields are filled at boot by `loadCustody`. The control was live and correctly wired the whole
+    time. What moved was its position. **Layout shift, not uninitialised state.**
+  - ⚠ **Why this is filed before the readiness signal lands, not after.** Readiness makes a test
+    wait past the **screen-open** shift, so nothing observes it again while it stays live. The
+    detector being removed is `open_backups`'s `wait_for_selector("#drives-list *")`
+    (`e2e_support.py:141`), which fails today if that region never populates; readiness replaces
+    it with a wait that is satisfied whether or not anything moved. **A defect whose only
+    detector is being removed must have a replacement detector filed the same day**, and this is
+    it. It does **not** follow that `(abq)` is closed - see below.
+  - ✅ **`(abq)` is not closed by the readiness work, and not for the reason first written.** The
+    plan claimed readiness would launder it. It does not touch it: `(abq)`'s mover fires ~400ms
+    after typing, long after `data-ready="ready"`, and readiness is scoped to screen open.
+    `(abq)` keeps its own recorded fix - wait for the hint spans to become non-empty before
+    clicking - which is in-action work, not Stage 0.
+  - **Reserved height only approximates, so it may not be the fix.** Zero, one and three drives
+    render different heights, and `loadDrives` conditionally adds a whole summary card when
+    `drives.length > 1` (`app.js:2387`). A `min-height` that covers the largest case leaves dead
+    space in the common one and still shifts on the largest. **Ordering may be correct rather than
+    sizing** - putting the mutable region *below* the fixed controls means nothing it writes can
+    move them - or a bounded, declared shift, accepted and stated. The choice is open; the
+    approximation is why.
+  - **Whichever is chosen needs a bounding-box regression test written as part of it**: measure
+    `#bk-preview`'s box before and after `data-ready="ready"`, assert a zero or declared-bound
+    delta. Written *with* the change, never after - once the readiness migration lands, nothing
+    else will ever notice this again.
 
 - **(abl) THE PREVIEW TALLY SAYS "will be organized" ABOUT ONLY PART OF WHAT IS ORGANIZED.**
   Recorded 2026-08-06, found by running the overlapping-organize sequence on real photos rather
