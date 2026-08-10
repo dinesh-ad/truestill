@@ -1410,6 +1410,25 @@ function renderRestingPanel(s) {
     //
     // `files_no_copy` below is NOT the same fact and stays: on no drive at all is a different
     // state from on exactly one, and the rail does not say it.
+    // THE AGE OF THE CLAIM - `(abg)` Stage 1. "Kept in 3 places" beside a warning read as
+    // falsely safe: a copy count is a true statement about the moment each row was written and
+    // is read as a statement about now.
+    //
+    // ITS OWN ROW, not an appendage to "Kept in". `places` is a per-drive count and `(acq)`
+    // records that as a defect in its own right; hanging a date off it would make a number that
+    // is wrong for another reason look better supported. The date qualifies the panel.
+    //
+    // NEUTRAL IN BOTH STATES, deliberately. Freshness shown always must not become alarm shown
+    // always: this says what Truestill knows, not that anything is wrong with the user's files.
+    // `at-risk` stays reserved for real exposure - the row below keeps it. Nothing here may read
+    // as GONE; that state does not exist yet and its reachability precondition is unbuilt.
+    s.places && (s.never_checked_drives || []).length
+      ? `<div class="panel-fact"><div class="panel-k">Never checked</div>
+         <div class="mono">${s.never_checked_drives.map(esc).join(", ")}</div></div>`
+      : s.places && s.custody_checked_at
+        ? `<div class="panel-fact"><div class="panel-k">Last checked</div>
+           <div class="mono">${esc(dayOf(s.custody_checked_at))}</div></div>`
+        : "",
     none
       ? `<div class="panel-fact"><div class="panel-k">Not on any drive</div>
          <div class="mono at-risk">${nfmt(none)}</div></div>`

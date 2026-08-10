@@ -233,3 +233,78 @@ def test_a_quick_place_fills_the_folder_field(ui: Page) -> None:
     path = first.get_attribute("data-path")
     first.click()
     expect(ui.locator("#org-source")).to_have_value(path or "")
+
+
+# ------------------------------------------------ the panel carries the age of its own claim
+
+
+def test_the_panel_count_never_stands_alone(ui: Page) -> None:
+    """`(abg)` Stage 1. "Kept in 3 places" beside a warning made the maintainer feel falsely
+    safe: the number is a true statement about the moment each row was written, read as a
+    statement about now. It now carries the date in the panel's own row idiom.
+
+    A ROW OF ITS OWN, not an appendage to "Kept in". `places` is a per-drive count and `(acq)`
+    records that as a defect in its own right - attaching a date to it would make a number that
+    is wrong for a different reason look better supported. The date qualifies the panel; it does
+    not endorse the count.
+    """
+    ui.set_viewport_size({"width": 1500, "height": 900})
+    _status(ui, custody_checked_at="2026-07-28T13:00:00+00:00", never_checked_drives=[])
+
+    panel = ui.locator("#panel")
+    expect(panel).to_contain_text("Last checked")
+    expect(panel).to_contain_text("2026-07-28")
+
+
+def test_the_panel_names_a_place_it_has_never_looked_at(ui: Page) -> None:
+    """No date is offered when one place has never been checked - none would be true of the whole
+    claim - and the drive is named instead."""
+    ui.set_viewport_size({"width": 1500, "height": 900})
+    _status(ui, custody_checked_at=None, never_checked_drives=["Morrowkeep"])
+
+    panel = ui.locator("#panel")
+    expect(panel).to_contain_text("Never checked")
+    expect(panel).to_contain_text("Morrowkeep")
+    expect(panel).not_to_contain_text("Last checked")
+
+
+def test_freshness_shown_always_is_not_alarm_shown_always(ui: Page) -> None:
+    """**The cry-wolf half.** Someone whose backups are fine and recently verified must not read
+    this panel as a warning. Freshness is a fact about what Truestill knows, not an accusation
+    about the user's data - so the row carries no risk styling in either state.
+
+    `at-risk` stays reserved for actual exposure: the "Not on any drive" row keeps it, and this
+    test pins that the two do not blur.
+    """
+    ui.set_viewport_size({"width": 1500, "height": 900})
+    _status(
+        ui,
+        custody_checked_at="2026-08-09T10:00:00+00:00",
+        never_checked_drives=[],
+        files_no_copy=0,
+        single_copy=0,
+        files_one_copy=0,
+    )
+
+    risky = ui.locator("#panel .at-risk")
+    expect(risky).to_have_count(0)
+    expect(ui.locator("#panel")).to_contain_text("Last checked")
+
+
+def test_a_never_checked_place_is_stated_not_alarmed(ui: Page) -> None:
+    """The other half of the same rule: naming an unchecked drive is disclosure, not a warning.
+    Stage 2's GONE is where alarm belongs, and it does not exist yet - so nothing here may read
+    as though a drive were lost."""
+    ui.set_viewport_size({"width": 1500, "height": 900})
+    _status(
+        ui,
+        custody_checked_at=None,
+        never_checked_drives=["Morrowkeep"],
+        files_no_copy=0,
+        single_copy=0,
+        files_one_copy=0,
+    )
+
+    expect(ui.locator("#panel .at-risk")).to_have_count(0)
+    expect(ui.locator("#panel")).not_to_contain_text("gone")
+    expect(ui.locator("#panel")).not_to_contain_text("lost")

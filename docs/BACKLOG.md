@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(acq). Next free: (acr).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(acr). Next free: (acs).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -43,6 +43,43 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(acr) A DRIVE'S LABEL IS NOT UNIQUE, AND CUSTODY WARNINGS NAME DRIVES BY LABEL ALONE.**
+  Found by the maintainer on screen 2026-08-10, reading `(abg)` Stage 0's own output: the strip
+  says *"never checked: Morrowkeep"* and he cannot tell **which** Morrowkeep - a local folder, a
+  cloud folder and an external disk may all carry that name.
+  - **Not enforced, and not unique by accident either.** `drives.label` is `TEXT NOT NULL` with
+    **no UNIQUE constraint and no unique index** (`catalog.py:133-140`). Three drives labelled
+    `Morrowkeep` insert cleanly - checked, not assumed.
+  - ⚠ **Collisions are LIKELY, not merely possible, because the label DEFAULTS TO THE FOLDER
+    NAME.** Three of the four registration sites do `label=path.name or "Library"`
+    (`service/drives.py:310`, `service/organize.py:847`, `cli.py:2010`); only `drives --init`
+    takes a typed one. Two folders called `Backup` on two disks become two drives called
+    `Backup`, and any unnamed root falls back to the literal string `Library`, which collides
+    with itself.
+  - **Why it is sharper on a custody warning than anywhere else.** A wrong pointer sends someone
+    to check a drive that is fine; they find their files, conclude nothing is wrong, and stop
+    looking. **A confident wrong pointer is worse than no pointer** - it does not merely fail to
+    help, it actively ends the search.
+  - **What is available to disambiguate, per drive, and it is uneven:**
+    - `uuid` - always present, and **unusable to a human**. Never show it as the answer.
+    - the path hint (`settings['path_hint.drive.<uuid>']`) - usable, and **not always there**:
+      of the three drives in the maintainer's catalog, `The Memory Cabinet` has **no hint at all**.
+    - `last_seen`, `first_seen`, `file_count`, `size` - present, but none identifies a place.
+  - **The smallest honest disambiguation, argued rather than chosen:** show the path **only when
+    the label is ambiguous among the drives being named** - always showing it is noise on the
+    common case where names are distinct - and when there is no hint, **say that** rather than
+    pointing at nothing: *"Truestill does not know where this one is"* is honest and actionable
+    (it tells the user to plug it in and let it be seen), where silence is not.
+  - **The deeper fix may be upstream and is the real argument for filing this separately.** The
+    surface is not where the defect is: labels collide because registration mints them from
+    folder names. Options are to stop defaulting to the folder name, to disambiguate at
+    registration, or to enforce uniqueness in the schema - all of which touch every surface that
+    names a drive (`status`, `where`, the drive cards, stats), not one sentence.
+  - ⚠ **`(abg)` Stage 1 inherits this and must not deepen it.** The resting panel will name drives
+    in a NEW place, so the ambiguous name gains a third surface. That is recorded rather than
+    fixed there: a per-surface repair would be one fix per surface and would leave registration
+    still minting collisions.
 
 - **(acq) "PLACE" MEANS "SOMEWHERE TRUESTILL ORGANIZED INTO", NOT "SOMEWHERE A COPY IS KEPT" -
   and custody counts it as the latter.** Recorded 2026-08-10 while verifying `(abg)`'s premises.
