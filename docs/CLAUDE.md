@@ -33,7 +33,7 @@ route to *"is this already built?"* - the question the file exists to answer.
 ## Practical reminders
 
 - **Inner loop: targeted tests only.** Never the full gate on an edit.
-- **`make check` before every commit** - 19-33 s for 2,080 tests, which is not friction.
+- **`make check` before every commit** - 19-21 s against a 45 s ceiling, which is not friction.
 - **`make gate` when the diff reaches the browser.** It runs `check`, then `e2e` only if the diff
   touches `packages/truestill-app/src/` or `tests/e2e/`, and prints what decided it. The reason
   for skipping the browser lane is a command's output, never a recollection.

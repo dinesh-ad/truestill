@@ -518,8 +518,22 @@ recollection.
 | when | run | cost, measured 2026-08-10 |
 |---|---|---|
 | inner loop, on an edit | the targeted test(s) only | seconds |
-| before every commit | **`make check`** | **19-33 s for 2,080 tests** |
-| before a commit whose diff reaches the browser | **`make gate`** (check + e2e) | **+ ~6.5 min for 412 tests** |
+| before every commit | **`make check`** | **19-21 s**, against a 45 s ceiling (`TEST_SECONDS_MAX`) |
+| before a commit whose diff reaches the browser | **`make gate`** (check + e2e) | **+ ~6:50**, against a 600 s ceiling (`E2E_SECONDS_MAX`) |
+
+**A duration and its ceiling, never a test count - corrected 2026-08-10.** These rows read
+*"19-33 s for 2,080 tests"* and *"~6.5 min for 412 tests"*, and both counts were already wrong
+when they were read back the same day: 2,102 and 436. That is not carelessness, it is the shape.
+**A figure that goes stale on every commit that adds a test does not belong in a contract** - and
+§6 already says so in its own words, *"test counts are never hardcoded as a done-ness signal -
+they change"*, which this table was quietly violating one screen below the rule. The count also
+answers nothing a reader of this table is asking: the question is *can I afford to run it*, and
+the answer to that is seconds.
+
+The durations are kept because they are the argument for running the lane, and they are stated
+beside the **ceilings that actually enforce them** (`Makefile`), so a reader can tell a
+measurement from a limit. The ceilings do not drift with the suite - they are the number to
+maintain, and a lane that grows into one fails loudly rather than being re-measured into prose.
 
 **Never the full gate on an edit.** That premise was the problem, not the policy.
 

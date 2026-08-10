@@ -71,7 +71,9 @@ the inner loop, seconds. `make check` before every commit. **`make gate`** befor
 diff reaches the browser: it runs `check`, then `e2e` only when the diff touches
 `packages/truestill-app/src/` or `tests/e2e/`, and prints the files that decided it either way.
 The justification for skipping the client layer must be output you can paste. Measured
-2026-08-10: check 19-33 s for 2,080 tests, e2e ~6.5 min for 412. Full rule and its costs:
+2026-08-10: check 19-21 s against a 45 s ceiling, e2e ~6:50 against 600 s. **Seconds, not test
+counts** - a count is stale the next time anyone adds a test, and §6 of the contract already
+forbids the shape it was written in. Full rule and its costs:
 `IMPLEMENTATION_STANDARDS.md` §6.1, which is binding.
 
 **Never the full gate on an edit.** That premise is what made the gate feel expensive.
