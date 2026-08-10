@@ -2427,6 +2427,35 @@ section, because what is left is the part that still has to be written.
       hold 5.2M points and a KD-tree, against 145 MB for `cities500`. Any use of it needs a
       packed on-disk index rather than "load it all", and that is a build, not a download.
     Full numbers in the P33 measurement report; nothing was committed and no dependency added.
+  - ✅ **P34, 2026-08-10: THE DISTRICT IS REACHABLE AS AN ATTRIBUTE, NOT AS A LOOKUP TARGET.**
+    The maintainer's hypothesis, verified: every class-P row carries `admin1_code` and
+    `admin2_code`, and the nearest populated place to the Wayanad fixture point (`Polacchikuni`,
+    0.6 km) has **admin2 = `Wayanad`**. So the motivating case is solved by a **join**, not by a
+    bigger dataset - `admin1CodesASCII.txt` (0.14 MB) and `admin2Codes.txt` (2.26 MB), 2.4 MB
+    total. Measured with a streaming bounding-box filter at **38.7 MB peak RSS**, against the
+    1,683 MB the full class-P load cost.
+    - **Coverage:** admin1 on 100.0% of class-P rows, admin2 on **80.7%** globally but 98-99.5%
+      for India, France, Japan, Australia and Brazil. Two of fourteen fixture points still came
+      back with a **blank** admin2 - Tokyo and Oodnadatta - so a join cannot be assumed to
+      resolve and needs a defined answer when it does not.
+    - ⚠ **The name forms are the weak half, and the subtraction idea depends on them.** Of the
+      eight district forms checked, six are reachable but **only via the admin2 entry's
+      `alternatenames`, which `admin2Codes.txt` does not carry** - it has four columns and no
+      alternates, so reaching them means joining its geonameid back into the 400 MB
+      `allCountries.txt`. Raw, the file offers `Thoothukkudi` (not Thoothukudi), `Tiruppur` (not
+      Tirupur), `Kanniyakumari` (not Kanyakumari), `Rāmanāthapuram` with diacritics, and 1,988 of
+      47,549 names carrying a redundant `" district"` suffix. `Tirupur` is not among its
+      alternates at all.
+    - ⚠ **The admin names are not uniformly current, in BOTH directions, within one state.**
+      `IN.25.628` is still `Tirunelveli Kattabo` - a form retired in 1997 - while `IN.25.733`
+      `Tenkasi district` reflects a 2019 split. France's `FR.84` is still `Rhône-Alpes`, merged
+      into Auvergne-Rhône-Alpes in 2016.
+    - 📌 **And the finding neither of us anticipated: the era problem.** The Oormelalagiyan point
+      returns **Tenkasi**, which is administratively correct *today* and was **Tirunelveli when a
+      2013 photo was taken there**. Labelling an old photo with a current district is an
+      anachronism the user may reasonably call wrong, and no dataset choice avoids it - the
+      boundary moved, not the data. Any design has to decide whether a place name describes
+      **where the camera was** or **what that ground is called now**, and say which.
   - **THE REAL BLOCKER: it cannot be BUILT next because it cannot be TESTED here.** *(Read the
     correction above first - this is true of the cluster integration only.)* The catalog
     holds **zero events**, so there is no cluster to take a modal place across, and the 138 points
