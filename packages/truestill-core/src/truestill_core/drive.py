@@ -34,6 +34,7 @@ working, so:
 from __future__ import annotations
 
 import json
+from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -276,6 +277,60 @@ def drives_without_a_known_location(
     caller asks before minting a *second* identity, so the person who does know can answer.
     """
     return tuple(label for uuid, label in drives if not settings.get_setting(drive_path_hint(uuid)))
+
+
+def distinguishing_names(
+    settings: _SettingsReader, drives: Iterable[tuple[str, str]]
+) -> tuple[str, ...]:
+    """A name per drive, in the caller's order, disambiguated **only** where the label collides
+    within this set. **O(drives)**, and it reads a setting only for a colliding label.
+
+    **The invariant is not that labels are unique. It is that Truestill never names a drive
+    ambiguously** - a property of the moment of naming, where the set being named is known, and
+    one that cannot be established at registration, where it is not. `(acr)`.
+
+    **Uniqueness is deliberately not enforced anywhere.** :func:`ghost_drive_at` already ruled on
+    this: matching a label against a directory name is *"a coin toss, because ``create_marker``
+    defaults the label to that same directory name and every second ``Backup`` folder would be
+    refused."* Collisions are how people name folders, not an error to prevent - and a label lives
+    in the marker on the user's own disk, so renaming one would mean writing to their drive to fix
+    our bookkeeping.
+
+    **A unique label is returned untouched, as the first branch** - not usually, but structurally.
+    A one-drive library and a set of distinctly-named drives produce byte-identical output to
+    having never called this, which is what keeps it invisible on the common case.
+
+    **When the label collides:**
+
+    - a recorded path is the only honest discriminator we have, so it is shown;
+    - with no recorded path we **say so**. ``The Memory Cabinet`` has no hint in the real catalog,
+      so this is a live case and not a defensive branch. It is stated plainly rather than
+      apologetically: the user is told what Truestill does not know, which is actionable - plug it
+      in and let it be seen - where silence is not.
+
+    **Two unplaceable drives sharing a label stay two entries, reading alike.** Collapsing them is
+    most tempting exactly here and would break `(acs)`'s invariant: hiding may reduce detail, never
+    the count nor a drive's identity as a distinct thing. Ordinals were rejected for the opposite
+    reason - ``#1`` and ``#2`` would invent an identity the user cannot act on.
+
+    **`file_count`, `size` and `first_seen` are available and are deliberately unused.** They will
+    look tempting to whoever extends this. They discriminate but do not locate, and a custody
+    warning that answers *where is it* with *how big is it* is a change of subject dressed as an
+    answer.
+
+    Wording lives here rather than at the surfaces, for the reason :func:`ghost_drive_refusal`
+    gives: one home, so the CLI and the app cannot word it differently (§9).
+    """
+    pairs = list(drives)
+    seen = Counter(label for _, label in pairs)
+    names: list[str] = []
+    for uuid, label in pairs:
+        if seen[label] == 1:
+            names.append(label)
+            continue
+        hint = settings.get_setting(drive_path_hint(uuid))
+        names.append(f"{label} at {hint}" if hint else f"{label} (location not known)")
+    return tuple(names)
 
 
 def ghost_drive_refusal(ghost: GhostDrive) -> str:

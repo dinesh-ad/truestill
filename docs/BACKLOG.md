@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(acs). Next free: (act).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(act). Next free: (acu).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -43,6 +43,23 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(act) AN UNNAMED ROOT IS LABELLED WITH THE LITERAL STRING `Library`, WHICH COLLIDES WITH
+  ITSELF.** Recorded 2026-08-10, split out of `(acr)` deliberately rather than folded in: `(acr)`
+  is a correctness fix at the moment of naming, and this is a **behaviour change at registration**
+  that alters what gets written into a marker on a user's disk. Mixing them would put a change of
+  behaviour inside a fix.
+  - Three of the four registration sites mint `label=path.name or "Library"`
+    (`service/drives.py:310`, `service/organize.py:847`, `cli.py:2010`). `Path("/").name` is `""`,
+    so **organizing to a filesystem root** - or any path whose final component is empty - produces
+    the literal label `Library`. Two of them are indistinguishable by name, and unlike a folder
+    called `Backup` this one was never a name the user chose.
+  - **`(acr)` makes it survivable, not fixed.** Two `Library` drives are now told apart by their
+    recorded paths wherever they are named together, so this is no longer a wrong pointer. It is
+    still a placeholder presented as a name.
+  - **Not urgent, and small.** The fallback fires only for a root-like path, which no measurement
+    has yet seen in a real catalog. Worth a decision - a better fallback, or refusing to mint a
+    label at all and asking - not a rush.
 
 - **(acs) THE DRIVE CARD ALREADY SHOWS THE FULL PATH. THIS IS A REVIEW OF WHAT IS EXPOSED, NOT A
   FEATURE WITH A TOGGLE.** Recorded 2026-08-10, and the framing is the finding: the question
@@ -127,6 +144,27 @@ is invisible here is retired, not free.**
     folder names. Options are to stop defaulting to the folder name, to disambiguate at
     registration, or to enforce uniqueness in the schema - all of which touch every surface that
     names a drive (`status`, `where`, the drive cards, stats), not one sentence.
+  - ✅ **Stage 1 built 2026-08-10: `drive.distinguishing_names`, core only, nothing user-visible.**
+    A name per drive, disambiguated **only** where the label collides within the set being named.
+    **The invariant is not that labels are unique - it is that Truestill never names a drive
+    ambiguously**, which is a property of the moment of naming, where the set is known, and cannot
+    be established at registration, where it is not. That dissolves the registration-or-display
+    question: it is neither surface nor schema, it is one function every namer calls.
+    - **A prior ruling honoured, not a new one invented.** `ghost_drive_at` already decided that
+      matching a label against a directory name is *"a coin toss, because `create_marker` defaults
+      the label to that same directory name and every second `Backup` folder would be refused."*
+      This project met label collisions before and concluded that treating one as an error refuses
+      legitimate drives.
+    - **Nothing is renamed and no schema changed.** A label lives in the marker on the user's own
+      disk, so renaming would mean writing to their drive to fix our bookkeeping - the copy-only
+      instinct applied to metadata.
+    - **`file_count`, `size` and `first_seen` are refused as discriminators**, and the reasoning is
+      in the docstring because they will look tempting to whoever extends this: they discriminate
+      but do not locate, and answering *where is it* with *how big is it* is a change of subject
+      dressed as an answer.
+    - **No detail-level parameter.** An unused seam built for an undecided feature is a guess with
+      a type signature; `(acs)` adds it in one line when it is ruled on.
+    - The `Library` fallback that collides with itself is filed as `(act)`, not fixed here.
   - ⚠ **`(abg)` Stage 1 inherits this and must not deepen it.** The resting panel will name drives
     in a NEW place, so the ambiguous name gains a third surface. That is recorded rather than
     fixed there: a per-surface repair would be one fix per surface and would leave registration
