@@ -81,6 +81,16 @@ recording shipped work as unstarted, which is the more expensive direction of th
     necessary for a copy to be counted and never sufficient for it to count as redundancy.
     Searched every doc and source file for the same equivalence stated elsewhere; it appears once.
     `drives.py:169` and both CLI sites state necessity or make per-file claims, and are true.
+  - ⚠ **THE CLASS DOES NOT LIVE IN ONE LAYER, and it came back three days later from the other
+    side.** Stages A-C took a per-drive count out of a per-file sentence - a defect in the
+    **query**. On 2026-08-10 the same sentence was found understating for a second reason
+    entirely: `filled` is `Math.min(held_floor, 3)`, a **drawing constant** for a three-glyph pip
+    strip, and it was also the number the sentence was written against, so a library with every
+    file on four drives read *"every file in 3 places"* while the panel said four. Fixed with
+    `172e3e2`; the rule is now §9's *a drawing constant is never the number in a claim*.
+    **Understating is still misstating**, and this entry is where the pair belongs: closing the
+    query half did not close the class, because the presentation layer can restate the same
+    mistake with none of the query's evidence in sight.
   - **Closed.**
 
 - **(acr) A DRIVE'S LABEL IS NOT UNIQUE, AND CUSTODY WARNINGS NAME DRIVES BY LABEL ALONE.**
