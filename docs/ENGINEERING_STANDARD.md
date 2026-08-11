@@ -1002,6 +1002,15 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   > maps, joins, merges or de-duplicates, the fixture needs two of the mapped thing, and they must
   > be **distinguishable**: two trips on the same days would have passed this too.
 
+  **A second way to inherit them, 2026-08-11: taking the library's STRINGS and dropping its
+  SHAPE.** Two rounds of measurement fed leaf folder names - `Gokul CAM`, `Day 1`, `Vj 1` - as
+  standalone inputs. Every one is a subfolder under `Wayanad '14`, which is 2,063 files across 13
+  folders, and the rule under test chooses the *deepest qualifying ancestor*. So the fixture used
+  real names and removed the hierarchy they live in, which is the property the code exists to
+  navigate. **The numbers were void rather than pessimistic** - a different question was answered
+  accurately. The tell is that a fixture is a *list* where the subject reads a *tree*; record in
+  `local-naming-research.md`.
+
   *The tell:* a fixture that mirrors the maintainer's own library. It is the most tempting kind -
   realistic, easy to justify - and it can only find bugs the maintainer has already hit.
   Corollary, from the same day: the real catalog held zero events and zero date confirmations, so
