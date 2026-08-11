@@ -871,8 +871,24 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
      arriving. **Ignorance and truncation are the same empty string** unless the stop reason is
      recorded.
 
+  3. *The grader accepted a non-answer as an answer.* Asked for an album name, the smallest
+     candidate returned the **input path back** - `/<trip>/Day 2/Ar` - and the accept-rule was a
+     substring test, so an echo of the question scored as a correct answer. It read **10 of 16**;
+     the honest number is **0 of 16**. Caught by reading the candidates, not by any assertion.
+
   > **Record the transport, the stop reason and the resource ceiling beside every measured answer.
   > If you cannot say why generation stopped, you do not have an answer - you have a string.**
+
+  > **AND A GRADER THAT ACCEPTS A SUPERSET OF VALID ANSWERS WILL ALWAYS FAVOUR THE CANDIDATE THAT
+  > ANSWERS LEAST.** Both the truncation and the echo flattered the *smallest* model, and that is
+  > not luck: a non-answer - an empty string, a cut-off reply, the question repeated - is cheap to
+  > produce and lands inside a loose rule, while a real answer has to be right. Widening an
+  > accept-rule feels generous and is actually a decision to rank by who says least.
+
+  The repair is to state what a valid answer **cannot** contain, not only what it may: an album
+  name never contains a path separator, so one rule retires the whole echo class. Ask of any
+  accept-rule *"what is the laziest string that passes this?"* - and if the answer is the input, or
+  nothing, the rule is measuring the wrong thing.
 
   The repair is mechanical: assert the request went through the documented interface, capture
   `finish_reason` (or the equivalent) and surface a truncation count per run, and re-read a sample
@@ -916,6 +932,36 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   the copy-only rule, dry-run, deletion, or what reaches a user's disk. Those are exactly the
   areas where the contract speaks in absolutes, and an absolute is the easiest kind of sentence to
   design straight past, because nobody expects to be the one who breaks it.
+
+- **A PHRASE REPEATED BETWEEN DOCUMENTS ACQUIRES THE AUTHORITY OF A RULE WITHOUT EVER BEING ONE.**
+  The thirty-fifth member, and the sibling of the thirty-second below: that one is about a clause
+  that was true and quietly expired, this is about a clause that was **never adopted at all**. A
+  sentence written in a record gets cited by a second document, the citation reads as provenance,
+  and from then on it is obeyed - by people who assume the decision happened somewhere they have
+  not looked.
+
+  > **The tell: nothing enforces it, and nobody can say who decided it.** Not "it is undocumented" -
+  > it is *heavily* documented, which is exactly what makes it convincing.
+
+  *Two instances in one week, and the pair is the evidence:*
+
+  1. *"cannot be reached by any means"* - the corpus fence, asserting a machine state that had
+     stopped being true. Caught only because propagating it into a second document meant measuring
+     it first.
+  2. *"this repo's 1 GB working ceiling"* - coined in a research record, cited back by a backlog
+     entry as though binding, and treated as a hard constraint on a feature for a week. Searched
+     2026-08-11: **no constant, no gate, no test, and no mention of RSS in any source file.** The
+     only written memory rule is §8's *"stream, never slurp"*, which is per-file and about not
+     loading a whole photo. A 1,383 MB measurement for a **user-invoked subprocess on a 22 GB
+     machine** was read as a violation of a rule that does not exist.
+
+  > **Before obeying a constraint, find where it is DEFINED - a citation is not a definition.**
+  > `grep` for the number or the phrase: if every hit is prose citing other prose, you have found a
+  > habit, not a rule. Then either adopt it deliberately, with a gate, or stop repeating it.
+
+  *The asymmetry that makes this expensive:* an invented constraint is never tested by the work it
+  blocks, because the work does not happen. The 1 GB phrase ruled out every viable configuration
+  measured, and nothing would have contradicted it.
 
 - **A binding clause that asserts a MACHINE STATE expires silently.** The thirty-second member.
   The sixth is about a claim whose *dependents* go stale when you change its status; this one

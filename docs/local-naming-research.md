@@ -60,7 +60,62 @@ direction, different examples.
   against the catalog after it was doubted. The name itself is not reproduced here: the shape is
   the whole of the argument, and the shape is what survives redaction.
 
-## 4. An open question for the maintainer, recorded rather than decided
+## 4. Memory: the advertised lever does nothing, and the effective one is not what it looks like
+
+Measured 2026-08-11, three sizes, CPU only, context 512, peak RSS from `VmHWM`. **Deliberately no
+model or version named** - the family moved three releases during the ten days this was discussed,
+so a pinned name would be the first thing to rot. Sizes and quantisations are what reproduce.
+
+| size | quant | KV cache | file | peak RSS | RSS - file |
+|---|---|---|---|---|---|
+| ~0.8B | Q4_K_M | f16 | 533 MB | 885 MB | 352 MB |
+| ~0.8B | IQ4_XS | q8_0 | 493 MB | **682 MB** | 189 MB |
+| ~2B | Q4_K_M | f16 | 1,281 MB | 1,929 MB | 648 MB |
+| ~2B | IQ4_XS | q8_0 | 1,173 MB | **1,331 MB** | 158 MB |
+| ~4B | Q4_K_M | f16 | 2,741 MB | 4,291 MB | 1,550 MB |
+| ~4B | IQ4_XS | q8_0 | 2,477 MB | **2,739 MB** | 262 MB |
+
+**KV-cache quantisation is worth 5 MB and is the wrong lever.** At context 512 the cache is
+negligible - `q8_0` against `f16` moved 885 to 879, 1,929 to 1,924, 4,291 to 4,289. Raising context
+to 4096 added only ~40 MB. A folder name is a few tokens, so anyone reaching for cache
+quantisation here is spending effort on nothing. **This inverts the advice** that cache
+quantisation is the standard answer for a model that is slightly too big: it is, for long-context
+work, and this is not that.
+
+**The effective lever is weight format, and not for the reason it is sold.** `IQ4_XS` saves ~108 MB
+of *file* at 2B and **593 MB of peak RSS**. The `RSS - file` column is where it shows: 648 MB of
+overhead above the weights becomes 158 MB. Same pattern at all three sizes (352 to 189, 648 to 158,
+1,550 to 262), so it is a property of the format rather than a measurement artefact of one size.
+Whatever that overhead is - repacking, compute buffers - the K-quant path allocates it and this
+format does not.
+
+**Not below 4 bits.** An external on-device study measured a ~1B model losing MMLU 46.3 to 43.1 at
+3-bit and to 31.4 at 2-bit; small models have the least redundancy to spare. Not tried here, and
+recorded so nobody tries it as the next step.
+
+**And the constraint this was optimised against did not exist.** The "1 GB working ceiling" was a
+phrase repeated between two documents with no constant, gate or test behind it - see
+`ENGINEERING_STANDARD.md` §4's thirty-fifth member. For a **user-invoked subprocess** that someone
+triggers and waits for, on a 22 GB machine, 1,331 MB is unremarkable. The measurements above stand;
+the ranking they were being used to justify does not.
+
+## 5. The case nothing solves, recorded so it is not rediscovered
+
+**A folder named as a company cohort code followed by a venue** - the shape `<company> <batch-code>
+<venue>` - was returned unchanged or as `NONE` by every size, at every quantisation, in every round,
+including the round where the paths carried their real nesting. The correct reading keeps the venue
+and drops the cohort prefix.
+
+**The gazetteer cannot help either**, and that is the useful half: the venue is a shopping mall, and
+a populated-places gazetteer does not contain malls. So this case is outside both halves of the
+split - the data source has no row for it, and the model has no reliable knowledge of it (every size
+invented a different long name for it when asked directly, and none said it did not know).
+
+It is recorded as **known-unsolvable by the measured approaches**, not as an open gap. A future
+attempt needs a different source - a POI dataset (`(acu)`) - or the user typing the name, which is
+what the screen already offers.
+
+## 6. An open question for the maintainer, recorded rather than decided
 
 **394 of 2,695 catalog rows have `source_path` inside the fenced folder**, and three
 strings used as fixture came from there. Nothing was read from the mount - they were in the catalog
