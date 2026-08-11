@@ -52,6 +52,12 @@ loses nothing; the lanes see everything eventually.
 > quietly *reducing* platform coverage rather than merely delaying it. Batching is not only
 > politeness about queue time; it is how a run gets to finish.
 
+> **And when you read a lane's result, query the JOB, not the run summary.** Measured 2026-08-11:
+> `gh run view` reported the Windows lane still in progress **seventeen minutes after** the job API
+> gave `status=completed, conclusion=success` with a `completed_at` timestamp. The summary view is
+> cached and lags; the job endpoint is authoritative. Waiting on the stale one looks exactly like a
+> hung lane, which is the reading that invites a re-push - and a re-push cancels the run above.
+
 **A command's timeout is a ceiling, not a wait - so size it to catch a hang, not to be safe.** It
 costs nothing when the command works, because the command returns when it returns. It costs
 exactly once: when something hangs, you sit blocked for the whole ceiling before you find out.
