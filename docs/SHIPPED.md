@@ -22,6 +22,64 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(acj) Write to a temp name and rename, instead of writing straight to the target.**
+  - ✅ **BUILT 2026-08-11, and the reason it was worth building is not the one this entry gives.**
+    The entry argues the stronger shape for the *copy*. The larger find was one step later:
+    **`service/backup.py` hashed the file after it was already at its real name**, and unlinked it
+    when it did not match - so a copy that failed verification wore the organized name for the
+    length of a full re-read of its own bytes. That is `(abu)`'s exact shape, moved past the point
+    `(abu)` was looking at. **`(abu)`'s fix could not reach it**: that fix was aimed at a copy that
+    died, and this window opens only after a copy succeeds. The digest is now taken on the staged
+    file and a mismatch abandons it, so the destination is never written at all.
+  - ✅ **`occupied_before` is deleted, not improved.** The old form had to decide whether a file at
+    the target was ours to remove, and a wrong answer there deletes a user's file. Nothing is ever
+    written at the target now, so the question has no place to arise.
+  - **THE CLAIM IS "no partial ever takes the real name", NOT "atomic".** The first holds on every
+    filesystem; the second is a POSIX guarantee, and §1 already records that FAT32 and exFAT
+    journal nothing, so a power cut during the directory-entry update can still orphan it. The
+    stronger word is kept out of the code and the docs deliberately, because it would be quoted
+    back later as a guarantee nobody made.
+  - **No `fsync`, and the reasoning lives at the site so nobody adds it as an obvious improvement.**
+    `copy2` does not fsync today and `archive_extract` writes media the same way. The defect is a
+    *name* worn by incomplete bytes; `fsync` is about whether *content* survives power loss, which
+    `copy_sha256` and `verify` already own.
+  - ⚠ **THREE PREMISES IN THIS ENTRY WERE WRONG**, corrected rather than quietly worked around:
+    1. *"a rename across filesystems degrades to a copy"* - `os.replace` **fails** across
+       filesystems; degrading is `shutil.move`. And it cannot arise: the staged file is a sibling
+       of the target, which `write_decisions` had already argued is what makes the rename local.
+    2. *"it changes the write path for every backend"* - it does not. `RcloneDestination` shells
+       out to `rclone copyto` and deliberately has no remote-delete primitive, so there is no byte
+       loop to protect. Scope was `LocalDestination` plus `service/backup.py`.
+    3. The worry that `LocalDestination.list()` would surface stray staged files - **`list()` has
+       no production caller at all.** It is an ABC method exercised only by tests.
+  - **A mutation that did not fire, recorded because it is a platform fact rather than a weak
+    guard:** swapping `Path.replace` for `Path.rename` kills nothing on Linux, since POSIX rename
+    overwrites silently. It raises on Windows, where an occupied target is ordinary at two of the
+    three sites. `test_committing_over_an_occupied_target_replaces_it` exists so the **Windows
+    lane** is the detector for that choice, and says so.
+  - **Named rather than left to be rediscovered - three copy paths this did NOT reach:**
+    - `organizer._MetadataBaker` stages into the **system** temp directory and uploads from there,
+      so it crosses a filesystem before the real write and is not covered by `safe_copy` at all.
+    - `catalog_move.py` copies the catalog with a bare `shutil.copy2`; a failure leaves a partial
+      catalog file, the same shape on a smaller object.
+    - `RcloneDestination`, by design and by its own module rule that no code path there may remove
+      data at the remote.
+  - **What is still owed is `(acz)`**, rewritten the same day: a survivor is now unambiguous debris
+    rather than a possible incumbent, but the seam that found the original - `rescan` reporting it
+    as STRAY - no longer sees it, because `.partial` is not a media extension.
+
+  Recorded 2026-08-10, deferred out of `(abu)` deliberately rather than forgotten.
+  - **The stronger shape.** `(abu)` removes a partial in an `except`; a temp-then-rename never
+    creates one at the target path at all, because the bytes only take the real name once they
+    are all there. It is the same reasoning `decisions.write_decisions` already uses for the
+    drive document: temp in the same directory, flush, fsync, `os.replace`.
+  - **Why it was not done with `(abu)`:** it changes the write path for **every** backend rather
+    than one `except` clause, and the rename must be same-filesystem to be atomic - which is a
+    property of each destination, not of the caller. That is a decision someone makes, not a
+    detail that rides in on a bug fix.
+  - **What it would still not fix:** a rename across filesystems degrades to a copy, so the
+    guarantee is not free everywhere. `(abu)`'s cleanup stays useful underneath it.
+
 - **(abu) A failed copy leaves the bytes it managed to write, and nothing owns them.**
   - ✅ **MOVED HERE 2026-08-11, and it was already built on 2026-08-10.** It sat in the open-work
     file for a day carrying a `BUILT` marker, invisible to the closure guard because it predates

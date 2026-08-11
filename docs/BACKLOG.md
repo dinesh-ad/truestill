@@ -93,22 +93,25 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(acz) A PARTIAL THAT SURVIVES BECAUSE THE CLEANUP ITSELF FAILED.** Split out of `(abu)`
-  2026-08-11 when that entry moved to `SHIPPED.md`; it is the half `(abu)` explicitly left open.
-  `copy_leaving_nothing` removes what a failed copy wrote, but the failure that produced the
-  partial is often the same one that refuses the delete - so the unlink is guarded, and when it
-  loses, the bytes stay.
-  - **Today that is reported, not fixed**: the message names the path and the byte count, and
-    `_free_relative` treats the survivor as an incumbent and suffixes beside it. That is the
-    "never lose data" rule doing its job on a file we could not remove, and pretending it is not
-    there would be the dishonest option.
-  - **What is actually owed** is not different behaviour but a way out: nothing offers to retry the
-    removal, and nothing lists survivors, so a user who hit a full disk mid-copy has debris whose
-    only record is a message that scrolled past. `rescan` reports it as STRAY, which is how the
-    original was found - that is the seam to build on.
-  - **`(acj)` would make this rarer and not impossible**: a temp-then-rename never creates a
-    partial at the target path, but a cross-filesystem rename degrades to a copy, so the cleanup
-    stays underneath it.
+- **(acz) A STAGED COPY THAT SURVIVES BECAUSE THE CLEANUP ITSELF FAILED - and nothing scans for
+  it.** Split out of `(abu)` 2026-08-11 and **rewritten the same day when `(acj)` landed**, because
+  staging removed its dangerous half and left a smaller, different one.
+  - ✅ **What `(acj)` closed.** A survivor can no longer be mistaken for an incumbent: it is named
+    `<target>.partial`, so `_free_relative` never suffixes beside it and retries stop accumulating,
+    and `scan_source` can never take it for a photo because `.partial` is not a media extension.
+    The old partial wore the organized name and a media extension, which is precisely why it was
+    indistinguishable from a real file.
+  - ⚠ **What that cost, stated rather than glossed: the discovery seam moved.** `(abu)` was found
+    because *"`rescan` reports it as STRAY"* - true only while the leftover carried a media
+    extension. `rescan` is fed `scan_source(...).media`, so a `.partial` never reaches it. It is
+    **not silent**: the skipped census counts and names it as an unrecognized extension, per §9's
+    never-silent rule. But the thing that found the original defect would not find it again.
+  - **What is actually owed**, unchanged in substance: nothing offers to retry the removal, and
+    nothing lists survivors across runs. A user who hit a full disk mid-copy has debris whose only
+    record is a message that scrolled past and a row in a census they may not read.
+  - **The cheapest honest fix is probably rescan-side**, not copy-side: teach the stray report to
+    look for `safe_copy.STAGING_SUFFIX` explicitly, which is one suffix it already knows the name
+    of. That is a decision about what rescan is for, so it is filed rather than assumed.
 
 - **(ada) THE BACKUPS SCREEN NOW PUTS STATE BELOW THE FORMS, AND A ONE-COPY WARNING CAN FALL BELOW
   THE FOLD.** Split out of `(acd)` 2026-08-11 when that entry moved to `SHIPPED.md`. `(acd)` fixed
@@ -656,19 +659,6 @@ is invisible here is retired, not free.**
       that decides "did anything change" in its own `WHERE` clause, plus five tests including the
       one that matters - a blank reply must never erase an existing name, or a bare Save would
       strip every named trip in the library.
-
-- **(acj) Write to a temp name and rename, instead of writing straight to the target.**
-  Recorded 2026-08-10, deferred out of `(abu)` deliberately rather than forgotten.
-  - **The stronger shape.** `(abu)` removes a partial in an `except`; a temp-then-rename never
-    creates one at the target path at all, because the bytes only take the real name once they
-    are all there. It is the same reasoning `decisions.write_decisions` already uses for the
-    drive document: temp in the same directory, flush, fsync, `os.replace`.
-  - **Why it was not done with `(abu)`:** it changes the write path for **every** backend rather
-    than one `except` clause, and the rename must be same-filesystem to be atomic - which is a
-    property of each destination, not of the caller. That is a decision someone makes, not a
-    detail that rides in on a bug fix.
-  - **What it would still not fix:** a rename across filesystems degrades to a copy, so the
-    guarantee is not free everywhere. `(abu)`'s cleanup stays useful underneath it.
 
 - **(abs) The ghost-drive rule refuses REGISTRATION and warns nobody else.** Recorded
   2026-08-07 with the fix, and **chosen deliberately rather than discovered** - which is the

@@ -1,18 +1,19 @@
-"""A copy that fails leaves nothing behind - but only removes what it wrote itself.
+"""The bytes take the real name only once they are all there - `(acj)`.
 
 **The observed defect `(abu)`:** `shutil.copy2` raised `[Errno 5]` at 802 MB of 852 MB and left
 the 802 MB where it fell, carrying a correct organized name, with no `files` row and no
 `file_copies` row. The run said `1 failed`. It did not say 802 MB of it arrived.
 
-**Why a blind unlink in the `except` would be worse than the debris.** `copy2` opens the SOURCE
-first. A failure before the destination is opened - unreadable source, denied permission, a
-parent that could not be made - leaves the target untouched. At two of the three call sites that
-target can legitimately already exist: `relocate` overwrites a partial from an interrupted run by
-design, and `backup` builds its work list from the CATALOG, so a file the catalog does not know
-about can be sitting there. Deleting it would be this fix destroying a user's file.
+**What changed, and what these tests now have to assert.** The first fix removed the partial in an
+`except`, which meant deciding whether a file at the target was ours - a wrong answer there
+deletes a user's file. Staging removes the question: the copy goes to a sibling and only a
+finished copy is renamed onto the target.
 
-So the rule is **remove only what this call created**, decided by an `exists()` check taken
-immediately before the copy rather than trusted from a caller.
+So the assertion is no longer "the partial was removed" but **"the target was never written"**,
+and the difference is not cosmetic: the old cleanup satisfies "absent afterwards" too, so a test
+phrased that way passes against both designs and distinguishes nothing. Where a test below can
+observe the target *during* the failure it does, because that is the only moment the two designs
+differ.
 """
 
 from __future__ import annotations
@@ -41,21 +42,35 @@ def _fails_before_touching_anything(*_args: object, **_kw: object) -> None:
     raise PermissionError(13, "Permission denied")
 
 
-def test_a_partial_this_copy_wrote_is_removed(
+def test_the_target_is_never_written_at_all(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """THE DEFECT ITSELF. 802 MB with an organized name and nothing owning it."""
+    """THE DETECTOR, and the reason it is phrased this way.
+
+    Asserting the target is absent *afterwards* is satisfied by removing a partial too, so it
+    cannot tell this design from the one it replaced. What only staging can satisfy is that the
+    target never existed **at the moment the copy died** - so the stub looks, from inside the
+    failure, and records what it saw.
+    """
     source = tmp_path / "in.mp4"
     source.write_bytes(b"x" * 100)
     target = tmp_path / "out" / "organized.mp4"
     target.parent.mkdir()
-    monkeypatch.setattr(safe_copy.shutil, "copy2", _fails_after_writing(b"x" * 60))
+    seen: list[bool] = []
+
+    def stub(_src: object, dst: object) -> None:
+        Path(str(dst)).write_bytes(b"x" * 60)
+        seen.append(target.exists())
+        raise OSError(5, "Input/output error")
+
+    monkeypatch.setattr(safe_copy.shutil, "copy2", stub)
 
     outcome = copy_leaving_nothing(source, target)
 
+    assert seen == [False], "the target existed while the copy was in flight"
     assert outcome.ok is False
     assert outcome.error is not None
-    assert not target.exists(), "the partial was left behind"
+    assert not target.exists()
     assert outcome.leftover is None
 
 
@@ -68,6 +83,11 @@ def test_a_file_this_copy_did_not_write_is_never_removed(
     was already there untouched - and at two of three call sites something legitimately can be.
     A blind unlink in the `except` would delete a user's file to tidy up after an error that
     never touched it.
+
+    **Held for a different reason since `(acj)`, and the test is kept for that reason.** It used
+    to depend on an `exists()` taken at the right moment; now nothing is ever written at the
+    target, so an incumbent cannot be reached by any failure path. The assertion is unchanged
+    because the promise is - what changed is that it is now structural rather than careful.
     """
     source = tmp_path / "in.mp4"
     source.write_bytes(b"x" * 100)
@@ -104,8 +124,14 @@ def test_when_the_cleanup_itself_fails_the_leftover_is_named_and_measured(
     outcome = copy_leaving_nothing(source, target)
 
     assert outcome.ok is False
-    assert outcome.leftover == target, "the surviving partial was not named"
+    # The survivor is the STAGED sibling, never the target - which is the point rather than a
+    # detail: what a crashed run leaves behind can no longer be mistaken for an organized photo,
+    # because `.partial` is not a media extension.
+    assert outcome.leftover == target.with_name(target.name + safe_copy.STAGING_SUFFIX), (
+        "the surviving staged copy was not named"
+    )
     assert outcome.leftover_bytes == 802, "the user is not told how much is sitting there"
+    assert not target.exists(), "the target was written despite the failure"
 
 
 def test_a_successful_copy_reports_success_and_keeps_the_file(tmp_path: Path) -> None:
@@ -157,3 +183,65 @@ def test_the_decision_is_taken_here_and_never_passed_in() -> None:
     params = set(inspect.signature(copy_leaving_nothing).parameters)
 
     assert params == {"source", "target"}, f"the helper accepts a caller's opinion: {params}"
+
+
+def test_the_staged_name_is_derived_here_and_never_passed_in() -> None:
+    """The same anti-drift pin on the staged form, and it guards a second thing.
+
+    A staging path accepted from a caller could point outside the target's directory - which
+    would make the final step a cross-filesystem rename, i.e. a copy, i.e. exactly the
+    non-atomic write staging exists to avoid. Deriving it from the target is what makes
+    "same directory" true by construction rather than by everyone remembering.
+    """
+    params = set(inspect.signature(safe_copy.staged_copy).parameters)
+
+    assert params == {"source", "target"}, f"the staged form takes an opinion: {params}"
+
+
+def test_committing_over_an_occupied_target_replaces_it(tmp_path: Path) -> None:
+    """`Path.replace`, never `Path.rename` - and this test is only discriminating on Windows.
+
+    Recorded because the mutation proving it did NOT fire here: POSIX `rename` overwrites
+    silently, so on this lane the two calls are indistinguishable and swapping them kills
+    nothing. On Windows `rename` raises when the target exists, and an occupied target is
+    ordinary at two of the three call sites - `relocate` overwrites an interrupted run's copy by
+    design, and `backup` writes paths the catalog may not know about.
+
+    So the guard for that choice is the **Windows lane running this test**, not a mutation on a
+    developer machine. Stated rather than left as a green tick that means less than it looks.
+    """
+    source = tmp_path / "in.jpg"
+    source.write_bytes(b"new bytes")
+    target = tmp_path / "organized.jpg"
+    target.write_bytes(b"the incumbent")
+
+    outcome = safe_copy.staged_copy(source, target).commit()
+
+    assert outcome.ok is True, "committing onto an occupied target failed"
+    assert target.read_bytes() == b"new bytes"
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["in.jpg", "organized.jpg"]
+
+
+def test_a_staged_copy_can_be_abandoned_without_touching_the_target(tmp_path: Path) -> None:
+    """What `backup` needs: look at the bytes, then decide.
+
+    A copy that does not verify must never take the real name - the window this closes is
+    `(abu)`'s own shape one step later, where a bad copy was renamed into place and then removed.
+    """
+    source = tmp_path / "in.jpg"
+    source.write_bytes(b"real bytes")
+    target = tmp_path / "organized.jpg"
+    target.write_bytes(b"THE INCUMBENT")
+
+    staged = safe_copy.staged_copy(source, target)
+    assert staged.ok is True
+    assert staged.temp is not None
+    assert staged.temp.read_bytes() == b"real bytes", "the staged bytes are not readable"
+    assert target.read_bytes() == b"THE INCUMBENT", "staging touched the target"
+
+    staged.abandon()
+
+    assert target.read_bytes() == b"THE INCUMBENT", "abandoning took the incumbent with it"
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["in.jpg", "organized.jpg"], (
+        "the abandoned staged copy was left behind"
+    )

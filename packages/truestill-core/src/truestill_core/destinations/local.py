@@ -124,9 +124,10 @@ class LocalDestination(Destination):
         except OSError as exc:
             message = f"cannot upload to {relative_path!r}: {exc}"
             raise DestinationError(message) from exc
-        # A failed copy leaves nothing it wrote - `(abu)`. It cannot remove what was already
-        # there, which at this site is almost never anything: `_free_relative` has just chosen a
-        # path nothing occupies.
+        # The bytes take this name only once they are all there - `(abu)`, `(acj)`. The copy
+        # goes to a sibling and is renamed on, so a failure cannot leave a truncated file wearing
+        # an organized name. Nothing here has to decide whether a file at the target is ours,
+        # because the target is never written except by the rename.
         outcome = copy_leaving_nothing(local, target)
         if not outcome.ok:
             assert outcome.error is not None
@@ -186,8 +187,9 @@ class LocalDestination(Destination):
         except OSError as exc:
             message = f"cannot relocate {old_relative_path!r} -> {new_relative_path!r}: {exc}"
             raise DestinationError(message) from exc
-        # Still overwrites a partial left by an interrupted run - that is why the target may
-        # legitimately exist here, and why the cleanup below removes only what IT wrote.
+        # Still overwrites a copy left by an interrupted run - that is why the target may
+        # legitimately exist here, and it is now the rename that does it rather than a truncating
+        # copy. `Path.replace` is what makes that work on Windows too; see `StagedCopy.commit`.
         outcome = copy_leaving_nothing(source, target)
         if not outcome.ok:
             assert outcome.error is not None

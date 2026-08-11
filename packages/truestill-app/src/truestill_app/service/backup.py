@@ -18,7 +18,7 @@ from truestill_core.drive import read_marker
 from truestill_core.hashing import sha256_file
 from truestill_core.progress import Phase, Progress, ProgressCallback
 from truestill_core.run_health import RunHealth, watcher_for
-from truestill_core.safe_copy import copy_leaving_nothing
+from truestill_core.safe_copy import staged_copy
 
 from truestill_app.jobs import JobTarget
 from truestill_app.service.drive_support import not_a_drive
@@ -234,20 +234,54 @@ def _stop_if_ground_moved(health: RunHealth | None, *, ahead: int, written: int)
         raise ValueError(verdict.detail)
 
 
-def _copy_or_raise(source_file: Path, dst: Path, rel: str) -> None:
-    """Copy one file, leaving nothing behind if it fails - `(abu)`.
+def _copy_verified_or_raise(source_file: Path, dst: Path, rel: str, want: str | None) -> str:
+    """Copy one file and give it the real name **only if its bytes verify** - `(abu)`, `(acj)`.
 
-    **Removes only what this call created.** The work list comes from the CATALOG
-    (`_files_missing_on_target`), not from the disk, so a file the catalog does not know about
-    can already be sitting at `dst` - a partial from an earlier failed run, or anything the user
-    put there. That one is not ours to delete.
+    **The window this closes, and why `(abu)`'s fix did not reach it.** That fix was aimed at the
+    copy: it removed a partial after `copy2` died. This is the step *after* the copy - the file
+    was written whole, at its real name, and only then hashed. A copy that failed to verify was
+    therefore sitting at the organized name for the length of a full re-read of its own bytes,
+    and was then unlinked. Same shape as the defect, one step later, and nothing noticed because
+    the copy itself had succeeded.
 
-    When the cleanup itself fails the partial survives and the message says where it is and how
-    big: the run stops either way, and the user should not have to find 800 MB with `rescan`.
+    Staging removes the window rather than shortening it: the bytes are hashed where they are
+    staged, and a mismatch abandons them without the target ever being written.
+
+    **`want` may be `None`** - a row with no recorded hash is unverifiable, not suspect, and the
+    copy is committed as before. That is `verify`'s `UNVERIFIABLE` distinction, not a new one.
+
+    When a cleanup itself fails the staged bytes survive and the message says where and how big:
+    the run stops either way, and the user should not have to hunt 800 MB down.
+
+    Returns the digest of what was written, because the caller records it as `copy_sha256`.
     """
-    outcome = copy_leaving_nothing(source_file, dst)
+    staged = staged_copy(source_file, dst)
+    if not staged.ok:
+        assert staged.error is not None
+        if staged.leftover is None:
+            raise staged.error
+        message = (
+            f"copying {rel} failed: {staged.error}. {staged.leftover_bytes:,} bytes are still "
+            f"at {staged.leftover} and could not be removed."
+        )
+        raise OSError(message) from staged.error
+
+    assert staged.temp is not None
+    # Hashed unconditionally, exactly as before: the digest is not only the check, it is what
+    # `record_copy` stores as `copy_sha256`. Computing it only when there is something to compare
+    # against would leave a row with no recorded hash - the UNVERIFIABLE case this path exists to
+    # stop propagating.
+    written = sha256_file(staged.temp)
+    if want is not None and written != want:
+        # Verified BEFORE it takes the name: a copy that does not match is never at the real path
+        # for any interval at all, so nothing downstream can read it and nothing has to undo it.
+        staged.abandon()
+        message = f"copy of {rel} did not verify -- stopping to stay safe."
+        raise ValueError(message)
+
+    outcome = staged.commit()
     if outcome.ok:
-        return
+        return written
     assert outcome.error is not None
     if outcome.leftover is None:
         raise outcome.error
@@ -329,14 +363,10 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
                 dst = target / rel
                 device.check(target)
                 dst.parent.mkdir(parents=True, exist_ok=True)
-                _copy_or_raise(source / rel, dst, rel)
-                written = sha256_file(dst)
-                want = row.verify_sha
-                if want is not None and written != want:
-                    # verify-after-write; a bad copy is never recorded
-                    dst.unlink(missing_ok=True)
-                    message = f"copy of {rel} did not verify -- stopping to stay safe."
-                    raise ValueError(message)
+                # Verify-before-commit: the hash is taken on the staged copy, so a bad one never
+                # wears the real name even briefly. It used to be taken here, after the file was
+                # already at `dst`.
+                written = _copy_verified_or_raise(source / rel, dst, rel, row.verify_sha)
                 catalog.record_copy(
                     sha256=row.sha256,
                     drive_uuid=tgt_marker.uuid,
