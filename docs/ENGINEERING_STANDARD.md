@@ -852,6 +852,41 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
     longer describes the code that will be committed. **Re-prove after the last formatter run, not
     before** - and re-prove after editing a test the mutation targets, for the same reason.
 
+- **When you PROBE an external system, its answer and your instrument's fault arrive as the same
+  string.** The thirty-fourth member. The rest of this family is about code we own, where a wrong
+  answer is a defect; here a wrong answer is *the expected output of the thing under test*, so
+  there is nothing anomalous to notice. **A broken rig does not look broken. It looks like a
+  finding.**
+
+  *Worked instance, 2026-08-10/11, probing local language models for a naming feature. Both faults
+  were caught only because the results were re-read, and both pointed at a wrong conclusion.*
+
+  1. *The transport was never connected.* Prompts went to a raw completion endpoint, bypassing the
+     **chat template** the instruction-tuned model requires. Every reply was the model echoing the
+     prompt back. Scored naively that reads *"the small model cannot follow instructions"* - a
+     plausible, publishable, completely false finding. Nothing was ever asked.
+  2. *The instrument truncated the answer and the truncation was scored as content.* These are
+     reasoning models that emit a thinking block first; a 96-token cap cut several replies off
+     mid-thought, and the grader recorded *"does not know"* for answers that had not finished
+     arriving. **Ignorance and truncation are the same empty string** unless the stop reason is
+     recorded.
+
+  > **Record the transport, the stop reason and the resource ceiling beside every measured answer.
+  > If you cannot say why generation stopped, you do not have an answer - you have a string.**
+
+  The repair is mechanical: assert the request went through the documented interface, capture
+  `finish_reason` (or the equivalent) and surface a truncation count per run, and re-read a sample
+  of raw outputs before grading any of them. The grading function is the last place to look for
+  this, because it faithfully grades whatever it is handed.
+
+  **Corollary - measure the rig's own resources before spending them, and write it as an
+  instruction rather than a fact** (thirty-second member, applied immediately): *check the target
+  filesystem before downloading anything large, because a RAM-backed scratch directory turns a
+  download into memory pressure.* Measured 2026-08-10: `/tmp` on this machine was `tmpfs`, 12 GB,
+  so ~10 GB of model files would have been paged against 8 GB of free RAM rather than written to
+  disk. Stated that way the rule survives a machine that mounts `/tmp` differently tomorrow;
+  stated as *"/tmp is tmpfs"* it would already be the kind of sentence that expires in silence.
+
 - **A design is not checked against the contract until somebody QUOTES the clause it touches.**
   The thirty-third member, and the one with no artifact to catch it. Every other member here
   guards something that exists - a test, a guard, a document, a commit. A design under discussion
