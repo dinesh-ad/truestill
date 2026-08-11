@@ -1168,6 +1168,28 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   > says so", the rule is documentation. Make it executable, or accept that it will be broken and
   > say so honestly - the two acceptable answers, and "write it more clearly" is neither.
 
+  **A THIRD ANSWER, added 2026-08-11: some rules are HAND-CLOSEABLE ONCE, and the honest move is to
+  close them by hand and record why a guard cannot follow.** Not every rule that failed has a guard
+  waiting to be written, and reaching for one anyway produces the worst outcome of the three - a
+  check that fires on ordinary work, gets switched off, and takes its real coverage with it.
+
+  > **The tell is that the discriminator is a JUDGEMENT rather than a pattern.** Write the rule you
+  > would enforce and ask what it matches. If the honest answer is "ordinary cases, or nothing",
+  > there is no guard to build.
+
+  *Worked instance.* Two backlog entries were marked built and left in the open-work file, invisible
+  to the closure hook because they predated it. The obvious guard - *an entry marked BUILT must not
+  be in `BACKLOG.md`* - cannot be written: that file's own preamble says status is per entry and
+  that **partial is the normal state**, so many entries legitimately carry a built sub-bullet beside
+  live work, and one of these two was exactly that shape until the day it closed. The real
+  discriminator is *is the whole entry done*, which nothing can read off the text.
+
+  So the pair was closed by hand, and what makes that acceptable rather than a shrug is the second
+  half: **the class cannot recur**, because everything leaving that file since carries a trailer and
+  a hook refuses a departure without one. **Hand-closing is only honest when something else stops
+  the class returning** - otherwise it is the "accept it will be broken" answer wearing a tidier
+  coat, and should be recorded as that instead.
+
   *The tell:* the rule is phrased as an instruction to a person - *check here before assigning*,
   *save the original before mutating*, *never re-run a red lane*. Prose can describe a control; it
   cannot be one. The duplicate-letter guard added for instance 3 is the shape that works: it
