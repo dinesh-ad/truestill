@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ada). Next free: (adb).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(adb). Next free: (adc).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -112,6 +112,30 @@ is invisible here is retired, not free.**
   - **The cheapest honest fix is probably rescan-side**, not copy-side: teach the stray report to
     look for `safe_copy.STAGING_SUFFIX` explicitly, which is one suffix it already knows the name
     of. That is a decision about what rescan is for, so it is filed rather than assumed.
+
+- **(adb) TWO COPY PATHS STILL WRITE THE REAL NAME FIRST, AND ONE OF THEM IS THE CATALOG.** Named
+  in `(acj)`'s closure 2026-08-11 as out of its scope, and filed here because a line in
+  `SHIPPED.md` records what was *not* done without tracking it. `(acj)` staged every copy that goes
+  through `safe_copy`; these two never did.
+  - **`catalog_move.py:131` is the one that matters, and it is `(abu)`'s exact shape on a database.**
+    A bare `shutil.copy2(source, destination)`. A failure part-way leaves a **truncated SQLite file
+    at the destination path**, wearing the name the user was told to point at. The function's own
+    contract makes it worse: it never removes the source and tells the user to *"check the copy,
+    then delete the old one"* - so the failure mode is a person deleting a good catalog after
+    glancing at a partial one. `copy_leaving_nothing` is a two-argument drop-in; the reason this is
+    not a one-line fix is the surrounding `CatalogMove` result, which reports outcomes rather than
+    raising, so the leftover-naming half of `CopyOutcome` has to be threaded into the message.
+  - **`organizer._MetadataBaker` (`organizer.py:924`) is a different, smaller problem wearing the
+    same clothes.** It stages into the **system** temp directory - not beside the target - so
+    `safe_copy` would not help even if applied: the write to the real destination is the *upload*,
+    a filesystem away. Its own partial is inside a temp tree that is torn down, and a copy that
+    dies never enters `self._ready`, so nothing incomplete is uploaded. **The cost here is not
+    safety, it is a full second write of every file that needs metadata baked**, on whatever
+    filesystem `TMPDIR` names - which on a small root partition is a place a photo library does not
+    fit. Measure before changing anything: `PERFORMANCE.md` has no figure for the bake path.
+  - **Do not "fix" these together.** They share a `shutil.copy2` and nothing else - one is a
+    correctness hole with a known remedy, the other is a placement question with no measurement
+    behind it.
 
 - **(ada) THE BACKUPS SCREEN NOW PUTS STATE BELOW THE FORMS, AND A ONE-COPY WARNING CAN FALL BELOW
   THE FOLD.** Split out of `(acd)` 2026-08-11 when that entry moved to `SHIPPED.md`. `(acd)` fixed

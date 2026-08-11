@@ -59,9 +59,11 @@ recording shipped work as unstarted, which is the more expensive direction of th
     lane** is the detector for that choice, and says so.
   - **Named rather than left to be rediscovered - three copy paths this did NOT reach:**
     - `organizer._MetadataBaker` stages into the **system** temp directory and uploads from there,
-      so it crosses a filesystem before the real write and is not covered by `safe_copy` at all.
-    - `catalog_move.py` copies the catalog with a bare `shutil.copy2`; a failure leaves a partial
-      catalog file, the same shape on a smaller object.
+      so it crosses a filesystem before the real write and `safe_copy` would not help it.
+    - `catalog_move.py` copies the catalog with a bare `shutil.copy2`; a failure leaves a truncated
+      SQLite file wearing the name the user was told to point at - `(abu)`'s shape on a database.
+      Both are filed as `(adb)` rather than left as a note in a closed entry, because the two need
+      different remedies and only the second has one.
     - `RcloneDestination`, by design and by its own module rule that no code path there may remove
       data at the remote.
   - **What is still owed is `(acz)`**, rewritten the same day: a survivor is now unambiguous debris
