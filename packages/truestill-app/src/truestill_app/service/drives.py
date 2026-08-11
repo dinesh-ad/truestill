@@ -426,6 +426,12 @@ class DriveRow(TypedDict):
     label: str
     uuid: str
     files: int
+    #: Copies recorded here that a check LOOKED for and did not find. `files` still counts them:
+    #: this list reports history, and a count dropping to zero destroys the only clue to what
+    #: happened. `(abg)`.
+    not_found: int
+    #: When that was observed - the most recent, so the card can date the fact.
+    not_found_at: str | None
     photos: int
     videos: int
     audio: int
@@ -516,6 +522,13 @@ def list_drives(db: Path) -> list[DriveRow]:
                     "label": d["label"],
                     "uuid": d["uuid"],
                     "files": d["file_count"],
+                    # RECORDED HERE, AND NOT FOUND WHEN WE LOOKED. A history gains a number
+                    # rather than losing one: `files` still counts every copy ever written here,
+                    # because a count that quietly drops to zero destroys the only clue to what
+                    # happened. The custody SENTENCE excludes these - see `Catalog.list_drives`
+                    # for the two rules and why they are opposites. `(abg)`.
+                    "not_found": d["missing_count"],
+                    "not_found_at": d["missing_at"],
                     "photos": breakdown["photos"],
                     "videos": breakdown["videos"],
                     "audio": breakdown["audio"],

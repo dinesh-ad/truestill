@@ -531,7 +531,8 @@ def test_stats_view_renders_seeded_catalog_numbers(page: Page, app_server: AppSe
             size=100,
         )
         catalog.mark_copy_verified(sha256="sha-a", drive_uuid="A", when="2026-07-30T10:00:00")
-        catalog.set_drive_verified("A", "2026-07-30T10:00:00")
+        # Derived from the copy confirmed above, not stamped beside it - `(abg)` Stage 2.
+        catalog.refresh_drive_verified("A")
 
     open_app(page, app_server.url)
     open_screen(page, "stats")

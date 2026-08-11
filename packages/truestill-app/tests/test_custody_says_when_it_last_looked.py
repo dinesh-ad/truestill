@@ -29,6 +29,22 @@ from truestill_core.catalog import Catalog
 from truestill_core.drive import drive_path_hint
 
 
+def _confirm(catalog: Catalog, uuid: str, verified: str | None) -> None:
+    """Date a drive by confirming its COPIES, which is the only way the date arises now.
+
+    These tests used to call `set_drive_verified(uuid, when)`. It is gone: `(abg)` Stage 2 made
+    the drive's date derived from its copies, because a stamp taken beside the evidence rather
+    than from it dated a claim that a run had just contradicted. Seeding through
+    `mark_copy_verified` exercises the real path instead of asserting against a value only a test
+    could produce.
+    """
+    if verified is None:
+        return
+    for row in catalog.copies_on_drive(uuid):
+        catalog.mark_copy_verified(sha256=row["sha256"], drive_uuid=uuid, when=verified)
+    catalog.refresh_drive_verified(uuid)
+
+
 def _seed(db: Path, drives: dict[str, str | None], *, files: int = 2) -> None:
     """A catalog with one copy of each file on every named drive.
 
@@ -51,8 +67,7 @@ def _seed(db: Path, drives: dict[str, str | None], *, files: int = 2) -> None:
                     relative=f"Camera/{n}.jpg",
                     drive_uuid=uuid,
                 )
-            if verified is not None:
-                catalog.set_drive_verified(uuid, verified)
+            _confirm(catalog, uuid, verified)
 
 
 def test_the_claim_carries_the_oldest_check_across_the_places_it_counts(tmp_path: Path) -> None:
@@ -128,8 +143,7 @@ def _drive(catalog: Catalog, uuid: str, label: str, *, verified: str | None, fil
             relative=f"Camera/{n}.jpg",
             drive_uuid=uuid,
         )
-    if verified is not None:
-        catalog.set_drive_verified(uuid, verified)
+    _confirm(catalog, uuid, verified)
 
 
 def test_two_drives_sharing_a_label_are_named_apart_in_the_claim(tmp_path: Path) -> None:

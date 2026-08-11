@@ -291,7 +291,7 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
 ## 3. Data contract (catalog)
 
 - **Single SQLite file**, stdlib `sqlite3` (`catalog.py::Catalog`). No server.
-- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 18`**.
+- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 19`**.
   Migrations are ordered, idempotent functions in `_MIGRATIONS`; a catalog newer than the code
   is refused (`CatalogVersionError`). Migration coverage tested in `tests/test_catalog.py`.
 - **A migration is not a transaction, and three conventions are what make that safe.** Measured
@@ -307,7 +307,7 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   control is pinned at the connect call to today's `LEGACY_TRANSACTION_CONTROL`, so a future
   Python default cannot change when writes commit; adopting the new semantics is a separate
   decision.
-- **Table inventory (v15 - the last migration that adds a table; v16 and v17 add only
+- **Table inventory (v15 - the last migration that adds a table; v16, v17 and v19 add only
   columns, and v18 only drops an index):**
   `files`, `albums`, `file_albums`, `events`, `skipped_clusters`, `drives`, `file_copies`,
   `settings`, `migration_journal`, `reclaim_journal`, `inplace_runs`, `inplace_moves`,
@@ -352,6 +352,15 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   or the prime meridian**, which is why the reader tests `isinstance` rather than truthiness -
   exiftool returns integer `0` there and `0` is falsy. No backfill: a pre-v17 row keeps NULLs,
   because recovering the values means re-reading the file and that is a decision of its own).
+  v19 `file_copies.missing_at` (that we LOOKED for a copy on a drive which identified itself and
+  it was not there - `(abg)`). **The column exists because absence had nowhere to go:**
+  `mark_copy_verified` fired only on success, so verify computed `MISSING` for every copy and
+  discarded it, and every count then read a `file_copies` row as a statement about now when it is
+  a statement about the moment it was written. **NULL is "not known to be absent" and is NOT a
+  claim of presence** - that claim needs `last_verified`. Additive and NULL on every existing row,
+  so a v18 catalog answers every custody question with the same numbers after the migration as
+  before; the column only ever gains a value from an observation. **The row is never deleted**,
+  because it is the only remaining clue that content was once written there.
   v18 **drops** `idx_files_sha256` - the first migration that removes rather than adds.
   `files.sha256` is `NOT NULL UNIQUE`, so SQLite already maintains `sqlite_autoindex_files_1`
   over exactly that column; the explicit index was a second B-tree on the same key, costing

@@ -1250,12 +1250,21 @@ def _cmd_verify(args: argparse.Namespace) -> int:
         )
 
         counts = Counter(r.status.value for r in results)
+        # The app's `service/verify.py` carries the reasoning for all three lines; this surface
+        # must not drift from it. In short: a check dates the claim only for what it confirmed,
+        # only MISSING is an absence, and the marker is re-read so a drive pulled out mid-run
+        # cannot leave its remaining copies recorded as gone. `(abg)`.
+        still_here = read_marker(root)
         for result in results:
             if result.status is CopyStatus.VERIFIED:
                 catalog.mark_copy_verified(
                     sha256=result.copy.sha256, drive_uuid=marker.uuid, when=when
                 )
-        catalog.set_drive_verified(marker.uuid, when)
+            elif result.status is CopyStatus.MISSING and still_here is not None:
+                catalog.mark_copy_missing(
+                    sha256=result.copy.sha256, drive_uuid=marker.uuid, when=when
+                )
+        catalog.refresh_drive_verified(marker.uuid)
 
     print(_SEPARATOR)
     print(f"VERIFY '{marker.label}'")

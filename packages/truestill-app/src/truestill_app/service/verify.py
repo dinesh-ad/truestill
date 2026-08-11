@@ -1,4 +1,30 @@
-"""Verify: check a connected drive's copies against the catalog."""
+"""Verify: check a connected drive's copies against the catalog, and REMEMBER what it found.
+
+**A check dates the custody claim only for what it actually confirmed** (`(abg)` Stage 2). This
+used to stamp ``drives.last_verified`` unconditionally at the end of every run, and Stage 1 had
+just carried that date to the sentence a person reads - so a run whose own summary said
+``missing: 2269`` reported the claim as checked today. The date is now derived from the copies by
+:meth:`~truestill_core.catalog.Catalog.refresh_drive_verified`, on `custody_freshness`'s
+weakest-leg rule.
+
+**Only MISSING is persisted**, and the other two failures are deliberately not folded into it:
+``UNREADABLE`` is an EIO or a permission, which is *we could not look*, and ``MISMATCH`` is a
+drive that still holds something at that path. Different facts need different words - `(ach)`.
+
+**Two preconditions this relies on are already structural. Do not build them again, and do not
+"fix" the second:**
+
+* A negative can only be produced for a drive that identified itself, because `verify_run` starts
+  by reading the marker and soft-fails without one. The cloud-mount case that motivated `(abg)` -
+  where *gone* and *unplugged* are indistinguishable - cannot reach this code at all.
+* `verify_copies` answers every ``MISSING`` in ``_partition``, **before any hashing starts**, so a
+  run the user cancels still has a complete set of absences rather than a truncated one. That is
+  counter-intuitive and it is what makes persisting from a cancelled run sound.
+
+The one window that is not structural is a drive pulled out mid-run, whose remaining copies would
+all read as absent - so the marker is re-read after the run and negatives are dropped if it is
+gone.
+"""
 
 from __future__ import annotations
 
@@ -62,12 +88,17 @@ def verify_run(path: Path, db: Path) -> JobTarget | DriveUnavailablePayload:
             copies = [CopyToVerify.from_row(r) for r in rows]
             results = verify_copies(copies, path, progress=progress, cancel=cancel)
             when = _now()
+            still_here = read_marker(path)
             for result in results:
                 if result.status is CopyStatus.VERIFIED:
                     catalog.mark_copy_verified(
                         sha256=result.copy.sha256, drive_uuid=marker.uuid, when=when
                     )
-            catalog.set_drive_verified(marker.uuid, when)
+                elif result.status is CopyStatus.MISSING and still_here is not None:
+                    catalog.mark_copy_missing(
+                        sha256=result.copy.sha256, drive_uuid=marker.uuid, when=when
+                    )
+            catalog.refresh_drive_verified(marker.uuid)
         counts = Counter(r.status.value for r in results)
         problems: list[VerifyProblem] = []
         for r in results:

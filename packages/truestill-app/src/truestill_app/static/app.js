@@ -2464,6 +2464,25 @@ document.querySelectorAll('input[name="org-mode"]').forEach((item) => {
 // that is not here, "not plugged in" alone does not say whether the copy is a day or two years
 // old, which is `(abg)`'s concern. On a connected drive it is noise, and two dates side by side
 // invite confusion.
+/** Copies recorded on a drive that a check looked for and did not find.
+ *
+ * THE COUNT ABOVE DELIBERATELY STILL INCLUDES THESE. This card reports history - what was
+ * written here - and a number that quietly dropped to zero would destroy the only clue a person
+ * has to what happened to their files. So the shortfall is stated beside the count and dated,
+ * never subtracted from it. The custody sentence in the rail does the opposite and excludes
+ * them, because that one is a claim about now. `(abg)`.
+ *
+ * Silent when nothing is missing, and silent when nothing has ever looked - an absence of
+ * observation is not an observation of absence.
+ */
+function driveNotFoundNote(d) {
+  if (!d.not_found) return "";
+  const when = (d.not_found_at || "").slice(0, 10);
+  return `<div class="k at-risk" data-testid="drive-not-found">${nfmt(d.not_found)} not found${
+    when ? ` on ${esc(when)}` : ""
+  }</div>`;
+}
+
 function lastSeenNote(d) {
   if (d.reach === "connected") return "";
   return d.last_seen
@@ -2577,6 +2596,7 @@ async function loadDrives() {
     const collides = (sharedLabel.get(d.label) || 0) > 1;
     return `<div class="card"><div class="tally" style="grid-template-columns:1fr auto">
       <div><b>${esc(d.label)}</b> ${driveReachBadge(d.reach)}<div class="k mono">${mediaCount(d)} · ${fmtBytes(d.size)}</div>
+        ${driveNotFoundNote(d)}
         ${d.path
           ? `<details class="more inline"${collides ? " open" : ""}>
              <summary>Show location ▾</summary>

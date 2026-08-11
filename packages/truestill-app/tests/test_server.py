@@ -151,7 +151,8 @@ def test_library_stats_reports_custody_and_shape(client: TestClient, tmp_path: P
             size=100,
         )
         catalog.mark_copy_verified(sha256="sha-a", drive_uuid="A", when="2026-07-30T10:00:00")
-        catalog.set_drive_verified("A", "2026-07-30T10:00:00")
+        # Derived from the copy confirmed above, not stamped beside it - `(abg)` Stage 2.
+        catalog.refresh_drive_verified("A")
 
     body = client.get(f"/api/library/stats?token={TOKEN}").json()
     # `complexity` is gone on purpose: it carried an engineering cost annotation that Stats

@@ -126,6 +126,12 @@ def test_drives_split_photos_and_videos(client: TestClient, tmp_path: Path) -> N
         # five flat ones, so this contract grows by a single key and a consumer that does not
         # care about decisions is unchanged.
         "decisions",
+        # Added 2026-08-11 - `(abg)` Stage 2. Copies recorded here that a check looked for and
+        # did not find, and when. Two flat keys rather than one nested field, unlike `decisions`
+        # above: a count and its date are a single fact read together on one line, and nesting
+        # them would put a `.length` between the card and the number it prints.
+        "not_found",
+        "not_found_at",
     }
     assert drives[0]["photos"] == 2
     assert drives[0]["videos"] == 1

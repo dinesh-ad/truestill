@@ -154,6 +154,14 @@ CREATE TABLE IF NOT EXISTS file_copies (
     -- (content, drive) like copy_sha256 above, because that is exactly what a bake changes:
     -- baking the photo on one drive says nothing about the copy on another.
     date_baked_at TEXT,
+    -- When we LOOKED for this copy on a drive that identified itself, and it was not there.
+    -- NULL means "not known to be absent", which is the ordinary state and is NOT a claim that
+    -- the copy is present -- that claim needs last_verified. `(abg)`.
+    --
+    -- The row survives, deliberately. It is the record that content was once written here, and
+    -- it is the only clue left to what happened; deleting it would answer "where did my 2,269
+    -- files go?" with silence. Absence is remembered, never acted on.
+    missing_at    TEXT,
     PRIMARY KEY (sha256, drive_uuid)
 );
 CREATE INDEX IF NOT EXISTS idx_file_copies_drive ON file_copies (drive_uuid);
@@ -256,7 +264,7 @@ CREATE TABLE IF NOT EXISTS date_confirmations (
 """
 
 #: Bump whenever the schema changes, and add a matching entry to _MIGRATIONS.
-CURRENT_SCHEMA_VERSION = 18
+CURRENT_SCHEMA_VERSION = 19
 
 
 class CatalogVersionError(RuntimeError):
@@ -640,6 +648,25 @@ def _drop_redundant_sha256_index(conn: sqlite3.Connection) -> None:
     conn.execute("DROP INDEX IF EXISTS idx_files_sha256")
 
 
+def _add_copy_missing_at(conn: sqlite3.Connection) -> None:
+    """v18 -> v19: remember that we looked for a copy and it was not there. `(abg)`.
+
+    Verify has always computed this and thrown it away - `mark_copy_verified` fires only on
+    success, so the catalog could record that a copy is fine and had no way to record that it is
+    gone. Every count then read a `file_copies` row as a true statement about now, when it is a
+    true statement about the moment it was written.
+
+    **Additive and NULL on every existing row**, which is what makes the upgrade honest: a v18
+    catalog answers every custody question with the same numbers after this migration as before,
+    because nothing has looked yet. The column only ever gains a value from an observation.
+    """
+    columns = _columns_of(conn, "file_copies")
+    if not columns:  # see `_add_copy_date_baked_at` - a missing TABLE is not this step's to report
+        return
+    if "missing_at" not in columns:
+        conn.execute("ALTER TABLE file_copies ADD COLUMN missing_at TEXT")
+
+
 _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (2, _add_size_column),
     (3, _add_original_name_column),
@@ -658,6 +685,7 @@ _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (16, _add_copy_date_baked_at),
     (17, _add_capture_columns),
     (18, _drop_redundant_sha256_index),
+    (19, _add_copy_missing_at),
 )
 
 
@@ -1607,12 +1635,21 @@ class Catalog:
     # -- drives & copies (reads) ---------------------------------------------------
 
     def list_drives(self) -> list[sqlite3.Row]:
-        """Known drives with their copy counts and total bytes (largest label set aside)."""
+        """Known drives with their copy counts and total bytes (largest label set aside).
+
+        **This list REPORTS HISTORY, so it gains a number rather than losing one** - the opposite
+        rule to the custody counts below, and deliberately. ``file_count`` still counts every
+        recorded copy including ones a check did not find, and ``missing_count`` names the
+        shortfall, so a drive reads *"2,269 recorded, 2,269 not found on 11 Aug"*. Filtering here
+        instead would drop it to ``0`` and destroy the only clue to what happened. `(abg)`.
+        """
         return list(
             self._conn.execute(
                 """
                 SELECT d.uuid, d.label, d.first_seen, d.last_seen, d.last_verified, d.notes, COUNT(fc.sha256) AS file_count,
-                       COALESCE(SUM(fc.size), 0) AS total_size
+                       COALESCE(SUM(fc.size), 0) AS total_size,
+                       COUNT(fc.missing_at) AS missing_count,
+                       MAX(fc.missing_at) AS missing_at
                 FROM drives d
                 LEFT JOIN file_copies fc ON fc.drive_uuid = d.uuid
                 GROUP BY d.uuid
@@ -1639,6 +1676,9 @@ class Catalog:
 
     def drives_holding(self, shas: Sequence[str]) -> list[DriveHolding]:
         """Which drives physically hold this content: ``drive_uuid, label, files``, biggest first.
+
+        *Hold*, present tense: a copy looked for and not found is excluded, on
+        :meth:`single_copy_shas`'s reasoning.
 
         **`file_copies` is the only table that knows.** `files.source_path` is where content was
         first read from and is deliberately never repointed, so it names a user's old folder
@@ -1682,7 +1722,7 @@ class Catalog:
             SELECT fc.drive_uuid AS drive_uuid, d.label AS label, COUNT(*) AS files
             FROM file_copies fc
             JOIN drives d ON d.uuid = fc.drive_uuid
-            WHERE fc.sha256 IN ({placeholders})
+            WHERE fc.sha256 IN ({placeholders}) AND fc.missing_at IS NULL
             GROUP BY fc.drive_uuid
         """
 
@@ -1778,7 +1818,12 @@ class Catalog:
         return list(self._conn.execute(sql, params))
 
     def single_copy_shas(self) -> list[sqlite3.Row]:
-        """For ``status``: content that exists on exactly one drive (a single point of loss)."""
+        """For ``status``: content that exists on exactly one drive (a single point of loss).
+
+        **A copy looked for and not found is not a place.** This sentence is a promise about now,
+        so it excludes ``missing_at`` rows - see :meth:`list_drives` for why the drive list does
+        the opposite. `(abg)`.
+        """
         return list(
             self._conn.execute(
                 """
@@ -1786,7 +1831,10 @@ class Catalog:
                 FROM file_copies fc
                 JOIN files f ON f.sha256 = fc.sha256
                 JOIN drives d ON d.uuid = fc.drive_uuid
-                WHERE fc.sha256 IN (SELECT sha256 FROM file_copies GROUP BY sha256 HAVING COUNT(*) = 1)
+                WHERE fc.missing_at IS NULL AND fc.sha256 IN (
+                    SELECT sha256 FROM file_copies WHERE missing_at IS NULL
+                    GROUP BY sha256 HAVING COUNT(*) = 1
+                )
                 ORDER BY f.original_name
                 """
             )
@@ -1794,6 +1842,8 @@ class Catalog:
 
     def single_copy_count(self) -> int:
         """How many files exist on exactly one drive -- the number, without the names.
+
+        Excludes copies known absent, on :meth:`single_copy_shas`'s reasoning.
 
         Was calling :meth:`single_copy_shas`, which joins to two tables and sorts every at-risk
         row by name so it can throw all of it away. Measured at 100k files that was 425 ms per
@@ -1811,13 +1861,18 @@ class Catalog:
         together so the cheap answer cannot drift from the detailed one.
         """
         cursor = self._conn.execute(
-            "SELECT COUNT(*) FROM "
-            "(SELECT sha256 FROM file_copies GROUP BY sha256 HAVING COUNT(*) = 1)"
+            "SELECT COUNT(*) FROM (SELECT sha256 FROM file_copies "
+            "WHERE missing_at IS NULL GROUP BY sha256 HAVING COUNT(*) = 1)"
         )
         return int(cursor.fetchone()[0])
 
     def custody_floor(self) -> sqlite3.Row:
         """Per-FILE redundancy: how many copies the *weakest* file has, and how many are exposed.
+
+        The ``LEFT JOIN`` excludes copies known absent, so a file whose only copy was looked for
+        and not found lands in ``no_copy`` - the most exposed state, which is where it belongs.
+        :meth:`single_copy_shas` carries the reasoning; :meth:`list_drives` carries the opposite
+        rule for the surface that reports history.
 
         The custody strip makes a per-file claim in English - "in only one place" - so it has to
         be answered with a per-file number. `single_copy_count` cannot do it alone: it reads
@@ -1844,7 +1899,8 @@ class Catalog:
             WITH per_file AS (
                 SELECT f.sha256 AS sha, COUNT(fc.sha256) AS copies
                 FROM files f
-                LEFT JOIN file_copies fc ON fc.sha256 = f.sha256
+                LEFT JOIN file_copies fc
+                       ON fc.sha256 = f.sha256 AND fc.missing_at IS NULL
                 GROUP BY f.sha256
             )
             SELECT
@@ -2205,10 +2261,54 @@ class Catalog:
                 (uuid, label, now, now),
             )
 
-    def set_drive_verified(self, uuid: str, when: str) -> None:
-        """Roll up the drive-level last_verified convenience timestamp."""
+    def refresh_drive_verified(self, uuid: str) -> None:
+        """Re-derive the drive's ``last_verified`` from its copies: the OLDEST, or NULL.
+
+        **Derived rather than stamped, and that is the whole of `(abg)` Stage 2.** This used to
+        be ``set_drive_verified(uuid, when)``, called unconditionally at the end of every verify
+        run - so a run whose own summary said ``missing: 2269`` dated the drive *now*, and a run
+        cancelled at the first file did the same. Stage 1 had just carried this date to the
+        sentence a person reads, which meant the reassuring claim got **fresher** on evidence
+        that contradicted it.
+
+        The rule is :func:`~truestill_core.drive.custody_freshness`'s, one level down: a claim is
+        only as fresh as its weakest leg. ``MIN`` over the copies, and ``NULL`` the moment any of
+        them has never been confirmed - which covers *missing*, *unreadable*, *unverifiable* and
+        *not reached before the user cancelled* without having to enumerate them. Nothing here
+        takes a timestamp from the caller, so it is **structurally** incapable of over-claiming
+        rather than correct only while every call site remembers to check.
+
+        A drive with no copies keeps ``NULL``: there is nothing to have confirmed.
+        """
         with self._tx() as conn:
-            conn.execute("UPDATE drives SET last_verified = ? WHERE uuid = ?", (when, uuid))
+            conn.execute(
+                """
+                UPDATE drives SET last_verified = (
+                    SELECT CASE WHEN COUNT(*) = COUNT(fc.last_verified)
+                                THEN MIN(fc.last_verified) END
+                    FROM file_copies fc WHERE fc.drive_uuid = drives.uuid
+                )
+                WHERE uuid = ?
+                """,
+                (uuid,),
+            )
+
+    def mark_copy_missing(self, *, sha256: str, drive_uuid: str, when: str) -> None:
+        """Remember that we looked for this copy on a drive that was there, and it was not.
+
+        Clears ``last_verified`` in the same statement: a copy cannot simultaneously be confirmed
+        present and known absent, and leaving the old date would let :meth:`refresh_drive_verified`
+        keep dating a claim off a confirmation the next check disproved.
+
+        **The row is never deleted.** It is the record that content was once written here, and
+        the only clue left to what happened - see the column comment in ``_SCHEMA``.
+        """
+        with self._tx() as conn:
+            conn.execute(
+                "UPDATE file_copies SET missing_at = ?, last_verified = NULL "
+                "WHERE sha256 = ? AND drive_uuid = ?",
+                (when, sha256, drive_uuid),
+            )
 
     def record_copy(
         self,
@@ -2227,15 +2327,26 @@ class Catalog:
                 VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(sha256, drive_uuid) DO UPDATE SET
                     relative = excluded.relative, copy_sha256 = excluded.copy_sha256,
-                    size = excluded.size, copied_at = excluded.copied_at
+                    size = excluded.size, copied_at = excluded.copied_at,
+                    -- A re-copy re-establishes the place, so a remembered absence is spent.
+                    -- Without this, restoring a drive by copying into it would leave every
+                    -- restored file uncounted until the user thought to run a verify. `(abg)`.
+                    missing_at = NULL
                 """,
                 (sha256, drive_uuid, relative, copy_sha256, size, _now()),
             )
 
     def mark_copy_verified(self, *, sha256: str, drive_uuid: str, when: str) -> None:
+        """Confirm a copy is present with the bytes we recorded, clearing any remembered absence.
+
+        The clear is the same statement on purpose: a copy that just hashed correctly is not
+        absent, and a stale ``missing_at`` would keep it out of every custody count while
+        ``last_verified`` said it was fine. One observation, one row, no window between them.
+        """
         with self._tx() as conn:
             conn.execute(
-                "UPDATE file_copies SET last_verified = ? WHERE sha256 = ? AND drive_uuid = ?",
+                "UPDATE file_copies SET last_verified = ?, missing_at = NULL "
+                "WHERE sha256 = ? AND drive_uuid = ?",
                 (when, sha256, drive_uuid),
             )
 

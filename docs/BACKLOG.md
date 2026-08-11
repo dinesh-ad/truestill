@@ -934,6 +934,52 @@ is invisible here is retired, not free.**
     observation that is currently computed and thrown away (`service/verify.py:72-79` produces
     `CopyStatus.MISSING` per copy and records nothing; `mark_copy_verified` fires only on
     success). A narrower claim honestly stated beats a flattering one.
+  - ✅ **STAGE 2 SHIPPED 2026-08-11 - and it leads with a defect STAGE 1 INTRODUCED.** Stage 1
+    carried `drives.last_verified` to the sentence a person reads. It did not ask what advances
+    that date, and the answer was: every verify run, unconditionally, on both surfaces. So a run
+    whose own summary said `missing: 2269` reported the claim as **checked today**, and so did a
+    run cancelled at the first file. That is this entry's own thesis - history reported as state -
+    reappearing inside this entry's own fix, and it is worse than what Stage 1 addressed: Stage 1
+    made the claim datable and the date meaningless. Recorded as `ENGINEERING_STANDARD.md` §4's
+    **thirty-sixth** member, because the mistake generalises to any freshness field.
+    - **The drive's date is now DERIVED from its copies**, `MIN` and NULL the moment any copy has
+      never been confirmed - which covers missing, unreadable, unverifiable and *not reached
+      before the user cancelled* without enumerating them. Not a new rule: it is
+      `custody_freshness`'s own weakest-leg argument one level down. Structurally incapable of
+      over-claiming beats correct while every call site remembers.
+    - **Rejected: "do not stamp when anything failed."** One `UNREADABLE` file on a 10,000-copy
+      drive would leave the claim permanently undated. A different lie is still a lie.
+    - **v19 `file_copies.missing_at` persists what verify already computed and threw away.** Only
+      `MISSING`: `UNREADABLE` is *we could not look* and `MISMATCH` is a drive still holding
+      something at that path - different facts needing different words, `(ach)`. **The row is
+      never deleted**; it is the only remaining clue that content was once written there.
+    - **TWO PRECONDITIONS WERE ALREADY STRUCTURAL AND WERE NOT BUILT. Do not "fix" the second.**
+      `verify_run` starts by reading the marker and soft-fails without one, so `Morrowkeep` -
+      where *gone* and *unplugged* are indistinguishable - **cannot reach the code at all**. And
+      `verify_copies` answers every `MISSING` in `_partition`, **before any hashing starts**, so a
+      cancelled run's set of absences is complete rather than truncated. The second is
+      counter-intuitive and is what makes persisting from a cancelled run sound.
+    - **Two counting rules, deliberately opposite.** A custody **promise** excludes what was looked
+      for and not found (`custody_floor`, `single_copy_count`, `single_copy_shas`,
+      `drives_holding`). A **history** gains a number rather than losing one: the drive card keeps
+      `files` and adds `not_found`, so `Output` reads *"2,269 photos … 2,269 not found on
+      2026-08-11"*. A count quietly dropping to zero destroys the only clue to what happened.
+    - **Mutation found a hole reasoning did not:** removing the `missing_at = NULL` from
+      `mark_copy_verified` killed no test, so a restored drive would have stayed uncounted with
+      nothing the user could do. `ENGINEERING_STANDARD.md` §4's **thirty-seventh** member.
+  - ⏳ **WHAT IS STILL OPEN IS STAGE 3, AND IT IS THE HARDER HALF: instance (2), `Output`.** Its
+    marker went with its contents, so `read_marker` returns `None` and verify soft-fails - *the
+    drive most in need of examination is the one the tool cannot be pointed at*, which is this
+    entry's own line and is untouched by Stage 2.
+    **The obvious route was examined and refused, so it is not re-derived from scratch:**
+    `drive_reach` folds two different observations into `OFFLINE` - *the remembered path is not
+    there* and *the remembered path is there and is not this drive*. Splitting them is one `stat`
+    and would name `Output` exactly. **It would also name an unmounted USB drive whose mountpoint
+    directory persists**, which is ordinary on Linux and is the cry-wolf case wearing the other
+    case's clothes. Telling those apart needs `filesystem.facts_for()`, which already parses
+    `/proc/mounts` and which custody has never consulted. **That is the design question Stage 3
+    owns**; inventing an answer inside Stage 2 would have put a guess where `DriveReach`'s own
+    docstring says to report the honest third answer.
   - **Related, and filed separately because it is a different defect:** `(acq)` - "place" counts
     somewhere Truestill organized INTO, not somewhere a copy is kept.
   - **THE MOST IMPORTANT OPEN ITEM ON THIS PROJECT.** Everything below is evidence for the

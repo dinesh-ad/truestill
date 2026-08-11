@@ -939,6 +939,34 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   areas where the contract speaks in absolutes, and an absolute is the easiest kind of sentence to
   design straight past, because nobody expects to be the one who breaks it.
 
+- **CARRYING AN AGE TO A CLAIM WITHOUT AUDITING WHAT ADVANCES THE AGE MAKES THE CLAIM WORSE.**
+  The thirty-sixth member. Adding a date beside an assertion is a textbook honesty move and reads
+  as unarguable, which is why it goes in unexamined. But it only helps if the timestamp is written
+  by whatever *establishes* the claim. Where the write sits merely **near** the check - at the end
+  of the routine, in a `finally`, once per run - the date now certifies a run rather than a
+  result, and the reassuring sentence gets **fresher** every time somebody looks and finds
+  nothing. The unqualified version was at least honestly silent.
+
+  Observed here: `(abg)` Stage 1 carried `drives.last_verified` to the custody sentence; the stamp
+  beneath it fired unconditionally, so a verify run reporting `missing: 2269`, and a run the user
+  cancelled at the first file, both dated the claim today. The fix is to **derive** the date from
+  the evidence rather than stamp it beside the evidence, which makes over-claiming structurally
+  impossible instead of correct while every call site remembers.
+
+  *The question to ask of any freshness field, before it is added:* what writes it, and can that
+  write happen when the thing it dates is false?
+
+- **A CORRECTIVE STATE NEEDS A TEST FOR HOW IT IS CLEARED, NOT ONLY FOR HOW IT IS SET.** The
+  thirty-seventh member, and the one this repo's mutation discipline found rather than reasoned
+  out. A flag that records something bad - absent, stale, refused, quarantined - is written with
+  the failing case in mind, and every test aims there. Nothing aims at the recovery, so the clear
+  is unguarded, and **the stuck state it leaves is worse than the defect the flag was added for**:
+  the original at least corrected itself when the news turned good.
+
+  Observed here: removing `missing_at = NULL` from `mark_copy_verified` killed no test. A user
+  restoring a drive and re-checking it would have seen their files still reported as living in one
+  place, with nothing they could do about it. Two mutations, two new tests, one for each way back.
+
 - **A PHRASE REPEATED BETWEEN DOCUMENTS ACQUIRES THE AUTHORITY OF A RULE WITHOUT EVER BEING ONE.**
   The thirty-fifth member, and the sibling of the thirty-second below: that one is about a clause
   that was true and quietly expired, this is about a clause that was **never adopted at all**. A

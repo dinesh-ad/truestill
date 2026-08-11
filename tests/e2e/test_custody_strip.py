@@ -18,6 +18,20 @@ from playwright.sync_api import Page, expect
 from truestill_core.catalog import Catalog
 
 
+def _confirm(catalog: Catalog, uuid: str, when: str) -> None:
+    """Date a drive by confirming its COPIES - the only way that date arises now.
+
+    `set_drive_verified(uuid, when)` is gone: `(abg)` Stage 2 derives a drive's date from its
+    copies, because a stamp taken beside the evidence rather than from it dated a claim that the
+    same run had just contradicted. Call this AFTER the copies exist; a drive with none has
+    nothing to have confirmed and stays undated, which is correct and would otherwise look like a
+    fixture bug.
+    """
+    for row in catalog.copies_on_drive(uuid):
+        catalog.mark_copy_verified(sha256=row["sha256"], drive_uuid=uuid, when=when)
+    catalog.refresh_drive_verified(uuid)
+
+
 def _record(catalog: Catalog, sha: str, drive: str, name: str) -> None:
     catalog.record_uploaded(
         source_path=f"/src/{name}",
@@ -328,11 +342,12 @@ def test_the_sentence_states_the_floor_the_pips_can_only_draw_three_of(
     with Catalog(app_server.db) as catalog:
         for uuid in ("A", "B", "C", "D"):
             catalog.upsert_drive(uuid=uuid, label=f"Drive {uuid}")
-            catalog.set_drive_verified(uuid, "2026-08-01T09:00:00+00:00")
         # Two files, not one: a count of one cannot show that the floor is a minimum over files.
         for n in range(2):
             for uuid in ("A", "B", "C", "D"):
                 _record(catalog, f"sha{n}", uuid, f"{n}.jpg")
+        for uuid in ("A", "B", "C", "D"):
+            _confirm(catalog, uuid, "2026-08-01T09:00:00+00:00")
 
     ui.reload()
     text = _strip(ui)
@@ -385,8 +400,8 @@ def test_the_strip_says_when_it_last_looked(ui: Page, app_server: AppServer) -> 
         for n in range(2):
             for drive in ("A", "B"):
                 _record(catalog, f"sha{n}", drive, f"{n}.jpg")
-        catalog.set_drive_verified("A", "2026-07-28T13:00:00+00:00")
-        catalog.set_drive_verified("B", "2026-08-01T09:00:00+00:00")
+        _confirm(catalog, "A", "2026-07-28T13:00:00+00:00")
+        _confirm(catalog, "B", "2026-08-01T09:00:00+00:00")
     ui.reload()
 
     # The OLDER of the two: the claim is only as fresh as its weakest leg.
@@ -402,7 +417,7 @@ def test_the_strip_names_a_place_it_has_never_looked_at(ui: Page, app_server: Ap
         for n in range(2):
             for drive in ("A", "B"):
                 _record(catalog, f"sha{n}", drive, f"{n}.jpg")
-        catalog.set_drive_verified("A", "2026-07-28T13:00:00+00:00")
+        _confirm(catalog, "A", "2026-07-28T13:00:00+00:00")
     ui.reload()
 
     strip = ui.locator("#custody-line")
