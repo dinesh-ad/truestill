@@ -176,6 +176,9 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             destination,
             _db(),
             refresh_metadata=bool(body.get("refresh_metadata", False)),
+            # The run endpoint has always taken this; the preview did not, so a preview with
+            # "skip files with no date" ticked promised files the run would not take. `(acx)`.
+            skip_undated=bool(body.get("skip_undated", False)),
             mode=mode,
         )
         return _start_drive_job(target, paths=[destination], operation="organize preview")

@@ -52,6 +52,10 @@ def _preview(ui: Page, **overrides: Any) -> None:
         "by_format": {},
         "new_unique": 20,
         "near_dup": 0,
+        # The number the card and the confirm control both render, `(abl)`/`(acx)`. A mock
+        # without it renders "0 files" and no confirm block - which is how the payload
+        # says a field is now load-bearing rather than decorative.
+        "will_organize": 20,
         "exact_dup": 440,
         "exact_dup_matches": {
             "total": 440,

@@ -66,7 +66,12 @@ def _dedup(ui: Page, summary: dict) -> None:
     ui.click("#org-preview")
     expect(ui.locator("#org-dedup")).to_be_enabled(timeout=30_000)
     ui.click("#org-dedup")
-    expect(ui.locator("#org-result .card")).to_be_visible(timeout=30_000)
+    # NOT `#org-result .card`, which the "Look inside" click above has ALREADY rendered - that
+    # wait is satisfied before the dedup result exists, so a read after it races the second
+    # render. §4's sixteenth member: wait for something only the finished work can produce. The
+    # promise line is rendered by `organizeTally` and by nothing else, at every count including
+    # zero. Measured 2026-08-11: with the old wait this file failed roughly one run in three.
+    expect(ui.locator("[data-testid='org-will-organize']")).to_be_visible(timeout=30_000)
 
 
 def _summary(**overrides: Any) -> dict:
@@ -79,6 +84,10 @@ def _summary(**overrides: Any) -> dict:
         "by_format": {},
         "new_unique": 5,
         "near_dup": 2,
+        # The number the card and the confirm control both render, `(abl)`/`(acx)`. A mock
+        # without it renders "0 files" and no confirm block - which is how the payload
+        # says a field is now load-bearing rather than decorative.
+        "will_organize": 7,
         "exact_dup": 2,
         "exact_dup_matches": {"total": 0, "shown": []},
         "near_dup_matches": {"total": 0, "shown": []},
@@ -108,6 +117,25 @@ def test_the_resting_screen_invents_no_metrics(ui: Page) -> None:
 
 
 # --------------------------------------------------------------------------- the tally defect
+
+
+def test_the_card_and_the_confirm_control_state_the_same_number(ui: Page) -> None:
+    """`(abl)`: they disagreed by `near_dup` for weeks, and both were on screen at once.
+
+    The card said *"5 new - will be organized"* while the button below said *"Organize 7 files"*,
+    because each derived its own answer from the payload. Neither cited the other and nothing
+    compared them, so the screen asked the reader to do arithmetic to discover the two agreed -
+    and on any folder with a look-alike they did not.
+
+    This is trivial now, and that is the argument for the fix rather than an objection to the
+    test: both render one field. A future surface that starts deriving the number again fails
+    here at the moment it is added, which is the only time it is cheap to correct.
+    """
+    _dedup(ui, _summary())
+    card = ui.eval_on_selector("[data-testid='org-will-organize']", "el => el.textContent")
+    button = ui.eval_on_selector("#org-confirm [data-typed-go]", "el => el.textContent")
+    assert "7 files" in card, f"the card does not state the promise: {card!r}"
+    assert "7" in button, f"the confirm control states a different number: {button!r}"
 
 
 def test_the_tally_sums_to_the_files_it_counted(ui: Page) -> None:

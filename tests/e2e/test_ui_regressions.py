@@ -92,7 +92,12 @@ def test_look_inside_returns_before_duplicate_check(ui: Page, tmp_path: Path, li
     expect(ui.locator("#org-dedup")).to_be_enabled()
 
     ui.click("#org-dedup")
-    expect(ui.locator("#org-result")).to_contain_text("new - will be organized")
+    # WAS `"new - will be organized"`, which was the defect: that row counts `new_unique` while
+    # the run organizes near-duplicates too. This test is about the two-step gate, so it wants
+    # "the duplicate check produced a result", and the row label was doing that job incidentally.
+    # It now asserts the sentence that IS the promise, which is also the one the confirm control
+    # renders. `(abl)`.
+    expect(ui.locator("#org-result")).to_contain_text("will be organized")
     expect(ui.locator("#org-confirm [data-typed-confirm]")).to_be_visible()
     # `copy`, not `move`: this flow is in the default copy mode and the confirm word now names
     # the operation the run performs.
@@ -195,7 +200,7 @@ def test_cross_device_move_is_reported_as_not_reversible_before_confirm(ui: Page
             content_type="text/event-stream",
             body=(
                 'data: {"type":"done","status":"done","summary":{"files":1,"photos":1,'
-                '"videos":0,"audio":0,"new_unique":1,"near_dup":0,"exact_dup":0,'
+                '"videos":0,"audio":0,"new_unique":1,"near_dup":0,"exact_dup":0,"will_organize":1,'
                 '"undated":0,"folders":{"Camera":1},"skipped":{"documents":{},'
                 '"unrecognized":{}},"mode":"move","mechanism":{"same_filesystem":false,'
                 '"reversible":false,"uses_rename":false,"requires_destination":true}}}\n\n'

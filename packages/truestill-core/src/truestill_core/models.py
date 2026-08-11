@@ -431,6 +431,27 @@ class ReportBuckets:
         """What a run will actually put in the library. Replaces filtering on `should_upload`."""
         return self.unique + self.near_duplicates
 
+    def will_organize(self, *, skip_undated: bool) -> int:
+        """How many files a run with these options **will** put in the library. `(abl)`, `(acx)`.
+
+        The one home for that number, and the reason it is a method here rather than an expression
+        at a call site: the app rendered `new_unique + near_dup` in its confirm control while its
+        tally card rendered `new_unique` alone under the words *"will be organized"*, so one screen
+        stated two different answers to the same question and neither cited the other. A second
+        call site is how that happens; there is now one.
+
+        **`skip_undated` is a parameter rather than an assumption**, because it changes the answer
+        and a preview that does not receive it promises files the run will not take - measured as
+        `(acx)`, where the app's preview endpoint never accepted the flag its own run endpoint did.
+
+        Unreadable files are excluded: they are attempted and fail (`ActionStatus.FAILED`), which
+        is why they are their own bucket rather than part of :attr:`organized`, and a preview must
+        not promise a file it has already reported it could not read.
+        """
+        if not skip_undated:
+            return len(self.organized)
+        return sum(1 for r in self.organized if r.decision.captured_at is not None)
+
     @property
     def total(self) -> int:
         return (

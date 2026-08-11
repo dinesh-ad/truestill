@@ -163,9 +163,10 @@ def test_the_preview_does_not_count_the_overlap_as_new(tmp_path: Path) -> None:
     **`new_unique == 3` is true of THIS material, not in general.** These fixtures are noise, so
     no two look alike. Run the same sequence on eight real photos from one event and it reads
     `new_unique 2, near_dup 1` - still three organized, because a near-duplicate is kept and
-    organized too, and still summing to eight. Measured on 2026-08-06; the wording that makes
-    that pair misleading on screen is `BACKLOG.md` **(abl)**. What this test pins is that the
-    five known files are not among them.
+    organized too, and still summing to eight. Measured on 2026-08-06; the wording that made
+    that pair misleading on screen was `(abl)`, **closed 2026-08-11** - the tally card and the
+    confirm control now render one field, `will_organize`, so neither states a number the other
+    contradicts. What this test pins is that the five known files are not among them.
     """
     src, dest, db = tmp_path / "src", tmp_path / "dest", tmp_path / "c.sqlite"
     _tree(src)

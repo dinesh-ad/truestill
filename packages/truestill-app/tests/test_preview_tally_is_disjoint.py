@@ -103,8 +103,15 @@ def test_an_unreadable_file_is_not_promised_as_one_that_will_be_organized(
 ) -> None:
     """The defect itself: the unreadable file must leave `new_unique`, not merely be named.
 
-    Two denied files, so an off-by-one cannot pass. `new_unique` is what the app renders as
-    "new - will be organized" and what feeds the confirm control's count.
+    Two denied files, so an off-by-one cannot pass.
+
+    **Corrected 2026-08-11, assertion untouched.** This said `new_unique` is what the app renders
+    as "new - will be organized" and what feeds the confirm control's count. Both halves were
+    false and the second was the `(abl)` defect: the control has always rendered
+    `new_unique + near_dup`, and the row said "will be organized" over the smaller number. A
+    docstring asserting the defect is the same class as a test asserting it, one layer over -
+    it survives the fix and teaches the next reader the wrong contract. The promise is now
+    `will_organize` (`ReportBuckets.will_organize`); `new_unique` is one bucket of four.
     """
     src = _library(tmp_path)
     _deny_open(

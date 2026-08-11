@@ -2140,8 +2140,15 @@ function renderPanel(s) {
 function organizeTally(s) {
   const unreadable = (s.unreadable_files && s.unreadable_files.total) || 0;
   const buckets = [
-    [s.new_unique, "new - will be organized"],
-    [s.near_dup, "look-alikes - kept and flagged"],
+    // NEITHER ROW CLAIMS THE ORGANIZED SET, because neither of them is it: the run organizes
+    // both. `(abl)`. The old first row said "will be organized" while the confirm control below
+    // rendered `new_unique + near_dup`, so the card and the button disagreed by `near_dup` on any
+    // folder with a look-alike - which is most folders of photos from one event.
+    // "listed below" rather than "flagged": the list is literally the next thing on this card
+    // (`matchListHtml(s.near_dup_matches, ...)`), so the word points at something the reader can
+    // open before confirming rather than at a state they are told they are in.
+    [s.new_unique, "new"],
+    [s.near_dup, "look-alikes - organized too, and listed below"],
     [s.exact_dup, `duplicates - not copied again${dupOrigins(s.exact_dup_matches)}`],
     // Only when there are any: a zero row here is noise, and the sum holds without it.
     [unreadable, "could not be read - not organized"],
@@ -2154,14 +2161,27 @@ function organizeTally(s) {
 
   // Stated against the two rows it actually belongs to, so it reads as a property rather than
   // as a fifth bucket competing with them.
-  const undated = Number(s.undated) > 0
-    ? `<div class="k" data-testid="org-undated">Of those organized, ${plural(s.undated, "file")}
-       ${Number(s.undated) === 1 ? "has" : "have"} no date and will go to “Undated”.</div>`
+  // TWO SENTENCES, because the option inverts the fact. With skipping off these files ARE
+  // organized, into `Undated/`; with it on they are not organized at all, and the old wording
+  // said they would go to a folder the run will never put them in. A corrected count does not
+  // repair a sentence that asserts the opposite of what happens. `(acx)`.
+  const skipping = !!($("org-skip-undated") && $("org-skip-undated").checked);
+  const undatedCount = Number(s.undated) || 0;
+  const undated = undatedCount > 0
+    ? skipping
+      ? `<div class="k" data-testid="org-undated">${plural(undatedCount, "file")}
+         ${undatedCount === 1 ? "has" : "have"} no date and will be skipped, not organized.</div>`
+      : `<div class="k" data-testid="org-undated">Of those organized, ${plural(undatedCount, "file")}
+         ${undatedCount === 1 ? "has" : "have"} no date and will go to “Undated”.</div>`
     : "";
+
+  // THE PROMISE, and it is the payload's number rather than a second local sum - the confirm
+  // control renders the same field, so the card and the button cannot disagree. `(abl)`, `(acx)`.
+  const promise = `<div class="k" data-testid="org-will-organize">${plural(Number(s.will_organize) || 0, "file")} will be organized.</div>`;
 
   return `<div class="metrics" data-testid="org-tally" data-files="${Number(s.files) || 0}">
             ${metrics}
-          </div>${undated}${willRemainNote(s)}`;
+          </div>${promise}${undated}${willRemainNote(s)}`;
 }
 
 // WHAT THE PREVIEW SAYS ABOUT FILES IT ALREADY HAS. Two answers, and only ever ONE of them:
@@ -2260,7 +2280,10 @@ function renderOrganizeResult(s) {
     );
     return;
   }
-  const kept = (s.new_unique || 0) + (s.near_dup || 0);
+  // ONE HOME. This was `new_unique + near_dup` computed here while the tally card rendered
+  // `new_unique` alone under "will be organized" - two answers to one question on one screen,
+  // neither citing the other. Both now render the payload's `will_organize`. `(abl)`, `(acx)`.
+  const kept = Number(s.will_organize) || 0;
   const folders = chipsFor(s.folders);
   const legend = legendFor(s.folders);
   const details = renderSkippedDetails(s.skipped);
@@ -2323,6 +2346,9 @@ $("org-dedup").onclick = guarded(async () => {
   const mode = currentOrganizeMode();
   const destination = mode === "inplace" ? source : $("org-dest").value.trim();
   const refresh_metadata = $("org-refresh-metadata").checked;
+  // Read here and sent, because it changes the answer: the run has always posted this and the
+  // preview did not, so a preview with it ticked promised files the run would skip. `(acx)`.
+  const skip_undated = $("org-skip-undated").checked;
   if (!source) { setWhy("Pick a folder to organize first."); return; }
   if (organizeNeedsDestination(mode) && !destination) {
     setWhy("Pick the organized destination folder first.");
@@ -2332,7 +2358,7 @@ $("org-dedup").onclick = guarded(async () => {
   await runJob({
     button: $("org-dedup"),
     busyLabel: "Checking for duplicates…",
-    start: () => api("/api/organize/preview", { source, destination, refresh_metadata, mode }),
+    start: () => api("/api/organize/preview", { source, destination, refresh_metadata, skip_undated, mode }),
     setJob: (id) => { orgJob = id; },
     progress: orgProgress,
     progressLabel: "starting",

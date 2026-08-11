@@ -1591,14 +1591,18 @@ def _print_report(resolutions: list[Resolution], root_label: str) -> None:
     exact = buckets.exact_duplicates
 
     print(_SEPARATOR)
-    print(f"NEW UNIQUE ({len(unique)}) - would be organized")
+    # NOT "would be organized": near-duplicates below are organized too, so this header claimed
+    # the whole organized set while listing part of it. `(abl)`, the CLI twin of the app's tally
+    # row. Note `_print_summary` has always been honest about this pair - "organized (unique)" /
+    # "organized (near-dup)" - so the two blocks of this same report disagreed with each other.
+    print(f"NEW UNIQUE ({len(unique)}) - no match in your library")
     print(_SEPARATOR)
     for resolution in unique:
         print(_format_new(resolution, root_label))
         print()
 
     print(_SEPARATOR)
-    print(f"NEAR-DUPLICATES ({len(near)}) - KEPT and flagged for your review")
+    print(f"NEAR-DUPLICATES ({len(near)}) - ORGANIZED TOO, and listed here for review")
     print(_SEPARATOR)
     if not near:
         print("  (none)")
@@ -1946,7 +1950,9 @@ def _print_ingest_report(resolutions: list[Resolution], scan: TakeoutScan) -> No
     print("TAKEOUT RESCUE REPORT")
     print(_SEPARATOR)
     print(f"  media files found                : {len(resolutions)}")
-    print(f"  kept (unique)                    : {len(uploads)}")
+    # `uploads` is `buckets.organized` - unique AND near-duplicates - so "(unique)" named less
+    # than the number counted. The inverse of `(abl)`'s defect, found while checking it.
+    print(f"  kept (unique + look-alikes)      : {len(uploads)}")
     print(f"  could not be read                : {len(buckets.unreadable)}")
     print(
         f"  album duplicate copies collapsed : {len(duplicates)}  (~{reclaimed / 1e6:.1f} MB reclaimed)"

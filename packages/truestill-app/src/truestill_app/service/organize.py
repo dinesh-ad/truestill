@@ -241,6 +241,9 @@ class OrganizeDedupCore(TypedDict):
     exact_dup: int
     exact_dup_matches: DuplicateReport
     near_dup_matches: DuplicateReport
+    #: What a run with these options will actually organize - the one number the
+    #: tally card and the confirm control both render. `(abl)`, `(acx)`.
+    will_organize: int
     undated: int
     sentinel_rejected: int
     future_rejected: int
@@ -255,7 +258,7 @@ class OrganizeDedupCore(TypedDict):
     capture_span: CaptureSpanPayload | None
 
 
-def _summarize(resolutions: list[Resolution]) -> OrganizeDedupCore:
+def _summarize(resolutions: list[Resolution], *, skip_undated: bool = False) -> OrganizeDedupCore:
     # Disjoint buckets rather than `should_upload`. An unreadable file has no hash, so it
     # matches nothing and used to be counted as new *and* reported as unreadable - the same
     # photo promised and disowned in one payload. `new_unique + near_dup + exact_dup +
@@ -282,6 +285,12 @@ def _summarize(resolutions: list[Resolution]) -> OrganizeDedupCore:
         "exact_dup_matches": _duplicate_report(resolutions, near=False),
         "near_dup_matches": _duplicate_report(resolutions, near=True),
         "undated": sum(1 for r in uploads if r.decision.captured_at is None),
+        # THE NUMBER THE SCREEN PROMISES, computed once in core. `(abl)`: the tally card rendered
+        # `new_unique` under the words "will be organized" while the confirm control rendered
+        # `new_unique + near_dup`, so the card and the button disagreed by `near_dup` on any
+        # folder with a look-alike. `(acx)`: with `skip_undated` the run takes fewer still, and
+        # this endpoint did not even accept the flag. Both surfaces render THIS field.
+        "will_organize": buckets.will_organize(skip_undated=skip_undated),
         # LIBRARY FACTS for the panel. `capture_span` and `duplicate_bytes` reached only a
         # finished run; `largest_files` reached only the CLI. One `stat` pass serves all three,
         # measured in PERFORMANCE.md at ~0.3 s per 2,064 files against ~231 s for exiftool on
@@ -727,6 +736,7 @@ def organize_preview(
     progress: ProgressCallback | None = None,
     cancel: threading.Event | None = None,
     refresh_metadata: bool = False,
+    skip_undated: bool = False,
     mode: str = "copy",
 ) -> OrganizePreviewEmpty | OrganizePreviewSummary:
     """Plan + dedup with no writes -- the dry-run summary the UI shows before a real run.
@@ -774,7 +784,7 @@ def organize_preview(
         # Inside the open catalog, because it asks the catalog. Two index seeks over the
         # matched hashes; the preview has just hashed every file, so this is not the cost.
         matched_drives = _matched_drives(catalog, resolutions)
-    core = _summarize(resolutions)
+    core = _summarize(resolutions, skip_undated=skip_undated)
     # TypedDict ** spread cannot prove NotRequired keys; build then cast (mypy strict).
     summary = cast(
         OrganizePreviewSummary,
@@ -802,6 +812,7 @@ def organize_preview_run(
     db: Path,
     *,
     refresh_metadata: bool = False,
+    skip_undated: bool = False,
     mode: str = "copy",
 ) -> JobTarget:
     """The preview as a cancellable background job, so it can report progress like the rest.
@@ -819,6 +830,7 @@ def organize_preview_run(
             db,
             progress=progress,
             cancel=cancel,
+            skip_undated=skip_undated,
             refresh_metadata=refresh_metadata,
             mode=mode,
         )

@@ -22,6 +22,96 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(acx) THE ORGANIZE PREVIEW NEVER RECEIVED `skip_undated`, SO IT PROMISED FILES THE RUN WOULD
+  SKIP.** Recorded **and fixed** 2026-08-11, found while verifying `(abl)`. Filed anyway, and that
+  is deliberate: it was never recorded, it is a distinct mechanism from `(abl)`, and a defect
+  closed inside another entry's commit is invisible to anyone reading the backlog.
+  - **The mechanism.** `organize_run` accepted `skip_undated`; **`organize_preview` had no such
+    parameter**, and the preview POST never sent it. The run skips those files
+    (`organizer.execute`), so with *Skip files with no date* ticked the confirm control promised
+    more than the run delivered, by the undated count.
+  - ⚠ **This is the direction that matters.** `(abl)` understated, and its neighbouring button was
+    correct anyway. This **overstated**, on the control a person types a word into before files
+    move, and nothing else on the screen contradicted it. A preview promising more than the run
+    delivers is worse than one promising less.
+  - **The CLI did not have it**, which is what makes this the third instance of one operation
+    answering differently on two surfaces - after `(aca)` (the app and the CLI disagree about when
+    an organize run needs confirming) and `(abe)` (CLI-organized files were invisible to custody).
+    The CLI threads the flag into `preflight_for_run`; only the app's preview was blind to it.
+  - ✅ **AND THIS ONE WAS MECHANICALLY CHECKABLE, WHICH THE OTHER TWO WERE NOT.**
+    `test_preview_accepts_every_run_option.py` asserts that every decision-affecting keyword
+    parameter of `organize_run` is also accepted by `organize_preview`, read from the live
+    signatures. It would have caught this the day the parameter was added.
+    - ⚠ **It is narrower than the class, and the entry says so rather than letting a green run
+      imply otherwise.** It compares **one pair of functions in one module**, and only that the
+      preview *accepts* what the run accepts - a preview that took the flag and ignored it passes
+      here (killed by `test_the_preview_promise_equals_the_run.py` instead, which is why the two
+      ship together). It says nothing about `(aca)` or `(abe)`: those are the app against the
+      **CLI**, whose preview is a set of print functions rather than a function with a signature,
+      so there is no pair to compare.
+    - **What the class actually needs** is an assertion that the two surfaces answer the same
+      question the same way - which for the CLI means comparing rendered output, not signatures.
+      §9's one-home rule is the structural version and is cheaper: `models.status_label`,
+      `date_quality` and now `ReportBuckets.will_organize` are single homes precisely so the
+      surfaces cannot differ. **Where a number or a word has one home, no guard is needed; where
+      it does not, a guard is possible only when both sides are callable.**
+  - **A sentence needed its own branch, not just a corrected count.** *"Of those organized, N have
+    no date and will go to Undated"* asserts the opposite of what happens when skipping is on -
+    those files are not organized and reach no folder. The count being right does not repair a
+    sentence, so there are now two.
+
+- **(abl) THE PREVIEW TALLY SAYS "will be organized" ABOUT ONLY PART OF WHAT IS ORGANIZED.**
+  - ✅ **CLOSED 2026-08-11.** Verified real first - the defect was still live, and nothing since
+    `d9dc8be` had touched the tally. A near-duplicate has `should_upload is True` and finishes
+    `ActionStatus.UPLOADED` (`test_organizer.py`), and under `--move` its source is deleted like
+    any other, so the row saying *"will be organized"* over `new_unique` alone named less than the
+    run took.
+  - ⚠ **THIS ENTRY'S PRESCRIBED FIX WAS INCOMPLETE, and the correction is on evidence rather than
+    preference.** It ruled *"the fix is wording"*. It was written before anyone noticed that the
+    confirm control **already rendered the right number**: `new_unique + near_dup`. So the card and
+    the button sat on one screen stating two different answers, and re-wording alone would have
+    left them disagreeing while reading better. The fix is one number, computed once, rendered by
+    both - `ReportBuckets.will_organize(skip_undated=...)`, published as `will_organize`.
+  - ✅ **THE CONSEQUENCE WAS SMALLER THAN THE ENTRY'S POSITION SUGGESTED, and that is worth
+    recording.** The number a person types a confirm word against was **already correct**, so a
+    user who read the button saw the truth and would rarely have decided differently. This was a
+    screen contradicting itself, not a screen lying about a file operation. Said plainly so the
+    next reader does not file a wording defect as a near-miss - `(acx)`, found while checking this
+    one, is the one that could actually have changed a decision.
+  - **Four surfaces, not one**, and the CLI's own two disagreed with each other: the app tally row
+    (`new_unique`) against the app confirm control (`new_unique + near_dup`), and `cli.py`'s report
+    header *"NEW UNIQUE (n) - would be organized"* against its summary block, which has always
+    been honest - *"organized (unique)"* / *"organized (near-dup)"*. A fifth, the inverse, was
+    found while checking: the Takeout ingest report printed *"kept (unique)"* over
+    `buckets.organized`, a label naming less than its own number, with no test on it at all.
+  - **Near-duplicates keep their own row**, as this entry required. A user organizing three files
+    one of which is a look-alike is making a different decision from one organizing three new
+    files, and folding them hides it. **"flagged" was decided rather than inherited**: the row now
+    says *organized too, and listed below*, because `matchListHtml(s.near_dup_matches, ...)`
+    renders that list on the same card, above the confirm - so the word points at something the
+    reader can open before consenting rather than at a state they are told they are in.
+  - ✅ **Detector, in with the fix:** `test_the_preview_promise_equals_the_run.py` asserts the
+    preview's promise equals what the run organizes, in both directions. That assertion existed
+    **nowhere** before - conservation and disjointness were the only invariants, and both hold
+    happily while the promised number is the wrong one. Proved to bite: pointing `will_organize`
+    back at `len(buckets.unique)` turns all three red.
+  Recorded 2026-08-06, found by running the overlapping-organize sequence on real photos rather
+  than on fixtures. Eight photos from one event: the tally read `2 new - will be organized`,
+  `1 look-alike - kept and flagged`, `5 duplicates`, and the run organized **3**. Both labels
+  are individually true - a near-duplicate IS kept and flagged - and together they mislead,
+  because the row that says *will be organized* is not the set that gets organized. **Same class
+  as the summing block one layer down**: the block sums correctly, and one of its rows describes
+  itself wrongly. It fires on any folder of photos taken at one event, which is most folders.
+  - **Not a counting defect.** `partition_for_report` is right and the buckets stay disjoint;
+    `new_unique + near_dup + exact_dup + unreadable == files` still holds. Only the wording of
+    the first row is wrong, and only because the second row is also organized.
+  - **The fix is wording and belongs with whichever screen commit reaches this tally**, not as a
+    change on its own - the two rows have to be re-worded together or the pair stays incoherent.
+    Do not "fix" it by moving near-duplicates into the first row: the flagging is the point.
+  - Pinned by nothing today, deliberately: the assertion that would pin it is the wording, and
+    writing it now would fix the wording before it is chosen. The behaviour is covered by
+    `test_preview_tally_is_disjoint.py`.
+
 - **(abq) `#bk-preview` is clicked five ways and only one of them is race-free.** Recorded
   - ✅ **CLOSED 2026-08-11, AND NOT BY ANYTHING AIMED AT IT.** Two changes made for other reasons
     removed the mover: `7bb645c` (08-10 09:34) settled the screen before acting, and `92bb104`
