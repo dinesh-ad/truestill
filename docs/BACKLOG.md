@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(acv). Next free: (acw).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(acw). Next free: (acx).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -102,6 +102,34 @@ is invisible here is retired, not free.**
   - **Not urgent, and small.** The fallback fires only for a root-like path, which no measurement
     has yet seen in a real catalog. Worth a decision - a better fallback, or refusing to mint a
     label at all and asking - not a rush.
+
+- **(acw) THE HINT SPANS ABOVE `#bk-preview` CAN GROW WITHOUT BOUND, AND A CLICK THEN MISSES.**
+  Recorded 2026-08-11, split out of `(abq)` at its closure. `(abq)`'s mover was measured and
+  **cannot** miss - 0.0 to 9.8px against a 34.8px button. This is the case that can.
+  - **Measured, viewport 1280x1600, `elementFromPoint` at the pre-shift centre:** with both hints
+    wrapped to two lines and `#bk-target-carried` unhidden, `#bk-preview` moves **+31.2px** and the
+    old centre lands on `div.card`. At three lines, **+71.8px**, landing on `#bk-target-hint`. A
+    centre-aimed click misses past **17.4px**, half the button's height.
+  - **Why it is reachable rather than synthetic.** `validatePath`'s create-failure branch
+    interpolates a **server-supplied** string - *"Could not create this folder. `${r.error}`
+    Choose another folder or create it with your file manager."* - and hints are capped at 68ch, so
+    two lines is ordinary and three is available. `.carried` (`app.css`) reserves **no** height at
+    all: it goes from `display:none` to a full line plus margin.
+  - ⚠ **Reserving is exact only when growth is bounded, and a server string is not bounded.** That
+    is the same reasoning that made `(acd)` a reorder rather than a skeleton, and it is why this is
+    filed rather than fixed in passing. `.field .hint` already reserves `min-height: 1.1em` against
+    a `1.45em` line box, which is precisely where `(abq)`'s +4.9px came from - raising it fixes the
+    *first* line only and does nothing for the second.
+  - **Options, none chosen:** bound the error text before interpolation; give the hint a fixed
+    height and let it scroll or truncate; move the hints below the actions the way `(acd)` moved
+    `#drives-list`; or accept it and say so. The last is defensible - the state only follows a
+    failed folder creation, where the user is reading the error rather than reaching for Preview.
+  - **Not covered here and worth the same look:** `#verify-path-hint`, `#verify-path-carried`,
+    `#verify-result` and the verify run block all sit above `#bk-preview` in card 1, and a verify
+    run resizes every one of them. **Unmeasured.**
+  - **Detector already in place** for the states that occur:
+    `tests/e2e/test_the_backups_controls_do_not_move.py`. It is proved to bite against the forced
+    case above, so a fix here has a test waiting for it.
 
 - **(acv) THE PRIVATE PATHS IN GIT HISTORY ARE ACCEPTED, NOT OVERLOOKED - and the repository goes
   private at launch.** Ruled 2026-08-11. `16d7b14` removed the maintainer's cloud-storage and
@@ -794,134 +822,6 @@ is invisible here is retired, not free.**
     siblings is `(aak)` / `(abq)` again, and the two before it were each found only after they
     cost something. The fix is one line; the value is that the next reader of `runJob` sees
     fifteen call sites that agree.
-
-- **(abq) `#bk-preview` is clicked five ways and only one of them is race-free.** Recorded
-  2026-08-07 from the `test_backup_preview_busy_re_enables` flake (2 failures in 4 consecutive
-  CI runs, green locally every time).
-  - 📌 **STATUS 2026-08-10: STILL OPEN, and the readiness work did NOT close it.** Stages 0-2
-    shipped a screen-readiness signal and closed the screen-OPEN race on this very screen
-    (`test_cancel_renders_cancelled.py`'s backup site, which filled `#bk-source`/`#bk-target`
-    below `#drives-list`). That is not this entry's mover. **This entry's measured +4.9px is
-    `validatePath`'s debounced hint spans, ~400ms AFTER typing** - long after
-    `data-ready="ready"` - and readiness is scoped to screen open, so it never reaches it. The
-    fix recorded below (wait for the hint spans to become non-empty before clicking) still
-    stands and is unbuilt. The screen-open mover is `(acd)`.
-  - ⚠ **Stage 3 of that work - converting the 63 fixed sleeps - was CLOSED ON MEASUREMENT rather
-    than abandoned**; the reasoning is on `(acf)` in `SHIPPED.md`. It matters here because this
-    entry's own fix is a wait, and the standing answer is now: **let a specific sleep fail and be
-    recorded** by `scripts/flake_report.py`, rather than converting on principle.
-  - 📌 **READ THIS FIRST: the contradiction that held this entry up was reconciled 2026-08-10,
-    and the two records were never in conflict.** One describes a residual race AFTER the screen
-    has settled; the other is a click that never settles at all. Nobody could choose between them
-    without that distinction, which is why the entry sat from April-era reasoning through four
-    failures. The detail is below under RECONCILED; the fix that followed is the smaller half.
-  - **The `(aak)` shape again.** `dispatch_event("click")` was applied to
-    `test_backups_on_the_pattern.py` with its trade-off documented at the site - *"WHAT THIS
-    STOPS EXERCISING: mouse-event delivery to this one button"* - and never carried to the four
-    siblings (`test_busy_state.py`, `test_golden_path.py`, `test_ui_regressions.py` x2). All
-    four fill path fields and click immediately.
-  - **`dispatch_event` is the WRONG remedy for the rest**, and this is the finding rather than
-    the observation. It bypasses hit-testing **and** actionability, so it would pass on a
-    button that is disabled, covered or off-screen - hiding exactly the class of regression the
-    browser lane exists to catch. Making a test immune is not making it correct.
-  - **The deterministic fix is the settle signal the product already emits.** Path validation is
-    `debounce(run, 400)` and writes into the hint spans **above** the button (`app.js`
-    `validatePath`), so the button moves - measured **+4.9px** - inside the click window.
-    Waiting for `#bk-source-hint` / `#bk-target-hint` to become non-empty before clicking
-    removes the race at source and keeps real mouse-event coverage.
-  - ⚠ **2026-08-08: THIS DIAGNOSIS DOES NOT GENERALISE, and a second instance contradicts it.**
-    `(acb)` is a cancel failure in the same browser lane and the same family, and its mechanism is
-    the OPPOSITE: the cancel request was issued and accepted with a 202, and what failed was the
-    event stream afterwards. A lost click and an unreported dead stream look identical from the
-    outside - a cancel that does nothing - and folding them together would have lost both. This
-    entry's finding stands **for this test only**. Anyone reaching for it as the explanation for a
-    cancel flake elsewhere should read the trace first; that is what separated them here, and this
-    entry already carried one flagged contradiction nobody had reconciled.
-  - ✅ **MECHANISM PROVEN 2026-08-07: the click is lost.** It recurred on run `31208332669` and
-    this time the trace uploaded, which is exactly the condition this entry was waiting on.
-    From the replay: the organize flow completed in **0.90 s**, then **no `/api/backup/preview`
-    request was ever issued**, `#bk-result` was still empty when the assertion gave up 30 s
-    later, and `"Checking what to copy…"` - the label `withBusy` sets *before* doing any work -
-    **never appears in the trace at all**. So the handler never ran. Not a timeout: raising it
-    treats a symptom that does not exist.
-  - **What separates the two candidates**, which the final-state snapshot could not. `withBusy`'s
-    early return needs `dataset.busy === "1"`, which needs a prior invocation still in flight on
-    that same button. The trace's action list shows this is the **first and only** click on
-    `#bk-preview` in the test, and `dataset.busy` is written in exactly one place (`app.js:888`).
-    So the early return was unreachable, and `!button` is ruled out by the element being static
-    markup that Playwright successfully clicked. **A lost click is the only survivor** - and the
-    product-side silence candidate is therefore *not* implicated here, though `withBusy`'s
-    write-nothing-say-nothing return is still worth its own look on its own merits.
-  - ⚠ **The proposed fix above is CONTRADICTED by the tree and must not be applied on faith.**
-    `test_backups_on_the_pattern.py` already does exactly it - both hint waits, at its own site -
-    and records that it was *not* enough: *"waiting on the hints, on networkidle, and on both
-    together all still lose the race"*, which is why that one site uses `dispatch_event`. Either
-    that note or this proposal is wrong, and nothing here establishes which. Whoever takes this
-    reconciles those two records **first**; a settle-wait added to the other four sites on the
-    strength of this entry alone would be a guess wearing a citation.
-  - **Not reproducible locally**: 15 runs of the test alone and 5 of the whole file, 0 failures.
-    It wants a loaded runner, so the trace is the evidence and CI artifacts expire - the numbers
-    above are copied here for that reason.
-  - ✅ **RECURRED 2026-08-09, run `31315728976`, and the signature is identical.** Recorded from
-    that run's trace before the artifact expired: **zero `/api/backup/preview` entries** in
-    `trace.network`, and `"Checking what to copy…"` absent from the trace entirely. Third
-    failure now, all on CI, still nothing locally.
-  - **Ruled out as the cause: the decisions trigger landed in the same push** (`befcccf`), which
-    changed how every app catalog is opened. It cannot be this. **The label `withBusy` sets
-    before any request never appeared**, so the handler never ran and nothing left the browser -
-    server-side code cannot suppress a fetch that was never issued. Written down because "the
-    flake started failing right after your change" is the first thing anyone will think, and the
-    trace answers it rather than the timing.
-  - ✅ **RECURRED 2026-08-10, run `31364810632` - FOURTH failure, identical signature.** Zero
-    `/api/backup/preview` entries in `trace.network`; `"Checking what to copy…"` absent from the
-    trace entirely. Ruled out first, because the same push changed `service/backup.py` for
-    `(abu)`: the click never left the browser, so server code cannot be implicated - and the
-    failing test is a **preview**, which never reaches `_copy_or_raise` (called only from
-    `backup_run`).
-  - ✅ **THE CONTRADICTION IS RECONCILED, and the two records were never in conflict.** They
-    describe different waits at different moments:
-    - `test_backups_on_the_pattern._open` waits for the SCREEN to settle after switching -
-      `#drives-list *` then `networkidle` - because *"`loadDrives` and `loadCustody` run together
-      and both rewrite the screen"*. Its later note, that hint waits and networkidle *"all still
-      lose the race"*, is about the **path-validation** race at its own click site, AFTER it has
-      already settled the screen.
-    - `test_busy_state`'s failing test settles **nothing**. It switches screen and immediately
-      fills and clicks, while the two loads that rewrite that screen are still in flight.
-    So one record is "a residual race after settling" and the other is a test that never settles.
-    The proposed hint-wait was rightly refused; the missing wait was a different one.
-  - **RULED OUT ALONG THE WAY**, so the next reader does not re-walk it: the handler is attached
-    once at module level (`app.js:3140`), so it is never absent when the button is clickable;
-    `#bk-preview` is static markup and only its SIBLING `#bk-result` is rewritten, so the node is
-    never replaced; and neither `guarded` nor `withBusy` can swallow a first click.
-  - ⚠ **FIXED AT ONE SITE OF FOUR, and that is the `(aak)` shape this entry already names.**
-    `e2e_support.open_backups` now does the settle, and only `test_busy_state` uses it. The other
-    three - `test_golden_path:57` and `test_ui_regressions:60,:645` - switch to this screen and
-    act immediately too. They were **not** changed blind: their fixtures may render a drives list
-    with no children, where `wait_for_selector("#drives-list *")` would hang for 15 s and fail a
-    passing test. Closing them needs a settle that tolerates the empty case, which is its own
-    small piece of work.
-  - **VERIFICATION IS CI, NOT LOCAL, and passing locally means nothing here.** This entry already
-    records 15 local runs of the test alone and 5 of the file with 0 failures; 5 more after the
-    change also passed. It wants a loaded runner, so green CI runs are the only evidence that
-    counts.
-  - 🔢 **WHAT WOULD COUNT AS EVIDENCE, written down so nobody calls it fixed on the second green.**
-    At the observed rate of roughly **one failure in three runs**, an unfixed flake survives N
-    consecutive green runs with probability `(2/3)^N`:
-
-    | consecutive green e2e runs | chance an UNFIXED flake produced them |
-    |---|---|
-    | 2 | 44% - proves nothing |
-    | 4 | 20% |
-    | **8** | **4% - the minimum bar** |
-    | **12** | **1% - call it fixed** |
-
-    **Do not close this before 8, and prefer 12.** Two greens is the number that will feel
-    convincing and is worth 44% odds of being wrong. The denominator is approximate - the
-    failures are known (four), the total e2e runs in the window are not counted precisely - so
-    treat 1-in-3 as the rate this entry has always assumed rather than as a measurement.
-  - **And a green run does not clear the other three sites**, which still act without settling.
-    Only `test_busy_state` changed, so any of the others firing is the same defect at a site that
-    was never fixed - not a regression of this one.
 
 - **(abp) The body sans face is not bundled, so prose renders differently on every machine.**
   Recorded 2026-08-07, found because a browser test had been asserting the CI runner's fonts.

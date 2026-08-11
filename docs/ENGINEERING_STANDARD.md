@@ -1183,6 +1183,20 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   a suite you cannot retry is only bearable if you can find out *why* it went red, and a base rate
   is not a reason.
 
+  > **AND BEFORE DIAGNOSING A FLAKE, COUNT THE RUNS SINCE THE LAST RED.** Added 2026-08-11, after
+  > `(abq)` closed. A defect with no red run since a plausible fix is a **closure** question, not a
+  > diagnosis question, and the two need opposite work: one is arithmetic over CI history, the
+  > other is hours of reading. `(abq)` was investigated for weeks on a mover that measurement then
+  > showed **cannot** miss, while the thing that had actually fixed it - a reorder made for a
+  > different entry - had already produced 14 consecutive green runs nobody had counted.
+
+  **Twice in one week a defect turned out to be fixed by unrelated work, and both times the
+  evidence was CI history rather than code.** That is the argument for making the count the first
+  step rather than a closing formality: it is minutes, it runs before any hypothesis, and it can
+  retire the question outright. State it as a probability, not a tally - at a measured one-in-three
+  failure rate, 14 greens is `(2/3)^14 = 0.34%`, which is an argument; "14 green runs" on its own
+  is a number that feels convincing at any value.
+
 - **For an intermittent failure, repetition is evidence. For a mechanism that could lie, only a
   differential is.** The twenty-fifth member, and it decides which instrument to reach for.
 

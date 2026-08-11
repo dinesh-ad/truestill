@@ -17,6 +17,7 @@ import shutil
 from pathlib import Path
 
 import pytest
+from e2e_support import open_backups
 from playwright.sync_api import Page, expect
 
 pytestmark = pytest.mark.skipif(shutil.which("exiftool") is None, reason="exiftool not installed")
@@ -54,7 +55,7 @@ def test_organize_then_back_up_then_check(ui: Page, tmp_path: Path, library) -> 
     expect(ui.locator("#custody-line")).to_contain_text("in only one place")
 
     # --- 2. Backups: the library is already known ------------------------------------
-    ui.click('button[data-screen="backups"]')
+    open_backups(ui)
     expect(ui.locator("#drives-list")).to_contain_text("Output")
     expect(ui.locator("#bk-source")).to_have_value(str(destination))  # never asked to Browse
 

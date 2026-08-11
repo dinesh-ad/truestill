@@ -15,7 +15,7 @@ import json
 from pathlib import Path
 
 import pytest
-from e2e_support import AppServer, make_photo, open_app, open_screen
+from e2e_support import AppServer, make_photo, open_app, open_backups, open_screen
 from playwright.sync_api import Page, expect
 from truestill_core.catalog import Catalog
 from truestill_core.destinations.base import CrossDeviceError
@@ -642,7 +642,7 @@ def test_a_completed_copy_clears_the_stale_not_a_backup_message(
     backup.mkdir()
     _organize(ui, source, destination)
 
-    ui.click('button[data-screen="backups"]')
+    open_backups(ui)
     ui.fill("#verify-path", str(backup))
     ui.click("#verify-run")
     expect(ui.locator("#verify-result")).to_contain_text("set up as a backup drive")
@@ -741,7 +741,7 @@ def test_a_finished_copy_splits_photos_and_videos_without_form_letter_grammar(
     backup.mkdir()
     _organize(ui, source, destination)
 
-    ui.click('button[data-screen="backups"]')
+    open_backups(ui)
     # Organize's loadCustody prefills bk-source with the library path. Filling again races that
     # async write (clear → prefill → type) and has doubled the path on CI. Assert the prefill,
     # same as the golden-path handoff, instead of re-typing it.

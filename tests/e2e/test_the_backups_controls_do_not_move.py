@@ -29,10 +29,11 @@ different height, and the zero-drive case needs zero media counts or it takes th
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 import pytest
-from e2e_support import AppServer, hold_route, open_app
+from e2e_support import AppServer, hold_route, open_app, open_backups
 from playwright.sync_api import Page, expect
 
 
@@ -146,3 +147,68 @@ def test_the_button_is_still_where_the_user_aimed(
     # Exact, so there is no bound to declare. `#drives-list` renders BELOW every control, so a
     # control's position cannot be a function of how many drives arrive.
     assert after == before, f"with {drives} drive(s) #bk-preview moved {after - before:+.1f}px"
+
+
+def test_the_button_is_still_where_the_user_aimed_after_the_hints_land(
+    page: Page, app_server: AppServer, tmp_path: Path
+) -> None:
+    """The SECOND mover on this screen - `validatePath`'s hint spans, `(abq)`.
+
+    Same harm claim as above, a different trigger, which is why it cannot be a case of that
+    parametrize: that one fires on screen open with `/api/drives` held, this one fires ~400ms
+    after typing (`debounce(run, 400)`, `app.js`), long after `data-ready="ready"`.
+
+    **WHICH CASE THIS PINS, because the distinction is the whole value of the test.** It pins the
+    hint states that actually occur. Measured 2026-08-11 against `#bk-preview`'s 34.8px height, so
+    a centre-aimed click misses only past 17.4px:
+
+    * valid paths, short hints - **+9.8px**, still on the button
+    * unusable paths - **+4.9px**, still on the button
+    * source only - **+0.0px**
+
+    So the mover `(abq)` was open on for weeks **cannot miss**, and this test says so rather than
+    asserting a shift it would be satisfied by. `(abq)` was closed on that measurement plus 14
+    consecutive green CI runs.
+
+    **PROOF THAT IT BITES, since every state above passes and a test nothing can fail is a
+    decoration.** Forced to two wrapped lines in both hints with `#bk-target-carried` unhidden, the
+    same assertion goes red at **+31.2px**, landing on `div.card`; at three lines, +71.8px on
+    `#bk-target-hint`. That mutation is **deliberately not committed** - it is reachable in the
+    product (`validatePath` interpolates a server-supplied error, and `.carried` reserves no
+    height), so it is a live defect filed as `(acw)`, and a committed red test is not a detector.
+
+    The viewport is set first for the reason the module docstring gives: below the fold
+    `elementFromPoint` returns `null`, which reads as "nothing in the way" and passes.
+    """
+    page.set_viewport_size({"width": 1280, "height": 1600})
+    ui = open_app(page, app_server.url)
+    open_backups(ui)
+
+    source = tmp_path / "Library"
+    source.mkdir()
+    target = tmp_path / "Backup"
+    target.mkdir()
+
+    x, y, before = _centre(ui)
+    height = ui.eval_on_selector("#bk-preview", "el => el.getBoundingClientRect().height")
+
+    ui.fill("#bk-source", str(source))
+    ui.fill("#bk-target", str(target))
+    # The real settle signal, and the one the race-free click site already uses: a hint is written
+    # only after `validatePath` has awaited `/api/fs/validate`. Auto-retrying, not a sleep.
+    expect(ui.locator("#bk-source-hint")).not_to_be_empty()
+    expect(ui.locator("#bk-target-hint")).not_to_be_empty()
+
+    landed = _what_is_at(ui, x, y)
+    _, _, after = _centre(ui)
+    assert landed == "bk-preview", (
+        f"the hints moved the button {after - before:+.1f}px and a click at its old position "
+        f"would land on {landed!r} instead"
+    )
+    # Not exact, unlike `(acd)`: the hints legitimately occupy space and the shift is real. The
+    # claim is that it stays inside the button, so the threshold is stated rather than a round
+    # number - half the button's own height is exactly where a centre-aimed click starts to miss.
+    assert after - before < height / 2, (
+        f"#bk-preview moved {after - before:+.1f}px, past the {height / 2:.1f}px at which a "
+        f"centre-aimed click leaves a {height:.1f}px button"
+    )
