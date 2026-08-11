@@ -71,6 +71,13 @@ def _dedup(ui: Page, summary: dict) -> None:
     # render. §4's sixteenth member: wait for something only the finished work can produce. The
     # promise line is rendered by `organizeTally` and by nothing else, at every count including
     # zero. Measured 2026-08-11: with the old wait this file failed roughly one run in three.
+    #
+    # AND THIS HELPER IS SHARED, WHICH IS THE MORE USEFUL HALF. The same wait explains an EARLIER
+    # unexplained failure of `test_the_tally_sums_to_the_files_it_counted`, which read the tally
+    # rows straight after `_dedup` returned and occasionally found none - the inventory card was
+    # still on screen. That failure was seen, could not be reproduced on a re-run, and was never
+    # diagnosed. **Two flakes, one root cause**, and the second is written here so it is not
+    # re-investigated from scratch the next time it appears.
     expect(ui.locator("[data-testid='org-will-organize']")).to_be_visible(timeout=30_000)
 
 

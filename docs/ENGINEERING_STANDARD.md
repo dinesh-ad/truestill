@@ -1035,6 +1035,19 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   that does not fire means **either** the guard is missing **or** the code is dead. Find out
   which before writing the test - the answer is a test in one case and a deletion in the other.
 
+- **A mock that renders "0" is telling you a field became load-bearing.** Recorded 2026-08-11
+  from `(abl)`/`(acx)`: a preview payload gained one number that two surfaces render, and **six
+  mocked payloads** across the browser suite went on describing the old shape. They did not fail
+  with a message about a missing key - the card rendered *"0 files will be organized"* and the
+  confirm block did not appear at all, because `Number(undefined) || 0` is a perfectly good zero.
+
+  > **A zero from a mock is a claim about a fixture, not about the product.** When a payload gains
+  > a field, the tell that it matters is a mock rendering nothing rather than a mock raising.
+
+  The repair is to update the fixtures, not to make the reader tolerant: a fallback like
+  `will_organize ?? new_unique + near_dup` would have kept every mock green and quietly restored
+  the second computation the change existed to remove.
+
 - **A fixture modelled on the current library inherits its blind spots.** The seventeenth member.
   Not "use more rows" - that says nothing about where to look. **Ask which property of your data
   is currently accidental, and put the second one in the fixture.**
