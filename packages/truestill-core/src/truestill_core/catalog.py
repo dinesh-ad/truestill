@@ -2300,6 +2300,14 @@ class Catalog:
         present and known absent, and leaving the old date would let :meth:`refresh_drive_verified`
         keep dating a claim off a confirmation the next check disproved.
 
+        **THE CLEAR MATTERS MORE THAN THE SET, AND IS THE EASIER ONE TO LOSE.** Both ways back -
+        :meth:`mark_copy_verified` and :meth:`record_copy` - blank this column, and neither may be
+        simplified away. Mutation testing found both unguarded, which is what a corrective state
+        tested only for how it is *set* looks like from the inside. **A stuck ``missing_at`` is
+        worse than the defect it was added for, because that defect at least corrected itself
+        when the news turned good:** a user who restores a drive and re-checks it would see their
+        files still reported as living in one place, with nothing they could do about it.
+
         **The row is never deleted.** It is the record that content was once written here, and
         the only clue left to what happened - see the column comment in ``_SCHEMA``.
         """

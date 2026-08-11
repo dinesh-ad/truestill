@@ -956,6 +956,11 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   *The question to ask of any freshness field, before it is added:* what writes it, and can that
   write happen when the thing it dates is false?
 
+  **The person who owes that question is the REVIEWER, not the author.** An age reads as an
+  unarguable improvement - it is the reviewer's assent that lets it in unexamined, and a date is
+  approved on what it promises rather than on what writes it. Approving a freshness field without
+  asking what advances it is how this one shipped.
+
 - **A CORRECTIVE STATE NEEDS A TEST FOR HOW IT IS CLEARED, NOT ONLY FOR HOW IT IS SET.** The
   thirty-seventh member, and the one this repo's mutation discipline found rather than reasoned
   out. A flag that records something bad - absent, stale, refused, quarantined - is written with
