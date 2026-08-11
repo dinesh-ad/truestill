@@ -56,6 +56,22 @@ BANNED: dict[str, str] = {
     "vintage": "a level of the maintainer's private tree; use Input/2013 or Input/2014",
 }
 
+# A PLACE NAME IS EXPOSURE WHEN IT IS HIS FOLDER, AND EVIDENCE WHEN IT IS A DATASET ROW. Read this
+# before widening BANNED. On 2026-08-11 a blanket sweep replaced two Indian city names everywhere
+# they appeared, which was right inside a folder name taken from the fenced tree and WRONG inside
+# `reverse-geocoding-research.md`, where the same two words are gazetteer test points cited beside
+# Chennai with populations and coordinates. The sweep turned a measurement record into nonsense -
+# a lookup that "resolves to its own official name" - and it was caught by reading the diff rather
+# than by any test.
+#
+# So the question is never "is this word a place". It is **whose sentence is it in**: a path the
+# maintainer typed, or a row in a public dataset the record is measuring. The first is exposure and
+# goes; the second is the evidence the record's conclusion rests on, and removing it leaves an
+# assertion with nothing behind it - the same damage as rewriting a record to match the present.
+#
+# The practical consequence for this file: BANNED holds names of HIS structure, never bare
+# toponyms. A term that would also match dataset rows belongs in a scoped pattern or nowhere.
+
 #: **AN ALLOWLIST THAT GREW TO ACCOMMODATE A RULING THAT WAS LATER REVERSED IS THE SILENT-GROWTH
 #: FAILURE `IMPLEMENTATION_STANDARDS.md` 6.2 ALREADY DOCUMENTS FOR THE DASH SWEEP.** Two entries
 #: were removed on 2026-08-11: one exempted `encrypted pCloud mount` / `pCloud Crypto` in a

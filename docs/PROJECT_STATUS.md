@@ -77,6 +77,17 @@ narrative, or volatile counts.
    - Ensure no sensitive/local-only leakage and that user-facing docs/screenshots are current.
 
 3. **Publish pipeline (when soak closes)**
+   - **REQUIRED STEP: make the repository private.** It is public today for the Actions minutes
+     and goes private at launch. Git history carries the maintainer's cloud-storage and
+     private-folder strings and a rewrite was declined on cost - `BACKLOG.md` `(acv)` holds the
+     exposure, the reasoning and the residual. **This is the mitigation**, so launching without it
+     leaves the accepted risk unmitigated rather than merely untidy.
+     - **It changes what CI costs.** Measured over three runs: **23, 27 and 42 wall-minutes** per
+       push across four jobs, Windows alone 14-31 of them. Private repositories bill Windows and
+       macOS at a multiplier on the included quota - **verify the current rates before switching**
+       and decide then whether the matrix stays as it is.
+     - **It changes how a vulnerability is reported** (`SECURITY.md` points at this repository).
+       Confirm the route still works for someone outside the org.
    - Package release sequence and launch steps are still pending and should be run only after
      soak is explicitly accepted.
    - **Larger than a PyPI release, and it sits in front of this:** `BACKLOG.md` `(aad)` desktop
