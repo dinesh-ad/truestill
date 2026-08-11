@@ -31,7 +31,7 @@ from truestill_core.layout import DEFAULT_SCHEME, LayoutScheme, LayoutTemplate
 from truestill_core.migrate import plan_migration
 
 _DAY = "2015-10-25"
-_NAME = "Gokul's Marriage"
+_NAME = "Sam's Wedding"
 
 
 def _seed_file(catalog: Catalog, root: Path, relative: str, captured: str, body: bytes) -> str:

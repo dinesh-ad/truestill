@@ -377,7 +377,7 @@ def ghost_drive_refusal(ghost: GhostDrive) -> str:
 def path_is_usable_dir(path: Path) -> bool:
     """True when ``path`` is an existing directory we can stat.
 
-    Stale mount hints (ENOENT, ENOTDIR, ``PermissionError`` on a locked Crypto folder, dead
+    Stale mount hints (ENOENT, ENOTDIR, ``PermissionError`` on a locked vault folder, dead
     FUSE) must not escape as raw ``OSError`` to the UI. False means "do not trust this path";
     identity still lives on the marker uuid elsewhere, never here.
     """

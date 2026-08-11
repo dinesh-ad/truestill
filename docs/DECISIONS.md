@@ -435,7 +435,7 @@ the `blake3` PyPI package ships prebuilt wheels for most environments and needs 
 toolchain for typical users. That argument is withdrawn.
 
 **The measured reason, which is stronger** (`docs/preview-performance-profile.md`, historical
-Wayanad '14 on `Photos/Vintage` - now OFF LIMITS to re-run; 2,064 files, cold cloud-mount preview):
+Wayanad '14 on `Photos/Archive` - now OFF LIMITS to re-run; 2,064 files, cold cloud-mount preview):
 
 - SHA-256 ran on **22 of 2,064 files** (~1% after the size pre-filter) and offers about
   **1.03×** headroom if it went to zero.

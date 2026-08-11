@@ -625,7 +625,7 @@ Verified: `_device_id(Path("/nope/nothing/here"))` returned `66311`, the device 
 branches of `filesystem_relationship` were dead strings that had never been shown to anyone.
 
 Browsing into any permission-denied directory - `/root`, another user's home, a locked mount, the
-`Crypto Folder` `PROJECT_STATUS.md` §4 fences off - killed the folder picker with a 500.
+`Vault` `PROJECT_STATUS.md` §4 fences off - killed the folder picker with a 500.
 
 **The audit's own predicted pattern held.** This entry said of the conflation "that pattern rarely
 appears once"; it was three sites plus two probes. Core already had the discipline -

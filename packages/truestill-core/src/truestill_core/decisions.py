@@ -51,7 +51,7 @@ from truestill_core.drive import DriveReach, drive_path_hint, drive_reach
 FORMAT_VERSION = 1
 
 #: Settings excluded from the document. `path_hint.drive.<uuid>` holds an absolute local path - a
-#: username, a folder layout, and in one real library the existence of a Crypto Folder. This file
+#: username, a folder layout, and in one real library the existence of a Vault. This file
 #: lands on a drive the user may lend or sell, and a path from another machine is useless anyway.
 #: Matched by PREFIX so a future `path_hint.something` is excluded without another edit.
 #:

@@ -68,33 +68,33 @@ def drive(app_server: AppServer, tmp_path: Path):
 
 def test_the_suggestion_is_offered_below_the_box_and_never_inside_it(ui: Page, drive) -> None:
     """THE SHAPE. The name is visible, the box is empty, and doing nothing still skips the card."""
-    root = drive("Sea Diving")
+    root = drive("Rock Climbing")
     _propose(ui, root)
 
     # Waits on the suggestion line, which only the suggested state can produce.
     line = ui.locator(".ev-suggest")
     expect(line).to_be_visible(timeout=30_000)
-    expect(line).to_contain_text("Sea Diving")
+    expect(line).to_contain_text("Rock Climbing")
     expect(ui.locator(".ev-name")).to_have_value("")
 
 
 def test_use_fills_the_box_and_the_offer_stands_down(ui: Page, drive) -> None:
     """Accepting is one click, and once accepted it is the user's answer, not a suggestion."""
-    root = drive("Sea Diving")
+    root = drive("Rock Climbing")
     _propose(ui, root)
     expect(ui.locator(".ev-suggest")).to_be_visible(timeout=30_000)
 
     ui.click(".ev-suggest-use")
 
     # Waits on the VALUE, which only Use can produce - not on the line's absence.
-    expect(ui.locator(".ev-name")).to_have_value("Sea Diving")
+    expect(ui.locator(".ev-name")).to_have_value("Rock Climbing")
     expect(ui.locator(".ev-suggest")).to_be_hidden()
 
 
 def test_typing_your_own_name_dismisses_the_offer(ui: Page, drive) -> None:
     """`.carried`'s own rule: once the user has written something it is theirs, so stop calling
     it a suggestion."""
-    root = drive("Sea Diving")
+    root = drive("Rock Climbing")
     _propose(ui, root)
     expect(ui.locator(".ev-suggest")).to_be_visible(timeout=30_000)
 

@@ -112,9 +112,7 @@ def test_it_reports_what_it_would_not_do_before_asking(
     are things the user may want to act on before deciding."""
     root = _drive_with_decisions(
         tmp_path,
-        events=[
-            {"name": "Gokul Marriage", "slug": "g", "start": "2015-10-25", "signature": "a" * 64}
-        ],
+        events=[{"name": "Sam Wedding", "slug": "g", "start": "2015-10-25", "signature": "a" * 64}],
         date_confirmations=[
             {"sha256": "e" * 64, "captured_at": "2015-01-01T00:00:00", "confirmed_at": "2026-01-01"}
         ],
@@ -124,7 +122,7 @@ def test_it_reports_what_it_would_not_do_before_asking(
     main(["restore", str(root), "--db", str(db)])
 
     out = capsys.readouterr().out
-    assert "Gokul Marriage" in out, "an unmatched event was not named"
+    assert "Sam Wedding" in out, "an unmatched event was not named"
     assert "scan" in out.lower(), "the awaiting-content remedy was not explained"
     assert "1 date confirmations" in out, "the awaiting-content count was not given"
 

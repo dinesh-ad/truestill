@@ -15,10 +15,12 @@ the code lie about what it does, and those are allowlisted below with the reason
   size+mtime rule *is* PhotoPrism's rule, and IMatch is the documented counter-example that
   bounds it. Strip those and the invariant is left with no stated reason, which is the drift
   four audit passes were spent removing. Also not in :data:`BANNED`.
-* **Drive nicknames** - "The Memory Cabinet", "Output", "Crypto Folder". They are named corpora:
+* **Drive nicknames** - "The Memory Cabinet", "Output". They are named corpora:
   `PERFORMANCE.md` §2.1 binds every measurement row to state its corpus, and "a cloud mount" is
-  not traceable. "Crypto Folder" is the *off-limits* fence, and a fence nobody can name is a
-  fence nobody can enforce.
+  not traceable. **The fenced folder is NO LONGER among them** - it was, on the argument that
+  a fence nobody can name is a fence nobody can enforce, and the maintainer reversed that on
+  2026-08-11: a public repository may not name his private tree, and the fence is enforced
+  from his environment rather than from this file.
 * **Wayanad** - a place name, not personal data, and
   ``test_the_real_wayanad_run_is_one_full_proposal_no_trim`` records that the fixture was checked
   against a remembered trip. ``test_the_real_trip_run`` would lose exactly that.
@@ -46,25 +48,25 @@ BANNED: dict[str, str] = {
     "icedrive": "a storage vendor named incidentally",
     "backblaze": "a storage vendor named incidentally",
     "dinesh": "the maintainer's personal name; say 'the maintainer'",
+    # ADDED 2026-08-11 after the maintainer ruled that no path revealing his cloud storage or
+    # his private folder structure may appear in a PUBLIC repository. This guard did not fail:
+    # it was built to PERMIT these, on the ruling that "a fence nobody can name is a fence
+    # nobody can enforce". That ruling has been reversed, so the permission goes with it.
+    "crypto folder": "the maintainer's locked folder; say 'the fenced folder'",
+    "vintage": "a level of the maintainer's private tree; use Input/2013 or Input/2014",
 }
 
+#: **AN ALLOWLIST THAT GREW TO ACCOMMODATE A RULING THAT WAS LATER REVERSED IS THE SILENT-GROWTH
+#: FAILURE `IMPLEMENTATION_STANDARDS.md` 6.2 ALREADY DOCUMENTS FOR THE DASH SWEEP.** Two entries
+#: were removed on 2026-08-11: one exempted `encrypted pCloud mount` / `pCloud Crypto` in a
+#: measurement row, and one - added the day before - exempted `~/pCloudDrive` so the corpus fence
+#: could name its own path. Both were sound under the rule of their day and both were exposure
+#: under the next one. An entry here must be re-justified when the ruling behind it moves, not
+#: inherited.
+#:
 #: ``(pattern, reason)`` - text that legitimately contains a banned term. Subtracted from each
 #: line *before* the scan, so these survive without exempting the whole file around them.
 ALLOWED: tuple[tuple[str, str], ...] = (
-    (
-        r"encrypted pCloud mount|pCloud Crypto",
-        (
-            "the 2026-08-04 throughput observation (PERFORMANCE.md 5.2, README's mounted-"
-            "filesystem section). The vendor IS the measurement here on two counts. PERFORMANCE "
-            "2.1 binds every figure to state its machine class - 'a row without it cannot be "
-            "compared to anything' - and 'an encrypted cloud mount' is not a machine class. And "
-            "the client-side-decryption cost is a property of THAT product's crypto, so "
-            "generalising it would assert something about every encrypted mount from a sample "
-            "of one. Scoped to the two phrases that carry the claim, so the name cannot spread "
-            "into prose that does not need it - the plain example list in the same README "
-            "section names no vendor at all."
-        ),
-    ),
     (
         r"\| (Google Takeout|Facebook|Flickr|Amazon Photos|Dropbox|iCloud) \|",
         (
@@ -101,22 +103,6 @@ ALLOWED: tuple[tuple[str, str], ...] = (
             "test that checked for a genericised placeholder would assert nothing. Same "
             "standing as the (jj) export-format table and (aav)'s scope enumeration - vendors "
             "named to make a ruling checkable. Scoped to the one line."
-        ),
-    ),
-    (
-        r"~/pCloudDrive",
-        (
-            "the corpus fence itself (IMPLEMENTATION_STANDARDS.md 5, PROJECT_STATUS.md 4), and "
-            "this file's own docstring already rules the case one level down: 'Crypto Folder is "
-            "the off-limits fence, and a fence nobody can name is a fence nobody can enforce.' "
-            "The same holds for the mount the fence is drawn around, and more strongly - the "
-            "rule is 'do not walk THIS path', so it is obeyed by matching a literal, and 'a "
-            "cloud FUSE mount' cannot be matched against anything. Scoped to the path prefix, "
-            "so the vendor cannot spread into the prose beside it; the reason given for the rule "
-            "names no vendor, because the cost is the local cache and that is true of any "
-            "syncing mount. The maintainer's home directory is NOT allowlisted with it - the "
-            "absolute form was reworded to `~/` rather than exempted, because the personal name "
-            "is exactly the incidental kind this guard exists to catch."
         ),
     ),
     (

@@ -2253,7 +2253,7 @@ section, because what is left is the part that still has to be written.
     whoever picks this up should confirm they are live on the affected path first.
   - **Cold-preview phase profile measured 2026-07-29** - see
     [`docs/preview-performance-profile.md`](preview-performance-profile.md). Numbers came from
-    **`Crypto Folder/Photos/Vintage/.../Wayanad '14`** (2,064 files) - that tree is now
+    **`Vault/Photos/Archive/.../Wayanad '14`** (2,064 files) - that tree is now
     **OFF LIMITS** (`PROJECT_STATUS.md` §4); keep the figures as historical only. On that
     run, **exiftool is 74% of cloud-mount wall** (231 s); hashing wall is 26% and is almost
     entirely unconditional `perceptual_hash` (SHA-256 already ~1% of files via `_needs_sha`).
@@ -2261,7 +2261,7 @@ section, because what is left is the part that still has to be written.
     `TruestillLibrary/Input/2014/Wayanad '14`.
   - **Requirement for any fix:** measured **before/after on an allowed real cloud / FUSE
     corpus** (relocated Memory Cabinet, Output, or `<cloud mount>/2015`) - not a
-    synthetic fixture, and **not** anything under `Crypto Folder/` (`PROJECT_STATUS.md` §4).
+    synthetic fixture, and **not** anything under `Vault/` (`PROJECT_STATUS.md` §4).
 - **(xx) Absolute-path columns and hash-cache keys are not machine-portable.** Ruled by
   the maintainer from the 2026-07-30 move audit. **Record only - do not fix in the loud-failure
   series.** Commits 1-3 (**(ww)** path hints, catalog startup announcement, reclaim/undo
@@ -2723,7 +2723,7 @@ section, because what is left is the part that still has to be written.
       district name is unreachable by construction. This is the motivating case and no tier fixes
       it; it needs admin polygons, which is a different dataset and a different problem.
     - **The name-form question is answered and it is not blocking.** The lookup returns the
-      canonical long form (`Tiruchirappalli`, `Thanjavur`), and `Trichy` / `Tanjore` are both
+      canonical long form (`Tiruchirappalli`, `South`), and `North` / `Tanjore` are both
       present in the `alternatenames` column **already inside the tier files** - 81.7% of
       `cities500` rows carry it. The separate `alternateNamesV2.zip` is 193 MB and is **not
       needed** for this. So a subtraction rule can fire on either form.

@@ -75,7 +75,7 @@ def test_an_unmatched_event_survives_the_reconciled_path(tmp_path: Path) -> None
             written="2026-08-01T00:00:00+00:00",
             events=(
                 {
-                    "name": "Gokul Marriage",
+                    "name": "Sam Wedding",
                     "slug": "g",
                     "start": "2015-10-25",
                     "signature": "a" * 64,
@@ -87,7 +87,7 @@ def test_an_unmatched_event_survives_the_reconciled_path(tmp_path: Path) -> None
     with Catalog(tmp_path / "fresh.sqlite") as fresh:
         report = apply_documents(fresh, documents)
 
-    assert report.applied.unmatched_events == ("Gokul Marriage",)
+    assert report.applied.unmatched_events == ("Sam Wedding",)
     assert report.applied.applied.get("events", 0) == 0
 
 

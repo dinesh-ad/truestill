@@ -12,20 +12,20 @@ char    where it really appears                what happens to it
 ======  =====================================  ==================================================
 ``-``   ``TCS-M05-Batch``                      **kept** - part of the name, not a separator
 ``&``   ``Siveram & My Treat ILP``             **kept** - it is a word
-``~``   ``Trichy~Thanjavur~Gokul`s Marriage``  separator -> space
+``~``   ``Northport~Southbury~Sam`s Wedding``  separator -> space
 ``_``   ``test_skip_undated_names_skippe0``    separator -> space
-``'``   ``Rajesh B'day``, ``Wayanad '14``      **removed**, substituting nothing
-`````   ``Trichy~Thanjavur~Gokul`s Marriage``  **removed** - see below
+``'``   ``Alex B'day``, ``Wayanad '14``      **removed**, substituting nothing
+`````   ``Northport~Southbury~Sam`s Wedding``  **removed** - see below
 ======  =====================================  ==================================================
 
-**The apostrophe in "Gokul's Marriage" is a BACKTICK on disk.** It had been read as a display
+**The apostrophe in "Sam's Wedding" is a BACKTICK on disk.** It had been read as a display
 mangling in earlier reports; it is not, it is U+0060 in the folder name. That makes the removal
 rule stronger rather than weaker: a backtick is command substitution in sh, not merely a quoting
 character. The curly ``'`` (U+2019) is covered too - folders made on macOS or Windows carry it -
 even though this catalog holds none, because the cost of covering it is one codepoint.
 
 **No spelling correction, deliberately, and the reason belongs here so nobody adds it later.**
-Siveram, Trichy, Thanjavur, Gokul, Wayanad are proper nouns no dictionary holds. A speller would
+Siveram, Gokul, Wayanad are proper nouns no dictionary holds. A speller would
 rewrite a real name into a wrong one while looking authoritative, which is worse than silence.
 The whole value of a suggestion is that it is visible evidence from the user's own folder; a
 corrected word is no longer evidence of anything.
@@ -50,24 +50,24 @@ def test_the_event_name_is_found_above_day_folders_at_differing_depths() -> None
 
 
 def test_a_library_root_is_never_proposed() -> None:
-    """Silence, not 'Vintage'. Share rises monotonically with depth, so the roots always win on
+    """Silence, not 'Archive'. Share rises monotonically with depth, so the roots always win on
     share alone - which is why 'strongest majority anywhere' was measured and rejected."""
-    chains = [["Sea Diving", "2015", "Vintage", "Photos"]] * 9
-    assert suggest_name(chains, year=2015, roots={"Vintage", "Photos"}) == "Sea Diving"
-    assert suggest_name([["Vintage", "Photos"]] * 9, roots={"Vintage", "Photos"}) is None
+    chains = [["Rock Climbing", "2015", "Archive", "Photos"]] * 9
+    assert suggest_name(chains, year=2015, roots={"Archive", "Photos"}) == "Rock Climbing"
+    assert suggest_name([["Archive", "Photos"]] * 9, roots={"Archive", "Photos"}) is None
 
 
 # --- rule 1: apostrophes ------------------------------------------------------------------
 
 
 def test_every_apostrophe_shape_is_removed_substituting_nothing() -> None:
-    for raw in ("Gokul's Marriage", "Gokul\u2019s Marriage", "Gokul`s Marriage"):
-        assert suggest_name([[raw]] * 9) == "Gokul Marriage", raw
+    for raw in ("Sam's Wedding", "Sam\u2019s Wedding", "Sam`s Wedding"):
+        assert suggest_name([[raw]] * 9) == "Sam Wedding", raw
 
 
 def test_removing_an_apostrophe_leaves_no_double_space() -> None:
     """`B'day` must not become `B day`, and a trailing one must not leave a dangling space."""
-    assert suggest_name([["Rajesh B'day"]] * 9) == "Rajesh Bday"
+    assert suggest_name([["Alex B'day"]] * 9) == "Alex Bday"
     assert suggest_name([["Marys'"]] * 9) == "Marys"
 
 
@@ -83,15 +83,15 @@ def test_hyphens_inside_a_name_survive_untouched() -> None:
 
 
 def test_spaces_between_words_are_never_converted_to_hyphens() -> None:
-    assert suggest_name([["Phoenix Mall"]] * 9) == "Phoenix Mall"
+    assert suggest_name([["Riverside Mall"]] * 9) == "Riverside Mall"
 
 
 # --- rule 4: mechanical punctuation tidying -----------------------------------------------
 
 
 def test_the_real_wedding_folder_tidies_to_readable_words() -> None:
-    raw = "Trichy~Thanjavur~Gokul`s Marriage"
-    assert suggest_name([[raw]] * 9) == "Trichy Thanjavur Gokul Marriage"
+    raw = "Northport~Southbury~Sam`s Wedding"
+    assert suggest_name([[raw]] * 9) == "Northport Southbury Sam Wedding"
 
 
 def test_an_ampersand_is_a_word_and_stays() -> None:
@@ -108,7 +108,7 @@ def test_underscores_separate_and_runs_of_separators_collapse() -> None:
 def test_a_proper_noun_is_never_corrected() -> None:
     """Rule 3 has no code of its own - it is the absence of a speller - so this is what pins it.
     Every one of these is a real place or person and none is in a dictionary."""
-    for name in ("Siveram", "Trichy", "Thanjavur", "Wayanad", "Gokul"):
+    for name in ("Siveram", "Northport", "Southbury", "Wayanad", "Gokul"):
         assert suggest_name([[name]] * 9) == name
 
 
@@ -118,7 +118,7 @@ def test_a_proper_noun_is_never_corrected() -> None:
 def test_a_trailing_year_matching_the_cluster_is_stripped() -> None:
     """The `{yyyy}` parent already carries the year, so repeating it in the name is noise."""
     assert suggest_name([["Wayanad '14"]] * 9, year=2014) == "Wayanad"
-    assert suggest_name([["Phoenix Mall 2015"]] * 9, year=2015) == "Phoenix Mall"
+    assert suggest_name([["Riverside Mall 2015"]] * 9, year=2015) == "Riverside Mall"
 
 
 def test_a_year_that_disagrees_with_the_cluster_survives() -> None:
@@ -149,8 +149,8 @@ def test_no_majority_is_silence() -> None:
 
 def test_members_with_no_folder_at_all_still_count_against_the_majority() -> None:
     """Missing evidence weakens a claim rather than being quietly excluded from it."""
-    assert suggest_name([["Sea Diving"]] * 7 + [[], []]) == "Sea Diving"
-    assert suggest_name([["Sea Diving"]] * 6 + [[], [], [], []]) is None
+    assert suggest_name([["Rock Climbing"]] * 7 + [[], []]) == "Rock Climbing"
+    assert suggest_name([["Rock Climbing"]] * 6 + [[], [], [], []]) is None
 
 
 def test_an_empty_cluster_and_a_junk_only_cluster_are_both_silent() -> None:
@@ -175,12 +175,12 @@ def test_the_suggester_never_raises_on_anything_it_is_given() -> None:
 
 
 def test_underscored_and_mixed_separator_names_read_as_words() -> None:
-    assert suggest_name([["Gokuls_Marriage"]] * 9) == "Gokuls Marriage"
-    assert suggest_name([["2015_10_25 Gokuls-Marriage"]] * 9) == "Gokuls-Marriage"
+    assert suggest_name([["Sams_Wedding"]] * 9) == "Sams Wedding"
+    assert suggest_name([["2015_10_25 Sams-Wedding"]] * 9) == "Sams-Wedding"
 
 
 def test_repeated_and_edge_punctuation_is_trimmed_but_inner_punctuation_is_not() -> None:
-    assert suggest_name([["Rajesh bday!!!"]] * 9) == "Rajesh bday"
+    assert suggest_name([["Alex bday!!!"]] * 9) == "Alex bday"
     assert suggest_name([["J.R. Tolkien"]] * 9) == "J.R. Tolkien"
 
 
@@ -195,15 +195,15 @@ def test_non_latin_scripts_and_emoji_pass_through_unharmed() -> None:
     `isalnum` alone would have failed this: the scripts pass, the emoji does not, and stripping a
     name to nothing because it is not Latin is the worst outcome available here.
     """
-    for name in ("கோகுல் திருமணம்", "गोकुल विवाह", "北海道 2015", "🎂 Rajesh"):
+    for name in ("கார் பயணம்", "पहाड़ यात्रा", "北海道 2015", "🎂 Alex"):
         assert suggest_name([[name]] * 9) is not None, name
-    assert suggest_name([["கோகுல் திருமணம்"]] * 9) == "கோகுல் திருமணம்"
+    assert suggest_name([["கார் பயணம்"]] * 9) == "கார் பயணம்"
     assert suggest_name([["🎂🎉"]] * 9) == "🎂🎉"
 
 
 def test_camel_case_is_never_split() -> None:
     """A wrong split looks authoritative. `McDonald` must not become `Mc Donald`."""
-    assert suggest_name([["GokulsMarriage"]] * 9) == "GokulsMarriage"
+    assert suggest_name([["SamsWedding"]] * 9) == "SamsWedding"
     assert suggest_name([["McDonald Farewell"]] * 9) == "McDonald Farewell"
 
 
@@ -252,15 +252,15 @@ def test_a_deeper_name_wins_over_a_stronger_shallower_one() -> None:
     """DEEPEST-QUALIFYING, NEVER STRONGEST - and this is the only test that can tell them apart.
 
     Share rises monotonically with depth, so a parent always scores at least as well as its
-    child. Here `Sea Diving` holds 8 of 10 and its parent `Vintage Trips` holds all 10: taking
+    child. Here `Rock Climbing` holds 8 of 10 and its parent `Archive Trips` holds all 10: taking
     the strongest would propose the parent, which is the failure that made a real measurement
-    propose `Vintage` and `Crypto Folder` over the events inside them.
+    propose `Archive` and `Vault` over the events inside them.
 
     The earlier tests could not catch this. In every one of them the deepest qualifying level was
     ALSO the strongest, so a mutation swapping the rule passed all 26 of them.
     """
-    chains = [["Sea Diving", "Vintage Trips"]] * 8 + [["Boat Day", "Vintage Trips"]] * 2
-    assert suggest_name(chains) == "Sea Diving"
+    chains = [["Rock Climbing", "Archive Trips"]] * 8 + [["Boat Day", "Archive Trips"]] * 2
+    assert suggest_name(chains) == "Rock Climbing"
 
 
 def test_an_apostrophe_that_is_not_a_possessive_costs_no_letters() -> None:

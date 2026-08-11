@@ -231,7 +231,7 @@ path_hint.drive.<uuid>  /home/<username>/<cloud mount>/<an encrypted folder>/<dr
 ```
 
 **Excluded, by prefix, in the gather rather than only in the serialiser.** They would put a
-username, a folder layout and the existence of a Crypto Folder onto a drive the user may lend or
+username, a folder layout and the existence of a Vault onto a drive the user may lend or
 sell, and they are useless on another machine. The gather also reads column-by-column rather than
 `SELECT *`, so a column added to `files` or `settings` later cannot arrive on a drive by default.
 

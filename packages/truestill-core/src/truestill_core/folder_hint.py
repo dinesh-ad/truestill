@@ -6,7 +6,7 @@ PROPOSE, never what to overrule.
 
 **Deepest-qualifying, never strongest.** A name's share rises monotonically with depth, because
 an ancestor set is a superset of its descendants - so "the strongest majority anywhere" always
-degenerates to a library root (`Vintage`, `Crypto Folder`). Measured on the real catalog and
+degenerates to a library root (`Archive`, `Vault`). Measured on the real catalog and
 rejected. The first level, counting up from the file, that carries a real majority wins.
 
 **70% is UNTUNED.** Twenty-one clusters cannot distinguish 70 from 75, and one of them sits at
@@ -14,16 +14,16 @@ rejected. The first level, counting up from the file, that carries a real majori
 this corpus.
 
 **The suggestion stays verbose rather than clever, and that is the design.**
-`Trichy~Thanjavur~Gokul's Marriage` is three labels a human joined - two places and an occasion -
-and no structural rule can separate them: to a counter, `Trichy` and `Gokul` are identical. So the
+`Northport~Southbury~Sam's Wedding` is three labels a human joined - two places and an occasion -
+and no structural rule can separate them: to a counter, `Northport` and `Sam` are identical. So the
 whole string is proposed. Verbose and truthful beats clever and wrong, and the cost is one edit in
 a box the user was going to touch anyway.
 
 That string is the MOTIVATING CASE for two future items, recorded here rather than as a TODO:
-an optional naming helper (a language model reading it knows Trichy is a city and a marriage is an
+an optional naming helper (a language model reading it knows Northport is a city and a marriage is an
 occasion - this is the case that earns it its place), and GPS place-name subtraction (if reverse
-geocoding puts the photos in Trichy and Thanjavur, those tokens are redundant with location the
-file already carries, and the remainder is `Gokul Marriage` - mechanical, offline, no model, and
+geocoding puts the photos in Northport and Southbury, those tokens are redundant with location the
+file already carries, and the remainder is `Sam Wedding` - mechanical, offline, no model, and
 it falls out of the GPS work already in the backlog). **Both are future. Neither is in scope.**
 
 **Order of operations** (each step can only take away, so silence is always reachable):
@@ -46,17 +46,17 @@ MAJORITY = 0.70
 #: A four-digit year, as opposed to the two-digit `'14` shorthand.
 _FULL_YEAR_DIGITS = 4
 
-#: A POSSESSIVE is removed whole - `Gokul's Marriage` becomes `Gokul Marriage`, not
-#: `Gokuls Marriage`. Read literally, "remove the apostrophe, substitute nothing" would leave the
+#: A POSSESSIVE is removed whole - `Sam's Wedding` becomes `Sam Wedding`, not
+#: `Sams Wedding`. Read literally, "remove the apostrophe, substitute nothing" would leave the
 #: orphaned `s`; both worked examples drop it, and dropping it is the more faithful reading of a
-#: proper noun - `Gokul` is the person's name and `Gokuls` is not a word in any language. It stays
+#: proper noun - `Sam` is the person's name and `Sams` is not a word in any language. It stays
 #: mechanical: one anchored pattern, no dictionary, so rule 3 is untouched.
 _POSSESSIVE = re.compile("['\u2019\u2018`\u00b4]s\\b")
 
 #: Any REMAINING apostrophe is removed outright, substituting nothing, so `B'day` becomes `Bday`
 #: rather than `B day`.
 #: The straight and curly apostrophes are the obvious two; the BACKTICK is here because it is
-#: what `Trichy~Thanjavur~Gokul`s Marriage` actually contains on disk - long read as a display
+#: what `Northport~Southbury~Sam`s Wedding` actually contains on disk - long read as a display
 #: mangling, it is real, and in sh it is command substitution rather than mere quoting.
 _APOSTROPHES = str.maketrans("", "", "'\u2019\u2018`\u00b4")
 
@@ -84,7 +84,7 @@ _WRAPPERS = (
 _EDGE_PUNCTUATION = " -_~!?.,;:"
 
 #: A leading date, which the `{yyyy}/{yyyy}-{mm}` parents already carry, exactly as a trailing
-#: year does. `2015_10_25 Gokuls-Marriage` proposes `Gokuls-Marriage`, not silence: the folder
+#: year does. `2015_10_25 Sams-Wedding` proposes `Sams-Wedding`, not silence: the folder
 #: does name an event and only its prefix is redundant.
 _LEADING_DATE = re.compile(r"^\d{4}([-_/. ]\d{1,2}){0,2}\s+(?=\S)")
 
@@ -204,7 +204,7 @@ def is_junk(name: str) -> bool:
 def tidy(name: str) -> str:
     """Mechanical, dictionary-free punctuation tidying. **Never spelling correction.**
 
-    Siveram, Trichy, Thanjavur, Gokul and Wayanad are proper nouns no dictionary holds. A speller
+    Siveram, Gokul and Wayanad are proper nouns no dictionary holds. A speller
     would rewrite a real name into a wrong one while looking authoritative - worse than silence,
     because the whole value of a suggestion is that it is visible evidence from the user's own
     folder. A corrected word is no longer evidence of anything.
@@ -216,7 +216,7 @@ def tidy(name: str) -> str:
     cleaned = _POSSESSIVE.sub("", cleaned).translate(_APOSTROPHES)
     cleaned = _SEPARATORS.sub(" ", cleaned)
     cleaned = _LEADING_DATE.sub("", cleaned)
-    # camelCase is NOT split. `GokulsMarriage` stays whole: splitting would break `TCS-M05` and
+    # camelCase is NOT split. `SamsWedding` stays whole: splitting would break `TCS-M05` and
     # would turn `McDonald` into `Mc Donald`, and a wrong split looks authoritative - the exact
     # failure this module avoids everywhere else. Case is left as found; the user's
     # capitalisation is evidence, not noise.
@@ -280,9 +280,9 @@ def suggest_name(
         if winner.casefold() in root_names or candidate.casefold() in root_names:
             continue
         # Judged on the CANDIDATE, per rule 5's order, not on the raw name. Judging the raw
-        # would undo the tidying that precedes it: `2015_10_25 Gokuls-Marriage` reads as a bare
+        # would undo the tidying that precedes it: `2015_10_25 Sams-Wedding` reads as a bare
         # date to `^\d{4}[-_/.]\d{1,2}` and would be discarded, when only its prefix is
-        # redundant and `Gokuls-Marriage` is exactly the name the folder is offering.
+        # redundant and `Sams-Wedding` is exactly the name the folder is offering.
         if is_junk(candidate):
             continue
         if not _has_content(candidate):

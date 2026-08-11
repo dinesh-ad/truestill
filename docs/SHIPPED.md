@@ -207,7 +207,7 @@ recording shipped work as unstarted, which is the more expensive direction of th
     if the kind is judged to carry its own weight.
   - **Precedent, and it is this repo's own instinct** (`decisions.py:53-55`): `path_hint.` is
     excluded from the decisions document because it holds *"an absolute local path - a username, a
-    folder layout, and in one real library the existence of a Crypto Folder"*, on a file that
+    folder layout, and in one real library the existence of a Vault"*, on a file that
     *"lands on a drive the user may lend or sell"*. The same reasoning applies to a screenshot.
   - ✅ **THE INVARIANT, whatever the design:**
     > **Hiding may reduce detail. It may never reduce the count, the drive's identity as a

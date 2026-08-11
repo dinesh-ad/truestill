@@ -47,7 +47,7 @@ _FULL = Decisions(
     ),
     events=(
         {
-            "name": "Gokul Marriage",
+            "name": "Sam Wedding",
             "slug": "gokul-marriage",
             "start": "2015-10-25",
             "signature": "a" * 64,
@@ -76,7 +76,7 @@ def test_the_document_is_json_a_person_can_read() -> None:
     text = json.dumps(to_document(_FULL), indent=2, sort_keys=True)
 
     assert "Wayanad" in text
-    assert "Gokul Marriage" in text
+    assert "Sam Wedding" in text
     assert text.count("\n") > 10, "collapsed to a single line; nobody can read that"
 
 
@@ -137,7 +137,7 @@ def test_a_missing_optional_section_reads_as_empty_rather_than_raising() -> None
 
 def test_the_document_never_carries_a_path_hint() -> None:
     """`settings` holds `path_hint.drive.<uuid>` values that are absolute local paths - a
-    username, a folder layout, and in one real case the existence of a Crypto Folder. This file
+    username, a folder layout, and in one real case the existence of a Vault. This file
     lands on a drive the user may lend or sell, and those hints are useless on another machine.
 
     Asserted on the rendered TEXT, so a hint smuggled in under any key still fails.

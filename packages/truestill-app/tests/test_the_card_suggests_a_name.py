@@ -67,9 +67,9 @@ def test_an_event_card_suggests_the_folder_its_members_came_from(tmp_path: Path)
     root, db, uuid = _drive(tmp_path)
     with Catalog(db) as catalog:
         catalog.upsert_drive(uuid=uuid, label="Backup A")
-        _add(catalog, uuid, "Sea Diving", day=0, count=15)
+        _add(catalog, uuid, "Rock Climbing", day=0, count=15)
 
-    assert _one(root, db, "event")["suggested_name"] == "Sea Diving"
+    assert _one(root, db, "event")["suggested_name"] == "Rock Climbing"
 
 
 def test_a_trip_card_derives_its_members_from_the_days_it_claims(tmp_path: Path) -> None:
@@ -110,7 +110,7 @@ def test_a_card_that_already_has_a_name_is_never_suggested_to(tmp_path: Path) ->
     root, db, uuid = _drive(tmp_path)
     with Catalog(db) as catalog:
         catalog.upsert_drive(uuid=uuid, label="Backup A")
-        _add(catalog, uuid, "Sea Diving", day=0, count=15)
+        _add(catalog, uuid, "Rock Climbing", day=0, count=15)
     with Catalog(db) as catalog:
         clusters = propose_from_catalog(catalog, uuid)
         commit_catalog(catalog, [EventDecision(clusters[0], "Named By Hand")])
@@ -130,12 +130,12 @@ def test_the_same_name_on_several_cards_in_one_day_is_suggested_on_all_of_them(
     root, db, uuid = _drive(tmp_path)
     with Catalog(db) as catalog:
         catalog.upsert_drive(uuid=uuid, label="Backup A")
-        _add(catalog, uuid, "Gokul Marriage", day=0, count=12)
+        _add(catalog, uuid, "Sam Wedding", day=0, count=12)
         # Same day, hours later, so it clusters separately but shares the source folder.
         for index in range(12):
             sha = f"late{index:03d}"
             catalog.record_uploaded(
-                source_path=f"/src/Gokul Marriage/{sha}.jpg",
+                source_path=f"/src/Sam Wedding/{sha}.jpg",
                 original_name=f"{sha}.jpg",
                 sha256=sha,
                 copy_sha256=sha,
@@ -149,7 +149,7 @@ def test_the_same_name_on_several_cards_in_one_day_is_suggested_on_all_of_them(
 
     events = [card for card in _cards(root, db) if card["kind"] == "event"]
     assert len(events) == 2, "fixture failed to split one day into two clusters"
-    assert [card["suggested_name"] for card in events] == ["Gokul Marriage"] * 2
+    assert [card["suggested_name"] for card in events] == ["Sam Wedding"] * 2
 
 
 def test_a_drive_whose_folders_say_nothing_is_silent(tmp_path: Path) -> None:

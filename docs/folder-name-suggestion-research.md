@@ -6,9 +6,9 @@ the rules - not a design document, and not rewritten to match later work.
 
 ## The question
 
-Naming a trip or event turns `2015-10-25 - Everyday` into `2015-10-25 - Gokul Marriage`. The
-screen offered a blank box while the maintainer's own hand-sorted folder names - `Sea Diving`,
-`Wayanad '14`, `Phoenix Mall 2015` - sat unused in `files.source_path`. Can the folder propose the
+Naming a trip or event turns `2015-10-25 - Everyday` into `2015-10-25 - Sam Wedding`. The
+screen offered a blank box while the maintainer's own hand-sorted folder names - `Rock Climbing`,
+`Wayanad '14`, `Riverside Mall 2015` - sat unused in `files.source_path`. Can the folder propose the
 name?
 
 ## The rule, and the variant that was measured and rejected
@@ -18,8 +18,8 @@ First qualifying level wins.
 
 **"Strongest majority anywhere" was tried and it fails structurally.** A name's share rises
 **monotonically with depth** - an ancestor set is a superset of its descendants - so the strongest
-majority is always at or near the root. Measured, it proposed `Vintage` over
-`Trichy~Thanjavur~Gokul's Marriage` (100% vs 93%) and `Crypto Folder` / `TruestillLibrary` over
+majority is always at or near the root. Measured, it proposed `Archive` over
+`Northport~Southbury~Sam's Wedding` (100% vs 93%) and `Vault` / `TruestillLibrary` over
 everything. The scoring function cannot discriminate; only the junk list can, and that list would
 have to enumerate each user's own roots - which is the configuration burden that forced Immich's
 folder-album script into `--album-levels`. **Do not reintroduce it.**
@@ -55,10 +55,10 @@ TYPES keeps everything it has. This chooses what to propose, never what to overr
 
 **No apostrophes.** `U+0027` and `U+0060` are shell metacharacters, and a path carrying one breaks
 unquoted scripts. `U+0060` is worse than quoting - it is command substitution. **It is also what
-is really in this catalog:** `Trichy~Thanjavur~Gokul` + U+0060 + `s Marriage`. That was read as a
+is really in this catalog:** `North~South~Gokul` + U+0060 + `s Marriage`. That was read as a
 display mangling in three earlier reports; it is not, it is the character on disk.
 
-**A possessive goes whole** - `Gokul's Marriage` proposes `Gokul Marriage`, not `Gokuls`.
+**A possessive goes whole** - `Sam's Wedding` proposes `Sam Wedding`, not `Sams`.
 `Gokul` is the person's name and `Gokuls` is not a word in any language. The pattern is anchored
 on a **lowercase `s` followed by a word boundary**, and that margin is one character wide:
 `O'Sullivan` survives as `OSullivan` only because the S is uppercase and, case-insensitively,
@@ -70,7 +70,7 @@ space-hyphen-space separator, so a hyphen inside the name makes one character do
 string. `TCS-M05-Batch` is the other side of it: those hyphens are part of the name and survive
 untouched. Periods survive too - they appear in initials.
 
-**No spelling correction, ever.** Siveram, Trichy, Thanjavur, Gokul and Wayanad are proper nouns
+**No spelling correction, ever.** Siveram, Gokul and Wayanad are proper nouns
 no dictionary holds. A speller would rewrite a real name into a wrong one **while looking
 authoritative**, which is worse than silence: the whole value of a suggestion is that it is
 visible evidence from the user's own folder, and a corrected word is no longer evidence of
@@ -95,18 +95,18 @@ every widened pattern now carries a cry-wolf partner.
 
 ## The motivating case for two future routes
 
-`Trichy~Thanjavur~Gokul's Marriage` proposes `Trichy Thanjavur Gokul Marriage`. That is three
+`Northport~Southbury~Sam's Wedding` proposes `Northport Southbury Sam Wedding`. That is three
 labels a human joined - **two places and an occasion** - and no structural rule can separate them:
-to a counter, `Trichy` and `Gokul` are identical. Verbose and truthful beats clever and wrong, and
+to a counter, `Northport` and `Gokul` are identical. Verbose and truthful beats clever and wrong, and
 the cost is one edit in a box the user was going to touch anyway.
 
 Recorded as documentation, **not as TODOs**:
 
-1. **An optional local naming helper.** A language model reading that string knows Trichy is a
+1. **An optional local naming helper.** A language model reading that string knows Northport is a
    city and a marriage is an occasion. This is the case that would earn it its place.
-2. **GPS place-name subtraction.** If reverse geocoding puts the photos in Trichy and Thanjavur,
+2. **GPS place-name subtraction.** If reverse geocoding puts the photos in Northport and Southbury,
    those tokens are redundant with location the file already carries, and the remainder is
-   `Gokul Marriage`. Mechanical, offline, no model - it falls out of the GPS work already in the
+   `Sam Wedding`. Mechanical, offline, no model - it falls out of the GPS work already in the
    backlog.
 
 ## "A suggestion appears only on a cluster with no name yet"

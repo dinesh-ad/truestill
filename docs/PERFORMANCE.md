@@ -210,7 +210,7 @@ cannot is written as a **"not measured, because X"** row rather than filled in w
 | **Cold and warm are separate rows, never averaged.** | The metadata cache is ~170x. An average of cold and warm describes a run that never happens. Label them cold-cache / warm-cache, never run 1 / run 2. |
 | **State the corpus and its size on every row.** | "0.08 s" is meaningless without "over 2,224 rows". |
 | **State the machine class:** local SSD or cloud FUSE. | `preview-performance-profile.md` measured **13x** between them. A row without it cannot be compared to anything. |
-| **Corpus fence holds** (`PROJECT_STATUS.md` §4): The Memory Cabinet, Output, or a hermetic fixture. **Never `Crypto Folder/`.** | Not a performance rule, but it binds this document like every other. |
+| **Corpus fence holds** (`PROJECT_STATUS.md` §4): The Memory Cabinet, Output, or a hermetic fixture. **Never the fenced folder.** | Not a performance rule, but it binds this document like every other. |
 | **A destructive stage is measured on a hermetic fixture**, restored between runs outside the stopwatch. | A benchmark must never be the thing that rearranges someone's library. This is why apply/undo/cleanup below are fixtures and not Output. |
 
 **Two limits that apply to every local-SSD row here, stated once.** The OS page cache cannot be
@@ -549,7 +549,7 @@ decision-shaping even when the precision is not.
 
 | what | observed |
 |---|---|
-| corpus | 32,628 files / 192.49 GB, encrypted pCloud mount (client-side decryption) |
+| corpus | 32,628 files / 192.49 GB, encrypted cloud mount (client-side decryption) |
 | machine class | **cloud FUSE, encrypted** - a class §1.1 leaves empty |
 | tier 0 (walk + `stat`) | **21 s** for all 32,628 files |
 | tiers 1 + 2a (content) | **29.4 GB at ~9 MB/s**, ~53 minutes |
@@ -561,7 +561,7 @@ decision-shaping even when the precision is not.
 every row. Nothing here should be quoted as "Truestill's speed".
 
 **Encryption is a separate cost from the network**, and is worth its own line.
-pCloud Crypto decrypts client-side, so every byte passes through their client **in addition
+That mount decrypts client-side, so every byte passes through their client **in addition
 to** being pulled over the link. An unencrypted mount on the same connection is not this
 measurement.
 

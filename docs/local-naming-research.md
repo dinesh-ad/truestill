@@ -43,34 +43,36 @@ tiers and they do not agree:
 
 So the published reason for preferring the thinner tier - *"the larger tier reintroduces Sivaram"* -
 was evidence about a string nobody has. **The conclusion survives on real tokens and the evidence
-had to be replaced:** `Wayanad` (1 row in `allCountries`, 2,063 real files) and `Phoenix Mall`
+had to be replaced:** `Wayanad` (1 row in `allCountries`, 2,063 real files) and a mall-named folder
 (1 row, 46 real files) are both real folder names the larger tier would make strippable. Same
 direction, different examples.
 
 ## 3. What is unaffected, because it is a property of the data
 
-- **`Trichy` resolves to `Tiruchirappalli`** through the `alternatenames` column of `cities500`.
+- **A colloquial short name resolves to its official long form** through the `alternatenames`
+  column of `cities500` - the case that motivated the split, and the one no small model knew.
 - **Matching per WORD is unsafe on this library, and the evidence is the strongest available:**
   `Gokul` - a person's name, in 634 of the maintainer's files - is a populated place in India
   (pop 4,351) and would be stripped as a place. `Sea` resolves to Seattle, `Wedding` to a district
   of Berlin, `Day` to Dayton. Only whole segments split on explicit separators are safe.
-- **`Trichy~Thanjavur~Gokul` + U+0060 + `s Marriage` is real**, 141 files, captured 2015-10-25.
-  Verified against the catalog after it was doubted; `folder-name-suggestion-research.md` records
-  the character correctly.
+- **The folder that motivated the segmentation rule is real** - 141 files, captured on one day in
+  2015 - and it carries two `~` separators with a **U+0060** where an apostrophe belongs. Verified
+  against the catalog after it was doubted. The name itself is not reproduced here: the shape is
+  the whole of the argument, and the shape is what survives redaction.
 
 ## 4. An open question for the maintainer, recorded rather than decided
 
-**394 of 2,695 catalog rows have `source_path` inside the fenced `Crypto Folder`**, and three
+**394 of 2,695 catalog rows have `source_path` inside the fenced folder**, and three
 strings used as fixture came from there. Nothing was read from the mount - they were in the catalog
 and in the documentation before the fence was reinstated. But `decisions.py` excludes path hints
-from the drive document precisely so that *the existence of a Crypto Folder* does not travel, while
+from the drive document precisely so that *the existence of that folder* does not travel, while
 these documents quote its contents by name.
 
 **Should folder names from inside the fence keep appearing in documentation?** Unanswered here on
 purpose.
 
 **Whichever way it is answered, the dated records must not be redacted**, and the reason is that
-their rules are *derived from* those exact strings. The U+0060 finding is a claim about one folder.
+their rules are *derived from* those exact strings. The U+0060 finding is a claim about one folder's punctuation.
 The 70% threshold is documented as untuned because the Wayanad cluster sits at 70.4%. "No spelling
 correction, ever" is justified by naming the proper nouns no dictionary holds. Replace the names
 with placeholders and each rule becomes an assertion with its evidence removed - which is the same

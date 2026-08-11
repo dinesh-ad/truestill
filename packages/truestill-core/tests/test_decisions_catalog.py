@@ -465,7 +465,7 @@ def test_an_event_name_re_attaches_only_where_the_signature_matches(tmp_path: Pa
     with Catalog(tmp_path / "source.sqlite") as catalog:
         catalog.upsert_drive(uuid=_UUID, label="Output")
         catalog.record_event(
-            name="Gokul Marriage",
+            name="Sam Wedding",
             slug="gokul-marriage",
             start_date="2015-10-25",
             file_count=3,
@@ -476,7 +476,7 @@ def test_an_event_name_re_attaches_only_where_the_signature_matches(tmp_path: Pa
     with Catalog(tmp_path / "fresh.sqlite") as fresh:
         report = apply_decisions(fresh, gathered)
 
-    assert "Gokul Marriage" in report.unmatched_events
+    assert "Sam Wedding" in report.unmatched_events
     assert report.applied.get("events", 0) == 0
 
 

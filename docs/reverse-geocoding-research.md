@@ -32,7 +32,7 @@ under test measures nothing.
   (district), Paris, Rochefourchat (a near-empty French commune), Tokyo, São Paulo, Oodnadatta.
   *Caveat stated rather than glossed:* GeoNames and Wikipedia cross-pollinate for large cities,
   so agreement on a metro proves less than agreement on a village.
-* **CONSTRUCTED** - two adversarial points with no correct answer: mid-North-Atlantic
+* **CONSTRUCTED** - two adversarial points with no correct answer: mid-Trichy-Atlantic
   (35.0N 40.0W) and the Sahara interior (23.5N 12.5E). The measurement there is the *distance*.
 
 Nearest neighbour is computed on the **unit sphere** with a KD-tree. A Euclidean metric over

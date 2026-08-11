@@ -18,11 +18,11 @@ def _seed(catalog: Catalog) -> None:
     catalog.upsert_drive(uuid="D1", label="Drive A")
     catalog.upsert_drive(uuid="D2", label="Drive B")
     rows = [
-        ("a", "/src/Sea Diving/a.jpg", _WHEN, "Camera", "D1"),
-        ("b", "/src/Sea Diving/b.jpg", _WHEN, "Camera", "D1"),
+        ("a", "/src/Rock Climbing/a.jpg", _WHEN, "Camera", "D1"),
+        ("b", "/src/Rock Climbing/b.jpg", _WHEN, "Camera", "D1"),
         ("c", "", _WHEN, "Camera", "D1"),  # source path recorded EMPTY
         ("d", "/src/Screenshots/d.png", _WHEN, "Screenshots", "D1"),  # not Camera
-        ("e", "/src/Sea Diving/e.jpg", None, "Camera", "D1"),  # undated
+        ("e", "/src/Rock Climbing/e.jpg", None, "Camera", "D1"),  # undated
         ("f", "/src/Elsewhere/f.jpg", _WHEN, "Camera", "D2"),  # another drive
     ]
     for sha, source, captured, category, drive in rows:
@@ -52,8 +52,8 @@ def test_it_returns_the_source_path_and_capture_date_the_suggester_needs(tmp_pat
         _seed(catalog)
         hints = _hints(catalog)
 
-    assert hints["a"] == ("/src/Sea Diving/a.jpg", _WHEN)
-    assert hints["b"] == ("/src/Sea Diving/b.jpg", _WHEN)
+    assert hints["a"] == ("/src/Rock Climbing/a.jpg", _WHEN)
+    assert hints["b"] == ("/src/Rock Climbing/b.jpg", _WHEN)
 
 
 def test_a_row_whose_source_path_is_empty_is_still_returned(tmp_path: Path) -> None:

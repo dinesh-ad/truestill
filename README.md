@@ -132,9 +132,9 @@ happily as a local disk, and **the cheap answers stay cheap wherever the files l
 reads folder listings rather than the files themselves.
 
 **The expensive answers scale with your connection, not with your computer.** Finding duplicates
-or checking dates has to read the file contents. On one encrypted pCloud mount that meant
+or checking dates has to read the file contents. On one encrypted cloud mount that meant
 29.4 GB at about 9 MB/s - roughly 53 minutes - with the CPU 3% busy the whole time, so the wait
-is the link and not the work. **Encryption is a cost of its own on top of that**: pCloud Crypto
+is the link and not the work. **Encryption is a cost of its own on top of that**: client-side encryption
 decrypts on your machine, so every byte goes through their client as well as over the wire.
 
 One mount on one connection - yours will differ, and Truestill deliberately does not guess a

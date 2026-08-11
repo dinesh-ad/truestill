@@ -33,7 +33,7 @@ All notable changes to this project are documented here. The format follows
   protected, or that already holds names this catalog does not have is reported rather than
   written over.
 - **Naming a trip or event now suggests a name taken from your own folders.** If the photos in a
-  group came from a folder you named - `Sea Diving`, `Phoenix Mall 2015` - Truestill offers that
+  group came from a folder you named - `Rock Climbing`, `Riverside Mall 2015` - Truestill offers that
   name under the box, with a **Use** button. It is only ever an offer: **the box stays empty until
   you click Use or type something**, so leaving a card alone still skips it exactly as before.
   Typing your own name puts the offer away.

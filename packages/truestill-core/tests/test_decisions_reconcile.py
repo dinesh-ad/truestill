@@ -119,7 +119,7 @@ def test_an_empty_document_cannot_erase_a_full_one_by_being_newest() -> None:
         uuid=_A,
         written="2026-01-01T00:00:00+00:00",
         trips=({"name": "Wayanad", "days": ["2014-08-14"]},),
-        events=({"name": "Gokul Marriage", "signature": "a" * 64},),
+        events=({"name": "Sam Wedding", "signature": "a" * 64},),
         skipped_clusters=("b" * 64,),
         date_confirmations=(_confirmation("2015-07-05T09:00:00", "2020-01-01T00:00:00"),),
         settings={"layout_template": "{yyyy}"},
@@ -129,7 +129,7 @@ def test_an_empty_document_cannot_erase_a_full_one_by_being_newest() -> None:
     merged, report = reconcile_documents([full, blank])
 
     assert [t["name"] for t in merged.trips] == ["Wayanad"]
-    assert [e["name"] for e in merged.events] == ["Gokul Marriage"]
+    assert [e["name"] for e in merged.events] == ["Sam Wedding"]
     assert merged.skipped_clusters == ("b" * 64,)
     assert len(merged.date_confirmations) == 1
     assert merged.settings == {"layout_template": "{yyyy}"}
