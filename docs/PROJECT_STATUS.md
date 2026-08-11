@@ -68,7 +68,12 @@ narrative, or volatile counts.
 1. **Finish soak gate**
    - Continue normal use; any new soak finding outranks queued feature work.
    - ⚠ **A FACT ABOUT METHOD, recorded 2026-08-11 because it is measurable and easy to miss: in
-     the week to 2026-08-11, eight items were closed and NOT ONE came from real use.** Every one
+     the week to 2026-08-11, NINE items were closed or retired - and a tenth, `(abg)`, advanced a
+     stage - and NOT ONE came from real use.**
+     *(Counted from the `Closes`/`Retires` trailers. The paragraph said eight when it was written
+     and was overtaken the same day by `(acj)` and `(abg)` Stage 2, both found by reading code.
+     The number moving while the paragraph explains why it should not is the finding, not an edit
+     to it.)* Every one
      was found by reading code, measuring, or auditing documents - a pixel cap used as a claim, a
      preview tally, a custody sentence, a lost click, private paths in a public repo. **A week of
      code-reading finds the class code-reading finds**: two written things that disagree.
