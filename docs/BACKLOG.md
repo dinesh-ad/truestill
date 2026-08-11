@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(acy). Next free: (acz).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ada). Next free: (adb).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -79,12 +79,49 @@ as open work while shipped. Two of the three entries stale that day *were* catch
 their commits said so and nothing checked. The trailer is what turns a ruling into something the
 repository can observe.
 
+**Retired 2026-08-11, and named here because a retired letter is not a free one:** `(abp)` (the
+body sans face is not bundled) and `(abh)` (the nav icons are Unicode glyphs, so their letterform
+varies per machine). Both were recorded 2026-08-05, both are cosmetic, and **both were untouched by
+the monospace bundling that shipped in between** - a pass that went through the type system and did
+not reach for either. Carried a third week they would still be preferences rather than defects, so
+they are retired rather than carried. Reopening one needs a reason the font pass did not supply.
+
 Several early letters no longer appear anywhere in this file: their items shipped and the
 Shipped entries describe the work rather than repeating the letter. `(e)` and `(h)` are still
 cited by name in `drive-identity-research.md` and `org-structure-research.md`. **A letter that
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(acz) A PARTIAL THAT SURVIVES BECAUSE THE CLEANUP ITSELF FAILED.** Split out of `(abu)`
+  2026-08-11 when that entry moved to `SHIPPED.md`; it is the half `(abu)` explicitly left open.
+  `copy_leaving_nothing` removes what a failed copy wrote, but the failure that produced the
+  partial is often the same one that refuses the delete - so the unlink is guarded, and when it
+  loses, the bytes stay.
+  - **Today that is reported, not fixed**: the message names the path and the byte count, and
+    `_free_relative` treats the survivor as an incumbent and suffixes beside it. That is the
+    "never lose data" rule doing its job on a file we could not remove, and pretending it is not
+    there would be the dishonest option.
+  - **What is actually owed** is not different behaviour but a way out: nothing offers to retry the
+    removal, and nothing lists survivors, so a user who hit a full disk mid-copy has debris whose
+    only record is a message that scrolled past. `rescan` reports it as STRAY, which is how the
+    original was found - that is the seam to build on.
+  - **`(acj)` would make this rarer and not impossible**: a temp-then-rename never creates a
+    partial at the target path, but a cross-filesystem rename degrades to a copy, so the cleanup
+    stays underneath it.
+
+- **(ada) THE BACKUPS SCREEN NOW PUTS STATE BELOW THE FORMS, AND A ONE-COPY WARNING CAN FALL BELOW
+  THE FOLD.** Split out of `(acd)` 2026-08-11 when that entry moved to `SHIPPED.md`. `(acd)` fixed
+  a control that moved under the pointer by rendering `#drives-list` below every control; the cost
+  was accepted at the time and is recorded here rather than left inside a closed entry.
+  - **What was traded:** the Backups pass deliberately put state ABOVE remedy so the at-risk banner
+    pointed down at the copy form. It now points nowhere - the forms come first, and the at-risk
+    banner renders **inside** `#drives-list`, so a user whose files are in only one place meets two
+    forms before the warning, and on a short viewport that warning is below the fold.
+  - **Why it was accepted:** a control that cannot be reliably clicked is worse than one met before
+    its context. That reasoning holds and is not being reopened here; what is filed is the residual.
+  - ⚠ **`(abg)` must re-price this rather than inherit it.** It will put more state into exactly
+    this region, and the ordering was chosen against a defect that no longer exists.
 
 - **(act) AN UNNAMED ROOT IS LABELLED WITH THE LITERAL STRING `Library`, WHICH COLLIDES WITH
   ITSELF.** Recorded 2026-08-10, split out of `(acr)` deliberately rather than folded in: `(acr)`
@@ -397,110 +434,6 @@ is invisible here is retired, not free.**
   unbreakable rather than well-known. Not built, on purpose - the mechanism is worth designing
   once rather than reaching for after the next restore eats something.
 
-- **(acd) THE BACKUPS CONTROLS MOVE AFTER THE SCREEN IS INTERACTIVE - and the readiness signal
-  is about to remove the only thing that reports it.** Recorded 2026-08-10, found while planning
-  the readiness signal, **from the DOM order rather than from a failure**. `#drives-list`
-  (`index.html:249`) renders **above** the card holding `#bk-preview` (`index.html:276`) in the
-  same section, so when `loadDrives` writes it every control below shifts down. A person reaching
-  for *Preview copy* inside that window clicks where the button **was**.
-  - ✅ **MEASURED 2026-08-10, and it is 30-115x larger than `(abq)`'s mover.** Taken with
-    `/api/drives` held open, `#bk-preview`'s box read before and after the write lands, under
-    stubbed drive counts. **This entry is confirmed, not retired.**
-
-    | drives | `#drives-list` height | `#bk-preview` moves | click-to-ready |
-    |---|---|---|---|
-    | 0 | 0 -> 130.4 px | **+142.4 px** | 80 ms |
-    | 1 | 0 -> 144.0 px | **+156.0 px** | 87 ms |
-    | 3 | 0 -> 551.1 px | **+563.1 px** | 100 ms |
-
-    - ⚠ **There is no no-shift case.** Zero drives still moves the button 142 px, because
-      `loadDrives` renders an empty-state card rather than nothing. A library with no registered
-      drive - the first-run user - gets the defect too.
-    - **The control is LIVE throughout**: `#bk-preview` is visible and enabled for the whole
-      window, so nothing refuses the click and Playwright's actionability checks would not help.
-    - **A click at the old position is silently swallowed.** Measured with `elementFromPoint` in
-      a viewport tall enough to hold both positions: with one drive it lands on
-      `#bk-source-hint`, a text span; with three, on an `<h2>`. Nothing happens and nothing says
-      anything.
-    - **The window tracks endpoint latency about 1:1** - 98 ms local, 329 ms with a 250 ms
-      delay, 1,085 ms with 1,000 ms. It is the slower of the two requests in `loadDrives`'
-      `Promise.all`, not their sum. On a large catalog or a cloud-mounted library the button is
-      mispositioned for **over a second**.
-    - *Measurement note:* a first attempt reported "nothing at the old position" and that was an
-      artifact - at the default viewport the button already sits below the fold, so
-      `elementFromPoint` was querying outside the viewport. Re-run at 1280x1600.
-
-  - ✅ **FIXED 2026-08-10 by moving `#drives-list` below every control.** `#bk-preview` now moves
-    **0.0px** at zero, one and three drives - exact, with no bound to declare, because a control's
-    position is no longer a function of how many drives arrive. Pinned by
-    `tests/e2e/test_the_backups_controls_do_not_move.py`, which asserts the harm directly:
-    `elementFromPoint` at the position the button occupied must still be the button. Restoring the
-    old order turns all three red.
-    - **RESERVING SPACE WAS BUILT, MEASURED AND REJECTED - the numbers are why this is a move.**
-      A skeleton sized from the exact registered-drive count cut the shift 4-6x (165->40, 156->30,
-      563->91) and **still left it 2-5 button heights**: `#bk-preview` is 34.8px, so the harm
-      needs the shift under ~17px, and a card's height is content-driven (optional reach badge,
-      optional last-seen note, up to four decisions lines, 68ch wrapping). Matching the fixture's
-      cards would have been overfitting to the test.
-    - ⚠ **And it introduced a direction that did not exist.** Reserving from a count learned at
-      boot can over-reserve, so the region SHRINKS and the button moves **up** - measured at
-      **-316.6px** when the boot count said three and the answer was one. Before the skeleton a
-      shrink was impossible: the region grew from empty, always downwards. That is a trade for a
-      worse defect, not a partial fix.
-    - **THE COST, accepted by the maintainer and stated rather than softened.** The Backups pass
-      deliberately put state ABOVE remedy so the at-risk banner pointed down at the copy form.
-      That is inverted: the forms come first and the state below them. The sharpest form of it is
-      that the at-risk banner renders **inside** `#drives-list`, so a user with files in only one
-      place now meets two forms before the warning, and on a short viewport that warning is below
-      the fold. Accepted on the grounds that a control which cannot be reliably clicked is worse
-      than one met before its context. Two shipped strings said "below" and now say "above"; both
-      live inside the moved region, so they travelled with it.
-    - ⚠ **REVISIT WHEN `(abg)` REACHES THIS REGION.** The inversion is accepted, not settled. The
-      at-risk warning below the fold on a short viewport is a live cost, and `(abg)` - the most
-      important open item on this project - will put more state into exactly this region. Whoever
-      builds it must re-price the order rather than inherit it.
-    - *Not a cost:* `test_user_facing_copy.py` was reported as pinning a third "below" string and
-      does not - that list BANS retired wording. Editing it would have weakened a guard.
-    - *Available if ever needed:* the exact registered-drive count is one binding away in
-      `library_status` (`catalog.list_drives()` is already materialised and `places` is a filtered
-      view of it). Not added, because nothing reads it - that is `(abm)`'s shape.
-
-  - **Two movers on this screen, and they are not the same defect.** This entry owns the
-    **screen-open** mover: `loadDrives` → `#drives-list`, above the whole card. `(abq)` owns the
-    **after-typing** mover: `validatePath` is `debounce(run, 400)` and writes into
-    `#bk-source-hint` / `#bk-target-hint` (`index.html:270, 274`), immediately above the button.
-    **The measured +4.9px on `(abq)` is that second mover, not this one.** This one is derived
-    from DOM order and is **unmeasured** - measuring it is the first task here, and the number
-    may be larger, since a drive card is taller than a line of hint text.
-  - **This is not the flake it was mistaken for.** `(abq)` was read as a click on a not-yet-live
-    control. It is not: the `#bk-preview` handler reads only `#bk-source`/`#bk-target` and POSTs
-    `/api/backup/preview`, so it needs **neither** endpoint `loadDrives` fetches, and those two
-    fields are filled at boot by `loadCustody`. The control was live and correctly wired the whole
-    time. What moved was its position. **Layout shift, not uninitialised state.**
-  - ⚠ **Why this is filed before the readiness signal lands, not after.** Readiness makes a test
-    wait past the **screen-open** shift, so nothing observes it again while it stays live. The
-    detector being removed is `open_backups`'s `wait_for_selector("#drives-list *")`
-    (`e2e_support.py:141`), which fails today if that region never populates; readiness replaces
-    it with a wait that is satisfied whether or not anything moved. **A defect whose only
-    detector is being removed must have a replacement detector filed the same day**, and this is
-    it. It does **not** follow that `(abq)` is closed - see below.
-  - ✅ **`(abq)` is not closed by the readiness work, and not for the reason first written.** The
-    plan claimed readiness would launder it. It does not touch it: `(abq)`'s mover fires ~400ms
-    after typing, long after `data-ready="ready"`, and readiness is scoped to screen open.
-    `(abq)` keeps its own recorded fix - wait for the hint spans to become non-empty before
-    clicking - which is in-action work, not Stage 0.
-  - **Reserved height only approximates, so it may not be the fix.** Zero, one and three drives
-    render different heights, and `loadDrives` conditionally adds a whole summary card when
-    `drives.length > 1` (`app.js:2387`). A `min-height` that covers the largest case leaves dead
-    space in the common one and still shifts on the largest. **Ordering may be correct rather than
-    sizing** - putting the mutable region *below* the fixed controls means nothing it writes can
-    move them - or a bounded, declared shift, accepted and stated. The choice is open; the
-    approximation is why.
-  - **Whichever is chosen needs a bounding-box regression test written as part of it**: measure
-    `#bk-preview`'s box before and after `data-ready="ready"`, assert a zero or declared-bound
-    delta. Written *with* the change, never after - once the readiness migration lands, nothing
-    else will ever notice this again.
-
 - **(aci) A DELETED DECISION BLOCKS DRIVE SAVES UNTIL A RESTORE RECONCILES THEM.**
   Recorded 2026-08-09 while building the decisions save, as the known false positive of its
   loss guard. Closed by restore; recorded so it is not rediscovered as a bug.
@@ -737,69 +670,6 @@ is invisible here is retired, not free.**
   - **What it would still not fix:** a rename across filesystems degrades to a copy, so the
     guarantee is not free everywhere. `(abu)`'s cleanup stays useful underneath it.
 
-- **(abu) A failed copy leaves the bytes it managed to write, and nothing owns them.**
-  Recorded 2026-08-07 from the first real organize onto the maintainer's library. **Ranked at
-  the top: it is the only known path that puts a file into a library that nothing accounts for.**
-  - **Observed, not theorised.** `VID_20150730_000606.mp4` failed with `[Errno 5]` at 802 MB of
-    852 MB. `shutil.copy2` raises and leaves what it wrote, so Morrowkeep now holds an
-    **802,684,928-byte truncated video carrying a correct organized name**
-    (`20150729_184159_VID_20150730_000606.mp4`) with no `files` row and no `file_copies` row.
-    The run said `1 failed`. It did not say 802 MB of it arrived.
-  - **What the invariants DID hold**, so the ranking is about debris rather than loss: the source
-    was untouched (copy mode), and nothing was recorded as copied - `upload` raises before
-    `record_uploaded` is reached. `verify` will never check the partial; `rescan` reports it as
-    STRAY, which is exactly right and is how it was found.
-  - ⚠ **A retry makes it worse, and that is the sharp end.** `_free_target` suffixes rather than
-    overwrites - *"never lose data"*, correct for its real case of two distinct `IMG_0001.jpg` -
-    so a second attempt sees the partial, treats it as an incumbent, and writes
-    `..._1.mp4` beside it. **Every retry leaves another 802 MB.**
-  - **THREE SITES, one shape**: `LocalDestination.upload` (organize), `LocalDestination.relocate`
-    (migrate-layout) and `service/backup.py`'s copy loop all use `shutil.copy2` and all leave the
-    partial. `relocate` already **knows** - its comment says it *"overwrites a partial copy left
-    by an interrupted run"* - so the debris was met once and answered with overwrite-next-time
-    rather than remove-on-failure. That works where the path is re-derived identically and fails
-    where a suffix intervenes.
-  - **THE FIX IS BOTH, and remove-on-failure is the load-bearing half.** Unlink the target inside
-    the `except` before raising, so a failure leaves nothing; and name the partial in the report,
-    because a user who watched 800 MB cross a slow link deserves to know it was discarded rather
-    than wonder. Reporting alone is not enough: it leaves the retry-accumulates behaviour intact.
-    A temp-name-then-rename would also work and is the stronger shape, but it changes the write
-    path for every backend rather than one `except` clause, so it wants its own decision.
-  - **The unlink must itself be guarded**: the failure that produced the partial is often the one
-    that will refuse the delete, and a cleanup that raises would replace a reported failure with
-    an unreported one.
-  - ✅ **BUILT 2026-08-10 as `safe_copy.copy_leaving_nothing`**, called from all three sites.
-  - ⚠ **THE FINDING THAT SHAPED THE FIX, and it is not what the entry above assumed: a blind
-    unlink would delete files this run did not write.** `shutil.copy2` opens the SOURCE first, so
-    a failure before the destination is opened - unreadable source, denied permission, a parent
-    that could not be made - leaves the target **untouched**. And at two of the three sites that
-    target can legitimately be occupied: `relocate` overwrites an interrupted run's partial by
-    design, and `backup` builds its work list from the CATALOG
-    (`_files_missing_on_target`), so anything the catalog does not know about can be sitting
-    there. The rule is therefore **remove only what this call created**, decided by an
-    `exists()` taken immediately before the copy and never accepted from a caller -
-    `organizer._free_relative` also checks, some lines earlier, and a stale "it was free" is
-    exactly the input that would turn the cleanup into a deletion.
-  - **`relocate`'s overwrite was a red herring.** Once `copy2` has opened the destination the
-    incumbent is already truncated, so removing it afterwards destroys nothing that survived.
-    What makes that site different is only that its target is often occupied, which is a value
-    of the same flag rather than a second design.
-  - **`backup.py` already unlinked on a bad checksum** (`:312`), so remove-on-failure was not a
-    new idea here - it existed at one of the three sites for the neighbouring case.
-  - **RETRY-ACCUMULATION IS CLOSED WHEN CLEANUP SUCCEEDS AND REPORTED WHEN IT DOES NOT**, and
-    nobody should read this entry as fully closed. If the unlink fails the partial survives, and
-    a surviving partial **should** be treated as an incumbent: we could not delete it, so
-    pretending it is not there would be the dishonest option, and `_free_relative` suffixing
-    beside it is the "never lose data" rule doing its job. What closes the gap is the message -
-    the path and the byte count of what was left - not different behaviour.
-  - **The TOCTOU at `upload` is not a data-loss path**, stated with the reason rather than tested
-    with something that proves nothing: `_free_relative` checks `exists()` some lines before the
-    write, so a file could appear in between - but the helper takes its own `exists()`
-    immediately before copying, so it would see that file as an incumbent and refuse to remove
-    it. The window can cost an overwrite, which is `_free_relative`'s pre-existing hazard, and
-    cannot cost a wrong deletion. Pinned by a test asserting the helper's signature offers no way
-    to pass an opinion in.
-
 - **(abs) The ghost-drive rule refuses REGISTRATION and warns nobody else.** Recorded
   2026-08-07 with the fix, and **chosen deliberately rather than discovered** - which is the
   point of writing it down. `ghost_drive_at` is called by `_register_destination` (CLI) and
@@ -850,25 +720,6 @@ is invisible here is retired, not free.**
     siblings is `(aak)` / `(abq)` again, and the two before it were each found only after they
     cost something. The fix is one line; the value is that the next reader of `runJob` sees
     fifteen call sites that agree.
-
-- **(abp) The body sans face is not bundled, so prose renders differently on every machine.**
-  Recorded 2026-08-07, found because a browser test had been asserting the CI runner's fonts.
-  §7 bundles DejaVu Sans Mono for exactly this reason - *"the old stack named five faces and
-  none exists on a stock Linux box"* - and the **sans** stack
-  (`ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, ...`) still has the whole
-  problem: **measured `1ch` = 10.2812px on the maintainer's machine and 11.4520px on a CI
-  runner, a 11% difference in line length from identical CSS.**
-  - **This is a product question, not the test defect that surfaced it.** The test now measures
-    characters rather than pixels and is correct on any face; what is unresolved is whether
-    Truestill should have one type signature for prose the way it does for paths and counts.
-  - **Not a copy of §7's ruling.** The mono face earned bundling on a stated argument - it
-    carries every path, count and hash - and on measurement: glyph separation at 13px, 3,322
-    codepoints, IBM Plex eliminated for missing U+26A0. A sans face wants the same process and
-    the same weight budget (mono Book+Bold is 661 KB), not an assumption that the answer
-    carries over.
-  - **Also unasserted:** the companion `max-width: 68ch` on `.card .k` / `.hint` / `.banner .k`
-    has no browser test at all. A coverage gap rather than a defect, and the cheapest thing to
-    add whenever this is picked up.
 
 - **(abo) The hash cache cannot say "I computed one hash and not the other".** Recorded
   2026-08-07 when that ambiguity produced a live defect: `attach_drive` wrote `perceptual=NULL`
@@ -1322,29 +1173,6 @@ is invisible here is retired, not free.**
   teaching that script to consume an SVG, and deciding whether the T replaces the `TS` monogram
   (one mark or two). Blocked on a dark-rail ramp - the current stops measure 2.45:1 and 1.11:1 on
   `#14161b`.
-
-- **(abh) The nav icons are Unicode glyphs, so their letterform varies per machine.** Recorded
-  2026-08-05, alongside the commit that sized them to 16px. **The size is settled; the origin is
-  not.**
-  - **What they are.** `◇ ◷ ↧ ▤ ⌕ ◫ ⚙` in `<span class="ico">`, drawn by whatever font on the
-    machine happens to cover those codepoints. That is **the same class of problem the mono
-    bundle closed on 2026-08-05** for paths, counts and hashes: an appearance that looks
-    deliberate on the developer's box and is actually the OS answering. Sizing them did not
-    touch it.
-  - **Why it is worse than the text case was.** Text at least degrades to another monospace.
-    These are geometric and dingbat codepoints, so coverage is thinner and the substitute can be
-    a different *shape*, not merely a different cut - and one of them, `⚙`, is in the range where
-    a platform may render a colour emoji instead of a glyph.
-  - **Not fixable by bundling the mono face**, which is why it is filed rather than folded in:
-    `--font-mono` is DejaVu Sans Mono and the icons take `--font-sans`. Even pointed at DejaVu
-    they would be one machine's idea of these shapes rather than authored artwork.
-  - **The fix is an arc, not an edit: icons become artwork.** Inline SVG (the wordmark and
-    monogram already are), or a tiny authored set in `brand/`. That decision drags in the
-    accessible-name question, the 64px collapsed rail, and whether the set is authored or
-    adapted - `brand/PROVENANCE.md` would gain a section either way.
-  - **Deliberately not done here.** The 16px change is CSS with a measured blast radius; this is
-    new artwork with a licence question attached. Bundling them would have made a two-line
-    commit unreviewable.
 
 - **(abc) `check_product_name.SUBCOMMANDS` should be derived, not transcribed.** Recorded
   2026-08-04, when Analyze 3b tripped over it: the list had never gained `analyze` or

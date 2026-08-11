@@ -44,6 +44,14 @@ SHIPPED = "docs/SHIPPED.md"
 #: the four real near-misses from this repo's history that must NOT match.
 CLOSES = re.compile(r"^Closes \(([a-z]{1,3})\)\.?$", re.MULTILINE)
 
+#: The other honest way for an entry to leave: **refused and retired**, which is not a closure and
+#: must not be filed as one. Added 2026-08-11, after this hook would have refused a legitimate
+#: retirement - it assumed every departure ends in `SHIPPED.md`, and a refused idea never ships.
+#: A retired letter must still be NAMED in `BACKLOG.md`, because the *Item letters* section rules
+#: that "a letter that is invisible here is retired, not free" and a letter nobody records is a
+#: letter somebody reassigns.
+RETIRES = re.compile(r"^Retires \(([a-z]{1,3})\)\.?$", re.MULTILINE)
+
 #: A letter is DECLARED by a top-level entry title, the shape both documents use. ``MULTILINE``
 #: because the guard test scans whole documents with it while this file matches a line at a time;
 #: without the flag ``findall`` silently answers only for the first line of a file, and a citation
@@ -96,13 +104,28 @@ def refusals(message: str, diff: str) -> list[str]:
     # A retitled entry is removed AND re-added in the same file: that is an edit, not a departure.
     left = removed[BACKLOG] - added[BACKLOG]
     declared = set(CLOSES.findall(message))
+    retired = set(RETIRES.findall(message))
+    backlog_text = Path(BACKLOG).read_text(encoding="utf-8") if Path(BACKLOG).exists() else ""
     out = []
-    for letter in sorted(left):
+    for letter in sorted(retired):
+        if letter not in left:
+            out.append(
+                f"({letter}) is declared retired but did not leave {BACKLOG}. Retiring removes "
+                f"the entry; a letter that is still an entry is still open work."
+            )
+        elif f"({letter})" not in backlog_text:
+            out.append(
+                f"({letter}) was retired and is now named nowhere in {BACKLOG}. Record it in the "
+                f"*Item letters* section: a letter that is invisible there is free, and letters "
+                f"are permanent identifiers."
+            )
+    for letter in sorted(left - retired):
         if letter not in declared:
             out.append(
                 f"({letter}) left {BACKLOG} but the message does not say `Closes ({letter}).` "
                 f"on a line of its own. A ruling is not a closure until a commit records it; "
-                f"if the entry is not closed, it belongs in {BACKLOG}."
+                f"if the entry is not closed, it belongs in {BACKLOG}. If it was refused rather "
+                f"than built, say `Retires ({letter}).` instead and keep the letter recorded."
             )
         elif letter not in added[SHIPPED]:
             out.append(

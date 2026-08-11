@@ -22,6 +22,184 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(abu) A failed copy leaves the bytes it managed to write, and nothing owns them.**
+  - ✅ **MOVED HERE 2026-08-11, and it was already built on 2026-08-10.** It sat in the open-work
+    file for a day carrying a `BUILT` marker, invisible to the closure guard because it predates
+    the `Closes` trailer rule and no commit ever declared it. That is the `(aae)`/`(jj)` drift
+    exactly, caught by a merits read rather than by a check. **Its one live residual - a partial
+    that survives because the cleanup itself failed - is now `(acz)`, so the fixed work stops
+    being carried as open.**
+  Recorded 2026-08-07 from the first real organize onto the maintainer's library. **Ranked at
+  the top: it is the only known path that puts a file into a library that nothing accounts for.**
+  - **Observed, not theorised.** `VID_20150730_000606.mp4` failed with `[Errno 5]` at 802 MB of
+    852 MB. `shutil.copy2` raises and leaves what it wrote, so Morrowkeep now holds an
+    **802,684,928-byte truncated video carrying a correct organized name**
+    (`20150729_184159_VID_20150730_000606.mp4`) with no `files` row and no `file_copies` row.
+    The run said `1 failed`. It did not say 802 MB of it arrived.
+  - **What the invariants DID hold**, so the ranking is about debris rather than loss: the source
+    was untouched (copy mode), and nothing was recorded as copied - `upload` raises before
+    `record_uploaded` is reached. `verify` will never check the partial; `rescan` reports it as
+    STRAY, which is exactly right and is how it was found.
+  - ⚠ **A retry makes it worse, and that is the sharp end.** `_free_target` suffixes rather than
+    overwrites - *"never lose data"*, correct for its real case of two distinct `IMG_0001.jpg` -
+    so a second attempt sees the partial, treats it as an incumbent, and writes
+    `..._1.mp4` beside it. **Every retry leaves another 802 MB.**
+  - **THREE SITES, one shape**: `LocalDestination.upload` (organize), `LocalDestination.relocate`
+    (migrate-layout) and `service/backup.py`'s copy loop all use `shutil.copy2` and all leave the
+    partial. `relocate` already **knows** - its comment says it *"overwrites a partial copy left
+    by an interrupted run"* - so the debris was met once and answered with overwrite-next-time
+    rather than remove-on-failure. That works where the path is re-derived identically and fails
+    where a suffix intervenes.
+  - **THE FIX IS BOTH, and remove-on-failure is the load-bearing half.** Unlink the target inside
+    the `except` before raising, so a failure leaves nothing; and name the partial in the report,
+    because a user who watched 800 MB cross a slow link deserves to know it was discarded rather
+    than wonder. Reporting alone is not enough: it leaves the retry-accumulates behaviour intact.
+    A temp-name-then-rename would also work and is the stronger shape, but it changes the write
+    path for every backend rather than one `except` clause, so it wants its own decision.
+  - **The unlink must itself be guarded**: the failure that produced the partial is often the one
+    that will refuse the delete, and a cleanup that raises would replace a reported failure with
+    an unreported one.
+  - ✅ **BUILT 2026-08-10 as `safe_copy.copy_leaving_nothing`**, called from all three sites.
+  - ⚠ **THE FINDING THAT SHAPED THE FIX, and it is not what the entry above assumed: a blind
+    unlink would delete files this run did not write.** `shutil.copy2` opens the SOURCE first, so
+    a failure before the destination is opened - unreadable source, denied permission, a parent
+    that could not be made - leaves the target **untouched**. And at two of the three sites that
+    target can legitimately be occupied: `relocate` overwrites an interrupted run's partial by
+    design, and `backup` builds its work list from the CATALOG
+    (`_files_missing_on_target`), so anything the catalog does not know about can be sitting
+    there. The rule is therefore **remove only what this call created**, decided by an
+    `exists()` taken immediately before the copy and never accepted from a caller -
+    `organizer._free_relative` also checks, some lines earlier, and a stale "it was free" is
+    exactly the input that would turn the cleanup into a deletion.
+  - **`relocate`'s overwrite was a red herring.** Once `copy2` has opened the destination the
+    incumbent is already truncated, so removing it afterwards destroys nothing that survived.
+    What makes that site different is only that its target is often occupied, which is a value
+    of the same flag rather than a second design.
+  - **`backup.py` already unlinked on a bad checksum** (`:312`), so remove-on-failure was not a
+    new idea here - it existed at one of the three sites for the neighbouring case.
+  - **RETRY-ACCUMULATION IS CLOSED WHEN CLEANUP SUCCEEDS AND REPORTED WHEN IT DOES NOT**, and
+    nobody should read this entry as fully closed. If the unlink fails the partial survives, and
+    a surviving partial **should** be treated as an incumbent: we could not delete it, so
+    pretending it is not there would be the dishonest option, and `_free_relative` suffixing
+    beside it is the "never lose data" rule doing its job. What closes the gap is the message -
+    the path and the byte count of what was left - not different behaviour.
+  - **The TOCTOU at `upload` is not a data-loss path**, stated with the reason rather than tested
+    with something that proves nothing: `_free_relative` checks `exists()` some lines before the
+    write, so a file could appear in between - but the helper takes its own `exists()`
+    immediately before copying, so it would see that file as an incumbent and refuse to remove
+    it. The window can cost an overwrite, which is `_free_relative`'s pre-existing hazard, and
+    cannot cost a wrong deletion. Pinned by a test asserting the helper's signature offers no way
+    to pass an opinion in.
+
+- **(acd) THE BACKUPS CONTROLS MOVE AFTER THE SCREEN IS INTERACTIVE - and the readiness signal
+  - ✅ **MOVED HERE 2026-08-11.** Fixed 2026-08-10 and carried in the open-work file for a day for
+    the same reason as `(abu)`: a `FIXED` marker with no `Closes` trailer, invisible to the guard.
+    **The accepted cost it deferred - state now sits below the forms, so a one-copy warning can
+    fall below the fold - is now `(ada)`**, which is the part still owed and the part `(abg)` must
+    re-price.
+  is about to remove the only thing that reports it.** Recorded 2026-08-10, found while planning
+  the readiness signal, **from the DOM order rather than from a failure**. `#drives-list`
+  (`index.html:249`) renders **above** the card holding `#bk-preview` (`index.html:276`) in the
+  same section, so when `loadDrives` writes it every control below shifts down. A person reaching
+  for *Preview copy* inside that window clicks where the button **was**.
+  - ✅ **MEASURED 2026-08-10, and it is 30-115x larger than `(abq)`'s mover.** Taken with
+    `/api/drives` held open, `#bk-preview`'s box read before and after the write lands, under
+    stubbed drive counts. **This entry is confirmed, not retired.**
+
+    | drives | `#drives-list` height | `#bk-preview` moves | click-to-ready |
+    |---|---|---|---|
+    | 0 | 0 -> 130.4 px | **+142.4 px** | 80 ms |
+    | 1 | 0 -> 144.0 px | **+156.0 px** | 87 ms |
+    | 3 | 0 -> 551.1 px | **+563.1 px** | 100 ms |
+
+    - ⚠ **There is no no-shift case.** Zero drives still moves the button 142 px, because
+      `loadDrives` renders an empty-state card rather than nothing. A library with no registered
+      drive - the first-run user - gets the defect too.
+    - **The control is LIVE throughout**: `#bk-preview` is visible and enabled for the whole
+      window, so nothing refuses the click and Playwright's actionability checks would not help.
+    - **A click at the old position is silently swallowed.** Measured with `elementFromPoint` in
+      a viewport tall enough to hold both positions: with one drive it lands on
+      `#bk-source-hint`, a text span; with three, on an `<h2>`. Nothing happens and nothing says
+      anything.
+    - **The window tracks endpoint latency about 1:1** - 98 ms local, 329 ms with a 250 ms
+      delay, 1,085 ms with 1,000 ms. It is the slower of the two requests in `loadDrives`'
+      `Promise.all`, not their sum. On a large catalog or a cloud-mounted library the button is
+      mispositioned for **over a second**.
+    - *Measurement note:* a first attempt reported "nothing at the old position" and that was an
+      artifact - at the default viewport the button already sits below the fold, so
+      `elementFromPoint` was querying outside the viewport. Re-run at 1280x1600.
+
+  - ✅ **FIXED 2026-08-10 by moving `#drives-list` below every control.** `#bk-preview` now moves
+    **0.0px** at zero, one and three drives - exact, with no bound to declare, because a control's
+    position is no longer a function of how many drives arrive. Pinned by
+    `tests/e2e/test_the_backups_controls_do_not_move.py`, which asserts the harm directly:
+    `elementFromPoint` at the position the button occupied must still be the button. Restoring the
+    old order turns all three red.
+    - **RESERVING SPACE WAS BUILT, MEASURED AND REJECTED - the numbers are why this is a move.**
+      A skeleton sized from the exact registered-drive count cut the shift 4-6x (165->40, 156->30,
+      563->91) and **still left it 2-5 button heights**: `#bk-preview` is 34.8px, so the harm
+      needs the shift under ~17px, and a card's height is content-driven (optional reach badge,
+      optional last-seen note, up to four decisions lines, 68ch wrapping). Matching the fixture's
+      cards would have been overfitting to the test.
+    - ⚠ **And it introduced a direction that did not exist.** Reserving from a count learned at
+      boot can over-reserve, so the region SHRINKS and the button moves **up** - measured at
+      **-316.6px** when the boot count said three and the answer was one. Before the skeleton a
+      shrink was impossible: the region grew from empty, always downwards. That is a trade for a
+      worse defect, not a partial fix.
+    - **THE COST, accepted by the maintainer and stated rather than softened.** The Backups pass
+      deliberately put state ABOVE remedy so the at-risk banner pointed down at the copy form.
+      That is inverted: the forms come first and the state below them. The sharpest form of it is
+      that the at-risk banner renders **inside** `#drives-list`, so a user with files in only one
+      place now meets two forms before the warning, and on a short viewport that warning is below
+      the fold. Accepted on the grounds that a control which cannot be reliably clicked is worse
+      than one met before its context. Two shipped strings said "below" and now say "above"; both
+      live inside the moved region, so they travelled with it.
+    - ⚠ **REVISIT WHEN `(abg)` REACHES THIS REGION.** The inversion is accepted, not settled. The
+      at-risk warning below the fold on a short viewport is a live cost, and `(abg)` - the most
+      important open item on this project - will put more state into exactly this region. Whoever
+      builds it must re-price the order rather than inherit it.
+    - *Not a cost:* `test_user_facing_copy.py` was reported as pinning a third "below" string and
+      does not - that list BANS retired wording. Editing it would have weakened a guard.
+    - *Available if ever needed:* the exact registered-drive count is one binding away in
+      `library_status` (`catalog.list_drives()` is already materialised and `places` is a filtered
+      view of it). Not added, because nothing reads it - that is `(abm)`'s shape.
+
+  - **Two movers on this screen, and they are not the same defect.** This entry owns the
+    **screen-open** mover: `loadDrives` → `#drives-list`, above the whole card. `(abq)` owns the
+    **after-typing** mover: `validatePath` is `debounce(run, 400)` and writes into
+    `#bk-source-hint` / `#bk-target-hint` (`index.html:270, 274`), immediately above the button.
+    **The measured +4.9px on `(abq)` is that second mover, not this one.** This one is derived
+    from DOM order and is **unmeasured** - measuring it is the first task here, and the number
+    may be larger, since a drive card is taller than a line of hint text.
+  - **This is not the flake it was mistaken for.** `(abq)` was read as a click on a not-yet-live
+    control. It is not: the `#bk-preview` handler reads only `#bk-source`/`#bk-target` and POSTs
+    `/api/backup/preview`, so it needs **neither** endpoint `loadDrives` fetches, and those two
+    fields are filled at boot by `loadCustody`. The control was live and correctly wired the whole
+    time. What moved was its position. **Layout shift, not uninitialised state.**
+  - ⚠ **Why this is filed before the readiness signal lands, not after.** Readiness makes a test
+    wait past the **screen-open** shift, so nothing observes it again while it stays live. The
+    detector being removed is `open_backups`'s `wait_for_selector("#drives-list *")`
+    (`e2e_support.py:141`), which fails today if that region never populates; readiness replaces
+    it with a wait that is satisfied whether or not anything moved. **A defect whose only
+    detector is being removed must have a replacement detector filed the same day**, and this is
+    it. It does **not** follow that `(abq)` is closed - see below.
+  - ✅ **`(abq)` is not closed by the readiness work, and not for the reason first written.** The
+    plan claimed readiness would launder it. It does not touch it: `(abq)`'s mover fires ~400ms
+    after typing, long after `data-ready="ready"`, and readiness is scoped to screen open.
+    `(abq)` keeps its own recorded fix - wait for the hint spans to become non-empty before
+    clicking - which is in-action work, not Stage 0.
+  - **Reserved height only approximates, so it may not be the fix.** Zero, one and three drives
+    render different heights, and `loadDrives` conditionally adds a whole summary card when
+    `drives.length > 1` (`app.js:2387`). A `min-height` that covers the largest case leaves dead
+    space in the common one and still shifts on the largest. **Ordering may be correct rather than
+    sizing** - putting the mutable region *below* the fixed controls means nothing it writes can
+    move them - or a bounded, declared shift, accepted and stated. The choice is open; the
+    approximation is why.
+  - **Whichever is chosen needs a bounding-box regression test written as part of it**: measure
+    `#bk-preview`'s box before and after `data-ready="ready"`, assert a zero or declared-bound
+    delta. Written *with* the change, never after - once the readiness migration lands, nothing
+    else will ever notice this again.
+
 - **(acx) THE ORGANIZE PREVIEW NEVER RECEIVED `skip_undated`, SO IT PROMISED FILES THE RUN WOULD
   SKIP.** Recorded **and fixed** 2026-08-11, found while verifying `(abl)`. Filed anyway, and that
   is deliberate: it was never recorded, it is a distinct mechanism from `(abl)`, and a defect
@@ -163,8 +341,9 @@ recording shipped work as unstarted, which is the more expensive direction of th
     below `#drives-list`). That is not this entry's mover. **This entry's measured +4.9px is
     `validatePath`'s debounced hint spans, ~400ms AFTER typing** - long after
     `data-ready="ready"` - and readiness is scoped to screen open, so it never reaches it. The
-    fix recorded below (wait for the hint spans to become non-empty before clicking) still
-    stands and is unbuilt. The screen-open mover is `(acd)`.
+    fix recorded below (wait for the hint spans to become non-empty before clicking) was never
+    built and was refuted instead - see the closure above. The screen-open mover was `(acd)`,
+    fixed 2026-08-10 and now recorded in this file.
   - ⚠ **Stage 3 of that work - converting the 63 fixed sleeps - was CLOSED ON MEASUREMENT rather
     than abandoned**; the reasoning is on `(acf)` in `SHIPPED.md`. It matters here because this
     entry's own fix is a wait, and the standing answer is now: **let a specific sleep fail and be

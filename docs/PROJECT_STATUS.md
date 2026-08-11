@@ -67,6 +67,15 @@ narrative, or volatile counts.
 
 1. **Finish soak gate**
    - Continue normal use; any new soak finding outranks queued feature work.
+   - ⚠ **A FACT ABOUT METHOD, recorded 2026-08-11 because it is measurable and easy to miss: in
+     the week to 2026-08-11, eight items were closed and NOT ONE came from real use.** Every one
+     was found by reading code, measuring, or auditing documents - a pixel cap used as a claim, a
+     preview tally, a custody sentence, a lost click, private paths in a public repo. **A week of
+     code-reading finds the class code-reading finds**: two written things that disagree.
+     The soak exists for the other class - what only appears when a real library meets an
+     operation nobody modelled - and that class produced nothing this week, because nobody used
+     the product. **The list got shorter and the gate did not move.** This is not a criticism of
+     the work, which was real; it is the reason **the remedy is not more auditing**.
    - Collapsible sidebar (`SHIPPED.md` `(fff)`) and adaptive day-folder threshold (`(gg)`)
      are built; pull next from backlog priority.
    - **`(gg)` soak note (2026-07-30):** correct but rare on real data - one un-evented hit
