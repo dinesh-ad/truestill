@@ -972,8 +972,32 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   restoring a drive and re-checking it would have seen their files still reported as living in one
   place, with nothing they could do about it. Two mutations, two new tests, one for each way back.
 
-- **`cmp` PROVES THE FILE, NOT THE INTERPRETER'S VIEW OF IT.** The thirty-eighth member, and a
-  hole in this document's own mutation discipline, found by it on 2026-08-12.
+- **A BROKEN HARNESS MAKES A CORRECT CHANGE LOOK WRONG, AND SENDS YOU READING WORKING CODE.** The
+  thirty-eighth member. Both known instances were found on 2026-08-12, one of them by this
+  document's own mutation discipline failing at it.
+
+  **The class, because the two instances look unrelated and are not:** the thing that *reports* on
+  a change - a cached interpreter, a probe, a fixture, a stub - can be wrong independently of the
+  change. When it is, the report is a **false negative with a plausible cause attached**, and the
+  natural response is to go and edit code that is already right. That is worse than a missing
+  test, which at least says nothing.
+
+  *Second instance, for the shape rather than the detail:* verifying `(acm)` end to end,
+  `read_metadata(paths)` returns `dict[Path, ...]` and the probe looked its results up by `str`.
+  It read zero tags for every file and presented as a fix that did not work at all - on a change
+  that was correct and whose unit tests were green, because those hand-feed the metadata dict.
+  **The unit tests could not catch it and the probe was the only thing that could, so the probe
+  being wrong was indistinguishable from the feature being wrong.**
+
+  *So, generally:* when a change reports as broken, **prove the harness before editing the
+  subject** - one line that asserts the harness sees what it should on a case known to work. And
+  prefer a probe that goes through the real entry point over one that reconstructs its inputs,
+  because a reconstruction can be wrong in ways the real path cannot.
+
+  ---
+
+  **The first instance, and the specific rule it produced: `cmp` proves the file, not the
+  interpreter's view of it.**
 
   The rule says restore a mutated source *by content*, with a byte-identical `cmp`. That was done,
   the `cmp` passed - and the next run still executed the **mutant**. CPython validates a cached

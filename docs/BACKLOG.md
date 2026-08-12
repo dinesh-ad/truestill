@@ -93,26 +93,6 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(acz) A STAGED COPY THAT SURVIVES BECAUSE THE CLEANUP ITSELF FAILED - and nothing scans for
-  it.** Split out of `(abu)` 2026-08-11 and **rewritten the same day when `(acj)` landed**, because
-  staging removed its dangerous half and left a smaller, different one.
-  - ✅ **What `(acj)` closed.** A survivor can no longer be mistaken for an incumbent: it is named
-    `<target>.partial`, so `_free_relative` never suffixes beside it and retries stop accumulating,
-    and `scan_source` can never take it for a photo because `.partial` is not a media extension.
-    The old partial wore the organized name and a media extension, which is precisely why it was
-    indistinguishable from a real file.
-  - ⚠ **What that cost, stated rather than glossed: the discovery seam moved.** `(abu)` was found
-    because *"`rescan` reports it as STRAY"* - true only while the leftover carried a media
-    extension. `rescan` is fed `scan_source(...).media`, so a `.partial` never reaches it. It is
-    **not silent**: the skipped census counts and names it as an unrecognized extension, per §9's
-    never-silent rule. But the thing that found the original defect would not find it again.
-  - **What is actually owed**, unchanged in substance: nothing offers to retry the removal, and
-    nothing lists survivors across runs. A user who hit a full disk mid-copy has debris whose only
-    record is a message that scrolled past and a row in a census they may not read.
-  - **The cheapest honest fix is probably rescan-side**, not copy-side: teach the stray report to
-    look for `safe_copy.STAGING_SUFFIX` explicitly, which is one suffix it already knows the name
-    of. That is a decision about what rescan is for, so it is filed rather than assumed.
-
 - **(adb) TWO COPY PATHS STILL WRITE THE REAL NAME FIRST, AND ONE OF THEM IS THE CATALOG.** Named
   in `(acj)`'s closure 2026-08-11 as out of its scope, and filed here because a line in
   `SHIPPED.md` records what was *not* done without tracking it. `(acj)` staged every copy that goes

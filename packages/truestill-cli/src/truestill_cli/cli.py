@@ -173,6 +173,7 @@ from truestill_core.organizer import (
 from truestill_core.progress import Progress, ProgressCallback
 from truestill_core.reclaim import ReclaimPlan, plan_reclaim, run_reclaim
 from truestill_core.rescan import RescanReport, reconcile
+from truestill_core.safe_copy import STAGING_SUFFIX
 from truestill_core.scan import DEFAULT_WORKERS
 from truestill_core.source_repoint import RepointPlan, plan_repoint
 from truestill_core.takeout import (
@@ -650,6 +651,14 @@ def _print_rescan(report: RescanReport, root: Path, label: str, elapsed: float) 
         " on another drive - Truestill does not guess which.",
     )
 
+    _print_rescan_section(
+        "LEFT BEHIND BY TRUESTILL",
+        list(report.debris),
+        "half-written copies Truestill made and then could not clean up - a disk that filled,"
+        " a drive pulled out. They are not your photos and nothing needs them:"
+        " delete them. Their names end in .partial.",
+    )
+
     if not report.complete:
         print("\n  ! SOME OF THIS DRIVE COULD NOT BE READ, so the list above is incomplete.")
         for folder in report.unreadable_dirs:
@@ -765,12 +774,22 @@ def _cmd_rescan(args: argparse.Namespace) -> int:
     candidates = {rel: path for rel, path in on_disk.items() if rel not in recorded}
     identified, unreadable_files = _rescan_hashes(candidates, args.db)
 
+    # `(acz)`: staging gave a survivor a safe name and, with it, moved the seam that found the
+    # original defect. `(abu)` was caught because rescan reported the leftover as STRAY - true
+    # only while it wore a media extension. A `.partial` lands in `scan.unrecognized` instead, so
+    # rescan never saw it again. Picked out by the one suffix Truestill itself writes.
+    debris = [
+        path.relative_to(root).as_posix()
+        for path in scan.unrecognized
+        if path.name.endswith(STAGING_SUFFIX)
+    ]
     report = reconcile(
         recorded=recorded,
         on_disk=on_disk.keys(),
         identified=identified,
         unreadable_dirs=[p.relative_to(root).as_posix() for p in scan.unreadable_dirs],
         unreadable_files=unreadable_files,
+        debris=debris,
     )
     _print_rescan(report, root, marker.label, _CLOCK() - started)
     return 0 if report.reconciled else 1

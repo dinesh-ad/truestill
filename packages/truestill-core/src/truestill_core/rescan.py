@@ -60,6 +60,12 @@ class RescanReport:
     moved: tuple[MovedCopy, ...]
     stray: tuple[str, ...]
     unaccounted: tuple[str, ...]
+    #: Staged copies truestill wrote and then failed to remove (`safe_copy.STAGING_SUFFIX`).
+    #: **Its own field rather than part of `stray`, because the two need opposite words**
+    #: (`(acz)`, and `(ach)`'s lesson applied where it would otherwise be repeated): a stray may
+    #: be a photograph the user wants adopted, while this is truestill's own failed write and the
+    #: only sane action is removing it. One count meaning both would be unactionable.
+    debris: tuple[str, ...] = ()
     #: Folders the walk could not list. **Named without a count** -- it never went inside, so a
     #: number would be invented (the asymmetry `SourceScan.unreadable_dirs` already carries).
     unreadable_dirs: tuple[str, ...] = ()
@@ -77,17 +83,25 @@ class RescanReport:
 
     @property
     def reconciled(self) -> bool:
-        """Whether every record and every file agreed -- nothing moved, strayed or went missing."""
+        """Whether every record and every file agreed -- nothing moved, strayed or went missing.
+
+        **``debris`` is deliberately not part of this**, and the omission is a decision rather
+        than an oversight. This property drives the CLI's exit code, and a leftover
+        ``.partial`` is not a disagreement between the record and the disk -- it is litter beside
+        them. Failing a run for it would turn a successful copy into a scripted failure. It is
+        reported instead, which is what `(acz)` said was owed.
+        """
         return not self.moved and not self.stray and not self.unaccounted and self.complete
 
 
-def reconcile(
+def reconcile(  # noqa: PLR0913 - each argument is a distinct class of observation
     *,
     recorded: Mapping[str, str],
     on_disk: Collection[str],
     identified: Mapping[str, str],
     unreadable_dirs: Collection[str] = (),
     unreadable_files: Collection[str] = (),
+    debris: Collection[str] = (),
 ) -> RescanReport:
     """Classify a drive's records and files. Pure: no I/O, no catalog, no filesystem.
 
@@ -136,4 +150,5 @@ def reconcile(
         unaccounted=tuple(unaccounted),
         unreadable_dirs=tuple(sorted(unreadable_dirs)),
         unreadable_files=tuple(sorted(unreadable_files)),
+        debris=tuple(sorted(debris)),
     )

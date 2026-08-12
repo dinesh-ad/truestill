@@ -233,3 +233,56 @@ def test_a_file_where_the_catalog_says_it_is_is_never_read(
     )
     assert "Camera/2014/08/b.jpg" not in read
     assert "Camera/2015/09/c.jpg" not in read
+
+
+def test_a_surviving_partial_is_reported_as_left_behind(
+    drive: tuple[Path, Path], capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`(acz)`. `(acj)` gave a survivor a safe name and, with it, moved the seam that found the
+    original defect: `(abu)` was caught because rescan reported the leftover as STRAY, which was
+    true only while it wore a media extension. A `.partial` lands in `scan.unrecognized`, so
+    rescan stopped seeing it at all.
+    """
+    root, db = drive
+    (root / "Camera/2015/09/holiday.jpg.partial").write_bytes(b"half-a-photo")
+
+    assert _run(root, db) == 0, "litter is not a disagreement between record and disk"
+    out = capsys.readouterr().out
+    assert "LEFT BEHIND BY TRUESTILL: 1" in out
+    assert "Camera/2015/09/holiday.jpg.partial" in out
+
+
+def test_a_partial_is_not_counted_as_a_file_the_catalog_lost(
+    drive: tuple[Path, Path], capsys: pytest.CaptureFixture[str]
+) -> None:
+    """**CRY-WOLF HALF.** Debris and strays need opposite words - one is the user's photograph
+    that Truestill has no record of, the other is Truestill's own failed write. A `.partial` must
+    not inflate the count a person reads as "files you added that I do not know about".
+    """
+    root, db = drive
+    (root / "Camera/2015/09/holiday.jpg.partial").write_bytes(b"half-a-photo")
+
+    _run(root, db)
+    out = capsys.readouterr().out
+    assert "ON THE DRIVE, NOT IN THE CATALOG" not in out
+    assert "Everything the catalog records for this drive is where it says it is." in out
+
+
+def test_a_file_that_merely_mentions_partial_is_left_alone(
+    drive: tuple[Path, Path], capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The match is a SUFFIX, not a substring, and telling a person their own file is Truestill's
+    litter would invite them to delete it.
+
+    **The filename is chosen to be the case that actually separates the two rules**, which the
+    first attempt was not: `partial-scans.txt` contains no `.partial` at all, so a substring
+    mutation survived it and the test proved nothing its docstring claimed. `notes.partial.bak`
+    contains `.partial`, does not end with it, and lands in `scan.unrecognized` where the filter
+    can see it.
+    """
+    root, db = drive
+    (root / "Camera/notes.partial.bak").write_bytes(b"my own backup, not Truestill's")
+
+    _run(root, db)
+    out = capsys.readouterr().out
+    assert "LEFT BEHIND BY TRUESTILL" not in out

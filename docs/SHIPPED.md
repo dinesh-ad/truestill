@@ -1421,6 +1421,31 @@ no composition refactor to schedule.
 
 ## Shipped (kept for provenance)
 
+- **(acz) CLOSED 2026-08-12: a surviving staged copy is findable again, as its own outcome.**
+  - **What was owed, and why it was owed.** `(acj)` made a survivor *safe* - named
+    `<target>.partial`, so `_free_relative` never suffixes beside it and `scan_source` can never
+    take it for a photo - and in doing so **moved the discovery seam**. `(abu)` was found because
+    "rescan reports it as STRAY", true only while the leftover wore a media extension. `rescan` is
+    fed `scan_source(...).media`, so a `.partial` stopped reaching it. The entry's own words: a
+    user who hit a full disk mid-copy had debris whose only record was a message that scrolled
+    past.
+  - **The decision the entry left open was where it belongs, and the answer is a FIFTH outcome,
+    not a widened STRAY.** Rescan's own definition of a stray already covers "a file no record
+    accounts for", so folding it in was available and is wrong: a stray may be a photograph the
+    user wants adopted, while this is Truestill's own failed write whose only sane remedy is
+    deletion. **One count meaning both would be `ApplyReport.skipped_newer_locally` again** -
+    `(ach)`'s lesson, applied at the point where it would otherwise have been repeated.
+  - **`debris` deliberately does not affect `reconciled`.** That property drives the CLI's exit
+    code, and a leftover is not a disagreement between the record and the disk - it is litter
+    beside them. Failing a run for it would turn a successful copy into a scripted failure.
+    Reported, not failed on; stated at the site and pinned by a test.
+  - **A mutation found a test that did not test its own docstring.** The suffix-not-substring case
+    was written with `partial-scans.txt`, which contains no `.partial` at all - so the substring
+    mutant survived it. Re-fixtured on `notes.partial.bak`, which contains the suffix without
+    ending in it *and* lands in `scan.unrecognized` where the filter can see it.
+  - Verified on a real drive: a planted survivor beside five organized files is reported at its
+    full relative path, does not appear as a stray, and the exit code stays `0`.
+
 - **(acl) CLOSED 2026-08-12: JPEG 2000 reaches the pipeline.** `.jp2`, `.jpf` and `.j2k` added to
   `IMAGE_EXTENSIONS`. Such a file was never handed to exiftool at all - not dated, not
   categorised, not organised, and **silently skipped rather than reported**.
