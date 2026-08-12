@@ -486,24 +486,6 @@ is invisible here is retired, not free.**
     at rowids. The document must carry member **sha256s**, which is what the approved plan said
     (`albums: name + member sha256s`) and what the gather does not yet do.
 
-- **(add) ~30 embedded date readings carry a recoverable date and are discarded.** Measured
-  2026-08-12. **Filed rather than folded into the tier-4 repair on purpose:** it is not one
-  decision, it is three, and they do not share an answer.
-  - `parse_exif_datetime` has a single `strptime` format. Of 1,077 real tag readings across three
-    corpora, 60 are refused; roughly half are refusal working correctly (`0000:00:00 00:00:00`,
-    the space-filled form, genuinely corrupt bytes). The rest carry a date we throw away.
-  - **Unambiguous, and safe to add:** `Tue Dec 14 09:54:11 2004` (C `asctime`, 4 readings),
-    `2011-03-15T10:14:46-04:00` (ISO 8601), `20020904` (date-only compact),
-    `2008.07.10  15:16:55`, `2019:04:24 22:24:00+02:00 DST`, `2011:06:14 15:47+02:00` (minute
-    precision).
-  - **Ambiguous, and NOT safe:** `12/29/93 13:52:11` (12 readings) is exactly the US-vs-EU
-    ambiguity being fixed in tier 4 - reading it wrong is the wrong-answer class, not the gap
-    class. `2/5/14` is ambiguous three ways.
-  - So a per-format trustworthiness ruling is needed and one decision cannot cover all three
-    groups. Adding the unambiguous set alone is a defensible smaller piece.
-  - Stable across corpora: adding `exif-samples` and two more tags grew readings 895 → 1,077 and
-    refusals 56 → 60 while producing **no new refusal class**.
-
 - **(ach) `ApplyReport.skipped_newer_locally` carries two meanings that need opposite words.**
   Recorded 2026-08-09 from code. Deferred **to Stage 4 deliberately**, where the multi-drive
   merge builds the reporting this feeds - Stage 4 widens the channel rather than inventing it.
@@ -3106,16 +3088,15 @@ picking one up must map the combined order before building.
     first and pair later"*; `(p)` needs it for share-export; `(aag)` is burst review, which tier 1
     would answer with `BurstUUID` rather than a heuristic.
 
-- **(aaq) Two paths in `categorize.py` read tags that are never requested, so neither can fire.**
-  Recorded 2026-08-02 while auditing what device metadata is kept; second half added the same day.
-  **Record only - do not fix without deciding which way.** One entry and not two, because it is
-  one decision made twice: both are unreachable for the same reason and both have the same two
-  ways out.
-  - **The `SamsungModel` fallback.** `rule_device` reads `_text(metadata, "Model") or
-    _text(metadata, "SamsungModel")`, but `SamsungModel` is **not in `REQUESTED_TAGS`**, and
-    exiftool is invoked with an explicit named tag list - so the key is never present and the
-    fallback is unreachable. Confirmed by probe: a file stamped with every device tag returns
-    only the requested ones.
+- **(aaq) `rule_software` reads a tag that is never requested, so it cannot fire.** Recorded
+  2026-08-02. **REDUCED 2026-08-12** (`SHIPPED.md`): the `SamsungModel` half is closed - deleted,
+  not enabled - and the class now has a detector, `test_categorizer_tags_are_requested.py`, which
+  fails if any tag `categorize.py` reads is absent from `REQUESTED_TAGS`. `Software` is its one
+  documented exemption, and this entry is what the exemption names.
+  **What remains is a product decision and needs the maintainer**, per the three ways out below.
+  - ✅ **The `SamsungModel` fallback: CLOSED, deleted.** See `SHIPPED.md`. No evidence anywhere
+    available justified requesting the tag, and requesting it invalidates every cached metadata
+    row in every library.
   - **`rule_software`, the whole rule.** It reads `Software`, which is **not in `REQUESTED_TAGS`**
     either. Measured 2026-08-02: a JPEG stamped `Software=Adobe Photoshop 24.0 (Windows)` comes
     back from `read_metadata` with keys `DateTimeOriginal`, `FileType`, `ImageHeight`,

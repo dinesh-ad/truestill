@@ -135,6 +135,62 @@ def parse_exif_datetime(raw: Any) -> datetime | None:
     try:
         return datetime.strptime(core, "%Y:%m:%d %H:%M:%S")
     except ValueError:
+        return _parse_uncommon(text)
+
+
+#: A trailing zone abbreviation some writers append after the offset: `...+02:00 DST`.
+_DST_TAIL = re.compile(r"\s+[A-Z]{2,4}$")
+#: Fractional seconds, and **only** where they follow a real clock. The EXIF path above strips on
+#: the first `.` in the whole string, which is why it cannot be reused here: `2008.07.10 15:16:55`
+#: would become `2008`.
+_FRACTION = re.compile(r"(?<=:\d\d)\.\d+")
+#: Year-first numeric date, optional numeric time. `/` is admitted **because the year leads** -
+#: that is what makes it unambiguous, and `12/29/93` cannot match this at all.
+_UNCOMMON = re.compile(
+    r"^(\d{4})[:.\-/](\d{1,2})[:.\-/](\d{1,2})(?:[ T]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$"
+)
+#: A bare `YYYYMMDD`, which some scanners write into a date tag whole.
+_UNCOMMON_COMPACT = re.compile(r"^(\d{4})(\d{2})(\d{2})$")
+
+
+def _parse_uncommon(text: str) -> datetime | None:
+    """Date forms the wild contains that EXIF does not spell. `(add)`, measured across 1,077 real
+    tag readings in three corpora.
+
+    **Reached only after the EXIF spelling fails, so nothing that parses today changes.** That
+    ordering is the whole safety argument and is why this is an addition rather than a rewrite.
+
+    **What is deliberately NOT here, and why each is a separate ruling:**
+
+    * ``12/29/93 13:52:11`` (12 readings), ``12/5/95 10:44 PM``, ``2/5/14``, ``12/09/14``,
+      ``02-Aug-99`` - **ambiguous.** Reading them needs a US-or-EU choice, which is exactly the
+      wrong-answer class `date-resolver-corpus-measurement.md` §3.2 exists to avoid. §1: dates are
+      never guessed, and `Undated/` is the honest answer.
+    * ``Tue Dec 14 09:54:11 2004`` (4 readings), ``Monday, September 11, 2000, 2:45:40 PM`` -
+      **locale-dependent.** `%a`/`%b` resolve against `LC_TIME`, so these parse on an English
+      machine and fail on a French one: the same file landing in a different folder depending on
+      the computer reading it, which is the failure this project exists not to have. Five readings
+      do not buy a hand-rolled English month table.
+
+    Everything accepted here is numeric and **year-first**, so no reading of it is in question.
+    """
+    body = _DST_TAIL.sub("", text).strip()
+    body = body.removesuffix("Z").strip()
+    body = _TZ_SUFFIX.sub("", body).strip()
+    body = _FRACTION.sub("", body).strip()
+
+    # Two patterns rather than one with optional separators, deliberately: making the separators
+    # optional would let a SEVEN-digit run split as `2002`+`09`+`4`, inventing a reading of a
+    # number that is not a date. The compact form must be exactly eight digits or nothing.
+    clock: tuple[int, int, int] = (0, 0, 0)
+    if (match := _UNCOMMON.match(body)) is not None:
+        clock = (int(match.group(4) or 0), int(match.group(5) or 0), int(match.group(6) or 0))
+    elif (match := _UNCOMMON_COMPACT.match(body)) is None:
+        return None
+    year, month, day = (int(g) for g in match.group(1, 2, 3))
+    try:
+        return datetime(year, month, day, *clock)  # noqa: DTZ001 - naive local, see module doc
+    except ValueError:
         return None
 
 

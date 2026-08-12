@@ -1421,6 +1421,61 @@ no composition refactor to schedule.
 
 ## Shipped (kept for provenance)
 
+- **(add) CLOSED 2026-08-12: the uncommon embedded date forms, split three ways as the entry
+  said it must be.** 11 of the ~30 readings recovered; the other two groups **refused, each for
+  its own stated reason**, which is the ruling rather than a shortfall.
+  - **Recovered - numeric and year-first, so no reading is in question.** `20020904` (date-only
+    compact), `2011-03-15T10:14:46-04:00` (ISO 8601), `2008.07.10  15:16:55` (dots and a double
+    space), `2019:04:24 22:24:00+02:00 DST` (a trailing zone abbreviation), `2011:06:14 15:47+02:00`
+    and `2020:01:05 15:04Z` (minute precision), plus `2013:07:04` and `2013/07/04 12:30:45`.
+  - **Refused as ambiguous:** `12/29/93` (12 readings), `12/5/95 10:44 PM`, `2/5/14`, `12/09/14`,
+    `02-Aug-99`. Reading these needs a US-or-EU choice, which is the wrong-answer class
+    `date-resolver-corpus-measurement.md` §3.2 exists to avoid. `/` **is** admitted when the year
+    leads, because that is what removes the ambiguity - `12/29/93` cannot match at all.
+  - **Refused as locale-dependent, a reason the entry did not have:** `Tue Dec 14 09:54:11 2004`
+    (4 readings) and `Monday, September 11, 2000, 2:45:40 PM`. `%a`/`%b` resolve against
+    `LC_TIME`, so these parse on an English machine and fail on a French one - **the same file
+    landing in a different folder depending on the computer reading it**, which is the failure
+    this project exists not to have. Five readings do not buy a hand-rolled English month table.
+  - **Built as a pure addition:** the EXIF spelling is still tried first and the new parser is
+    reached only when it fails, so **no value that parsed before changes**. Verified: the
+    reference library resolves identically (2,271 EXIF / 4 Undated; tier 4 still 1,274 right and
+    997 silent) and Testing-new identically (1,530 / 306).
+  - The existing sub-second strip could not be reused - it cuts on the first `.` in the whole
+    string, which turns `2008.07.10 15:16:55` into `2008`. A mutation that widens it to any `.`
+    kills the dot-separated case, which is how that is pinned.
+  - **A mutation found a missing test rather than a missing guard.** Making the two patterns one
+    with optional separators lets a seven-digit run split as `2002`+`09`+`4`. The source comment
+    asserted this could not happen; nothing tested it, so the mutant survived until a test went in.
+
+- **(aaq) PARTLY CLOSED 2026-08-12: the `SamsungModel` half deleted, and the class given a
+  detector. The `rule_software` half is the maintainer's and stays open.**
+  - **`SamsungModel` deleted rather than enabled.** `rule_device` read
+    `_text(metadata, "Model") or _text(metadata, "SamsungModel")`, and the second was never
+    present because `SamsungModel` is not in `REQUESTED_TAGS`. Enabling it means requesting the
+    tag, which changes `tags_fingerprint` and invalidates **every cached metadata row in every
+    library** - for a case with no evidence anywhere available: neither sample corpus holds a
+    single file carrying `SamsungCaptureInfo` or `SamsungModel`. The failure direction of not
+    having it is the safe one (`Saved`, origin unknown, rather than misfiled), and
+    `SamsungCaptureInfo` **is** requested and still serves the screenshot rule.
+  - ✅ **THE REAL OUTPUT IS THE DETECTOR, which would have caught both halves at the moment they
+    were written.** `test_categorizer_tags_are_requested.py` parses `categorize.py`'s **AST** and
+    fails if any tag it reads is absent from `REQUESTED_TAGS`. Nothing else notices this class:
+    the rule compiles, its unit tests pass a hand-built dict containing the key, and it simply
+    never fires. Two such paths shipped and needed an audit to find.
+    - Parsed rather than grepped, and that is not fussiness: the first version scanned raw source
+      and matched the literal inside the *comment* explaining the deleted call, reporting a dead
+      path that no longer existed. A detector that reads prose can be argued with.
+    - `Software` sits in a documented exemption list naming `(aaq)`. **An exemption is the record
+      of an open decision, not a licence** - and a second test fails if an exemption names a tag
+      nobody reads any more, so deleting the rule must also delete its exemption.
+  - ⚠ **STILL OPEN AND EXPLICITLY NOT MINE: what to do with `rule_software`.** Both remaining
+    options are product decisions rather than repairs - *reorder below the device rule and
+    constrain the label set, then request the tag* launches a folder-per-application rule across
+    every library at once (measured: 159 files with a working camera `Model` leave the timeline,
+    and 3 folder labels become 97), while *delete* forecloses the "everything I edited in
+    Lightroom" case for good. The entry carries both numbers; the choice needs the maintainer.
+
 - **(adc) CLOSED 2026-08-12: a documented clustering invariant was false, and the code was
   right.** Decided and closed on the evidence in the entry; **no production behaviour changed**,
   which is the finding.

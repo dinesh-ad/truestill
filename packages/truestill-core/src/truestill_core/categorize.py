@@ -269,7 +269,21 @@ def capture_device_model(metadata: dict[str, Any]) -> str:
     the file past every remaining rule into `Saved` - origin unknown - discarding the camera
     reading and the messenger reading in one move.
     """
-    return _text(metadata, "Model") or _text(metadata, "SamsungModel")
+    # There used to be an `or _text(metadata, "SamsungModel")` fallback here. It was **dead**:
+    # `SamsungModel` is not in `exif.REQUESTED_TAGS` and exiftool is invoked with an explicit named
+    # list, so the key was never present (`(aaq)`, closed 2026-08-12 by deleting it).
+    #
+    # Deleted rather than enabled, because enabling it means requesting the tag, and that changes
+    # `tags_fingerprint` - invalidating every cached metadata row in every library and forcing a
+    # cold exiftool pass - to serve a case for which there is **no evidence anywhere available**:
+    # neither sample corpus contains a single file carrying `SamsungCaptureInfo` or `SamsungModel`.
+    # The failure direction of not having it is also the safe one: a Samsung file with a model but
+    # no `Model` lands in `Saved` (origin unknown), which is honest, rather than misfiled.
+    #
+    # `SamsungCaptureInfo` **is** requested and still serves the screenshot rule, so the Samsung
+    # path is not blind. `test_categorizer_tags_are_requested.py` now makes this class of dead
+    # path fail a test instead of needing an audit to find.
+    return _text(metadata, "Model")
 
 
 def _software_family(raw: str) -> str:
