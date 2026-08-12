@@ -1147,9 +1147,27 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   Same family as pinning "the newest version" or a live test count: the number and the fact are
   both **readings**, and a document that stores a reading has to be re-measured to stay true.
 
+  **THE SHARPEST INSTANCE, AND IT WIDENS THE MEMBER: THE STATE THAT EXPIRED WAS A DECISION THIS
+  REPO ITSELF RECORDS** (`(aad)`, found 2026-08-12). The rule above says *machine* state; a gate
+  saying **"wait for X"** is the same shape, because it asserts that X has not happened. `(aad)`
+  parked desktop installers behind *"two gates first… **the signing decision** (an unsigned
+  installer is **fatal**… so building one now yields an artifact that **cannot ship**)"*. `D9` had
+  made that decision - unsigned, zero spend - and had measured the premise as **false** for
+  Windows: a SmartScreen warning with a hidden *Run anyway*, *"a friction that expires, not a
+  block"*, and *"a normal position, not a corner"*. Three clauses of the entry still said the
+  opposite.
+
+  **What makes it the sharpest is the distance, not the error.** `BACKLOG.md:1631` cites D9 for
+  platform scope **four screens above** the gate still waiting for D9 - *same document, same day,
+  same hand*. Nothing was overlooked in the sense of unread; the entry was **edited where the new
+  fact landed and nowhere else**, which is the sixth member's failure and this one's operating
+  together. And unlike the corpus fence, no re-measurement was needed to catch it: **both
+  sentences were in the repository, and reading them side by side was the entire method.**
+
   *Suspect it wherever a document states:* what is installed, what is mounted, what exists on
-  disk, what is running, how big something is, or what a machine cannot do. Each is a measurement
-  wearing a rule's clothes.
+  disk, what is running, how big something is, what a machine cannot do - **or what has not been
+  decided yet**. Each is a measurement wearing a rule's clothes. The last one is the easiest to
+  miss because it reads as caution rather than as a claim.
 
 - **A single mutation only ever proves the tests aimed one way.** The thirty-first member, and the
   last gap in the mutation family: the fifth asks whether the mutant was loaded, the fifteenth

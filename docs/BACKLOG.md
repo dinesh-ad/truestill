@@ -1621,6 +1621,35 @@ section, because what is left is the part that still has to be written.
 - **(aad) Desktop installers - LAUNCH-BLOCKING for the paid product.** Ruled by the maintainer,
   2026-07-31. **Record only - no design pass yet, and it does not block the current
   date-provenance program.**
+  - ⚠ **READ FIRST - THE SIGNING GATE IS GONE, AND THREE CLAUSES BELOW STILL ARGUE THE OPPOSITE**
+    (2026-08-12). They are corrected in place and listed here together, because someone who finds
+    one of them and not the others will assume the rest are current.
+    - **`D9` IS the signing decision, and it was made on 2026-08-01** - *"no code-signing
+      certificate purchased - zero spend now"*, closing with *"**This unblocks `(aad)`**: the
+      bundler decision can be made for Windows and Linux alone, with no signing step in the
+      pipeline."* The gate below said building an installer now *"yields an artifact that cannot
+      ship"* while waiting for a decision that had already been made.
+    - **The three reversals.**
+      1. *The gate* - "an unsigned installer is fatal for a product selling trust… cannot ship".
+         D9 measured the opposite: *"a normal position, not a corner"*, Inkscape and many
+         established open-source projects ship unsigned, and the precedent *"carries no signal
+         about product quality"*.
+      2. *The open question* - "Unsigned installers are blocked or scary-warned on **both**, which
+         is fatal." False for Windows, where D9 records a SmartScreen warning with a hidden **Run
+         anyway** - *"a friction that expires, not a block and not a permanent state"*. True only
+         for macOS, which is exactly why macOS is built and not published.
+      3. *The deciding table* - its **signing / notarization** row was one of the two columns said
+         to decide the bundler. D9 removes it from the pipeline entirely, so the comparison the
+         recorded lean was drawn from no longer exists. See THE LEAN below.
+    - **Why it is the worked example rather than a tidy-up** (`ENGINEERING_STANDARD.md` §4,
+      thirty-second member). `(aad)`'s own PLATFORM SCOPE bullet **cites D9 four screens above the
+      gate that was still waiting for it** - same document, same day, same hand. The entry was
+      edited where the new fact landed and nowhere else. Nothing needed measuring to catch it:
+      both sentences were in the repository and reading them side by side was the whole method.
+    - **What is NOT settled here, stated so this block is not read as wider than it is.** The
+      entry's **second** gate - soak - is untouched by D9 and is not resolved in this bullet. It
+      is a project-wide gate (`PROJECT_STATUS.md` §2, §3); changing it here alone would put two
+      documents in conflict, which is the drift this block exists to end.
   - **The problem.** PyPI reaches developers only. `pip install` needs Python present, a
     terminal, and knowing what pip is. The target buyer - someone with a messy photo library -
     has none of the three. **A perpetual licence (`DECISIONS.md` D6) cannot be sold to a user
@@ -1755,8 +1784,14 @@ section, because what is left is the part that still has to be written.
     - The **exiftool binary dependency** and how it ships. It is not a pip package
       (`IMPLEMENTATION_STANDARDS.md` §7 records it as an external binary), and every metadata
       path needs it.
-    - **Code signing and notarization** on macOS and Windows. Unsigned installers are blocked
-      or scary-warned on both, which is fatal for a product whose whole proposition is trust.
+    - ~~**Code signing and notarization** on macOS and Windows. Unsigned installers are blocked
+      or scary-warned on both, which is fatal for a product whose whole proposition is trust.~~
+      **SETTLED BY D9, 2026-08-01, and the struck sentence is reversal 2 above.** No certificate
+      is bought. Windows ships unsigned and meets a SmartScreen warning with a hidden *Run
+      anyway*; macOS is the only platform where "blocked" was accurate, and it is built rather
+      than published for exactly that reason. What survives as work is not signing but the
+      **download page**: D9 requires Windows users to be told what SmartScreen will show, in
+      plain language, above the button, *before* they download.
     - Installer size and startup time.
     - How it interacts with the **parked Tauri-vs-local-web decision** (`(o)` and the Product /
       strategy section) and with **D5's licensing/update server**, which is separately unbuilt.
@@ -1878,26 +1913,51 @@ section, because what is left is the part that still has to be written.
         | | PyInstaller | Briefcase |
         |---|---|---|
         | Produces an **installer** | **No** - a binary; then WiX/Inno, dmgbuild, appimagetool | **Yes** - MSI, DMG, deb/AppImage natively |
-        | **Signing / notarization** | Wire it per platform yourself | Built in |
+        | ~~**Signing / notarization**~~ | ~~Wire it per platform yourself~~ | ~~Built in~~ |
         | Build simplicity | One command, first try, both platforms | Project config + support download |
         | Maturity | 6.x, large install base | 0.4.4, pre-1.0 |
 
+        **The signing row is struck by D9 (reversal 3 above): there is no signing step in the
+        pipeline, so a bundler cannot be preferred for having one built in.** It was one of the
+        two columns this table called decisive, which is why striking it voids the lean below
+        rather than merely narrowing it. **Three columns survive**, and none of them was what the
+        Windows rig measured.
+
         The rig measured **runtime layout**, which `TRUESTILL_BIN_DIR` already solves in one
-        line for either bundler. Installers and signing are what `(aad)` exists for.
-    - **THE LEAN, recorded as CONDITIONAL rather than decided.**
-      - **Briefcase if all three platforms ship**, on the installer-output and signing column,
-        with the version pinned and its config expected to break on upgrade.
-      - **PyInstaller + Inno Setup if Windows ships first** - more proven and simpler, and the
-        three-platform argument that favours Briefcase does not bite yet.
-      - **This turns on a product question - which platforms launch first - not an engineering
-        one.** Do not resolve it in code.
+        line for either bundler. Installers are what `(aad)` exists for.
+    - ~~**THE LEAN, recorded as CONDITIONAL rather than decided.**~~ **VOID under D9, ruled
+      2026-08-12. Not re-answered here - the choice is open, and what would decide it is below.**
+      - ~~**Briefcase if all three platforms ship**~~ - **antecedent FALSE.** D9 publishes two.
+        The condition also rested on the *installer-output and signing* pair, and signing is
+        struck.
+      - ~~**PyInstaller + Inno Setup if Windows ships first**~~ - **antecedent UNDEFINED.** D9
+        names Windows and Linux and orders them nowhere; nothing ships first. The condition is
+        neither satisfied nor refuted, which is why this is void rather than resolved the other
+        way.
+      - **The shape of the gap, so nobody "reads off" an answer.** The lean was written over the
+        variable *how many platforms, in what order*. D9 answered a **different** variable -
+        *which two* - without ordering them. There is no branch for the state the product is
+        actually in, and inventing one would be guessing with a citation attached.
+      - **What survives, and what would decide it.** Three columns: **produces an installer**,
+        **build simplicity**, **maturity**. Only the first is a real difference - PyInstaller
+        needs a second tool per platform (Inno/WiX on Windows, appimagetool or `dpkg-deb` on
+        Linux), Briefcase does not. Deciding it therefore means answering, for **Windows and
+        Linux only**: what each produces end to end, what the second tool costs on Windows, and
+        whether Briefcase's pre-1.0 config churn is cheaper than that. **A frozen artifact that
+        can report what it contains is the prerequisite** - see the acceptance criteria above; a
+        bundler chosen without one is a choice nobody can check.
+      - **THE LINUX READING BEHIND THIS IS ONE TARGET, AND IT IS THE UNREPRESENTATIVE ONE.** Under
+        D9 Linux is a launch platform, not a rounding error. The only Linux artifact ever built is
+        Briefcase `linux system`, whose FHS layout this entry itself calls *"required rather than
+        chosen"* - so the one measurement on record is of the target least like anything that
+        would ship. The table credits Briefcase with **deb/AppImage natively** on **no measurement
+        at all**, and PyInstaller's Linux installer step was never exercised either. Do not treat
+        the Linux column as measured in either direction.
     - **When packaging resumes, go straight to a real installer.** Not another probe: a
       double-click on a real machine answers the console question more directly than any rig,
-      and a real installer answers the table above by existing. Two gates first, and neither is
-      engineering: **the signing decision** (an unsigned installer is fatal for a product
-      selling trust, per this entry's own reasoning, so building one now yields an artifact that
-      cannot ship) and **soak closing** (`PROJECT_STATUS.md` §2 puts installers at #3, behind
-      the soak gate).
+      and a real installer answers the table above by existing. ~~Two gates first… **the signing
+      decision**…~~ **The signing gate is gone (see READ FIRST above).** One gate remains -
+      **soak** (`PROJECT_STATUS.md` §2, §3) - and it is not `(aad)`'s to move.
 
   - **`CREATE_NO_WINDOW` suppression is NOT a bundler question, and is recorded separately so it
     stops riding along in the wrong rig** (moved out of the comparison 2026-08-01).
