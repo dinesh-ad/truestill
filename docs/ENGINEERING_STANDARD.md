@@ -684,6 +684,32 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   asks whether it *is*. Where the two disagree the mutation is right, and the cost of skipping it
   is a suite everyone believes has been verified.
 
+- **AN APPROVED PLAN NARROWED DURING IMPLEMENTATION IS INVISIBLE UNLESS THE REPORT SAYS WHAT WAS
+  NOT BUILT.** The fortieth member. Every other member here is about a check that fails to see
+  something; this one is about **the person reporting** failing to say something - and it is worse
+  for that, because the approval was given against a plan the delivered work no longer matches.
+
+  > **The tell is that the report is entirely TRUE.** It describes what was built, accurately, and
+  > the reader completes it with the plan they approved. Nothing is misstated. The gap is the
+  > sentence that was never written.
+
+  *Worked example - `(aad)`'s Linux lane, 2026-08-12.* The approved plan said *"the same
+  self-check against **both** bundlers' Linux output"*. The implementation built PyInstaller only.
+  The commit message, the report and the entry all described a Linux lane, correctly, and none of
+  them said Briefcase was absent from it. It surfaced when the maintainer asked *"is the Linux
+  job's Briefcase target still `linux system`?"* - a question whose two expected answers were both
+  wrong, because the real answer was *there is no Briefcase target at all*.
+
+  **The remedy is not more care, and saying "be careful" is how this recurs.** It is a habit with
+  a fixed shape: when reporting work against a plan, state the delta explicitly - **what was
+  built, and what the plan named that was not.** "Everything else as planned" is not that
+  sentence; it is the assumption being restated as a claim.
+
+  *Suspect it wherever a plan enumerates and the implementation collapses:* two platforms into
+  one, three checks into two, both directions into the easy one, every surface into the one that
+  was convenient to reach. The scope that gets dropped is reliably the expensive half, which is
+  also the half the approval was actually about.
+
 - **A test whose subject is an OS-PRODUCED STRING is a test of that OS.** The thirty-ninth
   member, and it is stated fastest by example: `(acw)` left **three tests in one file sharing one
   fixture, and only the one asserting a property of OUR output survived the Windows lane.**

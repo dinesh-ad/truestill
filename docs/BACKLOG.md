@@ -1736,7 +1736,63 @@ section, because what is left is the part that still has to be written.
       `truestill-app --self-check`, repeated in the closing sentence. Silence and *ok* are the
       same thing to a reader, so the omission is stated rather than left out.
     - **A Linux lane was added** (`selfcheck-linux`), because D9 makes Linux a launch platform and
-      this rig had only ever run on Windows.
+      this rig had only ever run on Windows. **It shipped with PyInstaller only - a narrowing of
+      the approved plan that was not reported** and was found by a question rather than by the
+      report that described the lane. Briefcase was added on 2026-08-12; the class is
+      `ENGINEERING_STANDARD.md` §4, fortieth member.
+      - **Its Briefcase target is `linux system`, and what that does and does not answer is the
+        point.** This entry calls that layout *"required rather than chosen"*, so it settles
+        nothing about binary resolution and **does not replace that caveat**. What it does answer
+        is **collection** - whether a Briefcase Linux bundle carries the typefaces and the notice
+        - which is the question the acceptance criteria ask. AppImage needs Docker on the runner
+        and was **not** taken, said here rather than taken quietly.
+
+  - ⚠ **FIRST DISPATCH OF THE INSTRUMENT, 2026-08-12 (run 31634883775): CRITERION 2 FAILED ON A
+    REAL ARTIFACT, AND THE FINDING IS BIGGER THAN THE CRITERION.**
+    - **What the artifact said about itself**, verbatim: `"complete": false`, `"worst":
+      "missing"`, and three findings - `font DejaVuSansMono.ttf`, `font DejaVuSansMono-Bold.ttf`
+      and `font licence`, each *"not in this install"*. `exiftool` resolved through the `_MEIPASS`
+      `bin` rule and `trash` answered `send2trash`; both `ok`.
+    - **It is not "the fonts were dropped". PyInstaller collected NONE of the app's data.** A
+      local rebuild found **52 entries under `_internal/` and no `truestill_app` directory at
+      all** - no `templates/index.html`, no `app.js`, no `tokens.css`, no `app.css`, no typefaces,
+      no notice. **A bundle built that way would not serve a page**, and the criterion happened to
+      name the fonts because that is what it was written about. Read the criterion as the tripwire
+      it turned out to be rather than as the whole of what it caught.
+    - **The local rebuild was the point, not a convenience: it separated *the bundler dropped
+      them* from *our path resolution is wrong inside a bundle*.** Those two produce an identical
+      report and need opposite fixes, and a criterion that false-alarms forever is worse than one
+      that never fires - it gets switched off, and takes the real signal with it
+      (`ENGINEERING_STANDARD.md` §4). `find` over the bundle settled it: the files are genuinely
+      absent, `server._STATIC` is resolving to the right place, and the check is honest.
+    - **THE FIX, and it is the first `(aad)` work that is not instrumentation:
+      `--collect-data truestill_app`.** Bundlers follow *imports*, and a data file is imported by
+      nothing, so a spec that says nothing about it ships without it. Proved red then green on a
+      real artifact: without the flag, three `missing` findings and exit 1; with it, fonts,
+      notice, templates, `app.js` and both stylesheets all collected, every finding `ok`, exit 0.
+      **Any PyInstaller-based spec must carry it**; Briefcase collects `app_packages` wholesale
+      and should not need an equivalent, which the Linux lane now checks rather than assumes.
+    - **OPEN AND UNEXPLAINED, deliberately left so: the 2026-08-01 Windows run `30692798020`
+      reported *"assertion 4 PASS - HTTP 200"*.** If templates were uncollected then as they are
+      now, that should not have been possible. Either that run was measuring something other than
+      what it claimed, or the collection behaviour has changed since - **each is a finding, and
+      neither is established.** Not resolved with a theory here; it needs evidence.
+    - **The Windows lane produced NO measurement, for two faults, neither in the self-check.**
+      Briefcase failed on the network (*"Unable to download RCEdit; is your computer offline?"*),
+      and `measure` died at `launch-detached.ps1:72` - `CreateProcess failed ... (win32 error 3)`,
+      `ERROR_PATH_NOT_FOUND`, with `PYINSTALLER_OUTCOME: success`. A terminating `throw` aborted
+      the step before any findings file, including its own control, so the comparison correctly
+      reported *"no findings files at all"* and failed rather than passing. **This is older than
+      today and deterministic:** the same line, exe and error code appear in run `30694297381`
+      (2026-08-01), the only dispatch after `5e3d627` added the detached launcher - **it has never
+      once succeeded.** Tracked as its own thread; it blocks a lane, not a criterion.
+    - **Three faults of the instrument's own, found by the same run and fixed:** the comparison
+      script read only the rig's `--probe` envelope and so reported *"the artifact never ran it"*
+      about an artifact that had run it and failed - **the rig's own fence forbids exactly that
+      ambiguity**, and it now distinguishes *build produced nothing* / *never ran the checks* /
+      *ran and failed*; the Linux diagnostic died under `set -e` before printing what the artifact
+      said, so the answer survived only in the uploaded artifact, and that step now reports rather
+      than gates; and the Linux lane's missing bundler, above.
   - **PyPI stays**, as the developer / self-hosted channel. It stops being the *primary* one.
   - **MEASURED, THEN DECLINED (2026-08-01). The ~90 MB stays in the build.** Ruled on product
     grounds: at this size the download is unremarkable for a desktop app - **VS Code is ~350 MB

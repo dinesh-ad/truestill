@@ -40,45 +40,115 @@ def _repository_digests() -> dict[str, tuple[int, str]]:
     return expected
 
 
+def _findings_in(payload: dict[str, object]) -> list[dict[str, object]] | None:
+    """The findings list, from **either** envelope - or ``None`` when there is not one.
+
+    Two producers write self-check results and they wrap them differently, which is exactly the
+    defect this function exists to end. ``truestill-app --self-check`` writes
+    `truestill_core.selfcheck.write_findings`' own shape (``complete`` / ``worst`` / ``findings``);
+    the rig's ``--probe`` nests the same list under a ``selfcheck`` key beside its other
+    measurements. Reading only the second is what made the first real run report *"the artifact
+    never ran it"* about an artifact that had run it and reported three missing typefaces.
+
+    ``None`` means **no self-check is present**, which is a different fact from **it failed** -
+    see `_compare`.
+    """
+    nested = payload.get("selfcheck")
+    if isinstance(nested, dict) and isinstance(nested.get("findings"), list):
+        return list(nested["findings"])
+    direct = payload.get("findings")
+    if isinstance(direct, list):
+        return list(direct)
+    return None
+
+
+def _evidence(finding: dict[str, object]) -> dict[str, object]:
+    """A finding's evidence map, or an empty one. Narrowed here so every caller is typed."""
+    value = finding.get("evidence")
+    return value if isinstance(value, dict) else {}
+
+
 def _compare(findings_path: Path) -> list[str]:
-    """Every way this artifact disagrees with the repository, as sentences. Empty means agreed."""
+    """Every way this artifact disagrees with the repository, as sentences. Empty means agreed.
+
+    **Three outcomes, kept apart, because collapsing them is the fault this file already
+    committed once.** The rig's own scope fence says *"no file must never be ambiguous between a
+    failed build and a job that never ran"*, and the first run of this script broke that rule in
+    the other direction - it reported an artifact that ran the checks and failed them as one that
+    never ran them, naming the wrong cause in the one line anybody reads.
+
+    * **the build never produced an artifact** - there is nothing to have checked;
+    * **the artifact never ran the checks** - a findings file with no self-check in it at all;
+    * **the artifact ran them and something is wrong** - which is a real measurement and the only
+      one of the three that says anything about the bundle.
+    """
     problems: list[str] = []
     try:
         payload = json.loads(findings_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         return [f"{findings_path.name}: could not be read ({exc})"]
 
-    selfcheck = payload.get("selfcheck")
-    if not isinstance(selfcheck, dict):
-        # NOT the same as "the checks failed". A findings file without this key came from a build
-        # that never ran them, and reporting that as a pass is the exact ambiguity this rig has
-        # already paid for once.
-        return [f"{findings_path.name}: no self-check in the findings - the artifact never ran it"]
-
-    findings = selfcheck.get("findings", [])
+    findings = _findings_in(payload)
+    if findings is None:
+        # A build that produced nothing says so in its own words; anything else is an artifact
+        # that existed and was never asked. The two need different next actions - fix the build,
+        # or fix the step that was supposed to ask - so they get different sentences.
+        built_nothing = (
+            payload.get("measured") is False
+            or "build_outcome" in payload
+            # An explicit `"selfcheck": null` is a producer saying "there was no artifact to ask",
+            # which is not the same as never having written the key at all.
+            or ("selfcheck" in payload and payload["selfcheck"] is None)
+        )
+        if built_nothing:
+            why = payload.get("reason") or payload.get("build_outcome") or "reason not recorded"
+            return [
+                (
+                    f"{findings_path.name}: THE BUILD PRODUCED NO ARTIFACT ({why}) - "
+                    f"nothing was checked, and that is not a pass"
+                )
+            ]
+        return [
+            (
+                f"{findings_path.name}: THE ARTIFACT NEVER RAN THE SELF-CHECK - a findings file "
+                f"with no findings in it. Not the same as the checks failing; nothing was measured"
+            )
+        ]
     for finding in findings:
         if finding.get("status") in {"degraded", "missing"}:
             problems.append(
-                f"{findings_path.name}: {finding['name']} is {finding['status']} - "
-                f"{finding['detail']}"
+                f"{findings_path.name}: RAN AND FAILED - {finding.get('name')} is "
+                f"{finding.get('status')} - {finding.get('detail')}"
             )
 
     expected = _repository_digests()
-    reported = {
-        Path(str(f["evidence"]["path"])).name: f["evidence"]
-        for f in findings
-        if f["name"].startswith("font ") and "sha256" in f.get("evidence", {})
-    }
+    # Keyed on every asset finding, not only the ones carrying a digest. A file the artifact
+    # reported as MISSING has no sha256, and treating that as "never reported" printed a second,
+    # wrong sentence underneath the true one - burying the finding it was meant to support.
+    reported: dict[str, dict[str, object]] = {}
+    for finding in findings:
+        evidence = _evidence(finding)
+        path = evidence.get("path")
+        if str(finding.get("name", "")).startswith("font ") and path is not None:
+            reported[Path(str(path)).name] = evidence
+
     for name, (size, digest) in expected.items():
-        seen = reported.get(name)
-        if seen is None:
-            problems.append(f"{findings_path.name}: {name} was never reported by the artifact")
+        evidence = reported.get(name, {})
+        if not evidence:
+            problems.append(
+                f"{findings_path.name}: {name} was never reported by the artifact - the check "
+                f"does not know about a file this repository ships"
+            )
             continue
-        if seen["bytes"] != size or seen["sha256"] != digest:
+        if "sha256" not in evidence:
+            # Already reported above as degraded or missing; saying it twice in different words
+            # is how a real finding gets lost in its own noise.
+            continue
+        if evidence.get("bytes") != size or evidence.get("sha256") != digest:
             problems.append(
                 f"{findings_path.name}: {name} is not the file this repository built - "
-                f"repository {size} bytes / {digest[:12]}, artifact {seen['bytes']} bytes / "
-                f"{str(seen['sha256'])[:12]}"
+                f"repository {size} bytes / {digest[:12]}, artifact "
+                f"{evidence.get('bytes')} bytes / {str(evidence.get('sha256'))[:12]}"
             )
     return problems
 

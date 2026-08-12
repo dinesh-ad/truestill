@@ -75,6 +75,12 @@ jobs:
 
       # --- PyInstaller ------------------------------------------------------------------
       # Unmeasured on Windows: the Linux run told us about PyInstaller's LINUX layout only.
+      #
+      # `--collect-data truestill_app` IS THE FIX FOR A REAL DEFECT, not a tidy-up: without it
+      # PyInstaller collects NONE of the app's data - no fonts, no licence, no templates, no
+      # app.js, no CSS - because bundlers follow imports and a data file is imported by nothing.
+      # Measured on 2026-08-12 (run 31634883775 and a local rebuild): 52 entries under
+      # `_internal/` and no `truestill_app` directory at all. See BACKLOG (aad).
       - name: Build (PyInstaller)
         id: pyinstaller
         continue-on-error: true
@@ -82,6 +88,7 @@ jobs:
         run: |
           uv run pyinstaller --noconfirm --clean --noconsole `
             --name truestill-probe-pyinstaller `
+            --collect-data truestill_app `
             --add-binary "$env:EXIFTOOL;bin" `
             --paths packaging `
             packaging/truestill_probe/__main__.py
@@ -328,15 +335,35 @@ jobs:
       - name: Sync workspace
         run: uv sync --all-packages --group dev --locked
 
+      # `--collect-data truestill_app`: see the Windows job's note. Without it the app's whole
+      # data tree - fonts, licence, templates, app.js, CSS - is absent from the bundle.
       - name: Build (PyInstaller)
         id: pyinstaller
         continue-on-error: true
         run: |
           uv run pyinstaller --noconfirm --clean --noconsole \
             --name truestill-probe-pyinstaller \
+            --collect-data truestill_app \
             --add-binary "$(command -v exiftool):bin" \
             --paths packaging \
             packaging/truestill_probe/__main__.py
+
+      # BRIEFCASE ON LINUX, added 2026-08-12 after the first dispatch shipped with PyInstaller
+      # only - a narrowing of the approved plan that was found by a question rather than reported.
+      #
+      # `linux system` is the target, and WHAT IT DOES AND DOES NOT ANSWER MATTERS. (aad) calls
+      # its FHS layout "required rather than chosen", so it settles nothing about binary
+      # resolution and does not replace that caveat. What it does answer is COLLECTION - does a
+      # Briefcase Linux bundle carry the fonts and the notice - which is a different question and
+      # the one the acceptance criteria ask. AppImage would need Docker on the runner; not taken
+      # here rather than taken quietly.
+      - name: Build (Briefcase)
+        id: briefcase
+        continue-on-error: true
+        working-directory: packaging
+        run: |
+          "$GITHUB_WORKSPACE/.venv/bin/briefcase" create linux system --no-input
+          "$GITHUB_WORKSPACE/.venv/bin/briefcase" build linux system --no-input
 
       # `--self-check` rather than `--probe`: the rig questions this file was built for are
       # Windows-only, and running them here would report "unavailable" three times and measure
@@ -344,35 +371,84 @@ jobs:
       #
       # A DATA DIRECTORY OF ITS OWN, so the findings name a path this job created rather than a
       # runner's home - the same isolation `conftest.py` gives the suite.
+      # THIS STEP REPORTS; IT DOES NOT GATE. A non-zero self-check is a FINDING - the whole
+      # reason the check exists - and the first dispatch proved why that matters: the binary
+      # exited 1 having correctly found three missing typefaces, `set -e` killed the step before
+      # the `cat`, and the log said nothing at all. The answer survived only in the uploaded
+      # artifact. The gate is the comparison step below, which is the one place that decides.
       - name: Self-check the frozen artifact
         id: selfcheck
         if: steps.pyinstaller.outcome == 'success'
-        continue-on-error: true
         env:
           TRUESTILL_DATA_DIR: ${{ github.workspace }}/probe-data
           TRUESTILL_CACHE_DIR: ${{ github.workspace }}/probe-cache
         run: |
           mkdir -p findings
+          set +e
           ./dist/truestill-probe-pyinstaller/truestill-probe-pyinstaller \
             --self-check findings/selfcheck-pyinstaller.json
-          echo "--- what the artifact reported ---"
-          cat findings/selfcheck-pyinstaller.json
+          code=$?
+          set -e
+          echo "--- what the PyInstaller artifact reported (exit $code) ---"
+          cat findings/selfcheck-pyinstaller.json || echo "no findings file was written"
+
+      # Briefcase ships an ordinary interpreter, so the entry point is the installed script
+      # rather than a frozen executable - and `sys.frozen` is absent, which the findings will
+      # show as `install: source checkout`. That is the known limit recorded at
+      # `binaries.is_bundled_install`, reported rather than worked around.
+      - name: Self-check the Briefcase artifact
+        id: selfcheck_briefcase
+        if: steps.briefcase.outcome == 'success'
+        env:
+          TRUESTILL_DATA_DIR: ${{ github.workspace }}/probe-data-briefcase
+          TRUESTILL_CACHE_DIR: ${{ github.workspace }}/probe-cache-briefcase
+        run: |
+          mkdir -p findings
+          exe=$(find packaging/build -type f -name 'truestill*probe*' -perm -u+x | head -1)
+          if [ -z "$exe" ]; then
+            echo '{"selfcheck": null, "build_outcome": "built, but no executable was found"}' \
+              > findings/selfcheck-briefcase.json
+          else
+            echo "briefcase exe: $exe"
+            set +e
+            "$exe" --self-check findings/selfcheck-briefcase.json
+            code=$?
+            set -e
+            echo "--- what the Briefcase artifact reported (exit $code) ---"
+            cat findings/selfcheck-briefcase.json || echo "no findings file was written"
+          fi
+
+      - name: Record a failed Briefcase build as a finding rather than as silence
+        if: always() && steps.briefcase.outcome != 'success'
+        run: |
+          mkdir -p findings
+          printf '{"selfcheck": null, "build_outcome": "briefcase build outcome was %s"}\n' \
+            "${{ steps.briefcase.outcome }}" > findings/selfcheck-briefcase.json
 
       # `always()`, and the reason is the one this rig has already paid for once: a build that
       # failed still needs a findings file SAYING SO. "No file" must never be ambiguous between a
       # failed build and a job that never ran.
-      - name: Record a failed build as a finding rather than as silence
+      - name: Record a failed PyInstaller build as a finding rather than as silence
         if: always() && steps.pyinstaller.outcome != 'success'
         run: |
           mkdir -p findings
-          printf '{"selfcheck": null, "note": "pyinstaller build outcome was %s"}\n' \
+          printf '{"selfcheck": null, "build_outcome": "pyinstaller build outcome was %s"}\n' \
             "${{ steps.pyinstaller.outcome }}" > findings/selfcheck-pyinstaller.json
 
       # The artifact reported what it HOLDS; this decides whether those are the right bytes,
       # because an artifact does not know what it was supposed to contain. Not continue-on-error.
+      # THE GATE, and the only one. It reads what each artifact reported and decides whether the
+      # bytes are the ones this repository built - the half an artifact cannot do for itself.
       - name: Compare the self-check against the repository
         if: always()
-        run: uv run python packaging/compare_selfcheck.py findings/selfcheck-pyinstaller.json
+        run: |
+          shopt -s nullglob
+          files=(findings/*.json)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo '::error::no findings files at all - nothing was measured'
+            exit 1
+          fi
+          uv run python packaging/compare_selfcheck.py "${files[@]}"
 
       - name: Upload findings
         if: always()

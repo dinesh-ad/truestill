@@ -142,6 +142,14 @@ def trash_finding() -> Finding:
     machine - degraded. Nothing at all means `clean-empty` refuses every folder
     (`IMPLEMENTATION_STANDARDS.md` §1: an absent backend is a refusal), which is a shipped feature
     that never works.
+
+    **`DEGRADED` IS NOT A PASS, AND THE NEXT PERSON WILL WANT TO MAKE IT ONE** - it works here,
+    after all. It is the same shape as `drive.DriveReach.OFFLINE` versus a drive that is gone:
+    both fail to answer right now, and folding them together loses the only distinction that
+    decides what to do about it. A `gio` answer means *this bundle has lost the declared
+    dependency and is being carried by the developer's desktop*, which is a statement about the
+    **bundle** on every platform, not about this machine. Reported as `OK` it would be a green
+    tick on Linux for a build that has no trash at all on the platform D9 launches first.
     """
     backend = trash_backend()
     if backend == DECLARED_TRASH_BACKEND:
