@@ -1433,6 +1433,15 @@ no composition refactor to schedule.
       caller puts it in `title`. A mutation dropping it kills the cry-wolf test, which is the one
       that matters here - an error truncated into unreadability trades a click-miss for an
       unusable message.
+      - **The bullet above claimed more coverage than it had, and the Windows lane said so the
+        same day** (CI run 31626239285). That cry-wolf test, and the tail test beside it, asserted
+        a planted 180-character name against `str(OSError)` - a property of POSIX error strings,
+        not of this code: `Path.mkdir(parents=True)` fails at a different node of its recursion on
+        Windows and names only the parent. **The bounding code was correct**; both tests were
+        repaired to assert `error_detail == str(exc)` verbatim and `failure.endswith(kept)`, and a
+        third now runs the contract against both platforms' recorded strings. Left standing rather
+        than rewritten - the record is what was believed then. `ENGINEERING_STANDARD.md` §4,
+        thirty-ninth member.
     - **Found while reading it: the client was WRAPPING the server's message in a second one.**
       `"Could not create this folder. " + r.error + " Choose another folder..."`, where `r.error`
       already ends *"Choose another location, or create it in your file manager."* The sentence

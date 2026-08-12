@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from starlette.testclient import TestClient
 from truestill_app.service.fs_browse import _ERROR_DETAIL_LIMIT, fs_create
 from truestill_core.catalog import Catalog
@@ -245,6 +246,44 @@ def test_clean_empty_preview_and_apply_key_sets(client: TestClient, tmp_path: Pa
     assert isinstance(applied["failures"], list)
 
 
+def _a_path_that_cannot_be_created(tmp_path: Path, long_name: str) -> Path:
+    """A path whose creation must fail: a long child of a plain **file**.
+
+    The obstacle is the file, never the length. Which component the OS names in the resulting
+    error differs by platform - see :func:`_mkdir_failure` - and no assertion below depends on
+    it. Shared by the three tests that follow so the only thing that differs between them is
+    their subject.
+    """
+    obstacle = tmp_path / "not-a-dir"
+    obstacle.write_bytes(b"x")
+    return obstacle / long_name / "leaf"
+
+
+def _mkdir_failure(target: Path) -> OSError:
+    """The `OSError` **this platform** raises for ``target`` - read here, never predicted.
+
+    `ENGINEERING_STANDARD.md` §4, thirty-ninth member: *a test whose subject is an OS-produced
+    string is a test of that OS.* The tests below are about what `fs_create` does **to** such a
+    string, so the string is an input to be measured rather than a marker to plant in the path
+    and look for afterwards.
+
+    **The divergence this exists for, because it cost a red Windows lane** (CI run 31626239285,
+    2026-08-12). `Path.mkdir(parents=True)` raises from a *different node of its own recursion*
+    per platform. POSIX fails the first `os.mkdir` with `ENOTDIR` - not a `FileNotFoundError`, so
+    pathlib re-raises immediately and the message names the **whole** path, long leaf included.
+    Windows returns `ERROR_PATH_NOT_FOUND` for that same call, which **is** a
+    `FileNotFoundError`, so pathlib recurses upward and finally fails at the obstacle itself with
+    `[WinError 183] Cannot create a file when that file already exists` - naming only the parent.
+    The leaf is absent from the Windows string entirely. Both are correct; neither is ours.
+    """
+    try:
+        target.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        assert not target.exists(), "the probe created the path it was supposed to fail on"
+        return exc
+    pytest.fail(f"{target} was created - the fixture no longer reproduces a failure")
+
+
 def test_a_create_failure_is_bounded_for_the_slot_it_lands_in(tmp_path: Path) -> None:
     """`(acw)`. The message goes into a hint span **above a button**, so an unbounded string there
     is a layout defect: two wrapped lines moved `#bk-preview` past the point a centre-aimed click
@@ -252,11 +291,7 @@ def test_a_create_failure_is_bounded_for_the_slot_it_lands_in(tmp_path: Path) ->
 
     The bound is on the layout, never on the information - see the next test.
     """
-    deep = tmp_path / "not-a-dir"
-    deep.write_bytes(b"x")  # a FILE, so mkdir beneath it fails
-    long_child = deep / ("a" * 180) / "leaf"
-
-    result = fs_create(str(long_child))
+    result = fs_create(str(_a_path_that_cannot_be_created(tmp_path, "a" * 180)))
 
     assert result["created"] is False
     reason = result["error"].split("(", 1)[1].rsplit(")", 1)[0]
@@ -267,23 +302,111 @@ def test_the_full_failure_is_still_delivered_beside_the_bounded_one(tmp_path: Pa
     """**THE CRY-WOLF HALF, and the one that matters most here.** An error truncated into
     unreadability trades a click-miss for an unusable message. `error_detail` carries the
     untruncated failure - the caller puts it in `title` - so the bound costs no information.
+
+    **`error_detail == str(exc)` verbatim is strictly stronger than the marker this used to look
+    for.** A truncation that happened to retain a planted 180-character name would satisfy the
+    old form; only equality with the platform's own failure says *untruncated*. It is also the
+    reason the test now passes on Windows, where the OS never mentions the marker at all.
     """
-    deep = tmp_path / "not-a-dir"
-    deep.write_bytes(b"x")
-    name = "b" * 180
-    result = fs_create(str(deep / name / "leaf"))
+    target = _a_path_that_cannot_be_created(tmp_path, "b" * 180)
+    failure = str(_mkdir_failure(target))
+    assert len(failure) > _ERROR_DETAIL_LIMIT, (
+        f"the fixture no longer produces a boundable failure ({len(failure)} chars): {failure!r}"
+    )
+
+    result = fs_create(str(target))
 
     assert result["created"] is False
-    assert name in result["error_detail"], "the untruncated failure did not survive"
-    assert len(result["error_detail"]) > len(result["error"])
-    assert name not in result["error"], "the bounded message is not actually bounded"
+    assert result["error_detail"] == failure, "the untruncated failure did not survive"
+    reason = result["error"].split("(", 1)[1].rsplit(")", 1)[0]
+    assert len(reason) < len(failure), "nothing was bounded here, so this proves nothing"
+    assert failure not in result["error"], "the bounded message is not actually bounded"
 
 
 def test_the_bounded_message_keeps_the_end_of_the_path(tmp_path: Path) -> None:
-    """The tail identifies the folder; the head is a prefix the user typed and already knows."""
-    deep = tmp_path / "not-a-dir"
-    deep.write_bytes(b"x")
-    result = fs_create(str(deep / ("c" * 180) / "the-leaf-that-matters"))
+    """The tail identifies the folder; the head is a prefix the user typed and already knows.
+
+    **The subject is which end of the failure we keep, not what the failure says.** Asserted
+    against the platform's own string, so it holds wherever the OS chose to point.
+    """
+    target = _a_path_that_cannot_be_created(tmp_path, "c" * 180)
+    failure = str(_mkdir_failure(target))
+    assert len(failure) > _ERROR_DETAIL_LIMIT, (
+        f"the fixture no longer produces a boundable failure ({len(failure)} chars): {failure!r}"
+    )
+
+    result = fs_create(str(target))
 
     assert result["created"] is False
-    assert "the-leaf-that-matters" in result["error"]
+    reason = result["error"].split("(", 1)[1].rsplit(")", 1)[0]
+    kept = reason.removeprefix("...")
+    assert kept, "nothing of the failure reached the message at all"
+    assert failure.endswith(kept), "the bounded message is not the END of the failure"
+    # The cry-wolf half, naming the implementation this must reject: a head-keeping bound
+    # (`failure[:57] + "..."`). The old assertion could only tell the two apart because the
+    # planted leaf happened to sit at the end of a POSIX error - an accident of the platform,
+    # not a property of the code.
+    assert not failure.startswith(kept), "the head was kept - the tail is what identifies it"
+
+
+#: Real `str(OSError)` renderings, one per platform, recorded rather than composed. The Windows
+#: line is the exact string from the failure this repair closes (CI run 31626239285, job
+#: `check (windows-latest)`, 2026-08-12); the POSIX line is from the same fixture on Linux.
+#:
+#: **They are what makes the shape difference visible on one lane.** `make check` runs on the
+#: developer's OS, so a bound that silently depended on POSIX punctuation - splitting on `/`, or
+#: assuming a trailing quoted `/`-separated tail - would stay green here and break on Windows.
+_RECORDED_FAILURES = {
+    "posix": ("[Errno 20] Not a directory: '/tmp/tmp8leyu38h/not-a-dir/" + "b" * 180 + "/leaf'"),
+    "windows": (
+        "[WinError 183] Cannot create a file when that file already exists: "
+        r"'C:\Users\runneradmin\AppData\Local\Temp\pytest-of-runneradmin\pytest-0"
+        r"\popen-gw0\test_the_full_failure_is_still0\not-a-dir'"
+    ),
+}
+
+
+class _RecordedFailureError(OSError):
+    """An `OSError` whose ``str()`` is one a real platform really produced.
+
+    Constructing a `[WinError 183]` rendering is not possible off Windows - ``winerror`` is set
+    by the OS - so the rendering is carried rather than rebuilt. Overriding ``__str__`` is the
+    whole trick, because `_short_reason` reads exactly that and nothing else.
+    """
+
+    def __init__(self, rendered: str) -> None:
+        super().__init__(rendered)
+        self._rendered = rendered
+
+    def __str__(self) -> str:
+        return self._rendered
+
+
+@pytest.mark.parametrize("platform", sorted(_RECORDED_FAILURES))
+def test_the_bound_holds_for_either_platform_s_error_shape(
+    monkeypatch: pytest.MonkeyPatch, platform: str
+) -> None:
+    """The contract, against both real error shapes, on whichever lane is running.
+
+    **What this does and does not detect, stated so it is not read as more than it is.** It does
+    **not** catch the defect that produced it - that was a *test* asserting an OS string, and a
+    correct implementation passes this either way. It catches the next one: a change to
+    `_short_reason` that is right about POSIX punctuation and wrong about a Windows path. That
+    class currently has no detector outside the Windows lane, which is a 14-minute round trip.
+
+    Patched on `Path`, the module that owns ``mkdir``, never on a re-export - §4, third member.
+    """
+    failure = _RECORDED_FAILURES[platform]
+
+    def _raise(*_args: object, **_kwargs: object) -> None:
+        raise _RecordedFailureError(failure)
+
+    monkeypatch.setattr(Path, "mkdir", _raise)
+
+    result = fs_create("/anywhere/at/all")
+
+    assert result["created"] is False
+    assert result["error_detail"] == failure, "the untruncated failure did not survive"
+    reason = result["error"].split("(", 1)[1].rsplit(")", 1)[0]
+    assert len(reason) <= _ERROR_DETAIL_LIMIT, f"{len(reason)} chars reached the hint: {reason!r}"
+    assert failure.endswith(reason.removeprefix("...")), "the bound did not keep the END"

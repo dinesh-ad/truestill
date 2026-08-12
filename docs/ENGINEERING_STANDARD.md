@@ -684,6 +684,53 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   asks whether it *is*. Where the two disagree the mutation is right, and the cost of skipping it
   is a suite everyone believes has been verified.
 
+- **A test whose subject is an OS-PRODUCED STRING is a test of that OS.** The thirty-ninth
+  member, and it is stated fastest by example: `(acw)` left **three tests in one file sharing one
+  fixture, and only the one asserting a property of OUR output survived the Windows lane.**
+  `test_a_create_failure_is_bounded_for_the_slot_it_lands_in` asserts
+  `len(reason) <= _ERROR_DETAIL_LIMIT` and stayed green; the two that reached into the OS's own
+  string went red on the same fixture, on the same day it was written (`197286e`, then CI run
+  31626239285, 2026-08-12).
+
+  Sibling of the tenth member above, and the difference is which way the OS enters. There it
+  *substitutes* for our artifact and the assertion passes without it. Here the OS's output **is**
+  the subject, so the test pins a platform's behaviour while reading as a test of ours - and it
+  fails on **correct code**, which is what makes it expensive: the red points at the
+  implementation, and the cheapest way to green is to weaken the assertion.
+
+  **THE MECHANISM IS NOT THAT THE OS WORDS IT DIFFERENTLY. IT IS THAT THE OS FAILS AT A DIFFERENT
+  POINT** - and the distinction decides what you do next. "Different wording" sends you reaching
+  for a looser assertion; "different failure point" tells you the assertion was never about words.
+  `fs_create` bounds `str(OSError)` to 60 characters keeping the tail, and two tests planted a
+  180-character name in the path and looked for it afterwards. `Path.mkdir(parents=True)` **raises
+  from a different node of its own recursion per platform**: POSIX fails the first `os.mkdir` with
+  `ENOTDIR`, which is not a `FileNotFoundError`, so pathlib re-raises at once naming the **whole
+  path**; Windows gets `ERROR_PATH_NOT_FOUND` for that same call, which *is* a
+  `FileNotFoundError`, so pathlib recurses upward and fails at the obstacle with `[WinError 183]`,
+  naming only the **parent**. The planted name is absent from the Windows string entirely. Both
+  errors are correct, they describe different operations, and **the bounding code was right on
+  both**.
+
+  **The repair is stronger, never weaker.** Read the platform's error in the test and assert the
+  *relation* our code promises against it: `error_detail == str(exc)` verbatim - which a
+  truncation retaining a planted marker would satisfy and cannot satisfy now - and
+  `failure.endswith(kept)` for the tail rule. Neither mentions a path component.
+
+  *Suspect it wherever an assertion contains a string the OS composed:* `str(OSError)`, `errno`
+  text, `shutil` messages, a locale-formatted date, a resolved temp path, a subprocess's stderr.
+  Ask **"did we write this string?"** If not, assert what we do *to* it.
+
+  **`make check` cannot catch this class, and no guard is offered for it.** The gate runs on one
+  OS and the truth is a difference between OSes; the Windows lane is the detector, at a
+  14-minute round trip. A mechanical check for *"this assertion's subject is an OS string"* is not
+  expressible, so it is recorded as absent rather than approximated - this member and the lane are
+  the control. What *can* come back to the local lane is the **next** defect: carry the real
+  strings from both platforms as recorded fixtures and run the contract against both
+  (`test_the_bound_holds_for_either_platform_s_error_shape`), so a bound that quietly depends on
+  POSIX punctuation fails here. That does **not** catch a test asserting an OS string - a correct
+  implementation passes it either way - and saying so is the point, because the alternative is a
+  lane everyone believes is now covered.
+
 - **Assert that a stylesheet token RESOLVES, not that its text looks right.** The eleventh
   member, and the only one about a gate that cannot see the artifact at all. `make check` runs
   ruff, mypy and pytest; **none of them reads CSS**, so a stylesheet is unguarded except by the
