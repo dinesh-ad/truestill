@@ -1813,6 +1813,45 @@ section, because what is left is the part that still has to be written.
         `ENGINEERING_STANDARD.md` §4 already names the remedy - **a design is not checked against
         the contract until somebody quotes the clause it touches** - and neither instance quoted
         anything.
+    - ✅ **THE SERVING HALF IS DISCHARGED TOO (run 31637337544). CRITERION 2 IS COMPLETE ON
+      PyInstaller/Linux - collected, intact, AND served.** Assertion 3: the session URL file was
+      written. Assertion 4: `HTTP 200` for the page. Assertion 5, each asset fetched from the
+      running artifact and compared against the checkout:
+      `DejaVuSansMono.ttf HTTP 200, 343140 bytes (repository: 343140)`,
+      `DejaVuSansMono-Bold.ttf HTTP 200, 334268 (334268)`,
+      `LICENSE-DejaVu.txt HTTP 200, 4007 (4007)`.
+      - *It took a second attempt for a reason worth keeping:* the step was **appended after the
+        comparison**, which is the job's gate, and a step guarded by an ordinary `if:` is skipped
+        once the job has failed - so the serving proof was skipped by the very gate it feeds.
+        Ordering is load-bearing when the last step is a gate.
+    - 🔴 **THE FIRST SUBSTANTIVE LINUX FINDING, and it is a real input to the bundler decision:
+      BRIEFCASE'S `linux system` TARGET CANNOT BUILD TRUESTILL ON THE CURRENT UBUNTU LTS.** Not
+      config, not the rig - pip's own words from the build log:
+      **`ERROR: Package 'truestill-core' requires a different Python: 3.12.3 not in '>=3.13'`**.
+      - **The mechanism is the target's whole model.** A `linux system` package **links against
+        the distro's Python** and installs the app's requirements with it. Ubuntu 24.04 `noble`
+        ships **3.12.3**; all three truestill packages declare **`requires-python = ">=3.13"`**.
+        The two cannot both hold.
+      - **So the `.deb` route via `linux system` is blocked** until one of: truestill supports
+        3.12, the target distro ships 3.13, or a different Briefcase Linux target is used -
+        **AppImage bundles its own interpreter and would not have this problem**, and it needs
+        Docker on the runner, which this lane deliberately does not take.
+      - **PyInstaller has no equivalent constraint**: it ships its own interpreter, which is why
+        the same repository froze and passed both criteria in the same job.
+      - **This is exactly what adding Briefcase to the Linux lane was for.** Without it the
+        constraint would have been met when a bundler was chosen rather than before, which is the
+        position `(aad)` exists to avoid.
+    - **The Windows lane produced its first findings ever, and they narrow `win32 error 3` by
+      elimination.** Turning the launcher's terminating `throw` into a per-artifact finding is
+      what made the run say anything at all; the instrumented message then removed both obvious
+      causes. For **both** bundlers: `exe exists: True`, `working directory exists: True`,
+      command line absolute and fully quoted - and `CreateProcess` still returns
+      `ERROR_PATH_NOT_FOUND`. **Two different executables in two different trees failing
+      identically points at the P/Invoke rather than at any path.** The leading candidate is that
+      `lpApplicationName` is declared `string` and given `$null` from PowerShell, which marshals
+      as an **empty string rather than NULL** - and an empty application name is a path
+      CreateProcess cannot find, which would explain an identical failure for any executable.
+      **Not yet fixed and not yet proven**; recorded as the next step for that thread.
     - **Three faults of the instrument's own, found by the same run and fixed:** the comparison
       script read only the rig's `--probe` envelope and so reported *"the artifact never ran it"*
       about an artifact that had run it and failed - **the rig's own fence forbids exactly that
