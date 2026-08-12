@@ -55,9 +55,21 @@ from typing import Protocol, Self
 #: **Correction to the original tuning note**, which claimed 4.0 "keeps a multi-day trip whole".
 #: That was true only of the synthetic fixtures it was tuned on, which have uniform intra-event
 #: spacing -- the one condition under which a purely relative threshold behaves. It is false on
-#: real data, and it is doubly false now: every overnight gap exceeds
-#: :data:`MIN_BOUNDARY_GAP_S`, so **segmentation produces within-day clusters only**. Multi-day
-#: trips are grouped explicitly, above this layer, rather than being hoped for here.
+#: real data. Multi-day trips are grouped explicitly, above this layer, rather than being hoped
+#: for here.
+#:
+#: ⚠ **A SECOND CORRECTION, 2026-08-12 (`(adc)`): this note used to add "every overnight gap
+#: exceeds MIN_BOUNDARY_GAP_S, so segmentation produces within-day clusters only". That is
+#: FALSE, and it was false on the library it was tuned against.** Of 16 consecutive pairs that
+#: change calendar day there, one is **43.9 minutes** -- `2014-08-15 23:19:29 -> 2014-08-16
+#: 00:03:25` -- which is *below* the floor and therefore cannot be a boundary, so the segment
+#: containing it spans the day. A night photographed across midnight is ordinary, not exotic.
+#:
+#: What remains true, for a reason this note did not give: **no emitted event spans a calendar day
+#: on that library, because that segment holds 4 files against** :data:`DEFAULT_MIN_FILES` **of
+#: 8** -- the minimum-files filter, not the gap floor. A fifth photo that night ends it. Anything
+#: relying on within-day clusters must therefore say so itself; `trips.detect_trips` does, by
+#: keying on each cluster's **start** date.
 DEFAULT_SENSITIVITY = 4.0
 
 #: A gap must be at least this long to be a boundary, however unusual it looks locally. A pause

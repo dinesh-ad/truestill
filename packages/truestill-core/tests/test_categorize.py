@@ -117,3 +117,43 @@ def test_sanitize_label_strips_path_separators() -> None:
     assert "/" not in sanitize_label("Adobe/Photoshop")
     assert sanitize_label("   ") == SAVED_LABEL
     assert len(sanitize_label("x" * 200)) <= 60
+
+
+# --- (ade): the Twitter convention must not claim a hex hash ------------------------------
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "e6d9eca2c7405e13cfb850b7d0ef7476.jpg",  # all six of these are real corpus files
+        "ef1f8a057bb6056674fad92f6b8c0acd.jpg",
+        "e18bb52107598f65b81b02be2c6c5124.jpg",
+        "E6D9ECA2C7405E13CFB850B7D0EF7476.jpg",  # uppercase hex - the same string, shouted
+        "eedcba9876543210fedcba9876543210.jpg",
+    ],
+)
+def test_an_md5_named_jpeg_is_not_a_twitter_file(name: str) -> None:
+    """`(ade)`. `^(?:twitter_|E[A-Za-z0-9_-]{12,}\\.jpg$)` is compiled `re.IGNORECASE`, so its `E`
+    alternative claimed **any hex hash beginning with `e`** - one JPEG in sixteen from any
+    hash-named source (browser saves, some cloud exports). Six real files in the sample corpora.
+
+    It costs no date, since such names carry none; it files someone's photo under `Twitter/`.
+    """
+    assert categorize(Path(name), {}).label != "Twitter"
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "EqZbFmXXsAAy-Lc.jpg",  # the real shape: base64url, mixed case, and a '-'
+        "E_lRz9RXsAIq7Ru.jpg",
+        "EtGjKlMnOpQrStU.jpg",
+        "Ezzzzzzzzzzzzzz.jpg",
+    ],
+)
+def test_a_real_twitter_media_id_is_still_claimed(name: str) -> None:
+    """CRY-WOLF HALF. Twitter media ids are base64url, so they carry letters beyond `f` or a
+    `-`/`_` - characters hex cannot produce. That is the discriminator, rather than case, because
+    an uppercased hash is still a hash.
+    """
+    assert categorize(Path(name), {}).label == "Twitter"

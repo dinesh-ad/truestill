@@ -149,3 +149,47 @@ def test_a_bridged_interior_day_stays_inside_the_span_but_absent_from_days() -> 
     assert trip.end_date == day_five
     assert dead_day not in trip.days
     assert dict(trip.days) == {day_one: 10, day_two: 10, day_four: 10, day_five: 10}
+
+
+def test_a_cluster_that_spans_midnight_contributes_one_active_day_on_purpose() -> None:
+    """`(adc)`. Measured on the real library 2026-08-12: segmentation **does** span midnight.
+
+    Of 16 consecutive pairs that change calendar day in the reference library, one is **43.9
+    minutes** - `2014-08-15 23:19:29 -> 2014-08-16 00:03:25` - which is below
+    `events.MIN_BOUNDARY_GAP_S`, so it cannot be a boundary and the segment holding it straddles
+    the day. `detect_trips` had flagged that as "possible in principle, unobserved on the real
+    library"; it is now observed.
+
+    **`active_days` reads `cluster.start.date()` and that is correct, not an oversight.** One
+    continuous session is one span of activity, whatever the clock did in the middle of it. A New
+    Year party photographed from 23:00 to 01:00 is not a two-day trip, and counting both dates
+    would manufacture a `_MIN_TRIP_DAYS` run out of a single evening.
+
+    **THE DETECTOR.** Nothing else notices if someone "improves" this to every date a cluster
+    touches - the change looks strictly more faithful to the phrase "a calendar date that produced
+    at least one entry in clusters" and would silently start proposing trips for parties.
+    """
+    spanning = EventCandidate(
+        items=tuple(
+            EventItem(key=f"nye-{i}", captured_at=stamp, sha256=f"n{i:063d}")
+            for i, stamp in enumerate(
+                (
+                    datetime(2014, 8, 15, 23, 19, 29),
+                    datetime(2014, 8, 15, 23, 55, 0),
+                    datetime(2014, 8, 16, 0, 3, 25),
+                    datetime(2014, 8, 16, 0, 40, 0),
+                )
+            )
+        )
+    )
+    assert spanning.start.date() != spanning.end.date(), "the fixture no longer spans midnight"
+
+    all_items = _items_on(date(2014, 8, 15), 4) + _items_on(date(2014, 8, 16), 4)
+    result = detect_trips(all_items, [spanning])
+
+    assert result.proposals == [], "one evening across midnight was proposed as a trip"
+    assert result.declines == [], "and it is not a decline either - it is a day event"
+
+    # Deliberately NOT the 31 Dec / 1 Jan pair: `_split_at_year_boundary` splits that into two
+    # one-day pieces, so the year rule would mask this and the mutation above would escape. The
+    # dates here are the real measured pair, which sits mid-August and has no such cover.

@@ -141,9 +141,22 @@ NAME_PATTERNS: tuple[NamePattern, ...] = (
         "WeChat", re.compile(r"^(?:mmexport|wx_camera_)\d+", re.IGNORECASE), "WeChat naming"
     ),
     NamePattern("Discord", re.compile(r"^discord_", re.IGNORECASE), "name prefix"),
+    # The `E...` alternative needs a **non-hex character** to fire. Without one it claimed any MD5
+    # hash beginning with `e` - roughly one hash-named JPEG in sixteen, from browser saves and some
+    # cloud exports - and filed the photo under `Twitter/`. Six real files in the sample corpora
+    # (`(ade)`, measured 2026-08-12).
+    #
+    # **The discriminator is the character set, not the case.** `re.IGNORECASE` is what let a
+    # lowercase hash match `E`, but tightening to a capital `E` alone would still claim an
+    # UPPERCASED hash, which is the same string shouted. A Twitter media id is base64url, so over
+    # 15 characters it carries a letter beyond `f` or a `-`/`_` with overwhelming probability; hex,
+    # by definition, never can.
     NamePattern(
         "Twitter",
-        re.compile(r"^(?:twitter_|E[A-Za-z0-9_-]{12,}\.jpg$)", re.IGNORECASE),
+        re.compile(
+            r"^(?:twitter_|E(?=[A-Za-z0-9_-]*[g-zG-Z_-])[A-Za-z0-9_-]{12,}\.jpg$)",
+            re.IGNORECASE,
+        ),
         "name prefix",
     ),
     NamePattern("Line", re.compile(r"^line_\d+", re.IGNORECASE), "name prefix"),

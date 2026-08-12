@@ -1421,6 +1421,45 @@ no composition refactor to schedule.
 
 ## Shipped (kept for provenance)
 
+- **(adc) CLOSED 2026-08-12: a documented clustering invariant was false, and the code was
+  right.** Decided and closed on the evidence in the entry; **no production behaviour changed**,
+  which is the finding.
+  - **What was false.** `events.py`'s `DEFAULT_SENSITIVITY` note claimed "every overnight gap
+    exceeds `MIN_BOUNDARY_GAP_S`, so segmentation produces within-day clusters only", and
+    `trips.py` built its module docstring on it: "a cluster never spans midnight on real data".
+    Of 16 consecutive day-changing pairs in the reference library one is **43.9 minutes**
+    (`2014-08-15 23:19:29 -> 2014-08-16 00:03:25`) - below the floor, so it cannot be a boundary
+    and the segment straddles the day.
+  - **What is true, for a reason the note did not give.** No *emitted* event spans a day on that
+    library because the spanning segment holds **4 files against `DEFAULT_MIN_FILES` of 8** - the
+    minimum-files filter, not the gap floor. A fifth photo that night ends it.
+  - **The ruling: correct the documents, do not touch the clustering.** Forcing a break at midnight
+    would split a night photographed across it, which is a real event and not two.
+    `trips.detect_trips` already keys off `cluster.start.date()`, so nothing depended on the false
+    half - and that start-date rule is now stated as **the rule** rather than as an approximation
+    of a stronger one. Its own docstring had flagged the case as "possible in principle,
+    unobserved on the real library"; it is now observed, and says so.
+  - **The detector, because nothing else would notice.** Reading every date a cluster *touches*
+    looks strictly more faithful to the old phrase "a calendar date that produced at least one
+    entry in clusters", and would silently start proposing a two-day trip for one party.
+    `test_a_cluster_that_spans_midnight_contributes_one_active_day_on_purpose` fails on exactly
+    that change. Its fixture deliberately avoids 31 Dec / 1 Jan: the year split would mask the
+    mutation there, and the first version of the test proved it by letting the mutant escape.
+
+- **(ade) CLOSED 2026-08-12: the Twitter filename convention claimed any MD5-named JPEG beginning
+  with `e`.**
+  - `^(?:twitter_|E[A-Za-z0-9_-]{12,}\.jpg$)` compiled `re.IGNORECASE`, so the `E` alternative
+    matched a lowercase hex hash - roughly **one hash-named JPEG in sixteen**, which is browser
+    saves and some cloud exports. Six real files in the sample corpora. It cost no *date* (those
+    names carry none); it filed someone's photo under `Twitter/`.
+  - **The discriminator is the character set, not the case**, and that distinction is the whole
+    fix. Tightening to a capital `E` would still claim an UPPERCASED hash - the same string
+    shouted. A Twitter media id is base64url, so beyond 15 characters it carries a letter past `f`
+    or a `-`/`_`; hex by definition cannot. A lookahead requires one.
+  - Proved by mutation in both directions, including a mutant that fixes it *by case* - that one
+    dies on the uppercase-hash case, which is why the comment says what it says. Verified on the
+    corpus that found it: **0 of 9,294** names now claimed.
+
 - **BUILT 2026-08-12: the date resolver's wrong answers, then its largest gap. No letter - this
   came out of a measurement (`docs/date-resolver-corpus-measurement.md`), not the backlog.**
   - **Ordering was the decision, and it followed from the numbers.** Tier 4 produced **zero**

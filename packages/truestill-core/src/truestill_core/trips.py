@@ -4,10 +4,16 @@ Pure detection only -- Stage 2b of `trip-grouping-research.md`. No schema, no `t
 tables, no layout template, no file placement, no migration; those are Stages 2c-2e.
 
 A **sibling module to `events.py`, not an addition to it.** `events.py`'s own docstring scopes it
-to within-day clustering, and by construction every overnight gap in the tuned thresholds exceeds
-`MIN_BOUNDARY_GAP_S` -- a cluster never spans midnight on real data (see its `DEFAULT_SENSITIVITY`
-docstring). A trip is a second, explicit layer above that: a named span of *days*, built from
-which calendar days produced a cluster at all, never from loosening the within-day rule.
+to within-day clustering. A trip is a second, explicit layer above that: a named span of *days*,
+built from the calendar day each cluster **starts** on, never from loosening the within-day rule.
+
+**This module used to claim that "a cluster never spans midnight on real data", and that claim was
+false** (`(adc)`, corrected 2026-08-12). Of 16 consecutive pairs that change calendar day in the
+reference library, one is **43.9 minutes** -- `2014-08-15 23:19:29 -> 2014-08-16 00:03:25` -- which
+is below `events.MIN_BOUNDARY_GAP_S` and therefore cannot be a boundary, so the segment containing
+it straddles the day. Nothing here depended on the false half: `active_days` keys off
+`cluster.start.date()`, which is the deliberate rule and not an approximation of a stronger one --
+see `detect_trips`.
 """
 
 from __future__ import annotations
@@ -111,8 +117,8 @@ def detect_trips(
 ) -> TripDetectionResult:
     """Group consecutive active days into candidate trips. Pure -- no I/O, nothing re-read.
 
-    An **active day** is a calendar date that produced at least one entry in ``clusters`` (the
-    Stage 1 rule) -- never a date with photos alone. That is what stops a two-day, two-photo run
+    An **active day** is a calendar date on which at least one entry in ``clusters`` **starts**
+    (the Stage 1 rule) -- never a date with photos alone. That is what stops a two-day, two-photo run
     of stragglers from ever proposing a trip: see `trip-grouping-research.md` §4.
 
     ``all_items`` supplies the *count* for each active day -- every photo taken that day, cluster
@@ -138,11 +144,17 @@ def detect_trips(
     date. A run of a single active day is never a trip and produces neither a proposal nor a
     decline; it is left for the day-event layer.
 
-    **Edge case flagged, not solved here**: a cluster is assumed to fall entirely within one
-    calendar day, per `events.py`'s stated (empirical, not structurally enforced) invariant. A
-    cluster whose members straddle midnight without a qualifying gap -- possible in principle,
-    unobserved on the real library -- contributes only its first member's date as active; the rest
-    of its span is not separately accounted for. Not exercised by any fixture here.
+    **A cluster that straddles midnight contributes ONE active day -- its start -- and that is the
+    rule rather than a limitation.** `(adc)`: this used to read "possible in principle, unobserved
+    on the real library"; it is now measured on the real library (a 43.9-minute overnight gap, see
+    the module docstring), so the case is live and the behaviour is deliberate. One continuous
+    session is one span of activity whatever the clock did inside it; a party photographed from
+    23:00 to 01:00 is not a two-day trip, and counting both dates would manufacture a
+    ``_MIN_TRIP_DAYS`` run out of a single evening.
+
+    Pinned by `test_a_cluster_that_spans_midnight_contributes_one_active_day_on_purpose`, which
+    exists because the plausible "improvement" -- every date a cluster touches -- reads as more
+    faithful and nothing else would notice it.
 
     Complexity: **O(N) to total ``all_items`` by date** (unavoidable -- it is the only source of
     the straggler count) **+ O(D log D) to sort the distinct active-day set + O(D)** for the run
