@@ -65,7 +65,12 @@ class FsValidateUnresolved(TypedDict):
 
 class FsCreateFailed(TypedDict):
     created: Literal[False]
+    #: Bounded, because it lands in a hint span above a button - see `_ERROR_DETAIL_LIMIT`.
     error: str
+    #: The same failure, untruncated, for a surface with room. **The pair is the point:** bounding
+    #: the layout must never bound the information, so the caller shows `error` and carries this
+    #: in `title`.
+    error_detail: str
 
 
 class FsCreateOk(FsValidateResolved):
@@ -131,6 +136,28 @@ def fs_dirs(path_str: str) -> FsDirsOk | FsDirsErr:
     return {"path": str(path), "parent": parent, "roots": fs_roots(), "entries": entries}
 
 
+#: How much of an `OSError` may reach the screen. **An unbounded string in a hint span is a
+#: layout defect rather than an untidiness** (`(acw)`): the hint sits above `#bk-preview`, and two
+#: wrapped lines moved that button +31.2px, past the 17.4px at which a centre-aimed click leaves
+#: it. `str(OSError)` embeds the offending path, which has no length limit at all - so the hint's
+#: reserve cannot be exact until this is bounded. Bound the input, then reserve; not the reverse.
+#:
+#: 60 characters holds `[Errno 13] Permission denied: ...` plus a usable tail of the path, and
+#: keeps the whole sentence inside the two lines the hint reserves.
+_ERROR_DETAIL_LIMIT = 60
+
+
+def _short_reason(exc: OSError) -> str:
+    """An `OSError` trimmed to what a hint can hold, keeping the END of a long path.
+
+    The tail identifies the folder; the head is a prefix the user typed and already knows.
+    """
+    text = str(exc)
+    if len(text) <= _ERROR_DETAIL_LIMIT:
+        return text
+    return f"...{text[-(_ERROR_DETAIL_LIMIT - 3) :]}"
+
+
 def fs_create(path_str: str) -> FsCreateOk | FsCreateFailed:
     """Create a folder (and parents) - for the "Create it?" action on a new backup destination."""
     path = Path(path_str).expanduser()
@@ -140,9 +167,10 @@ def fs_create(path_str: str) -> FsCreateOk | FsCreateFailed:
         return {
             "created": False,
             "error": (
-                f"Couldn't create this folder ({exc}). "
+                f"Couldn't create this folder ({_short_reason(exc)}). "
                 "Choose another location, or create it in your file manager."
             ),
+            "error_detail": str(exc),
         }
     validated = fs_validate(str(path))
     # Same spread the untyped path used; cast records the post-create resolved shape.

@@ -1696,7 +1696,21 @@ async function validatePath(input, hint, kind) {
       hint.textContent = "Creating…";
       const r = await api("/api/fs/create", { path });
       if (r.created) validatePath(input, hint, kind);
-      else { hint.textContent = `Could not create this folder. ${r.error || "Unknown reason."} Choose another folder or create it with your file manager.`; hint.className = "hint warn"; }
+      else {
+        // THE SERVER'S MESSAGE IS SHOWN, NOT WRAPPED IN A SECOND ONE. This used to read
+        // "Could not create this folder. " + r.error + " Choose another folder or create it with
+        // your file manager." - and `r.error` is itself "Couldn't create this folder (...). Choose
+        // another location, or create it in your file manager.", so the sentence said both things
+        // twice and was ~190 characters before the OS reason was even added. That is what put it
+        // over two lines and moved `#bk-preview` (`(acw)`).
+        //
+        // `error` is bounded by `_ERROR_DETAIL_LIMIT` so the hint's reserve can be exact;
+        // `error_detail` is the untruncated failure and goes in `title`, so bounding the layout
+        // costs no information.
+        hint.textContent = r.error || "Couldn't create this folder. Choose another location.";
+        hint.title = r.error_detail || "";
+        hint.className = "hint warn";
+      }
     });
   } else if (!v.is_dir) { hint.textContent = "That path is a file, not a folder. Pick a folder."; hint.className = "hint warn"; }
   else if (!v.writable) { hint.textContent = "This folder is read-only. Pick a folder you can write to."; hint.className = "hint warn"; }

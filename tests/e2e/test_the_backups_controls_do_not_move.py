@@ -212,3 +212,68 @@ def test_the_button_is_still_where_the_user_aimed_after_the_hints_land(
         f"#bk-preview moved {after - before:+.1f}px, past the {height / 2:.1f}px at which a "
         f"centre-aimed click leaves a {height:.1f}px button"
     )
+
+
+@pytest.mark.parametrize("width", [1280, 1000, 820])
+def test_the_button_holds_when_both_hints_wrap_and_the_carried_note_appears(
+    page: Page, app_server: AppServer, tmp_path: Path, width: int
+) -> None:
+    """The THIRD mover, and the one that could actually miss - `(acw)`, now closed.
+
+    This is the case the test above deliberately did **not** commit while it was a live defect:
+    both hints wrapped to two lines with `#bk-target-carried` unhidden moved `#bk-preview`
+    **+31.2px**, landing on `div.card`, past the 17.4px at which a centre-aimed click leaves the
+    button.
+
+    **Every part of the state is reached through the product, not forced.** The two-line hint is
+    `validatePath`'s own unreadable-folder branch - *"Truestill can't read this folder. Check its
+    permissions, or pick another one."*, 76 characters against a 68ch cap, so it wraps by
+    construction. `#bk-target-carried` is unhidden by `offerBackupPath`, which fires when the
+    Check field is typed into. Both are ordinary.
+
+    It passes now because `.carried` reserves its own height and the hint reserve covers the
+    lines the hint can actually take, which is exact rather than hopeful **because the one
+    unbounded input was bounded first** - see `fs_create`.
+
+    **THE WIDTHS ARE THE TEST, not decoration.** The column narrows with the viewport, so whether
+    a hint wraps is a width question, and the entry measured one width only. Before the fix:
+    +36.1px at 1280 and **+60.9px at 820**, where the same strings take two lines. A reserve
+    priced at 1280 alone passes here and still misses on a smaller laptop, so the two-line reserve
+    is scoped to `max-width: 1100px` and 820 is what proves it - dropping that media query leaves
+    1280 and 1000 green.
+    """
+    page.set_viewport_size({"width": width, "height": 1600})
+    ui = open_app(page, app_server.url)
+    # Every folder reports as present-but-unreadable, which is a real answer from a real branch.
+    ui.route(
+        "**/api/fs/validate**",
+        lambda r: r.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps({"unreadable": True, "exists": True, "is_dir": True}),
+        ),
+    )
+    open_backups(ui)
+
+    x, y, before = _centre(ui)
+    height = ui.eval_on_selector("#bk-preview", "el => el.getBoundingClientRect().height")
+
+    # Typing the Check field is what carries the value across and unhides the note on `bk-target`.
+    ui.fill("#verify-path", str(tmp_path / "BackupA"))
+    ui.locator("#verify-path").dispatch_event("change")
+    ui.fill("#bk-source", str(tmp_path / "Library"))
+
+    expect(ui.locator("#bk-source-hint")).not_to_be_empty()
+    expect(ui.locator("#bk-target-hint")).not_to_be_empty()
+    expect(ui.locator("#bk-target-carried")).to_be_visible()
+
+    landed = _what_is_at(ui, x, y)
+    _, _, after = _centre(ui)
+    assert landed == "bk-preview", (
+        f"two wrapped hints plus the carried note moved the button {after - before:+.1f}px and a "
+        f"click at its old position would land on {landed!r} instead"
+    )
+    assert after - before < height / 2, (
+        f"#bk-preview moved {after - before:+.1f}px, past the {height / 2:.1f}px at which a "
+        f"centre-aimed click leaves a {height:.1f}px button"
+    )

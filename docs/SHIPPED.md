@@ -1421,6 +1421,49 @@ no composition refactor to schedule.
 
 ## Shipped (kept for provenance)
 
+- **(acw) CLOSED 2026-08-12: the hint spans above `#bk-preview` can no longer move it.**
+  - **The root was an unbounded server string in a fixed-width slot, and it is closed as a defect
+    on its own terms rather than as a side effect.** `fs_create` interpolated `str(OSError)` -
+    which embeds the offending path and has no length limit - into a hint above a button. The
+    entry's blocker was exact: *"Reserving is exact only when growth is bounded, and a server
+    string is not bounded."* So the string was bounded first (`_ERROR_DETAIL_LIMIT`, 60 chars,
+    keeping the **tail** of the path because that is what identifies the folder) and the reserve
+    followed.
+    - **The bound costs no information:** `error_detail` carries the untruncated failure and the
+      caller puts it in `title`. A mutation dropping it kills the cry-wolf test, which is the one
+      that matters here - an error truncated into unreadability trades a click-miss for an
+      unusable message.
+    - **Found while reading it: the client was WRAPPING the server's message in a second one.**
+      `"Could not create this folder. " + r.error + " Choose another folder..."`, where `r.error`
+      already ends *"Choose another location, or create it in your file manager."* The sentence
+      said both things twice and ran ~190 characters before the OS reason was added. That
+      duplication was most of the length.
+  - **The costed decision, measured rather than asserted, because the obvious fix was wrong.** A
+    flat two-line reserve on every hint costs **+112px** on this screen and puts `#bk-preview` at
+    **936px against an 800px viewport** - below the fold. That trades a rare click-miss for a
+    permanently harder-to-reach control, so it was rejected.
+    - Shipped instead: one line globally, and **two lines only under `max-width: 1100px`**, scoped
+      to Backups. Whether a hint wraps is a *width* question, so the reserve is priced as one.
+    - Final cost **+57px** on Backups (`#bk-preview` 818 -> 875 at 1280), and the worst-case shift
+      goes **+36.1px -> +0.0px**.
+  - **`.carried` reserved rather than hidden.** It went `display:none` -> a full line plus margin,
+    and it is the element the missed click actually landed on. Its height is one line of fixed
+    text, so unlike a hint there was nothing to bound first.
+  - ✅ **THE WIDTHS WERE THE FINDING.** The entry measured 1280x1600 only. At **820px the same
+    shipped strings wrap and the pre-fix shift is +60.9px** - three and a half times the miss
+    threshold. A reserve priced at 1280 alone passes there and still misses on a smaller laptop.
+    The detector is now parametrized over 1280/1000/820, and dropping the media query leaves the
+    first two green and kills only 820 - which is exactly why it is parametrized.
+  - The forced case is now a **committed** test. That file's own docstring had explained why it
+    was not: *"it is reachable in the product... so it is a live defect filed as `(acw)`, and a
+    committed red test is not a detector."* It is reached entirely through product branches -
+    `validatePath`'s unreadable-folder message (76 characters against a 68ch cap) and
+    `offerBackupPath` unhiding the carried note.
+  - **Not closed here, and filed with its number: `(adg)`** - the verify result block moves the
+    same button **+92.4px**, which this entry had listed as unmeasured. It cannot be reserved
+    (a card listing problems is unbounded) and the only remedy is a reorder refused for `(ada)`'s
+    reasons.
+
 - **(acz) CLOSED 2026-08-12: a surviving staged copy is findable again, as its own outcome.**
   - **What was owed, and why it was owed.** `(acj)` made a survivor *safe* - named
     `<target>.partial`, so `_free_relative` never suffixes beside it and `scan_source` can never

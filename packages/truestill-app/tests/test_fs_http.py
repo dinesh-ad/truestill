@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from starlette.testclient import TestClient
+from truestill_app.service.fs_browse import _ERROR_DETAIL_LIMIT, fs_create
 from truestill_core.catalog import Catalog
 
 
@@ -242,3 +243,47 @@ def test_clean_empty_preview_and_apply_key_sets(client: TestClient, tmp_path: Pa
     # Removal may trash, delete, or fail (gio trash often refuses under /tmp); key set is the pin.
     assert isinstance(applied["removed"], int)
     assert isinstance(applied["failures"], list)
+
+
+def test_a_create_failure_is_bounded_for_the_slot_it_lands_in(tmp_path: Path) -> None:
+    """`(acw)`. The message goes into a hint span **above a button**, so an unbounded string there
+    is a layout defect: two wrapped lines moved `#bk-preview` past the point a centre-aimed click
+    leaves it. `str(OSError)` embeds the offending path, which has no length limit at all.
+
+    The bound is on the layout, never on the information - see the next test.
+    """
+    deep = tmp_path / "not-a-dir"
+    deep.write_bytes(b"x")  # a FILE, so mkdir beneath it fails
+    long_child = deep / ("a" * 180) / "leaf"
+
+    result = fs_create(str(long_child))
+
+    assert result["created"] is False
+    reason = result["error"].split("(", 1)[1].rsplit(")", 1)[0]
+    assert len(reason) <= _ERROR_DETAIL_LIMIT, f"{len(reason)} chars reached the hint: {reason!r}"
+
+
+def test_the_full_failure_is_still_delivered_beside_the_bounded_one(tmp_path: Path) -> None:
+    """**THE CRY-WOLF HALF, and the one that matters most here.** An error truncated into
+    unreadability trades a click-miss for an unusable message. `error_detail` carries the
+    untruncated failure - the caller puts it in `title` - so the bound costs no information.
+    """
+    deep = tmp_path / "not-a-dir"
+    deep.write_bytes(b"x")
+    name = "b" * 180
+    result = fs_create(str(deep / name / "leaf"))
+
+    assert result["created"] is False
+    assert name in result["error_detail"], "the untruncated failure did not survive"
+    assert len(result["error_detail"]) > len(result["error"])
+    assert name not in result["error"], "the bounded message is not actually bounded"
+
+
+def test_the_bounded_message_keeps_the_end_of_the_path(tmp_path: Path) -> None:
+    """The tail identifies the folder; the head is a prefix the user typed and already knows."""
+    deep = tmp_path / "not-a-dir"
+    deep.write_bytes(b"x")
+    result = fs_create(str(deep / ("c" * 180) / "the-leaf-that-matters"))
+
+    assert result["created"] is False
+    assert "the-leaf-that-matters" in result["error"]

@@ -578,7 +578,33 @@ select.input {
   /* A hint is read while making a decision, so it is content and not chrome. `xs` is for
      incidental labelling only. */
   font-size: var(--text-sm);
-  min-height: 1.1em;
+  /* TWO LINES, not one, and the second line is the whole of `(acw)`.
+     A hint sits above a button. `min-height: 1.1em` against a 1.45em line box reserved most of
+     ONE line - which is where `(abq)`'s residual +4.9px came from - and reserved nothing for a
+     second, so an ordinary two-line hint moved `#bk-preview` past the point a centre-aimed click
+     leaves it. Several shipped hints are already over the 68ch cap: "Truestill can't read this
+     folder. Check its permissions, or pick another one." is 76 characters and wraps by
+     construction.
+     THIS RESERVE IS EXACT ONLY BECAUSE THE INPUTS ARE BOUNDED. The one unbounded producer was
+     `fs_create` interpolating `str(OSError)`; it is capped at `_ERROR_DETAIL_LIMIT` and the full
+     text moved to `title`. Do not add an unbounded string to a hint without revisiting this - and
+     it is why `(acd)` rejected a skeleton for `#drives-list`, whose content has no maximum and
+     which also SHRANK by -316px. A capped hint has a known maximum and cannot shrink. */
+  min-height: 1.45em;
+}
+/* TWO LINES WHERE THEY ACTUALLY WRAP, and only there - `(acw)`.
+   Measured on the forced case (both hints at their longest shipped string, `.carried` shown):
+   1280px and 1000px hold one line and shift +0.0px; at 820px the same hints wrap to two and
+   `#bk-preview` moves +60.9px, past the 17.4px at which a centre-aimed click leaves it. The
+   column narrows with the viewport, so the wrap is a width question and the reserve is priced
+   as one: a flat two-line reserve costs +112px on THIS screen at every width, which pushes the
+   button below the fold on a 1280x800 laptop - a permanent cost to fix a conditional defect.
+   Scoped to Backups because that is where a hint sits above a control; the global reserve above
+   stays one line for every other screen. */
+@media (max-width: 1100px) {
+  #screen-backups .field .hint {
+    min-height: 2.9em;
+  }
 }
 .hint.ok {
   color: var(--success);
@@ -1132,11 +1158,21 @@ details.more.inline {
 
 /* A value carried across from the other field naming the same drive. Quiet and clearly a
    suggestion -- it sits under the field, in the accent, and disappears the moment it is edited. */
+/* RESERVED RATHER THAN HIDDEN - `(acw)`. This went from `display:none` to a full line plus
+   margin, so unhiding it moved every control below it. Its height is a single line of fixed
+   text, so unlike a hint there is nothing to bound first: the reserve is exact by construction.
+   `.hidden` still applies `display:none !important`, so the rule below keeps the space only for
+   the element's own hidden state, which is what `offerBackupPath` toggles. */
 .carried {
   display: block;
   margin-top: var(--space-1);
   font-size: var(--text-xs);
   color: var(--accent);
+  min-height: 1.45em;
+}
+.carried.hidden {
+  display: block !important;
+  visibility: hidden;
 }
 
 /* A drive card's footer: the fact on the left, the action that changes it on the right. */

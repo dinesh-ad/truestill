@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(adf). Next free: (adg).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(adg). Next free: (adh).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -117,18 +117,55 @@ is invisible here is retired, not free.**
     correctness hole with a known remedy, the other is a placement question with no measurement
     behind it.
 
+- **(adg) THE VERIFY RESULT BLOCK MOVES `#bk-preview` BY +92.4px - a bigger mover than `(acw)`,
+  and it cannot be reserved.** Measured 2026-08-12 while closing `(acw)`, which had listed it as
+  *"Not covered here and worth the same look... Unmeasured."* Now measured.
+  - **The number:** writing a realistic finished-verify card into `#verify-result` moves
+    `#bk-preview` **+92.4px**, against the 17.4px at which a centre-aimed click leaves the button.
+    That is three times `(acw)`'s worst case.
+  - **`(acw)`'s fix does not reach it and could not.** A hint is a bounded string, so bounding it
+    made the reserve exact. A verify result is a **card listing problems** - unbounded by
+    construction, exactly like `#drives-list` in `(acd)`, which is why that entry moved the region
+    instead of reserving it.
+  - ⚠ **The only fixes available are ones deliberately refused for `(ada)`'s reasons.**
+    `#verify-result` is in card 1 and `#bk-preview` is in card 2, so moving state below its
+    control means reordering the two cards - and `(ada)` says **`(abg)` must re-price this region
+    rather than inherit it**, because it is about to put more state there. Choosing an arrangement
+    now, against a region whose contents are about to change, is the mistake that entry warns of.
+  - **Harm is lower than the number suggests and that is stated rather than assumed:** the block
+    lands when the user has just clicked *Check now* and is reading the outcome, not reaching for
+    *Preview copy* on the card below. Same argument `(acw)` accepted for the create-failure state.
+  - **Do not fix this before `(abg)`.** File it against that work.
+
 - **(ada) THE BACKUPS SCREEN NOW PUTS STATE BELOW THE FORMS, AND A ONE-COPY WARNING CAN FALL BELOW
   THE FOLD.** Split out of `(acd)` 2026-08-11 when that entry moved to `SHIPPED.md`. `(acd)` fixed
   a control that moved under the pointer by rendering `#drives-list` below every control; the cost
   was accepted at the time and is recorded here rather than left inside a closed entry.
+  - ⚠ **CORRECTED 2026-08-12: THE PREMISE BELOW WAS ALREADY FALSE WHEN IT WAS WRITTEN, AND THAT
+    MATTERS MORE THAN ANYTHING THAT MIGHT BE BUILT FOR IT** - a defect resting on a false premise
+    gets re-read and re-proposed by whoever finds it next.
+    - *"It now points nowhere"* is **wrong**. The banner carries `data-risk-action="copy"`, and
+      `app.js` wires it to `$("bk-source").scrollIntoView({block: "center"})`. **The action works.**
+    - Its prose reads *"Copy your library to another drive **above**"*, which **became true** when
+      `(acd)` moved the forms above it. The sentence is correct as written.
+    - **The user is not unwarned, they are inconvenienced**, and the difference is the whole size
+      of this item. The rail's custody strip carries at-risk state (`custody-pips` toggles
+      `at-risk`) at **every scroll position**, so the warning is on screen permanently - just in a
+      different place from the remedy.
+  - **What is genuinely left, measured rather than inherited:** at 1280x800 with one drive, the
+    banner's top is at **1035px against an 800px viewport**, so it is below the fold. Adjacency,
+    not absence.
   - **What was traded:** the Backups pass deliberately put state ABOVE remedy so the at-risk banner
-    pointed down at the copy form. It now points nowhere - the forms come first, and the at-risk
-    banner renders **inside** `#drives-list`, so a user whose files are in only one place meets two
-    forms before the warning, and on a short viewport that warning is below the fold.
+    pointed down at the copy form. The forms now come first, and the banner renders **inside**
+    `#drives-list`, so a user whose files are in only one place meets two forms before it.
   - **Why it was accepted:** a control that cannot be reliably clicked is worse than one met before
     its context. That reasoning holds and is not being reopened here; what is filed is the residual.
   - ⚠ **`(abg)` must re-price this rather than inherit it.** It will put more state into exactly
     this region, and the ordering was chosen against a defect that no longer exists.
+  - **NOT REORDERED while closing `(acw)` 2026-08-12, on this entry's own reasoning.** Choosing an
+    arrangement now - against a defect that no longer exists, for a region whose contents `(abg)`
+    is about to change - is the mistake the line above warns of. `(adg)` is filed against the same
+    constraint.
 
 - **(act) AN UNNAMED ROOT IS LABELLED WITH THE LITERAL STRING `Library`, WHICH COLLIDES WITH
   ITSELF.** Recorded 2026-08-10, split out of `(acr)` deliberately rather than folded in: `(acr)`
@@ -192,34 +229,6 @@ is invisible here is retired, not free.**
     premise that a model reads a *messy* folder better than rules do is **untested, not
     disproved** (§4's twenty-first member). And a decision to build still needs evidence, of which
     there is none.
-
-- **(acw) THE HINT SPANS ABOVE `#bk-preview` CAN GROW WITHOUT BOUND, AND A CLICK THEN MISSES.**
-  Recorded 2026-08-11, split out of `(abq)` at its closure. `(abq)`'s mover was measured and
-  **cannot** miss - 0.0 to 9.8px against a 34.8px button. This is the case that can.
-  - **Measured, viewport 1280x1600, `elementFromPoint` at the pre-shift centre:** with both hints
-    wrapped to two lines and `#bk-target-carried` unhidden, `#bk-preview` moves **+31.2px** and the
-    old centre lands on `div.card`. At three lines, **+71.8px**, landing on `#bk-target-hint`. A
-    centre-aimed click misses past **17.4px**, half the button's height.
-  - **Why it is reachable rather than synthetic.** `validatePath`'s create-failure branch
-    interpolates a **server-supplied** string - *"Could not create this folder. `${r.error}`
-    Choose another folder or create it with your file manager."* - and hints are capped at 68ch, so
-    two lines is ordinary and three is available. `.carried` (`app.css`) reserves **no** height at
-    all: it goes from `display:none` to a full line plus margin.
-  - ⚠ **Reserving is exact only when growth is bounded, and a server string is not bounded.** That
-    is the same reasoning that made `(acd)` a reorder rather than a skeleton, and it is why this is
-    filed rather than fixed in passing. `.field .hint` already reserves `min-height: 1.1em` against
-    a `1.45em` line box, which is precisely where `(abq)`'s +4.9px came from - raising it fixes the
-    *first* line only and does nothing for the second.
-  - **Options, none chosen:** bound the error text before interpolation; give the hint a fixed
-    height and let it scroll or truncate; move the hints below the actions the way `(acd)` moved
-    `#drives-list`; or accept it and say so. The last is defensible - the state only follows a
-    failed folder creation, where the user is reading the error rather than reaching for Preview.
-  - **Not covered here and worth the same look:** `#verify-path-hint`, `#verify-path-carried`,
-    `#verify-result` and the verify run block all sit above `#bk-preview` in card 1, and a verify
-    run resizes every one of them. **Unmeasured.**
-  - **Detector already in place** for the states that occur:
-    `tests/e2e/test_the_backups_controls_do_not_move.py`. It is proved to bite against the forced
-    case above, so a fix here has a test waiting for it.
 
 - **(acv) THE PRIVATE PATHS IN GIT HISTORY ARE ACCEPTED, NOT OVERLOOKED - and the repository goes
   private at launch.** Ruled 2026-08-11. `16d7b14` removed the maintainer's cloud-storage and
