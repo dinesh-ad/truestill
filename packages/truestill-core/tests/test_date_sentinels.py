@@ -89,11 +89,17 @@ def test_pre_1990_dates_are_now_honoured(raw: str) -> None:
 
 
 def test_absurdly_early_dates_still_fall_through() -> None:
-    """The floor moved, it did not disappear -- an 1872 clock is still garbage."""
-    _, source, _ = resolve_capture_datetime(
+    """The floor moved, it did not disappear -- an 1872 clock is still garbage.
+
+    The refusal itself is unchanged; only its **name** is. This asserted ``NONE`` because that was
+    the only word available, which is precisely the silence `REJECTED_EARLY` was added to end: a
+    date was found and refused, and the report used to say the file never had one.
+    """
+    when, source, _ = resolve_capture_datetime(
         Path("p.jpg"), {"DateTimeOriginal": "1872:01:01 00:00:00"}
     )
-    assert source is DateSource.NONE
+    assert when is None
+    assert source is DateSource.REJECTED_EARLY
 
 
 # --- Tier B: suspect camera defaults ---------------------------------------------------
@@ -138,3 +144,65 @@ def test_an_ordinary_date_is_not_flagged() -> None:
         Path("p.jpg"), {"DateTimeOriginal": "2019:05:02 00:00:00"}
     )
     assert is_suspect_default(when, source) is False  # midnight, but not a reset day
+
+
+def test_a_date_below_the_sanity_floor_is_a_refusal_not_a_silence() -> None:
+    """`1899:12:31` was found, refused, and reported as ``NONE`` - "this file had no date".
+
+    That is the exact silence `REJECTED_SENTINEL` and `REJECTED_FUTURE` exist to prevent. It
+    survived because the *ceiling* happened to be guarded by the future check and nobody asked
+    about the floor (`date-resolver-corpus-measurement.md` §4.3).
+    """
+    when, source, _ = resolve_capture_datetime(
+        Path("p.jpg"), {"DateTimeOriginal": "1899:12:31 23:59:59"}
+    )
+    assert when is None
+    assert source is DateSource.REJECTED_EARLY
+
+
+def test_the_floor_itself_is_still_a_real_date() -> None:
+    """CRY-WOLF HALF. 1900 is the floor *because* scanned negatives carry genuine early dates."""
+    when, source, _ = resolve_capture_datetime(
+        Path("p.jpg"), {"DateTimeOriginal": "1900:01:01 00:00:00"}
+    )
+    assert when == datetime(1900, 1, 1)
+    assert source is DateSource.EXIF
+
+
+def test_a_refused_floor_still_lets_a_later_tag_win() -> None:
+    """A refusal is a fall-through, not a verdict on the file."""
+    when, source, tag = resolve_capture_datetime(
+        Path("p.jpg"),
+        {"DateTimeOriginal": "1899:12:31 23:59:59", "CreateDate": "2013:07:04 12:30:45"},
+    )
+    assert when == datetime(2013, 7, 4, 12, 30, 45)
+    assert source is DateSource.EXIF
+    assert tag == "CreateDate"
+
+
+def test_a_sentinel_outranks_an_early_date_so_named_refusals_keep_their_name() -> None:
+    """Precedence is future > sentinel > early, so no case that already had an answer changes."""
+    when, source, _ = resolve_capture_datetime(
+        Path("p.jpg"),
+        {"DateTimeOriginal": "1904:01:01 00:00:00", "CreateDate": "1899:12:31 23:59:59"},
+    )
+    assert when is None
+    assert source is DateSource.REJECTED_SENTINEL
+
+
+def test_a_terminating_nul_does_not_cost_the_file_its_date() -> None:
+    """EXIF's 20th byte is a NUL, and ``str.strip()`` does not remove it - it is not whitespace."""
+    when, source, _ = resolve_capture_datetime(
+        Path("p.jpg"), {"DateTimeOriginal": "2013:07:04 12:30:45\x00"}
+    )
+    assert when == datetime(2013, 7, 4, 12, 30, 45)
+    assert source is DateSource.EXIF
+
+
+def test_an_embedded_nul_is_still_refused() -> None:
+    """Edges only, deliberately: splicing a NUL out of the middle invents a string nobody wrote."""
+    when, source, _ = resolve_capture_datetime(
+        Path("p.jpg"), {"DateTimeOriginal": "2013:07:04\x0012:30:45"}
+    )
+    assert when is None
+    assert source is DateSource.NONE

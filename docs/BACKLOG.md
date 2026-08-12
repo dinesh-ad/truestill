@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(adb). Next free: (adc).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ade). Next free: (adf).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -485,6 +485,55 @@ is invisible here is retired, not free.**
   - **`file_id` is the sharper half.** Even a self-contained album key leaves membership pointing
     at rowids. The document must carry member **sha256s**, which is what the approved plan said
     (`albums: name + member sha256s`) and what the gather does not yet do.
+
+- **(adc) A documented clustering invariant is false, and survives only on a coincidence.**
+  Measured 2026-08-12 while answering a day-boundary question about filename dates; the finding is
+  about **real EXIF times** and has nothing to do with filenames.
+  - `events.py`'s `DEFAULT_SENSITIVITY` docstring states that "every overnight gap exceeds
+    `MIN_BOUNDARY_GAP_S`, so segmentation produces within-day clusters only". `trips.py` repeats
+    it as "a cluster never spans midnight on real data", and builds the trip layer on it.
+  - **The first claim is false on the library it was tuned against.** Of 16 consecutive pairs that
+    change calendar day, one is **43.9 minutes** - `2014-08-15 23:19:29 -> 2014-08-16 00:03:25`.
+    That is below `MIN_BOUNDARY_GAP_S` (1h), so it *cannot* be a boundary, and the segment holding
+    it spans midnight.
+  - **The second is true here for a reason it does not give.** At `DEFAULT_MIN_FILES = 8` that
+    segment holds **4** files and is discarded, so none of the 16 emitted events spans a day. Drop
+    the threshold to 2 and 29 segments are emitted, of which exactly that one does. A fifth photo
+    that night ends it.
+  - Whether a merged New Year event is *wrong* is a product question and is deliberately not
+    answered here. What needs deciding is whether the docstrings are corrected, or the floor is,
+    or `trips.py` stops relying on a neighbour's accident. Evidence:
+    `docs/date-resolver-corpus-measurement.md` §6.
+
+- **(add) ~30 embedded date readings carry a recoverable date and are discarded.** Measured
+  2026-08-12. **Filed rather than folded into the tier-4 repair on purpose:** it is not one
+  decision, it is three, and they do not share an answer.
+  - `parse_exif_datetime` has a single `strptime` format. Of 1,077 real tag readings across three
+    corpora, 60 are refused; roughly half are refusal working correctly (`0000:00:00 00:00:00`,
+    the space-filled form, genuinely corrupt bytes). The rest carry a date we throw away.
+  - **Unambiguous, and safe to add:** `Tue Dec 14 09:54:11 2004` (C `asctime`, 4 readings),
+    `2011-03-15T10:14:46-04:00` (ISO 8601), `20020904` (date-only compact),
+    `2008.07.10  15:16:55`, `2019:04:24 22:24:00+02:00 DST`, `2011:06:14 15:47+02:00` (minute
+    precision).
+  - **Ambiguous, and NOT safe:** `12/29/93 13:52:11` (12 readings) is exactly the US-vs-EU
+    ambiguity being fixed in tier 4 - reading it wrong is the wrong-answer class, not the gap
+    class. `2/5/14` is ambiguous three ways.
+  - So a per-format trustworthiness ruling is needed and one decision cannot cover all three
+    groups. Adding the unambiguous set alone is a defensible smaller piece.
+  - Stable across corpora: adding `exif-samples` and two more tags grew readings 895 → 1,077 and
+    refusals 56 → 60 while producing **no new refusal class**.
+
+- **(ade) The Twitter filename pattern claims any MD5-named JPEG beginning with `e`.** Found
+  2026-08-12 by running `NAME_PATTERNS` over 9,294 corpus names; pre-existing, untouched by the
+  date work that surfaced it.
+  - `^(?:twitter_|E[A-Za-z0-9_-]{12,}\.jpg$)`, compiled `re.IGNORECASE`, so the `E` alternative
+    matches a lowercase hex hash. Six files in the corpora, e.g. `e6d9eca2c7405e13cfb850b7d0ef7476.jpg`.
+  - **It costs no date** - such names carry none - so this is a *categorizer* defect, not a
+    resolver one: the files are filed under `Twitter/`. Roughly one in sixteen hash-named JPEGs,
+    which is browser saves and some cloud exports.
+  - The pattern was presumably written for Twitter's `E`-prefixed base64 media ids. Distinguishing
+    those from hex needs either case-sensitivity on that alternative or a character class that hex
+    cannot satisfy. Not attempted here.
 
 - **(ach) `ApplyReport.skipped_newer_locally` carries two meanings that need opposite words.**
   Recorded 2026-08-09 from code. Deferred **to Stage 4 deliberately**, where the multi-drive

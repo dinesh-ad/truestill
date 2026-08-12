@@ -66,9 +66,45 @@ _TZ_SUFFIX = re.compile(r"[+-]\d{2}:?\d{2}$")
 #   YYYY-MM-DD  Telegram mobile save-to-gallery: photo_2024-01-15_12-30-45.jpg
 #   YYYYMMDD    Android/WhatsApp: IMG-20250804-WA0020.jpg, Screenshot_20260721_001427.png
 #   DD-MM-YYYY  Telegram Desktop export: photo_1@29-10-2021_09-30-00.jpg
+#   a whole run  date AND time with no separator: 2014815120755.jpg (_RUN_TIMESTAMP, last)
 _ISO_DATE = re.compile(r"(?<!\d)((?:19|20)\d{2})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])(?!\d)")
 _COMPACT_DATE = re.compile(r"(?<!\d)((?:19|20)\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])(?!\d)")
 _EURO_DATE = re.compile(r"(?<!\d)(0[1-9]|[12]\d|3[01])-(0[1-9]|1[0-2])-((?:19|20)\d{2})(?!\d)")
+
+#: A digit run that is **entirely** a date and a time, tried last. `2014815120755.jpg`,
+#: `ch01_20130704123045.mp4`, `..._BURST20190413181239_COVER.jpg`, `DJI_20230715120000_0001_D.JPG`.
+#:
+#: **THIS IS TWO REPAIRS AND EITHER ALONE RECOVERS NOTHING. Read this before "simplifying" it.**
+#: The shape that motivated it is `2014815120755` = `2014` + `8` + `15` + `120755`:
+#:
+#: 1. `_COMPACT_DATE`'s ``(?!\d)`` fence refuses it, because the time runs straight on to the date.
+#: 2. ``(0[1-9]|1[0-2])`` refuses it, because the month is **one digit**.
+#:
+#: Relaxing only the fence still fails on the month; relaxing only the month still fails on the
+#: fence. Measured on the reference library: **614 files of this one shape, and either repair on
+#: its own recovers 0 of them.** Someone will make one of the two, measure no improvement, and
+#: conclude the analysis was wrong (`date-resolver-corpus-measurement.md` §2.1).
+#:
+#: Matching the **whole run** rather than loosening the fence is what keeps this safe: a fence
+#: relaxed in place would let an 8-digit window inside a 17-digit Facebook id match. Requiring the
+#: run to be exactly ``YYYY + M|MM + D|DD + HHMMSS`` leaves every one of the library's 997
+#: correctly-silent names silent - measured, not assumed.
+_RUN_TIMESTAMP = re.compile(r"(?<!\d)(\d{12,14})(?!\d)")
+
+#: The floor for :data:`_RUN_TIMESTAMP` only, and deliberately **not** :data:`_MIN_SANE_YEAR`.
+#:
+#: Justified by what *writes* these names, not by whether a date is plausible: no device wrote a
+#: bare ``YYYYMMDDHHMMSS`` filename before 2000. A scanned negative reaches the resolver through
+#: EXIF or a separated name (`2013-07-04`), never a bare 14-digit run, so the generous 1900 floor
+#: that exists for those users buys nothing here and costs something real.
+#:
+#: What it costs: a 13-digit **epoch-millisecond** filename can look like this shape once epoch-ms
+#: values start with `19` or `20`. Measured over one name per day, 2015-2060: a 1900 floor
+#: misreads 300 of 16,436 and can first fire in **2030**; this floor misreads **150** and cannot
+#: fire until **2033-05**. Every known epoch-ms convention (`FB_IMG_`, `mmexport`, `wx_camera_`,
+#: `line_`) is refused by the messenger list before reaching here - measured 0 false readings - so
+#: the residual is a **bare, unprefixed epoch-ms name after 2033-05**. Disclosed, not hidden.
+_RUN_MIN_YEAR = 2000
 
 
 def parse_exif_datetime(raw: Any) -> datetime | None:
@@ -81,7 +117,13 @@ def parse_exif_datetime(raw: Any) -> datetime | None:
     if raw is None:
         return None
 
-    text = str(raw).strip()
+    # NUL is stripped from the EDGES because `str.strip()` does not remove it - it is not
+    # whitespace in Python - so a reader that hands back EXIF's 20th byte would otherwise cost
+    # the file its date entirely. Edges only, deliberately: an *embedded* NUL still refuses
+    # rather than being spliced into a plausible-looking string. No NUL-bearing value appeared
+    # in the 895 real tag readings measured, so this hardens measured parser behaviour rather
+    # than a field anyone has seen (`date-resolver-corpus-measurement.md` §4.1).
+    text = str(raw).strip().strip("\x00").strip()
     # exiftool emits all-zero dates for cameras that wrote an empty field.
     if not text or text.startswith("0000"):
         return None
@@ -114,7 +156,38 @@ def date_from_filename(name: str) -> datetime | None:
     if euro:
         return _safe_date(int(euro.group(3)), int(euro.group(2)), int(euro.group(1)))
 
-    return None
+    return _date_from_timestamp_run(name)
+
+
+def _date_from_timestamp_run(name: str) -> datetime | None:
+    """A day from a digit run that is entirely ``YYYY + M|MM + D|DD + HHMMSS``, or ``None``.
+
+    **Two valid readings refuse rather than pick one.** ``2014121120755`` is both 2014-01-21 and
+    2014-12-01 - one digit short of deciding - and §1 says dates are never guessed. `Undated/` is
+    an honest gap a user can fix; a coin-flip month is a day that never happened.
+
+    Returns midnight like the rest of the tier (see :func:`date_from_filename`), even though these
+    names *do* carry a time. Keeping one rule for the whole tier is why `is_suspect_default` can
+    exclude ``FILENAME`` wholesale; the discarded time is recorded in
+    `date-resolver-corpus-measurement.md` §6 rather than half-used here.
+    """
+    days: set[datetime] = set()
+    for run in _RUN_TIMESTAMP.findall(name):
+        for month_width in (1, 2):
+            for day_width in (1, 2):
+                if len(run) != 4 + month_width + day_width + 6:
+                    continue
+                cut = 4 + month_width
+                end = cut + day_width
+                day = _safe_date(int(run[:4]), int(run[4:cut]), int(run[cut:end]))
+                if day is None or day.year < _RUN_MIN_YEAR or day.year > _MAX_SANE_YEAR:
+                    continue
+                # The trailing six digits must be a real wall clock, or this run is not a
+                # timestamp at all - it is the cheapest evidence separating one from a serial.
+                hour, minute, second = (int(run[end:][i : i + 2]) for i in (0, 2, 4))
+                if hour < 24 and minute < 60 and second < 60:  # noqa: PLR2004 - a clock
+                    days.add(day)
+    return days.pop() if len(days) == 1 else None
 
 
 def _filename_capture_date(name: str) -> datetime | None:
@@ -206,6 +279,9 @@ class _EmbeddedDate(NamedTuple):
     tag: str | None
     saw_sentinel: bool
     saw_future: bool = False
+    #: A value parsed, was neither sentinel nor future, and fell outside the sanity window.
+    #: Same job as the two above: the difference between "no date" and "a date we refused".
+    saw_early: bool = False
 
 
 class _Candidate(NamedTuple):
@@ -254,6 +330,7 @@ def _embedded_datetime(metadata: dict[str, Any], *, now: datetime) -> _EmbeddedD
     """
     saw_sentinel = False
     saw_future = False
+    saw_early = False
     for tag in DATE_TAGS:
         parsed = parse_exif_datetime(metadata.get(tag))
         if parsed is None:
@@ -265,8 +342,13 @@ def _embedded_datetime(metadata: dict[str, Any], *, now: datetime) -> _EmbeddedD
             saw_future = True
             continue
         if _MIN_SANE_YEAR <= parsed.year <= _MAX_SANE_YEAR:
-            return _EmbeddedDate(parsed, tag, saw_sentinel, saw_future)
-    return _EmbeddedDate(None, None, saw_sentinel, saw_future)
+            return _EmbeddedDate(parsed, tag, saw_sentinel, saw_future, saw_early)
+        # Outside the window. Only the FLOOR can reach this today - `is_future` above refuses
+        # anything past `now`, which is well below `_MAX_SANE_YEAR`. The ceiling half is kept
+        # rather than removed because it is the guard that survives if `FUTURE_TOLERANCE` ever
+        # changes, and a dead branch that is the fallback for a live one is not dead code.
+        saw_early = True
+    return _EmbeddedDate(None, None, saw_sentinel, saw_future, saw_early)
 
 
 #: **The floor and the ceiling are deliberately asymmetric, and tidying them into symmetry
@@ -376,6 +458,10 @@ def resolve_capture_datetime(  # noqa: PLR0913 - each argument is a distinct evi
 
     saw_sentinel = embedded.saw_sentinel
     saw_future = embedded.saw_future
+    # No tier loop counterpart: the sanity window is an embedded-tier rule. A filename date
+    # cannot be below the floor (`_ISO_DATE`/`_EURO_DATE` require `19|20`, `_RUN_TIMESTAMP` a
+    # tighter floor still), and a Takeout epoch zero is caught as a sentinel.
+    saw_early = embedded.saw_early
     for tier in tiers:
         if tier.value is None:
             continue
@@ -390,6 +476,13 @@ def resolve_capture_datetime(  # noqa: PLR0913 - each argument is a distinct evi
             continue
         return tier.value, tier.source, tier.tag
 
+    # Precedence: future > sentinel > early > none. `early` is last **so that every case which
+    # already had an answer keeps it byte-identical** - this member exists to name a silence, not
+    # to re-label refusals that were already named.
     if saw_future:
         return None, DateSource.REJECTED_FUTURE, None
-    return None, (DateSource.REJECTED_SENTINEL if saw_sentinel else DateSource.NONE), None
+    if saw_sentinel:
+        return None, DateSource.REJECTED_SENTINEL, None
+    if saw_early:
+        return None, DateSource.REJECTED_EARLY, None
+    return None, DateSource.NONE, None

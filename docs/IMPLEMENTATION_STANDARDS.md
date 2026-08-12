@@ -150,9 +150,21 @@ do not delete it.
 - A Tier A rejection resolves to **`DateSource.REJECTED_SENTINEL`**, not `DateSource.NONE` - the
   file still goes to `Undated/`, but the report can say a date was *found and refused* rather
   than implying the file never had one.
-- Both counts come from the single shared helper **`models.date_quality`**, used by the CLI
+- A value below the sanity floor resolves to **`DateSource.REJECTED_EARLY`**. Added 2026-08-12:
+  `1899:12:31` was found, refused, and returned `NONE` - the exact silence this rule forbids,
+  surviving because the *ceiling* happened to be guarded by `REJECTED_FUTURE` and the floor was
+  never asked about. **Precedence is future > sentinel > early**, so no refusal that already had
+  a name changes.
+- Both *counts* come from the single shared helper **`models.date_quality`**, used by the CLI
   (`cli._print_date_quality`, `cli._print_ingest_report`) and the app (`service._summarize`,
   `service.ingest_preview`) so the two front-ends cannot drift.
+- **`REJECTED_EARLY` has a member but deliberately no `date_quality` counter, and that asymmetry
+  is the rule rather than an omission.** Disclosure is satisfied without one:
+  `Catalog.stats_date_provenance` groups by the stored `date_source` and `date_explain.explain`
+  renders any member, so the library view names it with no code change. A run-summary counter
+  would touch both front-ends and `app.js` for a class measured at **0 of 1,077** real tag
+  readings across three corpora (`docs/date-resolver-corpus-measurement.md` §4). Add one the day
+  a real library shows one - not before.
 
 See `docs/metadata-chain-research.md` for the corpus evidence behind Tier A.
 

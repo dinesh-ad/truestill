@@ -94,6 +94,27 @@ _EXPLANATIONS: dict[DateSource, DateExplanation] = {
         ),
         review=True,
     ),
+    # `REJECTED_FUTURE` had no entry at all and fell back to `NOT_RECORDED`, which told the user
+    # their date was simply never noted - the same silence `REJECTED_EARLY` was added to end,
+    # one level up. Both refusals now say what was refused and why.
+    DateSource.REJECTED_FUTURE: DateExplanation(
+        label="A date was found and refused",
+        detail=(
+            "The file claimed it was taken in the future, which cannot be true. That usually "
+            "means the camera's clock was wrong or the date was edited, so it was left undated "
+            "rather than filed under a day that has not happened."
+        ),
+        review=True,
+    ),
+    DateSource.REJECTED_EARLY: DateExplanation(
+        label="A date was found and refused",
+        detail=(
+            "The file claimed it was taken before 1900. Genuine scans of old negatives are kept, "
+            "so a date this early means the clock was never set, and filing by it would have "
+            "been worse than leaving it undated."
+        ),
+        review=True,
+    ),
     DateSource.NONE: DateExplanation(
         label="No date found",
         detail=(

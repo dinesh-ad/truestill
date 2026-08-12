@@ -972,6 +972,25 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   restoring a drive and re-checking it would have seen their files still reported as living in one
   place, with nothing they could do about it. Two mutations, two new tests, one for each way back.
 
+- **`cmp` PROVES THE FILE, NOT THE INTERPRETER'S VIEW OF IT.** The thirty-eighth member, and a
+  hole in this document's own mutation discipline, found by it on 2026-08-12.
+
+  The rule says restore a mutated source *by content*, with a byte-identical `cmp`. That was done,
+  the `cmp` passed - and the next run still executed the **mutant**. CPython validates a cached
+  `.pyc` against the source's size and mtime, and **mtime is stored at one-second granularity**.
+  A mutation whose edit does not change the file's size, restored in the same second the `.pyc`
+  was written, leaves a cache that looks current. The file on disk was correct; the bytecode was
+  not; and the suite reported a failure that no longer existed in the source anyone could read.
+
+  The failure mode is the expensive direction: **a restored mutation that still appears to kill a
+  test invites you to "fix" code that is already right.** Ten minutes were spent reading a
+  function whose source was correct on every line.
+
+  *So: after restoring, verify through the interpreter and not only through the filesystem.* Clear
+  `__pycache__`, or assert the restored value the way the test will read it
+  (`import module; assert module.CONSTANT == expected`). One line, and it distinguishes "the file
+  is back" from "the thing that runs is back", which are not the same claim.
+
 - **A PHRASE REPEATED BETWEEN DOCUMENTS ACQUIRES THE AUTHORITY OF A RULE WITHOUT EVER BEING ONE.**
   The thirty-fifth member, and the sibling of the thirty-second below: that one is about a clause
   that was true and quietly expired, this is about a clause that was **never adopted at all**. A

@@ -105,6 +105,12 @@ class DateSource(StrEnum):
     an epoch/container zero (Tier A, ``dates.HARD_SENTINELS``) that we refused. It also lands
     in ``Undated/`` -- the distinction exists purely so the report can say a date was found
     and rejected, rather than leaving the user to assume the file never had one.
+
+    ``REJECTED_EARLY`` completes that set at the other end. A value below
+    ``dates._MIN_SANE_YEAR`` used to return ``NONE``, so ``1899:12:31`` was found, refused, and
+    reported as "no date evidence" -- the exact silence the two members above exist to prevent,
+    surviving because the *ceiling* happened to be guarded by ``REJECTED_FUTURE`` and nobody
+    asked about the floor.
     """
 
     #: A person told truestill this date. Outranks every machine tier, permanently: the
@@ -119,15 +125,28 @@ class DateSource(StrEnum):
     NONE = "none"
     REJECTED_SENTINEL = "rejected_sentinel"  # only date found was an epoch zero -> refused
     REJECTED_FUTURE = "rejected_future"  # only date found was after now -> refused
+    REJECTED_EARLY = "rejected_early"  # only date found was below the sanity floor -> refused
 
 
 #: Date sources trusted enough not to warrant manual review.
 _TRUSTED_DATE_SOURCES = frozenset({DateSource.EXIF, DateSource.TAKEOUT, DateSource.INFERRED_LOCAL})
 
 #: Sources that produced no usable date at all. Excluded from the "approximate date" review
-#: list: there is no date to review, and both are reported on their own line instead.
+#: list: there is no date to review.
+#:
+#: The two refusals with a `DateQuality` counter get their own line in a run summary.
+#: ``REJECTED_EARLY`` deliberately does **not** have one: `Catalog.stats_date_provenance` groups
+#: by whatever ``date_source`` string is stored and `date_explain.explain` renders any of them, so
+#: the library's date view surfaces it with no code change, while a run-summary counter would
+#: touch both front-ends and `app.js` for a class measured at **0 of 895** real tag readings
+#: (`date-resolver-corpus-measurement.md` §4.2). One line to add the day a real library shows one.
 _DATELESS_SOURCES = frozenset(
-    {DateSource.NONE, DateSource.REJECTED_SENTINEL, DateSource.REJECTED_FUTURE}
+    {
+        DateSource.NONE,
+        DateSource.REJECTED_SENTINEL,
+        DateSource.REJECTED_FUTURE,
+        DateSource.REJECTED_EARLY,
+    }
 )
 
 

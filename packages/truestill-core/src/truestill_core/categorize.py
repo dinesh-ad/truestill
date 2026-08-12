@@ -79,11 +79,43 @@ class NamePattern:
 
 #: Extensible. Adding an entry here is the whole cost of supporting a new source.
 #: Ordered: earlier entries win when two conventions could both match.
+#:
+#: **Deliberately absent: Skype, Slack, iMessage.** Not an oversight and not "not yet" - no
+#: convention for them could be stated with confidence, and this table has a second job
+#: (`is_messenger_filename` makes the date chain refuse these names), so a guessed pattern costs
+#: real photos their real dates. A refusal to guess belongs on the record next to the guesses
+#: that were made. Adding one later, once a real file shows the shape, is one line.
 NAME_PATTERNS: tuple[NamePattern, ...] = (
     NamePattern(
         "WhatsApp",
         re.compile(r"^(?:IMG|VID|AUD|PTT|DOC|STK)-\d{8}-WA\d+", re.IGNORECASE),
         "-WA<n> stamp",
+    ),
+    # WhatsApp writes four naming conventions and this table held one, so the date chain read the
+    # other three as CAPTURE dates - a send date filed as the day the photo was taken. The ruling
+    # in `messenger-dates-research.md` was right; the list it delegates to was short. Measured in
+    # `date-resolver-corpus-measurement.md` §3.1.
+    #
+    # **Neither shape below is evidenced by a file.** Searching both sample corpora and the whole
+    # 2,276-file reference library for any messenger-named file returns four, all
+    # `IMG-20140817-WA00NN.jpg`. These are documented conventions, not files anyone here has seen,
+    # and that is worth stating rather than presenting them as observed.
+    NamePattern(
+        "WhatsApp",
+        re.compile(
+            r"^WhatsApp (?:Image|Video|Audio|Document|Animated Gif|Ptt) \d{4}-\d{2}-\d{2} at ",
+            re.IGNORECASE,
+        ),
+        "Desktop/Web save naming",
+    ),
+    # The least specific entry in this table, kept because its failure direction is the safe one:
+    # a false positive costs a file its filename date (`Undated/`, plus this bin), which is a gap
+    # a user can see and fix. The false negative it replaces was a WRONG date. The full dashed
+    # datetime is what keeps it narrow - a bare `PHOTO-` prefix would not earn its place.
+    NamePattern(
+        "WhatsApp",
+        re.compile(r"^(?:PHOTO|VIDEO|AUDIO)-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}", re.IGNORECASE),
+        "iOS share-to-Files naming",
     ),
     NamePattern(
         "Telegram",

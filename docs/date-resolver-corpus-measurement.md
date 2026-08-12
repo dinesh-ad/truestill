@@ -224,6 +224,59 @@ product question and is not answered here.
 
 ---
 
+## 7. Acted on 2026-08-12, and what the breadth corpora added
+
+The wrong answers and the gap were fixed in that order. Re-running the same labelled comparison:
+
+| | before | after |
+|---|---|---|
+| right-day results | 631 | **1,274** (the 631 kept, the 643 recovered) |
+| correctly silent | 997 | **997** |
+| the `2014815120755` shape | 643 silent | **643 right, 0 wrong** |
+| WhatsApp files in `Undated/` | 4 | **4** |
+
+### The claim two identical trees actually earn
+
+Organizing the whole library before and after produced **byte-identical folder trees** - 2,271
+files, empty diff. That is **not** evidence the fix works, and reading it as such would have been
+the trap: it earns exactly one claim, that **the change is inert wherever EXIF exists**. The 643
+are EXIF-dated today - that is *why* tier 4 never fires here - so they were never in `Undated/`
+and could not move.
+
+Showing the fix at all needed a third run on **EXIF-stripped copies** of those 643: before,
+**643 of 643 in `Undated/`**; after, **0**, every one landing in `2014-08-15/16/17 - Everyday`,
+and all 643 on the day their original EXIF says. A green diff on the library alone would have
+looked like proof and taught nothing.
+
+### What 78 camera makes could and could not add
+
+`metadata-extractor-images` + `exif-samples`: 9,294 files, 1,282 media, 78 makes.
+
+**They cannot widen the filename survey, and that is a finding rather than a disappointment.**
+All **502** EXIF-labelled media files there are **correctly silent** - zero right, zero wrong,
+zero gaps - because the names are curated fixtures (`Leica T (Typ 701).dng`,
+`DJI Phantom 4 (1).dng`), not what the devices wrote. The separator and unpadded gaps of §2.2 and
+§2.3 still measure **zero real files anywhere available**, and remain unquantified.
+
+**What they did buy is the cry-wolf half, which is what the risky additions needed:**
+
+* The two new WhatsApp patterns match **0 of 9,294** names.
+* The whole-digit-run pattern sees 204 names holding a 12-14 digit run and **refuses 201** - MD5
+  fixture names, mostly. The 3 it dates are `20190706142908.m2ts`, an AVCHD camcorder stamp, read
+  correctly as 2019-07-06. That is a real convention the fixture did not have.
+* The embedded survey grows from 895 readings to **1,077**, refusals from 56 to **60**, and
+  **no new refusal class appears** - the four are more `0000:00:00 00:00:00`. The ~30
+  recoverable-but-discarded shapes of §4.2 do not grow, which is a stability result for `(add)`.
+
+### A pre-existing defect the breadth corpora surfaced - filed as `(ade)`
+
+`NAME_PATTERNS`' Twitter entry is `^(?:twitter_|E[A-Za-z0-9_-]{12,}\.jpg$)`, case-insensitive, so
+it claims **any MD5-named `.jpg` beginning with `e`** - six files here. It costs no *date* (those
+names carry none) but files them under `Twitter/`. Roughly one in sixteen hash-named JPEGs.
+Untouched by this change and filed rather than folded in.
+
+---
+
 ## What this measured, in one paragraph
 
 Tier 4 is exact and narrow: it is never wrong on 631 real files and silent on 643 more that carry

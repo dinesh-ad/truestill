@@ -1421,6 +1421,55 @@ no composition refactor to schedule.
 
 ## Shipped (kept for provenance)
 
+- **BUILT 2026-08-12: the date resolver's wrong answers, then its largest gap. No letter - this
+  came out of a measurement (`docs/date-resolver-corpus-measurement.md`), not the backlog.**
+  - **Ordering was the decision, and it followed from the numbers.** Tier 4 produced **zero**
+    wrong days on 2,271 real files. The wrong answers were in the *messenger list*. A gap sends a
+    photo to `Undated/` where a user can find it; a wrong date files it under a day that never
+    happened, so the list was fixed first and the 643-file gap second.
+  - **Three of WhatsApp's four naming conventions were read as capture dates.**
+    `is_messenger_filename` delegates to `categorize.NAME_PATTERNS`, which listed one. The
+    `messenger-dates-research.md` ruling was never wrong; the list it delegates to was short, and
+    the delegation turned a **categorizer** gap into a wrong **date**. Two entries added, both
+    reusing the existing `WhatsApp` label so `deterministic_side_bin_labels()` is unchanged and no
+    migration is involved.
+  - **Neither new shape is evidenced by a file, and the entry says so at the site.** Every
+    messenger-named file available anywhere - both sample corpora and the whole reference library,
+    9,294 + 2,276 names - is `IMG-20140817-WA00NN.jpg`, four of them. These are documented
+    conventions, not observations. Skype, Slack and iMessage were **left out** for the opposite
+    reason and that refusal is recorded too: no convention could be stated with confidence, and
+    this table makes the date chain *refuse* names, so a guessed pattern costs real photos real
+    dates.
+  - **The gap was two repairs, not one, and that is the highest-value comment in the change.**
+    `2014815120755` (614 files) defeats `_COMPACT_DATE` twice: the trailing time defeats its
+    `(?!\d)` fence, and the one-digit month defeats `(0[1-9]|1[0-2])`. **Either repair alone
+    recovers 0 of the 614.** Someone making one of them would measure no improvement and conclude
+    the analysis was wrong, so the number is at the site and a test isolates each half.
+  - **Whole-run matching rather than a looser fence**, because relaxing the fence in place would
+    let an 8-digit window inside a 17-digit Facebook id match. Two valid readings **refuse**
+    (`2014121120755` is both 2014-01-21 and 2014-12-01) - §1's never-guess rule reaching a new
+    site. A pattern-local floor of 2000 is justified by what *writes* these names, and its
+    residual is disclosed rather than hidden: a bare, unprefixed epoch-ms filename **after
+    2033-05**, 150 of 16,436 sampled.
+  - **Two silences ended.** A terminating NUL survived `str.strip()` (NUL is not whitespace in
+    Python) and cost the file its date; edges only, so an embedded NUL still refuses.
+    `DateSource.REJECTED_EARLY` gives the sanity **floor** a member - `1899:12:31` used to be
+    found, refused, and reported as `NONE`. `REJECTED_FUTURE` turned out to have **no explanation
+    entry at all** and fell back to "not recorded"; both now say what was refused and why.
+  - **What the identical trees actually earn - the correction that mattered most.** Organizing the
+    whole library before and after gave byte-identical trees, 2,271 files, empty diff. That is not
+    proof the fix works and reading it as such teaches nothing: it earns exactly *the change is
+    inert wherever EXIF exists*. The 643 are EXIF-dated - that is why tier 4 never fires here - so
+    they were never in `Undated/` and could not move. A third run on **EXIF-stripped copies** is
+    the only one that shows the fix: 643 of 643 in `Undated/` before, **0** after, every one on
+    the day its original EXIF says.
+  - **Gates:** right-day 631 → 1,274, correctly silent 997 → **997**, wrong days **0**, the four
+    WhatsApp files still `Undated/`. Across 78 camera makes the two new patterns match **0 of
+    9,294** names and the digit-run pattern refuses **201 of 204**, dating only a genuine AVCHD
+    camcorder stamp.
+  - Filed, not fixed: `(adc)` (a falsified clustering invariant), `(add)` (~30 discarded tag
+    readings needing three separate rulings), `(ade)` (the Twitter pattern claiming hex hashes).
+
 - **(abv) CLOSED 2026-08-08: the disambiguated event folder was computed and thrown away.**
   Found while planning folder-name suggestions, fixed in the same commit as this entry. Recorded
   because what it says about the *tests* outlives the one-line cause.

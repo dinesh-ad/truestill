@@ -38,6 +38,8 @@ _DEVICE = {"Make": "Apple", "Model": "iPhone 15 Pro", "LensModel": "iPhone 15 Pr
 #: pattern added without a sample fails here rather than going quietly unexercised.
 _ONE_NAME_PER_PATTERN: tuple[str, ...] = (
     "IMG-20250804-WA0020.jpg",
+    "WhatsApp Image 2022-07-14 at 18.48.47.jpeg",
+    "PHOTO-2022-07-14-18-48-47.jpg",
     "photo_2024-01-15_12-30-45.jpg",
     "photo_1@29-10-2021_09-30-00.jpg",
     "signal-2024-03-02-101112.jpg",
