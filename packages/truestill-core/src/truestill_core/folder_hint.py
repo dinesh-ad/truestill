@@ -141,6 +141,12 @@ _JUNK_EXACT = frozenset(
         "all",
         "src",
         "home",
+        # Scaffolding, found 2026-08-12: `Testing-new` holds 1,836 real files in the reference
+        # library, and `trips._suggestion_roots` only suppresses a name carried by >= 80% of a
+        # proposal's cards - below that its own docstring says this list carries it alone.
+        "test",
+        "testing",
+        "tests",
     }
 )
 
@@ -174,6 +180,21 @@ _JUNK_PATTERNS = tuple(
         (r"^(wa|img|vid|dsc|pxl|mvimg)[-_ ]?\d+$", re.I),
         (r"^(sent|received|documents|audio|voice notes|stickers|animated gifs)$", re.I),
         (r"^scratch[-_]", re.I),
+        # `Testing-new`, `test-run`, `Testing new`. **A bare `^test[a-z]*` would be the
+        # `Mary`/`mar` mistake again**: it would eat `Testimonial`, `Teston` and - the one that
+        # matters - `Test Match`, which is a real event people photograph.
+        #
+        # Two alternatives rather than one, because `tidy` runs first and turns `_` into a space,
+        # so by the time this sees the name `Testing_new` and `Testing new` are the same string:
+        #   * `^test[-_]` - a hyphen survives tidying and is scaffolding-shaped on its own,
+        #     exactly as `^scratch[-_]` above already assumes.
+        #   * `^test(ing|s)[-_ ]` - a space only counts when the word is `Testing`/`Tests`, which
+        #     `Test Match` is not.
+        # **Known limit, deliberate:** `test_batch2` tidies to `test batch2` and is then
+        # indistinguishable from `Test Match` by any prefix rule. Left uncaught - a wrongly
+        # discarded real name is worse than a scaffolding name reaching the naming screen, where
+        # a person sees it and can decline it.
+        (r"^test[-_]|^test(ing|s)[-_ ]", re.I),
         (r"^pytest", re.I),
         (r"^[a-f0-9]{16,}$", re.I),  # hash-like
     )

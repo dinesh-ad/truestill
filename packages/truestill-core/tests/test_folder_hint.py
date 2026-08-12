@@ -33,7 +33,8 @@ corrected word is no longer evidence of anything.
 
 from __future__ import annotations
 
-from truestill_core.folder_hint import suggest_name
+import pytest
+from truestill_core.folder_hint import is_junk, suggest_name, tidy
 
 # The real Wayanad shape: one photographer filed directly under the event, the others under a
 # Day folder, so the event name sits at a DIFFERENT LEVEL for different members of one cluster.
@@ -284,3 +285,51 @@ def test_a_trailing_possessive_is_not_the_possessive_shape() -> None:
     """`Boys' Day` is `s` then apostrophe, not apostrophe then `s`, so only the mark goes."""
     assert suggest_name([["Boys' Day"]] * 9) == "Boys Day"
     assert suggest_name([["Girls' School Trip"]] * 9) == "Girls School Trip"
+
+
+# --- scaffolding folder names, measured on the real library 2026-08-12 ----------------------
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "Testing-new",  # 1,836 real files sit in this folder in the reference library
+        "Testing_new",
+        "testing-new",
+        "test-run",
+        "Testing new",
+        "Testing",
+        "test",
+    ],
+)
+def test_a_scaffolding_folder_is_not_an_event_name(name: str) -> None:
+    """`Testing-new` holds 1,836 files and `_suggestion_roots` will not always save it.
+
+    That heuristic only suppresses a name present in **>= 80% of the cards in one proposal**, and
+    its own docstring says that below the threshold "the junk list carries it alone". A library
+    where this folder supplies fewer than four cards in five leaves it unsuppressed, and it was
+    then proposed as an event name for every photo in it - measured, not supposed.
+
+    The class is already here: `scratch-`, `pytest`, `temp`, `tmp`, `new folder`, `untitled`. This
+    is the same class with a name nobody had written down.
+    """
+    assert is_junk(tidy(name)) is True
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "Test Match",  # cricket - a real event, and the reason this is not a bare ^test prefix
+        "Testimonial",
+        "test_batch2",  # tidies to `test batch2` - see the known limit at the pattern
+        "Teston",
+    ],
+)
+def test_a_real_name_that_merely_starts_with_test_survives(name: str) -> None:
+    """CRY-WOLF HALF, and the `Mary`/`mar` lesson applied before it can be repeated.
+
+    A greedy `^test[a-z]*` would eat every one of these. The discriminator is the separator: a
+    scaffolding name joins with `-` or `_`, exactly as `^scratch[-_]` already assumes, while a
+    real name uses a space or continues the word.
+    """
+    assert is_junk(tidy(name)) is False
