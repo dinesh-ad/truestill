@@ -1617,6 +1617,18 @@ section, because what is left is the part that still has to be written.
     the bake's reasoning applied where it does not belong: a bake needs the landed hash
     *because it deliberately changes the bytes and no source-truth claim survives*; a plain copy
     has a source, and the source is the truth.
+  - **THE INVARIANT THIS ENTRY IS REALLY ABOUT, stated positively 2026-08-12 because the entry
+    argued the negative and the positive is the stronger case: every path that DESTROYS a source
+    re-reads the destination first, and copy mode destroys nothing.**
+    - `organizer._move_source` - "delete a source only after its destination copy re-verifies.
+      Never deletes on doubt": `destination.checksum(final_relative) == copy_sha`, and any failure
+      keeps the source.
+    - `reclaim.run_reclaim` - "re-verify fresh, immediately before deleting: never delete on a
+      stale check", through `reclaim._verify`, which re-hashes the file on the drive.
+    - Plain copy leaves the source where it is. **So the asymmetry is correct rather than merely
+      tolerable**, and it is the answer to "why does move verify and copy not": verification is
+      the price of destruction, and copy does not destroy. Nothing is at risk during the
+      detection window, which is why the latency below costs nothing.
   - **What the real gap is: detection latency, not correctness.** `organizer._upload_copy`
     writes and returns nothing, and `copy_sha` is the source hash. Nothing re-reads the
     destination, so §1's `copy -> record -> re-verify` ordering - which `_move_source` really
@@ -1625,10 +1637,19 @@ section, because what is left is the part that still has to be written.
     copy is protected either way; what is missing is catching it at the moment it happens.
   - **Why it is deferred rather than open.** Two measured constraints, both of which make this a
     design exercise rather than a fix:
-    - **Cost:** a full re-read of every written file. Proxy measurement from the attach work -
-      ~6.3 s per 6.2 GB local, ~22 s on a cloud FUSE mount - which is roughly **30-50% on the
-      copy phase of every organize**, paid always, to shorten the detection window for something
-      already detected.
+    - **Cost:** a full re-read of every written file. **Measured directly 2026-08-12, replacing
+      the proxy below, and it is worse than the proxy said.** On 1.50 GB of the real library: the
+      copy itself 0.96 s, the re-read **2.22 s**. So verifying takes the write phase from 0.96 s
+      to 3.18 s - **3.3x, not the 30-50% estimated here** - paid always, on every organize.
+      (Superseded proxy, kept because it is what the deferral was originally argued on: ~6.3 s
+      per 6.2 GB local, ~22 s on a cloud FUSE mount, from the attach work.)
+      - **And the re-read is from the DESTINATION, which is usually the slowest device present** -
+        a USB drive or a cloud mount, not the NVMe these numbers came off. At the 3.9 MB/s
+        measured for cloud-mount content reads, verifying a 6.3 GB organize would add ~27 minutes.
+      - **If it is ever built, do not use a second read.** A chunked copy that hashes as it writes
+        was measured on the same 1.50 GB at **1.99 s** - 2.1x the bare copy, but **37% cheaper
+        than copy-then-verify** and one pass over the destination instead of two. The cost is
+        giving up `shutil.copy2`'s in-kernel fast path. Recorded so it is not re-derived.
     - **It cannot be unconditional:** `RcloneDestination` has **no `checksum`** and the base
       raises `DestinationError`. So a post-write verify either skips silently on rclone - a new
       silent hole, which is worse than the one being closed - or needs its own
@@ -3135,12 +3156,22 @@ picking one up must map the combined order before building.
     and `_GENERIC_SOFTWARE` exist only to serve it, and `layout.py`'s `RuleName.SOFTWARE` side-bin
     branch is only reachable through it. The module docstring's rule 3 describes behaviour the
     product does not have.
-  - **Two ways out, and they are not equivalent.** *Request the tag* - which changes
-    `tags_fingerprint`, invalidating every cached metadata row and forcing a cold exiftool pass,
-    so it needs a reason beyond tidiness. Or *delete the dead path* and record why, which costs
-    nothing but discards whatever case it was written for. `Software` is the more consequential
-    of the two: requesting it turns an open-ended folder-per-application rule on across every
-    library at once, which is a product decision and not a repair.
+  - **THE DECISION, restated 2026-08-12 once the cost below was measured. It is three ways out,
+    not two, and the middle one is new:**
+    1. ***Request the tag as it stands.*** Now measurable and now clearly bad: 159 files with a
+       working camera `Model` leave the timeline, and 3 folder labels become 97. Not a repair.
+    2. ***Reorder `rule_software` below the device rule and constrain the label set, then request
+       the tag.*** This is the option the entry did not have. It keeps the case the rule was
+       written for - "everything I edited in Lightroom" - while a camera `Model`, which is real
+       evidence of origin, outranks "was opened once in an editor". `_GENERIC_SOFTWARE`'s
+       five-value exclusion list is the wrong shape for `Version` and `Binary data`; an allow-list
+       or a plausibility test is.
+    3. ***Delete the dead path*** and record why - costs nothing, discards whatever case it was
+       written for.
+    - Requesting the tag in options 1 and 2 also changes `tags_fingerprint`, invalidating every
+      cached metadata row and forcing a cold exiftool pass, so it needs a reason beyond tidiness.
+    - **This is now decidable in one sitting, which it was not before**: the cost of option 1 is
+      a number, option 2 names what would have to change, and option 3 is unchanged.
   - **What "request the tag" would actually cost, measured 2026-08-12 rather than argued.** The
     entry called it a product decision without a number; here is the number. 1,258 media files
     across 78 camera makes (`metadata-extractor-images` + `exif-samples`), graded through the real
