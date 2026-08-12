@@ -3141,6 +3141,33 @@ picking one up must map the combined order before building.
     nothing but discards whatever case it was written for. `Software` is the more consequential
     of the two: requesting it turns an open-ended folder-per-application rule on across every
     library at once, which is a product decision and not a repair.
+  - **What "request the tag" would actually cost, measured 2026-08-12 rather than argued.** The
+    entry called it a product decision without a number; here is the number. 1,258 media files
+    across 78 camera makes (`metadata-extractor-images` + `exif-samples`), graded through the real
+    `categorize`, production tag set versus the same set plus `Software`:
+
+    | | production today | if `Software` were requested |
+    |---|---|---|
+    | filed as `Camera` (rule 4) | **461** | 302 |
+    | filed by `rule_software` | - | **313** |
+    | `Saved` (fallback) | 791 | 637 |
+    | files carrying a real camera `Model` **not** filed as `Camera` | **0** | **159** |
+    | distinct folder labels created | **3** | **97** |
+
+    So requesting the tag takes **159 files that carry a working camera `Model` out of the
+    timeline** and into an editor's folder - a Nikon D200 photo that was once opened in Photoshop
+    files under `Adobe Photoshop/`, and `Pentax QS1.dng` (`Model: PENTAX Q-S1`) files under
+    `PENTAX/` rather than `Camera/`. **Rule 3 sits above rule 4, so on any file carrying both it
+    wins**, and "edited once" is not evidence of origin the way a camera model is.
+    - **And the folder count is the sharper half: 3 labels become 97.** `_GENERIC_SOFTWARE`
+      excludes five values, which is not the shape of the problem - the labels this produced
+      include `Version`, `Binary data`, `Digital Camera`, `GLDPNG ver`, `Nikon Transfer` and
+      `ImageMagick`. An open-ended folder-per-application rule inherits whatever junk vendors
+      write into a free-text field.
+    - Neither number argues for deletion by itself - a real "everything I edited in Lightroom"
+      folder is a defensible product. They do say that requesting the tag **as it stands** would
+      be a visible regression on ordinary camera libraries, so the decision is not "request or
+      delete" but "reorder below rule 4 and constrain the label set, or delete".
   - **Worth checking first for `SamsungModel`: it may have been meant to come from
     `SamsungCaptureInfo`**, which **is** requested and is already used by the screenshot rule. If
     the Samsung model is derivable from that tag, the fix is a parse rather than a new request -
