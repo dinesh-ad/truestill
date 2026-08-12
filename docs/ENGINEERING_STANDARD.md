@@ -986,10 +986,24 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   test invites you to "fix" code that is already right.** Ten minutes were spent reading a
   function whose source was correct on every line.
 
-  *So: after restoring, verify through the interpreter and not only through the filesystem.* Clear
-  `__pycache__`, or assert the restored value the way the test will read it
-  (`import module; assert module.CONSTANT == expected`). One line, and it distinguishes "the file
-  is back" from "the thing that runs is back", which are not the same claim.
+  **THE RULE. A mutation is not restored until two separate things have been proved, and each
+  needs its own check:**
+
+  1. *The file is back* - `cmp` against the saved original, byte-identical. Unchanged, still
+     required, still not sufficient.
+  2. *The thing that runs is back* - **proved through the interpreter**, because nothing on the
+     filesystem can prove it. Either `find . -name __pycache__ -prune -exec rm -rf {} +` before
+     the verification run, or read the value back the way the test will
+     (`python -c "import m; assert m.CONSTANT == expected"`).
+
+  Step 2 is one line and it is the whole member. Skipping it does not merely weaken the evidence -
+  it produces **confident evidence for a false conclusion**, which is why this ranks above an
+  ordinary gap.
+
+  *And the diagnostic, for when it has already happened:* a test failing on a line that reads
+  correctly, in a file `git diff` reports as unchanged, is this until proven otherwise. Check what
+  the interpreter loaded before you change anything - the temptation is to "fix" the correct code,
+  and that edit is the real damage.
 
 - **A PHRASE REPEATED BETWEEN DOCUMENTS ACQUIRES THE AUTHORITY OF A RULE WITHOUT EVER BEING ONE.**
   The thirty-fifth member, and the sibling of the thirty-second below: that one is about a clause

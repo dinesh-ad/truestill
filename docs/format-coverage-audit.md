@@ -69,6 +69,30 @@ re-derived from a README.
 **Neither restriction cost anything.** These are real photographs from real people - 74 of them
 carry real coordinates - and every number in §0 was obtained without copying a single file.
 
+### 0.5 What these corpora are breadth IN, and what they are not
+
+Recorded 2026-08-12 after reaching for them expecting the wrong kind of breadth, so nobody does
+it again.
+
+**They are breadth in METADATA. They are not breadth in FILENAMES.** 78 camera makes, and every
+one of the 502 EXIF-labelled media files is *correctly silent* to the date resolver's filename
+tier - not because the tier is narrow, but because **the names are curated fixture names, not
+what the devices wrote**: `Leica T (Typ 701).dng`, `DJI Phantom 4 (1).dng`, `Sony Cybershot
+(3).jpg`, `Issue 1234.jpg`, and several thousand MD5 hashes. A bug-report corpus is named by the
+people filing bugs.
+
+So a question of the form *"how common is this filename convention?"* cannot be answered here, and
+`date-resolver-corpus-measurement.md` §2.2 and §2.3 remain at "zero files anywhere available"
+after searching both. The reference library's 48 shapes from nine devices are still the only
+real-name sample this project has.
+
+**What they answer instead, and answer better than anything else available: cry-wolf.** A new
+filename pattern can be run against 9,294 real names to see what it *wrongly* claims, and a name
+nobody chose for its shape is exactly the right adversary for that. Both new WhatsApp patterns
+matched 0; the whole-digit-run pattern refused 201 of the 204 names holding a 12-14 digit run.
+The three it accepted were a genuine AVCHD camcorder stamp, which is the one filename convention
+these corpora *did* contribute.
+
 ---
 
 Status: **Implemented (Phase 2).** Added `pillow-heif` (graceful-degradation guarded) so
