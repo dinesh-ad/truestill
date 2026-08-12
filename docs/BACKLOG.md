@@ -1772,11 +1772,15 @@ section, because what is left is the part that still has to be written.
       notice, templates, `app.js` and both stylesheets all collected, every finding `ok`, exit 0.
       **Any PyInstaller-based spec must carry it**; Briefcase collects `app_packages` wholesale
       and should not need an equivalent, which the Linux lane now checks rather than assumes.
-    - **OPEN AND UNEXPLAINED, deliberately left so: the 2026-08-01 Windows run `30692798020`
-      reported *"assertion 4 PASS - HTTP 200"*.** If templates were uncollected then as they are
-      now, that should not have been possible. Either that run was measuring something other than
-      what it claimed, or the collection behaviour has changed since - **each is a finding, and
-      neither is established.** Not resolved with a theory here; it needs evidence.
+    - ⚠ **OPEN, AND IT GOT SHARPER RATHER THAN CLOSER TO RESOLVED - do not let anyone close this
+      with a plausible story.** The 2026-08-01 Windows run `30692798020` reported *"assertion 4
+      PASS - HTTP 200"*. Today's work established that before `--collect-data`, **templates were
+      provably uncollected** - `find` over the bundle, no `truestill_app` directory at all - so a
+      server that answered 200 with a page had no `index.html` to render. That PASS is therefore
+      **harder to account for than when it was first noticed**, not easier. **An anomaly that
+      worsens under new evidence is a real anomaly.** Either that run was measuring something
+      other than what it claimed, or collection behaviour has changed between then and now; each
+      is a finding, neither is established, and a story that merely reconciles them is not one.
     - **The Windows lane produced NO measurement, for two faults, neither in the self-check.**
       Briefcase failed on the network (*"Unable to download RCEdit; is your computer offline?"*),
       and `measure` died at `launch-detached.ps1:72` - `CreateProcess failed ... (win32 error 3)`,
@@ -1786,6 +1790,29 @@ section, because what is left is the part that still has to be written.
       today and deterministic:** the same line, exe and error code appear in run `30694297381`
       (2026-08-01), the only dispatch after `5e3d627` added the detached launcher - **it has never
       once succeeded.** Tracked as its own thread; it blocks a lane, not a criterion.
+    - ✅ **SECOND DISPATCH, 2026-08-12 (run 31636240970): BOTH ACCEPTANCE CRITERIA ARE DISCHARGED
+      ON A REAL FROZEN ARTIFACT - PyInstaller, Linux.** `"complete": true`; `trash` answers
+      `send2trash`; both typefaces and the notice present at **343,140 / 334,268 / 4,007 bytes**,
+      each digest **matching the repository's own file**. Red then green on the same bundle forty
+      minutes apart, with **one flag** as the entire difference. This is the thing `(aad)` has been
+      unable to say since the criteria were written: a packaging claim that something checks.
+      - **The byte-count split is now evidence rather than argument.** Its first real execution
+        agreed - artifact reports what it holds, checkout decides whether those are the right
+        bytes - and `compare_selfcheck.py` printed *"self-check matched the repository"*.
+      - **The job still FAILED, and that is the better result.** Briefcase produced nothing, and
+        the comparison refused to call that a pass: *"THE BUILD PRODUCED NO ARTIFACT … nothing was
+        checked, and that is not a pass"*. Three distinct states where two runs earlier there was
+        one wrong message.
+      - ⚠ **The Briefcase failure was MINE, not a Briefcase finding, and it is the second time
+        this week a document held the answer and nobody read it before acting.** Briefcase refused
+        with *"The version of Python being used to run Briefcase ('3.13.15') is not the system
+        python3 ('3.12.3')"* - which **this entry already recorded** as `linux system` friction:
+        *"it must run under the distro's python3 rather than a venv's."* The other instance was
+        the signing gate, waiting for a decision recorded four screens above it. Recorded as a
+        pattern about how this project is **used** rather than about who used it:
+        `ENGINEERING_STANDARD.md` §4 already names the remedy - **a design is not checked against
+        the contract until somebody quotes the clause it touches** - and neither instance quoted
+        anything.
     - **Three faults of the instrument's own, found by the same run and fixed:** the comparison
       script read only the rig's `--probe` envelope and so reported *"the artifact never ran it"*
       about an artifact that had run it and failed - **the rig's own fence forbids exactly that

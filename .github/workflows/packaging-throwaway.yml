@@ -184,8 +184,21 @@ jobs:
             # .NET's ProcessStartInfo cannot set DETACHED_PROCESS, so the launch goes through
             # CreateProcess directly via a tiny helper. `Start-Process -WindowStyle Hidden`
             # would NOT do: hidden is not detached, and the console would still be inherited.
-            $proc = & (Join-Path $env:GITHUB_WORKSPACE 'packaging\launch-detached.ps1') `
-              -Exe $Exe -Arguments @('--probe', $out) -WorkingDirectory $work
+            # try/catch, because a THROW here aborts the whole step and takes every findings
+            # file with it - including `_selfcheck.json`, the control that exists to make "no
+            # file" mean something. That is exactly what happened on three dispatches: the
+            # launcher raised, the step died, and the run reported "nothing was measured" when
+            # what it had was a launcher fault. A step that reports FAILURE where it should
+            # report a FINDING is this file's own named anti-pattern.
+            try {
+              $proc = & (Join-Path $env:GITHUB_WORKSPACE 'packaging\launch-detached.ps1') `
+                -Exe $Exe -Arguments @('--probe', $out) -WorkingDirectory $work
+            } catch {
+              Write-Host "::error::$Name LAUNCH FAILED - $($_.Exception.Message)"
+              Write-Findings -Path $out -Body @{ artifact = $Name; measured = $false
+                                                 reason = "launch failed: $($_.Exception.Message)" }
+              return
+            }
             $deadline = (Get-Date).AddSeconds(180)
             while ((Get-Process -Id $proc -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) {
               Start-Sleep -Milliseconds 250
@@ -254,20 +267,10 @@ jobs:
             } catch {
               Write-Host "::error::assertion 4 FAILED - $($_.Exception.Message)"
             }
-            # ASSERTION 5 - (aad)'s font criterion, and it is the SECOND HALF of a pair.
-            # The artifact's own self-check proves the bytes were COLLECTED and are intact; only
-            # a request from outside proves they are SERVED, which is what the criterion says.
-            # Kept apart deliberately: an in-process request to ourselves would test the reporter
-            # as much as the app, the same reason assertions 3 and 4 live out here.
-            $root = $url.Split('?')[0].TrimEnd('/')
-            foreach ($asset in @('DejaVuSansMono.ttf', 'DejaVuSansMono-Bold.ttf', 'LICENSE-DejaVu.txt')) {
-              try {
-                $got = Invoke-WebRequest -Uri "$root/static/fonts/$asset" -UseBasicParsing -TimeoutSec 30
-                Write-Host "assertion 5 PASS - $asset HTTP $($got.StatusCode), $($got.RawContentLength) bytes"
-              } catch {
-                Write-Host "::error::assertion 5 FAILED - $asset did not serve: $($_.Exception.Message)"
-              }
-            }
+            # ASSERTION 5 LIVES IN THE LINUX JOB, not here. It was written here first and moved
+            # on 2026-08-12: this lane has never once reached this step - three dispatches, three
+            # failures at `launch-detached.ps1` - while the Linux lane has a working bundle on a
+            # platform D9 publishes. A serving proof that runs beats one that waits.
           }
           Stop-Process -Id $pid_ -Force -ErrorAction SilentlyContinue
 
@@ -357,13 +360,24 @@ jobs:
       # Briefcase Linux bundle carry the fonts and the notice - which is a different question and
       # the one the acceptance criteria ask. AppImage would need Docker on the runner; not taken
       # here rather than taken quietly.
+      # UNDER THE DISTRO'S python3, NOT THE VENV'S - and the first attempt walked into a
+      # constraint this entry had already recorded. Briefcase refused with "The version of Python
+      # being used to run Briefcase ('3.13.15') is not the system python3 ('3.12.3')", which is
+      # exactly (aad)'s note that a `linux system` package LINKS AGAINST system Python. Installing
+      # briefcase into the system interpreter is the whole fix; it is not a Briefcase finding.
+      - name: Install Briefcase into the system python3
+        id: briefcase_install
+        continue-on-error: true
+        run: python3 -m pip install --user --break-system-packages briefcase
+
       - name: Build (Briefcase)
         id: briefcase
+        if: steps.briefcase_install.outcome == 'success'
         continue-on-error: true
         working-directory: packaging
         run: |
-          "$GITHUB_WORKSPACE/.venv/bin/briefcase" create linux system --no-input
-          "$GITHUB_WORKSPACE/.venv/bin/briefcase" build linux system --no-input
+          python3 -m briefcase create linux system --no-input
+          python3 -m briefcase build linux system --no-input
 
       # `--self-check` rather than `--probe`: the rig questions this file was built for are
       # Windows-only, and running them here would report "unavailable" three times and measure
@@ -449,6 +463,62 @@ jobs:
             exit 1
           fi
           uv run python packaging/compare_selfcheck.py "${files[@]}"
+
+      # ASSERTION 5 - THE SECOND HALF OF THE FONT CRITERION, moved here from the Windows job on
+      # 2026-08-12. The criterion says the artifact must SERVE the typefaces with a 200 and the
+      # right byte count; the self-check above proves only that they were COLLECTED and are
+      # intact. Both halves are needed and neither substitutes for the other.
+      #
+      # WHY IT MOVED: it sat in a lane with three dispatches and no successes - Windows has never
+      # once got past `launch-detached.ps1` - while this lane now has a demonstrably working
+      # bundle on a platform D9 publishes. A serving proof on Linux is worth more than a serving
+      # proof waiting on Windows.
+      #
+      # From OUTSIDE the process, deliberately: a request to ourselves would test the reporter as
+      # much as the app. No detached launch is needed here - the console question is a Windows one
+      # - so this is an ordinary background start, which is why it can work at all today.
+      - name: Assertion 5 - the artifact SERVES the typefaces
+        id: serving
+        if: steps.pyinstaller.outcome == 'success'
+        continue-on-error: true
+        env:
+          TRUESTILL_DATA_DIR: ${{ github.workspace }}/serve-data
+          TRUESTILL_CACHE_DIR: ${{ github.workspace }}/serve-cache
+        run: |
+          ./dist/truestill-probe-pyinstaller/truestill-probe-pyinstaller --port 0 --no-browser &
+          app=$!
+          url_file="$TRUESTILL_DATA_DIR/session-url.txt"
+          for _ in $(seq 1 120); do [ -f "$url_file" ] && break; sleep 0.5; done
+          if [ ! -f "$url_file" ]; then
+            echo "::error::assertion 3 FAILED - no session URL file was written"
+            kill $app 2>/dev/null || true
+            exit 1
+          fi
+          url=$(head -1 "$url_file")
+          echo "assertion 3 PASS - $url"
+          root="${url%%\?*}"
+          root="${root%/}"
+          status=0
+          # A page first (assertion 4), then each asset with its byte count compared to the
+          # checkout - the same split as the self-check: served bytes measured, repository bytes
+          # the authority.
+          code=$(curl -s -o /dev/null -w '%{http_code}' "$url")
+          echo "assertion 4 - the app served a page: HTTP $code"
+          [ "$code" = "200" ] || status=1
+          for asset in DejaVuSansMono.ttf DejaVuSansMono-Bold.ttf LICENSE-DejaVu.txt; do
+            src="packages/truestill-app/src/truestill_app/static/fonts/$asset"
+            want=$(wc -c < "$src")
+            got=$(curl -s -o served.bin -w '%{http_code}' "$root/static/fonts/$asset")
+            have=$(wc -c < served.bin)
+            if [ "$got" = "200" ] && [ "$have" = "$want" ]; then
+              echo "assertion 5 PASS - $asset HTTP 200, $have bytes (repository: $want)"
+            else
+              echo "::error::assertion 5 FAILED - $asset HTTP $got, $have bytes (repository: $want)"
+              status=1
+            fi
+          done
+          kill $app 2>/dev/null || true
+          exit $status
 
       - name: Upload findings
         if: always()

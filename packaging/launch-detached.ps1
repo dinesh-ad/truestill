@@ -68,8 +68,22 @@ $created = [TruestillProbe.Native]::CreateProcess(
     $false, $DETACHED_PROCESS, [IntPtr]::Zero, $WorkingDirectory, [ref]$si, [ref]$pi)
 
 if (-not $created) {
+    # THE ERROR CODE ALONE HAS COST THREE DISPATCHES. Every run since this script was written
+    # (2026-08-01 `30694297381`, and twice on 2026-08-12) has failed here with the same
+    # `win32 error 3` - ERROR_PATH_NOT_FOUND - while the build step reported success, and a bare
+    # code cannot say WHICH path was not found. CreateProcess is handed three: the executable
+    # named inside the command line, the working directory, and whatever the command line parses
+    # to when `lpApplicationName` is NULL. So report the state of each at the moment it failed,
+    # rather than sending the next person to guess from Linux.
     $code = [System.Runtime.InteropServices.Marshal]::GetLastWin32Error()
-    throw "CreateProcess failed for '$Exe' (win32 error $code)"
+    $facts = @(
+        "exe exists: $(Test-Path -LiteralPath $Exe)"
+        "exe path: '$Exe'"
+        "working directory exists: $(Test-Path -LiteralPath $WorkingDirectory -PathType Container)"
+        "working directory: '$WorkingDirectory'"
+        "command line: $commandLine"
+    ) -join '; '
+    throw "CreateProcess failed for '$Exe' (win32 error $code) - $facts"
 }
 
 [void][TruestillProbe.Native]::CloseHandle($pi.hThread)
