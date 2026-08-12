@@ -1959,6 +1959,42 @@ section, because what is left is the part that still has to be written.
       decision**…~~ **The signing gate is gone (see READ FIRST above).** One gate remains -
       **soak** (`PROJECT_STATUS.md` §2, §3) - and it is not `(aad)`'s to move.
 
+  - **THE INSTALLER-COMPARISON RIG WAS DELETED, 2026-08-12, and this is the record of what it
+    was.** `packaging/installer.iss`, `packaging/inspect-installers.ps1` and a second job in
+    `.github/workflows/packaging-throwaway.yml`, removed rather than left silent.
+    - **It was built, complete, wired - and never ran once.** Every packaging step
+      `continue-on-error`, the inspection on `if: always()`, a findings file written even for a
+      bundler whose build failed, artifact upload on `always()`. It was not abandoned mid-way.
+      **The timestamps are the proof:** the workflow has exactly three dispatches, all
+      2026-08-01 - runs `30691988015` (08:33Z), `30692798020` (08:57Z), `30694297381` (09:43Z) -
+      each containing only the `measure (windows)` job, and the only artifact ever produced is
+      `packaging-findings` from the middle one. The rig landed in `98820d8` at **15:41Z the same
+      day**, six hours after the last dispatch. Its own commit says so: *"Nothing measured yet.
+      This commit is the instrument, not the reading."*
+    - **Why it goes.** It measures install **shape** - install location, Start-menu entry,
+      uninstaller registration, Add/Remove presence, clean uninstall - which are facts about an
+      installer that already exists, not inputs that choose a bundler. Its own first line calls it
+      a throwaway measurement and not a release configuration, and the file it lived in says
+      *"DELETE OR REPURPOSE THIS FILE once the bundler is chosen."* Under D9 the choice turns on
+      three columns it does not touch (see THE LEAN above), and what it *would* have measured is
+      answered better by the real installer when one exists.
+    - ⚠ **THE ONE FINDING WORTH KEEPING, WHICH WOULD HAVE GONE WITH THE FILE. Its
+      `uninstalled_cleanly` check reads the three Uninstall registry hives and nothing else** - it
+      compares a registration count before and after. **It would report a clean uninstall for an
+      installer that deleted the user's catalog.** That is not a criticism of the rig, which was
+      measuring registration; it is a **requirement for whatever installer is built**: an
+      uninstall must be verified against `catalog.sqlite` in the OS data directory, not against
+      the registry. `(aae)` already draws the line the check needs and nothing has connected them
+      - `catalog.sqlite` is **user data** (custody record, human-confirmed dates, trip names;
+      losing it is unrecoverable) while `hashes.cache.sqlite` is disposable. **No document states
+      an uninstall stance at all**, and a tool whose uninstall silently removes someone's photo
+      index is the worst possible last impression.
+    - **Nothing in it was uniquely reusable, and the part that is reusable was never in it.** The
+      mechanism the acceptance criteria need - an artifact reporting on itself into a findings
+      file, uploaded from the job - is `packaging/truestill_probe/` plus the `measure` job, both
+      **kept and untouched**. The deleted PowerShell reads a Windows registry, which answers
+      nothing about what a bundle contains.
+
   - **`CREATE_NO_WINDOW` suppression is NOT a bundler question, and is recorded separately so it
     stops riding along in the wrong rig** (moved out of the comparison 2026-08-01).
     - **It is our flag, not a bundler's.** It lives in `truestill_core.binaries.run` / `.popen`,

@@ -13,6 +13,13 @@
 # build outputs. `workflow_dispatch` only, so it never runs on a push and never costs a
 # contributor a minute they did not ask for.
 #
+# A SECOND JOB WAS REMOVED FROM HERE ON 2026-08-12 - the Inno-vs-MSI installer comparison, with
+# packaging/installer.iss and packaging/inspect-installers.ps1. Built complete, wired, and NEVER
+# RUN: every dispatch of this workflow predates it. It measured install SHAPE (install location,
+# Start-menu entry, Add/Remove registration, clean uninstall), and D9 left the bundler turning on
+# three columns it did not touch. Reasoning, and the one finding worth keeping from it, are in
+# BACKLOG (aad) - read that before rebuilding anything like it.
+#
 # DELETE OR REPURPOSE THIS FILE once the bundler is chosen. If you are here to add a platform,
 # a signing step, or a release artifact, you are extending a measurement rig into a pipeline
 # it was never designed to be - write the real one instead.
@@ -250,101 +257,5 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: packaging-findings
-          path: findings/
-          retention-days: 7
-  # ============================================================================================
-  # INSTALLER COMPARISON - PyInstaller + Inno Setup vs Briefcase MSI.
-  #
-  # A SEPARATE JOB, not more steps on `measure`. The fence above says two measurements must fail
-  # independently; at this size that is cleanest as two jobs, so an Inno failure cannot discard
-  # the MSI answer and neither can disturb the binary-resolution measurement that already works.
-  # It rebuilds the PyInstaller output rather than passing an artifact between jobs - a rebuild
-  # is minutes, and artifact passing would couple the jobs back together.
-  #
-  # THE QUESTION IT ANSWERS: what each installer PUTS ON THE MACHINE. Install location, Start
-  # menu entry, uninstaller registration, and whether it appears in Add/Remove Programs - which
-  # IS a registry key, so it is measurable rather than a matter of preference. Everything here
-  # installs silently and uninstalls again, because a runner cannot click a wizard.
-  # ============================================================================================
-  installers:
-    name: installers (windows)
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v9.0.0
-        with:
-          enable-cache: true
-          cache-dependency-glob: uv.lock
-
-      - name: Set up Python 3.13
-        run: uv python install 3.13
-
-      - name: Sync workspace
-        run: uv sync --all-packages --group dev --locked
-
-      # Not preinstalled on windows-2025 images (actions/runner-images#11644), so it is a step
-      # rather than an assumption. That one line IS part of the cost being compared.
-      - name: Install Inno Setup
-        id: innosetup
-        continue-on-error: true
-        shell: pwsh
-        run: choco install innosetup --no-progress -y
-
-      - name: Build (PyInstaller)
-        id: pyinstaller
-        continue-on-error: true
-        shell: pwsh
-        run: |
-          uv run pyinstaller --noconfirm --clean --noconsole `
-            --name TruestillProbe --paths packaging `
-            packaging/truestill_probe/__main__.py
-
-      # The script is a committed file, not a here-string in this YAML: a PowerShell here-string
-      # must close at column 0, which terminates the block scalar it lives in. It is also worth
-      # reading on its own - see packaging/installer.iss.
-      - name: Package (Inno Setup)
-        id: inno_package
-        if: steps.pyinstaller.outcome == 'success'
-        continue-on-error: true
-        shell: pwsh
-        run: |
-          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
-          if (-not (Test-Path $iscc)) { throw "ISCC.exe not found at $iscc" }
-          Copy-Item packaging/installer.iss -Destination installer.iss
-          & $iscc installer.iss
-
-      - name: Package (Briefcase MSI)
-        id: briefcase_package
-        continue-on-error: true
-        shell: pwsh
-        working-directory: packaging
-        run: |
-          $briefcase = Join-Path $env:GITHUB_WORKSPACE '.venv\Scripts\briefcase.exe'
-          if (-not (Test-Path $briefcase)) { throw "briefcase not found at $briefcase" }
-          & $briefcase create windows app --no-input
-          & $briefcase build windows app --no-input
-          & $briefcase package windows app --no-input --adhoc-sign
-
-      # `always()`: a packaging step that failed still needs a findings file SAYING SO. "No file"
-      # must never be ambiguous between a failed build and a job that never ran - the lesson the
-      # first run of this rig already paid for.
-      - name: Install, inspect, uninstall
-        if: always()
-        shell: pwsh
-        env:
-          INNO_OUTCOME: ${{ steps.inno_package.outcome }}
-          BRIEFCASE_OUTCOME: ${{ steps.briefcase_package.outcome }}
-        run: |
-          $ErrorActionPreference = 'Continue'
-          New-Item -ItemType Directory -Force -Path findings | Out-Null
-          & packaging/inspect-installers.ps1
-
-      - name: Upload installer findings
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: installer-findings
           path: findings/
           retention-days: 7
