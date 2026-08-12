@@ -40,6 +40,21 @@ from truestill_app.service.media_support import media_breakdown
 LIBRARY_PATH_HINT = "path_hint.library"
 BACKUP_PATH_HINT = "path_hint.backup"
 
+#: **Where the user SAID their library should live.** The counterpart to `LIBRARY_PATH_HINT`, and
+#: the difference between them is a design rather than two spellings of one thing (`(abx)`):
+#:
+#: * `path_hint.library` is **observed** - written after a successful organize from wherever the
+#:   run actually wrote, and read through `take_live_path_hint`, which **clears it** when the path
+#:   is not currently a usable directory. A hint is never identity.
+#: * `library.root` is **declared** - stated once, before any run, and **never auto-cleared**. An
+#:   external drive that is unplugged, or a mount that is not up yet, must not make truestill
+#:   forget where the user said their library lives. If it did, first run would re-arm every time
+#:   the drive was out, which is the defect this key exists to close rather than re-create.
+#:
+#: So: never pass this through `take_live_path_hint`. Reachability is reported *beside* it, never
+#: folded into it, so a screen can say "not reachable right now" instead of "never chosen".
+LIBRARY_ROOT_KEY = "library.root"
+
 
 class RevealOk(TypedDict):
     ok: Literal[True]
@@ -591,6 +606,16 @@ class LibraryStatus(TypedDict):
     """Honest, catalog-driven totals for the custody strip."""
 
     library_path: str | None
+    #: Where the user **said** the library lives, or `None` when they have never been asked.
+    #: Distinct from `library_path` above, which is where a run was **observed** to write and is
+    #: `None` whenever that path is unreachable. See `LIBRARY_ROOT_KEY`. `(abx)`.
+    library_root: str | None
+    #: Whether the first-run question is still unanswered: **no declaration AND no files.**
+    #: Computed here rather than in the browser so the rule has one home and one set of tests.
+    #: The second half is what keeps it off an existing library - a user who organized before this
+    #: shipped has no declaration and must never be re-asked, because they answered the question
+    #: by doing it.
+    needs_library_root: bool
     backup_path: str | None
     files: int
     photos: int
@@ -660,8 +685,14 @@ def library_status(db: Path, *, explicit_db: bool = False) -> LibraryStatus:
         total_bytes = catalog.total_content_bytes()
         library_path = take_live_path_hint(catalog, LIBRARY_PATH_HINT)
         backup_path = take_live_path_hint(catalog, BACKUP_PATH_HINT)
+        # Read plainly, NOT through `take_live_path_hint` - see `LIBRARY_ROOT_KEY`. Routing this
+        # through the hint reader would delete the user's stated intent the first time their
+        # library drive was unplugged.
+        library_root = catalog.get_setting(LIBRARY_ROOT_KEY)
     return {
         "library_path": library_path,
+        "library_root": library_root,
+        "needs_library_root": library_root is None and total == 0,
         "backup_path": backup_path,
         "files": total,
         "photos": breakdown["photos"],
@@ -683,3 +714,36 @@ def library_status(db: Path, *, explicit_db: bool = False) -> LibraryStatus:
         "catalog_detail": startup.detail,
         "catalog_tone": startup.tone,
     }
+
+
+class SetLibraryRootOk(TypedDict):
+    library_root: str
+
+
+class SetLibraryRootErr(TypedDict):
+    error: str
+
+
+def set_library_root(raw: str, db: Path) -> SetLibraryRootOk | SetLibraryRootErr:
+    """Record where the user says their library should live. `(abx)`.
+
+    **Stored expanded and absolute.** A stored `~` is a path two pieces of code will disagree
+    about - the browser cannot expand it, and comparing it against a run's destination would fail
+    on a string difference that is not a real one.
+
+    **The folder need not exist yet**, and that is the ordinary case: on a first run it is exactly
+    what the user is about to create. Creating it is the picker's job (`fs_browse.fs_create`,
+    already used for a new backup destination), and `organize` already answers a not-yet-existing
+    destination from the parent it would be created in. Refusing a path here because it is not
+    there yet would refuse the first run.
+
+    A blank is refused rather than stored: storing one would answer the question with nothing and
+    then never ask again.
+    """
+    text = raw.strip()
+    if not text:
+        return {"error": "Choose a folder for your library."}
+    resolved = Path(text).expanduser()
+    with open_catalog(db) as catalog:
+        catalog.set_setting(LIBRARY_ROOT_KEY, str(resolved))
+    return {"library_root": str(resolved)}

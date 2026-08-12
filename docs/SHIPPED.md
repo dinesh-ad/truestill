@@ -1421,6 +1421,51 @@ no composition refactor to schedule.
 
 ## Shipped (kept for provenance)
 
+- **(abx) CLOSED 2026-08-12: where the library lives is now DECLARED, not inferred from a run
+  that already happened.**
+  - **The mechanism is worse than the entry recorded, and this is the finding rather than the
+    missing question.** `path_hint.library` is written *after* a successful organize
+    (`organize.py`) and read through `take_live_path_hint`, whose own docstring says a hint "is
+    never identity - only a convenience". So the library's location was **whatever the user
+    typed into one field once**, recorded as a side effect. The missing question is the symptom;
+    inferring the answer from a run is the cause.
+  - **The only guidance the screen offered was a placeholder reading `e.g. /media/BackupA`** - a
+    removable drive, which is the one place a library should not live. On a first run it was the
+    sole hint about where anything should go. Now a home-library example, with the trade said in
+    words in the first-run card.
+  - **The design is the declared/observed split**, and `library.root` exists because
+    `take_live_path_hint` **clears** a hint whose path is unreachable. Storing a declaration that
+    way would make an unplugged library drive erase the answer and **re-arm first run every
+    time** - the defect re-created rather than closed. Recorded in `IMPLEMENTATION_STANDARDS.md`
+    beside *identity is never a path*, which it completes rather than extends.
+    - **Load-bearing test, named so nobody weakens it:**
+      `test_the_declared_root_survives_its_path_becoming_unreachable` asserts both halves on one
+      vanished path - the declaration stands, the hint beside it is cleared. A mutation that
+      reads the declaration through the hint reader kills it and two others.
+  - **The gate is "no declaration AND no files", not the declaration alone**, and the second half
+    is what keeps this off an existing library: a user who organized before this shipped answered
+    the question by doing it. Proved both ways - absent declaration *with* files, and present
+    declaration whose path is *gone* while the catalog is empty. Computed server-side so the rule
+    has one home; a mutation that re-derives it in the browser kills the cry-wolf test.
+  - **A blocking setup wizard was considered and REFUSED**, not overlooked. The app has no such
+    pattern, a modal gate would be the first thing sitting outside the `data-ready` readiness
+    contract every screen follows, and the PhotoPrism/Immich framing in the entry is recorded
+    there as the maintainer's own unverified input. The one-time decision is honoured without
+    inventing an architectural shape for it.
+  - **Two existing contracts broke and both were repaired rather than weakened**, which is the
+    part worth reading:
+    - `test_rearrange_sits_directly_under_the_layout_it_answers` - the new Settings card had been
+      inserted between `Folder layout` and `Rearrange`, which that test deliberately keeps
+      adjacent. Moved to **first** on Settings: where the library is, then how it is laid out,
+      then rearranging it. Both that adjacency and *Appearance stays last* hold.
+    - `test_the_panel_starts_level_with_the_first_content_card` - it selects
+      `.screen.active .card`, and the new first-run card is `.hidden` (`display:none`, a
+      zero rect), so it compared the panel against `0` on a layout that was correct. The
+      selector now says `:not(.hidden)`; the claim was always about the first card a person can
+      **see**.
+  - Verified on real material as well as fixtures: an empty catalog is asked; 161 real files
+    organized from `Input/2013` and the question never returns.
+
 - **(add) CLOSED 2026-08-12: the uncommon embedded date forms, split three ways as the entry
   said it must be.** 11 of the ~30 readings recovered; the other two groups **refused, each for
   its own stated reason**, which is the ruling rather than a shortfall.

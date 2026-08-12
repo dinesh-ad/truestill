@@ -572,23 +572,6 @@ is invisible here is retired, not free.**
     argument rather than evidence is how the guard was justified in the first place. It wants the
     maintainer's decision, not an engineer's tidy-up.
 
-- **(abx) FIRST RUN never asks where the library should live.** Recorded 2026-08-08 from the
-  maintainer's own Organize run. **A design gap, not a copy gap** - a hint sentence would paper
-  over it.
-  - **Measured on a genuinely empty catalog**, not reasoned from the code: `library_path` is
-    `None`, `backup_path` is `None`, `catalog_presence` is `'empty'`. The Organized-folder field
-    therefore renders blank, and the only guidance on the screen is `#org-why`, *"Look inside
-    first to see what is in the folder"* - which is about the SOURCE, not the destination.
-  - **All three modes presume a folder that does not exist yet.** Copy into an organized folder,
-    move into an organized folder, reorganize this same folder: on a first run there is no
-    organized folder, and the user's actual first question - where should my library live - is
-    never asked. The destination IS remembered afterwards (`loadCustody` prefills from
-    `library_path`), so the gap is only the first run; but the first run is the one that decides.
-  - **Maintainer's framing, recorded as HIS input rather than a finding of mine** (no web access
-    to verify): PhotoPrism declares originals and import folders in setup before the app is
-    usable, and Immich configures an upload location and external libraries in admin. Both treat
-    the library location as a ONE-TIME decision; Truestill re-asks it every run.
-
 - **(aby) Organize screen: copy that repeats itself or explains its own button.** Recorded
   2026-08-08. **Editorial, no behaviour, deliberately kept out of the behavioural fix** - bundling
   it would drag a defect repair through a prose review.

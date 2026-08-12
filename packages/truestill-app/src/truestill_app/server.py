@@ -337,6 +337,11 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
     async def library_status(_request: Request) -> JSONResponse:
         return JSONResponse(service.library_status(_db(), explicit_db=_explicit_db()))
 
+    async def library_root(request: Request) -> JSONResponse:
+        """Record where the user says their library should live. `(abx)`."""
+        body = await request.json()
+        return JSONResponse(service.set_library_root(body.get("path", ""), _db()))
+
     async def library_stats(_request: Request) -> JSONResponse:
         return JSONResponse(service.library_stats(_db()))
 
@@ -669,6 +674,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         Route("/api/clean-empty/preview", clean_empty_preview, methods=["POST"]),
         Route("/api/clean-empty/apply", clean_empty_apply, methods=["POST"]),
         Route("/api/library/status", library_status),
+        Route("/api/library/root", library_root, methods=["POST"]),
         Route("/api/library/stats", library_stats),
         Route("/api/layout", layout, methods=["GET", "POST"]),
         Route("/api/layout/preview", layout_preview, methods=["POST"]),

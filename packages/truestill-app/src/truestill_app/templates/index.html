@@ -127,6 +127,32 @@
             or reorganize this folder in place.</p>
         </header>
 
+        <!-- FIRST RUN ONLY. `(abx)`: all three modes below presume an organized folder that does
+             not exist yet, so on a first run the user's actual first question - where should my
+             library live - was never asked, and the answer was inferred from whatever they typed
+             into "Organized folder" once. Hidden unless the server says the question is still
+             open (`needs_library_root`: no declared root AND no files), so an existing library
+             never sees it. -->
+        <div class="card hidden" id="org-first-run" data-testid="org-first-run">
+          <h2>Where should your library live?</h2>
+          <p class="lede" style="margin-bottom:var(--space-4)">Truestill will keep your sorted
+            photos in one folder and remember it. Somewhere on this computer is usually right - a
+            removable drive is for backups, which come later.</p>
+          <div class="field">
+            <label for="org-library-root">Library folder</label>
+            <div class="row">
+              <input class="input" id="org-library-root" placeholder="e.g. /home/you/Pictures/Truestill">
+              <button class="btn btn-secondary" data-browse="org-library-root" data-kind="dest">Browse…</button>
+            </div>
+            <span class="hint" id="org-library-root-hint"></span>
+          </div>
+          <div class="actions">
+            <button class="btn btn-primary" id="org-library-root-save">Use this folder</button>
+            <span class="why">You are only asked once. It does not have to exist yet, and you can
+              change it later in Settings.</span>
+          </div>
+        </div>
+
         <div class="card">
           <div class="field">
             <label for="org-source">Folder to organize</label>
@@ -165,7 +191,10 @@
           <div class="field" id="org-dest-field">
             <label for="org-dest">Organized folder <span style="color:var(--text-muted);font-weight:400">(where your sorted copies go)</span></label>
             <div class="row">
-              <input class="input" id="org-dest" placeholder="e.g. /media/BackupA">
+              <!-- The example was `/media/BackupA`, a removable drive - and on a first run it was
+                   the ONLY guidance the screen offered about where a library should live, aimed
+                   at the one place it should not (`(abx)`). -->
+              <input class="input" id="org-dest" placeholder="e.g. /home/you/Pictures/Truestill">
               <button class="btn btn-secondary" data-browse="org-dest" data-kind="dest">Browse…</button>
             </div>
             <span class="hint" id="org-dest-hint"></span>
@@ -330,6 +359,25 @@
         <header><h1>Settings</h1>
           <p class="lede">Choose how trips and events are suggested, how organized copies are
             laid out on disk, and how Truestill looks.</p></header>
+        <!-- One-time is not irreversible: the first-run question is asked once, and this is where
+             the answer is changed. `(abx)`. -->
+        <div class="card" id="settings-library-root">
+          <h2>Where your library lives</h2>
+          <p class="lede" style="margin-bottom:var(--space-4)">The folder Truestill sorts into.
+            Current: <code id="library-root-current"></code></p>
+          <div class="field">
+            <label for="set-library-root">Library folder</label>
+            <div class="row">
+              <input class="input" id="set-library-root" placeholder="e.g. /home/you/Pictures/Truestill">
+              <button class="btn btn-secondary" data-browse="set-library-root" data-kind="dest">Browse…</button>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-primary" id="set-library-root-save">Save library folder</button>
+            <span class="why" id="set-library-root-status">Changing this only affects files you
+              organize from now on. Files already sorted stay where they are.</span>
+          </div>
+        </div>
         <div class="card">
           <h2>Folder layout</h2>
           <p class="lede" style="margin-bottom:var(--space-4)">How organized copies are named on disk.

@@ -143,8 +143,12 @@ def test_the_panel_starts_level_with_the_first_content_card(ui: Page) -> None:
     ui.wait_for_timeout(200)
 
     tops = ui.evaluate(
+        # `:not(.hidden)` because `.hidden` is `display:none`, whose rect is all zeros - so a
+        # hidden first card made this compare the panel against 0 and fail on a layout that was
+        # correct. Organize's first-run card (`(abx)`) is hidden on every run but the first, and
+        # the claim being made here has always been about the first card a person can SEE.
         "() => { const p = document.querySelector('#panel > *') || document.querySelector('#panel');"
-        " const c = document.querySelector('.screen.active .card');"
+        " const c = document.querySelector('.screen.active .card:not(.hidden)');"
         " return [Math.round(p.getBoundingClientRect().top),"
         "         Math.round(c.getBoundingClientRect().top)]; }"
     )

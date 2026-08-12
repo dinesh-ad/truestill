@@ -12,6 +12,15 @@ def test_library_status_is_honest_when_empty(client: TestClient) -> None:
     s = client.get("/api/library/status").json()
     assert set(s) == {
         "library_path",
+        # Where the user SAID the library lives, and whether they have been asked - `(abx)`,
+        # 2026-08-12. Two flat keys beside `library_path` rather than one nested object, because
+        # they answer different questions from different sources: `library_path` is OBSERVED
+        # (written after a run, cleared when unreachable) and `library_root` is DECLARED (stated
+        # once, never auto-cleared). Folding them together would lose exactly the distinction the
+        # entry exists for. `needs_library_root` is the gate - no declaration AND no files -
+        # computed here so the rule has one home rather than being re-derived in the browser.
+        "library_root",
+        "needs_library_root",
         "backup_path",
         "files",
         "photos",

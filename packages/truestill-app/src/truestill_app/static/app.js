@@ -1472,11 +1472,72 @@ async function loadQuickPlaces() {
   });
 }
 
+// FIRST RUN: the one question the Organize screen never asked. `(abx)`.
+//
+// The gate is the SERVER's (`needs_library_root` = no declared root AND no files), not this
+// file's. A rule re-derived in the browser is a rule with two homes, and the half that keeps this
+// off an existing library - "and no files" - is the half that would be dropped.
+async function renderFirstRunLibrary(s) {
+  const card = $("org-first-run");
+  if (!card) return;
+  card.classList.toggle("hidden", !s.needs_library_root);
+  // Settings shows the same answer whether or not the question is still open, so a user who has
+  // one can see and change it, and one who does not is told plainly rather than shown a blank.
+  const current = $("library-root-current");
+  if (current) current.textContent = s.library_root || "not chosen yet";
+  prefill("set-library-root", s.library_root);
+  if (!s.needs_library_root) return;
+  const field = $("org-library-root");
+  if (field && !field.value && document.activeElement !== field) {
+    field.value = await suggestedLibraryRoot();
+  }
+}
+
+// Suggested from the folder picker's own roots, so the suggestion is a place that EXISTS on this
+// machine rather than a guess spelled in JavaScript. Fetched here rather than shared with
+// `loadQuickPlaces` because the two run in one `Promise.all` with no ordering between them, and
+// this only runs on a first run - a state a library is in exactly once.
+async function suggestedLibraryRoot() {
+  try {
+    const data = await get("/api/fs/dirs?path=");
+    const roots = data.roots || [];
+    const pictures = roots.find((r) => r.label === "Pictures");
+    const home = roots.find((r) => r.label === "Home");
+    const base = (pictures || home || roots[0] || {}).path;
+    return base ? `${base}/Truestill` : "";
+  } catch {
+    return "";  // a suggestion is a convenience; failing to make one must not block the question
+  }
+}
+
+async function saveLibraryRoot() {
+  const field = $("org-library-root");
+  const hint = $("org-library-root-hint");
+  const result = await api("/api/library/root", { path: field.value });
+  if (result.error) {
+    hint.textContent = result.error;
+    hint.className = "hint warn";
+    return;
+  }
+  hint.textContent = "";
+  hint.className = "hint";
+  // Refill the destination from the answer rather than waiting for a run to observe it, then let
+  // the reload hide the card - the server decides that, not this function.
+  const dest = $("org-dest");
+  if (dest && !dest.value) dest.value = result.library_root;
+  await loadCustody();
+}
+
 async function loadCustody() {
   const s = await get("/api/library/status");
   renderRestingPanel(s);
   // Organize and Trips work on the library; Backups copies *from* it to somewhere else.
-  prefill("org-dest", s.library_path);
+  // `org-dest` falls back to the DECLARED root when no run has been observed yet - that is the
+  // whole point of `(abx)`, and it is the only one of these five that does: the other four want a
+  // path that is reachable NOW, which is exactly what `library_path` means and `library_root`
+  // deliberately does not.
+  prefill("org-dest", s.library_path || s.library_root);
+  renderFirstRunLibrary(s);
   prefill("ev-source", s.library_path);
   prefill("bk-source", s.library_path);
   prefill("verify-path", s.backup_path || s.library_path);
@@ -3460,6 +3521,14 @@ async function previewLayout() {
 }
 $("layout-template").oninput = guarded(previewLayout);
 $("layout-preset").onchange = guarded(() => { if ($("layout-preset").value) { $("layout-template").value = $("layout-preset").value; return previewLayout(); } });
+$("org-library-root-save").onclick = guarded(saveLibraryRoot);
+$("set-library-root-save").onclick = guarded(async () => {
+  const status = $("set-library-root-status");
+  const r = await api("/api/library/root", { path: $("set-library-root").value });
+  if (r.error) { status.textContent = r.error; return; }
+  status.textContent = "Saved.";
+  await loadCustody();
+});
 $("layout-save").onclick = guarded(async () => {
   const r = await api("/api/layout", { template: $("layout-template").value.trim() });
   if (r.valid === false) { $("layout-error").textContent = `That folder pattern is not valid. ${r.error} Update the pattern, then save again.`; return; }
