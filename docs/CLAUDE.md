@@ -34,6 +34,12 @@ route to *"is this already built?"* - the question the file exists to answer.
 
 - **Inner loop: targeted tests only.** Never the full gate on an edit.
 - **`make check` before every commit** - 19-21 s against a 45 s ceiling, which is not friction.
+- **The pre-commit hooks are lint, format, typecheck and the trailer rules. They do not run the
+  suite, and their green output is not the gate.** Written down 2026-08-12 because it was broken
+  that day by someone working to this standard: the hooks print a column of green immediately
+  above the commit, `make check` does not, and the eye takes the nearer one. A red suite reached a
+  commit and the letter-uniqueness test was what caught it. Same class as `(ace)` and the closure
+  rule - a rule that lives only in practice gets broken by someone who can quote it.
 - **`make gate` when the diff reaches the browser.** It runs `check`, then `e2e` only if the diff
   touches `packages/truestill-app/src/` or `tests/e2e/`, and prints what decided it. The reason
   for skipping the browser lane is a command's output, never a recollection.
