@@ -58,6 +58,12 @@ DATE_TAGS: tuple[str, ...] = (
     "CreateDate",
     "MediaCreateDate",
     "TrackCreateDate",
+    # LAST, and that position is the rule rather than an ordering accident (`(acm)`). RIFF
+    # `DateCreated` is **date-only**, so it resolves to midnight; a file carrying both it and a
+    # real capture time must keep the time. The two AVIs in the corpora are exactly that pair -
+    # one has only this, the other has a precise `CreateDate` - so putting it anywhere higher
+    # would collapse a known-good 20:52 to 00:00.
+    "DateCreated",
 )
 
 _TZ_SUFFIX = re.compile(r"[+-]\d{2}:?\d{2}$")

@@ -1421,6 +1421,40 @@ no composition refactor to schedule.
 
 ## Shipped (kept for provenance)
 
+- **(acl) CLOSED 2026-08-12: JPEG 2000 reaches the pipeline.** `.jp2`, `.jpf` and `.j2k` added to
+  `IMAGE_EXTENSIONS`. Such a file was never handed to exiftool at all - not dated, not
+  categorised, not organised, and **silently skipped rather than reported**.
+  - **The entry's own precondition was checked first, and it is the reason this waited.**
+    Recognition is one answer and *hashing* is another - `format-coverage-audit.md` records RAW
+    differing on exactly that. Pillow was confirmed on the real `jpg2000/balloon.jp2`: it opens
+    and downsamples it, so perceptual dedup works rather than merely not crashing.
+  - Verified end to end on the real files: `balloon.jp2` and `balloon.jpf` now reach exiftool and
+    return 6 and 5 tags respectively.
+
+- **(acm) CLOSED 2026-08-12: an AVI carrying its date only in RIFF `DateCreated` is dated by it.**
+  - **`(add)` is what unblocked this.** The entry said adopting the tag needed "the resolver to
+    accept a dayless-precision source or to say why it will not" - `DateCreated` here is
+    `2020:08:28`, date-only. `(add)` taught `parse_exif_datetime` the year-first numeric forms
+    earlier the same day, so the precondition was already met.
+  - **The rate is per-AVI, not per-file, and that is what earned the tag.** The entry read "one
+    file in 1,322". Measured: of the **two** AVIs across both corpora, **one carries this and
+    nothing else**. A whole container format was half-failing.
+  - **Scoped to `RIFF:`, which the entry demanded and which is load-bearing.** A bare
+    `DateCreated` is an IPTC field on stills meaning something else, and the corpora hold
+    malformed ones (`2010:00:00`). `-RIFF:DateCreated` returns nothing on a real still that
+    carries the IPTC field - verified - while exiftool still keys the result plainly as
+    `DateCreated`. A mutation that unscopes it dies.
+  - **Last in `DATE_TAGS`, and the position is the rule.** Date-only means midnight, so a file
+    carrying both this and a real capture time must keep the time. A mutation that promotes it
+    above `CreateDate` dies.
+  - **It tripped `test_no_new_exiftool_tag_was_requested`, which is exactly what that test is
+    for** - *"that may be right, but it is never incidental"*. The fingerprint was updated
+    deliberately with the trade recorded at the site: one cold exiftool pass per library at
+    upgrade (~2.2 ms/file, ~5 s on the 2,275-file reference library) against a container format
+    that half-fails without it.
+  - Verified end to end through the real reader: `100_0306.AVI` resolves to **2020-08-28** where
+    it was `Undated/`, and `MVI_4823.AVI` keeps its precise `2012-09-10 20:52`.
+
 - **(abx) CLOSED 2026-08-12: where the library lives is now DECLARED, not inferred from a run
   that already happened.**
   - **The mechanism is worse than the entry recorded, and this is the finding rather than the

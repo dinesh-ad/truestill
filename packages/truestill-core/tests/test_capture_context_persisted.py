@@ -154,7 +154,21 @@ def test_no_new_exiftool_tag_was_requested() -> None:
         assert tag in _NUMERIC_TAGS
     assert "GPSAltitude" not in REQUESTED_TAGS
     assert "GPSAltitude" not in _NUMERIC_TAGS
-    assert tags_fingerprint(REQUESTED_TAGS, _NUMERIC_TAGS) == "efc0b42a315be9a9", (
+    # CHANGED ONCE, DELIBERATELY, 2026-08-12 - `efc0b42a315be9a9` -> `cff9bb9b374bc122` by adding
+    # `RIFF:DateCreated` for `(acm)`. This assertion did its job: the addition tripped it, and the
+    # cost was weighed rather than discovered later.
+    #
+    # **What it costs:** every cached metadata row is invalidated once, so the next run per library
+    # pays a cold exiftool pass - ~2.2 ms/file measured (`PERFORMANCE.md`), so ~5 s on the
+    # 2,275-file reference library. One time, per library, at upgrade.
+    #
+    # **What it buys:** of the two AVIs across both sample corpora, **one carries a date in RIFF
+    # `DateCreated` and nowhere else** and was landing in `Undated/`. The rate is per-AVI, not
+    # one-in-1,322 files, which is what turned this from a curiosity into a format that half-fails.
+    #
+    # Scoped to `RIFF:` on purpose - a bare `DateCreated` is an IPTC field on stills meaning
+    # something else, and the corpora hold malformed ones (`2010:00:00`).
+    assert tags_fingerprint(REQUESTED_TAGS, _NUMERIC_TAGS) == "cff9bb9b374bc122", (
         "the requested tag set changed; every cached metadata row is now invalid and the next "
         "run pays a full cold exiftool pass. That may be right, but it is never incidental"
     )

@@ -80,6 +80,15 @@ IMAGE_EXTENSIONS: frozenset[str] = frozenset(
         ".webp",
         ".tif",
         ".tiff",
+        # JPEG 2000 (`(acl)`). One real instance across two public corpora and 72 makes - no
+        # consumer camera in either wrote it - but a scanner or archival workflow that emits it
+        # had its photos **silently skipped**, never handed to exiftool at all. Added only after
+        # the entry's own precondition was checked on the real file: Pillow opens
+        # `jpg2000/balloon.jp2` and downsamples it, so perceptual dedup works rather than merely
+        # not crashing. Recognition and hashing were two different answers for RAW.
+        ".jp2",
+        ".jpf",
+        ".j2k",
         ".heic",
         ".heif",
         ".hif",

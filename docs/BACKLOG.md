@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ade). Next free: (adf).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(adf). Next free: (adg).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -416,28 +416,21 @@ is invisible here is retired, not free.**
     is the same problem the video UTC ladder (`(uu)`) exists for. Do not adopt one without the
     other.
 
-- **(acm) A RIFF `DateCreated` IS NOT REQUESTED, SO SOME AVIs ARE DATELESS ON A FILE THAT HAS A
-  DATE.** Recorded 2026-08-10. `avi/100_0306.AVI` in the metadata-extractor corpus carries its
-  date only in RIFF `DateCreated: 2020:08:28`. `.avi` **is** in `MEDIA_EXTENSIONS`, so Truestill
-  opens the file and finds nothing - a depth gap, not a breadth one.
-  - **Small and bounded:** one file in 1,322, and `DateCreated` here is **date-only, no time**, so
-    adopting it needs the resolver to accept a dayless-precision source or to say why it will not.
-  - **Do not add it blindly with the tag list.** `DateCreated` is also an IPTC field on stills
-    where it means something else, so requesting it globally would feed the resolver a value it
-    has not been designed to weigh. Scope it to RIFF/AVI or leave it.
-
-- **(acl) JPEG 2000 IS NOT RECOGNISED - the one breadth gap in 2,825 media files.** Recorded
-  2026-08-10. `.jp2`, `.jpf` and `.j2k` are absent from the 62-extension gate, so such a file is
-  never handed to exiftool: not dated, not categorised, not organised. Observed once, on
-  `jpg2000/balloon.jp2`.
-  - **Its rarity is the argument for and against.** One real instance across two public corpora
-    and 72 makes - no consumer camera in either wrote it - so almost nobody is affected. Equally,
-    adding three extensions is nearly free, and a scanner or archival workflow that emits JPEG
-    2000 currently has its photos silently skipped.
-  - **Check the second half before adding the first.** Recognition is the extension set; Pillow
-    also has to open it for perceptual dedup. Unverified - `format-coverage-audit.md` records that
-    RAW recognition and RAW *hashing* were two different answers, and this deserves the same
-    check rather than the same assumption.
+- **(adf) A CLI-ORGANIZED LIBRARY LEAVES `path_hint.library` UNSET, so the app has no observed
+  destination to prefill.** Found 2026-08-12 while verifying `(abx)` on real material, and
+  recorded rather than fixed because the right answer is a ruling.
+  - `service/organize.py` writes `LIBRARY_PATH_HINT` after a successful run. **The CLI's organize
+    does not.** Measured: 161 real files organized with `truestill organize` leave
+    `library_path` at `None` while `files` reads 161.
+  - **Nothing is broken today.** `(abx)`'s first-run gate is `no declaration AND no files`, so
+    such a library is correctly never re-asked; and `(abx)`'s declared `library.root` is now the
+    thing that prefills a destination, which does not depend on the hint at all.
+  - **What is worth deciding:** whether the CLI should write the hint too. For it - a user who
+    organizes on the command line and then opens the app gets an empty Organized-folder field
+    where the app-only user gets a filled one, which is one product behaving as two. Against -
+    the hint is an app-side convenience and the CLI has always taken its destination as an
+    argument, so writing it makes the CLI carry state for a surface it does not use.
+  - Small either way; it is one `set_setting` call or one sentence saying why not.
 
 - **(ace) THE MUTATION RESTORE RULE EXISTS, IS CORRECT, AND WAS VIOLATED TWICE IN ONE DAY -
   MAKE IT EXECUTABLE.** Recorded 2026-08-10. `ENGINEERING_STANDARD.md` §4 item 5 already names

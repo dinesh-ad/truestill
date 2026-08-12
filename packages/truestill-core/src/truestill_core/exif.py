@@ -52,6 +52,16 @@ REQUESTED_TAGS: tuple[str, ...] = (
     "CreateDate",
     "MediaCreateDate",
     "TrackCreateDate",
+    # RIFF/AVI only, and the group prefix is load-bearing (`(acm)`). `DateCreated` is **also** an
+    # IPTC field on stills, where it means something else and where the corpora hold malformed
+    # values like `2010:00:00` - so an unscoped request would feed the resolver a value it was
+    # never designed to weigh. `-RIFF:DateCreated` returns nothing on a still that carries the
+    # IPTC one, verified against a real file; exiftool still keys the result plainly as
+    # `DateCreated`, which is what the resolver reads.
+    #
+    # Worth it despite adding a tag: of the two AVIs in the corpora, **one carries this and
+    # nothing else**, so the rate is per-AVI rather than one-in-1,322.
+    "RIFF:DateCreated",
     # Video UTC ladder (backlog (uu)): MakerNotes zone, GPS UTC proof, clip length.
     # Unexercised on the soak corpus for GPS; requested so the rung can fire when present.
     "TimeZone",
