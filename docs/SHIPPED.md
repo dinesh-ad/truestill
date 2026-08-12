@@ -1448,8 +1448,11 @@ no composition refactor to schedule.
     with optional separators lets a seven-digit run split as `2002`+`09`+`4`. The source comment
     asserted this could not happen; nothing tested it, so the mutant survived until a test went in.
 
-- **(aaq) PARTLY CLOSED 2026-08-12: the `SamsungModel` half deleted, and the class given a
-  detector. The `rule_software` half is the maintainer's and stays open.**
+- **BUILT 2026-08-12: a dead metadata path deleted, and the class given a detector. No letter -
+  this is half of `(aaq)`, which stays open in `BACKLOG.md` for its other half.**
+  - **The letter stays in the backlog on purpose.** An entry that is genuinely part-done cannot be
+    in both files: one letter names one item, and `test_backlog_letters_are_unique` enforces it.
+    So the open half keeps `(aaq)` and this entry records the built half without claiming it.
   - **`SamsungModel` deleted rather than enabled.** `rule_device` read
     `_text(metadata, "Model") or _text(metadata, "SamsungModel")`, and the second was never
     present because `SamsungModel` is not in `REQUESTED_TAGS`. Enabling it means requesting the
