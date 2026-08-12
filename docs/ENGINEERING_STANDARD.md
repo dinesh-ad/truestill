@@ -403,6 +403,24 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   **The requirement: assert BOTH that the mutant is the loaded code AND that the mutation is
   present in that loaded source, before trusting the result.**
 
+  **AND THE OUTCOME TO EXPECT, once that is reliable: mutations stop finding code defects and
+  start finding TEST defects.** Recorded 2026-08-12, when four in one session did exactly that -
+  the surviving mutant was never a hole in the code, it was a hole in the assertion aimed at it:
+
+  * a detector fixtured on 31 Dec / 1 Jan, where the year split masked the midnight split it was
+    written to catch (`(adc)`);
+  * a comment claiming a seven-digit run could not be read as a date, with nothing testing it
+    (`(add)`);
+  * a suffix-not-substring case fixtured on `partial-scans.txt`, which contains no `.partial` at
+    all, so the substring mutant sailed through (`(acz)`);
+  * a click-target reserve measured at one viewport width, where the defect returns at another
+    (`(acw)`).
+
+  *Read that as the method working rather than running out of value.* A mutation that survives is
+  always evidence; on maturing code the thing it is evidence **about** shifts from the guard to
+  the test. Treating a surviving mutant as "nothing to fix here" is how a suite quietly stops
+  meaning anything, and every one of the four above would have read that way.
+
   A mutation can also be *correct* and still do harm - it is the one case in this family that
   does not fail in the reassuring direction. See the isolation rule below: **mutating a guard
   can disable the isolation that guard provides**, so a proof of a path-resolution bug runs the
