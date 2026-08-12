@@ -247,8 +247,43 @@ jobs:
             } catch {
               Write-Host "::error::assertion 4 FAILED - $($_.Exception.Message)"
             }
+            # ASSERTION 5 - (aad)'s font criterion, and it is the SECOND HALF of a pair.
+            # The artifact's own self-check proves the bytes were COLLECTED and are intact; only
+            # a request from outside proves they are SERVED, which is what the criterion says.
+            # Kept apart deliberately: an in-process request to ourselves would test the reporter
+            # as much as the app, the same reason assertions 3 and 4 live out here.
+            $root = $url.Split('?')[0].TrimEnd('/')
+            foreach ($asset in @('DejaVuSansMono.ttf', 'DejaVuSansMono-Bold.ttf', 'LICENSE-DejaVu.txt')) {
+              try {
+                $got = Invoke-WebRequest -Uri "$root/static/fonts/$asset" -UseBasicParsing -TimeoutSec 30
+                Write-Host "assertion 5 PASS - $asset HTTP $($got.StatusCode), $($got.RawContentLength) bytes"
+              } catch {
+                Write-Host "::error::assertion 5 FAILED - $asset did not serve: $($_.Exception.Message)"
+              }
+            }
           }
           Stop-Process -Id $pid_ -Force -ErrorAction SilentlyContinue
+
+      # The half the artifact cannot do. It reports what it HOLDS; whether those are the right
+      # bytes is decided here, in the checkout, beside the source of truth - because an artifact
+      # does not know what it was supposed to contain. Not `continue-on-error`: a bundle that
+      # dropped send2trash or a typeface is a finding the run must fail on.
+      - name: Compare the self-check against the repository
+        if: always()
+        shell: pwsh
+        run: |
+          # `_selfcheck.json` is NOT an artifact's self-check despite the name - it is this rig's
+          # control, written by the absent-artifact step to prove a missing findings file means
+          # something. It carries no `selfcheck` key and would be reported as an artifact that
+          # never ran the checks, so it is excluded here rather than being allowed to fail the run.
+          $files = Get-ChildItem -Path findings -Filter '*.json' -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -ne '_selfcheck.json' } |
+            ForEach-Object { $_.FullName }
+          if (-not $files) {
+            Write-Host '::error::no findings files at all - nothing was measured'
+            exit 1
+          }
+          uv run python packaging/compare_selfcheck.py @files
 
       # The raw JSON survives the job. Given how much of this work has been about green ticks
       # proving less than they appear to, the numbers are the deliverable, not the tick.
@@ -257,5 +292,92 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: packaging-findings
+          path: findings/
+          retention-days: 7
+
+  # ============================================================================================
+  # LINUX - added 2026-08-12, because D9 makes Linux a LAUNCH PLATFORM and this rig only ever ran
+  # on Windows. The one Linux reading on record is Briefcase `linux system`, whose FHS layout
+  # BACKLOG (aad) itself calls "required rather than chosen" - the target least like anything
+  # that would ship. This job does not settle that; it answers the two ACCEPTANCE CRITERIA on the
+  # second platform D9 publishes, which is a different and smaller question.
+  #
+  # A SEPARATE JOB rather than a matrix entry on `measure`, for the reason the fence at the top of
+  # this file already gives: two measurements must fail independently, and a matrix makes one
+  # platform's rig fault look like the other's answer. It also cannot share steps - the Windows
+  # job's questions (console suppression, the windowed legacy probe) do not exist here.
+  # ============================================================================================
+  selfcheck-linux:
+    name: self-check (linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install exiftool
+        run: sudo apt-get update && sudo apt-get install -y libimage-exiftool-perl
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Set up Python 3.13
+        run: uv python install 3.13
+
+      - name: Sync workspace
+        run: uv sync --all-packages --group dev --locked
+
+      - name: Build (PyInstaller)
+        id: pyinstaller
+        continue-on-error: true
+        run: |
+          uv run pyinstaller --noconfirm --clean --noconsole \
+            --name truestill-probe-pyinstaller \
+            --add-binary "$(command -v exiftool):bin" \
+            --paths packaging \
+            packaging/truestill_probe/__main__.py
+
+      # `--self-check` rather than `--probe`: the rig questions this file was built for are
+      # Windows-only, and running them here would report "unavailable" three times and measure
+      # nothing. The acceptance criteria are the whole reason this job exists.
+      #
+      # A DATA DIRECTORY OF ITS OWN, so the findings name a path this job created rather than a
+      # runner's home - the same isolation `conftest.py` gives the suite.
+      - name: Self-check the frozen artifact
+        id: selfcheck
+        if: steps.pyinstaller.outcome == 'success'
+        continue-on-error: true
+        env:
+          TRUESTILL_DATA_DIR: ${{ github.workspace }}/probe-data
+          TRUESTILL_CACHE_DIR: ${{ github.workspace }}/probe-cache
+        run: |
+          mkdir -p findings
+          ./dist/truestill-probe-pyinstaller/truestill-probe-pyinstaller \
+            --self-check findings/selfcheck-pyinstaller.json
+          echo "--- what the artifact reported ---"
+          cat findings/selfcheck-pyinstaller.json
+
+      # `always()`, and the reason is the one this rig has already paid for once: a build that
+      # failed still needs a findings file SAYING SO. "No file" must never be ambiguous between a
+      # failed build and a job that never ran.
+      - name: Record a failed build as a finding rather than as silence
+        if: always() && steps.pyinstaller.outcome != 'success'
+        run: |
+          mkdir -p findings
+          printf '{"selfcheck": null, "note": "pyinstaller build outcome was %s"}\n' \
+            "${{ steps.pyinstaller.outcome }}" > findings/selfcheck-pyinstaller.json
+
+      # The artifact reported what it HOLDS; this decides whether those are the right bytes,
+      # because an artifact does not know what it was supposed to contain. Not continue-on-error.
+      - name: Compare the self-check against the repository
+        if: always()
+        run: uv run python packaging/compare_selfcheck.py findings/selfcheck-pyinstaller.json
+
+      - name: Upload findings
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: selfcheck-findings-linux
           path: findings/
           retention-days: 7

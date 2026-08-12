@@ -24,9 +24,11 @@ from truestill_core.catalog_startup import (
     format_startup_lines,
     inspect_catalog,
 )
+from truestill_core.selfcheck import is_complete, render, write_findings
 
 from truestill_app import session_link
 from truestill_app.security import new_token
+from truestill_app.selfcheck import app_findings
 from truestill_app.server import create_app
 
 _HOST = "127.0.0.1"
@@ -200,6 +202,31 @@ def open_when_ready(server: Any, url: str, written: Path) -> None:
     _attempt_browser(url, written)
 
 
+def _run_self_check(destination: str) -> int:
+    """`--self-check`: say what this installation contains, then exit. Never starts a server.
+
+    **The exit code is the machine-readable half and is not optional.** A packaging job should be
+    able to fail on a broken bundle without parsing prose, and `(aad)`'s acceptance criteria are
+    exactly the kind of thing a job must be able to gate on.
+
+    **A path is offered because a windowed build has no console.** `_say` goes nowhere there -
+    stated in its own docstring - so on the platform this check exists for, printing is not a
+    delivery mechanism. `write_findings` is; it is the same reasoning, and the same atomic write,
+    the windowed-launch probe already established.
+
+    It runs **before** anything binds a socket or opens a catalog: an install being asked whether
+    it is intact must not have to be working in order to answer.
+    """
+    findings = app_findings()
+    if destination:
+        written = write_findings(findings, Path(destination))
+        _say(f"self-check written to {written}")
+    else:
+        for line in render(findings):
+            _say(line)
+    return 0 if is_complete(findings) else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="truestill-app", description="truestill local web UI")
     parser.add_argument(
@@ -210,7 +237,21 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--port", type=int, default=_DEFAULT_PORT)
     parser.add_argument("--no-browser", action="store_true", help="do not open a browser")
+    parser.add_argument(
+        "--self-check",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="PATH",
+        help=(
+            "report what this installation contains and exit; with PATH, write the report there "
+            "as JSON instead of printing it"
+        ),
+    )
     args = parser.parse_args(argv)
+
+    if args.self_check is not None:
+        return _run_self_check(args.self_check)
 
     explicit_db = args.db is not None
     db = args.db if explicit_db else default_catalog_path()

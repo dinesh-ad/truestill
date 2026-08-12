@@ -87,6 +87,7 @@ SUBCOMMANDS: tuple[str, ...] = (
     "clean-empty",
     "rescan",
     "restore",
+    "self-check",
 )
 
 #: Ambiguous lines kept lowercase on purpose, each with the reason it is not prose.

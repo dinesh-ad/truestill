@@ -15,6 +15,12 @@ cannot be answered anywhere else:
 
 Plus the layout question the Linux throwaways left open: which resolution rule fires under each
 bundler on the platform installers actually matter for.
+
+**And since 2026-08-12, `(aad)`'s two acceptance criteria** - a real trash backend and the
+bundled typefaces with their notice. Those do NOT live here: they are permanent obligations and
+this rig is a throwaway, so they live in `truestill_core.selfcheck` and `truestill_app.selfcheck`
+and `_selfcheck` only calls them. What this file still owns is what is genuinely about the *rig*:
+the layout, the legacy probe, and console suppression.
 """
 
 from __future__ import annotations
@@ -31,9 +37,10 @@ from typing import Any
 # Imported at module level, not inside the functions that use them. A bundler's dependency
 # analysis walks top-level imports; a function-local one can be missed entirely, which would
 # produce an artifact that fails for a reason the measurement was not about.
+from truestill_app.selfcheck import app_findings
 from truestill_core import binaries
 from truestill_core.app_paths import default_catalog_path, standard_catalog_path
-from truestill_core.exif import ExiftoolMissingError, ensure_exiftool
+from truestill_core.selfcheck import is_complete, worst
 
 #: How long the console-attach children live. Long enough to attach to, short enough that a
 #: failed run does not leave anything behind for the length of the job.
@@ -61,12 +68,29 @@ def _layout() -> dict[str, Any]:
     }
 
 
-def _exiftool() -> dict[str, Any]:
-    """Assertion 2: does the packaged app find the exiftool it shipped with?"""
-    try:
-        return {"assertion": "pass", "resolved": ensure_exiftool()}
-    except ExiftoolMissingError as exc:
-        return {"assertion": "fail", "message": str(exc)}
+def _selfcheck() -> dict[str, Any]:
+    """`(aad)`'s two acceptance criteria, asked of the artifact by the artifact.
+
+    **This used to be a local `_exiftool()` here, and moving it out is the point of the change.**
+    The criteria are permanent obligations - a bundle that drops `send2trash` makes `clean-empty`
+    refuse every folder, a bundle that drops the fonts is a licence defect - and this rig is
+    explicitly a throwaway. A copy living here would be deleted with the rig at exactly the moment
+    the criteria start mattering, so the checks live in `truestill_core.selfcheck` /
+    `truestill_app.selfcheck` and this only calls them. It is also what a *user* runs
+    (`truestill-app --self-check`), so the frozen build and the person with a broken install are
+    answered by the same code.
+
+    **The digests here are HALF an answer, deliberately.** They say what this artifact holds; they
+    cannot say whether that is what it should hold, because an artifact does not know what it was
+    supposed to contain. The job compares them against the repository's own bytes - see the
+    `Compare the self-check against the repository` step.
+    """
+    findings = app_findings()
+    return {
+        "assertion": "pass" if is_complete(findings) else "fail",
+        "worst": str(worst(findings)),
+        "findings": [f.as_json() for f in findings],
+    }
 
 
 def _legacy_probe() -> dict[str, Any]:
@@ -163,7 +187,7 @@ def measure() -> dict[str, Any]:
     """Every finding this artifact can produce about itself."""
     return {
         "layout": _layout(),
-        "exiftool": _exiftool(),
+        "selfcheck": _selfcheck(),
         "legacy_probe": _legacy_probe(),
         "console_suppression": _console_window(),
     }

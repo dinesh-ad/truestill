@@ -137,6 +137,10 @@ unfixable = []
 "scripts/**/*.py" = [
     "T201", "E402", "S311", "S603", "PLR2004", "DTZ001",
 ]
+# Packaging-lane scripts run inside a CI step, where stdout IS how a verdict reaches the log and
+# `::error::` annotations are how it reaches the run summary. Same latitude as scripts/, and for
+# the same reason: there is no other output channel from a job step.
+"packaging/**/*.py" = ["T201"]
 # Tests can be more permissive
 "packages/*/tests/**/*.py" = [
     "S101",    # Assert allowed in tests

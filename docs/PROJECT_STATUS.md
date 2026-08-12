@@ -65,8 +65,21 @@ narrative, or volatile counts.
 
 ## 2. What is next (in order)
 
-1. **Finish soak gate**
-   - Continue normal use; any new soak finding outranks queued feature work.
+1. **Soak is DEFERRED, deliberately - ruled by the maintainer 2026-08-12. It is no longer the
+   gate in front of everything else.**
+   - **The reason, in his words:** he will not organize the 33,000-photo library until the product
+     is good enough that a mistake is not 33,000 files to unpick. Soaking earlier does not buy
+     confidence, it buys a large and expensive way to discover a defect.
+   - **This is a change of order, not of belief.** The class soak exists to find - what only
+     appears when a real library meets an operation nobody modelled - is still real and still
+     unfound. What changed is when it is worth paying for.
+   - **Read every "behind the soak gate" sentence elsewhere against this line.** They were written
+     while soak was the gate. `BACKLOG.md` `(aad)` is the one that mattered most and now carries
+     its own note.
+   - Any soak finding that does arrive from ordinary use still outranks queued feature work.
+   - ⚠ **The paragraph below was written to argue against deferring, and it is kept.** It says the
+     remedy for a week of code-reading findings is not more auditing - which was true, and is why
+     the deferral is a ruling about *cost and blast radius* rather than a disagreement with it.
    - ⚠ **A FACT ABOUT METHOD, recorded 2026-08-11 because it is measurable and easy to miss: in
      the week to 2026-08-11, NINE items were closed or retired - and a tenth, `(abg)`, advanced a
      stage - and NOT ONE came from real use.**
@@ -102,10 +115,14 @@ narrative, or volatile counts.
        and decide then whether the matrix stays as it is.
      - **It changes how a vulnerability is reported** (`SECURITY.md` points at this repository).
        Confirm the route still works for someone outside the org.
-   - Package release sequence and launch steps are still pending and should be run only after
-     soak is explicitly accepted.
+   - ~~Package release sequence and launch steps are still pending and should be run only after
+     soak is explicitly accepted.~~ **Soak is deferred (§2 item 1), so it is no longer what these
+     wait behind.** They are still pending; what has changed is the reason they have not happened.
    - **Larger than a PyPI release, and it sits in front of this:** `BACKLOG.md` `(aad)` desktop
      installers is **launch-blocking** for the paid product - pip is not a channel the buyer can use.
+     **`(aad)` is the work in progress as of 2026-08-12**, starting with an artifact that can
+     report what it contains - both of its acceptance criteria are on the frozen bundle and every
+     guard that existed read the source tree.
 
 4. **Post-launch queue**
    - Pull from `BACKLOG.md` in written priority order, with soak findings first.
@@ -114,7 +131,10 @@ narrative, or volatile counts.
 
 ## 3. Current blockers / risks
 
-- **Soak not closed yet.** No launch actions should outrun this gate.
+- ~~**Soak not closed yet.** No launch actions should outrun this gate.~~ **Soak is DEFERRED, not
+  failing** (2026-08-12, §2 item 1). It is not closed and is not claimed to be; it is no longer
+  what other work waits behind. What remains open is the *knowledge* - the failure class that only
+  a real library produces is still unmeasured, and nothing below should be read as covering it.
 - **Absolute-path portability remains open** (`BACKLOG.md` `(xx)`, `(yy)`):
   `files.source_path`, inplace roots, reclaim journal path semantics, and reconnect UX.
 - **Known coverage gap: the unreadable-directory path is unverified on Windows.**

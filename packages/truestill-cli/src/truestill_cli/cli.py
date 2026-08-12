@@ -175,6 +175,12 @@ from truestill_core.reclaim import ReclaimPlan, plan_reclaim, run_reclaim
 from truestill_core.rescan import RescanReport, reconcile
 from truestill_core.safe_copy import STAGING_SUFFIX
 from truestill_core.scan import DEFAULT_WORKERS
+from truestill_core.selfcheck import (
+    core_findings,
+    is_complete,
+    not_checked_finding,
+    render,
+)
 from truestill_core.source_repoint import RepointPlan, plan_repoint
 from truestill_core.takeout import (
     IngestContext,
@@ -521,6 +527,10 @@ def _build_parser() -> argparse.ArgumentParser:
     status = sub.add_parser("status", help="show files that exist on only one drive (3-2-1)")
     status.add_argument(
         "--db", type=Path, default=default_catalog_path(), help="path to the catalog file"
+    )
+
+    sub.add_parser(
+        "self-check", help="report what this installation of Truestill actually contains"
     )
 
     catalog_cmd = sub.add_parser(
@@ -1378,6 +1388,34 @@ def _custody_age_line(freshness: CustodyFreshness) -> str:
     if freshness.checked_at is None:
         return "Nothing is on a drive yet, so there is nothing to have checked."
     return f"Last checked: {freshness.checked_at[:10]} (the oldest of the drives holding copies)."
+
+
+#: What `truestill self-check` cannot see, and where to see it. `truestill-cli` depends on
+#: `truestill-core` alone (`IMPLEMENTATION_STANDARDS.md` §2), so the app's bundled typefaces are
+#: genuinely out of reach here - and taking a dependency on the app to complete one command's
+#: output would trade a boundary worth keeping for a sentence.
+_APP_ASSETS_CHECKER = "truestill-app --self-check"
+
+
+def _cmd_self_check(_args: argparse.Namespace) -> int:
+    """Report what this install contains - the part core can answer for, and say which part it cannot.
+
+    **The omission is stated, never left silent, and that is the whole design of this command.**
+    A reader who sees nothing about the fonts will conclude the fonts are fine; "not checked here"
+    is a third thing, distinct from a pass and distinct from silence, and it is rendered with its
+    own mark and repeated in the closing line so it cannot be skimmed past.
+
+    Exits non-zero when something core CAN see is degraded or missing. A surface that was not
+    checked never fails the command - claiming a failure it did not observe would be the same
+    dishonesty in the other direction.
+    """
+    findings = [
+        *core_findings(),
+        not_checked_finding("app fonts", _APP_ASSETS_CHECKER),
+    ]
+    for line in render(findings):
+        print(line)
+    return 0 if is_complete(findings) else 1
 
 
 def _cmd_status(args: argparse.Namespace) -> int:
@@ -3365,6 +3403,7 @@ def _dispatch(argv: list[str] | None) -> int:
         "restore": _cmd_restore,
         "verify": _cmd_verify,
         "status": _cmd_status,
+        "self-check": _cmd_self_check,
         "catalog": _cmd_catalog,
         "config": _cmd_config,
         "clean-empty": _cmd_clean_empty,

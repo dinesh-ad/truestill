@@ -70,6 +70,28 @@ ALLOWED: dict[str, dict[str, str]] = {
             "exists. Deliberate and named there rather than glossed - and pinned here so it "
             "stays the *only* one, which the prose alone could not promise."
         ),
+        "is_complete": "a pure predicate over a list of findings; opens nothing",
+        "render": (
+            "turns findings into lines; pure. It lives in core rather than here **because** §9 "
+            "forbids the CLI and the app wording one outcome differently - the same reason "
+            "`models.status_label` has one home"
+        ),
+        "write_findings": (
+            "serialises findings to a path the caller names. It writes a REPORT, never library "
+            "state - no catalog, no drive, nothing under a user's photos - which is the "
+            "distinction this fence is about rather than the word 'write'"
+        ),
+    },
+    "selfcheck.py": {
+        "Finding": "a value type - one line of a report, passed by value",
+        "Status": "an enum of outcomes; a value",
+        "core_findings": (
+            "runs core's own checks and returns values. It reads what this INSTALL contains - a "
+            "resolved binary, an importable module, a path - and never opens the library. It is "
+            "imported here rather than routed through `service/` because the direction is the "
+            "other way round: core cannot import the app, so the app is what composes core's "
+            "findings with the static-asset ones only it can see"
+        ),
     },
     "server.py": {
         "default_catalog_path": "resolves the default --db per call inside create_app",

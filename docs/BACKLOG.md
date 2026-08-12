@@ -1703,6 +1703,40 @@ section, because what is left is the part that still has to be written.
     - **The licence rides on the same check.** Bitstream Vera binds the notice to *copies of the
       typefaces*, so an artifact carrying the fonts without `LICENSE-DejaVu.txt` is a licence
       defect, not just a missing file. Assert both paths serve.
+  - **THE INSTRUMENT FOR BOTH CRITERIA IS BUILT (2026-08-12): `truestill self-check` /
+    `truestill-app --self-check`. The criteria themselves are NOT discharged - that needs a run.**
+    Ruled to come before any bundler is chosen: a bundler decision made without it is a decision
+    nobody can check.
+    - **It reports from inside the artifact, which is the whole point.** Every finding resolves
+      through the running code's own location or a live call - `ensure_exiftool` (`_MEIPASS`, then
+      `bin` beside the executable, then PATH), `trash_backend`'s real import,
+      `server._STATIC` for the typefaces, `default_catalog_path` per call. A check that could pass
+      in a developer's tree while the bundle beside it is broken would have reproduced the defect
+      it exists to close.
+    - ⚠ **THE SPLIT THAT MAKES "the byte count of the source file" ANSWERABLE AT ALL: the artifact
+      reports the size and sha256 of what it HOLDS, and the job compares that against the
+      repository's own bytes - because an artifact cannot know what it was supposed to contain.**
+      A truncated font and a correct one are both *a file that is here*.
+      `packaging/compare_selfcheck.py` is the other half and runs in the checkout.
+    - **The font criterion has TWO halves and they are named as halves so nobody collapses them.**
+      Self-check proves the bytes were **collected and are intact**; only a request from outside
+      proves they are **served**, which is what the criterion says - so assertion 5 in the
+      packaging job fetches both faces and the notice over HTTP. An in-process request to
+      ourselves would test the reporter as much as the app, which is the reasoning that already
+      kept assertions 3 and 4 outside the process.
+    - **It lives in core, not in `packaging/`.** The criteria are permanent obligations and the
+      rig is a throwaway; a copy in the rig would be deleted at the moment they start mattering.
+      `truestill_probe` now calls it rather than carrying its own exiftool check.
+    - **And it answers a user, not only CI.** `exif.py` already tells a packaged user *"this
+      installation looks incomplete"* and gave them nothing to run. This is what they run - and it
+      prints where the catalog, the cache and `session-url.txt` resolve, which was written down
+      nowhere a user could reach.
+    - **`truestill self-check` cannot see the typefaces** (`truestill-cli` depends on core alone,
+      §2) and **says so**: a `not_checked` line with its own mark, naming
+      `truestill-app --self-check`, repeated in the closing sentence. Silence and *ok* are the
+      same thing to a reader, so the omission is stated rather than left out.
+    - **A Linux lane was added** (`selfcheck-linux`), because D9 makes Linux a launch platform and
+      this rig had only ever run on Windows.
   - **PyPI stays**, as the developer / self-hosted channel. It stops being the *primary* one.
   - **MEASURED, THEN DECLINED (2026-08-01). The ~90 MB stays in the build.** Ruled on product
     grounds: at this size the download is unremarkable for a desktop app - **VS Code is ~350 MB
