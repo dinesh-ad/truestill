@@ -257,9 +257,19 @@ def location_findings() -> list[Finding]:
     (`(aae)`), a distinction anything that ever uninstalls Truestill has to respect; and
     `session-url.txt` is the only way back into a running app whose browser did not open, on a
     windowed launch where the message saying so goes nowhere.
+
+    **THE CACHE LINE IS THE COUNTERPART OF THE CATALOG LINE ABOVE IT, never the OS default.**
+    `app_paths.cache_path_for` is the rule - the OS cache directory for the OS-conventional
+    catalog, and a sidecar beside anything else - and this reported `default_cache_path()`
+    instead, so the two adjacent lines described different installs whenever a legacy
+    `reports/catalog.sqlite` was in use. Observed on a real machine 2026-08-13: the report named
+    `~/.cache/Truestill/hashes.cache.sqlite`, **a directory that did not exist**, one line under
+    the catalog whose actual cache was `reports/catalog.cache.sqlite` and 1.6 MB. A report whose
+    purpose is telling somebody which file is disposable must not name a file nothing uses.
     """
     catalog = app_paths.default_catalog_path()
     standard = app_paths.standard_catalog_path()
+    cache = app_paths.cache_path_for(catalog)
     return [
         Finding(
             "catalog",
@@ -270,8 +280,8 @@ def location_findings() -> list[Finding]:
         Finding(
             "cache",
             Status.INFO,
-            f"{app_paths.default_cache_path()} (safe to delete; costs only time)",
-            {"path": str(app_paths.default_cache_path())},
+            f"{cache} (safe to delete; costs only time)",
+            {"path": str(cache)},
         ),
         Finding(
             "session url",

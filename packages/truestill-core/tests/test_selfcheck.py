@@ -24,7 +24,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from truestill_core import selfcheck
+from truestill_core import app_paths, selfcheck
 from truestill_core.exif import EXIFTOOL_BIN_ENV
 from truestill_core.selfcheck import (
     Finding,
@@ -251,9 +251,18 @@ def test_the_locations_are_reported_as_facts_and_never_as_passes(
     as one would train a reader to ignore the line. They are here because an uninstall has to know
     which of them is unrecoverable, and because `session-url.txt` is the only way back into a
     running app whose browser did not open.
+
+    **THE `chdir` IS LOAD-BEARING, and its absence was invisible until the cache line was fixed.**
+    `conftest.py` isolates the data and cache directories but not the working directory, and
+    `LEGACY_CATALOG_PATH` is relative - so run from this repo, where `reports/catalog.sqlite` is a
+    real file, `default_catalog_path()` returned the DEVELOPER's catalog and this test was
+    describing it. Nothing noticed while the cache line ignored the catalog; the moment it stopped
+    ignoring it, this failed. The subject here is the OS-conventional install, so the working
+    directory has to be one with no legacy catalog in it.
     """
     monkeypatch.setenv("TRUESTILL_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("TRUESTILL_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.chdir(tmp_path)
 
     findings = location_findings()
 
@@ -262,6 +271,40 @@ def test_the_locations_are_reported_as_facts_and_never_as_passes(
     assert is_complete(findings), "a fact must never fail the check"
     assert str(tmp_path / "cache") in _named(findings, "cache").detail
     assert str(tmp_path / "data") in _named(findings, "session url").detail
+
+
+def test_the_cache_named_is_the_one_belonging_to_the_catalog_named(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """THE PAIRING, and the case the test above cannot reach.
+
+    That one sets both overrides, so the catalog resolves to the OS-conventional path and
+    `cache_path_for` returns the OS cache directory - the two answers agree there whatever the
+    code does, which is why it stayed green while this was wrong.
+
+    A **legacy** `reports/catalog.sqlite` is where they diverge: its cache is a sidecar beside it,
+    not the OS cache directory. Found on a real machine, where the report named a `~/.cache`
+    file that did not exist one line below the catalog it was supposedly describing.
+    """
+    monkeypatch.setenv("TRUESTILL_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("TRUESTILL_CACHE_DIR", str(tmp_path / "cache"))
+    legacy = tmp_path / "checkout" / app_paths.LEGACY_CATALOG_PATH
+    legacy.parent.mkdir(parents=True)
+    legacy.touch()
+    monkeypatch.chdir(tmp_path / "checkout")
+
+    findings = location_findings()
+    catalog = Path(str(_named(findings, "catalog").evidence["path"]))
+    cache = Path(str(_named(findings, "cache").evidence["path"]))
+
+    assert catalog == legacy.resolve(), "the legacy catalog should have won"
+    assert cache == app_paths.cache_path_for(catalog), (
+        f"the report names {cache}, which is not the cache belonging to {catalog}"
+    )
+    assert cache.parent == legacy.parent, "a legacy catalog's cache sits beside it"
+    assert str(tmp_path / "cache") not in str(cache), (
+        "the OS cache directory was named for a catalog that does not use it"
+    )
 
 
 # ------------------------------------------------------------- severity, exit codes, rendering
