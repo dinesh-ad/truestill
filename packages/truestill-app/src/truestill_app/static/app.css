@@ -36,21 +36,40 @@ code,
    The two borrowed values were RE-DERIVED against this background rather than reused, and the
    ratios are measured, not asserted:
      --text-muted #6f7580 on this rail = 3.91:1  -> BELOW AA. Its own source annotation says
-       "4.6:1 on white", which is true on white and false here. Replaced by #9aa2b1 = 7.05:1.
+       "4.6:1 on white", which is true on white and false here.
      --success    #2f9e57 on this rail = 5.30:1  -> passes, but it was tuned against white and
-       reads muddy on dark. Re-derived to #56c47f = 8.27:1.
+       reads muddy on dark.
    For reference, the values NOT chosen: --success dark #46b46a = 6.89:1 (a reuse, not a
    re-derivation), and the brand sheet's gradient low stop #2A3B8C = 1.81:1, which fails every
-   threshold and is why the wordmark gradient on this rail is authored separately. */
+   threshold and is why the wordmark gradient on this rail is authored separately.
+
+   WARMED 2026-08-13, AND THE HUE WAS THE ONLY THING UNRECONCILED. The reasoning above was
+   right about theme-independence and right to measure; what it never addressed is that
+   `tokens.css` argues the neutral ramp is WARM ("a blue-tinted grey page reads clinical however
+   good the layout is") while this rail was #14161b - a blue-black. Two neutral families in one
+   app, and in dark mode two different blacks side by side.
+
+   EVERY VALUE IS RE-DERIVED AGAINST THE NEW GROUND, none carried over, and the instrument was
+   checked before it was trusted: the contrast function was first run against the four ratios
+   recorded above and reproduced 13.07, 7.05, 8.27 and 9.17 exactly. Only then were new values
+   computed. Every one lands AT OR ABOVE what it replaces, so this cannot be a contrast
+   regression wearing a hue change:
+     --rail-text     13.07 -> 14.12:1
+     --rail-muted     7.05 ->  7.75:1
+     --rail-success   8.27 ->  8.39:1
+     --rail-accent    9.17 ->  9.57:1
+   The three structural values carry no AA floor - they separate surfaces rather than paint text -
+   and are re-derived for the same family at the same separation. */
 :root {
-  --rail-bg: #14161b;
-  --rail-border: #23262e;
-  --rail-text: #d7dbe6; /* 13.07:1 on the rail */
-  --rail-muted: #9aa2b1; /* 7.05:1 - replaces --text-muted, which is 3.91:1 here */
-  --rail-success: #56c47f; /* 8.27:1 - replaces --success, tuned for white at 5.30:1 */
-  --rail-active-bg: #232838;
-  --rail-hover-bg: #1c2029;
-  --rail-accent: #a9b6f0; /* 9.17:1 */
+  --rail-bg: #17150f;
+  --rail-border: #2b271c; /* 1.23:1 vs the rail - a hairline, not text */
+  --rail-text: #e6e2d9; /* 14.12:1 on the rail */
+  --rail-muted: #b0a89a; /* 7.75:1 - replaces --text-muted, which is 3.91:1 here */
+  --rail-success: #5cc47f; /* 8.39:1 - replaces --success, tuned for white at 5.30:1 */
+  --rail-active-bg: #2e2a1d; /* 1.27:1 */
+  --rail-hover-bg: #211e15; /* 1.10:1 */
+  /* Also paints the wordmark's accent dot and the pillar T, so it moves with them. */
+  --rail-accent: #b3b8ee; /* 9.57:1 */
 }
 
 /* RULE 1 OF 2: above the breakpoint the shell is exactly the viewport, so `.main` scrolls and
@@ -821,6 +840,7 @@ details.more.inline {
   border-radius: var(--radius-md);
   margin-bottom: var(--space-4);
 }
+
 .banner.warn {
   background: var(--warning-subtle);
   color: var(--text);
