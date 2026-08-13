@@ -684,6 +684,31 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   asks whether it *is*. Where the two disagree the mutation is right, and the cost of skipping it
   is a suite everyone believes has been verified.
 
+- **A CHECK THAT MEASURES THE CHEAPER PROXY PASSES THE ARTIFACT IT WAS WRITTEN FOR.** The
+  forty-second member. Twice in one week, both in checks written *for* `(aad)`'s acceptance
+  criteria, both green on a broken artifact - which makes it a pattern about how checks get
+  written rather than two incidents.
+
+  > **The tell: the check names the thing, and measures something one step short of it.**
+  > *Serve* became *is present*. *Runs* became *resolves*. *The file's bytes* became *the decoded
+  > text's bytes*. Each proxy is the easier call, each is true whenever the real property is true,
+  > and each is **also** true in exactly the failure the check exists to catch.
+
+  1. *The licence byte count, 2026-08-13.* `_licence_finding` used `read_text`, which applies
+     universal newlines, so a CRLF checkout was measured at its translated length while the job
+     compared raw bytes. A byte count that changes with how you read it is not a byte count.
+  2. *exiftool, the next day.* `exiftool_finding` called `ensure_exiftool` and reported `ok` on a
+     resolved path. The Linux bundle carried exiftool's Perl **script** and none of its
+     `Image::ExifTool` modules, so the artifact resolved a path it could not execute - and the
+     check written to catch exactly that class passed it. **Resolving is not running.**
+
+  **The repair in both cases was to make the check do the expensive thing:** read bytes; invoke
+  the binary and keep the version as evidence. Neither cost anything measurable, and both were
+  only found by **exercising the artifact end to end** rather than by reading the check.
+
+  *Ask of any check: what is the cheapest way this assertion could be true while the property is
+  false?* If the answer is "the state the check exists to detect", the proxy is the defect.
+
 - **A STEP THAT REPORTS SUCCESS BECAUSE ITS ERROR HANDLING WORKED IS NOT A MEASUREMENT.** The
   forty-first member, and the mirror of the fourteenth: that one is about a step that did nothing
   and said so; this is about a step that did nothing and said **success**.

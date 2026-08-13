@@ -1745,6 +1745,60 @@ section, because what is left is the part that still has to be written.
      on a repeatedly-invoked command - a real concern with **no number**. The rig freezes the app
      entry point; there is no frozen `truestill` CLI to time. Measure before quoting anything.
 
+  ### SIZING, 2026-08-13 - nothing built
+
+  **exiftool leads this, because it decides the Linux shape rather than following it.**
+  **There is no standalone Linux exiftool.** exiftool.org ships a Windows `.exe` and a macOS
+  `.pkg`; **Linux gets the Perl distribution** - the script plus its `lib/Image/ExifTool` tree,
+  which runs against the system perl. Our bundle copies **the script alone**, which is the defect.
+
+  #### Windows: what makes an unattended installer around a one-folder build
+
+  | | unattended switch | cost | needs that we lack |
+  |---|---|---|---|
+  | **Inno Setup** | `/VERYSILENT` | one `.iss`, one `choco install innosetup` | nothing else - the rig already proved both |
+  | **NSIS** | `/S` | one `.nsi`, a setup step | a second script language for no gain |
+  | **WiX → MSI** | `/qn` | v4/v5 project, toolchain step | most config for a format whose advantage was Briefcase's, not ours |
+  | MSIX | n/a | - | **signing**, which D9 refuses. Ruled out. |
+
+  **Inno**, on the entry's own terms: cheapest, already exercised here, and `/VERYSILENT` meets
+  the unattended constraint. *Interactive is Inno's default, not its limit* - the switch is the
+  answer, and the installer must be **built and tested through it**, not merely capable of it.
+
+  **Recover the deleted `installer.iss` for its SHAPE, not its content** (`git show 1c77dd3^`).
+  Worth taking: `PrivilegesRequired=lowest` (per-user, no elevation), `{autopf}`,
+  `recursesubdirs createallsubdirs` over the one-folder output, `Compression=lzma2`, and the
+  Start-menu / uninstaller / Add-Remove trio.
+  ⚠ **Do NOT reuse its `AppId` GUID.** An `AppId` is the product's identity for upgrade and
+  uninstall; inheriting a deleted measurement probe's GUID would tie the shipped product's
+  identity to a throwaway. Generate a new one and never change it again.
+
+  #### Linux: three shapes, and they are three different products
+
+  | shape | how a user with **no exiftool** fares | cost |
+  |---|---|---|
+  | **`.deb`** | `Depends: libimage-exiftool-perl` - **apt solves it**, needs a repo/network at install time | packaging metadata; apt-family distros only |
+  | **AppImage** | works **only if we carry exiftool's whole Perl tree** (script + `lib/`); still needs system perl | must fix the bundling defect first; largest artifact |
+  | **tarball + script** | **told to install exiftool themselves** - the developer answer | cheapest; least like a product |
+
+  **This is the deciding column, not a detail:** the same three formats give a user with no
+  exiftool three different experiences - solved for them, carried for them, or handed to them.
+
+  #### The question underneath both: should Linux bundle exiftool at all?
+
+  **The entry's constraints LEAN but do not SETTLE it, so it is a maintainer decision.**
+  - **For bundling:** `binaries.py` states the rule - *"bundle what we compute with"* - and
+    exiftool's output **becomes catalog data**, so *"a shipped app should carry a known one"*.
+    A declared dependency means the **distro's** version, not one we chose, feeding §1's dating
+    contract. `_MISSING_BUNDLED_MSG` already tells packaged users exiftool *"is normally installed
+    as part of Truestill"*.
+  - **For declaring:** honest, standard, smaller, and the distro solves a problem we would
+    otherwise solve badly - our first attempt shipped a script that could not run.
+  - **What the docs do NOT say:** nothing anywhere requires an **offline install**. That property
+    is assumed, not written, so it cannot decide this on its own.
+  - **The real question is therefore not packaging convenience:** *may catalog data depend on an
+    exiftool version we did not choose?* That is D-level and not ours to settle here.
+
   ### Constraints on whatever installer is built
 
   - ⚠ **It MUST support unattended installation.** Verified as a winget acceptance requirement
