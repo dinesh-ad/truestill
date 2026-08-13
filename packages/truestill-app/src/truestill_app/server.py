@@ -16,8 +16,15 @@ from datetime import date
 from pathlib import Path
 
 from starlette.applications import Starlette
+from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
+from starlette.responses import (
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+    Response,
+    StreamingResponse,
+)
 from starlette.routing import Route
 from starlette.staticfiles import StaticFiles
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -261,6 +268,34 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
     async def reveal(request: Request) -> JSONResponse:
         body = await request.json()
         return JSONResponse(service.reveal_in_file_manager(Path(body["path"])))
+
+    async def thumb(request: Request) -> Response:
+        """A WebP thumbnail for catalogued content. See `service/thumbs.py` for the boundary.
+
+        **Three refusals, three different truths**, because a grid that cannot draw a tile should
+        be able to say which of them happened:
+
+        * `400` - the id is not a sha256. A client bug, never a user's.
+        * `404` - nothing holding this content can be opened. Unknown content answers the same,
+          deliberately: a distinct code would turn this into a membership oracle over the library.
+        * `415` - the file is right there and is not a decodable image.
+
+        Runs on the threadpool via `run_in_threadpool`: a cold thumbnail is ~23 ms of CPU-bound
+        decode, and doing that on the event loop would stall every other request behind each tile
+        - which on a fifty-tile grid is the whole page.
+        """
+        sha = request.path_params["sha256"]
+        try:
+            data = await run_in_threadpool(service.thumbnail_bytes, sha, _db())
+        except service.BadContentIdError:
+            return PlainTextResponse("not a content id", status_code=400)
+        except service.NoReachableCopyError:
+            return PlainTextResponse("no reachable copy of that content", status_code=404)
+        except service.UnidentifiedImageError:
+            return PlainTextResponse("that file is not a decodable image", status_code=415)
+        return Response(
+            data, media_type="image/webp", headers={"Cache-Control": service.THUMB_CACHE_CONTROL}
+        )
 
     async def where(request: Request) -> JSONResponse:
         params = request.query_params
@@ -700,6 +735,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         Route("/api/drives", drives),
         Route("/api/reveal", reveal, methods=["POST"]),
         Route("/api/where", where),
+        Route("/api/thumb/{sha256}", thumb),
         Route("/api/backup/preview", backup_preview, methods=["POST"]),
         Route("/api/backup/run", backup_run, methods=["POST"]),
     ]

@@ -25,6 +25,7 @@ from truestill_app.service import organize_undo as _organize_undo
 from truestill_app.service import settings as _settings
 from truestill_app.service import stats as _stats
 from truestill_app.service import takeout as _takeout
+from truestill_app.service import thumbs as _thumbs
 from truestill_app.service import trips as _trips
 from truestill_app.service import verify as _verify
 
@@ -243,3 +244,10 @@ UndoJobSummary = _migrate.UndoJobSummary
 migration_armed_state = _migrate.migration_armed_state
 migration_undo = _migrate.migration_undo
 _reveal_folder_on_drive = _migrate._reveal_folder_on_drive
+
+# --- thumbs ---
+THUMB_CACHE_CONTROL = _thumbs.CACHE_CONTROL
+BadContentIdError = _thumbs.BadContentIdError
+NoReachableCopyError = _thumbs.NoReachableCopyError
+UnidentifiedImageError = _thumbs.UnidentifiedImageError
+thumbnail_bytes = _thumbs.thumbnail_bytes
