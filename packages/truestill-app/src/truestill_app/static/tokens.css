@@ -127,7 +127,7 @@
      text SMALLER than the browser default, where zoom is a poor answer because it scales the
      layout with the type. The steps below are therefore PERCENTAGES of whatever the root
      already is, and `medium` declares nothing at all - the setting nudges the browser's answer
-     and can never replace it. A reader whose own default is 24px gets 27px on large, not 18.
+     and can never replace it. A reader whose own default is 24px gets 30px on large, not 20.
 
      12 and 13px were not two steps, they were two names for "small", and between them they
      carried 30 of 37 uses. sm is now 14 and base is 16, so the scale has a floor a person can

@@ -28,10 +28,17 @@ from playwright.sync_api import Page, expect
 ROOT = Path(__file__).resolve().parents[2]
 TOKENS = ROOT / "packages/truestill-app/src/truestill_app/static/tokens.css"
 
-#: A browser default a low-vision user really sets, and 112.5% of it - the largest root the app
+#: A browser default a low-vision user really sets, and **125%** of it - the largest root the app
 #: can be asked to render, and past the 24px the existing type-scale tests prove.
+#:
+#: THIS READ 27 UNTIL 2026-08-13, AND THE GUARD BELOW CALLED ITSELF THE WORST CASE WHILE BEING
+#: THREE PIXELS SHORT OF ONE. `f953b25` widened the band from +/-12.5% to 75%/125% - the first one
+#: read as nothing happening - and `test_the_step_is_a_nudge_and_not_a_multiplier_that_compounds`
+#: below states the resulting 18/24/30 in its own docstring. Nothing connected the two numbers, so
+#: nothing went red: the property holds at both roots. A constant that is *derived* from another
+#: and copied by hand is the thing to look for.
 RAISED_DEFAULT_PX = 24
-COMPOUND_WORST_CASE_PX = 27
+COMPOUND_WORST_CASE_PX = 30
 
 
 def _body_px(ui: Page) -> float:
@@ -58,7 +65,7 @@ def _pick(ui: Page, size: str) -> None:
 # a percentage resolves against, and reproducing that needs Chromium launched with
 # `--blink-settings=defaultFontSize=N` - a different browser, not a different page.
 #
-# So the claim is settled where it is actually made: in the declaration. `font-size: 112.5%` on
+# So the claim is settled where it is actually made: in the declaration. `font-size: 125%` on
 # the root CANNOT overwrite a browser default - resolving against it is what percent means.
 
 
@@ -197,7 +204,7 @@ def test_the_custody_strip_does_not_overflow_the_rail_at_the_compound_worst_case
     """Large ON TOP OF an already-raised default is the biggest root the app can be asked for,
     and it is past the 24px that `test_type_scale_follows_the_browser_default` proves.
 
-    The ROOT is set directly to the resulting 27px rather than composed from a default and a
+    The ROOT is set directly to the resulting 30px rather than composed from a default and a
     step. That is faithful for this question - overflow depends on the resulting size and not on
     how it was arrived at - and it is deliberately not used to claim anything about the
     composition itself, which the source assertions above own.
