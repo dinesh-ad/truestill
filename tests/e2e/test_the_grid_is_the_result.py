@@ -92,6 +92,61 @@ def test_the_tiles_load_lazily_rather_than_all_at_once(ui: Page) -> None:
     assert set(loading) == {"lazy"}, f"tiles are not lazy: {sorted(set(loading))}"
 
 
+@pytest.mark.parametrize("width", [1440, 1280, 900, 760, 420])
+def test_a_tile_is_drawn_near_the_size_its_thumbnail_was_made_for(ui: Page, width: int) -> None:
+    """`THUMB_PX` is 320 **because a tile is about 160 at 2x**, and nothing enforced that pairing.
+
+    The first grid used `minmax(96px, 1fr)` and measured 97-107px at every width from 420 to
+    1440: `auto-fill` spends spare room on more columns, not bigger photos, so a wide window drew
+    the same postage stamps as a phone while the server sent 3.2x the pixels any tile rendered.
+    Nothing failed. The grid was correct, every other test here passed, and it simply looked
+    like a contact sheet on a screen with room for photographs.
+
+    So the pairing is asserted as a range, across the widths the layout actually produces. The
+    upper bound matters as much as the lower: a tile drawn much larger than half `THUMB_PX` is
+    an upscaled thumbnail, which is the same defect pointing the other way.
+    """
+    ui.set_viewport_size({"width": width, "height": 900})
+    _completion(ui)
+    tile = ui.eval_on_selector(
+        f"{TESTID} img.tile", "e => Math.round(e.getBoundingClientRect().width)"
+    )
+
+    assert 130 <= tile <= 220, (
+        f"at {width}px a tile renders {tile}px, which does not pair with THUMB_PX=320: "
+        "below the range the served thumbnail is mostly thrown away, above it is upscaled"
+    )
+
+
+def test_no_tile_is_drawn_outside_the_card_that_holds_it(ui: Page) -> None:
+    """A grid of fixed-size images is the classic way to lose content off the right edge, and the
+    narrowest panel is where it happens.
+
+    **THE FIRST VERSION OF THIS TEST WAS WORTHLESS AND A MUTATION FOUND IT.** It asked whether the
+    DOCUMENT scrolled sideways. Replacing the responsive track with `repeat(6, 148px)` at a 420px
+    viewport left all fourteen tests green - because the page does not scroll: something upstream
+    clips it, so the overflow is silent. Measured, that mutant put the widest tile's right edge at
+    **969px against a card ending at 404**. Five of the six columns were simply not on screen.
+
+    So the assertion is the property a person experiences - a tile inside the card that contains
+    it - rather than the symptom a different layout happens to produce.
+    """
+    ui.set_viewport_size({"width": 420, "height": 900})
+    _completion(ui)
+    escaping = ui.evaluate(
+        """() => {
+            const grid = document.querySelector("[data-testid='org-grid']");
+            const card = grid.closest('.card');
+            const rect = card.getBoundingClientRect();
+            const limit = rect.right - parseFloat(getComputedStyle(card).paddingRight);
+            return [...grid.querySelectorAll('img.tile')]
+                .map((t) => Math.round(t.getBoundingClientRect().right))
+                .filter((right) => right > Math.round(limit) + 1);
+        }"""
+    )
+    assert not escaping, f"{len(escaping)} tiles render past the card edge, at x={escaping}"
+
+
 def test_the_grid_sits_above_the_numbers(ui: Page) -> None:
     """ "The grid IS the result" is an ordering claim, so it is asserted as one. Measured in
     document position rather than pixels, which is the claim and cannot be flaky."""

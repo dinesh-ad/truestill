@@ -775,16 +775,29 @@ select.input {
   margin-bottom: var(--space-4);
 }
 /* The result grid: the photos a run just organized. `auto-fill` rather than a fixed column
-   count, so the same rule serves a narrow panel and a wide one without a breakpoint - the panel
-   width decides how many fit and the browser does the arithmetic. `minmax(0, 1fr)` on the second
-   half is what stops a wide panel stretching four tiles to 300px each.
+   count, so one rule serves a narrow panel and a wide one without a breakpoint - the panel width
+   decides how many fit and the browser does the arithmetic.
+
+   `auto-fill`, NOT `auto-fit`, and the difference shows on a small run: `auto-fit` collapses the
+   empty tracks, so three photos in a wide panel would each stretch to 300px. `auto-fill` keeps
+   the tracks, and three photos stay tile-sized with space beside them.
+
+   THE 148px MINIMUM IS TIED TO `thumbnails.THUMB_PX`, not chosen by eye. That constant is 320
+   because it is a tile at 2x, which only holds if a tile is near 160. The first version said
+   96px and measured 97-107px at EVERY width from 420 to 1440 - `auto-fill` spent extra room on
+   more columns rather than bigger photos, so a wide window drew the same postage stamps as a
+   phone while the server sent 3.2x the pixels any tile rendered. 148 measures 148-203px across
+   that range. At the widest end the 2x supersample falls to 1.58x, which is a hair soft on a
+   retina display and is the right trade: the alternative is a bigger THUMB_PX, paid for in bytes
+   and decode by every tile at every width to sharpen one.
+   Pinned by `test_a_tile_is_drawn_near_the_size_its_thumbnail_was_made_for`.
 
    Aspect-ratio 1 with object-fit: cover, so a grid of mixed portrait and landscape reads as a
    grid rather than a ragged edge. The full frame is never the point here; recognising the photo
    is, and a square crop of a photo is still recognisably that photo. */
 .result-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
   gap: var(--space-2);
   margin-bottom: var(--space-4);
 }
