@@ -1,0 +1,16 @@
+{
+  "cold_seconds": 0.344,
+  "exe": "/tmp/claude-1000/-home-dinesh-ad-application-truestill/c94d9786-5368-4f82-ae85-8d11ce94a9f7/scratchpad/pyi3/dist/tsprobe/tsprobe",
+  "label": "relint",
+  "runs": [
+    {
+      "run": 0,
+      "seconds": 0.344
+    },
+    {
+      "run": 1,
+      "seconds": 0.364
+    }
+  ],
+  "warm_seconds": 0.364
+}

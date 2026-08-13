@@ -1,0 +1,8 @@
+http://127.0.0.1:40911/?token=sJCeUlYWmkTdgfEP0WGIAQEdQwwdB90v81dPIm6vxQo
+
+This is the web address of the Truestill window that is running right now.
+Open the line above in your browser.
+
+Keep it to yourself: anyone with this address can reach your library while
+Truestill is running. It changes every time Truestill starts, and this file
+is removed when it stops, so an address you saved earlier will not work.

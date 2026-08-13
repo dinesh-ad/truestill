@@ -275,6 +275,17 @@ jobs:
       # bytes is decided here, in the checkout, beside the source of truth - because an artifact
       # does not know what it was supposed to contain. Not `continue-on-error`: a bundle that
       # dropped send2trash or a typeface is a finding the run must fail on.
+      - name: Startup time
+        if: always()
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          uv run python packaging/time_startup.py `
+            dist\truestill-probe-pyinstaller\truestill-probe-pyinstaller.exe pyinstaller-windows 3
+          if ($env:BRIEFCASE_EXE -and (Test-Path $env:BRIEFCASE_EXE)) {
+            uv run python packaging/time_startup.py $env:BRIEFCASE_EXE briefcase-windows 3
+          }
+
       - name: Compare the self-check against the repository
         if: always()
         shell: pwsh
@@ -475,6 +486,19 @@ jobs:
           done
           kill $app 2>/dev/null || true
           exit $status
+
+      # STARTUP TIME - (aad)'s last ungrounded column, and user-facing. Timed to the moment
+      # `session-url.txt` appears, which is the closest observable to "the app came up".
+      # Never gates: a number is evidence, and a step that dies takes the other artifact's
+      # number with it.
+      - name: Startup time
+        if: always()
+        continue-on-error: true
+        run: |
+          uv run python packaging/time_startup.py \
+            dist/truestill-probe-pyinstaller/truestill-probe-pyinstaller pyinstaller-linux 3
+          exe=$(find packaging/build -type f -name 'truestill*probe*' -perm -u+x 2>/dev/null | head -1)
+          [ -n "$exe" ] && uv run python packaging/time_startup.py "$exe" briefcase-linux 3 || true
 
       # Briefcase ships an ordinary interpreter, so the entry point is the installed script
       # rather than a frozen executable - and `sys.frozen` is absent, which the findings will
