@@ -75,7 +75,7 @@ code,
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
   height: 100vh;
-  transition: grid-template-columns 160ms ease;
+  transition: grid-template-columns var(--dur) var(--ease);
 }
 .app.sidebar-collapsed {
   --sidebar-width: 64px;
@@ -245,7 +245,7 @@ code,
      chose, which is the trap an untokenised button leaves behind. */
   font-size: var(--text-sm);
   cursor: pointer;
-  transition: left 160ms ease, background 120ms ease, color 120ms ease;
+  transition: left var(--dur) var(--ease), background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
 .sidebar-toggle:hover {
   background: var(--surface-sunken);
@@ -272,7 +272,7 @@ code,
      this rule never asked for that face either. */
   font-family: var(--font-mono);
   line-height: 1;
-  transition: transform 160ms ease;
+  transition: transform var(--dur) var(--ease);
 }
 .app.sidebar-collapsed .sidebar-toggle .chevron {
   transform: rotate(180deg);
@@ -875,7 +875,7 @@ details.more.inline {
   height: 100%;
   width: 0;
   background: var(--accent);
-  transition: width 150ms ease;
+  transition: width var(--dur) var(--ease);
 }
 .progress-wrap .prog-foot {
   margin-top: var(--space-2);
@@ -1044,9 +1044,61 @@ details.more.inline {
   display: none !important;
 }
 
+/* ---------- results arrive ----------
+   THE ONE PIECE OF MOTION IN THE PRODUCT, and it is attached where a person is waiting: the
+   containers `app.js` writes a finished run into. A CSS animation plays when an element is
+   inserted, so this needs no JS and no change to any render function - the existing
+   `innerHTML` writes trigger it as they are.
+
+   `[id$="-result"]` rather than a list of ids: there are eleven of them and a hand-kept list is
+   the thing that goes short the day a twelfth is added. `#drives-list` is named because it is the
+   one result region whose id does not end that way.
+
+   8px, not 16: the brief is motion that responds. A longer travel reads as the interface
+   performing, which is the failure this is most likely to drift into. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+[id$="-result"] > *,
+#drives-list > * {
+  animation: rise var(--dur) var(--ease) both;
+}
+/* Capped at six. Past that the last card waits on the animation rather than on the data, which
+   is the same defect as a slow spinner. */
+[id$="-result"] > :nth-child(2),
+#drives-list > :nth-child(2) {
+  animation-delay: var(--stagger);
+}
+[id$="-result"] > :nth-child(3),
+#drives-list > :nth-child(3) {
+  animation-delay: calc(2 * var(--stagger));
+}
+[id$="-result"] > :nth-child(4),
+#drives-list > :nth-child(4) {
+  animation-delay: calc(3 * var(--stagger));
+}
+[id$="-result"] > :nth-child(5),
+#drives-list > :nth-child(5) {
+  animation-delay: calc(4 * var(--stagger));
+}
+[id$="-result"] > :nth-child(n + 6),
+#drives-list > :nth-child(n + 6) {
+  animation-delay: calc(5 * var(--stagger));
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
+    /* ANIMATION IS LISTED HERE BECAUSE IT WAS NOT, and the omission was invisible until now:
+       nothing in the product used `@keyframes`, so a reset that covered only `transition` looked
+       complete. The moment motion arrives, a blanket that misses half the property is a
+       preference silently ignored. Both are reset, and `both` on the rule above means the element
+       still lands in its final state rather than stuck at the `from` frame. */
     transition: none !important;
+    animation: none !important;
   }
 }
 
@@ -1299,7 +1351,7 @@ details.more.inline {
   display: block;
   height: 100%;
   background: var(--accent);
-  transition: width 160ms ease;
+  transition: width var(--dur) var(--ease);
 }
 .proportion > i.at-risk {
   background: var(--warning);

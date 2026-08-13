@@ -173,6 +173,28 @@
   --weight-normal: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
+
+  /* MOTION - three tokens, and the smallness is the design.
+     The brief is motion that RESPONDS, not motion that performs: progress eases, results arrive,
+     hover lifts. No glow, no pulse, no gradient. Five transitions already existed at 120/150/160ms
+     with no shared vocabulary, so a sixth would have been a sixth guess; these are what those five
+     now spend.
+
+     --ease is a decelerating curve: fast to start, settling at the end. That is what makes a thing
+     read as ARRIVING rather than as being animated - a linear or symmetric ease draws attention to
+     the movement itself, which is the failure mode named in the brief.
+
+     Two durations, not four. 120ms is below the ~150ms where a change reads as a transition rather
+     than an instant swap, so it suits colour and small state; 180ms is long enough for an 8px
+     travel to be perceived and short enough never to be waited on. Anything slower belongs to
+     progress, which is driven by data rather than by a token. */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur: 180ms;
+  /* The stagger between adjacent result cards. Six steps at 40ms is 240ms end to end - a sequence
+     you notice as one arrival, not as a queue. Capped in app.css at the sixth child for that
+     reason: past it the last card would be waiting on the animation rather than on the data. */
+  --stagger: 40ms;
 }
 
 /* TEXT SIZE - a nudge to the root, never a replacement for it.
