@@ -1716,6 +1716,8 @@ section, because what is left is the part that still has to be written.
 
   ### What remains, in order
 
+  0. **BUILD ORDER, ruled 2026-08-13: the Windows installer first** - it has a recovered starting
+     point and a working bundle - **then the `.deb`**.
   1. ✅ **The release lane - BUILT 2026-08-13** (`.github/workflows/release.yml`). Tag-triggered
      (`v*`), plus `workflow_dispatch` with `dry_run` defaulting to **true** so exercising it never
      publishes. **The self-check is the gate**: a build that cannot report a real trash backend
@@ -1752,6 +1754,17 @@ section, because what is left is the part that still has to be written.
   `.pkg`; **Linux gets the Perl distribution** - the script plus its `lib/Image/ExifTool` tree,
   which runs against the system perl. Our bundle copies **the script alone**, which is the defect.
 
+  #### Checked before ruling: does the documented resolution rule match the code?
+
+  **It does. The suspicion was that a system install "goes straight to PATH and never checks the
+  bundle" against a §5 rule stating bundle-first - and neither half holds.** `resolve_binary` is
+  override → bundled directories → PATH, as every docstring says. `bundled_bin_dirs()` filters to
+  directories that **exist**, so a system install gets `[]` and falls to PATH: nothing is skipped,
+  **there is no bundle to check**. And `IMPLEMENTATION_STANDARDS.md` §5 is the Process contract -
+  19 lines, no statement about binaries at all. **No documented rule disagreed with the code.**
+  What *was* wrong is one file over: `binaries.py` stated the bundling rule with **no platform
+  split**, which the Linux ruling below now contradicts. Fixed there.
+
   #### Windows: what makes an unattended installer around a one-folder build
 
   | | unattended switch | cost | needs that we lack |
@@ -1766,6 +1779,10 @@ section, because what is left is the part that still has to be written.
   answer, and the installer must be **built and tested through it**, not merely capable of it.
 
   **Recover the deleted `installer.iss` for its SHAPE, not its content** (`git show 1c77dd3^`).
+  **It was deleted as a measurement rig and comes back as an artifact** - and it was already
+  unattended-capable, so a constraint that looked blocking turns out met at zero cost. That is
+  why deleting it needed the reasoning it got: a file removed with its findings recorded can be
+  recovered deliberately; one removed in silence gets rewritten from scratch.
   Worth taking: `PrivilegesRequired=lowest` (per-user, no elevation), `{autopf}`,
   `recursesubdirs createallsubdirs` over the one-folder output, `Compression=lzma2`, and the
   Start-menu / uninstaller / Add-Remove trio.
@@ -1784,20 +1801,24 @@ section, because what is left is the part that still has to be written.
   **This is the deciding column, not a detail:** the same three formats give a user with no
   exiftool three different experiences - solved for them, carried for them, or handed to them.
 
-  #### The question underneath both: should Linux bundle exiftool at all?
+  #### RULED 2026-08-13: exiftool is DECLARED on Linux, BUNDLED on Windows
 
-  **The entry's constraints LEAN but do not SETTLE it, so it is a maintainer decision.**
-  - **For bundling:** `binaries.py` states the rule - *"bundle what we compute with"* - and
-    exiftool's output **becomes catalog data**, so *"a shipped app should carry a known one"*.
-    A declared dependency means the **distro's** version, not one we chose, feeding §1's dating
-    contract. `_MISSING_BUNDLED_MSG` already tells packaged users exiftool *"is normally installed
-    as part of Truestill"*.
-  - **For declaring:** honest, standard, smaller, and the distro solves a problem we would
-    otherwise solve badly - our first attempt shipped a script that could not run.
-  - **What the docs do NOT say:** nothing anywhere requires an **offline install**. That property
-    is assumed, not written, so it cannot decide this on its own.
-  - **The real question is therefore not packaging convenience:** *may catalog data depend on an
-    exiftool version we did not choose?* That is D-level and not ours to settle here.
+  - **Linux: `.deb` with `Depends: libimage-exiftool-perl`. Not bundled.** It is what the
+    platform's tooling exists to do, and bundling means carrying a Perl tree **we cannot verify
+    and cannot patch when a CVE lands in it**. The offline-install property is worth less than
+    shipping someone else's runtime with no way to update it.
+  - **Windows: bundled.** exiftool.org ships a real self-contained `.exe`, `--add-binary` already
+    places it, and Windows has no package-manager assumption to lean on.
+  - ⚠ **The asymmetry is deliberate and is not an inconsistency:** one product meeting **two
+    platforms' conventions**, rather than one packaging stretched across both. A user gets a
+    working exiftool either way; only who supplies it differs.
+  - **Consequence, accepted with the ruling:** the bundle-first rule now **permits a declared
+    dependency as a legitimate resolution**. `exiftool` is not a Debian package name, and beside a
+    `.deb` install there is nothing to find - so resolving from PATH there is the design, not a
+    failed bundle lookup. Written into `binaries.py`, which stated the rule with no platform split.
+  - **AppImage: available, DECLINED.** It would have to carry exiftool's whole Perl tree, its
+    viability turns on an unproven third-party plugin, and `.deb` answers the same question with
+    the distro's own mechanism. Recorded with the perl-runtime finding so nobody re-derives it.
 
   ### Constraints on whatever installer is built
 

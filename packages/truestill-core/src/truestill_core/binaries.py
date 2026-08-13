@@ -16,6 +16,18 @@ Bundle what we *compute with*; never bundle what we *delegate to*.
 
 * ``exiftool`` is computed with. Its output becomes catalog data, so the version matters and a
   shipped app should carry a known one. It uses this module.
+
+  **AND THE ANSWER IS PER PLATFORM, ruled 2026-08-13 (`BACKLOG.md` `(aad)`), which this rule did
+  not previously admit.** **Windows: bundled** - exiftool.org ships a real self-contained `.exe`,
+  ``--add-binary`` already places it, and Windows has no package manager to lean on.
+  **Linux: a DECLARED DEPENDENCY** (`libimage-exiftool-perl`, via the `.deb`), **not bundled** -
+  there is no standalone Linux exiftool, only a Perl script plus its ``Image::ExifTool`` tree, and
+  carrying someone else's runtime means owning a CVE surface we cannot patch. So on Linux this
+  module resolves exiftool **from PATH by design**, and that is a legitimate resolution rather
+  than a fallback that failed to find a bundle.
+
+  *The asymmetry is one product meeting two platforms' conventions, not one packaging stretched
+  across both.* Either way the user gets a working exiftool; only who supplies it differs.
 * ``rclone`` (`destinations.rclone`) is the **user's own tool**, paired with the user's own
   remotes and credentials. A bundled copy would not know their config and would be the wrong
   binary by definition. PATH only.
