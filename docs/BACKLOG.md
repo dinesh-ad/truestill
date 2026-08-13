@@ -1666,86 +1666,69 @@ section, because what is left is the part that still has to be written.
     Confirmed on a real artifact. Needs a second signal if Briefcase wins - ranked at
     `binaries.is_bundled_install`, the running code's own location first.
 
-  ### The bundler is NOT chosen, and the recorded lean is VOID
+  **Startup, seconds to reachable** (`session-url.txt` written; run 31672340257; cold = first run
+  after build, warm = median of the rest). Cold is a **lower bound** - a runner cannot drop its
+  page cache.
 
-  D9 deleted the **signing** column, which was one of the two the lean rested on. *"Briefcase if
-  all three platforms ship"* - antecedent false. *"PyInstaller + Inno if Windows ships first"* -
-  antecedent undefined; D9 orders nothing. **Three columns survive: produces an installer, build
-  simplicity, maturity.** Only the first is a real difference - PyInstaller needs a second tool
-  per platform, Briefcase does not.
-
-  **Evidence on those columns (2026-08-12, not a decision):** Briefcase's own docs **discourage
-  its AppImage backend** (not built in their release process; bugs *"not a priority"*), pointing
-  at System packages or Flatpak - so this entry's old *"deb/AppImage natively"* credit is
-  half-withdrawn by its maintainers, and the surviving half is the target that fails above.
-  Pre-1.0 risk is real (2026 advisory: MSI All-Users inheriting parent-directory permissions,
-  fixed and backported); newest release **0.4.4**, which this repo pins. Against that, 2026 Q2
-  genuinely improved the Windows MSI - pre-install checks, shortcuts, uninstall scripts - and an
-  MSI carries AV trust a bare `.exe` does not.
-
-  ### What is still unmeasured
-
-  - **Installer output** - neither bundler has produced a `.deb`, AppImage, MSI or `.exe`
-    installer here. The only surviving column that is a real difference.
-  - ~~**Startup time**~~ **MEASURED 2026-08-13 (run 31672340257), seconds to reachable
-    (`session-url.txt` written), cold = first run after build, warm = median of the rest:**
-
-    | | cold | warm |
-    |---|---|---|
-    | PyInstaller / Linux | 0.407 | 0.405 |
-    | PyInstaller / Windows | 0.509 | 0.511 |
-    | Briefcase / Windows | 1.064 | 0.999 |
-    | Briefcase / Linux | not built | - |
-
-    **PyInstaller is ~2x faster to reachable on Windows; both are sub-1.1 s.** The quoted ~50 s
-    figure is for **one-file**, which extracts to temp on every launch - it does not apply to a
-    one-folder build and is now retired as an input. Cold here is a **lower bound**: a runner
-    cannot drop its page cache.
-  - **The Linux artifact shape** - `.deb` or AppImage. Now load-bearing: it decides whether
-    Briefcase is available on Linux at all.
-  - **A tag-triggered release lane** - `ci.yml` has none.
-  - **exiftool acquisition** - where it goes is measured for both bundlers
-    (`_internal\bin`, and beside the executable); how it is obtained, versioned and licensed is
-    written down nowhere.
-
-  ### THE BUNDLER IS DECIDED: PyInstaller, with Inno Setup for the Windows installer
-
-  **Ruled 2026-08-13, with every column measured for the first time.**
-
-  **What decided it - D9 publishes two platforms and Briefcase can only build one of them.**
-  `linux system` fails on `requires-python`: pip's words, `3.12.3 not in '>=3.13'`. Choosing it
-  means dropping a published platform, lowering the project's Python floor for a packaging
-  convenience, or taking AppImage - a backend **its own maintainers discourage**. PyInstaller has
-  **both acceptance criteria discharged on both platforms**, and is **~2x faster to reachable on
-  Windows** (0.509 s vs 0.999 s warm; 0.509 vs 1.064 cold).
-
-  | | PyInstaller | Briefcase |
+  | | cold | warm |
   |---|---|---|
-  | Criteria, Windows | ✅ | ✅ |
-  | Criteria, Linux | ✅ | 🔴 cannot build |
-  | Startup, Windows (cold/warm) | **0.509 / 0.511** | 1.064 / 0.999 |
-  | Startup, Linux | 0.407 / 0.405 | not built |
-  | Produces an installer | **No** - needs Inno/WiX | **Yes** - MSI natively |
-  | Maturity | 6.x, large install base | 0.4.4 pre-1.0 |
+  | PyInstaller / Linux | 0.407 | 0.405 |
+  | PyInstaller / Windows | 0.509 | 0.511 |
+  | Briefcase / Windows | 1.064 | 0.999 |
+  | Briefcase / Linux | not built | - |
 
-  **What Briefcase is better at, and it is not a short list.** It **produces a real installer with
-  no second tool** - PyInstaller produces a folder and the installer around it is work that does
-  not exist yet. An **MSI carries AV and enterprise trust a bare `.exe` does not**, and Microsoft's
-  own tooling handles it natively. Its 2026 Q2 work improved exactly that column: pre-install
-  checks, desktop shortcuts, better uninstall scripts. It **collects app data wholesale**, so the
-  `--collect-data` defect that cost this project a dispatch could not have happened under it. And
-  its beside-the-executable layout satisfies `binaries.bundled_bin_dirs` with **zero packaging
-  configuration** on Windows.
+  The ~50 s figure often quoted is for **one-file**, which extracts to temp on every launch. This
+  builds **one-folder**; it never applied and is retired as an input.
 
-  ⚠ **What this ruling does NOT rest on: installer output is the one column still unmeasured.**
-  Neither bundler has produced an installer here - Briefcase's MSI was built but never installed,
-  and no Inno artifact exists at all. The decision is made with that column **known-absent**
-  rather than measured, which is why the reopening conditions below are specific.
+  ### DECIDED: PyInstaller, both platforms. Inno Setup for the Windows installer.
 
-  **What would reopen it:** Briefcase `linux system` becoming buildable (truestill supporting 3.12,
-  or the target distro shipping 3.13); the Inno work proving disproportionate or failing the
-  unattended-install constraint below; **signing being bought** (a D9 reversal), where Briefcase's
-  built-in signing matters again; or a supported Briefcase AppImage/Flatpak path.
+  **Ruled 2026-08-13, every column measured.**
+
+  **THE ELIMINATOR: Briefcase cannot build Linux for this project at all.** `linux system` links
+  against the distro's Python and fails on `requires-python` - pip's words,
+  **`3.12.3 not in '>=3.13'`**. D9 publishes **two** platforms, and the tool that produces the good
+  MSI produces **nothing** on one of them. Choosing it means dropping a published platform,
+  lowering the project's Python floor for a packaging convenience, or taking AppImage - a backend
+  **its own maintainers discourage**. Nothing in the other columns outweighs a platform that
+  cannot be built.
+
+  **The columns behind it.** PyInstaller: both criteria discharged on both platforms, and **~2x
+  faster to reachable on Windows** (0.509 s vs 0.999 s warm; 0.509 vs 1.064 cold). Maturity 6.x
+  against 0.4.4 pre-1.0.
+
+  **WHAT THIS LOSES, and it is a real cost rather than a courtesy.** Briefcase **produces a real
+  installer with no second tool**; PyInstaller produces a folder, and **the installer around it is
+  now the largest unbuilt thing in this entry**, with the unattended-install constraint below
+  already attached to it. An **MSI carries AV and enterprise trust a bare `.exe` does not**, and
+  Microsoft's tooling handles it natively - Briefcase's 2026 Q2 work improved exactly that column.
+  Briefcase **collects app data wholesale**, so the `--collect-data` defect that cost a dispatch
+  could not have happened under it, and its beside-the-executable layout satisfies
+  `binaries.bundled_bin_dirs` with **zero packaging configuration** on Windows.
+
+  ⚠ **The ruling does NOT rest on installer output - that column is still unmeasured.** Briefcase's
+  MSI was built and never installed; no Inno artifact exists. Decided with it **known-absent**,
+  which is why the reopening conditions are specific.
+
+  **Reopens if:** Briefcase `linux system` becomes buildable (truestill supports 3.12, or the
+  target distro ships 3.13); the Inno work proves disproportionate or cannot meet the
+  unattended-install constraint; **signing is bought** (a D9 reversal, where Briefcase's built-in
+  signing matters again); or a supported Briefcase AppImage/Flatpak path appears.
+
+  ### What remains, in order
+
+  1. **The release lane that does not exist** - a tag trigger and sigstore signing, both free and
+     costed below. The first thing here that **ships** rather than measures.
+  2. **The Windows installer** around the PyInstaller folder - the largest unbuilt item.
+     **Size it before starting it.**
+  3. **The Linux artifact shape** - `.deb`, AppImage, or a tarball with a script. Undecided, and
+     the only platform-shaped question with no answer in this entry.
+  4. **exiftool acquisition.** Where it goes is measured (`_internal/bin`); how it is obtained,
+     versioned and licensed is written down nowhere.
+  5. **The download page** - D9 requires Windows users be told what SmartScreen will show, in
+     plain language, above the button, before they download. Still mandatory (see winget below).
+  6. **CLI startup under freezing is UNMEASURED.** Freezing costs per process, so it lands hardest
+     on a repeatedly-invoked command - a real concern with **no number**. The rig freezes the app
+     entry point; there is no frozen `truestill` CLI to time. Measure before quoting anything.
 
   ### Constraints on whatever installer is built
 
