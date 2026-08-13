@@ -168,49 +168,51 @@ def test_a_rebinding_host_is_refused(library: tuple[Path, Path, str]) -> None:
 
 
 @pytest.mark.parametrize(
-    "bad",
+    ("bad", "expected", "refused_by"),
     [
-        pytest.param("..%2f..%2fetc%2fpasswd", id="encoded traversal"),
-        pytest.param("....//....//etc/passwd", id="doubled-dot traversal"),
-        pytest.param("a" * 63, id="too short"),
-        pytest.param("A" * 64, id="uppercase"),
-        pytest.param("g" * 64, id="not hex"),
-        pytest.param("%2e%2e%2f" + "a" * 55, id="encoded prefix"),
-        pytest.param("../../../../etc/passwd", id="plain traversal"),
+        pytest.param("a" * 63, 400, "our guard", id="too short"),
+        pytest.param("A" * 64, 400, "our guard", id="uppercase"),
+        pytest.param("g" * 64, 400, "our guard", id="not hex"),
+        pytest.param("..%2f..%2fetc%2fpasswd", 404, "the router", id="encoded traversal"),
+        pytest.param("....//....//etc/passwd", 404, "the router", id="doubled-dot traversal"),
+        pytest.param("%2e%2e%2f" + "a" * 55, 404, "the router", id="encoded prefix"),
+        pytest.param("", 404, "the router", id="empty"),
+        pytest.param("a" * 32 + "/" + "a" * 31, 404, "the router", id="separator mid-string"),
     ],
 )
 def test_nothing_that_is_not_a_content_id_reaches_a_filesystem(
-    bad: str, library: tuple[Path, Path, str]
+    bad: str, expected: int, refused_by: str, library: tuple[Path, Path, str]
 ) -> None:
-    """**Never 200, and never 500.** A 200 would mean bytes escaped; a 500 would mean the string
-    reached something that tried to use it and blew up. 400 and 404 are both correct answers -
-    which one depends on whether Starlette's router matched the path at all, and pinning that
-    would be asserting Starlette's URL parsing rather than our guard."""
+    """Each malformed id is pinned to the EXACT code, and to which mechanism produced it.
+
+    **THIS TEST USED TO ASSERT `status in {400, 404}` AND A MUTATION AUDIT FOUND IT UNPROVEN.**
+    That disjunction is satisfied whether or not our shape check exists: strip the check and a
+    63-character id stops being a 400 and becomes a cache miss, a catalog miss, then a 404 -
+    still inside the allowed set, still green. An assertion loose enough to cover both the guard
+    and its absence measures neither.
+
+    The two mechanisms are genuinely different and are now separated rather than blurred. Ids
+    carrying a separator never reach the handler - so those cases pin the fact that this route is
+    declared `{sha256}`, ONE path segment, and not `{sha256:path}`. That is a property of our
+    code, not of Starlette: the path converter is a standard footgun, and switching to it lets
+    every separator case through to the handler and fails five of these. The rest land in the
+    handler, where 400 is our guard speaking and any other code means it stopped speaking.
+
+    ⚠ **A literal `../../../../etc/passwd` case was REMOVED, not forgotten.** httpx resolves it
+    to `/etc/passwd` before the request is sent, so it never reached this route at all - the
+    reassuring 404 came from "no route matches /etc/passwd". It was the most convincing-looking
+    case here and the only one that tested nothing whatsoever. The encoded forms above are what
+    an attacker actually sends and what actually arrives.
+    """
     db, _drive, _sha = library
     app = create_app(token=TOKEN, db=db)
     with TestClient(app, headers={"host": "127.0.0.1:7357", "x-truestill-token": TOKEN}) as client:
         response = client.get(f"/api/thumb/{bad}")
 
-    assert response.status_code in {400, 404}, f"{bad!r} answered {response.status_code}"
+    assert response.status_code == expected, (
+        f"{bad!r} answered {response.status_code}, expected {expected} from {refused_by}"
+    )
     assert b"root:" not in response.content
-
-
-def test_a_wrong_shaped_id_is_refused_by_our_guard_and_not_merely_unmatched(
-    library: tuple[Path, Path, str],
-) -> None:
-    """The parametrized test above cannot tell our guard from Starlette's router - a traversal
-    with separators never reaches the handler, so it answers 404 whether we validate or not.
-
-    This one closes that: a 63-character hex string matches `{sha256}` and lands in the handler,
-    so **400 rather than 404** is the guard speaking. Drop the shape check and it becomes a cache
-    miss, then a catalog miss, then a 404 - and the test above stays green.
-    """
-    db, _drive, _sha = library
-    app = create_app(token=TOKEN, db=db)
-    with TestClient(app, headers={"host": "127.0.0.1:7357", "x-truestill-token": TOKEN}) as client:
-        response = client.get(f"/api/thumb/{'a' * 63}")
-
-    assert response.status_code == 400, "a malformed id reaching the handler was not refused by us"
 
 
 def test_a_catalog_row_whose_relative_path_escapes_the_drive_serves_nothing(
@@ -250,18 +252,68 @@ def test_a_catalog_row_whose_relative_path_escapes_the_drive_serves_nothing(
 # ------------------------------------------------------------- what it says when it cannot draw
 
 
-def test_unknown_content_is_a_404_and_says_nothing_about_what_exists(
+def test_unknown_content_is_indistinguishable_from_an_unreachable_copy(
     library: tuple[Path, Path, str],
 ) -> None:
-    """Unknown content and an unplugged drive answer the SAME code on purpose. A distinct one
-    would let a caller enumerate which hashes the library holds."""
-    db, _drive, _sha = library
+    """The two must answer IDENTICALLY, because the difference is what the library holds.
+
+    **The first version asserted only that unknown content is a 404, and a mutation audit found
+    it unproven** - nothing in the code distinguishes the cases, so no mutation of existing code
+    could break it, and a test nothing can break is a test that measures nothing. Worse, it was
+    the wrong claim: the property is not "unknown is 404", it is "unknown and unreachable are the
+    same answer". A future change that made unknown content a 410 would have kept it green while
+    turning the route into a membership oracle over the library.
+
+    So the two responses are now compared to each other. Any divergence - code, body, or header
+    - fails, whichever side moves.
+    """
+    db, drive, present = library
     unknown = "b" * 64
     app = create_app(token=TOKEN, db=db)
     with TestClient(app, headers={"host": "127.0.0.1:7357", "x-truestill-token": TOKEN}) as client:
-        response = client.get(f"/api/thumb/{unknown}")
+        never_catalogued = client.get(f"/api/thumb/{unknown}")
+        (drive / RELATIVE).unlink()  # catalogued, drive mounted, file gone
+        catalogued_but_gone = client.get(f"/api/thumb/{present}")
 
-    assert response.status_code == 404
+    assert never_catalogued.status_code == 404
+    assert catalogued_but_gone.status_code == never_catalogued.status_code, (
+        "a caller can tell a catalogued hash from an unknown one by the status code"
+    )
+    assert catalogued_but_gone.text == never_catalogued.text, (
+        f"the bodies differ, which is the same oracle in prose: "
+        f"{catalogued_but_gone.text!r} vs {never_catalogued.text!r}"
+    )
+
+
+def test_a_mounted_drive_missing_the_file_is_not_treated_as_holding_it(
+    library: tuple[Path, Path, str], tmp_path: Path
+) -> None:
+    """FOUND BY A MUTATION THAT KILLED NOTHING, which is the other useful outcome of an audit.
+
+    Deleting the `candidate.is_file()` check broke no test. Every existing case either had the
+    file or had the whole drive gone - and when the drive root is gone `take_live_path_hint`
+    clears the hint first, so the check was never reached. The state it exists for was untested:
+    **the drive is mounted and this one file is not on it**, which is an ordinary deleted photo
+    or a backup that was interrupted part way.
+
+    Without the check the route hands `thumbnails.thumbnail` a path that is not a file. The
+    honest answer is the same 404 as any other unreachable copy - never a crash, and never a
+    second drive's copy silently skipped because the first drive answered first.
+    """
+    db, drive, sha = library
+    second = tmp_path / "backup"
+    (second / RELATIVE).parent.mkdir(parents=True)
+    Image.new("RGB", (800, 600), (10, 160, 90)).save(second / RELATIVE, "JPEG", quality=90)
+
+    (drive / RELATIVE).unlink()  # mounted, catalogued, file gone
+
+    app = create_app(token=TOKEN, db=db)
+    with TestClient(app, headers={"host": "127.0.0.1:7357", "x-truestill-token": TOKEN}) as client:
+        response = client.get(f"/api/thumb/{sha}")
+
+    assert response.status_code == 404, (
+        f"a mounted drive missing the file answered {response.status_code}"
+    )
 
 
 def test_an_unplugged_drive_is_a_404_rather_than_a_crash(library: tuple[Path, Path, str]) -> None:

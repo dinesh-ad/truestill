@@ -39,7 +39,12 @@ def _result(
     return ActionResult(
         resolution=Resolution(
             decision=decision,
-            hashes=FileHashes(sha256=sha, perceptual=None, perceptual_computed=True),
+            # **`hashes.sha256` is deliberately None even when the result HAS an id.** The
+            # fixture used to set both, which made it impossible to tell which field the code
+            # read - a mutation swapping one for the other changed nothing, so the audit
+            # reported these tests unproven. None here mirrors the real unique-size file: the
+            # scan's pre-filter skipped hashing it and only `execute` established the id.
+            hashes=FileHashes(sha256=None, perceptual=None, perceptual_computed=True),
             exact_duplicate=None,
             near_duplicate=None,
         ),

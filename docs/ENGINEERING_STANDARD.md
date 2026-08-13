@@ -1419,6 +1419,104 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   that does not fire means **either** the guard is missing **or** the code is dead. Find out
   which before writing the test - the answer is a test in one case and a deletion in the other.
 
+- **A test proves nothing about code that could not have changed the thing it asserts.** The
+  fiftieth member, and the general form of the thirty-ninth: that one says a test whose subject
+  is an OS-produced string is a test of that OS. The rule is wider than strings and wider than
+  the OS. **Assert a state that only the code under test could have produced** - if some other
+  mechanism is *also* sufficient to produce it, the test passes on that mechanism's behaviour
+  and is structurally blind to yours.
+
+  *Worked instances, 2026-08-13/14, four in one session, which is what made it a class rather
+  than a slip:*
+
+  | asserted | also produced by |
+  |---|---|
+  | no `.partial` file remains afterwards | a plain `write_bytes`, which is the defect |
+  | the output image's dimensions | `thumbnail()` fits the long edge either way |
+  | `document.scrollWidth` did not grow | an upstream clip, so the overflow was silent |
+  | `status in {400, 404}` | the router, when our shape check is deleted |
+
+  > **The tell is free and was available in writing every time: the docstring named a mechanism
+  > and the assertion below it observed something else.** "Written to a sibling and renamed",
+  > asserting leftovers. "The portrait half of `_fitted`", asserting Pillow's output. Read a
+  > test's own docstring against its own assertion before running it.
+
+  **The mechanical remedy is a matrix, not more care** - `scripts/mutation_matrix.py`, which is
+  deliberately not in `make check` because it costs minutes. For every guard, find a mutation
+  that should kill it; run all mutations; **two different findings fall out and they need
+  opposite fixes.** A test killed by *no* mutation is unproven - worthless, or fenced against a
+  change nobody has made. A mutation that kills *no* test is the thirty-first member's other
+  outcome - a missing guard, or dead code.
+
+  *Measured 2026-08-14 over one session's output, and the two suites failed in opposite ways,
+  which is why the two findings are reported separately:*
+
+  | suite | tests | unproven | mutations killing nothing |
+  |---|---:|---:|---:|
+  | four Python files, 36 mutants | 50 | **13** | 1 |
+  | the browser file, 15 mutants | 14 | 0 | **4** |
+
+  Every one of the 13 was rewritten to assert the property rather than a downstream state; the
+  five inert mutations split three ways - three missing guards, one badly-built mutation, and one
+  redundant pair (below). Closing them took the two suites to 51 and 18.
+
+  *The most convincing case tested nothing at all:* a route test firing `../../../../etc/passwd`
+  at `/api/thumb/`. The HTTP client resolves that to `/etc/passwd` before sending, so it never
+  reached the route in its life and the reassuring 404 came from "no route matches". Security
+  theatre passes review precisely because it looks like the thing everyone wants to see. **Print
+  the request that goes out, not the one you wrote.**
+
+  ⚠ **A REDUNDANT PAIR SURVIVES EVERY SINGLE-POINT MUTATION, AND THAT IS NOT DEAD CODE.** The
+  hardest reading in the same audit: removing the grid's `aspect-ratio` changed nothing, which
+  looks exactly like the thirty-first member's "delete it rather than leave it looking
+  load-bearing". It was wrong. The tile's square box has **two** sufficient sources - that
+  declaration and the `width`/`height` attributes - and removing *both* fails two tests. Deleting
+  on the single-mutant evidence would have removed the fallback that holds at first paint, before
+  the stylesheet applies, which is the one moment it exists for.
+
+  > Before deleting anything a mutation failed to kill, ask **whether a second mechanism is
+  > carrying the same property.** If one is, the mutation to write is the compound one, not the
+  > deletion. `mutation_matrix.py` takes multi-edit mutants for exactly this.
+
+  **The rule is not only about assertions, and the audit proved that on itself, three layers
+  deep.** The general form is: **an operation whose success is indistinguishable from doing
+  nothing will eventually do nothing, silently.**
+
+  | layer | the no-op that read as success |
+  |---|---|
+  | the tests | an assertion a second mechanism also satisfies |
+  | the harness | parsing pytest's rendered summary - a bad regex yields an empty failure set |
+  | the edit scripts | `str.replace` finding no match, returning the string unchanged |
+
+  The last one was live: a patch adding compound mutants was written against code `ruff format`
+  had since reflowed, so the replace matched nothing, the script exited 0, and the matrix
+  reported the compound mutant killing nothing - a *finding* manufactured by an edit that never
+  happened. **Make the no-op an error**: assert the match, assert the parsed count, assert the
+  collected count. Use the editor that fails on a missed match rather than the string method that
+  shrugs.
+
+- **A mutation harness that dies leaves the mutant on disk, and `finally` does not run when the
+  process is killed.** The fifty-first member, recorded 2026-08-14 the same hour as the fiftieth,
+  because the audit that found that class nearly shipped a defect of its own.
+
+  *What happened.* A mutation run hit its timeout and was killed. The restore lived in a `finally`
+  and never executed, so the working tree kept the mutant - **the one that strips HTML escaping
+  from a user's file name before it reaches an `alt` attribute**. It survived a `git status` read
+  as ordinary work-in-progress and was three keystrokes from a commit.
+
+  > **Restore through `git checkout --`, never through a variable held by the process doing the
+  > mutating.** An in-memory backup is exactly as durable as the process, which is the one thing
+  > you cannot rely on here. Git needs nothing of the run to still be alive.
+
+  **And refuse to start on a dirty target.** After an interrupted run, a stranded mutant is
+  indistinguishable from real edits; checking the targets against `HEAD` first turns that silent
+  state into a message naming the file. `atexit` and signal handlers make the ordinary kills
+  clean; git is what makes `SIGKILL` recoverable.
+
+  *Same family:* any tool that edits the tree to measure it - a formatter run in check mode that
+  writes, a bisect script, a codemod dry-run. The question is not whether it cleans up, but
+  **what cleans up when it does not get the chance.**
+
 - **Restoring the source is not restoring the module: Python revalidates a `.pyc` on mtime
   SECONDS and byte size, and a mutation cycle defeats both.** The forty-ninth member, and the
   fifth member's twin from the other end - that one asks whether the mutant was ever *loaded*,

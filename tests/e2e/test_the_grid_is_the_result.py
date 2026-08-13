@@ -92,6 +92,102 @@ def test_the_tiles_load_lazily_rather_than_all_at_once(ui: Page) -> None:
     assert set(loading) == {"lazy"}, f"tiles are not lazy: {sorted(set(loading))}"
 
 
+def test_the_tiles_decode_off_the_main_thread_and_reserve_their_box(ui: Page) -> None:
+    """The other two attributes on a lazy tile, both added by a mutation that killed nothing.
+
+    **Asserted as mechanism rather than as observed state, and that is deliberate rather than
+    lazy.** §4's fiftieth member forbids asserting a state some *other* mechanism also produces;
+    it does not require inventing a downstream observable that does not exist. Neither of these
+    has one in a normal page:
+
+    * `decoding="async"` moves the decode off the main thread. The visible result is a page that
+      does not jank while forty-eight tiles arrive - not something a DOM assertion can see.
+    * `width`/`height` let the browser reserve each box before any CSS or bytes arrive. The
+      stylesheet's `aspect-ratio` covers the steady state (asserted below), so these matter in
+      exactly the window where the stylesheet has not applied yet - which a test that loads the
+      stylesheet cannot reproduce.
+
+    Both are real, both are invisible when lost, and the honest guard for them is their presence.
+    """
+    _completion(ui)
+    attrs = ui.eval_on_selector_all(
+        f"{TESTID} img.tile",
+        "els => els.map(e => ({d: e.getAttribute('decoding'),"
+        " w: e.getAttribute('width'), h: e.getAttribute('height')}))",
+    )
+    assert attrs, "no tiles rendered"
+    assert {a["d"] for a in attrs} == {"async"}, "a tile decodes on the main thread"
+    assert all(a["w"] and a["h"] for a in attrs), (
+        "a tile declares no intrinsic size, so its box cannot be reserved before CSS applies"
+    )
+
+
+def test_every_tile_is_square_whether_or_not_its_photo_arrives(ui: Page) -> None:
+    """Mixed portrait and landscape must read as a grid, not a ragged edge - and the box must
+    hold before the bytes do, which is what makes a lazy grid stop jumping as you scroll.
+
+    Asserted with tiles that deliberately never load (the shas are fabricated), because that is
+    the state `aspect-ratio` exists for: without it a not-yet-loaded `<img>` collapses to zero
+    height and the grid reflows every time one arrives.
+    """
+    _completion(ui)
+    boxes = ui.eval_on_selector_all(
+        f"{TESTID} img.tile",
+        "els => els.map(e => { const r = e.getBoundingClientRect();"
+        " return {w: Math.round(r.width), h: Math.round(r.height)}; })",
+    )
+    assert boxes, "no tiles rendered"
+    ragged = [b for b in boxes if abs(b["w"] - b["h"]) > 1]
+    assert not ragged, f"tiles are not square before their photos load: {ragged}"
+
+
+def test_a_photo_is_cropped_to_the_square_and_never_stretched(ui: Page) -> None:
+    """`object-fit: cover`, the one declaration on a tile with no DOM-observable consequence.
+
+    The box is square either way - that is what `aspect-ratio` and the intrinsic attributes are
+    for, and both are asserted above. What `cover` decides is what happens to a 4:3 photo INSIDE
+    that square: cropped to the centre, or squashed to fit. The default is `fill`, which squashes,
+    and nothing in the DOM reports which one painted. Detecting it would mean comparing rendered
+    pixels against the source, which is a large amount of machinery for one declaration.
+
+    So this asserts the mechanism, on the same terms as `decoding="async"` above: a real effect,
+    a visibly wrong result when lost, and no cheaper observable that is actually attributable to
+    it. A mutation removing the declaration fails this and nothing else, which is the honest
+    scope of what it covers.
+    """
+    _completion(ui)
+    fits = ui.eval_on_selector_all(
+        f"{TESTID} img.tile", "els => els.map(e => getComputedStyle(e).objectFit)"
+    )
+    assert fits, "no tiles rendered"
+    assert set(fits) == {"cover"}, (
+        f"tiles paint with object-fit {sorted(set(fits))}; anything but 'cover' distorts a "
+        "photo that is not already square"
+    )
+
+
+def test_a_content_id_is_escaped_into_its_url_by_the_function_that_builds_it(ui: Page) -> None:
+    """`resultGrid` is called with server-built payloads today, so no reachable input needs
+    encoding - which is exactly why a mutation deleting `encodeURIComponent` killed nothing.
+
+    §4's thirty-first member says an unfired mutation is either a missing guard or dead code, and
+    which one it is decides between a test and a deletion. This is the first: the call is not
+    dead, it is the correct way to put a value into a URL, and the fix is to hold the FUNCTION to
+    that contract at its own boundary instead of relying on every future caller to be careful.
+    Tested by calling it directly, since the payload type cannot express a hostile id.
+    """
+    src = ui.evaluate(
+        """() => {
+            const html = resultGrid({total: 1, shown: [{sha256: 'a/../b?x=1&y', name: 'n.jpg'}]});
+            const el = document.createElement('div');
+            el.innerHTML = html;
+            return el.querySelector('img.tile').getAttribute('src');
+        }"""
+    )
+    assert "a/../b" not in src, f"a separator went into the URL path unescaped: {src}"
+    assert "a%2F..%2Fb%3Fx%3D1%26y" in src, f"the content id was not percent-encoded: {src}"
+
+
 @pytest.mark.parametrize("width", [1440, 1280, 900, 760, 420])
 def test_a_tile_is_drawn_near_the_size_its_thumbnail_was_made_for(ui: Page, width: int) -> None:
     """`THUMB_PX` is 320 **because a tile is about 160 at 2x**, and nothing enforced that pairing.

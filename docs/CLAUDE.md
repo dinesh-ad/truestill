@@ -45,6 +45,10 @@ route to *"is this already built?"* - the question the file exists to answer.
   for skipping the browser lane is a command's output, never a recollection.
 - The browser lane stays separate from `make check` and out of a fresh clone's path: `make check`
   is green with no browser installed. `IMPLEMENTATION_STANDARDS.md` §6.1 is the binding rule.
+- **Proving a guard bites is a separate step from writing it**, and there is a tool:
+  `uv run python scripts/mutation_matrix.py --suite <name>`. Not in `make check` - it costs
+  minutes. It reports two different findings: a test no mutation kills (unproven), and a mutation
+  that kills no test (missing guard, or dead code). `ENGINEERING_STANDARD.md` §4, fiftieth member.
 - `exiftool` must be installed and on PATH for metadata paths.
 - Treat `docs/*-research.md` as historical records: keep findings/rejections, do not rewrite
   them into present-tense truth.
