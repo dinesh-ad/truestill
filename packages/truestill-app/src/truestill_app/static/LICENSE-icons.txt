@@ -1,0 +1,68 @@
+Nav icons in templates/index.html
+=================================
+
+Eight icons from Lucide (https://lucide.dev), inlined as SVG paths in
+templates/index.html. Nothing is fetched at runtime and no icon library is a
+dependency; only the path data is copied.
+
+This notice ships BESIDE the icons it covers, in `static/`, for the same reason
+LICENSE-DejaVu.txt does: `brand/` is not packaged, so a notice kept there would
+not travel with the thing it licenses.
+
+TWO LICENCES, NOT ONE, AND THAT IS WHY THIS IS PER ICON
+-------------------------------------------------------
+Lucide is ISC. But many Lucide icons are derived from Feather and remain MIT
+under Cole Bemis's copyright, so a single blanket "ISC" line would be a licence
+claim we could not support. Each icon below was checked against Feather's own
+icon set on 2026-08-13; presence there means the MIT notice applies.
+
+  icon                used for            origin              licence
+  ----                --------            ------              -------
+  map-pin             Trips & events      Feather-derived     MIT
+  download            Import              Feather-derived     MIT
+  hard-drive          Backups             Feather-derived     MIT
+  search              Find                Feather-derived     MIT
+  settings            Settings            Feather-derived     MIT
+  chevron-left        collapse control    Feather-derived     MIT
+  folder-input        Organize            Lucide original     ISC
+  chart-column        Stats               Lucide original     ISC
+
+
+ISC License - Lucide
+--------------------
+Copyright (c) 2026 Lucide Icons and Contributors
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+PERFORMANCE OF THIS SOFTWARE.
+
+
+MIT License - Feather
+---------------------
+Copyright (c) 2013-present Cole Bemis
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
