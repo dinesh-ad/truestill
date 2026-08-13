@@ -7,6 +7,11 @@ __pycache__/
 .coverage
 htmlcov/
 dist/
+# `packaging/build_deb.py --out out` and PyInstaller's generated spec. Both are build
+# output of the documented .deb build, and both were missing here until a `git add -A`
+# staged 480 files and an 83 MB package.
+out/
+truestill.spec
 build/
 *.egg-info/
 reports/
