@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import shutil
 import subprocess
-import sys
 import threading
 from dataclasses import dataclass
 from pathlib import Path
@@ -87,12 +85,12 @@ def reveal_in_file_manager(path: Path) -> RevealOk | RevealErr:
     """
     if not path_is_usable_dir(path):
         return cast(RevealErr, {"ok": False, **drive_correction(path)})
-    opener = {"darwin": "open", "win32": "explorer"}.get(sys.platform, "xdg-open")
-    if shutil.which(opener) is None:
+    opener = binaries.os_opener()
+    if opener is None:
         return {
             "ok": False,
             "error": (
-                f"Can't open a file manager because this machine has no '{opener}'. "
+                "Can't open a file manager because this machine has no opener. "
                 f"Open the folder yourself: {path}"
             ),
         }

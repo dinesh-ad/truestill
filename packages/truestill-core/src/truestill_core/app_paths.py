@@ -32,8 +32,8 @@ writing against a stdlib alternative). `platformdirs` is added deliberately:
 
 * The stdlib has **no** equivalent. The alternative is hand-rolling three platform conventions -
   XDG (with its ``XDG_DATA_HOME`` / ``XDG_CACHE_HOME`` overrides and their defaults),
-  ``~/Library/Application Support`` and ``~/Library/Caches``, and ``%APPDATA%`` /
-  ``%LOCALAPPDATA`` - each with edge cases we would rediscover as bug reports on machines we do
+  ``~/Library/Application Support`` and ``~/Library/Caches``, and ``%LOCALAPPDATA%`` for
+  both on Windows - each with edge cases we would rediscover as bug reports on machines we do
   not have.
 * It is **small and single-purpose**: pure Python, no dependencies of its own, and its entire
   API surface here is two function calls.
@@ -92,14 +92,30 @@ CACHE_FILENAME = "hashes.cache.sqlite"
 SESSION_URL_FILENAME = "session-url.txt"
 
 
+#: ``appauthor=False``, and it is load-bearing on ONE platform. `platformdirs` defaults the
+#: author segment to the **app name** when it is ``None``, so Windows produced
+#: ``%LOCALAPPDATA%\\Truestill\\Truestill\\catalog.sqlite`` - the name twice. Linux and macOS
+#: ignore the author segment entirely, so this moves **nothing** there; it is a Windows-only
+#: correction. Made 2026-08-13, before the first Windows installer shipped: with no user holding a
+#: catalog at the old path there is nothing to migrate, and the same fix afterwards would mean
+#: finding, moving and verifying the one file `(aae)` calls unrecoverable.
+#:
+#: **Windows data is LOCAL, not roaming** (`roaming=False` is the default): a photo catalog has no
+#: business syncing to a domain profile. The docstring above said ``%APPDATA%`` and was wrong.
+
+
 def _data_dir() -> Path:
     override = os.environ.get(DATA_DIR_ENV)
-    return Path(override) if override else Path(platformdirs.user_data_dir(APP_NAME))
+    return (
+        Path(override) if override else Path(platformdirs.user_data_dir(APP_NAME, appauthor=False))
+    )
 
 
 def _cache_dir() -> Path:
     override = os.environ.get(CACHE_DIR_ENV)
-    return Path(override) if override else Path(platformdirs.user_cache_dir(APP_NAME))
+    return (
+        Path(override) if override else Path(platformdirs.user_cache_dir(APP_NAME, appauthor=False))
+    )
 
 
 def _working_directory_was_chosen() -> bool:

@@ -153,7 +153,7 @@ def test_no_monkeypatch_aims_at_a_service_facade_re_export() -> None:
             "correctly aimed at the owning submodule",
         ),
         (
-            'monkeypatch.setattr("truestill_app.service.drives.shutil.which", fake)',
+            'monkeypatch.setattr("truestill_core.binaries.os_opener", fake)',
             False,
             "a stdlib name inside an owning submodule",
         ),

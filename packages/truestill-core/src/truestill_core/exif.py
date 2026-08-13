@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 import tempfile
 import threading
 from collections.abc import Iterator, Sequence
@@ -92,6 +93,18 @@ _MISSING_BUNDLED_MSG = (
     "installation looks incomplete. Installing Truestill again should fix it."
 )
 
+#: Said to someone running a **packaged Linux** copy, where exiftool is a **declared dependency**
+#: rather than a bundled file (`BACKLOG.md` `(aad)`, ruled 2026-08-13: there is no standalone Linux
+#: exiftool, only a Perl script and its module tree, and carrying someone else's runtime means
+#: owning a CVE surface we cannot patch). "Installing Truestill again should fix it" would be the
+#: wrong advice here - the package manager is what supplies it, and naming the package is what the
+#: reader can act on.
+_MISSING_PACKAGED_LINUX_MSG = (
+    "Truestill could not find exiftool, which it needs to read the dates and camera details "
+    "stored inside your photos. On Linux it comes from your system's package manager rather than "
+    "from Truestill. Install it with 'sudo apt install -y libimage-exiftool-perl' and try again."
+)
+
 #: Said in a source checkout, where the tool genuinely has to be obtained and the reader has a
 #: terminal in front of them.
 _MISSING_SOURCE_MSG = (
@@ -116,14 +129,23 @@ class ExiftoolMissingError(RuntimeError):
 def _missing_message() -> str:
     """The advice that fits the situation the reader is actually in.
 
-    Three audiences, three causes: a mistyped override, a broken packaged install, and a source
-    checkout that has not installed the tool. One message for all three would have to be vague
-    enough to be useless to each.
+    **Four audiences now, not three:** a mistyped override, a broken packaged install on Windows,
+    a **packaged Linux** copy whose distro package is absent, and a source checkout that has not
+    installed the tool. The Linux split arrived with the ruling that exiftool is a declared
+    dependency there - telling that reader to reinstall Truestill would be wrong advice, and one
+    message for all four would be vague enough to be useless to each.
     """
     override = os.environ.get(EXIFTOOL_BIN_ENV)
     if override:
         return _MISSING_OVERRIDE_MSG.format(env=EXIFTOOL_BIN_ENV, value=override)
-    return _MISSING_BUNDLED_MSG if is_bundled_install() else _MISSING_SOURCE_MSG
+    if not is_bundled_install():
+        return _MISSING_SOURCE_MSG
+    # A packaged copy, and the advice differs by platform because the PACKAGING does. Windows
+    # bundles the binary, so a missing one means a broken install; Linux declares it, so a missing
+    # one means a missing package and "reinstall Truestill" would send the reader nowhere useful.
+    if sys.platform.startswith("linux"):
+        return _MISSING_PACKAGED_LINUX_MSG
+    return _MISSING_BUNDLED_MSG
 
 
 def ensure_exiftool() -> str:

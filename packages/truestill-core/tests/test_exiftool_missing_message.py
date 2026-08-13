@@ -27,7 +27,12 @@ from pathlib import Path
 import pytest
 from truestill_core import binaries
 from truestill_core.binaries import BIN_DIR_ENV
-from truestill_core.exif import EXIFTOOL_BIN_ENV, ExiftoolMissingError, ensure_exiftool
+from truestill_core.exif import (
+    EXIFTOOL_BIN_ENV,
+    ExiftoolMissingError,
+    _missing_message,
+    ensure_exiftool,
+)
 
 
 def _nowhere(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -60,13 +65,20 @@ def test_the_message_names_the_tool_and_what_it_was_needed_for(
     assert "date" in message or "photo" in message, f"no statement of purpose: {message}"
 
 
-def test_a_packaged_install_is_told_its_installation_is_incomplete(
+def test_a_packaged_windows_install_is_told_its_installation_is_incomplete(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The (aad) case. exiftool ships inside the app, so its absence is a broken install.
+    """The `(aad)` case where exiftool ships **inside** the app, so its absence is a broken install.
 
-    Offering ``sudo apt install`` to someone who double-clicked an icon is advice they cannot
-    act on, about a cause that is not theirs.
+    Offering ``sudo apt install`` to someone who double-clicked an icon is advice they cannot act
+    on, about a cause that is not theirs.
+
+    **This test used to assert that of EVERY packaged install, and that was the defect.** It was
+    pinning *"a packaged user never gets a terminal command"*, which was true only while exiftool
+    was bundled everywhere. Since `(aad)`'s 2026-08-13 ruling Linux **declares** exiftool as a
+    package dependency, so there the terminal command is the correct and only actionable advice -
+    see the test below. The platform is now forced rather than inherited from the host, because a
+    message that differs by platform cannot be checked on whichever one CI happens to run.
     """
     _nowhere(monkeypatch, tmp_path)
     # `sys.frozen` is what a real freezer sets, and nothing else does. The previous version of
@@ -74,15 +86,38 @@ def test_a_packaged_install_is_told_its_installation_is_incomplete(
     # whole point of the bundled layout is that no environment variable has to be set first. It
     # passed while the packaged app was telling users to run `sudo apt install`; the throwaway
     # build found that, not the suite.
+    #
+    # `_missing_message` directly, not through `ensure_exiftool`: faking `sys.platform` globally
+    # breaks `shutil.which`, which reaches into `_winapi` on win32 and finds nothing on Linux.
+    # The subject here IS the message, so the message function is what the test should call.
     monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "platform", "win32")
 
-    with pytest.raises(ExiftoolMissingError) as raised:
-        ensure_exiftool()
-
-    message = str(raised.value).lower()
+    message = _missing_message().lower()
     assert "install" in message
     offered = [command for command in ("sudo", "apt", "brew") if command in message]
     assert not offered, f"terminal commands {offered} offered to a packaged install: {message}"
+
+
+def test_a_packaged_linux_install_is_told_which_package_to_install(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The other half of the ruling, and the reason the split exists rather than one vague message.
+
+    On Linux exiftool is a **declared dependency** - there is no standalone Linux build, only a
+    Perl script and its module tree. So a packaged Linux user with no exiftool has a missing
+    *package*, not a broken install, and *"installing Truestill again should fix it"* would send
+    them somewhere that cannot help. Naming the package is the only advice they can act on.
+    """
+    _nowhere(monkeypatch, tmp_path)
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "platform", "linux")
+
+    message = _missing_message()
+    assert "libimage-exiftool-perl" in message, "the package the reader must install is not named"
+    assert "Installing Truestill again" not in message, (
+        "advice that cannot fix a missing distro package"
+    )
 
 
 def test_a_frozen_app_knows_it_is_one_even_when_its_binary_is_missing(

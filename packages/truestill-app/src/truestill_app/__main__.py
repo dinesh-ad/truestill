@@ -11,6 +11,7 @@ import argparse
 import contextlib
 import signal
 import socket
+import subprocess
 import sys
 import threading
 import time
@@ -18,7 +19,8 @@ from pathlib import Path
 from typing import Any
 
 import uvicorn
-from truestill_core.app_paths import default_catalog_path
+from truestill_core import binaries
+from truestill_core.app_paths import default_catalog_path, session_url_path
 from truestill_core.catalog_startup import (
     CatalogPresence,
     format_startup_lines,
@@ -33,6 +35,10 @@ from truestill_app.server import create_app
 
 _HOST = "127.0.0.1"
 _DEFAULT_PORT = 7357
+
+#: Where a windowed self-check leaves its report - beside `session-url.txt`, in the data
+#: directory, for the same reason: the one place a confused user can be pointed at.
+_REPORT_FILENAME = "self-check.txt"
 
 #: Pending-connection queue depth for the listening socket. Only ever one browser, but the
 #: kernel default varies and a named constant is cheaper than wondering.
@@ -221,6 +227,21 @@ def _run_self_check(destination: str) -> int:
     if destination:
         written = write_findings(findings, Path(destination))
         _say(f"self-check written to {written}")
+    elif sys.stdout is None:
+        # NO CONSOLE - the Start-menu case. `_say` is a silent no-op here, so printing would make
+        # the shortcut appear to do nothing at all, which is worse than not offering it. Write the
+        # report where the user's own files live and hand it to whatever they open text with.
+        # This is the thing `exif.py`'s "this installation looks incomplete" has never had: an
+        # answer the reader can actually reach.
+        written = write_findings(findings, session_url_path().with_name(_REPORT_FILENAME))
+        opener = binaries.os_opener()
+        if opener is not None:
+            with contextlib.suppress(OSError):
+                binaries.popen(
+                    [opener, str(written)],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
     else:
         for line in render(findings):
             _say(line)

@@ -9,10 +9,10 @@
 # A build that cannot report a real trash backend and its own typefaces DOES NOT PUBLISH - the
 # two acceptance criteria stop being a thing we measured once and become a release control.
 #
-# WHAT IT DOES NOT DO YET: produce an INSTALLER. The bundler is decided (PyInstaller) and the
-# installer around its one-folder output is unbuilt - BACKLOG (aad), "what remains". Until then
-# this publishes archives, which is honest about what exists rather than calling a zip an
-# installer. The packaging step is where the installer slots in.
+# WINDOWS PRODUCES AN INSTALLER; LINUX DOES NOT YET. The `.deb` is the next item in BACKLOG
+# (aad), and until it exists the Linux archive is a verification artifact rather than something
+# to hand a user: on Linux exiftool is a DECLARED DEPENDENCY (ruled 2026-08-13), which only a
+# package can declare. A tarball cannot, so nothing guarantees the user has it.
 #
 # `id-token: write` lives on the publish job ALONE. It is what sigstore keyless signing needs,
 # GitHub refuses to issue it to pull-request runs from forks, and least privilege says the build
@@ -47,11 +47,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # ⚠ THIS SHIPS THE RUNNER'S EXIFTOOL, which is what the rig did and is NOT a settled
-      # answer: acquisition, version pinning and licence carriage are open in BACKLOG (aad).
-      # On Linux `exiftool` is a Perl script, so a bundle carrying it depends on the user having
-      # perl - the self-check reports that it RESOLVES, not that it RUNS. Do not read a green
-      # release as proof this half is solved.
+      # Linux installs exiftool to BUILD with and to satisfy the self-check on the runner - it is
+      # NOT bundled into the artifact (ruled 2026-08-13: declared dependency, because there is no
+      # standalone Linux exiftool and carrying a Perl tree means owning a CVE surface we cannot
+      # patch). ⚠ CONSEQUENCE, stated rather than hidden: the runner always has exiftool, so the
+      # Linux self-check cannot distinguish "the artifact ships it" from "this machine has it".
+      # Only the `.deb`'s declared dependency makes that guarantee, which is why the Linux archive
+      # is not a shippable artifact yet.
       - name: Install exiftool (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libimage-exiftool-perl
@@ -86,7 +88,6 @@ jobs:
           uv run pyinstaller --noconfirm --clean --noconsole \
             --name truestill \
             --collect-data truestill_app \
-            --add-binary "$(command -v exiftool):bin" \
             packages/truestill-app/src/truestill_app/__main__.py
 
       - name: Build (PyInstaller, Windows)
@@ -125,6 +126,67 @@ jobs:
       - name: Compare the self-check against the repository
         shell: bash
         run: uv run python packaging/compare_selfcheck.py findings/selfcheck-${RUNNER_OS}.json
+
+      # THE INSTALLER. The slot this lane's header reserved. Only Windows for now: the Linux
+      # artifact shape (.deb, exiftool declared) is the next item in BACKLOG (aad).
+      - name: Build the installer (Inno Setup)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) { throw "ISCC.exe not found at $iscc" }
+          $version = '${{ github.ref_name }}' -replace '^v', ''
+          if (-not $version) { $version = '0.0.0-dev' }
+          Copy-Item packaging/installer.iss -Destination installer.iss
+          & $iscc /DMyAppVersion=$version installer.iss
+          New-Item -ItemType Directory -Force -Path out | Out-Null
+          Copy-Item inno-out/*.exe -Destination out/
+
+      # THE DETECTOR. The self-check covers the bundle; until this step nothing covered the
+      # INSTALLER. It exercises the installed product rather than the built folder:
+      #   - /VERYSILENT is how the unattended constraint gets TESTED rather than assumed;
+      #   - the self-check runs on the INSTALLED copy and is compared against this repository;
+      #   - and a marker written into the data directory must SURVIVE the uninstall.
+      # That last one is the point. An installer that deletes someone's catalog is the worst
+      # possible last impression, and nothing here could notice it before.
+      - name: Install, verify, uninstall
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem out -Filter 'TruestillSetup-*.exe' | Select-Object -First 1
+          & $setup.FullName /VERYSILENT /SUPPRESSMSGBOXES /NORESTART | Out-Null
+          Start-Sleep -Seconds 5
+
+          $app = Join-Path $env:LOCALAPPDATA 'Programs\Truestill\truestill.exe'
+          if (-not (Test-Path $app)) { throw "installed executable not found at $app" }
+          $shortcut = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Truestill\Truestill.lnk'
+          if (-not (Test-Path $shortcut)) { throw "no Start-menu entry at $shortcut" }
+
+          # The installed copy answers for itself, and the checkout decides whether those are the
+          # bytes it built. Same pair as the build step, pointed at what a user actually gets.
+          New-Item -ItemType Directory -Force -Path findings | Out-Null
+          & $app --self-check findings/selfcheck-installed.json
+          if ($LASTEXITCODE -ne 0) { throw "the INSTALLED copy failed its own self-check" }
+          uv run python packaging/compare_selfcheck.py findings/selfcheck-installed.json
+
+          # A stand-in for the user's catalog, in the directory the uninstall message promises to
+          # leave alone.
+          $data = Join-Path $env:LOCALAPPDATA 'Truestill'
+          New-Item -ItemType Directory -Force -Path $data | Out-Null
+          $marker = Join-Path $data 'catalog.sqlite'
+          Set-Content -Path $marker -Value 'a user library index' -Encoding utf8
+
+          $uninstall = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs\Truestill') -Filter 'unins*.exe' |
+            Select-Object -First 1
+          & $uninstall.FullName /VERYSILENT /SUPPRESSMSGBOXES /NORESTART | Out-Null
+          Start-Sleep -Seconds 5
+
+          if (Test-Path $app) { throw 'the uninstaller left the program behind' }
+          if (-not (Test-Path $marker)) {
+            throw 'THE UNINSTALLER DELETED THE USER CATALOG - the promise its own message makes'
+          }
+          Write-Host 'installer verified: installs unattended, self-checks, uninstalls, keeps the catalog'
 
       - name: Archive
         shell: bash

@@ -1725,10 +1725,29 @@ section, because what is left is the part that still has to be written.
      (`id-token: write` on the publish job alone), verification instructions in the README.
      **It publishes ARCHIVES, not installers** - the installer is item 2 and the packaging step is
      where it slots in. **Never yet fired**: no tag exists.
-  2. **The Windows installer** around the PyInstaller folder - the largest unbuilt item.
-     **Size it before starting it.**
-  3. **The Linux artifact shape** - `.deb`, AppImage, or a tarball with a script. Undecided, and
-     the only platform-shaped question with no answer in this entry.
+  2. ✅ **The Windows installer - BUILT 2026-08-13** (`packaging/installer.iss`, built and verified
+     in `release.yml`). Per-user, `/VERYSILENT`-capable, Start-menu entries for the app **and the
+     self-check**, and an uninstall message that names the catalog it keeps.
+     - **Four refusals, each with a reason, because each will be re-proposed as an oversight:**
+       **not all-users** (an unsigned installer already meets SmartScreen; UAC would make it two
+       alarming dialogs, and it is the class of the 2026 Briefcase advisory), **no elevation**,
+       **not on PATH** (the buyer has no terminal; a global side effect buying them nothing), and
+       **no file associations** (truestill organises a library, it is not a photo viewer).
+     - **The detector, and it is the reason this is not just a build step.** The installer is
+       installed with `/VERYSILENT` - which is how the unattended constraint gets *tested* rather
+       than assumed - the **installed** copy runs `--self-check` and is compared against this
+       repository, and **a marker written into the data directory must survive the uninstall**.
+       That last assertion is the uninstall promise as a test, and it is exactly what the deleted
+       rig's registry-only check could not see.
+     - **The self-check is reachable without a terminal**: `_run_self_check` with no console now
+       writes its report beside `session-url.txt` and opens it with the user's own viewer. This is
+       what `exif.py`'s *"this installation looks incomplete"* has never had - something to run.
+  3. **The `.deb`** - ruled, unbuilt, and now the only shippable-artifact gap.
+     ⚠ **Until it exists the Linux archive is a verification artifact, not a download.** exiftool
+     is a declared dependency there, and only a package can declare it; a tarball cannot, so
+     nothing guarantees the user has one. **And CI cannot catch that**: the runner always has
+     exiftool installed, so the Linux self-check cannot distinguish *the artifact ships it* from
+     *this machine has it*. The `.deb`'s `Depends:` is what makes the guarantee real.
   4. 🔴 **exiftool acquisition - and the Linux bundle's copy is BROKEN, found 2026-08-13 by
      exercising the release lane.** `--add-binary` copies **one file**, and on Linux `exiftool` is
      a Perl script whose `Image::ExifTool` modules live in the distro's `/usr/share/perl5`. The

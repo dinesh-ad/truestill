@@ -98,6 +98,55 @@ def test_a_broken_install_exits_non_zero_through_this_entry_point_too(
     assert payload["worst"] == "missing"
 
 
+def test_with_no_console_it_writes_a_report_and_opens_it(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The Start-menu case, and the reason the shortcut is worth offering at all.
+
+    With no console `_say` is a silent no-op, so a printed report makes the shortcut appear to do
+    nothing - worse than not offering it. The report goes beside `session-url.txt`, in the data
+    directory, and is handed to whatever the user opens text with.
+
+    ``sys.stdout`` is set **in the test body**, not a fixture: pytest's capture plugin re-assigns
+    both streams for the call phase, so a fixture-set ``None`` is gone by the time the body runs
+    (`ENGINEERING_STANDARD.md` §4, seventh member - and that instance was this same flag).
+    """
+    monkeypatch.setattr(app_main, "bind_listening_socket", _refuse_to_bind)
+    monkeypatch.setenv("TRUESTILL_DATA_DIR", str(tmp_path / "data"))
+    opened: list[list[str]] = []
+    monkeypatch.setattr(app_main.binaries, "os_opener", lambda: "opener")
+    monkeypatch.setattr(app_main.binaries, "popen", lambda cmd, **_kw: opened.append(list(cmd)))
+    monkeypatch.setattr(sys, "stdout", None)
+    assert sys.stdout is None, "the precondition did not survive to the assertion"
+
+    code = app_main.main(["--self-check"])
+
+    report = tmp_path / "data" / "self-check.txt"
+    assert code == 0
+    assert report.is_file(), "nothing was written, so the shortcut would do nothing visible"
+    assert opened == [["opener", str(report)]], "the report was written but never opened"
+
+
+def test_a_machine_with_no_opener_still_writes_the_report(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """THE CRY-WOLF HALF: a headless box has no opener, and that must not lose the report.
+
+    `os_opener` returning ``None`` is a real answer rather than an error - the file is still
+    there to be read by whoever is helping.
+    """
+    monkeypatch.setattr(app_main, "bind_listening_socket", _refuse_to_bind)
+    monkeypatch.setenv("TRUESTILL_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setattr(app_main.binaries, "os_opener", lambda: None)
+    monkeypatch.setattr(sys, "stdout", None)
+    assert sys.stdout is None
+
+    code = app_main.main(["--self-check"])
+
+    assert code == 0
+    assert (tmp_path / "data" / "self-check.txt").is_file()
+
+
 def test_the_flag_is_absent_by_default_so_an_ordinary_launch_is_untouched(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

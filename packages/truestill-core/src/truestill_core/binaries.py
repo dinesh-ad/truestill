@@ -104,6 +104,23 @@ def bundled_bin_dirs() -> list[Path]:
     return [d for d in directories if d.is_dir()]
 
 
+#: How each platform is asked to open a path with whatever the user has associated with it.
+#: PATH-only by definition - see the module docstring: bundling ``explorer`` is not a thing anyone
+#: should be able to do. One home because two surfaces need it: revealing a folder
+#: (`service.drives`) and opening the self-check report on a build with no console
+#: (`truestill_app.__main__`).
+_OS_OPENERS = {"darwin": "open", "win32": "explorer"}
+
+
+def os_opener() -> str | None:
+    """The command this platform opens a path with, or ``None`` when it has none.
+
+    ``None`` is the headless-Linux case and is a real answer rather than an error: the caller
+    says so and gives the path instead of leaving a button that silently does nothing.
+    """
+    return shutil.which(_OS_OPENERS.get(sys.platform, "xdg-open"))
+
+
 def resolve_binary(name: str, *, override_env: str | None = None) -> str | None:
     """Absolute path to ``name``, or ``None`` when it cannot be found anywhere.
 

@@ -614,7 +614,7 @@ def test_reveal_degrades_honestly_without_an_opener(
 
     The message carries the path, so someone on a headless box can still act on it.
     """
-    monkeypatch.setattr("truestill_app.service.drives.shutil.which", lambda _name: None)
+    monkeypatch.setattr("truestill_core.binaries.os_opener", lambda: None)
     r = client.post(f"/api/reveal?token={TOKEN}", json={"path": str(tmp_path)}).json()
 
     assert set(r) == {"ok", "error"}

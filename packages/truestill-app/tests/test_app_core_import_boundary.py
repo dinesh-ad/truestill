@@ -71,6 +71,14 @@ ALLOWED: dict[str, dict[str, str]] = {
             "stays the *only* one, which the prose alone could not promise."
         ),
         "is_complete": "a pure predicate over a list of findings; opens nothing",
+        "binaries": (
+            "the module that owns how truestill talks to external programs. Used here for "
+            "`os_opener`/`popen` to hand the self-check report to the user's own viewer - a "
+            "process launch, never library state. It is imported rather than duplicated so the "
+            "per-platform opener has one home (§4): `service/drives.py` reveals a folder with the "
+            "same call"
+        ),
+        "session_url_path": "resolves a path; opens nothing. Names where the report goes",
         "render": (
             "turns findings into lines; pure. It lives in core rather than here **because** §9 "
             "forbids the CLI and the app wording one outcome differently - the same reason "
