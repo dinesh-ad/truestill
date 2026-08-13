@@ -567,7 +567,33 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
      via `git ls-files` fails with exit 128 and looks like a real regression. Run `git init -q .
      && git add -A && git commit` in the copy before trusting its result.
 
-  **Isolation has now failed three times, from three different directions.** That is what
+  **Isolation must cover EVERY input that resolves a path, and the working directory is one**
+  (added 2026-08-13; the rule above is unchanged, its remedy was one axis short). `conftest.py`
+  redirects `TRUESTILL_DATA_DIR` and `TRUESTILL_CACHE_DIR` and says nothing about the working
+  directory - and `LEGACY_CATALOG_PATH` is **relative**, so `default_catalog_path()` resolved
+  against wherever pytest ran. From this repo that is the maintainer's real
+  `reports/catalog.sqlite`, 6.3 MB, which
+  `test_the_locations_are_reported_as_facts_and_never_as_passes` was reading and describing while
+  claiming to describe a fixture.
+
+  ⚠ **A READ LEAVES NO EVIDENCE.** `(aae)` was found by a stray `catalog.sqlite` **appearing** in
+  a real location. A test that only reads creates no stray anything, so the method that found the
+  original case cannot find this one - which is precisely why the remedy has to be by
+  construction rather than by inspection.
+
+  ⚠ **The guard and the defect were holding each other up.** That test's subject did not depend
+  on *which* catalog it got, because the code beside it - the self-check's cache line - ignored
+  the catalog entirely and always named the OS default. So the isolation gap was invisible for
+  exactly as long as the bug next to it survived, and went red the instant that bug was fixed.
+  **A test that only starts failing once a neighbouring defect is corrected was never testing
+  what its name claims.**
+
+  **Remedy: session-scoped working-directory isolation**, which closes it for every test at once,
+  the way the two root overrides already do. What shipped on 2026-08-13 was a `monkeypatch.chdir`
+  in the **one** test that went red - a repair, not the remedy, and named as such here so the
+  difference is not mistaken for completeness.
+
+  **Isolation has now failed four times, from four different directions.** That is what
   decides the shape of the check.
 
 - **Run the browser lane when browser-exercised *behaviour* changes, not when browser *files*
@@ -949,6 +975,19 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   *Suspect it for anything whose product is a side effect rather than a return value:* an
   upload, a cache write, a report file, a notification, a metrics push. Its success field
   describes whether the code ran, never whether the work happened.
+
+- **A pipeline discards the exit status of everything but its last command.** The forty-fourth
+  member, and the one directly above is its mirror: that one is a step that **succeeded while
+  producing nothing**, this is a step that **failed and had the failure thrown away**. Neither
+  covers the other, and the shared consequence is a green that was never earned.
+
+  *Worked example - 2026-08-13.* `timeout 400 make check 2>&1 | tail -3 && git add -A && git
+  commit` staged and committed while the gate was **red**: `make check` failed, `tail` succeeded,
+  and `&&` read the pipeline's status, which is `tail`'s. The commit that resulted carried 480
+  files and an 83 MB `.deb`.
+
+  **Remedy, and it is mechanical rather than a matter of care:** `set -o pipefail`, or do not pipe
+  a gate at all. Run it, then read its output separately.
 
 - **Wait for a signal that only the post-condition can produce - never one that is already
   true.** The sixteenth member. §3's browser rules already forbid *hard* waits ("auto-waiting
