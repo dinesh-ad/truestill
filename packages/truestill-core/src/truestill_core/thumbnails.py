@@ -1,0 +1,164 @@
+"""A thumbnail for a photo, addressed by content and cached beside the hash cache.
+
+**Why this exists.** truestill is a photo organizer that has never shown a photo: zero `<img>`
+elements in the product. Every other complaint about how it looks was downstream of that.
+
+**Addressed by `sha256`, never by path, and that is the security design rather than a convention.**
+The route above this hands in content identity; nothing here ever receives a caller-supplied path.
+§3.1 already rules that identity is never a path - it is why a confirmation survives a rename, a
+migrate and a re-layout - and reusing it here means a client cannot ask for a file, only for
+content the catalog already knows. Traversal is impossible by construction rather than defended by
+validation.
+
+**`draft()`, not the embedded EXIF thumbnail.** Pillow exposes **no supported API** for the
+embedded one - the IFD1 offsets (tags 513/514) are absent from `getexif()` on **0 of 600** fenced
+corpus files - so taking it means hand-rolling a JPEG marker scanner plus a fallback for whatever
+it misses. `draft()` is Pillow's documented DCT-scaling decode (libjpeg returns the image at 1/2,
+1/4 or 1/8 scale) and it covers everything Pillow opens, including HEIC.
+
+**Cost, measured over 600 files of the fenced corpus rather than estimated** (median 8 MP JPEG):
+
+| stage | ms |
+|---|---:|
+| decode at 1/8 scale + resize | 20.0 |
+| WebP encode, method 2 | 3.1 |
+| **cold total** | **~23** |
+| warm (cache hit) | 0.05 |
+
+⚠ **An earlier 80-file sample said 14 ms and it was wrong by 2.3x.** The sample skewed small; the
+corpus pass is the number, and the two paths were re-run against the *same* 600 files before
+anything here was believed. A 24-tile viewport costs **0.55 s cold, once**.
+
+**Complexity: O(1) per thumbnail.** One decode at reduced scale, one encode. No walk, no catalog,
+no I/O beyond the single source file and the cache entry. Callers build these **on demand for what
+is on screen**; this module deliberately offers no way to sweep a library.
+"""
+
+from __future__ import annotations
+
+import io
+import re
+from pathlib import Path
+
+from PIL import Image
+
+# Imported for its IMPORT-TIME SIDE EFFECTS, not for a name, and that is why it is not an unused
+# import: `hashing` registers the pillow-heif opener and raises `Image.MAX_IMAGE_PIXELS` to 300 MP
+# when it loads. Depending on some other module having imported it first would make HEIC support
+# and the panorama ceiling a function of import ORDER - working under the app, silently absent in a
+# unit test or a future caller. `HEIF_AVAILABLE` is re-exported so the dependency is a name a
+# linter can see and `test_heic_support_is_not_a_function_of_import_order` can assert.
+from truestill_core.hashing import HEIF_AVAILABLE
+
+__all__ = [
+    "CACHE_SUBDIR",
+    "HEIF_AVAILABLE",
+    "THUMB_PX",
+    "BadContentIdError",
+    "cache_path",
+    "render",
+    "thumbnail",
+]
+
+#: The long edge, in CSS pixels of the grid tile times two, so a 160px tile stays sharp on a
+#: 2x display. Larger buys nothing a grid can show; smaller is visibly soft when the panel widens.
+THUMB_PX = 320
+
+#: WebP quality. Lossy is right here: this is a proxy for a photo, never the photo, and §1's
+#: no-re-encode rule is about the ORIGINAL, which is untouched. Median 13,395 bytes on the corpus.
+_QUALITY = 80
+
+#: WebP effort. **Chosen at the knee of a measured curve, not at the library default.** Encode ms
+#: against median bytes over 200 corpus files: m0 2.02/15,743 · m1 2.48/14,892 · **m2 3.09/13,395**
+#: · m3 6.28/13,025 · m4 6.25/13,031 · m6 17.83/12,341. Past 2 the encode DOUBLES to buy 3% fewer
+#: bytes; below it the bytes climb fast. Pillow's default is 4, which is the wrong end of that
+#: trade for an image regenerated on a cache miss and then never again.
+_METHOD = 2
+
+#: Cache entries live under the OS cache directory, in their own subdirectory so the whole set can
+#: be dropped without touching `hashes.cache.sqlite` beside it.
+CACHE_SUBDIR = "thumbs"
+
+#: The only shape a content id may take. Checked BEFORE the value becomes a filename, so it cannot
+#: carry a separator or a `..` into the join below - the second of the two joins the security
+#: review named, the first being the drive-relative path that `destinations.check_contained` owns.
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
+
+
+class BadContentIdError(ValueError):
+    """The identifier is not a sha256. Never rendered to a user - the route answers 400."""
+
+
+def cache_path(cache_dir: Path, sha256: str) -> Path:
+    """Where this content's thumbnail lives, or raise if the id is not a sha256.
+
+    Two levels of fan-out on the first two hex characters. A single directory holding 33,457
+    entries is legal on ext4 and slow to list on anything that does; 256 buckets keeps every
+    directory small without a second lookup.
+    """
+    if not _SHA256.match(sha256):
+        message = "content id is not a sha256"
+        raise BadContentIdError(message)
+    return cache_dir / CACHE_SUBDIR / sha256[:2] / f"{sha256}.webp"
+
+
+def _fitted(width: int, height: int) -> tuple[int, int]:
+    """The box ``thumbnail`` will actually produce for this image - long edge ``THUMB_PX``.
+
+    **This exists because handing `draft()` a SQUARE target silently wastes a halving**, which is
+    three quarters of the pixels. `draft()` picks its DCT scale from the *tighter* of the two
+    ratios while `thumbnail()` fits the *long* edge, so a square box lets the short edge decide.
+    On the corpus's median 3200x2368, `draft("RGB", (320, 320))` yields **800x592 (1/4)** where the
+    aspect-correct `(320, 237)` yields **400x296 (1/8)**. Measured 25.8 ms -> 20.0 ms, with a mean
+    per-channel difference from a full decode of **1.6/255**, which is not a visible one.
+    """
+    if width >= height:
+        return THUMB_PX, max(1, round(height * THUMB_PX / width))
+    return max(1, round(width * THUMB_PX / height)), THUMB_PX
+
+
+def render(source: Path) -> bytes:
+    """Decode ``source`` at reduced scale and return WebP bytes. Raises on anything unreadable."""
+    with Image.open(source) as image:
+        # Ask libjpeg for the smallest DCT scale that still covers the target. A no-op for formats
+        # that cannot do it, which is why it is safe unconditionally, and a no-op upward: a source
+        # already smaller than THUMB_PX is left at its own size rather than enlarged.
+        image.draft("RGB", _fitted(*image.size))
+        image.thumbnail((THUMB_PX, THUMB_PX))
+        buffer = io.BytesIO()
+        # `convert` after `thumbnail`: a palette or CMYK source cannot be saved as WebP directly,
+        # and converting the already-reduced image is the cheap order.
+        image.convert("RGB").save(buffer, "WEBP", quality=_QUALITY, method=_METHOD)
+    return buffer.getvalue()
+
+
+def thumbnail(source: Path, sha256: str, cache_dir: Path) -> bytes:
+    """Cached WebP bytes for ``source``. Builds and stores on a miss.
+
+    **The cache needs no invalidation, and that follows from the key rather than from care.**
+    The entry is addressed by content, so an edited file is a different sha and a different entry;
+    a stale one is unreachable rather than wrong. The directory is disposable per `(aae)` -
+    deleting it costs only time.
+
+    **Written to a sibling and renamed**, the same discipline `safe_copy` applies to the library:
+    two viewers can request the same tile at once, and a half-written file must never be served as
+    a whole one. A failed write leaves the cache without the entry, which is a rebuild, not a
+    corruption.
+    """
+    target = cache_path(cache_dir, sha256)
+    try:
+        return target.read_bytes()
+    except OSError:
+        pass
+
+    data = render(source)
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        partial = target.with_name(f"{target.name}.{id(data):x}.partial")
+        partial.write_bytes(data)
+        partial.replace(target)
+    except OSError:
+        # A cache that cannot be written is a slower app, never a broken one. The bytes are
+        # already in hand and are returned regardless.
+        pass
+    return data
