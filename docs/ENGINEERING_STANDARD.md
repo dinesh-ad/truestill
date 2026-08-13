@@ -701,6 +701,18 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
      resolved path. The Linux bundle carried exiftool's Perl **script** and none of its
      `Image::ExifTool` modules, so the artifact resolved a path it could not execute - and the
      check written to catch exactly that class passed it. **Resolving is not running.**
+  3. *exiftool again, one layer deeper, the day after that.* The repair invoked `-ver`, which
+     proved it **ran**. A bundle stripped of its entire `lib/` still reported `ok`: `exiftool`
+     falls back to the **host's** modules, exits 0, and announces the substitution only as a
+     warning. **Running is not running from what we shipped.** Repaired by asserting provenance -
+     the module tree must sit beside the binary - and the same proxy had to be caught three times
+     before the shape was named.
+
+  **A test that depends on an upstream courtesy is not a test.** The mutation that removed the
+  provenance branch **survived**, because in the wild that version warning fires first and hid it.
+  The warning is exiftool's politeness, not our guarantee: a host whose installed modules happen
+  to match the shipped version emits nothing at all, and the bundle is still borrowing them. The
+  surviving mutant was worth more than the fix - it named a branch nothing tested.
 
   **The repair in both cases was to make the check do the expensive thing:** read bytes; invoke
   the binary and keep the version as evidence. Neither cost anything measurable, and both were

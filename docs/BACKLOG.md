@@ -1742,12 +1742,27 @@ section, because what is left is the part that still has to be written.
      - **The self-check is reachable without a terminal**: `_run_self_check` with no console now
        writes its report beside `session-url.txt` and opens it with the user's own viewer. This is
        what `exif.py`'s *"this installation looks incomplete"* has never had - something to run.
-  3. **The `.deb`** - ruled, unbuilt, and now the only shippable-artifact gap.
-     ⚠ **Until it exists the Linux archive is a verification artifact, not a download.** exiftool
-     is a declared dependency there, and only a package can declare it; a tarball cannot, so
-     nothing guarantees the user has one. **And CI cannot catch that**: the runner always has
-     exiftool installed, so the Linux self-check cannot distinguish *the artifact ships it* from
-     *this machine has it*. The `.deb`'s `Depends:` is what makes the guarantee real.
+  3. ✅ **The `.deb` - BUILT 2026-08-13** (`packaging/build_deb.py`). FHS layout:
+     `/usr/lib/truestill/` for the frozen app, `/usr/bin/truestill` as a relative symlink, a
+     desktop entry, and a `copyright` file naming what the bundle carries. **83.5 MB packaged**,
+     `Depends: perl`. Verified in the lane with the same detector as Windows - install, ask the
+     **installed** copy what it contains, remove it, and assert the catalog survived.
+     - **`Depends: perl`, not exiftool.** We vendor exiftool's *modules*; we do not vendor an
+       *interpreter*. Declaring it is what makes the package honest rather than lucky.
+     - ⚠ **Debian Policy §4.13 on vendoring, before someone tells us:** *"Debian packages should
+       not make use of these convenience copies unless the included package is explicitly intended
+       to be used in this way."* It **discourages rather than forbids**, it binds packages **in the
+       Debian archive** - this one is served from our own site - and the exception fits almost
+       verbatim, since exiftool's README documents running the script with its `lib/` beside it
+       precisely so it need not be installed. The +21 MB tree is what that costs.
+     - ~~**SUPERSEDED: exiftool was a DECLARED DEPENDENCY on Linux** (ruled 2026-08-13, reversed
+       the same day).~~ The reasoning is kept rather than deleted because it was sound on its
+       premises: *the platform's tooling exists to solve this, and bundling means carrying a Perl
+       tree we cannot patch when a CVE lands*. **What reversed it was measurement** - the official
+       tarball is self-contained by upstream's own documented contract, so bundling does not mean
+       hand-assembling a runtime, and it removes a dependency on a distro packaging decision we do
+       not control. The CVE point survives as a maintenance obligation: a pinned vendored tree is
+       ours to bump.
   4. ✅ **exiftool acquisition - RULED AND BUILT 2026-08-13: vendor the official distribution on
      BOTH platforms** (`packaging/exiftool_source.py`), version-pinned with a recorded SHA2-256.
      - **Both platforms have the same shape**, and it is the one upstream's README states: *"if
@@ -1901,6 +1916,22 @@ section, because what is left is the part that still has to be written.
     line on the download page. Fulcio issues an ephemeral certificate against the workflow
     identity; Rekor logs it. **It does nothing to SmartScreen** - it is a provenance claim, and
     the strongest one available at zero spend.
+
+  ### Awaiting attorney clearance - facts, not a question
+
+  **The Windows exiftool package carries a GPLv3 component**, and this is recorded for the same
+  list as the trademark residual rather than ruled here.
+  - **What is established:** ExifTool itself is *"free software; you can redistribute it and/or
+    modify it under the same terms as Perl itself"* (Artistic / GPL v1+). The launcher is **CC0**.
+    `exiftool_files/LICENSE` is **GPL v3** and sits beside `perl.exe` and the MinGW runtime DLLs;
+    the **GCC Runtime Library Exception v3.1 is present** (`gcc-toolchain/gcc/COPYING.RUNTIME`),
+    whose stated purpose is *"to allow compilation of non-GPL (including proprietary) programs to
+    use… the header files and runtime libraries covered by this Exception."*
+  - **How truestill uses it:** exiftool is **executed as a separate process** (`binaries.run`),
+    never linked - arm's-length aggregation.
+  - **Why it is not ruled here:** separately-invoked with the exception present is very likely
+    fine, and *very likely* is not what a licence question wants when the answer arrives after
+    shipping. The attorney gets the facts above rather than the question.
 
   ### Settled, do not re-open
 

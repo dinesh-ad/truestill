@@ -132,6 +132,37 @@ jobs:
           New-Item -ItemType Directory -Force -Path out | Out-Null
           Copy-Item inno-out/*.exe -Destination out/
 
+      - name: Build the package (.deb)
+        if: runner.os == 'Linux'
+        run: |
+          version="$(echo '${{ github.ref_name }}' | sed 's/^v//')"
+          [ -n "$version" ] && [ "$version" != "main" ] || version="0.0.0"
+          uv run python packaging/build_deb.py --dist dist/truestill --version "$version" --out out
+
+      # THE SAME DETECTOR AS WINDOWS, in the shape apt gives us. Install, ask the INSTALLED copy
+      # what it contains, then remove it and check the catalog survived. `dpkg -i` is unattended
+      # by nature, so the constraint that needed testing on Windows is free here.
+      - name: Install, verify, uninstall (.deb)
+        if: runner.os == 'Linux'
+        run: |
+          sudo dpkg -i out/truestill_*.deb
+          test -x /usr/bin/truestill || { echo '::error::no /usr/bin/truestill'; exit 1; }
+          test -f /usr/share/applications/truestill.desktop || { echo '::error::no desktop entry'; exit 1; }
+
+          # A stand-in for the user's catalog, in the directory the product resolves to.
+          data="$HOME/.local/share/Truestill"
+          mkdir -p "$data" && echo 'a user library index' > "$data/catalog.sqlite"
+
+          mkdir -p findings
+          /usr/bin/truestill --self-check findings/selfcheck-installed.json
+          uv run python packaging/compare_selfcheck.py findings/selfcheck-installed.json
+
+          sudo dpkg -r truestill
+          test ! -e /usr/lib/truestill || { echo '::error::the package left files behind'; exit 1; }
+          test -f "$data/catalog.sqlite" || {
+            echo '::error::REMOVING THE PACKAGE DELETED THE USER CATALOG'; exit 1; }
+          echo 'package verified: installs, self-checks, removes, keeps the catalog'
+
       # THE DETECTOR. The self-check covers the bundle; until this step nothing covered the
       # INSTALLER. It exercises the installed product rather than the built folder:
       #   - /VERYSILENT is how the unattended constraint gets TESTED rather than assumed;
