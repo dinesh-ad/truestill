@@ -591,6 +591,17 @@ fieldset.field {
 .field .row {
   display: flex;
   gap: var(--space-2);
+  /* A PATH IS NOT A PARAGRAPH, so the field stops at a path's measure rather than the card's.
+     At 1920 the content column is ~1240px and a 30-character path sat in an input the width of
+     the screen, which reads as an empty box with a word in the corner. Derived rather than
+     picked: `--text-base` is 16px and DejaVu Sans Mono advances 0.602em, so 60 characters is
+     ~578px; plus the Browse button (~110px) and the gap, 720 is where a full path stops
+     wrapping. `min()` so it still fills a narrow window.
+     `.search-hero` opts out below - Find's field IS the screen and is meant to lead. */
+  max-width: min(100%, 720px);
+}
+.search-hero .row {
+  max-width: none;
 }
 /* A <select> sizes to its longest option and ignores `min-width: 0`, so `#layout-preset` (78
    characters) grew past its field as soon as text could scale. Constrained to the field; the
@@ -839,6 +850,26 @@ details.more.inline {
   padding: var(--space-4);
   border-radius: var(--radius-md);
   margin-bottom: var(--space-4);
+}
+/* THE FIRST SENTENCE A NEW USER READS SHOULD NOT BE A COMMAND-LINE FLAG. On an empty catalog the
+   startup notice - "pass --db PATH or run from the folder that holds your reports/catalog.sqlite"
+   - rendered as a full-width padded band ABOVE the h1, so the loudest thing on a first run was a
+   diagnostic aimed at somebody with a terminal.
+
+   DEMOTED VISUALLY, NOT SILENCED, and the distinction is the point: `renderCatalogNotice` keeps
+   two states apart on purpose - `alert` means the wrong catalog may be open, `notice` is a
+   first-run aside - and flattening them would make the loud one ignorable. `:not(.warn)` reaches
+   exactly the quiet one and leaves the alert at full weight, so the class assertions in
+   `test_rail_balance_and_notices.py` are untouched: nothing gains or loses `warn`.
+
+   THE WORDING IS NOT TOUCHED HERE. `catalog_startup.py` owns it and rewriting it is a copy
+   decision, not a repaint. */
+.banner:not(.warn) {
+  padding: var(--space-2) 0;
+  margin-bottom: var(--space-3);
+  border-radius: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
 }
 
 .banner.warn {
