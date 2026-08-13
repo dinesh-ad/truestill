@@ -20,19 +20,19 @@ change that, and should not be read as if it did.
 from __future__ import annotations
 
 import secrets
-import socket
-import threading
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-import uvicorn
-from e2e_support import AppServer, RetiringServers, make_photo, open_app, stamp_capture_date
+from e2e_support import (
+    AppServer,
+    RetiringServers,
+    boot_app,
+    make_photo,
+    open_app,
+    stamp_capture_date,
+)
 from playwright.sync_api import Page
-from truestill_app.server import create_app
-
-_HOST = "127.0.0.1"
-_BOOT_TIMEOUT_SECONDS = 10
 
 
 @pytest.fixture(scope="session")
@@ -55,32 +55,13 @@ def app_server(tmp_path: Path, retiring: RetiringServers) -> Iterator[AppServer]
     Function-scoped on purpose: these tests assert on custody counts and drive registration,
     which are exactly the state a shared server would leak between them.
     """
-    token = f"e2e-{secrets.token_urlsafe(16)}"
-    db = tmp_path / "catalog.sqlite"
-
-    # Bind first, then hand the bound socket to uvicorn: the port is known before the server
-    # starts, so nothing has to poll for it or parse it out of a log line.
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind((_HOST, 0))
-    port = sock.getsockname()[1]
-
-    server = uvicorn.Server(
-        uvicorn.Config(create_app(token=token, db=db), log_level="warning", lifespan="off")
+    # The boot itself lives in `e2e_support.boot_app`, shared with `scripts/shoot_screens.py`.
+    # Teardown stays here because it is the half the two callers disagree about - see that
+    # function's docstring, and `RetiringServers` for why this one does not wait.
+    started, server, thread, sock = boot_app(
+        tmp_path / "catalog.sqlite", token=f"e2e-{secrets.token_urlsafe(16)}"
     )
-    thread = threading.Thread(target=lambda: server.run(sockets=[sock]), daemon=True)
-    thread.start()
-
-    deadline = threading.Event()
-    while not server.started and thread.is_alive():
-        if deadline.wait(0.05):  # pragma: no cover - only reached if the server dies at boot
-            break
-        if not thread.is_alive():
-            pytest.fail("the app server thread died during startup")
-    if not server.started:
-        pytest.fail("the app server did not start")
-
-    yield AppServer(base_url=f"http://{_HOST}:{port}", token=token, db=db)
+    yield started
 
     # Signalled, then handed over: the 197 ms uvicorn takes to notice is not this test's problem,
     # and the next test does not wait for it. See `RetiringServers` for why nothing is shared and

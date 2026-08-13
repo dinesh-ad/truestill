@@ -8,6 +8,7 @@ basename no other test directory claims.
 
 from __future__ import annotations
 
+import secrets
 import socket
 import subprocess
 import threading
@@ -15,8 +16,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import uvicorn
 from PIL import Image
 from playwright.sync_api import Page, expect
+from truestill_app.server import create_app
+
+#: Loopback only. The app binds here in production too; nothing about this harness widens it.
+HOST = "127.0.0.1"
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +37,51 @@ class AppServer:
     def url(self) -> str:
         """The page URL a user would open, token included -- exactly as the app prints it."""
         return f"{self.base_url}/?token={self.token}"
+
+
+def boot_app(
+    db: Path, token: str | None = None
+) -> tuple[AppServer, uvicorn.Server, threading.Thread, socket.socket]:
+    """Start the real app on an ephemeral port and hand back everything needed to stop it.
+
+    **Extracted from the `app_server` fixture so a second caller cannot drift from it.**
+    `scripts/shoot_screens.py` photographs the same application these tests drive, and a private
+    server built beside this one would be a second artifact that diverges quietly - the shape
+    `IMPLEMENTATION_STANDARDS.md` §6.1 already refuses for a curated smoke suite. One boot, two
+    callers.
+
+    **Teardown is deliberately NOT done here**, because the two callers want different things: the
+    fixture signals and hands the server to `RetiringServers` so the next test does not wait out
+    uvicorn's 197 ms, while a one-shot script simply joins. Returning the parts keeps that choice
+    with the caller instead of inventing a policy neither wants.
+    """
+    token = token or f"harness-{secrets.token_urlsafe(16)}"
+
+    # Bind first, then hand the bound socket to uvicorn: the port is known before the server
+    # starts, so nothing has to poll for it or parse it out of a log line.
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind((HOST, 0))
+    port = sock.getsockname()[1]
+
+    server = uvicorn.Server(
+        uvicorn.Config(create_app(token=token, db=db), log_level="warning", lifespan="off")
+    )
+    thread = threading.Thread(target=lambda: server.run(sockets=[sock]), daemon=True)
+    thread.start()
+
+    deadline = threading.Event()
+    while not server.started and thread.is_alive():
+        if deadline.wait(0.05):  # pragma: no cover - only reached if the server dies at boot
+            break
+        if not thread.is_alive():
+            message = "the app server thread died during startup"
+            raise RuntimeError(message)
+    if not server.started:
+        message = "the app server did not start"
+        raise RuntimeError(message)
+
+    return AppServer(base_url=f"http://{HOST}:{port}", token=token, db=db), server, thread, sock
 
 
 # --- synthetic fixtures ------------------------------------------------------------------

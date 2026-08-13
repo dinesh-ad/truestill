@@ -227,7 +227,11 @@ python_version = "3.13"
 # pre-commit hook cannot see `truestill_core` at all -- and its upstream default args include
 # `--ignore-missing-imports`, so it answered "fine" to an import of a module that had not
 # existed for two renames. Overriding those args (below) is only safe because of this line.
-mypy_path = "packages/truestill-core/src:packages/truestill-cli/src:packages/truestill-app/src:packaging"
+# `tests/e2e` is here for RESOLUTION, not to put tests in the fence - §6 keeps them out, and
+# mypy still only checks what the Makefile names. `scripts/shoot_screens.py` imports
+# `e2e_support.boot_app` deliberately (one server, two callers), and without this mypy would
+# resolve it to `Any` and type-check nothing about that call.
+mypy_path = "packages/truestill-core/src:packages/truestill-cli/src:packages/truestill-app/src:packaging:tests/e2e"
 # ENGINEERING_STANDARD.md §4: mypy strict is mandatory. The gate and the claim must agree.
 strict = true
 
@@ -254,5 +258,12 @@ module = [
     # `types-pyinstaller` exists but would be a dependency taken for one `__file__` lookup.
     "pefile",
     "PyInstaller",
+    # NOT a stub gap - Playwright ships its own types, and under `uv run` mypy finds and uses
+    # them. This is about the pre-commit hook's ISOLATED environment, which installs mypy alone:
+    # once `tests/e2e` joined `mypy_path` for `scripts/shoot_screens.py`, the hook began
+    # following into `e2e_support` and could not resolve its Playwright import. The alternative
+    # was `additional_dependencies: [playwright]` on the hook, which would pull a browser driver
+    # into every commit for one import line. Per module, never a blanket flag (§6).
+    "playwright.*",
 ]
 ignore_missing_imports = true
