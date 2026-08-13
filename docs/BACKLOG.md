@@ -1708,6 +1708,85 @@ section, because what is left is the part that still has to be written.
     (`_internal\bin`, and beside the executable); how it is obtained, versioned and licensed is
     written down nowhere.
 
+  ### THE BUNDLER IS DECIDED: PyInstaller, with Inno Setup for the Windows installer
+
+  **Ruled 2026-08-13, with every column measured for the first time.**
+
+  **What decided it - D9 publishes two platforms and Briefcase can only build one of them.**
+  `linux system` fails on `requires-python`: pip's words, `3.12.3 not in '>=3.13'`. Choosing it
+  means dropping a published platform, lowering the project's Python floor for a packaging
+  convenience, or taking AppImage - a backend **its own maintainers discourage**. PyInstaller has
+  **both acceptance criteria discharged on both platforms**, and is **~2x faster to reachable on
+  Windows** (0.509 s vs 0.999 s warm; 0.509 vs 1.064 cold).
+
+  | | PyInstaller | Briefcase |
+  |---|---|---|
+  | Criteria, Windows | ✅ | ✅ |
+  | Criteria, Linux | ✅ | 🔴 cannot build |
+  | Startup, Windows (cold/warm) | **0.509 / 0.511** | 1.064 / 0.999 |
+  | Startup, Linux | 0.407 / 0.405 | not built |
+  | Produces an installer | **No** - needs Inno/WiX | **Yes** - MSI natively |
+  | Maturity | 6.x, large install base | 0.4.4 pre-1.0 |
+
+  **What Briefcase is better at, and it is not a short list.** It **produces a real installer with
+  no second tool** - PyInstaller produces a folder and the installer around it is work that does
+  not exist yet. An **MSI carries AV and enterprise trust a bare `.exe` does not**, and Microsoft's
+  own tooling handles it natively. Its 2026 Q2 work improved exactly that column: pre-install
+  checks, desktop shortcuts, better uninstall scripts. It **collects app data wholesale**, so the
+  `--collect-data` defect that cost this project a dispatch could not have happened under it. And
+  its beside-the-executable layout satisfies `binaries.bundled_bin_dirs` with **zero packaging
+  configuration** on Windows.
+
+  ⚠ **What this ruling does NOT rest on: installer output is the one column still unmeasured.**
+  Neither bundler has produced an installer here - Briefcase's MSI was built but never installed,
+  and no Inno artifact exists at all. The decision is made with that column **known-absent**
+  rather than measured, which is why the reopening conditions below are specific.
+
+  **What would reopen it:** Briefcase `linux system` becoming buildable (truestill supporting 3.12,
+  or the target distro shipping 3.13); the Inno work proving disproportionate or failing the
+  unattended-install constraint below; **signing being bought** (a D9 reversal), where Briefcase's
+  built-in signing matters again; or a supported Briefcase AppImage/Flatpak path.
+
+  ### Constraints on whatever installer is built
+
+  - ⚠ **It MUST support unattended installation.** Verified as a winget acceptance requirement
+    (*"Non-silent installers will not be accepted in the community repository"*; validators must
+    be able to perform *"an unattended installation"*) - but the constraint **outlives winget**:
+    an installer that can only be driven by a human cannot be validated, scripted, or deployed by
+    anyone. **Inno's interactive default does not meet it; Inno supports it via `/VERYSILENT`**,
+    which the deleted rig used. MSI has `/qn` natively.
+  - **Uninstall must be verified against `catalog.sqlite` in the OS data directory**, not the
+    registry - see the deleted rig's finding above.
+
+  ### winget: REFUSED BY THE CHANNEL, not declined on cost
+
+  **Recorded so nobody re-proposes it as the SmartScreen workaround: the thing winget would have
+  solved is the thing that disqualifies us.** winget's automated validation installs the package
+  on a VM, and that validation is **blocked by Microsoft Defender SmartScreen for unsigned or
+  not-yet-reputed executables** - execution stops at the Mark-of-the-Web / AttachmentExecute step
+  (`microsoft/winget-pkgs` #3482 and the package issues around it). An unsigned installer with no
+  reputation is precisely what D9 ships.
+  - **This also answers the question it was raised for, in the negative:** a `winget install` is
+    **not** automatically SmartScreen-free - it goes through the same Mark-of-the-Web path. The
+    download-page warning stays **mandatory**, not one of two paths.
+  - *Not verified:* a policy line stating this as a written eligibility criterion. What is
+    verified is the validation behaviour and the unattended-install requirement above.
+
+  ### Zero-spend integrity: available, costed, unbuilt
+
+  - **A tag-triggered release lane does not exist.** `ci.yml` runs on push, pull_request and
+    schedule only. `workflow_dispatch` is what the maintainer can trigger by hand; a **tag trigger
+    is what a release needs**, and neither it nor any release job is present. Everything below
+    depends on it. Cost: `on: push: tags`, `permissions: contents: write`, a build job and
+    `gh release create`. **No account, no fee.**
+  - **Sigstore keyless signing is free and needs no certificate.** `permissions: id-token: write`
+    (a tag/push workflow only - GitHub does not issue the OIDC token to fork PRs),
+    `sigstore/cosign-installer`, `cosign sign-blob` over a checksums file, and a
+    `cosign verify-blob --certificate-oidc-issuer https://token.actions.githubusercontent.com`
+    line on the download page. Fulcio issues an ephemeral certificate against the workflow
+    identity; Rekor logs it. **It does nothing to SmartScreen** - it is a provenance claim, and
+    the strongest one available at zero spend.
+
   ### Settled, do not re-open
 
   - **The ~90 MB scipy/PyWavelets weight stays** (2026-08-01). Measured: 218,212,013 B with,
