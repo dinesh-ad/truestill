@@ -774,6 +774,41 @@ select.input {
   font-weight: var(--weight-semibold);
   margin-bottom: var(--space-4);
 }
+/* The result grid: the photos a run just organized. `auto-fill` rather than a fixed column
+   count, so the same rule serves a narrow panel and a wide one without a breakpoint - the panel
+   width decides how many fit and the browser does the arithmetic. `minmax(0, 1fr)` on the second
+   half is what stops a wide panel stretching four tiles to 300px each.
+
+   Aspect-ratio 1 with object-fit: cover, so a grid of mixed portrait and landscape reads as a
+   grid rather than a ragged edge. The full frame is never the point here; recognising the photo
+   is, and a square crop of a photo is still recognisably that photo. */
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+.result-grid .tile {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  /* The placeholder a tile shows before its bytes arrive and after a tile fails. Without it a
+     lazy grid flashes the card background through image-shaped holes as the user scrolls. */
+  border: var(--border-width) solid var(--border);
+}
+/* Tightened against the grid it describes, rather than floating between two blocks. Stated as
+   adjacency so the grid keeps its normal spacing whenever nothing follows it. */
+.result-grid:has(+ .grid-more) {
+  margin-bottom: var(--space-2);
+}
+.grid-more {
+  margin-bottom: var(--space-4);
+}
+
 .tally {
   display: grid;
   grid-template-columns: auto 1fr;

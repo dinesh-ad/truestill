@@ -51,6 +51,7 @@ from truestill_core.organizer import (
     execute,
     heavy_days_for_organize,
     inventory_source,
+    media_kind,
     plan,
     preflight_for_run,
     resolve,
@@ -92,6 +93,33 @@ DUPLICATE_SAMPLE_LIMIT = 200
 #: different lists with different failure shapes, and tying them together would mean tuning one
 #: could only be done by changing the other.
 UNREADABLE_SAMPLE_LIMIT = 200
+
+#: How many photos the result GRID can carry, and much smaller than its neighbours above on
+#: purpose. Those are lists a person scans for a name; this one is fetched, decoded and drawn -
+#: every entry is an HTTP request and ~23 ms of server-side decode the first time it is seen.
+#: 48 is a screenful and a scroll at every panel width the layout produces, and past that the
+#: honest answer is a number rather than a mile of scrollbar. Seeing the whole library is a
+#: different feature with different machinery (`BACKLOG.md` (abk)), not a bigger constant here.
+GRID_SAMPLE_LIMIT = 48
+
+
+class OrganizedTile(TypedDict):
+    """One photo the run put into the library, addressed by content for `/api/thumb`."""
+
+    sha256: str
+    name: str
+
+
+class OrganizedSample(TypedDict):
+    """Tiles plus the count they were taken from, so truncation is never silent.
+
+    ``total`` counts **photos**, not organized files: a run of 40 videos organizes 40 things and
+    has nothing to show, and a grid saying "and 40 more" over an empty space would be a lie about
+    what is missing. Videos and audio are counted in the tally above it, where they belong.
+    """
+
+    total: int
+    shown: list[OrganizedTile]
 
 
 class DuplicateSample(TypedDict):
@@ -1002,6 +1030,9 @@ class CompletionBase(TypedDict):
     moved_in_place: int
     moved_by_copy: int
     failed: int
+    #: The photos this run put into the library, for the result grid. Capped; see
+    #: `GRID_SAMPLE_LIMIT`. Present on every run, empty-shown when the run organized no photos.
+    organized_sample: OrganizedSample
 
 
 class OrganizeDoneSummary(CompletionBase):
@@ -1047,6 +1078,16 @@ def _completion(results: list[ActionResult], destination: Path) -> CompletionBas
     labels = Counter(r.resolution.decision.category.label for r in organized)
     names = [r.resolution.decision.source.name for r in organized]
     breakdown = media_breakdown(names)
+    # Photos only, and only those the run established a content id for. `ActionResult.sha256`
+    # rather than `resolution.hashes.sha256`: the second is unset for a unique-size file the
+    # scan's pre-filter skipped hashing, which is HALF a typical run, and reading it here drew
+    # two tiles for four organized photos. A tile with no id is excluded from `total` as well as
+    # from the list - counting one would make "and N more" promise something unaddressable.
+    photos = [
+        r
+        for r in organized
+        if media_kind(r.resolution.decision.source.name) == "photo" and r.sha256 is not None
+    ]
     return {
         "outcomes": dict(Counter(status_label(r.status) for r in results)),
         "organized": len(organized),
@@ -1070,6 +1111,19 @@ def _completion(results: list[ActionResult], destination: Path) -> CompletionBas
         "moved_in_place": sum(1 for r in results if r.status is ActionStatus.MOVED_IN_PLACE),
         "moved_by_copy": sum(1 for r in results if r.status is ActionStatus.MOVED),
         "failed": sum(1 for r in results if r.status is ActionStatus.FAILED),
+        # Run order, not "the best 48": any other ordering would be a judgement about which of a
+        # user's photos matter, made with no evidence, on the screen that exists to show them
+        # what they have. First-seen is the only order the run actually knows.
+        "organized_sample": {
+            "total": len(photos),
+            "shown": [
+                {
+                    "sha256": cast("str", r.sha256),
+                    "name": r.resolution.decision.source.name,
+                }
+                for r in photos[:GRID_SAMPLE_LIMIT]
+            ],
+        },
     }
 
 

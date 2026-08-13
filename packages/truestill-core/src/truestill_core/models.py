@@ -655,3 +655,14 @@ class ActionResult:
     status: ActionStatus
     final_relative: Path | None
     detail: str = ""
+    #: The content id this outcome was recorded under, when one was established.
+    #:
+    #: **Not a duplicate of ``resolution.hashes.sha256``, and that is the reason it exists.**
+    #: The scan's size pre-filter skips hashing a file whose size is unique - it cannot be an
+    #: exact duplicate of anything - so a resolution can reach execution with ``sha256`` unset.
+    #: ``execute`` then computes it, because the file is being read for upload anyway, writes it
+    #: to the catalog, and until now dropped it: the catalog knew the content id and the RESULT
+    #: did not. Any surface answering "which files did this run place" from results alone saw a
+    #: hole exactly the size of the unique-size files, and the first one to ask - the organize
+    #: result grid - drew two photos for a run of four.
+    sha256: str | None = None

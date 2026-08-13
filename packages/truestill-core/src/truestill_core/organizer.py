@@ -1228,7 +1228,7 @@ def _journal_or_delete_source(
         # re-verifies. A failed verify keeps the source; a crash before this leaves both.
         status, note = _move_source(decision.source, destination, final_relative, copy_sha)
         notes.append(note)
-    return ActionResult(resolution, status, Path(final_relative), "; ".join(notes))
+    return ActionResult(resolution, status, Path(final_relative), "; ".join(notes), source_sha)
 
 
 def _execute_one_write(
