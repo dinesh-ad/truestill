@@ -184,6 +184,44 @@ files from 15.8 s to 4.7 s by never reading an unchanged file twice.
 
 ---
 
+### 1.2 Thumbnails (measured 2026-08-13, 600 fenced-corpus files, median 8 MP JPEG)
+
+**Not a pipeline stage**, and deliberately so: `thumbnails.py` offers no way to sweep a library.
+One thumbnail is **O(1)** and they are built per visible tile, so a 12-photo run never pays for
+33k files. `GRID_SAMPLE_LIMIT` (48) bounds what a single result can ask for.
+
+| | ms/file |
+|---|---:|
+| decode at 1/8 DCT scale + resize | 20.0 |
+| WebP encode, method 2 | 3.1 |
+| **cold total** | **~23** |
+| warm (cache hit, no catalog opened) | 0.05 |
+
+Median entry 13,395 bytes. A 24-tile viewport costs **0.55 s cold, once**.
+
+**Two numbers here were wrong before they were measured properly, and both were found by
+re-running the alternatives against the SAME 600 files rather than comparing across runs:**
+
+* **An 80-file sample said 14 ms and was out by 2.3x.** It skewed small. §2.1's rule is why the
+  corpus figure is the one recorded.
+* **`draft()` was under-scaling by a factor of four in pixels.** It picks its DCT scale from the
+  *tighter* of the two ratios while `thumbnail()` fits the *long* edge, so a SQUARE target lets
+  the short edge decide: 3200x2368 decoded at 800x592 (1/4) where the aspect-correct target gives
+  400x296 (1/8). 25.8 -> 20.0 ms, at a mean per-channel difference from a full decode of 1.6/255.
+
+**Leave alone - already priced and rejected:**
+
+* **The embedded EXIF thumbnail** (~1 ms) is not reachable through a supported Pillow API: the
+  IFD1 offsets (tags 513/514) are absent from `getexif()` on **0 of 600** files. Taking it means
+  a hand-rolled JPEG marker scanner plus a fallback for what it misses.
+* **WebP `method` above 2.** Encode ms / median bytes: m0 2.02/15,743 - m1 2.48/14,892 -
+  **m2 3.09/13,395** - m3 6.28/13,025 - m4 6.25/13,031 - m6 17.83/12,341. Past 2 the encode
+  doubles to buy 3% fewer bytes. Pillow's default is 4.
+* **A batch endpoint for the grid.** It would defeat per-thumbnail HTTP caching - the thing that
+  makes a revisit cost 0.05 ms - and put the whole grid behind its slowest decode.
+
+---
+
 ## 2. The rule
 
 > **Every new pipeline stage states its complexity in *n*, in its module docstring. A stage

@@ -1421,6 +1421,26 @@ no composition refactor to schedule.
 
 ## Shipped (kept for provenance)
 
+- **BUILT 2026-08-13: truestill can show a photograph. Organize's result is the photos.**
+  No backlog letter - it came out of the UI reconnaissance, whose finding was that the remaining
+  gap was not styling: the product had **zero `<img>` elements**. Three pieces:
+  `truestill_core/thumbnails.py` (sha256 -> WebP, cached under the OS cache dir),
+  `GET /api/thumb/{sha256}`, and the grid in `organizeCompletion`, above the tally.
+  - **Addressed by content, never by path**, so traversal is unrepresentable rather than
+    defended. `LocalGuard` wraps the whole app and exempts only `/static/`, so the route inherits
+    token/Host/Origin; the tile URL carries `?token=` because an `<img>` cannot set a header.
+  - **Lazy, not batched** - browsers cap ~6 connections per host on HTTP/1.1. A batch endpoint
+    would defeat per-thumbnail HTTP caching, which is what makes a revisit free. `GRID_SAMPLE_LIMIT`
+    is 48; the whole-library browse is still `(abk)` and is not a bigger constant here.
+  - **Two defects found by building it, both older than it.** `execute` computed the content id
+    for a unique-size file the scan skipped, wrote it to the catalog and dropped it - so results
+    alone lost about half a run (`ActionResult.sha256` now carries it). And `THUMB_PX` had no
+    enforced relationship to the rendered tile, which measured ~100px at every width.
+  - Costs, measured over 600 fenced-corpus files rather than sampled: **~23 ms cold** (20 decode,
+    3 encode), **0.05 ms warm**, median 13 KB. An earlier 80-file sample said 14 ms and was wrong
+    by 2.3x; `docs/PERFORMANCE.md` has the standing numbers.
+
+
 - **(acw) CLOSED 2026-08-12: the hint spans above `#bk-preview` can no longer move it.**
   - **The root was an unbounded server string in a fixed-width slot, and it is closed as a defect
     on its own terms rather than as a side effect.** `fs_create` interpolated `str(OSError)` -
