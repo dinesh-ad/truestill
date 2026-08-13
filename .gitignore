@@ -19,3 +19,8 @@ requirements-audit.txt
 tests/e2e/.artifacts/
 # Local scratch notes and throwaway files; never tracked.
 .scratch/
+
+# Packaging-lane measurement output. Written by the rig on a runner and by anyone who runs
+# packaging/time_startup.py locally - it is a reading, never a source file.
+findings/
+startup-work/

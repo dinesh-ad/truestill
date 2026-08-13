@@ -95,6 +95,10 @@ def main(argv: list[str]) -> int:
     results = [_one_run(exe, root, i) for i in range(runs)]
     timed: list[float] = [s for r in results if isinstance(s := r.get("seconds"), float)]
     payload: dict[str, object] = {
+        # The discriminator `compare_selfcheck.py` skips on. Without it a startup report
+        # is a findings file with no findings, which that script correctly refuses - so a
+        # measurement would fail the gate it has nothing to do with.
+        "kind": "startup",
         "label": label,
         "exe": str(exe),
         "runs": results,

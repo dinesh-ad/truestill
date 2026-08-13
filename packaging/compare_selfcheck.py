@@ -62,6 +62,16 @@ def _findings_in(payload: dict[str, object]) -> list[dict[str, object]] | None:
     return None
 
 
+def _is_selfcheck(path: Path) -> bool:
+    """Whether this file claims to be an artifact's self-check at all - used only for counting."""
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return True
+    kind = payload.get("kind")
+    return kind is None or kind == "selfcheck"
+
+
 def _evidence(finding: dict[str, object]) -> dict[str, object]:
     """A finding's evidence map, or an empty one. Narrowed here so every caller is typed."""
     value = finding.get("evidence")
@@ -87,6 +97,13 @@ def _compare(findings_path: Path) -> list[str]:
         payload = json.loads(findings_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         return [f"{findings_path.name}: could not be read ({exc})"]
+
+    # A report of a different KIND is not an artifact that failed to self-check. Startup
+    # timings live in the same directory and carry no findings; refusing them would fail the
+    # gate on a measurement that has nothing to do with it.
+    kind = payload.get("kind")
+    if kind is not None and kind != "selfcheck":
+        return []
 
     findings = _findings_in(payload)
     if findings is None:
@@ -164,7 +181,10 @@ def main(argv: list[str]) -> int:
         print(f"::error::{problem}")
     if problems:
         return 1
-    print(f"self-check matched the repository for {len(argv)} artifact(s)")
+    considered = [n for n in argv if _is_selfcheck(Path(n))]
+    skipped = len(argv) - len(considered)
+    note = f" ({skipped} other report(s) skipped)" if skipped else ""
+    print(f"self-check matched the repository for {len(considered)} artifact(s)" + note)
     return 0
 
 
