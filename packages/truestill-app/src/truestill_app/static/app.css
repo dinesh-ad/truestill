@@ -268,6 +268,9 @@ code,
 }
 .sidebar-toggle .chevron {
   font-size: var(--text-lg);
+  /* Same gap as `.nav-item .ico` above, and found with it: U+2039 is in the bundled face, and
+     this rule never asked for that face either. */
+  font-family: var(--font-mono);
   line-height: 1;
   transition: transform 160ms ease;
 }
@@ -287,6 +290,18 @@ code,
   width: 18px;
   flex: 0 0 18px;
   font-size: var(--icon-size);
+  /* THE FACE, AND ITS ABSENCE WAS THE DEFECT. These are Unicode glyphs, and every one of the ten
+     the rail uses IS PRESENT in the bundled DejaVu Sans Mono - verified against the shipped
+     `static/fonts/DejaVuSansMono.ttf` with fontTools, not assumed. But this rule set width, flex
+     and size and never asked for a family, so the glyph inherited `--font-sans` from `body` and
+     resolved from whatever sans the machine happened to have. U+21A7, U+2315, U+25F7 and U+25A4
+     are not in most of that stack.
+     That is the per-machine variance `tokens.css` bundled a font to END: the data got the bundled
+     face and the icons were left on the system's. `BACKLOG.md` retired `(abh)` on the grounds that
+     "the nav icons are Unicode glyphs, so their letterform varies per machine" - the symptom was
+     right and it was recorded as the cause. The glyphs were never the problem; this line was
+     missing. Same reason `.sidebar-toggle .chevron` needs it. */
+  font-family: var(--font-mono);
   /* Not the inherited line-height: at 16px that box is 19.2px tall and every row grows with
      it (31.6 -> 35.2px, and the nav block by 25px). `1` keeps the glyph out of the row's
      height calculation. Same pattern as `.sidebar-toggle .chevron`. */
