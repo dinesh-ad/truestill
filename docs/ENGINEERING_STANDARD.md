@@ -1419,6 +1419,31 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   that does not fire means **either** the guard is missing **or** the code is dead. Find out
   which before writing the test - the answer is a test in one case and a deletion in the other.
 
+- **Restoring the source is not restoring the module: Python revalidates a `.pyc` on mtime
+  SECONDS and byte size, and a mutation cycle defeats both.** The forty-ninth member, and the
+  fifth member's twin from the other end - that one asks whether the mutant was ever *loaded*,
+  this one whether it was ever *unloaded*. Both leave you reading a result produced by code that
+  is not on disk.
+
+  *Worked example, 2026-08-13.* Mutating `_fitted`'s portrait branch swapped one 61-byte line for
+  another **61-byte** line, and the restore landed in the **same wall-clock second** as the write.
+  The cached bytecode's header then matched the restored file on both fields it checks, so the
+  interpreter skipped recompilation and kept running the mutant. The restored suite came back
+  **red**, `inspect.getsource` printed the correct source, and the two disagreed for four minutes.
+
+  > **The tell is a disagreement between what the file says and what the code does** - and it can
+  > lie in either direction. Here it invented a failure; the same mechanism after a *fixing* edit
+  > invents a pass, which is the expensive half.
+
+  **Run mutation cycles with `PYTHONDONTWRITEBYTECODE=1`, or purge `__pycache__` on restore.**
+  Not "usually fine because edits take longer than a second": an automated cycle is precisely the
+  case that is fast enough, and a same-size edit is precisely what a mutation is. Sub-second
+  timestamps do not save you - CPython writes the mtime as whole seconds.
+
+  *Same family, different cache:* a stale editable install, a `__pycache__` inside a copied
+  worktree, a container layer holding the pre-edit file. The question to ask of any of them is
+  **which bytes ran**, not which bytes are saved.
+
 - **A mock that renders "0" is telling you a field became load-bearing.** Recorded 2026-08-11
   from `(abl)`/`(acx)`: a preview payload gained one number that two surfaces render, and **six
   mocked payloads** across the browser suite went on describing the old shape. They did not fail
