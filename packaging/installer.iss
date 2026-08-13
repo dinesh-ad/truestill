@@ -72,10 +72,22 @@ Name: "{group}\Uninstall Truestill"; Filename: "{uninstallexe}"
   goes and what stays, and names the real path rather than describing it.
 
   There is deliberately no [UninstallDelete] over user data. (aae) draws the line: the catalog is
-  unrecoverable user data, the cache is disposable. The uninstaller removes neither. }
+  unrecoverable user data, the cache is disposable. The uninstaller removes neither.
+
+  SuppressibleMsgBox, NOT MsgBox, and the difference is a 30-minute hang. `/SUPPRESSMSGBOXES` was
+  never going to reach a plain `MsgBox`: Inno's own reference says SuppressibleMsgBox "returns the
+  Default value without displaying anything to the user, whereas a standard MsgBox would still
+  appear". Under `/VERYSILENT /SUPPRESSMSGBOXES` the first version drew a modal dialog nobody could
+  click, and the uninstaller sat there until the runner killed `_unins.tmp`. The flag was not
+  ignored - it applies to a different function.
+
+  The semantics are exactly what this message wants: a person uninstalling by hand READS IT, at
+  the moment before their catalog's fate is decided, and an unattended uninstall proceeds without
+  it because there is nobody to read it. IDOK is the default so a scripted removal is not blocked
+  by a message that exists for a human. }
 function InitializeUninstall(): Boolean;
 begin
-  MsgBox(
+  SuppressibleMsgBox(
     'Uninstalling Truestill removes the program only.' + #13#10 + #13#10 +
     'Your library index is KEPT, here:' + #13#10 +
     ExpandConstant('{localappdata}\Truestill\catalog.sqlite') + #13#10 + #13#10 +
@@ -83,6 +95,6 @@ begin
     + 'never deletes it, and reinstalling will pick it up again.' + #13#10 + #13#10 +
     'Your photos are untouched - Truestill only ever copies them.' + #13#10 + #13#10 +
     'To remove the index as well, delete that file yourself after uninstalling.',
-    mbInformation, MB_OK);
+    mbInformation, MB_OK, IDOK);
   Result := True;
 end;

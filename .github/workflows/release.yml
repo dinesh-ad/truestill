@@ -142,8 +142,11 @@ jobs:
       # THE SAME DETECTOR AS WINDOWS, in the shape apt gives us. Install, ask the INSTALLED copy
       # what it contains, then remove it and check the catalog survived. `dpkg -i` is unattended
       # by nature, so the constraint that needed testing on Windows is free here.
+      # BOUNDED, like its Windows twin. See that step's note: an unbounded step that hangs
+      # discards the evidence you need when it finally fails.
       - name: Install, verify, uninstall (.deb)
         if: runner.os == 'Linux'
+        timeout-minutes: 10
         run: |
           sudo dpkg -i out/truestill_*.deb
           test -x /usr/bin/truestill || { echo '::error::no /usr/bin/truestill'; exit 1; }
@@ -170,9 +173,16 @@ jobs:
       #   - and a marker written into the data directory must SURVIVE the uninstall.
       # That last one is the point. An installer that deletes someone's catalog is the worst
       # possible last impression, and nothing here could notice it before.
+      # ⚠ BOUNDED, AND THE BOUND IS THE LESSON RATHER THAN A PRECAUTION. This step once hung for
+      # 30 minutes on a modal dialog nobody could click; GitHub's default is SIX HOURS, and
+      # cancelling the run to reclaim the minutes discarded the step logs that would have named
+      # the cause. A step that can hang indefinitely destroys the evidence at exactly the moment
+      # it becomes valuable. Ten minutes is far above the observed cost of this step (~1 min) and
+      # far below the point where a hang stops being informative.
       - name: Install, verify, uninstall
         if: runner.os == 'Windows'
         shell: pwsh
+        timeout-minutes: 10
         run: |
           $setup = Get-ChildItem out -Filter 'TruestillSetup-*.exe' | Select-Object -First 1
           & $setup.FullName /VERYSILENT /SUPPRESSMSGBOXES /NORESTART | Out-Null

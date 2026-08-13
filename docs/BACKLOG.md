@@ -1917,6 +1917,28 @@ section, because what is left is the part that still has to be written.
     identity; Rekor logs it. **It does nothing to SmartScreen** - it is a provenance claim, and
     the strongest one available at zero spend.
 
+  ### THE DETECTOR WORKED, and that is the finding
+
+  **The step written to test unattended behaviour hung on the unattended constraint, in the
+  direction nothing had tested.** The Windows installer built, installed silently, self-checked
+  and matched the repository - and then the *uninstall* stopped on a modal dialog. **A silent
+  install that cannot be silently uninstalled is not unattended**, and only building the detector
+  surfaced it. Cause established from Inno's own reference rather than guessed:
+  `/SUPPRESSMSGBOXES` does not reach a plain `MsgBox` - `SuppressibleMsgBox` *"returns the Default
+  value without displaying anything to the user, whereas a standard MsgBox would still appear"*.
+  The flag was not ignored; it applies to a different function. Fixed by moving to
+  `SuppressibleMsgBox` with `IDOK` as the default, which is the right semantics for this message:
+  **a person uninstalling by hand reads it, an unattended uninstall proceeds without it.**
+
+  ⚠ **Both detector steps are now bounded at 10 minutes.** The hang cost a cancelled run *and its
+  logs* - see `ENGINEERING_STANDARD.md` §4, forty-third member.
+
+  ### What has never been observed, and must survive into the download page
+
+  **CI proves what CI proves.** No double-click, no SmartScreen dialog, and no machine without
+  perl has ever been observed. The lane proves the installer installs, self-checks and uninstalls
+  on a runner; it does not prove the first thirty seconds a stranger spends with this product.
+
   ### Awaiting attorney clearance - facts, not a question
 
   **The Windows exiftool package carries a GPLv3 component**, and this is recorded for the same

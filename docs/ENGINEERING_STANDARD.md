@@ -721,6 +721,22 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   *Ask of any check: what is the cheapest way this assertion could be true while the property is
   false?* If the answer is "the state the check exists to detect", the proxy is the defect.
 
+- **AN UNBOUNDED STEP DESTROYS THE EVIDENCE AT THE MOMENT IT BECOMES VALUABLE.** The
+  forty-third member, and the cheapest one here to apply. A step that can hang does not merely
+  waste time: when you finally kill it to reclaim the minutes, **the logs go with it**, and the
+  one run that reproduced the fault is the one run you cannot read.
+
+  *Worked example - `(aad)`'s installer detector, 2026-08-13.* A silent uninstall stopped on a
+  modal dialog nobody could click. GitHub's default job timeout is **six hours**; the run was
+  cancelled at 30 minutes, and cancelling discarded the step logs. The cause had to be established
+  from vendor documentation and one surviving line of the runner's own cleanup
+  (``Terminate orphan process: pid (7096) (_unins.tmp)``) rather than from the step that failed.
+
+  **Bound any step that drives an installer, a subprocess, a network fetch or a browser** to
+  something far above its observed cost and far below the point where a hang stops being
+  informative. The bound is not a precaution against slowness; it is what converts a hang into a
+  **failure with its evidence intact**.
+
 - **A STEP THAT REPORTS SUCCESS BECAUSE ITS ERROR HANDLING WORKED IS NOT A MEASUREMENT.** The
   forty-first member, and the mirror of the fourteenth: that one is about a step that did nothing
   and said so; this is about a step that did nothing and said **success**.
