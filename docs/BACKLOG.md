@@ -1851,7 +1851,12 @@ section, because what is left is the part that still has to be written.
       `lpApplicationName` is declared `string` and given `$null` from PowerShell, which marshals
       as an **empty string rather than NULL** - and an empty application name is a path
       CreateProcess cannot find, which would explain an identical failure for any executable.
-      **Not yet fixed and not yet proven**; recorded as the next step for that thread.
+      **TESTED 2026-08-12 (run 31669975175) AND REFUTED.** `[NullString]::Value` changed nothing:
+      same `win32 error 3`, both bundlers, both the probe launch and the serving launch. The
+      change is kept because it is the correct way to pass a null string, **not** because it
+      fixed anything - do not read it as the fix. What survives from that run: the exe, the
+      working directory and the command line are all sound, so the fault is in the launch
+      mechanism and the next candidate is untested.
     - **Three faults of the instrument's own, found by the same run and fixed:** the comparison
       script read only the rig's `--probe` envelope and so reported *"the artifact never ran it"*
       about an artifact that had run it and failed - **the rig's own fence forbids exactly that
