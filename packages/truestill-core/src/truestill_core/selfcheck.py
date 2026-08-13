@@ -43,7 +43,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 
-from truestill_core import app_paths
+from truestill_core import app_paths, binaries
 from truestill_core.binaries import is_bundled_install
 from truestill_core.cleanup import trash_backend
 from truestill_core.exif import ExiftoolMissingError, ensure_exiftool
@@ -120,17 +120,51 @@ def is_complete(findings: list[Finding]) -> bool:
 
 
 def exiftool_finding() -> Finding:
-    """Does this install find the exiftool it was shipped with?
+    """Does this install find the exiftool it shipped with - **and can it actually run it?**
 
-    Resolved through `ensure_exiftool`, so the search order is the real one - the override, then
-    the bundled directories, then PATH. A bundle that shipped exiftool and cannot find it fails
-    here for the same reason it would fail mid-organize, which is the point.
+    Resolved through `ensure_exiftool`, so the search order is the real one: the override, the
+    bundled directories, then PATH. A bundle that shipped exiftool and cannot find it fails here
+    for the same reason it would fail mid-organize.
+
+    **RESOLVING IS NOT RUNNING, and the difference is a shipped defect rather than a nicety.**
+    Measured 2026-08-13 while exercising the release lane: PyInstaller's `--add-binary` copies
+    **one file**, and on Linux `exiftool` is a Perl script whose `Image::ExifTool` modules live in
+    the distro's `/usr/share/perl5`. The bundle carries none of them. The artifact therefore
+    resolved a path, reported `ok`, and would have failed on the first photo any user without
+    exiftool already installed opened - **which is precisely the user the bundle exists for.**
+    A check that only resolves is a check that passes on that artifact.
+
+    So the binary is invoked. `-ver` is the cheapest call that proves the whole chain - the
+    interpreter, the modules, the executable bit - and it prints one line.
     """
     try:
         resolved = ensure_exiftool()
     except ExiftoolMissingError as exc:
         return Finding("exiftool", Status.MISSING, str(exc))
-    return Finding("exiftool", Status.OK, resolved, {"path": resolved})
+
+    evidence: dict[str, str | int] = {"path": resolved}
+    try:
+        proc = binaries.run(
+            [resolved, "-ver"], capture_output=True, text=True, check=False, timeout=30
+        )
+    except OSError as exc:  # not executable, bad interpreter, wrong architecture
+        return Finding(
+            "exiftool",
+            Status.DEGRADED,
+            f"found at {resolved} but it will not run ({exc})",
+            evidence,
+        )
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "").strip().splitlines()
+        return Finding(
+            "exiftool",
+            Status.DEGRADED,
+            f"found at {resolved} but it failed to run: {detail[0] if detail else 'no output'}",
+            evidence,
+        )
+    version = (proc.stdout or "").strip()
+    evidence["version"] = version
+    return Finding("exiftool", Status.OK, f"{version} at {resolved}", evidence)
 
 
 def trash_finding() -> Finding:

@@ -1716,14 +1716,29 @@ section, because what is left is the part that still has to be written.
 
   ### What remains, in order
 
-  1. **The release lane that does not exist** - a tag trigger and sigstore signing, both free and
-     costed below. The first thing here that **ships** rather than measures.
+  1. ✅ **The release lane - BUILT 2026-08-13** (`.github/workflows/release.yml`). Tag-triggered
+     (`v*`), plus `workflow_dispatch` with `dry_run` defaulting to **true** so exercising it never
+     publishes. **The self-check is the gate**: a build that cannot report a real trash backend
+     and its own typefaces does not publish. Signs `SHA256SUMS` with sigstore keyless
+     (`id-token: write` on the publish job alone), verification instructions in the README.
+     **It publishes ARCHIVES, not installers** - the installer is item 2 and the packaging step is
+     where it slots in. **Never yet fired**: no tag exists.
   2. **The Windows installer** around the PyInstaller folder - the largest unbuilt item.
      **Size it before starting it.**
   3. **The Linux artifact shape** - `.deb`, AppImage, or a tarball with a script. Undecided, and
      the only platform-shaped question with no answer in this entry.
-  4. **exiftool acquisition.** Where it goes is measured (`_internal/bin`); how it is obtained,
-     versioned and licensed is written down nowhere.
+  4. 🔴 **exiftool acquisition - and the Linux bundle's copy is BROKEN, found 2026-08-13 by
+     exercising the release lane.** `--add-binary` copies **one file**, and on Linux `exiftool` is
+     a Perl script whose `Image::ExifTool` modules live in the distro's `/usr/share/perl5`. The
+     bundle carries none of them: proven by `find` over the artifact, and by
+     `Can't locate Image/ExifTool.pm in @INC` once that directory is hidden. **It ran on the build
+     machine only because exiftool was already installed there** - the one machine that does not
+     need it bundled. Windows is unaffected (choco ships a real `.exe`).
+     - **The self-check passed it, and that was the second defect.** It resolved a path and never
+       invoked the binary. `exiftool_finding` now runs `-ver` and reports **degraded** when a
+       resolved exiftool will not run; the version is in the evidence, so `ok` cannot be produced
+       without the binary having answered.
+     - Still open: how exiftool is obtained, versioned and licence-carried per platform.
   5. **The download page** - D9 requires Windows users be told what SmartScreen will show, in
      plain language, above the button, before they download. Still mandatory (see winget below).
   6. **CLI startup under freezing is UNMEASURED.** Freezing costs per process, so it lands hardest

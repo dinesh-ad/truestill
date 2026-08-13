@@ -147,6 +147,33 @@ read before it starts, so the decision is yours.
 make install       # uv sync --all-packages --group dev
 ```
 
+## Verifying a download
+
+Release archives are built by CI from a tagged commit and the checksums file is **signed with
+[sigstore](https://www.sigstore.dev/)** - keyless, so there is no certificate to trust and no key
+for anyone to steal. The signature proves the artifact came from this repository's own workflow.
+
+```bash
+# 1. the file you downloaded matches the published checksums
+sha256sum --check --ignore-missing SHA256SUMS
+
+# 2. those checksums were produced by this repository's release workflow
+cosign verify-blob \
+  --bundle SHA256SUMS.sigstore.json \
+  --certificate-identity-regexp '^https://github\.com/dinesh-ad/truestill/\.github/workflows/release\.yml@' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  SHA256SUMS
+```
+
+`cosign` is [Sigstore's own tool](https://github.com/sigstore/cosign). Both commands must succeed:
+the first says the bytes are intact, the second says where they came from.
+
+**On Windows you will see a SmartScreen warning on first run.** These builds are not code-signed -
+buying a certificate is [a deliberate decision](docs/DECISIONS.md), not an oversight - so Windows
+has no reputation for the file yet. Choose **More info**, then **Run anyway**. The warning goes
+away as more people download the same file. Signing would not remove it immediately either; only
+an EV certificate does that.
+
 ## Usage
 
 The CLI is subcommand-based. **Dry run is the default** - nothing is written without

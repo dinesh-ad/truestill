@@ -1,0 +1,193 @@
+# ============================================================================================
+# THE RELEASE LANE. Builds the frozen app for the platforms D9 publishes, PROVES IT CAN REPORT
+# WHAT IT CONTAINS, signs the checksums with sigstore, and publishes.
+#
+# This is the first (aad) workflow that SHIPS rather than measures, and it is deliberately not
+# the throwaway rig: that one answers questions, this one produces artifacts a person downloads.
+#
+# THE SELF-CHECK IS THE GATE, and that is the point of everything built for (aad) this month.
+# A build that cannot report a real trash backend and its own typefaces DOES NOT PUBLISH - the
+# two acceptance criteria stop being a thing we measured once and become a release control.
+#
+# WHAT IT DOES NOT DO YET: produce an INSTALLER. The bundler is decided (PyInstaller) and the
+# installer around its one-folder output is unbuilt - BACKLOG (aad), "what remains". Until then
+# this publishes archives, which is honest about what exists rather than calling a zip an
+# installer. The packaging step is where the installer slots in.
+#
+# `id-token: write` lives on the publish job ALONE. It is what sigstore keyless signing needs,
+# GitHub refuses to issue it to pull-request runs from forks, and least privilege says the build
+# matrix has no business holding it.
+# ============================================================================================
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  # So the lane can be EXERCISED without cutting a release. `dry_run` defaults to true, because
+  # the alternative is that the first time anyone runs this, it publishes.
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "build and verify, publish nothing"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # The two platforms D9 publishes. macOS builds in CI (ci.yml) and is not published.
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+
+      # ⚠ THIS SHIPS THE RUNNER'S EXIFTOOL, which is what the rig did and is NOT a settled
+      # answer: acquisition, version pinning and licence carriage are open in BACKLOG (aad).
+      # On Linux `exiftool` is a Perl script, so a bundle carrying it depends on the user having
+      # perl - the self-check reports that it RESOLVES, not that it RUNS. Do not read a green
+      # release as proof this half is solved.
+      - name: Install exiftool (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libimage-exiftool-perl
+
+      - name: Install exiftool (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install exiftool --no-progress -y
+          $tool = (Get-Command exiftool.exe -ErrorAction SilentlyContinue).Source
+          if (-not $tool) { throw 'exiftool.exe not found after install' }
+          "EXIFTOOL=$tool" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Set up Python 3.13
+        run: uv python install 3.13
+
+      - name: Sync workspace
+        run: uv sync --all-packages --group dev --locked
+
+      # `--collect-data truestill_app` is REQUIRED, not decorative: without it the bundle carries
+      # none of the app's data - no fonts, no notice, no templates, no app.js, no CSS - because
+      # bundlers follow imports and a data file is imported by nothing. Measured 2026-08-12.
+      - name: Build (PyInstaller, Linux)
+        if: runner.os == 'Linux'
+        run: |
+          uv run pyinstaller --noconfirm --clean --noconsole \
+            --name truestill \
+            --collect-data truestill_app \
+            --add-binary "$(command -v exiftool):bin" \
+            packages/truestill-app/src/truestill_app/__main__.py
+
+      - name: Build (PyInstaller, Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          uv run pyinstaller --noconfirm --clean --noconsole `
+            --name truestill `
+            --collect-data truestill_app `
+            --add-binary "$env:EXIFTOOL;bin" `
+            packages/truestill-app/src/truestill_app/__main__.py
+
+      # THE GATE. Not `continue-on-error`: an artifact that cannot say what it contains is not
+      # one this project publishes.
+      - name: Self-check the artifact
+        shell: bash
+        env:
+          TRUESTILL_DATA_DIR: ${{ github.workspace }}/release-data
+          TRUESTILL_CACHE_DIR: ${{ github.workspace }}/release-cache
+        run: |
+          mkdir -p findings
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            exe="dist/truestill/truestill.exe"
+          else
+            exe="dist/truestill/truestill"
+          fi
+          set +e
+          "$exe" --self-check "findings/selfcheck-${RUNNER_OS}.json"
+          code=$?
+          set -e
+          echo "--- what the artifact reported (exit $code) ---"
+          cat "findings/selfcheck-${RUNNER_OS}.json" || echo "no findings file was written"
+          exit $code
+
+      # The half the artifact cannot do: are those the bytes this repository built?
+      - name: Compare the self-check against the repository
+        shell: bash
+        run: uv run python packaging/compare_selfcheck.py findings/selfcheck-${RUNNER_OS}.json
+
+      - name: Archive
+        shell: bash
+        run: |
+          mkdir -p out
+          name="truestill-${{ github.ref_name }}-${RUNNER_OS}"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            powershell -Command "Compress-Archive -Path dist/truestill/* -DestinationPath out/$name.zip"
+          else
+            tar -czf "out/$name.tar.gz" -C dist truestill
+          fi
+          ls -l out
+
+      - name: Upload build
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.os }}
+          path: |
+            out/
+            findings/
+          retention-days: 7
+
+  publish:
+    name: sign and publish
+    needs: build
+    runs-on: ubuntu-latest
+    # A tag, and never a dry run. `github.event.inputs.dry_run` is a STRING on dispatch, so it is
+    # compared as one - `!= 'true'` rather than a truthiness test that would treat "false" as true.
+    if: startsWith(github.ref, 'refs/tags/v') && github.event.inputs.dry_run != 'true'
+    permissions:
+      contents: write # create the release
+      id-token: write # the OIDC token sigstore signs with
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: release-*
+          merge-multiple: true
+
+      - name: Checksums
+        run: |
+          cd out
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
+
+      # KEYLESS. No certificate, no key, no fee: Fulcio issues an ephemeral certificate against
+      # this workflow's OIDC identity and Rekor logs the entry. The bundle carries signature,
+      # certificate and log entry together, so a verifier needs only the bundle and the file.
+      # ONE file is signed - the checksums - because that transitively covers every artifact and
+      # gives a user one command to run rather than one per download.
+      - uses: sigstore/cosign-installer@v4.1.0
+
+      - name: Sign the checksums
+        run: cosign sign-blob --yes --bundle out/SHA256SUMS.sigstore.json out/SHA256SUMS
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" out/* \
+            --repo "${{ github.repository }}" \
+            --title "${{ github.ref_name }}" \
+            --notes "Verify before installing - see the Verifying a download section of the README.
+
+          Windows will show a SmartScreen warning on first run: these builds are not code-signed
+          (\`DECISIONS.md\` D9). Choose **More info** then **Run anyway**. The warning clears as
+          downloads accrue."

@@ -110,12 +110,41 @@ def test_a_missing_exiftool_is_reported_with_the_message_the_user_would_have_met
     assert EXIFTOOL_BIN_ENV in finding.detail
 
 
+def test_an_exiftool_that_resolves_but_cannot_run_is_degraded(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """**Resolving is not running**, and a bundle can ship the first without the second.
+
+    Measured on a real artifact 2026-08-13: PyInstaller's `--add-binary` copies one file, and on
+    Linux `exiftool` is a Perl script whose modules live in the distro's `/usr/share/perl5`. The
+    bundle carried the script and none of the modules, so the artifact resolved a path, reported
+    `ok`, and would have failed on the first photo opened by any user without exiftool already
+    installed - the user the bundle exists for.
+
+    The fixture is a file that exists and is not runnable, which is that artifact's shape without
+    needing Perl to reproduce it.
+    """
+    broken = tmp_path / "exiftool"
+    broken.write_text("#!/nonexistent/interpreter\n", encoding="utf-8")
+    broken.chmod(0o755)
+    monkeypatch.setenv(EXIFTOOL_BIN_ENV, str(broken))
+
+    finding = exiftool_finding()
+
+    assert finding.status is Status.DEGRADED
+    assert "will not run" in finding.detail or "failed to run" in finding.detail
+    assert finding.evidence["path"] == str(broken)
+
+
 def test_a_resolved_exiftool_carries_its_path_as_evidence() -> None:
     """The cry-wolf half, and the evidence a packaging job reads to know WHICH copy answered."""
     finding = exiftool_finding()
 
     assert finding.status is Status.OK
     assert Path(str(finding.evidence["path"])).is_file()
+    # The version proves the binary was INVOKED rather than merely found - the whole point of
+    # the check, and the half a path assertion cannot carry.
+    assert finding.evidence["version"], "no version, so exiftool was never run"
 
 
 # ----------------------------------------------------------------------------------- locations

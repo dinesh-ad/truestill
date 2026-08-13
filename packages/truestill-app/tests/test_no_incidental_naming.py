@@ -84,6 +84,17 @@ BANNED: dict[str, str] = {
 #: line *before* the scan, so these survive without exempting the whole file around them.
 ALLOWED: tuple[tuple[str, str], ...] = (
     (
+        r"github\\\.com/dinesh-ad/truestill/\\\.github/workflows/release\\\.yml@",
+        (
+            "the cosign `--certificate-identity-regexp` in README.md's verification section. The "
+            "repository owner's name is LOAD-BEARING here in a way no reword can replace: the "
+            "regexp is what pins a signature to THIS repository's release workflow. Verifying "
+            "without it - or against a wildcard identity - would accept a signature produced by "
+            "anyone's fork, which is the entire attack the check exists to refuse. An integrity "
+            "instruction that does not name whose integrity it is asserting is not one."
+        ),
+    ),
+    (
         r"\| (Google Takeout|Facebook|Flickr|Amazon Photos|Dropbox|iCloud) \|",
         (
             "the (jj) export-format table in SHIPPED.md. These names ARE the evidence: the "
