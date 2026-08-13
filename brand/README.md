@@ -1,43 +1,51 @@
 # Brand assets
 
 The one directory for authored brand artwork. `docs/brand.md` is the reference - the wordmark,
-the indigo gradient, the icon set and, importantly, **which surfaces each file is for**. Read it
+the mark, the indigo gradient and, importantly, **which surfaces each file is for**. Read it
 before wiring anything in, because most of the web icon set belongs to the landing page rather
 than to a localhost tool.
 
-## What is here now
+## What belongs here
 
-**Nothing but this file.** The identity was supplied as HTML and CSS, which specifies the
-wordmark and the palette completely but carries no image data: the page *links* the icons, it
-does not contain them. Rather than commit invented artwork under the name of the brand, this
-records the gap.
+**Authored source, and the artefacts rendered from it that a build consumes.** Not a file list -
+this section stated one until 2026-08-13 (*"Nothing but this file"*, written when that was true
+and left behind when `0ba93b7` and `703e3b1` landed the artwork). A list of what is present is a
+**machine state**, and it expires the day somebody adds a file, with nothing to notice
+(`ENGINEERING_STANDARD.md` §4, thirty-second member). `ls` answers that question and cannot be
+wrong. So the rule instead:
 
-## What belongs here when it arrives
+- **The marks, as SVG with outlined paths.** Never text in a font: the wordmark is a fixed shape,
+  and a font that is absent on a platform changes it. `PROVENANCE.md` records what each was
+  outlined from and under what terms.
+- **The rendered icons a build consumes**, produced from those SVGs by
+  `scripts/build_brand_assets.py` and **committed deliberately**. They are rendered rather than
+  authored, so the "generated media never goes in git" rule has to be answered: packaging reads
+  them, and a release must not depend on a rendering toolchain being installed on the runner. The
+  generator is committed beside them and its output is pinned, so regenerating is checkable.
+- **Nothing invented.** Artwork under the name of the brand is authored or it is absent; a
+  fabricated size is a drawn asset nobody drew.
 
-Expected files, per `docs/brand.md` section 4:
+## What is NOT here, and where those live
 
-```
-truestill-wordmark.svg        outlined paths, NOT text in a font
-truestill-monogram-light.svg  TS monogram for light backgrounds
-truestill-monogram-dark.svg   TS monogram for dark backgrounds
-favicon.ico                   multi-size: 16, 32, 48
-favicon-16x16.png
-favicon-32x32.png
-favicon-48x48.png
-apple-touch-icon.png          180x180
-mstile-144x144.png            144x144
-site.webmanifest
-```
+The web icon set in `docs/brand.md` §4 - `apple-touch-icon.png`, `mstile-144x144.png`,
+`site.webmanifest` - is for the **landing page**, which does not exist yet. `docs/brand.md` §6
+rules on which surfaces may use what; that section is the authority, not this file.
 
-When they land, update `docs/brand.md` section 5 to state the sizes and formats actually present,
-so a future reader knows what exists without opening any of them.
+`brand/` is **not packaged**. The wheel and the frozen bundle carry their own copies of what they
+need - `truestill_app/static/favicon.ico` is byte-identical to `brand/favicon.ico` and is pinned
+that way by `tests/e2e/test_one_mark_the_pillar_t.py`, and the installers stage from `brand/` at
+build time.
 
 ## Two things not to get wrong
 
-**The wordmark must be a vector with outlined paths.** The supplied CSS uses Georgia, which is a
-placeholder: it is absent on most Linux systems, so the shape of the word changes per platform.
-A logo is a fixed shape, not text rendered in whatever font happens to be installed.
+**The wordmark must be a vector with outlined paths.** Georgia in the original sheet was always a
+placeholder: absent on most Linux systems, so the shape of the word changes per platform. (The
+shipped rail wordmark is monospace *text* rather than the vector - a deliberate reversal recorded
+in `docs/brand.md` §1, not an exception to this.)
 
-**Installer icons are a separate set.** Windows wants an embedded `.ico`, macOS an `.icns`, Linux
-desktop entries PNGs at their own sizes. Same monogram, different deliverables, and the bundler
-chosen in `BACKLOG.md` `(aad)` decides the exact shapes. The favicon is not a substitute.
+**Installer icons are their own deliverables.** Windows embeds a `.ico`, macOS wants an `.icns`,
+Linux desktop entries resolve a themed name to PNGs at hicolor sizes. `brand/favicon.ico` **is**
+the Windows artifact and `brand/icons/truestill-<N>.png` are the Linux ones; **macOS has no
+`.icns` here** and is unserved. What must never be assumed is that satisfying one platform
+satisfies another - `packaging/verify_icon.py` asserts each shipped artifact separately, on its
+own bytes.

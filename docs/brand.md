@@ -1,7 +1,16 @@
 # Truestill brand identity
 
-Recorded 2026-08-01. **Reference only - nothing here is wired into the product yet**, and the
-wiring commit should read the "Which surfaces use what" section before adding anything.
+Recorded 2026-08-01. **This is the reference for what the mark IS; §6 governs which surfaces may
+use it.** Read §6 before wiring anything new in - most of the icon set belongs to a landing page
+rather than to a localhost tool.
+
+> **This line said "nothing here is wired into the product yet" until 2026-08-13, and it had been
+> false for a week.** The wordmark, the pillar T and `#4C63C4` are all shipped; the `.deb` and the
+> Windows installer carry the icons. A sentence asserting a **machine state** expires the moment
+> somebody changes the machine, and nothing can notice - `ENGINEERING_STANDARD.md` §4, the
+> thirty-second member. Every clause below states **intent**, which stays true, or carries its own
+> date. Where a rule was reversed, the reversal is annotated in place rather than swept: the dated
+> notes are the record and are not to be deleted.
 
 The product name is **Truestill**, capitalised, wherever a person reads it. The import package
 stays `truestill_core`, the command stays `truestill`, and the app entry point stays
@@ -13,9 +22,15 @@ source it enforces, so change the rule here first.
 
 ---
 
-## 1. Wordmark
+## 1. Wordmark - MONOSPACE (this heading said "serif" until 2026-08-13)
 
-The word **Truestill**, set in a serif, filled with the indigo gradient below.
+**The rule: the wordmark is `Truestill.` in `var(--font-mono)` with the accent dot.** The serif
+sheet below is kept because it is the record of what was authored and why it was reversed - see
+the 2026-08-05 note - but the heading claimed the superseded answer, so a reader who stopped at
+the heading got the wrong one. The CSS immediately below is a **colour and proportion reference
+only**, not a specification of the shipped mark.
+
+*Original sheet:* the word **Truestill**, set in a serif, filled with the indigo gradient below.
 
 ```css
 .truestill-logo {
@@ -90,11 +105,17 @@ The supplied page also sets `msapplication-TileColor` and `theme-color` to `#fff
 **chrome colours for a web page**, not brand colours, and they are listed here only so nobody
 mistakes them for part of the palette.
 
-## 3. Icon - the TS monogram
+## 3. Icon - the pillar T (the TS monogram is RETIRED)
 
-A **TS** monogram in the indigo gradient, required in a **light** and a **dark** variant so it
-stays legible on either background. The dark variant is not a recolour of the light one by
-inversion; both are wanted as artwork.
+**The rule: there is one mark, the pillar T.** `703e3b1` replaced the monogram with it everywhere,
+and `index.html` says why in the markup: *"there is no TS in this product"*. The mark must stay
+legible on a **light** and a **dark** ground, which is what the two authored variants are for; the
+dark one is not an inversion of the light one.
+
+> **Superseded 2026-08-05, kept as the record.** This section required a **TS monogram** in the
+> indigo gradient, in light and dark variants. It was authored, shipped, and then withdrawn: TS
+> closes up at 16px, and the product has one mark rather than a family. The rail renders the
+> pillar T inline from `brand/pillar-t-geometric-noflute.svg`.
 
 ## 4. The icon set, by filename and size
 
@@ -111,14 +132,23 @@ all of it applies to truestill.**
 | `mstile-144x144.png` | 144x144 | PNG | Windows tile |
 | `site.webmanifest` | n/a | JSON | PWA metadata |
 
-## 5. Status of the assets in this repo
+## 5. Where the assets live, and what they are for
 
-**None of the files in section 4 are in the repo yet.** The identity above was supplied as HTML
-and CSS, which fully specifies the wordmark and the palette but contains no image data - the
-page links the icons, it does not carry them.
+**`brand/` is the one directory for authored artwork, and it is the source every consumer reads
+from.** Provenance and licence: `brand/PROVENANCE.md`. The rule that decides what belongs here is
+`brand/README.md`'s, not a file list - a list goes stale the day something is added.
 
-So there is nothing to describe the sizes and formats *of*, and this section says so rather than
-listing files that do not exist. `brand/README.md` records where they go and what is expected.
+> **This section said "None of the files in section 4 are in the repo yet" until 2026-08-13.** It
+> was written when the identity existed only as HTML and CSS, and it stopped being true when the
+> artwork was authored (`0ba93b7`, `703e3b1`) without anything to notice. Same failure as the
+> header above, one section down: it described a **state** rather than a **rule**.
+
+Committing artwork is not a new precedent: the repo already tracks binaries
+(`docs/qa-screenshots/*.jpg`, the video fixture). The rule that matters is the existing one -
+**generated media never goes in git**; brand artwork is authored source, not generated output.
+The icon PNGs are the one nuance: they are *rendered* from the SVGs by
+`scripts/build_brand_assets.py`, and they are committed because the packaging steps consume them
+and a build must not depend on a rendering toolchain being present.
 
 Committing them when they arrive is not a new precedent: the repo already tracks 12 binaries
 (`docs/qa-screenshots/*.jpg`, and the video fixture). The rule that matters is the existing one -
@@ -149,8 +179,14 @@ genuine improvement: the tab stops showing a blank page icon. That is the whole 
 in section 4 does the job it was designed for. The landing page does not exist yet;
 `BACKLOG.md` `(aad)` records that installers are to be served from it.
 
-**The installers themselves - a different problem, not this set.** A Windows `.exe`/`.msi` needs
-an embedded `.ico`; macOS needs an `.icns`; Linux desktop entries want PNGs at specific sizes.
-Those are produced from the same monogram artwork but are **not** the web icon set, and the
-bundler chosen in `(aad)` will dictate the exact shapes. Do not try to reuse `favicon.ico` for
-the installer and assume it is done.
+**The installers - a different problem, and half of this paragraph was wrong** (corrected
+2026-08-13, when it was built). A Windows `.exe` needs an embedded `.ico`; macOS needs an
+`.icns`; Linux desktop entries want PNGs at specific sizes. What it got wrong was the warning:
+*"Do not try to reuse `favicon.ico` for the installer and assume it is done."* **`brand/favicon.ico`
+is exactly the right Windows artifact** - PyInstaller's `--icon` takes a `.ico` and
+`normalize_icon_type` passes it through **unchanged** when suffix and magic agree, and Inno's
+`SetupIconFile` wants a `.ico` carrying 16/32/48/64/256, which this one does. The half that was
+right is that it does **not** finish the job: Linux resolves `Icon=truestill` through the hicolor
+theme and needs `brand/icons/truestill-<N>.png` staged at eight sizes, and macOS is unserved
+because no `.icns` exists here. See `packaging/verify_icon.py`, which asserts the shipped
+artifacts carry these bytes rather than trusting that a flag was passed.
