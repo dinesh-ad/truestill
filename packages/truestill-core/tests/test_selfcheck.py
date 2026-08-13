@@ -19,10 +19,12 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+from truestill_core import selfcheck
 from truestill_core.exif import EXIFTOOL_BIN_ENV
 from truestill_core.selfcheck import (
     Finding,
@@ -134,6 +136,96 @@ def test_an_exiftool_that_resolves_but_cannot_run_is_degraded(
     assert finding.status is Status.DEGRADED
     assert "will not run" in finding.detail or "failed to run" in finding.detail
     assert finding.evidence["path"] == str(broken)
+
+
+def test_an_exiftool_that_ran_on_the_host_modules_is_degraded_not_ok(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """**Running is not running from what we shipped**, and this is where the criteria live.
+
+    `exiftool` is a script that silently falls back to the HOST's `Image::ExifTool` when its own
+    module tree is absent: it exits 0 and mentions the substitution only as a warning. Measured
+    2026-08-13 on a real bundle stripped of its `lib/` - it reported `ok` with
+    ``13.59 [Warning: Library version is 13.50]``, which is exactly the works-here-fails-there
+    defect these criteria exist for, passing the check written to catch it.
+
+    Stubbed at `binaries.run` rather than built from a real exiftool, because the subject is what
+    **we** do with the output - a fixture needing Perl would test the tool instead.
+    """
+    binary = tmp_path / "exiftool"
+    binary.write_text("", encoding="utf-8")
+    monkeypatch.setenv(EXIFTOOL_BIN_ENV, str(binary))
+    monkeypatch.setattr(
+        selfcheck.binaries,
+        "run",
+        lambda *_a, **_kw: subprocess.CompletedProcess(
+            [], 0, stdout="13.59 [Warning: Library version is 13.50]", stderr=""
+        ),
+    )
+
+    finding = exiftool_finding()
+
+    assert finding.status is Status.DEGRADED
+    assert "warned" in finding.detail
+
+
+def test_a_bundled_exiftool_with_no_module_tree_is_degraded_even_when_it_runs_cleanly(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The branch the warning hides, and it survived a mutation until this existed.
+
+    In the wild the version warning fires first, so the module-tree check never decided anything
+    and deleting it changed no test. But the warning is exiftool's courtesy, not our guarantee: a
+    host whose installed modules happen to match the shipped version produces **no warning at
+    all**, and the bundle is still borrowing them. This asserts the structural half on its own.
+    """
+    bundled = tmp_path / "bin"
+    bundled.mkdir()
+    binary = bundled / "exiftool"
+    binary.write_text("", encoding="utf-8")
+    monkeypatch.setenv("TRUESTILL_BIN_DIR", str(bundled))
+    monkeypatch.setenv(EXIFTOOL_BIN_ENV, str(binary))
+    monkeypatch.setattr(
+        selfcheck.binaries,
+        "run",
+        lambda *_a, **_kw: subprocess.CompletedProcess([], 0, stdout="13.59", stderr=""),
+    )
+
+    finding = exiftool_finding()
+
+    assert finding.status is Status.DEGRADED, "a bundle with no modules of its own reported ok"
+    assert "module tree is missing" in finding.detail
+
+    # THE CRY-WOLF HALF, in the same test because it is the same fixture one directory later:
+    # give it the tree it should have shipped and it passes.
+    (bundled / "lib" / "Image").mkdir(parents=True)
+    assert exiftool_finding().status is Status.OK
+
+
+def test_the_module_tree_is_only_demanded_of_a_bundled_copy(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """THE CRY-WOLF HALF: a system exiftool is the distro's business and has no tree of ours.
+
+    Demanding one of every copy would fail on a developer's machine and on the Linux `.deb`'s own
+    dependency - the guard would be switched off within a day, taking its real coverage with it.
+    """
+    outside = tmp_path / "usr-bin" / "exiftool"
+    outside.parent.mkdir()
+    outside.write_text("", encoding="utf-8")
+    assert selfcheck._shipped_module_tree(outside) is None
+
+    # Beside a bundled directory, both shapes are demanded - `lib/` on Unix, and the Windows
+    # package's `exiftool_files/` tree, which upstream ships instead.
+    bundled = tmp_path / "bin"
+    bundled.mkdir()
+    monkeypatch.setenv("TRUESTILL_BIN_DIR", str(bundled))
+    assert selfcheck._shipped_module_tree(bundled / "exiftool") == bundled / "lib" / "Image"
+    (bundled / "exiftool_files").mkdir()
+    assert (
+        selfcheck._shipped_module_tree(bundled / "exiftool.exe")
+        == bundled / "exiftool_files" / "lib" / "Image"
+    )
 
 
 def test_a_resolved_exiftool_carries_its_path_as_evidence() -> None:

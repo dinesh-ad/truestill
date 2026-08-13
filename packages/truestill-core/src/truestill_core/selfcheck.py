@@ -44,7 +44,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from truestill_core import app_paths, binaries
-from truestill_core.binaries import is_bundled_install
+from truestill_core.binaries import bundled_bin_dirs, is_bundled_install
 from truestill_core.cleanup import trash_backend
 from truestill_core.exif import ExiftoolMissingError, ensure_exiftool
 
@@ -119,6 +119,26 @@ def is_complete(findings: list[Finding]) -> bool:
     return _SEVERITY[worst(findings)] == 0
 
 
+def _shipped_module_tree(binary: Path) -> Path | None:
+    """Where a **bundled** exiftool's own modules must sit, or ``None`` when it is not bundled.
+
+    Both platforms ship the same shape and it is the shape upstream's README describes: *"if you
+    move the exiftool script to a different directory, you must also either move the contents of
+    the lib directory or install the Image::ExifTool package"*. On Unix that is `lib/` beside the
+    script; on Windows the package is a 57 KB launcher plus an `exiftool_files/` tree holding
+    `perl.exe`, its DLLs and the same modules.
+
+    ``None`` for a copy resolved from PATH - a system exiftool is the distro's business and has no
+    tree of ours to check.
+    """
+    if not any(binary.parent == d for d in bundled_bin_dirs()):
+        return None
+    windows_tree = binary.parent / "exiftool_files" / "lib" / "Image"
+    if (binary.parent / "exiftool_files").is_dir():
+        return windows_tree
+    return binary.parent / "lib" / "Image"
+
+
 def exiftool_finding() -> Finding:
     """Does this install find the exiftool it shipped with - **and can it actually run it?**
 
@@ -164,6 +184,30 @@ def exiftool_finding() -> Finding:
         )
     version = (proc.stdout or "").strip()
     evidence["version"] = version
+
+    # RUNNING IS NOT RUNNING FROM WHAT WE SHIPPED. `exiftool` is a script that falls back to the
+    # HOST's `Image::ExifTool` when its own module tree is absent - it exits 0 and mentions the
+    # substitution only as a warning. Measured 2026-08-13: a bundle stripped of its entire `lib/`
+    # reported `ok` with `13.59 [Warning: Library version is 13.50]`, which is precisely the
+    # bundle-works-here-fails-there defect these criteria exist for, passing the check written to
+    # catch it. So the modules are looked for beside the binary, and a version warning is treated
+    # as the substitution it announces.
+    if "warning" in version.lower():
+        return Finding(
+            "exiftool",
+            Status.DEGRADED,
+            f"ran, but warned rather than answering cleanly: {version}",
+            evidence,
+        )
+    modules = _shipped_module_tree(Path(resolved))
+    if modules is not None and not modules.is_dir():
+        return Finding(
+            "exiftool",
+            Status.DEGRADED,
+            f"found at {resolved} but its module tree is missing ({modules}); it is running on "
+            f"whatever this machine happens to have installed",
+            evidence,
+        )
     return Finding("exiftool", Status.OK, f"{version} at {resolved}", evidence)
 
 

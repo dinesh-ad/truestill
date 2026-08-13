@@ -24,3 +24,7 @@ tests/e2e/.artifacts/
 # packaging/time_startup.py locally - it is a reading, never a source file.
 findings/
 startup-work/
+
+# Vendored exiftool, fetched and digest-verified at build time by packaging/exiftool_source.py.
+# A downloaded artifact is never a source file.
+exiftool-src/

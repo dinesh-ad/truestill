@@ -9,10 +9,10 @@
 # A build that cannot report a real trash backend and its own typefaces DOES NOT PUBLISH - the
 # two acceptance criteria stop being a thing we measured once and become a release control.
 #
-# WINDOWS PRODUCES AN INSTALLER; LINUX DOES NOT YET. The `.deb` is the next item in BACKLOG
-# (aad), and until it exists the Linux archive is a verification artifact rather than something
-# to hand a user: on Linux exiftool is a DECLARED DEPENDENCY (ruled 2026-08-13), which only a
-# package can declare. A tarball cannot, so nothing guarantees the user has it.
+# WINDOWS PRODUCES AN INSTALLER; LINUX DOES NOT YET - the `.deb` is the next item in BACKLOG
+# (aad). Both platforms now BUNDLE the official exiftool distribution, verified against a pinned
+# digest, so neither depends on what a user's machine happens to have. Linux still needs a perl
+# interpreter, which every distribution ships and the self-check proves rather than assumes.
 #
 # `id-token: write` lives on the publish job ALONE. It is what sigstore keyless signing needs,
 # GitHub refuses to issue it to pull-request runs from forks, and least privilege says the build
@@ -47,26 +47,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Linux installs exiftool to BUILD with and to satisfy the self-check on the runner - it is
-      # NOT bundled into the artifact (ruled 2026-08-13: declared dependency, because there is no
-      # standalone Linux exiftool and carrying a Perl tree means owning a CVE surface we cannot
-      # patch). ⚠ CONSEQUENCE, stated rather than hidden: the runner always has exiftool, so the
-      # Linux self-check cannot distinguish "the artifact ships it" from "this machine has it".
-      # Only the `.deb`'s declared dependency makes that guarantee, which is why the Linux archive
-      # is not a shippable artifact yet.
-      - name: Install exiftool (Linux)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libimage-exiftool-perl
-
-      - name: Install exiftool (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          choco install exiftool --no-progress -y
-          $tool = (Get-Command exiftool.exe -ErrorAction SilentlyContinue).Source
-          if (-not $tool) { throw 'exiftool.exe not found after install' }
-          "EXIFTOOL=$tool" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-
       - name: Install uv
         uses: astral-sh/setup-uv@v9.0.0
         with:
@@ -79,6 +59,14 @@ jobs:
       - name: Sync workspace
         run: uv sync --all-packages --group dev --locked
 
+      # VENDOR THE OFFICIAL DISTRIBUTION - ruled 2026-08-13, both platforms. A package
+      # manager's build is not ours to rely on: chocolatey shipped a SHIM that resolved, was a
+      # real .exe, and did nothing. This downloads exiftool's own release, verifies a pinned
+      # SHA2-256, and stages the script/launcher WITH its module tree, which is what upstream's
+      # README says must travel together.
+      - name: Vendor exiftool
+        run: uv run python packaging/exiftool_source.py exiftool-src
+
       # `--collect-data truestill_app` is REQUIRED, not decorative: without it the bundle carries
       # none of the app's data - no fonts, no notice, no templates, no app.js, no CSS - because
       # bundlers follow imports and a data file is imported by nothing. Measured 2026-08-12.
@@ -88,6 +76,7 @@ jobs:
           uv run pyinstaller --noconfirm --clean --noconsole \
             --name truestill \
             --collect-data truestill_app \
+            --add-data "exiftool-src/bin:bin" \
             packages/truestill-app/src/truestill_app/__main__.py
 
       - name: Build (PyInstaller, Windows)
@@ -97,7 +86,7 @@ jobs:
           uv run pyinstaller --noconfirm --clean --noconsole `
             --name truestill `
             --collect-data truestill_app `
-            --add-binary "$env:EXIFTOOL;bin" `
+            --add-data "exiftool-src/bin;bin" `
             packages/truestill-app/src/truestill_app/__main__.py
 
       # THE GATE. Not `continue-on-error`: an artifact that cannot say what it contains is not

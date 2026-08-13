@@ -1748,8 +1748,31 @@ section, because what is left is the part that still has to be written.
      nothing guarantees the user has one. **And CI cannot catch that**: the runner always has
      exiftool installed, so the Linux self-check cannot distinguish *the artifact ships it* from
      *this machine has it*. The `.deb`'s `Depends:` is what makes the guarantee real.
-  4. 🔴 **exiftool acquisition - and the Linux bundle's copy is BROKEN, found 2026-08-13 by
-     exercising the release lane.** `--add-binary` copies **one file**, and on Linux `exiftool` is
+  4. ✅ **exiftool acquisition - RULED AND BUILT 2026-08-13: vendor the official distribution on
+     BOTH platforms** (`packaging/exiftool_source.py`), version-pinned with a recorded SHA2-256.
+     - **Both platforms have the same shape**, and it is the one upstream's README states: *"if
+       you move the exiftool script to a different directory, you must also either move the
+       contents of the lib directory or install the Image::ExifTool package"*. Unix: `exiftool` +
+       `lib/` (225 modules). Windows: `exiftool(-k).exe`, a **57 KB launcher** (CC0), plus
+       `exiftool_files/` at **34 MB** carrying `perl.exe`, its DLLs and the same modules.
+       **There is no self-contained single exe on either platform.**
+     - **Why `--add-binary` was never going to work:** PyInstaller documents that it deliberately
+       does not collect `/lib` or `/usr/lib`, assuming they exist everywhere. The modules were
+       excluded **by design**. `--add-data` on the tree is the mechanism.
+     - **Why vendored rather than a package manager:** chocolatey's `exiftool.exe` was a **shim**
+       pointing outside the bundle - it resolved, it was a real `.exe`, and it did nothing.
+       Leaning on packaging we do not control is how this broke.
+     - **Size: +21 MB (Unix staged) against a 230 MB bundle.** The cost of a metadata reader that
+       handles the camera makes and the video formats a photo library actually contains.
+     - **Digest policy, and its limit:** the SHA2-256 is pinned in the repo and the build fails if
+       the artifact changes. Each was **corroborated at pin time against a second origin** - bytes
+       from SourceForge, digest from `exiftool.org/checksums.txt`. That is stronger than
+       trust-on-first-use and is **not provenance**: a first fetch already compromised at both
+       origins would be verified forever. exiftool publishes digests over HTTPS, **no signature**.
+     - **Linux still needs a perl interpreter** (floor `require 5.004`; distributions ship
+       5.36-5.40), and the self-check **proves** it rather than assuming - a missing interpreter
+       reports differently from a broken bundle.
+  4b. 🔴 **THE HISTORY, kept because it is what the criteria caught:** `--add-binary` copies **one file**, and on Linux `exiftool` is
      a Perl script whose `Image::ExifTool` modules live in the distro's `/usr/share/perl5`. The
      bundle carries none of them: proven by `find` over the artifact, and by
      `Can't locate Image/ExifTool.pm in @INC` once that directory is hidden. **It ran on the build
