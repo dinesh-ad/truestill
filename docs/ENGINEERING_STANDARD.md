@@ -269,6 +269,26 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   The question to ask of any guard: *if this assertion passed and the feature were still broken,
   what would that look like?* If you can describe it, you are asserting the wrong subject.
 
+- **A guard can be complete for everything that exists and silently partial for what does not
+  exist yet.** The forty-seventh member, and it differs from the one above rather than repeating
+  it: that guard asserts the wrong subject *today*. This one asserts the right subject, covers
+  every case the codebase currently has, and is **already missing the case somebody is about to
+  add** - with no signal at the moment they add it.
+
+  *Worked example - the reduced-motion reset, 2026-08-13.* `@media (prefers-reduced-motion:
+  reduce) { * { transition: none !important } }` was correct and complete: the product had
+  **zero** `@keyframes`, so `transition` was the whole of its motion. Adding one keyframe would
+  have made a stated accessibility preference silently ignored - the reader gets the animation
+  they asked not to have, nothing errors, and no test fails, because the guard is still true of
+  everything it was written against. Caught only because the motion was being added by somebody
+  who went looking.
+
+  **The tell is a guard written as a blanket over a category** - all transitions, all writes, all
+  network calls - **where the category has more members than the code currently uses.** Ask what
+  else belongs to that category, not what else is in the file. The remedy is to cover the
+  category, not the instances: `animation` was reset alongside `transition` in the same commit
+  that first needed it.
+
 - **A test that must change when a defect is fixed was usually testing the defect.** The
   thirtieth member, and the **mirror** of the one above: that one passes while the promise is
   broken, this one *fails while the code is right*. Same error, opposite symptom.
@@ -1017,6 +1037,23 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
 
   **Any test whose subject is timing, interruption or partial state must run on the storage class
   it claims to test.** `df -T` before trusting the result, not after doubting it.
+
+- **A measurement is of a subject at a moment. Change the subject while it runs and the result
+  describes nothing.** The forty-eighth member, and the forty-fourth is its neighbour rather than
+  its twin: that one is a real failure whose *signal* was discarded, this one is a real signal
+  about a *subject that no longer exists*. Both end as a green nobody earned; the remedies share
+  nothing.
+
+  *Worked example, 2026-08-13.* `make gate` was started on stage 4 of a UI pass, and stage 5 was
+  then written into the same stylesheet while the seven-minute browser lane ran. It reported
+  **452 passed** - of stage 4 plus however much of stage 5 existed when each test read the file.
+  Neither stage had been gated. Nothing was committed on it; the fix was to lift stage 5 back out,
+  re-gate stage 4 alone, and record in the commit that the first run was void.
+
+  **A long check makes its own working tree read-only until it returns.** The version under test
+  is whatever is on disk when each test opens the file, not what was there when you pressed
+  enter - so a check with a build step is not protected either, only differently exposed. If the
+  wait is intolerable, branch or use a worktree; do not edit underneath it.
 
 - **Credentials never enter a tool call, and a step needing `sudo` stops and asks.** A password
   typed into a command is in the transcript permanently, whatever is done afterwards. Ask the
