@@ -684,6 +684,21 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   asks whether it *is*. Where the two disagree the mutation is right, and the cost of skipping it
   is a suite everyone believes has been verified.
 
+- **A STEP THAT REPORTS SUCCESS BECAUSE ITS ERROR HANDLING WORKED IS NOT A MEASUREMENT.** The
+  forty-first member, and the mirror of the fourteenth: that one is about a step that did nothing
+  and said so; this is about a step that did nothing and said **success**.
+
+  `continue-on-error` and a `try/catch` both convert an abort into a finding, which is right - and
+  both make the step's **conclusion** green while the thing it exists to measure never happened.
+
+  *Worked example - `(aad)`, 2026-08-12.* Run `31669975175` showed `Measure each artifact:
+  success` and `Assertions 3 and 4: success` on a Windows job where **every launch failed**. The
+  handling added the hour before was working exactly as designed; the findings files said
+  `measured: false`. Reported from the step list alone it would have read as the fix landing.
+
+  **Read the artifact, never the tick.** If a step can report a finding, its conclusion carries no
+  information about the measurement - only about the handling.
+
 - **AN APPROVED PLAN NARROWED DURING IMPLEMENTATION IS INVISIBLE UNLESS THE REPORT SAYS WHAT WAS
   NOT BUILT.** The fortieth member. Every other member here is about a check that fails to see
   something; this one is about **the person reporting** failing to say something - and it is worse

@@ -1851,12 +1851,22 @@ section, because what is left is the part that still has to be written.
       `lpApplicationName` is declared `string` and given `$null` from PowerShell, which marshals
       as an **empty string rather than NULL** - and an empty application name is a path
       CreateProcess cannot find, which would explain an identical failure for any executable.
-      **TESTED 2026-08-12 (run 31669975175) AND REFUTED.** `[NullString]::Value` changed nothing:
-      same `win32 error 3`, both bundlers, both the probe launch and the serving launch. The
-      change is kept because it is the correct way to pass a null string, **not** because it
-      fixed anything - do not read it as the fix. What survives from that run: the exe, the
-      working directory and the command line are all sound, so the fault is in the launch
-      mechanism and the next candidate is untested.
+      **TESTED (run 31669975175) AND REFUTED** - `[NullString]::Value` changed nothing.
+      **THREAD CLOSED BY DELETING THE LAUNCHER, not by a seventh candidate.**
+      - **The launcher was a regression, and `git show bcd1849` proves it.** The only Windows run
+        that ever measured anything (`30692798020`) launched both artifacts with
+        **`Start-Process -PassThru` + `Wait-Process`**. `5e3d627` replaced that with a bespoke
+        `DETACHED_PROCESS` P/Invoke on 2026-08-01; **it has never once succeeded** - six
+        dispatches, zero measurements. Both call sites are back on the proven form and
+        `packaging/launch-detached.ps1` is deleted.
+      - **What detachment was for, and why the criteria do not need it:** to stop a
+        GUI-subsystem child inheriting the runner's console, which contaminated the *console*
+        questions. The acceptance criteria need a **running artifact**, not a detached one -
+        Linux discharged both with an ordinary launch.
+      - **What is given up: an answer, never a wrong answer.** `_console_window` returns
+        `technique: unsound` when it cannot attach. And those questions were already ruled
+        non-deciding here - *"windowed-ness is already settled by mechanism, not pending
+        measurement"*.
     - **Three faults of the instrument's own, found by the same run and fixed:** the comparison
       script read only the rig's `--probe` envelope and so reported *"the artifact never ran it"*
       about an artifact that had run it and failed - **the rig's own fence forbids exactly that

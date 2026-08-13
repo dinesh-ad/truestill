@@ -8,6 +8,12 @@
 #   2. whether a genuinely windowed process skips the legacy-catalog probe;
 #   3. whether CREATE_NO_WINDOW actually suppresses a console window.
 #
+# SINCE 2026-08-12 ITS REAL JOB IS (aad)'s TWO ACCEPTANCE CRITERIA, and 2 and 3 above are no
+# longer bought at any price. A bespoke detached launcher existed to make them honest and cost
+# six dispatches with zero measurements; the launches are ordinary now. `_console_window`
+# refuses with `technique: unsound` when it cannot attach, so what those two questions lose is
+# an ANSWER, never a wrong answer - and (aad) already ruled they cannot decide the bundler.
+#
 # It is NOT the beginning of the release pipeline. Deliberately absent, and to stay absent:
 # no signing, no notarization, no release upload, no tag trigger, no matrix, no caching of
 # build outputs. `workflow_dispatch` only, so it never runs on a push and never costs a
@@ -174,35 +180,26 @@ jobs:
             $env:TRUESTILL_DATA_DIR = Join-Path $PWD "data-$Name"
             $env:TRUESTILL_CACHE_DIR = Join-Path $PWD "cache-$Name"
 
-            # DETACHED, not `Start-Process`, and not `-WindowStyle Hidden` - hidden is not
-            # detached. A GUI-subsystem process does not get a console ALLOCATED but still
-            # INHERITS one from a parent that has it, and this runner's PowerShell owns a
-            # console. The first run measured that inherited console and mis-scored Briefcase
-            # as "has a console despite console_app = false". CREATE_NO_WINDOW would not do
-            # either: it makes an INVISIBLE console, not no console. DETACHED_PROCESS (0x8) is
-            # the one that means what a double-clicked shortcut gets.
-            # .NET's ProcessStartInfo cannot set DETACHED_PROCESS, so the launch goes through
-            # CreateProcess directly via a tiny helper. `Start-Process -WindowStyle Hidden`
-            # would NOT do: hidden is not detached, and the console would still be inherited.
-            # try/catch, because a THROW here aborts the whole step and takes every findings
-            # file with it - including `_selfcheck.json`, the control that exists to make "no
-            # file" mean something. That is exactly what happened on three dispatches: the
-            # launcher raised, the step died, and the run reported "nothing was measured" when
-            # what it had was a launcher fault. A step that reports FAILURE where it should
-            # report a FINDING is this file's own named anti-pattern.
+            # AN ORDINARY LAUNCH. A bespoke DETACHED_PROCESS launcher lived here and cost SIX
+            # dispatches with zero measurements, all `win32 error 3`. It was written to make the
+            # CONSOLE questions honest - a GUI-subsystem process inherits the runner's console
+            # even though it is allocated none - and those questions are not what this job is
+            # for any more: (aad) ruled "windowed-ness is already settled by mechanism, not
+            # pending measurement", and the acceptance criteria need a RUNNING ARTIFACT, not a
+            # detached one. Linux discharged both criteria with exactly this.
+            # What is given up is stated where it belongs, in the console probe's own output:
+            # `_console_window` refuses with `technique: unsound` when it cannot attach, so a
+            # non-detached launch degrades to "no reading" rather than to a false reading.
             try {
-              $proc = & (Join-Path $env:GITHUB_WORKSPACE 'packaging\launch-detached.ps1') `
-                -Exe $Exe -Arguments @('--probe', $out) -WorkingDirectory $work
+              $proc = Start-Process -FilePath $Exe -ArgumentList @('--probe', $out) `
+                -WorkingDirectory $work -PassThru
             } catch {
               Write-Host "::error::$Name LAUNCH FAILED - $($_.Exception.Message)"
               Write-Findings -Path $out -Body @{ artifact = $Name; measured = $false
                                                  reason = "launch failed: $($_.Exception.Message)" }
               return
             }
-            $deadline = (Get-Date).AddSeconds(180)
-            while ((Get-Process -Id $proc -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) {
-              Start-Sleep -Milliseconds 250
-            }
+            $proc | Wait-Process -Timeout 180 -ErrorAction SilentlyContinue
 
             # ASSERTION 1. A windowed process that dies before writing produces no file, and the
             # job must say WHY rather than fail on a missing path.
@@ -249,10 +246,10 @@ jobs:
           $env:TRUESTILL_DATA_DIR = $data
           $env:TRUESTILL_CACHE_DIR = Join-Path $PWD 'serve-cache'
           $exe = Join-Path $PWD 'dist\truestill-probe-pyinstaller\truestill-probe-pyinstaller.exe'
-          # Same detached launch as the measure step: a console inherited here would make the
-          # serving check a different experiment from the one above.
-          $pid_ = & (Join-Path $env:GITHUB_WORKSPACE 'packaging\launch-detached.ps1') `
-            -Exe $exe -Arguments @('--port', '0', '--no-browser') -WorkingDirectory $PWD
+          # Ordinary launch, same as the measure step and same as Linux. Serving is an HTTP
+          # question; no console property is being measured here.
+          $app = Start-Process -FilePath $exe -ArgumentList @('--port', '0', '--no-browser') `
+            -WorkingDirectory $PWD -PassThru
           $urlFile = Join-Path $data 'session-url.txt'
           $deadline = (Get-Date).AddSeconds(90)
           while (-not (Test-Path $urlFile) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 200 }
@@ -272,7 +269,7 @@ jobs:
             # failures at `launch-detached.ps1` - while the Linux lane has a working bundle on a
             # platform D9 publishes. A serving proof that runs beats one that waits.
           }
-          Stop-Process -Id $pid_ -Force -ErrorAction SilentlyContinue
+          Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue
 
       # The half the artifact cannot do. It reports what it HOLDS; whether those are the right
       # bytes is decided here, in the checkout, beside the source of truth - because an artifact
