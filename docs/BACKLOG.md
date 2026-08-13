@@ -1687,9 +1687,20 @@ section, because what is left is the part that still has to be written.
 
   - **Installer output** - neither bundler has produced a `.deb`, AppImage, MSI or `.exe`
     installer here. The only surviving column that is a real difference.
-  - **Startup time** - user-facing and never measured. A published figure of ~50 s for a
-    PyInstaller **one-file** build (extracts to temp on every launch) does **not** apply: this builds
-    **one-folder**. Measure rather than assume in either direction.
+  - ~~**Startup time**~~ **MEASURED 2026-08-13 (run 31672340257), seconds to reachable
+    (`session-url.txt` written), cold = first run after build, warm = median of the rest:**
+
+    | | cold | warm |
+    |---|---|---|
+    | PyInstaller / Linux | 0.407 | 0.405 |
+    | PyInstaller / Windows | 0.509 | 0.511 |
+    | Briefcase / Windows | 1.064 | 0.999 |
+    | Briefcase / Linux | not built | - |
+
+    **PyInstaller is ~2x faster to reachable on Windows; both are sub-1.1 s.** The quoted ~50 s
+    figure is for **one-file**, which extracts to temp on every launch - it does not apply to a
+    one-folder build and is now retired as an input. Cold here is a **lower bound**: a runner
+    cannot drop its page cache.
   - **The Linux artifact shape** - `.deb` or AppImage. Now load-bearing: it decides whether
     Briefcase is available on Linux at all.
   - **A tag-triggered release lane** - `ci.yml` has none.
