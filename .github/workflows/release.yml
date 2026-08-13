@@ -9,10 +9,12 @@
 # A build that cannot report a real trash backend and its own typefaces DOES NOT PUBLISH - the
 # two acceptance criteria stop being a thing we measured once and become a release control.
 #
-# WINDOWS PRODUCES AN INSTALLER; LINUX DOES NOT YET - the `.deb` is the next item in BACKLOG
-# (aad). Both platforms now BUNDLE the official exiftool distribution, verified against a pinned
-# digest, so neither depends on what a user's machine happens to have. Linux still needs a perl
-# interpreter, which every distribution ships and the self-check proves rather than assumes.
+# BOTH PLATFORMS PRODUCE AN INSTALLABLE ARTIFACT: Windows an Inno Setup `.exe`, Linux a `.deb`,
+# each built and then exercised here - installed, asked what it contains, removed, and checked
+# that the user's catalog survived. Both BUNDLE the official exiftool distribution, verified
+# against a pinned digest, so neither depends on what a user's machine happens to have. Linux
+# still needs a perl interpreter, which every distribution ships and the self-check proves rather
+# than assumes.
 #
 # `id-token: write` lives on the publish job ALONE. It is what sigstore keyless signing needs,
 # GitHub refuses to issue it to pull-request runs from forks, and least privilege says the build
