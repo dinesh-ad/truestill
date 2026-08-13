@@ -327,16 +327,35 @@ def test_the_nav_icons_are_sized_as_icons_not_as_body_text(ui: Page) -> None:
 
     They were 13px, and nothing said so: `.nav-item .ico` sets `width: 18px` and no font-size,
     so the glyph took `--text-sm` from the row's `font` shorthand. The 18px is a reserved
-    COLUMN for label alignment; it never sized anything. Asserting the computed size pins the
-    distinction, because a reader who sees `width: 18px` will assume the icon is 18px.
-    """
-    size = ui.eval_on_selector(".nav-item .ico", "el => getComputedStyle(el).fontSize")
-    assert size == "16px", f"the nav icon is {size}, not the intended 16px"
+    COLUMN for label alignment; it never sized anything.
 
-    row = ui.eval_on_selector(".nav-item", "el => getComputedStyle(el).fontSize")
-    assert row != size, (
-        "the icon is the same size as the row's text again, which is how it became 13px - "
-        "it must carry its own size, not inherit one"
+    **ASSERTED ON THE RENDERED BOX, NOT ON `font-size`, and rewritten BEFORE the artwork changes
+    rather than after.** `font-size` is the *mechanism* a text glyph happens to be sized by; the
+    *property* is that the icon carries a deliberate size of its own. An `<svg>` has no font-size,
+    so the old form would have failed for the right reason at exactly the moment somebody was
+    changing the icons - and the tempting repair is to delete the assertion. Measuring the box
+    holds identically for a glyph and for artwork, which is the point: this passes before the
+    change and after it, so it can actually catch a regression across it.
+    """
+    box = ui.eval_on_selector(
+        ".nav-item .ico",
+        "el => { const r = el.getBoundingClientRect();"
+        " return {h: Math.round(r.height), w: Math.round(r.width)}; }",
+    )
+    icon_size = ui.evaluate(
+        "() => parseInt(getComputedStyle(document.documentElement)"
+        ".getPropertyValue('--icon-size'), 10)"
+    )
+    assert box["h"] == icon_size, f"the nav icon renders {box['h']}px tall, not --icon-size"
+    assert box["w"] == 18, f"the icon column is {box['w']}px; 18 is the reserved label gutter"
+
+    # The distinction the 13px defect destroyed: the icon must NOT be sized by the row's text.
+    row_size = ui.evaluate(
+        "() => parseFloat(getComputedStyle(document.querySelector('.nav-item')).fontSize)"
+    )
+    assert abs(row_size - icon_size) > 0.5, (
+        f"the icon ({icon_size}px) is the same size as the row's text ({row_size}px) again, "
+        "which is how it became 13px - it must carry its own size, not inherit one"
     )
 
 
@@ -347,11 +366,22 @@ def test_the_icon_size_does_not_inflate_the_row(ui: Page) -> None:
     tall, each row grows 31.6 -> 35.2px, and the nav block grows by 25px. With `line-height: 1`
     the row moves 31.6 -> 32.0 and the block by under 3px. The chevron already uses exactly this
     pattern (`.sidebar-toggle .chevron`), so this is the house answer, not a new trick.
+
+    **The `line-height` half was the MECHANISM and is replaced by the effect it exists to produce**
+    - the icon's own box must not exceed `--icon-size`. That is true of a glyph with
+    `line-height: 1` and of an `<svg>` sized to the same token, so the guard survives the artwork
+    changing underneath it. The row-height assertion below was always box-based and is untouched.
     """
-    line_height = ui.eval_on_selector(".nav-item .ico", "el => getComputedStyle(el).lineHeight")
-    assert line_height == "16px", (
-        f"the icon's line-height is {line_height}; it must be 1 (= its own font-size) so the "
-        "glyph does not drive the row's height"
+    icon_h = ui.eval_on_selector(
+        ".nav-item .ico", "el => Math.round(el.getBoundingClientRect().height)"
+    )
+    icon_size = ui.evaluate(
+        "() => parseInt(getComputedStyle(document.documentElement)"
+        ".getPropertyValue('--icon-size'), 10)"
+    )
+    assert icon_h <= icon_size, (
+        f"the icon's box is {icon_h}px against --icon-size {icon_size}px; it must not drive the "
+        "row's height - that is how each row grew 31.6 -> 35.2px"
     )
 
     box = ui.eval_on_selector_all(
