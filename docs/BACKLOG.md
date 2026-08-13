@@ -86,6 +86,22 @@ the monospace bundling that shipped in between** - a pass that went through the 
 not reach for either. Carried a third week they would still be preferences rather than defects, so
 they are retired rather than carried. Reopening one needs a reason the font pass did not supply.
 
+> ⚠ **`(abh)`'s STATED REASON WAS FALSE, corrected 2026-08-13 (`4ff3577`). It stays retired.**
+> All ten glyphs the rail uses **are present** in the bundled DejaVu Sans Mono - verified against
+> the shipped `.ttf`. The letterform varied because `.nav-item .ico` set width, flex and size and
+> **never asked for that family**, so it inherited `--font-sans` and resolved from whatever the
+> machine had. Two lines of CSS fixed it.
+>
+> **The paragraph above recorded the right observation and drew the opposite conclusion from it.**
+> *"Untouched by the monospace bundling ... a pass that did not reach for either"* was read as
+> evidence they were cosmetic; it was evidence the pass had **left a gap**, because nothing pointed
+> at the bundled face. `(abh)` was a live rendering defect filed as a preference.
+>
+> **Correcting it strengthens the retirement rather than undoing it:** a drawn icon set is still
+> worth having, and it is now genuinely a want rather than a defect wearing that word. Left in
+> place rather than rewritten - a document that states a cause it never verified is the failure
+> here, and deleting the sentence would hide it.
+
 Several early letters no longer appear anywhere in this file: their items shipped and the
 Shipped entries describe the work rather than repeating the letter. `(e)` and `(h)` are still
 cited by name in `drive-identity-research.md` and `org-structure-research.md`. **A letter that
