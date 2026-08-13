@@ -1619,633 +1619,121 @@ section, because what is left is the part that still has to be written.
     right detection key.
 
 - **(aad) Desktop installers - LAUNCH-BLOCKING for the paid product.** Ruled by the maintainer,
-  2026-07-31. **Record only - no design pass yet, and it does not block the current
-  date-provenance program.**
-  - ⚠ **READ FIRST - THE SIGNING GATE IS GONE, AND THREE CLAUSES BELOW STILL ARGUE THE OPPOSITE**
-    (2026-08-12). They are corrected in place and listed here together, because someone who finds
-    one of them and not the others will assume the rest are current.
-    - **`D9` IS the signing decision, and it was made on 2026-08-01** - *"no code-signing
-      certificate purchased - zero spend now"*, closing with *"**This unblocks `(aad)`**: the
-      bundler decision can be made for Windows and Linux alone, with no signing step in the
-      pipeline."* The gate below said building an installer now *"yields an artifact that cannot
-      ship"* while waiting for a decision that had already been made.
-    - **The three reversals.**
-      1. *The gate* - "an unsigned installer is fatal for a product selling trust… cannot ship".
-         D9 measured the opposite: *"a normal position, not a corner"*, Inkscape and many
-         established open-source projects ship unsigned, and the precedent *"carries no signal
-         about product quality"*.
-      2. *The open question* - "Unsigned installers are blocked or scary-warned on **both**, which
-         is fatal." False for Windows, where D9 records a SmartScreen warning with a hidden **Run
-         anyway** - *"a friction that expires, not a block and not a permanent state"*. True only
-         for macOS, which is exactly why macOS is built and not published.
-      3. *The deciding table* - its **signing / notarization** row was one of the two columns said
-         to decide the bundler. D9 removes it from the pipeline entirely, so the comparison the
-         recorded lean was drawn from no longer exists. See THE LEAN below.
-    - **Why it is the worked example rather than a tidy-up** (`ENGINEERING_STANDARD.md` §4,
-      thirty-second member). `(aad)`'s own PLATFORM SCOPE bullet **cites D9 four screens above the
-      gate that was still waiting for it** - same document, same day, same hand. The entry was
-      edited where the new fact landed and nowhere else. Nothing needed measuring to catch it:
-      both sentences were in the repository and reading them side by side was the whole method.
-    - **What is NOT settled here, stated so this block is not read as wider than it is.** The
-      entry's **second** gate - soak - is untouched by D9 and is not resolved in this bullet. It
-      is a project-wide gate (`PROJECT_STATUS.md` §2, §3); changing it here alone would put two
-      documents in conflict, which is the drift this block exists to end.
-  - **The problem.** PyPI reaches developers only. `pip install` needs Python present, a
-    terminal, and knowing what pip is. The target buyer - someone with a messy photo library -
-    has none of the three. **A perpetual licence (`DECISIONS.md` D6) cannot be sold to a user
-    who cannot install the product**, which is what makes this blocking rather than merely
-    desirable: every other launch item improves a product that person still cannot reach.
-  - **Needed:** download-and-double-click installers per platform - Windows `.exe`/`.msi`,
-    macOS `.dmg`, Linux AppImage or `.deb` - built by CI on tag and served from `truestill.app`.
-  - **PLATFORM SCOPE RULED (2026-08-01): Windows and Linux only, unsigned - `DECISIONS.md` D9.**
-    Zero spend; no certificate is bought. macOS keeps its CI lane and its tests but is **not
-    published**, because Gatekeeper refuses unsigned apps outright and only the $99/yr Apple
-    Developer account changes that - building without publishing is what stops macOS rotting
-    unnoticed. **This unblocks the bundler decision**, which can now be made for two platforms
-    with no signing step in the pipeline. D9 also carries a launch-page requirement: Windows
-    users are told what SmartScreen will show *before* they download.
-  - **ACCEPTANCE CRITERION, added 2026-08-04: the frozen artifact must run
-    `cleanup.trash_backend()` and report a real backend.** Not a nice-to-have check on the
-    bundle - a **safety** one, and the reason is that the consequence of dropping this dependency
-    changed on the same day the criterion was written.
-    - **What the bundle can silently lose.** `trash_backend` reaches `send2trash` through an
-      `import` inside a `try`, which is the shape a bundler's static analysis misses. PyInstaller
-      6.21.0 ships **no hook** for it (checked 2026-08-04), and the platform sub-imports inside
-      `send2trash/__init__.py` are themselves guarded, so the risk is real rather than theoretical.
-    - **Why it is worse than losing the trash.** Before 2026-08-04 a missing backend meant folders
-      were **destroyed** instead of trashed. That branch is now closed - an absent backend is a
-      refusal (`IMPLEMENTATION_STANDARDS.md` §1) - **but a bundle that drops the dependency
-      restores the conditions the closed branch existed for**: on Windows and macOS, with no
-      `gio` either, empty-folder cleanup would refuse every folder on every run. Loud rather than
-      destructive, which is the improvement, and still a shipped feature that never works on the
-      launch platform.
-    - ⚠ **The CI guard from commit 1 does NOT cover this, and must not be read as covering it.**
-      `test_trash_backend_is_available.py` runs against the *source tree* on the
-      {ubuntu, macos, windows} matrix. It says nothing about a frozen artifact, where the
-      collection question lives. A green matrix plus a broken bundle is exactly the state that
-      would read as verified.
-    - **What satisfies it:** the artifact itself printing the resolved backend, the way the
-      windowed-launch probe reports console state - not an inspection of the spec file, which is
-      a claim about what should be collected rather than what was.
-  - **ACCEPTANCE CRITERION, added 2026-08-05: the frozen artifact must serve
-    `/static/fonts/DejaVuSansMono.ttf` with a 200 and the byte count of the source file.**
-    - **Why it needs saying.** Bundlers collect *imports*; a font is a **data file**, and no
-      bundler collects one from a directory unless told (PyInstaller `datas`, or the equivalent).
-      The hatchling wheel does carry it - verified, `favicon.ico` is already in there - but the
-      wheel is not the installer.
-    - ⚠ **Severity is LOWER than the send2trash criterion above, and must not be read as equal.**
-      A dropped font falls through to the retained CSS stack, which is exactly the pre-2026-08-05
-      behaviour: the type signature varies per OS again. **Cosmetic drift, not a safety
-      regression.** It is listed because it is silent, not because it is dangerous.
-    - **The CI guard does not cover it.** `test_bundled_font_ships_with_its_licence.py` and
-      `test_bundled_mono_font.py` both test the source tree; a green suite plus an installer that
-      dropped the file is exactly the state that reads as verified.
-    - **The licence rides on the same check.** Bitstream Vera binds the notice to *copies of the
-      typefaces*, so an artifact carrying the fonts without `LICENSE-DejaVu.txt` is a licence
-      defect, not just a missing file. Assert both paths serve.
-  - **THE INSTRUMENT FOR BOTH CRITERIA IS BUILT (2026-08-12): `truestill self-check` /
-    `truestill-app --self-check`. The criteria themselves are NOT discharged - that needs a run.**
-    Ruled to come before any bundler is chosen: a bundler decision made without it is a decision
-    nobody can check.
-    - **It reports from inside the artifact, which is the whole point.** Every finding resolves
-      through the running code's own location or a live call - `ensure_exiftool` (`_MEIPASS`, then
-      `bin` beside the executable, then PATH), `trash_backend`'s real import,
-      `server._STATIC` for the typefaces, `default_catalog_path` per call. A check that could pass
-      in a developer's tree while the bundle beside it is broken would have reproduced the defect
-      it exists to close.
-    - ⚠ **THE SPLIT THAT MAKES "the byte count of the source file" ANSWERABLE AT ALL: the artifact
-      reports the size and sha256 of what it HOLDS, and the job compares that against the
-      repository's own bytes - because an artifact cannot know what it was supposed to contain.**
-      A truncated font and a correct one are both *a file that is here*.
-      `packaging/compare_selfcheck.py` is the other half and runs in the checkout.
-    - **The font criterion has TWO halves and they are named as halves so nobody collapses them.**
-      Self-check proves the bytes were **collected and are intact**; only a request from outside
-      proves they are **served**, which is what the criterion says - so assertion 5 in the
-      packaging job fetches both faces and the notice over HTTP. An in-process request to
-      ourselves would test the reporter as much as the app, which is the reasoning that already
-      kept assertions 3 and 4 outside the process.
-    - **It lives in core, not in `packaging/`.** The criteria are permanent obligations and the
-      rig is a throwaway; a copy in the rig would be deleted at the moment they start mattering.
-      `truestill_probe` now calls it rather than carrying its own exiftool check.
-    - **And it answers a user, not only CI.** `exif.py` already tells a packaged user *"this
-      installation looks incomplete"* and gave them nothing to run. This is what they run - and it
-      prints where the catalog, the cache and `session-url.txt` resolve, which was written down
-      nowhere a user could reach.
-    - **`truestill self-check` cannot see the typefaces** (`truestill-cli` depends on core alone,
-      §2) and **says so**: a `not_checked` line with its own mark, naming
-      `truestill-app --self-check`, repeated in the closing sentence. Silence and *ok* are the
-      same thing to a reader, so the omission is stated rather than left out.
-    - **A Linux lane was added** (`selfcheck-linux`), because D9 makes Linux a launch platform and
-      this rig had only ever run on Windows. **It shipped with PyInstaller only - a narrowing of
-      the approved plan that was not reported** and was found by a question rather than by the
-      report that described the lane. Briefcase was added on 2026-08-12; the class is
-      `ENGINEERING_STANDARD.md` §4, fortieth member.
-      - **Its Briefcase target is `linux system`, and what that does and does not answer is the
-        point.** This entry calls that layout *"required rather than chosen"*, so it settles
-        nothing about binary resolution and **does not replace that caveat**. What it does answer
-        is **collection** - whether a Briefcase Linux bundle carries the typefaces and the notice
-        - which is the question the acceptance criteria ask. AppImage needs Docker on the runner
-        and was **not** taken, said here rather than taken quietly.
+  2026-07-31. **Rewritten short 2026-08-13; the reasoning behind every line below is in the
+  commits it came from (`git log --grep '(aad)'`).**
+  - **The problem.** PyPI reaches developers only - `pip install` needs Python, a terminal, and
+    knowing what pip is. **A perpetual licence (`DECISIONS.md` D6) cannot be sold to a user who
+    cannot install the product.** PyPI stays as the developer channel; it stops being primary.
+  - **Needed:** download-and-double-click installers, built by CI **on tag** and served from
+    `truestill.app`. **Scope: Windows and Linux, unsigned** (`DECISIONS.md` D9). macOS builds in
+    CI and is not published - Gatekeeper refuses unsigned outright.
 
-  - ⚠ **FIRST DISPATCH OF THE INSTRUMENT, 2026-08-12 (run 31634883775): CRITERION 2 FAILED ON A
-    REAL ARTIFACT, AND THE FINDING IS BIGGER THAN THE CRITERION.**
-    - **What the artifact said about itself**, verbatim: `"complete": false`, `"worst":
-      "missing"`, and three findings - `font DejaVuSansMono.ttf`, `font DejaVuSansMono-Bold.ttf`
-      and `font licence`, each *"not in this install"*. `exiftool` resolved through the `_MEIPASS`
-      `bin` rule and `trash` answered `send2trash`; both `ok`.
-    - **It is not "the fonts were dropped". PyInstaller collected NONE of the app's data.** A
-      local rebuild found **52 entries under `_internal/` and no `truestill_app` directory at
-      all** - no `templates/index.html`, no `app.js`, no `tokens.css`, no `app.css`, no typefaces,
-      no notice. **A bundle built that way would not serve a page**, and the criterion happened to
-      name the fonts because that is what it was written about. Read the criterion as the tripwire
-      it turned out to be rather than as the whole of what it caught.
-    - **The local rebuild was the point, not a convenience: it separated *the bundler dropped
-      them* from *our path resolution is wrong inside a bundle*.** Those two produce an identical
-      report and need opposite fixes, and a criterion that false-alarms forever is worse than one
-      that never fires - it gets switched off, and takes the real signal with it
-      (`ENGINEERING_STANDARD.md` §4). `find` over the bundle settled it: the files are genuinely
-      absent, `server._STATIC` is resolving to the right place, and the check is honest.
-    - **THE FIX, and it is the first `(aad)` work that is not instrumentation:
-      `--collect-data truestill_app`.** Bundlers follow *imports*, and a data file is imported by
-      nothing, so a spec that says nothing about it ships without it. Proved red then green on a
-      real artifact: without the flag, three `missing` findings and exit 1; with it, fonts,
-      notice, templates, `app.js` and both stylesheets all collected, every finding `ok`, exit 0.
-      **Any PyInstaller-based spec must carry it**; Briefcase collects `app_packages` wholesale
-      and should not need an equivalent, which the Linux lane now checks rather than assumes.
-    - ⚠ **OPEN, AND IT GOT SHARPER RATHER THAN CLOSER TO RESOLVED - do not let anyone close this
-      with a plausible story.** The 2026-08-01 Windows run `30692798020` reported *"assertion 4
-      PASS - HTTP 200"*. Today's work established that before `--collect-data`, **templates were
-      provably uncollected** - `find` over the bundle, no `truestill_app` directory at all - so a
-      server that answered 200 with a page had no `index.html` to render. That PASS is therefore
-      **harder to account for than when it was first noticed**, not easier. **An anomaly that
-      worsens under new evidence is a real anomaly.** Either that run was measuring something
-      other than what it claimed, or collection behaviour has changed between then and now; each
-      is a finding, neither is established, and a story that merely reconciles them is not one.
-    - **The Windows lane produced NO measurement, for two faults, neither in the self-check.**
-      Briefcase failed on the network (*"Unable to download RCEdit; is your computer offline?"*),
-      and `measure` died at `launch-detached.ps1:72` - `CreateProcess failed ... (win32 error 3)`,
-      `ERROR_PATH_NOT_FOUND`, with `PYINSTALLER_OUTCOME: success`. A terminating `throw` aborted
-      the step before any findings file, including its own control, so the comparison correctly
-      reported *"no findings files at all"* and failed rather than passing. **This is older than
-      today and deterministic:** the same line, exe and error code appear in run `30694297381`
-      (2026-08-01), the only dispatch after `5e3d627` added the detached launcher - **it has never
-      once succeeded.** Tracked as its own thread; it blocks a lane, not a criterion.
-    - ✅ **SECOND DISPATCH, 2026-08-12 (run 31636240970): BOTH ACCEPTANCE CRITERIA ARE DISCHARGED
-      ON A REAL FROZEN ARTIFACT - PyInstaller, Linux.** `"complete": true`; `trash` answers
-      `send2trash`; both typefaces and the notice present at **343,140 / 334,268 / 4,007 bytes**,
-      each digest **matching the repository's own file**. Red then green on the same bundle forty
-      minutes apart, with **one flag** as the entire difference. This is the thing `(aad)` has been
-      unable to say since the criteria were written: a packaging claim that something checks.
-      - **The byte-count split is now evidence rather than argument.** Its first real execution
-        agreed - artifact reports what it holds, checkout decides whether those are the right
-        bytes - and `compare_selfcheck.py` printed *"self-check matched the repository"*.
-      - **The job still FAILED, and that is the better result.** Briefcase produced nothing, and
-        the comparison refused to call that a pass: *"THE BUILD PRODUCED NO ARTIFACT … nothing was
-        checked, and that is not a pass"*. Three distinct states where two runs earlier there was
-        one wrong message.
-      - ⚠ **The Briefcase failure was MINE, not a Briefcase finding, and it is the second time
-        this week a document held the answer and nobody read it before acting.** Briefcase refused
-        with *"The version of Python being used to run Briefcase ('3.13.15') is not the system
-        python3 ('3.12.3')"* - which **this entry already recorded** as `linux system` friction:
-        *"it must run under the distro's python3 rather than a venv's."* The other instance was
-        the signing gate, waiting for a decision recorded four screens above it. Recorded as a
-        pattern about how this project is **used** rather than about who used it:
-        `ENGINEERING_STANDARD.md` §4 already names the remedy - **a design is not checked against
-        the contract until somebody quotes the clause it touches** - and neither instance quoted
-        anything.
-    - ✅ **THE SERVING HALF IS DISCHARGED TOO (run 31637337544). CRITERION 2 IS COMPLETE ON
-      PyInstaller/Linux - collected, intact, AND served.** Assertion 3: the session URL file was
-      written. Assertion 4: `HTTP 200` for the page. Assertion 5, each asset fetched from the
-      running artifact and compared against the checkout:
-      `DejaVuSansMono.ttf HTTP 200, 343140 bytes (repository: 343140)`,
-      `DejaVuSansMono-Bold.ttf HTTP 200, 334268 (334268)`,
-      `LICENSE-DejaVu.txt HTTP 200, 4007 (4007)`.
-      - *It took a second attempt for a reason worth keeping:* the step was **appended after the
-        comparison**, which is the job's gate, and a step guarded by an ordinary `if:` is skipped
-        once the job has failed - so the serving proof was skipped by the very gate it feeds.
-        Ordering is load-bearing when the last step is a gate.
-    - 🔴 **THE FIRST SUBSTANTIVE LINUX FINDING, and it is a real input to the bundler decision:
-      BRIEFCASE'S `linux system` TARGET CANNOT BUILD TRUESTILL ON THE CURRENT UBUNTU LTS.** Not
-      config, not the rig - pip's own words from the build log:
-      **`ERROR: Package 'truestill-core' requires a different Python: 3.12.3 not in '>=3.13'`**.
-      - **The mechanism is the target's whole model.** A `linux system` package **links against
-        the distro's Python** and installs the app's requirements with it. Ubuntu 24.04 `noble`
-        ships **3.12.3**; all three truestill packages declare **`requires-python = ">=3.13"`**.
-        The two cannot both hold.
-      - **So the `.deb` route via `linux system` is blocked** until one of: truestill supports
-        3.12, the target distro ships 3.13, or a different Briefcase Linux target is used -
-        **AppImage bundles its own interpreter and would not have this problem**, and it needs
-        Docker on the runner, which this lane deliberately does not take.
-      - **PyInstaller has no equivalent constraint**: it ships its own interpreter, which is why
-        the same repository froze and passed both criteria in the same job.
-      - **This is exactly what adding Briefcase to the Linux lane was for.** Without it the
-        constraint would have been met when a bundler was chosen rather than before, which is the
-        position `(aad)` exists to avoid.
-    - **The Windows lane produced its first findings ever, and they narrow `win32 error 3` by
-      elimination.** Turning the launcher's terminating `throw` into a per-artifact finding is
-      what made the run say anything at all; the instrumented message then removed both obvious
-      causes. For **both** bundlers: `exe exists: True`, `working directory exists: True`,
-      command line absolute and fully quoted - and `CreateProcess` still returns
-      `ERROR_PATH_NOT_FOUND`. **Two different executables in two different trees failing
-      identically points at the P/Invoke rather than at any path.** The leading candidate is that
-      `lpApplicationName` is declared `string` and given `$null` from PowerShell, which marshals
-      as an **empty string rather than NULL** - and an empty application name is a path
-      CreateProcess cannot find, which would explain an identical failure for any executable.
-      **TESTED (run 31669975175) AND REFUTED** - `[NullString]::Value` changed nothing.
-      **THREAD CLOSED BY DELETING THE LAUNCHER, not by a seventh candidate.**
-      - **The launcher was a regression, and `git show bcd1849` proves it.** The only Windows run
-        that ever measured anything (`30692798020`) launched both artifacts with
-        **`Start-Process -PassThru` + `Wait-Process`**. `5e3d627` replaced that with a bespoke
-        `DETACHED_PROCESS` P/Invoke on 2026-08-01; **it has never once succeeded** - six
-        dispatches, zero measurements. Both call sites are back on the proven form and
-        `packaging/launch-detached.ps1` is deleted.
-      - **What detachment was for, and why the criteria do not need it:** to stop a
-        GUI-subsystem child inheriting the runner's console, which contaminated the *console*
-        questions. The acceptance criteria need a **running artifact**, not a detached one -
-        Linux discharged both with an ordinary launch.
-      - **What is given up: an answer, never a wrong answer.** `_console_window` returns
-        `technique: unsound` when it cannot attach. And those questions were already ruled
-        non-deciding here - *"windowed-ness is already settled by mechanism, not pending
-        measurement"*.
-    - ✅ **WINDOWS MEASURES AGAIN (run 31671053639), AND BOTH CRITERIA PASS ON BOTH BUNDLERS.**
-      `trash: send2trash` and all three assets `ok` at **343140 / 334268 / 4007** bytes for
-      PyInstaller **and** Briefcase; assertions 3 and 4 PASS (`HTTP 200`). With Linux, the
-      criteria are now discharged on **three of four** platform/bundler pairs - only
-      Briefcase/Linux is missing, blocked by the Python-version wall above.
-      - **PyInstaller/Windows** `sys.frozen: True`, `_MEIPASS` set, `bundled_bin_dirs` →
-        `_internal\bin`, `has_console` false both streams, legacy probe **skipped** (pass).
-      - **Briefcase/Windows** `sys.frozen: None` → `install: source checkout`. The known limit at
-        `binaries.is_bundled_install`, now confirmed on a real artifact: **a Briefcase user with a
-        broken install would be shown the SOURCE exiftool message** telling them to run
-        `sudo apt install`. Beside-the-executable resolution fires, as recorded.
-      - ⚠ **The console and legacy-probe readings in this run are CONTAMINATED and are not
-        answers.** Both launches inherit the runner's console, which is the exact contamination
-        the deleted launcher existed to prevent. Recorded as unusable rather than as findings.
-    - 🔴 **AND THE COMPARISON CAUGHT A DEFECT IN THE CHECK ITSELF, on its first Windows run.**
-      `LICENSE-DejaVu.txt`: repository **4080** bytes / `b5d4fd1a3f8d`, artifact **4007** /
-      `81415c280379`. **73 line endings.** `_licence_finding` used `read_text`, which applies
-      universal newlines, so a CRLF checkout was measured at its *translated* length while the
-      job compared raw bytes. **A byte count that changes with how you read it is not a byte
-      count.** Fixed to `read_bytes`; the typefaces never showed it because binary reads are not
-      translated. Pinned by `test_the_notice_is_measured_as_bytes_...`, which builds a CRLF
-      fixture explicitly so the detector runs on **every** lane rather than only Windows.
-    - **Three faults of the instrument's own, found by the same run and fixed:** the comparison
-      script read only the rig's `--probe` envelope and so reported *"the artifact never ran it"*
-      about an artifact that had run it and failed - **the rig's own fence forbids exactly that
-      ambiguity**, and it now distinguishes *build produced nothing* / *never ran the checks* /
-      *ran and failed*; the Linux diagnostic died under `set -e` before printing what the artifact
-      said, so the answer survived only in the uploaded artifact, and that step now reports rather
-      than gates; and the Linux lane's missing bundler, above.
-  - **PyPI stays**, as the developer / self-hosted channel. It stops being the *primary* one.
-  - **MEASURED, THEN DECLINED (2026-08-01). The ~90 MB stays in the build.** Ruled on product
-    grounds: at this size the download is unremarkable for a desktop app - **VS Code is ~350 MB
-    and Cursor ~600 MB** - the saving buys nothing functionally, and the mechanism that achieves
-    it is a permanent maintenance surface plus a landmine for whoever adds a hashing-algorithm
-    option later. Recorded with the numbers so it is a decision rather than an oversight.
+  ### The two acceptance criteria (binding, on the FROZEN artifact)
 
-    | build (PyInstaller 6.21.0, Linux, whole `dist/` tree) | bytes | |
-    |---|---|---|
-    | with scipy + PyWavelets | 218,212,013 | **208.1 MiB (218 MB)** |
-    | with both excluded | 132,045,324 | **125.9 MiB (132 MB)** |
-    | difference | 86,166,689 | **82.2 MiB (39.5%)** |
+  1. **It must resolve a real trash backend.** A bundle that drops `send2trash` makes
+     `clean-empty` refuse every folder on Windows, where there is no `gio`
+     (`IMPLEMENTATION_STANDARDS.md` §1).
+  2. **It must carry and SERVE the typefaces and the Bitstream Vera notice** - 200 and the byte
+     count of the source file. Lower severity than 1 (cosmetic drift, plus a licence defect for
+     the notice), and silent, which is why it is checked.
 
-    **THREE CORRECTIONS TO THE RULING'S PREMISES, verified rather than argued - read these
-    first if this is ever reopened, because each one points the opposite way from the belief it
-    replaces.**
+  **Both are on the artifact because every source-tree guard passes while a bundle is broken.**
+  Discharged by `truestill self-check` / `truestill-app --self-check` reporting from inside the
+  bundle, plus `packaging/compare_selfcheck.py` deciding whether the reported bytes are the
+  repository's. **The artifact reports what it HOLDS; the checkout decides whether that is
+  right** - an artifact cannot know what it was supposed to contain.
 
-    1. **`--exclude-module` DOES work here.** The ruling assumed it cannot, because `imagehash`
-       imports scipy at module level. It does not: `imagehash/__init__.py` imports only `sys`,
-       `numpy` and `PIL` at module level (lines 33-36); `scipy.fftpack` is imported *inside*
-       `phash` and `phash_simple` (lines 273, 293) and `pywt` *inside* `whash` (line 361). The
-       exclusion was run and it worked - `xref-{name}.html` showed **scipy absent from all
-       1,213 modules** and pywt as `ExcludedModule`. So the 82.2 MiB is genuinely available
-       with two flags and no shim at all. **This is a free-standing option, not a blocked one.**
-    2. **PyInstaller #1584 and #3265 do not establish the limitation they were cited for.** Both
-       are real and both **closed**; they show `--exclude-module` surprising users, but neither
-       documents a module-level-import limitation. Cited accurately here so the next person does
-       not treat a closed issue as a standing blocker.
-    3. **`dhash_int` does not exist in `imagehash`, and no `imagehash` function silently returns
-       a wrong value.** This was carried into the ruling as the decisive danger - that under
-       exclusion `dhash_int` falls back to NumPy and returns wrong hashes while `phash` raises.
-       Verified against the installed source: `grep dhash_int` over `imagehash` 4.3.2 (which is
-       also the newest release) finds **nothing**, and `phash`, `phash_simple` and `whash` each
-       do a bare `import` and raise with **no fallback path**. Removing the module cannot
-       produce a wrong number, only an exception.
+  ### STATE, 2026-08-13
 
-       **Where the belief comes from, because it is not baseless:** `dhash_int` is a real
-       function in **Ben Hoyt's separate `dhash` package** on PyPI, which is a different library
-       that truestill does not depend on, declare, or install. The asymmetry it describes is not
-       a property of anything in this build.
+  | | Windows | Linux |
+  |---|---|---|
+  | **PyInstaller** | ✅ both criteria (run 31671053639) | ✅ both criteria, incl. served (31637337544) |
+  | **Briefcase** | ✅ both criteria (31671053639) | 🔴 **cannot build** - see below |
 
-    **What the actual risk is, stated plainly for whoever reopens this:** with scipy excluded,
-    `phash`/`phash_simple`/`whash` raise `ModuleNotFoundError` naming an internal package, from
-    four frames inside a vendored library - undiagnosable for a photo user, but **loud**. There
-    is no silent-wrong-value failure mode to fear. The real cost of reopening is the one the
-    ruling identified correctly: a shim is a permanent maintenance surface, and a build where an
-    algorithm works in a source checkout and raises when frozen is a trap for whoever adds an
-    algorithm option. Nothing in the product calls those three today.
+  - **Serving is proven on Linux only** (assertions 3/4/5: `HTTP 200`, 343140 / 334268 / 4007
+    bytes matching the repository). Windows proves collection, not serving.
+  - 🔴 **Briefcase `linux system` cannot build truestill.** pip: `Package 'truestill-core'
+    requires a different Python: 3.12.3 not in '>=3.13'`. The target **links against the distro's
+    Python**; Ubuntu 24.04 ships 3.12.3. Blocked until truestill supports 3.12, the distro ships
+    3.13, or a target that bundles its own interpreter is used. **PyInstaller has no equivalent
+    constraint.**
+  - **`--collect-data truestill_app` is required for any PyInstaller spec.** Without it the
+    bundle carries **none** of the app's data - no fonts, no notice, no templates, no `app.js`,
+    no CSS - and would not serve a page. Measured: 52 entries under `_internal/`, no
+    `truestill_app` directory.
+  - **Briefcase sets no `sys.frozen`**, so `is_bundled_install()` reads False and a Briefcase user
+    with a broken install is shown the **source** exiftool message (`sudo apt install`).
+    Confirmed on a real artifact. Needs a second signal if Briefcase wins - ranked at
+    `binaries.is_bundled_install`, the running code's own location first.
 
-    **The mechanism, if it is ever wanted:** `--exclude-module scipy --exclude-module pywt` for
-    the bytes, plus a packaging-layer shim replacing `imagehash.phash`, `phash_simple` and
-    `whash` with a refusal naming the algorithm and the alternative rather than the module,
-    installed via `--runtime-hook` so a source checkout is untouched. Both halves were built and
-    verified working, then removed under this ruling; `git log` for `feat(aad): drop 82 MiB` has
-    the implementation if it is wanted back.
+  ### The bundler is NOT chosen, and the recorded lean is VOID
 
-    **`dhash` is bit-identical with and without the exclusion** - source, baseline and frozen
-    builds all returned `8bcb9521242eca28` for the same fixture. Whatever is decided later, that
-    is the bar: the catalog stores hash output as identity.
+  D9 deleted the **signing** column, which was one of the two the lean rested on. *"Briefcase if
+  all three platforms ship"* - antecedent false. *"PyInstaller + Inno if Windows ships first"* -
+  antecedent undefined; D9 orders nothing. **Three columns survive: produces an installer, build
+  simplicity, maturity.** Only the first is a real difference - PyInstaller needs a second tool
+  per platform, Briefcase does not.
 
-    **Untested and belonging to the packaging work:** whether the exclusion interacts with the
-    `_MEIPASS` layout on Windows, and the Windows byte figure, which will differ.
-  - **~90 MB of the install is a code path that never runs** (dependency audit, 2026-08-01).
-    `imagehash` declares `scipy` and `PyWavelets` as hard requirements with **no extras split**,
-    so every install pulls **81 MB scipy + 8.6 MB PyWavelets**. They back `phash` and `whash`,
-    imported lazily inside those functions; truestill defaults to `dhash`, and a `dhash` call in
-    a clean process loads neither (verified). Nothing can be done at the dependency layer - the
-    only levers are a bundler `--exclude-module` or vendoring, which makes this **(aad)'s
-    decision, not core's**. Worth deciding deliberately: 90 MB is a visible fraction of a
-    download aimed at people who will judge the product by how heavy it feels. **Unverified
-    here:** whether the bundlers' static analysis picks up those function-level imports, and so
-    whether an exclude is needed at all - that is a build-time question for the packaging work,
-    and per the "stop measuring" ruling it was not measured now. If the exclude is taken,
-    `phash` must fail loudly rather than at first use: it is reachable today via
-    `perceptual_hash(algorithm="phash")`.
-  - **Open questions for the design pass, deliberately not answered here.** Recorded so the
-    pass starts from them rather than rediscovering them:
-    - Packaging approach: PyInstaller, Briefcase, Nuitka, or something else.
-    - The **exiftool binary dependency** and how it ships. It is not a pip package
-      (`IMPLEMENTATION_STANDARDS.md` §7 records it as an external binary), and every metadata
-      path needs it.
-    - ~~**Code signing and notarization** on macOS and Windows. Unsigned installers are blocked
-      or scary-warned on both, which is fatal for a product whose whole proposition is trust.~~
-      **SETTLED BY D9, 2026-08-01, and the struck sentence is reversal 2 above.** No certificate
-      is bought. Windows ships unsigned and meets a SmartScreen warning with a hidden *Run
-      anyway*; macOS is the only platform where "blocked" was accurate, and it is built rather
-      than published for exactly that reason. What survives as work is not signing but the
-      **download page**: D9 requires Windows users to be told what SmartScreen will show, in
-      plain language, above the button, *before* they download.
-    - Installer size and startup time.
-    - How it interacts with the **parked Tauri-vs-local-web decision** (`(o)` and the Product /
-      strategy section) and with **D5's licensing/update server**, which is separately unbuilt.
-  - **Throwaway measurements, 2026-08-01. Recorded because they rule things OUT; they do not
-    choose a bundler, and Linux alone cannot.** Both builds ran on Linux, in scratch venvs
-    outside the repo.
-    - **PyInstaller 6.21, one-dir.** App starts, serves a page, writes its URL file. exiftool
-      resolution **failed at first**: `--add-binary` content lands under `_internal/`, and
-      `dirname(sys.executable)` is not `sys._MEIPASS`, so `bundled_bin_dirs()` came back empty
-      inside a bundle that had shipped exiftool. Fixed by adding the `_MEIPASS` rule, then
-      re-measured in the artifact: resolution now finds it.
-    - **Briefcase 0.4.4, `linux system`.** All four assertions pass against the fixed contract.
-      But `sys.frozen` and `sys._MEIPASS` are **both absent** - it ships an ordinary
-      interpreter - so `is_bundled_install()` reads **False**, and the layout is FHS
-      (`usr/bin/<app>` with code under `usr/lib/<app>/{app,app_packages}`), so the
-      beside-the-executable rule looks in `usr/bin/bin/` and **misses**.
-    - **What that rules out:** the hoped-for "Briefcase needs zero packaging config" advantage
-      **does not hold on Linux**. Measured, not assumed.
-    - **What stays open, and why Linux cannot close it.** `linux system` is a *distro package*,
-      so its FHS layout is required rather than chosen. **Windows Briefcase is one directory
-      with the executable on top**, where a `bin/` sibling is natural - and Windows is the
-      platform installers actually matter for. **Do not extrapolate the Linux result to a
-      recommendation.** A Windows measurement is the missing input.
-    - **Friction - and this entry OVERSTATED it; corrected 2026-08-01.** Briefcase's
-      `linux system` target took **three failed builds** in the throwaway: a PEP 639 `license`
-      declaration (not `license.text`), an actual licence **file** via `license-files`, and a
-      **changelog** with a recognised name. **Two of those three were artifacts of the
-      throwaway being a bare project.** This repo already has `LICENSE` and `CHANGELOG.md` at
-      root, so a real truestill Briefcase project hits **one** of the three, not three. The
-      original wording read as evidence against Briefcase and was not.
-      **What survives as real friction:** it must run under the **distro's** python3 rather than
-      a venv's, because a `linux system` package links against system Python; it downloads a
-      **support package and stub** at build time; it is **pre-1.0** (0.4.4); and `sys.frozen` is
-      absent, so `is_bundled_install()` needs a replacement signal. PyInstaller needed one
-      command and built first try on both platforms.
-    - **The `is_bundled_install()` signal for Briefcase, ranked but NOT implemented** - it is
-      only needed if Briefcase wins. The criterion is *does it survive the bundle being
-      incomplete*, and it does the ranking on its own:
-      1. **The running code's own location** (`truestill_core.__file__` under `app_packages/`) -
-         the only candidate that **cannot be absent while the code is executing**.
-      2. *Path shape* (`app/` + `app_packages/` siblings) - survives a missing binary; if
-         `app_packages` were gone nothing could import at all.
-      3. *A marker file we ship* - **weakest**: in a bundle broken by missing files, the marker
-         can be the missing file. That is the failure this rule exists to prevent.
-      4. *`BRIEFCASE_*` environment variables* - **none exist at runtime**; not available.
-         `sys.prefix` is `/usr`, indistinguishable from any system-python script.
+  **Evidence on those columns (2026-08-12, not a decision):** Briefcase's own docs **discourage
+  its AppImage backend** (not built in their release process; bugs *"not a priority"*), pointing
+  at System packages or Flatpak - so this entry's old *"deb/AppImage natively"* credit is
+  half-withdrawn by its maintainers, and the surviving half is the target that fails above.
+  Pre-1.0 risk is real (2026 advisory: MSI All-Users inheriting parent-directory permissions,
+  fixed and backported); newest release **0.4.4**, which this repo pins. Against that, 2026 Q2
+  genuinely improved the Windows MSI - pre-install checks, shortcuts, uninstall scripts - and an
+  MSI carries AV trust a bare `.exe` does not.
 
-  - **WINDOWS measurements, 2026-08-01 (run 30692798020, both builds succeeded). The bundler is
-    NOT decided, and the reason is the first item below.**
-    - **CORRECTED 2026-08-01, same day: the console result was MY MEASUREMENT, not Briefcase.**
-      The first reading of this run said the Briefcase app "has a console despite
-      `console_app = false`", and scored PyInstaller as winning windowed-ness. **Both claims
-      were wrong**, and the mechanism is the valuable part.
-      - **Briefcase's configuration applied exactly as written**, on three independent
-        confirmations: the build downloaded **`GUI-Stub-3.13-amd64-b11.zip`**
-        (`stub_type = "Console" if is_console_app else "GUI"`); the executable was named
-        `TruestillProbe.exe`, the **`formal_name`** form Briefcase uses for GUI apps rather than
-        the `app_name` form it uses for console ones; and the stub was downloaded and its **PE
-        header read directly - `Subsystem = 2 (WINDOWS_GUI)`**. `console_app` also defaults to
-        `False`, so it would have been GUI even if the setting had been ignored.
-      - **The cause was the launcher. A GUI-subsystem process does not get a console
-        ALLOCATED, but it still INHERITS one from a parent that has it** - the subsystem field
-        controls allocation, not inheritance. The job launched both artifacts with PowerShell
-        `Start-Process`, and the runner's PowerShell owns a console.
-      - **It contaminates PyInstaller equally, in the other direction.** Its `--noconsole`
-        bootloader frees and nulls the standard streams *in software*, so it reports no console
-        **however it is launched**. The two were never compared on equal terms. The run's own
-        `AttachConsole` data shows exactly this asymmetry: PyInstaller's control attached
-        successfully (**no console attached to that process**) while Briefcase's failed with
-        `ERROR_ACCESS_DENIED` (**already attached to one**).
-      - **The narrow true statement, as the current state of knowledge:** PyInstaller guarantees
-        null streams regardless of how it is launched; Briefcase's GUI stub relies on there
-        being no console to inherit. **For a double-clicked shortcut both should be
-        console-free - and that is UNMEASURED.**
-      - **So "PyInstaller wins windowed-ness" is withdrawn.** It rested on a contaminated
-        measurement. The re-run launches both detached, so the comparison is finally fair.
-    - **PyInstaller layout - `_internal/` holds on Windows exactly as on Linux.**
-      ```
-      sys.executable          = D:\a\truestill\truestill\dist\truestill-probe-pyinstaller\truestill-probe-pyinstaller.exe
-      dirname(sys.executable) = D:\a\truestill\truestill\dist\truestill-probe-pyinstaller
-      sys._MEIPASS            = D:\a\truestill\truestill\dist\truestill-probe-pyinstaller\_internal
-      bundled_bin_dirs()      = [D:\a\truestill\truestill\dist\truestill-probe-pyinstaller\_internal\bin]
-      exiftool resolved       = D:\a\truestill\truestill\dist\truestill-probe-pyinstaller\_internal\bin\exiftool.EXE
-      ```
-      ``dirname(sys.executable) != sys._MEIPASS``, so **the `_MEIPASS` rule is the only reason
-      exiftool resolves at all**. Stated plainly because it justifies `92774fb` retroactively:
-      **without that commit this Windows build fails assertion 2 as well**, not only the Linux
-      one it was written for.
-    - **Briefcase layout - the beside-the-executable rule FIRES on Windows.**
-      ```
-      sys.executable          = D:\a\truestill\truestill\packaging\build\truestill_probe\windows\app\src\TruestillProbe.exe
-      dirname(sys.executable) = D:\a\truestill\truestill\packaging\build\truestill_probe\windows\app\src
-      bundled_bin_dirs()      = [D:\a\truestill\truestill\packaging\build\truestill_probe\windows\app\src\bin]
-      exiftool resolved       = D:\a\truestill\truestill\packaging\build\truestill_probe\windows\app\src\bin\exiftool.EXE
-      ```
-      One directory with the executable on top, so `bin/` beside it is exactly where the
-      zero-configuration rule looks. **The advantage that died on Linux's FHS layout is real on
-      the platform installers actually matter for** - measured, not assumed.
-    - **`sys.frozen` is absent under Briefcase, now confirmed on Windows**
-      (``sys.frozen: null``, ``is_bundled_install(): false``). The limit recorded when that
-      signal was chosen holds, and **the replacement ranking already stands**: the running
-      code's own location is the only candidate that cannot be absent while the code executes -
-      here ``...\windows\app\src\app_packages\truestill_core\binaries.py``.
-    - **STOP MEASURING. The remaining questions CANNOT decide the bundler** (2026-08-01, after
-      two runs that produced no measurements, both lost to rig faults rather than to the
-      bundlers). Recorded so nobody restarts the rig looking for an answer it cannot give.
-      - **Windowed-ness is already settled by mechanism, not pending measurement.** PyInstaller
-        `--noconsole` produces a GUI-subsystem binary; Briefcase's stub **is** GUI-subsystem -
-        its PE header was read directly, `Subsystem = 2 (WINDOWS_GUI)`. A GUI-subsystem process
-        gets **no console allocated**, and a double-click from Explorer has **no parent console
-        to inherit**. So both are console-free when double-clicked. A run would confirm that; it
-        cannot decide anything, because **the answer is the same for both**.
-        The one real difference slightly favours *Briefcase*: PyInstaller additionally nulls the
-        streams in software, so run from a terminal it skips the legacy probe even though the
-        user chose that directory, while Briefcase consults it correctly.
-      - **`CREATE_NO_WINDOW` is not a bundler question at all** - see the separate note below.
-      - **What actually decides it was never measured, and no probe could have measured it:**
+  ### What is still unmeasured
 
-        | | PyInstaller | Briefcase |
-        |---|---|---|
-        | Produces an **installer** | **No** - a binary; then WiX/Inno, dmgbuild, appimagetool | **Yes** - MSI, DMG, deb/AppImage natively |
-        | ~~**Signing / notarization**~~ | ~~Wire it per platform yourself~~ | ~~Built in~~ |
-        | Build simplicity | One command, first try, both platforms | Project config + support download |
-        | Maturity | 6.x, large install base | 0.4.4, pre-1.0 |
+  - **Installer output** - neither bundler has produced a `.deb`, AppImage, MSI or `.exe`
+    installer here. The only surviving column that is a real difference.
+  - **Startup time** - user-facing and never measured. A published figure of ~50 s for a
+    PyInstaller **one-file** build (extracts to temp on every launch) does **not** apply: this builds
+    **one-folder**. Measure rather than assume in either direction.
+  - **The Linux artifact shape** - `.deb` or AppImage. Now load-bearing: it decides whether
+    Briefcase is available on Linux at all.
+  - **A tag-triggered release lane** - `ci.yml` has none.
+  - **exiftool acquisition** - where it goes is measured for both bundlers
+    (`_internal\bin`, and beside the executable); how it is obtained, versioned and licensed is
+    written down nowhere.
 
-        **The signing row is struck by D9 (reversal 3 above): there is no signing step in the
-        pipeline, so a bundler cannot be preferred for having one built in.** It was one of the
-        two columns this table called decisive, which is why striking it voids the lean below
-        rather than merely narrowing it. **Three columns survive**, and none of them was what the
-        Windows rig measured.
+  ### Settled, do not re-open
 
-        The rig measured **runtime layout**, which `TRUESTILL_BIN_DIR` already solves in one
-        line for either bundler. Installers are what `(aad)` exists for.
-    - ~~**THE LEAN, recorded as CONDITIONAL rather than decided.**~~ **VOID under D9, ruled
-      2026-08-12. Not re-answered here - the choice is open, and what would decide it is below.**
-      - ~~**Briefcase if all three platforms ship**~~ - **antecedent FALSE.** D9 publishes two.
-        The condition also rested on the *installer-output and signing* pair, and signing is
-        struck.
-      - ~~**PyInstaller + Inno Setup if Windows ships first**~~ - **antecedent UNDEFINED.** D9
-        names Windows and Linux and orders them nowhere; nothing ships first. The condition is
-        neither satisfied nor refuted, which is why this is void rather than resolved the other
-        way.
-      - **The shape of the gap, so nobody "reads off" an answer.** The lean was written over the
-        variable *how many platforms, in what order*. D9 answered a **different** variable -
-        *which two* - without ordering them. There is no branch for the state the product is
-        actually in, and inventing one would be guessing with a citation attached.
-      - **What survives, and what would decide it.** Three columns: **produces an installer**,
-        **build simplicity**, **maturity**. Only the first is a real difference - PyInstaller
-        needs a second tool per platform (Inno/WiX on Windows, appimagetool or `dpkg-deb` on
-        Linux), Briefcase does not. Deciding it therefore means answering, for **Windows and
-        Linux only**: what each produces end to end, what the second tool costs on Windows, and
-        whether Briefcase's pre-1.0 config churn is cheaper than that. **A frozen artifact that
-        can report what it contains is the prerequisite** - see the acceptance criteria above; a
-        bundler chosen without one is a choice nobody can check.
-      - **EVIDENCE ON THE THREE SURVIVING COLUMNS, 2026-08-12. Not a decision; the bundler stays
-        unchosen.**
-        - **Briefcase's own docs discourage its AppImage backend** - *"we strongly discourage the
-          use of AppImages for distribution"*, not built in their release process, bugs *"not a
-          priority"* - and point at System packages or Flatpak. So this entry's *"deb/AppImage
-          natively"* is **half-withdrawn by its maintainers**, and the surviving half is the
-          target that just failed on Python version (above).
-        - **Pre-1.0 risk is not theoretical:** a 2026 advisory covered MSI installers for All
-          Users inheriting parent-directory permissions - fixed and backported. Newest release is
-          **0.4.4**, which is what this repo pins.
-        - **Against that:** 2026 Q2 work genuinely improved the Windows MSI - pre-install checks,
-          desktop shortcuts, better uninstall scripts - which is the install-shape column, and an
-          MSI carries AV trust a bare `.exe` does not.
-      - **STARTUP TIME IS STILL UNGROUNDED and is a user-facing number.** One published
-        comparison put a PyInstaller **one-file** build at ~50 s against cx_Freeze at ~8 s,
-        because one-file extracts to temp on every launch; **one-folder avoids it** and is what
-        this rig builds. Measure ours when a Windows artifact is reachable. Until then it is a
-        guess.
-      - **THE LINUX READING BEHIND THIS IS ONE TARGET, AND IT IS THE UNREPRESENTATIVE ONE.** Under
-        D9 Linux is a launch platform, not a rounding error. The only Linux artifact ever built is
-        Briefcase `linux system`, whose FHS layout this entry itself calls *"required rather than
-        chosen"* - so the one measurement on record is of the target least like anything that
-        would ship. The table credits Briefcase with **deb/AppImage natively** on **no measurement
-        at all**, and PyInstaller's Linux installer step was never exercised either. Do not treat
-        the Linux column as measured in either direction.
-    - **When packaging resumes, go straight to a real installer.** Not another probe: a
-      double-click on a real machine answers the console question more directly than any rig,
-      and a real installer answers the table above by existing. ~~Two gates first… **the signing
-      decision**…~~ **The signing gate is gone (see READ FIRST above).** One gate remains -
-      **soak** (`PROJECT_STATUS.md` §2, §3) - and it is not `(aad)`'s to move.
+  - **The ~90 MB scipy/PyWavelets weight stays** (2026-08-01). Measured: 218,212,013 B with,
+    132,045,324 B excluded - **82.2 MiB, 39.5%**. Declined on product grounds; the exclusion
+    mechanism is a permanent maintenance surface. Three premises of that ruling were wrong and
+    are corrected in `e314de1` - `--exclude-module` **does** work, the cited PyInstaller issues
+    establish nothing, and no `imagehash` function silently returns a wrong value. `dhash` is
+    bit-identical with and without the exclusion (`8bcb9521242eca28`).
+  - **No VirusTotal comparison to choose the bundler** (2026-07-31). SmartScreen is
+    reputation-based per file and per certificate, so the question is orthogonal to the choice.
+    A scan belongs as a release smoke test, not a selection input.
+  - **The installer-comparison rig is deleted** (`1c77dd3`). Built complete, wired, **never run**.
+    ⚠ **The one finding kept from it: its `uninstalled_cleanly` check read only the three Uninstall
+    registry hives, so it would report a clean uninstall for an installer that deleted the user's
+    catalog. Any real installer must verify uninstall against `catalog.sqlite` in the OS data
+    directory** - unrecoverable user data, unlike the disposable cache (`(aae)`). **No document
+    states an uninstall stance.**
+  - **The console and legacy-probe questions cannot decide the bundler** - windowed-ness is
+    settled by mechanism (both are GUI-subsystem; a double-click has no console to inherit).
+    Readings taken under a non-detached CI launch are contaminated and are not answers.
 
-  - **THE INSTALLER-COMPARISON RIG WAS DELETED, 2026-08-12, and this is the record of what it
-    was.** `packaging/installer.iss`, `packaging/inspect-installers.ps1` and a second job in
-    `.github/workflows/packaging-throwaway.yml`, removed rather than left silent.
-    - **It was built, complete, wired - and never ran once.** Every packaging step
-      `continue-on-error`, the inspection on `if: always()`, a findings file written even for a
-      bundler whose build failed, artifact upload on `always()`. It was not abandoned mid-way.
-      **The timestamps are the proof:** the workflow has exactly three dispatches, all
-      2026-08-01 - runs `30691988015` (08:33Z), `30692798020` (08:57Z), `30694297381` (09:43Z) -
-      each containing only the `measure (windows)` job, and the only artifact ever produced is
-      `packaging-findings` from the middle one. The rig landed in `98820d8` at **15:41Z the same
-      day**, six hours after the last dispatch. Its own commit says so: *"Nothing measured yet.
-      This commit is the instrument, not the reading."*
-    - **Why it goes.** It measures install **shape** - install location, Start-menu entry,
-      uninstaller registration, Add/Remove presence, clean uninstall - which are facts about an
-      installer that already exists, not inputs that choose a bundler. Its own first line calls it
-      a throwaway measurement and not a release configuration, and the file it lived in says
-      *"DELETE OR REPURPOSE THIS FILE once the bundler is chosen."* Under D9 the choice turns on
-      three columns it does not touch (see THE LEAN above), and what it *would* have measured is
-      answered better by the real installer when one exists.
-    - ⚠ **THE ONE FINDING WORTH KEEPING, WHICH WOULD HAVE GONE WITH THE FILE. Its
-      `uninstalled_cleanly` check reads the three Uninstall registry hives and nothing else** - it
-      compares a registration count before and after. **It would report a clean uninstall for an
-      installer that deleted the user's catalog.** That is not a criticism of the rig, which was
-      measuring registration; it is a **requirement for whatever installer is built**: an
-      uninstall must be verified against `catalog.sqlite` in the OS data directory, not against
-      the registry. `(aae)` already draws the line the check needs and nothing has connected them
-      - `catalog.sqlite` is **user data** (custody record, human-confirmed dates, trip names;
-      losing it is unrecoverable) while `hashes.cache.sqlite` is disposable. **No document states
-      an uninstall stance at all**, and a tool whose uninstall silently removes someone's photo
-      index is the worst possible last impression.
-    - **Nothing in it was uniquely reusable, and the part that is reusable was never in it.** The
-      mechanism the acceptance criteria need - an artifact reporting on itself into a findings
-      file, uploaded from the job - is `packaging/truestill_probe/` plus the `measure` job, both
-      **kept and untouched**. The deleted PowerShell reads a Windows registry, which answers
-      nothing about what a bundle contains.
+  ### Open anomaly - do not close with a story
 
-  - **`CREATE_NO_WINDOW` suppression is NOT a bundler question, and is recorded separately so it
-    stops riding along in the wrong rig** (moved out of the comparison 2026-08-01).
-    - **It is our flag, not a bundler's.** It lives in `truestill_core.binaries.run` / `.popen`,
-      and whether it suppresses a console window is a Windows question with the **same answer
-      under either bundler**. It was measured inside the bundler rig purely because the rig was
-      the only Windows lane, and that made two runs look like they were about the choice when
-      they were not.
-    - **The technique used was also wrong, independently of the rig.** `AttachConsole`
-      attachability cannot distinguish suppressed from unsuppressed, because
-      `CREATE_NO_WINDOW` creates an **invisible console** - the child *is* attached to one -
-      while `DETACHED_PROCESS` is the flag that yields no console at all. The right observable
-      is the console's **window**: `GetConsoleWindow()` returns `NULL` for a console that has
-      none.
-    - **Its real weight is cosmetic**: black console windows flashing while exiftool runs in
-      batches. Worth fixing, not worth a bundler decision, and cheap to check on any Windows
-      machine once one is to hand. Status recorded in `PROJECT_STATUS.md` §3.
+  ⚠ **The 2026-08-01 Windows run `30692798020` reported `assertion 4 PASS - HTTP 200`.** Templates
+  were provably uncollected before `--collect-data`, so a server answering 200 with a page had no
+  `index.html` to render. **That PASS is harder to account for than when it was first noticed, not
+  easier.** Either that run measured something other than what it claimed, or collection behaviour
+  changed. Each is a finding; neither is established.
 
-  - **Settled 2026-07-31: do NOT run a VirusTotal comparison to choose the bundler.** It was
-    proposed, approved, and then withdrawn on the design pass. Recorded here with the reasoning
-    so it is not proposed again from the same premise - *"the AV claim is load-bearing and
-    testable"*. It is load-bearing. It is not testable in a way that would decide anything.
-    - **The deciding argument: signing dominates, and it is the same decision either way.** The
-      gate a user meets is SmartScreen, which is reputation-based per file hash and per
-      certificate. Unsigned, **both** candidates get warned on; signed, **both** accrue
-      reputation on the certificate. So the AV question is **orthogonal to the choice it was
-      meant to inform**.
-    - The artifacts are not comparable anyway. PyInstaller ships a self-extracting bootloader -
-      the packing behaviour heuristics target - while a Briefcase MSI is a native installer that
-      packs nothing. The result would confirm from measurement what the mechanism already
-      predicts, while reading as "Briefcase is safer".
-    - The number would not even be stable. Detection counts track the **bootloader build's**
-      reputation, not the approach (`pyinstaller#8164`: counts change with the PyInstaller
-      version), and VirusTotal's raw count is unweighted, with a handful of engines producing
-      most false positives. A single artifact per tool cannot separate signal from that noise.
-    - **What a scan is still good for**, and where it belongs: a **release smoke test** on the
-      signed artifact we actually ship, to catch a regression. Not a selection input, and not
-      before there is something signed to scan.
-  - **Not designed here on purpose.** The questions above are genuinely open and several are
-    coupled (the shell decision changes the packaging answer, which changes the signing answer);
-    picking one now would be guessing in public.
+  ### Two lessons this entry paid for
+
+  - **Six dispatches were spent on a bespoke detached launcher that replaced a working
+    `Start-Process`, and one `git show bcd1849` found it.** The mechanism was in the history.
+    **Before the next bespoke anything, check whether the thing being replaced ever worked.**
+  - **A byte count that changes with how you read it is not a byte count.** The check itself
+    measured the notice after newline translation, so a CRLF checkout disagreed with the artifact
+    on a file that was byte-for-byte correct. Own checks are not exempt from being checked.
 
 - **(aac) Organize must name and count unreadable source files the way verify does.** Ruled by
   the maintainer, 2026-07-30, from the Pass 1 F2/F1 asymmetry left after the code-quality audit.

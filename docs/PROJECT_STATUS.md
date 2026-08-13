@@ -46,7 +46,7 @@ Notes:
   operation**, and optionally **write it into the organized copies** so other apps read it too.
   Schema v13-v16. One clause of `(bbb)` item 4 was carried out rather than ticked - see `(aaj)`;
   `(kk)`'s `GPSDateStamp` half was in scope and was **not** built.
-- **Launch gate is still soak on real library usage.** Work is prioritized by soak findings.
+- **Launch gate: soak is DEFERRED (§2), and `(aad)` installers are the work in progress.**
 - **Trademark residual (live pre-monetization obligation):** TruStile Doors remains a low-risk
   residual in different IC classes; attorney clearance is still required before monetization
   (full analysis in `DECISIONS.md`).
@@ -192,15 +192,10 @@ narrative, or volatile counts.
   the uvicorn no-console startup crash, was never in this category at all - its failure is in
   *configuration* rather than in windowing, so it is proven on every platform and closed.
 
-- **`(aad)` packaging is PARKED, deliberately, and the bundler is not the blocker.** Two
-  measurement runs produced no measurements - both lost to rig faults - and on review the
-  remaining questions **cannot decide the choice**: windowed-ness is settled by mechanism (both
-  bundlers are GUI-subsystem, so both are console-free on a double-click) and
-  `CREATE_NO_WINDOW` is our own flag rather than a bundler's. What *would* decide it - installer
-  output and signing - no probe was ever going to measure. The lean is recorded as **conditional
-  on which platforms launch first**, which is a product question. Packaging resumes as a **real
-  installer**, after the **signing decision** and after **soak closes** (§2 puts it at #3).
-  Full reasoning in `BACKLOG.md` `(aad)`.
+- **`(aad)` packaging is NO LONGER PARKED** (2026-08-13; this bullet said PARKED until then).
+  The signing gate was waiting for a decision D9 had already made, and soak is deferred (§2).
+  **Both acceptance criteria are discharged on three of four bundler/platform pairs**; the
+  bundler is still unchosen and the open work is in `BACKLOG.md` `(aad)`, which is the source.
 
 - **Kept for the mechanism, since it cost two runs to learn:** the console reading that appeared
   to block the choice was a **measurement fault**, not a bundler difference. Briefcase's config
