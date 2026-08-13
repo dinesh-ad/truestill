@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(adg). Next free: (adh).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(adh). Next free: (adi).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -92,6 +92,46 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(adh) TAURI SHELL + PYTHON SIDECAR - STAGE 1 MEASURED, THREE GAPS NAMED AND UNFIXED.**
+  Recorded 2026-08-13. Target architecture: Tauri v2 window, the existing Python app as a child
+  process, React later. **The backend does not move.** Stage 1 proved the process lifecycle only;
+  it migrated nothing, and `app.js`, `tokens.css`, `templates/` and every test are untouched.
+  Evidence and method: [`tauri-sidecar-lifecycle-research.md`](tauri-sidecar-lifecycle-research.md).
+
+  | | test | result |
+  |---|---|---|
+  | a | normal quit | **PASS** - sidecar killed, no orphan (close was programmatic, see the doc) |
+  | b | **quit mid-copy** | **PASS** - see below |
+  | c | SIGKILL the shell | **FAIL** - orphan survives |
+  | d | launch twice | two sidecars, two ports, two catalogs; `session-url.txt` names one |
+  | e | sidecar cannot start | **FAIL** - the error window used a `data:` URL and panicked |
+  | f | SIGTERM the shell | **FAIL** - orphan survives, `session-url.txt` not released |
+
+  **(b) is the result this stage existed to get, and it is truestill's own doing rather than
+  Tauri's.** SIGKILL to shell and sidecar mid-copy, on ext4: one legitimate `.partial`
+  (36,175,872 bytes), **27 real-name files byte-identical to source, zero incomplete at a real
+  name**. `safe_copy`'s claim - *no partial ever takes the real name* - holds under the hardest
+  kill available.
+
+  ⚠ **(f) is security-shaped, not merely untidy.** The orphaned sidecar **keeps serving**, and
+  `session-url.txt` still names a live port with a valid token. `__main__.py`'s
+  `release_session_link` exists and is correct; it never runs, because the **shell** died rather
+  than the sidecar. (c) is the same cause: Tauri's `RunEvent::ExitRequested`/`Exit` fire on a
+  *window* close, not on a *signal*, and Tauri's own docs specify neither the ordering nor signal
+  behaviour - which is why these were run rather than read.
+
+  **The fixes, named as fixes and NOT as work done:** a SIGTERM/SIGINT handler in the Rust shell
+  that kills the child before exiting; for SIGKILL, which cannot be caught, the sidecar must
+  self-terminate when its parent goes - `prctl(PR_SET_PDEATHSIG)` on Linux, or a stdin-close
+  watchdog as the portable form; single-instance detection that focuses the running window; and
+  either the `webview-data-url` Cargo feature or a static error page for (e).
+
+  **Numbers:** rustup 9s · apt 24s · probe build 126s · shell build 131s · Tauri `.deb` **3.8 MB**
+  · `Depends: libwebkit2gtk-4.1-0, libgtk-3-0` · frozen sidecar = **1 process**. Against the
+  pywebview spike's 601 MB hello-world, the vehicle is not close.
+
+  **Measured on one machine** - Ubuntu 26.04 / GNOME / Wayland. Windows and macOS untested.
 
 - **(adb) TWO COPY PATHS STILL WRITE THE REAL NAME FIRST, AND ONE OF THEM IS THE CATALOG.** Named
   in `(acj)`'s closure 2026-08-11 as out of its scope, and filed here because a line in

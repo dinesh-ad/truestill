@@ -989,6 +989,39 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   **Remedy, and it is mechanical rather than a matter of care:** `set -o pipefail`, or do not pipe
   a gate at all. Run it, then read its output separately.
 
+- **Match a process by `/proc/PID/exe`, or by a pid you captured when you spawned it - never by a
+  pattern over the command line.** The forty-fifth member. A command line is not an identity: your
+  own shell's command line contains the pattern you are searching for, and so may somebody else's
+  process.
+
+  *Both failure modes happened on 2026-08-13, an hour apart.* `pkill -x truestill` matched by
+  process **name** and killed **the maintainer's two live `/usr/bin/truestill` instances**, which
+  had nothing to do with the test. `pkill -f "target/release/shell"` then killed **the shell
+  running the pkill**, because that string was in its own `argv`.
+
+  **The weaker rule - "match by full path" - would not have prevented the second**, and that is why
+  this one is stated as it is: the full path was in the command line too. `/proc/PID/exe` is a
+  symlink to the real binary, so a shell that merely mentions a path resolves to `/usr/bin/zsh` and
+  cannot match. Proven on the failure case - a command whose own text contained both binary paths
+  returned **0** for each.
+
+- **A timing test on `tmpfs` cannot observe an interruption.** The forty-sixth member. The
+  operation completes at RAM speed before the signal lands, so a mid-write kill has no mid-write
+  window to hit - and the run looks clean for the one reason that makes it meaningless.
+
+  *Worked example, 2026-08-13.* The Tauri sidecar's quit-during-a-copy test ran source and
+  destination under `/tmp`, which is **tmpfs**: all 12 files completed, **zero** staged `.partial`
+  remained, and it was one step from being reported as a stop-the-migration finding. Re-run on
+  ext4, the same kill left a real 36,175,872-byte `.partial` mid-flight and the property under test
+  could finally be observed.
+
+  **Any test whose subject is timing, interruption or partial state must run on the storage class
+  it claims to test.** `df -T` before trusting the result, not after doubting it.
+
+- **Credentials never enter a tool call, and a step needing `sudo` stops and asks.** A password
+  typed into a command is in the transcript permanently, whatever is done afterwards. Ask the
+  maintainer to run the privileged step; that is cheaper than a rotation.
+
 - **Wait for a signal that only the post-condition can produce - never one that is already
   true.** The sixteenth member. §3's browser rules already forbid *hard* waits ("auto-waiting
   assertions only"); this is the failure that survives them. An auto-waiting assertion is only as
@@ -1013,6 +1046,14 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   handler empties before it works; any second run over a surface the first already wrote. The
   reliable tell is to ask **"was this true one millisecond after the click?"** - if yes, the
   assertion is a coin toss dressed as a wait.
+
+  > **The mirror, added 2026-08-13: a wait on a signal the post-condition can NEVER produce never
+  > returns, and proves exactly as little.** Two `until grep ...; do sleep; done` loops watched
+  > finished task logs for patterns those logs could not contain - one wanted the word `seconds`
+  > against output reading `428.75s` - and spun for hours over work that had already succeeded and
+  > been reported. **And the practical half: do not poll at all.** The harness re-invokes on
+  > completion, which is how both were found to be finished; a guessed pattern over a log is
+  > redundant work that can only be wrong.
 
 - **A mutation must be asserted PRESENT and UNIQUE, or its scope stated.** The fifteenth member,
   and the one the presence rule above does not reach. Presence answers "did the change land";
