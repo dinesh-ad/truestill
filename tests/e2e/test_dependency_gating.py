@@ -30,6 +30,9 @@ _TEST_ONLY = (
     "coverage",
     "pyinstaller",
     "briefcase",
+    # The PE reader `verify_icon.py` uses. Build-only for the same reason the bundlers are: it
+    # inspects an artifact and is absent from one.
+    "pefile",
 )
 
 

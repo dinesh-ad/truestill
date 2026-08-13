@@ -11,12 +11,42 @@ own maintainers discourage their AppImage backend.
 * ``/usr/bin/truestill`` - a relative symlink onto it, so the command is on PATH;
 * ``/usr/share/applications/`` - a desktop entry, because this is a double-clicked app rather
   than a daemon;
+* ``/usr/share/icons/hicolor/<N>x<N>/apps/truestill.png`` - the mark, at eight sizes;
 * ``/usr/share/doc/truestill/copyright`` - what the bundle carries and under what terms.
 
 **Depends: perl.** We vendor exiftool's *modules*; we do not vendor an *interpreter*. exiftool's
 floor is ``require 5.004`` and every distribution ships far beyond it, but declaring it is what
 makes the package honest rather than lucky - and the self-check proves it at runtime rather than
 assuming, reporting a missing interpreter differently from a broken bundle.
+
+**Depends: hicolor-icon-theme, FOR THE TRIGGER RATHER THAN FOR ITS ICONS.** We use none of its
+artwork. What we need is the *file trigger* it registers on ``/usr/share/icons/hicolor``, which is
+what refreshes the icon cache after our PNGs land; with the package absent, no trigger exists and
+the cache is never rebuilt. Verified rather than assumed, two ways. dpkg's own specification
+(``/usr/share/doc/dpkg/spec/triggers.txt``) says file triggers *"are activated automatically by
+dpkg when a matching file is installed, upgraded or removed as part of a package"* and are named
+by absolute path, *"activated when the specified filesystem object, or any object under the
+specified subdirectory, is created, updated or deleted by dpkg during package unpack or removal"*.
+So **no maintainer script of ours is needed, and none is added** - the activation is dpkg's, from
+what dpkg itself unpacks, which is equally true of ``dpkg -i`` on a local file as of apt.
+Observed on a real machine: ``hicolor-icon-theme`` is registered ``interest-noawait
+/usr/share/icons/hicolor``, declares no triggers of its own in the *triggering* package, and went
+``triggers-pending`` during the **unpack** of a package that merely ships icons - before that
+package's own configure ran.
+
+**The icon name in the desktop entry carries no extension**, and that is the specification rather
+than a style: the Icon Theme Specification's lookup appends ``.png``/``.svg``/``.xpm`` itself, so
+``Icon=truestill.png`` would be searched for as ``truestill.png.png``. Debian Policy §9.6 wants
+*"a PNG or SVG icon with a transparent background, providing at least the 22x22 size, and
+preferably up to 64x64"*; the eight sizes below clear both ends, and the transparency is asserted
+on the **staged bytes** by ``verify_icon.py`` rather than trusted.
+
+**No ``scalable/apps/truestill.svg``, deliberately.** ``brand/`` holds the mark as SVG, but as
+*two* drawings: ``build_brand_assets.py`` renders the fluted variant at 128px and above and the
+flute-less one below, because the hairline is sub-pixel at small sizes. A scalable entry can be
+preferred over a fixed size by the lookup, so shipping one would silently override that split with
+whichever variant we picked - a third drawing that can disagree with the eight PNGs. The PNGs are
+the mark here.
 
 ⚠ **On vendoring, since a Debian-literate user will notice.** Debian Policy §4.13 says *"Debian
 packages should not make use of these convenience copies unless the included package is explicitly
@@ -40,12 +70,18 @@ _ROOT = Path(__file__).resolve().parents[1]
 #: Debian's own name for x86-64. Not `x86_64`, which is what everything else calls it.
 _ARCH = "amd64"
 
+#: The hicolor sizes staged, every one a standard directory. **1024 is deliberately absent**:
+#: hicolor defines no `1024x1024`, and `brand/icons/truestill-1024.png` is byte-identical to
+#: `brand/master-1024.png` anyway. **There is no 22x22 and none is invented** - Policy's floor is
+#: cleared by 24, and a fabricated size would be a drawn asset nobody drew.
+_ICON_SIZES = (16, 24, 32, 48, 64, 128, 256, 512)
+
 _CONTROL = """Package: truestill
 Version: {version}
 Section: graphics
 Priority: optional
 Architecture: {arch}
-Depends: perl
+Depends: perl, hicolor-icon-theme
 Maintainer: truestill <noreply@truestill.invalid>
 Homepage: https://github.com/dinesh-ad/truestill
 Description: Local-first photo organizer, de-duplicator and backup pipeline
@@ -85,6 +121,12 @@ Copyright: 2003 Bitstream, Inc.
 Comment: DejaVu Sans Mono. The notice ships beside the typefaces, which is what
  the Bitstream Vera licence binds us to.
 License: Bitstream-Vera
+
+Files: usr/share/icons/hicolor/*
+Copyright: truestill
+Comment: The pillar T, rendered from brand/pillar-t-geometric*.svg. Outlined
+ artwork, not a font; see brand/PROVENANCE.md.
+License: Apache-2.0
 """
 
 
@@ -111,6 +153,20 @@ def build(dist: Path, version: str, out: Path) -> Path:
     desktop = staging / "usr" / "share" / "applications"
     desktop.mkdir(parents=True)
     (desktop / "truestill.desktop").write_text(_DESKTOP, encoding="utf-8")
+
+    # The name in the desktop entry resolves through the hicolor theme, so the files have to be
+    # where that lookup goes: `<theme>/<size>x<size>/<context>/<name>.png`. Copied rather than
+    # rendered - `brand/` is the authored source and this is a packaging step, not an authoring
+    # one. No `index.theme` is written: hicolor's belongs to hicolor-icon-theme, and a second
+    # copy would conflict with the package we depend on.
+    for size in _ICON_SIZES:
+        source = _ROOT / "brand" / "icons" / f"truestill-{size}.png"
+        if not source.is_file():
+            message = f"no brand artwork at {source} - the package would name an icon it lacks"
+            raise SystemExit(message)
+        target = staging / "usr" / "share" / "icons" / "hicolor" / f"{size}x{size}" / "apps"
+        target.mkdir(parents=True)
+        shutil.copy2(source, target / "truestill.png")
 
     docs = staging / "usr" / "share" / "doc" / "truestill"
     docs.mkdir(parents=True)

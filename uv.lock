@@ -18,6 +18,7 @@ dev = [
     { name = "briefcase", specifier = ">=0.4.4" },
     { name = "httpx2", specifier = ">=2.9.1" },
     { name = "mypy", specifier = ">=2.3.0" },
+    { name = "pefile", specifier = ">=2024.8.26" },
     { name = "pre-commit", specifier = ">=4.6.1" },
     { name = "pyinstaller", specifier = ">=6.21.0" },
     { name = "pytest", specifier = ">=9.1.1" },

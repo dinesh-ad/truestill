@@ -39,6 +39,17 @@ AppPublisherURL=https://github.com/dinesh-ad/truestill
 DefaultDirName={autopf}\Truestill
 DefaultGroupName=Truestill
 UninstallDisplayName=Truestill
+; THE FIRST THING A BUYER DOUBLE-CLICKS - before the app, before SmartScreen. Compiled from the
+; repository root, which is where release.yml copies this file, so the path is `brand\...`.
+; Inno's reference: "If this directive is not specified or is blank, a built-in icon ... will be
+; used", and it recommends 16/32/48/64/256 - brand\favicon.ico carries all five (plus 24 and 128).
+; THIS ALSO GOVERNS THE UNINSTALLER'S OWN ICON, and there is no second directive to set:
+; `UninstallIconFile` is "Obsolete in 5.0.0. As Setup and Uninstall have been merged into a single
+; executable, setting a custom icon for Uninstall is no longer possible."
+SetupIconFile=brand\favicon.ico
+; Points at the installed program, which carries the mark through PyInstaller's `--icon`. Inno
+; accepts "either an executable or an .ico file" here, so the exe is the right target: it stays
+; correct if the artwork is ever revised, because it names the thing rather than a copy of it.
 UninstallDisplayIcon={app}\truestill.exe
 OutputDir=inno-out
 OutputBaseFilename=TruestillSetup-{#MyAppVersion}

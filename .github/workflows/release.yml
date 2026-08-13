@@ -79,12 +79,21 @@ jobs:
             --add-data "exiftool-src/bin:bin" \
             packages/truestill-app/src/truestill_app/__main__.py
 
+      # `--icon` IS ON THE WINDOWS STEP ALONE, AND NOT BY OVERSIGHT. PyInstaller 6.21.0 discards
+      # it on Linux outright - `building/api.py`:
+      #     if self.icon and not (is_win or is_darwin):
+      #         logger.warning('Ignoring icon; supported only on Windows and macOS!')
+      # Adding it above would log a warning and change nothing; the Linux mark is staged by
+      # `packaging/build_deb.py` into the hicolor theme instead. `brand/favicon.ico` is used
+      # BYTE-FOR-BYTE: `building/icon.py::normalize_icon_type` returns a `.ico` unchanged when
+      # both its suffix and its magic header agree, so Pillow is never reached.
       - name: Build (PyInstaller, Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           uv run pyinstaller --noconfirm --clean --noconsole `
             --name truestill `
+            --icon brand/favicon.ico `
             --collect-data truestill_app `
             --add-data "exiftool-src/bin;bin" `
             packages/truestill-app/src/truestill_app/__main__.py
@@ -116,8 +125,13 @@ jobs:
         shell: bash
         run: uv run python packaging/compare_selfcheck.py findings/selfcheck-${RUNNER_OS}.json
 
-      # THE INSTALLER. The slot this lane's header reserved. Only Windows for now: the Linux
-      # artifact shape (.deb, exiftool declared) is the next item in BACKLOG (aad).
+      # THE MARK, ASSERTED ON THE BUILT EXECUTABLE rather than on the flag that was passed or on
+      # the file in `brand/`. Both are one step short of the property - see verify_icon.py.
+      - name: Verify the executable carries the mark
+        if: runner.os == 'Windows'
+        run: uv run python packaging/verify_icon.py --exe dist/truestill/truestill.exe
+
+      # THE INSTALLER. The Linux half is the `.deb` step below; both are built here now.
       - name: Build the installer (Inno Setup)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -139,6 +153,13 @@ jobs:
           [ -n "$version" ] && [ "$version" != "main" ] || version="0.0.0"
           uv run python packaging/build_deb.py --dist dist/truestill --version "$version" --out out
 
+      # Both sides, out of the package payload: the desktop entry names what is staged, and what
+      # is staged hashes to the committed artwork. Neither half alone would catch an entry and a
+      # tree that disagree.
+      - name: Verify the package carries the mark
+        if: runner.os == 'Linux'
+        run: uv run python packaging/verify_icon.py --deb "$(ls out/truestill_*.deb | head -1)"
+
       # THE SAME DETECTOR AS WINDOWS, in the shape apt gives us. Install, ask the INSTALLED copy
       # what it contains, then remove it and check the catalog survived. `dpkg -i` is unattended
       # by nature, so the constraint that needed testing on Windows is free here.
@@ -151,6 +172,10 @@ jobs:
           sudo dpkg -i out/truestill_*.deb
           test -x /usr/bin/truestill || { echo '::error::no /usr/bin/truestill'; exit 1; }
           test -f /usr/share/applications/truestill.desktop || { echo '::error::no desktop entry'; exit 1; }
+          # dpkg actually placed the mark where the entry's Icon= resolves. The payload check
+          # above proves the package carries it; this proves installing it puts it there.
+          test -f /usr/share/icons/hicolor/48x48/apps/truestill.png || {
+            echo '::error::the desktop entry names an icon the install did not place'; exit 1; }
 
           # A stand-in for the user's catalog, in the directory the product resolves to.
           data="$HOME/.local/share/Truestill"
@@ -199,6 +224,10 @@ jobs:
           & $app --self-check findings/selfcheck-installed.json
           if ($LASTEXITCODE -ne 0) { throw "the INSTALLED copy failed its own self-check" }
           uv run python packaging/compare_selfcheck.py findings/selfcheck-installed.json
+
+          # The mark survived compression and install, asserted on the copy the user runs.
+          uv run python packaging/verify_icon.py --exe $app
+          if ($LASTEXITCODE -ne 0) { throw "the INSTALLED executable does not carry the mark" }
 
           # A stand-in for the user's catalog, in the directory the uninstall message promises to
           # leave alone.

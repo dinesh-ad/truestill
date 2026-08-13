@@ -49,6 +49,15 @@ dev = [
     # `tests/e2e/test_dependency_gating.py` so they cannot drift into a shipped package.
     "pyinstaller>=6.21.0",
     "briefcase>=0.4.4",
+    # PE reader for `packaging/verify_icon.py`, which asserts the SHIPPED executable carries the
+    # mark in `brand/`. It already arrives transitively with PyInstaller (win32 only), and §7's
+    # rule is that what we import, we declare - the numpy row's exact reasoning, since a
+    # transitive dependency we call directly is one the parent could bound or drop underneath us.
+    # DECLARED WITHOUT A MARKER on purpose: `test_dependency_floors` anchors its spec pattern with
+    # `$`, so `; sys_platform == 'win32'` would make the floor unreadable to the guard that keeps
+    # it honest. The wheel is 75 KB and pure Python, and having it everywhere is what lets the
+    # parser test run on all three lanes rather than only on Windows.
+    "pefile>=2024.8.26",
 ]
 
 # --- Ruff (lint + format), applied repo-wide ------------------------------------------
@@ -233,5 +242,17 @@ strict = true
 # fontTools is not a project dependency at all: `scripts/build_brand_assets.py` is a
 # one-shot authoring tool run with `uv run --with fonttools --with pillow`. It is in the
 # mypy fence because §6 puts every script there, so its imports need an entry here.
-module = ["imagehash", "PIL", "PIL.*", "pillow_heif", "send2trash", "fontTools.*"]
+module = [
+    "imagehash",
+    "PIL",
+    "PIL.*",
+    "pillow_heif",
+    "send2trash",
+    "fontTools.*",
+    # `packaging/verify_icon.py` reads PE resources with pefile, and locates PyInstaller's own
+    # default icon to prove the shipped executable is not still wearing it. Neither ships stubs;
+    # `types-pyinstaller` exists but would be a dependency taken for one `__file__` lookup.
+    "pefile",
+    "PyInstaller",
+]
 ignore_missing_imports = true
