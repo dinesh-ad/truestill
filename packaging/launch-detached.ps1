@@ -63,8 +63,14 @@ $pi = New-Object TruestillProbe.Native+PROCESS_INFORMATION
 
 $DETACHED_PROCESS = 0x00000008
 
+# `[NullString]::Value`, NOT `$null`. PowerShell marshals `$null` to a `string` parameter as an
+# EMPTY STRING, and an empty `lpApplicationName` is a path CreateProcess cannot find - which is
+# `win32 error 3`, the failure every dispatch of this rig has hit. Evidence that it is the
+# P/Invoke and not a path: the instrumented message reported `exe exists: True` and
+# `working directory exists: True` for two different executables in two different trees, both
+# failing identically. `[NullString]::Value` is the documented way to pass a real null string.
 $created = [TruestillProbe.Native]::CreateProcess(
-    $null, $commandLine, [IntPtr]::Zero, [IntPtr]::Zero,
+    [NullString]::Value, $commandLine, [IntPtr]::Zero, [IntPtr]::Zero,
     $false, $DETACHED_PROCESS, [IntPtr]::Zero, $WorkingDirectory, [ref]$si, [ref]$pi)
 
 if (-not $created) {
