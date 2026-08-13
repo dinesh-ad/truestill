@@ -1917,6 +1917,18 @@ section, because what is left is the part that still has to be written.
     identity; Rekor logs it. **It does nothing to SmartScreen** - it is a provenance claim, and
     the strongest one available at zero spend.
 
+  ### ✅ 2026-08-13: THE FIRST COMPLETE END-TO-END PATH, BOTH PLATFORMS (run 31689737405)
+
+  **Windows**: exiftool verified against its pinned digest, frozen, **self-checked**, **matched
+  against this repository**, installer compiled, **installed silently**, the *installed* copy
+  self-checked and matched again, **uninstalled silently - and the catalog survived**.
+  `installer verified: installs unattended, self-checks, uninstalls, keeps the catalog`.
+  **Linux**: the same, in `.deb` shape - `package verified: installs, self-checks, removes, keeps
+  the catalog`.
+
+  **This is the line between a repository and something a person can install.** Every earlier
+  green in this entry was a measurement; this is the artifact.
+
   ### THE DETECTOR WORKED, and that is the finding
 
   **The step written to test unattended behaviour hung on the unattended constraint, in the
