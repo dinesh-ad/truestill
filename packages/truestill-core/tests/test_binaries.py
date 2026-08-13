@@ -6,16 +6,21 @@ inherited PATH worth relying on - and the binary it needs was shipped *inside* i
 first would mean an installed copy silently preferring whatever version happens to be on the
 user's machine over the one it was tested against.
 
-**"Bundled" is stated as a contract, not as a bundler's layout.** No PyInstaller ``_MEIPASS``, no
-Briefcase directory shape - those would tie this to a tool the project has not chosen yet, and
-`(aad)` is explicit that the bundler question is still open. What is fixed is what *we* promise
-to look at, and a bundler is chosen partly on whether it can satisfy it:
+**"Bundled" is stated as a contract, not as a bundler's layout.** These tests name no PyInstaller
+``_MEIPASS`` and no Briefcase directory shape: what is fixed is what *we* promise to look at, and
+a bundler is judged partly on whether it can satisfy it. **`(aad)` chose PyInstaller on
+2026-08-13** - this paragraph said the question was still open until 2026-08-13 - and the contract
+is deliberately unchanged by that: ``TRUESTILL_BIN_DIR`` remains the escape hatch for a layout
+nobody anticipated, so a future packaging change stays a packaging change rather than an edit to
+the core's search order. The four places, in order:
 
 1. a per-binary override (``TRUESTILL_EXIFTOOL``) - an escape hatch for a user with a specific
    build, and how these tests inject one;
 2. ``TRUESTILL_BIN_DIR`` - one directory a packager fills;
-3. ``bin/`` beside the running executable - the zero-configuration default, which both candidate
-   bundlers can satisfy by laying the file down in the right place and setting nothing.
+3. ``bin/`` beside the running executable - the zero-configuration default, satisfiable by laying
+   the file down in the right place and setting nothing. **PyInstaller does not**: a one-dir build
+   puts ``--add-data`` content under ``_internal/`` and points ``_MEIPASS`` there, which is why
+   `bundled_bin_dirs` probes that too.
 4. Then PATH.
 
 **Resolution is deliberately not cached, and that is a measured decision.** ``ensure_exiftool``

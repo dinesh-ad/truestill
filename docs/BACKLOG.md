@@ -1804,12 +1804,20 @@ section, because what is left is the part that still has to be written.
      on a repeatedly-invoked command - a real concern with **no number**. The rig freezes the app
      entry point; there is no frozen `truestill` CLI to time. Measure before quoting anything.
 
-  ### SIZING, 2026-08-13 - nothing built
+  ### ~~SIZING, 2026-08-13 - nothing built~~ - SUPERSEDED, everything below it was built the same day
+
+  ⚠ **Everything from here to the end of this SIZING block is the sizing done BEFORE any of it
+  existed, and items 1-4 above are what actually shipped.** Kept rather than rewritten because it
+  is the record of what was costed and in what order; read it as history, and read the ✅ items
+  above for what is true. The three clauses most likely to mislead a reader who lands here are
+  named where they sit: the `.deb` row's dependency, the Linux ruling, and the sentence below.
 
   **exiftool leads this, because it decides the Linux shape rather than following it.**
   **There is no standalone Linux exiftool.** exiftool.org ships a Windows `.exe` and a macOS
   `.pkg`; **Linux gets the Perl distribution** - the script plus its `lib/Image/ExifTool` tree,
-  which runs against the system perl. Our bundle copies **the script alone**, which is the defect.
+  which runs against the system perl. ~~Our bundle copies **the script alone**, which is the
+  defect.~~ **Fixed by item 4**: `packaging/exiftool_source.py` stages the script *with* its 225
+  modules, on both platforms.
 
   #### Checked before ruling: does the documented resolution rule match the code?
 
@@ -1851,14 +1859,23 @@ section, because what is left is the part that still has to be written.
 
   | shape | how a user with **no exiftool** fares | cost |
   |---|---|---|
-  | **`.deb`** | `Depends: libimage-exiftool-perl` - **apt solves it**, needs a repo/network at install time | packaging metadata; apt-family distros only |
+  | **`.deb`** | ~~`Depends: libimage-exiftool-perl` - **apt solves it**, needs a repo/network at install time~~ **NOT WHAT SHIPPED**: the package declares `Depends: perl, hicolor-icon-theme` and vendors exiftool's modules (item 4) | packaging metadata; apt-family distros only |
   | **AppImage** | works **only if we carry exiftool's whole Perl tree** (script + `lib/`); still needs system perl | must fix the bundling defect first; largest artifact |
   | **tarball + script** | **told to install exiftool themselves** - the developer answer | cheapest; least like a product |
 
   **This is the deciding column, not a detail:** the same three formats give a user with no
   exiftool three different experiences - solved for them, carried for them, or handed to them.
 
-  #### RULED 2026-08-13: exiftool is DECLARED on Linux, BUNDLED on Windows
+  #### ~~RULED 2026-08-13: exiftool is DECLARED on Linux, BUNDLED on Windows~~ - SUPERSEDED the same day
+
+  ⚠ **REVERSED BY ITEM 4 ABOVE, which is the ruling that shipped: vendor the official distribution
+  on BOTH platforms.** The strikethrough at item 3 records the same reversal; this block is its
+  full reasoning and is kept for that, not deleted. What reversed it was measurement - the official
+  tarball is self-contained by upstream's own documented contract, so bundling does not mean
+  hand-assembling a runtime. **Two clauses below are now false about the product**: Linux is
+  bundled, not declared; and `--add-binary` never placed exiftool on either platform
+  (`--add-data` on the tree is the mechanism - see item 4). The CVE point survives as the
+  maintenance obligation it always was: a pinned vendored tree is ours to bump.
 
   - **Linux: `.deb` with `Depends: libimage-exiftool-perl`. Not bundled.** It is what the
     platform's tooling exists to do, and bundling means carrying a Perl tree **we cannot verify

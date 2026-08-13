@@ -6,10 +6,13 @@ one: a double-clicked desktop app inherits no useful PATH, and the binary it nee
 *inside* it. Searching PATH first would also mean an installed copy silently preferring whatever
 version is on the user's machine over the one it was built and tested against.
 
-**"Bundled" is a contract this module defines, not a bundler's layout.** `(aad)` has not chosen
-between PyInstaller, Briefcase and the rest, and hard-coding one tool's directory shape here
-would quietly make that choice. So the promise runs the other way: these are the places truestill
-looks, and a candidate bundler is judged partly on whether it can put a file in one of them.
+**"Bundled" is a contract this module defines, not a bundler's layout.** The promise runs the
+other way round from the usual: these are the places truestill looks, and a bundler is judged
+partly on whether it can put a file in one of them. That shape was chosen while the bundler was
+undecided, and **it is kept now that PyInstaller has been chosen (`(aad)`, 2026-08-13)** for a
+better reason than the original one - `TRUESTILL_BIN_DIR` is the escape hatch for a layout nobody
+anticipated, and hard-coding one tool's directory shape here would make the next bundler question
+a code change in the core rather than a packaging one.
 
 **Not every external binary belongs here, and the line is not "whichever one we touched today".**
 Bundle what we *compute with*; never bundle what we *delegate to*.
@@ -17,17 +20,29 @@ Bundle what we *compute with*; never bundle what we *delegate to*.
 * ``exiftool`` is computed with. Its output becomes catalog data, so the version matters and a
   shipped app should carry a known one. It uses this module.
 
-  **AND THE ANSWER IS PER PLATFORM, ruled 2026-08-13 (`BACKLOG.md` `(aad)`), which this rule did
-  not previously admit.** **Windows: bundled** - exiftool.org ships a real self-contained `.exe`,
-  ``--add-binary`` already places it, and Windows has no package manager to lean on.
-  **Linux: a DECLARED DEPENDENCY** (`libimage-exiftool-perl`, via the `.deb`), **not bundled** -
-  there is no standalone Linux exiftool, only a Perl script plus its ``Image::ExifTool`` tree, and
-  carrying someone else's runtime means owning a CVE surface we cannot patch. So on Linux this
-  module resolves exiftool **from PATH by design**, and that is a legitimate resolution rather
-  than a fallback that failed to find a bundle.
+  **BUNDLED ON BOTH PLATFORMS** (`BACKLOG.md` `(aad)` item 4, ruled and built 2026-08-13).
+  `packaging/exiftool_source.py` fetches the **official distribution**, verifies a pinned
+  SHA2-256, and stages the script or launcher **with its module tree** - which is the shape
+  upstream's own README requires: move the script, move ``lib/`` with it. So a packaged truestill
+  resolves the exiftool it shipped with, on Windows and on Linux alike, and the version its
+  catalog data was produced by is one we chose.
 
-  *The asymmetry is one product meeting two platforms' conventions, not one packaging stretched
-  across both.* Either way the user gets a working exiftool; only who supplies it differs.
+  A source checkout resolves from PATH, and that is not a failed bundle lookup: `bundled_bin_dirs`
+  filters to directories that **exist**, so a checkout gets ``[]`` and falls through with nothing
+  skipped. The `.deb` declares ``Depends: perl`` for the same reason - we vendor exiftool's
+  *modules*, never an *interpreter*.
+
+  > ⚠ **This paragraph said the opposite until 2026-08-13, and acting on it would have been a
+  > defect rather than an untidiness.** It recorded a ruling - *Linux: a DECLARED DEPENDENCY
+  > (`libimage-exiftool-perl`), resolved from PATH by design* - that was **reversed the same day**
+  > by `676f479`, which this file was not brought along with. `BACKLOG.md` names this module as
+  > where that rule was written down, so it is what a reader consults; anyone implementing what it
+  > said would have made a packaged Linux install prefer the **host's** exiftool over the vendored
+  > tree, which is exactly the silent substitution `676f479` hardened `selfcheck.exiftool_finding`
+  > to catch (a stripped bundle reported ``ok`` while borrowing the host's modules). It also
+  > credited ``--add-binary`` with placing exiftool: that flag copies **one file** and PyInstaller
+  > deliberately collects nothing from ``/lib``, so it could never have carried the modules on
+  > either platform. ``--add-data`` on the tree is the mechanism.
 * ``rclone`` (`destinations.rclone`) is the **user's own tool**, paired with the user's own
   remotes and credentials. A bundled copy would not know their config and would be the wrong
   binary by definition. PATH only.
@@ -194,8 +209,12 @@ def is_bundled_install() -> bool:
     bundle is intact - which is exactly the property a broken bundle needs.
 
     **Known limit, stated rather than discovered later:** freezers set ``sys.frozen``
-    (PyInstaller, cx_Freeze, py2exe); a Briefcase-style install ships an ordinary interpreter
-    and does **not**. If Briefcase is chosen in `(aad)`, this needs a second signal, and the
-    Briefcase throwaway is what should establish which one.
+    (PyInstaller, cx_Freeze, py2exe); an install that ships an ordinary interpreter - Briefcase's
+    shape, and a distro package that installed the sources would be another - does **not**, and
+    reads `False` here. **`(aad)` chose PyInstaller on 2026-08-13**, which sets it, so the limit is
+    not reached by anything truestill ships today. It is kept because it describes when a second
+    signal would be needed rather than which tool was in front of us: `selfcheck.install_finding`
+    reports this value instead of relying on it, precisely so a bundle answering `False` shows
+    that fact rather than hiding it inside another check's verdict.
     """
     return bool(getattr(sys, "frozen", False))
