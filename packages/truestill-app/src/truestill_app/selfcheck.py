@@ -85,8 +85,17 @@ def _face_finding(path: Path) -> Finding:
 
 
 def _licence_finding(path: Path) -> Finding:
+    """**Read as BYTES, then decode - never `read_text`.**
+
+    `read_text` applies universal newlines, so a CRLF checkout decodes to LF and the reported
+    length is the *translated* length rather than the file's. Measured on Windows (run
+    31671053639): the artifact reported **4007** bytes for a file the checkout held at **4080** -
+    73 line endings - and the comparison against the repository failed on a file that was
+    byte-for-byte correct. A byte count that changes with how you read it is not a byte count.
+    The typefaces never showed it because binary reads are not translated.
+    """
     try:
-        text = path.read_text(encoding="utf-8")
+        payload = path.read_bytes()
     except OSError:
         return Finding(
             "font licence",
@@ -94,7 +103,7 @@ def _licence_finding(path: Path) -> Finding:
             f"the Bitstream Vera notice is not beside the typefaces ({path})",
             {"path": str(path)},
         )
-    payload = text.encode("utf-8")
+    text = payload.decode("utf-8", errors="replace")
     evidence: dict[str, str | int] = {
         "path": str(path),
         "bytes": len(payload),

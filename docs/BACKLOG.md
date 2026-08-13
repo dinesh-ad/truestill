@@ -1867,6 +1867,28 @@ section, because what is left is the part that still has to be written.
         `technique: unsound` when it cannot attach. And those questions were already ruled
         non-deciding here - *"windowed-ness is already settled by mechanism, not pending
         measurement"*.
+    - ✅ **WINDOWS MEASURES AGAIN (run 31671053639), AND BOTH CRITERIA PASS ON BOTH BUNDLERS.**
+      `trash: send2trash` and all three assets `ok` at **343140 / 334268 / 4007** bytes for
+      PyInstaller **and** Briefcase; assertions 3 and 4 PASS (`HTTP 200`). With Linux, the
+      criteria are now discharged on **three of four** platform/bundler pairs - only
+      Briefcase/Linux is missing, blocked by the Python-version wall above.
+      - **PyInstaller/Windows** `sys.frozen: True`, `_MEIPASS` set, `bundled_bin_dirs` →
+        `_internal\bin`, `has_console` false both streams, legacy probe **skipped** (pass).
+      - **Briefcase/Windows** `sys.frozen: None` → `install: source checkout`. The known limit at
+        `binaries.is_bundled_install`, now confirmed on a real artifact: **a Briefcase user with a
+        broken install would be shown the SOURCE exiftool message** telling them to run
+        `sudo apt install`. Beside-the-executable resolution fires, as recorded.
+      - ⚠ **The console and legacy-probe readings in this run are CONTAMINATED and are not
+        answers.** Both launches inherit the runner's console, which is the exact contamination
+        the deleted launcher existed to prevent. Recorded as unusable rather than as findings.
+    - 🔴 **AND THE COMPARISON CAUGHT A DEFECT IN THE CHECK ITSELF, on its first Windows run.**
+      `LICENSE-DejaVu.txt`: repository **4080** bytes / `b5d4fd1a3f8d`, artifact **4007** /
+      `81415c280379`. **73 line endings.** `_licence_finding` used `read_text`, which applies
+      universal newlines, so a CRLF checkout was measured at its *translated* length while the
+      job compared raw bytes. **A byte count that changes with how you read it is not a byte
+      count.** Fixed to `read_bytes`; the typefaces never showed it because binary reads are not
+      translated. Pinned by `test_the_notice_is_measured_as_bytes_...`, which builds a CRLF
+      fixture explicitly so the detector runs on **every** lane rather than only Windows.
     - **Three faults of the instrument's own, found by the same run and fixed:** the comparison
       script read only the rig's `--probe` envelope and so reported *"the artifact never ran it"*
       about an artifact that had run it and failed - **the rig's own fence forbids exactly that

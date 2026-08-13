@@ -130,6 +130,34 @@ def test_a_notice_that_never_shipped_is_reported_missing(tmp_path: Path) -> None
     assert _named(findings, "font licence").status is Status.MISSING
 
 
+def test_the_notice_is_measured_as_bytes_so_a_crlf_checkout_reports_its_real_size(
+    tmp_path: Path,
+) -> None:
+    """A Windows-only defect, given a detector that runs on every lane.
+
+    `read_text` applies universal newlines, so a CRLF file decodes to LF and the reported length
+    is the translated one. Run 31671053639 measured it: the artifact said **4007** bytes for a
+    file the checkout held at **4080**, and the comparison against the repository failed on a
+    file that was byte-for-byte correct.
+
+    Written with an explicit CRLF fixture rather than left to the platform, which is the point -
+    `ENGINEERING_STANDARD.md` §4, thirty-ninth member: a measurement that only differs on one OS
+    needs a fixture that reproduces that OS's shape, or only that OS's lane can catch it.
+    """
+    root = _static_copy(tmp_path)
+    notice = root / "fonts" / LICENCE_NAME
+    crlf = notice.read_bytes().replace(b"\n", b"\r\n")
+    notice.write_bytes(crlf)
+
+    finding = _named(font_findings(root), "font licence")
+
+    assert finding.status is Status.OK, "a CRLF notice is still a valid notice"
+    assert finding.evidence["bytes"] == len(crlf), (
+        "the reported size is the newline-translated one, not the file's"
+    )
+    assert finding.evidence["sha256"] == hashlib.sha256(crlf).hexdigest()
+
+
 # ------------------------------------------------------------------------------- composition
 
 
