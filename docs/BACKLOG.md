@@ -2102,6 +2102,24 @@ section, because what is left is the part that still has to be written.
         whether Briefcase's pre-1.0 config churn is cheaper than that. **A frozen artifact that
         can report what it contains is the prerequisite** - see the acceptance criteria above; a
         bundler chosen without one is a choice nobody can check.
+      - **EVIDENCE ON THE THREE SURVIVING COLUMNS, 2026-08-12. Not a decision; the bundler stays
+        unchosen.**
+        - **Briefcase's own docs discourage its AppImage backend** - *"we strongly discourage the
+          use of AppImages for distribution"*, not built in their release process, bugs *"not a
+          priority"* - and point at System packages or Flatpak. So this entry's *"deb/AppImage
+          natively"* is **half-withdrawn by its maintainers**, and the surviving half is the
+          target that just failed on Python version (above).
+        - **Pre-1.0 risk is not theoretical:** a 2026 advisory covered MSI installers for All
+          Users inheriting parent-directory permissions - fixed and backported. Newest release is
+          **0.4.4**, which is what this repo pins.
+        - **Against that:** 2026 Q2 work genuinely improved the Windows MSI - pre-install checks,
+          desktop shortcuts, better uninstall scripts - which is the install-shape column, and an
+          MSI carries AV trust a bare `.exe` does not.
+      - **STARTUP TIME IS STILL UNGROUNDED and is a user-facing number.** One published
+        comparison put a PyInstaller **one-file** build at ~50 s against cx_Freeze at ~8 s,
+        because one-file extracts to temp on every launch; **one-folder avoids it** and is what
+        this rig builds. Measure ours when a Windows artifact is reachable. Until then it is a
+        guess.
       - **THE LINUX READING BEHIND THIS IS ONE TARGET, AND IT IS THE UNREPRESENTATIVE ONE.** Under
         D9 Linux is a launch platform, not a rounding error. The only Linux artifact ever built is
         Briefcase `linux system`, whose FHS layout this entry itself calls *"required rather than
