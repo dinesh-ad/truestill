@@ -94,6 +94,40 @@ jobs:
       # TS_PYTEST_SECONDS across several runs, which the timing summary below already records.
       # If the median does not move, delete this step - an unmeasured optimisation that stays
       # forever is how a workflow accumulates cargo.
+      # THE TEMP DIRECTORY IS ON THE WRONG DRIVE, and this is the larger of the two Windows
+      # findings. Python's `tempfile` reads `TEMP`, which on these runners defaults to
+      # `C:\Users\runneradmin\AppData\Local\Temp` - and GitHub's C: is the slow, read-optimised
+      # volume while D: is fast local storage. pip measured 10-28% off an I/O-heavy Python suite
+      # by moving `TEMP` to D: alone (sichard.ca/blog/2025/03/faster-pip-ci-on-windows-d-drive).
+      #
+      # This suite is I/O-heavy in exactly that way: measured on run 31795323999, Windows pytest
+      # summed 1638 s against Ubuntu's 121 s - **13.5x** - while `Install exiftool`, fixed work
+      # our code cannot touch, was only 1.8x. So it is not a slow machine. The per-file ratios
+      # put the worst offenders in catalog and SQLite tests (trip_review 79x, clean_empty 70x,
+      # catalog_statistics 66x), which is syscall cost rather than compute.
+      #
+      # ⚠ MEASURE IT ACROSS RUNS, NOT ONE. §5.1 records this lane at 405-1308 s over fourteen
+      # runs on a near-constant suite; a 2.6x spread means one green run cannot tell this change
+      # from noise. `TS_PYTEST_SECONDS` is already recorded per run - read the MEDIAN. If it does
+      # not move, delete this step, on the same rule the Defender step below carries.
+      - name: Put TEMP on the fast drive (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path D:\Temp | Out-Null
+          "TEMP=D:\Temp" >> $env:GITHUB_ENV
+          "TMP=D:\Temp" >> $env:GITHUB_ENV
+
+      # Recorded rather than asserted: the step above only helps if Python actually writes there.
+      # `RUNNER_TEMP` and `TEMP` are different directories on this runner, which is how the
+      # Defender exclusion below came to name one that pytest never used.
+      - name: Where Python writes temp files (Windows)
+        if: runner.os == 'Windows'
+        shell: python
+        run: |
+          import tempfile
+          print("tempfile.gettempdir() ->", tempfile.gettempdir())
+
       - name: Exclude the workspace from Defender (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -101,6 +135,11 @@ jobs:
         run: |
           Add-MpPreference -ExclusionPath "${{ github.workspace }}"
           Add-MpPreference -ExclusionPath "$env:RUNNER_TEMP"
+          # THE ONE PYTEST ACTUALLY USES. The two lines above exclude the workspace and
+          # `RUNNER_TEMP`; `tempfile` reads `TEMP`, which is neither of those by default. An
+          # exclusion aimed at a directory the workload never touches is an optimisation that
+          # cannot work, and it read as done for as long as it was there.
+          Add-MpPreference -ExclusionPath "$env:TEMP"
 
       - name: Pytest
         shell: bash

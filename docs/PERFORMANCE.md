@@ -666,6 +666,38 @@ slower suite raises the ratio instead. It is **recorded and never enforced** - a
 fire on this variance, and a gate that fires on noise gets switched off and takes its signal
 with it.
 
+### 5.3 The Windows lane is I/O, not a slow machine (measured 2026-08-14, run 31795323999)
+
+§5.1 attributed a 23-minute Windows run to the machine, and its evidence was that the fixed-cost
+steps rose *with* the pytest step. **On this run they did not**, which points somewhere else:
+
+| | windows | ubuntu | ratio |
+|---|---:|---:|---:|
+| pytest, summed test time | 1638 s | 121 s | **13.5x** |
+| pytest, wall clock (`-n auto`) | 831 s | 67 s | 12.4x |
+| `Install exiftool` - fixed work our code cannot touch | 23 s | 13 s | **1.8x** |
+
+A machine 1.8x slower on fixed work is not producing a 13.5x suite by being slow. **The cost is
+syscalls**, and the per-file ratios say so: the worst are catalog and SQLite tests - `trip_review`
+79x, `clean_empty_cli` 70x, `catalog_statistics` 66x, `migrate` 56x - while the top fourteen files
+are only 39% of the total. A broad, file-system-shaped tax rather than a few slow tests.
+
+**Two causes found, one of them a guard aimed at the wrong place.**
+
+* Python's `tempfile` reads `TEMP`, which defaults to `C:\Users\runneradmin\AppData\Local\Temp`
+  on these runners. **`RUNNER_TEMP` is a different directory**, and it was the one the Defender
+  exclusion named - so pytest's temp trees were never excluded. An exclusion pointed at a path the
+  workload does not use cannot work, and it read as done for as long as it sat there.
+* GitHub's Windows C: is the slow, read-optimised volume; D: is fast local storage. pip measured
+  **10-28%** off an I/O-heavy Python suite by moving `TEMP` to D: alone
+  ([write-up](https://sichard.ca/blog/2025/03/faster-pip-ci-on-windows-d-drive/)). Standard
+  runners only - larger paid runners have no D:.
+
+⚠ **NOT YET PROVEN HERE, and one run cannot prove it.** §5.1 records this lane at 405-1308 s over
+fourteen runs on a near-constant suite, so a single green run is inside the noise either way. Read
+the **median** of `TS_PYTEST_SECONDS` across several runs. If it does not move, delete both steps -
+§5.1's own rule, and the reason it is written on the Defender step too.
+
 ## 6. Local lane durations, and the ceilings that hold them (measured 2026-08-09)
 
 **Both lanes got materially faster on 2026-08-09, and the numbers below are the state after
