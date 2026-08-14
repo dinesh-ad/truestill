@@ -84,6 +84,19 @@ BANNED: dict[str, str] = {
 #: line *before* the scan, so these survive without exempting the whole file around them.
 ALLOWED: tuple[tuple[str, str], ...] = (
     (
+        r"(/home/dinesh/pCloudDrive/|/home/dinesh/Icedrive/|/home/dinesh\b)",
+        (
+            "the corpus fence in IMPLEMENTATION_STANDARDS.md 5 and its short form in "
+            "PROJECT_STATUS.md 4. THE PATHS ARE THE RULE. The clause used to say only "
+            '"the maintainer\'s encrypted cloud mount is READ-ONLY", and naming nothing was '
+            "its defect rather than its discretion: a fence you cannot check a command against "
+            "BEFORE running it is a fence you discover you have crossed. pCloud is a FUSE "
+            "mount, so a stat is a billed network round-trip - the cost is invisible in the "
+            "command and real on the wire, which is precisely why the rule must carry the "
+            "literal paths instead of describing them."
+        ),
+    ),
+    (
         r"github\\\.com/dinesh-ad/truestill/\\\.github/workflows/release\\\.yml@",
         (
             "the cosign `--certificate-identity-regexp` in README.md's verification section. The "

@@ -226,10 +226,12 @@ narrative, or volatile counts.
   `IMPLEMENTATION_STANDARDS.md` §5, which is the source - do not restate it here):
   - test / profile / soak against **only** source `~/TruestillLibrary/Input` → destination
     `~/TruestillLibrary/Output`. `Input/Testing-new` stays out.
-  - **The encrypted cloud mount is READ-ONLY**: resolve, stat and read a path to understand structure;
-    never write to it, organize into it, or walk it broadly. **More than a handful of entries -
-    ask first.** The cost is the maintainer's disk: a scan pulls gigabytes through the local
-    cache.
+  - **`/home/dinesh/pCloudDrive/` and `/home/dinesh/Icedrive/` are FENCED OUTRIGHT**: never read,
+    never walked, never stat'd, at any depth, under any flag. Never root a `find` at
+    `/home/dinesh` - a bare `find /home/dinesh -maxdepth 4` walks both. ⚠ Tightened 2026-08-14
+    from *"READ-ONLY: resolve, stat and read a path to understand structure"*; both are FUSE mounts
+    backed by a network service, so a `stat` is a round-trip billed to the maintainer's disk, and the old rule
+    named no path so it could not be checked before a command ran.
   - **The locked folder inside it is OFF LIMITS, unconditionally** - do not resolve into it,
     stat inside it, or descend. No task-scoped exception exists; only the maintainer grants one.
 
