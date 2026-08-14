@@ -344,6 +344,25 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   batch mutation script that reported four dead guards which were dead only because a stale
   `.pyc` meant CPython never ran the mutated source. **The harness is a subject under test, and
   the direction to be wrong in is loud.**
+- **When a census measures a PROXY, ask what the proxy cannot distinguish.** The fifty-fourth
+  member, and the family it belongs to is the checks that stop one step short of the property
+  they claim - except here the shortfall is in the *measurement*, so it under-reports the very
+  defect it was run to size.
+
+  *Worked example - the orientation census, 2026-08-14.* `render` never applied EXIF orientation,
+  and the census that sized the damage counted **aspect**: photographs whose stored width and
+  height disagree with their tag. It reported **31.7%**. But orientation 3 is a 180-degree
+  rotation, which **leaves width and height unchanged** - so every measurement of shape agrees
+  with a picture that is upside down. 67 photographs were shipping inverted and the method that
+  found the other 1,303 was structurally incapable of seeing them. The real figure is **33.3%**.
+
+  **Aspect is a proxy for orientation, and it is blind to exactly one of the eight cases.** The
+  question that would have caught it costs one sentence: *what does this measurement treat as
+  identical that the defect treats as different?* Ask it before quoting the number, because a
+  census is usually quoted once and then cited forever.
+
+  Related: the fifty-second member covers a guard aimed at nothing; this one is a guard aimed at
+  the right subject through a lens that cannot resolve part of it.
 
   > **The tell is the strongest in this whole family: the test fails on output you believe is
   > correct.** That belief is the signal. Do not reach for the assertion to make it green -
