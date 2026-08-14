@@ -58,3 +58,74 @@ jobs:
       - name: Holder times
         if: always()
         run: uv run python scratchpad/lockhunt/summarize_trace.py "${{ runner.temp }}/lockhunt.jsonl"
+
+  # ------------------------------------------------------------------------------------------
+  # Q22, ONE DIAGNOSTIC RUN. The lane's holder reaches 20260 ms while the rig's tops out at
+  # 1460 ms on the same device (/dev/root ext4). The one thing the lane writes continuously to
+  # that device and the rig does not is Playwright's video and trace capture. This is the same
+  # lane with capture off and nothing else changed.
+  #
+  # Capture is NOT removed from `make e2e`: `E2E_EXTRA` is appended last, so `--video off
+  # --tracing off` override the target's own flags for this run only. A tail that collapses
+  # names the mechanism; a tail that survives clears Playwright and the search continues.
+  # ------------------------------------------------------------------------------------------
+  e2e-no-capture:
+    name: Q22 - the e2e lane with video and tracing off
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install exiftool
+        run: sudo apt-get update && sudo apt-get install -y libimage-exiftool-perl
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Set up Python 3.13
+        run: uv python install 3.13
+
+      - name: Sync workspace (lockfile must be current)
+        run: uv sync --all-packages --group dev --locked
+
+      - name: Resolve playwright version
+        id: pw
+        run: |
+          version="$(uv run playwright --version | awk '{print $NF}')"
+          test -n "$version" || { echo "could not resolve the playwright version"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Cache browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+
+      - name: Install browsers
+        run: uv run playwright install --with-deps chromium webkit
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: packages/truestill-app/frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: packages/truestill-app/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: make frontend-install
+
+      # `continue-on-error`: the lane is expected to be RED. What is being read is the holder
+      # distribution, and a red step must not skip the step that prints it.
+      - name: E2E, capture off
+        continue-on-error: true
+        env:
+          TRUESTILL_LOCKHUNT: ${{ runner.temp }}/lockhunt-nocapture.jsonl
+        run: make e2e E2E_EXTRA="--video off --tracing off" E2E_SECONDS_MAX=3600
+
+      - name: Holder times, capture off
+        if: always()
+        run: |
+          uv run python scratchpad/lockhunt/summarize_trace.py \
+            "${{ runner.temp }}/lockhunt-nocapture.jsonl"
