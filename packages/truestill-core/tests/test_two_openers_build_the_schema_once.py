@@ -41,7 +41,6 @@ import threading
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 from truestill_core.catalog import Catalog
 
 #: Two is enough: the defect is a check-then-act, and one interleaving exhibits it.
@@ -114,15 +113,6 @@ def test_the_race_is_actually_forced(tmp_path: Path) -> None:
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Committed BEFORE the fix, deliberately: a regression test that has never been seen to "
-        "fail is a test nobody has checked. `strict` so this errors the moment it starts "
-        "passing, which forces the marker off in the commit that fixes `_migrate` rather than "
-        "leaving a permanently-green stub behind."
-    ),
-)
 def test_two_openers_build_the_schema_once(tmp_path: Path) -> None:
     """THE GUARD. Both halves matter - see the module docstring on plain `BEGIN`."""
     outcomes, writers = _open_twice(tmp_path / "catalog.sqlite")

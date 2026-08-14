@@ -699,6 +699,45 @@ def _add_copy_missing_at(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE file_copies ADD COLUMN missing_at TEXT")
 
 
+def _refuse_if_newer(version: int) -> None:
+    """A catalog from a newer Truestill is refused rather than risked."""
+    if version > CURRENT_SCHEMA_VERSION:
+        message = (
+            f"catalog schema is version {version} but this truestill understands only "
+            f"{CURRENT_SCHEMA_VERSION}; upgrade truestill to open it"
+        )
+        raise CatalogVersionError(message)
+
+
+def _split_schema(script: str) -> tuple[str, ...]:
+    """``_SCHEMA`` as individual statements, split by SQLite's own parser.
+
+    Needed because the fresh-catalog path runs inside a transaction now, and `executescript`
+    cannot: Python documents it as issuing an implicit COMMIT first, which would release the
+    very lock `_migrate` took.
+
+    **Split with `sqlite3.complete_statement` rather than on `;`.** `_SCHEMA` carries `--`
+    comments between its statements, so a naive split hands SQLite fragments and mis-counts
+    them - it reports 24 where there are 21. The parser that will execute the statements is
+    the only honest authority on where they end.
+    """
+    statements: list[str] = []
+    buffer = ""
+    for line in script.splitlines(keepends=True):
+        buffer += line
+        if sqlite3.complete_statement(buffer):
+            statements.append(buffer)
+            buffer = ""
+    if buffer.strip():  # pragma: no cover - a trailing fragment means _SCHEMA is malformed
+        message = f"_SCHEMA ends with an incomplete statement: {buffer.strip()[:80]!r}"
+        raise ValueError(message)
+    return tuple(statements)
+
+
+#: Computed once at import, O(len(_SCHEMA)) and never again.
+_SCHEMA_STATEMENTS = _split_schema(_SCHEMA)
+
+
 _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (2, _add_size_column),
     (3, _add_original_name_column),
@@ -787,42 +826,70 @@ class Catalog:
         A fresh database gets the whole current schema in one step. An existing one is
         lifted through the ordered migrations. A database from a *newer* truestill is refused
         rather than risked.
+
+        **The version read and the table check happen under the write lock, and that is the
+        point.** They used to be two unsynchronised reads followed by a write - a textbook
+        check-then-act - and with two openers on one fresh catalog it produced both observed
+        failures at once. Measured in CI run 31810809571: **2170 schema writes from 7696
+        opens**, so nearly every concurrent opener rebuilt the schema another had just built,
+        and one such writer held the file for **20260 ms** while the rest expired against
+        `sqlite3.connect`'s 5 s timeout. The `duplicate column` errors are the same race read
+        the other way - an opener that read `version = 0`, then found `files` already created
+        by the winner, and ran all 18 migrations against a schema that was already current.
+
+        `BEGIN IMMEDIATE` takes RESERVED before the first read, so no other process can write
+        between the check and the act. Cross-process by construction: an in-process lock would
+        not have covered the CLI, and `(adh)` test (d) records that launching twice already
+        gives two sidecars with no single-instance guard.
+
+        ⚠ **The migration chain deliberately runs OUTSIDE that transaction**, and it is not a
+        choice so much as a constraint that was measured: 12 of the 18 migrations call
+        `executescript`, which Python documents as issuing an implicit COMMIT first - verified,
+        `in_transaction` goes False and the lock is gone - and `_drop_redundant_sha256_index`
+        runs `VACUUM`, which SQLite refuses inside a transaction outright. Wrapping the chain
+        would have silently released the lock at the first migration while looking correct.
+        So the chain keeps today's autocommit-per-statement behaviour exactly: a failure
+        part-way still leaves the schema half-lifted with `user_version` unchanged. **That is
+        unchanged, not fixed** - see `BACKLOG.md`. What the transaction does fix is that the
+        chain can no longer be entered on a catalog that is already current.
+
+        Cost: one extra statement per open, O(1). The fresh path executes the same 21
+        statements as before, now individually rather than as one script.
         """
         conn = self._conn
-        _lockhunt("migrate.enter", db=str(self.path))
-        version = int(conn.execute("PRAGMA user_version").fetchone()[0])
-        _lockhunt("read.user_version.done", db=str(self.path), version=version)
+        # RESERVED before the first read. Waiters block here for at most `busy_timeout`, and
+        # the whole decision below is invisible to them until it commits.
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+            _refuse_if_newer(version)
 
-        if version > CURRENT_SCHEMA_VERSION:
-            message = (
-                f"catalog schema is version {version} but this truestill understands only "
-                f"{CURRENT_SCHEMA_VERSION}; upgrade truestill to open it"
+            fresh = (
+                conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'files'"
+                ).fetchone()
+                is None
             )
-            raise CatalogVersionError(message)
+            if fresh:
+                for statement in _SCHEMA_STATEMENTS:
+                    conn.execute(statement)
+                conn.execute(f"PRAGMA user_version = {CURRENT_SCHEMA_VERSION}")
+            conn.commit()
+        except BaseException:
+            # Rollback before re-raising: `__init__`'s handler closes the connection, and a
+            # connection closed mid-transaction leaves the journal for the next opener to
+            # recover. Suppressed because a failing rollback must not replace the real error.
+            with contextlib.suppress(Exception):
+                conn.rollback()
+            raise
 
-        table_exists = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'files'"
-        ).fetchone()
-
-        _lockhunt("read.sqlite_master.done", db=str(self.path), fresh=table_exists is None)
-
-        if table_exists is None:
-            # THE HOLDER. Whichever thread reaches here takes EXCLUSIVE for the whole script,
-            # and the gap between these two lines is the number nothing has measured yet.
-            _lockhunt("schema.enter", db=str(self.path))
-            conn.executescript(_SCHEMA)
-            _lockhunt("schema.exit", db=str(self.path))
-            conn.execute(f"PRAGMA user_version = {CURRENT_SCHEMA_VERSION}")
-            _lockhunt("migrate.exit", db=str(self.path), path="fresh")
+        if fresh:
             return
 
         for target, migrate in _MIGRATIONS:
             if version < target:
-                _lockhunt("upgrade.enter", db=str(self.path), target=target)
                 migrate(conn)
                 conn.execute(f"PRAGMA user_version = {target}")
-                _lockhunt("upgrade.exit", db=str(self.path), target=target)
-        _lockhunt("migrate.exit", db=str(self.path), path="existing")
 
     @property
     def schema_version(self) -> int:
