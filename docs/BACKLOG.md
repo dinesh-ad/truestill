@@ -122,12 +122,15 @@ is invisible here is retired, not free.**
   rendered words, so the existing suite is the acceptance test for every migrated screen rather
   than something to rewrite after.
 
-  ⚠ **Two holes are named in the plan and neither is closed by this work.**
+  ⚠ **One hole remains and it is not closed by this work.**
   `test_the_bundled_family_is_what_rasterises` needs CDP and is therefore blind on WebKit - the
   engine the shell uses on two of three platforms - which is exactly the check a component library
-  arriving with its own font stack would need. And Tauri's static CSP against a sidecar on an
-  ephemeral port has no authoritative answer; settle it with a build before the first Tauri
-  packaging, not after.
+  arriving with its own font stack would need.
+
+  The CSP question is **settled**: a real Tauri 2 build shows a static
+  `connect-src http://127.0.0.1:*` reaches a sidecar on an ephemeral port, so none of the
+  fixed-port / port-range / route-through-Rust workarounds is needed. `localhost` and `127.0.0.1`
+  are distinct host-sources there, which is the part that would have failed silently.
 
 - **(adh) TAURI SHELL + PYTHON SIDECAR - STAGE 1 MEASURED, THREE GAPS NAMED AND UNFIXED.**
   Recorded 2026-08-13. Target architecture: Tauri v2 window, the existing Python app as a child
