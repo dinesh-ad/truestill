@@ -45,8 +45,11 @@ route to *"is this already built?"* - the question the file exists to answer.
   for skipping the browser lane is a command's output, never a recollection.
 - The browser lane stays separate from `make check` and out of a fresh clone's path: `make check`
   is green with no browser installed. `IMPLEMENTATION_STANDARDS.md` §6.1 is the binding rule.
-- **Proving a guard bites is a separate step from writing it**, and there is a tool:
-  `uv run python scripts/mutation_matrix.py --suite <name>`. Not in `make check` - it costs
+- **Proving a guard bites is a separate step from writing it**, and there are two tools.
+  `scripts/mutate_once.py` for the single proof you write while fixing something - it refuses on a
+  missed or ambiguous anchor rather than reporting success, which `sed -i` does not: a reflowed
+  target cost three false proofs in one day, each a green run against unmutated code.
+  `uv run python scripts/mutation_matrix.py --suite <name>` for a whole suite. Not in `make check` - it costs
   minutes. It reports two different findings: a test no mutation kills (unproven), and a mutation
   that kills no test (missing guard, or dead code). `ENGINEERING_STANDARD.md` §4, fiftieth member.
 - `exiftool` must be installed and on PATH for metadata paths.

@@ -1514,6 +1514,13 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   it matched, because "at least one" and "exactly the one I meant" are different questions and
   only the second one is the one being asked.
 
+  ⚠ **It happened three more times the same day, in ONE-OFF proofs rather than the matrix**, and
+  the cause was the same each time: `ruff format` reflowed the target across lines, the anchor
+  missed, and `sed -i` reported success having changed nothing. The suite that ran next measured
+  **unmutated code and passed** - which is indistinguishable from a guard that works. Tooled
+  rather than remembered: `scripts/mutate_once.py` refuses on a missed or ambiguous anchor,
+  verifies the file actually changed, and verifies the restore byte for byte.
+
   ⚠ **A TEXTUAL RENAME CANNOT SEE A NAME BUILT AT RUNTIME, and no grep for the old name will
   tell you.** Renaming a design token across the repo, 2026-08-14: every literal `--text-xs` was
   replaced and the check "no old name remains" passed. Two tests still referenced the old scale,
