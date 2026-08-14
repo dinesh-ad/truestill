@@ -40,15 +40,19 @@ within 3 ms of each other, which is what the barrier models.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import platform
 import sqlite3
 import statistics
 import subprocess
+import sys
 import tempfile
 import threading
 import time
+from collections.abc import Iterator
 from pathlib import Path
+from subprocess import DEVNULL
 
 import anyio
 import anyio.to_thread
@@ -72,6 +76,9 @@ LEVELS = (1, 6, 12, 24, 48)
 #: could not tell those apart, so it did not measure contention at all.
 CONTROL_REPEATS = 7
 
+#: `sqlite3.connect`'s default `timeout=5.0`, in ms. The number every observed wait lands on.
+TIMEOUT_MS = 5000.0
+
 #: Below this, an fsync did not reach stable storage and the disk is answering from cache.
 WRITE_BACK_MS = 0.05
 
@@ -91,27 +98,79 @@ def main() -> None:
     _schema_write(workdir)
 
     solo = _solo_baseline(workdir)
+    idle = _sweep(workdir, "IDLE")
+    with _background_load(workdir):
+        loaded = _sweep(workdir, "UNDER LOAD")
 
-    print(f"\n=== SWEEP: {LEVELS} openers, one fresh file each, released together ===")
-    print("  the question: at what concurrency, if any, does a thread reach 5000 ms?")
-    slowest: list[tuple[int, float]] = []
-    for level in LEVELS:
-        print(f"\n--- {level} opener{'s' if level > 1 else ''} ---")
-        results = _race(workdir / f"sweep{level}.sqlite", level)
-        _report(results)
-        slowest.append((level, max(ms for ms, _ in results)))
-
-    print(f"\n=== CURVE (solo median {solo:.2f} ms) ===")
-    for level, worst in slowest:
-        print(f"  {level:3} openers -> slowest {worst:8.2f} ms   ({worst / solo:5.1f}x solo)")
-    reached = [level for level, worst in slowest if worst >= 5000]
-    print(
-        f"\n  reaches the 5000 ms timeout at: {reached}"
-        if reached
-        else "\n  NO LEVEL REACHES 5000 ms - contention on ONE file does not produce the observed\n"
-        "  wait at any concurrency the product can generate, and the holder is elsewhere."
-    )
+    print(f"\n=== CURVE (solo median {solo:.2f} ms, measured idle) ===")
+    print(f"  {'openers':>8}  {'idle ms':>10}  {'loaded ms':>10}  {'load x':>7}")
+    for (level, quiet), (_, busy) in zip(idle, loaded, strict=True):
+        print(f"  {level:>8}  {quiet:>10.2f}  {busy:>10.2f}  {busy / quiet:>6.1f}x")
+    reached = [level for level, worst in loaded if worst >= TIMEOUT_MS]
+    if reached:
+        print(
+            f"\n  *** REACHES THE {TIMEOUT_MS:.0f} ms TIMEOUT UNDER LOAD AT: {reached} ***\n"
+            "  *** A descheduled holder keeps EXCLUSIVE while it is off-cpu, so the wait is\n"
+            "  *** starvation rather than slow work - which is the observed shape. ***"
+        )
+    else:
+        print(
+            f"\n  NO LEVEL REACHES {TIMEOUT_MS:.0f} ms, LOADED OR IDLE. Contention on one file does\n"
+            "  not produce the observed wait even with the cpus oversubscribed, and the holder\n"
+            "  is something this rig still does not model."
+        )
     print(f"\nlocal baseline for comparison: {LOCAL}")
+
+
+def _sweep(workdir: Path, label: str) -> list[tuple[int, float]]:
+    print(f"\n=== SWEEP {label}: {LEVELS} openers, one fresh file each, released together ===")
+    worst: list[tuple[int, float]] = []
+    for level in LEVELS:
+        print(f"\n--- {label}, {level} opener{'s' if level > 1 else ''} ---")
+        results = _race(workdir / f"{label.split(maxsplit=1)[0].lower()}{level}.sqlite", level)
+        _report(results)
+        worst.append((level, max(ms for ms, _ in results)))
+    return worst
+
+
+@contextlib.contextmanager
+def _background_load(workdir: Path) -> Iterator[None]:
+    """Oversubscribe the cpus and keep the disk busy, for the duration of the block.
+
+    **The hypothesis this exists to test.** SQLite's EXCLUSIVE lock is held by a *thread*, not by
+    the kernel's scheduler - a thread descheduled midway through `executescript` keeps the lock
+    for as long as it is off-cpu. On a 4-core runner also running a browser, a video recorder,
+    tracing and up to nine uvicorn servers, the holder is not slow, it is **starved**. An idle
+    rig cannot see that, which is why the numbers so far may be measuring the wrong machine.
+
+    **Subprocesses, not threads.** A Python busy-loop in a thread holds the GIL and burns ONE
+    core no matter how many of them there are, so a threaded version of this would have looked
+    like load and produced none. Separate interpreters genuinely occupy the cpus.
+    """
+    burners = max(2, (os.cpu_count() or 2) * 2)
+    spin = "while True: pass"
+    writer = (
+        "import os,tempfile\n"
+        f"f=open({str(workdir / 'load.probe')!r},'wb')\n"
+        "while True:\n f.write(b'x'*4096); f.flush(); os.fsync(f.fileno())\n"
+    )
+    procs = [
+        subprocess.Popen([sys.executable, "-c", spin], stdout=DEVNULL, stderr=DEVNULL)
+        for _ in range(burners)
+    ]
+    procs.append(subprocess.Popen([sys.executable, "-c", writer], stdout=DEVNULL, stderr=DEVNULL))
+    print(
+        f"\n*** BACKGROUND LOAD ON: {burners} cpu burners + 1 fsync writer on {os.cpu_count()} cpus ***"
+    )
+    try:
+        time.sleep(1.0)  # let them actually get scheduled before anything is timed
+        yield
+    finally:
+        for proc in procs:
+            proc.kill()
+        for proc in procs:
+            proc.wait()
+        print("\n*** BACKGROUND LOAD OFF ***")
 
 
 def _solo_baseline(workdir: Path) -> float:
