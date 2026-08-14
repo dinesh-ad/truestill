@@ -48,4 +48,13 @@ jobs:
       # Deliberately unguarded by `continue-on-error`: unlike the packaging rig there is only one
       # measurement here, so a failure has nothing to protect and should turn the job red.
       - name: Measure
+        # The trace is what makes this comparable to the e2e lane: the same five points in
+        # `_migrate`, summarised by the same script, so "the holder held 40 ms here and 4 s
+        # there" is a difference between two measurements rather than between two methods.
+        env:
+          TRUESTILL_LOCKHUNT: ${{ runner.temp }}/lockhunt.jsonl
         run: uv run python scratchpad/lockhunt/contended_open.py
+
+      - name: Holder times
+        if: always()
+        run: uv run python scratchpad/lockhunt/summarize_trace.py "${{ runner.temp }}/lockhunt.jsonl"
