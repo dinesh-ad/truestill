@@ -285,6 +285,11 @@ def test_no_decommissioned_layout_reference_survives_current_facing_text() -> No
     tracked = subprocess.run(
         ["git", "ls-files"], cwd=root, capture_output=True, text=True, check=True
     ).stdout.split()
+    assert tracked, (
+        "`git ls-files` (whole repo) returned nothing, so this guard has no subject and would pass by\n"
+        "finding zero violations in zero files. See ENGINEERING_STANDARD.md 4, the\n"
+        "fifty-second member: a guard must prove its subject is non-empty first."
+    )
 
     historical_files = {
         "CHANGELOG.md",

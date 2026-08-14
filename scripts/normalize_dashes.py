@@ -97,6 +97,11 @@ def tracked_files() -> list[Path]:
     out = subprocess.run(
         ["git", "ls-files", "-z"], capture_output=True, text=True, check=True
     ).stdout
+    if not out.strip("\0"):
+        # ENGINEERING_STANDARD.md 4, fifty-second member. `check=True` covers exit 128; this
+        # covers the quiet case where git succeeds and lists nothing.
+        message = "`git ls-files -z` listed no tracked files; this hook has no subject."
+        raise RuntimeError(message)
     paths = []
     for name in out.split("\0"):
         if not name or Path(name).suffix not in SUFFIXES:

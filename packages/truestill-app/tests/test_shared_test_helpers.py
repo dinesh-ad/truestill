@@ -42,7 +42,16 @@ def _tracked_python_files() -> list[Path]:
     out = subprocess.run(
         ["git", "ls-files", "*.py"], cwd=REPO, capture_output=True, text=True, check=True
     ).stdout
-    return [REPO / line for line in out.splitlines() if line]
+    sources = [REPO / line for line in out.splitlines() if line]
+    assert sources, (
+        "`git ls-files *.py` matched nothing, so this guard has no subject and would find "
+        "zero ambiguous basenames among zero files. "
+        "See ENGINEERING_STANDARD.md 4, the fifty-second member: `check=True` turns a "
+        "missing .git into an error, but a pathspec that stops matching returns zero rows "
+        "at exit 0, and zero violations over zero files is the same green as zero over a "
+        "clean repo. The repo restructure is exactly the change that moves a pathspec."
+    )
+    return sources
 
 
 def _test_directories(files: list[Path]) -> set[Path]:

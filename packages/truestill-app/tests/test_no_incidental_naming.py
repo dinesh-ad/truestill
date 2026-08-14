@@ -176,7 +176,16 @@ def _tracked_files() -> list[str]:
         text=True,
         check=True,
     ).stdout
-    return [line for line in out.splitlines() if line and line not in SKIP]
+    tracked = [line for line in out.splitlines() if line and line not in SKIP]
+    assert tracked, (
+        "`git ls-files --cached --others --exclude-standard` returned nothing, so this "
+        "guard has no subject and would find zero incidental names in zero files. "
+        "See ENGINEERING_STANDARD.md 4, the fifty-second member: `check=True` turns a "
+        "missing .git into an error, but a pathspec that stops matching returns zero rows "
+        "at exit 0, and zero violations over zero files is the same green as zero over a "
+        "clean repo. The repo restructure is exactly the change that moves a pathspec."
+    )
+    return tracked
 
 
 def _strip_allowed(text: str) -> str:

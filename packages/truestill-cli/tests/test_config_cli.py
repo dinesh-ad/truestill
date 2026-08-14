@@ -205,6 +205,11 @@ def test_no_removed_preset_name_survives_anywhere_in_the_tree() -> None:
     tracked = subprocess.run(
         ["git", "ls-files"], cwd=root, capture_output=True, text=True, check=True
     ).stdout.split()
+    assert tracked, (
+        "`git ls-files` (whole repo) returned nothing, so this guard has no subject and would pass by\n"
+        "finding zero violations in zero files. See ENGINEERING_STANDARD.md 4, the\n"
+        "fifty-second member: a guard must prove its subject is non-empty first."
+    )
 
     offenders: list[str] = []
     for relative in tracked:

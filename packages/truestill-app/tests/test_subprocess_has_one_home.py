@@ -38,7 +38,16 @@ def _source_files() -> list[Path]:
         text=True,
         check=True,
     ).stdout
-    return [REPO / line for line in out.splitlines() if line]
+    sources = [REPO / line for line in out.splitlines() if line]
+    assert sources, (
+        "`git ls-files packages/*/src/**/*.py` matched nothing, so this guard has no "
+        "subject and would report zero direct subprocess launches in zero files. "
+        "See ENGINEERING_STANDARD.md 4, the fifty-second member: `check=True` turns a "
+        "missing .git into an error, but a pathspec that stops matching returns zero rows "
+        "at exit 0, and zero violations over zero files is the same green as zero over a "
+        "clean repo. The repo restructure is exactly the change that moves a pathspec."
+    )
+    return sources
 
 
 def _direct_launches(path: Path) -> list[str]:

@@ -62,6 +62,12 @@ def _tracked_root_files() -> list[str]:
         segment = _root_segment(path)
         if segment is not None:
             names.append(segment)
+    if not out.strip(b"\0"):
+        # ENGINEERING_STANDARD.md 4, fifty-second member: `check_output` raises on a missing
+        # .git, but an enumeration that legitimately exits 0 with no rows would let this hook
+        # report a clean root it never looked at.
+        message = "`git ls-files -z` listed no tracked files; this hook has no subject."
+        raise RuntimeError(message)
     return names
 
 
