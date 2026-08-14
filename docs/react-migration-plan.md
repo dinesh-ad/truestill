@@ -96,10 +96,16 @@ attribution swept them into "shell" and made the largest migration look like the
 Attribution is now by the element ids a file drives. It is still first-order - a file touching two
 screens is split evenly - so treat these as the shape, not a contract.
 
-**The shell's 96 do not move with any screen.** Rail, wordmark, fonts, type scale, harness,
-server retirement: they outlive every individual migration and are the thing that keeps the app
-coherent while half of it is React. They are also the ones most likely to break first, since
-islands change the DOM around them.
+**The shell's 96 do not move with any screen, and that makes them the early-warning system.**
+Rail, wordmark, fonts, type scale, harness, server retirement: they outlive every individual
+migration and are the thing that keeps the app coherent while half of it is React. They are also
+**the ones most likely to break first**, because an island changes the DOM around them without
+touching a line of their own screen.
+
+> **Run the shell's 96 after every island lands, not once at the end.** Nothing else owns them:
+> each screen's commit carries that screen's tests, so the shell's would otherwise be checked only
+> by the final gate, which is the run that cannot tell you *which* island broke them. This is the
+> one part of the suite whose value comes from being run at the wrong-looking time.
 
 Organize carrying a third of the suite is the second reason it goes last, after the risk argument.
 

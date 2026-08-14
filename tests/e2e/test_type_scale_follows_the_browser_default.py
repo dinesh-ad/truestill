@@ -13,6 +13,12 @@ from __future__ import annotations
 import pytest
 from playwright.sync_api import Page
 
+#: THE MIGRATION'S EARLY-WARNING SYSTEM. This file belongs to no screen, so no screen's commit
+#: carries it - and an island landing on a DIFFERENT screen changes the DOM around it without
+#: touching a line here. `make e2e-shell` runs the set after every island; see
+#: `docs/react-migration-plan.md`.
+pytestmark = pytest.mark.shell
+
 # Rail chrome, a main-column control, and body copy: if any of these is pinned in px the
 # preference is only partly honoured, which is the state worth failing on.
 PROBES = (

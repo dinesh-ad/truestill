@@ -18,7 +18,14 @@ This commit establishes the reporting path that readiness then depends on.
 
 from __future__ import annotations
 
+import pytest
 from playwright.sync_api import Page, expect
+
+#: THE MIGRATION'S EARLY-WARNING SYSTEM. This file belongs to no screen, so no screen's commit
+#: carries it - and an island landing on a DIFFERENT screen changes the DOM around it without
+#: touching a line here. `make e2e-shell` runs the set after every island; see
+#: `docs/react-migration-plan.md`.
+pytestmark = pytest.mark.shell
 
 #: Installed before any app code runs, so a rejection reaching the backstop is recorded rather
 #: than merely shown. `add_init_script` needs a load to take effect, hence the `reload()` at each

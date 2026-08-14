@@ -29,6 +29,12 @@ from typing import Any
 import pytest
 from playwright.sync_api import Page, expect
 
+#: THE MIGRATION'S EARLY-WARNING SYSTEM. This file belongs to no screen, so no screen's commit
+#: carries it - and an island landing on a DIFFERENT screen changes the DOM around it without
+#: touching a line here. `make e2e-shell` runs the set after every island; see
+#: `docs/react-migration-plan.md`.
+pytestmark = pytest.mark.shell
+
 # Every element here is declared `var(--family-mono)` in app.css.
 #   .wordmark-text  - the mark itself
 #   .custody .line  - a real sentence, and where WARN_MARK (U+26A0) lands

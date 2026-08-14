@@ -11,7 +11,14 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
 from playwright.sync_api import Page, expect
+
+#: THE MIGRATION'S EARLY-WARNING SYSTEM. This file belongs to no screen, so no screen's commit
+#: carries it - and an island landing on a DIFFERENT screen changes the DOM around it without
+#: touching a line here. `make e2e-shell` runs the set after every island; see
+#: `docs/react-migration-plan.md`.
+pytestmark = pytest.mark.shell
 
 STATIC = Path(__file__).resolve().parents[2] / "packages/truestill-app/src/truestill_app/static"
 APP_CSS = (STATIC / "app.css").read_text(encoding="utf-8")

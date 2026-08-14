@@ -15,6 +15,14 @@ import subprocess
 import tomllib
 from pathlib import Path
 
+import pytest
+
+#: THE MIGRATION'S EARLY-WARNING SYSTEM. This file belongs to no screen, so no screen's commit
+#: carries it - and an island landing on a DIFFERENT screen changes the DOM around it without
+#: touching a line here. `make e2e-shell` runs the set after every island; see
+#: `docs/react-migration-plan.md`.
+pytestmark = pytest.mark.shell
+
 _ROOT = Path(__file__).resolve().parents[2]
 _PACKAGES = ("truestill-core", "truestill-cli", "truestill-app")
 #: Tools that exist to test or to BUILD, and must never appear in a shipped package. The

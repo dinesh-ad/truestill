@@ -123,6 +123,14 @@ e2e:
 		--tracing retain-on-failure --video retain-on-failure \
 		--output tests/e2e/.artifacts,$(E2E_SECONDS_MAX),the browser lane,E2E_SECONDS_MAX)
 
+# THE MIGRATION'S EARLY-WARNING SET, and the reason it is a target rather than a note.
+# These 96 tests belong to no screen, so no screen's commit carries them - and an island landing
+# on a DIFFERENT screen changes the DOM around them without touching a line of their own. Run
+# after every island lands; the final gate is the run that cannot tell you which island broke
+# them. Chromium only on purpose: this is the fast loop, and `make gate` still runs both engines.
+e2e-shell:
+	$(PYTHON) pytest tests/e2e -m shell --browser chromium
+
 # --- the pre-commit gate: check always, e2e only when the diff reaches the browser ----------
 # WHY A TARGET RATHER THAN A JUDGEMENT. `make check` covers everything except client-side
 # behaviour, because `app.js` is not imported by Python - so no amount of it can see a defect in
