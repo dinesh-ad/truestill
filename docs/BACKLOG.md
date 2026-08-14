@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(adh). Next free: (adi).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(adi). Next free: (adj).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -108,6 +108,26 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(adi) REACT + SHADCN MIGRATION - PLANNED, GROUNDWORK LANDED, NOTHING MIGRATED.** Recorded
+  2026-08-14. Plan and evidence: [`react-migration-plan.md`](react-migration-plan.md).
+  **The backend does not move**: `service/` stays the facade, `/api/*` stays the boundary, and a
+  component holding organize logic is a failed migration however it looks.
+
+  Landed already, and each is a prerequisite rather than a head start: tokens are out of
+  Tailwind's namespaces `(fa99e58)`, the browser lane covers WebKit `(9cdd85d)`, and `@theme
+  inline` is **verified by build** to leave our `[data-theme]` dark mode intact.
+
+  **Measured, not estimated: 3 of 55 e2e files touch `app.js` internals.** The other 52 assert on
+  rendered words, so the existing suite is the acceptance test for every migrated screen rather
+  than something to rewrite after.
+
+  ⚠ **Two holes are named in the plan and neither is closed by this work.**
+  `test_the_bundled_family_is_what_rasterises` needs CDP and is therefore blind on WebKit - the
+  engine the shell uses on two of three platforms - which is exactly the check a component library
+  arriving with its own font stack would need. And Tauri's static CSP against a sidecar on an
+  ephemeral port has no authoritative answer; settle it with a build before the first Tauri
+  packaging, not after.
 
 - **(adh) TAURI SHELL + PYTHON SIDECAR - STAGE 1 MEASURED, THREE GAPS NAMED AND UNFIXED.**
   Recorded 2026-08-13. Target architecture: Tauri v2 window, the existing Python app as a child
