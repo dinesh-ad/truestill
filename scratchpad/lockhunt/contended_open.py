@@ -58,6 +58,20 @@ from truestill_core.catalog import _SCHEMA, Catalog
 #: Six, because that is how many catalog-touching requests the page fires on load.
 OPENERS = 6
 
+#: The sweep. One fresh file per level, so each level pays the full migration.
+#:
+#: ⚠ **48 is beyond anything the product can do.** Starlette's threadpool limiter is 40, so the
+#: server can never have more than 40 opens in flight whatever arrives. The high levels are an
+#: upper bound on the mechanism, not a model of it - the limiter is raised to match, and that
+#: raising is itself printed so nobody reads 48 as a thing that happens.
+LEVELS = (1, 6, 12, 24, 48)
+
+#: The solo baseline is repeated because ONE sample was not one. The first run reported a control
+#: of 31.60 ms against a contended winner of 28.23 ms - contention apparently making the winner
+#: faster, which is scheduling noise on a small runner and not a queue. A single measurement
+#: could not tell those apart, so it did not measure contention at all.
+CONTROL_REPEATS = 7
+
 #: Below this, an fsync did not reach stable storage and the disk is answering from cache.
 WRITE_BACK_MS = 0.05
 
@@ -76,17 +90,42 @@ def main() -> None:
     _fsync(workdir)
     _schema_write(workdir)
 
-    print("\n--- CONTROL: one opener, fresh file ---")
-    _report(_race(workdir / "control.sqlite", 1))
+    solo = _solo_baseline(workdir)
 
-    print(f"\n--- CONTENDED: {OPENERS} openers, one fresh file, released together ---")
-    _report(_race(workdir / "contended.sqlite", OPENERS))
+    print(f"\n=== SWEEP: {LEVELS} openers, one fresh file each, released together ===")
+    print("  the question: at what concurrency, if any, does a thread reach 5000 ms?")
+    slowest: list[tuple[int, float]] = []
+    for level in LEVELS:
+        print(f"\n--- {level} opener{'s' if level > 1 else ''} ---")
+        results = _race(workdir / f"sweep{level}.sqlite", level)
+        _report(results)
+        slowest.append((level, max(ms for ms, _ in results)))
 
+    print(f"\n=== CURVE (solo median {solo:.2f} ms) ===")
+    for level, worst in slowest:
+        print(f"  {level:3} openers -> slowest {worst:8.2f} ms   ({worst / solo:5.1f}x solo)")
+    reached = [level for level, worst in slowest if worst >= 5000]
+    print(
+        f"\n  reaches the 5000 ms timeout at: {reached}"
+        if reached
+        else "\n  NO LEVEL REACHES 5000 ms - contention on ONE file does not produce the observed\n"
+        "  wait at any concurrency the product can generate, and the holder is elsewhere."
+    )
     print(f"\nlocal baseline for comparison: {LOCAL}")
+
+
+def _solo_baseline(workdir: Path) -> float:
+    """One opener, repeated, because a single sample cannot be told apart from noise."""
+    times = [_race(workdir / f"solo{i}.sqlite", 1)[0][0] for i in range(CONTROL_REPEATS)]
+    print(f"\nSOLO baseline, {CONTROL_REPEATS} fresh files, one opener each:")
+    print(f"  ms: {', '.join(f'{t:.2f}' for t in sorted(times))}")
+    print(f"  median {statistics.median(times):.2f}  min {min(times):.2f}  max {max(times):.2f}")
+    return statistics.median(times)
 
 
 def _identity(workdir: Path) -> None:
     print(f"runner:  {platform.node()}  {platform.system()} {platform.release()}")
+    print(f"cpus:    {os.cpu_count()}")
     print(f"python:  {platform.python_version()}  sqlite {sqlite3.sqlite_version}")
     print(f"workdir: {workdir}")
     # The filesystem of the directory actually used, not of the checkout - pytest's `tmp_path`
@@ -168,7 +207,10 @@ def _schema_write(workdir: Path) -> None:
 
 def _race(db: Path, openers: int) -> list[tuple[float, str]]:
     """Open ``db`` from ``openers`` threads released simultaneously. Returns (ms, outcome)."""
-    barrier = threading.Barrier(openers, timeout=30)
+    # Generous: at 48 openers every one of them may sit out a full 5 s busy timeout before the
+    # barrier's peers are all through, and a barrier that expires reports "measured nothing"
+    # rather than a small number, which is the failure mode worth avoiding.
+    barrier = threading.Barrier(openers, timeout=180)
     results: list[tuple[float, str]] = []
 
     def opener() -> tuple[float, str]:
@@ -187,6 +229,15 @@ def _race(db: Path, openers: int) -> list[tuple[float, str]]:
         return ((time.perf_counter() - start) * 1000, outcome)
 
     async def run() -> None:
+        # Starlette's default is 40. Above it the barrier would DEADLOCK rather than measure,
+        # because the 41st opener never gets a thread to arrive at the barrier with - so the
+        # limiter is raised to the level and the raise is announced. Reading a 48-opener figure
+        # as something the server could produce is exactly the misreading this guards against.
+        limiter = anyio.to_thread.current_default_thread_limiter()
+        if openers > limiter.total_tokens:
+            print(f"  (thread limiter raised {limiter.total_tokens} -> {openers} to seat them all)")
+            limiter.total_tokens = openers
+
         async def one() -> None:
             results.append(await run_in_threadpool(opener))
 
