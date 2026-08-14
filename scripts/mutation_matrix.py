@@ -360,7 +360,91 @@ def _grid() -> Suite:
     return Suite(("tests/e2e/test_the_grid_is_the_result.py",), tuple(m))
 
 
-SUITES = {"thumbnails": _thumbnails, "grid": _grid}
+def _parent_watch() -> Suite:
+    watch = APP / "parent_watch.py"
+    launcher = APP / "__main__.py"
+    m = [
+        Mutant(
+            watch,
+            "    if is_terminal:\n        message = (",
+            "    if False:\n        message = (",
+            "terminal on stdin accepted instead of refused",
+        ),
+        Mutant(
+            watch,
+            "    if stream is None:\n        message = (",
+            "    if False:\n        message = (",
+            "absent stdin accepted instead of refused",
+        ),
+        Mutant(
+            watch,
+            "        clear_credential()\n        request_shutdown()",
+            "        request_shutdown()\n        clear_credential()",
+            "credential cleared AFTER the shutdown request",
+        ),
+        Mutant(
+            watch,
+            "        clear_credential()\n        request_shutdown()",
+            "        request_shutdown()",
+            "credential never cleared",
+        ),
+        Mutant(
+            watch,
+            "        time.sleep(grace_seconds)\n        hard_exit()",
+            "        time.sleep(grace_seconds)",
+            "backstop removed (a wedged sidecar keeps serving)",
+        ),
+        Mutant(
+            watch,
+            "    except (OSError, ValueError):\n        return",
+            "    except (OSError, ValueError):\n        raise",
+            "an unreadable pipe stops counting as the parent leaving",
+        ),
+        Mutant(
+            launcher,
+            "        if args.parent_stdin_watch:",
+            "        if False:",
+            "the watchdog is never started",
+        ),
+        Mutant(
+            launcher,
+            "        if args.parent_stdin_watch:",
+            "        if True:",
+            "the watchdog stops being opt-in",
+        ),
+        Mutant(
+            watch,
+            "    return stream\n\n\ndef _wait_for_close",
+            '    raise ParentPipeMissingError("nope")\n\n\ndef _wait_for_close',
+            "require_pipe rejects everything (the tightening direction)",
+        ),
+        # Compound, and the reason is worth reading. On the GRACEFUL path `clear_credential` is
+        # redundant: `main`'s own `finally` clears the same file as the process unwinds, so
+        # removing the watchdog's call alone changes nothing observable. It stops being redundant
+        # exactly when the graceful stop does not happen - the backstop calls `os._exit`, which
+        # runs no `finally` at all. Two mechanisms, one path each; only the pair is provable
+        # end to end. See `Mutant.extra`.
+        Mutant(
+            launcher,
+            "                clear_credential=session_link.clear,",
+            "                clear_credential=lambda: None,",
+            "BOTH credential clears removed (watchdog and the unwind)",
+            extra=(
+                (
+                    launcher,
+                    "    finally:\n        # Also on crash and on Ctrl-C: a file that outlives",
+                    (
+                        "    finally:\n        pass\n    if False:\n        # Also on crash and on"
+                        " Ctrl-C: a file that outlives"
+                    ),
+                ),
+            ),
+        ),
+    ]
+    return Suite(("packages/truestill-app/tests/test_parent_watch.py",), tuple(m))
+
+
+SUITES = {"thumbnails": _thumbnails, "grid": _grid, "parent-watch": _parent_watch}
 
 # The gate's own §4 forty-ninth member: CPython revalidates a .pyc on the source's mtime in whole
 # SECONDS plus its byte size, and a mutation cycle beats both - a same-size edit restored inside
@@ -427,30 +511,46 @@ def _collect(tests: tuple[str, ...]) -> set[str]:
 
 
 def _guard(paths: set[Path]) -> Callable[..., None]:
-    """Refuse to start on a dirty target, and restore through git rather than through memory.
+    """Snapshot the targets durably, and restore to that snapshot rather than to HEAD.
 
     §4's fifty-first member: a run that is killed never reaches its `finally`, and the mutant it
-    was holding stays on disk looking like ordinary work in progress. Restoring with
-    `git checkout --` needs nothing of this process to still be alive.
+    was holding stays on disk looking like ordinary work in progress. So the restore must not
+    depend on this process still being alive.
+
+    ⚠ **TWO EARLIER VERSIONS OF THIS FUNCTION BOTH STRANDED A MUTANT, and each failure was a
+    different flavour of the same mistake.**
+
+    *Restoring to `HEAD`, and refusing to start on a dirty target.* The common case for this tool
+    is running it against tests you are actively writing, so the targets are almost always dirty -
+    and the remedy it printed, `git checkout --`, would have deleted that work. It told me to
+    destroy the very edits it was about to measure.
+
+    *Restoring from `git stash create`.* That fixed the first problem and introduced a worse one:
+    **`stash create` does not include untracked files.** The module under test was brand new, so
+    the snapshot did not contain it, `git checkout <sha> -- <new file>` failed, the error was
+    discarded, and four mutants accumulated in the working tree - including the one that inverts
+    the security ordering this very module exists to enforce.
+
+    So: a plain file copy outside the repo, which knows nothing about tracked and untracked, and
+    **a restore that verifies itself**. Both previous versions failed silently; the check below is
+    what makes that impossible rather than unlikely. The backup directory is printed, so even a
+    `SIGKILL` leaves a one-command recovery.
     """
-    rel = sorted(str(p.relative_to(ROOT)) for p in paths)
-    dirty = subprocess.run(
-        ["git", "diff", "--name-only", "--", *rel],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    ).stdout.split()
-    if dirty:
-        sys.exit(
-            "REFUSING TO RUN: mutation targets already differ from HEAD:\n  "
-            + "\n  ".join(dirty)
-            + "\n\nIf a previous run was interrupted this is its stranded mutant. Restore with:\n"
-            f"  git checkout -- {' '.join(dirty)}"
-        )
+    ordered = sorted(paths)
+    backup = Path(tempfile.mkdtemp(prefix="mutation-matrix-"))
+    saved = {path: backup / f"{index}-{path.name}" for index, path in enumerate(ordered)}
+    for path, copy in saved.items():
+        shutil.copy2(path, copy)
+    print(f"originals backed up to {backup}\n")
 
     def restore(*_: object) -> None:
-        subprocess.run(["git", "checkout", "--", *rel], cwd=ROOT, check=False)
+        for path, copy in saved.items():
+            shutil.copy2(copy, path)
+            # Verified, because both earlier restores reported success and did nothing. A stranded
+            # mutant reads as ordinary work in progress, which is exactly how one survived into a
+            # working tree once already.
+            if path.read_bytes() != copy.read_bytes():
+                sys.exit(f"RESTORE FAILED for {path}. The original is at {copy}")
 
     atexit.register(restore)
     for sig in (signal.SIGINT, signal.SIGTERM):

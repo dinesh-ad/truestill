@@ -28,7 +28,7 @@ from truestill_core.catalog_startup import (
 )
 from truestill_core.selfcheck import is_complete, render, write_findings
 
-from truestill_app import session_link
+from truestill_app import parent_watch, session_link
 from truestill_app.security import new_token
 from truestill_app.selfcheck import app_findings
 from truestill_app.server import create_app
@@ -259,6 +259,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--port", type=int, default=_DEFAULT_PORT)
     parser.add_argument("--no-browser", action="store_true", help="do not open a browser")
     parser.add_argument(
+        "--parent-stdin-watch",
+        action="store_true",
+        help=(
+            "stop when the parent process does, by watching for stdin to close. The parent must "
+            "spawn this with stdin=PIPE and hold the write end open"
+        ),
+    )
+    parser.add_argument(
         "--self-check",
         nargs="?",
         const="",
@@ -334,6 +342,24 @@ def main(argv: list[str] | None = None) -> int:
         server = uvicorn.Server(
             uvicorn.Config(app, host=_HOST, port=port, log_config=uvicorn_log_config())
         )
+
+        if args.parent_stdin_watch:
+            # `(adh)` (f)/(c): a shell that dies leaves this process serving, with
+            # `session-url.txt` still naming a live port and a valid token. No signal reaches us,
+            # so `release_session_link` never runs. See `parent_watch` for why the fix has to be
+            # here rather than only in the shell, and why the pipe is checked rather than assumed.
+            #
+            # Wired AFTER the link exists, so `clear_credential` can only ever remove a file this
+            # process actually wrote - and before `server.run`, so the watch covers the whole time
+            # there is anything to serve.
+            parent_watch.start(
+                stream=parent_watch.require_pipe(parent_watch.stdin_stream()),
+                clear_credential=session_link.clear,
+                # `should_exit` rather than a signal: it unwinds uvicorn the same way on all three
+                # platforms, where `os.kill(SIGTERM)` on Windows is an abrupt TerminateProcess
+                # that would skip every cleanup below.
+                request_shutdown=lambda: setattr(server, "should_exit", True),
+            )
         if not args.no_browser:
             threading.Thread(
                 target=open_when_ready, args=(server, url, link.path), daemon=True
