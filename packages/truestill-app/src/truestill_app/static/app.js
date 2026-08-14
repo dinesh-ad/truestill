@@ -314,6 +314,12 @@ const RATE_SMOOTHING = 0.25;  // EMA weight on the newest sample
 
 function fmtDuration(seconds) {
   const s = Math.max(0, Math.round(seconds));
+  // A RUN THAT TOOK 0.4s IS NOT A RUN THAT TOOK NO TIME. `Math.round` sends anything under half
+  // a second to 0, and every caller here renders a completed duration - "0s taken", "elapsed 0s",
+  // "checked in 0s" - so the rounding turned a fast run into a claim that nothing happened. Found
+  // in a screenshot of a real 14-photo organize, not by a test. None of these four callers is a
+  // countdown, so there is no case where a literal zero is the honest answer.
+  if (s === 0) return "under 1s";
   if (s < 60) return `${s}s`;
   const m = Math.floor(s / 60);
   if (m < 60) return `${m}m ${String(s % 60).padStart(2, "0")}s`;
