@@ -118,8 +118,15 @@ frontend-install:
 # NOT a prerequisite of `check`. `check` is green with no browser AND no Node - that is the
 # fresh-clone promise in PROJECT_STATUS §0, and the bundle guard lives in the browser lane where
 # a bundle is needed anyway.
+#
+# ⚠ `tsc --noEmit` FIRST, and it is not decoration. This target called `npx vite build` directly
+# for as long as the seam has existed, which skipped the `tsc --noEmit &&` in package.json's own
+# build script - so `strict`, `noUncheckedIndexedAccess` and every other compiler flag were
+# configured and never read by anything. Vite strips types; it does not check them. When the
+# check was finally run it was not clean: three TS2591 errors in `vite.config.ts`, unseen since
+# the seam landed.
 frontend:
-	cd packages/truestill-app/frontend && npx vite build
+	cd packages/truestill-app/frontend && npx tsc --noEmit && npx vite build
 
 # --- browser end-to-end ----------------------------------------------------------------
 # Deliberately outside `check` and outside pytest's testpaths: a fresh clone runs `make check`

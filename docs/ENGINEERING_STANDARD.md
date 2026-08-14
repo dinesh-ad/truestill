@@ -289,9 +289,30 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   category, not the instances: `animation` was reset alongside `transition` in the same commit
   that first needed it.
 
-- **A test that must change when a defect is fixed was usually testing the defect.** The
-  thirtieth member, and the **mirror** of the one above: that one passes while the promise is
-  broken, this one *fails while the code is right*. Same error, opposite symptom.
+- **A guard must prove its subject is non-empty before it proves anything about it.** The
+  fifty-second member, and the one with **no symptom at all**. The others in this family concern
+  a guard that cannot fail, one that fires too often, one aimed at the wrong module, and one
+  aimed at the wrong subject. This one is aimed at **nothing**, and zero violations over an empty
+  corpus is the same green as zero violations over a clean one.
+
+  The shapes it takes: a `#[tauri::command]` counter written before any Rust exists; an `any`
+  scan over an empty `src/`; a token check over a directory holding no CSS; a guard enumerating
+  through `git ls-files` in a copy with no `.git`, which exits **128** and returns nothing -
+  indistinguishable from clean unless `check=True` turns it into an error. A pathspec that stops
+  matching is the quieter version of the same thing: exit 0, zero rows, guard green.
+
+  **The remedy is one assertion, first: the corpus is non-empty**, so the guard fails with *"no
+  subject found"* rather than passing with *"zero violations"*. And the rule behind the remedy:
+  **write the guard when the subject exists, not before.** A guard authored ahead of its subject
+  reports green on every run between then and now, and will be cited as coverage in a review.
+
+  *Worked example - the frontend rules, 2026-08-14.* Three source rules over
+  `frontend/src` (no `any`, no hand-memoization, no `tokens.css` import) each open with
+  `test_the_scan_actually_reads_files`, which asserts the glob found `.ts`/`.tsx` files at all
+  and that they are not all empty. Proven by mutation: narrowing the suffix set to `{".nope"}`
+  fails with *"no .ts/.tsx files found"* rather than passing three times. In the same review a
+  proposed `#[tauri::command]` counter was **refused rather than written**, because there is no
+  `Cargo.toml` in the repo and it would have been green from the day it landed.
 
   > **The tell is the strongest in this whole family: the test fails on output you believe is
   > correct.** That belief is the signal. Do not reach for the assertion to make it green -
