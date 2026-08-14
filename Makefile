@@ -105,6 +105,22 @@ redirect-check:
 
 check: lint format-check typecheck dash-check name-check redirect-check test
 
+# --- frontend ------------------------------------------------------------------------------
+# `npm ci`, not `npm install`: ci installs exactly the lockfile and fails if package.json and the
+# lock disagree, which is the reproducibility the frozen artifact needs. Seconds on a warm cache.
+frontend-install:
+	cd packages/truestill-app/frontend && npm ci
+
+# The bundle is gitignored, so this is what a fresh clone runs before the browser lane. Cheap
+# (tens of ms) and idempotent, so `e2e` depends on it rather than trusting somebody to remember:
+# a stale bundle is invisible to lint, mypy and every Python test.
+#
+# NOT a prerequisite of `check`. `check` is green with no browser AND no Node - that is the
+# fresh-clone promise in PROJECT_STATUS §0, and the bundle guard lives in the browser lane where
+# a bundle is needed anyway.
+frontend:
+	cd packages/truestill-app/frontend && npx vite build
+
 # --- browser end-to-end ----------------------------------------------------------------
 # Deliberately outside `check` and outside pytest's testpaths: a fresh clone runs `make check`
 # green with no browser installed. Run `make e2e-install` once, then `make e2e`.
@@ -118,17 +134,22 @@ e2e-install:
 # No retries, on purpose. A retry-until-green browser suite launders exactly the
 # nondeterminism this layer exists to expose; a flaky test gets quarantined and filed instead.
 # Traces and video are kept only for failures, so a red run arrives with a replay.
-e2e:
+#
+# CI CALLS THIS TARGET RATHER THAN REPEATING THE COMMAND, and that is the point of `E2E_EXTRA`.
+# CI used to run its own `pytest tests/e2e --browser chromium ...`, so when this target gained
+# WebKit and a frontend build, CI silently kept running neither - the coverage existed only on
+# the machine that added it. One definition, and CI passes only its own reporting flags.
+e2e: frontend
 	@$(call time_ceiling,$(PYTHON) pytest tests/e2e --browser chromium --browser webkit \
 		--tracing retain-on-failure --video retain-on-failure \
-		--output tests/e2e/.artifacts,$(E2E_SECONDS_MAX),the browser lane,E2E_SECONDS_MAX)
+		--output tests/e2e/.artifacts $(E2E_EXTRA),$(E2E_SECONDS_MAX),the browser lane,E2E_SECONDS_MAX)
 
 # THE MIGRATION'S EARLY-WARNING SET, and the reason it is a target rather than a note.
 # These 96 tests belong to no screen, so no screen's commit carries them - and an island landing
 # on a DIFFERENT screen changes the DOM around them without touching a line of their own. Run
 # after every island lands; the final gate is the run that cannot tell you which island broke
 # them. Chromium only on purpose: this is the fast loop, and `make gate` still runs both engines.
-e2e-shell:
+e2e-shell: frontend
 	$(PYTHON) pytest tests/e2e -m shell --browser chromium
 
 # --- the pre-commit gate: check always, e2e only when the diff reaches the browser ----------

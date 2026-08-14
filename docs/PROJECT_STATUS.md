@@ -27,13 +27,19 @@ Co-Authored-By: someone <x@y.z>"                   # MUST be refused
 git config user.name && git config user.email      # expect: dinesh-ad
 
 # 6) Gates
-make check
-make e2e-install && make e2e                       # optional local lane
+make check                                          # no browser, no Node needed
+make e2e-install && make frontend-install           # browsers + npm ci, once
+make e2e                                            # optional local lane
 ```
 
 Notes:
-- `make check` is the required green gate.
+- `make check` is the required green gate, and it needs **neither a browser nor Node**.
 - Browser E2E is deliberate and separate (`make e2e`).
+- **The React bundle is a build artifact and is not committed.** `make e2e` builds it first, so
+  the lane cannot run against stale JavaScript; `test_the_served_bundle_was_built_from_these
+  _sources` hashes the frontend sources and compares against the digest compiled into the served
+  bundle. A content hash rather than an mtime, for §4's forty-ninth member's reason. The added
+  setup is one `npm ci` on a warm cache - **§0 is a promise about time, and it holds.**
 
 ---
 

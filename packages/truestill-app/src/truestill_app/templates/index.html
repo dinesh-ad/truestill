@@ -508,5 +508,9 @@
   </template>
 
   <script src="/static/app.js"></script>
+  <!-- The React bundle. A module, so it is deferred by definition and cannot race
+       `app.js` above. Empty of UI until the first island lands; it publishes the hash of
+       the sources it was built from, which is what proves the served bytes are current. -->
+  <script type="module" src="/static/dist/main.js"></script>
 </body>
 </html>

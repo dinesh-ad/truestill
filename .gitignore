@@ -33,3 +33,9 @@ startup-work/
 # Vendored exiftool, fetched and digest-verified at build time by packaging/exiftool_source.py.
 # A downloaded artifact is never a source file.
 exiftool-src/
+
+# The React bundle is a build artifact, like the frozen app in dist/. It is NOT committed:
+# `make frontend` builds it, and `test_the_served_bundle_was_built_from_these_sources` fails
+# loudly if what is served was built from different sources.
+packages/truestill-app/src/truestill_app/static/dist/
+packages/truestill-app/frontend/node_modules/
