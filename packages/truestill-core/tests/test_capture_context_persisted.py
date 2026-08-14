@@ -150,7 +150,7 @@ def test_no_new_exiftool_tag_was_requested() -> None:
     """
     for tag in ("Make", "Model", "LensModel"):
         assert tag in REQUESTED_TAGS
-    for tag in ("GPSLatitude", "GPSLongitude"):
+    for tag in ("GPSLatitude", "GPSLongitude", "Orientation"):
         assert tag in _NUMERIC_TAGS
     assert "GPSAltitude" not in REQUESTED_TAGS
     assert "GPSAltitude" not in _NUMERIC_TAGS
@@ -168,7 +168,24 @@ def test_no_new_exiftool_tag_was_requested() -> None:
     #
     # Scoped to `RIFF:` on purpose - a bare `DateCreated` is an IPTC field on stills meaning
     # something else, and the corpora hold malformed ones (`2010:00:00`).
-    assert tags_fingerprint(REQUESTED_TAGS, _NUMERIC_TAGS) == "cff9bb9b374bc122", (
+    #
+    # CHANGED A SECOND TIME, DELIBERATELY, 2026-08-14 - `cff9bb9b374bc122` -> `1f6ed7a9f97cd270`
+    # by adding `Orientation` to `_NUMERIC_TAGS` for the result grid. The tripwire worked twice.
+    #
+    # **What it costs:** the same one-time cold pass - ~2.2 ms/file (`PERFORMANCE.md`), so ~5 s on
+    # the 2,275-file reference library and ~9 s on the 4,108-photograph corpus. Once, per library,
+    # at upgrade.
+    #
+    # **What it buys:** the grid payload's `w`/`h` describe the shape a photograph is SEEN in.
+    # `ImageWidth`/`ImageHeight` are the STORED dimensions, and `thumbnails.render` applies
+    # `exif_transpose` - so on the **31.7% of the corpus carrying a transposing tag** the two
+    # disagree, and a row solver would lay out every one of them against dimensions the pixels
+    # contradict. There is no cheaper source: the catalog has no dimension columns, and the
+    # thumbnail that would know is built on demand, after the run.
+    #
+    # **Numeric (`#`) rather than plain**, because exiftool answers `"Rotate 90 CW"` in prose -
+    # a sentence to parse and a format to depend on. `#` gives the EXIF integer 1-8.
+    assert tags_fingerprint(REQUESTED_TAGS, _NUMERIC_TAGS) == "1f6ed7a9f97cd270", (
         "the requested tag set changed; every cached metadata row is now invalid and the next "
         "run pays a full cold exiftool pass. That may be right, but it is never incidental"
     )

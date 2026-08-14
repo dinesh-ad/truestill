@@ -6,7 +6,7 @@ import threading
 import uuid
 from collections import Counter
 from pathlib import Path
-from typing import Literal, NotRequired, TypedDict, cast
+from typing import Any, Literal, NotRequired, TypedDict, cast
 
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_session import open_catalog
@@ -59,6 +59,7 @@ from truestill_core.organizer import (
     skipped_extension_counts,
 )
 from truestill_core.progress import ProgressCallback
+from truestill_core.thumbnails import upright_size
 
 from truestill_app.jobs import JobTarget
 from truestill_app.service.drives import LIBRARY_PATH_HINT
@@ -104,10 +105,18 @@ GRID_SAMPLE_LIMIT = 48
 
 
 class OrganizedTile(TypedDict):
-    """One photo the run put into the library, addressed by content for `/api/thumb`."""
+    """One photo the run put into the library, addressed by content for `/api/thumb`.
+
+    ``w``/``h`` are the photograph's shape **as it is seen**, not as it is stored: EXIF
+    orientation is already applied, so they agree with the thumbnail `/api/thumb` returns. They
+    are `NotRequired` because exiftool cannot read every file, and a layout must cope with a
+    photograph whose shape is unknown rather than assume one.
+    """
 
     sha256: str
     name: str
+    w: NotRequired[int]
+    h: NotRequired[int]
 
 
 class OrganizedSample(TypedDict):
@@ -976,7 +985,7 @@ def organize_run(
                     catalog.finish_inplace_run(relocation.run_id)
                 else:
                     catalog.discard_inplace_run(relocation.run_id)
-        base = _completion(results, effective_destination)
+        base = _completion(results, effective_destination, metadata)
         leftover: LeftoverEmptyFolders | None = None
         # The two halves of what a move left behind, gated together on the mode. A copy leaves
         # every original where it is by definition, so neither is news there.
@@ -1058,7 +1067,54 @@ class OrganizeDoneSummary(CompletionBase):
     elapsed_seconds: NotRequired[float]
 
 
-def _completion(results: list[ActionResult], destination: Path) -> CompletionBase:
+def _tile(result: ActionResult, metadata: dict[Path, dict[str, Any]] | None) -> OrganizedTile:
+    """One grid entry. ``w``/``h`` are omitted rather than guessed when the shape is unknown."""
+    tile: OrganizedTile = {
+        "sha256": cast("str", result.sha256),
+        "name": result.resolution.decision.source.name,
+    }
+    shape = _tile_shape(metadata, result.resolution.decision.source)
+    if shape:
+        tile["w"], tile["h"] = shape["w"], shape["h"]
+    return tile
+
+
+def _tile_shape(metadata: dict[Path, dict[str, Any]] | None, source: Path) -> dict[str, int]:
+    """``{"w": ..., "h": ...}`` as the photograph is SEEN, or ``{}`` when it cannot be read.
+
+    **Free.** `read_metadata` already ran for this file and already asked for `ImageWidth`,
+    `ImageHeight` and `Orientation`; this reads three keys out of a dict that is still in scope.
+    No decode, no second pass, and a warm re-run serves them from `HashCache` with no exiftool
+    call at all.
+
+    ⚠ **The orientation swap is the whole point of the function.** `ImageWidth`/`ImageHeight` are
+    the STORED dimensions, and `thumbnails.render` applies `exif_transpose`, so on the 31.7% of a
+    real corpus that carries a transposing tag the stored pair describes a shape the thumbnail is
+    not. `upright_size` is imported from `thumbnails` rather than reimplemented here so the
+    payload and the pixels cannot drift apart - one rule, two callers.
+
+    Absent rather than guessed when exiftool read nothing: a layout can lay out an unknown shape
+    honestly, and cannot recover from a confident wrong one.
+    """
+    tags = (metadata or {}).get(source, {})
+    try:
+        stored_w, stored_h = int(tags["ImageWidth"]), int(tags["ImageHeight"])
+    except (KeyError, TypeError, ValueError):
+        return {}
+    if stored_w <= 0 or stored_h <= 0:
+        return {}
+    orientation = tags.get("Orientation")
+    width, height = upright_size(
+        stored_w, stored_h, orientation if isinstance(orientation, int) else None
+    )
+    return {"w": width, "h": height}
+
+
+def _completion(
+    results: list[ActionResult],
+    destination: Path,
+    metadata: dict[Path, dict[str, Any]] | None = None,
+) -> CompletionBase:
     """The story of a finished organize, built only from what the run actually did.
 
     Every number here is counted from the results -- nothing is estimated, rounded up for
@@ -1116,13 +1172,7 @@ def _completion(results: list[ActionResult], destination: Path) -> CompletionBas
         # what they have. First-seen is the only order the run actually knows.
         "organized_sample": {
             "total": len(photos),
-            "shown": [
-                {
-                    "sha256": cast("str", r.sha256),
-                    "name": r.resolution.decision.source.name,
-                }
-                for r in photos[:GRID_SAMPLE_LIMIT]
-            ],
+            "shown": [_tile(r, metadata) for r in photos[:GRID_SAMPLE_LIMIT]],
         },
     }
 

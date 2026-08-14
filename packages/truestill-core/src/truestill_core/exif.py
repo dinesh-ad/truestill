@@ -82,6 +82,12 @@ REQUESTED_TAGS: tuple[str, ...] = (
 _NUMERIC_TAGS: tuple[str, ...] = (
     "GPSLatitude",
     "GPSLongitude",
+    # Orientation, as the INTEGER 1-8 rather than exiftool's prose. Plainly it returns
+    # `"Rotate 90 CW"`, which is a sentence to parse and a format to depend on; `#` gives the
+    # EXIF value itself. Requested because `ImageWidth`/`ImageHeight` are the STORED dimensions
+    # and 31.7% of a real corpus carries a tag that transposes them - so without this, a payload
+    # built from those two disagrees with the pixels `thumbnails.render` produces.
+    "Orientation",
 )
 
 #: Said to someone running a **packaged** copy. exiftool ships inside the application, so its
