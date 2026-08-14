@@ -22,6 +22,53 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(adp) THUMBNAILS IGNORED EXIF ORIENTATION - A THIRD OF EVERY GRID WAS DRAWN WRONG.**
+  - ✅ **FIXED 2026-08-14**, found by running Stage 0 of the grid redesign against 4,108 real
+    photographs rather than against generated fixtures. Not introduced by the redesign; **this
+    shipped**, and the square crop is what made it survive unnoticed.
+  - **The census, on the real corpus:**
+
+    | orientation | n | share | what shipped |
+    |---|---:|---:|---|
+    | 1 upright | 2,738 | 66.7% | correct |
+    | 3 (180 degrees) | 67 | 1.6% | **upside down**, correct aspect |
+    | 6 / 8 (quarter turns) | 1,303 | 31.7% | **sideways**, wrong aspect |
+    | | **1,370** | **33.3%** | **drawn wrong** |
+
+  - **200 of 200 sampled quarter-turn photos rendered sideways**: a 4000x3000 source whose tag
+    says portrait produced a 320x240 landscape tile. The browser could not compensate - `render`
+    writes WebP **without EXIF**, so the tag a JPEG carried is gone before anything sees the bytes.
+  - ⚠ **The 67 are the ones an aspect check cannot find.** A 180-degree rotation leaves width and
+    height alone, so every measurement of shape agrees with a picture that is upside down. The
+    first census counted only orientations 5-8 and reported 31.7%; the real figure is 33.3%, and
+    the class it missed is invisible to the method that found the rest. Recorded because the next
+    person measuring orientation will reach for aspect first, as this one did.
+  - **The fix is `ImageOps.exif_transpose` AFTER `draft`+`thumbnail`, and the order is worth 4.4x.**
+    `exif_transpose` needs pixels, so calling it first forces a full-resolution decode and throws
+    away the DCT scaling `render` exists for. Measured over 40 corpus photos: **27.00 ms/file with
+    the transpose last, 117.82 ms/file with it first**, identical output either way.
+  - **Guarded twice, deliberately.** A corpus test (real cameras, real tags, skips without the
+    corpus) and a generated test covering **all eight** orientations - because the corpus holds
+    only 1, 3, 6 and 8. There is **no orientation 5 or 7 in 4,108 photographs**, so a corpus-only
+    guard would have claimed coverage it did not have. Both fail against the old `render`.
+
+- **(adq) A DAMAGED PHOTO ANSWERED 500 - 5 IN 4,108 REAL FILES.**
+  - ✅ **FIXED 2026-08-14**, same Stage 0 pass. A JPEG that stops early raises a plain `OSError`
+    (*"broken data stream"*, *"image file is truncated (31 bytes not processed)"*), which is
+    **not** a subclass of `UnidentifiedImageError` - verified, not assumed. So it fell past the
+    thumb route's 400/404/415 handlers and reached the browser as a **500**. One damaged photo in
+    a grid of forty-eight took the tile out with a server error.
+  - **422, not 415, and the line is imgproxy's:** 422 when a source is reachable but cannot be
+    processed, media-type codes reserved for media types. A truncated JPEG **is** a supported
+    media type; nothing about the format is unsupported. 500 was a lie in the other direction -
+    the server is fine, the photograph is damaged.
+  - ⚠ **Deliberately NOT salvaged with `ImageFile.LOAD_TRUNCATED_IMAGES`**, which is the common
+    remedy and is wrong here: it renders the intact prefix, pads the rest, and **caches that under
+    the content hash**, so a damaged photo looks fine forever and the one surface that could tell
+    an owner their file is rotting becomes the surface hiding it. truestill is a custody tool.
+  - **What is still open:** the grid renders a broken-image tile for a 422. Telling a person
+    *which* photo will not decode belongs to the result grid's own design, not to the route.
+
 - **(acj) Write to a temp name and rename, instead of writing straight to the target.**
   - ✅ **BUILT 2026-08-11, and the reason it was worth building is not the one this entry gives.**
     The entry argues the stronger shape for the *copy*. The larger find was one step later:

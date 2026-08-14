@@ -334,6 +334,10 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             return PlainTextResponse("no reachable copy of that content", status_code=404)
         except service.UnidentifiedImageError:
             return PlainTextResponse("that file is not a decodable image", status_code=415)
+        except service.UndecodableImageError:
+            # 422, not 415: the format IS supported, the bytes are damaged. 5 of 4,108 real
+            # corpus photos do this, and they used to reach the browser as a 500.
+            return PlainTextResponse("that photo will not decode", status_code=422)
         return Response(
             data, media_type="image/webp", headers={"Cache-Control": service.THUMB_CACHE_CONTROL}
         )

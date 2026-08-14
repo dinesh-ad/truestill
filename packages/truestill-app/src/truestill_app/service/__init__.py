@@ -250,5 +250,6 @@ _reveal_folder_on_drive = _migrate._reveal_folder_on_drive
 THUMB_CACHE_CONTROL = _thumbs.CACHE_CONTROL
 BadContentIdError = _thumbs.BadContentIdError
 NoReachableCopyError = _thumbs.NoReachableCopyError
+UndecodableImageError = _thumbs.UndecodableImageError
 UnidentifiedImageError = _thumbs.UnidentifiedImageError
 thumbnail_bytes = _thumbs.thumbnail_bytes
