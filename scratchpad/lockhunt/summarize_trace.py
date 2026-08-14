@@ -39,9 +39,42 @@ def main() -> int:
     for event, n in counts.most_common():
         print(f"  {n:6}  {event}")
 
+    _reach(records)
+    _lock_waits(records)
     _holds(records)
     _one_file_per_window(records)
     return 0
+
+
+def _reach(records: list[dict]) -> None:
+    """How many opens reach `_migrate` at all. Zero is the point of a startup migration."""
+    entered = sum(1 for r in records if r["event"] == "migrate.enter")
+    fresh = sum(1 for r in records if r["event"] == "migrate.exit" and r.get("path") == "fresh")
+    print(f"\n=== REACH: {entered} opens entered _migrate ===")
+    print(f"  of which took the fresh-catalog path: {fresh}")
+
+
+def _lock_waits(records: list[dict]) -> None:
+    """Time spent WAITING for BEGIN IMMEDIATE, winners and expired waiters together."""
+    waits = [
+        (r["waited_ms"], r["event"])
+        for r in records
+        if r["event"] in {"lock.acquired", "lock.failed"} and "waited_ms" in r
+    ]
+    if not waits:
+        print("\nNO LOCK-WAIT RECORDS. The trace predates the instrumentation or it was removed.")
+        return
+    times = sorted(ms for ms, _ in waits)
+    failed = [ms for ms, event in waits if event == "lock.failed"]
+    print(f"\n=== LOCK WAIT at BEGIN IMMEDIATE, n={len(times)} ===")
+    print(f"  min {times[0]:.2f}  median {statistics.median(times):.2f}  max {times[-1]:.2f} ms")
+    print(f"  p90 {times[int(len(times) * 0.9)]:.2f} ms")
+    print(f"  waits over 1000 ms: {len([t for t in times if t >= 1000])}")
+    print(f"  waits over 5000 ms: {len([t for t in times if t >= 5000])}")
+    print(
+        f"  EXPIRED (lock.failed): {len(failed)}"
+        + (f"  slowest {max(failed):.2f} ms" if failed else "")
+    )
 
 
 def _holds(records: list[dict]) -> None:

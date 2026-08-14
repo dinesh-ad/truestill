@@ -857,9 +857,30 @@ class Catalog:
         statements as before, now individually rather than as one script.
         """
         conn = self._conn
+        _lockhunt("migrate.enter", db=str(self.path))
         # RESERVED before the first read. Waiters block here for at most `busy_timeout`, and
         # the whole decision below is invisible to them until it commits.
-        conn.execute("BEGIN IMMEDIATE")
+        #
+        # ⚠ TEMPORARY INSTRUMENTATION - scratchpad/lockhunt, remove with it. This line IS the
+        # queue now, so the wait in front of it is the number that says whether the remaining
+        # `database is locked` errors are a slow holder or simply too many openers. The previous
+        # rewrite of this method deleted all nine trace points along with the code they measured,
+        # and the run that followed could answer none of the questions it was dispatched for.
+        waiting = time.perf_counter() if _LOCKHUNT else 0.0
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+        except BaseException:
+            # Recorded on the failing path too: a waiter that expired is a data point about the
+            # queue, and dropping it would leave the distribution made only of winners.
+            _lockhunt(
+                "lock.failed",
+                db=str(self.path),
+                waited_ms=(time.perf_counter() - waiting) * 1000,
+            )
+            raise
+        _lockhunt(
+            "lock.acquired", db=str(self.path), waited_ms=(time.perf_counter() - waiting) * 1000
+        )
         try:
             version = int(conn.execute("PRAGMA user_version").fetchone()[0])
             _refuse_if_newer(version)
@@ -871,10 +892,13 @@ class Catalog:
                 is None
             )
             if fresh:
+                _lockhunt("schema.enter", db=str(self.path))
                 for statement in _SCHEMA_STATEMENTS:
                     conn.execute(statement)
                 conn.execute(f"PRAGMA user_version = {CURRENT_SCHEMA_VERSION}")
+                _lockhunt("schema.exit", db=str(self.path))
             conn.commit()
+            _lockhunt("migrate.exit", db=str(self.path), path="fresh" if fresh else "existing")
         except BaseException:
             # Rollback before re-raising: `__init__`'s handler closes the connection, and a
             # connection closed mid-transaction leaves the journal for the next opener to
