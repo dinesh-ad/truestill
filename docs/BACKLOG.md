@@ -109,6 +109,60 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
+- **(ado) THE E2E LANE HAS A ROTATING WEBKIT TAIL. CENSUS TAKEN, CAUSE UNIDENTIFIED.** Recorded
+  2026-08-14 and filed rather than pursued: two hypotheses were killed by measurement in one day
+  and the third needs a different instrument. **This is not residue of the catalog-lock arc** -
+  every run below had **zero** `database is locked` and zero `duplicate column`.
+
+  **The census.** Ten failures across four runs (`31816361658`, `31821214510`, `31823157259`,
+  `31825233939`), **all of them `[webkit]`**, with membership rotating almost completely: eight
+  distinct tests, only `test_organize_clears_typed_confirm_after_the_run` appearing twice. One of
+  the four runs was fully green.
+
+  | shape | n | assertion |
+  |---|---:|---|
+  | post-job text never arrived | **6** | `to_contain_text 'Done'` / `'could not be organized'` / `to_be_visible` |
+  | page load never reached ready | **3** | `Locator expected to have attribute 'ready'` |
+  | computed style after reload | **1** | `assert 16 == 20 ± 0.5` |
+
+  ⚠ **The concentration is real and is the strongest signal in the census.**
+  `test_ui_regressions.py` holds **31 of 458** e2e test functions - **6.8%** of the suite - and
+  produced **7 of 10** failures. Uniform failure would predict 0.7. That is a **10x**
+  concentration, and it is not a big-file artifact: it is the largest file, but not by enough to
+  matter. It is also where the job-driving tests live.
+
+  **RULED OUT BY MEASUREMENT, both of them:**
+  - **SSE buffering.** Research describes WebKit withholding server-sent events until the
+    connection is severed, which would fit exactly: our failures wait for text delivered over
+    `/api/jobs/{id}/events`, and the fixture tears the server down *before* the page closes, so
+    the sever that would flush a buffer happens after the assertion has already failed. **It does
+    not happen.** Both ends instrumented, one real organize, 17 events: every event reached the
+    client **1.5-45 ms** after the server yielded it, and the two engines' delta series are
+    near-identical. Buffering would have put event 1 at ~351 ms and the last near 0. Independently,
+    a chunked socket read against uvicorn showed one chunk per yield at 300 ms steps, and the app
+    applies no compression middleware.
+  - **The catalog lock.** Zero locks in all four runs, after `(adl)`'s sibling fix.
+
+  **NOT RULED OUT:**
+  - **Fixture teardown order.** `ui(page, app_server)` sets up `page` first, so pytest tears down
+    `app_server` **before** the page closes - the server is told to exit while the page is still
+    live. A test ending mid-job leaves an SSE stream open, uvicorn waits for the in-flight
+    request, `_pending` grows past `RetiringServers.LIMIT = 8`, and `_join_one` blocks 10 s.
+    Plausible and unmeasured; nothing in the census points at it either.
+  - **A page load that never reaches `ready` with no lock present.** Three of the ten, and the
+    original lock symptom wearing a different cause. Nothing explains these yet.
+
+  **OPEN PRODUCT QUESTION, separate from the lane.** The SSE measurement covered a **351 ms job
+  with 17 events**. WebKit is what the Tauri shell renders in on Linux and macOS, and the
+  documented buffering behaviour may have a size or duration threshold that scale never reaches.
+  **A multi-minute organize is untested.** If it does buffer at that scale, a user watches a long
+  run with no progress at all - a product defect, not a test one.
+
+  ⚠ **EXIT CONDITION: THREE CONSECUTIVE GREEN E2E RUNS, NOT ONE.** Run `31823157259` was green
+  and the next run failed three tests with no code change touching the lane. A rotating tail
+  hands you a green whenever you ask it once, and one green was already read here as "the lane is
+  green" when it was not.
+
 - **(adl) THE MIGRATION CHAIN IS NOT TRANSACTIONAL AND HALF-LIFTS ON FAILURE.** Recorded
   2026-08-14, unchanged by the schema-race fix that sits directly above it in the same method.
   `Catalog._migrate` now takes `BEGIN IMMEDIATE` before its check, so the fresh-catalog path is

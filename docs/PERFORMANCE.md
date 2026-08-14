@@ -801,6 +801,12 @@ both decided it was empty and both built the schema**. 21 statements each, rollb
 | waits over 1 s | n/a | 155 | 7 |
 | e2e failures | 29 | 4 | **0** |
 
+⚠ **The last column is one run, and the lane is not green.** The very next run failed three
+WebKit tests with no code change touching it. The e2e row here records what the *lock* defect
+cost and what fixing it recovered; a separate rotating WebKit tail remains, censused in
+`BACKLOG.md` `(ado)` with an exit condition of **three consecutive green runs**. One green was
+read as "the lane is green" here once already.
+
 **The number that ended the investigation is the 20260 ms holder.** Every figure before it was a
 *waiter's* 5 s timeout - the same number whatever caused it, saying a lock was held and nothing
 about by whom or for how long. Instrumenting the write itself took one run. Runs `31810809571`
