@@ -1008,9 +1008,12 @@ Anything a naive SonarQube run would flag here, that this repo's context makes r
    it. Same for `reclaim`.
 8. **No pydantic, no attrs.** §4: stdlib dataclasses are the right-sized choice absent an untrusted-input
    API boundary. Do not "upgrade" the models.
-9. **No build step, no bundler, no framework in `static/`.** D2, D3 and `BACKLOG.md` (o). The 2,071-line
-   `app.js` is a deliberate single file. "Split into ES modules with a bundler" is not a valid finding
-   here.
+9. **~~No build step, no bundler, no framework in `static/`.~~ REVERSED 2026-08-14.** D2, D3 and
+   `BACKLOG.md` (o) ruled this and it held for the audit. It no longer does: `make frontend` runs
+   `tsc --noEmit && vite build`, and a React island owns `#org-result`. `app.js` is still a
+   deliberate single file and "split it into ES modules" is still not a valid finding - but it is
+   **4,085 lines now, not the 2,071 this audit measured**, so any conclusion here that rested on
+   its size should be re-derived rather than cited.
 10. **`DTZ007` and naive datetimes in `dates.py` / `video_utc.py`.** Waived at `pyproject.toml:82-90`
     with the reason: EXIF timestamps are local wall-clock with no zone, so a naive datetime is correct.
 11. **`PLR0911` on `resolve_capture_datetime`.** It is an ordered priority chain of early returns, and

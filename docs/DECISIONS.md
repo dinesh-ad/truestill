@@ -126,10 +126,21 @@ architecture is *no build step* (D-adjacent: see `BACKLOG.md` (o) and the no-bun
 **Decision.** Four scope rulings, made when the lane was built, recorded so they are not
 quietly relitigated as "more coverage is better".
 
-1. **Chromium on ubuntu only - no browser × OS grid.** The Python matrix already owns OS
-   differences; this lane owns client-side truth, which for a vanilla-JS app with no build step
-   and no framework runtime is browser-uniform enough that a grid would buy coverage there is
-   no evidence we need. **Revisit on evidence** - a real cross-browser bug - and not before.
+1. **~~Chromium on ubuntu only - no browser × OS grid.~~ REVERSED IN PART, 2026-08-14.** The
+   original ruling read: *"this lane owns client-side truth, which for a vanilla-JS app with no
+   build step and no framework runtime is browser-uniform enough that a grid would buy coverage
+   there is no evidence we need. Revisit on evidence - a real cross-browser bug - and not
+   before."*
+
+   **The evidence it asked for arrived, and so did the reason its premise expired.** `(9cdd85d)`
+   added WebKit because **WebKit is the engine the Tauri shell renders in on Linux and macOS** -
+   a chromium-only lane was silent about the browser that ships, which is a stronger argument
+   than any single cross-browser bug. And the premise itself is now false twice over: the app is
+   not no-build (`make e2e` depends on `make frontend`, which runs `tsc --noEmit && vite build`)
+   and not framework-free (a React island owns `#org-result`).
+
+   **What stands:** one operating system in this lane. The OS axis is still the Python matrix's
+   job, and widening it still waits on a real cross-OS browser bug.
 2. **Fixtures are generated, never committed.** Media files do not belong in git whatever their
    provenance; a committed generator (`tests/e2e/conftest.py`) builds exactly the corpus each
    test needs. This also keeps the personal corpus out of the repo permanently.

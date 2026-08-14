@@ -105,7 +105,7 @@ record of where every file is safe** for the library it builds:
   `truestill reclaim`.
 
 There is also **`truestill-app`**, a local web UI on `127.0.0.1` - token-authenticated,
-server-rendered, no bundler and no npm. It is co-equal with the CLI, not a replacement: both
+server-rendered, with a React island for the Organize result. It is co-equal with the CLI, not a replacement: both
 front-ends call the same core library.
 
 ## Requirements
@@ -119,10 +119,11 @@ sudo apt install -y libimage-exiftool-perl
 ```
 
 Runtime Python dependencies are deliberately minimal and each is justified in writing
-(`docs/IMPLEMENTATION_STANDARDS.md` §7): `imagehash`, `pillow` and `pillow-heif` in the core
-(perceptual hashing needs image decoding, which the stdlib cannot do), and `starlette` +
-`uvicorn` in the app. The CLI adds none. Hashing, SQLite, concurrency and all path/date work
-are stdlib.
+(`docs/IMPLEMENTATION_STANDARDS.md` §7): six in the core - `platformdirs`, `imagehash`,
+`numpy`, `pillow`, `pillow-heif` and `send2trash` (perceptual hashing needs image decoding,
+which the stdlib cannot do) - and `starlette` + `uvicorn` in the app. The CLI adds none.
+Hashing, SQLite, concurrency and all path/date work are stdlib. The browser lane additionally
+needs Node; `make check` does not.
 
 ### Working on a mounted or cloud filesystem
 
@@ -204,7 +205,7 @@ reporting a zero.
 
 `truestill --help` lists every subcommand: `analyze`, `organize`, `ingest`, `drives`,
 `repoint-sources`, `undo-organize`, `where`, `verify`, `status`, `catalog`, `config`,
-`reclaim`, `migrate-layout`, `clean-empty`, `rescan`.
+`reclaim`, `migrate-layout`, `clean-empty`, `rescan`, `restore`, `self-check`.
 
 Frequently used `organize` flags:
 
@@ -258,13 +259,13 @@ product describing itself incorrectly on screen.
 ## Development
 
 ```bash
-make check         # lint + format-check + typecheck + test
+make check         # lint + format-check + typecheck + prose/name/artifact gates + test
 make lint
 make format
 make typecheck
 make test
 
-make e2e-install   # once: fetch the chromium build
+make e2e-install   # once: fetch the chromium and webkit builds
 make e2e           # browser end-to-end suite (opt-in; not part of `make check`)
 ```
 

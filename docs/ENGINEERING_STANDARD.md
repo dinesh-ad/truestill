@@ -90,7 +90,7 @@ diff reaches the browser: it runs `check`, then `e2e` only when the diff touches
 own bill:** if the batch is what CI sees, the batch is what the gate must read, or a batch whose
 last commit is a docs edit skips a lane its third-from-last commit reached.
 The justification for skipping the client layer must be output you can paste. Measured
-2026-08-10: check 19-21 s against a 45 s ceiling, e2e ~6:50 against 600 s. **Seconds, not test
+2026-08-10: check 19-21 s against a 45 s ceiling, e2e ~6:50 against the 2000 s ceiling (600 s when this was measured). **Seconds, not test
 counts** - a count is stale the next time anyone adds a test, and §6 of the contract already
 forbids the shape it was written in. Full rule and its costs:
 `IMPLEMENTATION_STANDARDS.md` §6.1, which is binding.
@@ -245,7 +245,8 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   implementation moves, silently, with the test still green.
 
   *Worked example - the F10 service split, 2026-07-30.* `truestill_app/service.py` became a
-  package whose `__init__.py` is 78 re-export bindings and zero definitions. Two tests patched
+  package whose `__init__.py` is re-export bindings and zero definitions - **78 when this was
+  written, 193 today**, which is the point rather than a detail. Two tests patched
   through it. `tests/e2e/test_busy_state.py` patched `service.migration_preview` while
   `service/migrate.py` called its own global: the blocking wrapper never ran, so **one** test
   failed outright and **two** kept passing without exercising the per-drive lock they exist to
@@ -317,9 +318,12 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   reports green on every run between then and now, and will be cited as coverage in a review.
 
   *Worked example - the frontend rules, 2026-08-14.* Three source rules over
-  `frontend/src` (no `any`, no hand-memoization, no `tokens.css` import) each open with
-  `test_the_scan_actually_reads_files`, which asserts the glob found `.ts`/`.tsx` files at all
-  and that they are not all empty. Proven by mutation: narrowing the suffix set to `{".nope"}`
+  `frontend/src` (no `any`, no hand-memoization, no `tokens.css` import) share **one**
+  non-emptiness guard, `test_the_scan_actually_reads_files`, which asserts the glob found
+  `.ts`/`.tsx` files at all and that they are not all empty. ⚠ This sentence said the three
+  rules "each open with" it, which was wrong the day it was written: the guard is defined once,
+  after all three. One shared subject, one guard - and the error is left visible because a
+  worked example that misdescribes its own code teaches the wrong shape. Proven by mutation: narrowing the suffix set to `{".nope"}`
   fails with *"no .ts/.tsx files found"* rather than passing three times. In the same review a
   proposed `#[tauri::command]` counter was **refused rather than written**, because there is no
   `Cargo.toml` in the repo and it would have been green from the day it landed.
@@ -417,10 +421,10 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   to match" is the sentence that hides all four of these.
 
 - **When a fix lands on one surface, ask where else the rule is written down - not whether the
-  other surface has a test.** The CLI and the app implement one contract twice (62 core symbols
+  other surface has a test.** The CLI and the app implement one contract twice (**99** core symbols
   are imported by both), so a repair that reaches one copy and not its twin is a standing risk
   rather than an accident. It has now happened three times: F0 (migrate-undo fixed,
-  organize-undo not), F38 (twelve job sites updated, one missed), and `cli.py:513`.
+  organize-undo not), F38 (twelve job sites updated, one missed), and `cli._rescan_hashes`.
 
   **A second test would have caught the drift; a shared home would have made it impossible.**
   §9 already proves the pattern works - `models.status_label` and `models.date_quality` have
@@ -433,7 +437,7 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   So the remedy for any instance is usually to delete one of the two copies, not to add a second
   assertion. **Enforced** by `packages/truestill-app/tests/test_surface_parity.py`, which flags a
   catalog-row rule expressed at a call site on one surface and not its twin - and which protects
-  the *repair*, not the contract: before the `cli.py:513` fix both surfaces agreed and both were
+  the *repair*, not the contract: before the `cli._rescan_hashes` fix both surfaces agreed and both were
   wrong, and it scored zero. A green run there means the two copies match, never that they are
   right.
 
@@ -1822,7 +1826,8 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
 
   1. The mutation-restore rule lived in §4, precise and correct, naming the command and the fix -
     and was broken **twice in one day** (`(ace)`).
-  2. The no-retry rule lived as a comment at `Makefile:103` and `ci.yml:220`, at both enforcement
+  2. The no-retry rule lived as a comment on the `e2e` recipe in the `Makefile` and on CI's `E2E`
+     step, at both enforcement
     points and nowhere teachable.
   3. `BACKLOG.md`'s *Item letters* section carried the rule, an allocation line recording the next
     free letter, **and a warning that `(u)` and `(v)` had already been taken twice**. Five letters

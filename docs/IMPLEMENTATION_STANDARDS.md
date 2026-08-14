@@ -511,15 +511,18 @@ successful upgrade), never automatic.
 | **The Everyday day-folder threshold is a per-catalog setting, default 40.** Un-evented days over the threshold get `{yyyy}-{mm}-{dd} - Everyday`; under stay in the monthly bucket. Changing the setting must warn that existing files do not move until migrate, with a route to Settings → Rearrange your library (`#settings-migrate`; the name is `layout.MIGRATE_CARD_NAME`, not retyped). | `layout.EverydayDaySettings` / `EVERYDAY_DAY_THRESHOLD_KEY`; `service.set_everyday_day_settings`; pinned by `test_everyday_day_threshold_change_is_honoured_and_warns_to_migrate`. |
 | **Never push without being asked.** | Convention - not yet enforced. |
 | **Real-library corpus fence (2026-07-30; restated as an instruction 2026-08-10).** Test / profile / soak against **only** the maintainer's stated pair: source `TruestillLibrary/Input`, destination `TruestillLibrary/Output`. `Input/Testing-new` stays out - single copy, uncatalogued. **The maintainer's encrypted cloud mount is READ-ONLY.** Resolving, stat-ing and reading a path to understand structure is allowed; **writing to it, organizing into it, or walking it broadly is not.** Reading is for understanding a path, never for scanning a library - **if something would read more than a handful of entries, ask first.** **The locked folder inside that mount is OFF LIMITS, unconditionally**: do not resolve into it, do not stat inside it, do not descend. There is **no task-scoped exception**; if one is ever needed the maintainer grants it himself, in his own words. **The reason, which is what makes the rule predictable rather than arbitrary:** the cost is his disk. A scan there pulls gigabytes through the local cache. It was never about protecting the cloud from us. **This row said something different until 2026-08-10, and how it failed is the point:** it asserted the client was uninstalled and the material *"cannot be reached by any means"* - true when written, false the moment he reinstalled, and nothing could notice. A binding clause states **intent**, which stays true, not a **machine state**, which expires in silence (`ENGINEERING_STANDARD.md` §4, thirty-second member). If a task appears to need more than this allows, STOP and ask. | Convention - human process. **This row is the source**; `PROJECT_STATUS.md` §4 carries the short form and points here. It used to cite §4 as *its* source, which is how one stale sentence became two documents saying it. |
-| **An entry that leaves `BACKLOG.md` is closed by the commit that moves it.** The message declares `Closes (xyz)` on a line of its own and the entry arrives in `SHIPPED.md` in the same commit - a ruling in conversation is not a closure until a commit records it. The full stop is conventional and not required, because requiring it would fail silently in the direction that matters. | **Enforced, in two places, because only one direction is checkable against history:** `test_closed_entries_leave_the_backlog.py` (corpus - declared closed, yet still open work or in neither document) and `scripts/check_entry_closure.py` via the `commit-msg` hook (per-commit - left the backlog undeclared). The hook reads only the staged diff, so its boundary is structural rather than a date; the corpus form would fail 31 of `SHIPPED.md`'s 32 entries. Full reasoning in `BACKLOG.md`'s *Item letters*. |
+| **An entry that leaves `BACKLOG.md` is closed by the commit that moves it.** The message declares `Closes (xyz)` on a line of its own and the entry arrives in `SHIPPED.md` in the same commit - a ruling in conversation is not a closure until a commit records it. The full stop is conventional and not required, because requiring it would fail silently in the direction that matters. | **Enforced, in two places, because only one direction is checkable against history:** `test_closed_entries_leave_the_backlog.py` (corpus - declared closed, yet still open work or in neither document) and `scripts/check_entry_closure.py` via the `commit-msg` hook (per-commit - left the backlog undeclared). The hook reads only the staged diff, so its boundary is structural rather than a date; the corpus form would fail all but one of `SHIPPED.md`'s entries (31 of 32 when that was written; **48 entries today**, which is why the sentence carries a ratio rather than a count). Full reasoning in `BACKLOG.md`'s *Item letters*. |
 | **Commit identity / no-AI-trailer** - no `Co-Authored-By` trailer, no Anthropic/Claude email or signature in history. | **Enforced:** `scripts/check_commit_msg.py` via the `commit-msg` pre-commit hook (`.pre-commit-config.yaml`, id `no-ai-coauthor`). Activate: `uv run pre-commit install --hook-type commit-msg`. |
 
 ---
 
 ## 6. Quality gates
 
-- **`make check`** = `ruff check .` (lint) + `ruff format --check` + `mypy` on the three
-  `src` trees + `pytest` (`Makefile`).
+- **`make check`** = `lint format-check typecheck dash-check name-check redirect-check test`
+  (`Makefile`). That is `ruff check .`, `ruff format --check`, `mypy` over **five** targets, the
+  three prose/artifact gates (`normalize_dashes --check`, `check_product_name`,
+  `check_redirect_artifacts`), and `pytest`. ⚠ This read "`mypy` on the three `src` trees +
+  `pytest`" and understated the gate in both halves.
 - **`ruff format --check`** is also a separate gate in CI (and `make format` applies it).
 - **`dash-check`** = `scripts/normalize_dashes.py --check`, in `make check` and in pre-commit.
   See the prose convention below.
@@ -540,7 +543,7 @@ recollection.
 |---|---|---|
 | inner loop, on an edit | the targeted test(s) only | seconds |
 | before every commit | **`make check`** | **19-21 s**, against a 45 s ceiling (`TEST_SECONDS_MAX`) |
-| before a commit whose diff reaches the browser | **`make gate`** (check + e2e) | **+ ~6:50**, against a 600 s ceiling (`E2E_SECONDS_MAX`) |
+| before a commit whose diff reaches the browser | **`make gate`** (check + e2e) | **+ ~6:50**, against a 2000 s ceiling (`E2E_SECONDS_MAX`) |
 
 **A duration and its ceiling, never a test count - corrected 2026-08-10.** These rows read
 *"19-33 s for 2,080 tests"* and *"~6.5 min for 412 tests"*, and both counts were already wrong
@@ -603,7 +606,9 @@ one that can demand six minutes would be bypassed with `--no-verify`, which is w
 honest nudge. The residual is accepted and CI is what catches it.
 
 The two ceilings from the timing work already stop either lane drifting:
-`TEST_SECONDS_MAX ?= 45` and `E2E_SECONDS_MAX ?= 600` (`Makefile`).
+`TEST_SECONDS_MAX ?= 45` and `E2E_SECONDS_MAX ?= 2000` (`Makefile`), with CI overriding the
+second to 3600. ⚠ Both figures here said 600 until the ceiling was raised for the WebKit lane;
+the doc and the Makefile drifted apart the moment the lane grew a second engine.
 
 ### 6.2 The prose convention: hyphens, not em-dashes
 
@@ -639,7 +644,7 @@ exhaustively before anything was changed. Ruff, mypy and pytest were all green t
 is the point of the gate: **no other gate we have can see prose.**
 - **The fence covers `scripts/` too.** `ruff check .` is repo-wide (packages, `tests/e2e/`,
   `scripts/` - the last with its own per-file ignores, because a benchmark script's `print`
-  *is* its output), and **mypy covers `packages/*/src/` plus `scripts/`**. Tests stay out.
+  *is* its output), and **mypy covers `packages/*/src/` plus `scripts/` and `packaging/`**. Tests stay out.
   - **Why scripts are in the fence, from the evidence:** `scripts/benchmark_hashing.py` sat
     outside it and imported `truestill.scan` - a module that has never existed under that
     name. It survived `vaeon` → `vaeon_core` → `truestill_core` untouched, silently broken,
@@ -655,11 +660,14 @@ is the point of the gate: **no other gate we have can see prose.**
   - **`check`** - matrix **{ubuntu, macos, windows} × Python 3.13**; steps = sync (`--locked`)
     → ruff (lint) → ruff (format --check) → mypy → pytest → **dependency audit** (Linux only);
     exiftool installed per-OS.
-  - **`e2e`** - the browser lane, chromium on ubuntu (below). **A separate job, not a matrix
+  - **`e2e`** - the browser lane, **chromium and webkit** on ubuntu (below). **A separate job, not a matrix
     entry**, so a browser-layer failure is distinguishable at a glance and never masks a Python
     one.
-  - The CI mypy step, `make typecheck` and `.pre-commit-config.yaml` all cover the same three
-    `src` trees - **keep the three in step with each other.**
+  - ⚠ **They do NOT all cover the same set, and this line used to claim they did.** `make
+    typecheck` and the CI mypy step both run five targets (`$(CORE) $(CLI) $(APP) $(SCRIPTS)
+    $(PACKAGING)`); the `.pre-commit-config.yaml` mypy hook's `files:` pattern covers the three
+    `src` trees and `scripts/` and **omits `packaging/`**. Keep them in step - and until they
+    are, the hook is the weaker of the two and CI is what catches a `packaging/` type error.
 - **The lockfile must be current.** CI syncs with **`uv sync --all-packages --group dev
   --locked`**, which fails if `uv.lock` has drifted from the `pyproject.toml` manifests
   instead of silently re-resolving. `uv.lock` is the source of truth for what ships (§7), so
@@ -707,7 +715,7 @@ is the point of the gate: **no other gate we have can see prose.**
 - **`uv build --all-packages`** must produce clean wheels for **all three packages**
   (`make build`); `truestill-core` ships `py.typed`.
 - **Browser end-to-end** (`tests/e2e/`, `make e2e`): Playwright via `pytest-playwright`, run in
-  CI as its own **chromium-on-ubuntu** lane. It exists because every UI bug the soak era found
+  CI as its own **chromium-and-webkit-on-ubuntu** lane. It exists because every UI bug the soak era found
   lived in client-side JavaScript - a layer pytest cannot reach and manual checking cannot
   regression-pin. Rules:
   - **Deliberately outside `testpaths`**, so a fresh clone runs `make check` green with no
@@ -729,10 +737,18 @@ is the point of the gate: **no other gate we have can see prose.**
   - **Playwright is dev-group only.** A clean install of the shipped wheels pulls no browser;
     pinned by `tests/e2e/test_dependency_gating.py`, which checks the resolver output rather
     than trusting the manifests.
-- **Browser × OS matrix is deferred on purpose.** The Python matrix already owns OS
-  differences; this lane owns client truth, which for a no-build vanilla-JS app is uniform
-  enough that a full grid would buy coverage we have no evidence we need. Revisit **on
-  evidence** - a real cross-browser bug - and not before.
+- **Browser × OS matrix is deferred on purpose; the BROWSER axis is not.** The Python matrix
+  already owns OS differences, so this lane owns client truth and runs on ubuntu only.
+
+  ⚠ **REVERSED IN PART, and recorded rather than rewritten.** This rule read *"which for a
+  no-build vanilla-JS app is uniform enough that a full grid would buy coverage we have no
+  evidence we need"*, and both halves of that premise are gone. The app is no longer no-build -
+  `make e2e` depends on `make frontend`, which runs `tsc --noEmit && vite build` - and it is no
+  longer vanilla-JS-only, since a React island owns `#org-result`. The browser axis was widened
+  to **chromium and webkit** by `(9cdd85d)`, on the evidence this rule asked for: **WebKit is
+  what the Tauri shell renders in on Linux and macOS**, so a chromium-only lane said nothing
+  about the engine that ships. What survives unchanged is the OS half - one operating system in
+  this lane, revisited on a real cross-OS browser bug and not before.
 - **Test counts are never hardcoded** as a done-ness signal - they change. Assert behaviour,
   not totals.
 

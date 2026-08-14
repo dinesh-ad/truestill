@@ -218,10 +218,17 @@ jobs:
         if: runner.os == 'Linux'
         run: uvx pip-audit -r requirements-audit.txt --disable-pip
 
-  # Browser end-to-end, chromium on ubuntu only. The 3-OS matrix above already owns OS
-  # differences; this lane owns client-side truth, which for a vanilla-JS app with no build
-  # step is browser-uniform enough that a full browser x OS grid would buy coverage we have no
-  # evidence we need. Revisit on evidence -- a real cross-browser bug -- and not before.
+  # Browser end-to-end, CHROMIUM AND WEBKIT on ubuntu. The 3-OS matrix above already owns OS
+  # differences; this lane owns client-side truth.
+  #
+  # ⚠ THIS COMMENT SAID "chromium on ubuntu only ... a vanilla-JS app with no build step" and
+  # both halves were false where it stood. The engine half was overturned by `(9cdd85d)`: WebKit
+  # is what the Tauri shell renders in on Linux and macOS, so a chromium-only lane said nothing
+  # about the shipped engine. The build half was overturned by the React seam - this job runs
+  # `make frontend-install` below, and `make e2e` builds the bundle with Vite before a browser
+  # opens. Recorded rather than edited away: the single-engine ruling was real and was reversed
+  # on evidence, not on preference. A full browser x OS grid is still not run: the OS axis stays
+  # the Python matrix's, and widening this one waits on a real cross-browser bug, not on a hunch.
   #
   # A separate job rather than a matrix entry so its failure is distinguishable at a glance,
   # and so a browser-layer problem never masks a Python one.

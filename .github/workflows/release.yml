@@ -44,7 +44,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The two platforms D9 publishes. macOS builds in CI (ci.yml) and is not published.
+        # The two platforms D9 publishes. ⚠ This line used to add "macOS builds in CI (ci.yml)
+        # and is not published" and that was simply false: `ci.yml` contains no PyInstaller step
+        # and no freeze of any kind - grep it. NOTHING BUILDS A macOS ARTIFACT ANYWHERE in this
+        # repository. D9 refuses to publish an unsigned macOS build because Gatekeeper refuses it
+        # outright; what was never true is that one was being built at all.
         os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v7

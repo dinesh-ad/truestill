@@ -33,7 +33,11 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(adj). Next free: (adk).** `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(adj), (adl)-(adq). Next free: (adk).**
+⚠ `(adk)` is genuinely unused and the range skips it; `(adl)`-`(adq)` were allocated on
+2026-08-14 and this line was not updated with them, which is the exact drift the warning
+below describes. Six letters, one day, and the *next free* answer stayed right by luck
+while the *used* range was wrong. `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
 a second time on 2026-07-27, four hours after they were first taken, because nothing recorded
 which letters were spoken for.
 
@@ -63,8 +67,12 @@ history.**
 **Why that half is a hook and not a test, stated so nobody "finishes the job" later.** As a check
 over the corpus it is not honest: *a letter in `SHIPPED.md` must carry a trailer* fails **31 of its
 32 entries** on the day it is written, because the whole history holds exactly one; and *an
-allocated letter is in one of the two files* is false as well - `(e)`, `(h)` and `(gg)` are retired
-and legitimately in neither. A guard that goes red on the past gets switched off and takes its real
+allocated letter is in one of the two files* is false as well - `(e)` and `(h)` are retired and
+legitimately in neither. ⚠ **This sentence named `(gg)` as a third example and that was wrong:
+`(gg)` has a full entry in `SHIPPED.md` (*Adaptive day-folder threshold*, Built 2026-07-30).**
+Recorded rather than quietly dropped, because the claim was load-bearing - it is one of the two
+counter-examples justifying why this check is a hook and not a corpus guard, and one of the two
+was false. `(e)` and `(h)` were verified against both files and do hold. A guard that goes red on the past gets switched off and takes its real
 signal with it (`ENGINEERING_STANDARD.md` §4).
 
 **And the boundary is structural, not a date.** The hook reads only the staged diff of the commit
@@ -3030,7 +3038,13 @@ section, because what is left is the part that still has to be written.
 
 - **No charting library for Analyze's screens: rejected, hand-rolled SVG instead.** Ruled
   2026-08-03 while designing Analyze, and recorded before the screens are built so commit 4 does
-  not re-open it. The app is **offline-first with no build step** and one deliberately
+  not re-open it. ⚠ **The premise has moved and the ruling has not.** This read *"the app is
+  offline-first with no build step and one deliberately un-bundled `app.js`, so a chart library
+  cannot be a dependency line"*. There IS a build step now (`make frontend`, Vite) and a React
+  island, so *"cannot be a dependency line"* is no longer the argument. **The ruling still
+  stands on its other half** - offline-first, and a charting library is weight for screens that
+  are not built - but anyone re-opening it should argue the weight, not the impossibility.
+  Original text follows. The app is **offline-first with no build step** and one deliberately
   un-bundled `app.js`, so a chart library cannot be a dependency line - it has to be **vendored
   into `static/`**, which is a permanent maintenance surface, installer weight, and a file
   nobody in this repo wrote. Against that: two bar charts. **The 2026 landscape was checked

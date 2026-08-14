@@ -141,11 +141,11 @@ narrative, or volatile counts.
   failing** (2026-08-12, §2 item 1). It is not closed and is not claimed to be; it is no longer
   what other work waits behind. What remains open is the *knowledge* - the failure class that only
   a real library produces is still unmeasured, and nothing below should be read as covering it.
-- **Absolute-path portability remains open** (`BACKLOG.md` `(xx)`, `(yy)`):
+- **Absolute-path portability remains open** (`BACKLOG.md` `(xx)`; ⚠ `(yy)` was listed here too and is **BUILT 2026-08-02** as `truestill repoint-sources OLD NEW` - reconnect UX is done, the portability of the stored paths is not):
   `files.source_path`, inplace roots, reclaim journal path semantics, and reconnect UX.
 - **Known coverage gap: the unreadable-directory path is unverified on Windows.**
   `scan_source` was swapped from `sorted(rglob("*"))` to `Path.walk(on_error=...)`, and the
-  seven `test_unreadable_source.py` tests plus
+  six `test_unreadable_source.py` tests plus
   `test_unreadable_paths.py::test_a_real_locked_directory_raises_from_is_dir` **skip on
   Windows** - `chmod 000` does not deny the owner there, so the fixture cannot create the
   condition. Ordinary traversal *is* exercised on Windows (`test_organizer.py`, `test_heif.py`,

@@ -59,7 +59,7 @@ that decides who fixes it and how it is proved.
 
 | # | Surface | The problem | Status |
 |---|---|---|---|
-| 1b.1 | Organize tally, first row | Labelled "new - will be organized" while a near-duplicate is **also** organized, so the row names less than the run does. Buckets are correct and disjoint; only the label is wrong, and it can only be fixed together with the second row | **Filed as `(abl)`**, waiting for whichever screen commit reaches that tally |
+| 1b.1 | Organize tally, first row | Labelled "new - will be organized" while a near-duplicate is **also** organized, so the row names less than the run does. Buckets are correct and disjoint; only the label is wrong, and it can only be fixed together with the second row | ✅ **CLOSED 2026-08-11** (`SHIPPED.md`). ⚠ This row said *"Filed as `(abl)`, waiting for whichever screen commit reaches that tally"* long after it shipped - and its stated remedy was wrong too: the closure records that *"the fix is wording"* was incomplete, because the confirm control already rendered the right number. One number, `will_organize`, computed once and rendered by both. |
 | 1b.2 | Find, drive column | `find_copies_query` joins `drives` with no drive filter, so on a shared catalog the column names another machine's drives | **Filed as `(abd)`**; pinned by a record-only test |
 
 ---

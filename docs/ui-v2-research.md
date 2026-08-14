@@ -6,6 +6,18 @@ progress display, completion cards and Backups screen described here were **rebu
 the soak test** (`PROJECT_STATUS.md` §2.1); where this document and the shipped UI differ,
 the shipped UI and `IMPLEMENTATION_STANDARDS.md` §9 win. Nothing below is rewritten.
 
+
+> ⚠ **SUPERSEDED ON THE TOOLCHAIN QUESTION, 2026-08-14.** Every *"no build step / no bundler /
+> no React / no Tailwind / no TypeScript"* statement below was true when written and is now a
+> **record of a reversed ruling, not a rule**. The repo has `packages/truestill-app/frontend/`
+> with React 19, TypeScript and Vite; the bundle is built by `make frontend` and a React island
+> owns the `#org-result` region. See `docs/react-migration-plan.md` for the reversal and its
+> reasons. **Nothing below is rewritten** - a record edited to stay correct stops being a record.
+>
+> What is **installed** today: React 19, TypeScript, Vite. What remains a **target and is NOT
+> installed**: Tailwind, shadcn/ui, Tauri (there is no `Cargo.toml` in the repo). Lucide supplied
+> the artwork for eight icons, inlined as SVG paths - it is not a dependency either.
+
 Original status line: *Phase 1 deliverable, awaiting approval.* No build. Presentation + UX over the existing
 working API; the engine is untouched. Constraint held: vanilla JS + server-rendered HTML + a
 hand-written design-tokens CSS layer, no toolchain, no heavy deps.
