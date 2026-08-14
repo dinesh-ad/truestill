@@ -187,7 +187,7 @@ jobs:
   # A separate job rather than a matrix entry so its failure is distinguishable at a glance,
   # and so a browser-layer problem never masks a Python one.
   e2e:
-    name: e2e (chromium, ubuntu)
+    name: e2e (chromium + webkit, ubuntu)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -224,17 +224,36 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
 
-      - name: Install chromium
-        run: uv run playwright install --with-deps chromium
+      - name: Install browsers
+        # BOTH engines, matching `make e2e-install`. WebKit is what the Tauri shell renders in on
+        # Linux and macOS, and a lane that is green only in Chromium says nothing about it.
+        run: uv run playwright install --with-deps chromium webkit
+
+      # Node is pinned by `.nvmrc`, read here rather than restated: a version named in two places
+      # is a version that disagrees with itself eventually. `engine-strict=true` in the frontend's
+      # `.npmrc` turns a mismatch into a hard EBADENGINE rather than a warning nobody reads.
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: packages/truestill-app/frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: packages/truestill-app/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: make frontend-install
 
       # No retries, deliberately: a retry-until-green browser suite launders the very
       # nondeterminism this lane exists to expose. A flaky test is quarantined and filed.
+      # THROUGH THE MAKEFILE, not a copy of its command. This step used to repeat the pytest
+      # invocation, so when `make e2e` gained WebKit and a frontend build, CI kept running
+      # neither and nothing said so. `E2E_EXTRA` exists for the one thing CI needs and local
+      # runs do not.
+      #
+      # The ceiling is raised for CI hardware rather than removed: shared runners are slower and
+      # far more variable than the machine the 1431s figure was measured on, and a ceiling that
+      # fires on runner variance is one that gets deleted.
       - name: E2E
-        run: |
-          uv run pytest tests/e2e --browser chromium \
-            --junitxml=test-results.xml \
-            --tracing retain-on-failure --video retain-on-failure \
-            --output tests/e2e/.artifacts
+        run: make e2e E2E_EXTRA="--junitxml=test-results.xml" E2E_SECONDS_MAX=3600
 
       # WHICH tests failed, per run, so nobody has to count green runs by hand in a backlog
       # entry. `always()` because a green run's file is the baseline that makes a red one
