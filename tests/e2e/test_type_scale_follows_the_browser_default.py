@@ -79,18 +79,18 @@ def test_no_text_token_is_declared_in_px(ui: Page) -> None:
     declared = ui.evaluate(
         "() => { const cs = getComputedStyle(document.documentElement);"
         " return ['xs','sm','base','lg','xl','2xl'].map("
-        "   n => [n, cs.getPropertyValue('--text-' + n).trim()]); }"
+        "   n => [n, cs.getPropertyValue('--type-' + n).trim()]); }"
     )
-    in_px = [f"--text-{n}: {v}" for n, v in declared if v.endswith("px")]
+    in_px = [f"--type-{n}: {v}" for n, v in declared if v.endswith("px")]
     assert not in_px, f"type tokens still declared in px: {in_px}"
-    assert declared, "no --text-* tokens found at all"
+    assert declared, "no --type-* tokens found at all"
 
 
 def test_every_step_of_the_scale_actually_resolves(ui: Page) -> None:
     """THE HOLE THE TEST ABOVE HAD, closed by the defect that walked through it.
 
     A stray `*/` in `tokens.css` ended a comment two lines early, and CSS error recovery ate the
-    declaration that followed - `--text-xs` simply stopped existing. Nothing failed: `ruff`,
+    declaration that followed - `--type-xs` simply stopped existing. Nothing failed: `ruff`,
     `mypy` and 1802 pytest cases do not read a stylesheet, and the test above passed because an
     EMPTY value does not end in `px`. What noticed was two unrelated browser tests, by three
     pixels of top-bar height.
@@ -101,9 +101,9 @@ def test_every_step_of_the_scale_actually_resolves(ui: Page) -> None:
     resolved = ui.evaluate(
         "() => { const cs = getComputedStyle(document.documentElement);"
         " return ['xs','sm','base','lg','xl','2xl','3xl'].map("
-        "   n => [n, cs.getPropertyValue('--text-' + n).trim()]); }"
+        "   n => [n, cs.getPropertyValue('--type-' + n).trim()]); }"
     )
-    missing = [f"--text-{n}" for n, v in resolved if not v]
+    missing = [f"--type-{n}" for n, v in resolved if not v]
     assert not missing, (
         f"type token(s) resolve to nothing: {missing}. A declaration was dropped - most likely "
         "swallowed by a malformed comment above it."

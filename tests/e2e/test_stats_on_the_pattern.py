@@ -195,16 +195,16 @@ def test_secondary_numbers_do_not_compete_with_the_metrics(ui: Page) -> None:
 
 
 def test_only_the_metric_still_owns_the_biggest_size() -> None:
-    """`--text-3xl` is metric-only and guarded; Stats must not reach past it."""
+    """`--type-3xl` is metric-only and guarded; Stats must not reach past it."""
     # Comments stripped first: a comment that MENTIONS the token is not a use of it, and
     # counting one made this fail on its own explanatory note.
     css = re.sub(r"/\*.*?\*/", "", (STATIC / "app.css").read_text(encoding="utf-8"), flags=re.S)
     users = [
         block.split("{")[0].strip().splitlines()[-1].strip()
         for block in css.split("}")
-        if "--text-3xl" in block and "{" in block
+        if "--type-3xl" in block and "{" in block
     ]
-    assert users == [".metric-value"], f"--text-3xl is used outside the metric: {users}"
+    assert users == [".metric-value"], f"--type-3xl is used outside the metric: {users}"
 
 
 # ------------------------------------------------------------------- the last bar

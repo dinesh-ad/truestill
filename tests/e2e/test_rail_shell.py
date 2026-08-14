@@ -4,7 +4,7 @@ Shell only. Nothing here asserts screen content.
 
 The rail is **theme-independent**: it is dark in light mode too, so its tokens sit outside the
 light/dark ladder and the two colours that used to be borrowed from it were re-derived against
-it rather than reused - `--text-muted` measured 3.91:1 there, below AA, while its own source
+it rather than reused - `--fg-muted` measured 3.91:1 there, below AA, while its own source
 annotation claims 4.6:1 *on white*.
 """
 
@@ -326,7 +326,7 @@ def test_the_nav_icons_are_sized_as_icons_not_as_body_text(ui: Page) -> None:
     """The glyphs are 16px, and that is a deliberate size rather than an inherited one.
 
     They were 13px, and nothing said so: `.nav-item .ico` sets `width: 18px` and no font-size,
-    so the glyph took `--text-sm` from the row's `font` shorthand. The 18px is a reserved
+    so the glyph took `--type-sm` from the row's `font` shorthand. The 18px is a reserved
     COLUMN for label alignment; it never sized anything.
 
     **ASSERTED ON THE RENDERED BOX, NOT ON `font-size`, and rewritten BEFORE the artwork changes

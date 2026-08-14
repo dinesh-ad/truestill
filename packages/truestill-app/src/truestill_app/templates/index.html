@@ -189,7 +189,7 @@
           </fieldset>
 
           <div class="field" id="org-dest-field">
-            <label for="org-dest">Organized folder <span style="color:var(--text-muted);font-weight:400">(where your sorted copies go)</span></label>
+            <label for="org-dest">Organized folder <span style="color:var(--fg-muted);font-weight:400">(where your sorted copies go)</span></label>
             <div class="row">
               <!-- The example was `/media/BackupA`, a removable drive - and on a first run it was
                    the ONLY guidance the screen offered about where a library should live, aimed
@@ -201,9 +201,9 @@
           </div>
 
           <label class="checkline"><input type="checkbox" id="org-skip-undated"> Skip files with no date
-            <span style="color:var(--text-muted)">(they won’t be sorted into an Undated folder)</span></label>
+            <span style="color:var(--fg-muted)">(they won’t be sorted into an Undated folder)</span></label>
           <label class="checkline"><input type="checkbox" id="org-refresh-metadata"> Re-read metadata
-            <span style="color:var(--text-muted)">(bypass cache if another tool edited tags without changing the file date)</span></label>
+            <span style="color:var(--fg-muted)">(bypass cache if another tool edited tags without changing the file date)</span></label>
 
           <div class="actions">
             <button class="btn btn-secondary" id="org-preview">Look inside</button>
@@ -264,7 +264,7 @@
             <div class="row"><input class="input" id="rc-takeout" placeholder="e.g. /home/you/Downloads/Takeout or a folder of .zip files">
               <button class="btn btn-secondary" data-browse="rc-takeout" data-kind="source">Browse…</button></div>
             <span class="hint" id="rc-takeout-hint"></span></div>
-          <div class="field"><label for="rc-dest">Organized folder <span style="color:var(--text-muted);font-weight:400">(where your sorted copies go)</span></label>
+          <div class="field"><label for="rc-dest">Organized folder <span style="color:var(--fg-muted);font-weight:400">(where your sorted copies go)</span></label>
             <div class="row"><input class="input" id="rc-dest" placeholder="e.g. /media/BackupA">
               <button class="btn btn-secondary" data-browse="rc-dest" data-kind="dest">Browse…</button></div>
             <span class="hint" id="rc-dest-hint"></span></div>
@@ -331,7 +331,7 @@
         <header><h1>Find a file</h1>
           <p class="lede">Search your whole library - it works even when the drives are unplugged.</p></header>
         <!-- Spotlight, not a dashboard. The field IS the screen until there is something to
-             show, so it leads at `--text-lg` and carries no card chrome competing with it.
+             show, so it leads at `--type-lg` and carries no card chrome competing with it.
              THE PLACEHOLDER IS ONE WORD ON PURPOSE: `find_copies_query` builds a single
              substring LIKE over three columns - no whitespace split, no AND - so "beach 2019"
              matches only that literal string, and a photo in `2019-07-04 - Beach/` never has
@@ -381,9 +381,9 @@
         <div class="card">
           <h2>Folder layout</h2>
           <p class="lede" style="margin-bottom:var(--space-4)">How organized copies are named on disk.
-            Current: <code id="layout-current"></code> <span id="layout-default" style="color:var(--text-muted)"></span></p>
+            Current: <code id="layout-current"></code> <span id="layout-default" style="color:var(--fg-muted)"></span></p>
           <div class="field"><label for="layout-preset">Start from a saved folder pattern</label>
-            <select class="input" id="layout-preset" style="font-family:var(--font-sans)"><option value="">- choose a saved folder pattern -</option></select></div>
+            <select class="input" id="layout-preset" style="font-family:var(--family-sans)"><option value="">- choose a saved folder pattern -</option></select></div>
           <div class="field"><label for="layout-template">Folder pattern</label>
             <input class="input" id="layout-template" placeholder="{yyyy}/{yyyy}-{mm}"></div>
           <p class="hint">Photos are placed by date. Screenshots, WhatsApp and other

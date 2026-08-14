@@ -1514,6 +1514,32 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   it matched, because "at least one" and "exactly the one I meant" are different questions and
   only the second one is the one being asked.
 
+  ⚠ **A TEXTUAL RENAME CANNOT SEE A NAME BUILT AT RUNTIME, and no grep for the old name will
+  tell you.** Renaming a design token across the repo, 2026-08-14: every literal `--text-xs` was
+  replaced and the check "no old name remains" passed. Two tests still referenced the old scale,
+  because they never wrote it - they assembled it:
+
+  ```
+  cs.getPropertyValue('--text-' + n)             a JS concatenation
+  f"--type-{n}"                                   a Python f-string
+  r"(--text-(?:xs|sm|base|lg|xl|2xl|3xl)):"       a regex alternation
+  ```
+
+  **The verification failed three times on one task, each time truthfully.** A hand-picked file
+  list verified counts *within the files chosen* and missed eight more. A list derived from
+  `git ls-files` covered every **tracked** file and skipped the untracked one. "No literal old
+  name remains" was true and answered a different question from "does anything still reference
+  the old thing". Every check passed; none asked what mattered.
+
+  > **A static guard would have been just as blind, and proposing one was the wrong instinct.**
+  > What caught it was an existing test - `test_every_step_of_the_scale_actually_resolves`, written
+  > after a malformed comment once made a token vanish - firing for exactly its own reason against
+  > a different cause. **When a rename breaks something, read the failure the suite hands you
+  > rather than reaching for a new check.**
+
+  *For any rename of a name that code can construct* - CSS custom properties, settings keys, event
+  names, database columns, test ids - the reliable check is not textual. Run the thing and see.
+
   ⚠ **AND THE ONE PLACE NONE OF THIS REACHES: a docstring is a claim no test can falsify, so it
   rots silently while everything stays green.** Every other member here ends in a red somebody
   missed. This one has no red to miss.

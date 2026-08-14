@@ -265,7 +265,7 @@ def test_a_second_drive_earns_the_library_block_back(ui: Page) -> None:
 
 def test_dark_mode_separates_card_from_page_by_value_not_by_border(ui: Page) -> None:
     """MEASURED, both themes. Light gets a shadow and 1.060:1 of value separation; dark sets
-    `--shadow-sm: none` (correct - a shadow is invisible on near-black) and had 1.077:1, so the
+    `--elevation-sm: none` (correct - a shadow is invisible on near-black) and had 1.077:1, so the
     border did all the work while being the WEAKER of the two borders (1.19:1 against 1.28:1).
 
     Dark is where depth is cheapest: lightness is the elevation cue, so it should have MORE

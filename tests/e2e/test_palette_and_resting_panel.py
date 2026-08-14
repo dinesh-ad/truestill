@@ -76,7 +76,7 @@ def test_body_text_and_the_secondary_tier_clear_aa_in_both_themes(ui: Page) -> N
         ui.emulate_media(color_scheme=scheme)
         ui.wait_for_timeout(120)
         surface = ui.eval_on_selector(".card", "el => getComputedStyle(el).backgroundColor")
-        for token in ("--text", "--text-secondary", "--text-muted"):
+        for token in ("--fg", "--fg-secondary", "--fg-muted"):
             ratio = _contrast(_token(ui, token), surface)
             assert ratio >= AA_TEXT, f"{token} is {ratio:.2f}:1 on {scheme} surface"
 

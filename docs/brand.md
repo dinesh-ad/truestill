@@ -24,7 +24,7 @@ source it enforces, so change the rule here first.
 
 ## 1. Wordmark - MONOSPACE (this heading said "serif" until 2026-08-13)
 
-**The rule: the wordmark is `Truestill.` in `var(--font-mono)` with the accent dot.** The serif
+**The rule: the wordmark is `Truestill.` in `var(--family-mono)` with the accent dot.** The serif
 sheet below is kept because it is the record of what was authored and why it was reversed - see
 the 2026-08-05 note - but the heading claimed the superseded answer, so a reader who stopped at
 the heading got the wrong one. The CSS immediately below is a **colour and proportion reference

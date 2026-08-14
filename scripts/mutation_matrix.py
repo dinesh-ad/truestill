@@ -372,7 +372,7 @@ def _grid() -> Suite:
         ),
         Mutant(
             c,
-            "  object-fit: cover;\n  display: block;\n  border-radius: var(--radius-md);",
+            "  object-fit: cover;\n  display: block;\n  border-radius: var(--corner-md);",
             "  object-fit: cover;\n  display: block;\n  border-radius: 0;",
             "the corner radius removed",
         ),
@@ -650,10 +650,11 @@ def main() -> int:
             if hits == 0:
                 sys.exit(f"STALE MUTANT - target gone from {path.name}: {mutant.label}")
             # AMBIGUOUS IS AS BAD AS ABSENT, and it was worse in practice because it looks like a
-            # result. `gap: var(--space-3);` occurs eight times in app.css and
-            # `border-radius: var(--radius-md);` nine times, so two mutants aimed at the result
-            # grid silently edited unrelated rules five hundred lines earlier and reported
-            # "kills 0" - which reads as a missing guard rather than as a misfire.
+            # result. A single declaration like `gap: var(--space-3);` appears many times over in
+            # one stylesheet - **the exact count is not the point, more than one is**; the number
+            # written here was eight, and had drifted by the next commit. Two mutants aimed at the
+            # result grid landed on unrelated rules five hundred lines earlier and reported
+            # "kills 0", which reads as a missing guard rather than as a misfire.
             if hits > 1:
                 sys.exit(
                     f"AMBIGUOUS MUTANT - {hits} matches in {path.name}: {mutant.label}\n"

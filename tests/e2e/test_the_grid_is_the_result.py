@@ -354,7 +354,7 @@ def test_show_all_opens_the_grid_and_says_so_to_a_screen_reader(ui: Page) -> Non
 def test_the_show_all_control_reads_as_interactive(ui: Page) -> None:
     """A control that looks like a caption is a control nobody presses.
 
-    This first shipped as `.btn-ghost`: transparent on `--text-secondary`, which measured
+    This first shipped as `.btn-ghost`: transparent on `--fg-secondary`, which measured
     `rgb(95, 87, 76)` beside a caption at `rgb(28, 26, 23)`. It rendered GREYER than the static
     text next to it - recessive where it needed to be inviting - and read as another line of
     prose under the photos.

@@ -21,7 +21,7 @@
 
    Book and Bold only. `--weight-semibold` (600) resolves to Bold by CSS weight matching -
    verified by rendering, not assumed - so no third file ships. No italic face: the only
-   italic in app.css is `.input::placeholder`, which resets to `var(--font-sans)`.
+   italic in app.css is `.input::placeholder`, which resets to `var(--family-sans)`.
 
    Licence: Bitstream Vera REQUIRES its notice to travel with every copy of the typefaces, so
    it sits beside them in static/fonts/LICENSE-DejaVu.txt rather than in brand/, which is not
@@ -84,9 +84,9 @@
   --surface-raised: var(--gray-0);
   --border: var(--gray-200);
   --border-strong: var(--gray-300);
-  --text: var(--gray-900);
-  --text-secondary: var(--gray-500);
-  --text-muted: #6e665a; /* 5.66:1 on white; warm, and gray-400 is 2.6:1 */
+  --fg: var(--gray-900);
+  --fg-secondary: var(--gray-500);
+  --fg-muted: #6e665a; /* 5.66:1 on white; warm, and gray-400 is 2.6:1 */
   --on-accent: #ffffff;
 
   /* spacing (4px base) */
@@ -99,23 +99,23 @@
   --space-7: 48px;
 
   /* radius (one family) */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-pill: 9999px;
+  --corner-sm: 6px;
+  --corner-md: 10px;
+  --corner-lg: 14px;
+  --corner-pill: 9999px;
 
   /* border / elevation */
   --border-width: 1px;
-  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
-  --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.08);
+  --elevation-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --elevation-md: 0 4px 12px rgba(16, 24, 40, 0.08);
 
   /* type */
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+  --family-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
   /* Bundled first. The old stack is KEPT behind it deliberately: if a frozen build ever fails
      to carry the data file, the app degrades to exactly today's behaviour rather than to an
      unstyled default. See the @font-face block above. */
-  --font-mono: "DejaVu Sans Mono", ui-monospace, "SF Mono", "JetBrains Mono", Menlo,
+  --family-mono: "DejaVu Sans Mono", ui-monospace, "SF Mono", "JetBrains Mono", Menlo,
     Consolas, monospace;
   /* rem, so a raised browser default font-size reaches the app. px ignored a preference the
      user had already set once, globally, leaving per-profile zoom as the only recourse.
@@ -148,22 +148,22 @@
      goes to CONTENT, not to type - a 3072px monitor does not want 20px body copy, it wants a
      column that is not 720px of empty page on each side. Constants are solved, not eyeballed:
      each middle term is the line through (1366, min) and (2560, max). */
-  --text-xs: clamp(0.75rem, 0.6427rem + 0.1256vw, 0.84375rem); /* 12 -> 13.5px */
-  --text-sm: clamp(0.875rem, 0.7499rem + 0.1466vw, 0.984375rem); /* 14 -> 15.75px */
-  --text-base: clamp(1rem, 0.857rem + 0.1675vw, 1.125rem); /* 16 -> 18px */
-  --text-lg: clamp(1.125rem, 0.9641rem + 0.1884vw, 1.265625rem); /* 18 -> 20.25px */
-  --text-xl: clamp(1.375rem, 1.1784rem + 0.2303vw, 1.546875rem); /* 22 -> 24.75px */
-  --text-2xl: clamp(1.75rem, 1.4997rem + 0.2931vw, 1.96875rem); /* 28 -> 31.5px */
+  --type-xs: clamp(0.75rem, 0.6427rem + 0.1256vw, 0.84375rem); /* 12 -> 13.5px */
+  --type-sm: clamp(0.875rem, 0.7499rem + 0.1466vw, 0.984375rem); /* 14 -> 15.75px */
+  --type-base: clamp(1rem, 0.857rem + 0.1675vw, 1.125rem); /* 16 -> 18px */
+  --type-lg: clamp(1.125rem, 0.9641rem + 0.1884vw, 1.265625rem); /* 18 -> 20.25px */
+  --type-xl: clamp(1.375rem, 1.1784rem + 0.2303vw, 1.546875rem); /* 22 -> 24.75px */
+  --type-2xl: clamp(1.75rem, 1.4997rem + 0.2931vw, 1.96875rem); /* 28 -> 31.5px */
   /* Metric only. A metric has to outrank everything around it, and 28px does not - it is the
      h1 size, so a metric set in it competes with the page title instead of leading. Nothing
      else may use this; `test_shared_pattern.py` fails if anything does. */
-  --text-3xl: clamp(2.5rem, 2.1425rem + 0.4188vw, 2.8125rem); /* 40 -> 45px */
+  --type-3xl: clamp(2.5rem, 2.1425rem + 0.4188vw, 2.8125rem); /* 40 -> 45px */
 
   /* ICON SIZE - deliberately NOT a --text-* step, and the distinction is the point.
      The nav icons are Unicode glyphs, so their size is expressed as a font-size; that is a
      rendering mechanism, not a statement that they are text. Being on the type scale is
      exactly how they ended up at 13px: `.nav-item .ico` set a width and no size, so the
-     glyph silently took `--text-sm` from the row. A separate token means the next person to
+     glyph silently took `--type-sm` from the row. A separate token means the next person to
      change body text does not move the icons by accident, and the next person to change the
      icons has to mean it.
      16px, not 18px: the widest glyph measures 15px at 16px type and 17px at 18px, against an
@@ -231,14 +231,14 @@
     --surface-raised: #2e2b27;
     --border: #3a352e;
     --border-strong: #4a443b;
-    --text: #ece8e1;
-    --text-secondary: #a8a096;
-    --text-muted: #938b80; /* 5.2:1 on the dark surface */
+    --fg: #ece8e1;
+    --fg-secondary: #a8a096;
+    --fg-muted: #938b80; /* 5.2:1 on the dark surface */
     --accent-strong: #a9b6f0;
     --on-accent: #12110f;
 
-    --shadow-sm: none;
-    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
+    --elevation-sm: none;
+    --elevation-md: 0 8px 24px rgba(0, 0, 0, 0.5);
   }
 }
 
@@ -259,11 +259,11 @@
   --surface-raised: #ffffff;
   --border: #e8e3db;
   --border-strong: #d6cfc3;
-  --text: #1c1a17;
-  --text-secondary: #5f574c;
-  --text-muted: #6e665a;
+  --fg: #1c1a17;
+  --fg-secondary: #5f574c;
+  --fg-muted: #6e665a;
   --on-accent: #ffffff;
-  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --elevation-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
 }
 :root[data-theme="dark"] {
   /* Must mirror the @media (prefers-color-scheme: dark) palette above in full -- any token
@@ -282,11 +282,11 @@
   --surface-raised: #2e2b27;
   --border: #3a352e;
   --border-strong: #4a443b;
-  --text: #ece8e1;
-  --text-secondary: #a8a096;
-  --text-muted: #938b80;
+  --fg: #ece8e1;
+  --fg-secondary: #a8a096;
+  --fg-muted: #938b80;
   --accent-strong: #a9b6f0;
   --on-accent: #12110f;
-  --shadow-sm: none;
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --elevation-sm: none;
+  --elevation-md: 0 8px 24px rgba(0, 0, 0, 0.5);
 }

@@ -81,8 +81,8 @@ def test_the_font_stack_leads_with_the_bundled_family() -> None:
     to exactly today's behaviour rather than to an unstyled default.
     """
     tokens = TOKENS_CSS.read_text(encoding="utf-8")
-    match = re.search(r"--font-mono:\s*([^;]+);", tokens)
-    assert match is not None, "--font-mono is not declared"
+    match = re.search(r"--family-mono:\s*([^;]+);", tokens)
+    assert match is not None, "--family-mono is not declared"
     stack = [f.strip().strip('"').strip("'") for f in match.group(1).split(",")]
 
     assert stack[0] == "DejaVu Sans Mono", f"the bundled family does not lead the stack: {stack}"
@@ -116,7 +116,7 @@ def test_only_the_two_weights_we_ship_are_declared() -> None:
     """Declaring a weight with no file behind it is worse than not declaring it.
 
     No italic face is shipped and none is needed: the only `font-style: italic` in app.css is
-    `.input::placeholder`, which resets `font-family` to `var(--font-sans)`. Asserted here so
+    `.input::placeholder`, which resets `font-family` to `var(--family-sans)`. Asserted here so
     that adding a mono italic forces the question rather than silently getting a synthesised
     oblique.
     """
@@ -135,7 +135,7 @@ def test_only_the_two_weights_we_ship_are_declared() -> None:
     italic_blocks = [
         block
         for block in re.findall(r"\{[^}]*font-style:\s*italic[^}]*\}", app_css, re.S)
-        if "--font-sans" not in block
+        if "--family-sans" not in block
     ]
     assert italic_blocks == [], (
         "an italic rule no longer resets to the sans stack; no mono italic face is shipped, "

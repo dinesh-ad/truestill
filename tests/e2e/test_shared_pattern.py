@@ -91,19 +91,19 @@ def test_the_metric_size_token_exists_and_is_rem(ui: Page) -> None:
     fourth member, applied to my own guard.
     """
     value = ui.evaluate(
-        "() => getComputedStyle(document.documentElement).getPropertyValue('--text-3xl').trim()"
+        "() => getComputedStyle(document.documentElement).getPropertyValue('--type-3xl').trim()"
     )
-    assert value, "--text-3xl resolves to nothing"
-    assert "px" not in value, f"--text-3xl is pinned in px ({value!r}); the root cannot raise it"
+    assert value, "--type-3xl resolves to nothing"
+    assert "px" not in value, f"--type-3xl is pinned in px ({value!r}); the root cannot raise it"
     assert value.startswith(("2.5rem", "clamp(2.5rem")), (
-        f"--text-3xl no longer floors at 2.5rem: {value!r}"
+        f"--type-3xl no longer floors at 2.5rem: {value!r}"
     )
 
 
 def test_only_the_metric_uses_the_metric_size() -> None:
     """Aimed at the stylesheet, because the rule is 'nothing else', which no page can show.
 
-    If a heading or a hero number quietly takes `--text-3xl`, the metric stops being the biggest
+    If a heading or a hero number quietly takes `--type-3xl`, the metric stops being the biggest
     element on the screen and the whole hierarchy argument goes with it.
     """
     # Comments stripped: a comment naming the token is not a use of it.
@@ -111,11 +111,11 @@ def test_only_the_metric_uses_the_metric_size() -> None:
     users = []
     for block in re.finditer(r"([^{}]+)\{([^}]*)\}", stripped):
         selector, body = block.group(1).strip(), block.group(2)
-        if "--text-3xl" in body:
+        if "--type-3xl" in body:
             users.append(selector.splitlines()[-1].strip())
 
-    assert users, "nothing uses --text-3xl - the token is dead"
-    assert users == [".metric-value"], f"--text-3xl is used outside the metric: {users}"
+    assert users, "nothing uses --type-3xl - the token is dead"
+    assert users == [".metric-value"], f"--type-3xl is used outside the metric: {users}"
 
 
 def test_the_panel_exists_and_costs_nothing_while_empty(ui: Page) -> None:

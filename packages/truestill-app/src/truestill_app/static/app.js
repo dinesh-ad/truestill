@@ -579,7 +579,7 @@ function chipsFor(folders) {
 function legendFor(folders) {
   const names = Object.keys(folders || {}).filter((n) => CAT_INFO[n]);
   return names.length
-    ? `<div class="k" style="font-size:var(--text-xs);margin-top:var(--space-2);line-height:1.6">${
+    ? `<div class="k" style="font-size:var(--type-xs);margin-top:var(--space-2);line-height:1.6">${
         names.map((n) => `<b>${esc(n)}</b> - ${esc(CAT_INFO[n])}`).join("<br>")}</div>` : "";
 }
 
@@ -2461,7 +2461,7 @@ function renderOrganizeResult(s) {
      ${organizeTally(s)}
      ${matchListHtml(s.exact_dup_matches, "Show what each duplicate matched")}
      ${matchListHtml(s.near_dup_matches, "Show what each look-alike resembles")}
-     ${folders ? `<h3>Into these folders <span style="font-weight:400;color:var(--text-muted)">- hover a chip for what it means</span></h3><div class="chips">${folders}</div>${legend}` : ""}
+     ${folders ? `<h3>Into these folders <span style="font-weight:400;color:var(--fg-muted)">- hover a chip for what it means</span></h3><div class="chips">${folders}</div>${legend}` : ""}
      ${byFormat(s.by_format)}${dateQuality}${inferredShifts}${heic}${details}`
   );
   return kept;
@@ -2710,7 +2710,7 @@ async function loadDrives() {
   // is the NEW USER's view, the one place it should read most clearly. The total becomes a fact
   // of its own the moment the drives can disagree with it.
   const summary = drives.length > 1
-    ? `<div class="card"><div class="headline" style="font-size:var(--text-lg)">Your library</div>
+    ? `<div class="card"><div class="headline" style="font-size:var(--type-lg)">Your library</div>
     <div class="k mono">${mediaCount(lib)} · ${fmtBytes(lib.bytes)}</div>${byFormat(lib.by_format)}</div>`
     : "";
   // A stated risk with no way to act on it is a complaint. Stats offers a button for this

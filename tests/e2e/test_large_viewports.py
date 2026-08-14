@@ -250,12 +250,12 @@ def test_the_panel_threshold_did_not_move(ui: Page) -> None:
 
 def _text_tokens() -> dict[str, str]:
     body = TOKENS.read_text("utf-8")
-    return dict(re.findall(r"(--text-(?:xs|sm|base|lg|xl|2xl|3xl)):\s*([^;]+);", body))
+    return dict(re.findall(r"(--type-(?:xs|sm|base|lg|xl|2xl|3xl)):\s*([^;]+);", body))
 
 
 def test_every_type_step_is_fluid() -> None:
     steps = _text_tokens()
-    assert steps, "no --text-* tokens found"
+    assert steps, "no --type-* tokens found"
     not_fluid = [name for name, value in steps.items() if "clamp(" not in value]
     assert not not_fluid, f"type steps that do not scale with the viewport: {not_fluid}"
 
