@@ -1,0 +1,51 @@
+# ============================================================================================
+# SCOPE FENCE - read before extending this file.
+#
+# THROWAWAY MEASUREMENT JOB, one question only: does opening a fresh catalog from six concurrent
+# requests take SECONDS on an ubuntu-latest runner, as it does not on a developer machine?
+#
+# It exists because CI run 31801778372 failed 29 e2e tests, all 84 `database is locked` errors
+# raise inside `Catalog._migrate`, and the only counter-evidence is a 36.85 ms local figure that
+# was measured on tmpfs with fsync costing nothing. That number cannot falsify anything, so the
+# same reproduction has to run where the disk is real.
+#
+# `scratchpad/lockhunt/contended_open.py` holds the reasoning and the four checks that make the
+# result arguable - live pragmas, an fsync control, per-thread times, and a single-thread
+# baseline on the same machine. Read its docstring before reading its output.
+#
+# It is NOT a benchmark suite and NOT part of CI. `workflow_dispatch` only, so it never runs on
+# a push and never costs a contributor a minute they did not ask for. No matrix, no artifacts,
+# no browsers, no Node - none of that is on the path to the answer.
+#
+# DELETE THIS FILE AND scratchpad/lockhunt/ once the question is answered. If you are here to add
+# a second measurement, ask first whether it belongs in `PERFORMANCE.md` instead: this rig has
+# one job and stops existing when it is done.
+# ============================================================================================
+name: lockhunt (throwaway)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  contended-open:
+    name: six concurrent catalog opens, ubuntu-latest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Set up Python 3.13
+        run: uv python install 3.13
+
+      - name: Sync workspace (lockfile must be current)
+        run: uv sync --all-packages --group dev --locked
+
+      # Deliberately unguarded by `continue-on-error`: unlike the packaging rig there is only one
+      # measurement here, so a failure has nothing to protect and should turn the job red.
+      - name: Measure
+        run: uv run python scratchpad/lockhunt/contended_open.py

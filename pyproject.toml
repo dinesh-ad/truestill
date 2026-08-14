@@ -150,6 +150,14 @@ unfixable = []
 # `::error::` annotations are how it reaches the run summary. Same latitude as scripts/, and for
 # the same reason: there is no other output channel from a job step.
 "packaging/**/*.py" = ["T201"]
+# Throwaway measurement rigs, deleted with the question they answer. Same latitude as scripts/
+# plus the two a measurement needs and a library must not have: `open()` without a context
+# manager, because a `with` block inside the timed loop is measuring the wrong thing, and a bare
+# `except Exception` because in a lock reproduction the EXCEPTION IS THE RESULT and swallowing
+# its type would discard the finding. This entry goes when `scratchpad/` does.
+"scratchpad/**/*.py" = [
+    "T201", "PLR2004", "SIM115", "PTH123", "BLE001", "SLF001", "B018",
+]
 # Tests can be more permissive
 "packages/*/tests/**/*.py" = [
     "S101",    # Assert allowed in tests
