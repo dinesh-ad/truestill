@@ -12,7 +12,11 @@ One row per processed source file, keyed by SHA-256.
 from __future__ import annotations
 
 import contextlib
+import json
+import os
 import sqlite3
+import threading
+import time
 from collections import Counter
 from collections.abc import Callable, Collection, Iterator, Sequence
 from contextlib import contextmanager
@@ -23,6 +27,34 @@ from types import TracebackType
 from typing import Self
 
 from truestill_core.models import CaptureContext, DateSource
+
+# ============================================================================================
+# ⚠ TEMPORARY INSTRUMENTATION - scratchpad/lockhunt, remove with it.
+#
+# Every number in this investigation so far is a WAITER's 5 s timeout. Nobody has measured how
+# long the holder HOLDS. That is the one measurement that separates "the schema write is slow in
+# the lane" from "the 5 s is something else entirely", and it cannot be taken from a stack trace.
+#
+# Off unless `TRUESTILL_LOCKHUNT` names a file, so a normal run pays one `if` per open and
+# writes nothing. Wall clock rather than `perf_counter` because the CLI and the app are separate
+# processes and only wall clock is comparable across them.
+# ============================================================================================
+_LOCKHUNT = os.environ.get("TRUESTILL_LOCKHUNT")
+_LOCKHUNT_LOCK = threading.Lock()
+
+
+def _lockhunt(event: str, **fields: object) -> None:
+    if not _LOCKHUNT:
+        return
+    record = {
+        "wall": time.time(),
+        "pid": os.getpid(),
+        "tid": threading.get_ident(),
+        "event": event,
+        **fields,
+    }
+    with _LOCKHUNT_LOCK, Path(_LOCKHUNT).open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record) + "\n")
 
 
 @dataclass(frozen=True, slots=True)
@@ -757,7 +789,9 @@ class Catalog:
         rather than risked.
         """
         conn = self._conn
+        _lockhunt("migrate.enter", db=str(self.path))
         version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+        _lockhunt("read.user_version.done", db=str(self.path), version=version)
 
         if version > CURRENT_SCHEMA_VERSION:
             message = (
@@ -770,15 +804,25 @@ class Catalog:
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'files'"
         ).fetchone()
 
+        _lockhunt("read.sqlite_master.done", db=str(self.path), fresh=table_exists is None)
+
         if table_exists is None:
+            # THE HOLDER. Whichever thread reaches here takes EXCLUSIVE for the whole script,
+            # and the gap between these two lines is the number nothing has measured yet.
+            _lockhunt("schema.enter", db=str(self.path))
             conn.executescript(_SCHEMA)
+            _lockhunt("schema.exit", db=str(self.path))
             conn.execute(f"PRAGMA user_version = {CURRENT_SCHEMA_VERSION}")
+            _lockhunt("migrate.exit", db=str(self.path), path="fresh")
             return
 
         for target, migrate in _MIGRATIONS:
             if version < target:
+                _lockhunt("upgrade.enter", db=str(self.path), target=target)
                 migrate(conn)
                 conn.execute(f"PRAGMA user_version = {target}")
+                _lockhunt("upgrade.exit", db=str(self.path), target=target)
+        _lockhunt("migrate.exit", db=str(self.path), path="existing")
 
     @property
     def schema_version(self) -> int:
