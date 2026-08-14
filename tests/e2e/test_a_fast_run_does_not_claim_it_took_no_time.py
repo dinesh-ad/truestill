@@ -56,7 +56,12 @@ def test_the_result_card_says_it_rather_than_zero(ui: Page) -> None:
         "organized_sample": {"total": 0, "shown": []},
     }
     ui.evaluate(
-        "(s) => { document.getElementById('org-result').innerHTML = organizeCompletion(s); }",
+        # THE PROPS ENTRY POINT. `#org-result` has one owner - the React island - so writing its
+        # innerHTML from outside is either clobbered on the next render or, worse, survives
+        # while the island believes it rendered nothing. That second case is not hypothetical:
+        # it left this suite green while the row solver never ran, and only the panorama guard
+        # noticed. The island is told what state to be in; it decides the DOM.
+        "(s) => { window.organizeResult.set({ kind: 'complete', summary: s }); }",
         summary,
     )
     text = ui.inner_text("#org-result")

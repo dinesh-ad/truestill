@@ -634,6 +634,21 @@ function completionCard({ headline, sub, grid = "", statsLine = "", stats = [], 
 //: three photos is the kind of noise that teaches people to stop reading controls.
 const GRID_COLLAPSE_ABOVE = 6;
 
+// THE ONE WRITER OF `#org-result`, and the reason this file no longer touches that node.
+//
+// It had TWELVE `innerHTML` writers across three functions, so four states were produced as
+// strings by twelve places and none was authoritative. They are now one call each into the React
+// island, which owns the node. `root.unmount()` on teardown, never `innerHTML = ""`.
+//
+// Resolved on every call rather than captured once: `app.js` is a classic script and runs BEFORE
+// the module bundle, so the island does not exist yet when this file is parsed.
+const organizeResult = {
+  set(state) {
+    const island = window.organizeResult;
+    if (island) island.set(state);
+  },
+};
+
 // ---------- the row solver ----------
 // Rows of photographs at a common height, each drawn at its true aspect. A row's height is
 // `(available - gaps) / sum(aspects)`, which is the identity that makes the row fill its
@@ -700,31 +715,6 @@ function solveResultGrid(grid) {
 
   // Published for `.is-collapsed`, whose one-row height used to be a constant and cannot be now.
   grid.style.setProperty("--first-row-height", `${firstRowHeight}px`);
-}
-
-// EVERY grid on the page, on insert and on resize.
-//
-// ⚠ **The MutationObserver is temporary scaffolding and says so.** `#org-result` has twelve
-// writers that assign `innerHTML`, so nothing tells this code when a grid appears; watching the
-// container is the only hook that does not require touching all twelve. The commit that gives
-// `#org-result` a single owner deletes this and calls the solver directly.
-function watchResultGrids() {
-  const solveAll = (root) =>
-    root.querySelectorAll(".result-grid").forEach((grid) => solveResultGrid(grid));
-
-  // Width changes: a panel resize or the sidebar collapsing re-solves every row.
-  const resized = new ResizeObserver((entries) => {
-    for (const entry of entries) solveResultGrid(entry.target);
-  });
-
-  new MutationObserver(() => {
-    for (const grid of document.querySelectorAll(".result-grid")) {
-      solveResultGrid(grid);
-      resized.observe(grid); // observing twice is a no-op; unobserving on removal is automatic
-    }
-  }).observe(document.body, { childList: true, subtree: true });
-
-  solveAll(document);
 }
 
 function resultGrid(sample) {
@@ -2324,20 +2314,20 @@ function renderInventoryResult(s) {
   // always done this; the cheap tier dropped the fact on the way out of the service.
   const unreadable = renderUnreadable(s);
   if (!s.files) {
-    $("org-result").innerHTML = card(
+    organizeResult.set({ kind: "configured", html: card(
       `${unreadable}
        <div class="banner warn"><div><div class="b-title">Nothing to organize here</div>
        <div>No photos or videos in this folder - is it the right one?</div></div></div>`
-    );
+    ) });
     return;
   }
-  $("org-result").innerHTML = card(
+  organizeResult.set({ kind: "configured", html: card(
     `<div class="headline">${mediaCount(s)} found</div>
      <div class="k">${fmtBytes(s.total_bytes || 0)} of media - no dates or duplicates checked yet</div>
      ${unreadable}${byFormat(s.by_format)}${renderSkippedDetails(s.skipped)}
      <div class="banner"><div>Next: check for duplicates (reads each file for dates and look-alikes).
        That is the slow step on a network drive.</div></div>`
-  );
+  ) });
 }
 
 // THE PANEL. Facts about the library, never a control: it is not rendered below 1336px, so
@@ -2519,11 +2509,11 @@ function renderOrganizeResult(s) {
   if (!s.files) {
     // The unreadable block goes FIRST here: when a folder could not be opened, "nothing to
     // organize" is very likely the wrong answer, and the reason must be read before it.
-    $("org-result").innerHTML = card(
+    organizeResult.set({ kind: "configured", html: card(
       `${renderUnreadable(s)}
        <div class="banner warn"><div><div class="b-title">Nothing to organize here</div>
        <div>No photos or videos in this folder - is it the right one?</div></div></div>`
-    );
+    ) });
     return;
   }
   // ONE HOME. This was `new_unique + near_dup` computed here while the tally card rendered
@@ -2547,7 +2537,7 @@ function renderOrganizeResult(s) {
   // only as true as the set of files Truestill managed to read.
   const unreadable = renderUnreadable(s);
   renderPanel(s);
-  $("org-result").innerHTML = card(
+  organizeResult.set({ kind: "configured", html: card(
     `<div class="headline">${mediaCount(s)} found</div>
      ${s.elapsed_seconds ? `<div class="k">checked in ${fmtDuration(s.elapsed_seconds)}</div>` : ""}
      ${limit}${unreadable}
@@ -2556,7 +2546,7 @@ function renderOrganizeResult(s) {
      ${matchListHtml(s.near_dup_matches, "Show what each look-alike resembles")}
      ${folders ? `<h3>Into these folders <span style="font-weight:400;color:var(--fg-muted)">- hover a chip for what it means</span></h3><div class="chips">${folders}</div>${legend}` : ""}
      ${byFormat(s.by_format)}${dateQuality}${inferredShifts}${heic}${details}`
-  );
+  ) });
   return kept;
 }
 
@@ -2574,7 +2564,7 @@ $("org-preview").onclick = guarded(async () => {
   }
   // Cheap inventory only (walk + size). Full dedup is an explicit second step.
   await withBusy($("org-preview"), "Looking inside…", async () => {
-    $("org-result").innerHTML = "";
+    organizeResult.set({ kind: "resting" });
     $("org-dedup").disabled = true;
     const s = await api("/api/organize/inventory", { source });
     renderInventoryResult(s);
@@ -2610,17 +2600,17 @@ $("org-dedup").onclick = guarded(async () => {
     progressLabel: "starting",
     progressBeforeStart: true,
     onRefuse: (started) => {
-      $("org-result").innerHTML = startRefusedCard(started, "org-dest");
+      organizeResult.set({ kind: "running", html: startRefusedCard(started, "org-dest") });
     },
     statusForProgress: (p, setStatus) => {
       if (p.phase === "scanning") setStatus(scaleStatus("Reading photos", p.done, p.total, "files"));
       else if (p.phase === "hashing") setStatus(scaleStatus("Checking for duplicates", p.done, p.total, "files"));
       else if (p.total) setStatus(scaleStatus("Checking folder", p.done, p.total, "files"));
     },
-    onError: (d) => { $("org-result").innerHTML = jobErrorCard(d); },
+    onError: (d) => { organizeResult.set({ kind: "complete", html: jobErrorCard(d) }); },
     onCancelled: () => {
-      $("org-result").innerHTML = card(
-        `<div class="headline">Check cancelled</div><div class="k">Nothing was changed. Check again when you are ready.</div>`);
+      organizeResult.set({ kind: "complete", html: card(
+        `<div class="headline">Check cancelled</div><div class="k">Nothing was changed. Check again when you are ready.</div>`) });
       setWhy("Check for duplicates again to see what would happen.");
     },
     onSuccess: (d) => {
@@ -2654,7 +2644,7 @@ async function startOrganizeRun() {
     progress: orgProgress,
     progressLabel: "preparing",
     onRefuse: (started) => {
-      $("org-result").innerHTML = startRefusedCard(started, "org-dest");
+      organizeResult.set({ kind: "running", html: startRefusedCard(started, "org-dest") });
       $("org-confirm").innerHTML = "";
     },
     statusVerb: "Organizing",
@@ -2662,18 +2652,25 @@ async function startOrganizeRun() {
       // A cancelled run still organized everything it reached, and those files are real.
       // Show the same card, labelled honestly, rather than implying nothing happened.
       const r = d.summary;
-      $("org-result").innerHTML = organizeCompletion({ ...r, cancelled: true });
+      organizeResult.set({ kind: "complete", summary: { ...r, cancelled: true } });
       cleanupOffer = r.leftover_empty_folders || null;
     },
     onError: (d) => {
-      $("org-result").innerHTML = jobErrorCard(d);
+      organizeResult.set({ kind: "complete", html: jobErrorCard(d) });
       cleanupOffer = null;
     },
     onSuccess: (d) => {
       const r = d.summary;
-      $("org-result").innerHTML = r.organized || r.outcomes
-        ? organizeCompletion(r)
-        : card(`<div class="headline">Nothing to organize</div><div class="k">No new photos or videos were found here.</div>`);
+      organizeResult.set(
+        r.organized || r.outcomes
+          ? { kind: "complete", summary: r }
+          : {
+              kind: "complete",
+              html: card(
+                `<div class="headline">Nothing to organize</div><div class="k">No new photos or videos were found here.</div>`
+              ),
+            }
+      );
       cleanupOffer = r.leftover_empty_folders || null;
     },
     after: () => {
@@ -3894,9 +3891,6 @@ shellLoads = [loadOrganizeMode(), loadSidebar(), loadTextSize(), loadCustody(), 
 const bootScreen = document.querySelector(".screen.active");
 if (bootScreen) settleScreen(bootScreen.id.replace("screen-", ""));
 
-// Started at boot rather than lazily: the observer has to be listening BEFORE the first result
-// card is written, and a run can finish while the user is on another screen.
-watchResultGrids();
 
 // ---------- Dates you have corrected: preview -> typed confirm -> job (step 4) ----------
 // Preview is catalog-only so it is a plain request; the run is a job because it writes to user
