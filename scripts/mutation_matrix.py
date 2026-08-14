@@ -54,11 +54,14 @@ class Mutant:
     ``extra`` carries further ``(path, old, new)`` edits applied together with the first.
 
     **It exists because a REDUNDANT PAIR cannot be killed by any single-point mutation, and that
-    is not the same as being dead.** The grid's tiles get their square box from two independent
-    mechanisms - the stylesheet's `aspect-ratio` and the `width`/`height` attributes - and either
-    alone is sufficient. Removing one changed nothing, which reads exactly like dead code and is
-    not: removing both fails two tests. Deleting the "unfired" declaration on that evidence would
-    have quietly removed the fallback that covers first paint, before the stylesheet applies.
+    is not the same as being dead.** The grid's tiles once got their square box from two
+    independent mechanisms - the stylesheet's `aspect-ratio` and the `width`/`height` attributes -
+    and either alone was sufficient. Removing one changed nothing, which reads exactly like dead
+    code and was not: removing both failed two tests. Deleting the "unfired" declaration on that
+    evidence would have removed the fallback covering first paint.
+
+    (`aspect-ratio` has since gone, for a different reason: the tile stopped being fluid, so a
+    fixed width and height make the box square outright. The lesson outlives the example.)
     """
 
     path: Path
@@ -305,7 +308,18 @@ def _grid() -> Suite:
         Mutant(j, 'loading="lazy" decoding="async"', 'decoding="async"', "loading=lazy dropped"),
         Mutant(j, 'loading="lazy" decoding="async"', 'loading="lazy"', "decoding=async dropped"),
         Mutant(j, 'width="320" height="320"', "", "intrinsic size dropped (layout shift)"),
-        Mutant(j, "?token=${encodeURIComponent(TOKEN)}", "", "token dropped from the tile URL"),
+        # The `src="/api/thumb/` prefix is load-bearing: `?token=${encodeURIComponent(TOKEN)}`
+        # alone also matches the SSE job-events URL 500 lines earlier, and that is the one a
+        # single-shot replace reached. It killed a test - the end-to-end run, which never
+        # completes without a job stream - so the matrix certified the TILE token as guarded
+        # while measuring the SSE token. A misaimed mutation that kills something is worse than
+        # one that kills nothing, because a kill reads as proof.
+        Mutant(
+            j,
+            'src="/api/thumb/${encodeURIComponent(t.sha256)}?token=${encodeURIComponent(TOKEN)}"',
+            'src="/api/thumb/${encodeURIComponent(t.sha256)}"',
+            "token dropped from the tile URL",
+        ),
         Mutant(
             j,
             'src="/api/thumb/${encodeURIComponent(t.sha256)}',
@@ -313,12 +327,14 @@ def _grid() -> Suite:
             "sha not URL-encoded",
         ),
         Mutant(j, "     ${grid}\n", "", "grid removed from the card"),
+        # Replaces an obsolete mutant that moved `statRows` above the grid. Organize no longer
+        # passes `stats`, so that block is empty for this card and moving it changed nothing -
+        # a mutation measuring a code path its own subject stopped using.
         Mutant(
             j,
-            '     ${sub ? `<div class="k">${sub}</div>` : ""}\n     ${grid}',
-            '     ${sub ? `<div class="k">${sub}</div>` : ""}\n'
-            '     ${statRows ? `<div class="tally">${statRows}</div>` : ""}\n     ${grid}',
-            "grid moved below the numbers",
+            '     ${grid}\n     ${statsLine ? `<div class="k result-numbers">${statsLine}</div>` : ""}',
+            '     ${statsLine ? `<div class="k result-numbers">${statsLine}</div>` : ""}\n     ${grid}',
+            "the numbers move back above the photos",
         ),
         Mutant(
             j,
@@ -338,23 +354,77 @@ def _grid() -> Suite:
             '  if (false) return "";',
             "empty grid frame rendered anyway",
         ),
-        Mutant(c, "minmax(148px, 1fr)", "minmax(96px, 1fr)", "tiles shrunk to postage stamps"),
-        Mutant(c, "minmax(148px, 1fr)", "minmax(300px, 1fr)", "tiles upscaled past the thumbnail"),
         Mutant(
             c,
-            "repeat(auto-fill, minmax(148px, 1fr))",
-            "repeat(6, 148px)",
-            "fixed columns overflow the card",
+            "repeat(auto-fill, var(--tile-size))",
+            "repeat(auto-fill, minmax(var(--tile-size), 1fr))",
+            "tiles stretch to fill the row again (the torn strip)",
+        ),
+        Mutant(c, "--tile-size: 148px;", "--tile-size: 96px;", "tiles shrunk to postage stamps"),
+        Mutant(
+            c, "--tile-size: 148px;", "--tile-size: 300px;", "tiles upscaled past the thumbnail"
+        ),
+        Mutant(
+            c,
+            "grid-template-columns: repeat(auto-fill, var(--tile-size));\n  gap: var(--space-3);",
+            "grid-template-columns: repeat(auto-fill, var(--tile-size));\n  gap: 0;",
+            "the gutter removed",
+        ),
+        Mutant(
+            c,
+            "  object-fit: cover;\n  display: block;\n  border-radius: var(--radius-md);",
+            "  object-fit: cover;\n  display: block;\n  border-radius: 0;",
+            "the corner radius removed",
         ),
         Mutant(c, "  object-fit: cover;\n", "", "crop dropped (a 4:3 photo is stretched)"),
-        # Compound: the square box has TWO independent sources and either alone is enough, so no
-        # single-point mutation can reach it. See `Mutant.extra`.
         Mutant(
             c,
-            "  aspect-ratio: 1;\n",
+            "  max-height: var(--tile-size);\n  overflow: hidden;",
+            "  max-height: none;",
+            "the grid stops collapsing (48 rows bury the warnings)",
+        ),
+        Mutant(
+            c,
+            "  color: var(--accent);\n  padding-left: 0;",
+            "  padding-left: 0;",
+            "the control stops looking like a control",
+        ),
+        Mutant(
+            j,
+            "const GRID_COLLAPSE_ABOVE = 6;",
+            "const GRID_COLLAPSE_ABOVE = 9999;",
+            "nothing is ever collapsible",
+        ),
+        Mutant(
+            j,
+            "const GRID_COLLAPSE_ABOVE = 6;",
+            "const GRID_COLLAPSE_ABOVE = 0;",
+            "even three photos get a show-all control",
+        ),
+        Mutant(
+            j,
+            'button.setAttribute("aria-expanded", String(opening));',
             "",
-            "the square box loses BOTH its mechanisms",
-            extra=((j, 'width="320" height="320"', ""),),
+            "the control never tells a screen reader it opened",
+        ),
+        Mutant(
+            j,
+            'grid.classList.toggle("is-collapsed", !opening);',
+            "",
+            "the control does nothing when pressed",
+        ),
+        Mutant(
+            j,
+            '    ${statsLine ? `<div class="k result-numbers">${statsLine}</div>` : ""}\n',
+            "",
+            "the numbers disappear entirely",
+        ),
+        Mutant(
+            j,
+            '    sub: "",\n    grid: resultGrid(r.organized_sample),',
+            '    sub: [kinds, span].filter(Boolean).join(" \u00b7 "),\n'
+            "    grid: resultGrid(r.organized_sample),",
+            "prose creeps back between the headline and the photos",
         ),
     ]
     return Suite(("tests/e2e/test_the_grid_is_the_result.py",), tuple(m))
@@ -576,8 +646,20 @@ def main() -> int:
     for mutant in suite.mutants:
         for path, old, new in mutant.edits:
             source = path.read_text()
-            if old not in source:
+            hits = source.count(old)
+            if hits == 0:
                 sys.exit(f"STALE MUTANT - target gone from {path.name}: {mutant.label}")
+            # AMBIGUOUS IS AS BAD AS ABSENT, and it was worse in practice because it looks like a
+            # result. `gap: var(--space-3);` occurs eight times in app.css and
+            # `border-radius: var(--radius-md);` nine times, so two mutants aimed at the result
+            # grid silently edited unrelated rules five hundred lines earlier and reported
+            # "kills 0" - which reads as a missing guard rather than as a misfire.
+            if hits > 1:
+                sys.exit(
+                    f"AMBIGUOUS MUTANT - {hits} matches in {path.name}: {mutant.label}\n"
+                    "Add surrounding context so the target is unique; a mutation that edits an "
+                    "arbitrary one of several matches measures nothing."
+                )
             path.write_text(source.replace(old, new, 1))
         try:
             failed, _ = _pytest(suite.tests)

@@ -103,9 +103,9 @@ def test_the_tiles_decode_off_the_main_thread_and_reserve_their_box(ui: Page) ->
     * `decoding="async"` moves the decode off the main thread. The visible result is a page that
       does not jank while forty-eight tiles arrive - not something a DOM assertion can see.
     * `width`/`height` let the browser reserve each box before any CSS or bytes arrive. The
-      stylesheet's `aspect-ratio` covers the steady state (asserted below), so these matter in
-      exactly the window where the stylesheet has not applied yet - which a test that loads the
-      stylesheet cannot reproduce.
+      stylesheet fixes the box outright once it applies - `width` and `height` are both
+      `--tile-size` - so these attributes matter in exactly the window where the stylesheet has
+      NOT applied yet, which a test that loads the stylesheet cannot reproduce.
 
     Both are real, both are invisible when lost, and the honest guard for them is their presence.
     """
@@ -126,9 +126,14 @@ def test_every_tile_is_square_whether_or_not_its_photo_arrives(ui: Page) -> None
     """Mixed portrait and landscape must read as a grid, not a ragged edge - and the box must
     hold before the bytes do, which is what makes a lazy grid stop jumping as you scroll.
 
-    Asserted with tiles that deliberately never load (the shas are fabricated), because that is
-    the state `aspect-ratio` exists for: without it a not-yet-loaded `<img>` collapses to zero
-    height and the grid reflows every time one arrives.
+    Asserted with tiles that deliberately never load (the shas are fabricated), because an
+    unloaded `<img>` is where a square box is easiest to lose: with no intrinsic size and no
+    stylesheet height it collapses to nothing and the grid reflows as each photo arrives.
+
+    The mechanism is `width` and `height` both being `--tile-size`. It used to be `aspect-ratio`,
+    which became redundant the moment the tile stopped being fluid - and this docstring named it
+    for one commit after it was deleted, which is the failure `(abh)` is filed under: a record
+    stating a cause it no longer has.
     """
     _completion(ui)
     boxes = ui.eval_on_selector_all(
@@ -144,8 +149,9 @@ def test_every_tile_is_square_whether_or_not_its_photo_arrives(ui: Page) -> None
 def test_a_photo_is_cropped_to_the_square_and_never_stretched(ui: Page) -> None:
     """`object-fit: cover`, the one declaration on a tile with no DOM-observable consequence.
 
-    The box is square either way - that is what `aspect-ratio` and the intrinsic attributes are
-    for, and both are asserted above. What `cover` decides is what happens to a 4:3 photo INSIDE
+    The box is square either way - the stylesheet gives the tile equal width and height, and the
+    intrinsic attributes hold it before that applies; both are asserted above. What `cover`
+    decides is what happens to a 4:3 photo INSIDE
     that square: cropped to the centre, or squashed to fit. The default is `fill`, which squashes,
     and nothing in the DOM reports which one painted. Detecting it would mean comparing rendered
     pixels against the source, which is a large amount of machinery for one declaration.
@@ -243,20 +249,227 @@ def test_no_tile_is_drawn_outside_the_card_that_holds_it(ui: Page) -> None:
     assert not escaping, f"{len(escaping)} tiles render past the card edge, at x={escaping}"
 
 
-def test_the_grid_sits_above_the_numbers(ui: Page) -> None:
-    """ "The grid IS the result" is an ordering claim, so it is asserted as one. Measured in
-    document position rather than pixels, which is the claim and cannot be flaky."""
+def test_nothing_but_the_headline_comes_before_the_photos(ui: Page) -> None:
+    """ "The grid IS the result" is an ordering claim, so it is asserted as one.
+
+    **The first version of this test asserted the grid preceded `.tally`, and it passed while the
+    card still read as a report with photos in the middle of it.** It was true and insufficient:
+    the grid also had a `sub` line above it, so the sequence was headline, prose, photos, numbers,
+    chips, warnings - a paragraph inside a report, which is what the plan's constraint existed to
+    prevent. Ordering against one later element cannot see what sits in between.
+
+    So the claim is now the whole prefix: **between the headline and the grid there is nothing.**
+    That is checkable, it is what "the grid is the result" means, and it fails for anything
+    inserted above the photos rather than only for the one element that used to be below them.
+    """
     _completion(ui)
-    grid_first = ui.evaluate(
+    between = ui.evaluate(
         """() => {
             const grid = document.querySelector("[data-testid='org-grid']");
-            const tally = document.querySelector('#org-result .tally');
-            if (!grid || !tally) return null;
-            return !!(grid.compareDocumentPosition(tally) & Node.DOCUMENT_POSITION_FOLLOWING);
+            const headline = document.querySelector('#org-result .headline');
+            if (!grid || !headline) return null;
+            const out = [];
+            for (let el = headline.nextElementSibling; el && el !== grid; el = el.nextElementSibling) {
+                out.push(el.className || el.tagName);
+            }
+            return out;
         }"""
     )
-    assert grid_first is not None, "the card is missing either its grid or its tally"
-    assert grid_first, "the numbers still come before the photos"
+    assert between is not None, "the card is missing either its headline or its grid"
+    assert between == [], f"these sit between the headline and the photos: {between}"
+
+
+def test_the_numbers_are_one_line_beneath_the_photos(ui: Page) -> None:
+    """The other half of the same constraint: the run's numbers are supporting detail here.
+
+    Not `.tally` - a two-column block that reads as the main event - and not `.metrics`, whose
+    3xl numbers are the Stats dashboard's whole point. On this card the photos are the result and
+    the counts are a caption, so they are one muted line, positioned after the grid.
+    """
+    _completion(ui)
+    line = ui.locator("#org-result .result-numbers")
+    expect(line).to_have_count(1)
+    assert ui.locator("#org-result .tally").count() == 0, (
+        "the two-column number block is back above the photos"
+    )
+
+    after = ui.evaluate(
+        """() => {
+            const grid = document.querySelector("[data-testid='org-grid']");
+            const line = document.querySelector('#org-result .result-numbers');
+            return !!(grid.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING);
+        }"""
+    )
+    assert after, "the numbers still come before the photos"
+
+
+def test_a_big_grid_is_one_row_until_it_is_asked_to_open(ui: Page) -> None:
+    """A SCALE DEFECT, NOT A PREFERENCE, and the thing it buries is the reason.
+
+    `GRID_SAMPLE_LIMIT` is 48. Expanded, that is eight rows and roughly 1,250px of photographs
+    sitting between the headline and everything the card has to say - the tally, the folder chips,
+    and **every warning**. "N files now exist in only one place" is precisely what must not be the
+    thing a person scrolls past to reach.
+
+    So the grid opens at one row and says how many more there are. Asserted as a rendered height
+    rather than a class name: a class is our word for the state, the height is the state.
+    """
+    shown = [{"sha256": f"{i:064x}", "name": f"IMG_{i}.jpg"} for i in range(48)]
+    _completion(ui, organized_sample={"total": 48, "shown": shown}, organized=48, photos=48)
+
+    grid = ui.locator(TESTID)
+    box = grid.bounding_box()
+    assert box is not None
+    tile = ui.eval_on_selector(
+        f"{TESTID} img.tile", "e => Math.round(e.getBoundingClientRect().height)"
+    )
+    assert round(box["height"]) <= tile + 2, (
+        f"48 photos rendered {round(box['height'])}px tall, not the {tile}px of a single row - "
+        "the tally, the chips and the warnings are below the fold"
+    )
+    expect(ui.locator("#org-result .grid-toggle")).to_be_visible()
+
+
+def test_show_all_opens_the_grid_and_says_so_to_a_screen_reader(ui: Page) -> None:
+    """The control has to actually work, and has to be a control - not a styled div."""
+    shown = [{"sha256": f"{i:064x}", "name": f"IMG_{i}.jpg"} for i in range(48)]
+    _completion(ui, organized_sample={"total": 48, "shown": shown}, organized=48, photos=48)
+
+    toggle = ui.locator("#org-result .grid-toggle")
+    assert ui.eval_on_selector("#org-result .grid-toggle", "e => e.tagName") == "BUTTON"
+    expect(toggle).to_have_attribute("aria-expanded", "false")
+
+    collapsed = ui.locator(TESTID).bounding_box()
+    toggle.click()
+    expanded = ui.locator(TESTID).bounding_box()
+
+    assert collapsed is not None
+    assert expanded is not None
+    assert expanded["height"] > collapsed["height"] * 2, (
+        f"the grid did not open: {round(collapsed['height'])}px -> {round(expanded['height'])}px"
+    )
+    expect(toggle).to_have_attribute("aria-expanded", "true")
+
+
+def test_the_show_all_control_reads_as_interactive(ui: Page) -> None:
+    """A control that looks like a caption is a control nobody presses.
+
+    This first shipped as `.btn-ghost`: transparent on `--text-secondary`, which measured
+    `rgb(95, 87, 76)` beside a caption at `rgb(28, 26, 23)`. It rendered GREYER than the static
+    text next to it - recessive where it needed to be inviting - and read as another line of
+    prose under the photos.
+
+    Compared against the `--accent` token rather than a literal colour, so this asserts
+    membership of the design system: it stays true through a theme change, and it is the same
+    treatment `details.more > summary` already uses for show-more elsewhere in this app.
+    """
+    shown = [{"sha256": f"{i:064x}", "name": f"IMG_{i}.jpg"} for i in range(48)]
+    _completion(ui, organized_sample={"total": 48, "shown": shown}, organized=48, photos=48)
+
+    colours = ui.evaluate(
+        """() => {
+            const probe = document.createElement('span');
+            probe.style.color = 'var(--accent)';
+            document.body.appendChild(probe);
+            const accent = getComputedStyle(probe).color;
+            probe.remove();
+            return {
+                accent,
+                toggle: getComputedStyle(document.querySelector('.grid-toggle')).color,
+                caption: getComputedStyle(document.querySelector('.result-numbers')).color,
+            };
+        }"""
+    )
+    assert colours["toggle"] == colours["accent"], (
+        f"the control renders {colours['toggle']}, not the accent {colours['accent']}"
+    )
+    assert colours["toggle"] != colours["caption"], "the control is the same colour as the caption"
+
+
+def test_a_grid_that_already_fits_offers_no_control(ui: Page) -> None:
+    """Cry-wolf half. A handful of photos cannot bury anything, so a "show all 3" under three
+    photos is noise - and noise is what teaches people to stop reading the controls."""
+    _completion(ui)  # three photos
+    assert ui.locator("#org-result .grid-toggle").count() == 0
+    assert "is-collapsed" not in (ui.eval_on_selector(TESTID, "e => e.className") or "")
+
+
+def test_the_tiles_are_a_fixed_size_that_wraps_rather_than_stretching(ui: Page) -> None:
+    """WHY THE GRID READ AS A TORN STRIP: `minmax(148px, 1fr)`.
+
+    The `1fr` let every tile grow to fill its row, so the tile size changed with the panel width
+    and the row always ran edge to edge with no ragged end. That is a strip, not a grid. A fixed
+    track wraps instead - the tile is 148px at every width and the leftover space sits at the end.
+
+    Measured at several widths, because "fixed" is exactly the claim a single-width test cannot
+    make. It also makes the pairing with `thumbnails.THUMB_PX` (320, a tile at 2x) exact rather
+    than a 130-220 range.
+    """
+    for width in (1440, 1100, 760):
+        ui.set_viewport_size({"width": width, "height": 900})
+        _completion(ui)
+        sizes = ui.eval_on_selector_all(
+            f"{TESTID} img.tile", "els => els.map(e => Math.round(e.getBoundingClientRect().width))"
+        )
+        assert set(sizes) == {148}, f"at {width}px the tiles measured {sorted(set(sizes))}, not 148"
+
+
+def test_the_gutters_are_even_across_a_row(ui: Page) -> None:
+    """THE TRACK AND THE TILE ARE TWO DIFFERENT MECHANISMS, and only one was covered.
+
+    A mutation restoring `minmax(var(--tile-size), 1fr)` killed nothing, which looked like a
+    missing guard and was: the tiles stayed 148px because `.tile` sets its own width, so the
+    fixed-size test could not see it. What changes is the TRACK - it stretches, the tile sits at
+    its start, and the visible gaps between photos become uneven while every tile is still the
+    right size. That is the ragged look the fixed track exists to prevent, and it is invisible to
+    any assertion about tile width.
+
+    Measured as the distance from one tile's right edge to the next tile's left edge, along one
+    row, which is the gutter a person actually sees.
+
+    ⚠ **AND COMPARED AGAINST THE DECLARED `gap`, because evenness alone does not catch it.** The
+    first version of this test only asserted the gutters were equal to each other, and the
+    stretch mutation walked straight through: stretched tracks are all the SAME width, so the
+    gutters stay perfectly even and simply stop matching the gap that was declared. The visible
+    gutter must equal the declared one, or the stylesheet's number is decorative.
+    """
+    ui.set_viewport_size({"width": 1440, "height": 900})
+    shown = [{"sha256": f"{i:064x}", "name": f"IMG_{i}.jpg"} for i in range(12)]
+    _completion(ui, organized_sample={"total": 12, "shown": shown}, organized=12, photos=12)
+
+    measured = ui.eval_on_selector(
+        TESTID,
+        """el => {
+            const r = [...el.querySelectorAll('img.tile')].map(e => e.getBoundingClientRect());
+            const out = [];
+            for (let i = 1; i < r.length; i++) {
+                if (Math.abs(r[i].top - r[i - 1].top) < 1) out.push(Math.round(r[i].left - r[i - 1].right));
+            }
+            return {gutters: out, declared: Math.round(parseFloat(getComputedStyle(el).columnGap))};
+        }""",
+    )
+    gutters, declared = measured["gutters"], measured["declared"]
+    assert gutters, "no two tiles shared a row"
+    assert len(set(gutters)) == 1, f"the gutters along a row are uneven: {gutters}"
+    assert gutters[0] == declared, (
+        f"tiles sit {gutters[0]}px apart but the stylesheet declares a {declared}px gap - "
+        "the tracks are stretching and the declared gutter is decorative"
+    )
+
+
+def test_the_tiles_are_separated_and_rounded_enough_to_read_as_tiles(ui: Page) -> None:
+    """The gutter and the radius were never absent - they were 8px and 6px, declared and
+    rendering, and too small to read as separate tiles at this size. Asserted as computed values
+    so "it looks fine to me" is not the test.
+    """
+    _completion(ui)
+    style = ui.eval_on_selector(
+        TESTID,
+        "e => { const g = getComputedStyle(e); const t = getComputedStyle(e.querySelector('img.tile'));"
+        " return {gap: parseFloat(g.gap || g.rowGap), radius: parseFloat(t.borderTopLeftRadius)}; }",
+    )
+    assert style["gap"] >= 12, f"the gutter is {style['gap']}px; the tiles read as touching"
+    assert style["radius"] >= 10, f"the corner radius is {style['radius']}px; too subtle to see"
 
 
 def test_a_truncated_grid_says_how_many_it_is_not_showing(ui: Page) -> None:

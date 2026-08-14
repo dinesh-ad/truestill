@@ -582,7 +582,7 @@ function legendFor(folders) {
 // actually produced it: an undated batch shows no year range, a run with no duplicates shows
 // no savings line. Nothing here is computed for effect -- the same honesty rule the custody
 // strip obeys applies hardest at the moment a user feels good about the result.
-function completionCard({ headline, sub, grid = "", stats = [], chips = "", notes = [], legend = "", done = "Done" }) {
+function completionCard({ headline, sub, grid = "", statsLine = "", stats = [], chips = "", notes = [], legend = "", done = "Done" }) {
   const statRows = stats
     .filter((s) => s && s.value)
     .map((s) => `<div class="n">${s.value}</div><div class="k">${s.label}</div>`)
@@ -595,6 +595,7 @@ function completionCard({ headline, sub, grid = "", stats = [], chips = "", note
      <div class="headline">${headline}</div>
      ${sub ? `<div class="k">${sub}</div>` : ""}
      ${grid}
+     ${statsLine ? `<div class="k result-numbers">${statsLine}</div>` : ""}
      ${statRows ? `<div class="tally">${statRows}</div>` : ""}
      ${chips ? `<h3>Into these folders</h3><div class="chips">${chips}</div>${legend}` : ""}
      ${notes.filter(Boolean).join("")}`
@@ -622,10 +623,16 @@ function completionCard({ headline, sub, grid = "", stats = [], chips = "", note
 //
 // `decoding="async"` keeps the decode off the main thread. Explicit width/height give the tile
 // its aspect before the bytes land, so the grid does not reflow as images arrive.
+//: One row's worth of tiles at the widest panel the layout produces (936px inner / 148px + gap).
+//: Below this a grid physically cannot push the warnings off-screen, and a "show all 3" under
+//: three photos is the kind of noise that teaches people to stop reading controls.
+const GRID_COLLAPSE_ABOVE = 6;
+
 function resultGrid(sample) {
   const shown = (sample && sample.shown) || [];
   if (!shown.length) return "";
   const total = sample.total || shown.length;
+  const collapsible = shown.length > GRID_COLLAPSE_ABOVE;
   const tiles = shown
     .map(
       (t) => `<img class="tile" loading="lazy" decoding="async" width="320" height="320"
@@ -633,13 +640,31 @@ function resultGrid(sample) {
          alt="${esc(t.name)}" title="${esc(t.name)}">`
     )
     .join("");
+  // A real <button> with aria-expanded, not a styled div: this shows and hides content, which is
+  // exactly what that element and that attribute are for.
+  const toggle = collapsible
+    ? `<button type="button" class="btn grid-toggle" aria-expanded="false"
+         onclick="toggleResultGrid(this)">Show all ${nfmt(shown.length)} photos</button>`
+    : "";
   // Truncation is stated, never implied - the same rule the duplicate and unreadable lists
   // obey. A grid quietly showing 48 of 200 reads as "this is what you organized".
   const more = total > shown.length
     ? `<div class="k grid-more">Showing ${nfmt(shown.length)} of ${plural(total, "photo")}.</div>`
     : "";
-  return `<div class="result-grid" data-testid="org-grid" data-total="${total}"
-      data-shown="${shown.length}">${tiles}</div>${more}`;
+  return `<div class="result-grid${collapsible ? " is-collapsed" : ""}" data-testid="org-grid"
+      data-total="${total}" data-shown="${shown.length}">${tiles}</div>${toggle}${more}`;
+}
+
+function toggleResultGrid(button) {
+  // Found through the card rather than through sibling order, so inserting anything between the
+  // grid and its control cannot quietly break the control.
+  const grid = button.closest(".card").querySelector(".result-grid");
+  const opening = grid.classList.contains("is-collapsed");
+  grid.classList.toggle("is-collapsed", !opening);
+  button.setAttribute("aria-expanded", String(opening));
+  button.textContent = opening
+    ? "Show fewer"
+    : `Show all ${nfmt(Number(grid.dataset.shown))} photos`;
 }
 
 const yearOf = (iso) => (iso ? String(new Date(iso).getFullYear()) : null);
@@ -910,21 +935,22 @@ function organizeCompletion(r) {
     done: r.cancelled ? "Stopped" : "Done",
     headline: `${plural(r.organized || 0, "file")} ${verb}`
       + (r.cancelled ? " before you stopped it" : ""),
-    sub: [kinds, span].filter(Boolean).join(" · "),
+    // NOTHING between the headline and the photos, and the numbers as a line beneath them. The
+    // grid was landing in the middle of a report - headline, prose, photos, a two-column number
+    // block, chips, warnings - which is a paragraph inside a document rather than a result. Every
+    // count still appears; `sub` moved down to join them rather than being dropped.
+    sub: "",
     grid: resultGrid(r.organized_sample),
-    stats: [
-      { value: fmtBytes(r.bytes_organized), label: "now organized" },
-      r.duplicates
-        ? { value: fmtBytes(r.bytes_saved), label: `saved by skipping ${plural(r.duplicates, "duplicate")}` }
-        : null,
-      r.elapsed_seconds ? { value: fmtDuration(r.elapsed_seconds), label: "taken" } : null,
+    statsLine: [
+      kinds,
+      span,
+      r.bytes_organized ? `${fmtBytes(r.bytes_organized)} organized` : "",
+      r.duplicates ? `${fmtBytes(r.bytes_saved)} saved by skipping ${plural(r.duplicates, "duplicate")}` : "",
+      r.elapsed_seconds ? `${fmtDuration(r.elapsed_seconds)} taken` : "",
       Object.keys(r.folders || {}).length
-        ? {
-            value: nfmt(Object.keys(r.folders).length),
-            label: Object.keys(r.folders).length === 1 ? "folder" : "folders",
-          }
-        : null,
-    ],
+        ? plural(Object.keys(r.folders).length, "folder")
+        : "",
+    ].filter(Boolean).join(" · "),
     chips: chipsFor(r.folders || {}),
     legend: legendFor(r.folders || {}),
     notes,

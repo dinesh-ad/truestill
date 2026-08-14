@@ -774,50 +774,84 @@ select.input {
   font-weight: var(--weight-semibold);
   margin-bottom: var(--space-4);
 }
-/* The result grid: the photos a run just organized. `auto-fill` rather than a fixed column
-   count, so one rule serves a narrow panel and a wide one without a breakpoint - the panel width
-   decides how many fit and the browser does the arithmetic.
+/* The result grid: the photos a run just organized, and the point of the Organize card.
 
-   `auto-fill`, NOT `auto-fit`, and the difference shows on a small run: `auto-fit` collapses the
-   empty tracks, so three photos in a wide panel would each stretch to 300px. `auto-fill` keeps
-   the tracks, and three photos stay tile-sized with space beside them.
+   FIXED TILES THAT WRAP, not tracks that stretch. This was `minmax(148px, 1fr)`, and the `1fr`
+   is what made it read as a torn strip rather than a grid: every tile grew to fill its row, so
+   the tile size changed at every panel width and the row always ran edge to edge with no ragged
+   end. A fixed track wraps instead - the tile is `--tile-size` at every width and the leftover
+   space sits at the end of the last row, which is what tells the eye these are tiles.
 
-   THE 148px MINIMUM IS TIED TO `thumbnails.THUMB_PX`, not chosen by eye. That constant is 320
-   because it is a tile at 2x, which only holds if a tile is near 160. The first version said
-   96px and measured 97-107px at EVERY width from 420 to 1440 - `auto-fill` spent extra room on
-   more columns rather than bigger photos, so a wide window drew the same postage stamps as a
-   phone while the server sent 3.2x the pixels any tile rendered. 148 measures 148-203px across
-   that range. At the widest end the 2x supersample falls to 1.58x, which is a hair soft on a
-   retina display and is the right trade: the alternative is a bigger THUMB_PX, paid for in bytes
-   and decode by every tile at every width to sharpen one.
-   Pinned by `test_a_tile_is_drawn_near_the_size_its_thumbnail_was_made_for`.
+   `--tile-size` is tied to `thumbnails.THUMB_PX`, not chosen by eye: that constant is 320 because
+   a tile is drawn at 2x. Fixed rather than ranged, so the pairing is exact - it used to measure
+   anywhere from 148 to 203px depending on the window, and at the wide end the supersample fell
+   to 1.58x. Pinned by `test_the_tiles_are_a_fixed_size_that_wraps_rather_than_stretching`.
 
-   Aspect-ratio 1 with object-fit: cover, so a grid of mixed portrait and landscape reads as a
-   grid rather than a ragged edge. The full frame is never the point here; recognising the photo
-   is, and a square crop of a photo is still recognisably that photo. */
+   `auto-fill`, NOT `auto-fit`: auto-fit collapses the empty tracks, which would stretch three
+   photos across a wide panel. auto-fill keeps them tile-sized with space beside them.
+
+   The gutter and the radius were never missing - they were `--space-2` and `--radius-sm`, 8px and
+   6px, rendering correctly and too small to read as separate tiles at this size. One step up each.
+
+   No `aspect-ratio` here any more, and its absence is deliberate: the box is square because the
+   width and the height are both `--tile-size`, so the declaration would be a second mechanism for
+   a property that already has one. It was load-bearing while the tile was fluid. */
 .result-grid {
+  --tile-size: 148px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
-  gap: var(--space-2);
-  margin-bottom: var(--space-4);
+  grid-template-columns: repeat(auto-fill, var(--tile-size));
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
 }
+
+/* ONE ROW UNTIL ASKED, and this is a scale defect rather than a preference. `GRID_SAMPLE_LIMIT`
+   is 48; expanded that is eight rows and about 1,250px of photographs sitting between the
+   headline and everything the card has to say - including "N files now exist in only one place",
+   which is the last thing that should be below the fold. */
+.result-grid.is-collapsed {
+  max-height: var(--tile-size);
+  overflow: hidden;
+}
+
 .result-grid .tile {
-  width: 100%;
-  height: auto;
-  aspect-ratio: 1;
+  width: var(--tile-size);
+  height: var(--tile-size);
   object-fit: cover;
   display: block;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--surface-sunken);
   /* The placeholder a tile shows before its bytes arrive and after a tile fails. Without it a
      lazy grid flashes the card background through image-shaped holes as the user scrolls. */
   border: var(--border-width) solid var(--border);
 }
-/* Tightened against the grid it describes, rather than floating between two blocks. Stated as
-   adjacency so the grid keeps its normal spacing whenever nothing follows it. */
-.result-grid:has(+ .grid-more) {
+
+/* A DISCLOSURE CONTROL HAS TO READ AS ONE. This first shipped as `.btn-ghost`, which is
+   transparent on `--text-secondary` - measured `rgb(95, 87, 76)` against the caption's
+   `rgb(28, 26, 23)`, so it rendered GREYER than the static text beside it and read as
+   de-emphasised prose rather than something to press.
+
+   `--accent` is not a new treatment: `details.more > summary` is this codebase's existing
+   show-more control and is already accent-coloured. Matching it rather than inventing a third
+   idiom. Pinned by `test_the_show_all_control_reads_as_interactive`, which compares the rendered
+   colour against the token rather than against a literal. */
+.grid-toggle {
+  background: transparent;
+  color: var(--accent);
+  padding-left: 0;
   margin-bottom: var(--space-2);
 }
+.grid-toggle:hover {
+  text-decoration: underline;
+}
+
+/* The run's numbers, as a line rather than as a block. Not `.tally`, which is a two-column
+   number panel that reads as the main event, and not `.metrics`, whose 3xl figures are the Stats
+   dashboard's whole purpose. Here the photographs are the result and the counts are the caption
+   under them, so they are sized and coloured like one. */
+.result-numbers {
+  margin-bottom: var(--space-4);
+}
+
 .grid-more {
   margin-bottom: var(--space-4);
 }

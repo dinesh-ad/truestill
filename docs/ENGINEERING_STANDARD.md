@@ -1495,6 +1495,44 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   collected count. Use the editor that fails on a missed match rather than the string method that
   shrugs.
 
+  ⚠ **AMBIGUOUS IS WORSE THAN ABSENT, because a misaimed change still reports a result.** Absence
+  is caught by "did it match at all". Ambiguity passes that check and then edits an arbitrary one
+  of several matches. Three mutants aimed at the result grid did exactly this: `gap:
+  var(--space-3);` occurs **eight** times in one stylesheet and `border-radius: var(--radius-md);`
+  **nine**, so two of them silently edited unrelated rules five hundred lines away and reported
+  killing nothing - which reads as a missing guard.
+
+  > **The third was the one worth writing down: it reported a KILL.**
+  > `?token=${encodeURIComponent(TOKEN)}` also matches the SSE job-events URL, so a mutant labelled
+  > "token dropped from the tile URL" stripped the token from the job stream instead, failed the
+  > end-to-end test for an unrelated reason, and certified the tile's token as guarded when
+  > nothing tested it. **A green from a misaimed check is not weaker evidence than a red - it is
+  > evidence of the wrong thing, wearing the right label.**
+
+  *So `count(old) == 1`, not `old in source`.* The remedy generalises past mutation: any
+  find-and-replace, codemod or patch that targets a string in a file should assert how many times
+  it matched, because "at least one" and "exactly the one I meant" are different questions and
+  only the second one is the one being asked.
+
+  ⚠ **AND THE ONE PLACE NONE OF THIS REACHES: a docstring is a claim no test can falsify, so it
+  rots silently while everything stays green.** Every other member here ends in a red somebody
+  missed. This one has no red to miss.
+
+  *Worked example, 2026-08-14, minutes after the members above were written.* The result grid's
+  tile went from fluid to fixed, which made its `aspect-ratio` redundant, so it was deleted -
+  correctly. **Three test docstrings went on naming it as the mechanism**, one of them promising
+  it was "asserted below" when nothing asserted it any more. Every test still passed: the box is
+  square because the width and the height are both `--tile-size`. What was false was the stated
+  reason. Caught by re-reading the file after an unrelated lint failure, which is not a method.
+
+  > This is `(abh)` from the other side. That entry **kept a cause it never verified**; these kept
+  > one **after it stopped being true**. Same defect, opposite direction, and the second is easier
+  > to create - it is produced by a *correct* change somewhere else.
+
+  **When you delete or replace a mechanism, grep for its name before you commit.** The compiler
+  will not, the linter will not, and the suite cannot. It is the one class here whose only
+  available instrument is reading.
+
 - **A mutation harness that dies leaves the mutant on disk, and `finally` does not run when the
   process is killed.** The fifty-first member, recorded 2026-08-14 the same hour as the fiftieth,
   because the audit that found that class nearly shipped a defect of its own.
