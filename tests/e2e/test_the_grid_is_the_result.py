@@ -48,7 +48,15 @@ def _completion(ui: Page, **overrides: Any) -> None:
         "mode": "copy",
         "organized_sample": {
             "total": 3,
-            "shown": [{"sha256": f"{i:064x}", "name": f"IMG_000{i}.jpg"} for i in range(3)],
+            # w/h per photo: Stage C makes the backend send these. Carried here first because
+            # a row solver cannot lay out what it cannot measure, and measuring the loaded
+            # image is too late - the grid would reflow as bytes land.
+            "shown": [
+                {"sha256": f"{i:064x}", "name": f"IMG_000{i}.jpg", **shape}
+                for i, shape in enumerate(
+                    [{"w": 4000, "h": 3000}, {"w": 3000, "h": 4000}, {"w": 4000, "h": 1824}]
+                )
+            ],
         },
     }
     summary.update(overrides)
@@ -102,10 +110,14 @@ def test_the_tiles_decode_off_the_main_thread_and_reserve_their_box(ui: Page) ->
 
     * `decoding="async"` moves the decode off the main thread. The visible result is a page that
       does not jank while forty-eight tiles arrive - not something a DOM assertion can see.
-    * `width`/`height` let the browser reserve each box before any CSS or bytes arrive. The
-      stylesheet fixes the box outright once it applies - `width` and `height` are both
-      `--tile-size` - so these attributes matter in exactly the window where the stylesheet has
-      NOT applied yet, which a test that loads the stylesheet cannot reproduce.
+    * `width`/`height` let the browser reserve each box before any CSS or bytes arrive.
+
+    ⚠ **`width`/`height` USED to be decorative and are now load-bearing, which is why this
+    docstring changed in the commit that inverted the square guards.** While every tile was
+    `--tile-size` square, the stylesheet fixed the box outright and these attributes mattered
+    only in the window before CSS applied. Under an aspect-preserving layout they carry each
+    photograph's TRUE SHAPE, which is the only thing a row can be laid out from before the bytes
+    arrive. Losing them now does not cost a millisecond of reflow; it costs the layout.
 
     Both are real, both are invisible when lost, and the honest guard for them is their presence.
     """
@@ -122,53 +134,96 @@ def test_the_tiles_decode_off_the_main_thread_and_reserve_their_box(ui: Page) ->
     )
 
 
-def test_every_tile_is_square_whether_or_not_its_photo_arrives(ui: Page) -> None:
-    """Mixed portrait and landscape must read as a grid, not a ragged edge - and the box must
-    hold before the bytes do, which is what makes a lazy grid stop jumping as you scroll.
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "Stage B inverts the guards BEFORE the layout lands, so this fails against today's "
+        "square CSS on purpose - a regression test nobody has seen fail is a test nobody has "
+        "checked. `strict` errors the moment it starts passing, which forces the marker off in "
+        "the commit that builds the layout rather than leaving a green stub. "
+        "docs/organize-grid-design.md"
+    ),
+)
+def test_every_tile_keeps_its_photograph_s_shape_before_the_photo_arrives(ui: Page) -> None:
+    """A photograph is drawn in the shape it was taken in, and the box holds before the bytes do.
+
+    **This replaces `test_every_tile_is_square_whether_or_not_its_photo_arrives`, and the
+    replacement is the product's thesis rather than a style preference.** truestill's promise is
+    that your originals are untouched; the only view of a photograph it had cropped every one of
+    them to a square. See `docs/organize-grid-design.md`.
 
     Asserted with tiles that deliberately never load (the shas are fabricated), because an
-    unloaded `<img>` is where a square box is easiest to lose: with no intrinsic size and no
-    stylesheet height it collapses to nothing and the grid reflows as each photo arrives.
+    unloaded `<img>` is where a reserved box is easiest to lose: with no intrinsic size and no
+    stylesheet height it collapses to nothing and the grid reflows as each photo arrives. That
+    half is unchanged from the square guard - what changed is WHICH box is correct.
 
-    The mechanism is `width` and `height` both being `--tile-size`. It used to be `aspect-ratio`,
-    which became redundant the moment the tile stopped being fluid - and this docstring named it
-    for one commit after it was deleted, which is the failure `(abh)` is filed under: a record
-    stating a cause it no longer has.
+    The mechanism is now the `width`/`height` attributes carrying the photograph's true shape,
+    which is why the docstring above them changed in this same commit.
     """
     _completion(ui)
     boxes = ui.eval_on_selector_all(
         f"{TESTID} img.tile",
         "els => els.map(e => { const r = e.getBoundingClientRect();"
-        " return {w: Math.round(r.width), h: Math.round(r.height)}; })",
+        " return {w: Math.round(r.width), h: Math.round(r.height),"
+        "         aw: Number(e.getAttribute('width')), ah: Number(e.getAttribute('height'))}; })",
     )
     assert boxes, "no tiles rendered"
-    ragged = [b for b in boxes if abs(b["w"] - b["h"]) > 1]
-    assert not ragged, f"tiles are not square before their photos load: {ragged}"
+
+    flattened = [b for b in boxes if not b["aw"] or not b["ah"]]
+    assert not flattened, (
+        f"a tile declares no intrinsic shape, so nothing can lay it out before it loads: "
+        f"{flattened}"
+    )
+    # 2% tolerance: sub-pixel rounding at a fractional row height, not a squashed photograph.
+    wrong = [
+        b
+        for b in boxes
+        if abs((b["w"] / b["h"]) - (b["aw"] / b["ah"])) / (b["aw"] / b["ah"]) > 0.02
+    ]
+    assert not wrong, (
+        f"tiles are drawn in a shape their photograph is not: {wrong}. Every tile keeping the "
+        "same shape is the square grid this replaced; a photograph is drawn as it was taken."
+    )
+
+    shapes = {round(b["w"] / b["h"], 2) for b in boxes}
+    assert len(shapes) > 1, (
+        f"every tile rendered the same shape ({shapes}), so this guard would pass against the "
+        "square grid it exists to forbid. The fixture must mix portrait and landscape."
+    )
 
 
-def test_a_photo_is_cropped_to_the_square_and_never_stretched(ui: Page) -> None:
-    """`object-fit: cover`, the one declaration on a tile with no DOM-observable consequence.
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "Stage B inverts the guards BEFORE the layout lands, so this fails against today's "
+        "square CSS on purpose - a regression test nobody has seen fail is a test nobody has "
+        "checked. `strict` errors the moment it starts passing, which forces the marker off in "
+        "the commit that builds the layout rather than leaving a green stub. "
+        "docs/organize-grid-design.md"
+    ),
+)
+def test_a_photograph_is_never_cropped_to_fit_its_tile(ui: Page) -> None:
+    """`object-fit` must not crop, because there is no longer anything to crop TO.
 
-    The box is square either way - the stylesheet gives the tile equal width and height, and the
-    intrinsic attributes hold it before that applies; both are asserted above. What `cover`
-    decides is what happens to a 4:3 photo INSIDE
-    that square: cropped to the centre, or squashed to fit. The default is `fill`, which squashes,
-    and nothing in the DOM reports which one painted. Detecting it would mean comparing rendered
-    pixels against the source, which is a large amount of machinery for one declaration.
+    **This replaces `test_a_photo_is_cropped_to_the_square_and_never_stretched`.** That guard
+    existed to keep `cover` on a square tile: given a box the photo did not fit, `cover` cropped
+    to the centre and the default `fill` squashed, and cropping was the lesser harm. Under an
+    aspect-preserving layout the box IS the photo's shape, so `cover` has nothing to trim and its
+    presence would mean the box and the photograph have disagreed somewhere.
 
-    So this asserts the mechanism, on the same terms as `decoding="async"` above: a real effect,
-    a visibly wrong result when lost, and no cheaper observable that is actually attributable to
-    it. A mutation removing the declaration fails this and nothing else, which is the honest
-    scope of what it covers.
+    `fill` is the CSS default and is correct here for the same reason `cover` was correct before:
+    when the box already matches the intrinsic ratio, `fill` scales and does not distort. What is
+    forbidden is `cover`, which silently hides a disagreement instead of showing it.
     """
     _completion(ui)
     fits = ui.eval_on_selector_all(
         f"{TESTID} img.tile", "els => els.map(e => getComputedStyle(e).objectFit)"
     )
     assert fits, "no tiles rendered"
-    assert set(fits) == {"cover"}, (
-        f"tiles paint with object-fit {sorted(set(fits))}; anything but 'cover' distorts a "
-        "photo that is not already square"
+    assert "cover" not in set(fits), (
+        f"tiles paint with object-fit {sorted(set(fits))}. `cover` CROPS - it is how the square "
+        "grid hid the mismatch between a photograph and its tile, and an aspect-preserving "
+        "layout has no mismatch to hide."
     )
 
 
@@ -194,29 +249,44 @@ def test_a_content_id_is_escaped_into_its_url_by_the_function_that_builds_it(ui:
     assert "a%2F..%2Fb%3Fx%3D1%26y" in src, f"the content id was not percent-encoded: {src}"
 
 
+#: The wall, and it is arithmetic rather than taste: a thumbnail is `THUMB_PX` = 320 on its long
+#: edge, so a 16:9 photograph runs out of pixels at exactly 320 / (16/9) = 180px of row height -
+#: and **20.5% of the maintainer's 4,108-photo corpus is 16:9 or wider**. The brief targets 172,
+#: which buys 35% more photograph area than the old 148px tile for 0.07 percentage points of
+#: extra softness. `docs/organize-grid-design.md`.
+ROW_HEIGHT_CEILING = 178
+
+
 @pytest.mark.parametrize("width", [1440, 1280, 900, 760, 420])
-def test_a_tile_is_drawn_near_the_size_its_thumbnail_was_made_for(ui: Page, width: int) -> None:
-    """`THUMB_PX` is 320 **because a tile is about 160 at 2x**, and nothing enforced that pairing.
+def test_a_row_is_drawn_near_the_height_its_thumbnails_were_made_for(ui: Page, width: int) -> None:
+    """`THUMB_PX` is 320 because a row is about 172 at 2x, and nothing enforces that pairing.
 
-    The first grid used `minmax(96px, 1fr)` and measured 97-107px at every width from 420 to
-    1440: `auto-fill` spends spare room on more columns, not bigger photos, so a wide window drew
-    the same postage stamps as a phone while the server sent 3.2x the pixels any tile rendered.
-    Nothing failed. The grid was correct, every other test here passed, and it simply looked
-    like a contact sheet on a screen with room for photographs.
+    **This replaces `test_a_tile_is_drawn_near_the_size_its_thumbnail_was_made_for`, which
+    asserted a WIDTH window of 130-220px.** That was correct while every tile was square, so
+    width and height were the same number. Under an aspect-preserving layout width is the free
+    dimension - a 16:9 tile at 172px tall is 306px wide and a portrait is 129px - so the old
+    window would fail on correct output in both directions. **Height is the invariant a row
+    shares; width is what the photograph decides.**
 
-    So the pairing is asserted as a range, across the widths the layout actually produces. The
-    upper bound matters as much as the lower: a tile drawn much larger than half `THUMB_PX` is
-    an upscaled thumbnail, which is the same defect pointing the other way.
+    The upper bound is the one that matters and it is not a preference: past `ROW_HEIGHT_CEILING`
+    a 16:9 photograph is being upscaled from a thumbnail that does not have the pixels.
     """
     ui.set_viewport_size({"width": width, "height": 900})
     _completion(ui)
-    tile = ui.eval_on_selector(
-        f"{TESTID} img.tile", "e => Math.round(e.getBoundingClientRect().width)"
+    heights = ui.eval_on_selector_all(
+        f"{TESTID} img.tile", "els => els.map(e => Math.round(e.getBoundingClientRect().height))"
     )
+    assert heights, "no tiles rendered"
 
-    assert 130 <= tile <= 220, (
-        f"at {width}px a tile renders {tile}px, which does not pair with THUMB_PX=320: "
-        "below the range the served thumbnail is mostly thrown away, above it is upscaled"
+    too_tall = [h for h in heights if h > ROW_HEIGHT_CEILING]
+    assert not too_tall, (
+        f"at {width}px a tile is {too_tall}px tall against a {ROW_HEIGHT_CEILING}px ceiling. "
+        "Past it a 16:9 photograph is upscaled from a 320px thumbnail that has no more pixels."
+    )
+    too_short = [h for h in heights if h < 120]
+    assert not too_short, (
+        f"at {width}px a tile is {too_short}px tall, so most of the served thumbnail is thrown "
+        "away and the grid reads as postage stamps on a screen with room for photographs"
     )
 
 
@@ -232,9 +302,25 @@ def test_no_tile_is_drawn_outside_the_card_that_holds_it(ui: Page) -> None:
 
     So the assertion is the property a person experiences - a tile inside the card that contains
     it - rather than the symptom a different layout happens to produce.
+
+    ⚠ **KEPT UNCHANGED THROUGH THE ASPECT INVERSION, and it matters MORE now, not less.** Under
+    the square grid every tile was 148px and the only way to escape was a broken track. Under an
+    aspect-preserving layout **a single wide photograph is wider than the card at a narrow
+    viewport all by itself** - a 16:9 frame at a 172px row height is 306px, against a card that
+    ends at 404px minus padding. This is the guard that catches a panorama hanging off the edge,
+    and it needed no rewriting to do it, which is the argument for asserting what a person
+    experiences rather than what a layout produces.
     """
     ui.set_viewport_size({"width": 420, "height": 900})
-    _completion(ui)
+    _completion(
+        ui,
+        organized_sample={
+            "total": 1,
+            # The widest real photograph in the corpus is 4.348:1. At any sane row height it is wider
+            # than a 420px panel, so if anything can escape the card, this can.
+            "shown": [{"sha256": f"{0:064x}", "name": "PANO.jpg", "w": 4348, "h": 1000}],
+        },
+    )
     escaping = ui.evaluate(
         """() => {
             const grid = document.querySelector("[data-testid='org-grid']");
@@ -394,24 +480,56 @@ def test_a_grid_that_already_fits_offers_no_control(ui: Page) -> None:
     assert "is-collapsed" not in (ui.eval_on_selector(TESTID, "e => e.className") or "")
 
 
-def test_the_tiles_are_a_fixed_size_that_wraps_rather_than_stretching(ui: Page) -> None:
-    """WHY THE GRID READ AS A TORN STRIP: `minmax(148px, 1fr)`.
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "Stage B inverts the guards BEFORE the layout lands, so this fails against today's "
+        "square CSS on purpose - a regression test nobody has seen fail is a test nobody has "
+        "checked. `strict` errors the moment it starts passing, which forces the marker off in "
+        "the commit that builds the layout rather than leaving a green stub. "
+        "docs/organize-grid-design.md"
+    ),
+)
+def test_tiles_share_a_row_height_and_are_free_in_width(ui: Page) -> None:
+    """One height per row; width is whatever the photograph is.
 
-    The `1fr` let every tile grow to fill its row, so the tile size changed with the panel width
-    and the row always ran edge to edge with no ragged end. That is a strip, not a grid. A fixed
-    track wraps instead - the tile is 148px at every width and the leftover space sits at the end.
+    **This replaces `test_the_tiles_are_a_fixed_size_that_wraps_rather_than_stretching`**, which
+    asserted `set(widths) == {148}` - a singleton set, which an aspect-preserving layout
+    contradicts by definition.
 
-    Measured at several widths, because "fixed" is exactly the claim a single-width test cannot
-    make. It also makes the pairing with `thumbnails.THUMB_PX` (320, a tile at 2x) exact rather
-    than a 130-220 range.
+    What survives from it is the real property that guard was protecting: the row must not
+    STRETCH its tiles to fill the width. It was named for the mutation
+    `minmax(var(--tile-size), 1fr)`, which made the grid read as a torn strip. Under the new
+    layout a tile has no fixed width to stretch, so the equivalent failure is a tile whose drawn
+    shape stops matching its photograph - which
+    `test_every_tile_keeps_its_photograph_s_shape_before_the_photo_arrives` owns, and which is
+    why `scripts/mutation_matrix.py`'s stretch mutant is RETIRED rather than ported.
     """
     for width in (1440, 1100, 760):
         ui.set_viewport_size({"width": width, "height": 900})
         _completion(ui)
-        sizes = ui.eval_on_selector_all(
-            f"{TESTID} img.tile", "els => els.map(e => Math.round(e.getBoundingClientRect().width))"
+        boxes = ui.eval_on_selector_all(
+            f"{TESTID} img.tile",
+            "els => els.map(e => { const r = e.getBoundingClientRect();"
+            " return {w: Math.round(r.width), h: Math.round(r.height),"
+            "         top: Math.round(r.top)}; })",
         )
-        assert set(sizes) == {148}, f"at {width}px the tiles measured {sorted(set(sizes))}, not 148"
+        assert boxes, f"no tiles rendered at {width}px"
+
+        by_row: dict[int, list[int]] = {}
+        for box in boxes:
+            by_row.setdefault(box["top"], []).append(box["h"])
+        for top, row_heights in by_row.items():
+            assert max(row_heights) - min(row_heights) <= 1, (
+                f"at {width}px the row at y={top} mixes heights {sorted(set(row_heights))}; "
+                "photographs in one row share a height or the row is not a row"
+            )
+
+        widths = {b["w"] for b in boxes}
+        assert len(widths) > 1, (
+            f"at {width}px every tile is {widths} wide, which is the fixed-size square grid this "
+            "replaced. Width is the photograph's to decide."
+        )
 
 
 def test_the_gutters_are_even_across_a_row(ui: Page) -> None:
@@ -426,6 +544,16 @@ def test_the_gutters_are_even_across_a_row(ui: Page) -> None:
 
     Measured as the distance from one tile's right edge to the next tile's left edge, along one
     row, which is the gutter a person actually sees.
+
+    ⚠ **THIS GUARD SURVIVED THE ASPECT INVERSION, and that was a decision rather than an
+    oversight.** It was at risk: a layout that justified rows by redistributing slack INTO the
+    gutters would make `gutters[0] == declared` exactly the thing the design intends to violate.
+    The brief chose otherwise - photographs keep their true widths and the row does not stretch -
+    so the declared gap stays the visible gap and this comparison keeps its full force. If a row
+    solver is ever added that varies gutters, this is the guard it has to argue with first.
+
+    Row grouping below assumes tiles in a row share a `top`, which the height guard in
+    `test_tiles_share_a_row_height_and_are_free_in_width` now pins independently.
 
     ⚠ **AND COMPARED AGAINST THE DECLARED `gap`, because evenness alone does not catch it.** The
     first version of this test only asserted the gutters were equal to each other, and the
@@ -457,19 +585,50 @@ def test_the_gutters_are_even_across_a_row(ui: Page) -> None:
     )
 
 
-def test_the_tiles_are_separated_and_rounded_enough_to_read_as_tiles(ui: Page) -> None:
-    """The gutter and the radius were never absent - they were 8px and 6px, declared and
-    rendering, and too small to read as separate tiles at this size. Asserted as computed values
-    so "it looks fine to me" is not the test.
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "Stage B inverts the guards BEFORE the layout lands, so this fails against today's "
+        "square CSS on purpose - a regression test nobody has seen fail is a test nobody has "
+        "checked. `strict` errors the moment it starts passing, which forces the marker off in "
+        "the commit that builds the layout rather than leaving a green stub. "
+        "docs/organize-grid-design.md"
+    ),
+)
+def test_the_frames_touch_at_a_hairline_and_are_not_rounded(ui: Page) -> None:
+    """Frames on a contact sheet butt together and have square corners.
+
+    **This inverts `test_the_tiles_are_separated_and_rounded_enough_to_read_as_tiles`, which
+    asserted `gap >= 12` and `border-radius >= 10`.** ⚠ **It was not on the plan's list of four
+    inversions, and that was an oversight found by running the guards against the layout rather
+    than by reading them** - the census that produced the list asked which guards were
+    aspect-coupled, and this one is not. It is coupled to the *values* the brief changes.
+
+    **The values it asserted were themselves measured**, at `app.css:794`: 8px and 6px "rendered
+    correctly and too small to read as separate tiles at this size. One step up each." That
+    finding held for UNIFORM SQUARES, where the gutter is the only thing separating one tile from
+    the next. With true aspects a portrait beside a panorama is legible at 4px, because the shapes
+    do the separating.
+
+    ⚠ **The retreat is `--space-2` 8px and `--corner-sm` 6px** - the values that measurement
+    actually produced, not today's 12px/10px and not a number someone likes the look of. See
+    `docs/organize-grid-design.md`.
     """
     _completion(ui)
     style = ui.eval_on_selector(
-        TESTID,
-        "e => { const g = getComputedStyle(e); const t = getComputedStyle(e.querySelector('img.tile'));"
-        " return {gap: parseFloat(g.gap || g.rowGap), radius: parseFloat(t.borderTopLeftRadius)}; }",
+        f"{TESTID}",
+        """el => { const g = getComputedStyle(el);
+            const t = el.querySelector('img.tile');
+            return {gap: parseFloat(g.gap || g.rowGap),
+                    radius: parseFloat(getComputedStyle(t).borderTopLeftRadius)}; }""",
     )
-    assert style["gap"] >= 12, f"the gutter is {style['gap']}px; the tiles read as touching"
-    assert style["radius"] >= 10, f"the corner radius is {style['radius']}px; too subtle to see"
+    assert style["gap"] <= 4, (
+        f"the gutter is {style['gap']}px; frames on a contact sheet touch at a hairline, and "
+        "12px of ground between rounded tiles is a photo gallery"
+    )
+    assert style["radius"] == 0, (
+        f"a frame has a {style['radius']}px corner radius; a photograph is a rectangle"
+    )
 
 
 def test_a_truncated_grid_says_how_many_it_is_not_showing(ui: Page) -> None:

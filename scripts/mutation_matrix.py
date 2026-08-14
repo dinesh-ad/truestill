@@ -354,29 +354,36 @@ def _grid() -> Suite:
             '  if (false) return "";',
             "empty grid frame rendered anyway",
         ),
-        Mutant(
-            c,
-            "repeat(auto-fill, var(--tile-size))",
-            "repeat(auto-fill, minmax(var(--tile-size), 1fr))",
-            "tiles stretch to fill the row again (the torn strip)",
-        ),
+        # ⚠ RETIRED 2026-08-14, not ported. The stretch mutant was
+        # `repeat(auto-fill, minmax(var(--tile-size), 1fr))` - "tiles stretch to fill the row
+        # again (the torn strip)". It described a defect that only exists when a tile has a FIXED
+        # WIDTH the track can stretch around: `.tile` set its own width, so the image stayed
+        # 148px while the track grew and the visible gutters went ragged. Under an
+        # aspect-preserving layout the tile has no fixed width, the track is not a grid track,
+        # and the mutation has nothing to mean. Its successor is the shape mutant below: the
+        # equivalent failure is now a tile drawn in a shape its photograph is not.
         Mutant(c, "--tile-size: 148px;", "--tile-size: 96px;", "tiles shrunk to postage stamps"),
         Mutant(
             c, "--tile-size: 148px;", "--tile-size: 300px;", "tiles upscaled past the thumbnail"
         ),
+        # The gutter mutant INVERTS with the design: 4px is the intent, so the defect is a
+        # gallery-sized gap coming back, not the gap going to zero.
         Mutant(
             c,
-            "grid-template-columns: repeat(auto-fill, var(--tile-size));\n  gap: var(--space-3);",
-            "grid-template-columns: repeat(auto-fill, var(--tile-size));\n  gap: 0;",
-            "the gutter removed",
+            "gap: var(--space-3);",
+            "gap: var(--space-5);",
+            "the hairline gutter widened back to a gallery margin",
         ),
+        # Same inversion: square corners are the intent, so the defect is rounding returning.
         Mutant(
             c,
-            "  object-fit: cover;\n  display: block;\n  border-radius: var(--corner-md);",
-            "  object-fit: cover;\n  display: block;\n  border-radius: 0;",
-            "the corner radius removed",
+            "  display: block;\n  border-radius: var(--corner-md);",
+            "  display: block;\n  border-radius: var(--corner-lg);",
+            "the frames rounded back into gallery tiles",
         ),
-        Mutant(c, "  object-fit: cover;\n", "", "crop dropped (a 4:3 photo is stretched)"),
+        # ⚠ RETIRED 2026-08-14. `object-fit: cover` is REMOVED by the redesign - there is no
+        # square to crop to - so "crop dropped" stops being a defect and becomes the intent.
+        # `test_a_photograph_is_never_cropped_to_fit_its_tile` now forbids `cover` outright.
         Mutant(
             c,
             "  max-height: var(--tile-size);\n  overflow: hidden;",

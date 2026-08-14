@@ -147,6 +147,25 @@ photo gallery, and a gallery is the wrong genre for a custody record.
 > `app.css:794` actually measured - **not to today's 12px/10px, and not to a number someone likes
 > the look of.** The retreat from a measured decision is the measurement it replaced.
 
+## Amendment, found by Stage B's own guards (2026-08-14)
+
+**A pure-CSS layout cannot place a photograph wider than the panel, and the strengthened
+card-bounds guard caught it on the first run.** The corpus's widest frame is 4.348:1; at a 172px
+row height it is **748px wide against a 420px panel**, and it rendered at x=782 with the card
+ending near 404.
+
+`max-width: 100%` is not the answer - tested, and it breaks the shape guard, because a flex item
+constrained in width with a fixed height is squashed rather than scaled.
+
+**So a row solver is required after all**, and it belongs to the island in Stage D: a photograph
+wider than the row gets a SHORTER row of its own, which is exactly what a justified layout's
+per-row height calculation does. Stage B's guards were deliberately written to the invariants
+that hold either way - shape preserved, nothing cropped, height under the ceiling - so none of
+them has to change when the solver lands.
+
+Recorded here rather than discovered later because it is the one place the brief was wrong: it
+implied CSS could carry the whole layout.
+
 ## Copy
 
 - **`Done. 412 photos copied into Library.`** - the outcome, in the same verb the button used.
