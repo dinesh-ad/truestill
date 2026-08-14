@@ -153,7 +153,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             on_started()
         return JSONResponse({"job_id": result})
 
-    async def home(_request: Request) -> HTMLResponse:
+    def home(_request: Request) -> HTMLResponse:
         html = (_TEMPLATES / "index.html").read_text(encoding="utf-8")
         stale = _static_fingerprint() != started_fingerprint
         if stale:
@@ -169,7 +169,9 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
     async def organize_inventory(request: Request) -> JSONResponse:
         # Sync and cheap: walk + stat only. Not a job - that is the point of (tt).
         body = await request.json()
-        return JSONResponse(service.organize_inventory(Path(body["source"])))
+        return JSONResponse(
+            await run_in_threadpool(service.organize_inventory, Path(body["source"]))
+        )
 
     async def organize_preview(request: Request) -> JSONResponse:
         # A job like every other long operation -- on a large source this is the first long
@@ -178,7 +180,8 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         body = await request.json()
         mode = str(body.get("mode", "copy"))
         destination = Path(body["destination"]) if body.get("destination") else Path(body["source"])
-        target = service.organize_preview_run(
+        target = await run_in_threadpool(
+            service.organize_preview_run,
             Path(body["source"]),
             destination,
             _db(),
@@ -188,13 +191,16 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             skip_undated=bool(body.get("skip_undated", False)),
             mode=mode,
         )
-        return _start_drive_job(target, paths=[destination], operation="organize preview")
+        return await run_in_threadpool(
+            _start_drive_job, target, paths=[destination], operation="organize preview"
+        )
 
     async def organize_run(request: Request) -> JSONResponse:
         body = await request.json()
         mode = str(body.get("mode", "copy"))
         destination = Path(body["destination"]) if body.get("destination") else Path(body["source"])
-        target = service.organize_run(
+        target = await run_in_threadpool(
+            service.organize_run,
             Path(body["source"]),
             destination,
             _db(),
@@ -202,30 +208,38 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             refresh_metadata=bool(body.get("refresh_metadata", False)),
             mode=mode,
         )
-        return _start_drive_job(target, paths=[destination], operation="organize")
+        return await run_in_threadpool(
+            _start_drive_job, target, paths=[destination], operation="organize"
+        )
 
     async def organize_settings(request: Request) -> JSONResponse:
         if request.method == "POST":
             body = await request.json()
-            return JSONResponse(service.set_organize_mode(body.get("mode"), _db()))
-        return JSONResponse(service.organize_mode_state(_db()))
+            return JSONResponse(
+                await run_in_threadpool(service.set_organize_mode, body.get("mode"), _db())
+            )
+        return JSONResponse(await run_in_threadpool(service.organize_mode_state, _db()))
 
     async def sidebar_settings(request: Request) -> JSONResponse:
         if request.method == "POST":
             body = await request.json()
-            return JSONResponse(service.set_sidebar_collapsed(body.get("collapsed"), _db()))
-        return JSONResponse(service.sidebar_state(_db()))
+            return JSONResponse(
+                await run_in_threadpool(service.set_sidebar_collapsed, body.get("collapsed"), _db())
+            )
+        return JSONResponse(await run_in_threadpool(service.sidebar_state, _db()))
 
     async def text_size_settings(request: Request) -> JSONResponse:
         if request.method == "POST":
             body = await request.json()
-            return JSONResponse(service.set_text_size(body.get("size"), _db()))
-        return JSONResponse(service.text_size_state(_db()))
+            return JSONResponse(
+                await run_in_threadpool(service.set_text_size, body.get("size"), _db())
+            )
+        return JSONResponse(await run_in_threadpool(service.text_size_state, _db()))
 
-    async def organize_undo_state(_request: Request) -> JSONResponse:
+    def organize_undo_state(_request: Request) -> JSONResponse:
         return JSONResponse(service.organize_undo_state(_db()))
 
-    async def organize_undo_preview(_request: Request) -> JSONResponse:
+    def organize_undo_preview(_request: Request) -> JSONResponse:
         state = service.organize_undo_state(_db())
         if state["armed"] is False:
             return JSONResponse(state)
@@ -236,7 +250,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             operation="undo organize preview",
         )
 
-    async def organize_undo_apply(_request: Request) -> JSONResponse:
+    def organize_undo_apply(_request: Request) -> JSONResponse:
         state = service.organize_undo_state(_db())
         if state["armed"] is False:
             return JSONResponse(state)
@@ -250,24 +264,31 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
     async def verify_run(request: Request) -> JSONResponse:
         body = await request.json()
         path = Path(body["path"])
-        return _start_drive_job(service.verify_run(path, _db()), paths=[path], operation="verify")
+        return await run_in_threadpool(
+            _start_drive_job,
+            await run_in_threadpool(service.verify_run, path, _db()),
+            paths=[path],
+            operation="verify",
+        )
 
-    async def job_events(request: Request) -> StreamingResponse:
+    def job_events(request: Request) -> StreamingResponse:
         job_id = request.path_params["job_id"]
         return StreamingResponse(jobs.stream(job_id), media_type="text/event-stream")
 
-    async def job_cancel(request: Request) -> Response:
+    def job_cancel(request: Request) -> Response:
         ok = jobs.cancel(request.path_params["job_id"])
         return Response(status_code=202 if ok else 404)
 
-    async def drives(_request: Request) -> JSONResponse:
+    def drives(_request: Request) -> JSONResponse:
         return JSONResponse(
             {"drives": service.list_drives(_db()), "at_risk": service.at_risk(_db())}
         )
 
     async def reveal(request: Request) -> JSONResponse:
         body = await request.json()
-        return JSONResponse(service.reveal_in_file_manager(Path(body["path"])))
+        return JSONResponse(
+            await run_in_threadpool(service.reveal_in_file_manager, Path(body["path"]))
+        )
 
     async def thumb(request: Request) -> Response:
         """A WebP thumbnail for catalogued content. See `service/thumbs.py` for the boundary.
@@ -297,7 +318,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             data, media_type="image/webp", headers={"Cache-Control": service.THUMB_CACHE_CONTROL}
         )
 
-    async def where(request: Request) -> JSONResponse:
+    def where(request: Request) -> JSONResponse:
         params = request.query_params
         try:
             page = int(params.get("page", "1"))
@@ -308,14 +329,17 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
     async def backup_preview(request: Request) -> JSONResponse:
         body = await request.json()
         return JSONResponse(
-            service.backup_preview(Path(body["source"]), Path(body["target"]), _db())
+            await run_in_threadpool(
+                service.backup_preview, Path(body["source"]), Path(body["target"]), _db()
+            )
         )
 
     async def backup_run(request: Request) -> JSONResponse:
         body = await request.json()
         source, target_path = Path(body["source"]), Path(body["target"])
-        return _start_drive_job(
-            service.backup_run(source, target_path, _db()),
+        return await run_in_threadpool(
+            _start_drive_job,
+            await run_in_threadpool(service.backup_run, source, target_path, _db()),
             paths=[source, target_path],
             operation="backup",
         )
@@ -325,59 +349,71 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         # what makes declining free. A job here would put a progress bar on a question.
         body = await request.json()
         return JSONResponse(
-            service.archive_precheck(Path(body["takeout"]), Path(body["destination"]))
+            await run_in_threadpool(
+                service.archive_precheck, Path(body["takeout"]), Path(body["destination"])
+            )
         )
 
     async def ingest_archives_run(request: Request) -> JSONResponse:
         body = await request.json()
         destination = Path(body["destination"])
-        target = service.archive_ingest_run(Path(body["takeout"]), destination, _db())
-        return _start_drive_job(target, paths=[destination], operation="import preview")
+        target = await run_in_threadpool(
+            service.archive_ingest_run, Path(body["takeout"]), destination, _db()
+        )
+        return await run_in_threadpool(
+            _start_drive_job, target, paths=[destination], operation="import preview"
+        )
 
     async def ingest_preview(request: Request) -> JSONResponse:
         body = await request.json()
         destination = Path(body["destination"])
-        target = service.ingest_preview_run(Path(body["takeout"]), destination, _db())
-        return _start_drive_job(target, paths=[destination], operation="import preview")
+        target = await run_in_threadpool(
+            service.ingest_preview_run, Path(body["takeout"]), destination, _db()
+        )
+        return await run_in_threadpool(
+            _start_drive_job, target, paths=[destination], operation="import preview"
+        )
 
     # --- folder picker + library status -------------------------------------------------
 
-    async def fs_dirs(request: Request) -> JSONResponse:
+    def fs_dirs(request: Request) -> JSONResponse:
         return JSONResponse(service.fs_dirs(request.query_params.get("path", "")))
 
-    async def fs_validate(request: Request) -> JSONResponse:
+    def fs_validate(request: Request) -> JSONResponse:
         return JSONResponse(service.fs_validate(request.query_params.get("path", "")))
 
-    async def fs_relationship(request: Request) -> JSONResponse:
+    def fs_relationship(request: Request) -> JSONResponse:
         source = Path(request.query_params.get("source", ""))
         destination = Path(request.query_params.get("destination", ""))
         return JSONResponse(service.filesystem_relationship(source, destination))
 
     async def fs_create(request: Request) -> JSONResponse:
         body = await request.json()
-        return JSONResponse(service.fs_create(body["path"]))
+        return JSONResponse(await run_in_threadpool(service.fs_create, body["path"]))
 
     async def clean_empty_preview(request: Request) -> JSONResponse:
         body = await request.json()
         path = Path(body["path"])
         emptied = [str(item) for item in body.get("emptied", [])]
-        return JSONResponse(service.clean_empty_preview(path, emptied))
+        return JSONResponse(await run_in_threadpool(service.clean_empty_preview, path, emptied))
 
     async def clean_empty_apply(request: Request) -> JSONResponse:
         body = await request.json()
         path = Path(body["path"])
         emptied = [str(item) for item in body.get("emptied", [])]
-        return JSONResponse(service.clean_empty_apply(path, emptied))
+        return JSONResponse(await run_in_threadpool(service.clean_empty_apply, path, emptied))
 
-    async def library_status(_request: Request) -> JSONResponse:
+    def library_status(_request: Request) -> JSONResponse:
         return JSONResponse(service.library_status(_db(), explicit_db=_explicit_db()))
 
     async def library_root(request: Request) -> JSONResponse:
         """Record where the user says their library should live. `(abx)`."""
         body = await request.json()
-        return JSONResponse(service.set_library_root(body.get("path", ""), _db()))
+        return JSONResponse(
+            await run_in_threadpool(service.set_library_root, body.get("path", ""), _db())
+        )
 
-    async def library_stats(_request: Request) -> JSONResponse:
+    def library_stats(_request: Request) -> JSONResponse:
         return JSONResponse(service.library_stats(_db()))
 
     # --- Settings: destination layout template + migration ------------------------------
@@ -385,44 +421,59 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
     async def layout(request: Request) -> JSONResponse:
         if request.method == "POST":
             body = await request.json()
-            return JSONResponse(service.set_layout(body["template"], _db()))
-        return JSONResponse(service.layout_state(_db()))
+            return JSONResponse(
+                await run_in_threadpool(service.set_layout, body["template"], _db())
+            )
+        return JSONResponse(await run_in_threadpool(service.layout_state, _db()))
 
     async def layout_preview(request: Request) -> JSONResponse:
         body = await request.json()
-        return JSONResponse(service.preview_layout(body["template"]))
+        return JSONResponse(await run_in_threadpool(service.preview_layout, body["template"]))
 
     async def event_settings(request: Request) -> JSONResponse:
         try:
             if request.method == "POST":
                 body = await request.json()
-                settings = service.set_event_settings(body.get("min_files"), _db())
+                settings = await run_in_threadpool(
+                    service.set_event_settings, body.get("min_files"), _db()
+                )
             else:
-                settings = service.event_settings(_db())
+                settings = await run_in_threadpool(service.event_settings, _db())
         except InvalidEventSettingsError as exc:
-            return JSONResponse(service.invalid_event_settings_payload(str(exc)))
-        return JSONResponse(service.event_settings_payload(settings))
+            return JSONResponse(
+                await run_in_threadpool(service.invalid_event_settings_payload, str(exc))
+            )
+        return JSONResponse(await run_in_threadpool(service.event_settings_payload, settings))
 
     async def everyday_day_settings(request: Request) -> JSONResponse:
         try:
             if request.method == "POST":
                 body = await request.json()
-                return JSONResponse(service.set_everyday_day_settings(body.get("threshold"), _db()))
-            settings = service.everyday_day_settings(_db())
+                return JSONResponse(
+                    await run_in_threadpool(
+                        service.set_everyday_day_settings, body.get("threshold"), _db()
+                    )
+                )
+            settings = await run_in_threadpool(service.everyday_day_settings, _db())
         except InvalidEverydayDaySettingsError as exc:
-            return JSONResponse(service.invalid_everyday_day_settings_payload(str(exc)))
-        return JSONResponse(service.everyday_day_settings_payload(settings))
+            return JSONResponse(
+                await run_in_threadpool(service.invalid_everyday_day_settings_payload, str(exc))
+            )
+        return JSONResponse(
+            await run_in_threadpool(service.everyday_day_settings_payload, settings)
+        )
 
     async def migrate_preview(request: Request) -> JSONResponse:
         body = await request.json()
         path = Path(body["path"])
-        return _start_drive_job(
-            service.migration_preview_run(path, _db()),
+        return await run_in_threadpool(
+            _start_drive_job,
+            await run_in_threadpool(service.migration_preview_run, path, _db()),
             paths=[path],
             operation="migrate preview",
         )
 
-    async def dates_tier_files(request: Request) -> JSONResponse:
+    def dates_tier_files(request: Request) -> JSONResponse:
         """The files behind one row of the honesty view. Read-only, catalog-only.
 
         ``source`` absent means the *not recorded* tier, which is a real group and the
@@ -435,7 +486,8 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         """Record a human-confirmed capture date for one file. Catalog-only, so not a job."""
         body = await request.json()
         return JSONResponse(
-            service.confirm_file_date(
+            await run_in_threadpool(
+                service.confirm_file_date,
                 _db(),
                 sha256=str(body["sha256"]),
                 date_text=str(body.get("date", "")),
@@ -446,30 +498,41 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
     async def dates_bake_preview(request: Request) -> JSONResponse:
         """Catalog-only, so a plain request rather than a job: no file is read to build a plan."""
         body = await request.json()
-        return JSONResponse(service.bake_preview(Path(body["path"]), _db()))
+        return JSONResponse(
+            await run_in_threadpool(service.bake_preview, Path(body["path"]), _db())
+        )
 
     async def dates_bake_run(request: Request) -> JSONResponse:
         """Through `_start_drive_job`, so the per-drive lock covers a write to user files."""
         body = await request.json()
         path = Path(body["path"])
-        return _start_drive_job(service.bake_run(path, _db()), paths=[path], operation="set dates")
+        return await run_in_threadpool(
+            _start_drive_job,
+            await run_in_threadpool(service.bake_run, path, _db()),
+            paths=[path],
+            operation="set dates",
+        )
 
     async def migrate_run(request: Request) -> JSONResponse:
         body = await request.json()
         path = Path(body["path"])
-        return _start_drive_job(
-            service.migration_apply(path, _db()), paths=[path], operation="migrate"
+        return await run_in_threadpool(
+            _start_drive_job,
+            await run_in_threadpool(service.migration_apply, path, _db()),
+            paths=[path],
+            operation="migrate",
         )
 
-    async def migrate_undo_armed(request: Request) -> JSONResponse:
+    def migrate_undo_armed(request: Request) -> JSONResponse:
         path = Path(request.query_params.get("path", ""))
         return JSONResponse(service.migration_armed_state(path, _db()))
 
     async def migrate_undo_preview(request: Request) -> JSONResponse:
         body = await request.json()
         path = Path(body["path"])
-        return _start_drive_job(
-            service.migration_undo(path, _db(), apply=False),
+        return await run_in_threadpool(
+            _start_drive_job,
+            await run_in_threadpool(service.migration_undo, path, _db(), apply=False),
             paths=[path],
             operation="undo preview",
         )
@@ -477,8 +540,9 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
     async def migrate_undo_apply(request: Request) -> JSONResponse:
         body = await request.json()
         path = Path(body["path"])
-        return _start_drive_job(
-            service.migration_undo(path, _db(), apply=True),
+        return await run_in_threadpool(
+            _start_drive_job,
+            await run_in_threadpool(service.migration_undo, path, _db(), apply=True),
             paths=[path],
             operation="undo",
         )
@@ -569,9 +633,11 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         """
         path = Path((await request.json())["path"])
         try:
-            proposal = service.propose_events(path, _db())
+            proposal = await run_in_threadpool(service.propose_events, path, _db())
         except InvalidEventSettingsError as exc:
-            return JSONResponse(service.invalid_event_proposal_payload(str(exc)))
+            return JSONResponse(
+                await run_in_threadpool(service.invalid_event_proposal_payload, str(exc))
+            )
         if not proposal["ok"]:
             return JSONResponse({"ok": False, "error": proposal["error"]})
         session_id = uuid.uuid4().hex
@@ -584,7 +650,9 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             source_hints=proposal["source_hints"],
         )
         remember_session(session_id, session)
-        return JSONResponse(service.proposed_review_cards_payload(session_id, proposal))
+        return JSONResponse(
+            await run_in_threadpool(service.proposed_review_cards_payload, session_id, proposal)
+        )
 
     async def events_merge(request: Request) -> JSONResponse:
         """Combine two or more cards the detector did not join into one trip (the gap case).
@@ -598,11 +666,13 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         session = sessions.get(session_id)
         if session is None:
             return expired_session()
-        result = service.merge_event_review_cards(session.cards, session.day_totals, indices)
+        result = await run_in_threadpool(
+            service.merge_event_review_cards, session.cards, session.day_totals, indices
+        )
         if "error" in result:
             return JSONResponse({"error": result["error"]})
         session.cards = result["cards"]
-        return _cards_payload(session_id)
+        return await run_in_threadpool(_cards_payload, session_id)
 
     async def events_split(request: Request) -> JSONResponse:
         """Break a wrongly-joined run into two - the primary adjustment.
@@ -616,13 +686,14 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         session = sessions.get(session_id)
         if session is None:
             return expired_session()
-        session.cards = service.split_event_review_card(
+        session.cards = await run_in_threadpool(
+            service.split_event_review_card,
             session.cards,
             int(body["index"]),
             at=body.get("at"),
             after_day=body.get("after_day"),
         )
-        return _cards_payload(session_id)
+        return await run_in_threadpool(_cards_payload, session_id)
 
     async def events_apply(request: Request) -> JSONResponse:
         """Name the reviewed trips and events: persist each decision.
@@ -638,12 +709,14 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         session = sessions.get(session_id)
         if session is None:
             return expired_session()
-        result = service.apply_event_review_names(_db(), session.cards, names)
+        result = await run_in_threadpool(
+            service.apply_event_review_names, _db(), session.cards, names
+        )
         session.named_events = result["named_events"]
         session.named_trips = result["named_trips"]
         return JSONResponse({"events": result["events"], "trips": result["trips"]})
 
-    async def events_preview(request: Request) -> JSONResponse:
+    def events_preview(request: Request) -> JSONResponse:
         """Preview where the just-named trips will move the drive's files (moves nothing)."""
         session = sessions.get(request.path_params["session"])
         if session is None:
@@ -655,7 +728,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             operation="trip preview",
         )
 
-    async def events_apply_to_disk(request: Request) -> JSONResponse:
+    def events_apply_to_disk(request: Request) -> JSONResponse:
         """Apply the trip placement: a journalled, resumable relocation on the drive.
 
         Discards the session **once the job is accepted**, not before: this is the one point a
