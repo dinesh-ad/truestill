@@ -48,7 +48,18 @@ typecheck:
 # on commits within 2% of each other, so a CI ceiling would fail on variance rather than on
 # drift and would be switched off within a week. See §4's eighteenth member.
 TEST_SECONDS_MAX ?= 45
-E2E_SECONDS_MAX ?= 600
+# RAISED FROM 600 WITH WEBKIT, and the WebKit addition is the justification rather than an
+# excuse attached to one. The cost buys the engine the app actually ships in - WebKitGTK on
+# Linux, WKWebView on macOS - and Chromium-only was never a Tauri-specific gap: the .deb
+# already opens in whatever browser the user has.
+#
+# MEASURED, and the first number here was an estimate that came in 7% low. Chromium 434s,
+# WebKit 897s alone; the combined lane measured **1431s**, not the 1330 those two suggested.
+# The headroom is deliberately the same PROPORTION the previous ceiling carried (600 against a
+# 434s lane, 1.38x) rather than a new tolerance invented for the occasion: 1431 x 1.38 ~= 1975.
+# A 1500 ceiling would have left 4.8% margin and tripped on the first slow run, which is how a
+# ceiling gets raised in a panic instead of on evidence.
+E2E_SECONDS_MAX ?= 2000
 
 # `$$` throughout: this is one shell line per recipe, so the variables are the shell's, not
 # make's. The test's own exit status is preserved - a ceiling must not turn a red suite green.
@@ -97,14 +108,18 @@ check: lint format-check typecheck dash-check name-check redirect-check test
 # --- browser end-to-end ----------------------------------------------------------------
 # Deliberately outside `check` and outside pytest's testpaths: a fresh clone runs `make check`
 # green with no browser installed. Run `make e2e-install` once, then `make e2e`.
+# BOTH ENGINES, in one command, because "green on my machine" is the failure this target
+# exists to prevent. WebKit needs four extra system libraries (libevent, libavif, libmanette,
+# libwoff1); `--with-deps` installs them, which is why it is here rather than in a README step
+# somebody skips.
 e2e-install:
-	$(PYTHON) playwright install --with-deps chromium
+	$(PYTHON) playwright install --with-deps chromium webkit
 
 # No retries, on purpose. A retry-until-green browser suite launders exactly the
 # nondeterminism this layer exists to expose; a flaky test gets quarantined and filed instead.
 # Traces and video are kept only for failures, so a red run arrives with a replay.
 e2e:
-	@$(call time_ceiling,$(PYTHON) pytest tests/e2e --browser chromium \
+	@$(call time_ceiling,$(PYTHON) pytest tests/e2e --browser chromium --browser webkit \
 		--tracing retain-on-failure --video retain-on-failure \
 		--output tests/e2e/.artifacts,$(E2E_SECONDS_MAX),the browser lane,E2E_SECONDS_MAX)
 

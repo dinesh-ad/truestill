@@ -825,8 +825,15 @@ def test_catalog_path_stays_inside_custody_at_a_narrow_viewport(
         }"""
     )
     # Selectable so a user can copy the unambiguous absolute path.
+    #
+    # BOTH SPELLINGS, because the engines expose different ones. `app.css` sets `user-select` and
+    # `-webkit-user-select`; WebKit honours the prefixed one and reports the unprefixed name as
+    # null in computed style, so reading only `userSelect` claimed "not selectable" about text
+    # that selects perfectly well. Chromium reports both, which is why this passed until WebKit
+    # joined the lane. The property under test is the behaviour, not the spelling that carries it.
     assert ui.evaluate(
-        "() => getComputedStyle(document.getElementById('custody-catalog')).userSelect"
+        "() => { const cs = getComputedStyle(document.getElementById('custody-catalog'));"
+        " return cs.getPropertyValue('user-select') || cs.getPropertyValue('-webkit-user-select'); }"
     ) in {"text", "auto", "all"}
 
 

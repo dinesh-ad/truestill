@@ -29,7 +29,7 @@ from typing import Any
 import pytest
 from playwright.sync_api import Page, expect
 
-# Every element here is declared `var(--font-mono)` in app.css.
+# Every element here is declared `var(--family-mono)` in app.css.
 #   .wordmark-text  - the mark itself
 #   .custody .line  - a real sentence, and where WARN_MARK (U+26A0) lands
 #   .custody .pips  - U+25AA / U+25AB, the glyphs that eliminated IBM Plex Mono
@@ -76,12 +76,25 @@ def test_the_page_actually_fetched_the_bundled_face(ui: Page) -> None:
     """
     # RESPONSES, not requests. A request event fires for a 404 too, so recording requests alone
     # would keep passing if the font file vanished and the page silently fell back.
+    #
+    # A CONTEXT THAT HAS NEVER SEEN THIS ORIGIN, not `reload()`. The reload version passed in
+    # Chromium and failed in WebKit the first time WebKit ran, and the product was fine both
+    # times: WebKit serves the already-cached face and emits no network event, while Chromium
+    # emits one anyway. "A reload re-fetches" is a Chromium behaviour, not a web guarantee - and
+    # this test's claim is that the bytes crossed the wire from OUR origin, which is only
+    # observable on a first load. Measured: fresh context fetches both faces in both engines.
     served: list[tuple[str, int]] = []
-    ui.on("response", lambda r: served.append((r.url, r.status)))
-    ui.reload()
-    expect(ui.locator(".wordmark-text")).to_be_visible()
-    # The face loads lazily - only once something needs it - so wait for the wordmark to settle.
-    ui.wait_for_function("() => document.fonts.status === 'loaded'")
+    context = ui.context.browser.new_context() if ui.context.browser else None
+    assert context is not None, "no browser available to open a cold context"
+    try:
+        page = context.new_page()
+        page.on("response", lambda r: served.append((r.url, r.status)))
+        page.goto(ui.url)
+        expect(page.locator(".wordmark-text")).to_be_visible()
+        # The face loads lazily - only once something needs it - so wait for it to settle.
+        page.wait_for_function("() => document.fonts.status === 'loaded'")
+    finally:
+        context.close()
 
     fetched = [(u, s) for u, s in served if "/static/fonts/" in u and u.endswith(".ttf")]
     assert fetched, f"no bundled font was requested; the page used a fallback. saw: {served}"
@@ -111,13 +124,25 @@ def test_a_declared_face_reached_loaded(ui: Page) -> None:
 
 
 @pytest.mark.parametrize("selector", MONO_SURFACES)
-def test_the_bundled_family_is_what_rasterises(ui: Page, selector: str) -> None:
+def test_the_bundled_family_is_what_rasterises(ui: Page, selector: str, browser_name: str) -> None:
     """Provenance defence 3 of 3: CDP, on each surface that matters.
 
     `.custody .pips` is here because it is the assertion that eliminated IBM Plex Mono: it lacks
     U+25AA and U+25AB, so its pips silently rasterised in Times New Roman. A font that cannot draw
     the custody glyphs fails inside the one line the sidebar exists to make trustworthy.
+
+    ⚠ **CHROMIUM ONLY, AND THAT IS A REAL GAP RATHER THAN A TIDY-UP.** This is the only assertion
+    that reads which font the engine *actually rasterised with*, as opposed to which one it was
+    asked for - and the only way to ask that through Playwright is CDP, which no other engine
+    speaks (`CDP session is only available in Chromium`). So on WebKit - the engine that ships in
+    the Tauri shell on Linux and macOS - the substitution this test exists to catch would go
+    unseen. The two defences above it still run everywhere: the face is fetched from our origin,
+    and both weights reach `loaded`. What is not covered on WebKit is the last step, whether a
+    glyph silently fell back mid-string. Skipped loudly rather than quietly passing, on
+    `test_selfcheck`'s rule: a surface that was not checked cannot be read as one that passed.
     """
+    if browser_name != "chromium":
+        pytest.skip(f"needs CDP to read the rasterised family; {browser_name} has no equivalent")
     fonts = _platform_fonts(ui, selector)
     assert fonts, f"nothing rasterised for {selector}"
     families = {f["familyName"] for f in fonts}
