@@ -51,6 +51,16 @@ loses nothing; the lanes see everything eventually.
 > slowest to finish, so it is the one most often killed, which means push-after-every-commit was
 > quietly *reducing* platform coverage rather than merely delaying it. Batching is not only
 > politeness about queue time; it is how a run gets to finish.
+>
+> **So the two halves of this rule need an order, and this is it: batch the commits, but HOLD
+> THE PUSH while a result you are waiting on is in flight.** "Push when a batch has accumulated"
+> and "a push cancels the run in flight" were both written above and neither said which wins, so
+> a batch that was ready while a lane was mid-run read as a green light. Measured 2026-08-14:
+> **three cancelled runs in one session**, all of them the same lock investigation, each killing
+> the e2e result the whole arc was blocked on - and the third was pushed by someone who had
+> flagged the risk in writing two turns earlier. Knowing the mechanism is not the same as having
+> a rule that names the winner. **A pending result outranks a ready batch.** The batch loses
+> nothing by waiting; the run loses everything.
 
 > **And when you read a lane's result, query the JOB, not the run summary.** Measured 2026-08-11:
 > `gh run view` reported the Windows lane still in progress **seventeen minutes after** the job API
@@ -313,6 +323,27 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   fails with *"no .ts/.tsx files found"* rather than passing three times. In the same review a
   proposed `#[tauri::command]` counter was **refused rather than written**, because there is no
   `Cargo.toml` in the repo and it would have been green from the day it landed.
+- **A mutation proof needs a control, because "it failed" and "it failed for the reason I think"
+  are different claims.** The fifty-third member, and the one that attacks the *harness* rather
+  than the guard. Every rule above assumes the mutant was executed. When it was not, a red run
+  reads as a kill and goes into the report as a pass.
+
+  *Worked example - `normalize_dashes`, 2026-08-14.* A pathspec was mutated to match nothing, the
+  command exited **2**, and `mutate_once.py` printed `mutation caught`. But 2 was **argparse**
+  refusing the run: the script requires `--check` or `--apply` and neither was passed, so it
+  exited before reaching the mutated line. The mutant was never executed. Re-invoked with
+  `--check` it fails at the intended `raise`, and only then is the proof worth anything.
+
+  **So run the command unmutated first.** A control that fails is a broken invocation, and the
+  mutant that follows proves nothing whatever it returns. The exit code alone cannot tell you
+  which line produced it - `mutate_once.py` verifies that the *anchor* applied, never that the
+  *command* reached it.
+
+  Same family as two other false results this session: a Stage 1 barrier whose 15 s timeout
+  deadlocked against the very lock the fix introduced, so the fix read as a regression; and a
+  batch mutation script that reported four dead guards which were dead only because a stale
+  `.pyc` meant CPython never ran the mutated source. **The harness is a subject under test, and
+  the direction to be wrong in is loud.**
 
   > **The tell is the strongest in this whole family: the test fails on output you believe is
   > correct.** That belief is the signal. Do not reach for the assertion to make it green -
