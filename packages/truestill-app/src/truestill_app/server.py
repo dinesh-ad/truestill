@@ -111,6 +111,26 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
     started_fingerprint = _static_fingerprint()
     resolved_db = db if db is not None else default_catalog_path()
 
+    # PRESENCE FIRST, THEN MIGRATE. The order is the whole of `(aae)`'s first-run message
+    # surviving this: `library_status` inspects the catalog on every request, and after the
+    # migration below the file always exists - so `WILL_CREATE` would become unreachable for an
+    # implementation reason rather than because the world changed, and a genuine first run would
+    # be told it may have opened the wrong catalog.
+    #
+    # ⚠ WHAT BOUNDS THIS VALUE'S LIFETIME, because a value cached at boot that outlives the truth
+    # is the next defect: it is consulted **only when the live inspection says EMPTY**. Any real
+    # content makes the live reading `READY` or `EMPTY_WITH_DRIVES` first and this is ignored, so
+    # it cannot survive contact with data. A user who deletes the catalog mid-session gets
+    # `WILL_CREATE` from the live reading anyway, which is the same answer. It is therefore a
+    # one-way "there was nothing here at boot" fact, not a cache of the current state.
+    boot_catalog = service.prepare_catalog(resolved_db, explicit_db=explicit_db)
+
+    # MIGRATE ONCE, BEFORE SERVING. Otherwise the six requests a page load fires all reach
+    # `Catalog._migrate` on a fresh catalog, one builds the schema and five queue behind it.
+    # Measured in CI run 31821214510, after the cross-process fix and with no startup migration:
+    # 7828 opens reached `_migrate`, and the wait at `BEGIN IMMEDIATE` ran to **2832 ms** with
+    # 155 waits over a second. Correct, and still paid by every first-run user on their own disk.
+
     def _db() -> Path:
         return resolved_db
 
@@ -404,7 +424,9 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         return JSONResponse(await run_in_threadpool(service.clean_empty_apply, path, emptied))
 
     def library_status(_request: Request) -> JSONResponse:
-        return JSONResponse(service.library_status(_db(), explicit_db=_explicit_db()))
+        return JSONResponse(
+            service.library_status(_db(), explicit_db=_explicit_db(), boot_catalog=boot_catalog)
+        )
 
     async def library_root(request: Request) -> JSONResponse:
         """Record where the user says their library should live. `(abx)`."""

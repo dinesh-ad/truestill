@@ -132,6 +132,24 @@ def inspect_catalog(db: Path, *, explicit_db: bool) -> CatalogStartupInfo:
     )
 
 
+def migrate_catalog(db: Path) -> None:
+    """Create and migrate ``db`` now, so nothing serving requests has to.
+
+    **Why a process does this before serving rather than on first use.** `Catalog._migrate` takes
+    the write lock and builds the schema; on a fresh catalog the six requests a page load fires
+    all reach it, one wins and the rest queue. Measured in CI run 31821214510, with the
+    cross-process fix in place and no startup migration: 7828 opens reached `_migrate` and the
+    wait at `BEGIN IMMEDIATE` ran to **2832 ms**, with 155 waits over a second. Correct, and still
+    a cost every first-run user pays on their own disk.
+
+    ⚠ **This CREATES the file.** Callers that report first-run presence must call
+    :func:`inspect_catalog` **before** this, never after - see `create_app`, which does exactly
+    that and says what bounds the captured value.
+    """
+    with Catalog(db):
+        pass
+
+
 def format_startup_lines(info: CatalogStartupInfo) -> list[str]:
     """Stdout lines: always the absolute path; situational detail when not READY."""
     if info.presence is CatalogPresence.READY:

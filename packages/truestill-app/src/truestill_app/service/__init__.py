@@ -150,6 +150,7 @@ where = _drives.where
 at_risk = _drives.at_risk
 LibraryStatus = _drives.LibraryStatus
 library_status = _drives.library_status
+prepare_catalog = _drives.prepare_catalog
 set_library_root = _drives.set_library_root
 
 # --- backup ---

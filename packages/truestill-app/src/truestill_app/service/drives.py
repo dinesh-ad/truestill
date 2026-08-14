@@ -11,7 +11,12 @@ from typing import Literal, NotRequired, TypedDict, cast
 from truestill_core import binaries
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_session import open_catalog, problem_key
-from truestill_core.catalog_startup import inspect_catalog
+from truestill_core.catalog_startup import (
+    CatalogPresence,
+    CatalogStartupInfo,
+    inspect_catalog,
+    migrate_catalog,
+)
 from truestill_core.decisions import Decisions, gather_decisions, notice_for
 from truestill_core.drive import (
     DriveReach,
@@ -650,7 +655,26 @@ class LibraryStatus(TypedDict):
     catalog_tone: Literal["info", "notice", "alert"]
 
 
-def library_status(db: Path, *, explicit_db: bool = False) -> LibraryStatus:
+def prepare_catalog(db: Path, *, explicit_db: bool = False) -> CatalogStartupInfo:
+    """Read first-run presence, then create and migrate the catalog. Returns what was seen BEFORE.
+
+    **The order is the contract, which is why this is one function and not two calls at a call
+    site.** `migrate_catalog` creates the file, so an `inspect_catalog` after it can never report
+    `WILL_CREATE` - a genuine first run would instead be told its catalog is EMPTY, whose message
+    hints the user may have opened the wrong one. That is a false accusation on a first launch,
+    and it is the kind of defect that arrives by someone reordering two adjacent lines.
+
+    Pinned by `test_first_run_survives_the_startup_migration.py`, which fails if the two are
+    swapped.
+    """
+    presence = inspect_catalog(db, explicit_db=explicit_db)
+    migrate_catalog(db)
+    return presence
+
+
+def library_status(
+    db: Path, *, explicit_db: bool = False, boot_catalog: CatalogStartupInfo | None = None
+) -> LibraryStatus:
     """Honest, catalog-driven totals for the custody strip.
 
     Always names the resolved absolute catalog path. A missing file is first-run (info), not
@@ -658,6 +682,21 @@ def library_status(db: Path, *, explicit_db: bool = False) -> LibraryStatus:
     """
     # Inspect before Catalog() so a missing path stays will_create (Catalog would create it).
     startup = inspect_catalog(db, explicit_db=explicit_db)
+    # ...and prefer what the process saw at boot when the live reading is EMPTY, because
+    # `create_app` migrates the catalog before serving, so the file exists by the time any
+    # request runs. Without this, a genuine first run reports EMPTY - whose message hints the
+    # user may have opened the WRONG catalog, which is a false accusation on a first launch.
+    #
+    # ⚠ BOUNDED to the EMPTY case on purpose. Any real content makes this reading READY or
+    # EMPTY_WITH_DRIVES and `boot_catalog` is ignored, so a value captured at boot cannot outlive
+    # the truth. A user who deletes the catalog mid-session gets WILL_CREATE from the live
+    # reading anyway - the same answer, by a different route.
+    if (
+        boot_catalog is not None
+        and startup.presence is CatalogPresence.EMPTY
+        and boot_catalog.presence is CatalogPresence.WILL_CREATE
+    ):
+        startup = boot_catalog
     with open_catalog(db) as catalog:
         breakdown = media_breakdown(catalog.media_names())
         total = catalog.count()
