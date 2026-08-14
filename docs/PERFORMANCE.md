@@ -526,13 +526,20 @@ Gathered for the self-hosted-runner question, which is **deferred until the repo
 code on the machine). Recorded here because the numbers are the input to that decision and they
 will keep.
 
-Mean wall-clock per lane, over the six most recent runs:
+Mean wall-clock per lane, over the six most recent runs.
+
+⚠ **The e2e row was re-measured 2026-08-14 and the rest were not.** It read `e2e (chromium,
+ubuntu) | 2.0 min` until then, which had been wrong since `(9cdd85d)` added WebKit - the
+engine the Tauri shell actually renders in on Linux and macOS. A lane that doubled its
+browser count kept a single-engine number, and the row still said `chromium` while the
+workflow ran both. The 18.6 min figure is run 31823157259 (1114 s). **The other three rows
+are still the 2026-08-01 measurement**; do not read this table as uniformly current.
 
 | Lane | Mean | GitHub billing multiplier |
 |---|---|---|
 | `check (windows-latest)` | **6.2 min** | 2x |
 | `check (ubuntu-latest)` | 2.3 min | 1x |
-| `e2e (chromium, ubuntu)` | 2.0 min | 1x |
+| `e2e (chromium + webkit, ubuntu)` | **18.6 min** | 1x |
 | `check (macos-latest)` | 1.8 min | 10x |
 
 Two things follow, and both point away from self-hosting as the first move.
@@ -734,8 +741,11 @@ because that wait *is* the behaviour under test.
 
 ### The ceilings
 
-`TEST_SECONDS_MAX = 45` and `E2E_SECONDS_MAX = 600` in the Makefile: **limits that fail the
-build**, at roughly 2.5x and 1.6x the medians above. They catch a doubling and ignore a busy
+`TEST_SECONDS_MAX = 45` and `E2E_SECONDS_MAX = 2000` in the Makefile, with CI overriding the
+second to **3600**: **limits that fail the build**, at roughly 2.5x and 1.8x the medians
+above. (This said `600` until 2026-08-14, a figure that predated WebKit by two engines' worth
+of work - the number in the doc and the number in the Makefile drifted apart the moment the
+lane grew, and nothing reads a doc.) They catch a doubling and ignore a busy
 laptop. Raising one is a decision made on purpose, in its own commit, with a new measurement -
 the failure message says so.
 
@@ -770,6 +780,58 @@ nightly that finds it has several commits to choose between.
 *One honesty note about the condition:* this repo has had exactly one pull request ever, a
 throwaway CI experiment, and zero merge commits. `pull_request` in that trigger is completeness,
 not a second safety net - in practice this runs nightly.
+
+### 5.4 The catalog schema race, and what a 20-second lock cost (measured 2026-08-14)
+
+`f7a2654` took CI e2e from 2 failures to 29 and the lane stayed red for five runs. The cause was
+not the commit that surfaced it: `Catalog._migrate` read `PRAGMA user_version`, read
+`sqlite_master`, then wrote - three unsynchronised steps, so **two openers on a fresh catalog
+both decided it was empty and both built the schema**. 21 statements each, rollback journal,
+`synchronous=FULL`, all fsyncing against one another.
+
+| | before | after `BEGIN IMMEDIATE` | after startup migration |
+|---|---:|---:|---:|
+| `database is locked` | **104** | 0 | 0 |
+| `duplicate column` | 4 | 0 | 0 |
+| schema writes / opens | 2076 / 7716 | 912 / 7828 | 912 / 8754 |
+| holder median | 62.02 ms | 1.30 ms | 0.80 ms |
+| holder max | **20260.04 ms** | 49.48 ms | 7.57 ms |
+| lock wait p90 | n/a | 128.60 ms | **3.50 ms** |
+| lock wait max | n/a | 2832.77 ms | 2034.99 ms |
+| waits over 1 s | n/a | 155 | 7 |
+| e2e failures | 29 | 4 | **0** |
+
+**The number that ended the investigation is the 20260 ms holder.** Every figure before it was a
+*waiter's* 5 s timeout - the same number whatever caused it, saying a lock was held and nothing
+about by whom or for how long. Instrumenting the write itself took one run. Runs `31810809571`
+(holder), `31821214510` (cross-process fix), `31823157259` (startup migration, green).
+
+**2076 -> 912 is the race, not a saving.** 912 is one build per fresh catalog and the e2e lane
+has ~946 tests with a function-scoped server: it is the floor. The extra 1164 were openers
+rebuilding a schema another had just built. That 912 then held **exactly** across the startup
+migration is what proves nothing else moved.
+
+**Three structural hypotheses died by measurement, and they are why the conclusion is
+trustworthy:**
+
+| killed | how |
+|---|---|
+| "the session wrapper holds a lock across drive I/O" | the open path measured **2.26 ms** fresh, 0.31 ms migrated. Transactions are short and taken *after* drive I/O, never across it. |
+| "six concurrent opens serialise into seconds" | six openers on a real runner, released by a barrier: **62-116 ms**. Even 48 openers - past the 40 Starlette's threadpool allows - reached only 2083 ms. |
+| "the holder is descheduled, so it is starved rather than slow" | the same sweep under 8 cpu burners and a continuous fsync writer on 4 cores: 6 openers went 82 -> 116 ms, and the loaded shape was a **tight convoy** (spread 0.11), not one long outlier. |
+
+A fourth was killed the same way: Playwright's video and trace capture write to the same ext4
+device, so they were the obvious suspect for the tail. With both off the tail **survived** -
+19198 ms against 20260 - which cleared them and left the redundant writers as the only candidate.
+
+⚠ **Every one of those negatives was measured on an idle rig first and was wrong for it.** The
+first contended figure, 36.85 ms, was taken on `/tmp` - which is **tmpfs** on the author's
+machine, where `fsync` costs 0.0014 ms against 0.0010 ms without it, a ratio of 1.3x. It was RAM
+speed with no durable write in it, and it was attributed to NVMe because the `df -T` that named
+the disk had been run against the checkout instead. On the runner the same probe measured 213x.
+**A performance number without a durability control is not a measurement of this system.**
+
+---
 
 ## 7. Catalog audit (measured 2026-08-09)
 

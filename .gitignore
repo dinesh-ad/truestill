@@ -39,3 +39,6 @@ exiftool-src/
 # loudly if what is served was built from different sources.
 packages/truestill-app/src/truestill_app/static/dist/
 packages/truestill-app/frontend/node_modules/
+
+# Copies of superseded files, kept for the maintainer to review and delete. Never committed.
+.superseded/

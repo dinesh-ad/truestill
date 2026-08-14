@@ -109,6 +109,63 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
+- **(adl) THE MIGRATION CHAIN IS NOT TRANSACTIONAL AND HALF-LIFTS ON FAILURE.** Recorded
+  2026-08-14, unchanged by the schema-race fix that sits directly above it in the same method.
+  `Catalog._migrate` now takes `BEGIN IMMEDIATE` before its check, so the fresh-catalog path is
+  atomic and cross-process safe. **The `_MIGRATIONS` chain deliberately runs OUTSIDE that
+  transaction**, and it is a constraint that was measured, not a preference:
+  - **12 of the 18 migrations call `executescript`**, which Python documents as issuing an
+    implicit `COMMIT` first. Verified rather than read: `in_transaction` goes `False` and the
+    lock is gone. Wrapping the chain would have **silently released the lock at the first
+    migration while looking correct**.
+  - **`_drop_redundant_sha256_index` (v18) runs `VACUUM`**, which SQLite refuses inside a
+    transaction outright: `cannot VACUUM from within a transaction`.
+
+  So today's behaviour is preserved exactly: each ALTER autocommits, and a chain that fails
+  part-way leaves the schema **half-lifted with `user_version` unchanged**, so the next open
+  re-runs from the old version and re-applies the steps that already succeeded. That is where
+  the `duplicate column` errors came from historically; they are gone now only because the
+  transaction stops the chain being *entered* on a catalog that is already current, not because
+  the chain became safe.
+  **Needs its own design and is not a bug fix**: making it transactional means rewriting twelve
+  migration functions off `executescript` and moving the `VACUUM` outside, which changes the
+  upgrade path for every existing catalog. Do not attempt it as a follow-on to the lock work.
+
+- **(adm) `inspect_catalog` SKIPPED THE FIRST-RUN CASE - FIXED FOR THE APP, UNCHANGED FOR THE
+  CLI.** Recorded 2026-08-14. `inspect_catalog` returns early when the catalog file does not
+  exist (`catalog_startup.py`, the `WILL_CREATE` branch), so it inspects without creating. That
+  is correct for its own contract and was **a live product defect at the process level**: the
+  shipped app called it at launch and then served requests, so on a genuine first run nothing had
+  migrated the catalog and the six requests a page load fires all reached `Catalog._migrate` at
+  once. Measured before the fix, on a runner: **7828 opens reached `_migrate`** and the wait at
+  `BEGIN IMMEDIATE` ran to **2832 ms**, 155 waits over a second. Every first-run user paid it on
+  their own disk, with no CI to notice.
+
+  **Closed for `truestill-app`** by `service.prepare_catalog`, which inspects and then migrates
+  as one function - the order being the contract, since a migration that runs first makes
+  `WILL_CREATE` unreachable and tells a first-run user they may have opened the wrong catalog.
+  Pinned by `test_first_run_survives_the_startup_migration.py`.
+
+  ⚠ **The CLI path is unchanged.** `cli.py` calls `inspect_catalog` and then opens through
+  `_catalog`, so a first `truestill` command still migrates inside the command rather than ahead
+  of it. It matters far less - a CLI has one opener, not six concurrent ones - which is why it is
+  filed rather than fixed. Anything that makes the CLI concurrent should read this first.
+
+- **(adn) NOTHING STOPS TWO APPS RUNNING AGAINST ONE CATALOG.** Recorded 2026-08-14, and it is
+  the reason the schema fix had to be cross-process rather than an in-process lock. `(adh)`
+  test (d) measured it: **launching twice gives two sidecars, two ports, two catalogs**, and
+  `session-url.txt` names only one. Single-instance detection is listed there under *"the fixes,
+  named as fixes and NOT as work done"* and does not exist; nor does the Rust shell, so there is
+  nowhere to put it yet.
+
+  Both sidecars resolve the same `default_catalog_path()`, so **two processes hold one catalog**,
+  and a user reaches that by double-clicking twice. A third route needs no shell at all:
+  `truestill organize` beside an open window.
+
+  **Correctness now rests on `BEGIN IMMEDIATE` alone**, which is genuinely cross-process and
+  covers the schema race. What it does not do is stop two apps running - two job managers, two
+  sets of in-flight writes, two things believing they own the library. See also `(abd)`.
+
 - **(adj) THE FREEZE IS NOT A REPRODUCIBLE TARGET: `truestill.spec` IS GITIGNORED.** Recorded
   2026-08-14, found while deciding where the React bundle lands. The PyInstaller spec that decides
   what the shipped artifact contains is not in the repository - it is generated ad hoc and

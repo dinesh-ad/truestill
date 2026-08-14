@@ -291,29 +291,8 @@ jobs:
       # The ceiling is raised for CI hardware rather than removed: shared runners are slower and
       # far more variable than the machine the 1431s figure was measured on, and a ceiling that
       # fires on runner variance is one that gets deleted.
-      # ⚠ TEMPORARY - scratchpad/lockhunt. Remove these three additions with it.
-      # Q21: which device pytest's tmp_path and Playwright's video/trace actually land on. The
-      # rig measured /dev/root ext4; if the lane's catalogs are somewhere else, every rig number
-      # answers a question about the wrong disk.
-      - name: Where the lane writes
-        run: |
-          python3 -c "import tempfile;print('tmp base:', tempfile.gettempdir())"
-          df -T "$(python3 -c 'import tempfile;print(tempfile.gettempdir())')"
-          mkdir -p tests/e2e/.artifacts && df -T tests/e2e/.artifacts
-
       - name: E2E
-        # TRUESTILL_LOCKHUNT is temporary and inert without it: `catalog.py` writes nothing
-        # unless it names a file. It times the schema-write HOLDER, which no measurement in this
-        # investigation has ever taken on the real failure - only waiters' 5 s timeouts.
-        env:
-          TRUESTILL_LOCKHUNT: ${{ runner.temp }}/lockhunt.jsonl
         run: make e2e E2E_EXTRA="--junitxml=test-results.xml" E2E_SECONDS_MAX=3600
-
-      # ⚠ TEMPORARY - scratchpad/lockhunt. `always()`, because the run this needs to be read on
-      # is the failing one.
-      - name: Holder times
-        if: always()
-        run: uv run python scratchpad/lockhunt/summarize_trace.py "${{ runner.temp }}/lockhunt.jsonl"
 
       # WHICH tests failed, per run, so nobody has to count green runs by hand in a backlog
       # entry. `always()` because a green run's file is the baseline that makes a red one
