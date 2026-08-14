@@ -344,6 +344,27 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   batch mutation script that reported four dead guards which were dead only because a stale
   `.pyc` meant CPython never ran the mutated source. **The harness is a subject under test, and
   the direction to be wrong in is loud.**
+- **A guard that agrees with its subject's own DECLARATION has proved nothing.** The
+  fifty-fifth member, and the third instance of this family in one arc. The subject supplies a
+  value, the guard checks the subject against that value, and the two agree by construction - so
+  the assertion is a tautology wearing the shape of a measurement.
+
+  *Worked example - the row-solver guard, 2026-08-14.* It asserted that a photograph is drawn in
+  its own shape, by comparing the tile's rendered box against the tile's `width`/`height`
+  **attributes**. `app.js` hardcoded those to `320x320`. Declared square, drawn square, perfect
+  agreement - **while the photograph inside was cropped**. It XPASSed against the very layout it
+  was written to forbid, and only `strict=True` turned that into a failure instead of a pass.
+  Fixed by measuring against the PAYLOAD's shape, which the layout does not get to choose.
+
+  The near-miss of the same shape, one commit earlier:
+  `test_the_tiles_decode_off_the_main_thread_and_reserve_their_box` asserts that `width`/`height`
+  are *present*, never that they are *right* - honest while those attributes were decorative, and
+  one line away from this defect the moment they became load-bearing.
+
+  **The tell:** if the thing under test could change both sides of the comparison at once, the
+  comparison is not one. Measure against the truth - a payload, a fixture, a constant the subject
+  cannot reach - never against a number the subject declares about itself.
+
 - **When a census measures a PROXY, ask what the proxy cannot distinguish.** The fifty-fourth
   member, and the family it belongs to is the checks that stop one step short of the property
   they claim - except here the shortfall is in the *measurement*, so it under-reports the very

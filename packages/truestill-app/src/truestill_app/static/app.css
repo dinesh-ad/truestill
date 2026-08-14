@@ -797,10 +797,29 @@ select.input {
    width and the height are both `--tile-size`, so the declaration would be a second mechanism for
    a property that already has one. It was load-bearing while the tile was fluid. */
 .result-grid {
-  --tile-size: 148px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, var(--tile-size));
-  gap: var(--space-3);
+  /* THE TARGET ROW HEIGHT, AND THE CEILING, ARE ARITHMETIC RATHER THAN TASTE. A thumbnail is
+     `thumbnails.THUMB_PX` = 320 on its long edge, so a 16:9 photograph runs out of pixels at
+     exactly 320 / (16/9) = 180px of row height - and 20.5% of a 4,108-photograph corpus is 16:9
+     or wider. Below that wall the distribution is empty: at 148px 3.36% of the corpus is soft, at
+     172px 3.43%, at 180px 20.45%. So 172 buys 35% more photograph area than the old 148px square
+     tile for seven hundredths of a percentage point. `docs/organize-grid-design.md`. */
+  --row-target: 172px;
+  --row-ceiling: 178px;
+  /* Declared here so the stylesheet is self-contained and `test_app_css_custom_properties_are_
+     declared` can see it; the solver overwrites it per grid with the row it actually produced.
+     Its value before the solver runs is the target, which is what the tiles render at anyway. */
+  --first-row-height: var(--row-target);
+  /* Flex rather than grid: the row solver in `app.js` sets each tile's exact width and height, so
+     what is needed here is wrapping, not a track. A grid track would fight the inline styles. */
+  display: flex;
+  flex-wrap: wrap;
+  /* A HAIRLINE, NOT A MARGIN. Frames on a contact sheet butt together; 12px of ground between
+     rounded tiles is a photo gallery, and a gallery is the wrong genre for a custody record.
+     ⚠ This reverses a measurement, and the reason is that its condition no longer holds: 8px/6px
+     was measured on UNIFORM SQUARES where the gutter is the only separator. With true aspects a
+     portrait beside a panorama separates itself. THE RETREAT IS 8px/6px - the values that
+     measurement produced - never today's 12px/10px and never a number someone likes. */
+  gap: var(--space-1);
   margin-bottom: var(--space-3);
 }
 
@@ -809,16 +828,22 @@ select.input {
    headline and everything the card has to say - including "N files now exist in only one place",
    which is the last thing that should be below the fold. */
 .result-grid.is-collapsed {
-  max-height: var(--tile-size);
+  /* The FIRST ROW's solved height, published by the solver, because rows no longer share one.
+     The fallback is the target, which is what an unsolved grid renders at anyway. */
+  max-height: var(--first-row-height);
   overflow: hidden;
 }
 
 .result-grid .tile {
-  width: var(--tile-size);
-  height: var(--tile-size);
-  object-fit: cover;
+  /* Aspect-true BEFORE the solver runs, so a slow frame never flashes at the wrong shape and a
+     grid whose JS failed is still honest - unjustified, but never cropped. The solver replaces
+     both values inline; these are the floor it starts from. */
+  height: var(--row-target);
+  width: auto;
+  /* NO `object-fit`. The box is the photograph's own shape, so there is nothing to crop to -
+     `cover` would mean the box and the photograph had disagreed somewhere. */
   display: block;
-  border-radius: var(--corner-md);
+  border-radius: 0;
   background: var(--surface-sunken);
   /* The placeholder a tile shows before its bytes arrive and after a tile fails. Without it a
      lazy grid flashes the card background through image-shaped holes as the user scrolls. */

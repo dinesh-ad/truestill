@@ -634,6 +634,99 @@ function completionCard({ headline, sub, grid = "", statsLine = "", stats = [], 
 //: three photos is the kind of noise that teaches people to stop reading controls.
 const GRID_COLLAPSE_ABOVE = 6;
 
+// ---------- the row solver ----------
+// Rows of photographs at a common height, each drawn at its true aspect. A row's height is
+// `(available - gaps) / sum(aspects)`, which is the identity that makes the row fill its
+// container EXACTLY - no slack to distribute, no stretching to fake it.
+//
+// **Complexity: O(n), one pass, no backtracking.** Each photograph is appended to the open row
+// and the row is closed the moment its solved height drops to the target, so nothing is visited
+// twice. `GRID_SAMPLE_LIMIT` is 48, so n <= 48 today; if that ever moves the solver stays linear
+// and the cost that grows is the browser laying out more images, not this arithmetic.
+//
+// **Why this cannot be CSS**, tested rather than assumed: the corpus's widest photograph is
+// 4.348:1, which at the target height is 748px against a 420px panel. `max-width: 100%` was tried
+// and squashes rather than scales, because a flex item constrained in width against a fixed
+// height loses its ratio. Dividing by the row's aspect sum handles it for free - a wide
+// photograph simply takes a shorter row.
+
+//: The last row keeps its natural height CAPPED at the target rather than being blown up to fill
+//: a width it does not have. That inflation is the classic justified-layout defect and it is what
+//: `test_the_last_row_is_not_blown_up_to_fill` exists for.
+function solveResultGrid(grid) {
+  const tiles = [...grid.querySelectorAll("img.tile")];
+  if (!tiles.length) return;
+  const available = grid.clientWidth;
+  if (!available) return; // not laid out yet (display:none, detached); a later observer retries
+  const style = getComputedStyle(grid);
+  const gap = parseFloat(style.columnGap || style.gap) || 0;
+  const target = parseFloat(style.getPropertyValue("--row-target")) || 172;
+  const ceiling = parseFloat(style.getPropertyValue("--row-ceiling")) || 178;
+
+  // Shape from the ATTRIBUTES, never from the loaded image: the whole point of carrying w/h in
+  // the payload is that a row can be solved before a single byte arrives, so the grid does not
+  // reflow as photographs land. A tile whose shape the backend could not read falls back to
+  // square - honest, since nothing here knows better - rather than being dropped from the row.
+  const aspectOf = (tile) => {
+    const w = Number(tile.getAttribute("width"));
+    const h = Number(tile.getAttribute("height"));
+    return w > 0 && h > 0 ? w / h : 1;
+  };
+
+  let row = [];
+  let aspectSum = 0;
+  let firstRowHeight = 0;
+
+  const place = (isLast) => {
+    if (!row.length) return;
+    const natural = (available - gap * (row.length - 1)) / aspectSum;
+    const height = Math.min(isLast ? Math.min(natural, target) : natural, ceiling);
+    for (const tile of row) {
+      tile.style.height = `${height}px`;
+      tile.style.width = `${height * aspectOf(tile)}px`;
+    }
+    if (!firstRowHeight) firstRowHeight = height;
+    row = [];
+    aspectSum = 0;
+  };
+
+  for (const tile of tiles) {
+    row.push(tile);
+    aspectSum += aspectOf(tile);
+    // The row is full the moment one more photograph would push it below the target height.
+    if ((available - gap * (row.length - 1)) / aspectSum <= target) place(false);
+  }
+  place(true);
+
+  // Published for `.is-collapsed`, whose one-row height used to be a constant and cannot be now.
+  grid.style.setProperty("--first-row-height", `${firstRowHeight}px`);
+}
+
+// EVERY grid on the page, on insert and on resize.
+//
+// ⚠ **The MutationObserver is temporary scaffolding and says so.** `#org-result` has twelve
+// writers that assign `innerHTML`, so nothing tells this code when a grid appears; watching the
+// container is the only hook that does not require touching all twelve. The commit that gives
+// `#org-result` a single owner deletes this and calls the solver directly.
+function watchResultGrids() {
+  const solveAll = (root) =>
+    root.querySelectorAll(".result-grid").forEach((grid) => solveResultGrid(grid));
+
+  // Width changes: a panel resize or the sidebar collapsing re-solves every row.
+  const resized = new ResizeObserver((entries) => {
+    for (const entry of entries) solveResultGrid(entry.target);
+  });
+
+  new MutationObserver(() => {
+    for (const grid of document.querySelectorAll(".result-grid")) {
+      solveResultGrid(grid);
+      resized.observe(grid); // observing twice is a no-op; unobserving on removal is automatic
+    }
+  }).observe(document.body, { childList: true, subtree: true });
+
+  solveAll(document);
+}
+
 function resultGrid(sample) {
   const shown = (sample && sample.shown) || [];
   if (!shown.length) return "";
@@ -641,7 +734,7 @@ function resultGrid(sample) {
   const collapsible = shown.length > GRID_COLLAPSE_ABOVE;
   const tiles = shown
     .map(
-      (t) => `<img class="tile" loading="lazy" decoding="async" width="320" height="320"
+      (t) => `<img class="tile" loading="lazy" decoding="async" width="${t.w || 1}" height="${t.h || 1}"
          src="/api/thumb/${encodeURIComponent(t.sha256)}?token=${encodeURIComponent(TOKEN)}"
          alt="${esc(t.name)}" title="${esc(t.name)}">`
     )
@@ -3800,6 +3893,10 @@ shellLoads = [loadOrganizeMode(), loadSidebar(), loadTextSize(), loadCustody(), 
 // Read from the DOM rather than hardcoded, so moving `active` in the markup cannot desync it.
 const bootScreen = document.querySelector(".screen.active");
 if (bootScreen) settleScreen(bootScreen.id.replace("screen-", ""));
+
+// Started at boot rather than lazily: the observer has to be listening BEFORE the first result
+// card is written, and a run can finish while the user is on another screen.
+watchResultGrids();
 
 // ---------- Dates you have corrected: preview -> typed confirm -> job (step 4) ----------
 // Preview is catalog-only so it is a plain request; the run is a job because it writes to user

@@ -26,7 +26,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
 from playwright.sync_api import Page, expect
 
 TESTID = "[data-testid='org-grid']"
@@ -119,14 +118,6 @@ def _rows(ui: Page) -> list[dict[str, Any]]:
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Written before the solver. Today's auto-fill grid leaves the leftover width at the end "
-        "of each row, which is exactly what a justified row must not do. The marker comes off in "
-        "the commit that lands the solver."
-    ),
-)
 def test_every_full_row_fills_the_width_it_was_given(ui: Page) -> None:
     """GUARD 1. A row that leaves slack is not justified, it is a wrapped list.
 
@@ -189,13 +180,6 @@ def test_the_last_row_is_not_blown_up_to_fill(ui: Page) -> None:
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Written before the solver. Today's grid crops this photograph to a square with "
-        "object-fit: cover, so its shape is not preserved. The marker comes off with the solver."
-    ),
-)
 def test_a_photograph_wider_than_the_panel_is_scaled_not_clipped_or_squashed(ui: Page) -> None:
     """GUARD 3. The real case from the corpus, and the pair that `max-width: 100%` broke.
 

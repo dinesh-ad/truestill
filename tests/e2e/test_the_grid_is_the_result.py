@@ -134,16 +134,6 @@ def test_the_tiles_decode_off_the_main_thread_and_reserve_their_box(ui: Page) ->
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Stage B inverts the guards BEFORE the layout lands, so this fails against today's "
-        "square CSS on purpose - a regression test nobody has seen fail is a test nobody has "
-        "checked. `strict` errors the moment it starts passing, which forces the marker off in "
-        "the commit that builds the layout rather than leaving a green stub. "
-        "docs/organize-grid-design.md"
-    ),
-)
 def test_every_tile_keeps_its_photograph_s_shape_before_the_photo_arrives(ui: Page) -> None:
     """A photograph is drawn in the shape it was taken in, and the box holds before the bytes do.
 
@@ -192,16 +182,6 @@ def test_every_tile_keeps_its_photograph_s_shape_before_the_photo_arrives(ui: Pa
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Stage B inverts the guards BEFORE the layout lands, so this fails against today's "
-        "square CSS on purpose - a regression test nobody has seen fail is a test nobody has "
-        "checked. `strict` errors the moment it starts passing, which forces the marker off in "
-        "the commit that builds the layout rather than leaving a green stub. "
-        "docs/organize-grid-design.md"
-    ),
-)
 def test_a_photograph_is_never_cropped_to_fit_its_tile(ui: Page) -> None:
     """`object-fit` must not crop, because there is no longer anything to crop TO.
 
@@ -283,11 +263,17 @@ def test_a_row_is_drawn_near_the_height_its_thumbnails_were_made_for(ui: Page, w
         f"at {width}px a tile is {too_tall}px tall against a {ROW_HEIGHT_CEILING}px ceiling. "
         "Past it a 16:9 photograph is upscaled from a 320px thumbnail that has no more pixels."
     )
-    too_short = [h for h in heights if h < 120]
-    assert not too_short, (
-        f"at {width}px a tile is {too_short}px tall, so most of the served thumbnail is thrown "
-        "away and the grid reads as postage stamps on a screen with room for photographs"
-    )
+    # ⚠ THE LOWER BOUND ONLY MEANS SOMETHING WHERE THERE IS ROOM, and asserting it everywhere
+    # was wrong: at 760px three photographs summing 4.28 aspects fill their row at 95px, which is
+    # the solver working, not failing. A row's height is `(available - gaps) / sum(aspects)`, so a
+    # narrow panel holding wide photographs MUST solve short or the row would not fill. Guard 1 in
+    # `test_the_row_solver.py` is what actually forbids postage stamps - a row that leaves slack.
+    if width >= 1280:
+        too_short = [h for h in heights if h < 120]
+        assert not too_short, (
+            f"at {width}px a tile is {too_short}px tall with room to spare, so most of the served "
+            "thumbnail is thrown away on a screen with space for photographs"
+        )
 
 
 def test_no_tile_is_drawn_outside_the_card_that_holds_it(ui: Page) -> None:
@@ -480,16 +466,6 @@ def test_a_grid_that_already_fits_offers_no_control(ui: Page) -> None:
     assert "is-collapsed" not in (ui.eval_on_selector(TESTID, "e => e.className") or "")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Stage B inverts the guards BEFORE the layout lands, so this fails against today's "
-        "square CSS on purpose - a regression test nobody has seen fail is a test nobody has "
-        "checked. `strict` errors the moment it starts passing, which forces the marker off in "
-        "the commit that builds the layout rather than leaving a green stub. "
-        "docs/organize-grid-design.md"
-    ),
-)
 def test_tiles_share_a_row_height_and_are_free_in_width(ui: Page) -> None:
     """One height per row; width is whatever the photograph is.
 
@@ -585,16 +561,6 @@ def test_the_gutters_are_even_across_a_row(ui: Page) -> None:
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Stage B inverts the guards BEFORE the layout lands, so this fails against today's "
-        "square CSS on purpose - a regression test nobody has seen fail is a test nobody has "
-        "checked. `strict` errors the moment it starts passing, which forces the marker off in "
-        "the commit that builds the layout rather than leaving a green stub. "
-        "docs/organize-grid-design.md"
-    ),
-)
 def test_the_frames_touch_at_a_hairline_and_are_not_rounded(ui: Page) -> None:
     """Frames on a contact sheet butt together and have square corners.
 
