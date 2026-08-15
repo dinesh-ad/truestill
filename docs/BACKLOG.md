@@ -122,16 +122,48 @@ is invisible here is retired, not free.**
   and the third needs a different instrument. **This is not residue of the catalog-lock arc** -
   every run below had **zero** `database is locked` and zero `duplicate column`.
 
-  **The census.** Ten failures across four runs (`31816361658`, `31821214510`, `31823157259`,
-  `31825233939`), **all of them `[webkit]`**, with membership rotating almost completely: eight
-  distinct tests, only `test_organize_clears_typed_confirm_after_the_run` appearing twice. One of
-  the four runs was fully green.
+  **The census.** Twelve failures across six runs (`31816361658`, `31821214510`, `31823157259`,
+  `31825233939`, and the two added 2026-08-15 below), **all of them `[webkit]`**, with membership
+  rotating almost completely. One of the six runs was fully green.
+
+  **ADDED 2026-08-15 - and this pair is the most informative entry in the census, because the two
+  runs are the SAME COMMIT.** `31842922114` and `31863063168`, both on `99e35d4`, six hours apart,
+  **one failure each, zero locks, all three `check` lanes green in both**:
+
+  | run | test | assertion |
+  |---|---|---|
+  | `31842922114` | `test_reversible_organize_shows_durable_undo_affordance` | `to_be_visible`, `#org-confirm [data-typed-confirm]` |
+  | `31863063168` | `test_a_finished_organize_says_organized_and_never_uploaded` | the same assertion, the same locator |
+
+  Neither fails in its own body: both die at `test_ui_regressions.py:38`, inside the shared
+  `_organize` helper. ⚠ **The first is byte-identical to a failure already in the census** -
+  `31825233939` failed the same test at the same line on the same locator - so it is a repeat, not
+  a ninth test; the second is new here. **An unchanged tree produced two different failures**,
+  which is what a rotating tail looks like and what a regression cannot look like.
 
   | shape | n | assertion |
   |---|---:|---|
-  | post-job text never arrived | **6** | `to_contain_text 'Done'` / `'could not be organized'` / `to_be_visible` |
+  | post-job text never arrived | **8** | `to_contain_text 'Done'` / `'could not be organized'` / `to_be_visible` |
   | page load never reached ready | **3** | `Locator expected to have attribute 'ready'` |
   | computed style after reload | **1** | `assert 16 == 20 ± 0.5` |
+
+  ⚠ **THE LARGEST FAMILY HOLDS AT LEAST TWO STALL POINTS, AND THEY ARE RECORDED SEPARATELY
+  BECAUSE ONE SYMPTOM IS NOT ONE MECHANISM.** Read from the aria snapshots, not from the assertion
+  text - the assertion says where the *test* was waiting, only the snapshot says where the *app*
+  stopped:
+
+  | candidate shape | screen state at failure | seen in |
+  |---|---|---|
+  | **stalls at dedup start** | `Checking for duplicates…` disabled, `starting elapsed 4s`, Cancel live - the job never left *starting*, so `renderOrganizeRunConfirm` never ran and the typed confirm was never drawn | both 2026-08-15 runs; at least one earlier member |
+  | **stalls after the confirm** | the preview card and `N files will be organized` are on screen, so dedup completed and the confirm was drawn - the *organize run* is what never reported | most of the earlier members |
+
+  **Whether these two share a cause is UNESTABLISHED and must not be assumed.** They are one
+  assertion family and two different points in the job lifecycle, and nothing here has tested
+  whether one mechanism produces both. The reason for splitting rather than lumping is on the
+  record two entries down: `duplicate column` read as *the* mechanism of the lock arc when it was
+  **4 of 88**, because a single symptom family was carrying more than one cause. ⚠ The
+  classification of the *earlier* members is **partial** - some job logs no longer yield a full
+  snapshot block, and one classified into both buckets. Re-derive it before relying on the counts.
 
   ⚠ **The concentration is real and is the strongest signal in the census.**
   `test_ui_regressions.py` holds **31 of 458** e2e test functions - **6.8%** of the suite - and
@@ -166,10 +198,36 @@ is invisible here is retired, not free.**
   **A multi-minute organize is untested.** If it does buffer at that scale, a user watches a long
   run with no progress at all - a product defect, not a test one.
 
-  ⚠ **EXIT CONDITION: THREE CONSECUTIVE GREEN E2E RUNS, NOT ONE.** Run `31823157259` was green
-  and the next run failed three tests with no code change touching the lane. A rotating tail
-  hands you a green whenever you ask it once, and one green was already read here as "the lane is
-  green" when it was not.
+  ⚠ **EXIT CONDITION: ZERO E2E FAILURES ACROSS TEN CONSECUTIVE RUNS.** A rate over a fixed
+  window, counted whether or not the runs touch this lane, and reset to zero by any failure.
+
+  **The old condition - three consecutive greens - was RETIRED 2026-08-15, and the pair above is
+  what retired it.** The lane delivered **four** consecutive greens (`31832876792`,
+  `31834436577`, `31836139514`, `31838105689`), passed the bar with one to spare, and then failed
+  **twice on an unchanged tree**. The condition was met by luck and would have closed `(ado)` on
+  a tail that had not ended.
+
+  ⚠ **The error was in the SHAPE of the condition, not in its size, and raising three to five
+  would repeat it.** A run of consecutive greens is a coin flip against an intermittent failure:
+  at this tail's observed rate, a short green streak is the *likely* outcome of a lane that is
+  still broken, so the old condition tested patience rather than the lane. What distinguishes a
+  fixed tail from a lucky one is failures per run over a window long enough for the rate to show
+  - which is why the replacement fixes the denominator and lets a single failure reset it.
+
+  ⚠ **THE REPO ALREADY HELD THE RIGHT INSTRUMENT AND THIS ENTRY DID NOT REUSE IT.**
+  `SHIPPED.md` `(abq)` works the identical problem numerically: at an observed rate of one failure
+  in three runs, an unfixed flake survives N consecutive greens with probability `(2/3)^N`, giving
+  **8 as the minimum bar and 12 preferred**, written down expressly "so nobody calls it fixed on
+  the second green". Against that table the four greens this lane produced sit at **20%** - a
+  one-in-five event, and no evidence at all. Ten runs is chosen to sit near that bar; the exact
+  rate for *this* tail is not measured, because the failures are known and the total runs in the
+  window have never been counted, so treat the window as the shape being fixed rather than as a
+  calibrated number.
+
+  The earlier reasoning that produced "three" is kept because it was right about the direction and
+  wrong only about the instrument: run `31823157259` was green and the next failed three tests
+  with no code change touching the lane, and **one** green had already been read here as "the lane
+  is green" when it was not.
 
 - **(adl) THE MIGRATION CHAIN IS NOT TRANSACTIONAL AND HALF-LIFTS ON FAILURE.** Recorded
   2026-08-14, unchanged by the schema-race fix that sits directly above it in the same method.

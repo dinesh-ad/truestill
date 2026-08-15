@@ -804,8 +804,13 @@ both decided it was empty and both built the schema**. 21 statements each, rollb
 ⚠ **The last column is one run, and the lane is not green.** The very next run failed three
 WebKit tests with no code change touching it. The e2e row here records what the *lock* defect
 cost and what fixing it recovered; a separate rotating WebKit tail remains, censused in
-`BACKLOG.md` `(ado)` with an exit condition of **three consecutive green runs**. One green was
-read as "the lane is green" here once already.
+`BACKLOG.md` `(ado)`, whose exit condition is **zero failures across ten consecutive runs**. One
+green was read as "the lane is green" here once already.
+
+⚠ **That exit condition was "three consecutive greens" until 2026-08-15, and this row is why the
+number is not what changed.** The lane then delivered **four** greens and failed twice on an
+unchanged tree. A streak of greens is the wrong instrument for an intermittent failure at any
+length; the replacement counts failures over a fixed window instead.
 
 **The number that ended the investigation is the 20260 ms holder.** Every figure before it was a
 *waiter's* 5 s timeout - the same number whatever caused it, saying a lock was held and nothing
