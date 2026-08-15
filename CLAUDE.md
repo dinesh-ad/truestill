@@ -126,14 +126,25 @@ New here? `docs/PROJECT_STATUS.md` **§0** is the fresh-clone setup, **§1** is 
 stands, **§2** is what ships next and **§3** is what blocks it. `default-layout-research.md` holds
 the layout design and the flip, but read its own header first - its status line predates the build.
 
-### Live branches - what exists on the remote besides `main`
+### Live refs - what exists on the remote besides `main`
 
-| branch | at | what it is |
+**No branches. `git ls-remote --heads origin` shows `main` alone**, which is how the maintainer
+wants it (2026-08-15). Unmerged work that must survive lives under a **tag** instead:
+
+| tag | peels to | what it is |
 |---|---|---|
-| `wip/trip-rename-finding-3` | `66f6c22` | `(abw)` finding (3), **analysed and not merged** - a feature question, not a defect. See [`research/backlog/abw.md`](docs/research/backlog/abw.md). |
+| `preserved/abw-finding-3` | `66f6c22` | `(abw)` finding (3), **analysed and not merged** - a feature question, not a defect. Was the branch `wip/trip-rename-finding-3`. See [`research/backlog/abw.md`](docs/research/backlog/abw.md). |
 
-⚠ **THE RULE: a branch that outlives its session is named here and owned by a backlog entry, or
-it is deleted.** No third option. A branch nobody knows about **looks like safety and behaves
+**Why a tag rather than deleting it, and this is the rule below applied rather than dodged:**
+those 148 lines existed on the remote *only* as that branch - `66f6c22`'s own message reads
+*"preserved from stash@{0}"* - so deleting it would have returned them to a local stash on one
+machine, which is the exact leak this section was written about. A tag is a remote ref like any
+other: it survives a fresh clone, and it keeps the branch list clean. `git show <tag>` reads it,
+`git switch -c <name> <tag>` resumes it.
+
+⚠ **THE RULE: a ref that outlives its session is named here and owned by a backlog entry, or it
+is deleted.** No third option, and a tag is not an exemption from it - it is a way to satisfy the
+first half. A branch nobody knows about **looks like safety and behaves
 like a leak** - it is not in `main`, so no gate runs it, no guard reads it and no review sees it,
 while everyone assumes the work is "kept somewhere".
 
@@ -143,8 +154,9 @@ a wider blast radius. That stash held 148 lines including a test, was invisible 
 survived a fresh clone. **A stash is at least obviously personal; a pushed branch looks
 institutional and is not.** Both are one command from gone and neither is anyone's job to notice.
 
-**Verify rather than trust this table** - `git ls-remote --heads origin` is the source, and a row
-here that no longer resolves is the same drift the document map exists to prevent.
+**Verify rather than trust this table** - `git ls-remote --heads origin` and `git ls-remote --tags
+origin` are the source, and a row here that no longer resolves is the same drift the document map
+exists to prevent.
 
 ## Working here - the day-to-day
 

@@ -42,9 +42,22 @@
       never prefilled into `value=` and requires a click.
     - 🔬 **ANALYSED 2026-08-15 AGAINST AN ACTUAL ATTEMPT, AND FINDING (3) IS NO LONGER A
       DEFECT - IT IS A FEATURE QUESTION.** A stashed attempt at this fix surfaced after seven
-      days and was analysed rather than merged. **It is preserved and pushed as branch
-      `wip/trip-rename-finding-3` at `66f6c22`**, named here so it is not rediscovered from
-      scratch or found again as an anonymous stash. **It stays unmerged.**
+      days and was analysed rather than merged. **It is preserved and pushed as the annotated tag
+      `preserved/abw-finding-3`, which peels to `66f6c22`** - named here so it is not rediscovered
+      from scratch or found again as an anonymous stash. **It stays unmerged.**
+      - ⚠ **It was the branch `wip/trip-rename-finding-3` until 2026-08-15, and the branch is now
+        deleted.** The maintainer wants `git ls-remote --heads origin` to show only `main`; a tag
+        gives that without touching the bytes, because a tag is a remote ref like any other and
+        survives a fresh clone exactly as the branch did. **The conversion was verified before the
+        branch was removed** - the tag resolves to the same commit, carries all 148 lines, and
+        includes the **106-line test that `git stash show --stat` does not list**, which is the
+        specific thing a stash would have lost. `git show preserved/abw-finding-3` reads it;
+        `git switch -c <name> preserved/abw-finding-3` resumes it.
+      - **Deleting the branch outright was refused**, and the refusal is the point: `stash@{0}`
+        holds the same work, and `66f6c22`'s own message says *"preserved from stash@{0}"* - so
+        the branch was the **only durable copy**, not a second one. Removing it would have put
+        these lines back in a local stash on one machine, which is the leak `CLAUDE.md` records
+        and this branch existed to fix. Tidying a branch list is not a reason to re-create it.
       - **The attempt is coherent and well-guarded, not a sketch.** 148 lines: a
         `Catalog.rename_trip` whose `WHERE id = ? AND name <> ?` makes "did anything change" the
         same statement that changes it, the `commit_trips` branch, and a **106-line test**. Its
