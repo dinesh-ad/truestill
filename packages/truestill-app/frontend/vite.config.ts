@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, statSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { join, relative, sep } from "node:path";
+import tailwind from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
@@ -49,7 +51,21 @@ function sourceHash(): string {
 }
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwind()],
+  /* The bundler half of the `@/` alias that shadcn components import through. The
+   * type-checker half is `paths` in `tsconfig.json`, and BOTH are required: with only one, a
+   * project either type-checks and fails to build or builds and fails to type-check.
+   *
+   * ⚠ Two things there are not what the shadcn guides show, both TypeScript 7:
+   *   - `baseUrl` is REMOVED (TS5102), so the alias cannot be written against a base;
+   *   - non-relative path targets are refused (TS5090), so it is `./src/*`, not `src/*`.
+   * The reasoning lives here rather than beside them because `tsconfig.json` is parsed as
+   * STRICT JSON by `test_the_frontend_is_typechecked.py` - a `//` comment there is a
+   * JSONDecodeError, not a style preference. Found by adding one.
+   */
+  resolve: {
+    alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
+  },
   define: { __BUNDLE_SOURCE_HASH__: JSON.stringify(sourceHash()) },
   build: {
     // Into the directory Starlette already mounts, so nothing new serves anything: the bundle

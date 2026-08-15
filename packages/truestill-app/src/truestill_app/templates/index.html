@@ -8,8 +8,17 @@
        no webmanifest, no apple-touch-icon, no mstile - those describe an installable
        website, which this is not. The ICO carries the pillar T at 16/24 and TS above. -->
   <link rel="icon" href="/static/favicon.ico" sizes="any">
+  <!-- ORDER IS DELIBERATE, and it is the whole cascade argument.
+       `tokens.css` FIRST: it declares the custom properties everything else reads, and it is
+       unlayered, so it wins over Tailwind's `@layer theme` defaults - which is why our token
+       names deliberately avoid every Tailwind namespace.
+       `main.css` LAST: Tailwind's utilities are what a redesigned surface reaches for, so they
+       must be able to beat `app.css`'s element rules. It is Vite's output, built from
+       `frontend/src/styles/tailwind.css`, and every value in it is a `var()` pointing back at
+       `tokens.css` - there is no second palette to keep in step. -->
   <link rel="stylesheet" href="/static/tokens.css">
   <link rel="stylesheet" href="/static/app.css">
+  <link rel="stylesheet" href="/static/dist/main.css">
   <script>window.TRUESTILL_TOKEN = "{{TOKEN}}";
           window.TRUESTILL_STATIC = "{{STATIC_FINGERPRINT}}";</script>
 </head>

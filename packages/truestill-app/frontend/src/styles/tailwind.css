@@ -1,0 +1,148 @@
+/* Tailwind's entry, and the ONLY place Tailwind is imported.
+ *
+ * ⚠ **EVERY VALUE HERE IS A `var()` POINTING AT `tokens.css`. NOTHING IS DEFINED TWICE.**
+ * `tokens.css` is the source of truth, it is served standalone by Starlette to the non-React page,
+ * and it is never imported into this bundle - `test_tokens_css_is_not_imported_into_the_bundle`
+ * refuses that, because a second copy drifts the first time either is edited and nothing in the
+ * Python gate reads CSS.
+ *
+ * **`@theme inline`, and the `inline` is load-bearing.** Without it Tailwind emits its own
+ * `--color-*` custom properties holding COPIES of these values - a parallel palette by another
+ * name, and one that would not follow `tokens.css` into dark mode. With `inline`, the utility
+ * carries the `var()` itself, so `bg-surface` resolves to whatever `--surface` is at that moment,
+ * including inside `@media (prefers-color-scheme: dark)`.
+ *
+ * **Namespaces are Tailwind's here, ours in `tokens.css`, and that is the whole arrangement.**
+ * `tokens.css` deliberately avoids every Tailwind namespace (`--space-*` not `--spacing-*`,
+ * `--type-*` not `--text-*`, `--corner-*` not `--radius-*`, `--line-*` not `--leading-*`) because
+ * it is UNLAYERED and unlayered wins the cascade: a colliding name there would silently redefine
+ * a utility with nothing erroring. This file is where Tailwind's names are allowed to be used,
+ * because here that is the point - we are telling Tailwind what its own utilities mean.
+ *
+ * ⚠ **NEVER `--namespace-*: initial`.** Resetting a namespace removes the UTILITIES with it -
+ * measured in the 4.3.3 spike: `rounded-md`, `text-sm` and `text-muted` stopped generating at all,
+ * which breaks the shadcn components that ship those class names. Aliasing is the mechanism;
+ * resetting is not an alternative to it.
+ */
+/* ⚠ **THEME AND UTILITIES ONLY - PREFLIGHT IS DELIBERATELY NOT IMPORTED.**
+ * `@import "tailwindcss"` would pull `preflight.css` too, and preflight is a full reset: `margin`,
+ * `padding` and `border` zeroed on every element, `h1`-`h6` stripped of size and weight, lists
+ * unstyled, `img`/`svg` set to `display:block`, form controls stripped of background and radius.
+ *
+ * It is layered, so `app.css` (unlayered) still wins wherever it has a rule - but `app.css` is a
+ * complete hand-written stylesheet that normalises what IT needs and nothing more, so every
+ * element it does not style would silently take preflight's default instead of the browser's.
+ * That is a visual change, and this stage is required not to have one. Preflight exists to
+ * normalise a greenfield project; it is the wrong tool to introduce halfway through the life of a
+ * stylesheet that already made these decisions.
+ *
+ * Utilities do not need it. If a shadcn component later turns out to assume a preflight reset,
+ * the answer is that component's own classes, not a global reset applied to seven finished
+ * screens. */
+@layer theme, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* ⚠ **THE MARKUP TAILWIND MUST SCAN IS NOT UNDER THIS PROJECT ROOT, AND WITHOUT THESE IT SEES
+ * NONE OF IT.** Tailwind v4 auto-detects sources beneath the file that imports it - which covers
+ * `frontend/src` and nothing else. The screens are Jinja (`templates/index.html`, where the
+ * Settings section lives) and `static/app.js`, which builds card markup as strings. A class
+ * written there without these lines generates NO utility, silently: the build succeeds, the CSS
+ * is emitted, and the element is simply unstyled. Found by checking the emitted file rather than
+ * by waiting for a blank screen.
+ *
+ * Paths are relative to THIS file. `app.js` is named directly rather than by globbing `static/`,
+ * so the emitted `dist/main.css` is not scanned as its own input. */
+@source "../../../src/truestill_app/templates";
+@source "../../../src/truestill_app/static/app.js";
+
+/* Dark mode follows `tokens.css`'s own `@media (prefers-color-scheme: dark)` block, because every
+ * value below is a `var()` and that block redefines the vars. Nothing here needs a dark variant. */
+
+@theme inline {
+  /* --- colour: Tailwind's `color` namespace, our values ------------------------------------ */
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-fg-secondary: var(--fg-secondary);
+  --color-fg-muted: var(--fg-muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-accent-strong: var(--accent-strong);
+  --color-on-accent: var(--on-accent);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
+
+  /* --- type: `text-*` utilities resolve to the fluid clamps in tokens.css ------------------ */
+  --text-xs: var(--type-xs);
+  --text-sm: var(--type-sm);
+  --text-base: var(--type-base);
+  --text-lg: var(--type-lg);
+  --text-xl: var(--type-xl);
+  --text-2xl: var(--type-2xl);
+  --text-3xl: var(--type-3xl);
+
+  --font-sans: var(--family-sans);
+  --font-mono: var(--family-mono);
+
+  --font-weight-normal: var(--weight-normal);
+  --font-weight-medium: var(--weight-medium);
+  --font-weight-semibold: var(--weight-semibold);
+
+  --leading-flat: var(--line-flat);
+  --leading-tight: var(--line-tight);
+  --leading-body: var(--line-body);
+
+  /* --- shape and depth --------------------------------------------------------------------- */
+  --radius-sm: var(--corner-sm);
+  --radius-md: var(--corner-md);
+  --radius-lg: var(--corner-lg);
+  --radius-full: var(--corner-pill);
+
+  --shadow-sm: var(--elevation-sm);
+  --shadow-md: var(--elevation-md);
+
+  /* --- motion ------------------------------------------------------------------------------ */
+  /* ⚠ `var(--ease)`, NOT `var(--ease-standard)`. Written as the latter first, which is the
+   * documented same-name self-reference: it resolves to nothing and every transition silently
+   * loses its curve. Our token is a bare `--ease`, deliberately outside Tailwind's `ease-*`
+   * namespace, which is exactly why the alias has to cross names here. */
+  --ease-standard: var(--ease);
+}
+
+/* SHADCN'S CONTRACT, ALIASED RATHER THAN ADOPTED.
+ *
+ * shadcn components are written against `--primary`, `--background`, `--muted-foreground` and so
+ * on. Those names are a CONTRACT the components expect, not a palette we want - so each one points
+ * at a token we already had. `init` was never run: it writes these into whatever file
+ * `components.json` names, and the only correct value for that file is this one, never
+ * `tokens.css`.
+ *
+ * Unlayered on purpose, so these beat Tailwind's `@layer theme` defaults the same way `tokens.css`
+ * does - the cascade behaviour the spike measured is being used deliberately here rather than
+ * tripped over. */
+:root {
+  --background: var(--bg);
+  --foreground: var(--fg);
+  --card: var(--surface);
+  --card-foreground: var(--fg);
+  --popover: var(--surface-raised);
+  --popover-foreground: var(--fg);
+  --primary: var(--accent);
+  --primary-foreground: var(--on-accent);
+  --secondary: var(--surface-sunken);
+  --secondary-foreground: var(--fg);
+  --muted: var(--surface-sunken);
+  --muted-foreground: var(--fg-muted);
+  --accent-foreground: var(--on-accent);
+  --destructive: var(--warning);
+  --destructive-foreground: var(--on-accent);
+  --input: var(--border-strong);
+  --ring: var(--accent);
+}
