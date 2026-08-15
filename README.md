@@ -272,7 +272,7 @@ make e2e           # browser end-to-end suite (opt-in; not part of `make check`)
 `make check` is green on a fresh clone with no browser installed - the E2E layer is
 deliberately opt-in.
 
-Contributing: [`docs/CLAUDE.md`](docs/CLAUDE.md) is the day-to-day guide - repo shape, what to
+Contributing: [`CLAUDE.md`](CLAUDE.md) is the day-to-day guide - repo shape, what to
 run, and which document answers which question.
 
 ## Documentation
