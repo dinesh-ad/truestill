@@ -149,6 +149,33 @@ cannot be answered without a paid service, **STOP and report the gap plainly** -
 legitimate answer. Do not sign up, do not prompt for credentials, do not add the service as a
 dependency, and do not treat "I could look it up on a paid API" as progress.
 
+### 3.2 The search is not optional, and "I know this" is not a source (standing, 2026-08-15)
+
+**Maintainer's instruction, 2026-08-15.** §3 orders the sources; this says how hard to look. Every
+feature, defect and remedy gets a real search before a ruling - **not** an answer from the model's
+memory dressed as one.
+
+- **Search breadth, and it means actually issuing the queries:** official docs and man pages,
+  then the free public places where practitioners record what broke - Stack Overflow, GitHub
+  issues and the code of projects that solved it, engineering blogs, Reddit threads. Prefer recent
+  material and say how recent, because a 2015 pattern and a 2026 pattern are often different
+  answers to the same question.
+- **Name the industry pattern, then say whether it fits here.** The deliverable is not a list of
+  links; it is *"this is what well-run projects do, this is what we do, here is the gap."* A
+  remedy that nobody outside this repo uses needs a reason.
+- **Report null results.** *"Searched, found nothing, here is what I searched"* is a finding and
+  ends the question. An unrecorded null gets re-derived by the next person.
+- **A web answer never outranks the repo** (§3 item 1) and never outranks a `file:line`. It is
+  evidence about the *outside world* - what a filesystem guarantees, what an upstream library does,
+  what a pattern costs - and the repo remains the authority on this product.
+- **The failure this prevents, and it is on the record:** `(adb)` proposed a filesystem remedy
+  (`copy_leaving_nothing`) for a **database** question. SQLite's own documentation says copying a
+  live database file can yield *"some old and some new content"* and names the blessed answers -
+  the online backup API, `VACUUM INTO`, `sqlite3_rsync`. One search would have found it; the entry
+  was written without one, and the remedy it names is the wrong shape for the file it names.
+  See `research/backlog/adb.md` and `(adr)`.
+- Paid services stay out (§3.1). This raises the bar on free sources; it does not move that fence.
+
 ## 4. Code standard
 
 - **Idioms (Python 3.13, standard build).** `pathlib.Path` for all path manipulation - never
