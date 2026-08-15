@@ -23,6 +23,11 @@ classifiers = [
 #   * `static/dist/main.js` - a React 19 island built by Vite from `frontend/`, which OWNS the
 #     `#org-result` region. As of the twelve-writers refactor it is not merely a bundled file
 #     sitting inert beside the page: React renders a live region of the running UI.
+#   * `static/dist/main.css` - Tailwind v4's output, added 2026-08-15 and emitted by the same
+#     build. It carries NO values of its own: every utility resolves to a `var()` declared in
+#     `tokens.css`, which stays the single source. Preflight is deliberately not imported, so it
+#     adds utilities and resets nothing. Linked from the template AFTER `app.css`, so a redesigned
+#     surface can reach for a utility and win.
 # ⚠ REVERSED, not tidied. This line read "no npm/bundler/build step, and no third-party CODE to
 # vendor" and every clause of it is now false: `frontend/package-lock.json` exists, `make
 # frontend` runs `tsc --noEmit && vite build`, and React is BUNDLED into `static/dist/` at build

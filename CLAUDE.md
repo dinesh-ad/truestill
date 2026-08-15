@@ -153,7 +153,9 @@ here that no longer resolves is the same drift the document map exists to preven
 - `packages/truestill-core/` - core library and safety-critical logic.
 - `packages/truestill-cli/` - `truestill` command surface.
 - `packages/truestill-app/` - local web UI (`truestill-app`), imports core only.
-  `frontend/` is the React + TypeScript + Vite source; its build output is `static/dist/`.
+  `frontend/` is the React + TypeScript + Vite + **Tailwind v4** source, with shadcn components
+  under `src/components/ui/`; its build output is `static/dist/` (`main.js` and `main.css`).
+  Tailwind aliases `tokens.css` and defines nothing of its own.
 - `docs/` - decisions, standards, backlog, and research records.
 
 ### Practical reminders
