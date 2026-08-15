@@ -27,6 +27,11 @@ declare const __BUNDLE_SOURCE_HASH__: string;
 import { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 
+// Tailwind's entry. Imported HERE rather than linked from the template because Vite has one
+// entry and emits one stylesheet beside `main.js`; the template links that output. `tokens.css`
+// is NOT imported - it is served standalone and must keep exactly one copy.
+import "./styles/tailwind.css";
+
 /** The summary shape `organizeCompletion` consumes. Opaque here on purpose: this island renders
  *  the state machine, and `app.js` owns what a completion looks like. */
 type OrganizeSummary = Record<string, unknown>;

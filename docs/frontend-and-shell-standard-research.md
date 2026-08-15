@@ -198,8 +198,18 @@ reason cannot be inherited.
 The draft also named `react-hooks/exhaustive-deps` as "the guard" for compiler eligibility.
 **There is no ESLint here at all** - no config file, no plugin, no dependency.
 
-**Tailwind is not a dependency.** §3 of the draft was written as rules in force. Tailwind appears
-nowhere in `package.json`. The three findings it recorded are correct **as records of a 4.3.3
+> ⚠ **SUPERSEDED 2026-08-15: TAILWIND IS NOW INSTALLED, SO §3'S THREE FINDINGS ARE RULES IN
+> FORCE.** This section's last line said they *"become rules the day Tailwind is installed, and not
+> before"*. That day was 2026-08-15 - `tailwindcss@4.3.3` and `@tailwindcss/vite` are in
+> `frontend/package.json`, wired through `@theme inline` against `tokens.css`. All three findings
+> held on contact with the real install: token names stay out of Tailwind's namespaces (a
+> `--leading-*` attempt was refused by `test_no_token_sits_in_a_tailwind_namespace` within seconds),
+> no namespace is reset, and `tokens.css` remains the single source with every Tailwind value a
+> `var()` pointing at it. **The paragraph below is left exactly as written** - it was correct when
+> written, and a record edited to stay correct stops being a record.
+
+~~**Tailwind is not a dependency.** §3 of the draft was written as rules in force. Tailwind appears
+nowhere in `package.json`.~~ The three findings it recorded are correct **as records of a 4.3.3
 spike** (`react-migration-plan.md`), not as rules: `tokens.css` stays the source of truth
 consumed via `@theme inline` with `var()` references; never reset a Tailwind namespace, because
 `--radius-*: initial` removes the *utilities* and shadcn ships those class names; a colliding

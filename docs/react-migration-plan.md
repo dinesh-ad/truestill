@@ -14,7 +14,7 @@ how the screens look. Nothing in `truestill-core` or `service/` is in scope.
 
 | | |
 |---|---|
-| `tokens.css` stays the source of truth | Tailwind consumes it via `@theme inline`; **verified in a 4.3.3 spike**, not read: the utility resolves at use site against our var, Tailwind emits no global of its own, and all three of our dark blocks survive. The widely-repeated "`@theme inline` breaks dark mode" describes writing a literal, not a `var()` reference. |
+| `tokens.css` stays the source of truth | **BUILT 2026-08-15**, no longer only a spike: Tailwind 4.3.3 consumes it via `@theme inline` in `frontend/src/styles/tailwind.css`, and every shadcn contract name (`--primary`, `--background`, …) aliases a token rather than carrying a value. Originally **verified in a 4.3.3 spike**, not read: the utility resolves at use site against our var, Tailwind emits no global of its own, and all three of our dark blocks survive. The widely-repeated "`@theme inline` breaks dark mode" describes writing a literal, not a `var()` reference. |
 | Tokens are out of Tailwind's namespaces | `(fa99e58)`. The collision was silent redefinition, not breakage - Tailwind's values sit in `@layer theme`, ours are unlayered, unlayered wins. `--radius-*: initial` was measured and rejected: it removes the utilities, which breaks the shadcn components that ship them. |
 | The type scale and text colours are separate | `--type-*` and `--fg-*`. `--text-*` was carrying both, and it is Tailwind's font-size namespace. |
 | The browser lane covers the shipped engine | `(9cdd85d)`. WebKit is what the Tauri shell renders in on Linux and macOS. |

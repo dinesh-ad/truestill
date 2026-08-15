@@ -27,6 +27,22 @@ icon set on 2026-08-13; presence there means the MIT notice applies.
   folder-input        Organize            Lucide original     ISC
   chart-column        Stats               Lucide original     ISC
 
+Three more, added 2026-08-15 for the shadcn components, and inlined for exactly
+the same reason as the eight above - `lucide-react` is not a dependency of this
+project and adding one for three shapes is not a trade worth making. These live
+in `frontend/src/components/ui/icons.tsx` rather than in the template, because
+their callers are React; the provenance and the notice are unchanged. All three
+were checked against Feather's own set on 2026-08-15.
+
+  icon                used for            origin              licence
+  ----                --------            ------              -------
+  check               checkbox, select    Feather-derived     MIT
+  chevron-down        select trigger      Feather-derived     MIT
+  chevron-up          select scroll-up    Feather-derived     MIT
+
+The radio-group indicator is a plain filled circle authored here, not copied
+from any set, so it carries no third-party notice.
+
 
 ISC License - Lucide
 --------------------
