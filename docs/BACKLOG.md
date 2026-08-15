@@ -123,11 +123,24 @@ is invisible here is retired, not free.**
   and the third needs a different instrument. **This is not residue of the catalog-lock arc** -
   every run below had **zero** `database is locked` and zero `duplicate column`.
 
-  **The census.** Fourteen failures across eight runs (`31816361658`, `31821214510`,
+  **The census.** **Fifteen** failures across eight runs (`31816361658`, `31821214510`,
   `31823157259`, `31825233939`, and the four added 2026-08-15 below), **all of them `[webkit]`**,
   with membership rotating almost completely. One of the eight runs was fully green. ⚠ **Four of
   the eight are trees with no code change at all** - two runs of one commit, and two docs-only
   commits - which is the strongest evidence the tail does not track the code.
+
+  ⚠ **Fifteen, not fourteen: `31870036688` had TWO failures and was first recorded as one.** The
+  second was `test_the_backup_target_carries_over_from_the_check_field`, an `#org-confirm` stall,
+  so that single run contains **both** of the shapes this entry used to separate - which is part
+  of why they no longer are.
+
+  🔢 **THE METHOD LESSON, and it is the most reusable thing in this entry.** `test-results-e2e`
+  is uploaded with `always()`, so **per-test CI timings existed for the GREEN runs too, for the
+  whole life of this investigation, and nobody read them.** The distribution table below cost no
+  new instrumentation and no new runs - only opening an artifact the lane was already producing.
+  Two hypotheses were killed and one entry rewritten before anyone looked. **Ask what the lane
+  already records before building an instrument**; here the measurement predated the investigation
+  by weeks.
 
   **ADDED 2026-08-15 - and this pair is the most informative entry in the census, because the two
   runs are the SAME COMMIT.** `31842922114` and `31863063168`, both on `99e35d4`, six hours apart,
@@ -155,11 +168,12 @@ is invisible here is retired, not free.**
 
   ⚠ **Different tests, different files, the SAME locator and the same stall point** - `#bk-result`
   still showing the pre-run card (*"8 photos · 16.1 KB to copy"*), the locator resolving **14
-  times over 5 s** without ever changing. The **backup job started and never reported**. Until
-  now the census had repeated symptoms but never a stall point; two consecutive runs landing on
-  the same one is the narrowest signal it holds, and it points at the backup job rather than at
-  the browser. **Fourteen failures across eight runs**; the count of distinct tests is
-  deliberately not restated, for the reason given below.
+  times over 5 s** without ever changing. Until now the census had repeated symptoms but never a
+  stall point; two consecutive runs landing on the same one is the narrowest signal it holds. ⚠
+  **"The backup job started and never reported" was the first reading of this pair and it is
+  WRONG** - the traces below show the job started in 5.909 ms and was reporting progress
+  throughout. The pre-run card says nothing about the job, for the reason given under the
+  retired shapes. The count of distinct tests is deliberately not restated.
 
   | shape | n | assertion |
   |---|---:|---|
@@ -167,23 +181,80 @@ is invisible here is retired, not free.**
   | page load never reached ready | **3** | `Locator expected to have attribute 'ready'` |
   | computed style after reload | **1** | `assert 16 == 20 ± 0.5` |
 
-  ⚠ **THE LARGEST FAMILY HOLDS AT LEAST TWO STALL POINTS, AND THEY ARE RECORDED SEPARATELY
-  BECAUSE ONE SYMPTOM IS NOT ONE MECHANISM.** Read from the aria snapshots, not from the assertion
-  text - the assertion says where the *test* was waiting, only the snapshot says where the *app*
-  stopped:
+  ⚠ **BOTH CANDIDATE SHAPES ARE RETIRED, 2026-08-15.** They were *"stalls at dedup start"* (the
+  job never left `starting`) and *"stalls after the confirm"* (the organize run never reported).
+  Struck on trace evidence: **neither describes what the app was doing.**
 
-  | candidate shape | screen state at failure | seen in |
+  ⚠ **WHY THE INSTRUMENT MISLED, which is the reusable half.** Playwright scopes an aria snapshot
+  to the **asserted locator's subtree when that locator exists**, and falls back to the whole page
+  only when it does not. So `#org-confirm [data-typed-confirm]` - which never appeared - produced a
+  full-page snapshot showing `starting elapsed 4s`, while `#bk-result` - which *did* exist - produced
+  a one-line snapshot of the pre-run card and nothing else. **The two shapes were an artifact of
+  that difference, not a property of the failures.** `starting` also meant only *"no progress event
+  has arrived yet at snapshot time"*, never *"the job is stuck at start"*. **A snapshot's scope is
+  part of the reading**; treating two differently-scoped snapshots as comparable observations is
+  what produced two shapes out of one mechanism.
+
+  **THE MECHANISM AS MEASURED: THROUGHPUT COLLAPSE, NOT A HANG.** From `trace.network` and the DOM
+  snapshots inside the failure traces CI uploads, on three failures. The jobs were **alive and
+  reporting progress** at the moment of failure:
+
+  | test | element | at failure |
   |---|---|---|
-  | **stalls at dedup start** | `Checking for duplicates…` disabled, `starting elapsed 4s`, Cancel live - the job never left *starting*, so `renderOrganizeRunConfirm` never ran and the typed confirm was never drawn | both 2026-08-15 runs; at least one earlier member |
-  | **stalls after the confirm** | the preview card and `N files will be organized` are on screen, so dedup completed and the confirm was drawn - the *organize run* is what never reported | most of the earlier members |
+  | `..._clears_the_stale_not_a_backup_message` | `bk-meta` | `elapsed 5s · 2.1 files/sec` |
+  | `test_organize_then_back_up_then_check` | `bk-meta` | `elapsed 5s · 0.4 files/sec`, bar at 13% |
+  | `test_the_backup_target_carries_over...` | `org-meta` | `elapsed 5s · 0.2 files/sec` |
 
-  **Whether these two share a cause is UNESTABLISHED and must not be assumed.** They are one
-  assertion family and two different points in the job lifecycle, and nothing here has tested
-  whether one mechanism produces both. The reason for splitting rather than lumping is on the
-  record two entries down: `duplicate column` read as *the* mechanism of the lock arc when it was
-  **4 of 88**, because a single symptom family was carrying more than one cause. ⚠ The
-  classification of the *earlier* members is **partial** - some job logs no longer yield a full
-  snapshot block, and one classified into both buckets. Re-derive it before relying on the counts.
+  The backup job **started cleanly** - `POST /api/backup/run` answered **200 in 5.909 ms** and the
+  stream opened `200` - on a **16.1 KB, 8-file** copy. Roughly one file in five seconds. Attributed
+  to the owning element rather than grepped loose, because both `bk-meta` and `org-meta` appear in
+  every trace and a loose match reads one job's rate as the other's.
+
+  ⚠ **`#bk-result` IS NEVER WRITTEN BETWEEN THE CLICK AND THE TERMINAL EVENT** (`app.js:3622`
+  hides `#bk-run` and nothing else; the only writers are the four terminal branches at `:3619`,
+  `:3625`, `:3627`, `:3628`). So the pre-run card persisting means exactly *"no terminal event
+  arrived"* and **cannot distinguish never-started from still-running from dead-stream.** Progress
+  lives in a different element. That is why the trace, not the snapshot, is the instrument here.
+
+  **THE FACT THAT KILLS THE SIMPLE TIMEOUT STORY.** In green run `31838105689`,
+  `test_organize_then_back_up_then_check[webkit]` took **12.73 s and PASSED**; in `31871026358` it
+  **failed at 9.60 s**. Slower overall and green, faster overall and red. **A test fails when one
+  `expect` exceeds its 5 s budget, and total duration does not predict that** - a slow test passes
+  as long as no single wait goes over.
+
+  **THE DISTRIBUTION, all four runs, WebKit only, 460 cases each.** Read from the junit artifacts:
+
+  | run | result | median | p90 | p99 | **>5s** | >8s |
+  |---|---|---:|---:|---:|---:|---:|
+  | `31836139514` | green | 1.32 | 3.08 | 7.08 | **7** | 2 |
+  | `31838105689` | green | 1.16 | 2.52 | 4.55 | **3** | 1 |
+  | `31870036688` | RED | 1.34 | 3.39 | 8.35 | **18** | 6 |
+  | `31871026358` | RED | 1.26 | 2.70 | 7.61 | **15** | 4 |
+
+  ⚠ **The body of the distribution does not move; the tail explodes.** Median stays 1.16-1.34 s
+  across green and red alike and p90 stays 2.5-3.4 s, while tests over 5 s go **3 and 7 (green) to
+  15 and 18 (red)** and over 8 s **1 and 2 to 4 and 6**. This is not a slower runner - it is a
+  minority of tests hitting multi-second stalls while the typical test is untouched.
+
+  🔢 **NOT ESTABLISHED: why the tail thickens on some runs.** Runner image is **identical** across
+  green and red (`ubuntu24/20260810.271`), as is runner version (2.336.0). Lane duration does not
+  separate them either - green 1169/1214/1252/1266 s against red 1201/1244/1327/1391 s, ranges
+  overlapping at n=4 per group. **GitHub exposes no per-run CPU, disk or noisy-neighbour data in
+  these logs**, so there is nothing further to correlate against. Said plainly rather than
+  reached at.
+
+  🔬 **THE DECISIVE EXPERIMENT, RECORDED AND NOT RUN.** Raise the budget on **one** failing
+  assertion, in a throwaway run, and see whether it completes at **8 s, 20 s, or never**. A stalled
+  job's `files/sec` goes to zero and stays there while `elapsed` climbs; a slow one keeps a
+  positive, declining rate, and all three traces show positive throughput. **If it completes this
+  is a budget-versus-tail problem; if it never does there is a real hang and the throughput reading
+  is measuring the wrong phase.** Nothing run so far separates those two.
+
+  ⚠ **The earlier members are still classified from snapshots**, which the scoping problem above
+  now makes unreliable, and only these three have traces. Whether the whole family is one mechanism
+  is **unestablished**: it is a claim to test, not a conclusion, and the reason for not lumping is
+  on the record two entries down - `duplicate column` read as *the* mechanism of the lock arc when
+  it was **4 of 88**.
 
   ⚠ **The concentration is real and is the strongest signal in the census.**
   `test_ui_regressions.py` holds **31 of 458** e2e test functions - **6.8%** of the suite - and
