@@ -1,0 +1,20 @@
+# (act) AN UNNAMED ROOT IS LABELLED WITH THE LITERAL STRING `Library`, WHICH COLLIDES WITH ITSELF.
+
+*Body of backlog entry `(act)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+
+- **(act) AN UNNAMED ROOT IS LABELLED WITH THE LITERAL STRING `Library`, WHICH COLLIDES WITH
+  ITSELF.** Recorded 2026-08-10, split out of `(acr)` deliberately rather than folded in: `(acr)`
+  is a correctness fix at the moment of naming, and this is a **behaviour change at registration**
+  that alters what gets written into a marker on a user's disk. Mixing them would put a change of
+  behaviour inside a fix.
+  - Three of the four registration sites mint `label=path.name or "Library"`
+    (`service/drives.py:310`, `service/organize.py:847`, `cli.py:2010`). `Path("/").name` is `""`,
+    so **organizing to a filesystem root** - or any path whose final component is empty - produces
+    the literal label `Library`. Two of them are indistinguishable by name, and unlike a folder
+    called `Backup` this one was never a name the user chose.
+  - **`(acr)` makes it survivable, not fixed.** Two `Library` drives are now told apart by their
+    recorded paths wherever they are named together, so this is no longer a wrong pointer. It is
+    still a placeholder presented as a name.
+  - **Not urgent, and small.** The fallback fires only for a root-like path, which no measurement
+    has yet seen in a real catalog. Worth a decision - a better fallback, or refusing to mint a
+    label at all and asking - not a rush.

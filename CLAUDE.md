@@ -34,11 +34,15 @@ answer.
 
 ## The document map - which doc answers which question
 
-⚠ **This map covers all 53 tracked `.md` files, this one included, and completeness is the
-point.** It listed **16** until 2026-08-15 - so two thirds of the corpus was unmapped, including
-`README.md` and `react-migration-plan.md`, which carries **14 code citations**. The map is the
-entry point; a map missing two thirds of it sends a cold start to search instead. The count is
-`git ls-files '*.md' | wc -l`, so it is checkable rather than remembered.
+⚠ **This map covers every tracked `.md` file except the 79 backlog bodies, and completeness is
+the point.** It listed **16** until 2026-08-15 - so two thirds of the corpus was unmapped,
+including `README.md` and `react-migration-plan.md`, which carries **14 code citations**. The map
+is the entry point; a map missing two thirds of it sends a cold start to search instead.
+
+**The one deliberate exception**: `docs/research/backlog/*.md` is **79 files, one per lettered
+entry**, and they are reached through their own index rather than listed here - a 79-row table
+would be complete and unreadable, which is the failure this map already had once. `git ls-files
+'*.md' | wc -l` is **132**; 53 of those are mapped below and 79 are backlog bodies.
 
 ### The canon - binding, kept current
 
@@ -48,7 +52,7 @@ entry point; a map missing two thirds of it sends a cold start to search instead
 | How do I work here? (workflow, research order, code standard) | [`docs/ENGINEERING_STANDARD.md`](docs/ENGINEERING_STANDARD.md) |
 | What are the binding rules? (invariants, architecture, data, gates) | [`docs/IMPLEMENTATION_STANDARDS.md`](docs/IMPLEMENTATION_STANDARDS.md) |
 | Why is the product this way? (settled stances: accounts, licensing, monetization) | [`docs/DECISIONS.md`](docs/DECISIONS.md) |
-| What is approved but unbuilt? | [`docs/BACKLOG.md`](docs/BACKLOG.md) |
+| What is approved but unbuilt? | [`docs/BACKLOG.md`](docs/BACKLOG.md) - the **index**; each entry's body is [`docs/research/backlog/<letter>.md`](docs/research/backlog) |
 | **Is this already built?** (provenance - read before building anything) | [`docs/SHIPPED.md`](docs/SHIPPED.md) |
 | What does it cost, and what should I not "optimize"? | [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) |
 | What changed and when? | [`CHANGELOG.md`](CHANGELOG.md) |
