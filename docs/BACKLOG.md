@@ -170,7 +170,9 @@ is invisible here is retired, not free.**
 - **(abz) Organize shows one population three ways and connects none of them.** [Full
   entry](research/backlog/abz.md)
 - **(abw) An already-named trip is re-asked, and until this commit the answer was discarded.**
-  [Full entry](research/backlog/abw.md)
+  ⚠ **Findings (1), (2) and (4) are closed; (3) is open and, since 2026-08-15, a FEATURE question
+  rather than a defect** - an attempt at it is preserved unmerged on branch
+  `wip/trip-rename-finding-3` (`66f6c22`). [Full entry](research/backlog/abw.md)
 - **(abs) The ghost-drive rule refuses REGISTRATION and warns nobody else.** [Full
   entry](research/backlog/abs.md)
 - **(abt) The unhinted-residue prompt is CLI-only, because the app cannot ask mid-job.** Recorded
