@@ -145,7 +145,8 @@ narrative, or volatile counts.
   `files.source_path`, inplace roots, reclaim journal path semantics, and reconnect UX.
 - **Known coverage gap: the unreadable-directory path is unverified on Windows.**
   `scan_source` was swapped from `sorted(rglob("*"))` to `Path.walk(on_error=...)`, and the
-  six `test_unreadable_source.py` tests plus
+  every `test_unreadable_source.py` test (`grep -c '^def test_'
+  packages/truestill-core/tests/test_unreadable_source.py` - **6** on 2026-08-15) plus
   `test_unreadable_paths.py::test_a_real_locked_directory_raises_from_is_dir` **skip on
   Windows** - `chmod 000` does not deny the owner there, so the fixture cannot create the
   condition. Ordinary traversal *is* exercised on Windows (`test_organizer.py`, `test_heif.py`,

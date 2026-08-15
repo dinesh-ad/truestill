@@ -25,9 +25,15 @@ classifiers = [
 #     sitting inert beside the page: React renders a live region of the running UI.
 # ⚠ REVERSED, not tidied. This line read "no npm/bundler/build step, and no third-party CODE to
 # vendor" and every clause of it is now false: `frontend/package-lock.json` exists, `make
-# frontend` runs `tsc --noEmit && vite build`, and React is vendored into `static/dist/`. The
-# ruling it recorded was real and was overturned deliberately - see `docs/react-migration-plan.md`.
-# Node is required for the browser lane, never for `make check`.
+# frontend` runs `tsc --noEmit && vite build`, and React is BUNDLED into `static/dist/` at build
+# time and carried by the wheel (`packages = ["src/truestill_app"]` sweeps it in).
+#   ⚠ BUNDLED, not vendored, corrected 2026-08-15: `static/dist/` is GITIGNORED and `git ls-files`
+#   returns ZERO bytes of it, so the repository vendors no React. The distinction is not pedantry -
+#   the sentence four lines down says one third-party ASSET *is* vendored, and that one is real
+#   (three tracked files under `static/fonts/`). Using the same word for both made a build output
+#   look like committed third-party code.
+# The ruling this line recorded was real and was overturned deliberately - see
+# `docs/react-migration-plan.md`. Node is required for the browser lane, never for `make check`.
 # One third-party ASSET is vendored: DejaVu Sans Mono (Book + Bold) in static/fonts/, because
 # the monospace stack resolved to a different face on every OS. Bitstream Vera licence and
 # upstream checksums ship beside it. Not a pip dependency; no build step; no network.

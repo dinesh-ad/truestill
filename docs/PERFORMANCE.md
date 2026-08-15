@@ -532,14 +532,20 @@ Mean wall-clock per lane, over the six most recent runs.
 ubuntu) | 2.0 min` until then, which had been wrong since `(9cdd85d)` added WebKit - the
 engine the Tauri shell actually renders in on Linux and macOS. A lane that doubled its
 browser count kept a single-engine number, and the row still said `chromium` while the
-workflow ran both. The 18.6 min figure is run 31823157259 (1114 s). **The other three rows
-are still the 2026-08-01 measurement**; do not read this table as uniformly current.
+workflow ran both. **The other three rows are still the 2026-08-01 measurement**; do not read
+this table as uniformly current.
 
-| Lane | Mean | GitHub billing multiplier |
+⚠ **Re-measured again 2026-08-15, and a single figure was the wrong shape for this lane.** The
+row read **18.6 min**, one run (`31823157259`, 1114 s), and that is below the range the lane
+actually occupies: **1169-1391 s (19.5-23.2 min) across eight consecutive CI runs**, and
+**1475 s (24.6 min)** for `make e2e` locally. A lane with a `(ado)`-shaped tail varies by 19%
+run to run, so one number reads as precision it does not have. The range is the honest form.
+
+| Lane | Wall-clock | GitHub billing multiplier |
 |---|---|---|
 | `check (windows-latest)` | **6.2 min** | 2x |
 | `check (ubuntu-latest)` | 2.3 min | 1x |
-| `e2e (chromium + webkit, ubuntu)` | **18.6 min** | 1x |
+| `e2e (chromium + webkit, ubuntu)` | **19.5-23.2 min** (8 runs, 2026-08-15) | 1x |
 | `check (macos-latest)` | 1.8 min | 10x |
 
 Two things follow, and both point away from self-hosting as the first move.

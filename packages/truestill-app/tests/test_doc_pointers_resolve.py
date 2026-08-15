@@ -7,16 +7,16 @@ state, the pointers get fixed, and then it protects the move. Same rule as the g
 
 ⚠ **SCOPE IS MARKDOWN LINKS ONLY, AND THAT IS A MEASURED DECISION RATHER THAN A CONVENIENT ONE.**
 A first pass guarded *every* path-shaped token - anything matching ``name.ext`` - across every
-tracked source and doc. Run against the tree it reported **377 unresolved out of 1,893**, and
-essentially all of it was noise:
+tracked source and doc. Run against the tree it reported **roughly a fifth of them unresolved**,
+and essentially all of that was noise:
 
-| what the 377 actually were | example | n |
-|---|---|---:|
-| filenames the *product* writes, which are not repo files | ``.truestill-drive.json`` | 16 |
-| prose examples of a file a user might have | ``report.txt``, ``notes.txt`` | many |
-| targets that deliberately DO NOT exist | ``Cargo.toml`` (Tauri is unbuilt) | 5 |
-| a file cited *because* it was correctly deleted | ``brand/LICENSE-DejaVu.txt`` | 1 |
-| not a path at all - the extension pattern matched a product name | ``Next.js`` | 2 |
+| what the unresolved actually were | example |
+|---|---|
+| filenames the *product* writes, which are not repo files | ``.truestill-drive.json`` |
+| prose examples of a file a user might have | ``report.txt``, ``notes.txt`` |
+| targets that deliberately DO NOT exist | ``Cargo.toml`` (Tauri is unbuilt) |
+| a file cited *because* it was correctly deleted | ``brand/LICENSE-DejaVu.txt`` |
+| not a path at all - the extension pattern matched a product name | ``Next.js`` |
 
 The fourth row is the one that settles it. `test_bundled_font_ships_with_its_licence` names
 ``brand/LICENSE-DejaVu.txt`` in its docstring **to explain that the file must not be revived**;
@@ -25,14 +25,29 @@ deliberately-absent file is common and correct**, so "every path-shaped token re
 rule this repo can hold. A markdown link is different: it is written to be *followed*, and a
 reader who clicks it expects to arrive.
 
-⚠ **LINE NUMBERS ARE NOT GUARDED, AND THIS IS THE HONEST LIMIT RATHER THAN AN OVERSIGHT.**
-253 pointers carry a ``:line``. Only the line *count* is checkable - whether the file is at least
-that long - and that catches nothing useful: a citation that has drifted onto unrelated code is
-still *within* the file, which is precisely the drift
-`IMPLEMENTATION_STANDARDS.md` already answers with *"symbols are cited over line numbers"*. Worse,
-the only four pointers that do run past end-of-file are all in `docs/code-quality-audit.md`, a
-**record** - and this repo forbids rewriting records to stay correct. A line guard would therefore
-either fail for ever or need an exemption that leaves it guarding nothing. Not written.
+⚠ **LINE NUMBERS ARE NOT GUARDED, AND THE REASON HERE WAS WRONG UNTIL 2026-08-15.**
+
+The reason that stands: **only the line COUNT is checkable, and that catches nothing worth
+catching.** A citation that has drifted onto unrelated code is still *within* the file, so it
+resolves and reads fine while pointing at the wrong thing - which is exactly the drift
+`IMPLEMENTATION_STANDARDS.md` answers with *"symbols are cited over line numbers"*. A guard that
+only bounds the count would pass every one of those.
+
+⚠ **The reason that was wrong, kept because it is the better lesson.** This docstring argued that
+a line guard *"would either fail for ever or need an exemption that leaves it guarding nothing"*,
+because every past-end-of-file pointer then lived in `docs/code-quality-audit.md`, a **record**
+this repo forbids rewriting. **The very next commit falsified it.** Moving the backlog bodies out
+shrank `BACKLOG.md` from 3,871 lines to 547 and created three more, one of them in
+`ENGINEERING_STANDARD.md` - not a record, and fixable, and duly fixed. The premise was true when
+written and was never load-bearing: *unfixable-by-rule* was never the argument, *uninformative*
+is. **An argument that rests on a survey of today's violations expires the next time anyone edits
+a file.**
+
+That instance is also the sharpest evidence for the rule it defends. The `ENGINEERING_STANDARD.md`
+citation had **already** drifted onto unrelated content - line 1631 held an entry about `PANO_`
+filenames, nothing to do with the decision it claimed to cite - and nothing surfaced it until the
+file shrank underneath it. **A line citation does not announce that it has rotted. It only stops
+resolving when the file gets shorter**, and a file that grows hides the rot for ever.
 """
 
 from __future__ import annotations

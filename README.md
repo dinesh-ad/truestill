@@ -119,9 +119,12 @@ sudo apt install -y libimage-exiftool-perl
 ```
 
 Runtime Python dependencies are deliberately minimal and each is justified in writing
-(`docs/IMPLEMENTATION_STANDARDS.md` §7): six in the core - `platformdirs`, `imagehash`,
+(`docs/IMPLEMENTATION_STANDARDS.md` §7). The core's are `platformdirs`, `imagehash`,
 `numpy`, `pillow`, `pillow-heif` and `send2trash` (perceptual hashing needs image decoding,
-which the stdlib cannot do) - and `starlette` + `uvicorn` in the app. The CLI adds none.
+which the stdlib cannot do); the app adds `starlette` + `uvicorn`. The CLI adds none. **The list
+is the claim - there is deliberately no count beside it**, because a count and a list go stale
+independently and only the list says which one is wrong. `[project.dependencies]` in each
+`pyproject.toml` is the source.
 Hashing, SQLite, concurrency and all path/date work are stdlib. The browser lane additionally
 needs Node; `make check` does not.
 

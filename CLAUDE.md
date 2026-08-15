@@ -39,10 +39,17 @@ the point.** It listed **16** until 2026-08-15 - so two thirds of the corpus was
 including `README.md` and `react-migration-plan.md`, which carries **14 code citations**. The map
 is the entry point; a map missing two thirds of it sends a cold start to search instead.
 
-**The one deliberate exception**: `docs/research/backlog/*.md` is **79 files, one per lettered
-entry**, and they are reached through their own index rather than listed here - a 79-row table
-would be complete and unreadable, which is the failure this map already had once. `git ls-files
-'*.md' | wc -l` is **132**; 53 of those are mapped below and 79 are backlog bodies.
+**The one deliberate exception**: `docs/research/backlog/*.md` is **one file per lettered entry**,
+reached through its own index rather than listed here - a table with a row each would be complete
+and unreadable, which is the failure this map already had once. Both figures are commands rather
+than numbers to trust, because a number here rots the next time anyone adds a document:
+
+```
+git ls-files '*.md' | wc -l                      # every tracked document
+git ls-files 'docs/research/backlog/*.md' | wc -l # the exception above
+```
+
+On 2026-08-15 those read **132** and **79**, leaving **53** mapped below.
 
 ### The canon - binding, kept current
 
@@ -129,7 +136,9 @@ the layout design and the flip, but read its own header first - its status line 
 ### Practical reminders
 
 - **Inner loop: targeted tests only.** Never the full gate on an edit.
-- **`make check` before every commit** - 19-21 s against a 45 s ceiling, which is not friction.
+- **`make check` before every commit** - it runs against a **45 s ceiling** (`TEST_SECONDS_MAX`),
+  which is not friction. ⚠ This said *"19-21 s"* until 2026-08-15; nine runs that day read
+  **16.39-25.99 s**, outside the band at both ends. The ceiling is the durable number.
 - **The pre-commit hooks are lint, format, typecheck and the trailer rules. They do not run the
   suite, and their green output is not the gate.** Written down 2026-08-12 because it was broken
   that day by someone working to this standard: the hooks print a column of green immediately

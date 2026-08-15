@@ -89,10 +89,14 @@ diff reaches the browser: it runs `check`, then `e2e` only when the diff touches
 **It measures against `origin/main`, not `HEAD`, and that is the batching rule above paying its
 own bill:** if the batch is what CI sees, the batch is what the gate must read, or a batch whose
 last commit is a docs edit skips a lane its third-from-last commit reached.
-The justification for skipping the client layer must be output you can paste. Measured
-2026-08-10: check 19-21 s against a 45 s ceiling, e2e ~6:50 against the 2000 s ceiling (600 s when this was measured). **Seconds, not test
-counts** - a count is stale the next time anyone adds a test, and §6 of the contract already
-forbids the shape it was written in. Full rule and its costs:
+The justification for skipping the client layer must be output you can paste. **Cite the ceiling,
+not a duration**: check against a 45 s ceiling, e2e against a 2000 s one, both named in the
+`Makefile`. ⚠ This line quoted *"19-21 s"* and *"e2e ~6:50"*, measured 2026-08-10, and both were
+wrong by 2026-08-15 - `make check` read **16.39-25.99 s** over nine runs and the browser lane
+**1169-1391 s**, against a 410 s claim. **Seconds, not test counts** was the right correction and
+did not go far enough: a duration rots as surely as a count, just more slowly. The lane's measured
+range is maintained in `PERFORMANCE.md` §5, which is its source; anything quoted here is a copy.
+Full rule and its costs:
 `IMPLEMENTATION_STANDARDS.md` §6.1, which is binding.
 
 **Never the full gate on an edit.** That premise is what made the gate feel expensive.
@@ -245,8 +249,10 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   implementation moves, silently, with the test still green.
 
   *Worked example - the F10 service split, 2026-07-30.* `truestill_app/service.py` became a
-  package whose `__init__.py` is re-export bindings and zero definitions - **78 when this was
-  written, 193 today**, which is the point rather than a detail. Two tests patched
+  package whose `__init__.py` is re-export bindings and **zero definitions** - **78 when this was
+  written** and growing since, which is the point rather than a detail. Count it rather than trust
+  this line: `grep -cE '^[A-Za-z_][A-Za-z0-9_]* = _[a-z_]+\.'
+  packages/truestill-app/src/truestill_app/service/__init__.py` (**193** on 2026-08-15). Two tests patched
   through it. `tests/e2e/test_busy_state.py` patched `service.migration_preview` while
   `service/migrate.py` called its own global: the blocking wrapper never ran, so **one** test
   failed outright and **two** kept passing without exercising the per-drive lock they exist to
@@ -422,7 +428,8 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
 
 - **When a fix lands on one surface, ask where else the rule is written down - not whether the
   other surface has a test.** The CLI and the app implement one contract twice (**99** core symbols
-  are imported by both), so a repair that reaches one copy and not its twin is a standing risk
+  imported by both, AST-counted 2026-08-15 - a dated reading, not a standing fact, and it only
+  ever grows), so a repair that reaches one copy and not its twin is a standing risk
   rather than an accident. It has now happened three times: F0 (migrate-undo fixed,
   organize-undo not), F38 (twelve job sites updated, one missed), and `cli._rescan_hashes`.
 
@@ -1464,12 +1471,25 @@ dependency, and do not treat "I could look it up on a paid API" as progress.
   block"*, and *"a normal position, not a corner"*. Three clauses of the entry still said the
   opposite.
 
-  **What makes it the sharpest is the distance, not the error.** `BACKLOG.md:1631` cites D9 for
-  platform scope **four screens above** the gate still waiting for D9 - *same document, same day,
+  **What makes it the sharpest is the distance, not the error.** `(aad)` cites D9 for platform
+  scope - *"Scope: Windows and Linux, unsigned (`DECISIONS.md` D9)"*, still its opening
+  paragraph - **within the same entry** as the gate that was still waiting for D9 - *same
+  document, same day,
   same hand*. Nothing was overlooked in the sense of unread; the entry was **edited where the new
   fact landed and nowhere else**, which is the sixth member's failure and this one's operating
   together. And unlike the corpus fence, no re-measurement was needed to catch it: **both
   sentences were in the repository, and reading them side by side was the entire method.**
+
+  > ⚠ **This paragraph cited `BACKLOG.md` by line number until 2026-08-15, and the citation is
+  > worth more as evidence than the example it served.** (The number is written out here rather
+  > than in `file:line` form on purpose - left as a citation it reads as live to a reader and to
+  > any scanner.) By the time anyone checked, line 1631 held `(abb)`,
+  > about `PANO_` and `MVIMG_` filenames - **nothing to do with D9**. It had drifted onto
+  > unrelated content silently and stayed readable, which is precisely why line numbers are not
+  > citable here. It became *detectable* only when the backlog bodies moved out and the file
+  > shrank to 547 lines, pushing 1631 past the end. **A line citation does not announce that it
+  > has rotted; it only stops resolving when the file gets shorter**, and a file that grows hides
+  > the rot for ever. Re-cited by letter, which is the rule this file already states.
 
   *Suspect it wherever a document states:* what is installed, what is mounted, what exists on
   disk, what is running, how big something is, what a machine cannot do - **or what has not been
