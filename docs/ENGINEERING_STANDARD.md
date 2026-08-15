@@ -192,7 +192,9 @@ memory dressed as one.
 > awk '/^## 4\. Code standard/,/^## 5\./' docs/ENGINEERING_STANDARD.md | grep -cE '^- \*\*'
 > ```
 >
-> On 2026-08-15 that read **67**.
+> On 2026-08-15 that read **68**. ⚠ It said **67** for about an hour, on the same day, until the
+> member below about warnings and their reverse was added - which is the argument for the command
+> rather than the number, made by the number within a session of being written down.
 >
 > **The standard is working when three things are true**, and none of them is "the list is long":
 > - diffs carry **fewer unnecessary changes** - the edit is the change and nothing rides along;
@@ -517,6 +519,17 @@ memory dressed as one.
   more to read, more to keep true, and more places for the next rule to be written down twice.
   The question is asked of the finished thing, before it is committed, and the answer is a
   rewrite rather than a note promising one later.
+
+- **A warning that names one direction of a hazard does not cover its reverse.** Duplication and
+  omission are the two ways a required step goes wrong, and a comment about one reads as coverage
+  of both - to the reader and, more dangerously, to the person who wrote it. **Worked example,
+  2026-08-15:** `ci.yml`'s e2e job warns that the Node version is pinned by `.nvmrc` and read
+  rather than restated, *"a version named in two places is a version that disagrees with itself
+  eventually"*. A throwaway lane copied that job and hit the mirror image - it omitted
+  `setup-node` entirely, and **four attempts died at `make frontend-install`**. The comment was
+  correct, was read, and did not help, because the failure it describes is duplication and the
+  failure that happened is absence. When writing a warning about a step, say what breaks if it is
+  **stated twice** *and* what breaks if it is **missing**; they are rarely the same sentence.
 
 - **A mutation proof must show that the mutant is the code under test.** The fifth member of
   this family. The other four are about a guard that cannot fail, is switched off, is aimed at
