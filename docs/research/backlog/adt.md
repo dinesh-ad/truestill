@@ -74,6 +74,36 @@
   it. **Server-side timing around `set_organize_mode` is the only instrument left** - env-gated,
   and removed a commit after it answers. Not built; nothing should be designed before it runs.
 
+  ### M4 ran: UNRESOLVED, but reframed from 61x to 1.29x (2026-08-15)
+
+  Four instrumented lanes on the runner (`31905224028`), **80 settings POSTs**, ~144,000 phase
+  records, timing the handler boundary, `set_organize_mode`, the catalog-open split and the write.
+
+  - **THE BOUNDARY HYPOTHESIS IS DEAD, and it was the one worth checking first.** If the handler
+    were entered seconds before the work began, every catalog measurement would have been aimed at
+    the wrong layer. It is not: the dispatch gap from handler entry to `set_organize_mode`
+    executing in the threadpool is **p50 0.338 ms, max 1.0 ms** over 80 POSTs on a 2-core runner
+    under full lane load. **The time is inside the catalog layer.**
+  - **The seconds are in fresh-schema commits, and nowhere else.** Every event over 1 s in 144,000
+    records is a `commit` building a schema: max **5091.2 ms**, 153 of 3,680. An ordinary commit
+    never exceeded **9.0 ms** in 32,119 samples. Full table in `PERFORMANCE.md` §5.4.
+  - **And the queueing was caught in the act:** `BEGIN IMMEDIATE` parked **5011.3 ms** waiting -
+    against 4 microseconds uncontended (§5.5). That is a trivial write inheriting a schema build's
+    cost, and it lands on the 5 s `busy_timeout`, which is why the *next* caller is refused rather
+    than merely slowed. It is the mechanism this entry opened with, measured.
+  - **NOT REPRODUCED.** No settings write in 80 came near 6558 ms; the slowest was 105.8 ms. **The
+    question stays open.**
+  - **What changed is the size of the gap.** The largest single catalog operation now measured is
+    **5091 ms against 6558 ms - 1.29x**, where the previous best structural candidate was 61x
+    short. For the first time a measured operation is the right order of magnitude.
+  - ⚠ **THE HYPOTHESIS, AND IT IS EXPLICITLY UNVERIFIED: the failing POST queued behind a
+    fresh-catalog schema build.** It fits - the harness builds a fresh catalog per test, the
+    failing trace shows the page loading at t=0 with the POST at t=2.01 s, and a just-started app
+    is exactly when a schema build is in flight. **It is not established, and it cannot be from
+    what exists**: the failing run's artifact carries no server-side timing, which is the whole
+    reason M4 had to be built. Anyone closing this needs the instrument on a run that actually
+    fails, not a plausible fit. §5.4's own history is four hypotheses that each fitted.
+
   ## Unverified corroboration, recorded as unverified
 
   The same run's other outlier is `test_a_radio_set_is_a_named_group[chromium-settings-Theme-theme]`

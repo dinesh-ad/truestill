@@ -848,6 +848,28 @@ speed with no durable write in it, and it was attributed to NVMe because the `df
 the disk had been run against the checkout instead. On the runner the same probe measured 213x.
 **A performance number without a durability control is not a measurement of this system.**
 
+⚠ **AMENDED 2026-08-15: THE STARTUP MIGRATION MOVED THE SCHEMA BUILD OFF THE REQUEST PATH. IT DID
+NOT MAKE IT CHEAP.** The table above reads as though the cost went away - holder max 20260 ms ->
+7.57 ms - and what it actually shows is the cost leaving the *measured* path. Instrumented on the
+runner (`(adt)` item 5 M4, run `31905224028`, four full lanes, ~144,000 phase records):
+
+| | p50 | p99 | max | over 1 s |
+|---|---:|---:|---:|---:|
+| `commit` building a **fresh** schema | 2.16 ms | 2163.6 ms | **5091.2 ms** | **153 of 3,680** |
+| `commit` on an existing schema | 0.011 ms | 1.1 ms | 9.0 ms | **0 of 32,119** |
+| `BEGIN IMMEDIATE` (all opens) | 0.075 ms | 18.3 ms | **5011.3 ms** | - |
+
+**Every event over 1 s in 144,000 records is a fresh-schema commit.** The ordinary path never
+exceeds 9 ms. A waiter parked **5011 ms** at `BEGIN IMMEDIATE` behind one, which is the mechanism
+by which a trivial write inherits a schema build's cost - and it lands exactly on the 5 s
+`busy_timeout`, so the next caller is not merely slow, it is **refused**.
+
+**Two consequences that are easy to miss.** The lane pays this **920 times per run**, once per
+test's fresh catalog - so it is a real component of lane duration, not a startup curiosity. And
+**every user pays one on first run**: a new library builds the schema once, and on hardware like
+the runner that is seconds, not milliseconds. Nothing here is a defect; it is a price that was
+never priced.
+
 ### 5.5 What the per-open write lock costs - and what it does NOT explain (measured 2026-08-15)
 
 §5.4 bought `BEGIN IMMEDIATE` on every open and measured the **holder** afterwards (7.57 ms max).
