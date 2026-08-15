@@ -71,7 +71,31 @@
   **THE ELIMINATOR: Briefcase cannot build Linux for this project at all.** `linux system` links
   against the distro's Python and fails on `requires-python` - pip's words,
   **`3.12.3 not in '>=3.13'`**. D9 publishes **two** platforms, and the tool that produces the good
-  MSI produces **nothing** on one of them. Choosing it means dropping a published platform,
+  MSI produces **nothing** on one of them.
+
+  > 🗑 **THE MEASUREMENT RIG WAS REMOVED 2026-08-15, AND IT WAS REFUTED RATHER THAN ABANDONED -
+  > which is the distinction this note exists to preserve.** Gone: `packaging-throwaway.yml`,
+  > `packaging/pyproject.toml` (the Briefcase project), `packaging/truestill_probe/`, the
+  > `CHANGELOG` and `LICENSE` that existed only because Briefcase refuses to build without them,
+  > `packaging/uv.lock`, and the `briefcase>=0.4.4` dev dependency. Copies are in
+  > `.superseded/packaging-throwaway-2026-08-15/`.
+  >
+  > **The trigger was the rig's own fence** - *"DELETE OR REPURPOSE THIS FILE once the bundler is
+  > chosen"* - and the bundler **is** chosen: `release.yml` builds Linux and Windows with
+  > PyInstaller. Its last five dispatches all failed, on 2026-08-12/13.
+  >
+  > ⚠ **A future reader must not read this as "we gave up on Briefcase and could revisit it."**
+  > The paragraph above is a *measurement*: briefcase produces **nothing** on a platform D9
+  > publishes. Reopening it needs that answered - a Python floor lowered for packaging
+  > convenience, a published platform dropped, or AppImage taken against its own maintainers'
+  > advice - not a fresh preference. The rig is gone because the question it existed to ask is
+  > **settled**, not because it went stale.
+  >
+  > **Side effect, checked rather than assumed:** briefcase was the **only** package in `uv.lock`
+  > declaring `httpx`, so removing it drops httpx from the environment entirely. Nothing imports
+  > plain `httpx` - the test client uses `httpx2` - so nothing depends on it. Recorded because the
+  > root manifest's own comment claimed httpx "remains INSTALLED as a transitive dependency of
+  > briefcase", and that sentence went false with this change. Choosing it means dropping a published platform,
   lowering the project's Python floor for a packaging convenience, or taking AppImage - a backend
   **its own maintainers discourage**. Nothing in the other columns outweighs a platform that
   cannot be built.
@@ -232,6 +256,16 @@
   unattended-capable, so a constraint that looked blocking turns out met at zero cost. That is
   why deleting it needed the reasoning it got: a file removed with its findings recorded can be
   recovered deliberately; one removed in silence gets rewritten from scratch.
+
+  > ✅ **DONE, and the record needs to be unambiguous because the sentence that carried it is
+  > gone.** `packaging/installer.iss` **was** recovered and is **live in the release pipeline** -
+  > `release.yml` copies it on the Windows job, and item 2 above records it built and verified on
+  > 2026-08-13. ⚠ `packaging-throwaway.yml` described its second job as removed *"with
+  > `packaging/installer.iss` and `packaging/inspect-installers.ps1`"*, which reads as though both
+  > files went. **They did not: `inspect-installers.ps1` is gone, `installer.iss` was promoted.**
+  > That workflow was deleted on 2026-08-15, taking the misleading half with it, so the
+  > distinction is written here instead - the two files shared one sentence and have opposite
+  > fates, and only one of them ships.
   Worth taking: `PrivilegesRequired=lowest` (per-user, no elevation), `{autopf}`,
   `recursesubdirs createallsubdirs` over the one-folder output, `Compression=lzma2`, and the
   Start-menu / uninstaller / Add-Remove trio.

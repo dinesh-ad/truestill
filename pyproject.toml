@@ -33,22 +33,29 @@ dev = [
     # release since 2024 with issues and discussions closed, Pydantic maintains httpx2 as its
     # continuation, and starlette.testclient now tries `import httpx2` first and warns on the
     # fallback. Not a preference - the warning is starlette telling every consumer where this
-    # goes. httpx itself remains INSTALLED as a transitive dependency of briefcase; what changes
-    # is that truestill no longer declares or relies on it.
+    # goes. httpx itself used to remain INSTALLED as a transitive dependency of briefcase; with
+    # briefcase removed on 2026-08-15 it is gone from the environment entirely - it was the only
+    # package in the lock that declared it, checked rather than assumed, and nothing here imports
+    # plain `httpx`. Nothing changes for truestill either way: it neither declares nor relies on it.
     "httpx2>=2.9.1",
     # Browser E2E (tests/e2e). The only tool that can execute the client-side JS layer, where
     # every UI bug the soak found actually lived -- a layer pytest alone cannot reach and
     # manual checking cannot regression-pin. Dev group only: it is never a runtime dependency
     # of truestill-core/-cli/-app, and a clean install of any of them pulls no browsers.
     "pytest-playwright>=0.8.0",
-    # BUILD-ONLY bundlers for the (aad) packaging measurement. Dev group, never a runtime
-    # dependency: they produce an artifact and are absent from it. Per the ruling of
-    # 2026-07-31, a build tool that never enters the runtime graph does not carry the §4
-    # written-justification burden a shipped dependency does - it ships to nobody, enters no
-    # user's security surface, and is deleted with the job that uses it. Gated by
-    # `tests/e2e/test_dependency_gating.py` so they cannot drift into a shipped package.
+    # THE BUILD-ONLY bundler. Dev group, never a runtime dependency: it produces an artifact and
+    # is absent from it. Per the ruling of 2026-07-31, a build tool that never enters the runtime
+    # graph does not carry the §4 written-justification burden a shipped dependency does - it
+    # ships to nobody, enters no user's security surface, and is deleted with the job that uses
+    # it. Gated by `tests/e2e/test_dependency_gating.py` so it cannot drift into a shipped package.
+    #
+    # ⚠ There were TWO here until 2026-08-15. `briefcase>=0.4.4` went with the `(aad)` measurement
+    # rig, and it was REFUTED rather than abandoned: `briefcase linux system` links against the
+    # distro's Python and fails `requires-python` outright - pip's own words, `3.12.3 not in
+    # '>=3.13'`. D9 publishes two platforms and briefcase produces nothing on one of them, so the
+    # comparison it existed to run is settled and cannot be reopened by preference. The last
+    # clause above ("deleted with the job that uses it") is the rule being applied, not waived.
     "pyinstaller>=6.21.0",
-    "briefcase>=0.4.4",
     # PE reader for `packaging/verify_icon.py`, which asserts the SHIPPED executable carries the
     # mark in `brand/`. It already arrives transitively with PyInstaller (win32 only), and §7's
     # rule is that what we import, we declare - the numpy row's exact reasoning, since a

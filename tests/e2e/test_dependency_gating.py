@@ -53,18 +53,34 @@ def test_no_shipped_package_depends_on_a_test_tool() -> None:
             assert tool not in declared, f"{name} declares the test tool {tool!r} at runtime"
 
 
-def test_the_build_only_bundlers_are_declared_only_in_the_dev_group() -> None:
-    """(aad)'s bundlers produce artifacts; they must never be inside one.
+def test_the_build_only_bundler_is_declared_only_in_the_dev_group() -> None:
+    """(aad)'s bundler produces artifacts; it must never be inside one.
 
     Declared dev-only under the build-tool ruling: a tool that never enters the runtime graph
     carries none of a shipped dependency's burden. This is the guard that keeps that true, so
     the exemption cannot quietly become a shipped dependency later.
+
+    ⚠ **`assert "briefcase" in dev` was REMOVED here on 2026-08-15, not weakened, because its
+    SUBJECT was removed.** briefcase went with the `(aad)` measurement rig - refuted, not
+    abandoned: `briefcase linux system` cannot build this project at all (`3.12.3 not in
+    '>=3.13'`). A presence assertion outliving the thing it asserts is worse than no assertion:
+    it either fails for ever, or gets "fixed" by re-adding a dependency nothing uses. It is not
+    softened to `in dev or absent`, which would pass both ways and mean nothing.
+
+    ⚠ **And it is not replaced by `assert "briefcase" not in dev` either.** That reads like
+    diligence and is the same mistake inverted: a guard standing watch over a dependency nobody
+    has, failing only if someone deliberately re-adds one - at which point the reason lives in
+    `(aad)`, where a reader is already going. Nothing here has an opinion about briefcase now.
+
+    `"briefcase"` stays in `_TEST_ONLY` above, and that is not the same shape. That list is a
+    DENYLIST over the shipped manifests - its corpus is those files, which are non-empty - so it
+    keeps meaning something whether or not briefcase exists: it refuses a future RUNTIME
+    dependency on it. This test asserted PRESENCE, which is why only this one goes.
     """
     root = tomllib.loads((_ROOT / "pyproject.toml").read_text())
     dev = " ".join(root["dependency-groups"]["dev"]).lower()
 
     assert "pyinstaller" in dev
-    assert "briefcase" in dev
 
 
 def test_playwright_is_declared_only_in_the_dev_group() -> None:
