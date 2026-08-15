@@ -45,6 +45,11 @@ All notable changes to this project are documented here. The format follows
   A group you have already named shows its name instead, and is never offered a suggestion.
 
 ### Fixed
+- **Reloading the page during a run no longer leaves you watching a spinner that never ends.**
+  If you reloaded, or the connection dropped and came back, Truestill reconnected to the running
+  job and then waited for news that had already been delivered to the page you left - so the
+  screen sat there with no outcome, however the run actually ended. It now tells you how the job
+  finished. The same fault kept Truestill from shutting down cleanly while a run was on screen.
 - **Screens now announce that they are still loading.** Each screen marks itself busy while the
   content it opens with is on its way, and clear when it has arrived, so a screen reader says so
   instead of reading a half-filled page as finished. A failure in one of those background

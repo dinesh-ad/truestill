@@ -33,8 +33,9 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(adj), (adl)-(adq). Next free: (adk).**
-⚠ `(adk)` is genuinely unused and the range skips it; `(adl)`-`(adq)` were allocated on
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(adq). Next free: (adr).**
+⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
+heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
 below describes. Six letters, one day, and the *next free* answer stayed right by luck
 while the *used* range was wrong. `(aap)` was assigned ahead of `(aao)` and the gap has since been filled by `(aao)`; letters are identifiers, not an ordering, so neither was renumbered. Check here before assigning - `(u)` and `(v)` were proposed
@@ -122,9 +123,11 @@ is invisible here is retired, not free.**
   and the third needs a different instrument. **This is not residue of the catalog-lock arc** -
   every run below had **zero** `database is locked` and zero `duplicate column`.
 
-  **The census.** Twelve failures across six runs (`31816361658`, `31821214510`, `31823157259`,
-  `31825233939`, and the two added 2026-08-15 below), **all of them `[webkit]`**, with membership
-  rotating almost completely. One of the six runs was fully green.
+  **The census.** Fourteen failures across eight runs (`31816361658`, `31821214510`,
+  `31823157259`, `31825233939`, and the four added 2026-08-15 below), **all of them `[webkit]`**,
+  with membership rotating almost completely. One of the eight runs was fully green. ⚠ **Four of
+  the eight are trees with no code change at all** - two runs of one commit, and two docs-only
+  commits - which is the strongest evidence the tail does not track the code.
 
   **ADDED 2026-08-15 - and this pair is the most informative entry in the census, because the two
   runs are the SAME COMMIT.** `31842922114` and `31863063168`, both on `99e35d4`, six hours apart,
@@ -140,6 +143,23 @@ is invisible here is retired, not free.**
   `31825233939` failed the same test at the same line on the same locator - so it is a repeat, not
   a ninth test; the second is new here. **An unchanged tree produced two different failures**,
   which is what a rotating tail looks like and what a regression cannot look like.
+
+  **ADDED 2026-08-15, second pair - and this one narrows the tail for the first time.** Two more
+  runs, **both on docs-only commits that changed nothing but Markdown**, one failure each, zero
+  locks, all three `check` lanes green in both:
+
+  | run | commit | test | stalled on |
+  |---|---|---|---|
+  | `31870036688` | `86e3c07` | `test_a_completed_copy_clears_the_stale_not_a_backup_message` | `#bk-result` |
+  | `31871026358` | `e8c538c` | `test_golden_path::test_organize_then_back_up_then_check` | `#bk-result` |
+
+  ⚠ **Different tests, different files, the SAME locator and the same stall point** - `#bk-result`
+  still showing the pre-run card (*"8 photos · 16.1 KB to copy"*), the locator resolving **14
+  times over 5 s** without ever changing. The **backup job started and never reported**. Until
+  now the census had repeated symptoms but never a stall point; two consecutive runs landing on
+  the same one is the narrowest signal it holds, and it points at the backup job rather than at
+  the browser. **Fourteen failures across eight runs**; the count of distinct tests is
+  deliberately not restated, for the reason given below.
 
   | shape | n | assertion |
   |---|---:|---|
@@ -182,6 +202,24 @@ is invisible here is retired, not free.**
     a chunked socket read against uvicorn showed one chunk per yield at 300 ms steps, and the app
     applies no compression middleware.
   - **The catalog lock.** Zero locks in all four runs, after `(adl)`'s sibling fix.
+
+  **INVESTIGATED 2026-08-15, AND THE FINDING WAS A DIFFERENT DEFECT.** The teardown hypothesis
+  below has a proven mechanism: `JobManager.stream` blocked in a timeout-less `queue.Queue.get()`,
+  which kept a uvicorn server thread alive **20.00 s after `should_exit`** with the client already
+  gone - and `RetiringServers._sweep()` reclaims a server by exactly that thread dying. Fixed as
+  `(adk)`. ⚠ **It did not close this entry and must not be recorded as having done so:**
+  instrumenting a real run of `test_ui_regressions.py` - 31 tests, both engines - showed **zero**
+  live-thread growth, so the suite does not trigger it locally. The mechanism is real; its
+  connection to this tail is **unproven**.
+
+  🔢 **The measurement this entry still wants, named so the next person does not re-derive it.**
+  WebKit is **1.79x slower than Chromium** under CI's own flags (76.61 s vs 42.83 s over the same
+  31 tests) on a **16-core** machine; CI runners have **4**, and record video and traces for every
+  test. The slowest assertion locally sits at **2.58 s against a 5 s Playwright budget**. That is
+  thin headroom and it would explain both the WebKit skew and the job-driving concentration
+  without any WebKit bug - but it is measured on the wrong hardware to conclude anything. **The
+  open question is the distribution of these waits on a CI runner**, which needs instrumenting the
+  lane itself, not another local run.
 
   **NOT RULED OUT:**
   - **Fixture teardown order.** `ui(page, app_server)` sets up `page` first, so pytest tears down

@@ -36,6 +36,14 @@ JobTarget = Callable[[ProgressCallback, threading.Event], Any]
 _SENTINEL_DONE = "done"
 _SENTINEL_ERROR = "error"
 
+#: How long a reader parks on the queue before emitting a keepalive and looking around.
+#:
+#: Not tuned for latency - a queued event wakes the read immediately, so this costs a real job
+#: nothing. It is the interval at which an *idle* stream becomes interruptible, and so the bound
+#: on how long a dead one can hold a worker thread. One second keeps a stranded reader's cost
+#: near zero while staying far under any proxy idle timeout a keepalive normally guards against.
+_HEARTBEAT_SECONDS = 1.0
+
 DRIVE_BUSY_CODE: Literal["DriveBusy"] = "DriveBusy"
 
 #: Completed jobs kept per process, newest first. See `_retire_finished` (F17).
@@ -79,6 +87,16 @@ class Job:
     events: queue.Queue[dict[str, Any]] = field(default_factory=queue.Queue)
     status: str = "running"
     summary: Any = None
+    #: The terminal event, kept after it has been put on the queue.
+    #:
+    #: **A queue delivers each event to exactly one consumer**, so the terminal event wakes
+    #: whichever reader happens to take it and no other. Keeping it here is what lets a SECOND
+    #: reader - a page reload, an ``EventSource`` reconnect - be told how the job ended instead of
+    #: waiting on a producer that has already finished. ⚠ Written **after** ``status``, and
+    #: ``stream`` reads *this* rather than ``status`` for exactly that reason: ``status`` is set
+    #: while the summary is still being built, so a reader that trusted it could return before the
+    #: terminal event existed.
+    terminal: dict[str, Any] | None = None
 
 
 def _busy_payload(occupant: _Occupant, contested_label: str) -> DriveBusyPayload:
@@ -207,6 +225,9 @@ class JobManager:
                         if current is not None and current.job_id == job.id:
                             del self._occupied[key]
                 if terminal is not None:
+                    # Recorded before it is queued: a reader that comes up for air between these
+                    # two statements must not conclude there is nothing left to wait for.
+                    job.terminal = terminal
                     job.events.put(terminal)
 
         threading.Thread(target=run, daemon=True).start()
@@ -236,13 +257,37 @@ class JobManager:
         return True
 
     def stream(self, job_id: str) -> Iterator[bytes]:
-        """Yield SSE frames for a job until a terminal event. Blocks on the job's queue."""
+        """Yield SSE frames for a job until a terminal event.
+
+        **Comes up for air rather than blocking outright, and that is a leak fix rather than a
+        style preference.** This is a *synchronous* generator, so Starlette runs it in a worker
+        thread - and a thread parked in a timeout-less ``queue.Queue.get()`` cannot be cancelled.
+        uvicorn's graceful shutdown waits for the in-flight request, so one such read kept a
+        server thread alive **20.00 s after ``should_exit`` with the client already gone**, and it
+        would have stayed alive indefinitely. ``test_a_dead_sse_reader_does_not_pin_the_server``
+        holds both halves.
+
+        On each timeout it emits an SSE **comment** frame. Comment lines are ignored by every
+        ``EventSource`` client, so this needs no client change; its job is to be a write, because
+        a write is what discovers a client that has gone away.
+        """
         job = self.get(job_id)
         if job is None:
             yield b'event: error\ndata: {"message": "unknown job"}\n\n'
             return
         while True:
-            event = job.events.get()
+            try:
+                event = job.events.get(timeout=_HEARTBEAT_SECONDS)
+            except queue.Empty:
+                # Nothing queued. If the job has already published its terminal event, this reader
+                # is a SECOND one - the queue handed that event to whoever took it first - so
+                # answer from the record instead of waiting for a producer that has finished.
+                terminal = job.terminal
+                if terminal is not None:
+                    yield f"data: {json.dumps(terminal)}\n\n".encode()
+                    return
+                yield b": ping\n\n"
+                continue
             yield f"data: {json.dumps(event)}\n\n".encode()
             if event["type"] in (_SENTINEL_DONE, _SENTINEL_ERROR):
                 return

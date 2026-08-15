@@ -22,6 +22,46 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(adk) A JOB'S EVENT STREAM COULD PIN A SERVER THREAD FOR EVER.**
+  - ✅ **FIXED 2026-08-15**, found while investigating `(ado)`'s WebKit tail. ⚠ **It is NOT
+    established as `(ado)`'s cause, and this entry does not close it** - see the negative result
+    below. Fixed because it is a real defect on its own evidence.
+  - **The defect.** `JobManager.stream` drained the job queue with a **timeout-less**
+    `queue.Queue.get()` inside a **synchronous** generator. Starlette runs a sync generator in a
+    worker thread, and a thread parked in `get()` cannot be cancelled - so uvicorn's graceful
+    shutdown, which waits for the in-flight request, waited for ever.
+  - **Both halves reproduced before anything was changed:**
+
+    | probe | result |
+    |---|---|
+    | a **second** reader of one job | blocked past 3 s, with no producer left to wake it |
+    | a real uvicorn told to stop, client already gone | thread **still alive 20.00 s** after `should_exit` |
+
+  - ⚠ **A `queue.Queue` delivers each event to exactly ONE consumer.** The terminal event is put
+    once, so the second reader - a page reload, an `EventSource` reconnect - waited on a producer
+    that had already finished. In the e2e harness that thread is what `RetiringServers._sweep()`
+    waits on, so a leaked server can never be reclaimed: `_pending` grows past `LIMIT = 8` and
+    every later test pays `_join_one`'s 10 s join.
+  - **The fix is a heartbeat, which is the standard SSE keepalive rather than an invention.** The
+    read takes a 1 s timeout; on expiry it emits an SSE **comment** frame (`: ping`). Comment
+    lines are ignored by every `EventSource` client, so no client changed - the point is that it
+    is a **write**, and a write is what discovers a client that has gone away. On expiry the
+    reader also answers from a recorded terminal event, so a reconnecting browser is now **told
+    how the job ended** instead of hanging: a product improvement, not only a leak fix.
+  - ⚠ **The record is read instead of `status`, and that ordering is the whole correctness
+    argument.** `job.status` is set *before* the terminal event is queued - the summary is built
+    in between - so a reader that trusted `status` could return before the terminal event
+    existed, losing a real completion. `job.terminal` is written after the status and before the
+    put, and is what the reader checks.
+  - 🔢 **THE NEGATIVE RESULT, recorded because it is what stops this being claimed as the tail
+    fix.** Instrumenting a real run of `test_ui_regressions.py` - 31 tests, chromium and webkit -
+    showed **zero** live-thread growth (8 threads, first test to last). The suite does not trigger
+    this locally. Measured alongside it, and also not proof of anything: **WebKit is 1.79x slower
+    than Chromium** under CI's own flags (76.61 s vs 42.83 s over the same 31 tests) on a 16-core
+    machine, against CI's 4, with the slowest assertion at **2.58 s of a 5 s Playwright budget**.
+  - **Both guards fail against the old code and pass against the new**, and the file went from
+    hanging for 12.66 s to passing in 2.21 s.
+
 - **(adp) THUMBNAILS IGNORED EXIF ORIENTATION - A THIRD OF EVERY GRID WAS DRAWN WRONG.**
   - ✅ **FIXED 2026-08-14**, found by running Stage 0 of the grid redesign against 4,108 real
     photographs rather than against generated fixtures. Not introduced by the redesign; **this
