@@ -1,6 +1,8 @@
 # (ado) THE E2E LANE HAS A ROTATING WEBKIT TAIL - CAUSE FOUND: THE BUDGET, NOT A MECHANISM
 
-*Body of backlog entry `(ado)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*The investigation record for `(ado)`, **CLOSED 2026-08-15**. The closing entry, the ruling and
+its cost are in [`SHIPPED.md`](../SHIPPED.md). Kept whole rather than summarised: the arc's value
+is in what was measured and what was wrong, and both are below.*
 
 - **(ado) THE E2E LANE HAS A ROTATING WEBKIT TAIL. CAUSE FOUND 2026-08-15: THE BUDGET, NOT A
   MECHANISM.** ⚠ *Titled "CENSUS TAKEN, CAUSE UNIDENTIFIED" until 2026-08-15, when the decisive

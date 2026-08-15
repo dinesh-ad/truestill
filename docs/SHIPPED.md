@@ -22,6 +22,54 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(ado) THE E2E LANE HAD A ROTATING WEBKIT TAIL. CAUSE FOUND, TAIL ACCOMMODATED.**
+  - ✅ **CLOSED 2026-08-15 BY A RULING, NOT A FIX**, and the distinction is the entry. The
+    `expect` budget goes **5 s → 30 s** (`tests/e2e/conftest.py`). Full census, the retired
+    shapes, the trace evidence and the experiment are in
+    [`research/ado-webkit-tail.md`](research/ado-webkit-tail.md), moved here whole rather than summarised.
+  - **The cause is not a defect in this application.** WebKit on a shared 2-core runner is slow in
+    bursts. A job reporting **0.2 files/sec recovers to 1.6** and finishes; the lane was killing
+    the wait at 5 s while the work was still arriving. Measured over three full lanes at a 60 s
+    ceiling: **1,482 tests, zero failures to complete, longest wait 28.4 s. Nothing hung.**
+  - ⚠ **THIS ACCOMMODATES THE TAIL. IT DOES NOT REMOVE IT.** Runs will still be slow in bursts;
+    they will stop being *red* for it. Anyone reading this as "the flake is fixed" has it wrong -
+    what changed is that a slow wait is no longer reported as a failure.
+  - **Why 30 and not 60.** 60 s was the probe's *ceiling*, picked so a hang would still end a
+    test - never a target. A minute per genuinely hung assertion is too slow to fail. 30 s clears
+    the 28.4 s worst case with room, and **anything over it is a finding rather than noise**.
+    Proven live by timing a failing assertion: **`BUDGET_OBSERVED=30.0s`**.
+  - **Why a ruling rather than more measurement.** More samples of the lane whose tail is the
+    thing being measured cannot produce a defensible number - the tail moves with the runner.
+    Adopted once as the price of WebKit here.
+  - 🔢 **THE FINDING THAT REFRAMED THE ARC, and it is the reusable part.** Of **37** waits over
+    5 s, only **nine** were job stalls; **28 had no job running at all**, the longest 16.35 s, on
+    pure layout and page-load tests. `test_ui_regressions.py` dominated the census because it is
+    where the tests **with a 5 s wait** live - a slow layout test has nothing to time out against,
+    so it is slow and green, while the same slowness inside a job wait fails and gets censused.
+    **The file was selected by the instrument, not by the fault.**
+  - ⚠ **EVERY MECHANISM HYPOTHESIS THIS ARC PRODUCED WAS AIMED AT THE WRONG THING** - SSE
+    buffering, the catalog lock, fixture teardown order, and `(adk)`'s SSE reader. **`(adk)` was a
+    real defect and is correctly fixed on its own evidence; it was never this**, and the green run
+    that followed it was a coincidence. Recorded so the fix cannot quietly take the credit.
+  - ⚠ **AND THE ANSWER WAS IN THE ENTRY THE WHOLE TIME.** The concentration paragraph ended *"it
+    is also where the job-driving tests live"* - correct, recorded, and filed under *evidence of a
+    cause* when it was the *explanation*. Not staleness, not a missing measurement: **a true fact
+    under the wrong heading**, which no guard and no re-measurement can catch. Only re-reading it
+    against a new result did.
+  - **Cost, measured rather than asserted.** A budget is only spent when something waits, so a
+    green lane should not move - and it does not:
+
+    | | wall clock | result |
+    |---|---:|---|
+    | before, local (5 s budget) | 1475.09 s (24:35) | 951 passed, 3 skipped |
+    | **after, local (30 s budget)** | **1482.89 s (24:42)** | 951 passed, 3 skipped |
+    | before, CI, 8 runs | 1169-1391 s | - |
+
+    **7.8 s apart, 0.5%** - inside this lane's own run-to-run variance, which `(ado)` measured at
+    19%. The price is paid **only on red**: a genuinely failing assertion now takes **30 s to
+    report instead of 5 s**, verified by timing one (`BUDGET_OBSERVED=30.0s`). A red run with one
+    failure costs about 25 s more than it used to.
+
 - **(adk) A JOB'S EVENT STREAM COULD PIN A SERVER THREAD FOR EVER.**
   - ✅ **FIXED 2026-08-15**, found while investigating `(ado)`'s WebKit tail. ⚠ **It is NOT
     established as `(ado)`'s cause, and this entry does not close it** - see the negative result

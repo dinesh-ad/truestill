@@ -32,7 +32,28 @@ from e2e_support import (
     open_app,
     stamp_capture_date,
 )
-from playwright.sync_api import Page
+from playwright.sync_api import Page, expect
+
+#: The assertion budget, raised from Playwright's 5 s default on 2026-08-15.
+#:
+#: ⚠ **THIS ACCOMMODATES `(ado)`'s TAIL. IT DOES NOT FIX IT.** The cause is understood and is not
+#: a defect in this application: WebKit on a shared 2-core runner is simply slow in bursts, and a
+#: job that reports 0.2 files/sec recovers to 1.6 and finishes. Measured over three full lanes at a
+#: 60 s ceiling: **1,482 tests, zero failures to complete**, longest wait **28.4 s**. Nothing hung.
+#:
+#: **Why 30 and not 60.** 60 s was the probe's *ceiling*, chosen so a hang would still end the
+#: test - never a target. A minute per genuinely hung assertion is too slow to fail. 30 s covers
+#: everything measured with room above the 28.4 s worst case, and **anything exceeding it is a
+#: finding rather than noise** - which is the property a budget has to keep to be worth having.
+#:
+#: **Why a ruling and not more measurement.** More samples of the lane whose tail is the thing
+#: being measured cannot produce a defensible number - the tail moves with the runner. This is
+#: adopted as a cost of running WebKit here, recorded once, rather than tuned forever.
+#:
+#: `page.set_default_timeout(15_000)` in `e2e_support.open_app` is deliberately left BELOW this
+#: and is a different thing: an *action* (click, fill) that takes 15 s is broken, while *waiting
+#: for the app to finish work* is what needed room. Raising both would have hidden the first.
+expect.set_options(timeout=30_000)
 
 
 @pytest.fixture(scope="session")

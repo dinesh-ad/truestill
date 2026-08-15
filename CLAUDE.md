@@ -34,7 +34,7 @@ answer.
 
 ## The document map - which doc answers which question
 
-⚠ **This map covers every tracked `.md` file except the 79 backlog bodies, and completeness is
+⚠ **This map covers every tracked `.md` file except the backlog bodies, and completeness is
 the point.** It listed **16** until 2026-08-15 - so two thirds of the corpus was unmapped,
 including `README.md` and `react-migration-plan.md`, which carries **14 code citations**. The map
 is the entry point; a map missing two thirds of it sends a cold start to search instead.
@@ -49,7 +49,7 @@ git ls-files '*.md' | wc -l                      # every tracked document
 git ls-files 'docs/research/backlog/*.md' | wc -l # the exception above
 ```
 
-On 2026-08-15 those read **132** and **79**, leaving **53** mapped below.
+On 2026-08-15 those read **132** and **78**, leaving **54** mapped below.
 
 ### The canon - binding, kept current
 
@@ -117,7 +117,9 @@ record. **When a research doc and `IMPLEMENTATION_STANDARDS.md` disagree, the co
   [`walkthrough-qa-report.md`](docs/walkthrough-qa-report.md),
   [`job-run-skeleton-diff.md`](docs/job-run-skeleton-diff.md) (**FROZEN RECORD - SUPERSEDED**)
 - **Measurement** - [`preview-performance-profile.md`](docs/preview-performance-profile.md),
-  [`testing-new-corpus.md`](docs/testing-new-corpus.md)
+  [`testing-new-corpus.md`](docs/testing-new-corpus.md),
+  [`ado-webkit-tail.md`](docs/research/ado-webkit-tail.md) (the WebKit-tail investigation, closed
+  2026-08-15 - census, retired hypotheses and the experiment that ended it)
 
 New here? `docs/PROJECT_STATUS.md` **§0** is the fresh-clone setup, **§1** is where the project
 stands, **§2** is what ships next and **§3** is what blocks it. `default-layout-research.md` holds
