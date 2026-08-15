@@ -109,8 +109,18 @@ def broken_links(docs: dict[str, str], tracked: set[str]) -> list[tuple[str, str
     Pure and takes its whole world as arguments, so the cry-wolf test below can hand it a tree
     that does not exist on disk. A guard whose logic can only be exercised against the real repo
     can only be proven by breaking the real repo.
+
+    ⚠ **`posixpath` ONLY - never `pathlib` - and that is a portability fix, not a preference.**
+    `git ls-files` always emits forward slashes on every platform, so these strings are POSIX
+    paths regardless of the host. `pathlib.Path` is not: it becomes `WindowsPath` on Windows and
+    stringifies with **backslashes**, so `str(Path("docs/research/backlog/a.md").parent)` is
+    ``docs\\research\\backlog`` there while `posixpath.normpath` produces ``docs/research/backlog``
+    here. The two can never compare equal, and this line built the directory set that way: **every
+    link to a directory was reported broken on Windows and correct on Linux and macOS.** Mixing
+    the two modules in one comparison is the whole defect; keeping `pathlib` out of it removes the
+    platform difference by construction rather than by testing for it.
     """
-    directories = {str(Path(rel).parent) for rel in tracked}
+    directories = {posixpath.dirname(rel) for rel in tracked}
     broken: list[tuple[str, str]] = []
     for origin, text in docs.items():
         for match in _LINK.finditer(text):
@@ -173,14 +183,34 @@ def test_the_guard_is_actually_looking_at_something() -> None:
 def test_the_guard_fails_when_a_link_goes_stale() -> None:
     """Cry-wolf, proven on a synthetic tree rather than by breaking the real one.
 
-    Three cases in one, because the failure this protects against is a *move*: the target
-    disappearing, the target moving to a new directory, and a link that must keep passing while
-    the other two fail - otherwise a guard that rejects everything would look identical here.
+    Four cases in one, because the failure this protects against is a *move*: the target
+    disappearing, the target moving to a new directory, a link to a DIRECTORY, and a link that
+    must keep passing while the others fail - otherwise a guard that rejects everything would
+    look identical here.
+
+    ⚠ **The directory case is here because its absence let a real defect ship.** Directory links
+    were supported and never exercised, so the `pathlib`/`posixpath` separator mismatch described
+    on `broken_links` was invisible until the **Windows** lane ran it. This case pins the
+    behaviour; it could not have caught the platform half on Linux, and nothing here can - that
+    is what the OS matrix is for, and it earned its cost on 2026-08-15.
     """
     tracked = {"docs/BACKLOG.md", "docs/research/backlog/aaa.md", "README.md"}
 
     live = {"docs/BACKLOG.md": "see [aaa](research/backlog/aaa.md) and [readme](../README.md)"}
     assert broken_links(live, tracked) == [], "a correct link was reported as broken"
+
+    # A link to a DIRECTORY, which resolves against no tracked file but against a tracked
+    # file's parent. `CLAUDE.md` links `docs/research/backlog` exactly this way.
+    directory = {"CLAUDE.md": "the bodies live in [here](docs/research/backlog)"}
+    assert broken_links(directory, tracked) == [], (
+        "a link to a directory holding tracked files was reported broken - this is the shape "
+        "that failed on Windows while passing on Linux and macOS"
+    )
+
+    absent_directory = {"CLAUDE.md": "[nope](docs/research/nothing-here)"}
+    assert broken_links(absent_directory, tracked) == [
+        ("CLAUDE.md", "docs/research/nothing-here")
+    ], "a directory holding nothing tracked must still be reported"
 
     moved = {"docs/BACKLOG.md": "see [aaa](aaa.md)"}
     assert broken_links(moved, tracked) == [("docs/BACKLOG.md", "aaa.md")], (
