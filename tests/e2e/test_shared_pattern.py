@@ -92,18 +92,59 @@ def test_the_run_blocks_start_hidden_exactly_as_before(ui: Page) -> None:
 def test_the_metric_size_token_exists_and_is_rem(ui: Page) -> None:
     """A metric must outrank everything else; 28px was not enough to be 'the biggest element'.
 
-    ASSERT THE PROMISE, NOT THE STRING. This read `== "2.5rem"`, which is the *value* the token
-    happened to have rather than the property it is here for - the token became fluid and the
-    promise ("rem, so the root still governs, and 2.5rem at its floor") held throughout. §4's
-    fourth member, applied to my own guard.
+    ASSERT THE PROMISE, NOT THE STRING - **third attempt, and the first two are why this one
+    measures instead of matching.** It began as `== "2.5rem"`, which pinned the value rather than
+    the property. When the token became fluid that broke, and the repair was
+    `startswith(("2.5rem", "clamp(2.5rem"))` - **a longer prefix, which is the same mistake with
+    more characters.** It broke again the moment a type pass moved a neighbouring step, having
+    never once caught a real defect.
+
+    **The promise has two halves and neither is a string:**
+
+    1. *The root still governs* - the token is not pinned in px, so a raised browser default and
+       the text-size setting both reach it. Asserted by resolving it at two different root sizes
+       and requiring it to move.
+    2. *It outranks everything* - it is the LARGEST `--type-*` step. That is what "the metric is
+       the biggest element" means, and it is true at 2.5rem, at 40px, and at whatever the next
+       redesign chooses. **A scale that reordered itself would fail here; a rescale that kept the
+       order will not**, which is exactly the difference the first two versions could not see.
+
+    Measured through real elements rather than read as declarations, because a custom property's
+    *value* is a string while its *size* is the thing under test.
     """
-    value = ui.evaluate(
-        "() => getComputedStyle(document.documentElement).getPropertyValue('--type-3xl').trim()"
+    steps = ("xs", "sm", "base", "lg", "xl", "2xl", "3xl")
+    probe = (
+        "(names) => {"
+        " const out = {};"
+        " for (const n of names) {"
+        "   const el = document.createElement('span');"
+        "   el.style.position = 'absolute'; el.style.visibility = 'hidden';"
+        "   el.style.fontSize = `var(--type-${n})`;"
+        "   document.body.appendChild(el);"
+        "   out[n] = parseFloat(getComputedStyle(el).fontSize);"
+        "   el.remove();"
+        " } return out; }"
     )
-    assert value, "--type-3xl resolves to nothing"
-    assert "px" not in value, f"--type-3xl is pinned in px ({value!r}); the root cannot raise it"
-    assert value.startswith(("2.5rem", "clamp(2.5rem")), (
-        f"--type-3xl no longer floors at 2.5rem: {value!r}"
+    sizes = ui.evaluate(probe, list(steps))
+    missing = [n for n in steps if not sizes.get(n)]
+    assert not missing, f"--type-* steps resolve to nothing: {missing}"
+
+    biggest = max(sizes, key=lambda n: sizes[n])
+    assert biggest == "3xl", (
+        "--type-3xl is no longer the largest step, so the metric no longer outranks what it "
+        f"leads: --type-{biggest} is {sizes[biggest]}px against 3xl's {sizes['3xl']}px. "
+        f"All steps: {sizes}"
+    )
+
+    # The root must still govern it. A px-pinned token is unmoved by a raised default, which is
+    # the original defect this token was created to avoid.
+    ui.evaluate("document.documentElement.style.fontSize = '32px'")
+    ui.wait_for_timeout(120)
+    raised = ui.evaluate(probe, ["3xl"])["3xl"]
+    ui.evaluate("document.documentElement.style.fontSize = ''")
+    assert raised > sizes["3xl"] * 1.2, (
+        f"--type-3xl did not grow with a doubled root ({sizes['3xl']}px -> {raised}px); "
+        "it is pinned in px and the reader's own preference cannot reach it"
     )
 
 
