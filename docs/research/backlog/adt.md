@@ -60,6 +60,20 @@
   artifact does not say, and no server-side timing was captured. **Answer this before designing
   anything** - a fix aimed at the race will not touch a 6.5 s single-row write.
 
+  ⚠ **MEASURED 2026-08-15, AND THE LEAD ABOVE IS DEAD.** The per-open lock price is in
+  `PERFORMANCE.md` §5.5 (CI run `31904426333`, three repeats per OS). On the ubuntu runner - the
+  platform this happened on - acquisition is **0.004 ms**, an uncontended open is **0.096-0.133 ms**,
+  and twelve concurrent openers reach a **107 ms** worst case with **zero busy refusals in 2,160
+  opens**. The observed 6558 ms is **68,000x** the open and **61x** the worst contention measured.
+  Windows, six times more expensive throughout, still tops out at 875 ms.
+
+  **So `BEGIN IMMEDIATE` is not the answer, and the question is not narrowed - it is widened.**
+  Nothing structural measured so far gets within 60x. Recorded as a **negative result** rather
+  than left as a lead somebody re-derives: the shape here is §5.4's, where three structural
+  hypotheses each fitted and were each 40-300x short, and only instrumenting the real lane closed
+  it. **Server-side timing around `set_organize_mode` is the only instrument left** - env-gated,
+  and removed a commit after it answers. Not built; nothing should be designed before it runs.
+
   ## Unverified corroboration, recorded as unverified
 
   The same run's other outlier is `test_a_radio_set_is_a_named_group[chromium-settings-Theme-theme]`

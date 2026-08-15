@@ -848,6 +848,40 @@ speed with no durable write in it, and it was attributed to NVMe because the `df
 the disk had been run against the checkout instead. On the runner the same probe measured 213x.
 **A performance number without a durability control is not a measurement of this system.**
 
+### 5.5 What the per-open write lock costs - and what it does NOT explain (measured 2026-08-15)
+
+§5.4 bought `BEGIN IMMEDIATE` on every open and measured the **holder** afterwards (7.57 ms max).
+It never priced the **acquisition**, which every open now pays even when it will change nothing:
+`Catalog.__init__` calls `_migrate` (`catalog.py:781`), which takes RESERVED (`catalog.py:830`)
+before it can decide the schema is current. `(adt)` item 5 asked what that costs. Throwaway rig,
+CI run **`31904426333`**, three repeats per OS, catalog at schema v19.
+
+| | fsync p50 | uncontended open p50 | `BEGIN IMMEDIATE` p50 | N=12 p99 | N=12 max | refusals |
+|---|---:|---:|---:|---:|---:|---:|
+| local, ext4 | 0.855 ms | 0.227 ms | **0.008 ms** | 79.7 ms | 330.3 ms | 0 |
+| ubuntu runner | 0.50-0.66 ms | **0.096-0.133 ms** | **0.004 ms** | 33.6-34.2 ms | 80.3-107.2 ms | 0 |
+| windows runner | 2.31-2.47 ms | 0.574-0.613 ms | 0.055 ms | 266-309 ms | 759-875 ms | 0 |
+
+**The lock is cheap, and the disk does not change that.** Acquisition is **4-8 microseconds**;
+the dominant phase of an open is the schema *check* (0.074 ms), not the lock. A 1300x range in
+fsync cost moves the open barely at all, for a structural reason worth keeping: the migration
+check on a current catalog **writes nothing**, so its commit has no journal to flush. Windows is
+~6x Linux throughout, in line with §5.3.
+
+⚠ **AND THE NEGATIVE RESULT IS THE POINT: this does not explain the 6558 ms settings write that
+produced `(adt)`.** Against the ubuntu runner - the platform it happened on - that observation is
+**68,000x** the uncontended open and **61x** the worst contended maximum. **Zero busy refusals in
+2,160 contended opens** across every configuration: the lock never refused anybody here, while the
+real lane refused a job. The leading hypothesis was that per-open lock acquisition explained the
+duration. **It does not, and no number in this table gets within 60x of it.** `(adt)` item 5
+stays open; server-side instrumentation of the real lane is the only instrument left, which is
+what §5.4 already had to do for the 20260 ms holder.
+
+⚠ **The first local run of this rig was on tmpfs and reported fsync at 0.0004 ms** - the exact
+trap the paragraph above documents, walked into by the rig that cites it. Caught by `df -T` and
+re-run on ext4; both rows are above, and the conclusion held either way only because nothing here
+fsyncs. **A durability control is not optional even when you have read the warning.**
+
 ---
 
 ## 7. Catalog audit (measured 2026-08-09)
