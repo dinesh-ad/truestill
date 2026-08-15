@@ -1,8 +1,10 @@
-# (ado) THE E2E LANE HAS A ROTATING WEBKIT TAIL. CENSUS TAKEN, CAUSE UNIDENTIFIED.
+# (ado) THE E2E LANE HAS A ROTATING WEBKIT TAIL - CAUSE FOUND: THE BUDGET, NOT A MECHANISM
 
 *Body of backlog entry `(ado)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
-- **(ado) THE E2E LANE HAS A ROTATING WEBKIT TAIL. CENSUS TAKEN, CAUSE UNIDENTIFIED.** Recorded
+- **(ado) THE E2E LANE HAS A ROTATING WEBKIT TAIL. CAUSE FOUND 2026-08-15: THE BUDGET, NOT A
+  MECHANISM.** ⚠ *Titled "CENSUS TAKEN, CAUSE UNIDENTIFIED" until 2026-08-15, when the decisive
+  experiment identified it. The entry stays OPEN on the budget number alone.* Recorded
   2026-08-14 and filed rather than pursued: two hypotheses were killed by measurement in one day
   and the third needs a different instrument. **This is not residue of the catalog-lock arc** -
   every run below had **zero** `database is locked` and zero `duplicate column`.
@@ -127,12 +129,51 @@
   these logs**, so there is nothing further to correlate against. Said plainly rather than
   reached at.
 
-  🔬 **THE DECISIVE EXPERIMENT, RECORDED AND NOT RUN.** Raise the budget on **one** failing
-  assertion, in a throwaway run, and see whether it completes at **8 s, 20 s, or never**. A stalled
-  job's `files/sec` goes to zero and stays there while `elapsed` climbs; a slow one keeps a
-  positive, declining rate, and all three traces show positive throughput. **If it completes this
-  is a budget-versus-tail problem; if it never does there is a real hang and the throughput reading
-  is measuring the wrong phase.** Nothing run so far separates those two.
+  🔬 **THE DECISIVE EXPERIMENT - RUN 2026-08-15. THE ANSWER IS BUDGET-VERSUS-TAIL.**
+
+  **It completes. It is not a hang.** Three attempts of the WebKit lane with the `expect` budget
+  raised 5 s → 60 s: **1,482 tests, zero failures, and not one case failed to finish.** The longest
+  was `test_organize_then_back_up_then_check[webkit]` at **28.4 s, passing**, whose organize job ran
+  from +7.06 s to +21.72 s - about **14.6 s inside a single blocked wait** - before the backup began
+  and the test finished. The lane kills that wait at 5 s; given room it finishes.
+
+  **The rate RECOVERS, which is the opposite of a stall.** From the longest case:
+
+  | at | readout |
+  |---:|---|
+  | +4.03 s | `elapsed 5s · 0.2 files/sec` |
+  | +6.05 s | `elapsed 7s · 0.2 files/sec` ← **the normal budget gives up here** |
+  | +15.62 s | `elapsed 9s · 0.4 files/sec` |
+  | +19.66 s | `elapsed 13s · 1.0 files/sec` |
+  | +20.16 s | `elapsed 13s · 1.6 files/sec · less than a minute remaining` |
+
+  **0.2 → 1.6 files/sec, an 8x recovery**, with the app's own ETA working throughout. Across the
+  nine job-bearing waits: **four recover, three flat, one decays** (274 → 206 files/sec, a *fast*
+  job, not a stall). **None approaches zero.** Lowest sustained rate anywhere: 0.3 files/sec, flat,
+  completing at 8-13 s.
+
+  ⚠ **THE OUTCOME LANDED OUTSIDE THE BANDS THIS ENTRY NAMED, and the bands were guesses.** They
+  read *"completes at 8-20 s → budget-versus-tail; near 60 s → something retrying underneath;
+  never → a real hang"*. The real figure is **28.4 s** - above the first band and nowhere near the
+  second, so there is no timeout-and-retry underneath. **Tune to 28.4 s and the three attempts
+  behind it, never to 8-20 s**, which was invented before any measurement existed.
+
+  ✅ **What this settles:** the throughput reading was measuring the *right* phase, and the
+  mechanism recorded above - throughput collapse rather than a stall - is **confirmed**. The fix is
+  a **budget number**, not a mechanism.
+
+  ⚠ **AND THE BUDGET IS DELIBERATELY NOT SET.** Picking it from three runs of the very lane whose
+  tail is the thing being measured is the local-measurement trap wearing a different costume - the
+  one that has caught this project three times. It wants more samples, or an explicit ruling that a
+  slower lane with a higher budget is simply the cost of WebKit on a shared runner. **No timeout was
+  changed by this experiment.**
+
+  ⚠ **LIMITS OF THE INSTRUMENT, stated rather than discovered later.** The probe fixture measured
+  **whole-test duration**, not a single `expect`. So *28.4 s* is the test, and the **14.6 s blocked
+  wait is inferred** from the progress series spanning +7.06 s to +21.72 s while the test was
+  waiting on the organize job's completion text - sound, but an inference, not a direct reading. A
+  per-assertion timer would settle it. And **three attempts is three**: rates this variable deserve
+  more samples before any number is tuned to them.
 
   ⚠ **The earlier members are still classified from snapshots**, which the scoping problem above
   now makes unreliable, and only these three have traces. Whether the whole family is one mechanism
@@ -140,11 +181,30 @@
   on the record two entries down - `duplicate column` read as *the* mechanism of the lock arc when
   it was **4 of 88**.
 
-  ⚠ **The concentration is real and is the strongest signal in the census.**
+  ~~⚠ **The concentration is real and is the strongest signal in the census.**
   `test_ui_regressions.py` holds **31 of 458** e2e test functions - **6.8%** of the suite - and
   produced **7 of 10** failures. Uniform failure would predict 0.7. That is a **10x**
   concentration, and it is not a big-file artifact: it is the largest file, but not by enough to
-  matter. It is also where the job-driving tests live.
+  matter. It is also where the job-driving tests live.~~
+
+  ⚠ **STRUCK 2026-08-15: THE CONCENTRATION IS A SELECTION EFFECT, NOT A SIGNAL - and this is the
+  more important half of the experiment.** The arithmetic above is correct and the conclusion drawn
+  from it was wrong. Of the **37** waits over 5 s the probe recorded, **28 had no job running at
+  all** - only **9** were job stalls. The longest non-job wait was **16.35 s**, on
+  `test_the_chevron_follows_the_boundary`, `test_the_nav_is_grouped`, and other pure layout and
+  page-load tests with no progress element on screen.
+
+  **So the tail is general WebKit slowness on the runner, not a job problem.** `test_ui_regressions.py`
+  dominates the census because it is where the tests with a **5 s wait in them** live, not because
+  anything about it fails more: a slow layout test has nothing to time out *against*, so it is
+  simply slow and green, while the same slowness inside a job wait fails an assertion and gets
+  censused. **The file was selected by the instrument, not by the fault.**
+
+  ⚠ **Every mechanism hypothesis this arc produced was therefore aimed at the wrong thing** - SSE
+  buffering, the catalog lock, fixture teardown order, the `(adk)` SSE reader. `(adk)` was a real
+  defect and is correctly fixed on its own evidence; it was never this. The last line of the struck
+  paragraph - *"it is also where the job-driving tests live"* - was the observation that explained
+  it, sitting in the entry the whole time, read as corroboration instead of as the answer.
 
   **RULED OUT BY MEASUREMENT, both of them:**
   - **SSE buffering.** Research describes WebKit withholding server-sent events until the

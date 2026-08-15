@@ -118,8 +118,9 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(ado) THE E2E LANE HAS A ROTATING WEBKIT TAIL. CENSUS TAKEN, CAUSE UNIDENTIFIED.** [Full
-  entry](research/backlog/ado.md)
+- **(ado) THE E2E LANE HAS A ROTATING WEBKIT TAIL. CAUSE FOUND 2026-08-15: THE BUDGET, NOT A
+  MECHANISM.** ⚠ **Open only on the budget NUMBER** - the mechanism is settled and no timeout was
+  changed. [Full entry](research/backlog/ado.md)
 - **(adl) THE MIGRATION CHAIN IS NOT TRANSACTIONAL AND HALF-LIFTS ON FAILURE.** [Full
   entry](research/backlog/adl.md)
 - **(adm) `inspect_catalog` SKIPPED THE FIRST-RUN CASE - FIXED FOR THE APP, UNCHANGED FOR THE
