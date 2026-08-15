@@ -178,6 +178,42 @@ memory dressed as one.
 
 ## 4. Code standard
 
+> ### What it looks like when this section is working, and what follows if it is not
+>
+> **Added 2026-08-15. The idea is not this repo's** - it comes from a community `CLAUDE.md`
+> guideline set the maintainer was shown, and it is the one thing in it this canon had no answer
+> to. Everything else in that set was already here, twice as strictly in two places.
+>
+> This section has grown a member at a time, each earning its place by naming a real failure. What
+> it has never had is a way to tell whether any member is **still** earning it. Count them rather
+> than trusting a number here, which would rot the next time one is added:
+>
+> ```sh
+> awk '/^## 4\. Code standard/,/^## 5\./' docs/ENGINEERING_STANDARD.md | grep -cE '^- \*\*'
+> ```
+>
+> On 2026-08-15 that read **67**.
+>
+> **The standard is working when three things are true**, and none of them is "the list is long":
+> - diffs carry **fewer unnecessary changes** - the edit is the change and nothing rides along;
+> - **fewer rewrites are caused by overcomplication** - the second attempt is rarer, and when it
+>   happens it is because the problem was understood late, not because the first attempt was
+>   bigger than the problem;
+> - **clarifying questions arrive BEFORE implementation** rather than after a mistake. A question
+>   asked at the start is this section working; the same question asked in a post-mortem is it
+>   failing.
+>
+> **And the consequence, which is the point rather than the sentiment: a member that cannot be
+> shown to have prevented anything is a candidate for retirement.** The canon should be capable of
+> shrinking. A rule nobody has been saved by is indistinguishable from a rule nobody reads, and
+> both cost the same to carry - which is the §4 member directly about volume applied to §4 itself.
+>
+> ⚠ **No member has ever been retired, and this is the first mechanism for doing so.** Stated
+> plainly because the honest reading of a list that only grows is that removal was never possible,
+> not that every member kept earning its keep. Retiring one is a ruling, with the same bar as
+> adding one: name what it was written for, and show that the failure can no longer happen or no
+> longer matters.
+
 - **Idioms (Python 3.13, standard build).** `pathlib.Path` for all path manipulation - never
   `os.path.*` in source (an audit on 2026-07-29 found zero call sites; this codifies that
   practice, it is not a migration). Use `os` only for operations pathlib does not expose:
@@ -474,6 +510,13 @@ memory dressed as one.
   the *repair*, not the contract: before the `cli._rescan_hashes` fix both surfaces agreed and both were
   wrong, and it scored zero. A green run there means the two copies match, never that they are
   right.
+
+- **If it is 200 lines and it could be 50, rewrite it.** The member above ends at *"delete one of
+  the two copies"*; this is the general form, and the canon had nothing equivalent. Volume is a
+  defect in its own right, not a neutral property of a change that is otherwise correct - it is
+  more to read, more to keep true, and more places for the next rule to be written down twice.
+  The question is asked of the finished thing, before it is committed, and the answer is a
+  rewrite rather than a note promising one later.
 
 - **A mutation proof must show that the mutant is the code under test.** The fifth member of
   this family. The other four are about a guard that cannot fail, is switched off, is aimed at
