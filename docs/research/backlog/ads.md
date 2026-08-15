@@ -44,6 +44,17 @@
     does not have: what the app's real read/write overlap looks like during a job, on a local disk
     and on an overridden data directory. `PERFORMANCE.md` has the lock arc but no
     reader-alongside-writer figure.
-  - See `(adn)` (two processes, one catalog), `(adb)` (why a file copy of this mode is torn),
-    `(adr)` (the 0-byte artefact of that copy), `(adl)` / `(adm)` (behaviour under the lock), and
-    `PERFORMANCE.md` §5.4 (what the lock cost and what fixing it recovered).
+  - ⚠ **THE MODE DEMONSTRATED ITSELF FOUR HOURS AFTER THIS ENTRY WAS FILED (2026-08-15).** CI run
+    **`31895987230`**, red on a **docs-only** commit: a settings write and an organize preview job
+    met on one catalog **inside a single process**, the job waited out its 5 s `busy_timeout` and
+    was refused. Under `journal_mode=delete` that is the documented behaviour, not a defect in
+    either caller - **a writer excludes everyone**, so the job could not read while the settings
+    row was being written. Under WAL the job's reads proceed alongside the write and nothing
+    refuses. The entry above says the concurrency model was inherited rather than chosen; this is
+    what "inherited" costs, on three ordinary clicks. Filed as `(adt)`, with the trace.
+    **It does not decide the question** - WAL still needs the fallback this entry describes, and
+    `(adt)` carries an unanswered one of its own: why a single-row settings write took 6.5 s.
+  - See `(adt)` (the demonstration, in-process), `(adn)` (two processes, one catalog), `(adb)`
+    (why a file copy of this mode is torn), `(adr)` (the 0-byte artefact of that copy),
+    `(adl)` / `(adm)` (behaviour under the lock), and `PERFORMANCE.md` §5.4 (what the lock cost
+    and what fixing it recovered).

@@ -8,8 +8,47 @@ is in what was measured and what was wrong, and both are below.*
   MECHANISM.** ⚠ *Titled "CENSUS TAKEN, CAUSE UNIDENTIFIED" until 2026-08-15, when the decisive
   experiment identified it. The entry stays OPEN on the budget number alone.* Recorded
   2026-08-14 and filed rather than pursued: two hypotheses were killed by measurement in one day
-  and the third needs a different instrument. **This is not residue of the catalog-lock arc** -
-  every run below had **zero** `database is locked` and zero `duplicate column`.
+  and the third needs a different instrument. ~~**This is not residue of the catalog-lock arc** -
+  every run below had **zero** `database is locked` and zero `duplicate column`.~~ ⚠ **THAT CHECK
+  CANNOT SEE THE CLASS IT WAS USED TO RULE OUT - see the amendment immediately below. Every
+  "zero locks" line in this document inherits the same limitation.**
+
+  ---
+
+  ⚠ **AMENDED 2026-08-15: THE ZERO-LOCKS EVIDENCE IS THE WRONG OBSERVABLE.**
+
+  `jobs.py:211-214` catches a busy catalog and replaces the sqlite error with
+  `CATALOG_BUSY_MESSAGE` **before it reaches any log**. So a grep for `database is locked` over a
+  lane's output cannot detect catalog contention inside a job: the string is never emitted.
+  Measured on run `31895987230` - **0** hits for `database is locked`, **0** for
+  `OperationalError`, and **1 real busy refusal**, which is what actually failed the run.
+
+  **What this does and does not license.** It means contention was **never excluded** from the
+  census - only never visible. It does **not** mean the censused failures were contention: no
+  evidence here says they were, the traces that were read showed jobs reporting normally, and
+  retro-fitting this mechanism onto fifteen failures nobody re-examined would be the same move
+  this entry already criticises under its retired shapes. **The census stands; the exclusion does
+  not.** Recorded rather than rewritten, because a claim that was believed and could not have
+  been true is worth more visible than tidy.
+
+  **The correct observable, for future runs** - any of the three, none of which is a log grep:
+  - the shipped copy, which is what a user and a trace both see: grep the lane output for
+    **`Another Truestill operation`** (`catalog_busy.py:45`);
+  - the failing test's **trace DOM**, where the refusal renders into `#org-result` - it was
+    sitting in this run's artifact the whole time;
+  - the job's own **`CATALOG_BUSY_CODE`** (`catalog_busy.py`), which is the structured form and
+    the only one that cannot be broken by rewording the message.
+
+  🔢 **This is the same shape as the `AttachConsole` finding** (`PROJECT_STATUS.md` §3): not a
+  contaminated measurement to be re-run, but an instrument pointed at something that could not
+  answer the question. And it is this entry's own method lesson turned on itself - *ask what the
+  lane already records* - because the DOM that names the cause was in `e2e-failure-artifacts`
+  for every red run of this investigation.
+
+  **What it cost here:** run `31895987230` failed on a **docs-only** commit and read as a
+  sixteenth tail failure. It was not. It is filed as `(adt)`, and its mechanism is `(ads)`.
+
+  ---
 
   **The census.** **Fifteen** failures across eight runs (`31816361658`, `31821214510`,
   `31823157259`, `31825233939`, and the four added 2026-08-15 below), **all of them `[webkit]`**,

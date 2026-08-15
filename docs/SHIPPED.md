@@ -34,6 +34,13 @@ recording shipped work as unstarted, which is the more expensive direction of th
   - ⚠ **THIS ACCOMMODATES THE TAIL. IT DOES NOT REMOVE IT.** Runs will still be slow in bursts;
     they will stop being *red* for it. Anyone reading this as "the flake is fixed" has it wrong -
     what changed is that a slow wait is no longer reported as a failure.
+  - ⚠ **AMENDED 2026-08-15: THE ARC'S "ZERO `database is locked`" EVIDENCE IS THE WRONG
+    OBSERVABLE**, so catalog contention was never *excluded* from the census - only never
+    visible. `jobs.py:211-214` replaces the sqlite error with `CATALOG_BUSY_MESSAGE` before it
+    reaches any log. **This does not retro-claim the censused failures were contention**, which
+    is unestablished. The correct observable and what it cost are in
+    [`research/ado-webkit-tail.md`](research/ado-webkit-tail.md); the failure that found it is
+    `BACKLOG.md` `(adt)`, and the mode behind it is `(ads)`.
   - **Why 30 and not 60.** 60 s was the probe's *ceiling*, picked so a hang would still end a
     test - never a target. A minute per genuinely hung assertion is too slow to fail. 30 s clears
     the 28.4 s worst case with room, and **anything over it is a finding rather than noise**.
