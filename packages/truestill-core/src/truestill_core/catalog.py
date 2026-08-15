@@ -1938,6 +1938,25 @@ class Catalog:
             )
         return int(new_id)
 
+    def rename_trip(self, trip_id: int, *, name: str, slug: str) -> bool:
+        """Give an existing trip a new name. Returns whether anything actually changed.
+
+        The comparison is in the `WHERE` clause rather than a read-then-write, so "did this
+        change anything" is answered by the same statement that changes it - a caller cannot
+        report a rename that did not happen, or miss one that did.
+
+        Membership is untouched: this is the mirror of :meth:`update_trip_days`, which changes the
+        days and leaves the name alone. Renaming does not move files. A placed library keeps
+        spelling the old name in its folders until the next migration, exactly as it does after a
+        layout-template change or after `record_event` renames an event on re-commit.
+        """
+        with self._tx() as conn:
+            cursor = conn.execute(
+                "UPDATE trips SET name = ?, slug = ? WHERE id = ? AND name <> ?",
+                (name, slug, trip_id, name),
+            )
+            return cursor.rowcount > 0
+
     def update_trip_days(self, trip_id: int, days: Sequence[str]) -> None:
         """Replace a trip's claimed days -- an edge adjustment, never a new identity.
 

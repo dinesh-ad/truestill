@@ -326,10 +326,14 @@ class TripDecision:
 
 
 def commit_trips(catalog: Catalog, decisions: Sequence[TripDecision]) -> int:
-    """Persist reviewed trip decisions. Returns how many trips were newly named.
+    """Persist reviewed trip decisions. Returns how many trips were newly named or renamed.
 
     **Name-once, by day** (``trip-grouping-research.md`` §6): a day :meth:`Catalog.trip_for_day`
-    already reports claimed is never re-created and never re-asked.
+    already reports claimed is never re-**created**. It is emphatically **re-asked**, and this
+    docstring used to claim otherwise: `assemble_trip_review` never consults ``trip_for_day``, so
+    an already-named trip is re-offered as a card on every visit, with an empty name box, because
+    ``ReviewCardPayload`` carries no name for the screen to show. That half of the sentence was
+    wrong, and believing it is what let the branch below discard a reply for months.
 
     - **No day in this decision is claimed yet:** a brand-new trip. A ``name`` creates it
       (:meth:`Catalog.create_trip`); an empty or missing ``name`` is a decline and persists
@@ -338,10 +342,11 @@ def commit_trips(catalog: Catalog, decisions: Sequence[TripDecision]) -> int:
       via :meth:`Catalog.update_trip_days` -- idempotent when the confirmed days match what is
       already stored (a pure re-ask: a re-run over unchanged clusters, or a re-run after
       ingesting one more photo into an already-active day), an edge adjustment when they differ.
-      ``update_trip_days`` never touches the trip's id, name or slug, so re-ingesting a day
-      already claimed by a named trip can never re-create it or orphan its name -- and any
-      ``name`` this decision carries is ignored, exactly as a remembered day-event ignores a
-      re-prompt (``event_review.commit_catalog``).
+      The trip's **id is never re-created**, so re-ingesting a day already claimed by a named trip
+      cannot orphan its name. A ``name`` that differs from the stored one **is honoured**
+      (:meth:`Catalog.rename_trip`) rather than ignored: the user was shown an editable box on a
+      card that came back to them, and the only honest reading of that box is that editing it
+      works. A blank reply still changes nothing, because blank is how the screen says "skip".
     - **Mixed** (some days already claimed, by one or more OTHER trips, alongside unclaimed
       days): not reachable by any fixture here. Flagged, not solved -- persists nothing for that
       decision rather than guessing which trip it belongs to.
@@ -377,6 +382,18 @@ def commit_trips(catalog: Catalog, decisions: Sequence[TripDecision]) -> int:
             (existing_id,) = claims
             assert existing_id is not None  # excluded by the `None not in claims` check above
             catalog.update_trip_days(existing_id, [d.isoformat() for d in days])
+            # A re-offered card arrives with an EMPTY box (the payload carries no name), so this
+            # branch is reached every time someone opens the screen and saves. Two rules follow,
+            # and the second is the load-bearing one:
+            #   * a name that differs is honoured - the box was editable and the user edited it,
+            #     which is the only reading of an editable box that is not a lie;
+            #   * a BLANK reply never erases the name it has. Blank means "skip", so overwriting
+            #     would strip every already-named trip in the library on a bare Save.
+            # `rename_trip` decides "did this change anything" in its own WHERE clause, so an
+            # unchanged name is not reported as a rename.
+            chosen = (decision.name or "").strip()
+            if chosen and catalog.rename_trip(existing_id, name=chosen, slug=slugify(chosen)):
+                named += 1
         else:
             continue  # mixed claims: out of scope for this stage, see docstring
     return named
