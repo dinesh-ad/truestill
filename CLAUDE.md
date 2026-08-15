@@ -49,7 +49,7 @@ git ls-files '*.md' | wc -l                      # every tracked document
 git ls-files 'docs/research/backlog/*.md' | wc -l # the exception above
 ```
 
-On 2026-08-15 those read **132** and **78**, leaving **54** mapped below.
+On 2026-08-15 those read **133** and **78**, leaving **55** mapped below.
 
 ### The canon - binding, kept current
 
@@ -76,6 +76,7 @@ On 2026-08-15 those read **132** and **78**, leaving **54** mapped below.
 | What is wrong with the UI, surface by surface? | [`docs/ui-inventory.md`](docs/ui-inventory.md) |
 | What does the Organize result grid have to look like? | [`docs/organize-grid-design.md`](docs/organize-grid-design.md) |
 | What is the plan for React, and what is already settled? | [`docs/react-migration-plan.md`](docs/react-migration-plan.md) |
+| What did the Organize design spike establish? | [`docs/organize-preview-record.md`](docs/organize-preview-record.md) - the findings, kept because the spike itself is gitignored |
 | What are the rules for TypeScript, React, Tailwind and Rust? | [`docs/frontend-and-shell-standard-research.md`](docs/frontend-and-shell-standard-research.md) - a **record**, not the canon |
 | What does Google Takeout actually put on disk? | [`docs/takeout-format.md`](docs/takeout-format.md) |
 | What does each package do? | [`packages/truestill-core/README.md`](packages/truestill-core/README.md) · [`packages/truestill-cli/README.md`](packages/truestill-cli/README.md) · [`packages/truestill-app/README.md`](packages/truestill-app/README.md) |

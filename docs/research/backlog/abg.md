@@ -54,10 +54,38 @@
     - **Mutation found a hole reasoning did not:** removing the `missing_at = NULL` from
       `mark_copy_verified` killed no test, so a restored drive would have stayed uncounted with
       nothing the user could do. `ENGINEERING_STANDARD.md` §4's **thirty-seventh** member.
-  - ⏳ **WHAT IS STILL OPEN IS STAGE 3, AND IT IS THE HARDER HALF: instance (2), `Output`.** Its
+  - ~~⏳ **WHAT IS STILL OPEN IS STAGE 3, AND IT IS THE HARDER HALF: instance (2), `Output`.** Its
     marker went with its contents, so `read_marker` returns `None` and verify soft-fails - *the
     drive most in need of examination is the one the tool cannot be pointed at*, which is this
-    entry's own line and is untouched by Stage 2.
+    entry's own line and is untouched by Stage 2.~~
+
+  - ❌ **STRUCK 2026-08-15. "ITS MARKER WENT WITH ITS CONTENTS" WAS NOT TRUE OF `Output` WHEN
+    WRITTEN.** `Output/.truestill-drive.json` carries `created: 2026-08-08T22:19:04Z` and an mtime
+    of the same moment, **unmodified since** - two days *before* the 2026-08-10 observation this
+    entry rests on. The file was there the whole time.
+    - **Bounded exactly.** The mtime proves the file was **not modified**; a delete-then-restore
+      would not preserve a 2026-08-08 timestamp. It does **not** prove what the author ran. The
+      plausible innocent reading is that this paragraph describes **`Morrowkeep`** - whose entire
+      cloud mount is absent, where the marker genuinely is unreadable - and attributed it to
+      `Output`. Two instances, one paragraph.
+    - ⚠ **AND `Output` IS SCRATCH, WHICH IS THE REAL LESSON AND IS NOW IN THE CONTRACT.**
+      `TruestillLibrary/Input` and `Output` are **freely writable scratch on the maintainer's
+      machine only** - copies, messy folders and leftover test output are all fine there. Today's
+      grid testing organized into `Output/scratch-grid-test`, which is why a re-reading found
+      **338 media files** where 2026-08-10 found none. **The entry is not careless; its evidence
+      was PERISHABLE.** Any observation of `Output` is a snapshot of a mutable scratch drive that a
+      single test run can undo, and **Stage 3 must not be designed against a state a test run can
+      erase.** See `IMPLEMENTATION_STANDARDS.md`'s corpus-fence row.
+
+  - 🧭 **WHICH EVIDENCE STAGE 3 MAY REST ON, since the two kinds behave differently.**
+    - **DURABLE - catalog-derived, reproducible on any machine.** The counts held identically
+      across both readings: `Output` 2,269, `The Memory Cabinet` 2,269, `Morrowkeep` 395; every
+      copy on the first two marked verified and dated **2026-07-28**; `Morrowkeep` never verified;
+      `The Memory Cabinet` has **no `path_hint`**, so `drive_reach` answers `UNKNOWN`. **This is
+      the arithmetic the defect is about, and it survives anything done to the scratch drives.**
+    - **PERISHABLE - filesystem observations of one maintainer's drives.** Marker presence, root
+      contents, media counts, and everything derived from them. Unavailable to any other developer
+      and mutable by any test run. **Cite with a date; never make it a premise.**
     **The obvious route was examined and refused, so it is not re-derived from scratch:**
     `drive_reach` folds two different observations into `OFFLINE` - *the remembered path is not
     there* and *the remembered path is there and is not this drive*. Splitting them is one `stat`
@@ -67,6 +95,117 @@
     `/proc/mounts` and which custody has never consulted. **That is the design question Stage 3
     owns**; inventing an answer inside Stage 2 would have put a guess where `DriveReach`'s own
     docstring says to report the honest third answer.
+  - 🔬 **STAGE 3'S ASSUMED DEPENDENCY DOES NOT ANSWER STAGE 3'S QUESTION. Read 2026-08-15, not
+    assumed from this entry.** `FilesystemFacts` has exactly **two** fields - `filesystem` and
+    `max_file_bytes` - and `facts_for()` answers *"what filesystem is at this path"*, never *"is
+    anything mounted here"*. An unmounted mountpoint resolves to the **nearest existing path** and
+    reports the **parent's** filesystem, so `/media/USB` unmounted returns `ext4`, the root's. That
+    is not a defect: the module exists for a FAT32 file-size preflight and does that exactly.
+    - **Platform reality, from its own docstring:** Linux parses `/proc/mounts`, Windows uses
+      `GetVolumeInformationW`, and **macOS and everything else return unknown ALWAYS, by design** -
+      *"a guess here would be worse than silence."* Cost is cheap: O(mount lines), or one syscall.
+    - ⚠ **So the paragraph above understates the work.** Consulting `facts_for()` would not tell
+      `Output` from a drawer USB; it would mean **EXTENDING `filesystem.py` with mountpoint and
+      device detection that does not exist** - new platform-specific code on the one axis the
+      module already declines to guess, and unavailable on macOS by construction. That is
+      materially larger than *"consult a module custody has never consulted"*, and this entry did
+      not say so. **Anyone scoping Stage 3 from the paragraph above will under-cost it.**
+
+  - 🔎 **A CHEAPER DISCRIMINATOR, RECORDED AS A CANDIDATE AND NOT AS A DECISION.** `drive_reach` is
+    O(1) (one marker read) and counting media is O(files); **the middle was never priced**. *Is
+    anything at all present under the root* is `next(os.scandir(root), None)` - **O(1), one
+    directory read, no walk, no `/proc/mounts`, no platform-specific code.** It would separate
+    three worlds that collapse into `OFFLINE` today: path absent; path present and **empty**; path
+    present holding **someone else's files**.
+    - **The blast radius is unusually small, checked rather than estimated.** `DriveReach` has
+      **six** consumers - `cli.py:859`, `cli.py:1114`, `decisions.py:963`, `drives.py:533`,
+      `organize.py:433`, `bake.py:354` - and **every one tests `CONNECTED` and nothing else**. Not
+      one branches on `OFFLINE` versus `UNKNOWN`, so a fourth state is **additive by
+      construction**: every existing caller keeps behaving identically, because they all ask "is it
+      here" and a new not-here state answers that the same way.
+    - ⚠ **THE CRY-WOLF CASE, AND IT IS REAL: an unmounted USB whose mountpoint directory persists
+      is EMPTY.** So *"reachable, marker absent, root empty"* describes `Output` **and** a drawer
+      USB, and the drawer USB is by far the commoner. **The test cannot tell a wiped drive from an
+      unmounted one, and any message naming a cause will be routinely wrong.**
+    - **But that argues against NAMING THE CAUSE, not against MAKING THE OBSERVATION.** The
+      distinction that survives is not wiped-versus-unmounted; it is **"we looked and found
+      nothing" versus "we could not look at all"**, and the empty-root check separates those
+      cleanly and cheaply. Both situations deserve a sentence and the honest sentence is nearly the
+      same one - *we can see this path and there is nothing there, so the copies recorded here
+      cannot be confirmed* - which claims neither wiping nor unplugging and is strictly more than
+      the zero words offered today.
+    - ❌ **ANSWERED 2026-08-15, AND IT RULES THE CHEAP TEST OUT FOR THIS CASE.** `Output`'s root
+      is **NOT empty**: five entries - `.truestill-drive.json`, `.truestill-decisions.json`, and
+      three `scratch-*` directories. So `next(os.scandir(root), None)` returns an entry and the
+      cheap test reports *"wrong drive"* for the very case it was reached for. The caveat this
+      paragraph raised was the right one to raise, and the answer went against it.
+
+  - ⚠⚠ **AND THE SAME READING INVALIDATES THIS ENTRY'S STAGE 3 PREMISE. Measured, not inferred,
+    2026-08-15 against the maintainer's own catalog.** Stage 3 is framed above as *"its marker went
+    with its contents, so `read_marker` returns `None` and verify soft-fails - the drive most in
+    need of examination is the one the tool cannot be pointed at."* **That is no longer true:**
+
+    | claim in this entry | measured 2026-08-15 |
+    |---|---|
+    | `Output`'s marker is gone | **present**, `uuid=19411f16…`, `label='Output'` |
+    | `read_marker` returns `None` | returns a valid marker, **uuid matches** |
+    | verify soft-fails, cannot be pointed at it | `drive_reach` returns **`CONNECTED`** |
+    | contains **zero** media files | **338** media files under the root |
+
+    **So the tool CAN be pointed at it, and the case that motivated Stage 3 is not the case that
+    exists today.** Whatever emptied `Output` has since been partly refilled - the three
+    `scratch-*` directories are test fixtures from other arcs - so the drive now holds 338 files
+    that are not the 2,269 the catalog records. That is a **different defect from the one filed**:
+    not *"the drive cannot be examined"* but *"the drive can be examined, is CONNECTED, and holds
+    different content than recorded."*
+
+    ⚠ **Stage 3 must be re-scoped against a re-measured instance before any design.** The counts
+    (2,269 / 2,269 / 395) still match this entry exactly, so the custody arithmetic stands; what
+    has moved is the reachability story the design was to be built on. **`The Memory Cabinet` has
+    no `path_hint` at all**, so `drive_reach` answers `UNKNOWN` for it - a third shape this entry
+    does not discuss.
+
+    🔒 **`Morrowkeep` was NOT examined and must not be.** Its remembered path is under
+    `/home/dinesh/pCloudDrive/`, which `IMPLEMENTATION_STANDARDS.md` fences absolutely - never
+    read, walked or stat'd, at any depth, under any flag. Its row above is from the catalog only.
+
+  - 🧭 **STAGE 3 AS IT STANDS TODAY, 2026-08-15. IT IS NOT DETECTION. IT IS CONSEQUENCE.**
+
+    Every drive in the catalog is already in a state the product can describe: `Output` is
+    **`CONNECTED`** and examinable, `The Memory Cabinet` is honestly **`UNKNOWN`** for want of a
+    remembered path, and `Morrowkeep` is fenced and outside reach by construction. Verify already
+    runs, already persists `missing_at`, and already derives a drive's date from its copies.
+    Freshness is already carried to the sentence a person reads. **What is left is that staleness
+    does nothing.** Both non-fenced drives report every copy verified and dated **2026-07-28**, and
+    the product treats an eighteen-day-old observation exactly as it treats one from this morning:
+    it states the count and offers no consequence, no prompt, and no degradation. **That is the
+    title of this entry - history reported as state - surviving in the one place Stages 1 and 2 did
+    not reach.** The claim became datable, then dated; it never became *conditional*.
+
+    **Traced, not assumed:** pointed at `Output` today, `verify_run` reads the marker (succeeds),
+    loads 2,269 copies, finds the recorded relatives absent, and - because `still_here` is not
+    `None` - calls `mark_copy_missing` on each, then `refresh_drive_verified`. **The machinery to
+    correct this instance already exists and works.** Nothing asks the user to run it.
+
+    ✅ **THREE CANDIDATE ROUTES ARE RETIRED, and the work that eliminated them is kept because
+    eliminating a design is a result.**
+    - **`/proc/mounts` via `filesystem.facts_for()`** - retired: it answers *what filesystem is at
+      this path*, never *is anything mounted here*, and returns unknown on macOS by design. Using
+      it means extending `filesystem.py`, not consulting it.
+    - **Splitting `drive_reach`'s `OFFLINE`** into path-absent versus path-present-but-not-this-
+      drive - retired: it answers a question no drive in the catalog is currently asking.
+    - **The empty-root check** (`next(os.scandir(root), None)`, O(1)) - retired on measurement:
+      `Output`'s root is **not empty**, so the cheap test reports *"wrong drive"* for the very case
+      it was reached for. The reasoning it produced survives and is worth more than the test was:
+      **any message naming a cause will be routinely wrong, so the distinction to build on is "we
+      looked and found nothing" versus "we could not look at all"** - not wiped versus unplugged.
+
+    ⚠ **AND STAGE 3 MUST BE DESIGNED AGAINST CATALOG-DERIVED EVIDENCE ONLY.** The filesystem
+    observations above come from scratch drives that any test run may rewrite; the counts and dates
+    come from the catalog and reproduce on any machine. **Two readings a week apart disagreed about
+    the filesystem and agreed exactly about the catalog.** That is the whole argument for which
+    kind of evidence a design may rest on.
+
   - **Related, and filed separately because it is a different defect:** `(acq)` - "place" counts
     somewhere Truestill organized INTO, not somewhere a copy is kept.
   - **THE MOST IMPORTANT OPEN ITEM ON THIS PROJECT.** Everything below is evidence for the
@@ -85,18 +224,25 @@
       gone / unreachable"* - and it looks only when a user runs it, for a different purpose
       entirely: deciding what is safe to free. **Custody never asks.** A source deleted the day
       after an organize is indistinguishable, to every count in the product, from one still there.
-    - **The custody count carries no freshness.** `last_verified` exists on both `file_copies` and
-      `drives` and is surfaced per-drive in the drive list and in stats - but `library_status`,
+    - ~~**The custody count carries no freshness.** `last_verified` exists on both `file_copies`
+      and `drives` and is surfaced per-drive in the drive list and in stats - but `library_status`,
       which produces the number a person actually reads, counts `file_copies` rows and **never
-      consults it**. So *"kept in 3 places"* appears with no date beside it, and it is a claim the
+      consults it**.~~
+      ❌ **STRUCK 2026-08-15: PRE-STAGE-1 TEXT, NEVER UPDATED AFTER STAGE 1 SHIPPED.**
+      `library_status` **does** consult it - it calls `custody_freshness(catalog, drives,
+      registered)` and its payload carries `custody_checked_at` and `never_checked_drives`. That is
+      exactly what Stage 1 was for, and this paragraph describes the state Stage 1 removed. So *"kept in 3 places"* appears with no date beside it, and it is a claim the
       system cannot back: the data to qualify it is recorded and simply not carried to the place
       the claim is made.
-  - **THE JOB IS SMALLER THAN "ADD FRESHNESS TRACKING".** `last_verified` already exists on
+  - ~~**THE JOB IS SMALLER THAN "ADD FRESHNESS TRACKING".** `last_verified` already exists on
     `file_copies` and on `drives`, and is already surfaced per-drive in the drive list and in
     stats. `library_status` - which produces the number a person actually reads - never consults
     it. **So this is not building a new capability. It is carrying data that already exists to the
     place the claim is made.** That changes the size of the work and should be stated before
-    anyone scopes it as a schema project.
+    anyone scopes it as a schema project.~~
+    ❌ **STRUCK 2026-08-15 - DONE, by Stage 1.** The carrying this paragraph asks for is built. Its
+    instinct was right and is worth keeping for the next reader: the job was smaller than it
+    looked, and it is smaller again now. See the restated Stage 3 below.
 
   - **PRIOR ART, and it is better than anything invented here.** `git-annex` solved this directly:
     - **Believed versus verified.** `Annex/NumCopies.hs` states that the ordinary count compares
