@@ -13,7 +13,7 @@ body {
 body {
   font-family: var(--family-sans);
   font-size: var(--type-base);
-  line-height: 1.45;
+  line-height: var(--line-body);
   color: var(--fg);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
@@ -194,7 +194,7 @@ code,
    below it already say what they are, and a second announcement is noise. */
 .nav-section-label {
   padding: var(--space-3) var(--space-3) var(--space-1);
-  font: var(--weight-semibold) var(--type-xs) / 1.2 var(--family-sans);
+  font: var(--weight-semibold) var(--type-xs) / var(--line-tight) var(--family-sans);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--rail-muted);
@@ -218,7 +218,7 @@ code,
   background: transparent;
   border-radius: var(--corner-md);
   color: var(--rail-muted);
-  font: var(--weight-medium) var(--type-sm) / 1.2 var(--family-sans);
+  font: var(--weight-medium) var(--type-sm) / var(--line-tight) var(--family-sans);
   text-align: left;
   cursor: pointer;
   width: 100%;
@@ -290,7 +290,7 @@ code,
   /* Same gap as `.nav-item .ico` above, and found with it: U+2039 is in the bundled face, and
      this rule never asked for that face either. */
   font-family: var(--family-mono);
-  line-height: 1;
+  line-height: var(--line-flat);
   transition: transform var(--dur) var(--ease);
 }
 .app.sidebar-collapsed .sidebar-toggle .chevron {
@@ -324,7 +324,7 @@ code,
   /* Not the inherited line-height: at 16px that box is 19.2px tall and every row grows with
      it (31.6 -> 35.2px, and the nav block by 25px). `1` keeps the glyph out of the row's
      height calculation. Same pattern as `.sidebar-toggle .chevron`. */
-  line-height: 1;
+  line-height: var(--line-flat);
   text-align: center;
   opacity: 0.9;
 }
@@ -355,7 +355,7 @@ svg.ico {
   border-radius: var(--corner-md);
   background: #2c3140;
   color: #eef0f6;
-  font: var(--weight-medium) var(--type-xs) / 1.2 var(--family-sans);
+  font: var(--weight-medium) var(--type-xs) / var(--line-tight) var(--family-sans);
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
@@ -407,7 +407,7 @@ svg.ico {
   font-size: var(--type-lg);
   letter-spacing: 3px;
   color: var(--rail-success);
-  line-height: 1;
+  line-height: var(--line-flat);
 }
 .custody .pips.none {
   color: var(--rail-muted);
@@ -705,7 +705,7 @@ select.input {
 
 /* ---------- buttons ---------- */
 .btn {
-  font: var(--weight-medium) var(--type-sm) / 1.2 var(--family-sans);
+  font: var(--weight-medium) var(--type-sm) / var(--line-tight) var(--family-sans);
   padding: var(--space-2) var(--space-4);
   border-radius: var(--corner-md);
   border: var(--border-width) solid transparent;
@@ -1648,7 +1648,7 @@ details.more.inline {
   display: none;
 }
 .quick-place {
-  font: var(--weight-medium) var(--type-sm) / 1.2 var(--family-sans);
+  font: var(--weight-medium) var(--type-sm) / var(--line-tight) var(--family-sans);
   padding: var(--space-1) var(--space-3);
   border: var(--border-width) solid var(--border);
   border-radius: var(--corner-pill);

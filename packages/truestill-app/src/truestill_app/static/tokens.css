@@ -152,11 +152,30 @@
   --type-sm: clamp(0.875rem, 0.7499rem + 0.1466vw, 0.984375rem); /* 14 -> 15.75px */
   --type-base: clamp(1rem, 0.857rem + 0.1675vw, 1.125rem); /* 16 -> 18px */
   --type-lg: clamp(1.125rem, 0.9641rem + 0.1884vw, 1.265625rem); /* 18 -> 20.25px */
-  --type-xl: clamp(1.375rem, 1.1784rem + 0.2303vw, 1.546875rem); /* 22 -> 24.75px */
-  --type-2xl: clamp(1.75rem, 1.4997rem + 0.2931vw, 1.96875rem); /* 28 -> 31.5px */
-  /* Metric only. A metric has to outrank everything around it, and 28px does not - it is the
-     h1 size, so a metric set in it competes with the page title instead of leading. Nothing
-     else may use this; `test_shared_pattern.py` fails if anything does. */
+  /* THE TOP OF THE SCALE CAME DOWN 2026-08-15, and the ACCELERATION was the defect rather than
+     any single size. The steps ran 12/14/16/18/22/28 and their ratios ran
+     1.167 / 1.143 / 1.125 / **1.222 / 1.273** - tight at the bottom, loose at the top, so the
+     scale sped up exactly where it should not. That is why the page title read as display type
+     on a form: at 28 it was 2.0x the interface (14) and 1.75x body. It is now 1.71x and 1.5x,
+     and the ratios run 1.167 / 1.143 / 1.125 / 1.111 / 1.200.
+
+     `--type-xl` came down WITH it, and not for symmetry: left at 22 against a 24 title the two
+     would sit at a ratio of 1.09 and read as the same size, so the compression has to move both
+     or it moves neither. Their relationship is preserved (1.273 -> 1.200).
+
+     NOT CHANGED, and each for a reason: `--type-xs` and `--type-sm` carry 37 of 51 declared uses
+     and are already the dense end - the interface was never oversized. `--type-base` looks like a
+     three-use token and is not: one of the three is `body`, inherited by every unstyled element,
+     and the other two are the form label and the input. Collapsing those to `--type-sm` would put
+     labels, inputs, body, nav and buttons all at 14 and remove the last size distinction inside a
+     form, against the ruling at `app.css:583`. */
+  --type-xl: clamp(1.25rem, 1.0712rem + 0.2094vw, 1.40625rem); /* 20 -> 22.5px */
+  --type-2xl: clamp(1.5rem, 1.2855rem + 0.2513vw, 1.6875rem); /* 24 -> 27px */
+  /* Metric only. A metric has to outrank everything around it, and the h1 size does not - a
+     metric set in it competes with the page title instead of leading. Nothing else may use this;
+     `test_shared_pattern.py` fails if anything does, and now also fails if any step overtakes it.
+     Left at 40 by the 2026-08-15 compression: the metric is the one place display type belongs,
+     and its distance from the title is the point rather than a side effect. */
   --type-3xl: clamp(2.5rem, 2.1425rem + 0.4188vw, 2.8125rem); /* 40 -> 45px */
 
   /* ICON SIZE - deliberately NOT a --text-* step, and the distinction is the point.
@@ -169,6 +188,36 @@
      16px, not 18px: the widest glyph measures 15px at 16px type and 17px at 18px, against an
      18px column. 16 is free; 18 is at the edge and buys little. */
   --icon-size: 16px;
+
+  /* LINE HEIGHT - unitless, so it multiplies each element's own size rather than inheriting a
+     computed px, and three tokens because there were six literals and no vocabulary.
+     `--line-body` on `body`, `--line-tight` for headings and the `font:` shorthands,
+     `--line-flat` for single-line chrome that must not grow its row.
+
+     ⚠ NOT `--leading-*`, which was the first name and which `test_tokens_own_their_namespace`
+     refused within a minute: `leading` is Tailwind v4's line-height namespace, `tokens.css` is
+     unlayered, and unlayered wins the cascade - so those tokens would have silently redefined
+     every `leading-*` utility once Tailwind lands. Same reason `--space-*` is not `--spacing-*`
+     and `--type-*` is not `--text-*`. The guard was written before Tailwind exists precisely so
+     this is caught while it is cheap.
+
+     ⚠ THE VALUES ARE UNCHANGED. A proposal to take body to 1.5 came with a proposal to drop the
+     base to 14px, where 1.45 would have read tight. The base stayed at 16 - 1.45 was set against
+     16 and still is - so the premise for the change was withdrawn with it, and raising it now
+     would only make lines LOOSER in a pass whose whole purpose is coherence. Tokenised, not
+     retuned; changing them is a separate decision with its own evidence.
+
+     Line height is independent of the size scale, which is why these are not `--type-*` steps:
+     the same 1.2 is right for a 20px heading and a 24px one.
+
+     TWO LITERALS SURVIVE ON PURPOSE and must not be swept up later: the metric's `1.05`
+     (`app.css`, `.metric-value`) and the mono input's `1.4`. Both are single optical adjustments
+     for one element at one size, not steps anything else should reach for - promoting either to a
+     token would advertise a reuse that would be wrong. Named here so their absence reads as a
+     decision rather than as a miss. */
+  --line-flat: 1;
+  --line-tight: 1.2;
+  --line-body: 1.45;
 
   --weight-normal: 400;
   --weight-medium: 500;
@@ -207,6 +256,16 @@
    and saw nothing. Compounding is still bounded because these are PERCENTAGES - a 24px default
    gives 18 / 24 / 30, which is large by choice rather than by accident, where an absolute step
    would have handed that reader 20px and called it Large. */
+/* ⚠ AT SMALL, `--type-xs` RENDERS ~9px AND `--type-sm` ~10.5px on a 16px default. That is not a
+   defect and it is not new - it predates the 2026-08-15 type pass and is arithmetic, since 75% of
+   a 12px step is 9px. **It is deliberately NOT clamped, and the reason is the same one that
+   refused `document.body.zoom`:** a floor here would override a preference the user set on
+   purpose. Someone choosing Small is choosing smaller text; an app that agrees to the setting and
+   then quietly declines the bottom of it is not honouring the choice, it is overruling it while
+   appearing to comply.
+   The 12px floor this project observes is therefore a floor at MEDIUM, which is the size the
+   product ships at and the one an accessibility claim is made about. Written down because the
+   9px is easy to find, easy to read as a bug, and "fixing" it would break the setting. */
 :root[data-text-size="small"] {
   font-size: 75%;
 }
