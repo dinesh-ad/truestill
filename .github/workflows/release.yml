@@ -290,9 +290,19 @@ jobs:
           pattern: release-*
           merge-multiple: true
 
+      # `out/` is published as-is, and TWO steps here assume it holds regular files: this one and
+      # `gh release create out/*` below. `sha256sum` exits 1 on a directory, and `run:` is
+      # `bash -e`, so one stray directory fails the release AFTER the whole build matrix has spent
+      # its minutes - and says only "Is a directory". `packaging/build_deb.py` staging into `out/`
+      # was that directory until 2026-08-15. The producer is fixed; this names anything that gets
+      # in there next, instead of dying on it.
       - name: Checksums
         run: |
           cd out
+          for entry in *; do
+            [ -f "$entry" ] || {
+              echo "::error::out/ is published as-is and holds a non-file: $entry"; exit 1; }
+          done
           sha256sum * > SHA256SUMS
           cat SHA256SUMS
 

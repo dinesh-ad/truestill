@@ -63,6 +63,7 @@ import argparse
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[1]
@@ -131,14 +132,34 @@ License: Apache-2.0
 
 
 def build(dist: Path, version: str, out: Path) -> Path:
-    """Stage the tree, write the metadata, and hand it to ``dpkg-deb``."""
+    """Stage the tree, write the metadata, and hand it to ``dpkg-deb``.
+
+    **``out`` receives the package and nothing else.** The staging tree is scratch, and it used
+    to be built at ``out/truestill_<version>_<arch>/`` and removed only at the *start* of the
+    next build - so it survived every run, in the directory `release.yml` uploads wholesale.
+    ``cd out; sha256sum *`` then exits 1 on a directory under ``bash -e``, which would have
+    failed the first real tag at the publish step. Reproduced 2026-08-15; pinned by
+    `test_release_out_holds_only_deliverables.py`.
+
+    The scratch directory sits **inside ``out``** rather than in ``TMPDIR``: it holds a full copy
+    of the frozen application, and ``TMPDIR`` is a small root partition on more machines than it
+    is not. Same filesystem as the target, so `copytree` is never a cross-device copy, and
+    `TemporaryDirectory` removes it on **every** exit path - a `dpkg-deb` failure is precisely
+    when someone re-runs the lane and least wants debris.
+    """
     if not (dist / "truestill").is_file():
         message = f"no frozen application at {dist} - build it before packaging it"
         raise SystemExit(message)
 
-    staging = out / f"truestill_{version}_{_ARCH}"
-    if staging.exists():
-        shutil.rmtree(staging)
+    with tempfile.TemporaryDirectory(dir=out) as scratch:
+        return _stage_and_package(dist, version, out, Path(scratch))
+
+
+def _stage_and_package(dist: Path, version: str, out: Path, scratch: Path) -> Path:
+    """Lay the FHS tree out under ``scratch`` and package it into ``out``."""
+    # Keeps the conventional name inside the scratch directory, so anything `dpkg-deb` prints
+    # still names the package it is building rather than a temporary directory.
+    staging = scratch / f"truestill_{version}_{_ARCH}"
 
     app = staging / "usr" / "lib" / "truestill"
     app.parent.mkdir(parents=True)
