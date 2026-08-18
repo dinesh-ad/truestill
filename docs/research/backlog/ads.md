@@ -156,6 +156,98 @@
   unanswered, and a run that quietly substitutes a local directory would produce a confident
   number about the wrong thing.
 
+  ## ✅ MEASURED 2026-08-18, AFTER `(adu)` SHIPPED - AND THE ANSWER IS THAT `(adu)` TOOK THE WIN
+
+  `(adu)` supplied the control this entry said had to be built, so §7's comparison was re-run
+  with it. **Corpus, cited rather than described:** a copy of the real catalog
+  (`reports/catalog.sqlite`, **6.37 MB, 2,695 files, 3 drives, schema v19**) and the photo tree at
+  `TruestillLibrary/Input`, **11 GB / 4,112 files as of 2026-08-18T22:20:46+02:00**. ⚠ That is a
+  **snapshot of a mutable scratch area on one machine** - not a fixture, and not a premise. Rig on
+  ext4; the original catalog was copied and never written.
+
+  Reader = the catalog work `organize_preview` does (`count`, `list_drives`, `seed_rows`,
+  `known_sizes`, ~6 ms). Writer = what `set_organize_mode` does.
+
+  ### 🔑 THE (adt) SHAPE, AND IT IS DECISIVE: one long-held write, a reader arriving 200 ms in
+
+  | | `delete` | `wal` |
+  |---|---:|---:|
+  | **pre-`(adu)`** (every open takes `BEGIN IMMEDIATE`) | **1848.3 ms** | **1850.6 ms** |
+  | **post-`(adu)`** (shipped) | **6.1 ms** | 12.4 ms |
+
+  **Pre-`(adu)` the two modes are identical to within 2 ms** - §7's *"two writers block identically
+  in both modes"*, reproduced on the real shape rather than on a synthetic holder. **Post-`(adu)`
+  the reader sails through under `delete`, and WAL is SLOWER.** `(adt)`'s mechanism - a reader
+  waiting out `busy_timeout` behind a long write - is **already gone**, and WAL had nothing to do
+  with it.
+
+  ### ⚠ AND THIS ENTRY'S CENTRAL MECHANISM CLAIM IS MEASURABLY FALSE
+
+  The entry says *"in rollback journal **a writer excludes all readers**"* and, of `(adt)`, *"under
+  `journal_mode=delete` a writer excludes everyone, so a settings write and a job cannot
+  overlap."* **They can.** A writer holding a write transaction open for two full seconds did not
+  block a reader **at all** (6.1 ms). SQLite holds **RESERVED** for the body of a write, and
+  RESERVED *permits readers*; only the brief **EXCLUSIVE** window at commit locks them out. What
+  starves a reader is **repeated commits**, never a long-held write. The claim was inherited from
+  the shape of the documentation rather than measured, and it is the reason this entry expected
+  WAL to matter here.
+
+  ### WHERE WAL DOES WIN: sustained commit pressure, and only there. Post-`(adu)`, reader p99:
+
+  | writer interval | `delete` p50 / p99 | `wal` p50 / p99 | p99 ratio |
+  |---:|---:|---:|---:|
+  | 0 ms (as fast as it can) | 632.9 / **3211.4 ms** | 6.2 / 18.5 ms | **174x** |
+  | 5 ms | 58.4 / 102.8 ms | 9.5 / 19.5 ms | 5.3x |
+  | 10 ms | 15.1 / 43.7 ms | 8.6 / 18.0 ms | 2.4x |
+  | 20 ms | **6.0** / 23.0 ms | 6.1 / 16.2 ms | 1.4x |
+  | 50 ms | **5.5** / 15.0 ms | 5.8 / 8.6 ms | 1.7x |
+
+  **The crossover is at roughly one write per 10-20 ms, and the app sits on the far side of it.**
+  The only sustained writer this product has is an organize run, which writes once **per file,
+  after each copy** (`catalog_busy.py`'s own docstring). Measured on the corpus above: mean file
+  **2.82 MB**, and hashing alone costs **3.6 ms/file at 778 MB/s** - warm cache, so a floor - on
+  top of which a real run copies those bytes and runs exiftool (**2.2 ms/file**, `PERFORMANCE.md`
+  §4). Per-file intervals land at or beyond 20 ms, where `delete`'s p50 is **better** and its p99
+  is within 1.4x. ⚠ **And the warm-cache bias runs in the safe direction**: a cold run is slower
+  per file, which moves the app further from WAL's advantage, not closer.
+
+  ### THE NETWORK ARM STILL HAS NOWHERE TO RUN, and it was not substituted
+
+  The only network filesystems on this machine are fenced mounts that are never read, walked or
+  stat'd. A `TRUESTILL_DATA_DIR` pointed at a local directory measures nothing about WAL, whose
+  whole constraint is shared memory, so **the arm was left unrun rather than faked.**
+
+  ⚠ **A trap found while checking the arm is even ready, recorded so it does not produce a
+  confident number about the wrong file.** `TRUESTILL_DATA_DIR` is **silently shadowed by the
+  legacy catalog**: `default_catalog_path` checks `reports/catalog.sqlite` relative to the CWD
+  first, so run from the repo root the override is ignored and the repo's own catalog is measured.
+  Verified both ways - from a directory without `reports/` the override resolves correctly.
+
+  ### 🔑 THE ANSWER
+
+  **`(adu)` already took the win, and `journal_mode` remains a lever with no measured problem to
+  fix** - which is where §7 left it on 2026-08-09, now reached by measurement against the real
+  workload instead of a synthetic two-writer case, and with the control that comparison lacked.
+
+  **What adopting WAL would buy:** 1.4-2.4x on a p99 of 16-44 ms, at write rates the app does not
+  reach. **What it would cost:** the `-wal` sidecar as a new torn-copy mechanism (`(adb)`),
+  persistence into the file so a catalog carries the mode to wherever it is moved, read-only media,
+  and a detection-and-fallback path for locations where it cannot work. **The cost is not close.**
+
+  ⚠ **This entry is NOT closed and should not be**, because what changed is the evidence, not the
+  question: the numbers above are a snapshot of one machine's scratch area and one library. What
+  is settled is that **nothing measured today justifies the change**, and that the next person
+  should re-run the sweep rather than re-derive the argument.
+
+  ### ⚠ AND A CORRECTION TO THIS ENTRY'S OWN REFRAMING OF 2026-08-18
+
+  The reframing above argued *"WAL would not have prevented `(adt)`"* on the grounds that both
+  parties are writers **and** that §7 measured two writers blocking identically. **The conclusion
+  holds and the second half of the reasoning does not**: under sustained commits the two modes are
+  nowhere near identical - `delete` degrades to a 3.2 s p99 where WAL stays at 18 ms. §7's finding
+  is true of its own synthetic case, not of writers generally. What actually establishes the
+  conclusion is the long-hold table at the top of this section, which was not run until today.
+
   ### ⚠ THE GATING CLAIM WAS WRONG IN BOTH DIRECTIONS (corrected 2026-08-18)
 
   - **`(adb)`: gated MORE than stated.** WAL's `-wal` sidecar is a **new** torn-copy mechanism,

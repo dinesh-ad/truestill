@@ -993,7 +993,21 @@ act on** - *"two writers block identically in both modes"* is exactly what a run
 modes would keep finding. So this paragraph's *"revisit it with a measurement"* is right and
 **incomplete**: the measurement needs a **control** with `_migrate`'s `BEGIN IMMEDIATE` made
 conditional, or it reproduces this null result forever. Filed as `BACKLOG.md` **`(adu)`** (the
-per-open lock, which gates it) and `(ads)` (the mode). ⚠ **This entry and `(ads)` were written
+per-open lock, which gates it) and `(ads)` (the mode).
+
+✅ **RE-RUN WITH THAT CONTROL ON 2026-08-18, AFTER `(adu)` SHIPPED, AND THE DECLINE STANDS - for a
+better reason than this paragraph had.** A copy of the real catalog, a preview-shaped reader and a
+settings writer. The decisive case is `(adt)`'s own shape, one long-held write with a reader
+arriving 200 ms in: **pre-`(adu)` `delete` 1848.3 ms and `wal` 1850.6 ms - identical, this
+paragraph's finding reproduced on a real workload - and post-`(adu)` `delete` 6.1 ms against
+`wal` 12.4 ms, with WAL SLOWER.** WAL wins only under sustained commits (reader p99 at a
+zero-delay writer: 3211.4 ms `delete` against 18.5 ms `wal`), and the crossover sits at roughly one
+write per 10-20 ms. The app's only sustained writer is an organize run, which writes once per file
+after a copy - mean file 2.82 MB on the measured corpus, hashing alone 3.6 ms/file warm - so it
+lands at or beyond 20 ms, where `delete`'s p50 is **better**. ⚠ **And this paragraph's own
+mechanism sentence was wrong**: a writer does *not* exclude readers in rollback-journal mode.
+RESERVED permits them; only the commit's brief EXCLUSIVE window does not. Full tables in
+`research/backlog/ads.md`. ⚠ **This entry and `(ads)` were written
 without knowing about each other**, between two canon documents - which is what the reframing in
 `(ads)` records.
 
