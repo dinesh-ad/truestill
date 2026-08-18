@@ -22,6 +22,61 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(adu) AN OPEN THAT WILL CHANGE NOTHING NO LONGER TAKES THE CATALOG'S WRITE LOCK.**
+  - ✅ **CLOSED 2026-08-18.** `_migrate` reads `PRAGMA user_version` and the `files` row first; if
+    the schema is current it **returns without opening a transaction**. Everything else falls
+    through to today's `BEGIN IMMEDIATE` and **re-reads both under the lock**.
+  - 🔑 **THE FINDING THAT DECIDED IT, and it collapsed the question rather than answering it.**
+    The lock protects **exactly one state** - two openers both building a fresh schema - and that
+    happens **once per catalog in the life of a library**. Measured: on an already-migrated
+    catalog the migrate transaction writes **nothing** (`total_changes` 0 over five opens, file
+    byte-identical, no journal sidecar), and **removing `BEGIN IMMEDIATE` there changes nothing at
+    all** - the mutation *survives*. The same mutation is *caught* on a fresh catalog, where two
+    openers immediately both build. Every open after the first was paying to protect a state that
+    cannot recur.
+  - **Why this is not the check-then-act §5.4 replaced**, which is the entire distinction and it
+    is one line. The old defect **acted** on an unlocked read. This fast path can reach only one
+    conclusion - *"nothing to do, return"* - and every path that writes re-reads under the lock.
+    **Proven before the fix existed**: with the fall-through removed, `test_two_openers_build_the
+    _schema_once` fails at `2 == 1` builders; unmutated control green first.
+  - **Three routes died by measurement, not argument** (`PERFORMANCE.md` §5.6):
+    - **read-first, lock-if-behind** - *is* §5.4's defect; fails the regression test on the first
+      run.
+    - **`BEGIN DEFERRED` upgraded to a write** - refused after **0.1 ms** with `database is
+      locked` against a 5,000 ms `busy_timeout`, which SQLite does not honour on that upgrade. It
+      buys one writer by making the other a casualty, which is what the regression test's second
+      assertion exists to reject.
+    - **an idempotent build** - `_SCHEMA` is *already* `CREATE TABLE IF NOT EXISTS` throughout, so
+      it changes nothing about whether the lock is taken.
+  - **Measured, on ext4 with a 256x `fsync` control** (the scratchpad on this machine is tmpfs and
+    read **1.1x**; it was refused before anything ran - §5.4's own trap, met at the door):
+
+    | already-migrated catalog | before p50 | after p50 | before p99 | after p99 | before max | after max |
+    |---|---:|---:|---:|---:|---:|---:|
+    | N=1 | 0.575 ms | 0.612 ms | 0.695 ms | 0.727 ms | 1.04 ms | 1.04 ms |
+    | N=4 | 2.286 ms | **1.336 ms** | 9.69 ms | **2.40 ms** | 19.0 ms | **2.74 ms** |
+    | N=12 | 9.565 ms | **2.237 ms** | 181.9 ms | **3.59 ms** | 232.5 ms | **4.29 ms** |
+
+  - ⚠ **IT IS A TRADE, NOT A FREE WIN, and the uncontended row is here so it cannot be read as
+    one.** A single open is **slightly slower** - 0.575 -> 0.612 ms, the one extra read. It buys a
+    50x worst case under concurrency with a fixed sub-millisecond cost on every open.
+  - **On a fresh catalog it changes nothing**, which was the one real risk: the unlocked read
+    landing while another opener is mid-build. 40 trials at 6 and 12 openers, before and after -
+    **exactly one builder every time, zero errors**, same open cost.
+  - **Five guards, each proven by mutation in both directions**, control run first:
+    `test_a_current_catalog_opens_without_the_write_lock.py` dies when the fast path is deleted,
+    when the `files` check is dropped from its condition, and when `_refuse_if_newer` is dropped
+    from it; `test_two_openers_build_the_schema_once` dies when the fall-through stops re-reading
+    under the lock. ⚠ **The first run of that matrix was a FALSE PROOF and is recorded as one**:
+    zsh does not word-split an unquoted `$TESTS`, so `pytest` got one unusable argument, exited
+    **4** (usage error), and all four mutants read as "caught" while **no test had run**. Caught
+    by the control printing *"no tests ran"*. `mutate_once.py` guards the anchor, not the command
+    - the same class of false proof it was written to end, one layer out.
+  - **What it does NOT do, so it is not credited with it:** it does not make the migration chain
+    atomic (`(adl)`, which now has a measured rate), it does not touch `(adt)`'s 6.5 s settings
+    write, and it does not decide `(ads)` - it makes `(ads)` **measurable** by removing the
+    bottleneck that was identical in both journal modes.
+
 - **(adr) A 0-BYTE FILE AT THE CATALOG PATH IS ITS OWN STATE, AND THE APP REFUSES IT.**
   - ✅ **CLOSED 2026-08-18.** A new `CatalogPresence.ZERO_BYTES` (tone `alert`), a shared
     `refuse_unusable_catalog`, and `CATALOG_UNUSABLE_EXIT = 6`. The CLI refuses ahead of its

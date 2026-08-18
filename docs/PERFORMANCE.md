@@ -904,7 +904,10 @@ trap the paragraph above documents, walked into by the rig that cites it. Caught
 re-run on ext4; both rows are above, and the conclusion held either way only because nothing here
 fsyncs. **A durability control is not optional even when you have read the warning.**
 
-### 5.6 What the per-open lock FORECLOSES, and the cost of not taking it (measured 2026-08-18)
+### 5.6 What the per-open lock FORECLOSED, and what removing it bought (measured 2026-08-18)
+
+✅ **SHIPPED the same day as `BACKLOG.md` `(adu)`** - `SHIPPED.md` carries the entry. The table
+below is the *decision*; the landed figures are at the end of this section and they hold.
 
 §5.5 priced the lock at 4-8 microseconds and concluded it is close to free. It is. **This
 section is not about what it costs - it is about what it prevents**, which is `BACKLOG.md`
@@ -935,6 +938,17 @@ here so it is not read as one.
 catalog stepped back one version, 150 trials, **six openers ran the same migration more than once
 in 20 of them**. No errors - the migrations are idempotent - so nothing has ever failed for it.
 `BACKLOG.md` `(adl)` owns it.
+
+**Re-measured after landing, same rig**, so the decision's numbers are not left as a forecast:
+
+| already-migrated catalog | p50 | p99 | max |
+|---|---:|---:|---:|
+| N=1 | 0.612 ms | 0.727 ms | 1.04 ms |
+| N=4 | 1.336 ms | 2.401 ms | 2.74 ms |
+| N=12 | **2.237 ms** | **3.586 ms** | **4.29 ms** |
+
+Against 9.565 / 181.9 / 232.5 ms before. ⚠ **And N=1 is still slightly slower than the 0.575 ms it
+replaced** - the trade is real and it is priced here rather than rounded away.
 
 ---
 

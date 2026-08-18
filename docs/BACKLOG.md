@@ -118,9 +118,6 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(adu) EVERY CATALOG OPEN TAKES THE WRITE LOCK, INCLUDING ONE THAT WILL CHANGE NOTHING.**
-  Recorded 2026-08-18. **Gates `(ads)`, `(adn)`, `(adl)` and `(adm)`.**
-  [Full entry](research/backlog/adu.md)
 - **(adt) TWO CATALOG WRITERS RACE INSIDE ONE PROCESS, ON AN ORDINARY USER PATH.** Recorded
   2026-08-15. [Full entry](research/backlog/adt.md)
 - **(ads) THE CATALOG'S CONCURRENCY MODEL IS SQLITE'S DEFAULT, NOT A DECISION.** Recorded

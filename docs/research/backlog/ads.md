@@ -87,8 +87,13 @@
   avoid the write lock, without giving back what §5.4 bought?** §5.4 bought that lock deliberately
   - 2,170 schema writes from 7,696 opens, one holder at 20,260 ms - and it is what makes
   check-then-act atomic across processes. Filed as **`(adu)`**, and it is what actually gates
-  this entry. ⚠ **`journal_mode` is not the variable until `(adu)` is answered**: comparing the
-  two modes through a bottleneck that is identical in both is a null result waiting to happen.
+  this entry. ⚠ **`journal_mode` was not the variable until `(adu)` was answered**: comparing the
+  two modes through a bottleneck that is identical in both is a null result waiting to happen -
+  which is the most likely explanation for §7's.
+  ✅ **`(adu)` SHIPPED 2026-08-18** (`SHIPPED.md`): an open that will change nothing no longer
+  takes the write lock. **This entry is therefore now measurable for the first time**, and the
+  measurement it needs is the one below - with the control it names, which `(adu)` has now
+  supplied by making the fast path real rather than hypothetical.
 
   ### Why §7's decline is DATABLY STALE, which is the reason to reopen rather than defer to it
 
@@ -137,7 +142,8 @@
 
   🔑 **THE CONTROL, and without it the run repeats §7's null result:** the same measurement with
   `_migrate`'s `BEGIN IMMEDIATE` made conditional. Otherwise both modes are measured through the
-  same bottleneck and *of course* they agree.
+  same bottleneck and *of course* they agree. ✅ **No longer a control that has to be built** -
+  `(adu)` shipped it, so a run against `main` is already the conditional case.
 
   ⚠ **`df -T` FIRST.** §5.5's rig reported fsync at 0.0004 ms on tmpfs - the exact trap the
   paragraph it was citing documents.
@@ -160,7 +166,7 @@
     entry's.
 
   - See `(adt)` (the demonstration, in-process), `(adn)` (two processes, one catalog), `(adb)`
-    (why a file copy of this mode is torn), `(adu)` (**the question upstream of this one**),
+    (why a file copy of this mode is torn), `(adu)` (the question upstream of this one - **shipped**),
     `(adr)` (the 0-byte artefact of that copy - **shipped 2026-08-18**, `SHIPPED.md`),
     `(adl)` / `(adm)` (behaviour under the lock), and `PERFORMANCE.md` §5.4 (what the lock cost
     and what fixing it recovered).

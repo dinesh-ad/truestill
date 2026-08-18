@@ -705,6 +705,11 @@ def _split_schema(script: str) -> tuple[str, ...]:
 #: Computed once at import, O(len(_SCHEMA)) and never again.
 _SCHEMA_STATEMENTS = _split_schema(_SCHEMA)
 
+#: "Has this catalog been built at all". One home, because `_migrate` asks it twice on purpose -
+#: once on the unlocked fast path and once under the write lock - and two copies of the question
+#: is how the two reads quietly stop being the same question.
+_FILES_TABLE = "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'files'"
+
 
 _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (2, _add_size_column),
@@ -818,26 +823,59 @@ class Catalog:
         would have silently released the lock at the first migration while looking correct.
         So the chain keeps today's autocommit-per-statement behaviour exactly: a failure
         part-way still leaves the schema half-lifted with `user_version` unchanged. **That is
-        unchanged, not fixed** - see `BACKLOG.md`. What the transaction does fix is that the
-        chain can no longer be entered on a catalog that is already current.
+        unchanged, not fixed** - see `BACKLOG.md`. ~~What the transaction does fix is that the
+        chain can no longer be entered on a catalog that is already current.~~
+        ⚠ **NARROWED 2026-08-18 BY MEASUREMENT, `(adl)`: only if the STAMP has already happened,
+        and the stamp is outside the lock too.** An opener that takes the lock after another has
+        committed but before it has written the new `user_version` reads the OLD version and runs
+        the same migration again. Measured on a catalog one version behind, 150 trials: at six
+        openers, **20 ran a migration more than once**. Nothing has ever failed for it because the
+        chain's migrations happen to be idempotent - which is luck holding, not a design.
 
-        Cost: one extra statement per open, O(1). The fresh path executes the same 21
-        statements as before, now individually rather than as one script.
+        Cost, since `(adu)`: an already-current catalog does **two reads and no transaction**;
+        anything else pays those two reads and then the full path below. The fresh path executes
+        the same 21 statements as before, now individually rather than as one script.
         """
         conn = self._conn
+        # THE FAST PATH, AND IT CAN ONLY EVER DECIDE TO SKIP. `(adu)`.
+        #
+        # **Why this is not the check-then-act that §5.4 replaced, which is the whole
+        # distinction.** The defect was reading the version and then *acting* on what an unlocked
+        # read said. Nothing here acts: the only conclusion this block can reach is "the schema is
+        # already current, there is nothing to do, return". Every path that writes falls through
+        # to `BEGIN IMMEDIATE` below and **re-reads the version and the table under the lock**,
+        # which is where the decision is made. A fast path that acts on this read instead of
+        # falling through IS the old defect, and
+        # `test_two_openers_build_the_schema_once` catches it - proven by mutation in both
+        # directions before this landed.
+        #
+        # **Why it is worth having**, measured 2026-08-18 on ext4 with a 256x fsync control
+        # (`PERFORMANCE.md` §5.6): the lock protects exactly one state - two openers both
+        # building a fresh schema - and that happens **once per catalog** in the life of a
+        # library. Removing `BEGIN IMMEDIATE` is caught immediately on a fresh catalog and
+        # survives entirely on a migrated one, which writes nothing at all: `total_changes` 0,
+        # file byte-identical, no journal. Every open after the first was paying for a state that
+        # cannot recur, and at twelve concurrent opens that cost p99 **181.9 ms against 3.93 ms**.
+        #
+        # ⚠ **It is a TRADE, not a free win.** Uncontended it is slightly *slower* -
+        # **0.575 -> 0.670 ms**, the one extra read - and that is recorded rather than buried. It
+        # buys a contention tail with a fixed sub-millisecond cost.
+        #
+        # `_refuse_if_newer` runs here too: a catalog from a newer Truestill must be refused
+        # before anything opens a transaction against it, not after.
+        version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+        _refuse_if_newer(version)
+        if version == CURRENT_SCHEMA_VERSION and conn.execute(_FILES_TABLE).fetchone() is not None:
+            return
         # RESERVED before the first read. Waiters block here for at most `busy_timeout`, and
         # the whole decision below is invisible to them until it commits.
         conn.execute("BEGIN IMMEDIATE")
         try:
+            # RE-READ UNDER THE LOCK, never reused from the fast path above. This is the line
+            # that makes the fast path a skip rather than a decision.
             version = int(conn.execute("PRAGMA user_version").fetchone()[0])
             _refuse_if_newer(version)
-
-            fresh = (
-                conn.execute(
-                    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'files'"
-                ).fetchone()
-                is None
-            )
+            fresh = conn.execute(_FILES_TABLE).fetchone() is None
             if fresh:
                 for statement in _SCHEMA_STATEMENTS:
                     conn.execute(statement)

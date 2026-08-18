@@ -45,6 +45,11 @@ All notable changes to this project are documented here. The format follows
   A group you have already named shows its name instead, and is never offered a suggestion.
 
 ### Fixed
+- **Screens that open several things at once no longer queue behind each other.** Every time
+  Truestill opened your library it briefly took the same exclusive lock it needs to *build* a
+  library, even when it was only going to read. One screen fires several requests at once, so
+  they took turns for no reason: the slowest of twelve simultaneous opens went from **232 ms to
+  4 ms**. Nothing about your data changed, and a brand-new library is still built exactly once.
 - **An empty file where your catalog should be now stops Truestill instead of becoming your
   library.** If a copy of your catalog ran out of disk part-way, or a run was interrupted before
   it wrote anything, what is left behind is a file of **zero bytes** wearing your catalog's name.
