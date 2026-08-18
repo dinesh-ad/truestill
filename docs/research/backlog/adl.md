@@ -23,3 +23,25 @@
   **Needs its own design and is not a bug fix**: making it transactional means rewriting twelve
   migration functions off `executescript` and moving the `VACUUM` outside, which changes the
   upgrade path for every existing catalog. Do not attempt it as a follow-on to the lock work.
+
+  - ⚠ **MEASURED 2026-08-18, FROM `(adu)`'s RIG: THE CHAIN IS NOT SERIALISED EITHER, AND THAT WAS
+    ASSUMED RATHER THAN CHECKED.** This entry records that the chain is not *transactional* - it
+    half-lifts on failure. It is also not *exclusive*: `_migrate` commits its transaction and the
+    `for target, migrate in _MIGRATIONS` loop runs **after** that commit, outside any lock. So two
+    openers can run the same migration at the same time.
+    - **Measured** on a catalog stepped back one version, openers released together, 150 trials
+      per row, rig on ext4 with a 256x `fsync` control:
+
+      | openers | ran the v19 migration once | twice | three times |
+      |---:|---:|---:|---:|
+      | 2 | 149 | 1 | - |
+      | 6 | 130 | **18** | **2** |
+
+    - **One in seven six-way opens ran one migration more than once**, today, with `BEGIN
+      IMMEDIATE` in place. **No errors** - the migrations in the chain happen to be idempotent, so
+      nothing has ever failed because of this. That is luck holding rather than a design, and a
+      future migration that is not idempotent would meet it.
+    - ⚠ **This does not change `(adu)`'s answer and `(adu)` does not fix this.** They are separate:
+      `(adu)` is about the lock being taken when nothing will be written; this is about the chain
+      running outside the lock that is taken. `(adu)`'s proposed route was measured to leave these
+      figures statistically unchanged, deliberately.

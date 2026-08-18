@@ -904,6 +904,38 @@ trap the paragraph above documents, walked into by the rig that cites it. Caught
 re-run on ext4; both rows are above, and the conclusion held either way only because nothing here
 fsyncs. **A durability control is not optional even when you have read the warning.**
 
+### 5.6 What the per-open lock FORECLOSES, and the cost of not taking it (measured 2026-08-18)
+
+§5.5 priced the lock at 4-8 microseconds and concluded it is close to free. It is. **This
+section is not about what it costs - it is about what it prevents**, which is `BACKLOG.md`
+`(adu)`. Rig on ext4, `fsync` control **256x** (the scratchpad on this machine is tmpfs and
+measured **1.1x**; it was refused before anything ran - §5.4's own trap, met at the door).
+
+**The lock protects exactly one state, and it happens once per catalog.** Five opens of an
+already-migrated catalog leave the file byte-identical, `total_changes = 0`, and no journal
+sidecar. Removing `BEGIN IMMEDIATE` is **caught immediately on a fresh catalog** (2 openers both
+build the schema) and **survives entirely on a migrated one** (0 builders, both openers fine,
+file unchanged).
+
+**What it costs to keep taking it.** Concurrency sweep on an already-migrated catalog against a
+double-checked fast path that skips the transaction when the schema is current:
+
+| | shipped p50 | fast path p50 | shipped p99 | fast path p99 | shipped max | fast path max |
+|---|---:|---:|---:|---:|---:|---:|
+| N=1 | 0.575 ms | 0.670 ms | 0.695 ms | 0.774 ms | 1.04 ms | 1.08 ms |
+| N=4 | 2.286 ms | **0.807 ms** | 9.692 ms | **1.398 ms** | 19.0 ms | **1.70 ms** |
+| N=12 | 9.565 ms | **2.201 ms** | 181.9 ms | **3.93 ms** | 232.5 ms | **4.63 ms** |
+
+**46x on p99 at twelve openers, 50x on the worst case - and slightly SLOWER uncontended**
+(0.575 -> 0.670 ms, one extra read). It is a trade, not a free win, and the uncontended row is
+here so it is not read as one.
+
+⚠ **THE FINDING THAT WAS NOT BEING LOOKED FOR: the lock does not serialise the migration chain.**
+`_migrate` commits, and the `_MIGRATIONS` loop runs after that commit, outside any lock. On a
+catalog stepped back one version, 150 trials, **six openers ran the same migration more than once
+in 20 of them**. No errors - the migrations are idempotent - so nothing has ever failed for it.
+`BACKLOG.md` `(adl)` owns it.
+
 ---
 
 ## 7. Catalog audit (measured 2026-08-09)
