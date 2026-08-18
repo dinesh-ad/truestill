@@ -45,6 +45,15 @@ All notable changes to this project are documented here. The format follows
   A group you have already named shows its name instead, and is never offered a suggestion.
 
 ### Fixed
+- **Checking a copied drive now tells you it is a copy.** If you clone a drive - or restore one
+  from an image - both copies carry the same drive identity, which is correct: they are the same
+  library until they drift apart. But Truestill counted them as **one** place, so it told you your
+  photos were in fewer places than they really were, which is the wrong direction to be wrong in.
+  Now, when a drive answers in two places at once, `truestill verify` and the Check screen say so:
+  both folders, when the other was last seen, and the command to give one its own identity if they
+  are genuinely two drives. **It never decides for you** - nothing is renamed, split or refused.
+  A drive you simply *moved* says nothing, because a move and a copy whose original is unplugged
+  look identical and warning about every move would be noise.
 - **If you tell Truestill where to keep its files, it now listens.** Setting `TRUESTILL_DATA_DIR`
   used to be quietly ignored whenever there was a `reports/catalog.sqlite` in the folder you
   happened to run from - so you could be organizing photos into a different catalog than the one

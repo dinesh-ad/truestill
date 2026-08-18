@@ -306,6 +306,15 @@ def attach_drive(
     marker = read_marker(path)
     was_registered = marker is not None
     if marker is None:
+        # ⚠ THIS GATE IS ABOUT THE **CONTENT** INSPECTION ONLY, and that distinction was lost
+        # until `(adx)`. `_adoption_block` costs up to 40 stats and 3 full-file hashes per known
+        # drive plus a full `file_copies` read, so paying it on a marked drive would be real work
+        # for an offer to adopt itself - the reasoning below stands. What was also skipped here,
+        # for free and by accident, was the **path** comparison: whether this drive's identity
+        # already answers somewhere else. That question costs one bounded marker read, is only
+        # meaningful when a marker EXISTS, and now lives at the hint write instead of behind this
+        # gate. See `truestill_core.drive.second_location_note`.
+        #
         # Only ever asked where a marker WOULD be minted. An already-marked drive has an
         # identity, so inspecting it could only offer to adopt itself, at the cost of real
         # reads on every backup preview.

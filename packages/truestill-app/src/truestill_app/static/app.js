@@ -2907,6 +2907,13 @@ $("verify-run").onclick = guarded(async () => {
       const problemNote = problems
         ? `<div class="banner warn"><div><div class="b-title">${plural(s.problems.length, "file")} could not be confirmed</div>${problems}</div></div>`
         : "";
+      // (adx) gap 1. Absent unless this drive's id also answered at a second LIVE path, which
+      // means two real copies exist and the custody count below is short by one. A warn banner
+      // rather than a tally cell: it is not a number about this check, it is a fact about how
+      // many places these photos are in - and under-reporting that is what gets one deleted.
+      const secondPlace = s.second_location
+        ? `<div class="banner warn" data-testid="verify-second-location"><div><div class="b-title">This drive answers in two places</div><div class="mono">${esc(s.second_location)}</div></div></div>`
+        : "";
       $("verify-result").innerHTML =
         card(`<div class="headline">Checked ${esc(s.label || "")}</div>
            <div class="tally"><div class="n">${nfmt(s.verified)}</div><div class="k">verified</div>
@@ -2914,7 +2921,7 @@ $("verify-run").onclick = guarded(async () => {
            <div class="n">${nfmt(s.mismatch)}</div><div class="k">changed</div>
            <div class="n">${nfmt(s.unreadable || 0)}</div><div class="k">unreadable</div>
            <div class="n">${nfmt(s.unverifiable || 0)}</div><div class="k">no recorded hash</div></div>
-           ${problemNote}`);
+           ${secondPlace}${problemNote}`);
       loadCustody();
       loadDrives();  // "last checked" on the card comes from the verify just recorded
     },

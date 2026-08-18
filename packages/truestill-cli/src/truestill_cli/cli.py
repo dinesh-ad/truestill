@@ -88,6 +88,7 @@ from truestill_core.drive import (
     path_is_usable_dir,
     reach_of,
     read_marker,
+    second_location_for,
     upgrade_marker,
 )
 from truestill_core.drive_adoption import (
@@ -890,6 +891,20 @@ def _recorded_drives(catalog: Catalog) -> list[RecordedDrive]:
     ]
 
 
+def _say_if_two_places(catalog: Catalog, marker: DriveMarker, root: Path) -> None:
+    """Report a second live path for this identity, BEFORE anything overwrites the evidence.
+
+    ⚠ **Call order is the whole contract.** `upsert_drive` refreshes ``last_seen`` and the hint
+    write replaces the remembered path - two statements that destroy both halves of the evidence,
+    and in `_cmd_verify` they sit five lines apart. Everything this needs must be read first.
+
+    Silent unless the remembered path still answers with the same uuid. `(adx)`.
+    """
+    note = second_location_for(catalog, uuid=marker.uuid, label=marker.label, here=root)
+    if note is not None:
+        print(note, file=sys.stderr)
+
+
 def _print_adoption_refusal(path: Path, offers: list[AdoptionOffer]) -> None:
     """Name the drive this folder already is, and both ways forward. Never choose one."""
     proven = [o for o in offers if o.verdict is AdoptionVerdict.PROVEN]
@@ -975,6 +990,7 @@ def _init_drive(args: argparse.Namespace, catalog: Catalog) -> int:
         adopt, label = proven[0].uuid, proven[0].label
 
     marker = create_marker(args.init, label, uuid=adopt)
+    _say_if_two_places(catalog, marker, args.init)
     catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
     catalog.set_setting(drive_path_hint(marker.uuid), str(args.init))
     verb = "re-attached" if adopt else "initialised"
@@ -1261,6 +1277,7 @@ def _cmd_verify(args: argparse.Namespace) -> int:
         return 2
     when = _now_iso()
     with _catalog(args.db) as catalog:
+        _say_if_two_places(catalog, marker, root)
         catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
         # Remember where this drive was seen. Without it the CLI has no reachability information
         # at all and `truestill drives` can only ever say "unknown" - which is honest but
@@ -2088,6 +2105,10 @@ def _register_destination(
         raise DriveGhostError(cancelled)
     created = create_marker(root, label=root.name or "Library")
     with _catalog(args.db) as catalog:
+        # Structurally silent today: `created` carries a freshly minted uuid, so there is no
+        # remembered path to disagree with. Called anyway so a future change that reuses an
+        # existing identity here cannot bypass the check - the guard enumerates this site.
+        _say_if_two_places(catalog, created, root)
         # Record WHERE, not just that it happened. Five other sites write this hint and this one
         # did not, which is why a CLI-only user accumulates drives whose location is unknown -
         # and why nothing could tell an unmounted mountpoint from a new folder.

@@ -2280,8 +2280,16 @@ class Catalog:
     # default, and that is a privacy guarantee rather than a style preference.
 
     def drive_row(self, uuid: str) -> sqlite3.Row | None:
-        """A drive's own record, or ``None``. **O(1)** on the primary key."""
-        cursor = self._conn.execute("SELECT uuid, label, notes FROM drives WHERE uuid = ?", (uuid,))
+        """A drive's own record, or ``None``. **O(1)** on the primary key.
+
+        ``last_seen`` is here for `(adx)`: it is the only record of WHEN a drive was previously
+        seen, and `upsert_drive` refreshes it - so anything that wants to report the previous
+        sighting has to read it **before** that call, not after. Existing callers use named access
+        and are unaffected by the extra column.
+        """
+        cursor = self._conn.execute(
+            "SELECT uuid, label, notes, last_seen FROM drives WHERE uuid = ?", (uuid,)
+        )
         row: sqlite3.Row | None = cursor.fetchone()
         return row
 

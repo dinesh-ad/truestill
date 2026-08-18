@@ -34,6 +34,7 @@ working, so:
 from __future__ import annotations
 
 import json
+import threading
 from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -194,6 +195,160 @@ def custody_freshness(
     return CustodyFreshness(
         checked_at=min(checked) if checked and not never else None,
         never_checked=tuple(never),
+    )
+
+
+#: How long the probe of a drive's remembered path may take before it is abandoned. `(adx)`.
+#:
+#: **A judgement, not a measurement**, recorded the way `run_health.TICK_SECONDS` is. The fast
+#: case is priced: `run_health` measures `read_marker` at **21.18 us** locally and a FUSE `stat`
+#: at **~600 us**, so a live marker read on a slow mount is ~1.2-1.8 ms and this is ~550x it. What
+#: is *not* measured is the case the bound exists for - a wedged mount that never answers - because
+#: no such mount could be staged. Whoever revisits should know there is no data behind the 1.0.
+#:
+#: The operations this runs in front of (`verify`, `drives --init`, an organize run) take seconds
+#: to hours, so the worst case is invisible against them.
+SECOND_LOCATION_PROBE_SECONDS = 1.0
+
+#: Remembered paths whose probe did not answer, for this process only.
+#:
+#: **Why a memo is needed at all.** A blocked `stat` cannot be interrupted - `SIGALRM` does not
+#: reach it - so a probe that times out leaves a thread parked for the life of the process. One is
+#: acceptable; one per verify against the same wedged mount is a leak. Per-process rather than
+#: persisted, so a mount that comes back is probed again on the next launch and a transient stall
+#: never becomes a permanent silence.
+_SLOW_PATHS: set[str] = set()
+
+
+def forget_slow_paths() -> None:
+    """Clear the memo. For tests; nothing in production needs it, since the memo dies with the process."""
+    _SLOW_PATHS.clear()
+
+
+def _marker_within(root: Path, seconds: float) -> DriveMarker | None:
+    """`read_marker(root)`, abandoned if it has not answered in ``seconds``.
+
+    **Abandoned, never cancelled, and that distinction is the whole design.** A `stat` or `read`
+    blocked on a hard mount is uninterruptible; the thread can only be left behind. That is safe
+    on this runtime and was not always: bpo-32186 - *"io.FileIO can hang all threads when accessing
+    an inaccessible NFS server"*, `fstat` holding the GIL inside `fileio_init` - was fixed in
+    December 2017 for 3.6/3.7+, and this project requires 3.13. Verified rather than assumed: while
+    one thread blocks in a syscall another keeps running.
+
+    The abandoned thread holds one file descriptor and discards its result. It writes nothing, so a
+    timeout can never leave state behind.
+
+    ⚠ **A probe that finishes just past the join reads as a timeout**, because the answer lands
+    after the decision. `list.append` is atomic, so nothing is corrupted; the outcome is silence
+    and a memo entry for a path that was not really slow. Both are the safe direction, and the
+    memo is per-process, so the next launch asks again.
+    """
+    answer: list[DriveMarker | None] = []
+
+    def probe() -> None:
+        answer.append(read_marker(root))
+
+    worker = threading.Thread(target=probe, name="drive-marker-probe", daemon=True)
+    worker.start()
+    worker.join(timeout=seconds)
+    return answer[0] if answer else None
+
+
+def _live_second_path(uuid: str, here: Path, remembered: str | None) -> Path | None:
+    """The remembered path, when it is a DIFFERENT place that still answers with this uuid.
+
+    ``None`` for every other outcome, and they are deliberately not distinguished: no remembered
+    path, the same path, a path that is gone, someone else's drive there, or a probe that did not
+    answer in time. A move and a clone whose original is unplugged produce the identical
+    observation, so only the unambiguous case gets an answer.
+    """
+    if not remembered:
+        return None
+    other = Path(remembered)
+    if other == here or remembered in _SLOW_PATHS:
+        return None
+    marker = _marker_within(other, SECOND_LOCATION_PROBE_SECONDS)
+    if marker is None:
+        # Did not answer. Indistinguishable from "gone", so treated as gone - but if the path is
+        # still THERE, the probe was slow rather than absent, and a slow one left a thread parked
+        # that cannot be killed. Remember it so the next call does not park another.
+        if other.exists():
+            _SLOW_PATHS.add(remembered)
+        return None
+    return other if marker.uuid == uuid else None
+
+
+def second_location_note(
+    *,
+    uuid: str,
+    label: str,
+    here: Path,
+    remembered: str | None,
+    previously_seen: str | None,
+) -> str | None:
+    """What to tell someone whose drive identity answers at a second live path. `(adx)` gap 1.
+
+    **Reports only the case that cannot be wrong.** If the remembered path still answers with this
+    uuid, two complete copies exist and nothing is being inferred - the catalog counts them as one
+    drive, so its custody claim is short by one. Every other outcome is silent; see
+    :func:`_live_second_path` for why they are not told apart.
+
+    ⚠ **This does not disambiguate and must not start to.** `drive-identity-research.md` ruled that
+    clones share one identity until they diverge, and that ruling stands: minting a second id here
+    would count one copy as two, the same error mirrored. This states an observation and names the
+    command a person can run; the decision stays theirs.
+
+    **Fails open.** Silence is the default and only a positive same-uuid answer produces output, so
+    every failure mode of the probe lands in the direction that says nothing.
+    """
+    other = _live_second_path(uuid, here, remembered)
+    if other is None:
+        return None
+    when = f" (last seen {previously_seen})" if previously_seen else ""
+    return (
+        f"note: drive '{label}' also answers at {other}{when}.\n"
+        f"       in use now : {here}\n"
+        f"       also here  : {other}\n"
+        f"       Both places carry the same drive id, so Truestill counts them as ONE drive and "
+        f"your photos are in more places than it reports.\n"
+        f"       If these are two real drives, give one its own identity:\n"
+        f"         truestill drives --init {other} --force-new-identity"
+    )
+
+
+class _DriveMemory(Protocol):
+    """What :func:`second_location_for` needs from a catalog: the hint, and when it was last seen.
+
+    A protocol for the reason `_SettingsReader` gives - `drive.py` is a leaf and identity has no
+    business depending on storage - and a second one rather than widening that one, because
+    `reach_of` genuinely needs less and should not gain a dependency it does not use.
+    """
+
+    def get_setting(self, key: str) -> str | None: ...
+
+    def drive_row(self, uuid: str) -> Any: ...
+
+
+def second_location_for(memory: _DriveMemory, *, uuid: str, label: str, here: Path) -> str | None:
+    """Read the two things the question needs, then ask it. `(adx)` gap 1.
+
+    ⚠ **THE READS MUST HAPPEN BEFORE `upsert_drive` AND BEFORE THE HINT WRITE**, which is why this
+    exists as a function rather than as two lines at each call site: those two statements destroy
+    the two halves of the evidence - `upsert_drive` refreshes ``last_seen``, the hint write
+    replaces the remembered path - and in `_cmd_verify` they sit five lines apart.
+
+    **One home rather than one copy per surface.** The CLI and the app both need exactly this, and
+    a second spelling of it is the drift `ENGINEERING_STANDARD.md` §4 names - caught here by
+    `test_surface_parity` on the first run, when both surfaces had written the same
+    ``last_seen`` lookup with different variable names.
+    """
+    row = memory.drive_row(uuid)
+    return second_location_note(
+        uuid=uuid,
+        label=label,
+        here=here,
+        remembered=memory.get_setting(drive_path_hint(uuid)),
+        previously_seen=None if row is None else row["last_seen"],
     )
 
 

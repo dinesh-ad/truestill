@@ -62,8 +62,39 @@
     (`cli.py:893-918`) refuses and explains both ways forward when someone registers a folder that
     already holds a recorded library. **`verify` has no equivalent check**: it proves the content,
     moves the hint, and says nothing about the path it just stopped pointing at.
-  - **What a user can do today:** nothing they would find. The remedy exists
-    (`--force-new-identity`) and nothing on the path they are walking names it.
+  - **What a user could do before this shipped:** nothing they would find. The remedy existed
+    (`--force-new-identity`) and nothing on the path they were walking named it.
+  - ✅ **BUILT 2026-08-18 - the disclosure, not a decision.** `second_location_note` /
+    `second_location_for` (`truestill_core/drive.py`) report a second **live** path for one uuid.
+    `truestill verify` on a clone now names both places, dates the other sighting, and prints the
+    `--force-new-identity` command; a plain move stays silent. The app's Check screen carries it
+    as `VerifyJobSummary.second_location`. **The ruling is untouched**: nothing disambiguates,
+    nothing refuses, no second identity is minted.
+    - **Only the case that cannot be wrong is reported** - the remembered path still answering
+      with the same uuid. Gone, different drive, same path, or no answer in time: silent, because
+      a move and a clone-with-the-original-unplugged are the same observation.
+    - **The FUSE decision, since it had no prior ruling.** The probe is bounded at **1.0 s** on a
+      daemon thread. A blocked `stat` on a hard mount is uninterruptible - `SIGALRM` does not
+      reach it - so the thread can only be *abandoned*, and abandoning is safe here: bpo-32186
+      (`fstat` holding the GIL inside `fileio_init`) was fixed in 2017 and this project requires
+      3.13. A path that times out is remembered for the process so the same wedged mount cannot
+      park a second thread. ⚠ **The 1.0 is a judgement, not a measurement** - `run_health` prices
+      `read_marker` at 21.18 us local and a FUSE `stat` at ~600 us, which bounds the *fast* case;
+      no wedged mount could be staged. A live-but-slow mount over the budget produces a **missed**
+      disclosure, never a false one.
+    - **The gating fix.** `_adoption_block` was gated on `marker is None`, which dropped the free
+      **path** comparison along with the expensive **content** inspection (up to 40 stats + 3
+      full-file hashes per known drive). The content reasoning stands and is unchanged; the two
+      are now separate.
+    - ⚠ **TWO SITES STILL DISCLOSE NOTHING**, named in the guard with what a user loses rather
+      than only why it is hard: `attach_drive` (`DriveAttachment` is never serialised and the
+      write path's return value is discarded, so there is no carrier) and the app's organize run
+      (`CompletionBase` is a 17-key payload pinned by two e2e tests). **An organize against a
+      cloned destination, and an attach of a drive that already answers elsewhere, are both still
+      silent.**
+    - **Guarded** by `test_every_hint_write_checks_for_a_second_place.py`, which enumerates all
+      six sites that bind a uuid to a path and requires **both** lists to be exhaustive - a site
+      in neither fails, so a seventh cannot appear without a decision.
 
   ### (2) `offline -> verify -> connected` IS UNDISCOVERABLE
 
