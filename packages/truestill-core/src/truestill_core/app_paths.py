@@ -49,7 +49,9 @@ from __future__ import annotations
 
 import os
 import sys
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 import platformdirs
 
@@ -104,18 +106,28 @@ SESSION_URL_FILENAME = "session-url.txt"
 #: business syncing to a domain profile. The docstring above said ``%APPDATA%`` and was wrong.
 
 
+def _override_dir(name: str) -> Path | None:
+    """The directory ``name`` asks for, or ``None`` when it is unset **or blank**. `(adv)`.
+
+    **Blank is unset, and that is `platformdirs`' own rule rather than ours.** It reads its
+    overrides as ``os.environ.get("XDG_CONFIG_HOME", "").strip() or <default>`` - verified here
+    rather than cited: with ``XDG_DATA_HOME`` set to ``""`` and to ``"   "`` it returns
+    ``~/.local/share`` both times. An unset variable and an empty one must not mean different
+    things, and without this ``TRUESTILL_DATA_DIR=`` resolves a catalog into a directory named by
+    whitespace - measured, ``"   /catalog.sqlite"``.
+    """
+    raw = os.environ.get(name, "").strip()
+    return Path(raw) if raw else None
+
+
 def _data_dir() -> Path:
-    override = os.environ.get(DATA_DIR_ENV)
-    return (
-        Path(override) if override else Path(platformdirs.user_data_dir(APP_NAME, appauthor=False))
-    )
+    override = _override_dir(DATA_DIR_ENV)
+    return override if override else Path(platformdirs.user_data_dir(APP_NAME, appauthor=False))
 
 
 def _cache_dir() -> Path:
-    override = os.environ.get(CACHE_DIR_ENV)
-    return (
-        Path(override) if override else Path(platformdirs.user_cache_dir(APP_NAME, appauthor=False))
-    )
+    override = _override_dir(CACHE_DIR_ENV)
+    return override if override else Path(platformdirs.user_cache_dir(APP_NAME, appauthor=False))
 
 
 def _working_directory_was_chosen() -> bool:
@@ -159,9 +171,98 @@ def default_catalog_path() -> Path:
     relative answer names a different file after any ``chdir``, and `Catalog` opens it at the
     moment it is handed over, not at the moment it was resolved.
     """
+    return resolve_catalog_choice().path
+
+
+CatalogChoiceReason = Literal["override", "legacy", "default"]
+
+
+@dataclass(frozen=True, slots=True)
+class CatalogChoice:
+    """Which catalog path won, and why - so a surface can say so instead of only showing it."""
+
+    path: Path
+    reason: CatalogChoiceReason
+    #: Always set. One sentence naming the winner's provenance.
+    summary: str
+    #: Set only when something surprising has to be disclosed - a second real catalog that was
+    #: found and not used, or an override that was set and lost. Empty otherwise.
+    note: str
+
+
+def _legacy_catalog() -> Path | None:
+    """The pre-`(aae)` catalog beside the working directory, when there really is one."""
     if _working_directory_was_chosen() and LEGACY_CATALOG_PATH.exists():
         return LEGACY_CATALOG_PATH.resolve()
-    return _data_dir() / CATALOG_FILENAME
+    return None
+
+
+def resolve_catalog_choice() -> CatalogChoice:
+    """Where the catalog is, which of three rules decided it, and what the user should be told.
+
+    **The precedence, and it was the other way round until `(adv)`.** An explicit
+    ``TRUESTILL_DATA_DIR`` outranks the legacy path, because the legacy check is a *guess made
+    from the working directory* and the variable is a *stated instruction*. `platformdirs`, XDG
+    and Terraform's ``TF_DATA_DIR`` all consult the override first; nothing consults a
+    compatibility fallback first. The old order meant a user who set the variable could organize
+    and register drives against a catalog they never named.
+
+    ⚠ **But the override does NOT get to strand an existing library, and that half is not
+    negotiable.** "The fallback applies only when no override is set" would hand someone with a
+    real `reports/catalog.sqlite` and the variable set in a shell profile a brand-new empty
+    catalog and no sign of the old one - which is the data-loss shape `(aae)` exists to prevent,
+    reintroduced by the fix for `(adv)`. So the legacy file is still used when **it exists and the
+    override holds no catalog yet**.
+
+    **Whenever the two disagree, the answer is disclosed rather than picked silently** - the
+    banner was identical in all three cases, which is what made `(adv)` hard to notice: the
+    resolved path was already on screen and nothing said a variable had been set and lost.
+    """
+    override_dir = _override_dir(DATA_DIR_ENV)
+    legacy = _legacy_catalog()
+
+    if override_dir is not None:
+        named = (override_dir / CATALOG_FILENAME).resolve()
+        if named.exists() or legacy is None:
+            note = ""
+            if legacy is not None:
+                note = (
+                    f"A catalog also exists at {legacy}. It is NOT being used, because "
+                    f"{DATA_DIR_ENV} names one. Unset {DATA_DIR_ENV} to use that one instead."
+                )
+            return CatalogChoice(
+                path=named,
+                reason="override",
+                summary=f"Catalog location from {DATA_DIR_ENV}.",
+                note=note,
+            )
+        return CatalogChoice(
+            path=legacy,
+            reason="legacy",
+            summary=f"Catalog location from an existing {LEGACY_CATALOG_PATH} "
+            "beside the working directory.",
+            note=(
+                f"{DATA_DIR_ENV} is set to {override_dir}, which holds no catalog yet, so the "
+                f"existing one at {legacy} is being used rather than left behind. Move it there, "
+                f"or unset {DATA_DIR_ENV}, to settle which is which."
+            ),
+        )
+
+    if legacy is not None:
+        return CatalogChoice(
+            path=legacy,
+            reason="legacy",
+            summary=f"Catalog location from an existing {LEGACY_CATALOG_PATH} "
+            "beside the working directory.",
+            note="",
+        )
+
+    return CatalogChoice(
+        path=_data_dir() / CATALOG_FILENAME,
+        reason="default",
+        summary="Catalog location from the standard data directory.",
+        note="",
+    )
 
 
 def session_url_path() -> Path:

@@ -45,6 +45,13 @@ All notable changes to this project are documented here. The format follows
   A group you have already named shows its name instead, and is never offered a suggestion.
 
 ### Fixed
+- **If you tell Truestill where to keep its files, it now listens.** Setting `TRUESTILL_DATA_DIR`
+  used to be quietly ignored whenever there was a `reports/catalog.sqlite` in the folder you
+  happened to run from - so you could be organizing photos into a different catalog than the one
+  you named, with nothing on screen saying which. The setting now wins, an empty setting counts as
+  not set, and Truestill says which catalog it chose and why. **An existing library is still never
+  left behind**: if the location you named has no catalog yet, the one you already have is used,
+  and Truestill tells you that is what happened.
 - **Screens that open several things at once no longer queue behind each other.** Every time
   Truestill opened your library it briefly took the same exclusive lock it needs to *build* a
   library, even when it was only going to read. One screen fires several requests at once, so

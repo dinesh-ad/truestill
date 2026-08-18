@@ -22,6 +22,45 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(adv) AN EXPLICIT `TRUESTILL_DATA_DIR` NOW OUTRANKS THE LEGACY CATALOG PATH.**
+  - ✅ **CLOSED 2026-08-18.** `resolve_catalog_choice()` decides between three rules and says
+    which won; `default_catalog_path()` delegates to it. **A compatibility guess no longer beats
+    an explicit instruction.**
+  - **The defect, reproduced before the fix.** `default_catalog_path` checked
+    `reports/catalog.sqlite` - a **relative** path resolved against the working directory - before
+    it honoured the environment variable. Measured: with the variable naming a real catalog and a
+    legacy file in the CWD, `default_catalog_path()` returned the **legacy** one. A user who set
+    the variable could organize, bake and register drives against a catalog they never named.
+  - **Precedence taken from precedent, not principle.** `platformdirs` - already a dependency and
+    the de facto standard here - reads its own overrides as
+    `os.environ.get("XDG_CONFIG_HOME", "").strip() or <default>`: **override first, and blank is
+    unset.** Verified rather than cited: with `XDG_DATA_HOME` set to `""` and to `"   "` it
+    returns `~/.local/share` both times.
+  - **Blank is unset here too**, for the reason platformdirs has it: an unset variable and an
+    empty one must not mean different things. Before the fix, `TRUESTILL_DATA_DIR="   "` resolved
+    a catalog to **`"   /catalog.sqlite"`** - a directory named by whitespace. Measured.
+  - ⚠ **THE HALF THAT IS NOT "THE OVERRIDE ALWAYS WINS", and it is the one that needed the care.**
+    The legacy file is still used **when it exists and the override holds no catalog yet**.
+    Otherwise someone with a real library and the variable set in a shell profile would be handed
+    a brand-new empty catalog and no sign of the old one - the data-loss shape `(aae)` exists to
+    prevent, reintroduced by the fix for this. Guarded by its own test; a mutation making the
+    override unconditional fails it.
+  - **And whenever two real catalogs disagree, it is disclosed rather than picked silently.** The
+    banner now states which of the three rules won, and adds what to do when a second catalog was
+    found and skipped, or when the override was set and lost. ⚠ **It read identically in all three
+    cases before**, which is what made this hard to notice: the resolved path was already on
+    screen and nothing said a variable had lost.
+  - **Four guards, each proven by mutation, control run first:** the old precedence, blank-is-not
+    unset, the override winning unconditionally, and the disclosure dropped. All four caught.
+  - ⚠ **THE TESTS HAD TO CREATE A `reports/` IN THEIR OWN WORKING DIRECTORY**, and that is why
+    nothing caught this for so long: from a directory without one the legacy branch never fires,
+    the override always wins, and a test passes against the broken code.
+  - ⚠ **What this does NOT fix, filed as `(adw)`:** the legacy path is still **relative**, so the
+    same install finds a different catalog depending on where it was launched. That is the deeper
+    defect and it outlives this one - including inside this repo's own suite, where
+    `default_catalog_path()` still resolves to the real catalog rather than the test root. `(adv)`
+    made that **disclosed**; it did not make it **prevented**.
+
 - **(adu) AN OPEN THAT WILL CHANGE NOTHING NO LONGER TAKES THE CATALOG'S WRITE LOCK.**
   - ✅ **CLOSED 2026-08-18.** `_migrate` reads `PRAGMA user_version` and the `files` row first; if
     the schema is current it **returns without opening a transaction**. Everything else falls

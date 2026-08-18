@@ -20,7 +20,11 @@ from typing import Any
 
 import uvicorn
 from truestill_core import binaries
-from truestill_core.app_paths import default_catalog_path, session_url_path
+from truestill_core.app_paths import (
+    default_catalog_path,
+    resolve_catalog_choice,
+    session_url_path,
+)
 from truestill_core.catalog_startup import (
     CATALOG_UNUSABLE_EXIT,
     CatalogUnusableError,
@@ -287,7 +291,8 @@ def main(argv: list[str] | None = None) -> int:
     explicit_db = args.db is not None
     db = args.db if explicit_db else default_catalog_path()
     info = inspect_catalog(db, explicit_db=explicit_db)
-    for line in format_startup_lines(info):
+    # See the CLI's copy: the choice is only meaningful when nobody named a path. `(adv)`.
+    for line in format_startup_lines(info, None if explicit_db else resolve_catalog_choice()):
         # By tone rather than by presence, for the reason the CLI's copy of this gives.
         _say(line, error=info.tone == "alert")
     try:

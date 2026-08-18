@@ -26,6 +26,7 @@ from truestill_core.app_paths import (
     LEGACY_CATALOG_PATH,
     cache_path_for,
     default_catalog_path,
+    resolve_catalog_choice,
     standard_catalog_path,
 )
 from truestill_core.archive_extract import extract_archive_set
@@ -3393,8 +3394,11 @@ def _dispatch(argv: list[str] | None) -> int:
     argv_list = list(argv) if argv is not None else sys.argv[1:]
     args = _build_parser().parse_args(argv_list)
     if hasattr(args, "db"):
-        info = inspect_catalog(args.db, explicit_db=db_flag_explicit(argv_list))
-        for line in format_startup_lines(info):
+        explicit = db_flag_explicit(argv_list)
+        info = inspect_catalog(args.db, explicit_db=explicit)
+        # The choice is only meaningful when nobody named a path - with `--db` the user already
+        # knows which catalog they asked for, and explaining the default would be noise. `(adv)`.
+        for line in format_startup_lines(info, None if explicit else resolve_catalog_choice()):
             # ROUTED BY TONE, not by presence. `alert` was `empty_with_drives` alone when this
             # was written, so the two readings agreed and the narrower one got written down;
             # `(adr)`'s zero-byte state is the second alert and would have gone to stdout. The

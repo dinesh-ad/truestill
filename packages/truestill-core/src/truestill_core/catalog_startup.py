@@ -30,6 +30,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Literal
 
+from truestill_core.app_paths import CatalogChoice
 from truestill_core.catalog import Catalog
 
 # The default catalog is deliberately **not** a module constant here. It was, briefly, and that
@@ -266,11 +267,25 @@ def migrate_catalog(db: Path) -> None:
         pass
 
 
-def format_startup_lines(info: CatalogStartupInfo) -> list[str]:
-    """Stdout lines: always the absolute path; situational detail when not READY."""
+def format_startup_lines(
+    info: CatalogStartupInfo, choice: CatalogChoice | None = None
+) -> list[str]:
+    """Stdout lines: always the absolute path; situational detail when not READY.
+
+    ``choice`` is passed when the path was **resolved for** the user rather than named by them -
+    i.e. no ``--db``. It says which of the three rules won and, when two real catalogs disagree,
+    what to do about it. `(adv)`: the path alone was already on screen and read identically
+    whether an override had won, lost, or never been set, so a person had to suspect the problem
+    to see it.
+    """
     if info.presence is CatalogPresence.READY:
-        return [f"Catalog: {info.absolute_path} ({info.file_count} files)"]
-    lines = [f"Catalog: {info.absolute_path}"]
-    if info.detail:
-        lines.append(info.detail)
+        lines = [f"Catalog: {info.absolute_path} ({info.file_count} files)"]
+    else:
+        lines = [f"Catalog: {info.absolute_path}"]
+        if info.detail:
+            lines.append(info.detail)
+    if choice is not None:
+        lines.append(choice.summary)
+        if choice.note:
+            lines.append(choice.note)
     return lines

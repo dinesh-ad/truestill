@@ -62,6 +62,13 @@ ALLOWED: dict[str, dict[str, str]] = {
     },
     "__main__.py": {
         "default_catalog_path": "resolves a path per call and returns it; opens nothing",
+        "resolve_catalog_choice": (
+            "the same resolution as `default_catalog_path`, returning WHY as well as where. "
+            "Reads two environment variables and does at most one `exists()` probe; opens no "
+            "catalog and holds nothing. It is here rather than in `service/` for the same reason "
+            "`default_catalog_path` is: the launcher has to name a catalog before any route, and "
+            "therefore before `service/` is reachable"
+        ),
         "CATALOG_UNUSABLE_EXIT": (
             "an int constant - the exit code for a catalog that must not be opened. It lives in "
             "core because the CLI and the launcher must agree on it, and one meaning spread over "
