@@ -50,6 +50,25 @@
       `close()` on your own descriptor **drops the POSIX advisory locks SQLite holds through a
       different descriptor** - leaving SQLite believing it holds a read lock it does not.
 
+  - ⚠ **ADDED 2026-08-18: WAL WOULD ADD A SECOND, EASIER TORN-COPY MECHANISM - a NEW one, not a
+    property of the one above.** `(ads)` weighs moving the catalog to `journal_mode=WAL`. If that
+    ever happens, this entry gets worse before anything fixes it:
+    - **A WAL database keeps committed transactions in a `-wal` sidecar** until a checkpoint folds
+      them back. `shutil.copy2` copies **one file**. So a copy taken while a `-wal` exists is not
+      merely *torn* in the "some old and some new content" sense this entry already records - it
+      is **missing whole committed transactions**, and the copy looks clean.
+    - **The difference from today's hazard is the window.** The rollback journal exists only
+      *during* a write, so today's torn copy needs the copy to land inside a transaction. A `-wal`
+      persists **between** transactions, so under WAL the hazardous window is most of the time
+      rather than a slice of it.
+    - **`VACUUM INTO` handles it and staging does not**, which sharpens the choice this entry
+      already makes: `VACUUM INTO` goes through SQLite, so it reads the database *including* its
+      WAL and writes one coherent file. Staging a byte copy to a temporary name and renaming it
+      fixes *`(adr)`'s* artefact and copies the same incomplete bytes.
+    - **Verified 2026-08-18** on a scratch file: setting `journal_mode=WAL` produced `-wal` and
+      `-shm` beside the database, and the mode **persisted across reopen** - so this is a property
+      a catalog would carry, not a mode a copy path could assume was off.
+
   - ⚠ **AMENDED 2026-08-15: THE TORN COPY IS REACHABLE BY ORDINARY USE, NOT BY MISUSE.** The entry
     described the hazard without saying anyone could reach it. Three verified facts say they can:
     `move_catalog_to_standard` **never opens the catalog** (`catalog_move.py:24` - *"no catalog is

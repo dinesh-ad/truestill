@@ -938,6 +938,19 @@ against exactly that case: **two writers block identically in both modes** (301 
 readers not blocking writers, and no measurement here shows that problem existing. It is a lever
 with no measured problem to fix; revisit it with a measurement, not with reputation.
 
+⚠ **AMENDED 2026-08-18: THE DECLINE IS SOUND FOR THE CODE IT MEASURED AND IS NOW DATABLY STALE.**
+*"A reader was never blocked"* was measured on **2026-08-09**. §5.4 landed `BEGIN IMMEDIATE` on
+**every catalog open** on **2026-08-14**, so a reader stopped being a reader five days later and
+nothing re-ran this. **Neither statement is wrong; the code moved between them.** ⚠ It also cuts
+the other way and that is the more useful half: **while every open is a writer, WAL has nothing to
+act on** - *"two writers block identically in both modes"* is exactly what a run comparing the
+modes would keep finding. So this paragraph's *"revisit it with a measurement"* is right and
+**incomplete**: the measurement needs a **control** with `_migrate`'s `BEGIN IMMEDIATE` made
+conditional, or it reproduces this null result forever. Filed as `BACKLOG.md` **`(adu)`** (the
+per-open lock, which gates it) and `(ads)` (the mode). ⚠ **This entry and `(ads)` were written
+without knowing about each other**, between two canon documents - which is what the reframing in
+`(ads)` records.
+
 **STRICT tables - available and declined on cost.** 0 of 16 tables are STRICT (SQLite 3.50.4
 supports it), so `TEXT` columns holding sha256s, ISO dates and uuids will accept an integer.
 STRICT cannot be added by `ALTER TABLE`: every table must be recreated, copied and re-indexed, on
