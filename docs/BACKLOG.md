@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(adw). Next free: (adx).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(adx). Next free: (ady).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -118,6 +118,8 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
+- **(adx) A LIBRARY THAT MOVES IS HANDLED. WHAT IS MISSING IS THE DISCLOSURE.** Recorded
+  2026-08-18. Three gaps, one user journey. [Full entry](research/backlog/adx.md)
 - **(adw) THE LEGACY CATALOG PATH IS RELATIVE, SO THE SAME INSTALL FINDS A DIFFERENT CATALOG
   DEPENDING ON WHERE IT WAS LAUNCHED.** Recorded 2026-08-18. [Full
   entry](research/backlog/adw.md)

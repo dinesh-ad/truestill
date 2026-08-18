@@ -10,6 +10,26 @@ document is the review gate.
 > rename. The binding rules are `IMPLEMENTATION_STANDARDS.md` §3.1 - the design reasoning
 > below is unchanged.
 
+> ⚠ **AMENDED 2026-08-18: ONE PROPOSAL BELOW READS AS BUILT AND IS PART-BUILT.** The record is
+> **not edited** - a record rewritten to stay correct stops being one - so the status is stated
+> here instead, next to the header a reader meets first.
+>
+> **§B3's clone proposal has three parts** (*"treat same-uuid as the same logical drive; **warn**
+> when one uuid is seen at two distinct mount paths in a single run; `drives init --relabel` mints
+> a fresh uuid for a diverged clone"*). Two shipped; one did not, and the prose gives no way to
+> tell them apart:
+>
+> | part | status |
+> |---|---|
+> | same-uuid is one logical drive | ✅ built |
+> | a fresh uuid for a diverged clone | ✅ built, as `--force-new-identity` |
+> | **warn when one uuid is seen at two distinct paths** | ⚠ **registration only** (`cli.py:893-918`); **`verify` has no such check** |
+>
+> Traced 2026-08-18: a cloned tree verifies clean, silently moves the remembered path to the
+> clone, and leaves one `drives` row - so custody reports one copy where two exist. **The ruling
+> that clones share identity until they diverge is unaffected and stands**; what is missing is the
+> disclosure the same paragraph specified. Carried as `BACKLOG.md` `(adx)`.
+
 ---
 
 ## Part A - Reconnaissance (code truth, file:line)
