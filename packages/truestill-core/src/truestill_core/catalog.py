@@ -816,11 +816,22 @@ class Catalog:
         gives two sidecars with no single-instance guard.
 
         ⚠ **The migration chain deliberately runs OUTSIDE that transaction**, and it is not a
-        choice so much as a constraint that was measured: 12 of the 18 migrations call
-        `executescript`, which Python documents as issuing an implicit COMMIT first - verified,
-        `in_transaction` goes False and the lock is gone - and `_drop_redundant_sha256_index`
-        runs `VACUUM`, which SQLite refuses inside a transaction outright. Wrapping the chain
-        would have silently released the lock at the first migration while looking correct.
+        choice so much as a constraint that was measured: **10** of the 18 migrations call
+        `executescript`, which Python documents as issuing an implicit COMMIT first - re-verified
+        2026-08-18 on Python 3.13.13 / SQLite 3.50.4, `in_transaction` goes False and the lock is
+        gone. Wrapping the chain would have silently released the lock at the first migration
+        while looking correct.
+        ~~and `_drop_redundant_sha256_index` runs `VACUUM`, which SQLite refuses inside a
+        transaction outright.~~ ⚠ **STRUCK 2026-08-18: THAT IS NOT TRUE OF THIS CODE.** `VACUUM`
+        appears in this module only inside docstrings; no migration executes it, and v18 is a
+        single `DROP INDEX IF EXISTS`. Two further corrections in the same breath, because they
+        change what is possible rather than only what is accurate: the count was **12**, and
+        `executescript` is a **`sqlite3` module** behaviour rather than a database constraint -
+        **DDL itself is fully transactional in SQLite** (verified: `ALTER TABLE` inside `BEGIN
+        IMMEDIATE` keeps `in_transaction`, and `rollback()` removes a created table). So the
+        chain *could* be wrapped by splitting those 10 into per-statement `execute` calls, at the
+        price of holding the write lock for a whole migration. `BACKLOG.md` `(adl)` carries the
+        routes and the measured failure rate; **nothing here is a recommendation.**
         So the chain keeps today's autocommit-per-statement behaviour exactly: a failure
         part-way still leaves the schema half-lifted with `user_version` unchanged. **That is
         unchanged, not fixed** - see `BACKLOG.md`. ~~What the transaction does fix is that the

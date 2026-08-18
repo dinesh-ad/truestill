@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(adu). Next free: (adv).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(adv). Next free: (adw).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -118,6 +118,8 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
+- **(adv) `TRUESTILL_DATA_DIR` IS SILENTLY OVERRIDDEN BY THE LEGACY CATALOG PATH.** Recorded
+  2026-08-18. [Full entry](research/backlog/adv.md)
 - **(adt) TWO CATALOG WRITERS RACE INSIDE ONE PROCESS, ON AN ORDINARY USER PATH.** Recorded
   2026-08-15. [Full entry](research/backlog/adt.md)
 - **(ads) THE CATALOG'S CONCURRENCY MODEL IS SQLITE'S DEFAULT, NOT A DECISION.** Recorded
