@@ -50,6 +50,39 @@ is in what was measured and what was wrong, and both are below.*
 
   ---
 
+  ⚠ **ADDED 2026-08-18, AND IT IS A REPEAT RATHER THAN A NEW MEMBER - WHICH IS THE POINT.**
+  Run **`32178286777`** on `0f48865` failed `test_the_choice_survives_a_reload[webkit]` on
+  `assert 16 == 20 ± 0.5`. **Verified from both runs' `test-results-e2e` junit rather than taken
+  on report** - run `31821214510`'s four failures were `test_the_choice_survives_a_reload`
+  (`assert 16 == 20 ± 0.5`), `test_inplace_refuses_cross_device_...`,
+  `test_organize_clears_typed_confirm_after_the_run` and
+  `test_move_completion_reports_empty_folders_...`. Same test, same browser, **byte-identical
+  assertion**. It is a **repeat, not a ninth test**, and the distinct-test count is unchanged.
+
+  🔑 **AND IT IS THE SHAPE TABLE'S ONE-MEMBER ROW THAT CAME BACK, which is the sharper reading.**
+  The distribution below records *"computed style after reload | **1** | `assert 16 == 20 ± 0.5`"*
+  - a single instance, the only member of its shape and the only failure in the whole census that
+  is **not** a post-job-text or page-load-ready stall. That lone row is now **2 of 2**, both the
+  same test. **Within that shape nothing has ever rotated.**
+
+  🔢 **AND IT WEAKENS THIS ENTRY'S OWN "ROTATING" CLAIM, which is why it is filed here rather than
+  as a footnote.** The census reads *"membership rotating almost completely"* on the strength of
+  eight distinct tests with **one** repeat. It is now eight distinct tests with **two**, and the
+  new repeat is **five days after** its first appearance - and it is the one failure the census
+  could never fit into either stall shape. A test that comes back after five days
+  is weaker evidence of rotation than a set that never repeats - it is equally consistent with a
+  small number of tests being genuinely more exposed. **The claim is not withdrawn and the
+  alternative is not adopted**; what is recorded is that the evidence for it is thinner than the
+  wording carries, and that the next repeat should be read against this paragraph rather than
+  against the sentence below.
+
+  ⚠ **THE TEN-RUN WINDOW RESETS TO ZERO.** The lane had reached **seven** consecutive green runs
+  since `31895987230` - four pushes and three scheduled nightlies on an unchanged tree. This
+  failure resets it, exactly as the exit condition specifies (*"reset to zero by any failure"*),
+  and `(ado)` stays open. **That is the condition working rather than a setback**: the previous
+  shape - three consecutive greens - was retired precisely because a streak ending like this one
+  would have closed the entry days earlier on a tail that had not stopped.
+
   **The census.** **Fifteen** failures across eight runs (`31816361658`, `31821214510`,
   `31823157259`, `31825233939`, and the four added 2026-08-15 below), **all of them `[webkit]`**,
   with membership rotating almost completely. One of the eight runs was fully green. ⚠ **Four of
@@ -294,6 +327,8 @@ is in what was measured and what was wrong, and both are below.*
 
   ⚠ **EXIT CONDITION: ZERO E2E FAILURES ACROSS TEN CONSECUTIVE RUNS.** A rate over a fixed
   window, counted whether or not the runs touch this lane, and reset to zero by any failure.
+  ⚠ **The window stands at ZERO as of 2026-08-18**, reset by run `32178286777` after reaching
+  seven - see the repeat recorded above.
 
   **The old condition - three consecutive greens - was RETIRED 2026-08-15, and the pair above is
   what retired it.** The lane delivered **four** consecutive greens (`31832876792`,

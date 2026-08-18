@@ -144,6 +144,14 @@ recording shipped work as unstarted, which is the more expensive direction of th
   - ⚠ **THIS ACCOMMODATES THE TAIL. IT DOES NOT REMOVE IT.** Runs will still be slow in bursts;
     they will stop being *red* for it. Anyone reading this as "the flake is fixed" has it wrong -
     what changed is that a slow wait is no longer reported as a failure.
+  - ⚠ **THE LANE IS STILL WATCHED, AND THE WINDOW IS AT ZERO (2026-08-18).** Closing `(ado)` was
+    a ruling about the *budget*; the exit condition - zero e2e failures across **ten** consecutive
+    runs - is a separate, open watch. It had reached **seven** when run `32178286777` failed
+    `test_the_choice_survives_a_reload[webkit]`, **a repeat of a censused failure from run
+    `31821214510`** - same test, same browser, same assertion - which resets it. Eight distinct
+    tests with one repeat became eight with **two**, five days apart, so the census's *"rotating
+    almost completely"* is thinner than its wording carries. Recorded in
+    [`research/ado-webkit-tail.md`](research/ado-webkit-tail.md).
   - ⚠ **AMENDED 2026-08-15: THE ARC'S "ZERO `database is locked`" EVIDENCE IS THE WRONG
     OBSERVABLE**, so catalog contention was never *excluded* from the census - only never
     visible. `jobs.py:211-214` replaces the sqlite error with `CATALOG_BUSY_MESSAGE` before it
