@@ -55,6 +55,6 @@
     **It does not decide the question** - WAL still needs the fallback this entry describes, and
     `(adt)` carries an unanswered one of its own: why a single-row settings write took 6.5 s.
   - See `(adt)` (the demonstration, in-process), `(adn)` (two processes, one catalog), `(adb)`
-    (why a file copy of this mode is torn), `(adr)` (the 0-byte artefact of that copy),
+    (why a file copy of this mode is torn), `(adr)` (the 0-byte artefact of that copy - **shipped 2026-08-18**, `SHIPPED.md`),
     `(adl)` / `(adm)` (behaviour under the lock), and `PERFORMANCE.md` §5.4 (what the lock cost
     and what fixing it recovered).

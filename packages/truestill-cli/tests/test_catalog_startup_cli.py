@@ -5,9 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from truestill_cli.cli import main
+from truestill_cli.cli import CATALOG_BUSY_EXIT, main
 from truestill_core.app_paths import default_catalog_path
 from truestill_core.catalog import Catalog
+from truestill_core.catalog_startup import CATALOG_UNUSABLE_EXIT
 
 
 def test_cli_first_run_prints_will_create(
@@ -77,3 +78,40 @@ def test_cli_empty_with_drives_goes_to_stderr(
     captured = capsys.readouterr()
     assert "0 files but 1 drive" in captured.err
     assert str(db.resolve()) in captured.err or str(db.resolve()) in captured.out
+
+
+def test_the_cli_refuses_a_zero_byte_catalog_before_it_dispatches(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`(adr)`: every subcommand is refused, not only the catalog ones.
+
+    The banner runs in `_dispatch` ahead of the dispatch table, so this is the one place that
+    covers all of them. Asserting the file is still 0 bytes is the real check: a refusal printed
+    *after* the inspection opened the catalog would exit non-zero and still have destroyed the
+    evidence.
+    """
+    db = tmp_path / "catalog.sqlite"
+    db.write_bytes(b"")
+
+    code = main(["status", "--db", str(db)])
+
+    assert code == CATALOG_UNUSABLE_EXIT
+    assert code != CATALOG_BUSY_EXIT, "'unusable' must not read as 'busy', which means retry"
+    assert db.stat().st_size == 0
+    captured = capsys.readouterr()
+    assert "0 bytes" in captured.err
+    assert "0 bytes" not in captured.out, "a refusal belongs on stderr"
+
+
+def test_the_cli_still_runs_against_an_ordinary_empty_catalog(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The guard against a check that keys on file_count instead of file size."""
+    db = tmp_path / "catalog.sqlite"
+    with Catalog(db):
+        pass
+
+    code = main(["status", "--db", str(db)])
+
+    assert code == 0
+    assert "0 bytes" not in capsys.readouterr().err

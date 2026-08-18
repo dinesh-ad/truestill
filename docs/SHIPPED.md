@@ -22,6 +22,61 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(adr) A 0-BYTE FILE AT THE CATALOG PATH IS ITS OWN STATE, AND THE APP REFUSES IT.**
+  - ✅ **CLOSED 2026-08-18.** A new `CatalogPresence.ZERO_BYTES` (tone `alert`), a shared
+    `refuse_unusable_catalog`, and `CATALOG_UNUSABLE_EXIT = 6`. The CLI refuses ahead of its
+    dispatch table, the launcher refuses ahead of the listening socket, and `prepare_catalog`
+    refuses ahead of the startup migration.
+  - **The defect, measured rather than reasoned.** `shutil.copy2` creates the destination before
+    it writes, so patching the copy to raise `ENOSPC` left the destination **existing at size 0**.
+    `inspect_catalog` then opened it, `Catalog._migrate` built the **full schema into the empty
+    file**, and it was reported `presence=EMPTY, tone="notice"` - *"Opened empty catalog file
+    at ..."*. Reproduced live before the fix: **0 bytes in, 159,744 bytes out.**
+  - 🔑 **THE RULING, AND ITS REASONING IS THE ENTRY.** A new user has **no file**; this user has a
+    file of **zero bytes**, which means something wrote there and failed. Treating them the same
+    destroys the evidence of the second - and the product then tells the user to delete the good
+    copy (`catalog_move.py:138`: *"Check the copy, then delete the old one when you are happy"*).
+    **Refusing costs a first-run user nothing, and that is structural rather than rhetorical:**
+    `WILL_CREATE` is `is_file()` being false, so the two states are **disjoint at the branch** and
+    no first-run path changes. It is also the only moment the failure is still visible.
+  - **A second origin the entry never named, and the fix covers it for free.** `sqlite3.connect`
+    creates a 0-byte file before its first write, so a process that dies before the schema commit
+    leaves the identical artefact - **our own failed write**, not a failed copy. The design keys
+    on the *state*, so both are caught.
+  - ⚠ **THE BRANCH POSITION IS THE FIX, and it took two mutations to prove the guard.** The check
+    sits **before** the `Catalog` open; one line lower it runs against a 159,744-byte file and can
+    never be true. Proven with `scripts/mutate_once.py`, unmutated control green first:
+    **(a)** the branch moved below the open becomes dead code and the **presence** assertion
+    catches it; **(b)** the `stat()` hoisted above the open but acted on below - the plausible
+    tidy-up - reports `ZERO_BYTES` *correctly* and has already destroyed the file, so presence
+    passes and only the **size** assertion catches it. **Neither assertion catches both**, which
+    is why both are in the test. The first mutation was written believing it proved the second's
+    point; it did not, and the test's own docstring was corrected rather than left overstating.
+  - **The journal is evidence in one direction only.** Under `journal_mode=delete` (`BACKLOG.md`
+    `(ads)`) SQLite removes the rollback journal on commit, so one still on disk means a write was
+    **interrupted** - and the message says so. Its **absence proves nothing**: a failed copy never
+    creates one either, so the quiet message names both possible causes and chooses neither. Both
+    directions are asserted, because only guarding the loud case is how the quiet one grows a
+    claim nobody checks.
+  - **Exit code `6`, continuing the CLI's allocation** (`3` missing exiftool, `4` unusable
+    destination, `5` busy catalog). Deliberately **not** `5`: busy means *retry*, and this must
+    never be retried. It lives in **core**, unlike `CATALOG_BUSY_EXIT`, because busy is
+    *presented* differently by each surface while unusable is presented the same way by both -
+    one meaning spread over two literals is exactly the drift that is being avoided.
+  - **`inspect_catalog` stays a pure describer**, so the refusal is a shared helper each entry
+    point calls - which trades one risk for another: **a missing call is invisible**.
+    `test_every_entry_point_refuses_an_unusable_catalog.py` closes that, **function by function**
+    rather than module by module, because `drives.py` legitimately does both (`prepare_catalog`
+    must refuse; `library_status` renders presence per request and must not). Both lists are
+    checked for staleness in the other direction too.
+  - ⚠ **A KNOWN RACE, ACCEPTED RATHER THAN DISCOVERED LATER.** A second process inspecting inside
+    the microseconds between another's `sqlite3.connect` and its first write would refuse a
+    catalog that is merely being born. `(adn)` records that nothing stops two processes anyway,
+    and the outcome is a refusal the user clears by running again - against a retry loop that
+    would be real complexity guarding a state indistinguishable from the real defect.
+  - **What this does NOT fix, per the entry's own boundary:** `(adb)`, the *torn* copy. Staging
+    fixes that and leaves the destination absent, which is correct and separate.
+
 - **(ado) THE E2E LANE HAD A ROTATING WEBKIT TAIL. CAUSE FOUND, TAIL ACCOMMODATED.**
   - ✅ **CLOSED 2026-08-15 BY A RULING, NOT A FIX**, and the distinction is the entry. The
     `expect` budget goes **5 s → 30 s** (`tests/e2e/conftest.py`). Full census, the retired

@@ -16,6 +16,7 @@ from truestill_core.catalog_startup import (
     CatalogStartupInfo,
     inspect_catalog,
     migrate_catalog,
+    refuse_unusable_catalog,
 )
 from truestill_core.decisions import Decisions, gather_decisions, notice_for
 from truestill_core.drive import (
@@ -668,6 +669,11 @@ def prepare_catalog(db: Path, *, explicit_db: bool = False) -> CatalogStartupInf
     swapped.
     """
     presence = inspect_catalog(db, explicit_db=explicit_db)
+    # THE HAZARD SITE for `(adr)`: `migrate_catalog` builds the schema into whatever file it is
+    # given, so on this path a failed copy becomes a valid empty catalog before any person sees
+    # it. The launcher refuses first; this is here because it is the call that does the damage,
+    # and an entry point that reaches `create_app` another way must still be stopped.
+    refuse_unusable_catalog(presence)
     migrate_catalog(db)
     return presence
 

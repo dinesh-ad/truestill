@@ -45,6 +45,15 @@ All notable changes to this project are documented here. The format follows
   A group you have already named shows its name instead, and is never offered a suggestion.
 
 ### Fixed
+- **An empty file where your catalog should be now stops Truestill instead of becoming your
+  library.** If a copy of your catalog ran out of disk part-way, or a run was interrupted before
+  it wrote anything, what is left behind is a file of **zero bytes** wearing your catalog's name.
+  Truestill used to open it, build a fresh empty library into it, and call it *"an empty
+  catalog"* - which looks exactly like starting over, and made the on-screen advice to *"delete
+  the old one when you are happy"* point at the file that still had your photos in it. It now
+  refuses to open it, says the file is empty and that your real library is untouched, and tells
+  you to rename or delete it or to pass `--db` to the catalog you meant. **A genuine first run is
+  unaffected** - there is no file at all in that case, which is a different thing.
 - **Reloading the page during a run no longer leaves you watching a spinner that never ends.**
   If you reloaded, or the connection dropped and came back, Truestill reconnected to the running
   job and then waited for news that had already been delivered to the page you left - so the

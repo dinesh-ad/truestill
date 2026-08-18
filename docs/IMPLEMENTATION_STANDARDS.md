@@ -204,7 +204,12 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
     access in `truestill-app` goes through `service/` **except the startup inspection** -
     `__main__.py` calls `catalog_startup.inspect_catalog`, which opens a `Catalog` to read
     `count()` and `list_drives()` for the launch banner before any route exists. `server.py`
-    itself constructs no `Catalog` and holds no transaction. **This rule is about
+    itself constructs no `Catalog` and holds no transaction. **That inspection now also decides
+    whether the process starts at all** - `(adr)`: a 0-byte file at the catalog path is
+    `ZERO_BYTES`, and `refuse_unusable_catalog` stops the launcher before it binds a socket and
+    the CLI before it dispatches. The refusal is a **separate, pure function** taking the
+    already-computed result, so it needs no exception here: `inspect_catalog` remains the only
+    catalog *open* outside `service/`. **This rule is about
     `truestill-app`:** `truestill-cli` opens its own catalogs throughout, which is its job and
     not a violation of anything here.
     `server.py` does reach into core directly for four names, and that is allowed because none

@@ -35,10 +35,12 @@ from truestill_core.catalog_busy import CATALOG_BUSY_MESSAGE, is_catalog_busy
 from truestill_core.catalog_move import CatalogMoveOutcome, move_catalog_to_standard
 from truestill_core.catalog_session import open_catalog
 from truestill_core.catalog_startup import (
-    CatalogPresence,
+    CATALOG_UNUSABLE_EXIT,
+    CatalogUnusableError,
     db_flag_explicit,
     format_startup_lines,
     inspect_catalog,
+    refuse_unusable_catalog,
 )
 from truestill_core.categorize import build_rules
 from truestill_core.cleanup import (
@@ -3376,6 +3378,10 @@ def main(argv: list[str] | None = None) -> int:
     """
     try:
         return _dispatch(argv)
+    except CatalogUnusableError:
+        # Nothing printed here on purpose: the startup banner has already put the whole
+        # explanation on stderr, and a second copy of it would read as two problems. `(adr)`.
+        return CATALOG_UNUSABLE_EXIT
     except sqlite3.Error as exc:
         if not is_catalog_busy(exc):
             raise
@@ -3389,11 +3395,16 @@ def _dispatch(argv: list[str] | None) -> int:
     if hasattr(args, "db"):
         info = inspect_catalog(args.db, explicit_db=db_flag_explicit(argv_list))
         for line in format_startup_lines(info):
-            # empty_with_drives is the only loud case; first-run stays on stdout.
-            stream = (
-                sys.stderr if info.presence is CatalogPresence.EMPTY_WITH_DRIVES else sys.stdout
-            )
+            # ROUTED BY TONE, not by presence. `alert` was `empty_with_drives` alone when this
+            # was written, so the two readings agreed and the narrower one got written down;
+            # `(adr)`'s zero-byte state is the second alert and would have gone to stdout. The
+            # tone field already answers "is this loud" for every state there will ever be.
+            stream = sys.stderr if info.tone == "alert" else sys.stdout
             print(line, file=stream, flush=True)
+        # AHEAD OF THE DISPATCH TABLE, so every subcommand is covered by one refusal rather
+        # than seventeen. The banner above has already printed the reason, which is why the
+        # handler in `main` returns the code without saying anything further. `(adr)`.
+        refuse_unusable_catalog(info)
     dispatch = {
         "analyze": _cmd_analyze,
         "organize": _cmd_organize,

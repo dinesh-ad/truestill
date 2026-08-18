@@ -22,9 +22,11 @@ import uvicorn
 from truestill_core import binaries
 from truestill_core.app_paths import default_catalog_path, session_url_path
 from truestill_core.catalog_startup import (
-    CatalogPresence,
+    CATALOG_UNUSABLE_EXIT,
+    CatalogUnusableError,
     format_startup_lines,
     inspect_catalog,
+    refuse_unusable_catalog,
 )
 from truestill_core.selfcheck import is_complete, render, write_findings
 
@@ -286,7 +288,16 @@ def main(argv: list[str] | None = None) -> int:
     db = args.db if explicit_db else default_catalog_path()
     info = inspect_catalog(db, explicit_db=explicit_db)
     for line in format_startup_lines(info):
-        _say(line, error=info.presence is CatalogPresence.EMPTY_WITH_DRIVES)
+        # By tone rather than by presence, for the reason the CLI's copy of this gives.
+        _say(line, error=info.tone == "alert")
+    try:
+        # BEFORE THE SOCKET, deliberately. Refusing after the bind would leave a listener and a
+        # session-url file behind for a process that then quits - something claiming an address
+        # it never served, which is the state `bind_listening_socket`'s own failure path exists
+        # to avoid. `(adr)`.
+        refuse_unusable_catalog(info)
+    except CatalogUnusableError:
+        return CATALOG_UNUSABLE_EXIT
 
     sock = bind_listening_socket(args.port)
     if sock is None:

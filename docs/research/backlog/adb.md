@@ -38,7 +38,11 @@
       **by SQLite** instead of by our own `destination.exists()` check - and it **cannot produce
       `(adr)`'s 0-byte artefact at all**, because it never creates a file it does not go on to
       fill. `Connection.backup()` overwrites, so it would need the existing guard kept and would
-      leave `(adr)` reachable. The trade is stated rather than hidden: `VACUUM INTO` takes a write
+      still **create** `(adr)`'s artefact. ⚠ **Half of that sentence expired on 2026-08-18**, and
+      the surviving half is the one that decides this: `(adr)` shipped, so a 0-byte file is no
+      longer silently *adopted* by the next launch - the app refuses it. What `VACUUM INTO` still
+      buys is that the artefact is never **created**, which is a smaller advantage than this
+      paragraph was written to claim and still a real one. The trade is stated rather than hidden: `VACUUM INTO` takes a write
       lock for its duration and rewrites every page, while `backup()` is incremental and restarts
       if an external writer commits mid-copy.
     - **Why a file copy is not merely riskier but differently broken:** SQLite documents that

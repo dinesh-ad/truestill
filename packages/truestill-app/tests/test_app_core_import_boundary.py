@@ -62,7 +62,21 @@ ALLOWED: dict[str, dict[str, str]] = {
     },
     "__main__.py": {
         "default_catalog_path": "resolves a path per call and returns it; opens nothing",
-        "CatalogPresence": "an enum of startup states; a value",
+        "CATALOG_UNUSABLE_EXIT": (
+            "an int constant - the exit code for a catalog that must not be opened. It lives in "
+            "core because the CLI and the launcher must agree on it, and one meaning spread over "
+            "two literals is the drift this fence is about"
+        ),
+        "CatalogUnusableError": (
+            "an exception type the launcher turns into an exit code, exactly as `server.py` "
+            "turns core's settings errors into HTTP replies. It carries a `CatalogStartupInfo` "
+            "and nothing else"
+        ),
+        "refuse_unusable_catalog": (
+            "a pure predicate that raises. It takes the ALREADY-COMPUTED inspection result, not "
+            "a path - it opens nothing, reads nothing and touches no filesystem, which is why "
+            "`inspect_catalog` above it needs a documented exception and this one does not"
+        ),
         "format_startup_lines": "turns an inspection result into text; pure",
         "inspect_catalog": (
             "**the one documented exception (IMPLEMENTATION_STANDARDS.md §2)**: it opens a "
