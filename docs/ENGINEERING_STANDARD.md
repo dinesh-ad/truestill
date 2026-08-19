@@ -401,6 +401,45 @@ memory dressed as one.
   fails with *"no .ts/.tsx files found"* rather than passing three times. In the same review a
   proposed `#[tauri::command]` counter was **refused rather than written**, because there is no
   `Cargo.toml` in the repo and it would have been green from the day it landed.
+- **AN INSTRUMENT WHOSE PREMISE HOLDS IN THE NORMAL CASE AND QUIETLY FAILS IN THE ABNORMAL ONE IS
+  UNAVAILABLE IN THE ONLY CASE IT EXISTS FOR.** The fifty-fourth member. **This is not a CI rule**,
+  though all three worked examples below happen to come from one day of it. It is the same shape as
+  a guard that passes on an empty corpus: the check is not wrong, it is *silent*, and silence is
+  read as *fine*. The difference is that an empty-corpus guard is silent about everything, while
+  this one is silent about exactly the situation it was built for - so it is not merely useless in
+  the emergency, it is **actively reassuring** during it.
+
+  The tell is always the same: an instrument measures a **proxy**, the proxy tracks the subject in
+  ordinary conditions, and the abnormal condition is precisely what breaks the correspondence.
+  Whoever reaches for the instrument reaches for it *because* conditions are abnormal.
+
+  *Three worked examples, all 2026-08-19, `(aee)`.*
+
+  1. **`E2E_SECONDS_MAX` measures pytest; the lane is the job.** The 2000 s ceiling is enforced
+     inside the step and times pytest's own runtime. Measured on run 32287632288: pytest
+     **1244.11 s**, the job **36m40s** - so **43% of the lane**, all of it queueing, checkout,
+     browser install and frontend build, is outside what the instrument can see. The tempting
+     reading, *"it breached the ceiling and passed"*, is wrong: pytest was genuinely under and the
+     ceiling was right to stay quiet. **A guard working exactly as designed still left the thing
+     anyone cared about unmeasured.**
+  2. **`flake_report` reads uploaded artifacts; a timed-out lane uploads none.** Run 32295312064's
+     e2e job was killed at **45m18s** and produced **no `test-results-e2e` artifact at all**. The
+     report over the following six runs names exactly one failure - an unrelated one - and shows
+     **nothing whatever** for a lane that died. **A dead lane reads clean**, and it reads clean by
+     the same mechanism that makes the report trustworthy the rest of the time.
+  3. **`ci_timing_summary` calls the exiftool install a property of the machine; it is a property
+     of the mirror.** Its own words: *"downloads and unpacks the same archive every run, so its
+     duration is a property of the machine and nothing else."* That step measured **33+ min, 58 s
+     and 88 s** in a single day across two mirror outages. Its whole job is telling a slow *runner*
+     from a slow *suite*, and during an outage its ratio is noise - which is when someone asks.
+
+  **What to do about it is not "add a threshold".** Each of these is correct within its own frame;
+  the defect is that the frame is unstated, so a reader infers coverage the instrument never
+  claimed. So: **say what the instrument does NOT measure, next to the instrument** - the same
+  discipline as the twenty-second member, a report about state must say what it does not cover -
+  and when two instruments bound one thing, expect the gap between their frames to be where the
+  failure lives. `E2E_SECONDS_MAX` and `timeout-minutes` bound the same lane and neither sees the
+  other's half; that gap is not a gap in either one, and no adjustment to either number closes it.
 - **A mutation proof needs a control, because "it failed" and "it failed for the reason I think"
   are different claims.** The fifty-third member, and the one that attacks the *harness* rather
   than the guard. Every rule above assumes the mutant was executed. When it was not, a red run

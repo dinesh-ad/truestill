@@ -175,11 +175,13 @@
   someone reaches for an instrument that answers *"is it the runner or the suite?"*. The drop-in
   also changes that baseline, so ratios from before and after this commit are not comparable.
 
-  **All three findings are one shape, and this is the line to keep:** *an instrument whose premise
-  holds in the normal case and quietly fails in the abnormal one is unavailable in the only case it
-  exists for.* `E2E_SECONDS_MAX` cannot see the job, `timeout-minutes` cannot see pytest, and the
-  timing ratio cannot see a mirror. None of the three is wrong; each is silent about the thing that
-  went wrong.
+  **All three findings are one shape, and it is now `ENGINEERING_STANDARD.md` §4's fifty-fourth
+  member:** *an instrument whose premise holds in the normal case and quietly fails in the abnormal
+  one is unavailable in the only case it exists for.* `E2E_SECONDS_MAX` cannot see the job,
+  `flake_report` cannot see a lane that uploaded nothing, and the timing ratio cannot see a mirror.
+  None of the three is wrong; each is silent about the thing that went wrong. **Stated generally
+  there**, with these three as its worked examples - it is the same shape as a guard that passes on
+  an empty corpus, and nothing about it is specific to CI.
 
   ### The spread, recorded as a spread rather than a conclusion
 
