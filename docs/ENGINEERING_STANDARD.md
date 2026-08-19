@@ -173,7 +173,10 @@ memory dressed as one.
   live database file can yield *"some old and some new content"* and names the blessed answers -
   the online backup API, `VACUUM INTO`, `sqlite3_rsync`. One search would have found it; the entry
   was written without one, and the remedy it names is the wrong shape for the file it names.
-  See `research/backlog/adb.md` and `(adr)`.
+  See `SHIPPED.md` `(adb)` - **refused on evidence 2026-08-19**, and the refusal is the same lesson
+  read twice: the search that killed `copy_leaving_nothing` also measured what the blessed answers
+  actually cost, and none of them was worth paying. Research settles what a remedy *is*; it does
+  not oblige you to apply one. Also `(adr)`.
 - Paid services stay out (§3.1). This raises the bar on free sources; it does not move that fence.
 
 ## 4. Code standard

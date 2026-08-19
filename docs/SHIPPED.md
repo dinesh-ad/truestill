@@ -61,6 +61,60 @@ recording shipped work as unstarted, which is the more expensive direction of th
     `default_catalog_path()` still resolves to the real catalog rather than the test root. `(adv)`
     made that **disclosed**; it did not make it **prevented**.
 
+- **(adb) THE CATALOG COPY IS STILL A PLAIN `copy2`, AND THAT IS NOW A DECISION.**
+  - ❌ **REFUSED ON EVIDENCE 2026-08-19 - not built, and the letter is kept.** The verdict is not
+    *"no remedy is needed"*. It is that **every real remedy costs more than the hazard is worth, at
+    a population of one, on a file nothing in the tree resolves.**
+  - **The entry's own premise was right and is not disturbed.** A plain file copy is universally
+    the wrong tool for a live SQLite database - SQLite says so, and it is live enough that a
+    July 2026 Vikunja thread argues their documentation is wrong to recommend `cp`. `(adb)`'s
+    original remedy, `copy_leaving_nothing`, was **correctly refused** as a filesystem answer to a
+    database question. None of that changed; what changed is who can reach the hazard.
+  - **1. The ordinary-use route died with `(adw)`.** `--move`'s source is `LEGACY_CATALOG_PATH`
+    (`cli.py`, the only caller), and that constant now appears **once** in `app_paths.py` - its own
+    definition. **Nothing resolves it.** A torn copy needs a second process pointed at that file by
+    explicit `--db`, during the copy. That is misuse of a path with one user, who has already
+    migrated.
+  - **2. `backup()` from a separate process is the restart case.** SQLite: a write *"by an external
+    process… using a database connection other than pDb"* means **"the entire backup operation must
+    be restarted"**. `move_catalog_to_standard` holds no handle and runs in its own CLI process, so
+    against a sustained writer it is **correct-or-never-finishing**.
+  - ⚠ **3. AND MY EARLIER FRAMING OF `VACUUM INTO` WAS WRONG, corrected here rather than left.** I
+    called it "the candidate". SQLite's own comparison is the other way round: **`.backup` is the
+    routine copy** - *"uses fewer CPU cycles and can be executed incrementally"* - and **`VACUUM
+    INTO` is what you reach for when you also want the space back**, because it rewrites every
+    page. The measured **6,365,184 -> 5,132,288** compaction is a side effect nobody asked for:
+    **a move should produce the same database, not a rewritten one.**
+  - **4. And it fails, and adopts.** Under a sustained writer at our default 5 s `busy_timeout`,
+    **1 of 4 attempts failed** with `database is locked`. A pre-existing **0-byte** destination is
+    **accepted and filled** - measured, 2,695 files written into one - so it would **reintroduce
+    `(adr)`**. **Our own `destination.exists()` check stays**: it produces a sentence a person can
+    act on, where SQLite's refusal is `file is not a database`, a message about parsing.
+  - ⚠ **5. A HAZARD NEITHER BLESSED METHOD ESCAPES, recorded because it is new here.** Both need
+    room for **a full second copy**. Plain `VACUUM` is worse - SQLite: *"as much as twice the size
+    of the original database file is required in free disk space"* - though **`VACUUM INTO` avoids
+    that specific doubling**, since it *"uses the file named on the INTO clause in place of the
+    temporary database and omits the step of copying the vacuumed database back over top of the
+    original"*. The second-copy cost remains for both. ✅ **It is already paid**: `--move` copies
+    rather than moves and leaves the original in place, so the user is spending that space today.
+  - 🔑 **THE VERDICT, STATED PRECISELY SO IT IS NOT SOFTENED INTO "IT IS FINE".** The copy really
+    is the wrong tool. Every remedy is either the restart case, or a rewrite of a database that
+    should have been reproduced, or a 1-in-4 refusal that also reintroduces a shipped defect. **At
+    one user, on an unresolvable path, the cure is worse.**
+  - ⚠ **REOPEN CONDITIONS, and they are structural rather than a date.** This refusal rests
+    entirely on who can reach the file, so it expires the moment that changes:
+    - **`LEGACY_CATALOG_PATH` becoming resolvable again** by anything - the automatic lookup
+      returning in any form;
+    - **`--move` gaining a source other than it** - any path a live process might hold.
+
+    Either one restores the ordinary-use route, and this comes straight back with its measurements
+    intact. `test_the_legacy_catalog_path_is_retired.py` is what would go red first.
+  - ➡ **The `_MetadataBaker` half was split out as `(aed)` rather than refused with this**, on the
+    entry's own instruction (*"Do not 'fix' these together"*). Every measurement above is about the
+    **catalog** copy; none touches the bake path, and `PERFORMANCE.md` still has no figure for it.
+    **Refusing an unanswered question in the same breath as an answered one is how a question
+    disappears.**
+
 - **(aeb) TWO PATHS THAT RESOLVE TO ONE FILE ARE ONE FILE.**
   - ✅ **CLOSED 2026-08-19.** `truestill catalog` told a user their correctly-placed catalog was
     *"in the old location"* and advised a `--move` that could not help, whenever a symlink sat
