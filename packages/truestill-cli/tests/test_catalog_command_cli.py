@@ -88,10 +88,23 @@ def test_a_catalog_already_in_the_standard_place_is_not_called_old(
     assert "old location" not in out, "a correctly-placed catalog was reported as misplaced"
 
 
-def test_a_legacy_catalog_is_reported_as_in_use_and_offered_a_move(
+def test_a_legacy_catalog_in_the_working_directory_is_not_reported_as_in_use(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """The genuine "old location" case still says so - the guard must not silence it."""
+    """⚠ REVERSED BY `(adw)`, 2026-08-19, AND THE CONSEQUENCE IS RECORDED RATHER THAN GLOSSED.
+
+    This asserted the opposite: that a `reports/catalog.sqlite` beside the working directory was
+    *"reported as in use and offered a move"*. It was, and that was the defect - the same install
+    reported a different catalog in use depending on where it was run, because the path is
+    relative.
+
+    **What this costs, stated plainly:** `truestill catalog` no longer notices a legacy file, so a
+    user who has one is no longer told it exists or pointed at `--move`. `--move` still works and
+    still migrates it; nothing advertises it. That is acceptable **only** because the population
+    who can hold one is a single person - no release has ever been published - and their catalog
+    was migrated before this landed. It would not be acceptable after a release, which is exactly
+    why `(adw)` records that the reasoning expires at the first `v*` tag.
+    """
     monkeypatch.chdir(tmp_path)
     legacy = tmp_path / "reports" / "catalog.sqlite"
     legacy.parent.mkdir()
@@ -102,11 +115,12 @@ def test_a_legacy_catalog_is_reported_as_in_use_and_offered_a_move(
 
     out = capsys.readouterr().out
     reported = _lines(out)
-    # Absolute since (aad) - the same file, named so it cannot shift under a chdir.
-    assert reported["Catalog in use"] == str(legacy)
-    assert reported["Catalog in use"] != reported["Standard place"]
-    assert "old location" in out
-    assert "truestill catalog --move" in out
+    assert reported["Catalog in use"] != str(legacy), (
+        "a catalog in the working directory was reported as in use, so `cd` still decides which "
+        "library this is"
+    )
+    assert reported["Catalog in use"] == reported["Standard place"]
+    assert "old location" not in out
 
 
 def test_the_cache_line_is_the_cache_that_catalog_actually_uses(

@@ -18,9 +18,11 @@ first, and a blank one is the same as an unset one.** Verified rather than cited
 ``XDG_DATA_HOME`` set to ``""`` and to ``"   "``, `platformdirs` returns ``~/.local/share`` both
 times.
 
-**But the override does not get to strand an existing library**, which is `(aae)`'s whole promise.
-The legacy file is still used when it exists and the override has no catalog yet - and whenever
-the two disagree, the banner says so instead of picking silently.
+⚠ **The stranding half of this was retired with `(adw)` on 2026-08-19.** The override used to
+have to yield to an existing `reports/catalog.sqlite`, because that file was `(aae)`'s
+backwards-compatibility promise. It is no longer consulted at all - it was relative, so the
+promise was kept against whichever directory the process started in - so there is nothing left
+for the override to strand. `truestill catalog --move` migrates one; nothing adopts one.
 """
 
 from __future__ import annotations
@@ -70,45 +72,6 @@ def test_an_explicit_override_beats_a_legacy_catalog_in_the_working_directory(
     assert chosen != legacy.resolve()
 
 
-def test_a_legacy_catalog_detected_but_not_used_is_disclosed(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Winning silently is the other half of the defect. `(aae)`'s promise is about data loss;
-    this is about the user knowing which of two real catalogs they are about to work in."""
-    monkeypatch.chdir(tmp_path)
-    _a_working_directory_holding_a_legacy_catalog(tmp_path)
-    _an_override_holding_a_catalog(tmp_path, monkeypatch)
-
-    choice = resolve_catalog_choice()
-
-    assert choice.reason == "override"
-    assert choice.note, "a legacy catalog was found and skipped, and nothing said so"
-    assert "reports" in choice.note
-
-
-def test_a_legacy_catalog_is_not_stranded_when_the_override_holds_none(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """⚠ The half that must NOT be 'the override always wins'.
-
-    Someone with an existing library and the variable set in a shell profile would otherwise get
-    a brand-new empty catalog and no sign of the old one - which is precisely the data-loss shape
-    `(aae)` exists to prevent, reintroduced by the fix for `(adv)`.
-    """
-    monkeypatch.chdir(tmp_path)
-    legacy = _a_working_directory_holding_a_legacy_catalog(tmp_path)
-    empty = tmp_path / "empty-elsewhere"
-    empty.mkdir()
-    monkeypatch.setenv(DATA_DIR_ENV, str(empty))
-
-    choice = resolve_catalog_choice()
-
-    assert choice.path == legacy.resolve()
-    assert choice.reason == "legacy"
-    assert choice.note, "the override was set and lost, and nothing said so"
-    assert DATA_DIR_ENV in choice.note
-
-
 @pytest.mark.parametrize("blank", ["", "   ", "\t\n"])
 def test_a_blank_override_is_treated_as_unset(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, blank: str
@@ -128,23 +91,25 @@ def test_a_blank_override_is_treated_as_unset(
 def test_the_banner_says_which_path_won_and_why(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """It read identically in all three cases, which is what made `(adv)` hard to notice: the
-    resolved path was on screen and nothing said a variable had been set and lost."""
+    """It read identically in every case, which is what made `(adv)` hard to notice: the resolved
+    path was on screen and nothing said a variable had been set and lost.
+
+    ⚠ **Two rules now, not three.** `(adw)` retired the legacy `reports/catalog.sqlite` lookup on
+    2026-08-19, so there is no longer a branch between the override and the default. The property
+    this test exists for is unchanged and is not about the count: **a user is told which rule
+    decided, and no two rules read alike.**
+    """
     monkeypatch.chdir(tmp_path)
     seen = {}
 
     monkeypatch.delenv(DATA_DIR_ENV, raising=False)
     seen["default"] = resolve_catalog_choice()
 
-    _a_working_directory_holding_a_legacy_catalog(tmp_path)
-    seen["legacy"] = resolve_catalog_choice()
-
     _an_override_holding_a_catalog(tmp_path, monkeypatch)
     seen["override"] = resolve_catalog_choice()
 
-    assert [c.reason for c in seen.values()] == ["default", "legacy", "override"]
+    assert [c.reason for c in seen.values()] == ["default", "override"]
     summaries = [c.summary for c in seen.values()]
     assert all(summaries), "every case must state why this path won"
-    assert len(set(summaries)) == 3, f"two cases read identically: {summaries}"
+    assert len(set(summaries)) == len(summaries), f"two cases read identically: {summaries}"
     assert DATA_DIR_ENV in seen["override"].summary
-    assert "reports" in seen["legacy"].summary

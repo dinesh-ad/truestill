@@ -52,21 +52,6 @@ def test_a_new_install_puts_the_catalog_in_the_os_data_location(
     assert resolved.name == "catalog.sqlite"
 
 
-def test_an_existing_legacy_catalog_keeps_being_used(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Backwards-compatible by default: nobody's setup breaks on upgrade."""
-    monkeypatch.chdir(tmp_path)
-    legacy = tmp_path / "reports" / "catalog.sqlite"
-    legacy.parent.mkdir()
-    legacy.write_bytes(b"existing")
-
-    # Absolute since (aad): the same file, named in a way that survives a chdir. A relative
-    # answer means a different catalog after any directory change, including one truestill
-    # makes itself.
-    assert default_catalog_path() == legacy
-
-
 def test_resolution_never_creates_anything(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Asking where the catalog *would* live must not make a directory or a file.
 
@@ -117,20 +102,3 @@ def test_two_explicit_catalogs_do_not_share_a_cache(tmp_path: Path) -> None:
     second = cache_path_for(tmp_path / "b" / "c.sqlite")
 
     assert first != second
-
-
-def test_the_legacy_catalog_keeps_its_cache_beside_it(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """An upgrading user's warm cache is not orphaned by the new default.
-
-    They keep the catalog where it is, so they keep the cache where it is - the rule falls out
-    of "the cache counterpart of wherever the catalog lives" rather than being a special case.
-    """
-    monkeypatch.chdir(tmp_path)
-    legacy = tmp_path / "reports" / "catalog.sqlite"
-    legacy.parent.mkdir()
-    legacy.write_bytes(b"existing")
-
-    assert cache_path_for(default_catalog_path()).name == "catalog.cache.sqlite"
-    assert cache_path_for(default_catalog_path()).parent == legacy.parent

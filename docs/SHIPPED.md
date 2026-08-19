@@ -61,6 +61,66 @@ recording shipped work as unstarted, which is the more expensive direction of th
     `default_catalog_path()` still resolves to the real catalog rather than the test root. `(adv)`
     made that **disclosed**; it did not make it **prevented**.
 
+- **(adw) THE LEGACY `reports/catalog.sqlite` LOOKUP IS RETIRED, NOT REPAIRED.**
+  - ✅ **CLOSED 2026-08-19.** `_legacy_catalog()`, the `_working_directory_was_chosen()` gate that
+    served it alone, and the legacy branches of `resolve_catalog_choice` are gone. The path was
+    **relative**, so asking whether it existed asked about the **current directory** - the same
+    install found a different library depending on where it was launched, with no environment
+    variable involved.
+  - 🔑 **WHY RETIREMENT RATHER THAN REPAIR, AND THIS REASONING EXPIRES.** Four facts, each
+    verified rather than assumed:
+    - the path was introduced **2026-07-31** (`5db91b9`, the `(aae)` commit);
+    - **no `v*` tag exists** - the only tag in the repository is `preserved/abw-finding-3`;
+    - `release.yml` fires on `tags: ["v*"]`, and its **three runs were all `workflow_dispatch`**
+      with `dry_run` defaulting to `true` (*"build and verify, publish nothing"*);
+    - so the only way to hold a legacy catalog is to have run truestill from a git **checkout**
+      before that date.
+
+    **Population: one, and the one is the maintainer.** Anchoring the path or resolving it once
+    per process is machinery to make a bad path behave for a population that does not exist.
+    ⚠ **This argument stops being true the moment a tag is cut**, which is why it is on the
+    record now rather than reconstructed later.
+  - ✅ **THE MAINTAINER'S CATALOG WAS MIGRATED FIRST, and the code was not deleted out from under
+    a live file.** `reports/catalog.sqlite` was 6.37 MB with 2,695 files, 4,933 copies and three
+    registered drives; the standard location already held a **different, empty** catalog (0 files,
+    163,840 bytes) which is why `catalog --move` would have refused with `DESTINATION_EXISTS`.
+    The empty one was **moved aside, not deleted**
+    (`catalog.empty-superseded-<stamp>.sqlite`, keeping its one real setting), then
+    `truestill catalog --move` ran. Verified: the copy is **byte-identical**, carries the same
+    2,695 files and three drives, and `truestill status` from outside the checkout now reports
+    2,695 files from the standard location. The legacy file is **still there** - `--move` copies
+    and never removes.
+  - 🌍 **EVERY DEPRECATION POLICY FOUND IS RELEASE-ANCHORED, WHICH IS WHY A CYCLE HERE WOULD BE
+    THEATRE.** Kubernetes removes only on an API version increment; GitLab announces three
+    milestones before a major; OpenSSL requires five years in an LTS release; Docker stages
+    warn-then-remove across releases. **All of them presuppose releases we have not made**, so a
+    deprecation cycle here would be a warning aimed at an audience of one who is reading the
+    commit anyway.
+  - **The precedent for removing outright is Git's own `BreakingChanges` document**, which
+    retired `.git/branches/` on the grounds that most users are not aware of it and no active
+    user complained. That is the shape used here: not "warn, wait, remove", but "establish that
+    nobody is relying on it, then remove".
+  - ⚠ **AND THE OTHER SIDE OF ccache**, which is the case for *not* doing this once there are
+    users: it keeps a legacy `$HOME/.ccache` **permanently**, with no deprecation and no removal
+    schedule, precisely because it cannot enumerate who holds one. **We can enumerate. That is
+    the whole difference, and it is temporary.**
+  - ⚠ **WHAT THIS COSTS, recorded rather than glossed.** `truestill catalog` no longer notices a
+    legacy file, so a holder is no longer told one exists or pointed at `--move`. **The migration
+    still works; nothing advertises it.** Acceptable at a population of one whose catalog is
+    already migrated; **not** acceptable after a release, which is the same expiry as the
+    reasoning above.
+  - **`LEGACY_CATALOG_PATH` survives as `catalog --move`'s source only**, kept relative on
+    purpose: *"migrate the one in front of me"* is exactly the question a relative path answers
+    well, and exactly the one it answers badly when the question is *"which library is this?"*.
+  - **Guarded** by `test_the_legacy_catalog_path_is_retired.py`, including the property the entry
+    was filed for - two directories, one answer - and a source-level check that the resolver does
+    not reach for the path again. Mutation-proved: restoring the legacy branch fails four of five.
+  - **Nine tests pinned the old behaviour and were handled one at a time**, not swept:
+    `test_legacy_probe_scope.py` was **removed whole** (it scoped a probe that no longer exists,
+    preserved to `.superseded/`); the `(adv)` banner test became **two-way**, keeping the property
+    that matters - a user is told which rule decided; and the CLI's *"reported as in use and
+    offered a move"* test is **reversed in place** with the cost above written into it.
+
 - **(adl) A MIGRATION STEP IS NOW ALL OR NOTHING, AND THE CONCURRENT RACE CLOSED WITH IT.**
   - ✅ **CLOSED 2026-08-19.** `Catalog._apply_step` runs each migration in its own
     **`BEGIN IMMEDIATE`** transaction **with `PRAGMA user_version` inside it**, and the ten steps
@@ -1562,9 +1622,17 @@ recording shipped work as unstarted, which is the more expensive direction of th
     the user already has instead of silently opening an empty new one; `standard_catalog_path`
     is where it *belongs*, and `move_catalog_to_standard` (`catalog_move.py`) is the explicit,
     refusing-on-doubt move between the two.
+  - ⚠ **AMENDED 2026-08-19: THE LEGACY LOOKUP IS RETIRED, AND THE PROMISE BELOW IS WHY.**
+    `(adw)` removed the automatic adoption of `reports/catalog.sqlite`. The entry below is
+    **correct and is not rewritten** - it describes what was built and why, and the reasoning was
+    right for the case it was written for. What it never did was **state a horizon**: no end date,
+    no version, no condition under which the compatibility path would stop. That open-ended
+    promise by omission is what `(adw)` closed, and the policy it prompted is `(adz)`.
+    `truestill catalog --move` still migrates a legacy catalog; nothing adopts one.
   - **The open questions are answered.** `platformdirs` **is** justified in writing, at the top
     of `app_paths.py`, against the stdlib alternative as `ENGINEERING_STANDARD.md` §4 requires.
-    An existing `reports/catalog.sqlite` is **adopted, never orphaned**. The filename stayed
+    ~~An existing `reports/catalog.sqlite` is **adopted, never orphaned**.~~ **Retired 2026-08-19,
+    `(adw)`** - it was adopted against whichever directory the process started in. The filename stayed
     `catalog.sqlite` (`CATALOG_FILENAME`), the enclosing directory now naming the app instead -
     which was the recorded weak point, and the enclosing directory answering it was one of the
     options this entry listed.

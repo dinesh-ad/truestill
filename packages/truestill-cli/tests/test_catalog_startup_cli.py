@@ -34,28 +34,6 @@ def test_cli_first_run_prints_will_create(
         assert banned not in out
 
 
-def test_an_existing_legacy_catalog_is_still_the_one_announced(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """The backwards-compatibility promise, at the surface a user actually reads.
-
-    Someone upgrading must not be told truestill is using a different, empty catalog while
-    their real one sits in `reports/` - that reads exactly like data loss.
-    """
-    monkeypatch.chdir(tmp_path)
-    legacy = tmp_path / "reports" / "catalog.sqlite"
-    legacy.parent.mkdir()
-    with Catalog(legacy):
-        pass
-
-    code = main(["status"])
-
-    assert code == 0
-    out = capsys.readouterr().out
-    assert str(Path("reports/catalog.sqlite")) in out
-    assert "No catalog yet" not in out, "an existing catalog was announced as absent"
-
-
 def test_cli_explicit_db_honoured(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     db = tmp_path / "my.sqlite"
     with Catalog(db):

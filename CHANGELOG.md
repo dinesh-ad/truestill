@@ -45,6 +45,13 @@ All notable changes to this project are documented here. The format follows
   A group you have already named shows its name instead, and is never offered a suggestion.
 
 ### Fixed
+- **Truestill no longer opens a different library depending on which folder you ran it from.**
+  Very early versions kept the catalog in a `reports/` folder next to wherever you happened to be,
+  and Truestill still looked there first - so the same installation could show you one library
+  from one folder and another from somewhere else, with nothing said about it. It now always uses
+  its proper location, or the one you set with `TRUESTILL_DATA_DIR`. If you have an old
+  `reports/catalog.sqlite`, `truestill catalog --move` copies it across, and it is left untouched
+  until you delete it yourself.
 - **An upgrade that is interrupted now leaves your library exactly as it was.** When Truestill
   updates the shape of its catalog, it does that in steps. If the power went out, or you closed
   the laptop, part of a step could already be written while Truestill still believed the older

@@ -48,7 +48,6 @@ writing against a stdlib alternative). `platformdirs` is added deliberately:
 from __future__ import annotations
 
 import os
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -79,8 +78,23 @@ APP_NAME = "Truestill"
 DATA_DIR_ENV = "TRUESTILL_DATA_DIR"
 CACHE_DIR_ENV = "TRUESTILL_CACHE_DIR"
 
-#: Where the catalog lived before `(aae)`, relative to the working directory. Still honoured
-#: when it is really there - see :func:`default_catalog_path`.
+#: Where the catalog lived before `(aae)`, relative to the working directory.
+#:
+#: ⚠ **NOT A RESOLUTION RULE ANY MORE - `truestill catalog --move` is its only consumer.**
+#: `(adw)` retired the automatic lookup on 2026-08-19: because this path is *relative*, asking
+#: whether it exists asked about the **current directory**, so the same install found a different
+#: library depending on where it was launched from, with no environment variable involved.
+#:
+#: **Retired rather than anchored, and the reasoning has a shelf life.** It was introduced
+#: 2026-07-31 (`5db91b9`), no release has ever been published (`release.yml` fires on `tags:
+#: ["v*"]`, no such tag exists, and its runs were dispatches with `dry_run` defaulting to true),
+#: so the only way to hold one is to have run truestill from a checkout before that date -
+#: **a population of one, and it is the maintainer, whose catalog was migrated before this
+#: landed.** Anchoring the path would have been machinery for nobody.
+#:
+#: Kept relative on purpose: `--move` means *"migrate the one in front of me"*, which is exactly
+#: the question a relative path answers well - and exactly the one it answers badly when the
+#: question is *"which library is this?"*.
 LEGACY_CATALOG_PATH = Path("reports/catalog.sqlite")
 
 #: Filename of the catalog in the OS data directory.
@@ -130,30 +144,6 @@ def _cache_dir() -> Path:
     return override if override else Path(platformdirs.user_cache_dir(APP_NAME, appauthor=False))
 
 
-def _working_directory_was_chosen() -> bool:
-    """Whether *somebody decided* what the working directory is.
-
-    `LEGACY_CATALOG_PATH` is relative, so asking whether it exists is asking about the current
-    directory - which for a double-clicked app is whatever the OS handed the process:
-    ``C:\\Windows\\System32``, ``/``, or the user's home, depending on how it was launched. That
-    question has no meaning there, and the answer it happens to get is an accident.
-
-    **The signal is how the process was started, not what the directory contains.** A windowed
-    launch has no console (``pythonw.exe``, a ``--noconsole`` build, a packaged GUI app), and
-    that is exactly the case where nobody chose a directory. Anything with a console was started
-    by someone typing a command somewhere, and *that somewhere* is a deliberate answer.
-
-    Deliberately **not** an attempt to recognise a developer or a source checkout. A user with a
-    ``reports/`` folder is not a developer, a developer running from elsewhere still deserves
-    their catalog, and a rule that tried to tell them apart would be wrong in both directions.
-
-    This keeps `(aae)`'s promise whole for **everyone who can actually hold a legacy catalog**:
-    the only way to have one is to have run truestill from a terminal, and every terminal
-    invocation still looks. What is skipped is the case that could never have created one.
-    """
-    return sys.stdout is not None or sys.stderr is not None
-
-
 def default_catalog_path() -> Path:
     """The catalog to use when the caller did not name one. **Never creates anything.**
 
@@ -161,15 +151,13 @@ def default_catalog_path() -> Path:
     must still be honoured, and a constant computed at import time is unpatchable by a test and
     therefore un-isolatable.
 
-    An existing legacy catalog wins, and that ordering is the backwards-compatibility promise:
-    an upgrade must not silently start writing to a different, empty catalog while the real one
-    sits where the user left it. That failure would look exactly like data loss, which is why
-    the legacy path is checked first rather than migrated automatically.
-
-    **The legacy path is relative, so it is only asked about where the working directory means
-    something** - see :func:`_working_directory_was_chosen`. It is returned **absolute**: a
-    relative answer names a different file after any ``chdir``, and `Catalog` opens it at the
-    moment it is handed over, not at the moment it was resolved.
+    ⚠ **The legacy `reports/catalog.sqlite` is no longer consulted** (`(adw)`, 2026-08-19).
+    ~~An existing legacy catalog wins, and that ordering is the backwards-compatibility
+    promise.~~ It did, as `(aae)`'s promise that an upgrade must not silently start writing to a
+    different, empty catalog while the real one sits where the user left it - which was right.
+    What was wrong is that the path is **relative**, so the promise was kept against *whichever
+    directory the process happened to start in*, and the same install answered differently after
+    a `cd`. `truestill catalog --move` migrates one; nothing adopts one.
     """
     return resolve_catalog_choice().path
 
@@ -188,13 +176,6 @@ class CatalogChoice:
     #: Set only when something surprising has to be disclosed - a second real catalog that was
     #: found and not used, or an override that was set and lost. Empty otherwise.
     note: str
-
-
-def _legacy_catalog() -> Path | None:
-    """The pre-`(aae)` catalog beside the working directory, when there really is one."""
-    if _working_directory_was_chosen() and LEGACY_CATALOG_PATH.exists():
-        return LEGACY_CATALOG_PATH.resolve()
-    return None
 
 
 def resolve_catalog_choice() -> CatalogChoice:
@@ -219,41 +200,11 @@ def resolve_catalog_choice() -> CatalogChoice:
     resolved path was already on screen and nothing said a variable had been set and lost.
     """
     override_dir = _override_dir(DATA_DIR_ENV)
-    legacy = _legacy_catalog()
-
     if override_dir is not None:
-        named = (override_dir / CATALOG_FILENAME).resolve()
-        if named.exists() or legacy is None:
-            note = ""
-            if legacy is not None:
-                note = (
-                    f"A catalog also exists at {legacy}. It is NOT being used, because "
-                    f"{DATA_DIR_ENV} names one. Unset {DATA_DIR_ENV} to use that one instead."
-                )
-            return CatalogChoice(
-                path=named,
-                reason="override",
-                summary=f"Catalog location from {DATA_DIR_ENV}.",
-                note=note,
-            )
         return CatalogChoice(
-            path=legacy,
-            reason="legacy",
-            summary=f"Catalog location from an existing {LEGACY_CATALOG_PATH} "
-            "beside the working directory.",
-            note=(
-                f"{DATA_DIR_ENV} is set to {override_dir}, which holds no catalog yet, so the "
-                f"existing one at {legacy} is being used rather than left behind. Move it there, "
-                f"or unset {DATA_DIR_ENV}, to settle which is which."
-            ),
-        )
-
-    if legacy is not None:
-        return CatalogChoice(
-            path=legacy,
-            reason="legacy",
-            summary=f"Catalog location from an existing {LEGACY_CATALOG_PATH} "
-            "beside the working directory.",
+            path=(override_dir / CATALOG_FILENAME).resolve(),
+            reason="override",
+            summary=f"Catalog location from {DATA_DIR_ENV}.",
             note="",
         )
 
