@@ -41,10 +41,25 @@ recording shipped work as unstarted, which is the more expensive direction of th
     `-o Acquire::Retries=3`, the fix in every write-up on this failure, was already in force and
     was the cost. `Retries=1` at a 15 s timeout instead; `update` and `install` split, because
     chained a flaky refresh fails the step even when the package would have installed.
-  - 🔒 **THE MECHANISM IS VERIFIED; THE FIX IS UNPROVEN, AND IS RECORDED AS UNPROVEN.** The next
-    run took **1m31s** on that lane and **that proves nothing** - the mirror may simply have
-    recovered. **Demonstrating this needs an outage, which cannot be staged.** The next time that
-    mirror goes dark is the test.
+  - ⚠ **THE BOUND WAS AT THE WRONG ALTITUDE, found by a second outage the same day** (run
+    **32295312064**). Flags bound the call site you are looking at; the same job had a *second*
+    exiftool step nobody touched, and `playwright install --with-deps` runs its own `apt-get`
+    that **takes no flags from us** - it spent **43m33s** on the unreachable mirror. The setting
+    now lives in an `/etc/apt/apt.conf.d/` drop-in every consumer inherits, guarded by
+    `test_ci_bounds_apt_in_one_place`. **Bounding a call site fixes the calls you can see.**
+  - ✅ **`timeout-minutes` FIRED, two runs after it was added:** that job was killed at **45m18s**
+    instead of running to the 360-minute default, with the three `check` lanes green underneath.
+    **Not evidence for raising it** - a bound that fires during an outage is correctly sized.
+  - ⚠ **GitHub reports a timeout-killed job as `cancelled`, not `failure`** - the same value as a
+    human cancel and as a `concurrency` supersede, and the timeout is the one nobody expects. The
+    timed-out run also uploaded **no e2e artifact**, so `flake_report` reads clean over a lane
+    that died after 45 minutes.
+  - 🔒 **THE SAVING ITSELF IS STILL UNPROVEN, AND THIS OUTAGE DID NOT SETTLE IT** - said plainly
+    because a reader who sees an outage recorded will assume it did. An earlier claim of a
+    controlled comparison was **wrong and is corrected in the body**: the honest same-run control
+    was 58 s bounded against **88 s** unbounded, both fine, and the 33-minute figure came from a
+    different run. The catastrophic step was unbounded *and* far larger, so the two variables
+    moved together. The next outage is still the test.
   - ⚠ **The two bounds are NOT the same measurement**, found on the run that landed the entry:
     `E2E_SECONDS_MAX` times **pytest**, `timeout-minutes` times the **job**. Measured on
     32287632288 - pytest **1244.11 s**, job **36m40s**, so **43% of the lane is invisible** to the

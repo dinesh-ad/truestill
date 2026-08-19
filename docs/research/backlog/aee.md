@@ -30,37 +30,89 @@
   a suite that got slow, the outer one catches a hang **before pytest ever starts**, which the
   inner one cannot see.
 
-  ## (2) THE APT MIRROR FALLBACK - MECHANISM VERIFIED, FIX UNPROVEN
+  ✅ **AND IT FIRED, on 2026-08-19, two runs after it was added.** Run 32295312064's `e2e` job was
+  killed at **45m18s** with `Install browsers` stuck 43m33s in a mirror it could not reach. The
+  bound turned a lane that would have run to GitHub's 360-minute default into a **bounded, labelled
+  failure in 45 minutes**, with the three `check` lanes passing underneath it. That is the whole of
+  what it was for.
 
-  GitHub's Ubuntu images resolve packages through a mirrorlist that puts
-  `azure.archive.ubuntu.com` first and falls back to `archive.ubuntu.com`.
+  ⚠ **AND GITHUB REPORTS A TIMEOUT-KILLED JOB AS `cancelled`, NOT `failure`.** Verified on this
+  run: `conclusion: cancelled` on both the job and the run. **Three different causes now sit behind
+  that one value** - a human pressing cancel, a `concurrency` supersede (this workflow sets
+  `cancel-in-progress: true`, so it happens routinely), and a timeout. **The timeout is the one
+  nobody will expect**, and it is the only one of the three that means something is wrong. It is a
+  standing GitHub complaint rather than a local quirk - `community` discussion **#38004** is titled
+  *"timing out github action without 'failure' status"*.
 
-  **Verified, and it inverts the standard advice:**
-  - apt **>= 2.3.2 already defaults to `Acquire::Retries=3`**, at a default 120 s timeout.
-  - The failing run's log shows **exactly four `Ign:` rounds** per index - one attempt and three
-    retries. The default, doing its job, at our expense.
-  - The fallback **works**: the same log then reads `Hit: https://archive.ubuntu.com`. Nothing was
-    broken except the cost of reaching it.
-  - Checked rather than assumed: `apt-config dump` carries no explicit `Acquire::Retries` or
-    `Acquire::http::Timeout` entry, so the compiled default is what applies.
+  Nothing in this repo branches on that field today - `scripts/flake_report.py` requests
+  `conclusion` but works from the uploaded test-result XML - so this is a hazard recorded before it
+  bites rather than a defect. ⚠ **But the artifact route has the same blind spot and it is live:**
+  the timed-out run uploaded **no `test-results-e2e` artifact at all**, so `flake_report` over the
+  last six runs reports exactly one failure - the macOS probe - and **shows nothing whatever for a
+  lane that died after 45 minutes**. A timeout produces zero recorded failures, so the flake report
+  reads clean. Whoever adds a check on run health should count a `cancelled` lane as a thing to
+  look at, not a thing to skip.
 
-  ⚠ **So `-o Acquire::Retries=3` - the advice in every CI write-up on this failure - was already in
-  force and was the problem.** Adding it would have changed nothing. The fix is the opposite:
-  `Retries=1` and a 15 s timeout, so failover to the working mirror costs ~15 s instead of 4x120 s
-  per index. `update` and `install` were also split from a single `&&` chain, because chained, a
-  flaky index refresh fails the step even when the package would have installed from the lists
-  already on the image.
+  ## (2) THE APT FALLBACK - THE ALTITUDE WAS WRONG, AND ONE OF MY OWN CLAIMS WITH IT
 
-  **Nothing is made less reliable by asking less:** the retry that helps a genuinely flaky
-  connection still happens once, and **a mirror that is DOWN is not made reachable by asking it
-  four times.**
+  **Rewritten 2026-08-19 after run 32295312064**, a second mirror outage the same day, which
+  settled two things and pointedly failed to settle the one this section was originally about.
 
-  🔒 **THE FIX IS UNPROVEN AND IS RECORDED AS UNPROVEN.** The very next run (**32283137544**) took
-  **1m31s** on that lane - and that proves nothing. The mirror may simply have recovered, in which
-  case the old configuration would have been just as fast. **Demonstrating this fix requires an
-  outage, and an outage cannot be staged.** What is measured is the mechanism; what is inferred is
-  the saving. The next time that mirror goes dark is the test, and whoever sees it should record
-  the lane's duration here.
+  ### PROVEN: the bound was at the wrong altitude
+
+  It went in as **flags on one command** - `sudo apt-get -o Acquire::Retries=1 ... update` on
+  `Install exiftool (Linux)`. That bounded the call site being looked at. The outage found the
+  others:
+
+  | apt consumer, run 32295312064 | bounded then? | duration |
+  |---|---|---|
+  | `check` -> `Install exiftool (Linux)` | yes | 58 s |
+  | `e2e` -> `Install exiftool` - same command, other job | **no, missed entirely** | 88 s |
+  | `e2e` -> `Install browsers`, i.e. `playwright install --with-deps` | **no, and unreachable** | **43m33s, killed** |
+
+  ⚠ **The third one is why per-command flags were structurally wrong, not merely incomplete.**
+  `playwright install --with-deps` runs its own `apt-get` inside a third-party installer. There is
+  no flag of ours to pass it. The setting has to live in `/etc/apt/apt.conf.d/`, where **every**
+  consumer inherits it - ours, Playwright's, and whatever is added next.
+
+  **The generalising line, which is worth more than the fix: bounding a call site fixes the calls
+  you can see.** A policy that must be re-applied per invocation is a policy that will be missed,
+  and the miss is silent because the bounded call looks fine. `test_ci_bounds_apt_in_one_place`
+  now fails if any apt command carries its own flags, and fails if a job reaches apt without the
+  drop-in or reaches it first.
+
+  ### PROVEN: the bound fired, and this is what it was added for
+
+  `Install browsers` ran **19:53:01 -> 20:36:34 (43m33s)** and the job was killed at **45m18s**
+  against `timeout-minutes: 45`. **One bounded failure instead of a six-hour hang, on the second
+  run after the bound was added**, during the second outage of the same day. The three `check`
+  lanes passed underneath it, so the failure was also *localised* rather than total.
+
+  🔒 **And it is NOT evidence for raising the bound.** A bound that fires during an outage is a
+  bound that is correctly sized. `(aec)`.
+
+  ### ⚠ UNPROVEN, STILL - AND A CLAIM OF MINE, CORRECTED IN PLACE
+
+  **I reported a controlled comparison, and it was not one.** I wrote that 58 s bounded against
+  33 minutes unbounded was "the same outage, the same minute". It was not: **the 33-minute figure
+  came from run 32279378834, a different run and a different outage.** The honest same-run control
+  is **58 s bounded against 88 s unbounded** - and both were fine.
+
+  **So the numbers cannot carry the claim, and the reason is package count.** `exiftool` is one
+  small package; `--with-deps` pulls a large dependency set, so a degraded mirror costs it
+  enormously more per index and per file. That difference, not the bound, is the obvious
+  explanation for 88 s against 43m33s. **A plausible mechanism is not a measurement.**
+
+  ⚠ **THIS OUTAGE DID NOT SETTLE IT, AND THAT NEEDS SAYING OUT LOUD** - a reader who finds an
+  outage recorded here will reasonably assume it did. It did not. The bounded and unbounded copies
+  of the *same* command both completed comfortably; the only catastrophic step was one that was
+  unbounded **and** far larger, so the two variables moved together.
+
+  **The standing instruction therefore stands unchanged: the next time that mirror goes dark,
+  record the lane's duration here.** What would settle it is the bounded and unbounded forms of a
+  *comparable* apt call in one outage - realistically, `Install browsers` before and after this
+  drop-in.
+
 
   ## THE THIRD MECHANISM-FIX-WITHOUT-REPRODUCTION IN ONE DAY, AND WHY THAT IS ALLOWED
 
@@ -111,6 +163,24 @@
   reported it as fine.** A guard that is working exactly as designed can still leave the thing you
   care about unmeasured.
 
+  ### And a third instrument, whose premise the same outage falsified
+
+  `scripts/ci_timing_summary.py` exists to tell a slow **runner** from a slow **suite**, and its
+  discriminator is the ratio of pytest to a fixed-cost step. Its own words (`ci_timing_summary.py`
+  lines 5-6): *"Installing exiftool downloads and unpacks the same archive every run, so its
+  duration is a property of the machine and nothing else."*
+
+  ⚠ **It is a property of the mirror.** That step measured **33+ min, 58 s and 88 s** across three
+  runs on 2026-08-19. During an outage the ratio is meaningless - and an outage is exactly when
+  someone reaches for an instrument that answers *"is it the runner or the suite?"*. The drop-in
+  also changes that baseline, so ratios from before and after this commit are not comparable.
+
+  **All three findings are one shape, and this is the line to keep:** *an instrument whose premise
+  holds in the normal case and quietly fails in the abnormal one is unavailable in the only case it
+  exists for.* `E2E_SECONDS_MAX` cannot see the job, `timeout-minutes` cannot see pytest, and the
+  timing ratio cannot see a mirror. None of the three is wrong; each is silent about the thing that
+  went wrong.
+
   ### The spread, recorded as a spread rather than a conclusion
 
   | run / source | measurement | value |
@@ -120,6 +190,7 @@
   | 32283137544 | e2e job wall clock | 22m32s |
   | 32287632288 | e2e job wall clock | **36m40s** |
   | 32287632288 | pytest runtime | 1244.11 s (20m44s) |
+  | 32295312064 | e2e job wall clock | **45m18s - KILLED by the bound** (mirror outage; pytest never ran) |
 
   ⚠ **Mixing those rows is itself the finding.** The local figures are pytest time; the CI figures
   are job time. They are not comparable, and reading them as one series is exactly the mistake
