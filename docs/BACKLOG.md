@@ -118,9 +118,6 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(aeb) `truestill catalog` CLAIMS THE OLD LOCATION WHENEVER A SYMLINK IS IN THE PATH.**
-  Recorded 2026-08-19. Introduced by `(adv)` and `(adw)` together. [Full
-  entry](research/backlog/aeb.md)
 - **(aea) TWO INTACT CATALOGS FOR ONE INSTALL, AND NOTHING RECONCILES THEM.** Recorded 2026-08-19.
   `DESTINATION_EXISTS` is now a dead end rather than a safeguard. [Full
   entry](research/backlog/aea.md)

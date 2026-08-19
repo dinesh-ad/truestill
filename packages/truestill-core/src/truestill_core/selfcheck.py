@@ -268,14 +268,19 @@ def location_findings() -> list[Finding]:
     purpose is telling somebody which file is disposable must not name a file nothing uses.
     """
     catalog = app_paths.default_catalog_path()
-    standard = app_paths.standard_catalog_path()
     cache = app_paths.cache_path_for(catalog)
     return [
         Finding(
             "catalog",
             Status.INFO,
-            f"{catalog}{'' if catalog == standard else ' (older location, still in use)'}",
-            {"path": str(catalog), "standard": str(standard)},
+            # ⚠ The suffix here was `'' if catalog == standard else ' (older location, still in
+            # use)'`, comparing this path against `standard_catalog_path()`. `(adw)` removed the
+            # only state in which those could differ, so the test was left comparing two spellings
+            # of one file - and a symlinked data directory made it label the live catalog as an
+            # older location, which is the one thing a report about what is disposable must not
+            # get wrong. `(aeb)`.
+            str(catalog),
+            {"path": str(catalog)},
         ),
         Finding(
             "cache",

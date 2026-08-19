@@ -144,6 +144,30 @@ def _cache_dir() -> Path:
     return override if override else Path(platformdirs.user_cache_dir(APP_NAME, appauthor=False))
 
 
+def is_same_file(one: Path, other: Path) -> bool:
+    """Whether two paths name the **same file**, not the same string. `(aeb)`.
+
+    **The question actually being asked** whenever code compares one catalog path against another.
+    A symlink anywhere in a data directory produces two spellings of one file - measured on the
+    maintainer's machine, where `/home/dinesh/TruestillLibrary` links to `/data/TruestillLibrary`
+    and `truestill catalog` duly reported a correctly-placed catalog as being *"in the old
+    location"*, advising a `--move` that could not help.
+
+    **`samefile` rather than resolving both sides.** Resolving would work today and break the
+    first time a path cannot be resolved - a stale mount raises `ENOTCONN`, and `drive.py`'s
+    containment check already records that a path which cannot be resolved must still get an
+    answer. This compares device and inode, which is the property the question is about.
+
+    **False rather than raising** when either path is missing or unreadable: `samefile` stats
+    both, and *"one of them is not there"* is a perfectly good **no** rather than an error every
+    caller has to handle.
+    """
+    try:
+        return one.samefile(other)
+    except OSError:
+        return False
+
+
 def default_catalog_path() -> Path:
     """The catalog to use when the caller did not name one. **Never creates anything.**
 
@@ -230,23 +254,6 @@ def session_url_path() -> Path:
     platform, not three differently-shaped ones.
     """
     return _data_dir() / SESSION_URL_FILENAME
-
-
-def standard_catalog_path() -> Path:
-    """Where the catalog **belongs** - unlike :func:`default_catalog_path`, which says where it
-    currently *is* and prefers a legacy file that exists.
-
-    The pair differ only while someone is still on the old layout, which is precisely when the
-    difference matters: it is what the ``catalog`` command compares to decide whether to offer a
-    move, and it is the destination that move copies to.
-
-    This exists because it was missing. ``app_paths`` owned "where does the catalog go" but had
-    no name for "where does it belong", so the one caller that needed it rebuilt the rule from
-    ``platformdirs`` directly and lost the ``TRUESTILL_DATA_DIR`` override in the process - which
-    made the ``catalog`` command advertise a path the install never uses, and made ``--move``
-    copy to one. A rule with no home gets reimplemented, and the copy is where it goes wrong.
-    """
-    return _data_dir() / CATALOG_FILENAME
 
 
 def default_cache_path() -> Path:

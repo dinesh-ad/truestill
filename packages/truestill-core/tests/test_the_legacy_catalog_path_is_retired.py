@@ -22,6 +22,7 @@ What is gone is the *resolution*: nothing consults it to decide which catalog to
 from __future__ import annotations
 
 import inspect
+import os
 import sqlite3
 from pathlib import Path
 
@@ -29,11 +30,17 @@ import pytest
 from truestill_core import app_paths
 from truestill_core.app_paths import (
     CATALOG_FILENAME,
+    DATA_DIR_ENV,
     LEGACY_CATALOG_PATH,
     default_catalog_path,
     resolve_catalog_choice,
-    standard_catalog_path,
 )
+
+
+def _data_dir_catalog() -> Path:
+    """Where the data directory puts the catalog. Was `standard_catalog_path()` until `(aeb)`
+    merged it into `default_catalog_path` - the two computed one value."""
+    return Path(os.environ[DATA_DIR_ENV]) / CATALOG_FILENAME
 
 
 def _a_legacy_catalog_here(tmp_path: Path) -> Path:
@@ -60,7 +67,7 @@ def test_a_reports_catalog_in_the_working_directory_is_not_adopted(
         "a `reports/catalog.sqlite` in the working directory was adopted. That is what made the "
         "same install open a different library depending on where it was launched from."
     )
-    assert chosen == standard_catalog_path()
+    assert chosen == _data_dir_catalog(), "the standard data-directory catalog"
 
 
 def test_the_answer_no_longer_depends_on_where_you_are(

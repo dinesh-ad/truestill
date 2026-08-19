@@ -22,7 +22,7 @@ Two consequences, and the second is the serious one:
 
 The cause was structural rather than careless: ``app_paths`` owned "where does the catalog go"
 but exposed no name for "where does it *belong*", so the one caller that needed it reimplemented
-the rule and got it wrong. The fix gives that rule a home - `standard_catalog_path` - and the
+the rule and got it wrong. The fix gave that rule a home - `standard_catalog_path` - and the
 CLI stops importing `platformdirs` at all.
 
 The session fixture points ``TRUESTILL_DATA_DIR`` at a temporary directory, so **every test here
@@ -39,7 +39,6 @@ from truestill_core.app_paths import (
     DATA_DIR_ENV,
     cache_path_for,
     default_catalog_path,
-    standard_catalog_path,
 )
 from truestill_core.catalog import Catalog
 
@@ -67,7 +66,7 @@ def test_the_standard_place_is_the_one_the_product_would_actually_use(
     assert main(["catalog"]) == 0
 
     reported = _lines(capsys.readouterr().out)
-    assert reported["Standard place"] == str(standard_catalog_path())
+    assert reported["Catalog in use"] == str(default_catalog_path())
 
 
 def test_a_catalog_already_in_the_standard_place_is_not_called_old(
@@ -83,9 +82,11 @@ def test_a_catalog_already_in_the_standard_place_is_not_called_old(
     assert main(["catalog"]) == 0
 
     out = capsys.readouterr().out
-    reported = _lines(out)
-    assert reported["Catalog in use"] == reported["Standard place"]
     assert "old location" not in out, "a correctly-placed catalog was reported as misplaced"
+    # ⚠ Since `(aeb)` there is no "Standard place" line to compare against: it printed a second
+    # spelling of the same value, and comparing the two is what produced the false claim.
+    assert "Standard place" not in out
+    assert _lines(out)["Catalog in use"] == str(default_catalog_path())
 
 
 def test_a_legacy_catalog_in_the_working_directory_is_not_reported_as_in_use(
@@ -119,7 +120,6 @@ def test_a_legacy_catalog_in_the_working_directory_is_not_reported_as_in_use(
         "a catalog in the working directory was reported as in use, so `cd` still decides which "
         "library this is"
     )
-    assert reported["Catalog in use"] == reported["Standard place"]
     assert "old location" not in out
 
 
@@ -159,5 +159,5 @@ def test_move_copies_into_the_location_this_install_will_read(
     assert main(["catalog", "--move"]) == 0
 
     capsys.readouterr()
-    assert standard_catalog_path().is_file(), "the copy did not land where this install reads"
+    assert default_catalog_path().is_file(), "the copy did not land where this install reads"
     assert legacy.is_file(), "the original must stay until the user removes it"

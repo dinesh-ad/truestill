@@ -32,6 +32,8 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 
+from truestill_core.app_paths import is_same_file
+
 
 class CatalogMoveOutcome(StrEnum):
     """What happened. Each is a distinct answer to a distinct question the user asked."""
@@ -84,7 +86,13 @@ _CACHE_NOTE = (
 
 def move_catalog_to_standard(source: Path, destination: Path) -> CatalogMove:
     """Copy ``source`` to ``destination``, refusing rather than risking either file."""
-    if source == destination:
+    # ⚠ SAME FILE, NOT SAME STRING. `source` is relative and `destination` absolute, so `==` was
+    # never going to be true - and if a data directory is reached through a symlink, or is itself
+    # `reports/`, the two spellings name one file. Comparing strings there would fall through to
+    # `destination.exists()` and refuse a move that had already happened, which is the shape
+    # `(aeb)` found on the `catalog` command. `is_same_file` answers False when either path is
+    # missing, which is exactly right here: nothing to be already-standard about.
+    if is_same_file(source, destination):
         return CatalogMove(
             CatalogMoveOutcome.ALREADY_STANDARD,
             source,

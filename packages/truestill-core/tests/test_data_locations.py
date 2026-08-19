@@ -26,7 +26,7 @@ import pytest
 from platformdirs.macos import MacOS
 from platformdirs.unix import Unix
 from platformdirs.windows import Windows
-from truestill_core.app_paths import APP_NAME, DATA_DIR_ENV, standard_catalog_path
+from truestill_core.app_paths import APP_NAME, DATA_DIR_ENV, default_catalog_path
 
 _SRC = Path(__file__).resolve().parents[3] / "packages"
 
@@ -50,11 +50,11 @@ def test_app_paths_asks_for_no_author_segment(monkeypatch: pytest.MonkeyPatch) -
 
     monkeypatch.delenv(DATA_DIR_ENV, raising=False)
     monkeypatch.setattr(platformdirs, "user_data_dir", _record)
-    # `standard_catalog_path`, not `default_catalog_path`: the latter short-circuits to a legacy
+    # `default_catalog_path` is the only resolver since `(aeb)` merged the pair; the legacy
     # `reports/catalog.sqlite` when one exists beside a console-launched process, and would never
     # reach `platformdirs` at all. The standard path is also the one an installed app resolves and
     # the one the uninstaller names.
-    standard_catalog_path()
+    default_catalog_path()
 
     assert seen["appauthor"] is False, (
         "app_paths let platformdirs default the author segment to the app name, which is what "

@@ -27,7 +27,6 @@ from truestill_core.app_paths import (
     cache_path_for,
     default_catalog_path,
     resolve_catalog_choice,
-    standard_catalog_path,
 )
 from truestill_core.archive_extract import extract_archive_set
 from truestill_core.archive_ingest import archives_at, precheck_archives
@@ -1341,18 +1340,19 @@ def _cmd_catalog(args: argparse.Namespace) -> int:
     """
     # Via app_paths, never platformdirs directly: this must be the location this install would
     # actually use, override included. It is both what gets printed and where --move copies to.
-    standard = standard_catalog_path()
+    #
+    # ⚠ ONE VALUE, NOT TWO. There used to be a second call here - `standard_catalog_path()`, "where
+    # the catalog belongs" - compared against this one to decide whether to offer a move. `(adw)`
+    # retired the legacy lookup, which was the only state in which the two could differ, so the
+    # comparison became vacuous and its only remaining input was string shape: a symlink in the
+    # data directory made it fire on a catalog sitting exactly where it belongs. `(aeb)`.
     current = default_catalog_path()
     if not args.move:
         print(f"Catalog in use : {current}")
-        print(f"Standard place : {standard}")
         print(f"Cache          : {cache_path_for(current)}")
-        if current != standard:
-            print("\n  This catalog is in the old location. To copy it to the standard place:")
-            print("      truestill catalog --move")
         return 0
 
-    result = move_catalog_to_standard(LEGACY_CATALOG_PATH, standard)
+    result = move_catalog_to_standard(LEGACY_CATALOG_PATH, current)
     print(result.detail)
     if result.outcome is CatalogMoveOutcome.DESTINATION_EXISTS:
         return 2

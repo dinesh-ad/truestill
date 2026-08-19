@@ -116,8 +116,11 @@
 
     ⚠ **BUT AT OUR DEFAULT 5 s `busy_timeout` IT CAN BE REFUSED**: same sustained writer, four
     attempts, **one failed with `database is locked`** after 5436.9 ms. It fails **loudly and
-    cleanly** rather than producing a bad copy, which is the right failure - but "completes" is
-    not "always completes", and a remedy that needs a raised timeout should say so.
+    cleanly** rather than producing a bad copy, which is the right failure - but **"completes" is
+    not "always completes"**: 1 in 4 under a sustained writer, at the timeout this product
+    actually uses. Any design resting on `VACUUM INTO` owns that case - either by raising the
+    timeout for this one operation, or by reporting the refusal as a refusal and letting the user
+    retry. **Neither is free, and the entry must not read as though the measurement settled it.**
 
   - ⚠ **AND THE NEVER-OVERWRITE CLAIM NEEDS NARROWING, measured rather than read.** The entry says
     `VACUUM INTO` *"REFUSES a destination that exists or is non-empty"*, putting our invariant in
@@ -130,6 +133,12 @@
       refuse `(adr)`'s artefact; it adopts it. The entry's *"cannot produce `(adr)`'s 0-byte
       artefact at all"* is about what it **leaves**, not what it **accepts**, and only the first
       half is true.
+    - 🔑 **THEREFORE OUR OWN `destination.exists()` CHECK STAYS.** The attraction of `VACUUM INTO`
+      was partly that it would move the never-overwrite invariant out of our code and into SQLite.
+      **It does not.** SQLite refuses a non-empty file for its own reasons and with its own
+      message, and accepts exactly the artefact `(adr)` exists to refuse - so removing
+      `catalog_move.py`'s check on the strength of `VACUUM INTO` would reintroduce `(adr)` at the
+      destination. Whatever copies the bytes, the guard in front of it is ours to keep.
     - the output is **compacted, not byte-identical**: 5,132,288 bytes from a 6,365,184-byte
       source. Correct for a database and a real change to what *"check the copy"* can mean.
 

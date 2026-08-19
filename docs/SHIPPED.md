@@ -61,6 +61,48 @@ recording shipped work as unstarted, which is the more expensive direction of th
     `default_catalog_path()` still resolves to the real catalog rather than the test root. `(adv)`
     made that **disclosed**; it did not make it **prevented**.
 
+- **(aeb) TWO PATHS THAT RESOLVE TO ONE FILE ARE ONE FILE.**
+  - ✅ **CLOSED 2026-08-19.** `truestill catalog` told a user their correctly-placed catalog was
+    *"in the old location"* and advised a `--move` that could not help, whenever a symlink sat
+    anywhere in the data directory. `selfcheck` carried the same false claim as
+    *"(older location, still in use)"*.
+  - 🔑 **THE DEFECT CLASS, AND IT IS NEW HERE: IT LIVED IN THE PAIR, NOT IN EITHER COMMIT.**
+    - `(adv)` made the override branch return `.resolve()`d paths, so the path a user is *told* is
+      the file that is *opened*. **Right on its own.**
+    - `(adw)` retired the legacy lookup, removing the only state in which
+      `default_catalog_path()` and `standard_catalog_path()` could legitimately differ.
+      **Right on its own.**
+    - Together they left a comparison whose only remaining input was **string shape**.
+    ⚠ **Neither diff could have shown this.** Reviewing `(adv)` you see a resolve that makes a
+    path more truthful; reviewing `(adw)` you see a compatibility path retired. The defect is the
+    *interaction*, and it is invisible to any guard that reads one commit. **What surfaced it was
+    running the command on a machine that happens to have a symlink** - the maintainer's
+    `/home/dinesh/TruestillLibrary` links to `/data/TruestillLibrary`. On a machine without one it
+    is not merely unnoticed, it does not exist.
+  - **The fix: `app_paths.is_same_file`, comparing device and inode.** Not resolving both sides -
+    that works today and breaks the first time a path cannot be resolved (a stale mount raises
+    `ENOTCONN`, and `drive.py` already records that such a path must still get an answer). It
+    answers **False** rather than raising when either path is missing, which is the right answer
+    at its call site and is what separates it from resolve-both.
+  - 🔑 **THE STANDING QUESTION, ANSWERED RATHER THAN LEFT: the two resolvers computed one value,
+    so there is now one.** `standard_catalog_path` is **gone**. `(adw)` removed the only state in
+    which *"where it currently is"* could differ from *"where it belongs"*, so the pair reduced to
+    the same expression - and two functions computing one value is how the next divergence gets
+    in. Both comparisons that depended on the distinction are gone with it: the `catalog`
+    command's *"old location"* hint and `selfcheck`'s suffix were **vacuous, not merely buggy**.
+    `truestill catalog` now prints the catalog and its cache and stops.
+  - **Where `is_same_file` is genuinely needed, it is used:** `move_catalog_to_standard`'s
+    `ALREADY_STANDARD` check compared a **relative** source against an **absolute** destination
+    with `==`, which could never be true. It now asks whether they are the same file.
+  - ⚠ **Two false claims in `standard_catalog_path`'s docstring went with the function** - that
+    `default_catalog_path` *"prefers a legacy file that exists"*, and that the pair *"differ only
+    while someone is still on the old layout"*. Both were untrue from the moment `(adw)` landed.
+  - **Mutation-proved, control first, and two mutants survived the first matrix** - which is the
+    finding worth keeping: replacing `samefile` with `==`, and with resolve-both, both passed,
+    because **no test exercised the helper on the case it exists for**. Two were added: two
+    spellings of one file must be the same file, and two paths to a file that does not exist must
+    not be. All three mutants then died.
+
 - **(adw) THE LEGACY `reports/catalog.sqlite` LOOKUP IS RETIRED, NOT REPAIRED.**
   - ✅ **CLOSED 2026-08-19.** `_legacy_catalog()`, the `_working_directory_was_chosen()` gate that
     served it alone, and the legacy branches of `resolve_catalog_choice` are gone. The path was

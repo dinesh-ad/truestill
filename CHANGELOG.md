@@ -45,6 +45,12 @@ All notable changes to this project are documented here. The format follows
   A group you have already named shows its name instead, and is never offered a suggestion.
 
 ### Fixed
+- **`truestill catalog` no longer claims your catalog is in the wrong place when it is not.** If
+  any part of the path to your Truestill folder was a shortcut - common on Linux and macOS where
+  a home folder or a data drive is linked elsewhere - Truestill compared two spellings of the same
+  file, decided they were different, and told you to move a catalog that was already exactly where
+  it belongs. It now asks whether two paths are the same *file* rather than the same *text*, and
+  the self-check no longer labels a current catalog as an older one.
 - **Truestill no longer opens a different library depending on which folder you ran it from.**
   Very early versions kept the catalog in a `reports/` folder next to wherever you happened to be,
   and Truestill still looked there first - so the same installation could show you one library
