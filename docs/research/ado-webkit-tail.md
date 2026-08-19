@@ -76,6 +76,35 @@ is in what was measured and what was wrong, and both are below.*
   wording carries, and that the next repeat should be read against this paragraph rather than
   against the sentence below.
 
+  ✅ **ADDED 2026-08-19: THIRD OCCURRENCE, AND THE MECHANISM IS FOUND. IT IS NOT THIS ENTRY'S.**
+  Run **`32250647783`** on `65c6642` failed the same test, browser and assertion a third time -
+  `test_the_choice_survives_a_reload[webkit]`, `assert 16 == 20 ± 0.5`, **in 3.2 s**. The duration
+  is the tell: 3.2 s is nowhere near a budget, so the *"slow lane"* reading never applied to this
+  member, which is why it sat alone in the shape table.
+
+  **The real mechanism, traced rather than inferred.** Picking a size applies the attribute locally
+  and then POSTs `/api/text-size/settings` (`app.js`), which `run_in_threadpool`s a **catalog
+  write** (`server.py`). The test helper waited **200 ms** for that, then reloaded. **`(adt)`
+  measured that exact write at 6,558 ms on a CI runner.** So the reload read a setting that had not
+  landed, the page rendered medium, and a **plain `assert`** - not an `expect` - failed at once.
+
+  🔑 **AND THIS IS WHY THE 30 s BUDGET COULD NEVER HAVE HELPED IT.** `(ado)`'s ruling raised the
+  budget for **auto-retrying assertions**. `assert _body_px(ui) == pytest.approx(...)` is a bare
+  Python assert evaluated once; Playwright's retry machinery never touches it. The one census
+  member that did not fit the stall shapes is the one member the fix could not reach.
+
+  **Fixed at the source rather than accommodated**: the helper now waits for the POST's own
+  response (`expect_response`), and the post-reload check polls with `wait_for_function` instead of
+  sleeping 400 ms. Playwright's guidance is explicit - *"Never wait for timeout... Tests that wait
+  for time are inherently flaky."* The file also got **4.5x faster**, 37.32 s to 8.14 s, because
+  the sleeps were the runtime.
+
+  ⚠ **NOT REPRODUCED LOCALLY, and that is stated rather than hidden**: 8 consecutive runs green
+  before the change, 6 more green under eight CPU burners after it. The fix rests on the
+  **mechanism** - a fixed wait replaced by waiting for the thing itself - not on a reproduction.
+  ⚠ **And 64 other `wait_for_timeout` calls remain across the suite**, 6 of them in this same file.
+  This fixed the one that was failing; it did not fix the class.
+
   ⚠ **THE TEN-RUN WINDOW RESETS TO ZERO.** The lane had reached **seven** consecutive green runs
   since `31895987230` - four pushes and three scheduled nightlies on an unchanged tree. This
   failure resets it, exactly as the exit condition specifies (*"reset to zero by any failure"*),
@@ -327,8 +356,8 @@ is in what was measured and what was wrong, and both are below.*
 
   ⚠ **EXIT CONDITION: ZERO E2E FAILURES ACROSS TEN CONSECUTIVE RUNS.** A rate over a fixed
   window, counted whether or not the runs touch this lane, and reset to zero by any failure.
-  ⚠ **The window stands at ZERO as of 2026-08-18**, reset by run `32178286777` after reaching
-  seven - see the repeat recorded above.
+  ⚠ **The window stands at ZERO as of 2026-08-19**, reset again by run `32250647783` after
+  reaching two - see the third occurrence recorded above, whose cause was found and fixed.
 
   **The old condition - three consecutive greens - was RETIRED 2026-08-15, and the pair above is
   what retired it.** The lane delivered **four** consecutive greens (`31832876792`,

@@ -46,9 +46,31 @@ def _body_px(ui: Page) -> float:
 
 
 def _pick(ui: Page, size: str) -> None:
+    """Choose a size and wait for the WRITE, not for a fixed number of milliseconds.
+
+    ⚠ **This waited 200 ms, and that is what made `test_the_choice_survives_a_reload` the most
+    repeated failure in `(ado)`'s census.** Picking a radio applies the attribute locally and then
+    POSTs to `/api/text-size/settings` (`app.js`), which `run_in_threadpool`s a **catalog write**
+    (`server.py`) - the very operation `(adt)` measured at **6,558 ms** on a CI runner. A reload
+    that happens before that write lands reads the old setting and renders medium, and the test
+    fails on a size that was never persisted rather than on one that was not applied.
+
+    `expect_response` waits for the acknowledgement itself, so the wait is as long as the write
+    takes and no longer. Playwright's own guidance: *"Never wait for timeout... Tests that wait
+    for time are inherently flaky."*
+    """
     ui.click('.nav-item[data-screen="settings"]')
-    ui.click(f'input[name="text-size"][value="{size}"]')
-    ui.wait_for_timeout(200)
+    radio = ui.locator(f'input[name="text-size"][value="{size}"]')
+    if radio.is_checked():
+        # ⚠ Already the chosen size, so clicking fires no `change` and there is no POST to wait
+        # for. Waiting anyway times out after 15 s and fails a test that asked for nothing -
+        # which is what the first version of this helper did to two tests that pick `medium`
+        # on a page whose default is already medium.
+        return
+    with ui.expect_response(
+        lambda r: "/api/text-size/settings" in r.url and r.request.method == "POST"
+    ):
+        radio.click()
 
 
 # --------------------------------------------------- where the "relative" claim is settled
@@ -234,7 +256,14 @@ def test_the_choice_survives_a_reload(ui: Page) -> None:
 
     ui.reload()
     ui.wait_for_selector(".nav-item")
-    ui.wait_for_timeout(400)
+    # Polled, not slept: the reload re-reads the setting over the network and applies it, so the
+    # size arrives some time after `.nav-item` does. A fixed wait here is a second race on top of
+    # the write above, and a bare `assert` gets no help from the 30 s `expect` budget `(ado)` set
+    # - that budget only covers auto-retrying assertions.
+    ui.wait_for_function(
+        "px => Math.abs(parseFloat(getComputedStyle(document.body).fontSize) - px) < 0.5",
+        arg=chosen,
+    )
 
     assert _body_px(ui) == pytest.approx(chosen, abs=0.5)
     ui.click('.nav-item[data-screen="settings"]')
