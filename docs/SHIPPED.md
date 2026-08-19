@@ -45,6 +45,13 @@ recording shipped work as unstarted, which is the more expensive direction of th
     run took **1m31s** on that lane and **that proves nothing** - the mirror may simply have
     recovered. **Demonstrating this needs an outage, which cannot be staged.** The next time that
     mirror goes dark is the test.
+  - ⚠ **The two bounds are NOT the same measurement**, found on the run that landed the entry:
+    `E2E_SECONDS_MAX` times **pytest**, `timeout-minutes` times the **job**. Measured on
+    32287632288 - pytest **1244.11 s**, job **36m40s**, so **43% of the lane is invisible** to the
+    ceiling anyone would reach for first. The tempting reading - *"it breached 2000 s and passed"* -
+    is wrong: pytest was genuinely under, and the guard was right to stay quiet. A slow lane can
+    be correctly reported as fine. The body carries the running spread; **the bound was not
+    raised**, per `(aec)`.
   - ⚠ **The third mechanism-fix-without-reproduction in one day**, with the text-size wait and the
     macOS probe. **What makes it acceptable is that the mechanism is measured even when the failure
     is not** - 6,558 ms, a demonstrated late join, four `Ign:` rounds - and the alternative is

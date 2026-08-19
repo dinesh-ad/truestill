@@ -84,6 +84,65 @@
   failure is read as *"the mechanism was wrong"* rather than as *"it came back"*. That distinction
   is the whole value of recording it.
 
+  ## (3) THE TWO BOUNDS ARE NOT THE SAME MEASUREMENT, AND NEITHER ALONE SEES A SLOW LANE
+
+  Added 2026-08-19, from the run that landed this entry. **This is worth more than the number that
+  prompted it.**
+
+  - `E2E_SECONDS_MAX` (2000 s) is enforced **inside** the step and times **pytest's own runtime**.
+  - `timeout-minutes` (45) is enforced by GitHub and times the **job's wall clock**.
+
+  Everything between them - queueing, checkout, `uv sync`, the browser install, the frontend
+  build - is **invisible to the instrument anyone would reach for first**, because that instrument
+  starts its stopwatch after all of it.
+
+  **Measured, run 32287632288:**
+
+  | | |
+  |---|---|
+  | pytest's own runtime | **1244.11 s** (20m44s), reported by pytest itself |
+  | the e2e job's wall clock | **36m40s** |
+  | outside pytest | **15m56s - 43% of the job** |
+
+  ⚠ **AND THE OBVIOUS READING OF THAT IS WRONG, WHICH IS THE POINT.** It is tempting to say the run
+  breached the 2000 s ceiling and passed anyway. It did not: pytest genuinely ran in 20m44s, well
+  under, and the ceiling was right to stay silent. **The lane was slow in the only way that costs
+  anyone anything - wall clock - while the instrument built to notice a slow lane correctly
+  reported it as fine.** A guard that is working exactly as designed can still leave the thing you
+  care about unmeasured.
+
+  ### The spread, recorded as a spread rather than a conclusion
+
+  | run / source | measurement | value |
+  |---|---|---|
+  | local `make gate` | pytest runtime | 1478.02 s (24m38s) |
+  | local `make gate` | pytest runtime | 1476.83 s (24m36s) |
+  | 32283137544 | e2e job wall clock | 22m32s |
+  | 32287632288 | e2e job wall clock | **36m40s** |
+  | 32287632288 | pytest runtime | 1244.11 s (20m44s) |
+
+  ⚠ **Mixing those rows is itself the finding.** The local figures are pytest time; the CI figures
+  are job time. They are not comparable, and reading them as one series is exactly the mistake
+  section (3) exists to prevent. **Only 32287632288 has both numbers**, because the older jobs'
+  logs no longer return through `gh run view --log`.
+
+  **Nothing is concluded from this yet.** The 36m40s came on a **docs-only commit - three markdown
+  files** - so the suite cannot have got slower, which leaves runner variance or queueing, and one
+  sample distinguishes neither. **Add each subsequent run's duration to the table above until there
+  is enough to say something.**
+
+  ### What this says about the 45
+
+  `timeout-minutes: 45` was justified against a ~24 minute job as comfortable headroom. **This run
+  left 8m20s of margin rather than the ~21 minutes that reasoning assumed** - on the second run
+  after it was written.
+
+  🔒 **The bound is NOT being raised, and that is a ruling rather than an oversight.** One sample is
+  not a trend, and raising a bound to accommodate a slow day is the reflex `(aec)` exists to
+  resist - the same move as widening a fixed wait until the flake stops. If the table above grows
+  enough to show the spread is real, the change to argue for is more likely a second instrument
+  than a larger number.
+
   ## LEFT UNDONE, DELIBERATELY
 
   - **No retry wrapper around the apt step.** It would paper over exactly the signal this entry
