@@ -17,6 +17,7 @@ identical*, which `service/drives.py` already says in prose. That case stays sil
 
 from __future__ import annotations
 
+import threading
 import time
 from pathlib import Path
 
@@ -145,13 +146,30 @@ def test_a_probe_that_does_not_answer_in_time_stays_silent(
     create_marker(elsewhere, here.label, uuid=here.uuid)
 
     real = drive_module.read_marker
+    # ⚠ THE PROBE IS BLOCKED, NOT MERELY SLOW, AND THAT IS THE POINT OF THIS FIXTURE.
+    #
+    # It used to sleep `SECOND_LOCATION_PROBE_SECONDS * 3` - 0.15 s against a 0.05 s join - and
+    # **failed on macOS in CI run 32279378834**. `Thread.join(timeout)` waits AT LEAST the
+    # timeout, never at most: if the main thread is descheduled past the worker's sleep, the
+    # worker appends first and `_marker_within` returns a real answer. The whole margin was 100 ms
+    # of scheduling jitter on a loaded runner running `-n auto`, and a test whose correctness
+    # depends on winning a race is a test that reports the scheduler.
+    #
+    # An Event nobody sets cannot answer at whatever moment the join happens to return, so the
+    # assertion is about the BOUND rather than about who woke first. The same rule `(aec)` is
+    # about one level up: wait for the thing itself, never against a clock.
+    blocked = threading.Event()
 
-    def slow(root: Path) -> DriveMarker | None:
+    def never_answers(root: Path) -> DriveMarker | None:
         if root == elsewhere:
-            time.sleep(drive_module.SECOND_LOCATION_PROBE_SECONDS * 3)
+            # Bounded, and NOT because 30 s is meaningful: it is 600x the join below, so no
+            # scheduling jitter can reach it. What the bound buys is the failure mode - if the
+            # product ever loses its timeout, this test goes RED on the `waited` assertion
+            # instead of deadlocking the suite. A guard that hangs reports nothing.
+            blocked.wait(timeout=30)
         return real(root)
 
-    monkeypatch.setattr(drive_module, "read_marker", slow)
+    monkeypatch.setattr(drive_module, "read_marker", never_answers)
     monkeypatch.setattr(drive_module, "SECOND_LOCATION_PROBE_SECONDS", 0.05)
     drive_module.forget_slow_paths()
 
@@ -164,6 +182,10 @@ def test_a_probe_that_does_not_answer_in_time_stays_silent(
         previously_seen=None,
     )
     waited = time.perf_counter() - started
+    # Let the abandoned probe finish so the thread is not left parked for the rest of the session.
+    # Production cannot do this - a wedged mount never releases - which is why the code abandons
+    # rather than joins; a test that can clean up should.
+    blocked.set()
 
     assert note is None, "a probe that timed out reported anyway, which is the false direction"
     assert waited < 1.0, f"the probe was not bounded: waited {waited:.2f}s"

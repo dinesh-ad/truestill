@@ -22,6 +22,12 @@ jobs:
   check:
     name: check (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    # ⚠ WITHOUT THIS THE DEFAULT IS SIX HOURS, and on 2026-08-19 that was not theoretical: run
+    # 32279378834 sat 33+ minutes in `apt-get update` against a mirror that was not answering,
+    # with nothing to stop it. The other two lanes had already finished in 1m07s and 3m02s.
+    # 20 is roughly 6x the slowest legitimate run of this job (Windows, ~3 min), so it is
+    # headroom rather than a target - a hang fails fast and visibly, a slow day does not.
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -39,9 +45,32 @@ jobs:
         shell: bash
         run: echo "TS_EXIFTOOL_START=$(date +%s)" >> "$GITHUB_ENV"
 
+      # ⚠ THE OPTIONS ARE THE OPPOSITE OF THE USUAL CI ADVICE, AND DELIBERATELY.
+      #
+      # GitHub's Ubuntu images resolve packages through a mirrorlist that puts
+      # `azure.archive.ubuntu.com` first and falls back to `archive.ubuntu.com`. The fallback
+      # works; what costs the time is reaching it. apt >= 2.3.2 defaults to `Acquire::Retries=3`
+      # at a 120 s timeout, so a mirror that is simply not answering must burn four full attempts
+      # per index before apt moves on. Run 32279378834 spent 33+ minutes there, and its log shows
+      # exactly four `Ign:` rounds - the default retries, doing their job, at our expense.
+      #
+      # So `Acquire::Retries=3` - the advice in every CI write-up - is already in force here and
+      # is the problem, not the fix. Cutting retries to 1 and the timeout to 15 s makes failover
+      # to the working mirror fast. Nothing is made less reliable: the retry that matters for a
+      # genuinely flaky connection still happens once, and a mirror that is DOWN is not made
+      # reachable by asking it four times.
+      #
+      # `update` and `install` are separate commands rather than `&&`-joined: chained, a flaky
+      # index refresh fails the step even when the package itself would have installed from the
+      # lists already on the image.
       - name: Install exiftool (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libimage-exiftool-perl
+        run: |
+          sudo apt-get -o Acquire::Retries=1 \
+                       -o Acquire::http::Timeout=15 \
+                       -o Acquire::https::Timeout=15 \
+                       -o Acquire::Languages=none update
+          sudo apt-get install -y libimage-exiftool-perl
       - name: Install exiftool (macOS)
         if: runner.os == 'macOS'
         run: brew install exiftool
@@ -235,6 +264,10 @@ jobs:
   e2e:
     name: e2e (chromium + webkit, ubuntu)
     runs-on: ubuntu-latest
+    # The browser lane runs ~24 min of real work and enforces its own 2000 s ceiling inside the
+    # step. This is the outer bound for the case that ceiling cannot see: a hang before pytest
+    # ever starts. 45 leaves the internal ceiling as the thing that reports a slow suite.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
 
