@@ -32,18 +32,19 @@ def test_library_status_is_honest_when_empty(client: TestClient) -> None:
         "places",
         # The AGE of the custody claim, added 2026-08-10 for `(abg)`. Not new tracking:
         # `last_verified` has been on `drives` all along and is already shown per drive; these
-        # two carry it to the number a person reads. `custody_checked_at` is the OLDEST check
-        # across the places counted and is None when any of them has never been checked, in
-        # which case `never_checked_drives` NAMES them - no date would be true of the whole
-        # claim, and the name is the only clue to what happened.
-        "custody_checked_at",
+        # carry it to the number a person reads. `never_checked_drives` NAMES the places nothing
+        # has ever looked at - the name is the only clue to what happened.
+        #
+        # ⚠ `custody_checked_at` sat here until 2026-08-19 and was REMOVED. Its rule - no single
+        # date is true of the whole claim - survives it: `never_checked_drives` being non-empty
+        # states it, and both surfaces lead with that rather than with a date. Once Stage 3 gave
+        # them `custody_dated_at`, nothing read the older field at all.
         "never_checked_drives",
         # The CONSEQUENCE of that age, added 2026-08-19 for `(abg)` Stage 3. `custody_dated_at`
-        # is the oldest check across the drives that HAVE one and, unlike `custody_checked_at`
-        # above, a never-checked drive does not blank it: the two answer different questions,
-        # and without the second a library with one unchecked place could say nothing at all
-        # about its other places. `custody_tier` is fresh/softening/stale from that date, decided
-        # in core so the two surfaces cannot hold different thresholds.
+        # is the oldest check across the drives that HAVE one, and a never-checked drive does
+        # NOT blank it - without that, a library with one unchecked place could say nothing at
+        # all about its other places. `custody_tier` is fresh/softening/stale from that date,
+        # decided in core so the two surfaces cannot hold different thresholds.
         "custody_dated_at",
         "custody_dated_days",
         "custody_tier",

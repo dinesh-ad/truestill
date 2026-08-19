@@ -1606,11 +1606,11 @@ function renderRestingPanel(s) {
     // always: this says what Truestill knows, not that anything is wrong with the user's files.
     // `at-risk` stays reserved for real exposure - the row below keeps it. Nothing here may read
     // as GONE; that state does not exist yet and its reachability precondition is unbuilt.
-    // TWO FACTS, NOT A CHOICE BETWEEN THEM. `(abg)` Stage 3: `custody_checked_at` goes null the
-    // moment any place is unchecked, so a ternary here could report a never-checked drive OR a
-    // date and never both - and a library holding both said nothing about its dated places at
-    // all. `custody_dated_at` is the oldest date among the places that HAVE one. Never-checked
-    // is listed first: ordered by strength of evidence, no evidence before old evidence.
+    // TWO FACTS, NOT A CHOICE BETWEEN THEM. `(abg)` Stage 3: the payload used to carry a single
+    // date that went null the moment any place was unchecked, so a ternary here could report a
+    // never-checked drive OR a date and never both - and a library holding both said nothing
+    // about its dated places at all. `custody_dated_at` is the oldest date among the places that
+    // HAVE one. Never-checked is listed first: strength of evidence, no evidence before old.
     s.places && (s.never_checked_drives || []).length
       ? `<div class="panel-fact"><div class="panel-k">Never checked</div>
          <div class="mono">${s.never_checked_drives.map(esc).join(", ")}</div></div>`

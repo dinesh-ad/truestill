@@ -38,7 +38,6 @@ def _status(ui: Page, **overrides: Any) -> None:
         "library_root": None,
         "needs_library_root": True,
         "backup_path": None,
-        "custody_checked_at": None,
         "never_checked_drives": [],
         "catalog_path": "/tmp/c.sqlite",
         "catalog_presence": "will_create",

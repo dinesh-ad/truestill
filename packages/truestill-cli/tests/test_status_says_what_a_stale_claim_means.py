@@ -4,9 +4,9 @@
 *conditional*. A library last checked in April printed the same sentence as one checked this
 morning. `abg.md:172-207`.
 
-**Two things can be true at once and both are printed.** `checked_at` goes `None` the moment any
-place is unchecked - Stage 1's rule, and right, because no single date is true of the whole claim.
-So before Stage 3 a library with one never-checked drive could say nothing at all about its other
+**Two things can be true at once and both are printed.** Stage 1's single date went `None` the
+moment any place was unchecked - right, because no single date is true of the whole claim. So
+before Stage 3 a library with one never-checked drive could say nothing at all about its other
 drives, which is the shape of the maintainer's own catalog. `dated_at` carries that second fact.
 Never-checked leads, ordered by strength of evidence rather than severity.
 

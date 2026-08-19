@@ -636,26 +636,20 @@ class LibraryStatus(TypedDict):
     audio: int
     by_format: dict[str, dict[str, int]]
     places: int
-    #: When the custody claim was last checked, as the OLDEST `last_verified` across the drives
-    #: holding copies - a claim is only as fresh as its weakest leg. `None` when any of those
-    #: drives has never been checked, because no single date would then be true of the whole
-    #: claim. See `never_checked_drives`, which names them. `(abg)`.
+    #: ⚠ **`custody_checked_at` WAS HERE AND WAS REMOVED 2026-08-19.** It carried the oldest
+    #: check across the drives holding copies, and went null the moment any of them had never
+    #: been checked, because **no single date is true of the whole claim**. The rule survives the
+    #: field - it is stated by `never_checked_drives` being non-empty and by both surfaces
+    #: leading with that rather than with a date. Once Stage 3 gave the surfaces
+    #: `custody_dated_at` to read, nothing read this at all, and it was derivable from what
+    #: remains. A payload field computed and read by nobody is how the next divergence gets in.
     #:
-    #: ⚠ **Since `(abg)` Stage 3 NOTHING READS THIS.** Both surfaces take their date from
-    #: `custody_dated_at` below, and this field's one distinct behaviour - going null the moment
-    #: any place is unchecked - is exactly `never_checked_drives` being non-empty, so it is now
-    #: derivable rather than observed: `checked_at == dated_at if not never_checked else None`.
-    #: Kept because the rule it encodes was ruled to stand and removing a payload field is a
-    #: separate decision; flagged here so it is not mistaken for a live input. A value computed
-    #: and read by nobody is how the next divergence gets in.
-    custody_checked_at: str | None
     #: Labels of drives that hold copies and have never been verified. Named rather than counted:
     #: the name is the only clue a reader has to what happened.
     never_checked_drives: list[str]
-    #: The oldest check across the drives that HAVE one. Unlike `custody_checked_at` above, a
-    #: never-checked drive does not blank it - the two answer different questions, and without
-    #: this one a library with a single unchecked place can say nothing about its other drives.
-    #: `(abg)` Stage 3.
+    #: The oldest check across the drives that HAVE one. **A never-checked drive does not blank
+    #: it**, which is the point: without this, a library with a single unchecked place can say
+    #: nothing about its other drives. `(abg)` Stage 3.
     custody_dated_at: str | None
     #: Whole days from `custody_dated_at` to now, or None when nothing is dated.
     custody_dated_days: int | None
@@ -771,7 +765,6 @@ def library_status(
         "audio": breakdown["audio"],
         "by_format": breakdown["by_format"],
         "places": len(drives),
-        "custody_checked_at": freshness.checked_at,
         "never_checked_drives": list(freshness.never_checked),
         "custody_dated_at": freshness.dated_at,
         "custody_dated_days": freshness.dated_days,

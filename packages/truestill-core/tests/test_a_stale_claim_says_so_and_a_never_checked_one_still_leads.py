@@ -5,21 +5,21 @@
 count and the date, and no consequence whatever. `abg.md:172-207`: *"what is left is that
 staleness does nothing."*
 
-**Why the tier is computed PER DRIVE and reported at the claim.** `checked_at` is
-`min(checked) if checked and not never else None`, so **one never-checked drive removes the date
-for every other drive**. That is Stage 1's rule and it is right - no single date is true of the
-whole claim - but it means whole-claim tiering can never fire on a library that has one unchecked
-place. Measured on the maintainer's own catalog, which is exactly that shape::
+**Why the tier is computed PER DRIVE and reported at the claim.** Stage 1's date was
+`min(checked) if checked and not never else None`, so **one never-checked drive removed the date
+for every other drive**. The rule behind that is right - no single date is true of the whole
+claim - but it meant whole-claim tiering could never fire on a library with one unchecked place.
+Measured on the maintainer's own catalog, which is exactly that shape::
 
     Morrowkeep           files=  395   last_verified=None
     Output               files= 2269   last_verified=2026-07-28
     The Memory Cabinet   files= 2269   last_verified=2026-07-28
     checked_at = None    never_checked = ('Morrowkeep',)
 
-So `dated_at` is added beside `checked_at` rather than replacing it: the oldest date among the
-drives that HAVE one, which an unchecked drive does not blank. Two true statements - *"Morrowkeep
-has never been checked"* and *"the oldest dated place was checked 34 days ago"* - instead of one
-that hides both.
+So `dated_at` is the oldest date among the drives that HAVE one, which an unchecked drive does
+not blank. Two true statements - *"Morrowkeep has never been checked"* and *"the oldest dated
+place was checked 34 days ago"* - instead of one that hides both. The rule survives in
+`never_checked`; the second date field that also encoded it was removed once nothing read it.
 
 ⚠ **The absolute date is never replaced by the relative one.** `abg.md:280` and both renderers
 record *"a date that only gets older cannot mislead"*, and a bare "34 days ago" is not such a
@@ -77,8 +77,9 @@ def test_a_never_checked_place_no_longer_hides_how_old_the_others_are() -> None:
         _drive("C", "The Memory Cabinet", verified=_days_ago(20)),
     )
 
-    # Stage 1's rule, deliberately unchanged: no single date is true of the whole claim.
-    assert got.checked_at is None
+    # Stage 1's rule, deliberately unchanged: no single date is true of the whole claim. It is
+    # stated by NAMING the unchecked place - `checked_at` used to state it a second time by
+    # going None, and was removed once nothing read it.
     assert got.never_checked == ("Morrowkeep",)
 
     # ...and the part that did not exist: the dated drives still get to be reported.
@@ -101,8 +102,7 @@ def test_the_tier_follows_the_oldest_dated_drive_not_an_average_or_the_newest() 
 
     assert got.dated_days == 120
     assert got.tier is CustodyTier.STALE
-    # And with no never-checked drive, `checked_at` and `dated_at` agree exactly.
-    assert got.checked_at == got.dated_at
+    assert got.never_checked == ()
 
 
 @pytest.mark.parametrize(
@@ -163,4 +163,4 @@ def test_the_fresh_case_is_byte_identical_to_what_shipped_before() -> None:
 
     assert got.tier is CustodyTier.FRESH
     assert got.never_checked == ()
-    assert got.checked_at == got.dated_at
+    assert got.dated_days == 9, "the oldest of the two, not the newest"

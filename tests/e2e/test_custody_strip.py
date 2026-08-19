@@ -441,7 +441,7 @@ def test_the_strip_names_a_place_it_has_never_looked_at(ui: Page, app_server: Ap
     # ⚠ REVERSED BY `(abg)` STAGE 3, 2026-08-19, AND THE REVERSAL IS THE POINT OF THE STAGE.
     #
     # This asserted `not_to_contain_text("last checked")`: the two states were mutually exclusive
-    # on the rail, because `custody_checked_at` goes null the moment any place is unchecked. That
+    # on the rail, because the one date field went null the moment any place was unchecked. That
     # rule is still right about a SINGLE date - none would be true of the whole claim - but it
     # meant a library holding one unchecked drive could say nothing at all about its other
     # drives, which is the shape of the maintainer's own catalog. `custody_dated_at` carries the

@@ -206,6 +206,15 @@
     the filesystem and agreed exactly about the catalog.** That is the whole argument for which
     kind of evidence a design may rest on.
 
+  - 🧭 **THE STAGE NUMBERS: THIS ENTRY GOVERNS, AND `SHIPPED.md` IS OFF BY ONE.** The freshness
+    work is called **Stage 0** in `SHIPPED.md` (`(acr)`'s closure: *"reading `(abg)` Stage 0's own
+    output"*) and **Stage 1** here. **Read every "Stage N" in this repo as this file's numbering.**
+
+    `SHIPPED.md` is **not corrected**, and that is the rule rather than an omission: its entries
+    are provenance, and a record edited to stay correct stops being one - the same reasoning
+    `CLAUDE.md` applies to the dead `docs/CLAUDE.md` pointer, where a note resolves the drift and
+    the record stays as written. Noted 2026-08-19.
+
   - ✅ **STAGE 3 SHIPPED 2026-08-19. STALENESS HAS A CONSEQUENCE, AND IT IS TIERED PER DRIVE.**
 
     **The blocker, found in design and it invalidated the first shape of the ruling.**
@@ -263,6 +272,19 @@
       `if hint:` (no test had a hint that pointed anywhere, so none exercised a *stale* one - the
       actual `(adx)` gap 2 shape), and the lead rule, whose first mutant was badly designed -
       `insert(len(lines), ...)` is an append and reordered nothing.
+    - ⚠ **`checked_at` / `custody_checked_at` WAS REMOVED 2026-08-19, AND THE RULE SURVIVED IT.**
+      Stage 3 gave both surfaces `dated_at` to read, after which the older field had **no reader
+      anywhere** - not the app, not the CLI, not the payload's consumers. What it encoded was
+      *"no single date is true of the whole claim"*, and that rule now lives in two places that
+      are actually read: `never_checked` being non-empty, and both surfaces **leading** with that
+      rather than with a date. The field was a second encoding of the same fact, derivable from
+      what remains (`checked_at == dated_at if not never_checked else None`).
+
+      **Removed rather than kept**, on this repo's own precedent: `(aeb)` is the same shape one
+      level up, where two names for one path produced a false claim precisely because nothing
+      forced them to agree, and the standing no-users-before-the-first-tag rule removes the only
+      other argument for keeping it. **A value computed and read by nobody is how the next
+      divergence gets in.**
 
   - **Related, and filed separately because it is a different defect:** `(acq)` - "place" counts
     somewhere Truestill organized INTO, not somewhere a copy is kept.

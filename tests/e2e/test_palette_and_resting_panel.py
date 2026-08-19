@@ -152,7 +152,6 @@ def _status(ui: Page, **overrides: Any) -> None:
         # `(abg)` Stage 3's fields, defaulted so a test that says nothing about freshness renders
         # as it always did. These are STUB payloads, so unlike the catalog-seeded fixtures they
         # carry literal dates safely: the tier is stated here rather than derived from the clock.
-        "custody_checked_at": None,
         "never_checked_drives": [],
         "custody_dated_at": None,
         "custody_dated_days": None,
@@ -259,7 +258,6 @@ def test_the_panel_count_never_stands_alone(ui: Page) -> None:
     ui.set_viewport_size({"width": 1500, "height": 900})
     _status(
         ui,
-        custody_checked_at="2026-07-28T13:00:00+00:00",
         custody_dated_at="2026-07-28T13:00:00+00:00",
         never_checked_drives=[],
     )
@@ -273,7 +271,7 @@ def test_the_panel_names_a_place_it_has_never_looked_at(ui: Page) -> None:
     """No date is offered when one place has never been checked - none would be true of the whole
     claim - and the drive is named instead."""
     ui.set_viewport_size({"width": 1500, "height": 900})
-    _status(ui, custody_checked_at=None, never_checked_drives=["Morrowkeep"])
+    _status(ui, never_checked_drives=["Morrowkeep"])
 
     panel = ui.locator("#panel")
     expect(panel).to_contain_text("Never checked")
@@ -290,14 +288,13 @@ def test_the_panel_states_both_when_both_are_true(ui: Page) -> None:
     """⚠ `(abg)` STAGE 3'S REGRESSION, ON THE PANEL. The shape of the maintainer's own catalog.
 
     A never-checked place and a dated one are different claims and a library can hold both.
-    Stage 1 could report only the first, because `custody_checked_at` goes null the moment
-    anything is unchecked - so the dated places had no row to appear in and the panel said
+    Stage 1 could report only the first, because its single date field went null the moment
+    anything was unchecked - so the dated places had no row to appear in and the panel said
     nothing whatever about them. Never-checked leads: no evidence before old evidence.
     """
     ui.set_viewport_size({"width": 1500, "height": 900})
     _status(
         ui,
-        custody_checked_at=None,
         never_checked_drives=["Morrowkeep"],
         custody_dated_at="2026-07-28T13:00:00+00:00",
         custody_dated_days=34,
@@ -375,7 +372,6 @@ def test_freshness_shown_always_is_not_alarm_shown_always(ui: Page) -> None:
     ui.set_viewport_size({"width": 1500, "height": 900})
     _status(
         ui,
-        custody_checked_at="2026-08-09T10:00:00+00:00",
         custody_dated_at="2026-08-09T10:00:00+00:00",
         never_checked_drives=[],
         files_no_copy=0,
@@ -395,7 +391,6 @@ def test_a_never_checked_place_is_stated_not_alarmed(ui: Page) -> None:
     ui.set_viewport_size({"width": 1500, "height": 900})
     _status(
         ui,
-        custody_checked_at=None,
         never_checked_drives=["Morrowkeep"],
         files_no_copy=0,
         single_copy=0,
@@ -477,7 +472,6 @@ def test_one_payload_field_names_the_drive_on_both_surfaces(ui: Page) -> None:
         places=2,
         held_floor=1,
         never_checked_drives=["Morrowkeep (location not known)"],
-        custody_checked_at=None,
     )
 
     for where in ("#panel", "#custody"):
@@ -488,9 +482,7 @@ def test_a_distinct_name_still_reads_bare_on_both_surfaces(ui: Page) -> None:
     """A GUARD, passing before and after by design. Whatever `(acr)` adds must be invisible when
     there is no collision - so the un-collided name must carry no parenthetical and no path."""
     ui.set_viewport_size({"width": 1500, "height": 900})
-    _status(
-        ui, places=2, held_floor=1, never_checked_drives=["Morrowkeep"], custody_checked_at=None
-    )
+    _status(ui, places=2, held_floor=1, never_checked_drives=["Morrowkeep"])
 
     for where in ("#panel", "#custody"):
         expect(ui.locator(where)).to_contain_text("Morrowkeep")

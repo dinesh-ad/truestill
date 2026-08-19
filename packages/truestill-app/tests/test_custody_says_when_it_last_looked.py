@@ -79,22 +79,29 @@ def test_the_claim_carries_the_oldest_check_across_the_places_it_counts(tmp_path
 
     status = service.library_status(db)
 
-    assert status["custody_checked_at"] == "2026-07-28T13:00:00+00:00"
+    assert status["custody_dated_at"] == "2026-07-28T13:00:00+00:00"
     assert status["never_checked_drives"] == []
 
 
-def test_one_never_checked_place_removes_the_date_and_names_the_drive(tmp_path: Path) -> None:
+def test_one_never_checked_place_is_named_and_does_not_speak_for_the_others(
+    tmp_path: Path,
+) -> None:
     """The Morrowkeep shape, from the real catalog: a drive holding 395 copies and never verified.
 
-    No date is offered, because none would be true of the whole claim, and the drive is named.
+    ⚠ **RETARGETED 2026-08-19 WHEN `custody_checked_at` WAS REMOVED, AND THE RULE IT GUARDED IS
+    THE REASON IT SURVIVES AS A TEST.** It asserted that field was `None` here - the mechanism by
+    which *"no single date is true of the whole claim"* used to be stated. The rule is unchanged;
+    what states it now is that the drive is NAMED and that the date on offer is scoped to the
+    places that actually have one, rather than a single figure standing for the whole library.
     """
     db = tmp_path / "c.sqlite"
     _seed(db, {"Cabinet": "2026-07-28T13:00:00+00:00", "Morrowkeep": None})
 
     status = service.library_status(db)
 
-    assert status["custody_checked_at"] is None
     assert status["never_checked_drives"] == ["Morrowkeep"]
+    # The date belongs to Cabinet, and nothing presents it as covering Morrowkeep too.
+    assert status["custody_dated_at"] == "2026-07-28T13:00:00+00:00"
 
 
 def test_a_drive_holding_nothing_does_not_drag_the_date_down(tmp_path: Path) -> None:
@@ -108,7 +115,7 @@ def test_a_drive_holding_nothing_does_not_drag_the_date_down(tmp_path: Path) -> 
 
     status = service.library_status(db)
 
-    assert status["custody_checked_at"] == "2026-07-28T13:00:00+00:00"
+    assert status["custody_dated_at"] == "2026-07-28T13:00:00+00:00"
     assert status["never_checked_drives"] == []
 
 
@@ -120,7 +127,7 @@ def test_a_library_with_no_places_offers_no_date_and_names_nobody(tmp_path: Path
 
     status = service.library_status(db)
 
-    assert status["custody_checked_at"] is None
+    assert status["custody_dated_at"] is None
     assert status["never_checked_drives"] == []
 
 
@@ -216,8 +223,9 @@ def test_a_never_checked_place_no_longer_silences_the_age_of_the_others(tmp_path
     """⚠ THE STAGE 3 REGRESSION, in the shape of the maintainer's own catalog.
 
     One never-checked drive and two dated ones past the softening threshold. Before Stage 3 the
-    payload could carry only half of it: `custody_checked_at` is None by Stage 1's rule, so the
-    two 34-day-old drives had no field to be reported in and the claim said nothing about them.
+    payload could carry only half of it: the only date field went None whenever anything was
+    unchecked, so the two 34-day-old drives had no field to be reported in and the claim said
+    nothing about them.
 
     Both statements are true and both are now carried. Stage 1's rule is untouched.
     """
@@ -226,7 +234,6 @@ def test_a_never_checked_place_no_longer_silences_the_age_of_the_others(tmp_path
 
     status = service.library_status(db)
 
-    assert status["custody_checked_at"] is None, "Stage 1's rule must not have moved"
     assert status["never_checked_drives"] == ["Morrowkeep"]
     assert status["custody_dated_at"] is not None, (
         "the dated drives are still invisible, so the tiers can never fire on this library"
@@ -245,7 +252,7 @@ def test_a_freshly_checked_library_carries_the_same_payload_it_always_did(tmp_pa
 
     assert status["custody_tier"] == "fresh"
     assert status["never_checked_drives"] == []
-    assert status["custody_dated_at"] == status["custody_checked_at"]
+    assert status["custody_dated_at"] is not None
 
 
 def test_a_library_checked_last_spring_says_so_firmly(tmp_path: Path) -> None:

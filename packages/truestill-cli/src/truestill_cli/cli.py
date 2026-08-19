@@ -1405,8 +1405,8 @@ def _custody_age_lines(freshness: CustodyFreshness, route: str | None) -> list[s
 
     **Two things can be true at once, and both are said.** A place that has never been checked
     and a place checked 34 days ago are different claims, and a library can hold both - it is
-    the shape of the maintainer's own. Stage 1 reported only the first, because `checked_at`
-    goes `None` the moment anything is unchecked; `dated_at` carries the second. Never-checked
+    the shape of the maintainer's own. Stage 1 reported only the first, because its single date
+    went `None` the moment anything was unchecked; `dated_at` carries the second. Never-checked
     LEADS, ordered by strength of evidence rather than severity: *no* evidence precedes *old*
     evidence.
 

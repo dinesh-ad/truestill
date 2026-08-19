@@ -194,21 +194,27 @@ class CustodyFreshness(NamedTuple):
     custody strip would otherwise each grow their own version, which is the drift §4 names.
     """
 
-    #: The OLDEST check across the places counted, because a claim is only as fresh as its
-    #: weakest leg. `None` when any of them has never been checked - no single date would then be
-    #: true of the whole claim.
-    checked_at: str | None
+    #: ⚠ **`checked_at` WAS HERE AND WAS REMOVED 2026-08-19, WITH ITS RULE INTACT.** It held the
+    #: oldest check across the counted places, and went `None` the moment any of them had never
+    #: been checked, because **no single date is true of the whole claim**. That rule survives the
+    #: field: it is now carried by :attr:`never_checked` being non-empty, and by every surface
+    #: leading with that rather than with a date. What the field added on top was a second
+    #: encoding of the same fact - `checked_at == dated_at if not never_checked else None` - and
+    #: after Stage 3 gave both surfaces `dated_at` to read, nothing read it at all. A value
+    #: computed and read by nobody is how the next divergence gets in; `(aeb)` is the same shape
+    #: one level up, where two names for one path produced a false claim because nothing forced
+    #: them to agree.
+    #:
     #: Counted places never checked, **named unambiguously** - see :func:`distinguishing_names`.
     #: Named, not counted: the name is the only clue a reader has to what happened, which is also
     #: why an ambiguous one is worse than none. `(acr)`.
     never_checked: tuple[str, ...]
     #: The oldest check across the places that HAVE one, **which an unchecked place does not
-    #: blank**. `checked_at` above answers *"how fresh is the whole claim"* and is correctly
-    #: `None` the moment any place is unchecked; this answers *"how old is the oldest thing we
-    #: did look at"*, and the two are different questions. Without it a library with one
-    #: never-checked drive can say nothing whatever about its other drives - the shape of the
-    #: maintainer's own catalog, and the reason the tiers below would otherwise never fire.
-    #: `(abg)` Stage 3.
+    #: blank**. That is the whole point of it: without this a library with one never-checked
+    #: drive can say nothing whatever about its other drives - the shape of the maintainer's own
+    #: catalog, and the reason the tiers below would otherwise never fire. It answers *"how old
+    #: is the oldest thing we did look at"*; whether the claim as a whole is backed is answered
+    #: by :attr:`never_checked` being empty. `(abg)` Stage 3.
     dated_at: str | None = None
     #: Whole days from :attr:`dated_at` to now, or `None` when nothing is dated.
     dated_days: int | None = None
@@ -251,13 +257,12 @@ def custody_freshness(
     never = sorted(named[str(d["uuid"])] for d in holding if not d["last_verified"])
     checked = [str(d["last_verified"]) for d in holding if d["last_verified"]]
     # The OLDEST of the places that carry a date, computed **whether or not** another place is
-    # unchecked. `checked_at` below keeps Stage 1's rule exactly - it goes None the moment any
-    # place has never been looked at, because no single date would be true of the whole claim -
-    # and this sits beside it so the dated places can still be reported. `(abg)` Stage 3.
+    # unchecked - which is the whole of `(abg)` Stage 3. The rule that no single date is true of
+    # the whole claim is NOT weakened by this: it is stated by `never_checked` and by the
+    # surfaces leading with it, rather than by blanking a second date field nobody read.
     oldest = min(checked) if checked else None
     days = _whole_days_since(oldest, now) if oldest else None
     return CustodyFreshness(
-        checked_at=min(checked) if checked and not never else None,
         never_checked=tuple(never),
         dated_at=oldest,
         dated_days=days,

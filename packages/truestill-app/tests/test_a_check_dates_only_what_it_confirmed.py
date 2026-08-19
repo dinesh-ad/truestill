@@ -1,7 +1,7 @@
 """A check that contradicted the custody claim must not date it. `(abg)` Stage 2.
 
 **Stage 1 introduced this, which is why it is worth a file of its own.** Stage 1 carried
-`drives.last_verified` to the number a person reads - `custody_checked_at` on the strip. It did
+`drives.last_verified` to the number a person reads - the custody date on the strip. It did
 not ask what advances that date, and the answer was: every verify run, unconditionally. So a run
 whose own summary said `missing: 2269` stamped the drive as verified *now*, and the reassuring
 sentence got **fresher** on the strength of evidence that contradicted it. That is `(abg)`'s own
