@@ -85,6 +85,57 @@ def _failures_in(xml: Path) -> set[str]:
     return named
 
 
+def _durations_in(xml: Path) -> dict[str, float]:
+    """`file::test -> seconds` for every case that ran. Skips carry a time of 0 and are dropped.
+
+    **The data was already here.** `--junitxml` has recorded a `time` on every `testcase` since
+    the lane was written, uploaded with `always()` so green runs carry it too - and `(ado)`'s own
+    method lesson is that those timings *"existed for the GREEN runs too, for the whole life of
+    this investigation, and nobody read them."* This reads them.
+    """
+    try:
+        root = ET.parse(xml).getroot()
+    except (ET.ParseError, OSError):
+        return {}
+    timed: dict[str, float] = {}
+    for case in root.iter("testcase"):
+        if case.find("skipped") is not None:
+            continue
+        try:
+            seconds = float(case.get("time", "0"))
+        except ValueError:
+            continue
+        where = case.get("classname", "").replace(".", "/")
+        timed[f"{where}::{case.get('name', '?')}"] = seconds
+    return timed
+
+
+def _print_slowest(seen: defaultdict[str, list[float]], how_many: int) -> None:
+    """The slow tail, and how much each one MOVED between runs.
+
+    **The spread is the point, not the median.** A test that takes 3 s every time is a cost; a
+    test that takes 0.4 s and sometimes 9 s is a different thing wearing the same average, and
+    only the second is worth opening. `PERFORMANCE.md` §5.4 found its answer exactly this way -
+    the body of the distribution had not moved and the tail had exploded.
+
+    ⚠ **Slow is not flaky and this cannot tell you which is which.** It reports what the runs
+    recorded, on the same rule as the failure table above.
+    """
+    if not seen:
+        return
+    ranked = sorted(seen.items(), key=lambda item: max(item[1]), reverse=True)[:how_many]
+    width = max(len(test) for test, _ in ranked)
+    print(f"\nslowest {len(ranked)}, by worst run:\n")
+    for test, times in ranked:
+        spread = f"{min(times):6.2f}-{max(times):6.2f}s" if len(times) > 1 else f"{times[0]:13.2f}s"
+        runs = f"n={len(times)}"
+        print(f"{spread}  {runs:>5}  {test:<{width}}")
+    print(
+        "\nWorst run first, because a test that is usually fast and occasionally slow is the one "
+        "worth opening - an average hides exactly that."
+    )
+
+
 def _runs(limit: int) -> list[dict[str, Any]]:
     out = _gh(
         "run",
@@ -107,6 +158,12 @@ def _runs(limit: int) -> list[dict[str, Any]]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--runs", type=int, default=20, help="how many recent runs to read")
+    parser.add_argument(
+        "--slowest",
+        type=int,
+        default=15,
+        help="how many of the slowest tests to list (0 to skip the timing section)",
+    )
     args = parser.parse_args()
 
     runs = _runs(args.runs)
@@ -116,6 +173,7 @@ def main() -> int:
 
     counts: Counter[str] = Counter()
     where: defaultdict[str, list[str]] = defaultdict(list)
+    timings: defaultdict[str, list[float]] = defaultdict(list)
     read = 0
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -143,10 +201,14 @@ def main() -> int:
                 for test in _failures_in(xml):
                     counts[test] += 1
                     where[test].append(f"{run_id} ({run['headSha'][:8]})")
+                if args.slowest:
+                    for test, seconds in _durations_in(xml).items():
+                        timings[test].append(seconds)
 
     print(f"read {read} of {len(runs)} recent runs\n")
     if not counts:
         print("no failures recorded. That is a fact about these runs, not a verdict on any test.")
+        _print_slowest(timings, args.slowest)
         return 0
 
     width = max(len(t) for t in counts)
@@ -156,6 +218,7 @@ def main() -> int:
         "\nCounts only. Whether any of these is flaky is a conclusion to reach by opening the "
         "runs and proving the failure unrelated - never one to read off this table."
     )
+    _print_slowest(timings, args.slowest)
     return 0
 
 

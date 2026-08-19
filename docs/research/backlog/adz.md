@@ -36,6 +36,28 @@
     as one that shipped, and it is the half that gets argued twice. **First entry for that list:
     ccache's legacy `$HOME/.ccache`, kept permanently and deliberately** - the reason being that
     it cannot enumerate who holds one, which is the condition that will one day be true here too.
+  ## THE REJECTED LIST - deprecations and tools weighed and declined, so they are not re-argued
+
+  Git's `BreakingChanges` keeps one of these and it is the half that saves the most time: a
+  decision **not** to change something is a decision, and it is the one that gets argued twice
+  because nothing records it.
+
+  - ❌ **ccache's legacy `$HOME/.ccache`, kept permanently and deliberately.** The first entry, and
+    the reason is the condition that will one day be true here: it cannot enumerate who holds one.
+    See `(adw)`.
+  - ❌ **`pytest-durations` / `pytest-extra-durations` (2026-08-19).** They are real and they do
+    more than the built-in - fixture time separated from test time, xdist-aware. Declined against
+    `ENGINEERING_STANDARD.md` §4's dependency bar: `pytest --durations=N` is built in, needs no
+    dependency, and answers the question that was actually asked (*"which tests are slow"*). The
+    plugins answer a question nobody has yet (*"is the cost in the fixture or the test"*), and the
+    day someone does ask it, this entry is where to find that it was considered.
+  - ❌ **A per-line timing display beside each test name (2026-08-19).** Asked for directly, and
+    declined on a measurement rather than a preference: the suite runs under **`-n auto`**, so
+    sixteen workers interleave and **wall clock beside a name is not that test's cost**. A number
+    that looks like a duration and is not one is worse than no number - it would be read, trusted,
+    and wrong. The slow *tail* is the answerable question, and `--durations` plus
+    `scripts/flake_report.py --slowest` answers it.
+
   - **Not proposed here:** where the list lives (a document, a module docstring, a test that reads
     both), or whether a guard can enforce "every compatibility path names a condition". A guard
     would need a way to recognise one, and inventing that classification is a bigger question than

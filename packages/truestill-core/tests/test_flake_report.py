@@ -15,6 +15,7 @@ word ever appears in what the script prints.
 
 from __future__ import annotations
 
+import collections
 import importlib.util
 import json
 from pathlib import Path
@@ -39,6 +40,16 @@ _JUNIT = """<?xml version="1.0" encoding="utf-8"?>
 _CLEAN = """<?xml version="1.0" encoding="utf-8"?>
 <testsuites><testsuite name="pytest" tests="1">
   <testcase classname="tests.e2e.test_a" name="test_passes"/>
+</testsuite></testsuites>
+"""
+
+
+_TIMED = """<?xml version="1.0" encoding="utf-8"?>
+<testsuites><testsuite name="pytest" tests="4">
+  <testcase classname="tests.e2e.test_a" name="test_quick" time="0.10"/>
+  <testcase classname="tests.e2e.test_a" name="test_slow" time="9.30"/>
+  <testcase classname="tests.e2e.test_b" name="test_skipped" time="0.00"><skipped/></testcase>
+  <testcase classname="tests.e2e.test_b" name="test_unparseable" time="not-a-number"/>
 </testsuite></testsuites>
 """
 
@@ -187,3 +198,57 @@ def test_both_lanes_upload_what_this_reads() -> None:
         if "--junitxml=test-results.xml" in str(step.get("run", ""))
     ]
     assert len(junit) == 2, "both lanes must actually write the file they upload"
+
+
+def test_it_reads_the_time_every_junit_already_records(tmp_path: Path) -> None:
+    """The timings were always in the artifact; this reads them.
+
+    A **skip** is dropped rather than recorded as 0.00 s - a skipped test did not take no time,
+    it did not run, and a zero in the table would read as the first. An unparseable `time` is
+    dropped for the same reason it is not defaulted to zero: an instrument that invents a number
+    is worse than one that omits a row.
+    """
+    xml = tmp_path / "test-results.xml"
+    xml.write_text(_TIMED, encoding="utf-8")
+
+    assert _load()._durations_in(xml) == {
+        "tests/e2e/test_a::test_quick": 0.10,
+        "tests/e2e/test_a::test_slow": 9.30,
+    }
+
+
+def test_a_missing_or_broken_file_yields_no_timings(tmp_path: Path) -> None:
+    """Same rule as the failure reader: this is an instrument and must not raise."""
+    module = _load()
+    assert module._durations_in(tmp_path / "absent.xml") == {}
+    broken = tmp_path / "broken.xml"
+    broken.write_text("<testsuites>", encoding="utf-8")
+    assert module._durations_in(broken) == {}
+
+
+def test_the_slow_list_is_ordered_by_the_worst_run_not_the_average(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """⚠ THE ORDERING IS THE WHOLE VALUE, so it is pinned.
+
+    A test at a steady 5 s and one that is usually 0.4 s but occasionally 9 s have similar
+    averages and are completely different problems. Sorting by the worst run puts the second
+    first, which is the one worth opening - and it is how `PERFORMANCE.md` §5.4 found its answer,
+    with the body of the distribution unmoved and the tail exploded.
+    """
+    module = _load()
+    module._print_slowest(
+        collections.defaultdict(list, {"steady": [5.0, 5.0, 5.0], "spiky": [0.4, 9.0, 0.4]}), 5
+    )
+
+    out = capsys.readouterr().out
+    assert out.index("spiky") < out.index("steady"), "the spiky test must be listed first"
+    assert "0.40" in out, "the best run must be shown"
+    assert "9.00" in out, "the worst run must be shown"
+
+
+def test_nothing_to_time_prints_nothing(capsys: pytest.CaptureFixture[str]) -> None:
+    """A run with no timings must not print an empty heading - a section with no rows reads as a
+    tool that failed rather than as a run that recorded nothing."""
+    _load()._print_slowest(collections.defaultdict(list), 5)
+    assert capsys.readouterr().out == ""

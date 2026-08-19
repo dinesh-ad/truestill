@@ -200,7 +200,19 @@ testpaths = [
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
-addopts = "-v --tb=short"
+# `--durations=15` prints the slowest fifteen after every run. The 45 s ceiling
+# (`TEST_SECONDS_MAX`) is enforced against the whole suite and says nothing about which test
+# spent it; this does, at no cost and with no plugin.
+#
+# ⚠ THE TRAP, RECORDED SO NOBODY CONCLUDES THE FLAG DOES NOTHING: `--durations` HIDES ANYTHING
+# UNDER 0.005 s. On a suite where most of 2,505 tests are sub-millisecond, the output is a short
+# list and a line reading "(N durations < 0.005s hidden)" - which reads as broken rather than as
+# fast. `-vv` shows every test; `--durations-min=X` moves the threshold. Neither is the default,
+# because the interesting answer is the tail and a full list of 2,505 timings is not readable.
+#
+# ⚠ AND UNDER `-n auto` THE NUMBERS ARE PER-TEST COST, NOT WALL CLOCK. Sixteen workers run at
+# once, so the durations will not sum to the run time and are not meant to.
+addopts = "-v --tb=short --durations=15"
 # A warning is a failure, with two named exceptions. A suite that prints a warnings summary
 # every run trains everyone to skim past it, which is exactly where the next real deprecation
 # hides - the httpx one sat in that summary for as long as it took someone to read it on
