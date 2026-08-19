@@ -139,9 +139,132 @@
   abandoned lock needing manual SQL is a worse failure than the one being fixed** - recorded so
   this route is met with its cost rather than its reputation.
 
+  ### ⚠ CORRECTION 2026-08-19: "ONLY A WHOLE-CHAIN TRANSACTION CLOSES THE HALF-LIFT" IS WRONG
+
+  That was this entry's own claim and it is refuted. **The standard pattern is a per-migration
+  transaction with the version stamp INSIDE it**, and it closes the half-lift by construction -
+  because both halves roll back together.
+
+  **Verified on this runtime** (Python 3.13.13, SQLite 3.50.4) rather than reasoned:
+
+  | inside one transaction | after `ROLLBACK` |
+  |---|---|
+  | `ALTER TABLE t ADD COLUMN y` + `PRAGMA user_version = 6` | version back to **5**, column **gone** |
+
+  **`PRAGMA user_version` is transactional**, like the DDL beside it. So *"the migration ran but
+  the version stayed old"* - the exact state this entry was opened about - **cannot occur** when
+  the stamp is inside the step's transaction.
+
+  ### 🔑 WHERE OUR STAMP SITS TODAY, WHICH IS THE WHOLE QUESTION
+
+  ```
+  for target, migrate in _MIGRATIONS:
+      if version < target:
+          migrate(conn)                                   # autocommits
+          conn.execute(f"PRAGMA user_version = {target}")  # a SEPARATE autocommit
+  ```
+
+  **Two independent commits.** The step lands, then the stamp lands, with a real gap between them
+  and no transaction around either. That gap is the half-lift, and it is one line from being
+  closed - not a chain-wide redesign.
+
+  ### What a per-step transaction leaves open, and it is a different thing
+
+  **Only a crash BETWEEN steps** - and there the schema and the stamp **agree**: version N,
+  schema exactly N. That state is **resumable, not corrupt**: the next open reads N and continues
+  from N+1, which is what the chain already does. ⚠ **This distinction is the correction's
+  substance.** *"Half-lifted with `user_version` unchanged"* is a schema that disagrees with its
+  own version and no code can reason about; *"stopped cleanly at step 12 of 18"* is an ordinary
+  resume. They are not degrees of the same problem.
+
+  ### 🌍 THE WILD INSTANCE - this defect's user-facing shape
+
+  Open WebUI documents exactly it, in a troubleshooting page written because users hit it:
+
+  > `sqlite3.OperationalError: duplicate column name: message.reply_to_id`
+
+  caused when *"a previous migration partially completed, leaving duplicate columns"*, and on
+  re-run it **cascades**:
+
+  > *"Multiple errors after a major version jump (e.g. 'duplicate column' then 'table already
+  > exists' then 'no such column'): Your database is partially migrated across several
+  > migrations."*
+
+  Their stated root cause is that *"SQLite migrations lack transaction rollback capability"* -
+  which is **false of SQLite and true of how the migrations were written**, the same conflation
+  this entry made until today. Their remedy is hand-written table-recreation SQL, with the warning
+  that *"removing columns can cause data loss"*. **That is what our duplicate-column error looks
+  like from the user's side once it has happened more than once.**
+
+  ### Two carry-alongs for whoever builds this
+
+  - ⚠ **`PRAGMA foreign_keys` IS A NO-OP INSIDE A TRANSACTION.** Verified: set to `OFF` inside
+    `BEGIN IMMEDIATE`, it still reads `1`. `Catalog.__init__` turns foreign keys **ON** for every
+    connection, and SQLite's own guidance is to turn them **off** around a table rebuild, because
+    a `DROP TABLE` mid-rebuild can break referential integrity. So a wrapped step **cannot**
+    toggle it; the toggle would have to happen outside the transaction.
+    ✅ **No migration rebuilds a table today** - checked all 18: they are `ALTER TABLE ADD COLUMN`,
+    `CREATE TABLE IF NOT EXISTS`, and one `DROP INDEX IF EXISTS`. The only `DROP TABLE` in the
+    module is inside `downgrade_v12_to_v11`, which is **testing-only, not in `_MIGRATIONS`, and
+    called by no production path**. This is recorded as a **future** constraint, not a present
+    defect.
+  - ⚠ **NO TRANSACTION RECOVERS A DESTRUCTIVE MIGRATION.** A rollback restores what a *failed*
+    step touched; it cannot restore what a *successful* step deliberately removed. A migration
+    that drops a column and commits has destroyed that data, and every route in this entry leaves
+    that untouched. **The only thing that recovers it is a copy taken before the chain runs** -
+    filed separately as `(ady)`, because it is a different remedy for a different failure and
+    folding it in here would let a transactional fix read as covering it.
+
+  ### The routes, restated on the corrected understanding
+
+  | | wrap the whole chain | **wrap each step, stamp inside** | lock table |
+  |---|---|---|---|
+  | holds the write lock | **~62 ms** (v1->v19 measured) | **~3-4 ms** | - |
+  | closes the half-lift | yes | **yes** | no |
+  | leaves | nothing | a clean resumable stop between steps | the half-lift, untouched |
+  | crash mid-way | rolls back | rolls back that step | ⚠ **row survives and blocks every later migration** |
+
+  Both transactional routes need the same prerequisite: **10 of 18 migrations call
+  `executescript`**, which Python issues an implicit `COMMIT` before - so those must become
+  per-statement `execute` calls or the transaction is silently released. The other 8 are already
+  wrappable as they stand.
+
+  🔑 **`(aaw)` IS THE CROSS-REFERENCE THAT MATTERS FOR THE LOCK ROUTE.** This repo has already
+  designed a cross-process lock - *"Cross-process drive lock, design settled"* - and chose
+  `fcntl.flock(LOCK_EX | LOCK_NB)` / `msvcrt.locking(LK_NBLCK)` for one stated reason: *"the OS
+  releases these when the process dies… so 'the user is locked out of their own library' is a
+  state this design cannot reach, and there is no stale lock to detect or clear."* It explicitly
+  rejects a TTL and a PID liveness check, and rejects the `filelock` package because its
+  `SoftFileLock` *"strands a stale lock on a dead process, the exact failure this design refuses."*
+  **A migrations lock table would reintroduce precisely what `(aaw)` ruled out**, in a product
+  where the user can force-quit and there is no operator to run the recovery SQL.
+
+  ### ⚠ AND THE EXPOSURE IS MUCH NARROWER THAN THIS ENTRY IMPLIED
+
+  The 8-12% figures above are a **synthetic worst case** - six openers released by a barrier onto a
+  deliberately-behind catalog with the column actually dropped. They prove the race is real and
+  reachable. **They do not describe a user's launch.**
+
+  ✅ **The app migrates before it serves.** `server.py:126` calls `prepare_catalog` ->
+  `migrate_catalog`; verified by leaving a catalog at v18, calling `create_app()` and issuing **no
+  request** - `user_version` was already **19**. So the six-requests-race-the-chain story
+  **cannot happen inside the app**. The chain runs once, single-threaded, at boot.
+
+  **The real window**, measured on the real 6.37 MB / 2,695-file catalog - from the `_migrate`
+  commit to the final stamp, the interval in which a second opener reads the old version:
+
+  | upgrade | p50 | max |
+  |---|---:|---:|
+  | one bump (v18 -> v19) | **3.58 ms** | 5.17 ms |
+  | full chain (v1 -> v19) | **62.02 ms** | 70.83 ms |
+
+  So the live exposure is a **millisecond-wide window, once per version bump**, needing a second
+  process to open inside it - a CLI command and an app launch landing within ~4 ms of each other,
+  on the one launch where a migration is pending. **Real, reachable, and rare** - which is a
+  ranking input, not a reason to leave a hard error on an ordinary open unfixed.
+
   ### What is NOT proposed
 
-  No route is recommended here. Three exist - wrap the chain (needs the `executescript` change and
-  accepts a longer hold), a lock table (EF Core's, with the abandoned-lock problem), or make each
-  migration concurrency-safe rather than merely idempotent (tolerate the duplicate-column error,
-  the weakest) - and choosing between them is a decision this entry does not make.
+  No route is recommended here, and none has been built. What changed today is that the
+  **per-step-with-the-stamp-inside** route exists at all - it was excluded by a claim of this
+  entry's own that turned out to be false.
