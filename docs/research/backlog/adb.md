@@ -79,6 +79,60 @@
     nothing stops two processes sharing one catalog, naming three routes, including
     `truestill organize` beside an open window. See `(adn)`.
 
+  - ⚠ **RE-VERIFIED 2026-08-19 AND RE-RANKED: `(adw)` KILLED THE ORDINARY-USE ROUTE.** All three
+    facts above are still literally true - `move_catalog_to_standard` still opens nothing
+    (`catalog_move.py` imports no `sqlite3`), the `catalog` subcommand still declares only
+    `--move` and no `--db`, and `(adn)` still stands. **The conclusion they supported does not.**
+    - `--move`'s source is `LEGACY_CATALOG_PATH` (`cli.py:1355`, the only caller), and since
+      `(adw)` shipped on 2026-08-19 that constant appears **exactly once** in `app_paths.py` -
+      its own definition. **Nothing resolves it.**
+    - So the file being copied and the file any other process opens are **different files by
+      construction**. A writer on the copied file now needs someone to pass
+      `--db reports/catalog.sqlite` explicitly, from a second process, during the copy.
+    - **That is misuse, not ordinary use** - which is precisely what the 2026-08-15 amendment
+      set out to disprove, and it was right when it was written. **Re-ranked accordingly: this is
+      a small hazard on a path a user has to go out of their way to reach**, not the
+      reachable-by-accident defect the entry describes above.
+
+  - ⚠ **AMENDED 2026-08-19: `backup()` DOES NOT MAKE A CONCURRENT-WRITER COPY SAFE FROM A SEPARATE
+    PROCESS.** The entry lists it as a blessed answer, which it is - but not for our shape.
+    SQLite: a write *"performed from within the same process as the backup operation and uses the
+    same database handle"* updates the destination automatically and the backup continues;
+    a write *"by an external process… using a database connection other than pDb"* means
+    **"the entire backup operation must be restarted"**. `move_catalog_to_standard` holds **no
+    handle at all** and runs in a CLI process separate from any writer, so it is unambiguously the
+    restart case: **correct-or-never-finishing** under a sustained writer, rather than safe.
+
+  - ✅ **VACUUM INTO IS THE CANDIDATE, AND THE ONE UNVERIFIED FACT IS NOW MEASURED (2026-08-19).**
+    The open question was whether it *completes* against a concurrent writer or restarts like
+    `backup()`. **It completes. It waits; it does not restart.** Two processes, a scratch copy of
+    the real 6.37 MB catalog on ext4, writer in a separate process:
+
+    | | writer rate | VACUUM INTO |
+    |---|---:|---|
+    | no writer | - | 21.9-48.0 ms |
+    | intermittent | ~18 commits/s | 21.0-23.1 ms - indistinguishable from idle |
+    | sustained | ~279 commits/s | 9014.7, 1473.8, 21.0 ms - **completed every time** (60 s timeout) |
+
+    ⚠ **BUT AT OUR DEFAULT 5 s `busy_timeout` IT CAN BE REFUSED**: same sustained writer, four
+    attempts, **one failed with `database is locked`** after 5436.9 ms. It fails **loudly and
+    cleanly** rather than producing a bad copy, which is the right failure - but "completes" is
+    not "always completes", and a remedy that needs a raised timeout should say so.
+
+  - ⚠ **AND THE NEVER-OVERWRITE CLAIM NEEDS NARROWING, measured rather than read.** The entry says
+    `VACUUM INTO` *"REFUSES a destination that exists or is non-empty"*, putting our invariant in
+    SQLite. Half true:
+    - a **non-empty** file is refused - but with `DatabaseError: file is not a database`, which is
+      a message about parsing, not about protecting the user. Our own `destination.exists()`
+      (`catalog_move.py:117`) produces a sentence a person can act on; SQLite's does not.
+    - an **empty** file is accepted, as documented - and a pre-existing **0-byte** destination was
+      measured **accepted and filled** (2,695 files written into it). So `VACUUM INTO` does not
+      refuse `(adr)`'s artefact; it adopts it. The entry's *"cannot produce `(adr)`'s 0-byte
+      artefact at all"* is about what it **leaves**, not what it **accepts**, and only the first
+      half is true.
+    - the output is **compacted, not byte-identical**: 5,132,288 bytes from a 6,365,184-byte
+      source. Correct for a database and a real change to what *"check the copy"* can mean.
+
   - ⚠ **AMENDED 2026-08-15: the destination is not necessarily a local disk.** `_data_dir()`
     honours a `TRUESTILL_DATA_DIR` override (`app_paths.py:107-111`), so `standard_catalog_path()`
     can name a network path. SQLite's guidance is that locking on network filesystems *"has been

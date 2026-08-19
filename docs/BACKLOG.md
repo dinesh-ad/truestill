@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(adz). Next free: (aea).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aeb). Next free: (aec).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -118,6 +118,12 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
+- **(aeb) `truestill catalog` CLAIMS THE OLD LOCATION WHENEVER A SYMLINK IS IN THE PATH.**
+  Recorded 2026-08-19. Introduced by `(adv)` and `(adw)` together. [Full
+  entry](research/backlog/aeb.md)
+- **(aea) TWO INTACT CATALOGS FOR ONE INSTALL, AND NOTHING RECONCILES THEM.** Recorded 2026-08-19.
+  `DESTINATION_EXISTS` is now a dead end rather than a safeguard. [Full
+  entry](research/backlog/aea.md)
 - **(adz) A COMPATIBILITY PATH STATES ITS REMOVAL CONDITION WHEN IT IS WRITTEN.** Recorded
   2026-08-19. ⚠ **The window for free removal closes at the first `v*` tag.** [Full
   entry](research/backlog/adz.md)

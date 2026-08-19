@@ -49,7 +49,7 @@ git ls-files '*.md' | wc -l                      # every tracked document
 git ls-files 'docs/research/backlog/*.md' | wc -l # the exception above
 ```
 
-On 2026-08-19 those read **137** and **82**, leaving **55** mapped below. ⚠ They read **133** and **78** on 2026-08-15 and were stale within the day - which is the argument for the commands above rather than an argument for updating these two numbers faster.
+On 2026-08-19 those read **139** and **84**, leaving **55** mapped below. ⚠ They read **133** and **78** on 2026-08-15 and were stale within the day - which is the argument for the commands above rather than an argument for updating these two numbers faster.
 
 ### The canon - binding, kept current
 
