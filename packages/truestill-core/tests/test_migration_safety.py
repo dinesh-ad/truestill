@@ -1,17 +1,34 @@
-"""The migration path is not atomic, and these are the four conventions that make it safe.
+"""A migration step IS atomic now, and these conventions still hold around it.
+
+⚠ **THIS FILE ARGUED THE OPPOSITE UNTIL 2026-08-19, AND THE ARGUMENT IS KEPT BELOW RATHER THAN
+DELETED**, because it was right about its own evidence and wrong only about what followed from it.
+It concluded *"they are not a substitute for a transaction; they are the reason one is not
+needed"* - and then, two paragraphs later, named the exact case where the conventions break. That
+case is what `(adl)` acted on. `Catalog._apply_step` now runs each migration in its own
+transaction **with `PRAGMA user_version` inside it**, so the interruption below leaves nothing at
+all rather than three of five columns.
+
+**The conventions are not retired.** Idempotency and the no-backfill rule are still pinned here
+and still worth having: the first is what lets an interrupted upgrade be re-attempted at all, and
+the second is now a *choice* rather than a load-bearing necessity. What changed is that the
+catalog no longer depends on them to avoid a state it cannot describe.
+
+---
 
 **Measured 2026-08-02, not assumed.** Interrupting v17 after its third `ALTER TABLE` left three
 of five columns committed - each DDL statement autocommits under Python's legacy transaction
-control, so a migration is *not* one transaction. The catalog survives that anyway:
+control, so a migration was *not* one transaction. The catalog survived that anyway:
 
     before          user_version=16   new columns=0/5
-    interrupted     user_version=16   new columns=3/5
+    interrupted     user_version=16   new columns=3/5   <- now 0/5, rolled back
     next open       user_version=17   new columns=5/5   self-healed
 
-Nothing was lost because of two conventions, and **a transaction is not one of them**:
+Nothing was lost because of two conventions, and ~~**a transaction is not one of them**~~ **a
+transaction is now the first of them**:
 
-1. ``user_version`` is bumped **after** the migration function returns, so a partial migration
-   leaves the *old* version and never claims a schema that does not exist.
+1. ``user_version`` is stamped **inside the step's own transaction** (it was *after* the
+   migration returned, as a separate autocommit), so a partial migration cannot leave the old
+   version beside a moved schema - the two roll back together.
 2. Every migration is **idempotent**, so the next open completes the partial work.
 
 Both were conventions with nothing enforcing them, and the failure they prevent only shows up
@@ -19,12 +36,17 @@ when a real person loses power mid-upgrade. A third assumption holds the argumen
 migration performs a **backfill**. DDL autocommits while DML does not, so a crash between them
 would commit the column and roll back the data - and idempotency would then *skip* the retry,
 because the column guard sees the column already there. That is the case where non-atomicity
-genuinely bites, and today it cannot happen because every migration is DDL-only.
+genuinely bites, and it used to be unreachable only because every migration is DDL-only.
+⚠ **It is now closed by the transaction rather than by that coincidence**, which is the whole of
+`(adl)`: the column and the data share one commit, so neither can arrive without the other.
 
-These tests pin all three, plus the transaction-control setting they depend on. **They are not a
-substitute for a transaction; they are the reason one is not needed.** If a future migration
-needs a backfill, `test_no_migration_performs_a_backfill` fails and forces that conversation
-rather than letting it land silently.
+These tests pin all three, plus the transaction-control setting they depend on. ~~**They are not
+a substitute for a transaction; they are the reason one is not needed.**~~ ⚠ **That sentence is
+what 2026-08-19 reversed.** They are now guards *beside* a transaction rather than in place of
+one, and they still earn their place: idempotency is what makes a rolled-back step re-attemptable,
+and the no-backfill rule is now a deliberate choice rather than the thing holding the argument up.
+`test_no_migration_performs_a_backfill` still fails on a backfill and still forces the
+conversation - but the conversation it forces is now about intent, not about safety.
 """
 
 from __future__ import annotations
@@ -94,6 +116,12 @@ def _migrated_from_v1() -> Iterator[sqlite3.Connection]:
         conn.close()
 
 
+#: Module-level helpers that execute SQL handed to them, so their arguments count as SQL the
+#: backfill guard must read. `catalog._run_script` runs a migration's multi-statement script
+#: inside the step's transaction, which is why the SQL is no longer inline. `(adl)`.
+_SQL_RUNNERS = {"_run_script"}
+
+
 def _sql_literals(function: object) -> list[str]:
     """Every string literal handed to ``.execute`` / ``.executescript`` inside ``function``.
 
@@ -103,17 +131,30 @@ def _sql_literals(function: object) -> list[str]:
     comments and docstrings cannot trip it - proved by
     `test_the_backfill_guard_does_not_fire_on_prose`.
 
+    ⚠ **`_run_script` is read too, and forgetting it blinded this guard for one commit.** When
+    `(adl)` converted the ten `executescript` migrations to `_run_script(conn, ...)`, their SQL
+    stopped being an argument to an *attribute* call and this reader returned **zero literals**
+    for all ten - silently, because a guard that sees nothing reports nothing wrong. That is the
+    second blind spot below, reached for real rather than hypothetically.
+    `test_the_backfill_guard_can_see_every_migration` is the cry-wolf half that would now catch it.
+
     **Blind spots, stated rather than discovered later:** SQL built at runtime from a non-literal
-    expression, and DML performed by a helper the migration calls rather than inline. Neither
-    exists today; both would slip past. The guard is a tripwire on the ordinary shape, not a
-    proof.
+    expression, and DML performed by a helper the migration calls rather than inline **whose name
+    is not in `_SQL_RUNNERS`**. Neither exists today; both would slip past. The guard is a
+    tripwire on the ordinary shape, not a proof.
     """
     tree = ast.parse(textwrap.dedent(inspect.getsource(function)))  # type: ignore[arg-type]
     found: list[str] = []
     for node in ast.walk(tree):
-        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+        if not isinstance(node, ast.Call):
             continue
-        if node.func.attr not in {"execute", "executescript", "executemany"}:
+        if isinstance(node.func, ast.Attribute):
+            if node.func.attr not in {"execute", "executescript", "executemany"}:
+                continue
+        elif isinstance(node.func, ast.Name):
+            if node.func.id not in _SQL_RUNNERS:
+                continue
+        else:
             continue
         for argument in node.args:
             if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
@@ -174,7 +215,24 @@ def test_the_whole_chain_is_idempotent_end_to_end() -> None:
 def test_an_interrupted_migration_leaves_the_old_version_and_then_self_heals(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The measured scenario, pinned.
+    """The measured scenario, pinned - and ⚠ **REVERSED 2026-08-19, `(adl)`.**
+
+    This test used to assert the opposite of what it asserts now, and the change is deliberate
+    rather than a repair. Its fixture check read:
+
+        assert partial, "fixture check: the interruption must leave some work committed"
+
+    That was true, and it was the defect: three of five columns committed while `user_version`
+    stayed at 16, so the schema had moved and the version had not. The file's own argument was
+    that idempotency made this survivable and therefore a transaction was unnecessary - correct
+    for **DDL-only** migrations, and the same paragraph named the case where it breaks (a
+    backfill, where the column commits and the data rolls back and the guard then *skips* the
+    retry). `_apply_step` now wraps each migration with its version stamp inside, so the
+    interruption leaves **nothing**.
+
+    **What survives unchanged is everything else this test pinned**: the version is never ahead of
+    the schema, and the next open completes the upgrade. Those were the properties that mattered;
+    only the mechanism delivering them changed.
 
     Patching the migration function rather than the connection: `sqlite3.Connection` is an
     immutable C type and its `execute` cannot be replaced, so the interruption is injected one
@@ -207,11 +265,15 @@ def test_an_interrupted_migration_leaves_the_old_version_and_then_self_heals(
         columns = {row[1] for row in probe.execute("PRAGMA table_info(files)")}
 
     partial = {name for name, _kind in _V17_COLUMNS} & columns
-    assert partial, "fixture check: the interruption must leave some work committed"
+    assert not partial, (
+        f"the interrupted step committed {sorted(partial)} and then died. Each step now runs in "
+        "its own transaction with its version stamp inside it, so a step that does not finish "
+        "must leave the catalog exactly as it found it. `(adl)`."
+    )
     assert version < 17, (
-        f"user_version is {version} while only {len(partial)} of 5 columns exist. The version "
-        "must never be ahead of the schema: it is bumped after the migration returns precisely "
-        "so a partial upgrade re-runs instead of being skipped as already done."
+        f"user_version is {version} while the v17 columns are {sorted(partial)}. The version must "
+        "never be ahead of the schema - now because the stamp shares the step's transaction, so "
+        "the two cannot disagree."
     )
 
     monkeypatch.undo()
@@ -220,6 +282,29 @@ def test_an_interrupted_migration_leaves_the_old_version_and_then_self_heals(
     with contextlib.closing(sqlite3.connect(str(db))) as probe:
         columns = {row[1] for row in probe.execute("PRAGMA table_info(files)")}
     assert {name for name, _kind in _V17_COLUMNS} <= columns, "the next open must finish the job"
+
+
+def test_the_backfill_guard_can_see_every_migration() -> None:
+    """⚠ THE CRY-WOLF HALF, and it exists because the guard went blind for real.
+
+    `test_no_migration_performs_a_backfill` reads SQL literals out of each migration. A migration
+    whose SQL it cannot see passes that check **for free** - silently, because finding no SQL and
+    finding no DML are the same answer to it.
+
+    That is not hypothetical: converting the ten `executescript` steps to `_run_script(conn, ...)`
+    for `(adl)` moved their SQL out of an attribute call, and the reader returned zero literals for
+    all ten while the backfill test stayed green. This asserts every migration still shows the
+    reader something, so the next helper that wraps SQL fails here rather than nowhere.
+    """
+    invisible = [
+        migrate.__name__
+        for _version, migrate in catalog_module._MIGRATIONS
+        if not _sql_literals(migrate)
+    ]
+    assert not invisible, (
+        f"{invisible} execute SQL the backfill guard cannot read, so they pass it vacuously. If a "
+        "new helper runs SQL on a migration's behalf, add its name to `_SQL_RUNNERS`."
+    )
 
 
 def test_a_normal_migration_still_arrives_complete(tmp_path: Path) -> None:

@@ -45,6 +45,13 @@ All notable changes to this project are documented here. The format follows
   A group you have already named shows its name instead, and is never offered a suggestion.
 
 ### Fixed
+- **An upgrade that is interrupted now leaves your library exactly as it was.** When Truestill
+  updates the shape of its catalog, it does that in steps. If the power went out, or you closed
+  the laptop, part of a step could already be written while Truestill still believed the older
+  shape was in place - so the next launch could meet an error it could not explain. Each step is
+  now all or nothing: it either finishes completely or leaves nothing behind, and the next launch
+  simply carries on. **The same change fixed a rarer problem** where opening Truestill twice
+  while an upgrade was pending could report a broken catalog.
 - **Checking a copied drive now tells you it is a copy.** If you clone a drive - or restore one
   from an image - both copies carry the same drive identity, which is correct: they are the same
   library until they drift apart. But Truestill counted them as **one** place, so it told you your

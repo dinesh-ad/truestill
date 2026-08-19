@@ -61,6 +61,59 @@ recording shipped work as unstarted, which is the more expensive direction of th
     `default_catalog_path()` still resolves to the real catalog rather than the test root. `(adv)`
     made that **disclosed**; it did not make it **prevented**.
 
+- **(adl) A MIGRATION STEP IS NOW ALL OR NOTHING, AND THE CONCURRENT RACE CLOSED WITH IT.**
+  - ✅ **CLOSED 2026-08-19.** `Catalog._apply_step` runs each migration in its own
+    **`BEGIN IMMEDIATE`** transaction **with `PRAGMA user_version` inside it**, and the ten steps
+    that used `executescript` now go through `_run_script`, which splits on `_split_schema`.
+  - **The defect, measured before the fix.** Forcing the v4 step to raise after its first of three
+    statements left `user_version = 3`, `files.event_id` **present**, `events` **absent** - a
+    schema that had moved and a version that had not.
+  - 🔑 **WHY A TRANSACTION WORKS HERE, WHICH THIS REPO HAD ARGUED IT WOULD NOT.**
+    `PRAGMA user_version` is itself transactional: rolled back it returns to the old value
+    **together with the DDL beside it**. So the stamp inside the step makes *"the migration ran
+    but the version stayed old"* unreachable by construction rather than by convention.
+  - ⚠ **AND `BEGIN IMMEDIATE` RATHER THAN `BEGIN`, WHICH WAS GOT WRONG FIRST AND MEASURED.**
+    Several steps *read* before they write, so a deferred transaction starts on SHARED - and
+    SQLite refuses the SHARED->RESERVED upgrade **immediately, without honouring `busy_timeout`**.
+    Deferred turned 6 of 90 concurrent opens into `database is locked`. The repo already knew
+    this: `test_two_openers_build_the_schema_once` records that *"one writer bought by making the
+    other fail is not the fix"*.
+  - 🔑 **THE SECOND DEFECT CLOSED WITH IT, AND IT WAS NOT WHAT THE FIX WAS FOR.** `(adl)` also
+    recorded that every migration's guard is a check-then-act outside any lock - **8% of opens
+    failed at six openers, 12% at twelve, 100% forced**, with `duplicate column name`. Taking the
+    step's transaction as IMMEDIATE puts the guard's read and the write it decides under one
+    RESERVED lock. Measured after: **960 opens, zero failures**, at six and twelve openers, forced
+    and natural. **No lock table, no `(aaw)`** - which stays owned by `(aaw)` for the drive case.
+  - **Cost, measured three times on the real 6.37 MB / 2,695-file catalog** (full v1->v19 chain):
+    **59.48 ms before; 58.40 and 66.08 ms after.** ⚠ **Overlapping, so no price is claimed** -
+    the difference is inside this rig's own run-to-run spread at n=9. The prediction that it
+    would be *faster* (50 autocommits down to 18 commits) is **not supported** either; a deferred
+    `BEGIN` did measure slower at 69-71 ms, which is one more reason it is not what shipped.
+  - **What it deliberately does NOT close**, asserted so it cannot be credited with more: a stop
+    **between** steps leaves version N with schema exactly N. Schema and stamp agree, so it is
+    resumable rather than damaged, and the next open continues at N+1.
+  - ⚠ **A RECORDED ARGUMENT WAS REVERSED, NOT QUIETLY EDITED.** `test_migration_safety.py`
+    concluded *"they are not a substitute for a transaction; they are the reason one is not
+    needed"*, and its interruption test asserted *"the interruption must leave some work
+    committed"*. Both are struck in place with the reasoning kept: that file was right about its
+    evidence and named, two paragraphs later, the exact case where its conventions break - a
+    backfill, where the column commits, the data rolls back, and the column guard then **skips**
+    the retry. Idempotency and the no-backfill rule are **not** retired; they are now guards
+    beside a transaction rather than in place of one.
+  - ⚠ **AND THE BACKFILL GUARD WENT BLIND FOR ONE COMMIT, WHICH IS RECORDED RATHER THAN TIDIED.**
+    `_sql_literals` reads SQL out of *attribute* calls, so moving ten migrations' SQL into
+    `_run_script(conn, ...)` made it return **zero literals for all ten** - and a guard that sees
+    no SQL reports no DML, silently. Caught while checking, fixed by naming `_run_script` in
+    `_SQL_RUNNERS`, and pinned by a new cry-wolf that fails if any migration becomes unreadable
+    to it again.
+  - **Four mutants, control first, all caught:** the stamp moved back outside the transaction, the
+    explicit `BEGIN` removed, deferred instead of IMMEDIATE, and `executescript` restored.
+    ⚠ **The first survived twice before it was killed** - once because every test injected its
+    failure *inside* the step rather than in the gap between the commit and the stamp, and once
+    because the `set_authorizer` written to inject there denied `user_version` **reads** as well,
+    so the open died at the fast path and "nothing was left behind" was trivially true. Both are
+    recorded; the second has its own cry-wolf.
+
 - **(adu) AN OPEN THAT WILL CHANGE NOTHING NO LONGER TAKES THE CATALOG'S WRITE LOCK.**
   - ✅ **CLOSED 2026-08-18.** `_migrate` reads `PRAGMA user_version` and the `files` row first; if
     the schema is current it **returns without opening a transaction**. Everything else falls

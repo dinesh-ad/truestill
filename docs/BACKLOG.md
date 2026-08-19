@@ -130,8 +130,6 @@ is invisible here is retired, not free.**
   2026-08-15. [Full entry](research/backlog/adt.md)
 - **(ads) THE CATALOG'S CONCURRENCY MODEL IS SQLITE'S DEFAULT, NOT A DECISION.** Recorded
   2026-08-15. [Full entry](research/backlog/ads.md)
-- **(adl) THE MIGRATION CHAIN IS NOT TRANSACTIONAL AND HALF-LIFTS ON FAILURE.** [Full
-  entry](research/backlog/adl.md)
 - **(adm) `inspect_catalog` SKIPPED THE FIRST-RUN CASE - FIXED FOR THE APP, UNCHANGED FOR THE
   CLI.** Recorded 2026-08-14. [Full entry](research/backlog/adm.md)
 - **(adn) NOTHING STOPS TWO APPS RUNNING AGAINST ONE CATALOG.** Recorded 2026-08-14. [Full

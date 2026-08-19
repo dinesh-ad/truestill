@@ -298,7 +298,8 @@ def _add_event_tables(conn: sqlite3.Connection) -> None:
     """v3 -> v4: event membership + remembered skips for the event layer."""
     if "event_id" not in _column_names(conn):
         conn.execute("ALTER TABLE files ADD COLUMN event_id INTEGER")
-    conn.executescript(
+    _run_script(
+        conn,
         """
         CREATE TABLE IF NOT EXISTS events (
             id INTEGER PRIMARY KEY, name TEXT NOT NULL, slug TEXT NOT NULL,
@@ -307,7 +308,7 @@ def _add_event_tables(conn: sqlite3.Connection) -> None:
         CREATE TABLE IF NOT EXISTS skipped_clusters (
             signature TEXT PRIMARY KEY, skipped_at TEXT NOT NULL
         );
-        """
+        """,
     )
 
 
@@ -315,7 +316,8 @@ def _add_takeout_tables(conn: sqlite3.Connection) -> None:
     """v4 -> v5: post-write copy hash + album membership for Takeout ingestion."""
     if "copy_sha256" not in _column_names(conn):
         conn.execute("ALTER TABLE files ADD COLUMN copy_sha256 TEXT")
-    conn.executescript(
+    _run_script(
+        conn,
         """
         CREATE TABLE IF NOT EXISTS albums (
             id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE
@@ -324,7 +326,7 @@ def _add_takeout_tables(conn: sqlite3.Connection) -> None:
             file_id INTEGER NOT NULL, album_id INTEGER NOT NULL,
             PRIMARY KEY (file_id, album_id)
         );
-        """
+        """,
     )
 
 
@@ -363,7 +365,8 @@ def _add_drive_tables(conn: sqlite3.Connection) -> None:
     costs nothing; removing one that turns out to fire costs a blank column on screen. It is
     therefore not dropped, and there is no migration for it.
     """
-    conn.executescript(
+    _run_script(
+        conn,
         """
         CREATE TABLE IF NOT EXISTS drives (
             uuid TEXT PRIMARY KEY, label TEXT NOT NULL, first_seen TEXT, last_seen TEXT,
@@ -378,18 +381,19 @@ def _add_drive_tables(conn: sqlite3.Connection) -> None:
             PRIMARY KEY (sha256, drive_uuid)
         );
         CREATE INDEX IF NOT EXISTS idx_file_copies_drive ON file_copies (drive_uuid);
-        """
+        """,
     )
 
 
 def _add_settings_table(conn: sqlite3.Connection) -> None:
     """v6 -> v7: a per-catalog key/value settings store (first use: the layout template)."""
-    conn.executescript(
+    _run_script(
+        conn,
         """
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY, value TEXT NOT NULL
         );
-        """
+        """,
     )
 
 
@@ -410,7 +414,8 @@ def _add_reversible_migrations(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE migration_journal ADD COLUMN run_id TEXT")
     if "completed_at" not in journal_cols:
         conn.execute("ALTER TABLE migration_journal ADD COLUMN completed_at TEXT")
-    conn.executescript(
+    _run_script(
+        conn,
         """
         CREATE TABLE IF NOT EXISTS migration_runs (
             run_id       TEXT PRIMARY KEY,
@@ -419,38 +424,41 @@ def _add_reversible_migrations(conn: sqlite3.Connection) -> None:
             completed_at TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_migration_runs_drive ON migration_runs (drive_uuid);
-        """
+        """,
     )
 
 
 def _add_migration_journal(conn: sqlite3.Connection) -> None:
     """v7 -> v8: a journal of in-flight layout-migration moves (for crash-safe resume)."""
-    conn.executescript(
+    _run_script(
+        conn,
         """
         CREATE TABLE IF NOT EXISTS migration_journal (
             sha256 TEXT NOT NULL, drive_uuid TEXT NOT NULL, old_relative TEXT NOT NULL,
             new_relative TEXT NOT NULL, copy_sha256 TEXT,
             PRIMARY KEY (sha256, drive_uuid)
         );
-        """
+        """,
     )
 
 
 def _add_reclaim_journal(conn: sqlite3.Connection) -> None:
     """v8 -> v9: an audit/resume journal for `truestill reclaim` source deletions."""
-    conn.executescript(
+    _run_script(
+        conn,
         """
         CREATE TABLE IF NOT EXISTS reclaim_journal (
             source_path TEXT PRIMARY KEY, sha256 TEXT NOT NULL,
             freed_bytes INTEGER, reclaimed_at TEXT
         );
-        """
+        """,
     )
 
 
 def _add_inplace_journal(conn: sqlite3.Connection) -> None:
     """v9 -> v10: a reversible journal for rename-based relocation (in-place organize)."""
-    conn.executescript(
+    _run_script(
+        conn,
         """
         CREATE TABLE IF NOT EXISTS inplace_runs (
             run_id TEXT PRIMARY KEY, source_root TEXT NOT NULL, dest_root TEXT NOT NULL,
@@ -462,7 +470,7 @@ def _add_inplace_journal(conn: sqlite3.Connection) -> None:
             PRIMARY KEY (run_id, old_relative)
         );
         CREATE INDEX IF NOT EXISTS idx_inplace_moves_run ON inplace_moves (run_id);
-        """
+        """,
     )
 
 
@@ -498,7 +506,8 @@ def _add_date_confirmations(conn: sqlite3.Connection) -> None:
     Keyed on ``sha256`` for the same reason (z) hash-keys its manifest: content identity survives
     rename, migrate, re-layout and in-place organize; a path does not.
     """
-    conn.executescript(
+    _run_script(
+        conn,
         """
         CREATE TABLE IF NOT EXISTS date_confirmations (
             sha256       TEXT PRIMARY KEY,
@@ -506,7 +515,7 @@ def _add_date_confirmations(conn: sqlite3.Connection) -> None:
             confirmed_at TEXT NOT NULL,
             confirmed_by TEXT
         );
-        """
+        """,
     )
 
 
@@ -533,7 +542,8 @@ def _add_trip_tables(conn: sqlite3.Connection) -> None:
     See the ``trips``/``trip_days`` comment in ``_SCHEMA`` for why; this function exists only so
     an *existing* v11 catalog gets the same two tables a fresh one is born with.
     """
-    conn.executescript(
+    _run_script(
+        conn,
         """
         CREATE TABLE IF NOT EXISTS trips (
             id         INTEGER PRIMARY KEY,
@@ -546,7 +556,7 @@ def _add_trip_tables(conn: sqlite3.Connection) -> None:
             day     TEXT PRIMARY KEY,
             trip_id INTEGER NOT NULL REFERENCES trips(id)
         );
-        """
+        """,
     )
 
 
@@ -566,11 +576,12 @@ def downgrade_v12_to_v11(conn: sqlite3.Connection) -> None:
     safely reversible, per the standing rule that a migration must be shown undoable, not merely
     claimed to be.
     """
-    conn.executescript(
+    _run_script(
+        conn,
         """
         DROP TABLE IF EXISTS trip_days;
         DROP TABLE IF EXISTS trips;
-        """
+        """,
     )
     conn.execute("PRAGMA user_version = 11")
 
@@ -705,10 +716,74 @@ def _split_schema(script: str) -> tuple[str, ...]:
 #: Computed once at import, O(len(_SCHEMA)) and never again.
 _SCHEMA_STATEMENTS = _split_schema(_SCHEMA)
 
+
+def _run_script(conn: sqlite3.Connection, script: str) -> None:
+    """A multi-statement migration script, run **inside** the caller's transaction. `(adl)`.
+
+    `executescript` cannot be used from a migration: Python documents it as issuing an implicit
+    `COMMIT` first, so a step that opened a transaction and then called it would silently commit
+    everything done so far and run the rest unprotected - the wrapper would look correct and roll
+    back nothing. Ten steps were written that way.
+
+    **Split by `_split_schema`, never on `;`.** The migration scripts happen to split identically
+    either way today - eighteen statements against eighteen - but that is luck, not a property:
+    one of them already carries `--` comments, and they simply contain no semicolon. `_SCHEMA` is
+    the standing proof the coincidence does not hold in general, at 24 against 21.
+    """
+    for statement in _split_schema(script):
+        conn.execute(statement)
+
+
 #: "Has this catalog been built at all". One home, because `_migrate` asks it twice on purpose -
 #: once on the unlocked fast path and once under the write lock - and two copies of the question
 #: is how the two reads quietly stop being the same question.
 _FILES_TABLE = "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'files'"
+
+
+def _apply_step(
+    conn: sqlite3.Connection, target: int, migrate: Callable[[sqlite3.Connection], None]
+) -> None:
+    """Run one migration and stamp its version, **atomically**. `(adl)`.
+
+    **The stamp is inside the transaction, and that is the whole fix.** `PRAGMA user_version` is
+    itself transactional - rolled back it returns to the old value together with the DDL beside
+    it - so *"the migration ran but the version stayed old"* stops being a state this code can
+    produce. Before this, the step and its stamp were two separate autocommits with a real gap
+    between them, and a failure in that gap left a schema that had moved and a version that had
+    not, which nothing downstream can reason about.
+
+    ⚠ **The explicit `BEGIN` is not decoration.** Under ``LEGACY_TRANSACTION_CONTROL`` Python opens
+    an implicit transaction before **DML only**; DDL autocommits, and `rollback()` after a bare
+    `ALTER TABLE` does nothing at all. Measured both ways. That is why the chain behaved as it did,
+    and why :meth:`Catalog._tx` cannot be used here - it never issues a `BEGIN`, and it would also
+    set ``_dirty``, which `catalog_session` reads as *"a decision may have changed"* and would fire
+    a decisions-save to every reachable drive on every upgrade open.
+
+    **Per step, not per chain.** One step's hold is ~3.5 ms against ~60 ms for the whole chain, and
+    per-step closes the same defect. What it deliberately does not close is a stop **between**
+    steps - there the schema and the stamp agree, so the catalog is at version N with schema N and
+    the next open resumes at N+1, which is ordinary rather than damaged.
+
+    ⚠ **`BEGIN IMMEDIATE`, and a deferred `BEGIN` was tried first and is WRONG.** Several steps
+    *read* before they write - `PRAGMA table_info`, the column guard - so a deferred transaction
+    starts on a SHARED lock, and SQLite **cannot upgrade SHARED to RESERVED while another
+    connection holds one: it returns `SQLITE_BUSY` immediately and does not honour
+    `busy_timeout`.** Measured: six concurrent openers of a behind catalog turned 6 of 90 opens
+    into `database is locked` under `BEGIN`, and none under `BEGIN IMMEDIATE`. The repo already
+    knew this - `test_two_openers_build_the_schema_once` records that *"one writer bought by
+    making the other fail is not the fix"* - and a deferred begin here reintroduces exactly that.
+    """
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        migrate(conn)
+        conn.execute(f"PRAGMA user_version = {target}")
+        conn.commit()
+    except BaseException:
+        # `BaseException` for the reason `__init__` gives: a Ctrl-C mid-migration must still leave
+        # the file clean. Suppressed because a failing rollback must not replace the real error.
+        with contextlib.suppress(Exception):
+            conn.rollback()
+        raise
 
 
 _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
@@ -905,8 +980,7 @@ class Catalog:
 
         for target, migrate in _MIGRATIONS:
             if version < target:
-                migrate(conn)
-                conn.execute(f"PRAGMA user_version = {target}")
+                _apply_step(conn, target, migrate)
 
     @property
     def schema_version(self) -> int:

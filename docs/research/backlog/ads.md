@@ -26,7 +26,7 @@
       all fsyncing against one another."*
     - **`(adn)`** records that nothing stops two processes holding one catalog, and that
       correctness now rests on `BEGIN IMMEDIATE` alone.
-    - **`(adl)`** and **`(adm)`** are both about behaviour under that same lock.
+    - **`(adl)`** (shipped 2026-08-19) and **`(adm)`** are both about behaviour under that same lock.
   - **Why the mode is a product difference and not a tuning knob.** In rollback journal **a writer
     excludes all readers**; in WAL **readers proceed alongside one writer**. For a local app whose
     ordinary state is a browser window issuing several concurrent reads while a job writes, that is

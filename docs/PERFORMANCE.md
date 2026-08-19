@@ -937,7 +937,7 @@ here so it is not read as one.
 `_migrate` commits, and the `_MIGRATIONS` loop runs after that commit, outside any lock. On a
 catalog stepped back one version, 150 trials, **six openers ran the same migration more than once
 in 20 of them**. No errors - the migrations are idempotent - so nothing has ever failed for it.
-`BACKLOG.md` `(adl)` owns it.
+`BACKLOG.md` `(adl)` owns it. ✅ **FIXED 2026-08-19** - each step now runs in its own `BEGIN IMMEDIATE` transaction with its version stamp inside, which closed the double-run as well as the half-lift: **960 concurrent opens, zero failures**, against 8-12% before. `SHIPPED.md` `(adl)`.
 
 **Re-measured after landing, same rig**, so the decision's numbers are not left as a forecast:
 

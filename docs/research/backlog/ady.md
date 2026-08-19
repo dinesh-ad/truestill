@@ -9,7 +9,8 @@
     step touched. It cannot restore what a **successful** step deliberately removed. A migration
     that drops a column, or rewrites a value, and then commits, has destroyed that data
     *correctly* - and no rollback, no per-step transaction and no lock brings it back. `(adl)`'s
-    routes all close *interruption*; none of them closes *intent*.
+    routes all close *interruption*; none of them closes *intent*. ✅ **`(adl)` shipped 2026-08-19**
+    with the per-step transaction, and this is exactly what it did not touch.
   - **What exists today.** Nothing. `Catalog._migrate` runs the chain against the user's live
     file. There is no copy, no snapshot, and no way back to the pre-upgrade schema except a
     backup the user happens to have made themselves.
@@ -32,6 +33,6 @@
     and what a user is told about them. A copy nobody prunes is a disk-filling feature; a copy
     nobody is told about is a file they delete.
   - **Related, and deliberately not merged.** `(adl)` - interruption and concurrency in the same
-    chain, whose remedies do **not** cover this. `(adb)` - how to copy a live catalog safely, and
+    chain, **shipped 2026-08-19** (`SHIPPED.md`), whose remedy does **not** cover this. `(adb)` - how to copy a live catalog safely, and
     the only part of this problem already solved. `(adr)` - what a failed copy leaves behind,
     which is the failure mode a pre-migration copy must not introduce.
