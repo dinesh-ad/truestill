@@ -22,6 +22,35 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aee) CI'S TIMEOUTS AND ITS MIRROR RETRIES WERE BOTH DEFAULTS NOBODY CHOSE.**
+  - ✅ **CLOSED 2026-08-19** in `6e70ea0`, from run **32279378834**, where the ubuntu `check` lane
+    sat **33+ minutes** inside `apt-get update` while the other two finished in **1m07s** and
+    **3m02s**. Two findings, one entry: a default is a decision nobody made, and the second is
+    only expensive when the first is absent.
+  - **(1) An observability property, not an incident.** `ci.yml` had **no `timeout-minutes` at any
+    level**, so GitHub's 360-minute default applied - and the cost was not the hang itself but
+    that **hung and slow were indistinguishable from outside**, which is how a wedged lane read as
+    merely slow for half an hour. `release.yml:176,216` had them; CI never did. **This is
+    `(ads)`'s shape** - *"the catalog's concurrency model is SQLite's DEFAULT, not a decision"* -
+    and the question *which of these values did anyone pick?* has now found two answers in two
+    subsystems. Now `20` on `check` (~6x its slowest real run) and `45` on `e2e`, which bounds a
+    hang **before pytest starts**; the existing 2000 s ceiling inside that step cannot see one.
+  - **(2) The apt fallback, and it inverts the standard advice.** apt **>= 2.3.2 already defaults
+    to `Acquire::Retries=3`** at a 120 s timeout, the failing log shows **exactly four `Ign:`
+    rounds** per index, and the mirrorlist's fallback to `archive.ubuntu.com` **works**. So
+    `-o Acquire::Retries=3`, the fix in every write-up on this failure, was already in force and
+    was the cost. `Retries=1` at a 15 s timeout instead; `update` and `install` split, because
+    chained a flaky refresh fails the step even when the package would have installed.
+  - 🔒 **THE MECHANISM IS VERIFIED; THE FIX IS UNPROVEN, AND IS RECORDED AS UNPROVEN.** The next
+    run took **1m31s** on that lane and **that proves nothing** - the mirror may simply have
+    recovered. **Demonstrating this needs an outage, which cannot be staged.** The next time that
+    mirror goes dark is the test.
+  - ⚠ **The third mechanism-fix-without-reproduction in one day**, with the text-size wait and the
+    macOS probe. **What makes it acceptable is that the mechanism is measured even when the failure
+    is not** - 6,558 ms, a demonstrated late join, four `Ign:` rounds - and the alternative is
+    waiting for an outage in order to fix an outage. The cost is that *fixed* means something
+    weaker, and all three say so in place. See [`research/backlog/aee.md`](research/backlog/aee.md).
+
 - **(adv) AN EXPLICIT `TRUESTILL_DATA_DIR` NOW OUTRANKS THE LEGACY CATALOG PATH.**
   - ✅ **CLOSED 2026-08-18.** `resolve_catalog_choice()` decides between three rules and says
     which won; `default_catalog_path()` delegates to it. **A compatibility guess no longer beats
