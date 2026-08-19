@@ -142,6 +142,43 @@ def drive_path_hint(uuid: str) -> str:
     return f"path_hint.drive.{uuid}"
 
 
+#: Days after which the custody claim SOFTENS and names its age. `(abg)` Stage 3.
+#:
+#: **A judgement informed by an industry cadence, not a measurement**, recorded the way
+#: `run_health.TICK_SECONDS` is. The 3-2-1 rule is written 3-2-1-1-0 in current practice and the
+#: trailing 0 is *zero errors* - restores actually tested rather than assumed; CISA carries the
+#: form in the joint #StopRansomware Guide. The cadence those write-ups converge on is
+#: verification monthly at file level and a deeper check quarterly, and 30 and 90 are those two
+#: periods. A claim is not stale on the day it falls due; it is stale when a whole period has
+#: been missed.
+#:
+#: Nothing was measured: no library was left unchecked to watch its claim stop being true, and
+#: none could be - the observation takes months and the answer would be one library's. Whoever
+#: revisits should know there is no data behind either number.
+CUSTODY_SOFTENS_AFTER_DAYS = 30
+
+#: Days after which it says so firmly. **Judgement, not measurement** - see above.
+CUSTODY_STALE_AFTER_DAYS = 90
+
+
+class CustodyTier(StrEnum):
+    """How old the oldest DATED place is. **Three tiers, and none of them is an alarm.**
+
+    A copy checked in June is probably fine, so `at-risk` stays reserved for real exposure and
+    firmness lives in the wording alone. The tier is what legitimately changes with time - the
+    date beside it does not, which is why the date is never replaced by a relative form.
+
+    ⚠ **Never-checked is NOT a tier**, it is a separate state carried by
+    :attr:`CustodyFreshness.never_checked`. It is a different claim - not *"checked long ago"*
+    but *"never looked at"* - it has no age for a threshold to act on, and it already pre-empts
+    every date branch on every surface. Folding it in would make it a severity, which it is not.
+    """
+
+    FRESH = "fresh"  # under the softening threshold, or nothing dated to be old
+    SOFTENING = "softening"  # a monthly cadence has been missed
+    STALE = "stale"  # a quarterly one has
+
+
 class CustodyFreshness(NamedTuple):
     """How old the custody claim is, and which places have never been looked at.
 
@@ -165,10 +202,26 @@ class CustodyFreshness(NamedTuple):
     #: Named, not counted: the name is the only clue a reader has to what happened, which is also
     #: why an ambiguous one is worse than none. `(acr)`.
     never_checked: tuple[str, ...]
+    #: The oldest check across the places that HAVE one, **which an unchecked place does not
+    #: blank**. `checked_at` above answers *"how fresh is the whole claim"* and is correctly
+    #: `None` the moment any place is unchecked; this answers *"how old is the oldest thing we
+    #: did look at"*, and the two are different questions. Without it a library with one
+    #: never-checked drive can say nothing whatever about its other drives - the shape of the
+    #: maintainer's own catalog, and the reason the tiers below would otherwise never fire.
+    #: `(abg)` Stage 3.
+    dated_at: str | None = None
+    #: Whole days from :attr:`dated_at` to now, or `None` when nothing is dated.
+    dated_days: int | None = None
+    #: The tier of the OLDEST dated place - per-drive tiering, reported at the claim.
+    tier: CustodyTier = CustodyTier.FRESH
 
 
 def custody_freshness(
-    settings: _SettingsReader, holding: Iterable[Any], registered: Iterable[Any]
+    settings: _SettingsReader,
+    holding: Iterable[Any],
+    registered: Iterable[Any],
+    *,
+    now: datetime | None = None,
 ) -> CustodyFreshness:
     """Freshness for the drives that HOLD copies, naming them unambiguously.
 
@@ -181,6 +234,11 @@ def custody_freshness(
     checked, the warning would print a bare `Morrowkeep` and the reader still could not tell which.
     Passing the wider set costs nothing - `library_status` has already fetched these rows - and
     closes it.
+
+    **`now` is injectable so a tier is never a function of when the suite happened to run.** The
+    age below is the one thing here that depends on the clock, and a test that hardcodes a
+    verification date would otherwise cross a threshold by calendar - green today, red on a date
+    with no commit behind it. Production passes nothing and gets `datetime.now(UTC)`.
     """
     rows = list(registered)
     named = dict(
@@ -192,10 +250,50 @@ def custody_freshness(
     )
     never = sorted(named[str(d["uuid"])] for d in holding if not d["last_verified"])
     checked = [str(d["last_verified"]) for d in holding if d["last_verified"]]
+    # The OLDEST of the places that carry a date, computed **whether or not** another place is
+    # unchecked. `checked_at` below keeps Stage 1's rule exactly - it goes None the moment any
+    # place has never been looked at, because no single date would be true of the whole claim -
+    # and this sits beside it so the dated places can still be reported. `(abg)` Stage 3.
+    oldest = min(checked) if checked else None
+    days = _whole_days_since(oldest, now) if oldest else None
     return CustodyFreshness(
         checked_at=min(checked) if checked and not never else None,
         never_checked=tuple(never),
+        dated_at=oldest,
+        dated_days=days,
+        tier=_tier_for(days),
     )
+
+
+def _whole_days_since(when: str, now: datetime | None) -> int | None:
+    """Whole days from an ISO timestamp to `now`, or `None` if it cannot be read as one.
+
+    **Unparseable is `None`, never zero.** A zero would read as *"checked today"* about a value
+    nothing could make sense of, which is the confident-wrong-answer failure. `last_verified` is
+    written by `refresh_drive_verified` alone and is always ISO, so this is a guard rather than a
+    branch anyone should reach; it exists because the field is also a plain TEXT column.
+
+    A naive timestamp is read as UTC, matching how `mark_copy_verified`'s callers write it.
+    """
+    try:
+        stamp = datetime.fromisoformat(when)
+    except ValueError:
+        return None
+    if stamp.tzinfo is None:
+        stamp = stamp.replace(tzinfo=UTC)
+    return max(0, ((now or datetime.now(UTC)) - stamp).days)
+
+
+def _tier_for(days: int | None) -> CustodyTier:
+    """The tier of an age in days. **Undated is FRESH, not STALE.**
+
+    Nothing has been checked, so there is no age to have exceeded - calling that stale would read
+    as *"checked long ago"* about a place nothing has ever looked at. `never_checked` carries that
+    claim instead, and it is a different one.
+    """
+    if days is None or days < CUSTODY_SOFTENS_AFTER_DAYS:
+        return CustodyTier.FRESH
+    return CustodyTier.STALE if days >= CUSTODY_STALE_AFTER_DAYS else CustodyTier.SOFTENING
 
 
 #: How long the probe of a drive's remembered path may take before it is abandoned. `(adx)`.

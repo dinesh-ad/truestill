@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -150,7 +151,10 @@ def test_library_stats_reports_custody_and_shape(client: TestClient, tmp_path: P
             copy_sha256="sha-a",
             size=100,
         )
-        catalog.mark_copy_verified(sha256="sha-a", drive_uuid="A", when="2026-07-30T10:00:00")
+        # ⚠ Relative since `(abg)` Stage 3: the custody strip's wording now depends on how old
+        # this date is, so a literal would cross a threshold by calendar rather than by a commit.
+        when = (datetime.now(UTC) - timedelta(days=3)).isoformat()
+        catalog.mark_copy_verified(sha256="sha-a", drive_uuid="A", when=when)
         # Derived from the copy confirmed above, not stamped beside it - `(abg)` Stage 2.
         catalog.refresh_drive_verified("A")
 

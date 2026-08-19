@@ -71,6 +71,7 @@ from truestill_core.destinations.base import DestinationError
 from truestill_core.drive import (
     MARKER_NAME,
     CustodyFreshness,
+    CustodyTier,
     DriveGhostError,
     DriveMarker,
     DriveReach,
@@ -1396,18 +1397,87 @@ def _source_root_or_none(given: Path, destination: Path) -> Path | None:
     return extraction.staging_root
 
 
-def _custody_age_line(freshness: CustodyFreshness) -> str:
-    """The age of the claim, said ALWAYS rather than only when it is bad.
+def _custody_age_lines(freshness: CustodyFreshness, route: str | None) -> list[str]:
+    """The age of the claim and what it now MEANS, said ALWAYS rather than only when it is bad.
 
     Reporting freshness only once it is stale teaches a reader that its absence means fresh,
     which is the same defect one level up. A date that only gets older cannot mislead. `(abg)`.
+
+    **Two things can be true at once, and both are said.** A place that has never been checked
+    and a place checked 34 days ago are different claims, and a library can hold both - it is
+    the shape of the maintainer's own. Stage 1 reported only the first, because `checked_at`
+    goes `None` the moment anything is unchecked; `dated_at` carries the second. Never-checked
+    LEADS, ordered by strength of evidence rather than severity: *no* evidence precedes *old*
+    evidence.
+
+    ⚠ **The date is never replaced by the age.** `abg.md:280` - a date that only gets older
+    cannot mislead, and a bare *"34 days ago"* is not such a value. What legitimately changes
+    with time is the tier; the date stays beside it.
     """
+    lines: list[str] = []
     if freshness.never_checked:
         names = ", ".join(f"'{n}'" for n in freshness.never_checked)
-        return f"Never checked: {names}. Truestill has not looked since the copy was written."
-    if freshness.checked_at is None:
-        return "Nothing is on a drive yet, so there is nothing to have checked."
-    return f"Last checked: {freshness.checked_at[:10]} (the oldest of the drives holding copies)."
+        lines.append(
+            f"Never checked: {names}. Truestill has not looked since the copy was written."
+        )
+    if freshness.dated_at is None:
+        if not lines:
+            lines.append("Nothing is on a drive yet, so there is nothing to have checked.")
+        return lines + ([route] if route else [])
+    day, days = freshness.dated_at[:10], freshness.dated_days
+    if freshness.tier is CustodyTier.FRESH:
+        lines.append(f"Last checked: {day} (the oldest of the drives holding copies).")
+        # A fresh claim is offered no remedy of its own: there is nothing to remedy, and a
+        # standing prompt on a healthy library is the nagging this entry exists to avoid. But a
+        # never-checked place beside it is still unanswered, so the route survives for THAT.
+        return lines + ([route] if route and freshness.never_checked else [])
+    if freshness.tier is CustodyTier.SOFTENING:
+        lines.append(
+            f"Last checked: {day}, {_plural(days, 'day')} ago - long enough that this counts "
+            "copies rather than confirms them."
+        )
+    else:
+        lines.append(
+            f"Last checked: {day}, {_plural(days, 'day')} ago. The copies still count; nothing "
+            "has confirmed them since."
+        )
+    return lines + ([route] if route else [])
+
+
+def _plural(n: int | None, word: str) -> str:
+    return f"{n} {word}" if n == 1 else f"{n} {word}s"
+
+
+def _recheck_route(catalog: Catalog, holding: list[Any]) -> str | None:
+    """How to re-check, named only when it can actually be followed.
+
+    ⚠ **`(adx)` gap 2 is naming a remedy the reader cannot reach**, and `truestill verify` takes
+    a required path that must be a connected drive root. So a real path is printed only for a
+    drive whose reach is CONNECTED; otherwise the line says what to connect, which is the step
+    that is actually available. A bare `truestill verify` would be the same defect reworded.
+
+    **Reach is a filesystem read and the claim is catalog-derived** (`abg.md:203-207`), so this
+    runs only when a route is being offered and its answer never feeds anything the claim
+    states - it decides whether an ACTION is honest, nothing more.
+    """
+    # **The route follows the same lead rule as the wording.** Never-checked leads the claim, so
+    # when one exists the route is about THAT drive - if it is not connected, the answer is to
+    # connect it, not to offer a different drive that happens to be plugged in. Re-checking a
+    # fresh drive because it is reachable would be a real path, a working command, and no answer
+    # at all to the sentence above it. Only when nothing is unchecked does the route fall to the
+    # oldest dated place.
+    never = [d for d in holding if not d["last_verified"]]
+    candidates = never or sorted(holding, key=lambda d: str(d["last_verified"]))
+    if not candidates:
+        return None
+    for drive in candidates:
+        uuid = str(drive["uuid"])
+        hint = catalog.get_setting(drive_path_hint(uuid))
+        if hint and drive_reach(hint, uuid) is DriveReach.CONNECTED:
+            return f"  Re-check: truestill verify {hint}"
+    return (
+        f"  Re-check: connect '{candidates[0]['label']}', then run truestill verify on its folder."
+    )
 
 
 #: What `truestill self-check` cannot see, and where to see it. `truestill-cli` depends on
@@ -1444,19 +1514,26 @@ def _cmd_status(args: argparse.Namespace) -> int:
         # The same rule the app's custody strip uses, from core, so the two surfaces cannot drift.
         # That is why `(acr)`'s unambiguous naming arrives here without this line asking for it.
         registered = catalog.list_drives()
-        freshness = custody_freshness(
-            catalog, [d for d in registered if d["file_count"]], registered
+        holding = [d for d in registered if d["file_count"]]
+        freshness = custody_freshness(catalog, holding, registered)
+        # Inside the catalog block because the route needs a settings read, and only computed
+        # when one is being offered: a fresh claim leaves `truestill status` touching no disk.
+        route = (
+            _recheck_route(catalog, holding)
+            if freshness.never_checked or freshness.tier is not CustodyTier.FRESH
+            else None
         )
+    age = _custody_age_lines(freshness, route)
     if not singles:
         print("All catalogued content has at least two drive copies. Nicely redundant.")
-        print(_custody_age_line(freshness))
+        print("\n".join(age))
         return 0
     print(f"At risk: {len(singles)} file(s) exist on only ONE drive (3-2-1 wants >=2):")
     for r in singles[:_STATUS_PREVIEW]:
         print(f"  {r['original_name'] or r['sha256'][:12]}   only on '{r['drive_label']}'")
     if len(singles) > _STATUS_PREVIEW:
         print(f"  ... and {len(singles) - _STATUS_PREVIEW} more.")
-    print(_custody_age_line(freshness))
+    print("\n".join(age))
     return 0
 
 

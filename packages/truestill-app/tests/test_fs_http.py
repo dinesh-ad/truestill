@@ -38,6 +38,15 @@ def test_library_status_is_honest_when_empty(client: TestClient) -> None:
         # claim, and the name is the only clue to what happened.
         "custody_checked_at",
         "never_checked_drives",
+        # The CONSEQUENCE of that age, added 2026-08-19 for `(abg)` Stage 3. `custody_dated_at`
+        # is the oldest check across the drives that HAVE one and, unlike `custody_checked_at`
+        # above, a never-checked drive does not blank it: the two answer different questions,
+        # and without the second a library with one unchecked place could say nothing at all
+        # about its other places. `custody_tier` is fresh/softening/stale from that date, decided
+        # in core so the two surfaces cannot hold different thresholds.
+        "custody_dated_at",
+        "custody_dated_days",
+        "custody_tier",
         "single_copy",
         # Per-file custody, added 2026-08-05. `places` counts DRIVES and stays for callers that
         # want it, but no sentence about files may be written against it again.

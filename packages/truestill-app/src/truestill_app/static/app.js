@@ -758,6 +758,15 @@ function toggleResultGrid(button) {
 
 const yearOf = (iso) => (iso ? String(new Date(iso).getFullYear()) : null);
 const dayOf = (iso) => (iso ? String(iso).slice(0, 10) : "never");
+// The age BESIDE the date, never instead of it. `abg.md:280` - a date that only gets older
+// cannot mislead, and a bare "34 days ago" is not such a value: it changes while the fact
+// behind it does not, which is the failure `(abg)` is named after. What legitimately changes
+// with time is the TIER, which core decides and ships in the payload.
+// `plural` rather than an inline ternary: `test_user_facing_copy`'s INLINE_PLURAL forbids one.
+const agedDay = (iso, days, tier) =>
+  tier && tier !== "fresh" && days !== null && days !== undefined
+    ? `${dayOf(iso)} (${plural(days, "day")} ago)`
+    : dayOf(iso);
 
 function statsBars(years) {
   if (!years.length) return `<div class="k">No dated files yet.</div>`;
@@ -1597,13 +1606,27 @@ function renderRestingPanel(s) {
     // always: this says what Truestill knows, not that anything is wrong with the user's files.
     // `at-risk` stays reserved for real exposure - the row below keeps it. Nothing here may read
     // as GONE; that state does not exist yet and its reachability precondition is unbuilt.
+    // TWO FACTS, NOT A CHOICE BETWEEN THEM. `(abg)` Stage 3: `custody_checked_at` goes null the
+    // moment any place is unchecked, so a ternary here could report a never-checked drive OR a
+    // date and never both - and a library holding both said nothing about its dated places at
+    // all. `custody_dated_at` is the oldest date among the places that HAVE one. Never-checked
+    // is listed first: ordered by strength of evidence, no evidence before old evidence.
     s.places && (s.never_checked_drives || []).length
       ? `<div class="panel-fact"><div class="panel-k">Never checked</div>
          <div class="mono">${s.never_checked_drives.map(esc).join(", ")}</div></div>`
-      : s.places && s.custody_checked_at
-        ? `<div class="panel-fact"><div class="panel-k">Last checked</div>
-           <div class="mono">${esc(dayOf(s.custody_checked_at))}</div></div>`
-        : "",
+      : "",
+    s.places && s.custody_dated_at
+      ? `<div class="panel-fact"><div class="panel-k">Last checked</div>
+         <div class="mono">${esc(agedDay(s.custody_dated_at, s.custody_dated_days, s.custody_tier))}</div></div>`
+      : "",
+    // A route, not a complaint - `app.js`'s own precedent at the at-risk banner below. It
+    // NAVIGATES only: "Check" is the first card on Backups, and `never_checked_drives` carries
+    // display names rather than paths, so guessing one here is the mistake `[data-rearrange-go]`
+    // already refuses to make. No `at-risk` class: this is not exposure, and that tone is spoken
+    // for.
+    s.places && ((s.never_checked_drives || []).length || (s.custody_tier || "fresh") !== "fresh")
+      ? `<div class="panel-fact"><button class="btn btn-ghost" data-custody-recheck>Check a drive</button></div>`
+      : "",
     none
       ? `<div class="panel-fact"><div class="panel-k">Not on any drive</div>
          <div class="mono at-risk">${nfmt(none)}</div></div>`
@@ -1611,6 +1634,18 @@ function renderRestingPanel(s) {
   ].filter(Boolean).join("");
   alignPanelWithContent();
   panel.innerHTML = `<div class="panel-card"><h3 class="panel-title">Your library</h3>${rows}</div>`;
+  // Wired AFTER the assign, the way the at-risk banner on Backups is: this panel is rebuilt on
+  // every status load, so a listener bound to the old node would be discarded with it.
+  const recheck = panel.querySelector("[data-custody-recheck]");
+  if (recheck) {
+    recheck.onclick = async () => {
+      await showScreen("backups");
+      // "Check" is the first card there. Scroll to the field but do NOT fill it: the claim
+      // names drives, not paths, and a guessed path aims a check at the wrong drive.
+      const field = $("verify-path");
+      if (field) field.scrollIntoView({ behavior: "smooth", block: "center" });
+    };
+  }
 }
 
 // The picker's own roots, rendered inline. Nothing new is computed or stored: a recent-folder
@@ -1767,10 +1802,18 @@ async function loadCustody() {
   // A COMMA, never a middot. `test_the_inventory_line_is_gone` forbids "·" in this strip: it was
   // the separator of the photos/videos inventory that was deliberately removed, so the character
   // is the tell. A comma also reads as one sentence, which is what this strip is for.
-  const age = !anyDrive || !s.files ? ""
-    : (s.never_checked_drives || []).length
-      ? `, never checked: ${s.never_checked_drives.map(esc).join(", ")}`
-      : s.custody_checked_at ? `, last checked ${dayOf(s.custody_checked_at)}` : "";
+  // BOTH CLAUSES, and on the narrow surface deliberately. `(abg)` Stage 3. The panel is not
+  // rendered below 1336px, so staleness living only there would be invisible exactly when the
+  // window is small - which recreates "absence means fresh", the defect one level up. A
+  // SEMICOLON joins them because the names inside `never checked:` are already comma-joined and
+  // a third comma would be ambiguous; the middot the comment above forbids is untouched.
+  const never = !anyDrive || !s.files ? [] : s.never_checked_drives || [];
+  const parts = [];
+  if (never.length) parts.push(`never checked: ${never.map(esc).join(", ")}`);
+  if (anyDrive && s.files && s.custody_dated_at) {
+    parts.push(`last checked ${esc(agedDay(s.custody_dated_at, s.custody_dated_days, s.custody_tier))}`);
+  }
+  const age = parts.length ? `, ${parts.join("; ")}` : "";
   line.innerHTML = `<span class="${tone}">${esc(safe)}</span><span class="k">${age}</span>${catalogPath}`;
   refreshCatalogPathFit();
 }

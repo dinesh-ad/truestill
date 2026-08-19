@@ -206,6 +206,64 @@
     the filesystem and agreed exactly about the catalog.** That is the whole argument for which
     kind of evidence a design may rest on.
 
+  - ✅ **STAGE 3 SHIPPED 2026-08-19. STALENESS HAS A CONSEQUENCE, AND IT IS TIERED PER DRIVE.**
+
+    **The blocker, found in design and it invalidated the first shape of the ruling.**
+    `custody_freshness` sets `checked_at = min(checked) if checked and not never else None`, so
+    **one never-checked drive removes the date for every other drive.** That is Stage 1's rule and
+    it is right about a *single* date - none would be true of the whole claim - but it means
+    whole-claim tiering can never fire on a library that has one unchecked place, which is the
+    shape of this very catalog: `Morrowkeep` undated, `Output` and `The Memory Cabinet` dated
+    2026-07-28. Both would have crossed 30 days on **2026-08-27** with nothing said.
+
+    So the tier is computed **per drive and reported at the claim**. `checked_at` is untouched;
+    `dated_at` is added beside it - the oldest date among the places that *have* one, which an
+    unchecked place does not blank. Two true statements instead of one that hides both.
+
+    - **Thresholds, and they are judgements**: `CUSTODY_SOFTENS_AFTER_DAYS = 30`,
+      `CUSTODY_STALE_AFTER_DAYS = 90`, recorded in `drive.py` the way `run_health.TICK_SECONDS`
+      is. The 3-2-1 rule is written **3-2-1-1-0** in current practice and the trailing 0 is *zero
+      errors* - restores actually tested rather than assumed; CISA carries the form in the joint
+      #StopRansomware Guide. The cadence those write-ups converge on is verification monthly and a
+      deeper check quarterly. **Nothing was measured**: no library was left unchecked to watch its
+      claim stop being true.
+    - **The entry's own formulation, and deliberately not a quotation:** *a backup that has never
+      been restored is an assumption rather than a control.* The line is widely repeated in the
+      trade with no attributable source - searches return *"only a theory"*, *"a hypothesis"*,
+      *"an assumption wearing a green checkmark"*. Recorded as this entry's wording so nobody
+      later hunts for a citation that does not exist.
+    - **Never-checked is its own state, not tier three.** It is a different claim - not *"checked
+      long ago"* but *"never looked at"* - it has no age for a threshold to act on, and it already
+      pre-empted every date branch on every surface, so it was structurally separate rather than a
+      severity. It **leads** the claim, ordered by strength of evidence: no evidence before old
+      evidence.
+    - **No tone change in tier three.** `at-risk` stays reserved for real exposure; firmness lives
+      in the wording. A copy checked in June is probably fine, and taking the alarm tone for it is
+      the crying-wolf failure this entry exists to avoid.
+    - ⚠ **The date is never replaced by the age.** This entry records that *a date that only gets
+      older cannot mislead*, and a bare *"34 days ago"* is not such a value - it changes while the
+      fact behind it does not. What legitimately changes with time is the **tier**; the date stays
+      beside it. `Last checked: 2026-07-28, 34 days ago`, never the second half alone.
+    - **The route is conditional on `drive_reach`, and it follows the same lead rule as the
+      wording.** `truestill verify` takes a required path that must be a connected drive root, so
+      a real path is named only for a CONNECTED drive and otherwise the line says what to connect.
+      ⚠ **Found on the real catalog while building:** offering `verify <whichever drive happens to
+      be plugged in>` is a working command that answers the sentence above it not at all - the
+      user runs it, it succeeds, and the never-checked place is still never checked. So when a
+      never-checked drive leads the claim, the route is about *that* drive.
+    - **The app has no Check screen** - "Check a connected backup drive" is the first card on
+      **Backups**. The panel's button navigates there and scrolls; it does not fill the path,
+      because the claim names drives and not paths.
+    - ⚠ **A whole fixture class was a time-bomb.** Once wording depends on the clock, a hardcoded
+      `2026-07-28` crosses a threshold **by calendar** and turns a green suite red with no commit
+      behind it. Every fixture that seeds a real catalog and renders a claim surface now computes
+      its date from now; stub payloads keep literals because they state the tier rather than
+      deriving it.
+    - **Two mutants survived the first pass**, both real gaps: the reach check replaced by
+      `if hint:` (no test had a hint that pointed anywhere, so none exercised a *stale* one - the
+      actual `(adx)` gap 2 shape), and the lead rule, whose first mutant was badly designed -
+      `insert(len(lines), ...)` is an append and reordered nothing.
+
   - **Related, and filed separately because it is a different defect:** `(acq)` - "place" counts
     somewhere Truestill organized INTO, not somewhere a copy is kept.
   - **THE MOST IMPORTANT OPEN ITEM ON THIS PROJECT.** Everything below is evidence for the

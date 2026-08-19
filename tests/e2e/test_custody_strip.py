@@ -13,6 +13,8 @@ corrected in the commit that adds this file.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 from e2e_support import AppServer
 from playwright.sync_api import Page, expect
 from truestill_core.catalog import Catalog
@@ -49,6 +51,17 @@ def _record(catalog: Catalog, sha: str, drive: str, name: str) -> None:
 
 #: The placeholder `index.html:102` ships in the markup, before `library/status` has answered.
 _STILL_LOADING = "Checking your library…"
+
+
+def _ago(days: int) -> str:
+    """A verification date `days` before now, as an ISO string.
+
+    ⚠ **RELATIVE, NEVER A LITERAL, since `(abg)` Stage 3.** The strip's wording now depends on
+    how old the date is, so a hardcoded `2026-07-28` silently crosses the 30-day threshold by
+    calendar and turns this file red on a date with no commit behind it. Every fixture here that
+    dates a drive computes it from now.
+    """
+    return (datetime.now(UTC) - timedelta(days=days, hours=1)).isoformat()
 
 
 def _strip(ui: Page) -> str:
@@ -347,7 +360,7 @@ def test_the_sentence_states_the_floor_the_pips_can_only_draw_three_of(
             for uuid in ("A", "B", "C", "D"):
                 _record(catalog, f"sha{n}", uuid, f"{n}.jpg")
         for uuid in ("A", "B", "C", "D"):
-            _confirm(catalog, uuid, "2026-08-01T09:00:00+00:00")
+            _confirm(catalog, uuid, _ago(2))
 
     ui.reload()
     text = _strip(ui)
@@ -400,12 +413,15 @@ def test_the_strip_says_when_it_last_looked(ui: Page, app_server: AppServer) -> 
         for n in range(2):
             for drive in ("A", "B"):
                 _record(catalog, f"sha{n}", drive, f"{n}.jpg")
-        _confirm(catalog, "A", "2026-07-28T13:00:00+00:00")
-        _confirm(catalog, "B", "2026-08-01T09:00:00+00:00")
+        older = _ago(9)
+        _confirm(catalog, "A", older)
+        _confirm(catalog, "B", _ago(2))
     ui.reload()
 
     # The OLDER of the two: the claim is only as fresh as its weakest leg.
-    expect(ui.locator("#custody-line")).to_contain_text(", last checked 2026-07-28")
+    expect(ui.locator("#custody-line")).to_contain_text(f", last checked {older[:10]}")
+    # Fresh, so the date carries no age and no consequence - `(abg)` Stage 3's cry-wolf half.
+    expect(ui.locator("#custody-line")).not_to_contain_text("days ago")
 
 
 def test_the_strip_names_a_place_it_has_never_looked_at(ui: Page, app_server: AppServer) -> None:
@@ -417,9 +433,20 @@ def test_the_strip_names_a_place_it_has_never_looked_at(ui: Page, app_server: Ap
         for n in range(2):
             for drive in ("A", "B"):
                 _record(catalog, f"sha{n}", drive, f"{n}.jpg")
-        _confirm(catalog, "A", "2026-07-28T13:00:00+00:00")
+        _confirm(catalog, "A", _ago(40))
     ui.reload()
 
     strip = ui.locator("#custody-line")
-    expect(strip).to_contain_text(", never checked: Morrowkeep")
-    expect(strip).not_to_contain_text("last checked")
+    expect(strip).to_contain_text("never checked: Morrowkeep")
+    # ⚠ REVERSED BY `(abg)` STAGE 3, 2026-08-19, AND THE REVERSAL IS THE POINT OF THE STAGE.
+    #
+    # This asserted `not_to_contain_text("last checked")`: the two states were mutually exclusive
+    # on the rail, because `custody_checked_at` goes null the moment any place is unchecked. That
+    # rule is still right about a SINGLE date - none would be true of the whole claim - but it
+    # meant a library holding one unchecked drive could say nothing at all about its other
+    # drives, which is the shape of the maintainer's own catalog. `custody_dated_at` carries the
+    # oldest date among the places that HAVE one, so both facts are now stated. Never-checked
+    # still LEADS: ordered by strength of evidence, no evidence before old evidence.
+    expect(strip).to_contain_text("last checked")
+    expect(strip).to_contain_text("40 days ago")
+    assert strip.text_content().index("never checked") < strip.text_content().index("last checked")

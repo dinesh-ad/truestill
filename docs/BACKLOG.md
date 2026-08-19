@@ -206,7 +206,8 @@ is invisible here is retired, not free.**
 - **(abf) A fix does not retroactively clean what it prevented.** Recorded 2026-08-05. [Full
   entry](research/backlog/abf.md)
 - **(abg) The reassured state has no notion of staleness - "Schrodinger's backup".** 📌 **read the
-  entry first - a premise inside it was corrected.** Recorded 2026-08-05. [Full
+  entry first - a premise inside it was corrected.** **Stages 1-3 have shipped**; what remains open
+  is the `GONE` state, which is unbuilt and unruled. Recorded 2026-08-05. [Full
   entry](research/backlog/abg.md)
 - **(abm) Attach counts three things and shows none of them.** `unreadable`, `unmatched` and
   `unreadable_dirs` are all computed and tested, and not one of them reaches a screen. Recorded

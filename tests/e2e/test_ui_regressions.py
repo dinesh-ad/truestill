@@ -12,6 +12,7 @@ them.
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -530,7 +531,10 @@ def test_stats_view_renders_seeded_catalog_numbers(page: Page, app_server: AppSe
             copy_sha256="sha-a",
             size=100,
         )
-        catalog.mark_copy_verified(sha256="sha-a", drive_uuid="A", when="2026-07-30T10:00:00")
+        # ⚠ Relative since `(abg)` Stage 3: the custody strip's wording now depends on how old
+        # this date is, so a literal would cross a threshold by calendar rather than by a commit.
+        when = (datetime.now(UTC) - timedelta(days=3)).isoformat()
+        catalog.mark_copy_verified(sha256="sha-a", drive_uuid="A", when=when)
         # Derived from the copy confirmed above, not stamped beside it - `(abg)` Stage 2.
         catalog.refresh_drive_verified("A")
 

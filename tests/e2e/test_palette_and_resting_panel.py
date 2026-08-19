@@ -149,6 +149,14 @@ def _status(ui: Page, **overrides: Any) -> None:
         "bytes": 6_650_000_000,
         "by_format": {"photos": {"jpg": 2100}, "videos": {"mp4": 169}},
         "places": 2,
+        # `(abg)` Stage 3's fields, defaulted so a test that says nothing about freshness renders
+        # as it always did. These are STUB payloads, so unlike the catalog-seeded fixtures they
+        # carry literal dates safely: the tier is stated here rather than derived from the clock.
+        "custody_checked_at": None,
+        "never_checked_drives": [],
+        "custody_dated_at": None,
+        "custody_dated_days": None,
+        "custody_tier": "fresh",
         "single_copy": 400,
         "files_no_copy": 69,
         "files_one_copy": 400,
@@ -249,7 +257,12 @@ def test_the_panel_count_never_stands_alone(ui: Page) -> None:
     not endorse the count.
     """
     ui.set_viewport_size({"width": 1500, "height": 900})
-    _status(ui, custody_checked_at="2026-07-28T13:00:00+00:00", never_checked_drives=[])
+    _status(
+        ui,
+        custody_checked_at="2026-07-28T13:00:00+00:00",
+        custody_dated_at="2026-07-28T13:00:00+00:00",
+        never_checked_drives=[],
+    )
 
     panel = ui.locator("#panel")
     expect(panel).to_contain_text("Last checked")
@@ -265,7 +278,90 @@ def test_the_panel_names_a_place_it_has_never_looked_at(ui: Page) -> None:
     panel = ui.locator("#panel")
     expect(panel).to_contain_text("Never checked")
     expect(panel).to_contain_text("Morrowkeep")
+    # ⚠ STILL TRUE AFTER `(abg)` STAGE 3, AND FOR A DIFFERENT REASON THAN IT WAS WRITTEN FOR.
+    # It used to hold because a never-checked drive blanked the date for every other drive. It
+    # now holds because THIS fixture has no other drive: nothing is dated, so there is no date
+    # to show. `test_the_panel_states_both_when_both_are_true` below is the case that separates
+    # the two readings, and it would have failed against the old rule.
     expect(panel).not_to_contain_text("Last checked")
+
+
+def test_the_panel_states_both_when_both_are_true(ui: Page) -> None:
+    """⚠ `(abg)` STAGE 3'S REGRESSION, ON THE PANEL. The shape of the maintainer's own catalog.
+
+    A never-checked place and a dated one are different claims and a library can hold both.
+    Stage 1 could report only the first, because `custody_checked_at` goes null the moment
+    anything is unchecked - so the dated places had no row to appear in and the panel said
+    nothing whatever about them. Never-checked leads: no evidence before old evidence.
+    """
+    ui.set_viewport_size({"width": 1500, "height": 900})
+    _status(
+        ui,
+        custody_checked_at=None,
+        never_checked_drives=["Morrowkeep"],
+        custody_dated_at="2026-07-28T13:00:00+00:00",
+        custody_dated_days=34,
+        custody_tier="softening",
+        # Zeroed so the ONLY thing that could carry `at-risk` is the freshness rows. The base
+        # fixture has 69 files on no drive, which is real exposure and legitimately keeps the
+        # tone - leaving it in would make the assertion below pass or fail for the wrong reason.
+        files_no_copy=0,
+        single_copy=0,
+        files_one_copy=0,
+    )
+
+    panel = ui.locator("#panel")
+    expect(panel).to_contain_text("Never checked")
+    expect(panel).to_contain_text("Last checked")
+    expect(panel).to_contain_text("2026-07-28")
+    expect(panel).to_contain_text("34 days ago")
+    # Not an alarm. `at-risk` is reserved for real exposure and a stale claim is not that.
+    expect(ui.locator("#panel .at-risk")).to_have_count(0)
+
+
+def test_a_fresh_claim_carries_no_age_and_no_prompt(ui: Page) -> None:
+    """The cry-wolf half on the panel: a healthy library reads exactly as it did before Stage 3.
+
+    A consequence that fires on a fresh claim is the nagging this entry exists to avoid, so the
+    age is absent and so is the route.
+    """
+    ui.set_viewport_size({"width": 1500, "height": 900})
+    _status(
+        ui,
+        custody_dated_at="2026-08-09T10:00:00+00:00",
+        custody_dated_days=3,
+        custody_tier="fresh",
+    )
+
+    panel = ui.locator("#panel")
+    expect(panel).to_contain_text("2026-08-09")
+    expect(panel).not_to_contain_text("days ago")
+    expect(panel.locator("[data-custody-recheck]")).to_have_count(0)
+
+
+def test_a_stale_claim_offers_a_route_that_goes_somewhere(ui: Page) -> None:
+    """⚠ `(adx)` GAP 2 NOT REPEATED. A stated problem with no way to act on it is a complaint.
+
+    The button NAVIGATES rather than naming a command or guessing a path: "Check" is the first
+    card on Backups, and the claim names drives, not paths - filling the field from a display
+    name would aim a check at the wrong drive.
+    """
+    ui.set_viewport_size({"width": 1500, "height": 900})
+    _status(
+        ui,
+        custody_dated_at="2026-04-20T10:00:00+00:00",
+        custody_dated_days=121,
+        custody_tier="stale",
+    )
+
+    ui.locator("#panel [data-custody-recheck]").click()
+
+    expect(ui.locator("#screen-backups")).to_be_visible()
+    # ⚠ The field keeps whatever `loadCustody`'s own prefill put there (`backup_path`) and gains
+    # NOTHING from the claim. The button routes; it does not guess. `never_checked_drives` and
+    # the dated date name drives, not paths, so filling this from the claim would aim a check at
+    # the wrong drive - the mistake `[data-rearrange-go]` already refuses to make.
+    expect(ui.locator("#verify-path")).to_have_value("/media/BackupB")
 
 
 def test_freshness_shown_always_is_not_alarm_shown_always(ui: Page) -> None:
@@ -280,6 +376,7 @@ def test_freshness_shown_always_is_not_alarm_shown_always(ui: Page) -> None:
     _status(
         ui,
         custody_checked_at="2026-08-09T10:00:00+00:00",
+        custody_dated_at="2026-08-09T10:00:00+00:00",
         never_checked_drives=[],
         files_no_copy=0,
         single_copy=0,

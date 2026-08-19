@@ -640,10 +640,29 @@ class LibraryStatus(TypedDict):
     #: holding copies - a claim is only as fresh as its weakest leg. `None` when any of those
     #: drives has never been checked, because no single date would then be true of the whole
     #: claim. See `never_checked_drives`, which names them. `(abg)`.
+    #:
+    #: ⚠ **Since `(abg)` Stage 3 NOTHING READS THIS.** Both surfaces take their date from
+    #: `custody_dated_at` below, and this field's one distinct behaviour - going null the moment
+    #: any place is unchecked - is exactly `never_checked_drives` being non-empty, so it is now
+    #: derivable rather than observed: `checked_at == dated_at if not never_checked else None`.
+    #: Kept because the rule it encodes was ruled to stand and removing a payload field is a
+    #: separate decision; flagged here so it is not mistaken for a live input. A value computed
+    #: and read by nobody is how the next divergence gets in.
     custody_checked_at: str | None
     #: Labels of drives that hold copies and have never been verified. Named rather than counted:
     #: the name is the only clue a reader has to what happened.
     never_checked_drives: list[str]
+    #: The oldest check across the drives that HAVE one. Unlike `custody_checked_at` above, a
+    #: never-checked drive does not blank it - the two answer different questions, and without
+    #: this one a library with a single unchecked place can say nothing about its other drives.
+    #: `(abg)` Stage 3.
+    custody_dated_at: str | None
+    #: Whole days from `custody_dated_at` to now, or None when nothing is dated.
+    custody_dated_days: int | None
+    #: `fresh` / `softening` / `stale`, from the OLDEST dated drive. Computed in core and shipped
+    #: rather than recomputed here: two implementations of one threshold is exactly the drift
+    #: `CustodyFreshness` was put in core to avoid. Never an alarm - see `CustodyTier`.
+    custody_tier: str
     single_copy: int
     #: Files with no recorded copy at all - invisible to `single_copy`, which reads
     #: `file_copies`, and the most exposed thing in the library.
@@ -754,6 +773,9 @@ def library_status(
         "places": len(drives),
         "custody_checked_at": freshness.checked_at,
         "never_checked_drives": list(freshness.never_checked),
+        "custody_dated_at": freshness.dated_at,
+        "custody_dated_days": freshness.dated_days,
+        "custody_tier": freshness.tier.value,
         "single_copy": single_copy,
         "files_no_copy": int(custody["no_copy"]),
         "files_one_copy": int(custody["one_copy"]),

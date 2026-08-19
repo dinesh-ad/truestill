@@ -22,6 +22,7 @@ drive is named instead. Naming it matters: the name is the only clue to what hap
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from truestill_app import service
@@ -195,3 +196,67 @@ def test_distinctly_named_drives_are_named_exactly_as_before(tmp_path: Path) -> 
     status = service.library_status(db)
 
     assert status["never_checked_drives"] == ["Morrowkeep"]
+
+
+# ------------------------------- `(abg)` Stage 3: the age gains a consequence, tiered per drive
+
+
+def _ago(days: int) -> str:
+    """A verification date `days` before now.
+
+    ⚠ **Relative, never a literal.** Once a tier depends on the clock, a hardcoded `2026-07-28`
+    crosses 30 days by calendar and turns this file red on a date with no commit behind it. The
+    payload tests above may keep their literals because they assert equality on a date and never
+    a tier; anything reading `custody_tier` computes its fixture from now.
+    """
+    return (datetime.now(UTC) - timedelta(days=days, hours=1)).isoformat()
+
+
+def test_a_never_checked_place_no_longer_silences_the_age_of_the_others(tmp_path: Path) -> None:
+    """⚠ THE STAGE 3 REGRESSION, in the shape of the maintainer's own catalog.
+
+    One never-checked drive and two dated ones past the softening threshold. Before Stage 3 the
+    payload could carry only half of it: `custody_checked_at` is None by Stage 1's rule, so the
+    two 34-day-old drives had no field to be reported in and the claim said nothing about them.
+
+    Both statements are true and both are now carried. Stage 1's rule is untouched.
+    """
+    db = tmp_path / "c.sqlite"
+    _seed(db, {"Cabinet": _ago(34), "Output": _ago(20), "Morrowkeep": None})
+
+    status = service.library_status(db)
+
+    assert status["custody_checked_at"] is None, "Stage 1's rule must not have moved"
+    assert status["never_checked_drives"] == ["Morrowkeep"]
+    assert status["custody_dated_at"] is not None, (
+        "the dated drives are still invisible, so the tiers can never fire on this library"
+    )
+    assert status["custody_dated_days"] == 34, "the tier follows the OLDEST dated drive"
+    assert status["custody_tier"] == "softening"
+
+
+def test_a_freshly_checked_library_carries_the_same_payload_it_always_did(tmp_path: Path) -> None:
+    """The cry-wolf half: a consequence that fires on a healthy library is the nagging this
+    entry exists to avoid. `custody_tier` is the only thing that may be new, and it is `fresh`."""
+    db = tmp_path / "c.sqlite"
+    _seed(db, {"Cabinet": _ago(3), "Output": _ago(9)})
+
+    status = service.library_status(db)
+
+    assert status["custody_tier"] == "fresh"
+    assert status["never_checked_drives"] == []
+    assert status["custody_dated_at"] == status["custody_checked_at"]
+
+
+def test_a_library_checked_last_spring_says_so_firmly(tmp_path: Path) -> None:
+    """Tier three, and the count is untouched by it - `abg.md:49-53`'s two counting rules. A
+    stale claim still reports every copy it holds; what changes is the wording beside them."""
+    db = tmp_path / "c.sqlite"
+    _seed(db, {"Cabinet": _ago(200)})
+
+    status = service.library_status(db)
+
+    assert status["custody_tier"] == "stale"
+    assert status["custody_dated_days"] == 200
+    assert status["places"] == 1, "a stale claim stopped counting its copies"
+    assert status["files"] == 2
