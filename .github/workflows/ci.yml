@@ -43,6 +43,14 @@ jobs:
       # --with-deps` shells out to `apt-get` INTERNALLY, where no flag of ours can reach. That
       # third one spent 37+ minutes on a mirror that was not answering.
       #
+      # ⚠ `ForceIPv4` TREATS THE TRIGGER, NOT THE DEADLOCK, AND THAT DISTINCTION IS THE POINT.
+      # The hang is apt LP#2003851, a per-process queue deadlock that no Acquire setting bounds;
+      # `scripts/ci_bounded.sh` is what actually contains it. The bug report records that on
+      # dual-stack hosts with no IPv6 routing - the ordinary Azure-hosted runner - forcing IPv4
+      # "eliminates the trigger completely". So this makes the 503 less likely to arrive; it does
+      # NOT make the deadlock survivable. Kept because it is one line and free, and recorded as a
+      # trigger-level mitigation so nobody later reads it as the fix.
+      #
       # A drop-in is inherited by every apt invocation in the job - ours, Playwright's, and
       # whatever gets added next - so the setting is chosen once instead of re-applied per call.
       # `test_ci_bounds_apt_in_one_place` keeps it that way.
@@ -63,6 +71,7 @@ jobs:
           Acquire::Retries "1";
           Acquire::http::Timeout "15";
           Acquire::https::Timeout "15";
+          Acquire::ForceIPv4 "true";
           CONF
 
       # exiftool is a runtime dependency of truestill-core (metadata extraction). Install it
@@ -82,8 +91,8 @@ jobs:
       - name: Install exiftool (Linux)
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libimage-exiftool-perl
+          ./scripts/ci_bounded.sh 180 sudo apt-get update
+          ./scripts/ci_bounded.sh 180 sudo apt-get install -y libimage-exiftool-perl
       - name: Install exiftool (macOS)
         if: runner.os == 'macOS'
         run: brew install exiftool
@@ -296,12 +305,13 @@ jobs:
           Acquire::Retries "1";
           Acquire::http::Timeout "15";
           Acquire::https::Timeout "15";
+          Acquire::ForceIPv4 "true";
           CONF
 
       - name: Install exiftool
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libimage-exiftool-perl
+          ./scripts/ci_bounded.sh 180 sudo apt-get update
+          ./scripts/ci_bounded.sh 180 sudo apt-get install -y libimage-exiftool-perl
 
       - name: Install uv
         uses: astral-sh/setup-uv@v9.0.0
@@ -335,7 +345,10 @@ jobs:
       - name: Install browsers
         # BOTH engines, matching `make e2e-install`. WebKit is what the Tauri shell renders in on
         # Linux and macOS, and a lane that is green only in Chromium says nothing about it.
-        run: uv run playwright install --with-deps chromium webkit
+        # 300 rather than the 180 the apt steps get: this ALSO unpacks two browsers, so its
+        # honest work is minutes rather than a minute. `--with-deps` is what puts it under the
+        # same apt deadlock, and it was the step that cost 43m33s on run 32295312064.
+        run: ./scripts/ci_bounded.sh 300 uv run playwright install --with-deps chromium webkit
 
       # Node is pinned by `.nvmrc`, read here rather than restated: a version named in two places
       # is a version that disagrees with itself eventually. `engine-strict=true` in the frontend's

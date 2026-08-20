@@ -356,8 +356,24 @@ is in what was measured and what was wrong, and both are below.*
 
   ⚠ **EXIT CONDITION: ZERO E2E FAILURES ACROSS TEN CONSECUTIVE RUNS.** A rate over a fixed
   window, counted whether or not the runs touch this lane, and reset to zero by any failure.
-  ⚠ **The window stands at ZERO as of 2026-08-19**, reset again by run `32250647783` after
-  reaching two - see the third occurrence recorded above, whose cause was found and fixed.
+
+  🔑 **AND A CANCELLED LANE RESETS IT TOO. RULED 2026-08-19, WRITTEN HERE SO NOBODY RE-DERIVES
+  IT.** A lane that GitHub reports as `cancelled` - whether killed by `timeout-minutes`, by a
+  `concurrency` supersede, or by a person - **produced no test failures and no artifact, so it is
+  evidence of nothing.** It does not advance the window and it does not preserve it: **it resets
+  it, exactly as a failure does.**
+
+  **The reasoning, because the opposite is the tempting one.** Counting a cancelled lane as green
+  is `ENGINEERING_STANDARD.md` §4's **fifty-fourth member**, second worked example, verbatim: the
+  suite never ran, `flake_report` reads clean over it, and *a dead lane looks exactly like a
+  healthy one to every instrument pointed at it*. A window that admits runs which proved nothing
+  is measuring pushes, not failures. **The window exists to make a rate honest, and a denominator
+  that includes runs with no observation in them is not honest.**
+
+  ⚠ **The window stands at ZERO as of 2026-08-19.** It was reset by run `32250647783` after
+  reaching two, then reached **five** (`32256759002`, `32261270294`, `32279378834`, `32283137544`,
+  `32287632288`) and was **reset again by `32295312064`**, whose e2e job was cancelled at 45m18s by
+  `timeout-minutes` during a mirror outage. Under the rule above that is a reset, not a sixth.
 
   **The old condition - three consecutive greens - was RETIRED 2026-08-15, and the pair above is
   what retired it.** The lane delivered **four** consecutive greens (`31832876792`,

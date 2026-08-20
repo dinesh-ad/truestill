@@ -114,6 +114,107 @@
   drop-in.
 
 
+  ### ⚠ THE ROOT CAUSE, FOUND 2026-08-19 BY THE THIRD OUTAGE: IT WAS NEVER THE RETRIES
+
+  Run **32302928420** carried the drop-in and **still lost both Linux lanes** - `check` killed at
+  **20m19s**, `e2e` stuck in the same step. The log settles what every earlier run left open.
+
+  **The drop-in WORKS, and the count proves it.** Previous runs show **four** `Ign:` rounds per
+  index - one attempt and three retries, apt's default. This run shows **two**: one attempt and one
+  retry, exactly `Acquire::Retries "1"`. The file is read and honoured.
+
+  **And it changed nothing that mattered, because the retries were never the cost:**
+
+  ```
+  21:15:32  apt starts, mirrorlist read
+  21:15:47  Ign azure x4 suites   \ two rounds - the bound working
+  21:15:48  Ign azure x4 suites   /
+  21:15:48  Hit: https://archive.ubuntu.com noble InRelease      <- fallback REACHED in 16 s
+  21:15:49  Get: https://archive.ubuntu.com noble-security InRelease [126 kB]
+  21:35:43  ##[error]The operation was canceled.
+  ```
+
+  ⚠ **apt reached the WORKING mirror in sixteen seconds and then hung for 19m54s on a 126 kB file
+  from `archive.ubuntu.com` - the fallback, not azure.** Every earlier reading of this entry blamed
+  the wrong host.
+
+  🔑 **IT IS `apt` BUG [LP#2003851](https://bugs.launchpad.net/bugs/2003851), AND IT IS NOT
+  CONFIGURABLE AWAY.** *"APT can hang during `apt update` if a server that we request multiple
+  repositories from produces a temporary failure such as a 503 for at least one of the InRelease
+  file after successfully fetching another one."* The mechanism is a **queue-ordering deadlock in
+  the retry machinery**: a file failing with a retry-after delay is queued behind lower-priority
+  items, and workers waiting on half-closed connections never receive new instructions. That is the
+  log above exactly - three suites fetched, the fourth never returned.
+
+  - **Fixed upstream in apt 3.1.3, June 2025. Noble/24.04 had not received the backport as of
+    February 2026**, and GitHub's runners are noble - so the runner ships known-broken apt.
+  - **`Acquire::http::Timeout` is documented as only partial against it** - *"it merely times out
+    each source rather than preventing the hang entirely"* - which is what was measured: set,
+    honoured elsewhere, and it did not bound this.
+  - ⚠ **apt's retry machinery is the deadlock's VEHICLE**, so the setting tuned here sits adjacent
+    to the bug rather than bounding it. Reducing retries cannot fix a deadlock in retrying.
+
+  **THE CORRECTION, PLAINLY: the drop-in was the right altitude for the wrong mechanism.** Moving
+  the bound from the command into `apt.conf.d` was correct and is kept - it is why every consumer
+  including Playwright now inherits one setting, and `test_ci_bounds_apt_in_one_place` keeps it
+  that way. But it bounded **retries against a mirror that was assumed to be the problem**, and the
+  problem is a **deadlock reaching a mirror that works**. Right shape, wrong target.
+
+  ⚠ **AND IT INVALIDATES THE OBVIOUS REMEDY.** *"Replace the mirrorlist with a direct
+  `sources.list`"* points at `archive.ubuntu.com` - **the host that hung**. It would not have
+  helped, and only the log says so.
+
+  ### THE FIX, RULED AND BUILT 2026-08-20: KILL THE PROCESS, BECAUSE THE DEADLOCK IS IN IT
+
+  **Route 2 - `scripts/ci_bounded.sh`, and it is the actual remedy.** Every apt consumer runs under
+  `timeout(1)`: **180 s** for the two exiftool steps against a ~60 s normal, **300 s** for
+  `playwright install --with-deps`, which also unpacks two browsers. One retry, and **only on exit
+  124** - a real failure is not retried, because a package that does not exist will not exist the
+  second time either.
+
+  🔑 **The mechanism, stated once: LP#2003851's deadlock is PER-PROCESS, so killing the process IS
+  the fix.** The second attempt gets a fresh apt with an empty queue, so the ordering that
+  deadlocked is not reconstructed. This is not a retry loop papering over a flaky network. Both
+  attempts fit inside `timeout-minutes` by construction: worst case 6 min on `check` against 20,
+  and 16 min on `e2e` against 45.
+
+  **Never silent:** a swallowed timeout prints what was killed and how long it had. A wrapper that
+  hides what it retried turns an outage into a slow day nobody investigates.
+
+  **Route 1 - `Acquire::ForceIPv4 "true"`, one line, and it treats the TRIGGER not the deadlock.**
+  The bug report records that on dual-stack hosts with no IPv6 routing - the ordinary Azure-hosted
+  runner - forcing IPv4 *"eliminates the trigger completely"*. So it makes the 503 less likely to
+  arrive; it does **not** make the deadlock survivable. Kept because it is free, and labelled in
+  place so nobody later reads it as the fix.
+
+  ### ⚠ WHAT HAS ACTUALLY CONTAINED THIS, AND WHAT IS STILL UNVERIFIED
+
+  🔒 **`timeout-minutes` is the only change so far that has contained this - twice in one day.**
+  `e2e` killed at **45m18s** (run 32295312064) and `check` at **20m19s** (run 32302928420), each
+  turning an unbounded lane into a labelled failure. **Everything else in this entry has been
+  diagnosis.** The drop-in worked and changed nothing that mattered; the root cause took a third
+  outage to find.
+
+  ⚠ **AND THE FIX ABOVE CANNOT BE VERIFIED WITHOUT ANOTHER OUTAGE.** Today's log verified the
+  **DIAGNOSIS** - the two-round `Ign:` count, the 16 s to fallback, the 19m54s hang on a working
+  mirror, the bug number. It verified nothing about the remedy, because the remedy only does
+  anything while apt is deadlocked. A green run tomorrow means the mirror was healthy. **The next
+  outage is the test, and what to record then is whether `ci_bounded.sh` printed a TIMED OUT line
+  and whether the retry succeeded** - that pair is the whole answer.
+
+  ### AND THE TIMING INSTRUMENT FAILED ITS OWN CONTRACT IN THE SAME RUN
+
+  `test_ci_timing_summary`'s stated property is that the instrument **cannot fail a build**. In run
+  32302928420 the `Timing summary` step exited **127** with `uv: command not found` and emitted
+  `##[error]`, because the job was killed in `Install exiftool` - **before `Install uv` had run**.
+
+  ⚠ **The contract holds for the SCRIPT, which never executed, and not for the STEP.** The script
+  is careful to exit 0 on every path; nothing made the step survive its interpreter being absent.
+  It is the fifty-fourth member once more, in the one instrument that was explicitly exempted -
+  and it is only reachable when a job dies early, which is exactly when the timing summary would
+  have been worth reading. **Recorded, not fixed:** the run was already failing, so the wrong exit
+  code cost nothing today.
+
   ## THE THIRD MECHANISM-FIX-WITHOUT-REPRODUCTION IN ONE DAY, AND WHY THAT IS ALLOWED
 
   2026-08-19 produced three fixes of the same epistemic kind, and the pattern is worth naming

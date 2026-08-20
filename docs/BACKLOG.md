@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aee). Next free: (aef).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aeg). Next free: (aeh).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -118,6 +118,16 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
+- **(aeg) CACHE PLAYWRIGHT'S SYSTEM LIBRARIES SO `--with-deps` STOPS INVOKING apt AT ALL.** The
+  right long answer to `(aee)`'s hang - it removes the class rather than bounding an instance -
+  and the largest consumer, at 43m33s on run 32295312064. ⚠ **Does NOT cover the `check` lanes**,
+  which still need exiftool, so `ci_bounded.sh` stays either way. Recorded 2026-08-20. [Full
+  entry](research/backlog/aeg.md)
+- **(aef) THE BACKLOG CANNOT ANSWER "WHAT MUST SHIP BEFORE v1", AND 57 OF 64 ENTRIES ARE SILENT.**
+  A decision about the backlog's SHAPE, not 57 small ones. ✅ **Ruled: option B** - a curated list
+  in `PROJECT_STATUS.md`, guarded by the `test_backlog_references` pattern. ⏳ **Not populated
+  yet**: the list is a ruling to make after the first soak. Recorded 2026-08-19. [Full
+  entry](research/backlog/aef.md)
 - **(aec) 62 FIXED WAITS IN THE BROWSER LANE, EACH ONE A COIN TOSS AGAINST A MEASURED LATENCY.**
   Recorded 2026-08-19. One was fixed; the class was not. [Full entry](research/backlog/aec.md)
 - **(aea) TWO INTACT CATALOGS FOR ONE INSTALL, AND NOTHING RECONCILES THEM.** Recorded 2026-08-19.
