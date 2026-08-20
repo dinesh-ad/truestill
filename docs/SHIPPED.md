@@ -22,6 +22,42 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aej) THREE SURFACES STATED SOMETHING TRUE OF ONE POPULATION AS IF IT WERE TRUE OF ANOTHER.**
+  - ✅ **CLOSED 2026-08-20**, three of the soak's four. **The fourth was split out as `(aem)`
+    because it is a different kind of defect** - see below.
+  - **S1, the false empty.** Sixteen seconds after a `verify` that reported `MISSING 7` and named
+    all seven paths, `drives` printed `D3 … 2026-08-20T09:09:20   never` - the timestamp of that
+    very run beside the claim it never happened. And the custody sentence agreed with it:
+    *"Never checked: 'D3'. Truestill has not looked since the copy was written."* **Both clauses
+    false.**
+  - ⚠ **The rule underneath is right and did not change.** `refresh_drive_verified` leaves
+    `drives.last_verified` NULL unless every copy is confirmed, so the drive cannot claim a date it
+    has not earned (`(abg)` Stage 2). **NULL is a claim-SUPPRESSION flag** - its docstring says it
+    covers *"missing, unreadable, unverifiable and not reached before the user cancelled"*. The
+    defect was that read sites decoded it as a positive assertion about history: **the field
+    answers "may I reassure?" and they asked it "what happened?".**
+  - **Three states now render as three**: a date when fully confirmed, `checked, gaps` when a check
+    ran and could not confirm everything, `never` when nothing has looked. ⚠ The cry-wolf half is
+    the point of the research frame - a fix that merely stopped saying *"never"* would destroy the
+    signal rather than repair it, so a genuinely unchecked drive still says it.
+  - **S2, the shortfall.** `list_drives` already returned `missing_count` and `missing_at`, and its
+    docstring said why - *"a drive reads '2,269 recorded, 2,269 not found on 11 Aug'"*. The CLI had
+    both in the row and printed neither; `grep missing_count cli.py` returned nothing. There is now
+    a `NOT FOUND` column, `-` when there is nothing to report.
+  - **S3, the scope defect.** Re-organizing an already-organized folder printed *"none of these
+    files carries a capture date"* beside `undated x0` - false about the 4,111 files just counted,
+    and self-contradictory. Both came from one **empty** list: `capture_span` returns `None` for
+    *"no file had a date"* and for *"there were no files"*, and the empty case took the first
+    branch's wording. It now says **"no files were organized, so there is nothing here to
+    describe."**
+  - **One aggregate was added, and it is why `missing_count` alone was not enough**:
+    `confirmed_count` on `list_drives`. A copy can be unconfirmed **without being missing** - it was
+    unreadable, or the run was cancelled before reaching it - so the missing count cannot separate
+    the two meanings of NULL on its own. No schema change; the data was always in `file_copies`.
+  - **Proved at both poles before building**: a verified-with-gaps drive reads `confirmed 4098 /
+    missing 7`, a never-verified one reads `confirmed 0 / missing 0`, and `drives.last_verified` is
+    NULL for both. See [`research/backlog/aej.md`](research/backlog/aej.md).
+
 - **(aei) `organize` DEDUPED AGAINST THE CATALOG; IT NOW DEDUPES AGAINST THE DESTINATION.**
   - ✅ **CLOSED 2026-08-20.** Organizing into a second drive copies what is not on **that** drive.
     Measured on the soak's own 4,111-file corpus: a fresh second destination that received **0

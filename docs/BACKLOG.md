@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ael). Next free: (aem).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aem). Next free: (aen).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -123,11 +123,12 @@ is invisible here is retired, not free.**
   What remains is drive-to-drive when the source folder is gone or no longer matches the drive.
   ⚠ `backup_run` is app-side and the CLI cannot import it, so this is a **move to core**, never a
   second implementation. Recorded 2026-08-20. [Full entry](research/backlog/ael.md)
-- **(aej) SOAK: FOUR CUSTODY SURFACES STATE SOMETHING TRUE OF ONE POPULATION AS IF IT WERE TRUE OF
-  ANOTHER.** `LAST VERIFIED: never` sixteen seconds after a verify that found 7 missing files; the
-  CLI `drives` table dropping a `missing_count` it already computes; *"none of these files carries
-  a capture date"* beside `undated x0`; and a half-populated library reading as a healthy one. All
-  `(abg)` class. Found 2026-08-20. [Full entry](research/backlog/aej.md)
+- **(aem) A COPY-MODE ORGANIZE LEAVES NO RECORD THAT IT STARTED, SO AN INTERRUPTED LIBRARY READS
+  AS A COMPLETE ONE.** Split out of `(aej)` when its other three surfaces were fixed: those were
+  renderings of facts already held, **this is a missing fact and no wording repairs it**. A
+  `kill -9` left 340 of 4,105 files and every surface read normally. ⚠ `inplace_runs` has exactly
+  the right columns but is written only for relocation runs. Needs a design. Recorded 2026-08-20.
+  [Full entry](research/backlog/aem.md)
 - **(aek) THE COPY PATH SURVIVES A FULL DISK; THE SETUP PATH CRASHES WITH A TRACEBACK.** Out of
   space, `organize` reported `82 failed / 79 organized`, exit 1, and left **0 partials with the
   catalog exactly true**. The same command against an **unregistered** destination raised an

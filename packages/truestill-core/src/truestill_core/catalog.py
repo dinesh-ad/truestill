@@ -1851,7 +1851,13 @@ class Catalog:
                 SELECT d.uuid, d.label, d.first_seen, d.last_seen, d.last_verified, d.notes, COUNT(fc.sha256) AS file_count,
                        COALESCE(SUM(fc.size), 0) AS total_size,
                        COUNT(fc.missing_at) AS missing_count,
-                       MAX(fc.missing_at) AS missing_at
+                       MAX(fc.missing_at) AS missing_at,
+                       -- Copies a check has CONFIRMED. This is what separates the two meanings
+                       -- of a NULL `last_verified`: "nothing has ever run" (zero) from "a check
+                       -- ran and could not confirm everything" (non-zero). `missing_count` alone
+                       -- cannot do it - a copy can be unconfirmed without being missing, when it
+                       -- was unreadable or the run was cancelled before reaching it. `(aej)`.
+                       SUM(fc.last_verified IS NOT NULL) AS confirmed_count
                 FROM drives d
                 LEFT JOIN file_copies fc ON fc.drive_uuid = d.uuid
                 GROUP BY d.uuid

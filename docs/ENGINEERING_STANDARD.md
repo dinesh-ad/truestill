@@ -497,6 +497,24 @@ memory dressed as one.
   batch mutation script that reported four dead guards which were dead only because a stale
   `.pyc` meant CPython never ran the mutated source. **The harness is a subject under test, and
   the direction to be wrong in is loud.**
+
+  ⚠ **AND THE CONTROL MUST VISIBLY HAVE RUN TESTS, WHICH IS A SECOND THING.** On 2026-08-20 the
+  same trap fired **twice in one day**: `TESTS="a.py b.py"` then `pytest $TESTS` - zsh does not
+  word-split an unquoted parameter, so pytest received one path that does not exist, exited on a
+  usage error, and **five mutants in a row reported `CAUGHT`** while no test had run at all. Both
+  times the tell was the phrase **`no tests ran`** sitting in output nobody read, because the
+  script only inspected the exit code.
+
+  **A mutation matrix whose control does not print a passing test count proves nothing**, and it
+  fails in the flattering direction: every mutant looks caught. So the control's assertion is not
+  *"exit 0"* - it is *"N tests passed, and N is the number I expected"*. Re-run properly, one of
+  those five mutants had genuinely **survived**, and it was the one covering the case the author
+  had described in prose and never tested.
+
+  Same family, one level down: an assertion that reads `"1" in line` against a row containing a
+  **runtime timestamp** was green before the fix existed, because some clock produced a `1`. A
+  guard that can pass on a coincidence is a guard whose green means nothing - split the row and
+  assert the column.
 - **A guard that agrees with its subject's own DECLARATION has proved nothing.** The
   fifty-fifth member, and the third instance of this family in one arc. The subject supplies a
   value, the guard checks the subject against that value, and the two agree by construction - so

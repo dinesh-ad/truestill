@@ -830,6 +830,36 @@ def _migrate_marker(root: Path, catalog: Catalog) -> int:
     return 0
 
 
+def _verification_state(drive: Any) -> str:
+    """What a check has established about this drive - and the three states are three states.
+
+    ⚠ **A NULL `drives.last_verified` MEANS TWO DIFFERENT THINGS, and this used to render both as
+    the word "never".** `refresh_drive_verified` leaves it NULL unless *every* copy is confirmed,
+    so the drive cannot claim a date it has not earned - `(abg)` Stage 2, and that rule is right
+    and unchanged. But NULL is a claim-SUPPRESSION flag covering *"missing, unreadable,
+    unverifiable and not reached before the user cancelled"*; it is not a statement that nothing
+    ever happened. The field answers *"may I reassure?"*, and this line was asking it *"what
+    happened?"*.
+
+    Measured by the first soak: seven files deleted by hand, `verify` reported `MISSING 7` and
+    named all seven, and sixteen seconds later this column said **never** - beside the `LAST SEEN`
+    timestamp of that very run.
+
+    **That is the FALSE EMPTY**, and it is a trust defect rather than a cosmetic one: a
+    no-results state rendered as a first-use state. A reader who catches an empty state
+    contradicting itself stops believing empty states generally - so the cost is not this row, it
+    is that *"never"* stops being actionable on the drives where it is true and urgent. Hence the
+    cry-wolf half: a drive nothing has looked at still says **never**, and must.
+
+    `confirmed_count` is the discriminator and `missing_count` alone could not be: a copy can be
+    unconfirmed without being missing.
+    """
+    if drive["last_verified"]:
+        return str(drive["last_verified"])[:19]
+    looked = (drive["confirmed_count"] or 0) or (drive["missing_count"] or 0)
+    return "checked, gaps" if looked else "never"
+
+
 def _cmd_drives(args: argparse.Namespace) -> int:
     with _catalog(args.db) as catalog:
         if args.migrate_marker is not None:
@@ -846,7 +876,7 @@ def _cmd_drives(args: argparse.Namespace) -> int:
             print("No drives known. Initialise one: truestill drives --init <root> --label <name>")
             return 0
         print(
-            f"{'LABEL':<20}{'FILES':>8}{'SIZE(MB)':>12}  {'STATUS':<10}"
+            f"{'LABEL':<20}{'FILES':>8}{'NOT FOUND':>10}{'SIZE(MB)':>12}  {'STATUS':<10}"
             f"{'LAST SEEN':<22}LAST VERIFIED"
         )
         connected: list[tuple[Path, str]] = []
@@ -856,9 +886,11 @@ def _cmd_drives(args: argparse.Namespace) -> int:
             # been pointed at, and printing it as "offline" would tell someone their backup is
             # gone when Truestill simply has no idea where it lives.
             reach = reach_of(catalog, str(d["uuid"]))
+            missing = d["missing_count"] or 0
             print(
-                f"{d['label']:<20}{d['file_count']:>8}{size_mb:>12.1f}  {reach.value:<10}"
-                f"{(d['last_seen'] or '-')[:19]:<22}{(d['last_verified'] or 'never')[:19]}"
+                f"{d['label']:<20}{d['file_count']:>8}{(str(missing) if missing else '-'):>10}"
+                f"{size_mb:>12.1f}  {reach.value:<10}"
+                f"{(d['last_seen'] or '-')[:19]:<22}{_verification_state(d)}"
             )
             if reach is DriveReach.CONNECTED:
                 connected.append(
@@ -1990,14 +2022,29 @@ def _print_summary(resolutions: list[Resolution]) -> None:
     print(f"  folders derived    : {len(labels)}")
     for label, count in labels.most_common():
         print(f"      {label:<28} {count}")
-    print("  date sources (organized files):")
-    for source, count in sources.most_common():
-        print(f"      {source:<28} {count}")
-    _print_date_quality(organized)
-    _print_inferred_local_shifts(organized)
+    # ⚠ EVERY LINE FROM HERE TO `_print_capture_timeline` DESCRIBES THE **ORGANIZED** SET, WHICH
+    # CAN BE EMPTY WHILE `files analysed` IS IN THE THOUSANDS - a re-run of an already-organized
+    # folder is exactly that. Describing an empty set produced a sentence that was false about
+    # the files a reader had just seen counted, and that contradicted the line below it:
+    #
+    #     capture dates      : none of these files carries a capture date
+    #         undated x0
+    #
+    # `capture_span` returns None both for "no file had a date" and for "there were no files",
+    # and the empty case took the first branch's wording. Say what is true - nothing was
+    # organized - and make no claim about the dates of no files. `(aej)`.
+    if not organized:
+        print("  no files were organized, so there is nothing here to describe.")
+    else:
+        print("  date sources (organized files):")
+        for source, count in sources.most_common():
+            print(f"      {source:<28} {count}")
+        _print_date_quality(organized)
+        _print_inferred_local_shifts(organized)
     # Sized once, here, and shared by both blocks below: one stat pass rather than two.
     sizes = sizes_for(resolutions)
-    _print_capture_timeline(organized)
+    if organized:
+        _print_capture_timeline(organized)
     _print_duplicate_space(resolutions, sizes)
     _print_largest(sizes)
 

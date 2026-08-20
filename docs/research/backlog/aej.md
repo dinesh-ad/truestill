@@ -1,11 +1,22 @@
 # (aej) SOAK: FOUR CUSTODY SURFACES STATE SOMETHING TRUE OF ONE POPULATION AS IF IT WERE TRUE OF ANOTHER.
 
-*Body of backlog entry `(aej)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aej)`, under **Shipped**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aej) SOAK: FOUR CUSTODY SURFACES STATE SOMETHING TRUE OF ONE POPULATION AS IF IT WERE TRUE OF
   ANOTHER.** Found 2026-08-20 by the first soak. **All four are the `(abg)` class** - history
   reported as state, or one set's number printed under another set's sentence - and they are filed
   together because the fix for each is the same kind of thing: say which set you mean.
+
+  ## ✅ THREE FIXED 2026-08-20; THE FOURTH SPLIT OUT AS `(aem)`
+
+  **The split is itself the finding, and it answers "one defect or four".** (1) and (2) are one
+  defect - the same line of `cli.py`, the same row object, both numbers already returned by
+  `list_drives` and neither read. (3) is its own, a scope label that does not carry down. (4) is
+  its own **and is a different kind**: there is no record that a copy-mode run started, so no
+  wording repairs it. It is `(aem)` and needs a design.
+
+  They shared a **symptom** - a true statement about one population read as a statement about
+  another - never a mechanism. Filing them together was right for reporting and wrong for fixing.
 
   ## (1) `LAST VERIFIED: never`, SIXTEEN SECONDS AFTER A VERIFY THAT FOUND THE PROBLEM ** sharpest **
 
