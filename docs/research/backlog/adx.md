@@ -89,7 +89,15 @@
     - ⚠ **TWO SITES STILL DISCLOSE NOTHING**, named in the guard with what a user loses rather
       than only why it is hard: `attach_drive` (`DriveAttachment` is never serialised and the
       write path's return value is discarded, so there is no carrier) and the app's organize run
-      (`CompletionBase` is a 17-key payload pinned by two e2e tests). **An organize against a
+      (`CompletionBase` was described here as *"a 17-key payload pinned by two e2e tests"* -
+      ⚠ **CORRECTED 2026-08-20: THAT OBSTACLE WAS FOLKLORE.** It has **19** keys, not 17; the
+      Python guard is `set(summary) >= {...}`, a **superset** check that had already absorbed
+      three additions; and the e2e files that touch it **author their own partial summaries** and
+      assert on rendered text - none reads the payload's key set. The cancel path already ships a
+      20th key through the same renderer. Priced properly it costs nothing, and `(aem)` confirmed
+      it by adding no key at all. **The number was wrong in four places and no test asserted it**,
+      which is how a constraint recorded once became a fact that scoped this entry's own work -
+      `ENGINEERING_STANDARD.md` §4's fifty-sixth member). **An organize against a
       cloned destination, and an attach of a drive that already answers elsewhere, are both still
       silent.**
     - **Guarded** by `test_every_hint_write_checks_for_a_second_place.py`, which enumerates all

@@ -123,12 +123,6 @@ is invisible here is retired, not free.**
   What remains is drive-to-drive when the source folder is gone or no longer matches the drive.
   ⚠ `backup_run` is app-side and the CLI cannot import it, so this is a **move to core**, never a
   second implementation. Recorded 2026-08-20. [Full entry](research/backlog/ael.md)
-- **(aem) A COPY-MODE ORGANIZE LEAVES NO RECORD THAT IT STARTED, SO AN INTERRUPTED LIBRARY READS
-  AS A COMPLETE ONE.** Split out of `(aej)` when its other three surfaces were fixed: those were
-  renderings of facts already held, **this is a missing fact and no wording repairs it**. A
-  `kill -9` left 340 of 4,105 files and every surface read normally. ⚠ `inplace_runs` has exactly
-  the right columns but is written only for relocation runs. Needs a design. Recorded 2026-08-20.
-  [Full entry](research/backlog/aem.md)
 - **(aek) THE COPY PATH SURVIVES A FULL DISK; THE SETUP PATH CRASHES WITH A TRACEBACK.** Out of
   space, `organize` reported `82 failed / 79 organized`, exit 1, and left **0 partials with the
   catalog exactly true**. The same command against an **unregistered** destination raised an

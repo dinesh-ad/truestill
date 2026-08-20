@@ -57,11 +57,14 @@ _NOT_YET_SURFACED: dict[str, str] = {
         "return value discarded outright by `service/backup.py`. Surfacing it needs a channel "
         "that does not exist yet, which is why this is owed rather than merely undone"
     ),
-    "truestill_app/service/organize.py::target": (
+    "truestill_app/service/organize.py::_register_destination": (
         "**An organize run whose destination is a clone of a drive Truestill already knows "
         "discloses nothing**, so the run's own copies are recorded against an identity that "
-        "answers in two places. `CompletionBase` is a documented 17-key payload pinned by two e2e "
-        "tests, so the carrier is a wider change than this one"
+        "answers in two places. ⚠ This said the carrier was a wider change because "
+        "`CompletionBase` is 'a 17-key payload pinned by two e2e tests' - CORRECTED 2026-08-20, "
+        "that was folklore: 19 keys, the Python guard is a superset check, and no e2e test "
+        "asserts the key set. `(aem)` added no key at all. The disclosure is still owed; the "
+        "payload was never what stood in its way"
     ),
 }
 

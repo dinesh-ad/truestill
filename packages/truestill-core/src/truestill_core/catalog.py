@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from types import TracebackType
-from typing import Self
+from typing import Self, cast
 
 from truestill_core.models import CaptureContext, DateSource
 
@@ -240,6 +240,39 @@ CREATE INDEX IF NOT EXISTS idx_inplace_moves_run ON inplace_moves (run_id);
 -- A multi-day trip: identity IS the row, never a membership hash. Unlike events.signature
 -- (a hash of member SHA-256s), a trip is user-adjustable and grows on re-ingest -- an edge
 -- trim or an added day must not orphan its name. See trip-grouping-research.md §6.
+-- One row per drive, recording a copy-mode organize that has STARTED. `(aem)`.
+--
+-- Written before the first byte and closed after the last, exactly as `inplace_runs` is - but
+-- for the mechanism that had no journal at all: a plain copy. Three run-shaped tables existed
+-- and all three attached to something else (layout migration, source deletion, rename
+-- relocation), so a `kill -9` at 340 of 4,105 files left a catalog that was internally
+-- consistent and therefore serene - indistinguishable from a finished 340-file library.
+--
+-- ⚠ `intended_total` IS WHAT THE DRIVE WILL HOLD WHEN THE RUN COMPLETES, not what this run will
+-- write, and the difference is what makes an interruption legible across a restart:
+--
+--       first run                writes 4,105   drive will hold 4,105
+--       restart after a kill     writes 3,765   drive will hold 4,105
+--
+-- The write count gives two denominators that cannot be compared; the target gives one.
+--
+-- ⚠ AND "INTERRUPTED" IS DERIVED FROM IT, never read from `completed_at`: a run is unfinished
+-- when the drive holds FEWER copies than it intended. So a crash between the last file and the
+-- close reads as complete, which is correct - the close is an optimisation, not a correctness
+-- requirement. `migrate` is immune to its own identical window the same way, by reporting
+-- pending journal rows rather than a status flag.
+--
+-- Keyed on drive_uuid, superseding on start, on `start_migration_run`'s bound: exactly one
+-- run's worth per drive and always the newest, so growth is bounded without a timer and an
+-- open row cannot outlive the next run against that drive.
+CREATE TABLE IF NOT EXISTS organize_runs (
+    drive_uuid     TEXT PRIMARY KEY,
+    run_id         TEXT NOT NULL,
+    started_at     TEXT NOT NULL,
+    intended_total INTEGER NOT NULL,
+    completed_at   TEXT
+);
+
 CREATE TABLE IF NOT EXISTS trips (
     id         INTEGER PRIMARY KEY,
     name       TEXT    NOT NULL,
@@ -264,7 +297,7 @@ CREATE TABLE IF NOT EXISTS date_confirmations (
 """
 
 #: Bump whenever the schema changes, and add a matching entry to _MIGRATIONS.
-CURRENT_SCHEMA_VERSION = 19
+CURRENT_SCHEMA_VERSION = 20
 
 
 class CatalogVersionError(RuntimeError):
@@ -786,6 +819,27 @@ def _apply_step(
         raise
 
 
+def _add_organize_runs(conn: sqlite3.Connection) -> None:
+    """v19 -> v20: a run record for copy-mode organize, so an interruption is legible. `(aem)`.
+
+    See the table's own comment in `_SCHEMA` for why `intended_total` is the drive's target
+    holdings rather than the run's write count, and why "interrupted" is derived from it rather
+    than read from `completed_at`.
+    """
+    _run_script(
+        conn,
+        """
+        CREATE TABLE IF NOT EXISTS organize_runs (
+            drive_uuid     TEXT PRIMARY KEY,
+            run_id         TEXT NOT NULL,
+            started_at     TEXT NOT NULL,
+            intended_total INTEGER NOT NULL,
+            completed_at   TEXT
+        );
+        """,
+    )
+
+
 _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (2, _add_size_column),
     (3, _add_original_name_column),
@@ -805,6 +859,7 @@ _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (17, _add_capture_columns),
     (18, _drop_redundant_sha256_index),
     (19, _add_copy_missing_at),
+    (20, _add_organize_runs),
 )
 
 
@@ -1139,6 +1194,76 @@ class Catalog:
                 (drive_uuid,),
             )
         ]
+
+    def start_organize_run(self, *, drive_uuid: str, run_id: str, intended_total: int) -> None:
+        """Open a copy-mode organize run, superseding any prior one for this drive. `(aem)`.
+
+        **Written before the first byte**, the way `start_inplace_run` is - *"so a crash leaves a
+        record"*. That is the whole point: after the process dies the intended total cannot be
+        reconstructed, because the restart's own intended total correctly excludes what already
+        landed.
+
+        ``intended_total`` is **what the drive will hold when this run completes**, not what the
+        run will write. See the table comment in `_SCHEMA`.
+        """
+        with self._tx() as conn:
+            conn.execute("DELETE FROM organize_runs WHERE drive_uuid = ?", (drive_uuid,))
+            conn.execute(
+                "INSERT INTO organize_runs (drive_uuid, run_id, started_at, intended_total) "
+                "VALUES (?, ?, ?, ?)",
+                (drive_uuid, run_id, _now(), intended_total),
+            )
+
+    def finish_organize_run(self, drive_uuid: str) -> None:
+        """Close the run for a drive. **An optimisation, never a correctness requirement.**
+
+        A crash between the last file and this call leaves `completed_at` NULL on a run that
+        actually finished; :meth:`unfinished_organize_run` derives the answer from what the drive
+        holds instead, so that case reads as complete.
+        """
+        with self._tx() as conn:
+            conn.execute(
+                "UPDATE organize_runs SET completed_at = ? WHERE drive_uuid = ? "
+                "AND completed_at IS NULL",
+                (_now(), drive_uuid),
+            )
+
+    def unfinished_organize_run(self, drive_uuid: str) -> sqlite3.Row | None:
+        """The open run for a drive whose files did not all arrive, or ``None``. `(aem)`.
+
+        ⚠ **DERIVED, NOT READ FROM `completed_at`.** A run is unfinished when the drive holds
+        FEWER copies than the run intended it to hold - so a lost close reads as complete, which
+        is correct, and a genuinely interrupted run reads as interrupted even if some later
+        process closed its row. `migrate` is immune to the same window in the same way, by
+        reporting pending journal rows rather than a status.
+
+        Returns the run row plus ``achieved``, so a caller can say *"340 of 4,105"* without a
+        second query.
+        """
+        row = self._conn.execute(
+            """
+            SELECT r.drive_uuid, r.run_id, r.started_at, r.intended_total, r.completed_at,
+                   (SELECT COUNT(*) FROM file_copies fc WHERE fc.drive_uuid = r.drive_uuid)
+                       AS achieved
+            FROM organize_runs r
+            WHERE r.drive_uuid = ?
+            """,
+            (drive_uuid,),
+        ).fetchone()
+        if row is None or row["completed_at"] is not None:
+            # ⚠ A CLOSED RUN IS FINISHED, WHATEVER THE DRIVE HOLDS NOW, and this branch is not
+            # redundant with the one below. Without it a run that completed correctly begins
+            # claiming it was interrupted the moment any file is deleted afterwards - `achieved`
+            # falls below `intended_total` for a reason that has nothing to do with the run.
+            # Found by mutation: replacing the derivation with this flag alone survived every
+            # test, which said the two conditions were not both being exercised.
+            return None
+        if int(row["achieved"]) >= int(row["intended_total"]):
+            # Everything the run intended is here, so it finished even though its close was
+            # lost - the crash between the last file and the close. Deriving this rather than
+            # trusting `completed_at` is what makes the close an optimisation.
+            return None
+        return cast("sqlite3.Row", row)
 
     def start_migration_run(self, run_id: str, drive_uuid: str) -> None:
         """Open a run, superseding the previous one's journal for this drive.

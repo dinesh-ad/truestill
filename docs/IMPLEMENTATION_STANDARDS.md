@@ -308,7 +308,7 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
 ## 3. Data contract (catalog)
 
 - **Single SQLite file**, stdlib `sqlite3` (`catalog.py::Catalog`). No server.
-- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 19`**.
+- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 20`**.
   Migrations are ordered, idempotent functions in `_MIGRATIONS`; a catalog newer than the code
   is refused (`CatalogVersionError`). Migration coverage tested in `tests/test_catalog.py`.
 - **A migration is not a transaction, and three conventions are what make that safe.** Measured
@@ -324,11 +324,11 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   control is pinned at the connect call to today's `LEGACY_TRANSACTION_CONTROL`, so a future
   Python default cannot change when writes commit; adopting the new semantics is a separate
   decision.
-- **Table inventory (v15 - the last migration that adds a table; v16, v17 and v19 add only
+- **Table inventory (v20 - the last migration that adds a table; v16, v17 and v19 add only
   columns, and v18 only drops an index):**
   `files`, `albums`, `file_albums`, `events`, `skipped_clusters`, `drives`, `file_copies`,
   `settings`, `migration_journal`, `reclaim_journal`, `inplace_runs`, `inplace_moves`,
-  `migration_runs`, `trips`, `trip_days`, `date_confirmations`.
+  `migration_runs`, `trips`, `trip_days`, `date_confirmations`, `organize_runs`.
   v13, v14 and v16 add no table: they are the columns `files.date_source`, `files.date_tag`
   (the tier, and the evidence behind it) and `file_copies.date_baked_at`.
 - **Migration ledger:** v2 `size`, v3 `original_name`, v4 event tables (`events` +
@@ -386,6 +386,19 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   both ways, the three that chose it moved to the autoindex, and `library_status` - the only full
   scan among them - ran **0.844 ms with and 0.848 ms without**. *An in-place drop first suggested
   a 1.7x slowdown; that was the freed pages, not the plan.*
+
+  v20 `organize_runs` (one row per drive recording a copy-mode organize that has **started** -
+  `(aem)`). **The table exists because an interrupted run was indistinguishable from a small
+  finished one:** a `kill -9` at 340 of 4,105 files left 340 rows and 340 files agreeing exactly,
+  and every surface read normally. Three run-shaped journals already existed and all three attach
+  to a different mechanism, so a plain copy opened nothing. ⚠ **`intended_total` is what the DRIVE
+  WILL HOLD when the run completes, not what the run will write** - the write count differs across
+  a restart (4,105 then 3,765) and cannot be compared, while the target is 4,105 both times. ⚠ And
+  **"interrupted" is DERIVED from it, never read from `completed_at`**: a run is unfinished when
+  the drive holds fewer copies than it intended, so a crash between the last file and the close
+  reads as complete. The close is an optimisation, not a correctness requirement - the same
+  immunity `migrate` has, by reporting pending journal rows rather than a status flag. Superseding
+  per drive on `start_migration_run`'s bound, so growth is bounded without a timer.
 - **Every catalog query names its columns; none selects `*`.** It began as a privacy guarantee
   in `decisions.gather_decisions` - reading column by column so a column added to `files` or
   `settings` later cannot arrive on a user's drive by default - and that reasoning is not

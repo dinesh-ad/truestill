@@ -57,6 +57,7 @@ from truestill_core.organizer import (
     resolve,
     scan_source,
     skipped_extension_counts,
+    write_candidates,
 )
 from truestill_core.progress import ProgressCallback
 from truestill_core.thumbnails import upright_size
@@ -896,6 +897,44 @@ def _identity_for(destination: Path, catalog: Catalog) -> DriveMarker:
     return create_marker(destination, label=destination.name or "Library")
 
 
+def _register_destination(catalog: Catalog, destination: Path) -> DriveMarker:
+    """Give the destination a drive identity and remember where it was seen. Returns the marker.
+
+    ⚠ **Called before `resolve`, not merely before `execute`.** `(aei)` made the destination's
+    identity an INPUT to the dedup decision rather than only a label for recording: organize
+    copies what is not on THIS drive, so the drive must be known before anything is classified.
+    Moving it later would restore that defect. It must also stay before any write, which is the
+    older constraint - doing it afterwards left the run's own files unattached.
+    """
+    marker = _identity_for(destination, catalog)
+    catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+    # Remember where it was seen, so its card can offer to check it.
+    catalog.set_setting(drive_path_hint(marker.uuid), str(destination))
+    return marker
+
+
+def _open_organize_run(
+    catalog: Catalog,
+    drive_uuid: str,
+    resolutions: list[Resolution],
+    on_destination: dict[str, str],
+) -> None:
+    """Record that this organize has STARTED, before the first byte. `(aem)`.
+
+    ⚠ After the process dies the intended total cannot be reconstructed: a restart's own total
+    correctly excludes what already landed, so the number exists only in this row.
+
+    `intended_total` is what the drive will **hold** when the run finishes - current holdings plus
+    what this run adds - not what it writes. The write count differs across a restart; the target
+    does not. Both halves are already in hand and cost nothing.
+    """
+    catalog.start_organize_run(
+        drive_uuid=drive_uuid,
+        run_id=uuid.uuid4().hex,
+        intended_total=len(on_destination) + len(write_candidates(resolutions, skip_undated=False)),
+    )
+
+
 def organize_run(
     source: Path,
     destination: Path,
@@ -933,13 +972,15 @@ def organize_run(
             # the destination's identity an INPUT to the skip decision rather than only a label
             # for recording. Moving it later again would restore the defect: organize would
             # dedupe against the whole catalog and copy nothing onto a second drive.
-            marker = _identity_for(effective_destination, catalog)
-            catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
-            # Remember where it was seen, so its card can offer to check it.
-            catalog.set_setting(drive_path_hint(marker.uuid), str(effective_destination))
+            marker = _register_destination(catalog, effective_destination)
             drive_uuid = marker.uuid
 
             index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
+            # The app always writes to a local, registered drive - there is no rclone path here -
+            # so this is never the `None` case. See `organizer._scope_to_destination`.
+            on_destination = {
+                str(r["sha256"]): str(r["relative"]) for r in catalog.copies_on_drive(drive_uuid)
+            }
             resolutions = resolve(
                 decisions,
                 index,
@@ -947,13 +988,9 @@ def organize_run(
                 progress=progress,
                 cancel=cancel,
                 cache=cache,
-                # The app always writes to a local, registered drive - there is no rclone path
-                # here - so this is never the `None` case. See `organizer._is_elsewhere`.
-                on_destination={
-                    str(r["sha256"]): str(r["relative"])
-                    for r in catalog.copies_on_drive(drive_uuid)
-                },
+                on_destination=on_destination,
             )
+            _open_organize_run(catalog, drive_uuid, resolutions, on_destination)
             # Apply any *already-named* trips whose cluster recurs in this source, so a fresh
             # import lands its camera files under the same event folder (matched by signature).
             # Only saved events are applied -- unnamed clusters are left untouched (never
@@ -991,6 +1028,10 @@ def organize_run(
                 cancel=cancel,
                 drive_uuid=drive_uuid,
             )
+            # An OPTIMISATION, never a correctness requirement: a crash between the last file and
+            # this line leaves the row open, and `unfinished_organize_run` derives the answer from
+            # what the drive holds, so that case still reads as complete. `(aem)`.
+            catalog.finish_organize_run(drive_uuid)
             if relocation is not None:
                 moved = sum(1 for r in results if r.status is ActionStatus.MOVED_IN_PLACE)
                 if moved:
@@ -1031,7 +1072,26 @@ def organize_run(
 
 
 class CompletionBase(TypedDict):
-    """The 17 keys :func:`_completion` itself returns (organize-only)."""
+    """The keys :func:`_completion` itself returns (organize-only).
+
+    ⚠ **THIS SAID "17 KEYS" UNTIL 2026-08-20 AND THERE WERE 19**, because `duplicate_matches` and
+    `organized_sample` were added afterwards and **no test asserts the count**. The stale number
+    was repeated in four places and became a recorded constraint: `(adx)` gap 1 scoped its own
+    work around *"a 17-key payload pinned by two e2e tests"*, and `(aem)` was planned around the
+    same obstacle before it was priced.
+
+    **Priced, it is not an obstacle at all.** `test_server.py` asserts `set(summary) >= {...}` - a
+    **superset** check that has already silently absorbed three additions. The e2e files that
+    touch this payload **author their own partial summaries** (one passes 15 of 19) and assert on
+    rendered text; none reads the server payload or its key set. `app.js` reads named fields, the
+    React island types it `Record[str, unknown]` "opaque here on purpose", and the cancel path
+    already ships a 20th key through the same renderer.
+
+    **The count is deliberately not restated here.** A number that can drift by two while four
+    documents repeat it is a number that wants a guard or no mention; the class is the truth.
+    `ENGINEERING_STANDARD.md` §4's fifty-sixth member, in the direction of a *constraint* inherited
+    as fact rather than a *rule* applied unevenly.
+    """
 
     outcomes: dict[str, int]
     organized: int

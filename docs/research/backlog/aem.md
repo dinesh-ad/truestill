@@ -1,6 +1,6 @@
 # (aem) A COPY-MODE ORGANIZE LEAVES NO RECORD THAT IT STARTED, SO AN INTERRUPTED LIBRARY READS AS A COMPLETE ONE.
 
-*Body of backlog entry `(aem)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aem)`, under **Shipped**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aem) A COPY-MODE ORGANIZE LEAVES NO RECORD THAT IT STARTED, SO AN INTERRUPTED LIBRARY READS AS
   A COMPLETE ONE.** Split out of `(aej)` on 2026-08-20 at the moment `(aej)`'s other three surfaces
@@ -59,7 +59,15 @@
   three-valued reach model and a bounded thread that can only be abandoned. Saying what you know is
   rarely one line.
 
-  ## WHAT IS NOT DECIDED - THIS NEEDS A DESIGN, NOT A PATCH
+  ## ✅ BUILT 2026-08-20 - see `SHIPPED.md` for the closure
+
+  Schema **v20**, `organize_runs`, one row per drive, superseding on start. Written before the
+  first byte from both front ends; `intended_total` is the drive's **target holdings**; and
+  "interrupted" is derived rather than read from a flag, so a crash between the last file and the
+  close reads as complete. `.partial` detection was considered and left out, with the argument
+  recorded. `rescan`'s heading reframed.
+
+  ## WHAT WAS OPEN WHEN THIS WAS FILED
 
   - **Whether a copy-mode run should be journalled at all.** It buys the disclosure and it costs a
     write per run plus a table; `inplace_runs` exists because relocation is *undoable*, and a copy

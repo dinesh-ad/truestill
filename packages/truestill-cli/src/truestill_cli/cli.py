@@ -173,6 +173,7 @@ from truestill_core.organizer import (
     resolve,
     scan_source,
     sizes_of_media,
+    write_candidates,
 )
 from truestill_core.progress import Progress, ProgressCallback
 from truestill_core.reclaim import ReclaimPlan, plan_reclaim, run_reclaim
@@ -668,9 +669,9 @@ def _print_rescan(report: RescanReport, root: Path, label: str, elapsed: float) 
     _print_rescan_section(
         "LEFT BEHIND BY TRUESTILL",
         list(report.debris),
-        "half-written copies Truestill made and then could not clean up - a disk that filled,"
-        " a drive pulled out. They are not your photos and nothing needs them:"
-        " delete them. Their names end in .partial.",
+        "a run was interrupted while writing these - a disk that filled, a drive pulled out,"
+        " the process killed. They are not your photos: delete them."
+        " Their names end in .partial.",
     )
 
     if not report.complete:
@@ -887,11 +888,21 @@ def _cmd_drives(args: argparse.Namespace) -> int:
             # gone when Truestill simply has no idea where it lives.
             reach = reach_of(catalog, str(d["uuid"]))
             missing = d["missing_count"] or 0
+            interrupted = catalog.unfinished_organize_run(str(d["uuid"]))
             print(
                 f"{d['label']:<20}{d['file_count']:>8}{(str(missing) if missing else '-'):>10}"
                 f"{size_mb:>12.1f}  {reach.value:<10}"
                 f"{(d['last_seen'] or '-')[:19]:<22}{_verification_state(d)}"
             )
+            if interrupted is not None:
+                # ⚠ Its own line, not a column: this is not a property of the drive, it is a
+                # statement about a run that did not finish - and it needs a denominator to mean
+                # anything. `(aem)`.
+                print(
+                    f"    ⚠ a run was interrupted: "
+                    f"{interrupted['achieved']:,} of {interrupted['intended_total']:,} files "
+                    f"arrived. Run organize again to finish it."
+                )
             if reach is DriveReach.CONNECTED:
                 connected.append(
                     (
@@ -2311,6 +2322,49 @@ def _registered_or_refused(
     return resolved, resolved.uuid
 
 
+def _open_organize_run(
+    catalog: Catalog,
+    args: argparse.Namespace,
+    drive_uuid: str | None,
+    resolutions: list[Resolution],
+    on_destination: dict[str, str] | None,
+) -> None:
+    """Record that a copy-mode organize has STARTED, before the first byte. `(aem)`.
+
+    ⚠ **After the process dies the intended total cannot be reconstructed**, because the restart's
+    own total correctly excludes what already landed - so 4,105 exists only in this row.
+
+    `intended_total` is **what the drive will HOLD when this run finishes** - current holdings plus
+    what this run adds - not what the run writes. The write count differs across a restart (4,105
+    then 3,765) and cannot be compared; the target is 4,105 both times.
+
+    Both halves are already in hand and cost nothing: `on_destination` was computed for `(aei)`'s
+    per-destination dedup, and `write_candidates` for the preflight, which has already paid for
+    the stats it gathered.
+    """
+    if drive_uuid is None or not args.apply:
+        return
+    catalog.start_organize_run(
+        drive_uuid=drive_uuid,
+        run_id=uuid.uuid4().hex,
+        intended_total=len(on_destination or {})
+        + len(write_candidates(resolutions, skip_undated=args.skip_undated)),
+    )
+
+
+def _close_organize_run(catalog: Catalog, args: argparse.Namespace, drive_uuid: str | None) -> None:
+    """Close the run opened by :func:`_open_organize_run`.
+
+    ⚠ **An optimisation, never a correctness requirement.** A crash between the last file and this
+    call leaves the row open on a run that actually finished; `unfinished_organize_run` derives the
+    answer from what the drive HOLDS, so that case still reads as complete. `migrate` is immune to
+    its own identical window the same way, by reporting pending journal rows rather than a status.
+    """
+    if drive_uuid is None or not args.apply:
+        return
+    catalog.finish_organize_run(drive_uuid)
+
+
 def _run_pipeline(
     args: argparse.Namespace,
     files: list[Path],
@@ -2361,6 +2415,7 @@ def _run_pipeline(
             return resolved
         drive_marker, drive_uuid = resolved
 
+        on_destination = _shas_on_destination(args, drive_uuid, catalog)
         resolutions = resolve(
             decisions,
             index,
@@ -2369,7 +2424,7 @@ def _run_pipeline(
             workers=args.workers,
             progress=_progress_printer("hashing"),
             cache=cache,
-            on_destination=_shas_on_destination(args, drive_uuid, catalog),
+            on_destination=on_destination,
         )
 
         events: dict[str, Event] = {}
@@ -2401,6 +2456,8 @@ def _run_pipeline(
                 drive_uuid=drive_uuid,
             )
 
+        _open_organize_run(catalog, args, drive_uuid, resolutions, on_destination)
+
         try:
             results = execute(
                 resolutions,
@@ -2425,6 +2482,7 @@ def _run_pipeline(
             print(f"error: {exc}", file=sys.stderr)
             return 4
 
+        _close_organize_run(catalog, args, drive_uuid)
         if relocation is not None and args.apply:
             moved = sum(1 for r in results if r.status is ActionStatus.MOVED_IN_PLACE)
             # A run that renamed nothing leaves no journal row to offer as an undo.

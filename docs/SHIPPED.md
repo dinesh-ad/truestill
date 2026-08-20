@@ -22,6 +22,48 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aem) AN INTERRUPTED COPY-MODE ORGANIZE NOW LEAVES A RECORD, SO A HALF-LIBRARY CANNOT READ AS
+  A WHOLE ONE.**
+  - ✅ **CLOSED 2026-08-20.** Schema **v20**, `organize_runs`, one row per drive, superseding on
+    start. Verified on a real killed run: `⚠ a run was interrupted: 121 of 161 files arrived.`
+    and the warning **clears** once the run is finished.
+  - **The record is written BEFORE the first byte**, as `start_inplace_run` is - *"so a crash
+    leaves a record"*. It had to be: after the process dies the intended total cannot be
+    reconstructed, because a restart's own total correctly excludes what already landed.
+  - ⚠ **`intended_total` is the drive's TARGET HOLDINGS, not the run's write count**, and that is
+    what makes an interruption legible across a restart: the write count is 4,105 then 3,765 and
+    cannot be compared, while the target is 4,105 both times. Both halves were already in hand -
+    `on_destination` from `(aei)`'s dedup, `write_candidates` from the preflight - so it costs no
+    new I/O.
+  - ⚠ **"Interrupted" is DERIVED, never read from a flag**, which closes the window a start-write
+    design otherwise gets wrong: a crash between the last file and the close reads as **complete**.
+    That is `migrate`'s own immunity, which reports pending journal rows rather than a status.
+  - ⚠ **AND A BUG IN THAT DESIGN, FOUND BY MUTATION AFTER IT WAS BUILT.** Deriving *purely* from
+    `achieved < intended_total` is right for the crash window and **wrong afterwards**: a completed
+    run began claiming it was interrupted the moment a file was deleted by hand - the soak's own S5
+    scenario, which would have made every finished drive start lying. A closed run is now finished
+    whatever the drive holds today, and **both conditions are load-bearing** - each is killed by a
+    mutant the other survives.
+  - **`.partial` detection was considered and deliberately left out.** The sibling *is*
+    unambiguously truestill's own write, so `staged_copy` could look - but the record is strictly
+    better evidence (it carries the denominator), the `.partial` is destroyed by the next run, and
+    detecting it costs a stat per file on the hot path. Filed separately.
+  - **`rescan`'s heading reframed**: *"could not clean up"* described a failed cleanup; it now says
+    a run was interrupted. Only the note moved - the title is pinned by tests and the exclusion
+    from the health verdict is correct and unchanged.
+  - 🔑 **AND THE OBSTACLE THAT BLOCKED THIS AND `(adx)` GAP 2 WAS FOLKLORE.** `(adx)` recorded
+    *"`CompletionBase` is a 17-key payload pinned by two e2e tests"* and both entries scoped their
+    work around it. Measured: **19 keys**, the Python guard is `set(summary) >= {...}` - a
+    **superset** check that had already absorbed three additions - and the e2e files that touch it
+    **author their own partial summaries** and assert on rendered text, reading no key set at all.
+    The cancel path already ships a 20th key through the same renderer. `(aem)` added **no key**.
+    ⚠ **The number was wrong in four places and no test asserted it**, which is how a constraint
+    recorded once becomes a fact. §4's fifty-sixth member, in the direction of an inherited
+    *constraint* rather than an unevenly applied *rule*. ⚠ `SHIPPED.md`'s own "17" is **left
+    alone**: it was true when written (16 keys before 2026-07-31, 18 by 08-13), and a record
+    rewritten to stay correct stops being one.
+  - See [`research/backlog/aem.md`](research/backlog/aem.md).
+
 - **(aej) THREE SURFACES STATED SOMETHING TRUE OF ONE POPULATION AS IF IT WERE TRUE OF ANOTHER.**
   - ✅ **CLOSED 2026-08-20**, three of the soak's four. **The fourth was split out as `(aem)`
     because it is a different kind of defect** - see below.
