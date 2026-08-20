@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aeg). Next free: (aeh).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aeh). Next free: (aei).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -118,6 +118,11 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
+- **(aeh) THE RUNNER IMAGE IS UNPINNED, SO THE apt THAT DEADLOCKS IS NOT A VERSION WE CHOSE.**
+  `(aee)`'s hang is fixed in apt 3.1.3 and unbackported on noble; `ubuntu-latest` is noble today.
+  ⚠ **A route with a cost, not a recommendation** - pinning fixes nothing by itself, and
+  `ubuntu-latest` flipping to 24.04 in January 2025 left breakage found months later. Recorded
+  2026-08-20. [Full entry](research/backlog/aeh.md)
 - **(aeg) CACHE PLAYWRIGHT'S SYSTEM LIBRARIES SO `--with-deps` STOPS INVOKING apt AT ALL.** The
   right long answer to `(aee)`'s hang - it removes the class rather than bounding an instance -
   and the largest consumer, at 43m33s on run 32295312064. ⚠ **Does NOT cover the `check` lanes**,

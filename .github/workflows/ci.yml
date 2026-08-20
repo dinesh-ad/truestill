@@ -90,6 +90,19 @@ jobs:
       # from the lists already on the image.
       - name: Install exiftool (Linux)
         if: runner.os == 'Linux'
+        # ⚠ A SECOND BOUND AT A DIFFERENT LAYER, AND BOTH ARE WANTED. `timeout(1)` bounds the
+        # PROCESS; this bounds the STEP; `timeout-minutes` on the job bounds the LANE. Current
+        # guidance is explicit that job and step timeouts belong together, and this workflow has
+        # the evidence: the job bound has already fired twice in one day, which argues for
+        # layering rather than against it.
+        #
+        # 15 = the step's own worst case with room: two `ci_bounded.sh` calls at 180 s x 2
+        # attempts plus a 30 s pause each is ~13 min.
+        #
+        # ⚠ A STEP TIMEOUT CANNOT EXCEED ITS JOB'S - GitHub clamps it. 15 sits inside this job's
+        # 20 and 45. The next person's numbers may not, and a silently clamped bound is worse
+        # than none because it reads as set.
+        timeout-minutes: 15
         run: |
           ./scripts/ci_bounded.sh 180 sudo apt-get update
           ./scripts/ci_bounded.sh 180 sudo apt-get install -y libimage-exiftool-perl
@@ -309,6 +322,8 @@ jobs:
           CONF
 
       - name: Install exiftool
+        # Same reasoning as the `check` job's copy above, including the clamping note.
+        timeout-minutes: 15
         run: |
           ./scripts/ci_bounded.sh 180 sudo apt-get update
           ./scripts/ci_bounded.sh 180 sudo apt-get install -y libimage-exiftool-perl
@@ -345,6 +360,8 @@ jobs:
       - name: Install browsers
         # BOTH engines, matching `make e2e-install`. WebKit is what the Tauri shell renders in on
         # Linux and macOS, and a lane that is green only in Chromium says nothing about it.
+        # 12 = 300 s x 2 attempts plus the 30 s pause, ~10.5 min, with room. Inside the job's 45.
+        timeout-minutes: 12
         # 300 rather than the 180 the apt steps get: this ALSO unpacks two browsers, so its
         # honest work is minutes rather than a minute. `--with-deps` is what puts it under the
         # same apt deadlock, and it was the step that cost 43m33s on run 32295312064.

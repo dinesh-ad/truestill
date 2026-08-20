@@ -187,6 +187,57 @@
   arrive; it does **not** make the deadlock survivable. Kept because it is free, and labelled in
   place so nobody later reads it as the fix.
 
+  ### THE PAUSE IS NOT BACKOFF, AND THE ARITHMETIC THAT REJECTED THREE ATTEMPTS
+
+  A 30 s pause sits between the two attempts. ⚠ **It is deliberately not exponential backoff, and
+  the script says so in place** - otherwise someone will later "improve" it into a ramp with
+  jitter, which is the standard pattern and is wrong here for three reasons:
+
+  - **We never see the 503.** The advice is *"retry only transient errors - 429, 503, 504"*. apt
+    swallows the status and deadlocks; our only observable is exit **124**, a hang. A rule keyed
+    on status codes cannot be written against a signal we do not receive.
+  - **One interval cannot grow.** *Exponential* describes growth ACROSS successive retries. Two
+    attempts have exactly one gap.
+  - **Jitter answers a thundering herd we do not have** - it desynchronises many clients; this
+    workflow has four jobs, already staggered by seconds.
+
+  **What survives, and justifies the delay on its own grounds:** the trigger is a server-side
+  temporary failure that may still be in force, and an immediate retry re-enters it with nothing
+  changed but the queue. Thirty seconds is a pause to let a transient condition pass.
+
+  🔑 **WHY NOT THREE ATTEMPTS - the arithmetic is the whole argument**, against an observed-normal
+  apt step of **58-88 s** and a `check` bound of 20 minutes that must not rise:
+
+  | shape | worst case per apt call | `check` total (2 calls + ~3 min real work) |
+  |---|---:|---|
+  | 3 attempts @ 180 s | 585 s | **~22 min - BREACHES the 20-minute bound** |
+  | 3 attempts @ 120 s | 390 s | ~16 min, but 120 s is **1.4x an 88 s normal** - trades a hang for a false kill |
+  | **2 attempts @ 180 s, one 30 s pause** | **390 s** | **~16 min, and 180 s is 2x the observed worst** |
+
+  **If three attempts are ever wanted, the honest route is shortening the STEP, not lengthening
+  the bound** - which is `(aeg)`.
+
+  ### THREE BOUNDS AT THREE LAYERS, AND THE CLAMP THAT CATCHES PEOPLE
+
+  `timeout(1)` bounds the **process**, `timeout-minutes` on the step bounds the **step**, and
+  `timeout-minutes` on the job bounds the **lane**. Current guidance is explicit that job and step
+  timeouts belong together, and this repo has the evidence: the job bound fired **twice in one
+  day**, which argues for layering rather than against it.
+
+  ⚠ **A step timeout cannot exceed its job's - GitHub clamps it.** 15 on the apt steps and 12 on
+  the browser install sit inside 20 and 45. **The next person's numbers may not, and a silently
+  clamped bound is worse than none because it reads as set.**
+
+  ⚠ **And the worst case now nearly fills the `e2e` lane:** 13 min of exiftool plus 10.5 of
+  browsers plus a ~21 min suite is ~44.5 against 45. If it breaches, the job bound fires and
+  produces a labelled failure rather than a hang - the designed behaviour - but the margin is
+  thin and is recorded rather than discovered.
+
+  ⚠ **A cost the guard itself imposed, caught by measurement:** the test that exercises the retry
+  paid the real 30 s pause and took `make check` from ~18 s to **37 s against a 45 s ceiling**.
+  `CI_BOUNDED_PAUSE` now zeroes it for tests only; CI never sets it. A guard that spends half the
+  suite's budget asleep is a guard that gets deleted.
+
   ### ⚠ WHAT HAS ACTUALLY CONTAINED THIS, AND WHAT IS STILL UNVERIFIED
 
   🔒 **`timeout-minutes` is the only change so far that has contained this - twice in one day.**

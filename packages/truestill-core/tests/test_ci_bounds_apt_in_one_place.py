@@ -21,7 +21,9 @@ fail. Removing either leaves a real regression silent - proved by mutation, not 
 
 from __future__ import annotations
 
+import os
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
 
@@ -177,9 +179,45 @@ def test_the_bound_retries_a_hang_and_refuses_to_retry_a_real_failure() -> None:
         f"a real failure was retried, or said nothing about it: {real.stderr!r}"
     )
 
+    # ⚠ The pause is zeroed HERE and only here. At its real 30 s this single assertion took the
+    # suite from ~18 s to 37 s against a 45 s ceiling - a guard that proves the retry fires must
+    # not spend half the budget asleep. CI never sets the variable, so CI gets the real pause.
+    quick_pause = {**os.environ, "CI_BOUNDED_PAUSE": "0"}
     hung = subprocess.run(
-        [str(script), "1", "sleep", "20"], capture_output=True, text=True, check=False
+        [str(script), "1", "sleep", "20"],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=quick_pause,
     )
     assert hung.returncode == 124, f"a killed command must report the timeout: {hung.returncode}"
     assert "TIMED OUT" in hung.stderr, "the swallowed timeout was not reported"
     assert "retry" in hung.stderr.lower(), "nothing said the command was retried"
+
+
+def test_the_retry_waits_before_re_entering_a_condition_that_may_still_be_in_force() -> None:
+    """⚠ THE PAUSE ITSELF, because deleting it survived every other test here.
+
+    It is **not backoff** and the script says so at length: we never see the 503, one interval
+    cannot be exponential, and jitter answers a herd of four staggered jobs. What justifies the
+    delay on its own grounds is that the trigger is a server-side temporary failure which may
+    still be in force, and an immediate retry re-enters it with nothing changed but the queue.
+
+    Timed with the pause set to 2 s rather than its real 30, for the reason recorded above the
+    override: a guard must not spend the suite's budget asleep. What is pinned is that a pause
+    happens at all - the value is a judgement, the existence is the behaviour.
+    """
+    script = Path(__file__).resolve().parents[3] / "scripts" / "ci_bounded.sh"
+    env = {**os.environ, "CI_BOUNDED_PAUSE": "2"}
+
+    started = time.monotonic()
+    subprocess.run(
+        [str(script), "1", "sleep", "10"], capture_output=True, text=True, check=False, env=env
+    )
+    waited = time.monotonic() - started
+
+    # Two attempts of ~1 s each, plus the 2 s pause between them.
+    assert waited >= 3.5, (
+        f"the whole run took {waited:.1f}s, which is too fast to have paused between attempts - "
+        "an immediate retry re-enters a trigger that may still be in force"
+    )
