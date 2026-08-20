@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aeh). Next free: (aei).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aek). Next free: (ael).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -118,6 +118,22 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
+- **(aei) `organize` CANNOT MAKE A SECOND COPY: "ALREADY IN YOUR LIBRARY" MEANS THE CATALOG, NOT
+  THE DRIVE.** ⚠ **The first soak's headline finding.** Organizing into a fresh destination wrote
+  **nothing**, registered a **0-file** drive and reported success, while `status` warned in the
+  same breath that 4,088 files were on only one drive. The CLI has **no** second-copy route at all;
+  the app's Backups route works and was measured. Found 2026-08-20. [Full
+  entry](research/backlog/aei.md)
+- **(aej) SOAK: FOUR CUSTODY SURFACES STATE SOMETHING TRUE OF ONE POPULATION AS IF IT WERE TRUE OF
+  ANOTHER.** `LAST VERIFIED: never` sixteen seconds after a verify that found 7 missing files; the
+  CLI `drives` table dropping a `missing_count` it already computes; *"none of these files carries
+  a capture date"* beside `undated x0`; and a half-populated library reading as a healthy one. All
+  `(abg)` class. Found 2026-08-20. [Full entry](research/backlog/aej.md)
+- **(aek) THE COPY PATH SURVIVES A FULL DISK; THE SETUP PATH CRASHES WITH A TRACEBACK.** Out of
+  space, `organize` reported `82 failed / 79 organized`, exit 1, and left **0 partials with the
+  catalog exactly true**. The same command against an **unregistered** destination raised an
+  unhandled `OSError` from `write_marker`. Found 2026-08-20. [Full
+  entry](research/backlog/aek.md)
 - **(aeh) THE RUNNER IMAGE IS UNPINNED, SO THE apt THAT DEADLOCKS IS NOT A VERSION WE CHOSE.**
   `(aee)`'s hang is fixed in apt 3.1.3 and unbackported on noble; `ubuntu-latest` is noble today.
   ⚠ **A route with a cost, not a recommendation** - pinning fixes nothing by itself, and
