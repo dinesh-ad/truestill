@@ -23,10 +23,12 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any
 
+import pytest
 import yaml
 
 _WORKFLOW = Path(__file__).resolve().parents[3] / ".github" / "workflows" / "ci.yml"
@@ -155,6 +157,32 @@ def test_every_apt_consumer_runs_under_the_out_of_band_bound() -> None:
     )
 
 
+#: ⚠ THE TWO TESTS BELOW EXECUTE `scripts/ci_bounded.sh`, WHICH IS LINUX-ONLY BY CONSTRUCTION -
+#: and this marker exists because the first version of them did not have it and **turned `main`
+#: red on two lanes**, run 32337630094.
+#:
+#: * `timeout(1)` is **GNU coreutils**. BSD ships no `timeout` at all, so macOS exits **127**;
+#:   with Homebrew coreutils it is `gtimeout`, a different name we deliberately do not chase.
+#: * Windows cannot execute a bash script: `WinError 193, %1 is not a valid Win32 application`.
+#:
+#: **The script is only ever invoked on Linux** - the `check` job's apt step carries
+#: `if: runner.os == 'Linux'` and the `e2e` job is ubuntu-only - so **the coverage that matters is
+#: the coverage that remains**. Nothing is lost by skipping elsewhere, and a `gtimeout` fallback
+#: would be code written for a caller that does not exist (`(adz)`).
+#:
+#: The three static tests above are NOT skipped: they parse `ci.yml` and never run the script, so
+#: they hold the workflow to its shape on every lane.
+_LINUX_ONLY = pytest.mark.skipif(
+    sys.platform != "linux",
+    reason=(
+        "runs scripts/ci_bounded.sh: timeout(1) is GNU coreutils (BSD/macOS has none, exit 127) "
+        "and Win32 cannot exec a bash script. The script is invoked only on Linux runners, so "
+        "the Linux lane is the coverage that matters."
+    ),
+)
+
+
+@_LINUX_ONLY
 def test_the_bound_retries_a_hang_and_refuses_to_retry_a_real_failure() -> None:
     """The script's two behaviours, and the second is the one that keeps it honest.
 
@@ -195,6 +223,7 @@ def test_the_bound_retries_a_hang_and_refuses_to_retry_a_real_failure() -> None:
     assert "retry" in hung.stderr.lower(), "nothing said the command was retried"
 
 
+@_LINUX_ONLY
 def test_the_retry_waits_before_re_entering_a_condition_that_may_still_be_in_force() -> None:
     """⚠ THE PAUSE ITSELF, because deleting it survived every other test here.
 

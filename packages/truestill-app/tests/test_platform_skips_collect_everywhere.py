@@ -20,6 +20,19 @@ platform test is first. Two decorators can never do that.
 
 Scoped to `skipif` conditions rather than to modules generally: a POSIX-only call inside a test
 *body* is fine, because the body does not run on the skipped lane.
+
+⚠ **IF YOU ARE WRITING A PLATFORM-SPECIFIC TEST, THIS FILE IS THE THING TO READ FIRST, AND ON
+2026-08-20 IT WAS NOT.** `test_ci_bounds_apt_in_one_place` gained two tests that execute a bash
+script using `timeout(1)`, with no marker at all, and **turned `main` red on two lanes** (run
+32337630094): macOS exits **127** because `timeout` is GNU coreutils and BSD ships none, and
+Windows raises `WinError 193` because it cannot execute a bash script. Neither is exotic; both
+are the first thing this file is about.
+
+**The rule the next person needs, stated once:** a test that *shells out* is platform-specific
+whether or not it says so. Ask what the command is before asking whether the test passes -
+`timeout`, `chmod`, `ln -s`, `/bin/sh` and anything with a shebang are all Linux-and-maybe-macOS
+at best. The guard below cannot catch that, because the defect is a **missing** condition rather
+than a malformed one; only reading this file catches it.
 """
 
 from __future__ import annotations
