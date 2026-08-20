@@ -52,7 +52,23 @@ Notes:
   operation**, and optionally **write it into the organized copies** so other apps read it too.
   Schema v13-v16. One clause of `(bbb)` item 4 was carried out rather than ticked - see `(aaj)`;
   `(kk)`'s `GPSDateStamp` half was in scope and was **not** built.
-- **Launch gate: soak is DEFERRED (§2), and `(aad)` installers are the work in progress.**
+- ⚠ **THE FIRST SOAK RAN ON 2026-08-20 AND THE LINE ABOVE THIS ONE IS WHAT IT OVERTURNED.** Seven
+  steps against **4,111 real photos and videos**, 11 GB, with the corpus counted independently
+  before the product was allowed an opinion. **It produced five entries** - `(aei)`, `(aej)`,
+  `(aek)`, `(aem)`, `(ael)` - and three are already shipped.
+  - **`(aei)` is the headline and nothing else would have found it**: `organize` into a fresh
+    second destination copied **nothing**, registered a **0-file** drive and reported success,
+    while `status` warned in the same breath that 4,088 files sat on only one drive. It deduped
+    against the **catalog** instead of the **destination**.
+  - **`(aej)`**: `LAST VERIFIED: never` sixteen seconds after a verify that found 7 missing files.
+  - **`(aem)`**: a `kill -9` at 340 of 4,105 files left a library that read as complete.
+  - **`(aek)`**: a full disk crashes drive setup with a `pathlib` traceback - **still open**.
+  - ✅ **What the soak also proved sound:** the `.partial` -> rename -> record write path survived
+    both a `SIGKILL` and a full disk with no corrupt file and no phantom row, and `(adx)` gap 1's
+    clone disclosure fired correctly on an 11 GB clone.
+- **Schema is at v20** (`catalog.CURRENT_SCHEMA_VERSION`); `organize_runs` was added by `(aem)`.
+- **`(aad)` installers remain the launch gate**, and are not what is in progress: the last three
+  days are soak work and CI cost.
 - **Trademark residual (live pre-monetization obligation):** TruStile Doors remains a low-risk
   residual in different IC classes; attorney clearance is still required before monetization
   (full analysis in `DECISIONS.md`).
@@ -71,7 +87,13 @@ narrative, or volatile counts.
 
 ## 2. What is next (in order)
 
-1. **Soak is DEFERRED, deliberately - ruled by the maintainer 2026-08-12. It is no longer the
+1. ⚠ **SUPERSEDED 2026-08-20: THE SOAK RAN.** The deferral below was ruled on 2026-08-12 and
+   held for eight days; the text is kept because its reasoning was sound and is what a reader
+   needs to understand the order things happened in. **What it predicted is now measured** - see
+   §1. The paragraph beginning *"is still real and still unfound"* is the one line the soak
+   answered, five times over.
+
+   **Soak is DEFERRED, deliberately - ruled by the maintainer 2026-08-12. It is no longer the
    gate in front of everything else.**
    - **The reason, in his words:** he will not organize the 33,000-photo library until the product
      is good enough that a mistake is not 33,000 files to unpick. Soaking earlier does not buy
@@ -79,6 +101,9 @@ narrative, or volatile counts.
    - **This is a change of order, not of belief.** The class soak exists to find - what only
      appears when a real library meets an operation nobody modelled - is still real and still
      unfound. What changed is when it is worth paying for.
+     ⚠ **ANSWERED 2026-08-20.** It was real, and one run of seven steps found five instances. The
+     sentence stands as written because the prediction was correct; only its tense is out of
+     date.
    - **Read every "behind the soak gate" sentence elsewhere against this line.** They were written
      while soak was the gate. `BACKLOG.md` `(aad)` is the one that mattered most and now carries
      its own note.
@@ -96,6 +121,11 @@ narrative, or volatile counts.
      was found by reading code, measuring, or auditing documents - a pixel cap used as a claim, a
      preview tally, a custody sentence, a lost click, private paths in a public repo. **A week of
      code-reading finds the class code-reading finds**: two written things that disagree.
+     ⚠ **AND ON 2026-08-20 THE OTHER METHOD RAN AND PRODUCED THE OTHER CLASS.** `(aei)` is the
+     proof this paragraph was waiting for: organize copying **nothing** onto a second drive while
+     reporting success was reachable in one command, sat in the code for as long as the feature
+     existed, and **no amount of reading found it** - four surfaces agreed with each other and
+     three of them were right. Kept undated in the text above so the contrast is legible.
      The soak exists for the other class - what only appears when a real library meets an
      operation nobody modelled - and that class produced nothing this week, because nobody used
      the product. **The list got shorter and the gate did not move.** This is not a criticism of
@@ -109,7 +139,8 @@ narrative, or volatile counts.
 2. **Repo-public audit + newcomer README**
    - Ensure no sensitive/local-only leakage and that user-facing docs/screenshots are current.
 
-3. **Publish pipeline (when soak closes)**
+3. **Publish pipeline** ⚠ *(was "when soak closes" - the first soak ran 2026-08-20; the gate is
+   now `(aad)` installers, not the soak)*
    - **REQUIRED STEP: make the repository private.** It is public today for the Actions minutes
      and goes private at launch. Git history carries the maintainer's cloud-storage and
      private-folder strings and a rewrite was declined on cost - `BACKLOG.md` `(acv)` holds the
@@ -126,7 +157,9 @@ narrative, or volatile counts.
      wait behind.** They are still pending; what has changed is the reason they have not happened.
    - **Larger than a PyPI release, and it sits in front of this:** `BACKLOG.md` `(aad)` desktop
      installers is **launch-blocking** for the paid product - pip is not a channel the buyer can use.
-     **`(aad)` is the work in progress as of 2026-08-12**, starting with an artifact that can
+     **`(aad)` was the work in progress as of 2026-08-12** ⚠ *(and is not what has been in
+     progress since 2026-08-18: the soak, `(aei)`, `(aej)`, `(aem)` and CI cost are)*, starting
+     with an artifact that can
      report what it contains - both of its acceptance criteria are on the frozen bundle and every
      guard that existed read the source tree.
 
@@ -141,6 +174,7 @@ narrative, or volatile counts.
   failing** (2026-08-12, §2 item 1). It is not closed and is not claimed to be; it is no longer
   what other work waits behind. What remains open is the *knowledge* - the failure class that only
   a real library produces is still unmeasured, and nothing below should be read as covering it.
+  ⚠ **MEASURED 2026-08-20** - see §1. Five entries, three shipped.
 - **Absolute-path portability remains open** (`BACKLOG.md` `(xx)`; ⚠ `(yy)` was listed here too and is **BUILT 2026-08-02** as `truestill repoint-sources OLD NEW` - reconnect UX is done, the portability of the stored paths is not):
   `files.source_path`, inplace roots, reclaim journal path semantics, and reconnect UX.
 - **Known coverage gap: the unreadable-directory path is unverified on Windows.**
@@ -221,6 +255,11 @@ narrative, or volatile counts.
   Research sources: repo docs (outrank), source, free public only - **no paid third-party
   research APIs or hosted tools** (`ENGINEERING_STANDARD.md` §3.1).
 - **Dry-run default:** writes happen only on explicit apply paths.
+- ⚠ **`make check` before every commit; do NOT run `make gate` for backend work** (2026-08-20).
+  The CI `e2e` job is disabled (`if: false`) until the first migrated screen, so a push costs ~3
+  minutes instead of ~25. If a change genuinely reaches a screen, **say so and ask**. Its silence
+  is not coverage. The three-OS `check` matrix is kept - it is the only thing that sees Windows
+  and macOS.
 - **Never push unless asked.**
 - **Commit identity policy:** `dinesh-ad`; no co-author/AI signature trailers.
 - **Corpus fence for real-library testing/profiling/soak** (short form; the binding wording is

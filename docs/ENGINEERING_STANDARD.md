@@ -83,9 +83,13 @@ exactly once: when something hangs, you sit blocked for the whole ceiling before
 | Client | `pytest tests/e2e` (`make e2e`) | What a user actually reads on screen |
 
 **Which layer to run, and when - the decision is a command, not a judgement.** Targeted tests in
-the inner loop, seconds. `make check` before every commit. **`make gate`** before a commit whose
-diff reaches the browser: it runs `check`, then `e2e` only when the diff touches
-`packages/truestill-app/src/` or `tests/e2e/`, and prints the files that decided it either way.
+the inner loop, seconds. `make check` before every commit. ⚠ **`make gate` is NOT part of the
+routine loop since 2026-08-20**: the browser lane left CI (`e2e` is disabled until the first
+migrated screen) and is not run locally for backend work. If a change genuinely reaches a screen,
+say so and ask. The command still runs `check`, then `e2e` only when the diff touches
+`packages/truestill-app/src/` or `tests/e2e/`, and prints the files that decided it either way -
+what changed is when to invoke it, not what it does. `IMPLEMENTATION_STANDARDS.md` §6.1 is
+binding.
 **It measures against `origin/main`, not `HEAD`, and that is the batching rule above paying its
 own bill:** if the batch is what CI sees, the batch is what the gate must read, or a batch whose
 last commit is a docs edit skips a lane its third-from-last commit reached.

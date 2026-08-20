@@ -49,7 +49,7 @@ git ls-files '*.md' | wc -l                      # every tracked document
 git ls-files 'docs/research/backlog/*.md' | wc -l # the exception above
 ```
 
-On 2026-08-19 those read **139** and **84**, leaving **55** mapped below. ⚠ They read **133** and **78** on 2026-08-15 and were stale within the day - which is the argument for the commands above rather than an argument for updating these two numbers faster.
+On 2026-08-20 those read **148** and **93**, leaving **55** mapped below. ⚠ They read **139**/**84** on 2026-08-19 and **133**/**78** on 2026-08-15 - stale within a day, twice - which is the argument for running the commands rather than for updating these numbers faster. **The 55 has not moved across all three readings**: every document added since went to `docs/research/backlog/`, so the map is still complete.
 
 ### The canon - binding, kept current
 
@@ -176,17 +176,26 @@ exists to prevent.
 - **`make check` before every commit** - it runs against a **45 s ceiling** (`TEST_SECONDS_MAX`),
   which is not friction. ⚠ This said *"19-21 s"* until 2026-08-15; nine runs that day read
   **16.39-25.99 s**, outside the band at both ends. The ceiling is the durable number.
-- **The pre-commit hooks are lint, format, typecheck and the trailer rules. They do not run the
-  suite, and their green output is not the gate.** Written down 2026-08-12 because it was broken
+- **The pre-commit hooks are ruff, ruff-format, mypy, three prose guards (`dash-style`,
+  `product-name`, `no-redirect-artifacts`) and two commit-msg guards (`no-ai-coauthor`,
+  `entry-closure`). They do not run the suite, and their green output is not the gate.** Written down 2026-08-12 because it was broken
   that day by someone working to this standard: the hooks print a column of green immediately
   above the commit, `make check` does not, and the eye takes the nearer one. A red suite reached a
   commit and the letter-uniqueness test was what caught it. Same class as `(ace)` and the closure
   rule - a rule that lives only in practice gets broken by someone who can quote it.
-- **`make gate` when the diff reaches the browser.** It runs `check`, then `e2e` only if the diff
-  touches `packages/truestill-app/src/` or `tests/e2e/`, and prints what decided it. The reason
-  for skipping the browser lane is a command's output, never a recollection.
-- The browser lane stays separate from `make check` and out of a fresh clone's path: `make check`
-  is green with no browser installed. `IMPLEMENTATION_STANDARDS.md` §6.1 is the binding rule.
+- ⚠ **DO NOT run `make gate` for backend work** (changed 2026-08-20). `make check` before every
+  commit, as always; the browser lane is **not** part of the routine loop. If a change genuinely
+  reaches a screen, **say so and ask** rather than running it by reflex.
+- **The CI e2e job is disabled** (`if: false` in `.github/workflows/ci.yml`, with a dated banner):
+  it was 21-25 minutes of a ~25-minute run, guarding screens `(adi)` is replacing. **The first
+  migrated screen turns it back on.** A push now costs ~3 minutes.
+  ⚠ **Its silence is not coverage** - `ENGINEERING_STANDARD.md` §4's fifty-fourth member. The three
+  `check` lanes are deliberately kept because they are the only thing that sees Windows and macOS,
+  and on 2026-08-20 alone they caught `timeout(1)` not existing on BSD and Windows being unable to
+  execute a bash script.
+- `make gate` and `make e2e` still work locally and are unchanged; the browser lane stays out of a
+  fresh clone's path, and `make check` is green with no browser installed.
+  `IMPLEMENTATION_STANDARDS.md` §6.1 is the binding rule.
 - **Proving a guard bites is a separate step from writing it**, and there are two tools.
   `scripts/mutate_once.py` for the single proof you write while fixing something - it refuses on a
   missed or ambiguous anchor rather than reporting success, which `sed -i` does not: a reflowed
