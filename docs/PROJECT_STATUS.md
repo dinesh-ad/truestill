@@ -146,8 +146,10 @@ narrative, or volatile counts.
      private-folder strings and a rewrite was declined on cost - `BACKLOG.md` `(acv)` holds the
      exposure, the reasoning and the residual. **This is the mitigation**, so launching without it
      leaves the accepted risk unmitigated rather than merely untidy.
-     - **It changes what CI costs.** Measured over three runs: **23, 27 and 42 wall-minutes** per
-       push across four jobs, Windows alone 14-31 of them. Private repositories bill Windows and
+     - **It changes what CI costs.** Measured over three runs **while the e2e job still ran**:
+       **23, 27 and 42 wall-minutes** per push across four jobs, Windows alone 14-31 of them.
+       ⚠ **SINCE 2026-08-20 A PUSH IS THREE JOBS** - e2e is disabled - and one measured at
+       **3m26s** wall. **Re-measure before pricing the private-repo switch on the figures above.** Private repositories bill Windows and
        macOS at a multiplier on the included quota - **verify the current rates before switching**
        and decide then whether the matrix stays as it is.
      - **It changes how a vulnerability is reported** (`SECURITY.md` points at this repository).

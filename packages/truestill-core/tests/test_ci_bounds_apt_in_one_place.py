@@ -46,7 +46,11 @@ _CONSUMERS = ("apt-get", "apt install", "--with-deps")
 
 
 def _jobs() -> dict[str, list[dict[str, Any]]]:
-    data = yaml.safe_load(_WORKFLOW.read_text())
+    # ⚠ `encoding="utf-8"` IS LOAD-BEARING, NOT DECORATION. Windows defaults to cp1252, which
+    # cannot decode the box-drawing characters in `ci.yml`'s banner - this exact test failed on
+    # the Windows lane with `UnicodeDecodeError: 'charmap' codec` the day the banner was added,
+    # and on no other lane. The file is utf-8; only the default reader disagrees.
+    data = yaml.safe_load(_WORKFLOW.read_text(encoding="utf-8"))
     return {name: job.get("steps", []) for name, job in data["jobs"].items()}
 
 

@@ -1673,7 +1673,7 @@ def _shas_on_destination(
     """What this destination already holds, for `(aei)`'s per-destination dedup.
 
     Three answers, and the difference between the last two is the whole point - see
-    `organizer._is_elsewhere`:
+    `organizer._scope_to_destination`:
 
     * **rclone** -> ``None``. Drive tracking is scoped to local destinations on purpose
       (`_local_drive_marker`), so a remote has no drive identity and `file_copies` can say

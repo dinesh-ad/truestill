@@ -108,7 +108,10 @@ def test_the_checksum_step_names_a_non_file_instead_of_dying_on_it() -> None:
     Windows too. What is checked is that a regular-file test reaches the entries before
     `sha256sum` does - the producer fix above is what makes it never fire.
     """
-    workflow = yaml.safe_load((_ROOT / ".github" / "workflows" / "release.yml").read_text())
+    # ⚠ `encoding="utf-8"`: Windows defaults to cp1252 and this workflow contains non-ASCII.
+    workflow = yaml.safe_load(
+        (_ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+    )
     steps = workflow["jobs"]["publish"]["steps"]
     checksums = [step for step in steps if step.get("name") == "Checksums"]
     assert len(checksums) == 1, "expected exactly one Checksums step in the publish job"

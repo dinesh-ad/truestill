@@ -38,7 +38,15 @@ def _tags_read_by_the_categoriser() -> set[str]:
     reported a dead path that no longer existed. A detector that reads prose is a detector that
     can be argued with.
     """
-    source = Path(__file__).parents[1].joinpath("src/truestill_core/categorize.py").read_text()
+    source = (
+        Path(__file__)
+        .parents[1]
+        .joinpath("src/truestill_core/categorize.py")
+        # ⚠ Windows defaults to cp1252 and this file contains non-ASCII. `(aej)`-era lesson:
+        # a repo file a human edits will gain a `⚠` sooner or later, and the lane that catches
+        # it is the only one nobody runs locally.
+        .read_text(encoding="utf-8")
+    )
     found: set[str] = set()
     for node in ast.walk(ast.parse(source)):
         if not isinstance(node, ast.Call) or not node.args:
