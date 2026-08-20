@@ -152,7 +152,10 @@ def test_the_preview_calls_the_overlap_already_in_your_library(tmp_path: Path) -
     # The payload carries the PHRASE a user reads, not the enum - `explain_duplicate` renders
     # it through `origin_phrase`. Asserting the words is what pins the sentence on screen.
     phrase = origin_phrase(DuplicateOrigin.CATALOG)
-    assert phrase == "already in your library"
+    # ⚠ Wording changed by `(aei)` 2026-08-20: dedup is scoped per DESTINATION now, so the
+    # reason a file is skipped is that this drive already has it - not that the catalog has
+    # seen it somewhere. "in your library" was true of the old, catalog-wide rule.
+    assert phrase == "already on this drive"
     assert all(s["origin"] == phrase for s in matches["shown"]), matches["shown"]
 
 
@@ -210,11 +213,32 @@ def test_move_mode_leaves_the_already_organized_originals_where_they_are(tmp_pat
 # ------------------------------------------------------------------ two destinations
 
 
-def test_the_same_photo_copied_to_x_is_not_moved_to_y(tmp_path: Path) -> None:
+def test_the_same_photo_copied_to_x_is_moved_to_y_because_y_does_not_have_it(
+    tmp_path: Path,
+) -> None:
     """Two runs, two intentions, one photo: copy into X, then move A into Y.
 
-    The index is seeded from the whole catalog rather than from what is at this destination, so
-    Y never receives the file and the original stays in the source.
+    ⚠ **REVERSED BY `(aei)` ON 2026-08-20, AND THE OLD ASSERTION DESCRIBED THE DEFECT AS ITS
+    MECHANISM.** This was `test_the_same_photo_copied_to_x_is_not_moved_to_y`, and its docstring
+    read: *"The index is seeded from the whole catalog rather than from what is at this
+    destination, so Y never receives the file and the original stays in the source."* That is
+    `(aei)` stated as an explanation - the seeding it names is the bug, not a design.
+
+    It asserted `Y == 5` (*"Y gets only what X never had"*), `duplicates == 3`, and three
+    originals stranded in the source. Dedup is now scoped per destination, so **Y receives all
+    8**: the user asked to move `A` into `Y`, `Y` holds none of it, and being on some *other*
+    drive is not a reason to withhold files from this one.
+
+    ⚠ **Checked before changing, because move deletes originals:** X still holds its 3 (asserted
+    below, and it was already passing while the Y count failed), so those three end up on **both**
+    X and Y. Nothing is moved out of the only place that had it. The old behaviour was in fact the
+    surprising one - it silently half-completed a move and needed a whole `left_in_source` report
+    to explain itself.
+
+    The same-destination case is unchanged and is pinned directly below by
+    `test_the_move_result_names_the_folder_the_leftovers_are_in`, where both runs share one
+    destination: there the three ARE already on the target, so they stay duplicates and stay in
+    the source.
     """
     src = tmp_path / "src"
     x, y, db = tmp_path / "X", tmp_path / "Y", tmp_path / "c.sqlite"
@@ -223,12 +247,14 @@ def test_the_same_photo_copied_to_x_is_not_moved_to_y(tmp_path: Path) -> None:
     _run(src / "A" / "D" / "E", x, db)
     result = _run(src / "A", y, db, mode="move")
 
+    # X is untouched by the run that targeted Y - the three are in two places now, not moved
+    # out of their only home.
     assert len(_files_under(x)) == 3, sorted(_files_under(x))
-    # Y gets only what X never had.
-    assert len(_files_under(y)) == 5, sorted(_files_under(y))
-    assert result["duplicates"] == 3, result
-    # And the originals of the three are still in the source.
-    assert len(_files_under(src / "A" / "D" / "E")) == 3
+    # Y gets everything, because Y had none of it.
+    assert len(_files_under(y)) == 8, sorted(_files_under(y))
+    assert result["duplicates"] == 0, result
+    # And a move that was asked for actually completed: nothing stranded in the source.
+    assert len(_files_under(src / "A" / "D" / "E")) == 0
 
 
 # ------------------------------------------------- the leftover-empty-folder offer

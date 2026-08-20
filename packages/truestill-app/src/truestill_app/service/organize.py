@@ -925,6 +925,20 @@ def organize_run(
             rules = build_rules()
             heavy = heavy_days_for_organize(catalog, files, metadata, rules)
             decisions = plan(files, metadata, rules, scheme=scheme, heavy_days=heavy)
+            # Register the destination *before* writing anything, so every copy is recorded
+            # against it. Doing this afterwards would leave the run's own files unattached --
+            # which is exactly the bug this replaced.
+            #
+            # ⚠ AND NOW BEFORE `resolve` TOO, not merely before `execute`, because `(aei)` made
+            # the destination's identity an INPUT to the skip decision rather than only a label
+            # for recording. Moving it later again would restore the defect: organize would
+            # dedupe against the whole catalog and copy nothing onto a second drive.
+            marker = _identity_for(effective_destination, catalog)
+            catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+            # Remember where it was seen, so its card can offer to check it.
+            catalog.set_setting(drive_path_hint(marker.uuid), str(effective_destination))
+            drive_uuid = marker.uuid
+
             index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
             resolutions = resolve(
                 decisions,
@@ -933,6 +947,12 @@ def organize_run(
                 progress=progress,
                 cancel=cancel,
                 cache=cache,
+                # The app always writes to a local, registered drive - there is no rclone path
+                # here - so this is never the `None` case. See `organizer._is_elsewhere`.
+                on_destination={
+                    str(r["sha256"]): str(r["relative"])
+                    for r in catalog.copies_on_drive(drive_uuid)
+                },
             )
             # Apply any *already-named* trips whose cluster recurs in this source, so a fresh
             # import lands its camera files under the same event folder (matched by signature).
@@ -945,14 +965,6 @@ def organize_run(
             ]
             if saved:
                 resolutions = commit(resolutions, saved, catalog, scheme=scheme).resolutions
-            # Register the destination *before* writing anything, so every copy is recorded
-            # against it. Doing this afterwards would leave the run's own files unattached --
-            # which is exactly the bug this replaced.
-            marker = _identity_for(effective_destination, catalog)
-            catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
-            # Remember where it was seen, so its card can offer to check it.
-            catalog.set_setting(drive_path_hint(marker.uuid), str(effective_destination))
-            drive_uuid = marker.uuid
             relocation = None
             if chosen_mode in {"move", "inplace"} and mechanism["uses_rename"]:
                 relocation = Relocation(

@@ -250,7 +250,7 @@ def test_one_folder_one_reason_reads_as_the_single_sentence(tmp_path: Path) -> N
     """The sentence this whole change exists to produce."""
     behind = _behind(tmp_path, {"D/E": 3}, DuplicateOrigin.CATALOG)
     assert describe_left_behind(behind) == [  # type: ignore[arg-type]
-        "3 files remain in D/E because they were already in your library."
+        "3 files remain in D/E because they were already on this drive."
     ]
 
 
@@ -263,7 +263,7 @@ def test_one_file_is_grammatical(tmp_path: Path) -> None:
 def test_the_source_root_is_named_as_the_folder_the_user_chose(tmp_path: Path) -> None:
     behind = _behind(tmp_path, {"": 2}, DuplicateOrigin.CATALOG)
     assert describe_left_behind(behind) == [  # type: ignore[arg-type]
-        "2 files remain in the folder you selected because they were already in your library."
+        "2 files remain in the folder you selected because they were already on this drive."
     ]
 
 
@@ -291,7 +291,7 @@ def test_two_reasons_are_split_onto_their_own_line_rather_than_guessed_at(tmp_pa
     joined = " ".join(lines)
     # The counted lines come from `describe_split`, so the phrasing here is the phrasing the
     # duplicate tally already used - one home, no second vocabulary.
-    assert "1 already in your library" in joined, lines
+    assert "1 already on this drive" in joined, lines
     assert "1 matched another file earlier in this batch" in joined, lines
 
 
@@ -334,13 +334,13 @@ def test_the_preview_line_says_the_files_will_not_be_moved() -> None:
     line = will_remain_line(5)
     assert line is not None
     assert "5" in line, line
-    assert "already in your library" in line, line
+    assert "already on this drive" in line, line
     assert "not be moved" in line, line
 
 
 def test_the_preview_line_is_grammatical_for_one_file() -> None:
     assert will_remain_line(1) == (
-        "1 file here is already in your library and will not be moved. It stays where it is."
+        "1 file here is already on this drive and will not be moved. It stays where it is."
     )
 
 

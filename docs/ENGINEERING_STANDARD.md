@@ -401,6 +401,42 @@ memory dressed as one.
   fails with *"no .ts/.tsx files found"* rather than passing three times. In the same review a
   proposed `#[tauri::command]` counter was **refused rather than written**, because there is no
   `Cargo.toml` in the repo and it would have been green from the day it landed.
+- **A RULE APPLIED TO TWO OF THREE SURFACES READS AS SETTLED, AND THE THIRD DISAGREES SILENTLY.**
+  The fifty-sixth member, and the failure is **not** that the rule was never written down - it is
+  that it was written down *enough to look finished*. A reader who greps finds it, finds it
+  reasoned, finds a test, and never learns that the surface they are about to change is the one it
+  was never carried to. **Two sites agreeing is what makes the third invisible**; a rule stated
+  nowhere at least prompts the question.
+
+  *Worked example - `(aei)`, found by the first soak, 2026-08-20.* Deduplication must be scoped per
+  destination. That rule existed in the tree, twice:
+
+  - `service/backup.py:_files_missing_on_target`'s docstring states it and names the exact
+    consequence of getting it wrong: *"keyed on per-drive presence, not the catalog-global dedup
+    that would wrongly skip a genuine second copy."*
+  - `IMPLEMENTATION_STANDARDS.md` stated it for the **preview**: *"only `file_copies` keyed by
+    `(sha256, drive_uuid)` knows where a copy sits, and the preview never asked it… Stage 1's
+    two-destination case exactly."*
+
+  **The write path was never brought along.** `organize` deduped against `SELECT … FROM files` - no
+  `drive_uuid`, no `WHERE` - so organizing 4,111 photos into a fresh second drive copied **nothing**,
+  registered a 0-file drive, and reported success while `status` warned that 4,088 files were on one
+  drive. Backup was right, preview was documented, and the surface that actually writes bytes
+  disagreed with both for as long as it existed.
+
+  **The tell to look for**: a docstring or standards line that explains why *this* surface must ask
+  a narrower question. That explanation is evidence a **general** rule was discovered and then
+  applied locally. When you find one, the question is not *"is this surface correct"* - it is
+  **"which surfaces was this never carried to"**, and the answer is worth an explicit check rather
+  than an assumption.
+
+  ⚠ **And the coverage gap that let it ship is the same shape.** No test anywhere organized into
+  **two** destinations. Every two-drive scenario in the suite reached the second drive via
+  `backup_run` - the surface that was already right - and
+  `test_drives_holding.py` calls itself *"the two-destination case"* while **fabricating both
+  `file_copies` rows** rather than running organize twice. The suite tested the rule where it held
+  and never crossed it with the surface that broke it, so a defect present from the beginning
+  looked like settled behaviour for as long as anyone had been reading.
 - **AN INSTRUMENT WHOSE PREMISE HOLDS IN THE NORMAL CASE AND QUIETLY FAILS IN THE ABNORMAL ONE IS
   UNAVAILABLE IN THE ONLY CASE IT EXISTS FOR.** The fifty-fourth member. **This is not a CI rule**,
   though all three worked examples below happen to come from one day of it. It is the same shape as

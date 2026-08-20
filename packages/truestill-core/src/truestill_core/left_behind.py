@@ -164,7 +164,7 @@ def _where(left: LeftBehind) -> str:
 #: present the counted lines come from `describe_split` instead, so the phrasing a user meets
 #: here is the phrasing they already met on the duplicate tally.
 _ONLY_REASON: tuple[str, str, str] = (
-    "they were already in your library",
+    "they were already on this drive",
     "an identical file from this batch was moved instead",
     "they matched a file recorded somewhere this build does not name",
 )
@@ -192,6 +192,4 @@ def will_remain_line(already_in_library: int) -> str | None:
     one = already_in_library == 1
     subject = "file here is" if one else "files here are"
     stays = "It stays where it is." if one else "They stay where they are."
-    return (
-        f"{already_in_library:,} {subject} already in your library and will not be moved. {stays}"
-    )
+    return f"{already_in_library:,} {subject} already on this drive and will not be moved. {stays}"

@@ -40,7 +40,7 @@ from truestill_core.models import DuplicateKind, DuplicateMatch, DuplicateOrigin
 # unrecognised token this function promises not to raise on.
 _ORIGINS: dict[str, str] = {
     DuplicateOrigin.RUN: "earlier in this batch",
-    DuplicateOrigin.CATALOG: "already in your library",
+    DuplicateOrigin.CATALOG: "already on this drive",
 }
 
 

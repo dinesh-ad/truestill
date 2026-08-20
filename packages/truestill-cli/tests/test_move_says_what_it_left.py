@@ -46,7 +46,7 @@ def test_a_move_names_the_folder_its_leftovers_are_in(
     out = capsys.readouterr().out
 
     assert "3 files remain in D/E" in out, out
-    assert "already in your library" in out, out
+    assert "already on this drive" in out, out
     assert sorted(p.name for p in (root / "D" / "E").iterdir()) == [
         "IMG_0040.jpg",
         "IMG_0041.jpg",
@@ -69,7 +69,7 @@ def test_a_move_preview_says_what_it_will_not_take(
     out = capsys.readouterr().out
 
     assert "will not be moved" in out, out
-    assert "3 files here are already in your library" in out, out
+    assert "3 files here are already on this drive" in out, out
 
 
 @_EXIFTOOL

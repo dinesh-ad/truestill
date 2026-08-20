@@ -22,6 +22,56 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aei) `organize` DEDUPED AGAINST THE CATALOG; IT NOW DEDUPES AGAINST THE DESTINATION.**
+  - ✅ **CLOSED 2026-08-20.** Organizing into a second drive copies what is not on **that** drive.
+    Measured on the soak's own 4,111-file corpus: a fresh second destination that received **0
+    files** now receives **4,105**, and `status` reads *"All catalogued content has at least two
+    drive copies. Nicely redundant."*
+  - **The defect, in one query.** `Catalog.seed_rows` is `SELECT source_path, sha256, perceptual
+    FROM files` - no `drive_uuid`, no `WHERE` - and the index it seeds is a `dict[sha256, path]`
+    with no drive dimension. *"Already in your library"* meant *this catalog has ever seen this
+    content, on any drive or on none*, so a fresh destination was registered, reported success,
+    and stayed empty while `status` warned that 4,088 files sat on only one drive.
+  - **Ruled from prior art**: restic and Borg deduplicate within a repository and separate
+    repositories get no cross-dedup; a global chunk store is the exception and exists for fleets
+    writing into one shared destination. **Truestill implemented the global model while presenting
+    the per-repository interface.** The rule is now stated in `IMPLEMENTATION_STANDARDS.md` §2,
+    which is the durable half - it had been written for backup and for the preview and never for
+    the write path.
+  - ⚠ **Scope is three-valued, and the third value is load-bearing.** `None` (no scope available)
+    keeps the catalog-global answer - that is **rclone**, deliberately never drive-tracked, which a
+    per-drive check would re-copy in full every run, and every direct API caller, so the change is
+    opt-in per call site. `{}` (local, no marker) means *nothing is here* - the branch a **preview**
+    takes on a fresh folder, since registration is gated on `--apply`; returning `None` there would
+    make a preview predict *"already in your library"* for files the run then copies.
+  - **The tautology is gone too.** The skip line named `files.source_path` - never repointed, so on
+    an ordinary re-run it was the file being skipped, saying *X is identical to X*. It now names the
+    copy's path **on this drive**, via `copy_relative`, and *"already in your library"* became
+    **"already on this drive"** on every surface, including `left_behind`'s own two copies of the
+    phrase.
+  - ⚠ **A regression I introduced and the real corpus caught, recorded because the unit tests did
+    not.** The first fix made a second drive receive **4,111** files where the first held 4,105:
+    `DedupIndex._origin_of` decides RUN-vs-CATALOG by **path string**, so re-scanning a folder the
+    catalog was ingested from makes a genuine within-run twin report `CATALOG`, and the gate demoted
+    it twice. Fixed by letting the destination grow as the run writes; pinned by
+    `test_within_batch_twins_are_not_both_copied_onto_a_second_drive`, whose fixture seeds the
+    catalog **from the same source**, which is what the passing test lacked.
+  - **`attachable_hashes` was considered and deliberately not widened**: `file_copies.sha256` is the
+    source hash, which the dual-hash rule already names as the dedup identity. Attach asks *"is this
+    file the copy we recorded"*; dedup asks *"have we placed this content"*.
+  - **One test reversed, with its record**: `test_the_same_photo_copied_to_x_is_not_moved_to_y`
+    became `..._is_moved_to_y_because_y_does_not_have_it`. ⚠ Its old docstring described the defect
+    as its mechanism - *"the index is seeded from the whole catalog rather than from what is at this
+    destination"*. Checked before changing, because move deletes originals: the three files end up
+    on **both** X and Y, so nothing leaves its only home, and the old behaviour was the surprising
+    one - a silently half-completed move.
+  - **The class is `ENGINEERING_STANDARD.md` §4's fifty-sixth member**: *a rule applied to two of
+    three surfaces reads as settled, and the third disagrees silently.* ⚠ And the coverage gap that
+    let it ship is the same shape - **no test anywhere organized into two destinations**; every
+    two-drive scenario reached the second drive via `backup_run`, the surface that was already
+    right. `(ael)` carries what remains of the CLI gap. See
+    [`research/backlog/aei.md`](research/backlog/aei.md).
+
 - **(aee) CI'S TIMEOUTS AND ITS MIRROR RETRIES WERE BOTH DEFAULTS NOBODY CHOSE.**
   - ✅ **CLOSED 2026-08-19** in `6e70ea0`, from run **32279378834**, where the ubuntu `check` lane
     sat **33+ minutes** inside `apt-get update` while the other two finished in **1m07s** and

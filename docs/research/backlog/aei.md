@@ -1,6 +1,6 @@
 # (aei) `organize` CANNOT MAKE A SECOND COPY: "ALREADY IN YOUR LIBRARY" MEANS THE CATALOG, NOT THE DRIVE.
 
-*Body of backlog entry `(aei)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aei)`, under **Shipped**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aei) `organize` CANNOT MAKE A SECOND COPY: "ALREADY IN YOUR LIBRARY" MEANS THE CATALOG, NOT
   THE DRIVE.** Found 2026-08-20 by the **first soak**, S2/S3, against 4,111 real photos and videos.
@@ -57,7 +57,16 @@
   CLI"* is the **normal** state for this product. So the normal user cannot reach the one operation
   the custody claim keeps asking for, and the obvious thing to try does the above instead.
 
-  ## WHAT IS NOT DECIDED
+  ## ✅ RULED AND BUILT 2026-08-20 - see `SHIPPED.md` for the closure
+
+  `organize` into a destination copies what is not on **that** destination; scope is three-valued
+  (`None` = no scope, so catalog-global - rclone and direct callers; `{}` = a markerless local
+  destination; populated = what `file_copies` records). The skip line names the copy's path on this
+  drive, *"already in your library"* became **"already on this drive"**, `attachable_hashes` was
+  considered and deliberately not widened, and the per-destination rule is now stated in
+  `IMPLEMENTATION_STANDARDS.md` §2. `(ael)` carries what remains of the CLI gap.
+
+  ## WHAT WAS NOT DECIDED, AS FILED
 
   - **Whether `organize` should copy to a second drive at all**, or should refuse with *"this
     content is already catalogued; use <the copy route> to put it on a second drive"*. Either is

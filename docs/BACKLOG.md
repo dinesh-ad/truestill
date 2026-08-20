@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aek). Next free: (ael).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ael). Next free: (aem).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -118,12 +118,11 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(aei) `organize` CANNOT MAKE A SECOND COPY: "ALREADY IN YOUR LIBRARY" MEANS THE CATALOG, NOT
-  THE DRIVE.** ⚠ **The first soak's headline finding.** Organizing into a fresh destination wrote
-  **nothing**, registered a **0-file** drive and reported success, while `status` warned in the
-  same breath that 4,088 files were on only one drive. The CLI has **no** second-copy route at all;
-  the app's Backups route works and was measured. Found 2026-08-20. [Full
-  entry](research/backlog/aei.md)
+- **(ael) NO CLI ROUTE COPIES A LIBRARY TO A SECOND DRIVE WITHOUT A SOURCE FOLDER.** `(aei)`
+  closed most of this - `organize <source> <second-drive>` is now the CLI's second-copy route.
+  What remains is drive-to-drive when the source folder is gone or no longer matches the drive.
+  ⚠ `backup_run` is app-side and the CLI cannot import it, so this is a **move to core**, never a
+  second implementation. Recorded 2026-08-20. [Full entry](research/backlog/ael.md)
 - **(aej) SOAK: FOUR CUSTODY SURFACES STATE SOMETHING TRUE OF ONE POPULATION AS IF IT WERE TRUE OF
   ANOTHER.** `LAST VERIFIED: never` sixteen seconds after a verify that found 7 missing files; the
   CLI `drives` table dropping a `missing_count` it already computes; *"none of these files carries

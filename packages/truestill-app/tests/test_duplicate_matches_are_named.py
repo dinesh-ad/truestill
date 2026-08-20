@@ -99,7 +99,10 @@ def test_the_two_origins_are_not_collapsed() -> None:
     from_run = _duplicate_report([_resolution("b.jpg", exact=_exact("run"))], near=False)
 
     assert from_catalog["shown"][0]["origin"] != from_run["shown"][0]["origin"]
-    assert from_catalog["shown"][0]["origin"] == "already in your library"
+    # ⚠ Wording changed by `(aei)` 2026-08-20: dedup is scoped per DESTINATION now, so the
+    # reason a file is skipped is that this drive already has it - not that the catalog has
+    # seen it somewhere. "in your library" was true of the old, catalog-wide rule.
+    assert from_catalog["shown"][0]["origin"] == "already on this drive"
     assert from_run["shown"][0]["origin"] == "earlier in this batch"
 
 

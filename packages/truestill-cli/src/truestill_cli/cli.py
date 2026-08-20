@@ -1624,6 +1624,34 @@ def _build_destination(spec: str, *, rclone: bool) -> Destination:
     return LocalDestination(Path(spec))
 
 
+def _shas_on_destination(
+    args: argparse.Namespace, drive_uuid: str | None, catalog: Catalog
+) -> dict[str, str] | None:
+    """What this destination already holds, for `(aei)`'s per-destination dedup.
+
+    Three answers, and the difference between the last two is the whole point - see
+    `organizer._is_elsewhere`:
+
+    * **rclone** -> ``None``. Drive tracking is scoped to local destinations on purpose
+      (`_local_drive_marker`), so a remote has no drive identity and `file_copies` can say
+      nothing about it. Asking a per-drive question anyway would re-copy the whole remote every
+      run. The catalog-global answer is the only one available and stays correct: an rclone
+      remote is one always-online destination, which is the case global dedup actually fits.
+    * **local, registered** -> sha -> the relative path recorded on that drive, which also
+      lets the skip line name where the copy actually is.
+    * **local, no marker** -> ``{}``. It provably holds no recorded copies. ⚠ This is
+      the branch a PREVIEW takes on a fresh folder, because registration is gated on ``--apply``.
+      Returning ``None`` here would make a preview predict "already in your library" for files
+      the run then copies - a preview disagreeing with its own run, which is worse than the bug
+      this fixes.
+    """
+    if args.rclone:
+        return None
+    if drive_uuid is None:
+        return {}
+    return {str(r["sha256"]): str(r["relative"]) for r in catalog.copies_on_drive(drive_uuid)}
+
+
 def _local_drive_marker(args: argparse.Namespace) -> DriveMarker | None:
     """Drive identity of a local destination, if it carries a ``.truestill-drive.json`` marker.
 
@@ -1693,7 +1721,7 @@ def _format_exact(resolution: Resolution) -> str:
         return f"  {resolution.decision.source.name}  [not a duplicate]"
     return (
         f"  {resolution.decision.source.name}  [SKIP: exact duplicate]\n"
-        f"      identical to : {match.matched_path}\n"
+        f"      already here : {match.matched_path}\n"
         f"      via          : SHA-256, {origin_phrase(match.origin)}"
     )
 
@@ -2294,6 +2322,7 @@ def _run_pipeline(
             workers=args.workers,
             progress=_progress_printer("hashing"),
             cache=cache,
+            on_destination=_shas_on_destination(args, drive_uuid, catalog),
         )
 
         events: dict[str, Event] = {}

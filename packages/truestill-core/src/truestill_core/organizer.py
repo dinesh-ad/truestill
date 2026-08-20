@@ -55,6 +55,8 @@ from truestill_core.models import (
     DateSource,
     Decision,
     DuplicateKind,
+    DuplicateMatch,
+    DuplicateOrigin,
     Event,
     Resolution,
     RuleName,
@@ -671,6 +673,69 @@ def plan(
     return decisions
 
 
+def _scope_to_destination(
+    exact: DuplicateMatch,
+    sha256: str | None,
+    on_destination: Mapping[str, str] | None,
+    landing_here: set[str],
+) -> DuplicateMatch | None:
+    """Re-judge an exact match against the DESTINATION, and name where the twin actually is.
+
+    Returns ``None`` when the content is not on this destination - it is a genuine second copy
+    and must be written - and otherwise the same match re-pointed at the copy's path **on this
+    drive**, so the skip line can say *"already on this drive: 2020/2020-06/IMG_1234.jpg"*
+    instead of naming `files.source_path`, which is where the content was first read from and is
+    deliberately never repointed. On the most ordinary re-run that source path IS the file being
+    scanned, so the old line said *X is identical to X*.
+
+    **Dedup is scoped per destination, not per catalog.** Every serious backup tool works this
+    way - restic and Borg deduplicate within a repository and separate repositories get no
+    cross-dedup - and the one common exception, a global chunk store, exists for fleets writing
+    into a single shared destination, which is the opposite of a drives-in-a-drawer library.
+    Truestill implemented the global model while presenting the per-repository interface, so
+    organizing into a second drive skipped every file the first drive already held. `(aei)`.
+
+    **A RUN-origin match is always honoured**, whatever the destination: two byte-identical files
+    in one batch produce one copy, because the twin is being written by this very run.
+
+    ⚠ **``on_destination`` is THREE-VALUED and the third value is load-bearing.**
+
+    * ``None`` - *no per-drive scope is available*, so the catalog-global answer is the only one
+      there is. The default, so every direct caller keeps the behaviour it had and this change is
+      opt-in per call site rather than a silent flip. It is also what an **rclone** remote gets:
+      drive tracking is scoped to local destinations on purpose - "always-online cloud, not
+      drives-in-a-drawer" - and asking a per-drive question about a destination with no drive
+      identity would re-copy the entire remote on every run.
+    * ``{}`` - a local destination with no marker, which provably holds no recorded copies.
+      Distinct from ``None``: this is *"nothing is here"*, not *"we cannot say"*.
+    * populated - sha -> the relative path ``file_copies`` records on this drive.
+    """
+    if on_destination is None or sha256 is None:
+        return exact
+    if sha256 in landing_here:
+        # ⚠ THIS RUN IS ALREADY WRITING THIS CONTENT HERE, so the destination HAS it by the time
+        # the twin is reached. Without this, two byte-identical files in one batch are both
+        # copied whenever the catalog was seeded from the same folder - because `_origin_of`
+        # decides RUN-vs-CATALOG by PATH STRING, and re-scanning a folder that was ingested from
+        # registers a path that is already a catalog path, so a genuine within-run twin reports
+        # `CATALOG`. Found on the real 4,111-file corpus, which wrote 6 redundant copies; the
+        # unit test missed it because its catalog held no paths from the same source.
+        return exact
+    # ⚠ OVERLAPPING DEFENCE WITH `landing_here` ABOVE, AND MUTATION SAYS SO: replacing this
+    # condition with `False` kills no test, because a RUN-origin twin is by construction a sha
+    # this run has already placed, so the check above catches it first. It is kept rather than
+    # deleted - `ENGINEERING_STANDARD.md` §4's overlapping-defence case: the honest move is to
+    # record that the pair covers the outcome, not to remove a defence so a mutant bites harder.
+    # It also states the rule directly ("a RUN match is always honoured") instead of leaving it
+    # implicit in how `landing_here` happens to be maintained.
+    if exact.origin is not DuplicateOrigin.CATALOG:
+        return exact
+    here = on_destination.get(sha256)
+    if here is None:
+        return None
+    return replace(exact, matched_path=here)
+
+
 def resolve(
     decisions: Iterable[Decision],
     index: DedupIndex,
@@ -682,6 +747,7 @@ def resolve(
     cancel: threading.Event | None = None,
     cache: HashCache | None = None,
     perceptual: bool = True,
+    on_destination: Mapping[str, str] | None = None,
 ) -> list[Resolution]:
     """Hash each file (concurrently) and classify it, updating ``index`` as it goes.
 
@@ -710,6 +776,8 @@ def resolve(
     )
 
     resolutions: list[Resolution] = []
+    #: Shas this run has decided to write HERE. The destination grows as the run goes.
+    landing_here: set[str] = set()
     for decision in decision_list:
         # A cancelled hashing pass returns only what it finished, so a decision may have no
         # entry. Stop cleanly at the first gap and return the partial result: cancelling is a
@@ -721,6 +789,14 @@ def resolve(
 
         exact = match if match is not None and match.kind is DuplicateKind.EXACT else None
         near = match if match is not None and match.kind is DuplicateKind.PERCEPTUAL else None
+        if exact is not None:
+            # Known to the catalog is not the same as present on THIS destination. `(aei)`.
+            # Leaving `near` untouched is deliberate: the bytes match exactly, it is simply not
+            # here, and calling that a near-duplicate would flag for review something that
+            # needs none.
+            exact = _scope_to_destination(exact, file_hashes.sha256, on_destination, landing_here)
+        if exact is None and file_hashes.sha256 is not None:
+            landing_here.add(file_hashes.sha256)
 
         if exact is None:
             # Uploaded files (unique or near-dup) go into the index so later files compare

@@ -402,11 +402,35 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   the `row["column"]` that stops resolving found by whoever runs that path next rather than by a
   test. The lists are what the tables held on the day they were written; that is the whole point
   of them.
+- **Dedup is scoped PER DESTINATION, never per catalog.** `organize` into a destination writes
+  what is not **on that destination**. The question is *"is this content already on this drive"* -
+  answerable from `file_copies`, keyed by `(sha256, drive_uuid)`, without touching disk - and it is
+  **not** *"is this content anywhere in the catalog"*. Every serious backup tool works this way:
+  restic and Borg deduplicate within a repository and separate repositories get no cross-dedup; the
+  one common exception, a global chunk store, exists for fleets writing into a single shared
+  destination, which is the opposite of drives-in-a-drawer. ⚠ **Truestill implemented the global
+  model while presenting the per-repository interface until 2026-08-20**: organizing into a fresh
+  second drive copied **nothing**, registered a 0-file drive and reported success, while `status`
+  warned in the same breath that 4,088 files sat on only one drive (`(aei)`, found by the first
+  soak). **Scope is three-valued and the third value is load-bearing** - see
+  `organizer._scope_to_destination`: **no scope available** (an rclone remote, which is deliberately
+  never drive-tracked, and every direct API caller) falls back to the catalog-global answer; **an
+  empty scope** (a local destination with no marker, which is what a preview of a fresh folder sees,
+  since registration is gated on `--apply`) means *nothing is here*; **a populated scope** is what
+  `file_copies` records. Conflating the first two re-copies an rclone remote in full every run;
+  conflating the second two makes a preview disagree with its own run. Pinned by
+  `test_a_second_destination_receives_the_files.py`.
 - **Dual-hash rule.** `files.sha256` is the **source** (pre-write) hash - the **dedup
   identity**. `files.copy_sha256` is the organized copy's **post-write** hash - the
   **verification identity** (equal to `sha256` for the byte-identical normal pipeline; differs
   after a Takeout metadata write). Any future copy-verification compares against
-  `copy_sha256`, never `sha256`. Recorded by `catalog.record_uploaded`.
+  `copy_sha256`, never `sha256`. Recorded by `catalog.record_uploaded`. ⚠ **The per-destination
+  scope above uses `file_copies.sha256`, which is the SOURCE hash, so it reads the dedup identity
+  and this rule is unchanged.** Widening it to the identities `catalog.attachable_hashes` accepts -
+  which unions `files.copy_sha256` and `file_copies.copy_sha256`, because attach must recognise a
+  copy that was re-written - was **considered and deliberately not done** (`(aei)`, 2026-08-20):
+  attach asks *"is this file the copy we recorded"*, dedup asks *"have we placed this content"*,
+  and the dual-hash rule already names which hash answers the second.
 
 ### 3.1 On-disk drive marker (and legacy-name compatibility)
 
