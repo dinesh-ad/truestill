@@ -41,6 +41,7 @@ import re
 from pathlib import Path
 
 from PIL import Image, ImageOps
+from PIL.ExifTags import IFD
 
 # Imported for its IMPORT-TIME SIDE EFFECTS, not for a name, and that is why it is not an unused
 # import: `hashing` registers the pillow-heif opener and raises `Image.MAX_IMAGE_PIXELS` to 300 MP
@@ -141,9 +142,109 @@ def _fitted(width: int, height: int) -> tuple[int, int]:
     return max(1, round(width * THUMB_PX / height)), THUMB_PX
 
 
+#: EXIF ``Orientation``. Named because it is written here and read by `ImageOps.exif_transpose`,
+#: and a bare `0x0112` at a call site is a magic number the next reader has to look up.
+_ORIENTATION_TAG = 0x0112
+
+#: Where `pillow_heif`'s Pillow plugin puts the orientation it removed. Its own key, not ours.
+_HEIF_STASHED_ORIENTATION = "original_orientation"
+
+
+#: EXIF ``PixelXDimension`` / ``PixelYDimension``, in the Exif sub-IFD. They describe the image as
+#: **stored**, which is what makes them the discriminator below.
+_STORED_EXTENT_TAGS = (0xA002, 0xA003)
+
+
+def _stored_extent(image: Image.Image) -> tuple[int, int] | None:
+    """The size EXIF says the image is stored at, or ``None`` when it does not say."""
+    try:
+        sub = image.getexif().get_ifd(IFD.Exif)
+    except (KeyError, OSError, ValueError, SyntaxError):  # a malformed EXIF block is not fatal here
+        return None
+    width, height = (sub.get(tag) for tag in _STORED_EXTENT_TAGS)
+    if isinstance(width, int) and isinstance(height, int) and width > 0 and height > 0:
+        return width, height
+    return None
+
+
+def _pending_heif_orientation(image: Image.Image) -> int | None:
+    """The turn `pillow_heif` removed that libheif did **not** already apply, or ``None``. `(aeu)`
+
+    ⚠ **CALL THIS BEFORE `draft`/`thumbnail`.** It compares the DECODED size against the stored
+    extent, and both of those resize the image - after them the comparison is meaningless and
+    would answer "already applied" for everything.
+
+    **Why a comparison is needed at all, and why the obvious fix is wrong.** HEIF can express a
+    rotation twice: as the container property ``irot``, which libheif applies while decoding, and
+    as the legacy EXIF ``Orientation`` tag. Apple writes **both**. So the stash alone cannot say
+    whether a turn is still pending, and re-applying it on a file that has one double-rotates.
+    Measured on four real HEICs: three carry ``irot`` and decode already upright, one carries only
+    the EXIF tag and decodes flat. A fix keyed on the stash alone corrected the one and **broke
+    the three** - caught before it shipped, by checking the real files rather than the fixture.
+
+    **The discriminator, which needs nothing we do not already hold**: EXIF's own
+    ``PixelXDimension``/``PixelYDimension`` describe the image as **stored**. If the decoded size
+    differs from them, libheif transformed it and the tag is spent; if it matches, the turn is
+    still pending and `exif_transpose` must do it.
+
+    ⚠ **LIMITED TO THE TRANSPOSING TURNS, DELIBERATELY, AND THIS IS A KNOWN GAP.** Orientations 2,
+    3 and 4 mirror or turn 180 degrees, which leaves both dimensions unchanged - so the comparison
+    reads "sizes match" whether or not libheif already applied them, and acting on it could turn a
+    correct picture upside down. That is `(adp)`'s own blind spot restated: *"a 180-degree rotation
+    leaves width and height alone, so every measurement of shape agrees with a picture that is
+    upside down."* An EXIF-only HEIC carrying orientation 3 therefore stays as it renders today.
+    Closing it needs the container read for ``irot``, which is a parser this module does not have
+    and should not grow for one case.
+    """
+    stashed = image.info.get(_HEIF_STASHED_ORIENTATION)
+    if not isinstance(stashed, int) or stashed not in _TRANSPOSING_ORIENTATIONS:
+        return None
+    stored = _stored_extent(image)
+    # No stored extent means we cannot tell, and the safe default is the majority case: files
+    # carrying `irot` decode upright already, so doing nothing leaves them right.
+    if stored is None or stored != image.size:
+        return None
+    return stashed
+
+
+def _restore_heif_orientation(image: Image.Image, pending: int | None) -> None:
+    """Put back the orientation `pillow_heif` removed, so `exif_transpose` can act on it. `(aeu)`
+
+    **The defect this closes, measured rather than reasoned about.** `pillow_heif`'s *Pillow
+    plugin* path calls `set_orientation` on open, whose own docstring is *"Reset orientation in
+    EXIF to 1 if any orientation present"* - and `as_plugin.py` contains **no transpose at all**.
+    So the pixels stay as stored, the tag is zeroed, and the value is stashed under
+    ``info["original_orientation"]``. `ImageOps.exif_transpose` then reads a 1 and does nothing.
+
+    Its sibling path, `HeifImage.to_pillow`, *does* rotate - so the two ways of opening the same
+    file disagree, and the one Pillow's `Image.open` reaches is the one that does not.
+
+    Measured on `metadata-extractor-images`: **4 of 20** HEIC files, every one `exiftool=6 /
+    PIL=1`, including an iPhone 13 Pro Max capture. `(adp)` measured this class at **33.3%** of a
+    real corpus and fixed it for JPEG; HEIC is what current phones write, so on a modern library
+    this is the whole rotated class.
+
+    ⚠ **Nothing here is HEIF-specific except the key.** The stash is set only by `pillow_heif`, so
+    a JPEG, PNG or TIFF never has it and this is inert for them - which is why it sits in `render`
+    rather than behind a suffix check that would rot the first time a format is added.
+
+    ⚠ **This is a WORKAROUND for a library's behaviour, and it is written to fail loudly if that
+    behaviour changes.** If `pillow_heif` ever starts rotating in the plugin path while still
+    stashing the value, this would rotate twice - and
+    `test_every_orientation_is_applied_on_heif_too` goes red the moment it does, in both
+    directions, because it asserts the shape for all eight orientations and its sibling asserts an
+    untagged file is left alone. The guard is the contract with upstream, not this comment.
+    """
+    if pending is not None:
+        image.getexif()[_ORIENTATION_TAG] = pending
+
+
 def render(source: Path) -> bytes:
     """Decode ``source`` at reduced scale and return WebP bytes. Raises on anything unreadable."""
     with Image.open(source) as image:
+        # ⚠ BEFORE `draft`, because it compares the decoded size against the stored extent and
+        # both `draft` and `thumbnail` change that size. `(aeu)`
+        pending = _pending_heif_orientation(image)
         # Ask libjpeg for the smallest DCT scale that still covers the target. A no-op for formats
         # that cannot do it, which is why it is safe unconditionally, and a no-op upward: a source
         # already smaller than THUMB_PX is left at its own size rather than enlarged.
@@ -160,6 +261,7 @@ def render(source: Path) -> bytes:
         # scaling this function exists for. Measured over 40 corpus photos: **27.00 ms/file with
         # the transpose last, 117.82 ms/file with it first.** Same output either way - verified,
         # both orders give (240, 320) on a rotated source - so the cheap order is free.
+        _restore_heif_orientation(image, pending)
         upright = ImageOps.exif_transpose(image)
         buffer = io.BytesIO()
         # `convert` after `thumbnail`: a palette or CMYK source cannot be saved as WebP directly,

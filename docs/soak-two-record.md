@@ -38,6 +38,11 @@ devices, which is the axis argument paying for itself on its first run.
 3. **`(aet)`** a single undecodable file **aborts the whole run** with a traceback - 8 of 1,428.
 4. **`(aeu)`** on HEIC the **payload and the pixels disagree** about orientation. 4 of 20, one of
    them `iphone_13_pro_max.HEIC`.
+   > ⚠ **CORRECTED 2026-08-21, beside the finding rather than into it.** *"4 of 20"* counted files
+   > where exiftool and PIL disagree about the **tag**. Only **1 of 20** actually rendered
+   > sideways; the other three carry `irot`, decode upright already, and a fix aimed at all four
+   > broke them. The proxy could not distinguish a wrong picture from a redundant tag. Outcome and
+   > the remaining payload half are in [`research/backlog/aeu.md`](research/backlog/aeu.md).
 5. **`(aev)`** **131 raw Pillow warnings** reached the terminal in one run, against a docstring
    that says none ever do.
 

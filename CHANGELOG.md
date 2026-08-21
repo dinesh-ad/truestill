@@ -45,6 +45,10 @@ All notable changes to this project are documented here. The format follows
   A group you have already named shows its name instead, and is never offered a suggestion.
 
 ### Fixed
+- **Photos from an iPhone or a modern camera saved as HEIC are no longer shown on their side.**
+  Some HEIC files record "turn this a quarter turn" in a way Truestill was reading but not
+  applying, so the thumbnail came out landscape for a photo taken in portrait. Photos that were
+  already the right way up are untouched - the fix can tell the two apart.
 - **Setting up a new drive on a full disk now tells you so, instead of crashing.** Pointing
   `organize` at a folder that is not a drive yet, on a disk with no room, used to end in a Python
   stack trace - a few steps from a copy that would have named every file it could not write.

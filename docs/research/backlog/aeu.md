@@ -1,6 +1,51 @@
 # (aeu) ON HEIC THE PAYLOAD AND THE PIXELS DISAGREE ABOUT ORIENTATION.
 
-*Body of backlog entry `(aeu)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aeu)`, **PARTLY BUILT 2026-08-21** - the pixels half is fixed, the payload half is open. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+
+> ## ⚠ CORRECTIONS AND OUTCOME, 2026-08-21 - beside the finding, not into it
+>
+> **1. THE POPULATION WAS OVERSTATED. It is 1 of 20 drawn sideways, not 4.** The finding measured
+> *tag disagreement* - exiftool 6 vs PIL 1, true of four files - and read it as four wrong
+> pictures. Only **one** actually rendered sideways. The other three were correct all along, and a
+> fix aimed at all four **broke them**. Measuring the proxy instead of the property is
+> `ENGINEERING_STANDARD.md` §4's *"when a census measures a PROXY, ask what the proxy cannot
+> distinguish"*, and this is that member catching its author.
+>
+> **2. THE ROOT CAUSE IS NOT "pillow_heif zeroes the tag" ALONE.** HEIF expresses rotation
+> **twice**: the container property `irot`, which libheif applies while decoding, and the legacy
+> EXIF `Orientation`. Apple writes both. Measured on the four:
+>
+> | file | `irot` | decoded | needs the tag applied |
+> |---|---|---|---|
+> | `Issue 437 (dotnet).heic` | absent | flat | **yes** - this is the defect |
+> | `iphone_13_pro_max.HEIC` | present | already upright | no - applying it again turns it sideways |
+> | `Issue 263 dotnet.heic` | present | already upright | no |
+> | `Issue 487.heic` | present | already upright | no |
+>
+> **3. FIXED: the pixels half.** `thumbnails._pending_heif_orientation` restores the stashed
+> orientation **only when EXIF's own `PixelXDimension`/`PixelYDimension` match the decoded size**,
+> which is exactly the case where libheif did not transform. No container parser, no exiftool call,
+> nothing the module did not already hold. All 20 HEIC/HEIF/AVIF in the corpus now render with
+> payload and pixels agreeing except the one below.
+>
+> **4. STILL OPEN: the payload half, and it is the MIRROR of what was fixed.**
+> `HMD_Nokia_8.3_5G.heif` carries the rotation **only** in `irot`, with EXIF `Orientation=1`.
+> libheif applies it, so the **pixels are right** (portrait) - and `_tile_shape` asks exiftool,
+> which reports the **stored** extent plus orientation 1 and never surfaces `irot`, so the
+> **payload is wrong** (landscape). Same disagreement, opposite direction, different surface.
+> That is what keeps this entry open.
+>
+> **5. KNOWN GAP, pinned rather than hidden.** Orientations 2, 3 and 4 leave both dimensions
+> unchanged, so the stored-vs-decoded comparison cannot tell an applied turn from a pending one -
+> `(adp)`'s own blind spot, *"a 180-degree rotation leaves width and height alone"*. An EXIF-only
+> HEIC turned 180 therefore still renders wrong. Asserted by
+> `test_an_exif_only_heif_turned_180_is_a_known_gap`, **`xfail(strict=True)`**, so widening the
+> condition turns it into a failure and whoever does it must confront the double-rotation risk.
+>
+> **6. A MUTATION SURVIVED UNTIL THE CRY-WOLF TEST EXISTED.** Mutating the condition to apply the
+> stash *unconditionally* killed nothing - the suite covered "never rotate" and not "rotate twice",
+> which is the direction that broke the three real files. §4's thirty-first member: mutate to
+> *always* and to *never*, or you have measured whichever half you picked.
 
 - **(aeu) `(adp)`'s DEFECT SURVIVES ON THE FORMAT MODERN PHONES USE.** Found 2026-08-21 by soak
   two, S12.
