@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aeq). Next free: (aer).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aev). Next free: (aew).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -118,6 +118,28 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
+- **(aet) ONE UNDECODABLE FILE ABORTS THE WHOLE RUN WITH A TRACEBACK.** `perceptual_hash` catches
+  `OSError`/`ValueError`/`UnidentifiedImageError`/`DecompressionBombError`; **`EOFError` and
+  `SyntaxError` are neither** and escape. 8 of 1,428 format-corpus files do it, and any one aborts
+  everything - against §1's *"one bad file never aborts a batch"*. Found 2026-08-21 by soak two.
+  [Full entry](research/backlog/aet.md)
+- **(aeu) ON HEIC THE PAYLOAD AND THE PIXELS DISAGREE ABOUT ORIENTATION.** `_tile_shape` says
+  portrait `1848x4000` (exiftool `Orientation=6`); `render` draws landscape (pillow_heif applies
+  the container rotation at decode and reports `1`). **4 of 20**, one an iPhone 13 Pro Max file.
+  ⚠ Sharing `upright_size` made the two callers agree on the RULE and not on the INPUT. `(adp)`'s
+  defect on the format modern phones use. Found 2026-08-21. [Full entry](research/backlog/aeu.md)
+- **(aer) ORGANIZE'S SKIPPED REPORT DROPS HIDDEN FILES AND HIDDEN FOLDERS.** A folder of 21 photos,
+  18 in `.MyAlbum`, reported *"analysed 3, organized 3"* and **success**; `analyze` names it.
+  `_print_skipped` reads 4 of `SourceScan`'s 6 skip buckets and `scan.hidden` is read nowhere
+  outside core. Quiet, on the happy path. Found 2026-08-21. [Full entry](research/backlog/aer.md)
+- **(aes) `status` SAYS "NEVER CHECKED" ABOUT A DRIVE IT JUST CHECKED AND FOUND WANTING.**
+  `custody_freshness` reads the drive-level stamp, which `(abg)` correctly leaves NULL when a
+  verify finds gaps - so NULL now means both *never looked* and *looked and found gaps*. `drives`
+  derives from the evidence and is right. A fourth surface for `(aej)`. Found 2026-08-21.
+  [Full entry](research/backlog/aes.md)
+- **(aev) 131 RAW PILLOW WARNINGS REACHED THE TERMINAL** in one run, against a docstring saying
+  *"no raw Pillow warning ever reaches the user's terminal"* - the suppression covers one class.
+  Found 2026-08-21. [Full entry](research/backlog/aev.md)
 - **(ael) NO CLI ROUTE COPIES A LIBRARY TO A SECOND DRIVE WITHOUT A SOURCE FOLDER.** `(aei)`
   closed most of this - `organize <source> <second-drive>` is now the CLI's second-copy route.
   What remains is drive-to-drive when the source folder is gone or no longer matches the drive.

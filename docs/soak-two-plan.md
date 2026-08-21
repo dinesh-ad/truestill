@@ -1,6 +1,6 @@
 # Soak two - the step list
 
-**Written 2026-08-21. NOT RUN.** The corpus question that blocked it is **ruled** (§1):
+**Written 2026-08-21. ⚠ RAN 2026-08-21 - the results are in [`soak-two-record.md`](soak-two-record.md), and this plan is left as written.** The corpus question that blocked it is **ruled** (§1):
 `Input/Testing-new` is out of scope, and the claim that ruling rests on was verified rather than
 taken from the document that states it.
 
