@@ -64,7 +64,17 @@ recording shipped work as unstarted, which is the more expensive direction of th
     ask whether that uuid answers elsewhere **before** overwriting the evidence, and `(afc)`'s own
     refactor **defeated its detector** by moving the write behind a helper - its count test caught
     that, and the detector now knows both shapes.
-  - **Five mutations, one survived**: nothing pinned `set_local_setting`'s refusal.
+  - **Five mutations. One survived the first pass and was then KILLED**, which is the resolution
+    rather than the whole story: nothing pinned `set_local_setting`'s refusal of a
+    document-carried key, so removing the check failed no test.
+    `test_a_setting_the_document_would_carry_is_refused` was written for it and the mutation is
+    caught. ⚠ **All five are caught against the code as shipped.**
+    > *Correction, 2026-08-21, beside the line rather than into it: this first read "Five
+    > mutations, one survived", which is true of the first pass and reads as unresolved. Every
+    > other entry this week states the resolution - killed, code changed, or an explained
+    > equivalent - and this one did not. The resolution is **killed by a test written for it**;
+    > compare `(aey)`, where a surviving mutant was resolved by changing the **code** instead,
+    > because the branch it removed carried no weight.*
 
 - **(afb) THE THIRD BARE PREDICATE IN A DELETE PATH, FOUND BY SWEEPING RATHER THAN BY A FAILURE.**
   - ✅ **CLOSED 2026-08-21.** `cleanup.plan_cleanup` gated on a bare `folder.is_dir()`. With the
