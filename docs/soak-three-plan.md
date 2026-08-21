@@ -1,6 +1,6 @@
 # Soak three - what the product does when the filesystem says no
 
-**Status: written 2026-08-21, NOT RUN.** Soaks one and two organized a healthy library at scale.
+**Status: written 2026-08-21. RAN the same day - see [`soak-three-record.md`](soak-three-record.md).** Soaks one and two organized a healthy library at scale.
 This one does not: every step makes something refuse, and reads what the product then says.
 
 ## Why refusal, and why now

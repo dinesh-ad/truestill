@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(afb). Next free: (afc).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(afe). Next free: (aff).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -118,6 +118,28 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
+- **(afe) A CATALOG THAT GOES UNWRITABLE MID-RUN ABORTS WITH A TRACEBACK AND LEAVES A FILE IT DID
+  NOT RECORD.** `chmod 555` on the catalog's directory once five files had landed: the batch
+  **aborted** (§1), the last line the user sees is `sqlite3.OperationalError: attempt to write a
+  readonly database` with our own line numbers (§9), no `EXECUTED` block prints, and **48 files
+  are on disk against 47 rows** - the state `rescan` repairs, reached silently. ⚠ The gap is in
+  the safe direction (a file with no row, never a row with no file). Found 2026-08-21 by **soak
+  three R5**. [Full entry](research/backlog/afe.md)
+- **(afd) THE ONE UNCAPPED LIST IN THE PRODUCT IS THE FAILURE LIST, AND IT PRINTS RAW `OSError`
+  TEXT.** A destination that refused after preflight produced **233 `FAILED` lines and 2,004 lines
+  of output**, each carrying `[Errno 13] Permission denied: '<src>' -> '<dst>.partial'`.
+  `_STATUS_PREVIEW` caps **16** other lists in the same file; the one that generates a line per
+  remaining file is not capped. ⚠ Every safety property held - catalog matched disk exactly, a
+  re-run resumed, full §1 accounting - so this is wording and volume, not corruption. Found
+  2026-08-21 by **soak three R3**. [Full entry](research/backlog/afd.md)
+- **(afc) `verify` TELLS A USER TO RE-REGISTER A DRIVE THAT IS MERELY UNMOUNTED, AND FOLLOWING IT
+  BREAKS THE DRIVE.** A cleanly unmounted mountpoint is **there, a directory, and empty**, so
+  `path_is_usable_dir` says usable and the code falls through to *"isn't a Truestill drive yet -
+  register it with `drives --init`"*. Doing so mints a **second drive identity** and writes a
+  marker **into the mountpoint**, after which the real drive **cannot be mounted there again**.
+  ⚠ The correct wording already exists and fires on the unclean case (`ENOTCONN`), and
+  `cli.py:1084` states the rule it breaks - this is `(aap)` reached through a third state its
+  guard cannot see. Found 2026-08-21 by **soak three R4**. [Full entry](research/backlog/afc.md)
 - **(afa) A PATH THE PRODUCT KNOWS WAS REFUSED IS STILL NOT REPORTED TO ANYONE.** After `(aey)`,
   `date_rescue` and `drive_adoption` branch on `Reach.REFUSED` explicitly and then say nothing -
   a limitation became a decision, and the decision is silence. ⚠ **`(aer)`'s shape, third
