@@ -215,6 +215,64 @@ def unreadable_label(reason: UnreadableReason) -> str:
     return _UNREADABLE_LABELS.get(reason, reason.value)
 
 
+class FolderSkip(StrEnum):
+    """Why a FOLDER was not looked inside. The sibling of :class:`UnreadableReason`. `(aer)`
+
+    ⚠ **The pairing is the lesson.** A file carries a reason **and a count**, because the number
+    is known exactly. A folder carries a reason and **never a count**: the walk did not go in, so
+    the number of files inside is precisely what is unknown, and stating one would invent it.
+    `SourceScan`'s own docstring calls this *"a different kind of fact from every other list
+    here"*, which is why folders are not folded into `skipped_extension_counts` - that structure's
+    values are counts of files, and a number there meaning *folders* would be two shapes in one
+    string.
+
+    Two members rather than a boolean because each is a **different next action**: a hidden folder
+    is the user's own naming and they can rename it; an unreadable one is a permission or a disk.
+    """
+
+    HIDDEN = "hidden"  # the walk never descended, deliberately - a dot-file is not a photo
+    UNREADABLE = "unreadable"  # the walk could not descend
+
+
+#: Headings, kept here for the reason `_STATUS_LABELS` and `_UNREADABLE_LABELS` are here: §9's
+#: "one source of outcome wording". Three surfaces render these and none of them may hold its own
+#: copy - the duplication `(aer)` found was this same sentence written twice in one file.
+#:
+#: ⚠ **A FOLDER IS "OPENED", A FILE IS "READ", AND THE TWO VERBS ARE LOAD-BEARING.** The CLI wrote
+#: *"folders that could not be read"* directly above *"files that could not be read: 2"* - one
+#: phrase for two facts, one of which carries a count and one of which must never. The browser had
+#: it right (*"could not be opened"*) and pins it: `test_unreadable_sources_are_visible.py` asserts
+#: the folder block does **not** contain the file phrase, because reusing it invites the count the
+#: folder line deliberately withholds. Unifying on the CLI's phrasing would have carried the
+#: collision to all three surfaces; the browser lane is what caught it, and `make check` could not.
+_FOLDER_SKIP_LABELS: dict[FolderSkip, str] = {
+    FolderSkip.HIDDEN: "hidden folders (not looked inside)",
+    FolderSkip.UNREADABLE: "folders that could not be opened",
+}
+
+#: What to do about it. **Naming a problem without a remedy is half a report**, which is
+#: `c027dd3`'s wording and the reason these live beside the labels rather than at a call site.
+#: ⚠ **SURFACE-NEUTRAL, and that is a deliberate change from what each surface said.** The CLI
+#: wrote *"then run again"* and the browser *"then preview again"*, because one runs and one
+#: previews - a real difference that produced three copies of one sentence, two of which said the
+#: same thing in different words. *"try again"* is true of both, so one string can serve them and
+#: the wording cannot drift by surface.
+_FOLDER_SKIP_REMEDIES: dict[FolderSkip, str] = {
+    FolderSkip.HIDDEN: "rename it without the leading dot and try again to include what is in it",
+    FolderSkip.UNREADABLE: "check the folder's permissions and try again to include what is inside",
+}
+
+
+def folder_skip_label(reason: FolderSkip) -> str:
+    """The heading a person reads for this group. Never the raw enum value."""
+    return _FOLDER_SKIP_LABELS.get(reason, reason.value)
+
+
+def folder_skip_remedy(reason: FolderSkip) -> str:
+    """What to do about it, in one place, so no surface can word it differently."""
+    return _FOLDER_SKIP_REMEDIES.get(reason, "")
+
+
 @dataclass(frozen=True, slots=True)
 class FileHashes:
     """The two content signals computed for a file, and whether it could be read at all.

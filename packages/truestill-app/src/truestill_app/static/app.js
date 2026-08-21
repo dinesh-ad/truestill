@@ -2325,13 +2325,30 @@ function renderSkippedDetails(sk) {
 // clean-looking preview; adding its file sibling while leaving that unrendered would have
 // rebuilt the same silence one layer down.
 //
+// ⚠ `(aer)`: that field is now `skipped_folders`, one structure covering every reason a folder
+// was not entered. It carried ONLY unreadable ones, so a HIDDEN folder holding an album reached
+// no app surface at all - the same silence again, in the half nobody had looked at.
+//
 // FILES CARRY A COUNT AND FOLDERS DO NOT, deliberately. For a folder the number of files inside
 // is exactly what could not be read, so stating one would invent the missing figure. For a file
 // the number is known exactly. Do not "make these consistent".
+// Upper-case the first letter of a shared clause so it can open a sentence. `(aer)`
+//
+// Wording lives in `models` once and every surface prints it verbatim, but the surfaces punctuate
+// differently: the CLI brackets the remedy, the browser gives it its own line after a full stop.
+// This is the whole of the difference, and keeping it to a `charAt` is deliberate - anything that
+// rewrote words here would be the per-surface copy the shared string exists to remove.
+function sentence(text) {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 function renderUnreadable(s) {
   const files = s.unreadable_files || { total: 0, shown: [] };
-  const folders = s.unreadable_folders || [];
-  if (!files.total && !folders.length) return "";
+  // `(aer)`: ONE structure, whose `reason` is a value rather than a field. Hidden folders and
+  // unreadable ones are the same shape - a folder the walk did not enter, named without a count -
+  // and what differs is why and what to do, which the payload carries already worded.
+  const groups = s.skipped_folders || [];
+  if (!files.total && !groups.length) return "";
   const fileRows = files.shown
     .map((f) => `<div class="mono">${esc(f.name)} - ${esc(f.reason)}</div>`)
     .join("");
@@ -2343,14 +2360,31 @@ function renderUnreadable(s) {
        ${fileRows}${more}
        <div class="k">Not organized. Fix the permission or check the disk, then preview again.</div>`
     : "";
-  const folderRows = folders
-    .map((f) => `<div class="mono">${esc(f)} - contents unknown</div>`)
+  // ⚠ NO REASON-TO-SENTENCE MAP LIVES HERE, and that is the point of the payload's shape. The
+  // heading and the remedy are worded once in `models.folder_skip_label` / `folder_skip_remedy`
+  // and printed verbatim - the same rule `unreadable_files` already follows for its `reason`.
+  // A map in the browser would have moved `(aer)`'s duplication rather than removed it: this
+  // block used to hold a THIRD copy of the unreadable remedy, worded differently again.
+  const foldersBlock = groups
+    .map((g) => {
+      const rows = g.folders
+        .map((f) => `<div class="mono">${esc(f)} - contents unknown</div>`)
+        .join("");
+      // Truncation is never silent, and the number is of FOLDERS - never of the files inside
+      // them, which is exactly what the walk did not find out.
+      const more = g.total > g.folders.length
+        ? `<div class="k">… and ${nfmt(g.total - g.folders.length)} more.</div>` : "";
+      // ⚠ `sentence()` UPPER-CASES A LETTER; it does not word anything. The shared remedy is a
+      // clause because the CLI prints it inside brackets - `(check the folder's permissions...)` -
+      // and here it follows a full stop, where a lower-case start reads as a typo. Capitalising at
+      // render time is a typographic transform, not a second copy: the string still exists only in
+      // `models`, which is what `test_the_browser_holds_no_folder_wording.py` proves.
+      return `<div class="b-title">${esc(g.label)}: ${nfmt(g.total)}</div>
+       ${rows}${more}
+       <div class="k">Whatever is inside was not counted.</div>
+       <div class="k">${sentence(esc(g.remedy))}.</div>`;
+    })
     .join("");
-  const foldersBlock = folders.length
-    ? `<div class="b-title">${plural(folders.length, "folder")} could not be opened</div>
-       ${folderRows}
-       <div class="k">Whatever is inside was not counted. Check the folder's permissions, then preview again.</div>`
-    : "";
   return `<div class="banner warn" data-testid="org-unreadable"><div>${filesBlock}${foldersBlock}</div></div>`;
 }
 

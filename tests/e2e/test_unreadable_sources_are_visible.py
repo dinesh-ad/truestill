@@ -65,6 +65,24 @@ def _preview(ui: Page, summary: dict) -> None:
     ui.click("#org-dedup")
 
 
+def _unreadable_folders(*paths: str) -> list[dict]:
+    """One `skipped_folders` group, worded as `models` words it. `(aer)`
+
+    The stub carries the label and remedy because the payload does: the browser maps no reason to
+    a sentence, which `test_the_browser_holds_no_folder_wording.py` asserts against `models`' real
+    strings. A stub that invented wording here would test the stub.
+    """
+    return [
+        {
+            "reason": "unreadable",
+            "label": "folders that could not be opened",
+            "remedy": "check the folder's permissions and try again to include what is inside",
+            "folders": list(paths),
+            "total": len(paths),
+        }
+    ]
+
+
 def _summary(**overrides: object) -> dict:
     base: dict = {
         "tier": "dedup",
@@ -89,7 +107,7 @@ def _summary(**overrides: object) -> dict:
         "folders": {"Camera": 4},
         "destination_is_drive": False,
         "skipped": {"documents": {}, "unrecognized": {}, "exiftool_backups": {}},
-        "unreadable_folders": [],
+        "skipped_folders": [],
         "unreadable_files": {"total": 0, "shown": []},
         "mode": "copy",
         "mechanism": "copy",
@@ -139,17 +157,135 @@ def test_an_unreadable_folder_is_named_and_says_its_contents_are_unknown(ui: Pag
 
     No count of what is inside, on purpose: that number is exactly what could not be read, so
     printing one would invent the missing figure. "contents unknown" is the honest form.
+
+    ⚠ **The heading changed shape in `(aer)` and the reason is worth reading before "fixing" it
+    back.** This said ``"1 folder could not be opened"`` - a sentence the browser built itself with
+    ``plural()``. Wording now comes from `models.folder_skip_label`, so every surface prints
+    ``"<label>: <count>"``, which is the form the CLI already used for every other skipped group.
+    What this test pins is unchanged and is the part that matters: the count, the folder's name,
+    *contents unknown*, and the verb.
     """
-    _preview(ui, _summary(unreadable_folders=["/tmp/pictures/Locked"]))
+    _preview(ui, _summary(skipped_folders=_unreadable_folders("/tmp/pictures/Locked")))
 
     block = ui.locator("[data-testid='org-unreadable']")
     expect(block).to_be_visible(timeout=30_000)
-    expect(block).to_contain_text("1 folder could not be opened")
+    expect(block).to_contain_text("folders that could not be opened: 1")
     expect(block).to_contain_text("/tmp/pictures/Locked")
     expect(block).to_contain_text("contents unknown")
-    # "could not be read" is the FILE wording. A folder was not read either, but saying so here
-    # would invite the count that the line above deliberately withholds.
+    # ⚠ "could not be read" is the FILE wording, and this assertion is why the CLI's phrasing was
+    # NOT the one adopted. A folder was not read either, but saying so here would invite the count
+    # the line above deliberately withholds - and `cli.py` had said exactly that, directly above
+    # its own "files that could not be read: N". This lane is what caught it; pytest cannot.
     expect(block).not_to_contain_text("could not be read")
+
+
+def test_a_hidden_folder_reaches_the_screen_with_its_own_remedy(ui: Page) -> None:
+    """⚠ `(aer)`'s browser half: the reason nobody had looked at.
+
+    The payload's folder list carried **unreadable** folders only, so a hidden one - `.MyAlbum`
+    holding an entire album - reached no app surface at all. Same silence as the one this file was
+    written for, one layer down, in the half that had been declared fixed.
+
+    **The remedy must be the HIDDEN one**, not the permissions sentence: renaming is what the user
+    can do about a dot-folder, and checking permissions on a folder nothing is wrong with is the
+    exact misdirection `models.UnreadableReason` splits its own members to avoid. That is what
+    makes this more than a second copy of the test above.
+    """
+    _preview(
+        ui,
+        _summary(
+            skipped_folders=[
+                {
+                    "reason": "hidden",
+                    "label": "hidden folders (not looked inside)",
+                    "remedy": (
+                        "rename it without the leading dot and try again to include what is in it"
+                    ),
+                    "folders": ["/tmp/pictures/.MyAlbum"],
+                    "total": 1,
+                }
+            ]
+        ),
+    )
+
+    block = ui.locator("[data-testid='org-unreadable']")
+    expect(block).to_be_visible(timeout=30_000)
+    expect(block).to_contain_text("hidden folders (not looked inside): 1")
+    expect(block).to_contain_text(".MyAlbum")
+    expect(block).to_contain_text("contents unknown")
+    # Capitalised by `app.js` `sentence()`: the shared clause is bracketed by the CLI and opens a
+    # sentence here. Asserted as rendered, because that is what a person reads.
+    expect(block).to_contain_text("Rename it without the leading dot")
+    # The wrong remedy would be worse than none: it sends someone to a permissions dialog for a
+    # folder whose permissions are fine.
+    expect(block).not_to_contain_text("permissions")
+
+
+def test_two_reasons_are_two_groups_and_neither_borrows_the_other_s_remedy(ui: Page) -> None:
+    """The discriminating case for the payload's shape, and the reason it is not two flat lists.
+
+    One entry per REASON means a run that hit both must produce both headings and both remedies.
+    A renderer that read only the first group, or that worded a remedy itself, passes every
+    single-reason test above and fails here.
+    """
+    _preview(
+        ui,
+        _summary(
+            skipped_folders=[
+                {
+                    "reason": "hidden",
+                    "label": "hidden folders (not looked inside)",
+                    "remedy": "rename it without the leading dot and try again",
+                    "folders": ["/tmp/pictures/.MyAlbum"],
+                    "total": 1,
+                },
+                {
+                    "reason": "unreadable",
+                    "label": "folders that could not be opened",
+                    "remedy": "check the folder's permissions and try again",
+                    "folders": ["/tmp/pictures/Locked"],
+                    "total": 1,
+                },
+            ]
+        ),
+    )
+
+    block = ui.locator("[data-testid='org-unreadable']")
+    expect(block).to_contain_text("hidden folders (not looked inside): 1", timeout=30_000)
+    expect(block).to_contain_text("folders that could not be opened: 1")
+    expect(block).to_contain_text(".MyAlbum")
+    expect(block).to_contain_text("Locked")
+    # Capitalised by `app.js` `sentence()`: the shared clause is bracketed by the CLI and opens a
+    # sentence here. Asserted as rendered, because that is what a person reads.
+    expect(block).to_contain_text("Rename it without the leading dot")
+    expect(block).to_contain_text("Check the folder's permissions")
+
+
+def test_a_capped_folder_list_says_how_many_it_hid_and_counts_folders(ui: Page) -> None:
+    """Truncation is never silent here either - and the number is of FOLDERS.
+
+    `total` counting folders rather than the files inside them is the whole rule this entry
+    restored, so the browser is asserted against a case where the two could differ: 25 folders
+    named, 3 elided, and not one statement about what is in any of them.
+    """
+    _preview(
+        ui,
+        _summary(
+            skipped_folders=[
+                {
+                    "reason": "hidden",
+                    "label": "hidden folders (not looked inside)",
+                    "remedy": "rename it without the leading dot and try again",
+                    "folders": [f"/tmp/pictures/.a{i:02d}" for i in range(25)],
+                    "total": 28,
+                }
+            ]
+        ),
+    )
+
+    block = ui.locator("[data-testid='org-unreadable']")
+    expect(block).to_contain_text("hidden folders (not looked inside): 28", timeout=30_000)
+    expect(block).to_contain_text("and 3 more")
 
 
 def test_a_shortened_list_says_how_many_it_hid(ui: Page) -> None:

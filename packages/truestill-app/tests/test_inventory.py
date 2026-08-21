@@ -86,7 +86,7 @@ def test_inventory_does_not_call_exiftool_or_hashing(
         # Comes from the walk `scan_source` already did - no open, no read. It is here because
         # dropping it let "Look inside" answer "nothing to organize" about a folder it had
         # failed to open; the `calls` assertion below is what keeps it cheap.
-        "unreadable_folders",
+        "skipped_folders",
     }
     assert result["tier"] == "inventory"
     assert result["files"] == 2
@@ -160,10 +160,96 @@ def test_inventory_reports_a_folder_it_could_not_open(tmp_path: Path) -> None:
     finally:
         locked.chmod(0o755)
 
-    assert [Path(p).name for p in result["unreadable_folders"]] == ["locked"]
+    # `(aer)`: the field is now `skipped_folders`, one structure per REASON. The promise this
+    # pinned is unchanged - the payload names the folder it could not open - so the assertion
+    # reaches it through the new shape rather than being relaxed, and now also states WHICH
+    # reason, which the flat list could not.
+    groups = result["skipped_folders"]
+    assert [g["reason"] for g in groups] == ["unreadable"]
+    assert [Path(p).name for p in groups[0]["folders"]] == ["locked"]
+    assert groups[0]["total"] == 1
+    assert groups[0]["remedy"], "the payload must carry the remedy; the browser has no map"
 
 
-def test_an_ordinary_inventory_reports_no_unreadable_folders(tmp_path: Path) -> None:
+def test_an_ordinary_inventory_reports_no_skipped_folders(tmp_path: Path) -> None:
     """Anti-cry-wolf: a clean folder must not grow a warning."""
     _write(tmp_path / "a.jpg", b"\xff\xd8" + b"x" * 900)
-    assert organize_inventory(tmp_path)["unreadable_folders"] == []
+    # `(aer)`: a group with nothing in it is ABSENT, not empty - the census's rule, now shared by
+    # the folder groups. An ordinary folder must not sprout a row saying it has no hidden ones.
+    assert organize_inventory(tmp_path)["skipped_folders"] == []
+
+
+def test_a_hidden_folder_reaches_the_app_payload_with_its_own_remedy(tmp_path: Path) -> None:
+    """`(aer)`: the payload carried unreadable folders and NOT hidden ones.
+
+    A user with an album in `.MyAlbum` reached no app surface at all - the same silence the CLI
+    had, in the half nobody had looked at. One structure covers both reasons now, so a third
+    cannot be added to core and quietly miss a surface.
+
+    ⚠ **The remedy travels in the payload**, already worded. `app.js` holds no map from reason to
+    sentence: it used to hold a THIRD copy of the unreadable remedy, worded differently from the
+    CLI's two, which is what a `reason`-only payload would have preserved.
+    """
+    (tmp_path / ".MyAlbum").mkdir()
+    (tmp_path / "photo.jpg").write_bytes(b"\xff\xd8")
+
+    groups = organize_inventory(tmp_path)["skipped_folders"]
+
+    assert [g["reason"] for g in groups] == ["hidden"]
+    hidden = groups[0]
+    assert [Path(p).name for p in hidden["folders"]] == [".MyAlbum"]
+    assert "hidden" in hidden["label"]
+    assert "rename" in hidden["remedy"], "the remedy is missing, so the browser has nothing to say"
+    assert hidden["total"] == 1
+
+
+def test_a_skipped_folder_group_never_carries_a_count_of_what_is_inside(tmp_path: Path) -> None:
+    """⚠ The cry-wolf half, and the rule `c027dd3` wrote down.
+
+    `total` counts FOLDERS. The walk did not enter them, so the number of files inside is exactly
+    what is unknown and no key may state it. The type carries no such field, so this asserts the
+    shape a future "improvement" would have to break.
+    """
+    album = tmp_path / ".MyAlbum"
+    album.mkdir()
+    for index in range(7):
+        (album / f"held-{index}.jpg").write_bytes(b"\xff\xd8")
+    (tmp_path / "photo.jpg").write_bytes(b"\xff\xd8")
+
+    group = organize_inventory(tmp_path)["skipped_folders"][0]
+
+    assert group["total"] == 1, "total counts folders, and there is one folder"
+    assert set(group) == {"reason", "label", "remedy", "folders", "total"}, (
+        f"a key appeared that could carry a file count: {sorted(group)}"
+    )
+
+
+def test_a_long_folder_list_elides_and_says_how_many_it_did_not_show(tmp_path: Path) -> None:
+    """`(aer)` problem 4: `analyze` capped at 20 and `organize` printed the list uncapped.
+
+    Two surfaces disagreeing about one list, so a tree with hundreds of hidden folders buried its
+    own report on one of them. The cap lives in core now (`FOLDER_PREVIEW`) and `total` carries the
+    real number, so the "and N more" line comes from one place and they cannot part company again.
+
+    ⚠ Truncation is never silent (§9): a capped list that does not say it was capped reads as a
+    complete one, which is `_duplicate_report`'s rule applied to folders.
+
+    ⚠ **THE NUMBERS HERE ARE ABSOLUTE, NOT `FOLDER_PREVIEW + 5`.** Written in terms of the constant
+    it guards, this test adapts to any value of it and passes at 20, at 100,000 and at zero -
+    §4's twenty-ninth member. A mutation raising the cap to 100,000 **survived** until it was
+    rewritten this way. What the world imposes is that a report must not bury itself, so the
+    assertion is that 25 hidden albums produce at most a couple of dozen lines.
+    """
+    made = 25
+    for index in range(made):
+        (tmp_path / f".album-{index:03d}").mkdir()
+    (tmp_path / "photo.jpg").write_bytes(b"\xff\xd8")
+
+    group = organize_inventory(tmp_path)["skipped_folders"][0]
+
+    assert group["total"] == made, "the real number must survive the cap"
+    assert len(group["folders"]) < made, "the list was not capped at all"
+    assert len(group["folders"]) <= 24, (
+        f"{len(group['folders'])} folder lines is a report burying itself"
+    )
+    assert group["folders"], "capped to nothing is not a cap, it is a silence"

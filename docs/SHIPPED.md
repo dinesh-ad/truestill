@@ -22,6 +22,72 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aer) THE SKIPPED REPORT NAMES WHAT IT DID NOT LOOK AT, ON EVERY SURFACE.**
+  - ✅ **CLOSED 2026-08-21.** A folder holding 21 photos, 18 of them in `.MyAlbum`, reported
+    *"files analysed: 3 · organized (unique): 3"* and **success**. It now names the hidden file,
+    names the hidden folder, and says what to do about it - in wording identical to `analyze`'s,
+    because both now print the same groups.
+  - **The file half was a renderer ignoring a home that already existed.** `_print_skipped` read
+    four `SourceScan` fields directly and never `skipped_extension_counts`, which has carried
+    `hidden` since `c027dd3`. It now renders the census, like the other two. ⚠ **One surface of
+    three, not "analyze right, organize wrong"** - the app already read it, and
+    `_skipped_summary`'s docstring even calls itself *"a thin alias, deliberately not a second
+    implementation"*. The sharing was done; one renderer never joined.
+  - **The folder half had no home at all**, so `organizer.SkippedFolderGroup` is a **sibling of
+    the census, deliberately not part of it.** The census is `{group: {label: count-of-FILES}}`,
+    and `SourceScan`'s own docstring calls folders *"a different kind of fact from every other
+    list here"*: a number there meaning *folders* would be two shapes in one string.
+  - ⚠ **ONE ENTRY PER REASON, NOT TWO FLAT LISTS**, on the maintainer's ruling: the two facts are
+    the same shape - *a folder the walk did not enter, named without a count* - and what differs
+    is **why** and **what to do**, which is a value rather than a field. Two lists would have
+    scheduled §4's fifty-sixth member in advance: a third reason gets a third list, a third
+    renderer branch, and a third chance for one surface to miss it.
+  - ⚠ **THE ABSENCE OF A FILE COUNT IS THE TYPE, NOT A COMMENT.** `folders` is `tuple[str, ...]`
+    with no integer beside it, so turning a folder line into *"18 files"* means changing the class
+    rather than editing a docstring somebody may disagree with. `c027dd3`'s rule is cited at the
+    structure and at the renderer.
+  - **The reason drives the remedy from ONE place**, which is the condition the whole shape rests
+    on. `label` and `remedy` arrive already worded from `models`, so neither the CLI nor `app.js`
+    maps a reason to a sentence. ⚠ **That remedy existed THREE times** before this: verbatim at
+    `cli.py:2713` and `:2872`, and again in `app.js` **worded differently** - *"then preview
+    again"* against *"then run again"*. The shared string is now surface-neutral (*"try again"*)
+    so one sentence can serve a run and a preview both. Pinned by
+    `test_the_browser_holds_no_folder_wording.py`, which asserts against `models`' real strings
+    rather than a remembered phrase.
+  - **And the cap.** `analyze` elided at 20 while `organize` printed the list uncapped - one list,
+    two behaviours. `FOLDER_PREVIEW` and `total` now live in core, so the *"and N more"* line
+    comes from one number.
+  - **The app payload gains a structure and loses a field**: `unreadable_folders: list[str]` ->
+    `skipped_folders: [{reason, label, remedy, folders, total}]`. Replaced rather than added
+    beside, because keeping both is the compatibility path `(adz)` rules out and no release has
+    been cut. A **hidden** folder reached no app surface at all before this.
+  - **Seven mutations, and two survived first.** Raising the cap survived because the test read
+    `FOLDER_PREVIEW` to build its fixture - §4's twenty-ninth member, *a test written in terms of
+    the constant it guards cannot falsify the constant* - rewritten to absolute numbers. And the
+    browser's wording was unguarded until `test_the_browser_holds_no_folder_wording.py` existed.
+  - ⚠ **THE BROWSER LANE CAUGHT WHAT 2,648 PYTEST CASES COULD NOT, and it is the reason to share
+    wording rather than the reason not to.** Sharing means picking one phrasing, and the CLI's was
+    the wrong one: *"folders that could not be read"* sat directly above its own *"files that could
+    not be read: 2"* - **one phrase for the counted fact and the uncountable one**. The browser had
+    the right verb (*"could not be OPENED"*) and pins it: an assertion in
+    `test_unreadable_sources_are_visible.py` says the folder block must not contain the file
+    phrase, because reusing it invites the count the folder line withholds. Unifying on the CLI's
+    text would have spread the collision to all three surfaces. **A folder is opened; a file is
+    read**, and `models._FOLDER_SKIP_LABELS` carries the argument. Two smaller ones came with it:
+    the shared remedy needed a capital to open a sentence (`app.js` `sentence()`, a `charAt` and
+    nothing more - the string still exists only in `models`), and the heading is now `label: count`
+    like every other skipped group rather than a sentence the browser built itself.
+  - **Three browser tests were added for the half nobody had looked at**: a hidden folder reaching
+    a screen **with the rename remedy and not the permissions one**, two reasons rendering as two
+    groups with neither borrowing the other's sentence, and a capped list whose number counts
+    folders. Proved by mutation - draw only the first group, count what was drawn instead of what
+    was skipped, drop the capital - all three caught, each against a control run.
+  - **Two payload tests were re-aimed, not relaxed**, and the commit says what they pinned: *the
+    payload names the folder it could not open* is unchanged and now also states which reason. A
+    third pinned `exiftool backup: 2`, which became `exiftool backups: 2  (exiftool backup x2)` -
+    the wording `analyze` has shown all along, so the surfaces now agree rather than one being
+    restyled; it asserts the promise its own docstring names instead of the heading.
+
 - **(aes) "NEVER CHECKED" NOW MEANS NOBODY LOOKED, NOT "WE LOOKED AND FOUND GAPS".**
   - ✅ **CLOSED 2026-08-21.** Measured on the soak catalog: five files deleted by hand, `verify`
     reporting `MISSING: 5`, and `status` in the same minute naming that drive as never checked.

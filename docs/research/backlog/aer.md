@@ -1,6 +1,62 @@
 # (aer) ORGANIZE'S SKIPPED REPORT DROPS HIDDEN FILES AND HIDDEN FOLDERS.
 
-*Body of backlog entry `(aer)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aer)`, **CLOSED 2026-08-21**. The closure is in [`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
+
+> ## ⚠ CORRECTIONS, 2026-08-21 - beside the finding rather than into it
+>
+> **1. *"the count is of folders not files, so 1 understates 18"* is WRONG.** It is not an
+> understatement, it is a refusal to invent. `c027dd3` states the rule: **files are counted,
+> folders are named without a count**, because the walk never descends into a hidden or unreadable
+> folder and *the number of files inside is precisely what is unknown*. `_print_unreadable` says
+> the same for its own case. The honest output is *"1 hidden folder, contents unknown"* **plus the
+> remedy** - which `analyze` printed and `organize` did not. Had this correction not been made,
+> the fix would have "improved" the folder line into a fabricated file count.
+>
+> **2. *"analyze right, organize wrong"* was TOO BROAD.** Measured per surface:
+>
+> | | hidden FILES | hidden FOLDERS |
+> |---|---|---|
+> | CLI `analyze` | ✅ census | ✅ |
+> | app organize | ✅ census (`_skipped_summary`) | ❌ |
+> | CLI organize | ❌ four raw fields | ❌ |
+>
+> **One surface of three** for files - the app already read the census - and **two of three** for
+> folders. The soak report's phrasing implied a clean split that did not exist.
+>
+> **3. The omission was INHERITED, not deliberate, and there is no recorded reason for it.**
+> `c027dd3` - the commit that added hidden counting - edited `cli.py` at `@@ -1827` only, which is
+> `_print_inventory_skipped`. It never touched `_print_skipped`. Its own message calls the defect
+> *"`(aac)`'s shape on a third surface"*, so the author was thinking in surfaces and still updated
+> the one they were looking at.
+>
+> **4. `(aac)` is a NEIGHBOUR, not this entry reopening.** It is still open at `BACKLOG.md:294` -
+> *"residues 2 and 3 keep this entry open"* - and its subject is *unreadable* files, where the
+> fact is **destroyed** by `FileHashes(None, None)` rather than merely unrendered. `(aer)` is the
+> third member of that family: nothing is destroyed here, it was simply never printed.
+>
+> **6. ⚠ THE BROWSER LANE CAUGHT A THIRD, AND `make check` COULD NOT.** Sharing the wording meant
+> picking one of two phrasings, and the CLI's was **wrong**: it printed *"folders that could not
+> be read"* directly above its own *"files that could not be read: 2"* - **one phrase for the
+> counted fact and the uncountable one**, which is the exact confusion the no-count rule exists to
+> prevent. The browser had the right verb all along (*"could not be opened"*) and
+> `test_unreadable_sources_are_visible.py` **asserts the folder block does not contain the file
+> phrase**, with the reason written at the assertion. Unifying on the CLI's wording would have
+> carried its collision to all three surfaces, and 2,648 pytest cases stayed green through it.
+> Adopted the browser's verb; corrected the CLI. **Two more surfaced in the same run**: the shared
+> remedy is a clause, so it opened a sentence in lower case (the CLI brackets it), and the heading
+> became `label: count` rather than the browser's hand-built *"1 folder could not be opened"* -
+> the form every other skipped group already used.
+>
+> **7. Three e2e stubs hand-wrote the field that was replaced**, and three more carried it as
+> `[]`. The first three went red - correctly, and loudly, at 30 s each. `make gate` was run because
+> the maintainer ruled that a loop plus a mapping is more than reading a field; **it was, and this
+> is what it bought.**
+
+> **5. TWO MORE FOUND ON THE WAY, fixed in the same commit because they are the same class.** The
+> unreadable remedy existed **three times** - verbatim at `cli.py:2713` and `:2872`, and a third
+> time in `app.js` **worded differently** (*"then preview again"* against *"then run again"*). And
+> `analyze` capped its folder list at 20 while `organize` printed the list uncapped: one list, two
+> behaviours.
 
 - **(aer) A HIDDEN FOLDER OF 18 PHOTOS READS AS A CLEAN SUCCESS.** Found 2026-08-21 by soak two.
 

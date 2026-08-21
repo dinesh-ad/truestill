@@ -118,10 +118,6 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(aer) ORGANIZE'S SKIPPED REPORT DROPS HIDDEN FILES AND HIDDEN FOLDERS.** A folder of 21 photos,
-  18 in `.MyAlbum`, reported *"analysed 3, organized 3"* and **success**; `analyze` names it.
-  `_print_skipped` reads 4 of `SourceScan`'s 6 skip buckets and `scan.hidden` is read nowhere
-  outside core. Quiet, on the happy path. Found 2026-08-21. [Full entry](research/backlog/aer.md)
 - **(aev) 131 RAW PILLOW WARNINGS REACHED THE TERMINAL** in one run, against a docstring saying
   *"no raw Pillow warning ever reaches the user's terminal"* - the suppression covers one class.
   Found 2026-08-21. [Full entry](research/backlog/aev.md)

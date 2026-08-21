@@ -22,6 +22,27 @@ from playwright.sync_api import Page, expect
 SOURCE = "/tmp/pictures"
 
 
+def _unreadable_folders(*paths: str) -> list[dict]:
+    """One `skipped_folders` group in the shape the service really builds. `(aer)`
+
+    ⚠ **Hand-written, so it can drift from the real payload** - which is what these stubs are
+    for and also their standing risk. `test_unreadable_files_payload.py` pins the SHAPE against
+    the live service; this file answers the only question a browser can, which is whether any of
+    it reaches a screen. The wording is copied from `models.folder_skip_label` /
+    `folder_skip_remedy` on purpose: an assertion below proves the browser holds no copy of it,
+    so a stub that invented its own would prove nothing.
+    """
+    return [
+        {
+            "reason": "unreadable",
+            "label": "folders that could not be opened",
+            "remedy": "check the folder's permissions and try again to include what is inside",
+            "folders": list(paths),
+            "total": len(paths),
+        }
+    ]
+
+
 def _json_route(route: Any, body: dict) -> None:
     route.fulfill(status=200, content_type="application/json", body=json.dumps(body))
 
@@ -36,7 +57,7 @@ def _inventory(**overrides: Any) -> dict:
         "by_format": {},
         "total_bytes": 4_000,
         "skipped": {"documents": {}, "unrecognized": {}, "exiftool_backups": {}},
-        "unreadable_folders": [],
+        "skipped_folders": [],
     }
     base.update(overrides)
     return base
@@ -104,7 +125,7 @@ def _summary(**overrides: Any) -> dict:
         "suspect_default": 0,
         "folders": {},
         "skipped": {"documents": {}, "unrecognized": {}, "exiftool_backups": {}},
-        "unreadable_folders": [],
+        "skipped_folders": [],
         "unreadable_files": {"total": 1, "shown": [{"name": "a.jpg", "reason": "permission"}]},
         "elapsed_seconds": 1.0,
     }
@@ -214,7 +235,9 @@ def test_look_inside_never_says_nothing_is_here_about_a_folder_it_could_not_open
     ui: Page,
 ) -> None:
     """The calibration case. `unreadable_dirs` was known and dropped from the payload."""
-    _look_inside(ui, _inventory(files=0, photos=0, unreadable_folders=[f"{SOURCE}/Locked"]))
+    _look_inside(
+        ui, _inventory(files=0, photos=0, skipped_folders=_unreadable_folders(f"{SOURCE}/Locked"))
+    )
 
     block = ui.locator("[data-testid='org-unreadable']")
     expect(block).to_be_visible()
@@ -224,7 +247,7 @@ def test_look_inside_never_says_nothing_is_here_about_a_folder_it_could_not_open
 
 def test_look_inside_reports_an_unopenable_folder_even_when_it_did_find_media(ui: Page) -> None:
     """A partial answer is still partial: some files found does not mean everything was seen."""
-    _look_inside(ui, _inventory(files=4, unreadable_folders=[f"{SOURCE}/Locked"]))
+    _look_inside(ui, _inventory(files=4, skipped_folders=_unreadable_folders(f"{SOURCE}/Locked")))
     expect(ui.locator("[data-testid='org-unreadable']")).to_be_visible()
 
 

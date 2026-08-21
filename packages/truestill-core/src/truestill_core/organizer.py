@@ -20,7 +20,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, Protocol
 
 from truestill_core.catalog import Catalog
 from truestill_core.categorize import Rule, categorize
@@ -58,8 +58,11 @@ from truestill_core.models import (
     DuplicateMatch,
     DuplicateOrigin,
     Event,
+    FolderSkip,
     Resolution,
     RuleName,
+    folder_skip_label,
+    folder_skip_remedy,
     status_label,
 )
 from truestill_core.naming import dated_filename
@@ -398,6 +401,87 @@ def _bytes_of(paths: Sequence[Path]) -> int:
 #: `ALL_RULES` and `check_product_name`'s `SUBCOMMANDS` both silently stopped covering the thing
 #: that had changed.
 _MARKER_NAMES: frozenset[str] = frozenset({MARKER_NAME, *LEGACY_MARKER_NAMES})
+
+
+#: How many folders a group NAMES before it elides. `analyze` capped at this and `organize` printed
+#: the list uncapped, so a tree with 500 unreadable folders buried its own report on one surface
+#: and not the other - `(aer)`. The cap lives here now, so the two cannot disagree again.
+FOLDER_PREVIEW = 20
+
+
+@dataclass(frozen=True, slots=True)
+class SkippedFolderGroup:
+    """Folders the walk did not enter, for one reason, **named and never counted**. `(aer)`
+
+    ⚠ **THE ABSENCE OF A FILE COUNT IS THE TYPE, NOT A COMMENT.** `folders` is a tuple of names
+    with no integer beside it, so turning a folder line into *"18 files"* means changing this
+    class rather than editing a docstring somebody may disagree with. `c027dd3` states the rule:
+    the walk never descends into a hidden or unreadable folder, so **the number of files inside is
+    precisely what is unknown** and any figure would be invented. `_print_unreadable` says the same
+    for its own case. Do not "make these consistent" with the file census.
+
+    **`total` is a count of FOLDERS, not of files**, and it exists only so an elided list can say
+    how many it did not show - §9's never-silent rule, which is about truncation rather than about
+    contents.
+
+    **`label` and `remedy` arrive already worded** from `models`, so no renderer maps a reason to
+    a sentence. That is the whole point of the structure: `(aer)` found the unreadable remedy
+    written verbatim twice in one file, and a shape that let each surface keep its own mapping
+    would have moved that duplication rather than removed it.
+    """
+
+    reason: FolderSkip
+    label: str
+    remedy: str
+    folders: tuple[str, ...]
+    total: int
+
+
+class HasSkippedFolders(Protocol):
+    """What `skipped_folder_groups` needs, which `SourceScan` and `SourceInventory` both have.
+
+    Structural rather than a union, because the two carry the same two fields for the same two
+    reasons and a builder that named both by class would need editing the day a third structure
+    wants them - which is `(aer)`'s own failure mode, scheduled again.
+    """
+
+    # ⚠ READ-ONLY properties, not bare annotations. A bare `hidden_dirs: list[Path]` on a Protocol
+    # demands a SETTABLE attribute, which `SourceInventory` - a frozen dataclass - cannot satisfy,
+    # and mypy says so rather than letting it through. `Sequence` rather than `list` for the same
+    # reason: the builder only ever reads them.
+    @property
+    def hidden_dirs(self) -> Sequence[Path]: ...
+    @property
+    def unreadable_dirs(self) -> Sequence[Path]: ...
+
+
+def skipped_folder_groups(source: HasSkippedFolders) -> tuple[SkippedFolderGroup, ...]:
+    """Every group of folders the walk did not enter. **Deliberately not part of the census.**
+
+    `skipped_extension_counts` maps a group to `{label: count-of-files}`. A folder has no such
+    number - that is the whole rule - so putting one in that structure would mean a value meaning
+    *folders* sitting where every other value means *files*. `SourceScan`'s docstring already calls
+    these *"a different kind of fact from every other list here"*; this is that sentence given a
+    shape.
+
+    A group with nothing in it is **absent**, not empty, matching the census exactly: never-silent
+    is about what happened, not about what did not.
+    """
+    sources = {
+        FolderSkip.HIDDEN: source.hidden_dirs,
+        FolderSkip.UNREADABLE: source.unreadable_dirs,
+    }
+    return tuple(
+        SkippedFolderGroup(
+            reason=reason,
+            label=folder_skip_label(reason),
+            remedy=folder_skip_remedy(reason),
+            folders=tuple(str(folder) for folder in folders[:FOLDER_PREVIEW]),
+            total=len(folders),
+        )
+        for reason, folders in sources.items()
+        if folders
+    )
 
 
 def skipped_extension_counts(scan: SourceScan) -> dict[str, dict[str, int]]:

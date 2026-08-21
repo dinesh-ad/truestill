@@ -47,6 +47,7 @@ from truestill_core.models import (
     unreadable_label,
 )
 from truestill_core.organizer import (
+    HasSkippedFolders,
     Relocation,
     SourceScan,
     discover,
@@ -59,6 +60,7 @@ from truestill_core.organizer import (
     resolve,
     scan_source,
     skipped_extension_counts,
+    skipped_folder_groups,
     write_candidates,
 )
 from truestill_core.progress import ProgressCallback
@@ -445,16 +447,50 @@ def _matched_drives(catalog: Catalog, resolutions: list[Resolution]) -> MatchedD
     }
 
 
-def _unreadable_folders(scan: SourceScan) -> list[str]:
-    """Folders that could not be listed, as names. **Never a count of what is inside** - that
-    number is exactly what could not be read, so supplying one would invent it."""
-    return [str(folder) for folder in scan.unreadable_dirs]
+class SkippedFolders(TypedDict):
+    """One reason's worth of folders the walk did not enter, worded by core. `(aer)`
+
+    ⚠ **`label` and `remedy` arrive ALREADY WORDED and the browser prints them verbatim**, which
+    is the point of the shape. A `reason` alone would make `app.js` hold its own map of reason to
+    sentence, and the duplication `(aer)` was about would have moved rather than gone. Same rule
+    as `UnreadableSample.reason`, which carries `models.unreadable_label`'s output for exactly
+    this reason.
+
+    ⚠ **`total` counts FOLDERS, never the files inside them.** The walk did not go in, so that
+    number is precisely what is unknown; it exists only so an elided list can say how many it did
+    not show. Do not "make this consistent" with the file census.
+    """
+
+    reason: str
+    label: str
+    remedy: str
+    folders: list[str]
+    total: int
+
+
+def _skipped_folders(source: HasSkippedFolders) -> list[SkippedFolders]:
+    """Every group of folders the walk did not enter, from core's one home.
+
+    Replaces `_unreadable_folders`, which named only one of the two reasons - a hidden folder
+    holding an album reached no app surface at all. Two flat lists would have scheduled the same
+    failure for a third reason, so this is one structure whose `reason` is a value.
+    """
+    return [
+        {
+            "reason": group.reason.value,
+            "label": group.label,
+            "remedy": group.remedy,
+            "folders": list(group.folders),
+            "total": group.total,
+        }
+        for group in skipped_folder_groups(source)
+    ]
 
 
 def _unreadable_files(resolutions: list[Resolution]) -> UnreadableReport:
     """Source files that could not be read, named with the reason for each.
 
-    The sibling of :func:`_unreadable_folders`, and deliberately a different shape. A folder
+    The sibling of :func:`_skipped_folders`, and deliberately a different shape. A folder
     carries no count because the number of files inside it is exactly what could not be read;
     a file carries one because the number is known exactly.
 
@@ -507,7 +543,7 @@ class OrganizeInventory(TypedDict):
     #: payload dropped them, so "Look inside" could answer *Nothing to organize here* about a
     #: folder it had failed to open - the same conflation `(aac)` closed on the dedup tier.
     #: No unreadable *files* at this tier: a walk never opens one, so none is known.
-    unreadable_folders: list[str]
+    skipped_folders: list[SkippedFolders]
 
 
 def organize_inventory(source: Path) -> OrganizeInventory:
@@ -525,7 +561,7 @@ def organize_inventory(source: Path) -> OrganizeInventory:
         "by_format": inv.by_format,
         "total_bytes": inv.total_bytes,
         "skipped": inv.skipped,
-        "unreadable_folders": [str(folder) for folder in inv.unreadable_dirs],
+        "skipped_folders": _skipped_folders(inv),
     }
 
 
@@ -704,7 +740,7 @@ class OrganizePreviewEmpty(TypedDict):
     skipped: dict[str, dict[str, int]]
     #: Named folders that could not be listed. Present here too: "no media found" is exactly
     #: the answer a user must not receive when the reason is that a folder could not be opened.
-    unreadable_folders: list[str]
+    skipped_folders: list[SkippedFolders]
     #: **No `unreadable_files` here, on purpose.** An unreadable *file* was still found by the
     #: walk and classified by its extension, so it is in `scan.media` and this branch - reached
     #: only when `scan.media` is empty - cannot have one. Its sibling above is present precisely
@@ -738,7 +774,7 @@ class OrganizePreviewSummary(OrganizeDedupCore):
     #: Folders that could not be listed, **named, without a file count** - the number inside is
     #: exactly what could not be read. Distinct from `skipped`, which counts files truestill
     #: decided about.
-    unreadable_folders: list[str]
+    skipped_folders: list[SkippedFolders]
     #: Source files that could not be read, named with a reason each. Its sibling above carries
     #: no count on purpose; this one does, because for a file the number is known exactly.
     unreadable_files: UnreadableReport
@@ -800,7 +836,7 @@ def organize_preview(
             "files": 0,
             "folders": {},
             "skipped": _skipped_summary(scan),
-            "unreadable_folders": _unreadable_folders(scan),
+            "skipped_folders": _skipped_folders(scan),
             "mode": mode,
             "mechanism": mechanism,
         }
@@ -833,7 +869,7 @@ def organize_preview(
             "tier": "dedup",
             "destination_is_drive": read_marker(destination) is not None,
             "skipped": _skipped_summary(scan),
-            "unreadable_folders": _unreadable_folders(scan),
+            "skipped_folders": _skipped_folders(scan),
             "unreadable_files": _unreadable_files(resolutions),
             "mode": mode,
             "mechanism": mechanism,

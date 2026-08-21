@@ -45,6 +45,12 @@ All notable changes to this project are documented here. The format follows
   A group you have already named shows its name instead, and is never offered a suggestion.
 
 ### Fixed
+- **Organizing now tells you about folders it did not look inside.** If you keep photos in a
+  folder whose name starts with a dot, Truestill skips it on purpose - but it used to say nothing
+  at all, so a folder of 21 photos could report "3 organized" and look like a success. It now
+  names the folder, says its contents are unknown, and tells you how to include it. Hidden files
+  like `.picasa.ini` are named too. Truestill never guesses how many photos are inside a folder it
+  did not open, because that number is exactly what it does not know.
 - **A drive Truestill has just checked is no longer described as never checked.** If a check
   found some files missing, the drive used to be listed as one nothing had ever looked at - on the
   same screen that had just reported what was missing. It now says it was checked and has gaps.

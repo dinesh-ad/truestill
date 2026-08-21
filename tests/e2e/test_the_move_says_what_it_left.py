@@ -60,7 +60,7 @@ def _preview(ui: Page, **overrides: Any) -> None:
         "suspect_default": 0,
         "folders": {},
         "skipped": {},
-        "unreadable_folders": [],
+        "skipped_folders": [],
         "unreadable_files": {"total": 0, "shown": []},
         "mode": "move",
     }
@@ -78,7 +78,7 @@ def _preview(ui: Page, **overrides: Any) -> None:
                 "by_format": {},
                 "total_bytes": 8000,
                 "skipped": {},
-                "unreadable_folders": [],
+                "skipped_folders": [],
             },
         ),
     )

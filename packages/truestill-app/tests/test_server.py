@@ -220,7 +220,7 @@ def test_organize_preview_no_media(client: TestClient, tmp_path: Path) -> None:
         "files",
         "folders",
         "skipped",
-        "unreadable_folders",
+        "skipped_folders",
         "mode",
         "mechanism",
         "elapsed_seconds",
@@ -228,7 +228,7 @@ def test_organize_preview_no_media(client: TestClient, tmp_path: Path) -> None:
     assert summary["files"] == 0
     # "no media found" must never be the whole answer when a folder could not be opened - the
     # reason would be indistinguishable from an empty source. Empty here, and honestly so.
-    assert summary["unreadable_folders"] == []
+    assert summary["skipped_folders"] == []
     assert summary["tier"] == "dedup"
 
 

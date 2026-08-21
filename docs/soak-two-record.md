@@ -33,6 +33,13 @@ devices, which is the axis argument paying for itself on its first run.
 
 1. **`(aer)`** organize's skipped report drops **hidden files and hidden folders**. A folder of 21
    photos, 18 in `.MyAlbum`, reported *"analysed 3, organized 3"* and **success**.
+   > ⚠ **CORRECTED 2026-08-21, beside the finding.** Two claims made here were wrong. *"1
+   > understates 18"* is not an understatement but a **refusal to invent**: folders are named
+   > without a count because the walk never enters them (`c027dd3`), so the honest line is *"1
+   > hidden folder, contents unknown"* plus the remedy. And *"analyze right, organize wrong"* was
+   > too broad - it is **one surface of three** for hidden files (the app already read the census)
+   > and **two of three** for folders. Full corrections in
+   > [`research/backlog/aer.md`](research/backlog/aer.md).
 2. **`(aes)`** `status` says *"Never checked"* about a drive that was just verified and found
    wanting, while `drives` correctly says *"checked, gaps"*.
 3. **`(aet)`** a single undecodable file **aborts the whole run** with a traceback - 8 of 1,428.

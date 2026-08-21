@@ -96,7 +96,7 @@ def _summary(**overrides: object) -> dict:
         "folders": {"Camera": 1},
         "destination_is_drive": False,
         "skipped": {"documents": {}, "unrecognized": {}, "exiftool_backups": {}},
-        "unreadable_folders": [],
+        "skipped_folders": [],
         "unreadable_files": {"total": 0, "shown": []},
         "mode": "copy",
         "mechanism": "copy",

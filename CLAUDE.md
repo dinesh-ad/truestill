@@ -187,7 +187,15 @@ exists to prevent.
   rule - a rule that lives only in practice gets broken by someone who can quote it.
 - ⚠ **DO NOT run `make gate` for backend work** (changed 2026-08-20). `make check` before every
   commit, as always; the browser lane is **not** part of the routine loop. If a change genuinely
-  reaches a screen, **say so and ask** rather than running it by reflex.
+  reaches a screen, **say so and ask** rather than running it by reflex. **The test of "reaches a
+  screen" is whether the change could make a screen STOP SHOWING SOMETHING** - deleting a payload
+  field a renderer reads is exactly that, and `(aer)` did.
+- ⚠ **AND WHEN IT IS ON: THE AFFECTED FILES FIRST, THE FULL LANE ONCE** (2026-08-21). Run the
+  `tests/e2e/` files whose subject the diff touches - about **two minutes** - and iterate there;
+  run the full lane **once, before the commit**, for what the affected files could not see. Never
+  iterate on the full lane. `(aer)` is why: one 28-minute run returned 6 red, and the finding in
+  it - a wording collision two of the failing files assert against directly - was reachable in the
+  first two minutes. The other fifty-eight were spent waiting rather than on the work it created.
 - **The CI e2e job is disabled** (`if: false` in `.github/workflows/ci.yml`, with a dated banner):
   it was 21-25 minutes of a ~25-minute run, guarding screens `(adi)` is replacing. **The first
   migrated screen turns it back on.** A push now costs ~3 minutes.

@@ -71,7 +71,7 @@ def _preview(ui: Page, **overrides: Any) -> None:
         "suspect_default": 0,
         "folders": {},
         "skipped": {},
-        "unreadable_folders": [],
+        "skipped_folders": [],
         "unreadable_files": {"total": 0, "shown": []},
         "mode": "copy",
         "matched_drives": _drives(("BackupA", 440, "connected", "/media/BackupA")),
@@ -90,7 +90,7 @@ def _preview(ui: Page, **overrides: Any) -> None:
                 "by_format": {},
                 "total_bytes": 460_000,
                 "skipped": {},
-                "unreadable_folders": [],
+                "skipped_folders": [],
             },
         ),
     )

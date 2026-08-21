@@ -50,7 +50,15 @@ def test_organize_reports_skipped_files_by_extension(
 def test_organize_reports_exiftool_backup_plainly_even_with_all_files(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Sidecars are refused at scan; skipped copy says 'exiftool backup', not '.jpg_original'."""
+    """Sidecars are refused at scan; skipped copy says 'exiftool backup', not '.jpg_original'.
+
+    ⚠ **The heading moved from `exiftool backup: 2` to `exiftool backups: 2  (exiftool backup x2)`
+    when `(aer)` made this report render the census** - which is the wording `analyze` has shown
+    all along, so the two surfaces now agree rather than one being restyled. The assertion below
+    pins the PROMISE this test was written for, in the docstring's own words: the plain phrase
+    appears and the sidecar's extension never does. Stated that way it cannot be satisfied by the
+    defect returning, and it does not break again the next time a heading is pluralised.
+    """
     source = tmp_path / "src"
     source.mkdir()
     (source / "holiday.jpg_original").write_bytes(b"backup")
@@ -60,6 +68,7 @@ def test_organize_reports_exiftool_backup_plainly_even_with_all_files(
     assert code == 0
     out = capsys.readouterr().out
     assert "No media files" in out
-    assert "exiftool backup: 2" in out
+    assert "exiftool backup" in out, "the plain phrase is what a person can act on"
+    assert "2" in out.split("exiftool backups:")[1][:4], "the count of sidecars is not stated"
     assert ".jpg_original" not in out
     assert ".mp4_original" not in out

@@ -166,6 +166,7 @@ from truestill_core.models import (
 )
 from truestill_core.organizer import (
     Relocation,
+    SkippedFolderGroup,
     SourceInventory,
     SourceScan,
     execute,
@@ -176,6 +177,8 @@ from truestill_core.organizer import (
     resolve,
     scan_source,
     sizes_of_media,
+    skipped_extension_counts,
+    skipped_folder_groups,
     write_candidates,
 )
 from truestill_core.progress import Progress, ProgressCallback
@@ -2673,10 +2676,13 @@ def _print_unreadable(
     if not named:
         return 0
     print("\nFiles that could not be read:")
-    # A count here, and deliberately NONE on the "folders that could not be read" line above.
+    # A count here, and deliberately NONE on the "could not be OPENED" folder line above.
     # For a folder the number of files inside is exactly what could not be read, so printing
     # one would invent the missing figure; for a file the number is known exactly. The
     # asymmetry is the point, not an oversight - do not "make these consistent".
+    # ⚠ The verbs differ for that reason and `(aer)` restored it: this line and the folder one
+    # both said "could not be read" until 2026-08-21, one phrase for the counted fact and the
+    # uncountable one. `models._FOLDER_SKIP_LABELS` carries the argument.
     print(f"  files that could not be read: {len(named)}")
     for resolution in named[:_STATUS_PREVIEW]:
         reason: UnreadableReason | None = resolution.hashes.unreadable
@@ -2688,29 +2694,50 @@ def _print_unreadable(
     return len(named)
 
 
+def _print_folder_groups(groups: Sequence[SkippedFolderGroup]) -> None:
+    """Folders the walk did not enter, one block per reason. Shared by both CLI reports. `(aer)`
+
+    ⚠ **NAMED, NEVER COUNTED**, and the count that IS printed counts **folders** rather than the
+    files inside them. `c027dd3`: the walk never descends into a hidden or unreadable folder, so
+    the number of files inside is precisely what is unknown and any figure would be invented. Do
+    not "improve" `.MyAlbum (contents unknown)` into a file count - the type carries no such
+    number, so doing it means changing `SkippedFolderGroup`.
+
+    **The label and the remedy arrive already worded**, from `models`. Neither report holds its own
+    mapping: the unreadable remedy used to be written verbatim in both of them, which is §9's
+    one-source rule broken in the very area `(aer)` was about.
+    """
+    for group in groups:
+        print(f"  {group.label}: {group.total:,}")
+        for folder in group.folders:
+            print(f"      {folder}  (contents unknown)")
+        if group.total > len(group.folders):
+            print(f"      ... and {group.total - len(group.folders):,} more.")
+        print(f"    ({group.remedy})")
+
+
 def _print_skipped(scan: SourceScan) -> None:
-    """Account for every file that was NOT organized, grouped by kind. Never silent."""
-    if not (scan.documents or scan.unrecognized or scan.exiftool_backups or scan.unreadable_dirs):
+    """Account for every file that was NOT organized, grouped by kind. Never silent.
+
+    ⚠ **RENDERS THE CENSUS**, which is what `(aer)` changed. This read four `SourceScan` fields
+    directly and so never mentioned `hidden` or `truestill_marker` - groups the census has carried
+    since `c027dd3`, and which the other two surfaces have shown all along. A real `.picasa.ini`
+    and an 18-photo `.MyAlbum` therefore vanished from an organize report that said *success*,
+    while `analyze` named both. One renderer had simply never joined the shared home.
+    """
+    groups = {name: counts for name, counts in skipped_extension_counts(scan).items() if counts}
+    folders = skipped_folder_groups(scan)
+    if not groups and not folders:
         return
     print("\nSkipped (not organized):")
-    if scan.documents:
-        print(f"  documents: {len(scan.documents)}  ({_fmt_extensions(scan.documents)})")
-    if scan.unrecognized:
-        print(f"  unrecognized: {len(scan.unrecognized)}  ({_fmt_extensions(scan.unrecognized)})")
-        print(
-            "    (not recognized as media; some may be video formats Truestill does not organize yet)"
-        )
-    if scan.exiftool_backups:
-        print(f"  exiftool backup: {len(scan.exiftool_backups)}")
-    if scan.unreadable_dirs:
-        # Folders, named - and deliberately WITHOUT a file count. The number inside is exactly
-        # what could not be read, so printing one would invent the missing figure. Every other
-        # line above counts files Truestill decided about; this one names places it could not
-        # see into.
-        print(f"  folders that could not be read: {len(scan.unreadable_dirs)}")
-        for folder in scan.unreadable_dirs:
-            print(f"      {folder}  (contents unknown)")
-        print("    (check the folder's permissions, then run again to include what is inside)")
+    for name, counts in groups.items():
+        total = sum(counts.values())
+        print(f"  {name.replace('_', ' ')}: {total:,}  ({_format_extension_census(counts)})")
+        if name == "unrecognized":
+            print(
+                "    (not recognized as media; some may be video formats Truestill does not organize yet)"
+            )
+    _print_folder_groups(folders)
 
 
 #: What tier 0 deliberately does not know, and what would answer each today. Named rather than
@@ -2847,29 +2874,18 @@ def _print_inventory_skipped(inventory: SourceInventory) -> None:
     formats, deliberately, so a 33,000-file census never builds a per-file structure.
     """
     groups = {name: counts for name, counts in inventory.skipped.items() if counts}
-    if not groups and not inventory.unreadable_dirs and not inventory.hidden_dirs:
+    folders = skipped_folder_groups(inventory)
+    if not groups and not folders:
         return
     print("\nSkipped (not counted as media):")
     for name, counts in groups.items():
         total = sum(counts.values())
         print(f"  {name.replace('_', ' ')}: {total:,}  ({_format_extension_census(counts)})")
-    if inventory.hidden_dirs:
-        # The same rule as unreadable folders below, for the same reason: the walk never went
-        # in, so the number of photos inside is exactly what is unknown. A user with an album
-        # in a hidden folder used to see nothing at all - not a count, not a name.
-        print(f"  hidden folders (not looked inside): {len(inventory.hidden_dirs):,}")
-        for folder in inventory.hidden_dirs[:_STATUS_PREVIEW]:
-            print(f"      {folder}  (contents unknown)")
-        if len(inventory.hidden_dirs) > _STATUS_PREVIEW:
-            print(f"      ... and {len(inventory.hidden_dirs) - _STATUS_PREVIEW:,} more.")
-        print("    (rename one without the leading dot, then run again to include what is in it)")
-    if inventory.unreadable_dirs:
-        # Named, and deliberately WITHOUT a file count: the number inside is exactly what could
-        # not be read, so stating one would invent the missing figure.
-        print(f"  folders that could not be read: {len(inventory.unreadable_dirs):,}")
-        for folder in inventory.unreadable_dirs:
-            print(f"      {folder}  (contents unknown)")
-        print("    (check the folder's permissions, then run again to include what is inside)")
+    # ⚠ THE SAME BLOCK THE ORGANIZE REPORT PRINTS, from the same groups. `(aer)`: the unreadable
+    # remedy used to be written verbatim here AND in `_print_skipped`, and this report capped its
+    # hidden list at 20 while that one printed its unreadable list uncapped - one sentence in two
+    # places and one list with two behaviours, both in §9's one-source territory.
+    _print_folder_groups(skipped_folder_groups(inventory))
 
 
 def _print_not_yet_analysed(*, deep_done: bool) -> None:
