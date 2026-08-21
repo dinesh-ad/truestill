@@ -22,6 +22,53 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aeq) EVERY exiftool INSTALL NOW PROVES THE BINARY RUNS, AND WINDOWS RETRIES A FEED 503.**
+  - ✅ **CLOSED 2026-08-21**, the same day it was filed, because it stopped being a prediction:
+    **two of three Windows install attempts inside thirty minutes** died on an identical
+    `503 (Service Unavailable)` from `community.chocolatey.org`, one of them on a **docs-only**
+    push. The lane was effectively down.
+  - **Root cause: a third-party package feed is a hard dependency of every run, and the care taken
+    over it differed per lane.** Linux was bounded and retried through `ci_bounded.sh` but had **no
+    probe**; Windows had a probe but **no bound and no retry**; macOS had **none of the three**.
+    Two surfaces each holding the half the other was missing - `ENGINEERING_STANDARD.md` §4's
+    fifty-sixth member, the third instance in two days after `(aei)` and `(aek)`.
+  - ⚠ **THE RETRY IS KEYED ON THE PROBE, NOT ON THE EXIT CODE, AND THAT IS THE WHOLE DESIGN.**
+    `choco` **returns 0** after a feed 503 - upstream `chocolatey/choco#1609` is titled *"Chocolatey
+    reporting success when install fails with 503 error"* - so `$LASTEXITCODE` cannot tell a
+    working install from a missing one. A retry written against it is **a loop that never loops**,
+    green on every run and indistinguishable from one that works. The probe is the only thing that
+    knows, so the loop asks the probe.
+  - **Same shape as `ci_bounded.sh`, deliberately not a port of it.** That script keys on exit
+    **124** because apt swallows its status and *deadlocks*; this keys on the probe because choco
+    swallows its status and *returns success*. Different swallowed signal, different observable.
+    Its header's first line - *"We never see the 503"* - was true of apt and false one lane over,
+    which is §4's thirty-second member: a clause asserting a state that expires in silence.
+  - **Two attempts, one 30 s pause**, matching `ci_bounded.sh`'s arithmetic **and** its reasoning:
+    the pause is not backoff, it is a wait for a server-side temporary failure that may still be in
+    force, and with two attempts there is one interval and nothing to be exponential about.
+    **A sustained outage still fails, loudly** - this converts a coin flip into a rare loss, never
+    into a guarantee, and saying so is the point.
+  - **Never silent**: a retried install emits a `::warning::` naming the cause, so a green second
+    attempt cannot read as a clean first one. Exhaustion `throw`s rather than falling through.
+  - **All four installs are now bounded and probed** - both Linux copies, macOS and Windows.
+    *Resolving is not running* (§4's forty-second member, where that proxy was caught three times
+    on `(aad)`), and an unbounded network fetch destroys its logs at the moment they matter
+    (forty-third member).
+  - **Prior art, searched rather than assumed**: `astral-sh/uv` hit the same 503 from the same feed
+    on 2026-08-05, and Chocolatey publishes a status page for the community repository - the vendor
+    treats its availability as a variable. The industry pattern is retry-transient-5xx **plus**
+    per-write handling, never either alone, because check-then-use is a TOCTOU window.
+  - **Six mutations, all caught**, against a control that reported 5 passed: retry keyed on the
+    exit code, no pause, macOS unguarded again, the bound removed, the warning removed, and the
+    scan aimed at an empty corpus. ⚠ **One of them was a defect in the test itself**: asserting
+    `"LASTEXITCODE" not in run` matched the step's own comment *explaining why it does not use it*,
+    so the guard reported the opposite of the truth. §4 names that exactly - assert the statement,
+    never an identifier that also appears in the target's commentary - and it cost one red run
+    here before the rule was applied.
+  - **What this does NOT do**, stated so nobody reads it as more: it does not remove the feed
+    dependency. `(aeg)` is the entry that would, and it explicitly does not cover the `check`
+    lanes. See [`research/backlog/aeq.md`](research/backlog/aeq.md).
+
 - **(aek) A FULL DISK DURING DRIVE SETUP NOW REFUSES IN A SENTENCE INSTEAD OF A TRACEBACK.**
   - ✅ **CLOSED 2026-08-21.** The last of the first soak's five findings. `organize --apply` into an
     unregistered destination on a full disk raised an unhandled `OSError` from `drive.write_marker`

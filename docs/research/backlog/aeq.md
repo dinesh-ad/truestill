@@ -1,6 +1,31 @@
 # (aeq) THE INSTALL BOUND WAS CARRIED TO ONE OF THREE LANES, AND THE THIRD MET THE 503 THE FIRST ONE SAYS WE NEVER SEE.
 
-*Body of backlog entry `(aeq)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aeq)`, **CLOSED 2026-08-21**. The closure is in [`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
+
+> ## ⚠ CLOSED THE SAME DAY, AND WHAT CHANGED BETWEEN FILING AND FIXING
+>
+> This was filed as a one-instance finding. **It recurred forty-five minutes later, on a
+> docs-only push**, with an identical 503 from the same feed and the same package version - two of
+> three install attempts in thirty minutes. That moved it from *a transient worth recording* to
+> *the lane is down*, and it was fixed immediately.
+>
+> **The section below headed "What is not decided" is left exactly as written.** Three of its four
+> questions were answered by the fix, and one - the rate - was answered by the recurrence rather
+> than by any instrument, which is itself the finding that section predicted:
+>
+> - **"Whether the answer is a bound, a retry, or neither"** → all three, per lane, because the
+>   lanes were missing different halves. And the retry is keyed on the **probe**, not the exit
+>   code: `chocolatey/choco#1609` confirms choco returns 0 after a feed 503, so a status-keyed
+>   retry would be a loop that never loops.
+> - **"`ci_bounded.sh` is bash and the Windows step is `pwsh`"** → the warning was right and the
+>   answer was **not to port it**. The Windows mechanism keys on a different observable, so
+>   sharing the script would have shared the wrong logic.
+> - **"Whether macOS gets the same treatment"** → yes for the probe, **no for the retry**. A retry
+>   written against a failure nobody has observed is a guess (§4, fifty-second member).
+> - **"Not measured: how often this fires"** → still not *instrumented*, and the entry said why:
+>   `flake_report` reads uploaded artifacts and a step dying before pytest uploads none. It was
+>   measured by hand, from two consecutive pushes, because the instrument that would have answered
+>   it is silent about exactly this case.
 
 - **(aeq) `exiftool` IS INSTALLED THREE WAYS AND ONLY ONE IS BOUNDED OR RETRIED.** Found
   2026-08-21 by the Windows lane on run `32464521380`, job `96718196842`, while pushing `(aek)`.

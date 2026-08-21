@@ -136,14 +136,6 @@ is invisible here is retired, not free.**
   [Errno 13] ...` - backend vocabulary and a raw errno, both against §9, and the rule is stated
   eighteen lines above the `print` that breaks it. Reads have `models.unreadable_label`; writes
   have no equivalent. Split from `(aek)` 2026-08-21. [Full entry](research/backlog/aep.md)
-- **(aeq) `exiftool` IS INSTALLED THREE WAYS AND ONLY ONE IS BOUNDED OR RETRIED.** Linux goes
-  through `ci_bounded.sh`; macOS is a bare `brew install`; Windows is a bare `choco install` plus a
-  guard. ⚠ **This one has a measured instance where `(aeh)` and `(aeg)` have predictions**: choco
-  printed a literal `503 (Service Unavailable)` on run `32464521380` while `ci_bounded.sh`'s own
-  reasoning says *"we never see the 503"* - true of apt, false one lane over. Records the reusable
-  **tell**: a comment explaining why THIS surface needs a narrower answer is evidence a general
-  rule was discovered and applied locally (§4's fifty-sixth member; `(aei)` and `(aek)` are the
-  product instances). Found 2026-08-21. [Full entry](research/backlog/aeq.md)
 - **(aeh) THE RUNNER IMAGE IS UNPINNED, SO THE apt THAT DEADLOCKS IS NOT A VERSION WE CHOSE.**
   `(aee)`'s hang is fixed in apt 3.1.3 and unbackported on noble; `ubuntu-latest` is noble today.
   ⚠ **A route with a cost, not a recommendation** - pinning fixes nothing by itself, and

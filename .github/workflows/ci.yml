@@ -106,16 +106,64 @@ jobs:
         run: |
           ./scripts/ci_bounded.sh 180 sudo apt-get update
           ./scripts/ci_bounded.sh 180 sudo apt-get install -y libimage-exiftool-perl
+          # `(aeq)`: the bound above proves the install did not HANG; only running the binary
+          # proves it is THERE. Linux had the bound and not the probe while Windows had the probe
+          # and not the bound - two surfaces, each holding the half the other was missing.
+          exiftool -ver
+      # Guarded for the same reason the Windows step is, and it had NO guard at all until
+      # `(aeq)`: a brew that half-succeeds is the twenty-unrelated-test-errors case with nothing
+      # to catch it. No retry here - brew has not been observed to fail, and a retry written
+      # against a failure nobody has seen is a guess (§4's fifty-second member).
       - name: Install exiftool (macOS)
         if: runner.os == 'macOS'
-        run: brew install exiftool
-      # Guarded: choco can return 0 after a feed timeout, and a silently missing exiftool
-      # surfaces minutes later as twenty unrelated-looking test errors instead of one clear
-      # failure here. Verify the binary is actually callable before going further.
+        timeout-minutes: 15
+        run: |
+          brew install exiftool
+          exiftool -ver
+      # ⚠ THE RETRY IS KEYED ON THE GUARD, NOT ON THE EXIT CODE, AND THAT IS THE WHOLE DESIGN.
+      # `(aeq)`: choco RETURNS 0 after a feed 503 (chocolatey/choco#1609, "Chocolatey reporting
+      # success when install fails with 503 error"), so `$LASTEXITCODE` is not an observable here
+      # any more than apt's status is on Linux. Measured 2026-08-21: two of three install attempts
+      # in thirty minutes died on an identical `503 (Service Unavailable)` from
+      # `community.chocolatey.org`, and the step's own error trace named line 3 - the probe - not
+      # line 1. The probe is the only thing that knows, so the probe is what the loop asks.
+      #
+      # This is `ci_bounded.sh`'s shape with a different signal, deliberately NOT a port of it:
+      # that script keys on exit 124 because apt swallows the status and DEADLOCKS, and its own
+      # header says "we never see the 503". True of apt, false one lane over - which is the
+      # premise `(aeq)` records as expired.
+      #
+      # Two attempts and a 30 s pause, matching `ci_bounded.sh`'s arithmetic and its reasoning:
+      # the pause is NOT backoff, it is a wait for a server-side temporary failure that may still
+      # be in force, and with two attempts there is one interval and nothing to be exponential
+      # about. A sustained outage still fails, loudly, which is correct - this converts a coin
+      # flip into a rare loss, never into a guarantee.
+      #
+      # NEVER SILENT: a swallowed 503 prints what was retried and why, so a green second attempt
+      # cannot read as a clean first one.
       - name: Install exiftool (Windows)
         if: runner.os == 'Windows'
+        # 15, matching Linux and inside this job's own bound. Two attempts plus a pause is well
+        # under it; the bound is here to turn a hung feed into a failure with its logs intact
+        # (§4's forty-third member) rather than to pace the retry.
+        timeout-minutes: 15
         run: |
-          choco install exiftool --no-progress
+          $ErrorActionPreference = 'Continue'
+          $installed = $false
+          foreach ($attempt in 1..2) {
+            choco install exiftool --no-progress
+            # The probe IS the verdict. `Get-Command` rather than `$LASTEXITCODE` for the reason
+            # in the comment above: choco's status cannot distinguish a 503 from a success.
+            if (Get-Command exiftool -ErrorAction SilentlyContinue) { $installed = $true; break }
+            if ($attempt -lt 2) {
+              Write-Host "::warning::exiftool absent after choco attempt $attempt (the community feed 503s - chocolatey/choco#1609). Waiting 30s and retrying ONCE."
+              Start-Sleep -Seconds 30
+            }
+          }
+          if (-not $installed) {
+            throw "exiftool is not callable after 2 choco attempts. The community feed is likely down - see BACKLOG (aeq)."
+          }
+          $ErrorActionPreference = 'Stop'
           exiftool -ver
 
       - name: Timing mark (after exiftool)
@@ -351,6 +399,10 @@ jobs:
         run: |
           ./scripts/ci_bounded.sh 180 sudo apt-get update
           ./scripts/ci_bounded.sh 180 sudo apt-get install -y libimage-exiftool-perl
+          # `(aeq)`: the bound above proves the install did not HANG; only running the binary
+          # proves it is THERE. Linux had the bound and not the probe while Windows had the probe
+          # and not the bound - two surfaces, each holding the half the other was missing.
+          exiftool -ver
 
       - name: Install uv
         uses: astral-sh/setup-uv@v9.0.0
