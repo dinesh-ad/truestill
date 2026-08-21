@@ -18,6 +18,7 @@ uv sync --all-packages --group dev
 # 3) Hooks (both types)
 uv run pre-commit install
 uv run pre-commit install --hook-type commit-msg
+uv run pre-commit install --hook-type pre-push        # refuses a push onto a red run
 
 # 4) Prove commit-msg guard blocks forbidden trailers
 git commit --allow-empty -m "test
@@ -280,7 +281,10 @@ narrative, or volatile counts.
   minutes instead of ~25. If a change genuinely reaches a screen, **say so and ask**. Its silence
   is not coverage. The three-OS `check` matrix is kept - it is the only thing that sees Windows
   and macOS.
-- **Never push unless asked.**
+- **Never push unless asked.** ⚠ And a `pre-push` hook refuses when the previous push's run
+  is red **or still running** - `TRUESTILL_PUSH_ANYWAY=1 git push` to mean it. §2's *pending
+  result outranks a ready batch* covers **contention and outcome**, and only the first used
+  to be honoured, which is how three commits landed on a red `main` on 2026-08-21.
 - **Commit identity policy:** `dinesh-ad`; no co-author/AI signature trailers.
 - **Corpus fence for real-library testing/profiling/soak** (short form; the binding wording is
   `IMPLEMENTATION_STANDARDS.md` §5, which is the source - do not restate it here):
