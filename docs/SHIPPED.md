@@ -130,6 +130,24 @@ recording shipped work as unstarted, which is the more expensive direction of th
     Re-run with the paths passed literally against a control reporting **29 passed**.
   - **`tags_fingerprint` changed a third time**, deliberately, with its cost and reason recorded
     beside the previous two. Affordable only because no release has been cut.
+  - ⚠ **CORRECTION, 2026-08-21, beside the closure rather than into it: THE FIRST FIX WAS INERT
+    ON MOST LINUX INSTALLS AND CI CAUGHT IT.** `_TRANSPOSING_CONTAINER_ROTATIONS` was `{1, 3}`,
+    the raw quarter-turn index that **exiftool 13.50** reports. **exiftool 12.76 - what Ubuntu
+    noble's `libimage-exiftool-perl` ships, and therefore what the CI `check` lane has - reports
+    the same tag in DEGREES**, `270`. The set matched nothing there, so the payload correction did
+    nothing on the version most Linux users have, silently. Now `{1, 3, 90, 270}`: the two spaces
+    are **disjoint except at 0**, which means "no turn" in both, so the union is unambiguous rather
+    than a guess.
+  - ⚠ **The three-OS matrix caught a DEPENDENCY-VERSION difference, which is a new kind for it.**
+    macOS and Windows install a current exiftool through brew and choco and both passed; only
+    ubuntu, on an apt package two majors behind, went red. Every previous save was an OS
+    difference - `timeout(1)` on BSD, a `WindowsPath` separator, a cp1252 decode. This was the
+    same OS with an older tool.
+  - **And the guard that found it was a PRECONDITION assertion**, not an outcome one: the test
+    asserted that exiftool's reported value is one the rule accepts, before using it. Without that
+    line the run would have gone green while the fix did nothing - the outcome assertion cannot
+    tell "correctly not transposed" from "never consulted". It is kept and documented as the
+    control against a third encoding.
 
 - **(aeq) EVERY exiftool INSTALL NOW PROVES THE BINARY RUNS, AND WINDOWS RETRIES A FEED 503.**
   - ✅ **CLOSED 2026-08-21**, the same day it was filed, because it stopped being a prediction:

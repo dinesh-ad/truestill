@@ -109,9 +109,22 @@ def cache_path(cache_dir: Path, sha256: str) -> Path:
 _TRANSPOSING_ORIENTATIONS = frozenset({5, 6, 7, 8})
 
 
-#: HEIF ``irot`` values that swap the axes, as exiftool reports them under ``Rotation#``: 0-3 are
-#: quarter turns, so 1 and 3 transpose and 2 is a 180 that does not.
-_TRANSPOSING_CONTAINER_ROTATIONS = frozenset({1, 3})
+#: HEIF ``irot`` values that swap the axes, as exiftool reports them under ``Rotation#`` - **in
+#: either of the two encodings it has used**, because the numeric form is not stable across
+#: versions and depending on one of them silently disables this on the other.
+#:
+#: ⚠ **MEASURED, not assumed.** exiftool **13.50** reports the raw quarter-turn index (``3``);
+#: exiftool **12.76**, which is what Ubuntu noble's `libimage-exiftool-perl` ships and therefore
+#: what the CI `check` lane has, reports **degrees** (``270``). A set of ``{1, 3}`` is correct on
+#: one and matches nothing on the other, so the payload fix `(aeu)` was inert wherever the older
+#: package is installed - which is most Linux users. Found by the three-OS matrix: macOS and
+#: Windows install a current exiftool through brew and choco and passed, ubuntu did not.
+#:
+#: **The two spaces are disjoint except at 0, which is why a union is unambiguous rather than a
+#: guess**: a quarter-turn index is 0-3 and degrees are multiples of 90, so the only shared value
+#: is ``0`` and it means "no turn" in both. 2 (a 180 as an index) and 180 (as degrees) are both
+#: absent here for the same reason - they turn the picture without swapping the axes.
+_TRANSPOSING_CONTAINER_ROTATIONS = frozenset({1, 3, 90, 270})
 
 
 def upright_size(

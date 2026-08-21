@@ -45,6 +45,14 @@
 > `test_an_exif_only_heif_turned_180_is_a_known_gap`, **`xfail(strict=True)`**, so widening the
 > condition turns it into a failure and whoever does it must confront the double-rotation risk.
 >
+> **7. AND THE FIRST FIX WAS INERT ON exiftool 12.76.** The rule read `{1, 3}` - the quarter-turn
+> index 13.50 reports - while 12.76, which Ubuntu noble ships and the CI lane installs, reports
+> the same tag in **degrees**. Correct on one, matching nothing on the other, silent either way.
+> Now a union of both encodings, which is unambiguous because they are disjoint except at 0.
+> ⚠ Caught by the three-OS matrix on a **dependency-version** difference rather than an OS one,
+> and by a PRECONDITION assertion rather than an outcome: an outcome assertion cannot distinguish
+> *"correctly not transposed"* from *"never consulted"*.
+>
 > **6. A MUTATION SURVIVED UNTIL THE CRY-WOLF TEST EXISTED.** Mutating the condition to apply the
 > stash *unconditionally* killed nothing - the suite covered "never rotate" and not "rotate twice",
 > which is the direction that broke the three real files. §4's thirty-first member: mutate to

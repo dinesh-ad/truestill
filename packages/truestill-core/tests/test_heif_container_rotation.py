@@ -31,7 +31,7 @@ import pytest
 from PIL import Image
 from truestill_core.exif import _NUMERIC_TAGS
 from truestill_core.hashing import HEIF_AVAILABLE
-from truestill_core.thumbnails import upright_size
+from truestill_core.thumbnails import _TRANSPOSING_CONTAINER_ROTATIONS, upright_size
 
 _EXIFTOOL = pytest.mark.skipif(shutil.which("exiftool") is None, reason="exiftool not installed")
 _HEIF = pytest.mark.skipif(not HEIF_AVAILABLE, reason="pillow-heif is not installed")
@@ -90,8 +90,21 @@ def test_a_container_rotation_transposes_the_reported_shape(tmp_path: Path) -> N
     ).stdout.split()
     orientation, rotation, width, height = (int(v) for v in probe)
     assert orientation == 1, "PRECONDITION: the EXIF tag must be neutral, or this is the other row"
-    assert rotation in {1, 3}, "PRECONDITION: the turn must live in the container"
     assert (width, height) == (_W, _H), "PRECONDITION: exiftool must report the STORED extent"
+    # ⚠ THIS ASSERTION IS THE CONTROL AGAINST A THIRD ENCODING, and it has already earned its
+    # place once. `Rotation#` is **270** on exiftool 12.76 (Ubuntu noble's package, and the CI
+    # `check` lane) and **3** on 13.50 - degrees versus the raw quarter-turn index. A rule written
+    # against one of them matches nothing on the other and the fix goes SILENTLY INERT, which is
+    # exactly what shipped. If a future exiftool invents a third form this fails loudly here
+    # instead, rather than quietly doing nothing on everyone's machine.
+    version = subprocess.run(
+        ["exiftool", "-ver"], capture_output=True, text=True, check=True
+    ).stdout.strip()
+    assert rotation in _TRANSPOSING_CONTAINER_ROTATIONS, (
+        f"exiftool {version} reports Rotation#={rotation}, which is neither a quarter-turn index "
+        "nor degrees. The container rotation would be IGNORED on this version - see "
+        "thumbnails._TRANSPOSING_CONTAINER_ROTATIONS."
+    )
 
     assert upright_size(width, height, orientation, container_rotation=rotation) == (_H, _W), (
         "a quarter turn recorded only in the container was ignored, so a portrait photograph is "
@@ -103,12 +116,18 @@ def test_a_container_rotation_transposes_the_reported_shape(tmp_path: Path) -> N
     ("orientation", "rotation", "swapped"),
     [
         (1, None, False),  # no rotation anywhere
-        (1, 0, False),  # container says explicitly "no turn"
+        (1, 0, False),  # container says explicitly "no turn" - 0 in BOTH encodings
         (6, None, True),  # EXIF only - the pixels half of (aeu)
-        (1, 1, True),  # container only, 90
-        (1, 3, True),  # container only, 270 - the Nokia case
-        (6, 3, True),  # BOTH, as Apple writes them: still ONE turn, never two
-        (1, 2, False),  # container 180: turns the picture, does not swap the axes
+        # exiftool >= 13.x: the raw quarter-turn index
+        (1, 1, True),  # container only, one quarter turn
+        (1, 3, True),  # container only, three - the Nokia case on 13.50
+        (1, 2, False),  # index 2 is a 180: turns the picture, does not swap the axes
+        # ⚠ exiftool 12.76 (Ubuntu noble, and the CI check lane): the SAME tag, in DEGREES
+        (1, 90, True),  # the Nokia case as 12.76 reports it
+        (1, 270, True),
+        (1, 180, False),  # a 180 in degrees, and it must not transpose either
+        (6, 3, True),  # BOTH signals, as Apple writes them: still ONE turn, never two
+        (6, 270, True),  # the same file read by the older exiftool
         (3, None, False),  # EXIF 180: same
     ],
 )
