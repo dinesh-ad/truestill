@@ -74,6 +74,96 @@
 
   The destructive step is the one the **user is told to take**.
 
+  ## READ-ONLY INVESTIGATION, 2026-08-21 - three questions, answered
+
+  ### 1. The three states, and whether they can be told apart
+
+  **Not from the filesystem. Measured:**
+
+  | | `os.path.ismount` | `st_dev` vs parent | in `/proc/mounts` |
+  |---|---|---|---|
+  | empty dir, never a mountpoint | `False` | same | no |
+  | empty dir, **stale mountpoint** | `False` | same | no |
+  | mountpoint with something mounted | `True` | *differs* | yes |
+
+  **An unmounted mountpoint is byte-for-byte an ordinary empty directory.** The state exists only
+  while the mount does. macOS behaves the same way (`getattrlist`/`statfs` describe what is
+  mounted *now*; an unmounted point is a plain directory). Windows has no equivalent state at all
+  - a removed volume takes its drive letter with it, so the path fails to resolve rather than
+  becoming empty, and a mounted folder that is emptied is likewise indistinguishable.
+
+  ⚠ **The product already measured this and wrote it down.** `drive.ghost_drive_at`'s docstring:
+  *"`os.path.ismount` is true only while something IS mounted, so it returns False for exactly
+  this case; the mount table and `/etc/fstab` keep no record once a FUSE mount is gone; and
+  matching the drive LABEL against the directory name is a coin toss."*
+
+  **But they CAN be told apart from the catalog.** `settings` holds
+  `path_hint.drive.<uuid>` - where each drive was last seen - and `ghost_drive_at` reads it:
+  *"Only a recorded path discriminates it… the answer has to come from outside it."* Verified in
+  R4: the hint for the real drive was **exactly** the mountpoint path.
+
+  So the states are: **there / not there / there-but-not-what-it-looks-like**, and the third is
+  answerable **for any drive whose path was recorded**. The residual is a drive with **no** hint -
+  `DriveReach.UNKNOWN`, which `drive.py:145` calls *"the normal state"* for a CLI-only user.
+
+  ### 2. Why one absence path got the correct wording and the other did not: **inherited**
+
+  Not a reasoned exclusion. The machinery exists, is complete, and is wired to the wrong commands:
+
+  - `ghost_drive_at` (`drive.py:597`) and `ghost_drive_refusal` (`drive.py:699`) exist, with the
+    full three-fact wording **including the data-loss warning** nobody could discover alone:
+    *"Anything written here now would go onto THIS computer's disk, and would DISAPPEAR from view
+    the moment the drive comes back - while still using the space."*
+  - **Two callers, both on the `organize` registration path**: `cli.py:2285`
+    (`_approve_registration`) and `service/organize.py:1009`.
+  - ⚠ **`drives --init` is not one of them.** `_init_drive` (`cli.py:1026`) guards by **content** -
+    `drive_adoption` samples files - and its docstring already claims the property:
+    *"refusing to mint a second identity for a known library"*. An empty mountpoint holds no
+    content, so the sample is empty and it proceeds. This is exactly what `ghost_drive_at`'s own
+    docstring predicts: *"`(aap)` arriving through the one door `(aap)`'s content-based guard is
+    blind to - it recognises a folder that HOLDS a known library, and this one holds nothing."*
+  - And the resolver at `cli.py:1099` - used by `verify`, and the source of the bad advice -
+    consults neither.
+
+  **So it is two gaps in a chain: the message points at the one registration command that is not
+  ghost-guarded.** §4's fifty-sixth member, with the guard written and the surfaces uneven.
+
+  ### 3. What the message should say - OPTIONS, for the maintainer to rule on
+
+  Framed by the fact above: for a drive **with** a hint this is a solved problem; the dilemma is
+  only the **no-hint** residual.
+
+  **A. Wire the existing guard into both places.** `_init_drive` calls `ghost_drive_at`; the
+  resolver does too and prints `ghost_drive_refusal` instead of *"register it"*.
+  *Cost:* nothing new to design - it is the wording already written and already shipped on the
+  organize path. *Residual:* a no-hint drive still gets today's message, and a user who
+  registered from the CLI and never organized has no hint.
+
+  **B. A, plus the no-hint case stops instructing.** Where nothing discriminates, the message
+  offers both readings rather than one: *"If this is a new folder, register it with `--init`. If
+  this is where a drive should be mounted, connect it first - registering now creates a second
+  identity."* *Cost:* a longer message on the ordinary new-drive path. *Residual:* none, but it
+  puts the burden on the reader in the case the product genuinely cannot resolve.
+
+  **C. A read command never instructs registration.** `verify` reports what it found and stops;
+  `--init` is only ever something the user chooses. *Cost:* a real new-drive user loses a helpful
+  pointer and must find the command. *Residual:* none, and it removes the whole class - no read
+  command can send anyone toward a destructive write.
+
+  **D. `--init` refuses an EMPTY directory unless told otherwise**, independent of hints, on the
+  ground that a drive being registered normally has files. *Cost:* the genuine
+  register-a-blank-new-disk case needs a flag; `--force-new-identity` already exists and could
+  serve. *Residual:* none for empties, but it is a blanket rule where A is a targeted one, and it
+  changes a command that is behaving correctly today for non-empty folders.
+
+  **E. Shrink the residual instead of changing the message**: record `path_hint.drive.<uuid>` at
+  registration and at every command that resolves a drive, not only where it is recorded now.
+  *Cost:* none to wording. *Residual:* helps only after the first sighting - a freshly registered
+  drive still has no history the first time it goes missing.
+
+  ⚠ **A and E compose; C and D are exclusive of each other in spirit** (one removes the advice,
+  the other guards the command it points at). **B is A plus an answer for the residual.**
+
   ## NOT DECIDED
 
   - **Whether `path_is_usable_dir` should learn the third state**, or whether the caller should
