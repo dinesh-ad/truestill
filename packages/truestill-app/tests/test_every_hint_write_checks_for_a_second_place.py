@@ -38,6 +38,15 @@ _DISCLOSES: dict[str, str] = {
         "five lines apart and destroy the two halves of the evidence between them"
     ),
     "truestill_cli/cli.py::_init_drive": "stderr, via `_say_if_two_places`",
+    "truestill_cli/cli.py::_cmd_reclaim": (
+        "stderr, via `_say_if_two_places`. Added with `(afc)` half E, which widened where the "
+        "hint is written so the ghost guard has one to read more often - and a new hint write is "
+        "a new place the evidence can be destroyed, which is why this list is exhaustive"
+    ),
+    "truestill_cli/cli.py::_cmd_migrate_layout": (
+        "stderr, via `_say_if_two_places`. `(afc)` half E, past the typed confirmation so an "
+        "aborted migrate leaves the catalog byte-identical"
+    ),
     "truestill_cli/cli.py::_register_destination": (
         "stderr, via `_say_if_two_places`. **Structurally silent today**: this site mints a fresh "
         "uuid, so there is never a remembered path to disagree with. Listed and called anyway so "
@@ -75,6 +84,13 @@ _NOT_YET_SURFACED: dict[str, str] = {
 #: actually ask by `test_the_shared_emitter_really_asks`, so this stays one hop and not a hole.
 _ASKS = {"second_location_for", "_say_if_two_places"}
 
+#: The shared writer itself, which is the MECHANISM and not a site. Its callers are the sites and
+#: each is listed below; asking the question inside it would ask once for all of them and read the
+#: evidence at the wrong moment - `_say_if_two_places` must run before `upsert_drive` refreshes
+#: `last_seen`, and only the caller knows where that is. Excluded by name rather than by shape,
+#: so a second helper cannot inherit the exemption by accident.
+_THE_WRITER = "truestill_cli/cli.py::remember_drive_root"
+
 
 def _writes_and_calls(module: Path) -> dict[str, tuple[bool, set[str]]]:
     """`function -> (writes the hint?, names it calls)`, attributing each call to its OWN function.
@@ -110,14 +126,20 @@ def _writes_and_calls(module: Path) -> dict[str, tuple[bool, set[str]]]:
         writes, called = functions.get(name, (False, set()))
         if isinstance(node.func, ast.Name):
             called = called | {node.func.id}
+        # ⚠ TWO SHAPES COUNT AS A WRITE, and the second was added when the first stopped being
+        # exhaustive. `(afc)` half E moved the CLI's writes behind `remember_drive_root`, so
+        # `drive_path_hint` left three function bodies at once and this guard's own count test
+        # went from six writers to five - it noticed, which is the only reason the sites were not
+        # silently dropped from the exhaustiveness check. A shared writer is the right shape; a
+        # detector that only knows the inline one is not.
         is_write = (
             isinstance(node.func, ast.Attribute)
-            and node.func.attr == "set_setting"
+            and node.func.attr in {"set_setting", "set_local_setting"}
             and bool(node.args)
             and isinstance(node.args[0], ast.Call)
             and isinstance(node.args[0].func, ast.Name)
             and node.args[0].func.id == "drive_path_hint"
-        )
+        ) or (isinstance(node.func, ast.Name) and node.func.id == "remember_drive_root")
         functions[name] = (writes or is_write, called)
     return functions
 
@@ -136,7 +158,9 @@ def _hint_writers() -> dict[str, set[str]]:
             relative = module.relative_to(root.parent).as_posix()
             for name, (writes, called) in _writes_and_calls(module).items():
                 if writes:
-                    writers[f"{relative}::{name}"] = called
+                    key = f"{relative}::{name}"
+                    if key != _THE_WRITER:
+                        writers[key] = called
     return writers
 
 

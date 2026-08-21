@@ -45,6 +45,12 @@ All notable changes to this project are documented here. The format follows
   A group you have already named shows its name instead, and is never offered a suggestion.
 
 ### Fixed
+- **Truestill no longer offers to register a backup drive that is simply not plugged in.** When a
+  drive is unmounted, the folder it lived in looks exactly like an empty new folder - the computer
+  cannot tell them apart. Truestill now remembers where each drive was last seen, so it recognises
+  the case and says the drive is probably not connected, instead of suggesting you register the
+  folder again. Doing that used to create a second entry for a library you already had, and left
+  files in the folder that hid the real drive when it came back.
 - **A folder Truestill cannot open is never described as one that isn't there.** The two are
   different answers: a folder that does not exist can be created, and one that refuses cannot -
   so offering to create it just fails again. Truestill now decides this from a single check that

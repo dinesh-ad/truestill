@@ -879,6 +879,12 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
+#: Mirrors `decisions._EXCLUDED_SETTING_PREFIXES`. Duplicated rather than imported because
+#: `decisions` takes a catalog and importing it here would close a cycle; the pair is pinned by
+#: `test_local_settings_match_the_document_exclusions`, so they cannot drift.
+_LOCAL_SETTING_PREFIXES = ("path_hint.", "decisions.", "catalog.")
+
+
 class Catalog:
     """Thin, typed wrapper over the SQLite state file. Use as a context manager."""
 
@@ -1054,6 +1060,31 @@ class Catalog:
                 "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
                 (key, value),
             )
+
+    def set_local_setting(self, key: str, value: str) -> None:
+        """Persist a **machine-local** setting without marking the catalog dirty. `(afc)`
+
+        ⚠ **`dirty` means "a decision may have changed", and for these keys it provably has not.**
+        `catalog_session` fires `save_decisions_to_reachable_drives` on a dirty close, and
+        `decisions._EXCLUDED_SETTING_PREFIXES` filters exactly these prefixes **out of the
+        document**. So a `path_hint.` write through :meth:`set_setting` writes an *identical*
+        document to every reachable drive - and turns any read-only command that records where it
+        found a drive into one that writes to the user's disk. `catalog.py`'s schema-upgrade
+        docstring already names this hazard for its own case.
+
+        ⚠ **It REFUSES a key that is not excluded**, which is what keeps it from becoming a quiet
+        way to skip the sync for a real decision. The guard is the point; without it this is a
+        footgun with a reassuring name.
+        """
+        if not key.startswith(_LOCAL_SETTING_PREFIXES):
+            message = (
+                f"{key!r} is not a machine-local setting. set_local_setting skips the decisions "
+                f"sync, which is only safe for keys the document excludes."
+            )
+            raise ValueError(message)
+        was_dirty = self._dirty
+        self.set_setting(key, value)
+        self._dirty = was_dirty
 
     # -- layout migration ----------------------------------------------------------------
 

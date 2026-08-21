@@ -77,6 +77,7 @@ from truestill_core.drive import (
     DriveMarker,
     DriveReach,
     DriveWriteError,
+    GhostDrive,
     create_marker,
     custody_freshness,
     drive_path_hint,
@@ -776,7 +777,7 @@ def _cmd_rescan(args: argparse.Namespace) -> int:
     for - the same reason an organize preview that found an unreadable file exits 1.
     """
     root = args.path
-    marker = _drive_or_explain(root)
+    marker = _drive_or_explain(root, args.db)
     if marker is None:
         return 2
     if not args.db.is_file():
@@ -1031,6 +1032,18 @@ def _init_drive(args: argparse.Namespace, catalog: Catalog) -> int:
         else inspect_root(args.init, _recorded_drives(catalog))
     )
     proven = [o for o in offers if o.verdict is AdoptionVerdict.PROVEN]
+    # ⚠ THE CONTENT GUARD BELOW CANNOT SEE AN EMPTY MOUNTPOINT, WHICH IS THE WHOLE OF `(afc)`.
+    # `_adoption_offers` samples FILES to recognise a folder that HOLDS a known library; an
+    # unmounted mountpoint holds nothing, so it passes - the door `ghost_drive_at`'s docstring
+    # names as the one `(aap)`'s content-based guard is blind to. This asks the other question:
+    # is this path RECORDED as a known drive's home? `--force-new-identity` is the escape, and it
+    # is the same escape the organize path already offers.
+    ghost = ghost_drive_at(
+        args.init, catalog, [(str(d["uuid"]), str(d["label"])) for d in catalog.list_drives()]
+    )
+    if ghost is not None and not args.force_new_identity:
+        print(f"error: {ghost_drive_refusal(ghost)}", file=sys.stderr)
+        return 2
     if offers and not args.adopt_existing:
         _print_adoption_refusal(args.init, offers)
         return 2
@@ -1065,11 +1078,14 @@ def _init_drive(args: argparse.Namespace, catalog: Catalog) -> int:
     return 0
 
 
-def _drive_or_explain(path: Path) -> DriveMarker | None:
+def _drive_or_explain(path: Path, db: Path | None = None) -> DriveMarker | None:
     """Resolve a drive root, printing a *useful* refusal when the path is not one.
 
     Pointing at a folder inside a connected drive used to report "connect the drive first",
     which is both wrong and unactionable. Walking up finds the drive and names the correction.
+
+    ``db`` is optional so a caller with no catalog still gets every other refusal; without it the
+    ghost check below cannot run, and the message falls back to naming both readings.
     """
     location = locate_drive(path)
     if location.is_root:
@@ -1096,12 +1112,61 @@ def _drive_or_explain(path: Path) -> DriveMarker | None:
             file=sys.stderr,
         )
         return None
+    # ⚠ THE PATH IS THERE AND CARRIES NO MARKER, WHICH IS TWO STATES, NOT ONE. `(afc)`
+    # A cleanly unmounted mountpoint is byte-for-byte an ordinary empty directory - measured:
+    # `os.path.ismount` is False, `st_dev` equals the parent's, and it is absent from
+    # `/proc/mounts`, because the state exists only while the mount does. So the filesystem
+    # cannot answer this and no amount of probing will make it. **Only a recorded expectation
+    # discriminates**, which is `ghost_drive_at`'s conclusion and the reason administrators
+    # protect mountpoints with `chattr +i` by hand.
+    ghost = _ghost_at(path, db)
+    if ghost is not None:
+        print(f"error: {ghost_drive_refusal(ghost)}", file=sys.stderr)
+        return None
+    # ⚠ NOTHING WAS EVER RECORDED HERE, so both readings are live and the product does not know
+    # which. `drive.py:145` calls that the normal state for a CLI-only user, so it cannot be
+    # refused - and it must not be instructed either, which is what cost a drive in soak three.
+    # Both readings, and what the wrong guess costs.
     print(
-        f"error: {path} isn't a Truestill drive yet.\n"
-        f"       Register it with:  truestill drives --init {path}",
+        f"error: {path} is not a Truestill drive.\n"
+        f"       If this folder is new, register it:  truestill drives --init {path}\n"
+        f"       If this is where a drive should be mounted, connect it first - registering an\n"
+        f"       empty mountpoint creates a second drive id for a library you already have.",
         file=sys.stderr,
     )
     return None
+
+
+def _ghost_at(path: Path, db: Path | None) -> GhostDrive | None:
+    """The drive this path is recorded as, when no marker is there. ``None`` when unknowable.
+
+    ⚠ **Opens the catalog read-only and only to ask**, so a resolver stays a resolver. It answers
+    ``None`` when there is no catalog yet, which is right: a first run has recorded no
+    expectation and so has none to violate.
+    """
+    if db is None or not db.is_file():
+        return None
+    # Through the session wrapper like every other surface open (`(adw)`'s guard): the decisions
+    # trigger must not be bypassable, and a read-only question is no exception - a probe that
+    # skipped it would be the one call site where the drive copy silently stops moving.
+    with _catalog(db) as catalog:
+        drives = [(str(d["uuid"]), str(d["label"])) for d in catalog.list_drives()]
+        return ghost_drive_at(path, catalog, drives)
+
+
+def remember_drive_root(catalog: Catalog, marker: DriveMarker, root: Path) -> None:
+    """Record where this drive was just seen. `(afc)` half E.
+
+    ⚠ **A guard that reads a hint is only as good as how often the hint is written**, and this is
+    the whole of why `(afc)` was reachable: five CLI commands resolve a drive root and only two
+    recorded it, so a CLI-only user accumulated drives whose location was unknown - and an
+    unmounted mountpoint could not be told from a new folder. `cli.py` already said so at the one
+    site that was fixed in isolation; this is that note applied everywhere.
+
+    A **hint, never identity** (§3.1): a drive that remounts elsewhere is the same drive, and this
+    key is simply stale until something sees it again.
+    """
+    catalog.set_local_setting(drive_path_hint(marker.uuid), str(root))
 
 
 def _print_repoint_preview(plan: RepointPlan) -> None:
@@ -1338,7 +1403,7 @@ def _cmd_where(args: argparse.Namespace) -> int:
 
 def _cmd_verify(args: argparse.Namespace) -> int:
     root = args.path
-    marker = _drive_or_explain(root)
+    marker = _drive_or_explain(root, args.db)
     if marker is None:
         return 2
     when = _now_iso()
@@ -1349,7 +1414,7 @@ def _cmd_verify(args: argparse.Namespace) -> int:
         # at all and `truestill drives` can only ever say "unknown" - which is honest but
         # useless. Written here and at `--init` because those are the two moments the CLI holds
         # a resolved drive root and a catalog at the same time. It is a hint, never identity.
-        catalog.set_setting(drive_path_hint(marker.uuid), str(root))
+        catalog.set_local_setting(drive_path_hint(marker.uuid), str(root))
         rows = catalog.copies_on_drive(marker.uuid)
         if not rows:
             print(f"Drive '{marker.label}' has no recorded copies in the catalog.")
@@ -3467,7 +3532,7 @@ def _confirm_cleanup(count: int, *, permanent: bool) -> bool | None:
 
 def _cmd_clean_empty(args: argparse.Namespace) -> int:
     """Remove the folder skeleton a migration left, after showing exactly what will go."""
-    marker = _drive_or_explain(args.path)
+    marker = _drive_or_explain(args.path, args.db)
     if marker is None:
         return 2
 
@@ -3590,7 +3655,7 @@ def _print_migration_plan_preview(plan: Any, mount: Path) -> None:
 
 
 def _cmd_migrate_layout(args: argparse.Namespace) -> int:
-    marker = _drive_or_explain(args.path)
+    marker = _drive_or_explain(args.path, args.db)
     if marker is None:
         return 2
 
@@ -3654,6 +3719,11 @@ def _cmd_migrate_layout(args: argparse.Namespace) -> int:
             return 0
 
         catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+        _say_if_two_places(catalog, marker, args.path)
+        # `(afc)` half E, beside the drive write for the reason `_cmd_reclaim` states: past the
+        # typed confirmation, so an ABORTED run stays byte-identical. It was briefly one gate
+        # earlier and `test_without_the_typed_confirm_nothing_moves` caught it.
+        remember_drive_root(catalog, marker, args.path)
         if pin_existing_layout(catalog):
             print(_PINNED_NOTICE)
         outcome = run_migration(
@@ -3755,7 +3825,7 @@ def _print_reclaim_plan(plan: ReclaimPlan, *, label: str, min_copies: int) -> No
 
 
 def _cmd_reclaim(args: argparse.Namespace) -> int:
-    marker = _drive_or_explain(args.path)
+    marker = _drive_or_explain(args.path, args.db)
     if marker is None:
         return 2
     if args.min_copies < 1:
@@ -3764,6 +3834,17 @@ def _cmd_reclaim(args: argparse.Namespace) -> int:
 
     with _catalog(args.db) as catalog:
         catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
+        # The hint is a drive's ONLY uuid-to-path memory and it is overwritten in place, so the
+        # moment before destroying it is the only moment a second location can be observed.
+        # `(adx)` gap 1; pinned by `test_every_hint_write_checks_for_a_second_place`.
+        _say_if_two_places(catalog, marker, args.path)
+        # ⚠ `(afc)` half E, and the rule for WHERE is "wherever the command already writes drive
+        # facts" - the line above. A command that merely previews must not gain a side effect:
+        # `test_a_preview_moves_nothing_and_writes_nothing` asserts the catalog file is
+        # byte-identical after a migrate preview, and a location hint is still a write. Reclaim
+        # already upserts here, so recording costs nothing new; migrate's preview does not, so it
+        # records past its apply gate instead.
+        remember_drive_root(catalog, marker, args.path)
         plan = plan_reclaim(catalog, marker.uuid, args.path, min_copies=args.min_copies)
         _print_reclaim_plan(plan, label=marker.label, min_copies=args.min_copies)
 

@@ -22,6 +22,50 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(afc) A DRIVE THAT IS MERELY UNMOUNTED IS NO LONGER OFFERED REGISTRATION.**
+  - ✅ **CLOSED 2026-08-21.** `verify` on a cleanly unmounted mountpoint said *"isn't a Truestill
+    drive yet - register it with `drives --init`"*. Following the product's own advice minted a
+    **second drive identity** and wrote a marker **into the mountpoint**, after which the real
+    drive could not be mounted there again and `verify` reported *"has no recorded copies"* about
+    a drive holding forty.
+  - ⚠ **THE GUARD ALREADY EXISTED AND WAS WIRED TO THE WRONG COMMANDS.** `ghost_drive_at` and
+    `ghost_drive_refusal` were written for exactly this, with the sentence nobody derives alone -
+    *"Anything written here now would go onto THIS computer's disk, and would DISAPPEAR from view
+    the moment the drive comes back - while still using the space."* Two callers, both on the
+    `organize` path. `drives --init` guards by **content**, and an empty mountpoint has none: the
+    door `ghost_drive_at`'s own docstring names as the one `(aap)`'s content guard is blind to.
+  - **Detection was never the answer, and that is measured, not assumed.** An unmounted mountpoint
+    is byte-for-byte an ordinary empty directory - `os.path.ismount` False, `st_dev` equal to the
+    parent's, absent from `/proc/mounts`, on Linux and macOS alike; Windows has no such state at
+    all. **Only a recorded expectation discriminates**, which is the industry pattern rather than
+    our invention: administrators set `chattr +i` on empty mountpoints by hand for this exact
+    hazard, and it is recorded in the entry as prior art - **with its cost**, since it breaks
+    `borg mount`.
+  - **A**: the guard now runs in `_init_drive` and in the resolver every drive command shares.
+    **E**: the hint is written at more sites, so the discriminator exists more often. **B**: where
+    nothing was ever recorded, the message stops instructing and names **both** readings and what
+    the wrong guess costs.
+  - ⚠ **E COLLIDED WITH TWO CONTRACTS AND THE TESTS SAID SO, WHICH IS WHY IT IS PLACED WHERE IT
+    IS.** A migrate **preview** asserts the catalog file is byte-identical afterwards, and a
+    location hint is still a write; and a hint write marked the catalog `dirty`, which fires
+    `save_decisions_to_reachable_drives` - turning a read-only command into one that **writes to
+    the user's drive**. So `Catalog.set_local_setting` writes without dirtying, justified because
+    `decisions._EXCLUDED_SETTING_PREFIXES` filters `path_hint.` **out of the document**: the save
+    it would have fired writes an identical file. **It refuses a key the document would carry**,
+    which is what keeps it from being a footgun - and that refusal survived its first mutation
+    until a test was written for it.
+  - **The rule for WHERE is "wherever the command already writes drive facts"**, so a preview
+    never gains a side effect. Reclaim records beside its existing `upsert_drive`; migrate records
+    past its typed confirmation, so an **aborted** migrate is still byte-identical.
+  - ⚠ **Two existing guards fired and were satisfied rather than worked around.** One forbids a
+    surface constructing a `Catalog` outside the session wrapper - a probe that skipped it would
+    be the one call site where the drive copy silently stops moving; re-testing showed the session
+    was never the problem and the workaround was reverted. The other requires every hint write to
+    ask whether that uuid answers elsewhere **before** overwriting the evidence, and `(afc)`'s own
+    refactor **defeated its detector** by moving the write behind a helper - its count test caught
+    that, and the detector now knows both shapes.
+  - **Five mutations, one survived**: nothing pinned `set_local_setting`'s refusal.
+
 - **(afb) THE THIRD BARE PREDICATE IN A DELETE PATH, FOUND BY SWEEPING RATHER THAN BY A FAILURE.**
   - ✅ **CLOSED 2026-08-21.** `cleanup.plan_cleanup` gated on a bare `folder.is_dir()`. With the
     folder's **parent** refused it **raised `PermissionError` on 3.13** - inside a function whose

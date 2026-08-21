@@ -1,6 +1,6 @@
 # (afc) `verify` TELLS A USER TO RE-REGISTER A DRIVE THAT IS MERELY UNMOUNTED, AND FOLLOWING IT BREAKS THE DRIVE.
 
-*Body of backlog entry `(afc)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(afc)`, **CLOSED 2026-08-21**. The closure is in [`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
 
 - **(afc) `(aap)`'s DEFECT, REACHED THROUGH THE ONE STATE ITS GUARD CANNOT SEE.** Found 2026-08-21
   by **soak three, step R4** - the first step of the first soak aimed at refusal.
@@ -163,6 +163,27 @@
 
   ⚠ **A and E compose; C and D are exclusive of each other in spirit** (one removes the advice,
   the other guards the command it points at). **B is A plus an answer for the residual.**
+
+  ## PRIOR ART - recorded as something a user can do, not as something we implement
+
+  The pattern is **refusal against a recorded expectation, not filesystem detection**, and it is
+  not ours. Administrators set the **immutable flag on an empty mountpoint by hand** -
+  `chattr +i /mnt/backup` - precisely so that a backup run cannot write into it while the drive is
+  absent and fill the local disk with files that vanish behind the mount when it returns
+  ([j7k6, *Prevent Writes to Local Disk when NFS Mountpoint is not Mounted*](https://docs.j7k6.net/nfs-mountpoint-prevent-unmounted-write/)).
+  Borg users do the same on repository mountpoints.
+
+  ⚠ **It has a known cost, which is why it is recorded and not adopted**: `chattr +i` breaks
+  `borg mount`, because Borg checks that the directory is writable before mounting a FUSE
+  filesystem that never writes there ([borgbackup/borg#4948](https://github.com/borgbackup/borg/issues/4948)).
+  A tool that hardened the mountpoint for its user would break every other tool's mount.
+
+  **Truestill does not set it, and should not.** What the practice confirms is the *diagnosis*:
+  the system cannot tell an unmounted mountpoint from an empty folder, so people compensate with
+  an out-of-band record of intent. `path_hint.drive.<uuid>` is Truestill's version of that record.
+  A user who wants belt-and-braces protection can still set the flag themselves - and if they do,
+  Truestill's refusal fires first and explains why, which is strictly better than a write that
+  fails with `EPERM`.
 
   ## NOT DECIDED
 

@@ -132,14 +132,6 @@ is invisible here is retired, not free.**
   remaining file is not capped. ⚠ Every safety property held - catalog matched disk exactly, a
   re-run resumed, full §1 accounting - so this is wording and volume, not corruption. Found
   2026-08-21 by **soak three R3**. [Full entry](research/backlog/afd.md)
-- **(afc) `verify` TELLS A USER TO RE-REGISTER A DRIVE THAT IS MERELY UNMOUNTED, AND FOLLOWING IT
-  BREAKS THE DRIVE.** A cleanly unmounted mountpoint is **there, a directory, and empty**, so
-  `path_is_usable_dir` says usable and the code falls through to *"isn't a Truestill drive yet -
-  register it with `drives --init`"*. Doing so mints a **second drive identity** and writes a
-  marker **into the mountpoint**, after which the real drive **cannot be mounted there again**.
-  ⚠ The correct wording already exists and fires on the unclean case (`ENOTCONN`), and
-  `cli.py:1084` states the rule it breaks - this is `(aap)` reached through a third state its
-  guard cannot see. Found 2026-08-21 by **soak three R4**. [Full entry](research/backlog/afc.md)
 - **(afa) A PATH THE PRODUCT KNOWS WAS REFUSED IS STILL NOT REPORTED TO ANYONE.** After `(aey)`,
   `date_rescue` and `drive_adoption` branch on `Reach.REFUSED` explicitly and then say nothing -
   a limitation became a decision, and the decision is silence. ⚠ **`(aer)`'s shape, third
