@@ -78,6 +78,7 @@ On 2026-08-21 those read **159** and **102**, leaving **57** mapped below. ⚠ T
 | What is the plan for React, and what is already settled? | [`docs/react-migration-plan.md`](docs/react-migration-plan.md) |
 | What will soak two cover, and what could soak one not have seen? | [`docs/soak-two-plan.md`](docs/soak-two-plan.md) - the plan; §1 carries the corpus ruling |
 | What did soak two actually find? | [`docs/soak-two-record.md`](docs/soak-two-record.md) - **ran 2026-08-21**, a record: five findings, and three harness defects that nearly became false ones |
+| What is soak three, and why refusal? | [`docs/soak-three-plan.md`](docs/soak-three-plan.md) - the plan, **written 2026-08-21 and not run**; the thesis is the stock-take at the end of the soak-two record |
 | What did the Organize design spike establish? | [`docs/organize-preview-record.md`](docs/organize-preview-record.md) - the findings, kept because the spike itself is gitignored |
 | What are the rules for TypeScript, React, Tailwind and Rust? | [`docs/frontend-and-shell-standard-research.md`](docs/frontend-and-shell-standard-research.md) - a **record**, not the canon |
 | What does Google Takeout actually put on disk? | [`docs/takeout-format.md`](docs/takeout-format.md) |
