@@ -125,7 +125,10 @@ is invisible here is retired, not free.**
   written to preserve. ⚠ The test that says it would catch this **skips** instead, because its
   precondition uses the same swallowing call. **Not live** (we run 3.13); it is why the 3.14 move
   was deferred, and why the new 3.14 CI leg is evidence rather than a gate - it reports green
-  through this. Found 2026-08-21. [Full entry](research/backlog/aey.md)
+  through this - confirmed by run 32518938493, where all three 3.14 legs passed. ⚠ **FIVE sites,
+  not one** (grepped): `local.py:113` deliberately raises and would stop; `date_rescue.py:280` and
+  `drive_adoption.py:167` each carry a comment naming the rule 3.14 breaks. `reclaim.py` was
+  checked and fails safe on both. Found 2026-08-21. [Full entry](research/backlog/aey.md)
 - **(aex) THE WINDOWS INSTALLER IS STAMPED WITH A BRANCH NAME ON EVERY DISPATCH RUN.**
   Linux falls back to `0.0.0` when `github.ref_name` is not a tag (`release.yml:159`); Windows
   has no fallback (`release.yml:148`) and its `if (-not $version)` guard cannot fire because

@@ -432,6 +432,28 @@ memory dressed as one.
   fails with *"no .ts/.tsx files found"* rather than passing three times. In the same review a
   proposed `#[tauri::command]` counter was **refused rather than written**, because there is no
   `Cargo.toml` in the repo and it would have been green from the day it landed.
+- **A TEST WHOSE PRECONDITION IS PROBED THROUGH THE CALL IT IS TESTING CANNOT SEE THAT CALL
+  CHANGE.** The fifty-seventh member. Non-emptiness guards are the fifty-second member and are
+  right; this is the failure *inside* one. When the check for *"can I reproduce the condition?"*
+  and the check for *"does the code behave correctly?"* run through the **same function**, one
+  answer covers both questions - and when that function's behaviour changes, the test concludes
+  *the environment cannot reproduce this* and **skips**. A skip is not a failure, so the suite
+  stays green and the count barely moves. ⚠ **The precondition must be established by a
+  mechanism the subject does not share.**
+
+  *Worked example - `(aey)`, found 2026-08-21 while researching Python 3.14.*
+  `test_unreadable_paths.py:85` carries the right instinct in its own docstring: *"If
+  `Path.is_dir` ever starts swallowing `EACCES`, this fails - which is exactly when someone should
+  be made to re-read this module's rationale."* It does not fail. Its helper `_really_locked`
+  (`:62-78`) decides whether `chmod 000` really denied by **calling `is_dir()`** - the subject - so
+  on 3.14, where `is_dir()` returns `False` instead of raising, it concludes *"chmod 000 did not
+  deny this process"* and skips. Measured, three runs each, deterministic: 1 skip on 3.14, 0 on
+  3.13. `os.stat()` raises `EACCES` on **both** versions, so the same precondition asked
+  independently answers *denied=True* on both and the test runs - and then fails on 3.14, which is
+  what it was written to do. **The better test asks the product instead**: `probe_dir(refused)` is
+  `unreadable` on 3.13 and `missing` on 3.14, an assertion that mentions no stdlib call at all and
+  stays correct after the fix.
+
 - **A RULE APPLIED TO TWO OF THREE SURFACES READS AS SETTLED, AND THE THIRD DISAGREES SILENTLY.**
   The fifty-sixth member, and the failure is **not** that the rule was never written down - it is
   that it was written down *enough to look finished*. A reader who greps finds it, finds it

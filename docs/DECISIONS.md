@@ -569,9 +569,16 @@ suite passes locally on 3.14.4 (2,664 passed). `uv.lock` already admits 3.14 unc
   interpreters here. `--pool process` is a user-facing flag, so its Linux behaviour changes.
   `scan.py` already passes `initializer=`, so it is correct **by design, not by luck** - it was
   written for spawn. `verify.py`'s pool hashes only and needs nothing.
-- ⚠ **`(aey)`**: `Path.is_dir()`/`exists()` stop raising on `EACCES`, so `path_probe.probe_dir`
-  would report an unreadable folder as **missing and creatable**. That is the module's whole
-  purpose inverted, and its guard **skips rather than fails**. This is the concrete blocker.
+- ⚠ **`(aey)`**: `Path.is_dir()`/`exists()`/`is_file()` stop raising on `EACCES`, so
+  `path_probe.probe_dir` would report an unreadable folder as **missing and creatable** - the
+  module's whole purpose inverted - and its guard **skips rather than fails**. The concrete
+  blocker. ⚠ **Corrected 2026-08-21 after grepping rather than assuming: it is FIVE sites, not
+  one.** `destinations/local.py:113-118` deliberately raises and would stop; `date_rescue.py:280`
+  and `drive_adoption.py:167` each carry a comment stating the rule 3.14 breaks (*"cannot look,
+  which is not 'nothing there'"*, *"not evidence either way"*). The deletion path (`reclaim.py`)
+  was checked and **fails safe on both versions**. 3.14 did not invent this: its `is_dir()` is
+  `return os.path.isdir(self)`, and `os.path` has always swallowed `OSError` - pathlib was the
+  outlier we relied on. `Path.stat()` still raises on both and is the remedy.
 
 ### What moves the decision
 
