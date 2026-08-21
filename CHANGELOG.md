@@ -45,6 +45,10 @@ All notable changes to this project are documented here. The format follows
   A group you have already named shows its name instead, and is never offered a suggestion.
 
 ### Fixed
+- **A drive Truestill has just checked is no longer described as never checked.** If a check
+  found some files missing, the drive used to be listed as one nothing had ever looked at - on the
+  same screen that had just reported what was missing. It now says it was checked and has gaps.
+  Drives nothing has actually looked at are still called out, which is the point of the wording.
 - **One unreadable photo no longer stops the whole run.** A file whose contents an image reader
   cannot make sense of - a truncated phone photo, a picture with a damaged section - used to end
   the run then and there, with nothing organized and no report. Truestill now organizes everything

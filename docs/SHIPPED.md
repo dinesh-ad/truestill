@@ -22,6 +22,39 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aes) "NEVER CHECKED" NOW MEANS NOBODY LOOKED, NOT "WE LOOKED AND FOUND GAPS".**
+  - ✅ **CLOSED 2026-08-21.** Measured on the soak catalog: five files deleted by hand, `verify`
+    reporting `MISSING: 5`, and `status` in the same minute naming that drive as never checked.
+    It no longer does - and drives that genuinely have never been verified are still named, which
+    is the half that matters more.
+  - **Two questions were sharing one field, and one of them was answered correctly all along.**
+    `Catalog.refresh_drive_verified` derives `drives.last_verified` as *"MIN over the copies, and
+    NULL the moment any of them has never been confirmed"* - `(abg)` Stage 2, and **it is right**:
+    it answers *is this drive wholly confirmed, and as of when*. NULL therefore covers *nobody
+    looked* and *we looked and found gaps* alike, and `custody_freshness` read it as the first.
+  - **No third value, no second column, no new query.** `Catalog.list_drives` already computes
+    `confirmed_count` and `missing_count` per drive, and **both** callers of `custody_freshness`
+    pass its rows. The evidence was in the row and simply not read.
+  - ⚠ **THE FIX IS A SHARED PREDICATE, WHICH IS WHY IT IS NOT A FOURTH PATCH.** `(aej)` closed
+    this on `drives` by writing the discriminator at that one call site - and §4's fifty-sixth
+    member is exactly that: a rule discovered and applied locally reads as settled while the
+    surfaces it never reached disagree in silence. Four surfaces answer *has this drive been
+    looked at*, and one was right. They now share `drive.was_ever_checked`:
+    `custody_freshness` (CLI `status` **and** the app's custody strip), `cli._verified_cell`, and
+    the app's safety table through a new `was_checked` payload field.
+  - **`confirmed_count` alone will not do**, which `(aej)` recorded and a mutation now enforces: a
+    copy can be unconfirmed without being missing, so a cancelled run leaves confirmations and no
+    missing marks while a wiped drive leaves the reverse. Either is a look.
+  - ⚠ **`keys()` rather than `.get()`, and that is not style.** `sqlite3.Row` has no `.get()`, so
+    a `dict`-only implementation type-checks, passes a `dict`-based unit test, and raises
+    `AttributeError` on every real run. Caught because two of the three guards go through
+    `custody_freshness` with real `list_drives` rows rather than fabricated ones.
+  - **The app's safety table needed one line of `app.js`** (`verifiedCell`), since a null date
+    cannot express the difference and the browser cannot recover it. Done without the browser
+    lane, by the maintainer's decision, so the four surfaces agree in one commit.
+  - **Three mutations, all caught**: back to the stamp alone, `missing_count` dropped, and a row
+    without the aggregates claiming a look.
+
 - **(aet) ONE UNDECODABLE FILE NO LONGER ABORTS A RUN, AND THE BOUNDARY IS NOT A LIST.**
   - ✅ **CLOSED 2026-08-21.** `organize` over 1,428 format-corpus files exited **1 with a traceback
     and nothing organized**; it now reports **1,406 organized, 22 duplicates, 8 named** and exits 1

@@ -758,6 +758,13 @@ function toggleResultGrid(button) {
 
 const yearOf = (iso) => (iso ? String(new Date(iso).getFullYear()) : null);
 const dayOf = (iso) => (iso ? String(iso).slice(0, 10) : "never");
+// `(aes)`: a drive's `last_verified` is NULL both when nobody has looked AND when a verify
+// looked and found gaps - missing, unreadable, or cancelled part way through. `dayOf` renders
+// "never" for a null, so the table told a user nothing had looked at a drive that had just been
+// verified and reported seven missing files. The server cannot express the difference in a date,
+// so it sends `was_checked` beside it and this reads that instead. Same wording as the CLI's
+// `drives` column, which has been right since `(aej)`.
+const verifiedCell = (d) => (d.last_verified ? dayOf(d.last_verified) : d.was_checked ? "checked, gaps" : "never");
 // The age BESIDE the date, never instead of it. `abg.md:280` - a date that only gets older
 // cannot mislead, and a bare "34 days ago" is not such a value: it changes while the fact
 // behind it does not, which is the failure `(abg)` is named after. What legitimately changes
@@ -877,7 +884,7 @@ function renderStatsSummary(stats) {
     .map((name) => `<div class="mono">${esc(name)}</div>`)
     .join("");
   const drives = (safety.drives || []).length
-    ? safety.drives.map((d) => `<tr><td>${esc(d.label)}</td><td class="num">${nfmt(d.files)}</td><td class="num">${fmtBytes(d.size)}</td><td class="mono">${esc(dayOf(d.last_verified))}</td></tr>`).join("")
+    ? safety.drives.map((d) => `<tr><td>${esc(d.label)}</td><td class="num">${nfmt(d.files)}</td><td class="num">${fmtBytes(d.size)}</td><td class="mono">${esc(verifiedCell(d))}</td></tr>`).join("")
     : `<tr><td colspan="4" class="k">No registered backup drives yet.</td></tr>`;
   return [
     card(

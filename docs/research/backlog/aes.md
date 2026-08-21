@@ -1,6 +1,6 @@
 # (aes) `status` SAYS "NEVER CHECKED" ABOUT A DRIVE IT JUST CHECKED AND FOUND WANTING.
 
-*Body of backlog entry `(aes)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aes)`, **CLOSED 2026-08-21**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aes) THE SURFACE `(aej)` DID NOT REACH.** Found 2026-08-21 by soak two, S4.
 
@@ -38,8 +38,11 @@
   to 0, advanced the stamp, and `status` stopped saying it. **So the false sentence appears exactly
   while a drive has known gaps** - which is when a custody tool is being asked the question.
 
-  ## NOT DECIDED
+  ## DECIDED 2026-08-21
 
-  - Whether `custody_freshness` should take the per-copy evidence (it currently takes drive rows
-    only), or whether a third state belongs on the drive row. The first keeps one source of truth;
-    the second is cheaper.
+  **Neither, as it turned out.** The per-copy evidence is **already aggregated onto the drive
+  row** - `list_drives` computes `confirmed_count` and `missing_count`, and both callers pass its
+  rows - so no third state and no second query was needed. What was missing was a **shared
+  predicate**: `drive.was_ever_checked`, now read by `custody_freshness`, `cli._verified_cell` and
+  the app's safety-table payload. `(aej)` had written the same rule at one call site, which is
+  what let three other surfaces go on disagreeing.

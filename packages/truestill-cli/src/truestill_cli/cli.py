@@ -91,6 +91,7 @@ from truestill_core.drive import (
     read_marker,
     second_location_for,
     upgrade_marker,
+    was_ever_checked,
 )
 from truestill_core.drive_adoption import (
     AdoptionOffer,
@@ -865,8 +866,12 @@ def _verification_state(drive: Any) -> str:
     """
     if drive["last_verified"]:
         return str(drive["last_verified"])[:19]
-    looked = (drive["confirmed_count"] or 0) or (drive["missing_count"] or 0)
-    return "checked, gaps" if looked else "never"
+    # ⚠ THE RULE MOVED TO CORE AND THIS READS IT (`(aes)`). It was written here, correctly, by
+    # `(aej)` - and being written at ONE call site is what let `custody_freshness` and the app's
+    # safety table go on saying "never" about a drive this cell already knew had been checked.
+    # §4's fifty-sixth member: a rule applied locally reads as settled while the surfaces it never
+    # reached disagree in silence. One predicate now, four readers.
+    return "checked, gaps" if was_ever_checked(drive) else "never"
 
 
 def _cmd_drives(args: argparse.Namespace) -> int:

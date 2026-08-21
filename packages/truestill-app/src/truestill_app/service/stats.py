@@ -8,6 +8,7 @@ from typing import TypedDict
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_session import open_catalog
 from truestill_core.date_explain import explain, explain_evidence
+from truestill_core.drive import was_ever_checked
 from truestill_core.organizer import (
     AUDIO_EXTENSIONS,
     IMAGE_EXTENSIONS,
@@ -56,6 +57,10 @@ class LibraryStatsDrive(TypedDict):
     files: int
     size: int
     last_verified: str | None
+    #: `(aes)`: whether anything has ever LOOKED at this drive's copies, which `last_verified`
+    #: cannot say - it is NULL both when nobody looked and when a verify found gaps. Sent because
+    #: the browser cannot recover the distinction from a null date.
+    was_checked: bool
 
 
 class LibraryStatsSafety(TypedDict):
@@ -195,6 +200,10 @@ def library_stats(db: Path) -> LibraryStats:
                     "files": int(row["file_count"] or 0),
                     "size": int(row["total_size"] or 0),
                     "last_verified": row["last_verified"],
+                    # ⚠ `(aes)`: `last_verified` is NULL both when nobody looked and when a
+                    # verify looked and found gaps, and the table rendered "never" for both.
+                    # The distinction cannot be recovered in the browser, so it is sent.
+                    "was_checked": was_ever_checked(row),
                 }
                 for row in drives
             ],

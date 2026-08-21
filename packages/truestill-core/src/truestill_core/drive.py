@@ -240,6 +240,53 @@ class CustodyFreshness(NamedTuple):
     tier: CustodyTier = CustodyTier.FRESH
 
 
+class _DriveRowLike(Protocol):
+    """What `was_ever_checked` needs of a row, which `sqlite3.Row` and `dict` both satisfy.
+
+    Narrower than `Mapping`: `sqlite3.Row` is not one, and typing it as such would be a claim the
+    production callers falsify.
+    """
+
+    def keys(self) -> Iterable[str]: ...
+    def __getitem__(self, key: str) -> Any: ...
+
+
+def was_ever_checked(drive: _DriveRowLike) -> bool:
+    """Whether anything has ever LOOKED at this drive's copies. `(aes)`
+
+    ⚠ **NOT the same question as `drives.last_verified`, and conflating them is the defect this
+    exists to end.** That stamp is derived by `Catalog.refresh_drive_verified` as *"MIN over the
+    copies, and NULL the moment any of them has never been confirmed"* - `(abg)` Stage 2, and it
+    is right. It answers **is this drive wholly confirmed, and as of when**. NULL therefore covers
+    two situations a reader must never see merged: *nobody has looked* and *we looked and found
+    gaps* - missing, unreadable, unverifiable, or cancelled part way through.
+
+    Soak two measured the merge: seven files deleted by hand, `verify` reporting `MISSING: 7` and
+    naming each, and `status` in the same minute saying *"Truestill has not looked since the copy
+    was written"* over a catalog holding 2,262 confirmed copies and 7 missing ones.
+
+    **The evidence was already in the row.** `Catalog.list_drives` computes `confirmed_count` and
+    `missing_count` per drive, and both callers of `custody_freshness` pass its rows - so this
+    needs no new column, no third value and no second query. It was simply not read.
+
+    **`confirmed_count` alone will not do**, which is the trap `(aej)` recorded at the one site it
+    fixed: a copy can be unconfirmed **without** being missing, so a run cancelled at the first
+    file leaves confirmations and no missing marks, while a drive whose every copy vanished leaves
+    the reverse. Either is a look.
+
+    A row that does not carry the aggregates answers **False**: a caller who cannot show evidence
+    of a look does not get to claim one.
+
+    ⚠ **`keys()` rather than `.get()`, because `sqlite3.Row` has no `.get()`** - it is a mapping
+    in the ways that matter and not in that one. Both production callers pass `Catalog.list_drives`
+    rows, so a `dict`-only implementation type-checks, passes a `dict`-based unit test, and raises
+    `AttributeError` on every real run. Caught here only because the tests either side of this one
+    go through `custody_freshness` with real rows.
+    """
+    available = set(drive.keys())
+    return any(bool(drive[key]) for key in ("confirmed_count", "missing_count") if key in available)
+
+
 def custody_freshness(
     settings: _SettingsReader,
     holding: Iterable[Any],
@@ -272,7 +319,11 @@ def custody_freshness(
             strict=True,
         )
     )
-    never = sorted(named[str(d["uuid"])] for d in holding if not d["last_verified"])
+    # ⚠ `was_ever_checked`, not `last_verified`. The stamp is NULL both when nobody looked and
+    # when a verify looked and found gaps - `(aes)`. One predicate, four surfaces.
+    never = sorted(
+        named[str(d["uuid"])] for d in holding if not d["last_verified"] and not was_ever_checked(d)
+    )
     checked = [str(d["last_verified"]) for d in holding if d["last_verified"]]
     # The OLDEST of the places that carry a date, computed **whether or not** another place is
     # unchecked - which is the whole of `(abg)` Stage 3. The rule that no single date is true of
