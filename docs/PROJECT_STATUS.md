@@ -56,6 +56,18 @@ Notes:
   steps against **4,111 real photos and videos**, 11 GB, with the corpus counted independently
   before the product was allowed an opinion. **It produced five entries** - `(aei)`, `(aej)`,
   `(aek)`, `(aem)`, `(ael)` - and **four are shipped**; `(ael)` alone is open.
+  - ⚠ **CORRECTION, 2026-08-21: THOSE 4,111 FILES INCLUDED `Input/Testing-new`, WHICH
+    `IMPLEMENTATION_STANDARDS.md` §5 EXCLUDES.** Measured that day: `Input/2013` + `Input/2014` is
+    **2,276 files / 6.3 GB**, `Testing-new` is **1,836 / 5.0 GB**, and `Input` entire is
+    **4,112 / 11 GB**. Only the last matches the recorded figure. **The counts above are not wrong
+    - 4,111 files really were analysed** - what was wrong is the implication that the fence held,
+    and the phrase *"counted independently"* is what invites that reading. §5 was checked rather
+    than assumed and is **correct**, so this is soak one's scope and not a stale rule; the method
+    and evidence are in [`soak-two-plan.md`](soak-two-plan.md) §1.
+  - **It cost nothing, and that is why it went unnoticed.** Soak one was copy-mode throughout:
+    nothing moved, nothing was deleted, so including an unbacked folder had no consequence. It
+    stops being free the moment a soak relocates or deletes sources, which is why the fence is a
+    ruling for soak two rather than a footnote.
   - **`(aei)` is the headline and nothing else would have found it**: `organize` into a fresh
     second destination copied **nothing**, registered a **0-file** drive and reported success,
     while `status` warned in the same breath that 4,088 files sat on only one drive. It deduped

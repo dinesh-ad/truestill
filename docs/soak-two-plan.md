@@ -1,7 +1,8 @@
 # Soak two - the step list
 
-**Written 2026-08-21. NOT RUN. Read this before it is run**, and one thing in it needs a ruling
-first (§1).
+**Written 2026-08-21. NOT RUN.** The corpus question that blocked it is **ruled** (§1):
+`Input/Testing-new` is out of scope, and the claim that ruling rests on was verified rather than
+taken from the document that states it.
 
 Soak one ran on 2026-08-20, produced five entries, and left **no written step list** - its steps
 are recoverable only from the findings. This document exists so soak two's coverage is a decision
@@ -14,10 +15,67 @@ untrue*. A step with no answer in that column is a step that cannot fail, and sh
 
 ---
 
-## 1. ⚠ ONE RULING NEEDED BEFORE THIS RUNS: which corpus
+## 1. ✅ RULED 2026-08-21: `Input/Testing-new` is OUT of scope
 
-`IMPLEMENTATION_STANDARDS.md` §5 is unambiguous: **`Input/Testing-new` stays out - single copy,
-uncatalogued.**
+**`IMPLEMENTATION_STANDARDS.md` §5 is unambiguous - `Input/Testing-new` stays out, single copy,
+uncatalogued - and the maintainer has ruled that it stays out of soak two.** The destructive steps
+(`--move`, `--in-place`, `reclaim`) do not touch it. Relocating and deleting the only copy of 1,836
+files is not a test.
+
+**The ruling was made conditional on verifying the claim it rests on**, because §5's *reason* is a
+statement about the filesystem, and this repo has twice been bitten by exactly those expiring
+(§4's thirty-second member). So it was checked rather than trusted.
+
+### V1 - is it genuinely single copy? **Yes.** Verified 2026-08-21
+
+| check | result |
+|---|---|
+| identical content elsewhere on this disk (`2013`, `2014`, `Output`, 2,626 files) | **0** |
+| content the catalog knows (`files.sha256`, 2,695 rows) | **0** |
+| content recorded as a copy on **any** registered drive (`file_copies`, `copy_sha256`, 4,933 rows) | **0** |
+| `files` rows whose `source_path` mentions `Testing-new` | **0** |
+
+**Not one of the 1,836 files collides on SIZE with anything else on disk or in the catalog** - 0.0%
+- so the question was settled by `stat` alone, without hashing a byte. Size collision is a
+necessary condition for identical content, which is the same reasoning `scan._needs_sha` uses to
+skip 94% of hashing on a real run.
+
+⚠ **The residual, stated rather than glossed.** Of three registered drives, only `Output` could be
+inspected. One has a recorded path **inside a fenced mount, under the locked folder
+`IMPLEMENTATION_STANDARDS.md` §5 puts off limits unconditionally** - so it was not resolved,
+stat'd or descended into, and its path is deliberately not repeated here. The other has **no
+recorded path at all**. The catalog covers both *as recorded*: content organized onto either would
+carry `file_copies` rows keyed by `sha256`, and there are none. What this cannot rule out is
+content placed on those drives by something other than Truestill. That residual is unresolvable
+from here and does not change the ruling - it makes it more conservative, not less.
+
+### V2 - soak one counted files §5 excludes; §5 is not stale
+
+`2,276 + 1,836 = 4,112`, and soak one recorded **4,111 / 11 GB**. Only `Input` entire matches. So
+one of the two had to be wrong, and **V1 decides which**: §5's stated reason - single copy,
+uncatalogued - is *true today, measured*. The rule is sound and current, so the error is soak one's
+scope.
+
+**Soak one's numbers are not wrong**; 4,111 files really were analysed, and the five entries it
+produced stand. What was wrong is the implication that the fence held. Corrected beside the claim
+in `PROJECT_STATUS.md` §1 rather than edited into the records that cite the figure
+(`SHIPPED.md`, `research/backlog/aei.md`, `aej.md`) - those state what was measured and remain
+true.
+
+**Why nobody noticed:** soak one was copy-mode throughout, so including an unbacked folder cost
+nothing. It stops being free the moment a soak relocates or deletes sources.
+
+### The corpus, therefore
+
+**`Input/2013` + `Input/2014` - 2,276 files, 6.3 GB.** Soak two's headline count will differ from
+soak one's, and that is correct rather than a regression.
+
+⚠ **`Testing-new` is not merely skipped by convention - it must be unreachable by construction.**
+The source root passed to every step is the specific folder, never `Input`, so no step can reach it
+by a flag anyone forgot. A rule that depends on remembering is not a control (§4, twenty-seventh
+member).
+
+### The measurement behind all of this (a snapshot, per §5 - never a premise)
 
 Measured 2026-08-21 (a **snapshot**, per that same clause - not a premise):
 
@@ -29,25 +87,8 @@ Measured 2026-08-21 (a **snapshot**, per that same clause - not a premise):
 | `Input/Testing-new` | 1,836 | 4.7 GB |
 | `Input` total | 4,112 | 11 GB |
 
-**Soak one recorded 4,111 files and 11 GB.** `2,276 + 1,836 = 4,112`. That reconciles one way:
-soak one appears to have run against **all of `Input`**, including the folder the fence excludes.
-Stated as an inference, not a fact - the composition may have moved in a day, and the delta of one
-file is unexplained.
-
-**Why this is blocking rather than pedantic, and it is specific to soak two.** The fence's stated
-reason for excluding `Testing-new` is *single copy, uncatalogued* - it is the maintainer's only
-copy. Soak one was **copy-mode**, where including it was harmless: nothing moved, nothing was
-deleted. Soak two's list below includes **`--move`, `--in-place` and `reclaim`**, which relocate
-and delete sources. Running those over an unbacked folder is a different proposition entirely.
-
-**Two acceptable answers, and the maintainer picks:**
-- **(a) In-fence, 2,276 files / 6.3 GB.** The default. Everything below is designed for it.
-- **(b) All of `Input`, 4,112 / 11 GB**, with `Testing-new` *excluded from every relocating step*
-  by construction - a separate source root for those, never a flag anyone has to remember.
-
-Do **not** resolve this by reading soak one's numbers as precedent. If (a) is chosen, note that
-soak two's headline count will differ from soak one's, and that is correct rather than a
-regression.
+⚠ The one-file delta between 4,111 and today's 4,112 is unexplained and small enough to be a
+day's churn; it does not affect the reconciliation above.
 
 ## 2. Cost, measured - and disk is not the constraint
 
@@ -64,6 +105,14 @@ everything else under 2% combined. Two consequences the plan uses:
   that *write* a fresh copy of 6.3 GB are not free but are I/O on local NVMe.
 - **Perceptual dedup is O(n²)** and fine at 2,276. Do not read any timing here as a projection to
   33,000 - that is `PERFORMANCE.md` §3's territory and this soak does not measure it.
+
+**What that makes S12 cost, since it is the step most likely to be cut for time.** The re-prove
+pass re-analyses a corpus every earlier step has already read, so the 74% is largely **already
+paid**: the hash cache holds size + `st_mtime_ns` per path and an unchanged file is never read
+twice. What S12 actually spends is the **writes** - one fresh 6.3 GB copy for the `(aem)` drive -
+plus a `kill -9` and two reads. **So S12 is cheap relative to its coverage, and cutting it to save
+time would be trading the confirmation that four shipped fixes hold at scale for minutes.** If
+something has to go, cut a step whose third column is weak, not this one.
 
 ## 3. Corpus policy: which steps need the real thing
 
@@ -121,7 +170,7 @@ Legend: **corpus** = `full` (2,276 in-fence) or `subset` (`Input/2013`, 166).
 |---|---|
 | **Do** | Before Truestill is run at all: count files by extension, total bytes, and SHA-256 every file, with `find`/`sha256sum`/`du`. Record distinct-hash count and the duplicate groups. Write it to a file. |
 | **Read** | Nothing from the product. This step exists to have an answer that predates its opinion. |
-| **Untrue if** | *(n/a - this is the reference)* ⚠ But note: if this disagrees with soak one's 4,111, §1 is the reason, and it is resolved there rather than here. |
+| **Untrue if** | *(n/a - this is the reference)* ⚠ It will read ~2,276 rather than soak one's 4,111, and that is the §1 ruling working, not a discrepancy. |
 
 ### S2 - Organize into destination A. `corpus: full`
 

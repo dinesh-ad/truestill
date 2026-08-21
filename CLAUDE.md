@@ -76,7 +76,7 @@ On 2026-08-21 those read **153** and **97**, leaving **56** mapped below. ⚠ Th
 | What is wrong with the UI, surface by surface? | [`docs/ui-inventory.md`](docs/ui-inventory.md) |
 | What does the Organize result grid have to look like? | [`docs/organize-grid-design.md`](docs/organize-grid-design.md) |
 | What is the plan for React, and what is already settled? | [`docs/react-migration-plan.md`](docs/react-migration-plan.md) |
-| What will soak two cover, and what could soak one not have seen? | [`docs/soak-two-plan.md`](docs/soak-two-plan.md) - **not run**; §1 needs a corpus ruling first |
+| What will soak two cover, and what could soak one not have seen? | [`docs/soak-two-plan.md`](docs/soak-two-plan.md) - **not run**; §1 carries the corpus ruling and the evidence for it |
 | What did the Organize design spike establish? | [`docs/organize-preview-record.md`](docs/organize-preview-record.md) - the findings, kept because the spike itself is gitignored |
 | What are the rules for TypeScript, React, Tailwind and Rust? | [`docs/frontend-and-shell-standard-research.md`](docs/frontend-and-shell-standard-research.md) - a **record**, not the canon |
 | What does Google Takeout actually put on disk? | [`docs/takeout-format.md`](docs/takeout-format.md) |
