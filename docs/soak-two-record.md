@@ -87,3 +87,45 @@ reproduced for the wrong reason retires the question.
 **S6** (interrupt a *migration* - an organize interrupt was done instead), **S9** `--in-place`,
 **S10** `reclaim`, **S11** a disk that fills mid-copy. Stopped to record rather than continue:
 the plan's own stop rule says findings are the product, and five had accumulated.
+
+---
+
+## Stock-take, 2026-08-21 - where the remaining defects are
+
+**Added after soak two, not part of it.** Twelve entries were closed or filed in the three days
+following. **Eleven of them live in code that only runs when the ordinary case did not hold** -
+a file that will not decode, a folder that will not answer, a drive that is not there, a run that
+was interrupted, a feed that returned 503. The one exception is `(aeu)`, the HEIF rotation, and it
+is the only one a soak found by *organizing a healthy library*.
+
+⚠ **Three were live delete-path defects, and none of them could have been found by running the
+product on a corpus that was fine.** `(aez)` and `(afb)` both **raised** an uncaught
+`PermissionError` - `plan_reclaim` died with a traceback, and `run_reclaim`'s did it *mid-loop,
+after earlier candidates had already been deleted*. They were found by **reading**, provoked by a
+pin that had been ordered for an unrelated reason.
+
+**Why this class rots, and it is four separate reasons rather than "less coverage":**
+
+1. **Nothing exercises it by accident.** A happy-path run never enters it, so every test must
+   construct the failure deliberately - which is expensive, so it is done once and thinly.
+2. **The construction is usually a simulation**, and simulations encode assumptions about how the
+   failure presents. `_deny` froze the pre-3.14 stdlib and kept passing after it changed.
+3. **The observable is often an absence** - a skip, a `False`, a line not printed - and absence is
+   what a suite is worst at asserting. §4's fifty-fourth member recurs here more than anywhere.
+4. **The fallback inside the handler is written without measurement**, because by then the author
+   is reasoning about a case they cannot see. `(aek)`'s `free = 0` sentinel made a genuinely full
+   disk pass its own check; `cleanup`'s `continue` conflated *refused* with *already handled*.
+
+⚠ **And twice, the version we were treating as the risk was the one masking a live defect on the
+version we ship.** 3.14 turns both `(aez)` and `(afb)` from a crash into a safe skip. The upgrade
+work was aimed at what 3.14 would break; what it actually surfaced was what 3.13 was already
+doing.
+
+**What this says about the next soak.** The plan's own thesis already named the class - *"SEQUENCE
+defects need control, not scale. Interruption, **refusal**, undo, resume"* - and then scheduled no
+step that refuses anything. Of the four steps never run, **S6 (interrupt) and S11 (disk fills
+mid-copy) are fault injection and should stay**; S9 (`--in-place`) and S10 (`reclaim`) are feature
+exercises of the kind that has produced one finding in twelve. **The gap worth filling is
+refusal**: no soak step anywhere `chmod`s anything, and refusal has now produced five entries.
+Aim the next round at *what the product does when the filesystem says no* - on a source, a
+destination, a drive that unmounts mid-run - rather than at more of the library.
