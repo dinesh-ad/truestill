@@ -20,7 +20,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from truestill_core.models import FolderSkip, folder_skip_label, folder_skip_remedy
+from truestill_core.models import (
+    UNCOMPARED_LABEL,
+    UNCOMPARED_REMEDY,
+    FolderSkip,
+    folder_skip_label,
+    folder_skip_remedy,
+)
 
 _APP_JS = Path(__file__).resolve().parents[1] / "src" / "truestill_app" / "static" / "app.js"
 
@@ -68,3 +74,39 @@ def test_the_browser_does_not_branch_on_the_reason() -> None:
             assert f"reason === {form}" not in source, (
                 f"app.js branches on reason {form}; the payload already carries what to say"
             )
+
+
+def test_the_browser_holds_no_uncompared_wording() -> None:
+    """`(aev)`'s half of the same rule: the near-duplicate sentences live in `models` only.
+
+    ⚠ **Checked against `models`' REAL strings**, not a phrase copied into this file. A guard
+    written against a remembered sentence stops guarding the moment the real one is reworded, and
+    goes green while doing it - which is how `(aer)`'s browser copy survived a mutation.
+    """
+    source = _APP_JS.read_text(encoding="utf-8")
+
+    assert UNCOMPARED_LABEL not in source, (
+        f"app.js holds its own copy of the label ({UNCOMPARED_LABEL!r}). It must print the "
+        f"payload's `label`, which core worded once."
+    )
+    assert UNCOMPARED_REMEDY not in source, (
+        f"app.js holds its own copy of the remedy ({UNCOMPARED_REMEDY!r}). Two surfaces wording "
+        f"one sentence is exactly what (aer) removed."
+    )
+
+
+def test_the_browser_reads_both_new_fields() -> None:
+    """Non-emptiness, and the failure this file exists for. §4's fifty-second member.
+
+    A payload can be perfectly correct while nothing on the page reads it - which is precisely
+    how `unreadable_folders` reached the browser and stopped there for weeks. The two assertions
+    above only prove the browser does not hold the *words*; deleting the renderer entirely would
+    satisfy them both.
+    """
+    source = _APP_JS.read_text(encoding="utf-8")
+
+    assert "uncompared" in source, "the payload's `uncompared` is read by nothing in the browser"
+    assert "suppressed_diagnostics" in source, (
+        "the suppressed-noise tally reaches the browser and stops there, so a run that removed "
+        "787 lines looks identical to one that removed none"
+    )

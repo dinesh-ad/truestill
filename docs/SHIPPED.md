@@ -22,6 +22,88 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aev) THE RUN SAYS WHAT IT COULD NOT COMPARE, AND STOPS PRINTING A LIBRARY'S WORDS.**
+  - ✅ **CLOSED 2026-08-21.** One `organize` over the format corpus put **866 lines** on stderr.
+    It now puts **2** - the progress line - and the report states what was removed and why.
+  - ⚠ **THE ENTRY HAD THE SUBJECT BACKWARDS, AND THAT IS THE FINDING.** Measured: **478 image
+    files got no near-duplicate check and only 71 of them warned**, while **14 warned and decoded
+    perfectly well**. The 131 warnings were a **lossy 15% proxy** for a gap the product never
+    mentioned. Suppressing them alone would have made Truestill *quieter about a real gap* - §4's
+    forty-second member. **What ships is derived from the decode OUTCOME**
+    (`organizer.uncompared_photos`), never from whether a library spoke.
+  - **The fact was already in the data and nobody asked the question**, which is `(aer)`'s shape
+    again. `FileHashes.perceptual_computed` exists because *"`perceptual=None` answers two
+    different questions - not an image and nobody looked"*. That settled two of three; the third,
+    *an image a pass tried to decode and could not*, was derivable since the field shipped.
+  - ⚠ **`warnings.catch_warnings` IS DELETED, NOT WIDENED.** It assigns process-global module
+    attributes and `scan.py` hashes on a `ThreadPoolExecutor` **by default** - CPython's own docs
+    say *"the behavior is undefined"* with two or more threads, so the old one-class suppression
+    was unsound on the common path and widening it would have widened the race. The upstream fix
+    is out of reach: gh-128384 filed it, the `ContextVar` implementation (gh-130010) is *"Changed
+    in version 3.14"*, and *"defaults to `1` on free-threaded builds and to `0` otherwise"*. This
+    project runs 3.13. **JAX hit the same wall** (jax-ml/jax#25626) and hooks the warning
+    infrastructure; `decode_noise` does the same - **one write per process, at a phase boundary,
+    never while workers are in flight**, so the race window is never opened rather than managed.
+  - **Installed in two places because there are two, and each has its own test.** `pool="thread"`
+    is the default and is covered by the parent-side call; `ProcessPoolExecutor` children get
+    ``initializer=``. ⚠ The child test is **forced onto `spawn`**: Linux defaults to `fork`, where
+    the child inherits everything and the initializer changes nothing - the first version passed
+    with it deleted. macOS and Windows are spawn, and both are CI lanes.
+  - **The action is `"always"`, and that is load-bearing.** `warn_explicit` consults
+    `__warningregistry__` **before** dispatching, so the default drops repeats: **197 raised, 133
+    printed**. A hook without it would have counted 133 and called it the truth. The run now
+    reports **189**.
+  - **fd 2 is process-wide, and the plan says so rather than pretending otherwise.** libtiff and
+    libjpeg write there directly; under a worker pool several decodes are in flight and the lines
+    name no file, so **per-file attribution is impossible and was not attempted**. They are
+    counted at phase level and discarded - safe for one measured reason: `grep -c` for the source
+    path over a whole 866-line run returns **0**. Progress survives because
+    `_progress_printer` writes through the `sys.stderr` *object* while C writes to the
+    *descriptor*; the object is repointed at a duplicate of the real fd 2 - and **only when it is
+    actually backed by fd 2**, a condition a red test taught: swapping pytest's capture object
+    stole the run's own progress from the harness watching for it.
+  - **No thread-local, on the maintainer's own reversal.** The shape first expected was a
+    contextvar naming the file being decoded; `_hash_one` already returns its path, so
+    per-file facts ride `HashJobResult` and a thread-local would be a second encoding of a fact
+    the return value already holds.
+  - **Eleven mutations, two survived first.** The process-pool test asserted `>=` against a
+    **cumulative** counter, so leftovers from earlier tests satisfied it with the initializer
+    deleted - now a delta. And nothing guarded the fd-2 restore, the worst failure here: a leaked
+    redirect loses every later line the process writes, unrecoverably on Windows. Its test runs in
+    a **subprocess**, because pytest has already replaced fd 2 and could not see the leak.
+  - ⚠ **SCOPED TO THE EXTERNAL LIBRARY, AND BOTH DEFENCES ARE PINNED SEPARATELY.** We do not
+    silence our own signals: the filter matches ``module=PIL\..*`` and the hook swallows only when
+    the raising file sits under a `PIL` directory; everything else is handed to the previous
+    `showwarning`. Proved by a warning raised **from inside `truestill_core.hashing`** during a
+    real hashing pass, beside a file that makes Pillow warn on the same pass - ours reaches the
+    terminal with our own path, Pillow's does not. **Thirteen mutations now**: widening
+    `_PIL_MODULE` to `.*` survived at first, because the hook's filename check still refused our
+    warnings while every behavioural test stayed green - two defences over one property with only
+    one pinned (§4's eighth member). The filter's scope is load-bearing in its own right: its
+    action is ``"always"``, so unscoped it would force every warning in the program to repeat and
+    **silently defeat a `-W error` setting**, including this repo's own.
+  - **What could not be stopped, and what was.** `TiffImagePlugin.py:950` re-emitting an
+    `OSError` as a bare `UserWarning`, and libtiff writing to fd 2, are not ours to prevent. What
+    the product controls is whether a **venv path and a line number** are shown to a person
+    instead of the true thing - and the true thing is *478 photos were not compared, and 787 lines
+    naming no file were removed*. Both are now said; neither was before.
+  - **Verified on both pools**: thread and process report an identical **787 = 189 + 598**.
+
+- **(aew) ONE REMEDY PER READ FAILURE, WHICH IS WHY THE REASONS EXIST.**
+  - ✅ **CLOSED 2026-08-21**, found while measuring `(aev)` and fixed in the same commit.
+  - The block printed *"fix the permission or check the disk, then run again"* under **all five**
+    reasons. On the format corpus **8 of 8** files named under it were `UNDECODABLE` - nothing
+    ails their permissions or their disk - and `UNDECODABLE` was added by `(aet)` *precisely* to
+    escape a wording that sent readers after the wrong thing, then rendered under it anyway.
+  - ⚠ **The heading contradicted its own rows**: *"Files that could not be read"* sat directly
+    above *"could be read, but its contents could not be decoded"*. It now names the
+    **consequence** - *"Files that were not organized"* - which is true of all five.
+  - `models.unreadable_remedy` beside `unreadable_label`, mirroring `folder_skip_remedy`; the list
+    is grouped by reason, so each group carries its own next action. Exactly what `(aer)` did for
+    folders, on the file side. The association is pinned **by block** rather than by line, because
+    a test that finds a name and a reason anywhere in the output passes with every reason attached
+    to the wrong file.
+
 - **(aer) THE SKIPPED REPORT NAMES WHAT IT DID NOT LOOK AT, ON EVERY SURFACE.**
   - ✅ **CLOSED 2026-08-21.** A folder holding 21 photos, 18 of them in `.MyAlbum`, reported
     *"files analysed: 3 · organized (unique): 3"* and **success**. It now names the hidden file,

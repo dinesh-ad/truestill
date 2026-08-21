@@ -45,6 +45,16 @@ All notable changes to this project are documented here. The format follows
   A group you have already named shows its name instead, and is never offered a suggestion.
 
 ### Fixed
+- **Truestill no longer prints its image libraries' error messages at you, and now says what it
+  could not check.** A run over damaged photos used to fill the terminal with hundreds of lines
+  like `Fax3Decode2D: Bad code word at line 1003 of strip 0` - written for programmers, about
+  files it did not name - so a working run looked broken. Those are counted and summarised in one
+  line instead. More importantly, Truestill now tells you when it could not open a photo well
+  enough to compare it for near-duplicates: those files are still organized and identical copies
+  are still found, but until now nothing said the check had been skipped.
+- **A file Truestill could not use now comes with advice that fits.** Every such file used to be
+  told to "fix the permission or check the disk", including damaged photos whose permissions and
+  disk are perfectly fine.
 - **Organizing now tells you about folders it did not look inside.** If you keep photos in a
   folder whose name starts with a dot, Truestill skips it on purpose - but it used to say nothing
   at all, so a folder of 21 photos could report "3 organized" and look like a success. It now

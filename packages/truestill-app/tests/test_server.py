@@ -221,6 +221,8 @@ def test_organize_preview_no_media(client: TestClient, tmp_path: Path) -> None:
         "folders",
         "skipped",
         "skipped_folders",
+        "uncompared",
+        "suppressed_diagnostics",
         "mode",
         "mechanism",
         "elapsed_seconds",
@@ -229,6 +231,12 @@ def test_organize_preview_no_media(client: TestClient, tmp_path: Path) -> None:
     # "no media found" must never be the whole answer when a folder could not be opened - the
     # reason would be indistinguishable from an empty source. Empty here, and honestly so.
     assert summary["skipped_folders"] == []
+    # ⚠ `None`, not `0` or `[]`, and the distinction is the same one this file already pins for
+    # `skipped_folders`. Nothing was hashed here, so nothing could have failed to decode and no
+    # library said anything - absent means *it did not happen*, where zero would mean it happened
+    # and found nothing. A renderer that drew a zero row here would invent work. `(aev)`
+    assert summary["uncompared"] is None
+    assert summary["suppressed_diagnostics"] is None
     assert summary["tier"] == "dedup"
 
 

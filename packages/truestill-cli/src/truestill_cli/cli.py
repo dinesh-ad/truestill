@@ -22,6 +22,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from truestill_core import decode_noise
 from truestill_core.app_paths import (
     LEGACY_CATALOG_PATH,
     cache_path_for,
@@ -163,6 +164,7 @@ from truestill_core.models import (
     partition_for_report,
     status_label,
     unreadable_label,
+    unreadable_remedy,
 )
 from truestill_core.organizer import (
     Relocation,
@@ -179,6 +181,7 @@ from truestill_core.organizer import (
     sizes_of_media,
     skipped_extension_counts,
     skipped_folder_groups,
+    uncompared_photos,
     write_candidates,
 )
 from truestill_core.progress import Progress, ProgressCallback
@@ -2619,6 +2622,8 @@ def _run_pipeline(
         # Nothing was copied, so nothing can have FAILED: a preview names every unreadable
         # source, or no one does.
         unreadable = _print_unreadable(resolutions)
+        _print_uncompared(resolutions)
+        _print_suppressed_noise()
         # What a move will NOT take, stated before the user commits to it and above the DRY RUN
         # banner so it is read as part of the plan. A move only: a copy leaves every original
         # where it is by definition, so there is nothing the user did not already ask for.
@@ -2644,6 +2649,8 @@ def _run_pipeline(
     # unreadable file whose cached hashes made it an exact duplicate, so it was never copied
     # and never failed, and would otherwise be the one file nobody mentions.
     named = _print_unreadable(resolutions, failed)
+    _print_uncompared(resolutions)
+    _print_suppressed_noise()
     return code or (1 if named else 0)
 
 
@@ -2675,7 +2682,12 @@ def _print_unreadable(
     ]
     if not named:
         return 0
-    print("\nFiles that could not be read:")
+    # ⚠ THE HEADING NAMES THE CONSEQUENCE, NOT ONE OF THE FIVE CAUSES. `(aew)` It read "Files
+    # that could not be read" and sat directly above rows saying *"could be read, but its
+    # contents could not be decoded"* - a heading contradicting its own list, which is what
+    # `UNDECODABLE` arriving in `(aet)` did to a sentence written when there were four reasons.
+    # "Not organized" is true of all five and is the fact the user acts on.
+    print("\nFiles that were not organized:")
     # A count here, and deliberately NONE on the "could not be OPENED" folder line above.
     # For a folder the number of files inside is exactly what could not be read, so printing
     # one would invent the missing figure; for a file the number is known exactly. The
@@ -2683,15 +2695,67 @@ def _print_unreadable(
     # ⚠ The verbs differ for that reason and `(aer)` restored it: this line and the folder one
     # both said "could not be read" until 2026-08-21, one phrase for the counted fact and the
     # uncountable one. `models._FOLDER_SKIP_LABELS` carries the argument.
-    print(f"  files that could not be read: {len(named)}")
-    for resolution in named[:_STATUS_PREVIEW]:
-        reason: UnreadableReason | None = resolution.hashes.unreadable
+    print(f"  files not organized: {len(named):,}")
+    # ⚠ GROUPED BY REASON, BECAUSE THE REMEDY IS PER REASON. `(aew)` This printed one sentence -
+    # "fix the permission or check the disk" - under every file whatever the reason, and on the
+    # format corpus 8 of 8 named files were UNDECODABLE, where neither the permission nor the
+    # disk is at fault. `UnreadableReason` splits its members precisely because each is *"a
+    # different next action"*; rendering them under one remedy threw that away at the last step.
+    by_reason: dict[UnreadableReason, list[str]] = {}
+    for resolution in named:
+        reason = resolution.hashes.unreadable
         assert reason is not None  # filtered above; narrows for the type checker
-        print(f"      {resolution.decision.source.name}  ({unreadable_label(reason)})")
-    if len(named) > _STATUS_PREVIEW:
-        print(f"  ... and {len(named) - _STATUS_PREVIEW} more.")
-    print("    (not organized; fix the permission or check the disk, then run again)")
+        by_reason.setdefault(reason, []).append(resolution.decision.source.name)
+    for reason, names in by_reason.items():
+        print(f"    {unreadable_label(reason)}: {len(names):,}")
+        for name in names[:_STATUS_PREVIEW]:
+            print(f"      {name}")
+        if len(names) > _STATUS_PREVIEW:
+            print(f"      ... and {len(names) - _STATUS_PREVIEW:,} more.")
+        print(f"    (not organized; {unreadable_remedy(reason)})")
     return len(named)
+
+
+def _print_uncompared(resolutions: Sequence[Resolution]) -> None:
+    """Photos that were organized but never compared for near-duplicates. `(aev)`
+
+    ⚠ **COUNTED, unlike the folder block above.** These files were held and read; the number is
+    known exactly. A folder the walk never entered is the opposite case, and the two lines sit in
+    the same report on purpose - see `organizer.UncomparedPhotos`.
+    """
+    uncompared = uncompared_photos(resolutions)
+    if uncompared is None:
+        return
+    print("\nNot compared for near-duplicates:")
+    print(f"  {uncompared.label}: {uncompared.total:,}")
+    for name in uncompared.files:
+        print(f"      {name}")
+    if uncompared.total > len(uncompared.files):
+        print(f"      ... and {uncompared.total - len(uncompared.files):,} more.")
+    print(f"    ({uncompared.remedy})")
+
+
+def _print_suppressed_noise() -> None:
+    """How much image-library output was kept out of this run's own output. `(aev)`
+
+    ⚠ **SAID RATHER THAN SWALLOWED.** Discarding silently would make a run over damaged files
+    look identical to a clean one - §4's fifty-fourth member, an instrument silent in the case it
+    exists for. The two numbers stay apart because they are removed by two different mechanisms
+    and the C half is the larger: 133 warnings against ~598 decoder lines in one corpus run.
+
+    **Counted rather than shown, for one measured reason: the lines name no file.** They say
+    `Fax3Decode2D: Bad code word at line 1003 of strip 0` and `tempfile.tif`. There is nothing in
+    them to route to a person, which is why `_print_uncompared` above - derived from the decode
+    outcome - is the line that carries the actual meaning.
+    """
+    noise = decode_noise.snapshot()
+    if not noise:
+        return
+    print(
+        f"  ({noise.total:,} diagnostic lines from the image libraries were not shown: "
+        f"{noise.warnings:,} warnings and {noise.decoder_lines:,} from the decoders. "
+        f"They name no file.)"
+    )
 
 
 def _print_folder_groups(groups: Sequence[SkippedFolderGroup]) -> None:

@@ -52,6 +52,15 @@ devices, which is the axis argument paying for itself on its first run.
    > the remaining payload half are in [`research/backlog/aeu.md`](research/backlog/aeu.md).
 5. **`(aev)`** **131 raw Pillow warnings** reached the terminal in one run, against a docstring
    that says none ever do.
+   > ⚠ **CORRECTED 2026-08-21, beside the finding: this had the SUBJECT BACKWARDS.** Measured
+   > while fixing it, on the same corpus: **478 image files got no near-duplicate check and only
+   > 71 of them warned** - and **14 files warned while decoding perfectly well**. The warnings are
+   > a **lossy 15% proxy** for a gap the product never mentioned at all, so suppressing them alone
+   > would have made Truestill *quieter about a real gap*. Two more counts were wrong: the C-level
+   > half recorded here as *"plus a bare `OJPEGWriteHeaderInfo` line"* is **~598 lines of 866** -
+   > 4.5x the noise of the thing the entry is named for - and the four "kinds" are **three sites**,
+   > 186 of 197 from one line (`TiffImagePlugin.py:950`) re-emitting an `OSError`'s message as a
+   > bare `UserWarning`. Full corrections in [`research/backlog/aev.md`](research/backlog/aev.md).
 
 ## ⚠ Three harness defects, recorded because each nearly became a false finding
 

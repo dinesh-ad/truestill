@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
 import warnings
 from pathlib import Path
 
 import pytest
 from PIL import Image
+from truestill_core import decode_noise
 from truestill_core.hashing import (
     MAX_PERCEPTUAL_PIXELS,
     hamming_distance,
@@ -69,14 +72,35 @@ def test_ceiling_is_deliberately_high_for_real_photography() -> None:
 def test_large_image_hashes_without_leaking_a_warning(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # Shrink the guard so a tiny image is treated as "large" -- no giant allocation in the test.
+    """⚠ The property is unchanged; the MECHANISM moved out of `perceptual_hash` in `(aev)`.
+
+    This used to wrap the call in `catch_warnings(simplefilter("error"))` and rely on the
+    function suppressing the bomb warning itself. That suppression is gone: it covered **one
+    class** while 133 other Pillow warnings reached the terminal in a single corpus run, and it
+    used `catch_warnings` inside a function that runs on a `ThreadPoolExecutor` by default -
+    which CPython documents as undefined behaviour with two or more threads.
+
+    `simplefilter("error")` cannot express the new arrangement either, and that is not a
+    workaround: an ``"error"`` action raises inside `warn_explicit` **before** `showwarning` is
+    ever consulted, so it would test that a filter beats a hook rather than that the hook works.
+    What matters to a user is asserted directly instead - the image hashes, and the warning is
+    counted rather than printed.
+    """
     monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 100)
     path = tmp_path / "pano.png"
     Image.new("RGB", (12, 12), (9, 40, 80)).save(path)  # 144 px -> warn band (100..200)
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")  # any leaked warning fails the test
+    decode_noise.install()
+    decode_noise.take_warnings()  # start from a known zero; the tally is process-wide
+
+    with contextlib.redirect_stderr(io.StringIO()) as leaked:
         result = perceptual_hash(path)
-    assert result is not None  # hashed fine; the bomb warning was suppressed inside the call
+
+    assert result is not None, "a large but legitimate image must still hash"
+    assert leaked.getvalue() == "", f"a raw Pillow warning reached stderr: {leaked.getvalue()!r}"
+    assert decode_noise.take_warnings() == 1, (
+        "the warning was neither printed nor counted, so a run could not say it was suppressed - "
+        "silence and 'nothing happened' must stay distinguishable"
+    )
 
 
 def test_gigapixel_image_skips_perceptual_but_keeps_exact(

@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aev). Next free: (aew).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aew). Next free: (aex).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -118,9 +118,6 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(aev) 131 RAW PILLOW WARNINGS REACHED THE TERMINAL** in one run, against a docstring saying
-  *"no raw Pillow warning ever reaches the user's terminal"* - the suppression covers one class.
-  Found 2026-08-21. [Full entry](research/backlog/aev.md)
 - **(ael) NO CLI ROUTE COPIES A LIBRARY TO A SECOND DRIVE WITHOUT A SOURCE FOLDER.** `(aei)`
   closed most of this - `organize <source> <second-drive>` is now the CLI's second-copy route.
   What remains is drive-to-drive when the source folder is gone or no longer matches the drive.

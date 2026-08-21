@@ -214,6 +214,12 @@ exists to prevent.
   it costs minutes. It reports two different findings: a test no mutation kills (unproven), and a
   mutation that kills no test (missing guard, or dead code). `ENGINEERING_STANDARD.md` §4,
   fiftieth member.
+- ⚠ **`warnings.catch_warnings` IS UNUSABLE IN THIS CODEBASE'S HOT PATH, so do not reach for it.**
+  It assigns process-global `warnings.filters` and `warnings.showwarning`, and `scan.py` hashes on
+  a `ThreadPoolExecutor` **by default** - CPython says the behaviour is *undefined* with two or
+  more threads. The `ContextVar` fix landed in **3.14** behind a flag that is **off** on
+  non-free-threaded builds; this project runs 3.13. Use `truestill_core.decode_noise`, which
+  installs once per process and carries the argument. `(aev)`
 - `exiftool` must be installed and on PATH for metadata paths.
 
 ### The corpora - three of them, and they answer different questions

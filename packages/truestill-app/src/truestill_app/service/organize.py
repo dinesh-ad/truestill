@@ -8,6 +8,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Literal, NotRequired, TypedDict, cast
 
+from truestill_core import decode_noise
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_session import open_catalog
 from truestill_core.categorize import build_rules
@@ -61,6 +62,7 @@ from truestill_core.organizer import (
     scan_source,
     skipped_extension_counts,
     skipped_folder_groups,
+    uncompared_photos,
     write_candidates,
 )
 from truestill_core.progress import ProgressCallback
@@ -515,6 +517,64 @@ def _unreadable_files(resolutions: list[Resolution]) -> UnreadableReport:
     return {"total": len(named), "shown": shown}
 
 
+class Uncompared(TypedDict):
+    """Photos organized but never compared for near-duplicates. `(aev)`
+
+    ⚠ **COUNTED, unlike `SkippedFolders`.** These files were held and read; the number is known
+    exactly. Same report, two rules, resting on two different states of knowledge.
+
+    `label` and `remedy` arrive already worded, so the browser maps nothing.
+    """
+
+    label: str
+    remedy: str
+    files: list[str]
+    total: int
+
+
+class SuppressedDiagnostics(TypedDict):
+    """How much image-library output the run kept out of its own. `(aev)`
+
+    ⚠ **Reported so that "quiet" and "nothing happened" stay distinguishable** - §4's
+    fifty-fourth member. Two numbers because they are removed by two different mechanisms and
+    the C half is the larger: 189 warnings against 598 decoder lines on the format corpus.
+
+    **No per-file attribution, and that is a property of the source, not a shortcut.** libtiff
+    writes to file descriptor 2, which is process-wide; under a worker pool several decodes are
+    in flight and the lines name no file. `uncompared` above is where the per-file meaning lives.
+    """
+
+    warnings: int
+    decoder_lines: int
+    total: int
+
+
+def _uncompared(resolutions: list[Resolution]) -> Uncompared | None:
+    """Photos a perceptual pass could not decode, from core's one home. ``None`` when there are
+    none, so the browser renders nothing rather than a zero row."""
+    found = uncompared_photos(resolutions)
+    if found is None:
+        return None
+    return {
+        "label": found.label,
+        "remedy": found.remedy,
+        "files": list(found.files),
+        "total": found.total,
+    }
+
+
+def _suppressed_diagnostics() -> SuppressedDiagnostics | None:
+    """This process's suppressed-noise tally, or ``None`` when nothing was suppressed."""
+    noise = decode_noise.snapshot()
+    if not noise:
+        return None
+    return {
+        "warnings": noise.warnings,
+        "decoder_lines": noise.decoder_lines,
+        "total": noise.total,
+    }
+
+
 def _skipped_summary(scan: SourceScan) -> dict[str, dict[str, int]]:
     """Skipped files for the UI. **A thin alias, deliberately not a second implementation.**
 
@@ -544,6 +604,10 @@ class OrganizeInventory(TypedDict):
     #: folder it had failed to open - the same conflation `(aac)` closed on the dedup tier.
     #: No unreadable *files* at this tier: a walk never opens one, so none is known.
     skipped_folders: list[SkippedFolders]
+    # ⚠ No `uncompared` and no `suppressed_diagnostics` here, deliberately. This tier walks and
+    # stats; it never opens an image, so there is nothing it could have failed to decode and no
+    # library to have said anything. A key that is always `None` invites a renderer to draw a
+    # zero row for work that did not happen. `(aev)`
 
 
 def organize_inventory(source: Path) -> OrganizeInventory:
@@ -741,6 +805,8 @@ class OrganizePreviewEmpty(TypedDict):
     #: Named folders that could not be listed. Present here too: "no media found" is exactly
     #: the answer a user must not receive when the reason is that a folder could not be opened.
     skipped_folders: list[SkippedFolders]
+    uncompared: Uncompared | None
+    suppressed_diagnostics: SuppressedDiagnostics | None
     #: **No `unreadable_files` here, on purpose.** An unreadable *file* was still found by the
     #: walk and classified by its extension, so it is in `scan.media` and this branch - reached
     #: only when `scan.media` is empty - cannot have one. Its sibling above is present precisely
@@ -775,6 +841,8 @@ class OrganizePreviewSummary(OrganizeDedupCore):
     #: exactly what could not be read. Distinct from `skipped`, which counts files truestill
     #: decided about.
     skipped_folders: list[SkippedFolders]
+    uncompared: Uncompared | None
+    suppressed_diagnostics: SuppressedDiagnostics | None
     #: Source files that could not be read, named with a reason each. Its sibling above carries
     #: no count on purpose; this one does, because for a file the number is known exactly.
     unreadable_files: UnreadableReport
@@ -837,6 +905,11 @@ def organize_preview(
             "folders": {},
             "skipped": _skipped_summary(scan),
             "skipped_folders": _skipped_folders(scan),
+            # Nothing was hashed, so nothing could have failed to decode. `None` rather than an
+            # empty structure, matching every other never-silent rule here: absent means it did
+            # not happen, and zero would mean it happened and found nothing.
+            "uncompared": None,
+            "suppressed_diagnostics": None,
             "mode": mode,
             "mechanism": mechanism,
         }
@@ -870,6 +943,8 @@ def organize_preview(
             "destination_is_drive": read_marker(destination) is not None,
             "skipped": _skipped_summary(scan),
             "skipped_folders": _skipped_folders(scan),
+            "uncompared": _uncompared(resolutions),
+            "suppressed_diagnostics": _suppressed_diagnostics(),
             "unreadable_files": _unreadable_files(resolutions),
             "mode": mode,
             "mechanism": mechanism,

@@ -49,6 +49,21 @@ def _resolution(name: str, reason: UnreadableReason | None) -> Resolution:
     )
 
 
+def _block_for(out: str, reason_label: str) -> str:
+    """The rows printed under one reason's heading, and nothing else.
+
+    ⚠ **`(aew)` moved the reason from the row to a group heading, so association is now by
+    BLOCK.** The property the old assertions defended is unchanged and is defended here: a test
+    that merely found the name and the reason somewhere in the output would pass with every
+    reason attached to the wrong file. Slicing to the block keeps that impossible.
+    """
+    if f"{reason_label}: " not in out:
+        return ""
+    after = out.split(f"{reason_label}: ", 1)[1]
+    # A block ends at its own remedy line, which every group prints.
+    return after.split("(not organized;", 1)[0]
+
+
 def test_the_cli_names_unreadable_files_with_the_reason_for_each(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -64,12 +79,20 @@ def test_the_cli_names_unreadable_files_with_the_reason_for_each(
     out = capsys.readouterr().out
 
     assert named == 3, "the readable file must not be counted among the failures"
-    assert "files that could not be read: 3" in out
-    # The whole rendered line, not the two halves separately: co-presence somewhere in the
+    # ⚠ THE HEADING CHANGED IN `(aew)`, AND THE TEST IS RE-AIMED RATHER THAN RELAXED. It said
+    # "files that could not be read", which contradicted its own UNDECODABLE rows - files that
+    # WERE read. The heading now names the consequence, which is true of all five reasons, and
+    # what this line pins is unchanged: the total, stated once.
+    assert "files not organized: 3" in out
+    # Each name inside ITS OWN reason's block - see `_block_for`. Co-presence anywhere in the
     # output would pass even if every reason were attached to the wrong file.
-    assert "DSC_0042.jpg  (permission denied)" in out
-    assert "IMG_1180.heic  (input/output error)" in out
-    assert "clip.mp4  (disappeared during the scan)" in out
+    assert "DSC_0042.jpg" in _block_for(out, "permission denied")
+    assert "IMG_1180.heic" in _block_for(out, "input/output error")
+    assert "clip.mp4" in _block_for(out, "disappeared during the scan")
+    # ⚠ And each block carries its OWN remedy, which is the defect `(aew)` closed: one sentence
+    # - "fix the permission or check the disk" - used to sit under all five reasons.
+    assert "nothing to do" in out, "a file that vanished mid-run is not the user's to fix"
+    assert out.count("(not organized;") == 3, "three reasons must produce three remedies"
     assert "fine.jpg" not in out, "a readable file must never appear in this block"
     # §9: no backend vocabulary reaches a user. `permission` is not checked here because the
     # value collides with ordinary English - the guidance line legitimately says "fix the
@@ -103,8 +126,11 @@ def test_the_list_elides_past_twenty_and_says_how_many_it_hid(
     out = capsys.readouterr().out
 
     assert named == 25
-    assert "files that could not be read: 25" in out, "the count must be the true count"
-    assert out.count("permission denied") == _STATUS_PREVIEW
+    assert "files not organized: 25" in out, "the count must be the true count"
+    # The cap is on the NAMES, which is what grew unbounded; the reason is a heading printed
+    # once per block now, so counting it would count blocks rather than rows.
+    shown = [line for line in out.splitlines() if line.strip().startswith("p0")]
+    assert len(shown) == _STATUS_PREVIEW
     assert f"... and {25 - _STATUS_PREVIEW} more." in out
 
 
@@ -158,7 +184,7 @@ def test_a_preview_over_an_unreadable_file_exits_one_not_zero(
     # The BLOCK must be absent, and the SUMMARY's term must be present at zero. Two different
     # rules that read alike: the block is a warning and stays silent when nothing is wrong; the
     # tally line is a term in a conservation law and is only checkable if it always prints.
-    assert "Files that could not be read:" not in clean_out
+    assert "Files that were not organized:" not in clean_out
     assert "could not be read  : 0" in clean_out
 
     _deny_open(monkeypatch, name="locked.jpg", exc=PermissionError(errno.EACCES, "denied"))
@@ -169,8 +195,8 @@ def test_a_preview_over_an_unreadable_file_exits_one_not_zero(
         "a preview that cannot read one of the user's photos must not report success; the run "
         "will exit 1 on that same file through ActionStatus.FAILED"
     )
-    assert "files that could not be read: 1" in out
-    assert "locked.jpg  (permission denied)" in out
+    assert "files not organized: 1" in out
+    assert "locked.jpg" in _block_for(out, "permission denied")
     assert "DRY RUN" in out, "the exit code changed; the preview itself did not"
 
 

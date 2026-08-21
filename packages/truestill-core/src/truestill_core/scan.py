@@ -37,6 +37,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Literal
 
+from truestill_core import decode_noise
 from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import perceptual_hash, sha256_file
 from truestill_core.models import FileHashes, UnreadableReason
@@ -50,7 +51,13 @@ DEFAULT_WORKERS = os.cpu_count() or 4
 
 
 #: One worker's answer: ``(path, sha256, perceptual, why_it_could_not_be_read)``.
-HashJobResult = tuple[str, str | None, str | None, UnreadableReason | None]
+#: ``(path, sha256, perceptual, unreadable, library_warnings)``.
+#:
+#: ⚠ The fifth field is a **sum contribution, never a per-file fact** - see
+#: `decode_noise.take_warnings`. It rides the return value because that is the only channel a
+#: `ProcessPoolExecutor` child has back to the parent; under a thread pool the split between
+#: tasks is arbitrary and only the total is ever read. `(aev)`
+HashJobResult = tuple[str, str | None, str | None, UnreadableReason | None, int]
 
 
 def _reason_for(exc: OSError) -> UnreadableReason:
@@ -101,7 +108,7 @@ def _probe_readability(paths: Sequence[Path]) -> dict[Path, UnreadableReason]:
 
 
 def _hash_one(args: tuple[str, bool, bool]) -> HashJobResult:
-    """Worker body: return ``(path, sha256_or_None, perceptual_or_None, unreadable_or_None)``.
+    """Worker body: ``(path, sha256, perceptual, unreadable, library_warnings)``.
 
     Module-level and picklable so it works under a ProcessPoolExecutor. SHA-256 is computed
     only when ``need_sha`` is set (the size pre-filter's decision); perceptual hashing is
@@ -117,11 +124,11 @@ def _hash_one(args: tuple[str, bool, bool]) -> HashJobResult:
     try:
         sha = sha256_file(path) if need_sha else None
     except OSError as exc:
-        return path_str, None, None, _reason_for(exc)
+        return path_str, None, None, _reason_for(exc), decode_noise.take_warnings()
     try:
         perceptual = perceptual_hash(path) if need_perceptual else None
     except OSError as exc:
-        return path_str, None, None, _reason_for(exc)
+        return path_str, None, None, _reason_for(exc), decode_noise.take_warnings()
     except Exception:  # EXEMPTION from a CONVENTION, argued in full below. `(aet)`
         # ⚠ **A DELIBERATE EXEMPTION FROM §4's "exceptions typed and specific - no bare except",
         # SCOPED TO THIS ONE CALL AND NOWHERE ELSE.** It is not a pattern to copy: the `sha256_file`
@@ -156,8 +163,8 @@ def _hash_one(args: tuple[str, bool, bool]) -> HashJobResult:
         #
         # `BaseException` is deliberately NOT caught: a `KeyboardInterrupt` or a `SystemExit` is
         # the operator stopping the run, and a worker that ate one would make Ctrl-C stop working.
-        return path_str, None, None, UnreadableReason.UNDECODABLE
-    return path_str, sha, perceptual, None
+        return path_str, None, None, UnreadableReason.UNDECODABLE, decode_noise.take_warnings()
+    return path_str, sha, perceptual, None, decode_noise.take_warnings()
 
 
 def _take_hash_result(future: Future[HashJobResult]) -> HashJobResult | None:
@@ -215,8 +222,25 @@ def _run_hash_jobs(
 ) -> None:
     """Hash ``to_hash`` into ``results``, defending one unreadable file and a dead process pool."""
     jobs = [(str(path), path in need_sha, want_perceptual) for path in to_hash]
+    # ⚠ INSTALLED IN BOTH PLACES, AND EACH HAS ITS OWN TEST. `pool="thread"` is the DEFAULT, so
+    # this parent-side call is the one that carries the common path; `initializer` below carries
+    # a `ProcessPoolExecutor`'s children, which are separate interpreters and inherit nothing.
+    # Installing in only one of the two leaves the other unhooked and every test green. `(aev)`
+    decode_noise.install()
     executor_cls = ProcessPoolExecutor if pool == "process" else ThreadPoolExecutor
-    with executor_cls(max_workers=max(1, workers)) as executor:
+    # The C half is not a Python warning and cannot be filtered: libtiff and libjpeg write to
+    # file descriptor 2 directly. Children inherit that descriptor, so one capture in the parent
+    # covers both pools. Progress still reaches the terminal - `capture_decoder_output` repoints
+    # `sys.stderr`, which is what `cli._progress_printer` writes through.
+    # ⚠ The initializer is for a PROCESS pool only. A thread pool's initializer runs in each
+    # worker thread of THIS process, so arming it there would write global warning state
+    # concurrently with other workers - the exact undefined behaviour this replaces. The parent
+    # call above already covers every thread, because they share one interpreter.
+    initializer = decode_noise.install if pool == "process" else None
+    with (
+        decode_noise.capture_decoder_output(),
+        executor_cls(max_workers=max(1, workers), initializer=initializer) as executor,
+    ):
         futures = [executor.submit(_hash_one, job) for job in jobs]
         for future in as_completed(futures):
             if cancel is not None and cancel.is_set():
@@ -234,7 +258,8 @@ def _run_hash_jobs(
                         FileHashes(None, None, unreadable.get(path), perceptual_computed=False),
                     )
                 break
-            path_str, sha, perceptual, late = got
+            path_str, sha, perceptual, late, library_warnings = got
+            decode_noise.record_warnings(library_warnings)
             path = Path(path_str)
             # The worker's reason wins where it has one: it read further than the probe did.
             hashes = FileHashes(

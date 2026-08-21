@@ -210,6 +210,30 @@ _UNREADABLE_LABELS: dict[UnreadableReason, str] = {
 }
 
 
+#: What to do about each read failure. **One remedy per reason, because that is why the reasons
+#: exist** - `UnreadableReason`'s own docstring says each member is *"a different next action for
+#: the person reading the report"*, and until 2026-08-21 the CLI printed *"fix the permission or
+#: check the disk"* for all five. `(aew)`
+#:
+#: ⚠ Measured on the format corpus: **8 of 8** files named under that sentence were `UNDECODABLE`,
+#: where nothing ails the permissions or the disk. That is the same misdirection `(aer)` removed
+#: for folders, sitting unfixed on the file side - and `UNDECODABLE` was added by `(aet)` *for*
+#: this reason, then rendered under the remedy it was created to escape.
+_UNREADABLE_REMEDIES: dict[UnreadableReason, str] = {
+    UnreadableReason.PERMISSION: "check the file's permissions and try again",
+    UnreadableReason.IO_ERROR: "check the disk; this one points at the hardware, not at you",
+    UnreadableReason.MISSING: "nothing to do - it was moved or deleted while the run was reading",
+    UnreadableReason.UNDECODABLE: "the file itself is damaged; a copy from another source is the "
+    "only fix, and nothing else in the run was affected",
+    UnreadableReason.OTHER: "check the file's permissions and the disk, then try again",
+}
+
+
+def unreadable_remedy(reason: UnreadableReason) -> str:
+    """What to do about this read failure. Never the raw enum value, never a shared sentence."""
+    return _UNREADABLE_REMEDIES.get(reason, _UNREADABLE_REMEDIES[UnreadableReason.OTHER])
+
+
 def unreadable_label(reason: UnreadableReason) -> str:
     """The user-facing wording for a read failure. Never the raw enum value."""
     return _UNREADABLE_LABELS.get(reason, reason.value)
@@ -261,6 +285,21 @@ _FOLDER_SKIP_REMEDIES: dict[FolderSkip, str] = {
     FolderSkip.HIDDEN: "rename it without the leading dot and try again to include what is in it",
     FolderSkip.UNREADABLE: "check the folder's permissions and try again to include what is inside",
 }
+
+
+#: What the user is told about a photograph Truestill could not decode, and what it cost them.
+#:
+#: ⚠ **DERIVED FROM THE OUTCOME, NEVER FROM A WARNING**, which is `(aev)`'s whole finding. The
+#: entry was filed as *"131 raw Pillow warnings reached the terminal"*; measured on the format
+#: corpus, **478 photographs got no near-duplicate check and only 71 of them warned** - while
+#: **14 files warned and decoded perfectly well**. Reporting the warnings would have named 71 of
+#: 478 and implied the rest were fine. §4's forty-second member: a check measuring the cheaper
+#: proxy. The warning is evidence; the CONSEQUENCE is what a person needs.
+#:
+#: **The remedy states what still worked**, because the honest answer here is *nothing is broken
+#: and nothing is required of you*. A line that only says what failed reads as data loss.
+UNCOMPARED_LABEL = "photos whose contents could not be decoded"
+UNCOMPARED_REMEDY = "organized normally, and identical copies are still found by content"
 
 
 def folder_skip_label(reason: FolderSkip) -> str:

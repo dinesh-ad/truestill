@@ -48,6 +48,8 @@ from truestill_core.layout import (
     normalize_everyday_day_threshold,
 )
 from truestill_core.models import (
+    UNCOMPARED_LABEL,
+    UNCOMPARED_REMEDY,
     ActionResult,
     ActionStatus,
     CaptureContext,
@@ -481,6 +483,63 @@ def skipped_folder_groups(source: HasSkippedFolders) -> tuple[SkippedFolderGroup
         )
         for reason, folders in sources.items()
         if folders
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class UncomparedPhotos:
+    """Photographs that were organized but never compared for near-duplicates. `(aev)`
+
+    ⚠ **COUNTED, unlike `SkippedFolderGroup`, and the asymmetry is the point.** A folder the walk
+    never entered has an unknown number of files inside, so any figure would be invented. Here the
+    number is known exactly: these are files the run held, tried to decode and could not. Same
+    report, two rules, because they rest on two different states of knowledge.
+    """
+
+    label: str
+    remedy: str
+    files: tuple[str, ...]
+    total: int
+
+
+def uncompared_photos(resolutions: Iterable[Resolution]) -> UncomparedPhotos | None:
+    """Image files a perceptual pass ran over and could not decode. ``None`` when there are none.
+
+    **The fact was already in the data and nobody asked the question**, which is `(aer)`'s shape
+    again. `FileHashes.perceptual_computed` exists because *"`perceptual=None` answers two
+    different questions - not an image and nobody looked - and a report that cannot tell them
+    apart told users their photographs were not images"*. That settled two of three. The third -
+    an image a pass **tried** to decode and could not - is the conjunction below, derivable since
+    the field shipped and read by nothing.
+
+    ⚠ **THREE EXCLUSIONS, AND EACH ONE IS A CRY-WOLF THIS WOULD OTHERWISE BE.**
+
+    * ``perceptual_computed`` false - nobody looked, so nothing failed. Analyze's tier 2a runs
+      this way over an entire library.
+    * a **video or audio** file - `perceptual=None` is the *correct* answer for one, and a guard
+      that fires on every clip in a library is one people switch off.
+    * ``unreadable`` set - already named, with its own reason and remedy, by `_print_unreadable`.
+      Listing it twice would make one problem look like two.
+
+    RAW files are deliberately **not** excluded. Truestill genuinely cannot compare a `.CR3` for
+    near-duplicates, and a user with a RAW library wants that said rather than hidden behind a
+    format list that would rot the first time a decoder gains support.
+    """
+    named = [
+        str(r.decision.source.name)
+        for r in resolutions
+        if r.hashes.perceptual_computed
+        and r.hashes.perceptual is None
+        and r.hashes.unreadable is None
+        and r.decision.source.suffix.lower() in IMAGE_EXTENSIONS
+    ]
+    if not named:
+        return None
+    return UncomparedPhotos(
+        label=UNCOMPARED_LABEL,
+        remedy=UNCOMPARED_REMEDY,
+        files=tuple(named[:FOLDER_PREVIEW]),
+        total=len(named),
     )
 
 

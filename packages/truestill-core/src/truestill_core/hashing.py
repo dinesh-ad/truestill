@@ -16,7 +16,6 @@ fast. pHash is available in :func:`perceptual_hash` via ``algorithm="phash"`` if
 from __future__ import annotations
 
 import hashlib
-import warnings
 from pathlib import Path
 from typing import Literal
 
@@ -93,16 +92,22 @@ def perceptual_hash(path: Path, algorithm: Algorithm = "dhash") -> str | None:
     Videos, audio and unreadable files return ``None`` -- they simply do not participate
     in perceptual dedup and are matched on SHA-256 alone. A legitimately huge image (above
     :data:`MAX_PERCEPTUAL_PIXELS`) also returns ``None`` -- Pillow raises ``DecompressionBombError``
-    and we skip *perceptual* hashing for it (SHA-256 still runs). The decompression-bomb *warning*
-    is suppressed locally so no raw Pillow warning ever reaches the user's terminal.
+    and we skip *perceptual* hashing for it (SHA-256 still runs).
+
+    ⚠ **THE LOCAL WARNING SUPPRESSION THAT USED TO BE HERE IS GONE, AND ITS DOCSTRING WAS WRONG
+    IN BOTH HALVES.** It read *"the decompression-bomb warning is suppressed locally so no raw
+    Pillow warning ever reaches the user's terminal"*. It filtered **one class**, so 133 other
+    Pillow warnings reached the terminal in a single corpus run; and it did it with
+    `warnings.catch_warnings`, which assigns process-global module attributes while this function
+    runs on a `ThreadPoolExecutor` **by default** - behaviour CPython documents as *undefined*
+    with two or more threads. It was unsound and ineffective at once. :mod:`decode_noise` replaces
+    it with one process-wide install, and carries the full argument. `(aev)`
     """
     try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", Image.DecompressionBombWarning)
-            with Image.open(path) as image:
-                image.draft("L", (64, 64))  # hint the decoder toward a cheap grayscale read
-                func = imagehash.phash if algorithm == "phash" else imagehash.dhash
-                return str(func(image, hash_size=_HASH_SIDE))
+        with Image.open(path) as image:
+            image.draft("L", (64, 64))  # hint the decoder toward a cheap grayscale read
+            func = imagehash.phash if algorithm == "phash" else imagehash.dhash
+            return str(func(image, hash_size=_HASH_SIDE))
     except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
         return None
 

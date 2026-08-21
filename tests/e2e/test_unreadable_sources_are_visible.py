@@ -312,6 +312,60 @@ def test_a_shortened_list_says_how_many_it_hid(ui: Page) -> None:
     expect(block).to_contain_text("and 5 more")
 
 
+def test_a_photo_that_could_not_be_compared_reaches_the_screen(ui: Page) -> None:
+    """`(aev)`: the gap the product was silent about, on the app surface.
+
+    Measured on the format corpus: **478 photographs got no near-duplicate check and only 71 of
+    them warned**. The browser is asserted on the *consequence* - what was not done and what
+    still was - because that is what the payload carries; the warnings themselves never reach a
+    person at all.
+
+    ⚠ **COUNTED, unlike the folder block.** These files were held and read, so the number is
+    known exactly - which is why the count is asserted here and forbidden there.
+    """
+    _preview(
+        ui,
+        _summary(
+            uncompared={
+                "label": "photos whose contents could not be decoded",
+                "remedy": "organized normally, and identical copies are still found by content",
+                "files": ["SPADE.BMP", "damaged.tif"],
+                "total": 478,
+            }
+        ),
+    )
+
+    block = ui.locator("[data-testid='org-unreadable']")
+    expect(block).to_be_visible(timeout=30_000)
+    expect(block).to_contain_text("photos whose contents could not be decoded: 478")
+    expect(block).to_contain_text("SPADE.BMP")
+    expect(block).to_contain_text("and 476 more")
+    # The remedy states what STILL worked. A line that only says what failed reads as data loss.
+    expect(block).to_contain_text("identical copies are still found by content")
+
+
+def test_the_run_says_how_much_library_noise_it_removed(ui: Page) -> None:
+    """⚠ Case C, and the user-visible test of whether the whole entry worked.
+
+    One corpus run put **866 lines** on stderr - 133 warnings and ~598 written to file descriptor
+    2 by libtiff and libjpeg. Removing them silently would make that run look identical to a clean
+    one, which is an instrument silent in the case it exists for. The numbers stay apart because
+    two different mechanisms remove them and the decoder half is the larger.
+    """
+    _preview(
+        ui,
+        _summary(suppressed_diagnostics={"warnings": 189, "decoder_lines": 598, "total": 787}),
+    )
+
+    block = ui.locator("[data-testid='org-unreadable']")
+    expect(block).to_be_visible(timeout=30_000)
+    expect(block).to_contain_text("787 diagnostic lines")
+    expect(block).to_contain_text("189 warnings")
+    expect(block).to_contain_text("598")
+    # Counted rather than shown, because the lines name no file - there is nothing to route.
+    expect(block).to_contain_text("They name no file")
+
+
 def test_an_ordinary_preview_grows_no_warning_at_all(ui: Page) -> None:
     """The cry-wolf half. A block that appears when nothing is wrong teaches people to ignore it."""
     _preview(ui, _summary())
