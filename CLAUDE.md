@@ -220,6 +220,8 @@ exists to prevent.
   more threads. The `ContextVar` fix landed in **3.14** behind a flag that is **off** on
   non-free-threaded builds; this project runs 3.13. Use `truestill_core.decode_noise`, which
   installs once per process and carries the argument. `(aev)`
+  ⚠ **Upgrading does not change this** - measured on 3.14.4: the flag is `0`. See `DECISIONS.md`
+  **D10**, which defers 3.14 and records the one thing that blocks it, `(aey)`.
 - `exiftool` must be installed and on PATH for metadata paths.
 
 ### The corpora - three of them, and they answer different questions

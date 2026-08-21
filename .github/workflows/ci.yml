@@ -20,8 +20,18 @@ concurrency:
 
 jobs:
   check:
-    name: check (${{ matrix.os }})
+    name: check (${{ matrix.os }}, py${{ matrix.python }})
     runs-on: ${{ matrix.os }}
+    # ⚠ ONE JOB DEFINITION, TWO INTERPRETERS - NOT A SECOND COPY OF THIS LANE. The 3.14 leg is
+    # the `python` matrix dimension below, so every step, bound, cache key and workaround here is
+    # shared by construction. A duplicated `check-314:` job would be §4's fifty-sixth member with
+    # a schedule: the next apt drop-in, Defender exclusion or timing probe would land in one of
+    # them and the other would drift silently while both stayed green.
+    #
+    # `continue-on-error` is read from the matrix, which is GitHub's documented pattern for
+    # marking a leg allowed-to-fail. It is `false` for 3.13 and `true` for 3.14: the 3.14 legs
+    # report and cannot redden `main` for a version this project has not adopted.
+    continue-on-error: ${{ matrix.experimental }}
     # ⚠ WITHOUT THIS THE DEFAULT IS SIX HOURS, and on 2026-08-19 that was not theoretical: run
     # 32279378834 sat 33+ minutes in `apt-get update` against a mirror that was not answering,
     # with nothing to stop it. The other two lanes had already finished in 1m07s and 3m02s.
@@ -32,6 +42,25 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+        # 3.13 is what this project requires and ships. 3.14 is EVIDENCE, not a target: the
+        # decision to move was deferred (no support pressure - 3.13 is supported to October 2029 -
+        # and 3.15 lands 2026-10-01). What this leg buys is the two platforms nobody here can run.
+        #
+        # ⚠ NO SOURCE, LOCK OR `requires-python` CHANGE IS NEEDED FOR IT. `uv.lock` is
+        # `requires-python = ">=3.13"`, which already admits 3.14 - verified with
+        # `uv sync --all-packages --group dev --locked --python 3.14 --dry-run`. `UV_PYTHON` below
+        # is the whole of the mechanism.
+        python: ["3.13", "3.14"]
+        include:
+          - python: "3.13"
+            experimental: false
+          - python: "3.14"
+            experimental: true
+    # Set once for the job so every `uv sync` and `uv run` below picks the matrix interpreter.
+    # Per-step `--python` flags would be the drift this matrix exists to prevent: a step added
+    # later would inherit the default and quietly test 3.13 inside the 3.14 leg.
+    env:
+      UV_PYTHON: ${{ matrix.python }}
     steps:
       - uses: actions/checkout@v7
 
@@ -176,8 +205,8 @@ jobs:
           enable-cache: true
           cache-dependency-glob: uv.lock
 
-      - name: Set up Python 3.13
-        run: uv python install 3.13
+      - name: Set up Python ${{ matrix.python }}
+        run: uv python install ${{ matrix.python }}
 
       # --locked fails the build if uv.lock is out of date with the pyproject files rather
       # than silently re-resolving. uv.lock is the single source of truth for what we ship,

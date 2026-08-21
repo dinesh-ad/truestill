@@ -535,3 +535,55 @@ warning the page predicted accurately is evidence the product is what it says it
 
 **Status:** Settled. **This unblocks `(aad)`**: the bundler decision can be made for Windows and
 Linux alone, with no signing step in the pipeline.
+
+---
+
+## D10. Python 3.14 is deferred, and the CI leg is evidence rather than a target
+
+**Decided 2026-08-21**, after research rather than preference. The upgrade was raised as the first
+non-defect change in weeks; it is not blocked by anything, and nothing argues for it.
+
+### Nothing breaks - that is not the same as a reason to move
+
+Every runtime and dev dependency resolves on 3.14 and ships **cp314 wheels on all three lanes**
+(numpy, pillow, pillow-heif, scipy, pywavelets); the rest are pure-python or `py3-none-<platform>`.
+PyInstaller has supported 3.14 since **6.15.0 (2025-08-03)** and declares `<3.16,>=3.8`. The whole
+suite passes locally on 3.14.4 (2,664 passed). `uv.lock` already admits 3.14 unchanged.
+
+### Why we are not moving
+
+- **No support pressure.** 3.13 is in *bugfix* status until **October 2029**
+  ([devguide](https://devguide.python.org/versions/)).
+- **3.15 lands 2026-10-01**, so moving now buys about six weeks of being *n-1*.
+- **Nothing in 3.14 is wanted.** Free-threading is unused; `pathlib.Path.copy/move` would mean
+  rewriting safety-critical `safe_copy.py`; the hot path is C (`hashlib`, Pillow decode).
+- ⚠ **`sys.flags.context_aware_warnings` is `0`** on non-free-threaded 3.14 - measured. The
+  contextvar `catch_warnings` does **not** arrive by upgrading, so `(aev)`'s `decode_noise` is
+  necessary on both versions. **The upgrade fixes nothing we have fixed**, and must never be
+  justified by it.
+- §13 prefers boring technology when it is sufficient. 3.13 is sufficient.
+
+### Two things 3.14 would change, and one of them is a defect
+
+- **`multiprocessing` defaults to `forkserver` on Linux** (was `fork`) - measured on both
+  interpreters here. `--pool process` is a user-facing flag, so its Linux behaviour changes.
+  `scan.py` already passes `initializer=`, so it is correct **by design, not by luck** - it was
+  written for spawn. `verify.py`'s pool hashes only and needs nothing.
+- ⚠ **`(aey)`**: `Path.is_dir()`/`exists()` stop raising on `EACCES`, so `path_probe.probe_dir`
+  would report an unreadable folder as **missing and creatable**. That is the module's whole
+  purpose inverted, and its guard **skips rather than fails**. This is the concrete blocker.
+
+### What moves the decision
+
+Any one of: **3.15 ships and settles** (3.13 becomes *n-2*); a dependency drops 3.13; or a defect
+we cannot fix on 3.13 is fixed upstream. `(aey)` must be closed first regardless.
+
+### The CI leg
+
+3.14 is a `continue-on-error` matrix dimension of the **one** check job - never a second lane.
+⚠ **It reports green through `(aey)` today**, which is exactly why it is evidence and cannot be
+promoted to a gate until that entry closes.
+
+**Status:** Settled until one of the conditions above fires. **No tag was cut**: the release lane
+is exercised with `workflow_dispatch` + `dry_run=true`, and a `v*` tag is the *publish* trigger,
+not a dry run (`release.yml:283`).
