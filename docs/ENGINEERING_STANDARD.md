@@ -510,7 +510,24 @@ memory dressed as one.
   script only inspected the exit code.
 
   **A mutation matrix whose control does not print a passing test count proves nothing**, and it
-  fails in the flattering direction: every mutant looks caught. So the control's assertion is not
+  fails in the flattering direction: every mutant looks caught.
+
+  ⚠ ✅ **AND ON 2026-08-21 THIS STOPPED BEING PROSE, BECAUSE THE PROSE FAILED A THIRD TIME.** The
+  same trap - `pytest $TARGETS` with two paths in an unquoted variable - made **three** proofs void
+  in one session, in the hands of someone who had quoted this member earlier the same day. That is
+  the twenty-seventh member's verdict exactly: *a rule that depends on somebody remembering to read
+  it is not a control*, and the honest answers are to make it executable or to say it will be
+  broken. It is now executable. `scripts/mutate_once.py` **runs the command unmutated first, with
+  no flag to skip it**, refuses to proceed unless that control both exits 0 and demonstrably ran
+  tests, prints the passing count, and refuses to call a non-zero mutant a kill when the mutant
+  itself collected nothing. Pinned by `test_mutate_once_refuses_a_broken_run.py`, whose first case
+  is the exact broken invocation.
+
+  **It also sets `PYTHONDONTWRITEBYTECODE=1` for both runs**, which closes the forty-ninth member
+  the same way: the control used to compile the original, and a same-length mutation inside the
+  same second then ran from the cached bytecode. That was found by this harness's own guard test,
+  mutating `VALUE = 1` to `VALUE = 2` and watching the mutation survive - the member reproducing
+  itself in the tool written to catch it. So the control's assertion is not
   *"exit 0"* - it is *"N tests passed, and N is the number I expected"*. Re-run properly, one of
   those five mutants had genuinely **survived**, and it was the one covering the case the author
   had described in prose and never tested.

@@ -1,6 +1,6 @@
 # (aet) ONE UNDECODABLE FILE ABORTS THE WHOLE RUN WITH A TRACEBACK.
 
-*Body of backlog entry `(aet)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aet)`, **CLOSED 2026-08-21**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aet) `perceptual_hash` LETS TWO EXCEPTION CLASSES ESCAPE.** Found 2026-08-21 by soak two, S12 -
   the format-variety step, and **unreachable by any corpus of one person's devices**.
@@ -49,7 +49,15 @@
   counted, and reported at the end."* And §4's *"exceptions typed and specific"* has a mirror
   failure - a typed `except` that is too **narrow** - which this is.
 
-  ## NOT DECIDED
+  ## DECIDED 2026-08-21
+
+  - **Inverted, not widened**, and the argument is above: a boundary defined by enumeration is not
+    one. `except Exception` at that one call, argued in place per §5, with `BaseException`
+    deliberately excluded so Ctrl-C keeps working. The escaped file is reported as
+    `UnreadableReason.UNDECODABLE` - its own reason, because *"could not be opened"* is false about
+    a file whose bytes read perfectly.
+
+  ## WHAT WAS NOT DECIDED, AS FILED
 
   - **Whether to widen the tuple or invert it.** Widening keeps the typed-except discipline and
     will be wrong again for the next decoder. Catching `Exception` at this one call site is the

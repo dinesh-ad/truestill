@@ -180,13 +180,19 @@ class UnreadableReason(StrEnum):
     This records one that was wanted and could not be had, which is the distinction the scan
     used to destroy (`BACKLOG.md` ``(aac)``).
 
-    Four members rather than a boolean because each is a **different next action** for the
+    Five members rather than a boolean because each is a **different next action** for the
     person reading the report: a permission is theirs to fix, an I/O error points at the disk,
     and a file that vanished mid-run was moved by something else and is not a defect at all.
+
+    ``UNDECODABLE`` is the fifth and it is not an I/O failure at all (`(aet)`): the bytes read
+    perfectly and an image decoder refused them - a truncated HEIC, a PNG with a malformed `zTXt`
+    chunk. Folded into ``OTHER`` it would read *"could not be opened"*, which is false and sends
+    the reader to check permissions on a file nothing is wrong with.
     """
 
     PERMISSION = "permission"  # EACCES/EPERM - the user can fix this
     IO_ERROR = "io_error"  # EIO - points at the disk, not at the permissions
+    UNDECODABLE = "undecodable"  # read fine; an image decoder refused the contents - `(aet)`
     MISSING = "missing"  # ENOENT - vanished between the walk and the read
     OTHER = "other"  # named rather than folded into one of the three above
 
@@ -200,6 +206,7 @@ _UNREADABLE_LABELS: dict[UnreadableReason, str] = {
     UnreadableReason.IO_ERROR: "input/output error",
     UnreadableReason.MISSING: "disappeared during the scan",
     UnreadableReason.OTHER: "could not be opened",
+    UnreadableReason.UNDECODABLE: "could be read, but its contents could not be decoded",
 }
 
 

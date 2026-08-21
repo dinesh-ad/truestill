@@ -118,11 +118,6 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(aet) ONE UNDECODABLE FILE ABORTS THE WHOLE RUN WITH A TRACEBACK.** `perceptual_hash` catches
-  `OSError`/`ValueError`/`UnidentifiedImageError`/`DecompressionBombError`; **`EOFError` and
-  `SyntaxError` are neither** and escape. 8 of 1,428 format-corpus files do it, and any one aborts
-  everything - against §1's *"one bad file never aborts a batch"*. Found 2026-08-21 by soak two.
-  [Full entry](research/backlog/aet.md)
 - **(aer) ORGANIZE'S SKIPPED REPORT DROPS HIDDEN FILES AND HIDDEN FOLDERS.** A folder of 21 photos,
   18 in `.MyAlbum`, reported *"analysed 3, organized 3"* and **success**; `analyze` names it.
   `_print_skipped` reads 4 of `SourceScan`'s 6 skip buckets and `scan.hidden` is read nowhere

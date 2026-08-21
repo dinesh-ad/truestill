@@ -116,9 +116,47 @@ def _hash_one(args: tuple[str, bool, bool]) -> HashJobResult:
     path = Path(path_str)
     try:
         sha = sha256_file(path) if need_sha else None
+    except OSError as exc:
+        return path_str, None, None, _reason_for(exc)
+    try:
         perceptual = perceptual_hash(path) if need_perceptual else None
     except OSError as exc:
         return path_str, None, None, _reason_for(exc)
+    except Exception:  # EXEMPTION from a CONVENTION, argued in full below. `(aet)`
+        # ⚠ **A DELIBERATE EXEMPTION FROM §4's "exceptions typed and specific - no bare except",
+        # SCOPED TO THIS ONE CALL AND NOWHERE ELSE.** It is not a pattern to copy: the `sha256_file`
+        # call above keeps its narrow `OSError`, because a plain byte read has a knowable failure
+        # set. This one does not.
+        #
+        # ⚠ There is no `noqa` here because there is nothing to suppress: `BLE001` is not
+        # enabled in this repo, so `except Exception` passes ruff silently. The rule being
+        # bent is §4's PROSE - *"exceptions typed and specific - no bare except"* - which
+        # means §5 governs it: a violation must be **explicit, commented and contained**,
+        # written for the next engineer so no archaeology is needed. That is this comment,
+        # and its absence would make the deviation invisible rather than merely unmarked.
+        #
+        # **The argument: the defect is a taxonomy that cannot be completed.** `perceptual_hash`
+        # already catches `UnidentifiedImageError`, `OSError`, `ValueError` and
+        # `DecompressionBombError` - a careful list. The first soak's format corpus escaped it
+        # **eight times in two classes nobody would have listed**: `EOFError` from a truncated
+        # HEIC, and `SyntaxError` - the *builtin* - which Pillow raises for a malformed PNG `zTXt`
+        # chunk. Any one of the eight aborted a 1,428-file run with a traceback and no report.
+        #
+        # Widening the tuple would fix those eight and leave the ninth decoder to abort a run in
+        # six months, identically. §1's partial-failure policy - *"one bad file never aborts a
+        # batch - it is logged, counted, and reported at the end"* - is a statement about the
+        # **boundary**, and a boundary defined by enumeration is not one. This is that sentence
+        # implemented rather than approximated.
+        #
+        # **Nothing is swallowed.** The file comes back named, with `UNDECODABLE` - its own reason,
+        # not folded into `OTHER`'s *"could not be opened"*, which would be false about a file
+        # whose bytes read perfectly. `models.unreadable_label` words it, both surfaces render it,
+        # and §9 already rules that the run still ATTEMPTS an unreadable file, so this costs the
+        # user nothing but the perceptual-dedup pass on that one file.
+        #
+        # `BaseException` is deliberately NOT caught: a `KeyboardInterrupt` or a `SystemExit` is
+        # the operator stopping the run, and a worker that ate one would make Ctrl-C stop working.
+        return path_str, None, None, UnreadableReason.UNDECODABLE
     return path_str, sha, perceptual, None
 
 

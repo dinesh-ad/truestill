@@ -45,6 +45,10 @@ All notable changes to this project are documented here. The format follows
   A group you have already named shows its name instead, and is never offered a suggestion.
 
 ### Fixed
+- **One unreadable photo no longer stops the whole run.** A file whose contents an image reader
+  cannot make sense of - a truncated phone photo, a picture with a damaged section - used to end
+  the run then and there, with nothing organized and no report. Truestill now organizes everything
+  else and tells you which files it could not make sense of, by name.
 - **Photos saved as HEIC are no longer shown on their side, or described the wrong way round.**
   A HEIC can record "turn this a quarter turn" in two different places, and Truestill was reading
   one of them in the picture and the other in the description - so some portrait photos were drawn

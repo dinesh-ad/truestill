@@ -22,6 +22,37 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aet) ONE UNDECODABLE FILE NO LONGER ABORTS A RUN, AND THE BOUNDARY IS NOT A LIST.**
+  - ✅ **CLOSED 2026-08-21.** `organize` over 1,428 format-corpus files exited **1 with a traceback
+    and nothing organized**; it now reports **1,406 organized, 22 duplicates, 8 named** and exits 1
+    because §9 requires that when a source could not be read.
+  - **The argument, and it is the entry rather than the diff: the defect is a taxonomy that cannot
+    be completed.** `perceptual_hash` already caught `UnidentifiedImageError`, `OSError`,
+    `ValueError` and `DecompressionBombError` - a careful list. Eight files escaped it in two
+    classes nobody would have listed: **`SyntaxError`** ×7, the *builtin*, which Pillow raises for
+    a malformed PNG `zTXt` chunk, and **`EOFError`** ×1 from a truncated HEIC. Widening the tuple
+    would fix those eight and leave the ninth decoder to abort a run in six months, identically.
+    **§1's partial-failure policy is a statement about the BOUNDARY, and a boundary defined by
+    enumeration is not one.**
+  - **`except Exception`, scoped to that ONE call and argued in place**, per §5: a violation must
+    be explicit, commented and contained. The `sha256_file` call beside it keeps its narrow
+    `OSError`, because a plain byte read has a knowable failure set. ⚠ There is no `noqa` because
+    there is nothing to suppress - `BLE001` is not enabled here, so the rule being bent is §4's
+    **prose**, which is exactly why the comment is the whole of the enforcement.
+  - **`BaseException` is deliberately NOT caught**, and that claim is pinned: a worker that ate a
+    `KeyboardInterrupt` would make Ctrl-C stop working on the operation people most want to stop.
+  - **Nothing is swallowed**, which is the condition the exemption rests on.
+    `UnreadableReason.UNDECODABLE` is a fifth member rather than a reuse of `OTHER`, whose wording
+    is *"could not be opened"* - false about a file whose bytes read perfectly, and it would send
+    the reader to check permissions on a file with nothing wrong with them. It reads *"could be
+    read, but its contents could not be decoded"*, worded once in `models.unreadable_label` so
+    neither surface can drift.
+  - **The boundary is what is tested, not any decoder's exception.** The guard injects
+    `SyntaxError`, `EOFError` **and a class that exists nowhere** - the third being the whole
+    claim - plus the real corpus files when they are present, skipping rather than fabricating.
+  - **Three mutations, all caught**: narrowed back to an enumeration, caught-and-swallowed, and
+    widened to `BaseException`.
+
 - **(aeu) HEIF RECORDS A ROTATION TWICE, AND EACH CONSUMER SAW ONLY ONE OF THEM.**
   - ✅ **CLOSED 2026-08-21.** Both halves, same session, because they are **one fact from opposite
     ends**: a HEIF may carry a quarter turn as the container property `irot`, which libheif applies
