@@ -51,6 +51,9 @@ All notable changes to this project are documented here. The format follows
   behaves the same on every supported version of Python, instead of one that changed underneath
   it. The same distinction is restored where a backup drive is examined, where an original photo
   is looked for beside its edit, and where a destination is checked before writing.
+- **Tidying up empty folders no longer stops with an error when one of them cannot be opened.**
+  The folder is listed as still occupied instead, so Truestill leaves it alone rather than failing
+  the whole tidy-up at the end of an otherwise successful run.
 - **Reclaiming space no longer stops with an error when a backed-up copy cannot be read.** It
   counts that copy as unverified and moves on, which is what it always meant to do - and it never
   deletes anything it could not check.

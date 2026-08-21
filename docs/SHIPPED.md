@@ -22,6 +22,24 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(afb) THE THIRD BARE PREDICATE IN A DELETE PATH, FOUND BY SWEEPING RATHER THAN BY A FAILURE.**
+  - ✅ **CLOSED 2026-08-21.** `cleanup.plan_cleanup` gated on a bare `folder.is_dir()`. With the
+    folder's **parent** refused it **raised `PermissionError` on 3.13** - inside a function whose
+    own docstring promises *"Pure: reads, never writes"*, which is the guarantee that makes a
+    cleanup preview safe to run. A traceback at the end of a successful organize.
+  - ⚠ **3.14 masked it, exactly as it masked `(aez)`** - the second time the version treated as
+    the threat turned out to be hiding a live defect on the version we ship.
+  - **Reported `OCCUPIED`, not skipped.** On 3.14 the folder vanished from the plan through a
+    `continue` that means *"somebody already dealt with it"*. A folder that will not answer was
+    not dealt with. `OCCUPIED` is what `_classify_with` already returns when `iterdir` refuses, so
+    the module's two unreadable cases now agree.
+  - **Found by the sweep `(aez)` provoked**, on the maintainer's reading that two bare probes in
+    one module with the helper adjacent means nobody has looked. Every destructive call in
+    `packages/*/src` was read: `organizer._move_source` is **clean and is the correct shape** - it
+    verifies by checksum, not by a predicate, and catches around both steps - and the remaining
+    `unlink`/`replace` calls touch only Truestill's own temp files and journals. **Two of the
+    three delete-adjacent modules carried the defect.**
+
 - **(aey) ABSENT AND REFUSED ARE DIFFERENT ANSWERS, DECIDED ONCE, FROM ONE STAT.**
   - ✅ **CLOSED 2026-08-21.** On Python 3.14 `Path.is_dir()`/`exists()`/`is_file()` stop raising on
     `EACCES` and return `False` ([cpython#144525](https://github.com/python/cpython/issues/144525)),

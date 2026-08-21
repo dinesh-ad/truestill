@@ -38,6 +38,7 @@ from enum import StrEnum
 from pathlib import Path, PurePosixPath
 
 from truestill_core import binaries
+from truestill_core.path_reach import Reach, reach
 
 #: Operating-system detritus that may be removed **along with** the folder holding it.
 #:
@@ -129,7 +130,20 @@ def plan_cleanup(root: Path, emptied: list[str]) -> CleanupPlan:
     removed: set[str] = set()
     for relative in emptied:
         folder = root / relative
-        if not folder.is_dir():
+        # ⚠ `reach`, not `folder.is_dir()`, and the two failure answers are deliberately
+        # different. `(afb)` A bare predicate here RAISED on 3.13 when the folder's parent
+        # refused - `plan_cleanup` calls itself "Pure: reads, never writes", and a traceback at
+        # the end of a successful organize is the loudest possible way to break that promise.
+        # Python 3.14 masked it by returning False, so the folder vanished from the plan through
+        # the `continue` below, which is the answer reserved for one somebody has already
+        # handled. Absent and refused are different answers here too: a folder that is gone was
+        # dealt with; a folder that will not answer was not, and is reported OCCUPIED - the same
+        # verdict `_classify_with` already gives when `iterdir` refuses.
+        found = reach(folder)
+        if found is Reach.REFUSED:
+            candidates.append(Candidate(relative=relative, tier=Tier.OCCUPIED, contents=()))
+            continue
+        if found is not Reach.DIRECTORY:
             continue
         tier, contents = _classify_with(folder, removed, relative)
         candidates.append(Candidate(relative=relative, tier=tier, contents=contents))

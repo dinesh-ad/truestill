@@ -141,6 +141,26 @@
   promises rather than what CPython happens to do, it discriminates today, and - unlike the
   premise test - **it stays correct after the fix** instead of needing to be inverted.
 
+  ## ⚠ THE SWEEP THE PIN PROVOKED, AND ITS ANSWER
+
+  `(aez)` was two bare probes in one module with the guarded helper three functions away. That is
+  evidence nobody had swept the area, not evidence those were the only two - so every destructive
+  call in `packages/*/src` was read, and every predicate gating one.
+
+  **There was a third**: `cleanup.plan_cleanup`, which gated on a bare `folder.is_dir()` and
+  **raised on 3.13** when the folder's parent refused - inside a function whose docstring promises
+  *"Pure: reads, never writes"*. Filed and closed as `(afb)`. **3.14 masked that one too**, which
+  is the second time the version treated as the threat turned out to be hiding a live defect on
+  the version we ship.
+
+  **`organizer._move_source` was clean and is the shape the others should have had**: it verifies
+  by checksum rather than by a predicate, and catches around both the verify and the `unlink`, so
+  every failure keeps the source. The rest of the `unlink`/`replace` calls in the tree operate on
+  Truestill's own temp files and journals, each inside its own `try`.
+
+  Two of the three delete-adjacent modules carried the defect. That ratio is why the rule went
+  into `IMPLEMENTATION_STANDARDS.md` rather than into three more comments.
+
   ## NOT DECIDED
 
   - **How wide the sweep goes.** Five sites are named above; the pattern is *"an `except OSError`
