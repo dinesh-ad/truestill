@@ -22,6 +22,51 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aeu) HEIF RECORDS A ROTATION TWICE, AND EACH CONSUMER SAW ONLY ONE OF THEM.**
+  - ✅ **CLOSED 2026-08-21.** Both halves, same session, because they are **one fact from opposite
+    ends**: a HEIF may carry a quarter turn as the container property `irot`, which libheif applies
+    while decoding, or as the legacy EXIF `Orientation`, or as both. Apple writes both.
+  - **The pixels half.** `pillow_heif`'s Pillow plugin calls `set_orientation` on open - *"Reset
+    orientation in EXIF to 1"* - and `as_plugin.py` contains **no transpose at all**, so the tag is
+    zeroed, the value stashed in `info["original_orientation"]`, and `ImageOps.exif_transpose`
+    reads a 1 and does nothing. Its sibling `HeifImage.to_pillow` *does* rotate, so the two ways of
+    opening one file disagree and `Image.open` reaches the one that does not.
+  - ⚠ **The obvious fix was wrong and the real files said so.** Restoring the stash unconditionally
+    corrected the one EXIF-only file and **turned three `irot` files sideways**. The discriminator
+    needs nothing new: EXIF's own `PixelXDimension`/`PixelYDimension` describe the image as
+    **stored**, so decoded ≠ stored means libheif already transformed it. Computed before
+    `draft`/`thumbnail`, both of which change the size it depends on.
+  - **The payload half, which is the mirror.** `HMD_Nokia_8.3_5G.heif` records the turn **only** in
+    `irot` with `Orientation=1`: pixels right, payload wrong, because exiftool reports the stored
+    extent. exiftool *does* surface the container turn, as `QuickTime:Rotation`, so `upright_size`
+    now takes it and the fix stayed free.
+  - ⚠ **THE TWO SIGNALS ARE REDUNDANT, NEVER ADDITIVE.** Where both are present they state the
+    **same** turn - `Orientation=6` with `Rotation#=3` - so the rule is **OR**. Composing them
+    makes one 90 into a 180 on exactly the files Apple writes, which is most HEICs in existence:
+    a change that looks more thorough and breaks the common case. Pinned by a parametrised row for
+    `(6, 3)`, and by a mutation that swaps OR for composition.
+  - ⚠ **`Rotation` IS NOT A UNIQUE TAG NAME**, and the bare form was a defect: `[Panasonic]
+    Rotation` is a maker-note tag where `1` means *"Horizontal (normal)"*, and requesting it
+    unqualified **transposed landscape Panasonic and Leica JPEGs**. Caught by sampling 300 non-HEIF
+    files after the change - reading the diff could not have shown it, because the fault is a name
+    meaning two things. Now `QuickTime:Rotation`, pinned by its own guard.
+  - **The finding itself was corrected**: *"4 of 20"* counted **tag** disagreement; only **1 of 20**
+    rendered wrong. Measuring the proxy and reading it as the property is §4's own census member.
+  - **Known gap, pinned rather than closed quietly.** Orientations 2, 3 and 4 leave both dimensions
+    unchanged, so the stored-vs-decoded comparison cannot tell an applied turn from a pending one -
+    `(adp)`'s blind spot, *"a 180-degree rotation leaves width and height alone"*. Asserted by a
+    **content-based `xfail(strict=True)`**, so widening the condition becomes a failure and the
+    double-rotation risk must be confronted rather than inherited.
+  - **Result:** all 17 readable HEIF/HEIC/AVIF in the corpus have payload and pixels agreeing; the
+    other three are the fuzzing corpus's deliberately corrupt files.
+  - **Seven mutations across both halves**, both directions of every condition. ⚠ **Three of them
+    were void on the first attempt**: `pytest $T` with two paths in an unquoted variable is not
+    word-split by zsh, so pytest took a usage error, exited 4, and `mutate_once` read that as a
+    kill. The control said `no tests ran` - the exact tell the maintainer's standing warning names.
+    Re-run with the paths passed literally against a control reporting **29 passed**.
+  - **`tags_fingerprint` changed a third time**, deliberately, with its cost and reason recorded
+    beside the previous two. Affordable only because no release has been cut.
+
 - **(aeq) EVERY exiftool INSTALL NOW PROVES THE BINARY RUNS, AND WINDOWS RETRIES A FEED 503.**
   - ✅ **CLOSED 2026-08-21**, the same day it was filed, because it stopped being a prediction:
     **two of three Windows install attempts inside thirty minutes** died on an identical

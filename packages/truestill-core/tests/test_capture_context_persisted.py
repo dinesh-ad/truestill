@@ -150,7 +150,7 @@ def test_no_new_exiftool_tag_was_requested() -> None:
     """
     for tag in ("Make", "Model", "LensModel"):
         assert tag in REQUESTED_TAGS
-    for tag in ("GPSLatitude", "GPSLongitude", "Orientation"):
+    for tag in ("GPSLatitude", "GPSLongitude", "Orientation", "QuickTime:Rotation"):
         assert tag in _NUMERIC_TAGS
     assert "GPSAltitude" not in REQUESTED_TAGS
     assert "GPSAltitude" not in _NUMERIC_TAGS
@@ -171,6 +171,26 @@ def test_no_new_exiftool_tag_was_requested() -> None:
     #
     # CHANGED A SECOND TIME, DELIBERATELY, 2026-08-14 - `cff9bb9b374bc122` -> `1f6ed7a9f97cd270`
     # by adding `Orientation` to `_NUMERIC_TAGS` for the result grid. The tripwire worked twice.
+    # CHANGED A THIRD TIME, DELIBERATELY, 2026-08-21 - `1f6ed7a9f97cd270` -> `43ddf5c47e39070e`
+    # by adding `QuickTime:Rotation` for `(aeu)`. Three for three.
+    #
+    # **What it costs:** the same one-time cold pass, ~2.2 ms/file, and it is affordable for a
+    # reason that expires: no release has been cut, so no library exists whose cache this
+    # invalidates except the maintainer's own.
+    #
+    # **What it buys:** HEIF records a quarter turn in the container's `irot` property as well as
+    # in EXIF, and libheif APPLIES the container one while ignoring EXIF. `HMD_Nokia_8.3_5G.heif`
+    # records it **only** there, with `Orientation=1` - so a shape built from `Orientation` alone
+    # called a portrait photograph landscape while its own thumbnail was drawn portrait. There is
+    # no cheaper source: the turn is not in EXIF at all, and the alternative is decoding every
+    # file to ask its size.
+    #
+    # ⚠ **GROUP-QUALIFIED, and the bare name is a defect rather than a style choice.** `Rotation`
+    # also matches `[Panasonic] Rotation`, a maker-note tag where `1` means "Horizontal (normal)"
+    # rather than a quarter turn; requesting it unqualified transposed landscape Panasonic and
+    # Leica JPEGs. Pinned by `test_the_rotation_tag_is_group_qualified_so_a_maker_note_cannot
+    # _impersonate_it`.
+    #
     #
     # **What it costs:** the same one-time cold pass - ~2.2 ms/file (`PERFORMANCE.md`), so ~5 s on
     # the 2,275-file reference library and ~9 s on the 4,108-photograph corpus. Once, per library,
@@ -185,7 +205,7 @@ def test_no_new_exiftool_tag_was_requested() -> None:
     #
     # **Numeric (`#`) rather than plain**, because exiftool answers `"Rotate 90 CW"` in prose -
     # a sentence to parse and a format to depend on. `#` gives the EXIF integer 1-8.
-    assert tags_fingerprint(REQUESTED_TAGS, _NUMERIC_TAGS) == "1f6ed7a9f97cd270", (
+    assert tags_fingerprint(REQUESTED_TAGS, _NUMERIC_TAGS) == "43ddf5c47e39070e", (
         "the requested tag set changed; every cached metadata row is now invalid and the next "
         "run pays a full cold exiftool pass. That may be right, but it is never incidental"
     )

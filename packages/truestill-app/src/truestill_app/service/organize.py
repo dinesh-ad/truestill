@@ -1226,8 +1226,15 @@ def _tile_shape(metadata: dict[Path, dict[str, Any]] | None, source: Path) -> di
     if stored_w <= 0 or stored_h <= 0:
         return {}
     orientation = tags.get("Orientation")
+    # `(aeu)`: HEIF records a turn in the container as well as in EXIF, and libheif applies the
+    # container one. Both are passed so `upright_size` can apply its OR - they are redundant
+    # statements of one rotation, and composing them would double it.
+    rotation = tags.get("Rotation")
     width, height = upright_size(
-        stored_w, stored_h, orientation if isinstance(orientation, int) else None
+        stored_w,
+        stored_h,
+        orientation if isinstance(orientation, int) else None,
+        container_rotation=rotation if isinstance(rotation, int) else None,
     )
     return {"w": width, "h": height}
 

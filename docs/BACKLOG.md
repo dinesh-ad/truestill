@@ -123,14 +123,6 @@ is invisible here is retired, not free.**
   `SyntaxError` are neither** and escape. 8 of 1,428 format-corpus files do it, and any one aborts
   everything - against §1's *"one bad file never aborts a batch"*. Found 2026-08-21 by soak two.
   [Full entry](research/backlog/aet.md)
-- **(aeu) ON HEIF THE PAYLOAD AND THE PIXELS DISAGREE ABOUT ORIENTATION.** ✅ **Pixels half BUILT
-  2026-08-21**: `render` now restores the orientation `pillow_heif` removes, but **only when the
-  stored extent proves libheif did not already apply it** - HEIF carries rotation twice (`irot` and
-  EXIF) and a fix keyed on the stash alone corrected one file and broke three. ⚠ **Payload half
-  still open**: where rotation lives only in `irot` with EXIF `Orientation=1`, the pixels are right
-  and `_tile_shape` is wrong, because exiftool reports the stored extent and never surfaces `irot`.
-  ⚠ The finding's *"4 of 20"* measured tag disagreement, not wrong pictures; it was **1 of 20**.
-  Found 2026-08-21. [Full entry](research/backlog/aeu.md)
 - **(aer) ORGANIZE'S SKIPPED REPORT DROPS HIDDEN FILES AND HIDDEN FOLDERS.** A folder of 21 photos,
   18 in `.MyAlbum`, reported *"analysed 3, organized 3"* and **success**; `analyze` names it.
   `_print_skipped` reads 4 of `SourceScan`'s 6 skip buckets and `scan.hidden` is read nowhere

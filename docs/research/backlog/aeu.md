@@ -1,6 +1,6 @@
 # (aeu) ON HEIC THE PAYLOAD AND THE PIXELS DISAGREE ABOUT ORIENTATION.
 
-*Body of backlog entry `(aeu)`, **PARTLY BUILT 2026-08-21** - the pixels half is fixed, the payload half is open. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aeu)`, **CLOSED 2026-08-21** - both halves. The closure is in [`SHIPPED.md`](../../SHIPPED.md). The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 > ## ⚠ CORRECTIONS AND OUTCOME, 2026-08-21 - beside the finding, not into it
 >
@@ -28,12 +28,15 @@
 > nothing the module did not already hold. All 20 HEIC/HEIF/AVIF in the corpus now render with
 > payload and pixels agreeing except the one below.
 >
-> **4. STILL OPEN: the payload half, and it is the MIRROR of what was fixed.**
+> **4. ALSO FIXED, same session: the payload half, the MIRROR of the first.**
 > `HMD_Nokia_8.3_5G.heif` carries the rotation **only** in `irot`, with EXIF `Orientation=1`.
 > libheif applies it, so the **pixels are right** (portrait) - and `_tile_shape` asks exiftool,
 > which reports the **stored** extent plus orientation 1 and never surfaces `irot`, so the
 > **payload is wrong** (landscape). Same disagreement, opposite direction, different surface.
-> That is what keeps this entry open.
+> exiftool **does** surface the container turn as `QuickTime:Rotation`, so `upright_size` now
+> takes it and applies an **OR** - the two signals are one rotation written twice, and composing
+> them would double it on every Apple HEIC. ⚠ The bare tag name collides with `[Panasonic]
+> Rotation`; requesting it unqualified transposed landscape JPEGs, so it is group-qualified.
 >
 > **5. KNOWN GAP, pinned rather than hidden.** Orientations 2, 3 and 4 leave both dimensions
 > unchanged, so the stored-vs-decoded comparison cannot tell an applied turn from a pending one -

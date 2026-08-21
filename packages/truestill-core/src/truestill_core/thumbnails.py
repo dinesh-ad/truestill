@@ -109,7 +109,18 @@ def cache_path(cache_dir: Path, sha256: str) -> Path:
 _TRANSPOSING_ORIENTATIONS = frozenset({5, 6, 7, 8})
 
 
-def upright_size(width: int, height: int, orientation: int | None) -> tuple[int, int]:
+#: HEIF ``irot`` values that swap the axes, as exiftool reports them under ``Rotation#``: 0-3 are
+#: quarter turns, so 1 and 3 transpose and 2 is a 180 that does not.
+_TRANSPOSING_CONTAINER_ROTATIONS = frozenset({1, 3})
+
+
+def upright_size(
+    width: int,
+    height: int,
+    orientation: int | None,
+    *,
+    container_rotation: int | None = None,
+) -> tuple[int, int]:
     """The shape a photograph is SEEN in, from its stored dimensions and its EXIF orientation.
 
     **This lives beside `render` on purpose.** `render` applies `ImageOps.exif_transpose`, so a
@@ -121,8 +132,28 @@ def upright_size(width: int, height: int, orientation: int | None) -> tuple[int,
     One function, two callers, no second implementation of the same rule. `orientation` is the
     raw EXIF integer 1-8; anything else, including ``None`` for a file that carries no tag, means
     the stored dimensions are already the upright ones.
+
+    **`container_rotation` is HEIF's second way of saying the same thing** (`(aeu)`), and it is
+    exiftool's ``Rotation#`` - the container's ``irot`` property, 0-3 quarter turns. A HEIF may
+    record a turn there, in EXIF, or in both; `HMD_Nokia_8.3_5G.heif` records it **only** there,
+    with ``Orientation=1``, so a shape computed from EXIF alone called a portrait photograph
+    landscape while its thumbnail was drawn correctly.
+
+    ⚠ **THE TWO ARE REDUNDANT, NEVER ADDITIVE - this is an OR and composing them is the trap.**
+    Measured over every HEIF in `metadata-extractor-images`: where both are present they state the
+    **same** turn, `Orientation=6` with `Rotation#=3`. Adding them would make one 90 into a 180 on
+    exactly the files Apple writes, which is most HEICs in existence - a change that looks more
+    thorough and breaks the common case. Pinned by
+    `test_the_two_signals_are_redundant_never_additive`, whose `(6, 3)` row is that file.
+
+    ⚠ **This describes the DISPLAYED shape, which is not always what `render` decodes.** libheif
+    applies ``irot`` and ignores EXIF, so for an EXIF-only file the decoded pixels are flat and
+    `render` corrects them separately - see `_pending_heif_orientation`. Both ends now agree; they
+    reach it from different halves of the same fact.
     """
     if orientation in _TRANSPOSING_ORIENTATIONS:
+        return height, width
+    if container_rotation in _TRANSPOSING_CONTAINER_ROTATIONS:
         return height, width
     return width, height
 

@@ -88,6 +88,23 @@ _NUMERIC_TAGS: tuple[str, ...] = (
     # and 31.7% of a real corpus carries a tag that transposes them - so without this, a payload
     # built from those two disagrees with the pixels `thumbnails.render` produces.
     "Orientation",
+    # HEIF's OTHER way of recording the same turn (`(aeu)`): the container's `irot` property,
+    # which exiftool exposes as `Rotation` and `#` gives as 0-3 quarter turns. libheif APPLIES it
+    # while decoding and ignores EXIF, so a file that records the turn only here decodes upright
+    # while `Orientation` reads 1 - and a shape built from `Orientation` alone called
+    # `HMD_Nokia_8.3_5G.heif` landscape when its own thumbnail was portrait.
+    #
+    # ⚠ **GROUP-QUALIFIED, AND THE BARE NAME IS A REAL DEFECT.** `Rotation` is not unique:
+    # exiftool also exposes `[Panasonic] Rotation`, a maker-note tag whose value space is
+    # unrelated - `1` there means *"Horizontal (normal)"* while `1` in QuickTime means a quarter
+    # turn. Requesting the bare name transposed two landscape Panasonic and Leica JPEGs, caught by
+    # sampling 300 non-HEIF files after the change rather than by reading it.
+    #
+    # ⚠ Adding a tag changes `tags_fingerprint`, so every cached metadata row is invalidated and
+    # the next run re-reads. That is one full exiftool pass, paid once, and it is affordable
+    # precisely because no release has been cut - the rule that a compatibility path has no
+    # beneficiary applies to cache warmth too.
+    "QuickTime:Rotation",
 )
 
 #: Said to someone running a **packaged** copy. exiftool ships inside the application, so its
