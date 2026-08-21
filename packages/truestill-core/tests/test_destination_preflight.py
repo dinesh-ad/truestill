@@ -17,8 +17,10 @@ missing the footage the user cared most about, reported as a success.
 
 from __future__ import annotations
 
+import errno
 from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from truestill_core.categorize import CategoryMatch, Confidence
@@ -182,5 +184,52 @@ def test_a_backend_that_cannot_answer_never_refuses(tmp_path: Path) -> None:
     big = _file(tmp_path / "src", "VID_4K.mp4", 5_000)
 
     results = execute([_resolution(big)], _Remote(), apply=True)
+
+    assert [r.status.name for r in results] == ["UPLOADED"]
+
+
+def test_a_disk_with_exactly_no_room_is_refused_rather_than_read_as_enough(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`(aek)`: a genuinely full disk reports **0 free**, and 0 was the "could not measure" value.
+
+    `preflight_destination` set `free = 0` in its `except OSError` and then returned
+    `free_bytes=free or need`, so the two states were one value and the fallback resolved both as
+    *exactly enough*. The comment was right about the intent - an unmeasurable destination must not
+    be reported as full - and 0 was the wrong way to say it, because a real full disk says 0 too.
+
+    Same shape as `FileHashes(None, None)` conflating "could not read" with "correctly did not
+    hash" (§9): two situations, one representation, and the silent one wins.
+
+    Found while building `(aek)`'s ordering fix, which was inert without it: the gate cannot refuse
+    on a verdict that never says no.
+    """
+    monkeypatch.setattr(
+        "truestill_core.filesystem.shutil.disk_usage",
+        lambda _path: SimpleNamespace(total=1_000, used=1_000, free=0),
+    )
+    big = _file(tmp_path / "src", "VID_4K.mp4", 5_000)
+
+    with pytest.raises(DestinationError, match="Not enough room"):
+        execute([_resolution(big)], LocalDestination(tmp_path / "dest"), apply=True)
+
+
+def test_a_destination_whose_free_space_cannot_be_read_still_proceeds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The cry-wolf half, and the reason 0 was chosen in the first place.
+
+    An unreadable `disk_usage` must NOT be reported as full - it fails later and louder, with the
+    real reason rather than a space figure nobody could obtain. Separating the two states has to
+    keep this true, or the repair trades a silent failure for a noisy one.
+    """
+
+    def unreadable(_path: Path) -> SimpleNamespace:
+        raise OSError(errno.EIO, "Input/output error")
+
+    monkeypatch.setattr("truestill_core.filesystem.shutil.disk_usage", unreadable)
+    small = _file(tmp_path / "src", "photo.jpg", 10)
+
+    results = execute([_resolution(small)], LocalDestination(tmp_path / "dest"), apply=True)
 
     assert [r.status.name for r in results] == ["UPLOADED"]

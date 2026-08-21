@@ -250,10 +250,17 @@ def preflight_destination(
     """
     work = list(sized)
     known = facts if facts is not None else facts_for(destination)
+    # ``None`` is "could not measure", and it has to be distinct from a measured **0**, which is
+    # what a genuinely full disk reports. `(aek)`: this was `free = 0` on failure and
+    # ``free_bytes=free or need`` below, so the two states were one value and the fallback resolved
+    # BOTH as exactly enough - a full drive passed its own space check. The intent in that comment
+    # was right; zero was the wrong way to say it. Same conflation as `FileHashes(None, None)`
+    # standing for "could not read" and "correctly did not hash" alike (§9).
+    free: int | None
     try:
         free = shutil.disk_usage(_nearest_existing(destination)).free
-    except OSError:  # pragma: no cover - an unreachable destination fails later, and louder
-        free = 0
+    except OSError:
+        free = None
     need = sum(size for _path, size in work)
     return DestinationPreflight(
         facts=known,
@@ -261,5 +268,5 @@ def preflight_destination(
         need_bytes=need,
         # An unmeasurable destination must not be reported as full: it fails later, and louder,
         # with the real reason rather than a space figure nobody could obtain.
-        free_bytes=free or need,
+        free_bytes=need if free is None else free,
     )

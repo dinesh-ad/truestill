@@ -33,7 +33,6 @@ and a day list identifies a trip exactly, the way a signature identifies an even
 from __future__ import annotations
 
 import contextlib
-import errno
 import json
 import os
 from collections.abc import Callable, Sequence
@@ -44,6 +43,7 @@ from pathlib import Path
 from typing import Any
 
 from truestill_core.drive import DriveReach, drive_path_hint, drive_reach
+from truestill_core.drive_unwritable import explain_unwritable_drive
 
 #: Bumped only when a reader must REFUSE a document, never for an added field. Adding a field is
 #: forward-compatible by construction (see :func:`from_document`), so a bump would be a false alarm
@@ -721,19 +721,6 @@ class WriteOutcome:
     error: str | None = None
 
 
-def _explain(error: OSError) -> str:
-    """What went wrong, in words a person can act on rather than an errno."""
-    if error.errno in (errno.EROFS, errno.EACCES, errno.EPERM):
-        return "the drive is read-only, or this account cannot write to it"
-    if error.errno == errno.ENOSPC:
-        return "there is no space left on the drive"
-    if error.errno in (errno.ENOENT, errno.ENOTDIR):
-        return "the drive is not there any more"
-    if error.errno == errno.EIO:
-        return "the drive stopped responding part way through"
-    return error.strerror or str(error)
-
-
 def write_decisions(root: Path, decisions: Decisions) -> WriteOutcome:
     """Put the document on a drive, atomically, and **never raise**.
 
@@ -773,7 +760,7 @@ def write_decisions(root: Path, decisions: Decisions) -> WriteOutcome:
         # A drive that will not take the write may not take the cleanup either.
         with contextlib.suppress(OSError):
             temp.unlink(missing_ok=True)
-        return WriteOutcome(written=False, error=_explain(error))
+        return WriteOutcome(written=False, error=explain_unwritable_drive(error))
     return WriteOutcome(written=True, path=target)
 
 
@@ -813,7 +800,7 @@ def read_decisions(root: Path) -> DocumentOnDrive:
     except FileNotFoundError:
         return DocumentOnDrive()
     except OSError as error:
-        return DocumentOnDrive(found=True, error=_explain(error))
+        return DocumentOnDrive(found=True, error=explain_unwritable_drive(error))
     try:
         document = json.loads(text)
     except ValueError:

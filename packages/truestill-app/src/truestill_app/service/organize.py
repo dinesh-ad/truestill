@@ -14,6 +14,7 @@ from truestill_core.categorize import build_rules
 from truestill_core.date_provenance import format_offset
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations import LocalDestination
+from truestill_core.destinations.base import DestinationError
 from truestill_core.drive import (
     DriveGhostError,
     DriveMarker,
@@ -31,6 +32,7 @@ from truestill_core.exif import read_metadata
 from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import DEFAULT_PHASH_THRESHOLD, HEIF_AVAILABLE, HEIF_EXTENSIONS
 from truestill_core.insights import capture_span, duplicate_bytes, largest_files, sizes_for
+from truestill_core.layout import LayoutScheme
 from truestill_core.layout_settings import pin_existing_layout, resolve_scheme
 from truestill_core.models import (
     ActionResult,
@@ -876,8 +878,8 @@ def organize_preview_run(
     return target
 
 
-def _identity_for(destination: Path, catalog: Catalog) -> DriveMarker:
-    """This destination's drive identity, minting one only when that is safe.
+def _approve_registration(destination: Path, catalog: Catalog) -> None:
+    """Settle whether this destination MAY become a drive. Writes nothing. `(aek)`
 
     **Refuses to mint a SECOND identity over a known drive's ghost.** An unmounted mountpoint is
     an ordinary empty directory: it has no marker, and absence is exactly what made both
@@ -885,28 +887,94 @@ def _identity_for(destination: Path, catalog: Catalog) -> DriveMarker:
     onto this computer's disk. The app registers here as well as the CLI, so a refusal on one
     surface only is the drift §4 names; the discriminating rule lives in core and both call it.
 
+    **The half that stays early**, matching `cli._approve_registration`: this is the answer a user
+    needs before a full hashing pass, while the marker WRITE waits for the space check.
+
     **Complexity: O(drives)** - one settings read per registered drive, a handful.
     """
-    existing = read_marker(destination)
-    if existing is not None:
-        return existing
+    if read_marker(destination) is not None:
+        return
     drives = [(str(d["uuid"]), str(d["label"])) for d in catalog.list_drives()]
     ghost = ghost_drive_at(destination, catalog, drives)
     if ghost is not None:
         raise DriveGhostError(ghost_drive_refusal(ghost))
-    return create_marker(destination, label=destination.name or "Library")
+
+
+def _scope_to_marker(destination: Path, catalog: Catalog) -> dict[str, str]:
+    """What this destination already holds, for `(aei)`'s per-destination dedup.
+
+    ⚠ **Read from the MARKER, not from registration**, which is what lets `(aek)` move the marker
+    write behind the space check without restoring `(aei)`. A destination that has an identity has
+    it before anything here runs; one that does not provably holds no recorded copies, and `{}` is
+    exactly what a freshly minted uuid would have returned.
+
+    The app always writes to a local drive - there is no rclone path here - so
+    `organizer._scope_to_destination`'s catalog-global `None` case never applies. Returning `None`
+    here would make organize dedupe against the whole catalog and copy nothing onto a second
+    drive, which is `(aei)` itself.
+    """
+    existing = read_marker(destination)
+    if existing is None:
+        return {}
+    return {str(r["sha256"]): str(r["relative"]) for r in catalog.copies_on_drive(existing.uuid)}
+
+
+def _reapply_named_events(
+    resolutions: list[Resolution],
+    metadata: dict[Path, dict[str, Any]],
+    catalog: Catalog,
+    scheme: LayoutScheme,
+) -> list[Resolution]:
+    """Re-apply *already-named* trips whose cluster recurs in this source.
+
+    So a fresh import lands its camera files under the same event folder, matched by signature.
+    Only saved events are applied - unnamed clusters are left untouched, never auto-skipped, so
+    they stay reviewable in the Trips screen later.
+    """
+    saved = [
+        EventDecision(cluster, None)
+        for cluster in propose(resolutions, metadata)
+        if catalog.event_by_signature(cluster.signature) is not None
+    ]
+    if not saved:
+        return resolutions
+    return commit(resolutions, saved, catalog, scheme=scheme).resolutions
+
+
+def _refuse_if_it_cannot_hold(resolutions: list[Resolution], destination: Path) -> None:
+    """Stop before registering a destination that cannot hold the run. `(aek)`
+
+    The marker write is the first thing this product puts on a new drive, so on a full disk it
+    failed before the run reached the sentence that explains a full disk - a sentence the product
+    already had. Read through `_destination_limit`, which reads `preflight_for_run`, which is the
+    same answer `execute` refuses on: a third reading of one function, never a third check.
+
+    :raises DestinationError: the destination cannot hold what this run would write.
+    """
+    limit = _destination_limit(resolutions, destination)
+    if limit is not None:
+        raise DestinationError(limit["detail"])
 
 
 def _register_destination(catalog: Catalog, destination: Path) -> DriveMarker:
     """Give the destination a drive identity and remember where it was seen. Returns the marker.
 
-    ⚠ **Called before `resolve`, not merely before `execute`.** `(aei)` made the destination's
-    identity an INPUT to the dedup decision rather than only a label for recording: organize
-    copies what is not on THIS drive, so the drive must be known before anything is classified.
-    Moving it later would restore that defect. It must also stay before any write, which is the
-    older constraint - doing it afterwards left the run's own files unattached.
+    ⚠ **Still before any COPY**, which is the older constraint - an identity minted afterwards
+    leaves the run's own files unattached.
+
+    ⚠ **But AFTER the space check since `(aek)`, and `(aei)` is not restored by that.** This used
+    to run before `resolve`, because `(aei)` made the destination's identity an INPUT to the dedup
+    decision rather than only a label for recording. What that requires is the *identity*, not the
+    *write*: a destination that already has a marker has it before anything here runs, and one
+    that does not scopes to `{}` either way - a freshly minted uuid holds no recorded copies, and
+    neither does a folder with no marker at all. So the decision stays early and only the write
+    moves. Pinned by `test_dedup_scope_survives_the_registration_move.py`.
+
+    :raises DriveWriteError: the drive would not accept its marker.
     """
-    marker = _identity_for(destination, catalog)
+    marker = read_marker(destination) or create_marker(
+        destination, label=destination.name or "Library"
+    )
     catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
     # Remember where it was seen, so its card can offer to check it.
     catalog.set_setting(drive_path_hint(marker.uuid), str(destination))
@@ -964,23 +1032,12 @@ def organize_run(
             rules = build_rules()
             heavy = heavy_days_for_organize(catalog, files, metadata, rules)
             decisions = plan(files, metadata, rules, scheme=scheme, heavy_days=heavy)
-            # Register the destination *before* writing anything, so every copy is recorded
-            # against it. Doing this afterwards would leave the run's own files unattached --
-            # which is exactly the bug this replaced.
-            #
-            # ⚠ AND NOW BEFORE `resolve` TOO, not merely before `execute`, because `(aei)` made
-            # the destination's identity an INPUT to the skip decision rather than only a label
-            # for recording. Moving it later again would restore the defect: organize would
-            # dedupe against the whole catalog and copy nothing onto a second drive.
-            marker = _register_destination(catalog, effective_destination)
-            drive_uuid = marker.uuid
+            # Settle whether this folder MAY become a drive, before the expensive pass. Writes
+            # nothing; the marker itself waits for the space check below. `(aek)`
+            _approve_registration(effective_destination, catalog)
 
             index = DedupIndex.from_catalog_rows(catalog.seed_rows(), DEFAULT_PHASH_THRESHOLD)
-            # The app always writes to a local, registered drive - there is no rclone path here -
-            # so this is never the `None` case. See `organizer._scope_to_destination`.
-            on_destination = {
-                str(r["sha256"]): str(r["relative"]) for r in catalog.copies_on_drive(drive_uuid)
-            }
+            on_destination = _scope_to_marker(effective_destination, catalog)
             resolutions = resolve(
                 decisions,
                 index,
@@ -990,18 +1047,11 @@ def organize_run(
                 cache=cache,
                 on_destination=on_destination,
             )
+            _refuse_if_it_cannot_hold(resolutions, effective_destination)
+            marker = _register_destination(catalog, effective_destination)
+            drive_uuid = marker.uuid
             _open_organize_run(catalog, drive_uuid, resolutions, on_destination)
-            # Apply any *already-named* trips whose cluster recurs in this source, so a fresh
-            # import lands its camera files under the same event folder (matched by signature).
-            # Only saved events are applied -- unnamed clusters are left untouched (never
-            # auto-skipped), so they stay reviewable in the Trips screen later.
-            saved = [
-                EventDecision(c, None)
-                for c in propose(resolutions, metadata)
-                if catalog.event_by_signature(c.signature) is not None
-            ]
-            if saved:
-                resolutions = commit(resolutions, saved, catalog, scheme=scheme).resolutions
+            resolutions = _reapply_named_events(resolutions, metadata, catalog, scheme)
             relocation = None
             if chosen_mode in {"move", "inplace"} and mechanism["uses_rename"]:
                 relocation = Relocation(

@@ -55,14 +55,20 @@ Notes:
 - ⚠ **THE FIRST SOAK RAN ON 2026-08-20 AND THE LINE ABOVE THIS ONE IS WHAT IT OVERTURNED.** Seven
   steps against **4,111 real photos and videos**, 11 GB, with the corpus counted independently
   before the product was allowed an opinion. **It produced five entries** - `(aei)`, `(aej)`,
-  `(aek)`, `(aem)`, `(ael)` - and three are already shipped.
+  `(aek)`, `(aem)`, `(ael)` - and **four are shipped**; `(ael)` alone is open.
   - **`(aei)` is the headline and nothing else would have found it**: `organize` into a fresh
     second destination copied **nothing**, registered a **0-file** drive and reported success,
     while `status` warned in the same breath that 4,088 files sat on only one drive. It deduped
     against the **catalog** instead of the **destination**.
   - **`(aej)`**: `LAST VERIFIED: never` sixteen seconds after a verify that found 7 missing files.
   - **`(aem)`**: a `kill -9` at 340 of 4,105 files left a library that read as complete.
-  - **`(aek)`**: a full disk crashes drive setup with a `pathlib` traceback - **still open**.
+  - **`(aek)`**: a full disk crashed drive setup with a `pathlib` traceback. ✅ **Shipped
+    2026-08-21** - the fix was the **ordering** (register after the space check, using a
+    sentence that already existed), plus hardening the write anyway, because ordering cannot
+    cover a read-only drive or one that fills between the check and the write. ⚠ It also
+    turned up a second defect that would have made the ordering inert: a genuinely full disk
+    reports **0 free**, and `0` was `preflight_destination`'s *"could not measure"* value, so
+    a full drive passed its own space check.
   - ✅ **What the soak also proved sound:** the `.partial` -> rename -> record write path survived
     both a `SIGKILL` and a full disk with no corrupt file and no phantom row, and `(adx)` gap 1's
     clone disclosure fired correctly on an 11 GB clone.

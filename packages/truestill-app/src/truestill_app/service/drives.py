@@ -302,6 +302,13 @@ def attach_drive(
     ``write=False`` reports what would happen, hashes nothing and touches nothing, so previews
     stay pure -- and its ``linked`` count is the scale the user is shown *before* agreeing to a
     read of the whole drive.
+
+    :raises DriveWriteError: the folder would not accept its marker - read-only, full, or pulled
+        out mid-write (`(aek)`). Deliberately propagated rather than folded into
+        ``DriveAttachment``: ``blocked_by`` answers a different question (*this folder already
+        holds a known library*), and every caller here is inside a job, so `jobs.py` renders the
+        sentence and a `code` the UI can key on - the same route `DriveGhostError` already takes.
+        Only reachable with ``write=True``; a preview writes no marker.
     """
     marker = read_marker(path)
     was_registered = marker is not None

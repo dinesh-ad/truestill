@@ -22,6 +22,73 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aek) A FULL DISK DURING DRIVE SETUP NOW REFUSES IN A SENTENCE INSTEAD OF A TRACEBACK.**
+  - ✅ **CLOSED 2026-08-21.** The last of the first soak's five findings. `organize --apply` into an
+    unregistered destination on a full disk raised an unhandled `OSError` from `drive.write_marker`
+    with a `pathlib` stack trace; it now prints *"Not enough room: this needs about X and the drive
+    has Y free"* and exits **4**, having written nothing - no marker, no `drives` row, no path hint.
+  - **THE FIX IS THE ORDERING, NOT ERROR HANDLING**, and that is what made it small. The product
+    already had that sentence and already exited 4 on it (`cli.py`'s `DestinationError` handler,
+    whose own comment says *"a user-facing answer, not a crash ... rather than showing a
+    traceback"*). The sentence was computed **after** the marker write, so the run died before
+    reaching the explanation it already had. Registration now happens after the preflight.
+  - ⚠ **THE ORDERING MOVE DOES NOT RESTORE `(aei)`, AND THE PROOF IS THE LOAD-BEARING PART.**
+    `(aei)` requires the destination's identity to be an INPUT to dedup, which reads as forbidding
+    exactly this move. What it requires is the *identity*, not the *write*: `_local_drive_marker`
+    already reads the marker off disk before the pipeline starts, so a marked destination has its
+    uuid before anything runs, and an unmarked one scopes to `{}` either way - a freshly minted
+    uuid holds no recorded copies, and neither does a folder with no marker. Three branches, all
+    unchanged. The dedup scope now derives from **identity** rather than from the side effect of
+    registering, which is strictly more honest. Pinned by
+    `test_dedup_scope_comes_from_the_marker.py` and its app twin.
+  - ⚠ **AND THE ORDERING FIX WOULD HAVE BEEN INERT WITHOUT A SECOND DEFECT FOUND WHILE BUILDING
+    IT.** `preflight_destination` used `free = 0` as its *"could not measure"* value and returned
+    `free_bytes=free or need` - so a genuinely full disk, which reports **0 free**, resolved as
+    *exactly enough* and passed its own space check. Two states, one value, and the silent one won.
+    The comment's intent was right; zero was the wrong way to say it. Now `None`, pinned in both
+    directions: a measured zero refuses, an unreadable `disk_usage` still proceeds.
+  - **`write_marker` is hardened anyway, because ordering cannot cover `EACCES`, `EROFS`, or a disk
+    that fills between the check and the write.** Confirmed by search rather than assumed:
+    quota-aware `statfs` is a per-filesystem feature added piecemeal, so `shutil.disk_usage` cannot
+    be relied on to see this finding's own `EDQUOT` - and the industry pattern is the pair, a
+    preflight being advisory and never replacing per-write `ENOSPC` handling, because
+    check-then-write is a TOCTOU window.
+  - **It follows `decisions.write_decisions`, which was already right and already tested** - stage
+    to a temp sibling, `fsync`, `replace`, remove the temp on failure, never raise, word the errno
+    in English. ⚠ **The entry claimed that write was untested; it was not** - see the corrections
+    in [`research/backlog/aek.md`](research/backlog/aek.md). One wording now lives in
+    `drive_unwritable.py`, named for the condition it recognises the way `catalog_busy.py` is,
+    because `decisions` imports `drive` and the reverse would be a cycle.
+  - **A zero-byte marker can no longer be left.** Measured: `write_text` opens `O_CREAT|O_TRUNC`,
+    so a write-time `ENOSPC` took the real name and then failed, leaving an empty
+    `.truestill-drive.json` - the only truestill-named artifact this product writes to a user's
+    disk (§3.1). Staging means the name is taken only by bytes that arrived.
+  - **`create_marker` deliberately still raises**, as `DriveWriteError`. The never-raise contract
+    is `write_marker`'s, where the two lines were; changing `create_marker`'s return type would
+    have been **69 call sites across 34 test files** to fix a two-line defect. Same relationship
+    `copy_leaving_nothing` has to `staged_copy` - one mechanism, two ends. The deviation is made
+    safe by `test_marker_writes_are_handled.py`, which parses `packages/*/src` and requires every
+    mint site to catch the refusal **or document that it propagates**; it reads the live tree, so a
+    sixth site is covered the day it is added.
+  - **Both surfaces, deliberately.** This entry is itself an instance of `ENGINEERING_STANDARD.md`
+    §4's fifty-sixth member, so shipping the CLI alone would have repeated the defect being fixed.
+  - **Cost: the CLI pays nothing; the app pays one extra `stat` pass.** The CLI already read the
+    preflight twice (the report, then `execute`), so hoisting it to one reading that three callers
+    share leaves the count unchanged. `organize_run` had none before `execute` and now has one.
+    ⚠ **The figures are ESTIMATES carried from `PERFORMANCE.md`, not measurements of this change**
+    - ~9 ms local at 2.3 us/file (`PERFORMANCE.md:428`) and ~2.5 s on FUSE at ~600 us/file
+    (`PERFORMANCE.md:576`), over 4,105 files. Both are per-file rates measured on other paths;
+    stated here so the next reader knows what they are before quoting them. Once per run rather
+    than per file, so it is not the case `PERFORMANCE.md:578` warns about - but if it ever matters,
+    measure it rather than citing this line.
+  - **Eight mutations, both directions on every conditional**: gate never refuses, gate always
+    refuses, app gate removed, staging cleanup removed, `EDQUOT` branch removed, the free-space
+    conflation restored, unmeasurable collapsed back onto zero, and a mint site un-handled. All
+    caught, against a control that reported **29 passed** first.
+  - **Filed, not fixed**: `(aen)` the catalog's first write, `(aeo)` `session_link.write`, `(aep)`
+    the write side's missing `unreadable_label`. All three are the same class; none is this
+    feature. See [`research/backlog/aek.md`](research/backlog/aek.md).
+
 - **(aem) AN INTERRUPTED COPY-MODE ORGANIZE NOW LEAVES A RECORD, SO A HALF-LIBRARY CANNOT READ AS
   A WHOLE ONE.**
   - ✅ **CLOSED 2026-08-20.** Schema **v20**, `organize_runs`, one row per drive, superseding on

@@ -45,6 +45,18 @@ All notable changes to this project are documented here. The format follows
   A group you have already named shows its name instead, and is never offered a suggestion.
 
 ### Fixed
+- **Setting up a new drive on a full disk now tells you so, instead of crashing.** Pointing
+  `organize` at a folder that is not a drive yet, on a disk with no room, used to end in a Python
+  stack trace - a few steps from a copy that would have named every file it could not write.
+  Truestill now checks that the drive can hold the run *before* it sets the drive up, and says
+  "Not enough room: this needs about 4.2 GB and the drive has 190 MB free". Nothing is written:
+  no marker on the drive, no half-registered drive in your library.
+- **A drive that will not take a marker is now a sentence rather than a crash**, whether it is
+  full, out of allowance, read-only, or unplugged part-way through - and it no longer leaves an
+  empty marker file behind on the drive.
+- **A completely full drive is no longer reported as having exactly enough room.** A disk with
+  zero bytes free and a disk Truestill could not measure at all were being treated as the same
+  thing, so the space check passed on a drive that could not take a single file.
 - **`truestill catalog` no longer claims your catalog is in the wrong place when it is not.** If
   any part of the path to your Truestill folder was a shortcut - common on Linux and macOS where
   a home folder or a data drive is linked elsewhere - Truestill compared two spellings of the same

@@ -75,6 +75,7 @@ from truestill_core.drive import (
     DriveGhostError,
     DriveMarker,
     DriveReach,
+    DriveWriteError,
     create_marker,
     custody_freshness,
     drive_path_hint,
@@ -100,6 +101,7 @@ from truestill_core.drive_adoption import (
 )
 from truestill_core.duplicate_explain import describe_split, origin_phrase, split_by_origin
 from truestill_core.exif import ExiftoolMissingError, read_metadata
+from truestill_core.filesystem import DestinationPreflight
 from truestill_core.hash_cache import HashCache
 from truestill_core.hashing import (
     DEFAULT_PHASH_THRESHOLD,
@@ -819,7 +821,13 @@ def _migrate_marker(root: Path, catalog: Catalog) -> int:
         print(f"{root} already carries {MARKER_NAME}; nothing to do.")
         return 0
     legacy = existing_marker_path(root)
-    marker = upgrade_marker(root)
+    try:
+        marker = upgrade_marker(root)
+    except DriveWriteError as refusal:
+        # A legacy drive that will not take its canonical marker keeps working - the old name is
+        # still read (§3.1). So this reports and stops rather than implying identity was lost.
+        print(f"error: {refusal}", file=sys.stderr)
+        return 4
     if marker is None:  # unreachable: read_marker above proved a marker exists
         print(f"error: could not read the drive marker at {root}", file=sys.stderr)
         return 2
@@ -1032,7 +1040,11 @@ def _init_drive(args: argparse.Namespace, catalog: Catalog) -> int:
         # renaming it here would leave the user's own label behind for no reason.
         adopt, label = proven[0].uuid, proven[0].label
 
-    marker = create_marker(args.init, label, uuid=adopt)
+    try:
+        marker = create_marker(args.init, label, uuid=adopt)
+    except DriveWriteError as refusal:
+        print(f"error: {refusal}", file=sys.stderr)
+        return 4
     _say_if_two_places(catalog, marker, args.init)
     catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
     catalog.set_setting(drive_path_hint(marker.uuid), str(args.init))
@@ -1915,17 +1927,19 @@ def _print_inferred_local_shifts(uploads: list[Resolution]) -> None:
         print(f"      {format_inferred_local_shift_line(shift)}")
 
 
-def _print_preflight(
-    resolutions: list[Resolution], destination: Destination, *, skip_undated: bool
-) -> None:
+def _print_preflight(preflight: DestinationPreflight) -> None:
     """Say up front when the destination cannot hold this run.
 
     Printed during a **preview**, where nothing is written and the refusal would be pointless:
     a plan that reads as clean and then fails on ``--apply`` moves the discovery to after the
     user has already committed. ``execute`` refuses the apply itself, from the same answer, so
     this is a second reading rather than a second check.
+
+    ⚠ **Takes the answer rather than computing it** (`(aek)`). `_run_pipeline` needs the same
+    verdict to decide whether the destination may be registered at all, and two calls would be two
+    `stat` passes over every write candidate - ~600 us each on a FUSE library
+    (`PERFORMANCE.md` §3.1), which is the whole tier-0 budget again. One reading, three readers.
     """
-    preflight = preflight_for_run(resolutions, destination, skip_undated=skip_undated)
     if preflight.may_proceed:
         return
     print(f"\n{_SEPARATOR}")
@@ -2231,10 +2245,45 @@ def _print_ingest_report(resolutions: list[Resolution], scan: TakeoutScan) -> No
     )
 
 
+def _registration_wanted(args: argparse.Namespace, marker: DriveMarker | None) -> bool:
+    """Whether this run must mint an identity for its destination.
+
+    **Gated on ``--apply``**, so a preview registers nothing; that is why no opt-out flag was
+    added rather than one being argued for. **rclone destinations are excluded**, for the reason
+    `_local_drive_marker` gives: always-online cloud is not a drive-in-a-drawer.
+
+    An existing marker means nothing is written - re-minting a uuid would orphan every copy
+    already recorded against the old one (§3.1).
+    """
+    return marker is None and bool(getattr(args, "apply", False)) and not args.rclone
+
+
+def _approve_registration(args: argparse.Namespace, marker: DriveMarker | None) -> None:
+    """Settle whether this destination MAY become a drive. Writes nothing. `(aek)`
+
+    **The half that must stay early.** A ghost refusal and the typed `new` confirm are the answers
+    a user needs before anything expensive happens; asking them after the hashing pass would make
+    someone who pointed at an unmounted mountpoint wait out a full read of their library to be
+    told so. So the decision keeps its place and only the WRITE moves behind the space check.
+    """
+    if not _registration_wanted(args, marker):
+        return
+    root = Path(args.destination)
+    with _catalog(args.db) as catalog:
+        drives = [(str(d["uuid"]), str(d["label"])) for d in catalog.list_drives()]
+        ghost = ghost_drive_at(root, catalog, drives)
+        if ghost is not None and not getattr(args, "force_new_identity", False):
+            raise DriveGhostError(ghost_drive_refusal(ghost))
+        unplaced = drives_without_a_known_location(catalog, drives)
+    if unplaced and not _confirm_new_drive(unplaced, root):
+        cancelled = "Registration cancelled. Nothing was written and no drive was registered."
+        raise DriveGhostError(cancelled)
+
+
 def _register_destination(
     args: argparse.Namespace, marker: DriveMarker | None
 ) -> DriveMarker | None:
-    """Give the destination a drive identity before the run, so the run's own files attach.
+    """Give the destination a drive identity, so the run's own files attach.
 
     **The gap this closes.** Until 2026-08-05 the CLI read a marker and never created one, so
     organizing into an ordinary folder wrote `files` rows with **no** `file_copies` row: in the
@@ -2247,25 +2296,22 @@ def _register_destination(
     `IMPLEMENTATION_STANDARDS.md` §3.1 already sanctions the creation - it "happens automatically
     where the user's action already implies it", and names the organize destination.
 
-    **Gated on ``--apply``**, so a preview registers nothing; that is why no opt-out flag was
-    added rather than one being argued for. **rclone destinations are excluded**, for the reason
-    `_local_drive_marker` gives: always-online cloud is not a drive-in-a-drawer.
+    ⚠ **Called AFTER the preflight, and that ordering is `(aek)`.** This is the first thing the
+    product wrote to a new drive, so on a full disk it raised before the run reached the sentence
+    that explains a full disk - which it already had, and already words correctly. The approval
+    above runs early; this runs once the destination has been shown able to hold the work.
 
-    An existing marker is returned untouched - re-minting a uuid would orphan every copy already
-    recorded against the old one (§3.1).
+    ⚠ **And it must still stay ahead of the first COPY**, which is the older constraint and the
+    reason this is a move rather than a deletion: an identity minted afterwards leaves the run's
+    own files unattached.
+
+    :raises DriveWriteError: the drive would not accept its marker. Deliberately propagated to
+        `_registered_or_refused`, which already turns `DriveGhostError` into exit 4 and words this
+        the same way - both are *this destination cannot be used*.
     """
-    if marker is not None or not getattr(args, "apply", False) or args.rclone:
+    if not _registration_wanted(args, marker):
         return marker
     root = Path(args.destination)
-    with _catalog(args.db) as catalog:
-        drives = [(str(d["uuid"]), str(d["label"])) for d in catalog.list_drives()]
-        ghost = ghost_drive_at(root, catalog, drives)
-        if ghost is not None and not getattr(args, "force_new_identity", False):
-            raise DriveGhostError(ghost_drive_refusal(ghost))
-        unplaced = drives_without_a_known_location(catalog, drives)
-    if unplaced and not _confirm_new_drive(unplaced, root):
-        cancelled = "Registration cancelled. Nothing was written and no drive was registered."
-        raise DriveGhostError(cancelled)
     created = create_marker(root, label=root.name or "Library")
     with _catalog(args.db) as catalog:
         # Structurally silent today: `created` carries a freshly minted uuid, so there is no
@@ -2300,19 +2346,79 @@ def _confirm_new_drive(unplaced: tuple[str, ...], root: Path) -> bool:
     return _typed_confirmation("\nType 'new' if this really is a new drive: ", "new") is True
 
 
+def _approved_or_refused(args: argparse.Namespace, marker: DriveMarker | None) -> int | None:
+    """``None`` when the destination may be registered, or the exit code to return.
+
+    Shaped like `_destination_or_exit` and for the same reason: the refusal is an actionable
+    sentence rather than a traceback (ENGINEERING_STANDARD 4).
+    """
+    try:
+        _approve_registration(args, marker)
+    except DriveGhostError as refusal:
+        # Exit 4 is this repo's "unusable destination", alongside 3 for a missing exiftool.
+        print(f"error: {refusal}", file=sys.stderr)
+        return 4
+    return None
+
+
+def _print_run_reports(
+    args: argparse.Namespace,
+    resolutions: list[Resolution],
+    destination: Destination,
+    preflight: DestinationPreflight,
+    scan: TakeoutScan | None,
+) -> None:
+    """Everything this run says about what it found, before it is allowed to write anything.
+
+    One unit because it is one moment - the plan, in full, while the user can still stop it - and
+    keeping it here holds `_run_pipeline` under its branch ceiling rather than raising the ceiling
+    to fit `(aek)`'s gate in.
+    """
+    _print_report(resolutions, destination.describe())
+    _print_summary(resolutions)
+    _print_skipped_undated(resolutions, args.skip_undated)
+    _print_heif_note(resolutions)
+    _print_preflight(preflight)
+    if scan is not None:
+        _print_ingest_report(resolutions, scan)
+    if args.report:
+        _write_json_report(args.report, resolutions)
+
+
 def _registered_or_refused(
-    args: argparse.Namespace, marker: DriveMarker | None, catalog: Catalog
+    args: argparse.Namespace,
+    marker: DriveMarker | None,
+    catalog: Catalog,
+    destination: Destination,
+    preflight: DestinationPreflight,
 ) -> tuple[DriveMarker | None, str | None] | int:
     """The destination's drive identity and uuid, or the exit code to return.
 
-    Shaped like `_destination_or_exit` and for the same reason: the refusal is an actionable
-    sentence rather than a traceback (ENGINEERING_STANDARD 4), and doing the upsert here keeps
-    `_run_pipeline` under its branch ceiling rather than raising the ceiling.
+    Doing the upsert here keeps `_run_pipeline` under its branch ceiling rather than raising it.
+
+    ⚠ **THE SPACE CHECK IS PART OF THE REFUSAL, AND ITS POSITION IS `(aek)`.** Registering writes
+    the marker - the first thing this product ever puts on a new drive - so on a full disk that
+    write raised a `pathlib` traceback a few steps from a copy path that reports the same errno per
+    file, and the run died before reaching the sentence that explains a full disk. The product
+    already had that sentence and it was already right; only the order was wrong.
+
+    **Not a second check.** `preflight_for_run` is the one function that decides, and its own
+    docstring calls the report and the refusal *"two readings of its answer"*. This is a third
+    reading of the SAME object `_print_run_reports` just printed - no extra `stat` pass - and
+    `execute` still refuses on its own, so core keeps the one home a third surface inherits.
+
+    `DriveWriteError` joins `DriveGhostError` on the same exit code because they are the same
+    answer to the user - *this destination cannot be used*. Ordering cannot cover a read-only
+    drive, one unplugged mid-write, or one that fills between the check and the write, so the
+    typed refusal is what carries those.
     """
+    if args.apply and not preflight.may_proceed:
+        message = f"{destination.describe()} cannot hold this run. {preflight.detail()}"
+        print(f"error: {message}", file=sys.stderr)
+        return 4
     try:
         resolved = _register_destination(args, marker)
-    except DriveGhostError as refusal:
-        # Exit 4 is this repo's "unusable destination", alongside 3 for a missing exiftool.
+    except (DriveGhostError, DriveWriteError) as refusal:
         print(f"error: {refusal}", file=sys.stderr)
         return 4
     if resolved is None:
@@ -2410,11 +2516,22 @@ def _run_pipeline(
         if catalog.count():
             print(f"Catalog {args.db} holds {catalog.count()} previously-processed file(s).\n")
 
-        resolved = _registered_or_refused(args, drive_marker, catalog)
-        if isinstance(resolved, int):
-            return resolved
-        drive_marker, drive_uuid = resolved
+        refusal = _approved_or_refused(args, drive_marker)
+        if refusal is not None:
+            return refusal
 
+        # ⚠ FROM THE MARKER, never from registration. `(aei)` requires the destination's identity
+        # to be an INPUT to the dedup decision, and `(aek)` moves the marker WRITE behind the
+        # space check - so the uuid has to come from something that is true before either.
+        # It is: `_local_drive_marker` already read it off disk before this pipeline started.
+        #
+        # The three branches are unchanged by that move, which is what makes it safe:
+        #   marked   -> the real uuid, so `file_copies` answers for real
+        #   unmarked -> None -> `{}`, which is what a freshly minted uuid would also return,
+        #               because a brand-new drive holds no recorded copies
+        #   rclone   -> None from `_shas_on_destination` itself, catalog-global as before
+        # Pinned by `test_dedup_scope_comes_from_the_marker.py`.
+        drive_uuid = drive_marker.uuid if drive_marker is not None else None
         on_destination = _shas_on_destination(args, drive_uuid, catalog)
         resolutions = resolve(
             decisions,
@@ -2438,15 +2555,13 @@ def _run_pipeline(
                 scheme=scheme,
             )
 
-        _print_report(resolutions, destination.describe())
-        _print_summary(resolutions)
-        _print_skipped_undated(resolutions, args.skip_undated)
-        _print_heif_note(resolutions)
-        _print_preflight(resolutions, destination, skip_undated=args.skip_undated)
-        if scan is not None:
-            _print_ingest_report(resolutions, scan)
-        if args.report:
-            _write_json_report(args.report, resolutions)
+        preflight = preflight_for_run(resolutions, destination, skip_undated=args.skip_undated)
+        _print_run_reports(args, resolutions, destination, preflight, scan)
+
+        resolved = _registered_or_refused(args, drive_marker, catalog, destination, preflight)
+        if isinstance(resolved, int):
+            return resolved
+        drive_marker, drive_uuid = resolved
 
         if relocation is not None and args.apply:
             catalog.start_inplace_run(

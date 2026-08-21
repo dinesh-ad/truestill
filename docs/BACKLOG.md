@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aem). Next free: (aen).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aep). Next free: (aeq).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -123,11 +123,19 @@ is invisible here is retired, not free.**
   What remains is drive-to-drive when the source folder is gone or no longer matches the drive.
   ⚠ `backup_run` is app-side and the CLI cannot import it, so this is a **move to core**, never a
   second implementation. Recorded 2026-08-20. [Full entry](research/backlog/ael.md)
-- **(aek) THE COPY PATH SURVIVES A FULL DISK; THE SETUP PATH CRASHES WITH A TRACEBACK.** Out of
-  space, `organize` reported `82 failed / 79 organized`, exit 1, and left **0 partials with the
-  catalog exactly true**. The same command against an **unregistered** destination raised an
-  unhandled `OSError` from `write_marker`. Found 2026-08-20. [Full
-  entry](research/backlog/aek.md)
+- **(aen) THE CATALOG'S FIRST WRITE CRASHES ON A FULL DISK.** `Catalog.__init__`'s `mkdir` and
+  `sqlite3.connect` are unguarded (`catalog.py:888,902`). ⚠ **The remedy is a second recognition,
+  never a wider `catalog_busy`** - that docstring is right to refuse `OperationalError` at large,
+  because "wait for the other operation" sends a user to wait out a fault that never clears. Split
+  from `(aek)` 2026-08-21. [Full entry](research/backlog/aen.md)
+- **(aeo) A FULL HOME DISK STOPS THE APP LAUNCHING, WITH A TRACEBACK.** `session_link.write` is
+  unguarded on the launch path (`session_link.py:131,143,148`). ⚠ Its `unlink` -> `touch(mode)` ->
+  `write_text` sequence is deliberate and each step is load-bearing; a repair must not simplify it
+  to make error handling tidier. Split from `(aek)` 2026-08-21. [Full entry](research/backlog/aeo.md)
+- **(aep) THE WRITE SIDE HAS NO `unreadable_label`.** A failed copy reads `cannot upload to '...':
+  [Errno 13] ...` - backend vocabulary and a raw errno, both against §9, and the rule is stated
+  eighteen lines above the `print` that breaks it. Reads have `models.unreadable_label`; writes
+  have no equivalent. Split from `(aek)` 2026-08-21. [Full entry](research/backlog/aep.md)
 - **(aeh) THE RUNNER IMAGE IS UNPINNED, SO THE apt THAT DEADLOCKS IS NOT A VERSION WE CHOSE.**
   `(aee)`'s hang is fixed in apt 3.1.3 and unbackported on noble; `ubuntu-latest` is noble today.
   ⚠ **A route with a cost, not a recommendation** - pinning fixes nothing by itself, and

@@ -33,7 +33,9 @@ working, so:
 
 from __future__ import annotations
 
+import contextlib
 import json
+import os
 import threading
 from collections import Counter
 from collections.abc import Iterable
@@ -43,6 +45,8 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, NamedTuple, Protocol
 from uuid import uuid4
+
+from truestill_core.drive_unwritable import explain_unwritable_drive
 
 #: Marker filename written at a drive's root. The only name this code ever writes.
 MARKER_NAME = ".truestill-drive.json"
@@ -63,6 +67,20 @@ class DriveMarker:
         return json.dumps(
             {"uuid": self.uuid, "label": self.label, "created": self.created}, indent=2
         )
+
+
+@dataclass(frozen=True, slots=True)
+class MarkerWrite:
+    """What a marker write did. **Never an exception.** `(aek)`
+
+    Shaped like `decisions.WriteOutcome` on purpose: the two drive writes this product performs
+    answer the same question and should not need two shapes to answer it in.
+    """
+
+    written: bool
+    path: Path | None = None
+    #: Plain words for a person, when the drive would not take it. `None` on success.
+    error: str | None = None
 
 
 def marker_path(root: Path) -> Path:
@@ -501,6 +519,20 @@ class DriveGhostError(Exception):
     """
 
 
+class DriveWriteError(Exception):
+    """Refusal: this drive would not accept its marker. `(aek)`
+
+    Sibling of :class:`DriveGhostError`, here for the same reason and carrying the same wording
+    rule: one type in core, so the CLI's exit code and `jobs.py`'s `code` name the same condition
+    and neither surface can word it differently (§9).
+
+    **The message is already a sentence** - `drive_unwritable.explain_unwritable_drive` composed
+    it - so a caller prints it rather than interpreting it. This is the end of
+    :func:`write_marker`'s never-raise contract that exists for callers with nothing to do without
+    an identity; the outcome-returning form is still there for callers that have.
+    """
+
+
 @dataclass(frozen=True, slots=True)
 class GhostDrive:
     """A registered drive the catalog places at a path where its marker is no longer present."""
@@ -692,14 +724,58 @@ def read_marker(root: Path) -> DriveMarker | None:
     return DriveMarker(uuid=uuid, label=label, created=created if isinstance(created, str) else "")
 
 
-def write_marker(root: Path, marker: DriveMarker) -> None:
-    """Write ``marker`` to the drive root under the canonical name (creating the root if needed).
+#: Appended to the marker's name while its bytes are in flight. Same idea as
+#: `safe_copy.STAGING_SUFFIX` and `decisions`' `.writing`, and it sits beside the target on purpose:
+#: a temp in the system temp directory would make the final step a copy across filesystems, which
+#: is exactly the non-atomic write staging exists to avoid.
+_MARKER_STAGING_SUFFIX = ".writing"
+
+
+def write_marker(root: Path, marker: DriveMarker) -> MarkerWrite:
+    """Write ``marker`` to the drive root under the canonical name. **Never raises.** `(aek)`
 
     Any legacy marker present is left untouched, so an interrupted or downgraded run still finds
     a readable identity.
+
+    **Staged, because a zero-byte marker is worse than none.** ``write_text`` opens
+    ``O_CREAT|O_TRUNC``, so a full disk fails at the *write* with the real name already taken - the
+    first soak left an empty ``.truestill-drive.json`` at a drive root that way, and this is the
+    only truestill-named artifact the product ever writes to a user's disk
+    (`IMPLEMENTATION_STANDARDS.md` §3.1). Bytes take the name only once they are all there, and a
+    failure removes what it staged. The discipline and the wording are both
+    :func:`truestill_core.decisions.write_decisions`', which is older and already proven - one
+    mechanism, two callers, rather than a second one that drifts.
+
+    **Never raises, and that contract is the whole of `(aek)`.** ``organize`` into an unregistered
+    destination on a full disk died here with a `pathlib` traceback a few steps from a copy path
+    that handles the same errno per file. A read-only disk, a full one, a used-up quota and one
+    pulled out mid-write are ordinary events for removable media; every one comes back as a
+    reported outcome. :func:`create_marker` is the end that turns a refusal into an exception for
+    callers that cannot continue without an identity.
     """
-    root.mkdir(parents=True, exist_ok=True)
-    marker_path(root).write_text(marker.to_json(), encoding="utf-8")
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+    except OSError as error:
+        return MarkerWrite(written=False, error=explain_unwritable_drive(error))
+
+    target = marker_path(root)
+    temp = target.with_name(target.name + _MARKER_STAGING_SUFFIX)
+    try:
+        with temp.open("w", encoding="utf-8") as handle:
+            handle.write(marker.to_json())
+            handle.flush()
+            # The marker is the key every `file_copies` row is recorded against, so it is worth a
+            # flush the way the decisions document is - and unlike `safe_copy`, which deliberately
+            # does not fsync, this is one ~150-byte write per registration rather than per file.
+            os.fsync(handle.fileno())
+        temp.replace(target)
+    except OSError as error:
+        # A drive that will not take the write may not take the cleanup either; a cleanup that
+        # raised would replace a reported failure with an unreported one.
+        with contextlib.suppress(OSError):
+            temp.unlink(missing_ok=True)
+        return MarkerWrite(written=False, error=explain_unwritable_drive(error))
+    return MarkerWrite(written=True, path=target)
 
 
 def needs_marker_upgrade(root: Path) -> bool:
@@ -714,21 +790,45 @@ def upgrade_marker(root: Path) -> DriveMarker | None:
     Returns the marker now stored canonically, or ``None`` if ``root`` carries no marker at all.
     Already-canonical drives are returned unchanged without a write. The legacy file is
     deliberately left in place (see the module docstring).
+
+    ``None`` keeps its single meaning - *there is no marker here* - because a failed write raises
+    :class:`DriveWriteError` rather than returning it. Two situations behind one ``None`` is the
+    conflation `(abv)` was, in miniature.
+
+    :raises DriveWriteError: the drive would not accept the canonical marker.
     """
     marker = read_marker(root)
     if marker is None:
         return None
     if needs_marker_upgrade(root):
-        write_marker(root, marker)  # uuid/label/created copied verbatim
+        _write_marker_or_raise(root, marker)  # uuid/label/created copied verbatim
     return marker
 
 
 def create_marker(root: Path, label: str, *, uuid: str | None = None) -> DriveMarker:
-    """Mint (or re-attach, if ``uuid`` given) a marker and write it to ``root``."""
+    """Mint (or re-attach, if ``uuid`` given) a marker and write it to ``root``.
+
+    The end of :func:`write_marker` for callers that cannot continue without an identity, which is
+    every production caller: a registration that did not happen must stop the run, not be carried
+    forward as a marker nobody wrote. Same relationship `copy_leaving_nothing` has to `staged_copy`
+    - one mechanism, two ends, and the signature is what says which end you are on.
+
+    :raises DriveWriteError: the drive would not accept the marker. Every call site is required to
+        handle it, and `test_marker_writes_are_handled.py` enumerates them from the source rather
+        than trusting anyone to remember (ENGINEERING_STANDARD.md §4, twenty-seventh member).
+    """
     marker = DriveMarker(
         uuid=uuid or str(uuid4()),
         label=label,
         created=datetime.now(UTC).isoformat(),
     )
-    write_marker(root, marker)
+    _write_marker_or_raise(root, marker)
     return marker
+
+
+def _write_marker_or_raise(root: Path, marker: DriveMarker) -> None:
+    """Write, turning a refusal into the typed error. One conversion, so the two ends agree."""
+    outcome = write_marker(root, marker)
+    if not outcome.written:
+        message = f"{root} could not be set up as a drive: {outcome.error}"
+        raise DriveWriteError(message)
