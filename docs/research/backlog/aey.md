@@ -1,6 +1,6 @@
 # (aey) ON PYTHON 3.14 AN UNREADABLE FOLDER WOULD BE REPORTED AS MISSING AND CREATABLE.
 
-*Body of backlog entry `(aey)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aey)`, **CLOSED 2026-08-21**. The closure is in [`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
 
 - **(aey) `pathlib` STOPS RAISING ON `EACCES` IN 3.14, AND `path_probe` IS BUILT ON IT RAISING.**
   Found 2026-08-21 while researching the 3.14 upgrade. **Not live** - this project runs 3.13 - and

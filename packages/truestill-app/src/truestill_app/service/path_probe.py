@@ -13,7 +13,7 @@ that does not exist yet can be created, and offering that is helpful. A folder t
 will not answer cannot be created - the create fails the same way the probe did - so offering it
 sends the user round a loop.
 
-Complexity: :func:`probe_dir` is **O(1)** - one stat. :func:`nearest_device` is **O(depth)**
+Complexity: :func:`probe_dir` is **O(1)** - one stat, always (it was one or two). :func:`nearest_device` is **O(depth)**
 stat calls, bounded by the filesystem root, matching ``drive.locate_drive``'s existing walk.
 """
 
@@ -22,6 +22,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
+
+from truestill_core.path_reach import Reach, reach
+from truestill_core.path_reach import probe as path_probe_stat
 
 
 class PathReach(StrEnum):
@@ -52,18 +55,30 @@ class DeviceProbe:
     blocked_at: Path | None = None
 
 
+#: This surface's four answers, from `path_reach`'s five. `FILE` and `OTHER` collapse because a
+#: caller choosing a *folder* has the same next step either way: pick something else.
+_FROM_REACH: dict[Reach, PathReach] = {
+    Reach.DIRECTORY: PathReach.DIRECTORY,
+    Reach.FILE: PathReach.NOT_A_DIRECTORY,
+    Reach.OTHER: PathReach.NOT_A_DIRECTORY,
+    Reach.MISSING: PathReach.MISSING,
+    Reach.REFUSED: PathReach.UNREADABLE,
+}
+
+
 def probe_dir(path: Path) -> PathReach:
-    """Classify ``path`` as a directory, a non-directory, absent, or unreadable. **O(1)**."""
-    try:
-        if path.is_dir():
-            return PathReach.DIRECTORY
-    except OSError:
-        return PathReach.UNREADABLE
-    # is_dir() said False: either nothing is there, or something that is not a directory.
-    try:
-        return PathReach.NOT_A_DIRECTORY if path.exists() else PathReach.MISSING
-    except OSError:
-        return PathReach.UNREADABLE
+    """Classify ``path`` as a directory, a non-directory, absent, or unreadable. **One stat.**
+
+    ⚠ **The verdict comes from `path_reach.reach`, never from `is_dir()`/`exists()`.** Those two
+    stopped raising on ``EACCES`` in Python 3.14, so this function answered ``MISSING`` - absent
+    **and creatable** - about a folder that had refused. `(aey)`; the argument lives in
+    `path_reach`, and `test_refused_is_never_absent.py` pins the answer with the predicates made
+    to swallow.
+
+    **Cheaper than what it replaced**, which is worth saying because the docstring used to promise
+    O(1) and spend two stats: `is_dir()` then `exists()` on every non-directory. One now.
+    """
+    return _FROM_REACH[reach(path)]
 
 
 def nearest_device(path: Path) -> DeviceProbe:
@@ -71,19 +86,19 @@ def nearest_device(path: Path) -> DeviceProbe:
 
     Stops and reports rather than walking *past* a directory that refused to be described:
     borrowing a readable ancestor's device would answer the same-filesystem question with a
-    different folder's answer, confidently and sometimes wrongly. **O(depth)** stat calls.
+    different folder's answer, confidently and sometimes wrongly. **O(depth)** stat calls -
+    exactly one per level, which is why it reads the stat `path_reach.probe` already took.
     """
     probe = path
     while True:
-        try:
-            exists = probe.exists()
-        except OSError:
+        # ⚠ `reach`, not `exists()`: on 3.14 a refused ancestor answered "not there" and this walk
+        # went straight past it, borrowing a *different* folder's device to answer the
+        # same-filesystem question. That is the failure the docstring above forbids. `(aey)`
+        found, stat_result = path_probe_stat(probe)
+        if found is Reach.REFUSED:
             return DeviceProbe(device_id=None, blocked_at=probe)
-        if exists:
-            try:
-                return DeviceProbe(device_id=probe.stat().st_dev)
-            except OSError:
-                return DeviceProbe(device_id=None, blocked_at=probe)
+        if stat_result is not None:
+            return DeviceProbe(device_id=stat_result.st_dev)
         if probe.parent == probe:
             # Walked to the root without finding anything readable. Unreachable on a normal
             # filesystem (the root always stats); reported rather than assumed away.

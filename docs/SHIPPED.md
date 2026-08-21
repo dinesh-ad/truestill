@@ -22,6 +22,75 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aey) ABSENT AND REFUSED ARE DIFFERENT ANSWERS, DECIDED ONCE, FROM ONE STAT.**
+  - ✅ **CLOSED 2026-08-21.** On Python 3.14 `Path.is_dir()`/`exists()`/`is_file()` stop raising on
+    `EACCES` and return `False` ([cpython#144525](https://github.com/python/cpython/issues/144525)),
+    so five sites answered *not there* about a path that had refused. `probe_dir` returned
+    `MISSING`, which on this product's surfaces means **creatable**: offer to create a folder that
+    already exists and whose creation fails exactly as the probe did.
+  - ⚠ **3.14 did not invent this; it removed pathlib's exception to it.** Its `is_dir()` is
+    `return os.path.isdir(self)`, and `os.path` has swallowed every `OSError` for as long as it
+    has existed. **pathlib was the outlier this code relied on** - which is why the fix is a
+    primitive of our own, `truestill_core.path_reach`, and not a version check. It answers
+    identically on both interpreters, so nothing waits for an upgrade.
+  - **The classification is CPython 3.13's, copied deliberately** - `_IGNORED_ERRNOS` and
+    `_IGNORED_WINERRORS`, the set 3.14 deleted. That is what makes this a forward fix rather than a
+    behaviour change on the version we ship, and each of the three arms is a measured trap, not a
+    formality: **`ELOOP`** (a symlink loop answers `MISSING` today, and "any OSError is refusal"
+    would flip it), **`ValueError`** (a NUL byte: `stat()` raises it on both versions where the
+    predicates return `False`), and **`ERROR_NOT_READY`** (a Windows drive with no media). ⚠ The
+    last is **arguably wrong** - *creatable* is a poor thing to say about an empty optical drive -
+    and is preserved anyway, because changing it is a 3.13 behaviour change and belongs to its own
+    decision. It is also the one branch **no lane but Windows executes**.
+  - **Cheaper than what it replaced, not merely equal.** `probe_dir` promised O(1) and spent
+    *two* stats on every non-directory (`is_dir()` then `exists()`); it is now one, always.
+  - ⚠ **A SURVIVING MUTATION FOUND A SECOND STAT NOBODY HAD NOTICED.** Removing `nearest_device`'s
+    refusal branch changed *nothing*, because the code took the stat again and it failed the same
+    way - an equivalent mutant, and a fair signal that the branch carried no weight. The fix was
+    to stop taking it twice: `path_reach.probe` hands back the `stat` it already took, so a walk
+    is one syscall per level as its docstring always claimed. Writing a test that could not tell
+    the difference would have been the other option.
+  - **The five sites, each keeping its own answer**: `probe_dir` → `UNREADABLE`; `nearest_device`
+    stops with `blocked_at` instead of borrowing an ancestor's device; `LocalDestination.exists`
+    **raises** rather than telling the write path a slot is free; `date_rescue` skips instead of
+    reporting *"none"*; `drive_adoption` counts nothing instead of counting absence - which can
+    flip an adoption verdict to `NO_MATCH` for a drive that is merely not answering. **Three of
+    the five already carried the rule in a comment while getting it wrong.**
+  - ⚠ **`reclaim` deliberately does NOT use the shared home, and that is recorded as a decision
+    rather than left as a gap.** It is the only path that deletes a user's files, so *not there*
+    and *I could not look* must land on the same conservative side; acquiring the distinction
+    would mean acquiring the ability to act on it. `_readable_file` says so in its own words, so
+    the next uniformity sweep does not migrate it.
+  - ⚠ **AND PINNING THAT PROPERTY FOUND A LIVE 3.13 DEFECT, `(aez)`** - it held by coincidence,
+    not by assertion, and in one place it did not hold at all.
+  - **Two blindnesses over one defect, and only one was the skip.** `_really_locked` probed *"did
+    chmod deny?"* through `is_dir()` - the subject - so on 3.14 it concluded the OS had not denied
+    and the test **skipped**. `_deny` **replaces** `Path.stat`/`is_dir`/`exists` with raising
+    versions, so its assertions ran against a fake of the *pre*-3.14 stdlib and passed while the
+    product was broken - and **fixing the product does not fix that one**. The fake is kept: it is
+    this area's only Windows coverage, now annotated with what it cannot catch.
+  - **The tests assert the product's answer, never the stdlib's.** The discriminator makes the
+    predicates swallow - simulating the **new** stdlib, the exact inverse of `_deny`'s mistake -
+    and asserts `probe_dir` is unmoved; it **failed on 3.13 before the fix** and runs on every
+    lane including Windows. The real-`chmod` test takes its precondition through `os.stat`, which
+    the subject does not share. Verified end to end: `probe_dir(refused)` is `unreadable` on
+    **both** interpreters, and the suite now reports an identical **2,681 passed, 1 skipped** on
+    each - the version-conditional skip is gone.
+
+- **(aez) RECLAIM ABORTED WITH A TRACEBACK WHEN A BACKUP COPY REFUSED TO BE READ.**
+  - ✅ **CLOSED 2026-08-21**, found by writing `(aey)`'s pin and fixed in the same commit.
+  - `_verify` probed with a bare `path.is_file()` (`reclaim.py:107`) and `run_reclaim`'s
+    re-verify with a bare `candidate.source_path.is_file()`. On 3.13 those **raise** on a refused
+    path, uncaught, so `plan_reclaim` died with a `PermissionError` instead of counting the copy
+    unverified - and `run_reclaim`'s ran **mid-loop, after earlier candidates had been deleted**:
+    a partial run ending in a traceback rather than a kept file and a count.
+  - **The guarded helper was three functions above them.** Both now go through it, and it is
+    renamed `_readable_file` - for the question rather than for one caller, because calling it
+    `_source_present` at a destination site is how the two probes came to bypass it.
+  - ⚠ **Ironically 3.14 hides this one**: there `is_file()` returns `False`, so the crash becomes
+    a safe skip. The defect was live only on the version we ship, and only until something
+    refused.
+
 - **(aev) THE RUN SAYS WHAT IT COULD NOT COMPARE, AND STOPS PRINTING A LIBRARY'S WORDS.**
   - ✅ **CLOSED 2026-08-21.** One `organize` over the format corpus put **866 lines** on stderr.
     It now puts **2** - the progress line - and the report states what was removed and why.

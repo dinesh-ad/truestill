@@ -45,6 +45,15 @@ All notable changes to this project are documented here. The format follows
   A group you have already named shows its name instead, and is never offered a suggestion.
 
 ### Fixed
+- **A folder Truestill cannot open is never described as one that isn't there.** The two are
+  different answers: a folder that does not exist can be created, and one that refuses cannot -
+  so offering to create it just fails again. Truestill now decides this from a single check that
+  behaves the same on every supported version of Python, instead of one that changed underneath
+  it. The same distinction is restored where a backup drive is examined, where an original photo
+  is looked for beside its edit, and where a destination is checked before writing.
+- **Reclaiming space no longer stops with an error when a backed-up copy cannot be read.** It
+  counts that copy as unverified and moves on, which is what it always meant to do - and it never
+  deletes anything it could not check.
 - **Truestill no longer prints its image libraries' error messages at you, and now says what it
   could not check.** A run over damaged photos used to fill the terminal with hundreds of lines
   like `Fax3Decode2D: Bad code word at line 1003 of strip 0` - written for programmers, about

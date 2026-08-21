@@ -43,9 +43,17 @@ def _deny(monkeypatch: pytest.MonkeyPatch, target: Path) -> None:
     """Make ``target`` - and only it - raise ``PermissionError`` from the stat-backed probes.
 
     Faithful to a real ``chmod 000`` parent, which
-    ``test_a_real_locked_directory_raises_from_is_dir`` proves on POSIX. Monkeypatching rather
-    than chmod-ing keeps these assertions running on the Windows CI runner, where a mode of 000
-    does not deny the owner.
+    ``test_a_real_locked_directory_is_unreadable_not_missing`` proves on POSIX. Monkeypatching
+    rather than chmod-ing keeps these assertions running on the Windows CI runner, where a mode
+    of 000 does not deny the owner - and that is the whole reason this fixture is kept.
+
+    ⚠ **WHAT IT CANNOT CATCH, STATED SO NOBODY READS ITS GREEN AS COVERAGE.** It **replaces** the
+    stdlib calls with ones that raise, so it freezes the *pre-3.14* behaviour: when `Path.is_dir`
+    stopped raising on ``EACCES`` in 3.14, every test built on this fixture kept passing while
+    the product was broken (`(aey)`). A test that replaces its subject can never see the subject
+    change - the same blindness as probing through it, and unlike that one, **fixing the product
+    does not fix this**. `test_refused_is_never_absent.py` is the counterpart that can: it
+    simulates the *new* behaviour instead, and asserts the answer does not depend on it.
     """
     for name in ("exists", "is_dir", "stat"):
         original = getattr(Path, name)
@@ -65,11 +73,18 @@ def _really_locked(path: Path) -> Iterator[bool]:
     Yields False - so the caller skips - rather than passing vacuously when the mode does not
     actually deny (running as root, or a filesystem that ignores it). A test that cannot
     reproduce its condition must say so rather than report success.
+
+    ⚠ **THE PROBE IS `os.stat`, AND IT USED TO BE `is_dir()` - THE VERY CALL UNDER TEST.** `(aey)`
+    On Python 3.14 `is_dir()` returns ``False`` instead of raising, so this helper concluded *"the
+    OS did not deny"* - a false statement about the OS - and every caller **skipped**. A skip is
+    not a failure, so the suite stayed green while the product was broken. `os.stat` raises on
+    every supported version, so it answers the question actually being asked: *did the OS deny?*
+    `ENGINEERING_STANDARD.md` §4, fifty-seventh member.
     """
     path.chmod(0o000)
     try:
         try:
-            (path / "child").is_dir()
+            os.stat(path / "child")  # noqa: PTH116 - see the warning above; NOT Path.stat/is_dir
             denied = False
         except PermissionError:
             denied = True
@@ -82,19 +97,27 @@ def _really_locked(path: Path) -> Iterator[bool]:
 
 
 @pytest.mark.skipif(os.name == "nt", reason="chmod 000 does not deny the owner on Windows")
-def test_a_real_locked_directory_raises_from_is_dir(tmp_path: Path) -> None:
-    """The premise, proven on a real filesystem rather than taken from the documentation.
+def test_a_real_locked_directory_is_unreadable_not_missing(tmp_path: Path) -> None:
+    """The premise, proven on a real filesystem - **re-aimed at the product in `(aey)`**.
 
-    If `Path.is_dir` ever starts swallowing ``EACCES``, this fails - which is exactly when
-    someone should be made to re-read this module's rationale.
+    ⚠ **This asserted `Path.is_dir` RAISES until 2026-08-21, and that assertion is now false on
+    3.14.** Its docstring said *"if `Path.is_dir` ever starts swallowing `EACCES`, this fails -
+    which is exactly when someone should be made to re-read this module's rationale"*. It never
+    got the chance: the helper above probed through `is_dir()` too, so the test skipped instead.
+
+    It is not deleted, because the case it exercises - a real `chmod 000`, no monkeypatching -
+    is the only one here that touches the filesystem. What changed is the **subject**: the
+    product no longer depends on the stdlib raising, so asserting that it raises tests something
+    Truestill has stopped caring about, and would fail on 3.14 for no user-visible reason. It now
+    asserts what `path_probe` answers, which is true on both interpreters and stays true after
+    any further stdlib change.
     """
     locked = tmp_path / "locked"
     (locked / "inner").mkdir(parents=True)
     with _really_locked(locked) as denied:
         if not denied:
             pytest.skip("chmod 000 did not deny this process")
-        with pytest.raises(PermissionError):
-            (locked / "inner").is_dir()
+        assert probe_dir(locked / "inner") is PathReach.UNREADABLE
 
 
 def test_probe_dir_separates_unreadable_from_missing_and_from_a_file(

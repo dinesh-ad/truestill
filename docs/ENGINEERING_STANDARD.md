@@ -454,6 +454,16 @@ memory dressed as one.
   `unreadable` on 3.13 and `missing` on 3.14, an assertion that mentions no stdlib call at all and
   stays correct after the fix.
 
+  ⚠ *The same file carried a SECOND blindness, and it is the worse one.* `_deny` (`:42-58`)
+  **replaces** `Path.stat`/`is_dir`/`exists` with versions that raise, so every assertion built on
+  it runs against a fake of the *pre*-3.14 stdlib and **passed on 3.14 while the product was
+  broken**. Probing through the subject and replacing the subject are one failure: the test cannot
+  see the thing it watches change. But this one **is not fixed by fixing the product** - it stays
+  wrong until somebody looks at the fixture - and it cannot simply be deleted, because it is that
+  area's only Windows coverage. The remedy was a counterpart that simulates the **new** behaviour
+  and asserts the product's answer is unmoved, plus a note on the fake saying what its green does
+  not cover.
+
 - **A RULE APPLIED TO TWO OF THREE SURFACES READS AS SETTLED, AND THE THIRD DISAGREES SILENTLY.**
   The fifty-sixth member, and the failure is **not** that the rule was never written down - it is
   that it was written down *enough to look finished*. A reader who greps finds it, finds it

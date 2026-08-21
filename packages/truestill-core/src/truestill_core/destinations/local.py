@@ -29,6 +29,7 @@ from truestill_core.filesystem import (
     preflight_destination,
 )
 from truestill_core.hashing import sha256_file
+from truestill_core.path_reach import Reach, reach
 from truestill_core.safe_copy import CopyOutcome, copy_leaving_nothing
 
 #: ``EFBIG``. Raised when a file exceeds what the filesystem can store - on FAT32, anything from
@@ -111,11 +112,19 @@ class LocalDestination(Destination):
         return preflight_destination(sized, self._root, facts=self.facts())
 
     def exists(self, relative_path: str) -> bool:
-        try:
-            return self._full(relative_path).exists()
-        except OSError as exc:
-            message = f"cannot probe {relative_path!r}: {exc}"
-            raise DestinationError(message) from exc
+        """Whether the destination already holds this path. Refusal is raised, never reported.
+
+        ⚠ **`reach`, not `exists()`.** This deliberately raises rather than answering `False`,
+        because a destination that will not describe itself has not established that the slot is
+        free - and the caller's next move is to write into it. On Python 3.14 `Path.exists()`
+        stopped raising on ``EACCES``, so this `except` stopped firing and the write path was told
+        the slot was empty. `(aey)`
+        """
+        found = reach(self._full(relative_path))
+        if found is Reach.REFUSED:
+            message = f"cannot probe {relative_path!r}: the filesystem refused to describe it"
+            raise DestinationError(message)
+        return found is not Reach.MISSING
 
     def upload(self, local: Path, relative_path: str) -> None:
         target = self._full(relative_path)

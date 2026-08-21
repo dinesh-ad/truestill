@@ -29,6 +29,7 @@ from truestill_core.catalog_session import open_catalog
 from truestill_core.dates import resolve_capture_datetime
 from truestill_core.exif import read_metadata
 from truestill_core.models import DateSource
+from truestill_core.path_reach import Reach, reach
 
 #: The time of day used when someone supplies a date without one.
 #:
@@ -277,10 +278,13 @@ def original_candidates(db: Path, sha256s: Sequence[str]) -> dict[str, Candidate
                 continue
             source = Path(str(row["source_path"]))
             sidecar = source.with_name(source.name + _ORIGINAL_SUFFIX)
-            try:
-                present = sidecar.is_file()
-            except OSError:
+            # ⚠ `reach`, not `is_file()`, and the comment below is why. On 3.14 `is_file()`
+            # returns False for a refused path, so this fell through and reported "none" -
+            # exactly the "nothing there" the next line forbids. `(aey)`
+            found = reach(sidecar)
+            if found is Reach.REFUSED:
                 continue  # unreadable mount: cannot look, which is not "nothing there"
+            present = found is Reach.FILE
             if not source.parent.is_dir():
                 continue
             if not present:

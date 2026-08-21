@@ -31,6 +31,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from truestill_core.hashing import sha256_file
+from truestill_core.path_reach import Reach, reach
 
 #: How many recorded paths are stat-checked per known drive.
 #:
@@ -165,11 +166,14 @@ def _inspect_one(
     for relative in sample:
         if cancel is not None and cancel.is_set():
             break
-        try:
-            if (root / relative).is_file():
-                present.append(relative)
-        except OSError:
+        # ⚠ `reach`, not `is_file()`. On 3.14 a refused path answered False, so it was counted
+        # as evidence of ABSENCE - the opposite of the line below - and enough of them flip this
+        # verdict to NO_MATCH for a drive that is simply not answering. `(aey)`
+        found = reach(root / relative)
+        if found is Reach.REFUSED:
             continue  # unreadable or dead mount: not evidence either way
+        if found is Reach.FILE:
+            present.append(relative)
 
     if len(present) < PRESENCE_THRESHOLD * len(sample):
         return AdoptionOffer(

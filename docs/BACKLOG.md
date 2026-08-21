@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aey). Next free: (aez).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(afa). Next free: (afb).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -118,17 +118,12 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(aey) ON PYTHON 3.14 AN UNREADABLE FOLDER WOULD BE REPORTED AS MISSING AND CREATABLE.**
-  `Path.is_dir()` and `Path.exists()` stop raising on `EACCES` and return `False`
-  ([cpython#144525](https://github.com/python/cpython/issues/144525)), so `probe_dir` falls
-  through to `PathReach.MISSING` - the exact *absent vs refused* distinction `path_probe.py` was
-  written to preserve. ⚠ The test that says it would catch this **skips** instead, because its
-  precondition uses the same swallowing call. **Not live** (we run 3.13); it is why the 3.14 move
-  was deferred, and why the new 3.14 CI leg is evidence rather than a gate - it reports green
-  through this - confirmed by run 32518938493, where all three 3.14 legs passed. ⚠ **FIVE sites,
-  not one** (grepped): `local.py:113` deliberately raises and would stop; `date_rescue.py:280` and
-  `drive_adoption.py:167` each carry a comment naming the rule 3.14 breaks. `reclaim.py` was
-  checked and fails safe on both. Found 2026-08-21. [Full entry](research/backlog/aey.md)
+- **(afa) A PATH THE PRODUCT KNOWS WAS REFUSED IS STILL NOT REPORTED TO ANYONE.** After `(aey)`,
+  `date_rescue` and `drive_adoption` branch on `Reach.REFUSED` explicitly and then say nothing -
+  a limitation became a decision, and the decision is silence. ⚠ **`(aer)`'s shape, third
+  instance** (after `(aac)` and `(aer)`), so the fix is likely **one** decision about how refusal
+  is reported everywhere rather than three wordings. Held out of `(aey)` deliberately: a user acts
+  on a drive-adoption verdict. Filed 2026-08-21. [Full entry](research/backlog/afa.md)
 - **(aex) THE WINDOWS INSTALLER IS STAMPED WITH A BRANCH NAME ON EVERY DISPATCH RUN.**
   Linux falls back to `0.0.0` when `github.ref_name` is not a tag (`release.yml:159`); Windows
   has no fallback (`release.yml:148`) and its `if (-not $version)` guard cannot fire because
