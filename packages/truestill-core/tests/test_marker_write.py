@@ -134,6 +134,21 @@ def test_a_read_only_drive_is_reported_rather_than_raised(tmp_path: Path) -> Non
 def test_no_failure_mode_raises(tmp_path: Path) -> None:
     """The blanket promise, asserted rather than assumed - the whole of `(aek)` in one line.
 
+    **The unwritable condition is BUILT, never named as a magic path**, and the first version of
+    this test got that wrong in the way `ENGINEERING_STANDARD.md` §4's thirty-ninth member
+    describes. It used ``/proc/nonexistent-truestill/drive``, reasoning that `/proc` refuses a
+    `mkdir`. On Windows that string is not an absolute path at all - it is **drive-relative**, so
+    `WindowsPath` resolved it against `C:`, `mkdir(parents=True)` created it happily, and the write
+    **succeeded**. The test failed on the Windows lane on correct code, and it had also written a
+    tree into a real location outside `tmp_path` on the runner.
+
+    Both cases below are constructed from the fixture and fail on every platform, for the same
+    reason on each: **a file where a directory has to be**. They differ in WHICH node of
+    `mkdir(parents=True)`'s recursion refuses, which is exactly the platform difference §4
+    documents - POSIX fails the first `os.mkdir` with `ENOTDIR`, while Windows gets a
+    `FileNotFoundError`, recurses upward, and fails at the obstacle. Both are `OSError`, which is
+    all this promise depends on.
+
     Real conditions only. A path carrying a null byte raises `ValueError` from pathlib before any
     syscall happens, and widening the `except` to swallow that would be tuning the contract to fit
     a case no destination can reach: a root comes from argparse or a folder browse, never from
@@ -147,7 +162,8 @@ def test_no_failure_mode_raises(tmp_path: Path) -> None:
     """
     a_file = tmp_path / "not-a-folder"
     a_file.write_text("this is a file, not a drive root", encoding="utf-8")
-    for root in (Path("/proc/nonexistent-truestill/drive"), a_file):
+    for root in (a_file, a_file / "under-a-file"):
         outcome = write_marker(root, _MARKER)
         assert outcome.written is False, root
         assert outcome.error, root
+        assert not (root / MARKER_NAME).exists(), root
