@@ -61,6 +61,33 @@ loses nothing; the lanes see everything eventually.
 > flagged the risk in writing two turns earlier. Knowing the mechanism is not the same as having
 > a rule that names the winner. **A pending result outranks a ready batch.** The batch loses
 > nothing by waiting; the run loses everything.
+>
+> ⚠ ✅ **AND THAT SENTENCE CARRIES TWO OBLIGATIONS, WHICH NOBODY HAD SEPARATED - MEASURED
+> 2026-08-21.** *Pending* was read as **CONTENTION** - do not push while a run is in flight,
+> because `cancel-in-progress` kills it - and that half was honoured. The other half is
+> **OUTCOME**: do not push again until you know the last one **passed**. Because the two lived in
+> one sentence, *"I am not cancelling anything"* read as permission, and **three commits landed on
+> an already-red `main`**. Nothing was lost from the product; what was lost is that three runs
+> stopped being readable as signals about their own commits - the instrument-that-measures-nothing
+> shape §4 keeps finding, this time aimed at CI itself.
+>
+> **It is now a control rather than a sentence**, because the twenty-seventh member allows only
+> two answers and *"write it more clearly"* is not one. `scripts/check_push_gate.py` runs on
+> `pre-push` and refuses when the previous push's run is red **or still going**. **It refuses, it
+> never waits** - a hook that blocked for eleven minutes would be bypassed with `--no-verify` the
+> first afternoon, the same reasoning §6.1 records for not making `make gate` blocking.
+> `TRUESTILL_PUSH_ANYWAY=1 git push` is how you say you mean it, because pushing a **fix** onto a
+> red `main` is the ordinary case; what the gate removes is doing it **without noticing**.
+> ⚠ It **fails open and says so** when `gh` cannot answer, and that gap is pinned by its own test -
+> a gate nobody can push past on a fresh clone gets uninstalled, taking its real coverage with it.
+> Activate with `uv run pre-commit install --hook-type pre-push`.
+>
+> ⚠ **Its own guard failed on Windows first, and that is worth more than the gate.** The tests
+> stubbed `gh` and `git` as `#!/bin/sh` files on `PATH`. **Windows does not honour a shebang**, so
+> `gh` was never found, the gate correctly **failed open**, and six tests went red on a lane where
+> the product behaved exactly as designed - §4's thirty-ninth member, the second instance in one
+> day. Rewritten to patch `_gh` on the module that owns it: portable, and **stronger**, because it
+> exercises the real decision code instead of a shell's idea of an executable.
 
 > **And when you read a lane's result, query the JOB, not the run summary.** Measured 2026-08-11:
 > `gh run view` reported the Windows lane still in progress **seventeen minutes after** the job API
