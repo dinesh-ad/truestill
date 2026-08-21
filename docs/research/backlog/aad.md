@@ -323,6 +323,37 @@
   - **Uninstall must be verified against `catalog.sqlite` in the OS data directory**, not the
     registry - see the deleted rig's finding above.
 
+  > ## ⚠ CORRECTION, 2026-08-21 - the heading below is FALSIFIED. Left in place, not rewritten.
+  >
+  > **"REFUSED BY THE CHANNEL" is wrong.** An unsigned installer with no reputation is **not**
+  > disqualified from winget. **AeroFTP ships as `winget install axpnet.AeroFTP`** while its own
+  > documentation states it *"is not signed with a paid Windows code signing certificate, which
+  > may result in a SmartScreen warning on first launch"*
+  > ([docs.aeroftp.app](https://docs.aeroftp.app/getting-started/windows.html)). It also signs
+  > releases with **Sigstore keyless via GitHub OIDC** - the approach this entry chose - so it is
+  > close to D9's exact shape and it is in the channel.
+  >
+  > **What survives, and it is the reasoning rather than the heading:**
+  >
+  > * winget's SmartScreen validation is a **URL-REPUTATION** check, not a signature check -
+  >   winget's own troubleshooting: *"SmartScreen validation errors indicate that the URL provided
+  >   has a bad reputation."* That is why some submissions are blocked and others are not.
+  > * SmartScreen genuinely does block some winget validations - a maintainer declined to submit
+  >   manifests for that reason in June 2026
+  >   ([winget-pkgs#385483](https://github.com/microsoft/winget-pkgs/issues/385483)).
+  > * ⚠ **The second bullet below holds and is now independently confirmed**: a `winget install` is
+  >   **not** automatically SmartScreen-free. AeroFTP documents the warning its own winget users
+  >   see. **The download-page warning stays mandatory.**
+  >
+  > ⚠ **THE DECISION MAY STILL STAND; THE RECORDED REASON WAS WRONG.** Declining winget on cost,
+  > on release-lane surface, or on not wanting a second distribution channel to keep current are
+  > all live grounds. *"The channel refuses us"* is not one of them, and anyone re-opening this
+  > should re-open it on the real grounds rather than on a refusal that does not exist.
+  >
+  > Note the entry was already more careful than its own heading: it records *"Not verified: a
+  > policy line stating this as a written eligibility criterion."* The over-claim is in the title,
+  > not in the analysis - which is its own lesson about where a claim gets loudest.
+
   ### winget: REFUSED BY THE CHANNEL, not declined on cost
 
   **Recorded so nobody re-proposes it as the SmartScreen workaround: the thing winget would have

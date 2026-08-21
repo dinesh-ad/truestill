@@ -111,6 +111,21 @@ truth; `ruff` for lint and format; src layout under `packages/` with a `pyprojec
 package. Python 3.13 is the floor and correct - `requires-python = ">=3.13"` in all three
 packages.
 
+> ⚠ **CORRECTION, 2026-08-21: THE REVISIT TRIGGER BELOW CANNOT FIRE, AND THE NUMBERS ARE STALE.**
+> The live trigger is now `DECISIONS.md` **D11**; the paragraph below is left exactly as written,
+> because a record edited to stay correct stops being one.
+>
+> * It reads *"revisit when `ty` reaches stable 1.0"* - and `ty` is **still alpha**. **The checker
+>   that moved is Pyrefly**, which this trigger does not name, so it can never fire however far
+>   Pyrefly goes. A trigger aimed at a tool that did not move is a trigger that cannot fire.
+> * *"The conformance numbers are disputed by a factor of three… Pyrefly 58% and 87.8%"* - the
+>   dispute has largely resolved, in Pyrefly's favour: **Pyrefly ~92.2%** against **mypy ~59.6%**
+>   and **`ty` ~67.4%**. Pyrefly 1.0 has been stable since May 2026 and is deployed at Meta on
+>   Instagram, PyTorch and JAX.
+> * ⚠ **The load-bearing reason is untouched and is why the decision does not change**: *"type
+>   checking is not the bottleneck"* - **mypy is invisible in every lane's wall clock**, so a
+>   10-50x faster checker buys nothing here. Speed was never the argument; it was the tie-breaker.
+
 **Type checker: stay on mypy strict.** The market moved more in eighteen months than in the
 previous decade - Pyrefly 1.0 (May 2026, Rust), Astral's `ty`, mypy 2.0 with experimental
 parallel checking. Both Rust checkers are an order of magnitude faster. Reasons to stay:

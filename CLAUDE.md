@@ -58,7 +58,7 @@ On 2026-08-21 those read **159** and **102**, leaving **57** mapped below. ⚠ T
 | Where does the project stand? What is next? | [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) |
 | How do I work here? (workflow, research order, code standard) | [`docs/ENGINEERING_STANDARD.md`](docs/ENGINEERING_STANDARD.md) |
 | What are the binding rules? (invariants, architecture, data, gates) | [`docs/IMPLEMENTATION_STANDARDS.md`](docs/IMPLEMENTATION_STANDARDS.md) |
-| Why is the product this way? (settled stances: accounts, licensing, monetization) | [`docs/DECISIONS.md`](docs/DECISIONS.md) |
+| Why is the product this way? (settled stances: accounts, licensing, monetization, toolchain) | [`docs/DECISIONS.md`](docs/DECISIONS.md) - **D10** defers Python 3.14, **D11** holds mypy with a trigger that can fire, **D12** refuses Aceternity |
 | What is approved but unbuilt? | [`docs/BACKLOG.md`](docs/BACKLOG.md) - the **index**; each entry's body is [`docs/research/backlog/<letter>.md`](docs/research/backlog) |
 | **Is this already built?** (provenance - read before building anything) | [`docs/SHIPPED.md`](docs/SHIPPED.md) |
 | What does it cost, and what should I not "optimize"? | [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) |

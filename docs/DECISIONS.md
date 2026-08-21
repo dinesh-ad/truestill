@@ -594,3 +594,74 @@ promoted to a gate until that entry closes.
 **Status:** Settled until one of the conditions above fires. **No tag was cut**: the release lane
 is exercised with `workflow_dispatch` + `dry_run=true`, and a `v*` tag is the *publish* trigger,
 not a dry run (`release.yml:283`).
+
+---
+
+## D11. Stay on mypy - and the condition that would change it, restated so it can fire
+
+**Decided 2026-08-21**, replacing a trigger in
+[`frontend-and-shell-standard-research.md`](frontend-and-shell-standard-research.md) that named
+the wrong tool. That file is a record and keeps its original wording; this is the live version.
+
+**The decision is unchanged: mypy strict, in the gate.** The reason is not that the alternatives
+are bad - two of them are better on the axis they compete on - it is that **the axis does not
+matter here**. mypy is invisible in every lane's wall clock (`PERFORMANCE.md` §5.1: Windows is
+1,638 s of summed test time, ubuntu 121 s; mypy appears in neither). A checker 10-50x faster
+saves nothing a person can perceive.
+
+### What actually changed, recorded so the decision rests on current facts
+
+| | May 2026 (as recorded) | 2026-08-21 |
+|---|---|---|
+| **Pyrefly** | *"58% and 87.8%, disputed"* | **1.0 stable since May 2026**, ~92.2% conformance, deployed at Meta (Instagram, PyTorch, JAX) |
+| **`ty`** | *"15% and 53.2%", beta, no plugins* | **still alpha** - not for production CI |
+| **mypy** | the incumbent | ~59.6% conformance |
+
+⚠ **The old trigger read *"revisit when `ty` reaches stable 1.0"*, and `ty` is the one that did
+not move.** A condition aimed at the wrong subject is a condition that never fires, which is worse
+than none: it looks like the question is being watched.
+
+### The trigger, restated
+
+Revisit when **any** of these is true, and the first two name Pyrefly because Pyrefly is what moved:
+
+1. **mypy becomes visible in a lane's wall clock** - the original and still the only reason that
+   would force the change on its own.
+2. **Pyrefly ships something mypy cannot do that this repo needs**, rather than doing the same
+   thing faster. Conformance percentage is not that; a rule we want and cannot express is.
+3. **mypy stops being maintained**, or drops a Python version this project runs.
+
+**Cheap and unblocked meanwhile:** a second checker in **advisory** mode produces evidence instead
+of argument, the way the 3.14 lane does for the interpreter (D10). Nobody has run it.
+
+**Governance note, carried forward:** uv, ruff and `ty` are all Astral, and Astral joined OpenAI in
+March 2026. Three of four toolchain tools under one owner is worth knowing - not a reason to act,
+since all are permissively licensed and forkable, but a reason not to add the fourth without
+noticing.
+
+---
+
+## D12. Aceternity UI is refused - recorded because it was decided and never written down
+
+**Decided in conversation before 2026-08-21; written down 2026-08-21 after an audit found it was
+nowhere in the repository.** `grep -ri aceternity` returned nothing. The decision was being
+honoured by memory alone.
+
+**Refused on two grounds, both verified rather than remembered:**
+
+1. **It requires Motion (Framer Motion).** Aceternity is a Tailwind **+ Motion** library; the
+   animation dependency is not optional to it. Truestill's UI has no animation requirement, and
+   `(adi)`'s React island exists to render a result grid, not to move.
+2. **The bundle cost is real and is paid by a local app that has no reason to pay it.** Motion is
+   ~34 kB gzipped standalone and adds **~125 kB** in practice; trimming to ~4.6 kB needs explicit
+   `LazyMotion` configuration that is easy to skip and easy to regress. The app is served from
+   localhost by the user's own machine, so the cost is startup and memory rather than network -
+   which makes it cheaper to dismiss and no less real.
+
+**What this does NOT rest on.** Not taste, not "we do not need a component library" - shadcn
+components are already in `src/components/ui/`. The refusal is specific to a library whose value
+is animation, in a product with none.
+
+**Status:** Settled. Revisit only if the product acquires a genuine motion requirement - and then
+the question is Motion itself, not Aceternity, since Aceternity is a set of components built on it.
+

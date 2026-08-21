@@ -432,6 +432,33 @@ memory dressed as one.
   fails with *"no .ts/.tsx files found"* rather than passing three times. In the same review a
   proposed `#[tauri::command]` counter was **refused rather than written**, because there is no
   `Cargo.toml` in the repo and it would have been green from the day it landed.
+- **A WRITTEN CLAIM CAN BE FALSIFIED; AN UNWRITTEN ONE CANNOT. ONLY ONE OF THEM SHOWS UP IN AN
+  AUDIT.** The fifty-eighth member, and it inverts the intuition that writing a reason down is the
+  cautious move. Writing it down is what **exposes** it: a recorded reason can be checked against
+  the world, found wrong, and corrected. A reason held only in a conversation is honoured by memory
+  and is **invisible to every review**, so it survives being wrong for exactly as long as nobody
+  happens to re-derive it. ⚠ **The two failures are the same kind**, and the audit only ever finds
+  one of them - which makes the unwritten one look like the safer state precisely because it never
+  appears in the findings column.
+
+  *Worked example - the external-claims audit, 2026-08-21.* Seven claims about the outside world
+  were re-checked against current sources. Two of them were decisions about what NOT to adopt:
+
+  - **`(aad)`'s winget refusal was written down**, headed *"REFUSED BY THE CHANNEL, not declined on
+    cost"*. Checkable, and **checked: false.** AeroFTP ships unsigned on winget while documenting
+    the SmartScreen warning, so the channel refuses nobody for being unsigned. The decision may
+    still stand on other grounds; the recorded reason does not. **The audit found it because it
+    existed.**
+  - **The Aceternity refusal was never written down.** `grep -ri aceternity` over the whole
+    repository returned nothing. Re-checked, it is **correct** - the Motion dependency and the
+    ~125 kB are both real - but it was correct by luck, and nothing in the repository would have
+    caught it had it been wrong. **The audit found it only because someone remembered it existed.**
+
+  The uncomfortable half is that the *wrong* claim is the one that looks bad in the report, and the
+  *unrecorded* one is the one that was actually more dangerous. A reason worth acting on is worth
+  writing down **so that it can be found wrong** - and a decision that shaped the product while
+  living only in a chat log has no status at all, however right it happens to be.
+
 - **A TEST WHOSE PRECONDITION IS PROBED THROUGH THE CALL IT IS TESTING CANNOT SEE THAT CALL
   CHANGE.** The fifty-seventh member. Non-emptiness guards are the fifty-second member and are
   right; this is the failure *inside* one. When the check for *"can I reproduce the condition?"*
