@@ -206,3 +206,31 @@ exists to prevent.
   mutation that kills no test (missing guard, or dead code). `ENGINEERING_STANDARD.md` §4,
   fiftieth member.
 - `exiftool` must be installed and on PATH for metadata paths.
+
+### The corpora - three of them, and they answer different questions
+
+**`IMPLEMENTATION_STANDARDS.md` §5 is the source for all of this**; what follows is the short form
+so a new session does not have to be told. ⚠ **The fence is unchanged: `/home/dinesh/pCloudDrive/`
+and `/home/dinesh/Icedrive/` are never read, walked or stat'd, at any depth, under any flag.**
+
+| corpus | what it is | what it can answer |
+|---|---|---|
+| `~/TruestillLibrary/` | **free scratch, entirely.** Nested folders, N copies, deliberately messy trees - **no permission needed, ever** | how the product behaves on a real library at real scale |
+| `~/ad/application/exif-samples` | ianare's repo, 115 files / 54 MB | **format edges** |
+| `~/ad/application/metadata-extractor-images` | drewnoakes' repo, 10,703 files / 2.8 GB, 52 format dirs | **format edges**, plus 1,461 deliberately fuzzed files |
+
+Copy from the two repos into `TruestillLibrary` freely - they are outside the library and outside
+every fence.
+
+⚠ **THEY ARE A DIFFERENT AXIS FROM SCALE, AND SIZE CANNOT SUBSTITUTE FOR IT.** Soak one was 4,111
+files from **one person's devices**: it covers the formats those devices emit and nothing else. A
+maker note that parses wrong, an orientation tag in an unexpected place, a container exiftool reads
+differently - **none of those can appear in such a corpus however large it grows.** `(adp)` is the
+precedent: 33% of a real corpus drawn sideways, found only by rendering real photographs. A curated
+format corpus is that move aimed at **parsing** rather than rendering. Measured 2026-08-21: the two
+repos hold **1,428 organizable files across 38 distinct media extensions**, against a real library
+that is overwhelmingly one lineage of `.jpg`.
+
+**Any observation of `TruestillLibrary` is a SNAPSHOT** - never a fixture, never a design premise.
+The two repos are different in kind: version-controlled and reproducible anywhere, so a finding
+against them is citable by commit rather than by date.

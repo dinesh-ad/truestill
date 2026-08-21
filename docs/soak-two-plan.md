@@ -130,6 +130,11 @@ The distinction is not "big vs small", it is **what kind of defect the step is h
 **The subset is `Input/2013` - 166 files, 289 MB, already a real folder with real metadata.** It is
 not synthetic, so it keeps the one thing a fixture cannot give: files nobody designed for the test.
 
+- **FORMAT defects need VARIETY, and neither of the above provides it.** A real library is one
+  person's devices; a subset of it is fewer of the same. The two format repos are the third corpus
+  and the only one that can answer "does this parse", which is S13. They are **version-controlled**,
+  so unlike `TruestillLibrary` a finding against them is citable by commit rather than by date.
+
 ⚠ **One trap, from `ENGINEERING_STANDARD.md` §4's forty-sixth member: any step whose subject is
 interruption or partial state must run on the storage class it claims to test.** `/data` is ext4,
 which is correct. **Do not move the subset to `/tmp` to make it faster** - `/tmp` is tmpfs on this
@@ -154,13 +159,14 @@ soak two, and each row below becomes a step.
 | **`undo-organize`** | never run; it is the only gate behind the rename path |
 | **`clean-empty`** | never run; the only path that removes a directory |
 | **a full disk mid-copy** | `(aek)` was found at setup; the copy path met a quota, not exhaustion mid-run |
+| **format edges** | ⚠ **the axis size cannot substitute for.** Soak one was 4,111 files from ONE person's devices, so it covers the formats those devices emit and nothing else. A maker note that parses wrong, an orientation tag in an unexpected place, a container exiftool reads differently **cannot appear there however large it grows** |
 
 ---
 
 ## 5. The steps
 
-Numbered for reference, not strictly ordered - but S1 must run first (it establishes ground truth)
-and S12 must run last (it is the re-prove pass).
+Numbered for reference, not strictly ordered - but **S1 must run first** (it establishes ground
+truth) and **S13 must run last** (it is the re-prove pass).
 
 Legend: **corpus** = `full` (2,276 in-fence) or `subset` (`Input/2013`, 166).
 
@@ -252,7 +258,35 @@ Legend: **corpus** = `full` (2,276 in-fence) or `subset` (`Input/2013`, 166).
 | **Read** | The per-file failures, the destination tree, the catalog, and `rescan`. |
 | **Untrue if** | any `.partial` survives · any zero-byte file wears an organized name · catalog rows and files on disk disagree · the run reports success · the failure is a traceback rather than named errors. |
 
-### S12 - One pass re-proving the four fixes. `corpus: full`
+### S12 - Format edges. `corpus: the two format repos` · *non-destructive, copy mode only*
+
+**A different axis from every step above, and the one scale cannot reach.** `(adp)` is the
+precedent: 33% of a real corpus drawn sideways, found only by **rendering** real photographs. This
+is that move aimed at **parsing**. Measured 2026-08-21, the two repos hold **1,428 files Truestill
+would organize across 38 distinct media extensions** - against a real library that is overwhelmingly
+one lineage of `.jpg` - plus **1,461 deliberately fuzzed files** it declines by extension today.
+
+⚠ **Copy mode only, and never `--move`.** These are **git repos**, and a relocating run would
+rewrite working trees that are not ours to rearrange. Copy from them into `TruestillLibrary` first
+if a messy tree is wanted; organize *from* the copy.
+
+| | |
+|---|---|
+| **Do** | Organize `exif-samples` and `metadata-extractor-images` into a fresh destination, copy mode. Then `verify`. Then read the date-provenance and skipped-bucket reports, and open the result grid so thumbnails are actually rendered rather than merely produced. |
+| **Read** | The skipped-extension census · `date_source` / `date_tag` per file (`stats_date_provenance`) · the category assignment per file · the unreadable report · the thumbnails **as drawn** · `git status` in both repos, which must be **clean**. |
+| **Untrue if** | a file is filed under a date the **file itself does not carry** - the resolver's tier and tag are recorded, so every placement is checkable against exiftool directly · a thumbnail is drawn sideways, or at the wrong aspect, for any orientation 1-8 (`(adp)`, aimed at the formats that corpus lacked) · a format is **silently** skipped rather than counted and named in the census · a RAW or container file is categorised `Saved/` by the 2 MP social heuristic because its embedded preview is small, which would be the heuristic reading the wrong image · `date_source` claims `EXIF` for a file whose tag exiftool reports as absent · the run reports success while a file it wrote cannot be re-read · **either repo's `git status` is dirty afterwards.** |
+
+⚠ **The fuzzed files are OUT of this step and are their own question.** They are declined by
+extension today, so organizing them tests nothing; renaming one to `.jpg` to force it through is a
+**different experiment** about robustness against malformed input, and it should be designed as one
+rather than smuggled in here. Note only that the corpus is available for it.
+
+⚠ **A NULL RESULT HERE IS A FINDING AND MUST BE REPORTED AS ONE.** *"38 extensions organized, every
+date traceable to a tag, no thumbnail mis-drawn"* is worth writing down - it is the first evidence
+this product has ever had about formats outside one person's cameras, and an unrecorded null gets
+re-derived by the next person (§3.2).
+
+### S13 - One pass re-proving the four fixes. `corpus: full`
 
 **One pass, not seven.** Re-running soak one wholesale mostly re-proves fixed code; this confirms
 the four fixes hold at scale and then stops.
