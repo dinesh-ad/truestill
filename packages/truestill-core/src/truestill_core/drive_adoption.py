@@ -66,6 +66,11 @@ class AdoptionVerdict(StrEnum):
     NO_MATCH = "no_match"  # too few recorded paths are present here
     PROVEN = "proven"  # present, and the bytes match what was recorded
     CONTENT_DIFFERS = "content_differs"  # the paths line up, the bytes do not
+    #: ⚠ **Too much of the sample could not be READ to say either way.** Distinct from `NO_MATCH`
+    #: because the empty answer they used to share is what let a drive be registered twice: a
+    #: caller cannot tell "this is not that drive" from "I could not look" if both arrive as
+    #: nothing. Fires only where the refusals were enough to have changed the answer. `(afn)`
+    UNREADABLE = "unreadable"
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,6 +95,10 @@ class AdoptionOffer:
     present: int
     hashed: int
     proven: int
+    #: How many sampled paths refused to be described. Appended with a default so the three
+    #: positional constructions in `_inspect_one` stay valid, and carried so a refusal can be
+    #: *counted* to the user rather than merely acted on. `(afn)`
+    refused: int = 0
 
 
 def recorded_drive(uuid: str, label: str, copies: Iterable[sqlite3.Row]) -> RecordedDrive:
@@ -135,7 +144,10 @@ def inspect_root(
     ``STAT_SAMPLE`` stats plus ``HASH_PROOF`` full reads *per known drive*, independent of how
     large the library or the folder is - it never walks the tree.
 
-    Returns every drive that is not :attr:`AdoptionVerdict.NO_MATCH`, strongest first. More than
+    Returns every drive that is not :attr:`AdoptionVerdict.NO_MATCH`, strongest first.
+    ⚠ **`UNREADABLE` is deliberately NOT filtered**: it is the answer a caller must act on rather
+    than the absence of one, and dropping it is how a drive nobody could read became a new drive.
+    `(afn)` More than
     one is a real answer, not an error: a user with two backups of the same library has two, and
     a caller that picked the first would be guessing between them.
     """
@@ -163,21 +175,45 @@ def _inspect_one(
         return AdoptionOffer(drive.uuid, drive.label, AdoptionVerdict.NO_MATCH, 0, 0, 0, 0)
 
     present: list[str] = []
+    refused = 0
     for relative in sample:
         if cancel is not None and cancel.is_set():
             break
-        # ⚠ `reach`, not `is_file()`. On 3.14 a refused path answered False, so it was counted
-        # as evidence of ABSENCE - the opposite of the line below - and enough of them flip this
-        # verdict to NO_MATCH for a drive that is simply not answering. `(aey)`
+        # ⚠ `reach`, not `is_file()`: on 3.14 a refused path answers False, which is a claim of
+        # ABSENCE about a path that said nothing. `(aey)`
         found = reach(root / relative)
         if found is Reach.REFUSED:
-            continue  # unreadable or dead mount: not evidence either way
+            refused += 1
+            continue
         if found is Reach.FILE:
             present.append(relative)
 
-    if len(present) < PRESENCE_THRESHOLD * len(sample):
+    # ⚠ **COUNTING THE REFUSALS IS THE FIX; THE `continue` ABOVE NEVER WAS.** This comment used to
+    # claim `(aey)` had stopped a refused path counting as evidence of absence. It had not: the
+    # threshold below divides by the whole sample, so skipping the append and calling it absent
+    # are the same arithmetic, and a PERFECT drive with more than half its sample unreadable was
+    # declared NO_MATCH, filtered out of `inspect_root`, and registered as a second drive. `(afn)`
+    needed = PRESENCE_THRESHOLD * len(sample)
+    if len(present) < needed:
+        # The third answer, and it fires ONLY where the refusals were enough to have changed the
+        # verdict - never where the sample settles it either way, which is what keeps it from
+        # crying wolf over one odd file.
+        # ⚠ A CANCELLED run may not produce this verdict. `break` above leaves the sample partly
+        # unexamined, and "we stopped early" is not "the drive would not answer" - calling it
+        # UNREADABLE would fabricate a verdict out of the user's own interruption, which is
+        # exactly what `test_a_cancelled_inspection_stops_and_offers_nothing_it_did_not_prove`
+        # forbids. NO_MATCH is filtered out, so a cancelled inspection still offers nothing.
+        cancelled = cancel is not None and cancel.is_set()
+        undetermined = not cancelled and len(present) + refused >= needed
         return AdoptionOffer(
-            drive.uuid, drive.label, AdoptionVerdict.NO_MATCH, len(sample), len(present), 0, 0
+            drive.uuid,
+            drive.label,
+            AdoptionVerdict.UNREADABLE if undetermined else AdoptionVerdict.NO_MATCH,
+            len(sample),
+            len(present),
+            0,
+            0,
+            refused,
         )
 
     # Only now is a read worth paying for. Every one sampled must agree: this verdict is what a
@@ -200,5 +236,5 @@ def _inspect_one(
         else AdoptionVerdict.CONTENT_DIFFERS
     )
     return AdoptionOffer(
-        drive.uuid, drive.label, verdict, len(sample), len(present), len(to_hash), proven
+        drive.uuid, drive.label, verdict, len(sample), len(present), len(to_hash), proven, refused
     )

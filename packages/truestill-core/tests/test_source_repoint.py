@@ -12,9 +12,12 @@ never verified at all. Everything here refuses rather than guesses.
 
 from __future__ import annotations
 
+import os
 import shutil
+import sys
 from pathlib import Path
 
+import pytest
 from truestill_core.drive_adoption import AdoptionVerdict
 from truestill_core.source_repoint import plan_repoint
 
@@ -160,3 +163,40 @@ def test_an_empty_selection_is_not_a_proven_repoint(tmp_path: Path) -> None:
     assert plan.rows == []
     assert plan.verdict is AdoptionVerdict.NO_MATCH
     assert not plan.may_apply
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="chmod 000 does not deny the owner on Windows; this refusal has no Windows equivalent",
+)
+def test_a_new_root_that_cannot_be_read_is_refused_and_says_which(tmp_path: Path) -> None:
+    """⚠ THE CONTROL'S THIRD CELL. This path was already safe, and must stay safe. `(afn)`
+
+    `plan_repoint` refuses on an empty offer list, so a new root nobody could read was already
+    rejected - unlike the two registration paths, which registered. What changes is only that the
+    verdict now says *which* refusal it was, so the message above it can stop claiming that
+    "0 of 0 sampled files matched by content", which describes a mismatch where nothing was
+    compared.
+
+    ⚠ **If this test needed the two cells above it to be edited, the fix reached further than it
+    was meant to.** They are untouched.
+    """
+    old, moved = tmp_path / "old", tmp_path / "moved"
+    digests = _tree(old, _NAMES)
+    _tree(moved, _NAMES)
+    denied = moved / "trip"
+    inner = next(iter(sorted(denied.rglob("*.jpg"))))
+    denied.chmod(0o000)
+    try:
+        try:
+            os.stat(inner)  # noqa: PTH116 - precondition, independent of the subject
+            pytest.skip("running as root, or a filesystem that ignores the mode")
+        except PermissionError:
+            pass
+        plan = plan_repoint(_recorded(old, digests), old, moved, hasher=_echo)
+    finally:
+        denied.chmod(0o755)
+
+    assert plan.verdict is AdoptionVerdict.UNREADABLE
+    assert not plan.may_apply, "a root that could not be read must never authorise a rewrite"
+    assert plan.movable == []

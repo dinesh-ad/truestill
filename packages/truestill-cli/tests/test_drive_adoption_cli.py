@@ -14,6 +14,7 @@ recurring defect.
 from __future__ import annotations
 
 import json
+import os
 import random
 import shutil
 from pathlib import Path
@@ -21,6 +22,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 from truestill_cli.cli import main
+from truestill_core.catalog import Catalog
 
 
 def _jpeg(path: Path, *, seed: int, size: tuple[int, int]) -> None:
@@ -184,3 +186,85 @@ def test_an_existing_unregistered_folder_still_gets_the_register_suggestion(
 
     assert code == 2
     assert "drives --init" in err
+
+
+def _deny_the_library(moved: Path) -> Path:
+    """Make most of a moved library unreadable, and return a KNOWN denied child.
+
+    ⚠ Returned rather than discovered: `glob` has to read the directory, which is the thing being
+    denied, so it comes back empty instead of raising - and `os.stat` on the folder itself
+    succeeds, because that needs execute on the parent. Both traps skip the test silently.
+    """
+    inner = next(p for p in sorted(moved.rglob("*.jpg")))
+    inner.parent.chmod(0o000)
+    return inner
+
+
+def test_init_refuses_a_library_it_could_not_read_rather_than_minting_a_second_id(
+    library: tuple[Path, Path, Path], capsys: pytest.CaptureFixture[str]
+) -> None:
+    """⚠ THE DEFECT. A drive the product could not read was registered as a NEW one, silently.
+
+    `inspect_root` returned `[]` because `NO_MATCH` is filtered, so `_init_drive`'s refusal never
+    fired and a second drive id was minted for one library - the exact harm the refusal beside it
+    describes. `(afn)`
+    """
+    _drive, moved, db = library
+    denied_child = _deny_the_library(moved)
+    try:
+        try:
+            os.stat(denied_child)  # noqa: PTH116 - precondition, independent of the subject
+            pytest.skip("running as root, or a filesystem that ignores the mode")
+        except PermissionError:
+            pass
+        code = main(["drives", "--init", str(moved), "--label", "Second", "--db", str(db)])
+    finally:
+        denied_child.parent.chmod(0o755)
+
+    assert code == 2, "a drive that could not be read was registered anyway"
+    assert not (moved / ".truestill-drive.json").exists()
+    with Catalog(db) as catalog:
+        assert len(catalog.list_drives()) == 1, "a second drive id was minted for one library"
+
+    err = capsys.readouterr().err
+    assert "could not be read" in err
+    assert "would not open" in err
+    assert "--force-new-identity" in err, "the refusal must name the way through"
+    # ⚠ It must NOT claim to know what the folder holds - that is what it could not find out.
+    assert "already holds the library recorded as" not in err
+
+
+def test_the_unreadable_refusal_is_a_message_and_not_a_dead_end(
+    library: tuple[Path, Path, Path],
+) -> None:
+    """The cost of this ruling is refusing a legitimate action, so the escape must work.
+
+    A user who knows the folder really is a new place passes the flag the message names, and it
+    registers - `cli.py` skips the inspection entirely when it is given.
+    """
+    _drive, moved, db = library
+    denied_child = _deny_the_library(moved)
+    try:
+        try:
+            os.stat(denied_child)  # noqa: PTH116 - precondition, independent of the subject
+            pytest.skip("running as root, or a filesystem that ignores the mode")
+        except PermissionError:
+            pass
+        code = main(
+            [
+                "drives",
+                "--init",
+                str(moved),
+                "--label",
+                "Second",
+                "--db",
+                str(db),
+                "--force-new-identity",
+            ]
+        )
+    finally:
+        denied_child.parent.chmod(0o755)
+
+    assert code == 0, "the escape the refusal names does not work"
+    with Catalog(db) as catalog:
+        assert len(catalog.list_drives()) == 2, "a genuinely new drive could not be registered"

@@ -7,6 +7,12 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **A drive Truestill cannot read is no longer registered as a brand-new one.** If a folder holds
+  your library but most of it will not open - a half-mounted drive, a folder still syncing -
+  Truestill used to quietly decide it was somewhere new and give your library a second identity,
+  which made it count one copy of your photos as two. It now says it could not read the folder,
+  says how much of it would not open, and stops. If the folder really is a new place, add
+  `--force-new-identity` and it registers.
 - **`truestill reclaim` now asks you to type `delete originals`, and tells you what that means.**
   It deletes your original photos after checking their contents against your backup drive, and it
   used to ask for the word `delete` behind a single line of warning - less ceremony than removing

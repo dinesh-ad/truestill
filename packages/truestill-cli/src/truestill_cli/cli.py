@@ -987,6 +987,32 @@ def _print_adoption_refusal(path: Path, offers: list[AdoptionOffer]) -> None:
     """Name the drive this folder already is, and both ways forward. Never choose one."""
     proven = [o for o in offers if o.verdict is AdoptionVerdict.PROVEN]
     differing = [o for o in offers if o.verdict is AdoptionVerdict.CONTENT_DIFFERS]
+    unreadable = [o for o in offers if o.verdict is AdoptionVerdict.UNREADABLE]
+    # ⚠ FIRST, and not only for tidiness: with neither a proven nor a differing offer this
+    # function fell through to the block below and printed "already holds the library recorded
+    # as ." - a nameless sentence offering `--adopt-existing`, which cannot work because
+    # `_init_drive` requires exactly one proven match. An unreadable sample is precisely that
+    # state, so the branch is required by the change rather than added alongside it. `(afn)`
+    if unreadable and not (proven or differing):
+        worst = max(unreadable, key=lambda o: o.refused)
+        names = ", ".join(f"'{o.label}'" for o in unreadable)
+        print(
+            f"error: {path} could not be read well enough to say whether it is a drive "
+            "Truestill already knows.\n"
+            f"       {worst.refused} of {worst.sampled} sampled files would not open, so this "
+            f"folder may be {names}\n"
+            "       with an unreadable mount, or somewhere new. Registering it now could give "
+            "one library two\n"
+            "       drive ids, and Truestill would then count one copy of your photos as two. "
+            "Nothing was written.\n"
+            "\n"
+            "       If the drive is not fully mounted, or a folder is\n"
+            "       still syncing:            fix that and run again\n"
+            "       If this really is a new place:\n"
+            "                                 re-run with --force-new-identity",
+            file=sys.stderr,
+        )
+        return
     if differing and not proven:
         names = ", ".join(f"'{o.label}'" for o in differing)
         print(
@@ -1221,6 +1247,18 @@ def _cmd_repoint(args: argparse.Namespace) -> int:
             return 0
         _print_repoint_preview(plan)
 
+        if plan.verdict is AdoptionVerdict.UNREADABLE:
+            # ⚠ The refusal was already correct here - `source_repoint` treats an empty offer
+            # list as NO_MATCH and stops - but the REASON it gave was wrong: "0 of 0 sampled
+            # files matched by content" describes a mismatch, when nothing was compared. `(afn)`
+            print(
+                f"\nerror: {new_root} could not be read well enough to prove it holds the files "
+                f"recorded under {old_root}.\n"
+                "       Nothing was changed. Check the folder is fully mounted and readable, "
+                "then run again.",
+                file=sys.stderr,
+            )
+            return 2
         if plan.verdict is not AdoptionVerdict.PROVEN:
             # The content at the new root is not the content that was recorded. Refusing is the
             # whole point: `reclaim` deletes `source_path`, and its gate re-hashes the drive

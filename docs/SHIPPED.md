@@ -22,6 +22,18 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(afn) A DRIVE WHOSE SAMPLE CANNOT BE READ IS NO LONGER REGISTERED AS A NEW ONE.** Shipped
+  2026-08-22. A **perfect** drive with 30 of 40 sampled paths unreadable returned `[]`, printed
+  nothing, and was minted a second drive id for one library - the exact harm `cli.py`'s refusal
+  states and never fired. `AdoptionVerdict.UNREADABLE` now separates *nothing matched* from
+  *nothing could be read*, and both registration paths refuse. ⚠ **The denominator was NOT
+  changed**, and the reason is recorded: with 39 of 40 refused, one readable file would carry a
+  verdict that authorises attaching rows `reclaim` deletes on. `source_repoint` was the control -
+  already safe, green **unedited** at 40 insertions / 0 deletions - and now says which refusal it
+  was rather than *"0 of 0 sampled files matched"*. Cost is a message with `--force-new-identity`,
+  pinned. Two findings from the tests: a precondition that could not fail (`os.stat` on a mode-000
+  directory succeeds), and a surviving mutation that was §4's sixtieth member inside a guard's own
+  test. [Full entry](research/backlog/afn.md)
 - **(afh) THE STRONGER ACT GETS THE STRONGER WORD: `reclaim` NOW ASKS FOR `delete originals`.**
   Shipped 2026-08-22. Measured from two real runs: `reclaim` removed 161 of the user's own
   photographs behind **three lines and `delete`**, while `clean-empty --permanent` removed three

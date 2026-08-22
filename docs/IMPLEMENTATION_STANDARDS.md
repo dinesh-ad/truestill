@@ -16,6 +16,15 @@ Paths are workspace-relative. Symbols are cited over line numbers, which drift.
 | **Original quality is the top priority.** Media pixels are never re-encoded. | The pipeline only copies bytes; the sole content write is metadata-only (see below). |
 | **Copy-only - never move or delete user files, except the scoped, opt-in exceptions below.** | `organizer.execute` uploads via `LocalDestination.upload` (`shutil.copy2`) / `RcloneDestination.upload` (`rclone copyto`). `rclone` uses `copyto`, never `sync`. The only code paths that remove a source from where the user left it are `organizer._move_source` (`--move`), `reclaim.run_reclaim` (`truestill reclaim`), and the rename path `LocalDestination.adopt` (`--in-place`) - all scoped exactly like the Takeout write path (below). |
 
+**⚠ An identity is never minted on evidence that could not be gathered** (2026-08-22, `(afn)`).
+A folder is registered as a drive only when the sample says either *this is that drive* or *this
+is not*; where too much of it refused to be read to say which, registration stops and
+`--force-new-identity` is the escape. `reclaim` already refuses to delete what it cannot examine
+and `cleanup` already refuses to remove what it cannot list - the registration paths were the
+outliers. ⚠ **The threshold is NOT computed over the readable paths alone**: that would let one
+readable file carry a verdict authorising catalog rows that `reclaim` later deletes on. Enforced
+by `drive_adoption.AdoptionVerdict.UNREADABLE`.
+
 **⚠ Condition (d) is NOT extended to `reclaim`, and that is a ruling rather than an omission**
 (2026-08-22, `(afh)`). Trashing the originals `reclaim` removes is not recovery - it is a second
 copy of the same bytes on the same filesystem, in a command whose entire purpose is to free that

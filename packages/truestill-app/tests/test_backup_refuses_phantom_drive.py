@@ -15,6 +15,7 @@ to the screen that reads the count.
 
 from __future__ import annotations
 
+import os
 import random
 import shutil
 from pathlib import Path
@@ -24,6 +25,7 @@ from PIL import Image
 from truestill_app.service import attach_drive, backup_preview
 from truestill_app.service.drives import list_drives
 from truestill_cli.cli import main
+from truestill_core.drive_adoption import AdoptionVerdict
 
 
 def _jpeg(path: Path, *, seed: int, size: tuple[int, int]) -> None:
@@ -141,3 +143,62 @@ def test_a_folder_that_is_already_a_drive_is_untouched(tmp_path: Path) -> None:
 
     assert result.blocked_by is None
     assert result.registered is False, "it was already registered; nothing new was written"
+
+
+def test_attach_refuses_a_library_it_could_not_read(moved_library: tuple[Path, Path]) -> None:
+    """⚠ The app's cell of the same defect: it registered a drive it could not read. `(afn)`
+
+    `_adoption_block` returns `offers[0] if offers else None`, and an unreadable drive used to
+    produce no offer at all - so the block never fired and `attach_drive` minted a second marker
+    for one library.
+    """
+    moved, db = moved_library
+    inner = next(p for p in sorted(moved.rglob("*.jpg")))
+    inner.parent.chmod(0o000)
+    try:
+        try:
+            os.stat(inner)  # noqa: PTH116 - precondition, independent of the subject
+            pytest.skip("running as root, or a filesystem that ignores the mode")
+        except PermissionError:
+            pass
+        result = attach_drive(moved, db, write=True)
+    finally:
+        inner.parent.chmod(0o755)
+
+    assert result.registered is False, "a drive that could not be read was registered anyway"
+    assert result.blocked_by is not None
+    assert result.blocked_by.verdict is AdoptionVerdict.UNREADABLE
+    assert not (moved / ".truestill-drive.json").exists()
+
+
+def test_the_app_says_it_could_not_read_rather_than_claiming_to_know(
+    moved_library: tuple[Path, Path],
+) -> None:
+    """⚠ The message read only `.label` and always said the folder "already holds" a library.
+
+    That is true of a matched drive and false of one whose sample could not be read - where the
+    whole point is that Truestill does not know what it holds. Saying the wrong one is worse than
+    the refusal it explains.
+    """
+    moved, db = moved_library
+    other = moved.parent / "elsewhere"
+    other.mkdir()
+    inner = next(p for p in sorted(moved.rglob("*.jpg")))
+    inner.parent.chmod(0o000)
+    try:
+        try:
+            os.stat(inner)  # noqa: PTH116 - precondition, independent of the subject
+            pytest.skip("running as root, or a filesystem that ignores the mode")
+        except PermissionError:
+            pass
+        result = backup_preview(moved, other, db)
+    finally:
+        inner.parent.chmod(0o755)
+
+    assert result["ok"] is False
+    error = str(result["error"])
+    assert "could not be read" in error
+    assert "would not open" in error
+    assert "already holds the library recorded as" not in error, (
+        "it claimed to know what the folder holds, which is what it could not find out"
+    )

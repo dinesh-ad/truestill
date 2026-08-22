@@ -15,6 +15,7 @@ from truestill_core.catalog import Catalog
 from truestill_core.catalog_session import open_catalog
 from truestill_core.destinations.base import DestinationDevice
 from truestill_core.drive import read_marker
+from truestill_core.drive_adoption import AdoptionOffer, AdoptionVerdict
 from truestill_core.hashing import sha256_file
 from truestill_core.progress import Phase, Progress, ProgressCallback
 from truestill_core.run_health import RunHealth, watcher_for
@@ -121,6 +122,30 @@ BackupPreviewOk = TypedDict(
 )
 
 
+def _blocked_message(side: str, blocked: AdoptionOffer) -> str:
+    """Why this folder was not registered. **Two blocks, two sentences.**
+
+    ⚠ This read only ``blocked.label`` and always said the folder *"already holds"* a known
+    library. True for a matched drive; **false** for one whose sample could not be read, where the
+    whole point is that Truestill does not know what it holds. Saying the wrong one is worse than
+    the refusal it explains. `(afn)`
+    """
+    if blocked.verdict is AdoptionVerdict.UNREADABLE:
+        return (
+            f"That {side} folder could not be read well enough to say whether it is a drive "
+            f"Truestill already knows - {blocked.refused} of {blocked.sampled} sampled files "
+            "would not open. Registering it now could give one library two drive ids, and "
+            "Truestill would count a single copy of your photos as two. Check the drive is "
+            "fully mounted and readable, then try again."
+        )
+    return (
+        f"That {side} folder already holds the library recorded as '{blocked.label}'. "
+        "Registering it again would give one library two drive ids, and truestill would count "
+        "a single copy of your photos as two. If this drive moved, re-attach it with "
+        "'truestill drives --init <folder> --label x --adopt-existing'."
+    )
+
+
 def backup_preview(source: Path, target: Path, db: Path) -> BackupPreviewOk | BackupPreviewErr:
     """Preview copying the library from one connected drive to another (writes nothing).
 
@@ -151,16 +176,7 @@ def backup_preview(source: Path, target: Path, db: Path) -> BackupPreviewOk | Ba
     # photos as two and say so on the very screen that promises redundancy ((aap)).
     for side, attachment in (("From", src), ("To", tgt)):
         if attachment.blocked_by is not None:
-            return {
-                "ok": False,
-                "error": (
-                    f"That {side} folder already holds the library recorded as "
-                    f"'{attachment.blocked_by.label}'. Registering it again would give one "
-                    "library two drive ids, and truestill would count a single copy of your "
-                    "photos as two. If this drive moved, re-attach it with "
-                    "'truestill drives --init <folder> --label x --adopt-existing'."
-                ),
-            }
+            return {"ok": False, "error": _blocked_message(side, attachment.blocked_by)}
     src_marker, tgt_marker = read_marker(source), read_marker(target)
     if src_marker is not None and tgt_marker is not None and src_marker.uuid == tgt_marker.uuid:
         return {

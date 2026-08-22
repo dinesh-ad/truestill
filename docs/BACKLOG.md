@@ -149,14 +149,6 @@ is invisible here is retired, not free.**
   scale with the corpus** and are named in the entry. ⚠ **Not just "apply the cap five more
   times"**: `(afd)`'s list repeated one fact, the preview repeats a different fact each time and
   capping it hides decisions rather than noise. [Full entry](research/backlog/afm.md)
-- **(afn) A DRIVE WHOSE SAMPLE CANNOT BE READ IS REGISTERED AS A NEW ONE, SILENTLY.** Split out
-  of `(afa)` 2026-08-22. ⚠ **A data-integrity defect, not a reporting gap, and it outranks both
-  entries it was filed beside.** Measured end to end: a *perfect* drive with 30 of 40 sampled paths
-  unreadable returns `[]` from `inspect_root`, prints nothing, and is registered as a **second
-  drive id for one library** - the exact harm `cli.py:1002-1005` states in the refusal that never
-  fires. The `continue` at `drive_adoption.py:174` changes nothing, because `:178` still divides by
-  the full sample: **refused and absent are arithmetically identical**. Tipping point is 21
-  refusals of 40. [Full entry](research/backlog/afn.md)
 - **(afo) A FOLDER THAT REFUSED IS REPORTED AS ONE WITH SOMETHING IN IT.** Split out of `(afa)`
   2026-08-22. Measured: `LEFT ALONE - something is in there (1):` above `Camera/2013   []` - the
   heading says something is there, the bracket says nothing is, and the truth is that Truestill
