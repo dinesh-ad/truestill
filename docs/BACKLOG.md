@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aff). Next free: (afg).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(afg). Next free: (afh).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -118,6 +118,14 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
+- **(afg) THE DOWNLOAD PAGE HAS NO HOME, AND `truestill.app` EXISTS ONLY IN CONVERSATION.** The
+  domain is bought; **nothing about it is in this repository** - `grep -ri truestill.app` matches
+  only the package identifiers. D9 binds a requirement to a page that does not exist: *"Windows
+  users must be told what SmartScreen will show… on the download page, above the button."*
+  ⚠ **Whether it blocks a first tag is NOT DECIDED and this entry does not assume**; the arguments
+  either way are recorded for the ruling. §4's fifty-eighth member exactly - a live planning
+  assumption invisible to every grep and every audit. Filed 2026-08-22.
+  [Full entry](research/backlog/afg.md)
 - **(aff) ONE EXTRA NEAR-DUPLICATE ON 3.14, FROM THE INTERPRETER AND NOT FROM A DEPENDENCY.**
   262 look-alikes on 3.13, **263** on 3.14, stable over two runs each - and ⚠ **both pools agree
   exactly on both interpreters**, which is the property the step was run for. Ruled out by
@@ -126,7 +134,11 @@ is invisible here is retired, not free.**
   flagged, never removed - the effect is one extra row in a review list, and exact dedup was
   identical in all four runs. Found 2026-08-22. [Full entry](research/backlog/aff.md)
 - **(afe) A CATALOG THAT GOES UNWRITABLE MID-RUN ABORTS WITH A TRACEBACK AND LEAVES A FILE IT DID
-  NOT RECORD.** `chmod 555` on the catalog's directory once five files had landed: the batch
+  NOT RECORD.** ⚠ **Investigated read-only 2026-08-22; this entry's own diagnosis is corrected
+  there.** The catalog write **is** inside the per-file try - the tuple `(OSError,
+  DestinationError)` simply does not name `sqlite3.Error`. And the gap is safe for data but
+  **self-worsening**: measured, the next run turns 3 unrecorded files into **6**, suffixing `_1`,
+  and reports `organized (unique): 3` with **exit 0**. Four options recorded for the §1 ruling. `chmod 555` on the catalog's directory once five files had landed: the batch
   **aborted** (§1), the last line the user sees is `sqlite3.OperationalError: attempt to write a
   readonly database` with our own line numbers (§9), no `EXECUTED` block prints, and **48 files
   are on disk against 47 rows** - the state `rescan` repairs, reached silently. ⚠ The gap is in
