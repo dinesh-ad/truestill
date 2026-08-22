@@ -7,6 +7,11 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **`--apply` no longer prints the whole plan a second time before doing it.** Organizing a real
+  library printed about fifteen thousand lines listing every file and why - useful when you are
+  deciding whether to run it, and in the way when you already have. A preview still explains every
+  file; a run you have authorised now shows the counts and gets on with it, and `last-run.json`
+  holds the per-file detail.
 - **A folder Truestill could not open is no longer described as one with something in it.**
   `clean-empty` listed such a folder under *"something is in there"* with an empty bracket beside
   it - two claims that contradicted each other, when the truth was that Truestill could not look

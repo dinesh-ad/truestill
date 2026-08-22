@@ -133,14 +133,6 @@ is invisible here is retired, not free.**
   mechanism is **not isolated**. It did not block the upgrade because a near-duplicate is kept and
   flagged, never removed - the effect is one extra row in a review list, and exact dedup was
   identical in all four runs. Found 2026-08-22. [Full entry](research/backlog/aff.md)
-- **(afm) UNCAPPED PER-ITEM LISTS ARE THE RULE, NOT THE EXCEPTION - AND THE BIGGEST FIRES ON
-  SUCCESS.** Split out of `(afd)` 2026-08-22, whose title claimed the failure list was the only
-  one. Measured: an ordinary **successful** organize of 2,110 real files printed **15,128 lines**,
-  of which the `NEW UNIQUE` block alone was **15,082** - 7.5x the entire output `(afd)` was filed
-  over. An `ast` scan finds 49 uncapped print-loops; most are bounded by construction, **five
-  scale with the corpus** and are named in the entry. ⚠ **Not just "apply the cap five more
-  times"**: `(afd)`'s list repeated one fact, the preview repeats a different fact each time and
-  capping it hides decisions rather than noise. [Full entry](research/backlog/afm.md)
 - **(afa) `unreachable` MEANS FOUR THINGS, AND THE TOOLTIP ASSERTS ONE OF THEM.** ⚠ **Narrowed
   and retitled 2026-08-22 after a read-only pass falsified its own thesis.** It claimed
   `date_rescue` told the user nothing; measured, it renders *"could not check"*. What is wrong is

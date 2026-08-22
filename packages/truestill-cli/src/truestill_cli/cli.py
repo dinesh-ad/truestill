@@ -1961,7 +1961,25 @@ def _print_left_in_source(
         print(f"  {line}")
 
 
-def _print_report(resolutions: list[Resolution], root_label: str) -> None:
+def _print_report(resolutions: list[Resolution], root_label: str, *, listing: bool) -> None:
+    """The plan, file by file - the argument for what this run is about to do.
+
+    ⚠ **Printed only while there is still a decision to make.** This block and `_print_execution`
+    are two different documents that this one function served as one: a decision sheet read before
+    typing a word, and a listing scrolled past after the run was already authorised. Under
+    `--apply` the decision is made, so the argument is not read - it is **7 lines per file**,
+    measured, which is 105,585 lines on a 15,082-file library standing between the user and the
+    result they asked for.
+
+    ⚠ **`listing=False` prints NOTHING, and that is deliberate rather than unfinished.** Every
+    count these three headers carried is in `_print_summary` two lines below; the duplicate origins
+    are in `_print_execution`; and every file - with what actually **happened** to it rather than
+    what was planned - is in the record named at the end of the run. A compact tally here would be
+    a second copy of `_print_summary`'s, which is the `(abl)` shape this file has already paid for
+    once: two blocks of one report, free to disagree. `(afm)`
+    """
+    if not listing:
+        return
     # Disjoint buckets, not `should_upload`: an unreadable file has no hash, so it matches
     # nothing and would otherwise be listed under "NEW UNIQUE - would be organized" while the
     # block below says Truestill could not read it. `_print_unreadable` names them instead.
@@ -2001,9 +2019,19 @@ def _print_report(resolutions: list[Resolution], root_label: str) -> None:
         print()
 
 
-def _print_skipped_undated(resolutions: list[Resolution], skip_undated: bool) -> None:
-    """Name every undateable file that --skip-undated left behind. Never silent."""
-    if not skip_undated:
+def _print_skipped_undated(
+    resolutions: list[Resolution], skip_undated: bool, *, listing: bool
+) -> None:
+    """Name every undateable file that --skip-undated left behind. Never silent.
+
+    ⚠ **Never silent, but not always here.** Under `--apply` each of these files carries an
+    `ActionStatus.SKIPPED_UNDATED` result with its reason, so it is counted by `_print_execution`
+    and named in the record. Under a preview **no record is written**, so this block is the only
+    copy there is and it prints in full however long it runs. That asymmetry is the whole of
+    `(afm)`: what may be dropped is what something else still holds. `(afd)`'s cap was
+    uncomfortable precisely because the elided lines were the only copy.
+    """
+    if not listing or not skip_undated:
         return
     undated = [r for r in resolutions if r.should_upload and r.decision.captured_at is None]
     if not undated:
@@ -2650,13 +2678,19 @@ def _print_run_reports(
 ) -> None:
     """Everything this run says about what it found, before it is allowed to write anything.
 
-    One unit because it is one moment - the plan, in full, while the user can still stop it - and
-    keeping it here holds `_run_pipeline` under its branch ceiling rather than raising the ceiling
-    to fit `(aek)`'s gate in.
+    One unit because it is one moment - the plan, while the user can still stop it - and keeping it
+    here holds `_run_pipeline` under its branch ceiling rather than raising the ceiling to fit
+    `(aek)`'s gate in.
+
+    ⚠ **"While the user can still stop it" is the whole of `(afm)`, and it was not true of every
+    line here.** Under `--apply` the user has already stopped considering; the per-file argument is
+    printed to someone who has decided, at 7 lines a file. So the two per-file listings take
+    `listing=not args.apply` and the counts stay unconditional - the moment is the same, the
+    document is not.
     """
-    _print_report(resolutions, destination.describe())
+    _print_report(resolutions, destination.describe(), listing=not args.apply)
     _print_summary(resolutions)
-    _print_skipped_undated(resolutions, args.skip_undated)
+    _print_skipped_undated(resolutions, args.skip_undated, listing=not args.apply)
     _print_heif_note(resolutions)
     _print_preflight(preflight)
     if scan is not None:

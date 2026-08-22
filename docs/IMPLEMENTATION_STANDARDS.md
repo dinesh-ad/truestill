@@ -25,6 +25,15 @@ must never fail the run**, the way `decisions.write_decisions` already refuses t
 limit**: written after execution, so it survives a stop and not a kill - `organize_runs` covers the
 killed run from the other side.
 
+**⚠ A per-file listing may be shortened only where something durable still holds it**
+(2026-08-22, `(afm)`). The per-file argument for what a run will do is printed while the user can
+still stop it, and not after `--apply`, where every file already reaches `last-run.json` with its
+outcome and the counts stay on screen. A **preview writes no record**, so its listing is the only
+copy and is never shortened. ⚠ **The test is not volume, it is whether a second copy exists** -
+`(afd)` capped a failure list whose elided lines were the only account of it, which is why that cap
+waited for `(afl)`. ⚠ **Shortening means printing nothing, not a compact tally**: `_print_summary`
+already carries those counts, and a second copy of a number is free to disagree with the first.
+
 **⚠ An identity is never minted on evidence that could not be gathered** (2026-08-22, `(afn)`).
 A folder is registered as a drive only when the sample says either *this is that drive* or *this
 is not*; where too much of it refused to be read to say which, registration stops and

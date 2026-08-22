@@ -117,7 +117,7 @@ def test_the_per_file_listing_does_not_call_an_unreadable_file_organizable(
     unreadable files under it. A summary that excluded them while the list above still promised
     them would just move the contradiction up the screen.
     """
-    _print_report(_MIXED, root_label="/src")
+    _print_report(_MIXED, root_label="/src", listing=True)
     out = capsys.readouterr().out
 
     assert "NEW UNIQUE (1)" in out, f"unreadable files must not be listed as organizable:\n{out}"

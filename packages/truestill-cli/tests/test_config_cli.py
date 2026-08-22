@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import shutil
 import subprocess
@@ -85,8 +86,19 @@ def test_skip_undated_names_skipped_files(
 
     assert main(["organize", str(src), str(out), "--db", str(db), "--apply", "--skip-undated"]) == 0
     report = capsys.readouterr().out
-    assert "SKIPPED (undated" in report
-    assert "mystery-scan.jpg" in report  # named, never silent
+    # ⚠ **"Never silent" moved rather than weakened.** `(afm)` stopped an authorised run from
+    # re-listing per file what it is about to do, so the names are no longer in this report - the
+    # count is, and the RECORD carries each name with its reason. Asserting the record is stronger
+    # than asserting the terminal was: it outlives the scrollback that prompted `(afl)`.
+    assert "1  skipped, no date" in report, "the run must still say how many it skipped"
+    # The BLOCK, not the name: `_print_largest` prints a capped sample that names files too, so
+    # `"mystery-scan.jpg" not in report` would be measuring the haystack rather than the subject.
+    assert "SKIPPED (undated" not in report, "an authorised run does not re-list them"
+    record = json.loads((db.parent / "last-run.json").read_text(encoding="utf-8"))
+    skipped = [f for f in record["files"] if f["status"] == "skipped_undated"]
+    assert [Path(f["source"]).name for f in skipped] == ["mystery-scan.jpg"], (
+        "named, never silent - in the record, which is where an authorised run's detail now lives"
+    )
     # The undated file was not written; the dated one was.
     written = [p.name for p in out.rglob("*.jpg")]
     assert "mystery-scan.jpg" not in written

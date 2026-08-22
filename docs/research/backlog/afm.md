@@ -1,6 +1,62 @@
 # (afm) UNCAPPED PER-ITEM LISTS ARE THE RULE, NOT THE EXCEPTION - AND THE BIGGEST FIRES ON SUCCESS.
 
-*Body of backlog entry `(afm)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(afm)`. **SHIPPED 2026-08-22** - the index is now [`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
+
+## HOW IT CLOSED, AND WHAT THE ENTRY HAD WRONG
+
+**None of A, B or C.** The last of this entry's own *"NOT DECIDED"* bullets turned out to be the
+question - *"whether the `--dry-run` preview and the `--apply` report should differ here at all"* -
+and the other two answers follow from it. `_print_report` served **two documents**: a decision
+sheet read before typing a word, and a listing scrolled past after the run was already authorised.
+Every option above adjusts the **volume** of a block that should not be one block.
+
+So both per-file listings take `listing=not args.apply`. A preview keeps the whole argument -
+nothing else can serve it, and the record cannot, being written after execution. An authorised run
+keeps the counts, and `listing=False` prints **nothing** rather than a tally: `_print_summary` runs
+two lines later with every count these headers carried, and a second copy is the `(abl)` shape.
+
+⚠ **B was refused as premature, but B's premise was the one that held.** It wanted the detail
+behind a verbosity level and needed `(afl)` first. `(afl)` shipped as a **record rather than a
+flag**, and that is what made this cheap: what may be dropped is only what something else still
+holds. **`(afd)`'s cap was uncomfortable for the opposite reason** - there the elided lines were
+the only copy.
+
+⚠ **Considered and refused: making stdout terminal-aware**, as stderr already is at
+`cli.py:1779-1783`, whose docstring carries a measured justification (*"127 KB of unreadable
+scrollback on a real 32,628-file run"*). **The precedent did not transfer.** A run's output would
+stop being reproducible from its command line, which is too much to give up, and the asymmetry is
+defensible on its own terms: **progress is chrome, a decision sheet is content.** Measured before
+ruling: piping stdout changes nothing today - 2,154 lines piped against 2,155 on a tty - because
+there is no `isatty` check on stdout at all.
+
+⚠ **Refused: summarising by category and date source.** Deciding which decisions deserve a
+person's eye is the judgement the current block declines to make, and it must not be made inside a
+volume fix. Its own entry if it is wanted.
+
+## THREE CORRECTIONS TO THE MEASUREMENTS ABOVE
+
+1. **FOUR sites scale, not five.** `uncompared.files` is capped **at the source** -
+   `organizer.py:544`, `files=tuple(named[:FOLDER_PREVIEW])`, with `total` carrying the true
+   count. It is the shape this fix copies, not an instance of the defect.
+2. **`undated` is uncapped but gated** on `--skip-undated`, so it is not on the default path.
+3. **~7 lines per entry is a floor, measured on a minimal resolution.** Real files with a date
+   source cost **9**: 37 lines for 5 files against 262 for 30.
+
+## THE COVERAGE THAT HAD TO GO FIRST
+
+Counted before anything changed, and it is why the fix is one commit behind its tests:
+
+* the `unique`/`near`/`exact` listing had **no test**. Two files call `_print_report` and both
+  assert tally lines and duplicate origins - counts in headers, never the listing under them.
+* `organizer.py`'s `FOLDER_PREVIEW` cap was untested.
+* ⚠ **no suite asserted output VOLUME anywhere** - no `len(out.splitlines())` assertion existed in
+  the repo. That is the measurement this entry is about, and it was the one nobody had.
+* ⚠ **`_print_skipped_undated` had no *direct* reference, which is not the same as no coverage** -
+  `test_config_cli.py:75` exercised it end to end and asserted *"named, never silent"*. A grep for
+  the symbol missed it, and the full suite caught what the grep did not. Its guarantee was
+  **relocated, not weakened**: the test now asserts the count on screen and the name in the
+  record, which outlives the scrollback that prompted `(afl)`.
+
 
 - **(afm) SPLIT OUT OF `(afd)` ON 2026-08-22**, whose title claimed the failure list was *"the one
   uncapped list in the product"*. Measuring it falsified that, so the general case gets its own

@@ -89,7 +89,7 @@ def test_the_preview_names_where_each_duplicate_group_matched(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """`EXACT DUPLICATES (3) - skipped` is true and answers nothing a person is asking."""
-    _print_report(_mixed(), "DRIVE")
+    _print_report(_mixed(), "DRIVE", listing=True)
     out = capsys.readouterr().out
     assert f"2 {LIBRARY}" in out
     assert f"1 matched another file {BATCH}" in out
@@ -122,7 +122,7 @@ def test_a_run_with_no_duplicates_says_nothing_about_origins(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """A clean run must not grow a block of zeroes explaining what did not happen."""
-    _print_report([_resolution("d.jpg", None)], "DRIVE")
+    _print_report([_resolution("d.jpg", None)], "DRIVE", listing=True)
     out = capsys.readouterr().out
     assert LIBRARY not in out
     assert BATCH not in out
@@ -133,6 +133,7 @@ def test_one_origin_only_prints_one_line(capsys: pytest.CaptureFixture[str]) -> 
     _print_report(
         [_resolution("a.jpg", DuplicateOrigin.CATALOG)],
         "DRIVE",
+        listing=True,
     )
     out = capsys.readouterr().out
     assert f"1 {LIBRARY}" in out
@@ -143,7 +144,7 @@ def test_the_split_sums_to_the_count_above_it(capsys: pytest.CaptureFixture[str]
     """The reason this is computed from every match rather than from a displayed sample."""
     resolutions = [_resolution(f"{i}.jpg", DuplicateOrigin.CATALOG) for i in range(5)]
     resolutions += [_resolution(f"r{i}.jpg", DuplicateOrigin.RUN) for i in range(3)]
-    _print_report(resolutions, "DRIVE")
+    _print_report(resolutions, "DRIVE", listing=True)
     out = capsys.readouterr().out
     assert "EXACT DUPLICATES (8)" in out
     assert f"5 {LIBRARY}" in out

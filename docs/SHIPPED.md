@@ -22,6 +22,22 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(afm) A RUN ARGUES FILE BY FILE ONLY WHILE IT CAN STILL BE STOPPED.** Shipped 2026-08-22.
+  An ordinary **successful** organize of 2,110 files printed 15,128 lines, 15,082 of them the
+  `NEW UNIQUE` block - and printed them identically under `--apply`, when there is nothing left
+  to stop. ⚠ **The defect was not volume; it was one function serving two documents** - a decision
+  sheet read before typing a word, and a listing scrolled past after the run was authorised.
+  `_print_report` and `_print_skipped_undated` take `listing=not args.apply`; a preview keeps the
+  whole argument, an authorised run keeps the counts. **`listing=False` prints nothing rather than
+  a compact tally**: `_print_summary` already carries every count those headers did, and a second
+  copy is the `(abl)` shape - two blocks of one report, free to disagree.
+  ⚠ **What may be dropped is only what something else still holds**, which is why this needed
+  `(afl)` first: under `--apply` every file is in the record with what happened to it, so the names
+  can go; a preview writes **no** record, so its listing is the only copy and stays whole. `(afd)`'s
+  cap was uncomfortable for exactly the opposite reason - there the elided lines were the only copy.
+  **Coverage shipped first, in its own commit** (`a4f0d45`): the listing had no test, and **no suite
+  in this repo asserted output volume anywhere**. Slope, not size - 7 lines per entry, and zero for
+  the capped control. [Full entry](research/backlog/afm.md)
 - **(afo) A FOLDER THAT REFUSED IS NO LONGER REPORTED AS ONE WITH SOMETHING IN IT.** Shipped
   2026-08-22. `LEFT ALONE - something is in there (1):` above `Camera/2013   []` was two
   contradictory claims on one line, and the truth was neither. Now a second heading - *"could not

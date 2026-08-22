@@ -90,7 +90,7 @@ def test_the_unique_listing_has_no_ceiling() -> None:
     """
 
     def render(n: int) -> None:
-        _print_report([_resolution(f"p{i}.jpg") for i in range(n)], "DRIVE")
+        _print_report([_resolution(f"p{i}.jpg") for i in range(n)], "DRIVE", listing=True)
 
     assert _slope(render, 10, 110) > 0, "the unique listing must be shown to be uncapped"
     per_entry = _slope(render, 10, 110)
@@ -104,7 +104,9 @@ def test_the_exact_duplicate_listing_has_no_ceiling() -> None:
     """The skipped files scale too, and they are the ones nobody acts on."""
 
     def render(n: int) -> None:
-        _print_report([_resolution(f"d{i}.jpg", exact=True) for i in range(n)], "DRIVE")
+        _print_report(
+            [_resolution(f"d{i}.jpg", exact=True) for i in range(n)], "DRIVE", listing=True
+        )
 
     assert _slope(render, 10, 110) > 0, "the exact-duplicate listing must be shown to be uncapped"
 
@@ -116,7 +118,7 @@ def test_every_undated_file_is_named_with_no_ceiling() -> None:
     """
 
     def render(n: int) -> None:
-        _print_skipped_undated([_resolution(f"u{i}.jpg") for i in range(n)], True)
+        _print_skipped_undated([_resolution(f"u{i}.jpg") for i in range(n)], True, listing=True)
 
     assert _slope(render, 10, 110) == pytest.approx(1.0), "one line per undated file"
     assert _lines(lambda: render(10)) > 0, "the block must appear at all when files were skipped"
@@ -124,7 +126,7 @@ def test_every_undated_file_is_named_with_no_ceiling() -> None:
 
 def test_the_undated_block_is_silent_without_the_flag() -> None:
     """No flag, no block - the gate `(afm)` must not disturb."""
-    assert _lines(lambda: _print_skipped_undated([_resolution("u.jpg")], False)) == 0
+    assert _lines(lambda: _print_skipped_undated([_resolution("u.jpg")], False, listing=True)) == 0
 
 
 def test_the_uncompared_sample_is_capped_at_the_source() -> None:
