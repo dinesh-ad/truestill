@@ -36,7 +36,7 @@ def _wait_until_free(mgr: JobManager, drive: DriveRef, *, timeout: float = 2.0) 
         return {"ok": True}
 
     while time.monotonic() < deadline:
-        result = mgr.start(idle, drives=[drive], operation="probe")
+        result = mgr.start(idle, drives=[drive], operation="probe", mutating=False)
         if isinstance(result, str):
             _drain(mgr, result)
             return result
@@ -54,10 +54,10 @@ def test_second_start_on_same_drive_is_refused_with_the_running_operation() -> N
         hold.wait(timeout=5)
         return {"phase": "done"}
 
-    first = mgr.start(blocked, drives=[drive], operation="migrate preview")
+    first = mgr.start(blocked, drives=[drive], operation="migrate preview", mutating=False)
     assert isinstance(first, str)
 
-    busy = mgr.start(blocked, drives=[drive], operation="migrate")
+    busy = mgr.start(blocked, drives=[drive], operation="migrate", mutating=False)
     assert isinstance(busy, dict)
     assert busy["ok"] is False
     assert busy["code"] == DRIVE_BUSY_CODE
@@ -88,8 +88,8 @@ def test_start_on_a_different_drive_succeeds_while_first_is_running() -> None:
         hold_b.wait(timeout=5)
         return {"drive": "B"}
 
-    first = mgr.start(block_a, drives=[drive_a], operation="verify")
-    second = mgr.start(block_b, drives=[drive_b], operation="backup")
+    first = mgr.start(block_a, drives=[drive_a], operation="verify", mutating=False)
+    second = mgr.start(block_b, drives=[drive_b], operation="backup", mutating=False)
     assert isinstance(first, str)
     assert isinstance(second, str)
     assert first != second
@@ -107,7 +107,7 @@ def test_lock_releases_after_success() -> None:
     def quick(_progress: object, _cancel: threading.Event) -> dict[str, bool]:
         return {"ok": True}
 
-    first = mgr.start(quick, drives=[drive], operation="organize preview")
+    first = mgr.start(quick, drives=[drive], operation="organize preview", mutating=False)
     assert isinstance(first, str)
     _drain(mgr, first)
     second = _wait_until_free(mgr, drive)
@@ -126,7 +126,7 @@ def test_lock_releases_after_cancel() -> None:
             time.sleep(0.01)
         return {"status": "stopping"}
 
-    job_id = mgr.start(until_cancelled, drives=[drive], operation="migrate")
+    job_id = mgr.start(until_cancelled, drives=[drive], operation="migrate", mutating=False)
     assert isinstance(job_id, str)
     assert started.wait(timeout=2)
     assert mgr.cancel(job_id) is True
@@ -143,7 +143,7 @@ def test_lock_releases_after_exception() -> None:
         msg = "simulated failure"
         raise RuntimeError(msg)
 
-    job_id = mgr.start(boom, drives=[drive], operation="verify")
+    job_id = mgr.start(boom, drives=[drive], operation="verify", mutating=False)
     assert isinstance(job_id, str)
     _drain(mgr, job_id)
     job = mgr.get(job_id)
@@ -164,16 +164,18 @@ def test_backup_locks_both_drives_and_names_the_contested_one() -> None:
         hold.wait(timeout=5)
         return {"ok": "held"}
 
-    backup = mgr.start(blocked, drives=[source, target], operation="backup")
+    backup = mgr.start(blocked, drives=[source, target], operation="backup", mutating=False)
     assert isinstance(backup, str)
 
-    busy_on_source = mgr.start(blocked, drives=[source], operation="migrate preview")
+    busy_on_source = mgr.start(
+        blocked, drives=[source], operation="migrate preview", mutating=False
+    )
     assert isinstance(busy_on_source, dict)
     assert busy_on_source["code"] == DRIVE_BUSY_CODE
     assert "backup" in busy_on_source["error"]
     assert "Library" in busy_on_source["error"]
 
-    busy_on_target = mgr.start(blocked, drives=[target], operation="verify")
+    busy_on_target = mgr.start(blocked, drives=[target], operation="verify", mutating=False)
     assert isinstance(busy_on_target, dict)
     assert "Backup B" in busy_on_target["error"]
 

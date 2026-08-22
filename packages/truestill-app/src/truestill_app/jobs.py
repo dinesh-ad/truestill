@@ -31,6 +31,7 @@ from truestill_core.catalog_busy import (
     is_catalog_busy,
     is_catalog_unwritable,
 )
+from truestill_core.drive_lock import DriveBusyError, DriveLock
 from truestill_core.progress import Progress, ProgressCallback
 
 #: A job target receives a progress callback and a cancel event, and returns a JSON-able summary.
@@ -106,6 +107,47 @@ class Job:
     terminal: dict[str, Any] | None = None
 
 
+def _hold_across_processes(held: Sequence[DriveRef]) -> list[DriveLock]:
+    """Take every drive against other processes, or give back what was taken and raise. `(aaw)`
+
+    **All-or-nothing, like the in-process claim above it.** A job holding two of three drives is
+    a job that cannot run and a drive nobody else can use.
+    """
+    taken: list[DriveLock] = []
+    try:
+        for drive in held:
+            lock = DriveLock(drive.key, drive.label, operation="a Truestill operation")
+            lock.acquire()
+            taken.append(lock)
+    except DriveBusyError:
+        for lock in taken:
+            lock.release()
+        raise
+    return taken
+
+
+def _busy_payload_for_other_process(busy: DriveBusyError) -> DriveBusyPayload:
+    """The same refusal shape, for a holder this process cannot see. `(aaw)`
+
+    ⚠ **Reuses `DriveBusyPayload` deliberately.** To the person clicking, *"something else is
+    using this drive"* is one situation; which process holds it is our problem, not theirs, and a
+    second payload type would make every consumer learn a distinction that changes nothing they
+    can do. The holder's identity is in the message, which is where `(aaw)` ruled it belongs.
+    """
+    holder = busy.holder
+    return {
+        "ok": False,
+        "error": str(busy),
+        "code": DRIVE_BUSY_CODE,
+        # ⚠ **No job id, because there is no job of ours to name.** The holder is another
+        # process - possibly the CLI - so `job_id` is empty rather than invented: a client that
+        # polls a fabricated id would wait for something that never existed.
+        "operation": holder.operation if holder is not None else "operation",
+        "drive_label": busy.label,
+        "job_id": "",
+    }
+
+
 def _busy_payload(occupant: _Occupant, contested_label: str) -> DriveBusyPayload:
     return {
         "ok": False,
@@ -139,18 +181,53 @@ class JobManager:
         self._occupied: dict[str, _Occupant] = {}
         self._lock = threading.Lock()
 
+    def _release_drives(self, keys: Sequence[str], job_id: str) -> None:
+        """Release this job's claim on every drive it held. Idempotent.
+
+        ⚠ **The job itself stays in `_jobs`.** A finished job must still be retrievable - that is
+        what `get` is for, and what the retirement cap manages. Removing it here made
+        `manager.get(...)` answer `None` for a job that had completed, and every poller waited out
+        its own timeout instead of seeing the result.
+        """
+        with self._lock:
+            for key in keys:
+                current = self._occupied.get(key)
+                if current is not None and current.job_id == job_id:
+                    del self._occupied[key]
+
+    def _abandon(self, keys: Sequence[str], job_id: str) -> None:
+        """Undo `start` entirely, for a job that was never allowed to run.
+
+        The drives go back **and** the job record goes, because a job that never started must
+        leave no trace - unlike one that finished, which `_release_drives` leaves retrievable.
+        """
+        self._release_drives(keys, job_id)
+        with self._lock:
+            self._jobs.pop(job_id, None)
+
     def start(
         self,
         target: JobTarget,
         *,
         drives: Sequence[DriveRef],
         operation: str,
+        mutating: bool,
     ) -> str | DriveBusyPayload:
         """Start ``target`` on a worker thread, or refuse if any named drive is already busy.
 
         Acquires every drive in ``drives`` atomically (all-or-nothing). Two jobs on different
         drives run concurrently; a second job on an occupied drive is refused with
         :class:`DriveBusyPayload` - never queued behind the first.
+
+        ⚠ **``mutating`` is REQUIRED and has no default**, and that is `(aaw)`'s ruling rather
+        than an oversight. It says whether this job writes files on the drive, and so whether the
+        **cross-process** lock is taken as well as this manager's in-process one. Neither default
+        is safe: `False` would silently skip the lock the next time a writing route is added, and
+        `True` would make a preview refuse with nobody deciding. A caller that says nothing fails
+        at the call, and `test_every_job_declares_whether_it_mutates` fails before that ships.
+
+        ⚠ **Not derived from ``operation``.** A string used as a control is one rename away from
+        a lock that stops firing - `"organize"` and `"organize preview"` differ by one word.
         """
         held = _unique_drives(drives)
         assert held, "jobs.start requires at least one drive"
@@ -167,6 +244,18 @@ class JobManager:
             self._jobs[job.id] = job
             self._retire_finished()
             keys = [drive.key for drive in held]
+
+        # ⚠ **Taken AFTER the in-process claim and OUTSIDE its lock.** After, so a second tab in
+        # this app is refused by the cheap check rather than by a syscall; outside, because
+        # acquiring touches the filesystem and holding `self._lock` across that would make every
+        # other route wait on a disk. `(aaw)`
+        try:
+            cross_process = _hold_across_processes(held) if mutating else []
+        except DriveBusyError as busy:
+            # Give back everything, including the in-process claim: a job that cannot start must
+            # leave no trace, or the drive stays occupied by a job that never ran.
+            self._abandon(keys, job.id)
+            return _busy_payload_for_other_process(busy)
 
         def run() -> None:
             started = time.monotonic()
@@ -245,11 +334,12 @@ class JobManager:
                 # the overlapping-run bug this guard exists to stop. Release *before* the
                 # terminal SSE event so a client that sees "done" can start the next job
                 # without racing the unlock.
-                with self._lock:
-                    for key in keys:
-                        current = self._occupied.get(key)
-                        if current is not None and current.job_id == job.id:
-                            del self._occupied[key]
+                self._release_drives(keys, job.id)
+                # ⚠ **Released HERE, not when `start` returned.** The lock is bound to a file
+                # descriptor, so it lives exactly as long as this object holds it - and the work
+                # runs on this thread, after `start` has already handed back a job id. `(aaw)`
+                for lock in cross_process:
+                    lock.release()
                 if terminal is not None:
                     # Recorded before it is queued: a reader that comes up for air between these
                     # two statements must not conclude there is nothing left to wait for.

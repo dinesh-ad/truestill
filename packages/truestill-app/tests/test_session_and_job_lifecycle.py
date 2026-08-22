@@ -140,7 +140,12 @@ def _finished_job(manager: JobManager, name: str) -> str:
     def target(progress: object, cancel: threading.Event) -> dict[str, str]:  # noqa: ARG001 - JobTarget signature
         return {"name": name}
 
-    job_id = manager.start(target, drives=[DriveRef(key=f"path:{name}", label=name)], operation="t")
+    job_id = manager.start(
+        target,
+        drives=[DriveRef(key=f"path:{name}", label=name)],
+        operation="t",
+        mutating=False,
+    )
     assert isinstance(job_id, str)
     for _ in range(2000):  # auto-waiting rather than a sleep: poll the job's own status
         job = manager.get(job_id)
@@ -171,7 +176,10 @@ def test_a_running_job_is_never_retired() -> None:
         return {}
 
     running = manager.start(
-        blocked, drives=[DriveRef(key="path:held", label="held")], operation="held"
+        blocked,
+        drives=[DriveRef(key="path:held", label="held")],
+        operation="held",
+        mutating=False,
     )
     assert isinstance(running, str)
     try:

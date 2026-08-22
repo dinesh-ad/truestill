@@ -15,7 +15,7 @@ import threading
 import time
 import uuid
 from collections import Counter
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import replace as _dataclass_replace
 from datetime import UTC, datetime, timedelta
@@ -109,6 +109,7 @@ from truestill_core.drive_adoption import (
     inspect_root,
     recorded_drive,
 )
+from truestill_core.drive_lock import DriveBusyError, lock_for
 from truestill_core.duplicate_explain import describe_split, origin_phrase, split_by_origin
 from truestill_core.exif import ExiftoolMissingError, read_metadata
 from truestill_core.filesystem import DestinationPreflight
@@ -246,11 +247,59 @@ _STATUS_PREVIEW = 20
 #: -- one per failure family that a caller would act on differently.
 CATALOG_BUSY_EXIT = 5
 
+#: `undo-organize` alone: its drive is not in `args`. The run's `dest_root` comes out of the
+#: catalog, so the lock is taken inside the handler once the plan is built. Declared here rather
+#: than omitted, so the completeness guard still forces an answer. `(aaw)`
+_LOCKED_IN_HANDLER = "<in handler>"
+
 #: A catalog write that failed for a reason retrying cannot fix. Distinct from
 #: `CATALOG_BUSY_EXIT` because the two send the user somewhere different, and distinct from a
 #: plain `1` because a script that sees this knows the library may hold files the catalog does
 #: not: `truestill rescan` is the follow-up, not a re-run. `(afe)`
 CATALOG_UNWRITABLE_EXIT = 7
+
+#: Another live process is mutating this drive. `(aaw)`
+#:
+#: Distinct from `CATALOG_BUSY_EXIT` on purpose: both mean *wait*, but a script that retries a
+#: busy drive must not also retry a catalog it cannot write, and the two are told apart only by
+#: the code. A refusal here always names a **live** holder - the lock is kernel-enforced, so a
+#: crashed process leaves nothing to force past.
+DRIVE_BUSY_EXIT = 8
+
+#: The drive-lock policy for **every** subcommand, and the value is the `args` attribute naming
+#: the drive. `(aaw)`
+#:
+#: ⚠ **EVERY COMMAND DECLARES, AND THERE IS NO DEFAULT**, which is the whole point of the table.
+#: Defaulting to unlocked means the next mutating command silently skips the lock; defaulting to
+#: locked means a read-only command starts refusing with nobody deciding. A command missing here
+#: raises `KeyError` in `_dispatch` and fails
+#: `test_every_command_declares_whether_it_locks_a_drive` before that can reach anyone.
+#:
+#: ⚠ **NOT derived from the command name or from an `operation` string.** A string used as a
+#: control is one rename away from a lock that stops firing.
+#:
+#: `None` means *this command does not mutate files on a drive*. Locking is **only** taken under
+#: `--apply`: a preview writes nothing, and a stale preview is not data loss, while making
+#: previews refuse would be new behaviour on a path that works today.
+_LOCKS_DRIVE_AT: dict[str, str | None] = {
+    "analyze": None,  # reads a folder, writes nothing anywhere
+    "organize": "destination",
+    "ingest": "destination",
+    "drives": None,  # catalog rows and the marker; SQLite serialises the first, `(aap)` the second
+    "where": None,  # a query
+    "restore": None,  # writes catalog rows from a drive's document, never files onto the drive
+    "verify": None,  # reads and stamps; a stale stamp is not a lost file
+    "status": None,  # a query
+    "self-check": None,  # inspects this install, never a library
+    "catalog": None,  # catalog-only
+    "config": None,  # settings rows
+    "clean-empty": "path",
+    "rescan": None,  # reports; `(abn)` is that nothing acts on it yet
+    "migrate-layout": "path",
+    "reclaim": "path",
+    "undo-organize": _LOCKED_IN_HANDLER,
+    "repoint-sources": None,  # rewrites `source_path` rows, touches no drive
+}
 
 
 def _parse_tz(value: str) -> timedelta:
@@ -4143,7 +4192,17 @@ def _cmd_undo_organize(args: argparse.Namespace) -> int:
             print("\nNothing to restore.")
             return 0
 
-        outcome = run_undo(catalog, plan, apply=True, progress=_progress_printer("restoring"))
+        # ⚠ **The one command whose drive is not in `args`** - it comes out of the run's record,
+        # so the lock is taken here rather than in `_run_holding_the_drive`. Declared as
+        # `_LOCKED_IN_HANDLER` there so the completeness guard still forces an answer. `(aaw)`
+        try:
+            with lock_for(Path(plan.dest_root), operation="undo-organize"):
+                outcome = run_undo(
+                    catalog, plan, apply=True, progress=_progress_printer("restoring")
+                )
+        except DriveBusyError as busy:
+            print(f"error: {busy}", file=sys.stderr)
+            return DRIVE_BUSY_EXIT
         print(f"\nRestored {outcome.restored} file(s) to their original locations.")
         if outcome.skipped:
             print(
@@ -4335,7 +4394,33 @@ def _dispatch(argv: list[str] | None) -> int:
         "undo-organize": _cmd_undo_organize,
         "repoint-sources": _cmd_repoint,
     }
-    return dispatch[args.command](args)
+    return _run_holding_the_drive(dispatch[args.command], args)
+
+
+def _run_holding_the_drive(
+    handler: Callable[[argparse.Namespace], int], args: argparse.Namespace
+) -> int:
+    """Run ``handler`` with this drive held against other processes, where that applies. `(aaw)`
+
+    **One place rather than seven**, for the reason `refuse_unusable_catalog` is called ahead of
+    the dispatch table: a rule enforced at each call site is a rule the eighth call site forgets.
+
+    ⚠ **Only under `--apply`.** A preview writes nothing, and a preview that is slightly out of
+    date because someone else is organizing is not data loss - while making `truestill organize`
+    fail rather than report, because a background apply is running, would be a worse product than
+    the race it prevents.
+    """
+    where = _LOCKS_DRIVE_AT[args.command]  # KeyError: an undeclared command, caught by its test
+    if where is None or where == _LOCKED_IN_HANDLER or not getattr(args, "apply", False):
+        return handler(args)
+    try:
+        # `Path(...)` because the parsers disagree: some declare `type=Path` and some take
+        # the string straight from `argparse`. Normalising here beats seventeen declarations.
+        with lock_for(Path(getattr(args, where)), operation=args.command):
+            return handler(args)
+    except DriveBusyError as busy:
+        print(f"error: {busy}", file=sys.stderr)
+        return DRIVE_BUSY_EXIT
 
 
 if __name__ == "__main__":

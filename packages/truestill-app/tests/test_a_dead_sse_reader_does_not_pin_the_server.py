@@ -52,7 +52,7 @@ def _finished_job(jobs: JobManager) -> str:
     def target(_progress: Any, _cancel: Any) -> dict[str, Any]:
         return {"ok": True}
 
-    job_id = jobs.start(target, drives=_drive(), operation="guard")
+    job_id = jobs.start(target, drives=_drive(), operation="guard", mutating=False)
     assert isinstance(job_id, str), job_id
     deadline = time.monotonic() + _PATIENCE
     while jobs.get(job_id) is not None and jobs.get(job_id).status == "running":  # type: ignore[union-attr]

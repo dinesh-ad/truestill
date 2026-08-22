@@ -85,6 +85,7 @@ def test_a_job_that_meets_a_held_catalog_says_what_to_do(held_catalog: Path) -> 
         _write_from_the_worker(held_catalog, "INSERT INTO probe VALUES (1)"),
         drives=[_DRIVE],
         operation="organize",
+        mutating=False,
     )
     assert isinstance(job_id, str)
     event = _terminal(mgr, job_id)
@@ -107,6 +108,7 @@ def test_an_ordinary_sqlite_failure_keeps_its_own_class_and_message(held_catalog
         _write_from_the_worker(held_catalog, "INSERT INTO no_such_table VALUES (1)"),
         drives=[_DRIVE],
         operation="organize",
+        mutating=False,
     )
     assert isinstance(job_id, str)
     event = _terminal(mgr, job_id)
@@ -124,7 +126,7 @@ def test_a_non_sqlite_failure_is_untouched() -> None:
         raise ValueError(_ORDINARY_BUG)
 
     mgr = JobManager()
-    job_id = mgr.start(target, drives=[_DRIVE], operation="organize")
+    job_id = mgr.start(target, drives=[_DRIVE], operation="organize", mutating=False)
     assert isinstance(job_id, str)
     event = _terminal(mgr, job_id)
 

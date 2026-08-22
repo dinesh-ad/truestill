@@ -50,6 +50,16 @@ ALLOWED: dict[str, dict[str, str]] = {
         "distribution_version": "reads the installed version string; holds nothing",
     },
     "jobs.py": {
+        "DriveLock": (
+            "the cross-process twin of this module's own `_occupied` map, and it is here for the "
+            "same reason `is_catalog_busy` is: the thing being guarded is the job, which starts "
+            "here. It holds a file descriptor and no library state - it opens no catalog, reads "
+            "no media and knows nothing about what the job does. `(aaw)`"
+        ),
+        "DriveBusyError": (
+            "the refusal `DriveLock.acquire` raises, turned into a `DriveBusyPayload` here "
+            "because that is where the payload lives; an exception type, not state"
+        ),
         "Progress": "a value type - one progress tick, passed by value to callers",
         "ProgressCallback": "a typing alias for the callback shape; not a runtime object",
         "CATALOG_BUSY_CODE": "a string constant; the terminal event's `code` for a held catalog",

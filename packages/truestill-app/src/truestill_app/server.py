@@ -142,6 +142,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         *,
         paths: list[Path],
         operation: str,
+        mutating: bool,
         on_started: Callable[[], None] | None = None,
     ) -> JSONResponse:
         """Start a job locked to ``paths``, or return drive-unavailable / drive-busy without racing.
@@ -166,6 +167,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             target,
             drives=[service.drive_ref_for(path) for path in paths],
             operation=operation,
+            mutating=mutating,
         )
         if isinstance(result, dict):
             return JSONResponse(result)
@@ -212,7 +214,11 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             mode=mode,
         )
         return await run_in_threadpool(
-            _start_drive_job, target, paths=[destination], operation="organize preview"
+            _start_drive_job,
+            target,
+            paths=[destination],
+            operation="organize preview",
+            mutating=False,
         )
 
     async def organize_run(request: Request) -> JSONResponse:
@@ -229,7 +235,11 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             mode=mode,
         )
         return await run_in_threadpool(
-            _start_drive_job, target, paths=[destination], operation="organize"
+            _start_drive_job,
+            target,
+            paths=[destination],
+            operation="organize",
+            mutating=True,
         )
 
     async def organize_settings(request: Request) -> JSONResponse:
@@ -268,6 +278,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             target,
             paths=[Path(state["source_root"]), Path(state["dest_root"])],
             operation="undo organize preview",
+            mutating=False,
         )
 
     def organize_undo_apply(_request: Request) -> JSONResponse:
@@ -279,6 +290,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             target,
             paths=[Path(state["source_root"]), Path(state["dest_root"])],
             operation="undo organize",
+            mutating=True,
         )
 
     async def verify_run(request: Request) -> JSONResponse:
@@ -289,6 +301,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             await run_in_threadpool(service.verify_run, path, _db()),
             paths=[path],
             operation="verify",
+            mutating=False,
         )
 
     def job_events(request: Request) -> StreamingResponse:
@@ -366,6 +379,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             await run_in_threadpool(service.backup_run, source, target_path, _db()),
             paths=[source, target_path],
             operation="backup",
+            mutating=True,
         )
 
     async def ingest_archives_precheck(request: Request) -> JSONResponse:
@@ -385,7 +399,11 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             service.archive_ingest_run, Path(body["takeout"]), destination, _db()
         )
         return await run_in_threadpool(
-            _start_drive_job, target, paths=[destination], operation="import preview"
+            _start_drive_job,
+            target,
+            paths=[destination],
+            operation="import preview",
+            mutating=False,
         )
 
     async def ingest_preview(request: Request) -> JSONResponse:
@@ -395,7 +413,11 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             service.ingest_preview_run, Path(body["takeout"]), destination, _db()
         )
         return await run_in_threadpool(
-            _start_drive_job, target, paths=[destination], operation="import preview"
+            _start_drive_job,
+            target,
+            paths=[destination],
+            operation="import preview",
+            mutating=False,
         )
 
     # --- folder picker + library status -------------------------------------------------
@@ -497,6 +519,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             await run_in_threadpool(service.migration_preview_run, path, _db()),
             paths=[path],
             operation="migrate preview",
+            mutating=False,
         )
 
     def dates_tier_files(request: Request) -> JSONResponse:
@@ -537,6 +560,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             await run_in_threadpool(service.bake_run, path, _db()),
             paths=[path],
             operation="set dates",
+            mutating=True,
         )
 
     async def migrate_run(request: Request) -> JSONResponse:
@@ -547,6 +571,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             await run_in_threadpool(service.migration_apply, path, _db()),
             paths=[path],
             operation="migrate",
+            mutating=True,
         )
 
     def migrate_undo_armed(request: Request) -> JSONResponse:
@@ -561,6 +586,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             await run_in_threadpool(service.migration_undo, path, _db(), apply=False),
             paths=[path],
             operation="undo preview",
+            mutating=False,
         )
 
     async def migrate_undo_apply(request: Request) -> JSONResponse:
@@ -571,6 +597,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             await run_in_threadpool(service.migration_undo, path, _db(), apply=True),
             paths=[path],
             operation="undo",
+            mutating=True,
         )
 
     # --- Trip/event review (session-based; merge/split are UI-only, no CLI path) ---
@@ -752,6 +779,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             service.migration_preview_run(path, _db()),
             paths=[path],
             operation="trip preview",
+            mutating=False,
         )
 
     def events_apply_to_disk(request: Request) -> JSONResponse:
@@ -783,6 +811,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             ),
             paths=[path],
             operation="trip apply",
+            mutating=True,
             on_started=lambda: discard_session(session_id),
         )
 
