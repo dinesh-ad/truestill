@@ -107,6 +107,13 @@ CACHE_FILENAME = "hashes.cache.sqlite"
 #: it is doing so because something went wrong, and it must open in whatever they double-click.
 SESSION_URL_FILENAME = "session-url.txt"
 
+#: Where per-drive lock files live, under the data dir. `(aaw)`
+#:
+#: ⚠ **A subdirectory, not loose files beside the catalog.** These are runtime scratch that the OS
+#: reclaims by itself, and mixing them in with `catalog.sqlite` and `last-run.json` - which a user
+#: is told to look at, copy and keep - invites deleting the wrong one.
+LOCKS_DIRNAME = "locks"
+
 #: Filename of the record a run writes about what it did. ``.json`` because it is read by a person
 #: looking for one filename among thousands, and by whatever they paste it into.
 #:
@@ -246,6 +253,17 @@ def resolve_catalog_choice() -> CatalogChoice:
         summary="Catalog location from the standard data directory.",
         note="",
     )
+
+
+def lock_path_for(name: str) -> Path:
+    """A lock file in the data dir, never on the drive. `(aaw)`
+
+    **On this machine on purpose.** Advisory locking is least reliable on the FUSE and network
+    mounts a library sits on; a stale file on the user's own drive is the thing they delete by
+    hand; and the marker is stable identity rather than a high-churn runtime file. The cost is
+    stated rather than hidden: two machines sharing one mount do not see each other's locks.
+    """
+    return _data_dir() / LOCKS_DIRNAME / f"{name}.lock"
 
 
 def session_url_path() -> Path:

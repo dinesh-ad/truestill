@@ -756,6 +756,42 @@ def locate_drive(path: Path) -> DriveLocation:
     return DriveLocation(given=resolved)
 
 
+@dataclass(frozen=True, slots=True)
+class DriveIdentity:
+    """What names a drive for locking, and what to call it in a refusal. `(aaw)`
+
+    ``key`` is ``uuid:<marker>`` for a marked drive and ``path:<resolved>`` otherwise, so the same
+    drive reached through two mountpoints collides and two different drives never block each other.
+
+    ⚠ **Key and label are produced together, from ONE marker read.** Deriving them separately meant
+    reading the marker twice and, worse, invited a `marker=None` parameter that answers *"not
+    marked"* and *"I did not look"* with one value - the conflation this codebase keeps paying for
+    (`(aac)`, `(aer)`, `(afo)`).
+    """
+
+    key: str
+    label: str
+
+
+def drive_identity(root: Path) -> DriveIdentity:
+    """Lock identity for a path an operation will touch. **One spelling for both surfaces.**
+
+    In core rather than in `truestill_app.service`, for the reason `drive_path_hint` is:
+    `truestill-cli` cannot import that package (`IMPLEMENTATION_STANDARDS.md` §2), and the CLI and
+    the app must agree on this key exactly or their locks pass through each other.
+    """
+    marker = read_marker(root)
+    if marker is not None:
+        return DriveIdentity(key=f"uuid:{marker.uuid}", label=marker.label)
+    try:
+        resolved = str(root.expanduser().resolve())
+    except OSError:
+        # `resolve()` on a path whose parent refused is not an answer we can improve on here, and
+        # a lock keyed by the unresolved spelling is still better than no lock.
+        resolved = str(root)
+    return DriveIdentity(key=f"path:{resolved}", label=root.name or resolved)
+
+
 def read_marker(root: Path) -> DriveMarker | None:
     """Return the drive's marker, or ``None`` if absent or unreadable/invalid.
 
