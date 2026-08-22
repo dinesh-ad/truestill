@@ -22,6 +22,105 @@
   unchanged and still correct, or write the step that actually exercises the one silent-loss path.
   **What is no longer available is deferring it to "the soak".**
 
+  ## ✅ MEASURED 2026-08-22 - THE HARM REPRODUCES, AND THE MECHANISM IS NOT THE ONE BELOW
+
+  The deferral was *"the soak will say which things break"* and no soak tested concurrency, so it
+  was measured directly instead: two real `organize --apply` processes, one shared catalog, one
+  destination, real photographs from the library.
+
+  **It reproduces.** Byte-exact, one file of 45 in the preserved run:
+
+  ```
+  A source : 2,174,172 bytes  sha 9aadb75640926ea1...
+  B source : 2,174,180 bytes  sha b2100e551c8c9413...
+  on disk  : 2,174,180 bytes  sha b2100e551c8c9413...   <- B's bytes, exactly
+  ```
+
+  `a.json` claims that path `"status": "uploaded"` with **A's** sha. **A reported success, wrote a
+  catalog row, and the file holds B's photograph.**
+
+  | corpus | attempts | hits | copies lost | each |
+  |---|---|---|---|---|
+  | 2,110 real photos per side, 6 GB per side | **9** | **2** | **99** and **45** | ~29-39 s |
+  | 4 x 300 MB per side (wide window) | **5** | **4** | 3, 3, 1, 2 | ~2 s |
+
+  **Positive control first**: a single-process baseline over 2,108 files showed **0**, and an
+  injected replacement was detected as exactly **1**. A zero from this harness means something.
+
+  ⚠ **THE MECHANISM IS UPSTREAM OF `_free_relative`, AND THE ANALYSIS BELOW HAS IT WRONG.** The
+  race is not two processes choosing the same free name and one overwriting the other. It is that
+  **both stage into the same file**: `safe_copy.py:60-64` sets `STAGING_SUFFIX = ".partial"`
+  appended to the **target's** name, so the staging path is a pure function of the destination.
+  Two processes writing one destination name write into **one** `.partial`. Then one renames it
+  and reports success; the other's rename fails loudly with `ENOENT` on a `.partial` that is no
+  longer there, which is what the `FAILED` lines and exit 1 in the runs above actually are.
+
+  **The window, instrumented on unmodified code across 2,108 files** (`_free_relative` returning
+  to `StagedCopy.commit`): **min 0.67 ms, median 4.60, p95 8.86, max 414.56, mean 5.26** - about
+  **11 seconds of cumulative exposure per 2,110-file run**. Narrow enough that 7 of 9 attempts
+  missed; not narrow enough to be safe, and the two processes drift into alignment unaided.
+
+  ## ⚠ WHAT WAS LOST IS A COMPLETE FILE, NOT TORN BYTES - AND THAT DECIDES THE SEVERITY
+
+  Measured over the preserved run's 45: **0 hybrids.** Every destination file is a complete, valid
+  photograph; it is simply **the wrong one**, with a catalog row asserting otherwise.
+
+  ```
+  claimant's own bytes present          2105
+  a COMPLETE but WRONG source              3
+  bytes matching NO source (torn)          0
+  ```
+
+  The 45 decompose as **42** paths both runs claimed where one run's bytes are gone, plus **3**
+  claimed by one run alone whose bytes are not there. ⚠ **Not observed is not impossible**: two
+  writers sharing one file descriptor-less path can interleave, and nothing in the code prevents
+  it - it was simply not produced in these samples.
+
+  **So the severity is mode-dependent, and both halves must be said:**
+
+  - **Copy mode** - the source survives. What is lost is the *organized copy* plus a **false
+    catalog row**: a bookkeeping error with a missing copy behind it, recoverable by re-running,
+    and detectable by `verify` because the row's sha will not match the file.
+  - **`--move` / `--in-place`** - the source is **gone**. The only copy of that photograph is the
+    one that was overwritten. That is irreversible loss, not bookkeeping.
+
+  ## THE FIX OPTIONS - REPORTED, NOT DESIGNED
+
+  **1. Per-process unique staging name.** Give the `.partial` a per-process suffix so two runs
+  never share a staging file.
+  - *Fixes*: the shared-partial collision entirely, and with it the torn-bytes possibility and the
+    misleading `ENOENT` on a missing `.partial`. No platform-specific code, no locking, no new
+    dependency; the smallest change of the three.
+  - *Leaves*: **who wins the name.** Both still resolve to the same target and both still rename
+    onto it, last-write-wins - the residual described above.
+  - ⚠ *Costs, and this is the part that is easy to miss*: **it removes the only loud signal.**
+    Today the loser fails with `ENOENT` and exits 1, so a user is told something went wrong. With
+    unique staging both renames succeed, **both processes exit 0**, and the losing run's catalog
+    row is silently wrong. Cheaper, and quieter about a harm it does not fully fix.
+
+  **2. The cross-process lock, as designed below.**
+  - *Fixes*: both halves - no two mutating runs overlap, so neither the staging collision nor the
+    contested name can occur. It also covers `(afp)`, where a run refuses a catalog another
+    process is creating, by making the second run wait instead.
+  - *Leaves*: two machines on one cloud mount, already a documented limit; and the in-process case
+    `(adt)`, which no cross-process lock can touch.
+  - *Costs*: ~25 lines of platform-specific code, six named tests including a two-real-process
+    contention test and a Windows branch that must be exercised rather than skipped, and the
+    FD-lifetime trap below. A refusal a user must understand, on a path that today just works.
+
+  **3. Both.** Unique staging is correct on its own terms - a staging file is private to the run
+  that made it, whatever else is true - and it is the difference between a lock being a *safety*
+  property and a *correctness* one.
+  - *The question worth ruling on*: with unique staging in place, the lock's remaining job is
+    preventing **last-write-wins on a contested name**. Whether ~25 lines plus six tests is worth
+    that depends on whether the residual is judged bookkeeping or loss - and the answer above is
+    **that it is bookkeeping in copy mode and irreversible loss under `--move`/`--in-place`**,
+    which are exactly the modes a user reaches when they have no room for a second copy.
+
+  **The reproduction is kept** at `~/TruestillLibrary/scratch-race-2026-08-22/` - corpora,
+  `detect.py` (content-based, name-blind), `window.py`, and the run records - and becomes the
+  regression test for whichever route wins.
+
   - **What shrank this from "P1", and it is the load-bearing measurement.** SQLite already
     serialises writers, so **the catalog cannot be corrupted by two truestill processes**.
     Measured directly, 2026-08-03: `journal_mode = delete`, `busy_timeout = 5000` (Python's
