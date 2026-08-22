@@ -5,10 +5,14 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  # Nightly, for the collection-order pass only - see the step's own comment for the cost that
-  # moved it here. 03:17 rather than on the hour: GitHub's scheduler queues heavily at :00.
+  # Nightly. Two things ride this trigger: the collection-order pass (see the step's own comment
+  # for the cost that moved it here) and, since 2026-08-22, the browser lane. 03:17 rather than on
+  # the hour: GitHub's scheduler queues heavily at :00.
   schedule:
     - cron: "17 3 * * *"
+  # ⚠ Added 2026-08-22 so the browser lane can be run ON PURPOSE - before a tag, or after a change
+  # that reaches a screen. Without it the only way to run `e2e` in CI was to wait for 03:17.
+  workflow_dispatch:
 
 # The event is part of the group ON PURPOSE. Without it a scheduled run and a push to main share
 # `refs/heads/main`, so the first morning push would cancel the nightly mid-flight - and the one
@@ -377,16 +381,40 @@ jobs:
   # A separate job rather than a matrix entry so its failure is distinguishable at a glance,
   # and so a browser-layer problem never masks a Python one.
   # ════════════════════════════════════════════════════════════════════════════════════════════
-  # ⚠ THE e2e JOB IS TURNED OFF, 2026-08-20. IT IS DISABLED, NOT DELETED - every line below is
-  # intact and the `if: false` on the job is the whole of the change.
+  # ⚠ THE e2e JOB RUNS NIGHTLY AND ON DEMAND, NOT ON EVERY PUSH (re-decided 2026-08-22).
+  # It was `if: false` from 2026-08-20 until then, on the condition *"returns with the first
+  # migrated screen"* - and **that condition could not fire**, which is why this was re-decided
+  # rather than waited out. `(adi)` is migrating by ISLAND, not by screen: `main.tsx` opens
+  # *"The first React island: `#org-result`"*, a pure refactor inside one region of a
+  # server-rendered page. There is no next state in which a whole screen becomes React and
+  # somebody deletes an `if:`. Meanwhile 470 tests in 60 files went dark for two days during
+  # which `(aer)` and `(afo)` both changed wording this lane asserts on.
   #
-  # WHY. It is 21-25 minutes of a ~25-minute run - effectively the entire cost of a push - and it
-  # protects a design that is being replaced. `(adi)` is the React + shadcn migration; every
-  # screen this lane guards is scheduled to be rewritten, so a failure here would most often be
-  # reporting on markup that is on its way out.
+  # WHY NOT EVERY PUSH. Measured 2026-08-22: **~23 pushes/day** on an active day, and this lane is
+  # 21-25 min. That is 8+ hours of runner/day, and worse than the bill - `cancel-in-progress` is
+  # true above, so at that cadence most runs would be CANCELLED mid-flight. A lane that usually
+  # does not finish is §4's fifty-fourth member with a green tick beside it.
   #
-  # WHAT TURNS IT BACK ON: **the first migrated screen.** At that point the lane guards the new
-  # design rather than the old one and the trade inverts. Delete the `if: false` and this banner.
+  # WHY NOT A PATH FILTER. Because the blast radius is the PAYLOAD, not the markup, and there is a
+  # two-day-old proof: `(afo)` (40589be) touched `truestill_core/cleanup.py`,
+  # `truestill_app/service/clean_empty.py` and `cli.py` - **no `static/`, `templates/` or
+  # `frontend/` path at all** - and changed the folder wording that
+  # `tests/e2e/test_organize_on_the_pattern.py:245` and
+  # `tests/e2e/test_unreadable_sources_are_visible.py:172` assert directly. A filter narrow enough
+  # to be cheap would have skipped exactly that commit. The only SOUND filter is
+  # `packages/*/src/**`, which fires on 38% of commits (23 of the last 60, measured) - most of the
+  # cost, plus a filter that fails SILENTLY when it is wrong.
+  #
+  # ⚠ WHAT TURNS PER-PUSH BACK ON, AND THIS ONE CAN FIRE: **the lane finishing in under ~8
+  # minutes.** That is a lever that exists today and is unused - `pytest-xdist` is already a
+  # dependency and `make test` already runs `-n auto`, while `make e2e` is SERIAL across two
+  # browsers. The suite is structurally parallel-safe: `app_server` is function-scoped on an
+  # ephemeral port with its own catalog, and the one session-scoped fixture `retiring` documents
+  # itself as holding *"no application state at all"*. Nobody has tried `-n auto` here. When it
+  # runs in single-digit minutes, move this job back to `push` and delete this paragraph.
+  #
+  # ⚠ BEFORE A TAG, RUN IT. The publish path has never fired and this lane is the only thing that
+  # sees the screens; `workflow_dispatch` above is how, and `make e2e` is the local equivalent.
   #
   # ⚠ WHAT IS DELIBERATELY KEPT: the three `check` lanes above. They cost 1-3 minutes and are the
   # ONLY thing that sees Windows and macOS. On 2026-08-20 alone they caught `timeout(1)` not
@@ -400,7 +428,8 @@ jobs:
   # is wrong. `make e2e` still runs the lane locally and is unchanged.
   # ════════════════════════════════════════════════════════════════════════════════════════════
   e2e:
-    if: false
+    # Nightly and on demand. NOT on push - see the banner above for the measurement behind that.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     name: e2e (chromium + webkit, ubuntu)
     runs-on: ubuntu-latest
     # The browser lane runs ~24 min of real work and enforces its own 2000 s ceiling inside the

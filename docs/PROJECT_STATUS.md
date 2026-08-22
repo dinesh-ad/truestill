@@ -89,6 +89,10 @@ Notes:
   one is above because it overturned a claim in this file; two, three and four are here because a
   *"where does the project stand"* document that knows about one of four soaks is stale in the
   direction that costs most. Each has a **plan** and a **record**, both mapped in `CLAUDE.md`.
+  ⚠ **Soak one's record is a RECONSTRUCTION** ([`soak-one-record.md`](soak-one-record.md), written
+  2026-08-22): none was kept on the day, so two of its seven steps are unrecoverable. The bullets
+  above were its only account for three weeks, which is why its two open findings are the only
+  soak findings still open.
   - **Soak two** (2026-08-21, `soak-two-record.md`) - scale and sequence on 2,276 files / 6.3 GB.
     **Five findings**, and ⚠ **three harness defects that each nearly became a false one**. Its
     stock-take is what set the next two soaks' subjects.

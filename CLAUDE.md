@@ -49,7 +49,7 @@ git ls-files '*.md' | wc -l                      # every tracked document
 git ls-files 'docs/research/backlog/*.md' | wc -l # the exception above
 ```
 
-On 2026-08-22 those read **180** and **119**, leaving **61** mapped below. ⚠ They read **176**/**115** earlier that same day, **159**/**102** on 2026-08-21, **148**/**93** on 2026-08-20, **139**/**84** on 2026-08-19 and **133**/**78** on 2026-08-15 - stale within a day, three times - which is the argument for running the commands rather than for updating these numbers faster. **The mapped figure is the one to watch**: it held at 55 across four readings, moved to 56 on 2026-08-21 when `soak-two-plan.md` became the first document since 2026-08-15 to land outside `docs/research/backlog/`, and reads **61** on 2026-08-22 - `soak-two-record.md`, `soak-three-plan.md`, `soak-three-record.md`, `soak-four-plan.md` and `soak-four-record.md`, each of which has a row below. ⚠ **It then HELD at 61 across a second reading that day**, when the totals moved by four - four new backlog bodies, no new document outside them - which is the map working rather than the map going stale. A mapped count that moves **without** a row being added is the map going incomplete; a count that moves *with* one is the map working.
+On 2026-08-22 those read **181** and **119**, leaving **62** mapped below. ⚠ They read **180**/**119** and **176**/**115** earlier that same day, **159**/**102** on 2026-08-21, **148**/**93** on 2026-08-20, **139**/**84** on 2026-08-19 and **133**/**78** on 2026-08-15 - stale within a day, three times - which is the argument for running the commands rather than for updating these numbers faster. **The mapped figure is the one to watch**: it held at 55 across four readings, moved to 56 on 2026-08-21 when `soak-two-plan.md` became the first document since 2026-08-15 to land outside `docs/research/backlog/`, and reads **61** on 2026-08-22 - `soak-two-record.md`, `soak-three-plan.md`, `soak-three-record.md`, `soak-four-plan.md` and `soak-four-record.md`, each of which has a row below. ⚠ **It then HELD at 61 across a second reading that day**, when the totals moved by four - four new backlog bodies, no new document outside them - which is the map working rather than the map going stale. It then moved to **62** with `soak-one-record.md`, which has a row below - a count that moves WITH a row is the map working; the failure is one that moves without. A mapped count that moves **without** a row being added is the map going incomplete; a count that moves *with* one is the map working.
 
 ### The canon - binding, kept current
 
@@ -76,6 +76,7 @@ On 2026-08-22 those read **180** and **119**, leaving **61** mapped below. ⚠ T
 | What is wrong with the UI, surface by surface? | [`docs/ui-inventory.md`](docs/ui-inventory.md) |
 | What does the Organize result grid have to look like? | [`docs/organize-grid-design.md`](docs/organize-grid-design.md) |
 | What is the plan for React, and what is already settled? | [`docs/react-migration-plan.md`](docs/react-migration-plan.md) |
+| What did soak one do, and why is its record a reconstruction? | [`docs/soak-one-record.md`](docs/soak-one-record.md) - **ran 2026-08-20, written 2026-08-22**: the run that overturned the most, rebuilt from commits because no record was kept. Two of its six findings are still open |
 | What will soak two cover, and what could soak one not have seen? | [`docs/soak-two-plan.md`](docs/soak-two-plan.md) - the plan; §1 carries the corpus ruling |
 | What did soak two actually find? | [`docs/soak-two-record.md`](docs/soak-two-record.md) - **ran 2026-08-21**, a record: five findings, and three harness defects that nearly became false ones |
 | What is soak three, and why refusal? | [`docs/soak-three-plan.md`](docs/soak-three-plan.md) - the plan; the thesis is the stock-take at the end of the soak-two record |
@@ -200,9 +201,15 @@ exists to prevent.
   iterate on the full lane. `(aer)` is why: one 28-minute run returned 6 red, and the finding in
   it - a wording collision two of the failing files assert against directly - was reachable in the
   first two minutes. The other fifty-eight were spent waiting rather than on the work it created.
-- **The CI e2e job is disabled** (`if: false` in `.github/workflows/ci.yml`, with a dated banner):
-  it was 21-25 minutes of a ~25-minute run, guarding screens `(adi)` is replacing. **The first
-  migrated screen turns it back on.** A push now costs ~3 minutes.
+- **The CI e2e job runs NIGHTLY and on `workflow_dispatch`, not on push** (re-decided
+  2026-08-22; it was `if: false` from 2026-08-20). A push still costs ~3 minutes, and the 470
+  browser tests are no longer dark - they run at 03:17 and can be fired on demand.
+  ⚠ **The old condition, *"the first migrated screen"*, could not fire**: `(adi)` migrates by
+  ISLAND, not by screen. **Per-push returns when the lane finishes in under ~8 minutes** - a lever
+  that exists and is unused, since `make e2e` is serial across two browsers while `pytest-xdist`
+  is already a dependency and `make test` already uses `-n auto`.
+  ⚠ **A path filter was refused with a proof, not a hunch**: `(afo)` touched core, an app service
+  and the CLI, **no markup path**, and changed wording two `tests/e2e/` files assert directly.
   ⚠ **Its silence is not coverage** - `ENGINEERING_STANDARD.md` §4's fifty-fourth member. The three
   `check` lanes are deliberately kept because they are the only thing that sees Windows and macOS,
   and on 2026-08-20 alone they caught `timeout(1)` not existing on BSD and Windows being unable to
