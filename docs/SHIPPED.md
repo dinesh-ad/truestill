@@ -22,6 +22,34 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aep) A FAILED COPY SAYS NEITHER "UPLOAD" NOR A RAW `errno`.**
+  Shipped 2026-08-22. Two §9 violations lived in one fall-through line, and the rule against each
+  was already written down elsewhere. What a user read, verbatim:
+  *"FAILED: IMG_0001.png: cannot upload to 'Saved/Undated/IMG_0001.png': [Errno 13] Permission
+  denied: '/.../dest3/Saved'"*.
+  **1. "upload" is backend vocabulary** - honest inside the code, where `Destination.upload` covers
+  rclone remotes, and false on screen: it names an event that did not happen and contradicts the
+  promise that files never leave the machine. ⚠ `cli._print_execution`'s own comment states the
+  rule a little above the `print` that emitted it.
+  **2. The raw errno reached the user** - an errno, a path they never named, and no advice. The
+  `EFBIG` branch strips it and is pinned for that; the fall-through passed `{exc}` through.
+  🔑 **THE REMEDY ALREADY EXISTED AND THE FIX WAS TO REACH IT.** `(aek)` built `drive_unwritable`
+  for the two writes that touch a user's own drive, and it is *"the only errno table in the
+  product"* on purpose. Both copy-path sites now word from it - the copy failure and the
+  make-the-folder failure - rather than a second table being written here, which is §4's rule that
+  the remedy is usually to delete one of two copies rather than add a second assertion.
+  ⚠ **THE EXISTING GUARD COULD NOT SEE IT.** `test_status_labels_cover_every_outcome` asserts every
+  `ActionStatus` has a user-facing **label** and says nothing about `detail`, the free string that
+  carried the leak - a guard aimed at the right subject through a lens that cannot resolve part of
+  it (§4's fifty-fourth member).
+  **Three tests, two mutations, both directions**: the leaking line restored (caught), and - the
+  cry-wolf half - one generic sentence for all six conditions (caught), because a fix that
+  replaced one raw errno with one bland string would have passed the first two assertions while
+  telling a full disk it had a permissions problem.
+  ⚠ **Its own citations had drifted before it was built** - `local.py:67,125` to `:68,:134`, and
+  `cli.py:2137-2138` to `:2395`, in three weeks. Re-cited by symbol, which is what
+  `IMPLEMENTATION_STANDARDS.md`'s header asks for. [Full entry](research/backlog/aep.md)
+
 - **(aef) THE RELEASE LIST EXISTS, AND ITS STATE COLUMN CANNOT GO STALE.**
   Shipped 2026-08-22 as **Option B**, ruled 2026-08-19. `PROJECT_STATUS.md` §2b carries the list;
   `test_the_release_list_is_answerable.py` guards it.

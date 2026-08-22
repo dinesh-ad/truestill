@@ -22,6 +22,7 @@ from truestill_core.destinations.base import (
     DestinationError,
     check_contained,
 )
+from truestill_core.drive_unwritable import explain_unwritable_drive
 from truestill_core.filesystem import (
     DestinationPreflight,
     FilesystemFacts,
@@ -65,7 +66,30 @@ def _upload_failure(local: Path, target: Path, relative_path: str, outcome: Copy
             f"cannot hold a single file of 4 GB or more, however much free space they show. "
             f"Copy this file to a drive formatted exFAT or NTFS, or reformat this one.{left}"
         )
-    return f"cannot upload to {relative_path!r}: {exc}{left}"
+    # ⚠ **TWO §9 VIOLATIONS LIVED IN THIS ONE LINE**, and the rule against each was already
+    # written down elsewhere. `(aep)`
+    #
+    # 1. *"upload"* is **backend vocabulary**. It is honest inside the code, where
+    #    `Destination.upload` covers rclone remotes, and false on screen: it names an event that
+    #    did not happen and contradicts the promise that files never leave the machine.
+    #    `cli._print_execution` states this in a comment eighteen lines above the `print` that
+    #    emitted it.
+    # 2. The **raw errno reached the user**. `[Errno 13] Permission denied: '/.../dest3/Saved'` is
+    #    an errno, a path the user did not name, and no advice. The `EFBIG` branch above strips it
+    #    and is pinned for that; this fall-through passed `{exc}` through untouched.
+    #
+    # The reads have carried `models.unreadable_label` for this since `(aac)`; the writes had no
+    # equivalent. **`drive_unwritable` is that equivalent and already existed** - `(aek)` built it
+    # for the two writes that reach a user's own drive, and it is the product's only errno table
+    # on purpose, so the fix is to REACH it rather than to write a second one here.
+    if exc is None:
+        # Unreachable from `upload`, which asserts an error before calling - kept because the
+        # honest answer to "no reason was recorded" is to say so rather than invent one. The same
+        # choice `run_record.stop_block` makes about a run that stopped without saying why.
+        return f"could not copy {local.name} to {relative_path!r}, and no reason was recorded{left}"
+    return (
+        f"could not copy {local.name} to {relative_path!r}: {explain_unwritable_drive(exc)}{left}"
+    )
 
 
 class LocalDestination(Destination):
@@ -131,7 +155,12 @@ class LocalDestination(Destination):
         try:
             self._make_parent(target)
         except OSError as exc:
-            message = f"cannot upload to {relative_path!r}: {exc}"
+            # The same two violations as `_upload_failure`'s fall-through, on the sibling path
+            # that fails **before** any bytes move: making the folder. Worded from the one table
+            # rather than restated, or the two would drift the first time either was corrected.
+            message = (
+                f"could not make the folder for {relative_path!r}: {explain_unwritable_drive(exc)}"
+            )
             raise DestinationError(message) from exc
         # The bytes take this name only once they are all there - `(abu)`, `(acj)`. The copy
         # goes to a sibling and is renamed on, so a failure cannot leave a truncated file wearing

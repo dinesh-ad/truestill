@@ -17,26 +17,30 @@
 
   **1. "upload" is backend vocabulary.** `IMPLEMENTATION_STANDARDS.md` §9: *"No backend vocabulary
   reaches a user. 'Uploaded' is honest inside the code and false on screen."* The string is built
-  at `destinations/local.py:67` and `:125`. ⚠ **The rule is stated at the site that breaks it**:
+  at `destinations/local.py`'s `_upload_failure` fall-through and `upload`'s `_make_parent`
+  branch. ⚠ **Cited by SYMBOL from here on**: the line numbers this entry carried - `:67` and
+  `:125` - had already drifted to `:68` and `:134` before it was built, in three weeks, which is
+  the drift `IMPLEMENTATION_STANDARDS.md`'s own header warns about (*"symbols are cited over line
+  numbers, which drift"*). ⚠ **The rule is stated at the site that breaks it**:
   `cli._print_execution`'s own comment says *"'uploaded' is backend vocabulary ... and never
-  reaches a user"* (`cli.py:2137-2138`), eighteen lines above the `print` that emits
-  `failure.detail`.
+  reaches a user"* - ⚠ **cited here as `cli.py:2137-2138` and now at `:2395`**, another drifted
+  citation corrected on the way in - a little above the `print` that emits `failure.detail`.
 
   **2. The raw errno reaches the user.** `_upload_failure` deliberately strips it for `EFBIG` and
-  is pinned for that - `test_destination_errors.py:77` asserts *"the raw errno leaked into a
-  user-facing sentence"* - and the fall-through branch passes `{exc}` through untouched.
+  is pinned for that - `test_destination_errors.py` asserts *"the raw errno leaked into a
+  user-facing sentence"* for that branch - and the fall-through passed `{exc}` through untouched.
 
   ## THE SHAPE OF THE REMEDY, WHICH ALREADY EXISTS ON THE OTHER SIDE
 
   Reads have `models.unreadable_label` and `UnreadableReason`, whose comment states the rule:
-  *"no `errno` name or raw enum value ever reaches a user"* (`models.py:194-197`). **Writes have
+  *"no `errno` name or raw enum value ever reaches a user"* (`models.unreadable_label`). **Writes have
   no equivalent.** `(aek)` added `drive_unwritable.explain_unwritable_drive` for the two writes
   that reach a user's own drive, which is a start and is deliberately scoped to those - extending
   it to the copy path is this entry.
 
   ## ⚠ WHY THE EXISTING GUARD DID NOT CATCH IT
 
-  `test_status_labels_cover_every_outcome` (`test_organizer.py:425-434`) asserts that every
+  `test_status_labels_cover_every_outcome` (`test_organizer.py`) asserts that every
   `ActionStatus` has a user-facing **label**. It says nothing about `detail`, which is the free
   string that carries the leak. A guard aimed at the right subject through a lens that cannot
   resolve part of it - `ENGINEERING_STANDARD.md` §4, fifty-fourth member.

@@ -203,10 +203,6 @@ is invisible here is retired, not free.**
   What remains is drive-to-drive when the source folder is gone or no longer matches the drive.
   ⚠ `backup_run` is app-side and the CLI cannot import it, so this is a **move to core**, never a
   second implementation. Recorded 2026-08-20. [Full entry](research/backlog/ael.md)
-- **(aep) THE WRITE SIDE HAS NO `unreadable_label`.** A failed copy reads `cannot upload to '...':
-  [Errno 13] ...` - backend vocabulary and a raw errno, both against §9, and the rule is stated
-  eighteen lines above the `print` that breaks it. Reads have `models.unreadable_label`; writes
-  have no equivalent. Split from `(aek)` 2026-08-21. [Full entry](research/backlog/aep.md)
 - **(aeh) THE RUNNER IMAGE IS UNPINNED, SO THE apt THAT DEADLOCKS IS NOT A VERSION WE CHOSE.**
   `(aee)`'s hang is fixed in apt 3.1.3 and unbackported on noble; `ubuntu-latest` is noble today.
   ⚠ **A route with a cost, not a recommendation** - pinning fixes nothing by itself, and

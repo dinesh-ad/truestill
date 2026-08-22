@@ -89,3 +89,78 @@ def test_an_ordinary_copy_failure_is_not_dressed_up_as_a_size_limit(
         LocalDestination(tmp_path).upload(tmp_path / "a.jpg", "Camera/2024/a.jpg")
 
     assert "FAT32" not in str(raised.value)
+
+
+def test_a_failed_copy_says_neither_upload_nor_a_raw_errno(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`(aep)`: the two §9 violations that lived in one fall-through line.
+
+    Reproduced verbatim on 2026-08-21 against a destination that refused the write::
+
+        FAILED: IMG_0001.png: cannot upload to 'Saved/Undated/IMG_0001.png':
+                [Errno 13] Permission denied: '/.../dest3/Saved'
+
+    ⚠ **The existing guard could not see this.** `test_status_labels_cover_every_outcome` asserts
+    every `ActionStatus` has a user-facing **label**, and says nothing about `detail` - the free
+    string that carries the leak. A guard aimed at the right subject through a lens that cannot
+    resolve part of it, which is §4's fifty-fourth member.
+    """
+    (tmp_path / "a.jpg").write_bytes(b"\xff\xd8")
+    _copy_fails_with(monkeypatch, errno.EACCES, "Permission denied")
+
+    with pytest.raises(DestinationError) as raised:
+        LocalDestination(tmp_path).upload(tmp_path / "a.jpg", "Camera/2024/a.jpg")
+
+    message = str(raised.value)
+    assert "upload" not in message, "backend vocabulary reached a user-facing sentence"
+    assert "Errno" not in message, "the raw errno leaked into a user-facing sentence"
+    assert "13" not in message, "the errno number leaked into a user-facing sentence"
+    # The worded reason from the product's one errno table, not the OS's raw string.
+    assert "read-only, or this account cannot write to it" in message
+    assert "a.jpg" in message, "the file the user cares about is not named"
+
+
+def test_the_folder_step_fails_in_the_same_words(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The sibling path that fails BEFORE any bytes move, and used to leak identically.
+
+    Two sites wording one condition is how they drift the first time either is corrected, so both
+    read the same table - `(aep)`, and §4's rule that the remedy is usually to delete one of two
+    copies rather than to add a second assertion.
+    """
+
+    def boom(*_args: object, **_kwargs: object) -> None:
+        raise OSError(errno.EACCES, "Permission denied")
+
+    monkeypatch.setattr("pathlib.Path.mkdir", boom)
+
+    with pytest.raises(DestinationError) as raised:
+        LocalDestination(tmp_path).upload(tmp_path / "a.jpg", "Camera/2024/a.jpg")
+
+    message = str(raised.value)
+    assert "upload" not in message
+    assert "Errno" not in message
+    assert "read-only, or this account cannot write to it" in message
+
+
+def test_a_full_disk_still_gets_its_own_words_rather_than_a_shared_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CRY-WOLF HALF, and the reason `(aek)`'s table is reused rather than flattened.
+
+    Without this the fix could have replaced one raw errno with one generic sentence and passed
+    the two tests above. `ENOSPC` and `EACCES` need **opposite** advice - delete something, versus
+    check permissions - and the table exists precisely to keep them apart.
+    """
+    (tmp_path / "a.jpg").write_bytes(b"\xff\xd8")
+    _copy_fails_with(monkeypatch, errno.ENOSPC, "No space left on device")
+
+    with pytest.raises(DestinationError) as raised:
+        LocalDestination(tmp_path).upload(tmp_path / "a.jpg", "Camera/2024/a.jpg")
+
+    message = str(raised.value)
+    assert "no space left on the drive" in message
+    assert "read-only" not in message, "a full disk was worded as a permission problem"
+    assert "FAT32" not in message
