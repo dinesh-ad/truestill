@@ -7,6 +7,10 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **A full or read-only home folder no longer stops Truestill starting.** The app records the
+  address it is serving on in a small file; if that folder will not take a write - the disk is
+  full, or the folder is read-only - Truestill used to stop with a Python error before it started.
+  It now says which folder it could not write to and why, in plain words, and carries on starting.
 - **`--apply` no longer prints the whole plan a second time before doing it.** Organizing a real
   library printed about fifteen thousand lines listing every file and why - useful when you are
   deciding whether to run it, and in the way when you already have. A preview still explains every

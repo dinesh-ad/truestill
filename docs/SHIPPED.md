@@ -22,6 +22,28 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aeo) A HOME DIRECTORY THAT WILL NOT TAKE A WRITE COSTS THE WAY-IN FILE, NOT THE APP.**
+  Shipped 2026-08-22. A full or read-only home directory ended the launch in an interpreter stack
+  trace before anything was served - `session_link.write` does `unlink` -> `touch(mode=0o600)` ->
+  `write_text`, none of it guarded, on the launch path.
+  ⚠ **The entry's open question - "stop the launch or degrade" - was already answered twice by the
+  module itself**: its docstring rules that a filesystem which discards the mode still gets the
+  file, because *"warning beats refusing"*, and `session_link.clear` is documented *"never raises:
+  failing to clean up must not take the app down with it"*. The server **is** the product; this
+  file is one of two ways in and the browser is the other. **Degrade, and say why.**
+  ⚠ **The guard creates a second defect, and the fix includes it**: with the write guarded,
+  `link.path` names a file that was never written, and the browser fallback said *"The address is
+  in {path}"* - `(aey)`'s *not there offered as there*, introduced by the repair. It now gives the
+  address itself. **A mutation proved that branch was unreachable from `main` until the test
+  asserted the wiring rather than the renderer** - §4's sixtieth member, caught by the tool.
+  ⚠ **The three-step write is untouched**, and `write` still raises: whether a failure is fatal is
+  a **launch** question, not a file-format one, and swallowing it inside `write` would have given
+  it a second silent contract next to the privacy tests that assert against it.
+  **One errno table, two nouns**: `drive_unwritable` gained `classify_unwritable` and
+  `explain_unwritable_folder`, because *"the drive is read-only"* is wrong and alarming about a
+  folder the user never chose - and a second errno table is the two-copies failure that module's
+  docstring exists to prevent. `explain_unwritable_drive`'s output is byte-identical, which an
+  app test and an e2e test both assert. [Full entry](research/backlog/aeo.md)
 - **(ace) THE MUTATION RESTORE RULE IS EXECUTABLE, AND HAS BEEN SINCE 2026-08-14.**
   - ✅ **CLOSED 2026-08-14 by `daf2656`** - *"a one-off mutation that misses its anchor now refuses
     instead of passing"* - and **filed as open until 2026-08-22**, when a read of the backlog found

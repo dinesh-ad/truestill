@@ -32,6 +32,7 @@ from truestill_core.catalog_startup import (
     inspect_catalog,
     refuse_unusable_catalog,
 )
+from truestill_core.drive_unwritable import explain_unwritable_folder
 from truestill_core.selfcheck import is_complete, render, write_findings
 
 from truestill_app import parent_watch, session_link
@@ -149,15 +150,23 @@ def release_session_link(signum: int, _frame: object) -> None:
     signal.raise_signal(signum)
 
 
-def _attempt_browser(url: str, written: Path) -> None:
+def _attempt_browser(url: str, written: Path | None) -> None:
     """Open the app, and say where the address is when that fails.
 
     ``webbrowser.open`` returns ``False`` when it finds no browser at all - the ordinary case on
     a headless Linux box - and discarding that return value is what left a running app
     unreachable. When there is no console this message goes nowhere, which is precisely why the
     file is written first and why its location is fixed rather than announced.
+
+    ⚠ **``written`` is ``None`` when the file could not be written**, and then the address is
+    given directly. Pointing someone at a path that does not exist is the failure `(aey)` is
+    about - *not there* offered as though it were *there* - and it would have been introduced by
+    the very guard that stopped the launch crashing. `(aeo)`
     """
     if session_link.open_browser(url):
+        return
+    if written is None:
+        _say(f"Could not open a browser. The address is: {url}", error=True)
         return
     _say(f"Could not open a browser. The address is in {written}", error=True)
 
@@ -191,7 +200,7 @@ def bind_listening_socket(preferred: int) -> socket.socket | None:
     return None
 
 
-def open_when_ready(server: Any, url: str, written: Path) -> None:
+def open_when_ready(server: Any, url: str, written: Path | None) -> None:
     """Open the browser once ``server`` reports itself started, and not before or otherwise.
 
     **Not uvicorn's ASGI startup hook, which is not the guarantee it looks like.**
@@ -342,9 +351,30 @@ def main(argv: list[str] | None = None) -> int:
             signal.signal(terminating, release_session_link)
 
         # Before the browser is attempted, never after: a failed open must still leave a way in.
-        link = session_link.write(url)
-        launching.callback(session_link.clear)
-        if not link.private:
+        #
+        # ⚠ **DEGRADE, NEVER REFUSE, AND THE MODULE HAD ALREADY RULED THIS TWICE.** `(aeo)` left
+        # "stop the launch or degrade" undecided; `session_link`'s own docstring answers it -
+        # when a filesystem discards the mode the file is still written, because *"warning beats
+        # refusing"* - and `session_link.clear` is documented *"never raises: failing to clean up
+        # must not take the app down with it"*. A full or read-only home directory used to end
+        # the launch in an interpreter stack trace before anything was served. The server IS the
+        # product; this file is one of two ways in and the browser below is the other, so losing
+        # it costs a fallback, not the app.
+        link: session_link.SessionLink | None
+        try:
+            link = session_link.write(url)
+        except OSError as exc:
+            # §9: a sentence, never an errno, and the FOLDER wording rather than the drive's -
+            # there is no drive in this story and naming one sends the user after hardware.
+            link = None
+            _say(
+                f"Could not save the address to {session_link.path()}: "
+                f"{explain_unwritable_folder(exc)}. Truestill is still starting.",
+                error=True,
+            )
+        else:
+            launching.callback(session_link.clear)
+        if link is not None and not link.private:
             # A drive with no permission bits (FAT32, exFAT) discarded the mode. Said here as well
             # as in the file, because a user who is watching a console is exactly the one who can
             # still act on it before anyone else reads the token.
@@ -378,7 +408,12 @@ def main(argv: list[str] | None = None) -> int:
             )
         if not args.no_browser:
             threading.Thread(
-                target=open_when_ready, args=(server, url, link.path), daemon=True
+                # `None` when the write failed, so the fallback message below cannot send someone
+                # to a file that does not exist - which is the defect the guard above would
+                # otherwise have created. `(aeo)`
+                target=open_when_ready,
+                args=(server, url, link.path if link is not None else None),
+                daemon=True,
             ).start()
 
         # OWNERSHIP BOUNDARY - the line a refactor will move without realising what it means.

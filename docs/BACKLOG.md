@@ -147,10 +147,6 @@ is invisible here is retired, not free.**
   What remains is drive-to-drive when the source folder is gone or no longer matches the drive.
   ⚠ `backup_run` is app-side and the CLI cannot import it, so this is a **move to core**, never a
   second implementation. Recorded 2026-08-20. [Full entry](research/backlog/ael.md)
-- **(aeo) A FULL HOME DISK STOPS THE APP LAUNCHING, WITH A TRACEBACK.** `session_link.write` is
-  unguarded on the launch path (`session_link.py:131,143,148`). ⚠ Its `unlink` -> `touch(mode)` ->
-  `write_text` sequence is deliberate and each step is load-bearing; a repair must not simplify it
-  to make error handling tidier. Split from `(aek)` 2026-08-21. [Full entry](research/backlog/aeo.md)
 - **(aep) THE WRITE SIDE HAS NO `unreadable_label`.** A failed copy reads `cannot upload to '...':
   [Errno 13] ...` - backend vocabulary and a raw errno, both against §9, and the rule is stated
   eighteen lines above the `print` that breaks it. Reads have `models.unreadable_label`; writes

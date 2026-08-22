@@ -64,6 +64,12 @@ ALLOWED: dict[str, dict[str, str]] = {
         ),
     },
     "__main__.py": {
+        "explain_unwritable_folder": (
+            "a pure function of an `OSError` to one sentence - the same shape as "
+            "`catalog_unwritable_message` above, and imported for the same reason: the exception "
+            "is caught HERE, on the launch path, before any route exists to route it through. It "
+            "reads nothing, writes nothing and holds nothing; `(aeo)`"
+        ),
         "default_catalog_path": "resolves a path per call and returns it; opens nothing",
         "resolve_catalog_choice": (
             "the same resolution as `default_catalog_path`, returning WHY as well as where. "

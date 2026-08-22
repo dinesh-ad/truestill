@@ -1,6 +1,30 @@
 # (aeo) A FULL HOME DISK STOPS THE APP LAUNCHING, WITH A TRACEBACK.
 
-*Body of backlog entry `(aeo)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(aeo)`. **SHIPPED 2026-08-22.** The index is now [`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
+
+## HOW IT CLOSED, AND THE ANSWER TO "NOT DECIDED"
+
+**Degrade, and say why.** The question below - *"whether a failed session-link write should stop
+the launch or degrade"* - was already answered **twice inside `session_link` itself**: the module
+docstring rules that a filesystem which discards the mode still gets the file, because *"warning
+beats refusing"*, and `clear` is documented *"never raises: failing to clean up must not take the
+app down with it"*. The server **is** the product, and this file is one of two ways in.
+
+⚠ **The repair introduces a second defect if you stop there.** Once the write is guarded,
+`link.path` names a file that was never written - and the browser fallback said *"The address is
+in {path}"*. That is `(aey)`'s failure, *not there* offered as though it were *there*, created by
+the fix for something else. The address is now given directly when there is no file.
+**A mutation proved the `None` branch was never reached from `main`** until the test asserted the
+wiring rather than the renderer: written, unit-tested in isolation, and dead. §4's sixtieth member.
+
+⚠ **The sharp sequence is untouched, as this entry demanded**, and `write` still raises. Whether a
+failure is fatal is a **launch** decision, so the guard lives on the launch path; swallowing it
+inside `write` would have given that function a second, silent contract beside the privacy tests
+that assert against it.
+
+**The other "NOT DECIDED" - what a real full home disk does to the rest of startup - is still not
+measured.** `(aen)` covers the catalog half and is closed; nothing has run a launch against a
+genuinely full disk end to end, and this fix does not claim to.
 
 - **(aeo) `session_link.write` IS UNGUARDED ON THE LAUNCH PATH.** Split out of `(aek)` on
   2026-08-21 as the same class in a different feature.
