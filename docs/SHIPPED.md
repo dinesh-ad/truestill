@@ -22,6 +22,17 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(afh) THE STRONGER ACT GETS THE STRONGER WORD: `reclaim` NOW ASKS FOR `delete originals`.**
+  Shipped 2026-08-22. Measured from two real runs: `reclaim` removed 161 of the user's own
+  photographs behind **three lines and `delete`**, while `clean-empty --permanent` removed three
+  empty folders Truestill itself emptied behind **six lines and `delete forever`**. Neither was
+  untruthful; the ceremony was inverted relative to the stakes. Raised rather than levelled down,
+  because lowering the strong word is the cry-wolf failure the vocabulary exists to prevent. The
+  new confirmation states what is removed, that they are **originals and not spare copies**, that
+  they do not go to the trash, and that it cannot be undone. ⚠ **§1's trash condition (d) is
+  explicitly NOT extended to `reclaim`** - recorded as a ruling with its reason: trashing 117 GB of
+  originals is a second copy on the same filesystem, in a command whose purpose is to free it.
+  [Full entry](research/backlog/afh.md)
 - **(afd) A FAILURE LIST IS ONE FACT, NOT TWO THOUSAND.** Shipped 2026-08-22. Measured on the real
   library rather than carried from the soak: a destination denied after ten files gave **2,096
   `FAILED` lines on stderr carrying ONE reason**, beside a summary that already said

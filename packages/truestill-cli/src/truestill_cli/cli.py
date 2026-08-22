@@ -3987,9 +3987,24 @@ def _cmd_reclaim(args: argparse.Namespace) -> int:
             return 0
 
         gib = plan.total_bytes / 1e9
-        print(f"\nThis PERMANENTLY DELETES {n} source file(s), freeing {gib:.2f} GB.")
+        # ⚠ **THE STRONGEST AUTHORISATION IN THE PRODUCT, AND IT WAS THE WEAKEST UNTIL
+        # 2026-08-22.** This removes the user's own photographs, permanently; `clean-empty
+        # --permanent` removes folders Truestill itself emptied, after their junk went to the
+        # trash. Measured, the second had six lines and `delete forever` while this had three
+        # lines and `delete`. The ceremony was inverted relative to the stakes. `(afh)`
+        print(
+            f"\nThis deletes {n} ORIGINAL file(s) from this computer, freeing {gib:.2f} GB."
+            f"\n\n  These are your originals, not spare copies. Each one is deleted only after its"
+            f"\n  content is re-read on '{marker.label}' and matches - but once it is gone, that"
+            f"\n  drive is the only place it exists."
+            "\n\n  They do NOT go to the trash, and this CANNOT BE UNDONE."
+        )
+        # The phrase names WHAT IS LOST rather than that the loss is permanent. `delete forever`
+        # says "no way back", which a reclaim user is unlikely to doubt; what they may doubt is
+        # whether these are spares. It is also two words nobody types by habit, and it retires
+        # `delete` - the weakest-looking word in the product, guarding its strongest act.
         confirmed = _typed_confirmation(
-            "Type 'delete' to proceed (anything else aborts): ", "delete"
+            "\nType 'delete originals' to proceed (anything else aborts): ", "delete originals"
         )
         if confirmed is not True:
             print("Aborted -- nothing was deleted.")

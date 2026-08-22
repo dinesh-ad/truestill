@@ -81,3 +81,82 @@
     the files are irreplaceable in a way empty folders are not.
   - Whether `--min-copies 1` should be the default at all, given the run warns that 161 files
     *"would then exist in only ONE place"* immediately before deleting the second-to-last copy.
+
+  ---
+
+  # RULED AND FIXED 2026-08-22. The stronger act gets the stronger word.
+
+  ## The asymmetry, measured from two real runs rather than from the source
+
+  ```
+  RECLAIM - removes 161 of the user's own photographs, permanently
+    This PERMANENTLY DELETES 161 source file(s), freeing 0.30 GB.
+    Type 'delete' to proceed (anything else aborts):
+                                          3 lines, one word
+
+  CLEAN-EMPTY --permanent - removes 3 empty folders Truestill itself emptied
+    3 folder(s) will be removed.
+      3 are empty - nothing in them, so nothing to recover.
+    The folder itself is removed outright, not moved to the trash. Removal uses rmdir,
+    so a folder that is no longer empty when the removal runs is left alone and reported.
+    --permanent: where the trash refuses OR is unavailable, any OS junk in these folders
+    is removed OUTRIGHT and is NOT recoverable.
+    Type 'delete forever' to remove 3 folder(s):
+                                          6 lines, two words
+  ```
+
+  Neither was untruthful. The **ceremony was inverted relative to the stakes**, and the fix is to
+  raise `reclaim` rather than lower `clean-empty` - lowering the strong word is the cry-wolf
+  failure this vocabulary exists to prevent.
+
+  ## What `reclaim` says now
+
+  ```
+  This deletes 161 ORIGINAL file(s) from this computer, freeing 0.30 GB.
+
+    These are your originals, not spare copies. Each one is deleted only after its
+    content is re-read on 'drive' and matches - but once it is gone, that
+    drive is the only place it exists.
+
+    They do NOT go to the trash, and this CANNOT BE UNDONE.
+
+  Type 'delete originals' to proceed (anything else aborts):
+  ```
+
+  ## The typed word: `delete originals`, and why not `delete forever`
+
+  `delete forever` was the consistent choice and is **rejected on what it names**. It says *no way
+  back*, which a `reclaim` user is unlikely to doubt. What such a user may doubt is **whether these
+  are spares** - and the old wording, *"PERMANENTLY DELETES 161 source file(s)"*, never said
+  otherwise, because *"source file"* is the catalog's word for it rather than the user's.
+
+  `delete originals` names **what is lost** instead of that the loss is permanent. It is also two
+  words nobody types from habit, and it retires `delete` - the weakest-looking word in the product,
+  which was guarding its strongest act. The count of phrases is unchanged: `clean`,
+  `delete originals`, `delete forever`.
+
+  ⚠ **Pinned as a comparison, not as a sentence.** `test_reclaim_asks_for_at_least_as_much_as_clean_empty_permanent`
+  fails if `reclaim`'s ceremony is lowered *or* if the recoverable word ever becomes its ask, which
+  a test of either wording alone would not catch. And the retired word is pinned too: typing
+  `delete` out of habit now deletes nothing.
+
+  ## ⚠ §1's condition (d) is NOT extended to `reclaim` - a ruling, with the reason
+
+  Recorded in `IMPLEMENTATION_STANDARDS.md` §1 so it cannot be re-derived as an oversight.
+
+  Trashing the originals `reclaim` removes is **not recovery**. It is a second copy of the same
+  bytes on the same filesystem, in a command whose entire purpose is to free that filesystem.
+  Measured: the library is **117 GB across 55,110 files** on a 916 GB volume with 774 GB free. A
+  trashing `reclaim` would free **nothing** until the user emptied the trash, and on a fuller disk
+  it would fail outright at the point of maximum need.
+
+  **(d) protects contents that have nowhere else to be.** A reclaimed original has, by
+  construction, been re-read and matched on another drive moments before - which is the strongest
+  gate in the product and the thing that makes deleting it defensible at all.
+
+  ## NOT DECIDED, still
+
+  - **Whether `--min-copies 1` should be the default.** The run warns that N files *"would then
+    exist in only ONE place"* immediately before deleting the second-to-last copy. Raising the
+    default would make that warning unreachable, which is either a fix or a feature removal
+    depending on what a user wants `reclaim` for.

@@ -1,4 +1,4 @@
-"""`truestill reclaim`: connected-drive required, dry-run default, typed 'delete' confirmation."""
+"""`truestill reclaim`: connected-drive required, dry-run default, a typed confirmation."""
 
 from __future__ import annotations
 
@@ -101,7 +101,7 @@ def test_reclaim_apply_deletes_on_confirmation(
     source = tmp_path / "src" / "a.jpg"
     _seed(db, drive, source)
 
-    monkeypatch.setattr("builtins.input", lambda _prompt: "delete")
+    monkeypatch.setattr("builtins.input", lambda _prompt: "delete originals")
     assert main(["reclaim", str(drive), "--db", str(db), "--apply"]) == 0
     assert not source.exists()  # confirmed -> source freed
     assert (drive / "Camera/a.jpg").exists()  # backup copy untouched
@@ -138,3 +138,78 @@ def test_reclaim_empty_plan_reads_as_calm(
     assert "Preview only" not in captured.out
     assert "recorded source" not in captured.err
     assert "error" not in captured.out.lower()
+
+
+def test_the_old_weaker_word_no_longer_authorises_anything(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """⚠ `delete` guarded the strongest act in the product and was its weakest word. `(afh)`
+
+    Measured 2026-08-22: this asked for `delete` behind one line of warning, while
+    `clean-empty --permanent` asked for `delete forever` behind six - and the second removes
+    folders truestill itself emptied, after their junk had gone to the trash. The ceremony was
+    inverted relative to the stakes, so the word was raised rather than the other lowered.
+
+    A user who typed the old word out of habit must not have it accepted.
+    """
+    drive, db = tmp_path / "drive", tmp_path / "c.sqlite"
+    drive.mkdir()
+    source = tmp_path / "src" / "a.jpg"
+    _seed(db, drive, source)
+
+    monkeypatch.setattr("builtins.input", lambda _prompt: "delete")
+    assert main(["reclaim", str(drive), "--db", str(db), "--apply"]) == 0
+    assert source.exists(), "the retired word still deleted the user's original"
+
+
+def test_the_confirmation_says_what_is_lost_and_that_it_cannot_be_undone(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Three claims, each of which a user could otherwise get wrong.
+
+    That these are ORIGINALS is the one that matters: a reader who believes reclaim removes spare
+    copies has misunderstood the whole feature, and the previous wording - *"PERMANENTLY DELETES
+    161 source file(s)"* - never said otherwise. "source file" is the catalog's word for it.
+    """
+    drive, db = tmp_path / "drive", tmp_path / "c.sqlite"
+    drive.mkdir()
+    _seed(db, drive, tmp_path / "src" / "a.jpg")
+
+    monkeypatch.setattr("builtins.input", lambda _prompt: "no")
+    main(["reclaim", str(drive), "--db", str(db), "--apply"])
+
+    out = capsys.readouterr().out
+    assert "ORIGINAL" in out
+    assert "not spare copies" in out
+    assert "CANNOT BE UNDONE" in out
+    assert "do NOT go to the trash" in out
+
+
+def test_reclaim_asks_for_at_least_as_much_as_clean_empty_permanent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """⚠ The property, rather than the wording: the stronger act may not ask for less.
+
+    Pinned as a comparison so that lowering reclaim's ceremony, or raising `clean-empty`'s past
+    it, both fail here - which a test of either sentence alone would not catch.
+    """
+    drive, db = tmp_path / "drive", tmp_path / "c.sqlite"
+    drive.mkdir()
+    _seed(db, drive, tmp_path / "src" / "a.jpg")
+
+    asked: list[str] = []
+
+    def record(prompt: str) -> str:
+        # ⚠ The prompt reaches the user through `input`, not `print`, so `capsys` never sees it.
+        # A test that read stdout would assert against a string the product does not put there.
+        asked.append(prompt)
+        return "no"
+
+    monkeypatch.setattr("builtins.input", record)
+    main(["reclaim", str(drive), "--db", str(db), "--apply"])
+
+    assert asked, "no confirmation was asked for at all"
+    assert "delete originals" in asked[-1]
+    # `clean` is the recoverable word and must never be what this act asks for.
+    assert "'clean'" not in asked[-1]
+    assert capsys.readouterr()

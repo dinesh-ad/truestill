@@ -118,15 +118,6 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(afh) THE CEREMONY IS INVERTED RELATIVE TO THE STAKES: DELETING PHOTOS IS EASIER THAN
-  DELETING EMPTY FOLDERS.** Found by **soak four, D2**, 2026-08-22. `reclaim` removes the user's
-  originals with `unlink` - measured, nothing in any trash - behind the typed word `delete` and
-  one line of warning. `clean-empty --permanent` removes folders the product itself emptied behind
-  `delete forever`, three lines of capitals and `rmdir` semantics. ⚠ **Not a truthfulness defect**
-  - both describe themselves accurately - and **not a rule violation**: §1's trash condition **(d)**
-  sits inside the folder-removal paragraph and is scoped to `clean-empty`. The question is whether
-  it was ever meant to be. Four options recorded, no recommendation. Found 2026-08-22.
-  [Full entry](research/backlog/afh.md)
 - **(afg) THE DOWNLOAD PAGE HAS NO HOME, AND `truestill.app` EXISTS ONLY IN CONVERSATION.** The
   domain is bought; **nothing about it is in this repository** - `grep -ri truestill.app` matches
   only the package identifiers. D9 binds a requirement to a page that does not exist: *"Windows

@@ -16,6 +16,22 @@ Paths are workspace-relative. Symbols are cited over line numbers, which drift.
 | **Original quality is the top priority.** Media pixels are never re-encoded. | The pipeline only copies bytes; the sole content write is metadata-only (see below). |
 | **Copy-only - never move or delete user files, except the scoped, opt-in exceptions below.** | `organizer.execute` uploads via `LocalDestination.upload` (`shutil.copy2`) / `RcloneDestination.upload` (`rclone copyto`). `rclone` uses `copyto`, never `sync`. The only code paths that remove a source from where the user left it are `organizer._move_source` (`--move`), `reclaim.run_reclaim` (`truestill reclaim`), and the rename path `LocalDestination.adopt` (`--in-place`) - all scoped exactly like the Takeout write path (below). |
 
+**⚠ Condition (d) is NOT extended to `reclaim`, and that is a ruling rather than an omission**
+(2026-08-22, `(afh)`). Trashing the originals `reclaim` removes is not recovery - it is a second
+copy of the same bytes on the same filesystem, in a command whose entire purpose is to free that
+filesystem. Measured on this machine: the library is **117 GB across 55,110 files** on a 916 GB
+volume with 774 GB free. A `reclaim` that trashed instead of deleting would free **nothing** until
+the user emptied the trash, and on a fuller disk it would fail outright at the point of maximum
+need. **(d) protects contents that have nowhere else to be; a reclaimed original has, by
+construction, been re-read and matched on another drive moments before.**
+
+What `reclaim` gets instead is the **authorisation**, and it now asks for more than any other path
+in the product: `delete originals`, behind a statement of what is removed, that they are originals
+rather than spare copies, that they do not go to the trash, and that it cannot be undone.
+⚠ **Until 2026-08-22 it asked for `delete` behind one line**, while `clean-empty --permanent` asked
+for `delete forever` behind six - so the weakest word in the product guarded its strongest act.
+The rule is that **ceremony tracks stakes, not implementation difficulty.**
+
 **Rollback of an unrecorded copy (`organizer._roll_back_unrecorded_copy`), the only path that
 deletes a file at the DESTINATION.** When a catalog write fails permanently, the copy just made
 is removed so the run leaves nothing on the drive without a catalog row. Four conditions, and all

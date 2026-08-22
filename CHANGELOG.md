@@ -7,6 +7,12 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **`truestill reclaim` now asks you to type `delete originals`, and tells you what that means.**
+  It deletes your original photos after checking their contents against your backup drive, and it
+  used to ask for the word `delete` behind a single line of warning - less ceremony than removing
+  an empty folder. It now says plainly that these are your originals rather than spare copies,
+  that they do not go to the trash, and that it cannot be undone. Typing the old word no longer
+  does anything.
 - **A run that cannot write to your drive no longer prints thousands of near-identical lines.**
   Organizing 2,110 photos to a folder Truestill could not write to used to print **2,096 failure
   lines**, all saying the same thing, next to a summary that had already told you the number. It
