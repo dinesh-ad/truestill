@@ -767,7 +767,7 @@ def read_marker(root: Path) -> DriveMarker | None:
         return None
     try:
         data = json.loads(found.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+    except OSError, json.JSONDecodeError, UnicodeDecodeError:
         return None
     if not isinstance(data, dict):
         return None

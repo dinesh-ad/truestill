@@ -74,7 +74,7 @@ def _failures_in(xml: Path) -> set[str]:
     """`file::test` for every case that failed or errored. A skip is not a failure."""
     try:
         root = ET.parse(xml).getroot()
-    except (ET.ParseError, OSError):
+    except ET.ParseError, OSError:
         return set()
     named: set[str] = set()
     for case in root.iter("testcase"):
@@ -95,7 +95,7 @@ def _durations_in(xml: Path) -> dict[str, float]:
     """
     try:
         root = ET.parse(xml).getroot()
-    except (ET.ParseError, OSError):
+    except ET.ParseError, OSError:
         return {}
     timed: dict[str, float] = {}
     for case in root.iter("testcase"):

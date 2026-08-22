@@ -154,7 +154,7 @@ class HashCache:
                 )
             }
             self._conn = conn
-        except (sqlite3.Error, OSError, ValueError):
+        except sqlite3.Error, OSError, ValueError:
             # A cache that cannot be read is simply a cache that misses.
             self._conn = None
             self._rows = {}

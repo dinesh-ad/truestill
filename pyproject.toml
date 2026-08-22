@@ -70,12 +70,13 @@ dev = [
 # --- Ruff (lint + format), applied repo-wide ------------------------------------------
 [tool.ruff]
 line-length = 100
-# ⚠ DELIBERATELY ONE VERSION BEHIND `requires-python`, and only until the next step. Moving this
-# to `py314` makes `ruff format` adopt PEP 758 - `except A, B:` without parentheses - and rewrite
-# **25 files** into syntax that is a `SyntaxError` on 3.13. That is a language migration, not a
-# floor bump: bundling it here would make this commit unrevertible, because reverting the floor
-# would leave 25 files that do not parse. It gets its own step and its own commit.
-target-version = "py313"
+# Matches `requires-python`. ⚠ **It said `py313` until 2026-08-22, deliberately**: moving it makes
+# `ruff format` adopt PEP 758 - `except A, B:` without parentheses - and rewrite files into syntax
+# that is a `SyntaxError` on 3.13. That was held back so the floor bump stayed revertible, because
+# reverting the floor with the rewrite bundled in would have left files that do not parse. The
+# floor has since landed and run green on all three platforms, so the reason to defer is spent and
+# this is the separate commit it was promised.
+target-version = "py314"
 
 [tool.ruff.lint]
 select = [

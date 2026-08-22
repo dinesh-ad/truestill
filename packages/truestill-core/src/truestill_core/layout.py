@@ -618,7 +618,7 @@ def normalize_everyday_day_threshold(value: object) -> int:
         return DEFAULT_EVERYDAY_DAY_THRESHOLD
     try:
         number = int(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return DEFAULT_EVERYDAY_DAY_THRESHOLD
     return number if number >= 1 else DEFAULT_EVERYDAY_DAY_THRESHOLD
 

@@ -242,7 +242,7 @@ def pending_staging(destination: Path) -> list[StagingRecord]:
     for journal in sorted(root.glob("*.json")):
         try:
             payload = json.loads(journal.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+        except OSError, json.JSONDecodeError:
             continue
         records.append(
             StagingRecord(

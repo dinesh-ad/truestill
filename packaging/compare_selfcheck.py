@@ -66,7 +66,7 @@ def _is_selfcheck(path: Path) -> bool:
     """Whether this file claims to be an artifact's self-check at all - used only for counting."""
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except OSError, json.JSONDecodeError:
         return True
     kind = payload.get("kind")
     return kind is None or kind == "selfcheck"

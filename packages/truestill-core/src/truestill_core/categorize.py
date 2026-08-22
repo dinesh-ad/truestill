@@ -454,7 +454,7 @@ def _dimensions(metadata: dict[str, Any]) -> tuple[int, int] | None:
     try:
         width = int(metadata["ImageWidth"])
         height = int(metadata["ImageHeight"])
-    except (KeyError, TypeError, ValueError):
+    except KeyError, TypeError, ValueError:
         return None
     if width <= 0 or height <= 0:
         return None

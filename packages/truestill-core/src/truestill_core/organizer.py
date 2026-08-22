@@ -1385,7 +1385,7 @@ def _move_source(
     """
     try:
         verified = destination.checksum(final_relative) == copy_sha
-    except (DestinationError, OSError):
+    except DestinationError, OSError:
         return ActionStatus.MOVE_KEPT, "could not verify destination copy -- source kept"
     if not verified:
         return ActionStatus.MOVE_KEPT, "destination copy failed re-verification -- source kept"

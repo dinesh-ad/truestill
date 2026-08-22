@@ -236,7 +236,7 @@ def inspect_archive_set(
                     encrypted.append(name)
                 if max_file_bytes is not None and size > max_file_bytes:
                     oversized.append((name, size))
-        except (zipfile.BadZipFile, tarfile.TarError, OSError):
+        except zipfile.BadZipFile, tarfile.TarError, OSError:
             # A part that cannot be opened is a finding, not an exception to propagate: the
             # caller is reporting on a set and needs to name which member is unusable.
             unreadable.append(part.path.name)

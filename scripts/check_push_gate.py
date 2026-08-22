@@ -58,7 +58,7 @@ def _gh(*args: str) -> str | None:
         result = subprocess.run(
             ["gh", *args], capture_output=True, text=True, check=False, timeout=20
         )
-    except (OSError, subprocess.SubprocessError):
+    except OSError, subprocess.SubprocessError:
         return None
     return result.stdout if result.returncode == 0 else None
 
@@ -77,7 +77,7 @@ def _upstream_sha() -> str | None:
             check=False,
             timeout=10,
         )
-    except (OSError, subprocess.SubprocessError):
+    except OSError, subprocess.SubprocessError:
         return None
     return result.stdout.strip() or None if result.returncode == 0 else None
 

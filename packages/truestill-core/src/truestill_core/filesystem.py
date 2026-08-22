@@ -108,7 +108,7 @@ def parse_proc_mounts(contents: str, target: Path) -> str | None:
                 depth = len(mount_path.parts)
                 if best is None or depth > best[0]:
                     best = (depth, fstype)
-        except (OSError, ValueError):  # pragma: no cover - malformed mount line
+        except OSError, ValueError:  # pragma: no cover - malformed mount line
             continue
     return best[1] if best else None
 
