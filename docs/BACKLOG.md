@@ -233,8 +233,12 @@ is invisible here is retired, not free.**
   Recorded 2026-08-09. [Full entry](research/backlog/acg.md)
 - **(ach) `ApplyReport.skipped_newer_locally` carries two meanings that need opposite words.**
   Recorded 2026-08-09. [Full entry](research/backlog/ach.md)
-- **(acc) A decisions document on a drive would be found by nothing that currently looks.**
-  Recorded 2026-08-09. [Full entry](research/backlog/acc.md)
+- **(acc) `write_decisions` exists with ZERO CALLERS, so no decisions document has ever been
+  written.** ⚠ **Retitled 2026-08-22**: the old title asked about *finding* one, which understates
+  it - nothing writes one either. The file format is built, atomic and tested; **the write trigger
+  is not**, nor is the first-run-after-upgrade write aimed at the user most at risk. Corrected in
+  the entry 2026-08-09 after *"Stages 1-3 landed"* proved to be half of Stage 3. Recorded
+  2026-08-09. [Full entry](research/backlog/acc.md)
 - **(aca) The app and the CLI disagree about when an organize run needs confirming.** [Full
   entry](research/backlog/aca.md)
 - **(aby) Organize screen: copy that repeats itself or explains its own button.** [Full
@@ -257,8 +261,11 @@ is invisible here is retired, not free.**
   2026-08-07. [Full entry](research/backlog/abn.md)
 - **(abd) ONE CATALOG OR MANY - the question is unanswered, and it may be the wrong default.**
   Recorded 2026-08-05. [Full entry](research/backlog/abd.md)
-- **(abe) CLI-organized files were invisible to custody, and pre-existing rows are not repaired.**
-  Recorded 2026-08-05. [Full entry](research/backlog/abe.md)
+- **(abe) CLI custody was fixed forward the same day; REPAIRING PRE-EXISTING ROWS IS THE OPEN
+  HALF.** ⚠ **Retitled 2026-08-22** so the built half is not read as pending:
+  `cli._register_destination` landed 2026-08-05 in `a0091cf`, gated on `--apply`. Rows written
+  **before** that still carry no copy row, so they stay outside custody and invisible to
+  `verify`, `status` and `where`. Recorded 2026-08-05. [Full entry](research/backlog/abe.md)
 - **(abf) A fix does not retroactively clean what it prevented.** Recorded 2026-08-05. [Full
   entry](research/backlog/abf.md)
 - **(abg) The reassured state has no notion of staleness - "Schrodinger's backup".** 📌 **read the
@@ -310,7 +317,13 @@ is invisible here is retired, not free.**
   already correct - record only, do not build. Overlaps `(m)`. [Full entry](research/backlog/aag.md)
 - **(aad) Desktop installers - LAUNCH-BLOCKING for the paid product.** [Full
   entry](research/backlog/aad.md)
-- **(aac) Organize must name and count unreadable source files the way verify does.** [Full
+- **(aac) Organize names unreadable source files; ONE RESIDUE REMAINS, and it is app-side.**
+  ⚠ **Retitled 2026-08-22 - the bare title read as a whole unbuilt feature and two thirds is
+  built.** Scan tier and residue 1: built 2026-08-02. **Residue 3 closed by `(aev)` on 2026-08-21**
+  and nobody connected them - `FileHashes.perceptual_computed` plus `uncompared_photos` are exactly
+  the *"readable but undecodable is indistinguishable from a video"* distinction it asked for.
+  **What is left is residue 2 alone**: `unreadable_files` is built in `organize_preview` only, so
+  the app's **run** completion cannot name a file the CLI names. [Full
   entry](research/backlog/aac.md)
 - **(vv) Known limit: app per-drive job lock is process-local; CLI↔app overlap is not serialized.**
   Recorded 2026-07-29. [Full entry](research/backlog/vv.md)
@@ -318,8 +331,11 @@ is invisible here is retired, not free.**
   [Full entry](research/backlog/ss.md)
 - **(xx) Absolute-path columns and hash-cache keys are not machine-portable.** [Full
   entry](research/backlog/xx.md)
-- **(aap) Registering a folder must not mint a second identity for a library already known.** [Full
-  entry](research/backlog/aap.md)
+- **(aap) Registering a folder does not mint a second identity - BUILT 2026-08-02, ONE SURFACE
+  LEFT.** ⚠ **Retitled 2026-08-22.** The row sat under *"still to build"* while the entry's own
+  first line said **BUILT 2026-08-02**; the guard that prevents the loss is shipped on the CLI.
+  What remains is deliberate and named in the entry: **the app has no register screen**, so the
+  protection has no app-side surface. [Full entry](research/backlog/aap.md)
 - **(bbb) exiftool `_original` backups.** Mostly BUILT - safety 2026-07-30, recovery 2026-07-31;
   recovery item 4 is the PARTIAL remainder. [Full entry](research/backlog/bbb.md)
 - **(nn) Prove destination timestamp parity against a live rclone remote.** [Full

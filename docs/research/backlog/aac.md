@@ -64,6 +64,12 @@
     the design that was accepted. The CLI reports on both. An unreadable file that was never
     copied - a cached exact duplicate - therefore has no app-side surface on a run, though the
     CLI names it.
+  - ✅ **RESIDUE 3 CLOSED 2026-08-21 BY `(aev)`, recorded here 2026-08-22.** Its ask - *"a file
+    that is readable but undecodable still returns `None` and is still indistinguishable from a
+    video that never had a hash"* - is exactly what `FileHashes.perceptual_computed` now answers,
+    and `uncompared_photos` counts and names them in every report. ⚠ **Neither entry cites the
+    other**: `(aev)` was raised by soak two over Pillow warnings and arrived at this residue from
+    the other side, so the closure went unrecorded for a day. The original text follows, unedited.
   - **RESIDUE 3, and what changed about it: the perceptual tier's overloaded `None`.** Recorded
     2026-08-02 while verifying a proposed HEIC feature that turned out not to exist.
     `perceptual_hash` returns `None` and discards the reason, so one sentinel carried four
