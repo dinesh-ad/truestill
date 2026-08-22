@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(afw). Next free: (afx).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(afx). Next free: (afy).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -118,6 +118,18 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
+- **(afx) THE BROWSER LANE HAS GROWN INTO ITS OWN CEILING: 1996.21 s AGAINST 2000.** Measured
+  2026-08-22 on the full local run - **3.79 s of headroom, 0.19%** - so the next browser test
+  added breaches it. 🔑 **Do NOT raise the ceiling**: a bound raised to fit its subject measures
+  nothing, and this one is doing its job by reporting before rather than after.
+  ⚠ **The defect is the ASYMMETRY, not the number.** CI overrides to **3600** (`ci.yml:542`), so
+  CI stays green while `make e2e` fails locally - and local is what a person runs before
+  committing, so **the red lands on whoever is doing the right thing** and the person who skips
+  the lane sees nothing. ⚠ **It is `(aec)`'s bill**: 62 waits across 20 files, re-counted 2026-08-22
+  and unchanged, whose total nobody was watching once the lane went nightly. ⚠ And the ceiling
+  times **pytest only** - `make frontend` runs outside it, and `(aee)` measured 43% of a CI lane
+  outside what it can see. `pytest-xdist` is the obvious lever and is deliberately **not**
+  proposed: this suite protects a UI `(adi)` is replacing. [Full entry](research/backlog/afx.md)
 - **(afw) THE OTHER FOUR MUTATING APP RUNS WRITE NO RECORD, AND ONLY ONE OF THEM COULD TODAY.**
   Recorded 2026-08-22, split out of `(afu)` **before** it was built. §1 says *"a run that changes
   the library writes down what it did"* - **a run**, not an organize. ⚠ **Organize is the only app

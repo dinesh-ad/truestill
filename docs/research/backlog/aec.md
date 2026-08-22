@@ -5,6 +5,13 @@
 - **(aec) 62 FIXED WAITS IN THE BROWSER LANE, EACH ONE A COIN TOSS AGAINST A MEASURED LATENCY.**
   Recorded 2026-08-19, out of the CI failure that closed `(ado)`'s third repeat. **One was fixed;
   the class was not**, and filing it is the honest half of that.
+  - ⚠ ✅ **WHAT THE 62 ADD UP TO IS `(afx)`, MEASURED 2026-08-22.** The full local lane ran
+    **1996.21 s against a 2000 s ceiling** - **3.79 s of headroom** - so this entry stopped being
+    only about flake risk and became the reason the lane is at its bound. **The census has not
+    moved**: re-counted the same day, still exactly **62 across 20 files**. ⚠ **And nobody was
+    watching the total for a structural reason** - the lane went nightly on 2026-08-22, so its
+    duration stopped crossing anyone's desk on a push. `(afx)` carries the ceiling, the
+    CI-versus-local asymmetry, and the ruling it needs; this entry stays the census.
   - **The census**, counted rather than estimated: **62 `wait_for_timeout` calls across 20 files**
     in `tests/e2e/`. Most-loaded files: `test_sidebar_stays_put.py`, `test_screen_pass_2026_08.py`
     and `test_large_viewports.py` at 6 each, `test_palette_and_resting_panel.py` at 5, then four
