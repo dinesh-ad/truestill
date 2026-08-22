@@ -66,10 +66,34 @@ from typing import Self
 from truestill_core.app_paths import lock_path_for
 from truestill_core.drive import drive_identity
 
+# ⚠ **The primitive is defined per platform, not chosen inside one function**, and that is a
+# type-checking fact rather than a style choice. `mypy` narrows `sys.platform` and analyses only
+# the branch that matches the host, so a module that imports `fcntl` in an `else` and mentions it
+# anywhere fails on Windows with *"Name `fcntl` is not defined"* - which the Windows lane caught
+# and a Linux `make check` cannot. Defining the functions inside each branch keeps every
+# reference next to its own import.
 if sys.platform == "win32":  # pragma: no cover - exercised on the Windows lane only
     import msvcrt
+
+    def _take(fd: int) -> None:
+        """Claim ``fd`` exclusively without waiting. Raises ``OSError`` when someone holds it."""
+        msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+
+    def _give_up(fd: int) -> None:
+        """Release ``fd``'s claim. Closing it would do this too; the pair stays legible."""
+        os.lseek(fd, 0, os.SEEK_SET)
+        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+
 else:
     import fcntl
+
+    def _take(fd: int) -> None:
+        """Claim ``fd`` exclusively without waiting. Raises ``OSError`` when someone holds it."""
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+    def _give_up(fd: int) -> None:
+        """Release ``fd``'s claim. Closing it would do this too; the pair stays legible."""
+        fcntl.flock(fd, fcntl.LOCK_UN)
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,23 +221,6 @@ class DriveLock:
         tb: TracebackType | None,
     ) -> None:
         self.release()
-
-
-def _take(fd: int) -> None:
-    """Claim ``fd`` exclusively without waiting. Raises ``OSError`` when someone else holds it."""
-    if sys.platform == "win32":  # pragma: no cover - Windows lane
-        msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
-        return
-    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-
-
-def _give_up(fd: int) -> None:
-    """Release ``fd``'s claim. Closing it would do this too; being explicit keeps the pair legible."""
-    if sys.platform == "win32":  # pragma: no cover - Windows lane
-        os.lseek(fd, 0, os.SEEK_SET)
-        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
-        return
-    fcntl.flock(fd, fcntl.LOCK_UN)
 
 
 def lock_for(root: Path, *, operation: str) -> DriveLock:
