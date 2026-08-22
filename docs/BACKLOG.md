@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(afk). Next free: (afl).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(afm). Next free: (afn).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -142,15 +142,22 @@ is invisible here is retired, not free.**
   mechanism is **not isolated**. It did not block the upgrade because a near-duplicate is kept and
   flagged, never removed - the effect is one extra row in a review list, and exact dedup was
   identical in all four runs. Found 2026-08-22. [Full entry](research/backlog/aff.md)
-- **(afd) THE ONE UNCAPPED LIST IN THE PRODUCT IS THE FAILURE LIST, AND IT PRINTS RAW `OSError`
-  TEXT.** ⚠ **Confirmed in a second command by soak four D6, 2026-08-22**: `clean-empty`'s failure
-  list is the same shape and additionally leaks a Python `bytes` repr
-  (`b'/data/.Trash-1000/info/...'`), so the remedy is not one list's formatting. A destination that refused after preflight produced **233 `FAILED` lines and 2,004 lines
-  of output**, each carrying `[Errno 13] Permission denied: '<src>' -> '<dst>.partial'`.
-  `_STATUS_PREVIEW` caps **16** other lists in the same file; the one that generates a line per
-  remaining file is not capped. ⚠ Every safety property held - catalog matched disk exactly, a
-  re-run resumed, full §1 accounting - so this is wording and volume, not corruption. Found
-  2026-08-21 by **soak three R3**. [Full entry](research/backlog/afd.md)
+- **(afl) THE PRODUCT HAS NO VERBOSITY CONTROL AT ALL - NO `--verbose`, NO `-q`, NO LEVELS.**
+  Found while fixing `(afd)`, 2026-08-22. ⚠ **Not a missing flag - a missing dimension**, and the
+  reason two entries have nowhere to put what they must not print: `(afd)` could not demote a raw
+  `OSError` to verbose because verbose does not exist, and `(aep)` has the same problem with an
+  errno. Against clig.dev's `-q/--quiet` and `-d/--debug`, and .NET's five named levels
+  (quiet/minimal/normal/detailed/diagnostic). ⚠ clig warns `-v` is ambiguous with `--version`,
+  which this CLI has. The real work is what each level *contains*, per call site.
+  [Full entry](research/backlog/afl.md)
+- **(afm) UNCAPPED PER-ITEM LISTS ARE THE RULE, NOT THE EXCEPTION - AND THE BIGGEST FIRES ON
+  SUCCESS.** Split out of `(afd)` 2026-08-22, whose title claimed the failure list was the only
+  one. Measured: an ordinary **successful** organize of 2,110 real files printed **15,128 lines**,
+  of which the `NEW UNIQUE` block alone was **15,082** - 7.5x the entire output `(afd)` was filed
+  over. An `ast` scan finds 49 uncapped print-loops; most are bounded by construction, **five
+  scale with the corpus** and are named in the entry. ⚠ **Not just "apply the cap five more
+  times"**: `(afd)`'s list repeated one fact, the preview repeats a different fact each time and
+  capping it hides decisions rather than noise. [Full entry](research/backlog/afm.md)
 - **(afa) A PATH THE PRODUCT KNOWS WAS REFUSED IS STILL NOT REPORTED TO ANYONE.** After `(aey)`,
   `date_rescue` and `drive_adoption` branch on `Reach.REFUSED` explicitly and then say nothing -
   a limitation became a decision, and the decision is silence. ⚠ **`(aer)`'s shape, third

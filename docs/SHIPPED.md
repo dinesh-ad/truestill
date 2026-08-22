@@ -22,6 +22,19 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(afd) A FAILURE LIST IS ONE FACT, NOT TWO THOUSAND.** Shipped 2026-08-22. Measured on the real
+  library rather than carried from the soak: a destination denied after ten files gave **2,096
+  `FAILED` lines on stderr carrying ONE reason**, beside a summary that already said
+  `2096  failed`. Now **25 stderr lines**: 20 named, then *"... and 2,074 more FAILED (all the same
+  reason)"* - and *"N distinct reasons in total"* when the tail is mixed, which is the half that
+  makes eliding safe. Capped with the existing `_STATUS_PREVIEW`, whose comment claimed it was
+  `status`'s while six sites shared it. ⚠ **The stream was never the defect**: clig.dev puts errors
+  on stderr on purpose, and *"don't treat stderr like a log file"* is what 2,096 lines violated -
+  which is also why `> log.txt` never helped. A pager was **considered and rejected** (organize
+  runs non-interactively; clig's own caveat). `MOVE KEPT` shares the fix; ⚠ its worst case stays
+  **unmeasured**. Wording stayed with `(aep)`; `--verbose` did not exist to use, which is `(afl)`;
+  the title's "one uncapped list" claim was falsified and split to `(afm)`.
+  [Full entry](research/backlog/afd.md)
 - **(afi) `clean-empty` SEES WHAT AN IN-PLACE ORGANIZE EMPTIED, AND THE RUN SAYS SO.** Shipped
   2026-08-22. `migrated_old_paths` read `migration_journal` alone; `organize --in-place` writes
   `inplace_moves`, so the mode that leaves the most behind was the one whose leftovers nothing

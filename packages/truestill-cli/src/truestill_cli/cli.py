@@ -230,7 +230,10 @@ _PINNED_NOTICE = (
     "review the layout and available presets; after choosing another, preview "
     "`truestill migrate-layout` before moving existing files."
 )
-_STATUS_PREVIEW = 20  # how many single-copy files `truestill status` lists before eliding
+#: How many items any capped list names before eliding the rest. ⚠ **Six sites share it**, so
+#: it is not `status`'s - it was documented as that until 2026-08-22 while five other lists
+#: already borrowed it, which is how a shared constant reads as one command's setting.
+_STATUS_PREVIEW = 20
 
 #: Exit code for "another process holds the catalog; nothing to fix, try again shortly".
 #:
@@ -2235,6 +2238,61 @@ def _print_mechanism_split(results: list[ActionResult]) -> None:
         print("  Reverse this run with: truestill undo-organize")
 
 
+#: Quoted fragments in a failure detail are the per-file parts - the source path, the destination
+#: path. Removing them leaves the REASON, which is what a reader needs counted.
+_QUOTED = re.compile(r"""(['"]).*?\1""")
+
+
+def _reason_key(detail: str) -> str:
+    """A detail with its per-file parts removed, so identical failures collapse to one reason.
+
+    ⚠ **An approximation over a string, and it is one because `detail` is a string.** Measured
+    2026-08-22: 2,096 failures from one refused destination carry 2,096 *distinct* details,
+    because each names its own source and target - so counting them verbatim would report 2,096
+    reasons for one fact. Stripping quoted fragments collapses them correctly and keeps genuinely
+    different causes apart, because the part that differs between `[Errno 13]` and `[Errno 28]`
+    is not quoted.
+
+    **The exact key belongs to `(aep)`**, which asks whether `detail` should be structured rather
+    than free text. Until it is, this is text normalisation and is labelled as such rather than
+    presented as a taxonomy.
+    """
+    return " ".join(_QUOTED.sub("", detail).split())
+
+
+def _print_capped(results: list[ActionResult], *, label: str) -> None:
+    """Name the first `_STATUS_PREVIEW` results, then say how many more and how many reasons.
+
+    ⚠ **Both of these lists were uncapped until 2026-08-22, and this is one fix for two sites**
+    because they were the same six lines twice. Measured on a real library: a destination that
+    refused after ten files produced **2,096 `FAILED` lines from ONE reason** - a fact printed
+    2,096 times, next to an `EXECUTED` summary that already said `2096  failed`. `(afd)`
+
+    **On `stderr`, and it stays there.** clig.dev is explicit that errors and messaging belong on
+    `stderr` - moving a failure report to `stdout` would feed it into whatever the user piped the
+    run into. What clig also says is *"don't treat `stderr` like a log file, at least not by
+    default"*, and 2,096 lines is exactly that. **The stream was never the defect; the volume
+    was**, which is why `organize ... > log.txt` did not help: the flood was on the other stream.
+    """
+    if not results:
+        return
+    for result in results[:_STATUS_PREVIEW]:
+        print(
+            f"  {label}: {result.resolution.decision.source.name}: {result.detail}",
+            file=sys.stderr,
+        )
+    if len(results) <= _STATUS_PREVIEW:
+        return
+    reasons = len({_reason_key(r.detail or "") for r in results})
+    # "all the same reason" is the common case and the one worth saying plainly; a mixed tail
+    # needs its own count or the elision hides that the failures were not one fact.
+    tail = "all the same reason" if reasons == 1 else f"{reasons} distinct reasons in total"
+    print(
+        f"  ... and {len(results) - _STATUS_PREVIEW:,} more {label} ({tail}).",
+        file=sys.stderr,
+    )
+
+
 def _print_execution(results: list[ActionResult]) -> int:
     # Human wording, shared with the app: 'uploaded' is backend vocabulary for an event
     # that did not happen on a local disk, and never reaches a user.
@@ -2247,16 +2305,9 @@ def _print_execution(results: list[ActionResult]) -> int:
     _print_duplicate_origins((r.resolution for r in results), indent="           ")
     _print_mechanism_split(results)
 
-    kept = [r for r in results if r.status is ActionStatus.MOVE_KEPT]
-    for k in kept:
-        print(f"  MOVE KEPT: {k.resolution.decision.source.name}: {k.detail}", file=sys.stderr)
-
+    _print_capped([r for r in results if r.status is ActionStatus.MOVE_KEPT], label="MOVE KEPT")
     failures = [r for r in results if r.status is ActionStatus.FAILED]
-    for failure in failures:
-        print(
-            f"  FAILED: {failure.resolution.decision.source.name}: {failure.detail}",
-            file=sys.stderr,
-        )
+    _print_capped(failures, label="FAILED")
     return 1 if failures else 0
 
 

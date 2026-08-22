@@ -1,4 +1,11 @@
-# (afd) THE ONE UNCAPPED LIST IN THE PRODUCT IS THE FAILURE LIST, AND IT PRINTS RAW `OSError` TEXT.
+# (afd) THE FAILURE LIST IS UNCAPPED AND PRINTS RAW `OSError` TEXT.
+
+> ⚠ **TITLE CORRECTED IN PLACE, 2026-08-22.** It read *"THE ONE UNCAPPED LIST IN THE PRODUCT IS
+> THE FAILURE LIST"*, and that is false - measured, not argued. `cli.py:1934` and `:1943` are
+> uncapped too, and on an **ordinary successful run** of 2,110 real files the `NEW UNIQUE` block
+> alone printed **15,082 lines**: 7.5x the entire output this entry was filed over, with nothing
+> wrong. The failure list is the worst-behaved list, not the only one. The general case is
+> `(afm)`; this entry keeps the two lists it was filed about.
 
 *Body of backlog entry `(afd)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
@@ -111,3 +118,88 @@
   ⚠ **The refusal behaviour itself was correct** and is not what this note reports - 0 folders
   removed, all three left in place, each named. §1 condition **(d)** held. Only the wording is at
   issue.
+
+  ---
+
+  # FIXED 2026-08-22. Q1 = C, Q2 = A, Q3 = shared.
+
+  ## The number, re-measured on the real library rather than carried from the soak
+
+  `Input/2014`, 2,110 real files, destination denied after ten had landed:
+
+  ```
+  BEFORE                          AFTER
+  stderr lines   2,101            25
+  FAILED lines   2,096            20  + "... and 2,074 more FAILED (all the same reason)."
+  distinct reasons   1             (unchanged - it was always one fact)
+  EXECUTED says  "2096  failed"   unchanged: the total was never in doubt
+  ```
+
+  The soak's 233/2,004 was a small corpus. The real worst case is ~9x that, and the shape is what
+  matters: **2,096 lines carrying one reason, printed beside a summary that already stated the
+  count.**
+
+  ## Q1 - the cap is `_STATUS_PREVIEW`, and the constant's own comment was wrong
+
+  It is the one that already exists (20, six sites, the shared `... and N more` idiom). ⚠ Its
+  comment read *"how many single-copy files `truestill status` lists before eliding"* while five
+  other lists already borrowed it - a shared constant documented as one command's setting, which
+  is how the next reader concludes it may be tuned for `status` alone. Corrected.
+
+  **Capping alone would have been half the fix.** With one reason behind 2,096 failures, a bare
+  cap shows 20 identical lines and hides 2,076 identical lines - tidier, no more informative. So
+  the elision names the reason count: *"all the same reason"*, or *"N distinct reasons in total"*
+  when the tail is mixed. ⚠ The mixed case is the one that matters: eliding is only safe because
+  the tail said one thing, and if it said three, that count is all that stands between the reader
+  and a hidden second cause.
+
+  **`_reason_key` is text normalisation and is labelled as such.** A detail names its own source
+  and target, so the 2,096 failures carry 2,096 *distinct* strings; counting them verbatim would
+  report 2,096 reasons for one fact. Stripping quoted fragments collapses them and keeps
+  `[Errno 13]` apart from `[Errno 28]`, because the differing part is not quoted. **A real key
+  belongs to `(aep)`**, which asks whether `detail` should be structured at all.
+
+  ## Q2 - volume only, and the reason the other options do not exist
+
+  Rewording is **`(aep)`**, not adjacent to it: that entry's worked example is literally this line,
+  and it names both violations - *"upload"* is backend vocabulary, and the raw errno passes
+  through. This entry does not touch the words.
+
+  ⚠ **And `--verbose` was not rejected - it does not exist.** clig.dev puts developer-only detail
+  behind verbose mode, and this product has **no verbosity control at all**: no `--verbose`, no
+  `-v`/`-vv`, no `--quiet`, against a Unix convention and .NET's five documented levels
+  (quiet / minimal / normal / detailed / diagnostic). So there is nowhere to put the raw text, and
+  that absence is why `(aep)` has nowhere to put the errno either. Filed as **`(afl)`**.
+
+  ## ⚠ The stream was never the defect
+
+  clig.dev puts errors and messaging on `stderr` **on purpose** - moving a failure report to
+  `stdout` would feed it into whatever the run was piped into. What clig also says is *"don't
+  treat `stderr` like a log file, at least not by default"*, and 2,096 lines is exactly that.
+
+  So the capped list **stays on `stderr`**. This also answers why `organize ... > log.txt` never
+  helped: the flood was on the other stream, and 2,101 lines reached the terminal regardless.
+  Twenty-five do not.
+
+  ## A pager was considered and REJECTED, which is different from not considered
+
+  clig.dev recommends one for large output and `git diff` is the worked example. It is wrong here:
+
+  - **`organize` runs non-interactively and in scripts.** clig's own rule is *"use a pager only if
+    `stdin` or `stdout` is an interactive terminal"* - so a pager would do nothing in exactly the
+    case this defect was measured in, a redirected run.
+  - **clig itself warns that *"using a pager can be error-prone, so be careful with your
+    implementation such that you don't make the experience worse for the user."*** A dependency on
+    `less` and on terminal detection, to hide output that should not have been produced.
+  - **It treats the symptom.** 2,096 lines of one fact are not better paged; they are better not
+    printed.
+
+  ## Q3 - one fix, two sites, and one of them stays unmeasured
+
+  `MOVE KEPT` (`cli.py:2250-2252`) and `FAILED` (`:2254-2259`) were the same six lines twice, two
+  lines apart: same uncapped loop, same raw `.detail`, same `stderr`. One `_print_capped` now
+  serves both.
+
+  ⚠ **`MOVE KEPT`'s worst case is UNMEASURED.** It needs a per-file removal failure after a
+  verified copy, which a whole-destination refusal does not produce - my run had **zero**. So the
+  two are identical in *shape*, and the volume claim is only made for `FAILED`.

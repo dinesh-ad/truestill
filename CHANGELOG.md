@@ -7,6 +7,12 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **A run that cannot write to your drive no longer prints thousands of near-identical lines.**
+  Organizing 2,110 photos to a folder Truestill could not write to used to print **2,096 failure
+  lines**, all saying the same thing, next to a summary that had already told you the number. It
+  now names the first twenty and says *"... and 2,074 more (all the same reason)"* - or how many
+  different reasons there were, if they were not all the same. Redirecting the output to a file
+  never helped, because those lines went to the error stream; there are now twenty-five of them.
 - **After `organize --in-place`, Truestill now tells you which folders it emptied.** The run
   always said it would report them and never did, and `truestill clean-empty` answered "no
   migration leftovers recorded" on a drive that plainly had some - it was only looking at the
