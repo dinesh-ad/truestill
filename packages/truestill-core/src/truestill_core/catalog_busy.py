@@ -171,9 +171,17 @@ def is_catalog_write_permanent(exc: BaseException) -> bool:
     does not settle it: ``IOERR`` covers a failing disk, which is permanent, *and* a flaky USB or
     network-filesystem blip, which is not, and nothing available at this call site tells them
     apart. The tie is broken by **cost, not evidence** -- calling a blip permanent costs the user
-    a run they restart, while calling a dying disk transient keeps writing to failing media. If a
-    transient ``IOERR`` is ever observed in the wild, this is the paragraph to revisit; it is not
-    a settled classification and should not be quoted as one.
+    a run they restart, while calling a dying disk transient keeps writing to failing media.
+
+    ⚠ **And it is not a corner.** Measured 2026-08-22: a catalog whose *directory* is denied
+    mid-run fails with ``SQLITE_IOERR_DELETE`` at least as often as with
+    ``SQLITE_READONLY_DIRECTORY``, because SQLite reuses a ``-journal`` it already created --
+    opening an existing file needs permission on the *file* -- and only removing it needs the
+    directory. So the ambiguous code is the **common** presentation of the failure this whole
+    module was extended to handle. Had the tie gone the other way, the ordinary case would retry
+    ten times and stop anyway. If a transient ``IOERR`` is ever observed in the wild, this is the
+    paragraph to revisit; it is a judgement, not a settled classification, and the frequency
+    finding is a reason to look again rather than a reason to consider it closed. `(afe)`
     """
     return isinstance(exc, sqlite3.Error) and not is_catalog_busy(exc)
 

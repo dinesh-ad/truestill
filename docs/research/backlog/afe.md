@@ -184,6 +184,9 @@
 
   ### 2. ⚠ R5 presents as `SQLITE_IOERR_DELETE` as often as `READONLY_DIRECTORY`
 
+  **This is the finding that reclassifies a judgement below** - see *"the code called ambiguous is
+  the COMMON presentation"*.
+
   Measured through the CLI rather than in a unit test: `chmod 555` on the directory does **not**
   stop writes at once. SQLite can keep reusing a `-journal` file it already created - opening an
   existing file needs permission on the *file* - and only the **removal** of it needs the
@@ -215,11 +218,26 @@
   outcome converges; the imprecision costs retry latency on a case that cannot happen without a
   bug of ours.
 
-  ⚠ **`SQLITE_IOERR` is UNRESOLVED for the retry decision and is placed on the permanent side.**
-  The evidence does not settle it: `IOERR` covers a failing disk and a flaky USB or network
-  filesystem alike, and nothing at the call site distinguishes them. The tie is broken by **cost,
-  not evidence** - calling a blip permanent costs a run the user restarts; calling a dying disk
-  transient keeps writing to failing media. Its *wording* side is settled and pinned.
+  ### ⚠ `SQLITE_IOERR` - the code called ambiguous is the COMMON presentation of the case
+
+  It was placed on the permanent side as an **unresolved** call, and it then turned out to be how
+  R5 usually arrives: measured through the CLI, a catalog directory denied mid-run fails with
+  **`SQLITE_IOERR_DELETE`** at least as often as with `READONLY_DIRECTORY`, for the reason in
+  measurement 2 above. **So this is not an edge that might one day matter - it is the ordinary
+  path through the defect this entry exists to fix**, and it was sorted on a tie-break while being
+  described as a corner.
+
+  **The tie-break still holds, and it is the reason this is safe rather than lucky.** The evidence
+  genuinely does not settle `IOERR`: it covers a failing disk and a flaky USB or network
+  filesystem alike, and nothing at the call site distinguishes them. It was broken by **cost, not
+  evidence** - calling a blip permanent costs a run the user restarts; calling a dying disk
+  transient keeps writing to failing media. Had it gone the other way to "resolve" the ambiguity,
+  the commonest form of R5 would now retry ten times and stop anyway.
+
+  ⚠ **What a later reader must not take from this**: that `IOERR` is settled. Its *wording* side
+  is settled and pinned - it is always a condition of the user's, never a bug of ours. Its *retry*
+  side is still a judgement, and the frequency finding is a reason to look again if a transient
+  `IOERR` is ever observed, not a reason to consider the question closed.
 
   ## THE ANSWER TO "DOES THE NEXT RUN CONVERGE?"
 
