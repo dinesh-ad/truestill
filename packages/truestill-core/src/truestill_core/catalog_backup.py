@@ -29,13 +29,14 @@ from __future__ import annotations
 
 import contextlib
 import os
+import secrets
 import sqlite3
 import time
 from dataclasses import dataclass
 from pathlib import Path
 
 from truestill_core.app_paths import backup_path_for
-from truestill_core.safe_copy import staging_path
+from truestill_core.safe_copy import STAGING_SUFFIX
 
 #: ⚠ **LOAD-BEARING, NOT A DEFAULT. DO NOT CHUNK THIS FOR PROGRESS REPORTING.**
 #:
@@ -72,6 +73,24 @@ DEADLINE_SECONDS = 5.0
 #: Seconds between BUSY retries. Short enough that the deadline above is honoured with useful
 #: granularity - the callback is what enforces it, and it only runs between retries.
 _RETRY_SLEEP_SECONDS = 0.05
+
+
+def _staging_path(target: Path) -> Path:
+    """A staging name unique to THIS CALL, not to this process.
+
+    ⚠ **`safe_copy.staging_path` is deliberately NOT reused here, and the difference is a
+    measured defect rather than a preference.** Its token is per-**process**, which is right for
+    an organize run - one process writes one destination. A migrating catalog open is not that
+    shape: `(adm)` records six concurrent `Catalog._migrate` calls **inside one app process** on a
+    genuine first run, and threads of one process share that token, so all six computed the same
+    staging path and backed up over each other. Measured: 1 distinct path across 6 threads, and
+    an intermittent failure in `test_concurrent_openers_of_a_behind_catalog_all_succeed`.
+
+    That is `(aaw)`'s finding one level down - *"a staging path derived from the target alone is
+    shared between processes"* - with **threads** where that entry had processes, in the code
+    that cites it. The suffix is shared so `scan_source` still classes a stray as debris (`(acz)`).
+    """
+    return target.with_name(f"{target.name}.{os.getpid()}.{secrets.token_hex(6)}{STAGING_SUFFIX}")
 
 
 class _ExpiredError(Exception):
@@ -112,19 +131,6 @@ def _copy(source: sqlite3.Connection, staged: Path, deadline: float) -> None:
     finally:
         with contextlib.suppress(sqlite3.Error):
             target.close()
-
-
-def _harden(path: Path) -> None:
-    """Force the copy's bytes and its directory entry to disk before it takes the real name.
-
-    Mirrors `decisions.write_decisions`: flush, ``fsync``, then rename. A copy that is only in
-    the page cache is not a copy if the machine loses power a second later.
-    """
-    fd = os.open(path, os.O_RDONLY)
-    try:
-        os.fsync(fd)
-    finally:
-        os.close(fd)
 
 
 def _sync_directory(directory: Path) -> None:
@@ -175,11 +181,17 @@ def copy_before_migration(
         return BackupOutcome(taken=False, error="an in-memory catalog has nothing to copy")
 
     target = backup_path_for(catalog_path)
-    staged = staging_path(target)
+    staged = _staging_path(target)
     deadline = time.monotonic() + deadline_seconds
     try:
+        # ⚠ **No explicit fsync of the copy, and that is measured rather than an omission.**
+        # The destination connection runs at SQLite's default ``synchronous=FULL`` (verified: 2),
+        # so the backup's own commit has already flushed those bytes - a second fsync adds
+        # nothing. It also **broke Windows**: `os.fsync` on a read-only descriptor is
+        # ``[Errno 9] Bad file descriptor`` there, green on Linux and macOS, caught only by the
+        # three-OS lane. `ENGINEERING_STANDARD.md` §4's sixty-first member is the neighbour -
+        # a local gate cannot see the platform it is not running on.
         _copy(source, staged, deadline)
-        _harden(staged)
         staged.replace(target)
     except _ExpiredError:
         _discard(staged)
