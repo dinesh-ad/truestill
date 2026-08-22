@@ -467,6 +467,43 @@ memory dressed as one.
   destructive path. All three now build a skeleton that holds junk, so a refusal has something to
   refuse, and the trash double records what it was handed.
 
+- **A TYPE CHECKER READS ONE PLATFORM'S BRANCH. THE LOCAL GATE IS BLIND TO THE OTHER TWO, AND
+  THEY ARE WHERE THE PLATFORM CODE IS.** The sixty-first member. `mypy` narrows `sys.platform`
+  and analyses **only the branch that matches the host**, so this shape is green on Linux and
+  broken on Windows:
+
+  ```python
+  if sys.platform == "win32":
+      import msvcrt
+  else:
+      import fcntl  # on Windows this import DOES NOT EXIST to mypy...
+  ...
+  fcntl.flock(fd, ...)  # ...while every reference to it still resolves on Linux
+  ```
+
+  ⚠ **The local gate cannot see it, and that is the point rather than a footnote.** `make check`
+  runs one interpreter on one platform. A platform-specific import in an `else` is invisible to
+  it, every reference resolves, and the first thing that disagrees is a CI lane on hardware the
+  maintainer does not have. **Expensive to find rather than impossible** - a push, a wait, a log.
+
+  **The remedy costs one command**, and it belongs beside any change with a `sys.platform` branch
+  in it:
+
+  ```
+  uv run mypy --platform win32 packages/truestill-core/src/truestill_core \
+      packages/truestill-cli/src/truestill_cli packages/truestill-app/src/truestill_app
+  ```
+
+  ⚠ **Structure it so the question does not arise.** Defining the platform functions *inside* each
+  branch keeps every reference next to its own import, and then no narrowing can strand one.
+
+  *Worked example - `(aaw)`, 2026-08-22.* The drive lock imported `fcntl` in an `else` and used it
+  below. Green locally, `Name "fcntl" is not defined` twice on the Windows lane. ⚠ **And the same
+  change failed Windows twice more for reasons no type checker could have found** - `msvcrt`
+  locks being mandatory rather than advisory, and `sys.executable` being a launcher in a uv venv
+  - so the type check narrows the gap without closing it. **The three `check` lanes remain the
+  only thing that sees Windows and macOS**, which is the standing argument for keeping them.
+
 - **A COMMENT THAT QUOTES THE DEFECT'S ARTEFACT NAMES BECOMES NOISE IN EVERY TEXT SEARCH OVER
   THAT RUN. ASK THE FILESYSTEM, NOT THE NARRATIVE.** The fifty-ninth member. `(ael)`'s rule -
   *assert the statement, never an identifier that also appears in the target's own commentary* -

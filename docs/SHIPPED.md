@@ -50,6 +50,25 @@ recording shipped work as unstarted, which is the more expensive direction of th
   subcommands, and `jobs.start`'s `mutating` is keyword-only with no default, so **mypy found all
   fifteen app routes** rather than a reader having to. Never derived from the `operation` string -
   *"organize"* and *"organize preview"* differ by one word.
+  ⚠ **THREE WINDOWS-ONLY FAILURES, AND TWO WERE PRODUCT DEFECTS.** The `check` matrix is the
+  only thing that sees them, and this is the entry that proves the cost of not having it.
+  - **`mypy` reads one platform's branch.** `import fcntl` in an `else` does not exist on Windows
+    while every reference resolves on Linux - green locally, two errors on the lane.
+    `ENGINEERING_STANDARD.md` §4's **sixty-first** member carries the general rule and the
+    `--platform win32` command.
+  - ⚠ **`msvcrt.locking` is MANDATORY where `flock` is ADVISORY, so the locked byte cannot be
+    READ** - and the claim naming the holder is written into that file, for the other process to
+    read. On Windows the reader got a `PermissionError`, `_read_holder` correctly answered *"no
+    usable claim"*, and **the refusal was anonymous**.
+    ⚠ **The consequence is the whole point, not the mechanism.** There is deliberately **no
+    `--force`**, because a kernel-enforced refusal always means a live holder - so *naming the
+    holder IS the escape hatch*, the only route a user has to a genuinely hung process. It failed
+    on the one platform where they have no other. Fixed by locking a sentinel byte a gigabyte past
+    the claim, which is the ordinary way to do this where locks are mandatory: the exclusion is
+    unchanged and the text stays readable.
+  - The third was the test's own assumption - `sys.executable` in a uv venv on Windows is a
+    launcher that spawns the real interpreter, so `Popen.pid` is not the pid that took the lock.
+    The holder reports its own.
   Mutating only; `(afq)` carries the app's preview behaviour, which is not this entry's to
   justify. [Full entry](research/backlog/aaw.md)
 - **(afp) A CATALOG ANOTHER PROCESS IS CREATING IS WAITED FOR, NOT CALLED DEBRIS.** Shipped
