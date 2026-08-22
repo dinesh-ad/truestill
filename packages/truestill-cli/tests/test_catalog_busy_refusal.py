@@ -241,7 +241,9 @@ def test_a_catalog_that_cannot_be_written_is_refused_rather_than_raised(
     err = capsys.readouterr().err
     assert "Traceback" not in err
     assert CATALOG_BUSY_MESSAGE not in err
-    assert "could not be written" in err
+    assert "could not write to the library catalog" in err
+    # `config` writes no photos, so the refusal must not describe a run that placed any. `(aen)`
+    assert "what it did" not in err
 
 
 def test_a_busy_catalog_at_the_same_surface_is_converted(

@@ -22,6 +22,7 @@ from pathlib import Path
 from types import TracebackType
 from typing import Self, cast
 
+from truestill_core.catalog_busy import CatalogUnwritableError
 from truestill_core.models import CaptureContext, DateSource
 
 
@@ -891,7 +892,12 @@ class Catalog:
     def __init__(self, path: Path) -> None:
         self.path = path
         if path != Path(":memory:"):
-            path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
+            except OSError as exc:
+                # Before SQLite is ever asked, so no `sqlite3.Error` exists to carry this to the
+                # surfaces. Reported as the condition it is rather than as a stack. `(aen)`
+                raise CatalogUnwritableError(exc, path.parent) from exc
         # PINNED, NOT ADOPTED. `LEGACY_TRANSACTION_CONTROL` is what an unqualified `connect`
         # gives today, so this changes no behaviour - it is here because Python's documentation
         # says the `autocommit` default becomes `False` in a future release. Inheriting it means

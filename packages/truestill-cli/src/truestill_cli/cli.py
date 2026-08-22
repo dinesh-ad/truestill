@@ -34,6 +34,7 @@ from truestill_core.archive_ingest import archives_at, precheck_archives
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_busy import (
     CATALOG_BUSY_MESSAGE,
+    CatalogUnwritableError,
     catalog_unwritable_message,
     is_catalog_busy,
     is_catalog_unwritable,
@@ -3909,6 +3910,11 @@ def main(argv: list[str] | None = None) -> int:
     the rule belongs at the one seam that sees them all. What did **not** change is the last arm:
     `SELECT * FROM no_such_table` is a bug of ours, not a condition of the user's, and it still
     raises. `(afe)`
+
+    ⚠ **`CatalogUnwritableError` is caught beside `sqlite3.Error` because not every unwritable
+    catalog is a SQLite failure.** `Catalog.__init__` creates the catalog's parent directory
+    before connecting; on a read-only or full disk that `mkdir` raises `PermissionError`, which
+    is not a `sqlite3.Error` and used to walk straight past this handler. `(aen)`
     """
     try:
         return _dispatch(argv)
@@ -3916,7 +3922,7 @@ def main(argv: list[str] | None = None) -> int:
         # Nothing printed here on purpose: the startup banner has already put the whole
         # explanation on stderr, and a second copy of it would read as two problems. `(adr)`.
         return CATALOG_UNUSABLE_EXIT
-    except sqlite3.Error as exc:
+    except (sqlite3.Error, CatalogUnwritableError) as exc:
         if is_catalog_busy(exc):
             print(f"error: {CATALOG_BUSY_MESSAGE}", file=sys.stderr)
             return CATALOG_BUSY_EXIT

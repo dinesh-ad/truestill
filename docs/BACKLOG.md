@@ -152,11 +152,6 @@ is invisible here is retired, not free.**
   What remains is drive-to-drive when the source folder is gone or no longer matches the drive.
   ⚠ `backup_run` is app-side and the CLI cannot import it, so this is a **move to core**, never a
   second implementation. Recorded 2026-08-20. [Full entry](research/backlog/ael.md)
-- **(aen) THE CATALOG'S FIRST WRITE CRASHES ON A FULL DISK.** `Catalog.__init__`'s `mkdir` and
-  `sqlite3.connect` are unguarded (`catalog.py:888,902`). ⚠ **The remedy is a second recognition,
-  never a wider `catalog_busy`** - that docstring is right to refuse `OperationalError` at large,
-  because "wait for the other operation" sends a user to wait out a fault that never clears. Split
-  from `(aek)` 2026-08-21. [Full entry](research/backlog/aen.md)
 - **(aeo) A FULL HOME DISK STOPS THE APP LAUNCHING, WITH A TRACEBACK.** `session_link.write` is
   unguarded on the launch path (`session_link.py:131,143,148`). ⚠ Its `unlink` -> `touch(mode)` ->
   `write_text` sequence is deliberate and each step is load-bearing; a repair must not simplify it

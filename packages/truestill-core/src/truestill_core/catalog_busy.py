@@ -33,10 +33,12 @@ terminal event and an HTTP status.
 
 from __future__ import annotations
 
+import errno
 import random
 import sqlite3
 import time
 from collections.abc import Callable
+from pathlib import Path
 
 #: SQLITE_BUSY (5) is another connection holding the lock; SQLITE_LOCKED (6) is a conflict
 #: within the *same* connection's table locks, or a shared cache.
@@ -111,18 +113,48 @@ _UNWRITABLE_CODES = frozenset(
 )
 
 
+class CatalogUnwritableError(Exception):
+    """The catalog's own location could not be prepared, before SQLite was ever asked.
+
+    ⚠ **Not every way a catalog fails to be writable is a `sqlite3.Error`.** `Catalog.__init__`
+    creates the catalog's parent directory before it connects, and on a read-only or full disk
+    that ``mkdir`` raises ``PermissionError``/``OSError`` -- which the surfaces' SQLite handlers
+    never see, so it reached the terminal as a stack. This is that condition wearing the shape the
+    handlers already recognise. `(aen)`
+
+    **A plain ``Exception``, deliberately not an ``OSError``**, even though an ``OSError`` caused
+    it: the codebase has many ``except OSError`` blocks around filesystem work, and a catalog that
+    cannot be created is not something any of them should quietly absorb.
+    """
+
+    def __init__(self, cause: OSError, directory: Path) -> None:
+        super().__init__(f"cannot prepare the catalog directory {directory}: {cause}")
+        self.cause = cause
+        self.directory = directory
+        #: Mirrored so `catalog_unwritable_message` reads one attribute whatever it was handed.
+        self.errno = cause.errno
+
+
 def is_catalog_unwritable(exc: BaseException) -> bool:
     """Whether ``exc`` is the catalog being unreachable or unstorable, rather than a bug.
 
     ⚠ **``SQLITE_CORRUPT`` and ``SQLITE_NOTADB`` are deliberately absent.** A damaged catalog is
     a different situation with different advice, and `catalog_startup` already owns it.
     """
+    if isinstance(exc, CatalogUnwritableError):
+        return True
     return isinstance(exc, sqlite3.Error) and primary_code(exc) in _UNWRITABLE_CODES
 
 
 #: Travels the same way `CATALOG_BUSY_CODE` does, and is deliberately a different value: busy
 #: means *try again in a minute*, this means *something is wrong with the catalog's folder*.
 CATALOG_UNWRITABLE_CODE = "CatalogUnwritable"
+
+
+def _errno_name(exc: BaseException) -> str | None:
+    """``errno.EACCES`` -> ``"EACCES"``, for a failure that never reached SQLite at all."""
+    number = getattr(exc, "errno", None)
+    return errno.errorcode.get(number) if isinstance(number, int) else None
 
 
 def catalog_unwritable_message(exc: BaseException) -> str:
@@ -137,16 +169,24 @@ def catalog_unwritable_message(exc: BaseException) -> str:
     ⚠ **Never ``str(exc)``.** SQLite's own prose ("disk I/O error") describes its internals and
     names no action, which is exactly what §9 exists to keep off the screen. The symbolic code is
     appended instead: it is stable vocabulary, and it is what makes a bug report actionable.
+
+    ⚠ **Every clause must be true of a command that wrote NOTHING**, and a first version of this
+    was not: it said the command "stopped rather than continue without recording what it did" and
+    sent the reader to ``rescan``, which on a read-only ``status`` describes work that never
+    happened. This function is the *backstop* -- it is reached from any command, and it cannot
+    know whether anything was written -- so it may not assert that anything was. `rescan` is
+    offered against a condition the reader can check ("if a run was interrupted") rather than
+    asserted as a consequence. `(aen)`
     """
-    name = getattr(exc, "sqlite_errorname", None)
+    name = getattr(exc, "sqlite_errorname", None) or _errno_name(exc)
     diagnostic = f" Diagnostic: {name}." if name else ""
     return (
-        "The library catalog could not be written, so this operation stopped rather than "
-        "continue without recording what it did. Check that the folder holding your catalog "
-        "exists and can be written to - the catalog also creates temporary files beside itself, "
-        "so making the catalog file writable is not enough on its own - and that the drive it "
-        "is on is not full or disconnected. Run 'truestill status' to see where the catalog is, "
-        f"and 'truestill rescan' to list anything the catalog does not know about.{diagnostic}"
+        "Truestill could not write to the library catalog, so this command stopped. Check that "
+        "the folder holding your catalog exists and can be written to - the catalog also creates "
+        "temporary files beside itself, so making the catalog file writable is not enough on its "
+        "own - and that the drive it is on is not full or disconnected. If a run was interrupted "
+        "partway, 'truestill rescan' lists anything on your drives that the catalog does not "
+        f"know about.{diagnostic}"
     )
 
 

@@ -7,6 +7,10 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **Truestill no longer crashes when the folder for your catalog cannot be written.** A
+  read-only or full disk used to end in a Python stack trace before anything ran; now it says
+  what to check and stops. The message was also corrected so it is true of a command that wrote
+  nothing - it no longer describes work that never happened.
 - **A run whose catalog cannot be written now stops and tells you, instead of ending in a
   traceback and leaving a photo nothing recorded.** If the folder holding your catalog becomes
   read-only, fills up, or goes away mid-run, Truestill stops and says what it organized, what it

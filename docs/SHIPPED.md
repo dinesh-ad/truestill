@@ -22,6 +22,15 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aen) A CATALOG WHOSE LOCATION CANNOT BE PREPARED IS REPORTED, NOT A TRACEBACK.** Shipped
+  2026-08-22. Its own constraint held: `_BUSY_CODES` is unchanged, and the new recognition is a
+  separate family beside it. ⚠ **The half neither entry saw**: `Catalog.__init__` creates the
+  catalog's parent before connecting, so on a read-only disk the failure is a `PermissionError`
+  that is not a `sqlite3.Error` and walked past the handler `(afe)` had just added - now
+  `CatalogUnwritableError`, carrying its errno as the diagnostic. Also corrects a §9 wrinkle
+  `(afe)` introduced: the backstop sentence described work the command may never have done.
+  Residual named, not fixed: the startup banner still offers to create a catalog it cannot.
+  [Full entry](research/backlog/aen.md)
 - **(afe) A CATALOG THAT CANNOT BE WRITTEN STOPS THE RUN AND REPORTS IT, INSTEAD OF A TRACEBACK
   AND A FILE NOBODY RECORDED.** Shipped 2026-08-22. Split on SQLite's own result code: busy is
   waited out with bounded backoff and stays a per-file event; anything else is permanent within
