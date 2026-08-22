@@ -115,3 +115,59 @@
   one that rots first.** Whatever shape option B takes should carry a re-read date, not only a
   release marker - a marker says whether an entry matters, and says nothing about whether it is
   still real.
+
+  ## ⚠ THE PASS ITSELF, RUN 2026-08-22 - AND IT IS THE ARGUMENT FOR A CADENCE
+
+  Ruled by the maintainer and run once, properly: **every open entry re-read against current
+  code**, asking one question per entry rather than re-auditing what it says - *is its named cause
+  already closed, is its evidence still reproducible, does its remedy still make sense given what
+  has landed.* 77 entries.
+
+  **What it cost.** Three mechanical passes and then reading. The mechanical half is cheap and
+  reproducible, and it is worth writing down because it is not what found the defects:
+
+  ```sh
+  # 1. do the entries' code citations still resolve?
+  # 2. which entries already cite the letters that shipped since?
+  # 3. which bodies predate the work that could have moved them?
+  git log -1 --format=%ad --date=short -- docs/research/backlog/<letter>.md
+  ```
+
+  ⚠ **All three came back nearly clean, and the pass still found eight things.** Only six entries
+  cited a file or symbol that had vanished, and most of those were prose. **The mechanical passes
+  are a filter, not a detector** - what they cannot see is an entry whose every citation still
+  resolves and whose *conclusion* stopped being true, which is every finding below.
+
+  | found | |
+  |---|---|
+  | **closed in fact**, entry still open | **2** - `(abo)` (2 weeks), `(ach)` (13 days) |
+  | a **consequence** closed inside a live entry | **1** - `(abd)` item 3, by `(aei)` |
+  | **diminished** - premise moved under it | **4** - `(acc)`, `(aau)`, `(aeg)`/`(aeh)`, `(act)` |
+  | a **shipped invariant carried to one of two surfaces** | **1** - `(afu)`, from `(afl)` |
+
+  🔑 **NOT ONE OF THESE WAS REACHABLE BY ANY GUARD THIS REPO HAS OR COULD WRITE.** Each closing
+  commit was correct and each named the letter it was working on:
+  `8af88dc` is `fix(core):` and names none; `b1d52a3` correctly declares `(abx)` and knows nothing
+  of `(ach)`; `e20dbf5` declares `(aei)` and knows nothing of `(abd)`. The closure gate keys on a
+  commit **declaring a letter**, so it is blind by construction to work that closes an entry
+  *someone else filed*. That is not a gap in the gate - it is the gate's subject being a different
+  question.
+
+  ⚠ **`(abo)` is the sharpest, and it is not a stale document.** `IMPLEMENTATION_STANDARDS.md` §8
+  has read *"Closed 2026-08-07 at cache schema v3"* since the day it shipped, while `BACKLOG.md`
+  carried the entry as open work. **Both files were current.** They answered opposite questions
+  about one thing, and the 2026-08-01 split that created `SHIPPED.md` exists precisely so those
+  two questions live in two files - which is what let them disagree without either being wrong.
+
+  **So the cadence is the deliverable, not the list.** A re-read is the only instrument that has
+  ever found this class; it costs one session; and the interval that matters is not a calendar one
+  but **after a burst of closures** - this pass followed twenty entries shipping in three days, and
+  every finding traces to one of them. ⚠ **Option B should therefore carry a re-read date per
+  entry, not only a release marker**: a marker says whether an entry matters and says nothing
+  about whether it is still real, and *still real* is the cheaper question and the one that rots
+  first.
+
+  **The precedents this pass was ruled from**, all found the same way and none by tooling:
+  `(adt)`'s cause closed by `(adu)` three days after filing with neither citing the other; `(vv)`
+  half-shipped by `(aaw)`; `(aeo)` shipped four hours before it was ranked fifth on a build list;
+  `(aac)` residue 3 closed by `(aev)`. Four before this pass, eight during it.

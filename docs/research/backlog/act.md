@@ -7,6 +7,12 @@
   is a correctness fix at the moment of naming, and this is a **behaviour change at registration**
   that alters what gets written into a marker on a user's disk. Mixing them would put a change of
   behaviour inside a fix.
+  - ⚠ **RE-COUNTED 2026-08-22: FIVE SITES, NOT THREE**, and the line numbers below have all moved
+    - `service/drives.py:336`, `:345`, `:346`, `service/organize.py:1087`, `cli.py:2689`. The
+    registration work since (`(afc)`, `(afn)`) added paths without changing this default, which is
+    the entry's own point arriving twice: a literal repeated at each site grows a site every time
+    someone adds one. **Cited by symbol from here on**; the original count is kept below because a
+    figure that grew is evidence and a figure quietly corrected is not.
   - Three of the four registration sites mint `label=path.name or "Library"`
     (`service/drives.py:310`, `service/organize.py:847`, `cli.py:2010`). `Path("/").name` is `""`,
     so **organizing to a filesystem root** - or any path whose final component is empty - produces

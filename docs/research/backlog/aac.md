@@ -60,6 +60,11 @@
     preview and run agree: *"4 organized, 1 unreadable"* predicts *"4 organized, 1 failed"*.
     Applied to all five report sites, `ingest` included - it shares `_run_pipeline` and so
     already printed the unreadable block beside the same contradiction.
+  - ⚠ **RESIDUE 2 IS ALSO `(afu)`'s, FROM THE OTHER SIDE, recorded 2026-08-22.** `(afl)` shipped a
+    run record carrying every file's outcome - and only on the CLI, so an app run has neither the
+    screen line this residue asks for nor a file that would have held it. A record satisfies the
+    **durable** half without touching a payload key; it does not satisfy §9, which is about what a
+    user *reads*. Whoever builds either should say which half they took.
   - **RESIDUE 2 - the app's *run* completion has no `unreadable_files`.** Preview only, matching
     the design that was accepted. The CLI reports on both. An unreadable file that was never
     copied - a cached exact duplicate - therefore has no app-side surface on a run, though the

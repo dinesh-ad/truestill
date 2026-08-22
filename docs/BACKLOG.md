@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aft). Next free: (afu).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(afv). Next free: (afw).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -118,6 +118,29 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
+- **(afv) `(ady)` INTRODUCED AN INTERMITTENT FAILURE IN THE CONCURRENT-MIGRATION TEST, AND THE
+  MECHANISM IS NOT KNOWN.** Found 2026-08-22, hours after `(ady)` shipped, by running the gate on a
+  docs-only change. `test_concurrent_openers_of_a_behind_catalog_all_succeed` fails ~**1 run in
+  8**: one of six openers finishes at schema **4** instead of 20, without raising.
+  ⚠ **Proven `(ady)`'s by differential, not assumed** - 12/12 green on the pre-`(ady)` tree with
+  the import resolution printed, after a first control that was **void** through the editable
+  install (§4's fifth member, first worked example). Four hypotheses measured and ruled out, each
+  recorded. **Filed rather than fixed because the cause is not established**, and a
+  non-deterministic failure is quarantined and filed with its trace, never retried (§4's
+  twenty-sixth member). ⚠ **Not a test artefact**: `(adm)` records six concurrent `_migrate` calls
+  in one app process on a real first run. [Full entry](research/backlog/afv.md)
+- **(afu) THE RUN RECORD IS CLI-ONLY, AND THE SURFACE IT MISSED IS THE ONE §1'S OWN REASONING
+  NAMES.** Found 2026-08-22 by a whole-backlog re-read, four commits after `(afl)` shipped.
+  Measured: `record_path_for` has **one caller** (`cli.py:2787`) and `truestill-app` contains no
+  run-record path at all - so no app organize, backup, migrate, bake or undo writes one.
+  ⚠ **The rule is a PRODUCT invariant in `IMPLEMENTATION_STANDARDS.md` §1**, whose own
+  justification is *"the user who most needs it is the one who did not know to ask"* - **and that
+  user is the app's**, since a person typing `truestill organize` is the one who could have passed
+  `--report`. §4's fifty-sixth member with the contract on the wrong side of it.
+  **Also covers `(aac)` residue 2**, the app run's missing `unreadable_files`, from the record's
+  side rather than the screen's. Design the one-rolling-file-per-catalog question first: the app
+  can run two jobs on two drives at once, which a CLI never could.
+  [Full entry](research/backlog/afu.md)
 - **(afs) A DESTRUCTIVE MIGRATION MAY NOT RUN WITHOUT A PRE-UPGRADE COPY, AND NOTHING SAYS WHICH
   ONE IS DESTRUCTIVE.** Recorded 2026-08-22, split out of `(ady)` while building it - **a policy
   change about what a migration may do, which would have been invisible arriving inside a
@@ -274,8 +297,6 @@ is invisible here is retired, not free.**
   2026-08-09. [Full entry](research/backlog/aci.md)
 - **(acg) ALBUM MEMBERSHIP CANNOT LEAVE THIS MACHINE - the same class as `(ack)`, waiting.**
   Recorded 2026-08-09. [Full entry](research/backlog/acg.md)
-- **(ach) `ApplyReport.skipped_newer_locally` carries two meanings that need opposite words.**
-  Recorded 2026-08-09. [Full entry](research/backlog/ach.md)
 - **(acc) `write_decisions` exists with ZERO CALLERS, so no decisions document has ever been
   written.** ⚠ **Retitled 2026-08-22**: the old title asked about *finding* one, which understates
   it - nothing writes one either. The file format is built, atomic and tested; **the write trigger
@@ -298,8 +319,6 @@ is invisible here is retired, not free.**
   2026-08-07. [Full entry](research/backlog/abt.md)
 - **(abr) `rcRunArchives` passes no `onRefuse`, so a refused start would throw.** [Full
   entry](research/backlog/abr.md)
-- **(abo) The hash cache cannot say "I computed one hash and not the other".** [Full
-  entry](research/backlog/abo.md)
 - **(abn) rescan, beyond the report. `truestill rescan` REPORTS; nothing acts on it yet.** Recorded
   2026-08-07. [Full entry](research/backlog/abn.md)
 - **(abd) ONE CATALOG OR MANY - the question is unanswered, and it may be the wrong default.**

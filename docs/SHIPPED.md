@@ -22,6 +22,34 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(abo) THE HASH CACHE CAN SAY "NOBODY LOOKED".**
+  Built **2026-08-07** (`8af88dc`); **closed 2026-08-22**, when a whole-backlog re-read found the
+  entry still open. Cache schema **v3**: `perceptual_computed` records whether a perceptual pass
+  ran, `get` takes `need_perceptual`, and `put` **requires** the flag rather than defaulting it -
+  *"a default is the guess the column exists to end."* That is exactly what the entry asked for:
+  *"A third state is the fix, not a `need_perceptual` alone"*, so a legitimately NULL perceptual
+  (a video, an over-size image) is a hit rather than a permanent re-attempt.
+  ⚠ **THE FINDING IS NOT THE FIX. IT IS THAT THE CONTRACT AND THE BACKLOG DISAGREED FOR TWO
+  WEEKS.** `IMPLEMENTATION_STANDARDS.md` §8 has said *"Closed 2026-08-07 at cache schema v3"*
+  since the day it shipped, while `BACKLOG.md` carried the entry as open work. **Both documents
+  were current; they answered opposite questions about the same thing**, and the split that
+  created `SHIPPED.md` on 2026-08-01 exists to stop exactly this. The closing commit is
+  `fix(core):` and names no letter, so the closure gate - which keys on a commit declaring one -
+  could not have seen it. **Nothing automatic could have caught this**; it was found by reading.
+  [Full entry](research/backlog/abo.md)
+- **(ach) `skipped_newer_locally` WAS SPLIT INTO TWO SINGLE-MEANING FIELDS.**
+  Built **2026-08-09** (`b1d52a3`) as part of `(abx)`; **closed 2026-08-22** by the same re-read.
+  `decisions.py:353,361` carry `already_newer_locally` and `awaiting_content`, and the code
+  comment names the letter that did it: *"Separate from `already_newer_locally` since `(abx)`"*.
+  The entry asked for precisely this - *"`(ack)`'s fix added two single-meaning fields rather than
+  a third overloaded one; do the same here"* - and was marked *"Deferred to Stage 4"* while the
+  thing it deferred already existed.
+  ⚠ **A letter closed by work filed under a DIFFERENT letter is invisible to every gate here.**
+  `b1d52a3` correctly declares `(abx)`; nothing declares `(ach)`, because the person fixing
+  `(abx)` was not reading `(ach)`. `ENGINEERING_STANDARD.md` §4's sixth member is the shape - when
+  something's status changes, grep for every reference to it - and it was not run, because the
+  status that changed was a different entry's. [Full entry](research/backlog/ach.md)
+
 - **(ady) THE CATALOG IS COPIED BEFORE THE MIGRATION CHAIN RUNS.**
   Shipped 2026-08-22. A transaction restores what a **failed** step touched; it cannot restore
   what a **successful** step deliberately removed. `(adl)` closed interruption, and this closes

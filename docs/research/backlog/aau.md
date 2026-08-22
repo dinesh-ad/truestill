@@ -7,6 +7,18 @@
   cannot land until the last warning is either owned or proven un-ownable.**
   - **A gate that cannot pass on the day it is added is a broken gate.** One warning survives, and
     a lane that fails on its own first commit teaches everyone to ignore it.
+  - ⚠ **RE-MEASURED 2026-08-22: THE COUNT MOVED THE WRONG WAY, AND THE SURVIVOR IS NO LONGER
+    UN-OWNABLE.** `uv run pytest` over 2,849 tests reports **7 warnings**, not 1. More usefully,
+    the suite now names an allocation site the entry says was unknown:
+    `truestill_core/layout.py:462`, *"ResourceWarning: unclosed database"*, attributed to
+    `test_the_run_argues_only_while_it_can_be_stopped.py` and others - a collector-timed warning
+    landing on whichever test is running, exactly as described, but with the **allocating module
+    now visible without `tracemalloc`**.
+    **This makes the entry more actionable, not less**: its own bar is *"the last warning is either
+    owned or proven un-ownable"*, and one of the seven now has an owner to look at. It also means
+    the 36-to-1 figure is a **dated reading** rather than a standing state - count it rather than
+    quote it. ⚠ And the growth is the argument for the lane, not against it: nothing noticed six
+    new warnings arriving, because nothing was watching.
   - **The survivor, described rather than blamed.** An unclosed `sqlite3.Connection` is collected
     during `test_layout.py::test_parse_rejects_empty_and_empty_segments`, reported against stdlib
     `inspect.py`. **That test opens no catalog, and `test_layout.py` constructs no `Catalog`

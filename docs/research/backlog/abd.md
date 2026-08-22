@@ -21,11 +21,21 @@
        Backups cards (label, path hint, counts); **Find and `truestill where`, whose query joins
        `drives` and selects `d.label` with no drive filter at all**; `truestill status`; and the
        startup banner. There is no active-library concept and no scoping control anywhere.
-    3. **DEDUP REFUSES THE SECOND COPY - behavioural, not cosmetic, and neither the maintainer
-       nor this agent anticipated it.** `DedupIndex` seeds from catalog content, so the same
-       photo organized into library B after library A is an exact duplicate of itself and is
-       **skipped**. Deliberately keeping one photo in two separate libraries does not work at
-       all. A user would read this as Truestill silently refusing to copy their file.
+    3. ✅ **CLOSED IN FACT BY `(aei)` ON 2026-08-20 (`e20dbf5`), recorded here 2026-08-22 by a
+       whole-backlog re-read. Neither entry cited the other.** The text below is kept as written
+       because it was true when written and is the reason the consequence was ranked where it was.
+       `organizer._scope_to_destination` now scopes dedup per **destination** rather than per
+       catalog, so two libraries on two registered destinations each receive their copy; pinned by
+       `test_a_fresh_second_destination_receives_the_files`. ⚠ **This closes the CONSEQUENCE, not
+       the entry** - `(aei)` was a fix for organizing onto a second *drive* and knew nothing about
+       two libraries; that it also repaired this is a property of the remedy being right rather
+       than of anyone connecting them. **Items 1 and 2 are untouched and are now the whole of this
+       entry's weight.**
+       > **DEDUP REFUSES THE SECOND COPY - behavioural, not cosmetic, and neither the maintainer
+       > nor this agent anticipated it.** `DedupIndex` seeds from catalog content, so the same
+       > photo organized into library B after library A is an exact duplicate of itself and is
+       > **skipped**. Deliberately keeping one photo in two separate libraries does not work at
+       > all. A user would read this as Truestill silently refusing to copy their file.
   - **`--db` separation is genuinely clean.** Two catalogs share nothing: no totals, no leak, no
     cross-library dedup. The whole problem is the default, not the architecture.
   - **Separation is possible and undocumented.** `--db` on both surfaces, or

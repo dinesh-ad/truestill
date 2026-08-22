@@ -9,6 +9,18 @@
   and `docs/ui-inventory.md` was lost twice for exactly that reason. **The design itself now
   lives in [`decisions-on-drive-research.md`](../../decisions-on-drive-research.md)**; this entry is
   one finding out of it, not the design.
+  - ⚠ **CORRECTED AGAIN 2026-08-22 BY A WHOLE-BACKLOG RE-READ: THE HEADLINE BELOW IS NOW FALSE,
+    AND THE ENTRY IS SMALLER THAN ITS TITLE.** `write_decisions` has **two callers** today -
+    `decisions.py:981` and `cli.py:1497` - and `catalog_session.open_catalog` is the standing
+    trigger, writing on the first open after upgrade and on every clean exit that dirtied the
+    catalog. **Documents are written to drives.** So the *"zero callers / no document has ever
+    been written"* half is dead.
+    **What survives is the title's own claim and it is narrower than the body reads**: nothing
+    *passively* notices a document. `read_decisions` exists and is reachable only from an explicit
+    CLI command; `drive.reach_of` still reads the marker and never the contents, so plugging in a
+    drive that carries decisions tells nobody. That is a discovery feature, not a missing write.
+    The stale text is kept below rather than edited, because a correction that deletes what it
+    corrects leaves the next reader unable to tell which half moved.
   - **CORRECTED 2026-08-09: this entry said "Stages 1-3 landed" and Stage 3 is half of one.**
     `write_decisions` exists, is atomic and is tested - and has **zero callers**. Stage 3 was
     "the write trigger and the file"; only the file was built. **So no document has ever been

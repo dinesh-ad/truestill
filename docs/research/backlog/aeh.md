@@ -5,6 +5,16 @@
 - **(aeh) THE RUNNER IMAGE IS UNPINNED, SO THE apt THAT DEADLOCKS IS NOT A VERSION WE CHOSE.**
   Recorded 2026-08-20 alongside `(aee)`'s fix. **A route with a cost, not a recommendation.**
 
+    - ⚠ **BLAST RADIUS CHANGED 2026-08-22, AND NEITHER ENTRY COULD HAVE KNOWN.** Both were filed
+    2026-08-20, inside the two-day window when the `e2e` job was `if: false` - so apt was not
+    being invoked **at all**, and the cost being reasoned about was a lane that did not run. The
+    job now runs **nightly and on `workflow_dispatch`** (`ci.yml`, re-decided 2026-08-22), so the
+    hang costs a **scheduled** run rather than a push. Same defect, same remedy, different price:
+    a nightly that dies at 03:17 is discovered the next morning by whoever looks, which is
+    `ENGINEERING_STANDARD.md` §4's nineteenth member - *a guard that is silently cancelled is
+    worse than one never scheduled, because the calendar says it ran.* **The urgency fell and the
+    detection risk rose**, which are opposite movements and should be weighed as a pair.
+
   ## THE CONNECTION TO `(aee)`
 
   The hang is [LP#2003851](https://bugs.launchpad.net/bugs/2003851), a per-process queue deadlock
