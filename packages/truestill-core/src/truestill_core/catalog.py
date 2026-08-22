@@ -811,6 +811,28 @@ def _apply_step(
     """
     conn.execute("BEGIN IMMEDIATE")
     try:
+        # ⚠ **THE STAMP MUST NOT MOVE THE VERSION BACKWARDS, AND THIS READ IS WHAT STOPS IT.**
+        # `(afv)`. The chain's `version` is read once, before the loop, and is a plain local: two
+        # openers of a behind catalog can therefore both enter with `version = 3` while a third
+        # completes the whole chain in between. The loser then stamped `user_version = 4` over a
+        # file already at 20 - **a version that moves backwards on disk**, so the file claims a
+        # schema older than it has and the next open re-runs migrations against columns that
+        # already exist. Measured with an independent connection sampling the file:
+        # `20 -> 5`, `20 -> 19`, `20 -> 4`.
+        #
+        # ⚠ **This is `(adl)`'s, not `(ady)`'s.** `(adl)` made each step atomic and left the stamp
+        # non-idempotent under concurrency; `(ady)`'s copy only widened the window. Measured over
+        # 40 rounds of six concurrent openers: **7/40 before `(ady)`, 28/40 after** - amplifier,
+        # not cause.
+        #
+        # The re-read costs nothing: `BEGIN IMMEDIATE` above already holds RESERVED, so this is a
+        # read inside a lock this function was taking anyway, and it is the same
+        # re-read-under-the-lock shape `_migrate`'s fast path already uses.
+        if int(conn.execute("PRAGMA user_version").fetchone()[0]) >= target:
+            # Already applied by another opener. `migrate` is idempotent, so running it would be
+            # harmless and pointless; the stamp would not be.
+            conn.commit()
+            return
         migrate(conn)
         conn.execute(f"PRAGMA user_version = {target}")
         conn.commit()
