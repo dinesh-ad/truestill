@@ -12,6 +12,7 @@ One row per processed source file, keyed by SHA-256.
 from __future__ import annotations
 
 import contextlib
+import os
 import sqlite3
 from collections import Counter
 from collections.abc import Callable, Collection, Iterator, Sequence
@@ -1222,8 +1223,27 @@ class Catalog:
         Read from the journal rather than the filesystem on purpose: it is the only record of
         which folders truestill emptied, and cleaning anything else would be sweeping a user's
         drive for directories the tool never touched.
+
+        ⚠ **Both journals, and this read `migration_journal` alone until 2026-08-22.** A layout
+        migration writes there; `organize --in-place` writes `inplace_moves` instead - so the
+        folders an in-place run emptied were invisible to `clean-empty` and to the offer printed
+        after the run, while the run's own banner promised *"Empty folders left behind are
+        reported"*. Measured: 161 `inplace_moves` rows, an empty folder on disk, and *"no
+        migration leftovers recorded"*. `(afi)`
+
+        ⚠ **The equal-roots condition is a SAFETY one, not a tidiness one.** `Relocation`
+        is built for plain ``--move`` as well (`cli.py`, deliberately, so both spellings earn the
+        same undo rights), and `old_relative` is relative to the **source root** - which for
+        ``--move`` is the folder the user was importing FROM, not this drive. Without that clause
+        a folder emptied under `~/Downloads` would be offered for removal at the same relative
+        path on the destination drive, which is precisely the drive-sweep the paragraph above
+        forbids. Only a true in-place run has ``source_root == dest_root``.
+
+        **A read, not a merge.** The two journals stay separate because `inplace_runs` /
+        `inplace_moves` are what `undo-organize` reverses, and `(yy)` already recorded that
+        rewriting undo records is its own decision. Nothing here writes.
         """
-        return [
+        paths = [
             str(row["old_relative"])
             for row in self._conn.execute(
                 "SELECT old_relative FROM migration_journal "
@@ -1231,6 +1251,23 @@ class Catalog:
                 (drive_uuid,),
             )
         ]
+        paths.extend(
+            str(row["old_relative"])
+            for row in self._conn.execute(
+                "SELECT m.old_relative, r.source_root, r.dest_root FROM inplace_moves m "
+                "JOIN inplace_runs r ON r.run_id = m.run_id "
+                "WHERE r.drive_uuid = ? AND r.completed_at IS NOT NULL",
+                (drive_uuid,),
+            )
+            # ⚠ Compared in Python rather than in the SQL, because the roots are stored as the
+            # strings the user typed. `os.path.normpath` settles a trailing slash, a `./` and a
+            # doubled separator without touching the filesystem; a pair that is absolute on one
+            # side and relative on the other cannot be settled at all without the cwd of a run
+            # that has already finished, and falls to "not in place" -- which under-reports
+            # rather than offering a folder on the wrong root.
+            if os.path.normpath(row["source_root"]) == os.path.normpath(row["dest_root"])
+        )
+        return paths
 
     def start_organize_run(self, *, drive_uuid: str, run_id: str, intended_total: int) -> None:
         """Open a copy-mode organize run, superseding any prior one for this drive. `(aem)`.

@@ -81,3 +81,71 @@
     drive sweep. A union keeps that property; it is worth stating rather than assuming.
   - **Whether the banner's promise or the behaviour is the thing to change.** The promise is the
     better half - but if the union is not built, the sentence must stop claiming it.
+
+  ---
+
+  # FIXED 2026-08-22. Both journals, and the run keeps its promise.
+
+  ## Two halves, and only the first was on record
+
+  **1. `migrated_old_paths` read one journal.** It now reads both - `migration_journal` for a
+  layout migration, and `inplace_moves` joined through `inplace_runs` for an in-place organize.
+
+  **2. ⚠ `organize` never offered the cleanup at all.** `_offer_cleanup` was wired into
+  `migrate-layout` alone, so even with the query fixed the *run* still said nothing - while its
+  banner promised *"Empty folders left behind are reported, never deleted."* Worse, the comment
+  beside the organize report claimed *"the empty-folder offer that follows"*, describing something
+  that did not exist on that path and making the promise look kept to anyone reading the code.
+  The offer is counted inside the catalog block - after `finish_inplace_run`, because the journal
+  has to be complete before it is read - and printed after the report, where `migrate-layout` puts
+  its own.
+
+  ```
+  Empty folders left behind are reported, never deleted.
+  ...
+  1 folder(s) are now empty. Review and remove them with:
+    truestill clean-empty /data/afi2/lib
+  ```
+
+  ## ⚠ The union had to be restricted, and the restriction is a safety condition
+
+  `Relocation` is built for plain `--move` as well as `--in-place` - deliberately, so both
+  spellings earn the same undo rights - and `Relocation.old_relative` is relative to the
+  **source root**. For `organize ~/Downloads /drive --move` that root is the user's import folder,
+  not the drive. An unrestricted union would have fed `plan_cleanup(drive_root, ...)` a path
+  emptied somewhere else entirely, and offered to remove whatever sat at the same relative path on
+  the drive: **the drive sweep `emptied_directories`' scope rule exists to forbid**, reintroduced
+  by the fix for a reporting gap.
+
+  Only a true in-place run has `source_root == dest_root`. Compared with `os.path.normpath` in
+  Python rather than in the SQL, because the roots are stored as the strings the user typed - a
+  trailing slash is not a different folder, and a raw comparison would silently call a real
+  in-place run a `--move`, restoring the very gap this entry is about.
+
+  ## ⚠ And a second hazard the fix would have introduced: an absolute journal path
+
+  `old_relative` falls back to an **absolute** path when a source sits outside its root - which is
+  documented, and unreachable from `migration_journal` alone. `plan_cleanup` joins with
+  `root / relative`, and pathlib lets an absolute operand win outright:
+
+  ```
+  Path("/drive") / "/etc"       -> /etc
+  Path("/drive") / "../../etc"  -> /drive/../../etc
+  ```
+
+  So the only code path in the product that removes directories could have been pointed anywhere
+  by a row nobody thought of as a path. `emptied_directories` now drops any path that could leave
+  the root.
+
+  ⚠ **Proven by mutation, and the proof found something else.** With the guard returning `False`
+  the suite does not fail - **it hangs**: `PurePosixPath("/").parent` is `"/"`, a fixed point that
+  never equals `"."`, so the ancestor walk never terminates. That was true before this entry and
+  reachable only once absolute paths could enter. The walk now carries its own fixed-point break,
+  so removing the guard fails a test in 0.1 s instead of stopping the suite - *a defect a suite
+  reports rather than a defect a suite stops on.*
+
+  ## Decided: one query, not one journal
+
+  The entry left open whether to union the reads or merge the tables. **The read**, because
+  `inplace_runs` / `inplace_moves` are what `undo-organize` reverses, and `(yy)` already recorded
+  that rewriting undo records is its own decision. Nothing here writes.

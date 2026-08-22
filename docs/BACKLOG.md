@@ -118,14 +118,6 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(afi) `clean-empty` CANNOT SEE THE FOLDERS `organize --in-place` EMPTIES, AND THE RUN PROMISES
-  IT CAN.** Found by **soak four, D5**, 2026-08-22. ⚠ **Not a wrongful deletion - the inverse.**
-  `migrated_old_paths` reads `migration_journal` only; `organize --in-place` writes `inplace_moves`
-  (161 rows, measured) and no reader in the cleanup path touches it. So both the command and the
-  post-run offer are blind, while the in-place banner says *"Empty folders left behind are
-  reported, never deleted."* Controlled: a `migrate-layout` on the same drive minutes later was
-  found, offered and cleaned correctly - `clean-empty` is right and is pointed at one of the two
-  journals. Found 2026-08-22. [Full entry](research/backlog/afi.md)
 - **(afh) THE CEREMONY IS INVERTED RELATIVE TO THE STAKES: DELETING PHOTOS IS EASIER THAN
   DELETING EMPTY FOLDERS.** Found by **soak four, D2**, 2026-08-22. `reclaim` removes the user's
   originals with `unlink` - measured, nothing in any trash - behind the typed word `delete` and

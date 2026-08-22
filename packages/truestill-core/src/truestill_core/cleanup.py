@@ -108,11 +108,31 @@ class CleanupPlan:
         return [c for c in self.candidates if not c.removable]
 
 
+def _escapes_the_root(relative: PurePosixPath) -> bool:
+    """Whether joining ``relative`` onto a root could land outside it.
+
+    Absolute paths and ``..`` segments both do, by different mechanisms: pathlib discards the left
+    operand for the first, and walks upward for the second. Neither is reachable from today's
+    writers on a drive-relative row, which is exactly why a guard is worth having here rather than
+    a comment saying it cannot happen.
+
+    ⚠ **And an absolute path does not merely escape - it HANGS.** ``PurePosixPath("/").parent`` is
+    ``"/"``, a fixed point that never equals ``"."``, so `emptied_directories`' ancestor walk never
+    terminates. Proven by mutation on 2026-08-22: with this returning ``False`` the suite does not
+    fail, it stops. The walk below now carries its own fixed-point break as well, so removing
+    this guard fails a test rather than hanging one - but the guard is what keeps a path that
+    could leave the drive out of the candidate set in the first place, which is the property
+    that matters.
+    """
+    return relative.is_absolute() or ".." in relative.parts
+
+
 def emptied_directories(journal_old_paths: list[str]) -> list[str]:
     """Every directory a migration moved files out of, **deepest first**.
 
     Each move's old path contributes its parent and every ancestor above it, because emptying
-    `Camera/2013/09/` is what makes `Camera/2013/` and then `Camera/` empty in turn. Sorting by
+    `Camera/2013/09/` is what makes `Camera/2013/` and then `Camera/` empty in turn. A path that
+    could escape the drive root contributes **nothing** -- see :func:`_escapes_the_root`. Sorting by
     depth is what lets a single bottom-up pass collapse a whole skeleton: a parent is only
     inspected after its children have had their chance to go.
     """
@@ -120,8 +140,24 @@ def emptied_directories(journal_old_paths: list[str]) -> list[str]:
     for old in journal_old_paths:
         parent = PurePosixPath(old).parent
         while parent != PurePosixPath("."):
+            if _escapes_the_root(parent):
+                # ⚠ Not a filter for tidiness. `plan_cleanup` joins with `root / relative`, and
+                # pathlib lets an ABSOLUTE operand win outright: `Path("/drive") / "/etc"` is
+                # `/etc`. A journal path can legitimately be absolute -- `Relocation.old_relative`
+                # falls back to one when a source sits outside its root -- so without this the
+                # only code path in the product that removes directories could be pointed
+                # anywhere on the filesystem by a row nobody thought of as a path. `(afi)`
+                break
             directories.add(parent.as_posix())
-            parent = parent.parent
+            above = parent.parent
+            # ⚠ Defence in depth, and it is not theoretical: ``PurePosixPath("/").parent`` is
+            # ``"/"``, which never equals ``"."``, so an absolute path walked forever. The guard
+            # above already rejects those - this is here so removing the guard FAILS a test
+            # instead of hanging one, which is the difference between a defect a suite reports
+            # and a defect a suite stops on.
+            if above == parent:
+                break
+            parent = above
     return sorted(directories, key=lambda d: (-d.count("/"), d))
 
 

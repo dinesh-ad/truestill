@@ -114,3 +114,44 @@ def test_a_preview_of_permanent_mode_still_removes_nothing(
 
     assert "Preview only. Nothing was removed." in capsys.readouterr().out
     assert (root / "Camera/2023/08").is_dir()
+
+
+def _drive_with_an_in_place_run(tmp_path: Path) -> tuple[Path, Path]:
+    """A drive whose leftovers came from `organize --in-place`, not from a layout migration."""
+    root = tmp_path / "drive"
+    root.mkdir()
+    marker = create_marker(root, "Drive B")
+    (root / "Old Folder").mkdir(parents=True)
+    db = tmp_path / "c.sqlite"
+    with Catalog(db) as catalog:
+        catalog.upsert_drive(uuid=marker.uuid, label="Drive B")
+        catalog.start_inplace_run(
+            run_id="run-9", source_root=str(root), dest_root=str(root), drive_uuid=marker.uuid
+        )
+        catalog.record_inplace_move(
+            run_id="run-9",
+            sha256="c" * 64,
+            old_relative="Old Folder/x.jpg",
+            new_relative="2023/2023-08/x.jpg",
+        )
+        catalog.finish_inplace_run("run-9")
+    return root, db
+
+
+def test_clean_empty_sees_what_an_in_place_organize_emptied(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """⚠ It answered *"no migration leftovers recorded"* here until 2026-08-22.
+
+    `organize --in-place` writes `inplace_moves`; `migrated_old_paths` read `migration_journal`
+    alone. So the mode that leaves the MOST behind - every file moves out of a tree the user built
+    by hand - was the one whose leftovers nothing could see. `(afi)`
+    """
+    root, db = _drive_with_an_in_place_run(tmp_path)
+
+    assert main(["clean-empty", str(root), "--db", str(db)]) == 0
+
+    out = capsys.readouterr().out
+    assert "no migration leftovers recorded" not in out
+    assert "Old Folder" in out
+    assert (root / "Old Folder").is_dir(), "a preview removed something"

@@ -616,3 +616,27 @@ def test_a_discarded_count_never_includes_junk_that_had_already_gone(tmp_path: P
 
     assert outcome.discarded == 0
     assert outcome.removed == 6
+
+
+@pytest.mark.parametrize(
+    "escaping",
+    ["/etc/passwd", "../../etc/passwd", "Camera/../../../etc/passwd"],
+)
+def test_a_journal_path_that_could_leave_the_drive_contributes_nothing(escaping: str) -> None:
+    """⚠ The only code path in the product that removes directories must not be steerable.
+
+    `plan_cleanup` joins with ``root / relative``, and pathlib lets an **absolute** operand win
+    outright - ``Path("/drive") / "/etc"`` is ``/etc`` - while ``..`` walks upward. A journal row
+    can legitimately be absolute: `Relocation.old_relative` falls back to one when a source sits
+    outside its root. `(afi)`
+    """
+    assert emptied_directories([escaping]) == []
+
+
+def test_an_ordinary_relative_journal_path_is_unaffected() -> None:
+    """The cry-wolf half: the guard must not have swallowed the normal case."""
+    assert emptied_directories(["Camera/2013/09/a.jpg"]) == [
+        "Camera/2013/09",
+        "Camera/2013",
+        "Camera",
+    ]

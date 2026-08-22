@@ -22,6 +22,19 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(afi) `clean-empty` SEES WHAT AN IN-PLACE ORGANIZE EMPTIED, AND THE RUN SAYS SO.** Shipped
+  2026-08-22. `migrated_old_paths` read `migration_journal` alone; `organize --in-place` writes
+  `inplace_moves`, so the mode that leaves the most behind was the one whose leftovers nothing
+  could see. ⚠ **Two halves**: the query, and the fact that `organize` never called
+  `_offer_cleanup` at all - a comment beside its report claimed an offer "follows" that did not
+  exist. ⚠ **The union is restricted to `source_root == dest_root` as a SAFETY condition**, not a
+  tidiness one: `Relocation` is built for plain `--move` too, whose `old_relative` is relative to
+  the user's import folder, so an unrestricted union would have offered folders on the wrong root.
+  A second hazard was closed on the way: an absolute journal path escapes `root / relative`
+  outright, and with the guard removed the ancestor walk **hangs** rather than fails - the walk now
+  breaks on the fixed point too. Decided: one query, not one journal, because `undo-organize`
+  reverses those tables and `(yy)` left that decision alone.
+  [Full entry](research/backlog/afi.md)
 - **(afj) `clean-empty` NO LONGER REMOVES A FOLDER ITS OWN PREVIEW DID NOT NAME.** Shipped
   2026-08-22, together, because neither ordering existed. The contents now go to the trash and the
   **folder goes to `rmdir`**, whose emptiness precondition the kernel enforces atomically -

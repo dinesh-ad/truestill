@@ -2573,6 +2573,9 @@ def _run_pipeline(
     drive_marker: DriveMarker | None = None,
     relocation: Relocation | None = None,
 ) -> int:
+    #: Folders this run emptied and could offer to clean, counted inside the catalog block and
+    #: printed after the report. Zero unless a completed in-place run left some. `(afi)`
+    emptied_folders = 0
     with _catalog(args.db) as catalog, HashCache.beside(args.db) as cache:
         if getattr(args, "apply", False) and pin_existing_layout(catalog):
             print(_PINNED_NOTICE)
@@ -2691,6 +2694,10 @@ def _run_pipeline(
             # A run that renamed nothing leaves no journal row to offer as an undo.
             if moved:
                 catalog.finish_inplace_run(relocation.run_id)
+                # ⚠ Counted HERE and printed after the report, because the catalog closes with
+                # this block and the journal has to be FINISHED before it is read - the line
+                # above is what makes these rows visible. `(afi)`
+                emptied_folders = _emptied_folder_count(catalog, drive_uuid, Path(args.destination))
             else:
                 catalog.discard_inplace_run(relocation.run_id)
 
@@ -2714,10 +2721,19 @@ def _run_pipeline(
         # CLI's "finished, but something is wrong" (verify, organize, reclaim all use it).
         return 1 if unreadable else 0
     code = _print_execution(results)
+    # ⚠ The banner this run printed says "Empty folders left behind are reported, never deleted",
+    # and until 2026-08-22 nothing here reported them: `_offer_cleanup` was wired into
+    # `migrate-layout` alone, and the comment below claimed an offer "follows" that did not
+    # exist on this path. `(afi)`
+    if emptied_folders:
+        print(
+            f"\n{emptied_folders} folder(s) are now empty. Review and remove them with:"
+            f"\n  truestill clean-empty {args.destination}"
+        )
     # And what it left, after the fact. The result answers a different question from the
     # preview - not what will happen, but what to do now - and it is the only place the files
-    # still sitting in the source are explained at all: the empty-folder offer that follows
-    # names the folders the move DID empty and is silent about these by construction.
+    # still sitting in the source are explained at all: the empty-folder offer above names the
+    # folders the move DID empty and is silent about these by construction.
     _print_left_in_source(args, relocation, results)
     failed = frozenset(
         r.resolution.decision.source for r in results if r.status is ActionStatus.FAILED
@@ -3500,8 +3516,11 @@ def _print_cleanup_plan(plan: CleanupPlan, backend: str | None, *, permanent: bo
         return
     print(f"\n{len(plan.removable)} folder(s) will be removed.")
     if empties:
-        is_are = "is" if len(empties) == 1 else "are"
-        print(f"  {len(empties)} {is_are} empty - nothing in them, so nothing to recover.")
+        one = len(empties) == 1
+        print(
+            f"  {len(empties)} {'is' if one else 'are'} empty - "
+            f"nothing in {'it' if one else 'them'}, so nothing to recover."
+        )
     # ⚠ SCOPED TO THE JUNK TIER ON PURPOSE. Said of the whole plan it would read as a promise
     # about folders that never had anything in them to trash.
     if junk:
@@ -3529,6 +3548,20 @@ def _print_cleanup_plan(plan: CleanupPlan, backend: str | None, *, permanent: bo
                 else "reported and that\n  folder is left in place."
             )
         )
+
+
+def _emptied_folder_count(catalog: Catalog, drive_uuid: str | None, path: Path) -> int:
+    """How many folders this drive's completed migrations emptied and left removable.
+
+    Shares `_offer_cleanup`'s two calls rather than its printing, because `organize` has to count
+    while the catalog is open and speak after its report, and `migrate-layout` can do both at
+    once. ``None`` for the drive means an unregistered destination, which has no journal to read.
+    """
+    if drive_uuid is None:
+        return 0
+    return len(
+        plan_cleanup(path, emptied_directories(catalog.migrated_old_paths(drive_uuid))).removable
+    )
 
 
 def _offer_cleanup(catalog: Catalog, drive_uuid: str, path: Path) -> None:

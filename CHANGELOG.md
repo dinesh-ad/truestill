@@ -7,6 +7,10 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **After `organize --in-place`, Truestill now tells you which folders it emptied.** The run
+  always said it would report them and never did, and `truestill clean-empty` answered "no
+  migration leftovers recorded" on a drive that plainly had some - it was only looking at the
+  record a layout migration writes, not the one an in-place organize writes. Both are read now.
 - **`clean-empty` can no longer remove a folder that something appeared in while you were
   reading the preview.** It now puts a folder's leftover OS junk in the trash and removes the
   folder itself with `rmdir`, which the system refuses if anything at all is still inside - so a
