@@ -1,6 +1,53 @@
-# (afv) `(ady)` INTRODUCED AN INTERMITTENT FAILURE IN THE CONCURRENT-MIGRATION TEST, AND THE MECHANISM IS NOT KNOWN.
+# (afv) `user_version` MOVED BACKWARDS ON DISK. `(adl)`'s STAMP WAS NOT IDEMPOTENT; `(ady)` ONLY MADE IT VISIBLE.
 
 *Body of backlog entry `(afv)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+
+> ⚠ **CORRECTED AND CLOSED 2026-08-22. THE TITLE ABOVE REPLACED:**
+> *"`(ady)` introduced an intermittent failure in the concurrent-migration test, and the mechanism
+> is not known."* **Both halves were wrong.** The mechanism is known and recorded below; and the
+> defect is `(adl)`'s, dating from 2026-08-19, not `(ady)`'s. The investigation as first written is
+> kept unedited beneath this note, because what it ruled out is worth as much as what it found and
+> because a correction that deletes what it corrects leaves the next reader unable to tell which
+> half moved.
+>
+> 🔑 **THE READING ERROR, WHICH IS THE REUSABLE PART.** The differential was sound: 12/12 green on
+> the pre-`(ady)` tree, ~1 in 8 red after it. What was wrong was the conclusion drawn from it -
+> **it proved VISIBILITY, not CAUSATION.** Measured afterwards with a probe that watches the file
+> rather than the test's outcome, 40 rounds of six concurrent openers each:
+>
+> | tree | rounds where `user_version` moved backwards |
+> |---|---|
+> | pre-`(ady)` (`12076c7`) | **7 / 40** |
+> | `(ady)` as shipped | **28 / 40** |
+> | both fixes | **0 / 40** |
+>
+> The defect was there at 18% before `(ady)` existed. Now `ENGINEERING_STANDARD.md` §4's
+> **sixty-third member**.
+>
+> ⚠ **AND THE SEVERITY INVERTED WHEN THE MECHANISM WAS FOUND.** The test goes red only when a read
+> lands inside the window; runs where **all six openers returned 20** still moved the file
+> `20 -> 5`, `20 -> 19`, `20 -> 4`. **The on-disk corruption is commoner than the test failure**,
+> and a version below the schema means the file claims to be *older* than it is, so the next open
+> re-runs migrations against columns that already exist.
+>
+> **THE MECHANISM.** Two openers of a behind catalog both read `version = 3` into a plain local
+> before the loop. One completes the chain to 20. The other, still at the start, then runs
+> `_apply_step(4)`, whose `PRAGMA user_version = 4` had no check that the file was already past
+> it - so it stamped **backwards**. `(ady)`'s copy widened the gap between the two, and did so
+> worst by copying on openers that had **zero steps to apply** - four of six.
+>
+> ✅ **FIXED IN TWO COMMITS, `(adl)`'s first**: `1f0dde7` re-reads the version inside the
+> `BEGIN IMMEDIATE` `_apply_step` already holds and skips a step the file is past; `46b100e` gates
+> the copy on `version < CURRENT_SCHEMA_VERSION`. Pinned by
+> `test_the_stamp_never_moves_backwards.py`, which **constructs** the interleave rather than
+> sampling for it - see its own note on why the first version of that test was weak.
+>
+> ⚠ **`backup()` was exonerated, and re-asking the question properly is what did it.** The first
+> check was `Connection.in_transaction`, which returned `False` - the wrong instrument, and
+> reported as though it settled the matter. Asked properly (write `99` from another connection
+> after a contended backup, then read the source): the source sees **99, three trials of three**.
+> No staleness, no lingering read transaction. The `after-copy@4` observation was a **correct**
+> read of a file that really was at 4.
 
 - **(afv)** Found 2026-08-22, hours after `(ady)` shipped, by running the gate on a docs-only
   change. **Filed rather than fixed because the cause is not established**, and

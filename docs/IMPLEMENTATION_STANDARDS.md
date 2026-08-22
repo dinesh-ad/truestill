@@ -449,6 +449,18 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
     `backup_report`, the one seam every CLI open already goes through. Bounded by
     `DEADLINE_SECONDS` because CPython retries `SQLITE_BUSY` with no timeout of its own.
   - Pinned by `tests/test_catalog_backup.py`; five mutations, both directions.
+- **⚠ A migration step never stamps a version the file is already past** (2026-08-22, `(afv)`).
+  `_apply_step` re-reads `PRAGMA user_version` **inside the `BEGIN IMMEDIATE` it already holds**
+  and returns without stamping when the file is at or beyond its target. Without it the chain's
+  `version` - read once, before the loop, into a local - let a late opener stamp `4` over a file
+  another opener had already carried to `20`: **the version moves backwards, so the file claims a
+  schema older than it has** and the next open re-runs migrations against columns that exist.
+  Measured from a connection outside the race: `20 -> 5`, `20 -> 19`, `20 -> 4`, in **7 of 40**
+  rounds before `(ady)` existed and **28 of 40** after it; **0 of 40** with this rule.
+  ⚠ **The copy `(ady)` takes is gated on `version < CURRENT_SCHEMA_VERSION`, not on `fresh`** -
+  the fast path's read is outside the lock, so an opener can arrive with nothing to migrate, and
+  four of six did. Pinned by `test_the_stamp_never_moves_backwards.py`, which **constructs** the
+  interleave rather than sampling for it.
 - **A migration is not a transaction, and three conventions are what make that safe.** Measured
   2026-08-02: interrupting v17 after its third `ALTER TABLE` left three of five columns
   committed, because DDL autocommits under Python's legacy transaction control. Nothing was lost

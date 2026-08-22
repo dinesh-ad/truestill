@@ -479,6 +479,43 @@ memory dressed as one.
   destructive path. All three now build a skeleton that holds junk, so a refusal has something to
   refuse, and the trash double records what it was handed.
 
+- **A CHANGE THAT MAKES A DEFECT REPRODUCIBLE IS NOT THE CHANGE THAT INTRODUCED IT, AND A CLEAN
+  DIFFERENTIAL WILL NOT TELL YOU WHICH IT IS.** The sixty-third member, and it is about the
+  *reading* of an instrument rather than the instrument. Bisect-style reasoning answers **"does
+  the symptom appear with this change and not without it"**, which is a question about
+  **visibility**. It is routinely mistaken for **causation**, and the mistake is invisible because
+  the evidence really is clean.
+
+  ⚠ **The tell is that the differential is BINARY while the defect is PROBABILISTIC.** A latent
+  race has a rate. A change that alters timing moves the rate - and if it moves it far enough,
+  a small sample reads as 0/n before and n/n after. **Nothing about that output distinguishes
+  "introduced" from "amplified"**, and the natural conclusion is the wrong one.
+
+  > **So measure the RATE on both sides, not the presence.** Run the probe enough times to put a
+  > number on each tree. If the "before" rate is greater than zero, the change is an amplifier and
+  > the defect belongs to whatever put it there.
+
+  *Worked example - `(afv)`, 2026-08-22.* `(ady)` shipped a catalog copy before the migration
+  chain; a concurrent-migration test began failing ~1 run in 8. The differential was run properly,
+  including catching a **void** first attempt where the editable install resolved the old test
+  against the new code: valid control, **12/12 green** without the change, red with it. Reported
+  as *"proven `(ady)`'s by differential"*.
+
+  It was not. A probe that watched `user_version` **on the file** rather than the test's outcome
+  measured, 40 rounds each: **7/40 before `(ady)`, 28/40 after, 0/40 once fixed.** The defect was
+  `(adl)`'s non-idempotent stamp, three days older, at an 18% rate the whole time. `(ady)` moved it
+  to 70% and the test noticed.
+
+  ⚠ **And the amplifier was worth fixing too, which is why this is not simply "blame the older
+  commit".** `(ady)` copied on openers with **zero** steps to apply - four of six - so removing
+  that removed both the waste and most of the amplification. **Two commits, the cause first.**
+
+  ⚠ **The second half of the same lesson: the failing TEST understated the defect.** It asserted
+  what each opener *returned*, so it went red only when a read landed inside the window; runs where
+  **all six openers returned 20** still moved the file backwards on disk. **An outcome test is a
+  sampler of a property test.** When a defect is probabilistic, find the observable that is always
+  true or always false - here, monotonicity of a number on disk - and assert that instead.
+
 - **A CHANGE LANDS IN THE DOCUMENT YOU HAPPEN TO BE LOOKING AT, NOT THE ONE THAT GOVERNS.** The
   sixty-second member. When a fact is stated in two places - a reminder and the rule it summarises
   - an edit reaches whichever one was already open. The reminder is the one you are reading,

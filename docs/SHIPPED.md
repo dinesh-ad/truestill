@@ -22,6 +22,34 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(afv) `user_version` MOVED BACKWARDS ON DISK. `(adl)`'s STAMP WAS NOT IDEMPOTENT; `(ady)` ONLY
+  MADE IT VISIBLE.** Shipped 2026-08-22 in two commits, the cause first: `1f0dde7` re-reads the
+  version inside the `BEGIN IMMEDIATE` `_apply_step` already holds and skips a step the file is
+  past; `46b100e` gates `(ady)`'s copy on `version < CURRENT_SCHEMA_VERSION` rather than on
+  `fresh`.
+  **The mechanism.** The chain reads `version` once, before the loop, into a plain local. Two
+  openers of a behind catalog both enter at 3; one completes to 20; the other then stamps 4 over
+  it. A version below the schema means the file claims to be **older than it is**, so the next
+  open re-runs migrations against columns that already exist - survivable only because every
+  migration happens to be idempotent, which `catalog.py` already calls *"luck holding, not a
+  design"*.
+  ⚠ **THE ENTRY WAS FILED BLAMING `(ady)` AND THAT WAS WRONG.** Its title said `(ady)` introduced
+  it and the mechanism was unknown; both halves were false and both are corrected in place. The
+  differential behind the claim was **sound** - 12/12 green pre-`(ady)`, red after - and it proved
+  **visibility, not causation**. Measured with a probe watching the file rather than the test's
+  outcome, 40 rounds each: **7/40 before `(ady)`, 28/40 after, 0/40 fixed.** Now
+  `ENGINEERING_STANDARD.md` §4's **sixty-third member**.
+  ⚠ **The failing test understated it.** It asserts what each opener *returns*, so it reddens only
+  when a read lands in the window - runs where **all six openers returned 20** still moved the file
+  `20 -> 5`, `20 -> 19`, `20 -> 4`. The new guard asserts the **property** (monotonicity on disk)
+  and **constructs** the interleave rather than sampling for it: 0.08 s and decisive, where the
+  first version cost 61 s and drew its power from the very amplification about to be removed.
+  ⚠ **`backup()` was exonerated by re-asking the question properly.** `Connection.in_transaction`
+  said `False` and settled nothing; writing `99` from another connection after a contended backup
+  and reading it back showed the source current, three trials of three. The `after-copy@4`
+  observation was a correct read of a file that really was at 4.
+  [Full entry](research/backlog/afv.md)
+
 - **(abo) THE HASH CACHE CAN SAY "NOBODY LOOKED".**
   Built **2026-08-07** (`8af88dc`); **closed 2026-08-22**, when a whole-backlog re-read found the
   entry still open. Cache schema **v3**: `perceptual_computed` records whether a perceptual pass

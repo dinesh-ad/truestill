@@ -118,17 +118,6 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(afv) `(ady)` INTRODUCED AN INTERMITTENT FAILURE IN THE CONCURRENT-MIGRATION TEST, AND THE
-  MECHANISM IS NOT KNOWN.** Found 2026-08-22, hours after `(ady)` shipped, by running the gate on a
-  docs-only change. `test_concurrent_openers_of_a_behind_catalog_all_succeed` fails ~**1 run in
-  8**: one of six openers finishes at schema **4** instead of 20, without raising.
-  ⚠ **Proven `(ady)`'s by differential, not assumed** - 12/12 green on the pre-`(ady)` tree with
-  the import resolution printed, after a first control that was **void** through the editable
-  install (§4's fifth member, first worked example). Four hypotheses measured and ruled out, each
-  recorded. **Filed rather than fixed because the cause is not established**, and a
-  non-deterministic failure is quarantined and filed with its trace, never retried (§4's
-  twenty-sixth member). ⚠ **Not a test artefact**: `(adm)` records six concurrent `_migrate` calls
-  in one app process on a real first run. [Full entry](research/backlog/afv.md)
 - **(afu) THE RUN RECORD IS CLI-ONLY, AND THE SURFACE IT MISSED IS THE ONE §1'S OWN REASONING
   NAMES.** Found 2026-08-22 by a whole-backlog re-read, four commits after `(afl)` shipped.
   Measured: `record_path_for` has **one caller** (`cli.py:2787`) and `truestill-app` contains no
