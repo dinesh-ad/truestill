@@ -72,16 +72,27 @@ from truestill_core.drive import drive_identity
 # anywhere fails on Windows with *"Name `fcntl` is not defined"* - which the Windows lane caught
 # and a Linux `make check` cannot. Defining the functions inside each branch keeps every
 # reference next to its own import.
+#: The byte Windows actually locks, chosen far past any claim we write. `(aaw)`
+#:
+#: ⚠ **Windows locks are MANDATORY, not advisory**, so a locked byte cannot be READ by anyone
+#: else - and the claim (pid, host, operation) lives at offset 0 precisely so the other process
+#: can read it to name the holder. Locking byte 0 made the refusal anonymous on Windows and
+#: nowhere else; the Windows lane caught it. Locking a sentinel far beyond the text leaves the
+#: text readable while the exclusion is unchanged, which is the ordinary way to do this on a
+#: platform without advisory locks.
+_SENTINEL_BYTE = 1 << 30
+
 if sys.platform == "win32":  # pragma: no cover - exercised on the Windows lane only
     import msvcrt
 
     def _take(fd: int) -> None:
         """Claim ``fd`` exclusively without waiting. Raises ``OSError`` when someone holds it."""
+        os.lseek(fd, _SENTINEL_BYTE, os.SEEK_SET)
         msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
 
     def _give_up(fd: int) -> None:
         """Release ``fd``'s claim. Closing it would do this too; the pair stays legible."""
-        os.lseek(fd, 0, os.SEEK_SET)
+        os.lseek(fd, _SENTINEL_BYTE, os.SEEK_SET)
         msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
 
 else:
@@ -189,7 +200,11 @@ class DriveLock:
             raise DriveBusyError(self._label, holder) from exc
         self._fd = fd
         # Written AFTER the lock is held, so what is in the file always belongs to the holder.
-        # Truncate first: a shorter claim must not leave the tail of a longer one behind.
+        # ⚠ Seek back to the start first: taking the lock moved the descriptor to the sentinel
+        # byte on Windows, and writing from there would put the claim a gigabyte into the file
+        # where no other process would look for it.
+        os.lseek(fd, 0, os.SEEK_SET)
+        # Truncate: a shorter claim must not leave the tail of a longer one behind.
         os.ftruncate(fd, 0)
         claim = f"{os.getpid()}\n{socket.gethostname()}\n{self._operation}\n"
         os.write(fd, claim.encode("utf-8"))
