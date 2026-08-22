@@ -195,8 +195,15 @@ narrative, or volatile counts.
 
 ## 2b. What stands between here and a first tag (2026-08-22)
 
-⚠ **THE REPOSITORY CANNOT ANSWER THIS ON ITS OWN, AND THAT IS `(aef)`.** Counted there: of 64 open
-entries, **one** carries a release marker in its own text. The release question *"is not stored
+⚠ **THE REPOSITORY CANNOT ANSWER THIS ON ITS OWN, AND THAT IS `(aef)`.** Counted there: of the
+open entries, **almost none** carry a release marker in their own text. ⚠ **This said "of 64 open
+entries" until 2026-08-22, when the section held 81** - the figure was `(aef)`'s 2026-08-19
+reading, quoted here as if it were current. A count in prose rots; the command does not:
+
+```
+sed -n '/^## Approved - still to build/,/^## Settled technical stances/p' docs/BACKLOG.md \
+  | grep -cE '^ *- \*\*\([a-z]+\)'      # open entries. Read 81 on 2026-08-22.
+``` The release question *"is not stored
 anywhere - it is RECOMPUTED from judgement every time it is asked, which is why it comes out
 different."* What follows is such a recomputation, dated so the next one can disagree with a
 version rather than with a memory. It is not a substitute for `(aef)`.
@@ -249,7 +256,7 @@ all four artefacts from one derivation. Everything except publish.
   what other work waits behind. What remains open is the *knowledge* - the failure class that only
   a real library produces is still unmeasured, and nothing below should be read as covering it.
   ⚠ **MEASURED 2026-08-20** - see §1. Five entries, three shipped.
-- **Absolute-path portability remains open** (`BACKLOG.md` `(xx)`; ⚠ `(yy)` was listed here too and is **BUILT 2026-08-02** as `truestill repoint-sources OLD NEW` - reconnect UX is done, the portability of the stored paths is not):
+- **Absolute-path portability remains open** (`BACKLOG.md` `(xx)`; ⚠ `(yy)` was listed here too and is **BUILT 2026-08-02** as `truestill repoint-sources OLD NEW` - reconnect UX is done, the portability of the stored paths is not. This line was right and `BACKLOG.md` was wrong: `(yy)` stayed listed as unbuilt there until **2026-08-22** and was in `SHIPPED.md` not at all, which is the one thing the 2026-08-01 split exists to prevent):
   `files.source_path`, inplace roots, reclaim journal path semantics, and reconnect UX.
 - **Known coverage gap: the unreadable-directory path is unverified on Windows.**
   `scan_source` was swapped from `sorted(rglob("*"))` to `Path.walk(on_error=...)`, and the

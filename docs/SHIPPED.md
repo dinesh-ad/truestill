@@ -22,6 +22,16 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(yy) RECONNECT A MOVED LIBRARY - `truestill repoint-sources OLD NEW`.** Built **2026-08-02**;
+  ⚠ **moved here 2026-08-22, having sat in `BACKLOG.md` as unbuilt for three weeks while
+  `PROJECT_STATUS.md` said it was built and this file did not mention it at all.** Which of the
+  three was right was settled by asking the product: the subcommand exists and `(yy)`'s own body
+  has said *"BUILT 2026-08-02"* since the day it landed. Preview, content proof (`inspect_root`:
+  stat-sample then three full reads that must agree), typed `repoint`. ⚠ **`(xx)` stays open** and
+  is the other half: the stored paths are still absolute, so this repairs a move rather than
+  preventing the next one. `reclaim_journal.source_path` and `inplace_runs.*_root` are
+  out of scope by decision, not oversight - see the entry.
+  [Full entry](research/backlog/yy.md)
 - **(aen) A CATALOG WHOSE LOCATION CANNOT BE PREPARED IS REPORTED, NOT A TRACEBACK.** Shipped
   2026-08-22. Its own constraint held: `_BUSY_CODES` is unchanged, and the new recognition is a
   separate family beside it. ⚠ **The half neither entry saw**: `Catalog.__init__` creates the

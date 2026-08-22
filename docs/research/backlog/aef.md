@@ -11,6 +11,17 @@
   Counted from `BACKLOG.md`'s **Approved - still to build** section: **64 open entries, and only
   seven carry any release marker in their own text.**
 
+  ⚠ **Re-counted 2026-08-22: 81 entries, still 7 matches.** The 2026-08-19 figures above are kept
+  as the dated measurement they were - the table below is that measurement, not a live reading.
+  ⚠ **And this is the entry's own thesis biting it**: a prose count went stale in three days and
+  was quoted as current in `PROJECT_STATUS.md` until it was 17 out. So the number is a command
+  from here on, not a figure, and one of the seven matches is this entry's own title:
+
+  ```
+  sed -n '/^## Approved - still to build/,/^## Settled technical stances/p' docs/BACKLOG.md \
+    | grep -cE '^ *- \*\*\([a-z]+\)'
+  ```
+
   | | |
   |---|---|
   | **blocks a first release, by its own text** | **1** - `(aad)` desktop installers, *"LAUNCH-BLOCKING for the paid product"* |

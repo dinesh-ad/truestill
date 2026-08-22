@@ -171,6 +171,10 @@ is invisible here is retired, not free.**
   which still need exiftool, so `ci_bounded.sh` stays either way. Recorded 2026-08-20. [Full
   entry](research/backlog/aeg.md)
 - **(aef) THE BACKLOG CANNOT ANSWER "WHAT MUST SHIP BEFORE v1", AND 57 OF 64 ENTRIES ARE SILENT.**
+  ⚠ **The title's figures are the 2026-08-19 reading and are kept as the dated measurement they
+  were.** Re-counted 2026-08-22 with the command in the body: **81** entries, **7** matching a
+  release marker - and the ratio the entry is about has got worse, not better, which is the
+  argument for the ruling rather than against it.
   A decision about the backlog's SHAPE, not 57 small ones. ✅ **Ruled: option B** - a curated list
   in `PROJECT_STATUS.md`, guarded by the `test_backlog_references` pattern. ⏳ **Not populated
   yet**: the list is a ruling to make after the first soak. Recorded 2026-08-19. [Full
@@ -318,8 +322,6 @@ is invisible here is retired, not free.**
   entry](research/backlog/xx.md)
 - **(aap) Registering a folder must not mint a second identity for a library already known.** [Full
   entry](research/backlog/aap.md)
-- **(yy) Reconnect a moved location (Lightroom-style Find Missing Folder).** [Full
-  entry](research/backlog/yy.md)
 - **(bbb) exiftool `_original` backups.** Mostly BUILT - safety 2026-07-30, recovery 2026-07-31;
   recovery item 4 is the PARTIAL remainder. [Full entry](research/backlog/bbb.md)
 - **(nn) Prove destination timestamp parity against a live rclone remote.** [Full

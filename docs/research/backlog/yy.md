@@ -1,6 +1,9 @@
 # (yy) Reconnect a moved location (Lightroom-style Find Missing Folder).
 
-*Body of backlog entry `(yy)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(yy)`, **shipped** - listed in [`SHIPPED.md`](../../SHIPPED.md), not in
+[`BACKLOG.md`](../../BACKLOG.md). The letter namespace is shared between the two. ⚠ This line said
+"under **Approved - still to build**" until 2026-08-22, three weeks after the body below started
+saying **BUILT 2026-08-02** four lines further down.*
 
 - **(yy) Reconnect a moved location (Lightroom-style Find Missing Folder).** Ruled by
   the maintainer 2026-07-30 after research into how Lightroom Classic repairs a moved library -
