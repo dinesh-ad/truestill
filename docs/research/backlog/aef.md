@@ -82,6 +82,36 @@
   the state the project is actually in, and a shape that admits it beats one that manufactures 57
   answers.
 
+  ## ✅ BUILT 2026-08-22 - THE MECHANISM, AND THE LIST STAYS A RULING
+
+  `PROJECT_STATUS.md` §2b carries **THE RELEASE LIST**, guarded by
+  `test_the_release_list_is_answerable.py`. What shipped is the *shape*; what did not, on this
+  entry's own instruction, is a populated list.
+
+  🔑 **THE STATE COLUMN IS DERIVED, NEVER TRUSTED.** Every letter is resolved against
+  `BACKLOG.md` and `SHIPPED.md` and compared with what the row declares, so **a letter that ships
+  without the row changing is a red test.** That is the exact class the 2026-08-22 whole-backlog
+  re-read found and nothing automatic could see - `(abo)` open for two weeks after shipping,
+  `(ach)` for thirteen days, both closed by commits naming a **different** letter, so the closure
+  gate was blind by construction. On this list that failure is a release plan blocking on finished
+  work.
+
+  **Five assertions, four mutations, all caught**: a gate that opened, a letter that exists
+  nowhere, a state the guard does not understand, and a reshaped row the parser would otherwise
+  read as an empty list (§4's fifty-second member, and the one that matters most here because the
+  subject is a markdown table).
+
+  ⚠ **SEEDED WITH ONE ROW, AND THE SHORTNESS IS THE RULING BEING HONOURED.** `(aad)` is on it
+  because the backlog's own text calls it *"LAUNCH-BLOCKING"* - not a judgement, its own words.
+  Nothing else was added, because this entry rules that the list *"is a ruling the maintainer
+  makes"* and that populating it from the backlog as it stands *"would encode today's guesses as
+  the answer - the same mistake in one file instead of 57"*. **The mechanism now exists so that
+  ruling has somewhere to land and cannot silently rot once it does.**
+
+  ⚠ **B's honest limit is restated in `PROJECT_STATUS.md` where a reader meets it**, not left
+  here: this makes the **list** answerable, not the **backlog**. *"Is `(aci)` needed for v1?"*
+  still returns silence.
+
   ## ⏳ NOT POPULATED - BUT NO LONGER BLOCKED (re-ranked 2026-08-22)
 
   **The list itself is a ruling the maintainer makes after the first soak**, because the soak is

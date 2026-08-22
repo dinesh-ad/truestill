@@ -255,6 +255,41 @@ anywhere - it is RECOMPUTED from judgement every time it is asked, which is why 
 different."* What follows is such a recomputation, dated so the next one can disagree with a
 version rather than with a memory. It is not a substitute for `(aef)`.
 
+### ⚠ THE RELEASE LIST - the one place that answers "what must ship before v1"
+
+**This is `(aef)`'s Option B, and it exists because the answer was not stored anywhere**: it was
+recomputed from judgement every time it was asked, which is why it came out different. Below is
+the list; the prose after it is the reasoning, and where the two disagree **the list wins** and
+the prose is stale.
+
+⚠ **STATE IS DERIVED, NEVER TRUSTED.** `test_the_release_list_is_answerable.py` reads this table,
+resolves every letter against `BACKLOG.md` and `SHIPPED.md`, and **fails when the declared state
+and the real one disagree** - so a letter here that ships without this line changing is caught by
+a test rather than by somebody re-reading. That is the whole point: the 2026-08-22 whole-backlog
+re-read found two entries closed in fact and four diminished, and **nothing automatic could see
+any of it**. This list is the part that can be made to see.
+
+| letter | state | why it is on the list |
+|---|---|---|
+| `(aad)` | OPEN | The **only** entry the backlog's own text calls *"LAUNCH-BLOCKING"*. Not a judgement - its own words. |
+
+🔒 **THE LIST IS DELIBERATELY SHORT, AND ITS SHORTNESS IS NOT AN OVERSIGHT.** `(aef)` rules that
+populating it *"from the backlog as it stands would encode today's guesses as the answer - the
+same mistake in one file instead of 57"*, and that **the list itself is a ruling the maintainer
+makes**. So it is seeded with what the repository already declares and nothing else: `(aad)`
+because it says so, and no letter here on anyone's inference. **Adding to it is a decision, taken
+here, on purpose.**
+
+⚠ **AND B'S HONEST LIMIT, restated where a reader meets it rather than left in the entry: this
+makes the LIST answerable, not the BACKLOG.** Asking *"is `(aci)` needed for v1?"* still returns
+silence. That is the state the project is actually in, and a shape that admits it beats one that
+manufactures 57 answers.
+
+**Not on the list and not letters at all** - they have no entry to resolve against, so the guard
+cannot hold them and this line is what carries them: the **publish job has never run**, and
+`(aad)` item 5's **download page** (whose home is `(afg)`, itself undecided as to whether it
+blocks). Both are detailed below.
+
 ### Actually blocking
 
 | | |

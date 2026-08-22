@@ -217,18 +217,6 @@ is invisible here is retired, not free.**
   and the largest consumer, at 43m33s on run 32295312064. ⚠ **Does NOT cover the `check` lanes**,
   which still need exiftool, so `ci_bounded.sh` stays either way. Recorded 2026-08-20. [Full
   entry](research/backlog/aeg.md)
-- **(aef) THE BACKLOG CANNOT ANSWER "WHAT MUST SHIP BEFORE v1", AND 57 OF 64 ENTRIES ARE SILENT.**
-  ⚠ **The title's figures are the 2026-08-19 reading and are kept as the dated measurement they
-  were.** Re-counted 2026-08-22 with the command in the body: **81** entries, **7** matching a
-  release marker - and the ratio the entry is about has got worse, not better, which is the
-  argument for the ruling rather than against it.
-  A decision about the backlog's SHAPE, not 57 small ones. ✅ **Ruled: option B** - a curated list
-  in `PROJECT_STATUS.md`, guarded by the `test_backlog_references` pattern.
-  ⚠ **Re-ranked live 2026-08-22: its gate fired and nobody re-read it.** *"The list is a ruling the
-  maintainer makes after the first soak"* - **four soaks have run**, produced twelve entries and
-  all twelve are closed, so the evidence it waited for now exists. It is the maintainer's ruling to
-  make, and it is no longer blocked. ⚠ **The entry is ABOUT this failure and was an instance of
-  it** - see its own new section. Recorded 2026-08-19. [Full entry](research/backlog/aef.md)
 - **(aec) 62 FIXED WAITS IN THE BROWSER LANE, EACH ONE A COIN TOSS AGAINST A MEASURED LATENCY.**
   Recorded 2026-08-19. One was fixed; the class was not. [Full entry](research/backlog/aec.md)
 - **(aea) TWO INTACT CATALOGS FOR ONE INSTALL, AND NOTHING RECONCILES THEM.** Recorded 2026-08-19.

@@ -22,6 +22,30 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aef) THE RELEASE LIST EXISTS, AND ITS STATE COLUMN CANNOT GO STALE.**
+  Shipped 2026-08-22 as **Option B**, ruled 2026-08-19. `PROJECT_STATUS.md` §2b carries the list;
+  `test_the_release_list_is_answerable.py` guards it.
+  **The finding was never that the answer was wrong - it was that there was no answer.** The
+  release question *"is not stored anywhere - it is RECOMPUTED from judgement every time it is
+  asked, which is why it comes out different."*
+  🔑 **The state column is DERIVED from which file each entry lives in, never trusted**, so a
+  letter that ships without its row changing is a red test rather than something somebody has to
+  re-read. That is the class the whole-backlog re-read found and nothing automatic could see:
+  `(abo)` open two weeks after shipping, `(ach)` thirteen days, both closed by commits naming a
+  **different** letter - the closure gate keys on a commit *declaring* a letter and is blind to
+  work that closes somebody else's entry.
+  **Doc-to-CODE, which is the shape §4 says is writable**, against the doc-to-doc guard it refused:
+  the claim is machine-checkable by construction. Four mutations caught, including a reshaped row
+  the parser would otherwise read as an empty list.
+  ⚠ **Seeded with ONE row, and that is the ruling being honoured rather than an unfinished job.**
+  `(aad)` is on it because the backlog's own text says *"LAUNCH-BLOCKING"*. The entry rules that
+  the list is the maintainer's to populate and that filling it from today's backlog *"would encode
+  today's guesses as the answer - the same mistake in one file instead of 57"*. **The mechanism
+  exists so the ruling has somewhere to land and cannot rot once it does.**
+  ⚠ **B's honest limit stands and is restated where a reader meets it**: this makes the LIST
+  answerable, not the BACKLOG. *"Is `(aci)` needed for v1?"* still returns silence, and a shape
+  that admits that beats one manufacturing 57 answers. [Full entry](research/backlog/aef.md)
+
 - **(afu) THE RUN RECORD REACHES THE APP, AND THE CAUSE OF ITS ABSENCE WAS STRUCTURAL.**
   Shipped 2026-08-22, scoped to **organize**. `truestill_core.run_record` now owns
   `build_run_record` / `write_run_record` / `stop_block`; the CLI's `_record_the_run` keeps its
