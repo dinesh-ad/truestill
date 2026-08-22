@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Literal, NotRequired, TypedDict, cast
 
 from truestill_core import decode_noise
+from truestill_core.app_paths import record_path_for
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_session import open_catalog
 from truestill_core.categorize import build_rules
@@ -66,6 +67,7 @@ from truestill_core.organizer import (
     write_candidates,
 )
 from truestill_core.progress import ProgressCallback
+from truestill_core.run_record import build_run_record, write_run_record
 from truestill_core.thumbnails import upright_size
 
 from truestill_app.jobs import JobTarget
@@ -1199,6 +1201,22 @@ def organize_run(
                     catalog.finish_inplace_run(relocation.run_id)
                 else:
                     catalog.discard_inplace_run(relocation.run_id)
+        # ⚠ **THE RUN RECORD, AND THE APP HAD NONE UNTIL `(afu)`.** `IMPLEMENTATION_STANDARDS` §1
+        # states it as a **product** invariant - *"automatic because the user who most needs it is
+        # the one who did not know to ask"* - and that user is this surface's: a person typing
+        # `truestill organize` is the one who could have passed `--report`. It shipped in
+        # `truestill-cli`, which this package is forbidden to import (§2), so the builder was
+        # placed where one of its two callers could not reach it. `(afu)`
+        #
+        # ⚠ **`stopped` is passed EXPLICITLY, and that is not tidiness.** `stop_block` derives the
+        # reason from the last result, which works for the two stops that record a `FAILED` row -
+        # and **not** for a cancel, which records nothing. The CLI passes no `cancel` so it could
+        # never reach that branch; this surface does, and would otherwise write *"the reason was
+        # not recorded"* about a reason it had in hand. A cancelled run is exactly when a record
+        # matters most, so it is written rather than skipped.
+        record_error = _write_the_record(
+            db, resolutions, results, source, effective_destination, cancelled=cancel.is_set()
+        )
         base = _completion(results, effective_destination, metadata)
         leftover: LeftoverEmptyFolders | None = None
         # The two halves of what a move left behind, gated together on the mode. A copy leaves
@@ -1212,22 +1230,16 @@ def organize_run(
             # The custody nudge, counted rather than assumed: how much of the library really
             # does exist in only one place right now.
             single_copy = catalog.single_copy_count()
-        # TypedDict ** spread cannot prove NotRequired keys; build then cast (mypy strict).
-        done = cast(
-            OrganizeDoneSummary,
-            {
-                **base,
-                "mode": chosen_mode,
-                "mechanism": mechanism,
-                "drive_label": marker.label,
-                "single_copy": single_copy,
-            },
+        return _done_summary(
+            base,
+            mode=chosen_mode,
+            mechanism=mechanism,
+            drive_label=marker.label,
+            single_copy=single_copy,
+            record_error=record_error,
+            leftover=leftover,
+            left_behind=left_behind,
         )
-        if leftover is not None:
-            done["leftover_empty_folders"] = leftover
-        if left_behind is not None:
-            done["left_in_source"] = left_behind
-        return done
 
     return target
 
@@ -1298,6 +1310,9 @@ class OrganizeDoneSummary(CompletionBase):
     leftover_empty_folders: NotRequired[LeftoverEmptyFolders]
     left_in_source: NotRequired[LeftInSource]
     elapsed_seconds: NotRequired[float]
+    #: Present ONLY when the run record could not be written. `(afu)`: the record is automatic, so
+    #: its absence is the news - and the CLI prints the same fact rather than swallowing it.
+    record_error: NotRequired[str]
 
 
 def _tile(result: ActionResult, metadata: dict[Path, dict[str, Any]] | None) -> OrganizedTile:
@@ -1348,6 +1363,79 @@ def _tile_shape(metadata: dict[Path, dict[str, Any]] | None, source: Path) -> di
         container_rotation=rotation if isinstance(rotation, int) else None,
     )
     return {"w": width, "h": height}
+
+
+def _done_summary(
+    base: CompletionBase,
+    *,
+    mode: str,
+    mechanism: ModeMechanism,
+    drive_label: str,
+    single_copy: int,
+    record_error: str | None,
+    leftover: LeftoverEmptyFolders | None,
+    left_behind: LeftInSource | None,
+) -> OrganizeDoneSummary:
+    """Assemble the finished payload. **Every optional key is absent rather than empty.**
+
+    A `NotRequired` key that is present-and-falsey and one that is absent read the same to a
+    careless renderer and differently to a careful one, so the rule is one way round: the key
+    appears only when there is something to say.
+    """
+    # TypedDict ** spread cannot prove NotRequired keys; build then cast (mypy strict).
+    done = cast(
+        OrganizeDoneSummary,
+        {
+            **base,
+            "mode": mode,
+            "mechanism": mechanism,
+            "drive_label": drive_label,
+            "single_copy": single_copy,
+        },
+    )
+    # ⚠ **A record nobody can find is `(acc)`'s shape**, so the one case worth a word is the one
+    # where it is NOT there. Silent on success, like the CLI: the run worked and the file is where
+    # it always is. `(afu)`
+    if record_error is not None:
+        done["record_error"] = record_error
+    if leftover is not None:
+        done["leftover_empty_folders"] = leftover
+    if left_behind is not None:
+        done["left_in_source"] = left_behind
+    return done
+
+
+def _write_the_record(
+    db: Path,
+    resolutions: list[Resolution],
+    results: list[ActionResult],
+    source: Path,
+    destination: Path,
+    *,
+    cancelled: bool,
+) -> str | None:
+    """Write this run's record beside the catalog. Returns an error to surface, never raises.
+
+    ⚠ **The failure has to reach a screen, or this is `(acc)`'s shape** - a document written by
+    something nobody can see, whose absence nobody is told about. The CLI prints its equivalent;
+    this returns it so the completion payload can carry one key and the two surfaces say the same
+    thing. `(afu)`
+    """
+    stopped: dict[str, object] | None = None
+    if cancelled:
+        # The reason `stop_block` cannot derive, supplied by the only caller that knows it.
+        stopped = {
+            "never_attempted": max(0, len(resolutions) - len(results)),
+            "reason": "you stopped this run",
+        }
+    payload = build_run_record(
+        resolutions,
+        results,
+        source=str(source),
+        destination=str(destination),
+        stopped=stopped,
+    )
+    return write_run_record(record_path_for(db), payload)
 
 
 def _completion(

@@ -60,6 +60,14 @@
     preview and run agree: *"4 organized, 1 unreadable"* predicts *"4 organized, 1 failed"*.
     Applied to all five report sites, `ingest` included - it shares `_run_pipeline` and so
     already printed the unreadable block beside the same contradiction.
+  - ⚠ **RESIDUE 2 IS ENABLED BY `(afu)`, NOT CLOSED BY IT - ruled 2026-08-22 rather than
+    assumed.** `(afu)` shipped, and an app run now writes a record naming every file with its
+    status **and its `unreadable` reason**, which `(afl)`'s payload had omitted. **What it does
+    not do is put a name on screen**: `_completion` is unchanged and still aggregate-only, so the
+    app still says four files failed and still cannot say which four to a person reading it. §9 is
+    about the rendered string, and the CLI's counterpart here is a printed block rather than its
+    record. **The fact has stopped being destroyed; the sentence does not exist yet.** Residue 2 is
+    now a payload-and-renderer change with the data already durable.
   - ⚠ **RESIDUE 2 IS ALSO `(afu)`'s, FROM THE OTHER SIDE, recorded 2026-08-22.** `(afl)` shipped a
     run record carrying every file's outcome - and only on the CLI, so an app run has neither the
     screen line this residue asks for nor a file that would have held it. A record satisfies the

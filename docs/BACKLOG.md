@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(afv). Next free: (afw).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(afw). Next free: (afx).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -118,18 +118,15 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(afu) THE RUN RECORD IS CLI-ONLY, AND THE SURFACE IT MISSED IS THE ONE §1'S OWN REASONING
-  NAMES.** Found 2026-08-22 by a whole-backlog re-read, four commits after `(afl)` shipped.
-  Measured: `record_path_for` has **one caller** (`cli.py:2787`) and `truestill-app` contains no
-  run-record path at all - so no app organize, backup, migrate, bake or undo writes one.
-  ⚠ **The rule is a PRODUCT invariant in `IMPLEMENTATION_STANDARDS.md` §1**, whose own
-  justification is *"the user who most needs it is the one who did not know to ask"* - **and that
-  user is the app's**, since a person typing `truestill organize` is the one who could have passed
-  `--report`. §4's fifty-sixth member with the contract on the wrong side of it.
-  **Also covers `(aac)` residue 2**, the app run's missing `unreadable_files`, from the record's
-  side rather than the screen's. Design the one-rolling-file-per-catalog question first: the app
-  can run two jobs on two drives at once, which a CLI never could.
-  [Full entry](research/backlog/afu.md)
+- **(afw) THE OTHER FOUR MUTATING APP RUNS WRITE NO RECORD, AND ONLY ONE OF THEM COULD TODAY.**
+  Recorded 2026-08-22, split out of `(afu)` **before** it was built. §1 says *"a run that changes
+  the library writes down what it did"* - **a run**, not an organize. ⚠ **Organize is the only app
+  run with a per-file outcome list**, so `(afu)` was a wiring change and this is a design: backup
+  keeps successes only and is **fail-fast** (`_copy_verified_or_raise` raises); migrate has a
+  per-file *plan* and counts, with `migration_journal` as its durable state; bake and undo return
+  counts. 🔑 **Answer backup's §1 question first** - *"one bad file never aborts a batch"* against a
+  raise that may not be §1's stated exception, because a record built on an undecided policy
+  documents it. [Full entry](research/backlog/afw.md)
 - **(afs) A DESTRUCTIVE MIGRATION MAY NOT RUN WITHOUT A PRE-UPGRADE COPY, AND NOTHING SAYS WHICH
   ONE IS DESTRUCTIVE.** Recorded 2026-08-22, split out of `(ady)` while building it - **a policy
   change about what a migration may do, which would have been invisible arriving inside a

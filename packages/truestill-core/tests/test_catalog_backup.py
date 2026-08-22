@@ -13,6 +13,7 @@ import time
 from pathlib import Path
 
 import pytest
+import truestill_core.catalog as catalog_module
 from truestill_core import catalog_backup
 from truestill_core.app_paths import backup_path_for
 from truestill_core.catalog import CURRENT_SCHEMA_VERSION, Catalog
@@ -230,13 +231,15 @@ def test_the_copy_never_fires_on_a_catalog_already_at_the_current_version(
     ⚠ **`fresh` is not the same condition, and the gap is only reachable by racing.**
     `_migrate`'s fast path reads the version **outside** the lock, so an opener can see a behind
     version there, re-read the current one under the lock, find `fresh` false - and arrive at the
-    copy with **zero** steps to apply. Measured on six concurrent openers: **four of six** took a
-    full copy and applied nothing, and those copies are what took `(adl)`'s backward-stamp defect
-    from 7/40 rounds to 28/40.
+    copy with **zero** steps to apply. Four of six concurrent openers did exactly that, and those
+    copies are what took `(adl)`'s backward-stamp defect from 7/40 rounds to 28/40.
 
-    Asserted as an invariant over a real race rather than by faking a read: **every** copy that
-    happens must happen on a connection the file has not yet caught up with. A test that only
-    counted copies would pass on a run where the race did not occur; this cannot.
+    ⚠ **THE INTERLEAVE IS CONSTRUCTED, NOT SAMPLED, AND THE FIRST VERSION SAMPLED.** It ran six
+    natural openers and asserted that at least one copied - which is a claim about a race, and a
+    race is what CPU load perturbs: it went red exactly once, while the browser lane was competing
+    for cores, and would not reproduce in 27 attempts afterwards. A guard whose power depends on
+    scheduling is one that reports on the machine rather than on the code. So the late opener is
+    held at its fast-path read until the other has finished the chain, and one run decides it.
     """
     db = tmp_path / "catalog.sqlite"
     with Catalog(db):
@@ -247,32 +250,44 @@ def test_the_copy_never_fires_on_a_catalog_already_at_the_current_version(
     con.close()
 
     versions_at_copy: list[int] = []
-    real = catalog_backup.copy_before_migration
+    real_copy = catalog_backup.copy_before_migration
+    real_refuse = catalog_module._refuse_if_newer
+    late_thread: dict[str, int] = {}
+    late_is_waiting = threading.Event()
+    chain_finished = threading.Event()
 
     def spy(source: sqlite3.Connection, path: Path) -> catalog_backup.BackupOutcome:
         versions_at_copy.append(int(source.execute("PRAGMA user_version").fetchone()[0]))
-        return real(source, path)
+        return real_copy(source, path)
+
+    def held(version: int) -> None:
+        # `_refuse_if_newer` is called immediately after the fast path's UNLOCKED read, which is
+        # the one instant where an opener has seen a behind version and not yet taken the lock.
+        if threading.get_ident() == late_thread.get("id") and not late_is_waiting.is_set():
+            late_is_waiting.set()
+            chain_finished.wait(timeout=20)
+        real_refuse(version)
 
     monkeypatch.setattr(catalog_backup, "copy_before_migration", spy)
-
-    barrier = threading.Barrier(6)
-    errors: list[str] = []
+    monkeypatch.setattr(catalog_module, "_refuse_if_newer", held)
 
     def opener() -> None:
-        barrier.wait()
-        try:
-            with Catalog(db):
-                pass
-        except Exception as error:
-            errors.append(f"{type(error).__name__}: {error}")
+        with Catalog(db):
+            pass
 
-    threads = [threading.Thread(target=opener) for _ in range(6)]
-    for thread in threads:
-        thread.start()
-    for thread in threads:
-        thread.join(timeout=30)
+    def late() -> None:
+        late_thread["id"] = threading.get_ident()
+        opener()
 
-    assert not errors, errors
+    slow = threading.Thread(target=late)
+    slow.start()
+    assert late_is_waiting.wait(timeout=20), "the late opener never reached its fast-path read"
+    fast = threading.Thread(target=opener)
+    fast.start()
+    fast.join(timeout=30)
+    chain_finished.set()
+    slow.join(timeout=30)
+
     assert versions_at_copy, "no opener took a copy, so the gate was never exercised"
     already_current = [v for v in versions_at_copy if v >= CURRENT_SCHEMA_VERSION]
     assert not already_current, (

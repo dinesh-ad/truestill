@@ -17,13 +17,14 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
-from truestill_cli.cli import _run_record, main
+from truestill_cli.cli import main
 from truestill_core.app_paths import record_path_for
 from truestill_core.catalog import Catalog
 from truestill_core.categorize import CategoryMatch, Confidence
 from truestill_core.destinations import LocalDestination
 from truestill_core.models import DateSource, Decision, FileHashes, Resolution
 from truestill_core.organizer import execute
+from truestill_core.run_record import build_run_record
 
 _POSIX_ONLY = pytest.mark.skipif(
     sys.platform == "win32",
@@ -141,7 +142,9 @@ def test_a_stopped_run_records_what_it_never_attempted(tmp_path: Path) -> None:
     if len(results) == len(resolutions):
         pytest.skip("running as root, or a filesystem that ignores the mode")
 
-    record = _run_record(resolutions, results, source=str(src), destination=str(tmp_path / "dest"))
+    record = build_run_record(
+        resolutions, results, source=str(src), destination=str(tmp_path / "dest")
+    )
     stopped = record["run"]["stopped"]
     assert stopped is not None, "a run that stopped early reported itself as complete"
     assert record["run"]["intended_total"] == 12

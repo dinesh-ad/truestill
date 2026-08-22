@@ -17,13 +17,23 @@ Paths are workspace-relative. Symbols are cited over line numbers, which drift.
 | **Copy-only - never move or delete user files, except the scoped, opt-in exceptions below.** | `organizer.execute` uploads via `LocalDestination.upload` (`shutil.copy2`) / `RcloneDestination.upload` (`rclone copyto`). `rclone` uses `copyto`, never `sync`. The only code paths that remove a source from where the user left it are `organizer._move_source` (`--move`), `reclaim.run_reclaim` (`truestill reclaim`), and the rename path `LocalDestination.adopt` (`--in-place`) - all scoped exactly like the Takeout write path (below). |
 
 **⚠ A run that changes the library writes down what it did, beside the catalog, without being
-asked** (2026-08-22, `(afl)`). One rolling `last-run.json` per catalog, built from the run's
+asked** (2026-08-22, `(afl)`; carried to the app by `(afu)`). One rolling `last-run.json` per
+catalog, built from the run's
 **results** rather than its plan, carrying every file's outcome and - when the run stopped early -
 the reason and the count of files never attempted. Automatic because the user who most needs it is
 the one who did not know to ask; `--report PATH` says only *where* it goes. ⚠ **Its own failure
 must never fail the run**, the way `decisions.write_decisions` already refuses to. ⚠ **Stated
 limit**: written after execution, so it survives a stop and not a kill - `organize_runs` covers the
 killed run from the other side.
+⚠ **IT SHIPPED ON ONE SURFACE, AND THE CAUSE WAS STRUCTURAL RATHER THAN AN OVERSIGHT** (`(afu)`,
+2026-08-22). The builder went into `truestill-cli`, which `truestill-app` is forbidden to import
+(§2) - so **the app could not have called it**, and this row read as satisfied for five commits
+while the surface its own reasoning names had no record at all. `truestill_core.run_record` now
+owns it and both surfaces call it. **A rule stated here as a PRODUCT invariant is implemented in
+core or it is implemented once.**
+⚠ **Which app runs write one is enumerated, absences included**: organize does; backup, migrate,
+bake and undo do not, each with its reason, pinned by `test_the_app_records_what_a_run_did.py`.
+Organize is the only one with a per-file outcome list - the rest is `(afw)`.
 
 **⚠ An operation that writes files on a drive holds that drive against other processes**
 (2026-08-22, `(aaw)`). Kernel-enforced (`flock`/`msvcrt`), keyed by the drive's existing

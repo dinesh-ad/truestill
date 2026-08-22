@@ -1028,6 +1028,13 @@ function organizeCompletion(r) {
     notes.push(`<div class="banner warn"><div>${plural(r.failed, "file")} could not be
       ${verb}.</div></div>`);
   }
+  // ⚠ The run WORKED and its record did not. Said because the record is automatic, so a user
+  // never asked for it and would never know it was missing - which is what makes its absence the
+  // news rather than the file. The CLI prints the same fact; one wording, two surfaces. `(afu)`
+  if (r.record_error) {
+    notes.push(`<div class="banner warn"><div>This run is not written down:
+      ${esc(r.record_error)}</div></div>`);
+  }
   // BEFORE the cleanup offer, deliberately. The offer names the folders the move emptied and
   // is silent about the ones it did not (`plan_cleanup` drops anything OCCUPIED), so reading
   // it first leaves a person thinking the source is now tidy while their photos sit in it.

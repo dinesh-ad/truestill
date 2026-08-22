@@ -22,6 +22,40 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(afu) THE RUN RECORD REACHES THE APP, AND THE CAUSE OF ITS ABSENCE WAS STRUCTURAL.**
+  Shipped 2026-08-22, scoped to **organize**. `truestill_core.run_record` now owns
+  `build_run_record` / `write_run_record` / `stop_block`; the CLI's `_record_the_run` keeps its
+  `args`-reaching and delegates, and `service/organize.py` calls the same builder.
+  🔑 **THE ROOT CAUSE IS THE REUSABLE HALF, AND IT IS NOT AN OVERSIGHT.** `(afl)` put the builder
+  in `truestill-cli`, which `truestill-app` is **forbidden to import** (§2) - so the app could not
+  have called it had anyone thought of it. Its commit touched `cli.py` and `app_paths.py`: the
+  *constant* went to the shared package and the *logic* did not, and **that pair is what makes the
+  gap invisible - the shared half looks like the whole of the sharing.** §4's fifty-sixth member
+  with a structural cause: not a rule nobody carried across, but one the package boundary made
+  unreachable. The rule was in §1 as a **product** invariant the whole time, and the surface it
+  missed is the one §1's own reasoning names - *"the user who most needs it is the one who did not
+  know to ask"* is the app's user, since a person typing `truestill organize` is the one who could
+  have passed `--report`.
+  ⚠ **A CANCELLED RUN RECORDS THE REASON IT ACTUALLY STOPPED FOR, and that branch was unreachable
+  from the CLI.** `stop_block`'s docstring closed *"the CLI passes no `cancel`, so the silent one
+  is unreachable from here"* - true of that caller and false of the app, which passes one. The app
+  therefore passes `stopped` explicitly rather than letting the record derive *"the reason was not
+  recorded"* about a reason it had in hand. **A record matters most on the run somebody stopped.**
+  ⚠ **THE RECORD REPRODUCED `(aac)`'s CONFLATION AND IT WAS FIXED BEFORE ANYTHING RELIED ON IT.**
+  `hashes.unreadable` was never emitted, so an unreadable file the run never reached recorded
+  `"not attempted"` with a null `sha256` - which is **also** exactly what the size pre-filter's
+  legitimate skip looks like. One builder now, so the field landed on both surfaces at once.
+  ⚠ **A FAILED WRITE REACHES A SCREEN.** The record is automatic, so nobody asked for it and
+  nobody would notice it missing - which makes its absence the news. One `NotRequired` key on the
+  completion payload, silent on success, **and a renderer**: the key reached no renderer when
+  first added, which is a record nobody can find one level up. Pinned by a browser test, and the
+  renderer proved load-bearing by mutation.
+  ⚠ **`(aac)` residue 2 is ENABLED, not closed** - the names are durable, the screen is unchanged.
+  ⚠ **The other four mutating app runs are `(afw)`**, filed before this was built: organize is the
+  only one with a per-file outcome list, and backup's fail-fast raise may be a live §1 violation
+  rather than a missing record. Enumerated with reasons by
+  `test_the_app_records_what_a_run_did.py`. [Full entry](research/backlog/afu.md)
+
 - **(afv) `user_version` MOVED BACKWARDS ON DISK. `(adl)`'s STAMP WAS NOT IDEMPOTENT; `(ady)` ONLY
   MADE IT VISIBLE.** Shipped 2026-08-22 in two commits, the cause first: `1f0dde7` re-reads the
   version inside the `BEGIN IMMEDIATE` `_apply_step` already holds and skips a step the file is
