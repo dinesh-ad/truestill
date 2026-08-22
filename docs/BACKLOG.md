@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(afq). Next free: (afr).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(afr). Next free: (afs).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -118,6 +118,16 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
+- **(afr) THE LOCK DIRECTORY GROWS ONE EMPTY FILE PER DRIVE, FOREVER.** `DriveLock.release`
+  truncates and never unlinks (`drive_lock.py:208,219`), so `~/.local/share/Truestill/locks/`
+  gains a 0-byte file per distinct drive key and keeps it - and `path:` keys mean **every
+  destination ever organized** leaves one. ⚠ **Nothing breaks and deletion is safe, because the
+  flock is the truth and not the file** - which is exactly why it needs a letter rather than a
+  comment: it was **neither designed nor recorded**, and `(aaw)`'s *"no stale lock to detect or
+  clear"* is true of the lock and was read as true of the file. ⚠ *"Unlink on release"* is the
+  obvious fix and probably the wrong one - it makes routine the one hole here, two processes on
+  two inodes at one path. **Measure first**: nobody has counted a real user's key set. Found
+  2026-08-22. [Full entry](research/backlog/afr.md)
 - **(afq) A PREVIEW OCCUPIES THE DRIVE IN THE APP, AND NOTHING SAYS WHY.** `_start_drive_job`
   passes `operation="organize preview"` to `jobs.start`, which occupies the drive exactly as an
   apply does, so a second tab previewing during an organize is refused - while the CLI has never
@@ -193,8 +203,9 @@ is invisible here is retired, not free.**
   entry](research/backlog/ady.md)
 - **(adx) A LIBRARY THAT MOVES IS HANDLED. WHAT IS MISSING IS THE DISCLOSURE.** Recorded
   2026-08-18. Three gaps, one user journey. [Full entry](research/backlog/adx.md)
-- **(adt) TWO CATALOG WRITERS RACE INSIDE ONE PROCESS, ON AN ORDINARY USER PATH.** Recorded
-  2026-08-15. ⚠ **Its lead is dead twice over (2026-08-22) and the question is not.**
+- **(adt) TWO CATALOG WRITERS RACE INSIDE ONE PROCESS, AND THE 6558 ms THAT MADE IT BITE IS
+  UNEXPLAINED.** Recorded 2026-08-15, retitled 2026-08-22 - the old title was not wrong, it just
+  did not say which half is open. ⚠ **Its lead is dead twice over (2026-08-22) and the question is not.**
   `PERFORMANCE.md` §5.5 priced the per-open lock at **4-8 microseconds** with zero refusals in
   2,160 contended opens, and `(adu)` then removed it outright - re-measured, an open plus a
   settings write is **0.32 ms** against the **6558 ms** observed. Removing a falsified hypothesis
@@ -206,7 +217,8 @@ is invisible here is retired, not free.**
   2026-08-15. [Full entry](research/backlog/ads.md)
 - **(adm) `inspect_catalog` SKIPPED THE FIRST-RUN CASE - FIXED FOR THE APP, UNCHANGED FOR THE
   CLI.** Recorded 2026-08-14. [Full entry](research/backlog/adm.md)
-- **(adn) NOTHING STOPS TWO APPS RUNNING AGAINST ONE CATALOG.** Recorded 2026-08-14.
+- **(adn) NOTHING STOPS TWO APPS RUNNING, AND QUITTING THE SECOND DELETES THE WAY BACK INTO
+  THE FIRST.** Recorded 2026-08-14, retitled 2026-08-22.
   ⚠ **Narrowed 2026-08-22 by `(aaw)`, and the title is now too broad**: two mutating operations on
   one drive can no longer overlap across processes, so *"two sets of in-flight writes"* is gone.
   **What remains is single-instance detection** - two apps, two ports, two sidecars, and

@@ -249,7 +249,7 @@ reading, quoted here as if it were current. A count in prose rots; the command d
 
 ```
 sed -n '/^## Approved - still to build/,/^## Settled technical stances/p' docs/BACKLOG.md \
-  | grep -cE '^ *- \*\*\([a-z]+\)'      # open entries. 81 -> 80 -> 77 -> 76 -> 75 across 2026-08-22.
+  | grep -cE '^ *- \*\*\([a-z]+\)'      # open entries. 81 -> 80 -> 77 -> 76 -> 75 -> 76 across 2026-08-22.
 ``` The release question *"is not stored
 anywhere - it is RECOMPUTED from judgement every time it is asked, which is why it comes out
 different."* What follows is such a recomputation, dated so the next one can disagree with a

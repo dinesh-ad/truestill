@@ -117,9 +117,17 @@
     **that it is bookkeeping in copy mode and irreversible loss under `--move`/`--in-place`**,
     which are exactly the modes a user reaches when they have no room for a second copy.
 
-  **The reproduction is kept** at `~/TruestillLibrary/scratch-race-2026-08-22/` - corpora,
-  `detect.py` (content-based, name-blind), `window.py`, and the run records - and becomes the
-  regression test for whichever route wins.
+  **The reproduction is kept** at `~/TruestillLibrary/scratch-race-2026-08-22/` - **26 GB** as of
+  2026-08-22 - and is the regression evidence for the only measured data-loss defect in the
+  product. ⚠ **A future clean-up should know what it is deleting:**
+  - **DURABLE, ~12 GB**: `detect.py` (content-based and name-blind - a name cannot show this
+    defect), `window.py` (the check-to-replace instrumentation), and the `A`/`B` corpora, whose
+    whole point is that **B is A with 8 bytes appended** - same name, same EXIF, different sha, so
+    every file is a collision candidate. Rebuilding `B` is scripted; rebuilding the *idea* is not.
+  - **REGENERABLE, ~14 GB**: `bigA`/`bigB` (four 300 MB files each, to widen the window) and the
+    `dest`/`bdest`/`fdest`/`cdest`/`rdest` trees, which are outputs. All reproducible from the
+    corpora above in minutes.
+  - **Delete freely**: the `*.log`, `*.json` and `*cat.sqlite*` files - one run's worth each.
 
   - **What shrank this from "P1", and it is the load-bearing measurement.** SQLite already
     serialises writers, so **the catalog cannot be corrupted by two truestill processes**.

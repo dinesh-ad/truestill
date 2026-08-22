@@ -1,4 +1,4 @@
-# (adt) TWO CATALOG WRITERS RACE INSIDE ONE PROCESS, ON AN ORDINARY USER PATH.
+# (adt) TWO CATALOG WRITERS RACE INSIDE ONE PROCESS, AND THE 6558 ms THAT MADE IT BITE IS UNEXPLAINED.
 
 *Body of backlog entry `(adt)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
@@ -45,6 +45,11 @@
   single-digit milliseconds. Contention explains the **job's failure**; it does not explain the
   **writer's duration**, and nobody has asked this before. If a single-row write can take 6.5 s,
   contention is the symptom and something else is the cause.
+
+  ⚠ **RETITLED 2026-08-22, AND THE OLD TITLE WAS NOT WRONG.** *"On an ordinary user path"* is
+  still true and still the reason this matters; what it did not say is which half is open. The
+  race is structural and narrow; **the duration is the question nobody can answer**, so the title
+  now names it.
 
   ⚠ **CORRECTED 2026-08-22, TWICE OVER, AND THE LEAD BELOW IS DEAD BOTH WAYS.**
   1. **It was measured, and ruled out, six days before this correction.** `PERFORMANCE.md` §5.5

@@ -1,4 +1,4 @@
-# (adn) NOTHING STOPS TWO APPS RUNNING AGAINST ONE CATALOG.
+# (adn) NOTHING STOPS TWO APPS RUNNING, AND QUITTING THE SECOND DELETES THE WAY BACK INTO THE FIRST.
 
 *Body of backlog entry `(adn)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
@@ -13,7 +13,9 @@
   and a user reaches that by double-clicking twice. A third route needs no shell at all:
   `truestill organize` beside an open window.
 
-  ⚠ **NARROWED 2026-08-22 BY `(aaw)`, AND THE TITLE IS NOW TOO BROAD.** A cross-process drive
+  ⚠ **NARROWED 2026-08-22 BY `(aaw)`, AND RETITLED TO MATCH.** The old headline was *"nothing
+  stops two apps running against one catalog"*, which stopped being the subject the day the
+  cross-process lock shipped. A cross-process drive
   lock ships: two **mutating** operations on one drive cannot overlap, whichever process they are
   in, so *"two sets of in-flight writes"* to a drive is no longer reachable. **What this entry is
   still about is single-instance detection**, not write safety - two apps still launch, on two
