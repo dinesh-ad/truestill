@@ -86,8 +86,12 @@ Notes:
     both a `SIGKILL` and a full disk with no corrupt file and no phantom row, and `(adx)` gap 1's
     clone disclosure fired correctly on an 11 GB clone.
 - **Schema is at v20** (`catalog.CURRENT_SCHEMA_VERSION`); `organize_runs` was added by `(aem)`.
-- **`(aad)` installers remain the launch gate**, and are not what is in progress: the last three
-  days are soak work and CI cost.
+- **`(aad)` installers remain the launch gate**, and its two largest items are now built AND
+  proven: the release lane and the Windows installer both work on both platforms
+  (run 32555392424, 2026-08-22). What is left of it is the **download page** and the
+  never-fired **publish** job - see §2b.
+- **Python 3.14 since 2026-08-22** (`DECISIONS.md` **D13**, reversing D10). `requires-python` is
+  `>=3.14`, the check lane runs one interpreter again, and the release lane builds on it.
 - **Trademark residual (live pre-monetization obligation):** TruStile Doors remains a low-risk
   residual in different IC classes; attorney clearance is still required before monetization
   (full analysis in `DECISIONS.md`).
@@ -188,6 +192,51 @@ narrative, or volatile counts.
    - Pull from `BACKLOG.md` in written priority order, with soak findings first.
 
 ---
+
+## 2b. What stands between here and a first tag (2026-08-22)
+
+⚠ **THE REPOSITORY CANNOT ANSWER THIS ON ITS OWN, AND THAT IS `(aef)`.** Counted there: of 64 open
+entries, **one** carries a release marker in its own text. The release question *"is not stored
+anywhere - it is RECOMPUTED from judgement every time it is asked, which is why it comes out
+different."* What follows is such a recomputation, dated so the next one can disagree with a
+version rather than with a memory. It is not a substitute for `(aef)`.
+
+### Actually blocking
+
+| | |
+|---|---|
+| **`(aad)` installers** | The **only** entry the backlog calls *"LAUNCH-BLOCKING"*. Its two biggest items are ✅ built and now proven: the release lane and the Windows installer. |
+| **`(aad)` item 5 - the download page** | D9 requires Windows users be told what SmartScreen will show, **in plain language, above the button, before they download**. Not written. ⚠ Confirmed still mandatory 2026-08-21: an unsigned installer on winget still shows the warning, so there is no second path. |
+| **The publish job has NEVER RUN** | `gh run list --workflow release.yml` shows **0** tag-triggered runs. Build is proven on both platforms; **sigstore signing and `gh release create` are not**. This is now the largest untested subsystem, and it is untested *by construction* - only a real `v*` tag fires it. |
+| **`(afe)`** | The one open defect that **aborts a run with a traceback**: a catalog that goes unwritable mid-run breaks §1's partial-failure policy, prints `sqlite3.OperationalError` with our own line numbers, and leaves a file on disk the catalog does not know about. |
+
+### Not blocking a tag, corrected from a working list
+
+- **Attorney clearance is required before MONETIZATION, not before a tag.** §1 above: *"attorney
+  clearance is still required before monetization"*. A free release does not wait on it. What is
+  live now is the trademark residual as a **pre-monetization obligation**.
+- **`truestill.app` / a domain appears NOWHERE in this repository** - no entry, no decision, no
+  mention. Either it is not a tracked obligation or it is an unwritten one, which
+  `ENGINEERING_STANDARD.md` §4's fifty-eighth member says is the more dangerous state. Recorded
+  here as a **question**, not as an item.
+- **`(aad)` item 6, frozen CLI startup, is UNMEASURED** and is a *quotable-number* gap rather than
+  a gate: nothing claims a figure, so nothing is wrong yet.
+
+### ⚠ What the first tag COSTS, which is not a blocker but must not be a surprise
+
+- **`(adz)` expires at the first tag.** Its rule - no compatibility paths, no legacy fallbacks,
+  because no users exist - holds *"until the first release tag"*. Every entry justified by it stops
+  being justified the moment one is cut.
+- **A `v*` tag is the PUBLISH trigger, not a dry run.** On a tag push there are no
+  `workflow_dispatch` inputs, so `github.event.inputs.dry_run != 'true'` is true and the publish
+  job runs. There is no such thing as a rehearsal tag; rehearse with `workflow_dispatch`.
+
+### What is no longer a risk
+
+**The release lane was the largest untested subsystem and is not one now.** Proven on both
+platforms across three dispatch runs, most recently **32555392424**: build, self-check on the
+frozen artefact, installer, install/verify/uninstall, and - since `(aex)` - correct versioning on
+all four artefacts from one derivation. Everything except publish.
 
 ## 3. Current blockers / risks
 

@@ -432,6 +432,38 @@ memory dressed as one.
   fails with *"no .ts/.tsx files found"* rather than passing three times. In the same review a
   proposed `#[tauri::command]` counter was **refused rather than written**, because there is no
   `Cargo.toml` in the repo and it would have been green from the day it landed.
+- **A COMMENT THAT QUOTES THE DEFECT'S ARTEFACT NAMES BECOMES NOISE IN EVERY TEXT SEARCH OVER
+  THAT RUN. ASK THE FILESYSTEM, NOT THE NARRATIVE.** The fifty-ninth member. `(ael)`'s rule -
+  *assert the statement, never an identifier that also appears in the target's own commentary* -
+  is the **test-shaped** case of this. The general form is worse, because the noise is not
+  confined to a guard: a workflow step's comments are **echoed by the runner into the log**, so
+  the prose explaining a defect appears in the same stream as the evidence about whether it is
+  fixed, and every reader downstream sees both. A test greps it, a script greps it, **and so does
+  a person**.
+
+  ⚠ **The remedy is the reusable half, and it is not "write shorter comments".** It is to read a
+  *structural* source rather than a narrative one: `ls` the output directory rather than grep the
+  build log; read the junit artifact rather than the console tick; read `git diff --stat` rather
+  than trust that an edit applied. **A narrative is written by the thing under test; a directory
+  listing is not.**
+
+  *Worked example - `(aex)`, 2026-08-22, three false positives from one comment.* The fix carried
+  a comment naming what the defect used to produce - `TruestillSetup-main.exe`,
+  `truestill_0.0.0_amd64.deb`, `truestill-v1.2.3-Linux.tar.gz`. In one entry it then:
+
+  1. **reddened its own guard.** `test_no_build_step_names_an_artefact_after_the_ref` searched step
+     bodies for `github.ref_name` and matched the comment arguing against it - reporting the fixed
+     step as the offender. Comments are stripped before the scan now.
+  2. **polluted the artefact grep.** Searching the run's log for `truestill_*.deb` returned
+     `truestill_0.0.0_amd64.deb`, which was the comment text, beside the one real file.
+  3. **nearly produced a false report.** Grepping for archive names returned three, of which two -
+     `truestill-main-Linux.tar.gz` and `truestill-v1.2.3-Linux.tar.gz` - **do not exist**. Reading
+     the Archive step's own `ls -l out` instead gave two files per platform and no strays.
+
+  The third is the one that matters: the first two were caught by a red test, and the third would
+  have been reported to the maintainer as fact. **The comment is still correct and still worth
+  having** - what changed is that nothing downstream may treat a log as a list of what exists.
+
 - **A WRITTEN CLAIM CAN BE FALSIFIED; AN UNWRITTEN ONE CANNOT. ONLY ONE OF THEM SHOWS UP IN AN
   AUDIT.** The fifty-eighth member, and it inverts the intuition that writing a reason down is the
   cautious move. Writing it down is what **exposes** it: a recorded reason can be checked against

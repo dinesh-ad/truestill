@@ -49,7 +49,7 @@ git ls-files '*.md' | wc -l                      # every tracked document
 git ls-files 'docs/research/backlog/*.md' | wc -l # the exception above
 ```
 
-On 2026-08-21 those read **159** and **102**, leaving **57** mapped below. ⚠ They read **148**/**93** on 2026-08-20, **139**/**84** on 2026-08-19 and **133**/**78** on 2026-08-15 - stale within a day, three times - which is the argument for running the commands rather than for updating these numbers faster. **The mapped figure held at 55 across four readings and moved to 56 on 2026-08-21**, when `soak-two-plan.md` became the first document since 2026-08-15 to land outside `docs/research/backlog/`. That is the number to watch: a mapped count that moves without a row being added below is the map going incomplete.
+On 2026-08-22 those read **169** and **110**, leaving **59** mapped below. ⚠ They read **159**/**102** on 2026-08-21, **148**/**93** on 2026-08-20, **139**/**84** on 2026-08-19 and **133**/**78** on 2026-08-15 - stale within a day, three times - which is the argument for running the commands rather than for updating these numbers faster. **The mapped figure is the one to watch**: it held at 55 across four readings, moved to 56 on 2026-08-21 when `soak-two-plan.md` became the first document since 2026-08-15 to land outside `docs/research/backlog/`, and reads **59** on 2026-08-22 - `soak-two-record.md`, `soak-three-plan.md` and `soak-three-record.md`, each of which has a row below. A mapped count that moves **without** a row being added is the map going incomplete; a count that moves *with* one is the map working.
 
 ### The canon - binding, kept current
 
@@ -223,8 +223,9 @@ exists to prevent.
   non-free-threaded builds; this project runs **3.14** as of 2026-08-22 (`DECISIONS.md` D13) and
   the flag is still `0` there, measured. Use `truestill_core.decode_noise`, which
   installs once per process and carries the argument. `(aev)`
-  ⚠ **Upgrading does not change this** - measured on 3.14.4: the flag is `0`. See `DECISIONS.md`
-  **D10**, which defers 3.14 and records the one thing that blocks it, `(aey)`.
+  ⚠ **Upgrading did not change this** - measured on 3.14.4 after the move: the flag is still `0`.
+  The rule is written against the FLAG, not the version, which is why adopting 3.14
+  (`DECISIONS.md` **D13**) left it standing.
 - `exiftool` must be installed and on PATH for metadata paths.
 
 ### The corpora - three of them, and they answer different questions

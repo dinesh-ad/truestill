@@ -25,8 +25,9 @@ would have widened the race.
 The fix exists upstream and cannot be reached from here: CPython **gh-128384** filed it, the
 `ContextVar` implementation (**gh-130010**) is *"Changed in version 3.14"*, and it is gated -
 *"If unset, [`-X context_aware_warnings`] defaults to `1` on free-threaded builds and to `0`
-otherwise."* This project runs 3.13, where `sys.flags.context_aware_warnings` does not exist, and
-an upgrade alone would not turn it on. **JAX hit the same wall** (jax-ml/jax#25626) and hooks the
+otherwise."* ⚠ **This project moved to 3.14 on 2026-08-22 (`DECISIONS.md` D13) and the argument is
+unchanged**, which is why it is stated as a flag rather than as a version: measured on 3.14.4, the
+flag is **`0`**. Upgrading did not turn it on and no upgrade will, short of a free-threaded build. **JAX hit the same wall** (jax-ml/jax#25626) and hooks the
 warning infrastructure rather than using the context manager. So does this.
 
 **So the global state is written exactly once per process and never again**, which makes the

@@ -8,7 +8,9 @@ to cover the other 133 warnings would have widened the race rather than fixed an
 
 The upstream fix exists and cannot be reached: CPython gh-128384 filed it, the `ContextVar`
 implementation gh-130010 is *"Changed in version 3.14"*, and *"[it] defaults to `1` on
-free-threaded builds and to `0` otherwise"*. This project runs 3.13. JAX hit the same wall
+free-threaded builds and to `0` otherwise"*. ⚠ This project runs **3.14** since 2026-08-22 and the
+flag is still `0` there - measured, not assumed - so these tests guard the same property on the
+version we now ship. JAX hit the same wall
 (jax-ml/jax#25626) and hooks the warning infrastructure instead; so does `decode_noise`.
 
 ⚠ **The property below is stronger than "no warning leaked".** It is that the module never

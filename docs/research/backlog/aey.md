@@ -6,6 +6,11 @@
   Found 2026-08-21 while researching the 3.14 upgrade. **Not live** - this project runs 3.13 - and
   it is the concrete reason the move was deferred rather than a reason to hurry it.
 
+  > ⚠ **Dated correction, 2026-08-22:** *"this project runs 3.13"* was true when written and is
+  > not now - the move happened the next day (`DECISIONS.md` D13), and closing this entry is what
+  > unblocked it. Left in place: a record edited to stay correct stops being one. **Nothing here
+  > became live**, because the fix shipped before the interpreter did.
+
   ## MEASURED, on the 3.14.4 interpreter present on this machine
 
   ```

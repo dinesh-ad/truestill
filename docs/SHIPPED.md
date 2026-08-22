@@ -226,7 +226,9 @@ recording shipped work as unstarted, which is the more expensive direction of th
     was unsound on the common path and widening it would have widened the race. The upstream fix
     is out of reach: gh-128384 filed it, the `ContextVar` implementation (gh-130010) is *"Changed
     in version 3.14"*, and *"defaults to `1` on free-threaded builds and to `0` otherwise"*. This
-    project runs 3.13. **JAX hit the same wall** (jax-ml/jax#25626) and hooks the warning
+    project runs 3.13 *(2026-08-22: 3.14 now, and the flag is still `0` there - the argument was
+    written against the flag rather than the version, so it did not move)*. **JAX hit the same
+    wall** (jax-ml/jax#25626) and hooks the warning
     infrastructure; `decode_noise` does the same - **one write per process, at a phase boundary,
     never while workers are in flight**, so the race window is never opened rather than managed.
   - **Installed in two places because there are two, and each has its own test.** `pool="thread"`
