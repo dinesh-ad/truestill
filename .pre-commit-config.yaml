@@ -7,9 +7,13 @@ repos:
       - id: ruff
         args: [--fix]
       - id: ruff-format
+        # --target-version py313: this repo does not adopt PEP 758 - `except (A, B):` keeps its
+        # parentheses because the unparenthesised form is visually identical to Python 2's
+        # `except E, name:`. The reason lives in pyproject.toml beside `target-version`.
+        args: [--target-version, py313]
         # Markdown too. `ruff format` formats python blocks *inside* markdown, so a docs-only
         # commit can pass this hook (default types are python/pyi only) and then fail
-        # `make check`, which runs `ruff format --check .` over everything. That is exactly what
+        # `make check`, which runs the same formatter over everything. That is exactly what
         # happened to b5cba4a. Widening the hook's file types closes the gap at the commit.
         types_or: [python, pyi, markdown]
 

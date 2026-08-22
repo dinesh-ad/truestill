@@ -137,7 +137,7 @@ def explain(source: str | None) -> DateExplanation:
         return NOT_RECORDED
     try:
         return _EXPLANATIONS[DateSource(source)]
-    except ValueError, KeyError:
+    except (ValueError, KeyError):
         return NOT_RECORDED
 
 

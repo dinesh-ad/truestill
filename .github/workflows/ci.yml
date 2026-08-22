@@ -220,7 +220,8 @@ jobs:
         run: uv run ruff check .
 
       - name: Ruff (format)
-        run: uv run ruff format --check .
+        # --target-version py313: this repo does not adopt PEP 758. See pyproject.toml.
+        run: uv run ruff format --check --target-version py313 .
 
       - name: Mypy
         run: uv run mypy packages/truestill-core/src/truestill_core packages/truestill-cli/src/truestill_cli packages/truestill-app/src/truestill_app scripts packaging

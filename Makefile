@@ -22,11 +22,11 @@ lint:
 	$(PYTHON) ruff check --no-cache .
 
 format:
-	$(PYTHON) ruff format .
+	$(PYTHON) ruff format --target-version py313 .
 
 # Mirror CI's read-only format gate so `make check` fails the same way CI does.
 format-check:
-	$(PYTHON) ruff format --check .
+	$(PYTHON) ruff format --check --target-version py313 .
 
 typecheck:
 	$(PYTHON) mypy $(CORE) $(CLI) $(APP) $(SCRIPTS) $(PACKAGING)

@@ -821,7 +821,7 @@ def _interpret(document: Any) -> DocumentOnDrive:
     # the user can see.
     try:
         version = int(document.get("format", FORMAT_VERSION))
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return DocumentOnDrive(
             found=True, error="the file on the drive does not say which format it is"
         )

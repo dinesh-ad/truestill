@@ -1332,7 +1332,7 @@ def _tile_shape(metadata: dict[Path, dict[str, Any]] | None, source: Path) -> di
     tags = (metadata or {}).get(source, {})
     try:
         stored_w, stored_h = int(tags["ImageWidth"]), int(tags["ImageHeight"])
-    except KeyError, TypeError, ValueError:
+    except (KeyError, TypeError, ValueError):
         return {}
     if stored_w <= 0 or stored_h <= 0:
         return {}

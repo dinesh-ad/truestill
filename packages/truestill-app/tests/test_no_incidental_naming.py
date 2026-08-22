@@ -216,7 +216,7 @@ def _offences(relative: str) -> list[str]:
             found.append(f"{relative}: '{term}' in the FILE NAME")
     try:
         content = path.read_text(encoding="utf-8")
-    except OSError, UnicodeDecodeError:
+    except (OSError, UnicodeDecodeError):
         return found  # binary or unreadable: nothing to read, nothing to claim
     for number, line in enumerate(content.splitlines(), start=1):
         bare = _strip_allowed(line).lower()

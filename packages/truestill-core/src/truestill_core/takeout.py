@@ -58,7 +58,7 @@ def _epoch_utc(obj: Any) -> datetime | None:
         return None
     try:
         return datetime.fromtimestamp(int(ts), tz=UTC)
-    except TypeError, ValueError, OverflowError, OSError:
+    except (TypeError, ValueError, OverflowError, OSError):
         return None
 
 
@@ -78,7 +78,7 @@ def parse_sidecar(path: Path) -> TakeoutSidecar | None:
     """Parse a sidecar JSON, or None if it is unreadable/not an object."""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except OSError, json.JSONDecodeError, UnicodeDecodeError:
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         return None
     if not isinstance(data, dict):
         return None

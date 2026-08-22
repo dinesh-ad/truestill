@@ -108,7 +108,7 @@ def perceptual_hash(path: Path, algorithm: Algorithm = "dhash") -> str | None:
             image.draft("L", (64, 64))  # hint the decoder toward a cheap grayscale read
             func = imagehash.phash if algorithm == "phash" else imagehash.dhash
             return str(func(image, hash_size=_HASH_SIDE))
-    except UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError:
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
         return None
 
 

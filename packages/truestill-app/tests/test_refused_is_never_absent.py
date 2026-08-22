@@ -65,19 +65,19 @@ def _swallowing_predicates(monkeypatch: pytest.MonkeyPatch) -> None:
     def is_dir(self: Path, **_kwargs: Any) -> bool:
         try:
             return stat_module.S_ISDIR(self.stat().st_mode)
-        except OSError, ValueError:
+        except (OSError, ValueError):
             return False
 
     def is_file(self: Path, **_kwargs: Any) -> bool:
         try:
             return stat_module.S_ISREG(self.stat().st_mode)
-        except OSError, ValueError:
+        except (OSError, ValueError):
             return False
 
     def exists(self: Path, **_kwargs: Any) -> bool:
         try:
             self.stat()
-        except OSError, ValueError:
+        except (OSError, ValueError):
             return False
         return True
 

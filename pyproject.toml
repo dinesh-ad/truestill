@@ -70,13 +70,36 @@ dev = [
 # --- Ruff (lint + format), applied repo-wide ------------------------------------------
 [tool.ruff]
 line-length = 100
-# Matches `requires-python`. ⚠ **It said `py313` until 2026-08-22, deliberately**: moving it makes
-# `ruff format` adopt PEP 758 - `except A, B:` without parentheses - and rewrite files into syntax
-# that is a `SyntaxError` on 3.13. That was held back so the floor bump stayed revertible, because
-# reverting the floor with the rewrite bundled in would have left files that do not parse. The
-# floor has since landed and run green on all three platforms, so the reason to defer is spent and
-# this is the separate commit it was promised.
+# Matches `requires-python`. ⚠ **THE FORMATTER IS PINNED A VERSION BEHIND THIS, ON PURPOSE**, by
+# `--target-version py313` on every `ruff format` invocation - the Makefile, CI, and the
+# pre-commit hook. See the block below `[tool.ruff.format]`.
 target-version = "py314"
+
+# --- Why the formatter is pinned to py313 ----------------------------------------------
+#
+# ⚠ **THIS REPO DOES NOT ADOPT PEP 758, AND THAT IS A FORMATTING PREFERENCE RATHER THAN A CLAIM
+# THAT THE PEP IS WRONG.** At `py314` the formatter rewrites `except (A, B):` into `except A, B:`,
+# which is valid and two characters shorter. It is also **visually identical to Python 2's
+# `except E, name:`**, which BOUND the exception to a name rather than catching two of them. A
+# reader who learned Python 2 reads `except OSError, ValueError:` as "catch OSError as
+# ValueError". Unambiguous to the interpreter, ambiguous to a person, for two characters.
+#
+# ⚠ **A FUTURE READER SHOULD NOT UNDO THIS ON TIDINESS GROUNDS.** "The formatter flag disagrees
+# with target-version" is the intended state, not drift.
+#
+# **There is no configuration key for this.** Measured 2026-08-22 against ruff 0.16.0 and 0.16.4
+# (latest): `[tool.ruff.format]` rejects any such key, and the rewrite is the *formatter*, gated
+# purely on `target-version >= py314` - no lint rule performs it. Upstream has it reported many
+# times over (astral-sh/ruff #23090, #23467, #23626, #23793, #24041, #25065, #25901, #25923,
+# introduced in 0.15.0); the issues are closed and the behaviour is unchanged in the latest
+# release, so the CLI flag is the only lever that exists.
+#
+# ⚠ **AND THE FLAG ALONE IS NOT ENFORCEABLE, WHICH IS WHY A TEST GUARDS IT.** Measured: a file
+# that already contains `except A, B:` passes `ruff format --check --target-version py313` -
+# it reports *"1 file already formatted"* and exits 0. So an editor formatting on save reads
+# `py314` from this file, rewrites, and nothing here objects.
+# `test_the_formatter_is_pinned_behind_the_target.py` is what makes the rule real: it asserts
+# every invocation carries the flag, and that no tracked source has the unparenthesised form.
 
 [tool.ruff.lint]
 select = [

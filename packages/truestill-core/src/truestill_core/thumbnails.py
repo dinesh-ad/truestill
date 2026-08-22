@@ -203,7 +203,7 @@ def _stored_extent(image: Image.Image) -> tuple[int, int] | None:
     """The size EXIF says the image is stored at, or ``None`` when it does not say."""
     try:
         sub = image.getexif().get_ifd(IFD.Exif)
-    except KeyError, OSError, ValueError, SyntaxError:  # a malformed EXIF block is not fatal here
+    except (KeyError, OSError, ValueError, SyntaxError):  # a malformed EXIF block is not fatal here
         return None
     width, height = (sub.get(tag) for tag in _STORED_EXTENT_TAGS)
     if isinstance(width, int) and isinstance(height, int) and width > 0 and height > 0:

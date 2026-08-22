@@ -123,7 +123,7 @@ def main() -> int:
     for path in tracked_files():
         try:
             original = path.read_text(encoding="utf-8")
-        except OSError, UnicodeDecodeError:
+        except (OSError, UnicodeDecodeError):
             continue
         updated = normalize(original, repair=path.suffix == ".md")
         if updated == original:

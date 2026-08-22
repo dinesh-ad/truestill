@@ -67,7 +67,7 @@ def require_pipe(stream: BinaryIO | None) -> BinaryIO:
         raise ParentPipeMissingError(message)
     try:
         is_terminal = stream.isatty()
-    except AttributeError, ValueError:  # a closed or exotic stream is not a pipe either
+    except (AttributeError, ValueError):  # a closed or exotic stream is not a pipe either
         is_terminal = False
     if is_terminal:
         message = (
@@ -87,7 +87,7 @@ def _wait_for_close(stream: BinaryIO) -> None:
     """
     try:
         stream.read(1)
-    except OSError, ValueError:
+    except (OSError, ValueError):
         return
 
 

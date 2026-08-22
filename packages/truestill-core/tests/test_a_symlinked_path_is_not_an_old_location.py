@@ -46,7 +46,7 @@ def _a_data_dir_behind_a_symlink(
     link = tmp_path / "link"
     try:
         link.symlink_to(tmp_path / "real")
-    except OSError, NotImplementedError:  # pragma: no cover - Windows without privilege
+    except (OSError, NotImplementedError):  # pragma: no cover - Windows without privilege
         pytest.skip("this filesystem cannot create a symlink, so the defect cannot be reproduced")
     monkeypatch.setenv(DATA_DIR_ENV, str(link / "data"))
     catalog = real / CATALOG_FILENAME

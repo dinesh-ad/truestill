@@ -90,7 +90,7 @@ def _log() -> str:
             check=False,
             timeout=30,
         )
-    except OSError, subprocess.SubprocessError:  # pragma: no cover - no git in the environment
+    except (OSError, subprocess.SubprocessError):  # pragma: no cover - no git in the environment
         return ""
     return done.stdout if done.returncode == 0 else ""
 

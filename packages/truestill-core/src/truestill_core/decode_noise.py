@@ -268,7 +268,7 @@ def capture_decoder_output() -> Iterator[list[int]]:
     stderr_is_fd2 = False
     try:
         stderr_is_fd2 = previous_stderr is not None and previous_stderr.fileno() == _STDERR_FD
-    except OSError, ValueError, AttributeError, io.UnsupportedOperation:
+    except (OSError, ValueError, AttributeError, io.UnsupportedOperation):
         stderr_is_fd2 = False
     reader_done = threading.Event()
 
