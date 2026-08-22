@@ -194,7 +194,7 @@
   - **Already taken, and deliberately not this:** the `database is locked` refusal shipped
     2026-08-03 as the cheap part of this analysis. It converts the *symptom* into an actionable
     sentence on both surfaces; it is **not** a lock and does not serialise anything.
-  - **Known gap left open on purpose.** The app's synchronous settings writes (layout,
+  - **Known gap left open on purpose, and it has a letter: `(adt)`.** The app's synchronous settings writes (layout,
     organize mode, sidebar, events settings, `dates/confirm`) are not covered by that refusal:
     they are sub-second writes on HTTP routes, and covering them would mean a new HTTP status
     plus teaching `api()` about it, for a millisecond-wide window. A user sees the raw failure

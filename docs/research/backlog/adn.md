@@ -13,6 +13,13 @@
   and a user reaches that by double-clicking twice. A third route needs no shell at all:
   `truestill organize` beside an open window.
 
+  ⚠ **NARROWED 2026-08-22 BY `(aaw)`, AND THE TITLE IS NOW TOO BROAD.** A cross-process drive
+  lock ships: two **mutating** operations on one drive cannot overlap, whichever process they are
+  in, so *"two sets of in-flight writes"* to a drive is no longer reachable. **What this entry is
+  still about is single-instance detection**, not write safety - two apps still launch, on two
+  ports, with two sidecars, and `session-url.txt` still names only one. Non-job writes (the
+  settings routes) remain outside the lock by design; that residue is `(adt)`'s.
+
   **Correctness now rests on `BEGIN IMMEDIATE` alone**, which is genuinely cross-process and
   covers the schema race. What it does not do is stop two apps running - two job managers, two
   sets of in-flight writes, two things believing they own the library. See also `(abd)`.

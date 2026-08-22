@@ -194,13 +194,23 @@ is invisible here is retired, not free.**
 - **(adx) A LIBRARY THAT MOVES IS HANDLED. WHAT IS MISSING IS THE DISCLOSURE.** Recorded
   2026-08-18. Three gaps, one user journey. [Full entry](research/backlog/adx.md)
 - **(adt) TWO CATALOG WRITERS RACE INSIDE ONE PROCESS, ON AN ORDINARY USER PATH.** Recorded
-  2026-08-15. [Full entry](research/backlog/adt.md)
+  2026-08-15. ⚠ **Its lead is dead twice over (2026-08-22) and the question is not.**
+  `PERFORMANCE.md` §5.5 priced the per-open lock at **4-8 microseconds** with zero refusals in
+  2,160 contended opens, and `(adu)` then removed it outright - re-measured, an open plus a
+  settings write is **0.32 ms** against the **6558 ms** observed. Removing a falsified hypothesis
+  answers nothing: **server-side instrumentation of the real lane is still the only instrument
+  left.** ⚠ `(aaw)`'s lock deliberately does not cover this - settings writes do not go through
+  `_start_drive_job` - so the window narrowed and the race did not close.
+  [Full entry](research/backlog/adt.md)
 - **(ads) THE CATALOG'S CONCURRENCY MODEL IS SQLITE'S DEFAULT, NOT A DECISION.** Recorded
   2026-08-15. [Full entry](research/backlog/ads.md)
 - **(adm) `inspect_catalog` SKIPPED THE FIRST-RUN CASE - FIXED FOR THE APP, UNCHANGED FOR THE
   CLI.** Recorded 2026-08-14. [Full entry](research/backlog/adm.md)
-- **(adn) NOTHING STOPS TWO APPS RUNNING AGAINST ONE CATALOG.** Recorded 2026-08-14. [Full
-  entry](research/backlog/adn.md)
+- **(adn) NOTHING STOPS TWO APPS RUNNING AGAINST ONE CATALOG.** Recorded 2026-08-14.
+  ⚠ **Narrowed 2026-08-22 by `(aaw)`, and the title is now too broad**: two mutating operations on
+  one drive can no longer overlap across processes, so *"two sets of in-flight writes"* is gone.
+  **What remains is single-instance detection** - two apps, two ports, two sidecars, and
+  `session-url.txt` naming one. [Full entry](research/backlog/adn.md)
 - **(adj) THE FREEZE IS NOT A REPRODUCIBLE TARGET: `truestill.spec` IS GITIGNORED.** [Full
   entry](research/backlog/adj.md)
 - **(adi) REACT + SHADCN MIGRATION - PLANNED, GROUNDWORK LANDED, NOTHING MIGRATED.** [Full
@@ -318,7 +328,11 @@ is invisible here is retired, not free.**
   the app's **run** completion cannot name a file the CLI names. [Full
   entry](research/backlog/aac.md)
 - **(vv) Known limit: app per-drive job lock is process-local; CLI↔app overlap is not serialized.**
-  Recorded 2026-07-29. [Full entry](research/backlog/vv.md)
+  Recorded 2026-07-29. ⚠ **THE HEADLINE IS FALSE AS OF 2026-08-22**: `(aaw)` shipped the very
+  cross-process guard this entry asked for, so CLI↔app and CLI↔CLI overlap on a mutating operation
+  **is** serialized. Kept open only for the session-link residue - a second instance overwriting
+  the first's URL file - which is single-instance detection and belongs to `(adn)`. **If `(adn)`
+  takes it, this closes.** [Full entry](research/backlog/vv.md)
 - **(ss) Organize preview hashes every file before showing anything - slow on a network mount.**
   [Full entry](research/backlog/ss.md)
 - **(xx) Absolute-path columns and hash-cache keys are not machine-portable.** [Full

@@ -872,8 +872,18 @@ never priced.
 
 ### 5.5 What the per-open write lock costs - and what it does NOT explain (measured 2026-08-15)
 
+⚠ **CORRECTION 2026-08-22: THE LOCK THIS SECTION PRICES NO LONGER EXISTS ON THE ORDINARY PATH.**
+`(adu)` shipped 2026-08-18: `_migrate` reads `PRAGMA user_version` and the `files` row first and
+**returns before `BEGIN IMMEDIATE`** when the schema is current, so an already-migrated open takes
+no write lock at all. The measurements below are kept as the record they are - they are what the
+per-open lock cost while it existed, and **the negative result they carry is the durable half**
+and is unaffected. Re-measured 2026-08-22 on the current code: an already-migrated open is
+**0.23 ms** median and open-plus-one-settings-write is **0.32 ms**, still four orders of magnitude
+from the 6558 ms observation.
+
 §5.4 bought `BEGIN IMMEDIATE` on every open and measured the **holder** afterwards (7.57 ms max).
-It never priced the **acquisition**, which every open now pays even when it will change nothing:
+It never priced the **acquisition**, which every open paid at the time even when it would change
+nothing (see the correction above - `(adu)` has since removed that):
 `Catalog.__init__` calls `_migrate` (`catalog.py:781`), which takes RESERVED (`catalog.py:830`)
 before it can decide the schema is current. `(adt)` item 5 asked what that costs. Throwaway rig,
 CI run **`31904426333`**, three repeats per OS, catalog at schema v19.
@@ -897,7 +907,9 @@ produced `(adt)`.** Against the ubuntu runner - the platform it happened on - th
 real lane refused a job. The leading hypothesis was that per-open lock acquisition explained the
 duration. **It does not, and no number in this table gets within 60x of it.** `(adt)` item 5
 stays open; server-side instrumentation of the real lane is the only instrument left, which is
-what §5.4 already had to do for the 20260 ms holder.
+what §5.4 already had to do for the 20260 ms holder. ⚠ **And it is still the only instrument left
+after `(adu)`** - removing the lock removes a hypothesis this section had already falsified, so it
+cannot have been the answer either.
 
 ⚠ **The first local run of this rig was on tmpfs and reported fsync at 0.0004 ms** - the exact
 trap the paragraph above documents, walked into by the rig that cites it. Caught by `df -T` and

@@ -6,8 +6,11 @@ organized name, with no `files` row and no `file_copies` row behind it. The run 
 `1 failed`. It did not report that 802 MB of it had arrived.
 
 **The first fix removed the partial afterwards; this one never creates it** (`(acj)`). The copy
-goes to a sibling under the target's own name plus :data:`STAGING_SUFFIX`, and only a completed
-copy is renamed onto the target. Two things follow, and the second is the reason this is worth
+goes to a sibling built by :func:`staging_path` - the target's name, a **per-process token**, then
+:data:`STAGING_SUFFIX` - and only a completed copy is renamed onto the target. ⚠ **The token is
+not decoration**: a staging path derived from the target alone is shared by every process that
+computes it, and two `organize --apply` runs writing one destination wrote into **one** file.
+Measured, `(aaw)`. Two things follow, and the second is the reason this is worth
 doing rather than tidy:
 
 * **The ownership question disappears.** The old form had to decide whether a file at the target

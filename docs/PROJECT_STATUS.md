@@ -122,6 +122,16 @@ Notes:
     defects of its own, two of which would have produced false results, and a fourth soak needed a
     positive control before its cleanest pass could be believed. **Steps that cannot be staged
     honestly are said rather than skipped** - the records name what each soak did *not* test.
+- **Two Truestill processes can no longer overwrite each other's photos** (2026-08-22, `(aaw)`).
+  A kernel-enforced per-drive lock covers every mutating operation on both surfaces; a second run
+  refuses and names the holder. ⚠ **Measured rather than reasoned, and the measurement is the
+  argument**: two concurrent applies lost **99** and **45** organized copies, proven by content;
+  0 after. ⚠ **Unique staging shipped first and made it WORSE** - it fixed the mechanism (two runs
+  writing one `.partial`) and removed the only loud signal, leaving both runs exiting 0 with a
+  catalog row silently wrong. A fix that improves the mechanism and quietens the harm is the trade
+  this project refuses. `(afp)` closed with it: a cold start no longer offers to delete a catalog
+  another process is writing.
+  ⚠ **Not covered, on purpose**: the app's synchronous settings writes, which is `(adt)`.
 - **Schema is at v20** (`catalog.CURRENT_SCHEMA_VERSION`); `organize_runs` was added by `(aem)`.
 - **`(aad)` installers remain the launch gate**, and its two largest items are now built AND
   proven: the release lane and the Windows installer both work on both platforms
@@ -374,10 +384,12 @@ all four artefacts from one derivation. Everything except publish.
   research APIs or hosted tools** (`ENGINEERING_STANDARD.md` §3.1).
 - **Dry-run default:** writes happen only on explicit apply paths.
 - ⚠ **`make check` before every commit; do NOT run `make gate` for backend work** (2026-08-20).
-  The CI `e2e` job is disabled (`if: false`) until the first migrated screen, so a push costs ~3
-  minutes instead of ~25. If a change genuinely reaches a screen, **say so and ask**. Its silence
-  is not coverage. The three-OS `check` matrix is kept - it is the only thing that sees Windows
-  and macOS.
+  The CI `e2e` job runs **nightly and on `workflow_dispatch`** (re-decided 2026-08-22; it was
+  `if: false` on a condition that could not fire), so a push costs ~3 minutes instead of ~25 and
+  the 470 browser tests are not dark. If a change genuinely reaches a screen, **say so and ask**.
+  Its silence is not coverage. The three-OS `check` matrix is kept - it is the only thing that
+  sees Windows and macOS, and on 2026-08-22 it caught **two** platform defects in one primitive
+  that no Linux run could (`(aaw)`; `ENGINEERING_STANDARD.md` §4's sixty-first member).
 - **Never push unless asked.** ⚠ And a `pre-push` hook refuses when the previous push's run
   is red **or still running** - `TRUESTILL_PUSH_ANYWAY=1 git push` to mean it. §2's *pending
   result outranks a ready batch* covers **contention and outcome**, and only the first used

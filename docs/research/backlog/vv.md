@@ -13,6 +13,17 @@
   - **Do not assume solved** when designing reclaim, migrate, or backup concurrency. A real
     cross-process guard (e.g. flock on the drive marker or catalog) is a separate design if
     soak ever shows CLI↔app races mattering in practice.
+  - ⚠ **CLOSED IN SUBSTANCE 2026-08-22 BY `(aaw)`, AND THE HEADLINE IS NOW FALSE.** This entry
+    asked for *"a real cross-process guard (e.g. flock on the drive marker or catalog)"* and said
+    it was *"a separate design if soak ever shows CLI↔app races mattering in practice"*. No soak
+    ever tested concurrency; it was measured directly instead, two concurrent applies losing 99
+    and 45 organized copies, and the guard shipped: `flock`/`msvcrt`, keyed on the same
+    `uuid:`/`path:` identity this entry's in-process lock uses. **CLI↔app and CLI↔CLI overlap on
+    a mutating operation IS serialized now.**
+    ⚠ **What is left is not a lock**: the session-link half below - a second instance overwriting
+    the first's URL file, and quitting it deleting the link to a still-running first - which is
+    single-instance detection and belongs to `(adn)`. **Kept open only for that**; if `(adn)`
+    takes it, this entry closes.
   - **Date-provenance step 4 narrows this, and does not close it (2026-07-31).** The bake
     refuses to write while a migration is journalled and unfinished on the same drive, reading
     `Catalog.pending_migration` - the journal lives in the shared catalog, so unlike this lock

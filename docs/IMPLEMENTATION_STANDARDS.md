@@ -693,13 +693,17 @@ successful upgrade), never automatic.
 reasoning; the justification for skipping the browser lane must be output you can paste, never a
 recollection.
 
-⚠ **CHANGED 2026-08-20: THE BROWSER LANE LEFT THE ROUTINE LOOP, ON BOTH SIDES.** In CI the `e2e`
-job is disabled (`if: false`, with a dated banner naming what restores it); locally, **`make gate`
-is not run for backend work**. It was 21-25 minutes of a ~25-minute run, guarding screens `(adi)`
-is replacing - and a push now costs ~3 minutes. **If a change genuinely reaches a screen, say so
-and ask**; do not run it by reflex and do not treat its silence as coverage
-(`ENGINEERING_STANDARD.md` §4's fifty-fourth member). **The first migrated screen turns it back
-on**, at which point the row below becomes routine again.
+⚠ **CHANGED 2026-08-20, RE-DECIDED 2026-08-22: THE BROWSER LANE IS NIGHTLY, NOT PER-PUSH.** In CI
+the `e2e` job runs on the **nightly schedule and on `workflow_dispatch`**, so the 470 browser tests
+are not dark and a push still costs ~3 minutes; locally, **`make gate` is not run for backend
+work**. **If a change genuinely reaches a screen, say so and ask**; do not run it by reflex and do
+not treat its silence as coverage (`ENGINEERING_STANDARD.md` §4's fifty-fourth member).
+⚠ **It was `if: false` from 2026-08-20 to 2026-08-22 on the condition *"the first migrated
+screen"*, and that condition could not fire** - `(adi)` migrates by island, not by screen. **The
+condition is now one that can: the lane returns to per-push when it finishes in under ~8 minutes**,
+a lever that exists and is unused (`make e2e` is serial across two browsers while `pytest-xdist`
+is already a dependency). ⚠ **Before a tag, run it** - the publish path has never fired and this
+lane is the only thing that sees the screens.
 
 ⚠ **What is deliberately kept is the three-OS `check` matrix**, which is the only thing that sees
 Windows and macOS. On 2026-08-20 alone it caught `timeout(1)` not existing on BSD and Windows

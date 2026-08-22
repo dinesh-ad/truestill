@@ -14,6 +14,11 @@
   - **What exists today.** Nothing. `Catalog._migrate` runs the chain against the user's live
     file. There is no copy, no snapshot, and no way back to the pre-upgrade schema except a
     backup the user happens to have made themselves.
+  - ⚠ **The figure below is the 2026-08-19 reading; re-checked 2026-08-22 and the CLAIM HOLDS.**
+    The chain is now **19 forward steps to schema v20**. The two that landed since -
+    `_add_copy_missing_at` (v19) and `_add_organize_runs` (v20) - are both additive. The only
+    `DROP TABLE` in `catalog.py` is `downgrade_v12_to_v11`, which is **not in the forward chain**
+    and is called from one test. So the safety argument is unchanged and only the number moved.
   - **Why it has not bitten.** Checked all 18 migrations: every one is additive - `ALTER TABLE
     ADD COLUMN`, `CREATE TABLE IF NOT EXISTS` - plus one `DROP INDEX IF EXISTS` (v18), which
     removes a redundant index and no data. **So no shipped migration has ever destroyed

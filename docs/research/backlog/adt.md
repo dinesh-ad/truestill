@@ -46,6 +46,25 @@
   **writer's duration**, and nobody has asked this before. If a single-row write can take 6.5 s,
   contention is the symptom and something else is the cause.
 
+  ⚠ **CORRECTED 2026-08-22, TWICE OVER, AND THE LEAD BELOW IS DEAD BOTH WAYS.**
+  1. **It was measured, and ruled out, six days before this correction.** `PERFORMANCE.md` §5.5
+     priced the per-open acquisition on the day this entry was recorded: **4-8 microseconds**,
+     **zero busy refusals in 2,160 contended opens**, and *"no number in this table gets within
+     60x of it"*. The sentence below saying the cost *"has not been measured since"* was already
+     untrue when the ink dried, and this entry never recorded the answer.
+  2. **Then the mechanism itself was removed.** `(adu)` shipped 2026-08-18: an already-migrated
+     open **returns before `BEGIN IMMEDIATE`** and takes no write lock at all. Re-measured
+     2026-08-22 on current code - open **0.23 ms**, open plus one settings write **0.32 ms**.
+  ⚠ **Neither of those answers the question**, and that is the point of recording both: removing a
+  hypothesis that had already been falsified changes nothing about the 6558 ms. **What remains
+  open is exactly what §5.5 said: server-side instrumentation of the real lane.**
+
+  ⚠ **What did NOT change: the race is still structurally there.** `(aaw)` shipped a cross-process
+  drive lock on 2026-08-22 and **deliberately does not cover this** - settings writes go through
+  `run_in_threadpool(service.set_organize_mode, ...)` (`server.py:249`), not `_start_drive_job`,
+  which is `(aaw)`'s own recorded *"Known gap left open on purpose"*. What changed is the width of
+  the window, not its existence.
+
   What is established, with citations, and it is a lead rather than an answer: the settings POST
   is not one row. `server.py:235-241` hands it to `run_in_threadpool`; `set_organize_mode`
   (`organize.py:560-564`) **opens a Catalog** and then writes; and `Catalog.__init__` calls
