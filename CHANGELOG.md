@@ -11,6 +11,11 @@ All notable changes to this project are documented here. The format follows
   `clean-empty` listed such a folder under *"something is in there"* with an empty bracket beside
   it - two claims that contradicted each other, when the truth was that Truestill could not look
   inside. It now says *"could not be opened"* and lists those folders separately.
+- **Every run now writes down what it did, so you can find out later which photos failed.**
+  Truestill keeps a `last-run.json` beside your catalog, written automatically, listing every file
+  and what happened to it - organized, failed and why, or never attempted because the run stopped.
+  Before this, that answer existed only in the terminal, and scrolled away with it. The run tells
+  you where the file is; `--report PATH` puts it somewhere else instead.
 - **A drive Truestill cannot read is no longer registered as a brand-new one.** If a folder holds
   your library but most of it will not open - a half-mounted drive, a folder still syncing -
   Truestill used to quietly decide it was somewhere new and give your library a second identity,

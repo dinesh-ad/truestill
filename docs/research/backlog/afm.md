@@ -58,3 +58,25 @@
   - Whether this waits on `(afl)`. **B needs it; A and C do not.**
   - Whether the `--dry-run` preview and the `--apply` report should differ here at all - today the
     same block is printed by both.
+
+  ---
+
+  ## ⚠ WHAT `(afl)` COST THIS ENTRY, 2026-08-22
+
+  This entry's option **B** was *"summarise instead of listing, with the per-file detail behind
+  `(afl)`'s verbose level"*, and it said *"needs `(afl)` first"*.
+
+  **`(afl)` closed without a verbosity flag.** It found that nothing in the product could answer
+  *"which photos failed?"* after the terminal scrolled, and shipped a run **record** instead - a
+  file beside the catalog, written automatically. The right destination for detail turned out to be
+  a file rather than a flag, and of the twelve elision sites only the failure list was the record
+  of an irreversible act.
+
+  ⚠ **So B has nothing to hide behind.** 15,082 lines on a *successful* run is now a
+  **default-output question**: what should an ordinary run print, with no verbosity control to
+  demote the rest to. That is a harder question than the one this entry was filed with, and it is
+  the honest one - the previous framing let the volume be somebody else's flag to add.
+
+  What does not change: the record covers this. A user who wants the per-file detail of a
+  successful run already has it in `last-run.json`, which is an argument **for** summarising the
+  preview rather than against it.

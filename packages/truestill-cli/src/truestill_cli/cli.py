@@ -27,6 +27,7 @@ from truestill_core.app_paths import (
     LEGACY_CATALOG_PATH,
     cache_path_for,
     default_catalog_path,
+    record_path_for,
     resolve_catalog_choice,
 )
 from truestill_core.archive_extract import extract_archive_set
@@ -340,7 +341,11 @@ def _add_common_options(parser: argparse.ArgumentParser) -> None:
         help="expert setting: number of hashing workers",
     )
     parser.add_argument(
-        "--report", type=Path, metavar="PATH", help="write a full per-file decision report as JSON"
+        "--report",
+        type=Path,
+        metavar="PATH",
+        # It no longer decides WHETHER a record exists - only where it goes. `(afl)`
+        help="write this run's record here instead of beside the catalog",
     )
 
 
@@ -2225,31 +2230,129 @@ def _match_json(match: DuplicateMatch | None) -> dict[str, object] | None:
     }
 
 
-def _write_json_report(path: Path, resolutions: list[Resolution]) -> None:
-    payload = [
-        {
-            "source": str(r.decision.source),
-            "relative": r.decision.relative.as_posix(),
-            "category": r.decision.category.label,
-            "confidence": r.decision.category.confidence.value,
-            "rule": r.decision.category.rule,
-            "reason": r.decision.category.reason,
-            "captured_at": r.decision.captured_at.isoformat() if r.decision.captured_at else None,
-            "date_source": r.decision.date_source.value,
-            "date_tag": r.decision.date_tag,
-            "needs_review": r.decision.needs_review,
-            "sha256": r.hashes.sha256,
-            "perceptual": r.hashes.perceptual,
-            "should_upload": r.should_upload,
-            "is_unique": r.is_unique,
-            "exact_duplicate": _match_json(r.exact_duplicate),
-            "near_duplicate": _match_json(r.near_duplicate),
-        }
-        for r in resolutions
-    ]
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    print(f"\n  JSON report written to {path}")
+#: Bumped when a reader would have to change. `decisions.FORMAT_VERSION`'s precedent: a document
+#: a person or a later version may read says which shape it is, rather than being sniffed.
+RUN_RECORD_FORMAT = 1
+
+
+def _stop_block(
+    resolutions: list[Resolution], results: list[ActionResult]
+) -> dict[str, object] | None:
+    """What the run never got to, or ``None`` if it got to everything.
+
+    ⚠ **A record silent about what was never tried READS AS COMPLETE AND IS NOT** - the same shape
+    as `unreachable` meaning four things in `(afa)`. So the gap is stated, and `intended_total`
+    against `attempted` shows it even to a reader who ignores this block. `(afl)`
+
+    **The reason is read from the last result, and only because of a reachability fact.** `execute`
+    stops in three places: a cancel that records nothing, a health stop, and a catalog stop. The
+    last two record a `FAILED` result carrying the sentence first; the CLI passes no `cancel`, so
+    the silent one is unreachable from here. ⚠ **It is still not asserted**: if the results are
+    short and the last is not a failure, this says the reason was not recorded rather than
+    inventing one from the file that happened to be last.
+    """
+    if len(results) == len(resolutions):
+        return None
+    last = results[-1] if results else None
+    recorded = last.detail if last is not None and last.status is ActionStatus.FAILED else ""
+    return {
+        "never_attempted": len(resolutions) - len(results),
+        "reason": recorded or "the run stopped early, and the reason was not recorded",
+    }
+
+
+def _run_record(
+    resolutions: list[Resolution],
+    results: list[ActionResult],
+    *,
+    source: str,
+    destination: str,
+    stopped: dict[str, object] | None = None,
+) -> dict[str, object]:
+    """What this run did, per file. **Built from RESULTS, never from the plan.**
+
+    ⚠ Until 2026-08-22 this was written from `resolutions`, before execution, and only when asked
+    for - so it recorded what was **decided** and never what happened. Nothing else in the product
+    persisted an outcome either: `files.upload_status` only ever holds ``'uploaded'``, so a row
+    exists only for a file that succeeded, and there is no logging anywhere. **After the terminal
+    scrolled, nothing could answer "which photos failed?"** `(afl)`
+
+    Building from `ActionResult` is strictly more information, not a trade: it carries the whole
+    resolution plus the status, the detail, where the file landed, and a `sha256` that is *richer*
+    than the plan's - the scan skips hashing a unique-size file, so a resolution can reach
+    execution without one.
+    """
+    by_source = {str(r.resolution.decision.source): r for r in results}
+    files = []
+    for resolution in resolutions:
+        source_path = str(resolution.decision.source)
+        outcome = by_source.get(source_path)
+        files.append(
+            {
+                "source": source_path,
+                # ⚠ Not `null` for a file the run never reached: "attempted" is the fact, and a
+                # missing status would make an unattempted file look like an unrecorded one.
+                "status": outcome.status.value if outcome is not None else "not attempted",
+                "detail": outcome.detail if outcome is not None else "",
+                "landed_at": (
+                    outcome.final_relative.as_posix()
+                    if outcome is not None and outcome.final_relative is not None
+                    else None
+                ),
+                "planned_relative": resolution.decision.relative.as_posix(),
+                "category": resolution.decision.category.label,
+                "confidence": resolution.decision.category.confidence.value,
+                "rule": resolution.decision.category.rule,
+                "reason": resolution.decision.category.reason,
+                "captured_at": (
+                    resolution.decision.captured_at.isoformat()
+                    if resolution.decision.captured_at
+                    else None
+                ),
+                "date_source": resolution.decision.date_source.value,
+                "date_tag": resolution.decision.date_tag,
+                "needs_review": resolution.decision.needs_review,
+                "sha256": (outcome.sha256 if outcome is not None else None)
+                or resolution.hashes.sha256,
+                "perceptual": resolution.hashes.perceptual,
+                "should_upload": resolution.should_upload,
+                "is_unique": resolution.is_unique,
+                "exact_duplicate": _match_json(resolution.exact_duplicate),
+                "near_duplicate": _match_json(resolution.near_duplicate),
+            }
+        )
+    return {
+        "format": RUN_RECORD_FORMAT,
+        "run": {
+            "source": source,
+            "destination": destination,
+            # `intended_total` matches `organize_runs`, which already derives "stopped early" the
+            # same way rather than trusting a completion flag. One vocabulary for one idea.
+            "intended_total": len(resolutions),
+            "attempted": len(results),
+            "stopped": stopped if stopped is not None else _stop_block(resolutions, results),
+        },
+        "files": files,
+    }
+
+
+def _write_run_record(path: Path, payload: dict[str, object]) -> str | None:
+    """Write the record atomically. **Returns an error to report, never raises.**
+
+    ⚠ **Never-raising matters more here than it did for `--report`.** This is written on every
+    applied run rather than on request, so an unwritable location would turn a successful organize
+    into a traceback about its own paperwork. `decisions.write_decisions` makes the same choice for
+    the same reason, and `selfcheck.write_findings` is where the sibling-then-rename comes from: no
+    reader may ever open a half-written file.
+    """
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        partial = path.with_name(path.name + ".partial")
+        partial.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        partial.replace(path)
+    except OSError as exc:
+        return str(exc)
+    return None
 
 
 def _print_mechanism_split(results: list[ActionResult]) -> None:
@@ -2558,8 +2661,43 @@ def _print_run_reports(
     _print_preflight(preflight)
     if scan is not None:
         _print_ingest_report(resolutions, scan)
-    if args.report:
-        _write_json_report(args.report, resolutions)
+    # ⚠ The plan report used to be written HERE, before execution. It is gone rather than moved:
+    # it answered "what would happen", the record answers "what happened", and one file cannot
+    # honestly be both. A preview therefore writes nothing at all now - which also makes the
+    # DRY RUN banner's "nothing was written or recorded" true, where it was not before. `(afl)`
+
+
+def _record_the_run(
+    args: argparse.Namespace,
+    resolutions: list[Resolution],
+    results: list[ActionResult],
+    *,
+    stopped: dict[str, object] | None = None,
+) -> None:
+    """Write the record and name it. **Automatic, because opt-in gets it wrong for one user.**
+
+    ⚠ The user who most needs the record is the one who did not know to ask for it - which is why
+    `--report` stops deciding *whether* a record exists and now only says *where* it goes.
+
+    ⚠ **Written AFTER execution, so a hard kill between the last file and this loses it.** The
+    design survives a stop and not a `SIGKILL`. Stated rather than assumed; `organize_runs` covers
+    the killed run from the other side (`(aem)`), and per-file writes are their own performance
+    question. `(afl)`
+    """
+    path = args.report if getattr(args, "report", None) else record_path_for(args.db)
+    payload = _run_record(
+        resolutions,
+        results,
+        source=str(args.source),
+        destination=str(args.destination),
+        stopped=stopped,
+    )
+    error = _write_run_record(path, payload)
+    if error is not None:
+        # The run itself succeeded or failed on its own terms; the paperwork must not restate it.
+        print(f"\n  Could not write the run record to {path}: {error}", file=sys.stderr)
+        return
+    print(f"\n  This run is recorded in {path}")
 
 
 def _registered_or_refused(
@@ -2753,6 +2891,7 @@ def _run_pipeline(
 
         _open_organize_run(catalog, args, drive_uuid, resolutions, on_destination)
 
+        results: list[ActionResult] = []
         try:
             results = execute(
                 resolutions,
@@ -2775,6 +2914,15 @@ def _run_pipeline(
             # user-facing answer, not a crash: it names the files and exits like every other
             # destination problem (code 4), rather than showing a traceback.
             print(f"error: {exc}", file=sys.stderr)
+            # ⚠ A record even here, and this is the case that most needs one: the run refused
+            # before its first byte, so `results` is empty and every file is "not attempted".
+            # Writing nothing would leave the loudest failure the only one with no paperwork.
+            _record_the_run(
+                args,
+                resolutions,
+                [],
+                stopped={"never_attempted": len(resolutions), "reason": str(exc)},
+            )
             return 4
 
         _close_organize_run(catalog, args, drive_uuid)
@@ -2810,6 +2958,7 @@ def _run_pipeline(
         # CLI's "finished, but something is wrong" (verify, organize, reclaim all use it).
         return 1 if unreadable else 0
     code = _print_execution(results)
+    _record_the_run(args, resolutions, results)
     # ⚠ The banner this run printed says "Empty folders left behind are reported, never deleted",
     # and until 2026-08-22 nothing here reported them: `_offer_cleanup` was wired into
     # `migrate-layout` alone, and the comment below claimed an offer "follows" that did not

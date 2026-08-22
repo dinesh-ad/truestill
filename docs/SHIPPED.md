@@ -55,6 +55,17 @@ recording shipped work as unstarted, which is the more expensive direction of th
   explicitly NOT extended to `reclaim`** - recorded as a ruling with its reason: trashing 117 GB of
   originals is a second copy on the same filesystem, in a command whose purpose is to free it.
   [Full entry](research/backlog/afh.md)
+- **(afl) A RUN WRITES DOWN WHAT IT DID.** Shipped 2026-08-22, and **re-ranked rather than
+  deferred**: filed as "the product has no verbosity control", closed with a record instead,
+  because the right destination for verbose detail turned out to be a **file rather than a flag**.
+  ⚠ **The finding that outranked it**: after the terminal scrolled, *nothing* could answer "which
+  photos failed?" - `--report` was built from the plan before execution, `files.upload_status` only
+  ever holds `'uploaded'`, and there is no logging anywhere. So `(afd)`'s cap had elided the only
+  copy. One rolling `last-run.json` beside the catalog, automatic, built from `results`, carrying
+  the stop and the count of files never attempted. `--report` now says only *where*. ⚠ **A preview
+  writes nothing**, which makes the DRY RUN banner true for the first time. ⚠ **Honest limit
+  recorded**: written after execution, so it survives a stop and not a kill.
+  [Full entry](research/backlog/afl.md)
 - **(afd) A FAILURE LIST IS ONE FACT, NOT TWO THOUSAND.** Shipped 2026-08-22. Measured on the real
   library rather than carried from the soak: a destination denied after ten files gave **2,096
   `FAILED` lines on stderr carrying ONE reason**, beside a summary that already said

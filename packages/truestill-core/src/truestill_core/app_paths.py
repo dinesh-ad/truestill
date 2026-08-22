@@ -107,6 +107,14 @@ CACHE_FILENAME = "hashes.cache.sqlite"
 #: it is doing so because something went wrong, and it must open in whatever they double-click.
 SESSION_URL_FILENAME = "session-url.txt"
 
+#: Filename of the record a run writes about what it did. ``.json`` because it is read by a person
+#: looking for one filename among thousands, and by whatever they paste it into.
+#:
+#: **Rolling: one file, overwritten each run.** One file has no expiry policy; a file per run has
+#: to answer "who decides when these go", which is the commitment that ruled out putting this in
+#: the catalog. `(afl)`
+RUN_RECORD_FILENAME = "last-run.json"
+
 
 #: ``appauthor=False``, and it is load-bearing on ONE platform. `platformdirs` defaults the
 #: author segment to the **app name** when it is ``None``, so Windows produced
@@ -259,6 +267,18 @@ def session_url_path() -> Path:
 def default_cache_path() -> Path:
     """The cache for the default catalog: the OS **cache** directory, never the data one."""
     return _cache_dir() / CACHE_FILENAME
+
+
+def record_path_for(catalog: Path) -> Path:
+    """Where the run record belonging to ``catalog`` goes: **beside it, always.**
+
+    ⚠ **The sibling half of `cache_path_for`'s rule without the split, and the difference is the
+    point.** A cache is redirected to the OS *cache* directory for the conventional catalog,
+    because that is what a cache is for and losing one costs nothing. A record is **data**: it is
+    the only place a finished run says what it did, so it belongs with the catalog wherever the
+    catalog is, and travels with it. `(afl)`
+    """
+    return catalog.parent / RUN_RECORD_FILENAME
 
 
 def cache_path_for(catalog: Path) -> Path:

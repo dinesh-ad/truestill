@@ -133,14 +133,6 @@ is invisible here is retired, not free.**
   mechanism is **not isolated**. It did not block the upgrade because a near-duplicate is kept and
   flagged, never removed - the effect is one extra row in a review list, and exact dedup was
   identical in all four runs. Found 2026-08-22. [Full entry](research/backlog/aff.md)
-- **(afl) THE PRODUCT HAS NO VERBOSITY CONTROL AT ALL - NO `--verbose`, NO `-q`, NO LEVELS.**
-  Found while fixing `(afd)`, 2026-08-22. ⚠ **Not a missing flag - a missing dimension**, and the
-  reason two entries have nowhere to put what they must not print: `(afd)` could not demote a raw
-  `OSError` to verbose because verbose does not exist, and `(aep)` has the same problem with an
-  errno. Against clig.dev's `-q/--quiet` and `-d/--debug`, and .NET's five named levels
-  (quiet/minimal/normal/detailed/diagnostic). ⚠ clig warns `-v` is ambiguous with `--version`,
-  which this CLI has. The real work is what each level *contains*, per call site.
-  [Full entry](research/backlog/afl.md)
 - **(afm) UNCAPPED PER-ITEM LISTS ARE THE RULE, NOT THE EXCEPTION - AND THE BIGGEST FIRES ON
   SUCCESS.** Split out of `(afd)` 2026-08-22, whose title claimed the failure list was the only
   one. Measured: an ordinary **successful** organize of 2,110 real files printed **15,128 lines**,

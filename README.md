@@ -187,7 +187,7 @@ The CLI is subcommand-based. **Dry run is the default** - nothing is written wit
 uv run truestill analyze <folder>    # what is in here? -- reads nothing, changes nothing
 
 uv run truestill organize <source> <destination>
-uv run truestill organize <source> <destination> --report reports/plan.json
+uv run truestill organize <source> <destination> --apply --report reports/run.json
 uv run truestill organize <source> <destination> --apply
 
 uv run truestill-app                 # the local web UI
@@ -223,7 +223,7 @@ Frequently used `organize` flags:
 | `--all-files` | Include non-media extensions. |
 | `--no-rename` | Do not add the `YYYYMMDD_HHMMSS_` prefix to copies. |
 | `--no-timestamps` | Do not set mtime from the capture date. |
-| `--report PATH` | Write the full per-file decision report as JSON. |
+| `--report PATH` | Write this run's record here instead of beside the catalog. Every applied run writes one either way. |
 
 ## Safety
 

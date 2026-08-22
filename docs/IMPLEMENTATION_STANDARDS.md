@@ -16,6 +16,15 @@ Paths are workspace-relative. Symbols are cited over line numbers, which drift.
 | **Original quality is the top priority.** Media pixels are never re-encoded. | The pipeline only copies bytes; the sole content write is metadata-only (see below). |
 | **Copy-only - never move or delete user files, except the scoped, opt-in exceptions below.** | `organizer.execute` uploads via `LocalDestination.upload` (`shutil.copy2`) / `RcloneDestination.upload` (`rclone copyto`). `rclone` uses `copyto`, never `sync`. The only code paths that remove a source from where the user left it are `organizer._move_source` (`--move`), `reclaim.run_reclaim` (`truestill reclaim`), and the rename path `LocalDestination.adopt` (`--in-place`) - all scoped exactly like the Takeout write path (below). |
 
+**⚠ A run that changes the library writes down what it did, beside the catalog, without being
+asked** (2026-08-22, `(afl)`). One rolling `last-run.json` per catalog, built from the run's
+**results** rather than its plan, carrying every file's outcome and - when the run stopped early -
+the reason and the count of files never attempted. Automatic because the user who most needs it is
+the one who did not know to ask; `--report PATH` says only *where* it goes. ⚠ **Its own failure
+must never fail the run**, the way `decisions.write_decisions` already refuses to. ⚠ **Stated
+limit**: written after execution, so it survives a stop and not a kill - `organize_runs` covers the
+killed run from the other side.
+
 **⚠ An identity is never minted on evidence that could not be gathered** (2026-08-22, `(afn)`).
 A folder is registered as a drive only when the sample says either *this is that drive* or *this
 is not*; where too much of it refused to be read to say which, registration stops and

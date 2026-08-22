@@ -37,7 +37,13 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from truestill_core.app_paths import cache_path_for, default_cache_path, default_catalog_path
+from truestill_core.app_paths import (
+    RUN_RECORD_FILENAME,
+    cache_path_for,
+    default_cache_path,
+    default_catalog_path,
+    record_path_for,
+)
 
 
 def test_a_new_install_puts_the_catalog_in_the_os_data_location(
@@ -102,3 +108,40 @@ def test_two_explicit_catalogs_do_not_share_a_cache(tmp_path: Path) -> None:
     second = cache_path_for(tmp_path / "b" / "c.sqlite")
 
     assert first != second
+
+
+def test_the_run_record_sits_beside_the_catalog_wherever_it_is(tmp_path: Path) -> None:
+    """⚠ The sibling half of `cache_path_for`'s rule WITHOUT the split, and that is the point.
+
+    A cache is redirected to the OS cache directory for the conventional catalog, because losing
+    one costs nothing. A record is data: it is the only place a finished run says what it did, so
+    it belongs with the catalog wherever the catalog is. `(afl)`
+    """
+    db = tmp_path / "library" / "c.sqlite"
+
+    assert record_path_for(db).parent == db.parent
+    assert record_path_for(db).name == RUN_RECORD_FILENAME
+
+
+def test_the_default_catalogs_record_is_not_sent_to_the_cache_directory() -> None:
+    """The difference from `cache_path_for`, asserted rather than described."""
+    catalog = default_catalog_path()
+
+    assert record_path_for(catalog).parent == catalog.parent
+    assert record_path_for(catalog).parent != default_cache_path().parent
+
+
+def test_two_catalogs_do_not_share_a_record(tmp_path: Path) -> None:
+    """A rolling file is overwritten each run - so two libraries must not overwrite each other's."""
+    one = record_path_for(tmp_path / "a" / "c.sqlite")
+    other = record_path_for(tmp_path / "b" / "c.sqlite")
+
+    assert one != other
+
+
+def test_resolving_a_record_path_creates_nothing(tmp_path: Path) -> None:
+    """The same promise the other accessors make: asking where is not making."""
+    resolved = record_path_for(tmp_path / "c.sqlite")
+
+    assert not resolved.exists()
+    assert list(tmp_path.iterdir()) == []

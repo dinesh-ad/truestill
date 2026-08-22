@@ -113,7 +113,8 @@ def test_only_app_paths_asks_platformdirs_where_anything_goes() -> None:
     Enforced by parsing imports rather than grepping text, so a comment mentioning `platformdirs`
     does not fail and ``import platformdirs as pd`` does not slip through. `app_paths` is the only
     module permitted to ask; everything else goes through `default_catalog_path`,
-    `default_cache_path`, `session_url_path` or `cache_path_for`, which honour the environment
+    `default_cache_path`, `session_url_path`, `cache_path_for` or `record_path_for`, which honour
+    the environment
     overrides that make the test suite hermetic.
     """
     offenders: list[str] = []
@@ -138,5 +139,6 @@ def test_only_app_paths_asks_platformdirs_where_anything_goes() -> None:
         + "\n  ".join(sorted(set(offenders)))
         + "\n\nA data location fixed in `app_paths` and derived independently here is a fix to "
         "one of two. Route through `default_catalog_path` / `default_cache_path` / "
-        "`session_url_path` / `cache_path_for`, which also honour TRUESTILL_DATA_DIR."
+        "`session_url_path` / `cache_path_for` / `record_path_for`, which also honour "
+        "TRUESTILL_DATA_DIR."
     )
