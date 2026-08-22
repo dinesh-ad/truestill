@@ -30,17 +30,20 @@ if sys.platform == "win32":  # pragma: no cover - the Windows lane
     import msvcrt
 
 _HOLDER = """
-import sys, time
+import os, sys, time
 from truestill_core.drive_lock import DriveLock
 lock = DriveLock({key!r}, "D3", operation="organize")
 lock.acquire()
-print("HELD", flush=True)
+# ⚠ It reports its OWN pid rather than the test reading `Popen.pid`. On Windows `sys.executable`
+# in a uv venv is a launcher that spawns the real interpreter as a child, so the pid Popen knows
+# is not the pid that took the lock - which the Windows lane caught and no other lane could.
+print("HELD", os.getpid(), flush=True)
 time.sleep(60)
 """
 
 
-def _holder(key: str) -> subprocess.Popen[str]:
-    """A real second process that takes the lock and does not give it back."""
+def _holder(key: str) -> tuple[subprocess.Popen[str], int]:
+    """A real second process holding the lock, and the pid it says it is."""
     proc = subprocess.Popen(
         [sys.executable, "-c", textwrap.dedent(_HOLDER).format(key=key)],
         stdout=subprocess.PIPE,
@@ -48,8 +51,9 @@ def _holder(key: str) -> subprocess.Popen[str]:
     )
     assert proc.stdout is not None
     line = proc.stdout.readline().strip()
-    assert line == "HELD", f"the holder never took the lock: {line!r}"
-    return proc
+    held, _, pid = line.partition(" ")
+    assert held == "HELD", f"the holder never took the lock: {line!r}"
+    return proc, int(pid)
 
 
 @pytest.fixture
@@ -61,7 +65,7 @@ def key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
 
 def test_a_live_lock_is_respected(key: str) -> None:
     """⚠ **The property, and it needs a second PROCESS to mean anything.**"""
-    holder = _holder(key)
+    holder, _pid = _holder(key)
     try:
         with pytest.raises(DriveBusyError) as refused:
             DriveLock(key, "D3", operation="reclaim").acquire()
@@ -74,7 +78,7 @@ def test_a_live_lock_is_respected(key: str) -> None:
 
 def test_the_refusal_names_the_holder_so_a_user_can_act(key: str) -> None:
     """No `--force`, so the escape hatch is naming the process to deal with instead."""
-    holder = _holder(key)
+    holder, pid = _holder(key)
     try:
         with pytest.raises(DriveBusyError) as refused:
             DriveLock(key, "D3", operation="reclaim").acquire()
@@ -84,7 +88,7 @@ def test_the_refusal_names_the_holder_so_a_user_can_act(key: str) -> None:
 
     message = str(refused.value)
     assert "organize" in message, f"the refusal does not say what is running:\n{message}"
-    assert str(holder.pid) in message, f"the refusal does not name the process:\n{message}"
+    assert str(pid) in message, f"the refusal does not name the process:\n{message}"
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="SIGKILL is POSIX; the Windows lane kills too")
@@ -94,7 +98,7 @@ def test_a_killed_holder_leaves_no_stale_lock(key: str) -> None:
     The OS releases a `flock` when the process dies, so *"locked out of my own library"* is a state
     this design cannot reach. A lock we had to judge liveness on could stand the user up.
     """
-    holder = _holder(key)
+    holder, _pid = _holder(key)
     os.kill(holder.pid, signal.SIGKILL)
     holder.wait(timeout=10)
 
