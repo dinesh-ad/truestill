@@ -1081,13 +1081,24 @@ class Catalog:
         #    forever - not raises - when its source connection is inside a write transaction.
         #    Moving this call up into that block would replace a startup with a process that
         #    sleeps until it is killed. `in_transaction` is False here, and a test pins it.
-        # 2. **After `fresh` has returned**, so a brand-new catalog copies nothing, and only a
-        #    real chain pays for it. This is the answer to `(ady)`'s open question about whether
-        #    the copy happens on every migrating open.
+        # 2. **Only when there is a chain to run**, which is `version < CURRENT_SCHEMA_VERSION`
+        #    and NOT merely "not fresh". ⚠ The `fresh` guard above catches a brand-new catalog
+        #    and misses an **already-current** one that fell through the fast path: that read is
+        #    outside the lock, so an opener can see a behind version there, re-read the current
+        #    one under the lock, and arrive here with nothing whatever to do. Measured on six
+        #    concurrent openers, **four of six** took a full copy and applied **zero** steps.
+        #    `(afv)`
+        #
+        # ⚠ **That was not only waste.** Each of those copies put a page-by-page read of the
+        # catalog in the path of the openers that *were* migrating, which is what took `(adl)`'s
+        # backward-stamp defect from 7/40 rounds to 28/40. Removing them removes most of the
+        # amplification as well as most of the work. **The stamp was the defect and is fixed in
+        # `_apply_step`; this is the amplifier.**
         #
         # It never raises: a catalog whose safety copy could not be taken must still open, so the
         # outcome is reported rather than thrown. `(ady)`
-        self.pre_migration_backup = catalog_backup.copy_before_migration(conn, self.path)
+        if version < CURRENT_SCHEMA_VERSION:
+            self.pre_migration_backup = catalog_backup.copy_before_migration(conn, self.path)
 
         for target, migrate in _MIGRATIONS:
             if version < target:

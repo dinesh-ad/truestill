@@ -8,6 +8,7 @@ the right path with a plausible size is exactly what a torn copy leaves, which i
 from __future__ import annotations
 
 import sqlite3
+import threading
 import time
 from pathlib import Path
 
@@ -218,4 +219,64 @@ def test_a_single_step_is_what_makes_the_copy_immune_to_a_concurrent_writer() ->
         "a positive `pages` makes the backup incremental, and an incremental backup is restarted "
         "by any write from another connection - measured never to finish under a concurrent "
         "writer. See catalog_backup.SINGLE_STEP."
+    )
+
+
+def test_the_copy_never_fires_on_a_catalog_already_at_the_current_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`(afv)`: the copy is gated on a chain existing, not on the catalog being non-fresh.
+
+    ⚠ **`fresh` is not the same condition, and the gap is only reachable by racing.**
+    `_migrate`'s fast path reads the version **outside** the lock, so an opener can see a behind
+    version there, re-read the current one under the lock, find `fresh` false - and arrive at the
+    copy with **zero** steps to apply. Measured on six concurrent openers: **four of six** took a
+    full copy and applied nothing, and those copies are what took `(adl)`'s backward-stamp defect
+    from 7/40 rounds to 28/40.
+
+    Asserted as an invariant over a real race rather than by faking a read: **every** copy that
+    happens must happen on a connection the file has not yet caught up with. A test that only
+    counted copies would pass on a run where the race did not occur; this cannot.
+    """
+    db = tmp_path / "catalog.sqlite"
+    with Catalog(db):
+        pass
+    con = sqlite3.connect(db)
+    con.execute(f"PRAGMA user_version = {CURRENT_SCHEMA_VERSION - 3}")
+    con.commit()
+    con.close()
+
+    versions_at_copy: list[int] = []
+    real = catalog_backup.copy_before_migration
+
+    def spy(source: sqlite3.Connection, path: Path) -> catalog_backup.BackupOutcome:
+        versions_at_copy.append(int(source.execute("PRAGMA user_version").fetchone()[0]))
+        return real(source, path)
+
+    monkeypatch.setattr(catalog_backup, "copy_before_migration", spy)
+
+    barrier = threading.Barrier(6)
+    errors: list[str] = []
+
+    def opener() -> None:
+        barrier.wait()
+        try:
+            with Catalog(db):
+                pass
+        except Exception as error:
+            errors.append(f"{type(error).__name__}: {error}")
+
+    threads = [threading.Thread(target=opener) for _ in range(6)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+
+    assert not errors, errors
+    assert versions_at_copy, "no opener took a copy, so the gate was never exercised"
+    already_current = [v for v in versions_at_copy if v >= CURRENT_SCHEMA_VERSION]
+    assert not already_current, (
+        f"a copy was taken on a catalog already at the current version: {versions_at_copy}. "
+        "The copy must be gated on `version < CURRENT_SCHEMA_VERSION`, not on `fresh` - the fast "
+        "path's read is outside the lock, so an opener can arrive here with nothing to migrate."
     )
