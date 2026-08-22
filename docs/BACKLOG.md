@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(afe). Next free: (aff).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aff). Next free: (afg).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -118,6 +118,13 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
+- **(aff) ONE EXTRA NEAR-DUPLICATE ON 3.14, FROM THE INTERPRETER AND NOT FROM A DEPENDENCY.**
+  262 look-alikes on 3.13, **263** on 3.14, stable over two runs each - and ⚠ **both pools agree
+  exactly on both interpreters**, which is the property the step was run for. Ruled out by
+  measurement: the relock moved **no** package version, and the walk order is byte-identical. The
+  mechanism is **not isolated**. It did not block the upgrade because a near-duplicate is kept and
+  flagged, never removed - the effect is one extra row in a review list, and exact dedup was
+  identical in all four runs. Found 2026-08-22. [Full entry](research/backlog/aff.md)
 - **(afe) A CATALOG THAT GOES UNWRITABLE MID-RUN ABORTS WITH A TRACEBACK AND LEAVES A FILE IT DID
   NOT RECORD.** `chmod 555` on the catalog's directory once five files had landed: the batch
   **aborted** (§1), the last line the user sees is `sqlite3.OperationalError: attempt to write a
