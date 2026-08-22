@@ -175,7 +175,9 @@
   ## Three things the fix uncovered
 
   ⚠ **1. `test_permanent_mode_only_applies_where_trash_was_refused` was passing while testing
-  nothing.** Its skeleton is all `Tier.EMPTY`, so after this change the trash is never called, no
+  nothing.** Promoted to `ENGINEERING_STANDARD.md` §4's **sixtieth member** on 2026-08-22, with
+  this as its worked example: *a change can make a test's branch unreachable without making
+  anything red; the fixture, not the assertion, decides which branch runs.* Its skeleton is all `Tier.EMPTY`, so after this change the trash is never called, no
   refusal happens, `permanent` is never consulted - and every assertion stayed green for the wrong
   reason. §4's fifty-fourth member, in the test whose entire subject is the branch it had stopped
   reaching. Two sibling refusal tests had the same hole. All three now use a junk-bearing skeleton.

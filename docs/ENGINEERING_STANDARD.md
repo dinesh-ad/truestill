@@ -432,6 +432,41 @@ memory dressed as one.
   fails with *"no .ts/.tsx files found"* rather than passing three times. In the same review a
   proposed `#[tauri::command]` counter was **refused rather than written**, because there is no
   `Cargo.toml` in the repo and it would have been green from the day it landed.
+- **A CHANGE CAN MAKE A TEST'S BRANCH UNREACHABLE WITHOUT MAKING ANYTHING RED. THE FIXTURE, NOT
+  THE ASSERTION, DECIDES WHICH BRANCH RUNS.** The sixtieth member. A test names a branch, asserts
+  the right thing about it, and passes - and then the code changes underneath it so that its
+  *setup* no longer reaches that branch at all. Every assertion still holds, **for a reason the
+  test was not written to check**, and the suite stays green at the exact moment the coverage
+  disappears. Nothing fails, so nothing announces it.
+
+  ⚠ **Distinct from the fifty-fourth, and the difference is where the silence comes from.** That
+  one is an instrument silent in the case it exists for - it runs, and reports nothing when it
+  should report something. This one **was correct** and stopped being reachable: it still runs, it
+  still passes, and the branch it names is no longer executed. The fifty-fourth is a wrong answer;
+  this is a right answer to a question no longer being asked.
+
+  ⚠ **The tell is that the fixture decides the branch.** Any test whose subject is a *conditional*
+  path - a refusal, a fallback, an error arm - is reached only if its setup still satisfies the
+  condition, and the setup is usually the least-reviewed half of the test. **So the check is not
+  "does this assertion still hold" but "can this fixture still get there".**
+
+  **The remedy is to assert the reaching, not only the outcome.** A test for a refusal should
+  establish that the thing being refused was actually attempted - a recording double, a call
+  count, an observable side effect - so that "it never happened" and "it happened and was refused"
+  cannot both be green. `scripts/mutation_matrix.py` finds these too: a branch no test reaches is
+  a mutation no test kills.
+
+  *Worked example - `(afj)`, 2026-08-22.* `clean-empty` stopped handing whole folders to the trash
+  and started trashing their *contents* and `rmdir`-ing the folder.
+  `test_permanent_mode_only_applies_where_trash_was_refused` builds its skeleton from three
+  **empty** directories, so after the change the trash was never called, no refusal ever occurred,
+  `--permanent` was never consulted - and its assertions (`trashed == 0`, six folders removed)
+  were all still true. Green, in the test whose entire subject is the branch it had stopped
+  reaching. **Two sibling refusal tests had the identical hole**, and one of them was
+  `test_a_trash_failure_is_reported_not_downgraded_to_a_permanent_delete` - a guard over a
+  destructive path. All three now build a skeleton that holds junk, so a refusal has something to
+  refuse, and the trash double records what it was handed.
+
 - **A COMMENT THAT QUOTES THE DEFECT'S ARTEFACT NAMES BECOMES NOISE IN EVERY TEXT SEARCH OVER
   THAT RUN. ASK THE FILESYSTEM, NOT THE NARRATIVE.** The fifty-ninth member. `(ael)`'s rule -
   *assert the statement, never an identifier that also appears in the target's own commentary* -
