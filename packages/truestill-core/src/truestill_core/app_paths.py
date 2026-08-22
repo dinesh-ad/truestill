@@ -122,6 +122,24 @@ LOCKS_DIRNAME = "locks"
 #: the catalog. `(afl)`
 RUN_RECORD_FILENAME = "last-run.json"
 
+#: Filename of the copy taken before a schema migration. `(ady)`
+#:
+#: **A FIXED name, so supersession is one atomic rename with no window in which no copy exists.**
+#: A name carrying the version it holds - ``catalog.pre-v19.sqlite`` - would mean deleting the old
+#: file and writing a new one, and between those two steps there is no safety copy at all. Which
+#: version this holds is answered by opening it and reading ``PRAGMA user_version``, never by
+#: parsing its name.
+#:
+#: **One copy per catalog, superseded by the next migration.** Retention by supersession is not a
+#: new decision here: `IMPLEMENTATION_STANDARDS.md` §2 already binds `migration_runs` to exactly
+#: it - *"the next migration of the same drive clears the previous record"* - and the alternative,
+#: keeping every one, is the disk-filling feature `(ady)` warned about.
+#:
+#: ⚠ **Deliberately NOT ``catalog.sqlite``-shaped.** Nothing enumerates the data directory looking
+#: for catalogs - `resolve_catalog_choice` names :data:`CATALOG_FILENAME` exactly - so this file
+#: can never be picked up as one, and this is not a new instance of `(aea)`.
+BACKUP_FILENAME = "catalog.pre-upgrade.sqlite"
+
 
 #: ``appauthor=False``, and it is load-bearing on ONE platform. `platformdirs` defaults the
 #: author segment to the **app name** when it is ``None``, so Windows produced
@@ -297,6 +315,17 @@ def record_path_for(catalog: Path) -> Path:
     catalog is, and travels with it. `(afl)`
     """
     return catalog.parent / RUN_RECORD_FILENAME
+
+
+def backup_path_for(catalog: Path) -> Path:
+    """Where the pre-upgrade copy of ``catalog`` goes: **beside it, always.** `(ady)`
+
+    `record_path_for`'s rule, applied to the same kind of thing. A cache is redirected to the OS
+    cache directory because losing one costs nothing; **this is data** - it is the only route back
+    to the schema a library was on before it was upgraded - so it lives with the catalog wherever
+    the catalog is, and travels with it.
+    """
+    return catalog.parent / BACKUP_FILENAME
 
 
 def cache_path_for(catalog: Path) -> Path:

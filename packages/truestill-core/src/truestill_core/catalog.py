@@ -23,6 +23,7 @@ from pathlib import Path
 from types import TracebackType
 from typing import Self, cast
 
+from truestill_core import catalog_backup
 from truestill_core.catalog_busy import CatalogUnwritableError
 from truestill_core.models import CaptureContext, DateSource
 
@@ -892,6 +893,11 @@ class Catalog:
 
     def __init__(self, path: Path) -> None:
         self.path = path
+        #: The copy taken before the migration chain ran, or ``None`` when no chain ran - a
+        #: fresh catalog and an already-current one both leave this ``None``, and those are two
+        #: different reasons for the same absence rather than a failure. Core prints nothing
+        #: (`IMPLEMENTATION_STANDARDS` §2); a surface reads this and decides. `(ady)`
+        self.pre_migration_backup: catalog_backup.BackupOutcome | None = None
         if path != Path(":memory:"):
             try:
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -1045,6 +1051,21 @@ class Catalog:
 
         if fresh:
             return
+
+        # ⚠ **THE COPY GOES HERE, AND "HERE" IS LOAD-BEARING - see `catalog_backup`.** Two things
+        # about this position are measured rather than chosen:
+        #
+        # 1. **After the `BEGIN IMMEDIATE` above has COMMITTED.** `Connection.backup` hangs
+        #    forever - not raises - when its source connection is inside a write transaction.
+        #    Moving this call up into that block would replace a startup with a process that
+        #    sleeps until it is killed. `in_transaction` is False here, and a test pins it.
+        # 2. **After `fresh` has returned**, so a brand-new catalog copies nothing, and only a
+        #    real chain pays for it. This is the answer to `(ady)`'s open question about whether
+        #    the copy happens on every migrating open.
+        #
+        # It never raises: a catalog whose safety copy could not be taken must still open, so the
+        # outcome is reported rather than thrown. `(ady)`
+        self.pre_migration_backup = catalog_backup.copy_before_migration(conn, self.path)
 
         for target, migrate in _MIGRATIONS:
             if version < target:

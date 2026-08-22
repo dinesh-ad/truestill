@@ -421,6 +421,34 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
 - **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 20`**.
   Migrations are ordered, idempotent functions in `_MIGRATIONS`; a catalog newer than the code
   is refused (`CatalogVersionError`). Migration coverage tested in `tests/test_catalog.py`.
+- **⚠ A copy of the catalog is taken before the chain runs, and it closes INTENT rather than
+  interruption** (2026-08-22, `(ady)`). The three conventions below make an *interrupted* upgrade
+  safe; none of them can undo a migration that succeeded. A step that drops a column and commits
+  has destroyed that data correctly, and no rollback, no per-step transaction and no lock brings
+  it back. `catalog_backup.copy_before_migration`, called from `Catalog._migrate` after the
+  version check commits and only when a chain will actually run - a fresh catalog copies nothing.
+  One copy per catalog at `app_paths.backup_path_for`, **beside the catalog** on
+  `record_path_for`'s rule, superseded by the next migration on `migration_runs`' rule.
+  - ⚠ **`pages=-1` IS LOAD-BEARING AND MUST NOT BE CHUNKED FOR PROGRESS REPORTING.** An
+    incremental backup is restarted from the beginning by a write from any other connection.
+    Measured on 123 MB against a writer committing at 376/sec: `pages=-1` finished in **2,581 ms**
+    with 0 restarts; `pages=64` **committed no page in 300 s**. That is `(adb)`'s
+    *"correct-or-never-finishing"* finding, and a single step is the whole of what avoids it.
+  - ⚠ **IT MUST NOT RUN INSIDE `BEGIN IMMEDIATE`, AND THE REASON IS NOT SYMMETRY.**
+    `Connection.backup` **hangs forever** - it does not raise - when its *source connection* holds
+    a write transaction; measured, killed at 8 s with a 0-byte destination. A **different**
+    connection's write lock is harmless (27.1 ms), so the rule reads as arbitrary unless that
+    contrast is beside it. On the launch path this is a product that never starts.
+  - **The copy is staged and renamed**, never written at its final name: a write failure part-way
+    leaves **1,048,576 bytes** that open as `UNREADABLE`, a *plausible* size rather than an empty
+    file - so `(adr)`'s zero-byte discriminator does not see it. `decisions.write_decisions`
+    states the general rule: *"A truncated file at the right path is worse than no file, because
+    it looks like a backup."*
+  - **A failure degrades and is said**, never stops the upgrade: a catalog whose safety copy
+    could not be taken must still open. Reported through `catalog_session.open_catalog`'s
+    `backup_report`, the one seam every CLI open already goes through. Bounded by
+    `DEADLINE_SECONDS` because CPython retries `SQLITE_BUSY` with no timeout of its own.
+  - Pinned by `tests/test_catalog_backup.py`; five mutations, both directions.
 - **A migration is not a transaction, and three conventions are what make that safe.** Measured
   2026-08-02: interrupting v17 after its third `ALTER TABLE` left three of five columns
   committed, because DDL autocommits under Python's legacy transaction control. Nothing was lost

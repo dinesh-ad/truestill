@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(afr). Next free: (afs).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aft). Next free: (afu).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -118,6 +118,24 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
+- **(afs) A DESTRUCTIVE MIGRATION MAY NOT RUN WITHOUT A PRE-UPGRADE COPY, AND NOTHING SAYS WHICH
+  ONE IS DESTRUCTIVE.** Recorded 2026-08-22, split out of `(ady)` while building it - **a policy
+  change about what a migration may do, which would have been invisible arriving inside a
+  copy-before-upgrade fix.** `(ady)` degrades when the copy fails, which is right while every
+  migration is additive and wrong the day one is not. The declaration must **not** gate the copy
+  itself: that would trust the same judgement that wrote the destructive migration. The guard is
+  demonstrated rather than proposed - an AST scan over `catalog.py` cleared all 19 forward steps
+  and flagged `downgrade_v12_to_v11`, the one function that really does `DROP TABLE`.
+  [Full entry](research/backlog/afs.md)
+- **(aft) `run_health.free_bytes` RETURNS 0 WHEN IT CANNOT READ, SO AN UNREADABLE PROBE STOPS A
+  RUN SAYING THE DISK IS FULL.** Found 2026-08-22 answering `(ady)`'s M6 against `(aek)`.
+  `(aek)` removed exactly this conflation from `filesystem.preflight_destination` and pinned it
+  twice; the sibling never got it (§4's fifty-sixth member). ⚠ **The same module guards its
+  DEVICE axis against this in its own words** - *"never let an absence serve as the baseline"* -
+  with five transient-failure tests, and the space axis has none. Open first: `_check_space`
+  claims *"a local read does not fail transiently"*, so the branch is either dead code to delete
+  or a live false stop - §4's thirty-first member says find out which before writing the test.
+  [Full entry](research/backlog/aft.md)
 - **(afr) THE LOCK DIRECTORY GROWS ONE EMPTY FILE PER DRIVE, FOREVER.** `DriveLock.release`
   truncates and never unlinks (`drive_lock.py:208,219`), so `~/.local/share/Truestill/locks/`
   gains a 0-byte file per distinct drive key and keeps it - and `path:` keys mean **every
@@ -198,9 +216,6 @@ is invisible here is retired, not free.**
 - **(adz) A COMPATIBILITY PATH STATES ITS REMOVAL CONDITION WHEN IT IS WRITTEN.** Recorded
   2026-08-19. ⚠ **The window for free removal closes at the first `v*` tag.** [Full
   entry](research/backlog/adz.md)
-- **(ady) NOTHING COPIES THE CATALOG BEFORE A MIGRATION CHAIN RUNS.** Recorded 2026-08-19. Split
-  from `(adl)`: no transaction recovers a destructive migration. [Full
-  entry](research/backlog/ady.md)
 - **(adx) A LIBRARY THAT MOVES IS HANDLED. WHAT IS MISSING IS THE DISCLOSURE.** Recorded
   2026-08-18. Three gaps, one user journey. [Full entry](research/backlog/adx.md)
 - **(adt) TWO CATALOG WRITERS RACE INSIDE ONE PROCESS, AND THE 6558 ms THAT MADE IT BITE IS

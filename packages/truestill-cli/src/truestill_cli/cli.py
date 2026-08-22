@@ -33,6 +33,7 @@ from truestill_core.app_paths import (
 from truestill_core.archive_extract import extract_archive_set
 from truestill_core.archive_ingest import archives_at, precheck_archives
 from truestill_core.catalog import Catalog
+from truestill_core.catalog_backup import BackupOutcome
 from truestill_core.catalog_busy import (
     CATALOG_BUSY_MESSAGE,
     CatalogUnwritableError,
@@ -829,13 +830,29 @@ def _report_decision_saves(results: tuple[DriveSave, ...], *, upgrade: bool) -> 
             print(f"Saved a copy of your decisions to {', '.join(saved)}.")
 
 
+def _report_pre_upgrade_copy(outcome: BackupOutcome) -> None:
+    """The CLI's voice for the copy taken before a schema upgrade. `(ady)`
+
+    **Silence on success**, like the decisions save above and for the same reason: the upgrade
+    worked and the copy is where it always is. A user who wants it can be told where by
+    ``truestill catalog``.
+
+    **A failure is said, once, on stderr** - the copy is a safety net the user did not ask for
+    and cannot see, so the one moment it is absent is the one moment it is worth a line. It is a
+    note rather than an error because the upgrade itself succeeded: reporting it as a failure
+    would send someone looking for damage that is not there.
+    """
+    if not outcome.taken:
+        print(f"note: {outcome.error}", file=sys.stderr)
+
+
 def _catalog(db: Path) -> AbstractContextManager[Catalog]:
     """``open_catalog`` with this surface's voice attached.
 
     Every CLI catalog open goes through here, so the trigger cannot be missed at a sixteenth
     call site - and `test_catalog_opens_go_through_the_session` refuses a bare `Catalog(...)`.
     """
-    return open_catalog(db, report=_report_decision_saves)
+    return open_catalog(db, report=_report_decision_saves, backup_report=_report_pre_upgrade_copy)
 
 
 def _cmd_rescan(args: argparse.Namespace) -> int:

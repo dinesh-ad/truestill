@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Protocol
 
 from truestill_core.catalog import Catalog
+from truestill_core.catalog_backup import BackupOutcome
 from truestill_core.decisions import (
     PROBLEM_OUTCOMES,
     DriveSave,
@@ -48,6 +49,17 @@ class SaveReport(Protocol):
     """
 
     def __call__(self, results: tuple[DriveSave, ...], *, upgrade: bool) -> None: ...
+
+
+class BackupReport(Protocol):
+    """How a surface is told what happened to the pre-upgrade catalog copy. `(ady)`
+
+    Called at most once per catalog per release - only an open that actually runs a migration
+    produces an outcome at all - so a surface may say something on failure without becoming
+    noise.
+    """
+
+    def __call__(self, outcome: BackupOutcome) -> None: ...
 
 
 def problem_key(drive_uuid: str) -> str:
@@ -85,7 +97,12 @@ def _refresh(
 
 
 @contextmanager
-def open_catalog(db: Path, *, report: SaveReport | None = None) -> Iterator[Catalog]:
+def open_catalog(
+    db: Path,
+    *,
+    report: SaveReport | None = None,
+    backup_report: BackupReport | None = None,
+) -> Iterator[Catalog]:
     """A catalog whose decisions reach every reachable drive when the work finishes.
 
     **The upgrade write happens first, before the body runs.** Existing users have decisions and
@@ -98,6 +115,13 @@ def open_catalog(db: Path, *, report: SaveReport | None = None) -> Iterator[Cata
     publish its catalog to every drive the user owns.
     """
     with Catalog(db) as catalog:
+        # ⚠ **A failed pre-upgrade copy must not be silent.** `Catalog` records the outcome and
+        # prints nothing (§2); this is the one seam every CLI open already goes through, so the
+        # report cannot be missed at a twenty-third call site - the same argument that put the
+        # decisions trigger here. `(ady)`
+        if backup_report is not None and catalog.pre_migration_backup is not None:
+            backup_report(catalog.pre_migration_backup)
+
         # A freshly opened catalog is never dirty: schema migrations commit directly on the
         # connection rather than through `_tx`. A defensive `mark_clean()` here was written and
         # then deleted, because a mutation that removed it killed no test - it could not.

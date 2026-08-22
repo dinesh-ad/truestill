@@ -22,6 +22,53 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(ady) THE CATALOG IS COPIED BEFORE THE MIGRATION CHAIN RUNS.**
+  Shipped 2026-08-22. A transaction restores what a **failed** step touched; it cannot restore
+  what a **successful** step deliberately removed. `(adl)` closed interruption, and this closes
+  intent. `catalog_backup.copy_before_migration`, called from `Catalog._migrate` only when a
+  chain will actually run - a fresh catalog copies nothing.
+  ⚠ **`(adb)`'s refusal does not reach this case, and the difference is measurable.** That entry
+  refused a catalog copy taken from a **separate process**, where any external write restarts the
+  operation - *"correct-or-never-finishing"*. This runs in-process on the connection that is
+  about to migrate, which SQLite documents as the safe case. `VACUUM INTO` stays refused for
+  `(adb)`'s own reason: it rewrites every page, and a copy should reproduce a database rather
+  than compact it.
+  ⚠ **`pages=-1` IS LOAD-BEARING AND IS PINNED AS A VALUE.** Measured on 123 MB against a second
+  connection committing at **376 writes/sec**: `pages=-1` finished in **2,581 ms**, one step,
+  **0 restarts**; `pages=64` **committed no page in 300 s** and was killed at its bound, leaving
+  a 0-byte destination and an uncleared `-journal`. Chunking it for progress reporting is the
+  obvious, reasonable change that breaks it, so a test asserts the constant and carries the
+  measurement to whoever changes it.
+  ⚠ **IT MUST NOT RUN INSIDE `BEGIN IMMEDIATE`, AND A DIFFERENT CONNECTION'S LOCK IS HARMLESS.**
+  `Connection.backup` **hangs forever** - it does not raise - when its *source connection* holds
+  a write transaction: killed at 8 s, 0-byte destination, `nanosleep`, no CPU. The same source
+  with a **different** connection holding `BEGIN IMMEDIATE` completes in **27.1 ms**, and with a
+  read-only deferred transaction in **42.1 ms**. Without that contrast beside it the rule reads
+  as arbitrary; with it, anyone reasoning *"backup needs a stable read, so hold the lock"* learns
+  they have it backwards. On the launch path this would be a product that never starts.
+  ⚠ **THE RESIDUE IS NOT AN EMPTY FILE, WHICH IS WHY STAGING IS MANDATORY RATHER THAN TIDY - and
+  `(adr)` CANNOT SEE IT.** A write failure part-way left **1,048,576 bytes** at the destination,
+  a *plausible* size with a real header, that opens as `UNREADABLE`, beside a stale `-journal`.
+  `(adr)`'s discriminator is a **0-byte** file and would have passed this. `decisions.write_decisions`
+  already states the general rule and this is its second instance: *"A truncated file at the right
+  path is worse than no file, because it looks like a backup."* The copy is staged under a
+  per-process name (`safe_copy.staging_path`) and renamed only when complete.
+  ⚠ **CPython retries `SQLITE_BUSY` with no timeout of its own**, so the copy carries a deadline -
+  verified reachable rather than assumed: the progress callback fires during BUSY retries (41
+  callbacks in 2 s), which is the only place a bound is expressible.
+  **A failure degrades and is said**: the catalog still opens, and the outcome is reported through
+  `catalog_session.open_catalog`'s `backup_report`, the one seam every CLI open already goes
+  through. One copy per catalog beside it (`app_paths.backup_path_for`), superseded by the next
+  migration on `migration_runs`' own retention rule, with a **fixed** name so supersession is one
+  atomic rename and there is no window in which no copy exists.
+  **Cost, once per upgrade**: **18.66 ms** median on the real 6,365,184-byte catalog (n=9),
+  **200.23 ms** at 110,628,864 bytes (n=5).
+  ⚠ **What it deliberately did NOT do is `(afs)`**: a destructive migration should *refuse* rather
+  than degrade, and nothing declares which migration is destructive. Filed rather than folded in,
+  because it is a policy change about what a migration may do. `(aft)` came out of the same work.
+  Pinned by `tests/test_catalog_backup.py`; five mutations, both directions, each with a control
+  reporting 9 passed. [Full entry](research/backlog/ady.md)
+
 - **(vv) CLOSED IN TWO HALVES, AND ONLY ONE OF THEM WAS BUILT.** Closed 2026-08-22.
   ⚠ **READ THIS BEFORE TREATING THE LETTER AS SHIPPED.** `(vv)` was a **recorded limit**, not an
   approved build - *"app per-drive job lock is process-local; CLI↔app overlap is not serialized"*.
