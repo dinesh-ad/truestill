@@ -317,7 +317,20 @@ jobs:
         shell: bash
         run: |
           mkdir -p out
-          name="truestill-${{ github.ref_name }}-${RUNNER_OS}"
+          # ⚠ THE RESOLVED VERSION, NOT THE REF. `(aex)`, same class as the installer and the
+          # .deb, found by reading the artefact list of the run that proved those two.
+          #
+          # It was `github.ref_name`, which is wrong in BOTH directions and only one of them is
+          # obvious:
+          #   * on a dispatch it produced `truestill-main-Linux.tar.gz` - a branch name in a
+          #     distributable's filename, the defect this entry is about;
+          #   * on a TAG it would produce `truestill-v1.2.3-Linux.tar.gz` - `v`-prefixed, beside
+          #     `truestill_1.2.3_amd64.deb` and `TruestillSetup-1.2.3.exe` which are not. Three
+          #     artefacts of one release disagreeing about their own version.
+          #
+          # This is CI-internal today, since the archive is uploaded rather than published - but
+          # `gh release create out/*` in the publish job below ships whatever is in `out/`.
+          name="truestill-${{ steps.version.outputs.value }}-${RUNNER_OS}"
           if [ "$RUNNER_OS" = "Windows" ]; then
             powershell -Command "Compress-Archive -Path dist/truestill/* -DestinationPath out/$name.zip"
           else

@@ -51,8 +51,20 @@ recording shipped work as unstarted, which is the more expensive direction of th
     four tag shapes, and five refusals. ⚠ **What it cannot test is stated in the module**: that
     GitHub wires `$GITHUB_OUTPUT`, that `pwsh` interpolates the output into `ISCC.exe`, and that
     `bash` exists on the Windows image. Those need a dispatch, and a dispatch is what found this.
-  - **Three mutations, all caught**: stamping `0.0.0`, stamping the ref name, and relaxing the
-    three-component rule so `v2` is coerced instead of refused.
+  - ⚠ **AND A THIRD ARTEFACT WAS STILL REF-NAMED, found by reading the artefact list of the very
+    run that proved the other two.** The archive was
+    `truestill-${{ github.ref_name }}-${RUNNER_OS}`, wrong in both directions and only one of them
+    obvious: on a dispatch it produced `truestill-main-Linux.tar.gz`, and **on a tag it would
+    produce `truestill-v1.2.3-Linux.tar.gz`** - `v`-prefixed, beside `truestill_1.2.3_amd64.deb`
+    and `TruestillSetup-1.2.3.exe`, three artefacts of one release disagreeing about their own
+    version. Fixed in its own commit, and the guard widened from the two packagers to **every step
+    in the build job**: the search had been for *"version"* rather than for *"a ref name in a
+    filename"*, which is why the third was missed.
+  - **The publish job is deliberately out of scope**: `gh release create "${{ github.ref_name }}"`
+    names a GitHub release after its tag, which is correct and is not a filename.
+  - **Four mutations, all caught**: stamping `0.0.0`, stamping the ref name, relaxing the
+    three-component rule so `v2` is coerced instead of refused, and re-naming the archive after
+    the ref.
 
 - **(afc) A DRIVE THAT IS MERELY UNMOUNTED IS NO LONGER OFFERED REGISTRATION.**
   - ✅ **CLOSED 2026-08-21.** `verify` on a cleanly unmounted mountpoint said *"isn't a Truestill

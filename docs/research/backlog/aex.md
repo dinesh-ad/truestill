@@ -61,3 +61,15 @@
   workflow: on a tag, derive and check against **three-component semver**, refusing anything else
   rather than coercing it; on a dispatch, stamp `0.0.0-dev.<run id>`, which cannot be mistaken for
   a release and names the run that made it. One derivation, `shell: bash`, serving both platforms.
+
+  ## ⚠ AND THE ARTEFACT LIST HELD A THIRD ONE
+
+  Run **32554315868** proved the installer and the `.deb`, and its own upload list read
+  `truestill-main-Linux.tar.gz`. The archive step had never been part of the search, because the
+  search was for *"where is the version derived"* rather than *"what is named after the ref"*.
+  Two of three artefacts is the fifty-sixth member's shape at the level of a single fix.
+
+  On a tag it was wrong differently and more quietly: `truestill-v1.2.3-Linux.tar.gz` carries the
+  `v` that the `.deb` and the installer strip, so a real release would ship three files disagreeing
+  about their own version. Fixed in its own commit; the guard now covers **every step in the build
+  job** rather than the two packagers.

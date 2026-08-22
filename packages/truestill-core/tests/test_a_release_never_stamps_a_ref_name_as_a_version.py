@@ -186,3 +186,38 @@ def test_no_consumer_derives_its_own_version() -> None:
         )
         assert '"main"' not in run, hardcoded
         assert "'main'" not in run, hardcoded
+
+
+def test_no_build_step_names_an_artefact_after_the_ref() -> None:
+    """⚠ The whole build job, not only the two packagers. `(aex)`
+
+    The installer and the `.deb` were fixed first, and the **archive** was still
+    `truestill-${{ github.ref_name }}-${RUNNER_OS}` - found by reading the artefact list of the
+    very run that proved the other two. One fix, three artefacts, and the third was missed because
+    the search was for "version" rather than for "ref name in a filename".
+
+    ⚠ **The distinction this asserts is expression versus environment.** The version step reads
+    `$GITHUB_REF_NAME` - it is the one place entitled to ask what the ref is called. Every other
+    step must read the *resolved* value, so what is banned is the `github.ref_name` **context
+    expression**, not the string.
+
+    The publish job is deliberately out of scope: `gh release create "${{ github.ref_name }}"`
+    names a GitHub release after its tag, which is correct and is not a filename.
+    """
+
+    # ⚠ COMMENTS STRIPPED FIRST, and this cost a red run here exactly as it did in
+    # `test_every_exiftool_install_is_guarded`: the fixed step EXPLAINS what it used to
+    # interpolate, so a bare search matches the prose arguing against the defect and reports the
+    # opposite of the truth. Assert the statement, never an identifier that also appears in the
+    # target's own commentary.
+    def _code(step: dict[str, Any]) -> str:
+        lines = str(step.get("run", "")).splitlines()
+        return "\n".join(line for line in lines if not line.strip().startswith("#"))
+
+    offenders = [s.get("name") for s in _build_steps() if "github.ref_name" in _code(s)]
+
+    assert not offenders, (
+        f"these build steps interpolate the ref name: {offenders}. On a dispatch that puts a "
+        f"branch name in a filename; on a tag it puts a `v` prefix on one artefact and not its "
+        f"siblings. Read `steps.version.outputs.value` instead."
+    )
