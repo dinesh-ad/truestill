@@ -90,3 +90,24 @@
     it is genuinely the most specific evidence available when a copy fails.
   - **Whether `MOVE KEPT` (`cli.py:2173-2175`) has the same two problems**, since it is the same
     shape immediately above and was not exercised by this step.
+
+  ---
+
+  ## ⚠ CONFIRMED IN A SECOND COMMAND - soak four, step D6, 2026-08-22
+
+  This entry was found in `organize`'s failure list. `clean-empty`'s is the same shape and adds a
+  detail worth having: **a Python `bytes` repr reaches the user.** A real trash refusal, staged by
+  denying `/data/.Trash-1000/files` and `info`:
+
+  ```
+  Removed 0 folder(s).
+    ! 2013/2013-08/2013-08 - Everyday: [Errno 13] Permission denied: b'/data/.Trash-1000/info/2013-08 - Everyday 2.trashinfo'
+  ```
+
+  The `b'...'` is `send2trash` handing back a bytes path, printed through `str(exc)` unchanged. So
+  the remedy this entry is about is **not one list's formatting**: two commands reach it
+  independently, and the second leaks a language artefact on top of the raw errno.
+
+  ⚠ **The refusal behaviour itself was correct** and is not what this note reports - 0 folders
+  removed, all three left in place, each named. §1 condition **(d)** held. Only the wording is at
+  issue.

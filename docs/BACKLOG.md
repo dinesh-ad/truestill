@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(afg). Next free: (afh).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(afk). Next free: (afl).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -118,6 +118,40 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
+- **(afj) THE TRASH PATH REMOVES A FOLDER THAT GAINED A FILE; THE PERMANENT PATH CANNOT, AND SAYS
+  SO.** Found by **soak four, D7**, 2026-08-22. ⚠ **The safer-looking path has the weaker
+  guarantee.** `_remove_permanently` uses `rmdir` so a folder that gained a file between preview
+  and confirm survives *by construction*; `_to_trash` hands the whole folder to `send2trash` with
+  no equivalent guard. Measured with a real race against the prompt: the trash path took the
+  folder and a non-junk file with it, the permanent path refused with `Errno 39` and both
+  survived. ⚠ The `rmdir` sentence is printed by the `--permanent` branch, which is the one that
+  runs **only when the trash refuses** - so the user reads it and then the other path executes.
+  Recoverable (it is in the trash), not data loss. Found 2026-08-22.
+  [Full entry](research/backlog/afj.md)
+- **(afk) JUNK DELETED BEFORE AN `rmdir` REFUSAL IS NOT REPORTED, SO A PARTIAL REMOVAL READS AS
+  NONE.** Found by **soak four, D7**, 2026-08-22. `_remove_permanently` unlinks the planned junk
+  then calls `rmdir`; when `rmdir` refuses, the failure line names the folder and the errno and
+  says nothing about the junk already gone. Same class as `(aez)`. ⚠ **The order is load-bearing
+  and must not be "fixed" by reordering** - the remedy is a sentence. Small: the junk was named in
+  the preview and `JUNK_NAMES` is conservative. Found 2026-08-22.
+  [Full entry](research/backlog/afk.md)
+- **(afi) `clean-empty` CANNOT SEE THE FOLDERS `organize --in-place` EMPTIES, AND THE RUN PROMISES
+  IT CAN.** Found by **soak four, D5**, 2026-08-22. ⚠ **Not a wrongful deletion - the inverse.**
+  `migrated_old_paths` reads `migration_journal` only; `organize --in-place` writes `inplace_moves`
+  (161 rows, measured) and no reader in the cleanup path touches it. So both the command and the
+  post-run offer are blind, while the in-place banner says *"Empty folders left behind are
+  reported, never deleted."* Controlled: a `migrate-layout` on the same drive minutes later was
+  found, offered and cleaned correctly - `clean-empty` is right and is pointed at one of the two
+  journals. Found 2026-08-22. [Full entry](research/backlog/afi.md)
+- **(afh) THE CEREMONY IS INVERTED RELATIVE TO THE STAKES: DELETING PHOTOS IS EASIER THAN
+  DELETING EMPTY FOLDERS.** Found by **soak four, D2**, 2026-08-22. `reclaim` removes the user's
+  originals with `unlink` - measured, nothing in any trash - behind the typed word `delete` and
+  one line of warning. `clean-empty --permanent` removes folders the product itself emptied behind
+  `delete forever`, three lines of capitals and `rmdir` semantics. ⚠ **Not a truthfulness defect**
+  - both describe themselves accurately - and **not a rule violation**: §1's trash condition **(d)**
+  sits inside the folder-removal paragraph and is scoped to `clean-empty`. The question is whether
+  it was ever meant to be. Four options recorded, no recommendation. Found 2026-08-22.
+  [Full entry](research/backlog/afh.md)
 - **(afg) THE DOWNLOAD PAGE HAS NO HOME, AND `truestill.app` EXISTS ONLY IN CONVERSATION.** The
   domain is bought; **nothing about it is in this repository** - `grep -ri truestill.app` matches
   only the package identifiers. D9 binds a requirement to a page that does not exist: *"Windows
@@ -134,7 +168,9 @@ is invisible here is retired, not free.**
   flagged, never removed - the effect is one extra row in a review list, and exact dedup was
   identical in all four runs. Found 2026-08-22. [Full entry](research/backlog/aff.md)
 - **(afd) THE ONE UNCAPPED LIST IN THE PRODUCT IS THE FAILURE LIST, AND IT PRINTS RAW `OSError`
-  TEXT.** A destination that refused after preflight produced **233 `FAILED` lines and 2,004 lines
+  TEXT.** ⚠ **Confirmed in a second command by soak four D6, 2026-08-22**: `clean-empty`'s failure
+  list is the same shape and additionally leaks a Python `bytes` repr
+  (`b'/data/.Trash-1000/info/...'`), so the remedy is not one list's formatting. A destination that refused after preflight produced **233 `FAILED` lines and 2,004 lines
   of output**, each carrying `[Errno 13] Permission denied: '<src>' -> '<dst>.partial'`.
   `_STATUS_PREVIEW` caps **16** other lists in the same file; the one that generates a line per
   remaining file is not capped. ⚠ Every safety property held - catalog matched disk exactly, a
