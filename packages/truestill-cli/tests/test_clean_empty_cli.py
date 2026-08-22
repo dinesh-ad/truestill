@@ -155,3 +155,51 @@ def test_clean_empty_sees_what_an_in_place_organize_emptied(
     assert "no migration leftovers recorded" not in out
     assert "Old Folder" in out
     assert (root / "Old Folder").is_dir(), "a preview removed something"
+
+
+def test_a_folder_that_could_not_be_opened_is_not_called_one_with_something_in_it(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """⚠ It printed two contradictory claims on one line, and the truth was neither. `(afo)`
+
+    ``LEFT ALONE - something is in there (1):`` above ``Camera/2013   []`` - the heading claiming
+    contents, the bracket claiming none. Worse than silence, because it asserts.
+
+    The wording is `(aer)`'s, not a fourth phrase for one fact: the scan report already says
+    *"folders that could not be opened"*.
+    """
+    root = tmp_path / "drive"
+    root.mkdir()
+    marker = create_marker(root, "Drive A")
+    (root / "Camera/2023/08").mkdir(parents=True)
+    refused = root / "Camera/2023/09"
+    refused.mkdir()
+    db = tmp_path / "c.sqlite"
+    with Catalog(db) as catalog:
+        catalog.upsert_drive(uuid=marker.uuid, label="Drive A")
+        catalog.start_migration_run("run-1", marker.uuid)
+        catalog.record_migration_moves(
+            [
+                ("sha-1", marker.uuid, "Camera/2023/08/x.jpg", "2023/x.jpg", None, "run-1"),
+                ("sha-2", marker.uuid, "Camera/2023/09/y.jpg", "2023/y.jpg", None, "run-1"),
+            ]
+        )
+        catalog.complete_migration_move("sha-1", marker.uuid)
+        catalog.complete_migration_move("sha-2", marker.uuid)
+
+    refused.chmod(0o111)  # traversable, not listable: it stats, iterdir raises
+    try:
+        try:
+            list(refused.iterdir())
+            pytest.skip("running as root, or a filesystem that ignores the mode")
+        except PermissionError:
+            pass
+        assert main(["clean-empty", str(root), "--db", str(db)]) == 0
+    finally:
+        refused.chmod(0o755)
+
+    out = capsys.readouterr().out
+    assert "could not be opened" in out, "it does not say what actually happened"
+    assert "Camera/2023/09   []" not in out, "the empty bracket claims there is nothing in it"
+    # The heading that claims contents must not count the folder nobody could look into.
+    assert "something is in there (1)" not in out

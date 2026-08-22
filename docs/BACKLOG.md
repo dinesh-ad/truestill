@@ -149,12 +149,6 @@ is invisible here is retired, not free.**
   scale with the corpus** and are named in the entry. ⚠ **Not just "apply the cap five more
   times"**: `(afd)`'s list repeated one fact, the preview repeats a different fact each time and
   capping it hides decisions rather than noise. [Full entry](research/backlog/afm.md)
-- **(afo) A FOLDER THAT REFUSED IS REPORTED AS ONE WITH SOMETHING IN IT.** Split out of `(afa)`
-  2026-08-22. Measured: `LEFT ALONE - something is in there (1):` above `Camera/2013   []` - the
-  heading says something is there, the bracket says nothing is, and the truth is that Truestill
-  could not look. `cleanup.py:185-186` classifies a refused folder `Tier.OCCUPIED` with empty
-  contents; the classification is right and the rendering is wrong.
-  [Full entry](research/backlog/afo.md)
 - **(afa) `unreachable` MEANS FOUR THINGS, AND THE TOOLTIP ASSERTS ONE OF THEM.** ⚠ **Narrowed
   and retitled 2026-08-22 after a read-only pass falsified its own thesis.** It claimed
   `date_rescue` told the user nothing; measured, it renders *"could not check"*. What is wrong is

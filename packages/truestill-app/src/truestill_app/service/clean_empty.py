@@ -16,6 +16,10 @@ from truestill_core.cleanup import Tier, plan_cleanup, run_cleanup, trash_backen
 class CleanEmptyOccupied(TypedDict):
     relative: str
     contents: list[str]
+    #: Whether Truestill could look inside. ⚠ Carried even though no screen reads this list yet:
+    #: the payload already shipped the contents, so the day one renders it, it would have
+    #: inherited "something is in there" beside an empty list. `(afo)`
+    readable: bool
 
 
 class CleanEmptyPreview(TypedDict):
@@ -50,7 +54,11 @@ def clean_empty_preview(path: Path, emptied: list[str]) -> CleanEmptyPreview:
         "backend": backend,
         "removable": [candidate.relative for candidate in plan.removable],
         "occupied": [
-            {"relative": candidate.relative, "contents": list(candidate.contents)}
+            {
+                "relative": candidate.relative,
+                "contents": list(candidate.contents),
+                "readable": candidate.readable,
+            }
             for candidate in plan.occupied
         ],
     }

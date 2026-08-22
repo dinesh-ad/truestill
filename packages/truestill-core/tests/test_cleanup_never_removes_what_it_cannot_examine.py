@@ -81,3 +81,72 @@ def test_an_ordinary_empty_folder_is_still_removable(tmp_path: Path) -> None:
 
     assert [c.tier for c in plan.candidates] == [Tier.EMPTY]
     assert [c.relative for c in plan.removable] == ["Camera/2013"]
+
+
+@_POSIX_ONLY
+def test_a_folder_that_stats_but_will_not_list_is_also_reported_unreadable(tmp_path: Path) -> None:
+    """⚠ THE SECOND PRODUCER, which had no test at all - only a mention in this file's prose.
+
+    Two paths reach "could not look", and a fix at one leaves the other saying something false:
+
+    * `plan_cleanup` - the folder itself will not ``stat`` (the test above);
+    * `_classify_with` - it stats fine and ``iterdir`` raises. That is a folder with `--x`
+      permissions: traversable, not listable.
+
+    Same fact, same sentence, and deliberately not distinguished - an enum of causes would invite
+    a third member, and a third member re-enters the `removable` trap below. `(afo)`
+    """
+    target = tmp_path / "Camera" / "2013"
+    target.mkdir(parents=True)
+    (target / "kept.jpg").write_text("x")
+    target.chmod(0o111)  # traversable, NOT readable: stat succeeds, iterdir raises
+    try:
+        try:
+            list(target.iterdir())
+            pytest.skip("running as root, or a filesystem that ignores the mode")
+        except PermissionError:
+            pass
+
+        plan = plan_cleanup(tmp_path, ["Camera/2013"])
+
+        candidate = plan.candidates[0]
+        assert candidate.tier is Tier.OCCUPIED
+        assert candidate.readable is False, (
+            "a folder that could not be listed was reported as one we had looked inside"
+        )
+        assert plan.removable == []
+    finally:
+        target.chmod(0o755)
+
+
+@_POSIX_ONLY
+def test_a_refused_folder_is_never_removable_however_the_tiers_change(tmp_path: Path) -> None:
+    """⚠ PINS A COUPLING NOTHING ELSE DOES, and it is a trap rather than a nicety.
+
+    `Candidate.removable` is defined NEGATIVELY - ``tier is not Tier.OCCUPIED`` - so **any** tier
+    added later is removable by default. A fourth member for "unreadable" would therefore put a
+    folder that refused into `plan.removable` and hand it to `run_cleanup`, which is the exact
+    inversion `(afo)` exists to prevent.
+
+    This asserts the property rather than the tier, so it fails the day someone adds a member
+    without editing `removable` - which is the only moment anyone would find out.
+    """
+    (tmp_path / "Camera" / "2013").mkdir(parents=True)
+    (tmp_path / "Camera").chmod(0o000)
+    try:
+        try:
+            os.stat(tmp_path / "Camera" / "2013")  # noqa: PTH116 - independent of the subject
+            pytest.skip("running as root, or a filesystem that ignores the mode")
+        except PermissionError:
+            pass
+
+        plan = plan_cleanup(tmp_path, ["Camera/2013"])
+
+        assert plan.candidates, "the folder vanished from the plan entirely"
+        assert not any(c.readable for c in plan.candidates)
+        assert [c.relative for c in plan.removable] == [], (
+            "a folder Truestill could not look at was offered for removal - `removable` is "
+            "defined negatively, so a new tier is removable unless someone remembers"
+        )
+    finally:
+        (tmp_path / "Camera").chmod(0o755)

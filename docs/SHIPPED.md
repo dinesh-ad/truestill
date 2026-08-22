@@ -22,6 +22,16 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(afo) A FOLDER THAT REFUSED IS NO LONGER REPORTED AS ONE WITH SOMETHING IN IT.** Shipped
+  2026-08-22. `LEFT ALONE - something is in there (1):` above `Camera/2013   []` was two
+  contradictory claims on one line, and the truth was neither. Now a second heading - *"could not
+  be opened"*, `(aer)`'s wording - with no bracket, because there are no contents to name.
+  ⚠ **A field, not a fourth tier**: `Candidate.removable` is defined NEGATIVELY, so a new member
+  would have been removable by default and a refused folder offered for removal - the inversion
+  the fix exists to prevent. Pinned by a test that asserts the property rather than the tier.
+  ⚠ **Not inferred from `contents == ()`**, which is exact only by accident. Two producers -
+  `reach` refusing and `iterdir` raising - the second of which had **no test at all**, and both
+  mutation-proved separately. [Full entry](research/backlog/afo.md)
 - **(afn) A DRIVE WHOSE SAMPLE CANNOT BE READ IS NO LONGER REGISTERED AS A NEW ONE.** Shipped
   2026-08-22. A **perfect** drive with 30 of 40 sampled paths unreadable returned `[]`, printed
   nothing, and was minted a second drive id for one library - the exact harm `cli.py`'s refusal

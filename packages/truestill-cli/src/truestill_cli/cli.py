@@ -3588,9 +3588,22 @@ def _print_cleanup_plan(plan: CleanupPlan, backend: str | None, *, permanent: bo
     for candidate in junk:
         print(f"  {candidate.relative}   [{', '.join(candidate.contents)}]")
 
-    print(f"\nLEFT ALONE - something is in there ({len(plan.occupied)}):")
-    for candidate in plan.occupied:
+    # ⚠ SPLIT, because one heading could not be true of both. A folder that refused was printed
+    # under "something is in there" beside an empty bracket - the heading claiming contents, the
+    # bracket claiming none, and the truth being that Truestill could not look. `(afo)`
+    held = [c for c in plan.occupied if c.readable]
+    unopened = [c for c in plan.occupied if not c.readable]
+    print(f"\nLEFT ALONE - something is in there ({len(held)}):")
+    for candidate in held:
         print(f"  {candidate.relative}   [{', '.join(candidate.contents)}]")
+    if unopened:
+        # `(aer)`'s wording for exactly this, rather than a fourth phrase for one fact: the
+        # scan report says "folders that could not be opened" and `cli.py` prints
+        # "folder, could not be opened". No bracket: there are no contents to name, and an
+        # empty one reads as a claim that there are none.
+        print(f"\nLEFT ALONE - could not be opened ({len(unopened)}):")
+        for candidate in unopened:
+            print(f"  {candidate.relative}")
 
     if not plan.removable:
         return

@@ -87,6 +87,16 @@ class Candidate:
     tier: Tier
     #: Names inside the folder: the junk to be removed with it, or what is keeping it alive.
     contents: tuple[str, ...] = ()
+    #: Whether Truestill could look inside at all. ⚠ **A FIELD, NOT A FOURTH TIER**, and the
+    #: reason is `removable` below: it is defined NEGATIVELY, so a new member would be removable
+    #: by default and a folder that refused would be offered for removal - the exact inversion
+    #: this is fixing. `OCCUPIED` is already the right *decision*; what was missing is the
+    #: *reason*, which the report needs and the tier cannot carry. `(afo)`
+    #:
+    #: ⚠ **Not inferred from `contents == ()`.** That is exact today only by accident - every
+    #: other `OCCUPIED` return builds its contents from a non-empty list - and a sentinel that
+    #: carries a second meaning is the shape `(afa)` was filed about.
+    readable: bool = True
 
     @property
     def removable(self) -> bool:
@@ -183,18 +193,26 @@ def plan_cleanup(root: Path, emptied: list[str]) -> CleanupPlan:
         # verdict `_classify_with` already gives when `iterdir` refuses.
         found = reach(folder)
         if found is Reach.REFUSED:
-            candidates.append(Candidate(relative=relative, tier=Tier.OCCUPIED, contents=()))
+            candidates.append(
+                # Producer 1 of 2: the folder itself will not `stat`. The other is
+                # `_classify_with`, where it stats but will not list - same fact, same sentence.
+                Candidate(relative=relative, tier=Tier.OCCUPIED, contents=(), readable=False)
+            )
             continue
         if found is not Reach.DIRECTORY:
             continue
-        tier, contents = _classify_with(folder, removed, relative)
-        candidates.append(Candidate(relative=relative, tier=tier, contents=contents))
+        tier, contents, readable = _classify_with(folder, removed, relative)
+        candidates.append(
+            Candidate(relative=relative, tier=tier, contents=contents, readable=readable)
+        )
         if tier is not Tier.OCCUPIED:
             removed.add(relative)
     return CleanupPlan(candidates=candidates)
 
 
-def _classify_with(folder: Path, removed: set[str], relative: str) -> tuple[Tier, tuple[str, ...]]:
+def _classify_with(
+    folder: Path, removed: set[str], relative: str
+) -> tuple[Tier, tuple[str, ...], bool]:
     """Classify ``folder``, treating children this plan already intends to remove as gone.
 
     Without this the preview would be wrong about parents: `Camera/2013/` still physically holds
@@ -204,20 +222,22 @@ def _classify_with(folder: Path, removed: set[str], relative: str) -> tuple[Tier
     try:
         entries = list(folder.iterdir())
     except OSError:
-        return Tier.OCCUPIED, ()
+        # Producer 2 of 2: it stats but will not list. `plan_cleanup` handles the folder that
+        # will not stat; a fix at one of them alone leaves the other saying something false.
+        return Tier.OCCUPIED, (), False
     surviving = [e for e in entries if not (e.is_dir() and f"{relative}/{e.name}" in removed)]
     if not surviving:
-        return Tier.EMPTY, ()
+        return Tier.EMPTY, (), True
 
     junk: list[str] = []
     for entry in surviving:
         if entry.is_dir():
-            return Tier.OCCUPIED, tuple(sorted(e.name for e in surviving))
+            return Tier.OCCUPIED, tuple(sorted(e.name for e in surviving)), True
         if entry.name in JUNK_NAMES or (entry.is_file() and entry.stat().st_size == 0):
             junk.append(entry.name)
             continue
-        return Tier.OCCUPIED, tuple(sorted(e.name for e in surviving))
-    return Tier.JUNK_ONLY, tuple(sorted(junk))
+        return Tier.OCCUPIED, tuple(sorted(e.name for e in surviving)), True
+    return Tier.JUNK_ONLY, tuple(sorted(junk)), True
 
 
 def trash_backend() -> str | None:

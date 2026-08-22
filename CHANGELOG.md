@@ -7,6 +7,10 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **A folder Truestill could not open is no longer described as one with something in it.**
+  `clean-empty` listed such a folder under *"something is in there"* with an empty bracket beside
+  it - two claims that contradicted each other, when the truth was that Truestill could not look
+  inside. It now says *"could not be opened"* and lists those folders separately.
 - **A drive Truestill cannot read is no longer registered as a brand-new one.** If a folder holds
   your library but most of it will not open - a half-mounted drive, a folder still syncing -
   Truestill used to quietly decide it was somewhere new and give your library a second identity,
