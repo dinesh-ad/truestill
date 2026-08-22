@@ -110,7 +110,7 @@ front-ends call the same core library.
 
 ## Requirements
 
-- Python ≥ 3.13, [uv](https://docs.astral.sh/uv/)
+- Python ≥ 3.14, [uv](https://docs.astral.sh/uv/)
 - `exiftool` - the only tool that reads photo EXIF, video container tags and vendor
   MakerNotes through one interface:
 

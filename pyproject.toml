@@ -70,6 +70,11 @@ dev = [
 # --- Ruff (lint + format), applied repo-wide ------------------------------------------
 [tool.ruff]
 line-length = 100
+# ⚠ DELIBERATELY ONE VERSION BEHIND `requires-python`, and only until the next step. Moving this
+# to `py314` makes `ruff format` adopt PEP 758 - `except A, B:` without parentheses - and rewrite
+# **25 files** into syntax that is a `SyntaxError` on 3.13. That is a language migration, not a
+# floor bump: bundling it here would make this commit unrevertible, because reverting the floor
+# would leave 25 files that do not parse. It gets its own step and its own commit.
 target-version = "py313"
 
 [tool.ruff.lint]
@@ -243,7 +248,7 @@ filterwarnings = [
 
 # --- mypy -----------------------------------------------------------------------------
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.14"
 # Resolve workspace packages from source rather than from an installed copy, so mypy gives the
 # same answer in an isolated pre-commit env as it does under `uv run`. Without this, the
 # pre-commit hook cannot see `truestill_core` at all -- and its upstream default args include

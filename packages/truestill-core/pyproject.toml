@@ -3,17 +3,19 @@ name = "truestill-core"
 version = "0.1.0"
 description = "Core library: categorize, date, de-duplicate and place media into a Category/YYYY/MM tree."
 authors = [{ name = "Truestill contributors" }]
-# 3.13 to match what CI actually exercises, not a known 3.12 incompatibility: core was
-# verified importing and running correctly on 3.12.13. Lowering this again is cheap -- add a
-# CI job that installs core alone on 3.12 and runs its tests, then drop the floor.
-requires-python = ">=3.13"
+# 3.14 because 3.13 leaves BUGFIX support in October 2026 - two years after its release, when
+# "only security fixes are accepted and no more binaries are released" (devguide). The floor
+# tracks what upstream still builds binaries for, not the last date a CVE would be patched.
+# ⚠ This said 3.13 "to match what CI actually exercises"; CI has exercised BOTH since the 3.14
+# leg was added, green on every run, which is what made the move a bump rather than a gamble.
+requires-python = ">=3.14"
 readme = "README.md"
 license = "Apache-2.0"
 keywords = ["photos", "media", "organizer", "deduplication", "backup", "exif"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: End Users/Desktop",
-    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Multimedia :: Graphics",
     "Topic :: System :: Archiving :: Backup",
     "Typing :: Typed",

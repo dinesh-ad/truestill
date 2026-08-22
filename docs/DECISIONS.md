@@ -540,6 +540,31 @@ Linux alone, with no signing step in the pipeline.
 
 ## D10. Python 3.14 is deferred, and the CI leg is evidence rather than a target
 
+> ## ⚠ REVERSED 2026-08-22. THE DEFERRAL RESTED ON A NUMBER NOBODY CHECKED.
+>
+> **The wrong number:** *"3.13 is in full bugfix support for four more years"* / *"October 2029"*.
+> **The right one:** October 2029 is 3.13's **security** EOL. The devguide's *"end of life"*
+> column is *"five years after a release"*, and its status key reads: **"Security: After two
+> years… only security fixes are accepted and no more binaries are released."** 3.13 was released
+> 2024-10-07, so **bugfix support ends around October 2026 - about six weeks from this
+> correction**, not four years.
+>
+> ⚠ **The reasoning below was sound; its premise was false.** Every other clause holds - the
+> alternatives were correctly judged, `context_aware_warnings` really is `0`, `(aey)` really was
+> the blocker. What failed is that *"no support pressure"* was derived from a figure read off the
+> wrong column. **That is the fifty-eighth member from the other direction**: the claim was
+> written down, which is why it could be checked and found wrong. A deferral held in someone's
+> head would have survived.
+>
+> **What made the reversal a bump rather than a gamble** is that the evidence had been
+> accumulating since D10 itself ordered it: cp314 wheels on all three platforms for every pin,
+> `uv.lock` unchanged and already admitting 3.14, and **the 3.14 legs green on every run since
+> they were added**. The condition every 2026 source names for an existing project - *upgrade when
+> your dependencies are ready* - was measured met before it was acted on.
+>
+> **Superseded by D13.** The text below is left exactly as written.
+
+
 **Decided 2026-08-21**, after research rather than preference. The upgrade was raised as the first
 non-defect change in weeks; it is not blocked by anything, and nothing argues for it.
 
