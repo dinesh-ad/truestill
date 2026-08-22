@@ -1,4 +1,10 @@
-# (afa) A PATH THE PRODUCT KNOWS WAS REFUSED IS STILL NOT REPORTED TO ANYONE.
+# (afa) `unreachable` MEANS FOUR THINGS, AND THE TOOLTIP ASSERTS ONE OF THEM.
+
+> ⚠ **NARROWED AND RETITLED 2026-08-22, after a read-only pass that falsified this entry's own
+> thesis.** It read *"A PATH THE PRODUCT KNOWS WAS REFUSED IS STILL NOT REPORTED TO ANYONE"* and
+> covered three sites. Two are now their own letters, and one of the three claims below was simply
+> untrue. What remains is `date_rescue` alone. See **"THE CENTRAL GUESS, FALSIFIED"** at the end -
+> that section is worth more than the fix.
 
 *Body of backlog entry `(afa)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
@@ -55,3 +61,72 @@
   - **Where the count rides.** `(aer)` established `SkippedFolderGroup` and `(aev)`
     `UncomparedPhotos`; a third structure of the same shape is a hint that the shape itself wants
     naming.
+
+
+  ---
+
+  # READ-ONLY, 2026-08-22. The entry survives only in its third.
+
+  ## ⚠ 1. `date_rescue` IS NOT SILENT - this entry's own claim was wrong
+
+  It said *"the user is told nothing at all about that photo"*. Measured: `continue` at
+  `date_rescue.py:286` leaves the value **pre-seeded at `:272`** as `{"status": "unreachable"}`,
+  and `app.js:4168-4170` renders that as **"could not check"**, with the tooltip *"The folder this
+  was imported from is not reachable, so no backup file could be checked"*.
+
+  **What is actually wrong is narrower and different.** `unreachable` is produced by four distinct
+  paths:
+
+  | line | cause |
+  |---|---|
+  | `:277` | no catalog row for that sha |
+  | `:277` | a row with no `source_path` |
+  | **`:286`** | **the sidecar's path refused** - the `(aey)` case this entry was filed about |
+  | `:289` | the source's parent is not a directory |
+
+  and the tooltip asserts **one** of them for all four. For the refused-sidecar case it names the
+  wrong thing: it is the sidecar that would not answer, not necessarily the folder.
+
+  ⚠ The class docstring at `:234-238` is careful that `none` and `unreachable` must not collapse -
+  *"Collapsing them would let a screen tell a user their photo has no backup when the truth is that
+  nobody checked."* **Nothing applies that same care one level down**, to the four causes inside
+  `unreachable`.
+
+  ## 2. `drive_adoption` was never a reporting problem - `(afn)`
+
+  A refusal above half the sample converts *"this is your library"* into *"this is a new drive"*,
+  silently, and the guard against a second drive id is bypassed rather than triggered. A
+  data-integrity defect. Split out; it outranks this entry.
+
+  ## 3. A third site nobody had named - `(afo)`
+
+  `cleanup.py:185-186` prints `LEFT ALONE - something is in there (1):` above `Camera/2013   []`.
+  Not silence: a false assertion. Split out.
+
+  ## ⚠ THE CENTRAL GUESS, FALSIFIED
+
+  This entry said the fix was *"probably **one decision about how refusal is reported everywhere**
+  - a single vocabulary, worded once in `models`"*, and that it was `(aer)`'s shape for the third
+  time. **Both halves are wrong, and the measurement is what shows it.**
+
+  `(aer)`'s shared home worked because its sites answered **the same question**: *which folders did
+  this run not enter?* One wording, one payload field, one render served all of them.
+
+  These three do not answer the same question:
+
+  | site | what it actually needs |
+  |---|---|
+  | `date_rescue` | a **cause**, among four already conflated into one word |
+  | `cleanup` `(afo)` | a **tier or flag** that means *unknown* rather than *occupied* |
+  | `drive_adoption` `(afn)` | a **denominator decision**, and a verdict that can be surfaced at all |
+
+  **One vocabulary would have fixed none of the other two.** Only the first is a wording problem at
+  all; `(afn)` is arithmetic and control flow, and `(afo)` is a type. A single `models` constant
+  would have sat unused beside both.
+
+  ⚠ **The general lesson, which is the reason to write this down.** Three sites sharing a *cause*
+  (the stdlib stopped distinguishing refused from absent) is not the same as three sites sharing a
+  *remedy*. `(aer)` earned its shared home by having one question behind it; this entry inherited
+  the expectation of one from the family resemblance and never checked. **"Three instances, so one
+  fix" is a hypothesis, and it is cheap to test by asking each site what it would do with the
+  shared thing.** Asked here, two of the three had no use for it.

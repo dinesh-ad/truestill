@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(afm). Next free: (afn).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(afo). Next free: (afp).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -149,13 +149,29 @@ is invisible here is retired, not free.**
   scale with the corpus** and are named in the entry. ⚠ **Not just "apply the cap five more
   times"**: `(afd)`'s list repeated one fact, the preview repeats a different fact each time and
   capping it hides decisions rather than noise. [Full entry](research/backlog/afm.md)
-- **(afa) A PATH THE PRODUCT KNOWS WAS REFUSED IS STILL NOT REPORTED TO ANYONE.** After `(aey)`,
-  `date_rescue` and `drive_adoption` branch on `Reach.REFUSED` explicitly and then say nothing -
-  a limitation became a decision, and the decision is silence. ⚠ **`(aer)`'s shape, third
-  instance** (after `(aac)` and `(aer)`), so the fix is likely **one** decision about how refusal
-  is reported everywhere rather than three wordings. Held out of `(aey)` deliberately: a user acts
-  on a drive-adoption verdict. Filed 2026-08-21. [Full entry](research/backlog/afa.md)
-
+- **(afn) A DRIVE WHOSE SAMPLE CANNOT BE READ IS REGISTERED AS A NEW ONE, SILENTLY.** Split out
+  of `(afa)` 2026-08-22. ⚠ **A data-integrity defect, not a reporting gap, and it outranks both
+  entries it was filed beside.** Measured end to end: a *perfect* drive with 30 of 40 sampled paths
+  unreadable returns `[]` from `inspect_root`, prints nothing, and is registered as a **second
+  drive id for one library** - the exact harm `cli.py:1002-1005` states in the refusal that never
+  fires. The `continue` at `drive_adoption.py:174` changes nothing, because `:178` still divides by
+  the full sample: **refused and absent are arithmetically identical**. Tipping point is 21
+  refusals of 40. [Full entry](research/backlog/afn.md)
+- **(afo) A FOLDER THAT REFUSED IS REPORTED AS ONE WITH SOMETHING IN IT.** Split out of `(afa)`
+  2026-08-22. Measured: `LEFT ALONE - something is in there (1):` above `Camera/2013   []` - the
+  heading says something is there, the bracket says nothing is, and the truth is that Truestill
+  could not look. `cleanup.py:185-186` classifies a refused folder `Tier.OCCUPIED` with empty
+  contents; the classification is right and the rendering is wrong.
+  [Full entry](research/backlog/afo.md)
+- **(afa) `unreachable` MEANS FOUR THINGS, AND THE TOOLTIP ASSERTS ONE OF THEM.** ⚠ **Narrowed
+  and retitled 2026-08-22 after a read-only pass falsified its own thesis.** It claimed
+  `date_rescue` told the user nothing; measured, it renders *"could not check"*. What is wrong is
+  that `unreachable` is produced by four distinct causes - no catalog row, no `source_path`, the
+  sidecar refused, the parent is not a directory - and the tooltip asserts one of them for all
+  four. ⚠ **Its central guess is recorded as FALSIFIED**: the three sites shared a cause, not a
+  remedy, and one vocabulary would have fixed neither `(afn)` nor `(afo)`. That finding is worth
+  more than the fix. Found 2026-08-21, narrowed 2026-08-22.
+  [Full entry](research/backlog/afa.md)
 - **(ael) NO CLI ROUTE COPIES A LIBRARY TO A SECOND DRIVE WITHOUT A SOURCE FOLDER.** `(aei)`
   closed most of this - `organize <source> <second-drive>` is now the CLI's second-copy route.
   What remains is drive-to-drive when the source folder is gone or no longer matches the drive.
