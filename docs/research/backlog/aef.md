@@ -82,8 +82,36 @@
   the state the project is actually in, and a shape that admits it beats one that manufactures 57
   answers.
 
-  ## ⏳ NOT POPULATED YET, DELIBERATELY
+  ## ⏳ NOT POPULATED - BUT NO LONGER BLOCKED (re-ranked 2026-08-22)
 
   **The list itself is a ruling the maintainer makes after the first soak**, because the soak is
   what will say which things actually break under real use. Populating it from the backlog as it
   stands would encode today's guesses as the answer - the same mistake in one file instead of 57.
+
+  ⚠ **THAT CONDITION FIRED ON 2026-08-20 AND THIS ENTRY DID NOT MOVE FOR TWO DAYS.** Four soaks
+  have now run; they produced twelve entries and all twelve are closed. The evidence this was
+  waiting for exists. It is the maintainer's ruling to make and nothing blocks it.
+
+  ## ⚠ THE PATTERN, RECORDED HERE BECAUSE THIS ENTRY IS ABOUT IT AND WAS AN INSTANCE OF IT
+
+  **A deferral whose condition nobody re-reads is indistinguishable from one that never expires.**
+  Both look like a line in a list saying *"later"*; only re-reading the condition separates them,
+  and nothing in this repository re-reads conditions.
+
+  Measured on 2026-08-22, in one pass over the 80 open entries:
+
+  | what was found | count |
+  |---|---|
+  | entries **already closed** by work that named no letter | **3** - `(ace)`, `(aak)`, `(abi)` |
+  | deferrals whose **gate had opened** unnoticed | **2** - `(aaw)`, and this entry |
+  | entries whose **title overstates** what remains | **9** |
+
+  ⚠ **All of it was found by READING, none by anything automatic**, and that is the finding rather
+  than the numbers. The closure gate keys on a commit message saying `Closes (xyz)`, so it sees a
+  letter leaving on purpose and is structurally blind to the three cases above: work that closes an
+  entry without naming it, a condition that expires on the calendar, and a title that ages past its
+  body. **This entry was filed because the backlog cannot answer *"what must ship before v1"*. It
+  turns out it also cannot answer *"is this still true?"*, which is the cheaper question and the
+  one that rots first.** Whatever shape option B takes should carry a re-read date, not only a
+  release marker - a marker says whether an entry matters, and says nothing about whether it is
+  still real.

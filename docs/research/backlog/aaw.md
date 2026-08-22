@@ -6,6 +6,22 @@
   2026-08-03; filed as its own entry rather than folded into `(vv)` because `(vv)` is a recorded
   *limit* and this is an approved *design*, and `(vv)` now points here. **Do not build before
   soak** - the maintainer's ruling, on the analysis below.
+  ## ⚠ RE-RANKED LIVE 2026-08-22 - THE GATE FIRED, AND ITS REASON WAS NEVER SERVED
+
+  *"Do not build before soak"* was the ruling. **Four soaks ran** - 2026-08-20, -21, -21, -22 -
+  and this entry did not move, because a deferral whose condition nobody re-reads is
+  indistinguishable from one that never expires. `(aef)` carries that pattern.
+
+  ⚠ **But the honest re-ranking is worse than "the gate opened".** The gate's stated reason was
+  that *"the soak is what will say which things actually break under real use"* - and **no soak
+  tested concurrency at all.** Measured 2026-08-22: not one step in any of the four plans runs two
+  processes against one library; the word does not appear in any plan or record. So the evidence
+  this waited for **does not exist, and will not arrive from soaks that are finished.**
+
+  Two honest routes, and the maintainer picks: build it on the 2026-08-03 analysis below, which is
+  unchanged and still correct, or write the step that actually exercises the one silent-loss path.
+  **What is no longer available is deferring it to "the soak".**
+
   - **What shrank this from "P1", and it is the load-bearing measurement.** SQLite already
     serialises writers, so **the catalog cannot be corrupted by two truestill processes**.
     Measured directly, 2026-08-03: `journal_mode = delete`, `busy_timeout = 5000` (Python's

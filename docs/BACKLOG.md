@@ -171,9 +171,12 @@ is invisible here is retired, not free.**
   release marker - and the ratio the entry is about has got worse, not better, which is the
   argument for the ruling rather than against it.
   A decision about the backlog's SHAPE, not 57 small ones. ✅ **Ruled: option B** - a curated list
-  in `PROJECT_STATUS.md`, guarded by the `test_backlog_references` pattern. ⏳ **Not populated
-  yet**: the list is a ruling to make after the first soak. Recorded 2026-08-19. [Full
-  entry](research/backlog/aef.md)
+  in `PROJECT_STATUS.md`, guarded by the `test_backlog_references` pattern.
+  ⚠ **Re-ranked live 2026-08-22: its gate fired and nobody re-read it.** *"The list is a ruling the
+  maintainer makes after the first soak"* - **four soaks have run**, produced twelve entries and
+  all twelve are closed, so the evidence it waited for now exists. It is the maintainer's ruling to
+  make, and it is no longer blocked. ⚠ **The entry is ABOUT this failure and was an instance of
+  it** - see its own new section. Recorded 2026-08-19. [Full entry](research/backlog/aef.md)
 - **(aec) 62 FIXED WAITS IN THE BROWSER LANE, EACH ONE A COIN TOSS AGAINST A MEASURED LATENCY.**
   Recorded 2026-08-19. One was fixed; the class was not. [Full entry](research/backlog/aec.md)
 - **(aea) TWO INTACT CATALOGS FOR ONE INSTALL, AND NOTHING RECONCILES THEM.** Recorded 2026-08-19.
@@ -282,8 +285,17 @@ is invisible here is retired, not free.**
   entry](research/backlog/aay.md)
 - **(aax) `time_known` is derived from provenance, not from the value. POST-LAUNCH.** [Full
   entry](research/backlog/aax.md)
-- **(aaw) Cross-process drive lock ("P1-lite"): design settled, build POST-SOAK.** [Full
-  entry](research/backlog/aaw.md)
+- **(aaw) Cross-process drive lock ("P1-lite"): design settled, and NO LONGER DEFERRED.**
+  ⚠ **Re-ranked live 2026-08-22: the gate fired and nobody re-read it.** The ruling was *"do not
+  build before soak"*; **four soaks have run** (2026-08-20 to -22). ⚠ **But the gate's REASON was
+  never served** - *"the soak is what will say which things actually break"*, and **no soak tested
+  concurrency at all**: not one step in any of the four plans runs two applies at once. So the
+  evidence this waited for does not exist and will not arrive from soaks that are finished. It is
+  built on the 2026-08-03 analysis, or a step is written that actually exercises it - **but it can
+  no longer be deferred to "the soak"**. The one silent-loss path is unchanged and still the
+  reason it exists: two concurrent `organize --apply` runs, where `_free_relative` asks the
+  filesystem for a free name and both processes can pick the same one.
+  [Full entry](research/backlog/aaw.md)
 - **(aan) A "verified against code" clause must still resolve.** Recorded 2026-08-01. [Full
   entry](research/backlog/aan.md)
 - **(aas) An undated file cannot be assigned to an event the user knows it belongs to.** Recorded
