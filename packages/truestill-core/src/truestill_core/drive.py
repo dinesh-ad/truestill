@@ -404,8 +404,10 @@ def _marker_within(root: Path, seconds: float) -> DriveMarker | None:
     blocked on a hard mount is uninterruptible; the thread can only be left behind. That is safe
     on this runtime and was not always: bpo-32186 - *"io.FileIO can hang all threads when accessing
     an inaccessible NFS server"*, `fstat` holding the GIL inside `fileio_init` - was fixed in
-    December 2017 for 3.6/3.7+, and this project requires 3.13. Verified rather than assumed: while
-    one thread blocks in a syscall another keeps running.
+    December 2017 for 3.6/3.7+, far below this project's floor. Verified rather than assumed: while
+    one thread blocks in a syscall another keeps running. **The floor is named nowhere here on
+    purpose** - what matters is that the fix predates every version we could run, and a version
+    number written here is one more thing to update the next time the floor moves.
 
     The abandoned thread holds one file descriptor and discards its result. It writes nothing, so a
     timeout can never leave state behind.

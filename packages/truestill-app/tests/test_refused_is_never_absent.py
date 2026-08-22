@@ -48,8 +48,9 @@ def _swallowing_predicates(monkeypatch: pytest.MonkeyPatch) -> None:
     ⚠ **This simulates the NEW stdlib, which is the exact inverse of `_deny`'s mistake.** `_deny`
     freezes the old behaviour and so cannot notice it changing; this freezes the new behaviour and
     asserts our answer is the same either way. What it pins is a property - *the verdict does not
-    depend on the boolean predicates* - rather than a version, so it runs on 3.13 today, on 3.14,
-    and on the Windows lane where a real `chmod 000` proves nothing.
+    depend on the boolean predicates* - rather than a version, which is why it kept working
+    unchanged across the 3.13 to 3.14 move and why it runs on the Windows lane, where a real
+    `chmod 000` proves nothing.
 
     ⚠ **Each replacement calls `self.stat()` rather than `os.path`, and that is load-bearing.**
     The first version delegated to `os.path.isdir`, which reaches `os.stat` directly and so walked
@@ -100,7 +101,12 @@ def _refuse_stat(monkeypatch: pytest.MonkeyPatch, target: Path) -> None:
 def test_probe_dir_calls_a_refused_folder_unreadable_when_the_predicates_swallow(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """⚠ THE DISCRIMINATOR. Fails on 3.13 today, and runs on every lane including Windows.
+    """⚠ THE DISCRIMINATOR, and it runs on every lane including Windows.
+
+    Written while the project ran 3.13, where it **failed against unfixed code** - that is what
+    made it a discriminator rather than a restatement. The fixture is what earns that, not the
+    interpreter: it makes the predicates swallow, so the test asks the same question on 3.14,
+    which now behaves that way for real.
 
     `MISSING` is not a smaller answer than `UNREADABLE` here - it is a different one. It means
     *nothing is there, and you may create it*, so the app offers to create a folder that already
@@ -150,8 +156,10 @@ def test_a_real_refused_folder_is_unreadable_on_this_interpreter(tmp_path: Path)
     it through `is_dir()` - as `_really_locked` does - is what turns this into a skip on 3.14:
     the probe answers *"the OS did not deny"*, which is false, and the assertion never runs.
 
-    ⚠ **This test cannot fail on 3.13**, where the defect does not exist. Its failing-first proof
-    was run under 3.14 instead; on 3.13 it is a guard against the fix regressing, not evidence.
+    ⚠ **This test could not fail on 3.13, where the defect did not exist**, so its failing-first
+    proof was run under 3.14 out of tree while the project still shipped 3.13. That is no longer a
+    caveat: 3.14 is what runs here now, so this test meets the defect on the interpreter it was
+    written for and is evidence rather than a regression guard.
     """
     locked = tmp_path / "locked"
     (locked / "inner").mkdir(parents=True)

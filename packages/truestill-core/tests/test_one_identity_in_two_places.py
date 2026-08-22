@@ -133,8 +133,8 @@ def test_a_probe_that_does_not_answer_in_time_stays_silent(
 
     A `stat` on a wedged mount cannot be interrupted - `SIGALRM` does not reach it - so the probe
     can only be *abandoned*, never cancelled. Abandoning is safe on this runtime: bpo-32186, where
-    `fstat` inside `fileio_init` held the GIL and hung every thread, was fixed in 2017 and we
-    require 3.13.
+    `fstat` inside `fileio_init` held the GIL and hung every thread, was fixed in 2017 - far below
+    any version this project could run.
 
     A timeout is *"did not answer"*, which is already the silent row. `run_health` states the rule
     this follows: **crying wolf is the failure mode to fear**, and a slow-but-successful answer is

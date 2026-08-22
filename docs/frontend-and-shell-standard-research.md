@@ -111,6 +111,12 @@ truth; `ruff` for lint and format; src layout under `packages/` with a `pyprojec
 package. Python 3.13 is the floor and correct - `requires-python = ">=3.13"` in all three
 packages.
 
+> ⚠ **CORRECTION, 2026-08-22: THE FLOOR IS `>=3.14`.** The sentence above is left as written -
+> it was true on the day, and a record edited to stay correct stops being one - but it reads as a
+> standing verdict rather than a finding, so it needs this beside it. The move is
+> `DECISIONS.md` **D13**; the *reasoning* is untouched by it, because what the paragraph is
+> actually saying is that the toolchain choices need no change, and they still do not.
+
 > ⚠ **CORRECTION, 2026-08-21: THE REVISIT TRIGGER BELOW CANNOT FIRE, AND THE NUMBERS ARE STALE.**
 > The live trigger is now `DECISIONS.md` **D11**; the paragraph below is left exactly as written,
 > because a record edited to stay correct stops being one.

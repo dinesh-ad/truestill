@@ -250,7 +250,7 @@ memory dressed as one.
 > adding one: name what it was written for, and show that the failure can no longer happen or no
 > longer matters.
 
-- **Idioms (Python 3.13, standard build).** `pathlib.Path` for all path manipulation - never
+- **Idioms (Python 3.14, standard build).** `pathlib.Path` for all path manipulation - never
   `os.path.*` in source (an audit on 2026-07-29 found zero call sites; this codifies that
   practice, it is not a migration). Use `os` only for operations pathlib does not expose:
   `os.access` for permission probes, `os.utime` for setting mtime/atime, `os.cpu_count` for

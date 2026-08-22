@@ -430,6 +430,14 @@ Sources:
 
 Current recommendation:
 
+> ⚠ **CORRECTION, 2026-08-22: THE FIRST TWO ITEMS ARE SPENT, AND THEY READ AS STANDING ADVICE.**
+> The floor is `>=3.14` and the experimental lane was added, run green on all three platforms, and
+> then replaced outright - `DECISIONS.md` **D13**. The list is left as written because this is a
+> record of an audit, and because its own condition is what was met: the lane went in when the
+> wheels and packaging tools were ready, which is what the second item asked for. The remaining
+> items are unaffected. ⚠ This audit is advisory and **no implementation was authorised**; that
+> has not changed either.
+
 - keep Python `>=3.13` as the shipping floor;
 - add an experimental Python 3.14 CI lane only when the dependency wheels and packaging tools are
   ready;

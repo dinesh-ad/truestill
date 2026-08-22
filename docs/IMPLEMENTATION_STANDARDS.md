@@ -783,7 +783,7 @@ is the point of the gate: **no other gate we have can see prose.**
     because of `mypy_path`. Stub gaps are handled **per module** in `[[tool.mypy.overrides]]`,
     never by a blanket flag - a flag that hides one missing stub hides every missing import.
 - **CI** (`.github/workflows/ci.yml`) has **two jobs**:
-  - **`check`** - matrix **{ubuntu, macos, windows} × Python 3.13**; steps = sync (`--locked`)
+  - **`check`** - matrix **{ubuntu, macos, windows} × Python 3.14**; steps = sync (`--locked`)
     → ruff (lint) → ruff (format --check) → mypy → pytest → **dependency audit** (Linux only);
     exiftool installed per-OS.
   - **`e2e`** - the browser lane, **chromium and webkit** on ubuntu (below). **A separate job, not a matrix
@@ -939,7 +939,7 @@ already ~1% of cold-preview wall after the size pre-filter while exiftool is ~74
 (`docs/preview-performance-profile.md`), and because the catalog keeps one hash column with no
 algorithm toggle. Full rationale: `DECISIONS.md` **D8**.
 
-**Version policy:** `requires-python` = **`>=3.13` for all three packages**. Lower-bound + lock;
+**Version policy:** `requires-python` = **`>=3.14` for all three packages**. Lower-bound + lock;
 `uv.lock` is the single source of truth; no blind upper-pins; updates via periodic
 `uv lock --upgrade` review.
 
@@ -956,18 +956,25 @@ algorithm toggle. Full rationale: `DECISIONS.md` **D8**.
 > would be a second matrix to maintain for a configuration nobody is asked to run. The honest
 > fix is to stop claiming support for it, not to start testing it.
 
-> **The checker floors match the declaration.** `[tool.mypy] python_version` and
-> `[tool.ruff] target-version` are both **3.13**, raised on 2026-07-27 from a stale 3.12 that
-> predated the floor change below. They are checker *floors*, so the mismatch was harmless -
-> but a config that claims 3.12 while every package requires 3.13 is a false statement about
-> what is being verified, and the point of this section is that the claim and the check agree.
+> **The checker floors match the declaration, with one stated exception.**
+> `[tool.mypy] python_version` is **3.14**. `[tool.ruff] target-version` is **`py313`** and is
+> ⚠ **deliberately one behind**: moving it makes `ruff format` adopt PEP 758 (`except A, B:`
+> without parentheses) and rewrite 25 files, which is a language migration rather than a floor
+> bump and gets its own commit. Both were raised from a stale 3.12 on 2026-07-27, and both moved
+> again with the 3.14 floor (`DECISIONS.md` **D13**).
 >
-> Core declared `>=3.12` until 2026-07-27. It was **not** a 3.12 incompatibility - core was
-> verified importing and running correctly on 3.12.13 - it was an **untested claim**, since CI
-> only ever ran 3.13. The floor was raised so the declaration matches what is actually
-> exercised. If a real user needs 3.12 (Ubuntu 24.04 LTS ships it as system Python), lowering
-> it back is cheap: add a CI job that installs `truestill-core` alone on 3.12 and runs its
-> tests, then drop the floor. Do not assume incompatibility from the `>=3.13`.
+> They are checker *floors*, so a lag is harmless to correctness - but a config that claims a
+> version nobody requires is a false statement about what is being verified, and the point of
+> this section is that the claim and the check agree. The ruff line is an exception **because it
+> is written down here**; an undeclared lag would be the defect.
+>
+> Core declared `>=3.12` until 2026-07-27, then `>=3.13` until 2026-08-22. Neither was an
+> incompatibility - core was verified importing and running correctly on 3.12.13 - it was an
+> **untested claim**, since CI only ever ran one version. Each raise made the declaration match
+> what is actually exercised, which is the rule this paragraph is really about. If a real user
+> needs an older interpreter (Ubuntu 24.04 LTS ships 3.12 as system Python), lowering the floor
+> is cheap: add a CI job that installs `truestill-core` alone on that version and runs its tests,
+> then drop the floor. Do not assume incompatibility from the `>=`.
 
 ---
 
