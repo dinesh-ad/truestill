@@ -150,7 +150,9 @@ def test_a_staged_copy_that_cannot_be_removed_is_named_and_measured(
 
     message = str(raised.value)
     assert "802 bytes are still at" in message, f"the survivor was not measured: {message}"
-    staged = dst.with_name(dst.name + safe_copy.STAGING_SUFFIX)
+    # `(aaw)`: the staged sibling carries a per-process token now, so the name comes from
+    # the one helper that builds it rather than being re-derived here.
+    staged = safe_copy.staging_path(dst)
     assert str(staged) in message, "the survivor was not located"
     assert str(dst) + "\n" not in message, "the message points at the destination, not the survivor"
     assert backup_service  # the message comes from the backup service, not from core

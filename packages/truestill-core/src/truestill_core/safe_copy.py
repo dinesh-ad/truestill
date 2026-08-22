@@ -53,15 +53,46 @@ interface: it copies paths directly.
 from __future__ import annotations
 
 import contextlib
+import os
+import secrets
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
-#: Appended to the target's full name, so `IMG_0001.jpg` stages at `IMG_0001.jpg.partial`.
+#: Appended LAST, so `IMG_0001.jpg` stages at `IMG_0001.jpg.<token>.partial`.
 #: The same suffix `archive_extract` uses for the same idea - one vocabulary for "bytes that have
 #: not earned their name yet" - and deliberately not a dot-prefix: a hidden file is skipped by
 #: `scan_source` without being counted, while an unrecognized extension is counted and named.
 STAGING_SUFFIX = ".partial"
+
+#: Unique to THIS PROCESS, and the whole of `(aaw)`'s first half.
+#:
+#: ⚠ **A staging path derived from the target alone is shared between processes**, and that was
+#: measured rather than reasoned: two `organize --apply` runs writing one destination wrote into
+#: **one** `.partial`, then one renamed it and reported success while holding the other run's
+#: bytes. 2 of 9 attempts on real photographs lost 99 and 45 organized copies. The reproduction is
+#: kept at `scratch-race-2026-08-22`.
+#:
+#: **PID and randomness, not either alone.** A pid is unique among live processes on one machine
+#: and repeats across machines sharing a mount; six random hex characters cover that without
+#: needing a machine identity. Computed **once per process** rather than per copy, so a crashed
+#: run's litter is attributable to one run.
+#:
+#: ⚠ **The token goes BEFORE the suffix, not after**, because `.partial` ending the name is a
+#: contract: `cli`'s rescan picks debris with `path.name.endswith(STAGING_SUFFIX)`, and
+#: `scan_source` must keep seeing an unrecognized extension rather than a media one. The shape is
+#: `thumbnails.py`'s, which already staged this way.
+_STAGING_TOKEN = f"{os.getpid():x}{secrets.token_hex(3)}"
+
+
+def staging_path(target: Path) -> Path:
+    """Where bytes wait before they earn ``target``'s name. **Never shared between processes.**
+
+    One home for the three sites that used to build this themselves - here, `archive_extract` and
+    `selfcheck` - because two copies of a staging rule disagree the first time one is corrected,
+    and this one has already been wrong once.
+    """
+    return target.with_name(f"{target.name}.{_STAGING_TOKEN}{STAGING_SUFFIX}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,7 +181,7 @@ def staged_copy(source: Path, target: Path) -> StagedCopy:
 
     Returns rather than raises: see the module note.
     """
-    temp = target.with_name(target.name + STAGING_SUFFIX)
+    temp = staging_path(target)
     try:
         shutil.copy2(source, temp)
     except OSError as error:

@@ -127,8 +127,22 @@ def test_when_the_cleanup_itself_fails_the_leftover_is_named_and_measured(
     # The survivor is the STAGED sibling, never the target - which is the point rather than a
     # detail: what a crashed run leaves behind can no longer be mistaken for an organized photo,
     # because `.partial` is not a media extension.
-    assert outcome.leftover == target.with_name(target.name + safe_copy.STAGING_SUFFIX), (
+    # ⚠ The CONTRACT, not the literal name. Since `(aaw)` the staged sibling carries a
+    # per-process token, so pinning `name + STAGING_SUFFIX` would pin the very sharing that
+    # let two runs write into one file. What must hold is that it is a sibling of the target,
+    # names the target, and still ENDS in the suffix - which is what rescan's debris scan and
+    # `scan_source`'s unrecognized-extension handling both key on.
+    assert outcome.leftover == safe_copy.staging_path(target), (
         "the surviving staged copy was not named"
+    )
+    assert outcome.leftover is not None
+    assert outcome.leftover.parent == target.parent, "the staged copy must be a sibling"
+    assert outcome.leftover.name.startswith(target.name), "it must name what it was staging"
+    assert outcome.leftover.name.endswith(safe_copy.STAGING_SUFFIX), (
+        "debris detection keys on the suffix ENDING the name"
+    )
+    assert outcome.leftover.name != target.name + safe_copy.STAGING_SUFFIX, (
+        "a staging name derived from the target alone is shared between processes - `(aaw)`"
     )
     assert outcome.leftover_bytes == 802, "the user is not told how much is sitting there"
     assert not target.exists(), "the target was written despite the failure"

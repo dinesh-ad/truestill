@@ -47,6 +47,7 @@ from truestill_core import app_paths, binaries
 from truestill_core.binaries import bundled_bin_dirs, is_bundled_install
 from truestill_core.cleanup import trash_backend
 from truestill_core.exif import ExiftoolMissingError, ensure_exiftool
+from truestill_core.safe_copy import staging_path
 
 #: The backend `cleanup` is *declared* to use. Asserted by **identity**, never as "something
 #: non-empty": `gio` answers on a Linux desktop while telling you nothing about Windows or macOS,
@@ -381,7 +382,8 @@ def write_findings(findings: list[Finding], destination: Path) -> Path:
         "worst": str(worst(findings)),
         "findings": [f.as_json() for f in findings],
     }
-    partial = destination.with_name(destination.name + ".partial")
+    # `(aaw)`: one home, and never shared between processes.
+    partial = staging_path(destination)
     partial.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     partial.replace(destination)
     return destination

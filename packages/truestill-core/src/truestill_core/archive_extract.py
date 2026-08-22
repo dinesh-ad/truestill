@@ -48,6 +48,7 @@ from typing import IO, NoReturn
 from truestill_core.archive_set import ArchiveSet, is_tar
 from truestill_core.filesystem import facts_for
 from truestill_core.progress import Phase, Progress, ProgressCallback
+from truestill_core.safe_copy import staging_path
 
 #: Directory under the destination that holds every staging tree. On the destination drive
 #: rather than the system temp directory: on many machines ``/tmp`` is a tmpfs or a small
@@ -360,7 +361,9 @@ def extract_archive_set(
             # orphaned (what chkdsk turns into .CHK files). On those filesystems this protects
             # against an aborted *run*, which is the common case, and not against a power cut.
             # What survives a power cut there is the journal below, not this rename.
-            partial = target.with_name(target.name + ".partial")
+            # `(aaw)`: one home, and never shared between processes - two ingests of one
+            # archive used to stage into the same file.
+            partial = staging_path(target)
             source = opener()
             if source is None:  # pragma: no cover - tar members with no payload
                 continue
