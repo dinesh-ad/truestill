@@ -49,7 +49,7 @@ git ls-files '*.md' | wc -l                      # every tracked document
 git ls-files 'docs/research/backlog/*.md' | wc -l # the exception above
 ```
 
-On 2026-08-22 those read **169** and **110**, leaving **59** mapped below. ⚠ They read **159**/**102** on 2026-08-21, **148**/**93** on 2026-08-20, **139**/**84** on 2026-08-19 and **133**/**78** on 2026-08-15 - stale within a day, three times - which is the argument for running the commands rather than for updating these numbers faster. **The mapped figure is the one to watch**: it held at 55 across four readings, moved to 56 on 2026-08-21 when `soak-two-plan.md` became the first document since 2026-08-15 to land outside `docs/research/backlog/`, and reads **59** on 2026-08-22 - `soak-two-record.md`, `soak-three-plan.md` and `soak-three-record.md`, each of which has a row below. A mapped count that moves **without** a row being added is the map going incomplete; a count that moves *with* one is the map working.
+On 2026-08-22 those read **171** and **111**, leaving **60** mapped below. ⚠ They read **159**/**102** on 2026-08-21, **148**/**93** on 2026-08-20, **139**/**84** on 2026-08-19 and **133**/**78** on 2026-08-15 - stale within a day, three times - which is the argument for running the commands rather than for updating these numbers faster. **The mapped figure is the one to watch**: it held at 55 across four readings, moved to 56 on 2026-08-21 when `soak-two-plan.md` became the first document since 2026-08-15 to land outside `docs/research/backlog/`, and reads **60** on 2026-08-22 - `soak-two-record.md`, `soak-three-plan.md`, `soak-three-record.md` and `soak-four-plan.md`, each of which has a row below. A mapped count that moves **without** a row being added is the map going incomplete; a count that moves *with* one is the map working.
 
 ### The canon - binding, kept current
 
@@ -80,6 +80,7 @@ On 2026-08-22 those read **169** and **110**, leaving **59** mapped below. ⚠ T
 | What did soak two actually find? | [`docs/soak-two-record.md`](docs/soak-two-record.md) - **ran 2026-08-21**, a record: five findings, and three harness defects that nearly became false ones |
 | What is soak three, and why refusal? | [`docs/soak-three-plan.md`](docs/soak-three-plan.md) - the plan; the thesis is the stock-take at the end of the soak-two record |
 | What did soak three find? | [`docs/soak-three-record.md`](docs/soak-three-record.md) - **ran 2026-08-21**, a record: four findings, and the two most dangerous properties held |
+| What will soak four cover, and why has nothing soaked the deleting commands? | [`docs/soak-four-plan.md`](docs/soak-four-plan.md) - the plan, **not run**; `reclaim` and `clean-empty`, and the method a destructive soak needs |
 | What did the Organize design spike establish? | [`docs/organize-preview-record.md`](docs/organize-preview-record.md) - the findings, kept because the spike itself is gitignored |
 | What are the rules for TypeScript, React, Tailwind and Rust? | [`docs/frontend-and-shell-standard-research.md`](docs/frontend-and-shell-standard-research.md) - a **record**, not the canon |
 | What does Google Takeout actually put on disk? | [`docs/takeout-format.md`](docs/takeout-format.md) |
