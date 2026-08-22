@@ -387,8 +387,13 @@ jobs:
   # rather than waited out. `(adi)` is migrating by ISLAND, not by screen: `main.tsx` opens
   # *"The first React island: `#org-result`"*, a pure refactor inside one region of a
   # server-rendered page. There is no next state in which a whole screen becomes React and
-  # somebody deletes an `if:`. Meanwhile 470 tests in 60 files went dark for two days during
-  # which `(aer)` and `(afo)` both changed wording this lane asserts on.
+  # somebody deletes an `if:`. Meanwhile the WHOLE LANE went dark for two days during which
+  # `(aer)` and `(afo)` both changed wording it asserts on.
+  # ⚠ This read "470 tests in 60 files" until 2026-08-22. The file half is checkable and was
+  # WRONG: `git ls-tree -r --name-only 26aed42 tests/e2e/` - the disable commit - counts 58, the
+  # same 58 as today. The test half is not recoverable without checking that tree out, so it is
+  # dropped rather than replaced with a guess. What the sentence needed was "the whole lane",
+  # which is the true claim and the one that cannot rot.
   #
   # WHY NOT EVERY PUSH. Measured 2026-08-22: **~23 pushes/day** on an active day, and this lane is
   # 21-25 min. That is 8+ hours of runner/day, and worse than the bill - `cancel-in-progress` is
@@ -471,10 +476,12 @@ jobs:
           enable-cache: true
           cache-dependency-glob: uv.lock
 
-      # ⚠ 3.14, even though this job is `if: false`. A disabled lane still has to be CORRECT when
-      # the first migrated screen turns it back on - installing a version `requires-python`
-      # refuses would fail at `uv sync` for a reason unrelated to whatever re-enabled it, and the
-      # person doing that has enough to read already.
+      # ⚠ 3.14, matching the `check` job: installing a version `requires-python` refuses would
+      # fail at `uv sync` for a reason unrelated to whatever the run was testing.
+      # ⚠ This read "even though this job is `if: false`. A disabled lane still has to be CORRECT
+      # when the first migrated screen turns it back on" until 2026-08-22. The lane runs nightly,
+      # so the version is exercised on every scheduled run rather than by whoever re-enabled it -
+      # and the argument for pinning it got STRONGER, not weaker, when the job started running.
       - name: Set up Python 3.14
         run: uv python install 3.14
 

@@ -694,9 +694,17 @@ reasoning; the justification for skipping the browser lane must be output you ca
 recollection.
 
 ⚠ **CHANGED 2026-08-20, RE-DECIDED 2026-08-22: THE BROWSER LANE IS NIGHTLY, NOT PER-PUSH.** In CI
-the `e2e` job runs on the **nightly schedule and on `workflow_dispatch`**, so the 470 browser tests
-are not dark and a push still costs ~3 minutes; locally, **`make gate` is not run for backend
-work**. **If a change genuinely reaches a screen, say so and ask**; do not run it by reflex and do
+the `e2e` job runs on the **nightly schedule and on `workflow_dispatch`**, so the browser lane is
+not dark and a push still costs ~3 minutes; locally, **`make gate` is not run for backend work**.
+⚠ **This said *"the 470 browser tests"* until 2026-08-22 and the lane held 502** - a count in
+prose, in the contract, one screen below the rule forbidding exactly that. The lane's size is a
+command, not a figure this file owns:
+
+```sh
+uv run pytest tests/e2e --collect-only -q | grep -oE '[0-9]+ tests collected'
+```
+
+**If a change genuinely reaches a screen, say so and ask**; do not run it by reflex and do
 not treat its silence as coverage (`ENGINEERING_STANDARD.md` §4's fifty-fourth member).
 ⚠ **It was `if: false` from 2026-08-20 to 2026-08-22 on the condition *"the first migrated
 screen"*, and that condition could not fire** - `(adi)` migrates by island, not by screen. **The
@@ -781,9 +789,12 @@ invisible to `check` **by construction**. That is not a gap to be closed - it is
 exists, and it is precisely why the lane may be skipped when the diff cannot reach it.
 
 **Not CI-only.** CI is ~5.5 min plus queue, and a red lane on `main` costs more than a local wait.
-Local when it applies; CI as the backstop. ⚠ **BOTH HALVES ARE FALSE FOR THE BROWSER LAYER SINCE
-2026-08-20**: CI runs no browser test at all, so **nothing backstops a skipped `make gate`**, and
-that lane's real cost was 21-25 min, not ~5.5.
+Local when it applies; CI as the backstop. ⚠ **THE COST HALF IS STILL WRONG FOR THE BROWSER
+LAYER**: that lane is 21-25 min, not ~5.5. **The backstop half is a question about WHEN, and §6.1
+above is the answer - this line does not restate it.**
+⚠ **It restated it anyway and went stale: *"CI runs no browser test at all"* was true from
+2026-08-20 to 2026-08-22 and stood for a day after it stopped being.** Left visible because §4's
+sixty-second member is about exactly this sentence.
 
 **No curated smoke suite.** A subset is a second artifact that drifts from the real one and gives
 its false confidence exactly when it matters. Run the e2e **file** for the screen you touched -
@@ -793,7 +804,13 @@ the same targeting already used for unit tests - and no new artifact to rot.
 must still choose to type `gate` rather than `check`, so **it will sometimes be skipped**. A
 blocking pre-commit hook was considered and refused - every existing hook here is sub-second, and
 one that can demand six minutes would be bypassed with `--no-verify`, which is worse than an
-honest nudge. The residual is accepted and CI is what catches it. ⚠ **NOT SINCE 2026-08-20** - the browser lane is disabled, so **nothing currently catches it**. `ENGINEERING_STANDARD.md` §4's fifty-fourth member is exactly this: an instrument that is not running is not one reporting that nothing is wrong.
+honest nudge. The residual is accepted and CI is what catches it - **on the schedule §6.1 names,
+which this line does not restate.** ⚠ **The fifty-fourth member still applies, in a narrowed
+form**: a lane that runs later is not an instrument reporting on the commit being pushed now, so a
+skipped `make gate` is caught by the *next* scheduled run and not by this one.
+⚠ **This said *"the browser lane is disabled, so nothing currently catches it"* for a day after
+that stopped being true**, which is the sixty-second member and is why the schedule now lives in
+one place.
 
 The two ceilings from the timing work already stop either lane drifting:
 `TEST_SECONDS_MAX ?= 45` and `E2E_SECONDS_MAX ?= 2000` (`Makefile`), with CI overriding the
@@ -852,8 +869,10 @@ is the point of the gate: **no other gate we have can see prose.**
     exiftool installed per-OS.
   - **`e2e`** - the browser lane, **chromium and webkit** on ubuntu (below). **A separate job, not a matrix
     entry**, so a browser-layer failure is distinguishable at a glance and never masks a Python
-    one. ⚠ **DISABLED SINCE 2026-08-20** (`if: false`): the job still *defines* the lane and does
-    not *run* it. The first migrated screen restores it - see §6.1.
+    one. **When it runs is §6.1's, not this row's** - this row names the job and its shape.
+    ⚠ **It said `if: false`, *"disabled since 2026-08-20"*, and *"the first migrated screen
+    restores it"* until 2026-08-22** - a condition §6.1 records as unfireable, restated here where
+    nothing would notice it going stale.
   - ⚠ **They do NOT all cover the same set, and this line used to claim they did.** `make
     typecheck` and the CI mypy step both run five targets (`$(CORE) $(CLI) $(APP) $(SCRIPTS)
     $(PACKAGING)`); the `.pre-commit-config.yaml` mypy hook's `files:` pattern covers the three
@@ -905,9 +924,10 @@ is the point of the gate: **no other gate we have can see prose.**
   points at it, so a reviewer has one place to check the claim against.
 - **`uv build --all-packages`** must produce clean wheels for **all three packages**
   (`make build`); `truestill-core` ships `py.typed`.
-- **Browser end-to-end** (`tests/e2e/`, `make e2e`): Playwright via `pytest-playwright`,
-  **defined** in CI as its own **chromium-and-webkit-on-ubuntu** lane and ⚠ **disabled since
-  2026-08-20** - today it runs locally only. It exists because every UI bug the soak era found
+- **Browser end-to-end** (`tests/e2e/`, `make e2e`): Playwright via `pytest-playwright`, its own
+  **chromium-and-webkit-on-ubuntu** lane in CI - **on the schedule §6.1 names** - and `make e2e`
+  locally. ⚠ **This said *"defined … and disabled since 2026-08-20 - today it runs locally only"*
+  until 2026-08-22.** It exists because every UI bug the soak era found
   lived in client-side JavaScript - a layer pytest cannot reach and manual checking cannot
   regression-pin. Rules:
   - **Deliberately outside `testpaths`**, so a fresh clone runs `make check` green with no

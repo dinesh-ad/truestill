@@ -273,10 +273,17 @@ version rather than with a memory. It is not a substitute for `(aef)`.
 - **Attorney clearance is required before MONETIZATION, not before a tag.** §1 above: *"attorney
   clearance is still required before monetization"*. A free release does not wait on it. What is
   live now is the trademark residual as a **pre-monetization obligation**.
-- **`truestill.app` / a domain appears NOWHERE in this repository** - no entry, no decision, no
-  mention. Either it is not a tracked obligation or it is an unwritten one, which
-  `ENGINEERING_STANDARD.md` §4's fifty-eighth member says is the more dangerous state. Recorded
-  here as a **question**, not as an item.
+- ✅ **`truestill.app` and the download page are `(afg)`, filed 2026-08-22 by this section.**
+  Whether it blocks a first tag is **not decided** and the entry deliberately does not assume -
+  it records the arguments both ways so the ruling is made against them. The domain is bought
+  (maintainer, 2026-08-22); D9's *"above the button, before they download"* requirement is
+  quoted there in full.
+  ⚠ **This bullet read *"appears NOWHERE in this repository - no entry, no decision, no mention …
+  recorded here as a question, not as an item"* until 2026-08-22, after `(afg)` existed.** Left
+  visible because it is the fifty-eighth member closing and the sixty-second member opening in one
+  bullet: writing the claim down is what let `(afg)` be filed against it, and then **the sentence
+  that produced the entry was the one place the entry was not recorded.** A section that files an
+  item is the section most likely to still describe the gap it filed.
 - **`(aad)` item 6, frozen CLI startup, is UNMEASURED** and is a *quotable-number* gap rather than
   a gate: nothing claims a figure, so nothing is wrong yet.
 
@@ -386,7 +393,9 @@ all four artefacts from one derivation. Everything except publish.
 - ⚠ **`make check` before every commit; do NOT run `make gate` for backend work** (2026-08-20).
   The CI `e2e` job runs **nightly and on `workflow_dispatch`** (re-decided 2026-08-22; it was
   `if: false` on a condition that could not fire), so a push costs ~3 minutes instead of ~25 and
-  the 470 browser tests are not dark. If a change genuinely reaches a screen, **say so and ask**.
+  the browser lane is not dark. ⚠ **This said *"the 470 browser tests"* until 2026-08-22, when the
+  lane held 502** - count it (`uv run pytest tests/e2e --collect-only -q`), never quote it.
+  If a change genuinely reaches a screen, **say so and ask**.
   Its silence is not coverage. The three-OS `check` matrix is kept - it is the only thing that
   sees Windows and macOS, and on 2026-08-22 it caught **two** platform defects in one primitive
   that no Linux run could (`(aaw)`; `ENGINEERING_STANDARD.md` §4's sixty-first member).

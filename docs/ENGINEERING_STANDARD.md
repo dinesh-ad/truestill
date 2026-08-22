@@ -229,6 +229,18 @@ memory dressed as one.
 > On 2026-08-15 that read **68**. ⚠ It said **67** for about an hour, on the same day, until the
 > member below about warnings and their reverse was added - which is the argument for the command
 > rather than the number, made by the number within a session of being written down.
+> ⚠ **It read 76 on 2026-08-22, and the 68 above stood alone for a week** - so the command was
+> written, and then the reading beside it was quoted as current anyway. **A dated reading is not
+> a live one**; run the command.
+>
+> ⚠ **AND THE ORDINALS ARE A SECOND, SMALLER COUNT - THEY DO NOT AGREE AND SHOULD NOT.** Members
+> name themselves in prose (*"the sixty-second member"*), and the highest such ordinal is **62**
+> while the command reads **76**. The gap is not drift: the ordinals number only the members
+> written as *named failures*, and the command counts every bullet here, including the eight that
+> were never numbered - Idioms, Absolute imports, Typing, Dependencies, Performance, Tests,
+> Errors, Credentials. **Quoting 62 as the size of this section is therefore wrong by fourteen**,
+> and it is the easier mistake to make because the ordinal is the number the text says out loud.
+> Neither figure is the one to cite; the command is.
 >
 > **The standard is working when three things are true**, and none of them is "the list is long":
 > - diffs carry **fewer unnecessary changes** - the edit is the change and nothing rides along;
@@ -487,6 +499,43 @@ memory dressed as one.
   ⚠ **Same shape as the three entries that closed themselves** in the same audit: work landed, and
   the record that governs it was not where the work was. The closure gate keys on a commit naming
   a letter; this keys on nothing at all.
+
+  ⚠ ✅ **AND THE FIX FOR THAT EXAMPLE REPRODUCED THE MEMBER, ONE LEVEL DOWN, IN THE COMMIT THAT
+  RECORDED IT.** `4a6360e` is the staleness audit above; its own message reads *"§6.1 still said
+  the e2e job is `if: false` … That is the BINDING contract and I updated `CLAUDE.md` without
+  it."* It corrected §6.1. **It left four siblings in the same document** - the *Not CI-only*
+  paragraph (*"CI runs no browser test at all"*), the *`make gate` is a nudge* paragraph
+  (*"nothing currently catches it"*), the `e2e` **CI job** row (`if: false`, *"the first migrated
+  screen restores it"*) and the **Browser end-to-end** bullet (*"disabled since 2026-08-20 - today
+  it runs locally only"*) - **and one comment in `ci.yml` itself** (*"even though this job is
+  `if: false`"*), sitting in the very workflow whose `if:` had been changed. `git log -L` dates
+  all four to an unrelated encoding fix: the audit never touched them. Found by reading, 2026-08-22.
+
+  🔑 **THE GENERALISATION, WHICH IS WHY THIS IS WORTH MORE THAN THE FIRST EXAMPLE.** The first is
+  two documents disagreeing, and the obvious lesson is *"check the other file"*. This one is **one
+  document disagreeing with itself, found by someone who had just been burned by that exact
+  failure and was writing the correction for it.** Care did not prevent it and could not: the
+  audit searched for the *symptom it had already found* - §6.1 - rather than for **every site that
+  restates the fact.** ⚠ **A fix aimed at an instance leaves the class**, and the class was
+  enumerable in one command *at the moment of the change*:
+
+  ```sh
+  grep -rn 'if: false' docs/ CLAUDE.md .github/   # run BEFORE writing the correction
+  ```
+
+  ⚠ **AND THAT COMMAND HAS A ONE-WAY EXPIRY, WHICH IS THE NOTE BELOW BITING THE FIX FOR THIS
+  MEMBER.** *Why there is no doc-to-doc consistency guard* item 4 says a grep for `if: false`
+  cannot separate a live claim from a recorded correction - **so the same grep that would have
+  found all five before the repair returns thirteen hits after it, every one of them a
+  correction.** It is a **migration tool, not a guard**: run it while the fact is changing, when
+  every hit is real; never afterwards, and never as a check, because by then its output is all
+  false positives and a reader who trusts it learns to ignore it.
+
+  **So the step the audit skipped is the sixth member's, and the two belong together:** when
+  something's status changes, grep for every reference *before* reporting - and a correction is a
+  status change like any other. The remedy below (*fewer restatements*) is what stops the class
+  recurring; the grep only closes the instances already written, and only if it runs first. All
+  five now point at §6.1 instead of restating it, which is the version that cannot go stale again.
 
   **THE REMEDY IS FEWER RESTATEMENTS, NOT MORE SYNCHRONISATION.** A reminder that *points* cannot
   go stale; a reminder that *restates* can, and will. Where a summary is genuinely wanted, edit

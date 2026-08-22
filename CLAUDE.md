@@ -202,8 +202,10 @@ exists to prevent.
   it - a wording collision two of the failing files assert against directly - was reachable in the
   first two minutes. The other fifty-eight were spent waiting rather than on the work it created.
 - **The CI e2e job runs NIGHTLY and on `workflow_dispatch`, not on push** (re-decided
-  2026-08-22; it was `if: false` from 2026-08-20). A push still costs ~3 minutes, and the 470
-  browser tests are no longer dark - they run at 03:17 and can be fired on demand.
+  2026-08-22; it was `if: false` from 2026-08-20). A push still costs ~3 minutes, and the browser
+  lane is no longer dark - it runs at 03:17 and can be fired on demand. ⚠ **This said *"the 470
+  browser tests"* until 2026-08-22, when the lane held 502**; count it rather than quote it -
+  `uv run pytest tests/e2e --collect-only -q | grep -oE '[0-9]+ tests collected'`.
   ⚠ **The old condition, *"the first migrated screen"*, could not fire**: `(adi)` migrates by
   ISLAND, not by screen. **Per-push returns when the lane finishes in under ~8 minutes** - a lever
   that exists and is unused, since `make e2e` is serial across two browsers while `pytest-xdist`
