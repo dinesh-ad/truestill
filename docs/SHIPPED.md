@@ -22,6 +22,38 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aex) A RELEASE BUILD IS STAMPED WITH A VERSION OR REFUSED - NEVER WITH A REF'S NAME.**
+  - ✅ **CLOSED 2026-08-22.** Confirmed twice in real runs: a dispatch from `main` produced
+    **`TruestillSetup-main.exe`** - a branch name in the installer's filename and in Add/Remove
+    Programs - and **passed every gate**: self-check, comparison, install, verify, uninstall.
+  - ⚠ **The Windows guard could not fire, which is worse than not having one.**
+    `if (-not $version) { $version = '0.0.0-dev' }` sat directly below `$version` being set to
+    `github.ref_name` minus a leading `v` - on a dispatch, `main`, a **non-empty** string. It looks
+    exactly like the Linux defence beside it and defends nothing. **A guard that cannot fire reads
+    as coverage and stops anyone looking.** Said at the fix, not only here.
+  - ⚠ **AND LINUX WAS NOT THE HALF THAT WAS RIGHT.** Its
+    `[ "$version" != "main" ] || version="0.0.0"` hardcoded **one branch name**, so a dispatch
+    from any other branch failed identically - and `0.0.0` is **indistinguishable from a real
+    release**. Windows produced something obviously broken; Linux produced something **plausibly
+    wrong**, and the plausible one outlives the obvious one.
+  - **So the fix is the shape, not the instance, and the rule is VALIDATE rather than fall back** -
+    the industry pattern for a release workflow. The question is *is this ref a version tag*, never
+    *is this ref `main`*. On a tag: strip `v`, require **three-component semver**, and **refuse**
+    anything else rather than coerce it - `v2`, `v1.2`, `vNext` and `v1.2.3.4` are all refused,
+    because the publish job runs on tags and a guess would ship. On a dispatch:
+    `0.0.0-dev.<run id>`, unmistakable and traceable. **One derivation, `shell: bash` so the one
+    step serves both platforms** - two derivations is how the two answers came to disagree.
+  - `packaging/build_deb.py`'s own `--version` default moved from `0.0.0` to `0.0.0-dev` for the
+    same reason; `packaging/installer.iss` had defaulted to `0.0.0-dev` all along and the workflow
+    ignored it.
+  - **The regression test EXECUTES THE STEP'S OWN SCRIPT** out of the YAML with the environment a
+    runner sets, so what is pinned is the decision rather than the spelling - four branch names,
+    four tag shapes, and five refusals. ⚠ **What it cannot test is stated in the module**: that
+    GitHub wires `$GITHUB_OUTPUT`, that `pwsh` interpolates the output into `ISCC.exe`, and that
+    `bash` exists on the Windows image. Those need a dispatch, and a dispatch is what found this.
+  - **Three mutations, all caught**: stamping `0.0.0`, stamping the ref name, and relaxing the
+    three-component rule so `v2` is coerced instead of refused.
+
 - **(afc) A DRIVE THAT IS MERELY UNMOUNTED IS NO LONGER OFFERED REGISTRATION.**
   - ✅ **CLOSED 2026-08-21.** `verify` on a cleanly unmounted mountpoint said *"isn't a Truestill
     drive yet - register it with `drives --init`"*. Following the product's own advice minted a

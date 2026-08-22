@@ -141,6 +141,65 @@ jobs:
         if: runner.os == 'Windows'
         run: uv run python packaging/verify_icon.py --exe dist/truestill/truestill.exe
 
+      # ═════════════════════════════════════════════════════════════════════════════════════
+      # THE VERSION, DERIVED ONCE, FOR BOTH PLATFORMS. `(aex)`
+      #
+      # ⚠ THE QUESTION IS "IS THIS REF A VERSION TAG", NOT "IS THIS REF `main`". It was asked the
+      # second way, separately on each platform, and both answers were wrong:
+      #
+      #   Linux    `[ "$version" != "main" ] || version="0.0.0"` - hardcoded ONE branch name, so a
+      #            dispatch from any other branch stamped a package with that branch's name.
+      #   Windows  `if (-not $version) { $version = '0.0.0-dev' }` - ⚠ A GUARD THAT CANNOT FIRE.
+      #            `$version` is `github.ref_name` with a leading `v` stripped, and on a dispatch
+      #            that is `main` - a NON-EMPTY string, so PowerShell's `-not` is false and the
+      #            fallback is dead code. It reads as coverage and is not: it looks exactly like
+      #            the Linux defence beside it and defends nothing. **A guard that cannot fire is
+      #            worse than no guard**, because it stops anyone looking.
+      #
+      # Measured in run 32552435733 (dispatch, `dry_run=true`, from `main`): Linux produced
+      # `truestill_0.0.0_amd64.deb` and Windows produced **`TruestillSetup-main.exe`** - an
+      # installer stamped with a branch name, in the filename and in Add/Remove Programs - and it
+      # **passed every gate**: self-check, comparison, install, verify, uninstall.
+      #
+      # ⚠ AND `0.0.0` WAS THE WRONG DISPATCH ANSWER TOO, revised before this shipped. It is the
+      # QUIETER of the two defects: `truestill_0.0.0_amd64.deb` is indistinguishable from a real
+      # 0.0.0 release, where `TruestillSetup-main.exe` is obviously broken. Something plausibly
+      # wrong outlives something obviously wrong. A dispatch now stamps `0.0.0-dev.<run id>`.
+      #
+      # `shell: bash` on purpose: it is present on the Windows runner too, so ONE derivation
+      # serves both platforms. Two derivations is how the two answers came to disagree.
+      # ═════════════════════════════════════════════════════════════════════════════════════
+      - name: Resolve the version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          # ⚠ ONE RULE, APPLIED TO BOTH BRANCHES: the value must be semver with THREE components.
+          # Validation, not a fallback - which is the industry pattern and is what the first fix
+          # got wrong. A fallback answers "what shall I use instead"; validation answers "is this
+          # a version at all", and only the second can refuse.
+          semver='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?(\+[0-9A-Za-z.]+)?$'
+
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            # ⚠ NOT `0.0.0`. That is what the Linux half produced, and it is the QUIETER defect:
+            # `truestill_0.0.0_amd64.deb` is indistinguishable from a real 0.0.0 release, where
+            # Windows' `TruestillSetup-main.exe` is at least obviously broken. A dispatch build
+            # must be unmistakable, so it carries `-dev` and the run that made it.
+            # `packaging/installer.iss` already defaults to `0.0.0-dev`; the workflow ignored it.
+            version="0.0.0-dev.${GITHUB_RUN_ID:-0}"
+          fi
+
+          if ! printf '%s' "${version}" | grep -Eq "${semver}"; then
+            echo "::error::'${GITHUB_REF_NAME}' does not give a 3-component semver (got '${version}')." >&2
+            echo "::error::Tag as vX.Y.Z. Refusing to guess - the publish job runs on tags." >&2
+            exit 1
+          fi
+
+          echo "value=${version}" >> "$GITHUB_OUTPUT"
+          echo "version resolved to ${version} (ref_type=${GITHUB_REF_TYPE}, ref_name=${GITHUB_REF_NAME})"
+
       # THE INSTALLER. The Linux half is the `.deb` step below; both are built here now.
       - name: Build the installer (Inno Setup)
         if: runner.os == 'Windows'
@@ -149,19 +208,16 @@ jobs:
           choco install innosetup --no-progress -y
           $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
           if (-not (Test-Path $iscc)) { throw "ISCC.exe not found at $iscc" }
-          $version = '${{ github.ref_name }}' -replace '^v', ''
-          if (-not $version) { $version = '0.0.0-dev' }
           Copy-Item packaging/installer.iss -Destination installer.iss
-          & $iscc /DMyAppVersion=$version installer.iss
+          & $iscc /DMyAppVersion=${{ steps.version.outputs.value }} installer.iss
           New-Item -ItemType Directory -Force -Path out | Out-Null
           Copy-Item inno-out/*.exe -Destination out/
 
       - name: Build the package (.deb)
         if: runner.os == 'Linux'
         run: |
-          version="$(echo '${{ github.ref_name }}' | sed 's/^v//')"
-          [ -n "$version" ] && [ "$version" != "main" ] || version="0.0.0"
-          uv run python packaging/build_deb.py --dist dist/truestill --version "$version" --out out
+          uv run python packaging/build_deb.py --dist dist/truestill \
+            --version '${{ steps.version.outputs.value }}' --out out
 
       # Both sides, out of the package payload: the desktop entry names what is staged, and what
       # is staged hashes to the committed artwork. Neither half alone would catch an entry and a

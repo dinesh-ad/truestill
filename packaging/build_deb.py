@@ -208,7 +208,13 @@ def _stage_and_package(dist: Path, version: str, out: Path, scratch: Path) -> Pa
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description="build the truestill .deb")
     parser.add_argument("--dist", type=Path, default=_ROOT / "dist" / "truestill")
-    parser.add_argument("--version", default="0.0.0")
+    parser.add_argument(
+        "--version",
+        # ⚠ NOT `0.0.0`: a default that is indistinguishable from a real release is how a
+        # dispatch build becomes a plausible one. `installer.iss` has defaulted to
+        # `0.0.0-dev` all along; this is the same rule on the other platform. `(aex)`
+        default="0.0.0-dev",
+    )
     parser.add_argument("--out", type=Path, default=_ROOT / "deb-out")
     args = parser.parse_args(argv)
 

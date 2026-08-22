@@ -145,12 +145,7 @@ is invisible here is retired, not free.**
   instance** (after `(aac)` and `(aer)`), so the fix is likely **one** decision about how refusal
   is reported everywhere rather than three wordings. Held out of `(aey)` deliberately: a user acts
   on a drive-adoption verdict. Filed 2026-08-21. [Full entry](research/backlog/afa.md)
-- **(aex) THE WINDOWS INSTALLER IS STAMPED WITH A BRANCH NAME ON EVERY DISPATCH RUN.**
-  Linux falls back to `0.0.0` when `github.ref_name` is not a tag (`release.yml:159`); Windows
-  has no fallback (`release.yml:148`) and its `if (-not $version)` guard cannot fire because
-  `main` is non-empty. Run 31689737405 built an Inno installer with `MyAppVersion=main` and
-  **passed every gate**. Release-blocking, not live: `publish` is tag-gated and has never run.
-  Found 2026-08-21. [Full entry](research/backlog/aex.md)
+
 - **(ael) NO CLI ROUTE COPIES A LIBRARY TO A SECOND DRIVE WITHOUT A SOURCE FOLDER.** `(aei)`
   closed most of this - `organize <source> <second-drive>` is now the CLI's second-copy route.
   What remains is drive-to-drive when the source folder is gone or no longer matches the drive.

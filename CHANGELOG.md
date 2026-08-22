@@ -45,6 +45,11 @@ All notable changes to this project are documented here. The format follows
   A group you have already named shows its name instead, and is never offered a suggestion.
 
 ### Fixed
+- **Test builds can no longer be mistaken for releases.** A build made from a branch rather than a
+  release tag used to be stamped with the branch's name on Windows, and with `0.0.0` on Linux -
+  which looks exactly like a real version. Such builds are now marked plainly as development
+  builds and name the run that produced them, and a release tag that is not a proper version
+  number is refused rather than guessed at.
 - **Truestill no longer offers to register a backup drive that is simply not plugged in.** When a
   drive is unmounted, the folder it lived in looks exactly like an empty new folder - the computer
   cannot tell them apart. Truestill now remembers where each drive was last seen, so it recognises

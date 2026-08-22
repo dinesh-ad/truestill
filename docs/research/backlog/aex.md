@@ -1,6 +1,6 @@
 # (aex) THE WINDOWS INSTALLER IS STAMPED WITH A BRANCH NAME ON EVERY DISPATCH RUN.
 
-*Body of backlog entry `(aex)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(aex)`, **CLOSED 2026-08-22**. The closure is in [`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
 
 - **(aex) `MyAppVersion=main`: THE DRY-RUN PATH IS HALF-PREPARED, AND WINDOWS IS THE HALF THAT
   IS NOT.** Found 2026-08-21 by reading the release lane while planning the Python 3.14 move.
@@ -46,3 +46,18 @@
     (Windows' dead fallback) are already two answers to one question.
   - **Whether the guard should refuse rather than substitute.** A build whose version is a branch
     name is arguably one that should fail the step, not quietly pick a number.
+
+  ## ⚠ CONFIRMED IN A SECOND RUN, AND THE FIX WENT WIDER THAN THE ENTRY
+
+  Run **32552435733** (2026-08-22, dispatch from `main`, the Python 3.14 release dry run) produced
+  **`TruestillSetup-main.exe`** and passed self-check, comparison, install, verify and uninstall.
+
+  **The entry framed Linux as the half that was right. It was not** - and its wrongness is the
+  quieter one. `truestill_0.0.0_amd64.deb` is **indistinguishable from a real 0.0.0 release**,
+  where `TruestillSetup-main.exe` is obviously broken. **Something plausibly wrong outlives
+  something obviously wrong**, so the Linux fallback was the more dangerous of the two.
+
+  The shipped rule is therefore **validate, not fall back** - the industry pattern for a release
+  workflow: on a tag, derive and check against **three-component semver**, refusing anything else
+  rather than coercing it; on a dispatch, stamp `0.0.0-dev.<run id>`, which cannot be mistaken for
+  a release and names the run that made it. One derivation, `shell: bash`, serving both platforms.
