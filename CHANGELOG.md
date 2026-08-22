@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **A run whose catalog cannot be written now stops and tells you, instead of ending in a
+  traceback and leaving a photo nothing recorded.** If the folder holding your catalog becomes
+  read-only, fills up, or goes away mid-run, Truestill stops and says what it organized, what it
+  recorded, that the two match, and what to check - and it removes the one copy it had just made
+  but could not record, so nothing is left on the drive that the catalog does not know about.
+  Before, that leftover copy became a duplicate with a `_1` on the end the next time you ran
+  organize. Under `--in-place` the file is your only copy, so it is left alone and named instead.
+  If another Truestill window is simply using the catalog, the run now waits for it rather than
+  giving up.
+
 ### Added
 - **If you lose your catalog, your names come back from your drives.** `truestill restore <path>`
   reads the decisions file Truestill keeps on each drive and puts your trip and event names,

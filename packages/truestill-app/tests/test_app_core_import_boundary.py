@@ -54,6 +54,9 @@ ALLOWED: dict[str, dict[str, str]] = {
         "ProgressCallback": "a typing alias for the callback shape; not a runtime object",
         "CATALOG_BUSY_CODE": "a string constant; the terminal event's `code` for a held catalog",
         "CATALOG_BUSY_MESSAGE": "a string constant - the refusal's wording, shared with the CLI",
+        "CATALOG_UNWRITABLE_CODE": "a string constant; the terminal event's `code` for a catalog that cannot be written",
+        "catalog_unwritable_message": "a pure function of an exception to a string; holds no state and touches no library",
+        "is_catalog_unwritable": "a pure predicate over an exception; the same shape as `is_catalog_busy` beside it",
         "is_catalog_busy": (
             "a pure predicate over an exception's `sqlite_errorcode`; opens nothing and reads "
             "nothing. It is here rather than in `service/` because the exception is caught here "

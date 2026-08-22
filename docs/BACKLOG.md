@@ -133,17 +133,6 @@ is invisible here is retired, not free.**
   mechanism is **not isolated**. It did not block the upgrade because a near-duplicate is kept and
   flagged, never removed - the effect is one extra row in a review list, and exact dedup was
   identical in all four runs. Found 2026-08-22. [Full entry](research/backlog/aff.md)
-- **(afe) A CATALOG THAT GOES UNWRITABLE MID-RUN ABORTS WITH A TRACEBACK AND LEAVES A FILE IT DID
-  NOT RECORD.** ⚠ **Investigated read-only 2026-08-22; this entry's own diagnosis is corrected
-  there.** The catalog write **is** inside the per-file try - the tuple `(OSError,
-  DestinationError)` simply does not name `sqlite3.Error`. And the gap is safe for data but
-  **self-worsening**: measured, the next run turns 3 unrecorded files into **6**, suffixing `_1`,
-  and reports `organized (unique): 3` with **exit 0**. Four options recorded for the §1 ruling. `chmod 555` on the catalog's directory once five files had landed: the batch
-  **aborted** (§1), the last line the user sees is `sqlite3.OperationalError: attempt to write a
-  readonly database` with our own line numbers (§9), no `EXECUTED` block prints, and **48 files
-  are on disk against 47 rows** - the state `rescan` repairs, reached silently. ⚠ The gap is in
-  the safe direction (a file with no row, never a row with no file). Found 2026-08-21 by **soak
-  three R5**. [Full entry](research/backlog/afe.md)
 - **(afd) THE ONE UNCAPPED LIST IN THE PRODUCT IS THE FAILURE LIST, AND IT PRINTS RAW `OSError`
   TEXT.** A destination that refused after preflight produced **233 `FAILED` lines and 2,004 lines
   of output**, each carrying `[Errno 13] Permission denied: '<src>' -> '<dst>.partial'`.

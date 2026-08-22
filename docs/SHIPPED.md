@@ -22,6 +22,20 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(afe) A CATALOG THAT CANNOT BE WRITTEN STOPS THE RUN AND REPORTS IT, INSTEAD OF A TRACEBACK
+  AND A FILE NOBODY RECORDED.** Shipped 2026-08-22. Split on SQLite's own result code: busy is
+  waited out with bounded backoff and stays a per-file event; anything else is permanent within
+  the run and ends it with a report - what landed, what was recorded, the difference, and where
+  to go - and stops copying. The copy whose row never landed is **removed again**, verified by
+  checksum first and never under `--in-place`, where it is the user's only copy. ⚠ **Three
+  measurements moved the design**: `sqlite_errorcode` carries *extended* codes, so R5 is 1544 and
+  three genuine busy codes were being misread as faults; R5 presents as `SQLITE_IOERR_DELETE` as
+  often as `READONLY_DIRECTORY`; and guarding the write loop alone left the traceback to reappear
+  from `finish_organize_run`, so the refusal belongs at each surface's one catalog seam.
+  Convergence measured before and after: an orphan used to become a `_1` duplicate on the next
+  run, and now the next run ends 72 files / 72 rows / 0 suffixes.
+  [Full entry](research/backlog/afe.md)
+
 - **(aex) A RELEASE BUILD IS STAMPED WITH A VERSION OR REFUSED - NEVER WITH A REF'S NAME.**
   - ✅ **CLOSED 2026-08-22.** Confirmed twice in real runs: a dispatch from `main` produced
     **`TruestillSetup-main.exe`** - a branch name in the installer's filename and in Add/Remove

@@ -34,7 +34,7 @@ from pathlib import Path
 
 import pytest
 from truestill_cli import cli
-from truestill_cli.cli import CATALOG_BUSY_EXIT, main
+from truestill_cli.cli import CATALOG_BUSY_EXIT, CATALOG_UNWRITABLE_EXIT, main
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_busy import CATALOG_BUSY_MESSAGE, is_catalog_busy
 from truestill_core.layout import LAYOUT_TEMPLATE_KEY
@@ -177,10 +177,15 @@ def test_an_ordinary_sqlite_failure_is_not_dressed_up_as_a_busy_catalog(tmp_path
     assert not is_catalog_busy(ordinary)
 
 
-def test_the_cli_re_raises_an_ordinary_sqlite_failure_instead_of_refusing(
+def test_the_cli_re_raises_a_sqlite_failure_that_is_a_bug_rather_than_a_condition(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The cry-wolf half at the surface: only the busy case is converted.
+    """The cry-wolf half at the surface: only a real condition is converted.
+
+    ``SELECT * FROM no_such_table`` is ``SQLITE_ERROR`` -- a bug of ours, not something the user
+    can act on. It keeps its traceback, and that survived the 2026-08-22 change that gave the
+    *unwritable* family a refusal of its own: the test below is the one that pins the family, and
+    this is the one that pins the boundary of it. `(afe)`
 
     Patched on `truestill_cli.cli`, the module that *owns* `_cmd_config` -- `main` resolves it
     as a module global when it builds the dispatch table, so this reaches the real call
@@ -194,6 +199,49 @@ def test_the_cli_re_raises_an_ordinary_sqlite_failure_instead_of_refusing(
     monkeypatch.setattr(cli, "_cmd_config", explode)
     with pytest.raises(sqlite3.OperationalError):
         main(["config"])
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="chmod 555 does not deny the owner on Windows; this refusal has no Windows equivalent",
+)
+def test_a_catalog_that_cannot_be_written_is_refused_rather_than_raised(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """⚠ The §9 hole this closed: a real read-only catalog used to reach the terminal as a stack.
+
+    The failure is produced by ``chmod`` rather than constructed, so the code under test sees the
+    same extended code SQLite really raises.
+    """
+    directory = tmp_path / "ro"
+    directory.mkdir()
+    conn = sqlite3.connect(directory / "c.sqlite")
+    conn.execute("CREATE TABLE probe (x)")
+    conn.commit()
+    directory.chmod(0o555)
+    try:
+        conn.execute("INSERT INTO probe VALUES (1)")
+        conn.commit()
+    except sqlite3.Error as exc:
+        unwritable = exc
+    else:  # pragma: no cover - the chmod above did not deny the write
+        pytest.fail("the catalog directory was made read-only and SQLite still wrote to it")
+    finally:
+        directory.chmod(0o755)
+        conn.close()
+
+    def explode(_args: object) -> int:
+        raise unwritable
+
+    monkeypatch.setattr(cli, "_cmd_config", explode)
+    code = main(["config"])
+
+    assert code == CATALOG_UNWRITABLE_EXIT
+    assert code != CATALOG_BUSY_EXIT, "a fault must not exit as the condition that clears itself"
+    err = capsys.readouterr().err
+    assert "Traceback" not in err
+    assert CATALOG_BUSY_MESSAGE not in err
+    assert "could not be written" in err
 
 
 def test_a_busy_catalog_at_the_same_surface_is_converted(

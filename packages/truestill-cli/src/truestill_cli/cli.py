@@ -32,7 +32,12 @@ from truestill_core.app_paths import (
 from truestill_core.archive_extract import extract_archive_set
 from truestill_core.archive_ingest import archives_at, precheck_archives
 from truestill_core.catalog import Catalog
-from truestill_core.catalog_busy import CATALOG_BUSY_MESSAGE, is_catalog_busy
+from truestill_core.catalog_busy import (
+    CATALOG_BUSY_MESSAGE,
+    catalog_unwritable_message,
+    is_catalog_busy,
+    is_catalog_unwritable,
+)
 from truestill_core.catalog_move import CatalogMoveOutcome, move_catalog_to_standard
 from truestill_core.catalog_session import open_catalog
 from truestill_core.catalog_startup import (
@@ -235,6 +240,12 @@ _STATUS_PREVIEW = 20  # how many single-copy files `truestill status` lists befo
 #: the codes here are already allocated -- `3` a missing exiftool, `4` an unusable destination
 #: -- one per failure family that a caller would act on differently.
 CATALOG_BUSY_EXIT = 5
+
+#: A catalog write that failed for a reason retrying cannot fix. Distinct from
+#: `CATALOG_BUSY_EXIT` because the two send the user somewhere different, and distinct from a
+#: plain `1` because a script that sees this knows the library may hold files the catalog does
+#: not: `truestill rescan` is the follow-up, not a re-run. `(afe)`
+CATALOG_UNWRITABLE_EXIT = 7
 
 
 def _parse_tz(value: str) -> timedelta:
@@ -3885,10 +3896,19 @@ def main(argv: list[str] | None = None) -> int:
     through it harmlessly: they cannot raise this in the first place, since SQLite blocks only
     a second *writer*.
 
-    Anything that is not a busy catalog keeps its traceback. That is the point of the check
-    rather than the point of the message: `OperationalError` also covers a disk I/O error and a
-    corrupt schema, and answering those with "wait for the other operation to finish" would
-    send someone to wait out a fault that never clears.
+    A catalog failure that is **not** busy gets its own refusal rather than the busy one, because
+    the two send the user somewhere different: "wait for the other operation to finish" is
+    useless advice about a read-only folder or a full disk.
+
+    ⚠ **A third case joined the two on 2026-08-22, and a bug still keeps its traceback.** This
+    handler used to re-raise everything that was not busy, so a catalog that went unwritable
+    mid-run reached the terminal as a `sqlite3.OperationalError` stack -- §9's exact prohibition,
+    and measured: an `organize` whose catalog directory turned read-only ended in a traceback out
+    of `finish_organize_run`, *after* the per-file write path had already been made safe. Guarding
+    the write loop alone left every other catalog write in the command uncovered, which is why
+    the rule belongs at the one seam that sees them all. What did **not** change is the last arm:
+    `SELECT * FROM no_such_table` is a bug of ours, not a condition of the user's, and it still
+    raises. `(afe)`
     """
     try:
         return _dispatch(argv)
@@ -3897,10 +3917,13 @@ def main(argv: list[str] | None = None) -> int:
         # explanation on stderr, and a second copy of it would read as two problems. `(adr)`.
         return CATALOG_UNUSABLE_EXIT
     except sqlite3.Error as exc:
-        if not is_catalog_busy(exc):
+        if is_catalog_busy(exc):
+            print(f"error: {CATALOG_BUSY_MESSAGE}", file=sys.stderr)
+            return CATALOG_BUSY_EXIT
+        if not is_catalog_unwritable(exc):
             raise
-        print(f"error: {CATALOG_BUSY_MESSAGE}", file=sys.stderr)
-        return CATALOG_BUSY_EXIT
+        print(f"error: {catalog_unwritable_message(exc)}", file=sys.stderr)
+        return CATALOG_UNWRITABLE_EXIT
 
 
 def _dispatch(argv: list[str] | None) -> int:

@@ -13,16 +13,19 @@ from __future__ import annotations
 
 import os
 import shutil
+import sqlite3
 import tempfile
 import threading
 from collections import Counter
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
+from enum import StrEnum
 from pathlib import Path, PurePosixPath
 from typing import Any, Protocol
 
 from truestill_core.catalog import Catalog
+from truestill_core.catalog_busy import is_catalog_busy, retry_while_busy
 from truestill_core.categorize import Rule, categorize
 from truestill_core.date_provenance import parse_inferred_date_tag
 from truestill_core.dates import (
@@ -1075,6 +1078,108 @@ class MetadataBakeError(OSError):
         )
 
 
+class Rollback(StrEnum):
+    """What became of a copy whose catalog row could not be written.
+
+    Five members because each is a different sentence to the user and a different state on their
+    drive -- and because "we deleted it" and "we could not delete it" must never be the same
+    report. `(afe)`
+    """
+
+    #: Copy mode, checksum matched, unlink succeeded. Nothing is on the drive unrecorded.
+    REMOVED = "removed"
+    #: The write was a rename: the file at the destination is the user's ONLY copy.
+    KEPT_MOVED_IN_PLACE = "kept_moved_in_place"
+    #: The checksum did not match what this run wrote, so the file is not ours to remove.
+    KEPT_CONTENT_DIFFERS = "kept_content_differs"
+    #: The copy could not be re-read to confirm identity, so it was left alone.
+    KEPT_UNVERIFIABLE = "kept_unverifiable"
+    #: Identity confirmed, and the removal itself failed. Reported, never suppressed.
+    REMOVE_FAILED = "remove_failed"
+
+
+#: The rollback outcomes that leave a file on the drive with no catalog row.
+_ORPHAN_ROLLBACKS = frozenset(Rollback) - {Rollback.REMOVED}
+
+
+class CatalogWriteError(Exception):
+    """A catalog write failed permanently, so the run must stop rather than copy on.
+
+    ⚠ **Deliberately NOT an ``OSError``, which is the exact opposite of the choice made two
+    classes up.** `MetadataBakeError` subclasses ``OSError`` so that `execute`'s per-file handler
+    catches it and the run continues; this one must pass *through* that handler. If a later
+    change makes this an ``OSError`` "for consistency", the run silently returns to copying files
+    it cannot record, which is the defect this class exists to end.
+
+    **Why a stop is not a weaker promise than IMPLEMENTATION_STANDARDS.md §1.** §1 says one bad
+    file never aborts a batch. That rule is about a file the product could not *use*: skipping it
+    costs one file. A catalog write fails *after* the copy is on disk, so there is no skip
+    available -- the cost is the **record** of a file that now exists, and that absence is what
+    duplicates the library on the next run. §1 answering for one does not settle the other; the
+    stop is the same promise applied to a different cost.
+    """
+
+    def __init__(
+        self,
+        cause: BaseException,
+        *,
+        relative: str,
+        source: Path,
+        rollback: Rollback,
+        rollback_detail: str,
+        busy_exhausted: bool,
+        catalog_dir: Path,
+    ) -> None:
+        super().__init__(str(cause))
+        self.cause = cause
+        self.relative = relative
+        self.source = source
+        #: The directory SQLite needs to write, which is the thing to fix and is not always the
+        #: catalog file's own permissions -- the sidecars are created beside it.
+        self.catalog_dir = catalog_dir
+        self.rollback = rollback
+        self.rollback_detail = rollback_detail
+        self.busy_exhausted = busy_exhausted
+
+    @property
+    def left_an_orphan(self) -> bool:
+        """Whether a file is on the drive with no catalog row because of this failure."""
+        return self.rollback in _ORPHAN_ROLLBACKS
+
+
+def _roll_back_unrecorded_copy(
+    destination: Destination, *, relative: str, copy_sha: str, moved_in_place: bool
+) -> tuple[Rollback, str]:
+    """Undo the copy whose row could not be written, when that is safe. Never raises.
+
+    ⚠ **The whole function is a guard around one ``unlink``.** We are deleting a file at a path
+    *we constructed* -- ``_free_relative`` may have suffixed it, another process may have
+    replaced it in the interim -- and unlinking something this run did not write is the one
+    unforgivable outcome here. So the checksum is re-read and compared before the removal, and
+    any doubt at all leaves the file alone.
+
+    ⚠ **``moved_in_place`` is checked first and answers structurally.** Under ``--in-place`` the
+    "copy" is a rename: the destination file is the user's only copy, and removing it would
+    destroy data to tidy up a bookkeeping failure. There is no verification that could make that
+    safe, so the check is not a heuristic and must stay ahead of the others.
+    """
+    if moved_in_place:
+        return Rollback.KEPT_MOVED_IN_PLACE, ""
+    try:
+        actual = destination.checksum(relative)
+    except (DestinationError, OSError) as exc:
+        return Rollback.KEPT_UNVERIFIABLE, str(exc)
+    if actual != copy_sha:
+        return Rollback.KEPT_CONTENT_DIFFERS, ""
+    try:
+        destination.remove(relative)
+    except (DestinationError, OSError) as exc:
+        # Reported, never swallowed: a failed cleanup leaves exactly the state the caller is
+        # about to tell the user does not exist.
+        return Rollback.REMOVE_FAILED, str(exc)
+    return Rollback.REMOVED, ""
+
+
 def _bake_queue(
     resolutions: Sequence[Resolution], ingest: IngestContext, *, skip_undated: bool
 ) -> list[tuple[Decision, MetadataWrite]]:
@@ -1347,6 +1452,45 @@ def _write_organized_bytes(
     return source_sha, moved_in_place
 
 
+def _record_or_stop(
+    record_row: Callable[[], None],
+    *,
+    destination: Destination,
+    catalog_dir: Path,
+    relative: str,
+    source: Path,
+    copy_sha: str,
+    moved_in_place: bool,
+) -> None:
+    """Write the catalog row, waiting out a busy catalog, or stop the run.
+
+    **The split is on SQLite's own result code, never the message** -- see `catalog_busy`, which
+    also explains why every comparison masks to the primary code. Busy is a normal condition and
+    is waited out; anything else will still be failing in a second, and a run that carried on
+    would copy more files it could not record.
+
+    An **exhausted** busy is treated as permanent, and that is the point rather than an edge
+    case: a transient failure we stop retrying has become a permanent one, and for this write it
+    has become an unrecorded file. It keeps its own wording, because "wait for the other window"
+    and "fix the folder's permissions" send the user to different places.
+    """
+    try:
+        retry_while_busy(record_row)
+    except sqlite3.Error as exc:
+        rollback, rollback_detail = _roll_back_unrecorded_copy(
+            destination, relative=relative, copy_sha=copy_sha, moved_in_place=moved_in_place
+        )
+        raise CatalogWriteError(
+            exc,
+            relative=relative,
+            source=source,
+            rollback=rollback,
+            rollback_detail=rollback_detail,
+            busy_exhausted=is_catalog_busy(exc),
+            catalog_dir=catalog_dir,
+        ) from exc
+
+
 def _record_organized_file(
     resolution: Resolution,
     *,
@@ -1505,19 +1649,27 @@ def _execute_one_write(
     )
 
     if catalog is not None:
-        _record_organized_file(
-            resolution,
-            catalog=catalog,
-            ingest=ingest,
-            albums_by_sha=albums_by_sha,
-            by_source=by_source,
-            source_sha=source_sha,
+        _record_or_stop(
+            lambda: _record_organized_file(
+                resolution,
+                catalog=catalog,
+                ingest=ingest,
+                albums_by_sha=albums_by_sha,
+                by_source=by_source,
+                source_sha=source_sha,
+                copy_sha=copy_sha,
+                size=size,
+                final_relative=final_relative,
+                moved_in_place=moved_in_place,
+                relocation=relocation,
+                drive_uuid=drive_uuid,
+            ),
+            destination=destination,
+            catalog_dir=catalog.path.parent,
+            relative=final_relative,
+            source=decision.source,
             copy_sha=copy_sha,
-            size=size,
-            final_relative=final_relative,
             moved_in_place=moved_in_place,
-            relocation=relocation,
-            drive_uuid=drive_uuid,
         )
 
     return _journal_or_delete_source(
@@ -1649,6 +1801,79 @@ def _ground_watch(
     health = watcher_for(destination.local_root(), catalog.path if catalog else None)
     ahead = _largest_still_ahead(resolutions, sizes) if health is not None else []
     return _GroundWatch(health=health, largest_ahead=ahead, sizes=sizes)
+
+
+def _catalog_stop_detail(exc: CatalogWriteError, *, recorded: int) -> str:
+    """The whole user-facing account of a run stopped by the catalog. **The only wording of it.**
+
+    IMPLEMENTATION_STANDARDS.md §9 wants one source of outcome wording, so this builds the entire
+    sentence and both surfaces render it as an ordinary `ActionStatus.FAILED` detail rather than
+    re-describing the situation. Four things, in the order someone needs them: what happened,
+    what landed, what the difference is, and where to go.
+
+    ⚠ **``sqlite_errorname``, never ``str(exc)``.** The symbolic name is what makes a bug report
+    actionable and is stable vocabulary; SQLite's prose is not ours and §9 keeps it off the
+    screen. `SQLITE_READONLY_DIRECTORY` is also the one that tells a reader the *directory* was
+    the problem, which the message above it can then act on.
+    """
+    name = getattr(exc.cause, "sqlite_errorname", None)
+    if exc.busy_exhausted:
+        cause = (
+            "Another Truestill operation held the library catalog for every attempt this run "
+            "made, so the run stopped rather than copy files it could not record."
+        )
+        remedy = (
+            "Wait for the other operation to finish, or close the other Truestill window, or "
+            "stop the other command in your terminal, then run this again."
+        )
+    else:
+        cause = (
+            "The library catalog could not be written, so the run stopped rather than copy "
+            "files it could not record."
+        )
+        remedy = (
+            f"Check that {exc.catalog_dir} can be written to - the catalog also creates "
+            "temporary files beside it, so making the catalog file itself writable is not "
+            "enough on its own - then run this again."
+        )
+    landed = f"{recorded} file{'' if recorded == 1 else 's'} organized and recorded before this."
+    if exc.rollback is Rollback.REMOVED:
+        difference = (
+            f"The copy of {exc.source.name} this run had just made was removed again, so "
+            "nothing was left on the drive without a catalog entry."
+        )
+    elif exc.rollback is Rollback.KEPT_MOVED_IN_PLACE:
+        difference = (
+            f"{exc.relative} was moved into your library and could not be recorded, so it is "
+            "there with no catalog entry. It is your only copy of that file, so it was left "
+            "alone rather than removed."
+        )
+    elif exc.rollback is Rollback.KEPT_CONTENT_DIFFERS:
+        difference = (
+            f"{exc.relative} is on the drive with no catalog entry. It was left alone because "
+            "its contents no longer match what this run wrote, so it is not this run's to "
+            "remove."
+        )
+    elif exc.rollback is Rollback.KEPT_UNVERIFIABLE:
+        difference = (
+            f"{exc.relative} is on the drive with no catalog entry. It was left alone because "
+            f"it could not be re-read to confirm it is the copy this run wrote "
+            f"({exc.rollback_detail})."
+        )
+    else:
+        difference = (
+            f"{exc.relative} is on the drive with no catalog entry, and removing it failed too "
+            f"({exc.rollback_detail})."
+        )
+    parts = [cause, landed, difference]
+    if exc.left_an_orphan:
+        parts.append(
+            "Run 'truestill rescan' to list anything on the drive the catalog does not know about."
+        )
+    parts.append(remedy)
+    if name:
+        parts.append(f"Diagnostic: {name}.")
+    return " ".join(parts)
 
 
 def _health_stop(
@@ -1804,6 +2029,16 @@ def execute(
             )
             if results[-1].status in _BYTES_WRITTEN_STATUSES:
                 ground.written += ground.sizes.get(decision.source, 0)
+        except CatalogWriteError as exc:
+            # ⚠ THE ONE FAILURE THAT ENDS THE RUN. `_health_stop`'s shape exactly -- a recorded
+            # `FAILED` and a `break` -- and for its stated reason: nothing type-checks
+            # exhaustiveness over `ActionStatus`, so a new member is a set of call sites found
+            # by hand, and `FAILED` already means "this file is not in your library, and this
+            # is why". The files after this one are unattempted, as with any stop.
+            recorded = sum(1 for r in results if r.status in _BYTES_WRITTEN_STATUSES)
+            detail = _catalog_stop_detail(exc, recorded=recorded)
+            record(ActionResult(resolution, ActionStatus.FAILED, None, detail))
+            break
         except (OSError, DestinationError) as exc:
             record(ActionResult(resolution, ActionStatus.FAILED, None, str(exc)))
 

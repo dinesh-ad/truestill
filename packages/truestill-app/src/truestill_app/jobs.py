@@ -23,7 +23,14 @@ from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal, TypedDict
 
-from truestill_core.catalog_busy import CATALOG_BUSY_CODE, CATALOG_BUSY_MESSAGE, is_catalog_busy
+from truestill_core.catalog_busy import (
+    CATALOG_BUSY_CODE,
+    CATALOG_BUSY_MESSAGE,
+    CATALOG_UNWRITABLE_CODE,
+    catalog_unwritable_message,
+    is_catalog_busy,
+    is_catalog_unwritable,
+)
 from truestill_core.progress import Progress, ProgressCallback
 
 #: A job target receives a progress callback and a cancel event, and returns a JSON-able summary.
@@ -208,11 +215,30 @@ class JobManager:
                     # it is reworded here rather than left to read as a crash. Recognition and
                     # wording come from core because the CLI answers the same condition and the
                     # two must not drift.
-                    busy = is_catalog_busy(exc)
+                    #
+                    # ⚠ A catalog failure that is not busy is no better served by `str(exc)`:
+                    # "disk I/O error" and "attempt to write a readonly database" describe
+                    # SQLite's internals and name no action either. It gets its own wording and
+                    # its own code, from core, so this surface and the CLI keep answering the
+                    # same condition the same way. `(afe)`
+                    #
+                    # ⚠ **Three cases, not two, and this `except` catches `Exception`.** A first
+                    # cut here reworded everything that was not busy, which turned every job
+                    # failure in the product -- a backup with too little space, a bad path --
+                    # into "the library catalog could not be written" -- including a missing
+                    # table, which is a bug of ours. `is_catalog_unwritable` names the codes that
+                    # are actually about reaching or storing the catalog; everything else keeps
+                    # its own class and message exactly as before. `(afe)`
+                    if is_catalog_busy(exc):
+                        message, code = CATALOG_BUSY_MESSAGE, CATALOG_BUSY_CODE
+                    elif is_catalog_unwritable(exc):
+                        message, code = catalog_unwritable_message(exc), CATALOG_UNWRITABLE_CODE
+                    else:
+                        message, code = str(exc), type(exc).__name__
                     terminal = {
                         "type": _SENTINEL_ERROR,
-                        "message": CATALOG_BUSY_MESSAGE if busy else str(exc),
-                        "code": CATALOG_BUSY_CODE if busy else type(exc).__name__,
+                        "message": message,
+                        "code": code,
                     }
             finally:
                 # Always release, including cancel and exception - a stuck lock is worse than

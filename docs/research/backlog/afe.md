@@ -153,3 +153,105 @@
     checking it once is the same mistake R3 was written about - *checked at the start, refused in
     the middle.*
   - **What `rescan` should be told.** The repair exists; nothing points the user at it.
+
+  ---
+
+  # RULED AND BUILT - 2026-08-22. Option **C**, with rollback.
+
+  **The ruling:** busy (`SQLITE_BUSY`/`SQLITE_LOCKED`) is transient and per-file; anything else is
+  permanent within the run and a **reported stop** that also stops copying. Plus the rollback the
+  convergence measurement forced.
+
+  ## The asymmetry that justifies the exception to §1
+
+  > A failed destination write costs one file. A failed catalog write costs the **record** of a
+  > file now on disk, and that absence is what duplicates the library next time. §1 answering for
+  > one does not settle the other, and the stop is not a weaker promise - it is the same promise
+  > applied to a different cost.
+
+  §1 is about a file the product could not **use**, where skipping costs one file. Here the file
+  is fine and already at the destination: there is no skip available.
+
+  ## FOUR MEASUREMENTS THAT CHANGED THE DESIGN
+
+  ### 1. `sqlite_errorcode` carries EXTENDED codes, so every comparison masks `& 0xFF`
+
+  R5's code is **1544** = `SQLITE_READONLY_DIRECTORY` = `8 | (6 << 8)`, **not** `SQLITE_READONLY`.
+  The same trap ran the other way and was **live**: `is_catalog_busy` compared the raw code to
+  `{5, 6}`, so `SQLITE_BUSY_RECOVERY` (261), `BUSY_SNAPSHOT` (517) and `BUSY_TIMEOUT` (773) all
+  answered *not busy* and would have stopped a run that should have waited. A plain contended
+  write returns the primary `5`, which is why it never bit.
+
+  ### 2. ⚠ R5 presents as `SQLITE_IOERR_DELETE` as often as `READONLY_DIRECTORY`
+
+  Measured through the CLI rather than in a unit test: `chmod 555` on the directory does **not**
+  stop writes at once. SQLite can keep reusing a `-journal` file it already created - opening an
+  existing file needs permission on the *file* - and only the **removal** of it needs the
+  directory. So the code depends on where in the transaction the refusal lands. Dropping `IOERR`
+  from the recognised family would have left the commoner of the two answering with a traceback.
+
+  ### 3. Guarding the write loop was not enough - the traceback moved
+
+  With the per-file path fixed, a real run still ended in a stack from
+  `catalog.finish_organize_run`, **after** `execute` returned. `cli.main` re-raised every non-busy
+  `sqlite3.Error` by design. The fix belongs at the one seam that sees every catalog write in a
+  command, not at each write.
+
+  ### 4. ⚠ One predicate cannot answer both questions, and a first cut proved it
+
+  *"Should we retry?"* is safe by default **no**, so unknown codes stop the run. *"Should we tell
+  the user their catalog cannot be written?"* is safe by default **no** on the other side.
+  Complementing busy for both turned `SELECT * FROM no_such_table` - a bug of ours - into advice
+  about folder permissions, and reworded every unrelated job failure in the app besides. The
+  recognised family is now enumerated (`PERM`, `READONLY`, `IOERR`, `FULL`, `CANTOPEN`); a bug
+  keeps its traceback.
+
+  ## BUSY vs LOCKED, and SQLITE_IOERR - reported, not silently sorted
+
+  **They stay grouped, and the comment saying both mean *wait and retry* was false for LOCKED.**
+  `catalog.py` opens one connection with no shared cache, so a genuine `SQLITE_LOCKED` is a
+  conflict with ourselves: retrying can never clear it. It belongs on the permanent side on the
+  evidence. It stays grouped only because an exhausted retry escalates to the same stop, so the
+  outcome converges; the imprecision costs retry latency on a case that cannot happen without a
+  bug of ours.
+
+  ⚠ **`SQLITE_IOERR` is UNRESOLVED for the retry decision and is placed on the permanent side.**
+  The evidence does not settle it: `IOERR` covers a failing disk and a flaky USB or network
+  filesystem alike, and nothing at the call site distinguishes them. The tie is broken by **cost,
+  not evidence** - calling a blip permanent costs a run the user restarts; calling a dying disk
+  transient keeps writing to failing media. Its *wording* side is settled and pinned.
+
+  ## THE ANSWER TO "DOES THE NEXT RUN CONVERGE?"
+
+  **Before the rollback: no.** One orphan became two files, exit 0 - dedup misses, `_already_at_target`
+  is a `samefile` check false in copy mode, `_free_relative` suffixes `_1`. The stop would have
+  **bounded** the damage to one file rather than prevented it.
+
+  **With the rollback: yes, exactly.** Measured end to end, 72 files, catalog denied after five:
+
+  ```
+  RUN 1  exit=7  traceback=0  files on disk=33  catalog rows=33
+  RUN 2  exit=0  files on disk=72  rows=72  sources=72  _1 suffixes=0
+  ```
+
+  ### The rollback, and the one line it must never cross
+
+  On a permanent failure the copy just made is removed, so nothing is left unrecorded. It is
+  guarded because we are deleting a file **at a path we constructed**: the checksum is re-read and
+  compared first, and any doubt leaves the file alone. A failed removal is **reported in the same
+  block as the orphan**, never suppressed.
+
+  ⚠ **`moved_in_place` is checked first and answers structurally.** Under `--in-place` the "copy"
+  is a rename and the destination file is the user's **only** copy; no verification could make
+  deleting it safe. There is no rollback in that mode - the file is left and named.
+
+  ## The bind worth recording
+
+  **You cannot journal the orphan, because the journal is the catalog.** The one place to record
+  *"this file has no row"* is the thing that just refused a write. That is why the remedy is to
+  not create the orphan, rather than to note it.
+
+  ## Closes
+
+  Every "NOT DECIDED" above is now decided except `SQLITE_IOERR`'s retry side, which is recorded
+  as unresolved on purpose. `rescan` is named in both the stop's report and the backstop refusal.

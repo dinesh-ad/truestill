@@ -16,6 +16,17 @@ Paths are workspace-relative. Symbols are cited over line numbers, which drift.
 | **Original quality is the top priority.** Media pixels are never re-encoded. | The pipeline only copies bytes; the sole content write is metadata-only (see below). |
 | **Copy-only - never move or delete user files, except the scoped, opt-in exceptions below.** | `organizer.execute` uploads via `LocalDestination.upload` (`shutil.copy2`) / `RcloneDestination.upload` (`rclone copyto`). `rclone` uses `copyto`, never `sync`. The only code paths that remove a source from where the user left it are `organizer._move_source` (`--move`), `reclaim.run_reclaim` (`truestill reclaim`), and the rename path `LocalDestination.adopt` (`--in-place`) - all scoped exactly like the Takeout write path (below). |
 
+**Rollback of an unrecorded copy (`organizer._roll_back_unrecorded_copy`), the only path that
+deletes a file at the DESTINATION.** When a catalog write fails permanently, the copy just made
+is removed so the run leaves nothing on the drive without a catalog row. Four conditions, and all
+four are the whole permission: **(a)** the run itself wrote that file, moments earlier, in this
+process; **(b)** the write was a **copy** - `moved_in_place` is false, so the user's original is
+untouched and the destination file is redundant. ⚠ Under `--in-place` the write is a *rename* and
+the destination file is the user's **only** copy, so there is no rollback in that mode, ever;
+**(c)** the file's checksum is re-read and matches what was written - we are deleting a path we
+*constructed*, and anything that does not verify is left alone; **(d)** a failed removal is
+reported in the same block as the orphan it leaves, never suppressed. `(afe)`
+
 **Folder removal (feature `clean-empty`), the only path that deletes a directory.** truestill
 deletes a folder **only** when all four hold: **(a)** it emptied that folder itself, proven by
 the migration journal - never a drive sweep; **(b)** the folder contains nothing, or only entries

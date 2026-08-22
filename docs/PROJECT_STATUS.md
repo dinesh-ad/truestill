@@ -208,9 +208,13 @@ version rather than with a memory. It is not a substitute for `(aef)`.
 | **`(aad)` installers** | The **only** entry the backlog calls *"LAUNCH-BLOCKING"*. Its two biggest items are ✅ built and now proven: the release lane and the Windows installer. |
 | **`(aad)` item 5 - the download page** | D9 requires Windows users be told what SmartScreen will show, **in plain language, above the button, before they download**. Not written. ⚠ Confirmed still mandatory 2026-08-21: an unsigned installer on winget still shows the warning, so there is no second path. |
 | **The publish job has NEVER RUN** | `gh run list --workflow release.yml` shows **0** tag-triggered runs. Build is proven on both platforms; **sigstore signing and `gh release create` are not**. This is now the largest untested subsystem, and it is untested *by construction* - only a real `v*` tag fires it. |
-| **`(afe)`** | The one open defect that **aborts a run with a traceback**: a catalog that goes unwritable mid-run breaks §1's partial-failure policy, prints `sqlite3.OperationalError` with our own line numbers, and leaves a file on disk the catalog does not know about. |
 
 ### Not blocking a tag, corrected from a working list
+
+- **`(afe)` is closed** (2026-08-22), so it is no longer on the list above. A catalog that cannot
+  be written now ends the run with a report rather than a traceback, and removes the one copy it
+  could not record so the next run converges instead of duplicating. Measured end to end: run one
+  stops at 33 files / 33 rows with no traceback, run two finishes 72 / 72 with no `_1` suffixes.
 
 - **Attorney clearance is required before MONETIZATION, not before a tag.** §1 above: *"attorney
   clearance is still required before monetization"*. A free release does not wait on it. What is

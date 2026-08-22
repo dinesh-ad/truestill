@@ -2442,6 +2442,14 @@ memory dressed as one.
   surfaces stderr on failure. Partial-failure policy: one bad file never aborts a batch - it
   is logged, counted, and reported at the end.
 
+  > ⚠ **The one stated exception: a failure that costs the RECORD of work already done.** The
+  > policy is about a file the product could not *use*, where skipping costs that file and
+  > nothing else. A catalog write fails **after** the copy is on disk, so there is no skip
+  > available: the cost is the record of a file that now exists, and that absence is what
+  > duplicates the library on the next run. Such a failure is a **reported stop** - what landed,
+  > what was recorded, the difference, and where to go - and it stops writing further bytes too.
+  > This is the same promise applied to a different cost, not a weaker one. `(afe)`
+
 ## 5. When to break a rule
 
 Rules bend when the situation demands - but a violation must be **explicit, commented, and
