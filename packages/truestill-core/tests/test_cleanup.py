@@ -519,10 +519,26 @@ def test_junk_already_in_the_trash_is_named_when_the_rmdir_refuses(
     outcome = run_cleanup(root, plan, apply=True, backend="send2trash")
 
     line = next(f for f in outcome.failures if f.startswith("Camera/2013/09:"))
+    # ⚠ Only the words WE author. The errno prose is the OS's and differs by platform - POSIX
+    # says "directory not empty", Windows "the directory is not empty" - so asserting it here
+    # pinned a value neither the product nor this test controls. §4's thirty-ninth member, caught
+    # by the Windows lane. The formatter's own shape is pinned separately, below.
     assert "not removed" in line
-    assert "directory not empty" in line
     assert ".DS_Store" in line, "the junk that DID go is not mentioned, so the line reads as 'none'"
     assert "in the trash" in line
+
+
+def test_the_partial_removal_reason_carries_the_cause_and_both_dispositions() -> None:
+    """The formatter, with a cause we control, so the OS is not a party to the assertion."""
+    exc = OSError(39, "Directory not empty")
+    assert cleanup._partial_removal_reason(exc, (".DS_Store",), ()) == (
+        "not removed (directory not empty); its .DS_Store is in the trash"
+    )
+    assert cleanup._partial_removal_reason(exc, (), (".DS_Store", "Thumbs.db")) == (
+        "not removed (directory not empty); its .DS_Store, Thumbs.db were removed"
+    )
+    # Nothing happened to it beyond the refusal: no clause invents one.
+    assert cleanup._partial_removal_reason(exc, (), ()) == "not removed (directory not empty)"
 
 
 def test_junk_that_vanished_before_the_apply_is_not_a_failure(
