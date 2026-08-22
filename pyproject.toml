@@ -100,6 +100,10 @@ target-version = "py314"
 # `py314` from this file, rewrites, and nothing here objects.
 # `test_the_formatter_is_pinned_behind_the_target.py` is what makes the rule real: it asserts
 # every invocation carries the flag, and that no tracked source has the unparenthesised form.
+#
+# ⚠ **SO USE `make format`, NEVER A BARE `ruff format`.** That is not advice, it is the observed
+# failure: writing this very guard involved formatting the test file by hand, which rewrote it,
+# and the guard then caught itself in CI. An editor with format-on-save does the same thing.
 
 [tool.ruff.lint]
 select = [

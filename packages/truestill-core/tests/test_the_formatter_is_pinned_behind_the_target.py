@@ -19,6 +19,7 @@ nothing in the toolchain objects. This test is what makes the rule real rather t
 from __future__ import annotations
 
 import ast
+import itertools
 import re
 import subprocess
 from pathlib import Path
@@ -57,6 +58,38 @@ def test_every_formatter_invocation_pins_the_target(relative: str, needle: str) 
     )
 
 
+def _python_invocations_without_the_pin() -> list[str]:
+    """`ruff format` spelled as argv inside a `.py` file, found by PARSING rather than matching.
+
+    ⚠ **This function exists because the text version reported its own docstring.** The first
+    draft matched `["ruff", "format", ...]` as a regex, and the paragraph explaining that it does
+    so is itself such a string - §4's fifty-ninth member, caught by CI rather than by review. An
+    `ast` walk sees a list of two adjacent string constants and does not see prose about one.
+    """
+    offenders: list[str] = []
+    for path in _tracked_python_files():
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.List | ast.Tuple):
+                continue
+            words = [
+                e.value
+                for e in node.elts
+                if isinstance(e, ast.Constant) and isinstance(e.value, str)
+            ]
+            for first, second in itertools.pairwise(words):
+                if (
+                    first.endswith("ruff")
+                    and second == "format"
+                    and "--target-version" not in words
+                ):
+                    offenders.append(f"{path.relative_to(_REPO)}:{node.lineno}: argv invocation")
+    return offenders
+
+
 def test_no_invocation_escapes_the_pin() -> None:
     """⚠ The cry-wolf half: a NEW call site would pass the test above by not existing.
 
@@ -84,16 +117,17 @@ def test_no_invocation_escapes_the_pin() -> None:
         path = _REPO / name
         try:
             text = path.read_text(encoding="utf-8")
-        except OSError, UnicodeDecodeError:
+        except (OSError, UnicodeDecodeError):
             continue
         for number, line in enumerate(text.splitlines(), start=1):
             if name.endswith(".py"):
-                # The argv form, which is the only way Python invokes it.
-                found = re.search(r"""["']ruff["']\s*,\s*["']format["']""", line)
-            else:
-                found = re.search(r"(?<![\w-])ruff format(?!\w)", line.split("#", 1)[0])
-            if found and "--target-version" not in line:
+                continue  # handled structurally below, not by text
+            if (
+                re.search(r"(?<![\w-])ruff format(?!\w)", line.split("#", 1)[0])
+                and "--target-version" not in line
+            ):
                 offenders.append(f"{name}:{number}: {line.strip()}")
+    offenders.extend(_python_invocations_without_the_pin())
     assert not offenders, (
         "a `ruff format` invocation does not pin --target-version py313:\n  "
         + "\n  ".join(offenders)
@@ -110,7 +144,7 @@ def test_no_tracked_source_uses_the_unparenthesised_form() -> None:
     for path in _tracked_python_files():
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"))
-        except SyntaxError, UnicodeDecodeError:  # a fixture that is deliberately not valid
+        except (SyntaxError, UnicodeDecodeError):  # a fixture deliberately not valid
             continue
         for node in ast.walk(tree):
             if not isinstance(node, ast.ExceptHandler) or not isinstance(node.type, ast.Tuple):
