@@ -25,6 +25,23 @@ must never fail the run**, the way `decisions.write_decisions` already refuses t
 limit**: written after execution, so it survives a stop and not a kill - `organize_runs` covers the
 killed run from the other side.
 
+**⚠ An operation that writes files on a drive holds that drive against other processes**
+(2026-08-22, `(aaw)`). Kernel-enforced (`flock`/`msvcrt`), keyed by the drive's existing
+`uuid:`/`path:` identity, lock file in the data dir and **never on the drive**. **Mutating
+operations only** - a preview writes nothing, and a stale preview is not data loss. ⚠ **Every
+caller declares and there is no default**: unlocked would silently skip the lock on the next
+writing path added, locked would refuse a read-only one with nobody deciding. Never derived from a
+display string. ⚠ **The lock is the file descriptor**, so it is released when the operation ends,
+not when the acquiring call returns. Measured: two concurrent applies lost 99 and 45 organized
+copies; 0 after.
+
+**⚠ Wait when a contended state is bounded and short; refuse when it is not** (2026-08-22,
+`(afp)`). A held drive lock is seconds to hours, so it refuses and names the holder. A catalog
+being created is milliseconds, so a second run waits, **bounded**, and the bound **fails visibly
+rather than extending** - when it fires the message says what was observed and never advises
+deleting a file another process may be writing. The next contended state gets this test rather
+than either precedent.
+
 **⚠ A per-file listing may be shortened only where something durable still holds it**
 (2026-08-22, `(afm)`). The per-file argument for what a run will do is printed while the user can
 still stop it, and not after `--apply`, where every file already reaches `last-run.json` with its

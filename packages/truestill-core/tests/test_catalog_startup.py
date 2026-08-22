@@ -186,8 +186,22 @@ def test_a_journal_beside_it_says_a_write_was_interrupted(tmp_path: Path) -> Non
 
     db.with_name(db.name + "-journal").write_bytes(b"")
     noisy = inspect_catalog(db, explicit_db=True).detail
-    assert "interrupted" in noisy
     assert "catalog.sqlite-journal" in noisy
+
+    # ⚠ **CHANGED 2026-08-22 by `(afp)`, deliberately.** A journal beside a 0-byte catalog means
+    # a write did not finish - which is *"was interrupted"* AND *"has not finished yet"*, the
+    # same observation for opposite situations. Measured: 2 of 6 concurrent cold starts land in
+    # the second, where this file is a live catalog another process is writing. So the message no
+    # longer diagnoses an interruption from evidence that does not distinguish them; it says the
+    # file is still empty after the wait, which is what was actually observed.
+    assert "still empty after" in noisy, (
+        "the message must say what was observed - it waited and nothing changed - rather than "
+        "diagnose an interruption the journal cannot tell apart from a write in progress"
+    )
+    assert "delete this file" not in noisy, (
+        "`(afp)`: this advice is given to whoever LOST a cold-start race, and the file may be a "
+        "live catalog the winner is writing"
+    )
 
 
 def test_a_first_run_is_untouched_by_the_zero_byte_branch(tmp_path: Path) -> None:

@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(afp). Next free: (afq).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(afq). Next free: (afr).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -118,16 +118,13 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(afp) A CATALOG ANOTHER PROCESS IS CREATING IS REFUSED AS DEBRIS, AND THE ADVICE IS TO DELETE
-  IT.** Two `organize --apply` runs start against a catalog path that does not exist yet; one
-  creates it, the other finds it **0 bytes with a rollback journal beside it**, refuses the whole
-  run (exit 6) and says *"Rename or delete this file and run again"* - **about a live catalog the
-  winner is writing at that moment**. Reproduced **2 of 6** concurrent cold starts, then on demand.
-  ⚠ `(adr)`'s refusal is correct for its own case - a `copy2` killed by `ENOSPC` really does leave
-  a 0-byte file - and the **journal sidecar is the discriminator it does not look at**:
-  `catalog_startup.py:116-133` already finds it and reads it as *"a write was interrupted"*, when
-  the same evidence is produced by *"a write has not finished yet"*. Found 2026-08-22 while
-  measuring `(aaw)`. [Full entry](research/backlog/afp.md)
+- **(afq) A PREVIEW OCCUPIES THE DRIVE IN THE APP, AND NOTHING SAYS WHY.** `_start_drive_job`
+  passes `operation="organize preview"` to `jobs.start`, which occupies the drive exactly as an
+  apply does, so a second tab previewing during an organize is refused - while the CLI has never
+  done this. ⚠ **Split out of `(aaw)` rather than folded in**: the lock rests on measured data
+  loss, a preview writes nothing, and letting a UX decision inherit a safety argument it has not
+  earned is what the 2026-08-03 design did without noticing. May well be right; needs its own
+  reason. Filed 2026-08-22. [Full entry](research/backlog/afq.md)
 - **(afg) THE DOWNLOAD PAGE HAS NO HOME, AND `truestill.app` EXISTS ONLY IN CONVERSATION.** The
   domain is bought; **nothing about it is in this repository** - `grep -ri truestill.app` matches
   only the package identifiers. D9 binds a requirement to a page that does not exist: *"Windows
@@ -298,20 +295,6 @@ is invisible here is retired, not free.**
   entry](research/backlog/aay.md)
 - **(aax) `time_known` is derived from provenance, not from the value. POST-LAUNCH.** [Full
   entry](research/backlog/aax.md)
-- **(aaw) Cross-process drive lock ("P1-lite"): design settled, and NO LONGER DEFERRED.**
-  ✅ **MEASURED 2026-08-22, and it reproduces.** The gate fired unnoticed (four soaks ran, none
-  tested concurrency), so the harm was measured directly instead: two real `organize --apply`
-  runs, one catalog, one destination, real photographs. **2 of 9 attempts at photo size lost 99
-  and 45 organized copies**; 4 of 5 at a wider window. Proven by **content, not name** - a file
-  whose bytes are byte-exactly the other run's while this run's report claims it `uploaded`.
-  ⚠ **THE MECHANISM IS NOT THE ONE THE ENTRY DESCRIBED.** It is upstream of `_free_relative`:
-  `safe_copy.py:60-64` derives the `.partial` staging path from the **target's** name, so two runs
-  writing one destination write into **one staging file**. ⚠ **What is lost is a COMPLETE file,
-  not torn bytes** (0 hybrids in 45): bookkeeping plus a missing copy in **copy mode**, and
-  **irreversible loss under `--move`/`--in-place`**. Three fix routes are costed in the entry -
-  unique staging, the lock, or both - and ⚠ **unique staging alone removes the only loud signal**.
-  The reproduction is kept as the regression test.
-  [Full entry](research/backlog/aaw.md)
 - **(aan) A "verified against code" clause must still resolve.** Recorded 2026-08-01. [Full
   entry](research/backlog/aan.md)
 - **(aas) An undated file cannot be assigned to an event the user knows it belongs to.** Recorded

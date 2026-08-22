@@ -25,6 +25,8 @@ How first-run is told from "wrong catalog"
 
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -98,7 +100,7 @@ def db_flag_explicit(argv: list[str]) -> bool:
     return any(arg == "--db" or arg.startswith("--db=") for arg in argv)
 
 
-def _zero_byte_detail(absolute: Path) -> str:
+def _zero_byte_detail(absolute: Path, *, waited: bool = False) -> str:
     """What to tell someone whose catalog path holds an empty file.
 
     **The last sentence is not politeness, it is the point.** `catalog_move.py` already tells the
@@ -122,6 +124,23 @@ def _zero_byte_detail(absolute: Path) -> str:
             "real library look the same."
         )
     ]
+    if waited:
+        # ⚠ **THE BOUND FIRED, AND THE ADVICE MUST CHANGE WITH IT.** A journal means a write is in
+        # flight - interrupted OR unfinished. We waited out the "unfinished" reading and it did
+        # not resolve, so this is no longer ordinary contention. Telling someone to delete a file
+        # another process may still be writing is the one thing this must not say. `(afp)`
+        said.append(
+            f"A rollback journal is beside it ({journal.name}) and it is still empty after "
+            f"{_CREATION_WAIT_SECONDS:.0f} seconds, so this is not simply another Truestill "
+            "finishing its work. Something went wrong while this catalog was being created."
+        )
+        said.append(
+            "Your library, if you have one, is untouched. Check whether another Truestill is "
+            "running before you touch this file: if one is, let it finish. If nothing else is "
+            "running, rename this file and run again, or pass --db PATH to point at the catalog "
+            "you meant."
+        )
+        return " ".join(said)
     if journal.exists():
         said.append(
             f"A rollback journal is beside it ({journal.name}), so a write to this catalog was "
@@ -160,6 +179,63 @@ def refuse_unusable_catalog(info: CatalogStartupInfo) -> None:
         raise CatalogUnusableError(info)
 
 
+#: How long a 0-byte catalog may stay that way while another process creates it. `(afp)`
+#:
+#: ⚠ **Bounded, and the bound fails VISIBLY rather than extending.** Creating a catalog is
+#: milliseconds; if two seconds pass and the file is still empty, something is wrong beyond
+#: contention, and saying that beats waiting longer on a command a person is watching.
+_CREATION_WAIT_SECONDS = 2.0
+
+#: How often to look while waiting. Short enough that the ordinary case is indistinguishable from
+#: the command simply working.
+_CREATION_POLL_SECONDS = 0.02
+
+
+def _has_journal(absolute: Path) -> bool:
+    """Whether a rollback journal sits beside this catalog."""
+    return absolute.with_name(absolute.name + "-journal").exists()
+
+
+#: Bound at module level rather than taken as defaulted parameters, and that is not style: a
+#: default argument captures the function at DEF time, so patching `time.sleep` could not reach
+#: it and the wait's own test passed while nothing ever waited.
+_now: Callable[[], float] = time.monotonic
+_sleep: Callable[[float], None] = time.sleep
+
+
+def _another_process_finished_creating_it(absolute: Path) -> bool:
+    """Whether a 0-byte catalog stops being one while we watch. `(afp)`
+
+    ⚠ **The journal is the discriminator, and `(adr)` had it and did not use it.** Under
+    ``journal_mode=delete`` a journal on disk means a write did not finish - which is *"was
+    interrupted"* **and** *"has not finished yet"*, the same observation for opposite situations.
+    `(adr)`'s refusal read it as the first and told the user to delete the file; measured
+    2026-08-22, 2 of 6 concurrent cold starts hit the second, where that file is a live catalog
+    another process is writing.
+
+    **The rule, and it is a rule rather than a special case:** *wait when the contended state is
+    bounded and short; refuse when it is not.* Creating a catalog is milliseconds, so waiting here
+    is indistinguishable from the command working. A held drive lock is seconds to hours, so
+    `drive_lock` refuses instead. The next contended state gets the test, not the precedent.
+
+    **No journal, no wait.** A failed `copy2` leaves a 0-byte file and no journal, and that is
+    `(adr)`'s case exactly - it is not contention and waiting would only delay a correct refusal.
+    """
+    if not _has_journal(absolute):
+        return False
+    deadline = _now() + _CREATION_WAIT_SECONDS
+    while _now() < deadline:
+        _sleep(_CREATION_POLL_SECONDS)
+        try:
+            if absolute.stat().st_size > 0:
+                return True
+        except OSError:
+            # It went away entirely - the other process gave up and cleaned up. That is not this
+            # function's question; the caller re-stats and sees MISSING.
+            return False
+    return False
+
+
 def inspect_catalog(db: Path, *, explicit_db: bool) -> CatalogStartupInfo:
     """Describe ``db`` without treating a missing file as a failure.
 
@@ -190,15 +266,19 @@ def inspect_catalog(db: Path, *, explicit_db: bool) -> CatalogStartupInfo:
     # silent, because SQLite treats a zero-length file as a valid empty database by design. We
     # decline to inherit that at this one path.
     if absolute.stat().st_size == 0:
-        return CatalogStartupInfo(
-            absolute_path=str(absolute),
-            presence=CatalogPresence.ZERO_BYTES,
-            file_count=0,
-            drive_count=0,
-            explicit_db=explicit_db,
-            tone="alert",
-            detail=_zero_byte_detail(absolute),
-        )
+        if _another_process_finished_creating_it(absolute):
+            # It was transient. Fall through and open the catalog the winner just built.
+            pass
+        else:
+            return CatalogStartupInfo(
+                absolute_path=str(absolute),
+                presence=CatalogPresence.ZERO_BYTES,
+                file_count=0,
+                drive_count=0,
+                explicit_db=explicit_db,
+                tone="alert",
+                detail=_zero_byte_detail(absolute, waited=_has_journal(absolute)),
+            )
 
     with Catalog(absolute) as catalog:
         file_count = catalog.count()

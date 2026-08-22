@@ -1,6 +1,6 @@
 # (afp) A CATALOG ANOTHER PROCESS IS CREATING IS REFUSED AS DEBRIS, AND THE ADVICE IS TO DELETE IT.
 
-*Body of backlog entry `(afp)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(afp)`. **SHIPPED 2026-08-22.** The index is now [`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
 
 - **(afp) TWO PROCESSES, ONE COLD START, AND THE LOSER IS TOLD TO DELETE THE WINNER'S CATALOG.**
   Found 2026-08-22 while measuring `(aaw)`, which was looking for something else.

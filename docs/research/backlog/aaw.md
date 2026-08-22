@@ -1,6 +1,6 @@
 # (aaw) Cross-process drive lock ("P1-lite"): design settled, build POST-SOAK.
 
-*Body of backlog entry `(aaw)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(aaw)`. **SHIPPED 2026-08-22.** The index is now [`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
 
 - **(aaw) Cross-process drive lock ("P1-lite"): design settled, build POST-SOAK.** Designed
   2026-08-03; filed as its own entry rather than folded into `(vv)` because `(vv)` is a recorded

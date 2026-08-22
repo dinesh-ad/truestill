@@ -22,6 +22,53 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(aaw) A MUTATING OPERATION HOLDS ITS DRIVE AGAINST OTHER PROCESSES.** Shipped 2026-08-22,
+  after the deferral it sat under for three weeks was found to be unresolvable by waiting: the
+  gate was *"the soak will say which things break"* and **no soak tested concurrency at all**.
+  ⚠ **THE ARGUMENT IS THE MEASUREMENT, TAKEN THREE TIMES.** Two `organize --apply` runs on one
+  destination, real photographs, loss proven by content and never by name:
+
+  ```
+  before unique staging   4 of 5 hit, exits 1   3, 3, 1, 2 copies lost
+  after unique staging    5 of 5 hit, exits 0   4, 3, 3, 3, 3 copies lost
+  after the lock          5 of 5 refused        0 copies lost
+  ```
+
+  **The middle row is why the lock is not optional.** Unique staging (`7564ed6`) fixed the
+  mechanism - a `.partial` derived from the target, so two runs wrote into one file - and
+  **degraded the outcome**: it removed the loud `ENOENT` and left both processes exiting 0 with
+  one catalog row silently wrong. A fix that improves the mechanism and makes the harm quieter is
+  the trade this project spends its time refusing.
+  ⚠ **Severity is mode-dependent and both halves are true**: bookkeeping plus a missing copy in
+  copy mode, **irreversible loss under `--move`/`--in-place`** - the modes a user reaches when
+  they have no room for a second copy.
+  **Kernel-enforced, no PID check, no TTL**, so *"locked out of my own library"* is unreachable;
+  the lock file is in the data dir, never on the drive; no `--force`, because a refusal always
+  means a live holder. ⚠ **The FD is the lock**, so it is released when the JOB ends, not when
+  `start` returns.
+  ⚠ **Every caller declares and nothing defaults**: `_LOCKS_DRIVE_AT` covers all seventeen
+  subcommands, and `jobs.start`'s `mutating` is keyword-only with no default, so **mypy found all
+  fifteen app routes** rather than a reader having to. Never derived from the `operation` string -
+  *"organize"* and *"organize preview"* differ by one word.
+  Mutating only; `(afq)` carries the app's preview behaviour, which is not this entry's to
+  justify. [Full entry](research/backlog/aaw.md)
+- **(afp) A CATALOG ANOTHER PROCESS IS CREATING IS WAITED FOR, NOT CALLED DEBRIS.** Shipped
+  2026-08-22, filed the same day. Two runs starting against a catalog path that does not exist:
+  one creates it, the other found it **0 bytes with a journal beside it**, refused the whole run
+  and said *"Rename or delete this file and run again"* - about a **live catalog the winner was
+  writing**. Measured **2 of 6** concurrent cold starts; **0 of 6** after.
+  ⚠ **`(adr)`'s refusal is correct and stays - the fix is a DISCRIMINATOR, not a softening.** A
+  `copy2` killed by `ENOSPC` really does leave a 0-byte file and no journal, and that case still
+  refuses immediately with its original advice. What changed is the case `(adr)` could not tell
+  apart: **the journal is evidence its own docstring already reasoned about** and read in one
+  direction only - *"a write did not finish"* is the same observation as *"a write has not
+  finished yet"*.
+  **The rule, written as a rule:** *wait when the contended state is bounded and short; refuse
+  when it is not.* Creating a catalog is milliseconds, so this waits, bounded at 2 s; a held drive
+  lock is seconds to hours, so `(aaw)` refuses. ⚠ **The bound fails visibly rather than
+  extending**: when it fires the message says the file is *still empty after 2 seconds*, that this
+  is not another Truestill finishing, and **stops telling the user to delete it**.
+  [Full entry](research/backlog/afp.md)
 - **(aeo) A HOME DIRECTORY THAT WILL NOT TAKE A WRITE COSTS THE WAY-IN FILE, NOT THE APP.**
   Shipped 2026-08-22. A full or read-only home directory ended the launch in an interpreter stack
   trace before anything was served - `session_link.write` does `unlink` -> `touch(mode=0o600)` ->

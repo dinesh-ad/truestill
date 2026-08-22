@@ -7,6 +7,15 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **Two Truestill windows, or a window and a terminal, can no longer overwrite each other's
+  photos.** Organizing the same folder from two places at once could leave one copy holding the
+  other's picture, with Truestill reporting success for both. Whichever starts second now says
+  which drive is busy and what is running on it, and waits its turn. Under *move* or *organize in
+  place* that overwrite destroyed the only copy, so this is the case it matters most for.
+- **Starting Truestill twice at once no longer tells you to delete your library's catalog.** If
+  two runs began before the catalog existed, the second saw an empty file and offered to delete
+  it - while the first was still writing it. It now waits a moment for the first to finish, and
+  if something really is wrong it says so without suggesting you delete anything.
 - **A full or read-only home folder no longer stops Truestill starting.** The app records the
   address it is serving on in a small file; if that folder will not take a write - the disk is
   full, or the folder is read-only - Truestill used to stop with a Python error before it started.
