@@ -249,10 +249,18 @@ def test_clean_empty_preview_and_apply_key_sets(client: TestClient, tmp_path: Pa
     applied = client.post(
         "/api/clean-empty/apply", json={"path": str(root), "emptied": emptied}
     ).json()
-    assert set(applied) == {"ok", "path", "removed", "trashed", "deleted", "failures"}
+    # ⚠ **`trashed` and `deleted` were removed from this payload on 2026-08-22**, and this pin
+    # going red is what a key-set guard is for. They counted FOLDERS, and no folder is trashed any
+    # more: a folder's junk goes to the trash and the folder goes to `rmdir`, because
+    # `send2trash` has no emptiness precondition and would take a folder that gained a file
+    # between the preview and the confirm. `(afj)`. Renaming a payload key is a breaking change
+    # for any reader; `(adz)` says none exist yet, and that window closes at the first tag.
+    assert set(applied) == {"ok", "path", "removed", "discarded", "held_junk", "failures"}
     assert applied["ok"] is True
-    # Removal may trash, delete, or fail (gio trash often refuses under /tmp); key set is the pin.
+    # Removal may remove, discard, or fail (gio trash often refuses under /tmp); key set is the pin.
     assert isinstance(applied["removed"], int)
+    assert isinstance(applied["discarded"], int)
+    assert isinstance(applied["held_junk"], bool)
     assert isinstance(applied["failures"], list)
 
 

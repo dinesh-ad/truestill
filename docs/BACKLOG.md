@@ -118,23 +118,6 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(afj) THE TRASH PATH REMOVES A FOLDER THAT GAINED A FILE; THE PERMANENT PATH CANNOT, AND SAYS
-  SO.** Found by **soak four, D7**, 2026-08-22. ⚠ **The safer-looking path has the weaker
-  guarantee.** `_remove_permanently` uses `rmdir` so a folder that gained a file between preview
-  and confirm survives *by construction*; `_to_trash` hands the whole folder to `send2trash` with
-  no equivalent guard. Measured with a real race against the prompt: the trash path took the
-  folder and a non-junk file with it, the permanent path refused with `Errno 39` and both
-  survived. ⚠ The `rmdir` sentence is printed by the `--permanent` branch, which is the one that
-  runs **only when the trash refuses** - so the user reads it and then the other path executes.
-  Recoverable (it is in the trash), not data loss. Found 2026-08-22.
-  [Full entry](research/backlog/afj.md)
-- **(afk) JUNK DELETED BEFORE AN `rmdir` REFUSAL IS NOT REPORTED, SO A PARTIAL REMOVAL READS AS
-  NONE.** Found by **soak four, D7**, 2026-08-22. `_remove_permanently` unlinks the planned junk
-  then calls `rmdir`; when `rmdir` refuses, the failure line names the folder and the errno and
-  says nothing about the junk already gone. Same class as `(aez)`. ⚠ **The order is load-bearing
-  and must not be "fixed" by reordering** - the remedy is a sentence. Small: the junk was named in
-  the preview and `JUNK_NAMES` is conservative. Found 2026-08-22.
-  [Full entry](research/backlog/afk.md)
 - **(afi) `clean-empty` CANNOT SEE THE FOLDERS `organize --in-place` EMPTIES, AND THE RUN PROMISES
   IT CAN.** Found by **soak four, D5**, 2026-08-22. ⚠ **Not a wrongful deletion - the inverse.**
   `migrated_old_paths` reads `migration_journal` only; `organize --in-place` writes `inplace_moves`

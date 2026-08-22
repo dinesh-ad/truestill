@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal, TypedDict
 
-from truestill_core.cleanup import plan_cleanup, run_cleanup, trash_backend
+from truestill_core.cleanup import Tier, plan_cleanup, run_cleanup, trash_backend
 
 
 class CleanEmptyOccupied(TypedDict):
@@ -27,11 +27,17 @@ class CleanEmptyPreview(TypedDict):
 
 
 class CleanEmptyApply(TypedDict):
+    #: ⚠ ``trashed``/``deleted`` were removed on 2026-08-22 and this is a **breaking payload
+    #: change**, free only because `(adz)` says no users exist yet - the window closes at the
+    #: first tag. They counted folders, and no folder is trashed any more: the contents go to the
+    #: trash and the folder goes to ``rmdir``. `(afj)`
     ok: Literal[True]
     path: str
     removed: int
-    trashed: int
-    deleted: int
+    discarded: int
+    #: Whether any removable folder held junk, so a surface can say where that junk went without
+    #: a counter for a recoverable thing. See `CleanupOutcome`.
+    held_junk: bool
     failures: list[str]
 
 
@@ -53,12 +59,13 @@ def clean_empty_preview(path: Path, emptied: list[str]) -> CleanEmptyPreview:
 def clean_empty_apply(path: Path, emptied: list[str]) -> CleanEmptyApply:
     plan = plan_cleanup(path, emptied)
     backend = trash_backend()
+    held_junk = any(candidate.tier is Tier.JUNK_ONLY for candidate in plan.removable)
     outcome = run_cleanup(path, plan, apply=True, backend=backend, permanent=False)
     return {
         "ok": True,
         "path": str(path),
         "removed": outcome.removed,
-        "trashed": outcome.trashed,
-        "deleted": outcome.deleted,
+        "discarded": outcome.discarded,
+        "held_junk": held_junk,
         "failures": outcome.failures,
     }

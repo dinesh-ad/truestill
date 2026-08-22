@@ -3,9 +3,12 @@
 **Why this guard exists, and why it is not a one-line ``is not None``.**
 
 ``cleanup.trash_backend`` used to probe for an optional ``send2trash`` and fall back to the
-``gio`` binary, returning ``None`` when it found neither. ``run_cleanup`` treats ``None`` as
-permission to remove a folder outright, so on any machine with neither, the empty-folder cleanup
-**destroyed** rather than trashed. ``gio`` ships with GLib, so "neither" was the ordinary state of
+``gio`` binary, returning ``None`` when it found neither. ``run_cleanup`` **then** treated
+``None`` as permission to remove a folder outright, so on any machine with neither, the
+empty-folder cleanup **destroyed** rather than trashed. ⚠ Past tense on purpose twice over: that
+was fixed on 2026-08-04 (``None`` is a refusal), and since 2026-08-22 no folder goes to the trash
+at all - only its contents do, and the folder goes to ``rmdir``. `(afj)` The guard below is
+unaffected, because what it asserts is that the **declared** backend resolves. ``gio`` ships with GLib, so "neither" was the ordinary state of
 Windows and macOS - the two platforms `DECISIONS.md` D9 launches on and builds for - while a
 Linux desktop with ``gio`` on PATH quietly took the recoverable path. The value that decided
 which of those happened was never measured on Windows by anyone, and could not be measured from

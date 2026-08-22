@@ -2,8 +2,11 @@
 
 Two facts reached the browser and neither reached the screen.
 
-`CleanEmptyApply` has carried `trashed` and `deleted` since it was written, and the card
-rendered `removed` - the property that is their **sum**. So the one distinction that matters
+⚠ **Rewritten 2026-08-22 for `(afj)`.** `CleanEmptyApply` carried `trashed` and `deleted`, both
+counting FOLDERS, and no folder is trashed any more. The distinction the card must keep is now
+between a junk file that is recoverable and one that is not.
+
+Historically: the card rendered `removed` - the property that was their **sum**. So the distinction
 after the fact, whether a folder is recoverable from the trash or gone, was computed by core,
 serialised to the browser, and then added up and thrown away. The CLI has always split them
 (`cli.py`, "N deleted permanently").
@@ -144,8 +147,13 @@ def _confirm(ui: Page) -> None:
     ui.click("#ev-disk-result [data-clean-stage] [data-typed-go]")
 
 
-def test_the_ordinary_removal_says_the_folders_went_to_the_trash(ui: Page) -> None:
-    """Zero-deleted is now the normal case, so it is the one the wording has to be right for.
+def test_the_ordinary_removal_names_the_folders_and_where_their_junk_went(ui: Page) -> None:
+    """⚠ This asserted "2 folders moved to the trash" until 2026-08-22, and no folder goes there.
+
+    Removal sends a folder's junk to the trash and the folder itself to ``rmdir``, because
+    `send2trash` has no emptiness precondition and would take a folder that gained a file between
+    the preview and the confirm. `(afj)` So the sentence the card has to get right is no longer
+    "where did the folders go" - they are gone - but "what happened to what they held".
 
     The card must name the trash rather than report a bare total. "Removed 2 folders" is true of
     a permanent deletion too, which is the whole reason the split exists.
@@ -157,23 +165,25 @@ def test_the_ordinary_removal_says_the_folders_went_to_the_trash(ui: Page) -> No
             "ok": True,
             "path": _SOURCE,
             "removed": 2,
-            "trashed": 2,
-            "deleted": 0,
+            "discarded": 0,
+            "held_junk": True,
             "failures": [],
         },
     )
     _confirm(ui)
 
     stage = ui.locator("#ev-disk-result [data-clean-stage]")
-    expect(stage).to_contain_text("2 folders moved to the trash")
+    expect(stage).to_contain_text("2 folders removed")
+    expect(stage).to_contain_text("the OS junk they held is in the trash")
     # A zero bucket prints no line - never-silent is about what happened, not what did not.
-    expect(stage).not_to_contain_text("deleted permanently")
+    expect(stage).not_to_contain_text("folders moved to the trash")
+    expect(stage).not_to_contain_text("not recoverable")
 
 
 def test_a_permanent_removal_is_named_as_permanent(ui: Page) -> None:
     """The branch the app cannot currently reach, pinned by handing the payload in.
 
-    `deleted` is non-zero only under `--permanent`, which the app does not offer, so this cannot
+    `discarded` is non-zero only under `--permanent`, which the app does not offer, so this cannot
     be produced by driving the UI. Rendering a branch nothing exercises is untested code that
     reads as though it works - and the day an app permanent mode is added, this is what says the
     renderer was ready rather than plausible.
@@ -185,16 +195,16 @@ def test_a_permanent_removal_is_named_as_permanent(ui: Page) -> None:
             "ok": True,
             "path": _SOURCE,
             "removed": 3,
-            "trashed": 1,
-            "deleted": 2,
+            "discarded": 2,
+            "held_junk": True,
             "failures": [],
         },
     )
     _confirm(ui)
 
     stage = ui.locator("#ev-disk-result [data-clean-stage]")
-    expect(stage).to_contain_text("1 folder moved to the trash")
-    expect(stage).to_contain_text("2 folders deleted permanently")
+    expect(stage).to_contain_text("3 folders removed")
+    expect(stage).to_contain_text("2 junk files removed outright, not recoverable")
 
 
 def test_a_run_that_removed_nothing_says_so_and_names_the_refusals(ui: Page) -> None:
@@ -206,8 +216,8 @@ def test_a_run_that_removed_nothing_says_so_and_names_the_refusals(ui: Page) -> 
             "ok": True,
             "path": _SOURCE,
             "removed": 0,
-            "trashed": 0,
-            "deleted": 0,
+            "discarded": 0,
+            "held_junk": False,
             "failures": ["DCIM/100: left in place - this drive would not accept it"],
         },
     )

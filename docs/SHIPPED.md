@@ -22,6 +22,29 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(afj) `clean-empty` NO LONGER REMOVES A FOLDER ITS OWN PREVIEW DID NOT NAME.** Shipped
+  2026-08-22, together, because neither ordering existed. The contents now go to the trash and the
+  **folder goes to `rmdir`**, whose emptiness precondition the kernel enforces atomically -
+  `send2trash` has none, measured, so a folder that gained a file between the preview and the typed
+  word was handed over whole. ⚠ **Not "make trash re-verify like permanent"**: neither path ever
+  re-verified, and a check before the move would be the race the module was written against.
+  `--permanent` now governs only the junk; the typed word stays `clean` (see `(afh)`). The `rmdir`
+  guarantee moved out of the flag-keyed block and is printed for every run. Uncovered three things:
+  a refusal test that was **passing while testing nothing**, `send2trash` raising where
+  `unlink(missing_ok=True)` shrugged, and `folder.is_dir()` being check-then-act on the path whose
+  property is that it does not check. ⚠ The trade is recorded: the directory entry is removed
+  outright on every path, and trashed junk records a parent that no longer exists, so the report
+  may say *"the junk is in the trash"* and never *"you can put it back"*.
+  [Full entry](research/backlog/afj.md) · [`(afk)`](research/backlog/afk.md)
+- **(afk) A PARTIAL REMOVAL NO LONGER READS AS NONE.** Shipped 2026-08-22, **inside `(afj)`**,
+  which is what its own entry predicted: *"`(afj)` option A would introduce an unlink-then-check
+  step there and would inherit this exactly."* Neither ordering existed - shipping `(afj)` alone
+  gives every ordinary run a partial state its report cannot describe, and fixing this first fixes
+  the reporting of a code path `(afj)` replaces. The remedy is
+  `cleanup._partial_removal_reason`: *"not removed (directory not empty); its .DS_Store is in the
+  trash"*. ⚠ The order was **not** touched, per this entry's instruction - junk still goes before
+  the `rmdir`, because `rmdir` being last is the whole guarantee.
+  [Full entry](research/backlog/afk.md)
 - **(yy) RECONNECT A MOVED LIBRARY - `truestill repoint-sources OLD NEW`.** Built **2026-08-02**;
   ⚠ **moved here 2026-08-22, having sat in `BACKLOG.md` as unbuilt for three weeks while
   `PROJECT_STATUS.md` said it was built and this file did not mention it at all.** Which of the

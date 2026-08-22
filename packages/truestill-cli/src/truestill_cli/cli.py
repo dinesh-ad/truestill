@@ -3465,6 +3465,10 @@ def _print_cleanup_plan(plan: CleanupPlan, backend: str | None, *, permanent: bo
     sentence here still said "PERMANENTLY". A plan that describes a removal the run can no
     longer perform is the same defect class as the outcome wording §9 exists for, one step
     earlier.
+
+    ⚠ **And the same defect recurred one layer along**: the `rmdir` guarantee was stated only under
+    `--permanent`, a flag that does not choose the path. It is stated here now, for every run,
+    because it is true of every folder on every path. `(afj)`
     """
     empties = [c for c in plan.removable if c.tier is Tier.EMPTY]
     junk = [c for c in plan.removable if c.tier is Tier.JUNK_ONLY]
@@ -3494,18 +3498,37 @@ def _print_cleanup_plan(plan: CleanupPlan, backend: str | None, *, permanent: bo
             "\n  different word because it cannot be undone."
         )
         return
-    where = (
-        f"to the trash (via {backend}) -- recoverable"
-        if backend
-        else "PERMANENTLY -- this machine has no trash Truestill can use"
+    print(f"\n{len(plan.removable)} folder(s) will be removed.")
+    if empties:
+        is_are = "is" if len(empties) == 1 else "are"
+        print(f"  {len(empties)} {is_are} empty - nothing in them, so nothing to recover.")
+    # ⚠ SCOPED TO THE JUNK TIER ON PURPOSE. Said of the whole plan it would read as a promise
+    # about folders that never had anything in them to trash.
+    if junk:
+        holds = "holds" if len(junk) == 1 else "hold"
+        print(
+            f"  {len(junk)} {holds} only OS junk; the junk goes to the trash first (recoverable)."
+            if backend
+            else f"  {len(junk)} {holds} only OS junk, which will be removed outright."
+        )
+    # ⚠ PRINTED UNCONDITIONALLY, AND THAT IS THE FIX. This sentence lived in the `--permanent`
+    # block until 2026-08-22, keyed on a flag that does not select the path: `run_cleanup` always
+    # tries the trash first and `permanent` only changes what happens when it refuses. So with the
+    # flag set and a working trash the sentence was false for every folder, and the default run -
+    # the one where every folder went whole - said nothing at all. `(afj)`
+    print(
+        "\nThe folder itself is removed outright, not moved to the trash. Removal uses rmdir,"
+        "\nso a folder that is no longer empty when the removal runs is left alone and reported."
     )
-    print(f"\n{len(plan.removable)} folder(s) would be removed {where}.")
-    if backend:
-        print("  Note: trash can be refused on network or cloud-mounted drives; any refusal is")
-        if permanent:
-            print("  where --permanent applies, and that folder is deleted outright instead.")
-        else:
-            print("  reported and that folder is left in place rather than deleted outright.")
+    if backend and junk:
+        print(
+            "  Trash can be refused on network or cloud-mounted drives; any refusal is "
+            + (
+                "where --permanent applies,\n  and that junk is removed outright instead."
+                if permanent
+                else "reported and that\n  folder is left in place."
+            )
+        )
 
 
 def _offer_cleanup(catalog: Catalog, drive_uuid: str, path: Path) -> None:
@@ -3529,13 +3552,21 @@ def _confirm_cleanup(count: int, *, permanent: bool) -> bool | None:
     Two removals, two questions, two words. `clean` was given for a recoverable removal; reusing
     it for an irreversible one would silently stretch an answer the user gave to a smaller ask.
     Irreversibility is stated **before** the prompt, never discovered after it.
+
+    ⚠ **`clean` still covers the folder itself, even though the folder is now removed outright.**
+    What is lost is a directory entry for a folder that was empty or held only OS junk -- the junk
+    is recoverable and a folder can be made again. `delete forever` has to mean *content is gone
+    with no way back*; spending it on a directory entry devalues it for the case where it is the
+    honest word, which is the cry-wolf failure the whole vocabulary exists to avoid. `(afj)`
     """
     if not permanent:
         return _typed_confirmation(f"\nType 'clean' to remove {count} folder(s): ", "clean")
+    # The rmdir guarantee is NOT restated here - it is printed for every run by
+    # `_print_cleanup_plan`, because it holds on every path. What is specific to this flag is the
+    # junk, which is the only thing `--permanent` changes the fate of. `(afj)`
     print(
-        "\n--permanent: where the trash refuses OR is unavailable, folders will be DELETED"
-        "\nOUTRIGHT and are NOT recoverable. Removal uses rmdir, so a folder that is no longer"
-        "\nempty cannot be removed even if it is listed above."
+        "\n--permanent: where the trash refuses OR is unavailable, any OS junk in these folders"
+        "\nis removed OUTRIGHT and is NOT recoverable."
     )
     return _typed_confirmation(
         f"\nType 'delete forever' to remove {count} folder(s): ", "delete forever"
@@ -3573,12 +3604,13 @@ def _cmd_clean_empty(args: argparse.Namespace) -> int:
         return 0
 
     outcome = run_cleanup(args.path, plan, apply=True, permanent=args.permanent)
-    parts = []
-    if outcome.trashed:
-        parts.append(f"{outcome.trashed} to the trash")
-    if outcome.deleted:
-        parts.append(f"{outcome.deleted} deleted permanently")
-    print(f"\nRemoved {outcome.removed} folder(s)" + (f" ({', '.join(parts)})." if parts else "."))
+    print(f"\nRemoved {outcome.removed} folder(s).")
+    # Prose, not a counter: "look in the trash" does not depend on how many there were, while a
+    # discard cannot be undone and is therefore worth a number. `(afj)`
+    if outcome.discarded:
+        print(f"  {outcome.discarded} OS junk file(s) were removed outright, not recoverable.")
+    elif outcome.removed and any(c.tier is Tier.JUNK_ONLY for c in plan.removable):
+        print("  The OS junk they held is in the trash.")
     for failure in outcome.failures:
         print(f"  ! {failure}")
     return 0

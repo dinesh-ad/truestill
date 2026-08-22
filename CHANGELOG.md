@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **`clean-empty` can no longer remove a folder that something appeared in while you were
+  reading the preview.** It now puts a folder's leftover OS junk in the trash and removes the
+  folder itself with `rmdir`, which the system refuses if anything at all is still inside - so a
+  photo that landed there a second before you typed `clean` keeps the folder, and both survive.
+  The run tells you which folder it could not remove and what already went to the trash. The
+  preview now also says plainly, on every run, that the folder itself is removed outright and that
+  a folder which is no longer empty will be left alone; it used to say that only with
+  `--permanent`, which is the one case where it was least likely to apply.
 - **Truestill no longer crashes when the folder for your catalog cannot be written.** A
   read-only or full disk used to end in a Python stack trace before anything ran; now it says
   what to check and stops. The message was also corrected so it is true of a command that wrote

@@ -47,3 +47,30 @@
   - Whether the same reporting gap exists on the trash path. It does not today, because the trash
     path moves the folder whole - but `(afj)` option **A** would introduce an unlink-then-check
     step there and would inherit this exactly.
+
+  ---
+
+  # CLOSED 2026-08-22, inside `(afj)`, and this entry predicted that.
+
+  The section above ends: *"`(afj)` option **A** would introduce an unlink-then-check step there and
+  would inherit this exactly."* It did. The fix that stopped `clean-empty` handing whole folders to
+  the trash made this reporting gap **mandatory to close rather than optional**, because the partial
+  state it produces is larger than the one recorded here: junk in the trash **and** the folder still
+  present, where before it was junk destroyed and the folder still present.
+
+  Neither ordering of the two entries was available. Shipping `(afj)` alone gives every ordinary run
+  a partial state its own report cannot describe; fixing this first fixes the reporting of a code
+  path `(afj)` replaces.
+
+  **The remedy is the sentence this entry asked for**, in `cleanup._partial_removal_reason`, and it
+  now covers both dispositions:
+
+  ```
+  ! 2013/2013-09/2013-09 - Everyday: not removed (directory not empty); its .DS_Store is in the trash
+  ```
+
+  Measured on the real race. Under `--permanent` the same line reads *"its .DS_Store was removed"*.
+
+  ⚠ **The order was not touched**, per this entry's own instruction: the junk still goes before the
+  `rmdir`, because the folder cannot be empty otherwise and `rmdir` being last is the whole
+  guarantee. Pinned by `test_junk_already_in_the_trash_is_named_when_the_rmdir_refuses`.

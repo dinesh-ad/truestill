@@ -2107,26 +2107,31 @@ function organizeUndoSkipped(skipped) {
   </div></div>`;
 }
 
-// What actually happened to the folders, named per disposition rather than summed.
+// What actually happened to the folders, and to anything they held.
 //
-// `removed` is a DERIVED property - trashed + deleted - so rendering it added core's two
-// answers together and threw away the only distinction that matters afterwards: whether a
-// folder is recoverable from the trash or gone. The CLI has always split them.
+// ⚠ This read `applied.trashed` and `applied.deleted` until 2026-08-22, and the comment here
+// asserted that `deleted` was non-zero only under `clean-empty --permanent`. Both stopped being
+// true: no folder is trashed any more. The contents go to the trash and the FOLDER goes to
+// `rmdir`, because `send2trash` has no emptiness precondition and would take a folder that
+// gained a file between the preview and the confirm. `(afj)`
 //
-// Built from whichever counts are non-zero, which is `dupOrigins`' shape and, since 2026-08-04,
-// the only one that stays honest: an absent trash backend is a refusal, so `deleted` is now
-// non-zero only under `clean-empty --permanent`, which the app does not offer. A hand-written
-// "N moved to the trash" would therefore be right today and wrong the day an app permanent mode
-// exists. A zero bucket prints nothing - never-silent is about what happened, not what did not.
+// So the distinction worth keeping is no longer "which folders were recoverable" - none are, and
+// none ever held anything worth recovering - but **what happened to their contents**. `discarded`
+// is counted because it cannot be undone; trashed junk is described, because "look in the trash"
+// does not depend on how many there were. Core's `CleanupOutcome` makes the same split.
 //
-// Complexity: O(1). Two integers already in the payload; nothing is re-counted or re-read.
+// Complexity: O(1). Two integers and a boolean already in the payload; nothing is re-read.
 function cleanupDisposition(applied) {
-  const parts = [];
-  if (applied.trashed) parts.push(`${plural(applied.trashed, "folder")} moved to the trash`);
-  if (applied.deleted) parts.push(`${plural(applied.deleted, "folder")} deleted permanently`);
   // Never "Removed 0 folders": a run that removed nothing is not a removal, and the failures
   // banner below it carries the reason for each one.
-  return parts.length ? `${esc(parts.join(", "))}.` : "No folders were removed.";
+  if (!applied.removed) return "No folders were removed.";
+  const parts = [`${plural(applied.removed, "folder")} removed`];
+  if (applied.discarded) {
+    parts.push(`${plural(applied.discarded, "junk file")} removed outright, not recoverable`);
+  } else if (applied.held_junk) {
+    parts.push("the OS junk they held is in the trash");
+  }
+  return `${esc(parts.join(", "))}.`;
 }
 
 function cleanupOfferNote(cleanup) {
@@ -2184,8 +2189,10 @@ async function startCleanupPreview(button) {
       );
       return;
     }
-    const where = `to the trash (${preview.backend})`;
-    stage.innerHTML = `<div class="k">${plural(preview.removable.length, "folder")} can be removed ${esc(where)}.</div>
+    // ⚠ This said "can be removed to the trash", which the folders never are - only their
+    // contents go there, and the folder itself is removed outright by `rmdir`. Saying otherwise
+    // is the same false promise the CLI preview was making. `(afj)`
+    stage.innerHTML = `<div class="k">${plural(preview.removable.length, "folder")} can be removed. The folder itself is removed outright, not moved to the trash; any OS junk inside it goes to the trash (${esc(preview.backend)}) first. A folder that is no longer empty when the removal runs is left alone and reported.</div>
       <details class="more"><summary>Show folders ▾</summary><div class="mono">${preview.removable.map((p) => esc(p)).join("<br>")}</div></details>
       <div data-org-clean-typed></div>`;
     typedConfirm(stage.querySelector("[data-org-clean-typed]"), {

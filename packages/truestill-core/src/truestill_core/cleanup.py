@@ -19,8 +19,14 @@ Two decisions carry this module, both recorded in `docs/empty-folder-cleanup-res
 * Deriving the candidate set (:func:`emptied_directories`) is **O(moves x depth) + O(F log F)**
   for the sort, where *moves* is one journal row **per migrated file**. That half does scale
   with library size.
-* Classifying and removing them (:func:`plan_cleanup`, :func:`run_cleanup`) is **O(folders)**:
-  one directory listing each, a set lookup per entry, and **no file is ever opened**.
+* Classifying and removing them (:func:`plan_cleanup`, :func:`run_cleanup`) is
+  **O(folders + junk entries)**: one directory listing per folder, a set lookup per entry, and one
+  trash call per junk file. ⚠ This said **O(folders)** and *"no file is ever opened"* until
+  2026-08-22, when removal stopped handing whole folders to the trash and started sending their
+  named junk individually (`(afj)`). The junk term is bounded by what `plan_cleanup` already
+  listed, and a same-filesystem trash is a rename rather than a copy - but "no file is ever
+  opened" is no longer true of a cross-device trash, and this module has corrected an over-claim
+  of its own once already (below).
 
 The original wording here said "Nothing scales with library size", which was wrong about the
 first half - it is pure string work, so it is cheap rather than absent, but a future optimiser
@@ -227,28 +233,104 @@ def _to_trash(path: Path, backend: str) -> None:
 
 @dataclass(frozen=True, slots=True)
 class CleanupOutcome:
-    """What removal achieved, split by how each folder went."""
+    """What removal achieved. **Counts what cannot be undone; describes what can.**
 
-    trashed: int = 0
-    deleted: int = 0
+    ⚠ **The fields were ``trashed``/``deleted``, counting FOLDERS, until 2026-08-22.** No folder
+    is trashed any more -- every folder is removed by ``rmdir``, and only its *contents* can go to
+    the trash -- so a ``trashed`` folder counter would have been permanently zero and a ``deleted``
+    one would have made an ordinary tidy-up read as a permanent delete. A name that describes what
+    a field used to mean is worse than no name, because a reader trusts it. `(afj)`
+
+    **Junk that reached the trash is deliberately not counted.** The action it implies -- look in
+    the trash -- does not depend on how many there were, while :attr:`discarded` is irreversible
+    and does. It is reported in prose by each surface instead.
+    """
+
+    #: Folders removed. Always by ``rmdir``, on every path.
+    removed: int = 0
+    #: Junk **files** unlinked outright, which happens only under ``--permanent`` after the trash
+    #: refused them. Nothing recoverable, which is why this one is a number.
+    discarded: int = 0
     failures: list[str] = field(default_factory=list)
 
-    @property
-    def removed(self) -> int:
-        return self.trashed + self.deleted
 
+def _clear_junk(
+    folder: Path, junk: tuple[str, ...], *, backend: str | None, permanent: bool
+) -> tuple[tuple[str, ...], tuple[str, ...], str | None]:
+    """Send each named junk entry to the trash, or discard it. **Never touches the folder.**
 
-def _remove_permanently(folder: Path, junk: tuple[str, ...]) -> None:
-    """Delete a folder with **rmdir semantics**: it physically cannot remove a non-empty one.
+    Only the entries this plan already classified as junk are handled, **by name** -- never a
+    wildcard and never a recursive walk. `Tier.JUNK_ONLY` contents are file names only: a
+    surviving subdirectory short-circuits the folder to `Tier.OCCUPIED`, so nothing here is ever
+    a directory.
 
-    Only the entries this plan already classified as junk are unlinked, by name -- never a
-    wildcard and never a recursive walk. Then ``rmdir`` refuses if anything else is present, so a
-    folder that gained a file between the preview and the confirm survives **by construction**
-    rather than by a re-check that could itself race. ``rmtree`` would have taken it.
+    Returns ``(trashed, discarded, refusal)``. A refusal is a reason string and means **nothing
+    further should happen to this folder** -- the trash said no and ``permanent`` was not given,
+    so §1 condition (d) leaves it in place.
     """
+    if backend is None:
+        # No trash on this machine is a REFUSAL, not permission -- and it is the whole folder that
+        # is refused, junk or no junk, because after this change every removal is outright and
+        # `NO_TRASH_REASON` already says we will not do that unasked.
+        if not permanent:
+            return (), (), NO_TRASH_REASON
+        discarded_here: list[str] = []
+        for name in junk:
+            entry = folder / name
+            # Counted only if it was really there: `discarded` is the number of irreversible
+            # removals, and a file that had already gone is not one of them.
+            existed = entry.exists()
+            entry.unlink(missing_ok=True)
+            if existed:
+                discarded_here.append(name)
+        return (), tuple(discarded_here), None
+    trashed: list[str] = []
+    discarded: list[str] = []
     for name in junk:
-        (folder / name).unlink(missing_ok=True)
-    folder.rmdir()
+        entry = folder / name
+        try:
+            _to_trash(entry, backend)
+        except (OSError, subprocess.CalledProcessError) as exc:
+            # ⚠ **Diagnosed after the act, never checked before it.** `_remove_permanently` used
+            # ``unlink(missing_ok=True)``, so junk that vanished between the plan and the apply
+            # was tolerated -- and it makes the ``rmdir`` below *more* likely to succeed, not
+            # less. Neither backend offers that: ``send2trash`` raises and ``gio`` exits non-zero,
+            # and on ``gio`` the failure arrives as a `CalledProcessError` that cannot be told
+            # apart from any other. So the equivalence is restored by asking the filesystem
+            # afterwards rather than by pre-checking, which is the same discipline the folder
+            # itself gets.
+            if not entry.exists():
+                continue
+            if not permanent:
+                return tuple(trashed), tuple(discarded), str(exc)
+            entry.unlink(missing_ok=True)
+            discarded.append(name)
+        else:
+            trashed.append(name)
+    return tuple(trashed), tuple(discarded), None
+
+
+def _partial_removal_reason(
+    exc: OSError, trashed: tuple[str, ...], discarded: tuple[str, ...]
+) -> str:
+    """Why a folder was not removed, **and what already happened to it anyway**.
+
+    ⚠ **The load-bearing sentence of this module.** A folder whose ``rmdir`` refused after its junk
+    reached the trash is a state no previous version could produce, and this line is the only thing
+    that makes it legible: *"this one failed"* standing in for *"this one partly succeeded"* is
+    exactly `(aez)`'s shape, and `(afk)` is the same defect in the older, smaller form.
+    """
+    detail = (exc.strerror or str(exc)).lower()
+    parts = [f"not removed ({detail})"]
+    if trashed:
+        parts.append(
+            f"its {', '.join(trashed)} {'is' if len(trashed) == 1 else 'are'} in the trash"
+        )
+    if discarded:
+        parts.append(
+            f"its {', '.join(discarded)} {'was' if len(discarded) == 1 else 'were'} removed"
+        )
+    return "; ".join(parts)
 
 
 def run_cleanup(
@@ -266,46 +348,67 @@ def run_cleanup(
     before asking to confirm** -- "these go to the trash" and "these are deleted permanently" are
     different questions, and the answer must not be discovered afterwards.
 
+    **The contents go to the trash; the folder goes to ``rmdir``.** ⚠ Until 2026-08-22 the whole
+    folder was handed to `_to_trash`, and ``send2trash`` has **no emptiness precondition** --
+    measured, it accepts a non-empty directory and moves it by atomic rename. So a folder that
+    gained a file between the preview and the typed word was taken, with the file. `(afj)`
+
+    ⚠ **The fix is not a check before trashing.** There is nothing to copy from the permanent
+    path: it never re-verified either. Its safety is ``rmdir``'s kernel-enforced precondition, not
+    a re-read -- see `_clear_junk` and the ordering note below. A contents check before the move
+    would be the check-then-act race this module was written to avoid.
+
+    **Ordering, and it is the only one available.** ``rmdir`` cannot be asked whether it *would*
+    succeed, so junk is cleared first. If ``rmdir`` then refuses, the junk is in the trash and the
+    folder remains -- **strictly better than the old permanent path**, which unlinked the junk
+    outright in exactly that situation. `_partial_removal_reason` is what makes that state legible.
+
     **Trash is always tried first.** ``permanent`` changes only what happens when trash is
-    *refused*: without it the folder is left in place and reported, with it the folder is deleted
-    outright. That is why permanent mode needs no separate "is trash available here?" gate -- it
-    applies per folder, and exactly to the folders trash would not take.
+    *refused*, and what it now governs is the **junk**: without it the folder is left in place and
+    reported, with it the junk is discarded and the folder still goes through ``rmdir``.
     """
     if not apply:
         return CleanupOutcome()
     if isinstance(backend, _Unset):
         backend = trash_backend()
 
-    trashed = deleted = 0
+    removed = discarded = 0
     failures: list[str] = []
     for candidate in plan.removable:
         folder = root / candidate.relative
-        if not folder.is_dir():
-            continue
+        # ⚠ **No `is_dir()` pre-check, and its removal is part of the fix.** It was check-then-act
+        # on the one path whose defining property is that it does not check -- it bought no
+        # atomicity (`rmdir` raises anyway) and it *silently skipped*, so a preview naming six
+        # folders could report five with nothing explaining the sixth. Worse, a folder whose
+        # parent refuses answers `False` rather than raising, so a refusal was routed into the
+        # skip that `plan_cleanup` reserves for a folder already dealt with. `(afb)`, `(afj)`.
+        # `rmdir`'s own errno answers all three cases below, after the act.
+        #
+        # `Tier.EMPTY` carries no contents, so `junk` is `()` and the whole operation is that
+        # `rmdir`. An empty directory has nothing to recover; trashing it preserved a name.
         junk = candidate.contents if candidate.tier is Tier.JUNK_ONLY else ()
-        if backend is None:
-            # No trash on this machine is a REFUSAL, not permission. Until 2026-08-04 this
-            # branch did not exist: control fell straight through to the permanent removal
-            # below without ever reading `permanent`, so the two states a user cannot tell
-            # apart - "this drive would not accept it" and "this computer has no trash" -
-            # produced opposite outcomes, and the destructive one needed no decision from
-            # anybody. See `test_no_trash_backend_is_a_refusal_not_a_licence_to_destroy`.
-            if not permanent:
-                failures.append(f"{candidate.relative}: {NO_TRASH_REASON}")
-                continue
-        else:
-            try:
-                _to_trash(folder, backend)
-            except (OSError, subprocess.CalledProcessError) as exc:
-                if not permanent:
-                    failures.append(f"{candidate.relative}: {exc}")
-                    continue
-            else:
-                trashed += 1
-                continue
         try:
-            _remove_permanently(folder, junk)
-            deleted += 1
+            trashed_here, discarded_here, refusal = _clear_junk(
+                folder, junk, backend=backend, permanent=permanent
+            )
         except OSError as exc:
             failures.append(f"{candidate.relative}: {exc}")
-    return CleanupOutcome(trashed=trashed, deleted=deleted, failures=failures)
+            continue
+        if refusal is not None:
+            failures.append(f"{candidate.relative}: {refusal}")
+            continue
+        discarded += len(discarded_here)
+        try:
+            folder.rmdir()
+        except FileNotFoundError:
+            # Already gone - a previous cleanup, or the user. `plan_cleanup` treats an absent
+            # candidate the same way, and neither removed nor failed is the honest count.
+            continue
+        except OSError as exc:
+            failures.append(
+                f"{candidate.relative}: "
+                f"{_partial_removal_reason(exc, trashed_here, discarded_here)}"
+            )
+            continue
+        removed += 1
+    return CleanupOutcome(removed=removed, discarded=discarded, failures=failures)

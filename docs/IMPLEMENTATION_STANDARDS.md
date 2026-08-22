@@ -32,9 +32,28 @@ deletes a folder **only** when all four hold: **(a)** it emptied that folder its
 the migration journal - never a drive sweep; **(b)** the folder contains nothing, or only entries
 named in `cleanup.JUNK_NAMES` or zero-byte files - unknown is never junk; **(c)** the user
 confirmed a preview listing every folder and every leftover file by name, with a typed word; and
-**(d)** it goes to the OS trash where the platform allows, and a trash refusal leaves the folder
-in place rather than being downgraded to a permanent delete. This makes the never-delete rule
-*explicit* rather than weakening it: the four conditions are the whole permission.
+**(d)** its **contents** go to the OS trash where the platform allows, and a trash refusal leaves
+the folder in place rather than being downgraded to a permanent delete. This makes the
+never-delete rule *explicit* rather than weakening it: the four conditions are the whole
+permission.
+
+⚠ **(d) said "it goes to the OS trash" until 2026-08-22, meaning the folder.** It no longer does,
+and could not safely: `send2trash` has **no emptiness precondition** - measured, it accepts a
+non-empty directory and moves it by atomic rename - so a folder that gained a file between the
+preview and the confirm was handed over whole, with the file. `(afj)` The folder's named junk now
+goes to the trash individually and the **folder itself goes to `rmdir`**, whose emptiness
+precondition the kernel enforces atomically. A `Tier.EMPTY` folder has no contents at all, so for
+it the whole operation is that `rmdir`.
+
+**What (d) protects is therefore content, and always was**: an empty directory has no bytes to
+recover, and trashing one preserved a name. ⚠ **The cost, stated rather than discovered**: the
+directory entry is now removed outright on every path, and junk in the trash records an original
+path whose parent no longer exists - so restoring it *to where it was* may fail, and the product
+must claim "the junk is in the trash", never "you can put it back".
+
+⚠ **And one behaviour narrowed with it.** A trash that refuses can only refuse something it was
+asked to take, so a drive whose trash refuses no longer keeps its **empty** folders - they never
+needed a trash. A refusal still keeps any folder whose junk it declined.
 
 **An absent trash backend is treated as a refusal** (clarified 2026-08-04, and it is a
 clarification because condition (d) already said what should happen and named only the refusal
@@ -43,9 +62,14 @@ said no; where `trash_backend()` returned `None` the flag was never read and rem
 unconditional - so "this drive would not accept it" and "this computer has no trash" produced
 opposite outcomes for a user who cannot tell the two apart, and the destructive one was the one
 that required no decision from anybody. Both now leave the folder in place and report it by name
-with `cleanup.NO_TRASH_REASON`, so **permanent mode below is the only way any folder is ever
-destroyed**, which is what makes the typed word match the outcome on every path without the
-outcome having to be inferred from a flag. Pinned by
+with `cleanup.NO_TRASH_REASON`. ⚠ **That paragraph said permanent mode was "the only way any
+folder is ever destroyed" until 2026-08-22**; every removal is now a `rmdir`, so the gate is
+retained for `Tier.EMPTY` folders as a conservative default rather than because a trash would have
+taken them. `NO_TRASH_REASON`'s own words - *"Truestill will not delete a folder outright without
+being asked"* - are more literally true after the change than before it. The coherent alternative
+(refuse only when there is junk to trash) is deliberately **not** taken here: it would widen what a
+degraded install does destructively, inside a change whose purpose is removing a destructive
+surprise. Pinned by
 `test_no_trash_backend_is_a_refusal_not_a_licence_to_destroy`, whose cry-wolf half
 (`test_permanent_still_removes_when_there_is_no_trash_at_all`) holds permanent mode open for the
 mounts it was written for.
@@ -56,12 +80,27 @@ condition (d) can be impossible to satisfy. In that case, and **only** in that c
 be permanent - under three further conditions: trash is still **tried first** and permanent
 applies per folder, exactly to the ones it refused; the preview states plainly that removal is
 irreversible on this mount **before** asking; and the confirm is a **distinct phrase**,
-`delete forever`, never the `clean` a user typed for a recoverable removal. Removal uses
-**`rmdir` semantics** - only the named junk is unlinked, then the directory must be empty - so a
-folder that gained a file between the preview and the confirm cannot be removed *by
-construction* rather than by a re-check that could race. Pinned by
-`test_permanent_removal_cannot_delete_a_folder_that_gained_a_file` and
-`tests/test_clean_empty_cli.py`.
+`delete forever`, never the `clean` a user typed for a recoverable removal.
+
+⚠ **`rmdir` semantics are no longer permanent mode's, and stating them here was the second half of
+`(afj)`.** Every removal on every path is now *dispose of the named junk, then `rmdir`* - so a
+folder that gained a file between the preview and the confirm cannot be removed **by construction**
+rather than by a re-check that could itself race. That sentence lived here, keyed on a flag that
+does not select the path: `run_cleanup` always tries the trash first and `permanent` only changes
+what happens when it refuses, so with the flag set and a working trash it was false for every
+folder - and the **default** run, where every folder went whole, said nothing at all. It is now
+printed for every run. Pinned by `test_permanent_removal_cannot_delete_a_folder_that_gained_a_file`
+and its trash-path twin `test_trash_removal_cannot_take_a_folder_that_gained_a_file`.
+
+**What `--permanent` still governs is the junk**, which is the only thing a trash can refuse: with
+the flag, junk the trash declined is unlinked instead; without it, the folder is left in place and
+reported. ⚠ It therefore has **no effect on a `Tier.EMPTY` folder**, which never consults a trash.
+Pinned by `tests/test_clean_empty_cli.py`.
+
+⚠ **The typed word stays `clean` even though the folder is now removed outright.** What is lost is
+a directory entry for a folder that was empty or held only OS junk; the junk is recoverable and a
+folder can be made again. `delete forever` has to keep meaning *content is gone with no way back*
+- spending it here would devalue it where it guards real bytes, which is `(afh)`'s subject.
 Enforced by `cleanup.plan_cleanup` / `cleanup.run_cleanup`; pinned by `tests/test_cleanup.py`.
 
 **Source-relocation exceptions (features k and q), all opt-in:**
