@@ -181,7 +181,10 @@ an EV certificate does that.
 ## Usage
 
 The CLI is subcommand-based. **Dry run is the default** - nothing is written without
-`--apply`:
+`--apply`. A dry run explains **every file** - where it would go, which date it used and why -
+because that is what you read before deciding. A run you have already authorised with `--apply`
+shows the counts instead and writes the per-file detail to `last-run.json` beside your catalog,
+so you can still find out later which photos failed:
 
 ```bash
 uv run truestill analyze <folder>    # what is in here? -- reads nothing, changes nothing

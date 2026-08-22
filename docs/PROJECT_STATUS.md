@@ -85,6 +85,39 @@ Notes:
   - ✅ **What the soak also proved sound:** the `.partial` -> rename -> record write path survived
     both a `SIGKILL` and a full disk with no corrupt file and no phantom row, and `(adx)` gap 1's
     clone disclosure fired correctly on an 11 GB clone.
+- ⚠ **THREE MORE SOAKS RAN, AND THE BULLET ABOVE WAS THE ONLY ONE HERE UNTIL 2026-08-22.** Soak
+  one is above because it overturned a claim in this file; two, three and four are here because a
+  *"where does the project stand"* document that knows about one of four soaks is stale in the
+  direction that costs most. Each has a **plan** and a **record**, both mapped in `CLAUDE.md`.
+  - **Soak two** (2026-08-21, `soak-two-record.md`) - scale and sequence on 2,276 files / 6.3 GB.
+    **Five findings**, and ⚠ **three harness defects that each nearly became a false one**. Its
+    stock-take is what set the next two soaks' subjects.
+  - **Soak three** (2026-08-21, `soak-three-record.md`) - **refusal**: every step makes the
+    filesystem say no, staged with real `chmod` and unprivileged FUSE mounts so the **kernel**
+    returns a real errno to an unmodified product. Six steps, **four findings under three
+    letters** - `(afc)`, `(afd)`, `(afe)`, two of them folded into `(afd)` because they shared its
+    remedy - and **the two most dangerous properties held**: no automatic path keys off
+    a *"gone"* verdict, and a destination that refuses mid-run corrupts nothing. **What failed was
+    what the product SAYS.**
+  - **Soak four** (2026-08-22, `soak-four-record.md`) - the **deleting** commands, `reclaim` and
+    `clean-empty`, which nothing had soaked. Seven steps, **four findings** - `(afh)`, `(afi)`,
+    `(afj)`, `(afk)` - plus `(afd)` confirmed independently in a second command. ⚠ **The two
+    properties most likely to destroy irreplaceable data both held**: `reclaim` deleted exactly
+    the set it promised and nothing where the source *was* the only copy.
+  - ⚠ **The soaks have outproduced the backlog, and every entry these three raised is closed.**
+    **Twelve**, counted rather than recalled: `(aer)`-`(aev)` from soak two, `(afc)`-`(afe)` from
+    three, `(afh)`-`(afk)` from four - all in `SHIPPED.md` as of 2026-08-22. Four more were **split
+    out while fixing them** and are also shipped: `(afl)`, `(afm)`, `(afn)`, `(afo)`.
+    ⚠ **Soak ONE's `(ael)` is the one soak finding still open**, so *"the soaks are all
+    closed"* is false and this bullet is the correction to it. **The pattern is not "the product
+    is broken"**: across four soaks the safety invariants held every time they were tested, and
+    nearly every finding was in what the product **reports** - a run that could not say what it
+    did, a folder described as full when it could not be opened, an identity minted on evidence
+    nobody could gather.
+  - ⚠ **Yield is falling and the method is what to watch.** Soak four's harness produced **three**
+    defects of its own, two of which would have produced false results, and a fourth soak needed a
+    positive control before its cleanest pass could be believed. **Steps that cannot be staged
+    honestly are said rather than skipped** - the records name what each soak did *not* test.
 - **Schema is at v20** (`catalog.CURRENT_SCHEMA_VERSION`); `organize_runs` was added by `(aem)`.
 - **`(aad)` installers remain the launch gate**, and its two largest items are now built AND
   proven: the release lane and the Windows installer both work on both platforms
@@ -202,7 +235,7 @@ reading, quoted here as if it were current. A count in prose rots; the command d
 
 ```
 sed -n '/^## Approved - still to build/,/^## Settled technical stances/p' docs/BACKLOG.md \
-  | grep -cE '^ *- \*\*\([a-z]+\)'      # open entries. Read 81 on 2026-08-22.
+  | grep -cE '^ *- \*\*\([a-z]+\)'      # open entries. Read 81, then 80, on 2026-08-22.
 ``` The release question *"is not stored
 anywhere - it is RECOMPUTED from judgement every time it is asked, which is why it comes out
 different."* What follows is such a recomputation, dated so the next one can disagree with a
