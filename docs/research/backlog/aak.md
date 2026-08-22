@@ -1,6 +1,12 @@
 # (aak) The skipped-file summary is written twice.
 
-*Body of backlog entry `(aak)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(aak)`. **CLOSED 2026-08-04 by `c027dd3`, recorded 2026-08-22.** The index is now [`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
+
+> ⚠ **THE DUPLICATION DESCRIBED BELOW WAS REMOVED ON 2026-08-04** by `c027dd3`, which replaced
+> `_skipped_summary`'s copied body with `return skipped_extension_counts(scan)`. The docstring has
+> stated that in place ever since - *"A thin alias, deliberately not a second implementation"* - so
+> the code and this entry disagreed for eighteen days. ⚠ **Closed as a side effect of a feature
+> commit**, which names no letter, so the `Closes (xyz)` rule could not see it. Original below.
 
 - **(aak) The skipped-file summary is written twice.** `organizer._skipped_extension_counts`
   and `service/organize._skipped_summary` are the same logic in two homes - extension counts

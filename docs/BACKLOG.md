@@ -224,9 +224,6 @@ is invisible here is retired, not free.**
   entry](research/backlog/acn.md)
 - **(adf) A CLI-ORGANIZED LIBRARY LEAVES `path_hint.library` UNSET, so the app has no observed
   destination to prefill.** [Full entry](research/backlog/adf.md)
-- **(ace) THE MUTATION RESTORE RULE EXISTS, IS CORRECT, AND WAS VIOLATED TWICE IN ONE DAY - MAKE IT
-  EXECUTABLE.** ⚠ **may already be shipped as `scripts/mutate_once.py`; provenance question filed
-  inside the entry, unanswered.** Recorded 2026-08-10. [Full entry](research/backlog/ace.md)
 - **(aci) A DELETED DECISION BLOCKS DRIVE SAVES UNTIL A RESTORE RECONCILES THEM.** Recorded
   2026-08-09. [Full entry](research/backlog/aci.md)
 - **(acg) ALBUM MEMBERSHIP CANNOT LEAVE THIS MACHINE - the same class as `(ack)`, waiting.**
@@ -272,9 +269,6 @@ is invisible here is retired, not free.**
   entry](research/backlog/abk.md)
 - **(abj) Find matches one substring; a two-word query silently finds nothing.** [Full
   entry](research/backlog/abj.md)
-- **(abi) The geometric pillar T reaches nothing.** The mark is committed and pinned, but
-  `build_brand_assets.py` still generates every icon from the font - so it reaches no output.
-  Recorded 2026-08-05. [Full entry](research/backlog/abi.md)
 - **(abc) `check_product_name.SUBCOMMANDS` should be derived, not transcribed.** [Full
   entry](research/backlog/abc.md)
 - **(abb) The other capture-filename conventions.** `rule_camera_filename` shipped with ONE
@@ -296,9 +290,6 @@ is invisible here is retired, not free.**
   2026-08-02. [Full entry](research/backlog/aas.md)
 - **(aau) A zero-warning test lane, and why it is not one today.** Recorded 2026-08-02. [Full
   entry](research/backlog/aau.md)
-- **(aak) The skipped-file summary is written twice.** `organizer._skipped_extension_counts` and
-  `service/organize._skipped_summary` are the same logic in two homes. [Full
-  entry](research/backlog/aak.md)
 - **(aai) The plain copy path does not verify at write time.** Recorded 2026-07-31. [Full
   entry](research/backlog/aai.md)
 - **(aaf) Persisted skip record - "show me what was skipped last week".** [Full

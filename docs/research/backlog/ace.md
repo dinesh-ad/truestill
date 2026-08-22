@@ -1,6 +1,12 @@
 # (ace) THE MUTATION RESTORE RULE EXISTS, IS CORRECT, AND WAS VIOLATED TWICE IN ONE DAY - MAKE IT EXECUTABLE.
 
-*Body of backlog entry `(ace)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(ace)`. **CLOSED 2026-08-14 by `daf2656`, recorded 2026-08-22.** The index is now [`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
+
+> ⚠ **THE PROVENANCE QUESTION BELOW IS ANSWERED: YES.** `scripts/mutate_once.py` is the tool this
+> entry asked for, and it landed **2026-08-14** in `daf2656`. The proposal names `scripts/mutate.py`
+> and the tool shipped as `mutate_once.py`, which is why eight days of reading did not connect them:
+> **the letter was being matched against a filename rather than against a behaviour.** Everything
+> below is the original proposal, unedited.
 
 > ⚠ **PROVENANCE QUESTION, FILED 2026-08-15 AND NOT ANSWERED HERE.** The proposal below asks for
 > `scripts/mutate.py`. **`scripts/mutate_once.py` exists and matches the description clause for

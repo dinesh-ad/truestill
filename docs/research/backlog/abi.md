@@ -1,6 +1,11 @@
 # (abi) The geometric pillar T reaches nothing.
 
-*Body of backlog entry `(abi)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(abi)`. **CLOSED 2026-08-05 by `703e3b1`, recorded 2026-08-22.** The index is now [`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
+
+> ⚠ **CLOSED THE DAY IT WAS FILED.** `703e3b1` rewrote the builder to read
+> `brand/pillar-t-geometric*.svg`, dropped `fontTools` from the icon path and regenerated every
+> committed PNG and the favicon. This was never a gap - it is a note written hours before the work
+> and never struck out. Original below.
 
 - **(abi) The geometric pillar T reaches nothing.** Recorded 2026-08-05. `brand/pillar-t-geometric*.svg`
   is committed and pinned, but `scripts/build_brand_assets.py` still generates every icon and the

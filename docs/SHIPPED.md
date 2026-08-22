@@ -22,6 +22,38 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(ace) THE MUTATION RESTORE RULE IS EXECUTABLE, AND HAS BEEN SINCE 2026-08-14.**
+  - ✅ **CLOSED 2026-08-14 by `daf2656`** - *"a one-off mutation that misses its anchor now refuses
+    instead of passing"* - and **filed as open until 2026-08-22**, when a read of the backlog found
+    it. `scripts/mutate_once.py` is the tool the entry asked for: it verifies the anchor matches
+    exactly once, that the file actually changed, and that the restore returns it byte for byte,
+    exiting **2** on a miss rather than reporting success.
+  - ⚠ **The entry knew.** It carried *"PROVENANCE QUESTION, FILED 2026-08-15 AND NOT ANSWERED
+    HERE… `scripts/mutate_once.py` exists and matches the description"* - a question that answers
+    itself the moment anyone runs `ls`, left open for a week. **The proposal asked for
+    `scripts/mutate.py` and the tool shipped as `mutate_once.py`**, which is the whole of why it
+    was not noticed: the letter was matched against a filename rather than against a behaviour.
+  [Full entry](research/backlog/ace.md)
+- **(aak) THE SKIPPED-FILE SUMMARY HAS ONE HOME, AND HAS HAD SINCE 2026-08-04.**
+  - ✅ **CLOSED 2026-08-04 by `c027dd3`** (*"a hidden file is still skipped, and is now counted and
+    named"*), which replaced the duplicated body with `return skipped_extension_counts(scan)`.
+    **Filed as open until 2026-08-22.**
+  - The surviving docstring states the closure and its date in place - *"A thin alias, deliberately
+    not a second implementation. This was a verbatim copy of `organizer.skipped_extension_counts`
+    until 2026-08-04"* - so the code has said so for eighteen days while the backlog said the
+    opposite. ⚠ It was closed as a **side effect** of a feature commit rather than by a commit
+    naming the letter, which is exactly the case the `Closes (xyz)` rule cannot catch.
+  [Full entry](research/backlog/aak.md)
+- **(abi) THE GEOMETRIC PILLAR T REACHES EVERY ICON, AND HAS SINCE THE DAY THE ENTRY WAS FILED.**
+  - ✅ **CLOSED 2026-08-05 by `703e3b1`** (*"one mark everywhere - the pillar T replaces the TS
+    monogram"*), which rewrote the builder to read `brand/pillar-t-geometric*.svg`, dropped the
+    `fontTools` imports from the icon path and **regenerated every committed PNG and the favicon**.
+    Its first line now reads *"THE ICONS COME FROM `brand/pillar-t-geometric*.svg` and need no font
+    at all."* **Filed as open until 2026-08-22.**
+  - ⚠ **Entry and fix are the same day**, so this was never a gap - it was a note written hours
+    before the work and never struck out. Only the wordmark and the orphaned Libre Caslon marks
+    still come from a font, which the builder says in place.
+  [Full entry](research/backlog/abi.md)
 - **(afm) A RUN ARGUES FILE BY FILE ONLY WHILE IT CAN STILL BE STOPPED.** Shipped 2026-08-22.
   An ordinary **successful** organize of 2,110 files printed 15,128 lines, 15,082 of them the
   `NEW UNIQUE` block - and printed them identically under `--apply`, when there is nothing left
