@@ -20,6 +20,28 @@
   ports, with two sidecars, and `session-url.txt` still names only one. Non-job writes (the
   settings routes) remain outside the lock by design; that residue is `(adt)`'s.
 
+  ## ⚠ ABSORBED FROM `(vv)` ON 2026-08-22, WHICH CLOSED ON THE MERGER
+
+  `(vv)` was *"app per-drive job lock is process-local; CLI↔app overlap is not serialized"*. Its
+  lock half shipped as `(aaw)`; **its residue is this entry's subject and is now recorded here**,
+  because two entries describing one remaining problem is how one of them gets solved and the
+  other stays open.
+
+  **The session link makes a second instance worse than merely redundant** - `(vv)`'s own
+  measurement, kept verbatim in shape:
+
+  - `bind_listening_socket` tries `for candidate in (preferred, 0)` (`__main__.py:167`), so a
+    second `truestill-app` whose preferred port is taken binds an **ephemeral** one and starts
+    **successfully**, with its own `JobManager`. Double-clicking the icon twice is enough.
+  - `session_link.write` is **replaced, never appended**, so the second instance overwrites the
+    first's URL file - and the file is **removed when the process exits**, so quitting the second
+    **deletes the link to the first, which is still running**. The ephemeral port is by then the
+    only way in, and nothing records it.
+
+  ⚠ **That is the part `(aaw)`'s lock cannot touch and was never meant to.** A drive lock stops
+  two processes writing one library; it does not stop two processes existing, and it is the
+  *existing* that loses the way back in. **This entry is now single-instance detection, whole.**
+
   **Correctness now rests on `BEGIN IMMEDIATE` alone**, which is genuinely cross-process and
   covers the schema race. What it does not do is stop two apps running - two job managers, two
   sets of in-flight writes, two things believing they own the library. See also `(abd)`.

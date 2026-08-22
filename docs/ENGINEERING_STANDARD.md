@@ -467,6 +467,66 @@ memory dressed as one.
   destructive path. All three now build a skeleton that holds junk, so a refusal has something to
   refuse, and the trash double records what it was handed.
 
+- **A CHANGE LANDS IN THE DOCUMENT YOU HAPPEN TO BE LOOKING AT, NOT THE ONE THAT GOVERNS.** The
+  sixty-second member. When a fact is stated in two places - a reminder and the rule it summarises
+  - an edit reaches whichever one was already open. The reminder is the one you are reading,
+  because that is what reminders are for; the rule is the one that binds, and it is the one left
+  behind. **Both then read as current, and they disagree.**
+
+  ⚠ **The direction of the failure is the dangerous part.** The stale copy is the *authoritative*
+  one, so a reader who does the right thing - going to the contract rather than trusting the
+  summary - gets the wrong answer, and is more confident in it for having checked.
+
+  *Worked example - 2026-08-22.* The browser lane was re-decided from `if: false` to nightly.
+  `CLAUDE.md`'s practical reminder was updated in the same commit as the workflow.
+  `IMPLEMENTATION_STANDARDS.md` §6.1 - **the binding rule, which `CLAUDE.md` explicitly points at
+  as binding** - still said the job was disabled *"until the first migrated screen"*, a condition
+  that had been ruled unfireable, for a day. Found by a staleness audit and not by anything
+  automatic.
+
+  ⚠ **Same shape as the three entries that closed themselves** in the same audit: work landed, and
+  the record that governs it was not where the work was. The closure gate keys on a commit naming
+  a letter; this keys on nothing at all.
+
+  **THE REMEDY IS FEWER RESTATEMENTS, NOT MORE SYNCHRONISATION.** A reminder that *points* cannot
+  go stale; a reminder that *restates* can, and will. Where a summary is genuinely wanted, edit
+  the contract first and the reminder second, so the binding text is never the one that lags.
+  ⚠ **A guard was considered and refused rather than written** - see the note below on why a
+  doc-to-doc consistency test cannot fail honestly.
+
+  ### ⚠ Why there is no doc-to-doc consistency guard, and why that is a decision
+
+  *Considered 2026-08-22 for the member above, and refused.* The obvious guard is *"a rule stated
+  in `CLAUDE.md` has a counterpart in the contract, or the reverse"*. **It cannot be written so
+  that it fails honestly**, for four reasons, and the fourth is fatal on its own:
+
+  1. **"Is this sentence a rule?" is not machine-decidable.** Both files are prose. Nothing
+     separates a binding rule from a description of one, and a marker convention would only move
+     the question to "did you mark it".
+  2. **The two are worded differently ON PURPOSE** - a short form for a session against binding
+     text. Any similarity check is either loose enough to pass always, which is vacuous, or tight
+     enough to fire on every legitimate rewording.
+  3. **A hand-maintained mapping of pairs has the exact drift it is meant to catch**, one level
+     up: a restatement added without registering it is invisible, and now there is a guard
+     everyone believes in.
+  4. ⚠ **THE CORRECTED TEXT CONTAINS THE STALE LITERAL.** Both documents now say the lane *"was
+     `if: false` from 2026-08-20 to 2026-08-22"* - a true, historical sentence. A guard grepping
+     for `if: false` cannot tell a live claim from a recorded correction, so **the fix trips the
+     guard**. A check whose false positive is the remedy is worse than no check: it trains the
+     reader to switch it off, which `(afn)`'s cry-wolf arm already established.
+
+  **What IS writable is doc-to-CODE, and the repo already has it** where the claim is a
+  *resolvable reference* rather than prose: `test_doc_pointers_resolve` (every markdown link
+  resolves), the backlog letter-uniqueness test, `test_ci_bounds_apt_in_one_place` (reads
+  `ci.yml`). Those work because the claim is machine-checkable **by construction**, not because
+  someone was careful.
+
+  **So the remedy is structural and already house style: turn a restated fact into the command
+  that produces it.** `CLAUDE.md`'s document-map counts do exactly this - *"a number here rots the
+  next time anyone adds a document"* - and they are the reason that section is the one part of
+  this corpus that has never been quietly wrong. **Prefer a pointer to a summary; prefer a command
+  to a number; and where a summary is genuinely wanted, edit the contract first.**
+
 - **A TYPE CHECKER READS ONE PLATFORM'S BRANCH. THE LOCAL GATE IS BLIND TO THE OTHER TWO, AND
   THEY ARE WHERE THE PLATFORM CODE IS.** The sixty-first member. `mypy` narrows `sys.platform`
   and analyses **only the branch that matches the host**, so this shape is green on Linux and

@@ -1,6 +1,11 @@
 # (vv) Known limit: app per-drive job lock is process-local; CLI↔app overlap is not serialized.
 
-*Body of backlog entry `(vv)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(vv)`. **CLOSED 2026-08-22 - half shipped as `(aaw)`, half MERGED INTO `(adn)`.** The index is now [`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
+
+> ⚠ **THIS LETTER IS NOT FULLY SHIPPED, AND THE DISTINCTION IS THE POINT.** The cross-process lock
+> this entry asked for exists (`(aaw)`, 2026-08-22). The **session-link residue below is unbuilt**
+> and was moved to `(adn)`, which `(aaw)` had already narrowed to exactly that subject. Nothing was
+> abandoned and nothing extra was claimed; the record of where the work went is in `(adn)`.
 
 - **(vv) Known limit: app per-drive job lock is process-local; CLI↔app overlap is not serialized.**
   Recorded 2026-07-29 when Commit 3 of (oo) shipped the server-side one-op-per-drive guard.

@@ -22,6 +22,24 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(vv) CLOSED IN TWO HALVES, AND ONLY ONE OF THEM WAS BUILT.** Closed 2026-08-22.
+  ⚠ **READ THIS BEFORE TREATING THE LETTER AS SHIPPED.** `(vv)` was a **recorded limit**, not an
+  approved build - *"app per-drive job lock is process-local; CLI↔app overlap is not serialized"*.
+  It closes because **neither half is still open here**, and the halves closed differently:
+  - **The lock half SHIPPED**, as `(aaw)` on 2026-08-22. `(vv)` asked for *"a real cross-process
+    guard (e.g. flock on the drive marker or catalog)… a separate design if soak ever shows
+    CLI↔app races mattering in practice"*. ⚠ **No soak ever showed it, because no soak tested
+    concurrency at all** - it was measured directly instead, two concurrent applies losing 99 and
+    45 organized copies. CLI↔app and CLI↔CLI overlap on a mutating operation **is** serialized now.
+  - **The remaining half was MERGED, not built.** The session-link residue - a second instance
+    overwriting the first's URL file, and quitting it **deleting the link to a still-running
+    first** - is single-instance detection, which is exactly what `(adn)` narrowed to once `(aaw)`
+    took the write-safety half off it. It now lives in `(adn)` in full, with its `__main__.py:167`
+    citation intact. **That work is unbuilt and this letter does not claim otherwise.**
+  ⚠ **Why merge rather than leave both open:** two entries describing one remaining problem is how
+  one of them gets solved and the other stays open, quietly, still asserting a defect that no
+  longer exists. `(vv)`'s headline was already false the day `(aaw)` shipped.
+  [Full entry](research/backlog/vv.md)
 - **(aaw) A MUTATING OPERATION HOLDS ITS DRIVE AGAINST OTHER PROCESSES.** Shipped 2026-08-22,
   after the deferral it sat under for three weeks was found to be unresolvable by waiting: the
   gate was *"the soak will say which things break"* and **no soak tested concurrency at all**.

@@ -210,7 +210,10 @@ is invisible here is retired, not free.**
   ⚠ **Narrowed 2026-08-22 by `(aaw)`, and the title is now too broad**: two mutating operations on
   one drive can no longer overlap across processes, so *"two sets of in-flight writes"* is gone.
   **What remains is single-instance detection** - two apps, two ports, two sidecars, and
-  `session-url.txt` naming one. [Full entry](research/backlog/adn.md)
+  `session-url.txt` naming one. ⚠ **`(vv)`'s residue was merged in the same day and `(vv)` closed**,
+  so this is now the whole of the problem in one place, including the worst of it: quitting the
+  second instance **deletes the link to the first, which is still running**.
+  [Full entry](research/backlog/adn.md)
 - **(adj) THE FREEZE IS NOT A REPRODUCIBLE TARGET: `truestill.spec` IS GITIGNORED.** [Full
   entry](research/backlog/adj.md)
 - **(adi) REACT + SHADCN MIGRATION - PLANNED, GROUNDWORK LANDED, NOTHING MIGRATED.** [Full
@@ -327,12 +330,6 @@ is invisible here is retired, not free.**
   **What is left is residue 2 alone**: `unreadable_files` is built in `organize_preview` only, so
   the app's **run** completion cannot name a file the CLI names. [Full
   entry](research/backlog/aac.md)
-- **(vv) Known limit: app per-drive job lock is process-local; CLI↔app overlap is not serialized.**
-  Recorded 2026-07-29. ⚠ **THE HEADLINE IS FALSE AS OF 2026-08-22**: `(aaw)` shipped the very
-  cross-process guard this entry asked for, so CLI↔app and CLI↔CLI overlap on a mutating operation
-  **is** serialized. Kept open only for the session-link residue - a second instance overwriting
-  the first's URL file - which is single-instance detection and belongs to `(adn)`. **If `(adn)`
-  takes it, this closes.** [Full entry](research/backlog/vv.md)
 - **(ss) Organize preview hashes every file before showing anything - slow on a network mount.**
   [Full entry](research/backlog/ss.md)
 - **(xx) Absolute-path columns and hash-cache keys are not machine-portable.** [Full
@@ -587,8 +584,11 @@ neighbouring product ships one. Each would be a reasonable feature in a differen
     *Two records must agree* beats a rule with an escape clause.
   - ⚠ **Reopening condition, deliberately specific:** evidence that the cross-process race
     actually bites - a soak run showing a real stall caused by a legitimate bake. Even then the
-    fix is **`(vv)`'s on-disk lock, not weakening the comparison**; the residual and its cost
-    are recorded on `(vv)`.
+    fix is **the on-disk lock, not weakening the comparison**.
+    ⚠ **Updated 2026-08-22: that lock now EXISTS.** This clause pointed at `(vv)`, which asked
+    for it and has since closed; `(aaw)` shipped it - `flock`/`msvcrt`, per drive, mutating
+    operations only. So the reopening condition is unchanged and its remedy is no longer
+    hypothetical. The residual and its cost are recorded on `(aaw)`.
 
 - **Noting an embedded-metadata conflict against a human-confirmed date `(aaj)`.** The
   "optionally note the embedded conflict" clause of `(bbb)` item 4. **Decided against
