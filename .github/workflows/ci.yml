@@ -29,8 +29,10 @@ jobs:
     # them and the other would drift silently while both stayed green.
     #
     # `continue-on-error` is read from the matrix, which is GitHub's documented pattern for
-    # marking a leg allowed-to-fail. It is `false` for 3.13 and `true` for 3.14: the 3.14 legs
-    # report and cannot redden `main` for a version this project has not adopted.
+    # marking a leg allowed-to-fail. ⚠ It is `false` for every leg now that 3.14 is adopted -
+    # kept matrix-driven rather than deleted, because the next unadopted interpreter (3.15 lands
+    # 2026-10-01) wants exactly this shape again, and rebuilding it is how the gate gets
+    # hard-coded to `true` by someone in a hurry.
     continue-on-error: ${{ matrix.experimental }}
     # ⚠ WITHOUT THIS THE DEFAULT IS SIX HOURS, and on 2026-08-19 that was not theoretical: run
     # 32279378834 sat 33+ minutes in `apt-get update` against a mirror that was not answering,
@@ -42,20 +44,20 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        # 3.13 is what this project requires and ships. 3.14 is EVIDENCE, not a target: the
-        # decision to move was deferred (no support pressure - 3.13 is supported to October 2029 -
-        # and 3.15 lands 2026-10-01). What this leg buys is the two platforms nobody here can run.
+        # ⚠ 3.14 IS NOW THE GATE, not evidence. It was an allowed-to-fail leg from 2026-08-21 to
+        # 2026-08-22 and was green on every run in between, which is what made the move a bump
+        # rather than a gamble - the two platforms nobody here can run had already reported.
         #
-        # ⚠ NO SOURCE, LOCK OR `requires-python` CHANGE IS NEEDED FOR IT. `uv.lock` is
-        # `requires-python = ">=3.13"`, which already admits 3.14 - verified with
-        # `uv sync --all-packages --group dev --locked --python 3.14 --dry-run`. `UV_PYTHON` below
-        # is the whole of the mechanism.
-        python: ["3.13", "3.14"]
+        # **3.13 is gone rather than demoted.** `requires-python` is `>=3.14`, so a 3.13 leg could
+        # not `uv sync` at all: it would fail for the reason the floor moved, which is not a
+        # signal. A version this project refuses to install is not a lane.
+        #
+        # 3.13 leaves BUGFIX support in October 2026 - "after two years, only security fixes are
+        # accepted and no more binaries are released" (devguide). See `DECISIONS.md` D13.
+        python: ["3.14"]
         include:
-          - python: "3.13"
-            experimental: false
           - python: "3.14"
-            experimental: true
+            experimental: false
     # Set once for the job so every `uv sync` and `uv run` below picks the matrix interpreter.
     # Per-step `--python` flags would be the drift this matrix exists to prevent: a step added
     # later would inherit the default and quietly test 3.13 inside the 3.14 leg.
