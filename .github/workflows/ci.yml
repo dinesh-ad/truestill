@@ -441,8 +441,12 @@ jobs:
           enable-cache: true
           cache-dependency-glob: uv.lock
 
-      - name: Set up Python 3.13
-        run: uv python install 3.13
+      # ⚠ 3.14, even though this job is `if: false`. A disabled lane still has to be CORRECT when
+      # the first migrated screen turns it back on - installing a version `requires-python`
+      # refuses would fail at `uv sync` for a reason unrelated to whatever re-enabled it, and the
+      # person doing that has enough to read already.
+      - name: Set up Python 3.14
+        run: uv python install 3.14
 
       - name: Sync workspace (lockfile must be current)
         run: uv sync --all-packages --group dev --locked

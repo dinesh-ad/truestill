@@ -59,8 +59,12 @@ jobs:
           enable-cache: true
           cache-dependency-glob: uv.lock
 
-      - name: Set up Python 3.13
-        run: uv python install 3.13
+      # ⚠ THE FROZEN BUILD IS THE HALF NO TEST ON A DEVELOPER MACHINE TOUCHES. PyInstaller has
+      # supported 3.14 since 6.15.0 (2025-08-03) and declares `<3.16,>=3.8`; that is a claim about
+      # the bootloader, and only a `workflow_dispatch` dry run on both platforms turns it into
+      # evidence. `DECISIONS.md` D13.
+      - name: Set up Python 3.14
+        run: uv python install 3.14
 
       - name: Sync workspace
         run: uv sync --all-packages --group dev --locked

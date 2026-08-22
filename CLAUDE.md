@@ -58,7 +58,7 @@ On 2026-08-21 those read **159** and **102**, leaving **57** mapped below. ⚠ T
 | Where does the project stand? What is next? | [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) |
 | How do I work here? (workflow, research order, code standard) | [`docs/ENGINEERING_STANDARD.md`](docs/ENGINEERING_STANDARD.md) |
 | What are the binding rules? (invariants, architecture, data, gates) | [`docs/IMPLEMENTATION_STANDARDS.md`](docs/IMPLEMENTATION_STANDARDS.md) |
-| Why is the product this way? (settled stances: accounts, licensing, monetization, toolchain) | [`docs/DECISIONS.md`](docs/DECISIONS.md) - **D10** defers Python 3.14, **D11** holds mypy with a trigger that can fire, **D12** refuses Aceternity |
+| Why is the product this way? (settled stances: accounts, licensing, monetization, toolchain) | [`docs/DECISIONS.md`](docs/DECISIONS.md) - **D10**+**D13** on Python 3.14 (deferred, then adopted when the deferral's premise proved false), **D11** holds mypy, **D12** refuses Aceternity |
 | What is approved but unbuilt? | [`docs/BACKLOG.md`](docs/BACKLOG.md) - the **index**; each entry's body is [`docs/research/backlog/<letter>.md`](docs/research/backlog) |
 | **Is this already built?** (provenance - read before building anything) | [`docs/SHIPPED.md`](docs/SHIPPED.md) |
 | What does it cost, and what should I not "optimize"? | [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) |
@@ -220,7 +220,8 @@ exists to prevent.
   It assigns process-global `warnings.filters` and `warnings.showwarning`, and `scan.py` hashes on
   a `ThreadPoolExecutor` **by default** - CPython says the behaviour is *undefined* with two or
   more threads. The `ContextVar` fix landed in **3.14** behind a flag that is **off** on
-  non-free-threaded builds; this project runs 3.13. Use `truestill_core.decode_noise`, which
+  non-free-threaded builds; this project runs **3.14** as of 2026-08-22 (`DECISIONS.md` D13) and
+  the flag is still `0` there, measured. Use `truestill_core.decode_noise`, which
   installs once per process and carries the argument. `(aev)`
   ⚠ **Upgrading does not change this** - measured on 3.14.4: the flag is `0`. See `DECISIONS.md`
   **D10**, which defers 3.14 and records the one thing that blocks it, `(aey)`.

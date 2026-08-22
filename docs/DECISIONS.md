@@ -690,3 +690,53 @@ is animation, in a product with none.
 **Status:** Settled. Revisit only if the product acquires a genuine motion requirement - and then
 the question is Motion itself, not Aceternity, since Aceternity is a set of components built on it.
 
+---
+
+## D13. Python 3.14 is adopted - and D10's deferral was correct reasoning from a wrong number
+
+**Decided 2026-08-22**, reversing [D10](#d10-python-314-is-deferred-and-the-ci-leg-is-evidence-rather-than-a-target).
+D10 is corrected in place and left standing; this is what replaced it.
+
+### Why the deferral fell
+
+D10's P1 said *"3.13 is in full bugfix support for four more years"* and cited **October 2029**.
+That is 3.13's **security** EOL. The devguide's *"end of life"* column is *"five years after a
+release"*, and its status key reads: **"Security: After two years… only security fixes are
+accepted and no more binaries are released."** 3.13 shipped 2024-10-07, so **bugfix support ends
+around October 2026**.
+
+⚠ **"No more binaries are released" is the operative half for this project**, which installs
+interpreters with `uv python install` and ships a PyInstaller build. A security-only branch stops
+producing the artefacts the whole toolchain consumes.
+
+⚠ **The reasoning was sound; the premise was false.** Everything else in D10 held on re-reading:
+the alternatives were correctly judged, `sys.flags.context_aware_warnings` really is `0`,
+`(aey)` really was the blocker and is now closed. **That is the fifty-eighth member from the other
+direction** - a written claim, checkable, and therefore caught. A deferral held in conversation
+would have quietly expired.
+
+### What made this a bump rather than a gamble
+
+D10 ordered the evidence and the evidence arrived: cp314 wheels on all three platforms for every
+pin, `uv.lock` needing **no change** to admit 3.14, and the **3.14 legs green on every run** from
+the day they were added. The relock moved **no package version at all**. The condition every 2026
+source names for an existing project - *upgrade when your dependencies are ready* - was measured
+met before it was acted on.
+
+### What actually changed, and what did not
+
+- ⚠ **`multiprocessing` defaults to `forkserver` on Linux**, so `--pool process` behaves
+  differently. Measured on the format corpus: **thread and process agree exactly on both
+  interpreters**, and exact deduplication was identical across all four runs. `scan.py` was
+  correct for forkserver by design, having been written for spawn.
+- ⚠ **One extra near-duplicate** - 262 on 3.13, 263 on 3.14. Filed as `(aff)`; the mechanism is
+  **not isolated**, and a near-duplicate is kept and flagged rather than removed, so the effect is
+  one extra row in a review list.
+- ⚠ **PEP 758 is deliberately NOT adopted yet.** Moving ruff's `target-version` to `py314` makes
+  the formatter rewrite `except (A, B):` into `except A, B:` across **25 files** - syntax that is
+  a `SyntaxError` on 3.13. That is a language migration, and bundling it into the floor bump would
+  have made the bump unrevertible. `target-version` stays `py313` until it gets its own commit.
+
+**Status:** Adopted. The next question is 3.15 (2026-10-01), and the machinery for judging it is
+already in place: an allowed-to-fail matrix leg, which is why it was kept rather than deleted.
+
