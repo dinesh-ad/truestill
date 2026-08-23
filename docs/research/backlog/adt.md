@@ -180,3 +180,25 @@ only the commit's brief EXCLUSIVE window does not.** The sentence above stands a
 this is a record; this correction is what resolves it. An entry citing a claim its own repo has
 since corrected is `(acc)`'s shape - the index disagreeing with the body - which is how it was
 caught.
+
+---
+
+## ⚠ CORRECTION, 2026-08-23 (later the same day) - the close above contains a false sentence
+
+The close says *"In production that window opens at the user's FIRST EVER click"*. **False when
+written**: `b0a5d7e` (2026-08-14) made the app create and migrate the catalog at boot, before
+serving (`catalog_startup.py:332`, `migrate_catalog`) - **and it is an ancestor of `82831e8`**,
+the failing run's commit. So on 2026-08-15 the app could not have built a schema inside its own
+first request, and the accepted hypothesis cannot be what happened as stated.
+
+**The retirement itself stands** - the number remains unreproducible, the >1 s class remains
+fresh-schema builds - but the builds M4 measured were **boot-time** builds (one per test, the
+harness starts an app per test), and what held the failing settings POST for 6.5 s is again
+unattributed. ⚠ **The plausible re-attribution is cross-process** - a second process of the
+harness racing the same catalog - **and it is a HYPOTHESIS**: the artifacts carry no server-side
+timing, and promoting it would repeat the original mistake in the other direction.
+
+The false sentence came from reading `inspect_catalog:242` (*"does not create"* - true) and
+stopping three functions short of `migrate_catalog:332`. §4's sixty-ninth member is this, made a
+rule. The production-impact claim shrinks to ~nil for the app either way: boot builds before
+serving, and a fresh build measures 1.0 ms on an ordinary disk.

@@ -1,6 +1,6 @@
 # (agq) THE FIRST SCHEMA BUILD RUNS INSIDE A USER REQUEST.
 
-*Body of entry `(agq)`. **OPEN.** The index is [`BACKLOG.md`](../../BACKLOG.md); the provenance index is [`SHIPPED.md`](../../SHIPPED.md). Split out of `(adt)` when it closed, 2026-08-23; ranked below `(agp)`.*
+*Body of entry `(agq)`. **CLOSED 2026-08-23, unbuilt - the work was already shipped in `b0a5d7e` on 2026-08-14, nine days before this was filed.** The index is now [`SHIPPED.md`](../../SHIPPED.md).*
 
 ## The defect
 
@@ -44,3 +44,38 @@ away.
 catalog run at boot today. **What runs in-request is the fresh-CREATE case only** - a missing
 file is described (`WILL_CREATE`) and not opened, per `catalog_startup.py:242`'s deliberate
 choice. This entry is about that remaining case, not about migration.
+
+---
+
+## ✅ CLOSED 2026-08-23 - already built, and the premise was false when filed
+
+**`migrate_catalog` (`catalog_startup.py:332`) - *"Create and migrate `db` now, so nothing
+serving requests has to... ⚠ This CREATES the file"* - runs at every app boot** via
+`prepare_catalog` (`drives.py:700-707`) from `create_app` (`server.py:153`). It landed in
+`b0a5d7e` (2026-08-14), whose commit message carries its own measurement (run `31821214510`:
+7,828 opens reaching `_migrate`, waits to 2,832 ms) and its own answer to the reversal question
+this entry asked: WILL_CREATE's honesty survives because presence is captured **before** the
+create, fused into one function *"because two calls at a call site can be reordered by anyone
+and nothing would say so."*
+
+**How the false premise got filed, named because the mechanism matters more than the miss**: the
+`(adt)` investigation read `inspect_catalog:242` - *"Does not create"*, which is **true** - and
+stopped three functions short of `migrate_catalog:332`. The filer and the fixer were the same
+person, nine days apart. Fifth instance of the fixed-under-another-name family; now
+`ENGINEERING_STANDARD.md` §4's sixty-ninth member.
+
+**What the design pass verified before closing** (P17):
+
+- The field-failure cases were already guarded in live behaviour: unpreparable location reported,
+  not raised (`(aen)`); unusable catalog refused **before** the socket bind (`__main__:309`,
+  `(adr)`); zero-byte its own refused state.
+- `(ady)`'s copy fires only `if version < CURRENT_SCHEMA_VERSION` (`catalog.py:1157`) - a fresh
+  build stamps v21 first, so no chain, no copy. Unchanged by any of this.
+- Measured on real ext4 NVMe: a fresh build is **1.0 ms median, 1.4 ms max** - the seconds only
+  ever existed on contended 2-core CI I/O. There was no wait to move.
+- The declaration-seam alternative was withdrawn by the maintainer: the catalog's location is
+  app-owned and known at boot, so "create when the destination is known" conflated the library's
+  seam with the catalog's.
+- CLI divergence is real and benign: the CLI creates in-command, single-process, blocking nothing
+  of its own; each surface's banner sentence is true for that surface. Timing, not capability -
+  no parity row.

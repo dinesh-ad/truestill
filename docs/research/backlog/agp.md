@@ -69,5 +69,19 @@ surface waits for the ladder.
 (`server.py:153`, `prepare_catalog`) - so `(agq)`'s in-request first build is the
 **fresh-create case only**, which narrows it.
 
-**What remains here**: the detection ladder (in-process build registry, `(aaw)` flock probe) and
-S1/S2/S3 wording - sequenced behind `(agq)`.
+**What remains here**: the detection ladder and S1/S2/S3 wording.
+
+## ⚠ Tier 1 is DEAD - ruled 2026-08-23, so nobody rebuilds it from the old reasoning
+
+The ladder was designed as three tiers, and tier 1 - an in-process registry of builds in flight,
+so a busy refusal could say *"preparing the library"* exactly - **detects a case that cannot
+happen**. The app has created and migrated the catalog at boot, before serving, since `b0a5d7e`
+(2026-08-14, `catalog_startup.py:332`); an in-process, in-request schema build therefore does not
+exist for a request to race. The only reachable "first run preparing" case is **cross-process** -
+a CLI building while the app asks - which an in-process registry can never see. That case lands
+in tier 3's wording (a possibility, softly) or tier 2's flock probe if the builder holds a drive
+lock.
+
+**The ladder is two tiers: the `(aaw)` flock probe, and the wording.** `(agq)`'s closure carries
+the full trail, including why the entry that would have sequenced this was itself filed against
+already-shipped code.

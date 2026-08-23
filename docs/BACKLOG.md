@@ -134,24 +134,16 @@ is invisible here is retired, not free.**
   claim it: `(adn)` says two apps really can run, and the common cause has no second window at
   all. **The ruled shape**: say what is actually known - the catalog is busy, this is usually the
   first run preparing the library, it should clear on retry - and name a second window **only if
-  one was actually detected**. `(agq)` disarms the commonest instance; this is what the message
-  says whenever it still fires.
+  one was actually detected**. The commonest instance was already disarmed by `b0a5d7e`
+  (boot-time build, 2026-08-14 - see `(agq)`'s closure); this is what the message says whenever
+  it still fires.
   ✅ **Part 1 (S4) shipped 2026-08-23**: the census found seven unhandled direct-write routes -
   a class - so busy is now recognised once, app-level, exactly as the CLI does at its top; 503 +
-  the no-window sentence, faults keep their 500, settings writes retry twice. The ladder and
-  S1/S2/S3 wording remain, behind `(agq)`. [Full entry](research/backlog/agp.md)
-
-- **(agq) THE FIRST SCHEMA BUILD RUNS INSIDE A USER REQUEST.** Recorded 2026-08-23, split out of
-  `(adt)` when it closed; ranked below `(agp)`. Whichever request opens a fresh catalog first
-  builds the whole schema under `BEGIN IMMEDIATE` (`catalog.py:1111`) - measured at up to
-  **5091.2 ms** on a contended 2-core runner against 9.0 ms for all 32,119 ordinary commits, so a
-  concurrent caller waits out the 5 s timeout or meets `(agp)`'s message. **In production the
-  window opens exactly once per catalog: at the user's first ever action.** The structural fix is
-  a boot-time open. ⚠ **It REVERSES A DELIBERATE CHOICE** - `inspect_catalog` does not create
-  (`catalog_startup.py:242`), so startup can describe a missing catalog instead of failing on it -
-  and the building commit must say why that choice was made and why it no longer holds, never
-  quietly flip it. The CLI needs the same fix or the parity table gains a row.
-  [Full entry](research/backlog/agq.md)
+  the no-window sentence, faults keep their 500, settings writes retry twice. **The ladder is
+  two tiers since 2026-08-23 - flock probe + wording**: tier 1's in-process registry is ruled
+  DEAD, because the app has built at boot since `b0a5d7e` (2026-08-14) and the only reachable
+  "preparing" case is cross-process, which an in-process registry can never see. What remains:
+  the probe and S1/S2/S3 wording. [Full entry](research/backlog/agp.md)
 
 - **(agm) WHETHER MIGRATE AND BAKE SHOULD WRITE A RECORD AT ALL.** Recorded 2026-08-23, split out
   of `(afw)` **when it closed**, because two of its five surfaces were never decided and closing

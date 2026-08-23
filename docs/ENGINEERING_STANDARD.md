@@ -234,8 +234,8 @@ memory dressed as one.
 > a live one**; run the command.
 >
 > ⚠ **AND THE ORDINALS ARE A SECOND, SMALLER COUNT - THEY DO NOT AGREE AND SHOULD NOT.** Members
-> name themselves in prose (*"the sixty-second member"*), and the highest such ordinal is **68**
-> while the command reads **82**. The gap is not drift: the ordinals number only the members
+> name themselves in prose (*"the sixty-second member"*), and the highest such ordinal is **69**
+> while the command reads **83**. The gap is not drift: the ordinals number only the members
 > written as *named failures*, and the command counts every bullet here, including the eight that
 > were never numbered - Idioms, Absolute imports, Typing, Dependencies, Performance, Tests,
 > Errors, Credentials. **Quoting 62 as the size of this section is therefore wrong by fourteen**,
@@ -1970,6 +1970,29 @@ memory dressed as one.
   correctly, in a file `git diff` reports as unchanged, is this until proven otherwise. Check what
   the interpreter loaded before you change anything - the temptation is to "fix" the correct code,
   and that edit is the real damage.
+
+- **A TRUE ANSWER FROM THE FIRST FUNCTION IS NOT THE ANSWER. READ TO THE LAST FUNCTION THAT CAN
+  CHANGE IT.** The sixty-ninth member, about how an investigation reads rather than how a guard
+  checks - the siblings that stop one step short (the fifty-fourth's proxy census, the
+  sixty-seventh's outermost exception) are about code; this one is about the reading that files
+  and closes entries.
+
+  > The defect is not misreading - every sentence read was true. It is **stopping at the first
+  > function that answers the question rather than the last one that changes the answer.**
+
+  *Worked example, 2026-08-23, and the filer and the fixer were the same person nine days apart.*
+  `(agq)` - "the first schema build runs inside a user request" - was filed from an investigation
+  that read `inspect_catalog` (`catalog_startup.py:242`), whose docstring says *"Does **not**
+  create a missing catalog"*, **which is true**. Three functions below it, `migrate_catalog`
+  (`catalog_startup.py:332`) says *"⚠ This CREATES the file"* and has run at every app boot since
+  `b0a5d7e` (2026-08-14) - so the entry described a defect fixed nine days before it was filed,
+  by its own author. The same partial read had already put a false sentence into `(adt)`'s close.
+
+  This is the reading-side root of the fixed-under-another-name family (`(aci)`, five instances):
+  each time, a true statement from the first place looked - an index headline, a docstring, one
+  function - was taken as the whole answer. *Suspect it wherever a premise rests on a single
+  "X does not do Y" reading*: grep for what DOES do Y before writing that nothing does, and read
+  past the function that answered to the one that could overrule it.
 
 - **A CHECK WHOSE INPUT IS CREATED BY THE ACT IT VALIDATES CANNOT GATE THAT ACT.** The
   sixty-eighth member, and it is about *when* a guard can run rather than what it looks at.

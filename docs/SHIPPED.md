@@ -105,6 +105,26 @@ recording shipped work as unstarted, which is the more expensive direction of th
   **not real**; there is no mechanism, and it is recorded as refuted rather than quietly dropped.
   [Full entry](research/backlog/agg.md)
 
+- **(agq) THE FIRST SCHEMA BUILD WAS ALREADY OFF THE REQUEST PATH - CLOSED UNBUILT.** Closed
+  2026-08-23; **the work is `b0a5d7e` (2026-08-14)**: `migrate_catalog`
+  (`catalog_startup.py:332`) creates and migrates at every app boot, before serving, with
+  presence captured first so `WILL_CREATE` stays honest - fused into one function so the order
+  cannot be silently swapped. The entry was filed **nine days after the fix, by the same person
+  who was investigating the code** - the read stopped at `inspect_catalog:242` (*"does not
+  create"*, true) three functions short of `migrate_catalog:332` (*"⚠ This CREATES the file"*).
+  🔑 **Fifth instance of the fixed-under-another-name family, second found by the author
+  auditing their own filings** - now `ENGINEERING_STANDARD.md` §4's sixty-ninth member: a true
+  answer from the first function is not the answer; read to the last function that can change it.
+  ⚠ **The same partial read put a false sentence into `(adt)`'s close** - *"in production that
+  window opens at the user's first ever click"* - and `b0a5d7e` is an **ancestor of the failing
+  run's commit**, so the accepted hypothesis there cannot be what happened as stated; corrected
+  beside that close, with the cross-process re-attribution kept explicitly a hypothesis.
+  **Verified before closing**: field-failure cases already guarded (`(aen)` reports, `(adr)`
+  refuses before the socket); `(ady)`'s copy untouched (chain-gated, `catalog.py:1157`); a fresh
+  build measures **1.0 ms median / 1.4 ms max** on ordinary disk - there was never a wait to
+  move, only contended CI I/O. Tier 1 of `(agp)`'s ladder is ruled dead with it.
+  [Full entry](research/backlog/agq.md)
+
 - **(adt) THE 6558 ms IS RETIRED; THE CLASS IS MEASURED; THE RESIDUES HAVE LETTERS.** Closed
   2026-08-23 by investigation, not by a build. Recorded 2026-08-15 from CI run `31895987230` - a
   one-row settings write waited 6.5 s and a preview job was refused - and it outlived three
