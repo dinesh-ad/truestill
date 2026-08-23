@@ -76,7 +76,7 @@ class RevealErr(TypedDict):
     can_register: NotRequired[bool]
 
 
-def reveal_in_file_manager(path: Path) -> RevealOk | RevealErr:
+def reveal_in_file_manager(path: Path, db: Path) -> RevealOk | RevealErr:
     """Open a folder in the desktop's own file manager.
 
     A path printed on screen is a dead end: to actually look at the photos a user has to select
@@ -93,7 +93,7 @@ def reveal_in_file_manager(path: Path) -> RevealOk | RevealErr:
     ``OSError``.
     """
     if not path_is_usable_dir(path):
-        return cast(RevealErr, {"ok": False, **drive_correction(path)})
+        return cast(RevealErr, {"ok": False, **drive_correction(path, db)})
     opener = binaries.os_opener()
     if opener is None:
         return {

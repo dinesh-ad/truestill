@@ -94,7 +94,7 @@ def migration_preview(
     """Preview relocating a connected drive's files to the current template (moves nothing)."""
     marker = read_marker(path)
     if marker is None:
-        return drive_unavailable(path)
+        return drive_unavailable(path, db)
     with open_catalog(db) as catalog, HashCache.beside(db) as cache:
         scheme = resolve_scheme(catalog)
         routes, rules_by_sha, evidence_warning = _resolve_migration_routes(
@@ -137,7 +137,7 @@ def migration_preview_run(path: Path, db: Path) -> JobTarget | DriveUnavailableP
     """
     marker = read_marker(path)
     if marker is None:
-        return drive_unavailable(path)
+        return drive_unavailable(path, db)
 
     def target(progress: ProgressCallback, cancel: threading.Event) -> MigrationPreviewOk:
         result = migration_preview(path, db, progress=progress, cancel=cancel)
@@ -150,7 +150,7 @@ def migration_preview_run(path: Path, db: Path) -> JobTarget | DriveUnavailableP
             # FRIENDLY_ERRORS, rendered as an empty banner. Raising the same typed error the
             # sibling paths raise (migration_apply, backup_run) gets the user a next step, and
             # unlike an assert it cannot be stripped by `python -O` (audit F20).
-            raise not_a_drive(path)
+            raise not_a_drive(path, db)
         return result
 
     return target
@@ -222,7 +222,7 @@ def migration_apply(
     def target(progress: ProgressCallback, cancel: threading.Event) -> MigrationApplySummary:
         marker = read_marker(path)
         if marker is None:
-            raise not_a_drive(path)
+            raise not_a_drive(path, db)
         with open_catalog(db) as catalog, HashCache.beside(db) as cache:
             catalog.upsert_drive(uuid=marker.uuid, label=marker.label)
             pin_existing_layout(catalog)
@@ -318,7 +318,7 @@ def migration_armed_state(path: Path, db: Path) -> ArmedStatePayload | DriveUnav
     """
     marker = read_marker(path)
     if marker is None:
-        return drive_unavailable(path)
+        return drive_unavailable(path, db)
     with open_catalog(db) as catalog:
         record = catalog.reversible_migration(marker.uuid)
     if record is None:
@@ -336,7 +336,7 @@ def migration_undo(path: Path, db: Path, *, apply: bool) -> JobTarget | DriveUna
     """
     marker = read_marker(path)
     if marker is None:
-        return drive_unavailable(path)
+        return drive_unavailable(path, db)
 
     def target(progress: ProgressCallback, cancel: threading.Event) -> UndoJobSummary:
         with open_catalog(db) as catalog:

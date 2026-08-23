@@ -145,7 +145,11 @@ is invisible here is retired, not free.**
   ✅ **Part 1 shipped 2026-08-23**: the guard sits inside `attach_drive` before the mint, the
   refusal rides `DriveGhostError` through `jobs.py`'s existing route, and the one test that
   failed when the door closed was found to be **resting on it** - an incomplete rewind that left
-  the modern hint behind. Parts 2 and 3 remain. [Full entry](research/backlog/agr.md)
+  the modern hint behind. ✅ **Part 2 shipped 2026-08-23**: the app's door (`drive_support.py`)
+  answers the `ghost_drive_refusal` sentence with `can_register: False`, and the exception door
+  changes TYPE to `DriveGhostError` because `FRIENDLY_ERRORS` keys on `NotABackupDriveError`;
+  thirteen call sites now pass the catalog. Census: no other app surface soft-fails at a ghost -
+  the drive card truthfully reads OFFLINE. Part 3 remains. [Full entry](research/backlog/agr.md)
 
 - **(agp) THE BUSY MESSAGE NAMES A SECOND WINDOW THAT DOES NOT EXIST, AT THE USER'S FIRST CLICK.**
   Recorded 2026-08-23, split out of `(adt)` when it closed, **ranked above `(agq)` by the

@@ -374,7 +374,7 @@ def propose_events(
     """
     marker = read_marker(path)
     if marker is None:
-        return drive_unavailable(path)
+        return drive_unavailable(path, db)
     with open_catalog(db) as catalog:
         settings = EventSettings.from_catalog(catalog)
         review = assemble_trip_review(

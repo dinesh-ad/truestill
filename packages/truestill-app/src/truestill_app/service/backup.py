@@ -634,7 +634,7 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
         attach_drive(target, db, write=True, progress=progress, cancel=cancel)
         src_marker, tgt_marker = read_marker(source), read_marker(target)
         if src_marker is None or tgt_marker is None:
-            raise not_a_drive(source if src_marker is None else target)
+            raise not_a_drive(source if src_marker is None else target, db)
         if src_marker.uuid == tgt_marker.uuid:
             message = "the 'from' and 'to' folders are the same drive."
             raise ValueError(message)

@@ -108,3 +108,36 @@ cannot). Both stay; the code comment at the mint says so.
 
 **What remains**: part 2 (the `verify_run` sentence) and part 3 (phantom detection - reported,
 `(aba)` territory).
+
+## ✅ Part 2 shipped, 2026-08-23
+
+**The fix is the app's door, once** - `drive_support.py`, the same shape `(afc)` gave the CLI.
+`drive_correction` gained a ghost branch between "unreachable" and "unregistered", wording from
+`ghost_drive_refusal` (the one home) and `can_register: False` (**Q134 ruled**: the field stays
+and becomes false - part 1 made it literally false, and a payload contradicting the guard is the
+two-places-disagree shape). `not_a_drive` returns **`DriveGhostError`** at a ghost - the TYPE
+changes, not just the sentence, because `app.js`'s `FRIENDLY_ERRORS` keys on
+`NotABackupDriveError` and renders its own register advice regardless of the message. The ghost
+probe is file-first (`Catalog` would CREATE a missing catalog to answer) and rides `open_catalog`
+per `(adw)`. The door needed the catalog, so **thirteen call sites across verify, bake, migrate,
+trips, backup and reveal now pass `db`** - required, not optional, because an optional catalog
+would make the ghost branch silently unreachable.
+
+**Q135, verified verbatim**: payload `error` == exception `str` == the CLI's sentence,
+byte-identical - one wording home, three surfaces.
+
+**Q136, the null**: no other app surface soft-fails at a ghost. The drive card reads OFFLINE via
+`reach_of` (truthful - the real drive IS offline), `where` searches catalog rows only, and
+`app.js`'s location status derives from placements. Part 2 closes alone.
+
+Six tests, five failing first (the headline shows the forbidden sentence against yesterday's
+code); five mutations all caught - after the cry-wolf half was strengthened: its first draft
+probed a fresh folder against a catalog that **did not exist yet**, so the file-first check
+answered before the ghost logic ran and a ghost-everything mutation survived it. The test now
+registers a drive elsewhere first.
+
+**Left open, recorded not fixed**: the shared sentence names `--force-new-identity`, a CLI flag,
+now visible in the app - the one-home ruling wins this turn; a per-surface closing clause is
+part-3 territory alongside phantom detection.
+
+**What remains**: part 3 (phantom detection - reported, `(aba)` territory).

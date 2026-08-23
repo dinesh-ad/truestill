@@ -347,7 +347,7 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
     async def reveal(request: Request) -> JSONResponse:
         body = await request.json()
         return JSONResponse(
-            await run_in_threadpool(service.reveal_in_file_manager, Path(body["path"]))
+            await run_in_threadpool(service.reveal_in_file_manager, Path(body["path"]), _db())
         )
 
     async def thumb(request: Request) -> Response:

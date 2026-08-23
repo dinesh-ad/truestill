@@ -129,7 +129,7 @@ def bake_preconditions(path: Path, db: Path) -> BakeRefusal | DriveUnavailablePa
     """
     marker = read_marker(path)
     if marker is None:
-        return drive_unavailable(path)
+        return drive_unavailable(path, db)
     with open_catalog(db) as catalog:
         if migration_unfinished(catalog, marker.uuid):
             return {
@@ -233,7 +233,7 @@ def bake_run(path: Path, db: Path) -> JobTarget | DriveUnavailablePayload | Bake
         return refusal
     marker = read_marker(path)
     if marker is None:  # pragma: no cover - bake_preconditions already answered this
-        return drive_unavailable(path)
+        return drive_unavailable(path, db)
 
     def target(progress: ProgressCallback, cancel: threading.Event) -> BakeSummary:
         summary: BakeSummary = {
@@ -367,7 +367,7 @@ def bake_preview(path: Path, db: Path) -> BakePreview | BakeRefusal | DriveUnava
         return refusal
     marker = read_marker(path)
     if marker is None:  # pragma: no cover - bake_preconditions already answered this
-        return drive_unavailable(path)
+        return drive_unavailable(path, db)
 
     will_write = videos = absent = 0
     with open_catalog(db) as catalog:

@@ -93,7 +93,7 @@ def test_path_is_usable_dir_swallows_permission_error(
 
 
 def test_drive_correction_nonexistent_is_ask_not_exception(tmp_path: Path) -> None:
-    payload = _drive_correction(tmp_path / "never-existed")
+    payload = _drive_correction(tmp_path / "never-existed", tmp_path / "c.sqlite")
     assert "Can't reach" in payload["error"]
     assert payload["can_register"] is False
     assert payload["suggested_root"] is None
@@ -102,7 +102,7 @@ def test_drive_correction_nonexistent_is_ask_not_exception(tmp_path: Path) -> No
 def test_drive_correction_file_not_dir_is_ask_not_exception(tmp_path: Path) -> None:
     f = tmp_path / "file-not-dir"
     f.write_text("x")
-    payload = _drive_correction(f)
+    payload = _drive_correction(f, tmp_path / "c.sqlite")
     assert "Can't reach" in payload["error"]
     assert payload["can_register"] is False
 
@@ -120,7 +120,7 @@ def test_drive_correction_permission_error_is_ask_not_exception(
 
     monkeypatch.setattr(Path, "exists", denied)
     monkeypatch.setattr("truestill_app.service.drive_support.path_is_usable_dir", lambda _p: False)
-    payload = _drive_correction(locked)
+    payload = _drive_correction(locked, tmp_path / "c.sqlite")
     assert "Can't reach" in payload["error"]
     assert payload["can_register"] is False
     assert locate_drive(locked).marker is None
@@ -183,7 +183,7 @@ def test_moved_drive_found_by_uuid_at_new_root(tmp_path: Path) -> None:
     assert loc.marker is not None
     assert loc.marker.uuid == marker.uuid
     assert path_is_usable_dir(old) is False
-    assert _drive_correction(old)["can_register"] is False
+    assert _drive_correction(old, tmp_path / "c.sqlite")["can_register"] is False
 
 
 def test_verify_unreachable_soft_fails_with_correction(client: TestClient, tmp_path: Path) -> None:
@@ -206,7 +206,7 @@ def test_reveal_unreachable_returns_correction_not_oserror(
         patch("truestill_app.service.drives.path_is_usable_dir", return_value=False),
         patch("truestill_app.service.drive_support.path_is_usable_dir", return_value=False),
     ):
-        body = reveal_in_file_manager(locked)
+        body = reveal_in_file_manager(locked, tmp_path / "c.sqlite")
     assert body["ok"] is False
     assert "Can't reach" in body["error"]
 

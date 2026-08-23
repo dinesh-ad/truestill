@@ -10,12 +10,17 @@ from pathlib import Path
 from typing import Literal, TypedDict
 
 from truestill_core.catalog import Catalog
-from truestill_core.drive import drive_path_hint as _core_drive_path_hint
+from truestill_core.catalog_session import open_catalog
 from truestill_core.drive import (
+    DriveGhostError,
+    GhostDrive,
+    ghost_drive_at,
+    ghost_drive_refusal,
     locate_drive,
     path_is_usable_dir,
     read_marker,
 )
+from truestill_core.drive import drive_path_hint as _core_drive_path_hint
 
 from truestill_app.jobs import DriveRef
 
@@ -46,6 +51,23 @@ class DriveUnavailablePayload(TypedDict):
     can_register: bool
 
 
+def _ghost_at(path: Path, db: Path) -> GhostDrive | None:
+    """The drive this path is recorded as, when no marker is there. ``None`` when unknowable.
+
+    Mirrors `cli._ghost_at`: answers ``None`` when there is no catalog yet - a first run has
+    recorded no expectation and so has none to violate - and **must check the file first**,
+    because `Catalog` would CREATE a missing one, turning a read-only question into a write.
+    """
+    if not db.is_file():
+        return None
+    # Through the session wrapper, like every other surface open - `(adw)`'s guard, and the
+    # CLI's `_ghost_at` records the same reason. The file-first check above keeps this a read:
+    # `open_catalog` on a missing file would create it.
+    with open_catalog(db) as catalog:
+        drives = [(str(d["uuid"]), str(d["label"])) for d in catalog.list_drives()]
+        return ghost_drive_at(path, catalog, drives)
+
+
 def not_a_drive_message(path: Path) -> str:
     """Say what this path actually is, so the user has something to do about it.
 
@@ -73,14 +95,35 @@ def not_a_drive_message(path: Path) -> str:
     )
 
 
-def drive_correction(path: Path) -> DriveCorrectionPayload:
-    """The machine-readable half of the same answer, so the UI can offer one-click correction."""
+def drive_correction(path: Path, db: Path) -> DriveCorrectionPayload:
+    """The machine-readable half of the same answer, so the UI can offer one-click correction.
+
+    ⚠ **The ghost branch sits between "unreachable" and "unregistered", exactly where the CLI's
+    door (`_drive_or_explain`) put it in `(afc)` - and this door never learned it.** `(agr)`
+    part 2: nine soft-fail sites across verify, migrate, bake and trips answered a ghost path
+    with *"register this drive first"* - the one suggestion `(afc)` forbade, at the one path
+    where following it used to mint a phantom (part 1 now refuses the mint). `can_register` is
+    **False** there because part 1 made it literally false, and a payload field that contradicts
+    the guard is the two-places-disagree shape.
+
+    ``db`` is required, not optional: an optional catalog would make the ghost branch silently
+    unreachable from any caller that forgot it - the caller-knows-the-rule failure `(abs)`
+    recorded.
+    """
     if not path_is_usable_dir(path):
         # Unreachable: never offer "register this" - registering needs a real folder.
         return {
             "error": not_a_drive_message(path),
             "suggested_root": None,
             "drive_label": None,
+            "can_register": False,
+        }
+    ghost = _ghost_at(path, db)
+    if ghost is not None:
+        return {
+            "error": ghost_drive_refusal(ghost),
+            "suggested_root": None,
+            "drive_label": ghost.label,
             "can_register": False,
         }
     location = locate_drive(path)
@@ -92,9 +135,9 @@ def drive_correction(path: Path) -> DriveCorrectionPayload:
     }
 
 
-def drive_unavailable(path: Path) -> DriveUnavailablePayload:
+def drive_unavailable(path: Path, db: Path) -> DriveUnavailablePayload:
     """Connected-drive gate failure (explicit TypedDict - mypy 1.13 rejects Union ** spreads)."""
-    return {"ok": False, **drive_correction(path)}
+    return {"ok": False, **drive_correction(path, db)}
 
 
 def drive_ref_for(path: Path) -> DriveRef:
@@ -109,7 +152,17 @@ def drive_ref_for(path: Path) -> DriveRef:
     return DriveRef(key=f"path:{resolved}", label=path.name or resolved)
 
 
-def not_a_drive(path: Path) -> NotABackupDriveError:
+def not_a_drive(path: Path, db: Path) -> Exception:
+    """The exception form of the same answer, and at a ghost path the TYPE changes. `(agr)`
+
+    `NotABackupDriveError` is keyed by `app.js`'s `FRIENDLY_ERRORS`, which renders its own
+    register-this advice regardless of the message - so a ghost-aware sentence inside that type
+    would never reach the screen. `DriveGhostError` has no override and its message renders
+    verbatim, the same sentence the CLI prints.
+    """
+    ghost = _ghost_at(path, db)
+    if ghost is not None:
+        return DriveGhostError(ghost_drive_refusal(ghost))
     return NotABackupDriveError(not_a_drive_message(path))
 
 

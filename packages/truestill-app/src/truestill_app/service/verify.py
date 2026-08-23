@@ -82,7 +82,7 @@ def verify_run(path: Path, db: Path) -> JobTarget | DriveUnavailablePayload:
     """
     marker = read_marker(path)
     if marker is None:
-        return drive_unavailable(path)
+        return drive_unavailable(path, db)
 
     def target(progress: ProgressCallback, cancel: threading.Event) -> VerifyJobSummary:
         with open_catalog(db) as catalog:
