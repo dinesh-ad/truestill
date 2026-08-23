@@ -105,6 +105,21 @@ recording shipped work as unstarted, which is the more expensive direction of th
   **not real**; there is no mechanism, and it is recorded as refuted rather than quietly dropped.
   [Full entry](research/backlog/agg.md)
 
+- **(abs) THE READ-ONLY SURFACES NOW LEAD WITH THE GHOST - CLOSED, BUILT BY `(afc)` UNDER
+  ANOTHER NAME.** Closed 2026-08-23; **the work is `5345500 fix(afc)` (2026-08-21)**, instance
+  six of the fixed-under-another-name family. The entry's own closing shape - *"the read-only
+  surfaces do not refuse, they lead with it"* - exists verbatim: `_drive_or_explain`, the shared
+  door `verify` and `rescan` pass, prints *"...is where Truestill recorded the drive X, but that
+  drive's marker file is not there. The drive is probably not plugged in or not mounted"* plus
+  the shadowing warning the entry never asked for. Reproduced on scratch, both commands; the
+  listings speak the reach vocabulary (`offline` / *"(not plugged in)"*, `app.js:2624`).
+  ⚠ **AND THE ENTRY WAS ITSELF A SIXTY-NINTH-MEMBER INSTANCE**: it counted *"the two places that
+  MINT an identity"* and there were **three** - `attach_drive` (`drives.py:345`) predates it,
+  mints with no ghost check, and is reachable `write=True` from `backup_run`. Finishing this
+  entry's verification demonstrated it minting a phantom identity at an unplugged drive's
+  recorded path. Filed as **`(agr)`**, top of the engine list, with the refusal shape ruled and
+  the design recorded. [Full entry](research/backlog/abs.md)
+
 - **(agq) THE FIRST SCHEMA BUILD WAS ALREADY OFF THE REQUEST PATH - CLOSED UNBUILT.** Closed
   2026-08-23; **the work is `b0a5d7e` (2026-08-14)**: `migrate_catalog`
   (`catalog_startup.py:332`) creates and migrates at every app boot, before serving, with

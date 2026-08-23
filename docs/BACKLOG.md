@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agq). Next free: (agr).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agr). Next free: (ags).**
 ⚠ **`(agf)` was cited by `pyproject.toml`, a test and `age.md` before its entry existed**, so for
 one commit three working citations resolved to nothing. Recorded because it is this section's own
 warning happening - *"nothing recorded which letters were spoken for"* - and the fix is to claim
@@ -121,6 +121,28 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(agr) THE APP'S FOURTH MINT SITE HAS NO GHOST CHECK, AND BACKUP REACHES IT.** Filed
+  2026-08-23 from `(abs)`'s closing verification; **ranked at the top of the engine list.**
+  `attach_drive` mints at `drives.py:345` with no ghost check - its only gate,
+  `_adoption_block`, is the content-based guard `ghost_drive_at`'s own docstring calls blind to
+  an empty mountpoint - and `backup_run` reaches it `write=True` on both user-supplied paths
+  (`backup.py:633-634`). 🔑 **Demonstrated, not described**: at an unplugged drive's recorded
+  path it returned `registered=True` and minted a phantom identity; the catalog then held the
+  real drive *offline* and the phantom *connected* on the local disk. The census: four mint
+  sites, three guarded - `(abs)` counted two, the sixty-ninth member's own shape.
+  ⛔ **The refusal shape is RULED: refuse the run, never a soft-fail** - a second soft-fail
+  beside a failed one is not a guard. Design in the entry: the check goes inside `attach_drive`
+  before the mint (a fourth caller of core's one implementation, not a third); the refusal rides
+  `DriveGhostError` through `jobs.py`'s existing code route - zero new mechanism, and `(agp)`'s
+  HTTP handler deliberately does not fit a worker thread. The regression test must fail today
+  **by minting**: assert the marker is absent after the attempt, never merely that a refusal
+  returned. Part 2, lower rank: `verify_run`'s soft-fail still advises *"register this drive
+  first"* at a ghost path - `(afc)`'s forbidden sentence, advice-text only (`can_register` is
+  consumed by nothing in `app.js`). Part 3, reported not designed: nothing detects a phantom
+  already minted - `_say_if_two_places` covers one identity at two paths, nothing covers two
+  identities at one path, and the phantom reads *connected and healthy* forever.
+  [Full entry](research/backlog/agr.md)
 
 - **(agp) THE BUSY MESSAGE NAMES A SECOND WINDOW THAT DOES NOT EXIST, AT THE USER'S FIRST CLICK.**
   Recorded 2026-08-23, split out of `(adt)` when it closed, **ranked above `(agq)` by the
@@ -395,8 +417,6 @@ is invisible here is retired, not free.**
   ⚠ **Findings (1), (2) and (4) are closed; (3) is open and, since 2026-08-15, a FEATURE question
   rather than a defect** - an attempt at it is preserved unmerged under the tag
   `preserved/abw-finding-3` (peels to `66f6c22`; was a branch until 2026-08-15). [Full entry](research/backlog/abw.md)
-- **(abs) The ghost-drive rule refuses REGISTRATION and warns nobody else.** [Full
-  entry](research/backlog/abs.md)
 - **(abt) The unhinted-residue prompt is CLI-only, because the app cannot ask mid-job.** Recorded
   2026-08-07. [Full entry](research/backlog/abt.md)
 - **(abr) `rcRunArchives` passes no `onRefuse`, so a refused start would throw.** [Full
