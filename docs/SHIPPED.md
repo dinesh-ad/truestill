@@ -74,6 +74,26 @@ recording shipped work as unstarted, which is the more expensive direction of th
   answerable, not the BACKLOG. *"Is `(aci)` needed for v1?"* still returns silence, and a shape
   that admits that beats one manufacturing 57 answers. [Full entry](research/backlog/aef.md)
 
+- **(agf) A FENCED `python` BLOCK IN A DOCUMENT IS A QUOTATION TO A READER AND AN INPUT TO A
+  FORMATTER.** Shipped 2026-08-23. ruff 0.16 formats Python inside Markdown, and `make check`
+  rewrote `(age)`'s quotation of `filesystem.py` from `free_bytes=need if free is None else free,`
+  - a keyword argument - into `free_bytes = (need if free is None else free,)`, a tuple assignment
+  that appears nowhere in the file. In the entry whose subject is a value silently transformed one
+  line after it was got right.
+  🔑 **There is no tell**: a misquotation produced by a formatter is syntactically perfect,
+  consistent with every block around it, and passes every gate **because the gate produced it**.
+  ⚠ **Not only fragments** - a whole statement is normalised too (`{'a': 1}` -> `{"a": 1}`), so the
+  exposed set is every block and a rule about what may be quoted would have been the wrong shape.
+  **Remedy is a config line, measured before it was chosen**: `[tool.ruff.format] exclude =
+  ["*.md"]`. `python`/`py`/`python3` fences are owned, `text`/`sh`/bare are not, and excluding
+  costs no diagnostics because an unparseable fragment is silently skipped - ruff rewrites only
+  what parses, which is exactly where the rewrite is wrong.
+  **Swept mechanically**: 13 fences across the corpus, **1** the formatter would rewrite, and it is
+  the one repaired. The records are the real exposure - `trip-grouping-research.md` carries six -
+  because a record rewritten by a tool is the never-rewrite rule broken by something nobody thinks
+  to check. Two guards, one reading the setting and one proving it still bites.
+  §4's **sixty-fifth member**. [Full entry](research/backlog/agf.md)
+
 - **(aft) AN UNREADABLE PROBE NO LONGER STOPS A RUN SAYING THE DISK IS FULL.** Shipped
   2026-08-23. `run_health.free_bytes` returned **0** when `shutil.disk_usage` raised, so an
   unreadable probe and a genuinely full disk were one value - and `_check_space` **stopped the

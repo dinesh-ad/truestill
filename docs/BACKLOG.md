@@ -33,7 +33,11 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(age). Next free: (agf).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agf). Next free: (agg).**
+⚠ **`(agf)` was cited by `pyproject.toml`, a test and `age.md` before its entry existed**, so for
+one commit three working citations resolved to nothing. Recorded because it is this section's own
+warning happening - *"nothing recorded which letters were spoken for"* - and the fix is to claim
+the letter in the commit that first cites it, not the one that gets round to it.
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
