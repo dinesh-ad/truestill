@@ -96,16 +96,54 @@ def test_an_explicitly_requested_root_that_cannot_be_made_raises_rather_than_fal
     blocked = tmp_path / "a-file-not-a-directory"
     blocked.write_text("")
     monkeypatch.setenv("TRUESTILL_TEST_TMPDIR", str(blocked / "child"))
-    # NotADirectoryError on POSIX, NotADirectoryError/FileNotFoundError on Windows - the
-    # subject is that it RAISES rather than which errno the platform picked.
-    with pytest.raises(OSError, match=r"[Nn]ot a directory|cannot find|No such file"):
+    # The subject is that it RAISES, never which errno the platform picked. An earlier version
+    # matched on the message and went red on Windows for saying the same thing differently -
+    # §4's thirty-ninth member, a test whose subject is an OS-produced value tests the OS.
+    with pytest.raises(OSError):  # noqa: PT011 - the type IS the subject; see above
         scratch_root()
 
 
 def test_an_absent_default_volume_falls_back_instead_of_raising(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """The other half: CI must not go red for not having a `/data`."""
     monkeypatch.delenv("TRUESTILL_TEST_TMPDIR", raising=False)
-    monkeypatch.setattr("suite_scratch.PREFERRED_SCRATCH", Path("/proc/no-such-volume/truestill"))
+    volume = tmp_path / "no-such-volume"
+    monkeypatch.setattr("suite_scratch.SCRATCH_VOLUME", volume)
+    monkeypatch.setattr("suite_scratch.PREFERRED_SCRATCH", volume / "tmp" / "truestill")
     assert scratch_root() is None
+
+
+def test_the_default_is_declined_off_posix_even_where_the_path_could_be_created(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The Windows defect, reproduced on this machine because it could not be caught here.
+
+    `/data/tmp/truestill` is **drive-relative** on Windows, so `mkdir(parents=True)` succeeds on
+    whatever drive is current and the redirect fires on a platform it was never meant for - on CI
+    it overrode the runner's deliberate `TEMP` on the fast drive. The first version declined
+    only when the directory *could not be created*, which is a machine state standing in for an
+    intent, and it was false on the one platform nobody can check locally.
+
+    So the volume is made to EXIST here and the platform is what declines it. Without the
+    `os.name` half this passes a creatable path straight through, which is exactly what shipped.
+    """
+    monkeypatch.delenv("TRUESTILL_TEST_TMPDIR", raising=False)
+    volume = tmp_path / "volume"
+    volume.mkdir()
+    monkeypatch.setattr("suite_scratch.SCRATCH_VOLUME", volume)
+    monkeypatch.setattr("suite_scratch.PREFERRED_SCRATCH", volume / "tmp" / "truestill")
+    monkeypatch.setattr(os, "name", "nt")
+    assert scratch_root() is None, "a POSIX-only default was accepted on a non-POSIX platform"
+
+
+def test_the_volume_is_never_created_only_the_directory_under_it(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`SCRATCH_VOLUME.is_dir()` is the test, so creating it would answer its own question."""
+    monkeypatch.delenv("TRUESTILL_TEST_TMPDIR", raising=False)
+    volume = tmp_path / "absent-volume"
+    monkeypatch.setattr("suite_scratch.SCRATCH_VOLUME", volume)
+    monkeypatch.setattr("suite_scratch.PREFERRED_SCRATCH", volume / "tmp" / "truestill")
+    assert scratch_root() is None
+    assert not volume.exists(), "the volume was created, so its existence proves nothing"

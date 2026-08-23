@@ -74,6 +74,26 @@ recording shipped work as unstarted, which is the more expensive direction of th
   answerable, not the BACKLOG. *"Is `(aci)` needed for v1?"* still returns silence, and a shape
   that admits that beats one manufacturing 57 answers. [Full entry](research/backlog/aef.md)
 
+- **(agb) A POSIX ABSOLUTE PATH IS NOT ABSOLUTE ON WINDOWS, SO `(afy)`'s REDIRECT FIRED ON A
+  PLATFORM IT WAS NEVER MEANT FOR.** Shipped 2026-08-23, **found by the Windows `check` lane on
+  `(afy)`'s own push** (run 32621001403, `main` red for 14 minutes). `/data/tmp/truestill` is
+  **drive-relative** on Windows, so `Path(...).mkdir(parents=True)` succeeded on whatever drive
+  was current - the runner's header read `scratch: \data\tmp\truestill`, the suite wrote to
+  `D:\data\...`, and it **overrode the runner's deliberate step putting `TEMP` on the fast
+  drive**. Five tests red.
+  ⚠ **The root cause is the thirty-second member exactly**: *"the directory could not be
+  created"* is a **machine state** standing in for the **intent** *"this default names one POSIX
+  volume on one machine"* - and it was false on the single platform that cannot be checked
+  locally. The volume is now asserted in both halves, `os.name != "posix"` **and**
+  `SCRATCH_VOLUME.is_dir()`, and is **never created**: creating it would answer its own question.
+  The returned path is `resolve()`d, which was the second half of the same failure - an
+  unanchored `WindowsPath('/data/...')` never compares equal to `WindowsPath('D:/data/...')`.
+  ⚠ **`(afy)` shipped with no guard for this and could not have had one on this machine**, which
+  is the honest half: the reproduction is `monkeypatch.setattr(os, "name", "nt")` over a volume
+  made to **exist**, so the platform rather than the absent directory is what declines it. Both
+  mutations caught with an 8-passed control. **The three-OS matrix did the job
+  `PROJECT_STATUS.md` §3 keeps saying it is kept for.**
+
 - **(aga) THE TYPE FENCE WAS A DIRECTORY LIST, SO A FILE THAT SATISFIED ITS RULE SAT OUTSIDE
   IT.** Shipped 2026-08-23, found while shipping `(afy)`. The `Makefile` states the rule as a
   **property** - *"real code that imports the core"* - and implemented it as five directory
