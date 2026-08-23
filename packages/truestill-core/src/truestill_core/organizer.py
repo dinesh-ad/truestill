@@ -1111,12 +1111,13 @@ class CatalogWriteError(Exception):
     change makes this an ``OSError`` "for consistency", the run silently returns to copying files
     it cannot record, which is the defect this class exists to end.
 
-    **Why a stop is not a weaker promise than IMPLEMENTATION_STANDARDS.md §1.** §1 says one bad
-    file never aborts a batch. That rule is about a file the product could not *use*: skipping it
-    costs one file. A catalog write fails *after* the copy is on disk, so there is no skip
-    available -- the cost is the **record** of a file that now exists, and that absence is what
-    duplicates the library on the next run. §1 answering for one does not settle the other; the
-    stop is the same promise applied to a different cost.
+    **Why a stop is not a weaker promise than the partial-failure policy.** ENGINEERING_STANDARD.md
+    §4 Errors -- **not** IMPLEMENTATION_STANDARDS.md §1, which this said until 2026-08-23 -- says
+    one bad file never aborts a batch. That rule is about a file the product could not *use*:
+    skipping it costs one file. A catalog write fails *after* the copy is on disk, so there is no
+    skip available -- the cost is the **record** of a file that now exists, and that absence is
+    what duplicates the library on the next run. The policy answering for one does not settle the
+    other; the stop is the same promise applied to a different cost.
     """
 
     def __init__(

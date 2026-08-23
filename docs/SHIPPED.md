@@ -74,6 +74,21 @@ recording shipped work as unstarted, which is the more expensive direction of th
   answerable, not the BACKLOG. *"Is `(aci)` needed for v1?"* still returns silence, and a shape
   that admits that beats one manufacturing 57 answers. [Full entry](research/backlog/aef.md)
 
+- **(agc) A RULE CITED BY SECTION NUMBER ALONE WAS FILED UNDER THE WRONG AUTHORITY, THIRTEEN
+  TIMES.** Shipped 2026-08-23. *"One bad file never aborts a batch"* is `ENGINEERING_STANDARD.md`
+  §4's **Errors** bullet; it was cited as `IMPLEMENTATION_STANDARDS.md` **§1** at **13 sites
+  across 9 files**, two of which named that file outright. ⚠ **The difference is authority**: the
+  contract *"overrides `ENGINEERING_STANDARD.md` on any conflict"*, so every site claimed more for
+  the rule than it has - and `(afw)`'s open question, *"is backup's fail-fast a §1 violation?"*,
+  could not be answered correctly while the rule sat under the wrong one.
+  🔑 **Why it survived is the finding**: the quoted text was **right every time**, so the corpus
+  looks consistent *because* it is uniformly wrong, and **both files have a §1 and a §4**, so
+  every citation resolves and nothing can go red. ⚠ **The one site that got the section right
+  shows the second failure** - `code-quality-audit.md` says §4 one line below an explicit
+  `IMPLEMENTATION_STANDARDS.md` §8 citation, and calls both *"binding"* when only one is.
+  **Name the file, never the section alone.** §4 gains the **sixty-fourth member**, the inverse of
+  the thirty-fifth. [Full entry](research/backlog/agc.md)
+
 - **(agb) A POSIX ABSOLUTE PATH IS NOT ABSOLUTE ON WINDOWS, SO `(afy)`'s REDIRECT FIRED ON A
   PLATFORM IT WAS NEVER MEANT FOR.** Shipped 2026-08-23, **found by the Windows `check` lane on
   `(afy)`'s own push** (run 32621001403, `main` red for 14 minutes). `/data/tmp/truestill` is
@@ -932,6 +947,11 @@ recording shipped work as unstarted, which is the more expensive direction of th
     would fix those eight and leave the ninth decoder to abort a run in six months, identically.
     **§1's partial-failure policy is a statement about the BOUNDARY, and a boundary defined by
     enumeration is not one.**
+    ⚠ **CORRECTION 2026-08-23: the rule is `ENGINEERING_STANDARD.md` §4 Errors, not §1.** The
+    sentence above is left as written because a closure is a record. The distinction is
+    **authority**, not shelving: `IMPLEMENTATION_STANDARDS.md` wins on conflict and
+    `ENGINEERING_STANDARD.md` does not, so citing this as §1 claims more for it than it has.
+    `(agc)` carries the shape and the whole census.
   - **`except Exception`, scoped to that ONE call and argued in place**, per §5: a violation must
     be explicit, commented and contained. The `sha256_file` call beside it keeps its narrow
     `OSError`, because a plain byte read has a knowable failure set. ⚠ There is no `noqa` because

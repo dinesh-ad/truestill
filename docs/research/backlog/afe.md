@@ -22,7 +22,9 @@
 
   ## THREE RULES, ONE CAUSE
 
-  **1. §1's partial-failure policy is broken.** *"One bad file never aborts a batch - it is
+  **1. The partial-failure policy is broken.** ⚠ *This said "§1" until 2026-08-23; the rule is
+  `ENGINEERING_STANDARD.md` §4 Errors, a different authority (`(agc)`).*
+  *"One bad file never aborts a batch - it is
   logged, counted, and reported at the end."* The batch **aborted**. 72 of 120 files were never
   attempted, and nothing says so.
 
@@ -64,7 +66,7 @@
                           record(ActionResult(..., ActionStatus.FAILED, None, str(exc)))
   ```
 
-  The catalog write is **four frames inside** the try that §1's partial-failure policy is built
+  The catalog write is **four frames inside** the try that the partial-failure policy is built
   on. What lets it escape is the exception tuple: `sqlite3.OperationalError`'s MRO is
   `OperationalError -> DatabaseError -> Error -> Exception` - **it is not an `OSError`**, verified.
   So the boundary is there, the write is inside it, and the tuple does not name the one error the
@@ -96,15 +98,16 @@
   row promises a file that is not there, and nothing is lost - but the state is not self-healing,
   it is self-*worsening*, and it worsens while reporting **exit 0 and a clean success**.
 
-  ### 3. The §1 question, with the options rather than a recommendation
+  ### 3. The partial-failure question, with the options rather than a recommendation
 
-  §1: *"one bad file never aborts a batch - it is logged, counted, and reported at the end."*
+  `ENGINEERING_STANDARD.md` §4 Errors: *"one bad file never aborts a batch - it is logged,
+  counted, and reported at the end."*
   Does that extend to one bad catalog write?
 
   ⚠ **The asymmetry that makes this a real question**: a failed destination write costs **one
   file**, and the run's other files are unaffected. A failed catalog write costs **the record of a
   file that is now on disk** - and by §2 above, that record's absence is what duplicates the
-  library on the next run. The blast radius is not the same, so §1 answering for one does not
+  library on the next run. The blast radius is not the same, so the policy answering for one does not
   settle the other.
 
   **A. Extend §1: a catalog write failure is a per-file failure.** Add `sqlite3.Error` to the

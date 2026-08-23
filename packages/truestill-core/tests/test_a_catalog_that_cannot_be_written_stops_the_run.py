@@ -1,6 +1,6 @@
 """A catalog write that fails is not one bad file. `(afe)`
 
-IMPLEMENTATION_STANDARDS.md §1 says one bad file never aborts a batch, and these tests pin the
+ENGINEERING_STANDARD.md §4 Errors says one bad file never aborts a batch, and these tests pin the
 **exception** to it and the reason for the exception. §1 is about a file the product could not
 use, where skipping costs one file. A catalog write fails *after* the copy is on disk, so there
 is no skip available: the cost is the record of a file that now exists, and that absence is what

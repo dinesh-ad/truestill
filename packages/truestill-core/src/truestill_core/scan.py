@@ -150,7 +150,7 @@ def _hash_one(args: tuple[str, bool, bool]) -> HashJobResult:
         # chunk. Any one of the eight aborted a 1,428-file run with a traceback and no report.
         #
         # Widening the tuple would fix those eight and leave the ninth decoder to abort a run in
-        # six months, identically. §1's partial-failure policy - *"one bad file never aborts a
+        # six months, identically. `ENGINEERING_STANDARD.md` §4 Errors' partial-failure policy - *"one bad file never aborts a
         # batch - it is logged, counted, and reported at the end"* - is a statement about the
         # **boundary**, and a boundary defined by enumeration is not one. This is that sentence
         # implemented rather than approximated.

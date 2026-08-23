@@ -42,7 +42,8 @@ MUTATING_RUNS: dict[str, tuple[bool, str]] = {
         False,
         (
             "fail-fast: `_copy_verified_or_raise` raises, so there is no per-file outcome model "
-            "to record. Whether that is right is §1's 'one bad file never aborts a batch'"
+            "to record. Whether that is right is ENGINEERING_STANDARD.md §4 Errors' "
+            "'one bad file never aborts a batch'"
         ),
     ),
     "migrate": (

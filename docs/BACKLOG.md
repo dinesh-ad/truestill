@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agb). Next free: (agc).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agc). Next free: (agd).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -150,7 +150,8 @@ is invisible here is retired, not free.**
   run with a per-file outcome list**, so `(afu)` was a wiring change and this is a design: backup
   keeps successes only and is **fail-fast** (`_copy_verified_or_raise` raises); migrate has a
   per-file *plan* and counts, with `migration_journal` as its durable state; bake and undo return
-  counts. 🔑 **Answer backup's §1 question first** - *"one bad file never aborts a batch"* against a
+  counts. 🔑 **Answer backup's partial-failure question first** (`ENGINEERING_STANDARD.md` §4 Errors,
+  **not** `IMPLEMENTATION_STANDARDS.md` §1 - see `(agc)`) - *"one bad file never aborts a batch"* against a
   raise that may not be §1's stated exception, because a record built on an undecided policy
   documents it. [Full entry](research/backlog/afw.md)
 - **(afs) A DESTRUCTIVE MIGRATION MAY NOT RUN WITHOUT A PRE-UPGRADE COPY, AND NOTHING SAYS WHICH

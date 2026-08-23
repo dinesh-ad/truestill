@@ -14,8 +14,9 @@ nothing organized, no summary, no tally. `perceptual_hash` catches
 Any one aborted the whole run. Quarantining exactly those eight made the same command exit 0 and
 organize 1,398 files, which is what proved the failure is per-file rather than global.
 
-**Why the remedy is a boundary rather than a longer list.** §1's partial-failure policy says *"one
-bad file never aborts a batch - it is logged, counted, and reported at the end."* That is a
+**Why the remedy is a boundary rather than a longer list.** `ENGINEERING_STANDARD.md` §4 Errors'
+partial-failure policy says *"one bad file never aborts a batch - it is logged, counted, and
+reported at the end."* That is a
 statement about the boundary, and **a boundary defined by enumeration is not one**: widening the
 tuple fixes the eight files in hand and leaves the ninth decoder to abort a run later, identically.
 

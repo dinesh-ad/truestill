@@ -45,7 +45,9 @@
 
   ## THE RULE IT BREAKS
 
-  §1 **Errors**: *"Partial-failure policy: one bad file never aborts a batch - it is logged,
+  `ENGINEERING_STANDARD.md` §4 **Errors** - ⚠ this said *"§1"* until 2026-08-23, which is
+  `IMPLEMENTATION_STANDARDS.md`'s numbering and a different authority (`(agc)`):
+  *"Partial-failure policy: one bad file never aborts a batch - it is logged,
   counted, and reported at the end."* And §4's *"exceptions typed and specific"* has a mirror
   failure - a typed `except` that is too **narrow** - which this is.
 
@@ -61,7 +63,7 @@
 
   - **Whether to widen the tuple or invert it.** Widening keeps the typed-except discipline and
     will be wrong again for the next decoder. Catching `Exception` at this one call site is the
-    shape §1's partial-failure policy actually asks for, and would need a stated exemption from
+    shape that partial-failure policy actually asks for, and would need a stated exemption from
     the no-bare-except rule rather than a quiet one.
   - **Whether an escaped decode should be reported as `unreadable`** - it currently cannot be,
     because it never reaches `models.UnreadableReason`. The run reported `could not be read: 0`

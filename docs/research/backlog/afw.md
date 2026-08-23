@@ -26,15 +26,15 @@
 
   ## 🔑 THE QUESTION TO ANSWER FIRST, AND IT IS NOT ABOUT RECORDS
 
-  **`backup_run` is fail-fast, and §1 says the opposite for the ordinary case:**
+  **`backup_run` is fail-fast, and `ENGINEERING_STANDARD.md` §4 Errors says the opposite for the ordinary case:**
 
   > *"Partial-failure policy: one bad file never aborts a batch - it is logged, counted, and
   > reported at the end."*
 
-  §1 states **one** exception - *"a failure that costs the RECORD of work already done"* - and
+  It states **one** exception - *"a failure that costs the RECORD of work already done"* - and
   backup's raise is not obviously it: a copy that fails leaves the source untouched and the
-  earlier copies recorded, which is the ordinary skippable case. ⚠ **So this may be a live §1
-  violation rather than a missing record**, and if it is, the record follows from fixing it rather
+  earlier copies recorded, which is the ordinary skippable case. ⚠ **So this may be a live violation of that rule
+  rather than a missing record**, and if it is, the record follows from fixing it rather
   than the other way round. **Do not build a record for backup until that is ruled**, or the
   record will faithfully document a policy nobody decided.
 

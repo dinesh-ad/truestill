@@ -198,6 +198,14 @@ so the outcome cannot even be expressed. This breaks two binding rules at once: 
 policy ("one bad file never aborts a batch - it is logged, counted, and reported at the end") and §9's
 never-silent rule ("a skipped, refused, degraded or unverifiable outcome is counted and named").
 
+> ⚠ **CORRECTION 2026-08-23, beside rather than in the text above, because this file is a record.**
+> The **section is right and was the only one of thirteen sites that got it right** - it is §4's
+> partial-failure policy. Two things about it are still wrong. **The document is ambiguous**: the
+> sentence one line above cites `IMPLEMENTATION_STANDARDS.md` §8, so a bare *"§4"* immediately
+> after reads as that file's §4 - which is the filename and organization contract. **And "two
+> binding rules" is wrong about one of them**: §9 is in `IMPLEMENTATION_STANDARDS.md` and is
+> binding; §4 is in `ENGINEERING_STANDARD.md`, which loses on conflict. `(agc)`.
+
 **This is an isolated lapse, not a pattern - which is what makes it credible.** Every neighbouring
 site defends correctly: `hashing.perceptual_hash:106` catches `OSError`; `scan._sizes:74-77` and
 `scan._mtime_ns:67-68` catch it; `reclaim._verify:109-112` wraps the *same* `sha256_file` call in

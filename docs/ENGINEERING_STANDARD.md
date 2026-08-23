@@ -234,8 +234,8 @@ memory dressed as one.
 > a live one**; run the command.
 >
 > ⚠ **AND THE ORDINALS ARE A SECOND, SMALLER COUNT - THEY DO NOT AGREE AND SHOULD NOT.** Members
-> name themselves in prose (*"the sixty-second member"*), and the highest such ordinal is **62**
-> while the command reads **76**. The gap is not drift: the ordinals number only the members
+> name themselves in prose (*"the sixty-second member"*), and the highest such ordinal is **64**
+> while the command reads **78**. The gap is not drift: the ordinals number only the members
 > written as *named failures*, and the command counts every bullet here, including the eight that
 > were never numbered - Idioms, Absolute imports, Typing, Dependencies, Performance, Tests,
 > Errors, Credentials. **Quoting 62 as the size of this section is therefore wrong by fourteen**,
@@ -1958,6 +1958,39 @@ memory dressed as one.
   correctly, in a file `git diff` reports as unchanged, is this until proven otherwise. Check what
   the interpreter loaded before you change anything - the temptation is to "fix" the correct code,
   and that edit is the real damage.
+
+- **A RULE CITED BY ITS SECTION NUMBER RATHER THAN ITS DOCUMENT INHERITS THE AUTHORITY OF
+  WHICHEVER DOCUMENT THE READER ASSUMES.** The sixty-fourth member, and the **inverse** of the
+  thirty-fifth below rather than a repeat of it: that one is a sentence that was never a rule
+  acquiring the force of one; this is a **real rule** acquiring the force of the **wrong** one.
+  Both end with something obeyed more strongly than anything decided.
+
+  > **This canon and `IMPLEMENTATION_STANDARDS.md` both number their sections from 1, and only one
+  > of them wins on conflict.** So a bare *"§1"* or *"§4"* is not a citation - it is a citation
+  > **and** a guess about which file, and the guess changes what the rule can compel.
+
+  *Worked example, 2026-08-23.* *"One bad file never aborts a batch"* is §4's **Errors** bullet,
+  here, in the canon that **loses** on conflict. It was cited as **`IMPLEMENTATION_STANDARDS.md`
+  §1** - the binding contract - at **thirteen sites across nine files**: two named that file
+  outright (`organizer.py`, `test_a_catalog_that_cannot_be_written_stops_the_run.py`), eleven said
+  a bare *"§1"*. One entry, `(afw)`, was live work whose whole question was *"is this a §1
+  violation?"* - a question that cannot be answered correctly while the rule is filed under the
+  wrong authority, because the answer is what the rule may compel.
+
+  **Two properties make it near-undetectable, and they are why this is a member rather than a
+  typo.** The quoted text was **correct every time** - a search for the words finds thirteen
+  agreeing sites and no contradiction, so the corpus looks consistent *because* it is uniformly
+  wrong. And the section numbers **collide**: both files have a §1 and a §4, so no citation ever
+  fails to resolve. Nothing can go red.
+
+  ⚠ **The one site that got it right is the one that shows the second failure**:
+  `code-quality-audit.md` says §4 correctly, one line below an explicit
+  `IMPLEMENTATION_STANDARDS.md` §8 - so the bare §4 reads as *that* file's §4, and it calls both
+  *"binding rules"* when only one is. **Right section, wrong document, by silence.**
+
+  **So: name the file, always, and never the section alone.** `ENGINEERING_STANDARD.md` §4, not
+  §4. The habit costs three words and is the only thing that would have caught this, since the
+  quotation cannot.
 
 - **A PHRASE REPEATED BETWEEN DOCUMENTS ACQUIRES THE AUTHORITY OF A RULE WITHOUT EVER BEING ONE.**
   The thirty-fifth member, and the sibling of the thirty-second below: that one is about a clause
