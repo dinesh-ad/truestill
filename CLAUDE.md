@@ -76,6 +76,7 @@ On 2026-08-22 those read **183** and **121**, leaving **62** mapped below. ⚠ T
 | What is wrong with the UI, surface by surface? | [`docs/ui-inventory.md`](docs/ui-inventory.md) |
 | What does the Organize result grid have to look like? | [`docs/organize-grid-design.md`](docs/organize-grid-design.md) |
 | What is the plan for React, and what is already settled? | [`docs/react-migration-plan.md`](docs/react-migration-plan.md) |
+| **What can the CLI do that the app cannot?** (the UI arc's real cost) | [`docs/cli-app-parity.md`](docs/cli-app-parity.md) - **5 subcommands with no route, plus `catalog --move`**, and six partial. Completeness pinned by a test; the route column is a human read |
 | What did soak one do, and why is its record a reconstruction? | [`docs/soak-one-record.md`](docs/soak-one-record.md) - **ran 2026-08-20, written 2026-08-22**: the run that overturned the most, rebuilt from commits because no record was kept. Two of its six findings are still open |
 | What will soak two cover, and what could soak one not have seen? | [`docs/soak-two-plan.md`](docs/soak-two-plan.md) - the plan; §1 carries the corpus ruling |
 | What did soak two actually find? | [`docs/soak-two-record.md`](docs/soak-two-record.md) - **ran 2026-08-21**, a record: five findings, and three harness defects that nearly became false ones |
