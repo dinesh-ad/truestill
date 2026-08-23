@@ -105,6 +105,38 @@ recording shipped work as unstarted, which is the more expensive direction of th
   **not real**; there is no mechanism, and it is recorded as refuted rather than quietly dropped.
   [Full entry](research/backlog/agg.md)
 
+- **(afw) THE OTHER MUTATING APP RUNS NOW WRITE RECORDS - BACKUP AND UNDO BUILT; MIGRATE AND BAKE
+  DELIBERATELY DEFERRED.** Shipped 2026-08-23, schema unchanged, record **format 3**.
+  `IMPLEMENTATION_STANDARDS.md` §1 says *"a run that changes the library writes down what it
+  did"* - **a run**, not an organize - and `(afu)` had carried that to one of five surfaces.
+  ✅ **Backup** in four stages, ending with the partial-failure policy and a `verified` derived
+  from the count rather than asserted. ✅ **Undo**, last.
+  ⚠ **THIS ENTRY'S OWN UNDO ROW - `| organize_undo | counts | - |` - WAS FALSE THE DAY IT WAS
+  WRITTEN**, not made false later: `UndoOutcome` has carried `plan.steps` and typed per-file
+  outcomes since the original in-place commit `dee4785`. Grouping undo with bake made it look
+  like a design problem; it was the **cheapest** of the four, not the hardest.
+  🔑 **The record could not simply be added, and that is the entry's real content.** One rolling
+  `last-run.json` meant an undo record would **destroy the organize record of the run it had just
+  reversed** - the two documents a person needs together. `IMPLEMENTATION_STANDARDS.md` was
+  **edited rather than worked around**: `runs/index.jsonl` keeps one line per run forever, detail
+  is bounded and compressed, and `last-run.json` stays the newest record itself - not a symlink
+  (a privilege ordinary Windows users lack), not a copy (two sources of truth), not a naming file
+  (breaks every reader). ⚠ **A line never says whether its detail exists; a reader looks** - which
+  is what makes an orphan impossible, because the line is written first and append-only text can
+  never be corrected.
+  ⚠ **The bound is MEASURED**: a real 33,000-file in-place run over `~/TruestillLibrary` wrote
+  **36.9 MiB** beside an **8.0 MiB** catalog - **4.6x the catalog it describes**. Compressed on
+  demotion: **6.9%**. A byte budget, not a count, because run sizes span four orders of
+  magnitude. The newest is never pruned, structurally. Pruning takes no confirmation because it
+  cannot delete a **fact** - only detail.
+  Undo also consults `persists_for_the_run` now (a user mid-recovery may have remounted
+  read-only; a failing device is often *why* they are undoing) and returns `UndoOutcome.stopped`
+  rather than raising - `RunStoppedError` exists to carry results past a raise from a frame that
+  unwinds, and `run_undo` is the outermost loop.
+  **Split out, not built**: `(agl)` undo's dropped cancel, `(agm)` migrate and bake.
+  Seven mutations, all caught, three cry-wolf.
+  [Full entry](research/backlog/afw.md)
+
 - **(agk) THE IN-PLACE JOURNAL NOW RECORDS INTENT, BEFORE THE IRREVERSIBLE STEP.** Shipped
   2026-08-23, schema **v21**. ⚠ **A RELEASE BLOCKER, and the most serious thing in this arc**: an
   `--in-place` rename was covered by nothing until after it had happened, so a crash left a

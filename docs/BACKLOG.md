@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agl). Next free: (agm).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agm). Next free: (agn).**
 ⚠ **`(agf)` was cited by `pyproject.toml`, a test and `age.md` before its entry existed**, so for
 one commit three working citations resolved to nothing. Recorded because it is this section's own
 warning happening - *"nothing recorded which letters were spoken for"* - and the fix is to claim
@@ -121,6 +121,26 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(agm) WHETHER MIGRATE AND BAKE SHOULD WRITE A RECORD AT ALL.** Recorded 2026-08-23, split out
+  of `(afw)` **when it closed**, because two of its five surfaces were never decided and closing
+  the entry must not silently decide them. `(afw)` answered organize, backup and undo; these two
+  it explicitly left under **NOT DECIDED**, and the arguments are still the ones it recorded.
+  **Migrate**: `migration_journal` already holds per-file state **durably**, and survives a crash
+  the record explicitly does not (`(afl)`'s stated limit - *"written after execution, so it
+  survives a stop and not a kill"*). **A second copy of the same facts with weaker guarantees is a
+  cost, not a feature.**
+  **Bake**: returns counts. A file saying *"12 baked"* answers a question the completion screen
+  already answered and adds a file to prune - and `(afl)`'s value was **naming what failed**,
+  which a count cannot do. The argument for one is consistency; that is not nothing, but it is
+  not evidence either.
+  ⚠ **The cost side is now measured rather than assumed**, which is what makes this rulable:
+  `(afw)` found a real 33,000-file record is **36.9 MiB**, 4.6x its catalog, and the run history
+  is bounded by a byte budget. A record nobody reads still spends that budget and can push a
+  record somebody *does* read out of it.
+  **Rule it before building it** - `(afw)`'s own warning is that a record built on an undecided
+  policy faithfully documents the policy.
+  [Full entry](research/backlog/afw.md) - the two NOT DECIDED items are its own text.
 
 - **(agl) UNDO ACCEPTS A CANCEL AND DROPS IT.** Recorded 2026-08-23, split out of `(afw)`'s undo
   stage. `undo.run_undo` takes no `cancel`, and `service/organize_undo.py`'s job target takes
@@ -210,21 +230,6 @@ is invisible here is retired, not free.**
   times **pytest only** - `make frontend` runs outside it, and `(aee)` measured 43% of a CI lane
   outside what it can see. `pytest-xdist` is the obvious lever and is deliberately **not**
   proposed: this suite protects a UI `(adi)` is replacing. [Full entry](research/backlog/afx.md)
-- **(afw) THE OTHER MUTATING APP RUNS WRITE NO RECORD - BACKUP NOW DOES; MIGRATE, BAKE AND UNDO
-  DO NOT.** Recorded 2026-08-22, split out of `(afu)` **before** it was built.
-  `IMPLEMENTATION_STANDARDS.md` §1 says *"a run that changes the library writes down what it
-  did"* - **a run**, not an organize.
-  ✅ **BACKUP IS DONE, in four stages ending 2026-08-23**: it writes a record under
-  `kind: backup` even when it stops (Stage 3), and one bad file no longer aborts it - the failure
-  is counted, named, and `verified` is derived from the count rather than asserted (Stage 4).
-  ⚠ **This entry said backup *"keeps successes only and is fail-fast
-  (`_copy_verified_or_raise` raises)"* until 2026-08-23** - both halves are now false and the
-  function no longer exists under that name. The design and the four stages' hazards are in
-  [`afw-record.md`](research/backlog/afw-record.md).
-  **What remains is the other three**: migrate has a per-file *plan* and counts, with
-  `migration_journal` as its durable state; bake and undo return counts only. Each needs the
-  same question answered before a record is worth building - a record built on an undecided
-  policy documents the policy. [Full entry](research/backlog/afw.md)
 - **(afs) A DESTRUCTIVE MIGRATION MAY NOT RUN WITHOUT A PRE-UPGRADE COPY, AND NOTHING SAYS WHICH
   ONE IS DESTRUCTIVE.** Recorded 2026-08-22, split out of `(ady)` while building it - **a policy
   change about what a migration may do, which would have been invisible arriving inside a
