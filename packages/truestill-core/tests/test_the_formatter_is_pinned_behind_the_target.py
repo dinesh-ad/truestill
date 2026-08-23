@@ -22,6 +22,8 @@ import ast
 import itertools
 import re
 import subprocess
+import tempfile
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -158,3 +160,68 @@ def test_no_tracked_source_uses_the_unparenthesised_form() -> None:
         "PEP 758's unparenthesised multi-except appears in tracked source. This repo keeps the "
         "parentheses - see pyproject.toml beside `target-version`:\n  " + "\n  ".join(offenders)
     )
+
+
+# --- and the formatter must not reach into documents at all -----------------------------------
+
+
+def test_the_formatter_does_not_own_fenced_blocks_in_documents() -> None:
+    """A fenced ``python`` block in a document is a QUOTATION; without this it is code ruff owns.
+
+    ⚠ **Found by it happening** (`(agf)`, 2026-08-23). `(age)` quoted one line of
+    `filesystem.py` - ``free_bytes=need if free is None else free,`` , a keyword argument - and
+    `make check` rewrote it to ``free_bytes = (need if free is None else free,)``, a tuple
+    assignment that appears nowhere in the file. In the entry whose entire subject is a value
+    being silently transformed one line after it was got right.
+
+    **It is not only fragments**, which is why the remedy is a config line and not a rule about
+    what may be quoted: a whole valid statement is normalised too - ``{'a': 1}`` becomes
+    ``{"a": 1}`` - so any block quoting source written in another style is misquoted, less
+    visibly and with nothing to notice it.
+
+    ⚠ **The records are the real exposure.** ``docs/*research*.md`` are never rewritten, by a rule
+    this repo states twice, and `trip-grouping-research.md` carries six such blocks. A formatter
+    reaching inside a record is that rule broken by a tool nobody would think to check.
+
+    **Excluding costs nothing measurable**: an unparseable fragment is silently skipped rather
+    than reported, so ruff offers no diagnostic value over a document - it rewrites only blocks
+    that *do* parse, which is exactly the set where the rewrite is wrong.
+    """
+    config = tomllib.loads((_REPO / "pyproject.toml").read_text(encoding="utf-8"))
+    excluded = config["tool"]["ruff"]["format"].get("exclude", [])
+
+    assert "*.md" in excluded, (
+        "[tool.ruff.format] no longer excludes *.md, so the formatter owns every fenced python "
+        "block in every document - including the records, which are never rewritten"
+    )
+
+
+def test_the_exclusion_is_load_bearing_rather_than_decorative() -> None:
+    """The cry-wolf half: prove ruff really would rewrite a quotation without the setting.
+
+    Asserting the config key alone would keep passing if ruff stopped formatting Markdown, and
+    the line would then be cargo. This runs the formatter over a throwaway document with the
+    setting absent and requires it to bite - so the day the behaviour goes away, this fails and
+    the setting can be retired on evidence rather than left forever.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / "ruff.toml").write_text("line-length = 100\n", encoding="utf-8")
+        doc = root / "quoted.md"
+        original = "x\n\n```python\nfree_bytes=need if free is None else free,\n```\n"
+        doc.write_text(original, encoding="utf-8")
+
+        # The pin goes on this invocation too, and the guard above is what noticed it was
+        # missing - it reads every `ruff format` argv in the repo, including this file's.
+        subprocess.run(
+            ["ruff", "format", "--target-version", "py313", "."],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert doc.read_text(encoding="utf-8") != original, (
+            "ruff no longer formats python inside Markdown; the [tool.ruff.format] exclude of "
+            "*.md is no longer load-bearing and should be retired on this evidence"
+        )

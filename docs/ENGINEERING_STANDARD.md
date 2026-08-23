@@ -234,8 +234,8 @@ memory dressed as one.
 > a live one**; run the command.
 >
 > ⚠ **AND THE ORDINALS ARE A SECOND, SMALLER COUNT - THEY DO NOT AGREE AND SHOULD NOT.** Members
-> name themselves in prose (*"the sixty-second member"*), and the highest such ordinal is **64**
-> while the command reads **78**. The gap is not drift: the ordinals number only the members
+> name themselves in prose (*"the sixty-second member"*), and the highest such ordinal is **65**
+> while the command reads **79**. The gap is not drift: the ordinals number only the members
 > written as *named failures*, and the command counts every bullet here, including the eight that
 > were never numbered - Idioms, Absolute imports, Typing, Dependencies, Performance, Tests,
 > Errors, Credentials. **Quoting 62 as the size of this section is therefore wrong by fourteen**,
@@ -1970,6 +1970,49 @@ memory dressed as one.
   correctly, in a file `git diff` reports as unchanged, is this until proven otherwise. Check what
   the interpreter loaded before you change anything - the temptation is to "fix" the correct code,
   and that edit is the real damage.
+
+- **A FENCED CODE BLOCK IN A DOCUMENT IS A QUOTATION TO A READER AND AN INPUT TO A FORMATTER,
+  AND THE FORMATTER WINS.** The sixty-fifth member. Every other member here is about a claim that
+  was wrong when it was written, or that expired. This one is about a claim that was **correct
+  when written and was then altered by a tool**, with no diff to review, no gate to go red, and
+  the document still looking like a citation.
+
+  > **The tell is that there is none.** A misquotation produced by a formatter is syntactically
+  > perfect, stylistically consistent with the rest of the file, and passes every check - because
+  > the check is the thing that made it.
+
+  *Worked example, 2026-08-23.* `(age)` quoted one line of `filesystem.py`:
+
+  ```
+  free_bytes=need if free is None else free,
+  ```
+
+  a keyword argument inside a call. ruff 0.16 formats Python inside Markdown, read the fenced
+  block as standalone code, and rewrote it to `free_bytes = (need if free is None else free,)` -
+  a **tuple assignment that appears nowhere in the file**. `make check` did it, between writing
+  the entry and committing it. The entry's entire subject is a value being silently transformed
+  one line after it was got right.
+
+  ⚠ **It is not only fragments, and that is what decides the remedy.** A whole valid statement is
+  normalised too - `{'a': 1}` becomes `{"a": 1}`, doubled spaces collapse - so **any** block
+  quoting source in a style other than the formatter's is misquoted, less visibly. A rule about
+  what may be quoted would therefore have been the wrong shape; the exposed set is every block,
+  not the ones that look risky.
+
+  ⚠ **THE RECORDS ARE THE REAL EXPOSURE.** `docs/*research*.md` are never rewritten - this repo
+  states that twice and calls a rewritten record *"not a record"*. A formatter reaching inside one
+  breaks that rule **through a tool nobody would think to check**, and
+  `trip-grouping-research.md` carries six such blocks.
+
+  **The remedy is a config line rather than a practice**, per the twenty-seventh member:
+  `[tool.ruff.format] exclude = ["*.md"]`. Measured before choosing it - `python`, `py` and
+  `python3` fences are all owned; `text`, `sh`, `console` and a bare fence are not; and excluding
+  costs nothing, because an **unparseable** fragment is silently skipped rather than reported, so
+  the formatter offers no diagnostic value over a document and rewrites only what parses - exactly
+  the set where the rewrite is wrong. Pinned by
+  `test_the_formatter_does_not_own_fenced_blocks_in_documents`, with a second test that runs the
+  formatter over a throwaway document **without** the setting and requires it to bite, so the day
+  the behaviour goes away the line can be retired on evidence rather than kept as cargo.
 
 - **A RULE CITED BY ITS SECTION NUMBER RATHER THAN ITS DOCUMENT INHERITS THE AUTHORITY OF
   WHICHEVER DOCUMENT THE READER ASSUMES.** The sixty-fourth member, and the **inverse** of the

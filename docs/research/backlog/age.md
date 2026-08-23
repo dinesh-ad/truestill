@@ -18,14 +18,15 @@
       free = None
   ```
 
-  **Then it is thrown away one line later**, and this is the whole of it (`filesystem.py:271`):
+  **Then it is thrown away one line later** (`filesystem.py:271`):
 
-  > `free_bytes=need if free is None else free,`
+  ```python
+  free_bytes=need if free is None else free,
+  ```
 
-  *(Quoted inline rather than in a fenced ```python block on purpose: it is a keyword argument, so
-  a formatter reading the block as standalone Python rewrites it into `free_bytes = (need if free
-  is None else free,)` - a tuple assignment that is not what the file says. `make check` did
-  exactly that to this entry before it was committed.)*
+  ⚠ *That block is quoted verbatim, and holding it that way needed a change to the build.*
+  `make check` rewrote it to `free_bytes = (need if free is None else free,)` - a tuple assignment
+  the file does not contain - because ruff formats Python inside Markdown. `(agf)`, found here.
 
   `DestinationPreflight` (`filesystem.py:192-237`) has **no field carrying "this was not
   measured"**. So an unmeasurable destination becomes *exactly enough*, `may_proceed` is `True`,
