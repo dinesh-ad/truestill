@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agc). Next free: (agd).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(age). Next free: (agf).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -118,6 +118,34 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
+- **(agd) A DEGRADED WATCHER SAYS NOTHING, AND THERE IS NO CHANNEL FOR IT TO SAY ANYTHING IN.**
+  Recorded 2026-08-23, split out of `(aft)` **while building it**. `(aft)` made an unmeasurable
+  probe fail **open** - correct, and the module's recorded posture - but it fails open
+  **silently**: a run completes with the disk-space guard switched off and nothing counts or names
+  it. ⚠ **Both sides are filed because either may win.** For: §9's never-silent clause
+  (`IMPLEMENTATION_STANDARDS.md:1280`) makes a *degraded* outcome something that must be counted
+  and named, and it is binding contract. Against: `_stop_if_ground_moved`'s own docstring
+  (`backup.py:239-245`) argues that *"a second mechanism for the same class of event would be a
+  second thing to keep in step"* - made about the stop path, and it applies to a notice path.
+  🔑 **It is one entry, not organize's third of one**: `HealthVerdict` is binary and the three
+  watchers consume it three ways - an `ActionResult`, a `MigrationOutcome` field, and a `raise`
+  with **no non-fatal path at all** - so building the channel for one leaves two, which is §4's
+  fifty-sixth member **scheduled rather than inherited**. **The wording is already ruled** and
+  carries three constraints that each cost a draft: no free-space figure, no reason word, and
+  neither *"Truestill's catalog folder"* nor *"nothing was left half-written"*.
+  [Full entry](research/backlog/agd.md)
+- **(age) `(aek)`'s SILENT DIRECTION SURVIVES INSIDE `(aek)`'s OWN FIX.** Recorded 2026-08-23,
+  found while investigating `(aft)`. `preflight_destination` correctly records `free: int | None`
+  (`filesystem.py:259-263`) and then **throws it away one line later**: `free_bytes=need if free
+  is None else free` (`:271`), with `DestinationPreflight` carrying **no field** for *"this was not
+  measured"*. So unmeasurable becomes *exactly enough*, `may_proceed` is `True`, and
+  `cli._print_preflight` prints nothing. 🔑 **The conflation was removed where it was MEASURED and
+  reappeared where it is REPORTED** - a fix that stops one line short of the surface, which is why
+  it is its own letter rather than a note on `(aek)`. ⚠ **The backstop argument does not cover
+  it**: *"it fails later, and louder, with the real reason"* is about a **run**, and a **preview**
+  exists to say what will happen before it happens - so the later failure is not its backstop, it
+  is what the preview was meant to prevent. Mirror of `(aft)`: loud-and-wrong there,
+  quiet-and-wrong here. [Full entry](research/backlog/age.md)
 - **(afz) `mutation_matrix.py` LEAKS A TEMPORARY DIRECTORY PER MUTANT, IN A SCRIPT NO GATE
   RUNS.** Recorded 2026-08-23, found while measuring `(afy)`. `scripts/mutation_matrix.py:539` is
   a bare `tempfile.mkdtemp()` with **no cleanup on any path**, called once per mutant - **67
