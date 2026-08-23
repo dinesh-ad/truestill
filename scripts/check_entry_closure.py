@@ -22,6 +22,12 @@ no ``Closes (xyz).`` line for it, or the entry does not arrive in ``SHIPPED.md``
 commit. A retitled entry is not a departure - a letter removed and re-added inside ``BACKLOG.md``
 is ignored.
 
+⚠ **AND THE CONVERSE, since 2026-08-23**: a message that declares ``Closes (xyz).`` while
+``(xyz)`` is still an entry in ``BACKLOG.md``. The corpus test owns that direction and **cannot
+catch it in time** - it reads the commit message, which does not exist when ``make check`` runs
+before the commit, so it can only report on a commit already made. Commit ``4051914`` is the
+measured instance: this hook passed it and all three CI lanes went red.
+
 **What it cannot see, stated rather than implied:** ``git commit --amend`` re-stages nothing, so
 an amend that only edits the message sees an empty diff and passes. Fails open with no git, or
 when neither document is staged.
@@ -75,6 +81,28 @@ def staged_diff() -> str:
     return done.stdout if done.returncode == 0 else ""
 
 
+def staged_text(path: str) -> str:
+    """``path`` as THIS COMMIT will contain it, not as the working tree happens to look.
+
+    The two differ whenever something is edited but not staged, and the commit is what the rule is
+    about. Falls back to the working tree where git cannot answer, which keeps the fail-open
+    posture the rest of this hook has.
+    """
+    try:
+        done = subprocess.run(
+            ["git", "show", f":{path}"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):  # pragma: no cover - no git in the environment
+        return ""
+    if done.returncode == 0:
+        return done.stdout
+    return Path(path).read_text(encoding="utf-8") if Path(path).exists() else ""
+
+
 def entry_moves(diff: str) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
     """Letters whose entry title was removed from / added to each document, per file.
 
@@ -105,8 +133,28 @@ def refusals(message: str, diff: str) -> list[str]:
     left = removed[BACKLOG] - added[BACKLOG]
     declared = set(CLOSES.findall(message))
     retired = set(RETIRES.findall(message))
-    backlog_text = Path(BACKLOG).read_text(encoding="utf-8") if Path(BACKLOG).exists() else ""
+    backlog_text = staged_text(BACKLOG)
     out = []
+    # ⚠ **THE OTHER DIRECTION, ADDED 2026-08-23 AFTER IT COST A RED CI.** This loop iterated only
+    # over what LEFT the backlog, so a commit could declare a closure it had not performed and be
+    # accepted - which `4051914` did, saying `Closes (afw)` with `(afw)` still an entry.
+    #
+    # **`test_closed_entries_leave_the_backlog.py` owns that direction and cannot catch it in
+    # time.** It reads the COMMIT MESSAGE, and when `make check` runs - before every commit, by
+    # the standing rule - that message does not exist yet. So it can only ever report on a commit
+    # already made, which in practice means from CI after the push. The two guards were not two
+    # halves of one rule; they were one half, twice.
+    #
+    # It keys on *"is it still open work"* rather than *"did it leave in this commit"*, so a
+    # follow-up commit repeating a trailer is not a false claim - the entry is already gone, which
+    # is the end state the rule exists to produce.
+    for letter in sorted(declared & set(ENTRY.findall(backlog_text))):
+        out.append(
+            f"({letter}) is declared closed but is still an entry in {BACKLOG}, which carries "
+            f"open work only. Move it to {SHIPPED} in this commit - it keeps its letter and is "
+            f"provenance. If part of it is genuinely unfinished, split that part into a new "
+            f"letter rather than leaving the whole entry open, and do not claim the closure."
+        )
     for letter in sorted(retired):
         if letter not in left:
             out.append(

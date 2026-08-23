@@ -266,7 +266,106 @@ def test_it_fails_open_where_it_cannot_answer(tmp_path: Path) -> None:
 
     A commit-msg hook that refuses when it cannot see is one that gets bypassed with
     `--no-verify`, which costs more than the check is worth.
+
+    ⚠ **THIS ALSO ASSERTED THAT A STRAY `Closes (zz).` ON AN UNRELATED COMMIT WAS ACCEPTED, AND
+    THAT ASSERTION WAS THE HOLE**, not a property. The hook is not unable to answer there: it
+    reads `BACKLOG.md` and can see the entry is still open. `BACKLOG.md`'s own rule makes the
+    trailer and the move **one act** - *"a commit whose message says `Closes (xyz)` on a line of
+    its own, and ... that commit moves the entry"* - so a trailer without the move is always a
+    false claim, whatever else the commit touched. It moved to
+    `test_a_stray_closure_trailer_is_refused_even_on_an_unrelated_commit` below, as a refusal.
     """
     repo = _repo(tmp_path, _OPEN, _BUILT)
-    assert _hook_says(repo, "chore: unrelated\n\nCloses (zz).\n") == (0, "")
+    assert _hook_says(repo, "chore: unrelated\n") == (0, "")
     assert _hook.refusals("Closes (zz).", "") == []
+
+
+# --- the direction that had no COMMIT-TIME guard at all ----------------------------------------
+
+
+def test_declaring_a_closure_without_moving_the_entry_is_refused(tmp_path: Path) -> None:
+    """⚠ **THE HOLE THIS FILE DID NOT KNOW IT HAD, and it cost a red CI on 2026-08-23.**
+
+    The corpus check above owns this direction - *declared closed, still open work* - and catches
+    it perfectly. What it **cannot** do is catch it in time: it reads the **commit message**, and
+    at the moment `make check` runs (before every commit, by the standing rule) that message does
+    not exist yet. So it can only ever report on a commit already made, which in practice means
+    after the push, from CI.
+
+    Measured: commit `4051914` said `Closes (afw)` while `(afw)` was still an entry in
+    `BACKLOG.md`. The hook **passed** - it only ever iterated over what LEFT the backlog, never
+    over what was DECLARED - and all three CI lanes then went red on the corpus check.
+
+    **So the two guards were not two halves of one rule; they were one half, twice.** The hook is
+    the only thing that can act at commit time, and it now checks both directions. This has no
+    legacy exposure for the reason the module's docstring already gives: it reads only the commit
+    being made.
+    """
+    repo = _repo(tmp_path, _OPEN, _BUILT)
+    # The entry is edited but NOT moved - exactly the shape of the commit that went red.
+    _stage(repo, _OPEN.replace("SOMETHING OPEN", "SOMETHING OPEN, NOW WITH A STAGE DONE"), _BUILT)
+
+    code, err = _hook_says(repo, "feat: finish the stage\n\nCloses (zz).\n")
+
+    assert code == 1, "a commit claiming a closure it did not perform was accepted"
+    assert "(zz)" in err, f"the refusal does not name the letter: {err!r}"
+    assert "BACKLOG" in err, f"the refusal does not name the remedy: {err!r}"
+
+
+def test_a_closure_trailer_for_an_entry_already_gone_is_accepted(tmp_path: Path) -> None:
+    """⚠ **CRY-WOLF HALF.** The refusal must key on *"is it still open work"*, not on *"did it
+    leave in THIS commit"*.
+
+    A follow-up commit that repeats the trailer - or one that moves an entry whose title was
+    already absent - is not a false claim: the entry is gone, which is the end state the rule
+    exists to produce. Refusing here would make the correction commit for a red build impossible
+    to write, which is exactly the situation this guard was added in.
+    """
+    repo = _repo(tmp_path, _ONLY_ZY, _BUILT + "\n- **(zz) SOMETHING OPEN.** Body.\n")
+    _stage(repo, _ONLY_ZY, _BUILT + "\n- **(zz) SOMETHING OPEN.** Body.\n")
+
+    assert _hook_says(repo, "docs: restate it\n\nCloses (zz).\n") == (0, "")
+
+
+def test_the_two_directions_are_reported_together(tmp_path: Path) -> None:
+    """One commit can get both wrong, and a guard that stopped at the first would hide the second.
+
+    `(zz)` is claimed closed without moving; `(zy)` leaves with nothing said about it.
+    """
+    repo = _repo(tmp_path, _OPEN, _BUILT)
+    _stage(repo, "- **(zz) SOMETHING OPEN.** Body.\n", _BUILT)
+
+    code, err = _hook_says(repo, "docs: half a job\n\nCloses (zz).\n")
+
+    assert code == 1
+    assert "(zz)" in err, f"the declared-but-not-moved direction is missing: {err!r}"
+    assert "(zy)" in err, f"the moved-but-not-declared direction is missing: {err!r}"
+
+
+def test_a_stray_closure_trailer_is_refused_even_on_an_unrelated_commit(tmp_path: Path) -> None:
+    """The declaration is the claim, and it is false whether or not the commit touched the docs.
+
+    ⚠ **This is the case with the widest blast radius**, because it needs no doc edit to happen -
+    a trailer typed into a code commit is enough. It used to be the accepted case.
+    """
+    repo = _repo(tmp_path, _OPEN, _BUILT)
+
+    code, err = _hook_says(repo, "chore: unrelated\n\nCloses (zz).\n")
+
+    assert code == 1, "a commit claimed a closure it did not perform and was accepted"
+    assert "(zz)" in err
+
+
+def test_it_judges_the_staged_backlog_not_the_working_tree(tmp_path: Path) -> None:
+    """The commit is what the rule is about, and those two differ more often than they look.
+
+    Here the move IS staged and the working tree has been edited again afterwards - an ordinary
+    thing to do while writing the commit message. Reading the file from disk would see the entry
+    still present and refuse a commit that is correct.
+    """
+    repo = _repo(tmp_path, _OPEN, _BUILT)
+    _stage(repo, _ONLY_ZY, _BUILT + "\n- **(zz) SOMETHING OPEN.** Body.\n")
+    # ...and then the author keeps typing, unstaged.
+    (repo / "docs/BACKLOG.md").write_text(_OPEN, "utf-8")
+
+    assert _hook_says(repo, "docs: move it\n\nCloses (zz).\n") == (0, "")

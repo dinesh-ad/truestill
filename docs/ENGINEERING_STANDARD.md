@@ -234,8 +234,8 @@ memory dressed as one.
 > a live one**; run the command.
 >
 > ⚠ **AND THE ORDINALS ARE A SECOND, SMALLER COUNT - THEY DO NOT AGREE AND SHOULD NOT.** Members
-> name themselves in prose (*"the sixty-second member"*), and the highest such ordinal is **67**
-> while the command reads **81**. The gap is not drift: the ordinals number only the members
+> name themselves in prose (*"the sixty-second member"*), and the highest such ordinal is **68**
+> while the command reads **82**. The gap is not drift: the ordinals number only the members
 > written as *named failures*, and the command counts every bullet here, including the eight that
 > were never numbered - Idioms, Absolute imports, Typing, Dependencies, Performance, Tests,
 > Errors, Credentials. **Quoting 62 as the size of this section is therefore wrong by fourteen**,
@@ -1970,6 +1970,31 @@ memory dressed as one.
   correctly, in a file `git diff` reports as unchanged, is this until proven otherwise. Check what
   the interpreter loaded before you change anything - the temptation is to "fix" the correct code,
   and that edit is the real damage.
+
+- **A CHECK WHOSE INPUT IS CREATED BY THE ACT IT VALIDATES CANNOT GATE THAT ACT.** The
+  sixty-eighth member, and it is about *when* a guard can run rather than what it looks at.
+
+  > A test over the corpus is a **report**, not a gate, whenever the thing it reads comes into
+  > existence at the moment of the change. It will be correct and it will be late. Only a guard
+  > that runs **as part of the act** - a commit-msg hook, a pre-push check, an admission
+  > controller - can refuse it.
+
+  *Worked example, 2026-08-23.* `test_closed_entries_leave_the_backlog.py` checks that a commit
+  declaring `Closes (xyz)` did not leave the entry in `BACKLOG.md`. It reads the **commit
+  message**. `make check` runs *before* every commit, by the standing rule - so the message does
+  not exist yet, and the test can only ever report on a commit already made. Commit `4051914`
+  declared a closure it had not performed, the local gate was green, and **all three CI lanes went
+  red after the push.**
+
+  ⚠ **AND THE HOOK THAT COULD HAVE CAUGHT IT ONLY CHECKED THE OTHER DIRECTION.**
+  `check_entry_closure.py` refused *removal without a trailer* and said in its own docstring that
+  the test owned *trailer without removal*. Both statements were true, and together they left the
+  second case with **no commit-time guard at all**: the two guards were not two halves of one
+  rule, they were one half, twice.
+
+  *Suspect it wherever a guard reads git history, a build number, a deploy timestamp, or anything
+  else the change itself produces.* Ask **when** the guard's input exists, not just whether the
+  guard is correct - and if the answer is "after", pair it with something that runs during.
 
 - **A CLASSIFIER THAT READS ONLY THE OUTERMOST EXCEPTION IS INERT THE MOMENT ANYONE WRAPS ONE.**
   The sixty-seventh member, promoted because it bit twice in two days on two different
