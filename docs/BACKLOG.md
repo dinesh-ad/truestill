@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(afx). Next free: (afy).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(afz). Next free: (aga).**
 ⚠ `(adk)` was the gap this line flagged as free, and it was taken on 2026-08-15 by the SSE
 heartbeat fix in `SHIPPED.md`, so the range is now contiguous. `(adl)`-`(adq)` were allocated on
 2026-08-14 and this line was not updated with them, which is the exact drift the warning
@@ -118,6 +118,20 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
+- **(afz) `mutation_matrix.py` LEAKS A TEMPORARY DIRECTORY PER MUTANT, IN A SCRIPT NO GATE
+  RUNS.** Recorded 2026-08-23, found while measuring `(afy)`. `scripts/mutation_matrix.py:539` is
+  a bare `tempfile.mkdtemp()` with **no cleanup on any path**, called once per mutant - **67
+  mutants across three suites**, so ~73 `/tmp/tmp*` directories per sweep. ⚠ **It accumulated
+  invisibly for a structural reason**: the script is in no `Makefile` target, no hook and no
+  workflow - correctly, it costs minutes - so **no gate can see it**, and the directories are
+  near-empty so nothing runs out of anything. 🔑 **`:617` is leftover BY DESIGN and must not be
+  "fixed" with it**: it holds the originals of every mutated file so a `SIGKILL` leaves a
+  one-command recovery, and a `TemporaryDirectory` there would delete the recovery exactly when
+  it is needed. ⚠ **The commissioning premise was false and is corrected in the entry**: pytest
+  does **not** clean `tmp_path` - retention defaults to **3** by design - so "there are
+  leftovers" implies nothing, and following it excluded the script while pointing at the suite,
+  which calls `tempfile` **zero** times. Also named, not fixed: `shoot_screens.py:170` leaks on
+  abnormal exit. [Full entry](research/backlog/afz.md)
 - **(afx) THE BROWSER LANE HAS GROWN INTO ITS OWN CEILING: 1996.21 s AGAINST 2000.** Measured
   2026-08-22 on the full local run - **3.79 s of headroom, 0.19%** - so the next browser test
   added breaches it. 🔑 **Do NOT raise the ceiling**: a bound raised to fit its subject measures
