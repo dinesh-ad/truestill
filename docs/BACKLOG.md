@@ -132,10 +132,13 @@ is invisible here is retired, not free.**
   leftovers" implies nothing, and following it excluded the script while pointing at the suite,
   which calls `tempfile` **zero** times. Also named, not fixed: `shoot_screens.py:170` leaks on
   abnormal exit. [Full entry](research/backlog/afz.md)
-- **(afx) THE BROWSER LANE HAS GROWN INTO ITS OWN CEILING: 1996.21 s AGAINST 2000.** Measured
-  2026-08-22 on the full local run - **3.79 s of headroom, 0.19%** - so the next browser test
-  added breaches it. 🔑 **Do NOT raise the ceiling**: a bound raised to fit its subject measures
-  nothing, and this one is doing its job by reporting before rather than after.
+- **(afx) THE CEILING IS ASYMMETRIC - LOCAL 2000, CI 3600. THE 3.79 s WAS A CONTENDED READING.**
+  ⚠ **RETITLED AND NARROWED 2026-08-23**; it read *"THE BROWSER LANE HAS GROWN INTO ITS OWN
+  CEILING: 1996.21 s AGAINST 2000"*. That run was taken while `(afu)` was being written and
+  `make check` ran against the same cores; **five other readings of the same lane sit at
+  1169-1506 s** and both local readings report an identical `973 passed, 3 skipped`, so the lane
+  had not grown. **Real headroom is ~493 s, not 3.79 s.** 🔑 **Do NOT raise the ceiling** - now
+  because there is nothing to accommodate.
   ⚠ **The defect is the ASYMMETRY, not the number.** CI overrides to **3600** (`ci.yml:542`), so
   CI stays green while `make e2e` fails locally - and local is what a person runs before
   committing, so **the red lands on whoever is doing the right thing** and the person who skips

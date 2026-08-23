@@ -1,8 +1,13 @@
-# (afx) THE BROWSER LANE HAS GROWN INTO ITS OWN CEILING: 1996.21 s AGAINST 2000.
+# (afx) THE CEILING IS ASYMMETRIC - LOCAL 2000, CI 3600. THE 3.79 s WAS A CONTENDED READING.
 
 *Body of backlog entry `(afx)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
-- **(afx)** Measured 2026-08-22 by the full local lane run before `(afu)`'s commit:
+> ⚠ **RETITLED AND NARROWED 2026-08-23. The original title was *"THE BROWSER LANE HAS GROWN INTO
+> ITS OWN CEILING: 1996.21 s AGAINST 2000"* and its headline number does not survive.** The
+> premise is corrected below rather than deleted, because the entry's *other* half - the
+> asymmetry - was always the defect and is untouched.
+
+- **(afx)** Originally measured 2026-08-22 by the full local lane run before `(afu)`'s commit:
 
   ```
   973 passed, 3 skipped in 1996.21s (0:33:16)
@@ -10,6 +15,61 @@
   ```
 
   **3.79 seconds of headroom. 0.19%.** The next browser test added breaches it.
+
+  ## ⚠ THAT READING WAS CONTENDED, AND THE REAL HEADROOM IS ~493 s (2026-08-23)
+
+  Re-read against every other measurement of the same lane. **No second run was needed**, which
+  matters: the answer was in the readings that already existed.
+
+  | reading | seconds | source |
+  |---|---:|---|
+  | CI, eight consecutive runs | **1169-1391** | `PERFORMANCE.md` §5 |
+  | CI, nightly 2026-08-23 (run 32616819478) | **1306** | the e2e job |
+  | local `make e2e` | **1475** | `PERFORMANCE.md` §5 |
+  | local `make e2e`, 2026-08-23 | **1506.93** | this session, `973 passed, 3 skipped` |
+  | **local, 2026-08-22 - this entry** | **1996.21** | above |
+
+  **1996.21 is +35% above the only prior local reading and +43% above the CI midpoint. 1506.93 is
+  +2% above it.** Five independent readings agree with each other and disagree with this entry's.
+
+  🔑 **The lane did not grow, and that is provable rather than argued: both local readings are
+  `973 passed, 3 skipped`.** Identical counts, so *"something got faster"* and *"the lane grew"*
+  are both excluded, and the instrument measured the same span each time - `make e2e` wraps the
+  same `pytest` invocation in both. What is left is machine state.
+
+  **And the machine state is on the record.** The 1996.21 s run finished *"before `(afu)`'s
+  commit"*, which landed at **21:50**; a 33m16s lane finishing then began about **21:17**. The
+  previous commit was **20:20**, so the run sat inside a 90-minute window in which `(afu)` was
+  being written - `truestill_core.run_record` created, the CLI and `service/organize.py` edited,
+  and `make check` (`-n auto`, 16 workers) plus `mypy` run against them repeatedly. A serial
+  browser lane sharing a machine with that is not measuring the lane.
+
+  ⚠ **This is §4's forty-eighth member** - *a measurement is of a subject at a moment; change the
+  subject while it runs and the result describes nothing* - in its **contention** form rather than
+  its worked example's *edited-source* form. The 2026-08-13 example had stage 5 written into the
+  stylesheet the run was reading. Here the source was stable and the **machine** was not, and the
+  result is the same: a number that describes neither state. **The member should be read as
+  covering both**, and nothing in it currently says so.
+
+  ## WHAT SURVIVES AND WHAT DOES NOT
+
+  - ❌ **"3.79 seconds of headroom"**, ❌ **"the next browser test added breaches it"**, and ❌ the
+    title. Real headroom against the 2000 s ceiling is **~493 s, about 25%**.
+  - ✅ **The asymmetry, which was always the defect** - this entry says so itself, *"the defect is
+    the ASYMMETRY, not the number"*. CI overrides to 3600 (`ci.yml:542`) while local is 2000, so
+    the stricter bound is the developer's, and a red lands on whoever runs the lane before
+    committing. **Unchanged, and now the whole of the entry.**
+  - ✅ **`(aec)`'s 62 fixed waits** remain a real cost; what falls is only the claim that their sum
+    has reached the bound.
+  - ✅ **Do not raise the ceiling** - now for a better reason than before. There is nothing to
+    accommodate.
+
+  ⚠ **AND ONE THING NOBODY HAS MEASURED YET.** `(afy)` moved the suite's scratch off tmpfs onto
+  ext4 on 2026-08-23, which cost `make test` **+18%** in real `fsync`. **The browser lane has not
+  run locally since.** It is not affected on **CI** - no runner has a `/data`, so the header there
+  reads `scratch: platform default` - but the local lane's cost is now unknown, and it is the
+  local lane that carries the 2000 s bound. ~493 s of headroom is a lot to spend and this is not a
+  reason for alarm; it is the one number that should be taken before anyone rules on this entry.
 
   ## 🔑 DO NOT RAISE THE CEILING
 

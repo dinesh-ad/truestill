@@ -136,16 +136,35 @@
   (13,593 MB), and 27 `*.log` / `*.json` / `*cat.sqlite*` files. **What is left is exactly what
   this entry calls durable**, and it is the whole of it: `A`, `B`, `detect.py`, `window.py`.
 
-  ⚠ **Two entries were kept that the breakdown does not name**: `seed` and `fdest_seed`, 4 MB
-  each. They are in none of the three categories above, and this product's own rule for deleting
-  things - `IMPLEMENTATION_STANDARDS.md` §1, `clean-empty` condition **(b)** - is that *unknown is
-  never junk*. A clean-up run against a list must not quietly widen it, so they stay until
-  somebody says what they are. **Name them here if they go**; 8 MB is not worth a guess about the
-  only measured data-loss reproduction in the product.
+  ✅ **`seed` and `fdest_seed` ARE KEPT - ruled 2026-08-23, and the question is closed.** The
+  breakdown above does not name them, so they were held back from the clean-up; they are now
+  named here instead, which is what the durable list needed.
+
+  - **`seed/`** - one file, `IMG_20140817_121756.jpg`, **3,649,733 bytes**. A single real photo.
+  - **`fdest_seed/`** - three files: `.truestill-drive.json`, `.truestill-decisions.json`
+    (422 bytes) and `2014/2014-08/`. A **registered drive with a decisions file** - a prepared
+    destination, not an output tree.
+
+  **Reading, stated as a reading**: `seed` is the origin the `A`/`B` corpora were multiplied from,
+  and `fdest_seed` is the pre-registered destination the `fdest` run started against. Neither
+  `detect.py` nor `window.py` mentions either by name, so this is inference from content and
+  mtime, not evidence.
+
+  🔑 **AND THE DECISION DOES NOT DEPEND ON BEING SURE, WHICH IS WHY IT IS SAFE TO CLOSE.** The
+  durable list is durable because *"rebuilding `B` is scripted; rebuilding the **idea** is not"* -
+  and every scripted rebuild starts from a photo. **If `seed` is that photo, deleting it
+  falsifies the "regenerable in minutes" claim this entry already carries unverified**, for
+  `bigA`/`bigB` and the five `*dest` trees that were deleted on the strength of it. So the cost of
+  keeping them is **8 MB**; the cost of being wrong is a 26 GB reproduction that can no longer be
+  rebuilt, for the only measured data-loss defect in the product. An asymmetry that large does not
+  need the question resolved. `IMPLEMENTATION_STANDARDS.md` §1's `clean-empty` condition **(b)** -
+  *unknown is never junk* - reaches the same answer from the other side.
 
   ⚠ **`bigA`/`bigB` and the `*dest` trees are regenerable "in minutes" as stated, and nobody has
   re-run that since it was written.** The claim is inherited, not re-measured on the day it was
-  acted on.
+  acted on - and it is now **load-bearing**, because 13,593 MB were deleted on it. If anyone
+  touches this reproduction again, establishing it is the first thing to do, and `seed` is
+  probably what it starts from.
 
   - **What shrank this from "P1", and it is the load-bearing measurement.** SQLite already
     serialises writers, so **the catalog cannot be corrupted by two truestill processes**.

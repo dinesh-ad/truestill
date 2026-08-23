@@ -1704,6 +1704,18 @@ memory dressed as one.
   Neither stage had been gated. Nothing was committed on it; the fix was to lift stage 5 back out,
   re-gate stage 4 alone, and record in the commit that the first run was void.
 
+  ⚠ **THE SUBJECT INCLUDES THE MACHINE, AND THIS MEMBER READ AS BEING ONLY ABOUT SOURCE UNTIL
+  2026-08-23.** The example above is a file edited mid-run, so *"change the subject"* was heard as
+  *"change the code"*. A **duration** has a second subject nothing in the tree records: what else
+  was running. `(afx)` filed a browser lane at **1996.21 s against a 2000 s ceiling** - 3.79 s of
+  headroom, and an argument built on it - from a run taken while `(afu)` was being written and
+  `make check` (`-n auto`, 16 workers) was going against the same cores. Five other readings of
+  the same lane, CI and local, sit at **1169-1506 s**; the real headroom is ~493 s.
+  **The tell was available without re-running anything: the test counts were identical**
+  (`973 passed, 3 skipped` both times), so the lane had not grown and nothing had got faster.
+  A timing number needs its machine state recorded beside it, or it is not a measurement of the
+  thing it names.
+
   **A long check makes its own working tree read-only until it returns.** The version under test
   is whatever is on disk when each test opens the file, not what was there when you pressed
   enter - so a check with a build step is not protected either, only differently exposed. If the
