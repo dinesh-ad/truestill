@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import argparse
 import platform
-import subprocess
 import sys
 import time
 from collections import Counter
@@ -63,15 +62,29 @@ class Row:
 
 
 def _filesystem_of(path: Path) -> str:
-    """`df` on the root, so the header states the medium rather than implying one."""
-    out = subprocess.run(
-        ["df", "--output=fstype,source", str(path)],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    fstype, device = out.stdout.strip().splitlines()[-1].split()
-    return f"{fstype} ({device})"
+    """The medium, stated rather than implied - and never via GNU-only tooling.
+
+    The first draft shelled out to `df --output`, which BSD `df` refuses with exit 64 - the
+    macOS check lane caught it, the exact cross-platform class those lanes exist for. So on
+    Linux this reads `/proc/mounts` directly (longest mount-point prefix wins, octal escapes
+    decoded); anywhere else it says the medium went unrecorded, which keeps the header honest
+    where a guess or a crash would not.
+    """
+    mounts = Path("/proc/mounts")
+    if not mounts.is_file():
+        return f"unrecorded ({platform.system().lower()} has no /proc/mounts)"
+    resolved = path.resolve()
+    best: tuple[str, str] | None = None
+    best_len = -1
+    for line in mounts.read_text(encoding="utf-8").splitlines():
+        device, mount_point, fstype = line.split()[:3]
+        mount_point = mount_point.replace("\\040", " ")
+        point = Path(mount_point)
+        if (resolved == point or point in resolved.parents) and len(str(point)) > best_len:
+            best, best_len = (fstype, device), len(str(point))
+    if best is None:
+        return "unrecorded (no mount matched)"
+    return f"{best[0]} ({best[1]})"
 
 
 def snapshot_rows(root: Path) -> list[Row]:
