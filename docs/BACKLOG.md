@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agf). Next free: (agg).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agh). Next free: (agi).**
 ⚠ **`(agf)` was cited by `pyproject.toml`, a test and `age.md` before its entry existed**, so for
 one commit three working citations resolved to nothing. Recorded because it is this section's own
 warning happening - *"nothing recorded which letters were spoken for"* - and the fix is to claim
@@ -122,6 +122,35 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
+- **(agg) THE ARCHIVE INGEST ROUTE WRITES TO THE DESTINATION WHILE DECLARING `mutating=False`,
+  SO THE DRIVE LOCK NEVER ENGAGES.** Recorded 2026-08-23, found inventorying CLI subcommands
+  against app routes. Four links, each read: `/api/ingest/archives/run` (`server.py:832`) reaches
+  `extract_archive_set`, which writes *"one merged staging tree under `destination`"*
+  (`archive_extract.py:303,312`); it is registered `mutating=False` (`server.py:405-406`);
+  `mutating` is exactly what gates the cross-process lock (`jobs.py:253`); and the staging path is
+  `destination / STAGING_DIRNAME / archive_set.stem` (`archive_extract.py:211-213`) - **derived
+  from the input, not the process.** 🔑 **That is the sentence `7564ed6` wrote for `(aaw)` -
+  *"a staging path is private to the process that made it"* - on a path it did not reach.**
+  ⚠ **Bounded**: the mechanism is traced, **no collision was reproduced**, and the in-process claim
+  is unconditional (`jobs.py:240-246`) so two tabs are already refused - the exposure is
+  **app-versus-CLI**, where the CLI locks under `--apply` (`cli.py:4293`) and this route does not
+  check. Severity is unassessed: a staging tree is not the user's originals. ⚠ **It is `(afq)`'s
+  inverse** - that is a preview that takes the lock and may not need it, this is a writer that does
+  not take it - and §1 says *"a preview writes nothing"*, while **here the preview writes**.
+  [Full entry](research/backlog/agg.md)
+- **(agh) `LocalGuard` MAKES FORGETTING THE TOKEN IMPOSSIBLE AND UN-EXEMPTING INVISIBLE.**
+  Recorded 2026-08-23. **The token is enforced well** - ASGI middleware wrapping the whole app
+  (`server.py:904`), so no route can forget it, with Host/Origin checks and
+  `secrets.compare_digest` (`security.py:84-94`), and the single `/static/` exemption verified
+  inert. **The gap is that nothing pins the exemption LIST.** Coverage is per-route
+  (`test_server.py:18,31,37,44`, `test_thumb_route.py:114`); a second `startswith` added to
+  `_reject` would be caught by nothing, and it is a two-line change that looks harmless.
+  🔑 **The asymmetry is the point**: the middleware makes the common mistake structurally
+  impossible and leaves the rare one unguarded - the shape that survives longest, because everyone
+  knows the token is enforced so nobody re-reads what enforces it. **The pattern exists**:
+  `test_every_job_declares_whether_it_mutates.py` walks the routes, and its `assert len(declared)
+  >= 12, "the scan is broken"` floor is the load-bearing half to copy with it. 50 routes today.
+  [Full entry](research/backlog/agh.md)
 - **(agd) A DEGRADED WATCHER SAYS NOTHING, AND THERE IS NO CHANNEL FOR IT TO SAY ANYTHING IN.**
   Recorded 2026-08-23, split out of `(aft)` **while building it**. `(aft)` made an unmeasurable
   probe fail **open** - correct, and the module's recorded posture - but it fails open
