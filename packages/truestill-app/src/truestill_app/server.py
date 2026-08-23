@@ -393,6 +393,16 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         )
 
     async def ingest_archives_run(request: Request) -> JSONResponse:
+        # ⚠ **THIS WRITES, AND SAID OTHERWISE UNTIL 2026-08-23** (`(agg)`). It unpacks the archive
+        # set into a staging tree ON THE DESTINATION DRIVE (`archive_extract.extract_archive_set`)
+        # and only then previews it, so `mutating=False` meant `(aaw)`'s cross-process lock never
+        # engaged for a route that writes gigabytes to a drive a CLI run may be organizing.
+        #
+        # **The label was the defect, not the location.** Staging lives on the destination on
+        # purpose - `archive_set.space_for` records why: `/tmp` is a tmpfs or a small partition on
+        # many machines, and a 200 GB export fails there in the least informative way available.
+        # `"import preview"` is what was false: a step that unpacks archives is not a preview,
+        # and the route below - which previews an already-extracted folder - is the one that is.
         body = await request.json()
         destination = Path(body["destination"])
         target = await run_in_threadpool(
@@ -402,8 +412,8 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             _start_drive_job,
             target,
             paths=[destination],
-            operation="import preview",
-            mutating=False,
+            operation="archive unpack",
+            mutating=True,
         )
 
     async def ingest_preview(request: Request) -> JSONResponse:

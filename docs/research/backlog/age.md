@@ -53,6 +53,18 @@
   **loud and wrong** (a stop). Here it is **quiet and wrong** (a reassurance). `(aft)`'s entry
   already names that asymmetry; this is the other end of it.
 
+  ## ⚠ AND IT REACHES THE ARCHIVE PATH TOO (added 2026-08-23, `(agg)`)
+
+  `precheck_archives` calls `space_for` (`archive_ingest.py:199`), which is the **same**
+  `shutil.disk_usage` question `preflight_destination` asks - and `archive_ingest.py:190-195` is
+  explicit that it must be asked *there*, because *"extraction writes a staging tree to this drive
+  before organize sees anything, so organize's own preflight never gets a turn."*
+
+  So the conflation this entry records is not confined to the organize preview: **an unmeasurable
+  destination reads as "enough room" for an archive unpack as well**, and the unpack is the path
+  that then writes gigabytes. `(agg)` gave that path the drive lock; it did not give it a space
+  check that can say *"I could not measure."*
+
   ## NOT DECIDED
 
   - Whether `DestinationPreflight` gains a field (`free_measured: bool`, or `free_bytes: int |

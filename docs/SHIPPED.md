@@ -74,6 +74,37 @@ recording shipped work as unstarted, which is the more expensive direction of th
   answerable, not the BACKLOG. *"Is `(aci)` needed for v1?"* still returns silence, and a shape
   that admits that beats one manufacturing 57 answers. [Full entry](research/backlog/aef.md)
 
+- **(agg) A ROUTE THAT WRITES TO THE DESTINATION NOW DECLARES IT AND HOLDS THE DRIVE.** Shipped
+  2026-08-23. `/api/ingest/archives/run` unpacks an archive set into a staging tree **on the
+  user's destination drive** (`archive_extract.py:303,312`) while registered
+  `operation="import preview", mutating=False` - and `mutating` is exactly what gates `(aaw)`'s
+  cross-process lock (`jobs.py:253`), so a route that writes gigabytes took no lock. Now
+  `operation="archive unpack", mutating=True`.
+  ⚠ **The label was the defect, not the location.** Staging is on the destination **deliberately**
+  (`archive_set.space_for`: *"on many machines `/tmp` is a tmpfs or a small partition, where a
+  200 GB export fails in the least informative way available"*), and `(afy)` corroborated it the
+  same day. ⚠ **An EXDEV / "one rename per file" argument was proposed for that placement and is
+  recorded as REFUSED**: nothing renames out of staging - `--move` is copy-then-delete
+  (`organizer.py:1379-1386`) and the ordinary path copies - so a temp location would cost the same
+  copies, not an extra one. The space argument carries it alone.
+  🔑 **THE GUARD HAD TO CHANGE FIRST, because it ENFORCED the defect.**
+  `test_every_job_declares_whether_it_mutates.py` ruled out deriving from `operation` in its own
+  docstring and asserted `if "preview" in operation: assert not mutating` one screen below, so the
+  fix turned it red. ⚠ **Renaming alone made it green** - the wrong reason. It now checks an
+  explicit table of recorded decisions. **A table is a declaration, not a derivation, so the cause
+  is still open.**
+  ⚠ **WHAT CHANGES FOR A USER, as a decision rather than a discovery: a second process now REFUSES
+  where it interleaved.** A CLI `organize --apply` running makes the app's unpack refuse and write
+  nothing, and the reverse. **This is `(afq)`'s question from the other side and is answered
+  differently because the facts differ** - `(afq)` objects to a preview that writes *nothing*
+  inheriting a safety argument; this one writes to the drive, so it earned it. `(afq)` is
+  untouched.
+  **Cost, measured on 99 real files (48.35 MB): bytes written unchanged, copy phases unchanged,
+  one lock acquisition - median 1.16 ms, ~150x the catalog lock, because `lock_for` reads the
+  drive marker from disk.** ⚠ A *"-2.8 MB and one fewer copy phase"* saving was proposed and is
+  **not real**; there is no mechanism, and it is recorded as refuted rather than quietly dropped.
+  [Full entry](research/backlog/agg.md)
+
 - **(agf) A FENCED `python` BLOCK IN A DOCUMENT IS A QUOTATION TO A READER AND AN INPUT TO A
   FORMATTER.** Shipped 2026-08-23. ruff 0.16 formats Python inside Markdown, and `make check`
   rewrote `(age)`'s quotation of `filesystem.py` from `free_bytes=need if free is None else free,`

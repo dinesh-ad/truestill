@@ -17,7 +17,10 @@ from pathlib import Path
 
 from app_support import TOKEN
 from starlette.testclient import TestClient
+from truestill_app.jobs import DRIVE_BUSY_CODE
 from truestill_app.server import create_app
+from truestill_core.archive_extract import STAGING_DIRNAME
+from truestill_core.drive_lock import lock_for
 
 _SIDECAR = json.dumps({"photoTakenTime": {"timestamp": "1403000000"}}).encode()
 
@@ -124,3 +127,65 @@ def test_confirming_starts_a_job_rather_than_answering_inline(tmp_path: Path) ->
 
     assert response.status_code == 200
     assert "job_id" in response.json(), f"not a job payload: {response.json()}"
+
+
+# --- the unpack holds the drive ---------------------------------------------------------------
+
+
+def test_an_unpack_refuses_while_another_process_holds_the_drive(tmp_path: Path) -> None:
+    """⚠ **The behaviour change `(agg)` is, asserted through the real lock rather than a mock.**
+
+    Unpacking writes a staging tree onto the destination drive, so it now declares `mutating=True`
+    and takes `(aaw)`'s cross-process lock. Before 2026-08-23 it declared `"import preview"` and
+    `mutating=False`, so this request **proceeded and wrote**, interleaving with whatever the
+    other process was doing to the same drive.
+
+    **`lock_for` is used rather than patched**: the property is that the OS refuses a second
+    holder, and a stubbed lock would assert that this test can stub a lock. `(aaw)` made the same
+    choice for the same reason.
+
+    ⚠ **The holder here stands for a CLI `organize --apply`**, which is the reachable case -
+    `cli._run_holding_the_drive` takes exactly this lock. A second *tab* was already refused
+    before this change, by the unconditional in-process claim, which is why that is not what this
+    test drives.
+    """
+    destination = tmp_path / "drive"
+    destination.mkdir()
+    source = tmp_path / "archives"
+    _part(source, 1, {"Takeout/Google Photos/2014/IMG_1.jpg": b"x" * 64})
+
+    with lock_for(destination, operation="organize"):
+        client = _client(tmp_path / "c.sqlite")
+        response = client.post(
+            "/api/ingest/archives/run",
+            json={"takeout": str(source), "destination": str(destination)},
+        )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["ok"] is False, f"the unpack ran while another process held the drive: {body}"
+    assert body["code"] == DRIVE_BUSY_CODE
+    assert "organize" in body["error"], "the refusal does not name what is holding the drive"
+
+    staged = destination / STAGING_DIRNAME
+    assert not staged.exists(), (
+        "a refused unpack still wrote a staging tree; the refusal must happen before any byte"
+    )
+
+
+def test_an_unpack_proceeds_when_nothing_holds_the_drive(tmp_path: Path) -> None:
+    """The cry-wolf half. A lock that refuses every unpack would satisfy the test above."""
+    destination = tmp_path / "drive"
+    destination.mkdir()
+    source = tmp_path / "archives"
+    _part(source, 1, {"Takeout/Google Photos/2014/IMG_1.jpg": b"x" * 64})
+
+    client = _client(tmp_path / "c.sqlite")
+    response = client.post(
+        "/api/ingest/archives/run",
+        json={"takeout": str(source), "destination": str(destination)},
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body.get("code") != DRIVE_BUSY_CODE, f"refused with nothing holding the drive: {body}"
