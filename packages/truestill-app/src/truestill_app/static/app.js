@@ -1275,9 +1275,15 @@ async function startUndoApply(path, panel) {
 function backupCompletion(r) {
   const notes = [];
   if (r.verified) {
+    // ⚠ The clause "- a copy that did not match would have stopped the run" was DELETED on
+    // 2026-08-23 (`(afw)` Stage 4), not rewritten. It stopped being true when one bad file
+    // stopped aborting the batch, and it was the same false claim as `verified: True` in the
+    // user's own words. Deleting is smaller than replacing and cannot drift again; a new
+    // sentence would be a new claim to keep honest as behaviour changes. Everything above is
+    // true today and stays true. This banner renders only when `verified` is true, so a run
+    // with failures shows nothing here rather than something reassuring.
     notes.push(`<div class="banner"><div><b>Every copy verified.</b> Each file was re-read from
-      ${esc(r.to || "the drive")} and checked against its original before being recorded — a copy
-      that did not match would have stopped the run.</div></div>`);
+      ${esc(r.to || "the drive")} and checked against its original before being recorded.</div></div>`);
   }
   notes.push(`<div class="k" style="margin-top:var(--space-3)">Check this drive again any time
     with <b>Check a connected backup drive</b> above — a backup is only as good as its last

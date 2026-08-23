@@ -773,6 +773,26 @@ a lever that exists and is unused (`make e2e` is serial across two browsers whil
 is already a dependency). ⚠ **Before a tag, run it** - the publish path has never fired and this
 lane is the only thing that sees the screens.
 
+> ⚠ **A LIVE CONFLICT, recorded 2026-08-23 rather than resolved silently. `(afw)` Stage 4.**
+>
+> That change edited a payload the browser reads - `service/backup.py`'s completion summary gained
+> `failed` and `verified` stopped being a constant - and deleted a sentence from `app.js`'s backup
+> banner. **The condition above is met: the diff reaches a screen.** The lane was not run, on a
+> standing instruction from the maintainer that it stays off while the screens `(adi)` is
+> replacing are provisional.
+>
+> **What that leaves unguarded, stated so it is not discovered:** nothing checked, in a browser,
+> that a run finishing with failures renders honestly. `make check` covers the payload - `verified`
+> is `False` when anything failed, and `True` when nothing did, both pinned in
+> `test_one_bad_file_does_not_abort_a_backup.py` - and it cannot execute `app.js`, which is the
+> coverage boundary this section already describes. The banner renders only under `if (r.verified)`
+> and has no `else`, so a failed run shows nothing there rather than something reassuring; that is
+> read from the source, not proven in a browser.
+>
+> **It returns when the UI lands.** This is a note beside the rule, not an amendment to it: the
+> rule is right and is not being met, and writing that down is the honest form of the exception.
+> `(agi)` carries the rendering work that would make the lane worth running here.
+
 ⚠ **What is deliberately kept is the three-OS `check` matrix**, which is the only thing that sees
 Windows and macOS. On 2026-08-20 alone it caught `timeout(1)` not existing on BSD and Windows
 being unable to execute a bash script; earlier, a `WindowsPath` separator defect. None was

@@ -14,9 +14,12 @@ a test that stops at `pytest.raises` passes against the defect and proves nothin
 `(afa)` shape that decides the rest: naming the file without the reason would be one word standing
 in for four different causes, so the reason is asserted too.
 
-**Out of scope here, and both are Stage 4** (`(afw)`): whether backup should carry on past a bad
-file at all - `ENGINEERING_STANDARD.md` §4 Errors' *"one bad file never aborts a batch"* - and
-whether the app tells the user where the record went.
+⚠ **THE STOPPER CHANGED WITH STAGE 4.** These tests used a failing copy, because a failing copy
+used to end the run. It no longer does - `ENGINEERING_STANDARD.md` §4 Errors, one bad file does
+not abort a batch - so the abort here is now a **destination-level** one: the local disk filling,
+which `_stop_if_ground_moved` raises on. The property under test is unchanged; what changed is
+which event can still produce it. The continue side lives in
+`test_one_bad_file_does_not_abort_a_backup.py`.
 """
 
 from __future__ import annotations
@@ -31,7 +34,7 @@ from PIL import Image
 from truestill_app.service import backup
 from truestill_app.service.backup import backup_run
 from truestill_cli.cli import main
-from truestill_core import safe_copy
+from truestill_core import run_health
 from truestill_core.app_paths import record_path_for
 
 
@@ -62,24 +65,24 @@ def library(tmp_path: Path) -> tuple[Path, Path, Path]:
     return drive, target, db
 
 
-def _fail_on_copy_number(monkeypatch: pytest.MonkeyPatch, *, nth: int) -> None:
-    """Make the ``nth`` staged copy fail the way a disk going read-only does.
+def _abort_after(monkeypatch: pytest.MonkeyPatch, *, nth: int) -> None:
+    """Make this computer's disk read as full from the ``nth`` free-space check onward.
 
-    ⚠ **Injected at `shutil.copy2` inside `safe_copy`, not at backup's own helper.** The failure
-    has to arrive the way a real one does - through `staged_copy`'s single `except OSError`, which
-    is the site that cannot tell a source read from a destination write (`(afw)` Stage 1). A test
-    that patched `_copy_verified_or_raise` would assert that this test can raise.
+    ⚠ **A destination-level abort, driven through the real `RunHealth` watcher** rather than by
+    patching backup's own helper. That is the event that still ends a run after `(afw)` Stage 4,
+    and a test that manufactured a stop some other way would be asserting that the test can stop.
     """
+    monkeypatch.setattr(run_health, "TICK_SECONDS", 0.0)
+    monkeypatch.setattr(
+        run_health, "read_device", lambda _p: run_health.DeviceReading(7, definite=True)
+    )
     seen = {"n": 0}
-    real = safe_copy.shutil.copy2
 
-    def flaky(src: object, dst: object, *args: object, **kwargs: object) -> object:
+    def free(_path: object) -> int:
         seen["n"] += 1
-        if seen["n"] == nth:
-            raise OSError(30, "Read-only file system")
-        return real(src, dst, *args, **kwargs)
+        return 1 if seen["n"] > nth else 500 * 1024**3
 
-    monkeypatch.setattr(safe_copy.shutil, "copy2", flaky)
+    monkeypatch.setattr(run_health, "free_bytes", free)
 
 
 def test_a_backup_that_stops_still_says_what_it_did(
@@ -87,9 +90,9 @@ def test_a_backup_that_stops_still_says_what_it_did(
 ) -> None:
     """The record exists, names the file that stopped it, and says how many were never tried."""
     source, target, db = library
-    _fail_on_copy_number(monkeypatch, nth=2)
+    _abort_after(monkeypatch, nth=2)
 
-    with pytest.raises(OSError, match="Read-only file system"):
+    with pytest.raises(ValueError, match="nearly full"):
         backup_run(source, target, db)(lambda _p: None, threading.Event())
 
     record = record_path_for(db)
@@ -118,9 +121,9 @@ def test_the_record_says_why_and_not_only_which(
     for four - a source that vanished, a destination that refused, a full disk and a hash mismatch
     all read identically, and the reader cannot tell which happened to them."""
     source, target, db = library
-    _fail_on_copy_number(monkeypatch, nth=2)
+    _abort_after(monkeypatch, nth=2)
 
-    with pytest.raises(OSError, match="Read-only file system"):
+    with pytest.raises(ValueError, match="nearly full"):
         backup_run(source, target, db)(lambda _p: None, threading.Event())
 
     payload = json.loads(record_path_for(db).read_text(encoding="utf-8"))
@@ -128,8 +131,8 @@ def test_the_record_says_why_and_not_only_which(
 
     assert failed, "no failed entry to carry a reason"
     assert failed[0]["detail"], "the failed entry names the file and not why it failed"
-    assert "Read-only file system" in failed[0]["detail"], (
-        f"the reason does not carry what the filesystem actually said: {failed[0]['detail']!r}"
+    assert "disk" in failed[0]["detail"], (
+        f"the reason does not carry why the run stopped: {failed[0]['detail']!r}"
     )
     assert payload["run"]["stopped"]["reason"], "the stop block carries no reason"
 
@@ -144,9 +147,9 @@ def test_the_record_identifies_the_drive_by_uuid_not_only_by_label(
     which defeats the record.
     """
     source, target, db = library
-    _fail_on_copy_number(monkeypatch, nth=2)
+    _abort_after(monkeypatch, nth=2)
 
-    with pytest.raises(OSError, match="Read-only file system"):
+    with pytest.raises(ValueError, match="nearly full"):
         backup_run(source, target, db)(lambda _p: None, threading.Event())
 
     run = json.loads(record_path_for(db).read_text(encoding="utf-8"))["run"]
@@ -169,7 +172,7 @@ def test_a_record_that_cannot_be_written_does_not_replace_the_real_failure(
     `IMPLEMENTATION_STANDARDS.md` §1: *"Its own failure must never fail the run."*
     """
     source, target, db = library
-    _fail_on_copy_number(monkeypatch, nth=2)
+    _abort_after(monkeypatch, nth=2)
 
     message = "Object of type Path is not JSON serializable"
 
@@ -178,5 +181,5 @@ def test_a_record_that_cannot_be_written_does_not_replace_the_real_failure(
 
     monkeypatch.setattr(backup, "build_run_record", explode)
 
-    with pytest.raises(OSError, match="Read-only file system"):
+    with pytest.raises(ValueError, match="nearly full"):
         backup_run(source, target, db)(lambda _p: None, threading.Event())

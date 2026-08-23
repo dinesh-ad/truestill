@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 from truestill_app.service import backup as backup_service
-from truestill_app.service.backup import _copy_verified_or_raise
+from truestill_app.service.backup import _copy_verified
 from truestill_core import safe_copy
 from truestill_core.hashing import sha256_file
 
@@ -54,8 +54,12 @@ def test_a_failed_backup_copy_never_writes_the_destination(
 
     monkeypatch.setattr(safe_copy.shutil, "copy2", stub)
 
-    with pytest.raises(OSError, match="Input/output error"):
-        _copy_verified_or_raise(source, dst, "a.mp4", None)
+    # ⚠ Returns a failed verdict rather than raising since `(afw)` Stage 4 - one bad file no
+    # longer aborts the batch. The PROPERTY under test is unchanged and is asserted below: the
+    # destination is never written. Only how the failure is delivered changed.
+    verdict = _copy_verified(source, dst, "a.mp4", None)
+    assert not verdict.ok
+    assert "Input/output error" in verdict.detail
 
     assert seen == [False], "the destination existed while the copy was in flight"
     assert not dst.exists(), "the backup left a partial nobody owns"
@@ -86,8 +90,9 @@ def test_a_copy_that_does_not_verify_never_takes_the_real_name(
 
     monkeypatch.setattr(backup_service, "sha256_file", watching_hash)
 
-    with pytest.raises(ValueError, match="did not verify"):
-        _copy_verified_or_raise(source, dst, "a.mp4", "0" * 64)
+    verdict = _copy_verified(source, dst, "a.mp4", "0" * 64)
+    assert not verdict.ok
+    assert "did not match" in verdict.detail
 
     assert seen_during == [False], "the unverified copy was at the real name while it was hashed"
     assert not dst.exists(), "the unverified copy was left at the destination"
@@ -102,7 +107,7 @@ def test_a_verified_copy_is_committed_and_its_digest_returned(tmp_path: Path) ->
     dst.parent.mkdir()
     want = sha256_file(source)
 
-    written = _copy_verified_or_raise(source, dst, "a.mp4", want)
+    written = _copy_verified(source, dst, "a.mp4", want).digest
 
     assert written == want
     assert dst.read_bytes() == b"real bytes"
@@ -121,7 +126,7 @@ def test_a_row_with_no_recorded_hash_is_still_copied_and_still_digested(tmp_path
     dst = tmp_path / "target" / "a.mp4"
     dst.parent.mkdir()
 
-    written = _copy_verified_or_raise(source, dst, "a.mp4", None)
+    written = _copy_verified(source, dst, "a.mp4", None).digest
 
     assert written == sha256_file(source), "no digest was recorded for an unverifiable row"
     assert dst.read_bytes() == b"real bytes"
@@ -145,10 +150,10 @@ def test_a_staged_copy_that_cannot_be_removed_is_named_and_measured(
         Path, "unlink", lambda *_a, **_k: (_ for _ in ()).throw(OSError(30, "Read-only"))
     )
 
-    with pytest.raises(OSError, match="could not be removed") as raised:
-        _copy_verified_or_raise(source, dst, "a.mp4", None)
+    verdict = _copy_verified(source, dst, "a.mp4", None)
 
-    message = str(raised.value)
+    assert not verdict.ok
+    message = verdict.detail
     assert "802 bytes are still at" in message, f"the survivor was not measured: {message}"
     # `(aaw)`: the staged sibling carries a per-process token now, so the name comes from
     # the one helper that builds it rather than being re-derived here.

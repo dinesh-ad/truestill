@@ -217,7 +217,13 @@ class BackupRunSummary(TypedDict):
     videos: int
     audio: int
     bytes_copied: int
-    verified: Literal[True]
+    #: Files this run could not copy. `ENGINEERING_STANDARD.md` §4 Errors: one bad file does not
+    #: abort the batch, so it is counted and named rather than ending the run. `(afw)` Stage 4.
+    failed: int
+    #: ⚠ **`bool`, and it was `Literal[True]` until 2026-08-23** - the type itself asserted the
+    #: claim, so mypy would have rejected the honest value. That is worth more than the flag: an
+    #: invariant baked into a type is one nothing can report a violation of.
+    verified: bool
     target_path: str
     elapsed_seconds: NotRequired[float]
 
@@ -227,6 +233,7 @@ def _nothing_copied(label: str, target: Path) -> BackupRunSummary:
     was written, so nothing went unchecked."""
     return {
         "copied": 0,
+        "failed": 0,
         "to": label,
         "photos": 0,
         "videos": 0,
@@ -252,7 +259,35 @@ def _stop_if_ground_moved(health: RunHealth | None, *, ahead: int, written: int)
         raise ValueError(verdict.detail)
 
 
-def _copy_verified_or_raise(source_file: Path, dst: Path, rel: str, want: str | None) -> str:
+@dataclass(frozen=True, slots=True)
+class CopyVerdict:
+    """What happened to one file: its digest, or why it could not be copied. `(afw)` Stage 4.
+
+    ⚠ **Returned rather than raised, and that is the whole of the policy change.** Until
+    2026-08-23 a per-file failure raised out of the loop and ended the run, against
+    `ENGINEERING_STANDARD.md` §4 Errors - *"one bad file never aborts a batch - it is logged,
+    counted, and reported at the end."* Organize has always continued
+    (`organizer.py`'s `except (OSError, DestinationError)` records `FAILED` and does not break);
+    backup was the surface that did not.
+
+    🔑 **A return value rather than organize's `except` clause, deliberately.** Organize catches
+    because its failure is raised several frames down inside `_execute_one`. Backup's is one call
+    away, so an outcome is *explicit* where a caught exception would be incidental - and it
+    removes a real collision: the mismatch used to be a `ValueError`, which is also what
+    `_stop_if_ground_moved` raises to **stop the run**. One type meaning both *"skip this file"*
+    and *"stop everything"* is this repo's signature defect, and after this change a `ValueError`
+    in the copy loop means exactly one thing.
+    """
+
+    digest: str | None
+    detail: str = ""
+
+    @property
+    def ok(self) -> bool:
+        return self.digest is not None
+
+
+def _copy_verified(source_file: Path, dst: Path, rel: str, want: str | None) -> CopyVerdict:
     """Copy one file and give it the real name **only if its bytes verify** - `(abu)`, `(acj)`.
 
     **The window this closes, and why `(abu)`'s fix did not reach it.** That fix was aimed at the
@@ -271,18 +306,19 @@ def _copy_verified_or_raise(source_file: Path, dst: Path, rel: str, want: str | 
     When a cleanup itself fails the staged bytes survive and the message says where and how big:
     the run stops either way, and the user should not have to hunt 800 MB down.
 
-    Returns the digest of what was written, because the caller records it as `copy_sha256`.
+    Returns the digest on success, because the caller records it as `copy_sha256`; on
+    failure a :class:`CopyVerdict` carrying the reason, which the caller counts and names.
     """
     staged = staged_copy(source_file, dst)
     if not staged.ok:
         assert staged.error is not None
         if staged.leftover is None:
-            raise staged.error
-        message = (
+            return CopyVerdict(None, f"copying {rel} failed: {staged.error}")
+        return CopyVerdict(
+            None,
             f"copying {rel} failed: {staged.error}. {staged.leftover_bytes:,} bytes are still "
-            f"at {staged.leftover} and could not be removed."
+            f"at {staged.leftover} and could not be removed.",
         )
-        raise OSError(message) from staged.error
 
     assert staged.temp is not None
     # Hashed unconditionally, exactly as before: the digest is not only the check, it is what
@@ -294,20 +330,23 @@ def _copy_verified_or_raise(source_file: Path, dst: Path, rel: str, want: str | 
         # Verified BEFORE it takes the name: a copy that does not match is never at the real path
         # for any interval at all, so nothing downstream can read it and nothing has to undo it.
         staged.abandon()
-        message = f"copy of {rel} did not verify -- stopping to stay safe."
-        raise ValueError(message)
+        # ⚠ No longer *"stopping to stay safe"*: the file is skipped, counted and named, and the
+        # run carries on. Nothing was written at the target, so skipping costs this file and
+        # nothing else - which is precisely the condition `ENGINEERING_STANDARD.md` §4 Errors'
+        # partial-failure policy describes. `(afw)` Stage 4.
+        return CopyVerdict(None, f"copy of {rel} did not match what was recorded for it.")
 
     outcome = staged.commit()
     if outcome.ok:
-        return written
+        return CopyVerdict(written)
     assert outcome.error is not None
     if outcome.leftover is None:
-        raise outcome.error
-    message = (
+        return CopyVerdict(None, f"copying {rel} failed: {outcome.error}")
+    return CopyVerdict(
+        None,
         f"copying {rel} failed: {outcome.error}. {outcome.leftover_bytes:,} bytes are still "
-        f"at {outcome.leftover} and could not be removed."
+        f"at {outcome.leftover} and could not be removed.",
     )
-    raise OSError(message) from outcome.error
 
 
 @dataclass(frozen=True, slots=True)
@@ -328,11 +367,13 @@ class _CopyRun:
     ahead: list[int]
     device: DestinationDevice
     health: RunHealth | None
-    record: Callable[[dict[str, str], tuple[str, str] | None], None]
+    record: Callable[[dict[str, str], Sequence[tuple[str, str]], tuple[str, str] | None], None]
 
 
 def _copy_entries(
-    missing: Sequence[MissingCopy], done: dict[str, str], failed: tuple[str, str] | None
+    missing: Sequence[MissingCopy],
+    done: dict[str, str],
+    failures: Sequence[tuple[str, str]],
 ) -> list[dict[str, object]]:
     """Backup's per-file record entries. `(afw)`
 
@@ -347,12 +388,13 @@ def _copy_entries(
     the reason that function gives: a missing status makes an unattempted file look like an
     unrecorded one, and those are different facts.
     """
+    why = dict(failures)
     entries: list[dict[str, object]] = []
     for row in missing:
         if row.relative in done:
             status, detail = "uploaded", ""
-        elif failed is not None and failed[0] == row.relative:
-            status, detail = "failed", failed[1]
+        elif row.relative in why:
+            status, detail = "failed", why[row.relative]
         else:
             status, detail = "not attempted", ""
         entries.append(
@@ -372,7 +414,7 @@ def _copy_entries(
 
 def _recorder(
     db: Path, *, source: Path, target: Path, marker: DriveMarker, missing: Sequence[MissingCopy]
-) -> Callable[[dict[str, str], tuple[str, str] | None], None]:
+) -> Callable[[dict[str, str], Sequence[tuple[str, str]], tuple[str, str] | None], None]:
     """Bind what is fixed for this run and return the one call the loop makes. `(afw)`
 
     ⚠ **`except Exception`, not `except OSError`, and that is the whole reason this exists.**
@@ -388,12 +430,28 @@ def _recorder(
     `KeyboardInterrupt` would make Ctrl-C stop working on the operation people most want to stop.
     """
 
-    def record(done: dict[str, str], failed: tuple[str, str] | None) -> None:
+    def record(
+        done: dict[str, str],
+        failures: Sequence[tuple[str, str]],
+        aborted: tuple[str, str] | None,
+    ) -> None:
         try:
-            attempted = len(done) + (1 if failed is not None else 0)
+            # ⚠ **`attempted` counts every file the run REACHED, successes and failures alike.**
+            # Until `(afw)` Stage 4 a failure ended the run, so one failed entry was the most
+            # there could be and `+ 1` was right. Under the partial-failure policy there can be
+            # many, and `+ 1` would understate `attempted` and therefore OVERSTATE
+            # `never_attempted` - a record claiming files were skipped that were in fact tried
+            # and failed. Two different facts, and the arithmetic has to keep them apart.
+            attempted = len(done) + len(failures)
             stopped: dict[str, object] | None = None
-            if failed is not None:
-                stopped = {"never_attempted": len(missing) - attempted, "reason": failed[1]}
+            if aborted is not None:
+                # 🔑 `stopped` is present ONLY on an abort. A run that finished with failures
+                # reports `stopped: null` and a non-zero `failed` count; a run that stopped
+                # reports both. That is what lets a reader tell the two apart.
+                stopped = {
+                    "never_attempted": len(missing) - attempted,
+                    "reason": aborted[1],
+                }
             payload = build_run_record(
                 RunHeader(
                     kind="backup",
@@ -402,7 +460,7 @@ def _recorder(
                     destination_uuid=marker.uuid,
                     destination_label=marker.label,
                 ),
-                files=_copy_entries(missing, done, failed),
+                files=_copy_entries(missing, done, list(failures) + ([aborted] if aborted else [])),
                 intended_total=len(missing),
                 attempted=attempted,
                 stopped=stopped,
@@ -419,7 +477,7 @@ def _recorder(
 
 def _copy_missing(
     run: _CopyRun, progress: ProgressCallback, cancel: threading.Event
-) -> tuple[int, list[str], int]:
+) -> tuple[int, list[str], int, list[tuple[str, str]]]:
     """Copy every missing file, writing the run record whether or not it finishes. `(afw)`
 
     Lifted out of `backup_run` so that function stays under its statement ceiling. A **nested**
@@ -430,6 +488,10 @@ def _copy_missing(
     copied_names: list[str] = []
     #: relative -> the digest actually written, for every copy that completed.
     done: dict[str, str] = {}
+    #: (relative, why) for every file that could not be copied. A LIST, not one entry: under
+    #: `ENGINEERING_STANDARD.md` §4 Errors there can be many, and a record holding only the last
+    #: would be the shape `(afd)` capped a failure list into. `(afw)` Stage 4.
+    failures: list[tuple[str, str]] = []
     # ⚠ **Bound BEFORE the try, and this is not defensive style.** `row` is the loop variable, so
     # a raise from `_stop_if_ground_moved` on the FIRST iteration - or from `enumerate` itself -
     # leaves it unbound, and naming it in the handler would raise `NameError` **inside the
@@ -448,7 +510,17 @@ def _copy_missing(
             dst.parent.mkdir(parents=True, exist_ok=True)
             # Verify-before-commit: the hash is taken on the staged copy, so a bad one never
             # wears the real name even briefly.
-            written = _copy_verified_or_raise(run.source / rel, dst, rel, row.verify_sha)
+            verdict = _copy_verified(run.source / rel, dst, rel, row.verify_sha)
+            if not verdict.ok:
+                # ⚠ **Counted, named, and the run carries on.** `ENGINEERING_STANDARD.md` §4
+                # Errors. Nothing was written at the target - `staged_copy` never touches it -
+                # so skipping costs this file and nothing else.
+                failures.append((rel, verdict.detail))
+                attempting = None
+                progress(Progress(copied, len(run.missing), Phase.COPYING, Path(rel).name))
+                continue
+            written = verdict.digest
+            assert written is not None
             run.catalog.record_copy(
                 sha256=row.sha256,
                 drive_uuid=run.marker.uuid,
@@ -469,16 +541,18 @@ def _copy_missing(
             attempting = None
             progress(Progress(copied, len(run.missing), Phase.COPYING, Path(rel).name))
     except Exception as exc:
-        # ⚠ **The record is written and the exception is re-raised UNCHANGED.** Today's fail-fast
-        # is deliberately untouched: whether a bad file should stop the batch at all is
-        # `ENGINEERING_STANDARD.md` §4 Errors' question and is `(afw)`'s next stage. What this
-        # closes is that the run used to stop saying **nothing**.
-        run.record(
-            done, (attempting.relative, str(exc)) if attempting is not None else ("", str(exc))
-        )
+        # ⚠ **An ABORT reaches here, and only an abort, since `(afw)` Stage 4.** A bad *file* no
+        # longer raises - `_copy_verified` returns a verdict and the loop carries on
+        # (`ENGINEERING_STANDARD.md` §4 Errors). What still raises past this point is a guard
+        # above the copy saying stop: `_stop_if_ground_moved` or `device.check`. The record is
+        # written and the exception re-raised UNCHANGED.
+        # An ABORT: a guard above the copy said stop. The record gets the per-file failures so
+        # far AND the stop, which are different facts - `never_attempted` is non-zero only here.
+        aborted = (attempting.relative, str(exc)) if attempting is not None else ("", str(exc))
+        run.record(done, failures, aborted)
         raise
-    run.record(done, None)
-    return copied, copied_names, copied_bytes
+    run.record(done, failures, None)
+    return copied, copied_names, copied_bytes, failures
 
 
 def _largest_copy_ahead(missing: Sequence[MissingCopy]) -> list[int]:
@@ -544,7 +618,7 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
             # strictly: `device.check` fails closed on the first bad reading.
             health = watcher_for(target, db)
             ahead = _largest_copy_ahead(missing)
-            copied, copied_names, copied_bytes = _copy_missing(
+            copied, copied_names, copied_bytes, failures = _copy_missing(
                 _CopyRun(
                     catalog=catalog,
                     source=source,
@@ -570,10 +644,14 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
             "videos": breakdown["videos"],
             "audio": breakdown["audio"],
             "bytes_copied": copied_bytes,
-            # Every copy was re-hashed against the recorded digest before being recorded; a
-            # copy that failed that check aborts the run. Saying so is the point of the whole
-            # feature, so the completion card gets to say it.
-            "verified": True,
+            "failed": len(failures),
+            # ⚠ **DERIVED, never asserted** (`(afw)` Stage 4). This was the literal `True`, and
+            # the comment justifying it said *"a copy that failed that check aborts the run"* -
+            # which stopped being true the moment one bad file stopped aborting. A custody
+            # product cannot ship a record claiming verification it did not perform: that is
+            # BackInTime #1587's shape, where per-file failures reported only through an exit
+            # code left users believing the backup was fine.
+            "verified": not failures,
             "target_path": str(target),
         }
 

@@ -123,8 +123,9 @@ asserted that the test can raise.
 
 ## Still open after this
 
-- **Stage 4**: the continue-vs-abort policy.
-- **The app surface** (`(afw)` Q16): `jobs.py` reports `status="error"` with the exception class,
-  and the user is **not** told a record was written or where. That is `(afu)`'s lesson - a record
-  nobody can find one level up - and it is deliberately not fixed here.
+- ✅ **Stage 4 shipped 2026-08-23**: one bad file no longer aborts a backup, `verified` is derived
+  from the failure count, and the counterfactual clause in `app.js`'s banner is deleted.
+- ⚠ **Everything else moved to `(agi)`** rather than being restated here: `ENOSPC` treated as a
+  per-file fact on **both** surfaces, no third job state in `jobs.py`, the record's location never
+  told (`(afu)`'s lesson), and `failed` present in the payload but unrendered.
 - **Organize could supply `destination_uuid`/`destination_label` and does not.**

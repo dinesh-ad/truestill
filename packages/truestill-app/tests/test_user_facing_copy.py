@@ -68,8 +68,16 @@ def test_user_facing_copy_has_no_mangled_dash(path: Path) -> None:
 def test_the_guard_can_actually_see_the_defect() -> None:
     """The pattern must reject the real damaged string and accept the real repaired one.
 
-    A guard is not known to work until it has been seen to fail (`ENGINEERING_STANDARD.md` 4).
-    Both strings below are the actual before/after of the backup banner in `app.js`.
+    A guard is not known to work until it has been seen to fail (`ENGINEERING_STANDARD.md` §4).
+
+    ⚠ **These are the HISTORICAL backup banner, and no longer match `app.js`** - `(afw)` Stage 4
+    deleted the clause they end in, because *"a copy that did not match would have stopped the
+    run"* stopped being true when one bad file stopped aborting the batch.
+
+    **They are kept rather than refreshed, and that is the point of them.** This pair is the real
+    defect the guard was written against; a fixture rewritten to match today's code stops being
+    evidence that the guard ever caught anything. They are literals here, not read from `app.js`,
+    so nothing goes red - which is exactly why the staleness is stated instead of discovered.
     """
     damaged = "checked against its original before being recorded- a copy"
     repaired = "checked against its original before being recorded - a copy"

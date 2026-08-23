@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agh). Next free: (agi).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agi). Next free: (agj).**
 ⚠ **`(agf)` was cited by `pyproject.toml`, a test and `age.md` before its entry existed**, so for
 one commit three working citations resolved to nothing. Recorded because it is this section's own
 warning happening - *"nothing recorded which letters were spoken for"* - and the fix is to claim
@@ -122,6 +122,25 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
+- **(agi) `ENOSPC` IS NOT A PER-FILE FACT, AND BOTH SURFACES TREAT IT AS ONE.** Recorded
+  2026-08-23 by `(afw)` Stage 4, which made backup adopt organize's partial-failure policy and
+  inherited organize's gap with it. Neither surface classifies a copy failure, so a **filling
+  destination** is treated exactly like an unreadable source file; destination-level abort is
+  delegated entirely to the periodic `run_health` watcher and `DestinationDevice`. ⚠ **Organize is
+  the bigger instance** - it runs far more often and has had this shape far longer.
+  **Prior art**: rsync gives `ENOSPC` its own fatal exit **11**, distinct from the per-file **23**;
+  restic treats a destination-write failure as fatal with **no snapshot**. 🔑 **The counter-example
+  is the useful one**: rclone does *not*, and carries open issues (rclone#6355, #5308) asking it
+  to - the same design, reported as a defect by people living with it.
+  ⚠ **The harm is NOT data loss** - staging means nothing corrupt reaches the target. It is N
+  wasted attempts and N record entries reading `failed` when the truth is one condition at file
+  12, which is `(afa)`'s shape at run scale.
+  ⚠ **The mechanism is narrower than it looks, measured**: `OSError.filename` names the failing
+  side only for **open-time** failures; on the fast path a mid-copy `ENOSPC` carries neither
+  filename, so it is classifiable by errno alone. **Do not write a second errno table** -
+  `drive_unwritable.classify_unwritable` is the only one, by `(aek)`/`(aep)`.
+  Also carries three `(afw)` residues: no third job state, the record's location untold, and
+  `failed` in the payload but unrendered. [Full entry](research/backlog/agi.md)
 - **(agh) `LocalGuard` MAKES FORGETTING THE TOKEN IMPOSSIBLE AND UN-EXEMPTING INVISIBLE.**
   Recorded 2026-08-23. **The token is enforced well** - ASGI middleware wrapping the whole app
   (`server.py:904`), so no route can forget it, with Host/Origin checks and
@@ -192,16 +211,21 @@ is invisible here is retired, not free.**
   times **pytest only** - `make frontend` runs outside it, and `(aee)` measured 43% of a CI lane
   outside what it can see. `pytest-xdist` is the obvious lever and is deliberately **not**
   proposed: this suite protects a UI `(adi)` is replacing. [Full entry](research/backlog/afx.md)
-- **(afw) THE OTHER FOUR MUTATING APP RUNS WRITE NO RECORD, AND ONLY ONE OF THEM COULD TODAY.**
-  Recorded 2026-08-22, split out of `(afu)` **before** it was built. §1 says *"a run that changes
-  the library writes down what it did"* - **a run**, not an organize. ⚠ **Organize is the only app
-  run with a per-file outcome list**, so `(afu)` was a wiring change and this is a design: backup
-  keeps successes only and is **fail-fast** (`_copy_verified_or_raise` raises); migrate has a
-  per-file *plan* and counts, with `migration_journal` as its durable state; bake and undo return
-  counts. 🔑 **Answer backup's partial-failure question first** (`ENGINEERING_STANDARD.md` §4 Errors,
-  **not** `IMPLEMENTATION_STANDARDS.md` §1 - see `(agc)`) - *"one bad file never aborts a batch"* against a
-  raise that may not be §1's stated exception, because a record built on an undecided policy
-  documents it. [Full entry](research/backlog/afw.md)
+- **(afw) THE OTHER MUTATING APP RUNS WRITE NO RECORD - BACKUP NOW DOES; MIGRATE, BAKE AND UNDO
+  DO NOT.** Recorded 2026-08-22, split out of `(afu)` **before** it was built.
+  `IMPLEMENTATION_STANDARDS.md` §1 says *"a run that changes the library writes down what it
+  did"* - **a run**, not an organize.
+  ✅ **BACKUP IS DONE, in four stages ending 2026-08-23**: it writes a record under
+  `kind: backup` even when it stops (Stage 3), and one bad file no longer aborts it - the failure
+  is counted, named, and `verified` is derived from the count rather than asserted (Stage 4).
+  ⚠ **This entry said backup *"keeps successes only and is fail-fast
+  (`_copy_verified_or_raise` raises)"* until 2026-08-23** - both halves are now false and the
+  function no longer exists under that name. The design and the four stages' hazards are in
+  [`afw-record.md`](research/backlog/afw-record.md).
+  **What remains is the other three**: migrate has a per-file *plan* and counts, with
+  `migration_journal` as its durable state; bake and undo return counts only. Each needs the
+  same question answered before a record is worth building - a record built on an undecided
+  policy documents the policy. [Full entry](research/backlog/afw.md)
 - **(afs) A DESTRUCTIVE MIGRATION MAY NOT RUN WITHOUT A PRE-UPGRADE COPY, AND NOTHING SAYS WHICH
   ONE IS DESTRUCTIVE.** Recorded 2026-08-22, split out of `(ady)` while building it - **a policy
   change about what a migration may do, which would have been invisible arriving inside a
