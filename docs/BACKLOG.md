@@ -135,7 +135,11 @@ is invisible here is retired, not free.**
   all. **The ruled shape**: say what is actually known - the catalog is busy, this is usually the
   first run preparing the library, it should clear on retry - and name a second window **only if
   one was actually detected**. `(agq)` disarms the commonest instance; this is what the message
-  says whenever it still fires. [Full entry](research/backlog/agp.md)
+  says whenever it still fires.
+  ✅ **Part 1 (S4) shipped 2026-08-23**: the census found seven unhandled direct-write routes -
+  a class - so busy is now recognised once, app-level, exactly as the CLI does at its top; 503 +
+  the no-window sentence, faults keep their 500, settings writes retry twice. The ladder and
+  S1/S2/S3 wording remain, behind `(agq)`. [Full entry](research/backlog/agp.md)
 
 - **(agq) THE FIRST SCHEMA BUILD RUNS INSIDE A USER REQUEST.** Recorded 2026-08-23, split out of
   `(adt)` when it closed; ranked below `(agp)`. Whichever request opens a fresh catalog first

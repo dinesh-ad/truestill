@@ -75,6 +75,20 @@ async function api(path, body) {
   noticeIfPageIsStale(res);
   const text = await res.text();
   if (!res.ok) {
+    // A refusal the server WORDED is shown as that sentence alone - the busy handler ((agp))
+    // returns {"error": "..."} written for a person, and "/api/... failed (503 ...)" wrapped
+    // around it is transport noise the reader has to dig through. Anything else keeps the
+    // path/status prefix, because an unworded failure is a diagnostic and the prefix is the
+    // diagnosis's address.
+    let refusal = null;
+    try {
+      refusal = JSON.parse(text);
+    } catch {
+      refusal = null;
+    }
+    if (refusal && typeof refusal.error === "string" && refusal.error) {
+      throw new Error(refusal.error);
+    }
     throw new Error(`${path} failed (${res.status} ${res.statusText}): ${text.slice(0, 500) || "no body"}`);
   }
   try {

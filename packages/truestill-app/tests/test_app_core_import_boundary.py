@@ -148,8 +148,22 @@ ALLOWED: dict[str, dict[str, str]] = {
             "findings with the static-asset ones only it can see"
         ),
     },
+    # ⚠ ONE block per module - a second "server.py" key is a duplicate dict literal and the
+    # LAST one silently wins, which is how the first draft of `(agp)`'s entries vanished while
+    # the file read as though they were listed.
     "server.py": {
         "default_catalog_path": "resolves the default --db per call inside create_app",
+        "is_catalog_busy": (
+            "a pure predicate over an exception's `sqlite_errorcode`; opens nothing and reads "
+            "nothing. Here for the reason jobs.py has it: the exception is CAUGHT here - the "
+            "app-level handler is the HTTP surface's one recognition of busy, mirroring the "
+            "CLI's top-level catch at cli.py:4346. `(agp)`"
+        ),
+        "CATALOG_BUSY_CODE": "a string constant; the refusal's `code`, shared with jobs.py",
+        "CATALOG_BUSY_REQUEST_MESSAGE": (
+            "a string constant - the request-shaped busy sentence, worded once in core so the "
+            "surfaces cannot drift (`(afe)`'s rule)"
+        ),
         "InvalidEventSettingsError": "an exception turned into an HTTP reply",
         "InvalidEverydayDaySettingsError": "an exception turned into an HTTP reply",
         "ReviewCard": "a value type, carried in a review session",

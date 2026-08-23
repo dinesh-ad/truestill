@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import sqlite3
 import threading
 import uuid
 from collections.abc import Callable, Mapping
@@ -29,6 +30,11 @@ from starlette.routing import Route
 from starlette.staticfiles import StaticFiles
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from truestill_core.app_paths import default_catalog_path
+from truestill_core.catalog_busy import (
+    CATALOG_BUSY_CODE,
+    CATALOG_BUSY_REQUEST_MESSAGE,
+    is_catalog_busy,
+)
 from truestill_core.events import InvalidEventSettingsError
 from truestill_core.layout import InvalidEverydayDaySettingsError
 from truestill_core.trip_review import ReviewCard
@@ -90,6 +96,27 @@ def _static_fingerprint() -> str:
     index_html = (_TEMPLATES / "index.html").read_bytes()
     app_js = (_STATIC / "app.js").read_bytes()
     return hashlib.sha256(index_html + app_js).hexdigest()
+
+
+async def _catalog_busy_refusal(_request: Request, exc: Exception) -> JSONResponse:
+    """A busy catalog is a refusal a person can act on, never a 500. `(agp)` part 1.
+
+    ⚠ **Only busy is translated; everything else re-raises unchanged.** `is_catalog_busy` keys on
+    SQLite's primary result code, so a genuine fault - a missing table, a corrupt file - keeps
+    its 500 and its traceback rather than being dressed up as transient. Dressing a fault as
+    busy would tell the user to retry something that will never succeed.
+
+    **503 with `Retry-After`**, because that is what the condition is: the service is briefly
+    unavailable and the honest remedy is trying again - which the sentence says in words and the
+    header says to machines.
+    """
+    if not is_catalog_busy(exc):
+        raise exc
+    return JSONResponse(
+        {"error": CATALOG_BUSY_REQUEST_MESSAGE, "code": CATALOG_BUSY_CODE},
+        status_code=503,
+        headers={"Retry-After": "5"},
+    )
 
 
 def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False) -> Starlette:
@@ -908,7 +935,18 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
 
             await self._app(scope, receive, stamped)
 
-    app = Starlette(routes=routes)
+    app = Starlette(
+        routes=routes,
+        # ⚠ **ONE recognition per surface, at the top - the CLI's own shape.** `cli.py`'s main()
+        # catches `sqlite3.Error`, asks `is_catalog_busy`, and words the refusal once for every
+        # subcommand; this is the same catch for every route. `(agp)`'s census found SEVEN
+        # direct-write service calls across four files with no handler at all, so a busy
+        # settings write surfaced as a raw Starlette 500 reading "Internal Server Error" - the
+        # exact SQLite-prose-on-screen class `(afe)` exists to keep off the screen. Per-route
+        # handlers would be that census re-run by hand every time a route is added; the
+        # app-level handler makes a new unhandled route structurally impossible.
+        exception_handlers={sqlite3.Error: _catalog_busy_refusal},
+    )
     app.mount("/static", StaticFiles(directory=_STATIC), name="static")
     app.add_middleware(StampStaticFingerprint)
     app.add_middleware(LocalGuard, token=token)

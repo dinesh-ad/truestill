@@ -44,3 +44,30 @@ deliberately does **not** claim nothing changed (a busy catalog is hit mid-run a
 start), and the CLI and app must keep answering the same condition with the same sentence
 (`(afe)`'s rule). `(agq)` - the boot-time build - disarms the commonest instance of this message
 for most users; **this entry is what the message says whenever it still fires.**
+
+---
+
+## ✅ Part 1 shipped, 2026-08-23 - S4, the unhandled surface
+
+The census found **seven** direct-write service calls across four files with no busy handling at
+all (`set_organize_mode`, `set_sidebar_collapsed`, `set_text_size`, `set_library_root`,
+`set_layout`, `confirm_file_date`, the events family) - a class, not a route. So the fix is one
+**app-level exception handler** (`server.py`), mirroring the CLI's top-level catch
+(`cli.py:4346`): busy answers **503** + `Retry-After: 5` with `CATALOG_BUSY_REQUEST_MESSAGE`
+(`catalog_busy.py`), which asserts **no second window**; anything else re-raises and keeps its
+500. A new route cannot be added outside it.
+
+Settings writes retry via `REQUEST_BUSY_ATTEMPTS = 2`: each attempt already waits the driver's
+5 s `busy_timeout` and the only measured multi-second holder is the <= 5.1 s first build, so the
+second attempt lands after it - and sustained contention still surfaces at ~10 s rather than
+hiding behind a minute. The user sees nothing during the retry (decided: an idempotent one-row
+save, worst ~10 s). `app.js` shows a server-worded refusal as its own sentence; unworded failures
+keep the path/status prefix. The refusal still lands in the fatal-banner surface - the calm
+surface waits for the ladder.
+
+**Found while building**: `create_app` opens an *existing* catalog at construction
+(`server.py:153`, `prepare_catalog`) - so `(agq)`'s in-request first build is the
+**fresh-create case only**, which narrows it.
+
+**What remains here**: the detection ladder (in-process build registry, `(aaw)` flock probe) and
+S1/S2/S3 wording - sequenced behind `(agq)`.

@@ -10,6 +10,7 @@ from typing import Any, Literal, NotRequired, TypedDict, cast
 
 from truestill_core import decode_noise
 from truestill_core.catalog import Catalog
+from truestill_core.catalog_busy import REQUEST_BUSY_ATTEMPTS, retry_while_busy
 from truestill_core.catalog_session import open_catalog
 from truestill_core.categorize import build_rules
 from truestill_core.date_provenance import format_offset
@@ -668,10 +669,26 @@ def organize_mode_state(db: Path) -> OrganizeModeState:
     return {"mode": saved, "modes": sorted(ORGANIZE_MODES)}
 
 
+def _write_setting(db: Path, key: str, value: str) -> None:
+    """One settings row, retried while busy. `(agp)` part 1.
+
+    ⚠ **Bounded at `REQUEST_BUSY_ATTEMPTS` (2), not a run's ~10.** Each attempt already waits the
+    driver's 5 s `busy_timeout`, and the only measured multi-second holder is the
+    once-per-catalog fresh-schema build at <= 5.1 s - so the second attempt lands after it. A
+    person is watching this request; more attempts would only delay surfacing genuine sustained
+    contention, which must stay loud. The constant's own docstring carries the full ruling.
+    """
+
+    def write() -> None:
+        with open_catalog(db) as catalog:
+            catalog.set_setting(key, value)
+
+    retry_while_busy(write, attempts=REQUEST_BUSY_ATTEMPTS)
+
+
 def set_organize_mode(mode: object, db: Path) -> SetOrganizeModeResult:
     saved = _normalize_organize_mode(mode)
-    with open_catalog(db) as catalog:
-        catalog.set_setting(ORGANIZE_MODE_KEY, saved)
+    _write_setting(db, ORGANIZE_MODE_KEY, saved)
     return {"ok": True, "mode": saved}
 
 
@@ -691,8 +708,7 @@ def sidebar_state(db: Path) -> SidebarState:
 
 def set_sidebar_collapsed(collapsed: object, db: Path) -> SetSidebarCollapsedResult:
     saved = _normalize_sidebar_collapsed(collapsed)
-    with open_catalog(db) as catalog:
-        catalog.set_setting(SIDEBAR_COLLAPSED_KEY, "true" if saved else "false")
+    _write_setting(db, SIDEBAR_COLLAPSED_KEY, "true" if saved else "false")
     return {"ok": True, "collapsed": saved}
 
 
@@ -725,8 +741,7 @@ def text_size_state(db: Path) -> TextSizeState:
 
 def set_text_size(size: object, db: Path) -> SetTextSizeResult:
     saved = _normalize_text_size(size)
-    with open_catalog(db) as catalog:
-        catalog.set_setting(TEXT_SIZE_KEY, saved)
+    _write_setting(db, TEXT_SIZE_KEY, saved)
     return {"ok": True, "size": saved}
 
 

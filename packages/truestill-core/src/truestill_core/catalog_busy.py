@@ -76,6 +76,36 @@ CATALOG_BUSY_MESSAGE = (
 )
 
 
+#: The busy sentence for a single HTTP request, `(agp)` part 1. **A separate sentence from
+#: `CATALOG_BUSY_MESSAGE` because the honest claims differ**: a run may have copied files before
+#: it stopped, so its message must not say "nothing changed" - but it can talk about copies. A
+#: request is one transaction that rolled back, and talking about copied files there would be
+#: noise about a run that does not exist.
+#:
+#: ⚠ **It asserts no second window.** `(agp)`'s reproduction showed the same "close the other
+#: Truestill window" sentence for a one-process first-run build and for a non-Truestill holder
+#: alike. Until detection exists (the `(agp)` ladder), a window is named only as one possibility
+#: among the three real causes - never as an instruction to close something asserted to exist.
+CATALOG_BUSY_REQUEST_MESSAGE = (
+    "The library catalog is busy right now, so this could not be completed. It usually clears "
+    "in a few seconds - try again. If it keeps happening, another program or another Truestill "
+    "window may be holding the catalog file."
+)
+
+#: How many attempts a single HTTP request makes before refusing, `(agp)` part 1. ⚠ **Two, and
+#: the bound is ruled from a measurement, not a feeling.** Each attempt already waits out the
+#: driver's 5 s ``busy_timeout``, and the only holder measured above single digits of
+#: milliseconds is the once-per-catalog fresh-schema build at <= 5.1 s (`(adt)` M4) - so one
+#: extra attempt after the first 5 s wait covers it, and a second click's worth (~10 s worst)
+#: is the most a person waiting on a radio button should be held. More attempts would not help
+#: anyone: past the build, a still-busy catalog is sustained contention, and hiding that behind
+#: a minute of silent retrying is the failure mode `_BUSY_ATTEMPTS`'s own docstring warns about
+#: in the other direction. A RUN retries ~10 times because giving up costs an unrecorded file
+#: and no human is blocked waiting; a request is watched by a person and costs one click to
+#: repeat.
+REQUEST_BUSY_ATTEMPTS = 2
+
+
 def primary_code(exc: BaseException) -> int | None:
     """SQLite's primary result code for ``exc``, or ``None`` if it does not carry one.
 

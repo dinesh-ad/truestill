@@ -12,6 +12,10 @@ All notable changes to this project are documented here. The format follows
   history of every run beside your catalog, with the full file-by-file detail of recent ones.
 
 ### Fixed
+- **A busy library catalog no longer shows up as "Internal Server Error".** If the catalog was
+  briefly in use when you changed a setting, the app showed a raw server error. It now waits
+  once, and if the catalog is still busy it says so plainly and suggests trying again - without
+  blaming a second Truestill window it cannot see.
 - **Undo no longer reports a problem, or stays armed, over files it was never going to move.**
   After reversing an organize, Truestill could keep offering to undo a run it had already fully
   reversed, and report failure over files that had been copied rather than moved - neither of

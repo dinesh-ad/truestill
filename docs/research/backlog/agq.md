@@ -36,3 +36,11 @@ away.
   new race.
 - `(ady)`'s pre-upgrade copy fires on *migration*, not on a fresh build - verify the boot-time
   open does not change when that copy is taken.
+
+## ⚠ Narrowed 2026-08-23, while building `(agp)` part 1
+
+`create_app` already opens an **existing** catalog at construction (`server.py:153`,
+`service.prepare_catalog` -> `inspect_catalog` -> `Catalog(...)`), so migrations of an existing
+catalog run at boot today. **What runs in-request is the fresh-CREATE case only** - a missing
+file is described (`WILL_CREATE`) and not opened, per `catalog_startup.py:242`'s deliberate
+choice. This entry is about that remaining case, not about migration.
