@@ -246,6 +246,16 @@ exists to prevent.
   measures RAM while claiming disk. Four findings were mislabelled that way on 2026-08-23 and one
   ruling reopened at **41x**. Use `suite_scratch.scratch_root()` / `/data/tmp/truestill`, or
   state the filesystem in the write-up. This line is the decision's *reach*, not a new rule.
+- ⚠ **THE SESSION SCRATCHPAD IS ON /tmp TOO - tmpfs - and it held 11 GB on 2026-08-23**,
+  filling swap to 98% twice in two days (`suite_scratch.py` is the decision; this is its reach
+  again, one layer up). `TMPDIR=/data/tmp/truestill` is set machine-locally in
+  `.claude/settings.local.json` and **verified**: a fresh session's `tempfile.gettempdir()`
+  answers `/data/tmp/truestill`, so tempfile and subprocess writes land on ext4. **Whether the
+  scratchpad PATH itself follows TMPDIR is not yet observed** (headless sessions create none;
+  check the next interactive session). Until observed: anything larger than ~100 MB - corpora,
+  measurement trees, catalogs - goes under `/data/tmp/truestill/<purpose>` by rule, and an
+  experiment deletes what it grew. Preserved evidence is different and goes beside
+  `scratch-race-2026-08-22` on `/data/TruestillLibrary`, never in a session directory.
 - `exiftool` must be installed and on PATH for metadata paths.
 
 ### The corpora - three of them, and they answer different questions

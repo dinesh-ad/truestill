@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agr). Next free: (ags).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ags). Next free: (agt).**
 ⚠ **`(agf)` was cited by `pyproject.toml`, a test and `age.md` before its entry existed**, so for
 one commit three working citations resolved to nothing. Recorded because it is this section's own
 warning happening - *"nothing recorded which letters were spoken for"* - and the fix is to claim
@@ -121,6 +121,15 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(ags) INGEST EXTRACTS A WHOLE ARCHIVE INTO THE USER'S TEMP, WHICH IS OFTEN RAM.** Filed
+  2026-08-23 from the P30 tmpfs investigation. `organizer.py:1251` extracts into a
+  `TemporaryDirectory` that follows `TMPDIR` - the user's `/tmp`, tmpfs on many Linux
+  desktops - so a 20 GB Takeout ingest is 20 GB of RAM and swap before a file reaches the
+  library. The fix's shape (not designed): extraction scratch belongs beside the ingest
+  DESTINATION, same volume, so the final move is a rename - `suite_scratch.py`'s ruling
+  reaching the product. `exif.py:265`'s argfiles are named as fine (tiny, unlinked in
+  `finally`) so nobody widens this onto them. [Full entry](research/backlog/ags.md)
 
 - **(agp) THE BUSY MESSAGE NAMES A SECOND WINDOW THAT DOES NOT EXIST, AT THE USER'S FIRST CLICK.**
   Recorded 2026-08-23, split out of `(adt)` when it closed, **ranked above `(agq)` by the
