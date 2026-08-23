@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agn). Next free: (ago).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ago). Next free: (agp).**
 ⚠ **`(agf)` was cited by `pyproject.toml`, a test and `age.md` before its entry existed**, so for
 one commit three working citations resolved to nothing. Recorded because it is this section's own
 warning happening - *"nothing recorded which letters were spoken for"* - and the fix is to claim
@@ -162,10 +162,10 @@ is invisible here is retired, not free.**
 
 - **(agh) `LocalGuard` MAKES FORGETTING THE TOKEN IMPOSSIBLE AND UN-EXEMPTING INVISIBLE.**
   Recorded 2026-08-23. **The token is enforced well** - ASGI middleware wrapping the whole app
-  (`server.py:904`), so no route can forget it, with Host/Origin checks and
+  (`server.py:914`), so no route can forget it, with Host/Origin checks and
   `secrets.compare_digest` (`security.py:84-94`), and the single `/static/` exemption verified
   inert. **The gap is that nothing pins the exemption LIST.** Coverage is per-route
-  (`test_server.py:18,31,37,44`, `test_thumb_route.py:114`); a second `startswith` added to
+  (`test_server.py:20,33,39,44`, `test_thumb_route.py:115`); a second `startswith` added to
   `_reject` would be caught by nothing, and it is a two-line change that looks harmless.
   🔑 **The asymmetry is the point**: the middleware makes the common mistake structurally
   impossible and leaves the rare one unguarded - the shape that survives longest, because everyone
@@ -178,9 +178,9 @@ is invisible here is retired, not free.**
   probe fail **open** - correct, and the module's recorded posture - but it fails open
   **silently**: a run completes with the disk-space guard switched off and nothing counts or names
   it. ⚠ **Both sides are filed because either may win.** For: §9's never-silent clause
-  (`IMPLEMENTATION_STANDARDS.md:1280`) makes a *degraded* outcome something that must be counted
+  (`IMPLEMENTATION_STANDARDS.md:1354`) makes a *degraded* outcome something that must be counted
   and named, and it is binding contract. Against: `_stop_if_ground_moved`'s own docstring
-  (`backup.py:239-245`) argues that *"a second mechanism for the same class of event would be a
+  (`backup.py:247-253`) argues that *"a second mechanism for the same class of event would be a
   second thing to keep in step"* - made about the stop path, and it applies to a notice path.
   🔑 **It is one entry, not organize's third of one**: `HealthVerdict` is binary and the three
   watchers consume it three ways - an `ActionResult`, a `MigrationOutcome` field, and a `raise`

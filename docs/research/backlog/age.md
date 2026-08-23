@@ -56,7 +56,7 @@
   ## ⚠ AND IT REACHES THE ARCHIVE PATH TOO (added 2026-08-23, `(agg)`)
 
   `precheck_archives` calls `space_for` (`archive_ingest.py:199`), which is the **same**
-  `shutil.disk_usage` question `preflight_destination` asks - and `archive_ingest.py:190-195` is
+  `shutil.disk_usage` question `preflight_destination` asks - and `archive_ingest.py:215-224` is
   explicit that it must be asked *there*, because *"extraction writes a staging tree to this drive
   before organize sees anything, so organize's own preflight never gets a turn."*
 

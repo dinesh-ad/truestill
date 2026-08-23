@@ -4,7 +4,7 @@
 
 - **(ll) Sub-day event identity that survives a changing file set.** The day-event half of the
   identity defect recorded in `trip-grouping-research.md` §6.
-  - **The defect.** `EventCandidate.signature` (`events.py:109`) is a SHA-256 over the member
+  - **The defect.** `EventCandidate.signature` (`events.py:187`) is a SHA-256 over the member
     `sha256`s, and that is the `UNIQUE` key `event_by_signature` looks up. Membership *is*
     identity, so ingesting one more photo from an already-named day changes the signature and the
     event is proposed again as new, with the name already given orphaned.

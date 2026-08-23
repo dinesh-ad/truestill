@@ -9,7 +9,7 @@
   ## What is already right, so the entry is not misread as an alarm
 
   The token is ASGI middleware, not a per-route check: `app.add_middleware(LocalGuard, token=token)`
-  (`server.py:904`) wraps the whole app including the `/static` mount (`server.py:901-902`). **A
+  (`server.py:914`) wraps the whole app including the `/static` mount (`server.py:912`). **A
   new route cannot forget it** - there is nothing per-route to forget. `security.py:84-94` checks
   Host (421), Origin (403) and the token with `secrets.compare_digest` (403), and the refusal names
   the session-link *file* rather than the token (`security.py:54-56`).
@@ -22,8 +22,8 @@
   ## The gap
 
   **No test enumerates the exemption list.** Coverage today is per-route and per-condition:
-  `test_server.py:18` (missing token), `:31` (bad host), `:37` (cross-origin), `:44` (static is
-  exempt), and the best of them, `test_thumb_route.py:114`, whose docstring has the right instinct
+  `test_server.py:20` (missing token), `:33` (bad host), `:39` (cross-origin), `:44` (static is
+  exempt), and the best of them, `test_thumb_route.py:115`, whose docstring has the right instinct
   - *"asserts the new route is on the guarded side of that line rather than trusting that it is."*
 
   Every one of those pins **one** route or **one** condition. Nothing pins that

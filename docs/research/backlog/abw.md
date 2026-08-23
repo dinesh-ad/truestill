@@ -69,7 +69,7 @@
         it.** Re-checked rather than trusted: `commit_trips` has **exactly one** production
         caller (`service/trips.py:502`, inside `apply_event_review_names`), there is **no CLI
         path** (neither `commit_trips` nor `assemble_trip_review` appears anywhere in
-        `truestill-cli`), and names arrive as the screen's `names[]` array via `server.py:739`.
+        `truestill-cli`), and names arrive as the screen's `names[]` array via `server.py:771`.
         Every name reaching the branch is still a deliberate keystroke.
       - ⚠ **The pinning test conflates two things, and nobody has separated them - not this
         entry, and not the attempt.** `test_re_ingest_one_photo_into_a_named_trip_does_not_re_ask`

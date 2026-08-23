@@ -105,6 +105,29 @@ recording shipped work as unstarted, which is the more expensive direction of th
   **not real**; there is no mechanism, and it is recorded as refuted rather than quietly dropped.
   [Full entry](research/backlog/agg.md)
 
+- **(ago) A DOCUMENTATION AUDIT: 632 CITATIONS, AND NOTHING CHECKED ONE.** Shipped 2026-08-23.
+  `BACKLOG.md` had recorded the exposure in its own text - *"Nothing would tell us. Checked: no
+  test or guard asserts a line number."* - and nothing acted on it. **Research names the pattern:
+  docs as tests**, fail the build rather than rely on review; the study behind it found 230 stale
+  code-element references across 82 repositories.
+  ⚠ **THE RAW NUMBER WAS MISLEADING AND THE CLASSIFICATION IS THE FINDING**: 32 of 632 citations
+  did not resolve, and **31 of the 32 sit in records**, which this repo never rewrites. The one in
+  canon is a **Pillow** file, correctly absent. A guard over all of it would have gone red on the
+  past on day one and been switched off.
+  **Sixteen stale citations fixed in LIVING documents** - canon, guides and the bodies of open
+  entries - several of them drifted by my own commits earlier the same day. ⚠ **`DECISIONS.md` was
+  stale twice over**: it offered a comment as evidence that is no longer in the source, and the
+  correction says so rather than swapping the quote, because that would have hidden the drift.
+  **The guard covers the living set only**, with open-entry bodies read from `BACKLOG.md` so an
+  entry leaves scope in the commit that ships it. ⚠ **What it cannot see is stated**: a line that
+  moved onto other real code. Of five drifts found by hand it would have caught two; the rest
+  needs symbol anchors, named and not smuggled in.
+  **Also audited and clean**: the document map is complete at 64, every command-backed number
+  holds, and six open entries were spot-checked as genuinely open. The browser lane read 505.
+  Five mutations, all caught, three cry-wolf - ⚠ **two survived first and both mutants were
+  valid**: with the corpus clean, a detector with no positive case is unfalsifiable.
+  [Full entry](research/backlog/ago.md)
+
 - **(agn) THE PUSH GATE JUDGED A COMMIT THE REMOTE MAY NOT HAVE HAD.** Shipped 2026-08-23.
   `ENGINEERING_STANDARD.md` §2's *"a pending result outranks a ready batch"* carries **contention**
   and **outcome**; `scripts/check_push_gate.py` separated them in prose and answered both from one

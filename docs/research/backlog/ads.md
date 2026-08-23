@@ -73,7 +73,7 @@
     (`catalog.py:830`) **before** it can read `PRAGMA user_version` - it has to, because reading
     the version and acting on it is the check-then-act §5.4 closed. So an open that will change
     nothing still takes the write lock.
-  - **The preview job is a reader in its body and a writer at the door.** `organize.py:804-823`
+  - **The preview job is a reader in its body and a writer at the door.** `organize.py:883-902`
     reads only - `resolve_scheme`, `heavy_days_for_organize`, `seed_rows`, `known_sizes`,
     `_matched_drives`. It never reaches them: `open_catalog` -> `Catalog(db)` -> `BEGIN
     IMMEDIATE`.

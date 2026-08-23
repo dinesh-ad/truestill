@@ -20,7 +20,7 @@
     Picking the radio fires `app.js:2689-2695`, which calls `saveOrganizeMode`
     (`app.js:2000-2002`) - the 6.5 s POST. While it is in flight the dedup click
     (`app.js:2580-2600`) starts the preview job. The job meets the held catalog, waits out the
-    **5 s `busy_timeout`** (`catalog_busy.py:7`), raises, and `jobs.py:211-214` converts it to
+    **5 s `busy_timeout`** (`catalog_busy.py:7`), raises, and `jobs.py:347-350` converts it to
     `CATALOG_BUSY_MESSAGE`. `#org-confirm` is filled **only** on job success
     (`renderOrganizeRunConfirm`, `app.js:2004`), so it stayed empty and the assertion waited out
     its full 30 s budget against `<div id="org-confirm"></div>`.

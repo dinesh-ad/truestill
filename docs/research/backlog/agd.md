@@ -20,7 +20,7 @@
 
   ## THE TWO SIDES, BOTH STATED, BECAUSE EITHER MAY WIN
 
-  ### For saying it - `IMPLEMENTATION_STANDARDS.md:1280`, §9's never-silent clause
+  ### For saying it - `IMPLEMENTATION_STANDARDS.md:1354`, §9's never-silent clause
 
   > **Never-silent, restated for screens.** A skipped, refused, **degraded** or unverifiable
   > outcome is *counted and named*, never folded into a success total or dropped.
@@ -28,7 +28,7 @@
   A watcher that was asked to protect a run and could not is degraded by any reading of that
   sentence. It is binding contract, not canon.
 
-  ### Against a new mechanism - `backup.py:239-245`, `_stop_if_ground_moved`'s own docstring
+  ### Against a new mechanism - `backup.py:247-253`, `_stop_if_ground_moved`'s own docstring
 
   > *"Stop the backup if the ground under it has moved. **Silent when all is well.** … **Raised,
   > not returned, because this loop already stops this way** … A second mechanism for the same
@@ -48,7 +48,7 @@
   |---|---|---|
   | `organizer.py:1900` | `ActionResult(..., FAILED, None, detail)` | a per-file result carrying a per-run fact |
   | `migrate.py:681` | `stopped = verdict.detail` | a new `MigrationOutcome` field |
-  | `backup.py:248` | `raise ValueError(verdict.detail)` | **no non-fatal path exists at all** |
+  | `backup.py:259` | `raise ValueError(verdict.detail)` | **no non-fatal path exists at all** |
 
   Building the channel for one and leaving two is §4's **fifty-sixth member scheduled rather than
   inherited** - two sites agreeing is what makes the third invisible, and that member is the exact
@@ -76,7 +76,7 @@
     denied)"*. Refused: a reason claims a category **this fix deliberately refuses to determine** -
     every `OSError` on this axis is indefinite, which is the whole design (`(aft)`).
   - ⚠ **Not *"Truestill's catalog folder"*, and not *"nothing was left half-written"*.** The probe
-    is `catalog_path.parent` and `--db` is unconstrained (`cli.py:347-350`), so on
+    is `catalog_path.parent` and `--db` is unconstrained (`cli.py:365-368`), so on
     `--db /media/usb/x.sqlite` the unreachable folder is the **user's**, not ours. And the
     half-written guarantee is `safe_copy`'s, not this one's - a reader takes it as a claim about
     their files.

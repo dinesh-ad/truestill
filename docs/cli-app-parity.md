@@ -57,7 +57,7 @@ apply one.**
 | `undo-organize` | `cli.py:403` | `/api/organize/undo{,/preview,/apply}` `server.py:826-828` | **covered**, preview and apply |
 | `migrate-layout` | `cli.py:662` | `/api/migrate/{preview,run}` `server.py:846-847`; undo `:852-854` | **covered**, including `--undo` |
 | `verify` | `cli.py:599` | `/api/verify/run` `server.py:829` | **covered** |
-| `where` | `cli.py:576` | `/api/where` `server.py:865` | **covered**; `--limit` becomes paging |
+| `where` | `cli.py:594` | `/api/where` `server.py:865` | **covered**; `--limit` becomes paging |
 | `config` | `cli.py:629` | `/api/layout{,/preview}` `server.py:842-843` | **covered**; presets resolve client-side to a template |
 | `status` | `cli.py:611` | `/api/drives` `:863`, `/api/library/{status,stats}` `:839,:841` | **covered**; same `single_copy_shas` query both sides |
 | `clean-empty` | `cli.py:3660` | `/api/clean-empty/{preview,apply}` `server.py:837-838` | **partial** - `--permanent` deliberately absent (`service/clean_empty.py:71`), app refuses and points at the CLI |
@@ -69,7 +69,7 @@ apply one.**
 | `restore` | `cli.py:559` | **none** | |
 | `repoint-sources` | `cli.py:546` | **none** | |
 | `rescan` | `cli.py:687` | **none** | |
-| `self-check` | `cli.py:616` | **none** | process flag only |
+| `self-check` | `cli.py:634` | **none** | process flag only |
 
 ### Flags missing from covered commands
 
@@ -77,7 +77,7 @@ Recorded because *"organize is covered"* is true and hides them: `--all-files`, 
 `--no-rename`, `--no-timestamps`, `--phash-threshold`, `--pool` / `--workers`, `--report` (all
 `_add_common_options`, `cli.py:331-398`), `verify --pool/--workers` (`cli.py:607-608`), and
 `undo-organize --run-id` / `--list` (`cli.py:410-411`). `--rclone` is **out of scope by design**:
-*"The app always writes to a local drive - there is no rclone path here"* (`service/organize.py:1024`).
+*"The app always writes to a local drive - there is no rclone path here"* (`service/organize.py:1030`).
 
 ---
 

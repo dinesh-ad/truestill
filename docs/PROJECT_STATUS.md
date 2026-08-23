@@ -145,6 +145,17 @@ Notes:
 - **Recent critical portability/safety posture:** loud failures are in place (stale hints,
   catalog-open visibility, reclaim/undo stale-path messaging); remaining work is portability
   follow-through, not silent safety failures.
+- ⚠ **The run record changed shape on 2026-08-23, and it is a CONTRACT change** (`(afw)`,
+  `IMPLEMENTATION_STANDARDS.md` §1). One rolling `last-run.json` per catalog became
+  `last-run.json` **plus** an append-only `runs/index.jsonl` kept forever and bounded per-file
+  detail beside it - because an undo record written to the old path **destroyed the organize
+  record of the run it had just reversed**. Undo is now the fourth surface that writes one;
+  migrate and bake are deliberately undecided (`(agm)`).
+- **Catalog schema is v21 since 2026-08-23** (`(agk)`). The in-place journal is an **intent log**:
+  the row is written *before* the rename, not after, so a crash in that window leaves a file that
+  undo can still put back. Measured before the fix: 2 of 8 `SIGKILL`s left a photograph moved
+  with no undo row, and `undo-organize` reported success. Undo now verifies **identity** before
+  restoring, not just position.
 - **The docs source-of-truth split is strict:**
   - binding contract: `IMPLEMENTATION_STANDARDS.md`
   - settled stances + why: `DECISIONS.md`
