@@ -321,3 +321,29 @@ TOTAL over 8 kills: moved=296  intents=297  ORPHANS=0      (was 2 of 8)
 k1 is the design working: the intent was written, the process died before the rename completed,
 and the row is `unknown` rather than absent - so undo could ask the disk and put every moved file
 back.
+
+---
+
+## ⚠ CORRECTION, 2026-08-23 - two regressions this entry introduced
+
+Found by the design pass for `(afw)`'s undo stage, and fixed before it. **A record is not edited
+to stay correct**, so this is written beside what is above rather than into it.
+
+`(agk)` added two skip reasons that **no second undo can ever resolve** - `NEVER_MOVED` and
+`WAS_A_COPY` - and left two decisions keyed on the old assumption that every skip was a real
+problem:
+
+1. **`run_undo` never closed the run.** `if not skipped: finish_inplace_run(..., "undone")` meant a
+   **fully reversed** run whose journal held one `copied` row stayed open forever,
+   `latest_undoable_run()` kept returning it, and the app's `still_armed` stayed true. Measured at
+   the commit: status `'completed'` instead of `'undone'`, armed `True`.
+2. **The CLI spent the exit code on `WAS_A_COPY`**, printing *"could not be restored"* about a row
+   that describes no rename. Measured: exit **1** on a clean undo.
+
+🔑 **The discriminator was wrong, not just the list.** It is not *"is this a failure"* - it is
+**can re-running undo do any more?** `run_undo`'s own comment already said so: a partial reversal
+stays open so *"a second `undo` finishes the job"*. A run held open on something that can never
+clear is a promise the product cannot keep, on the one path where a wrong state costs most.
+
+`undo.SkipClass` / `classify` / `outstanding` now hold that in one place, exhaustively, and both
+the close condition and the exit code read it rather than each deciding for itself.

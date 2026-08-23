@@ -219,7 +219,14 @@ from truestill_core.takeout import (
     TakeoutSidecar,
     scan_takeout,
 )
-from truestill_core.undo import UndoError, UndoSkip, plan_undo, run_undo
+from truestill_core.undo import (
+    SkipClass,
+    UndoError,
+    classify,
+    outstanding,
+    plan_undo,
+    run_undo,
+)
 from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
 
 from truestill_cli import __version__
@@ -4109,10 +4116,14 @@ def _cmd_undo_organize(args: argparse.Namespace) -> int:
         print(f"  came from  : {plan.source_root}")
         print(f"  restorable : {plan.restorable} file(s)")
         for skip in plan.skipped:
-            if skip.reason is UndoSkip.NEVER_MOVED:
-                # Not a refusal: there is nothing to put back. Said on stdout with the rest of
-                # the plan rather than on stderr with the problems. `(agk)`
-                print(f"  not moved yet: {skip.step.original.name} -- {skip.detail}")
+            if classify(skip.reason) is SkipClass.NOTHING_TO_DO:
+                # Not a refusal: there is nothing to put back, and no second undo will
+                # change that. Said on stdout with the rest of the plan rather than on stderr
+                # with the problems. `(agk)`
+                # "not moved yet" was written for `NEVER_MOVED` alone and is false of
+                # `WAS_A_COPY`, which WAS moved - by the copy path, which needs no undo row. The
+                # label states the shared fact; the detail says which of the two this is.
+                print(f"  nothing to undo: {skip.step.original.name} -- {skip.detail}")
                 continue
             print(f"  cannot restore: {skip.step.current.name} -- {skip.detail}", file=sys.stderr)
 
@@ -4139,13 +4150,14 @@ def _cmd_undo_organize(args: argparse.Namespace) -> int:
         # Since the journal records intent, an interrupted run leaves rows for renames that
         # never happened; calling those failures would make every such run report a problem it
         # does not have, and would spend the exit code on it.
-        unresolved = [s for s in outcome.skipped if s.reason is not UndoSkip.NEVER_MOVED]
+        #
+        # ⚠ **`undo.outstanding`, not a filter written here.** This listed one reason by hand and
+        # missed `WAS_A_COPY`, so a fallback-copy row made a clean undo exit 1. The exit code and
+        # `run_undo`'s close condition are two readings of one question and must not drift.
+        unresolved = outstanding(outcome.skipped)
         never = len(outcome.skipped) - len(unresolved)
         if never:
-            print(
-                f"  {never} file(s) had not been moved yet when the run stopped; "
-                "they were already where they belong."
-            )
+            print(f"  {never} file(s) had nothing to undo; no further undo can change them.")
         if unresolved:
             print(
                 f"  {len(unresolved)} file(s) could not be restored; the run stays open so "

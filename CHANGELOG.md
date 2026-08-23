@@ -7,6 +7,11 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **Undo no longer reports a problem, or stays armed, over files it was never going to move.**
+  After reversing an organize, Truestill could keep offering to undo a run it had already fully
+  reversed, and report failure over files that had been copied rather than moved - neither of
+  which any further undo could change. It now separates *nothing to undo* from *you can fix this
+  and try again*, and only the second keeps the run open.
 - **Organising in place can no longer leave a photo stranded if the run is interrupted.** When
   Truestill reorganises a drive by moving files on it, it now writes down each move *before* making
   it. Previously the note was written afterwards, so a crash in between could leave a photo in its

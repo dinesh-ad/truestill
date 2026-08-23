@@ -21,9 +21,11 @@ for a later file unwinds without colliding with itself.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
+from typing import Final
 
 from truestill_core.catalog import Catalog
 from truestill_core.drive import path_is_usable_dir
@@ -48,9 +50,67 @@ class UndoSkip(StrEnum):
     #: Identity could not be established, so nothing is moved. Never a silent pass.
     UNREADABLE = "unreadable"
     #: The intent was recorded and the rename never happened - the file is still where it
-    #: started. ⚠ **NOT A FAILURE**, and the only skip that is not: there is nothing to put
-    #: back. It exists because an intent log can say "unknown", and the disk can then answer.
+    #: started. ⚠ **NOT A FAILURE**: there is nothing to put back. It exists because an intent
+    #: log can say "unknown", and the disk can then answer.
     NEVER_MOVED = "never_moved"
+
+
+class SkipClass(StrEnum):
+    """What a skip means for the two decisions that hang off it. `(agk)` follow-up.
+
+    ⚠ **THE DISCRIMINATOR IS NOT "IS THIS A FAILURE". It is: can re-running undo do any more?**
+    `run_undo` keeps a partial reversal open precisely so *"a second `undo` finishes the job"*
+    once the user has resolved what blocked it. A run held open on something that can never clear
+    is a promise the product cannot keep - `still_armed` stays true forever and every later undo
+    restores nothing.
+
+    Three classes, two behaviours, and the third exists because a **record** has to tell them
+    apart even where the exit code does not: *"something else is there now"* and *"we could not
+    do it"* are different facts about the drive, and `(afa)` is what happens when several facts
+    share one word.
+    """
+
+    #: Nothing was outstanding and nothing ever will be. Does not hold the run open, does not
+    #: spend the exit code. A second undo cannot change these.
+    NOTHING_TO_DO = "nothing_to_do"
+    #: The world moved under the run. The user can act - reconnect the drive, clear the path -
+    #: and re-run, so the run stays open and the exit code says so.
+    RESOLVABLE = "resolvable"
+    #: Attempted and could not be done. Holds the run open for the same reason, and is reported
+    #: differently because it is our failure to perform rather than the drive having changed.
+    COULD_NOT = "could_not"
+
+
+#: ⚠ **Exhaustive, and `test_every_skip_reason_is_classified` is what keeps it so.** Nothing type
+#: checks a mapping, so a new `UndoSkip` member would otherwise fall through to whatever default
+#: `classify` has - deciding both the exit code and whether the run closes by omission.
+_CLASS_OF: Final[dict[UndoSkip, SkipClass]] = {
+    UndoSkip.NEVER_MOVED: SkipClass.NOTHING_TO_DO,
+    UndoSkip.WAS_A_COPY: SkipClass.NOTHING_TO_DO,
+    UndoSkip.MOVED_AWAY: SkipClass.RESOLVABLE,
+    UndoSkip.ORIGIN_OCCUPIED: SkipClass.RESOLVABLE,
+    UndoSkip.NOT_THE_SAME_FILE: SkipClass.RESOLVABLE,
+    UndoSkip.FAILED: SkipClass.COULD_NOT,
+    UndoSkip.UNREADABLE: SkipClass.COULD_NOT,
+}
+
+
+def classify(reason: UndoSkip) -> SkipClass | None:
+    """What this skip means, or ``None`` if nobody has said - which is a defect, not a default."""
+    return _CLASS_OF.get(reason)
+
+
+def outstanding(skipped: Sequence[UndoSkipped]) -> list[UndoSkipped]:
+    """The skips that represent work left to do. **One definition, two callers.**
+
+    The exit code and the close condition are two readings of one question, and the CLI derived
+    its own answer inline until `(agk)`'s regressions were fixed. Two copies of a rule is how the
+    copies disagree - here it would mean a run that closes while the command reports failure.
+
+    ⚠ **An unclassified reason counts as outstanding.** Unknown must mean "needs a human", never
+    "nothing to do": the safe direction is the one that keeps the run re-runnable.
+    """
+    return [item for item in skipped if classify(item.reason) is not SkipClass.NOTHING_TO_DO]
 
 
 @dataclass(frozen=True, slots=True)
@@ -303,6 +363,8 @@ def run_undo(
     # remaining journal rows are still valid, so once the user resolves whatever blocked them
     # (an occupied path, a disconnected drive) a second `undo` finishes the job. Files already
     # restored are simply skipped as MOVED_AWAY on that second pass, so retrying is safe.
-    if not skipped:
+    # ⚠ **`outstanding`, not `skipped`.** A run held open on something a second undo can never
+    # resolve leaves `still_armed` true forever, on the one path where a wrong state costs most.
+    if not outstanding(skipped):
         catalog.finish_inplace_run(plan.run_id, status="undone")
     return UndoOutcome(plan=plan, restored=restored, skipped=skipped, applied=True)
