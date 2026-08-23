@@ -1,6 +1,55 @@
 # (agi) `ENOSPC` IS NOT A PER-FILE FACT, AND BOTH SURFACES TREAT IT AS ONE.
 
-*Body of backlog entry `(agi)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(agi)`. **SHIPPED 2026-08-23.** The index is now [`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
+
+> ## ✅ SHIPPED 2026-08-23 - both surfaces, one commit
+>
+> `drive_unwritable.persists_for_the_run` answers one question - **will the next file hit this
+> too?** - and `organizer.py` and `service/backup.py` both consult it. **The errno table is the
+> implementation of that predicate, never the rule**, so every branch carries why the condition
+> outlives the file, and an errno nobody has reasoned about continues.
+>
+> 🔑 **`ENOSPC` is persistent for a MECHANISM, not an inference, and that is the entry's best
+> argument.** A full copy-on-write filesystem does not merely fail this write: btrfs needs to
+> allocate metadata even to **delete**, so it can refuse the cleanup as well, and it *"will change
+> your filesystem to read-only to protect itself"*. At that point every remaining file fails.
+> Continuing buys N failures describing one condition.
+>
+> ### ⚠ TWO DEFECTS IN THE FIRST DRAFT, BOTH CAUGHT BY ITS OWN TESTS
+>
+> **1. It was INERT on organize, the surface that runs most.** The predicate took an `OSError` and
+> the handler tested `isinstance(exc, OSError)` - but `LocalDestination.upload` raises
+> `DestinationError(...) from outcome.error`, so organize never sees a bare `OSError` and the
+> check never fired. Fixed at the root: the predicate walks the **cause chain**, in one place, so
+> neither surface has to unwrap. **This is the "stops one step short of the property it claims"
+> defect this repo is built around, committed and then caught by an end-to-end test that a unit
+> test of the table could never have caught.**
+>
+> **2. The abort threw away the errno.** `raise OSError(verdict.detail)` carries `errno=None`, so
+> nothing downstream could classify it again or word it through `drive_unwritable`. Backup now
+> re-raises with the original errno and cause; organize re-raises the original exception object,
+> wrapper and all, so the drive-worded sentence a user reads survives.
+>
+> ### What was proven, and what is assumed
+>
+> ✅ **Linux: a real kernel `ENOSPC`**, delivered through `shutil` from `/dev/full` on both
+> surfaces. A synthesised `OSError` proves the classifier and says nothing about delivery.
+> ✅ A real `EACCES` from `chmod 000`, for the continue side.
+> ⚠ **Windows: the errno-to-verdict mapping is proven; the winerror-to-errno DELIVERY is assumed.**
+> `ERROR_DISK_FULL` (112) and `ERROR_HANDLE_DISK_FULL` (39) reach Python as `ENOSPC` by Python's
+> own translation, documented and **not exercised by any test here**. **A green Windows lane must
+> not be read as evidence of it.** Costed and not built: `diskpart` can create and attach a small
+> VHD and the runners do have administrator, so a real full volume is roughly 15-30 s of CI on one
+> platform, for a test that cannot run locally. Worth doing only if this errno ever misbehaves.
+>
+> ### Q45 - the preview sees the static case and not these
+>
+> `backup_preview` already compares `shutil.disk_usage(target).free` against `need`, so an obvious
+> shortfall is refused before a run starts. It **cannot** see the cases that reach this classifier:
+> a disk filled by another process after the preview, a **quota** (invisible in `free`), or the
+> **local cache** disk filling while the target has room - which is the case `RunHealth` exists
+> for. So the abort message does not claim the preview knew, because usually it did not.
+>
 
 - **(agi)** Recorded 2026-08-23 by `(afw)` Stage 4, which made backup adopt organize's
   partial-failure policy and in doing so inherited organize's gap.

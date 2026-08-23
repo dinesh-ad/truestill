@@ -21,6 +21,7 @@ believing the backup was fine.
 
 from __future__ import annotations
 
+import errno
 import json
 import random
 import threading
@@ -74,6 +75,11 @@ def _fail_copies(monkeypatch: pytest.MonkeyPatch, *, which: set[int]) -> None:
     ⚠ **Injected at `shutil.copy2` inside `safe_copy`**, so the failure arrives through
     `staged_copy`'s own `except OSError` - the real path. Patching backup's helper would assert
     that this test can fail.
+
+    ⚠ **`EACCES`, and it was `EIO` until `(agi)`.** `EIO` is a failing *device*, which outlives
+    the file and now stops the run - so these tests would have been asserting the continue policy
+    against an errno that no longer continues. A permission on one source file is the honest
+    per-file case.
     """
     seen = {"n": 0}
     real = safe_copy.shutil.copy2
@@ -81,7 +87,7 @@ def _fail_copies(monkeypatch: pytest.MonkeyPatch, *, which: set[int]) -> None:
     def flaky(src: object, dst: object, *args: object, **kwargs: object) -> object:
         seen["n"] += 1
         if seen["n"] in which:
-            raise OSError(5, "Input/output error")
+            raise OSError(errno.EACCES, "Permission denied")
         return real(src, dst, *args, **kwargs)
 
     monkeypatch.setattr(safe_copy.shutil, "copy2", flaky)
@@ -185,3 +191,72 @@ def test_a_destination_level_failure_still_ends_the_run(
 
     with pytest.raises(ValueError, match="nearly full"):
         _run(library)
+
+
+# --- and a condition that outlives the file DOES stop it -------------------------------------
+
+
+def _real_enospc(monkeypatch: pytest.MonkeyPatch, *, nth: int) -> None:
+    """Make the ``nth`` copy hit a **real kernel ENOSPC** by writing to `/dev/full`. `(agi)`
+
+    ⚠ **Not a constructed `OSError`.** The errno comes from the kernel through `shutil`, so this
+    exercises delivery as well as classification - two properties, and a synthesised exception
+    proves only the second.
+    """
+    seen = {"n": 0}
+    real = safe_copy.shutil.copy2
+
+    def flaky(src: object, dst: object, *args: object, **kwargs: object) -> object:
+        seen["n"] += 1
+        if seen["n"] == nth:
+            safe_copy.shutil.copyfile(str(src), "/dev/full")
+        return real(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr(safe_copy.shutil, "copy2", flaky)
+
+
+@pytest.mark.skipif(not Path("/dev/full").exists(), reason="/dev/full is Linux-specific")
+def test_a_full_disk_stops_the_backup_instead_of_failing_every_remaining_file(
+    library: tuple[Path, Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """⚠ **CRY-WOLF HALF TWO for `(afw)`, and the whole of `(agi)`.**
+
+    Before this, a full disk produced one `failed` entry per remaining file - N wasted attempts
+    describing one condition, which is `(afa)`'s shape at run scale. It now stops at the file that
+    hit it.
+    """
+    _real_enospc(monkeypatch, nth=2)
+
+    with pytest.raises(OSError, match="No space left"):
+        _run(library)
+
+    payload = json.loads(record_path_for(library[2]).read_text(encoding="utf-8"))
+    failed = [e for e in payload["files"] if e["status"] == "failed"]
+    assert len(failed) == 1, (
+        f"the run kept trying after a condition that outlives the file: {failed}"
+    )
+    assert payload["run"]["stopped"] is not None, "an aborted run reported itself as complete"
+    assert payload["run"]["stopped"]["never_attempted"] >= 1
+
+
+@pytest.mark.skipif(not Path("/dev/full").exists(), reason="/dev/full is Linux-specific")
+def test_the_stop_reason_says_which_guard_stopped_it(
+    library: tuple[Path, Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """⚠ **A reader must not need arithmetic to tell the two abort paths apart** (`(agi)` Q44).
+
+    The watcher's abort and the classifier's abort produce the same record SHAPE - deliberately,
+    so nothing downstream branches - and `never_attempted` differs by one between them, because
+    the watcher stops before attempting a file and the classifier stops after. The **reason** is
+    what distinguishes them, and it must, or the two are only tellable apart by counting.
+    """
+    _real_enospc(monkeypatch, nth=2)
+
+    with pytest.raises(OSError, match="No space left"):
+        _run(library)
+
+    reason = json.loads(record_path_for(library[2]).read_text(encoding="utf-8"))["run"]["stopped"][
+        "reason"
+    ]
+    assert "No space left" in reason, f"the classifier's abort is not identifiable: {reason!r}"
+    assert "nearly full" not in reason, "the classifier's abort reads as the watcher's"

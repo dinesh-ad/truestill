@@ -9,7 +9,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal, NotRequired, TypedDict
+from typing import Literal, NoReturn, NotRequired, TypedDict
 
 from truestill_core.app_paths import record_path_for
 from truestill_core.catalog import Catalog
@@ -17,6 +17,7 @@ from truestill_core.catalog_session import open_catalog
 from truestill_core.destinations.base import DestinationDevice
 from truestill_core.drive import DriveMarker, read_marker
 from truestill_core.drive_adoption import AdoptionOffer, AdoptionVerdict
+from truestill_core.drive_unwritable import persists_for_the_run
 from truestill_core.hashing import sha256_file
 from truestill_core.progress import Phase, Progress, ProgressCallback
 from truestill_core.run_health import RunHealth, watcher_for
@@ -281,6 +282,16 @@ class CopyVerdict:
 
     digest: str | None
     detail: str = ""
+    #: ⚠ **Will the next file hit this too?** `(agi)`. A per-file failure is skipped and counted;
+    #: a condition that outlives the file stops the run, because continuing buys N failures
+    #: describing one condition. Decided by `drive_unwritable.persists_for_the_run`, which is the
+    #: only place that question is answered in this product.
+    persistent: bool = False
+    #: The `OSError` behind a failure, kept so an abort can re-raise **it** rather than a fresh
+    #: exception. ⚠ A newly constructed `OSError(detail)` has `errno=None`, so anything downstream
+    #: that wanted to classify it again - or word it through `drive_unwritable` - would get
+    #: nothing. The first draft of `(agi)` did exactly that.
+    error: OSError | None = None
 
     @property
     def ok(self) -> bool:
@@ -312,12 +323,22 @@ def _copy_verified(source_file: Path, dst: Path, rel: str, want: str | None) -> 
     staged = staged_copy(source_file, dst)
     if not staged.ok:
         assert staged.error is not None
+        lasting = persists_for_the_run(staged.error)
         if staged.leftover is None:
-            return CopyVerdict(None, f"copying {rel} failed: {staged.error}")
+            return CopyVerdict(
+                None,
+                f"copying {rel} failed: {staged.error}",
+                persistent=lasting,
+                error=staged.error,
+            )
+        # ⚠ The leftover matters MOST on a persistent failure: a full disk may refuse the cleanup
+        # too, so these bytes are both unremovable and part of what filled it. `(agi)`
         return CopyVerdict(
             None,
             f"copying {rel} failed: {staged.error}. {staged.leftover_bytes:,} bytes are still "
             f"at {staged.leftover} and could not be removed.",
+            persistent=lasting,
+            error=staged.error,
         )
 
     assert staged.temp is not None
@@ -340,12 +361,20 @@ def _copy_verified(source_file: Path, dst: Path, rel: str, want: str | None) -> 
     if outcome.ok:
         return CopyVerdict(written)
     assert outcome.error is not None
+    lasting = persists_for_the_run(outcome.error)
     if outcome.leftover is None:
-        return CopyVerdict(None, f"copying {rel} failed: {outcome.error}")
+        return CopyVerdict(
+            None,
+            f"copying {rel} failed: {outcome.error}",
+            persistent=lasting,
+            error=outcome.error,
+        )
     return CopyVerdict(
         None,
         f"copying {rel} failed: {outcome.error}. {outcome.leftover_bytes:,} bytes are still "
         f"at {outcome.leftover} and could not be removed.",
+        persistent=lasting,
+        error=outcome.error,
     )
 
 
@@ -368,6 +397,21 @@ class _CopyRun:
     device: DestinationDevice
     health: RunHealth | None
     record: Callable[[dict[str, str], Sequence[tuple[str, str]], tuple[str, str] | None], None]
+
+
+def _stop_the_run(verdict: CopyVerdict) -> NoReturn:
+    """Re-raise a persistent failure so the loop's handler records and the run ends. `(agi)`
+
+    ⚠ **Raises the ORIGINAL error's errno**, not a bare `OSError(detail)`. A freshly constructed
+    one carries `errno=None`, so nothing downstream could classify it again or word it through
+    `drive_unwritable` - and the first draft of this change did exactly that. The chained cause
+    keeps the original traceback as well.
+
+    A named function rather than a `raise` inside the loop: it says what the raise MEANS at the
+    call site, which a bare `raise` in a branch does not.
+    """
+    assert verdict.error is not None, "a persistent verdict always has an error behind it"
+    raise OSError(verdict.error.errno, verdict.detail) from verdict.error
 
 
 def _copy_entries(
@@ -512,6 +556,14 @@ def _copy_missing(
             # wears the real name even briefly.
             verdict = _copy_verified(run.source / rel, dst, rel, row.verify_sha)
             if not verdict.ok:
+                if verdict.persistent:
+                    # ⚠ **In FRONT of the watcher, not instead of it** (`(agi)`). This is the fast
+                    # path for a condition we can name from the errno; `_stop_if_ground_moved`
+                    # above stays the backstop for the ones we cannot - a disk filled by another
+                    # process, a mount that goes between ticks. They cannot fight: only one
+                    # exception leaves this loop, and both land in the same handler, so the
+                    # record shape is identical either way.
+                    _stop_the_run(verdict)
                 # ⚠ **Counted, named, and the run carries on.** `ENGINEERING_STANDARD.md` §4
                 # Errors. Nothing was written at the target - `staged_copy` never touches it -
                 # so skipping costs this file and nothing else.

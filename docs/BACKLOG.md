@@ -122,25 +122,6 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(agi) `ENOSPC` IS NOT A PER-FILE FACT, AND BOTH SURFACES TREAT IT AS ONE.** Recorded
-  2026-08-23 by `(afw)` Stage 4, which made backup adopt organize's partial-failure policy and
-  inherited organize's gap with it. Neither surface classifies a copy failure, so a **filling
-  destination** is treated exactly like an unreadable source file; destination-level abort is
-  delegated entirely to the periodic `run_health` watcher and `DestinationDevice`. ⚠ **Organize is
-  the bigger instance** - it runs far more often and has had this shape far longer.
-  **Prior art**: rsync gives `ENOSPC` its own fatal exit **11**, distinct from the per-file **23**;
-  restic treats a destination-write failure as fatal with **no snapshot**. 🔑 **The counter-example
-  is the useful one**: rclone does *not*, and carries open issues (rclone#6355, #5308) asking it
-  to - the same design, reported as a defect by people living with it.
-  ⚠ **The harm is NOT data loss** - staging means nothing corrupt reaches the target. It is N
-  wasted attempts and N record entries reading `failed` when the truth is one condition at file
-  12, which is `(afa)`'s shape at run scale.
-  ⚠ **The mechanism is narrower than it looks, measured**: `OSError.filename` names the failing
-  side only for **open-time** failures; on the fast path a mid-copy `ENOSPC` carries neither
-  filename, so it is classifiable by errno alone. **Do not write a second errno table** -
-  `drive_unwritable.classify_unwritable` is the only one, by `(aek)`/`(aep)`.
-  Also carries three `(afw)` residues: no third job state, the record's location untold, and
-  `failed` in the payload but unrendered. [Full entry](research/backlog/agi.md)
 - **(agh) `LocalGuard` MAKES FORGETTING THE TOKEN IMPOSSIBLE AND UN-EXEMPTING INVISIBLE.**
   Recorded 2026-08-23. **The token is enforced well** - ASGI middleware wrapping the whole app
   (`server.py:904`), so no route can forget it, with Host/Origin checks and

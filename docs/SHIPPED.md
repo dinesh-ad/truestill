@@ -105,6 +105,32 @@ recording shipped work as unstarted, which is the more expensive direction of th
   **not real**; there is no mechanism, and it is recorded as refuted rather than quietly dropped.
   [Full entry](research/backlog/agg.md)
 
+- **(agi) A CONDITION THAT OUTLIVES THE FILE NOW STOPS THE RUN, ON BOTH SURFACES.** Shipped
+  2026-08-23. `(afw)` Stage 4 made both surfaces continue past a per-file failure - right - but
+  neither classified it, so **a filling destination read exactly like one unreadable photo**: N
+  wasted attempts and N record entries reading `failed` when the truth is one condition at file 12.
+  `drive_unwritable.persists_for_the_run` answers *"will the next file hit this too?"* and both
+  `organizer.py` and `service/backup.py` consult it. **The errno table is the implementation of
+  that predicate, never the rule** - every branch says why the condition persists, and an
+  unreasoned errno continues, because continuing is recoverable and aborting a good run is not.
+  🔑 **`ENOSPC` is persistent for a MECHANISM**: a full copy-on-write filesystem needs metadata to
+  **delete**, so it can refuse the cleanup too, and btrfs *"will change your filesystem to
+  read-only to protect itself"* - after which every remaining file fails.
+  ⚠ **TWO DEFECTS IN THE FIRST DRAFT, BOTH CAUGHT BY ITS OWN TESTS.** It was **inert on organize**,
+  the surface that runs most, because `LocalDestination.upload` raises `DestinationError(...) from
+  outcome.error` and the guard tested `isinstance(exc, OSError)`; the predicate now walks the cause
+  chain in one place. And the abort **threw away the errno** by raising a fresh
+  `OSError(detail)`. The first is this repo's signature *"stops one step short"* shape, committed
+  and then caught end to end.
+  ⚠ **Linux is proven with a real kernel `ENOSPC` via `/dev/full`; Windows is ASSUMED** - the
+  `ERROR_DISK_FULL` (112) / `ERROR_HANDLE_DISK_FULL` (39) to `ENOSPC` link is Python's and is
+  exercised by nothing here, so a green Windows lane must not be read as evidence of it. A real
+  full volume via `diskpart` is costed in the entry and not built.
+  **Prior art**: rsync's fatal 11 against per-file 23, restic's fatal destination-write with no
+  snapshot, and rclone as the counter-example whose users file this behaviour as a defect
+  (rclone#6355, #5308). PEP 3151 is the general form - inspect `errno` rather than catching broadly.
+  [Full entry](research/backlog/agi.md)
+
 - **(agf) A FENCED `python` BLOCK IN A DOCUMENT IS A QUOTATION TO A READER AND AN INPUT TO A
   FORMATTER.** Shipped 2026-08-23. ruff 0.16 formats Python inside Markdown, and `make check`
   rewrote `(age)`'s quotation of `filesystem.py` from `free_bytes=need if free is None else free,`

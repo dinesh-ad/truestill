@@ -93,6 +93,75 @@ _FOLDER_WORDS: dict[Unwritable, str] = {
 }
 
 
+def persists_for_the_run(error: BaseException) -> bool:
+    """Will the NEXT file hit this too? `(agi)`
+
+    **The discriminator is not which side failed, it is whether the condition outlives the file.**
+    A condition that persists must stop the run; one local to a single file must not, because
+    `ENGINEERING_STANDARD.md` §4 Errors is *"one bad file never aborts a batch"*. The table below
+    is the **implementation** of that predicate, never the rule itself - so every branch carries
+    why the condition persists, and an errno nobody has reasoned about returns `False`, because
+    continuing is the recoverable mistake and aborting a good run is not.
+
+    ⚠ **Keyed on ``errno``, never on ``winerror``, and that is what makes it right on Windows for
+    free.** Python sets ``errno`` as an approximate POSIX translation of the native code, so
+    ``ERROR_DISK_FULL`` (112) and ``ERROR_HANDLE_DISK_FULL`` (39) arrive here as ``ENOSPC``.
+    A ``winerror`` table would need a second copy for the one platform that cannot be checked
+    locally. PEP 3151 gives the general form of this rule: inspect ``errno`` rather than catching
+    a broad exception type.
+
+    **Null result from the research, recorded so it is not re-sought:** no comparable project
+    publishes a per-errno persistence table. rsync, restic and rclone all express the same split
+    at the level of **exit codes** - rsync's fatal 11 against the per-file 23, restic's fatal
+    destination-write against exit 3 - and rclone does not classify at all, which is why it
+    carries rclone#6355 and #5308 asking it to. **So this table is ours, and every row states its
+    reason or it is folklore.**
+
+    ⚠ **This is not retry classification.** The neighbouring industry idea - transient versus
+    permanent, retry the first - is a different axis. Nothing here retries anything; the question
+    is only whether to keep going.
+    """
+    # ⚠ **The CAUSE CHAIN is walked, not just the exception handed in.** `LocalDestination.upload`
+    # raises `DestinationError(...) from outcome.error`, so organize's handler never sees an
+    # `OSError` at all - and the first draft of `(agi)`, which took an `OSError` and tested
+    # `isinstance`, was therefore **inert on the surface that runs most**. Caught by its own
+    # end-to-end test rather than in review, which is the only reason it is not shipped.
+    underlying: BaseException | None = error
+    while underlying is not None and not isinstance(underlying, OSError):
+        underlying = underlying.__cause__
+    if underlying is None:
+        return False
+    error = underlying
+    kind = classify_unwritable(error)
+    if kind is Unwritable.NO_SPACE:
+        # 🔑 **The strongest row, and it is a mechanism rather than an inference.** A disk does not
+        # refill between files. On a copy-on-write filesystem it is worse than that: btrfs needs
+        # to allocate metadata even to DELETE, so a full one can refuse the cleanup as well - and
+        # it *"will change your filesystem to read-only to protect itself"*. At that point every
+        # remaining file fails, so continuing buys N failures describing one condition.
+        return True
+    if kind is Unwritable.QUOTA:
+        # An account's allowance is external to this run and nothing the run does clears it.
+        return True
+    if kind is Unwritable.FAILING:
+        # `EIO`. Hardware giving up is a property of the device, not of one file; the next read
+        # reaches the same device.
+        return True
+    if kind is Unwritable.REFUSED:
+        # ⚠ **The one branch `classify_unwritable` cannot decide alone**, because `EROFS` and
+        # `EACCES` share a member. A read-only mount stays read-only for the whole run; one
+        # file's permissions are one file's. Read from the errno rather than widening
+        # `Unwritable` - a new member is an exhaustiveness gate across every match site
+        # (`IMPLEMENTATION_STANDARDS.md` §2), and this needs a different ANSWER to an existing
+        # condition, not a new condition.
+        return error.errno == errno.EROFS
+    # ⚠ **`GONE` is deliberately here rather than above.** A vanished *source* is one file
+    # somebody moved. A vanished *destination* does persist - and `DestinationDevice.check`
+    # already fails closed on exactly that, at the top of every loop, so a second guard here
+    # would be two checks for one condition and the one that fires second would look redundant.
+    return False
+
+
 def explain_unwritable_drive(error: OSError) -> str:
     """What went wrong, in words a person can act on rather than an errno.
 

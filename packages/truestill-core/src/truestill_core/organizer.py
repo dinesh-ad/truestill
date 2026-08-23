@@ -36,6 +36,7 @@ from truestill_core.dates import (
 from truestill_core.dedup import DedupIndex
 from truestill_core.destinations.base import CrossDeviceError, Destination, DestinationError
 from truestill_core.drive import LEGACY_MARKER_NAMES, MARKER_NAME
+from truestill_core.drive_unwritable import persists_for_the_run
 from truestill_core.exif import WRITE_BATCH_SIZE, build_metadata_args, write_metadata_batch
 from truestill_core.filesystem import DestinationPreflight, sizes_of
 from truestill_core.hash_cache import HashCache
@@ -1877,6 +1878,40 @@ def _catalog_stop_detail(exc: CatalogWriteError, *, recorded: int) -> str:
     return " ".join(parts)
 
 
+def _record_then_stop_if_it_will_recur(
+    record: Callable[[ActionResult], None], resolution: Resolution, exc: Exception
+) -> None:
+    """Record one file's failure, and end the run if the next file would hit it too. `(agi)`
+
+    ⚠ **RECORDED FIRST, THEN RE-RAISED, and the order is deliberate.** The file WAS attempted and
+    it DID fail, so a `FAILED` row carrying the reason is true - and it matches both the
+    `CatalogWriteError` arm, which records before its `break`, and backup's abort, where the file
+    that hit the condition is `failed` rather than `not attempted`. Recording only on the continue
+    path would make the same real event read differently depending on whether it happened to be
+    persistent, which is the kind of difference nobody can explain later.
+
+    **`ENGINEERING_STANDARD.md` §4 Errors is about a file the product could not *use*** - skipping
+    it costs that file and nothing else. It was never about a destination that has stopped
+    accepting anything: continuing there buys N failures all describing one condition, which is
+    `(afa)`'s shape at run scale.
+
+    **In front of `_health_stop`, not instead of it.** That watcher stays the backstop for what an
+    errno cannot name - a disk filled by another process, a mount that goes between ticks.
+
+    A function rather than three lines in the handler because `execute` is at its statement
+    ceiling, and `IMPLEMENTATION_STANDARDS.md`'s complexity rule is answered by extracting rather
+    than by raising the limit.
+    """
+    record(ActionResult(resolution, ActionStatus.FAILED, None, str(exc)))
+    if persists_for_the_run(exc):
+        # ⚠ **No `isinstance(exc, OSError)` guard**, and that is the fix rather than a
+        # simplification: `LocalDestination.upload` raises `DestinationError(...) from
+        # outcome.error`, so this handler never sees a bare `OSError` and the guarded version was
+        # INERT on organize - the surface that runs most. `persists_for_the_run` walks the cause
+        # chain, which is the one place that unwrapping belongs.
+        raise exc
+
+
 def _health_stop(
     health: RunHealth, resolution: Resolution, *, ahead: int, written: int
 ) -> ActionResult | None:
@@ -2041,7 +2076,7 @@ def execute(
             record(ActionResult(resolution, ActionStatus.FAILED, None, detail))
             break
         except (OSError, DestinationError) as exc:
-            record(ActionResult(resolution, ActionStatus.FAILED, None, str(exc)))
+            _record_then_stop_if_it_will_recur(record, resolution, exc)
 
     baker.close()
     return results
