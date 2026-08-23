@@ -11,6 +11,7 @@ xdist on, because the worker/controller split IS the defect.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -46,11 +47,12 @@ def _run_suite(scratch: Path, test_body: str, where: Path) -> subprocess.Complet
     return subprocess.run(
         [sys.executable, "-m", "pytest", str(where / "test_probe.py"), "-n", "2", "-q"],
         cwd=ROOT,
-        env={
-            "PATH": "/usr/bin:/bin",
-            "TMPDIR": str(scratch),
-            "HOME": str(where),  # pytest-of-<user> needs a resolvable user; isolation besides
-        },
+        # The REAL environment, three keys overridden - never a hand-rolled minimal one. The
+        # first draft passed only PATH/HOME/TMPDIR: on Windows that strips SYSTEMROOT, without
+        # which Winsock cannot initialize (WinError 10106 at asyncio import - the CI lane
+        # caught it), and Windows tempfile consults TEMP/TMP, not TMPDIR, so the probe scratch
+        # would have gone unused there anyway. All three spellings point at the probe scratch.
+        env={**os.environ, "TMPDIR": str(scratch), "TEMP": str(scratch), "TMP": str(scratch)},
         capture_output=True,
         text=True,
         check=False,
