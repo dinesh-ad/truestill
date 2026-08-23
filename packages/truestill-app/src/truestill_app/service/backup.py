@@ -11,7 +11,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal, NoReturn, NotRequired, TypedDict
 
-from truestill_core.app_paths import record_path_for
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_session import open_catalog
 from truestill_core.destinations.base import DestinationDevice
@@ -21,7 +20,7 @@ from truestill_core.drive_unwritable import persists_for_the_run
 from truestill_core.hashing import sha256_file
 from truestill_core.progress import Phase, Progress, ProgressCallback
 from truestill_core.run_health import RunHealth, watcher_for
-from truestill_core.run_record import RunHeader, build_run_record, write_run_record
+from truestill_core.run_record import RunHeader, build_run_record, record_organize
 from truestill_core.safe_copy import staged_copy
 
 from truestill_app.jobs import JobTarget
@@ -509,7 +508,7 @@ def _recorder(
                 attempted=attempted,
                 stopped=stopped,
             )
-            write_run_record(record_path_for(db), payload)
+            record_organize(db, payload)
         except Exception:
             # Swallowed on purpose, argued above: the run's own outcome must survive its
             # paperwork. `BLE001`/`S110` are not enabled here, so there is nothing to suppress

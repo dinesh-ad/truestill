@@ -69,7 +69,9 @@ def test_a_run_records_itself_without_being_asked(
     # 2 since `(afw)`: the `run` block gained `kind` and a `files` entry's shape now
     # depends on it. A literal rather than the constant, deliberately - this is the
     # line that makes a format bump an edit somebody made on purpose.
-    assert record["format"] == 2
+    # ⚠ **3 since undo joined**: a `files` entry's shape depends on `run.kind`, and undo is a
+    # third shape. `(afw)`
+    assert record["format"] == 3
     assert record["run"]["intended_total"] == 4
     assert record["run"]["attempted"] == 4
     assert record["run"]["stopped"] is None

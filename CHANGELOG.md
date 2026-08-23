@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Undoing an organize now writes down what it put back**, the way organizing itself does - and
+  it no longer overwrites the record of the run it reversed. Truestill keeps a permanent one-line
+  history of every run beside your catalog, with the full file-by-file detail of recent ones.
+
 ### Fixed
 - **Undo no longer reports a problem, or stays armed, over files it was never going to move.**
   After reversing an organize, Truestill could keep offering to undo a run it had already fully

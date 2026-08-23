@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agk). Next free: (agl).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agl). Next free: (agm).**
 ⚠ **`(agf)` was cited by `pyproject.toml`, a test and `age.md` before its entry existed**, so for
 one commit three working citations resolved to nothing. Recorded because it is this section's own
 warning happening - *"nothing recorded which letters were spoken for"* - and the fix is to claim
@@ -121,6 +121,24 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(agl) UNDO ACCEPTS A CANCEL AND DROPS IT.** Recorded 2026-08-23, split out of `(afw)`'s undo
+  stage. `undo.run_undo` takes no `cancel`, and `service/organize_undo.py`'s job target takes
+  `_cancel: threading.Event` and **ignores it** - so the app's stop button cannot stop an undo.
+  ⛔ **The first question is not "wire it up"**: it is whether undo should be cancellable at all.
+  🔑 **A reversal stopped halfway leaves MORE files displaced than one allowed to finish**, so
+  *stop* on undo may be the button that causes the harm - a product question that decides the
+  design. Against it: 33,000 files takes about **3.1 minutes** (measured), and a user reversing
+  the wrong run has no way out.
+  ⚠ **"Deliberately uninterruptible" is not today's state** - a parameter accepted and dropped is
+  an oversight, and the underscore that satisfies the linter is what hides it. Whatever is
+  chosen, the signature must stop claiming to take something it ignores.
+  Three options carried, not one implementation: **(a)** wire it through (`UndoOutcome.stopped`
+  already exists, so this is the cheapest); **(b)** declare it uninterruptible, **remove** the
+  parameter and disable the stop button with a reason; **(c)** honour it only **between** files.
+  **Research first**: what rsync, restic and file managers do about interrupting a *restore*
+  rather than a backup. Prior is that restores are safer to finish than to stop - a hypothesis.
+  [Full entry](research/backlog/agl.md)
 
 - **(agh) `LocalGuard` MAKES FORGETTING THE TOKEN IMPOSSIBLE AND UN-EXEMPTING INVISIBLE.**
   Recorded 2026-08-23. **The token is enforced well** - ASGI middleware wrapping the whole app
@@ -369,7 +387,14 @@ is invisible here is retired, not free.**
   `cli._register_destination` landed 2026-08-05 in `a0091cf`, gated on `--apply`. Rows written
   **before** that still carry no copy row, so they stay outside custody and invisible to
   `verify`, `status` and `where`. Recorded 2026-08-05. [Full entry](research/backlog/abe.md)
-- **(abf) A fix does not retroactively clean what it prevented.** Recorded 2026-08-05. [Full
+- **(abf) A fix does not retroactively clean what it prevented.** Recorded 2026-08-05.
+  🔑 **User evidence, added 2026-08-23**: a Photoshop Elements user imported from an SD card
+  for **four years** believing files were being moved to their hard drive, because their
+  preferences said so; the import had silently begun leaving them on the card. They wiped it
+  and lost photographs of a newborn grandchild. **Thumbnails displayed correctly throughout.**
+  That is reassured-state-with-no-staleness costing someone their photographs, and it moves
+  this entry from a theoretical worry to an observed failure mode.
+  [`user-evidence-log.md`](user-evidence-log.md) §2. [Full
   entry](research/backlog/abf.md)
 - **(abg) The reassured state has no notion of staleness - "Schrodinger's backup".** 📌 **read the
   entry first - a premise inside it was corrected.** **Stages 1-3 have shipped**; what remains open

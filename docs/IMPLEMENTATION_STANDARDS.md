@@ -17,8 +17,45 @@ Paths are workspace-relative. Symbols are cited over line numbers, which drift.
 | **Copy-only - never move or delete user files, except the scoped, opt-in exceptions below.** | `organizer.execute` uploads via `LocalDestination.upload` (`shutil.copy2`) / `RcloneDestination.upload` (`rclone copyto`). `rclone` uses `copyto`, never `sync`. The only code paths that remove a source from where the user left it are `organizer._move_source` (`--move`), `reclaim.run_reclaim` (`truestill reclaim`), and the rename path `LocalDestination.adopt` (`--in-place`) - all scoped exactly like the Takeout write path (below). |
 
 **⚠ A run that changes the library writes down what it did, beside the catalog, without being
-asked** (2026-08-22, `(afl)`; carried to the app by `(afu)`). One rolling `last-run.json` per
-catalog, built from the run's
+asked** (2026-08-22, `(afl)`; carried to the app by `(afu)`). ⚠ **NO LONGER ONE ROLLING FILE,
+changed 2026-08-23 by `(afw)`'s undo stage** - and changed rather than worked around, because the
+one-file rule *defeated §1's own purpose*: an undo record written to `last-run.json` **destroyed
+the organize record of the run it had just reversed**, which are exactly the two documents a
+person needs together. No users exist, so the contract was free to change; it will not be after
+the first tag.
+
+**The shape now**, beside the catalog:
+
+| artefact | lifetime | holds |
+|---|---|---|
+| `last-run.json` | until superseded | **the newest record itself** - not a symlink (a privilege ordinary Windows users lack) and not a copy (two sources of truth); rotating on write keeps the name meaning what it says |
+| `runs/index.jsonl` | **forever** | one append-only line per run, so pruning can never cost the fact that a run happened |
+| `runs/<written_at>-<kind>.json.gz` | bounded by `DETAIL_BUDGET_BYTES` | superseded per-file detail, compressed on demotion (measured: **6.9%**) |
+
+⚠ **A LINE NEVER SAYS WHETHER ITS DETAIL STILL EXISTS - a reader looks.** The index is
+append-only, so a line that became false could never be corrected; and writing the line *first*
+means a failed detail write leaves a run recorded with no detail, which is the same state a pruned
+run is in and which every reader already handles. Detail-first would instead leave a file nothing
+points at, avoidable only by deleting it on failure. `(aem)` derives *"interrupted"* rather than
+trusting a flag for the same reason.
+
+⚠ **The bound is MEASURED, and is bytes rather than a count.** A real 33,000-file in-place run
+over `~/TruestillLibrary` wrote a **36.9 MiB** record beside an **8.0 MiB** catalog - **4.6x the
+catalog it describes** - so keeping every one forever was never an option. Run sizes span four
+orders of magnitude, so a count would hold 1.8 GB for one user and 100 KB for another. **The
+newest is never pruned**, structurally: it is `last-run.json`, not in the pruned directory.
+
+⚠ **Pruning takes no confirmation, and that is a ruling.** This repo refuses automatic deletes -
+`reclaim` demands a typed word, `clean-empty` reports and never removes - because those delete
+**the user's photographs**. This deletes only records the product generated, and it cannot delete
+a *fact*: the index line survives forever. Pruning removes redundancy in time, not knowledge of
+the past.
+
+⚠ **Concurrency is `drive_lock`, not `O_APPEND`.** Two runs on two drives share one catalog and
+therefore one `runs/`, and append atomicity is not guaranteed on Windows at all. Each line is
+self-contained JSON, so a torn write costs one line rather than the file.
+
+Each record is built from the run's
 **results** rather than its plan, carrying every file's outcome and - when the run stopped early -
 the reason and the count of files never attempted. Automatic because the user who most needs it is
 the one who did not know to ask; `--report PATH` says only *where* it goes. ⚠ **Its own failure

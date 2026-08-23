@@ -122,6 +122,13 @@ LOCKS_DIRNAME = "locks"
 #: the catalog. `(afl)`
 RUN_RECORD_FILENAME = "last-run.json"
 
+#: Where superseded run records and the permanent index live, beside the catalog. `(afw)`
+RUNS_DIRNAME = "runs"
+
+#: One line per run, append-only, **kept forever**. Detail files are pruned; this is not, so the
+#: fact that a run happened outlives the detail of what it did.
+RUN_INDEX_FILENAME = "index.jsonl"
+
 #: Filename of the copy taken before a schema migration. `(ady)`
 #:
 #: **A FIXED name, so supersession is one atomic rename with no window in which no copy exists.**
@@ -315,6 +322,42 @@ def record_path_for(catalog: Path) -> Path:
     catalog is, and travels with it. `(afl)`
     """
     return catalog.parent / RUN_RECORD_FILENAME
+
+
+def runs_dir_for(catalog: Path) -> Path:
+    """The run history beside ``catalog``. `(afw)`
+
+    ⚠ **`record_path_for` used to be the whole story, and one rolling file was not enough.** An
+    undo record written over `last-run.json` destroyed the organize record of the run it had just
+    reversed - the two documents a person needs *together*, and the second one deleting the first.
+    So the newest record keeps that name and its meaning, and every superseded one moves here.
+    """
+    return catalog.parent / RUNS_DIRNAME
+
+
+def run_index_for(catalog: Path) -> Path:
+    """The append-only, never-pruned index of every run. `(afw)`
+
+    **History is split from detail so pruning can never cost the fact that a run happened.**
+    git's reflog shape: this file keeps one line per run forever, and the per-file detail beside
+    it is bounded. ⚠ **A line does NOT say whether its detail still exists** - a reader looks,
+    because a derived answer cannot go stale and an asserted one can. `(aem)` made the same
+    choice for "interrupted", deriving it rather than trusting `completed_at`.
+    """
+    return runs_dir_for(catalog) / RUN_INDEX_FILENAME
+
+
+def superseded_record_path(catalog: Path, *, started_at: str, kind: str, run_id: str) -> Path:
+    """Where `last-run.json` goes when a newer run supersedes it.
+
+    The name carries everything an index line holds, so an unindexed file is still identifiable -
+    which is what makes the index rebuildable rather than authoritative.
+    """
+    stamp = started_at.replace(":", "-")
+    # The id is omitted rather than spelled "unknown": organize records carry no run id today,
+    # and a filename asserting one it does not have is worse than a shorter name.
+    tail = f"-{run_id}" if run_id else ""
+    return runs_dir_for(catalog) / f"{stamp}-{kind}{tail}.json"
 
 
 def backup_path_for(catalog: Path) -> Path:

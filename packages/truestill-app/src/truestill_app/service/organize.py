@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any, Literal, NotRequired, TypedDict, cast
 
 from truestill_core import decode_noise
-from truestill_core.app_paths import record_path_for
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_session import open_catalog
 from truestill_core.categorize import build_rules
@@ -72,8 +71,8 @@ from truestill_core.run_record import (
     RunHeader,
     build_run_record,
     files_from_resolutions,
+    record_organize,
     stop_block,
-    write_run_record,
 )
 from truestill_core.thumbnails import upright_size
 
@@ -1460,7 +1459,7 @@ def _write_the_record(
         attempted=len(results),
         stopped=stopped if stopped is not None else stop_block(resolutions, results),
     )
-    return write_run_record(record_path_for(db), payload)
+    return record_organize(db, payload)
 
 
 def _completion(

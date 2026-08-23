@@ -73,6 +73,7 @@ On 2026-08-22 those read **183** and **121**, leaving **62** mapped below. ⚠ T
 | How do I move libraries to another machine? | [`docs/moving-machines.md`](docs/moving-machines.md) |
 | What does the product look like? (wordmark, colour, icons) | [`docs/brand.md`](docs/brand.md) |
 | Where did the brand artwork come from, and under what licence? | [`brand/PROVENANCE.md`](brand/PROVENANCE.md) · [`brand/README.md`](brand/README.md) |
+| What have real users actually lost, in their own words? | [`docs/user-evidence-log.md`](docs/user-evidence-log.md) - a **record**: forum evidence behind `(abf)`, `(agk)` and the parity gap. Evidence, never rules |
 | What is wrong with the UI, surface by surface? | [`docs/ui-inventory.md`](docs/ui-inventory.md) |
 | What does the Organize result grid have to look like? | [`docs/organize-grid-design.md`](docs/organize-grid-design.md) |
 | What is the plan for React, and what is already settled? | [`docs/react-migration-plan.md`](docs/react-migration-plan.md) |

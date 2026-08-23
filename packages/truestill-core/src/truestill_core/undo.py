@@ -29,6 +29,7 @@ from typing import Final
 
 from truestill_core.catalog import Catalog
 from truestill_core.drive import path_is_usable_dir
+from truestill_core.drive_unwritable import persists_for_the_run
 from truestill_core.hashing import sha256_file
 from truestill_core.progress import Phase, Progress, ProgressCallback
 
@@ -155,11 +156,29 @@ class UndoPlan:
 
 
 @dataclass(frozen=True, slots=True)
+class UndoStop:
+    """Why a reversal ended before it reached every file. `(afw)`"""
+
+    reason: str
+    never_attempted: int
+
+
+@dataclass(frozen=True, slots=True)
 class UndoOutcome:
     plan: UndoPlan
     restored: int
     skipped: list[UndoSkipped]
     applied: bool
+    #: ⚠ **A FIELD, NOT AN EXCEPTION, AND THAT IS REUSE RATHER THAN AN EXEMPTION FROM IT.**
+    #: `organizer.RunStoppedError` exists for exactly one job - carrying partial results *past a
+    #: raise*, because `execute`'s results are local to a frame that unwinds. `run_undo` is the
+    #: outermost loop and already owns and returns the whole outcome, so there is no frame to
+    #: lose and the problem that type solves does not arise here. Reusing it would mean
+    #: fabricating `ActionResult`s or widening its `results` type; both are worse than a field.
+    #:
+    #: A useful consequence: undo needs no `(agj)` equivalent, because the record is written on
+    #: the ordinary path by construction - there is no raising path to lose it down.
+    stopped: UndoStop | None = None
 
 
 class UndoError(RuntimeError):
@@ -333,6 +352,7 @@ def run_undo(
 
     restored = 0
     skipped = list(plan.skipped)
+    stopped_reason: str | None = None
     total = len(plan.steps)
     for done, step in enumerate(plan.steps, start=1):
         # Re-check immediately before moving: the preview may be minutes old, and the
@@ -349,6 +369,15 @@ def run_undo(
             step.current.rename(step.original)
         except OSError as exc:
             skipped.append(UndoSkipped(step, UndoSkip.FAILED, str(exc)))
+            # ⚠ **THE THIRD SURFACE FOR ONE PREDICATE, not a new question.** `(agi)` ruled that a
+            # condition which will hit the next file too must stop the run, and undo meets those
+            # conditions more readily than anything else in the product: a user mid-recovery may
+            # have remounted the drive **read-only** to protect it (`EROFS`), and a failing device
+            # (`EIO`) is often *why* they are undoing. Continuing there buys N identical failures
+            # describing one condition, which is `(afa)`'s shape at run scale.
+            if persists_for_the_run(exc):
+                stopped_reason = str(exc)
+                break
             continue
 
         # Drops this drive's copy record, and the file row with it when no copy remains --
@@ -365,6 +394,15 @@ def run_undo(
     # restored are simply skipped as MOVED_AWAY on that second pass, so retrying is safe.
     # ⚠ **`outstanding`, not `skipped`.** A run held open on something a second undo can never
     # resolve leaves `still_armed` true forever, on the one path where a wrong state costs most.
-    if not outstanding(skipped):
+    # A run that STOPPED is never closed either: it has files it did not reach.
+    # Counted at the end rather than in the loop: "never attempted" is `steps` minus everything
+    # that got a verdict, which is one subtraction here and three fiddly terms in the branch.
+    verdicts = restored + len(skipped) - len(plan.skipped)
+    stopped = (
+        None
+        if stopped_reason is None
+        else UndoStop(reason=stopped_reason, never_attempted=len(plan.steps) - verdicts)
+    )
+    if stopped is None and not outstanding(skipped):
         catalog.finish_inplace_run(plan.run_id, status="undone")
-    return UndoOutcome(plan=plan, restored=restored, skipped=skipped, applied=True)
+    return UndoOutcome(plan=plan, restored=restored, skipped=skipped, applied=True, stopped=stopped)

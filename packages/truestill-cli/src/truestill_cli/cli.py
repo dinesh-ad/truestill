@@ -200,6 +200,8 @@ from truestill_core.run_record import (
     RunHeader,
     build_run_record,
     files_from_resolutions,
+    record_organize,
+    record_undo,
     stop_block,
     write_run_record,
 )
@@ -222,6 +224,8 @@ from truestill_core.takeout import (
 from truestill_core.undo import (
     SkipClass,
     UndoError,
+    UndoOutcome,
+    UndoPlan,
     classify,
     outstanding,
     plan_undo,
@@ -2669,7 +2673,15 @@ def _record_the_run(
         attempted=len(results),
         stopped=stopped if stopped is not None else stop_block(resolutions, results),
     )
-    error = write_run_record(path, payload)
+    # ⚠ **`record_organize`, not `write_run_record`**: every run needs its index line, or a
+    # superseded record can be pruned with nothing left saying the run happened. `--report PATH`
+    # still says only WHERE the detail goes, so a custom path skips the history entirely - which
+    # is what a caller asking for a one-off report has asked for.
+    error = (
+        write_run_record(path, payload)
+        if getattr(args, "report", None)
+        else record_organize(args.db, payload)
+    )
     if error is not None:
         # The run itself succeeded or failed on its own terms; the paperwork must not restate it.
         print(f"\n  Could not write the run record to {path}: {error}", file=sys.stderr)
@@ -4072,6 +4084,55 @@ def _cmd_migrate_layout(args: argparse.Namespace) -> int:
         return 0
 
 
+def _apply_the_undo(args: argparse.Namespace, plan: UndoPlan, outcome: UndoOutcome) -> int:
+    """Record the reversal and report it. `(afw)`
+
+    **Lifted out of `_cmd_undo_organize` so that stays under its branch ceiling**, which
+    `IMPLEMENTATION_STANDARDS.md` answers by extracting rather than by raising the limit - the
+    same move `_stopped_run_exit` made on the organize side.
+
+    ⚠ **THE LOCK DELIBERATELY STAYS IN THE CALLER.**
+    `test_every_command_declares_whether_it_locks_a_drive.py` reads the declaring function's own
+    calls, so lifting `lock_for` out to here would make a command that declares
+    `_LOCKED_IN_HANDLER` look as though it never locks. **Extracting around a guard until the
+    guard stops seeing the thing it guards is how a guard dies quietly** - and this one exists
+    because `(aaw)` found two processes overwriting each other's photographs.
+    """
+    # ⚠ **The record, and undo is the fourth surface to get one.** `IMPLEMENTATION_STANDARDS`
+    # requires it of *a run that changes the library*, and undo moves the user's files just as
+    # organize does. Its own failure must never fail the reversal, so the error is printed
+    # rather than raised - `decisions.write_decisions`'s rule.
+    record_error = record_undo(args.db, plan, outcome)
+    if record_error is not None:
+        print(f"\n  Could not write the run record: {record_error}", file=sys.stderr)
+    print(f"\nRestored {outcome.restored} file(s) to their original locations.")
+    if outcome.stopped is not None:
+        print(
+            f"  Stopped: {outcome.stopped.reason}\n"
+            f"  {outcome.stopped.never_attempted} file(s) were not reached.",
+            file=sys.stderr,
+        )
+    # ⚠ **A file that was never moved is not one that could not be restored** (`(agk)`).
+    # Since the journal records intent, an interrupted run leaves rows for renames that
+    # never happened; calling those failures would make every such run report a problem it
+    # does not have, and would spend the exit code on it.
+    #
+    # ⚠ **`undo.outstanding`, not a filter written here.** This listed one reason by hand and
+    # missed `WAS_A_COPY`, so a fallback-copy row made a clean undo exit 1. The exit code and
+    # `run_undo`'s close condition are two readings of one question and must not drift.
+    unresolved = outstanding(outcome.skipped)
+    never = len(outcome.skipped) - len(unresolved)
+    if never:
+        print(f"  {never} file(s) had nothing to undo; no further undo can change them.")
+    if unresolved:
+        print(
+            f"  {len(unresolved)} file(s) could not be restored; the run stays open so "
+            "you can re-run undo once they are resolved.",
+            file=sys.stderr,
+        )
+    return 1 if unresolved else 0
+
+
 def _cmd_undo_organize(args: argparse.Namespace) -> int:
     with _catalog(args.db) as catalog:
         if args.list:
@@ -4145,26 +4206,7 @@ def _cmd_undo_organize(args: argparse.Namespace) -> int:
         except DriveBusyError as busy:
             print(f"error: {busy}", file=sys.stderr)
             return DRIVE_BUSY_EXIT
-        print(f"\nRestored {outcome.restored} file(s) to their original locations.")
-        # ⚠ **A file that was never moved is not one that could not be restored** (`(agk)`).
-        # Since the journal records intent, an interrupted run leaves rows for renames that
-        # never happened; calling those failures would make every such run report a problem it
-        # does not have, and would spend the exit code on it.
-        #
-        # ⚠ **`undo.outstanding`, not a filter written here.** This listed one reason by hand and
-        # missed `WAS_A_COPY`, so a fallback-copy row made a clean undo exit 1. The exit code and
-        # `run_undo`'s close condition are two readings of one question and must not drift.
-        unresolved = outstanding(outcome.skipped)
-        never = len(outcome.skipped) - len(unresolved)
-        if never:
-            print(f"  {never} file(s) had nothing to undo; no further undo can change them.")
-        if unresolved:
-            print(
-                f"  {len(unresolved)} file(s) could not be restored; the run stays open so "
-                "you can re-run undo once they are resolved.",
-                file=sys.stderr,
-            )
-        return 1 if unresolved else 0
+        return _apply_the_undo(args, plan, outcome)
 
 
 def _print_reclaim_plan(plan: ReclaimPlan, *, label: str, min_copies: int) -> None:

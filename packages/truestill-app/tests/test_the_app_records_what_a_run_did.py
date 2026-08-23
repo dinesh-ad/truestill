@@ -52,7 +52,16 @@ MUTATING_RUNS: dict[str, tuple[bool, str]] = {
         "returns counts plus a per-file PLAN; its durable per-file state is `migration_journal`",
     ),
     "bake": (False, "returns counts only"),
-    "organize_undo": (False, "returns counts only"),
+    "organize_undo": (
+        True,
+        # ⚠ **THIS SAID "returns counts only" AND WAS FALSE THE DAY IT WAS WRITTEN.** `(afw)`
+        # grouped undo with bake on that basis, which made it look like a design problem. In fact
+        # `UndoOutcome` has carried `plan.steps` and `skipped: list[UndoSkipped]` since the
+        # original in-place commit `dee4785` - organize's shape, with a RICHER outcome model than
+        # backup's `(relative, why)` tuples, because `UndoSkip` is a seven-member enum. Undo was
+        # the cheapest of the four remaining surfaces, not the hardest.
+        "returns a per-file plan AND typed per-file outcomes; writes one since `(afw)`",
+    ),
 }
 
 
@@ -182,8 +191,10 @@ def test_a_failed_write_reaches_the_completion_payload(
     source, destination, db = _library(tmp_path)
 
     monkeypatch.setattr(
-        "truestill_app.service.organize.write_run_record",
-        lambda _path, _payload: "No space left on device",
+        # `record_organize` since `(afw)`: organize writes an index line as well as its detail,
+        # so this is the entry point whose failure the completion payload has to carry.
+        "truestill_app.service.organize.record_organize",
+        lambda _db, _payload: "No space left on device",
     )
     done = _run(source, destination, db)
 
@@ -270,7 +281,15 @@ def test_every_mutating_app_run_is_accounted_for() -> None:
         module = service / f"{name}.py"
         assert module.is_file(), f"{name} is listed here and does not exist"
         source = module.read_text(encoding="utf-8")
-        wires_it = "write_run_record" in source
+        # ⚠ **Any of the record-writing entry points, not one name.** This grepped
+        # `write_run_record` alone, which was exact while that was the only way in; undo reaches
+        # it through `record_undo` -> `record_run`, so the single name silently answered "does
+        # not write" about a surface that does. A guard keyed on one spelling of a thing fails
+        # the moment the thing acquires a second spelling.
+        wires_it = any(
+            entry in source
+            for entry in ("write_run_record", "record_run", "record_organize", "record_undo")
+        )
         assert wires_it is writes, (
             f"service/{name}.py {'writes' if wires_it else 'does not write'} a run record, and "
             f"this table says the opposite. If that is deliberate, change the table and its "

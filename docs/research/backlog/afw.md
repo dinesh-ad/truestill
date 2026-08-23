@@ -16,6 +16,28 @@
 >
 > Design, hazards and the four mutation proofs: [`afw-record.md`](afw-record.md).
 
+> ## ✅ UNDO IS BUILT (2026-08-23) - and the row below about it was WRONG WHEN WRITTEN
+>
+> ⚠ **`| organize_undo | counts | - |` was false on the day this entry was recorded**, not made
+> false by a later change. `UndoOutcome` has carried `plan.steps` and `skipped:
+> list[UndoSkipped]` since the original in-place commit `dee4785` - organize's shape, with a
+> **richer** outcome model than backup's `(relative, why)` tuples, because `UndoSkip` is a
+> seven-member enum. Grouping undo with bake as count-only made it look like a design problem;
+> **it was the cheapest of the four, not the hardest.** The row stands as written, because a
+> record is not edited to stay correct.
+>
+> ⚠ **The record could not simply be added, and the reason is this entry's own NOT DECIDED item.**
+> One rolling `last-run.json` meant an undo record would **destroy the organize record of the run
+> it had just reversed** - the two documents a person needs together. So history split from
+> detail: `runs/index.jsonl` forever, bounded per-file detail, `last-run.json` still the newest
+> record itself. `IMPLEMENTATION_STANDARDS.md` was **edited rather than worked around**.
+>
+> **Measured, not guessed**: a real 33,000-file run wrote a **36.9 MiB** record beside an **8.0
+> MiB** catalog - 4.6x - which is what settled that a bound was needed and that it should be
+> bytes rather than a count. Undo's identity hashing costs **3.1 min** at 33k.
+>
+> **Split out and not built**: `(agl)`, undo's dropped cancel.
+
 - **(afw)** Recorded 2026-08-22, split out of `(afu)` **before** it was built rather than
   discovered afterwards. `IMPLEMENTATION_STANDARDS.md` §1 says *"a run that changes the library
   writes down what it did"* - **a run**, not an organize - and `(afu)` carried that to exactly one

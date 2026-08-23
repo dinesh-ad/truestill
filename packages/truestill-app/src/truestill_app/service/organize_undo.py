@@ -11,6 +11,7 @@ from typing import Literal, NotRequired, TypedDict
 
 from truestill_core.catalog_session import open_catalog
 from truestill_core.progress import ProgressCallback
+from truestill_core.run_record import record_undo
 from truestill_core.undo import UndoError, plan_undo, run_undo
 
 from truestill_app.jobs import JobTarget
@@ -48,6 +49,9 @@ class OrganizeUndoJobSummary(TypedDict):
     restored: int
     applied: bool
     still_armed: bool
+    #: The record's own failure, surfaced rather than swallowed - `(acc)`'s shape is a
+    #: document written by something nobody can see, whose absence nobody is told about.
+    record_error: str | None
     skipped: list[OrganizeUndoSkipped]
     elapsed_seconds: NotRequired[float]
 
@@ -86,6 +90,10 @@ def organize_undo(*, db: Path, apply: bool) -> JobTarget:
             plan = plan_undo(catalog)
             outcome = run_undo(catalog, plan, apply=apply, progress=progress if apply else None)
             still_armed = catalog.latest_undoable_run() is not None
+        # ⚠ **Only an APPLIED reversal writes one.** A preview moves nothing, so a record of it
+        # would be a document about a run that did not happen - and it would supersede the record
+        # of one that did. `(afw)`
+        record_error = record_undo(db, plan, outcome) if apply else None
         return {
             "run_id": plan.run_id,
             "source_root": str(plan.source_root),
@@ -94,6 +102,7 @@ def organize_undo(*, db: Path, apply: bool) -> JobTarget:
             "restored": outcome.restored,
             "applied": apply,
             "still_armed": still_armed,
+            "record_error": record_error,
             "skipped": [
                 {
                     "relative": item.step.current.name,

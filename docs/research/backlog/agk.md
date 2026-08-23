@@ -42,6 +42,19 @@ rename did, by looking at the disk, not by trusting the row. Undo that fires
 blindly on a row is a second defect.
 ```
 
+## Why this was a release blocker rather than a backlog item
+
+**The in-place cohort has no options, and that is the whole argument.** Someone choosing in-place
+is choosing it *because they have no room for a second copy*. So they also cannot take a backup
+before running it, they have the least room for any safety net, and they are the most likely to hit
+a full destination - `(agi)`'s condition. **The mode that most needs a working undo is the mode
+whose users are least able to recover without one.**
+
+Alongside it, the closest real-world match to this defect: a Lightroom Classic user whose folder
+move stalled, who pressed cancel, and whose photographs were then unreachable - catalog thumbnails
+present, disk empty, every option greyed out. That is what our 2-in-8 looks like to the person it
+happens to, and they did nothing wrong. `user-evidence-log.md` §1 and §6.
+
 ## Q55 first, because it decides how seriously to read the rest
 
 **Reproduced on real photographs from `~/TruestillLibrary/Input`**, copied to scratch: 150 files,
