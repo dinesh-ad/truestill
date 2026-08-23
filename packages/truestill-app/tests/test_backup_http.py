@@ -204,9 +204,18 @@ def test_a_library_organized_before_registration_is_attached_not_rejected(
     _finish(client, started.json()["job_id"])
 
     # Rewind to the old state: drop the marker and every recorded copy, keeping `files`.
+    # ⚠ **The drive row and the path hint go too, and their absence is the point** (`(agr)`
+    # Q121). The old build this test simulates wrote NONE of the four - marker, copies, drive
+    # row, hint - but the first version of this rewind removed only the first two, leaving the
+    # modern run's hint behind. That manufactured state is the GHOST signature (recorded hint,
+    # no marker), which every mint site now refuses - so this test was resting on the unguarded
+    # door, and started failing the day the door closed. A complete rewind is the state the
+    # test's own name describes, and `ghost_drive_at` has no opinion on it: no hint, no ghost.
     (library / ".truestill-drive.json").unlink()
     with Catalog(tmp_path / "c.sqlite") as catalog:
         catalog._conn.execute("DELETE FROM file_copies")
+        catalog._conn.execute("DELETE FROM drives")
+        catalog._conn.execute("DELETE FROM settings WHERE key LIKE 'path_hint.%'")
         catalog._conn.commit()
     assert client.get("/api/library/status").json()["places"] == 0
 

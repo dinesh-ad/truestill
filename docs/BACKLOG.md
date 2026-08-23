@@ -142,7 +142,10 @@ is invisible here is retired, not free.**
   consumed by nothing in `app.js`). Part 3, reported not designed: nothing detects a phantom
   already minted - `_say_if_two_places` covers one identity at two paths, nothing covers two
   identities at one path, and the phantom reads *connected and healthy* forever.
-  [Full entry](research/backlog/agr.md)
+  ✅ **Part 1 shipped 2026-08-23**: the guard sits inside `attach_drive` before the mint, the
+  refusal rides `DriveGhostError` through `jobs.py`'s existing route, and the one test that
+  failed when the door closed was found to be **resting on it** - an incomplete rewind that left
+  the modern hint behind. Parts 2 and 3 remain. [Full entry](research/backlog/agr.md)
 
 - **(agp) THE BUSY MESSAGE NAMES A SECOND WINDOW THAT DOES NOT EXIST, AT THE USER'S FIRST CLICK.**
   Recorded 2026-08-23, split out of `(adt)` when it closed, **ranked above `(agq)` by the

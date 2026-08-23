@@ -20,9 +20,12 @@ from truestill_core.catalog_startup import (
 )
 from truestill_core.decisions import Decisions, gather_decisions, notice_for
 from truestill_core.drive import (
+    DriveGhostError,
     DriveReach,
     create_marker,
     custody_freshness,
+    ghost_drive_at,
+    ghost_drive_refusal,
     path_is_usable_dir,
     reach_of,
     read_marker,
@@ -239,6 +242,30 @@ def _adoption_block(
     return offers[0] if offers else None
 
 
+def _refuse_ghost_before_minting(path: Path, db: Path) -> None:
+    """Refuse to mint where a known drive was recorded and its marker is gone. `(agr)` part 1.
+
+    **A refusal, never a soft-fail - ruled.** A second soft-fail beside `_adoption_block`'s
+    failed one would not be a guard, and the three read-only surfaces already refuse at this
+    door. The check is core's one implementation (`ghost_drive_at`), called here exactly as the
+    other three mint sites call it - `cli.py` `drives --init`, `cli.py` organize, and
+    `service/organize._approve_registration` - so this is a fourth caller of one rule, and any
+    future caller of `attach_drive` inherits it.
+
+    Raises :class:`DriveGhostError`, whose own docstring names the delivery route: `jobs.py`
+    ships ``str(exc)`` and the class name as the terminal event's message and ``code``, so the
+    browser reads the same sentence the CLI prints - the drive's label, its recorded path, and
+    why writing here would shadow.
+
+    Opens the catalog read-only and only to ask, the shape `cli._ghost_at` records.
+    """
+    with open_catalog(db) as catalog:
+        drives = [(str(d["uuid"]), str(d["label"])) for d in catalog.list_drives()]
+        ghost = ghost_drive_at(path, catalog, drives)
+    if ghost is not None:
+        raise DriveGhostError(ghost_drive_refusal(ghost))
+
+
 def attach_drive(
     path: Path,
     db: Path,
@@ -342,6 +369,15 @@ def attach_drive(
     # Previews write nothing, ever - including the marker. An unregistered folder is therefore
     # counted without a uuid rather than skipped, so the preview can still state the scale.
     if marker is None and write:
+        # ⚠ **THE GHOST CHECK, before the mint - the fourth mint site gets the guard the other
+        # three have.** `(agr)`: this was the one place in the product that could mint an
+        # identity at a known drive's recorded path while the drive was unplugged - measured
+        # minting a phantom that read *connected* while the real drive read *offline* forever,
+        # with every byte written here shadowed the moment the drive remounted. `_adoption_block`
+        # above cannot see it and is NOT redundant beside this: the two guards are converses -
+        # it recognises a folder that HOLDS a known library's content, and a ghost path holds
+        # nothing; this recognises a RECORDED location, which a content scan cannot. Both stay.
+        _refuse_ghost_before_minting(path, db)
         marker = create_marker(path, label=path.name or "Library")
     label = marker.label if marker is not None else (path.name or "Library")
 

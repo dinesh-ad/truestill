@@ -1,6 +1,6 @@
 # (agr) THE APP'S FOURTH MINT SITE HAS NO GHOST CHECK, AND BACKUP REACHES IT.
 
-*Body of entry `(agr)`. **OPEN - designed, not built; the refusal shape is RULED.** The index is [`BACKLOG.md`](../../BACKLOG.md). Filed 2026-08-23 from the `(abs)` verification sweep; **ranked at the top of the engine list by the maintainer.***
+*Body of entry `(agr)`. **OPEN - part 1 SHIPPED 2026-08-23; parts 2 and 3 remain.** The index is [`BACKLOG.md`](../../BACKLOG.md). Filed 2026-08-23 from the `(abs)` verification sweep; ranked at the top of the engine list.*
 
 ## Part 1 - the data-loss door (the rank-carrying part)
 
@@ -81,3 +81,30 @@ Nothing detects or repairs a catalog that already holds the pair. `_say_if_two_p
 appearance: at the ghost path the phantom's marker answers, so the phantom reads *connected and
 healthy* while the real drive reads *offline* forever. `abs-repro` holds a live specimen.
 Repair is `(aba)`'s reconciliation territory and is deliberately not designed in this entry.
+
+---
+
+## ✅ Part 1 shipped, 2026-08-23
+
+`_refuse_ghost_before_minting` sits inside `attach_drive`, immediately before the mint - the
+fourth caller of core's one rule, inherited by any future caller. The refusal rides
+`DriveGhostError` through `jobs.py`'s existing code route, naming the drive's label and its
+recorded path. Five tests, three failing first **by minting**; four mutations all caught,
+including refuse-after-mint (killed by the marker-absence assertion, exactly as Q117 required)
+and the everything-refused cry-wolf.
+
+**Q121's prediction landed**: `test_a_library_organized_before_registration_is_attached_not_rejected`
+failed the day the door closed - its rewind to "the old build's state" removed the marker and the
+copies but left the modern run's **drive row and path hint**, which the old build never wrote.
+The manufactured state was the ghost signature, refused by every mint site; the completed rewind
+is the state the test's name describes, and `ghost_drive_at` has no opinion on it. **A test that
+breaks when a data-loss door closes was resting on the door** - found, named in the fixture, and
+completed rather than worked around.
+
+**Q122, recorded before anyone tidies**: `_adoption_block` is NOT redundant beside the guard.
+The two are converses - it recognises a folder that *holds* a known library's content (which
+`ghost_drive_at` cannot see), the guard recognises a *recorded location* (which a content scan
+cannot). Both stay; the code comment at the mint says so.
+
+**What remains**: part 2 (the `verify_run` sentence) and part 3 (phantom detection - reported,
+`(aba)` territory).

@@ -12,6 +12,11 @@ All notable changes to this project are documented here. The format follows
   history of every run beside your catalog, with the full file-by-file detail of recent ones.
 
 ### Fixed
+- **Backing up to an unplugged drive's usual folder is now refused instead of silently going to
+  the wrong disk.** If your backup drive was not mounted, its folder looks empty - and copying
+  there would put the files on your computer's own disk under a new drive identity, hidden the
+  moment the real drive came back. Truestill now recognises the folder as your drive's recorded
+  home, says which drive it thinks is missing, and asks you to plug it in first.
 - **A busy library catalog no longer shows up as "Internal Server Error".** If the catalog was
   briefly in use when you changed a setting, the app showed a raw server error. It now waits
   once, and if the catalog is still busy it says so plainly and suggests trying again - without
