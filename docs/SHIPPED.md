@@ -105,6 +105,21 @@ recording shipped work as unstarted, which is the more expensive direction of th
   **not real**; there is no mechanism, and it is recorded as refuted rather than quietly dropped.
   [Full entry](research/backlog/agg.md)
 
+- **(aci) A DELETED DECISION BLOCKED DRIVE SAVES - CLOSED BY `truestill restore`.** Closed
+  2026-08-23 by the open-entry sweep; **the work that closed it landed in `2505a36`**, *"feat(cli):
+  truestill restore <root>, the command the lost-machine user needs"*.
+  🔑 **THE MECHANISM IS THE POINT, and it is the case no guard can see**: this entry was closed by
+  a commit carrying **a different letter**. `scripts/check_entry_closure.py` watches for an entry
+  LEAVING the backlog without a trailer, and `test_closed_entries_leave_the_backlog.py` watches for
+  a trailer naming an entry that stayed - **neither can see a defect fixed under another name.**
+  That needs a sweep, and a sweep needs judgement.
+  **It was never a defect**: the save refuses to write a document that would lose decisions the
+  drive already holds, which is what protects a re-attached drive from a rebuilt catalog, and a
+  decision the user deleted locally looks identical. The entry's own body said so from the day it
+  was recorded - *"Closed by restore; recorded so it is not rediscovered as a bug"* - and it then
+  sat in the open-work file for two weeks after `restore` shipped.
+  [Full entry](research/backlog/aci.md)
+
 - **(ago) A DOCUMENTATION AUDIT: 632 CITATIONS, AND NOTHING CHECKED ONE.** Shipped 2026-08-23.
   `BACKLOG.md` had recorded the exposure in its own text - *"Nothing would tell us. Checked: no
   test or guard asserts a line number."* - and nothing acted on it. **Research names the pattern:

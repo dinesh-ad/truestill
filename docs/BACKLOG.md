@@ -357,16 +357,21 @@ is invisible here is retired, not free.**
   entry](research/backlog/acn.md)
 - **(adf) A CLI-ORGANIZED LIBRARY LEAVES `path_hint.library` UNSET, so the app has no observed
   destination to prefill.** [Full entry](research/backlog/adf.md)
-- **(aci) A DELETED DECISION BLOCKS DRIVE SAVES UNTIL A RESTORE RECONCILES THEM.** Recorded
-  2026-08-09. [Full entry](research/backlog/aci.md)
 - **(acg) ALBUM MEMBERSHIP CANNOT LEAVE THIS MACHINE - the same class as `(ack)`, waiting.**
   Recorded 2026-08-09. [Full entry](research/backlog/acg.md)
-- **(acc) `write_decisions` exists with ZERO CALLERS, so no decisions document has ever been
-  written.** ⚠ **Retitled 2026-08-22**: the old title asked about *finding* one, which understates
-  it - nothing writes one either. The file format is built, atomic and tested; **the write trigger
-  is not**, nor is the first-run-after-upgrade write aimed at the user most at risk. Corrected in
-  the entry 2026-08-09 after *"Stages 1-3 landed"* proved to be half of Stage 3. Recorded
-  2026-08-09. [Full entry](research/backlog/acc.md)
+- **(acc) NOTHING PASSIVELY NOTICES A DECISIONS DOCUMENT ON A DRIVE.** ⚠ **Retitled again
+  2026-08-23 by the open-entry sweep, because this index carried a headline its own body calls
+  FALSE.** It read *"`write_decisions` exists with ZERO CALLERS, so no decisions document has ever
+  been written"* and added *"the write trigger is not [built]"* - and `acc.md` has recorded since
+  2026-08-22 that `write_decisions` has **two callers** (`decisions.py:981`, `cli.py:1514`) and
+  that **`catalog_session.open_catalog` is the standing trigger**, writing on the first open after
+  upgrade and on every clean exit that dirtied the catalog. **Documents are written to drives.**
+  🔑 **An index that contradicts its own body is worse than either being wrong**, because the index
+  is what a cold start reads and the body is what it reads second, if at all.
+  **What survives is the title's claim and nothing more**: `read_decisions` is reachable only from
+  an explicit CLI command, and `drive.reach_of` reads the marker and never the contents - so
+  plugging in a drive that carries decisions tells nobody. Recorded 2026-08-09.
+  [Full entry](research/backlog/acc.md)
 - **(aca) The app and the CLI disagree about when an organize run needs confirming.** [Full
   entry](research/backlog/aca.md)
 - **(aby) Organize screen: copy that repeats itself or explains its own button.** [Full
@@ -425,8 +430,15 @@ is invisible here is retired, not free.**
   entry](research/backlog/aay.md)
 - **(aax) `time_known` is derived from provenance, not from the value. POST-LAUNCH.** [Full
   entry](research/backlog/aax.md)
-- **(aan) A "verified against code" clause must still resolve.** Recorded 2026-08-01. [Full
-  entry](research/backlog/aan.md)
+- **(aan) A "verified against code" clause must still resolve.** Recorded 2026-08-01.
+  🔑 **`(ago)` built the OTHER half on 2026-08-23 and did not close this** - recorded here because
+  neither entry named the other. `(ago)` checks that a **line number** in a living document points
+  at code that exists; this entry argues, with a measurement, that the line number is the wrong
+  discriminator and asks for **symbols**: *"every backticked symbol inside a verified-against-code
+  clause must exist under `packages/*/src`. Symbols, never line numbers."* `(ago)`'s own docstring
+  says the same from the other side - it cannot see a line that moved onto other real code, and
+  *"catching the rest honestly would mean citing symbols"*. **One seam, two halves, one built.**
+  [Full entry](research/backlog/aan.md)
 - **(aas) An undated file cannot be assigned to an event the user knows it belongs to.** Recorded
   2026-08-02. [Full entry](research/backlog/aas.md)
 - **(aau) A zero-warning test lane, and why it is not one today.** Recorded 2026-08-02. [Full

@@ -1,6 +1,8 @@
 # (aci) A DELETED DECISION BLOCKS DRIVE SAVES UNTIL A RESTORE RECONCILES THEM.
 
-*Body of backlog entry `(aci)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(aci)`. **CLOSED 2026-08-23** - the work that closed it is `2505a36`, `truestill restore`; it was never under a letter of its own.*
+
+*Formerly under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aci) A DELETED DECISION BLOCKS DRIVE SAVES UNTIL A RESTORE RECONCILES THEM.**
   Recorded 2026-08-09 while building the decisions save, as the known false positive of its
