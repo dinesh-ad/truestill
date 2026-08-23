@@ -44,6 +44,19 @@ typecheck:
 # with tracing and video, 252.2s without. Override for a slower machine:
 #   make check TEST_SECONDS_MAX=90
 #
+# ⚠ THE MARGIN MOVED ON 2026-08-23 AND THE CEILING DID NOT, which is `(afx)`'s rule applied to
+# the other lane: a bound raised to fit its subject measures nothing. The suite's scratch left
+# tmpfs for a disk (root `conftest.py`, `(afy)`), so every catalog build now pays a real `fsync`.
+# Measured, three runs each, same machine, same commit:
+#
+#     /tmp    tmpfs   19.38  20.62  18.90 s   median 19.38 s
+#     /data   ext4    27.02  22.96  22.85 s   median 22.96 s   (+18%, first run cold)
+#
+# 45s still holds and no test changed verdict. What changed is the headroom this file was
+# calibrated on: ~2.5x -> ~2.0x, worst observed 27.02s. Stated HERE, beside the number it is
+# headroom against, because that is where somebody about to raise it will be standing.
+# `PERFORMANCE.md` §6 is the source for both readings; anything here is a copy.
+#
 # NOT enforced in CI, deliberately: the same Windows step measured 566s, 1009s, 1472s and 596s
 # on commits within 2% of each other, so a CI ceiling would fail on variance rather than on
 # drift and would be switched off within a week. See §4's eighteenth member.

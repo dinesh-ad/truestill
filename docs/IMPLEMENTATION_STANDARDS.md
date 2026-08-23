@@ -726,6 +726,16 @@ successful upgrade), never automatic.
   three prose/artifact gates (`normalize_dashes --check`, `check_product_name`,
   `check_redirect_artifacts`), and `pytest`. ⚠ This read "`mypy` on the three `src` trees +
   `pytest`" and understated the gate in both halves.
+- ⚠ **The suite's scratch is on a DISK, and it is not an environment variable anybody sets**
+  (2026-08-23, `(afy)`). The root `conftest.py` points `TMPDIR` **and** `tempfile.tempdir` at
+  `/data/tmp/truestill`, so it applies to `make test`, a bare `uv run pytest <file>` and every
+  subprocess alike - the browsers, `exiftool`, `uv`. ⚠ **The PARENT moves, never `--basetemp`**:
+  an explicit basetemp is `rm_rf`'d at session start, which would destroy the three-session
+  retention *and* let two concurrent pytest processes delete each other's live trees. ⚠ **A
+  machine without the volume falls back and SAYS SO** in the pytest header - that is the CI
+  answer, not a hole - while a root named through `TRUESTILL_TEST_TMPDIR` that cannot be made
+  **raises rather than falling back**. Pinned by `test_the_suite_does_not_write_to_ram.py`;
+  the cost is `PERFORMANCE.md` §6.
 - **`ruff format --check`** is also a separate gate in CI (and `make format` applies it).
 - **`dash-check`** = `scripts/normalize_dashes.py --check`, in `make check` and in pre-commit.
   See the prose convention below.

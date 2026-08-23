@@ -74,6 +74,27 @@ recording shipped work as unstarted, which is the more expensive direction of th
   answerable, not the BACKLOG. *"Is `(aci)` needed for v1?"* still returns silence, and a shape
   that admits that beats one manufacturing 57 answers. [Full entry](research/backlog/aef.md)
 
+- **(afy) THE TEST SUITE WROTE DISK-SHAPED DATA TO RAM, AND §4's OWN tmpfs MEMBER WAS AMONG
+  ITS VICTIMS.** Shipped 2026-08-23. `/tmp` on this machine is **tmpfs** and nothing set `TMPDIR`,
+  so every `tmp_path`, catalog, rollback journal and Playwright video went to RAM. Measured from
+  an empty `/tmp`: `make test` **282 MB**, the browser lane peaking at **716 MB**, ~850 MB
+  resident between runs. The root `conftest.py` now points `TMPDIR` **and** `tempfile.tempdir` at
+  `/data/tmp/truestill`, so it applies to `make test`, a bare `uv run pytest <file>` and every
+  subprocess alike, with **no variable for anyone to remember**.
+  ⚠ **The parent moves, never `--basetemp`** - an explicit basetemp is `rm_rf`'d at session
+  start, which would destroy the three-session retention *and* let two concurrent pytest
+  processes delete each other's live trees, the class `(aaw)` and `(afp)` just closed.
+  ⚠ **`test_a_real_kill_leaves_a_state_a_fresh_process_can_clear` is §4's forty-sixth member's own
+  subject and was running on the filesystem that member says cannot observe an interruption.** It
+  passed only because it waits for five real extracted files first - it arranged the window RAM
+  removes. The member is now satisfied **by construction** for the whole suite rather than by
+  whoever remembers `df -T`. **The cost is stated rather than discovered**: `PERFORMANCE.md` §6,
+  19.38 s -> 22.96 s median, +18%, ceiling **not** raised per `(afx)`, calibration margin
+  2.5x -> 2.0x. No test changed verdict.
+  ⚠ **Volume did not decide it.** 282 MB of disk-shaped scratch in RAM is wrong at that size too;
+  the 9.8 GB that prompted the work was **not reproduced** on a green lane and is recorded as
+  observed-once in `(afz)`'s neighbourhood rather than claimed. `test_the_suite_does_not_write_to_ram.py`.
+
 - **(afu) THE RUN RECORD REACHES THE APP, AND THE CAUSE OF ITS ABSENCE WAS STRUCTURAL.**
   Shipped 2026-08-22, scoped to **organize**. `truestill_core.run_record` now owns
   `build_run_record` / `write_run_record` / `stop_block`; the CLI's `_record_the_run` keeps its

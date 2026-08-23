@@ -1677,6 +1677,21 @@ memory dressed as one.
   **Any test whose subject is timing, interruption or partial state must run on the storage class
   it claims to test.** `df -T` before trusting the result, not after doubting it.
 
+  ⚠ ✅ **AND THE WHOLE SUITE WAS ON THE WRONG STORAGE CLASS THE ENTIRE TIME - closed 2026-08-23,
+  `(afy)`.** This member was written about one test and enforced one test at a time, by whoever
+  remembered to run `df -T`. `/tmp` on the maintainer's machine is tmpfs, nothing set `TMPDIR`,
+  so **every** `tmp_path` in the repo was RAM-backed - including
+  `test_a_real_kill_leaves_a_state_a_fresh_process_can_clear`, which is this member's own subject
+  and passed only because it waits for five real extracted files before signalling. It arranged
+  the window this member says RAM removes. The root `conftest.py` now puts the suite's scratch on
+  a disk, so the member is satisfied **by construction** rather than by recall - which is the
+  twenty-seventh member's only acceptable answer.
+
+  ⚠ **The other direction is a separate cost and it was measured, not assumed** (`PERFORMANCE.md`
+  §6): real `fsync` moved `make test` from a 19.38 s median to 22.96 s, +18%, and the 45 s
+  ceiling was **not** raised - `(afx)`'s rule, that a bound moved to fit its subject measures
+  nothing. **A member enforced by construction can still cost something; say what.**
+
 - **A measurement is of a subject at a moment. Change the subject while it runs and the result
   describes nothing.** The forty-eighth member, and the forty-fourth is its neighbour rather than
   its twin: that one is a real failure whose *signal* was discarded, this one is a real signal

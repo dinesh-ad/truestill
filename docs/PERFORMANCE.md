@@ -745,6 +745,44 @@ main-loop tick, twice. `force_exit` does not change it. Sharing the server would
 5.45 s - `test_catalog_busy_refusal`, which waits out `sqlite3.connect`'s own 5 s `busy_timeout`
 because that wait *is* the behaviour under test.
 
+### What leaving tmpfs cost, and what it bought (measured 2026-08-23)
+
+`/tmp` on this machine is **tmpfs**. Nothing set `TMPDIR`, so every `tmp_path`, catalog, rollback
+journal and Playwright video the suite wrote went to **RAM**. Measured from an empty `/tmp`:
+
+| run | /tmp peak | its own contribution | result |
+|---|---:|---:|---|
+| `make test` | 288 MB | **282 MB** | 2867 passed |
+| `make e2e` (chromium + webkit) | **716 MB** | **427 MB** | 973 passed, 3 skipped, 1506.93 s |
+| steady state between runs | ~850 MB resident | - | pytest retains 3 session roots |
+
+⚠ **The browser lane is the expensive one and the mechanism is not obvious**: `pytest_playwright`
+records **every** video and trace into a session `TemporaryDirectory` under `$TMPDIR` before
+moving the retained ones to `--output`. On a green lane each is deleted at `did_finish_test`, so
+the live footprint never exceeded **1 MB** across 25 minutes - the volume is in the basetemp, not
+in the artifacts. **A red lane is the case that scales**, and it is unmeasured.
+
+**The cost of the move**, three runs each, same machine, same commit:
+
+| scratch | runs | median |
+|---|---|---:|
+| `/tmp` (tmpfs) | 19.38, 20.62, 18.90 s | **19.38 s** |
+| `/data/tmp/truestill` (ext4 NVMe) | 27.02, 22.96, 22.85 s | **22.96 s** |
+
+**+3.6 s, +18%.** Real `fsync` is the whole of it - §5.6 priced the tmpfs fsync control at
+**1.1x** against **256x** on ext4, and the suite builds a fresh catalog per test. **No test
+changed verdict**: 2867 passed on every NVMe run.
+
+⚠ **The ceiling was NOT raised**, per `(afx)`: 45 s holds, and what moved is the headroom the
+`Makefile` was calibrated on - **~2.5x -> ~2.0x**, worst observed 27.02 s on a cold first run.
+That figure is copied into the `Makefile` beside `TEST_SECONDS_MAX`, because that is where
+somebody about to raise it will be standing; **this section is the source**.
+
+⚠ **One flake on the tmpfs control, unidentified.** An early run reported `1 failed, 2866 passed`
+and did not recur in three further tmpfs runs or four NVMe runs. The name was lost to an output
+filter. Recorded so it is not later attributed to this change - it was observed **before** it, on
+the old volume.
+
 ### The ceilings
 
 `TEST_SECONDS_MAX = 45` and `E2E_SECONDS_MAX = 2000` in the Makefile, with CI overriding the

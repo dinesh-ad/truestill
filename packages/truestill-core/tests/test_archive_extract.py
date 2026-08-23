@@ -220,6 +220,18 @@ def test_a_real_kill_leaves_a_state_a_fresh_process_can_clear(tmp_path: Path) ->
     Simulated by calling a cleanup function this would test the function, not the property. The
     assertion is made from **this** process, which never saw the extraction - a state only the
     original process could interpret is not recovery.
+
+    ⚠ **THIS TEST RAN ON tmpfs UNTIL 2026-08-23, AND IT IS §4's FORTY-SIXTH MEMBER'S OWN
+    SUBJECT** - *a timing test on tmpfs cannot observe an interruption*. It passed there, but not
+    for the reason it claims to: the loop below waits for **five real extracted files** before
+    signalling, so it manufactured the mid-write window that RAM speed would otherwise have
+    closed. The property was asserted; the storage class it claims to test was not the one under
+    it. The suite's scratch now sits on a disk (root ``conftest.py``), so the window is real
+    rather than arranged. **Recorded here rather than left to be rediscovered as a behaviour
+    change**, and the direction is worth naming: on a disk the child is slower, so it is *more*
+    likely to still be running when the signal lands. The move makes this test honest; it does
+    not make it fragile. The five-file wait stays - it is what makes the test deterministic, and
+    the member says to run on the real storage class rather than to rely on either alone.
     """
     entries = {f"Takeout/IMG_{i:04d}.jpg": os.urandom(200_000) for i in range(200)}
     _zip(tmp_path / "big.zip", entries)
