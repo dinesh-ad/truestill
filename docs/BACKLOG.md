@@ -166,15 +166,6 @@ is invisible here is retired, not free.**
   demonstrated rather than proposed - an AST scan over `catalog.py` cleared all 19 forward steps
   and flagged `downgrade_v12_to_v11`, the one function that really does `DROP TABLE`.
   [Full entry](research/backlog/afs.md)
-- **(aft) `run_health.free_bytes` RETURNS 0 WHEN IT CANNOT READ, SO AN UNREADABLE PROBE STOPS A
-  RUN SAYING THE DISK IS FULL.** Found 2026-08-22 answering `(ady)`'s M6 against `(aek)`.
-  `(aek)` removed exactly this conflation from `filesystem.preflight_destination` and pinned it
-  twice; the sibling never got it (§4's fifty-sixth member). ⚠ **The same module guards its
-  DEVICE axis against this in its own words** - *"never let an absence serve as the baseline"* -
-  with five transient-failure tests, and the space axis has none. Open first: `_check_space`
-  claims *"a local read does not fail transiently"*, so the branch is either dead code to delete
-  or a live false stop - §4's thirty-first member says find out which before writing the test.
-  [Full entry](research/backlog/aft.md)
 - **(afr) THE LOCK DIRECTORY GROWS ONE EMPTY FILE PER DRIVE, FOREVER.** `DriveLock.release`
   truncates and never unlinks (`drive_lock.py:208,219`), so `~/.local/share/Truestill/locks/`
   gains a 0-byte file per distinct drive key and keeps it - and `path:` keys mean **every

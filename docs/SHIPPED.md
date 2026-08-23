@@ -74,6 +74,34 @@ recording shipped work as unstarted, which is the more expensive direction of th
   answerable, not the BACKLOG. *"Is `(aci)` needed for v1?"* still returns silence, and a shape
   that admits that beats one manufacturing 57 answers. [Full entry](research/backlog/aef.md)
 
+- **(aft) AN UNREADABLE PROBE NO LONGER STOPS A RUN SAYING THE DISK IS FULL.** Shipped
+  2026-08-23. `run_health.free_bytes` returned **0** when `shutil.disk_usage` raised, so an
+  unreadable probe and a genuinely full disk were one value - and `_check_space` **stopped the
+  run** with *"this computer's disk is nearly full (0.00 GB free)"* about a disk that might be
+  empty, telling the user to check a cloud cache that had nothing to do with it. `(aek)`'s
+  conflation, third surface.
+  🔑 **The open question was ANSWERED BY MEASUREMENT, which is what the entry asked for** (§4's
+  thirty-first member): the branch is **live**, reproduced twice without root - a deleted probe
+  directory (`ENOENT`) and an unsearchable parent (`EACCES`) - so `_check_space`'s *"a local read
+  does not fail transiently"* is false. The probe is `catalog_path.parent` and `--db` is
+  unconstrained, so it is not reliably local either.
+  ⚠ **Nothing guarded it, and that was proven rather than asserted**: mutating `return 0` to a
+  huge number survived **2,560 passed against a 2,560 control**, because all fifteen space-axis
+  tests monkeypatched `free_bytes` and none called it. Inverted, that mutation is now **caught by
+  five tests**; four mutations in total, each with a 22-passed control.
+  **`int | None`, two call sites, both inside `run_health.py`** - it is imported by nothing else,
+  so no consumer of `RunHealth.check` changed. ⚠ The entry said *"three call sites"* and the brief
+  said four; the count is what made the choice look expensive.
+  **No `definite` flag and no errno table**, because a full disk answers **successfully with 0** -
+  so every `OSError` here is indefinite and `int | None` *is* the split. The strikes were not
+  copied (`_check_space` argues correctly against them) and neither was `(aek)`'s substitution (a
+  number that passes, in the slot where a non-value belongs).
+  ⚠ **WHAT IT DOES NOT DO**: a run whose ground cannot be read now proceeds **silently**. That is
+  the module's recorded posture honoured, not a ruling that silence is right - `(agd)` carries
+  that question whole, and organize-only was refused because a channel built for one of three
+  watchers is §4's fifty-sixth member scheduled rather than inherited.
+  [Full entry](research/backlog/aft.md)
+
 - **(agc) A RULE CITED BY SECTION NUMBER ALONE WAS FILED UNDER THE WRONG AUTHORITY, THIRTEEN
   TIMES.** Shipped 2026-08-23. *"One bad file never aborts a batch"* is `ENGINEERING_STANDARD.md`
   §4's **Errors** bullet; it was cited as `IMPLEMENTATION_STANDARDS.md` **§1** at **13 sites

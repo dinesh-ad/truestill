@@ -91,12 +91,28 @@ def read_device(path: Path) -> DeviceReading:
         return DeviceReading(None, definite=exc.errno in _GONE_ERRNOS)
 
 
-def free_bytes(path: Path) -> int:
-    """Free bytes on the filesystem holding ``path``; ``0`` when it cannot be read."""
+def free_bytes(path: Path) -> int | None:
+    """Free bytes on the filesystem holding ``path``, or ``None`` when it cannot be measured.
+
+    ⚠ **``None`` rather than ``0``, because a genuinely full disk reports a measured ``0``**
+    (`(aft)`). Until 2026-08-23 this returned ``0`` on failure, so an unreadable probe and a full
+    disk were one value and `_check_space` **stopped the run** saying *"this computer's disk is
+    nearly full (0.00 GB free)"* about a disk that might be empty. Same conflation `(aek)`
+    removed from `filesystem.preflight_destination`, which states the rule in its own comment;
+    this is the surface that fix did not reach.
+
+    **Why there is no ``definite`` flag here and no ``errno`` table, when `read_device` above has
+    both.** For a device, some errnos mean *definitely gone* and others mean *momentarily
+    unhappy*, so the two have to be told apart - hence `_GONE_ERRNOS` and `DeviceReading`. **On
+    this axis there is no such case: a full disk answers successfully with 0.** So every
+    ``OSError`` here is indefinite, ``definite`` would be exactly ``value is not None``, and
+    ``int | None`` *is* the split. The asymmetry with the axis next door is a decision, not an
+    omission.
+    """
     try:
         return shutil.disk_usage(path).free
     except OSError:
-        return 0
+        return None
 
 
 def watcher_for(local_root: Path | None, catalog_path: Path | None) -> RunHealth | None:
@@ -146,7 +162,11 @@ class RunHealth:
         #: that matters. (`read_device` never reports a device *and* uncertainty, so a
         #: non-``None`` reading is always one worth keeping.)
         self._baseline_device = read_device(root).device
-        self._baseline_free = free_bytes(local_probe)
+        #: ``None`` until the probe is read successfully once - the same rule `_check_device`
+        #: states for the device baseline, applied to the axis that lacked it. A ``0`` latched
+        #: here would make ``fell`` clamp to ``0`` for the whole run, so the stop message's
+        #: diagnostic half would be silently dead. `(aft)`
+        self._baseline_free: int | None = free_bytes(local_probe)
         self._due = clock() + TICK_SECONDS
         self._strikes = 0
         self._first_strike_at = 0.0
@@ -171,19 +191,52 @@ class RunHealth:
         return self._check_device(now)
 
     def _check_space(self, largest_remaining: int, written_bytes: int) -> HealthVerdict:
-        """One reading is enough: a local read does not fail transiently, and waiting for three
-        would mean watching the disk fill while declining to say so."""
+        """One reading is enough **when there is one**, and waiting for three would mean watching
+        the disk fill while declining to say so.
+
+        ⚠ **The docstring here asserted *"a local read does not fail transiently"* until
+        2026-08-23, and it is false** (`(aft)`): a deleted probe directory answers ``ENOENT`` and
+        an unsearchable parent answers ``EACCES``, both without root. The probe is not reliably
+        local either - it is ``catalog_path.parent`` and ``--db`` takes any path. **What survives
+        is the second half**, which is about striking rather than about reads, and the strikes
+        stay out.
+
+        **An unmeasurable probe fails OPEN**, per this module's own posture: `DestinationDevice`
+        *"fails closed"* because a refused write costs a re-run, and this one is *"periodic and
+        advisory, so it fails open until proven"*. Stopping a healthy run on a probe nobody could
+        read is the cry-wolf the module's docstring calls the failure mode to fear.
+        ⚠ **It fails open SILENTLY, and that is a known gap rather than a judgement that silence
+        is right** - there is no non-fatal channel to say it in. `(agd)` carries that question.
+        What still speaks is the write itself: a disk that genuinely fills fails the copy with
+        ``ENOSPC``, worded *"there is no space left on the drive"* by `drive_unwritable`.
+        """
         free = free_bytes(self._probe)
+        if free is None:
+            return HealthVerdict(ok=True)
+        # The first reading that worked becomes the baseline, however late it arrives.
+        late = self._baseline_free is None
+        if self._baseline_free is None:
+            self._baseline_free = free
         floor = max(ABSOLUTE_FLOOR_BYTES, largest_remaining * 2)
         if free >= floor:  # compared in BYTES; truncating to GB is what let 15.9 read as 15
             return HealthVerdict(ok=True)
         fell = max(0, self._baseline_free - free)
+        # **The clause has to say what window it covers.** With a baseline taken at construction
+        # the fall spans the run, so it can be set against what the run wrote. With one latched
+        # later - the probe was unreadable when the run began - it spans less than the run, and
+        # pairing a short fall with the run's whole written total would invent a rate nobody
+        # measured. §9: a number states what it covers or it is not stated.
+        window = (
+            f"Local free space has fallen by {_gb(fell)} since it could first be measured."
+            if late
+            else f"Local free space fell by {_gb(fell)} while this run wrote "
+            f"{_gb(written_bytes)} to the drive."
+        )
         return HealthVerdict(
             ok=False,
             detail=(
                 f"Stopped: this computer's disk is nearly full ({_gb(free)} free). "
-                f"Local free space fell by {_gb(fell)} while this run wrote {_gb(written_bytes)} "
-                f"to the drive. Cloud sync clients keep a local cache of what you write; check "
+                f"{window} Cloud sync clients keep a local cache of what you write; check "
                 f"your client's cache or minimum-free-space setting, or free space on this "
                 f"disk, then run again to continue."
             ),
