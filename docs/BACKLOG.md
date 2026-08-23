@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ago). Next free: (agp).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agq). Next free: (agr).**
 ⚠ **`(agf)` was cited by `pyproject.toml`, a test and `age.md` before its entry existed**, so for
 one commit three working citations resolved to nothing. Recorded because it is this section's own
 warning happening - *"nothing recorded which letters were spoken for"* - and the fix is to claim
@@ -121,6 +121,33 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(agp) THE BUSY MESSAGE NAMES A SECOND WINDOW THAT DOES NOT EXIST, AT THE USER'S FIRST CLICK.**
+  Recorded 2026-08-23, split out of `(adt)` when it closed, **ranked above `(agq)` by the
+  maintainer - a wording-and-detection defect, not a lock defect.** `CATALOG_BUSY_MESSAGE`
+  (`catalog_busy.py:70-76`) says *"close the other Truestill window, or stop the other command in
+  your terminal"* - and the likeliest way to meet it is a **first-run schema build**: one window,
+  one user, their first ever click, **both clauses naming things that do not exist**. That is the
+  product telling a user something false at the exact moment it is failing them.
+  🔑 **Prior art recorded so it is not re-derived**: Zotero says plainly another instance has the
+  database open and **earns** it - `locking_mode=EXCLUSIVE` makes it true. This product cannot
+  claim it: `(adn)` says two apps really can run, and the common cause has no second window at
+  all. **The ruled shape**: say what is actually known - the catalog is busy, this is usually the
+  first run preparing the library, it should clear on retry - and name a second window **only if
+  one was actually detected**. `(agq)` disarms the commonest instance; this is what the message
+  says whenever it still fires. [Full entry](research/backlog/agp.md)
+
+- **(agq) THE FIRST SCHEMA BUILD RUNS INSIDE A USER REQUEST.** Recorded 2026-08-23, split out of
+  `(adt)` when it closed; ranked below `(agp)`. Whichever request opens a fresh catalog first
+  builds the whole schema under `BEGIN IMMEDIATE` (`catalog.py:1111`) - measured at up to
+  **5091.2 ms** on a contended 2-core runner against 9.0 ms for all 32,119 ordinary commits, so a
+  concurrent caller waits out the 5 s timeout or meets `(agp)`'s message. **In production the
+  window opens exactly once per catalog: at the user's first ever action.** The structural fix is
+  a boot-time open. ⚠ **It REVERSES A DELIBERATE CHOICE** - `inspect_catalog` does not create
+  (`catalog_startup.py:242`), so startup can describe a missing catalog instead of failing on it -
+  and the building commit must say why that choice was made and why it no longer holds, never
+  quietly flip it. The CLI needs the same fix or the parity table gains a row.
+  [Full entry](research/backlog/agq.md)
 
 - **(agm) WHETHER MIGRATE AND BAKE SHOULD WRITE A RECORD AT ALL.** Recorded 2026-08-23, split out
   of `(afw)` **when it closed**, because two of its five surfaces were never decided and closing
@@ -305,16 +332,6 @@ is invisible here is retired, not free.**
   entry](research/backlog/adz.md)
 - **(adx) A LIBRARY THAT MOVES IS HANDLED. WHAT IS MISSING IS THE DISCLOSURE.** Recorded
   2026-08-18. Three gaps, one user journey. [Full entry](research/backlog/adx.md)
-- **(adt) TWO CATALOG WRITERS RACE INSIDE ONE PROCESS, AND THE 6558 ms THAT MADE IT BITE IS
-  UNEXPLAINED.** Recorded 2026-08-15, retitled 2026-08-22 - the old title was not wrong, it just
-  did not say which half is open. ⚠ **Its lead is dead twice over (2026-08-22) and the question is not.**
-  `PERFORMANCE.md` §5.5 priced the per-open lock at **4-8 microseconds** with zero refusals in
-  2,160 contended opens, and `(adu)` then removed it outright - re-measured, an open plus a
-  settings write is **0.32 ms** against the **6558 ms** observed. Removing a falsified hypothesis
-  answers nothing: **server-side instrumentation of the real lane is still the only instrument
-  left.** ⚠ `(aaw)`'s lock deliberately does not cover this - settings writes do not go through
-  `_start_drive_job` - so the window narrowed and the race did not close.
-  [Full entry](research/backlog/adt.md)
 - **(ads) THE CATALOG'S CONCURRENCY MODEL IS SQLITE'S DEFAULT, NOT A DECISION.** Recorded
   2026-08-15. [Full entry](research/backlog/ads.md)
 - **(adm) `inspect_catalog` SKIPPED THE FIRST-RUN CASE - FIXED FOR THE APP, UNCHANGED FOR THE

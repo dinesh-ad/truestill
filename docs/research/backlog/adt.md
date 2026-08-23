@@ -139,3 +139,44 @@
   keeps traces on failure only (`IMPLEMENTATION_STANDARDS.md` §6) - so there is no way to tell a
   settings-write stall from an unrelated 30 s pause. It is written down so the next red run knows
   to look, not so the count reads as two.
+
+---
+
+## ✅ INVESTIGATED AND RE-SCOPED, 2026-08-23 - the number is retired, the class is the answer
+
+**The ruling** (maintainer, after the P14 investigation): the 6558 ms is **retired as
+unreproducible-but-classed, with the reasoning kept**. 1.29x the measured max on a 2-core runner
+under full lane load is an unlucky draw from a class already characterised - not a second
+unexplained mechanism. *"Chasing it further would be hunting a number rather than a defect."*
+
+**What the investigation established on the code of 2026-08-23** (`3552c68`):
+
+- **The number did not reproduce and has not recurred**: M4's 80 POSTs peaked at 105.8 ms, and
+  six consecutive nightlies (2026-08-18 to 08-23, the last verified to have run the 505-test
+  browser lane) are green.
+- **Post-`(adu)`, exactly one holder class can exhaust the 5 s timeout**: the fresh-schema build
+  (`catalog.py:1111`), once per catalog lifetime - measured at up to 5091.2 ms on contended CI
+  I/O against a 9.0 ms max for every one of 32,119 ordinary commits. The census distribution is
+  flat with a three-orders-of-magnitude gap: **a single long-holder class, not a convoy**.
+- **In production that window opens at the user's FIRST EVER click**, because `inspect_catalog`
+  deliberately does not create at startup (`catalog_startup.py:242`); the e2e lane re-rolls the
+  same once-per-lifetime window on every test (fresh catalog per test, `tests/e2e/conftest.py:83`),
+  which is why CI saw it and a user very likely never will.
+- **Not the `(aci)` shape**: `(aaw)`'s fix covers staged file copies and names this exact bypass
+  as its *"Known gap left open on purpose"* (`aaw.md:242`). Nothing since serialises a settings
+  write against a job.
+
+**The two residues are their own letters, ranked by the maintainer:**
+
+- **`(agp)`** - the busy message names a second window that does not exist, at the worst possible
+  moment. **Ranked first; a wording-and-detection defect, not a lock defect.**
+- **`(agq)`** - the first schema build runs inside a user request; a boot-time open is the
+  structural fix and disarms `(agp)` for most users. Reverses a deliberate choice and must say so.
+
+⚠ **CORRECTION, dated 2026-08-23, to this entry's own `(ads)` cross-reference.** It reads *"under
+`journal_mode=delete` a writer excludes everyone"*. `PERFORMANCE.md` settled the mechanism on
+2026-08-18: **a writer does NOT exclude readers in rollback-journal mode - RESERVED permits them;
+only the commit's brief EXCLUSIVE window does not.** The sentence above stands as written because
+this is a record; this correction is what resolves it. An entry citing a claim its own repo has
+since corrected is `(acc)`'s shape - the index disagreeing with the body - which is how it was
+caught.

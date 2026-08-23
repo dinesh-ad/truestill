@@ -105,6 +105,31 @@ recording shipped work as unstarted, which is the more expensive direction of th
   **not real**; there is no mechanism, and it is recorded as refuted rather than quietly dropped.
   [Full entry](research/backlog/agg.md)
 
+- **(adt) THE 6558 ms IS RETIRED; THE CLASS IS MEASURED; THE RESIDUES HAVE LETTERS.** Closed
+  2026-08-23 by investigation, not by a build. Recorded 2026-08-15 from CI run `31895987230` - a
+  one-row settings write waited 6.5 s and a preview job was refused - and it outlived three
+  structural hypotheses, each killed by measurement: the per-open lock (61x short, then removed by
+  `(adu)`), the handler boundary (M4: dispatch max 1.0 ms), and the WebKit tail (the trace
+  itself).
+  🔑 **What is actually happening**: post-`(adu)`, exactly one holder class can exhaust the 5 s
+  timeout - the **fresh-schema build**, once per catalog lifetime, measured at up to **5091.2 ms**
+  on contended 2-core CI I/O against 9.0 ms max across 32,119 ordinary commits. The census
+  distribution is flat with a three-orders-of-magnitude gap: **one long-holder class, not a
+  convoy.** In production that window opens at the user's **first ever click** (`inspect_catalog`
+  deliberately does not create at startup); the e2e lane re-rolls it every test, which is why CI
+  saw it and a user very likely never will.
+  ⚠ **The number itself is retired as unreproducible-but-classed, reasoning kept**: M4's 80
+  attempts peaked at 105.8 ms, six consecutive nightlies are green, and 1.29x the measured max on
+  a loaded runner is an unlucky draw from a characterised class - *"chasing it further would be
+  hunting a number rather than a defect"* (the ruling).
+  **Not the `(aci)` shape, checked**: `(aaw)` fixes staged file copies and names this bypass as
+  its deliberate known gap; nothing serialises a settings write against a job, and that race
+  stays open **inside the residues**: `(agp)` - the busy message names a second window that does
+  not exist, ranked first - and `(agq)` - the first build off the request path.
+  ⚠ Its own `(ads)` cross-reference was corrected beside, dated: a delete-mode writer does NOT
+  exclude readers - RESERVED permits them - which `PERFORMANCE.md` settled 2026-08-18.
+  [Full entry](research/backlog/adt.md)
+
 - **(aci) A DELETED DECISION BLOCKED DRIVE SAVES - CLOSED BY `truestill restore`.** Closed
   2026-08-23 by the open-entry sweep; **the work that closed it landed in `2505a36`**, *"feat(cli):
   truestill restore <root>, the command the lost-machine user needs"*.
