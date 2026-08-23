@@ -1,6 +1,6 @@
 # (aea) TWO INTACT CATALOGS FOR ONE INSTALL, AND NOTHING RECONCILES THEM.
 
-*Body of backlog entry `(aea)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(aea)`. **CLOSED 2026-08-23 by investigation - one live catalog, one fossil, data-identical; `(abd)` owns the general case.** The index is now [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(aea) TWO INTACT CATALOGS FOR ONE INSTALL, AND NOTHING RECONCILES THEM.** Recorded 2026-08-19,
   split out of `(adb)` where it surfaced as a refusal rather than as a finding. **Not `(adb)`:**
@@ -48,3 +48,40 @@
     `(adw)` - what removed the discoverability, and why that was right at a population of one.
     `(adn)` / `(adh)` - two **processes** on one catalog, which is the opposite problem and not
     this one.
+
+## ✅ CLOSED 2026-08-23 - what it actually was
+
+**Not two live records. One live record and one fossil, proven data-identical.** All sixteen
+shared tables hash equal between the pair (`SELECT * ORDER BY 1,2` | md5, immutable reads);
+the whole divergence is `user_version` 20 vs 19 and the **empty** `organize_runs` table v20
+added (`ac9cedf`, 2026-08-20). Both are frozen at the 2026-08-15 state: max `drives.last_seen`
+is 2026-08-08, every soak used its own scratch catalog, no `(afw)` `runs/` directory exists in
+the data dir, and `reports/catalog.sqlite`'s mtime predates the `(adw)` copy. The feared
+"both being updated" was not happening; the data-dir catalog's 2026-08-22 mtime is one
+v20-era default launch writing schema and nothing else.
+
+**The trap that stays armed, named**: an explicit `--db reports/catalog.sqlite` starts true
+divergence with no surface reporting it - and the v19 fossil is one `Catalog` open away from
+silent schema migration - while `catalog --move`'s `DESTINATION_EXISTS` refusal
+(`catalog_move.py:117`) remains the dead end this entry recorded: correct, and the only
+surface that names the file, and it always says no. **`(abd)` owns the general case** - one
+catalog or many is the live product question, the prior-art research moved there, and the
+`CatalogChoice.note` pipe is the seam its ruling would use.
+
+**A per-boot detector was DECLINED, with the reason recorded**: it would detect a state no
+user can reach (`LEGACY_CATALOG_PATH` is consulted by nothing since `(adw)`; no tag has ever
+been cut, so no install outside this machine ever held the legacy path), and detecting it
+needs the cwd probe `(adw)` deliberately removed - the disclosure itself would be
+cwd-dependent, present from one directory and absent from another. A warning that comes and
+goes is worse than none.
+
+**The fossil is Ad's record, and archiving it is proposed, not done.** The exact command,
+using `(adw)`'s own set-aside precedent (`catalog.empty-superseded-20260819-112320.sqlite`):
+
+    mv reports/catalog.sqlite reports/catalog.superseded-20260823.sqlite
+
+Safe in one line: the data is proven identical table-by-table to the live catalog, so the
+rename loses nothing and keeps the file findable under the name the product already uses for
+"set aside, not deleted". `reports/catalog.sqlite.before-deb-install` (a manual 08-13 backup,
+same counts) and `reports/catalog.cache.sqlite` (cache) are the same decision at Ad's
+discretion.

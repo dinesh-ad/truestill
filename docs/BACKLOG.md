@@ -321,9 +321,6 @@ is invisible here is retired, not free.**
   entry](research/backlog/aeg.md)
 - **(aec) 62 FIXED WAITS IN THE BROWSER LANE, EACH ONE A COIN TOSS AGAINST A MEASURED LATENCY.**
   Recorded 2026-08-19. One was fixed; the class was not. [Full entry](research/backlog/aec.md)
-- **(aea) TWO INTACT CATALOGS FOR ONE INSTALL, AND NOTHING RECONCILES THEM.** Recorded 2026-08-19.
-  `DESTINATION_EXISTS` is now a dead end rather than a safeguard. [Full
-  entry](research/backlog/aea.md)
 - **(adz) A COMPATIBILITY PATH STATES ITS REMOVAL CONDITION WHEN IT IS WRITTEN.** Recorded
   2026-08-19. ⚠ **The window for free removal closes at the first `v*` tag.** [Full
   entry](research/backlog/adz.md)

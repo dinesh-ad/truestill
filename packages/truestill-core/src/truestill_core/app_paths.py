@@ -226,7 +226,9 @@ def default_catalog_path() -> Path:
     return resolve_catalog_choice().path
 
 
-CatalogChoiceReason = Literal["override", "legacy", "default"]
+#: "legacy" left this Literal with `(aea)`: `(adw)` retired the resolution that returned it,
+#: and vocabulary no branch can produce is scaffolding, not compatibility.
+CatalogChoiceReason = Literal["override", "default"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -238,7 +240,10 @@ class CatalogChoice:
     #: Always set. One sentence naming the winner's provenance.
     summary: str
     #: Set only when something surprising has to be disclosed - a second real catalog that was
-    #: found and not used, or an override that was set and lost. Empty otherwise.
+    #: found and not used, or an override that was set and lost. Empty otherwise. Nothing sets
+    #: it since `(adw)`; the field stays because `format_startup_lines` already renders it and
+    #: `(abd)` - the live two-catalogs question - is the case that would set it. A seam, ruled
+    #: 2026-08-23 (`(aea)`), not scaffolding.
     note: str
 
 
@@ -252,16 +257,19 @@ def resolve_catalog_choice() -> CatalogChoice:
     compatibility fallback first. The old order meant a user who set the variable could organize
     and register drives against a catalog they never named.
 
-    ⚠ **But the override does NOT get to strand an existing library, and that half is not
-    negotiable.** "The fallback applies only when no override is set" would hand someone with a
-    real `reports/catalog.sqlite` and the variable set in a shell profile a brand-new empty
-    catalog and no sign of the old one - which is the data-loss shape `(aae)` exists to prevent,
-    reintroduced by the fix for `(adv)`. So the legacy file is still used when **it exists and the
-    override holds no catalog yet**.
-
-    **Whenever the two disagree, the answer is disclosed rather than picked silently** - the
-    banner was identical in all three cases, which is what made `(adv)` hard to notice: the
-    resolved path was already on screen and nothing said a variable had been set and lost.
+    ⚠ **Two promises this docstring used to make were false, differently - corrected
+    2026-08-23, `(aea)`, and a reader needs to know which is history and which was never
+    real.** *"The legacy file is still used when it exists and the override holds no catalog
+    yet"* described behaviour that existed and that `(adw)` REMOVED on 2026-08-19 (`6e00c9a`
+    retired the whole legacy resolution; `catalog --move` is what survives of the path). That
+    clause was history wearing the present tense. *"Whenever the two disagree, the answer is
+    disclosed rather than picked silently"* was NEVER fully built: the pre-`(adw)` code
+    disclosed only the override-vs-legacy disagreements, and the legacy-vs-default pair - two
+    real catalogs, no override, the one state ever observed on a real machine - was disclosed
+    by no version. Since `(adw)`, nothing detects a second catalog at all, deliberately: the
+    detector would need the cwd probe `(adw)` removed, making the disclosure itself
+    cwd-dependent. `(abd)` owns the live disclosure question; ``CatalogChoice.note`` and
+    `format_startup_lines` are the seam it would use.
     """
     override_dir = _override_dir(DATA_DIR_ENV)
     if override_dir is not None:

@@ -105,6 +105,22 @@ recording shipped work as unstarted, which is the more expensive direction of th
   **not real**; there is no mechanism, and it is recorded as refuted rather than quietly dropped.
   [Full entry](research/backlog/agg.md)
 
+- **(aea) ONE LIVE CATALOG AND ONE FOSSIL, DATA-IDENTICAL - CLOSED BY INVESTIGATION.**
+  Closed 2026-08-23. The feared "two intact catalogs, nothing reconciles them" resolved to one
+  live record (`~/.local/share/Truestill/catalog.sqlite`) and one fossil (`reports/`,
+  unreachable by any resolution since `(adw)`): **all sixteen shared tables hash identical**,
+  the whole divergence being the empty `organize_runs` table v20 added, and both frozen at the
+  2026-08-15 state. A per-boot detector was **declined with the reason recorded** - it would
+  detect a state no user can reach and would need the cwd probe `(adw)` removed, making the
+  disclosure itself cwd-dependent. What shipped instead: `resolve_catalog_choice`'s docstring
+  corrected (one clause was history wearing the present tense, one was never built - the
+  distinction is stated in the docstring), the unreachable `"legacy"` Literal member deleted,
+  and the `CatalogChoice.note` pipe ruled a **seam** and pinned by test - `(abd)`, which owns
+  the live one-catalog-or-many question, inherits the prior-art research (Lightroom, Zotero,
+  digiKam, Immich) and the note that the disclosure surface is already built. Archiving the
+  fossil is proposed in `aea.md` and left to the maintainer - it is Ad's record.
+  [Full entry](research/backlog/aea.md)
+
 - **(agr) THE FOURTH MINT SITE IS GUARDED, THE APP'S DOOR LEARNED THE GHOST, AND THE PHANTOM
   QUESTION CLOSED INTO `(aba)`.** Closed 2026-08-23 in three parts. **Part 1 (`b250ee4`)**:
   `_refuse_ghost_before_minting` inside `attach_drive`, immediately before the mint - the fourth

@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from truestill_core.app_paths import CatalogChoice
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_startup import (
     CatalogPresence,
@@ -260,3 +261,22 @@ def test_refuse_unusable_catalog_raises_only_for_the_zero_byte_state(tmp_path: P
                 detail="",
             )
         )
+
+
+def test_a_choice_note_is_its_own_line_and_an_empty_one_is_silent(tmp_path: Path) -> None:
+    """The `CatalogChoice.note` pipe is a SEAM, not scaffolding - ruled with `(aea)`.
+
+    Nothing sets `note` since `(adw)` retired the legacy resolution, but the rendering half
+    is live code and `(abd)` - the two-catalogs disclosure - is the case that would set it.
+    Pinned so the pipe cannot rot silently while it waits: a note renders as its own line,
+    and an empty one adds nothing.
+    """
+    db = tmp_path / "catalog.sqlite"
+    info = inspect_catalog(db, explicit_db=False)
+    said = CatalogChoice(
+        path=db, reason="default", summary="why this path won", note="the surprise"
+    )
+    silent = CatalogChoice(path=db, reason="default", summary="why this path won", note="")
+
+    assert "the surprise" in format_startup_lines(info, said)
+    assert format_startup_lines(info, silent) == format_startup_lines(info, said)[:-1]

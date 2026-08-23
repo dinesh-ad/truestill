@@ -12,6 +12,17 @@
     `sys.stdout is not None or sys.stderr is not None` - *was this launched from a terminal* -
     because a double-clicked app inherits a meaningless directory. **The destination is never
     consulted.** The catalog is a property of how you launched, not of what you organized into.
+    ⚠ *Corrected 2026-08-23, `(aea)`: the description above died with `(adw)` on 2026-08-19 -
+    the legacy path and the launched-from-a-terminal gate are both retired, and today's
+    resolution (`app_paths.py:245`) is override-else-data-dir, identical for a double-click and
+    a terminal run. Consequences 1 and 2 below are untouched by that and stay this entry's
+    weight.*
+  - **The disclosure pipe already exists - do not rebuild it** (recorded 2026-08-23, `(aea)`).
+    `CatalogChoice.note` is rendered by `format_startup_lines` (`catalog_startup.py:369`) on
+    every non-`--db` boot, pinned by
+    `test_a_choice_note_is_its_own_line_and_an_empty_one_is_silent`; nothing sets it since
+    `(adw)`. Whatever this entry rules, the surface half of "say which library and why" is
+    built and waiting.
   - **THREE CONSEQUENCES, recorded separately because they need different fixes.**
     1. **Wrong totals.** Every reporting surface sums across both libraries - the custody strip,
        Stats, `truestill status`, `where`/Find.
@@ -70,3 +81,34 @@
     the intended product with `--db` as the escape hatch, is a named-library concept wanted, or
     is the per-directory pickup itself the bug? All three are consistent with today's code.
     **Post-launch.**
+
+## Prior art - how four products handle two catalogs for one install (researched 2026-08-23, moved here from `(aea)`'s close)
+
+- **Lightroom Classic - silent pick, evergreen lost-work genre.** Default preference is
+  *"Load most recent catalog"*, announced nowhere but the title bar; every version upgrade
+  leaves a second `.lrcat` behind. The Lightroom Queen keeps a standing article whose thesis
+  is the prior verbatim: *"If you open Lightroom and your catalog is empty, Lightroom has
+  likely just opened the wrong catalog"* (lightroomqueen.com/lightroom-catalog-empty). Adobe
+  forum threads with that diagnosis recur; the data is almost never gone - users report it as
+  loss anyway.
+- **Zotero - the counter-example, and it EARNED its prompt.** The 5.0 migration picked
+  silently (most-recently-modified `zotero.sqlite`; its own KB admits it sometimes migrated
+  the wrong profile), and the resulting loss reports forced explicit UI: a launch dialog -
+  *"data directory could not be found at X, but a data directory was found at Y. Use this
+  directory instead? / Locate / Quit"* - plus a pre-sync guard, *"You are about to sync your
+  account to an empty Zotero database"*.
+- **digiKam - silent config read, nulls reported as findings.** The database-settings manual
+  documents no startup selection and no missing-path behaviour at all; a missing configured
+  path historically hangs with no window or loops an error (KDE bug 235928). A clean
+  "opened the wrong `digikam4.db`" thread was searched for and not found; its loss genre is
+  the adjacent path/UUID drift.
+- **Immich - silent and worst-in-class.** A one-line `DB_DATABASE_NAME` mismatch silently
+  materialises a fresh empty schema and greets the user with the **first-run admin
+  registration page** over hundreds of GB of intact data (github discussions 19977 - ">200 GB
+  gone", fixed by reverting one env line). The "UI" for the wrong-database state is the
+  onboarding screen, which is exactly what makes users read it as total loss.
+
+**The refined prior**: silent pick is the industry default; users reliably report it as lost
+work even when the data is intact in the other catalog; and the one product that prompts
+today grew the prompt from damage. That is the argument for this entry disclosing **before**
+users arrive rather than after.
