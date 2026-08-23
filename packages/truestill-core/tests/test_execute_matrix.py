@@ -128,7 +128,10 @@ GOLDEN_INPLACE_FILES = (
         "Camera",
     ),
 )
-GOLDEN_INPLACE_JOURNAL = ((GOLDEN_INPLACE_SHA, "incoming/photo.jpg", "Camera/2023/01/photo.jpg"),)
+#: The ordinary case: intent written, rename performed, outcome recorded. `(agk)`
+GOLDEN_INPLACE_JOURNAL = (
+    (GOLDEN_INPLACE_SHA, "incoming/photo.jpg", "Camera/2023/01/photo.jpg", "renamed"),
+)
 
 GOLDEN_XDEV_RESULTS = (
     ("moved", "Camera/2023/01/photo.jpg", "source removed (copy verified)", "photo.jpg"),
@@ -145,7 +148,20 @@ GOLDEN_XDEV_FILES = (
         "Camera",
     ),
 )
-GOLDEN_XDEV_JOURNAL: tuple[tuple[str, str, str], ...] = ()
+#: ⚠ **WAS EMPTY UNTIL `(agk)`, AND THE NEW ROW IS THE POINT.** The journal records the rename
+#: this file was *about to attempt*, written before the attempt - so a cross-device answer, which
+#: falls back to the verified copy path, leaves a row saying exactly that. It is harmless: `undo`
+#: reconciles against the disk and skips a `copied` row, and `organizer._move_source` had already
+#: re-hashed the destination before removing the source. An empty journal here would mean the
+#: rename had never been recorded as intended - which is the window `(agk)` closed.
+GOLDEN_XDEV_JOURNAL: tuple[tuple[str, str, str, str], ...] = (
+    (
+        "60863ced8e981e92e28b24a60a9579304cc610a4aad387dc80d8dfcb0d75cd43",
+        "incoming/photo.jpg",
+        "Camera/2023/01/photo.jpg",
+        "copied",
+    ),
+)
 
 GOLDEN_CANCEL_RESULTS = (("uploaded", "Camera/2023/01/f0.jpg", "", "f0.jpg"),)
 GOLDEN_CANCEL_TREE = ("Camera/2023/01/f0.jpg",)
@@ -221,9 +237,12 @@ def _snap_files(catalog: Catalog) -> tuple[tuple[str, ...], ...]:
     return tuple(tuple(str(c) if c is not None else "" for c in row) for row in rows)
 
 
-def _snap_journal(catalog: Catalog, run_id: str) -> tuple[tuple[str, str, str], ...]:
+def _snap_journal(catalog: Catalog, run_id: str) -> tuple[tuple[str, str, str, str], ...]:
+    """⚠ **The outcome is part of the snapshot since `(agk)`**, because the journal is now an
+    intent log: a row's existence no longer implies a rename happened, so a golden that omitted
+    the outcome would treat those two states as one."""
     return tuple(
-        (str(r["sha256"]), str(r["old_relative"]), str(r["new_relative"]))
+        (str(r["sha256"]), str(r["old_relative"]), str(r["new_relative"]), str(r["outcome"]))
         for r in catalog.inplace_moves(run_id)
     )
 

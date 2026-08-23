@@ -105,6 +105,38 @@ recording shipped work as unstarted, which is the more expensive direction of th
   **not real**; there is no mechanism, and it is recorded as refuted rather than quietly dropped.
   [Full entry](research/backlog/agg.md)
 
+- **(agk) THE IN-PLACE JOURNAL NOW RECORDS INTENT, BEFORE THE IRREVERSIBLE STEP.** Shipped
+  2026-08-23, schema **v21**. ⚠ **A RELEASE BLOCKER, and the most serious thing in this arc**: an
+  `--in-place` rename was covered by nothing until after it had happened, so a crash left a
+  photograph moved with no way back. 🔑 **Measured on real photographs**, not in a fixture: eight
+  `SIGKILL`s of a run over 150 files from `~/TruestillLibrary/Input`, scored by **inode**, left an
+  orphan in **2 of 8** - and `undo-organize` then printed *"Restored 27 file(s)"*, exited 0 and
+  left the photograph displaced, against a confirmation prompt promising the run is reversible.
+  The unprotected span was `rename → catalog row → journal row`; the orphan had no catalog row
+  either.
+  **Guarding the write was the hot patch and was refused**: it turns a silent lost undo row into a
+  loud one, and the file is still moved. The order is now **journal intent → rename → catalog row
+  → journal outcome**, so a row that cannot be written means no rename is attempted and there is
+  nothing to undo. Prior art is explicit - Microsoft's TxF writes the log record **before** the
+  operation is requested, because after a failure you cannot know whether the rename happened;
+  danluu's *"Files are hard"* adds that POSIX `rename` is atomic in normal operation and **not**
+  on crash, which `LocalDestination.adopt` already claimed the journal covered.
+  ⚠ **`outcome IS NULL` MEANS UNKNOWN, NEVER "DID NOT HAPPEN"** - a crash between the rename and
+  the write-back leaves exactly that over a file that moved. `undo` reconciles against the
+  **disk**, and now verifies **identity** as well as position (`size` rejects for free, SHA-256
+  confirms, unreadable refuses) because a row can name a rename that never happened while its path
+  is legitimately taken by another file. `organizer._move_source` already re-hashed before
+  unlinking a source; undo checking less would have been a second divergence on one user action.
+  ⚠ **THE MIGRATION CARRIES NO BACKFILL AND THE FIRST DRAFT DID** - `test_migration_safety.py`
+  refused it, correctly, and the rule that replaced it is better: **the journal never asserts an
+  outcome it did not observe.**
+  ⚠ **A wording defect found by the fix**: a row whose rename never happened read as *"no longer
+  at the path this run left it"* and cost exit 1. It is `NEVER_MOVED` now, and not a failure.
+  Costs, measured against a real run: the second write is **0.060 ms/file, 0.44%** of 13.7 ms/file,
+  ~2.1 s at 33k files. **Acceptance: the same eight kills now score ZERO orphans.**
+  Twelve tests, 9 of 10 failing first; ten mutations, all caught, three cry-wolf.
+  [Full entry](research/backlog/agk.md)
+
 - **(agj) AN ABORTED ORGANIZE WROTE NO RECORD - AND THE CLI WROTE A FALSE ONE.** Shipped
   2026-08-23. ⚠ **A REGRESSION FROM ONE COMMIT AGO, and naming it as one is the point.** `(agi)`
   gave `execute` its first *raising* stop; every stop before it was a `break` (`:2014` cancel,

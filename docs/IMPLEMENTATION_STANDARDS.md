@@ -428,7 +428,7 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
 ## 3. Data contract (catalog)
 
 - **Single SQLite file**, stdlib `sqlite3` (`catalog.py::Catalog`). No server.
-- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 20`**.
+- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 21`**.
   Migrations are ordered, idempotent functions in `_MIGRATIONS`; a catalog newer than the code
   is refused (`CatalogVersionError`). Migration coverage tested in `tests/test_catalog.py`.
 - **⚠ A copy of the catalog is taken before the chain runs, and it closes INTENT rather than
@@ -484,8 +484,8 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   control is pinned at the connect call to today's `LEGACY_TRANSACTION_CONTROL`, so a future
   Python default cannot change when writes commit; adopting the new semantics is a separate
   decision.
-- **Table inventory (v20 - the last migration that adds a table; v16, v17 and v19 add only
-  columns, and v18 only drops an index):**
+- **Table inventory (v20 - the last migration that adds a table; v16, v17, v19 and v21 add
+  only columns, and v18 only drops an index):**
   `files`, `albums`, `file_albums`, `events`, `skipped_clusters`, `drives`, `file_copies`,
   `settings`, `migration_journal`, `reclaim_journal`, `inplace_runs`, `inplace_moves`,
   `migration_runs`, `trips`, `trip_days`, `date_confirmations`, `organize_runs`.
@@ -559,6 +559,23 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   reads as complete. The close is an optimisation, not a correctness requirement - the same
   immunity `migrate` has, by reporting pending journal rows rather than a status flag. Superseding
   per drive on `start_migration_run`'s bound, so growth is bounded without a timer.
+  v21 `inplace_moves.outcome` and `inplace_moves.size`, with `moved_at` renamed to
+  `recorded_at` - **the in-place journal becomes an INTENT log**, `(agk)`. ⚠ **THE ROW IS NOW WRITTEN BEFORE THE
+  RENAME, NOT AFTER**, because a journal recording only completed work cannot cover the window in
+  which the work happens. Measured, on real photographs: eight `SIGKILL`s of an `--in-place` run
+  left a file moved with no undo row in **2 of 8**, and `undo-organize` then printed *"Restored 27
+  file(s)"* and exited 0 while the photograph stayed where the run had put it - against a
+  confirmation prompt promising the run is reversible. The unprotected span was `rename → catalog
+  row → journal row`; the orphan had no catalog row either. ⚠ **`outcome IS NULL` MEANS UNKNOWN,
+  NEVER "DID NOT HAPPEN"** - a crash between the rename and the write-back leaves exactly that
+  over a file that moved, so no reader may fold it into either state; `undo.plan_undo` reconciles
+  against the **disk**, which is the only thing that settles it. Rows written before v21 stay
+  NULL for the same reason the migration carries no backfill (see the DDL/DML rule above): the
+  journal never asserts an outcome it did not observe. ⚠ **`undo` verifies IDENTITY, not just
+  position** - `size` rejects for free, the SHA-256 confirms - because a row can now name a
+  rename that never happened while its path is legitimately taken by another file.
+  `organizer._move_source` already re-hashes before unlinking a source, and undo checking less
+  would be a second divergence on the same user action.
 - **Every catalog query names its columns; none selects `*`.** It began as a privacy guarantee
   in `decisions.gather_decisions` - reading column by column so a column added to `files` or
   `settings` later cannot arrive on a user's drive by default - and that reasoning is not

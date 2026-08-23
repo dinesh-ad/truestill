@@ -27,6 +27,7 @@ from pathlib import Path
 
 from truestill_core.catalog import Catalog
 from truestill_core.drive import path_is_usable_dir
+from truestill_core.hashing import sha256_file
 from truestill_core.progress import Phase, Progress, ProgressCallback
 
 
@@ -36,6 +37,20 @@ class UndoSkip(StrEnum):
     MOVED_AWAY = "moved_away"  # not at the path the run left it -- moved or deleted since
     ORIGIN_OCCUPIED = "origin_occupied"  # something else now sits where it came from
     FAILED = "failed"  # the rename itself failed (permissions, read-only mount, ...)
+    #: What is at the path is not what the row describes. `(agk)` Ruling 2: since the journal
+    #: became an INTENT log, a row can name a rename that never happened - and the path it names
+    #: may since have been taken, legitimately, by a different file. Position is not identity.
+    NOT_THE_SAME_FILE = "not_the_same_file"
+    #: The row records a fallback COPY rather than a rename. The copy path removed the source
+    #: only after re-hashing the destination, so it needs no undo row and this one describes
+    #: nothing to reverse.
+    WAS_A_COPY = "was_a_copy"
+    #: Identity could not be established, so nothing is moved. Never a silent pass.
+    UNREADABLE = "unreadable"
+    #: The intent was recorded and the rename never happened - the file is still where it
+    #: started. ⚠ **NOT A FAILURE**, and the only skip that is not: there is nothing to put
+    #: back. It exists because an intent log can say "unknown", and the disk can then answer.
+    NEVER_MOVED = "never_moved"
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +60,14 @@ class UndoStep:
     sha256: str
     current: Path
     original: Path
+    #: The size recorded with the intent, when there was one. The **free** half of identity: it
+    #: can reject a mismatch without opening the file and can never confirm one, so a match
+    #: still costs a hash. NULL for rows written before `(agk)`.
+    size: int | None = None
+    #: ``'renamed'`` / ``'copied'`` / ``None``. ⚠ **``None`` is UNKNOWN, never "did not
+    #: happen"** - a crash between the rename and the write-back leaves it, over a file that
+    #: really did move. Only the disk settles it, which is what the checks below do.
+    outcome: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,16 +174,12 @@ def plan_undo(
             sha256=str(row["sha256"]),
             current=dst_root / str(row["new_relative"]),
             original=src_root / str(row["old_relative"]),
+            size=row["size"],
+            outcome=row["outcome"],
         )
-        if not step.current.is_file():
-            skipped.append(
-                UndoSkipped(step, UndoSkip.MOVED_AWAY, "no longer at the path this run left it")
-            )
-            continue
-        if step.original.exists():
-            skipped.append(
-                UndoSkipped(step, UndoSkip.ORIGIN_OCCUPIED, "something else is there now")
-            )
+        verdict = _why_not(step)
+        if verdict is not None:
+            skipped.append(verdict)
             continue
         steps.append(step)
 
@@ -173,6 +192,68 @@ def plan_undo(
         steps=steps,
         skipped=skipped,
     )
+
+
+def _why_not(step: UndoStep) -> UndoSkipped | None:
+    """Why this row cannot be reversed, or ``None`` if it can. `(agk)`
+
+    ⚠ **THE JOURNAL IS AN INTENT LOG, SO NOTHING HERE MAY TRUST THE ROW.** Every question is
+    answered by looking at the disk. A row with no outcome is **unknown**, not "did not happen":
+    a crash between the rename and the write-back leaves exactly that over a file that moved, and
+    treating it as nothing-to-do would put the `(agk)` defect back one layer up.
+
+    **Order matters and is cheapest-first**: position, then size, then the hash. Size can only
+    ever *reject* - two files of one length are routine - so a match still costs a read.
+    """
+    if step.outcome == "copied":
+        # Not a rename at all. `organizer._move_source` verified the destination copy before
+        # removing the source, so the file is accounted for and this row describes no move.
+        return UndoSkipped(step, UndoSkip.WAS_A_COPY, "this file was copied, not renamed")
+    if not step.current.is_file():
+        if step.outcome is None and step.original.is_file():
+            # ⚠ **The "unknown" outcome, settled by the disk.** Nothing is at the new path and
+            # the file is still at the old one, so the rename never happened - which an intent
+            # log can express and a completed-moves log could not. Reporting this as *"no longer
+            # at the path this run left it"* would be false: the run never left it anywhere.
+            return UndoSkipped(
+                step, UndoSkip.NEVER_MOVED, "was never moved; it is still where it started"
+            )
+        return UndoSkipped(step, UndoSkip.MOVED_AWAY, "no longer at the path this run left it")
+    if step.original.exists():
+        return UndoSkipped(step, UndoSkip.ORIGIN_OCCUPIED, "something else is there now")
+    return _identity_check(step)
+
+
+def _identity_check(step: UndoStep) -> UndoSkipped | None:
+    """Is the file at ``current`` the one this row describes? `(agk)` Ruling 2.
+
+    ⚠ **`organizer._move_source` already re-hashes before it unlinks a source**, and this is the
+    same product performing the same user action - so undo checking only *position* would be a
+    second divergence on top of the ordering one `(agk)` exists to close. The user is reversing a
+    destructive act on files that may be their only copy; this is where a read is worth paying
+    for.
+
+    ⚠ **Unreadable is a REFUSAL, not a pass.** Failing open here would move a file whose identity
+    could not be established, which is the one outcome undo must never produce.
+    """
+    try:
+        actual = step.current.stat().st_size
+    except OSError as exc:
+        return UndoSkipped(step, UndoSkip.UNREADABLE, f"could not be read to confirm it: {exc}")
+    if step.size is not None and actual != step.size:
+        # Free rejection: a different length is a different file, and no hash is needed to say so.
+        return UndoSkipped(
+            step,
+            UndoSkip.NOT_THE_SAME_FILE,
+            f"a different file is at this path now ({actual} bytes, not {step.size})",
+        )
+    try:
+        digest = sha256_file(step.current)
+    except OSError as exc:
+        return UndoSkipped(step, UndoSkip.UNREADABLE, f"could not be read to confirm it: {exc}")
+    if digest != step.sha256:
+        return UndoSkipped(step, UndoSkip.NOT_THE_SAME_FILE, "a different file is at this path now")
+    return None
 
 
 def run_undo(
@@ -196,11 +277,12 @@ def run_undo(
     for done, step in enumerate(plan.steps, start=1):
         # Re-check immediately before moving: the preview may be minutes old, and the
         # never-overwrite rule has to hold at the moment of the write, not at planning time.
-        if not step.current.is_file():
-            skipped.append(UndoSkipped(step, UndoSkip.MOVED_AWAY, "disappeared before undo"))
-            continue
-        if step.original.exists():
-            skipped.append(UndoSkipped(step, UndoSkip.ORIGIN_OCCUPIED, "occupied before undo"))
+        # ⚠ **The SAME predicate as the plan, identity included** (`(agk)`). Re-checking only
+        # position here would mean the hash was a planning-time opinion about a file that can
+        # change afterwards - and the window is exactly the one this re-check exists for.
+        verdict = _why_not(step)
+        if verdict is not None:
+            skipped.append(verdict)
             continue
         try:
             step.original.parent.mkdir(parents=True, exist_ok=True)

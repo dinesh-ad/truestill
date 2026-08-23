@@ -7,6 +7,12 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **Organising in place can no longer leave a photo stranded if the run is interrupted.** When
+  Truestill reorganises a drive by moving files on it, it now writes down each move *before* making
+  it. Previously the note was written afterwards, so a crash in between could leave a photo in its
+  new place with nothing recording where it came from - and **Undo would report success while that
+  photo stayed put**. Undo now also checks that a file really is the one it is putting back, and
+  says plainly when something could not be restored.
 - **A run that stops early now says what it managed before it stopped.** If a drive filled up
   part-way through organizing, Truestill stopped - correctly - but the run record either was not
   written at all, or said that none of your photos had been attempted, when some were already

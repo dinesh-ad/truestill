@@ -27,9 +27,17 @@ def _in_place_run(
     catalog.start_inplace_run(
         run_id=run, source_root=root, dest_root=dest or root, drive_uuid=drive
     )
-    catalog.record_inplace_move(
-        run_id=run, sha256="a" * 64, old_relative=old, new_relative="Camera/2013/new.jpg"
+    # The two writes a real completed run makes, in order. `(agk)` made the journal an intent
+    # log; a fixture writing a state the product can no longer produce is a trap, so this
+    # mirrors the sequence rather than shortcutting to the end state.
+    catalog.record_inplace_intent(
+        run_id=run,
+        sha256="a" * 64,
+        old_relative=old,
+        new_relative="Camera/2013/new.jpg",
+        size=None,
     )
+    catalog.record_inplace_outcome(run_id=run, old_relative=old, outcome="renamed")
     catalog.finish_inplace_run(run)
 
 
@@ -87,9 +95,16 @@ def test_an_unfinished_in_place_run_contributes_nothing(tmp_path: Path) -> None:
         catalog.start_inplace_run(
             run_id="r4", source_root="/drive", dest_root="/drive", drive_uuid="drive-1"
         )
-        catalog.record_inplace_move(
-            run_id="r4", sha256="b" * 64, old_relative="Old/a.jpg", new_relative="New/a.jpg"
+        # The FILE finished; the RUN did not. `(agk)`'s intent log distinguishes those, and
+        # this fixture is about the run, so the file's outcome is recorded as normal.
+        catalog.record_inplace_intent(
+            run_id="r4",
+            sha256="b" * 64,
+            old_relative="Old/a.jpg",
+            new_relative="New/a.jpg",
+            size=None,
         )
+        catalog.record_inplace_outcome(run_id="r4", old_relative="Old/a.jpg", outcome="renamed")
         assert catalog.migrated_old_paths("drive-1") == []
     finally:
         catalog.close()

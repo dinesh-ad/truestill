@@ -219,7 +219,7 @@ from truestill_core.takeout import (
     TakeoutSidecar,
     scan_takeout,
 )
-from truestill_core.undo import UndoError, plan_undo, run_undo
+from truestill_core.undo import UndoError, UndoSkip, plan_undo, run_undo
 from truestill_core.verify import CopyStatus, CopyToVerify, verify_copies
 
 from truestill_cli import __version__
@@ -4072,10 +4072,24 @@ def _cmd_undo_organize(args: argparse.Namespace) -> int:
             if not runs:
                 print("No in-place organize runs recorded.")
                 return 0
-            print(f"{'run id':<34}{'when':<28}{'files':>7}  status")
+            # ⚠ **"intended", not "files", since `(agk)`.** The journal is an intent log: a row
+            # is written before the rename is attempted, so a count of rows is what the run set
+            # out to do. `renamed` is what is confirmed, and anything unconfirmed is reported as
+            # **unknown** rather than folded into either - because a crash between the rename and
+            # the write-back leaves that state over a file which really did move, and only
+            # `undo-organize` (which reconciles against the disk) can settle it.
+            print(f"{'run id':<34}{'when':<28}{'intended':>9}{'renamed':>9}{'unknown':>9}  status")
             for row in runs:
+                unknown = f"{row['unknown']:>9}" if row["unknown"] else f"{'-':>9}"
                 print(
-                    f"{row['run_id']:<34}{row['started_at']:<28}{row['moves']:>7}  {row['status']}"
+                    f"{row['run_id']:<34}{row['started_at']:<28}{row['intended']:>9}"
+                    f"{row['renamed']:>9}{unknown}  {row['status']}"
+                )
+            if any(r["unknown"] for r in runs):
+                print(
+                    "\n  'unknown' means the outcome was never recorded - which is NOT the same "
+                    "as nothing having happened.\n  Run 'truestill undo-organize --run-id ID' to "
+                    "see what is actually on the drive."
                 )
             return 0
 
@@ -4095,6 +4109,11 @@ def _cmd_undo_organize(args: argparse.Namespace) -> int:
         print(f"  came from  : {plan.source_root}")
         print(f"  restorable : {plan.restorable} file(s)")
         for skip in plan.skipped:
+            if skip.reason is UndoSkip.NEVER_MOVED:
+                # Not a refusal: there is nothing to put back. Said on stdout with the rest of
+                # the plan rather than on stderr with the problems. `(agk)`
+                print(f"  not moved yet: {skip.step.original.name} -- {skip.detail}")
+                continue
             print(f"  cannot restore: {skip.step.current.name} -- {skip.detail}", file=sys.stderr)
 
         if not args.apply:
@@ -4116,13 +4135,24 @@ def _cmd_undo_organize(args: argparse.Namespace) -> int:
             print(f"error: {busy}", file=sys.stderr)
             return DRIVE_BUSY_EXIT
         print(f"\nRestored {outcome.restored} file(s) to their original locations.")
-        if outcome.skipped:
+        # ⚠ **A file that was never moved is not one that could not be restored** (`(agk)`).
+        # Since the journal records intent, an interrupted run leaves rows for renames that
+        # never happened; calling those failures would make every such run report a problem it
+        # does not have, and would spend the exit code on it.
+        unresolved = [s for s in outcome.skipped if s.reason is not UndoSkip.NEVER_MOVED]
+        never = len(outcome.skipped) - len(unresolved)
+        if never:
             print(
-                f"  {len(outcome.skipped)} file(s) could not be restored; the run stays open so "
+                f"  {never} file(s) had not been moved yet when the run stopped; "
+                "they were already where they belong."
+            )
+        if unresolved:
+            print(
+                f"  {len(unresolved)} file(s) could not be restored; the run stays open so "
                 "you can re-run undo once they are resolved.",
                 file=sys.stderr,
             )
-        return 1 if outcome.skipped else 0
+        return 1 if unresolved else 0
 
 
 def _print_reclaim_plan(plan: ReclaimPlan, *, label: str, min_copies: int) -> None:

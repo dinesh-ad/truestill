@@ -1550,7 +1550,6 @@ def _journal_or_delete_source(
     decision: Decision,
     *,
     destination: Destination,
-    catalog: Catalog | None,
     relocation: Relocation | None,
     move: bool,
     source_sha: str,
@@ -1574,20 +1573,13 @@ def _journal_or_delete_source(
         distance = f", distance={near.distance}" if near.distance is not None else ""
         notes.append(f"near-duplicate of {near.matched_path} [{near.origin}{distance}]")
     if moved_in_place and relocation is not None:
-        # The move already happened and rewrote nothing -- there is no copy to verify and no
-        # window in which another process could observe zero copies. Journalling it here (after
-        # the rename, before anything else) is what makes it undoable, and on a filesystem that
-        # journals nothing (FAT32, exFAT) that journal is also the only thing standing between a
-        # power cut and an orphaned entry -- see `LocalDestination.adopt`.
+        # ⚠ **THE JOURNAL ROW IS NOT WRITTEN HERE, AND THAT IS `(agk)`.** It used to be, "after
+        # the rename, before anything else" -- which left the rename itself covered by nothing.
+        # It is now an INTENT written in `_execute_one_write` *before* the attempt, with the
+        # outcome recorded after. Do not move a journal write back into this function: the whole
+        # defect was that the record of an irreversible step followed the step.
         status = ActionStatus.MOVED_IN_PLACE
         notes.append("moved on the drive (no bytes copied)")
-        if catalog is not None:
-            catalog.record_inplace_move(
-                run_id=relocation.run_id,
-                sha256=source_sha,
-                old_relative=relocation.old_relative(decision.source),
-                new_relative=final_relative,
-            )
     elif move:
         # Copy-only exception: delete the source, but ONLY after the just-written copy
         # re-verifies. A failed verify keeps the source; a crash before this leaves both.
@@ -1621,6 +1613,71 @@ class _WriteRun:
     drive_uuid: str | None
 
 
+def _record_the_intent(
+    run: _WriteRun, decision: Decision, *, source_sha: str, final: str, size: int | None
+) -> None:
+    """Journal the rename this file is about to attempt. `(agk)`
+
+    Nothing has moved yet, so a failure needs no rollback - `Rollback.REMOVED` is exactly true
+    here ("nothing is on the drive unrecorded"), and reusing it keeps one wording for a stopped
+    run rather than inventing a second.
+    """
+    if run.relocation is None or run.catalog is None:
+        return
+    try:
+        retry_while_busy(
+            lambda: _require(run.catalog).record_inplace_intent(
+                run_id=_require_relocation(run.relocation).run_id,
+                sha256=source_sha,
+                old_relative=_require_relocation(run.relocation).old_relative(decision.source),
+                new_relative=final,
+                size=size,
+            )
+        )
+    except sqlite3.Error as exc:
+        raise CatalogWriteError(
+            exc,
+            relative=final,
+            source=decision.source,
+            rollback=Rollback.REMOVED,
+            rollback_detail="the rename was not attempted, so nothing moved",
+            busy_exhausted=is_catalog_busy(exc),
+            catalog_dir=_require(run.catalog).path.parent,
+        ) from exc
+
+
+def _record_the_outcome(run: _WriteRun, decision: Decision, *, moved_in_place: bool) -> None:
+    """Say what the attempt became, so the counts stay honest in the ordinary case. `(agk)`
+
+    ``'copied'`` is not a failure: a plain ``--move`` may fall back to the verified copy path,
+    which removes the source only after re-hashing the destination and needs no undo row. The
+    row is left in place rather than deleted, because `undo` reconciles against the disk and an
+    intent that became a copy is harmless there - and deleting it would cost a second write on
+    a path that is already the slow one.
+    """
+    if run.relocation is None or run.catalog is None:
+        return
+    retry_while_busy(
+        lambda: _require(run.catalog).record_inplace_outcome(
+            run_id=_require_relocation(run.relocation).run_id,
+            old_relative=_require_relocation(run.relocation).old_relative(decision.source),
+            outcome="renamed" if moved_in_place else "copied",
+        )
+    )
+
+
+def _require(catalog: Catalog | None) -> Catalog:
+    """Narrow for a lambda body, which mypy will not carry a member narrowing into."""
+    assert catalog is not None
+    return catalog
+
+
+def _require_relocation(relocation: Relocation | None) -> Relocation:
+    """The same, for the relocation the two callers above have already checked."""
+    assert relocation is not None
+    return relocation
+
+
 def _execute_one_write(resolution: Resolution, run: _WriteRun) -> ActionResult:
     """One file's write path: already-placed check, then bake/write -> catalog -> journal/delete.
 
@@ -1650,6 +1707,17 @@ def _execute_one_write(resolution: Resolution, run: _WriteRun) -> ActionResult:
     # scan skipped, since the file is being read for upload anyway.
     source_sha = resolution.hashes.sha256 or sha256_file(decision.source)
     size = _safe_size(decision.source)  # read before any move: the old path then vanishes
+
+    # ⚠ **THE INTENT ROW GOES FIRST, ABOVE THE IRREVERSIBLE STEP.** `(agk)` Ruling 3.
+    #
+    # A rename cannot be verified after the fact the way a copy can - there is no second copy to
+    # re-hash, because the rename IS the operation. So the only thing that can make it survivable
+    # is a record written before it. `_move_source` one branch away has always obeyed this
+    # (it verifies the copy before unlinking the source); this path did not, and a crash in the
+    # window left a real photograph displaced with no way back, in 2 of 8 measured kills.
+    #
+    # A failure here stops the run with nothing moved, which is why it needs no rollback.
+    _record_the_intent(run, decision, source_sha=source_sha, final=final_relative, size=size)
 
     copy_sha, moved_in_place = _write_organized_bytes(
         decision,
@@ -1689,10 +1757,15 @@ def _execute_one_write(resolution: Resolution, run: _WriteRun) -> ActionResult:
             moved_in_place=moved_in_place,
         )
 
+    # ⚠ **Bookkeeping, and deliberately AFTER the catalog row.** Losing this costs a count its
+    # precision; losing the intent above costs the user a file. The two are not the same write
+    # and are not protected the same way - `undo` never trusts this field, it reconciles against
+    # the disk, so an unwritten outcome reads as **unknown** rather than as "nothing happened".
+    _record_the_outcome(run, decision, moved_in_place=moved_in_place)
+
     return _journal_or_delete_source(
         decision,
         destination=run.destination,
-        catalog=run.catalog,
         relocation=run.relocation,
         move=run.move,
         source_sha=source_sha,

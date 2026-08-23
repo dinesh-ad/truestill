@@ -1,8 +1,14 @@
 # (agk) AN IN-PLACE RENAME IS NOT COVERED BY ANYTHING UNTIL AFTER IT HAS HAPPENED.
 
-*Body of entry `(agk)`. **OPEN - designed, not built.** The index is [`BACKLOG.md`](../../BACKLOG.md); the provenance index is [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(agk)`. **SHIPPED 2026-08-23.** The index is now [`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
 
-> ## ⛔ DESIGN ONLY. DO NOT BUILD FROM THE ONE-LINE VERSION.
+> ## ✅ SHIPPED 2026-08-23 - all three rulings, one commit
+>
+> Order is now **journal intent → rename → catalog row → journal outcome**, undo verifies
+> identity, and the readers say `intended` / `renamed` / `unknown`. **The eight-kill harness that
+> found this scores zero orphans**, against 2 of 8 before.
+>
+> ## ⛔ THE DESIGN GATE THIS ENTRY WENT THROUGH, KEPT
 >
 > `(agj)` reported this as *"`record_inplace_move` is an unguarded catalog write"*. **That framing
 > invites the wrong fix.** Wrapping the write in `_record_or_stop` converts a silent lost undo row
@@ -202,3 +208,116 @@ a second write on the fallback path, which is rare.
   the journal is written after the thing it is meant to cover.
 * This repo's own `_move_source` (Q53), which is the same principle already applied correctly one
   branch away.
+
+## What shipped, and the three rulings as built
+
+**Ruling 1 - an intent log, and no `confirmed` column as a trust anchor.** `inplace_moves` gains
+`outcome` (NULL | `'renamed'` | `'copied'`) and `size`; `moved_at` is **renamed** to
+`recorded_at`, because a column called *moved_at* on a row that may describe a rename which never
+happened is the reader asserting what it no longer knows. `inplace_runs()` returns `intended`,
+`renamed` and `unknown` in place of one `moves`, and the CLI listing prints all three with a line
+saying what `unknown` means. ⚠ **NULL is UNKNOWN, never "did not happen"** - and that is the
+cry-wolf the mutation matrix pins hardest.
+
+⚠ **THE MIGRATION CARRIES NO BACKFILL, AND THE FIRST DRAFT DID.** Every pre-v21 row was written
+after a completed rename, so `'renamed'` would have been true - and
+`test_migration_safety.py`'s guard refused it, correctly: DDL autocommits and DML does not, so a
+crash between them commits the column, rolls back the data, and the retry **skips** the backfill
+because the column already exists. Leaving old rows NULL turned out to be the better rule rather
+than a concession: **the journal never asserts an outcome it did not observe**, including for rows
+that predate the field. A `DEFAULT 'renamed'` was rejected for the mirror reason - it would make
+any future insert that omits the column claim a rename happened.
+
+**Ruling 2 - undo verifies identity.** `size` rejects for free, the SHA-256 confirms, and
+unreadable is a **refusal** rather than a pass. Q59's five-step sequence is built as a test rather
+than described.
+
+**Ruling 3 - the whole span, one commit.** `journal intent → rename → catalog row → journal
+outcome`. The journal is the recovery record and the catalog is derivable by `rescan`, so the
+journal row committing before the catalog row is correct rather than merely tolerable.
+
+## Q56 - undo's message, and the lie did not stand one level up
+
+⚠ **Undo's honesty machinery was already complete; the defect starved it of input.** It prints
+`cannot restore: <name> -- <detail>`, then `N file(s) could not be restored; the run stays open`,
+and exits 1. The reproduction printed a clean *"Restored 27 file(s)"* because **there was no row
+at all** - nothing to skip. With the intent row present, the same crash now reports:
+
+```
+run id                            when          intended  renamed  unknown  status
+7710a02eb17a44e5a988def2c3e37845  ...                  16       15        1  in_progress
+
+  'unknown' means the outcome was never recorded - which is NOT the same as nothing having happened.
+
+$ truestill undo-organize --apply
+  cannot restore: IMG_20200629_212650.jpg -- no longer at the path this run left it
+  Restored 15 file(s) to their original locations.
+  1 file(s) could not be restored; the run stays open ...
+```
+
+**All 15 moved files restored; 0 left displaced.**
+
+⚠ **One wording defect this exposed, and fixed.** A row whose rename never happened was reported
+as `MOVED_AWAY` - *"no longer at the path this run left it"* - which is false about a file the run
+never moved, and it spent the exit code on it. The disk distinguishes them (nothing at the new
+path **and** the file still at the old one), so it is now `NEVER_MOVED`, excluded from the failure
+count and from the exit code. **A file that was never moved is not one that could not be
+restored.**
+
+## Q57 - the second write, measured against a real run
+
+| | |
+|---|---|
+| `record_inplace_outcome` | median **0.060 ms**, p95 0.071 ms (n=2,000, real catalog) |
+| a real in-place run | **13.7 ms/file** (150 real photographs, 2.05 s) |
+| share of per-file cost | **0.44%** |
+| extrapolated to 33,000 files | **~2.1 s** |
+
+**Not material**, declared before choosing as asked.
+
+## Q58 - replay is idempotent against the disk, not the row
+
+`_execute_one_write`'s `_already_at_target` check runs **before** the intent is recorded, so a
+second in-place run over an organized folder writes no new intent and moves nothing. A guard keyed
+on the journal would be wrong in both directions: a row exists for renames that did not happen,
+and no row exists for a folder organized by an earlier install.
+
+## Proof
+
+Twelve tests, **9 of 10 failing against pre-change source** (the tenth is a cry-wolf half, which
+must pass in both directions). Ten mutations, all caught, against an unmutated control:
+
+| # | mutation | direction |
+|---|---|---|
+| 1 | nothing is recorded before the rename | defect |
+| 2 | the outcome is never written back | defect |
+| 3 | undo checks position only | defect |
+| 4 | never-moved collapses into moved-away | defect |
+| 5 | absence of an outcome read as "did not happen" | ⚠ cry-wolf |
+| 6 | undo hashes and refuses every legitimate restore | ⚠ cry-wolf |
+| 7 | the size pre-filter rejects on a match | ⚠ cry-wolf |
+| 8 | a `copied` row is treated as a rename | defect |
+| 9 | a `stat` failure fails open | defect |
+| 10 | a hash-read failure fails open | defect |
+
+⚠ **Mutation 1 SURVIVED first, and the MUTANT was the problem** - a two-step edit left the
+original call in place, so the property was never removed (`ENGINEERING_STANDARD.md` §4's
+sixty-sixth member, third time it has paid). ⚠ **Mutation 9 survived first and the mutant was
+VALID** - a real gap: `chmod 000` does not stop `stat`, so the unreadable test reached the hash
+and left the `stat` guard unproven. It has its own test now.
+
+## Acceptance
+
+The harness that found the defect, re-run against the fix - same 150 real photographs, same eight
+`SIGKILL`s:
+
+```
+k1: moved= 15  intents= 16  unknown= 1  ORPHANS=0     <- the crash window, caught
+k2..k8:                                  ORPHANS=0
+
+TOTAL over 8 kills: moved=296  intents=297  ORPHANS=0      (was 2 of 8)
+```
+
+k1 is the design working: the intent was written, the process died before the rename completed,
+and the row is `unknown` rather than absent - so undo could ask the disk and put every moved file
+back.

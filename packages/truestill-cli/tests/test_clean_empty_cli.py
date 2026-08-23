@@ -128,11 +128,16 @@ def _drive_with_an_in_place_run(tmp_path: Path) -> tuple[Path, Path]:
         catalog.start_inplace_run(
             run_id="run-9", source_root=str(root), dest_root=str(root), drive_uuid=marker.uuid
         )
-        catalog.record_inplace_move(
+        # Intent then outcome, the sequence a real completed run makes since `(agk)`.
+        catalog.record_inplace_intent(
             run_id="run-9",
             sha256="c" * 64,
             old_relative="Old Folder/x.jpg",
             new_relative="2023/2023-08/x.jpg",
+            size=None,
+        )
+        catalog.record_inplace_outcome(
+            run_id="run-9", old_relative="Old Folder/x.jpg", outcome="renamed"
         )
         catalog.finish_inplace_run("run-9")
     return root, db

@@ -230,12 +230,26 @@ CREATE TABLE IF NOT EXISTS inplace_runs (
     status       TEXT NOT NULL   -- in_progress | completed | undone
 );
 
+-- ⚠ **AN INTENT LOG, NOT A LOG OF COMPLETED MOVES**, and the distinction is the whole of
+-- `(agk)`. The row is written BEFORE the rename, because a journal that records only finished
+-- work cannot cover the window in which the work happens - measured at 25% of crashes, with a
+-- real photograph left displaced and `undo-organize` reporting success.
+--
+-- ⚠ `outcome` IS NULL UNTIL THE OPERATION ANSWERS, AND NULL MEANS **UNKNOWN** - NEVER
+-- "DIDN'T HAPPEN". A crash between the rename and the write-back leaves NULL over a file that
+-- did move, so any reader treating NULL as "no move" would reintroduce the defect one layer up.
+-- Only the disk settles it; `undo.plan_undo` is where that reconciliation lives.
+--
+-- `size` is the free half of identity: it can REJECT a mismatch without reading the file, and
+-- can never confirm one. `undo` hashes to confirm. `(agk)` Ruling 2.
 CREATE TABLE IF NOT EXISTS inplace_moves (
     run_id       TEXT NOT NULL,
     sha256       TEXT NOT NULL,
     old_relative TEXT NOT NULL,
     new_relative TEXT NOT NULL,
-    moved_at     TEXT NOT NULL,
+    recorded_at  TEXT NOT NULL,   -- when the INTENT was written, not when a file moved
+    outcome      TEXT,            -- NULL = unknown | 'renamed' | 'copied'
+    size         INTEGER,
     PRIMARY KEY (run_id, old_relative)
 );
 CREATE INDEX IF NOT EXISTS idx_inplace_moves_run ON inplace_moves (run_id);
@@ -300,7 +314,7 @@ CREATE TABLE IF NOT EXISTS date_confirmations (
 """
 
 #: Bump whenever the schema changes, and add a matching entry to _MIGRATIONS.
-CURRENT_SCHEMA_VERSION = 20
+CURRENT_SCHEMA_VERSION = 21
 
 
 class CatalogVersionError(RuntimeError):
@@ -865,6 +879,48 @@ def _add_organize_runs(conn: sqlite3.Connection) -> None:
     )
 
 
+def _make_the_inplace_journal_an_intent_log(conn: sqlite3.Connection) -> None:
+    """v20 -> v21: the in-place journal records intent, not completed moves. `(agk)`
+
+    ⚠ **`moved_at` is RENAMED rather than reused**, and that is the point of the migration. A
+    column called `moved_at` on a row that may describe a rename which never happened is the
+    reader asserting what it no longer knows - the exact failure Ruling 1 exists to prevent.
+
+    ⚠ **EXISTING ROWS ARE LEFT UNKNOWN, AND THE FIRST DRAFT BACKFILLED THEM.** Every old row was
+    written *after* a completed rename, so `'renamed'` would have been true - and
+    `test_migration_safety.py`'s backfill guard refused it, correctly: DDL autocommits and DML
+    does not, so a crash between them commits the column, rolls back the data, and the retry
+    **skips** the backfill because the column already exists. The partial state becomes permanent
+    and silent.
+
+    Leaving them NULL is not a concession, it is the better rule: **the journal never asserts an
+    outcome it did not observe**, including for rows predating the field. Unknown costs a hash on
+    undo and nothing else, because unknown means *ask the disk* - which `undo.plan_undo` does for
+    every row anyway. A `DEFAULT 'renamed'` was rejected for the opposite reason: it would make
+    any future insert that omits the column claim a rename happened, which is the one direction
+    this entry exists to prevent.
+
+    ⚠ **`ADD COLUMN` is not `DEFAULT`-free by accident either** - `size` stays NULL for old rows,
+    which costs only the free pre-filter. `undo` still hashes, so identity is unaffected.
+    """
+    columns = _columns_of(conn, "inplace_moves")
+    if not columns:
+        # No table, nothing to alter. `PRAGMA table_info` answers empty rather than raising for a
+        # missing table, so this is the same guard the statements below use and not a special
+        # case - a chain replayed onto a file that never reached v10 must complete, not die here.
+        return
+    # Guarded per statement, not per migration: `_MIGRATIONS` is replayed from whatever version
+    # the file is on, and a half-applied step must be completable rather than fatal. `RENAME
+    # COLUMN` in particular cannot be re-run - it raises on the second pass, where `ADD COLUMN`
+    # merely duplicates.
+    if "moved_at" in columns:
+        conn.execute("ALTER TABLE inplace_moves RENAME COLUMN moved_at TO recorded_at")
+    if "outcome" not in columns:
+        conn.execute("ALTER TABLE inplace_moves ADD COLUMN outcome TEXT")
+    if "size" not in columns:
+        conn.execute("ALTER TABLE inplace_moves ADD COLUMN size INTEGER")
+
+
 _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (2, _add_size_column),
     (3, _add_original_name_column),
@@ -885,6 +941,7 @@ _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (18, _drop_redundant_sha256_index),
     (19, _add_copy_missing_at),
     (20, _add_organize_runs),
+    (21, _make_the_inplace_journal_an_intent_log),
 )
 
 
@@ -1493,15 +1550,46 @@ class Catalog:
                 (run_id, source_root, dest_root, drive_uuid, _now(), "in_progress"),
             )
 
-    def record_inplace_move(
-        self, *, run_id: str, sha256: str, old_relative: str, new_relative: str
+    def record_inplace_intent(
+        self,
+        *,
+        run_id: str,
+        sha256: str,
+        old_relative: str,
+        new_relative: str,
+        size: int | None,
     ) -> None:
-        """Journal one completed rename. Written immediately after the file has moved."""
+        """Journal a rename **about to be attempted**. Written BEFORE the file moves. `(agk)`
+
+        ⚠ **The ordering is the guarantee, and reversing it is the defect.** Written afterwards,
+        as it was until `(agk)`, the rename itself is covered by nothing: a crash in the window
+        leaves the file moved with no way back. Measured on real photographs - 2 of 8 kills, and
+        `undo-organize` then reported success while the file stayed where the run had put it.
+
+        Written first, the worst case is a row describing a rename that never happened, and that
+        is recoverable by construction: `undo.plan_undo` reconciles against the **disk**, so such
+        a row is skipped rather than acted on. A failure here means no rename is attempted, so
+        there is nothing to undo - which is the point of doing it in this order.
+        """
         with self._tx() as conn:
             conn.execute(
                 "INSERT OR REPLACE INTO inplace_moves (run_id, sha256, old_relative, "
-                "new_relative, moved_at) VALUES (?, ?, ?, ?, ?)",
-                (run_id, sha256, old_relative, new_relative, _now()),
+                "new_relative, recorded_at, outcome, size) VALUES (?, ?, ?, ?, ?, NULL, ?)",
+                (run_id, sha256, old_relative, new_relative, _now(), size),
+            )
+
+    def record_inplace_outcome(self, *, run_id: str, old_relative: str, outcome: str) -> None:
+        """Say what the attempt became: ``'renamed'`` or ``'copied'``. `(agk)`
+
+        ⚠ **This is bookkeeping, not the guarantee.** Losing it costs a count its precision and
+        nothing else, because the row it updates already exists and `undo` never trusts this
+        field - it reconciles against the disk either way. That asymmetry is deliberate: the
+        write that must not be lost happens before the rename, and this one may be.
+        """
+        with self._tx() as conn:
+            conn.execute(
+                "UPDATE inplace_moves SET outcome = ? WHERE run_id = ? AND old_relative = ?",
+                (outcome, run_id, old_relative),
             )
 
     def finish_inplace_run(self, run_id: str, *, status: str = "completed") -> None:
@@ -1519,13 +1607,26 @@ class Catalog:
             conn.execute("DELETE FROM inplace_runs WHERE run_id = ?", (run_id,))
 
     def inplace_runs(self) -> list[sqlite3.Row]:
-        """Every recorded relocation run, newest first, with its move count."""
+        """Every recorded relocation run, newest first, with what its journal actually says.
+
+        ⚠ **Three counts, not one, since `(agk)`.** The single `moves` column asserted that every
+        row was a completed move, which an intent log cannot promise. `intended` is how many
+        renames the run set out to make, `renamed` how many are confirmed, and `unknown` how many
+        have no outcome recorded - **which means the disk has not been asked, never that nothing
+        happened.** A caller that wants the truth about an `unknown` row reconciles, as
+        `undo.plan_undo` does; a caller that only reports says "intended".
+        """
         return list(
             self._conn.execute(
                 """
                 SELECT r.run_id, r.source_root, r.dest_root, r.drive_uuid, r.started_at,
                        r.completed_at, r.status,
-                       (SELECT COUNT(*) FROM inplace_moves m WHERE m.run_id = r.run_id) AS moves
+                       (SELECT COUNT(*) FROM inplace_moves m WHERE m.run_id = r.run_id)
+                           AS intended,
+                       (SELECT COUNT(*) FROM inplace_moves m
+                         WHERE m.run_id = r.run_id AND m.outcome = 'renamed') AS renamed,
+                       (SELECT COUNT(*) FROM inplace_moves m
+                         WHERE m.run_id = r.run_id AND m.outcome IS NULL) AS unknown
                 FROM inplace_runs r
                 ORDER BY r.started_at DESC
                 """
@@ -1554,8 +1655,8 @@ class Catalog:
         """A run's moves in the order they happened; undo walks this reversed."""
         return list(
             self._conn.execute(
-                "SELECT sha256, old_relative, new_relative FROM inplace_moves "
-                "WHERE run_id = ? ORDER BY moved_at, old_relative",
+                "SELECT sha256, old_relative, new_relative, outcome, size FROM inplace_moves "
+                "WHERE run_id = ? ORDER BY recorded_at, old_relative",
                 (run_id,),
             )
         )
