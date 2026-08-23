@@ -129,6 +129,24 @@
     corpora above in minutes.
   - **Delete freely**: the `*.log`, `*.json` and `*cat.sqlite*` files - one run's worth each.
 
+  ✅ **THE CLEAN-UP HAPPENED ON 2026-08-23, ON THIS BREAKDOWN, and it is recorded here rather
+  than the paragraph above being edited.** The reproduction is now **12,132 MB** - the ~12 GB the
+  durable line predicted, which is the breakdown checking out rather than a coincidence worth
+  glossing. Removed: `bigA`, `bigB` and the five `dest`/`bdest`/`fdest`/`cdest`/`rdest` trees
+  (13,593 MB), and 27 `*.log` / `*.json` / `*cat.sqlite*` files. **What is left is exactly what
+  this entry calls durable**, and it is the whole of it: `A`, `B`, `detect.py`, `window.py`.
+
+  ⚠ **Two entries were kept that the breakdown does not name**: `seed` and `fdest_seed`, 4 MB
+  each. They are in none of the three categories above, and this product's own rule for deleting
+  things - `IMPLEMENTATION_STANDARDS.md` §1, `clean-empty` condition **(b)** - is that *unknown is
+  never junk*. A clean-up run against a list must not quietly widen it, so they stay until
+  somebody says what they are. **Name them here if they go**; 8 MB is not worth a guess about the
+  only measured data-loss reproduction in the product.
+
+  ⚠ **`bigA`/`bigB` and the `*dest` trees are regenerable "in minutes" as stated, and nobody has
+  re-run that since it was written.** The claim is inherited, not re-measured on the day it was
+  acted on.
+
   - **What shrank this from "P1", and it is the load-bearing measurement.** SQLite already
     serialises writers, so **the catalog cannot be corrupted by two truestill processes**.
     Measured directly, 2026-08-03: `journal_mode = delete`, `busy_timeout = 5000` (Python's
