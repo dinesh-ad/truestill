@@ -5,20 +5,22 @@ from __future__ import annotations
 import shutil
 import sqlite3
 import threading
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal, NotRequired, TypedDict
 
+from truestill_core.app_paths import record_path_for
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_session import open_catalog
 from truestill_core.destinations.base import DestinationDevice
-from truestill_core.drive import read_marker
+from truestill_core.drive import DriveMarker, read_marker
 from truestill_core.drive_adoption import AdoptionOffer, AdoptionVerdict
 from truestill_core.hashing import sha256_file
 from truestill_core.progress import Phase, Progress, ProgressCallback
 from truestill_core.run_health import RunHealth, watcher_for
+from truestill_core.run_record import RunHeader, build_run_record, write_run_record
 from truestill_core.safe_copy import staged_copy
 
 from truestill_app.jobs import JobTarget
@@ -308,6 +310,177 @@ def _copy_verified_or_raise(source_file: Path, dst: Path, rel: str, want: str | 
     raise OSError(message) from outcome.error
 
 
+@dataclass(frozen=True, slots=True)
+class _CopyRun:
+    """Everything one backup copy loop needs that does not change while it runs. `(afw)`
+
+    **A context object rather than eleven parameters**, which is `IMPLEMENTATION_STANDARDS.md`'s
+    complexity rule answered by naming the group instead of suppressing the count - the same
+    reasoning `MissingCopy` records for itself (audit F8): these travel together, and a caller
+    must not be able to pass them in the wrong order.
+    """
+
+    catalog: Catalog
+    source: Path
+    target: Path
+    marker: DriveMarker
+    missing: Sequence[MissingCopy]
+    ahead: list[int]
+    device: DestinationDevice
+    health: RunHealth | None
+    record: Callable[[dict[str, str], tuple[str, str] | None], None]
+
+
+def _copy_entries(
+    missing: Sequence[MissingCopy], done: dict[str, str], failed: tuple[str, str] | None
+) -> list[dict[str, object]]:
+    """Backup's per-file record entries. `(afw)`
+
+    **Its own key set, not organize's with nulls in it.** A backup copies catalog rows: it never
+    dates, categorises or deduplicates anything, so `category`, `date_source`, `needs_review`,
+    `perceptual` and the duplicate verdicts have no value here that is not an invention. Emitting
+    them as ``null`` would make *"backup does not categorise"* and *"the category is unknown"* one
+    value - fourteen times over, and `run_record`'s own `unreadable` comment records why one is
+    already unacceptable. The `run` block's ``kind`` tells a reader which shape this is.
+
+    ``"not attempted"`` is spelled exactly as `run_record.files_from_resolutions` spells it, for
+    the reason that function gives: a missing status makes an unattempted file look like an
+    unrecorded one, and those are different facts.
+    """
+    entries: list[dict[str, object]] = []
+    for row in missing:
+        if row.relative in done:
+            status, detail = "uploaded", ""
+        elif failed is not None and failed[0] == row.relative:
+            status, detail = "failed", failed[1]
+        else:
+            status, detail = "not attempted", ""
+        entries.append(
+            {
+                "relative": row.relative,
+                "status": status,
+                "detail": detail,
+                "sha256": row.sha256,
+                # The digest of what was actually written - the point of verify-before-commit -
+                # not the one inherited from the source row.
+                "copy_sha256": done.get(row.relative),
+                "size": int(row.size or 0) or None,
+            }
+        )
+    return entries
+
+
+def _recorder(
+    db: Path, *, source: Path, target: Path, marker: DriveMarker, missing: Sequence[MissingCopy]
+) -> Callable[[dict[str, str], tuple[str, str] | None], None]:
+    """Bind what is fixed for this run and return the one call the loop makes. `(afw)`
+
+    ⚠ **`except Exception`, not `except OSError`, and that is the whole reason this exists.**
+    `write_run_record` already returns a string rather than raising on `OSError`, but this is
+    called from inside an `except` block: anything it *does* raise - a `TypeError` from
+    `json.dumps` on a value that will not serialise - would **replace the exception being
+    handled**, turning a read-only disk into a `TypeError` about paperwork. That is the failure
+    this stage exists to prevent, arriving one level up from where it was found.
+    `IMPLEMENTATION_STANDARDS.md` §1: *"Its own failure must never fail the run"*, the promise
+    `decisions.write_decisions` already makes.
+
+    `BaseException` is deliberately not caught, per `(aet)`: a wrapper that ate a
+    `KeyboardInterrupt` would make Ctrl-C stop working on the operation people most want to stop.
+    """
+
+    def record(done: dict[str, str], failed: tuple[str, str] | None) -> None:
+        try:
+            attempted = len(done) + (1 if failed is not None else 0)
+            stopped: dict[str, object] | None = None
+            if failed is not None:
+                stopped = {"never_attempted": len(missing) - attempted, "reason": failed[1]}
+            payload = build_run_record(
+                RunHeader(
+                    kind="backup",
+                    source=str(source),
+                    destination=str(target),
+                    destination_uuid=marker.uuid,
+                    destination_label=marker.label,
+                ),
+                files=_copy_entries(missing, done, failed),
+                intended_total=len(missing),
+                attempted=attempted,
+                stopped=stopped,
+            )
+            write_run_record(record_path_for(db), payload)
+        except Exception:
+            # Swallowed on purpose, argued above: the run's own outcome must survive its
+            # paperwork. `BLE001`/`S110` are not enabled here, so there is nothing to suppress
+            # and this comment is the enforcement - as `(aet)` records for its own broad catch.
+            pass
+
+    return record
+
+
+def _copy_missing(
+    run: _CopyRun, progress: ProgressCallback, cancel: threading.Event
+) -> tuple[int, list[str], int]:
+    """Copy every missing file, writing the run record whether or not it finishes. `(afw)`
+
+    Lifted out of `backup_run` so that function stays under its statement ceiling. A **nested**
+    function would not have done: ruff counts nested statements against the enclosing function
+    either way, which is worth knowing before anyone tries it again.
+    """
+    copied, copied_bytes = 0, 0
+    copied_names: list[str] = []
+    #: relative -> the digest actually written, for every copy that completed.
+    done: dict[str, str] = {}
+    # ⚠ **Bound BEFORE the try, and this is not defensive style.** `row` is the loop variable, so
+    # a raise from `_stop_if_ground_moved` on the FIRST iteration - or from `enumerate` itself -
+    # leaves it unbound, and naming it in the handler would raise `NameError` **inside the
+    # handler**, replacing the original exception with one about the record. That is precisely
+    # the failure this record exists to survive, one level up.
+    attempting: MissingCopy | None = None
+    try:
+        for index, row in enumerate(run.missing):
+            if cancel.is_set():
+                break
+            attempting = row
+            _stop_if_ground_moved(run.health, ahead=run.ahead[index], written=copied_bytes)
+            rel = row.relative
+            dst = run.target / rel
+            run.device.check(run.target)
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            # Verify-before-commit: the hash is taken on the staged copy, so a bad one never
+            # wears the real name even briefly.
+            written = _copy_verified_or_raise(run.source / rel, dst, rel, row.verify_sha)
+            run.catalog.record_copy(
+                sha256=row.sha256,
+                drive_uuid=run.marker.uuid,
+                relative=rel,
+                # The hash of the copy just written, not the one inherited from the source row.
+                # Authoritative by construction, and it means a copy made by backup can never be
+                # the UNVERIFIABLE case - the unknown stops propagating here.
+                copy_sha256=written,
+                size=int(row.size or 0) or None,
+            )
+            run.catalog.mark_copy_verified(
+                sha256=row.sha256, drive_uuid=run.marker.uuid, when=_now()
+            )
+            copied += 1
+            copied_names.append(rel)
+            copied_bytes += int(row.size or 0)
+            done[rel] = written
+            attempting = None
+            progress(Progress(copied, len(run.missing), Phase.COPYING, Path(rel).name))
+    except Exception as exc:
+        # ⚠ **The record is written and the exception is re-raised UNCHANGED.** Today's fail-fast
+        # is deliberately untouched: whether a bad file should stop the batch at all is
+        # `ENGINEERING_STANDARD.md` §4 Errors' question and is `(afw)`'s next stage. What this
+        # closes is that the run used to stop saying **nothing**.
+        run.record(
+            done, (attempting.relative, str(exc)) if attempting is not None else ("", str(exc))
+        )
+        raise
+    run.record(done, None)
+    return copied, copied_names, copied_bytes
+
+
 def _largest_copy_ahead(missing: Sequence[MissingCopy]) -> list[int]:
     """For each position, the biggest copy at or after it. A suffix maximum in one pass.
 
@@ -371,35 +544,23 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
             # strictly: `device.check` fails closed on the first bad reading.
             health = watcher_for(target, db)
             ahead = _largest_copy_ahead(missing)
-            for index, row in enumerate(missing):
-                if cancel.is_set():
-                    break
-                _stop_if_ground_moved(health, ahead=ahead[index], written=copied_bytes)
-                rel = row.relative
-                dst = target / rel
-                device.check(target)
-                dst.parent.mkdir(parents=True, exist_ok=True)
-                # Verify-before-commit: the hash is taken on the staged copy, so a bad one never
-                # wears the real name even briefly. It used to be taken here, after the file was
-                # already at `dst`.
-                written = _copy_verified_or_raise(source / rel, dst, rel, row.verify_sha)
-                catalog.record_copy(
-                    sha256=row.sha256,
-                    drive_uuid=tgt_marker.uuid,
-                    relative=rel,
-                    # The hash of the copy just written, not the one inherited from the source
-                    # row. Authoritative by construction, and it means a copy made by backup can
-                    # never be the UNVERIFIABLE case - the unknown stops propagating here.
-                    copy_sha256=written,
-                    size=int(row.size or 0) or None,
-                )
-                catalog.mark_copy_verified(
-                    sha256=row.sha256, drive_uuid=tgt_marker.uuid, when=_now()
-                )
-                copied += 1
-                copied_names.append(rel)
-                copied_bytes += int(row.size or 0)
-                progress(Progress(copied, len(missing), Phase.COPYING, Path(rel).name))
+            copied, copied_names, copied_bytes = _copy_missing(
+                _CopyRun(
+                    catalog=catalog,
+                    source=source,
+                    target=target,
+                    marker=tgt_marker,
+                    missing=missing,
+                    ahead=ahead,
+                    device=device,
+                    health=health,
+                    record=_recorder(
+                        db, source=source, target=target, marker=tgt_marker, missing=missing
+                    ),
+                ),
+                progress,
+                cancel,
+            )
             catalog.set_setting(BACKUP_PATH_HINT, str(target))
         breakdown = media_breakdown(copied_names)
         return {

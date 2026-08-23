@@ -2,6 +2,20 @@
 
 *Body of backlog entry `(afw)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
+> ## ✅ STAGE 3 IS BUILT (2026-08-23) - the record survives a failure
+>
+> **A backup that stops now writes down what it did before it stops.** The continue-vs-abort
+> policy - `ENGINEERING_STANDARD.md` §4 Errors' *"one bad file never aborts a batch"* - is
+> **Stage 4 and is untouched**: the exception is re-raised unchanged.
+>
+> ⚠ **The bullet below says backup has *"no per-file outcome model to record"*. That is now
+> false**, and is left standing because it was the reasoning that produced the stage: backup did
+> not need organize's model, it needed its own. `run_record.build_run_record` is generic,
+> `files_from_resolutions` is organize's adapter, `service/backup.py::_copy_entries` is backup's,
+> and `RUN_RECORD_FORMAT` is 2 because a `files` entry's shape now depends on `run.kind`.
+>
+> Design, hazards and the four mutation proofs: [`afw-record.md`](afw-record.md).
+
 - **(afw)** Recorded 2026-08-22, split out of `(afu)` **before** it was built rather than
   discovered afterwards. `IMPLEMENTATION_STANDARDS.md` §1 says *"a run that changes the library
   writes down what it did"* - **a run**, not an organize - and `(afu)` carried that to exactly one

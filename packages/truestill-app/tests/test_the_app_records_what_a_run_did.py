@@ -29,7 +29,7 @@ from truestill_core import organizer
 from truestill_core.app_paths import record_path_for
 from truestill_core.models import ActionStatus, Resolution, UnreadableReason
 from truestill_core.progress import Phase, Progress
-from truestill_core.run_record import RUN_RECORD_FORMAT, build_run_record
+from truestill_core.run_record import RUN_RECORD_FORMAT, RunHeader, build_run_record
 
 #: Every app service that changes the library, and whether `(afu)` gave it a run record.
 #:
@@ -39,11 +39,12 @@ from truestill_core.run_record import RUN_RECORD_FORMAT, build_run_record
 MUTATING_RUNS: dict[str, tuple[bool, str]] = {
     "organize": (True, "has a per-file ActionResult list; `(afu)` wires it"),
     "backup": (
-        False,
+        True,
         (
-            "fail-fast: `_copy_verified_or_raise` raises, so there is no per-file outcome model "
-            "to record. Whether that is right is ENGINEERING_STANDARD.md §4 Errors' "
-            "'one bad file never aborts a batch'"
+            "records under `kind: backup` with its own per-file entries; `(afw)` Stage 3. It "
+            "still FAILS FAST - whether one bad file should stop the batch is "
+            "ENGINEERING_STANDARD.md §4 Errors' 'one bad file never aborts a batch' and is "
+            "Stage 4 - but a run that stops now writes down what it did before it does"
         ),
     ),
     "migrate": (
@@ -215,10 +216,11 @@ def test_both_surfaces_record_the_same_fields(tmp_path: Path) -> None:
 
     # The CLI's own payload, from the same builder both surfaces now call.
     from_cli = build_run_record(
-        [],
-        [],
-        source=str(source),
-        destination=str(destination),
+        RunHeader(kind="organize", source=str(source), destination=str(destination)),
+        files=[],
+        intended_total=0,
+        attempted=0,
+        stopped=None,
     )
 
     assert from_app.keys() == from_cli.keys()

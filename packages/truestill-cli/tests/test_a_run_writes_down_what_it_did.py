@@ -24,7 +24,12 @@ from truestill_core.categorize import CategoryMatch, Confidence
 from truestill_core.destinations import LocalDestination
 from truestill_core.models import DateSource, Decision, FileHashes, Resolution
 from truestill_core.organizer import execute
-from truestill_core.run_record import build_run_record
+from truestill_core.run_record import (
+    RunHeader,
+    build_run_record,
+    files_from_resolutions,
+    stop_block,
+)
 
 _POSIX_ONLY = pytest.mark.skipif(
     sys.platform == "win32",
@@ -61,7 +66,10 @@ def test_a_run_records_itself_without_being_asked(
     assert main(["organize", str(src), str(dest), "--apply", "--db", str(db)]) == 0
 
     record = _record(db)
-    assert record["format"] == 1
+    # 2 since `(afw)`: the `run` block gained `kind` and a `files` entry's shape now
+    # depends on it. A literal rather than the constant, deliberately - this is the
+    # line that makes a format bump an edit somebody made on purpose.
+    assert record["format"] == 2
     assert record["run"]["intended_total"] == 4
     assert record["run"]["attempted"] == 4
     assert record["run"]["stopped"] is None
@@ -143,7 +151,11 @@ def test_a_stopped_run_records_what_it_never_attempted(tmp_path: Path) -> None:
         pytest.skip("running as root, or a filesystem that ignores the mode")
 
     record = build_run_record(
-        resolutions, results, source=str(src), destination=str(tmp_path / "dest")
+        RunHeader(kind="organize", source=str(src), destination=str(tmp_path / "dest")),
+        files=files_from_resolutions(resolutions, results),
+        intended_total=len(resolutions),
+        attempted=len(results),
+        stopped=stop_block(resolutions, results),
     )
     stopped = record["run"]["stopped"]
     assert stopped is not None, "a run that stopped early reported itself as complete"

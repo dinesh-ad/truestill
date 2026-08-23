@@ -21,13 +21,20 @@ the CLI.
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 
 from truestill_core.models import ActionResult, ActionStatus, DuplicateMatch, Resolution
 
 #: Bumped when a reader would have to change. `decisions.FORMAT_VERSION`'s precedent: a document
 #: a person or a later version may read says which shape it is, rather than being sniffed.
-RUN_RECORD_FORMAT = 1
+#:
+#: ⚠ **2 since 2026-08-23** (`(afw)`): the ``run`` block gained ``kind``, and the shape of a
+#: ``files`` entry now depends on it. A reader that assumed every entry carries ``category`` and
+#: ``date_source`` was right for every record written before this and is wrong for a backup's.
+#: **That is exactly the condition this constant exists to announce**, so it is announced rather
+#: than left to be discovered by a reader that gets a `KeyError`.
+RUN_RECORD_FORMAT = 2
 
 
 def _match_json(match: DuplicateMatch | None) -> dict[str, object] | None:
@@ -73,29 +80,25 @@ def stop_block(
     }
 
 
-def build_run_record(
-    resolutions: list[Resolution],
-    results: list[ActionResult],
-    *,
-    source: str,
-    destination: str,
-    stopped: dict[str, object] | None = None,
-) -> dict[str, object]:
-    """What this run did, per file. **Built from RESULTS, never from the plan.**
+def files_from_resolutions(
+    resolutions: list[Resolution], results: list[ActionResult]
+) -> list[dict[str, object]]:
+    """Organize's per-file entries: the plan joined to what actually happened to each file.
 
-    ⚠ Until 2026-08-22 this was written from `resolutions`, before execution, and only when asked
-    for - so it recorded what was **decided** and never what happened. Nothing else in the product
-    persisted an outcome either: `files.upload_status` only ever holds ``'uploaded'``, so a row
-    exists only for a file that succeeded, and there is no logging anywhere. **After the terminal
-    scrolled, nothing could answer "which photos failed?"** `(afl)`
+    **The adapter half of the split** (`(afw)`). :func:`build_run_record` used to take
+    `Resolution` objects directly, which made it organize-shaped in its signature *and* in every
+    key it emitted - `category`, `date_source`, `needs_review`, `perceptual`, the duplicate
+    verdicts. Backup has none of those: it copies catalog rows and never dates or categorises
+    anything, so it could only have filled fourteen keys with `null`.
 
-    Building from `ActionResult` is strictly more information, not a trade: it carries the whole
-    resolution plus the status, the detail, where the file landed, and a `sha256` that is *richer*
-    than the plan's - the scan skips hashing a unique-size file, so a resolution can reach
-    execution without one.
+    ⚠ **Fourteen nulls would have rebuilt the defect this file already fixed once.** The
+    `unreadable` comment below records why a `null` that means two things is not acceptable here;
+    a `null` `category` meaning *"backup does not categorise"* and *"the category is unknown"*
+    alike is the same shape fourteen times over. So each surface emits the keys that are **true**
+    for it, and the `run` block says which shape a reader is holding.
     """
     by_source = {str(r.resolution.decision.source): r for r in results}
-    files = []
+    files: list[dict[str, object]] = []
     for resolution in resolutions:
         source_path = str(resolution.decision.source)
         outcome = by_source.get(source_path)
@@ -146,19 +149,70 @@ def build_run_record(
                 "near_duplicate": _match_json(resolution.near_duplicate),
             }
         )
-    return {
-        "format": RUN_RECORD_FORMAT,
-        "run": {
-            "source": source,
-            "destination": destination,
-            # `intended_total` matches `organize_runs`, which already derives "stopped early" the
-            # same way rather than trusting a completion flag. One vocabulary for one idea.
-            "intended_total": len(resolutions),
-            "attempted": len(results),
-            "stopped": stopped if stopped is not None else stop_block(resolutions, results),
-        },
-        "files": files,
+    return files
+
+
+@dataclass(frozen=True, slots=True)
+class RunHeader:
+    """Who wrote a run record, and where the run wrote to. `(afw)`
+
+    **A value rather than five parameters**, which is `IMPLEMENTATION_STANDARDS.md`'s complexity
+    rule answered by naming the group. It also keeps the identity pair together, which is the
+    point of it: ``destination_uuid`` is **authoritative** and ``destination_label`` is the human
+    name beside it. A label can be renamed in Settings, and a record naming a since-relabelled
+    drive is unresolvable - which defeats the record.
+
+    ``kind`` is what lets one file hold two shapes honestly: a reader branches on it rather than
+    guessing which keys a ``files`` entry carries.
+    """
+
+    kind: str
+    source: str
+    destination: str
+    destination_uuid: str | None = None
+    destination_label: str | None = None
+
+
+def build_run_record(
+    header: RunHeader,
+    *,
+    files: list[dict[str, object]],
+    intended_total: int,
+    attempted: int,
+    stopped: dict[str, object] | None,
+) -> dict[str, object]:
+    """The record one run leaves behind. **Built from what happened, never from the plan.**
+
+    ⚠ Until 2026-08-22 this was written from `resolutions`, before execution, and only when asked
+    for - so it recorded what was **decided** and never what happened. Nothing else in the product
+    persisted an outcome either: `files.upload_status` only ever holds ``'uploaded'``, so a row
+    exists only for a file that succeeded, and there is no logging anywhere. **After the terminal
+    scrolled, nothing could answer "which photos failed?"** `(afl)`
+
+    **Generic since 2026-08-23** (`(afw)`): it takes already-shaped ``files`` and the two counts,
+    so a second surface can record a run without owning organize's vocabulary. The adapters are
+    :func:`files_from_resolutions` for organize and `service/backup.py`'s `_copy_entries`.
+    """
+    run: dict[str, object] = {
+        "kind": header.kind,
+        "source": header.source,
+        "destination": header.destination,
+        # `intended_total` matches `organize_runs`, which already derives "stopped early" the
+        # same way rather than trusting a completion flag. One vocabulary for one idea.
+        "intended_total": intended_total,
+        "attempted": attempted,
+        "stopped": stopped,
     }
+    # ⚠ **Absent rather than ``null`` where the caller has no drive identity to give.** A `null`
+    # here would mean *"this run wrote to no registered drive"* and *"this surface does not record
+    # which"* alike - the two-states-one-value shape this file argues against fourteen keys up,
+    # and the one `(aek)` and `(aft)` each removed from a different module. Organize omits them
+    # today; that it COULD supply them is a gap named in `(afw)`, not a null to fill in later.
+    if header.destination_uuid is not None:
+        run["destination_uuid"] = header.destination_uuid
+    if header.destination_label is not None:
+        run["destination_label"] = header.destination_label
+    return {"format": RUN_RECORD_FORMAT, "run": run, "files": files}
 
 
 def write_run_record(path: Path, payload: dict[str, object]) -> str | None:

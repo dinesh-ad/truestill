@@ -67,7 +67,13 @@ from truestill_core.organizer import (
     write_candidates,
 )
 from truestill_core.progress import ProgressCallback
-from truestill_core.run_record import build_run_record, write_run_record
+from truestill_core.run_record import (
+    RunHeader,
+    build_run_record,
+    files_from_resolutions,
+    stop_block,
+    write_run_record,
+)
 from truestill_core.thumbnails import upright_size
 
 from truestill_app.jobs import JobTarget
@@ -1429,11 +1435,11 @@ def _write_the_record(
             "reason": "you stopped this run",
         }
     payload = build_run_record(
-        resolutions,
-        results,
-        source=str(source),
-        destination=str(destination),
-        stopped=stopped,
+        RunHeader(kind="organize", source=str(source), destination=str(destination)),
+        files=files_from_resolutions(resolutions, results),
+        intended_total=len(resolutions),
+        attempted=len(results),
+        stopped=stopped if stopped is not None else stop_block(resolutions, results),
     )
     return write_run_record(record_path_for(db), payload)
 

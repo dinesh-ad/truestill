@@ -184,6 +184,8 @@ def test_the_backup_copy_loop_is_guarded_too() -> None:
     ).read_text(encoding="utf-8")
 
     assert "DestinationDevice()" in source, "the backup loop has no device guard"
-    guard = source.index("device.check(target)")
+    # ⚠ Spelled `run.device.check(run.target)` since `(afw)` lifted the loop onto a
+    # context object. The needle moved; the property did not.
+    guard = source.index("run.device.check(run.target)")
     creates = source.index("dst.parent.mkdir(parents=True, exist_ok=True)")
     assert guard < creates, "the guard must run BEFORE the folder is created, not after"

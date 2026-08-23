@@ -195,7 +195,13 @@ from truestill_core.organizer import (
 from truestill_core.progress import Progress, ProgressCallback
 from truestill_core.reclaim import ReclaimPlan, plan_reclaim, run_reclaim
 from truestill_core.rescan import RescanReport, reconcile
-from truestill_core.run_record import build_run_record, write_run_record
+from truestill_core.run_record import (
+    RunHeader,
+    build_run_record,
+    files_from_resolutions,
+    stop_block,
+    write_run_record,
+)
 from truestill_core.safe_copy import STAGING_SUFFIX
 from truestill_core.scan import DEFAULT_WORKERS
 from truestill_core.selfcheck import (
@@ -2649,11 +2655,11 @@ def _record_the_run(
     """
     path = args.report if getattr(args, "report", None) else record_path_for(args.db)
     payload = build_run_record(
-        resolutions,
-        results,
-        source=str(args.source),
-        destination=str(args.destination),
-        stopped=stopped,
+        RunHeader(kind="organize", source=str(args.source), destination=str(args.destination)),
+        files=files_from_resolutions(resolutions, results),
+        intended_total=len(resolutions),
+        attempted=len(results),
+        stopped=stopped if stopped is not None else stop_block(resolutions, results),
     )
     error = write_run_record(path, payload)
     if error is not None:
