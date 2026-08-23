@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agj). Next free: (agk).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agk). Next free: (agl).**
 ⚠ **`(agf)` was cited by `pyproject.toml`, a test and `age.md` before its entry existed**, so for
 one commit three working citations resolved to nothing. Recorded because it is this section's own
 warning happening - *"nothing recorded which letters were spoken for"* - and the fix is to claim
@@ -121,6 +121,35 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(agk) AN IN-PLACE RENAME IS NOT COVERED BY ANYTHING UNTIL AFTER IT HAS HAPPENED.** Recorded
+  2026-08-23, split out of `(agj)` **and reframed by the maintainer before any build**. ⛔
+  **DESIGN ONLY - do not build from the one-line version.** `(agj)` reported it as *"an unguarded
+  catalog write"*; **wrapping it in `_record_or_stop` turns a silent lost undo row into a loud
+  one, and the file is still moved and still unrecoverable. Guarding is the hot patch; ordering
+  is the root cause** - the journal row must be written **before** the rename.
+  🔑 **Reproduced on real photographs**, not in a unit test: 150 files from
+  `~/TruestillLibrary/Input` copied to scratch, eight `--in-place` runs `SIGKILL`ed mid-loop and
+  scored by **inode**. **Two of eight kills (25%) left a photograph moved with no undo row**, and
+  `undo-organize --apply` then reported *"Restored 27 file(s)"* and left it displaced without
+  mentioning it - against a confirmation prompt that promises *"Reversible: `truestill
+  undo-organize` restores every file to where it is now"*.
+  ⚠ **Wider than `(agj)` reported**: the unprotected span is `rename → catalog row → journal row`;
+  the reproduced orphan had **no catalog row either**. ⚠ **Null result recorded**: the
+  busy-contention route does **not** reach it - a flapping 6 s holder against a 1,200-file real
+  run produced 40 holds and zero orphans, because it needs the lock free for one write and held
+  microseconds later for the next.
+  **`_move_source` is already correct** (`--move` verifies the copy before unlinking the source),
+  so this is a **divergence, not a new design**: one branch puts the irreversible step last and
+  the other puts it first. **`plan_undo` already reconciles against the disk** (`MOVED_AWAY`,
+  `ORIGIN_OCCUPIED`, re-checked in `run_undo`), which is what makes a reorder viable instead of a
+  two-phase row - **but it verifies position and never identity**, and the recorded `sha256` is
+  used only for `forget_organized`. That becomes load-bearing the moment a row can describe a
+  rename that did not happen.
+  **Three rulings needed before code**: whether the journal becomes a record of *intentions*
+  rather than of moves; whether hashing on undo is an acceptable cost; and whether the widened
+  span - which reverses the journal and catalog row order - is in scope.
+  [Full entry](research/backlog/agk.md)
 
 - **(agh) `LocalGuard` MAKES FORGETTING THE TOKEN IMPOSSIBLE AND UN-EXEMPTING INVISIBLE.**
   Recorded 2026-08-23. **The token is enforced well** - ASGI middleware wrapping the whole app
