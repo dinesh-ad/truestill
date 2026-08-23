@@ -254,6 +254,11 @@ testpaths = [
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
+# A green run's scratch has no reader - censused 2026-08-23 (P31): nothing in packages/,
+# scripts/ or docs/ reads a retained passing run - so only failures keep their evidence.
+# Steady state fell from ~1 GB (three retained green runs at ~336 MB) to ~0 on the suite's
+# ext4 scratch (`suite_scratch.py`).
+tmp_path_retention_policy = "failed"
 # `--durations=15` prints the slowest fifteen after every run. The 45 s ceiling
 # (`TEST_SECONDS_MAX`) is enforced against the whole suite and says nothing about which test
 # spent it; this does, at no cost and with no plugin.

@@ -12,7 +12,11 @@ argfiles, each browser's profile, and pytest-playwright's session video and trac
 plain ``TemporaryDirectory``, which every video and trace is recorded into before the retained
 ones are moved to ``--output``). Measured 2026-08-23 from an empty ``/tmp``: ``make test`` writes
 **282 MB**, the browser lane peaks at **716 MB**, and ~850 MB stays resident between runs -
-against a 15.1 GiB tmpfs on a 30 GiB machine.
+against a 15.1 GiB tmpfs on a 30 GiB machine. *(Same day, after the redirect had held for
+500+ runs on ext4: a full ``make check`` leaves ``/tmp`` byte-for-byte flat, and
+``tmp_path_retention_policy = "failed"`` took the resident-between-runs figure from ~1 GB -
+three retained green runs - to ~0 on ``/data/tmp/truestill``; a red run still keeps its
+evidence.)*
 
 `ENGINEERING_STANDARD.md` §4 carries both halves of the argument and this serves both: the
 thirty-second member's corollary is the rule it applies - *a RAM-backed scratch directory turns a
@@ -30,6 +34,7 @@ states its filesystem in the write-up; a number without a medium is not a measur
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 
 #: Set to override the volume. An override is for a machine shaped differently, never something
@@ -78,3 +83,28 @@ def scratch_root() -> Path | None:
     # resolve() so the value compares equal to what pytest and a subprocess report back; an
     # unanchored path never does, which is the second half of the same Windows failure.
     return PREFERRED_SCRATCH.resolve()
+
+
+def remove_green_session_root(session: object, exitstatus: int) -> None:
+    """A green run removes its own numbered scratch root; any other exit keeps it. P31.
+
+    ``tmp_path_retention_policy = "failed"`` says the same thing and works - **serially**.
+    Under pytest-xdist the deletion lives in the ``tmp_path`` finalizer inside each WORKER,
+    which never learns its tests' outcomes, so every green ``-n auto`` run kept its full root
+    (~336 MB) while the setting read as applied. Measured 2026-08-23: three retained green
+    runs, ~1 GB, zero readers. This is the controller-side half the policy is missing.
+
+    Only THIS session's numbered root is removed - never the parent - so two concurrent runs
+    cannot delete each other's trees and the ``--basetemp`` prohibition
+    (`IMPLEMENTATION_STANDARDS.md`) stands untouched. Workers are skipped by the
+    ``workerinput`` mark; a session that never asked for a tmp dir has nothing to remove,
+    which is what the private ``_basetemp`` probe answers without creating one (``getbasetemp``
+    would). Private attribute, stated: pytest publishes no "was a basetemp made" API.
+    """
+    config = getattr(session, "config", None)
+    if exitstatus != 0 or config is None or hasattr(config, "workerinput"):
+        return
+    factory = getattr(config, "_tmp_path_factory", None)
+    if factory is None or getattr(factory, "_basetemp", None) is None:
+        return
+    shutil.rmtree(factory.getbasetemp(), ignore_errors=True)

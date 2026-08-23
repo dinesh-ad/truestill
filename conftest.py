@@ -42,7 +42,7 @@ from pathlib import Path
 import pytest
 from truestill_core.app_paths import CACHE_DIR_ENV, DATA_DIR_ENV
 
-from suite_scratch import PREFERRED_SCRATCH, scratch_root
+from suite_scratch import PREFERRED_SCRATCH, remove_green_session_root, scratch_root
 
 #: Resolved once, at import, so the header and the hook cannot disagree about where it went.
 _SCRATCH = scratch_root()
@@ -64,6 +64,11 @@ def pytest_configure(config: pytest.Config) -> None:  # noqa: ARG001 - pytest ho
         return
     os.environ["TMPDIR"] = os.environ["TEMP"] = os.environ["TMP"] = str(_SCRATCH)
     tempfile.tempdir = str(_SCRATCH)
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """The controller-side half of `tmp_path_retention_policy` - see `suite_scratch.py`."""
+    remove_green_session_root(session, exitstatus)
 
 
 def pytest_report_header() -> str:

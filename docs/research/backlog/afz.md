@@ -70,7 +70,10 @@
   **The premise is false and it ruled out where the leak actually was.** `tmp_path_retention_count`
   defaults to **3** (`_pytest/tmpdir.py`): pytest *deliberately retains* the last three session
   roots and garbage-collects only what is older. So `/tmp/pytest-of-<user>` holding several
-  `pytest-N` directories is the designed behaviour and is **not evidence of anything**. The
+  `pytest-N` directories is the designed behaviour and is **not evidence of anything**.
+  *(Since 2026-08-23 this repo sets `tmp_path_retention_policy = "failed"` in `pyproject.toml`,
+  so locally only failing runs leave a root - the paragraph stays as the record of the wrong
+  inference, which did not depend on the default.)* The
   inference from "there are leftovers" to "something leaked" does not hold, and following it
   pointed at the test suite - which is the one place in this repo that calls `tempfile` **zero**
   times. The leak was in a script the search had already excluded by assuming a gate would have

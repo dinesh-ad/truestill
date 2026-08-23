@@ -784,8 +784,10 @@ successful upgrade), never automatic.
   (2026-08-23, `(afy)`). The root `conftest.py` points `TMPDIR` **and** `tempfile.tempdir` at
   `/data/tmp/truestill`, so it applies to `make test`, a bare `uv run pytest <file>` and every
   subprocess alike - the browsers, `exiftool`, `uv`. ⚠ **The PARENT moves, never `--basetemp`**:
-  an explicit basetemp is `rm_rf`'d at session start, which would destroy the three-session
-  retention *and* let two concurrent pytest processes delete each other's live trees. ⚠ **A
+  an explicit basetemp is `rm_rf`'d at session start, which would let two concurrent pytest
+  processes delete each other's live trees - reason enough alone. *(Until 2026-08-23 this
+  sentence also leaned on the three-session retention; `tmp_path_retention_policy = "failed"`
+  now keeps only failing runs' scratch, and the rule stands on the concurrency half.)* ⚠ **A
   machine without the volume falls back and SAYS SO** in the pytest header - that is the CI
   answer, not a hole - while a root named through `TRUESTILL_TEST_TMPDIR` that cannot be made
   **raises rather than falling back**. Pinned by `test_the_suite_does_not_write_to_ram.py`;
