@@ -252,6 +252,9 @@ exists to prevent.
 **`IMPLEMENTATION_STANDARDS.md` §5 is the source for all of this**; what follows is the short form
 so a new session does not have to be told. ⚠ **The fence is unchanged: `/home/dinesh/pCloudDrive/`
 and `/home/dinesh/Icedrive/` are never read, walked or stat'd, at any depth, under any flag.**
+*(Since 2026-08-23 two enforcement layers back it - permission deny rules and a sandbox
+read-deny, both tested; `IMPLEMENTATION_STANDARDS.md` §5's fence row carries the layers and
+their limits. The rule above stays the rule - the layers are backstops.)*
 
 | corpus | what it is | what it can answer |
 |---|---|---|
