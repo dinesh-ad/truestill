@@ -196,7 +196,8 @@ is invisible here is retired, not free.**
   ⛔ **The first question is not "wire it up"**: it is whether undo should be cancellable at all.
   🔑 **A reversal stopped halfway leaves MORE files displaced than one allowed to finish**, so
   *stop* on undo may be the button that causes the harm - a product question that decides the
-  design. Against it: 33,000 files takes about **3.1 minutes** (measured), and a user reversing
+  design. Against it: 33,000 files takes minutes - **3.1 measured on tmpfs, plausibly 4-5 on
+  real disk** (corrected 2026-08-23, see the entry) - and a user reversing
   the wrong run has no way out.
   ⚠ **"Deliberately uninterruptible" is not today's state** - a parameter accepted and dropped is
   an oversight, and the underscore that satisfies the linter is what hides it. Whatever is

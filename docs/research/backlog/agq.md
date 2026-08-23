@@ -79,3 +79,11 @@ person, nine days apart. Fifth instance of the fixed-under-another-name family; 
 - CLI divergence is real and benign: the CLI creates in-command, single-process, blocking nothing
   of its own; each surface's banner sentence is true for that surface. Timing, not capability -
   no parity row.
+
+## ⚠ MEDIUM CORRECTION, 2026-08-23
+
+"Measured on real ext4 NVMe: 1.0 ms median, 1.4 ms max" above ran on **tmpfs** (`/tmp`, the
+ad-hoc scratchpad - P22's finding). Re-measured on real ext4 (`/data`): **4.6 ms median, 6.8 ms
+max** over 20 fresh builds. **The conclusion stands exactly as stated** - milliseconds, not
+seconds; there was never a wait to move - and the corrected number replaces a false label with a
+measured one.

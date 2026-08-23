@@ -18,6 +18,13 @@ against a 15.1 GiB tmpfs on a 30 GiB machine.
 thirty-second member's corollary is the rule it applies - *a RAM-backed scratch directory turns a
 download into memory pressure* - and the forty-sixth is the other direction, that a timing test
 on tmpfs cannot observe an interruption.
+
+⚠ **THE DECISION'S REACH STOPS AT PYTEST, AND THAT GAP HAS ALREADY COST FOUR FINDINGS**
+(2026-08-23). Ad-hoc benchmark scripts do not inherit this configuration - they take ``/tmp``
+and measure RAM while their write-ups say ext4. Four recorded numbers were mislabelled that way
+in one day, and one ruling (`(agk)`'s "not material") reopened when re-measured on real disk at
+41x. An ad-hoc benchmark either runs under :func:`scratch_root` / ``/data/tmp/truestill`` or
+states its filesystem in the write-up; a number without a medium is not a measurement.
 """
 
 from __future__ import annotations

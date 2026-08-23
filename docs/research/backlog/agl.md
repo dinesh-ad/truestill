@@ -47,3 +47,11 @@ untested. Report nulls as findings.
 
 Folding this into the record stage would have put an unanswered product question inside a stage
 that was already changing a contract.
+
+## ⚠ MEDIUM CORRECTION, 2026-08-23
+
+The "about 3.1 minutes" above was measured end-to-end on **tmpfs** (P22's finding). Spot-checked
+on real ext4: pure SHA-256 reads **1,145 MiB/s** (hashing is CPU-bound, not the bottleneck), but
+undo's per-file catalog write costs **~2.5 ms on ext4** (measured in `(agk)`'s correction), so
+the real-disk figure is plausibly **4-5 minutes** at 33k. **The conclusion the entry uses
+survives - minutes, worth stating to the user - and the exact 3.1 is retired as tmpfs-measured.**

@@ -34,7 +34,7 @@
 >
 > **Measured, not guessed**: a real 33,000-file run wrote a **36.9 MiB** record beside an **8.0
 > MiB** catalog - 4.6x - which is what settled that a bound was needed and that it should be
-> bytes rather than a count. Undo's identity hashing costs **3.1 min** at 33k.
+> bytes rather than a count. Undo's identity hashing costs **3.1 min** at 33k. ⚠ *Corrected 2026-08-23: measured on tmpfs; plausibly 4-5 min on real disk - `agl.md`.*
 >
 > **Split out and not built**: `(agl)`, undo's dropped cancel.
 

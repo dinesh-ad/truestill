@@ -240,6 +240,11 @@ exists to prevent.
   ⚠ **Upgrading did not change this** - measured on 3.14.4 after the move: the flag is still `0`.
   The rule is written against the FLAG, not the version, which is why adopting 3.14
   (`DECISIONS.md` **D13**) left it standing.
+- ⚠ **AD-HOC BENCHMARKS: `/tmp` IS tmpfs - RAM, not disk.** The suite already runs on real
+  ext4 by `suite_scratch.py`'s recorded decision; an ad-hoc script does not inherit it and
+  measures RAM while claiming disk. Four findings were mislabelled that way on 2026-08-23 and one
+  ruling reopened at **41x**. Use `suite_scratch.scratch_root()` / `/data/tmp/truestill`, or
+  state the filesystem in the write-up. This line is the decision's *reach*, not a new rule.
 - `exiftool` must be installed and on PATH for metadata paths.
 
 ### The corpora - three of them, and they answer different questions

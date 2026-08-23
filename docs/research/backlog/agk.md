@@ -360,3 +360,33 @@ clear is a promise the product cannot keep, on the one path where a wrong state 
 
 `undo.SkipClass` / `classify` / `outstanding` now hold that in one place, exhaustively, and both
 the close condition and the exit code read it rather than each deciding for itself.
+
+---
+
+## ⚠ MEDIUM CORRECTION, 2026-08-23 - the benchmarks above ran on tmpfs, and one ruling reopens
+
+The P22 fence audit found `/tmp` is **tmpfs**, and this session's ad-hoc scratchpad lives under
+it - so two measurement sets above claim ext4 and ran on RAM. The suite's own evidence is clean
+(`/data/tmp/truestill`, real ext4, `(afy)`'s deliberate choice in `suite_scratch.py`); only the
+ad-hoc numbers are touched. Corrections beside, per doctrine:
+
+**Q55's "150 files, 377 MB, ext4" was tmpfs.** The 2-of-8 orphan reproduction and the 0-of-8
+acceptance both ran there. **The finding stands**: the orphan is an ordering race, not a sync
+race, and tmpfs's speed made the window *harder* to hit - 2-of-8 was, if anything, conservative.
+
+**Q57's "not material" is REOPENED - re-measured on real ext4 (`/data`, nvme0n1p1), 2026-08-23:**
+
+| | tmpfs (recorded above) | **real ext4** |
+|---|---|---|
+| `record_inplace_intent` | 0.078 ms | **2.568 ms** median (p95 3.083) |
+| `record_inplace_outcome` | 0.060 ms | **2.486 ms** median (p95 2.794) - **41x** |
+| real in-place run | 13.7 ms/file | **26.3 ms/file** (150 real files, 142 moves, 3.94 s) |
+| journal pair share | "0.44%" | **~19%** of per-file cost |
+| outcome alone at 33k *moves* | "~2.1 s" | **~82 s** |
+
+Each journal write is a one-row `_tx` commit paying a full delete-mode journal sync, which tmpfs
+made free. **The intent write is `(agk)`'s safety core and is not up for removal on cost**; what
+reopens is the *outcome* write's "bookkeeping, not material" ruling - at ~2.5 ms per moved file
+it is real money, and whether to keep it per-file, batch it, or accept the cost is a maintainer
+ruling this correction does not make. Note the honest denominator: journal writes are per MOVED
+file, so a 33k-file run with 5,249 moves (the measured corpus) pays ~26 s, not ~160 s.

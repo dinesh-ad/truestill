@@ -137,7 +137,8 @@ recording shipped work as unstarted, which is the more expensive direction of th
   **Verified before closing**: field-failure cases already guarded (`(aen)` reports, `(adr)`
   refuses before the socket); `(ady)`'s copy untouched (chain-gated, `catalog.py:1157`); a fresh
   build measures **1.0 ms median / 1.4 ms max** on ordinary disk - there was never a wait to
-  move, only contended CI I/O. Tier 1 of `(agp)`'s ladder is ruled dead with it.
+  move, only contended CI I/O. ⚠ *Corrected 2026-08-23: that ran on tmpfs; real ext4 measures
+  4.6 ms median - same conclusion, honest label. `agq.md`.* Tier 1 of `(agp)`'s ladder is ruled dead with it.
   [Full entry](research/backlog/agq.md)
 
 - **(adt) THE 6558 ms IS RETIRED; THE CLASS IS MEASURED; THE RESIDUES HAVE LETTERS.** Closed
@@ -288,7 +289,9 @@ recording shipped work as unstarted, which is the more expensive direction of th
   ⚠ **A wording defect found by the fix**: a row whose rename never happened read as *"no longer
   at the path this run left it"* and cost exit 1. It is `NEVER_MOVED` now, and not a failure.
   Costs, measured against a real run: the second write is **0.060 ms/file, 0.44%** of 13.7 ms/file,
-  ~2.1 s at 33k files. **Acceptance: the same eight kills now score ZERO orphans.**
+  ~2.1 s at 33k files. ⚠ **Corrected 2026-08-23: that ran on tmpfs. On real ext4 the outcome
+  write is 2.486 ms - 41x - and ~19% of per-file cost with the intent write; the "not material"
+  ruling is REOPENED. `agk.md` carries the full re-measurement.** **Acceptance: the same eight kills now score ZERO orphans.**
   Twelve tests, 9 of 10 failing first; ten mutations, all caught, three cry-wolf.
   [Full entry](research/backlog/agk.md)
 
