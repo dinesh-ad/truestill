@@ -7,6 +7,14 @@ APP := packages/truestill-app/src/truestill_app
 SCRIPTS := scripts
 # packaging/ is in the fence for the same reason scripts/ is: real code that imports the core.
 PACKAGING := packaging
+# ⚠ THE FENCE IS A PROPERTY, NOT A DIRECTORY LIST, and these two are where that became visible
+# ((aga), 2026-08-23). The rule the two comments above state is *real code that imports the
+# core*; it was implemented as a list of directories, so a file at the repo root satisfied the
+# rule and sat outside the fence anyway. `suite_scratch.py` decides where EVERY test in the
+# suite writes and `conftest.py` decides what every test can reach - neither contains a test,
+# asserts anything, or is collected as one. Both report ZERO errors under `strict`; being
+# unchecked was never a judgement about them. Same shape as `(afu)`.
+ROOT_CODE := conftest.py suite_scratch.py
 
 .PHONY: install lint format format-check typecheck dash-check name-check redirect-check test test-order check build dryrun e2e e2e-install
 
@@ -29,7 +37,7 @@ format-check:
 	$(PYTHON) ruff format --check --target-version py313 .
 
 typecheck:
-	$(PYTHON) mypy $(CORE) $(CLI) $(APP) $(SCRIPTS) $(PACKAGING)
+	$(PYTHON) mypy $(CORE) $(CLI) $(APP) $(SCRIPTS) $(PACKAGING) $(ROOT_CODE)
 
 # `-n auto` here rather than in `addopts`, deliberately: addopts would sweep in `test-order`
 # below, whose whole value is a single deterministic collection order. Measured 89.95s -> 30.00s

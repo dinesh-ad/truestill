@@ -22,9 +22,20 @@ repos:
     hooks:
       - id: mypy
         # Match the repo's strict config: every workspace member's src/, plus scripts/,
-        # but not tests. Keep in step with `make typecheck` and the CI mypy step, which
-        # cover exactly this set.
-        files: ^(packages/(truestill-core|truestill-cli|truestill-app)/src/|scripts/)
+        # packaging/ and the two root modules - but not tests.
+        #
+        # ⚠ THE COMMENT HERE CLAIMED THE THREE SETS WERE IDENTICAL AND THEY WERE NOT ((aga),
+        # 2026-08-23). It read "keep in step with `make typecheck` and the CI mypy step, which
+        # cover exactly this set" while this regex omitted `packaging/`, which both of the
+        # others have checked since it was added. **A false claim in the place designed to
+        # prevent that drift** - the sentence asserting the sets agree is what stopped anyone
+        # comparing them. Stated rather than quietly corrected, because the failure is the
+        # shape and not the missing directory.
+        #
+        # It stays prose, and that is a known residual: nothing executes this comparison, so
+        # the next divergence is found the same way this one was - by somebody asking. Making
+        # it a check means teaching a test to parse a Makefile, a workflow and a regex.
+        files: ^(packages/(truestill-core|truestill-cli|truestill-app)/src/|scripts/|packaging/|[^/]+\.py$)
         # Override the upstream default args, which are `--ignore-missing-imports
         # --scripts-are-modules`. The first silently answers "fine" to an import that cannot
         # be resolved -- which is precisely how `scripts/benchmark_hashing.py` kept importing
@@ -34,7 +45,11 @@ repos:
         args: []
         # uvicorn was missing here and nothing noticed, because the blanket
         # --ignore-missing-imports above was answering for it.
-        additional_dependencies: [imagehash, pillow, platformdirs, starlette, uvicorn]
+        # `pytest` is here for the root `conftest.py`, and it is the WHOLE cost of widening:
+        # the two errors that appeared were "cannot find pytest" and the untyped-decorator that
+        # follows from it, both in the isolated env only. Under `uv run mypy` the pair reports
+        # zero either way.
+        additional_dependencies: [imagehash, pillow, platformdirs, pytest, starlette, uvicorn]
 
   - repo: local
     hooks:

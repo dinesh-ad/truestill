@@ -74,6 +74,26 @@ recording shipped work as unstarted, which is the more expensive direction of th
   answerable, not the BACKLOG. *"Is `(aci)` needed for v1?"* still returns silence, and a shape
   that admits that beats one manufacturing 57 answers. [Full entry](research/backlog/aef.md)
 
+- **(aga) THE TYPE FENCE WAS A DIRECTORY LIST, SO A FILE THAT SATISFIED ITS RULE SAT OUTSIDE
+  IT.** Shipped 2026-08-23, found while shipping `(afy)`. The `Makefile` states the rule as a
+  **property** - *"real code that imports the core"* - and implemented it as five directory
+  names, so `conftest.py` and `suite_scratch.py` satisfied it and were unchecked anyway. **Same
+  shape as `(afu)`**: a rule scoped to a set of places, with the file that matters outside them.
+  ⚠ **The fear had a number and it was zero**: both report **0** errors under `strict` on the
+  path the gate uses, and the widened `make typecheck` reads *"no issues found in 118 source
+  files"*. The two errors `conftest.py` showed were **one cause** - `pytest` missing from the
+  hook's isolated env - and cost one word to fix.
+  ⚠ **AND THE COMMENT DESIGNED TO PREVENT THIS DRIFT WAS ITSELF FALSE**: `.pre-commit-config.yaml`
+  claimed its regex, `make typecheck` and the CI step *"cover exactly this set"* while the regex
+  omitted `packaging/`, which both others had checked since it was added. The sentence asserting
+  they agree is what stopped anyone comparing them. Fixed in the same commit; **the residual is
+  that it is still prose**, and that is said rather than closed.
+  ⚠ **The test corpus stays out with a MEASURED reason**: `mypy` over the four test directories
+  cannot run at all - four `conftest.py`, no `__init__.py`, duplicate module names, *"errors
+  prevented further checking"*. §6 is vindicated rather than agreed with. `tests/e2e/conftest.py`
+  has one real finding and is noted as near-ready, **not proposed**.
+  [Full entry](research/backlog/aga.md)
+
 - **(afy) THE TEST SUITE WROTE DISK-SHAPED DATA TO RAM, AND §4's OWN tmpfs MEMBER WAS AMONG
   ITS VICTIMS.** Shipped 2026-08-23. `/tmp` on this machine is **tmpfs** and nothing set `TMPDIR`,
   so every `tmp_path`, catalog, rollback journal and Playwright video went to RAM. Measured from
