@@ -234,8 +234,8 @@ memory dressed as one.
 > a live one**; run the command.
 >
 > ⚠ **AND THE ORDINALS ARE A SECOND, SMALLER COUNT - THEY DO NOT AGREE AND SHOULD NOT.** Members
-> name themselves in prose (*"the sixty-second member"*), and the highest such ordinal is **66**
-> while the command reads **80**. The gap is not drift: the ordinals number only the members
+> name themselves in prose (*"the sixty-second member"*), and the highest such ordinal is **67**
+> while the command reads **81**. The gap is not drift: the ordinals number only the members
 > written as *named failures*, and the command counts every bullet here, including the eight that
 > were never numbered - Idioms, Absolute imports, Typing, Dependencies, Performance, Tests,
 > Errors, Credentials. **Quoting 62 as the size of this section is therefore wrong by fourteen**,
@@ -1970,6 +1970,33 @@ memory dressed as one.
   correctly, in a file `git diff` reports as unchanged, is this until proven otherwise. Check what
   the interpreter loaded before you change anything - the temptation is to "fix" the correct code,
   and that edit is the real damage.
+
+- **A CLASSIFIER THAT READS ONLY THE OUTERMOST EXCEPTION IS INERT THE MOMENT ANYONE WRAPS ONE.**
+  The sixty-seventh member, promoted because it bit twice in two days on two different
+  classifiers, in both directions.
+
+  > `isinstance(exc, X)` asks *"is this an X"*. The question almost every such site actually
+  > means is *"did an X cause this"*, and the two agree only while nobody adds a wrapper. A
+  > wrapper is normal - it is how a layer adds context - so the agreement is not a property, it
+  > is a coincidence with a shelf life.
+
+  *Both instances, 2026-08-23.* `(agi)`'s persistence predicate took an `OSError` and its handler
+  tested `isinstance(exc, OSError)`; `LocalDestination.upload` raises `DestinationError(...) from
+  outcome.error`, so **it never fired on organize at all** - the surface that runs most, and it
+  shipped that way. The next commit, `(agj)`, put a wrapper in front of `jobs.is_catalog_busy`,
+  which is the same shape and would have reported SQLite's *"database is locked"* about a
+  condition the product has a written sentence for.
+
+  **The two fixes are deliberately different, and the difference is the rule.** A predicate that
+  answers a question *about* an error walks the whole `__cause__` chain, because the cause is the
+  subject. A site that reports *which* failure happened looks through exactly the wrappers that
+  promise to be transparent and no others, because a wrapper is usually the considered answer and
+  its own class is what the surface should say. **Neither is "unwrap everything"**; a walk that
+  reaches past a deliberate wrapper is the cry-wolf half, and it is testable as one.
+
+  *Suspect it wherever an `except` is far from the `raise`* - a job runner, a CLI's top-level
+  handler, a route's error mapper. Those are exactly the sites where a wrapper will be added
+  later by someone who never reads them.
 
 - **A SURVIVING MUTATION IS A CLAIM ABOUT THE TEST *AND* ABOUT THE MUTANT, AND THE MUTANT IS THE
   CHEAPER ONE TO CHECK.** The sixty-sixth member, and the gap the rest of the mutation family

@@ -56,6 +56,13 @@ ALLOWED: dict[str, dict[str, str]] = {
             "here. It holds a file descriptor and no library state - it opens no catalog, reads "
             "no media and knows nothing about what the job does. `(aaw)`"
         ),
+        "RunStoppedError": (
+            "an exception type, and the same argument as `DriveBusyError` below: it holds a list "
+            "of `ActionResult` values the run already produced, opens nothing and reads nothing. "
+            "It is imported here for the reason `is_catalog_busy` is - the exception is CAUGHT "
+            "here, and `_underlying` has to see past the wrapper or a held catalog would be "
+            "reworded as a crash. `(agj)`"
+        ),
         "DriveBusyError": (
             "the refusal `DriveLock.acquire` raises, turned into a `DriveBusyPayload` here "
             "because that is where the payload lives; an exception type, not state"

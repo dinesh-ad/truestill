@@ -32,6 +32,7 @@ from truestill_core.catalog_busy import (
     is_catalog_unwritable,
 )
 from truestill_core.drive_lock import DriveBusyError, DriveLock
+from truestill_core.organizer import RunStoppedError
 from truestill_core.progress import Progress, ProgressCallback
 
 #: A job target receives a progress callback and a cancel event, and returns a JSON-able summary.
@@ -56,6 +57,19 @@ DRIVE_BUSY_CODE: Literal["DriveBusy"] = "DriveBusy"
 
 #: Completed jobs kept per process, newest first. See `_retire_finished` (F17).
 MAX_RETAINED_JOBS = 50
+
+
+def _underlying(exc: Exception) -> Exception:
+    """The failure a job should be judged on: `RunStoppedError`'s cause, or ``exc`` itself.
+
+    **One layer, deliberately.** `RunStoppedError` is raised by `organizer.execute` with the
+    original as its direct cause and nothing else wraps it here, so a deeper walk would be
+    guessing at chains this code did not build - and could reach past a wrapper that was
+    *meant* to be the answer.
+    """
+    if isinstance(exc, RunStoppedError) and isinstance(exc.__cause__, Exception):
+        return exc.__cause__
+    return exc
 
 
 @dataclass(frozen=True, slots=True)
@@ -293,6 +307,18 @@ class JobManager:
                     }
                 except Exception as exc:
                     job.status = "error"
+                    # ⚠ **CLASSIFIED ON THE CAUSE, because `organizer.execute` now wraps. `(agj)`**
+                    #
+                    # `is_catalog_busy` is an `isinstance` check and does not walk the chain, so a
+                    # wrapper would make it answer "not busy" about a catalog that is - and the
+                    # user would get SQLite's "database is locked" instead of the sentence written
+                    # for exactly that situation. **It is reachable**: `record_inplace_move` is a
+                    # bare catalog write inside `execute`'s loop, unguarded by `_record_or_stop`.
+                    #
+                    # This is `(agi)`'s lesson on the other surface - a classifier that reads only
+                    # the outermost exception is inert the moment anyone wraps one. `str()` is
+                    # unchanged either way, because `RunStoppedError` reports its cause's sentence.
+                    failure = _underlying(exc)
                     # The exception's class name travels with the message so the UI can answer a
                     # known situation with a next step. Matching on a class is stable; matching on
                     # message text would break the first time anyone rewords it.
@@ -318,12 +344,12 @@ class JobManager:
                     # table, which is a bug of ours. `is_catalog_unwritable` names the codes that
                     # are actually about reaching or storing the catalog; everything else keeps
                     # its own class and message exactly as before. `(afe)`
-                    if is_catalog_busy(exc):
+                    if is_catalog_busy(failure):
                         message, code = CATALOG_BUSY_MESSAGE, CATALOG_BUSY_CODE
-                    elif is_catalog_unwritable(exc):
-                        message, code = catalog_unwritable_message(exc), CATALOG_UNWRITABLE_CODE
+                    elif is_catalog_unwritable(failure):
+                        message, code = catalog_unwritable_message(failure), CATALOG_UNWRITABLE_CODE
                     else:
-                        message, code = str(exc), type(exc).__name__
+                        message, code = str(failure), type(failure).__name__
                     terminal = {
                         "type": _SENTINEL_ERROR,
                         "message": message,

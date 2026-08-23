@@ -27,6 +27,7 @@ from typing import Any
 import pytest
 from truestill_app.jobs import DriveRef, JobManager, JobTarget
 from truestill_core.catalog_busy import CATALOG_BUSY_CODE, CATALOG_BUSY_MESSAGE
+from truestill_core.organizer import RunStoppedError
 
 _DRIVE = DriveRef(key="uuid:A", label="Drive A")
 _ORDINARY_BUG = "something else entirely"
@@ -132,3 +133,66 @@ def test_a_non_sqlite_failure_is_untouched() -> None:
 
     assert event["code"] == "ValueError"
     assert event["message"] == _ORDINARY_BUG
+
+
+def _wrapped_by_a_stopped_run(path: Path, statement: str) -> JobTarget:
+    """The same worker, with the failure wrapped exactly as `organizer.execute` wraps it."""
+    inner = _write_from_the_worker(path, statement)
+
+    def target(progress: object, cancel: threading.Event) -> dict[str, bool]:
+        try:
+            return inner(progress, cancel)
+        except sqlite3.Error as exc:
+            raise RunStoppedError(exc, []) from exc
+
+    return target
+
+
+def test_a_held_catalog_is_still_recognised_through_a_stopped_run(held_catalog: Path) -> None:
+    """⚠ **`(agj)` put a wrapper between the failure and this classifier**, and `is_catalog_busy`
+    is an `isinstance` check that does not walk the chain.
+
+    Left alone, a run stopped by a held catalog would have reported SQLite's *"database is
+    locked"* - the exact sentence this file exists to keep off the screen - because the outermost
+    exception is no longer the `sqlite3.Error`. **It is reachable**: `record_inplace_move` is a
+    bare catalog write inside `execute`'s loop, unguarded by `_record_or_stop`.
+
+    This is `(agi)`'s lesson arriving on a second surface: a classifier that reads only the
+    outermost exception is inert the moment anyone wraps one.
+    """
+    mgr = JobManager()
+    job_id = mgr.start(
+        _wrapped_by_a_stopped_run(held_catalog, "INSERT INTO probe VALUES (1)"),
+        drives=[_DRIVE],
+        operation="organize",
+        mutating=False,
+    )
+    assert isinstance(job_id, str)
+    event = _terminal(mgr, job_id)
+
+    assert event["code"] == CATALOG_BUSY_CODE, f"a wrapped busy catalog was not recognised: {event}"
+    assert event["message"] == CATALOG_BUSY_MESSAGE
+    assert "database is locked" not in event["message"]
+
+
+def test_the_unwrapping_is_one_layer_and_only_for_a_stopped_run(held_catalog: Path) -> None:
+    """⚠ **CRY-WOLF HALF.** An unwrapper that reached through *any* exception's cause would
+    satisfy the row above and be wrong: a wrapper is often the considered answer, and its own
+    class and message are what the surface is meant to report. Only `RunStoppedError` promises to
+    be transparent, so only it is looked through."""
+    inner = _write_from_the_worker(held_catalog, "INSERT INTO probe VALUES (1)")
+
+    def target(progress: object, cancel: threading.Event) -> dict[str, bool]:
+        try:
+            return inner(progress, cancel)
+        except sqlite3.Error as exc:
+            deliberate = "a deliberate wrapper with its own answer"
+            raise ValueError(deliberate) from exc
+
+    mgr = JobManager()
+    job_id = mgr.start(target, drives=[_DRIVE], operation="organize", mutating=False)
+    assert isinstance(job_id, str)
+    event = _terminal(mgr, job_id)
+
+    assert event["code"] == "ValueError", f"a deliberate wrapper was looked through: {event}"
+    assert event["message"] == "a deliberate wrapper with its own answer"

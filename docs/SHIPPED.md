@@ -105,6 +105,34 @@ recording shipped work as unstarted, which is the more expensive direction of th
   **not real**; there is no mechanism, and it is recorded as refuted rather than quietly dropped.
   [Full entry](research/backlog/agg.md)
 
+- **(agj) AN ABORTED ORGANIZE WROTE NO RECORD - AND THE CLI WROTE A FALSE ONE.** Shipped
+  2026-08-23. ⚠ **A REGRESSION FROM ONE COMMIT AGO, and naming it as one is the point.** `(agi)`
+  gave `execute` its first *raising* stop; every stop before it was a `break` (`:2014` cancel,
+  `:2048` health, `:2077` catalog), so partial results always came back by return and both callers
+  recorded on their ordinary path. A raise leaves that path, and `results` is local to the frame.
+  **The app wrote nothing; the CLI wrote a record saying every file was never attempted**, because
+  its handler was written for the pre-flight refusal where that is true. 🔑 **A false custody
+  record is worse than a missing one** - `(afa)`'s shape with the reader actively misled, in a
+  product whose promise is verified custody. `RunStoppedError` carries the partial results out;
+  `stop_block` needs no help, because `(agi)` records the offending file as `FAILED` with the
+  reason *before* re-raising. **An exception that carries state rather than a results sink**: a
+  sink is opt-in and its omission is invisible until the first abort - this defect reintroduced
+  silently - while an ignored exception is loud.
+  ⚠ **THE WRAPPER BROKE A CLASSIFIER, WHICH IS `(agi)`'s OWN LESSON ARRIVING AGAIN.**
+  `jobs.is_catalog_busy` is an `isinstance` check that does not walk the chain, so behind a
+  wrapper a held catalog would have reported SQLite's *"database is locked"* instead of the
+  sentence written for it - **reachable**, because `record_inplace_move` is a bare catalog write
+  inside the loop. `jobs._underlying` looks through `RunStoppedError` and nothing else.
+  **Found and NOT fixed, deliberately**: `record_inplace_move` is unguarded by `_record_or_stop`,
+  so on an in-place move a failed journal write leaves the file moved with no undo row - reported
+  as its own letter. **Found and fixed here** because it is the same exit path: a stopped run
+  leaked a `TemporaryDirectory`, `baker.close()` having sat on the return path only.
+  **Checked and clear**: no partial can wear an organized name (`local.py:165-167` stages and
+  renames), and no screen can stop showing something - the only class-keyed UI string is
+  `NotABackupDriveError`, which `execute` cannot raise.
+  Nine mutations, all caught, four of them cry-wolf.
+  [Full entry](research/backlog/agj.md)
+
 - **(agi) A CONDITION THAT OUTLIVES THE FILE NOW STOPS THE RUN, ON BOTH SURFACES.** Shipped
   2026-08-23. `(afw)` Stage 4 made both surfaces continue past a per-file failure - right - but
   neither classified it, so **a filling destination read exactly like one unreadable photo**: N

@@ -1596,35 +1596,47 @@ def _journal_or_delete_source(
     return ActionResult(resolution, status, Path(final_relative), "; ".join(notes), source_sha)
 
 
-def _execute_one_write(
-    resolution: Resolution,
-    *,
-    destination: Destination,
-    catalog: Catalog | None,
-    set_timestamps: bool,
-    move: bool,
-    relocation: Relocation | None,
-    by_source: dict[str, Event],
-    ingest: IngestContext,
-    albums_by_sha: dict[str, set[str]],
-    baker: _MetadataBaker,
-    drive_uuid: str | None,
-) -> ActionResult:
+@dataclass(frozen=True, slots=True)
+class _WriteRun:
+    """Everything one organize write needs that does not change between files. `(agj)`
+
+    **A context object rather than ten keyword arguments**, which is
+    `IMPLEMENTATION_STANDARDS.md`'s complexity rule answered by naming the group instead of
+    raising a limit - backup's `_CopyRun` for the same reason, and the same reason again: these
+    travel together, and a caller must not be able to pass them in the wrong order.
+
+    It exists because `(agj)` had to lift `execute`'s loop out into its own function to wrap it,
+    and forwarding ten arguments through a second signature is how a divergence starts.
+    """
+
+    destination: Destination
+    catalog: Catalog | None
+    set_timestamps: bool
+    move: bool
+    relocation: Relocation | None
+    by_source: dict[str, Event]
+    ingest: IngestContext
+    albums_by_sha: dict[str, set[str]]
+    baker: _MetadataBaker
+    drive_uuid: str | None
+
+
+def _execute_one_write(resolution: Resolution, run: _WriteRun) -> ActionResult:
     """One file's write path: already-placed check, then bake/write -> catalog -> journal/delete.
 
     Raises ``OSError`` / ``DestinationError`` for the caller's existing failure boundary.
     """
     decision = resolution.decision
     relative = decision.relative.as_posix()
-    write = ingest.writes.get(str(decision.source))
+    write = run.ingest.writes.get(str(decision.source))
     bakes_metadata = write is not None and write.has_content
 
     # An in-place re-run finds files already at their targets. Checked before collision
     # resolution, which would otherwise read "occupied" and suffix the file.
     if (
-        relocation is not None
+        run.relocation is not None
         and not bakes_metadata
-        and _already_at_target(decision.source, relocation.dest_root, relative)
+        and _already_at_target(decision.source, run.relocation.dest_root, relative)
     ):
         return ActionResult(
             resolution,
@@ -1633,7 +1645,7 @@ def _execute_one_write(
             "already organized at this path",
         )
 
-    final_relative, renamed = _free_relative(destination, relative)
+    final_relative, renamed = _free_relative(run.destination, relative)
     # Source hash is the dedup identity; computed now for any unique-size file the
     # scan skipped, since the file is being read for upload anyway.
     source_sha = resolution.hashes.sha256 or sha256_file(decision.source)
@@ -1641,32 +1653,35 @@ def _execute_one_write(
 
     copy_sha, moved_in_place = _write_organized_bytes(
         decision,
-        destination=destination,
+        destination=run.destination,
         final_relative=final_relative,
         source_sha=source_sha,
-        baker=baker,
-        set_timestamps=set_timestamps,
+        baker=run.baker,
+        set_timestamps=run.set_timestamps,
         bakes_metadata=bakes_metadata,
-        relocation=relocation,
+        relocation=run.relocation,
     )
 
+    # Bound to a local because the narrowing has to survive into the `lambda` below, which
+    # mypy does not carry across a member expression.
+    catalog = run.catalog
     if catalog is not None:
         _record_or_stop(
             lambda: _record_organized_file(
                 resolution,
                 catalog=catalog,
-                ingest=ingest,
-                albums_by_sha=albums_by_sha,
-                by_source=by_source,
+                ingest=run.ingest,
+                albums_by_sha=run.albums_by_sha,
+                by_source=run.by_source,
                 source_sha=source_sha,
                 copy_sha=copy_sha,
                 size=size,
                 final_relative=final_relative,
                 moved_in_place=moved_in_place,
-                relocation=relocation,
-                drive_uuid=drive_uuid,
+                relocation=run.relocation,
+                drive_uuid=run.drive_uuid,
             ),
-            destination=destination,
+            destination=run.destination,
             catalog_dir=catalog.path.parent,
             relative=final_relative,
             source=decision.source,
@@ -1676,10 +1691,10 @@ def _execute_one_write(
 
     return _journal_or_delete_source(
         decision,
-        destination=destination,
-        catalog=catalog,
-        relocation=relocation,
-        move=move,
+        destination=run.destination,
+        catalog=run.catalog,
+        relocation=run.relocation,
+        move=run.move,
         source_sha=source_sha,
         copy_sha=copy_sha,
         final_relative=final_relative,
@@ -1951,6 +1966,34 @@ def _largest_still_ahead(resolutions: Sequence[Resolution], sizes: Mapping[Path,
     return suffix
 
 
+class RunStoppedError(Exception):
+    """`execute` stopped early, carrying what it had already done. `(agj)`
+
+    ⚠ **THE RESULTS ARE THE WHOLE POINT OF THE TYPE.** `IMPLEMENTATION_STANDARDS.md` §1 makes a
+    run record automatic, and a record needs two things: the plan, which every caller already
+    holds, and what actually happened, which lives in `execute`'s frame and dies with it. Before
+    this, a raising stop unwound that frame and the outcomes went with it - so the app wrote no
+    record at all and the CLI wrote one claiming **every** file was never attempted.
+
+    **Why an exception that carries state rather than a results sink parameter.** A sink is
+    opt-in: a caller that forgets it still gets the return value on the happy path, so the
+    omission is invisible until the first abort - the failure being fixed here, reintroduced
+    silently. A caller that ignores this type gets an unhandled exception, which is loud. Neither
+    is enforced by the type checker; only one fails where someone will see it.
+
+    **It is not a new error.** `str()` is the cause's own sentence, so the drive-worded message a
+    user reads is unchanged, and the original is the `__cause__` - which keeps `errno` reachable
+    through the chain that `drive_unwritable.persists_for_the_run` already walks.
+    """
+
+    def __init__(self, cause: BaseException, results: list[ActionResult]) -> None:
+        super().__init__(str(cause))
+        #: Every outcome recorded before the stop, in order. The file that caused it is the last
+        #: entry and carries the reason, which is what lets `run_record.stop_block` derive the
+        #: stop without the caller being told it separately.
+        self.results = results
+
+
 def execute(
     resolutions: Iterable[Resolution],
     destination: Destination,
@@ -1990,6 +2033,80 @@ def execute(
     #: Live outcome counts, sent with each tick so a summary fills in as the run happens
     #: rather than appearing all at once at the end.
     tally: Counter[str] = Counter()
+    ground = _ground_watch(
+        resolutions, destination, catalog, apply=apply, skip_undated=skip_undated
+    )
+    ingest = ingest or IngestContext()
+    write = _WriteRun(
+        destination=destination,
+        catalog=catalog,
+        set_timestamps=set_timestamps,
+        move=move,
+        relocation=relocation,
+        by_source=events or {},
+        ingest=ingest,
+        albums_by_sha=_aggregate_albums(resolutions, ingest),
+        baker=_MetadataBaker(
+            _bake_queue(resolutions, ingest, skip_undated=skip_undated) if apply else []
+        ),
+        drive_uuid=drive_uuid,
+    )
+
+    # ⚠ **THE LOOP IS WRAPPED SO A STOP CANNOT TAKE THE RESULTS WITH IT.** `(agj)`
+    #
+    # `(agi)` gave this function its first raising stop; every stop before it was a `break`, so
+    # `results` always came back by return and both callers recorded on their ordinary path. A
+    # raise leaves that path, and the outcomes are local to this frame - so they are handed out
+    # on the exception instead. `except Exception` rather than the two types `(agi)` re-raises:
+    # a record of what a run did is worth no less when what stopped it was a defect, and this is
+    # the mechanism `(afw)` Stage 3 already gave backup rather than a second one. `BaseException`
+    # is deliberately NOT caught - a `KeyboardInterrupt` must not become something a caller might
+    # handle and continue past.
+    try:
+        _organize_each(
+            resolutions,
+            write,
+            ground,
+            results,
+            tally,
+            apply=apply,
+            skip_undated=skip_undated,
+            progress=progress,
+            cancel=cancel,
+        )
+    except Exception as exc:
+        raise RunStoppedError(exc, results) from exc
+    finally:
+        # ⚠ In a `finally` because the raising path skipped it: the baker holds a
+        # `TemporaryDirectory`, so every stopped run leaked one until `(agj)`.
+        write.baker.close()
+    return results
+
+
+def _organize_each(
+    resolutions: list[Resolution],
+    write: _WriteRun,
+    ground: _GroundWatch,
+    results: list[ActionResult],
+    tally: Counter[str],
+    *,
+    apply: bool,
+    skip_undated: bool,
+    progress: ProgressCallback | None,
+    cancel: threading.Event | None,
+) -> None:
+    """`execute`'s loop, appending to ``results`` as it goes. `(agj)`
+
+    **Lifted out so `execute` can wrap it**, and it had to be lifted rather than wrapped in place:
+    a `try` around the loop pushed `execute` over its branch *and* statement ceilings, which
+    `IMPLEMENTATION_STANDARDS.md` answers by extracting rather than by raising the limit. Backup's
+    `_copy_missing` exists for the same reason and records the same thing - a **nested** function
+    would not have helped, because ruff counts nested statements against the enclosing one.
+
+    ⚠ **It appends to the caller's list rather than returning one.** That is what makes the
+    partial results reachable after a raise; a return value is lost with the frame, which is the
+    whole of `(agj)`.
+    """
 
     def record(result: ActionResult) -> None:
         """Append an outcome and keep the live tally in step -- one place, so a new status
@@ -1997,18 +2114,7 @@ def execute(
         results.append(result)
         tally[status_label(result.status)] += 1
 
-    ground = _ground_watch(
-        resolutions, destination, catalog, apply=apply, skip_undated=skip_undated
-    )
-
-    by_source = events or {}
-    ingest = ingest or IngestContext()
-    baker = _MetadataBaker(
-        _bake_queue(resolutions, ingest, skip_undated=skip_undated) if apply else []
-    )
-    albums_by_sha = _aggregate_albums(resolutions, ingest)
     total = len(resolutions)
-
     for done, resolution in enumerate(resolutions, start=1):
         if cancel is not None and cancel.is_set():
             break
@@ -2016,7 +2122,7 @@ def execute(
         if progress is not None:
             # Reported before the work, not after: the item named is the one being handled
             # right now, which is what keeps a long single file from looking like a freeze.
-            phase = Phase.MOVING if relocation is not None else Phase.ORGANIZING
+            phase = Phase.MOVING if write.relocation is not None else Phase.ORGANIZING
             progress(Progress(done, total, phase, decision.source.name, dict(tally)))
 
         if resolution.exact_duplicate is not None:
@@ -2048,22 +2154,9 @@ def execute(
                 break
 
         try:
-            record(
-                _execute_one_write(
-                    resolution,
-                    destination=destination,
-                    catalog=catalog,
-                    set_timestamps=set_timestamps,
-                    move=move,
-                    relocation=relocation,
-                    by_source=by_source,
-                    ingest=ingest,
-                    albums_by_sha=albums_by_sha,
-                    baker=baker,
-                    drive_uuid=drive_uuid,
-                )
-            )
-            if results[-1].status in _BYTES_WRITTEN_STATUSES:
+            outcome = _execute_one_write(resolution, write)
+            record(outcome)
+            if outcome.status in _BYTES_WRITTEN_STATUSES:
                 ground.written += ground.sizes.get(decision.source, 0)
         except CatalogWriteError as exc:
             # ⚠ THE ONE FAILURE THAT ENDS THE RUN. `_health_stop`'s shape exactly -- a recorded
@@ -2077,6 +2170,3 @@ def execute(
             break
         except (OSError, DestinationError) as exc:
             _record_then_stop_if_it_will_recur(record, resolution, exc)
-
-    baker.close()
-    return results

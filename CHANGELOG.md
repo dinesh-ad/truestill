@@ -7,6 +7,11 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **A run that stops early now says what it managed before it stopped.** If a drive filled up
+  part-way through organizing, Truestill stopped - correctly - but the run record either was not
+  written at all, or said that none of your photos had been attempted, when some were already
+  safely copied. The record now names every file that made it, the one that hit the problem, and
+  what stopped the run.
 - **Two Truestill windows, or a window and a terminal, can no longer overwrite each other's
   photos.** Organizing the same folder from two places at once could leave one copy holding the
   other's picture, with Truestill reporting success for both. Whichever starts second now says

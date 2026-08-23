@@ -176,6 +176,7 @@ from truestill_core.models import (
 )
 from truestill_core.organizer import (
     Relocation,
+    RunStoppedError,
     SkippedFolderGroup,
     SourceInventory,
     SourceScan,
@@ -2669,6 +2670,44 @@ def _record_the_run(
     print(f"\n  This run is recorded in {path}")
 
 
+def _stopped_run_exit(
+    args: argparse.Namespace,
+    resolutions: list[Resolution],
+    exc: RunStoppedError | DestinationError,
+) -> int:
+    """Record what the run managed, say what stopped it, and give the exit code. `(agj)`
+
+    ⚠ **TWO STOPS THAT ARE NOT VARIANTS OF EACH OTHER, kept side by side so the difference is
+    visible rather than twenty lines apart.**
+
+    * `DestinationError` is a refusal **before the first byte** - `execute` has not started, so
+      `results` really is empty and every file really was never attempted.
+    * `RunStoppedError` is a stop **mid-run**. Passing the same hardcoded block here wrote a
+      record claiming a run that had already copied files attempted none of them: **a false
+      custody record, which is worse than no record.** `stop_block` needs no help deriving the
+      reason, because `(agi)` records the offending file as `FAILED` with it *before* re-raising.
+
+    One handler rather than two also keeps `_run_pipeline` under its branch ceiling, which
+    `IMPLEMENTATION_STANDARDS.md` answers by extracting rather than by raising the limit.
+    """
+    if isinstance(exc, RunStoppedError):
+        _record_the_run(args, resolutions, exc.results)
+        if not isinstance(exc.__cause__, OSError | DestinationError):
+            # A defect of ours, not an answer about the destination. The paperwork is written -
+            # that is this function's whole job - and the traceback is left standing rather than
+            # dressed up as a user-facing refusal wearing a destination exit code.
+            raise exc
+    else:
+        _record_the_run(
+            args,
+            resolutions,
+            [],
+            stopped={"never_attempted": len(resolutions), "reason": str(exc)},
+        )
+    print(f"error: {exc}", file=sys.stderr)
+    return 4
+
+
 def _registered_or_refused(
     args: argparse.Namespace,
     marker: DriveMarker | None,
@@ -2878,21 +2917,8 @@ def _run_pipeline(
                 if args.apply
                 else None,
             )
-        except DestinationError as exc:
-            # A destination that cannot hold the run refuses before the first byte. That is a
-            # user-facing answer, not a crash: it names the files and exits like every other
-            # destination problem (code 4), rather than showing a traceback.
-            print(f"error: {exc}", file=sys.stderr)
-            # ⚠ A record even here, and this is the case that most needs one: the run refused
-            # before its first byte, so `results` is empty and every file is "not attempted".
-            # Writing nothing would leave the loudest failure the only one with no paperwork.
-            _record_the_run(
-                args,
-                resolutions,
-                [],
-                stopped={"never_attempted": len(resolutions), "reason": str(exc)},
-            )
-            return 4
+        except (RunStoppedError, DestinationError) as exc:
+            return _stopped_run_exit(args, resolutions, exc)
 
         _close_organize_run(catalog, args, drive_uuid)
         if relocation is not None and args.apply:

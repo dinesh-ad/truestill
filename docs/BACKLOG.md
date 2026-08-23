@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agi). Next free: (agj).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agj). Next free: (agk).**
 ⚠ **`(agf)` was cited by `pyproject.toml`, a test and `age.md` before its entry existed**, so for
 one commit three working citations resolved to nothing. Recorded because it is this section's own
 warning happening - *"nothing recorded which letters were spoken for"* - and the fix is to claim

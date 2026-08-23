@@ -51,6 +51,7 @@ from truestill_core.models import (
 from truestill_core.organizer import (
     HasSkippedFolders,
     Relocation,
+    RunStoppedError,
     SourceScan,
     discover,
     execute,
@@ -1185,18 +1186,36 @@ def organize_run(
                     dest_root=str(relocation.dest_root),
                     drive_uuid=drive_uuid,
                 )
-            results = execute(
-                resolutions,
-                LocalDestination(effective_destination),
-                catalog,
-                apply=True,
-                skip_undated=skip_undated,
-                move=chosen_mode in {"move", "inplace"},
-                relocation=relocation,
-                progress=progress,
-                cancel=cancel,
-                drive_uuid=drive_uuid,
-            )
+            try:
+                results = execute(
+                    resolutions,
+                    LocalDestination(effective_destination),
+                    catalog,
+                    apply=True,
+                    skip_undated=skip_undated,
+                    move=chosen_mode in {"move", "inplace"},
+                    relocation=relocation,
+                    progress=progress,
+                    cancel=cancel,
+                    drive_uuid=drive_uuid,
+                )
+            except RunStoppedError as exc:
+                # ⚠ **THE RECORD, BEFORE THE EXCEPTION LEAVES THE BUILDING.** `(agj)`
+                #
+                # `_write_the_record` below is on the ordinary path and a raise goes straight past
+                # it, so a run stopped by a full drive - the moment the paperwork is worth most -
+                # wrote nothing at all. `exc.results` is what the run actually did; `stop_block`
+                # derives the reason from the last of them, which `(agi)` guarantees is the
+                # `FAILED` entry for the file that hit the condition.
+                #
+                # ⚠ **A failure to write it cannot reach a screen from here**, unlike the ordinary
+                # path's `record_error`: the run is already ending in an error the user will see,
+                # and inventing a second channel for it would put two sentences on one banner.
+                # The exception is re-raised untouched so the job runner words it as before.
+                _write_the_record(
+                    db, resolutions, exc.results, source, effective_destination, cancelled=False
+                )
+                raise
             # An OPTIMISATION, never a correctness requirement: a crash between the last file and
             # this line leaves the row open, and `unfinished_organize_run` derives the answer from
             # what the drive holds, so that case still reads as complete. `(aem)`.
