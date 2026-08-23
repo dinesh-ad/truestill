@@ -99,8 +99,15 @@ repos:
       # landed on an already-red main. Refuses rather than waits, and
       # `TRUESTILL_PUSH_ANYWAY=1 git push` is how you say you mean it.
       # Activate with: uv run pre-commit install --hook-type pre-push
+      #
+      # ⚠ **THE NAME IS A SUBJECT, NOT A CLAIM, and it used to be a claim.** pre-commit prints
+      # `<name> ... Passed` whenever a hook exits 0 - including when it was overridden or fell
+      # open - and it SUPPRESSES a passing hook's own output. So the old name, "the last push's
+      # run is finished and green", was rendered as an assertion of a fact nothing had checked.
+      # Measured 2026-08-23: a push onto a red tip showed exactly that line and nothing else.
+      # `(agn)`
       - id: push-gate
-        name: the last push's run is finished and green
+        name: push gate (the tip you are pushing onto)
         entry: python3 scripts/check_push_gate.py
         language: system
         pass_filenames: false

@@ -105,6 +105,31 @@ recording shipped work as unstarted, which is the more expensive direction of th
   **not real**; there is no mechanism, and it is recorded as refuted rather than quietly dropped.
   [Full entry](research/backlog/agg.md)
 
+- **(agn) THE PUSH GATE JUDGED A COMMIT THE REMOTE MAY NOT HAVE HAD.** Shipped 2026-08-23.
+  `ENGINEERING_STANDARD.md` §2's *"a pending result outranks a ready batch"* carries **contention**
+  and **outcome**; `scripts/check_push_gate.py` separated them in prose and answered both from one
+  sha it derived with `git rev-parse @{upstream}`, then sieved the fifteen most recent runs
+  locally. 🔑 **The two have different keys** - contention is about the **branch** (any live push
+  run on the ref dies), outcome is about **one commit** (the remote tip). Three reachable
+  consequences: a stale tracking ref asked about the wrong commit; a red tip aged out of the window
+  read as no evidence of failure; a run in flight for another sha was invisible and got cancelled.
+  ⚠ **git hands the answer over and the gate did not take it** - `githooks(5)` puts
+  `<local ref> <local sha1> <remote ref> <remote sha1>` on **stdin**, and the file contained no
+  reference to stdin at all. **Null result**: `gh run list --commit SHA` existed all along.
+  ⚠ **A CORRECTION TO MY OWN REPORT.** I said the gate had printed a green verdict while the
+  remote was red, and offered it as evidence the override might be inert. Wrong: the override
+  **fired**, and pre-commit **suppresses a passing hook's output**, so the only visible line was
+  the hook's *name* - which was a claim - followed by `Passed`. An overridden gate, a failed-open
+  gate and a genuinely-green one all printed the same sentence. The name is now a subject and the
+  override says what it bypassed.
+  **A tip with no run is REFUSED** (checked: `ci.yml` has no `paths` filter, so every push to main
+  creates one), and that is deliberately distinct from failing open when `gh` cannot be reached -
+  `_gh` returns `None` for *cannot ask* and `[]` for *asked, nothing there*.
+  Seventeen tests; seven mutations, all caught, three cry-wolf. ⚠ **One survived
+  twice for two different reasons** - a too-weak test, then an invalid mutant, because the new
+  fail-closed rule made both implementations refuse and only the stated REASON distinguished them.
+  [Full entry](research/backlog/agn.md)
+
 - **(afw) THE OTHER MUTATING APP RUNS NOW WRITE RECORDS - BACKUP AND UNDO BUILT; MIGRATE AND BAKE
   DELIBERATELY DEFERRED.** Shipped 2026-08-23, schema unchanged, record **format 3**.
   `IMPLEMENTATION_STANDARDS.md` §1 says *"a run that changes the library writes down what it
