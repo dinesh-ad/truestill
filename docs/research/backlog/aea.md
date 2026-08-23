@@ -36,6 +36,13 @@
     decisions, last write - shown side by side), a merge, an adoption of one with the other
     renamed, or simply a better refusal that names what differs. Each is a different product
     promise about whose data is authoritative, and this entry does not choose.
+  - 🔬 **The pair has moved on - measured 2026-08-23 by `(agr)` part 3's census.** Logically
+    identical (2,695 files, 4,933 copies, identical settings, same three drives) but no longer
+    the same file: `user_version` **20** in the data-dir catalog against **19** in `reports/`,
+    md5 different, mtimes a week apart (08-22 against 08-15). Something opened one and migrated
+    its schema; nothing touched the other. The benign byte-identical state recorded above has
+    become exactly the *"after either file has moved on"* shape this entry warned about -
+    silently, with no user action, and still with no surface that reports the pair.
   - **Related.** `(adb)` - the torn copy, where this surfaced. `(adr)` - a **0-byte** file at the
     destination, which is the same collision with a worthless second file and is already shipped.
     `(adw)` - what removed the discoverability, and why that was right at a population of one.

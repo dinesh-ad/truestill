@@ -122,35 +122,6 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(agr) THE APP'S FOURTH MINT SITE HAS NO GHOST CHECK, AND BACKUP REACHES IT.** Filed
-  2026-08-23 from `(abs)`'s closing verification; **ranked at the top of the engine list.**
-  `attach_drive` mints at `drives.py:345` with no ghost check - its only gate,
-  `_adoption_block`, is the content-based guard `ghost_drive_at`'s own docstring calls blind to
-  an empty mountpoint - and `backup_run` reaches it `write=True` on both user-supplied paths
-  (`backup.py:633-634`). 🔑 **Demonstrated, not described**: at an unplugged drive's recorded
-  path it returned `registered=True` and minted a phantom identity; the catalog then held the
-  real drive *offline* and the phantom *connected* on the local disk. The census: four mint
-  sites, three guarded - `(abs)` counted two, the sixty-ninth member's own shape.
-  ⛔ **The refusal shape is RULED: refuse the run, never a soft-fail** - a second soft-fail
-  beside a failed one is not a guard. Design in the entry: the check goes inside `attach_drive`
-  before the mint (a fourth caller of core's one implementation, not a third); the refusal rides
-  `DriveGhostError` through `jobs.py`'s existing code route - zero new mechanism, and `(agp)`'s
-  HTTP handler deliberately does not fit a worker thread. The regression test must fail today
-  **by minting**: assert the marker is absent after the attempt, never merely that a refusal
-  returned. Part 2, lower rank: `verify_run`'s soft-fail still advises *"register this drive
-  first"* at a ghost path - `(afc)`'s forbidden sentence, advice-text only (`can_register` is
-  consumed by nothing in `app.js`). Part 3, reported not designed: nothing detects a phantom
-  already minted - `_say_if_two_places` covers one identity at two paths, nothing covers two
-  identities at one path, and the phantom reads *connected and healthy* forever.
-  ✅ **Part 1 shipped 2026-08-23**: the guard sits inside `attach_drive` before the mint, the
-  refusal rides `DriveGhostError` through `jobs.py`'s existing route, and the one test that
-  failed when the door closed was found to be **resting on it** - an incomplete rewind that left
-  the modern hint behind. ✅ **Part 2 shipped 2026-08-23**: the app's door (`drive_support.py`)
-  answers the `ghost_drive_refusal` sentence with `can_register: False`, and the exception door
-  changes TYPE to `DriveGhostError` because `FRIENDLY_ERRORS` keys on `NotABackupDriveError`;
-  thirteen call sites now pass the catalog. Census: no other app surface soft-fails at a ghost -
-  the drive card truthfully reads OFFLINE. Part 3 remains. [Full entry](research/backlog/agr.md)
-
 - **(agp) THE BUSY MESSAGE NAMES A SECOND WINDOW THAT DOES NOT EXIST, AT THE USER'S FIRST CLICK.**
   Recorded 2026-08-23, split out of `(adt)` when it closed, **ranked above `(agq)` by the
   maintainer - a wording-and-detection defect, not a lock defect.** `CATALOG_BUSY_MESSAGE`
@@ -463,8 +434,9 @@ is invisible here is retired, not free.**
 - **(abb) The other capture-filename conventions.** `rule_camera_filename` shipped with ONE
   pattern, Android's `IMG_`/`VID_`; the other vendors' conventions are unbuilt. Recorded
   2026-08-03. [Full entry](research/backlog/abb.md)
-- **(aba) Nothing reconciles the catalog's recorded location with where a file actually is.** [Full
-  entry](research/backlog/aba.md)
+- **(aba) Nothing reconciles the catalog's recorded location with where a file actually is.**
+  Carries `(agr)` part 3 since 2026-08-23 - the two-identities-at-one-path drive sibling, ruled
+  no-build with its specimen preserved. [Full entry](research/backlog/aba.md)
 - **(aaz) `ModifyDate < DateTimeOriginal` as a back-dating signal. RECORD ONLY - do not build.**
   [Full entry](research/backlog/aaz.md)
 - **(aay) JPEG XL (`.jxl`) is classified as unrecognized. RECORD ONLY - do not build.** [Full

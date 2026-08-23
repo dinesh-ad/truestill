@@ -85,3 +85,22 @@ lock.
 **The ladder is two tiers: the `(aaw)` flock probe, and the wording.** `(agq)`'s closure carries
 the full trail, including why the entry that would have sequenced this was itself filed against
 already-shipped code.
+
+## The CLI-remedy census - filed here 2026-08-23, one class
+
+Four shared sentences name remedies an app user cannot run, all rendered in the app verbatim.
+The one-home rule (`(afe)`) is right and stays; **the ruling: a shared sentence needs a
+per-surface closing clause, not a fork of the facts.** Filed on this entry because its rewrite
+already owns these sentences' shape - pick them up together:
+
+1. `ghost_drive_refusal` (`drive.py:716`) - *"re-run with --force-new-identity"* - in app
+   payloads since `(agr)` part 2 (`drive_support.py`, the ghost branch).
+2. `second_location_note` (`drive.py:489`) - *"truestill drives --init ... --force-new-identity"*
+   - carried whole into the verify summary (`verify.py:132`) and rendered in the app's
+   "answers in two places" banner (`app.js:3057`).
+3. `_zero_byte_detail` (`catalog_startup.py:140`) - *"pass --db PATH"* - reaches the app's
+   catalog notice via `catalog_detail` (`drives.py:824`). The app already knows this is CLI
+   instruction - `index.html:126` says so in a comment - but fixed only the banner's placement,
+   never the sentence.
+4. `refusal_for` (`decisions.py:681`) - *"Upgrade Truestill, then run: truestill restore ..."* -
+   rendered verbatim in the drive card (`app.js:2892`).

@@ -1,6 +1,6 @@
 # (agr) THE APP'S FOURTH MINT SITE HAS NO GHOST CHECK, AND BACKUP REACHES IT.
 
-*Body of entry `(agr)`. **OPEN - part 1 SHIPPED 2026-08-23; parts 2 and 3 remain.** The index is [`BACKLOG.md`](../../BACKLOG.md). Filed 2026-08-23 from the `(abs)` verification sweep; ranked at the top of the engine list.*
+*Body of entry `(agr)`. **CLOSED 2026-08-23 - parts 1 and 2 built, part 3 ruled no-build and folded into `(aba)`.** The index is now [`SHIPPED.md`](../../SHIPPED.md). Filed 2026-08-23 from the `(abs)` verification sweep.*
 
 ## Part 1 - the data-loss door (the rank-carrying part)
 
@@ -141,3 +141,16 @@ now visible in the app - the one-home ruling wins this turn; a per-surface closi
 part-3 territory alongside phantom detection.
 
 **What remains**: part 3 (phantom detection - reported, `(aba)` territory).
+
+---
+
+## ✅ CLOSED 2026-08-23 - parts 1 and 2 built, part 3 ruled no-build
+
+Part 1 is `b250ee4`, part 2 is `07f7183`. Part 3 - the phantom already minted - closes into
+`(aba)` as its **drive-identity sibling**: the signature is inexact by construction and
+post-guard selects only people who followed our own instruction; the census measured a
+population of zero across eleven catalogs; the specimen is preserved at
+`/data/TruestillLibrary/abs-repro-2026-08-23`. The ruling, the remedies and detection's
+would-be home live in `aba.md`, conditional on part 1 holding and saying so. The CLI-remedy
+census this work surfaced - four shared sentences naming CLI-only remedies in the app - is
+filed on `(agp)`.

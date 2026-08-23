@@ -48,3 +48,44 @@
     the content elsewhere before declaring it gone) is most of the fix for the other two. Three
     entries would fragment one design question and invite three partial repairs. All three are
     named, ranked and separately actionable above.
+
+## The drive-identity sibling - `(agr)` part 3 closed into here, 2026-08-23
+
+Two drive identities at one path - the phantom `attach_drive` used to mint at an unplugged
+drive's recorded path - is this entry's family of harm carried by different evidence: **drive
+rows and marker uuids** where the symptoms above are file rows and content hashes. Ruled
+**NO BUILD**, and the argument that survives users arriving is the cry-wolf one, not the
+population:
+
+- **The signature is inexact by construction.** Two `path_hint.drive.*` values equal with a
+  marker present for one identity is byte-identical to a legitimate re-registration at a reused
+  mountpoint: the old drive's hint is deliberately kept (`drives.py:576` - it is what lets an
+  absent drive read OFFLINE rather than UNKNOWN), and `--force-new-identity` records nothing
+  (`cli.py:1173` skips the check and mints). Since `(agr)` part 1 shut the silent mint, every
+  future occurrence of the signature is an explicit human ruling - **a detector built now would
+  fire only on people who followed our own instruction.**
+- **Population zero, measured 2026-08-23**: eleven catalogs censused - both live catalogs,
+  seven soak/scratch, the fenced mounts pruned not walked - and only the manufactured specimen
+  carries the signature. No release, no tag: no other machine has run the minting code.
+- ⚠ **This ruling is conditional on `(agr)` part 1 holding** (`_refuse_ghost_before_minting`,
+  `drives.py:245`). If that guard is ever removed or bypassed, the population argument and the
+  cry-wolf argument both die, and this ruling dies with them.
+- **Detection's would-be home, named and deliberately not built**: the converse of `(adx)`'s
+  `second_location_note` - one identity at two paths, mirrored to two identities at one path -
+  at the same call site, `verify.py:92`, before the two writes that destroy the evidence. Zero
+  new mechanism if it is ever justified.
+- **The remedies, named not designed.** (1) Report only - the honest floor: the shadowed files
+  are on THIS computer's disk, unmount to see them. (2) Merge the phantom's copies into the
+  real identity - ⚠ **the one an anxious user would want and must not be offered**: the bytes
+  are NOT on the real drive, so it asserts custody of bytes the drive does not hold, the exact
+  overcount `drive-identity-research.md` refused. (3) Delete the phantom row - destroys the only
+  record that the shadowed files exist. (4) Rescue and re-point - unmount, move the shadowed
+  files somewhere visible, verify by hash. (1) and (4) are the honest pair.
+
+**The specimen**: `/data/TruestillLibrary/abs-repro-2026-08-23` - 244 KB, **all durable,
+nothing regenerates**. Copied off session tmpfs on 2026-08-23; the original would not have
+survived a reboot. `c.sqlite` is the evidence: two drive rows whose hints both name `lib/`, the
+marker there answering as the phantom while the real drive's marker sits in
+`lib-actually-unplugged/`. The hint values name the tmpfs path it was built at - a record, not
+an error. `c.cache.sqlite`, `last-run.json` and `runs/` are the run's ordinary residue, kept
+because 244 KB is cheaper than a wrong deletion.

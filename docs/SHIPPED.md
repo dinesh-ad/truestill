@@ -105,6 +105,23 @@ recording shipped work as unstarted, which is the more expensive direction of th
   **not real**; there is no mechanism, and it is recorded as refuted rather than quietly dropped.
   [Full entry](research/backlog/agg.md)
 
+- **(agr) THE FOURTH MINT SITE IS GUARDED, THE APP'S DOOR LEARNED THE GHOST, AND THE PHANTOM
+  QUESTION CLOSED INTO `(aba)`.** Closed 2026-08-23 in three parts. **Part 1 (`b250ee4`)**:
+  `_refuse_ghost_before_minting` inside `attach_drive`, immediately before the mint - the fourth
+  caller of core's one rule, the refusal riding `DriveGhostError` through `jobs.py`'s existing
+  route; the one test that failed was found resting on the unguarded door. **Part 2
+  (`07f7183`)**: the app's door (`drive_support.py`) answers `ghost_drive_refusal` with
+  `can_register: False`, and the exception door changes TYPE to `DriveGhostError` because
+  `FRIENDLY_ERRORS` keys on `NotABackupDriveError`; thirteen call sites pass the catalog, and
+  payload == exception == CLI, byte-identical. **Part 3 ruled NO BUILD**, folded into `(aba)` as
+  its drive-identity sibling: the signature collides with legitimate re-registration by
+  construction, and since part 1 every future instance is an explicit human
+  `--force-new-identity` - a detector would fire only on people who followed our own
+  instruction. Population measured zero across eleven catalogs; specimen preserved at
+  `/data/TruestillLibrary/abs-repro-2026-08-23`; the ruling is conditional on part 1 holding and
+  `aba.md` says so. The four-instance CLI-remedy census surfaced on the way is filed on
+  `(agp)`. [Full entry](research/backlog/agr.md)
+
 - **(abs) THE READ-ONLY SURFACES NOW LEAD WITH THE GHOST - CLOSED, BUILT BY `(afc)` UNDER
   ANOTHER NAME.** Closed 2026-08-23; **the work is `5345500 fix(afc)` (2026-08-21)**, instance
   six of the fixed-under-another-name family. The entry's own closing shape - *"the read-only
