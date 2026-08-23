@@ -122,21 +122,31 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(agg) THE ARCHIVE INGEST ROUTE WRITES TO THE DESTINATION WHILE DECLARING `mutating=False`,
-  SO THE DRIVE LOCK NEVER ENGAGES.** Recorded 2026-08-23, found inventorying CLI subcommands
-  against app routes. Four links, each read: `/api/ingest/archives/run` (`server.py:832`) reaches
-  `extract_archive_set`, which writes *"one merged staging tree under `destination`"*
-  (`archive_extract.py:303,312`); it is registered `mutating=False` (`server.py:405-406`);
-  `mutating` is exactly what gates the cross-process lock (`jobs.py:253`); and the staging path is
-  `destination / STAGING_DIRNAME / archive_set.stem` (`archive_extract.py:211-213`) - **derived
-  from the input, not the process.** 🔑 **That is the sentence `7564ed6` wrote for `(aaw)` -
-  *"a staging path is private to the process that made it"* - on a path it did not reach.**
-  ⚠ **Bounded**: the mechanism is traced, **no collision was reproduced**, and the in-process claim
-  is unconditional (`jobs.py:240-246`) so two tabs are already refused - the exposure is
-  **app-versus-CLI**, where the CLI locks under `--apply` (`cli.py:4293`) and this route does not
-  check. Severity is unassessed: a staging tree is not the user's originals. ⚠ **It is `(afq)`'s
-  inverse** - that is a preview that takes the lock and may not need it, this is a writer that does
-  not take it - and §1 says *"a preview writes nothing"*, while **here the preview writes**.
+- **(agg) `mutating` IS DECLARED PER ROUTE BY JUDGEMENT, AND ITS GUARD IS DERIVED FROM THE
+  DISPLAY STRING - SO IT NOW ENFORCES A ROUTE THAT WRITES WITHOUT THE LOCK.** Recorded and
+  retitled 2026-08-23; the instance was the finding and the cause is larger. `mutating` decides
+  whether `(aaw)`'s cross-process lock engages (`jobs.py:253`) and is **declared by hand at each
+  route**, checked against nothing. ⚠ **`(agg)` and `(afq)` are one cause pointing opposite ways**:
+  a preview that occupies the drive, and a writer that does not.
+  **The instance**: `/api/ingest/archives/run` reaches `extract_archive_set`, which writes *"one
+  merged staging tree under `destination`"* (`archive_extract.py:303,312`), while registered
+  `operation="import preview", mutating=False` (`server.py:405-406`) - and its staging path is
+  `destination / STAGING_DIRNAME / archive_set.stem`, **derived from the input, not the process**,
+  which is the sentence `7564ed6` wrote for `(aaw)` on a path it did not reach.
+  🔑 **AND THE GUARD ENFORCES IT.** `test_every_job_declares_whether_it_mutates.py` opens by ruling
+  out deriving from `operation` - *"one rename away from a lock that stops firing"* - and one
+  screen below asserts `if "preview" in operation: assert not mutating`. `"import preview"`
+  contains it, so **the test requires `mutating=False` for a route that writes**, and the obvious
+  fix turns an existing test red. 7 of 15 declarations are pinned by their label this way.
+  ⚠ **Bounded**: mechanism traced, **no collision reproduced**, in-process claim unconditional so
+  the exposure is **app-versus-CLI**, and severity unassessed - a staging tree is not the user's
+  originals, and that is the first question rather than the fix.
+  **Can it be derived?** Not from the route. **Partially from the call graph** - one hop would have
+  caught this, since `takeout.py:201` calls the write helper directly. **Completely, if the WRITE
+  took the lock** rather than the route declaring it - structural, but it moves refuse-or-wait
+  mid-run, which `(afp)` ruled on the other way. **If it stays declared it needs a REASON, not a
+  bool**: `False` currently means both *"writes nothing"* and *"writes, but not where it matters"*,
+  which is `(aek)`/`(aft)`'s one-value-two-states shape a third time.
   [Full entry](research/backlog/agg.md)
 - **(agh) `LocalGuard` MAKES FORGETTING THE TOKEN IMPOSSIBLE AND UN-EXEMPTING INVISIBLE.**
   Recorded 2026-08-23. **The token is enforced well** - ASGI middleware wrapping the whole app

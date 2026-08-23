@@ -234,8 +234,8 @@ memory dressed as one.
 > a live one**; run the command.
 >
 > ⚠ **AND THE ORDINALS ARE A SECOND, SMALLER COUNT - THEY DO NOT AGREE AND SHOULD NOT.** Members
-> name themselves in prose (*"the sixty-second member"*), and the highest such ordinal is **65**
-> while the command reads **79**. The gap is not drift: the ordinals number only the members
+> name themselves in prose (*"the sixty-second member"*), and the highest such ordinal is **66**
+> while the command reads **80**. The gap is not drift: the ordinals number only the members
 > written as *named failures*, and the command counts every bullet here, including the eight that
 > were never numbered - Idioms, Absolute imports, Typing, Dependencies, Performance, Tests,
 > Errors, Credentials. **Quoting 62 as the size of this section is therefore wrong by fourteen**,
@@ -1970,6 +1970,37 @@ memory dressed as one.
   correctly, in a file `git diff` reports as unchanged, is this until proven otherwise. Check what
   the interpreter loaded before you change anything - the temptation is to "fix" the correct code,
   and that edit is the real damage.
+
+- **A SURVIVING MUTATION IS A CLAIM ABOUT THE TEST *AND* ABOUT THE MUTANT, AND THE MUTANT IS THE
+  CHEAPER ONE TO CHECK.** The sixty-sixth member, and the gap the rest of the mutation family
+  leaves. The fifth asks whether the mutant was **loaded**; the fifteenth whether it was
+  **present and unique**; the thirty-first whether the suite was measured in **both directions**.
+  None asks the prior question: **did the mutant actually remove the property?**
+
+  > **Applied is not the same as effective.** `mutate_once.py` verifies the edit landed - the
+  > anchor matched once, the file changed, the restore was byte-exact. It cannot verify that the
+  > changed file no longer has the property under test, and that is a different claim.
+
+  *Worked example, 2026-08-23.* A guard asserting *"every CLI subcommand appears in a row of the
+  parity table"* was proved by deleting `rescan`'s row. **It survived.** The reflex - and the one
+  taken, briefly - was to call the guard weak and strengthen it. It was not weak: `rescan` has a
+  **second** row in the document's short-answer list, so after the mutation the table still
+  listed it and **the property was never falsified.** The proof needed a subcommand appearing
+  exactly once (`verify`), and against that one the guard bit immediately.
+
+  ⚠ **The distinction from the thirty-first, because they look alike and the remedies differ.**
+  There, the mutant is a *valid* negation of one half of a two-directional rule, and the survivor
+  is a test covering the other half - the remedy is the opposite mutation. Here the mutant negates
+  **nothing**, and the remedy is a different mutant of the same direction. Reaching for the
+  thirty-first's answer would have produced a second useless proof.
+
+  **The tell, and it is one question:** before weakening a test on a survival, state what property
+  the mutant was supposed to remove and check the mutated file no longer has it. In this case -
+  *does the table still list `rescan`?* - the answer was yes, in one grep.
+
+  ⚠ **The real cost is not the wasted proof, it is the near-miss.** A test weakened to kill a
+  mutant that removed nothing is a test made worse on evidence that never existed, and it would
+  have looked like diligence in the diff.
 
 - **A FENCED CODE BLOCK IN A DOCUMENT IS A QUOTATION TO A READER AND AN INPUT TO A FORMATTER,
   AND THE FORMATTER WINS.** The sixty-fifth member. Every other member here is about a claim that
