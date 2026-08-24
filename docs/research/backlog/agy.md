@@ -66,6 +66,27 @@ are empty today"*. That is true of a catalog nobody has run `--map-albums` again
 `test_ingest.py` demonstrates rows arriving when somebody has. Not corrected here - it is that
 entry's sentence, and this one only notes that it is conditional.
 
+## ⚠ A SIBLING ONE LAYER UP: a FUNCTION written and never called
+
+**`video_utc.stills_corroborate_local` (`video_utc.py:200`) has no production caller** - checked:
+`grep -rn "stills_corroborate_local" packages/*/src/ packages/*/tests/` returns its definition and
+**four test references, nothing else**. Same family as the columns above, at the function layer.
+
+🔑 **It is a SEAM, not dead code, and `(uu)`'s closure is what decides it** - so it is **kept**.
+That closure lists what shipped and says *"Rung 5 corroboration-only"*: the ladder was specified
+with five rungs, four were wired, and the fifth was built as a helper **with its rule stated** -
+*"Never returns or invents an offset. Callers may refuse on `False`; they must not derive `O` from
+stills alone."* `infer_video_local`'s docstring says the same from the other side: *"Rung 5 (stills)
+is a separate corroboration helper and is not called here."*
+
+**Deliberate, recorded twice, and awaiting a caller that needs neighbouring stills** - which
+nothing currently assembles. Deleting it would delete a specified rung of a shipped ladder.
+
+⚠ **The residual, stated rather than implied:** the rule in its docstring is enforced by nothing,
+because nothing calls it. A future caller could ignore *"never invents an offset"* and no test would
+notice - the rule lives in prose beside an unused function. That is the cost of keeping it, and it
+is smaller than the cost of removing a rung the ladder's own closure names.
+
 ## The four timestamps - the open question
 
 `copied_at`, `reclaimed_at`, `skipped_at` and `migration_runs.completed_at` are all **provenance

@@ -113,9 +113,16 @@ over a file whose bake was interrupted.
 ## Rank - deliberately not raised
 
 **Mid.** It needs a crash landing in a 6% window and it self-heals on the next bake, so it sits
-**below `(aco)`** (a still with a UTC `DateTimeOriginal` is misdated on every ordinary run, no
-crash required - re-verified 2026-08-24 at `dates.py:370`) and **below `(abb)`**, both of which a
-first stranger meets on day one. It sits **above `(agx)`**, which is report-only and makes no false
+**below `(abb)`**, which a first stranger meets on day one.
+
+⚠ **THIS ROW SAID "below `(aco)`" AND THAT COMPARISON IS WITHDRAWN (2026-08-24, P50).** It read:
+*"a still with a UTC `DateTimeOriginal` is misdated on every ordinary run, no crash required."*
+The clause *"for anyone with such a camera"* was doing all the work and **nobody had checked
+whether such a camera exists**: two censuses of 1,434 stills found **no body with a Make and Model
+that writes UTC into `DateTimeOriginal`**, and `(aco)` is now **retired**. What I verified that day
+was that the code path is closed - which is true and is not the same claim as the defect having a
+population. **Ranking on an unverified prevalence premise is the class this repo has filed seven
+times**, and it is left visible here rather than quietly deleted for that reason. It sits **above `(agx)`**, which is report-only and makes no false
 claim about a user's data.
 
 ⚠ **The evidence raised what it costs and lowered how often it is hit; those do not cancel into a

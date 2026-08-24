@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agy). Next free: (agz).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agz). Next free: (aha).**
 ⚠ **`(agf)` was cited by `pyproject.toml`, a test and `age.md` before its entry existed**, so for
 one commit three working citations resolved to nothing. Recorded because it is this section's own
 warning happening - *"nothing recorded which letters were spoken for"* - and the fix is to claim
@@ -163,6 +163,18 @@ linked rather than folded in here. That diverges from `(abp)`, `(abh)` and `(adb
 were deleted because their reasons were a sentence each; this one is a measured proof with eight
 citations, and the *Item letters* section is a registry, not a home for one.
 
+**Retired 2026-08-24, and named here because a retired letter is not a free one:** `(aco)` (a
+still whose camera wrote UTC into `DateTimeOriginal`). **The premise held and the population could
+not be produced**: two censuses of both format corpora - 1,434 stills, by tag text and by GPS
+comparison - found no camera with a Make and Model that does it, and the three apparent hits are
+**London and Cardiff photographs taken in winter**, genuinely GMT. Every fix it proposed cost more
+than the defect: 14 of the 37 GPS-comparable stills have a delta that is not a real UTC offset at
+all, nine of them off by twenty-two hours. ⚠ **Its most valuable finding outlives it** - a fix
+aimed at `dates.py:370`'s `is_video` would have done nothing, because `UTC_CONTAINER_TAGS` omits
+`DateTimeOriginal` too. The body is kept as a **record** at
+[`research/backlog/aco.md`](research/backlog/aco.md) with its reopen condition, and the live
+evidence found on the way is `(agz)`.
+
 Several early letters no longer appear anywhere in this file: their items shipped and the
 Shipped entries describe the work rather than repeating the letter. `(e)` and `(h)` are still
 cited by name in `drive-identity-research.md` and `org-structure-research.md`. **A letter that
@@ -180,6 +192,21 @@ is invisible here is retired, not free.**
   nothing moves, the journal row stays, a re-run resumes; the loss is the report. Fix-shape:
   return an outcome with a stop, reusing `MigrationStop`. ⚠ Its raise path has **zero coverage**
   (grepped), so build it test-first. [Full entry](research/backlog/agx.md)
+
+- **(agz) A STILL CAN DECLARE ITS OWN UTC OFFSET AND WE THROW IT AWAY.** Filed 2026-08-24 (P50)
+  out of `(aco)`'s retirement census - the live evidence found while withdrawing a false entry.
+  ⚠ **CHANGES NO FOLDER TODAY**, and the entry leads with that: `OffsetTimeOriginal` is the offset
+  *of* a local `DateTimeOriginal`, so reading it moves no wall clock. **What it buys is the true
+  instant** - what cross-device ordering needs, and what an April 2026 Lightroom thread is
+  complaining about when two cameras seconds apart sort five hours apart. `parse_exif_datetime`
+  strips the offset and `OffsetTimeOriginal` is not in `exif.REQUESTED_TAGS` at all (grepped).
+  Two real cameras write it inside the tag (`FLIR Vue Pro 640`, `FLIR iPhone device`), so placement
+  is correct **by luck of convention, not by reading what the file says**. ⚠ **Does NOT contradict
+  `(uu)`'s trap** - that is `OffsetTime` (0x9010, modification); this is `OffsetTimeOriginal`
+  (0x9011, capture). 🔑 **Prevalence: 38% of post-2016 stills, 11 makers, 14 models** - the 2.37%
+  I first measured used the wrong denominator, since the tag did not exist before 2016.
+  **Permission: an offset present and read is evidence; an offset absent must never be inferred.**
+  [Full entry](research/backlog/agz.md)
 
 - **(agy) FIVE THINGS THE CATALOG WRITES AND NOTHING READS - a census, not a verdict.** Filed
   2026-08-24 (P47), generalised from one instance found by a surviving mutation in P46.
@@ -445,8 +472,6 @@ is invisible here is retired, not free.**
   Recorded 2026-08-11. [Full entry](research/backlog/acu.md)
 - **(acp) GPS-DERIVED TIMEZONE - understood, costed, and deliberately NOT built.** [Full
   entry](research/backlog/acp.md)
-- **(aco) A STILL WHOSE CAMERA WROTE UTC INTO `DateTimeOriginal` LANDS ON THE WRONG DAY.** Recorded
-  2026-08-10. [Full entry](research/backlog/aco.md)
 - **(acn) DOES A GPS FIX TIME COUNT AS CAPTURE EVIDENCE? A RULING, NOT A BUG.** [Full
   entry](research/backlog/acn.md)
 - **(adf) A CLI-ORGANIZED LIBRARY LEAVES `path_hint.library` UNSET, so the app has no observed
