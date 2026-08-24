@@ -78,7 +78,7 @@ column cites `server.py` by line, and those are re-resolved by hand.
 
 Recorded because *"organize is covered"* is true and hides them: `--all-files`, `--by-device`,
 `--no-rename`, `--no-timestamps`, `--phash-threshold`, `--pool` / `--workers`, `--report` (all
-`_add_common_options`, `cli.py:350-417`), `verify --pool/--workers` (`cli.py:627-628`), and
+`_add_common_options`, `cli.py:352-419`), `verify --pool/--workers` (`cli.py:627-628`), and
 `undo-organize --run-id` / `--list` (`cli.py:429-430`). `--rclone` is **out of scope by design**:
 *"The app always writes to a local drive - there is no rclone path here"* (`service/organize.py:1045`).
 

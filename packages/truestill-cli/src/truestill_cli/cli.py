@@ -152,6 +152,8 @@ from truestill_core.left_behind import (
 from truestill_core.migrate import (
     ROUTE_SIDE_BIN,
     LabelRoute,
+    MigrationOutcome,
+    MigrationStopKind,
     label_routes,
     plan_migration,
     rederive_rules,
@@ -3997,6 +3999,35 @@ def _print_migration_plan_preview(plan: Any, mount: Path) -> None:
         print(f"  ! {warning}")
 
 
+def _report_migration_shortfall(outcome: MigrationOutcome) -> int:
+    """Say what a migration did not do, and spend the exit code on it. `(agm)` D1.
+
+    ⚠ **THIS SURFACE RETURNED `0` AFTER EVERY RUN.** `(agi)`'s ground watcher has set
+    `MigrationOutcome.stopped` since it shipped, and neither the CLI nor the app read it - so a
+    migration stopped because the disk was filling printed *"Migrated N file(s)"* and exited
+    **success**, on the command that rewrites every byte of the library. That is
+    `IMPLEMENTATION_STANDARDS.md` §9 never-silent, and it is `(agl)`'s defect one module over.
+
+    **Worded from `kind`, never from the reason text** (§9 again): a cancel is the user's own act
+    and goes to stdout with `0`, because `undo-organize` already spends the code that way for the
+    same reason. The other two are the run failing to do what it was asked, and take `4` - the
+    destination code `_stopped_run_exit` already uses for a run the destination stopped.
+    """
+    for relative, reason in outcome.refused:
+        print(f"  refused: {relative} -- {reason}", file=sys.stderr)
+    if outcome.stopped is None:
+        # A refusal that did not stop the run still means the plan is unfinished: the journal
+        # keeps those moves and a re-run clears them, so the code says there is work left.
+        return 1 if outcome.refused else 0
+    cancelled = outcome.stopped.kind is MigrationStopKind.CANCELLED
+    print(
+        f"  {'Cancelled' if cancelled else 'Stopped'}: {outcome.stopped.reason}\n"
+        f"  {outcome.stopped.never_attempted} move(s) were not reached.",
+        file=sys.stdout if cancelled else sys.stderr,
+    )
+    return 0 if cancelled else 4
+
+
 def _cmd_migrate_layout(args: argparse.Namespace) -> int:
     marker = _drive_or_explain(args.path, args.db)
     if marker is None:
@@ -4081,8 +4112,9 @@ def _cmd_migrate_layout(args: argparse.Namespace) -> int:
         if outcome.resumed:
             print(f"Recovered {outcome.resumed} move(s) from an interrupted run.")
         print(f"\nMigrated {outcome.migrated} file(s). Sources were never touched.")
+        code = _report_migration_shortfall(outcome)
         _offer_cleanup(catalog, marker.uuid, args.path)
-        return 0
+        return code
 
 
 def _apply_the_undo(args: argparse.Namespace, plan: UndoPlan, outcome: UndoOutcome) -> int:

@@ -33,7 +33,7 @@ from truestill_core.catalog import Catalog
 from truestill_core.destinations.local import LocalDestination
 from truestill_core.hashing import sha256_file
 from truestill_core.layout import LayoutScheme, LayoutTemplate
-from truestill_core.migrate import plan_migration, run_migration
+from truestill_core.migrate import MigrationStopKind, plan_migration, run_migration
 from truestill_core.run_health import ABSOLUTE_FLOOR_BYTES, watcher_for
 
 _GB = 1024**3
@@ -165,7 +165,10 @@ def test_a_migration_stops_when_this_computer_fills_up(
         )
 
     assert outcome.stopped is not None, "the run must say why it stopped"
-    assert "this computer's disk" in outcome.stopped
+    assert "this computer's disk" in outcome.stopped.reason
+    assert outcome.stopped.kind is MigrationStopKind.GROUND_MOVED, (
+        "the ground moving is its own kind - a cancel and a full disk are not one word"
+    )
     assert outcome.migrated < len(outcome.plan.moves)
 
 

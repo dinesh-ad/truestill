@@ -53,7 +53,7 @@ The census found **seven** direct-write service calls across four files with no 
 all (`set_organize_mode`, `set_sidebar_collapsed`, `set_text_size`, `set_library_root`,
 `set_layout`, `confirm_file_date`, the events family) - a class, not a route. So the fix is one
 **app-level exception handler** (`server.py`), mirroring the CLI's top-level catch
-(`cli.py:4346`): busy answers **503** + `Retry-After: 5` with `CATALOG_BUSY_REQUEST_MESSAGE`
+(`cli.py:4385`): busy answers **503** + `Retry-After: 5` with `CATALOG_BUSY_REQUEST_MESSAGE`
 (`catalog_busy.py`), which asserts **no second window**; anything else re-raises and keeps its
 500. A new route cannot be added outside it.
 

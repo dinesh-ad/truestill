@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from truestill_core.destinations.base import DestinationError
 from truestill_core.destinations.local import LocalDestination
+from truestill_core.drive_unwritable import persists_for_the_run
 from truestill_core.migrate import _matches
 
 
@@ -26,10 +27,23 @@ def test_local_checksum_translates_oserror_to_destination_error(
         dest.checksum("a.bin")
 
 
-def test_migrate_matches_returns_false_when_checksum_is_unreadable(
+def test_migrate_matches_hands_an_unreadable_checksum_on_to_be_classified(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """_matches must not let OSError abort a migration mid-move."""
+    """`_matches` must not let an `OSError` abort a migration mid-move.
+
+    ⚠ **THE PROMISE IS UNCHANGED AND THE MECHANISM KEEPING IT IS NOT** (`(agm)`, 2026-08-24).
+    This asserted `_matches(...) is False`, because when it was written `run_migration` had no
+    handler at all and swallowing was the only protection available. **It did not actually
+    work**: `False` sent `_apply_move` on to relocate onto a drive that had just failed a read,
+    verify again, and raise a bare `DestinationError` that escaped the run - measured. Worse, the
+    swallow destroyed the `__cause__`, so `persists_for_the_run` answered `False` for a failing
+    drive and the run would have continued into it once a handler existed.
+
+    The promise is now kept where it belongs: the error propagates with its chain, and
+    `run_migration` classifies it and returns an outcome. Asserted here **and** end-to-end in
+    `test_migrate_survives_one_bad_file.py`, because this half only proves the chain survives.
+    """
     (tmp_path / "a.bin").write_bytes(b"present")
     dest = LocalDestination(tmp_path)
 
@@ -37,7 +51,24 @@ def test_migrate_matches_returns_false_when_checksum_is_unreadable(
         raise OSError(errno.EIO, "Input/output error", "a.bin")
 
     monkeypatch.setattr("truestill_core.destinations.local.sha256_file", boom)
-    assert _matches(dest, "a.bin", "0" * 64) is False
+    with pytest.raises(DestinationError) as caught:
+        _matches(dest, "a.bin", "0" * 64)
+
+    assert persists_for_the_run(caught.value), "the chain must survive for `(agi)` to classify it"
+
+
+def test_migrate_matches_still_answers_false_for_a_hash_that_simply_differs(
+    tmp_path: Path,
+) -> None:
+    """The cry-wolf half: only a FAILED READ propagates. A mismatch is still a plain `False`.
+
+    Without this, deleting the `try`/`except` and the `exists` check together would pass the test
+    above while breaking the resume path, which relies on a mismatch meaning *"relocate it"*.
+    """
+    (tmp_path / "a.bin").write_bytes(b"present")
+
+    assert _matches(LocalDestination(tmp_path), "a.bin", "0" * 64) is False
+    assert _matches(LocalDestination(tmp_path), "gone.bin", "0" * 64) is False
 
 
 def _copy_fails_with(monkeypatch: pytest.MonkeyPatch, number: int, text: str) -> None:

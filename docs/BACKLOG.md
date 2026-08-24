@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agu). Next free: (agv).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agw). Next free: (agx).**
 ⚠ **`(agf)` was cited by `pyproject.toml`, a test and `age.md` before its entry existed**, so for
 one commit three working citations resolved to nothing. Recorded because it is this section's own
 warning happening - *"nothing recorded which letters were spoken for"* - and the fix is to claim
@@ -169,6 +169,24 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(agv) A BAKE THAT DIES BETWEEN THE WRITE AND THE RECORD LEAVES AN IRREVERSIBLE CHANGE
+  UNRECORDED.** Filed 2026-08-24 out of `(agm)`'s premise check. `service/bake.py` writes with
+  `write_metadata_batch`, then **reads the whole file back** and calls `catalog.record_bake`; a
+  crash between them leaves the file baked and `date_baked_at` NULL, so it is offered again and
+  re-baked while `copy_sha256` is stale and `verify` compares against a hash the file no longer
+  has. 🔑 **`(agk)`'s intent-log shape one surface over, and the act is IRREVERSIBLE** -
+  `IRREVERSIBLE_NOTE` says exiftool keeps no sidecar, so the previous date is gone. The window
+  contains a full `sha256_file`, so it is far wider than the rename `(agk)` closed. **May outrank
+  `(agm)`; do not fix them together.** [Full entry](research/backlog/agv.md)
+
+- **(agw) `last-run.json` IS WRITTEN OUTSIDE THE LOCK THAT GUARDS THE REST OF THE RECORD.**
+  Filed 2026-08-24. **`(afw)`'s third NOT DECIDED item coming due**: it said to design the
+  one-rolling-file question *"before any second writer is added"*, and **three writers exist
+  now** (organize, backup, undo - grepped). `record_run` locks the index append, supersede and
+  prune; `write_run_record` is the line **after** that block. Bounded by design - detail can be
+  lost, the fact cannot, because §1 already rules that a line never asserts its detail exists.
+  A design question, not a defect. [Full entry](research/backlog/agw.md)
 
 - **(agt) REFUSED READS AS ABSENT IN MESSAGES AND REPORTS - `(aey)`'s wording residue.** Filed
   2026-08-24 after two censuses in two days, so the list stops being re-derived: nine sites

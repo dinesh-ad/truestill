@@ -164,6 +164,19 @@ class AppliedReviewGroupPayload(TypedDict):
     path: str
 
 
+class MigrationStopPayload(TypedDict):
+    """Why a migration ended early. `kind` is what a screen branches on; `reason` is the sentence."""
+
+    kind: str
+    reason: str
+    never_attempted: int
+
+
+class MigrationRefusalPayload(TypedDict):
+    relative: str
+    reason: str
+
+
 class MigrationApplySummary(TypedDict):
     """Migration / events-apply-to-disk job summary.
 
@@ -182,6 +195,14 @@ class MigrationApplySummary(TypedDict):
     label: str
     migrated: int
     resumed: int
+    #: ⚠ **Absent from this payload until `(agm)`, so a migration stopped by a filling disk
+    #: reported as an ordinary short run.** `(agi)`'s ground watcher has set
+    #: `MigrationOutcome.stopped` since it shipped and no surface read it. Never-silent applies to
+    #: a run's own ending, not only to its files - the same omission `(agl)` fixed for undo.
+    stopped: MigrationStopPayload | None
+    #: Moves this run could not apply and did not stop for. Named, never a silent shortfall
+    #: between `migrated` and the plan.
+    refused: list[MigrationRefusalPayload]
     leftover_empty_folders: NotRequired[LeftoverEmptyFolders]
     groups: NotRequired[list[AppliedReviewGroupPayload]]
     elapsed_seconds: NotRequired[float]
@@ -277,6 +298,18 @@ def migration_apply(
             "label": marker.label,
             "migrated": outcome.migrated,
             "resumed": outcome.resumed,
+            "stopped": (
+                None
+                if outcome.stopped is None
+                else {
+                    "kind": outcome.stopped.kind.value,
+                    "reason": outcome.stopped.reason,
+                    "never_attempted": outcome.stopped.never_attempted,
+                }
+            ),
+            "refused": [
+                {"relative": relative, "reason": reason} for relative, reason in outcome.refused
+            ],
         }
         if leftovers is not None:
             result["leftover_empty_folders"] = leftovers

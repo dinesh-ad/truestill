@@ -22,8 +22,9 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
+from enum import StrEnum
 from pathlib import Path, PurePosixPath
 from typing import Any
 from uuid import uuid4
@@ -31,6 +32,7 @@ from uuid import uuid4
 from truestill_core.catalog import Catalog
 from truestill_core.categorize import build_rules, categorize, deterministic_side_bin_labels
 from truestill_core.destinations.base import Destination, DestinationError
+from truestill_core.drive_unwritable import persists_for_the_run
 from truestill_core.exif import ExiftoolMissingError, read_metadata
 from truestill_core.hash_cache import HashCache
 from truestill_core.layout import (
@@ -84,6 +86,57 @@ class MigrationPlan:
     day_folder_reasons: tuple[str, ...] = ()
 
 
+#: What a cancelled migration says. **One string, both surfaces** (`IMPLEMENTATION_STANDARDS.md`
+#: §9), and it names the way forward because a stopped migration is a RESUMABLE state: the
+#: journal keeps every move it did not reach, so re-running finishes the job.
+CANCELLED_REASON = (
+    "you stopped it. Nothing was left half-moved, and the moves it did not reach are still "
+    "recorded - migrate again to finish."
+)
+
+
+class VerificationFailedError(DestinationError):
+    """The destination read back cleanly and returned bytes that are not what it was given.
+
+    ⚠ **A TYPE RATHER THAN A MESSAGE, because it is the one failure here with NO CAUSE TO
+    CHAIN.** Every other way a move can fail arrives as an `OSError` wrapped by the backend, and
+    `drive_unwritable.persists_for_the_run` classifies it from `__cause__`. This one raised
+    nothing: `checksum` succeeded and simply disagreed. Classifying it by matching the sentence
+    would be exactly what `IMPLEMENTATION_STANDARDS.md` §9 forbids - *"errors are matched on an
+    exception name, never on message text"* - so it gets a name.
+    """
+
+
+class MigrationStopKind(StrEnum):
+    """Why a migration ended before it reached every move. `(agm)` D1.
+
+    ⚠ **A field rather than a phrase inside the reason**, for `VerificationFailedError`'s reason: a
+    surface that must word a user's cancel differently from a failing drive would otherwise parse
+    the sentence.
+    """
+
+    #: The user asked it to stop. Not a failure and must never read as one.
+    CANCELLED = "cancelled"
+    #: `run_health` saw the ground move under the run - the disk filling, the device changing.
+    GROUND_MOVED = "ground_moved"
+    #: A condition that outlives the file: a read-only remount, a failing device, a destination
+    #: that does not store what it is handed. `(agi)`'s predicate, plus `VerificationFailedError`.
+    COULD_NOT_CONTINUE = "could_not_continue"
+
+
+@dataclass(frozen=True, slots=True)
+class MigrationStop:
+    """Why a migration ended early, and how much it never reached. `(agm)` D1.
+
+    ⚠ **`kind` has NO DEFAULT**, the same ruling `undo.UndoStop` carries: defaulting it either
+    way is a decision nobody made, and there are few enough construction sites to answer for it.
+    """
+
+    kind: MigrationStopKind
+    reason: str
+    never_attempted: int
+
+
 @dataclass(frozen=True)
 class MigrationOutcome:
     """The result of planning (and possibly applying) a migration for one drive."""
@@ -92,12 +145,16 @@ class MigrationOutcome:
     resumed: int  # moves recovered from a prior interrupted run
     migrated: int  # moves applied this run (0 in preview)
     applied: bool
-    #: Why the run stopped short, in the words a user reads, or ``None`` if it did not.
+    #: Why the run stopped short, or ``None`` if it did not.
     #: A field rather than an exception because a migration that stops half-way has **done**
     #: something - `migrated` is the count and the journal makes the rest resumable - and
-    #: raising would throw that away along with the reason. Defaulted, so nothing that
-    #: already builds this had to change.
-    stopped: str | None = None
+    #: raising would throw that away along with the reason.
+    #: ⚠ **Was a bare `str` until `(agm)`**, which made a cancel and a failing drive one word.
+    stopped: MigrationStop | None = None
+    #: ``(relative, reason)`` per move this run could not apply and did not stop for.
+    #: **Deliberately the shape `undo_migration` already returns** - the forward path was the
+    #: outlier against its own undo, which has named its refusals since it was written.
+    refused: list[tuple[str, str]] = field(default_factory=list)
 
 
 def _parse_dt(value: str | None) -> datetime | None:
@@ -557,15 +614,27 @@ def plan_migration(
 
 
 def _matches(destination: Destination, relative: str, expected_sha: str | None) -> bool:
-    """Whether a stored copy exists and (if we know its hash) verifies."""
+    """Whether a stored copy exists and (if we know its hash) verifies.
+
+    ⚠ **A READ THAT FAILED IS NOT A HASH THAT DIFFERED, AND THIS USED TO RETURN `False` FOR
+    BOTH.** `LocalDestination.checksum` raises `DestinationError(...) from exc` - the `OSError`
+    is chained, deliberately, so it can be classified. Catching it here and answering `False`
+    **destroyed that chain**: the caller then raised its own bare error, and
+    `drive_unwritable.persists_for_the_run`, which walks `__cause__`, answered `False` for
+    `EIO` - a failing drive read as a one-file problem, on the command that rewrites every byte
+    of the library. Measured before the fix: `__cause__` was `None` and the predicate said
+    `False`.
+
+    So the error propagates and the caller decides. This is `path_reach`'s ruling one module
+    over (`IMPLEMENTATION_STANDARDS.md` §9): **absent and refused are different answers**, and
+    collapsing them loses the one a caller has to act on. Absence itself is unaffected - it is
+    answered by `exists` above, which never raised.
+    """
     if not destination.exists(relative):
         return False
     if not expected_sha:
         return True  # legacy copy with no recorded hash: existence is the best we can check
-    try:
-        return destination.checksum(relative) == expected_sha
-    except DestinationError:
-        return False
+    return destination.checksum(relative) == expected_sha
 
 
 def _apply_move(catalog: Catalog, destination: Destination, drive_uuid: str, move: Move) -> None:
@@ -586,7 +655,7 @@ def _apply_move(catalog: Catalog, destination: Destination, drive_uuid: str, mov
         destination.relocate(move.old_relative, move.new_relative)
     if not _matches(destination, move.new_relative, move.copy_sha256):
         message = f"verification failed after relocating to {move.new_relative}"
-        raise DestinationError(message)
+        raise VerificationFailedError(message)
 
     catalog.relocate_copy(move.sha256, drive_uuid, move.new_relative)  # the atomic flip
     if move.old_relative != move.new_relative:
@@ -673,24 +742,54 @@ def run_migration(
     health = watcher_for(destination.local_root(), catalog.path)
     ahead = _largest_move_ahead(plan.moves)
     written = 0
-    stopped: str | None = None
+    stop: tuple[MigrationStopKind, str] | None = None
+    refused: list[tuple[str, str]] = []
     for index, move in enumerate(plan.moves):
         if cancel is not None and cancel.is_set():
+            stop = (MigrationStopKind.CANCELLED, CANCELLED_REASON)
             break
         if health is not None:
             verdict = health.check(largest_remaining=ahead[index], written_bytes=written)
             if not verdict.ok:
-                stopped = verdict.detail
+                stop = (MigrationStopKind.GROUND_MOVED, verdict.detail)
                 break
-        _apply_move(catalog, destination, drive_uuid, move)
+        try:
+            _apply_move(catalog, destination, drive_uuid, move)
+        except DestinationError as exc:
+            # ⚠ **`(agi)`'s ruled policy, on the fifth surface and reusing its predicate rather
+            # than re-deriving an errno table.** One bad file never aborts a batch; a condition
+            # that outlives the file must stop the run, because continuing buys N failures
+            # describing one condition. Nothing is lost either way: `_apply_move` removes the old
+            # path only after the atomic flip, so a refused move leaves the file where it was and
+            # its journal row valid for a re-run.
+            refused.append((move.new_relative, str(exc)))
+            if persists_for_the_run(exc) or isinstance(exc, VerificationFailedError):
+                stop = (MigrationStopKind.COULD_NOT_CONTINUE, str(exc))
+                break
+            continue
         written += move.size or 0
         migrated += 1
         if progress is not None:
             progress(Progress(migrated, total, Phase.MOVING, PurePosixPath(move.new_relative).name))
+    # ⚠ **`migrated == total` is not the same question as "did it finish"** once a move can be
+    # refused without stopping: a run that skipped one file has moves still pending, so the run
+    # must stay open for the re-run that clears them.
     if migrated == total:
         catalog.finish_migration_run(run_id)
+    stopped = (
+        None
+        if stop is None
+        else MigrationStop(
+            kind=stop[0], reason=stop[1], never_attempted=total - migrated - len(refused)
+        )
+    )
     return MigrationOutcome(
-        plan=plan, resumed=resumed, migrated=migrated, applied=True, stopped=stopped
+        plan=plan,
+        resumed=resumed,
+        migrated=migrated,
+        applied=True,
+        stopped=stopped,
+        refused=refused,
     )
 
 
@@ -777,7 +876,7 @@ def undo_migration(
         destination.relocate(new_relative, old_relative)
         if not _matches(destination, old_relative, expected):
             message = f"verification failed after putting {old_relative} back"
-            raise DestinationError(message)
+            raise VerificationFailedError(message)
         catalog.relocate_copy(str(row["sha256"]), drive_uuid, old_relative)
         # Mirror the forward path exactly: the migrated copy is removed only after the restored
         # one has been re-hashed, so there is never an instant with zero copies.
