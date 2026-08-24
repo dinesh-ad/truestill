@@ -187,13 +187,27 @@ exists to prevent.
 - **`make check` before every commit** - it runs against a **45 s ceiling** (`TEST_SECONDS_MAX`),
   which is not friction. ⚠ This said *"19-21 s"* until 2026-08-15; nine runs that day read
   **16.39-25.99 s**, outside the band at both ends. The ceiling is the durable number.
-- **The pre-commit hooks are ruff, ruff-format, mypy, three prose guards (`dash-style`,
-  `product-name`, `no-redirect-artifacts`) and two commit-msg guards (`no-ai-coauthor`,
-  `entry-closure`). They do not run the suite, and their green output is not the gate.** Written down 2026-08-12 because it was broken
+- **The pre-commit hooks are EIGHT: ruff, ruff-format, mypy, three prose guards (`dash-style`,
+  `product-name`, `no-redirect-artifacts`), two commit-msg guards (`no-ai-coauthor`,
+  `entry-closure`) and the pre-push `push-gate`. They do not run the suite, and their green
+  output is not the gate.** Written down 2026-08-12 because it was broken
   that day by someone working to this standard: the hooks print a column of green immediately
   above the commit, `make check` does not, and the eye takes the nearer one. A red suite reached a
   commit and the letter-uniqueness test was what caught it. Same class as `(ace)` and the closure
   rule - a rule that lives only in practice gets broken by someone who can quote it.
+  ⚠ **THE COUNT READ *"three prose guards and two"* AND OMITTED `push-gate` UNTIL 2026-08-24** -
+  and the omitted one is **the only hook here that can refuse a push**, which is this paragraph's
+  own subject. A sentence about not trusting a column of green left out the single entry in that
+  column with the power to stop you. It is `.pre-commit-config.yaml`'s `push-gate`,
+  `stages: [pre-push]`, `verbose: true`; `scripts/check_push_gate.py` is what it runs.
+  ⚠ **AND NOTHING PINS THIS SENTENCE**, checked rather than assumed: no test reads
+  `.pre-commit-config.yaml`'s hook ids and compares them with anything.
+  `test_push_gate_runs_under_pre_commit.py` reads that file to build a *fixture* config, not to
+  census it; `test_live_documents_cite_code_that_exists.py` covers this file's `path:line`
+  citations and a hook list is prose, not a citation. **That is `(ago)`'s shape exactly** - a
+  documentation claim nobody checks, going stale under an ordinary change - and it is recorded
+  here rather than guarded, because a census guard over a hook list is a new artifact and
+  `(ago)` ruled on when one is worth it.
 - ⚠ **DO NOT run `make gate` for backend work** (changed 2026-08-20). `make check` before every
   commit, as always; the browser lane is **not** part of the routine loop. If a change genuinely
   reaches a screen, **say so and ask** rather than running it by reflex. **The test of "reaches a

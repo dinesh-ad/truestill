@@ -1988,6 +1988,15 @@ memory dressed as one.
   `b0a5d7e` (2026-08-14) - so the entry described a defect fixed nine days before it was filed,
   by its own author. The same partial read had already put a false sentence into `(adt)`'s close.
 
+  ⚠ **Those two line numbers each sit about two lines off their `def`, and that is KNOWN AND LEFT
+  (checked 2026-08-24).** `:242` is inside `inspect_catalog`'s docstring and `:332` is just above
+  `def migrate_catalog`; both land on their subject, which is all a reader needs, and the pair is
+  what makes the example legible - **the names are the anchor and the numbers are the courtesy.**
+  Written down because an orientation pass rediscovered it and had to decide again whether it
+  mattered. It does not, and now nobody has to re-derive that. The citations `(ago)` really guards
+  are the ones that land on a **blank line** or outside the file; a ±2 offset onto the right
+  function is the class this rule is content to carry.
+
   This is the reading-side root of the fixed-under-another-name family (`(aci)`, five instances):
   each time, a true statement from the first place looked - an index headline, a docstring, one
   function - was taken as the whole answer. *Suspect it wherever a premise rests on a single
