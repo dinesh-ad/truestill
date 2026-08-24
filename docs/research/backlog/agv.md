@@ -1,31 +1,122 @@
-# (agv) A BAKE THAT DIES BETWEEN THE WRITE AND THE RECORD LEAVES AN IRREVERSIBLE CHANGE UNRECORDED.
+# (agv) A KILLED BAKE MAKES `verify` CALL AN INTACT PHOTO CORRUPT, AND ADVISE UNDOING IT.
 
 *Body of entry `(agv)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
-- **(agv) A BAKE THAT DIES BETWEEN THE WRITE AND THE RECORD LEAVES AN IRREVERSIBLE CHANGE
-  UNRECORDED.** Filed 2026-08-24 out of `(agm)`'s premise check - **found while verifying a
-  different entry, and it may outrank the one it was found under.** Not folded into `(agm)`:
-  that entry is about a run RECORD, and this is about the catalog disagreeing with the bytes.
-  - **The mechanism.** `service/bake.py`'s loop writes with `write_metadata_batch`, then reads
-    the file back and calls `catalog.record_bake` in one transaction. A crash, a kill or a power
-    loss **between those two steps** leaves the file **baked on disk** and `date_baked_at`
-    **NULL** in the catalog.
-  - ⚠ **The window is not the same size as the in-place rename's, and that is the whole
-    argument.** `(agk)` closed exactly this shape for `--in-place`, where the unprotected span was
-    `rename -> catalog row -> journal row`. Here the span contains a **`sha256_file` of the
-    file just written** - a full read of a photo, not a metadata operation - so it is orders of
-    magnitude wider than a rename. Measured shape, not measured duration: measure before ranking.
-  - 🔑 **AND THE ACT IS IRREVERSIBLE, WHICH IS WHY THIS IS NOT BOOKKEEPING.** `bake.py`'s own
-    `IRREVERSIBLE_NOTE` states it: exiftool's `-overwrite_original` (`exif._WRITE_FLAGS`)
-    replaces metadata in place and **keeps no sidecar**, so *"the date it had before is not
-    kept"*. `(bbb)` owns preserving it and is unbuilt. A rename can be reversed; this cannot.
-  - **What the wrong state costs.** `confirmations_to_bake` is driven by
-    `file_copies.date_baked_at IS NULL`, so the file is offered again and **re-baked** - writing
-    the same date over bytes that already carry it. Content-harmless, and the counts are wrong,
-    the completeness sentence is wrong, and `copy_sha256` is stale for that copy until the
-    re-bake lands, so **`verify` compares against a hash the file no longer has**.
-  - **The fix's shape, not designed here**: `(agk)`'s own answer - record the INTENT before the
-    irreversible step, and let the disk settle what an unknown outcome means. `undo.plan_undo`
-    reconciles against the disk for exactly this reason.
-  - ⚠ **Do not fix this together with `(agm)`.** One is a record of a run; this is the catalog
-    telling the truth about a file. `(adb)`'s *"do not 'fix' these together"* is the precedent.
+> ## ⚠ CORRECTED IN PLACE 2026-08-24 (P47), AFTER THE REPRODUCTION
+>
+> **An open entry, not a record**, so it is corrected rather than annotated - the never-rewritten
+> rule protects records, and leaving a misleading headline at the top of the open list is the cost
+> of pretending it covers entries too. The original title was *"a bake that dies between the write
+> and the record leaves an irreversible change unrecorded"*.
+>
+> ⚠ **I FILED THIS FROM A CODE READING AND RANKED IT ON THE WORD "IRREVERSIBLE". THAT WORD IS THE
+> LEAST RELEVANT FACT ABOUT IT.** The bake is irreversible whether or not it is recorded, and
+> re-running it is harmless - so irreversibility argues for nothing here. It is written down
+> because the next reader meets the same word in `IRREVERSIBLE_NOTE` and would re-derive the same
+> wrong rank from it, which is exactly what this correction exists to prevent.
+>
+> **Both halves of the original reasoning were wrong, in opposite directions**: the window is
+> **narrower** than claimed, and the consequence is **worse** and was not in the filing at all.
+
+## The premise holds - reproduced 2026-08-24
+
+Killed a bake with `os._exit(9)` in place of `record_bake` - an uncatchable death at exactly the
+point between the exiftool write and the catalog write - over three real camera files, 16-23 MB,
+copied onto scratch:
+
+```
+file       DateTimeOriginal on disk   date_baked_at   copy_sha256 matches disk?
+p0.jpg     2014:08:01 12:00:00        NULL            NO  <-- the catalog hash is stale
+p1.jpg     2018:01:30 09:55:19        NULL            YES (never reached)
+```
+
+The file carries the confirmed date and the catalog does not know.
+
+## 🔑 THE ACTUAL HARM, and it is not the missing record
+
+`truestill verify` against that state:
+
+```
+MISMATCH : 1
+  MISMATCH   p0.jpg
+  (read-only: Truestill never repairs; re-copy the source to restore a bad file.)
+exit 1
+```
+
+**The photograph is perfectly intact and carries exactly the date the user asked for.** The product
+calls it damaged, exits `1`, and recommends an action that - if followed - **overwrites the
+correctly-baked file with the pre-bake source and discards the confirmed date**. The advice even
+appears to work: re-copying restores the hash the stale catalog expects, so the MISMATCH clears and
+the user's date is gone.
+
+That is `IMPLEMENTATION_STANDARDS.md` §9's user-facing-truth contract inverted - not a missing
+disclosure but **a false one about the user's own photograph**, in the command whose entire job is
+telling them whether their photos are safe.
+
+## The unrecorded bake itself costs nothing - measured
+
+| | result |
+|---|---|
+| bytes after a re-bake | **identical** (same sha256, same size) |
+| the confirmed date | preserved |
+| `copy_sha256` | **healed** - matches disk again |
+| `date_baked_at` | set |
+| `_original` sidecars left | none |
+
+Writing the same date twice is **idempotent**, and the ordinary remedy already runs itself:
+`confirmations_to_bake` is driven by `date_baked_at IS NULL`, so the file stays queued and the next
+bake fixes both the record and the hash. **So there is no second loss and no bookkeeping debt** -
+only the window during which `verify` lies.
+
+## The window is ~6% of a per-file bake, not "orders of magnitude"
+
+⚠ **The original entry said the window was *"far wider than the rename `(agk)` closed"* because it
+contains a full `sha256_file`.** In absolute terms that is true (microseconds against 12-40 ms).
+As a fraction of the operation it is small, because exiftool's write dominates:
+
+| file | MB | exiftool write | sha256 read | window |
+|---|---|---|---|---|
+| Nikon D610 | 16.4 | 326.8 ms | 12.0 ms | 3.6% |
+| Samsung S8 | 23.0 | 293.5 ms | 40.0 ms | 12.0% |
+| Nikon D810 | 18.5 | 322.5 ms | 13.0 ms | 3.9% |
+| iPhone 4S | 4.0 | 239.9 ms | 8.6 ms | 3.5% |
+| **total** | **61.9** | **1182.7 ms** | **73.7 ms** | **5.9%** |
+
+A kill at a random moment lands in it roughly **1 time in 17**, against `(agk)`'s measured **2 in
+8**. **The window is narrower in practice than the defect this was filed beside**, and the entry
+should never have implied otherwise.
+
+## The fix is a design, not a wiring - three shapes
+
+`(agk)`'s remedy **does** transfer, and the disk can answer: `date_confirmations.captured_at` holds
+the date that was to be written, so reading the file's `DateTimeOriginal` settles *"was this
+baked"* definitively. Cheaper still, and particular to bake: because a re-bake is byte-identical,
+an unknown-outcome row can simply be re-baked rather than discriminated.
+
+1. **Intent log** (`(agk)`'s shape) - intent before exiftool, outcome after, reconcile unknowns on
+   the next run. Matches the precedent; costs a table or columns.
+2. **Stage and replace** - bake a copy, hash it, then rename atomically and record. Closes the
+   window **structurally**, and `organizer._MetadataBaker` already stages for the Takeout path.
+   Costs a full file copy per bake, and `bake_run`'s docstring **deliberately chose in-place**:
+   *"each write is followed by its own read-back and its own single-transaction record"*.
+3. **Teach `verify` about a pending confirmation** - narrowest, and treats the symptom rather than
+   the cause. Named for completeness; a hot patch by this repo's standard.
+
+## ⚠ THE CONSTRAINT ON WHICHEVER SHAPE IS CHOSEN
+
+**The regression test asserts the FALSE MISMATCH, not the missing record.** A test aimed at
+`date_baked_at` would go green against a fix that still leaves `verify` calling the photograph
+corrupt - because the record and the hash are two different facts, and only one of them reaches a
+user. Reproduce with the kill above, then assert that `verify` reports **0 MISMATCH and exits 0**
+over a file whose bake was interrupted.
+
+## Rank - deliberately not raised
+
+**Mid.** It needs a crash landing in a 6% window and it self-heals on the next bake, so it sits
+**below `(aco)`** (a still with a UTC `DateTimeOriginal` is misdated on every ordinary run, no
+crash required - re-verified 2026-08-24 at `dates.py:370`) and **below `(abb)`**, both of which a
+first stranger meets on day one. It sits **above `(agx)`**, which is report-only and makes no false
+claim about a user's data.
+
+⚠ **The evidence raised what it costs and lowered how often it is hit; those do not cancel into a
+promotion.** Ranking it on the new sentence would repeat the mistake of ranking it on the old one.

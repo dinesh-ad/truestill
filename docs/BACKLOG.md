@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agx). Next free: (agy).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agy). Next free: (agz).**
 ⚠ **`(agf)` was cited by `pyproject.toml`, a test and `age.md` before its entry existed**, so for
 one commit three working citations resolved to nothing. Recorded because it is this section's own
 warning happening - *"nothing recorded which letters were spoken for"* - and the fix is to claim
@@ -181,15 +181,34 @@ is invisible here is retired, not free.**
   return an outcome with a stop, reusing `MigrationStop`. ⚠ Its raise path has **zero coverage**
   (grepped), so build it test-first. [Full entry](research/backlog/agx.md)
 
-- **(agv) A BAKE THAT DIES BETWEEN THE WRITE AND THE RECORD LEAVES AN IRREVERSIBLE CHANGE
-  UNRECORDED.** Filed 2026-08-24 out of `(agm)`'s premise check. `service/bake.py` writes with
-  `write_metadata_batch`, then **reads the whole file back** and calls `catalog.record_bake`; a
-  crash between them leaves the file baked and `date_baked_at` NULL, so it is offered again and
-  re-baked while `copy_sha256` is stale and `verify` compares against a hash the file no longer
-  has. 🔑 **`(agk)`'s intent-log shape one surface over, and the act is IRREVERSIBLE** -
-  `IRREVERSIBLE_NOTE` says exiftool keeps no sidecar, so the previous date is gone. The window
-  contains a full `sha256_file`, so it is far wider than the rename `(agk)` closed. **May outrank
-  `(agm)`; do not fix them together.** [Full entry](research/backlog/agv.md)
+- **(agy) FIVE THINGS THE CATALOG WRITES AND NOTHING READS - a census, not a verdict.** Filed
+  2026-08-24 (P47), generalised from one instance found by a surviving mutation in P46.
+  `migration_runs.completed_at`, `file_copies.copied_at`, `reclaim_journal.reclaimed_at`,
+  `skipped_clusters.skipped_at`, and **`file_albums` - an entire table** with no reader in shipped
+  code. 🔑 **The census is a proof rather than a guess because this repo forbids `SELECT *`**
+  and pins that with `test_queries_name_their_columns.py`, so "named in no query" really does mean
+  "never read". The `verified: Literal[True]` family at the schema layer. ⚠ **`file_albums` is NOT
+  orphaned** - `(acg)` owns it and `decisions-on-drive-research.md:110` designs for it, so for that
+  row the answer is *deliberate, and waiting*. ⚠ **`migration_runs.completed_at` is the one with a
+  consequence**: `run_migration`'s close condition has no observable effect, so no test can guard
+  it. **Rules nothing** - the four timestamps may all be legitimate provenance; what is recorded is
+  that nobody has said so. [Full entry](research/backlog/agy.md)
+
+- **(agv) A KILLED BAKE MAKES `verify` CALL AN INTACT PHOTO CORRUPT, AND ADVISE UNDOING IT.**
+  Filed 2026-08-24, **reproduced, measured and CORRECTED IN PLACE the same day** (P47) - the
+  original title said *"leaves an irreversible change unrecorded"* and both halves of that
+  reasoning were wrong. `service/bake.py` writes with `write_metadata_batch`, then reads the whole
+  file back and calls `record_bake`; a kill between them leaves the file baked and `date_baked_at`
+  NULL. 🔑 **The unrecorded bake costs nothing** - a re-bake is **byte-identical** and heals
+  both the record and the hash, measured. **What it costs is that `verify` reports MISMATCH, exits
+  1, and says *"re-copy the source to restore a bad file"*** over an intact photograph carrying
+  exactly the date the user asked for - and following that advice discards the bake.
+  `IMPLEMENTATION_STANDARDS.md` §9 inverted: a false claim about the user's own photo.
+  ⚠ **The window is 5.9% of a per-file bake, measured** - narrower than the rename `(agk)` closed,
+  where the original entry claimed far wider. ⚠ **It was ranked on the word "irreversible", which
+  is the least relevant fact about it.** Ranked **mid**: below `(aco)` and `(abb)`, above `(agx)`.
+  The regression test must assert the FALSE MISMATCH, not the missing record.
+  [Full entry](research/backlog/agv.md)
 
 - **(agw) `last-run.json` IS WRITTEN OUTSIDE THE LOCK THAT GUARDS THE REST OF THE RECORD.**
   Filed 2026-08-24. **`(afw)`'s third NOT DECIDED item coming due**: it said to design the
