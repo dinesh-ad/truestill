@@ -74,6 +74,38 @@ happening to the Dates screen. So: **what it touches** is the undated block in
 pinned** is a pytest test over `app.js`'s text, the way the rearrange name and the folder wording
 already are. **The lane stays off** unless the change grows beyond a string and a target.
 
+> ## ✅ THE APP HALF SHIPPED 2026-08-24 (P54). The CLI half is still open, below.
+>
+> ⚠ **AND THE GAP WAS NOT WHAT THIS ENTRY SAID.** It read *"links to nothing"*. **It linked to
+> Find** - `data-stats-action="undated"` → `showScreen("find")` + a search for `Undated`. Find
+> locates files by path and **cannot set a date**, so the route existed and pointed away from the
+> fix, while the rescue sat **two cards above on the same screen**. Corrected here rather than in
+> a note, because this is an open entry.
+>
+> 🔑 **And the sentence beside it was worse than the missing link:** *"Opens Find with 'Undated' so
+> you can locate and fix dating gaps."* **Find fixes nothing** - that is
+> `IMPLEMENTATION_STANDARDS.md` §9, a screen claiming an action does something it cannot. Removed.
+>
+> **What shipped:** the undated actions are now gated on `completeness.undated_files` (Q303 -
+> they rendered unconditionally, so a library with every date known was offered a route to an
+> empty search); **Set dates for these** opens the existing `data-date-tier="none"` drill-down
+> rather than a second path to the same list; and Find keeps its place, worded as what it does.
+> Pinned by `test_the_undated_report_offers_the_rescue.py` - seven assertions, three mutations,
+> all caught, **browser lane not run**.
+>
+> ## Q304 - `(afe)` is NOT broken, and the reason is worth stating
+>
+> The app now names a remedy the CLI cannot. **That is outside `(afe)`, not a violation of it.**
+> `(afe)`'s rule is that the two surfaces must not describe **the same fact** differently - and
+> they do not: both name the undated pile, and neither claims the other's capability. The app
+> names an action **it has**; the CLI stays silent about an action **it does not have**, which is
+> accurate on both surfaces.
+>
+> ⚠ **What WOULD break `(afe)` is the tempting next step**: giving the CLI the same sentence. A CLI
+> that says *"set dates for these"* would describe a capability that surface lacks - the drift
+> `(afe)` exists to catch, arriving through an attempt to satisfy it. **The honest CLI sentence
+> points at the app**, and that is the ruling below, still unmade.
+
 ## Q298 - the CLI has the same gap AND a harder fix. It is not pure wording.
 
 ⚠ **The premise that this half is cheap is FALSE, checked rather than assumed: there is no CLI

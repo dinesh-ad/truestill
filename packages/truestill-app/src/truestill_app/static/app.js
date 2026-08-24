@@ -946,10 +946,17 @@ function renderStatsSummary(stats) {
          <div class="metric"><div class="metric-value">${nfmt(completeness.near_duplicates_flagged || 0)}</div>
            <div class="metric-label">near-duplicate flagged</div></div>
        </div>
-       <div class="actions">
-         <button class="btn btn-secondary" data-stats-action="undated">Review undated files</button>
-         <span class="why">Opens Find with “Undated” so you can locate and fix dating gaps.</span>
+       ${completeness.undated_files ? `<div class="actions">
+         <button class="btn btn-secondary" data-stats-action="set-dates">Set dates for these</button>
+         <span class="why">Opens the undated list above, where you can give each file its real
+         date. Truestill then moves it for you — editing the file yourself is undone by the next
+         rearrange.</span>
        </div>
+       <div class="actions">
+         <button class="btn btn-ghost" data-stats-action="undated">Find them on disk</button>
+         <span class="why">Opens Find with “Undated” so you can see where they are. Finding
+         does not change a date.</span>
+       </div>` : ""}
        ${undatedList ? `<details class="more"><summary>Undated file sample ▾</summary>${undatedList}</details>` : ""}
        <div class="k" style="margin-top:var(--space-3)">
          Exact duplicates are not shown in this view. ${esc(completeness.exact_duplicates_omission_reason || "")}
@@ -3175,6 +3182,21 @@ document.addEventListener("click", guarded(async (e) => {
   }
   if (btn.dataset.statsAction === "organize" || btn.dataset.statsAction === "import") {
     showScreen(btn.dataset.statsAction);
+    return;
+  }
+  if (btn.dataset.statsAction === "set-dates") {
+    // ⚠ **Opens the EXISTING tier drill-down rather than a second path to the same list.** That
+    // list already carries the sha256 `POST /api/dates/confirm` is keyed on, so a second route
+    // would be a second thing to keep in step - the drift `ALL_RULES` and `SUBCOMMANDS` each
+    // produced once. Addressed by the raw `DateSource` value, never by the label, for the reason
+    // `dateProvenanceRows` already gives: the label is wording and wording may change.
+    const tier = document.querySelector('[data-date-tier="none"]');
+    if (!tier) return;
+    tier.scrollIntoView({ block: "center" });
+    // Only open it. The drill-down handler TOGGLES, so clicking an already-open list would close
+    // the thing this action exists to show.
+    const list = document.querySelector('[data-date-tier-list="none"]');
+    if (!list || !list.innerHTML) tier.click();
     return;
   }
   if (btn.dataset.statsAction === "undated") {
