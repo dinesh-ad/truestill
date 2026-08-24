@@ -175,3 +175,35 @@
     `truestill-app`, and `path_probe` currently lives in the app service layer.
   - **Whether the premise test survives at all.** Once `probe_dir` no longer calls `is_dir()`,
     a test asserting `is_dir()` raises is asserting something the product no longer relies on.
+
+## ⚠ A SIXTH SITE, found 2026-08-24 by an outside audit - the census pattern could not have seen it
+
+`verify.py:90` (`_partition`) used a bare `is_file()`: on 3.14 a stat-REFUSED copy read as
+`CopyStatus.MISSING`, and the app recorded `mark_copy_missing` on the strength of it - a loss
+claim about a file the OS never let verify examine, in the one feature whose value is being
+believed. Fixed with `path_reach.reach` (P35); regression pinned by a real mode-000 parent in
+`test_verify_unreadable.py`, whose earlier tests patched `sha256_file` - a stage that runs only
+AFTER `is_file()` succeeded, so the file's own subject was invisible to it.
+
+**Why the census missed it, knowably**: the pattern above was *"a probe whose `except OSError`
+branch means something different from its `False` branch"* - it matched only code that already
+HAD an except clause. `verify._partition` had none (on 3.13 a refused stat simply raised out of
+it), so there was no branch pair to match. The census found code that knew the distinction and
+lost it; it could not find code that had never handled the exception at all. The NOT-DECIDED
+above already said the reintroduction guard "may be worth more than the five fixes" - this is
+that sentence proven.
+
+**The re-census, 2026-08-24, ALL 66 bare boolean probes across core, cli and app classified by
+failure direction** rather than by except-shape. Two sites recorded a false fact or offered a
+wrong action: `verify.py:90` (fixed here) and `undo.py:291-301` (a refused origin reads as
+free, then a replace-capable rename aims at it - **in flight in a peer session with its
+fail-first test already written; deliberately not touched by this commit**). Everything else:
+guarded (`drive.py:99/728/745`, `cleanup.py:185` via `(afb)`), deliberate (`reclaim.py:97`,
+recorded above), conservative (cleanup tiers, `hash_cache.py:374`), or fails loud immediately
+behind the probe (`catalog_move.py:103/125`, `local.py:219/262`, `backup.py:157/162/625`, the
+CLI arg checks). A residue of **wording/under-count** sites where refused reads as absent in a
+message or report - `catalog_startup.py:246` and `cli.py:886/1276` (a refused catalog briefly
+banners as creatable before the open fails loudly), `bake.py:378`, `drives.py:219`,
+`left_behind.py:89`, `source_repoint.py:129`, `organizer.py:365` (reachable only via ACLs on a
+listable parent) - none records a fact or moves a byte; named here so the next audit inherits
+the list instead of re-deriving it.

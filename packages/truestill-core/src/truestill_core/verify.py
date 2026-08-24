@@ -22,6 +22,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from truestill_core.hashing import sha256_file
+from truestill_core.path_reach import Reach, reach
 from truestill_core.progress import Phase, Progress, ProgressCallback
 from truestill_core.scan import DEFAULT_WORKERS, PoolKind
 
@@ -87,7 +88,19 @@ def _partition(
     to_hash: list[tuple[CopyToVerify, Path]] = []
     for copy in copies:
         path = root / copy.relative
-        if not path.is_file():
+        # `reach`, never a bare `is_file()` - `(aey)`'s sixth site, found 2026-08-24 by an
+        # outside audit three days after the class was closed at five. On 3.14 `is_file()`
+        # answers False for a path the OS REFUSED to describe (cpython#144525), which read
+        # here as MISSING: verify recorded "the drive lost your file" about a file it was
+        # never allowed to look at, and the app wrote `mark_copy_missing` on the strength of
+        # it. Verify is the OPPOSITE rule from reclaim's deliberate non-use of this primitive:
+        # reclaim conflates absent/refused because both mean "never delete", while verify's
+        # whole product is the distinction - MISSING is an actionable loss claim, UNREADABLE
+        # is "check permissions and look again".
+        verdict = reach(path)
+        if verdict is Reach.REFUSED:
+            answered.append(VerifyResult(copy, CopyStatus.UNREADABLE, None, detail="stat refused"))
+        elif verdict is not Reach.FILE:
             answered.append(VerifyResult(copy, CopyStatus.MISSING, None))
         elif copy.expected_hash is None:
             answered.append(VerifyResult(copy, CopyStatus.UNVERIFIABLE, None))

@@ -132,7 +132,7 @@ Notes:
   this project refuses. `(afp)` closed with it: a cold start no longer offers to delete a catalog
   another process is writing.
   ⚠ **Not covered, on purpose**: the app's synchronous settings writes, which is `(adt)`.
-- **Schema is at v20** (`catalog.CURRENT_SCHEMA_VERSION`); `organize_runs` was added by `(aem)`.
+- **Schema is at v21** (`catalog.CURRENT_SCHEMA_VERSION`); `organize_runs` arrived at v20 (`(aem)`), the in-place intent columns at v21 (`(agk)`).
 - **`(aad)` installers remain the launch gate**, and its two largest items are now built AND
   proven: the release lane and the Windows installer both work on both platforms
   (run 32555392424, 2026-08-22). What is left of it is the **download page** and the
