@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agz). Next free: (aha).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ahb). Next free: (ahc).**
 ⚠ **`(agf)` was cited by `pyproject.toml`, a test and `age.md` before its entry existed**, so for
 one commit three working citations resolved to nothing. Recorded because it is this section's own
 warning happening - *"nothing recorded which letters were spoken for"* - and the fix is to claim
@@ -192,6 +192,35 @@ is invisible here is retired, not free.**
   nothing moves, the journal row stays, a re-run resumes; the loss is the report. Fix-shape:
   return an outcome with a stop, reusing `MigrationStop`. ⚠ Its raise path has **zero coverage**
   (grepped), so build it test-first. [Full entry](research/backlog/agx.md)
+
+- **(ahb) THE UNDATED REPORT NAMES THE PROBLEM AND LINKS TO NOTHING.** Filed 2026-08-24 (P53).
+  **Ranked ABOVE `(aha)`** - a route is worth more than a defect note, because it is what keeps a
+  user out of the defect. The Organize result says *"No reliable date could be found, so these are
+  kept together, not guessed"* and links **nowhere**; the Dates screen that fixes exactly this is
+  reachable only by another door. 🔑 **The `(afu)` shape with a measured population: 1,262 undated
+  of 7,790, 16%** (golden snapshot, 2026-08-23) - and it is the moment a user reaches for the
+  external tool `(ii)` says will revert their work. ⚠ **The list SELF-DRAINS** (a confirmed file
+  leaves the tier), so *"Set dates for these"* is honest and *"review 1,262 files"* is not.
+  ⚠ **`DATE_TIER_PAGE = 50` was checked and is NOT the defect** - the truncation is disclosed and
+  the list drains, so it is a pacing limit; do not spend a turn on it. **The browser lane can stay
+  off**: `test_the_rearrange_card_name.py` is the precedent, and its docstring is this entry's own
+  defect solved once already. ⚠ **The CLI half is NOT cheap** - `add_parser("dates")` returns 0,
+  the rescue is app-only by recorded deferral, so a CLI sentence must point at the app, which is a
+  ruling rather than wording. [Full entry](research/backlog/ahb.md)
+
+- **(aha) AN EXTERNAL EXIF EDIT PRODUCES A DUPLICATE, OR ADVICE THAT DESTROYS IT.** Filed
+  2026-08-24 (P53) from a traced read. ⚠ **Records behaviour, proposes nothing.** Editing the EXIF
+  and re-running **is the field's model** (`porte`, `exif-assistant`), so users arrive expecting
+  it. Edit the **source** → new `files.sha256`, the dedup identity → **copied again**, leaving a
+  **duplicate** beside the undated original. Edit the **library copy** → `copy_sha256` is stale →
+  `verify` reports MISMATCH and advises *"re-copy the source to restore a bad file"*, which
+  **discards the edit**. 🔑 **`(agv)`'s COUSIN, not its sibling**: there the photo was intact and
+  `verify` lied; here the content genuinely differs so **`verify` is right** - what is wrong is the
+  **remedy**, which assumes corruption is the only way a file changes. `(ii)`'s catalog-event
+  ruling extends from hand-moves to hand-edits unchanged, and the field's tools can afford that
+  hatch only because they keep no catalog. The hash cache is **not** the mechanism (it invalidates
+  correctly) and `rescan` cannot see it (`PLACED` is never read).
+  [Full entry](research/backlog/aha.md)
 
 - **(agz) A STILL CAN DECLARE ITS OWN UTC OFFSET AND WE THROW IT AWAY.** Filed 2026-08-24 (P50)
   out of `(aco)`'s retirement census - the live evidence found while withdrawing a false entry.
