@@ -465,7 +465,7 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
 ## 3. Data contract (catalog)
 
 - **Single SQLite file**, stdlib `sqlite3` (`catalog.py::Catalog`). No server.
-- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 21`**.
+- **Schema versioned via `PRAGMA user_version`.** Current: **`CURRENT_SCHEMA_VERSION = 22`**.
   Migrations are ordered, idempotent functions in `_MIGRATIONS`; a catalog newer than the code
   is refused (`CatalogVersionError`). Migration coverage tested in `tests/test_catalog.py`.
 - **⚠ A copy of the catalog is taken before the chain runs, and it closes INTENT rather than
@@ -521,7 +521,7 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   control is pinned at the connect call to today's `LEGACY_TRANSACTION_CONTROL`, so a future
   Python default cannot change when writes commit; adopting the new semantics is a separate
   decision.
-- **Table inventory (v20 - the last migration that adds a table; v16, v17, v19 and v21 add
+- **Table inventory (v20 - the last migration that adds a table; v16, v17, v19, v21 and v22 add
   only columns, and v18 only drops an index):**
   `files`, `albums`, `file_albums`, `events`, `skipped_clusters`, `drives`, `file_copies`,
   `settings`, `migration_journal`, `reclaim_journal`, `inplace_runs`, `inplace_moves`,
@@ -613,6 +613,25 @@ the fallback slots into `resolve_capture_datetime` between embedded-EXIF and the
   rename that never happened while its path is legitimately taken by another file.
   `organizer._move_source` already re-hashes before unlinking a source, and undo checking less
   would be a second divergence on the same user action.
+  v22 `file_copies.bake_started_at` - **the fact that had nowhere to go**, `(agv)`. A bake
+  rewrites a copy's bytes and records the new hash in a second step, and no ordering can make
+  those one act; a crash between them left `copy_sha256` describing bytes that no longer exist.
+  `verify` then compared against it and reported **MISMATCH** - which its own definition calls
+  *corruption* - on a photograph truestill had just rewritten correctly, then advised
+  *"re-copy the source to restore a bad file"*, **which discards the user's confirmed date and
+  appears to work**, because re-copying restores the hash the stale catalog expects. ⚠ **NOT NULL
+  means UNKNOWN, never "did not happen"** - `(agk)`'s ruling about `inplace_moves.outcome`,
+  applied to the same shape one surface over - so a reader answers *we could not check this* and
+  never *we found damage*. **Set before the exiftool write, cleared in the SAME statement that
+  records the hash**: a finished bake that left the mark standing would give that copy a
+  permanent excuse and hide real damage for the rest of its life. **Cleared on a clean refusal
+  too** (`abandon_bake`), because exiftool declining leaves the file untouched and a refusal is
+  not an interruption - holding the mark there trades a false alarm for a false silence.
+  Additive and NULL on every existing row, no backfill; a v21 catalog answers every question the
+  same way after the migration as before it. The window is not closed - it is made **legible**,
+  and a re-bake is byte-identical (measured), so `date_baked_at IS NULL` still offers the file and
+  the ordinary path heals it.
+
 - **Every catalog query names its columns; none selects `*`.** It began as a privacy guarantee
   in `decisions.gather_decisions` - reading column by column so a column added to `files` or
   `settings` later cannot arrive on a user's drive by default - and that reasoning is not

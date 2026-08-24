@@ -273,11 +273,23 @@ def bake_run(path: Path, db: Path) -> JobTarget | DriveUnavailablePayload | Bake
                 args = build_metadata_args(
                     taken_at_local=datetime.fromisoformat(str(row["captured_at"]))
                 )
+                # ⚠ **THE INTENT, BEFORE THE IRREVERSIBLE STEP** (`(agv)`, `(agk)`'s shape). From
+                # here until `record_bake`, the recorded `copy_sha256` describes bytes that are
+                # about to stop existing - and a crash in that window used to leave `verify`
+                # reporting MISMATCH, which this module's own O1 docstring calls "a tool
+                # reporting corruption on a file it rewrote itself". The mark is what lets a
+                # reader say *unknown* instead of *corrupt*.
+                catalog.begin_bake(str(row["sha256"]), marker.uuid)
                 verdicts = write_metadata_batch([(target_file, args)])
                 if not verdicts.get(target_file, False):
                     # Unconfirmed is failed, never assumed fine: the same rule the Takeout bake
                     # already applies. The catalog hash is left alone, so verify keeps checking
                     # against what is really recorded for this copy.
+                    # ⚠ **And the mark comes back off**: exiftool declining leaves the file
+                    # untouched, so this copy is still exactly what the catalog says it is. A
+                    # refusal is not an interruption, and holding the mark here would trade a
+                    # false alarm for a false silence.
+                    catalog.abandon_bake(str(row["sha256"]), marker.uuid)
                     summary["failed"] += 1
                     continue
                 # O1: read back from the file ON THE DRIVE, after the write - never the staged

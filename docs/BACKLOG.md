@@ -250,22 +250,6 @@ is invisible here is retired, not free.**
   it. **Rules nothing** - the four timestamps may all be legitimate provenance; what is recorded is
   that nobody has said so. [Full entry](research/backlog/agy.md)
 
-- **(agv) A KILLED BAKE MAKES `verify` CALL AN INTACT PHOTO CORRUPT, AND ADVISE UNDOING IT.**
-  Filed 2026-08-24, **reproduced, measured and CORRECTED IN PLACE the same day** (P47) - the
-  original title said *"leaves an irreversible change unrecorded"* and both halves of that
-  reasoning were wrong. `service/bake.py` writes with `write_metadata_batch`, then reads the whole
-  file back and calls `record_bake`; a kill between them leaves the file baked and `date_baked_at`
-  NULL. 🔑 **The unrecorded bake costs nothing** - a re-bake is **byte-identical** and heals
-  both the record and the hash, measured. **What it costs is that `verify` reports MISMATCH, exits
-  1, and says *"re-copy the source to restore a bad file"*** over an intact photograph carrying
-  exactly the date the user asked for - and following that advice discards the bake.
-  `IMPLEMENTATION_STANDARDS.md` §9 inverted: a false claim about the user's own photo.
-  ⚠ **The window is 5.9% of a per-file bake, measured** - narrower than the rename `(agk)` closed,
-  where the original entry claimed far wider. ⚠ **It was ranked on the word "irreversible", which
-  is the least relevant fact about it.** Ranked **mid**: below `(aco)` and `(abb)`, above `(agx)`.
-  The regression test must assert the FALSE MISMATCH, not the missing record.
-  [Full entry](research/backlog/agv.md)
-
 - **(agw) `last-run.json` IS WRITTEN OUTSIDE THE LOCK THAT GUARDS THE REST OF THE RECORD.**
   Filed 2026-08-24. **`(afw)`'s third NOT DECIDED item coming due**: it said to design the
   one-rolling-file question *"before any second writer is added"*, and **three writers exist

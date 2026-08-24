@@ -45,6 +45,13 @@ class CopyToVerify:
     relative: str
     #: ``None`` when no hash was ever recorded for this copy: unknown, never assumed.
     expected_hash: str | None
+    #: ⚠ **A date write was interrupted, so ``expected_hash`` describes bytes that are no longer
+    #: there.** `(agv)`: a bake rewrites a copy and records the new hash in a second step, and a
+    #: crash between them leaves the catalog holding the value from BEFORE the write. Comparing
+    #: against it reports MISMATCH - *corruption*, by this module's own definition - on a
+    #: photograph truestill rewrote correctly. The honest answer is that we cannot check this
+    #: copy, which is what :attr:`CopyStatus.UNVERIFIABLE` already means.
+    bake_in_flight: bool = False
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> CopyToVerify:
@@ -58,6 +65,7 @@ class CopyToVerify:
             sha256=row["sha256"],
             relative=row["relative"],
             expected_hash=row["copy_sha256"],
+            bake_in_flight=row["bake_started_at"] is not None,
         )
 
 
@@ -104,6 +112,19 @@ def _partition(
             answered.append(VerifyResult(copy, CopyStatus.MISSING, None))
         elif copy.expected_hash is None:
             answered.append(VerifyResult(copy, CopyStatus.UNVERIFIABLE, None))
+        elif copy.bake_in_flight:
+            # ⚠ **Answered WITHOUT hashing, like the two branches above it.** Reading the file
+            # would produce a value with nothing trustworthy to compare it to: the recorded hash
+            # describes the bytes from before an interrupted write. Hashing to then discard the
+            # result is the wasted read `(abo)`'s "nobody looked" reasoning already refuses.
+            answered.append(
+                VerifyResult(
+                    copy,
+                    CopyStatus.UNVERIFIABLE,
+                    None,
+                    detail="a date write was interrupted; run it again to finish it",
+                )
+            )
         else:
             to_hash.append((copy, path))
     return answered, to_hash

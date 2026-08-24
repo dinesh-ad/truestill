@@ -64,6 +64,47 @@ recording shipped work as unstarted, which is the more expensive direction of th
     nothing from the request. This was the only live capability wearing one.
   [Full entry](research/backlog/agl.md)
 
+- **(agv) AN INTERRUPTED BAKE NO LONGER READS AS CORRUPTION.** Shipped 2026-08-24.
+  A bake rewrites a copy's bytes and records the new hash in a **second** step; a crash between
+  them left `copy_sha256` describing bytes that no longer existed, so `verify` reported
+  **MISMATCH** - *corruption*, by its own definition - on a photograph truestill had just
+  rewritten correctly, exited **1**, and advised *"re-copy the source to restore a bad file"*.
+  ⚠ **Following that advice discards the user's confirmed date AND APPEARS TO WORK**, because
+  re-copying restores the hash the stale catalog expects.
+  - **The window cannot be closed by ordering, and that is why the fix is a journal.** No
+    sequence makes a filesystem write and a catalog write one act: record-then-rename fails the
+    same way mirrored. Ruled against both alternatives rather than picking between them -
+    **stage-and-replace** only narrows the window (a crash between rename and record leaves the
+    identical stale hash) and would reverse `bake_run`'s deliberate in-place choice for a partial
+    improvement; **teaching `verify` about a pending confirmation** is not a separate option at
+    all, it is the reader half of the journal and looks like a symptom fix only when imagined
+    without one.
+  - **Schema v22: `file_copies.bake_started_at`** - `(agk)`'s intent-before-the-irreversible-step
+    applied one surface over, and `(abg)`'s ruling that a fact with nowhere to go gets a column
+    rather than overloading an existing answer. Set before the exiftool write; cleared **in the
+    same statement** that records the hash, because a finished bake holding the mark would give
+    that copy a permanent excuse and hide real damage; cleared on a clean refusal too, because
+    exiftool declining leaves the file untouched and a refusal is not an interruption.
+  - **`verify` answers UNVERIFIABLE, not a new status** - it already distinguishes *"we did not
+    check"* from *"we found no damage"*, and during a bake the catalog genuinely cannot say what
+    the bytes should be. Answered **without hashing**, like the branches beside it: reading a file
+    to discard the result is the wasted read `(abo)` already refuses. The detail names the
+    remedy - *"a date write was interrupted; run it again to finish it"* - and a re-bake is
+    byte-identical (measured, P47), so `date_baked_at IS NULL` still offers the file and the
+    ordinary path heals it.
+  - ⚠ **`copy_sha256` is deliberately NOT cleared**, and the 69th member is why: `reclaim` fails
+    closed on a NULL (*"the re-verify gate cannot be satisfied... never offered for deletion"*)
+    but `migrate._matches` treats one as *"existence is the best we can check"*. Clearing it would
+    have weakened the command that rewrites every byte of the library to buy honesty in `verify`.
+  - **The regression test asserts the FALSE MISMATCH, never `date_baked_at`** - the entry's own
+    constraint - and the kill is real (`os._exit(9)` in a child), because a synthesised row proves
+    the classifier and not the delivery. Five mutations, all caught, including both dangerous
+    directions. ⚠ **One survived first and the mutant was VALID**: the clean-refusal test called
+    the catalog directly instead of driving the loop, so deleting the loop's `abandon_bake` killed
+    nothing. Rewritten to enter the path through bytes exiftool genuinely refuses.
+  - **`(aha)`'s in-place row is NOT covered and the entries differ** - see its own text.
+  [Full entry](research/backlog/agv.md)
+
 - **(aep) A FAILED COPY SAYS NEITHER "UPLOAD" NOR A RAW `errno`.**
   Shipped 2026-08-22. Two §9 violations lived in one fall-through line, and the rule against each
   was already written down elsewhere. What a user read, verbatim:

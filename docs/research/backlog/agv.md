@@ -1,6 +1,18 @@
 # (agv) A KILLED BAKE MAKES `verify` CALL AN INTACT PHOTO CORRUPT, AND ADVISE UNDOING IT.
 
-*Body of entry `(agv)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(agv)`. **SHIPPED 2026-08-24.** The index is now [`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
+
+> ## ✅ SHIPPED 2026-08-24 (P55)
+>
+> **Schema v22 `file_copies.bake_started_at`**, set before the exiftool write and cleared in the
+> same statement that records the hash. `verify` answers **UNVERIFIABLE** with the remedy in its
+> detail, never MISMATCH. The constraint below was honoured: the regression test asserts the false
+> MISMATCH and the kill is a real `os._exit(9)`.
+>
+> ⚠ **`copy_sha256` is deliberately NOT cleared**, which was the cheaper-looking fix: `reclaim`
+> fails closed on a NULL but `migrate._matches` treats one as *"existence is the best we can
+> check"*, so clearing it would have weakened the command that rewrites every byte of the library.
+> Found by the sixty-ninth member before anything was written.
 
 > ## ⚠ CORRECTED IN PLACE 2026-08-24 (P47), AFTER THE REPRODUCTION
 >

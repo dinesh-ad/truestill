@@ -157,6 +157,15 @@ CREATE TABLE IF NOT EXISTS file_copies (
     -- (content, drive) like copy_sha256 above, because that is exactly what a bake changes:
     -- baking the photo on one drive says nothing about the copy on another.
     date_baked_at TEXT,
+    -- When a bake STARTED writing this copy, cleared the moment its outcome is known. `(agv)`
+    -- ⚠ NOT NULL means "a date write is in flight or was interrupted", which is an UNKNOWN and
+    -- must never be spelled as one of the answers - `(agk)`'s ruling about `outcome IS NULL`,
+    -- and `(abg)`'s about absence having nowhere to go. Between the exiftool write and the
+    -- read-back the catalog cannot say what the bytes should be, and `copy_sha256` still holds
+    -- the value they had BEFORE. Without this column `verify` reads that stale value and
+    -- reports MISMATCH - corruption, by its own definition - on a photograph truestill just
+    -- rewrote correctly, then advises re-copying the source, which discards the user's date.
+    bake_started_at TEXT,
     -- When we LOOKED for this copy on a drive that identified itself, and it was not there.
     -- NULL means "not known to be absent", which is the ordinary state and is NOT a claim that
     -- the copy is present -- that claim needs last_verified. `(abg)`.
@@ -314,7 +323,7 @@ CREATE TABLE IF NOT EXISTS date_confirmations (
 """
 
 #: Bump whenever the schema changes, and add a matching entry to _MIGRATIONS.
-CURRENT_SCHEMA_VERSION = 21
+CURRENT_SCHEMA_VERSION = 22
 
 
 class CatalogVersionError(RuntimeError):
@@ -858,6 +867,21 @@ def _apply_step(
         raise
 
 
+def _add_bake_started_at(conn: sqlite3.Connection) -> None:
+    """v21 -> v22: `file_copies.bake_started_at`, so an interrupted bake is not read as damage.
+
+    ⚠ **Additive and NULL on every existing row**, so a v21 catalog answers every question the
+    same way after the migration as before it - the column only ever gains a value from an
+    observation, exactly as `missing_at` does. **No backfill**, per the DDL/DML rule this file
+    states above: a migration must not carry one.
+    """
+    columns = _columns_of(conn, "file_copies")
+    if not columns:  # a missing TABLE is not this step's to report - `_add_copy_missing_at`'s rule
+        return
+    if "bake_started_at" not in columns:
+        conn.execute("ALTER TABLE file_copies ADD COLUMN bake_started_at TEXT")
+
+
 def _add_organize_runs(conn: sqlite3.Connection) -> None:
     """v19 -> v20: a run record for copy-mode organize, so an interruption is legible. `(aem)`.
 
@@ -942,6 +966,7 @@ _MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (19, _add_copy_missing_at),
     (20, _add_organize_runs),
     (21, _make_the_inplace_journal_an_intent_log),
+    (22, _add_bake_started_at),
 )
 
 
@@ -1762,6 +1787,38 @@ class Catalog:
             )
         )
 
+    def begin_bake(self, sha256: str, drive_uuid: str) -> None:
+        """Mark that a date write is about to touch this copy. `(agv)`
+
+        **The intent, before the irreversible step** - `(agk)`'s shape, and for its reason: the
+        window between rewriting the bytes and recording their hash cannot be closed by ordering,
+        because no ordering makes a filesystem write and a catalog write one act. What CAN be
+        done is stop the catalog asserting a hash it no longer stands behind, so a reader learns
+        *unknown* rather than *corrupt*.
+
+        Paired with :meth:`record_bake` (success) and :meth:`abandon_bake` (a clean refusal).
+        """
+        with self._tx() as conn:
+            conn.execute(
+                "UPDATE file_copies SET bake_started_at = ? WHERE sha256 = ? AND drive_uuid = ?",
+                (_now(), sha256, drive_uuid),
+            )
+
+    def abandon_bake(self, sha256: str, drive_uuid: str) -> None:
+        """Clear the mark when a bake did NOT write. `(agv)`
+
+        ⚠ **A refusal is not an interruption, and conflating them is the defect this fix could
+        introduce.** exiftool declining leaves the file byte-for-byte as it was, so its recorded
+        hash is still correct and the copy is still verifiable. Leaving the mark set would make a
+        good, unmodified copy read as unverifiable for nothing - trading a false alarm for a
+        false silence.
+        """
+        with self._tx() as conn:
+            conn.execute(
+                "UPDATE file_copies SET bake_started_at = NULL WHERE sha256 = ? AND drive_uuid = ?",
+                (sha256, drive_uuid),
+            )
+
     def record_bake(self, sha256: str, drive_uuid: str, *, copy_sha256: str) -> None:
         """**O1: the new copy hash and the bake record land in ONE transaction.**
 
@@ -1776,7 +1833,11 @@ class Catalog:
         """
         with self._tx() as conn:
             conn.execute(
-                "UPDATE file_copies SET copy_sha256 = ?, date_baked_at = ? "
+                # ⚠ **`bake_started_at` is cleared HERE, in the same statement**, not in a second
+                # one after it. A finished bake that left the mark standing would give this copy
+                # a permanent excuse: real damage afterwards would read as an interrupted write
+                # for the rest of its life, which is worse than the defect this column fixes.
+                "UPDATE file_copies SET copy_sha256 = ?, date_baked_at = ?, bake_started_at = NULL "
                 "WHERE sha256 = ? AND drive_uuid = ?",
                 (copy_sha256, _now(), sha256, drive_uuid),
             )
@@ -2221,10 +2282,16 @@ class Catalog:
         )
 
     def copies_on_drive(self, drive_uuid: str) -> list[sqlite3.Row]:
-        """Every recorded copy on a drive: ``sha256, relative, copy_sha256, size``."""
+        """Every recorded copy on a drive: ``sha256, relative, copy_sha256, size``.
+
+        ``bake_started_at`` travels with them because `verify` must tell *"we could not check"*
+        from *"we found damage"*, and only this column separates the two while a date write is
+        unfinished. `(agv)`
+        """
         return list(
             self._conn.execute(
-                "SELECT sha256, relative, copy_sha256, size FROM file_copies WHERE drive_uuid = ?",
+                "SELECT sha256, relative, copy_sha256, size, bake_started_at "
+                "FROM file_copies WHERE drive_uuid = ?",
                 (drive_uuid,),
             )
         )

@@ -102,13 +102,44 @@ def test_a_missing_file_is_still_missing_even_with_no_recorded_hash(tmp_path: Pa
 
 def test_from_row_reads_the_columns_copies_on_drive_returns() -> None:
     """The mapping itself: which column becomes which field, asserted once."""
-    row = _row(sha256="src-sha", relative="Camera/2014/a.jpg", copy_sha256="copy-sha", size=7)
+    row = _row(
+        sha256="src-sha",
+        relative="Camera/2014/a.jpg",
+        copy_sha256="copy-sha",
+        size=7,
+        bake_started_at=None,
+    )
 
     copy = CopyToVerify.from_row(row)
 
     assert copy.sha256 == "src-sha"
     assert copy.relative == "Camera/2014/a.jpg"
     assert copy.expected_hash == "copy-sha"
+    assert copy.bake_in_flight is False, (
+        "`bake_started_at` NULL means no date write is outstanding for this copy - `(agv)`"
+    )
+
+
+def test_an_interrupted_bake_makes_the_copy_unverifiable_rather_than_mismatched() -> None:
+    """The mapping's newest column, asserted in the one place the mapping lives. `(agv)`
+
+    ⚠ **A NULL `copy_sha256` and an interrupted bake are DIFFERENT unknowns** and both land on
+    UNVERIFIABLE: the first is *"no hash was ever recorded"*, the second is *"the recorded hash
+    describes bytes that are no longer there"*. Reporting the second as MISMATCH is the defect -
+    corruption claimed about a photograph truestill rewrote correctly.
+    """
+    row = _row(
+        sha256="src-sha",
+        relative="a.jpg",
+        copy_sha256="stale",
+        size=7,
+        bake_started_at="2026-08-24T12:00:00",
+    )
+
+    copy = CopyToVerify.from_row(row)
+
+    assert copy.expected_hash == "stale", "the stale hash is still carried, not erased"
+    assert copy.bake_in_flight is True
 
 
 def test_from_row_carries_a_null_through_as_unknown() -> None:
@@ -118,6 +149,6 @@ def test_from_row_carries_a_null_through_as_unknown() -> None:
     file - the source hash is a real string, and verification would run - while quietly asserting
     the byte-identity a bake breaks. This is the assertion that refuses it.
     """
-    row = _row(sha256="src-sha", relative="a.jpg", copy_sha256=None, size=7)
+    row = _row(sha256="src-sha", relative="a.jpg", copy_sha256=None, size=7, bake_started_at=None)
 
     assert CopyToVerify.from_row(row).expected_hash is None
