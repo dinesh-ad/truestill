@@ -139,14 +139,80 @@ def test_a_red_predecessor_refuses_the_push(
     assert "TRUESTILL_PUSH_ANYWAY=1" in err, "the refusal does not say how to proceed"
 
 
+def _fast_wait(gate: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The P38 bounded wait, at test speed - the bound's EXISTENCE is the subject, not its size."""
+    monkeypatch.setattr(gate, "CONTENTION_WAIT_SECONDS", 0.05)
+    monkeypatch.setattr(gate, "CONTENTION_POLL_SECONDS", 0.01)
+
+
 def test_a_run_still_going_refuses_the_push(
     gate: Any, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """The CONTENTION half, which was already the written rule: pushing now CANCELS it."""
+    """The CONTENTION half: waited out (P38), then refused - pushing now CANCELS it."""
+    _fast_wait(gate, monkeypatch)
     monkeypatch.setattr(gate, "_gh", _answer("in_progress", None))
 
     assert gate.main() == _REFUSED
-    assert "CANCELS" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "CANCELS" in err
+    assert "still live after" in err, "the refusal does not say it waited first"
+
+
+def test_the_wait_rides_out_a_run_that_concludes(
+    gate: Any, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The bound's useful half (P38): the ordinary case is a run minutes from green, and with
+    the agent as operator a refusal there costs a round trip the wait does not."""
+    _fast_wait(gate, monkeypatch)
+    live = _table(_run(_OTHER, "in_progress", None), _run(_SHA, "completed", "success"))
+    done = _table(_run(_OTHER, "completed", "success"), _run(_SHA, "completed", "success"))
+    calls = {"n": 0}
+
+    def concluding(*args: str) -> Any:
+        calls["n"] += 1
+        return (live if calls["n"] <= 2 else done)(*args)
+
+    monkeypatch.setattr(gate, "_gh", concluding)
+
+    assert gate.main() == _ALLOWED
+    assert "waiting up to" in capsys.readouterr().err, "the wait was silent"
+
+
+def test_the_override_no_longer_waives_a_run_in_flight(
+    gate: Any, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """⚠ **P38's HEADLINE - fails against yesterday's gate**, whose blanket override returned 0
+    before any check ran. This is the exact sequence that cancelled 95e357c's run: override set,
+    a run in flight, push anyway. Red and contention are unrelated conditions; waiving a
+    CONCLUDED red must never cancel a run still concluding."""
+    _fast_wait(gate, monkeypatch)
+    monkeypatch.setenv(gate.OVERRIDE, "1")
+    monkeypatch.setattr(gate, "_gh", _answer("in_progress", None))
+
+    assert gate.main() == _REFUSED
+    err = capsys.readouterr().err
+    assert "CANCELS" in err
+    assert "does NOT waive" in err, "the refusal does not teach the split"
+
+
+def test_the_cancel_escape_waives_contention_only(
+    gate: Any, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The second escape has its own name and its own single meaning (P38): it cancels the run
+    in flight, loudly - and the tip's OUTCOME is still judged under it."""
+    monkeypatch.setenv(gate.CANCEL_OVERRIDE, "1")
+    monkeypatch.setattr(
+        gate, "_gh", _table(_run(_OTHER, "in_progress", None), _run(_SHA, "completed", "success"))
+    )
+
+    assert gate.main() == _ALLOWED
+    err = capsys.readouterr().err
+    assert "will be CANCELLED" in err, "cancelling a live run must be said, not done silently"
+
+    monkeypatch.setattr(
+        gate, "_gh", _table(_run(_OTHER, "in_progress", None), _run(_SHA, "completed", "failure"))
+    )
+    assert gate.main() == _REFUSED, "the cancel escape must not also waive a red outcome"
 
 
 def test_a_green_predecessor_is_allowed(
@@ -162,7 +228,9 @@ def test_a_green_predecessor_is_allowed(
 def test_the_override_says_you_mean_it(
     gate: Any, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Pushing a FIX onto a red main is the ordinary case and must stay cheap."""
+    """Pushing a FIX onto a red main is the ordinary case and must stay cheap - and since P38
+    the audit line must say WHICH check was waived: "nothing was verified" would overstate it,
+    because contention was checked and only the outcome went unverified."""
     monkeypatch.setenv(gate.OVERRIDE, "1")
     monkeypatch.setattr(gate, "_gh", _answer("completed", "failure"))
 
@@ -170,6 +238,8 @@ def test_the_override_says_you_mean_it(
     err = capsys.readouterr().err
     assert "OVERRIDDEN" in err, "a silent override is indistinguishable"
     assert _SHA[:7] in err, "the override does not say what it bypassed"
+    assert "OUTCOME" in err, "the line does not name the one check it waived"
+    assert "Contention WAS still checked" in err, "the line overstates what was skipped"
 
 
 def test_an_unreachable_gh_fails_open_and_says_so(
@@ -265,20 +335,25 @@ def test_the_script_runs_as_a_hook_does() -> None:
     and returns a code git will read - which patching can never show.
 
     ⚠ **The inherited environment, not a minimal one.** Handing Windows an empty `PATH` and
-    `SYSTEMROOT` is the same POSIX assumption that made the first version of this file fail there;
-    the override short-circuits before any subprocess call, so the environment need not be
-    stripped to make the test honest.
+    `SYSTEMROOT` is the same POSIX assumption that made the first version of this file fail there.
+    Since P38 the override no longer short-circuits - it must identify a subject to check
+    contention - so the no-network end-to-end path is now the NO SUBJECT fail-closed refusal,
+    which needs no `gh` either.
     """
     result = subprocess.run(
         [sys.executable, str(Path(check_push_gate.__file__))],
         capture_output=True,
         text=True,
         check=False,
-        env={**os.environ, check_push_gate.OVERRIDE: "1"},
+        env={
+            k: v
+            for k, v in {**os.environ, check_push_gate.OVERRIDE: "1"}.items()
+            if not k.startswith("PRE_COMMIT")
+        },
     )
 
-    assert result.returncode == _ALLOWED
-    assert "OVERRIDDEN" in result.stderr
+    assert result.returncode == _REFUSED
+    assert "NO SUBJECT" in result.stderr
 
 
 # --- (agn): the two halves have different keys -------------------------------------------------
@@ -317,6 +392,7 @@ def test_a_run_in_flight_for_another_sha_on_the_branch_is_refused(
     `cancel-in-progress: true`, so this push cancels **any** live push run on the ref, whatever
     commit it is for. A question about one sha could never see somebody else's run.
     """
+    _fast_wait(gate, monkeypatch)
     monkeypatch.setattr(
         gate,
         "_gh",
@@ -327,6 +403,30 @@ def test_a_run_in_flight_for_another_sha_on_the_branch_is_refused(
     err = capsys.readouterr().err
     assert "CANCELS" in err
     assert "9" in err, "the refusal does not name the run it would kill"
+
+
+def test_the_outcome_check_asks_for_push_runs_only(gate: Any) -> None:
+    """⚠ **The sibling gap P38 found by re-applying the sixty-ninth member**: `--commit` on a
+    main tip can answer with the NIGHTLY run of the same sha - different coverage (the browser
+    lane), judged in the push lanes' place. The query must carry the event filter the
+    contention half always had."""
+    seen: list[tuple[str, ...]] = []
+
+    def capture(*args: str) -> Any:
+        seen.append(args)
+        return _answer("completed", "success")(*args)
+
+    original = gate._gh
+    gate._gh = capture
+    try:
+        gate.outcome(_SHA)
+    finally:
+        gate._gh = original
+
+    assert seen, "outcome asked nothing"
+    flags = seen[0]
+    assert "--event" in flags, "the nightly can answer in the push lanes' place"
+    assert flags[flags.index("--event") + 1] == "push"
 
 
 def test_a_nightly_run_in_flight_does_not_block_a_push(

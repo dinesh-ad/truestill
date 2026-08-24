@@ -119,6 +119,12 @@ repos:
       # other refusal (contention, unknown tip, someone else's red). The override line printing
       # under `verbose: true` is what keeps this auditable.
       #
+      # ⚠ AND THE OVERRIDE IS SPLIT (P38, same day - its first exercise cancelled a live run):
+      # TRUESTILL_PUSH_ANYWAY waives the OUTCOME check only; contention now WAITS bounded
+      # (480s) and then refuses under it. Cancelling a run in flight is its own decision with
+      # its own name - TRUESTILL_PUSH_CANCELS_THE_RUN=1 - and the audit lines say which check
+      # each one waived, because "nothing was verified" overstated what was skipped.
+      #
       # ⚠ And pre-commit DOES NOT FORWARD git's pre-push stdin to hooks (observed: a probe hook
       # read `stdin:[]` while git had supplied the ref line). Subjects come from
       # PRE_COMMIT_FROM_REF (the REMOTE tip sha), PRE_COMMIT_TO_REF (the local sha) and
