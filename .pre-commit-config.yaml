@@ -106,6 +106,16 @@ repos:
       # run is finished and green", was rendered as an assertion of a fact nothing had checked.
       # Measured 2026-08-23: a push onto a red tip showed exactly that line and nothing else.
       # `(agn)`
+      #
+      # ⚠ THE CONSTRAINT, learned twice (the override's report, then the gate's own "NOT gated"
+      # confession while it ran inert - P33): A HOOK MESSAGE THAT MATTERS MUST RIDE A NON-ZERO
+      # EXIT. There is no channel by which a passing hook can say something a person will see.
+      # Do not write a warn-and-exit-0 branch in any hook here; it is a message to nobody.
+      #
+      # ⚠ And pre-commit DOES NOT FORWARD git's pre-push stdin to hooks (observed: a probe hook
+      # read `stdin:[]` while git had supplied the ref line). Subjects come from
+      # PRE_COMMIT_FROM_REF (the REMOTE tip sha), PRE_COMMIT_TO_REF (the local sha) and
+      # PRE_COMMIT_REMOTE_BRANCH - which is why the gate fell inert from a173c42 until P33.
       - id: push-gate
         name: push gate (the tip you are pushing onto)
         entry: python3 scripts/check_push_gate.py

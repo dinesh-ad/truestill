@@ -75,6 +75,9 @@ def gate(monkeypatch: pytest.MonkeyPatch) -> Any:
     """
     monkeypatch.setattr(check_push_gate.sys, "stdin", io.StringIO(_stdin(_SHA)))
     monkeypatch.delenv(check_push_gate.OVERRIDE, raising=False)
+    # The env transport (P33) must not leak in from a real pre-commit invocation of pytest.
+    for var in ("PRE_COMMIT_FROM_REF", "PRE_COMMIT_TO_REF", "PRE_COMMIT_REMOTE_BRANCH"):
+        monkeypatch.delenv(var, raising=False)
     return check_push_gate
 
 
@@ -351,16 +354,39 @@ def test_a_nightly_run_in_flight_does_not_block_a_push(
     )
 
 
-def test_it_says_so_when_it_is_not_invoked_as_a_pre_push_hook(
+def test_no_subject_fails_closed(
     gate: Any, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Run by hand there is no ref on stdin, and inventing one is how this defect started.
+    """⚠ **P33: this exact condition used to exit 0, and it cost two unjudged pushes.**
 
-    Falling back to `@{upstream}` would silently reintroduce the stale-cache bug `(agn)` is about,
-    so the gate says it judged nothing instead.
+    pre-commit drops git's stdin and suppresses a passing hook's output, so the old "NOT gated"
+    warning was invisible - the gate ran inert from `a173c42` until this failed closed. Unknown
+    is not green, and it cannot be a legitimate first push: pre-commit runs no pre-push hooks at
+    all for a new branch (observed), and direct git invocation always supplies stdin.
     """
     monkeypatch.setattr(check_push_gate.sys, "stdin", io.StringIO(""))
     monkeypatch.setattr(gate, "_gh", _answer("completed", "failure"))
 
-    assert gate.main() == _ALLOWED
-    assert "NOT gated" in capsys.readouterr().err
+    assert gate.main() == _REFUSED
+    assert "NO SUBJECT" in capsys.readouterr().err
+
+
+def test_pre_commit_env_is_a_subject(
+    gate: Any, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """⚠ **P33's other half: the env transport judges the same tip stdin would have.**
+
+    Semantics observed on the installed chain, not read off pre-commit's docs:
+    `PRE_COMMIT_FROM_REF` is the sha of the REMOTE tip being pushed onto, `PRE_COMMIT_TO_REF`
+    the local sha, `PRE_COMMIT_REMOTE_BRANCH` the ref name - and stdin arrives empty.
+    """
+    monkeypatch.setattr(check_push_gate.sys, "stdin", io.StringIO(""))
+    monkeypatch.setenv("PRE_COMMIT_FROM_REF", _SHA)
+    monkeypatch.setenv("PRE_COMMIT_TO_REF", "f" * 40)
+    monkeypatch.setenv("PRE_COMMIT_REMOTE_BRANCH", "refs/heads/main")
+    monkeypatch.setattr(gate, "_gh", _answer("completed", "failure"))
+
+    assert gate.main() == _REFUSED
+    err = capsys.readouterr().err
+    assert _SHA[:7] in err, "the refusal does not name the remote tip the env carried"
+    assert "FAILURE" in err

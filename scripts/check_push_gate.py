@@ -40,6 +40,25 @@ with it. But a tip with **no run** is not that: `ci.yml` has no `paths` filter o
 ``push: branches: [main]``, so every push to main creates one. Absent is therefore unknown, and
 unknown is not green - the shape `(afl)` keeps finding.
 
+⚠ **THE TRANSPORT IS PART OF THE GATE, AND IT WAS SILENTLY MISSING FOR A DAY (P33).** From
+`a173c42` to `1d5a...`'s fix, this file was correct and INERT: pre-commit's `hook-impl` consumes
+git's pre-push stdin and forwards **nothing** - observed 2026-08-23 with a probe hook printing
+``stdin:[]`` - so the gate saw no refs, exited 0 through the not-gated branch, and pre-commit
+suppressed the warning under ``Passed``. Two pushes were "allowed" that were never judged, one of
+them onto a RED tip. What pre-commit sets instead, **observed rather than read off its docs**:
+``PRE_COMMIT_FROM_REF`` = the sha of the REMOTE tip being pushed onto, ``PRE_COMMIT_TO_REF`` =
+the local sha, ``PRE_COMMIT_REMOTE_BRANCH`` = the ref name. And for a brand-new branch (zero
+remote sha) `hook-impl` runs **no pre-push hooks at all**, so the env transport never carries a
+new-branch push - the zero-sha filtering below serves direct git installs only. The stdin
+protocol stays first because it is githooks(5) truth and carries multi-ref pushes; the env is
+the fallback for the one harness that actually runs this file.
+
+⚠ **A MESSAGE THAT MATTERS MUST RIDE A NON-ZERO EXIT.** pre-commit shows a passing hook's name
+and ``Passed`` and swallows everything it printed. That suppression has now cost twice - the
+override's report in `(agn)`, and this gate's own "NOT gated" confession above - so the
+no-subject case FAILS CLOSED: unknown is not green, and a warning nobody can see is not a
+warning. `.pre-commit-config.yaml` carries the same constraint where the hooks are defined.
+
 ⚠ **EVERY VERDICT NAMES ITS SUBJECT**, including the override. On 2026-08-23 a push passed while
 the remote tip was red and the only visible line was this hook's *name* followed by `Passed`: the
 override had fired and pre-commit had suppressed its message, so nothing on screen said which
@@ -53,6 +72,7 @@ import json
 import os
 import subprocess
 import sys
+from pathlib import Path
 from typing import Final
 
 #: Set to anything non-empty to push regardless. Deliberately not a `--force`-style flag: a hook
@@ -63,6 +83,11 @@ OVERRIDE = "TRUESTILL_PUSH_ANYWAY"
 #: `githooks(5)`: an all-zero sha means the ref does not exist on that side. As the REMOTE sha it
 #: is a brand-new branch - no tip, nothing to have failed. As the LOCAL sha it is a deletion.
 ZERO_SHA: Final = "0" * 40
+
+#: When set to a writable path, every subject resolution and verdict is appended there - an
+#: observability seam for the installed-chain tests and for watching a real push, never a
+#: behaviour switch. Failures to write are swallowed: observation must not change the verdict.
+PROBE = "TRUESTILL_PUSH_GATE_PROBE"
 
 #: The one conclusion that means a tip is known good. Everything else - `cancelled` above all,
 #: which verified nothing - is not a reason to build on top of it.
@@ -101,6 +126,36 @@ def _gh(*args: str) -> list[dict[str, object]] | None:
     except json.JSONDecodeError:
         return None
     return parsed if isinstance(parsed, list) else None
+
+
+def _probe(note: str) -> None:
+    target = os.environ.get(PROBE)
+    if not target:
+        return
+    try:
+        with Path(target).open("a", encoding="utf-8") as fh:
+            fh.write(note + "\n")
+    except OSError:
+        pass
+
+
+def subject(raw: str) -> tuple[str, list[tuple[str, str, str]]]:
+    """``(transport, refs)`` - stdin when git speaks directly, pre-commit's env when it does not.
+
+    The env triple is trusted only whole: a FROM without a TO is a mis-invocation, not a subject.
+    ``PRE_COMMIT_REMOTE_BRANCH`` defaults to nothing - if pre-commit ever stops setting it, the
+    push is unidentifiable and the no-subject refusal in ``main`` says so, rather than this
+    function guessing ``main``.
+    """
+    refs = pushed_refs(raw)
+    if refs:
+        return "stdin", refs
+    from_ref = os.environ.get("PRE_COMMIT_FROM_REF")
+    to_ref = os.environ.get("PRE_COMMIT_TO_REF")
+    branch = os.environ.get("PRE_COMMIT_REMOTE_BRANCH")
+    if from_ref and to_ref and branch:
+        return "pre-commit-env", [(branch, to_ref, from_ref)]
+    return "none", []
 
 
 def pushed_refs(raw: str) -> list[tuple[str, str, str]]:
@@ -178,7 +233,7 @@ def outcome(sha: str) -> str | None:
     return None
 
 
-def judgeable(raw: str) -> list[tuple[str, str]]:
+def judgeable(refs: list[tuple[str, str, str]]) -> list[tuple[str, str]]:
     """``(branch, remote_sha)`` for each ref that HAS a tip to judge.
 
     A deletion (all-zero local sha) and a branch the remote does not have yet (all-zero remote
@@ -187,24 +242,28 @@ def judgeable(raw: str) -> list[tuple[str, str]]:
     """
     return [
         (remote_ref.removeprefix("refs/heads/"), remote_sha)
-        for remote_ref, local_sha, remote_sha in pushed_refs(raw)
+        for remote_ref, local_sha, remote_sha in refs
         if ZERO_SHA not in (local_sha, remote_sha)
     ]
 
 
-def refusals(raw: str) -> list[str]:
+def refusals(refs: list[tuple[str, str, str]]) -> list[str]:
     """Everything wrong with this push, or an empty list. ``None`` from a check means *not asked*."""
     problems: list[str] = []
-    for branch, remote_sha in judgeable(raw):
-        problems.extend(m for m in (contention(branch), outcome(remote_sha)) if m is not None)
+    for branch, remote_sha in judgeable(refs):
+        found = [m for m in (contention(branch), outcome(remote_sha)) if m is not None]
+        _probe(f"judged branch={branch} tip={remote_sha[:7]} refusals={len(found)}")
+        problems.extend(found)
     return problems
 
 
 def main() -> int:
     raw = "" if sys.stdin.isatty() else sys.stdin.read()
+    transport, refs = subject(raw)
+    _probe(f"transport={transport} refs=" + ",".join(f"{r}@{s[:7]}" for r, _l, s in refs))
 
     if os.environ.get(OVERRIDE):
-        tips = ", ".join(sha[:7] for _r, _l, sha in pushed_refs(raw) if sha != ZERO_SHA) or "none"
+        tips = ", ".join(sha[:7] for _r, _l, sha in refs if sha != ZERO_SHA) or "none"
         print(
             f"push gate: OVERRIDDEN by {OVERRIDE}. The tip(s) this bypassed the check on: {tips}. "
             f"Nothing was verified.",
@@ -212,16 +271,22 @@ def main() -> int:
         )
         return 0
 
-    if not pushed_refs(raw):
+    if not refs:
+        # ⚠ FAIL CLOSED (P33). This exact condition exited 0 for a day while pre-commit dropped
+        # the stdin and suppressed the warning - two pushes went unjudged, one onto a red tip.
+        # It cannot be a legitimate first push either: observed 2026-08-23, pre-commit runs no
+        # pre-push hooks at all for a new branch, and direct git invocation always has stdin.
         print(
-            "push gate: no ref on stdin, so this was not invoked as a pre-push hook and this "
-            "push is NOT gated. Falling back to the remote-tracking ref would ask about the wrong commit, "
-            "which is the defect this gate was rewritten for.",
+            "push gate: NO SUBJECT. Nothing on stdin and no PRE_COMMIT_FROM_REF/TO_REF/"
+            "REMOTE_BRANCH, so the tip being pushed onto cannot be identified - and unknown is "
+            "not green. If you are running this by hand, feed it a ref line:\n"
+            "    echo 'refs/heads/main <local-sha> refs/heads/main <remote-sha>' | "
+            "python3 scripts/check_push_gate.py",
             file=sys.stderr,
         )
-        return 0
+        return 1
 
-    if not judgeable(raw):
+    if not judgeable(refs):
         # Only deletions and brand-new branches: nothing has a tip, so nothing is asked and
         # nothing is said. Probing GitHub here would be a question with no subject.
         return 0
@@ -234,7 +299,7 @@ def main() -> int:
         )
         return 0
 
-    problems = refusals(raw)
+    problems = refusals(refs)
     for message in problems:
         print(message, file=sys.stderr)
     return 1 if problems else 0
