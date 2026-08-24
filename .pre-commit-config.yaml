@@ -122,4 +122,10 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+        # The one exception to "a message that matters must ride a non-zero exit", and the
+        # correction to it: `verbose: true` is pre-commit's opt-in voice for a PASSING hook.
+        # Without it the override's "OVERRIDDEN ... nothing was verified" line and the
+        # fail-open "NOT gated" warnings were suppressed under `Passed` - observed live on
+        # 2026-08-24, on the override push this gate's own rearming needed.
+        verbose: true
         stages: [pre-push]
