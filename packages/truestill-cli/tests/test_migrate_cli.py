@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 from pathlib import Path
 
 import pytest
@@ -187,3 +188,60 @@ def test_a_subfolder_of_a_connected_drive_is_corrected_not_rejected(
     assert "is a folder inside 'Drive A'" in err
     assert str(root) in err  # the correction, spelled out
     assert "connected" not in err  # never asks about a connection that is plainly fine
+
+
+def test_a_migration_the_drive_stopped_does_not_exit_zero(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """⚠ **THE END-TO-END HALF, and it is what a mutation could not reach.** `(agm)` D1.
+
+    `_report_migration_shortfall` was proven by mutating its own `return`, which shows the
+    helper is right and says nothing about whether the command **calls** it. Every other
+    `migrate-layout` test in this file asserts `== 0`, so a `_cmd_migrate_layout` that computed
+    the code and then returned `0` anyway would have been green across the whole suite - which is
+    exactly the state this repo shipped in until `(agm)`.
+
+    `ENGINEERING_STANDARD.md` §4's thirteenth member: assert the subject entered the path.
+    """
+    root = tmp_path / "drive"
+    root.mkdir()
+    db = tmp_path / "c.sqlite"
+    _seed_drive(db, root, "Camera/2023/08/x.jpg", b"data")
+    assert main(["config", "--db", str(db), "--set-template", "{yyyy}/{yyyy}-{mm}/{dd}"]) == 0
+
+    def unreadable(_path: Path) -> str:
+        raise OSError(errno.EIO, "Input/output error")
+
+    monkeypatch.setattr("truestill_core.destinations.local.sha256_file", unreadable)
+    monkeypatch.setattr("builtins.input", lambda *_: "move")
+    capsys.readouterr()
+
+    code = main(["migrate-layout", str(root), "--db", str(db), "--apply"])
+
+    assert code == 4, "a run the destination stopped must not report success"
+    captured = capsys.readouterr()
+    assert "Stopped:" in captured.err, "and it must say so where a person sees it"
+    assert "Cancelled" not in captured.err, "a failing drive is not the user's own act"
+
+
+def test_a_clean_migration_still_exits_zero(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Cry-wolf: the new exit code must not fire on the ordinary path.
+
+    Without this, returning `4` unconditionally would satisfy the test above, and every existing
+    `== 0` assertion in this file happens to run **preview** or a migration with nothing to say -
+    so the pair is what makes the discrimination real.
+    """
+    root = tmp_path / "drive"
+    root.mkdir()
+    db = tmp_path / "c.sqlite"
+    _seed_drive(db, root, "Camera/2023/08/x.jpg", b"data")
+    assert main(["config", "--db", str(db), "--set-template", "{yyyy}/{yyyy}-{mm}/{dd}"]) == 0
+    monkeypatch.setattr("builtins.input", lambda *_: "move")
+    capsys.readouterr()
+
+    assert main(["migrate-layout", str(root), "--db", str(db), "--apply"]) == 0
+    captured = capsys.readouterr()
+    assert "Stopped:" not in captured.err
+    assert "refused:" not in captured.err

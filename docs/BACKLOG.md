@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agw). Next free: (agx).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agx). Next free: (agy).**
 ⚠ **`(agf)` was cited by `pyproject.toml`, a test and `age.md` before its entry existed**, so for
 one commit three working citations resolved to nothing. Recorded because it is this section's own
 warning happening - *"nothing recorded which letters were spoken for"* - and the fix is to claim
@@ -169,6 +169,17 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(agx) `undo_migration` RAISES ON A VERIFICATION FAILURE AND THROWS AWAY WHAT IT ALREADY
+  REVERSED.** Filed 2026-08-24 while writing `(agm)`'s missing tests. `migrate.py:840` raises
+  when a file no longer hashes to what the migration recorded; `done` and `refused` are locals,
+  so a reversal that put 900 files back and then met one bad file **reports nothing it did**.
+  🔑 **The asymmetry has FLIPPED**: `(agm)` gave the forward path a `MigrationStop` and a
+  `refused` list, so the undo is now the outlier against its own forward run - `(agj)`'s shape
+  (*"a stopped organize took its own paperwork down with it"*). ⚠ **The data is not at risk** -
+  nothing moves, the journal row stays, a re-run resumes; the loss is the report. Fix-shape:
+  return an outcome with a stop, reusing `MigrationStop`. ⚠ Its raise path has **zero coverage**
+  (grepped), so build it test-first. [Full entry](research/backlog/agx.md)
 
 - **(agv) A BAKE THAT DIES BETWEEN THE WRITE AND THE RECORD LEAVES AN IRREVERSIBLE CHANGE
   UNRECORDED.** Filed 2026-08-24 out of `(agm)`'s premise check. `service/bake.py` writes with
