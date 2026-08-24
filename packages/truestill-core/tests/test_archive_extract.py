@@ -232,8 +232,20 @@ def test_a_real_kill_leaves_a_state_a_fresh_process_can_clear(tmp_path: Path) ->
     likely to still be running when the signal lands. The move makes this test honest; it does
     not make it fragile. The five-file wait stays - it is what makes the test deterministic, and
     the member says to run on the real storage class rather than to rely on either alone.
+
+    ⚠ **AND THE READINESS GATE ITSELF RACED, caught by the macOS lane on 2026-08-24 (run
+    32701030596): the child finished all 200 small entries between the parent seeing five and
+    the aliveness assert.** Two hundred files was a count-vs-speed GUESS - the `(aec)` class in
+    a unit-lane costume - and some runner is always fast enough to win it. Replaced by two
+    ORDERING guarantees, neither a timer: the archive's LAST entry is 128 MB (zip entries
+    extract in insertion order, `_zip` preserves it), so once the small files exist the child
+    still has a nine-figure write ahead of it and cannot finish inside the parent's
+    microsecond assert path; and the parent sends **SIGSTOP before asserting aliveness**, so
+    the child is frozen at the instant judged - a stopped process cannot exit under the
+    assert. SIGKILL lands on the frozen child, which is the same uncooperative death.
     """
-    entries = {f"Takeout/IMG_{i:04d}.jpg": os.urandom(200_000) for i in range(200)}
+    entries: dict[str, bytes] = {f"Takeout/IMG_{i:04d}.jpg": os.urandom(200_000) for i in range(8)}
+    entries["Takeout/VID_tail.mp4"] = b"\0" * (128 * 1024 * 1024)  # the unfinishable tail
     _zip(tmp_path / "big.zip", entries)
     destination = tmp_path / "dest"
 
@@ -261,9 +273,12 @@ def test_a_real_kill_leaves_a_state_a_fresh_process_can_clear(tmp_path: Path) ->
             assert child.poll() is None, "the child finished before it could be interrupted"
             assert time.monotonic() < deadline, "the child never extracted anything to interrupt"
             time.sleep(0.01)
-        # Asserted immediately before the signal: without it this test survives a mutation
-        # that journals AFTER extraction, because "finished, then journalled" is indistinguishable
-        # from "killed mid-extraction" once the loop exits. It must kill a RUNNING process.
+        # Frozen BEFORE the aliveness assert: a stopped process cannot exit between the
+        # judgment and the kill, so the assert below is an ordering fact rather than a bet
+        # against runner speed. Without the assert this test survives a mutation that journals
+        # AFTER extraction - "finished, then journalled" is indistinguishable from "killed
+        # mid-extraction" once the loop exits. It must kill a RUNNING process.
+        child.send_signal(signal.SIGSTOP)
         assert child.poll() is None, "the child had already finished; nothing was interrupted"
         child.send_signal(signal.SIGKILL)
         child.wait(timeout=30)
