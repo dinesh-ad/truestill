@@ -1,6 +1,12 @@
 # (ags) INGEST EXTRACTS A WHOLE ARCHIVE INTO THE USER'S TEMP, WHICH IS OFTEN RAM.
 
-*Body of entry `(ags)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*⚠ **RETIRED 2026-08-24 - this is a RECORD, not an open entry.** `(ags)` is no longer in
+[`BACKLOG.md`](../../BACKLOG.md)'s open list and is deliberately **not** in
+[`SHIPPED.md`](../../SHIPPED.md): a shipped row would credit a fix nobody made. The letter is named,
+with the reason, in `BACKLOG.md`'s* Item letters *section. Kept and linked rather than deleted -
+the three earlier retirements folded a one-sentence reason into that section, and this one is the
+primary evidence behind `ENGINEERING_STANDARD.md` §4's seventieth member. **Do not edit it to stay
+correct**; the correction below is what a record gets.*
 
 > ## ⚠ THE PREMISE IS FALSE - read this before building anything here (2026-08-24, P40)
 >

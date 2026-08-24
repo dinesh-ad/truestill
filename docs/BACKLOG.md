@@ -86,6 +86,39 @@ record and nothing to grandfather. An undated "from now on" would be the next dr
 is no list of exceptions to maintain and no date to go stale. What it cannot see is stated in its
 own docstring: an amend that only edits the message stages nothing, and hooks do not run in CI.
 
+## A new entry that asserts an ABSENCE names the check it ran (convention, 2026-08-24)
+
+**Only for negative claims** - *nothing does X*, *no caller*, *never reached*, *there is no route*.
+An entry making one states, in one line, **the command that would falsify it and what it returned
+on the day of filing**. `(acc)`'s *"Checked by grep across core, CLI and app, not assumed"* and the
+Biome entry's *"zero `<form>` elements in the app (checked, not assumed: 0 in `index.html`, 0 in
+`app.js`)"* are the shape; the latter says the durable part out loud - **"that check is the durable
+artifact here, not the finding."**
+
+**Why negative claims and nothing else.** A negative is the one kind of claim a single command can
+kill: one hit refutes it. *X does Y* needs a reading, and no line in an entry substitutes for that.
+Requiring evidence where it is cheap and decisive costs a line; requiring it everywhere would be a
+research standard, which `ENGINEERING_STANDARD.md` §3 already owns.
+
+**It earns a filer two different things**, which is why it beats "be careful":
+
+- **At filing** it kills the entry that was never true. Three of the seven false-when-written
+  premises died to a grep somebody could have run first - `(ace)` (the tool existed as
+  `mutate_once.py` while the entry asked for `mutate.py`), `(ags)` (the extractor was never the
+  cited function) and `(agq)` (the creating function was three below the one read).
+- **Afterwards it makes the entry falsifiable by anyone.** A recorded command carries a date, so a
+  later reader **re-runs it** instead of re-deriving the premise. That is the half that reaches the
+  *fixed-under-another-name* family - `(abi)`, `(aak)`, `(abs)` were all true when filed and went
+  false under a commit naming a different letter, which no closure guard can see.
+
+⚠ **Not retroactive, and that is a ruling rather than laziness.** Roughly **42 of the 90** open
+entries carry a negative headline today and **6 of 149** bodies record a check; demanding one of
+the rest would go red on the past, which is the failure the paragraph above already explains about
+the closure guard. ⚠ **And it is a convention, deliberately not a hook.** What counts as a negative
+claim is a judgement about English, and a guard that has to make one fires on ordinary prose - the
+`_PENDING` list in `test_backlog_references.py` was narrowed twice for exactly that. The full
+argument is `ENGINEERING_STANDARD.md` §4's **seventieth member**.
+
 *`(acr)` is the instance that proved the rule.* It was closed by the maintainer in conversation;
 neither its entry nor any commit said so, and no repo check could ever have seen it - it sat here
 as open work while shipped. Two of the three entries stale that day *were* catchable, because
@@ -115,6 +148,21 @@ they are retired rather than carried. Reopening one needs a reason the font pass
 > place rather than rewritten - a document that states a cause it never verified is the failure
 > here, and deleting the sentence would hide it.
 
+**Retired 2026-08-24, and it is the first letter retired because it was NEVER WORK:** `(ags)`
+(ingest extracting a whole archive into the user's temp). **The premise was false when it was
+filed** - `extract_archive_set` has staged under `destination/.truestill-staging` since the
+feature's first commit (`346135c`, 2026-08-01), three weeks earlier, and that staging *is* the
+entry's own recorded fix-shape. The line it cited, `organizer.py:1251`, is `_MetadataBaker`:
+a hundred files at a time, previous chunk removed before the next is staged.
+
+⚠ **`Retires`, not `Closes`, and the distinction is the whole point.** A `SHIPPED.md` row would
+credit a fix nobody made, and the next reader would find a closure with no commit behind it. The
+reason is kept in full at [`research/backlog/ags.md`](research/backlog/ags.md), which is now a
+**record** rather than a body - it is the primary evidence behind §4's seventieth member, so it is
+linked rather than folded in here. That diverges from `(abp)`, `(abh)` and `(adb)`, whose bodies
+were deleted because their reasons were a sentence each; this one is a measured proof with eight
+citations, and the *Item letters* section is a registry, not a home for one.
+
 Several early letters no longer appear anywhere in this file: their items shipped and the
 Shipped entries describe the work rather than repeating the letter. `(e)` and `(h)` are still
 cited by name in `drive-identity-research.md` and `org-structure-research.md`. **A letter that
@@ -127,15 +175,6 @@ is invisible here is retired, not free.**
   where a bare probe's refused-as-`False` changes a sentence or a count - never a recorded fact,
   never an action (those seven are fixed under `(aey)`). Fix opportunistically with
   `path_reach.reach`, one voice across the messages. [Full entry](research/backlog/agt.md)
-
-- **(ags) INGEST EXTRACTS A WHOLE ARCHIVE INTO THE USER'S TEMP, WHICH IS OFTEN RAM.** Filed
-  2026-08-23 from the P30 tmpfs investigation. `organizer.py:1251` extracts into a
-  `TemporaryDirectory` that follows `TMPDIR` - the user's `/tmp`, tmpfs on many Linux
-  desktops - so a 20 GB Takeout ingest is 20 GB of RAM and swap before a file reaches the
-  library. The fix's shape (not designed): extraction scratch belongs beside the ingest
-  DESTINATION, same volume, so the final move is a rename - `suite_scratch.py`'s ruling
-  reaching the product. `exif.py:265`'s argfiles are named as fine (tiny, unlinked in
-  `finally`) so nobody widens this onto them. [Full entry](research/backlog/ags.md)
 
 - **(agp) THE BUSY MESSAGE NAMES A SECOND WINDOW THAT DOES NOT EXIST, AT THE USER'S FIRST CLICK.**
   Recorded 2026-08-23, split out of `(adt)` when it closed, **ranked above `(agq)` by the
@@ -468,8 +507,14 @@ is invisible here is retired, not free.**
   2026-08-02. [Full entry](research/backlog/aas.md)
 - **(aau) A zero-warning test lane, and why it is not one today.** Recorded 2026-08-02. [Full
   entry](research/backlog/aau.md)
-- **(aai) The plain copy path does not verify at write time.** Recorded 2026-07-31. [Full
-  entry](research/backlog/aai.md)
+- **(aai) The plain copy path does not verify at write time. DEFERRED with the cost stated - not
+  an open item awaiting work.** Recorded 2026-07-31. The entry's original framing was **wrong and
+  its fix would have been a regression**; what remains is detection latency, not correctness.
+  ⚠ **The status was in the body and not on this line until 2026-08-24**, which is how a handoff
+  came to rank it third among live engine work - the reader who only reads the index is the reader
+  this file is *for*. Left in *Approved - still to build* deliberately: this file's own top rule is
+  that **status is per entry, never per section**, and moving an entry so a heading agrees with it
+  is that rule broken in the act of tidying. [Full entry](research/backlog/aai.md)
 - **(aaf) Persisted skip record - "show me what was skipped last week".** [Full
   entry](research/backlog/aaf.md)
 - **(aag) Near-duplicate grouping and burst review.** A review surface over behaviour that is

@@ -770,6 +770,27 @@ memory dressed as one.
   **"which surfaces was this never carried to"**, and the answer is worth an explicit check rather
   than an assumption.
 
+  ⚠ **A VARIANT, ONE INSTANCE, RECORDED HERE RATHER THAN GIVEN A MEMBER OF ITS OWN (2026-08-24):
+  the HALF-REFRESHED artifact.** Same mechanism, arriving through *maintenance* instead of
+  authoring - **one commit re-resolves one half of a two-part structure and leaves the other**.
+  `219359c` re-resolved `cli-app-parity.md`'s route column and left the CLI column beside it, in
+  the same table, in the same commit; fifteen citations stayed wrong for another day. Above, two
+  agreeing sites make a third invisible; here **the freshly-checked half lends its credibility to
+  the half nobody looked at**, and it is worse than an obviously stale table, which at least
+  announces itself.
+
+  **Why a note and not the seventy-first member.** One instance. A member off a single instance is
+  how folklore gets into a standard, and this one's mechanism is already stated above - what is new
+  is the delivery, not the failure. **A second instance earns it a number.**
+
+  ⚠ **And it is deliberately not filed against `(ago)`, which would be the tempting home.** That
+  guard missed the same fifteen citations, but for an unrelated reason: it applied its detector
+  uniformly and the detector cannot see a line that drifted onto other real code - a limit `(ago)`
+  states about itself. **A blind spot in an instrument and a scope decision by a person are
+  different defects**, and filing one under the other would credit the guard with a judgement it
+  never made. *The practical form:* when you refresh part of a structure, either finish it or say
+  in the commit which part you did not check.
+
   ⚠ **And the coverage gap that let it ship is the same shape.** No test anywhere organized into
   **two** destinations. Every two-drive scenario in the suite reached the second drive via
   `backup_run` - the surface that was already right - and
@@ -1971,11 +1992,56 @@ memory dressed as one.
   the interpreter loaded before you change anything - the temptation is to "fix" the correct code,
   and that edit is the real damage.
 
+- **AN ENTRY THAT ASSERTS AN ABSENCE MUST CARRY THE CHECK THAT WOULD FALSIFY IT.** The seventieth
+  member, and the sibling of the one below: that one is about **how an investigation reads**, this
+  is about **what the filing has to leave behind.** A reading cannot be audited after the fact; a
+  recorded command can be re-run by anyone, including by the person who wrote it.
+
+  > **The pattern is in the FILING, not in the code.** Seven premises went false in three days, and
+  > what they share is not a subsystem - it is that **every one asserted an absence and none
+  > recorded the check.**
+
+  *The census, 2026-08-24, and it splits into two causes rather than one.*
+
+  **A - the filer matched a NAME and never reached the behaviour.** Three instances, and each is
+  recorded in its own closure:
+
+  | entry | the name that satisfied the reader | what it actually was |
+  |---|---|---|
+  | `(ace)` | the entry asked for `scripts/mutate.py` | the tool had shipped as `mutate_once.py`, doing exactly what was asked - *"the letter was matched against a filename rather than against a behaviour"* |
+  | `(ags)` | `TemporaryDirectory(prefix="truestill-ingest-")` - the string says *ingest* | that is `_MetadataBaker`, a hundred files at a time; archives extract under `destination/.truestill-staging` and always had |
+  | `(agq)` | `inspect_catalog`'s docstring, *"does not create a missing catalog"* - **true** | `migrate_catalog`, three functions below, creates it at every boot |
+
+  **B - true when noted, and nothing struck it out.** `(abi)` (entry and fix the same day, a note
+  written hours before the work), `(aak)` (closed as a side effect of a feature commit; the
+  surviving docstring said so for eighteen days) and `(abs)` (built by `(afc)` under another name).
+  This is the *fixed-under-another-name* family, already recorded, and no closure guard can see it:
+  `Closes (xyz)` only observes commits that name the letter.
+
+  **One line answers both, which is why it is worth a member.** A recorded command **kills A at
+  filing time** - all three die to a grep somebody could have run first - and **makes B re-runnable
+  later**, because a check carries a date and a stale check is something a reader can execute
+  rather than a premise they must re-derive.
+
+  ⚠ **The repo already owns the vocabulary and does not require it, and that gap is the finding.**
+  *"Checked, not assumed"* and its variants appear **53 times** across the corpus - overwhelmingly
+  in closures and records, where the checking has already paid off - and in **6 of 149** backlog
+  bodies, where it would have done the work. Meanwhile **42 of 90** open entries carry a negative
+  headline. The practice is not missing; it is applied after the fact.
+
+  **The rule is scoped to negative claims and stays a convention.** A negative is the one kind of
+  claim a single command can kill - one hit refutes it - so the evidence is cheap exactly where it
+  is decisive. Extending it to every entry would be a research standard, which §3 above already
+  owns; making it a hook would mean a guard deciding what counts as a negative claim in English,
+  and `test_backlog_references.py`'s `_PENDING` list was narrowed twice for firing on ordinary
+  prose. `BACKLOG.md` carries the filer-facing form and the reason it is not retroactive.
+
 - **A TRUE ANSWER FROM THE FIRST FUNCTION IS NOT THE ANSWER. READ TO THE LAST FUNCTION THAT CAN
   CHANGE IT.** The sixty-ninth member, about how an investigation reads rather than how a guard
   checks - the siblings that stop one step short (the fifty-fourth's proxy census, the
   sixty-seventh's outermost exception) are about code; this one is about the reading that files
-  and closes entries.
+  and closes entries. The seventieth above is its other half: this one is what to do while
+  reading, that one is what the reading must leave on the page.
 
   > The defect is not misreading - every sentence read was true. It is **stopping at the first
   > function that answers the question rather than the last one that changes the answer.**

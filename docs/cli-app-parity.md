@@ -132,7 +132,9 @@ app-only paragraph, and four ranges in the flags section.
   is the limit `(ago)` states about itself, demonstrated on the document it was auditing.
 - ⚠ **`219359c` then re-resolved the route column and left the CLI column beside it**, in the same
   table, in the same commit. **A half-refreshed table is worse than a stale one**: it reads as
-  freshly checked, and the half nobody touched inherits that credibility.
+  freshly checked, and the half nobody touched inherits that credibility. *(Recorded 2026-08-24 as
+  a variant of `ENGINEERING_STANDARD.md` §4's fifty-sixth member - a note there rather than a
+  member of its own, because this is its only instance. A second one earns it a number.)*
 - ⚠ **The offsets were not uniform, so "add 18" would have been wrong.** Fourteen of the fifteen
   had moved by 18 lines; `clean-empty` had moved by **51**. An offset is a guess about a diff, and
   a citation repaired from a guess is a citation nobody has read.
