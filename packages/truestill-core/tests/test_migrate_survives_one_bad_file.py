@@ -527,7 +527,10 @@ def test_each_stop_kind_is_worded_as_its_table_row_says(
         stopped=MigrationStop(kind=kind, reason="because", never_attempted=2),
     )
 
-    assert _report_migration_shortfall(outcome) == exit_code
+    # The reporter takes the two facts it needs rather than a whole outcome, because it now
+    # serves BOTH directions of one command - `undo_migration` returns an `UndoOutcome` and the
+    # two types share only the stop and the refusals. `(agx)`
+    assert _report_migration_shortfall(outcome.stopped, outcome.refused) == exit_code
     captured = capsys.readouterr()
     assert ("Cancelled:" in captured.out) is is_cancel
     assert (captured.err == "") is is_cancel, "only a fault goes to stderr"

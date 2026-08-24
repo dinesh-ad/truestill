@@ -338,6 +338,10 @@ class UndoJobSummary(TypedDict):
     label: str
     reversed_files: int
     refused: list[UndoRefusalPayload]
+    #: ⚠ **Absent until `(agx)`, because the reversal RAISED instead of stopping** - so a run
+    #: that put files back and then met a bad one reached the screen as a job error with no
+    #: count. The same `MigrationStopPayload` the forward apply carries: one command, one shape.
+    stopped: MigrationStopPayload | None
     run_id: str | None
     applied: bool
     elapsed_seconds: NotRequired[float]
@@ -386,6 +390,15 @@ def migration_undo(path: Path, db: Path, *, apply: bool) -> JobTarget | DriveUna
         return {
             "label": marker.label,
             "reversed_files": outcome.reversed_files,
+            "stopped": (
+                None
+                if outcome.stopped is None
+                else {
+                    "kind": outcome.stopped.kind.value,
+                    "reason": outcome.stopped.reason,
+                    "never_attempted": outcome.stopped.never_attempted,
+                }
+            ),
             "refused": [
                 {"relative": relative, "reason": reason} for relative, reason in outcome.refused
             ],

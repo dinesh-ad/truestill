@@ -42,6 +42,18 @@ def _outcome(
     )
 
 
+def _shortfall(outcome: MigrationOutcome) -> int:
+    """The reporter takes the two facts it needs, not a whole outcome. `(agx)`
+
+    It serves **both directions of one command** now - `run_migration` returns a
+    `MigrationOutcome`, `undo_migration` an `UndoOutcome`, and they share only the stop and the
+    refusals. Passing an outcome would have meant a second reporter or a Protocol invented for
+    two call sites; `(afe)` binds the two halves to one voice, and two reporters is how they
+    drift apart.
+    """
+    return _report_migration_shortfall(outcome.stopped, outcome.refused)
+
+
 # --- the CLI half ---------------------------------------------------------------------------
 
 
@@ -53,7 +65,7 @@ def test_a_stopped_migration_does_not_exit_zero(capsys: pytest.CaptureFixture[st
         never_attempted=31_196,
     )
 
-    code = _report_migration_shortfall(_outcome(migrated=12, stopped=stop, refused=[]))
+    code = _shortfall(_outcome(migrated=12, stopped=stop, refused=[]))
     captured = capsys.readouterr()
 
     assert code == 4, "a run the destination stopped takes the destination code, not success"
@@ -71,7 +83,7 @@ def test_a_cancelled_migration_reads_as_a_choice(capsys: pytest.CaptureFixture[s
         kind=MigrationStopKind.CANCELLED, reason="you stopped it. migrate again", never_attempted=3
     )
 
-    code = _report_migration_shortfall(_outcome(migrated=1, stopped=stop, refused=[]))
+    code = _shortfall(_outcome(migrated=1, stopped=stop, refused=[]))
     captured = capsys.readouterr()
 
     assert code == 0
@@ -83,7 +95,7 @@ def test_a_refusal_that_did_not_stop_the_run_is_named_and_costs_the_code(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """The plan is unfinished even though nothing stopped: the journal keeps those moves."""
-    code = _report_migration_shortfall(
+    code = _shortfall(
         _outcome(migrated=3, stopped=None, refused=[("Camera/2023/p1.jpg", "it vanished")])
     )
     captured = capsys.readouterr()
@@ -159,7 +171,7 @@ def test_the_app_summary_carries_the_stop_and_the_refusals(
 
 def test_a_clean_run_reports_neither(capsys: pytest.CaptureFixture[str]) -> None:
     """Cry-wolf: the reporter must stay silent and return 0 when nothing went wrong."""
-    code = _report_migration_shortfall(_outcome(migrated=4, stopped=None, refused=[]))
+    code = _shortfall(_outcome(migrated=4, stopped=None, refused=[]))
     captured = capsys.readouterr()
 
     assert code == 0

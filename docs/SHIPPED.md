@@ -105,6 +105,45 @@ recording shipped work as unstarted, which is the more expensive direction of th
   - **`(aha)`'s in-place row is NOT covered and the entries differ** - see its own text.
   [Full entry](research/backlog/agv.md)
 
+- **(agx) A REVERSAL THAT STOPS NOW REPORTS WHAT IT PUT BACK.** Shipped 2026-08-24.
+  `undo_migration` **raised** on a verification failure and `done`/`refused` are locals, so a
+  reversal that put 900 files back and then met one bad file reported **nothing it did** -
+  `(agj)`'s shape on the surface `(agm)` had corrected beside it. **The forward path and its own
+  undo disagreed, which is worse than both being wrong**: a reader who checked one concluded the
+  pattern held.
+  - **Mirrored, not invented.** Reuses `MigrationStop` and `MigrationStopKind` unchanged, and the
+    forward path's classification verbatim - `persists_for_the_run(exc) or isinstance(exc,
+    VerificationFailedError)`. **No kind was added**: `GROUND_MOVED` simply never occurs here
+    because the reversal builds no `run_health` watcher, and an unused member is not a missing
+    one. `(afe)` binds the two halves of one command to one voice.
+  - ⚠ **The cancel already broke the loop and said NOTHING about why**, so a reversal stopped at
+    the user's word was indistinguishable from one that finished. It now carries
+    `CANCELLED` + `CANCELLED_REASON`, the same string the forward half prints.
+  - ⚠ **ONE HANDLER OVER THE WHOLE ROW'S I/O, because the raise had widened since `(agx)` was
+    filed.** `(agm)` stopped `_matches` swallowing `DestinationError`, which gave the pre-check
+    a second escape: `checksum` on a failing drive left `undo_migration` entirely, unclassified.
+    A handler over the write half alone would have looked complete and left that route open. The
+    row body is **extracted** into `_reverse_one` rather than raising the branch ceiling -
+    `IMPLEMENTATION_STANDARDS.md`'s answer to complexity - which also gives the loop one place
+    to wrap.
+  - **Q311 re-verified against today's code rather than inherited from the entry**, because
+    migrate had changed twice under it: `LocalDestination.relocate` is `copy_leaving_nothing`, a
+    **COPY**, so at the failure the file is at *both* paths, and every catalog write is strictly
+    downstream of the verify. The catalog still names where the file really is, the journal row
+    survives, and a re-run resumes. **It was report-only, and it stayed report-only.**
+  - **Both surfaces, one reporter.** `_report_migration_shortfall` now takes the two facts it
+    needs - the stop and the refusals - rather than a whole outcome, because the two directions
+    return different types and share only those. The CLI's undo **returned `0` whatever
+    happened**, including for refusals it was already printing; it now spends the code the same
+    way the forward half does. The app's `UndoJobSummary` carries `stopped`.
+  - Four mutations, all caught after two were rebuilt: ⚠ **the first was a NO-OP** -
+    `DestinationError` subclasses `RuntimeError`, so `except RuntimeError` caught it identically
+    and the mutant was never the code under test. ⚠ **The second was VALID and found a real
+    gap**: every stop in the suite also carried a refusal, so `clean` reading `not self.refused`
+    alone survived them all. The cancel - a stop with an **empty** `refused` list - is the only
+    case that discriminates, and it now asserts it.
+  [Full entry](research/backlog/agx.md)
+
 - **(aep) A FAILED COPY SAYS NEITHER "UPLOAD" NOR A RAW `errno`.**
   Shipped 2026-08-22. Two §9 violations lived in one fall-through line, and the rule against each
   was already written down elsewhere. What a user read, verbatim:

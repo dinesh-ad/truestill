@@ -182,17 +182,6 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(agx) `undo_migration` RAISES ON A VERIFICATION FAILURE AND THROWS AWAY WHAT IT ALREADY
-  REVERSED.** Filed 2026-08-24 while writing `(agm)`'s missing tests. `migrate.py:840` raises
-  when a file no longer hashes to what the migration recorded; `done` and `refused` are locals,
-  so a reversal that put 900 files back and then met one bad file **reports nothing it did**.
-  🔑 **The asymmetry has FLIPPED**: `(agm)` gave the forward path a `MigrationStop` and a
-  `refused` list, so the undo is now the outlier against its own forward run - `(agj)`'s shape
-  (*"a stopped organize took its own paperwork down with it"*). ⚠ **The data is not at risk** -
-  nothing moves, the journal row stays, a re-run resumes; the loss is the report. Fix-shape:
-  return an outcome with a stop, reusing `MigrationStop`. ⚠ Its raise path has **zero coverage**
-  (grepped), so build it test-first. [Full entry](research/backlog/agx.md)
-
 - **(ahb) THE UNDATED REPORT NAMES THE PROBLEM AND LINKS TO NOTHING.** Filed 2026-08-24 (P53).
   **Ranked ABOVE `(aha)`** - a route is worth more than a defect note, because it is what keeps a
   user out of the defect. The Organize result says *"No reliable date could be found, so these are

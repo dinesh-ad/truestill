@@ -152,7 +152,7 @@ from truestill_core.left_behind import (
 from truestill_core.migrate import (
     ROUTE_SIDE_BIN,
     LabelRoute,
-    MigrationOutcome,
+    MigrationStop,
     MigrationStopKind,
     label_routes,
     plan_migration,
@@ -3945,9 +3945,11 @@ def _cmd_migrate_undo(args: argparse.Namespace, marker: DriveMarker) -> int:
 
         applied = undo_migration(catalog, destination, marker.uuid, apply=True)
         print(f"\nPut {applied.reversed_files} file(s) back.")
-        for relative, reason in applied.refused:
-            print(f"  ! {relative}: {reason}")
-        return 0
+        # ⚠ **The same reporter as the forward path** (`(agx)`). This printed its refusals and
+        # returned **0** whatever happened - the defect `(agm)` fixed one direction of, still
+        # live in the other. `(afe)` binds the two halves of one command, and two reporters is
+        # how they drift apart again.
+        return _report_migration_shortfall(applied.stopped, applied.refused)
 
 
 def _print_routing(routes: list[LabelRoute], rules_by_sha: dict[str, str]) -> bool:
@@ -3999,7 +4001,9 @@ def _print_migration_plan_preview(plan: Any, mount: Path) -> None:
         print(f"  ! {warning}")
 
 
-def _report_migration_shortfall(outcome: MigrationOutcome) -> int:
+def _report_migration_shortfall(
+    stopped: MigrationStop | None, refused: list[tuple[str, str]]
+) -> int:
     """Say what a migration did not do, and spend the exit code on it. `(agm)` D1.
 
     ⚠ **THIS SURFACE RETURNED `0` AFTER EVERY RUN.** `(agi)`'s ground watcher has set
@@ -4013,16 +4017,16 @@ def _report_migration_shortfall(outcome: MigrationOutcome) -> int:
     same reason. The other two are the run failing to do what it was asked, and take `4` - the
     destination code `_stopped_run_exit` already uses for a run the destination stopped.
     """
-    for relative, reason in outcome.refused:
+    for relative, reason in refused:
         print(f"  refused: {relative} -- {reason}", file=sys.stderr)
-    if outcome.stopped is None:
+    if stopped is None:
         # A refusal that did not stop the run still means the plan is unfinished: the journal
         # keeps those moves and a re-run clears them, so the code says there is work left.
-        return 1 if outcome.refused else 0
-    cancelled = outcome.stopped.kind is MigrationStopKind.CANCELLED
+        return 1 if refused else 0
+    cancelled = stopped.kind is MigrationStopKind.CANCELLED
     print(
-        f"  {'Cancelled' if cancelled else 'Stopped'}: {outcome.stopped.reason}\n"
-        f"  {outcome.stopped.never_attempted} move(s) were not reached.",
+        f"  {'Cancelled' if cancelled else 'Stopped'}: {stopped.reason}\n"
+        f"  {stopped.never_attempted} move(s) were not reached.",
         file=sys.stdout if cancelled else sys.stderr,
     )
     return 0 if cancelled else 4
@@ -4112,7 +4116,7 @@ def _cmd_migrate_layout(args: argparse.Namespace) -> int:
         if outcome.resumed:
             print(f"Recovered {outcome.resumed} move(s) from an interrupted run.")
         print(f"\nMigrated {outcome.migrated} file(s). Sources were never touched.")
-        code = _report_migration_shortfall(outcome)
+        code = _report_migration_shortfall(outcome.stopped, outcome.refused)
         _offer_cleanup(catalog, marker.uuid, args.path)
         return code
 

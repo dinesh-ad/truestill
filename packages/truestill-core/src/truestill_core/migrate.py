@@ -800,10 +800,65 @@ class UndoOutcome:
     reversed_files: int
     #: ``(relative, reason)`` for each move left alone -- never silently overwritten.
     refused: list[tuple[str, str]]
+    #: Why the reversal ended early, or ``None``. ⚠ **`(agx)`: this used to RAISE**, and
+    #: `reversed_files`/`refused` are locals, so a reversal that put 900 files back and then met
+    #: one bad file reported **nothing it did** - `(agj)`'s shape on the half `(agm)` had just
+    #: corrected beside it. **The same `MigrationStop` the forward path returns**, deliberately,
+    #: because one command reporting its two directions in two vocabularies is what `(afe)` binds
+    #: against.
+    stopped: MigrationStop | None = None
 
     @property
     def clean(self) -> bool:
-        return not self.refused
+        """Nothing refused **and** nothing stopped.
+
+        ⚠ **The stop belongs here or a stopped reversal reads as a finished one** - the CLI exits
+        on this and the screen words itself from it, so omitting it would make the fix report
+        success for the failure it exists to surface.
+        """
+        return not self.refused and self.stopped is None
+
+
+def _reverse_one(
+    catalog: Catalog,
+    destination: Destination,
+    drive_uuid: str,
+    row: Any,
+    *,
+    apply: bool,
+) -> str | None:
+    """Put one migrated file back. Returns a refusal reason, or ``None`` if it was reversed.
+
+    **Extracted rather than raising the branch ceiling** - `IMPLEMENTATION_STANDARDS.md`'s answer
+    to complexity, and the same move `_stopped_run_exit` and `_apply_the_undo` made. It also gives
+    the caller one place to wrap: every read and write for a row happens inside this call, so a
+    `DestinationError` from *any* of them lands in one handler.
+
+    ⚠ **Ordering is the forward path's, and it is what makes a refusal safe**: the migrated copy
+    is removed only after the restored one has been re-hashed, so there is never an instant with
+    zero copies - and every catalog write is downstream of that verify, so a failure leaves the
+    catalog naming the path the file is still at.
+    """
+    new_relative = str(row["new_relative"])
+    old_relative = str(row["old_relative"])
+    expected = row["copy_sha256"]
+
+    if not destination.exists(new_relative):
+        return "the migrated copy is no longer there"
+    if expected and destination.checksum(new_relative) != expected:
+        return "changed since the migration -- left untouched"
+    if not apply:
+        return None
+
+    destination.relocate(new_relative, old_relative)
+    if not _matches(destination, old_relative, expected):
+        message = f"verification failed after putting {old_relative} back"
+        raise VerificationFailedError(message)
+    catalog.relocate_copy(str(row["sha256"]), drive_uuid, old_relative)
+    if old_relative != new_relative:
+        destination.remove(new_relative)
+    catalog.forget_migration_move(str(row["sha256"]), drive_uuid)
+    return None
 
 
 def undo_migration(
@@ -844,48 +899,57 @@ def undo_migration(
     total = len(rows)
 
     refused: list[tuple[str, str]] = []
+    stop: tuple[MigrationStopKind, str] | None = None
     done = 0
     processed = 0
     for row in rows:
         if cancel is not None and cancel.is_set():
+            # The break was already here and said nothing about why - a reversal that stopped at
+            # the user's word looked identical to one that finished. `(agx)`
+            stop = (MigrationStopKind.CANCELLED, CANCELLED_REASON)
             break
+        # Only what the LOOP needs: the refusal key and the progress label. Everything else the
+        # row carries is `_reverse_one`'s business now.
         new_relative = str(row["new_relative"])
-        old_relative = str(row["old_relative"])
-        expected = row["copy_sha256"]
-        item = PurePosixPath(old_relative).name
+        item = PurePosixPath(str(row["old_relative"])).name
 
-        if not destination.exists(new_relative):
-            refused.append((new_relative, "the migrated copy is no longer there"))
+        # ⚠ **ONE HANDLER OVER THE WHOLE ROW'S I/O, not just the write half.** `(agm)` stopped
+        # `_matches` swallowing `DestinationError`, which gave the pre-check below a second way
+        # out: `checksum` on a failing drive escaped `undo_migration` entirely, unclassified,
+        # taking the report with it. A handler that covered only the relocate would have left
+        # that route open while looking complete.
+        # ⚠ **ONE HANDLER OVER THE WHOLE ROW'S I/O, not just the write half.** `(agm)` stopped
+        # `_matches` swallowing `DestinationError`, which gave the pre-checks a second way out:
+        # `checksum` on a failing drive escaped `undo_migration` entirely, unclassified, taking
+        # the report with it. A handler covering only the relocate would leave that route open
+        # while looking complete.
+        try:
+            refusal = _reverse_one(catalog, destination, drive_uuid, row, apply=apply)
+        except DestinationError as exc:
+            # **The forward path's handler, unchanged** - same predicate, same classification,
+            # because this is the other direction of one command and `(agi)`'s rule does not care
+            # which way the files are moving. Nothing is lost by refusing: `relocate` is a COPY,
+            # so the file is still at `new_relative`, and every catalog write in `_reverse_one`
+            # is downstream of the verify, so the catalog still names where it really is.
+            refused.append((new_relative, str(exc)))
             processed += 1
+            if persists_for_the_run(exc) or isinstance(exc, VerificationFailedError):
+                stop = (MigrationStopKind.COULD_NOT_CONTINUE, str(exc))
+                break
             if progress is not None:
                 progress(Progress(processed, total, Phase.RESTORING, item))
             continue
-        if expected and destination.checksum(new_relative) != expected:
-            refused.append((new_relative, "changed since the migration -- left untouched"))
-            processed += 1
-            if progress is not None:
-                progress(Progress(processed, total, Phase.RESTORING, item))
-            continue
-        if not apply:
+        if refusal is None:
             done += 1
-            processed += 1
-            if progress is not None:
-                progress(Progress(processed, total, Phase.RESTORING, item))
-            continue
-
-        destination.relocate(new_relative, old_relative)
-        if not _matches(destination, old_relative, expected):
-            message = f"verification failed after putting {old_relative} back"
-            raise VerificationFailedError(message)
-        catalog.relocate_copy(str(row["sha256"]), drive_uuid, old_relative)
-        # Mirror the forward path exactly: the migrated copy is removed only after the restored
-        # one has been re-hashed, so there is never an instant with zero copies.
-        if old_relative != new_relative:
-            destination.remove(new_relative)
-        catalog.forget_migration_move(str(row["sha256"]), drive_uuid)
-        done += 1
+        else:
+            refused.append((new_relative, refusal))
         processed += 1
         if progress is not None:
             progress(Progress(processed, total, Phase.RESTORING, item))
 
-    return UndoOutcome(reversed_files=done, refused=refused)
+    stopped = (
+        None
+        if stop is None
+        else MigrationStop(kind=stop[0], reason=stop[1], never_attempted=total - processed)
+    )
+    return UndoOutcome(reversed_files=done, refused=refused, stopped=stopped)
