@@ -405,10 +405,18 @@ def test_a_file_that_vanishes_mid_check_is_refused(
     placed = lib / str(rows[0]["new_relative"])
     original = lib / str(rows[0]["old_relative"])
     real_stat = Path.stat
+    seen = {"n": 0}
 
     def vanishing(self: Path, *args: object, **kwargs: object) -> os.stat_result:
+        # ⚠ Adapted for `(aey)`'s seventh site (P36): `_why_not` now opens with `reach()`, whose
+        # single stat meets an all-calls ENOENT FIRST and answers the truer thing - the file is
+        # genuinely gone, MOVED_AWAY. This test's subject was always the identity check's OWN
+        # stat guard (the docstring above says so), so the vanish is scheduled on the SECOND
+        # stat: `reach` sees the file, then it is gone exactly at the size guard.
         if self == placed:
-            raise OSError(errno.ENOENT, "No such file or directory")
+            seen["n"] += 1
+            if seen["n"] > 1:
+                raise OSError(errno.ENOENT, "No such file or directory")
         return real_stat(self, *args, **kwargs)  # type: ignore[arg-type]
 
     monkeypatch.setattr(Path, "stat", vanishing)
@@ -420,3 +428,36 @@ def test_a_file_that_vanishes_mid_check_is_refused(
     assert len(refused) == 1, f"a file that vanished mid-check was not refused: {plan.skipped}"
     assert refused[0].reason is UndoSkip.UNREADABLE
     assert not original.exists()
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32" or os.geteuid() == 0,
+    reason="chmod 000 does not deny the owner on Windows, and root ignores it",
+)
+def test_a_refused_origin_is_not_treated_as_empty(
+    library: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """⚠ `exists()` on 3.14 returns False for a path the parent refuses to describe.
+
+    Undo's next step is a replace-capable rename onto that path. Refused must be UNREADABLE,
+    never "the origin is free".
+    """
+    lib, db = library
+    _organize(lib, db, monkeypatch)
+    rows = _rows(db)
+    placed = lib / str(rows[0]["new_relative"])
+    original = lib / str(rows[0]["old_relative"])
+    origin_parent = original.parent
+    assert origin_parent != lib
+    origin_parent.chmod(0o000)
+    try:
+        with Catalog(db) as catalog:
+            run = catalog.latest_undoable_run()
+            assert run is not None
+            plan = plan_undo(catalog, str(run["run_id"]))
+            run_undo(catalog, plan, apply=True)
+        refused = [s for s in plan.skipped if s.reason is UndoSkip.UNREADABLE]
+        assert refused, f"a refused origin was not skipped: {plan.skipped}"
+        assert placed.is_file(), "undo moved a file onto an origin it could not examine"
+    finally:
+        origin_parent.chmod(0o755)

@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ags). Next free: (agt).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(agt). Next free: (agu).**
 ⚠ **`(agf)` was cited by `pyproject.toml`, a test and `age.md` before its entry existed**, so for
 one commit three working citations resolved to nothing. Recorded because it is this section's own
 warning happening - *"nothing recorded which letters were spoken for"* - and the fix is to claim
@@ -121,6 +121,12 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(agt) REFUSED READS AS ABSENT IN MESSAGES AND REPORTS - `(aey)`'s wording residue.** Filed
+  2026-08-24 after two censuses in two days, so the list stops being re-derived: nine sites
+  where a bare probe's refused-as-`False` changes a sentence or a count - never a recorded fact,
+  never an action (those seven are fixed under `(aey)`). Fix opportunistically with
+  `path_reach.reach`, one voice across the messages. [Full entry](research/backlog/agt.md)
 
 - **(ags) INGEST EXTRACTS A WHOLE ARCHIVE INTO THE USER'S TEMP, WHICH IS OFTEN RAM.** Filed
   2026-08-23 from the P30 tmpfs investigation. `organizer.py:1251` extracts into a

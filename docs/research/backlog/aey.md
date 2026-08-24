@@ -207,3 +207,29 @@ banners as creatable before the open fails loudly), `bake.py:378`, `drives.py:21
 `left_behind.py:89`, `source_repoint.py:129`, `organizer.py:365` (reachable only via ACLs on a
 listable parent) - none records a fact or moves a byte; named here so the next audit inherits
 the list instead of re-deriving it.
+
+## The SEVENTH site closes the class - undo, 2026-08-24, and the split was not optional there
+
+`undo._why_not` (`undo.py:291-301`) probed with bare `is_file()`/`exists()`: a refused origin
+read as FREE, and a replace-capable rename then aimed at a path the OS would not describe - the
+`(agk)` shape one layer up. Its fail-first test was written in ANOTHER session (the machine's
+parallel one, orphaned when that session ended) and adopted rather than rewritten: it asserted
+the right property - `UndoSkip.UNREADABLE` in the plan AND the placed file still in place -
+for the right reason. Undo is the site where the verify/reclaim split question answers itself:
+reclaim could conflate because both failures mean *do not delete*, but undo's two failure
+meanings demand DIFFERENT actions - an ABSENT origin is the happy path (the slot is free), only
+REFUSED means stop. `run_undo` re-checks through the same `_why_not` predicate (its own comment:
+*"THE SAME PREDICATE AS THE PLAN"*), so plan and re-check were one fix site, not two.
+
+One adaptation, recorded: `test_a_file_that_vanishes_mid_check_is_refused` patched `Path.stat`
+to raise ENOENT for the whole plan; with `reach()` in front, an all-calls ENOENT now honestly
+reads MOVED_AWAY (the file IS gone). The test's subject was always the identity check's own
+stat guard, so the vanish is now scheduled on the SECOND stat.
+
+**The completeness bar, re-stated after two censuses**: not "no bare probes" - reclaim keeps
+its two deliberately - but "no site where refused-as-False records a false fact or aims an
+action". Seven sites met that bar; all seven are fixed. **How this is known rather than
+believed**: every one of the 66 bare boolean probes across core, cli and app has a written
+verdict (the P35 list above), the two audits arrived by different methods (except-shape, then
+failure-direction), and the wording residue now has its own letter - `(agt)` - so the next
+sweep starts from the list instead of the grep.

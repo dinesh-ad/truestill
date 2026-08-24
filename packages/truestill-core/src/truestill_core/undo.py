@@ -31,6 +31,7 @@ from truestill_core.catalog import Catalog
 from truestill_core.drive import path_is_usable_dir
 from truestill_core.drive_unwritable import persists_for_the_run
 from truestill_core.hashing import sha256_file
+from truestill_core.path_reach import Reach, reach
 from truestill_core.progress import Phase, Progress, ProgressCallback
 
 
@@ -48,7 +49,9 @@ class UndoSkip(StrEnum):
     #: only after re-hashing the destination, so it needs no undo row and this one describes
     #: nothing to reverse.
     WAS_A_COPY = "was_a_copy"
-    #: Identity could not be established, so nothing is moved. Never a silent pass.
+    #: Something this reversal had to examine could not be read - the file's content for
+    #: identity, or (since `(aey)`'s seventh site) a path the OS refused to describe at all.
+    #: Nothing is moved. Never a silent pass.
     UNREADABLE = "unreadable"
     #: The intent was recorded and the rename never happened - the file is still where it
     #: started. ⚠ **NOT A FAILURE**: there is nothing to put back. It exists because an intent
@@ -273,7 +276,7 @@ def plan_undo(
     )
 
 
-def _why_not(step: UndoStep) -> UndoSkipped | None:
+def _why_not(step: UndoStep) -> UndoSkipped | None:  # noqa: PLR0911 - one return per verdict, cheapest-first; folding them would hide which refusal fired
     """Why this row cannot be reversed, or ``None`` if it can. `(agk)`
 
     ⚠ **THE JOURNAL IS AN INTENT LOG, SO NOTHING HERE MAY TRUST THE ROW.** Every question is
@@ -288,17 +291,45 @@ def _why_not(step: UndoStep) -> UndoSkipped | None:
         # Not a rename at all. `organizer._move_source` verified the destination copy before
         # removing the source, so the file is accounted for and this row describes no move.
         return UndoSkipped(step, UndoSkip.WAS_A_COPY, "this file was copied, not renamed")
-    if not step.current.is_file():
-        if step.outcome is None and step.original.is_file():
-            # ⚠ **The "unknown" outcome, settled by the disk.** Nothing is at the new path and
-            # the file is still at the old one, so the rename never happened - which an intent
-            # log can express and a completed-moves log could not. Reporting this as *"no longer
-            # at the path this run left it"* would be false: the run never left it anywhere.
-            return UndoSkipped(
-                step, UndoSkip.NEVER_MOVED, "was never moved; it is still where it started"
-            )
+    # ⚠ `reach`, never a bare predicate - `(aey)`'s SEVENTH site, and the one where the split
+    # is not optional: unlike reclaim, undo's two failure meanings demand DIFFERENT actions. An
+    # ABSENT origin is the happy path (the slot is free, put the file back); only REFUSED means
+    # stop. Reclaim could conflate because both of its failures mean "do not delete"; here a
+    # conflated False read a refused origin as free and aimed a replace-capable rename at a
+    # path the OS would not even describe - the `(agk)` shape, one layer up. Verify's precedent
+    # (the split), not reclaim's, and each refusal names what could not be examined.
+    current = reach(step.current)
+    if current is Reach.REFUSED:
+        return UndoSkipped(
+            step, UndoSkip.UNREADABLE, "the path this run left it at could not be examined"
+        )
+    if current is not Reach.FILE:
+        if step.outcome is None:
+            origin = reach(step.original)
+            if origin is Reach.REFUSED:
+                return UndoSkipped(
+                    step,
+                    UndoSkip.UNREADABLE,
+                    "outcome unknown and where it started could not be examined",
+                )
+            if origin is Reach.FILE:
+                # ⚠ **The "unknown" outcome, settled by the disk.** Nothing is at the new path
+                # and the file is still at the old one, so the rename never happened - which an
+                # intent log can express and a completed-moves log could not. Reporting this as
+                # *"no longer at the path this run left it"* would be false: the run never left
+                # it anywhere.
+                return UndoSkipped(
+                    step, UndoSkip.NEVER_MOVED, "was never moved; it is still where it started"
+                )
         return UndoSkipped(step, UndoSkip.MOVED_AWAY, "no longer at the path this run left it")
-    if step.original.exists():
+    origin = reach(step.original)
+    if origin is Reach.REFUSED:
+        return UndoSkipped(
+            step,
+            UndoSkip.UNREADABLE,
+            "where it came from could not be examined, so it cannot be shown to be free",
+        )
+    if origin is not Reach.MISSING:
         return UndoSkipped(step, UndoSkip.ORIGIN_OCCUPIED, "something else is there now")
     return _identity_check(step)
 
