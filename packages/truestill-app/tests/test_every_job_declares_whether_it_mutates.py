@@ -135,3 +135,177 @@ def test_the_routes_that_write_user_files_all_hold_the_drive() -> None:
     assert {"organize", "backup", "migrate", "undo", "archive unpack"} <= writes, (
         f"a route that writes user files does not hold the drive: {sorted(writes)}"
     )
+
+
+# --- (agu): THE GUARD'S REACH - routes that never start a job were invisible to everything above
+
+
+def _route_handlers() -> dict[str, tuple[bool, bool, set[str]]]:
+    """Every handler in server.py: (starts a job, takes jobs.claim, service functions CALLED).
+
+    ⚠ **This is the reach `(agu)` found missing.** `_declared` above reads `_start_drive_job`
+    call sites, so a mutating route that never called it - clean-empty apply, which DELETES -
+    was invisible to the guard built for exactly that mistake. This walk starts from the other
+    end: every route, whatever it calls, and a classification that must exist for each.
+    """
+    tree = ast.parse(_SERVER.read_text(encoding="utf-8"))
+
+    def _calls_jobs_claim(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+        return any(
+            isinstance(call, ast.Call)
+            and isinstance(call.func, ast.Attribute)
+            and call.func.attr == "claim"
+            and isinstance(call.func.value, ast.Name)
+            and call.func.value.id == "jobs"
+            for call in ast.walk(fn)
+        )
+
+    # One hop, followed rather than named: a handler holds the claim if it calls `jobs.claim`
+    # itself OR references a helper whose own body does - the event-loop guard forces the
+    # acquisition into a pooled `def`, and this guard promptly failed its own author's hoist
+    # until it learned to follow the claim instead of expecting it inline.
+    claiming_helpers = {
+        fn.name
+        for fn in ast.walk(tree)
+        if isinstance(fn, ast.FunctionDef | ast.AsyncFunctionDef) and _calls_jobs_claim(fn)
+    }
+    found: dict[str, tuple[bool, bool, set[str]]] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            continue
+        if node.name == "create_app" or node.name in claiming_helpers:
+            continue
+        dumped = ast.dump(node)
+        starts_job = "_start_drive_job" in dumped
+        takes_claim = _calls_jobs_claim(node) or any(
+            isinstance(ref, ast.Name) and ref.id in claiming_helpers for ref in ast.walk(node)
+        )
+        # References, not just Call nodes: most routes hand `service.X` to `run_in_threadpool`
+        # UNCALLED, so a Call-only walk saw seventeen handlers where fifty exist (caught by the
+        # anti-vacuity floor below on its first run). Exception classes and constants are
+        # filtered by case - `BadContentIdError`, `THUMB_CACHE_CONTROL` - because a name that
+        # is not snake_case is not a route-invokable service function.
+        calls = {
+            attr.attr
+            for attr in ast.walk(node)
+            if isinstance(attr, ast.Attribute)
+            and isinstance(attr.value, ast.Name)
+            and attr.value.id == "service"
+            and attr.attr == attr.attr.lower()
+        }
+        if calls:
+            found[node.name] = (starts_job, takes_claim, calls)
+    return found
+
+
+#: Service calls that DELETE or overwrite files on a drive. A handler calling one must hold the
+#: exclusion - `_start_drive_job` or `jobs.claim` - and a new name lands here when the service
+#: gains one, which the census below forces to be a decision rather than a default.
+_MUST_HOLD_THE_EXCLUSION = {"clean_empty_apply"}
+
+#: Why each service function may be called from a bare route - the recorded decision, same
+#: doctrine as `_EXPECTED`. Three classes, each named at its entries: pure reads and payload
+#: builders; catalog-ROW writers (serialized by SQLite itself plus the `(agp)` busy handling,
+#: and deliberately outside drive locks - the gap `(aaw)` recorded and `(adt)`'s close split
+#: into residue letters); and the two deliberate non-catalog exemptions, with their reasons.
+_DIRECT_ALLOWED: dict[str, str] = {
+    # pure reads / payload builders
+    "organize_inventory": "walk and count; writes nothing",
+    "backup_preview": "read",
+    "clean_empty_preview": "plan_cleanup is pure - reads, never writes",
+    "bake_preview": "read",
+    "date_tier_files": "read",
+    "at_risk": "read",
+    "list_drives": "read",
+    "event_settings": "read",
+    "event_settings_payload": "payload builder",
+    "invalid_event_settings_payload": "payload builder",
+    "everyday_day_settings": "read",
+    "everyday_day_settings_payload": "payload builder",
+    "invalid_everyday_day_settings_payload": "payload builder",
+    "invalid_event_proposal_payload": "payload builder",
+    "propose_events": "reads the drive, proposes; moves nothing",
+    "proposed_review_cards_payload": "payload builder",
+    "review_cards_payload": "payload builder",
+    "merge_event_review_cards": "session-state only",
+    "split_event_review_card": "session-state only",
+    "fs_dirs": "read",
+    "filesystem_relationship": "read",
+    "fs_validate": "read",
+    "archive_precheck": "read",
+    "layout_state": "read",
+    "preview_layout": "read",
+    "library_stats": "read",
+    "library_status": "read",
+    "migration_armed_state": "read",
+    "organize_mode_state": "read",
+    "organize_undo_state": "read",
+    "sidebar_state": "read",
+    "text_size_state": "read",
+    "where": "a query",
+    "drive_ref_for": "lock-identity helper; reads a marker",
+    # catalog-ROW writers - rows, never files on the drive
+    "set_organize_mode": "catalog row",
+    "set_sidebar_collapsed": "catalog row",
+    "set_text_size": "catalog row",
+    "set_library_root": "catalog row",
+    "set_layout": "catalog row",
+    "set_event_settings": "catalog row",
+    "set_everyday_day_settings": "catalog row",
+    "confirm_file_date": "catalog row",
+    "apply_event_review_names": "catalog rows; its own docstring: 'No files move'",
+    # deliberate non-catalog exemptions
+    "fs_create": "mkdir parents exist_ok - idempotent, creates only, cannot destroy",
+    "thumbnail_bytes": "writes only the app's own cache directory, never the drive",
+    "reveal_in_file_manager": "spawns the OS file manager; writes nothing",
+}
+
+
+def test_every_bare_route_call_is_a_recorded_decision() -> None:
+    """⚠ **The reach itself.** A service call from a route that neither starts a job nor takes
+    the claim must be classified here, or the route fails the build - which is what "the guard
+    enumerates mutating routes" means, rather than the guard being told about one case."""
+    unclassified = {
+        f"{handler}: service.{call}"
+        for handler, (starts_job, takes_claim, calls) in _route_handlers().items()
+        if not starts_job and not takes_claim
+        for call in calls
+        if call not in _DIRECT_ALLOWED
+    }
+
+    assert not unclassified, (
+        "routes calling service functions with no recorded classification:\n  "
+        + "\n  ".join(sorted(unclassified))
+        + "\nEither the call belongs under _start_drive_job / jobs.claim, or its harmlessness "
+        "is a decision - record it in _DIRECT_ALLOWED with the reason."
+    )
+
+
+def test_a_deleting_service_call_only_runs_under_the_exclusion() -> None:
+    """⚠ **(agu)'s exact shape, held generally**: whatever handler calls a deleting service
+    function must hold the exclusion - a job or the claim - and fails here otherwise."""
+    unserialized = {
+        f"{handler} calls service.{call} with no job and no claim"
+        for handler, (starts_job, takes_claim, calls) in _route_handlers().items()
+        for call in calls & _MUST_HOLD_THE_EXCLUSION
+        if not (starts_job or takes_claim)
+    }
+
+    assert not unserialized, "\n".join(sorted(unserialized))
+
+
+def test_the_reach_scan_is_not_vacuous() -> None:
+    """A collector that silently matches nothing would pass both tests above forever."""
+    handlers = _route_handlers()
+    direct_calls = {
+        call
+        for _h, (job, claim, calls) in handlers.items()
+        for call in calls
+        if not job and not claim
+    }
+
+    assert len(handlers) >= 30, f"only {len(handlers)} handlers seen - the walk is broken"
+    assert len(direct_calls) >= 25, f"only {len(direct_calls)} direct calls seen"
+    assert any(claim for _j, (_job, claim, _c) in handlers.items()), (
+        "no handler takes jobs.claim - the clean-empty route lost its exclusion"
+    )

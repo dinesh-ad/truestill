@@ -40,7 +40,7 @@ from truestill_core.layout import InvalidEverydayDaySettingsError
 from truestill_core.trip_review import ReviewCard
 
 from truestill_app import __version__, service
-from truestill_app.jobs import DriveBusyPayload, JobManager, JobTarget
+from truestill_app.jobs import DriveBusyPayload, ExclusiveClaim, JobManager, JobTarget
 from truestill_app.security import LocalGuard
 
 
@@ -480,11 +480,32 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         emptied = [str(item) for item in body.get("emptied", [])]
         return JSONResponse(await run_in_threadpool(service.clean_empty_preview, path, emptied))
 
+    def _claim_clean_empty(path: Path) -> DriveBusyPayload | ExclusiveClaim:
+        return jobs.claim(
+            drives=[service.drive_ref_for(path)], operation="clean empty", mutating=True
+        )
+
     async def clean_empty_apply(request: Request) -> JSONResponse:
+        # ⚠ The one route that DELETES outside the job machinery, and it ran outside every lock
+        # until `(agu)`: no in-process occupancy, no `(aaw)` DriveLock, while the CLI declared
+        # the same command locked (`cli.py`'s map: "clean-empty": "path"). It stays synchronous
+        # - a sub-second call whose screen contract is the result, not a job id - so it takes
+        # the exclusion itself: `jobs.claim`, the same occupancy, wording and cross-process
+        # lock a mutating job gets, held in a try/finally around the delete.
         body = await request.json()
         path = Path(body["path"])
         emptied = [str(item) for item in body.get("emptied", [])]
-        return JSONResponse(await run_in_threadpool(service.clean_empty_apply, path, emptied))
+        # In the pool, whole: `drive_ref_for` reads a marker and `claim` takes a flock - disk
+        # work that would stall the event loop (its guard said so on this line's first draft,
+        # and again about the lambda that hid it - `_claim_clean_empty` is a plain function so
+        # the guard can see the call is pooled).
+        claimed = await run_in_threadpool(_claim_clean_empty, path)
+        if isinstance(claimed, dict):
+            return JSONResponse(claimed)
+        try:
+            return JSONResponse(await run_in_threadpool(service.clean_empty_apply, path, emptied))
+        finally:
+            claimed.release()
 
     def library_status(_request: Request) -> JSONResponse:
         return JSONResponse(

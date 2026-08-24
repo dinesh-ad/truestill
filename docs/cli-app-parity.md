@@ -53,18 +53,18 @@ apply one.**
 
 | subcommand | CLI | app route | state |
 |---|---|---|---|
-| `organize` | `cli.py:434` | `/api/organize/{inventory,preview,run,settings}` `server.py:820-823` | **covered**, including `--move` / `--in-place` via `mode` (`service/organize.py:86`, `server.py:225`) |
-| `undo-organize` | `cli.py:403` | `/api/organize/undo{,/preview,/apply}` `server.py:826-828` | **covered**, preview and apply |
-| `migrate-layout` | `cli.py:662` | `/api/migrate/{preview,run}` `server.py:846-847`; undo `:852-854` | **covered**, including `--undo` |
-| `verify` | `cli.py:599` | `/api/verify/run` `server.py:829` | **covered** |
-| `where` | `cli.py:594` | `/api/where` `server.py:865` | **covered**; `--limit` becomes paging |
-| `config` | `cli.py:629` | `/api/layout{,/preview}` `server.py:842-843` | **covered**; presets resolve client-side to a template |
+| `organize` | `cli.py:434` | `/api/organize/{inventory,preview,run,settings}` `server.py:878-881` | **covered**, including `--move` / `--in-place` via `mode` (`service/organize.py:86`, `server.py:225`) |
+| `undo-organize` | `cli.py:403` | `/api/organize/undo{,/preview,/apply}` `server.py:884-886` | **covered**, preview and apply |
+| `migrate-layout` | `cli.py:662` | `/api/migrate/{preview,run}` `server.py:904-905`; undo `:910-912` | **covered**, including `--undo` |
+| `verify` | `cli.py:599` | `/api/verify/run` `server.py:887` | **covered** |
+| `where` | `cli.py:594` | `/api/where` `server.py:923` | **covered**; `--limit` becomes paging |
+| `config` | `cli.py:629` | `/api/layout{,/preview}` `server.py:900-901` | **covered**; presets resolve client-side to a template |
 | `status` | `cli.py:611` | `/api/drives` `:863`, `/api/library/{status,stats}` `:839,:841` | **covered**; same `single_copy_shas` query both sides |
-| `clean-empty` | `cli.py:3660` | `/api/clean-empty/{preview,apply}` `server.py:837-838` | **partial** - `--permanent` deliberately absent (`service/clean_empty.py:71`), app refuses and points at the CLI |
-| `ingest` | `cli.py:460` | `/api/ingest/{preview,archives/precheck,archives/run}` `server.py:830-832` | ⚠ **partial - preview only.** `service/takeout.py:204` returns `ingest_preview(...)`; there is no apply endpoint. `--tz`, `--prefer-takeout-dates`, `--map-albums` unimplemented |
-| `drives` | `cli.py:509` | `/api/drives` `server.py:863` | **partial - list only.** Every marker-writing flag (`--init`, `--label`, `--uuid`, `--adopt-existing`, `--force-new-identity`, `--migrate-marker`) has no route |
-| `analyze` | `cli.py:588` | `/api/organize/inventory` `server.py:820` | **partial** - same walk-and-stat tier; `--all-files` missing |
-| `catalog` | `cli.py:620` | `/api/library/status` `server.py:839` | **partial - read half only.** `--move` has no route |
+| `clean-empty` | `cli.py:3660` | `/api/clean-empty/{preview,apply}` `server.py:895-896` | **partial** - `--permanent` deliberately absent (`service/clean_empty.py:71`), app refuses and points at the CLI |
+| `ingest` | `cli.py:460` | `/api/ingest/{preview,archives/precheck,archives/run}` `server.py:888-890` | ⚠ **partial - preview only.** `service/takeout.py:204` returns `ingest_preview(...)`; there is no apply endpoint. `--tz`, `--prefer-takeout-dates`, `--map-albums` unimplemented |
+| `drives` | `cli.py:509` | `/api/drives` `server.py:921` | **partial - list only.** Every marker-writing flag (`--init`, `--label`, `--uuid`, `--adopt-existing`, `--force-new-identity`, `--migrate-marker`) has no route |
+| `analyze` | `cli.py:588` | `/api/organize/inventory` `server.py:878` | **partial** - same walk-and-stat tier; `--all-files` missing |
+| `catalog` | `cli.py:620` | `/api/library/status` `server.py:897` | **partial - read half only.** `--move` has no route |
 | `reclaim` | `cli.py:643` | **none** | deliberate |
 | `restore` | `cli.py:559` | **none** | |
 | `repoint-sources` | `cli.py:546` | **none** | |
@@ -83,7 +83,7 @@ Recorded because *"organize is covered"* is true and hides them: `--all-files`, 
 
 ## The other direction: app-only, no CLI subcommand
 
-Worth knowing before anyone calls the CLI the complete surface. Backup (`server.py:867-868`), the
+Worth knowing before anyone calls the CLI the complete surface. Backup (`server.py:925-926`), the
 whole events and trips surface (`:845`, `:855-860`), date honesty and baking (`:848-851`),
 thumbnails (`:866`), `reveal` (`:864`), the filesystem picker (`:833-836`), library root (`:840`),
 and UI preferences (`:824-825`).

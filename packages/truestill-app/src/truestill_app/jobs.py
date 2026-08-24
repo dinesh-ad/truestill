@@ -96,6 +96,21 @@ class DriveBusyPayload(TypedDict):
 
 
 @dataclass(slots=True)
+class ExclusiveClaim:
+    """A synchronous route's hold on the exclusion a job would get. Release in ``finally``."""
+
+    manager: JobManager
+    keys: list[str]
+    token: str
+    cross: list[DriveLock]
+
+    def release(self) -> None:
+        for lock in self.cross:
+            lock.release()
+        self.manager._release_drives(self.keys, self.token)
+
+
+@dataclass(slots=True)
 class _Occupant:
     job_id: str
     operation: str
@@ -208,6 +223,46 @@ class JobManager:
                 current = self._occupied.get(key)
                 if current is not None and current.job_id == job_id:
                     del self._occupied[key]
+
+    def claim(
+        self,
+        *,
+        drives: Sequence[DriveRef],
+        operation: str,
+        mutating: bool,
+    ) -> DriveBusyPayload | ExclusiveClaim:
+        """The exclusion HALF of :meth:`start`, for a fast synchronous route. `(agu)`
+
+        The app's clean-empty apply deleted folders through a bare `run_in_threadpool` - no
+        in-process occupancy, no `(aaw)` cross-process lock - while the CLI declared the same
+        command locked. The requirement was always the EXCLUSION; the job machinery (worker
+        thread, SSE events, job record) was one client of it, and wrapping a sub-second
+        synchronous delete in a job would have changed what the screen receives for lock
+        reasons only. So the claim is factored out: same occupancy dict, same refusal wording,
+        same DriveLock, no job. A claim that cannot be taken returns the same
+        :class:`DriveBusyPayload` a refused job start does, so the screen needs no new state.
+
+        The caller MUST release - hold it in a ``try/finally`` around the synchronous work.
+        """
+        held = _unique_drives(drives)
+        assert held, "jobs.claim requires at least one drive"
+        token = uuid.uuid4().hex
+        with self._lock:
+            for drive in held:
+                occupant = self._occupied.get(drive.key)
+                if occupant is not None:
+                    return _busy_payload(occupant, drive.label)
+            for drive in held:
+                self._occupied[drive.key] = _Occupant(
+                    job_id=token, operation=operation, drive_label=drive.label
+                )
+            keys = [drive.key for drive in held]
+        try:
+            cross = _hold_across_processes(held) if mutating else []
+        except DriveBusyError as busy:
+            self._release_drives(keys, token)
+            return _busy_payload_for_other_process(busy)
+        return ExclusiveClaim(manager=self, keys=keys, token=token, cross=cross)
 
     def _abandon(self, keys: Sequence[str], job_id: str) -> None:
         """Undo `start` entirely, for a job that was never allowed to run.

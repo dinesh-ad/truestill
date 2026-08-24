@@ -105,6 +105,19 @@ recording shipped work as unstarted, which is the more expensive direction of th
   **not real**; there is no mechanism, and it is recorded as refuted rather than quietly dropped.
   [Full entry](research/backlog/agg.md)
 
+- **(agu) THE APP'S CLEAN-EMPTY APPLY DELETED OUTSIDE EVERY LOCK - FILED AND FIXED IN ONE
+  COMMIT.** 2026-08-24, from the outside audit's one confirmed serialization finding (P34 F2).
+  The route ran the product's only unserialized DELETE while the CLI declared the same command
+  locked; **reproduced on scratch, attempt 1**: an organize's just-created destination swept
+  between mkdir and copy, `FileNotFoundError` at the copy. Fixed with **`jobs.claim`** - the
+  exclusion half of `jobs.start` (same occupancy, wording and DriveLock, no job machinery),
+  because apply's screen contract is a synchronous result and the lock, not the wrapper, was
+  the requirement. The guard's REACH fixed with it, generally: every route handler enumerated,
+  every bare service reference classified or the build fails, a deleting call outside
+  job-or-claim red by rule - and the widened collector's anti-vacuity floor caught its own
+  first draft seeing 17 handlers of 50. Census: clean-empty was the only one. Ghost apply:
+  measured null (candidate set empty at a stand-in). [Full entry](research/backlog/agu.md)
+
 - **(aea) ONE LIVE CATALOG AND ONE FOSSIL, DATA-IDENTICAL - CLOSED BY INVESTIGATION.**
   Closed 2026-08-23. The feared "two intact catalogs, nothing reconciles them" resolved to one
   live record (`~/.local/share/Truestill/catalog.sqlite`) and one fossil (`reports/`,
