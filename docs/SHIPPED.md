@@ -1053,6 +1053,11 @@ recording shipped work as unstarted, which is the more expensive direction of th
     three delete-adjacent modules carried the defect.**
 
 - **(aey) ABSENT AND REFUSED ARE DIFFERENT ANSWERS, DECIDED ONCE, FROM ONE STAT.**
+  ⚠ *Corrected 2026-08-24: closed at FIVE sites, and there were SEVEN - verify (`verify.py`,
+  P35, found by an outside audit) and undo (`undo.py`, P36) both recorded false facts. The
+  census pattern matched only probes that already HAD an `except OSError`, so code that never
+  handled the exception was invisible to it. `aey.md` carries both re-censuses and the
+  completeness bar restated by failure direction; the wording residue is `(agt)`.*
   - ✅ **CLOSED 2026-08-21.** On Python 3.14 `Path.is_dir()`/`exists()`/`is_file()` stop raising on
     `EACCES` and return `False` ([cpython#144525](https://github.com/python/cpython/issues/144525)),
     so five sites answered *not there* about a path that had refused. `probe_dir` returned

@@ -12,6 +12,17 @@ All notable changes to this project are documented here. The format follows
   history of every run beside your catalog, with the full file-by-file detail of recent ones.
 
 ### Fixed
+- **A file Truestill is not allowed to look at is no longer reported as missing.** If a folder's
+  permissions blocked reading, verify counted its files as gone from the drive - a loss that had
+  not happened - and undo treated the blocked original location as free to move a file back onto.
+  Both now say plainly that the file could not be examined, and undo moves nothing it cannot see.
+- **Removing empty folders now waits its turn.** The app's "remove empty folders" could run while
+  an organize was creating those very folders, or while another Truestill held the drive - it now
+  takes the same turn-taking every other drive operation uses, and says who has the drive if it
+  must wait.
+- **At an unplugged drive's usual folder, the app no longer suggests registering it as new.** It
+  now says which drive it thinks belongs there and asks you to plug it in - the same answer the
+  command line gives, word for word.
 - **Backing up to an unplugged drive's usual folder is now refused instead of silently going to
   the wrong disk.** If your backup drive was not mounted, its folder looks empty - and copying
   there would put the files on your computer's own disk under a new drive identity, hidden the

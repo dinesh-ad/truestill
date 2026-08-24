@@ -445,10 +445,15 @@ all four artefacts from one derivation. Everything except publish.
   Its silence is not coverage. The three-OS `check` matrix is kept - it is the only thing that
   sees Windows and macOS, and on 2026-08-22 it caught **two** platform defects in one primitive
   that no Linux run could (`(aaw)`; `ENGINEERING_STANDARD.md` §4's sixty-first member).
-- **Never push unless asked.** ⚠ And a `pre-push` hook refuses when the previous push's run
-  is red **or still running** - `TRUESTILL_PUSH_ANYWAY=1 git push` to mean it. §2's *pending
-  result outranks a ready batch* covers **contention and outcome**, and only the first used
-  to be honoured, which is how three commits landed on a red `main` on 2026-08-21.
+- **Never push unless asked.** ⚠ And a `pre-push` hook judges the tip being pushed onto:
+  a RED tip refuses (`TRUESTILL_PUSH_ANYWAY=1` waives that one check - the agent runs it
+  itself when the push IS the fix, ruled 2026-08-24); a run STILL IN FLIGHT is waited out,
+  bounded at 480 s, then refused - `TRUESTILL_PUSH_CANCELS_THE_RUN=1` is the separate,
+  named escape that kills it. §2's *pending result outranks a ready batch* covers
+  **contention and outcome**; only the first used to be honoured (three commits on a red
+  `main`, 2026-08-21), and the gate itself ran INERT from 2026-08-23 to 08-24 because
+  pre-commit never forwards the stdin it read - `check_push_gate.py`'s docstring is the
+  full story.
 - **Commit identity policy:** `dinesh-ad`; no co-author/AI signature trailers.
 - **Corpus fence for real-library testing/profiling/soak** (short form; the binding wording is
   `IMPLEMENTATION_STANDARDS.md` §5, which is the source - do not restate it here):
