@@ -229,8 +229,12 @@ narrative, or volatile counts.
      leaves the accepted risk unmitigated rather than merely untidy.
      - **It changes what CI costs.** Measured over three runs **while the e2e job still ran**:
        **23, 27 and 42 wall-minutes** per push across four jobs, Windows alone 14-31 of them.
-       ⚠ **SINCE 2026-08-20 A PUSH IS THREE JOBS** - e2e is disabled - and one measured at
-       **3m26s** wall. **Re-measure before pricing the private-repo switch on the figures above.** Private repositories bill Windows and
+       ⚠ **SINCE 2026-08-20 A PUSH IS THREE JOBS** - the browser lane does not run on push - and
+       one measured at **3m26s** wall. **Re-measure before pricing the private-repo switch on the
+       figures above.** ⚠ *This clause read "e2e is disabled" until 2026-08-24, contradicting §4
+       of this same document, which has said since 2026-08-22 that the lane runs nightly. The
+       schedule is `IMPLEMENTATION_STANDARDS.md` §6.1's to state; what belongs here is only the
+       COST, which is what this paragraph is about.* Private repositories bill Windows and
        macOS at a multiplier on the included quota - **verify the current rates before switching**
        and decide then whether the matrix stays as it is.
      - **It changes how a vulnerability is reported** (`SECURITY.md` points at this repository).

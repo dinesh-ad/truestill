@@ -111,8 +111,8 @@ exactly once: when something hangs, you sit blocked for the whole ceiling before
 
 **Which layer to run, and when - the decision is a command, not a judgement.** Targeted tests in
 the inner loop, seconds. `make check` before every commit. ⚠ **`make gate` is NOT part of the
-routine loop since 2026-08-20**: the browser lane left CI (`e2e` is disabled until the first
-migrated screen) and is not run locally for backend work. If a change genuinely reaches a screen,
+routine loop since 2026-08-20**: it is not run locally for backend work, and **when the browser
+lane runs in CI is `IMPLEMENTATION_STANDARDS.md` §6.1's to say, not this file's.** If a change genuinely reaches a screen,
 say so and ask. The command still runs `check`, then `e2e` only when the diff touches
 `packages/truestill-app/src/` or `tests/e2e/`, and prints the files that decided it either way -
 what changed is when to invoke it, not what it does. `IMPLEMENTATION_STANDARDS.md` §6.1 is
@@ -779,9 +779,11 @@ memory dressed as one.
   the half nobody looked at**, and it is worse than an obviously stale table, which at least
   announces itself.
 
-  **Why a note and not the seventy-first member.** One instance. A member off a single instance is
-  how folklore gets into a standard, and this one's mechanism is already stated above - what is new
-  is the delivery, not the failure. **A second instance earns it a number.**
+  ⚠ **PROMOTED TO THE SEVENTY-FIRST MEMBER BELOW ON 2026-08-24, on its second instance, by the
+  rule this paragraph set.** It read: *"Why a note and not the seventy-first member. One instance.
+  A member off a single instance is how folklore gets into a standard... A second instance earns
+  it a number."* The second arrived, and the promotion is the note keeping its own promise rather
+  than a change of mind.
 
   ⚠ **And it is deliberately not filed against `(ago)`, which would be the tempting home.** That
   guard missed the same fifteen citations, but for an unrelated reason: it applied its detector
@@ -1991,6 +1993,35 @@ memory dressed as one.
   correctly, in a file `git diff` reports as unchanged, is this until proven otherwise. Check what
   the interpreter loaded before you change anything - the temptation is to "fix" the correct code,
   and that edit is the real damage.
+
+- **A PARTIAL REFRESH IS WORSE THAN NO REFRESH: THE HALF SOMEBODY CHECKED VOUCHES FOR THE HALF
+  THEY DID NOT.** The seventy-first member, promoted from a note on the fifty-sixth on its second
+  instance. That member is about a rule reaching two surfaces of three at **authoring** time; this
+  is the same invisibility arriving through **maintenance** - one commit refreshes part of a
+  structure, and the freshly-checked part lends its credibility to the rest.
+
+  > **An obviously stale document announces itself. A half-refreshed one does not** - it carries
+  > the marks of having just been checked.
+
+  *Instance one, 2026-08-24.* `219359c` re-resolved `cli-app-parity.md`'s route column and left the
+  CLI column beside it, in the same table, in the same commit. Fifteen citations stayed wrong for
+  another day, under a table that had visibly just been updated.
+
+  *Instance two, and it is the one that earns the number.* `4a6360e` - **whose subject is
+  literally "a staleness audit against the code"** - rewrote `PROJECT_STATUS.md` §4 to say the
+  browser lane *"runs nightly and on `workflow_dispatch`"* and left §2 of the same document saying
+  **"e2e is disabled"**. The document contradicted itself for two days, and the half that was wrong
+  sat under the authority of an audit that had just passed over it.
+
+  ⚠ **The aggravating detail is what makes it a member rather than an anecdote: an AUDIT can
+  half-refresh.** A reader who knows the document was audited trusts it more, not less, so the
+  surviving error is harder to doubt than it was before the audit ran.
+
+  **The practical form, and it is cheap:** when you refresh part of a structure, either finish it
+  or **say in the commit which part you did not check**. And when the structure is a document that
+  states the same rule in two places, `grep` the document for its own subject before claiming it is
+  current - `IMPLEMENTATION_STANDARDS.md` §6.1 was correct throughout both instances, because it is
+  the one place that *owns* the rule rather than restating it.
 
 - **AN ENTRY THAT ASSERTS AN ABSENCE MUST CARRY THE CHECK THAT WOULD FALSIFY IT.** The seventieth
   member, and the sibling of the one below: that one is about **how an investigation reads**, this
