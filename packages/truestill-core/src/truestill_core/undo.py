@@ -21,6 +21,7 @@ for a later file unwinds without colliding with itself.
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -158,10 +159,48 @@ class UndoPlan:
         return len(self.steps)
 
 
+class UndoStopKind(StrEnum):
+    """Whether a reversal was stopped BY the user or FOR them. `(agl)`
+
+    ⚠ **A field rather than a phrase inside `reason`, and that is `IMPLEMENTATION_STANDARDS.md`
+    §9's rule applied rather than restated**: *"errors are matched on an exception name, never on
+    message text"*. A surface that must word a cancel differently from a failure would otherwise
+    have to parse the sentence, and rewording it would silently change behaviour.
+    """
+
+    #: The user asked it to stop. Not a failure, and it must never read as one - it spends no
+    #: exit code and invents no per-file skip.
+    CANCELLED = "cancelled"
+    #: A condition that will hit the next file too - a read-only remount, a failing device.
+    #: `(agi)`'s rule; the file that met it already carries its own `UndoSkip.FAILED`.
+    COULD_NOT_CONTINUE = "could_not_continue"
+
+
+#: What a cancelled reversal says, in the words a person reads. **One string, both surfaces** -
+#: §9's rule, so the CLI and the app cannot describe the same state differently.
+#:
+#: ⚠ **It names the state and the next action, because a stopped undo is a NAMED state rather
+#: than a dead end.** IBM Spectrum Protect calls its equivalent a *restartable restore session*
+#: and holds the file space until it is restarted or explicitly cancelled; ours is the run staying
+#: armed, and `(agk)`'s journal is what makes a second pass finish the job. Saying only "stopped"
+#: would leave a user believing their library is half-reversed with no way forward.
+CANCELLED_REASON: Final = (
+    "you stopped it. Nothing was left half-moved, and this run is still open - "
+    "undo again to put the rest back."
+)
+
+
 @dataclass(frozen=True, slots=True)
 class UndoStop:
-    """Why a reversal ended before it reached every file. `(afw)`"""
+    """Why a reversal ended before it reached every file. `(afw)`
 
+    ⚠ **`kind` has NO DEFAULT, deliberately.** Defaulting it either way is a decision nobody
+    made: to `COULD_NOT_CONTINUE` makes a future cancel read as a failure, to `CANCELLED` makes a
+    failing device read as the user's choice. Same reasoning as `jobs.start`'s `mutating`, and
+    there is exactly one construction site to answer for it.
+    """
+
+    kind: UndoStopKind
     reason: str
     never_attempted: int
 
@@ -372,20 +411,39 @@ def run_undo(
     *,
     apply: bool = False,
     progress: ProgressCallback | None = None,
+    cancel: threading.Event | None = None,
 ) -> UndoOutcome:
     """Put each file back, then forget the copies the run recorded.
 
     Dry run by default. Catalog state is corrected per file *after* its rename succeeds, so an
     interruption leaves the catalog describing exactly the files that actually moved back.
+
+    ``cancel`` stops the run **between files, never mid-file** (`(agl)`): the restore in flight is
+    finished, then the loop ends and the outcome says so. That is the same contract
+    `migrate.undo_migration` already has, and `jobs.py` states it for the whole product - *"core
+    ops check between items"*. It is also what every system handling irreplaceable data does:
+    Oracle's tape library completes the in-progress operation before returning the tape, and IBM
+    Spectrum Protect names the interrupted state a restartable session. Declaring undo
+    uninterruptible was refused - the counter-example is an unresponsive Cancel, after which
+    people stop trusting the operation.
     """
     if not apply:
         return UndoOutcome(plan=plan, restored=0, skipped=plan.skipped, applied=False)
 
     restored = 0
     skipped = list(plan.skipped)
-    stopped_reason: str | None = None
+    stop: tuple[UndoStopKind, str] | None = None
     total = len(plan.steps)
     for done, step in enumerate(plan.steps, start=1):
+        # ⚠ **THE TOP OF THE LOOP IS THE ONLY SAFE BOUNDARY, and it is a property of the ordering
+        # this docstring promises.** The rename and `forget_organized` below are a pair: stopping
+        # between them would leave a file back on disk that the catalog still calls organized.
+        # Here the pair is either wholly done or wholly unstarted, for every file. Same placement
+        # as `migrate.run_migration` and `migrate.undo_migration`, which is reuse of a decision
+        # rather than a second one.
+        if cancel is not None and cancel.is_set():
+            stop = (UndoStopKind.CANCELLED, CANCELLED_REASON)
+            break
         # Re-check immediately before moving: the preview may be minutes old, and the
         # never-overwrite rule has to hold at the moment of the write, not at planning time.
         # ⚠ **The SAME predicate as the plan, identity included** (`(agk)`). Re-checking only
@@ -407,7 +465,7 @@ def run_undo(
             # (`EIO`) is often *why* they are undoing. Continuing there buys N identical failures
             # describing one condition, which is `(afa)`'s shape at run scale.
             if persists_for_the_run(exc):
-                stopped_reason = str(exc)
+                stop = (UndoStopKind.COULD_NOT_CONTINUE, str(exc))
                 break
             continue
 
@@ -431,8 +489,8 @@ def run_undo(
     verdicts = restored + len(skipped) - len(plan.skipped)
     stopped = (
         None
-        if stopped_reason is None
-        else UndoStop(reason=stopped_reason, never_attempted=len(plan.steps) - verdicts)
+        if stop is None
+        else UndoStop(kind=stop[0], reason=stop[1], never_attempted=len(plan.steps) - verdicts)
     )
     if stopped is None and not outstanding(skipped):
         catalog.finish_inplace_run(plan.run_id, status="undone")

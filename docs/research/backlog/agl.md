@@ -1,6 +1,34 @@
 # (agl) UNDO ACCEPTS A CANCEL AND DROPS IT, AND NOBODY HAS RULED WHETHER IT SHOULD BE CANCELLABLE.
 
-*Body of entry `(agl)`. **OPEN.** The index is [`BACKLOG.md`](../../BACKLOG.md); the provenance index is [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(agl)`. **SHIPPED 2026-08-24** - option (c), ruled by the maintainer from the
+field. The index is now [`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared with
+[`BACKLOG.md`](../../BACKLOG.md).*
+
+> ## ✅ SHIPPED 2026-08-24 - option (c), and the research prior below was wrong
+>
+> The cancel is accepted and honoured **between files**: the restore in flight completes, then the
+> run stops and reports. `run_undo` takes a `cancel`, the app's target no longer discards it, and
+> `UndoStop` gained a `kind` so a cancel cannot be worded as a fault.
+>
+> ⚠ **The prior in *Research before ruling* - "restores are treated as safer to finish than to
+> stop" - is REFUTED, and the entry was right to call it a hypothesis.** Every system checked
+> accepts the cancel and defines what it means: Oracle's tape library completes the in-progress
+> operation before returning the tape to its source cell, IBM Spectrum Protect names the
+> interrupted state a **restartable restore session**, and SQL Server's `RESTORE WITH RESTART`
+> states there is no resume. The counter-example is Windows Explorer's unresponsive Cancel on a
+> stalled copy, whose real cost is that people stop trusting the operation. **NULL, reported as a
+> finding:** Immich, PhotoPrism and digiKam offered no prior art - they do not move your files, so
+> the question never arises for them. **rsync and restic were the entry's named candidates and
+> neither is the closer analogue**; the systems above are, because they reverse a destructive
+> arrangement of data that has no second copy.
+>
+> ⚠ **The option (b) argument is not dismissed, it is answered.** *"A reversal stopped halfway
+> leaves MORE files displaced than one allowed to finish"* is true, and the answer is that the
+> stop is **named and recoverable** rather than avoided: the run stays armed, the journal rows
+> stay valid, and both surfaces tell the user a second undo finishes the job.
+>
+> **Kept below unedited** - the three options and the argument against cancelling are the reasoning
+> the ruling was made against, and a body rewritten to match its outcome stops being evidence.
 
 > ## ⛔ THE FIRST QUESTION IS NOT "WIRE IT UP"
 >

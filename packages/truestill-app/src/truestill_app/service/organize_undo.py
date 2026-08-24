@@ -23,6 +23,19 @@ class OrganizeUndoSkipped(TypedDict):
     detail: str
 
 
+class OrganizeUndoStopped(TypedDict):
+    """Why the reversal ended early, or absent entirely when it did not. `(agl)`
+
+    ⚠ **`kind` rather than a phrase inside `reason`.** `app.js` must word a cancel differently
+    from a failing drive, and `IMPLEMENTATION_STANDARDS.md` §9 forbids deciding that by matching
+    message text. `reason` is the sentence a person reads; `kind` is what code branches on.
+    """
+
+    kind: str
+    reason: str
+    never_attempted: int
+
+
 class OrganizeUndoStateDisarmed(TypedDict):
     ok: Literal[True]
     armed: Literal[False]
@@ -52,6 +65,10 @@ class OrganizeUndoJobSummary(TypedDict):
     #: The record's own failure, surfaced rather than swallowed - `(acc)`'s shape is a
     #: document written by something nobody can see, whose absence nobody is told about.
     record_error: str | None
+    #: ⚠ **Absent from this payload until `(agl)`, so an undo stopped by a read-only remount
+    #: reported as an ordinary short run** - `(afw)` built `UndoStop` and no app surface read it.
+    #: Never-silent applies to a run's own ending, not only to its files.
+    stopped: OrganizeUndoStopped | None
     skipped: list[OrganizeUndoSkipped]
     elapsed_seconds: NotRequired[float]
 
@@ -85,10 +102,21 @@ def organize_undo_state(db: Path) -> OrganizeUndoStateDisarmed | OrganizeUndoSta
 def organize_undo(*, db: Path, apply: bool) -> JobTarget:
     """Preview/apply organize undo on a worker thread."""
 
-    def target(progress: ProgressCallback, _cancel: threading.Event) -> OrganizeUndoJobSummary:
+    def target(progress: ProgressCallback, cancel: threading.Event) -> OrganizeUndoJobSummary:
         with open_catalog(db) as catalog:
             plan = plan_undo(catalog)
-            outcome = run_undo(catalog, plan, apply=apply, progress=progress if apply else None)
+            # ⚠ **The event was named `_cancel` and dropped until `(agl)`.** `jobs.py` sets
+            # `status = "cancelled"` from the event alone, so the job reported cancelled and
+            # `app.js` rendered *"Restored N file(s) before you stopped it"* while every
+            # remaining file went back. Every other `JobTarget` in this package already handed
+            # its event on; this was the only one that did not.
+            outcome = run_undo(
+                catalog,
+                plan,
+                apply=apply,
+                progress=progress if apply else None,
+                cancel=cancel if apply else None,
+            )
             still_armed = catalog.latest_undoable_run() is not None
         # ⚠ **Only an APPLIED reversal writes one.** A preview moves nothing, so a record of it
         # would be a document about a run that did not happen - and it would supersede the record
@@ -103,6 +131,15 @@ def organize_undo(*, db: Path, apply: bool) -> JobTarget:
             "applied": apply,
             "still_armed": still_armed,
             "record_error": record_error,
+            "stopped": (
+                None
+                if outcome.stopped is None
+                else {
+                    "kind": outcome.stopped.kind.value,
+                    "reason": outcome.stopped.reason,
+                    "never_attempted": outcome.stopped.never_attempted,
+                }
+            ),
             "skipped": [
                 {
                     "relative": item.step.current.name,

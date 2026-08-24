@@ -22,6 +22,48 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(agl) A CANCELLED UNDO NOW STOPS - BETWEEN FILES, NEVER MID-FILE.**
+  Shipped 2026-08-24. `run_undo` was the **only** long-running core entry point without a
+  `cancel`, while `execute`, `extract_archive_set`, `run_migration`, `undo_migration`,
+  `verify_copies` and `compute_hashes` all had one; the app's target took the event as
+  `_cancel` and dropped it. ⚠ **The defect was not the missing feature - it was that the SCREEN
+  SAID THE RUN HAD STOPPED.** `jobs.py` sets `status = "cancelled"` from the event alone, so
+  `app.js`'s undo `onCancelled` rendered *"Restored N file(s) before you stopped it"* while the
+  run reversed every remaining file. §9's *"a cancelled run says cancelled"* held in form and was
+  inverted in substance. **So `app.js` needed no change**: wiring the cancel made a sentence that
+  was already on screen true.
+  - **Ruled option (c) by the maintainer, from the field, and the entry's own prior was WRONG.**
+    It hypothesised that *"restores are safer to finish than to stop"*; every system checked
+    accepts the cancel and **defines what it means** - Oracle's tape library completes the
+    in-progress operation before returning the tape, IBM Spectrum Protect names the interrupted
+    state a *restartable restore session*, SQL Server's `RESTORE WITH RESTART` says plainly there
+    is no resume. The counter-example is Windows Explorer's unresponsive Cancel, whose cost is
+    that people stop trusting the operation. ⚠ **NULL, reported as a finding:** Immich, PhotoPrism
+    and digiKam have no prior art - they do not move your files, so the question does not arise.
+  - **`UndoStop` needed no widening for the counts** - `reason`, `never_attempted` and
+    `UndoOutcome.restored` were all there from `(afw)`. What it gained is **`kind`**, because a
+    surface that words a cancel differently from a fault would otherwise have to parse the
+    sentence, which §9 forbids. No default: defaulting either way is a decision nobody made.
+  - **The check is at the TOP of the loop**, where the rename and `catalog.forget_organized` are
+    either both done or neither started - the same placement `migrate.run_migration` and
+    `migrate.undo_migration` already use. `(agk)`'s recovery property holds under a cancel exactly
+    as under a crash: a stop never closes the run, the journal rows stay valid, and a second undo
+    finishes the job. The wording says so - *"this run is still open - undo again to put the rest
+    back"* - one string in core, both surfaces.
+  - ⚠ **A VALID MUTATION SURVIVED AND BOUGHT A TEST.** Moving the check one line down, between the
+    rename and the catalog write, passed every filesystem assertion: the file is at exactly one
+    path and hashes correctly. What it breaks is invisible on disk - the catalog still calls a
+    restored file organized. `test_a_cancel_leaves_the_catalog_describing_exactly_what_moved_back`
+    asserts the **agreement** of the counter, the disk and `file_copies`. A second survivor, the
+    record's `kind`, bought a second test. ⚠ And the first attempt at that mutation was
+    **invalid** - it added a check rather than moving one, so the mutant was not the code under
+    test, which is `mutate_once.py`'s own stated failure mode arriving in practice.
+  - **`(agl)`'s census answered (Q228): the underscore was hiding nothing else.** Every remaining
+    leading-underscore parameter in `truestill-app` is signature-mandated - `_frame` in a
+    `signal` handler (`__main__.py:130`) and `_request` in nine Starlette handlers that read
+    nothing from the request. This was the only live capability wearing one.
+  [Full entry](research/backlog/agl.md)
+
 - **(aep) A FAILED COPY SAYS NEITHER "UPLOAD" NOR A RAW `errno`.**
   Shipped 2026-08-22. Two §9 violations lived in one fall-through line, and the rule against each
   was already written down elsewhere. What a user read, verbatim:
@@ -303,7 +345,9 @@ recording shipped work as unstarted, which is the more expensive direction of th
   read-only; a failing device is often *why* they are undoing) and returns `UndoOutcome.stopped`
   rather than raising - `RunStoppedError` exists to carry results past a raise from a frame that
   unwinds, and `run_undo` is the outermost loop.
-  **Split out, not built**: `(agl)` undo's dropped cancel, `(agm)` migrate and bake.
+  **Split out rather than built here**: `(agl)` undo's dropped cancel, `(agm)` migrate and
+  bake. ⚠ **`(agl)` shipped 2026-08-24**, on `UndoOutcome.stopped` - which this stage built
+  ahead of it. Dated rather than rewritten: the scope claim was true of this commit.
   Seven mutations, all caught, three cry-wolf.
   [Full entry](research/backlog/afw.md)
 

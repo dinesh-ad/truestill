@@ -226,6 +226,7 @@ from truestill_core.undo import (
     UndoError,
     UndoOutcome,
     UndoPlan,
+    UndoStopKind,
     classify,
     outstanding,
     plan_undo,
@@ -4107,10 +4108,16 @@ def _apply_the_undo(args: argparse.Namespace, plan: UndoPlan, outcome: UndoOutco
         print(f"\n  Could not write the run record: {record_error}", file=sys.stderr)
     print(f"\nRestored {outcome.restored} file(s) to their original locations.")
     if outcome.stopped is not None:
+        # ⚠ **Worded from `kind`, never from the reason text** (`(agl)`). A cancel is the user's
+        # own act and must not read as a fault; `IMPLEMENTATION_STANDARDS.md` §9 is why the
+        # branch keys on the enum rather than on the sentence. **stdout for a cancel, stderr for
+        # a fault**: the first is a reported outcome, the second is the run telling you something
+        # went wrong, and `analyze`'s split is the precedent.
+        cancelled = outcome.stopped.kind is UndoStopKind.CANCELLED
         print(
-            f"  Stopped: {outcome.stopped.reason}\n"
+            f"  {'Cancelled' if cancelled else 'Stopped'}: {outcome.stopped.reason}\n"
             f"  {outcome.stopped.never_attempted} file(s) were not reached.",
-            file=sys.stderr,
+            file=sys.stdout if cancelled else sys.stderr,
         )
     # ⚠ **A file that was never moved is not one that could not be restored** (`(agk)`).
     # Since the journal records intent, an interrupted run leaves rows for renames that

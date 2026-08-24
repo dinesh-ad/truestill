@@ -51,34 +51,35 @@ apply one.**
 
 ## The table
 
-`add_parser` line is where the subcommand is declared; the route column cites `server.py`.
+The CLI column names the `add_parser` call rather than a line - grep it. The route
+column cites `server.py` by line, and those are re-resolved by hand.
 
 | subcommand | CLI | app route | state |
 |---|---|---|---|
-| `organize` | `cli.py:452` | `/api/organize/{inventory,preview,run,settings}` `server.py:878-881` | **covered**, including `--move` / `--in-place` via `mode` (`service/organize.py:93`, `server.py:230,253`) |
-| `undo-organize` | `cli.py:421` | `/api/organize/undo{,/preview,/apply}` `server.py:884-886` | **covered**, preview and apply |
-| `migrate-layout` | `cli.py:680` | `/api/migrate/{preview,run}` `server.py:904-905`; undo `:910-912` | **covered**, including `--undo` |
-| `verify` | `cli.py:617` | `/api/verify/run` `server.py:887` | **covered** |
-| `where` | `cli.py:594` | `/api/where` `server.py:923` | **covered**; `--limit` becomes paging |
-| `config` | `cli.py:647` | `/api/layout{,/preview}` `server.py:900-901` | **covered**; presets resolve client-side to a template |
-| `status` | `cli.py:629` | `/api/drives` `:921`, `/api/library/{status,stats}` `:897,:899` | **covered**; same `single_copy_shas` query both sides |
-| `clean-empty` | `cli.py:3711` | `/api/clean-empty/{preview,apply}` `server.py:895-896` | **partial** - `--permanent` deliberately absent (`service/clean_empty.py:71`), app refuses and points at the CLI |
-| `ingest` | `cli.py:478` | `/api/ingest/{preview,archives/precheck,archives/run}` `server.py:888-890` | ⚠ **partial - preview only.** `service/takeout.py:206` returns `ingest_preview(...)`; there is no apply endpoint. `--tz`, `--prefer-takeout-dates`, `--map-albums` unimplemented |
-| `drives` | `cli.py:527` | `/api/drives` `server.py:921` | **partial - list only.** Every marker-writing flag (`--init`, `--label`, `--uuid`, `--adopt-existing`, `--force-new-identity`, `--migrate-marker`) has no route |
-| `analyze` | `cli.py:606` | `/api/organize/inventory` `server.py:878` | **partial** - same walk-and-stat tier; `--all-files` missing |
-| `catalog` | `cli.py:638` | `/api/library/status` `server.py:897` | **partial - read half only.** `--move` has no route |
-| `reclaim` | `cli.py:661` | **none** | deliberate |
-| `restore` | `cli.py:577` | **none** | |
-| `repoint-sources` | `cli.py:564` | **none** | |
-| `rescan` | `cli.py:705` | **none** | |
-| `self-check` | `cli.py:634` | **none** | process flag only |
+| `organize` | `cli.py` `add_parser("organize"` | `/api/organize/{inventory,preview,run,settings}` `server.py:878-881` | **covered**, including `--move` / `--in-place` via `mode` (`service/organize.py:93`, `server.py:230,253`) |
+| `undo-organize` | `cli.py` `add_parser("undo-organize"` | `/api/organize/undo{,/preview,/apply}` `server.py:884-886` | **covered**, preview and apply |
+| `migrate-layout` | `cli.py` `add_parser("migrate-layout"` | `/api/migrate/{preview,run}` `server.py:904-905`; undo `:910-912` | **covered**, including `--undo` |
+| `verify` | `cli.py` `add_parser("verify"` | `/api/verify/run` `server.py:887` | **covered** |
+| `where` | `cli.py` `add_parser("where"` | `/api/where` `server.py:923` | **covered**; `--limit` becomes paging |
+| `config` | `cli.py` `add_parser("config"` | `/api/layout{,/preview}` `server.py:900-901` | **covered**; presets resolve client-side to a template |
+| `status` | `cli.py` `add_parser("status"` | `/api/drives` `:921`, `/api/library/{status,stats}` `:897,:899` | **covered**; same `single_copy_shas` query both sides |
+| `clean-empty` | `cli.py` `add_parser("clean-empty"` | `/api/clean-empty/{preview,apply}` `server.py:895-896` | **partial** - `--permanent` deliberately absent (`service/clean_empty.py:71`), app refuses and points at the CLI |
+| `ingest` | `cli.py` `add_parser("ingest"` | `/api/ingest/{preview,archives/precheck,archives/run}` `server.py:888-890` | ⚠ **partial - preview only.** `service/takeout.py:206` returns `ingest_preview(...)`; there is no apply endpoint. `--tz`, `--prefer-takeout-dates`, `--map-albums` unimplemented |
+| `drives` | `cli.py` `add_parser("drives"` | `/api/drives` `server.py:921` | **partial - list only.** Every marker-writing flag (`--init`, `--label`, `--uuid`, `--adopt-existing`, `--force-new-identity`, `--migrate-marker`) has no route |
+| `analyze` | `cli.py` `add_parser("analyze"` | `/api/organize/inventory` `server.py:878` | **partial** - same walk-and-stat tier; `--all-files` missing |
+| `catalog` | `cli.py` `add_parser("catalog"` | `/api/library/status` `server.py:897` | **partial - read half only.** `--move` has no route |
+| `reclaim` | `cli.py` `add_parser("reclaim"` | **none** | deliberate |
+| `restore` | `cli.py` `add_parser("restore"` | **none** | |
+| `repoint-sources` | `cli.py` `add_parser("repoint-sources"` | **none** | |
+| `rescan` | `cli.py` `add_parser("rescan"` | **none** | |
+| `self-check` | `cli.py` `add_parser("self-check"` | **none** | process flag only |
 
 ### Flags missing from covered commands
 
 Recorded because *"organize is covered"* is true and hides them: `--all-files`, `--by-device`,
 `--no-rename`, `--no-timestamps`, `--phash-threshold`, `--pool` / `--workers`, `--report` (all
-`_add_common_options`, `cli.py:349-416`), `verify --pool/--workers` (`cli.py:626-627`), and
-`undo-organize --run-id` / `--list` (`cli.py:428-429`). `--rclone` is **out of scope by design**:
+`_add_common_options`, `cli.py:350-417`), `verify --pool/--workers` (`cli.py:627-628`), and
+`undo-organize --run-id` / `--list` (`cli.py:429-430`). `--rclone` is **out of scope by design**:
 *"The app always writes to a local drive - there is no rclone path here"* (`service/organize.py:1045`).
 
 ---
@@ -135,6 +136,12 @@ app-only paragraph, and four ranges in the flags section.
   freshly checked, and the half nobody touched inherits that credibility. *(Recorded 2026-08-24 as
   a variant of `ENGINEERING_STANDARD.md` §4's fifty-sixth member - a note there rather than a
   member of its own, because this is its only instance. A second one earns it a number.)*
+- ⚠ **AND THE RULING'S TRIGGER FIRED THE NEXT DAY, 2026-08-24 (P42).** A **six-line** change to
+  `cli.py` - wiring `(agl)`'s cancel - moved every declaration below it and invalidated all
+  seventeen citations again, one day after they were repointed. So the column below **no longer
+  carries line numbers**: it names the `add_parser` call, which is greppable, is what a reader
+  actually wants, and cannot drift. That is this file's ruling applied to the column that earned
+  it, and it is deliberately narrower than the whole-corpus change the ruling still defers.
 - ⚠ **The offsets were not uniform, so "add 18" would have been wrong.** Fourteen of the fifteen
   had moved by 18 lines; `clean-empty` had moved by **51**. An offset is a guess about a diff, and
   a citation repaired from a guess is a citation nobody has read.

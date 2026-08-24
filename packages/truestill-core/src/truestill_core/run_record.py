@@ -318,10 +318,18 @@ def undo_stop_block(outcome: UndoOutcome) -> dict[str, object] | None:
     it computes `never_attempted` as ``len(resolutions) - len(results)`` and reads the reason from
     the **last** result. Undo's unattempted files are not a suffix - skips interleave with
     restores, and a skip is not an attempt. Undo counts what it never reached instead.
+
+    ⚠ **`kind` is recorded beside the reason** (`(agl)`): a record that says only *"stopped"* makes
+    a user's own cancel indistinguishable from a failing drive when it is read back weeks later,
+    and the reason is a sentence nothing should have to parse.
     """
     if outcome.stopped is None:
         return None
-    return {"never_attempted": outcome.stopped.never_attempted, "reason": outcome.stopped.reason}
+    return {
+        "kind": outcome.stopped.kind.value,
+        "never_attempted": outcome.stopped.never_attempted,
+        "reason": outcome.stopped.reason,
+    }
 
 
 def _prune_detail(runs: Path) -> list[str]:

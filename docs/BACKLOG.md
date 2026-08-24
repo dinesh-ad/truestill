@@ -219,25 +219,6 @@ is invisible here is retired, not free.**
   policy faithfully documents the policy.
   [Full entry](research/backlog/afw.md) - the two NOT DECIDED items are its own text.
 
-- **(agl) UNDO ACCEPTS A CANCEL AND DROPS IT.** Recorded 2026-08-23, split out of `(afw)`'s undo
-  stage. `undo.run_undo` takes no `cancel`, and `service/organize_undo.py`'s job target takes
-  `_cancel: threading.Event` and **ignores it** - so the app's stop button cannot stop an undo.
-  ⛔ **The first question is not "wire it up"**: it is whether undo should be cancellable at all.
-  🔑 **A reversal stopped halfway leaves MORE files displaced than one allowed to finish**, so
-  *stop* on undo may be the button that causes the harm - a product question that decides the
-  design. Against it: 33,000 files takes minutes - **3.1 measured on tmpfs, plausibly 4-5 on
-  real disk** (corrected 2026-08-23, see the entry) - and a user reversing
-  the wrong run has no way out.
-  ⚠ **"Deliberately uninterruptible" is not today's state** - a parameter accepted and dropped is
-  an oversight, and the underscore that satisfies the linter is what hides it. Whatever is
-  chosen, the signature must stop claiming to take something it ignores.
-  Three options carried, not one implementation: **(a)** wire it through (`UndoOutcome.stopped`
-  already exists, so this is the cheapest); **(b)** declare it uninterruptible, **remove** the
-  parameter and disable the stop button with a reason; **(c)** honour it only **between** files.
-  **Research first**: what rsync, restic and file managers do about interrupting a *restore*
-  rather than a backup. Prior is that restores are safer to finish than to stop - a hypothesis.
-  [Full entry](research/backlog/agl.md)
-
 - **(agh) `LocalGuard` MAKES FORGETTING THE TOKEN IMPOSSIBLE AND UN-EXEMPTING INVISIBLE.**
   Recorded 2026-08-23. **The token is enforced well** - ASGI middleware wrapping the whole app
   (`server.py:914`), so no route can forget it, with Host/Origin checks and
@@ -428,7 +409,7 @@ is invisible here is retired, not free.**
   2026-08-23 by the open-entry sweep, because this index carried a headline its own body calls
   FALSE.** It read *"`write_decisions` exists with ZERO CALLERS, so no decisions document has ever
   been written"* and added *"the write trigger is not [built]"* - and `acc.md` has recorded since
-  2026-08-22 that `write_decisions` has **two callers** (`decisions.py:981`, `cli.py:1514`) and
+  2026-08-22 that `write_decisions` has **two callers** (`decisions.py:981`, `cli.py:1515`) and
   that **`catalog_session.open_catalog` is the standing trigger**, writing on the first open after
   upgrade and on every clean exit that dirtied the catalog. **Documents are written to drives.**
   🔑 **An index that contradicts its own body is worse than either being wrong**, because the index
