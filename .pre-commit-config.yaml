@@ -112,6 +112,13 @@ repos:
       # EXIT. There is no channel by which a passing hook can say something a person will see.
       # Do not write a warn-and-exit-0 branch in any hook here; it is a message to nobody.
       #
+      # ⚠ RULED 2026-08-24, reversing the 2026-08-23 per-instance-human ruling: when the push
+      # IS the fix for the red tip the gate is refusing, the agent runs
+      # TRUESTILL_PUSH_ANYWAY=1 itself rather than handing the command to a human. The gate is
+      # thereby advisory to the agent for exactly the fix-onto-red case and binding for every
+      # other refusal (contention, unknown tip, someone else's red). The override line printing
+      # under `verbose: true` is what keeps this auditable.
+      #
       # ⚠ And pre-commit DOES NOT FORWARD git's pre-push stdin to hooks (observed: a probe hook
       # read `stdin:[]` while git had supplied the ref line). Subjects come from
       # PRE_COMMIT_FROM_REF (the REMOTE tip sha), PRE_COMMIT_TO_REF (the local sha) and
