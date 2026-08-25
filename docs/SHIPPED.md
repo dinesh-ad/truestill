@@ -22,6 +22,37 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(ahc) THE MIGRATE SCREENS PAINTED A STOPPED RUN AS A FINISHED ONE.** Shipped 2026-08-25,
+  schema unchanged. **The third surface of `(agm)` D1**, which scoped itself *"no app.js"* and
+  left this half deliberately: `MigrationOutcome.stopped` reached the CLI and the app **service**
+  and stopped there. `service/migrate.py` flattened it into the payload; `static/app.js` read
+  neither it nor `refused`.
+  ⚠ **Only a user cancel sets the job's cancel flag**, so a `GROUND_MOVED` or
+  `COULD_NOT_CONTINUE` stop - the disk filling, a device changing under the run, a destination
+  that does not store what it is handed - arrived with job status `"done"` and was painted
+  **`Moved N files.`** On the one screen that rewrites every byte of the library. `(afa)`/`(abm)`'s
+  shape: the payload is computed and the surface drops it.
+  🔑 **The fix is one wording home, not a JavaScript branch.** `truestill_core.migrate`
+  `STOP_WORDING` maps each kind to its headline and whether it is a **fault**; the CLI reads it
+  (it derived `kind is CANCELLED` inline before), and the service puts `headline` and `fault` in
+  the payload so `app.js` renders text it was handed. A third derivation in JavaScript would have
+  been a second vocabulary in a second language - `test_the_rearrange_card_name.py` records what
+  one name retyped in four places cost.
+  ⚠ **Undo had the same gap and it is fixed here too**: its screen has named its refusals since it
+  was written but dropped `stopped` exactly as the forward path did. The forward path had the
+  opposite half missing - `refused` - so the renderer was **reused and renamed**
+  (`undoRefusalList` was never undo's) rather than written twice.
+  ⚠ **The cancel flag and the payload both know a cancel happened**, which is two declarations of
+  one fact. The payload wins: the flag now only picks the fallback sentence for a run that
+  recorded no stop, which a preview never does.
+  **Not built here**: the run record. That is `(agm)`, still open, and P61 measured its cost -
+  **271 B** per migrate failure entry raw, 52 B compressed, against a 64 MiB budget.
+  Pinned from pytest by reading `app.js` as text, per `test_the_rearrange_card_name.py` and
+  `(afo)`; the browser lane was not run. Six mutations, all caught, two cry-wolf. ⚠ One draft
+  assertion was a **69th-member false positive** on its own guard - it flagged
+  `d.status === "cancelled"`, the job-status vocabulary, a different namespace sharing the word.
+  [Full entry](research/backlog/ahc.md)
+
 - **(agl) A CANCELLED UNDO NOW STOPS - BETWEEN FILES, NEVER MID-FILE.**
   Shipped 2026-08-24. `run_undo` was the **only** long-running core entry point without a
   `cancel`, while `execute`, `extract_archive_set`, `run_migration`, `undo_migration`,

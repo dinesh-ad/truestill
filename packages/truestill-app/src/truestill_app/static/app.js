@@ -1181,7 +1181,27 @@ function undoArmedHtml(state, path) {
   );
 }
 
-function undoRefusalList(refused) {
+// ⚠ **ONE DECLARATION OF THE STOP, and it is the payload.** `(ahc)`
+//
+// The job's cancel flag and `summary.stopped` both know a cancelled run was cancelled, and two
+// declarations of one fact is the shape this repo keeps punishing. So the words come from the
+// payload whenever it carries a stop, and the flag only picks the fallback sentence for a run
+// that stopped without recording one - a preview never records one (`migrate.py` returns early
+// before the stop can be set), and the CLI cannot produce a cancel at all.
+//
+// The words themselves are HANDED OVER, never mapped here: `headline` and `fault` come from
+// `truestill_core.migrate.STOP_WORDING`, which the CLI reads too. Mapping the three kinds in
+// JavaScript would be a second vocabulary in a second language - `MIGRATE_CARD_NAME`'s lesson.
+function migrationStopNote(summary) {
+  const s = (summary || {}).stopped;
+  if (!s) return "";
+  return `<div class="banner${s.fault ? " warn" : ""}"><div>
+    <div class="b-title">${esc(s.headline)}</div>
+    <div>${esc(s.reason)}</div>
+    <div>${plural(s.never_attempted || 0, "move")} not reached.</div></div></div>`;
+}
+
+function refusalList(refused) {
   if (!refused || !refused.length) return "";
   return `<div class="banner warn"><div><div class="b-title">${plural(refused.length, "file")} left untouched</div>
     ${refused.map((r) => `<div class="mono">${esc(r.relative)} - ${esc(r.reason)}</div>`).join("")}
@@ -1236,7 +1256,7 @@ async function startUndoPreview(path, panel) {
       const s = d.summary;
       stage.innerHTML =
         `<div class="headline">${plural(s.reversed_files, "file")} can be put back</div>
-         ${undoRefusalList(s.refused)}
+         ${refusalList(s.refused)}
          <div data-typed-host></div>`;
       typedConfirm(stage.querySelector("[data-typed-host]"), {
         word: "undo",
@@ -1271,15 +1291,20 @@ async function startUndoApply(path, panel) {
     },
     statusVerb: "Putting files back",
     onCancelled: (d) => {
+      const s = d.summary || {};
       summaryHtml = card(
-        `<div class="headline">Stopped</div>
-         <div class="k">Put ${plural(d.summary.reversed_files || 0, "file")} back before you stopped it.</div>
-         ${undoRefusalList(d.summary.refused)}`);
+        `<div class="headline">${s.stopped ? esc(s.stopped.headline) : "Stopped"}</div>
+         <div class="k">Put ${plural(s.reversed_files || 0, "file")} back before you stopped it.</div>
+         ${migrationStopNote(s)}
+         ${refusalList(s.refused)}`);
     },
     onSuccess: (d) => {
+      const s = d.summary || {};
       summaryHtml = card(
-        `<div class="headline">Put ${plural(d.summary.reversed_files, "file")} back.</div>
-         ${undoRefusalList(d.summary.refused)}`);
+        `<div class="headline">${s.stopped ? esc(s.stopped.headline) : `Put ${plural(s.reversed_files, "file")} back.`}</div>
+         ${s.stopped ? `<div class="k">Put ${plural(s.reversed_files || 0, "file")} back before it stopped.</div>` : ""}
+         ${migrationStopNote(s)}
+         ${refusalList(s.refused)}`);
     },
     onError: (d) => { summaryHtml = jobErrorCard(d); },
     after: async () => {
@@ -3932,8 +3957,10 @@ async function startMigrateRun() {
       const s = d.summary || {};
       cleanupOffer = s.leftover_empty_folders || null;
       $("mig-result").innerHTML = card(
-        `<div class="headline">Stopped</div>
-         <div class="k">Moved ${plural(s.migrated || 0, "file")} before you stopped it.</div>`)
+        `<div class="headline">${s.stopped ? esc(s.stopped.headline) : "Stopped"}</div>
+         <div class="k">Moved ${plural(s.migrated || 0, "file")} before you stopped it.</div>
+         ${migrationStopNote(s)}
+         ${refusalList(s.refused)}`)
         + (s.leftover_empty_folders ? cleanupOfferNote(s.leftover_empty_folders) : "");
     },
     onError: (d) => {
@@ -3941,9 +3968,16 @@ async function startMigrateRun() {
       $("mig-result").innerHTML = jobErrorCard(d);
     },
     onSuccess: (d) => {
-      cleanupOffer = d.summary.leftover_empty_folders || null;
-      $("mig-result").innerHTML = card(`<div class="headline">Moved ${plural(d.summary.migrated || 0, "file")}.</div>`)
-        + (d.summary.leftover_empty_folders ? cleanupOfferNote(d.summary.leftover_empty_folders) : "");
+      // ⚠ A run that STOPPED arrives here with job status "done" - only a user cancel sets the
+      // flag - so painting `migrated` alone reported a failing drive as a finished migration.
+      const s = d.summary || {};
+      cleanupOffer = s.leftover_empty_folders || null;
+      $("mig-result").innerHTML = card(
+        `<div class="headline">${s.stopped ? esc(s.stopped.headline) : `Moved ${plural(s.migrated || 0, "file")}.`}</div>
+         ${s.stopped ? `<div class="k">Moved ${plural(s.migrated || 0, "file")} before it stopped.</div>` : ""}
+         ${migrationStopNote(s)}
+         ${refusalList(s.refused)}`)
+        + (s.leftover_empty_folders ? cleanupOfferNote(s.leftover_empty_folders) : "");
     },
     after: () => {
       loadDrives();

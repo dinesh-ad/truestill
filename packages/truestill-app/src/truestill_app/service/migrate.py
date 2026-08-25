@@ -16,6 +16,7 @@ from truestill_core.layout import Placement
 from truestill_core.layout_settings import pin_existing_layout, resolve_scheme
 from truestill_core.migrate import (
     ROUTE_SIDE_BIN,
+    STOP_WORDING,
     label_routes,
     rederive_rules,
     run_migration,
@@ -165,11 +166,19 @@ class AppliedReviewGroupPayload(TypedDict):
 
 
 class MigrationStopPayload(TypedDict):
-    """Why a migration ended early. `kind` is what a screen branches on; `reason` is the sentence."""
+    """Why a migration ended early. `kind` is what a screen branches on; `reason` is the sentence.
+
+    ⚠ **`headline` and `fault` are carried rather than derived by the reader** (`(ahc)`). They come
+    from `truestill_core.migrate.STOP_WORDING`, the one home the CLI reads too, so `app.js`
+    renders text it was handed instead of mapping the three kinds in a second vocabulary in a
+    second language. `kind` stays because it is the stable token; the words are what changes.
+    """
 
     kind: str
     reason: str
     never_attempted: int
+    headline: str
+    fault: bool
 
 
 class MigrationRefusalPayload(TypedDict):
@@ -305,6 +314,8 @@ def migration_apply(
                     "kind": outcome.stopped.kind.value,
                     "reason": outcome.stopped.reason,
                     "never_attempted": outcome.stopped.never_attempted,
+                    "headline": STOP_WORDING[outcome.stopped.kind].headline,
+                    "fault": STOP_WORDING[outcome.stopped.kind].fault,
                 }
             ),
             "refused": [
@@ -397,6 +408,8 @@ def migration_undo(path: Path, db: Path, *, apply: bool) -> JobTarget | DriveUna
                     "kind": outcome.stopped.kind.value,
                     "reason": outcome.stopped.reason,
                     "never_attempted": outcome.stopped.never_attempted,
+                    "headline": STOP_WORDING[outcome.stopped.kind].headline,
+                    "fault": STOP_WORDING[outcome.stopped.kind].fault,
                 }
             ),
             "refused": [

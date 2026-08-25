@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, Final
 from uuid import uuid4
 
 from truestill_core.catalog import Catalog
@@ -135,6 +135,37 @@ class MigrationStop:
     kind: MigrationStopKind
     reason: str
     never_attempted: int
+
+
+@dataclass(frozen=True, slots=True)
+class StopWording:
+    """What one stop kind is called where a person reads it, and whether it is a fault."""
+
+    #: The headline. A user's own act and a failing drive must never share a word.
+    headline: str
+    #: True when the run failed to do what it was asked. Decides the CLI's stream and exit code,
+    #: and whether a screen paints the outcome as a warning.
+    fault: bool
+
+
+#: ⚠ **ONE WORDING HOME FOR EVERY SURFACE.** `(ahc)`
+#:
+#: The CLI derived this inline as ``kind is CANCELLED`` and the app screens derived it not at all.
+#: A third derivation in JavaScript would have been a second vocabulary in a second language,
+#: which is `MIGRATE_CARD_NAME`'s lesson (`test_the_rearrange_card_name.py`: one name, retyped in
+#: four places, drifted). So the words live here, the CLI reads them, and the app **service** puts
+#: them in the payload - `app.js` renders text it was handed and maps no kinds of its own.
+#:
+#: ⚠ **A table rather than a derivation**, the reasoning
+#: `test_migrate_survives_one_bad_file._WORDING` already gives for its own: a control derived from
+#: a display string is one rename away from a stop that stops being reported. Indexing is
+#: deliberate too - a member added tomorrow raises `KeyError` here rather than being worded by an
+#: `else` nobody wrote for it.
+STOP_WORDING: Final[dict[MigrationStopKind, StopWording]] = {
+    MigrationStopKind.CANCELLED: StopWording("Cancelled", fault=False),
+    MigrationStopKind.GROUND_MOVED: StopWording("Stopped", fault=True),
+    MigrationStopKind.COULD_NOT_CONTINUE: StopWording("Stopped", fault=True),
+}
 
 
 @dataclass(frozen=True)

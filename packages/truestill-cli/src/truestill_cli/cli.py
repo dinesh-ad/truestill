@@ -151,9 +151,9 @@ from truestill_core.left_behind import (
 )
 from truestill_core.migrate import (
     ROUTE_SIDE_BIN,
+    STOP_WORDING,
     LabelRoute,
     MigrationStop,
-    MigrationStopKind,
     label_routes,
     plan_migration,
     rederive_rules,
@@ -4023,13 +4023,15 @@ def _report_migration_shortfall(
         # A refusal that did not stop the run still means the plan is unfinished: the journal
         # keeps those moves and a re-run clears them, so the code says there is work left.
         return 1 if refused else 0
-    cancelled = stopped.kind is MigrationStopKind.CANCELLED
+    # `(ahc)`: read from the one table rather than deriving `kind is CANCELLED` here. The app
+    # screens needed the same decision and were about to derive it a third time, in JavaScript.
+    wording = STOP_WORDING[stopped.kind]
     print(
-        f"  {'Cancelled' if cancelled else 'Stopped'}: {stopped.reason}\n"
+        f"  {wording.headline}: {stopped.reason}\n"
         f"  {stopped.never_attempted} move(s) were not reached.",
-        file=sys.stdout if cancelled else sys.stderr,
+        file=sys.stderr if wording.fault else sys.stdout,
     )
-    return 0 if cancelled else 4
+    return 4 if wording.fault else 0
 
 
 def _cmd_migrate_layout(args: argparse.Namespace) -> int:

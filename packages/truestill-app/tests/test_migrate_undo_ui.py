@@ -82,7 +82,10 @@ def test_undo_states_newest_only_plainly() -> None:
 
 
 def test_undo_refusals_are_rendered() -> None:
-    assert "function undoRefusalList(" in APP_JS
+    # ⚠ Renamed by `(ahc)`: the FORWARD path has the same refusal payload and was the only
+    # surface not showing it, so the renderer was reused rather than written twice. It was never
+    # undo's - `undoRefusalList` named the caller it happened to have.
+    assert "function refusalList(" in APP_JS
     assert "left untouched" in APP_JS
     assert "r.reason" in APP_JS
 

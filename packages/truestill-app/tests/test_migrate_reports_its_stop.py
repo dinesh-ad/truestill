@@ -30,7 +30,13 @@ from truestill_core.destinations.base import DestinationError
 from truestill_core.destinations.local import LocalDestination
 from truestill_core.drive import MARKER_NAME
 from truestill_core.hashing import sha256_file
-from truestill_core.migrate import MigrationOutcome, MigrationPlan, MigrationStop, MigrationStopKind
+from truestill_core.migrate import (
+    STOP_WORDING,
+    MigrationOutcome,
+    MigrationPlan,
+    MigrationStop,
+    MigrationStopKind,
+)
 
 
 def _outcome(
@@ -167,6 +173,15 @@ def test_the_app_summary_carries_the_stop_and_the_refusals(
     assert summary["stopped"] is not None
     assert summary["stopped"]["kind"] == "could_not_continue"
     assert [item["relative"] for item in summary["refused"]], "the refusal is named"
+
+    # ⚠ `(ahc)`: the WORDS travel with the payload, from the one table the CLI reads. A screen
+    # that mapped the kind itself would be a second vocabulary in a second language, with
+    # nothing to make the two agree - which is how this surface came to say nothing at all.
+    wording = STOP_WORDING[MigrationStopKind.COULD_NOT_CONTINUE]
+    assert summary["stopped"]["headline"] == wording.headline
+    assert summary["stopped"]["fault"] is wording.fault is True, (
+        "a run the destination stopped is a fault; a screen styles its banner from this"
+    )
 
 
 def test_a_clean_run_reports_neither(capsys: pytest.CaptureFixture[str]) -> None:
