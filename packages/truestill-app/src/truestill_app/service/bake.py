@@ -50,38 +50,70 @@ exposure from the length of a run to the gap around a single write, which is the
 can do. Closing it needs a cross-process on-disk lock (flock on the drive marker or the
 catalog); that is **(vv)**'s design, it is a different piece of work, and it must not be
 smuggled in here.
+
+⚠ **THE ENGINE MOVED TO `truestill_core.bake` ON 2026-08-25** (`(ahd)` step 1). What is left here
+is the **panel**: the transport shapes a screen renders and the mapping onto
+`DriveUnavailablePayload`. The write loop, the vocabulary both surfaces must agree on and every
+predicate live in core, because `truestill-cli` cannot import this package
+(`IMPLEMENTATION_STANDARDS.md` §2) and bake was the one mutating run with no CLI.
+
+⚠ **`bake_run`, `bake_preview` and `bake_preconditions` did NOT move, and the reason is the
+line.** All three return `DriveUnavailablePayload`, which carries `suggested_root` and
+`can_register` - a button on a screen. Moving them whole would have put an app affordance in core.
+So the seam is the one `drive.drive_identity` already uses: **core computes and returns a core
+value, and this module wraps it into the payload.** These three keep their exact return shapes.
 """
 
 from __future__ import annotations
 
 import threading
-from datetime import datetime
 from pathlib import Path
 from typing import Final, Literal, NotRequired, TypedDict
 
+from truestill_core.bake import (
+    CHECKS_PER_FILE,
+    CONFIRM_WORD,
+    IRREVERSIBLE_NOTE,
+    VIDEO_EXCLUSION_REASON,
+    BakeOutcome,
+    DriveAwaiting,
+    bake_confirmed_dates,
+    completeness_line,
+    is_video,
+    migration_unfinished,
+    migration_unfinished_message,
+    unconfirmed_reason,
+)
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_session import open_catalog
-from truestill_core.drive import DriveReach, drive_reach, read_marker
-from truestill_core.exif import build_metadata_args, write_metadata_batch
-from truestill_core.hashing import sha256_file
-from truestill_core.organizer import VIDEO_EXTENSIONS
-from truestill_core.progress import Phase, Progress, ProgressCallback
+from truestill_core.drive import DriveReach, drive_path_hint, drive_reach, read_marker
+from truestill_core.progress import ProgressCallback
 
 from truestill_app.jobs import JobTarget
 from truestill_app.service.drive_support import (
     DriveUnavailablePayload,
-    drive_path_hint,
     drive_unavailable,
 )
 
-#: The guard runs before **every** file, not once per run. Read by
-#: `test_the_toctou_gap_is_narrowed_not_closed`, so the narrowing is pinned rather than promised.
-CHECKS_PER_FILE = True
+#: Re-exported so the screens and their tests keep one import site while the engine lives in core.
+__all__ = [
+    "CHECKS_PER_FILE",
+    "CONFIRM_WORD",
+    "IRREVERSIBLE_NOTE",
+    "NOT_CONFIRMED",
+    "VIDEO_EXCLUSION_REASON",
+    "BakePreview",
+    "BakeRefusal",
+    "BakeSummary",
+    "DriveAwaiting",
+    "bake_preconditions",
+    "bake_preview",
+    "bake_run",
+    "completeness_line",
+    "migration_unfinished",
+    "migration_unfinished_message",
+]
 
-
-#: The code for a bake asked for without the typed word. ⚠ **A caller's error, not the drive's**,
-#: which is why `drive_label` is empty on it and why `server.py` spends **400** on it rather than
-#: the 200 every other refusal here takes. `(ahe)`
 NOT_CONFIRMED: Final = "NotConfirmed"
 
 
@@ -92,39 +124,6 @@ class BakeRefusal(TypedDict):
     error: str
     code: Literal["MigrationUnfinished", "NotConfirmed"]
     drive_label: str
-
-
-def migration_unfinished_message(drive_label: str) -> str:
-    """Why the bake will not start, and the two things that resolve it.
-
-    Both ways out are named because they are genuinely different choices: finishing applies the
-    move the journal is holding, undoing puts it back. Telling someone only that a migration is
-    "in progress" leaves them to guess which, on the drive holding their photos.
-
-    **The word is "migration" because that is what this app already calls it** - the undo
-    affordance on Trips and Settings reads *"Undo the last migration"*, so the second way out
-    names the button the user is being sent to. "Reorganize" would have been plainer in the
-    abstract and wrong here: it is this UI's word for in-place organize, a *different*
-    operation with a different undo, which is the exact confusion `(pp)` was raised about.
-    """
-    return (
-        f"{drive_label} has an unfinished migration. Writing dates into the photos now could "
-        f"make that migration fail partway and report damage on a file truestill itself "
-        f"rewrote. Finish the migration, or undo it, and then set the dates."
-    )
-
-
-def migration_unfinished(catalog: Catalog, drive_uuid: str) -> bool:
-    """Whether a migration on this drive is journalled and not yet completed.
-
-    ``pending_migration`` returns rows with ``completed_at IS NULL`` only. Completed rows stay
-    in the table as the record undo reverses from, so keying on *presence* would refuse a bake
-    on every drive that had ever been migrated. This keys on the pending **state**.
-
-    Reading the journal is what makes the check work across processes: the app's own job lock is
-    in memory (`(vv)`), and a check that only sees its own process is not a check.
-    """
-    return bool(catalog.pending_migration(drive_uuid))
 
 
 def bake_preconditions(path: Path, db: Path) -> BakeRefusal | DriveUnavailablePayload | None:
@@ -145,59 +144,6 @@ def bake_preconditions(path: Path, db: Path) -> BakeRefusal | DriveUnavailablePa
                 "drive_label": marker.label,
             }
     return None
-
-
-#: Why a confirmed video keeps its catalog date but is not written to.
-#:
-#: **Measured null result, 2026-07-31 (CI run 30640215762).** truestill's video metadata write
-#: was verified on **Ubuntu, macOS and Windows**: the write is confirmed, the bytes change, the
-#: container stays readable and returns the tag, no ``_original`` sidecar appears, and the source
-#: of a copy is untouched. **No atom-rewrite difference, no ``-overwrite_original`` divergence,
-#: no copy-only violation on any platform.**
-#:
-#: So the exclusion does **not** rest on "Windows may differ" - that was the fear, it was
-#: measured, and it is false. It rests on the narrower and still-true fact that this path had
-#: **no test at all** until the run above, and one green run over a 1.5 KB synthetic container is
-#: not the same evidence as real camera files with MakerNotes whose offsets exiftool must
-#: relocate. Whoever lifts this needs *that* corpus, not another platform matrix.
-VIDEO_EXCLUSION_REASON = (
-    "Videos keep the date you set, but truestill does not write it into the video file yet. "
-    "The date is safe in your library and survives reorganizing; only the file's own internal "
-    "date is left alone, because writing video files needs testing against real camera "
-    "footage first."
-)
-
-
-def completeness_line(drive_label: str, baked: int, awaiting: list[DriveAwaiting]) -> str:
-    """Whether this finished the job, in one sentence, naming what is left.
-
-    **A partial bake must not read as a completed one.** Listing what succeeded and saying
-    nothing about the rest is how a user concludes their whole library is done - so the
-    unfinished half is stated in the same breath as the finished one, with the drives named and
-    what to do about them, because nothing picks them up on its own.
-    """
-    written = f"{baked} {'file' if baked == 1 else 'files'}"
-    if not awaiting:
-        return (
-            f"Done. The dates are written into {written} on {drive_label}, and every other copy "
-            f"truestill knows about already has them."
-        )
-    names = [
-        f"{d['label']} ({d['files']} {'file' if d['files'] == 1 else 'files'})" for d in awaiting
-    ]
-    listed = names[0] if len(names) == 1 else ", ".join(names[:-1]) + f" and {names[-1]}"
-    return (
-        f"Partly done. The dates are now in {written} on {drive_label}. Copies on {listed} "
-        f"still have the old date inside them - the corrected date is safe in your library "
-        f"either way, but to put it into those files, connect each drive and set the dates again."
-    )
-
-
-class DriveAwaiting(TypedDict):
-    """A drive whose copies still hold the old date in their bytes."""
-
-    label: str
-    files: int
 
 
 class BakeSummary(TypedDict):
@@ -222,40 +168,25 @@ class BakeSummary(TypedDict):
     elapsed_seconds: NotRequired[float]
 
 
-def _is_video(relative: str) -> bool:
-    return Path(relative).suffix.lower() in VIDEO_EXTENSIONS
-
-
 def bake_run(
     path: Path, db: Path, *, confirmation: str
 ) -> JobTarget | DriveUnavailablePayload | BakeRefusal:
     """Build a job that writes confirmed dates into this drive's copies.
 
-    One file at a time on purpose: each write is followed by its own read-back and its own
-    single-transaction record, so an interruption leaves every finished file correct and every
-    unfinished one untouched. Batching the writes would be faster and would make a crash
-    mid-batch ambiguous about which files had been rewritten.
+    ⚠ **`confirmation` IS CHECKED HERE, NOT AT THE ROUTE** (`(ahe)`), and the word it is checked
+    against lives in `truestill_core.bake` so a CLI checks the same one. The route is one caller;
+    a guard on the caller is the shape `(afu)` punished. **No default**, the ruling
+    `MigrationStop.kind` and `jobs.start`'s `mutating` already carry - and `(ahd)`'s move must not
+    hand back the default the guard was installed to refuse.
 
-    ⚠ **`confirmation` IS CHECKED HERE, NOT AT THE ROUTE, and that is the whole point.** `(ahe)`
-    Until 2026-08-25 the typed word was **client-side ceremony**: :data:`CONFIRM_WORD` was shipped
-    to the browser in the *preview* payload, compared in JavaScript, and never sent back. The route
-    read one body key, `path`. So anything that could reach the loopback port with the session
-    token could rewrite every confirmed file in one POST, with no confirmation of any kind - on
-    the only operation in the product that runs `-overwrite_original` and keeps no sidecar.
-
-    **A guard on the caller is the shape `(afu)` and `(agr)` punished**: the route is one caller
-    and the CLI is meant to be another (`PROJECT_STATUS.md` §1b, and `(ahd)`). A check in
-    `server.py` would have to be written a second time, correctly, by whoever adds the second
-    surface - which is exactly how the first one came to be missing.
-
-    **No default**, deliberately, the ruling `MigrationStop.kind` and `jobs.start`'s `mutating`
-    already carry: defaulting it either way is a decision nobody made, and there are few enough
-    call sites to answer for it.
+    The refusal happens **before the target is built**, so a request with no word never becomes a
+    job. Moving the check inside the loop would return a `job_id` and then fail.
     """
-    if confirmation != CONFIRM_WORD:
+    unconfirmed_why = unconfirmed_reason(confirmation)
+    if unconfirmed_why is not None:
         unconfirmed: BakeRefusal = {
             "ok": False,
-            "error": f"This run was not confirmed. It needs the words {CONFIRM_WORD!r}.",
+            "error": unconfirmed_why,
             "code": NOT_CONFIRMED,
             # ⚠ Empty on purpose: nothing is wrong with the drive, and naming one here would make
             # a caller's mistake read as a fault of the user's hardware.
@@ -270,94 +201,25 @@ def bake_run(
         return drive_unavailable(path, db)
 
     def target(progress: ProgressCallback, cancel: threading.Event) -> BakeSummary:
-        summary: BakeSummary = {
-            "drive_label": marker.label,
-            "baked": 0,
-            "awaiting": [],
-            "completeness": "",
-            "videos_skipped": 0,
-            "videos_reason": VIDEO_EXCLUSION_REASON,
-            "failed": 0,
-            "absent": 0,
-        }
-        with open_catalog(db) as catalog:
-            pending = catalog.confirmations_to_bake(marker.uuid)
-            total = len(pending)
-            for index, row in enumerate(pending, start=1):
-                if cancel.is_set():
-                    break
-                # Re-checked per file: another process can journal a migration at any moment,
-                # and this is the narrowest window a check can achieve (see the module docstring).
-                if migration_unfinished(catalog, marker.uuid):
-                    summary["refused"] = migration_unfinished_message(marker.label)
-                    break
-                relative = str(row["relative"])
-                target_file = path / relative
-                # Every item ticks, including the ones nothing is written for. Progress that
-                # only advances on success stalls on a run of skips and reads as a hang - the
-                # (oo) finding, which is about hidden *work* rather than hidden errors.
-                if progress is not None:
-                    progress(Progress(index, total, Phase.ORGANIZING, target_file.name))
-                if _is_video(relative):
-                    summary["videos_skipped"] += 1
-                    continue
-                if not target_file.is_file():
-                    summary["absent"] += 1
-                    continue
-                args = build_metadata_args(
-                    taken_at_local=datetime.fromisoformat(str(row["captured_at"]))
-                )
-                # ⚠ **THE INTENT, BEFORE THE IRREVERSIBLE STEP** (`(agv)`, `(agk)`'s shape). From
-                # here until `record_bake`, the recorded `copy_sha256` describes bytes that are
-                # about to stop existing - and a crash in that window used to leave `verify`
-                # reporting MISMATCH, which this module's own O1 docstring calls "a tool
-                # reporting corruption on a file it rewrote itself". The mark is what lets a
-                # reader say *unknown* instead of *corrupt*.
-                catalog.begin_bake(str(row["sha256"]), marker.uuid)
-                verdicts = write_metadata_batch([(target_file, args)])
-                if not verdicts.get(target_file, False):
-                    # Unconfirmed is failed, never assumed fine: the same rule the Takeout bake
-                    # already applies. The catalog hash is left alone, so verify keeps checking
-                    # against what is really recorded for this copy.
-                    # ⚠ **And the mark comes back off**: exiftool declining leaves the file
-                    # untouched, so this copy is still exactly what the catalog says it is. A
-                    # refusal is not an interruption, and holding the mark here would trade a
-                    # false alarm for a false silence.
-                    catalog.abandon_bake(str(row["sha256"]), marker.uuid)
-                    summary["failed"] += 1
-                    continue
-                # O1: read back from the file ON THE DRIVE, after the write - never the staged
-                # copy, never exiftool's report - then record it with the bake in one transaction.
-                catalog.record_bake(
-                    str(row["sha256"]), marker.uuid, copy_sha256=sha256_file(target_file)
-                )
-                summary["baked"] += 1
-            summary["awaiting"] = [
-                {"label": str(r["label"]), "files": int(r["files"])}
-                for r in catalog.drives_awaiting_bake(marker.uuid)
-            ]
-        summary["completeness"] = completeness_line(
-            marker.label, summary["baked"], summary["awaiting"]
+        """The panel half: run the engine, then shape what it returns for a screen."""
+        outcome: BakeOutcome = bake_confirmed_dates(
+            path, db, marker, progress=progress, cancel=cancel
         )
+        summary: BakeSummary = {
+            "drive_label": outcome.drive_label,
+            "baked": outcome.baked,
+            "awaiting": outcome.awaiting,
+            "completeness": outcome.completeness,
+            "videos_skipped": outcome.videos_skipped,
+            "videos_reason": VIDEO_EXCLUSION_REASON,
+            "failed": outcome.failed,
+            "absent": outcome.absent,
+        }
+        if outcome.refused is not None:
+            summary["refused"] = outcome.refused
         return summary
 
     return target
-
-
-#: The word a user types to authorise the write. Distinct from every other confirm word in the
-#: product (`undo`, `clean`, `move`, `delete`, `delete forever`) because the actions are
-#: different and a muscle-memory word typed on the wrong screen is not a confirmation.
-CONFIRM_WORD = "set dates"
-
-#: Stated in the preview because it is the part a user cannot infer. `-overwrite_original`
-#: (`exif._WRITE_FLAGS`) means exiftool replaces the file's metadata in place and keeps no
-#: sidecar, so **the date the file used to carry is gone** once this runs. The catalog keeps the
-#: provenance of the new date; it does not keep the old embedded one. `(bbb)` recovery is the
-#: item that would offer to preserve it, and it is not built.
-IRREVERSIBLE_NOTE = (
-    "This changes the date stored inside each photo file. The date it had before is not kept, "
-    "so this cannot be undone from inside truestill."
-)
 
 
 class BakeDriveLine(TypedDict):
@@ -419,7 +281,7 @@ def bake_preview(path: Path, db: Path) -> BakePreview | BakeRefusal | DriveUnava
     with open_catalog(db) as catalog:
         for row in catalog.confirmations_to_bake(marker.uuid):
             relative = str(row["relative"])
-            if _is_video(relative):
+            if is_video(relative):
                 videos += 1
             elif not (path / relative).is_file():
                 absent += 1
