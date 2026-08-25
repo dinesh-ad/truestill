@@ -247,7 +247,7 @@ what stops is changing *what a route returns* under a consumer that already read
 |---|---|---|
 | 1 | every mutating run leaves a line in the run history | ❌ **6 of 9** since `(agm)` - `trip apply`, `clean empty` and `archive unpack` remain, which is `(ahi)`. ⚠ Reworded 2026-08-25: *"writes a record"* could not be met by bake, which correctly writes a line and no detail |
 | 2 | every surface reports its own stop | ✅ `(ahc)` closed migrate's last one |
-| 3 | no route computes a field no consumer reads | ❌ **BLOCKED ON AN UNTYPED CONSUMER**, which is a different blocker from the one recorded here yesterday. `(ahn)` stages 1-3 built the join, so the DECLARED end is exact; the CONSUMED end is still a text search over `app.js`, and **no number here is a ceiling** - both methods err toward calling a dead field live. **Ticks at `(ahn)` stage 5**, when a read is a type reference |
+| 3 | no route computes a field no consumer reads | ❌ **BLOCKED ON AN UNTYPED CONSUMER**, and that is a different blocker from *"nothing declares the join"* - `(ahn)` stages 1, 2 and 4a built it, and **4a left no route payload untyped**: the seven dict literals are gone and the guard's ceiling is zero. The CONSUMED end is still a text search over `app.js`, so **no number here is a ceiling** - both methods err toward calling a dead field live. ⚠ **Stage 4b STOPPED at its own gate** (re-derived count 25, not 3) and is where the next turn starts. **Ticks at stage 5**, when a read is a type reference |
 | 4 | no mutating behaviour lives only in the app | ✅ **met AND GUARDED** since `(ahj)` - every mutating operation names a CLI subcommand the parser defines, or a recorded deferral |
 
 ⚠ **TWO of the four are checked by a guard, and each pins a DECLARATION rather than behaviour.**
