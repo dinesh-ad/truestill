@@ -58,6 +58,34 @@ _FREE_SPACE_MARGIN = 1.03  # keep a little headroom so a copy never fills the ta
 BACKUP_PATH_HINT = "path_hint.backup"
 
 
+#: What a folder the walk could not open means for a backup. **One wording home** - `(abm)`, and
+#: `STOP_WORDING`'s rule: this sentence is about a core fact and both surfaces say it, so it is
+#: not written twice in two languages. `(ahc)` settled the shape - the service puts the words in
+#: the payload and `app.js` renders text it was handed, mapping nothing of its own.
+#:
+#: ⚠ **IT MUST NOT READ AS LOSS OR DAMAGE.** Those photos are on the source drive and are exactly
+#: as they were; what happened is that Truestill never opened the folder, so it does not know they
+#: exist and cannot copy them. *"Could not be read"* and *"missing"* are different facts, and
+#: `(afn)` is the precedent for saying the wrong one being worse than the silence it replaces.
+#: ⚠ **No label in it, deliberately.** Either drive can carry unread folders, so each
+#: entry names its own drive and the title stays true of one side or both.
+UNREAD_FOLDERS_TITLE = "Some folders could not be read"
+
+#: ⚠ **The claim this exists to correct is *"every photo on X is already on Y"*.** That sentence
+#: is computed from `file_copies` rows, and a file under a folder the attach could not list never
+#: got one - so it was never a candidate to copy and the reassurance is false. Measured in
+#: `test_attach_unreadable_folder.py`: five files, three under a locked folder, two rows written.
+#:
+#: ⚠ **Folders are NAMED and files are COUNTED**, the asymmetry `SourceScan.unreadable_dirs`
+#: already carries (`IMPLEMENTATION_STANDARDS.md` §9): the walk never went inside a folder, so any
+#: count of what it holds would be invented.
+UNREAD_FOLDERS_REASON = (
+    "Anything inside was not examined, so it is not counted above and will not be copied. "
+    "Those files are still where they are and are unchanged - Truestill simply could not "
+    "open the folder to look."
+)
+
+
 def _now() -> str:
     return datetime.now(UTC).isoformat()
 

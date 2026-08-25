@@ -26,6 +26,8 @@ from typing import Literal, NotRequired, TypedDict
 
 from truestill_core.backup import (
     _FREE_SPACE_MARGIN,
+    UNREAD_FOLDERS_REASON,
+    UNREAD_FOLDERS_TITLE,
     BackupPair,
     MissingCopy,
     _blocked_message,
@@ -67,6 +69,20 @@ BackupPreviewOk = TypedDict(
         "bytes": int,
         "free": int,
         "enough": bool,
+        #: Folders the attach could not open, each named with the drive it is on. `(abm)`
+        #: ⚠ **This is what makes the counts above conditional.** A file under one of these never
+        #: got a `file_copies` row, so it was never a candidate to copy and *"every photo on X is
+        #: already on Y"* is false about it. Named rather than counted - the walk never went
+        #: inside (`IMPLEMENTATION_STANDARDS.md` §9).
+        "unreadable_dirs": list[str],
+        #: Files on either drive whose bytes could not be read, so they could not be identified.
+        #: Counted, because unlike a folder these were seen.
+        "unreadable": int,
+        #: The banner's heading and body, both from `truestill_core.backup`. Empty when there is
+        #: nothing to say. `app.js` renders text it was handed and words nothing itself (`(ahc)`),
+        #: which is why the title is a payload key rather than a string in the markup.
+        "unread_title": str,
+        "unread_reason": str,
     },
 )
 
@@ -117,6 +133,15 @@ def backup_preview(source: Path, target: Path, db: Path) -> BackupPreviewOk | Ba
     need = sum(int(r.size or 0) for r in missing)
     free = shutil.disk_usage(target).free
     breakdown = media_breakdown([r.relative for r in missing])
+    # ⚠ `(abm)`: both sides, because either can carry a folder the walk could not open, and each
+    # entry names its own drive so one list stays readable. Held by `src`/`tgt` since the attach
+    # above and discarded until now, which is the whole of that entry.
+    unreadable_dirs = [
+        f"{attachment.label}: {folder}"
+        for attachment in (src, tgt)
+        for folder in attachment.unreadable_dirs
+    ]
+    unreadable = src.unreadable + tgt.unreadable
     return {
         "ok": True,
         "from": src.label,
@@ -130,6 +155,10 @@ def backup_preview(source: Path, target: Path, db: Path) -> BackupPreviewOk | Ba
         "bytes": need,
         "free": free,
         "enough": free >= need * _FREE_SPACE_MARGIN,
+        "unreadable_dirs": unreadable_dirs,
+        "unreadable": unreadable,
+        "unread_title": UNREAD_FOLDERS_TITLE if (unreadable_dirs or unreadable) else "",
+        "unread_reason": UNREAD_FOLDERS_REASON if (unreadable_dirs or unreadable) else "",
     }
 
 

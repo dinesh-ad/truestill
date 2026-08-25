@@ -3765,6 +3765,23 @@ $("ev-apply-disk").onclick = guarded(async () => {
 // has always known which folders that applies to and never said so, which made registering
 // something a user discovered afterwards - on the one screen whose subject is what is written
 // where. Silent when both drives are already registered, which is the ordinary case.
+// ⚠ **THE CLAIM ABOVE IS CONDITIONAL AND THIS IS THE CONDITION.** `(abm)`. A folder the attach
+// could not open means its files never got a `file_copies` row, so they were never candidates to
+// copy - which makes "Every photo on X is already on Y" false about them. Rendered on BOTH the
+// nothing-to-copy card and the ordinary one, because the reassuring card is where it matters most.
+// Every word comes from `truestill_core.backup`; nothing here is worded in JavaScript.
+function unreadFolders(r) {
+  const folders = r.unreadable_dirs || [];
+  if (!folders.length && !r.unreadable) return "";
+  const named = folders.map((f) => `<div class="k">${esc(f)}</div>`).join("");
+  const files = r.unreadable
+    ? `<div class="k">${plural(r.unreadable, "file")} could not be read either.</div>`
+    : "";
+  return `<div class="banner warn" data-testid="bk-unread-folders"><div>
+    <div class="b-title">${esc(r.unread_title)}</div>${named}${files}
+    <div class="k">${esc(r.unread_reason)}</div></div></div>`;
+}
+
 function willRegister(r) {
   const labels = r.will_register || [];
   if (!labels.length) return "";
@@ -3787,7 +3804,7 @@ $("bk-preview").onclick = guarded(async () => {
       ? `<div class="hint">First it will check ${plural(r.will_read, "file")} already on these drives, reading each one to record exactly what is there. That part can take a while; you can stop it at any time and it picks up where it left off.</div>`
       : "";
     if (r.count === 0) {
-      $("bk-result").innerHTML = card(`<div class="headline">Already backed up.</div><div class="k">Every photo on ${esc(r.from)} is already on ${esc(r.to)}.</div>${willRead}${willRegister(r)}`);
+      $("bk-result").innerHTML = card(`<div class="headline">Already backed up.</div><div class="k">Every photo on ${esc(r.from)} is already on ${esc(r.to)}.</div>${unreadFolders(r)}${willRead}${willRegister(r)}`);
       $("bk-run").classList.toggle("hidden", !r.will_read); return;
     }
     if (!r.enough) {
@@ -3797,7 +3814,7 @@ $("bk-preview").onclick = guarded(async () => {
       $("bk-run").classList.add("hidden"); return;
     }
     $("bk-result").innerHTML = card(`<div class="headline">${mediaCount(r)} · ${fmtBytes(r.bytes)} to copy</div>
-      <div class="k">From ${esc(r.from)} to ${esc(r.to)} · ${fmtBytes(r.free)} free on ${esc(r.to)}.</div>${willRead}${willRegister(r)}`);
+      <div class="k">From ${esc(r.from)} to ${esc(r.to)} · ${fmtBytes(r.free)} free on ${esc(r.to)}.</div>${unreadFolders(r)}${willRead}${willRegister(r)}`);
     $("bk-run").classList.remove("hidden");
   });
 });

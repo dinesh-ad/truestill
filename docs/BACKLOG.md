@@ -670,9 +670,6 @@ is invisible here is retired, not free.**
   entry first - a premise inside it was corrected.** **Stages 1-3 have shipped**; what remains open
   is the `GONE` state, which is unbuilt and unruled. Recorded 2026-08-05. [Full
   entry](research/backlog/abg.md)
-- **(abm) Attach counts three things and shows none of them.** `unreadable`, `unmatched` and
-  `unreadable_dirs` are all computed and tested, and not one of them reaches a screen. Recorded
-  2026-08-06. [Full entry](research/backlog/abm.md)
 - **(abk) The library has no per-folder view - "where is all this actually sitting".** [Full
   entry](research/backlog/abk.md)
 - **(abj) Find matches one substring; a two-word query silently finds nothing.** [Full

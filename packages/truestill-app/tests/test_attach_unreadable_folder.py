@@ -28,8 +28,11 @@ import sys
 from pathlib import Path
 
 import pytest
+from truestill_app.service.backup import backup_preview
 from truestill_app.service.drives import attach_drive
+from truestill_core.backup import UNREAD_FOLDERS_REASON
 from truestill_core.catalog import Catalog
+from truestill_core.drive import create_marker
 from truestill_core.hashing import sha256_file
 
 # One condition, never two stacked decorators - see `test_platform_skips_collect_everywhere.py`.
@@ -147,3 +150,143 @@ def test_an_ordinary_drive_names_no_folder(
 
     assert result.unreadable_dirs == ()
     assert result.linked == len(shas)
+
+
+# --- and it has to REACH somebody. `(abm)` ------------------------------------------------
+
+
+def _preview(db: Path, source: Path) -> dict[str, object]:
+    """`backup_preview` from this drive to a fresh empty one beside it, both marked."""
+    create_marker(source, "Source")
+    target = source.parent / "target"
+    target.mkdir()
+    create_marker(target, "Target")
+    return dict(backup_preview(source, target, db))
+
+
+def test_the_preview_names_the_folder_it_could_not_read(
+    locked: tuple[Path, Path, dict[str, str]],
+) -> None:
+    """⚠ **THE PROPERTY, and the dataclass already had it - that WAS the defect.** `(abm)`
+
+    `DriveAttachment.unreadable_dirs` has been correct since the walk fix above; `service/backup.py`
+    read `.label`, `.registered` and `.linked` and dropped the rest, so the fact stopped at the
+    Python boundary. Asserting on the outcome object would pass without a user ever seeing it,
+    which is why this asserts on the **payload**.
+
+    ⚠ **`unreadable` IS NOT COVERED BY `test_no_thirty_fifth_dead_payload_key.py`, and nobody
+    should later assume it is.** That guard works at key-NAME granularity, and `unreadable`
+    already appears in `app.js` through other payloads - verify's `v.unreadable` and takeout's
+    `r.unreadable` - so a dead `unreadable` key would read as live and slip through. The same
+    collision hides `BakeSummary.absent`. `unreadable_dirs`, `unread_title` and `unread_reason`
+    are unique names and ARE covered; this one field's render is a human check, and this test is
+    it.
+    """
+    db, root, _ = locked
+
+    payload = _preview(db, root)
+
+    assert payload["ok"] is True
+    folders = list(payload["unreadable_dirs"])  # type: ignore[call-overload]
+    assert any(_LOCKED in entry for entry in folders), (
+        f"the locked folder is not in the payload: {folders!r}"
+    )
+    assert "Source" in folders[0], "each entry names its drive - either side can carry one"
+    assert payload["unread_title"], "the banner heading must travel with it"
+    assert payload["unread_reason"], "so must the sentence explaining it"
+
+
+def test_the_preview_of_a_readable_drive_says_nothing(
+    drive: tuple[Path, Path, dict[str, str]],
+) -> None:
+    """⚠ **CRY-WOLF HALF.** A banner on every ordinary backup is one nobody reads, and §4's rule
+    about a guard that fires on healthy input applies to user-facing warnings first."""
+    db, root, _ = drive
+
+    payload = _preview(db, root)
+
+    assert payload["unreadable_dirs"] == []
+    assert payload["unread_title"] == ""
+    assert payload["unread_reason"] == ""
+
+
+def test_the_wording_is_not_typed_into_the_browser() -> None:
+    """One wording home (`(ahc)`'s ruling): `app.js` renders what the payload handed it.
+
+    ⚠ **Read from `app.js` as text rather than through a browser** - the same route
+    `test_the_rearrange_card_name.py` uses, and the reason the browser lane is not needed for a
+    wording change.
+    """
+    app_js = (Path(__file__).resolve().parents[1] / "src/truestill_app/static/app.js").read_text(
+        encoding="utf-8"
+    )
+
+    assert "unread_title" in app_js, "the banner does not render the heading it is handed"
+    assert "unread_reason" in app_js, "the banner does not render the sentence it is handed"
+    assert UNREAD_FOLDERS_REASON not in app_js, (
+        "the sentence is typed into the browser as well as core - two homes, two languages, "
+        "which is exactly what `STOP_WORDING` exists to prevent"
+    )
+
+
+#: The two cards `backup_preview` can produce, by a phrase unique to each. **Both must warn**, and
+#: the first is the one that matters: it is where the screen reassures.
+_BACKUP_CARDS = ("Already backed up.", "to copy</div>")
+
+
+def test_both_preview_cards_call_the_warning() -> None:
+    """⚠ **FOUND BY MUTATION, AND IT SURVIVED EVERYTHING ELSE.** `(abm)`
+
+    Deleting `${unreadFolders(r)}` from the *nothing-to-copy* card - the single place a user is
+    told their backup is complete - was caught by **nothing**: `test_no_thirty_fifth_dead_payload_key.py`
+    is a text search and the key names still appear inside the helper, and the test above only
+    asks whether the strings exist somewhere in the file.
+
+    **A helper that is defined and not called is indistinguishable from one that is used**, to any
+    check that greps. So this asserts the call site per card rather than the name per file, which
+    is the same distinction `(agu)` drew between a name being present and a route declaring itself.
+    """
+    app_js = (Path(__file__).resolve().parents[1] / "src/truestill_app/static/app.js").read_text(
+        encoding="utf-8"
+    )
+
+    for phrase in _BACKUP_CARDS:
+        assert phrase in app_js, f"the card marked by {phrase!r} moved; this test is now blind"
+        card = app_js[app_js.index(phrase) : app_js.index("`);", app_js.index(phrase))]
+        assert "unreadFolders(r)" in card, (
+            f"the card marked by {phrase!r} does not warn about folders that could not be read"
+        )
+
+
+def test_the_warning_has_one_guard_and_one_render() -> None:
+    """⚠ **THE SECOND SURVIVOR, and the honest limit beside it.** `(abm)`
+
+    Making `unreadFolders` `return ""` unconditionally passed every other check here: the payload
+    was still right, the names were still in the file, and both call sites were still there. A
+    helper called from the right places that renders nothing is invisible to text.
+
+    So the shape is pinned: **exactly two returns** - the guard that keeps an ordinary backup
+    silent, and the banner. A third is either a new early exit or the mutation above.
+
+    ⚠ **WHAT THIS STILL CANNOT SEE, stated rather than implied**: whether the banner *appears in a
+    browser*. That is the browser lane's question, and it was deliberately not run - this change
+    ADDS a render and no screen stops showing anything, so `IMPLEMENTATION_STANDARDS.md` §6.1's
+    condition is not met. A structural pin is what `make check` can honestly offer here.
+    """
+    app_js = (Path(__file__).resolve().parents[1] / "src/truestill_app/static/app.js").read_text(
+        encoding="utf-8"
+    )
+    start = app_js.index("function unreadFolders(r) {")
+    body = app_js[start : app_js.index("\nfunction ", start + 1)]
+
+    assert body.count("return") == 2, (
+        f"`unreadFolders` has {body.count('return')} returns, not the guard and the banner. "
+        "An unconditional early return renders nothing and every other check here passes."
+    )
+    assert 'if (!folders.length && !r.unreadable) return "";' in body, (
+        "the silent case is no longer guarded on both facts"
+    )
+    assert UNREAD_FOLDERS_REASON not in app_js, (
+        "the sentence is typed into the browser as well as core - two homes, two languages, "
+        "which is exactly what `STOP_WORDING` exists to prevent"
+    )

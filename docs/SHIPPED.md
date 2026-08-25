@@ -22,6 +22,36 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(abm) A BACKUP THAT SKIPPED A FOLDER SAID IT WAS COMPLETE.** Shipped 2026-08-25. Filed
+  2026-08-06 as *"Attach counts three things and shows none of them"*; the fields were the
+  symptom. A file under a folder the attach could not list never gets a `file_copies` row, so
+  `_files_missing_on_target` never offers it - and **both** surfaces then reassure:
+  `cli.py` said *"every file is already on that drive"* and `app.js` says *"Every photo on X is
+  already on Y."* False about a file nobody looked for.
+  **Three fields, three answers**, because treating them as one is how they got here.
+  `unreadable_dirs` and `unreadable` are **surfaced** on the backup preview - one wording home in
+  `truestill_core/backup.py`, four payload keys, a banner on **both** cards including the
+  nothing-to-copy one, and `app.js` words nothing itself (`(ahc)`'s shape, pinned by reading
+  `app.js` as text). `unmatched` is **pointed at `rescan`**, which already names each file
+  - *"files Truestill has no record of"* - rather than counting them; a second weaker vocabulary
+  is the drift this repo files entries about.
+  **Deletion refused on measurement**: `attach_drive(write=True)` is called for its side effects
+  (`service/backup.py:182-183`), so the walk is paid for either way and the fields cost an
+  increment and an already-built tuple.
+  ⚠ **Overtaken the day after it was filed**: `truestill rescan` shipped 2026-08-07 (`372fb22`)
+  carrying all three facts in its first commit. **The tenth false-when-written premise this month
+  and the first whose fix shipped the next day.** ⚠ **Nothing would have caught it** - `(ago)`
+  checks that a cited line exists, not that a claim is true, and catching this needs the
+  route-to-payload join `(ahn)` measured as absent. Same blindness as condition 3, from the other
+  side.
+  ⚠ **The CLI could not be fixed the same way**: it deliberately does not attach, so it has no
+  folder names. Its sentence was made honest about what it compared - a comparison of records -
+  and points at `truestill rescan`, which walks.
+  ⚠ **`unreadable` is NOT covered by `test_no_thirty_fifth_dead_payload_key.py`** and its docstring
+  says so: the name already appears in `app.js` via verify's and takeout's payloads, so a dead
+  key would read as live. Its render is a human check, and a test is it.
+  [Full entry](research/backlog/abm.md)
+
 - **(agm) MIGRATE WRITES A RECORD, BAKE WRITES AN INDEX LINE.** Shipped 2026-08-25. The last two
   of `(afw)`'s five surfaces, ruled before they were built because `(afw)`'s own warning is that a
   record built on an undecided policy faithfully documents the policy.

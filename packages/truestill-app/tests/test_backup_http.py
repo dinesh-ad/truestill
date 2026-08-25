@@ -57,10 +57,21 @@ def test_backup_copies_library_and_records_per_drive(client: TestClient, tmp_pat
         "bytes",
         "free",
         "enough",
+        # `(abm)`: what the attach could not read, and the words for it. Present on every
+        # preview rather than only a damaged one - a key that appears conditionally is a key
+        # the next consumer forgets to handle.
+        "unreadable_dirs",
+        "unreadable",
+        "unread_title",
+        "unread_reason",
     }
     assert preview["ok"] is True
     assert preview["count"] == 4
     assert preview["enough"] is True
+    # A healthy pair says nothing, which is the cry-wolf half of `(abm)`. The locked-folder
+    # case is `test_attach_unreadable_folder.py`, where a real `chmod 000` fixture lives.
+    assert preview["unreadable_dirs"] == []
+    assert preview["unread_title"] == ""
 
     done = _finish(
         client,

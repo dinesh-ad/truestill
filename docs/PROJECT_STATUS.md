@@ -191,8 +191,8 @@ This is the whole point of the order, and it is what `app.js` failed. Live evide
 | computed by a service | read by the surface |
 |---|---|
 | `BakeSummary.absent` (`service/bake.py:166`, emitted `:217`) | **0** in `bakeCompletion` (`app.js:4167`). ⚠ Its sibling `BakePreview.absent` (`:238`) **is** read, at `app.js:4131` |
-| `DriveAttachment.unmatched` (`service/drives.py:131`) | **0** in `app.js` and React - `(abm)`, still open |
-| `DriveAttachment.unreadable_dirs` (`service/drives.py:136`) | **0** in `app.js` and React - `(abm)`, still open |
+| `DriveAttachment.unmatched` (`service/drives.py:131`) | **0**, and correctly so since `(abm)` shipped: the fact is named by `truestill rescan`, not counted twice |
+| `DriveAttachment.unreadable_dirs` (`service/drives.py:136`) | ✅ **surfaced by `(abm)`** 2026-08-25. It was the worst of the four: a file under such a folder gets no copy row, so both surfaces said the backup was complete |
 | `migrate.py`'s `stopped` and `refused` | **0** until `(ahc)` closed it 2026-08-25 - a stopped run read as *"Moved N files."* |
 
 ⚠ **THE TWO `absent` ROWS ABOVE USED TO BE ONE, AND IT WAS COUNTED THREE DIFFERENT WAYS.** This
@@ -228,8 +228,8 @@ what stops is changing *what a route returns* under a consumer that already read
    `archive unpack` remain (`(ahi)`). Pinned by `test_the_app_records_what_a_run_did.py`, which
    lists each surface *with its reason*.
 2. **Every surface reports its own stop.** `(ahc)` closed migrate's last one.
-3. **No route computes a field no consumer reads.** ⚠ **The table above is EVIDENCE, not the
-   list.** Derived from the AST on 2026-08-25 (`(ahl)`): **117** TypedDicts, **579** key slots,
+3. **No route computes a field no consumer reads.** ⚠ **BLOCKED ON `(ahn)`, not on any count.**
+   ⚠ **The table above is EVIDENCE, not the list.** Derived from the AST on 2026-08-25 (`(ahl)`): **117** TypedDicts, **579** key slots,
    **289** distinct key names, and **34** with no hit in `app.js` code and none in React - **21**
    of those reach `cli.py` either. ⚠ **34 is a FLOOR rather than a count**, because a key-name
    census cannot see a collided field: `absent` is read in one payload and dead in another, so it
@@ -247,7 +247,7 @@ what stops is changing *what a route returns* under a consumer that already read
 |---|---|---|
 | 1 | every mutating run leaves a line in the run history | ❌ **6 of 9** since `(agm)` - `trip apply`, `clean empty` and `archive unpack` remain, which is `(ahi)`. ⚠ Reworded 2026-08-25: *"writes a record"* could not be met by bake, which correctly writes a line and no detail |
 | 2 | every surface reports its own stop | ✅ `(ahc)` closed migrate's last one |
-| 3 | no route computes a field no consumer reads | ❌ **34 of 289 key names** (**11.8%**), derived not censused - `(ahl)`. ⚠ A **floor**: a key-name pass cannot see `BakeSummary.absent`, which is dead in its payload and read in its sibling's |
+| 3 | no route computes a field no consumer reads | ❌ **BLOCKED ON `(ahn)`**, which is a stronger statement than a number. **34 of 289 key names** (**11.8%**) derived - `(ahl)` - but 34 is a **floor that cannot reach zero** under this method |
 | 4 | no mutating behaviour lives only in the app | ✅ **met AND GUARDED** since `(ahj)` - every mutating operation names a CLI subcommand the parser defines, or a recorded deferral |
 
 ⚠ **TWO of the four are checked by a guard, and each pins a DECLARATION rather than behaviour.**
@@ -276,6 +276,19 @@ what stops is changing *what a route returns* under a consumer that already read
   statically**; GraphQL answers it at runtime (Apollo GraphOS Insights, Hive's
   `deprecatedSchema(period:)`) and REST has no equivalent. The mechanical-at-both-ends route is
   `(ahn)`, and it is what retires `(ahl)` when `app.js` is deleted.
+* ⚠ **CONDITION 3 CANNOT BE TICKED BY EMPTYING THE 34, and that is why it is BLOCKED rather than
+  counted.** The method is blind in **two different ways**, and closing one does not touch the
+  other:
+  * **`BakeSummary.absent`** - a **name collision**. `BakePreview.absent` is rendered at
+    `app.js:4131`, so the NAME reads as live and the dead sibling never enters the census.
+  * **`DriveAttachment`'s five** (`absent`, `unreadable`, `unmatched`, `unreadable_dirs`,
+    `blocked_by`) - **not a TypedDict at all**. It is a frozen dataclass that no route serialises,
+    so a payload census cannot see it from either end. `(abm)` reached two of the five by hand.
+
+  Both need **payload granularity** - which JavaScript variable holds which route's response - and
+  that is `(ahn)`'s route-to-payload join, measured absent: **50 routes, all 50 handlers annotated
+  `-> JSONResponse`**. Until it exists the honest answer is a floor, so the condition names its
+  blocker rather than a number that cannot reach zero.
 
 The app **lacking** a route for a CLI subcommand is a different question and belongs to step 3 -
 [`cli-app-parity.md`](cli-app-parity.md) owns it.

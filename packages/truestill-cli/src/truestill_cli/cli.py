@@ -3951,7 +3951,22 @@ def _cmd_backup(args: argparse.Namespace) -> int:
         "       it copies are read from the source and left exactly as they are."
     )
     if not missing:
-        print("\nNothing to copy - every file is already on that drive.")
+        # ⚠ **THIS SAID *"every file is already on that drive"* UNTIL 2026-08-25, AND IT
+        # OVER-CLAIMED.** `_files_missing_on_target` compares `file_copies` ROWS, and a file the
+        # catalog never recorded - under a folder an attach could not open, or on a drive
+        # registered with `drives --init`, which writes a marker and does not walk - has no row
+        # and is therefore not "already on that drive". It was never looked for. `(abm)`
+        # ⚠ **The CLI cannot name those folders here**: it deliberately does not attach
+        # (`a command that mints a drive id as a side effect of backing up` is refused above), so
+        # it points at the command that CAN. `truestill rescan` walks and names them.
+        print(
+            f"\nNothing to copy - every file this catalog records on '{source.label}' is "
+            f"already on '{target.label}'."
+        )
+        print(
+            "       That is a comparison of records, not a fresh look at the drive. To check "
+            f"what\n       is really there:  truestill rescan {args.source}"
+        )
         return 0
     if not args.apply:
         print("\nPreview only. Nothing was copied. Re-run with --apply to make the backup.")
