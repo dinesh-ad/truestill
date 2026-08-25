@@ -120,5 +120,4 @@ def test_a_running_job_refuses_the_claim_and_the_claim_refuses_a_job() -> None:
 
     second = manager.claim(drives=[drive], operation="clean empty", mutating=False)
     assert not isinstance(second, dict), "release did not free the drive"
-    if not isinstance(second, dict):
-        second.release()
+    second.release()

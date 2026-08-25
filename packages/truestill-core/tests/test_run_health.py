@@ -85,9 +85,12 @@ def test_nothing_is_read_before_the_tick_elapses(
 ) -> None:
     """Per-file would cost ~20 s on a FUSE library; the tick is what makes this affordable."""
     reads: list[Path] = []
-    monkeypatch.setattr(
-        run_health, "read_device", lambda p: reads.append(p) or run_health.DeviceReading(42, True)
-    )
+
+    def _record(path: Path) -> run_health.DeviceReading:
+        reads.append(path)
+        return run_health.DeviceReading(42, True)
+
+    monkeypatch.setattr(run_health, "read_device", _record)
     monkeypatch.setattr(run_health, "free_bytes", lambda _p: 500 * _GB)
 
     health = _health(clock, tmp_path)

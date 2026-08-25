@@ -14,7 +14,6 @@ import threading
 import time
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
 
 import pytest
 import uvicorn
@@ -22,6 +21,8 @@ from e2e_support import AppServer, open_app, open_backups, open_screen
 from playwright.sync_api import Browser, Page, expect
 from truestill_app.server import create_app
 from truestill_app.service import migrate as service_migrate
+from truestill_app.service.drive_support import DriveUnavailablePayload
+from truestill_app.service.migrate import MigrationPreviewOk
 from truestill_core.catalog import Catalog
 from truestill_core.drive import create_marker
 from truestill_core.hashing import sha256_file
@@ -81,7 +82,7 @@ def holding_server(
         *,
         progress: ProgressCallback | None = None,
         cancel: threading.Event | None = None,
-    ) -> dict[str, Any]:
+    ) -> MigrationPreviewOk | DriveUnavailablePayload:
         # Honour cancel while held so the cancel e2e can unlock without releasing hold first.
         deadline = time.monotonic() + 30
         while not hold.is_set():

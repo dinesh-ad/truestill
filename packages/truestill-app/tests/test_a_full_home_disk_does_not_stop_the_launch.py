@@ -138,7 +138,12 @@ def test_a_home_directory_that_refuses_the_write_still_serves(
     signal handlers, the browser thread, the server - runs exactly as it does in life.
     """
     opened: list[str] = []
-    monkeypatch.setattr(session_link, "open_browser", lambda url: bool(opened.append(url)))
+
+    def _open(url: str) -> bool:
+        opened.append(url)
+        return False
+
+    monkeypatch.setattr(session_link, "open_browser", _open)
     monkeypatch.setattr(
         session_link,
         "write",

@@ -292,10 +292,12 @@ def test_a_re_attach_re_reads_because_attach_no_longer_writes_the_cache(
 
     reads: list[Path] = []
     real = sha256_file
-    monkeypatch.setattr(
-        "truestill_app.service.drives.sha256_file",
-        lambda path: (reads.append(path), real(path))[1],
-    )
+
+    def _record(path: Path) -> str:
+        reads.append(path)
+        return real(path)
+
+    monkeypatch.setattr("truestill_app.service.drives.sha256_file", _record)
     result = attach_drive(root, db, write=True)
 
     assert result.linked == 3
@@ -328,10 +330,12 @@ def test_attach_still_takes_a_cache_hit_a_full_run_recorded(
 
     reads: list[Path] = []
     real = sha256_file
-    monkeypatch.setattr(
-        "truestill_app.service.drives.sha256_file",
-        lambda path: (reads.append(path), real(path))[1],
-    )
+
+    def _record(path: Path) -> str:
+        reads.append(path)
+        return real(path)
+
+    monkeypatch.setattr("truestill_app.service.drives.sha256_file", _record)
     attach_drive(root, db, write=True)
 
     assert target not in reads, "attach ignored a complete cache row and re-read the file"

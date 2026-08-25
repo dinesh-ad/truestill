@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import contextlib
 import socket
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -46,6 +47,16 @@ class _FakeServer:
     def __init__(self, *, started: bool, should_exit: bool = False) -> None:
         self.started = started
         self.should_exit = should_exit
+
+
+def _recorder(opened: list[str]) -> Callable[[str], bool]:
+    """A stand-in for `open_browser` that records the URL and reports success."""
+
+    def open_browser(url: str) -> bool:
+        opened.append(url)
+        return True
+
+    return open_browser
 
 
 def _accepts(port: int) -> bool:
@@ -101,7 +112,7 @@ def test_the_browser_is_not_opened_when_the_server_never_starts(
 ) -> None:
     """Startup failure: a browser pointed at an app that is not up would show a broken page."""
     opened: list[str] = []
-    monkeypatch.setattr(session_link, "open_browser", lambda url: opened.append(url) or True)
+    monkeypatch.setattr(session_link, "open_browser", _recorder(opened))
 
     entry.open_when_ready(
         _FakeServer(started=False, should_exit=True), "http://127.0.0.1:1/", tmp_path
@@ -119,7 +130,7 @@ def test_a_port_that_cannot_be_bound_starts_nothing(
     monkeypatch.setattr(entry.uvicorn, "Server", StubServer)
     monkeypatch.setattr(entry.threading, "Thread", ImmediateThread)
     monkeypatch.setattr(entry, "bind_listening_socket", lambda _preferred: None)
-    monkeypatch.setattr(session_link, "open_browser", lambda url: opened.append(url) or True)
+    monkeypatch.setattr(session_link, "open_browser", _recorder(opened))
 
     code = entry.main(["--db", str(tmp_path / "c.sqlite")])
 

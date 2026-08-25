@@ -221,4 +221,6 @@ def test_the_plan_carries_the_size_it_already_had(tmp_path: Path) -> None:
         plan = plan_migration(catalog, "D1", _scheme("{category}/{yyyy}"))
 
     assert plan.moves, "the fixture must actually move something"
-    assert sorted(m.size for m in plan.moves) == [2, 4, 6]
+    sizes = [m.size for m in plan.moves]
+    assert all(s is not None for s in sizes), "a planned move does not know its size"
+    assert sorted(s for s in sizes if s is not None) == [2, 4, 6]

@@ -15,6 +15,7 @@ does nothing across processes, which is the entire defect.
 
 from __future__ import annotations
 
+import importlib
 import os
 import signal
 import subprocess
@@ -25,9 +26,6 @@ from pathlib import Path
 import pytest
 from truestill_core import drive_lock
 from truestill_core.drive_lock import DriveBusyError, DriveLock, lock_for
-
-if sys.platform == "win32":  # pragma: no cover - the Windows lane
-    import msvcrt
 
 _HOLDER = """
 import os, sys, time
@@ -217,4 +215,5 @@ def test_the_windows_primitive_is_the_one_that_ran() -> None:
     loud, and if it runs here `msvcrt` must be the module in play.
     """
     assert drive_lock.sys.platform == "win32", "this arm claims Windows and is not on it"
-    assert hasattr(msvcrt, "LK_NBLCK"), "the Windows branch is not exercising msvcrt"
+    windows_locking = importlib.import_module("msvcrt")
+    assert hasattr(windows_locking, "LK_NBLCK"), "the Windows branch is not exercising msvcrt"

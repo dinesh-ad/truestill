@@ -230,6 +230,16 @@ jobs:
       - name: Mypy
         run: uv run mypy packages/truestill-core/src/truestill_core packages/truestill-cli/src/truestill_cli packages/truestill-app/src/truestill_app scripts packaging conftest.py suite_scratch.py
 
+      # The test trees, under `mypy-tests.toml` - a narrower setting than the fence above, and
+      # that file carries the ruling. One run PER TREE: the four `conftest.py` files share a
+      # module name and mypy refuses a single run that sees two of them.
+      - name: Mypy (tests)
+        shell: bash
+        run: |
+          for tree in packages/truestill-core/tests packages/truestill-cli/tests packages/truestill-app/tests tests/e2e; do
+            uv run mypy --config-file mypy-tests.toml "$tree"
+          done
+
       # Windows Defender real-time scanning is ON by default on GitHub's Windows runners, and
       # this suite creates thousands of short-lived SQLite files and temp trees. Every one is
       # scanned on create and on close. Excluding the workspace and the temp directory is the

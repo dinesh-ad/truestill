@@ -296,7 +296,8 @@ def test_the_orphan_count_is_still_reachable_on_stats(ui: Page, app_server) -> N
     ui.click('button[data-screen="stats"]')
     stats = ui.locator("#screen-stats")
     expect(stats).to_contain_text("not on a registered drive")
-    assert "at risk (0 drives)" not in stats.text_content(), (
+    stats_text = stats.text_content() or ""
+    assert "at risk (0 drives)" not in stats_text, (
         "still worded as an incomplete step rather than as the inconsistency it now is"
     )
 

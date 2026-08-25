@@ -129,5 +129,5 @@ def test_the_headline_never_claims_a_file_was_deleted(origin: DuplicateOrigin) -
 def test_the_origin_tokens_are_the_ones_the_engine_writes() -> None:
     """Anti-drift: the enum's *values* are the strings `DedupIndex` has always produced, so
     adopting it renamed nothing and no stored or compared token changed."""
-    assert DuplicateOrigin.RUN == "run"
-    assert DuplicateOrigin.CATALOG == "catalog"
+    assert DuplicateOrigin.RUN.value == "run"
+    assert DuplicateOrigin.CATALOG.value == "catalog"

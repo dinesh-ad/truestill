@@ -15,6 +15,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from sqlite3 import Connection
 
 from truestill_core.catalog import Catalog
 
@@ -37,7 +38,7 @@ def _seeded_in_one_transaction(catalog: Catalog) -> Iterator[None]:
     seen: list[str] = []
 
     @contextmanager
-    def without_committing(self: Catalog) -> Iterator[object]:
+    def without_committing(self: Catalog) -> Iterator[Connection]:
         seen.append("x")
         yield self._conn
 

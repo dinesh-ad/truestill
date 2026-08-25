@@ -23,7 +23,8 @@ from truestill_core.models import DateSource
 
 def test_inferred_local_is_a_distinct_date_source() -> None:
     assert DateSource.INFERRED_LOCAL.value == "inferred_local"
-    assert DateSource.INFERRED_LOCAL is not DateSource.EXIF
+    others = {s.value for s in DateSource if s is not DateSource.INFERRED_LOCAL}
+    assert DateSource.INFERRED_LOCAL.value not in others
 
 
 def test_pipe_separator_cannot_collide_with_date_tag_names() -> None:

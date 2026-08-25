@@ -93,8 +93,8 @@ def test_exact_equivalence_over_a_large_random_hash_set(seed: int) -> None:
         known.append((f"/p/{i}.jpg", _hex(value)))
 
     index = DedupIndex(threshold=T)
-    for path, value in known:
-        index.register(path, f"sha-{path}", value)
+    for path, hexed in known:
+        index.register(path, f"sha-{path}", hexed)
 
     hits = 0
     for _ in range(250):

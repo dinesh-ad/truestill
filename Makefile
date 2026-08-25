@@ -15,6 +15,11 @@ PACKAGING := packaging
 # asserts anything, or is collected as one. Both report ZERO errors under `strict`; being
 # unchecked was never a judgement about them. Same shape as `(afu)`.
 ROOT_CODE := conftest.py suite_scratch.py
+# The test trees, checked under `mypy-tests.toml` rather than the strict fence above - that file
+# carries the ruling and the measurement behind it. One invocation PER TREE, not one for all of
+# them: the four `conftest.py` files share a module name, and mypy refuses a run that sees two.
+TEST_TREES := packages/truestill-core/tests packages/truestill-cli/tests packages/truestill-app/tests tests/e2e
+MYPY_TESTS := --config-file mypy-tests.toml
 
 .PHONY: install lint format format-check typecheck dash-check name-check redirect-check test test-order check build dryrun e2e e2e-install
 
@@ -38,6 +43,7 @@ format-check:
 
 typecheck:
 	$(PYTHON) mypy $(CORE) $(CLI) $(APP) $(SCRIPTS) $(PACKAGING) $(ROOT_CODE)
+	@for tree in $(TEST_TREES); do $(PYTHON) mypy $(MYPY_TESTS) $$tree || exit 1; done
 
 # `-n auto` here rather than in `addopts`, deliberately: addopts would sweep in `test-order`
 # below, whose whole value is a single deterministic collection order. Measured 89.95s -> 30.00s

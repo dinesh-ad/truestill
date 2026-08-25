@@ -163,6 +163,7 @@ def test_the_files_after_a_stop_are_not_attempted_and_not_claimed(
     assert results[-1].status is ActionStatus.FAILED
     organized = [r for r in results if r.status is ActionStatus.UPLOADED]
     for result in organized:
+        assert result.final_relative is not None, "an uploaded result must say where it landed"
         assert (dest / result.final_relative).exists(), "a claimed file must really be there"
 
 

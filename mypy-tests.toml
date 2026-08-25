@@ -1,0 +1,68 @@
+# Type-checking for the TEST TREES. `pyproject.toml`'s `[tool.mypy]` is the strict fence over
+# shipped code; this is a deliberately narrower setting over the tests, and the reason is measured.
+#
+# WHY NOT THE STRICT FENCE. Run as-is over the four test trees, strict reports **566 errors in
+# 424 files**. Sorted by hand, essentially all of it is strict-mode taste rather than wrongness:
+# 127 are `implicit_reexport`, 76 are TypedDict unions a test never narrows (checked: every one of
+# the 22 keys exists in some payload type, so none is a wrong key), 81 unannotated fixtures, 54
+# bare generics, 39 `no-any-return`, 27 `Row | None` indexing. The narrowed setting below reports
+# **21**, of which every one was worth fixing. A gate at 1:80 signal is one somebody switches off,
+# which `ENGINEERING_STANDARD.md` §4 already says twice.
+#
+# WHY A SEPARATE FILE RATHER THAN A `[[tool.mypy.overrides]]` BLOCK. Because mypy cannot express
+# it. Test modules are bare top-level names (`test_foo`, `conftest`) with no package prefix, and
+# mypy rejects a partial-component wildcard outright: *"Patterns must be fully-qualified module
+# names, optionally with '*' in some components"*. `module = ["test_*"]` is refused, not ignored.
+# Tried and measured before this file existed.
+#
+# WHAT IT KEEPS, and each earned its place on this tree rather than by reputation:
+#   check_untyped_defs  - without it, the BODY of an unannotated fixture is not checked at all,
+#                         which would make the whole run vacuous for 81 functions.
+#   strict_equality     - the only thing that finds an always-false comparison. It found one:
+#                         `assert DateSource.INFERRED_LOCAL is not DateSource.EXIF`, a tautology
+#                         over two distinct enum members that could never have failed.
+#   warn_unreachable    - found a dead `if not isinstance(...)` branch guarded by an `assert` that
+#                         had already narrowed the same name.
+#
+# WHAT IT DROPS. The seven codes below are the un-narrowable classes above. They are dropped as a
+# SET, deliberately: each is dominated by a pattern that is correct at runtime and that mypy has
+# no way to see through (StrEnum members compared to their own strings, an unnarrowed payload
+# union, `fetchone()` indexed without a None check). Dropping them costs real coverage and this
+# says so out loud rather than implying the remainder is everything.
+#
+# ⚠ SCOPE, DECLARED (the 71st member - a gate whose reach is unstated reads as total):
+#   COVERED, strict, by `pyproject.toml`  - the three `packages/*/src/` trees, `scripts/`,
+#                                           `packaging/`, `conftest.py`, `suite_scratch.py`.
+#   COVERED, narrowed, by THIS file       - `packages/*/tests/`, `tests/e2e/`.
+#   NOT COVERED BY ANY MYPY RUN           - `tests/golden/` holds no Python. The per-package
+#                                           `conftest.py` files ARE covered here (the ROOT
+#                                           `conftest.py` is in the strict fence instead).
+#   NOT RUN BY THE PRE-COMMIT HOOK        - the `mypy` hook's `files:` regex still excludes
+#                                           tests, and widening it would need one hook per tree
+#                                           for the duplicate-`conftest` reason below. This runs
+#                                           under `make check` (via `typecheck`) and in CI. The
+#                                           hook's green column is not the gate, as CLAUDE.md
+#                                           already says of all eight of them.
+#   WHAT NO RUN CAN SEE                   - platform-guarded branches. mypy resolves `sys.platform`
+#                                           for the host, so the Windows arms of `drive_lock` and
+#                                           its tests are pruned on Linux and never checked here.
+#
+# ⚠ ONE INVOCATION PER TREE. The four `conftest.py` files share a module name; a single run that
+# sees two of them exits 2 with "Duplicate module named" and checks NOTHING. The Makefile's
+# `typecheck` target and the CI "Mypy (tests)" step both loop for that reason, and a loop that
+# stopped looping would go green having checked one tree.
+
+[tool.mypy]
+python_version = "3.14"
+# `scripts` is here and NOT in the strict fence's path: several tests import a hook script by
+# name (`check_push_gate`, `check_product_name`) to run the real thing rather than a copy.
+mypy_path = "packages/truestill-core/src:packages/truestill-cli/src:packages/truestill-app/src:packaging:scripts:tests/e2e"
+check_untyped_defs = true
+strict_equality = true
+warn_unreachable = true
+disable_error_code = ["arg-type", "typeddict-item", "index", "call-overload", "union-attr", "attr-defined", "misc"]
+
+[[tool.mypy.overrides]]
+# Stub gaps, per module rather than by a blanket flag - the same rule `pyproject.toml` states.
+module = ["imagehash", "PIL", "PIL.*", "pillow_heif", "send2trash", "playwright.*", "yaml"]
+ignore_missing_imports = true

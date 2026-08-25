@@ -105,7 +105,8 @@ def _offenders_in(path: Path) -> list[str]:
         # Object form: monkeypatch.setattr(service, "<name>", ...) - the F10 instance.
         elif isinstance(target, ast.Name) and target.id in aliases and len(node.args) > 1:
             second = node.args[1]
-            named = second.value if isinstance(second, ast.Constant) else "?"
+            raw = second.value if isinstance(second, ast.Constant) else "?"
+            named = raw if isinstance(raw, str) else repr(raw)
             found.append(f"{where}: patches {target.id}.{named} on the service facade")
     return found
 

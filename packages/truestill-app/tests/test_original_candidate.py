@@ -24,8 +24,10 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import pytest
 import truestill_app.service.date_rescue as module
@@ -177,7 +179,12 @@ def test_only_files_with_a_sibling_cost_an_exiftool_read(tmp_path: Path) -> None
     db = _library(tmp_path, live="2014:08:16 10:46:26", sibling=None)
     reads: list[list[Path]] = []
     real = module.read_metadata
-    module.read_metadata = lambda paths, **kw: (reads.append(list(paths)), real(paths, **kw))[1]
+
+    def _record(paths: Sequence[Path], **kw: Any) -> dict[Path, dict[str, Any]]:
+        reads.append(list(paths))
+        return real(paths, **kw)
+
+    module.read_metadata = _record
     try:
         original_candidates(db, [SHA])
     finally:
