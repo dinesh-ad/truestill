@@ -12,6 +12,31 @@ Three claims, deliberately separate because they fail for different reasons:
    other.
 3. **Every mutating app run is enumerated** as writing or not writing, with its reason - so the
    four that are out of `(afu)`'s scope are *recorded as absent* rather than merely missing.
+
+⚠ **WHAT IS MECHANICAL HERE, AND WHAT IS PROSE. Understated on purpose** (`(ahg)`'s ruling about
+its own table): implying a guard is worse than admitting there is none.
+
+============================================  ================================================
+checked by code                               a human read
+============================================  ================================================
+the `writes` boolean, against four record      **every `reason` string.** They are interpolated
+entry-point spellings                          into the failure message and compared to nothing
+the listed module exists                       which surface is *missing* a row entirely, when
+                                               it writes no record - nothing declares the set of
+no service writes a record without a row       mutating services, so that direction cannot be
+(the derivable direction, added 2026-08-25)    derived
+============================================  ================================================
+
+⚠ **AND THE REASONS DRIFTED, WHICH IS WHY THIS SECTION EXISTS (P69).** `backup`'s row asserted
+*"It still FAILS FAST"* for two days after `(afw)` Stage 4 made it false. Nothing linked
+`service/backup.py`'s policy to this table, and **the correction was already in the suite** -
+`test_backup_leaves_no_partial.py:57` said the opposite the whole time. Two statements of one
+fact, one of which nothing reads: the index-headline-versus-body shape `(acc)` records, inside
+the guard written to prevent exactly that class.
+
+**Proved rather than assumed**: a mutation that rewrites a row's stated policy without touching
+behaviour **survives** this file. The reasons are documentation, and are now labelled as such
+rather than read as assertions.
 """
 
 from __future__ import annotations
@@ -41,17 +66,27 @@ MUTATING_RUNS: dict[str, tuple[bool, str]] = {
     "backup": (
         True,
         (
-            "records under `kind: backup` with its own per-file entries; `(afw)` Stage 3. It "
-            "still FAILS FAST - whether one bad file should stop the batch is "
-            "ENGINEERING_STANDARD.md §4 Errors' 'one bad file never aborts a batch' and is "
-            "Stage 4 - but a run that stops now writes down what it did before it does"
+            "records under `kind: backup` with its own per-file entries; `(afw)` Stage 3. ⚠ THIS "
+            "SAID 'It still FAILS FAST' UNTIL 2026-08-25 AND WAS FALSE FROM 2026-08-23 - `(afw)` "
+            "Stage 4 landed that day: `_copy_verified` returns a verdict instead of raising, and "
+            "`backup.py:569` appends the failure and continues. The correction was already in "
+            "the suite, in `test_backup_leaves_no_partial.py:57` - a sibling file said the "
+            "opposite of this row for two days and nothing compared them"
         ),
     ),
     "migrate": (
         False,
         "returns counts plus a per-file PLAN; its durable per-file state is `migration_journal`",
     ),
-    "bake": (False, "returns counts only"),
+    "bake": (
+        False,
+        (
+            "counts for FILES; the only things it names are DRIVES (`awaiting`). Still true "
+            "after `(ahd)` moved the engine to `truestill_core.bake` and gave it a CLI - that "
+            "changed where the code lives, not what a run reports. `(agm)` owns whether it "
+            "should write one"
+        ),
+    ),
     "organize_undo": (
         True,
         # ⚠ **THIS SAID "returns counts only" AND WAS FALSE THE DAY IT WAS WRITTEN.** `(afw)`
@@ -295,3 +330,46 @@ def test_every_mutating_app_run_is_accounted_for() -> None:
             f"this table says the opposite. If that is deliberate, change the table and its "
             f"reason - recorded reason: {reason}"
         )
+
+
+def test_the_table_has_rows_to_check_and_both_answers_in_it() -> None:
+    """Anti-vacuity. **There was none until 2026-08-25** - an emptied table iterated nothing.
+
+    The `for` loop in the guard above is the whole check, so a table with no rows passes it
+    perfectly. Both answers must also be present: if every row said `True`, the grep could be
+    returning `True` unconditionally and nothing would notice.
+    """
+    assert len(MUTATING_RUNS) >= 5, f"only {len(MUTATING_RUNS)} mutating runs listed"
+    answers = {writes for writes, _reason in MUTATING_RUNS.values()}
+    assert answers == {True, False}, f"the table records only {answers}; the check cannot bite"
+    for name, (_writes, reason) in MUTATING_RUNS.items():
+        assert len(reason) > 20, f"{name}'s row has no reason, which is the point of the table"
+
+
+def test_no_service_writes_a_record_without_a_row_here() -> None:
+    """The direction that IS derivable, and the one this table could silently miss.
+
+    ⚠ **The guard above only ever checks rows that exist.** A new service that wires a run record
+    and is never listed would be invisible to it - the same hand-list exposure
+    `check_product_name.CHECKED` carries. That half is closable, because "writes a record" is
+    readable from the source, and it is closed here.
+
+    ⚠ **The other half is NOT closable and is stated rather than implied**: a new mutating service
+    that writes **no** record cannot be detected, because nothing in this codebase declares the
+    set of mutating services. `server.py`'s `mutating=True` marks routes, not modules, and the
+    operation strings do not map onto file names.
+    """
+    service = Path(__file__).resolve().parents[1] / "src" / "truestill_app" / "service"
+    entries = ("write_run_record", "record_run", "record_organize", "record_undo")
+    writers = {
+        module.stem
+        for module in sorted(service.glob("*.py"))
+        if any(entry in module.read_text(encoding="utf-8") for entry in entries)
+    }
+    listed = {name for name, (writes, _reason) in MUTATING_RUNS.items() if writes}
+
+    assert writers, "no service wires a run record; is the entry-point list still right?"
+    assert writers == listed, (
+        f"services that write a record: {sorted(writers)}; rows claiming to: {sorted(listed)}. "
+        "A service that records a run and is not listed here is invisible to the guard above."
+    )
