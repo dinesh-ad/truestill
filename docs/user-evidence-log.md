@@ -123,6 +123,33 @@ experienced as a bug rather than a preference.
 
 ---
 
+## 9. A backup you cannot script is a backup some people do not have
+
+**Added 2026-08-25 (P68), beside `(ahf)`.** ⚠ **User-side evidence only.** The infrastructure-as-code
+statistics, the GitLab incident and the `rsync` cases were deliberately left out: they are context
+for a ruling, not evidence about what a person using a photo tool loses, and this canon is already
+large.
+
+- **Immich #5441** - a self-hosted user on the script method: *"really annoying and hard to use...
+  im running with no backups of my images and its very scary."* ⚠ **The failure is not that the
+  backup is hard; it is that the difficulty ended in no backup at all.** A second commenter in the
+  same thread, a software engineer, says a hand-rolled script *"would be really easy to screw
+  up"* - so the people most able to write one are the ones warning about it.
+- **Immich #28413** - a request for **scheduled** export. Scheduling is the use a GUI-only path
+  cannot serve, whoever writes the UI.
+- **Duplicati forum #18754** - a user wanting to trigger a **GUI-defined** backup from the CLI,
+  inside Docker. Notable because Duplicati already ships both: the ask is not for a CLI, it is for
+  the two surfaces to reach **the same configured job**. That is a parity question, not a feature
+  one, and it is `(ahg)`'s shape from the user's side.
+- **Lightroom Classic** - years of requests for a *"Backup Now"* button. The mirror image: a tool
+  with no scripting path **and** no on-demand button, where the backup happens only on exit.
+
+**The question this raises for Truestill, phrased as a question because that is this file's rule:**
+truestill's backup is a **local desktop copy to an attached drive**, not a server-side repository
+operation, so the scheduling and headless arguments above do not transfer at full strength. Does
+the *"it was hard, so I have none"* failure still apply to a desktop copy? Nothing here answers
+that, and `(ahf)` ranks it third among its own arguments for exactly this reason.
+
 ## Product ideas this evidence suggests - proposals, not decisions
 
 Each needs checking against the repo before it becomes a letter. One already failed that check

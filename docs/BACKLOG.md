@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ahe). Next free: (ahf).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ahg). Next free: (ahh).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -184,6 +184,68 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(ahf) BACKUP AND TRIP APPLY ARE APP-ONLY MUTATING RUNS.** Filed 2026-08-25 (P68), after
+  `(ahd)` closed the third one. **§1b's fourth exit condition**: no mutating behaviour lives only
+  in the app. **Backup gets a CLI. Trip apply gets a CLI or a row in *App-surface deferrals* -
+  either is a decision, silence is not.**
+  **Verified today, not carried from P64**: `backup_run` is defined at `service/backup.py:621` and
+  its only reference outside `truestill-app` is a *core test docstring* saying *"its own copy loop,
+  in the app package only"* - which confirms it rather than refuting it. ⚠ `catalog_backup` in
+  `cli.py` is the **pre-upgrade catalog copy**, a different thing, and is the near-miss that check
+  has to survive. `apply_event_review_names` (`service/trips.py:479`) has **zero** references
+  outside the app. Neither has a deferral row: that register holds three, and they are the date
+  rescue, `reclaim`, and the `{camera_model}` token.
+  🔑 **THE ARGUMENTS, RANKED, and the strongest are ours rather than the field's.**
+  **(1) §1b's fourth exit condition** - the engine finishes first, and a run the engine cannot
+  perform is not a panel over anything. **(2) An app-only mutating run cannot be tested the way
+  every other one is** - `(ahd)` proved this concretely rather than by argument: removing the
+  confirmation guard from the write left every CLI test green, because the CLI aborts earlier.
+  A guard only one surface exercises is a guard the next surface loses.
+  **(3) The field, and it is third for a reason.** Every comparable tool exposes backup on the
+  command line: restic and borg are CLI-only engines with GUIs layered over (Vorta over borg),
+  Kopia ships CLI and KopiaUI, Duplicati ships GUI/CLI/Server/Agent of one engine, PhotoPrism has
+  `photoprism backup`, Immich has a CLI and REST API. Even **Time Machine** - the most GUI-first
+  consumer tool there is - ships `tmutil startbackup` and documents `--block` for scripts. The
+  cautionary case is **Lightroom Classic**: catalog backup runs only on exit, no supported
+  scripting path, and users have asked for a "Backup Now" button for years - the closest analogue
+  to where truestill stands today.
+  ⚠ **AND THE CAVEAT, because the field evidence is weaker here than it looks.** Those tools are
+  server-side or repository operations where headless and scheduled use is the normal case.
+  **Truestill's backup is a local desktop copy to an attached drive**, so the headless/NAS
+  argument does not transfer at full strength. It is real but it is the *third* argument.
+  ⚠ **NULL RESULT, and it is the strongest thing the search found: no maintainer anywhere was
+  found publishing a defence of keeping backup GUI-only.** Recorded as a null rather than as
+  agreement - nobody arguing for a position is not the same as everybody arguing against it.
+  **What a CLI backup needs, and it is NOT bake's answer.** `(ahd)` step 1 found bake had **two**
+  app-side imports. `service/backup.py` has **four**: `jobs.JobTarget`, `drive_support.not_a_drive`,
+  `drives.BACKUP_PATH_HINT` **and `attach_drive`**, and `media_support.media_breakdown`.
+  `attach_drive` is a substantial app service, so this is a bigger core-computes/app-wraps move
+  than bake's, not a smaller one. **Say so before starting.**
+  ⚠ **A STALE PIN FOUND WHILE VERIFYING THIS, recorded here because it has nowhere else to
+  live**: `service/backup.py:266-268` says the fail-fast policy **changed on 2026-08-23** -
+  *"Returned rather than raised, and that is the whole of the policy change"* - while
+  `test_the_app_records_what_a_run_did.py`'s backup row still asserts *"It still FAILS FAST"*.
+  One of the two is false. Not fixed here: P68 is docs-only and that is a test file.
+  [Full entry](research/backlog/ahf.md)
+
+- **(ahg) `cli-app-parity.md` IS KEYED BY CLI SUBCOMMAND, SO AN APP-ONLY CAPABILITY HAS NO ROW.**
+  Filed 2026-08-25 (P68). The document that answers *"what is actually missing"* **cannot see the
+  class of gap that matters most**, structurally rather than by omission: rows are one per
+  subcommand, so a capability with no subcommand gets no row. `bake` had **zero** mentions there
+  until `(ahd)` gave it one, and `backup` and `trip apply` still have none.
+  **The proposed shape: one row per CAPABILITY, one column per SURFACE**, each cell
+  supported/partial/absent with the implementing `file:line`. An app-only feature then **must**
+  appear with an empty CLI cell - the gap becomes visible by construction - and the reverse gap
+  (`reclaim`, CLI-only) is caught by the same table instead of by a second one.
+  **Prior art, and each answers a different half.** Nextcloud's `occ` manual claims parity in
+  prose in **both** directions and there are open requests for the reverse - the failure mode of
+  writing it down without keying it. **Git** separates plumbing from porcelain and documents which
+  contract each command honours, so the capability is defined once and each surface is a stated
+  contract. **Kubernetes Gateway API** defines behaviour in a spec with feature tiers and
+  validates implementations against it rather than trusting them. **Docker CLI and kubectl** are
+  thin clients over a documented API, so the API *is* the registry and parity is auditable.
+  [Full entry](research/backlog/ahg.md)
 
 - **(ahb) THE UNDATED REPORT NAMES THE PROBLEM AND LINKS TO NOTHING.** Filed 2026-08-24 (P53).
   **Ranked ABOVE `(aha)`** - a route is worth more than a defect note, because it is what keeps a
