@@ -64,8 +64,10 @@ whose scope is undeclared reads as complete):
   from the index this reads.
 * **Headlines only.** It says nothing about whether the body's *argument* still matches its title,
   which is the semantic half above.
-* **An open entry with no body file is skipped, not flagged.** One exists today, `(agm)`. Whether
-  every open entry should have a body is a different rule and is not smuggled in here.
+* **An open entry with no body file is skipped, not flagged.** None exists today - `(agm)`, the
+  only one that ever did, gained a body on 2026-08-25 because three corrections had nowhere legal
+  to go. Whether every open entry MUST have a body is a different rule and is not smuggled in
+  here; this still skips rather than flags.
 """
 
 from __future__ import annotations
