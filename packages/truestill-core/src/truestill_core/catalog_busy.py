@@ -39,6 +39,7 @@ import sqlite3
 import time
 from collections.abc import Callable
 from pathlib import Path
+from typing import Final
 
 #: SQLITE_BUSY (5) is another connection holding the lock; SQLITE_LOCKED (6) is a conflict
 #: within the *same* connection's table locks, or a shared cache.
@@ -60,7 +61,11 @@ _BUSY_CODES = frozenset({sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED})
 #: Exception-class-shaped because that is the app's existing convention for a known situation
 #: (``jobs.py`` sends ``type(exc).__name__``, ``app.js`` matches on it) -- so a later
 #: ``FRIENDLY_ERRORS`` entry can key off it without the payload shape changing.
-CATALOG_BUSY_CODE = "CatalogBusy"
+#: ⚠ **`Final`, so mypy infers `Literal["CatalogBusy"]` rather than `str`.** Without it the
+#: constant widens at every use and `CatalogBusyPayload.code` cannot be the discriminated literal
+#: that `DriveBusyPayload.code` already is - the payload would have to say `str` and a client
+#: could no longer branch on the type. `(ahn)` stage 4a.
+CATALOG_BUSY_CODE: Final = "CatalogBusy"
 
 #: Deliberately does **not** claim nothing changed. A busy catalog is hit mid-run as often as at
 #: the start -- ``_record_organized_file`` writes per file, after each copy -- so "nothing was

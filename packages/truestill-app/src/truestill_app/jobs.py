@@ -111,6 +111,30 @@ class DriveBusyPayload(TypedDict):
     job_id: str
 
 
+class JobStarted(TypedDict):
+    """The body every job-start route returns once the work is under way. `(ahn)` stage 4a.
+
+    ⚠ **One key, and it was the largest untyped payload in the app** - built as a dict literal in
+    `_start_drive_job` and returned by **15** job-start sites, so a spec could describe none of
+    them. The shape is unchanged: `{"job_id": "..."}` is what it was and what it is, which is why
+    typing it is not a screen change.
+    """
+
+    job_id: str
+
+
+class CatalogBusyPayload(TypedDict):
+    """The 503 a request gets when another process holds the catalog. `(ahn)` stage 4a.
+
+    Beside :class:`DriveBusyPayload` because they are the same kind of thing - a refusal carrying
+    a machine-readable ``code`` next to the sentence a person reads - and the codes are the pair a
+    client branches on.
+    """
+
+    error: str
+    code: Literal["CatalogBusy"]
+
+
 @dataclass(slots=True)
 class ExclusiveClaim:
     """A synchronous route's hold on the exclusion a job would get. Release in ``finally``."""

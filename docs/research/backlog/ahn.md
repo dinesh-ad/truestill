@@ -85,15 +85,31 @@
      returning a set cannot tell a real union from an extra reference it happened to find.
   3. **A Python-type to JSON-Schema mapping** for 117 TypedDicts, including the **29** that are
      nested-only and the `X | Y` unions.
-  4. 🔑 **A RULING, AND IT IS NEEDED BEFORE STAGE 4 RATHER THAN DURING IT.** OpenAPI describes
-     request and response; it has no place for a **server-sent event stream**. The job summaries -
-     `BakeSummary`, `BackupRunSummary`, `MigrationApplySummary` and the rest, which are the
-     payloads that matter most - travel on `/api/jobs/{job_id}/events` and are delivered as
-     `d.summary`, so **no route returns them**. Either they get a companion schema outside the
-     OpenAPI document, or the document declares the stream and its frame shape as an extension, or
-     they are excluded and that exclusion is written down. **Starting stage 4 without deciding
-     this produces a spec that silently omits the most important half of the contract** - which is
-     `(ahl)`'s own failure shape, one layer up.
+  4. ✅ **RULED 2026-08-25 (P91), and it is no longer a blocker.** It was filed as *"OpenAPI has
+     no place for an event stream, so the job summaries have no home"*. **That framing was too
+     pessimistic and the derivation says why**: the summaries were never the problem - they are
+     component schemas either way - and the stream's own contract is **three fixed shapes**:
+     `progress` (`jobs.py:356`, 6 keys), `done` (`jobs.py:379`, `type`/`status`/`summary`) and
+     `error` (`jobs.py:429`, `type`/`message`/`code`), plus `: ping` comment frames that carry no
+     payload. All the variability lives in `done.summary`.
+     **The ruling**: the event payloads are OpenAPI **component schemas**, and
+     `/api/jobs/{job_id}/events` **references** them as `text/event-stream` with a `oneOf` over the
+     three envelopes - so the link is mechanical rather than the prose the field pattern settles
+     for, and nothing is left unreferenced. The document states its own limit: the schema is **one
+     frame**, the body is a sequence of them. AsyncAPI is refused on `(agc)` - a second spec and a
+     second toolchain is a second authority that can disagree - and a documented exclusion is
+     refused because it would leave the run summaries untyped at the consumer, preserving exactly
+     the cast stage 5 exists to delete.
+     ⚠ **THE FINDING, WHICH OUTLIVES THE RULING: `ok` IS NOT ON THE WIRE.** `streamJob` synthesises
+     `{ok: !failed, ...d}` at `app.js:166`, so the `d` every `runJob` handler reads is a
+     **browser-side adapter**, not the server's contract. A spec written from what the handlers
+     read would **freeze that adapter into the contract** and hand React a type for a shape the
+     server never sends. Whoever writes stage 4d must describe `jobs.py`'s three envelopes, not
+     `app.js`'s `d`.
+     ⚠ **And the browser is the only consumer**, checked: `/api/` matches **0 files** under
+     `packages/truestill-cli/src/`, and there is one `EventSource` call site. The spec is a
+     **codegen input, not a public contract** - which is what makes the one-frame inaccuracy cost
+     nothing and AsyncAPI's ceremony unjustified.
   5. **`NotRequired` must map to optional, read from the AST.**
      `test_migrate_reports_its_stop.py:149` records that runtime `__required_keys__` is **vacuous**
      under `from __future__ import annotations` - every key reads as required. A generator using it

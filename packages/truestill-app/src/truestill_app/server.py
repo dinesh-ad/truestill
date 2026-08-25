@@ -41,8 +41,21 @@ from truestill_core.layout import InvalidEverydayDaySettingsError
 from truestill_core.trip_review import ReviewCard
 
 from truestill_app import __version__, service
-from truestill_app.jobs import DriveBusyPayload, ExclusiveClaim, JobManager, JobTarget
+from truestill_app.jobs import (
+    CatalogBusyPayload,
+    DriveBusyPayload,
+    ExclusiveClaim,
+    JobManager,
+    JobStarted,
+    JobTarget,
+)
 from truestill_app.security import LocalGuard
+from truestill_app.service.drives import DrivesPayload
+from truestill_app.service.trips import (
+    ExpiredSessionPayload,
+    MergeReviewCardsError,
+    NamedEventsApplied,
+)
 
 
 @dataclass(slots=True)
@@ -113,8 +126,9 @@ async def _catalog_busy_refusal(_request: Request, exc: Exception) -> JSONRespon
     """
     if not is_catalog_busy(exc):
         raise exc
+    busy: CatalogBusyPayload = {"error": CATALOG_BUSY_REQUEST_MESSAGE, "code": CATALOG_BUSY_CODE}
     return JSONResponse(
-        {"error": CATALOG_BUSY_REQUEST_MESSAGE, "code": CATALOG_BUSY_CODE},
+        busy,
         status_code=503,
         headers={"Retry-After": "5"},
     )
@@ -204,7 +218,8 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             return JSONResponse(result)
         if on_started is not None:
             on_started()
-        return JSONResponse({"job_id": result})
+        started_body: JobStarted = {"job_id": result}
+        return JSONResponse(started_body)
 
     def home(_request: Request) -> HTMLResponse:
         html = (_TEMPLATES / "index.html").read_text(encoding="utf-8")
@@ -344,9 +359,11 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         return Response(status_code=202 if ok else 404)
 
     def drives(_request: Request) -> JSONResponse:
-        return JSONResponse(
-            {"drives": service.list_drives(_db()), "at_risk": service.at_risk(_db())}
-        )
+        listing: DrivesPayload = {
+            "drives": service.list_drives(_db()),
+            "at_risk": service.at_risk(_db()),
+        }
+        return JSONResponse(listing)
 
     async def reveal(request: Request) -> JSONResponse:
         body = await request.json()
@@ -728,16 +745,14 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         session has since been evicted. `app.js`'s `api()` raises on a non-2xx and puts the body
         in the banner, so this arrives as something a user can act on.
         """
-        return JSONResponse(
-            {
-                "ok": False,
-                "error": (
-                    "This review has expired - the app restarted, or newer reviews replaced it. "
-                    "Run Find trips and events again to start a fresh one."
-                ),
-            },
-            status_code=409,
-        )
+        expired: ExpiredSessionPayload = {
+            "ok": False,
+            "error": (
+                "This review has expired - the app restarted, or newer reviews replaced it. "
+                "Run Find trips and events again to start a fresh one."
+            ),
+        }
+        return JSONResponse(expired, status_code=409)
 
     def _cards_payload(session_id: str) -> JSONResponse:
         session = sessions.get(session_id)
@@ -767,7 +782,12 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
                 await run_in_threadpool(service.invalid_event_proposal_payload, str(exc))
             )
         if not proposal["ok"]:
-            return JSONResponse({"ok": False, "error": proposal["error"]})
+            # ⚠ This built `{"ok": False, "error": ...}` by hand two lines below the call to the
+            # helper that returns exactly that. `(ahn)` stage 4a: the literal is deleted rather
+            # than typed - a second construction of one shape is what a type would have frozen.
+            return JSONResponse(
+                await run_in_threadpool(service.invalid_event_proposal_payload, proposal["error"])
+            )
         session_id = uuid.uuid4().hex
         session = EventReviewSession(
             path=str(path),
@@ -798,7 +818,8 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
             service.merge_event_review_cards, session.cards, session.day_totals, indices
         )
         if "error" in result:
-            return JSONResponse({"error": result["error"]})
+            refusal: MergeReviewCardsError = {"error": result["error"]}
+            return JSONResponse(refusal)
         session.cards = result["cards"]
         return await run_in_threadpool(_cards_payload, session_id)
 
@@ -842,7 +863,8 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         )
         session.named_events = result["named_events"]
         session.named_trips = result["named_trips"]
-        return JSONResponse({"events": result["events"], "trips": result["trips"]})
+        applied: NamedEventsApplied = {"events": result["events"], "trips": result["trips"]}
+        return JSONResponse(applied)
 
     def events_preview(request: Request) -> JSONResponse:
         """Preview where the just-named trips will move the drive's files (moves nothing)."""

@@ -438,7 +438,7 @@ is invisible here is retired, not free.**
 
 - **(agh) `LocalGuard` MAKES FORGETTING THE TOKEN IMPOSSIBLE AND UN-EXEMPTING INVISIBLE.**
   Recorded 2026-08-23. **The token is enforced well** - ASGI middleware wrapping the whole app
-  (`server.py:914`), so no route can forget it, with Host/Origin checks and
+  (`server.py:1012`), so no route can forget it, with Host/Origin checks and
   `secrets.compare_digest` (`security.py:84-94`), and the single `/static/` exemption verified
   inert. **The gap is that nothing pins the exemption LIST.** Coverage is per-route
   (`test_server.py:20,33,39,44`, `test_thumb_route.py:115`); a second `startswith` added to

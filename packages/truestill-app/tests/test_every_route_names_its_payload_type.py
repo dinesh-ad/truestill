@@ -63,23 +63,16 @@ NOT_A_JSON_PAYLOAD: dict[str, str] = {
 
 #: Places a JSON payload is built from a **dict literal**, so no type describes it.
 #:
-#: ⚠ **EVERY ONE OF THESE IS TYPEABLE. None is an exception, and calling them that is how a hole
-#: acquires a note and stops being fixed.** They are recorded here so a NEW one fails, and each
-#: row names its remedy rather than its excuse. The largest is `_start_drive_job`'s `{"job_id"}` -
-#: **the envelope all 15 job-start sites return**, and the single highest-leverage type in the app.
-UNTYPED_LITERAL: dict[str, str] = {
-    "_start_drive_job: job_id": (
-        "the job envelope, returned by all 15 job-start sites. One key. Should be a `JobStarted` "
-        "TypedDict beside `DriveBusyPayload` in `jobs.py`"
-    ),
-    "_catalog_busy_refusal: code,error": "a refusal envelope; the same shape several payloads "
-    "already declare as their error arm",
-    "expired_session: error,ok": "as `_catalog_busy_refusal`",
-    "drives: at_risk,drives": "composes two already-typed service results; a two-key TypedDict",
-    "events_propose: error,ok": "the error arm of a payload whose ok arm is already typed",
-    "events_merge: error": "as `events_propose`",
-    "events_apply: events,trips": "a projection of `ApplyReviewNamesResult`, itself typed",
-}
+#: ⚠ **EMPTY SINCE 2026-08-25, AND THE CEILING FELL WITH IT.** It held **seven** when this guard
+#: was written, each row naming its remedy rather than its excuse; `(ahn)` stage 4a typed six and
+#: **deleted** the seventh - `events_propose` was re-implementing `invalid_event_proposal_payload`
+#: two lines below calling it, so a type would have frozen a duplicate rather than fixed one.
+#:
+#: ⚠ **A ceiling left at seven would be a hole with a note beside it**: the table could refill to
+#: its old size and nothing would say so. `test_the_declarations_cannot_grow_and_the_derived_side_is_real`
+#: now requires it to be **empty**, so the next literal payload fails on arrival. That is the
+#: point of a debt table shrinking - the number is the evidence, and it has to be checked.
+UNTYPED_LITERAL: dict[str, str] = {}
 
 #: Measured 2026-08-25. Floors sit just under the derived figures - `(agu)`'s floor read `>= 12`
 #: against a real 16 and could never fire - and the declarations get **ceilings** instead, because
@@ -255,7 +248,10 @@ def test_the_declarations_cannot_grow_and_the_derived_side_is_real() -> None:
     assert len(_routes(_module(SERVER))) >= MEASURED_ROUTES - 5
     assert len(resolved) >= MEASURED_RESOLVED - 5, f"only {len(resolved)} routes resolved"
     assert len(NOT_A_JSON_PAYLOAD) <= 3, "a fourth route that returns no payload needs a ruling"
-    assert len(UNTYPED_LITERAL) <= 7, "the literal debt grew; type it instead of listing it"
+    assert not UNTYPED_LITERAL, (
+        "the literal debt table refilled. It reached zero on 2026-08-25 and the ceiling fell "
+        "with it - type the payload instead of listing it"
+    )
     assert len(bare) == len(NOT_A_JSON_PAYLOAD), "the unresolvable set and its table disagree"
 
 

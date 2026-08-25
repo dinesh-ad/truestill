@@ -71,7 +71,7 @@ because somebody went looking, and this table still cannot show an app-only capa
 | subcommand | CLI | app route | state |
 |---|---|---|---|
 | `organize` | `cli.py` `add_parser("organize"` | `/api/organize/{inventory,preview,run,settings}` `server.py:878-881` | **covered**, including `--move` / `--in-place` via `mode` (`service/organize.py:93`, `server.py:230,253`) |
-| `undo-organize` | `cli.py` `add_parser("undo-organize"` | `/api/organize/undo{,/preview,/apply}` `server.py:884-886` | **covered**, preview and apply |
+| `undo-organize` | `cli.py` `add_parser("undo-organize"` | `/api/organize/undo{,/preview,/apply}` `server.py:923-925` | **covered**, preview and apply |
 | `migrate-layout` | `cli.py` `add_parser("migrate-layout"` | `/api/migrate/{preview,run}` `server.py:904-905`; undo `:910-912` | **covered**, including `--undo` |
 | `verify` | `cli.py` `add_parser("verify"` | `/api/verify/run` `server.py:887` | **covered** |
 | `where` | `cli.py` `add_parser("where"` | `/api/where` `server.py:923` | **covered**; `--limit` becomes paging |
@@ -80,7 +80,7 @@ because somebody went looking, and this table still cannot show an app-only capa
 | `backup` | `cli.py` `add_parser("backup"` | `/api/backup/{preview,run}` | **covered**, preview and apply. ⚠ The CLI **refuses** an unregistered drive where the app auto-attaches - a ruling, not a gap: registering is a distinct act with its own ghost guard. `(ahf)` |
 | `bake` | `cli.py` `add_parser("bake"` | `/api/dates/bake/{preview,run}` `server.py:922-923` | **covered**, preview and apply. ⚠ The *input* is not: confirming a date is app-only by recorded deferral, so a CLI bake writes only what the app recorded or `truestill restore` brought back. `(ahd)` |
 | `clean-empty` | `cli.py` `add_parser("clean-empty"` | `/api/clean-empty/{preview,apply}` `server.py:895-896` | **partial** - `--permanent` deliberately absent (`service/clean_empty.py:71`), app refuses and points at the CLI |
-| `ingest` | `cli.py` `add_parser("ingest"` | `/api/ingest/{preview,archives/precheck,archives/run}` `server.py:888-890` | ⚠ **partial - preview only.** `service/takeout.py:206` returns `ingest_preview(...)`; there is no apply endpoint. `--tz`, `--prefer-takeout-dates`, `--map-albums` unimplemented |
+| `ingest` | `cli.py` `add_parser("ingest"` | `/api/ingest/{preview,archives/precheck,archives/run}` `server.py:927-929` | ⚠ **partial - preview only.** `service/takeout.py:206` returns `ingest_preview(...)`; there is no apply endpoint. `--tz`, `--prefer-takeout-dates`, `--map-albums` unimplemented |
 | `drives` | `cli.py` `add_parser("drives"` | `/api/drives` `server.py:921` | **partial - list only.** Every marker-writing flag (`--init`, `--label`, `--uuid`, `--adopt-existing`, `--force-new-identity`, `--migrate-marker`) has no route |
 | `analyze` | `cli.py` `add_parser("analyze"` | `/api/organize/inventory` `server.py:878` | **partial** - same walk-and-stat tier; `--all-files` missing |
 | `catalog` | `cli.py` `add_parser("catalog"` | `/api/library/status` `server.py:897` | **partial - read half only.** `--move` has no route |

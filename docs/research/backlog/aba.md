@@ -59,7 +59,7 @@ population:
 
 - **The signature is inexact by construction.** Two `path_hint.drive.*` values equal with a
   marker present for one identity is byte-identical to a legitimate re-registration at a reused
-  mountpoint: the old drive's hint is deliberately kept (`drives.py:576` - it is what lets an
+  mountpoint: the old drive's hint is deliberately kept (`drives.py:587` - it is what lets an
   absent drive read OFFLINE rather than UNKNOWN), and `--force-new-identity` records nothing
   (`cli.py:1173` skips the check and mints). Since `(agr)` part 1 shut the silent mint, every
   future occurrence of the signature is an explicit human ruling - **a detector built now would

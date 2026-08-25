@@ -564,6 +564,17 @@ def _drive_decisions(
     )
 
 
+class DrivesPayload(TypedDict):
+    """What `/api/drives` returns: every registered drive, and the ones at risk. `(ahn)` stage 4a.
+
+    Composed at the route from two typed service calls and built as a dict literal until now, so
+    the two halves had types and the thing actually sent did not.
+    """
+
+    drives: list[DriveRow]
+    at_risk: list[AtRiskRow]
+
+
 def list_drives(db: Path) -> list[DriveRow]:
     with open_catalog(db) as catalog:
         mine: Decisions | None = None

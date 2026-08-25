@@ -476,6 +476,39 @@ class ApplyReviewNamesResult(TypedDict):
     named_trips: list[NamedTripSelection]
 
 
+class NamedEventsApplied(TypedDict):
+    """What `/api/events/{session}/apply` returns: how many of each were named. `(ahn)` stage 4a.
+
+    A **projection** of :class:`ApplyReviewNamesResult`, which also carries the selections the
+    server keeps. The screen is told the two counts and nothing else.
+    """
+
+    events: int
+    trips: int
+
+
+class MergeReviewCardsError(TypedDict):
+    """The refusal arm of :class:`MergeReviewCardsResult`, as the route sends it. `(ahn)` stage 4a.
+
+    ``MergeReviewCardsResult`` marks both keys `NotRequired` because it is one type for two
+    outcomes; what crosses the wire on a refusal carries `error` alone.
+    """
+
+    error: str
+
+
+class ExpiredSessionPayload(TypedDict):
+    """A review session the server no longer holds. `(ahn)` stage 4a.
+
+    Its own type rather than a shared `{ok, error}`: four such payloads already exist
+    (`BackupPreviewErr`, `RescueRefusal`, `FilesystemRelationshipErr`,
+    `InvalidEventProposalPayload`), and per-surface is the convention this codebase already keeps.
+    """
+
+    ok: Literal[False]
+    error: str
+
+
 def apply_event_review_names(
     db: Path,
     cards: list[ReviewCard],
