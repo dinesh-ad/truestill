@@ -68,6 +68,37 @@
   **`(ahl)`'s census expires when `app.js` does. This is what replaces it**, and it replaces it
   with something mechanical at both ends rather than a list somebody maintains.
 
+  ## STAGES 1-3 SHIPPED. WHAT STAGE 4 NEEDS, AS A LIST
+
+  Stage 1 (`JobTarget[T]`, 11 factories) and stage 2 (the route resolver, 47 of 50) made the
+  **declared** end exact. Stage 3 asked whether that turns `(ahl)`'s 34 into a count. **It does
+  not** - it turns three specific hidden fields into named ones and proves the method's limit.
+
+  ⚠ **These five are prerequisites, not stage 4 itself.** Recorded so the next turn starts from a
+  list rather than a survey.
+
+  1. **The seven literal payloads must be typed.** A dict literal has no schema, so each is a hole
+     *in* the spec rather than a note beside it. `_start_drive_job`'s `{"job_id"}` first: one key,
+     **15 call sites**, and the envelope every job route returns.
+  2. **Twelve routes resolve to 2-3 payload types and each needs a ruling.** 35 of 47 resolve to
+     exactly one. A `oneOf` is a legitimate answer, but it must be **decided** - a resolver
+     returning a set cannot tell a real union from an extra reference it happened to find.
+  3. **A Python-type to JSON-Schema mapping** for 117 TypedDicts, including the **29** that are
+     nested-only and the `X | Y` unions.
+  4. 🔑 **A RULING, AND IT IS NEEDED BEFORE STAGE 4 RATHER THAN DURING IT.** OpenAPI describes
+     request and response; it has no place for a **server-sent event stream**. The job summaries -
+     `BakeSummary`, `BackupRunSummary`, `MigrationApplySummary` and the rest, which are the
+     payloads that matter most - travel on `/api/jobs/{job_id}/events` and are delivered as
+     `d.summary`, so **no route returns them**. Either they get a companion schema outside the
+     OpenAPI document, or the document declares the stream and its frame shape as an extension, or
+     they are excluded and that exclusion is written down. **Starting stage 4 without deciding
+     this produces a spec that silently omits the most important half of the contract** - which is
+     `(ahl)`'s own failure shape, one layer up.
+  5. **`NotRequired` must map to optional, read from the AST.**
+     `test_migrate_reports_its_stop.py:149` records that runtime `__required_keys__` is **vacuous**
+     under `from __future__ import annotations` - every key reads as required. A generator using it
+     would be wrong about every optional field, and `elapsed_seconds` is on nearly all of them.
+
   ## RELATED
 
   `(ahl)` (the census this makes obsolete, deliberately), `(adi)` (the React migration, by island),

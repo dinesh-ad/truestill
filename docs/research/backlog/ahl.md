@@ -45,6 +45,29 @@
   a client USES what it asked for, so a field stays undeprecatable because the client requests it
   and ignores it. Named here because it is the boundary, not a gap to close later.
 
+  ### ⚠ STILL A FLOOR AFTER `(ahn)` STAGE 3, AND THE REASON IS THE INTERESTING PART
+
+  Stage 3 (2026-08-25) did reach payload granularity **where the binding is unambiguous**, and
+  `BakeSummary.absent` is no longer hidden: `test_job_summaries_are_read_where_they_are_delivered.py`
+  names it dead alongside `drive_label` and `elapsed_seconds`. **The number below did not change,
+  and must not be republished as a count.**
+
+  🔑 **Both methods err in the SAME direction - toward calling a dead field live** - so neither is
+  a ceiling on the real one:
+
+  | method | how it errs |
+  |---|---|
+  | key **name** (this census) | over-reports *read* on **collisions**: `absent`, `unreadable` |
+  | **payload** binding (stage 3) | over-reports *read* through **scope leakage** - `/api/library/status` yields **69** scoped reads against a type declaring **25** - and under-reports **coverage**: 7 of 16 `runJob` blocks bind, and the route channel is not attempted at all |
+
+  ⚠ **Under-collection was met, not theorised.** Stage 3's first draft followed one level from
+  `d.summary` and reported three LIVE `BackupRunSummary` fields as dead; they are read by
+  `mediaCount`, which the renderer calls. That is the cry-wolf direction, and it nearly shipped as
+  a finding.
+
+  **34 stays a floor until the consumer is typed** - `(ahn)` stage 5 - at which point *"read"* is a
+  type reference and neither method is needed.
+
   ## ⚠ THE NAIVE GREP COSTS FIVE KEYS, NOT FOURTEEN - CORRECTED 2026-08-25 (P83)
 
   **This section read *"STRIPPING COMMENTS MOVED THE ANSWER FROM 20 TO 34 ... certified fourteen

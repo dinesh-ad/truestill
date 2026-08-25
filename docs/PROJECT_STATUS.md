@@ -247,7 +247,7 @@ what stops is changing *what a route returns* under a consumer that already read
 |---|---|---|
 | 1 | every mutating run leaves a line in the run history | ❌ **6 of 9** since `(agm)` - `trip apply`, `clean empty` and `archive unpack` remain, which is `(ahi)`. ⚠ Reworded 2026-08-25: *"writes a record"* could not be met by bake, which correctly writes a line and no detail |
 | 2 | every surface reports its own stop | ✅ `(ahc)` closed migrate's last one |
-| 3 | no route computes a field no consumer reads | ❌ **BLOCKED ON `(ahn)`**, which is a stronger statement than a number. **34 of 289 key names** (**11.8%**) derived - `(ahl)` - but 34 is a **floor that cannot reach zero** under this method |
+| 3 | no route computes a field no consumer reads | ❌ **BLOCKED ON AN UNTYPED CONSUMER**, which is a different blocker from the one recorded here yesterday. `(ahn)` stages 1-3 built the join, so the DECLARED end is exact; the CONSUMED end is still a text search over `app.js`, and **no number here is a ceiling** - both methods err toward calling a dead field live. **Ticks at `(ahn)` stage 5**, when a read is a type reference |
 | 4 | no mutating behaviour lives only in the app | ✅ **met AND GUARDED** since `(ahj)` - every mutating operation names a CLI subcommand the parser defines, or a recorded deferral |
 
 ⚠ **TWO of the four are checked by a guard, and each pins a DECLARATION rather than behaviour.**
@@ -277,8 +277,13 @@ what stops is changing *what a route returns* under a consumer that already read
   `deprecatedSchema(period:)`) and REST has no equivalent. The mechanical-at-both-ends route is
   `(ahn)`, and it is what retires `(ahl)` when `app.js` is deleted.
 * ⚠ **CONDITION 3 CANNOT BE TICKED BY EMPTYING THE 34, and that is why it is BLOCKED rather than
-  counted.** The method is blind in **two different ways**, and closing one does not touch the
-  other:
+  counted.** ⚠ **The BLOCKER WAS RENAMED on 2026-08-25**, and the rename is the useful part: it was
+  *"nothing declares the route-to-payload join"*, and `(ahn)` stages 1-3 built that join. It is now
+  **the consumer is untyped**. `BakeSummary.absent` is no longer hidden - stage 3 names it dead
+  alongside `drive_label` and `elapsed_seconds` - but only where the JavaScript binding is
+  unambiguous: **7 of 16** job blocks, and the route channel not at all, because it over-collects
+  (69 scoped reads against 25 declared keys). The method is blind in **two different ways**, and
+  closing one does not touch the other:
   * **`BakeSummary.absent`** - a **name collision**. `BakePreview.absent` is rendered at
     `app.js:4131`, so the NAME reads as live and the dead sibling never enters the census.
   * **`DriveAttachment`'s five** (`absent`, `unreadable`, `unmatched`, `unreadable_dirs`,
