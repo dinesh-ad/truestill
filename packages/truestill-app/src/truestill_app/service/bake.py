@@ -171,7 +171,7 @@ class BakeSummary(TypedDict):
 
 def bake_run(
     path: Path, db: Path, *, confirmation: str
-) -> JobTarget | DriveUnavailablePayload | BakeRefusal:
+) -> JobTarget[BakeSummary] | DriveUnavailablePayload | BakeRefusal:
     """Build a job that writes confirmed dates into this drive's copies.
 
     ⚠ **`confirmation` IS CHECKED HERE, NOT AT THE ROUTE** (`(ahe)`), and the word it is checked

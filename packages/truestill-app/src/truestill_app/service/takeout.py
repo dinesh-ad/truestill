@@ -180,7 +180,9 @@ def archive_precheck(source: Path, destination: Path) -> ArchivePrecheckPayload:
     }
 
 
-def archive_ingest_run(source: Path, destination: Path, db: Path) -> JobTarget:
+def archive_ingest_run(
+    source: Path, destination: Path, db: Path
+) -> JobTarget[IngestPreviewEmpty | IngestPreviewSummary | ArchivePrecheckPayload]:
     """Unpack an archive set, then run the ordinary Takeout preview over the merged tree.
 
     **The precheck is re-run inside the job**, not trusted from the earlier call: the user may
@@ -210,7 +212,9 @@ def archive_ingest_run(source: Path, destination: Path, db: Path) -> JobTarget:
     return target
 
 
-def ingest_preview_run(takeout: Path, destination: Path, db: Path) -> JobTarget:
+def ingest_preview_run(
+    takeout: Path, destination: Path, db: Path
+) -> JobTarget[IngestPreviewEmpty | IngestPreviewSummary]:
     """Takeout rescue preview as a cancellable job - same dry-run, streamed progress."""
 
     def target(

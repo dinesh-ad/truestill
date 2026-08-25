@@ -74,7 +74,7 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def verify_run(path: Path, db: Path) -> JobTarget | DriveUnavailablePayload:
+def verify_run(path: Path, db: Path) -> JobTarget[VerifyJobSummary] | DriveUnavailablePayload:
     """Build a job target that verifies a connected drive's copies against the catalog.
 
     Soft-fails with the drive-correction payload when the path is unreachable or unmarked,

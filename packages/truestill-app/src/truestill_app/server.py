@@ -166,7 +166,10 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         return explicit_db
 
     def _start_drive_job(
-        target: JobTarget | Mapping[str, object],
+        # ⚠ **`JobTarget[object]`, and the widening is HERE rather than at the factories.**
+        # One helper starts jobs of every shape, so this is where `T` is discharged - each
+        # factory still declares its own summary and mypy checks it there. `(ahn)` stage 1.
+        target: JobTarget[object] | Mapping[str, object],
         *,
         paths: list[Path],
         operation: str,

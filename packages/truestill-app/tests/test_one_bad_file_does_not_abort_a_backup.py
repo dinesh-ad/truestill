@@ -29,7 +29,7 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
-from truestill_app.service.backup import backup_run
+from truestill_app.service.backup import BackupRunSummary, backup_run
 from truestill_cli.cli import main
 from truestill_core import run_health, safe_copy
 from truestill_core.app_paths import record_path_for
@@ -62,7 +62,7 @@ def library(tmp_path: Path) -> tuple[Path, Path, Path]:
     return drive, target, db
 
 
-def _run(library: tuple[Path, Path, Path]) -> dict[str, object]:
+def _run(library: tuple[Path, Path, Path]) -> BackupRunSummary:
     source, target, db = library
     result = backup_run(source, target, db)(lambda _p: None, threading.Event())
     assert isinstance(result, dict)

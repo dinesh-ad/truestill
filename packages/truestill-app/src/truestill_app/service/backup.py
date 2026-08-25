@@ -196,7 +196,7 @@ def _nothing_copied(label: str, target: Path) -> BackupRunSummary:
     }
 
 
-def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
+def backup_run(source: Path, target: Path, db: Path) -> JobTarget[BackupRunSummary]:
     """Build a job that copies the library to another drive: verify-after-write, record each copy."""
 
     def target_job(progress: ProgressCallback, cancel: threading.Event) -> BackupRunSummary:

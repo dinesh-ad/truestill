@@ -988,7 +988,7 @@ def organize_preview_run(
     refresh_metadata: bool = False,
     skip_undated: bool = False,
     mode: str = "copy",
-) -> JobTarget:
+) -> JobTarget[OrganizePreviewEmpty | OrganizePreviewSummary]:
     """The preview as a cancellable background job, so it can report progress like the rest.
 
     Still a dry run in every respect: this writes nothing to the destination or the catalog.
@@ -1145,7 +1145,7 @@ def organize_run(
     skip_undated: bool = False,
     refresh_metadata: bool = False,
     mode: str = "copy",
-) -> JobTarget:
+) -> JobTarget[CompletionBase | OrganizeDoneSummary]:
     """Build a job target that runs the real organize (progress across hashing then copying)."""
 
     def target(

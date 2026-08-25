@@ -34,7 +34,7 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
-from truestill_app.service.bake import CONFIRM_WORD, bake_run
+from truestill_app.service.bake import CONFIRM_WORD, BakeSummary, bake_run
 from truestill_core.catalog import Catalog
 from truestill_core.drive import create_marker
 from truestill_core.hashing import sha256_file
@@ -77,10 +77,12 @@ def _verify(db: Path, root: Path, drive_uuid: str) -> dict[str, CopyStatus]:
     return {r.copy.relative: r.status for r in verify_copies(copies, root)}
 
 
-def _bake(db: Path, root: Path) -> dict:
+def _bake(db: Path, root: Path) -> BakeSummary:
     target = bake_run(root, db, confirmation=CONFIRM_WORD)
     assert callable(target), f"bake_run refused: {target}"
-    return target(lambda _p: None, threading.Event())  # type: ignore[no-any-return]
+    # ⚠ The `# type: ignore[no-any-return]` here was papering over `JobTarget`'s `Any`
+    # and became wrong the moment `(ahn)` stage 1 gave the factory its own type.
+    return target(lambda _p: None, threading.Event())
 
 
 _KILLED_BAKE = """

@@ -99,7 +99,7 @@ def organize_undo_state(db: Path) -> OrganizeUndoStateDisarmed | OrganizeUndoSta
     }
 
 
-def organize_undo(*, db: Path, apply: bool) -> JobTarget:
+def organize_undo(*, db: Path, apply: bool) -> JobTarget[OrganizeUndoJobSummary]:
     """Preview/apply organize undo on a worker thread."""
 
     def target(progress: ProgressCallback, cancel: threading.Event) -> OrganizeUndoJobSummary:

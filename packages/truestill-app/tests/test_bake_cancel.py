@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
-from truestill_app.service.bake import CONFIRM_WORD, bake_run
+from truestill_app.service.bake import CONFIRM_WORD, BakeSummary, bake_run
 from truestill_core.catalog import Catalog
 from truestill_core.drive import create_marker
 from truestill_core.hashing import sha256_file
@@ -62,7 +62,7 @@ def _library(tmp_path: Path, count: int) -> tuple[Path, Path, str]:
     return db, root, marker.uuid
 
 
-def _run_cancelling_after(root: Path, db: Path, after: int) -> dict:
+def _run_cancelling_after(root: Path, db: Path, after: int) -> BakeSummary:
     """Run the bake, setting cancel once ``after`` progress ticks have been seen."""
     target = bake_run(root, db, confirmation=CONFIRM_WORD)
     assert callable(target), f"bake_run refused: {target}"

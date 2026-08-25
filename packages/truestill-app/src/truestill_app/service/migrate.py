@@ -130,7 +130,9 @@ def migration_preview(
     }
 
 
-def migration_preview_run(path: Path, db: Path) -> JobTarget | DriveUnavailablePayload:
+def migration_preview_run(
+    path: Path, db: Path
+) -> JobTarget[MigrationPreviewOk] | DriveUnavailablePayload:
     """Migration preview as a cancellable job - streams rederive + plan progress (backlog oo).
 
     Soft-fails with the drive-correction payload when the path is not a connected drive, matching
@@ -235,7 +237,7 @@ def migration_apply(
     db: Path,
     named_events: Sequence[NamedEventSelection] | None = None,
     named_trips: Sequence[NamedTripSelection] | None = None,
-) -> JobTarget:
+) -> JobTarget[MigrationApplySummary]:
     """Build a job target that relocates a connected drive's files under the current template.
 
     ``named_events`` (each an ``{"event_id", "name", "start", "end"}`` dict) and ``named_trips``
@@ -375,7 +377,9 @@ def migration_armed_state(path: Path, db: Path) -> ArmedStatePayload | DriveUnav
     return {"ok": True, "armed": True, "file_count": len(rows), "run_id": run_id}
 
 
-def migration_undo(path: Path, db: Path, *, apply: bool) -> JobTarget | DriveUnavailablePayload:
+def migration_undo(
+    path: Path, db: Path, *, apply: bool
+) -> JobTarget[UndoJobSummary] | DriveUnavailablePayload:
     """Preview or apply the last migration's reversal as a cancellable, progress-streaming job.
 
     Reuses ``undo_migration`` directly - no parallel journal. Soft-fails with the same drive

@@ -36,11 +36,27 @@ from truestill_core.organizer import RunStoppedError
 from truestill_core.progress import Progress, ProgressCallback
 
 #: A job target receives a progress callback and a cancel event, and returns a JSON-able summary.
-#: Heterogeneous return shapes (organize, migrate, verify, backup, …) keep ``JobTarget`` as
-#: ``Any``. For dict summaries, :meth:`JobManager.start` always injects ``elapsed_seconds`` at
-#: runtime; service TypedDicts declare that key ``NotRequired`` rather than inventing a shared
-#: intersection type jobs cannot enforce across every target.
-JobTarget = Callable[[ProgressCallback, threading.Event], Any]
+#:
+#: ⚠ **THIS WAS `Any` UNTIL 2026-08-25, AND THE REASON RECORDED FOR IT ANSWERED A DIFFERENT
+#: QUESTION.** It read: *"Heterogeneous return shapes (organize, migrate, verify, backup, …) keep
+#: ``JobTarget`` as ``Any`` ... rather than inventing a shared **intersection** type jobs cannot
+#: enforce across every target."*
+#:
+#: **That is correct about an intersection and does not apply to a parameter.** An intersection
+#: would claim every target returns some common shape - which is false, and unenforceable. A
+#: **parameterised** alias claims nothing shared: ``JobTarget[BakeSummary]`` describes one
+#: target's own type and says nothing about any other. The objection was answered before it was
+#: raised, against a construct nobody proposed. `(ahn)` stage 1.
+#:
+#: The rest of the old note still holds: :meth:`JobManager.start` injects ``elapsed_seconds`` at
+#: runtime for dict summaries, and service TypedDicts declare that key ``NotRequired``.
+#:
+#: ⚠ **WHAT THIS DOES NOT DO, said here so nobody reads more into it.** It types the **producer**
+#: side - each factory declares what its target returns, and mypy checks the inner function
+#: against it. It does **not** type the wire: the manager holds jobs of every shape in one
+#: registry, so ``T`` is discharged at :meth:`start` and :attr:`Job.summary` is what the browser
+#: is handed. Closing that end is a spec and generated types, which is `(ahn)` stages 4 and 5.
+type JobTarget[T] = Callable[[ProgressCallback, threading.Event], T]
 
 _SENTINEL_DONE = "done"
 _SENTINEL_ERROR = "error"
@@ -123,7 +139,11 @@ class Job:
     cancel: threading.Event = field(default_factory=threading.Event)
     events: queue.Queue[dict[str, Any]] = field(default_factory=queue.Queue)
     status: str = "running"
-    summary: Any = None
+    #: ⚠ **``object``, not ``Any``** (`(ahn)` stage 1). One registry holds every job shape, so this
+    #: cannot carry the target's ``T``; but ``object`` makes that a narrowing anybody who later
+    #: reads it must perform, where ``Any`` let it be used as anything without a word. Nothing
+    #: reads it today - checked: the only references are the two writes below.
+    summary: object = None
     #: The terminal event, kept after it has been put on the queue.
     #:
     #: **A queue delivers each event to exactly one consumer**, so the terminal event wakes
@@ -276,7 +296,7 @@ class JobManager:
 
     def start(
         self,
-        target: JobTarget,
+        target: JobTarget[object],
         *,
         drives: Sequence[DriveRef],
         operation: str,
