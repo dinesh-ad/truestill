@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aho). Next free: (ahp).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ahq). Next free: (ahr).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -184,6 +184,38 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(ahp) `truestill ingest --source <archive>` CRASHES ON EVERY ARCHIVE.** Filed 2026-08-25
+  (P95, the full-library soak). Shipped, unconditional, and on the feature's own documented
+  invocation - `--source` is helped as *"folder of photos, or an archive (.zip, .tar, .tgz)"*.
+  `AttributeError: 'str' object has no attribute 'exists'` at `filesystem.py:139`, via
+  `cli.py:1683` -> `archive_ingest.py:198`. A traceback, not a refusal.
+  **The cause is a boundary**: `cli.py:373` declares `destination` with no `type=Path`, so argparse
+  hands a `str` to code annotated `Path`. A **folder** source works; only the archive branch
+  reaches `precheck_archives`. mypy cannot see it - `argparse.Namespace` attributes are `Any`.
+  ⚠ **Checked, not assumed**: reproduced with a 77 KB two-file zip after the 1.6 GB one.
+  ⚠ **No test caught it because `test_ingest_archives_cli.py:39` passes a `Path` where the real
+  caller passes a `str`** - the test constructs its input differently from the caller it stands in
+  for. `(agu)`'s shape.
+  ⚠ **The fix is NOT one line.** `type=Path` there leaves the boundary unguarded; one instance
+  means the boundary is unguarded. This asks for a **census** of every argparse argument consumed
+  as a `Path`, and does not guess how many are in this state.
+  [Full entry](research/backlog/ahp.md)
+
+- **(ahq) FLAT PHOTOGRAPHS ARE ALL NEAR-DUPLICATES OF EACH OTHER.** Filed 2026-08-25 (P95).
+  **89 files** sit within the default threshold (5) of the all-zero perceptual hash, across 16
+  distinct hashes, and are mutually near-duplicate **by construction**. **Ten are real
+  photographs** - `DSC05501.JPG` (Sony) and `DSCN0407.JPG` (Nikon) among them, unrelated frames
+  from different cameras.
+  ⚠ **NOT a bug in the hashing, and that was checked by LOOKING**: the 1.36 MB
+  `IMG_20190719_153609.jpg` was opened and is a near-black frame, so its all-zero dHash is honest.
+  Every flat image lands on that value whatever it depicts.
+  ⚠ **The null**: nothing in the product or the documents addresses low-variance images -
+  `grep` over `hashing.py` returns one hit and it is about *flatbed scans*; `docs/*.md` returns
+  nothing. `PERFORMANCE.md` documents this comparison's cost and not what it returns.
+  **The harm**: a user shown two unrelated photographs as duplicates stops trusting every pair the
+  product reports, including the true ones - and 827 files went into that review queue.
+  [Full entry](research/backlog/ahq.md)
 
 - **(aho) THE JOB ENVELOPE IS THE ONLY SUCCESS PAYLOAD WITH NOTHING TO NARROW ON.** Filed
   2026-08-25 (P93/P94), split out of `(ahn)` stage 4b because the fix is a **wire change**.
