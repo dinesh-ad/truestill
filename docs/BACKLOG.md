@@ -280,10 +280,24 @@ is invisible here is retired, not free.**
   `server.py` and **19** `add_parser` names in `cli.py`. **4 of the 9 auto-join** by name
   (`backup`, `organize`, `clean empty`->`clean-empty`, `undo organize`->`undo-organize`); the
   other five do not.
-  **So the honest cost is a hand-written join, mechanically pinned on both sides**: a nine-row
-  declared table where every operation must have a row, and every row must name either a
-  subcommand that exists in the parser **or** a deferral. `MUTATING_RUNS`' shape from P69,
-  extended - and it would subsume `(ahi)` rather than sitting beside it.
+  **So the honest cost is a hand-written join, mechanically pinned on both sides**: every
+  operation must name either a subcommand that exists in the parser **or** a deferral.
+  ⚠ **CORRECTED 2026-08-25 (P76/P77), twice.** ① **This is a COLUMN, not a new table.**
+  `_EXPECTED` in `test_every_job_declares_whether_it_mutates.py` is already keyed by operation
+  string, already holds every one, and already fails when a route is absent - so a fourth
+  hand-list was never the shape. ② **The `(ahi)` subsumption claim is WITHDRAWN**: `MUTATING_RUNS`
+  is keyed by **service module**, not by operation, and nothing declares that *"set dates"* is
+  `service/bake.py`. Consolidating them needs a **second** join, so `(ahi)` stands on its own.
+  ⚠ **And what this pins is narrower than filed.** The **subcommand** end is mechanical; the
+  **deferral** end is not - the *App-surface deferrals* register is prose with no key, and its
+  row for the one deferred case does not contain the string `trip apply`. The best available is
+  that the row itself declares `deferred` with its reason. Say that rather than implying both ends
+  are pinned.
+  **Condition 1 gets only wiring, not behaviour**: P69's `_wires_a_record` proves the code
+  *contains* a call to a record entry point, not that a record is written on every run - `(agj)`
+  is exactly the defect it would not catch. **Condition 4 is the one it genuinely pins.**
+  ✅ **P77 shipped the prerequisite**: `_declared()` now matches the **declaration** rather than
+  callee names, so all three call shapes are read and the seventy-second member records why.
   ⚠ **Stated rather than implied**: the join itself is prose and cannot be derived, because
   nothing declares that *"set dates"* is `bake`. What becomes mechanical is that no operation and
   no subcommand is **missing** from the table, which is the failure that actually happened.

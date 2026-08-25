@@ -50,20 +50,29 @@ def test_mutating_has_no_default_so_a_new_caller_must_answer() -> None:
 
 
 def _declared() -> list[tuple[str, bool]]:
-    """Every `_start_drive_job` call in the server, as (operation, mutating)."""
+    """Every route that declares an operation, as (operation, mutating). **Shape-agnostic.**
+
+    ⚠ **THIS ENUMERATED CALLEES BY NAME AND MISSED ONE, WHICH IS THE DEFECT ITSELF.** It matched
+    `_start_drive_job` in two shapes - called directly, or handed to `run_in_threadpool` as an
+    argument - and **`clean empty` declares through `jobs.claim`** (`server.py:485`), the
+    exclusion-without-a-job that `(agu)` introduced for exactly that route. So the route `(agu)`
+    fixed was absent from the table `(agu)` built: 15 operations read where 16 exist, and
+    `mutating=True` on that call answered to nobody. `ENGINEERING_STANDARD.md` §4's 71st member -
+    an audit that refreshed one half.
+
+    **So the match is on the DECLARATION, not the callee.** Any call carrying both `operation=`
+    and `mutating=` as literals is a route declaring itself, whatever function it is calling, and
+    a fourth shape is covered the day it is written rather than the day someone notices.
+
+    ⚠ **The literal requirement is what keeps `jobs.start` out**, and that is load-bearing rather
+    than incidental: `_start_drive_job` forwards its own parameters (`server.py:194`), so the
+    names are variables there. Matching on the callee would have needed that exclusion spelled
+    out; matching on literals gets it for free.
+    """
     tree = ast.parse(_SERVER.read_text(encoding="utf-8"))
     found: list[tuple[str, bool]] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
-            continue
-        # Two shapes, and missing the second is how this scan goes quietly vacuous: most routes
-        # hand `_start_drive_job` to `run_in_threadpool` as an argument, so the keywords belong
-        # to THAT call. Four are direct.
-        direct = isinstance(node.func, ast.Name) and node.func.id == "_start_drive_job"
-        handed_off = any(
-            isinstance(arg, ast.Name) and arg.id == "_start_drive_job" for arg in node.args
-        )
-        if not (direct or handed_off):
             continue
         kwargs = {k.arg: k.value for k in node.keywords if k.arg}
         operation, mutating = kwargs.get("operation"), kwargs.get("mutating")
@@ -96,6 +105,11 @@ _EXPECTED: dict[str, bool] = {
     # `"import preview", False` until 2026-08-23, which is what this table exists to make
     # impossible to restate.
     "archive unpack": True,
+    # ⚠ Declares through `jobs.claim`, not `_start_drive_job` - `(agu)` gave it the exclusion
+    # without the job machinery, because its screen contract is a synchronous result. It was
+    # invisible to this table until 2026-08-25 for exactly that reason. It removes empty folders
+    # from the user's drive, and `(agu)` calls it "the product's only unserialized DELETE".
+    "clean empty": True,
     # Reads and reports. A stale preview is not data loss, and refusing one would be new
     # behaviour on a path that works today.
     "organize preview": False,
@@ -132,7 +146,9 @@ def test_the_routes_that_write_user_files_all_hold_the_drive() -> None:
     """The cry-wolf half: a table of all-`False` would satisfy the test above and lock nothing."""
     writes = {op for op, mutating in _declared() if mutating}
 
-    assert {"organize", "backup", "migrate", "undo", "archive unpack"} <= writes, (
+    # `clean empty` joined this set on 2026-08-25: it removes folders from the user's drive and
+    # was absent only because the scan above could not see its call shape.
+    assert {"organize", "backup", "migrate", "undo", "archive unpack", "clean empty"} <= writes, (
         f"a route that writes user files does not hold the drive: {sorted(writes)}"
     )
 
@@ -143,10 +159,17 @@ def test_the_routes_that_write_user_files_all_hold_the_drive() -> None:
 def _route_handlers() -> dict[str, tuple[bool, bool, set[str]]]:
     """Every handler in server.py: (starts a job, takes jobs.claim, service functions CALLED).
 
-    ⚠ **This is the reach `(agu)` found missing.** `_declared` above reads `_start_drive_job`
+    ⚠ **This is the reach `(agu)` found missing.** `_declared` above read `_start_drive_job`
     call sites, so a mutating route that never called it - clean-empty apply, which DELETES -
     was invisible to the guard built for exactly that mistake. This walk starts from the other
     end: every route, whatever it calls, and a classification that must exist for each.
+
+    ⚠ **CORRECTED 2026-08-25: `(agu)` recorded that hole and routed around it rather than closing
+    it, and it stayed open for a year of commits.** `_declared` matches the **declaration** now -
+    any call carrying literal `operation=` and `mutating=` - so clean-empty is visible to both
+    walks. This second walk is still worth its cost: it answers a different question (*what does
+    each handler CALL*), and it is what catches a route that mutates while declaring nothing at
+    all. Two walks, two questions - not one walk done twice.
     """
     tree = ast.parse(_SERVER.read_text(encoding="utf-8"))
 

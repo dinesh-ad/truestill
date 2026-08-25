@@ -2023,6 +2023,33 @@ memory dressed as one.
   current - `IMPLEMENTATION_STANDARDS.md` §6.1 was correct throughout both instances, because it is
   the one place that *owns* the rule rather than restating it.
 
+- **A GUARD THAT ITERATES ITS OWN DECLARATION TABLE IS VACUOUS THE DAY THE TABLE EMPTIES.
+  ITERATE THE DERIVED INVENTORY AND ASSERT INTO THE TABLE.** The seventy-second member. Almost
+  every guard here compares something read from the code against something written by hand. The
+  comparison has a **direction**, the two directions look identical in review, and only one of
+  them can fail when the hand-written half disappears.
+
+  > `for row in TABLE: assert row matches the code` passes perfectly on an empty TABLE.
+  > `for thing in derived_from_code(): assert thing in TABLE` cannot.
+
+  *Instance one, `(agu)`, 2026-08-24 - the direction chosen correctly.*
+  `test_every_job_declares_whether_it_mutates.py` loops `_declared()`, read from `server.py`'s
+  AST, and asserts each operation is in `_EXPECTED`. Empty `_EXPECTED` and the first assertion
+  fails, naming the operation. Nothing had to be added for that; it is a property of the loop.
+
+  *Instance two, P69, 2026-08-25 - the direction chosen wrongly, and it is the one that earns the
+  number.* `test_the_app_records_what_a_run_did.py` looped `MUTATING_RUNS.items()`. An emptied
+  table iterated nothing and **passed**, so the guard's whole subject could vanish silently. It
+  needed an explicit floor bolted on afterwards to notice - a floor that exists only because the
+  loop runs the wrong way, and that has to be maintained as a number for ever.
+
+  **The practical form:** a floor is the remedy for a guard you cannot turn around; it is not a
+  substitute for turning it around. Ask which half is derived and iterate **that** one. ⚠ And the
+  same reasoning settles what to match on: `_declared()` enumerated **callee names** and missed a
+  third call shape (`jobs.claim`) for a year, because the callee is incidental and the
+  **declaration** - a literal `operation=` beside a literal `mutating=` - is the thing that
+  actually identifies the subject. Match the property, not the spelling of its caller.
+
 - **AN ENTRY THAT ASSERTS AN ABSENCE MUST CARRY THE CHECK THAT WOULD FALSIFY IT.** The seventieth
   member, and the sibling of the one below: that one is about **how an investigation reads**, this
   is about **what the filing has to leave behind.** A reading cannot be audited after the fact; a

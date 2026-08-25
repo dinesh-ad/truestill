@@ -39,3 +39,23 @@
   shape §4 keeps finding.
 
   This is `MUTATING_RUNS`' shape from P69, extended, and it would **subsume `(ahi)`**.
+
+  ## ⚠ CORRECTED 2026-08-25 (P76 ruled it, P77 shipped the prerequisite)
+
+  **It is a column on `_EXPECTED`, not a fourth table.** That table is already keyed by operation
+  string, already holds every mutating operation, and already fails when a route is absent from it.
+
+  **The `(ahi)` subsumption is withdrawn.** `MUTATING_RUNS` is keyed by service module; consolidating
+  needs a second, different join.
+
+  **What it pins, stated at the right size:**
+
+  | | |
+  |---|---|
+  | condition 4, subcommand end | ✅ mechanical - the parser's `add_parser` names are AST-derivable |
+  | condition 4, deferral end | ❌ the register is prose with no key; the row can declare `deferred`, a guard cannot check the register |
+  | condition 1 | ⚠ **wiring only** - `_wires_a_record` proves a call exists in the code, not that it runs. `(agj)` is the defect it would miss |
+
+  **Prerequisite, shipped P77**: `_declared()` read callee names and missed `jobs.claim`, so
+  `clean empty` was in neither the derived inventory nor `_EXPECTED`. It matches the declaration
+  now. `ENGINEERING_STANDARD.md`'s **seventy-second member** records the general rule.
