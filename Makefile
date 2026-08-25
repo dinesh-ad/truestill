@@ -20,6 +20,11 @@ ROOT_CODE := conftest.py suite_scratch.py
 # them: the four `conftest.py` files share a module name, and mypy refuses a run that sees two.
 TEST_TREES := packages/truestill-core/tests packages/truestill-cli/tests packages/truestill-app/tests tests/e2e
 MYPY_TESTS := --config-file mypy-tests.toml
+# BOTH platforms, because mypy resolves `sys.platform` for the HOST and prunes the other arm.
+# A correct cross-platform helper therefore looks unreachable on exactly one of them, and on
+# 2026-08-25 the Windows lane was the only thing that saw it - three minutes after the push.
+# Checking win32 here costs about four seconds and moves that finding to the inner loop.
+MYPY_PLATFORMS := linux win32
 
 .PHONY: install lint format format-check typecheck dash-check name-check redirect-check test test-order check build dryrun e2e e2e-install
 
@@ -43,7 +48,7 @@ format-check:
 
 typecheck:
 	$(PYTHON) mypy $(CORE) $(CLI) $(APP) $(SCRIPTS) $(PACKAGING) $(ROOT_CODE)
-	@for tree in $(TEST_TREES); do $(PYTHON) mypy $(MYPY_TESTS) $$tree || exit 1; done
+	@for plat in $(MYPY_PLATFORMS); do for tree in $(TEST_TREES); do $(PYTHON) mypy $(MYPY_TESTS) --platform $$plat $$tree || exit 1; done; done
 
 # `-n auto` here rather than in `addopts`, deliberately: addopts would sweep in `test-order`
 # below, whose whole value is a single deterministic collection order. Measured 89.95s -> 30.00s

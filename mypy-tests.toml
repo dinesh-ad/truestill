@@ -43,9 +43,15 @@
 #                                           under `make check` (via `typecheck`) and in CI. The
 #                                           hook's green column is not the gate, as CLAUDE.md
 #                                           already says of all eight of them.
-#   WHAT NO RUN CAN SEE                   - platform-guarded branches. mypy resolves `sys.platform`
-#                                           for the host, so the Windows arms of `drive_lock` and
-#                                           its tests are pruned on Linux and never checked here.
+#   BOTH PLATFORMS, deliberately          - mypy resolves `sys.platform` for the HOST and prunes
+#                                           the other arm, so a correct cross-platform helper
+#                                           reads as unreachable on exactly one of them. Measured
+#                                           2026-08-25: the Windows CI lane was the only thing
+#                                           that saw `test_binaries.py`, three minutes after a
+#                                           push. `make typecheck` and CI now run `--platform
+#                                           linux` AND `--platform win32`, which reproduces that
+#                                           finding on Linux in about four seconds. Nothing here
+#                                           sees macOS-only arms; none exist in these trees.
 #
 # ⚠ ONE INVOCATION PER TREE. The four `conftest.py` files share a module name; a single run that
 # sees two of them exits 2 with "Duplicate module named" and checks NOTHING. The Makefile's

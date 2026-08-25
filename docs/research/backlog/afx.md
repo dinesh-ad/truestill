@@ -56,7 +56,7 @@
   - ❌ **"3.79 seconds of headroom"**, ❌ **"the next browser test added breaches it"**, and ❌ the
     title. Real headroom against the 2000 s ceiling is **~493 s, about 25%**.
   - ✅ **The asymmetry, which was always the defect** - this entry says so itself, *"the defect is
-    the ASYMMETRY, not the number"*. CI overrides to 3600 (`ci.yml:542`) while local is 2000, so
+    the ASYMMETRY, not the number"*. CI overrides to 3600 (`ci.yml:554`) while local is 2000, so
     the stricter bound is the developer's, and a red lands on whoever runs the lane before
     committing. **Unchanged, and now the whole of the entry.**
   - ✅ **`(aec)`'s 62 fixed waits** remain a real cost; what falls is only the claim that their sum
@@ -85,7 +85,7 @@
 
   ## ⚠ THE DEFECT IS THE ASYMMETRY, NOT THE NUMBER
 
-  **CI overrides the ceiling to 3600** (`ci.yml:542`,
+  **CI overrides the ceiling to 3600** (`ci.yml:554`,
   `make e2e E2E_EXTRA=... E2E_SECONDS_MAX=3600`). So when the lane crosses 2000 s:
 
   - **CI stays green.** It has 1600 s of slack and will not notice for a long time.

@@ -358,7 +358,7 @@ is invisible here is retired, not free.**
   1169-1506 s** and both local readings report an identical `973 passed, 3 skipped`, so the lane
   had not grown. **Real headroom is ~493 s, not 3.79 s.** 🔑 **Do NOT raise the ceiling** - now
   because there is nothing to accommodate.
-  ⚠ **The defect is the ASYMMETRY, not the number.** CI overrides to **3600** (`ci.yml:542`), so
+  ⚠ **The defect is the ASYMMETRY, not the number.** CI overrides to **3600** (`ci.yml:554`), so
   CI stays green while `make e2e` fails locally - and local is what a person runs before
   committing, so **the red lands on whoever is doing the right thing** and the person who skips
   the lane sees nothing. ⚠ **It is `(aec)`'s bill**: 62 waits across 20 files, re-counted 2026-08-22

@@ -236,8 +236,10 @@ jobs:
       - name: Mypy (tests)
         shell: bash
         run: |
-          for tree in packages/truestill-core/tests packages/truestill-cli/tests packages/truestill-app/tests tests/e2e; do
-            uv run mypy --config-file mypy-tests.toml "$tree"
+          for plat in linux win32; do
+            for tree in packages/truestill-core/tests packages/truestill-cli/tests packages/truestill-app/tests tests/e2e; do
+              uv run mypy --config-file mypy-tests.toml --platform "$plat" "$tree"
+            done
           done
 
       # Windows Defender real-time scanning is ON by default on GitHub's Windows runners, and

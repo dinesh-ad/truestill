@@ -57,10 +57,10 @@ def _fake_binary(directory: Path, name: str) -> Path:
     if sys.platform == "win32":
         path = directory / f"{name}.exe"
         path.write_bytes(b"MZ")
-        return path
-    path = directory / name
-    path.write_text("#!/bin/sh\n")
-    path.chmod(0o755)
+    else:
+        path = directory / name
+        path.write_text("#!/bin/sh\n")
+        path.chmod(0o755)
     return path
 
 
