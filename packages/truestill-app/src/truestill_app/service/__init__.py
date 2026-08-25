@@ -10,6 +10,8 @@ here so ``from truestill_app.service import …`` and ``service.…`` stay uncha
 
 from __future__ import annotations
 
+from truestill_core import backup as _core_backup
+
 from truestill_app.service import backup as _backup
 from truestill_app.service import bake as _bake
 from truestill_app.service import clean_empty as _clean_empty
@@ -156,13 +158,13 @@ prepare_catalog = _drives.prepare_catalog
 set_library_root = _drives.set_library_root
 
 # --- backup ---
-MissingCopy = _backup.MissingCopy
+MissingCopy = _core_backup.MissingCopy
 BackupPreviewErr = _backup.BackupPreviewErr
 BackupPreviewOk = _backup.BackupPreviewOk
 backup_preview = _backup.backup_preview
 BackupRunSummary = _backup.BackupRunSummary
 backup_run = _backup.backup_run
-_files_missing_on_target = _backup._files_missing_on_target
+_files_missing_on_target = _core_backup._files_missing_on_target
 
 # --- leftover_cleanup ---
 LeftoverEmptyFolders = _leftover_cleanup.LeftoverEmptyFolders

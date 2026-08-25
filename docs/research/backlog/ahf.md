@@ -1,9 +1,10 @@
-# (ahf) BACKUP AND TRIP APPLY ARE APP-ONLY MUTATING RUNS.
+# (ahf) BACKUP AND TRIP APPLY ARE APP-ONLY MUTATING RUNS. STAGE 1 DONE: THE ENGINE IS IN CORE.
 
 *Body of backlog entry `(ahf)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
-- **(ahf) BACKUP AND TRIP APPLY ARE APP-ONLY MUTATING RUNS.** Filed 2026-08-25 (P68), after
-  `(ahd)` closed the third one and set the precedent.
+- **(ahf) BACKUP AND TRIP APPLY ARE APP-ONLY MUTATING RUNS. STAGE 1 DONE: THE ENGINE IS IN
+  CORE.** Filed 2026-08-25 (P68); **stage 1 shipped the same day (P70)**. Stage 2 is the CLI, and
+  trip apply is untouched.
 
   ## THE RULING
 
@@ -18,7 +19,7 @@
 
   | claim | the check |
   |---|---|
-  | `backup` is app-only | `backup_run` is defined at `service/backup.py:621`; its **only** reference outside `truestill-app` is a core *test docstring* reading *"its own copy loop, in the app package only"* |
+  | `backup` is app-only | `backup_run` is defined at `service/backup.py:175` (`:621` before `(ahf)` stage 1 moved the engine out from under it); its **only** reference outside `truestill-app` is a core *test docstring* reading *"its own copy loop, in the app package only"* |
   | `trip apply` is app-only | `apply_event_review_names` (`service/trips.py:479`) has **zero** references outside the app package |
   | neither has a deferral row | the register holds **three**: the date rescue, `reclaim`, and the `{camera_model}` token |
   | no closure ruled on it | zero hits in `SHIPPED.md` for a backup-CLI or trip-CLI ruling |
@@ -75,7 +76,7 @@
 
   ## A STALE PIN FOUND WHILE VERIFYING THIS
 
-  ⚠ `service/backup.py:266-268` states the fail-fast policy **changed on 2026-08-23** -
+  ⚠ `backup.py:157` in core - `service/backup.py:266-268` until stage 1 moved it - states the fail-fast policy **changed on 2026-08-23** -
   *"Returned rather than raised, and that is the whole of the policy change"* - while
   `test_the_app_records_what_a_run_did.py`'s `backup` row still asserts *"It still FAILS FAST"*.
   **One of the two is false**, and the test is the one whose stated job is to record each

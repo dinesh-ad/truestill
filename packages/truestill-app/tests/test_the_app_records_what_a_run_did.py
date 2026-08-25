@@ -41,6 +41,7 @@ rather than read as assertions.
 
 from __future__ import annotations
 
+import ast
 import json
 import random
 import threading
@@ -48,6 +49,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+import truestill_core
 from PIL import Image
 from truestill_app.service.organize import organize_run
 from truestill_core import organizer
@@ -98,6 +100,54 @@ MUTATING_RUNS: dict[str, tuple[bool, str]] = {
         "returns a per-file plan AND typed per-file outcomes; writes one since `(afw)`",
     ),
 }
+
+
+#: The four spellings of "this run writes a record". `(afw)` found one name was not enough when
+#: undo reached `record_run` through `record_undo`.
+RECORD_ENTRIES = ("write_run_record", "record_run", "record_organize", "record_undo")
+
+
+def _wires_a_record(service: Path, name: str) -> bool:
+    """Whether this run writes a record - **following the engine, not just the panel**.
+
+    ⚠ **THE FILE STOPPED BEING THE ANSWER ON 2026-08-25.** This grepped `service/<name>.py` alone,
+    which was exact while every engine lived in the app. `(ahd)` and `(ahf)` moved bake's and
+    backup's engines into `truestill_core`, so `service/backup.py` became a panel that no longer
+    mentions `record_organize` - and the guard reported "does not write a record" about a run that
+    still writes one. Caught by this file the same commit the move landed, which is the guard
+    doing its job rather than the guard being wrong.
+
+    So the question is asked of the run: the service module **and every `truestill_core` module it
+    imports from**. That follows `(ahd)`'s core-computes/app-wraps line instead of assuming the
+    code never moves.
+    """
+    module = service / f"{name}.py"
+    source = module.read_text(encoding="utf-8")
+    reachable = [source]
+    core = Path(truestill_core.__file__).parent
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("truestill_core."):
+            engine = core / f"{(node.module or '').split('.', 1)[1]}.py"
+            if engine.is_file():
+                reachable.append(engine.read_text(encoding="utf-8"))
+    return any(_calls_a_record_entry(text) for text in reachable)
+
+
+def _calls_a_record_entry(source: str) -> bool:
+    """Whether this source **calls** a record entry point, rather than merely naming one.
+
+    ⚠ **Text presence is too loose once core modules are followed.** Eight service modules reach a
+    core module that *mentions* `record_organize` in a docstring; only three reach one that calls
+    it. A guard that counted mentions would have reported five surfaces as recording runs they do
+    not - the 69th member, on the widening rather than on the original.
+    """
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.Call):
+            continue
+        called = node.func.id if isinstance(node.func, ast.Name) else getattr(node.func, "attr", "")
+        if called in RECORD_ENTRIES:
+            return True
+    return False
 
 
 def _photo(path: Path, seed: int) -> None:
@@ -313,18 +363,8 @@ def test_every_mutating_app_run_is_accounted_for() -> None:
     """
     service = Path(__file__).resolve().parents[1] / "src" / "truestill_app" / "service"
     for name, (writes, reason) in MUTATING_RUNS.items():
-        module = service / f"{name}.py"
-        assert module.is_file(), f"{name} is listed here and does not exist"
-        source = module.read_text(encoding="utf-8")
-        # ⚠ **Any of the record-writing entry points, not one name.** This grepped
-        # `write_run_record` alone, which was exact while that was the only way in; undo reaches
-        # it through `record_undo` -> `record_run`, so the single name silently answered "does
-        # not write" about a surface that does. A guard keyed on one spelling of a thing fails
-        # the moment the thing acquires a second spelling.
-        wires_it = any(
-            entry in source
-            for entry in ("write_run_record", "record_run", "record_organize", "record_undo")
-        )
+        assert (service / f"{name}.py").is_file(), f"{name} is listed here and does not exist"
+        wires_it = _wires_a_record(service, name)
         assert wires_it is writes, (
             f"service/{name}.py {'writes' if wires_it else 'does not write'} a run record, and "
             f"this table says the opposite. If that is deliberate, change the table and its "
@@ -360,11 +400,10 @@ def test_no_service_writes_a_record_without_a_row_here() -> None:
     operation strings do not map onto file names.
     """
     service = Path(__file__).resolve().parents[1] / "src" / "truestill_app" / "service"
-    entries = ("write_run_record", "record_run", "record_organize", "record_undo")
     writers = {
         module.stem
         for module in sorted(service.glob("*.py"))
-        if any(entry in module.read_text(encoding="utf-8") for entry in entries)
+        if _wires_a_record(service, module.stem)
     }
     listed = {name for name, (writes, _reason) in MUTATING_RUNS.items() if writes}
 

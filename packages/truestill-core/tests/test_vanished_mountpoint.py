@@ -21,6 +21,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import truestill_core
 from truestill_core.destinations import base
 from truestill_core.destinations.base import DestinationDevice, DestinationError, device_of
 from truestill_core.destinations.local import LocalDestination
@@ -173,19 +174,30 @@ def test_the_refusal_says_what_happened_and_what_to_do(
 def test_the_backup_copy_loop_is_guarded_too() -> None:
     """The fourth site. `backup` does its own `mkdir` rather than going through a Destination.
 
-    Asserted structurally: this loop is in the app and needs a real two-drive catalog to run,
-    which would test the fixture more than the rule. What must not happen is the guard reaching
-    three write paths and missing the one that lives somewhere else - the "fix reached one copy
-    and not its twin" defect ENGINEERING_STANDARD.md §4 records as this repo's recurring one.
-    """
-    source = (
-        Path(__file__).resolve().parents[3]
-        / "packages/truestill-app/src/truestill_app/service/backup.py"
-    ).read_text(encoding="utf-8")
+    Asserted structurally: the loop needs a real two-drive catalog to run, which would test the
+    fixture more than the rule. What must not happen is the guard reaching three write paths and
+    missing the one that lives somewhere else - the "fix reached one copy and not its twin"
+    defect ENGINEERING_STANDARD.md §4 records as this repo's recurring one.
 
-    assert "DestinationDevice()" in source, "the backup loop has no device guard"
+    ⚠ **This read `truestill_app/service/backup.py` until `(ahf)` stage 1**, and its docstring
+    said "this loop is in the app". The loop is `truestill_core.backup` now, so a core test reads
+    a core file - which is what it should always have been. The needle moved; the property did
+    not, which is the same note the `run.device.check` comment below already carries.
+    """
+    source = (Path(truestill_core.__file__).parent / "backup.py").read_text(encoding="utf-8")
+
     # ⚠ Spelled `run.device.check(run.target)` since `(afw)` lifted the loop onto a
     # context object. The needle moved; the property did not.
     guard = source.index("run.device.check(run.target)")
     creates = source.index("dst.parent.mkdir(parents=True, exist_ok=True)")
     assert guard < creates, "the guard must run BEFORE the folder is created, not after"
+
+    # ⚠ **The two halves live in two packages since `(ahf)` stage 1, so each is asserted where
+    # it is.** The device is CONSTRUCTED by the panel and CHECKED by the engine; a test that
+    # looked for both in one file would pass only until the next move, and the property is that
+    # the loop is handed a real device rather than that one file contains both words.
+    panel = (
+        Path(__file__).resolve().parents[3]
+        / "packages/truestill-app/src/truestill_app/service/backup.py"
+    ).read_text(encoding="utf-8")
+    assert "DestinationDevice()" in panel, "nothing builds the device the copy loop checks"

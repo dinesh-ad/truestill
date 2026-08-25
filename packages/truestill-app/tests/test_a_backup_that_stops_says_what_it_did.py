@@ -31,9 +31,9 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
-from truestill_app.service import backup
 from truestill_app.service.backup import backup_run
 from truestill_cli.cli import main
+from truestill_core import backup as backup_engine
 from truestill_core import run_health
 from truestill_core.app_paths import record_path_for
 
@@ -179,7 +179,8 @@ def test_a_record_that_cannot_be_written_does_not_replace_the_real_failure(
     def explode(*_a: object, **_k: object) -> None:
         raise TypeError(message)
 
-    monkeypatch.setattr(backup, "build_run_record", explode)
+    # ⚠ Re-aimed by `(ahf)` stage 1: the recorder moved to `truestill_core.backup`.
+    monkeypatch.setattr(backup_engine, "build_run_record", explode)
 
     with pytest.raises(ValueError, match="nearly full"):
         backup_run(source, target, db)(lambda _p: None, threading.Event())

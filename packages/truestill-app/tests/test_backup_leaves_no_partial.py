@@ -19,9 +19,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from truestill_app.service import backup as backup_service
-from truestill_app.service.backup import _copy_verified
+from truestill_core import backup as backup_engine
 from truestill_core import safe_copy
+from truestill_core.backup import _copy_verified
 from truestill_core.hashing import sha256_file
 
 
@@ -88,7 +88,9 @@ def test_a_copy_that_does_not_verify_never_takes_the_real_name(
         seen_during.append(dst.exists())
         return real_hash(path)
 
-    monkeypatch.setattr(backup_service, "sha256_file", watching_hash)
+    # ⚠ Re-aimed by `(ahf)` stage 1: the read-back lives in `truestill_core.backup` now.
+    # Patching the app module would patch a panel that no longer hashes anything.
+    monkeypatch.setattr(backup_engine, "sha256_file", watching_hash)
 
     verdict = _copy_verified(source, dst, "a.mp4", "0" * 64)
     assert not verdict.ok
@@ -160,4 +162,4 @@ def test_a_staged_copy_that_cannot_be_removed_is_named_and_measured(
     staged = safe_copy.staging_path(dst)
     assert str(staged) in message, "the survivor was not located"
     assert str(dst) + "\n" not in message, "the message points at the destination, not the survivor"
-    assert backup_service  # the message comes from the backup service, not from core
+    assert backup_engine  # the message comes from the copy engine, not from safe_copy

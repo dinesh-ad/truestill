@@ -185,11 +185,12 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(ahf) BACKUP AND TRIP APPLY ARE APP-ONLY MUTATING RUNS.** Filed 2026-08-25 (P68), after
+- **(ahf) BACKUP AND TRIP APPLY ARE APP-ONLY MUTATING RUNS. STAGE 1 DONE: THE ENGINE IS IN
+  CORE.** Filed 2026-08-25 (P68), after
   `(ahd)` closed the third one. **§1b's fourth exit condition**: no mutating behaviour lives only
   in the app. **Backup gets a CLI. Trip apply gets a CLI or a row in *App-surface deferrals* -
   either is a decision, silence is not.**
-  **Verified today, not carried from P64**: `backup_run` is defined at `service/backup.py:621` and
+  **Verified today, not carried from P64**: `backup_run` is defined at `service/backup.py:175` (`:621` before `(ahf)` stage 1 moved the engine out from under it) and
   its only reference outside `truestill-app` is a *core test docstring* saying *"its own copy loop,
   in the app package only"* - which confirms it rather than refuting it. ⚠ `catalog_backup` in
   `cli.py` is the **pre-upgrade catalog copy**, a different thing, and is the near-miss that check
@@ -223,10 +224,41 @@ is invisible here is retired, not free.**
   `attach_drive` is a substantial app service, so this is a bigger core-computes/app-wraps move
   than bake's, not a smaller one. **Say so before starting.**
   ⚠ **A STALE PIN FOUND WHILE VERIFYING THIS, recorded here because it has nowhere else to
-  live**: `service/backup.py:266-268` says the fail-fast policy **changed on 2026-08-23** -
+  live**: `backup.py:157` in core - `service/backup.py:266-268` until stage 1 moved it - says the fail-fast policy **changed on 2026-08-23** -
   *"Returned rather than raised, and that is the whole of the policy change"* - while
   `test_the_app_records_what_a_run_did.py`'s backup row still asserts *"It still FAILS FAST"*.
   One of the two is false. Not fixed here: P68 is docs-only and that is a test file.
+  ✅ **STAGE 1 SHIPPED 2026-08-25 (P70): the backup engine is `truestill_core.backup`.** Of
+  `service/backup.py`'s nineteen top-level symbols, **fourteen touched no app name at all** and
+  moved; the five that did are the two payload `TypedDict`s, `backup_preview`, `backup_run` and
+  `_nothing_copied`, and they stayed. Proved twice - the payloads, summary, progress ticks,
+  `file_copies` rows, target bytes and written record are **identical**, and every moved symbol is
+  **character-for-character** its original.
+  ⚠ **`attach_drive` did NOT move, and Q385's answer is (a) with a sequencing caveat.** It is
+  **core-shaped**: 128 lines of code using exactly **one** app-side name, `drive_path_hint`, which
+  is a re-export of `drive.drive_path_hint`; it returns `DriveAttachment`, a plain counts
+  dataclass with no UI affordance; and its ghost refusal already delegates to core's
+  `ghost_drive_at`. So core is where it belongs. It did not move here because **the engine never
+  calls it** - it runs at setup (`backup.py:102`, `:187`), never inside the copy loop - and
+  moving 333 lines out of `service/drives.py` in the same commit would make a red lane
+  unattributable, which is this stage's own rule.
+  🔑 **STAGE 2 - the CLI. What it inherits, so it is not re-derived.** Every helper exists:
+  `_typed_confirmation`, an `--apply` gate, a `"backup": <path arg>` row in `_LOCKS_DRIVE_AT`
+  after which `_run_holding_the_drive` takes the lock, and `_progress_printer`.
+  ⚠ **THE ONE REAL CONSTRAINT, and it is not bake's**: bake's was that no CLI path could *confirm*
+  a date. Backup has no such gap - but it does have **registration**. The app auto-attaches both
+  folders through `attach_drive`; a CLI that skipped that would write into an unregistered folder,
+  or worse into a **ghost** drive's path. Two ways out, and stage 2 must pick one deliberately:
+  move `attach_drive` to core first, **or** have the CLI require both to be registered drives
+  already and refuse otherwise - the shape `reclaim` and `migrate-layout` use. The second is
+  cheaper and arguably the better CLI, and either way `ghost_drive_at` must be called: it is
+  core's one implementation with **three CLI and three app call sites** today.
+  **Guards, censused (Q389).** At the write and therefore inherited by any second caller:
+  verify-after-write (`CopyVerdict`), `staged_copy` never taking the destination name until it
+  verifies, `persists_for_the_run` into `_stop_the_run`, and `_stop_if_ground_moved`. **At the
+  caller by construction**: the folder checks and `not_a_drive`, because they build UI payloads;
+  the ghost refusal, inside `attach_drive`; and the drive lock, which is per-surface by design -
+  `jobs.py` for the app, `_run_holding_the_drive` for the CLI.
   [Full entry](research/backlog/ahf.md)
 
 - **(ahg) `cli-app-parity.md` IS KEYED BY CLI SUBCOMMAND, SO AN APP-ONLY CAPABILITY HAS NO ROW.**
