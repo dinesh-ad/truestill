@@ -54,6 +54,7 @@ from truestill_core.layout import (
 from truestill_core.models import RuleName
 from truestill_core.progress import Phase, Progress, ProgressCallback
 from truestill_core.run_health import watcher_for
+from truestill_core.run_record import RunHeader, build_run_record, record_organize
 
 _log = logging.getLogger(__name__)
 
@@ -721,6 +722,81 @@ def _largest_move_ahead(moves: Sequence[Move]) -> list[int]:
     return suffix
 
 
+def _refusal_entries(refused: Sequence[tuple[str, str]]) -> list[dict[str, object]]:
+    """Migrate's per-file entries: **the moves it could not apply, and nothing else.** `(agm)`
+
+    ⚠ **Failures-only is a ruling, not a shortcut.** `(afd)` settled that *a failure list is one
+    fact, not two thousand*, and the cost side agrees: an every-file entry is ~319-466 B, so a
+    33,000-file migration would spend 10-15 MiB of a 64 MiB budget to say "moved" thirty-three
+    thousand times - and push a record somebody needs out of it. The successes are already
+    answered by `migrated`, and where each file went is `plan.moves`.
+
+    ``relative`` is the move's **destination** path, because that is what `MigrationOutcome.refused`
+    records; a refused file has not moved, so it is still at its old path.
+    """
+    return [
+        {"relative": relative, "status": "failed", "detail": reason} for relative, reason in refused
+    ]
+
+
+def _migration_stop_block(stopped: MigrationStop | None) -> dict[str, object] | None:
+    """A stop as the record carries it. ``kind`` is kept, `(agl)`'s ruling on the undo side:
+    a user's cancel and a failing drive must not be one word to a reader either."""
+    if stopped is None:
+        return None
+    return {
+        "kind": str(stopped.kind),
+        "never_attempted": stopped.never_attempted,
+        "reason": stopped.reason,
+    }
+
+
+def _record_migration(
+    catalog: Catalog,
+    destination: Destination,
+    drive_uuid: str,
+    *,
+    run_id: str,
+    total: int,
+    migrated: int,
+    refused: Sequence[tuple[str, str]],
+    stopped: MigrationStop | None,
+) -> None:
+    """Write this migration's record. **Never raises; a failure here must not fail the run.**
+
+    `IMPLEMENTATION_STANDARDS.md`'s record rule, and the reason it is a `try` rather than trust:
+    `record_organize` returns its errors, but the payload is built here, and a run that moved
+    33,000 files must not end in a traceback about its own paperwork.
+
+    ⚠ **Written where a stop cannot skip it** - after the loop, on every applied path, which is
+    `(agj)`'s lesson: its record call sat inside the branch that a stop took a different route
+    around, so the runs that most needed a record were the ones that never wrote one.
+
+    ⚠ **`run_id` is the one migrate already has** (`uuid4` at the top of `run_migration`), which
+    `superseded_record_path` uses to name a demoted detail file. Organize passes none, so its
+    records file as ``...-organize-.json.gz``; migrate's carry their id. Nothing a reader sees
+    changes for organize, and migrate's superseded records become self-identifying.
+    """
+    try:
+        payload = build_run_record(
+            RunHeader(
+                kind="migrate",
+                source=destination.describe(),
+                destination=destination.describe(),
+                destination_uuid=drive_uuid,
+            ),
+            files=_refusal_entries(refused),
+            intended_total=total,
+            attempted=migrated + len(refused),
+            stopped=_migration_stop_block(stopped),
+        )
+        error = record_organize(catalog.path, payload, run_id=run_id)
+        if error is not None:
+            _log.warning("could not write the migration run record: %s", error)
+    except Exception:  # the record must never fail the run it describes
+        _log.warning("could not write the migration run record", exc_info=True)
+
+
 def run_migration(
     catalog: Catalog,
     destination: Destination,
@@ -813,6 +889,16 @@ def run_migration(
         else MigrationStop(
             kind=stop[0], reason=stop[1], never_attempted=total - migrated - len(refused)
         )
+    )
+    _record_migration(
+        catalog,
+        destination,
+        drive_uuid,
+        run_id=run_id,
+        total=total,
+        migrated=migrated,
+        refused=refused,
+        stopped=stopped,
     )
     return MigrationOutcome(
         plan=plan,

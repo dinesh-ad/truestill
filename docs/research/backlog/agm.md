@@ -1,6 +1,6 @@
 # (agm) MIGRATE WRITES A RECORD, BAKE WRITES AN INDEX LINE.
 
-*Body of backlog entry `(agm)`, open in [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(agm)`, now in [`SHIPPED.md`](../../SHIPPED.md). The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(agm) MIGRATE WRITES A RECORD, BAKE WRITES AN INDEX LINE.** Recorded 2026-08-23, split out of
   `(afw)` **when it closed**, because two of its five surfaces were never decided and closing the

@@ -211,9 +211,15 @@ what stops is changing *what a route returns* under a consumer that already read
 
 *"The engine is finished"* is not testable. These four are, and each names its own subject:
 
-1. **Every mutating run writes a record.** Organize, backup and undo do; **migrate and bake do
-   not** - `(agm)`, open. Pinned by `test_the_app_records_what_a_run_did.py`, which lists each
-   surface as writing or not writing *with its reason*.
+1. **Every mutating run leaves a line in the run history, and as much per-file detail as the run
+   actually holds.** ⚠ **This read *"writes a record"* until 2026-08-25 and could never have been
+   ticked as worded.** `(agm)` ruled that bake correctly writes an index line and **no detail** -
+   it counts files and names only drives, so its `files` would be `[]` at any size, while
+   `file_copies.date_baked_at` holds which copies it wrote permanently. A condition that a correct
+   run fails is a condition that gets quietly ignored, so the wording follows the ruling rather
+   than the other way round. Six of the nine operations meet it; `trip apply`, `clean empty` and
+   `archive unpack` remain (`(ahi)`). Pinned by `test_the_app_records_what_a_run_did.py`, which
+   lists each surface *with its reason*.
 2. **Every surface reports its own stop.** `(ahc)` closed migrate's last one.
 3. **No route computes a field no consumer reads.** The table above is the current list.
 4. ⚠ **No mutating behaviour lives only in the app** - added here because step 1's own sentence
@@ -227,7 +233,7 @@ what stops is changing *what a route returns* under a consumer that already read
 
 | | condition | status |
 |---|---|---|
-| 1 | every mutating run writes a record | ❌ **`(agm)`** - migrate and bake do not. ⚠ And the census itself covers **5 of 9** mutating operations: `(ahi)` |
+| 1 | every mutating run leaves a line in the run history | ❌ **6 of 9** since `(agm)` - `trip apply`, `clean empty` and `archive unpack` remain, which is `(ahi)`. ⚠ Reworded 2026-08-25: *"writes a record"* could not be met by bake, which correctly writes a line and no detail |
 | 2 | every surface reports its own stop | ✅ `(ahc)` closed migrate's last one |
 | 3 | no route computes a field no consumer reads | ❌ bake's `absent` (2 sites, rendered **0**) and `(abm)`'s two attach counts (**0** in `app.js`) |
 | 4 | no mutating behaviour lives only in the app | ✅ **met AND GUARDED** since `(ahj)` - every mutating operation names a CLI subcommand the parser defines, or a recorded deferral |
@@ -239,9 +245,13 @@ what stops is changing *what a route returns* under a consumer that already read
   subcommand that exists, **not** that the subcommand does the same work; a route naming `verify`
   while copying files would pass. And the one genuinely deferred capability - naming a trip - is
   **invisible to it**, because that route declares no operation at all.
-* **Condition 1** has `test_the_app_records_what_a_run_did.py`, covering **5 of 9** operations
+* **Condition 1** has `test_the_app_records_what_a_run_did.py`, covering **6 of 9** operations
   (`(ahi)`), and what it proves is **wiring**: that the code contains a call to a record entry
   point, not that a record is written on every run. `(agj)` is the defect it would not catch.
+  ⚠ **All five of its rows now read `True`**, so the table no longer demonstrates its own
+  negative; the floor was moved onto the DETECTOR, which must answer `False` for the three
+  services that still write nothing. A table that legitimately goes uniform must not cost a guard
+  its teeth.
 * **Condition 2 is met and unguarded**, checked rather than assumed: there are per-surface tests
   and two censuses over `MigrationStopKind`'s wording, and **nothing enumerates the surfaces** and
   asserts each reports its stop. Nothing proposes one.

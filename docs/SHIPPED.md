@@ -22,6 +22,40 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(agm) MIGRATE WRITES A RECORD, BAKE WRITES AN INDEX LINE.** Shipped 2026-08-25. The last two
+  of `(afw)`'s five surfaces, ruled before they were built because `(afw)`'s own warning is that a
+  record built on an undecided policy faithfully documents the policy.
+  ⚠ **BOTH ARGUMENTS THE ENTRY WAS CARRIED ON SINCE 2026-08-23 WERE WRONG**, and re-verifying them
+  was the work. **Migrate**: the entry said `migration_journal` held this durably already.
+  `start_migration_run` **deletes the previous run's journal** (`catalog.py:1486`) - *"exactly one
+  run's worth of reversal record exists per drive"* (`catalog.py:1481`). Retention one, consumer
+  is undo. Neither word of *"a second copy of the same facts"* survived, and migrate was the
+  surface with the history gap the entry credited it with covering. **Bake**: right answer, wrong
+  reason - not *"returns counts"* but `file_copies.date_baked_at` (`catalog.py:159`), a permanent
+  per-copy timestamp that outlives every later run.
+  **What shipped**: migrate records under `kind: migrate` with **failures-only** entries
+  (`(afd)`'s ruling; the successes are `migrated` and `plan.moves`), reusing the `run_id` it
+  already mints at `migrate.py:759` so its superseded records are self-identifying - a parameter
+  `record_organize` and `superseded_record_path` already accepted and no caller passed. Bake
+  writes an **index line and no detail** via a new `detail=False`, which also skips the
+  supersede: rotating `last-run.json` away and writing no replacement would demote a real record
+  to say nothing.
+  ⚠ **A third `(afw)` item was stale and is answered here rather than there.** *"Design the one
+  rolling file before any second writer"* was answered by `run_record.py:420` - `drive_lock`
+  serialises two drives sharing one `runs/` - and two writers landed inside `(afw)` itself. The
+  correction could not go where the claim is, because `afw.md` is a record; that is why `(agm)`
+  got the body it had gone without as the only one of **96** open letters with none.
+  ⚠ **AND THE ANTI-VACUITY FLOOR IT BROKE.** `MUTATING_RUNS` required both answers in the table;
+  all five rows now read `True`, so the proxy was replaced by the thing it stood for - the
+  DETECTOR must answer `False` for the three services that still write nothing. A table that
+  legitimately goes uniform must not cost a guard its teeth.
+  **Six mutations, all caught, against a green control**, including both halves of *the record's
+  own failure must never fail the run*. **Condition 1 goes to 6 of 9 and was REWORDED**: *"every
+  mutating run writes a record"* could never have been ticked once bake correctly writes none.
+  ⚠ **Nothing in the product reads `last-run.json` or `index.jsonl` back** - writers only - so
+  *"a state every reader already handles"* is design intent, not a measured property.
+  [Full entry](research/backlog/agm.md)
+
 - **(ahd) THE BAKE HAD NO CLI. THE ENGINE IS IN CORE AND `truestill bake` EXISTS.** Shipped
   2026-08-25 in two steps, schema unchanged. **A gap, not a decision**: `BACKLOG.md`'s
   *App-surface deferrals* register records the date *rescue* as app-only because it is
@@ -183,8 +217,11 @@ recording shipped work as unstarted, which is the more expensive direction of th
   ⚠ **The cancel flag and the payload both know a cancel happened**, which is two declarations of
   one fact. The payload wins: the flag now only picks the fallback sentence for a run that
   recorded no stop, which a preview never does.
-  **Not built here**: the run record. That is `(agm)`, still open, and P61 measured its cost -
-  **271 B** per migrate failure entry raw, 52 B compressed, against a 64 MiB budget.
+  **Left to `(agm)`**: the run record, whose cost P61 measured here - **271 B** per migrate
+  failure entry raw, 52 B compressed, against a 64 MiB budget. ⚠ **`(agm)` shipped 2026-08-25**,
+  and that measurement is the scope it shipped: failures-only. *(This line read "Not built here
+  ... still open" until then; reworded rather than left to rot, which is what
+  `test_backlog_references.py` exists to force.)*
   Pinned from pytest by reading `app.js` as text, per `test_the_rearrange_card_name.py` and
   `(afo)`; the browser lane was not run. Six mutations, all caught, two cry-wolf. ⚠ One draft
   assertion was a **69th-member false positive** on its own guard - it flagged

@@ -28,6 +28,7 @@ the mapping onto `DriveUnavailablePayload` - transport shapes a CLI has no use f
 
 from __future__ import annotations
 
+import logging
 import threading
 from dataclasses import dataclass
 from datetime import datetime
@@ -41,6 +42,9 @@ from truestill_core.exif import build_metadata_args, write_metadata_batch
 from truestill_core.hashing import sha256_file
 from truestill_core.organizer import VIDEO_EXTENSIONS
 from truestill_core.progress import Phase, Progress, ProgressCallback
+from truestill_core.run_record import RunHeader, build_run_record, record_organize
+
+_log = logging.getLogger(__name__)
 
 #: The guard runs before **every** file, not once per run. Read by
 #: `test_the_toctou_gap_is_narrowed_not_closed`, so the narrowing is pinned rather than promised.
@@ -279,6 +283,62 @@ class BakeOutcome:
     refused: str | None
 
 
+def _record_bake(  # noqa: PLR0913 - the drive triple plus the three counts a line
+    # carries; grouping any pair would name a thing that does not exist, as above
+    db: Path,
+    root: Path,
+    marker: DriveMarker,
+    *,
+    total: int,
+    reached: int,
+    refused: str | None,
+) -> None:
+    """Write this bake's **index line and no detail**. Never raises. `(agm)`
+
+    ⚠ **There is no detail to write, and that is a property of the run rather than a decision to
+    economise.** `BakeOutcome` counts files and names only drives; ``relative`` is rebound each
+    pass through the loop and dropped, so ``files`` would be ``[]`` for a run of any size. Writing
+    an empty detail file would demote the previous real record to say nothing.
+
+    ⚠ **What replaces it is stronger than a record, which is why this is not a gap.**
+    `file_copies.date_baked_at` is a permanent per-copy timestamp that is never superseded - so
+    *which* copies this bake wrote outlives every later run, where a record's detail is bounded by
+    a byte budget. The index line adds the one thing the catalog does not hold: that a run
+    happened, when, and how far it got.
+
+    **No stop ``kind``**, backup's shape rather than migrate's: bake has no screen that must word a
+    cancel differently from a refusal, and inventing a second home for that vocabulary to serve no
+    reader is what `STOP_WORDING` exists to prevent.
+    """
+    stopped: dict[str, object] | None = None
+    if reached < total:
+        # The only two ways out of the loop early are the cancel flag and the migration refusal,
+        # so an unreached remainder with no refusal IS a cancel. Derived, not tracked twice.
+        stopped = {
+            "never_attempted": total - reached,
+            "reason": refused if refused is not None else "you stopped it",
+        }
+    try:
+        payload = build_run_record(
+            RunHeader(
+                kind="bake",
+                source=str(root),
+                destination=str(root),
+                destination_uuid=marker.uuid,
+                destination_label=marker.label,
+            ),
+            files=[],
+            intended_total=total,
+            attempted=reached,
+            stopped=stopped,
+        )
+        error = record_organize(db, payload, detail=False)
+        if error is not None:
+            _log.warning("could not write the bake run record: %s", error)
+    except Exception:  # the record must never fail the run it describes
+        _log.warning("could not write the bake run record", exc_info=True)
+
+
 def bake_confirmed_dates(  # noqa: PLR0913 - the drive, the catalog, the authority, and the two
     # controls a long job needs; grouping any pair would name a thing that does not exist.
     root: Path,
@@ -364,6 +424,14 @@ def bake_confirmed_dates(  # noqa: PLR0913 - the drive, the catalog, the authori
             {"label": str(r["label"]), "files": int(r["files"])}
             for r in catalog.drives_awaiting_bake(drive_uuid)
         ]
+    _record_bake(
+        db,
+        root,
+        marker,
+        total=total,
+        reached=baked + failed + absent + videos_skipped,
+        refused=refused,
+    )
     return BakeOutcome(
         drive_label=drive_label,
         baked=baked,

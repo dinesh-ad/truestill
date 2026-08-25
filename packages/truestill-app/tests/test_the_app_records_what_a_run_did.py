@@ -63,6 +63,18 @@ from truestill_core.run_record import RUN_RECORD_FORMAT, RunHeader, build_run_re
 #: ⚠ **The absent ones are listed WITH THEIR REASON, which is the point of the table.** A guard
 #: that only checked organize would be true and would say nothing about the other four, and
 #: "nobody wrote a test for it" and "it was ruled out of scope" look identical from outside.
+#:
+#: ⚠ **ALL FIVE READ `True` SINCE `(agm)` (2026-08-25), so the "absent ones" half of the sentence
+#: above now describes a state this table cannot demonstrate.** It is kept because it is the rule,
+#: not the census: the next mutating service to arrive with no record is what it exists for, and
+#: `test_no_service_writes_a_record_without_a_row_here` is the end that still bites today.
+#:
+#: ⚠ **WHAT IS STILL NOT MECHANICAL, and it is most of the value here.** `_wires_a_record` proves
+#: a record entry point is CALLED somewhere reachable from the service. It does not prove a record
+#: is written on every run - `(agj)` was exactly that defect - and it cannot read the reasons
+#: below, which are prose no mutation can kill. This file measured that itself: a mutation that
+#: rewrites a row's stated policy without touching behaviour SURVIVES. The five rows are now
+#: uniform in their verdict and still carry five different policies; only the prose says so.
 MUTATING_RUNS: dict[str, tuple[bool, str]] = {
     "organize": (True, "has a per-file ActionResult list; `(afu)` wires it"),
     "backup": (
@@ -77,16 +89,29 @@ MUTATING_RUNS: dict[str, tuple[bool, str]] = {
         ),
     ),
     "migrate": (
-        False,
-        "returns counts plus a per-file PLAN; its durable per-file state is `migration_journal`",
+        True,
+        # ⚠ **THIS ROW SAID `False` BECAUSE OF A PREMISE THAT WAS WRONG**, corrected by `(agm)`
+        # on 2026-08-25. It rested on *"its durable per-file state is `migration_journal`"* - but
+        # `start_migration_run` DELETES the previous run's journal (`catalog.py:1486`), so that
+        # store has retention ONE and its consumer is undo. Migrate was the surface with the
+        # history gap, and this row named it as the surface that did not need one.
+        (
+            "records under `kind: migrate` with FAILURES-ONLY entries, `(afd)`'s ruling: the "
+            "successes are `migrated` and where each went is `plan.moves`. It reuses the "
+            "`run_id` migrate already mints, so its superseded records are self-identifying"
+        ),
     ),
     "bake": (
-        False,
+        True,
         (
-            "counts for FILES; the only things it names are DRIVES (`awaiting`). Still true "
-            "after `(ahd)` moved the engine to `truestill_core.bake` and gave it a CLI - that "
-            "changed where the code lives, not what a run reports. `(agm)` owns whether it "
-            "should write one"
+            "writes an INDEX LINE AND NO DETAIL (`record_organize(detail=False)`), `(agm)`. The "
+            "observation this row carried is unchanged and is the reason for the shape: it "
+            "counts FILES and names only DRIVES (`awaiting`), so `files` would be `[]` for a run "
+            "of any size. What the entry got wrong was the argument - the load-bearing fact is "
+            "`file_copies.date_baked_at`, a PERMANENT per-copy timestamp, so which copies a bake "
+            "wrote outlives every later run while a record's detail is bounded by a byte budget. "
+            "⚠ THE ROW IS TRUE FOR A RUN THAT WRITES NO `files`, which is why `_wires_a_record` "
+            "asking only 'is a record entry point CALLED' is the honest question here"
         ),
     ),
     "organize_undo": (
@@ -376,14 +401,31 @@ def test_the_table_has_rows_to_check_and_both_answers_in_it() -> None:
     """Anti-vacuity. **There was none until 2026-08-25** - an emptied table iterated nothing.
 
     The `for` loop in the guard above is the whole check, so a table with no rows passes it
-    perfectly. Both answers must also be present: if every row said `True`, the grep could be
-    returning `True` unconditionally and nothing would notice.
+    perfectly.
+
+    ⚠ **THE SECOND HALF USED TO BE `answers == {True, False}` AND STOPPED BEING TESTABLE ON
+    2026-08-25**, when `(agm)` gave migrate and bake theirs and every row went `True`. That
+    assertion was a proxy for the real worry, which it stated plainly: *"the grep could be
+    returning `True` unconditionally and nothing would notice."*
+
+    **The proxy is replaced by the thing itself.** `_wires_a_record` is pointed at three real
+    services that genuinely write no record - `(ahi)`'s remaining set - and must answer `False`
+    for them. That is a stronger floor than a non-uniform table: it exercises the DETECTOR against
+    real negatives instead of requiring the world to keep supplying one, which is the shape
+    `test_live_documents_cite_code_that_exists.py` reached for the same reason. A table that
+    legitimately becomes uniform must not cost a guard its teeth.
     """
     assert len(MUTATING_RUNS) >= 5, f"only {len(MUTATING_RUNS)} mutating runs listed"
-    answers = {writes for writes, _reason in MUTATING_RUNS.values()}
-    assert answers == {True, False}, f"the table records only {answers}; the check cannot bite"
     for name, (_writes, reason) in MUTATING_RUNS.items():
         assert len(reason) > 20, f"{name}'s row has no reason, which is the point of the table"
+
+    service = Path(__file__).resolve().parents[1] / "src" / "truestill_app" / "service"
+    for name in ("trips", "clean_empty", "takeout"):
+        assert (service / f"{name}.py").is_file(), f"service/{name}.py moved; this floor is blind"
+        assert not _wires_a_record(service, name), (
+            f"service/{name}.py now wires a run record. If that is real, it is `(ahi)`'s work "
+            "landing and this floor needs a service that still does not - not deleting"
+        )
 
 
 def test_no_service_writes_a_record_without_a_row_here() -> None:

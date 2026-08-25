@@ -397,7 +397,11 @@ def _supersede(catalog: Path, runs: Path) -> None:
 
 
 def record_run(
-    catalog: Path, payload: dict[str, object], *, index_line: dict[str, object]
+    catalog: Path,
+    payload: dict[str, object],
+    *,
+    index_line: dict[str, object],
+    detail: bool = True,
 ) -> str | None:
     """Write one run's index line and its detail. **Returns an error to report, never raises.**
 
@@ -417,6 +421,18 @@ def record_run(
     thing being preserved. `(aem)` made the same derive-rather-than-assert choice for
     *"interrupted"*.
 
+    ⚠ **``detail=False`` writes the line and nothing else, for a surface that has no per-file
+    truth to write.** Bake is the one (`(agm)`): `BakeOutcome` counts files and names only drives,
+    so its ``files`` would be ``[]`` however large the run was. It **also skips the supersede**,
+    which is the half that is easy to get wrong: rotating `last-run.json` away and then writing no
+    replacement would demote a real record and leave the name meaning nothing.
+
+    ⚠ **A line with no detail is NOT a new state** - it is the state every pruned run is already
+    in, which is why the two rules above make it safe. It is also **indistinguishable** from a
+    pruned run by inspection; what tells them apart is ``kind``, which the line always carries and
+    which a reader is already required to branch on. Stated because it is a real limit:
+    *"bake wrote no detail"* and *"this run's detail was pruned"* look identical on disk.
+
     ⚠ **Serialised across processes by `drive_lock`, not by `O_APPEND`.** Two runs on two drives
     share one catalog and therefore one `runs/`, and append atomicity is not guaranteed on
     Windows at all. Each line is self-contained JSON, so even a torn write damages one line and a
@@ -428,10 +444,13 @@ def record_run(
         with lock_for(runs, operation="run-record"):
             with run_index_for(catalog).open("a", encoding="utf-8") as index:
                 index.write(json.dumps(index_line, sort_keys=True) + "\n")
-            _supersede(catalog, runs)
+            if detail:
+                _supersede(catalog, runs)
             _prune_detail(runs)
     except (OSError, DriveBusyError) as exc:
         return str(exc)
+    if not detail:
+        return None
     return write_run_record(record_path_for(catalog), payload)
 
 
@@ -471,9 +490,17 @@ def record_undo(catalog: Path, plan: UndoPlan, outcome: UndoOutcome) -> str | No
 
 
 def record_organize(
-    catalog: Path, payload: dict[str, object], *, run_id: str | None = None
+    catalog: Path,
+    payload: dict[str, object],
+    *,
+    run_id: str | None = None,
+    detail: bool = True,
 ) -> str | None:
-    """Write an organize or backup record with its index line. `(afw)`
+    """Write an organize, backup or migrate record with its index line. `(afw)`, `(agm)`
+
+    ⚠ **The name is organize's and the function is not** - it derives the line from
+    ``payload["run"]``, which every kind fills the same way. Renaming it would touch four call
+    sites to say what this sentence says; `(agm)` chose the sentence.
 
     ⚠ **Every run gets a line, not just undo.** A partial index is worse than none: a superseded
     record with no line can be pruned, and then nothing anywhere says the run happened - which is
@@ -493,4 +520,4 @@ def record_organize(
     # record one"* alike, which is the two-states-one-value shape this file argues against.
     if run_id is not None:
         line["run_id"] = run_id
-    return record_run(catalog, payload, index_line=line)
+    return record_run(catalog, payload, index_line=line, detail=detail)

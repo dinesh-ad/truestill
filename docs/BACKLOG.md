@@ -385,26 +385,6 @@ is invisible here is retired, not free.**
   "preparing" case is cross-process, which an in-process registry can never see. What remains:
   the probe and S1/S2/S3 wording. [Full entry](research/backlog/agp.md)
 
-- **(agm) MIGRATE WRITES A RECORD, BAKE WRITES AN INDEX LINE.** Recorded 2026-08-23, split out
-  of `(afw)` **when it closed**, because two of its five surfaces were never decided and closing
-  the entry must not silently decide them. **Ruled 2026-08-25 (P79); both of the arguments it was
-  carried on were wrong.**
-  **Migrate**: the entry said `migration_journal` already holds this durably. It does not.
-  `start_migration_run` **deletes the previous run's journal** (`catalog.py:1486`) - *"exactly one
-  run's worth of reversal record exists per drive"* (`catalog.py:1481`). Retention one, and its
-  consumer is undo. **Migrate is the surface with the history gap.** It writes a failures-only
-  record, reusing the `run_id` at `migrate.py:759`.
-  **Bake**: right answer, wrong reason. Not *"returns counts"* but `file_copies.date_baked_at`
-  (`catalog.py:159`), a permanent per-copy timestamp that outlives every later run. `BakeOutcome`
-  names only drives (`bake.py:363`) and `relative` is discarded each pass (`bake.py:335`,
-  `bake.py:355`), so a record would carry `files=[]`. **It writes an index line and no detail** -
-  a state every reader already handles (`run_record.py:410`).
-  ⚠ **A third `(afw)` item is stale**: *"design the rolling file before any second writer"* was
-  answered by `run_record.py:420` and two writers landed inside `(afw)` itself. The correction
-  cannot go where the claim is, because `afw.md` is a record.
-  **Takes condition 1 to 6 of 9**; `trip apply`, `clean empty` and `archive unpack` remain.
-  [Full entry](research/backlog/agm.md)
-
 - **(agh) `LocalGuard` MAKES FORGETTING THE TOKEN IMPOSSIBLE AND UN-EXEMPTING INVISIBLE.**
   Recorded 2026-08-23. **The token is enforced well** - ASGI middleware wrapping the whole app
   (`server.py:914`), so no route can forget it, with Host/Origin checks and
