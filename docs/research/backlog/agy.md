@@ -2,10 +2,11 @@
 
 *Body of entry `(agy)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
-- **(agy) FIVE THINGS THE CATALOG WRITES AND NOTHING READS.** Filed 2026-08-24 (P47). ⚠ **NOT A
-  DEFECT ON ITS FACE, and this entry deliberately rules nothing.** It records a family and the
-  question nobody has answered for it: *recorded on purpose for a surface not yet built, or dead
-  weight to delete?* Each row may have a different answer, and one of them already does.
+- **(agy) FIVE THINGS THE CATALOG WRITES AND NOTHING READS - a census, not a verdict.** Filed
+  2026-08-24 (P47). ⚠ **NOT A DEFECT ON ITS FACE, and this entry deliberately rules nothing.**
+  It records a family and the question nobody has answered for it: *recorded on purpose for a
+  surface not yet built, or dead weight to delete?* Each row may have a different answer, and
+  one of them already does.
   - **Found by generalising a single instance.** `migration_runs.completed_at` turned up while
     proving a `(agm)` mutation in P46 - the mutant survived because the column it changed has no
     reader - and the census asks what else is shaped that way.

@@ -1,8 +1,13 @@
-# (acc) A decisions document on a drive would be found by nothing that currently looks.
+# (acc) NOTHING PASSIVELY NOTICES A DECISIONS DOCUMENT ON A DRIVE.
 
 *Body of backlog entry `(acc)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
-- **(acc) A decisions document on a drive would be found by nothing that currently looks.**
+> ⚠ **TITLE ALIGNED TO THE INDEX 2026-08-25, which had carried the corrected claim since the
+> open-entry sweep. The original title was *"A decisions document on a drive would be found by
+> nothing that currently looks"* and it is quoted here rather than deleted** - the correction
+> below is what moved, and a reader who cannot see which half changed cannot check it.
+
+- **(acc) NOTHING PASSIVELY NOTICES A DECISIONS DOCUMENT ON A DRIVE.**
   Recorded 2026-08-09, from code, while building the decisions-on-drive feature
   (`truestill_core.decisions`). **Load-bearing for Stage 4** - moved out of a plan file in
   a home directory and into the repository, because a plan file does not survive a new machine

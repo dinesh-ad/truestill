@@ -392,7 +392,8 @@ is invisible here is retired, not free.**
   loss, a preview writes nothing, and letting a UX decision inherit a safety argument it has not
   earned is what the 2026-08-03 design did without noticing. May well be right; needs its own
   reason. Filed 2026-08-22. [Full entry](research/backlog/afq.md)
-- **(afg) THE DOWNLOAD PAGE HAS NO HOME, AND `truestill.app` EXISTS ONLY IN CONVERSATION.** The
+- **(afg) THE DOWNLOAD PAGE HAS NO HOME IN THIS REPOSITORY, AND `truestill.app` EXISTS ONLY IN
+  CONVERSATION.** The
   domain is bought; **nothing about it is in this repository** - `grep -ri truestill.app` matches
   only the package identifiers. D9 binds a requirement to a page that does not exist: *"Windows
   users must be told what SmartScreen will show… on the download page, above the button."*

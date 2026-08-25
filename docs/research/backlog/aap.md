@@ -1,8 +1,15 @@
-# (aap) Registering a folder must not mint a second identity for a library already known.
+# (aap) Registering a folder does not mint a second identity - BUILT 2026-08-02, ONE SURFACE LEFT.
 
 *Body of backlog entry `(aap)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
-- **(aap) Registering a folder must not mint a second identity for a library already known.**
+> ⚠ **TITLE ALIGNED TO THE INDEX 2026-08-25, which had carried the corrected claim since the
+> open-entry sweep. The original title was *"Registering a folder must not mint a second
+> identity for a library already known"* and it is quoted here rather than deleted** - the
+> correction below is what moved, and a reader who cannot see which half changed cannot check
+> it.
+
+- **(aap) Registering a folder does not mint a second identity - BUILT 2026-08-02, ONE SURFACE
+  LEFT.**
   **BUILT 2026-08-02**, split out of `(yy)` after the design pass observed it. Shipped first
   because it prevents a loss where `(yy)` only repairs an inconvenience.
   - **Observed, not reasoned.** With a drive unmounted, `verify` printed *"isn't a truestill

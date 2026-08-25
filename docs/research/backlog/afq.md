@@ -2,7 +2,7 @@
 
 *Body of backlog entry `(afq)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
-- **(afq) THE APP REFUSES A PREVIEW WHILE AN APPLY RUNS; THE CLI DOES NOT.** Split out of `(aaw)`
+- **(afq)** THE APP REFUSES A PREVIEW WHILE AN APPLY RUNS; THE CLI DOES NOT. Split out of `(aaw)`
   on 2026-08-22 rather than folded into it, and the split is the point.
 
   ## WHAT IS TRUE TODAY

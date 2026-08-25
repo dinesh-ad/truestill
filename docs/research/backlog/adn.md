@@ -2,7 +2,7 @@
 
 *Body of backlog entry `(adn)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
-- **(adn) NOTHING STOPS TWO APPS RUNNING AGAINST ONE CATALOG.** Recorded 2026-08-14, and it is
+- **(adn)** NOTHING STOPS TWO APPS RUNNING AGAINST ONE CATALOG. Recorded 2026-08-14, and it is
   the reason the schema fix had to be cross-process rather than an in-process lock. `(adh)`
   test (d) measured it: **launching twice gives two sidecars, two ports, two catalogs**, and
   `session-url.txt` names only one. Single-instance detection is listed there under *"the fixes,

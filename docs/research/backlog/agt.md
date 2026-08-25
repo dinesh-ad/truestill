@@ -2,9 +2,10 @@
 
 *Body of entry `(agt)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
-- **(agt) REFUSED READS AS ABSENT IN MESSAGES AND REPORTS.** Filed 2026-08-24 after the class
-  was censused twice in two days (`(aey)`'s seventh-site close carries both lists) - a letter so
-  the residue stops being re-derived, not because any site is urgent.
+- **(agt) REFUSED READS AS ABSENT IN MESSAGES AND REPORTS - `(aey)`'s wording residue.** Filed
+  2026-08-24 after the class was censused twice in two days (`(aey)`'s seventh-site close
+  carries both lists) - a letter so the residue stops being re-derived, not because any site is
+  urgent.
   - **What qualifies**: a bare `is_file()`/`is_dir()`/`exists()` whose refused-as-`False`
     changes a *sentence or a count*, never a recorded fact and never an action. The seven sites
     that crossed that line are fixed under `(aey)`.

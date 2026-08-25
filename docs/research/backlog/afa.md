@@ -8,7 +8,7 @@
 
 *Body of backlog entry `(afa)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
-- **(afa) "WE DETECTED IT AND SAID NOTHING" IS A DIFFERENT STATE FROM "WE COULD NOT TELL".**
+- **(afa)** "WE DETECTED IT AND SAID NOTHING" IS A DIFFERENT STATE FROM "WE COULD NOT TELL".
   Filed 2026-08-21 while closing `(aey)`, from the sites that were in front of us.
 
   ## WHAT CHANGED, AND WHY THIS IS NOW A GAP RATHER THAN A LIMIT

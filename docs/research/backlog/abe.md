@@ -1,8 +1,15 @@
-# (abe) CLI-organized files were invisible to custody, and pre-existing rows are not repaired.
+# (abe) CLI custody was fixed forward the same day; REPAIRING PRE-EXISTING ROWS IS THE OPEN HALF.
 
 *Body of backlog entry `(abe)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
-- **(abe) CLI-organized files were invisible to custody, and pre-existing rows are not repaired.**
+> ⚠ **TITLE ALIGNED TO THE INDEX 2026-08-25, which had carried the corrected claim since the
+> open-entry sweep. The original title was *"CLI-organized files were invisible to custody, and
+> pre-existing rows are not repaired"* and it is quoted here rather than deleted** - the
+> correction below is what moved, and a reader who cannot see which half changed cannot check
+> it.
+
+- **(abe) CLI custody was fixed forward the same day; REPAIRING PRE-EXISTING ROWS IS THE OPEN
+  HALF.**
   Recorded 2026-08-05, fixed forward the same day in `a0091cf`.
   - **The mechanism.** `organizer.py` has one `record_uploaded` call site, and `file_copies` is
     written only when `drive_uuid` is given. `cli.py` read a drive marker and never created one,

@@ -1,8 +1,13 @@
-# (aac) Organize must name and count unreadable source files the way verify does.
+# (aac) Organize names unreadable source files; ONE RESIDUE REMAINS, and it is app-side.
 
 *Body of backlog entry `(aac)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
-- **(aac) Organize must name and count unreadable source files the way verify does.** Ruled by
+> ⚠ **TITLE ALIGNED TO THE INDEX 2026-08-25, which had carried the corrected claim since the
+> open-entry sweep. The original title was *"Organize must name and count unreadable source
+> files the way verify does"* and it is quoted here rather than deleted** - the correction below
+> is what moved, and a reader who cannot see which half changed cannot check it.
+
+- **(aac) Organize names unreadable source files; ONE RESIDUE REMAINS, and it is app-side.** Ruled by
   the maintainer, 2026-07-30, from the Pass 1 F2/F1 asymmetry left after the code-quality audit.
   **Scan tier and residue 1 built 2026-08-02; residues 2 and 3 keep this entry open.**
   - **What shipped.** F1 gave `verify` `CopyStatus.UNREADABLE`, a count, and filenames on CLI
