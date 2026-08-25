@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ahk). Next free: (ahl).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ahn). Next free: (aho).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -184,6 +184,54 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(ahl) CONDITION 3 IS AT 34 FIELDS, NOT 2, AND ITS OWN CENSUS DISAGREES WITH ITSELF.** Filed
+  2026-08-25 (P81). `PROJECT_STATUS.md`'s condition 3 is kept by hand and names **two** live
+  instances. Derived from the AST: **117 TypedDicts, 579 key slots, 289 distinct key names, 34**
+  with no hit in `app.js` code and none in React (**11.8%**); **21** reach `cli.py` either.
+  ⚠ **Checked, not assumed**: an AST walk of both `TypedDict` forms against the three consumer
+  surfaces with `//` and `/* */` stripped, derived twice independently. **Stripping the comments
+  moved the answer from 20 to 34** - the naive grep certified fourteen dead fields as live.
+  ⚠ **34 is a FLOOR, not a count.** A key-name census cannot see a collided field:
+  `BakePreview.absent` is rendered at `app.js:4131` while `BakeSummary.absent` is not read by
+  `bakeCompletion` at all, so the name never enters the list. `apollo-kotlin#991`, open since 2018,
+  is the same limit in another language.
+  ⚠ **The document disagrees with itself**: `PROJECT_STATUS.md` said **3 sites** in one place and
+  **2** in another for the one instance it names, and the file has **4**, across two TypedDicts,
+  one of which is read.
+  **Its value expires when `app.js` is deleted** - see `(ahn)`.
+  [Full entry](research/backlog/ahl.md)
+
+- **(ahm) SIX OF NINE RUNS WRITE A HISTORY NOTHING READS.** Filed 2026-08-25 (P81), split out of
+  `(agm)`'s closing report. ⚠ **Checked, not assumed**: `grep -rn` for `record_path_for`,
+  `run_index_for`, `runs_dir_for`, `superseded_record_path`, `last-run` and `index.jsonl` across
+  `packages/*/src`, minus the two modules that own them, returns **three** hits - one docstring and
+  two **write** paths - and **zero** in `app.js` or `frontend/src/`.
+  The only human affordance is `truestill organize --report PATH` (`cli.py:433`), which moves the
+  file rather than reading one, and exists for `organize` alone.
+  ⚠ **Ruled OUT of `(ahl)`/condition 3 deliberately**: a record has a designed consumer and a dead
+  payload key has none; condition 3's subject is the route-to-surface contract; and condition 1
+  already owns records. **So the 34 stands.** But in absolute terms this is larger than every
+  instance in `(ahl)` together. `truestill where` is the candidate that satisfies `(afl)`'s
+  **purpose** rather than its letter, and is also the only one whose cost is not trivial.
+  [Full entry](research/backlog/ahm.md)
+
+- **(ahn) THE PAYLOAD CONTRACT STOPS AT THE PYTHON BOUNDARY, AND REACT IS BEING BUILT AGAINST
+  NOTHING.** Filed 2026-08-25 (P81). 117 TypedDicts describe every route's return **in Python**,
+  and nothing carries any of it across the wire; the React source consumes **zero** payload keys.
+  ⚠ **The live instance is already in the tree, before a screen exists**: `main.tsx:37` declares
+  `type OrganizeSummary = Record<string, unknown>` - the cast that lets generated types change
+  without complaint and the pull request go green.
+  **The mechanism is a field standard**: the backend emits an OpenAPI spec, `openapi-typescript`
+  generates the types, the frontend imports them - mechanical at **both** ends, which is the end
+  `(ahl)` cannot reach. ⚠ **This project does not get it free, by a standing decision**:
+  `pyproject.toml:17` records *"not FastAPI ... Pydantic is disallowed for our models"*, and
+  **`pydantic` appears in no `pyproject.toml` in this workspace** (checked).
+  ⚠ **And the join does not exist**: `server.py` declares **50** routes and **all 50** handlers are
+  annotated `-> JSONResponse`, never the payload they return. This entry records the gap and the
+  mechanism; it does **not** choose between hand-writing the spec, generating it from the
+  TypedDicts, or emitting it from the routes.
+  [Full entry](research/backlog/ahn.md)
 
 - **(ahk) THE NAMING ROUTE DOES A CHECK-THEN-INSERT WITH NO LOCK, AND `truestill restore` CAN
   RACE IT.** Filed 2026-08-25 (P74). **Ranked above `(ahh)`**: that entry is how the collision is

@@ -190,10 +190,17 @@ This is the whole point of the order, and it is what `app.js` failed. Live evide
 
 | computed by a service | read by the surface |
 |---|---|
-| `service/bake.py`'s `absent` (3 sites) | **0** in `bakeCompletion` - the *preview* shows it, the run drops it |
-| `service/drives.py`'s `unmatched` (6 sites) | **0** in `app.js` - `(abm)`, still open |
-| `service/drives.py`'s `unreadable_dirs` (5 sites) | **0** in `app.js` - `(abm)`, still open |
+| `BakeSummary.absent` (`service/bake.py:166`, emitted `:217`) | **0** in `bakeCompletion` (`app.js:4167`). ⚠ Its sibling `BakePreview.absent` (`:238`) **is** read, at `app.js:4131` |
+| `DriveAttachment.unmatched` (`service/drives.py:131`) | **0** in `app.js` and React - `(abm)`, still open |
+| `DriveAttachment.unreadable_dirs` (`service/drives.py:136`) | **0** in `app.js` and React - `(abm)`, still open |
 | `migrate.py`'s `stopped` and `refused` | **0** until `(ahc)` closed it 2026-08-25 - a stopped run read as *"Moved N files."* |
+
+⚠ **THE TWO `absent` ROWS ABOVE USED TO BE ONE, AND IT WAS COUNTED THREE DIFFERENT WAYS.** This
+table said *"3 sites"*, the status table below said *"2 sites"*, and `service/bake.py` has **4**
+occurrences across **two** TypedDicts **one of which is read**. Neither number was right and a site
+count was the wrong unit: the question is which PAYLOAD KEY no consumer reads, not how many times
+a name appears. Resolved 2026-08-25 by `(ahl)` in favour of naming the field and its payload -
+counted from source, both ends cited.
 
 **Rewriting the UI against a contract nobody has declared reproduces every one of these in a new
 language.** `test_surface_parity.py` already exists and does not cover this: its own docstring
@@ -221,7 +228,12 @@ what stops is changing *what a route returns* under a consumer that already read
    `archive unpack` remain (`(ahi)`). Pinned by `test_the_app_records_what_a_run_did.py`, which
    lists each surface *with its reason*.
 2. **Every surface reports its own stop.** `(ahc)` closed migrate's last one.
-3. **No route computes a field no consumer reads.** The table above is the current list.
+3. **No route computes a field no consumer reads.** ⚠ **The table above is EVIDENCE, not the
+   list.** Derived from the AST on 2026-08-25 (`(ahl)`): **117** TypedDicts, **579** key slots,
+   **289** distinct key names, and **34** with no hit in `app.js` code and none in React - **21**
+   of those reach `cli.py` either. ⚠ **34 is a FLOOR rather than a count**, because a key-name
+   census cannot see a collided field: `absent` is read in one payload and dead in another, so it
+   never enters the 34.
 4. ⚠ **No mutating behaviour lives only in the app** - added here because step 1's own sentence
    requires it and nothing was checking. ⚠ **This said *"Bake fails it today"* until 2026-08-25
    and named only bake.** Checking it found **three**: bake, backup and trip apply. `(ahd)` gave
@@ -235,7 +247,7 @@ what stops is changing *what a route returns* under a consumer that already read
 |---|---|---|
 | 1 | every mutating run leaves a line in the run history | ❌ **6 of 9** since `(agm)` - `trip apply`, `clean empty` and `archive unpack` remain, which is `(ahi)`. ⚠ Reworded 2026-08-25: *"writes a record"* could not be met by bake, which correctly writes a line and no detail |
 | 2 | every surface reports its own stop | ✅ `(ahc)` closed migrate's last one |
-| 3 | no route computes a field no consumer reads | ❌ bake's `absent` (2 sites, rendered **0**) and `(abm)`'s two attach counts (**0** in `app.js`) |
+| 3 | no route computes a field no consumer reads | ❌ **34 of 289 key names** (**11.8%**), derived not censused - `(ahl)`. ⚠ A **floor**: a key-name pass cannot see `BakeSummary.absent`, which is dead in its payload and read in its sibling's |
 | 4 | no mutating behaviour lives only in the app | ✅ **met AND GUARDED** since `(ahj)` - every mutating operation names a CLI subcommand the parser defines, or a recorded deferral |
 
 ⚠ **TWO of the four are checked by a guard, and each pins a DECLARATION rather than behaviour.**
@@ -255,7 +267,15 @@ what stops is changing *what a route returns* under a consumer that already read
 * **Condition 2 is met and unguarded**, checked rather than assumed: there are per-surface tests
   and two censuses over `MigrationStopKind`'s wording, and **nothing enumerates the surfaces** and
   asserts each reports its stop. Nothing proposes one.
-* **Condition 3 is a census** - the table above is the list, kept by hand.
+* **Condition 3 was a hand census and is now derived** (`(ahl)`), but only **one end** of it is
+  mechanical. The DECLARED end is an AST pass, and it must be AST: `test_migrate_reports_its_stop.py:149`
+  records that asserting on `__required_keys__` was **vacuous** under
+  `from __future__ import annotations`. The CONSUMED end is a text search over JavaScript -
+  stripping comments moved the answer from 20 to 34 - so what is buildable is a **declaration**
+  that goes red on a 35th field, not a liveness proof. ⚠ **No ecosystem proves field liveness
+  statically**; GraphQL answers it at runtime (Apollo GraphOS Insights, Hive's
+  `deprecatedSchema(period:)`) and REST has no equivalent. The mechanical-at-both-ends route is
+  `(ahn)`, and it is what retires `(ahl)` when `app.js` is deleted.
 
 The app **lacking** a route for a CLI subcommand is a different question and belongs to step 3 -
 [`cli-app-parity.md`](cli-app-parity.md) owns it.
