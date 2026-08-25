@@ -4138,16 +4138,19 @@ $("bake-preview").onclick = guarded(async () => {
       word: r.confirm_word,
       label: `Type ${r.confirm_word} to update ${plural(r.will_write, "file")}`,
       buttonLabel: "Set the dates",
-      onConfirm: () => startBake(path),
+      onConfirm: () => startBake(path, r.confirm_word),
     });
   });
 });
 
-async function startBake(path) {
+// ⚠ `confirm` is SENT, not just typed. `(ahe)`
+// The word used to be compared here and never leave the browser, so the route accepted a bake
+// with no confirmation at all. `bake_run` checks it now; this is the half that has to reach it.
+async function startBake(path, confirm) {
   await runJob({
     button: $("bake-confirm").querySelector("[data-typed-go]"),
     busyLabel: "Setting dates…",
-    start: () => api("/api/dates/bake/run", { path }),
+    start: () => api("/api/dates/bake/run", { path, confirm }),
     setJob: (id) => { bakeJob = id; },
     progress: bakeProgress,
     progressLabel: "updating",

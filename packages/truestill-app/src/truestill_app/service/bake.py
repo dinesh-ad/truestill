@@ -57,7 +57,7 @@ from __future__ import annotations
 import threading
 from datetime import datetime
 from pathlib import Path
-from typing import Literal, NotRequired, TypedDict
+from typing import Final, Literal, NotRequired, TypedDict
 
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_session import open_catalog
@@ -79,12 +79,18 @@ from truestill_app.service.drive_support import (
 CHECKS_PER_FILE = True
 
 
+#: The code for a bake asked for without the typed word. ⚠ **A caller's error, not the drive's**,
+#: which is why `drive_label` is empty on it and why `server.py` spends **400** on it rather than
+#: the 200 every other refusal here takes. `(ahe)`
+NOT_CONFIRMED: Final = "NotConfirmed"
+
+
 class BakeRefusal(TypedDict):
     """A refusal the UI can render as-is. Same shape as every other soft failure."""
 
     ok: Literal[False]
     error: str
-    code: Literal["MigrationUnfinished"]
+    code: Literal["MigrationUnfinished", "NotConfirmed"]
     drive_label: str
 
 
@@ -220,14 +226,42 @@ def _is_video(relative: str) -> bool:
     return Path(relative).suffix.lower() in VIDEO_EXTENSIONS
 
 
-def bake_run(path: Path, db: Path) -> JobTarget | DriveUnavailablePayload | BakeRefusal:
+def bake_run(
+    path: Path, db: Path, *, confirmation: str
+) -> JobTarget | DriveUnavailablePayload | BakeRefusal:
     """Build a job that writes confirmed dates into this drive's copies.
 
     One file at a time on purpose: each write is followed by its own read-back and its own
     single-transaction record, so an interruption leaves every finished file correct and every
     unfinished one untouched. Batching the writes would be faster and would make a crash
     mid-batch ambiguous about which files had been rewritten.
+
+    ⚠ **`confirmation` IS CHECKED HERE, NOT AT THE ROUTE, and that is the whole point.** `(ahe)`
+    Until 2026-08-25 the typed word was **client-side ceremony**: :data:`CONFIRM_WORD` was shipped
+    to the browser in the *preview* payload, compared in JavaScript, and never sent back. The route
+    read one body key, `path`. So anything that could reach the loopback port with the session
+    token could rewrite every confirmed file in one POST, with no confirmation of any kind - on
+    the only operation in the product that runs `-overwrite_original` and keeps no sidecar.
+
+    **A guard on the caller is the shape `(afu)` and `(agr)` punished**: the route is one caller
+    and the CLI is meant to be another (`PROJECT_STATUS.md` §1b, and `(ahd)`). A check in
+    `server.py` would have to be written a second time, correctly, by whoever adds the second
+    surface - which is exactly how the first one came to be missing.
+
+    **No default**, deliberately, the ruling `MigrationStop.kind` and `jobs.start`'s `mutating`
+    already carry: defaulting it either way is a decision nobody made, and there are few enough
+    call sites to answer for it.
     """
+    if confirmation != CONFIRM_WORD:
+        unconfirmed: BakeRefusal = {
+            "ok": False,
+            "error": f"This run was not confirmed. It needs the words {CONFIRM_WORD!r}.",
+            "code": NOT_CONFIRMED,
+            # ⚠ Empty on purpose: nothing is wrong with the drive, and naming one here would make
+            # a caller's mistake read as a fault of the user's hardware.
+            "drive_label": "",
+        }
+        return unconfirmed
     refusal = bake_preconditions(path, db)
     if refusal is not None:
         return refusal

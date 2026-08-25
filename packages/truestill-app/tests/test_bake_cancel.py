@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
-from truestill_app.service.bake import bake_run
+from truestill_app.service.bake import CONFIRM_WORD, bake_run
 from truestill_core.catalog import Catalog
 from truestill_core.drive import create_marker
 from truestill_core.hashing import sha256_file
@@ -64,7 +64,7 @@ def _library(tmp_path: Path, count: int) -> tuple[Path, Path, str]:
 
 def _run_cancelling_after(root: Path, db: Path, after: int) -> dict:
     """Run the bake, setting cancel once ``after`` progress ticks have been seen."""
-    target = bake_run(root, db)
+    target = bake_run(root, db, confirmation=CONFIRM_WORD)
     assert callable(target), f"bake_run refused: {target}"
     cancel = threading.Event()
     seen = 0
@@ -124,7 +124,7 @@ def test_resuming_after_a_cancel_finishes_the_job(tmp_path: Path) -> None:
     db, root, uuid = _library(tmp_path, 6)
     first = _run_cancelling_after(root, db, after=2)
 
-    target = bake_run(root, db)
+    target = bake_run(root, db, confirmation=CONFIRM_WORD)
     assert callable(target)
     second = target(lambda _p: None, threading.Event())
 
@@ -137,7 +137,7 @@ def test_resuming_after_a_cancel_finishes_the_job(tmp_path: Path) -> None:
 def test_progress_ticks_for_every_item_not_only_writes(tmp_path: Path) -> None:
     """A bar that only advances on success stalls on a run of skips and reads as a hang ((oo))."""
     db, root, _uuid = _library(tmp_path, 4)
-    target = bake_run(root, db)
+    target = bake_run(root, db, confirmation=CONFIRM_WORD)
     assert callable(target)
     ticks: list[object] = []
 

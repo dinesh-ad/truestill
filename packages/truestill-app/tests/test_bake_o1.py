@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
-from truestill_app.service.bake import VIDEO_EXCLUSION_REASON, bake_run
+from truestill_app.service.bake import CONFIRM_WORD, VIDEO_EXCLUSION_REASON, bake_run
 from truestill_core.catalog import Catalog
 from truestill_core.drive import create_marker
 from truestill_core.exif import read_metadata
@@ -95,7 +95,7 @@ def test_a_baked_file_verifies_clean(tmp_path: Path) -> None:
     """The obligation, end to end. This failing means truestill accuses itself of corruption."""
     db, root, drive_uuid, _shas = _library(tmp_path)
 
-    summary = _run(bake_run(root, db))
+    summary = _run(bake_run(root, db, confirmation=CONFIRM_WORD))
 
     assert summary["baked"] == 1
     assert _verify(db, root, drive_uuid) == {"Camera/2014/a.jpg": CopyStatus.VERIFIED}
@@ -110,7 +110,7 @@ def test_the_bake_actually_rewrote_the_file(tmp_path: Path) -> None:
     db, root, _uuid, shas = _library(tmp_path)
     before = shas["Camera/2014/a.jpg"]
 
-    _run(bake_run(root, db))
+    _run(bake_run(root, db, confirmation=CONFIRM_WORD))
 
     assert sha256_file(root / "Camera/2014/a.jpg") != before, "the bake changed no bytes"
 
@@ -119,7 +119,7 @@ def test_the_recorded_hash_is_the_file_on_the_drive(tmp_path: Path) -> None:
     """The read-back binding, asserted directly rather than inferred from verify passing."""
     db, root, drive_uuid, shas = _library(tmp_path)
 
-    _run(bake_run(root, db))
+    _run(bake_run(root, db, confirmation=CONFIRM_WORD))
 
     on_drive = sha256_file(root / "Camera/2014/a.jpg")
     with Catalog(db) as catalog:
@@ -132,7 +132,7 @@ def test_the_confirmed_date_is_what_landed_in_the_file(tmp_path: Path) -> None:
     """The point of the whole feature: the user's date is now in the bytes, readable by anything."""
     db, root, _uuid, _shas = _library(tmp_path)
 
-    _run(bake_run(root, db))
+    _run(bake_run(root, db, confirmation=CONFIRM_WORD))
 
     meta = read_metadata([root / "Camera/2014/a.jpg"])
     assert (
@@ -145,10 +145,10 @@ def test_the_confirmed_date_is_what_landed_in_the_file(tmp_path: Path) -> None:
 def test_a_second_bake_does_nothing(tmp_path: Path) -> None:
     """``baked_at`` makes the run resumable and idempotent - a re-run must not rewrite files."""
     db, root, _uuid, _shas = _library(tmp_path)
-    _run(bake_run(root, db))
+    _run(bake_run(root, db, confirmation=CONFIRM_WORD))
     after_first = sha256_file(root / "Camera/2014/a.jpg")
 
-    second = _run(bake_run(root, db))
+    second = _run(bake_run(root, db, confirmation=CONFIRM_WORD))
 
     assert second["baked"] == 0
     assert sha256_file(root / "Camera/2014/a.jpg") == after_first
@@ -163,7 +163,7 @@ def test_a_video_keeps_its_date_and_is_not_written(tmp_path: Path) -> None:
     video = root / "Camera/2014/clip.mp4"
     before = sha256_file(video)
 
-    summary = _run(bake_run(root, db))
+    summary = _run(bake_run(root, db, confirmation=CONFIRM_WORD))
 
     assert summary["videos_skipped"] == 1
     assert summary["baked"] == 1, "the photo beside it must still be baked"
@@ -179,7 +179,7 @@ def test_the_video_exclusion_is_stated_not_silent(tmp_path: Path) -> None:
     """§9: a skipped outcome is counted **and named**, with a reason a user can act on."""
     db, root, _uuid, _shas = _library(tmp_path, with_video=True)
 
-    summary = _run(bake_run(root, db))
+    summary = _run(bake_run(root, db, confirmation=CONFIRM_WORD))
 
     assert summary["videos_reason"] == VIDEO_EXCLUSION_REASON
     reason = summary["videos_reason"].lower()
@@ -193,7 +193,7 @@ def test_a_video_is_never_recorded_as_baked(tmp_path: Path) -> None:
     """It must stay pending, so lifting the exclusion later picks it up rather than skipping it."""
     db, root, _uuid, _shas = _library(tmp_path, with_video=True)
 
-    _run(bake_run(root, db))
+    _run(bake_run(root, db, confirmation=CONFIRM_WORD))
 
     with Catalog(db) as catalog:
         still_pending = [str(r["relative"]) for r in catalog.confirmations_to_bake(_uuid)]

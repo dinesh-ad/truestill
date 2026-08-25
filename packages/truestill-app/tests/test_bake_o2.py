@@ -27,7 +27,7 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
-from truestill_app.service.bake import bake_run, completeness_line
+from truestill_app.service.bake import CONFIRM_WORD, bake_run, completeness_line
 from truestill_core.catalog import Catalog
 from truestill_core.drive import create_marker, read_marker
 from truestill_core.hashing import sha256_file
@@ -85,7 +85,7 @@ def test_the_report_names_the_drive_that_was_not_connected(tmp_path: Path) -> No
     """The requirement, directly: named, not counted."""
     db, connected, _sha = _two_drives(tmp_path)
 
-    summary = _run(bake_run(connected, db))
+    summary = _run(bake_run(connected, db, confirmation=CONFIRM_WORD))
 
     assert summary["baked"] == 1
     assert [d["label"] for d in summary["awaiting"]] == ["Backup 2019"]
@@ -97,7 +97,7 @@ def test_a_partial_bake_does_not_read_as_a_finished_one(tmp_path: Path) -> None:
     """The sentence a user actually reads must not claim completion while a drive is behind."""
     db, connected, _sha = _two_drives(tmp_path)
 
-    summary = _run(bake_run(connected, db))
+    summary = _run(bake_run(connected, db, confirmation=CONFIRM_WORD))
 
     line = summary["completeness"].lower()
     assert line.startswith("partly done"), f"a partial bake announced itself as: {line!r}"
@@ -108,7 +108,7 @@ def test_the_report_says_what_to_do_about_the_other_drive(tmp_path: Path) -> Non
     """Nothing picks these up on its own, so the user must be told the act that does."""
     db, connected, _sha = _two_drives(tmp_path)
 
-    line = _run(bake_run(connected, db))["completeness"].lower()
+    line = _run(bake_run(connected, db, confirmation=CONFIRM_WORD))["completeness"].lower()
 
     assert "connect" in line, "the user is not told what to do"
     assert "again" in line, "the user is not told the action must be repeated per drive"
@@ -122,7 +122,7 @@ def test_the_catalog_date_is_described_as_safe_either_way(tmp_path: Path) -> Non
     """
     db, connected, _sha = _two_drives(tmp_path)
 
-    line = _run(bake_run(connected, db))["completeness"].lower()
+    line = _run(bake_run(connected, db, confirmation=CONFIRM_WORD))["completeness"].lower()
 
     assert "safe in your library" in line
 
@@ -133,7 +133,7 @@ def test_a_fully_baked_library_reads_as_done(tmp_path: Path) -> None:
     with Catalog(db) as catalog:  # the away drive gets baked by some later run
         catalog.record_bake(sha, "AWAY-UUID", copy_sha256="whatever-it-hashed-to")
 
-    summary = _run(bake_run(connected, db))
+    summary = _run(bake_run(connected, db, confirmation=CONFIRM_WORD))
 
     assert summary["awaiting"] == []
     assert summary["completeness"].lower().startswith("done.")
@@ -148,7 +148,7 @@ def test_baking_one_drive_leaves_the_other_pending(tmp_path: Path) -> None:
     """
     db, connected, _sha = _two_drives(tmp_path)
 
-    _run(bake_run(connected, db))
+    _run(bake_run(connected, db, confirmation=CONFIRM_WORD))
 
     with Catalog(db) as catalog:
         assert [str(r["relative"]) for r in catalog.confirmations_to_bake("AWAY-UUID")] == [

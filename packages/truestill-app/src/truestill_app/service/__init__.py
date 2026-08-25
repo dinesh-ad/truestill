@@ -141,6 +141,8 @@ bake_preview = _bake.bake_preview
 date_tier_files = _stats.date_tier_files
 confirm_file_date = _date_rescue.confirm_file_date
 bake_run = _bake.bake_run
+#: The refusal code for a bake asked for without its typed word. `(ahe)`
+NOT_CONFIRMED = _bake.NOT_CONFIRMED
 DriveRow = _drives.DriveRow
 WhereCopy = _drives.WhereCopy
 WhereResult = _drives.WhereResult

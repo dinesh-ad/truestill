@@ -22,6 +22,36 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(ahe) THE BAKE'S TYPED CONFIRMATION WAS NEVER ENFORCED WHERE THE WRITE HAPPENS.** Shipped
+  2026-08-25, schema unchanged. Found by P64 while ruling on bake's missing CLI.
+  ⚠ **The typed word was ceremony.** `CONFIRM_WORD` was shipped to the browser inside the
+  *preview* payload, compared in JavaScript, and **never sent back**. `dates_bake_run` read exactly
+  one body key, `path`; `bake_run(path, db)` took no confirmation parameter at all. So anything
+  that could reach the loopback port with the session token could rewrite every confirmed file in
+  one POST - on the **only** operation in the product that runs `-overwrite_original` and keeps
+  **no sidecar**, so the date a file used to carry is simply gone. Organize moves and can be
+  undone; migrate journals before it touches disk; clean-empty reports rather than deletes.
+  🔑 **The check went into `bake_run`, not the route**, and `confirmation` has **no default**.
+  The route is one caller and `PROJECT_STATUS.md` §1b commits to a second; a guard on the caller
+  is the shape `(afu)` punished, where a check written for one surface has to be written again,
+  correctly, by whoever adds the next.
+  ⚠ **A missing word answers 400, not the 200 every other refusal on that route takes** - `(agk)`
+  and P24's ruling that the status is spent on the outcome it describes. `drive_label` is empty on
+  the refusal on purpose: naming a drive would put a working device's name on a caller's mistake.
+  ⚠ **WHY IT SURVIVED: it was the only mutating run with no route-level test.** Checked -
+  `grep -rn "dates/bake" packages/truestill-app/tests/` returned nothing. The service was covered
+  and the seam where a request becomes a write was not. That seam now has one.
+  ⚠ **THE CENSUS, and it is the larger finding: this is a CLASS, not an instance.** Six
+  `typedConfirm` sites in `app.js` - migrate apply and undo, organize, organize-undo, clean-empty,
+  and this one - and **none of the other five is enforced server-side either**. Established by
+  reading every `mutating=True` handler and by `grep -rn 'confirm' server.py`: no route reads a
+  confirmation key. For contrast the CLI checks at the handler in eight places
+  (`_typed_confirmation`). **Only the bake is fixed here, deliberately** - it is the irreversible
+  one - and the other five are recorded rather than swept, because each has different semantics
+  and a blanket change to five confirmation paths is not a fix, it is a guess repeated five times.
+  Eight tests, four mutations, both cry-wolf directions.
+  [Full entry](research/backlog/ahe.md)
+
 - **(ahc) THE MIGRATE SCREENS PAINTED A STOPPED RUN AS A FINISHED ONE.** Shipped 2026-08-25,
   schema unchanged. **The third surface of `(agm)` D1**, which scoped itself *"no app.js"* and
   left this half deliberately: `MigrationOutcome.stopped` reached the CLI and the app **service**

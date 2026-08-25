@@ -34,7 +34,7 @@ from pathlib import Path
 
 import pytest
 from PIL import Image
-from truestill_app.service.bake import bake_run
+from truestill_app.service.bake import CONFIRM_WORD, bake_run
 from truestill_core.catalog import Catalog
 from truestill_core.drive import create_marker
 from truestill_core.hashing import sha256_file
@@ -78,7 +78,7 @@ def _verify(db: Path, root: Path, drive_uuid: str) -> dict[str, CopyStatus]:
 
 
 def _bake(db: Path, root: Path) -> dict:
-    target = bake_run(root, db)
+    target = bake_run(root, db, confirmation=CONFIRM_WORD)
     assert callable(target), f"bake_run refused: {target}"
     return target(lambda _p: None, threading.Event())  # type: ignore[no-any-return]
 
@@ -92,7 +92,7 @@ from truestill_core.catalog import Catalog
 # catalog write. No finally, no atexit, no rollback - what a power loss or a SIGKILL leaves.
 Catalog.record_bake = lambda self, *a, **k: os._exit(9)
 from truestill_app.service.bake import bake_run
-target = bake_run(Path({root!r}), Path({db!r}))
+target = bake_run(Path({root!r}), Path({db!r}), confirmation={word!r})
 assert callable(target), target
 target(lambda _p: None, threading.Event())
 """
@@ -100,7 +100,7 @@ target(lambda _p: None, threading.Event())
 
 def _bake_then_die(db: Path, root: Path) -> None:
     """Run a bake in a child that dies between the write and the record. `(agv)`'s window."""
-    script = _KILLED_BAKE.format(paths=sys.path, root=str(root), db=str(db))
+    script = _KILLED_BAKE.format(paths=sys.path, root=str(root), db=str(db), word=CONFIRM_WORD)
     done = subprocess.run(
         [sys.executable, "-c", script], capture_output=True, text=True, check=False
     )

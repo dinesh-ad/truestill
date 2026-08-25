@@ -14,6 +14,7 @@ import uuid
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import date
+from functools import partial
 from pathlib import Path
 
 from starlette.applications import Starlette
@@ -610,12 +611,25 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         )
 
     async def dates_bake_run(request: Request) -> JSONResponse:
-        """Through `_start_drive_job`, so the per-drive lock covers a write to user files."""
+        """Through `_start_drive_job`, so the per-drive lock covers a write to user files.
+
+        The typed word is forwarded and **checked by `bake_run`**, never here - see its docstring
+        for why the caller is the wrong place for that guard. `(ahe)`
+        """
         body = await request.json()
         path = Path(body["path"])
+        started = await run_in_threadpool(
+            partial(service.bake_run, path, _db(), confirmation=str(body.get("confirm", "")))
+        )
+        if isinstance(started, Mapping) and started.get("code") == service.NOT_CONFIRMED:
+            # ⚠ **400, not the 200 every other refusal here takes.** A missing word is the
+            # caller's error, not a state of the user's drive, and `(agk)`/P24's ruling is that
+            # the status is spent on the outcome it actually describes. A UI refusal a person
+            # should read stays 200; a request that was malformed does not.
+            return JSONResponse(dict(started), status_code=400)
         return await run_in_threadpool(
             _start_drive_job,
-            await run_in_threadpool(service.bake_run, path, _db()),
+            started,
             paths=[path],
             operation="set dates",
             mutating=True,
