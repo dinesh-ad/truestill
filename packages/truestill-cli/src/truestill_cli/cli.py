@@ -1656,7 +1656,7 @@ def _cmd_catalog(args: argparse.Namespace) -> int:
     return 0
 
 
-def _source_root_or_none(given: Path, destination: Path) -> Path | None:
+def _source_root_or_none(given: Path, destination: Path | None) -> Path | None:
     """A directory the scanner can read, unpacking archives first when that is what was given.
 
     **Any archive from any source**, not only Google Takeout: every major photo service hands a
@@ -1671,11 +1671,26 @@ def _source_root_or_none(given: Path, destination: Path) -> Path | None:
     The archive route **prints the precondition report and refuses on it** before writing
     anything: a missing part, a password, a nested archive or not enough room are all far cheaper
     to learn here than 190 GB into 200.
+
+    ⚠ **``destination`` is ``None`` for an rclone remote**, the convention `_shas_on_destination`
+    already uses for the same reason: a remote has no local filesystem to stage into, ask for free
+    space, or read a per-file size limit from. The archive route needs all three, so it refuses -
+    and the refusal is here rather than deeper because `extract_archive_set` would otherwise
+    unpack into a local directory *named after the remote*. `(ahp)`
     """
     if given.is_dir():
         return given
     if not given.is_file():
         print(f"error: not a file or directory: {given}", file=sys.stderr)
+        return None
+
+    if destination is None:
+        print(
+            "error: an archive cannot be ingested to an rclone remote.\n"
+            "       Unpacking needs a local folder with room for the extracted files.\n"
+            "       Ingest to a local destination first, then copy it up.",
+            file=sys.stderr,
+        )
         return None
 
     # archives_at is shared with the app, so "what did the user point at" cannot drift between
@@ -3595,7 +3610,10 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
-    source_root = _source_root_or_none(args.source, args.destination)
+    # ⚠ `destination` is declared WITHOUT `type=Path` on purpose - it is a local path *or* an
+    # rclone spec (`cli.py:373`) - so the conversion belongs here, where which one it is is known.
+    # Passing the raw `str` was `(ahp)`: every archive ingest died in `facts_for`.
+    source_root = _source_root_or_none(args.source, None if args.rclone else Path(args.destination))
     if source_root is None:
         return 2
     print(f"Scanning {source_root} ...")

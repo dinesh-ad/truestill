@@ -22,6 +22,34 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(ahp) EVERY ARCHIVE INGEST CRASHED, AND THE CENSUS CHANGED THE FIX.** Shipped 2026-08-25,
+  found by P95's full-library soak. `truestill ingest --source <archive>` died with
+  `AttributeError: 'str' object has no attribute 'exists'` - a traceback, not a refusal, on the
+  invocation `--help` documents. `cli.py:373` declares `destination` without `type=Path`, so
+  argparse handed a `str` to code annotated `Path`; a **folder** source worked, because only the
+  archive branch reaches `precheck_archives`.
+  ⚠ **The census ran first and is why the fix is not `type=Path`.** 83 `add_argument` calls: 35
+  already `type=Path`, 42 untyped, of which **8** are non-action and **one** - `destination` - is
+  path-like. **A defect, not a class.** And `type=Path` would have been **wrong on it**:
+  `destination` is a local path *or* an rclone spec, so the parser would wrap `remote:bucket` in a
+  `Path` and unpack 1.6 GB into a folder named after the remote - a crash turned into silent wrong
+  behaviour. The conversion belongs at the call site, with `None` for a remote, the
+  `rclone -> None` convention `_shas_on_destination` already uses; the archive route refuses on it.
+  ⚠ **A guard was ruled AGAINST, with the reason.** An AST check that every path-consumed argument
+  declares `type=Path` is buildable and would assert a rule **false for its only instance**. What
+  would actually close the class is typing the Namespace - `argparse.Namespace` attributes are
+  `Any`, which is why mypy type-checked the call and learnt nothing - and that is 83 arguments and
+  its own turn.
+  ⚠ **THE TEST WAS HALF THE DEFECT.** `test_ingest_archives_cli.py:40` passes a `Path` where the
+  real caller passes a `str`, so it proved the helper works on an input the product never gives
+  it. The regression drives `main()` end to end, and the proof is a mutation: reverting the fix
+  turns the two new tests red and leaves **all four pre-existing tests in that file green**.
+  **Verified at size**: the real 1.61 GB / 534-entry archive, **14.25 s** on ext4, exit 0, 520
+  dates from embedded EXIF, staging under the destination per `(ags)`, source byte-identical.
+  ⚠ **Not fixed here, found while reading the artifact**: the staging tree is left behind - 1.6 GB
+  beside the 1.6 GB copy - and nothing removes it.
+  [Full entry](research/backlog/ahp.md)
+
 - **(abm) A BACKUP THAT SKIPPED A FOLDER SAID IT WAS COMPLETE.** Shipped 2026-08-25. Filed
   2026-08-06 as *"Attach counts three things and shows none of them"*; the fields were the
   symptom. A file under a folder the attach could not list never gets a `file_copies` row, so

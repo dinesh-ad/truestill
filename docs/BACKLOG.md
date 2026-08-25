@@ -185,23 +185,6 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(ahp) `truestill ingest --source <archive>` CRASHES ON EVERY ARCHIVE.** Filed 2026-08-25
-  (P95, the full-library soak). Shipped, unconditional, and on the feature's own documented
-  invocation - `--source` is helped as *"folder of photos, or an archive (.zip, .tar, .tgz)"*.
-  `AttributeError: 'str' object has no attribute 'exists'` at `filesystem.py:139`, via
-  `cli.py:1683` -> `archive_ingest.py:198`. A traceback, not a refusal.
-  **The cause is a boundary**: `cli.py:373` declares `destination` with no `type=Path`, so argparse
-  hands a `str` to code annotated `Path`. A **folder** source works; only the archive branch
-  reaches `precheck_archives`. mypy cannot see it - `argparse.Namespace` attributes are `Any`.
-  ⚠ **Checked, not assumed**: reproduced with a 77 KB two-file zip after the 1.6 GB one.
-  ⚠ **No test caught it because `test_ingest_archives_cli.py:39` passes a `Path` where the real
-  caller passes a `str`** - the test constructs its input differently from the caller it stands in
-  for. `(agu)`'s shape.
-  ⚠ **The fix is NOT one line.** `type=Path` there leaves the boundary unguarded; one instance
-  means the boundary is unguarded. This asks for a **census** of every argparse argument consumed
-  as a `Path`, and does not guess how many are in this state.
-  [Full entry](research/backlog/ahp.md)
-
 - **(ahq) FLAT PHOTOGRAPHS ARE ALL NEAR-DUPLICATES OF EACH OTHER.** Filed 2026-08-25 (P95).
   **89 files** sit within the default threshold (5) of the all-zero perceptual hash, across 16
   distinct hashes, and are mutually near-duplicate **by construction**. **Ten are real
