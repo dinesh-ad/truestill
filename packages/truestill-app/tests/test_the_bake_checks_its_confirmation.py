@@ -29,15 +29,18 @@ touches disk and clean-empty reports rather than deleting. The other five are re
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
 
+import pytest
 from PIL import Image
 from starlette.testclient import TestClient
 from truestill_app.service.bake import CONFIRM_WORD, NOT_CONFIRMED, bake_run
+from truestill_core.bake import NotConfirmedError, bake_confirmed_dates
 from truestill_core.catalog import Catalog
-from truestill_core.drive import create_marker
+from truestill_core.drive import create_marker, read_marker
 from truestill_core.hashing import sha256_file
 
 CONFIRMED = datetime(2011, 3, 4, 9, 15, 0)
@@ -118,6 +121,49 @@ def test_the_refusal_does_not_read_as_a_fault_of_the_drive(tmp_path: Path) -> No
     assert isinstance(refused, Mapping)
     assert refused["drive_label"] == "", "a caller's mistake is reported against a drive"
     assert CONFIRM_WORD in str(refused["error"]), "the refusal does not name what it wanted"
+
+
+# ------------------------------------------------------------- the guard at the write itself
+
+
+def test_the_write_refuses_an_unconfirmed_call_whoever_makes_it(tmp_path: Path) -> None:
+    """⚠ **`(ahd)` step 2 moved this guard DOWN, and this is what proves it is there.**
+
+    `(ahe)` put the check in `bake_run` and argued that was "where the write happens". It was
+    not - `bake_run` was merely the only caller. `truestill bake` calls
+    `bake_confirmed_dates` directly and would have walked straight past a guard living one layer
+    up, which is `(afu)`'s shape exactly.
+
+    ⚠ **The CLI's own tests cannot prove this**, and a mutation found that rather than a review:
+    removing the guard from the write left every `test_bake_cli.py` test green, because
+    `_typed_confirmation` aborts before the engine is ever called. A guard only that surface
+    exercised is a guard the next surface loses.
+    """
+    here = _library(tmp_path)
+    marker = read_marker(here)
+    assert marker is not None
+
+    for wrong in ("", "yes", CONFIRM_WORD.upper(), f" {CONFIRM_WORD} "):
+        with pytest.raises(NotConfirmedError):
+            bake_confirmed_dates(
+                here,
+                tmp_path / "c.sqlite",
+                marker,
+                confirmation=wrong,
+                progress=None,
+                cancel=threading.Event(),
+            )
+
+    # Cry-wolf: the exact word must still be accepted, or the guard is a wall.
+    outcome = bake_confirmed_dates(
+        here,
+        tmp_path / "c.sqlite",
+        marker,
+        confirmation=CONFIRM_WORD,
+        progress=None,
+        cancel=threading.Event(),
+    )
+    assert outcome.baked == 1, "a correctly confirmed write did not happen"
 
 
 # ------------------------------------------------------------------------- the route, end to end

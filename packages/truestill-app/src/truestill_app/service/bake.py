@@ -75,18 +75,18 @@ from truestill_core.bake import (
     CONFIRM_WORD,
     IRREVERSIBLE_NOTE,
     VIDEO_EXCLUSION_REASON,
+    BakeDriveLine,
     BakeOutcome,
     DriveAwaiting,
     bake_confirmed_dates,
+    bake_plan,
     completeness_line,
-    is_video,
     migration_unfinished,
     migration_unfinished_message,
     unconfirmed_reason,
 )
-from truestill_core.catalog import Catalog
 from truestill_core.catalog_session import open_catalog
-from truestill_core.drive import DriveReach, drive_path_hint, drive_reach, read_marker
+from truestill_core.drive import read_marker
 from truestill_core.progress import ProgressCallback
 
 from truestill_app.jobs import JobTarget
@@ -102,6 +102,7 @@ __all__ = [
     "IRREVERSIBLE_NOTE",
     "NOT_CONFIRMED",
     "VIDEO_EXCLUSION_REASON",
+    "BakeDriveLine",
     "BakePreview",
     "BakeRefusal",
     "BakeSummary",
@@ -203,7 +204,7 @@ def bake_run(
     def target(progress: ProgressCallback, cancel: threading.Event) -> BakeSummary:
         """The panel half: run the engine, then shape what it returns for a screen."""
         outcome: BakeOutcome = bake_confirmed_dates(
-            path, db, marker, progress=progress, cancel=cancel
+            path, db, marker, confirmation=confirmation, progress=progress, cancel=cancel
         )
         summary: BakeSummary = {
             "drive_label": outcome.drive_label,
@@ -220,16 +221,6 @@ def bake_run(
         return summary
 
     return target
-
-
-class BakeDriveLine(TypedDict):
-    """One drive in the plan, and whether this run will actually reach it."""
-
-    label: str
-    files: int
-    #: True when the drive's remembered location is reachable **right now**. A hint, never
-    #: identity (§3.1) - it answers "can you plug this in without hunting for it", nothing more.
-    connected: bool
 
 
 class BakePreview(TypedDict):
@@ -251,17 +242,6 @@ class BakePreview(TypedDict):
     irreversible: str
 
 
-def _reachable(catalog: Catalog, drive_uuid: str) -> bool:
-    """Whether a drive's remembered path is live and still carries that drive's marker.
-
-    Reads the hint **without clearing it**: `take_live_path_hint` deletes a dead hint, which is
-    correct on a screen load and would be a *write* here. A preview writes nothing, including
-    settings it thinks are stale.
-    """
-    hint = catalog.get_setting(drive_path_hint(drive_uuid))
-    return drive_reach(hint, drive_uuid) is DriveReach.CONNECTED
-
-
 def bake_preview(path: Path, db: Path) -> BakePreview | BakeRefusal | DriveUnavailablePayload:
     """Compute the plan for a bake. **Writes nothing** - see `test_bake_preview_purity`.
 
@@ -277,32 +257,15 @@ def bake_preview(path: Path, db: Path) -> BakePreview | BakeRefusal | DriveUnava
     if marker is None:  # pragma: no cover - bake_preconditions already answered this
         return drive_unavailable(path, db)
 
-    will_write = videos = absent = 0
-    with open_catalog(db) as catalog:
-        for row in catalog.confirmations_to_bake(marker.uuid):
-            relative = str(row["relative"])
-            if is_video(relative):
-                videos += 1
-            elif not (path / relative).is_file():
-                absent += 1
-            else:
-                will_write += 1
-        elsewhere: list[BakeDriveLine] = [
-            {
-                "label": str(r["label"]),
-                "files": int(r["files"]),
-                "connected": _reachable(catalog, str(r["uuid"])),
-            }
-            for r in catalog.drives_awaiting_bake(marker.uuid)
-        ]
+    plan = bake_plan(path, db, marker)
     return {
         "ok": True,
-        "drive_label": marker.label,
-        "will_write": will_write,
-        "videos_skipped": videos,
+        "drive_label": plan.drive_label,
+        "will_write": plan.will_write,
+        "videos_skipped": plan.videos_skipped,
         "videos_reason": VIDEO_EXCLUSION_REASON,
-        "absent": absent,
-        "elsewhere": elsewhere,
+        "absent": plan.absent,
+        "elsewhere": plan.elsewhere,
         "confirm_word": CONFIRM_WORD,
         "irreversible": IRREVERSIBLE_NOTE,
     }

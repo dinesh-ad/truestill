@@ -1,9 +1,9 @@
 # (ahd) THE BAKE IS APP-ONLY, AND STEP 1 OF THE FIX IS DONE: THE ENGINE IS IN CORE.
 
-*Body of backlog entry `(ahd)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(ahd)`, now in [`SHIPPED.md`](../../SHIPPED.md). The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(ahd) THE BAKE IS APP-ONLY, AND STEP 1 OF THE FIX IS DONE: THE ENGINE IS IN CORE.**
-  Ruled by P64 on 2026-08-25; step 1 built the same day. **Step 2 is the open half.**
+  Ruled by P64 on 2026-08-25; step 1 built the same day. ⚠ **CLOSED 2026-08-25: step 2 shipped the same day.** The text below is kept as it was written, because it is the ruling and the inheritance rather than a status.
 
   ## WHY IT IS A GAP AND NOT A DECISION
 

@@ -31,6 +31,17 @@ from truestill_core.app_paths import (
 )
 from truestill_core.archive_extract import extract_archive_set
 from truestill_core.archive_ingest import archives_at, precheck_archives
+from truestill_core.bake import (
+    CONFIRM_WORD,
+    IRREVERSIBLE_NOTE,
+    VIDEO_EXCLUSION_REASON,
+    BakePlan,
+    bake_confirmed_dates,
+    bake_plan,
+    migration_unfinished,
+    migration_unfinished_message,
+    nothing_to_write_reason,
+)
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_backup import BackupOutcome
 from truestill_core.catalog_busy import (
@@ -314,6 +325,7 @@ _LOCKS_DRIVE_AT: dict[str, str | None] = {
     "self-check": None,  # inspects this install, never a library
     "catalog": None,  # catalog-only
     "config": None,  # settings rows
+    "bake": "path",  # writes bytes inside the user's files; `(ahd)`
     "clean-empty": "path",
     "rescan": None,  # reports; `(abn)` is that nothing acts on it yet
     "migrate-layout": "path",
@@ -3711,6 +3723,16 @@ MAX_PATH = 260
 # be annotated without either the ignore below or a lie (audit F23).
 def _add_clean_parser(sub: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
     """The `clean-empty` surface, split out because `build_parser` is at its statement ceiling."""
+    bake = sub.add_parser(
+        "bake",
+        help="write confirmed dates into the files on a drive (preview by default)",
+    )
+    bake.add_argument("path", type=Path, help="the connected drive folder")
+    bake.add_argument("--db", type=Path, default=default_catalog_path(), help="SQLite catalog")
+    bake.add_argument(
+        "--apply", action="store_true", help="actually write them (default: preview only)"
+    )
+
     clean = sub.add_parser(
         "clean-empty",
         help="remove the empty folders a layout migration left behind (preview by default)",
@@ -3872,6 +3894,86 @@ def _confirm_cleanup(count: int, *, permanent: bool) -> bool | None:
     return _typed_confirmation(
         f"\nType 'delete forever' to remove {count} folder(s): ", "delete forever"
     )
+
+
+def _print_bake_plan(plan: BakePlan) -> None:
+    """What a bake would do, before it is asked for. Every exclusion named, never omitted."""
+    print(f"Drive '{plan.drive_label}': {plan.will_write} file(s) would have the date written in.")
+    if plan.videos_skipped:
+        print(f"  {plan.videos_skipped} video(s) left alone. {VIDEO_EXCLUSION_REASON}")
+    if plan.absent:
+        print(f"  {plan.absent} file(s) the catalog expects here could not be found on this drive.")
+    for line in plan.elsewhere:
+        where = "connected now" if line["connected"] else "not connected"
+        print(
+            f"  {line['label']} ({line['files']} file(s), {where}) still has the old date inside."
+        )
+
+
+def _cmd_bake(args: argparse.Namespace) -> int:
+    """Write confirmed dates into the copies on a drive. **Preview unless `--apply`.**
+
+    `(ahd)` step 2. The engine is `truestill_core.bake`; this is the terminal's panel over it,
+    the same relationship `truestill_app.service.bake` has to the same functions.
+
+    ⚠ **A CLI bake writes only dates confirmed ELSEWHERE.** There is no `confirm` subcommand -
+    confirming is review-shaped and is app-only by recorded deferral - so the input is whatever
+    the app recorded or `truestill restore` brought back from a drive's document. When there is
+    nothing, :data:`NOTHING_CONFIRMED_NOTE` says so and says where confirmations come from,
+    rather than reporting "nothing to do" and leaving the user to guess why.
+    """
+    marker = _drive_or_explain(args.path, args.db)
+    if marker is None:
+        return 2
+    with _catalog(args.db) as catalog:
+        if migration_unfinished(catalog, marker.uuid):
+            print(f"error: {migration_unfinished_message(marker.label)}", file=sys.stderr)
+            return 2
+
+    plan = bake_plan(args.path, args.db, marker)
+    nothing = nothing_to_write_reason(plan)
+    if nothing is not None:
+        print(nothing)
+        if plan.elsewhere:
+            _print_bake_plan(plan)
+        return 0
+
+    _print_bake_plan(plan)
+    if not args.apply:
+        print("\nPreview only. Nothing was written. Re-run with --apply to set the dates.")
+        return 0
+
+    # The warning comes BEFORE the prompt on purpose: it is the thing to read before typing, not
+    # an explanation offered after the decision. The app's screen orders it the same way.
+    print(f"\n{IRREVERSIBLE_NOTE}")
+    confirmed = _typed_confirmation(
+        f"\nType '{CONFIRM_WORD}' to proceed (anything else aborts): ", CONFIRM_WORD
+    )
+    if confirmed is not True:
+        print("Aborted -- nothing was written.")
+        return 0
+
+    outcome = bake_confirmed_dates(
+        args.path,
+        args.db,
+        marker,
+        confirmation=CONFIRM_WORD,
+        progress=_progress_printer("updating"),
+        cancel=threading.Event(),
+    )
+    _end_of_tier()
+    print(f"\n{outcome.completeness}")
+    if outcome.videos_skipped:
+        print(f"{outcome.videos_skipped} video(s) left alone.")
+    if outcome.absent:
+        print(f"{outcome.absent} file(s) were not found on this drive.")
+    if outcome.refused is not None:
+        print(f"error: {outcome.refused}", file=sys.stderr)
+        return 4
+    if outcome.failed:
+        print(f"error: {outcome.failed} file(s) could not be updated.", file=sys.stderr)
+        return 1
+    return 0
 
 
 def _cmd_clean_empty(args: argparse.Namespace) -> int:
@@ -4428,6 +4530,7 @@ def _dispatch(argv: list[str] | None) -> int:
         "self-check": _cmd_self_check,
         "catalog": _cmd_catalog,
         "config": _cmd_config,
+        "bake": _cmd_bake,
         "clean-empty": _cmd_clean_empty,
         "rescan": _cmd_rescan,
         "migrate-layout": _cmd_migrate_layout,

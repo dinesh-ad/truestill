@@ -1842,6 +1842,19 @@ class Catalog:
                 (copy_sha256, _now(), sha256, drive_uuid),
             )
 
+    def confirmed_dates_total(self) -> int:
+        """How many dates a person has confirmed, **anywhere, baked or not**. `(ahd)`
+
+        ⚠ **`confirmations_to_bake` cannot answer this**, and conflating the two is a lie by
+        omission: it filters to *this drive, not yet written*, so it returns zero both when every
+        confirmed date is already in the files **and** when nobody has confirmed anything at all.
+        Those are opposite situations for a user and need opposite sentences.
+
+        **Complexity: O(1)** - a count over the table's primary key. No I/O.
+        """
+        row = self._conn.execute("SELECT COUNT(*) AS n FROM date_confirmations").fetchone()
+        return int(row["n"])
+
     def confirmed_date(self, sha256: str) -> str | None:
         """The human-confirmed capture date for content, or ``None``. **O(1)** on the key."""
         row = self._conn.execute(

@@ -54,6 +54,19 @@ apply one.**
 The CLI column names the `add_parser` call rather than a line - grep it. The route
 column cites `server.py` by line, and those are re-resolved by hand.
 
+⚠ **THIS TABLE IS KEYED BY CLI SUBCOMMAND, WHICH IS A BLIND SPOT AND NOT A SMALL ONE.** A run
+that exists **only in the app** has no subcommand, so it gets no row, so the document that answers
+*"what is actually missing"* cannot see it. Found 2026-08-25: `bake` had **zero** mentions here
+under any name, which is part of how it stayed the only mutating run with no CLI until `(ahd)`.
+
+**Two more are still invisible for the same reason**, checked by enumerating every
+`mutating=True` route in `server.py` against the subcommand list: **`backup`** (`backup_run`,
+`service/backup.py`, referenced only inside `truestill-app`) and **`trip apply`**
+(`apply_event_review_names`, `service/trips.py`). Neither is in `BACKLOG.md`'s *App-surface
+deferrals* register either, so neither is app-only by decision - they are app-only by nobody
+having asked. They are **not** listed below, because adding rows for them would say the table has
+a shape it does not; they are named here until they have a subcommand or a recorded deferral.
+
 | subcommand | CLI | app route | state |
 |---|---|---|---|
 | `organize` | `cli.py` `add_parser("organize"` | `/api/organize/{inventory,preview,run,settings}` `server.py:878-881` | **covered**, including `--move` / `--in-place` via `mode` (`service/organize.py:93`, `server.py:230,253`) |
@@ -63,6 +76,7 @@ column cites `server.py` by line, and those are re-resolved by hand.
 | `where` | `cli.py` `add_parser("where"` | `/api/where` `server.py:923` | **covered**; `--limit` becomes paging |
 | `config` | `cli.py` `add_parser("config"` | `/api/layout{,/preview}` `server.py:900-901` | **covered**; presets resolve client-side to a template |
 | `status` | `cli.py` `add_parser("status"` | `/api/drives` `:921`, `/api/library/{status,stats}` `:897,:899` | **covered**; same `single_copy_shas` query both sides |
+| `bake` | `cli.py` `add_parser("bake"` | `/api/dates/bake/{preview,run}` `server.py:922-923` | **covered**, preview and apply. ⚠ The *input* is not: confirming a date is app-only by recorded deferral, so a CLI bake writes only what the app recorded or `truestill restore` brought back. `(ahd)` |
 | `clean-empty` | `cli.py` `add_parser("clean-empty"` | `/api/clean-empty/{preview,apply}` `server.py:895-896` | **partial** - `--permanent` deliberately absent (`service/clean_empty.py:71`), app refuses and points at the CLI |
 | `ingest` | `cli.py` `add_parser("ingest"` | `/api/ingest/{preview,archives/precheck,archives/run}` `server.py:888-890` | ⚠ **partial - preview only.** `service/takeout.py:206` returns `ingest_preview(...)`; there is no apply endpoint. `--tz`, `--prefer-takeout-dates`, `--map-albums` unimplemented |
 | `drives` | `cli.py` `add_parser("drives"` | `/api/drives` `server.py:921` | **partial - list only.** Every marker-writing flag (`--init`, `--label`, `--uuid`, `--adopt-existing`, `--force-new-identity`, `--migrate-marker`) has no route |

@@ -71,6 +71,7 @@ CHECKED: tuple[str, ...] = (
 #: Deriving it from the dispatch table is filed as `(abc)` rather than done here, because the
 #: import direction (a repo script reaching into a package) deserves its own decision.
 SUBCOMMANDS: tuple[str, ...] = (
+    "bake",
     "analyze",
     "organize",
     "repoint-sources",

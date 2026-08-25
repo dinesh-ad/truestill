@@ -15,6 +15,12 @@ has to carry everything the decision needs *before* it is taken, not afterwards 
 **Purity is asserted across two loads.** A single load can hide a lazy first-run write - schema
 creation, a settings default, a cleared stale hint - inside the baseline. The catalog is opened
 once to settle that, and only then are its bytes recorded.
+
+⚠ **WHAT A BEFORE/AFTER COMPARISON CANNOT SEE: anything already wrong when the baseline was
+taken.** `(ahd)` step 1 moved four sentences into core and **paraphrased** them; the comparison
+passed, because both sides carried the same wrong words. Reading the originals is what caught it.
+So this technique proves a change did not alter behaviour - never that the behaviour was right -
+and a move must still be checked against the text it moved, not only against its own output.
 """
 
 from __future__ import annotations

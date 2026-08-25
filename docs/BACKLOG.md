@@ -279,38 +279,6 @@ is invisible here is retired, not free.**
   "preparing" case is cross-process, which an in-process registry can never see. What remains:
   the probe and S1/S2/S3 wording. [Full entry](research/backlog/agp.md)
 
-- **(ahd) THE BAKE IS APP-ONLY, AND STEP 1 OF THE FIX IS DONE: THE ENGINE IS IN CORE.**
-  Recorded 2026-08-25 from P64's ruling; **step 1 shipped the same day**, step 2 is what remains.
-  ⚠ **The letter stays OPEN and there is no `SHIPPED.md` row**: step 1 is a stage of this entry,
-  not a closure. `BACKLOG.md` carries open work and `(ahd)` still has step 2 in it.
-  **What P64 ruled, and it was a gap rather than a decision.** `BACKLOG.md`'s own *App-surface
-  deferrals* register records `confirm_file_date` as app-only *"because a rescue is
-  review-shaped"* - and **does not contain the bake**. `date-provenance-design.md` is a frozen
-  PROGRAM COMPLETE whose *"not smuggled in"* list names four exclusions, none of them the CLI;
-  the founding commit is `feat(app)`; `cli-app-parity.md` has zero mentions of bake under any
-  name. So nobody ruled it. `(agq)`'s shape.
-  ⚠ **The bake is not review-shaped.** The review happened at confirm time; the bake is batch
-  execution of decisions already made, which is the shape every CLI mutating command has. It is
-  also **the most irreversible operation in the product** - `exif.py`'s `_WRITE_FLAGS` are
-  `("-overwrite_original", "-m")` and **no sidecar is kept**, while organize undoes, migrate
-  journals before touching disk and clean-empty only reports.
-  **STEP 2, still open: a `truestill bake` subcommand.** Every helper already exists and is
-  named here so step 2 does not re-derive them: `_typed_confirmation` (the `reclaim` shape), an
-  `--apply` gate, a `"bake": "path"` row in `_LOCKS_DRIVE_AT` after which
-  `_run_holding_the_drive` takes the lock automatically, and `_progress_printer`, which already
-  matches the `ProgressCallback` the engine takes. Cancel is a `threading.Event` the CLI already
-  builds.
-  ⚠ **THE ONE REAL CONSTRAINT, so step 2 does not discover it late: there is no CLI way to
-  CONFIRM a date.** Checked - zero hits for `date_confirmations|confirmations_to_bake|
-  confirm_file_date` anywhere in `truestill-cli`. A CLI bake therefore writes only confirmations
-  made in the app or restored from a drive's decisions document. That makes it a **companion** to
-  the review screen rather than a standalone path, which is what the deferral register already
-  says the rescue should stay. It is a constraint, not an objection.
-  ⚠ **Bake is not the only app-only mutating run** - `backup` and `trip apply` are too, checked
-  by enumerating every `mutating=True` route against the guarded subcommand list. Neither is in
-  the deferral register either. They are **not** this entry; they need a row each or a CLI each.
-  [Full entry](research/backlog/ahd.md)
-
 - **(agm) WHETHER MIGRATE AND BAKE SHOULD WRITE A RECORD AT ALL.** Recorded 2026-08-23, split out
   of `(afw)` **when it closed**, because two of its five surfaces were never decided and closing
   the entry must not silently decide them. `(afw)` answered organize, backup and undo; these two

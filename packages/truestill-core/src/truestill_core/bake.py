@@ -36,7 +36,7 @@ from typing import Final, TypedDict
 
 from truestill_core.catalog import Catalog
 from truestill_core.catalog_session import open_catalog
-from truestill_core.drive import DriveMarker
+from truestill_core.drive import DriveMarker, DriveReach, drive_path_hint, drive_reach
 from truestill_core.exif import build_metadata_args, write_metadata_batch
 from truestill_core.hashing import sha256_file
 from truestill_core.organizer import VIDEO_EXTENSIONS
@@ -50,6 +50,18 @@ CHECKS_PER_FILE = True
 #: product (`undo`, `clean`, `move`, `delete`, `delete forever`) because the actions are
 #: different and a muscle-memory word typed on the wrong screen is not a confirmation.
 CONFIRM_WORD: Final = "set dates"
+
+
+class NotConfirmedError(RuntimeError):
+    """The write was asked for without the typed word. `(ahe)`, generalised by `(ahd)` step 2.
+
+    ⚠ **A named exception rather than a message match** (`IMPLEMENTATION_STANDARDS.md` §9), and it
+    lives at the WRITE rather than at a caller. `(ahe)` put the check in
+    `truestill_app.service.bake.bake_run`, which was the only caller then; the CLI is the second,
+    and it would have walked straight past a guard that lived in the first. That is `(afu)`'s
+    shape and the exact thing `(ahe)` claimed to have fixed - so the guard moved down here, where
+    a third surface cannot miss it either.
+    """
 
 
 def unconfirmed_reason(confirmation: str) -> str | None:
@@ -151,6 +163,105 @@ def completeness_line(drive_label: str, baked: int, awaiting: list[DriveAwaiting
     )
 
 
+class BakeDriveLine(TypedDict):
+    """One drive in the plan, and whether this run will actually reach it."""
+
+    label: str
+    files: int
+    #: True when the drive's remembered location is reachable **right now**. A hint, never
+    #: identity (§3.1) - it answers "can you plug this in without hunting for it", nothing more.
+    connected: bool
+
+
+#: ⚠ **The sentence for "nothing to write, because nothing was ever confirmed".** `(ahd)`
+#:
+#: Both surfaces used to say *"Every corrected date is already inside the files on this drive"*
+#: for this case, which is **vacuously true and a lie by omission**: a user who has confirmed
+#: nothing is told their work is finished. The two situations need opposite sentences, which is
+#: what `Catalog.confirmed_dates_total` exists to tell apart.
+#:
+#: In core because both surfaces must say the same thing, the ruling `STOP_WORDING` carries: a
+#: sentence spelled twice in two packages is one edit away from being two different sentences.
+NOTHING_CONFIRMED_NOTE = (
+    "No dates have been confirmed yet, so there is nothing to write. A date becomes confirmed "
+    "when you correct it on the Dates screen in truestill-app, or when `truestill restore` "
+    "brings one back from a drive's decisions document."
+)
+
+#: The other zero: confirmations exist and this drive already carries every one of them.
+NOTHING_LEFT_NOTE = "Every confirmed date is already inside the files on this drive."
+
+
+@dataclass(frozen=True, slots=True)
+class BakePlan:
+    """What a bake would do. **Computed, and writes nothing** - the preview both surfaces read."""
+
+    drive_label: str
+    #: Files on this drive that would be written.
+    will_write: int
+    #: Confirmed videos on this drive: excluded, with the reason. Never omitted - a file missing
+    #: from a plan is the same defect class as a silently truncated list.
+    videos_skipped: int
+    #: Confirmed copies this drive should hold that are not on it.
+    absent: int
+    #: Every other drive with copies that would keep the old date inside them.
+    elsewhere: list[BakeDriveLine]
+    #: Dates confirmed **anywhere**, baked or not. Distinguishes the two zeroes above.
+    confirmed_anywhere: int
+
+
+def nothing_to_write_reason(plan: BakePlan) -> str | None:
+    """Why this plan writes nothing, or ``None`` when it writes something.
+
+    Two zeroes, two sentences - see :data:`NOTHING_CONFIRMED_NOTE`.
+    """
+    if plan.will_write:
+        return None
+    return NOTHING_CONFIRMED_NOTE if not plan.confirmed_anywhere else NOTHING_LEFT_NOTE
+
+
+def reachable(catalog: Catalog, drive_uuid: str) -> bool:
+    """Whether a drive's remembered path is live and still carries that drive's marker.
+
+    Reads the hint **without clearing it**: `take_live_path_hint` deletes a dead hint, which is
+    correct on a screen load and would be a *write* here. A preview writes nothing, including
+    settings it thinks are stale.
+    """
+    hint = catalog.get_setting(drive_path_hint(drive_uuid))
+    return drive_reach(hint, drive_uuid) is DriveReach.CONNECTED
+
+
+def bake_plan(root: Path, db: Path, marker: DriveMarker) -> BakePlan:
+    """Count what a bake would do. **Writes nothing** - see `test_bake_preview.py`."""
+    will_write = videos = absent = 0
+    with open_catalog(db) as catalog:
+        for row in catalog.confirmations_to_bake(marker.uuid):
+            relative = str(row["relative"])
+            if is_video(relative):
+                videos += 1
+            elif not (root / relative).is_file():
+                absent += 1
+            else:
+                will_write += 1
+        elsewhere: list[BakeDriveLine] = [
+            {
+                "label": str(r["label"]),
+                "files": int(r["files"]),
+                "connected": reachable(catalog, str(r["uuid"])),
+            }
+            for r in catalog.drives_awaiting_bake(marker.uuid)
+        ]
+        confirmed_anywhere = catalog.confirmed_dates_total()
+    return BakePlan(
+        drive_label=marker.label,
+        will_write=will_write,
+        videos_skipped=videos,
+        absent=absent,
+        elsewhere=elsewhere,
+        confirmed_anywhere=confirmed_anywhere,
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class BakeOutcome:
     """What one bake did. **A core value, not a payload** - the app shapes it for a screen.
@@ -168,11 +279,13 @@ class BakeOutcome:
     refused: str | None
 
 
-def bake_confirmed_dates(
+def bake_confirmed_dates(  # noqa: PLR0913 - the drive, the catalog, the authority, and the two
+    # controls a long job needs; grouping any pair would name a thing that does not exist.
     root: Path,
     db: Path,
     marker: DriveMarker,
     *,
+    confirmation: str,
     progress: ProgressCallback | None,
     cancel: threading.Event,
 ) -> BakeOutcome:
@@ -185,7 +298,15 @@ def bake_confirmed_dates(
 
     ⚠ **This is the only path in the product that runs `-overwrite_original` and keeps no
     sidecar.** The date a file carried before is gone once it returns.
+
+    Raises:
+        NotConfirmedError: the typed word was absent or wrong. **Checked here, at the write**, so
+            every surface answers for it. `confirmation` has no default for the reason
+            `MigrationStop.kind` and `jobs.start`'s `mutating` have none.
     """
+    why = unconfirmed_reason(confirmation)
+    if why is not None:
+        raise NotConfirmedError(why)
     drive_uuid, drive_label = marker.uuid, marker.label
     baked = failed = absent = videos_skipped = 0
     refused: str | None = None

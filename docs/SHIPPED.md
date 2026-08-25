@@ -22,6 +22,41 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(ahd) THE BAKE HAD NO CLI. THE ENGINE IS IN CORE AND `truestill bake` EXISTS.** Shipped
+  2026-08-25 in two steps, schema unchanged. **A gap, not a decision**: `BACKLOG.md`'s
+  *App-surface deferrals* register records the date *rescue* as app-only because it is
+  review-shaped, and **does not contain the bake**; `date-provenance-design.md` is a frozen
+  PROGRAM COMPLETE whose *"not smuggled in"* list names four exclusions, none of them the CLI.
+  A bake is not review-shaped - the review happened at confirm time, and the bake is batch
+  execution of decisions already made.
+  ✅ **Step 1**: the engine moved to `truestill_core.bake`. ⚠ `bake_run`, `bake_preview` and
+  `bake_preconditions` could **not** move intact - all three return `DriveUnavailablePayload`,
+  which carries `can_register`, a button on a screen. So the seam is `drive_identity`'s: **core
+  computes and returns a core value; the app wraps it into its payload.** Proved a move rather
+  than a rewrite by capturing eight observables before and regenerating them after - **identical**.
+  ✅ **Step 2**: `truestill bake`, preview by default. Every helper reused and none invented -
+  `_typed_confirmation`, the `--apply` gate, a `"bake": "path"` row in `_LOCKS_DRIVE_AT`,
+  `_progress_printer`.
+  🔑 **THE SECOND CALLER IS THE FIRST REAL TEST OF `(ahe)`'s GUARD, AND IT FAILED IT.** `(ahe)`
+  put the confirmation check in the app's `bake_run` and argued it was "where the write happens".
+  It was not - `bake_run` was merely the only caller. The CLI calls the engine directly and would
+  have walked straight past it. The guard moved down to `bake_confirmed_dates` and raises
+  `NotConfirmedError`, so a third surface cannot miss it. **That is the value of a second
+  surface, and it arrived one commit after the claim.**
+  ⚠ **"Nothing to do" was a lie by omission, on BOTH surfaces.** `confirmations_to_bake` returns
+  zero rows when every date is already written **and** when nobody has confirmed anything - and
+  both surfaces said *"every corrected date is already inside the files"*.
+  `Catalog.confirmed_dates_total` tells them apart and `NOTHING_CONFIRMED_NOTE` names where
+  confirmations come from. Worded in core, one home, the ruling `STOP_WORDING` carries.
+  **`cli-app-parity.md` gains a row and a warning**: the table is keyed by CLI subcommand, so an
+  app-only run gets no row and the document that answers *"what is missing"* cannot see it. Bake
+  had **zero** mentions. ⚠ **`backup` and `trip apply` are still invisible for the same reason**
+  and are named there until they have a subcommand or a recorded deferral.
+  Seven CLI tests, the preview proved pure by bytes. Also corrected: two backlog citations this
+  commit's line shifts exposed, one of which (`acc.md`'s `cli.py:1497`) was **already** pointing
+  at the wrong line before this branch.
+  [Full entry](research/backlog/ahd.md)
+
 - **(ahe) THE BAKE'S TYPED CONFIRMATION WAS NEVER ENFORCED WHERE THE WRITE HAPPENS.** Shipped
   2026-08-25, schema unchanged. Found by P64 while ruling on bake's missing CLI.
   ⚠ **The typed word was ceremony.** `CONFIRM_WORD` was shipped to the browser inside the
