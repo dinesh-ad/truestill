@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ahj). Next free: (ahk).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ahk). Next free: (ahl).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -185,20 +185,79 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(ahh) NAMING TRIPS ABORTS MID-WAY AND RECORDS NOTHING ABOUT BEING INCOMPLETE.** Filed
-  2026-08-25 (P72), found while ruling `(ahf)`'s last surface. ⚠ **A defect, not a guard - ranked
-  above `(ahi)` and `(ahj)` for that reason**, and **surface-independent**: it is just as true of
-  the app today as it would be of any CLI.
-  `commit_trips` (`trip_review.py:363-392`) loops over decisions and **catches nothing**. Each
-  catalog call is atomic on its own through `Catalog._tx`, so a raise on the seventh trip leaves
-  the first six committed - and **nothing records that the run was incomplete**. `create_trip`'s
-  own docstring advertises the `sqlite3.IntegrityError` that would do it (`catalog.py:2745`).
-  `commit_catalog` (`event_review.py:162-190`) has the same shape.
-  **Checked**: there is no `delete_trip` and no `unname` anywhere - the only
-  `DELETE FROM trips|events|trip_days` in the tree is inside `update_trip_days`
-  (`catalog.py:2781`), reinserting its own rows. So a half-applied naming cannot be undone and
-  cannot be detected. `ENGINEERING_STANDARD.md` §4 Errors' partial-failure policy is the rule it
-  fails; whether the answer is skip-and-continue or a journal is the ruling this entry wants.
+- **(ahk) THE NAMING ROUTE DOES A CHECK-THEN-INSERT WITH NO LOCK, AND `truestill restore` CAN
+  RACE IT.** Filed 2026-08-25 (P74). **Ranked above `(ahh)`**: that entry is how the collision is
+  *reported*, this is the collision.
+  `commit_trips` reads `catalog.trip_for_day` for every day (`trip_review.py:373`) and then
+  inserts (`:378`) - **two transactions**, so `BEGIN IMMEDIATE` does not close the window. The
+  route around it holds **nothing**: `events_apply` (`server.py:823-842`) has no
+  `_start_drive_job`, no `jobs.claim` and no `lock_for`. Meanwhile `truestill restore` reaches
+  `create_trip` through `decisions.py:477` in another process.
+  ⚠ **The window is reproduced, and the reproduction's limit is stated**: with a second real
+  `Catalog` connection opened inside the window, `commit_trips` raises
+  `IntegrityError: UNIQUE constraint failed: trip_days.day`, the user's typed name is **gone**,
+  and the day belongs to the other writer. **That forces the interleaving deterministically; it
+  does not race two OS processes.** A true collision has a known *shape* and a reproduced
+  *window*, not an occurrence observed in the wild.
+  🔑 **THE TWIN PATH WAS HARDENED AGAINST THE NEIGHBOURING SHAPE, WHICH IS THE EVIDENCE THIS IS
+  REAL.** `decisions.py:457-458`, verbatim:
+  > `# Day -> the name of the trip holding it. Read once and kept in step as trips are created, so`
+  > `# a document that names one day twice cannot make `create_trip` fail on the day primary key.`
+  ⚠ **That defends the WITHIN-RUN duplicate and not the cross-process one** - and because it reads
+  the claim map **once** up front, `apply_decisions` is if anything **more** exposed to this
+  window than `commit_trips`, which at least re-reads per day.
+  ⚠ **`(agu)`'s guard SEES this route and ALLOWS it**, which is the part worth knowing.
+  `test_every_job_declares_whether_it_mutates.py` enumerates every handler and classifies every
+  bare service call; `apply_event_review_names` is entry **:256**, *"catalog rows; its own
+  docstring: 'No files move'"*. The classifier's own comment calls the class a recorded gap -
+  *"catalog-ROW writers ... deliberately outside drive locks - the gap `(aaw)` recorded and
+  `(adt)`'s close split into residue letters"*. So the guard is not blind; it reds a **deleting**
+  call outside the exclusion, and this one inserts.
+  **Census (P74): 9 unlocked catalog-writing routes; 8 are safe by construction.** Seven are
+  single-key settings upserts (`set_organize_mode`, `set_sidebar_collapsed`, `set_text_size`,
+  `set_library_root`, `set_layout`, `set_event_settings`, `set_everyday_day_settings`) and
+  `confirm_file_date` is one `_tx` with `ON CONFLICT DO UPDATE`. **`events_apply` is the only one
+  whose correctness depends on a read in one transaction and a write in another.**
+  ⚠ **WHAT THE FIX IS NOT**: fixing `(ahh)`'s reporting does not fix this. A route that reports a
+  collision cleanly is still a route that permits one - and the harm here is the user's typed name
+  being lost, which no amount of good reporting returns.
+  **Related but not this**: `(ads)` records that the catalog's concurrency *model* was inherited
+  rather than chosen, and `(adn)` that nothing stops two processes holding one catalog. Neither
+  covers an application-level check-then-insert, which no journal mode fixes.
+  [Full entry](research/backlog/ahk.md)
+
+- **(ahh) A FAILED "SAVE NAMES" REPORTS TOTAL FAILURE OVER A PARTIAL SUCCESS.** Filed 2026-08-25
+  (P72), **re-scoped and re-ranked 2026-08-25 (P74) after reproducing it** - the entry as filed
+  described a defect one class more serious than the one that exists.
+  ✅ **The behaviour is real and reproduced.** Ten decisions with a forced failure on #7: trips
+  1-6 committed, 7-10 never attempted, and `migration_journal`, `migration_runs`, `organize_runs`
+  and `inplace_runs` all **empty** with no record file written. `commit_trips`
+  (`trip_review.py:363-392`) catches nothing; each `create_trip` is its own transaction.
+  ⚠ **THE TRIGGER IN THE FILING WAS NOT REACHABLE, and the entry said otherwise.** The
+  reproduction poisoned a decision with a duplicate day - `confirmed_days` is typed
+  `Sequence[date]` and `trip_days.day` is `PRIMARY KEY`. **No caller can do that**: checked,
+  `confirmed_days` has **zero** references outside `trip_review.py`, and `service/trips.py:498`
+  builds `TripDecision(card.trip, name)` positionally, so it stays `None` and the days come from
+  `proposal.days`, a **`Mapping`** - unique by construction. What is reachable is `(ahk)`'s race.
+  🔑 **It is a REPORTING defect, not lost work**, and each half was checked rather than reasoned:
+  the catalog stays consistent (one transaction per trip); the half-state **is discoverable**,
+  because re-proposing reads `ExistingNames` (`service/trips.py:135`, `:219`) so the six show as
+  named and the four return as proposals; **a re-run converges** - proved, a second apply named
+  the remaining four and the first six took `update_trip_days` rather than re-create; and the
+  **session survives**, because `discard_session` is called from exactly one place
+  (`server.py:887`, the apply-to-**disk** `on_started`), so the typed names are still there.
+  ⚠ **The user is told the save FAILED while six succeeded** - `events_apply` is a plain route, a
+  non-busy `sqlite3.Error` keeps its 500 by design (`server.py:105-108`), and `guarded` renders a
+  fatal banner. That is **failure hiding a partial success**: the inverse of `(afa)`, and the
+  **safe** direction - the user under-trusts and a re-run fixes it. **So this ranks BELOW
+  `(abm)`-shaped computed-and-unread defects**, not above `(ahi)`/`(ahj)` as originally filed.
+  **The fix shape is `(afw)` Stage 4's skip-count-name** - a verdict per decision, counted and
+  named, batch finished - which is `ENGINEERING_STANDARD.md` §4 Errors' own rule. **Not a
+  journal** (a re-run converges, so there is nothing to resume) and **not a run record** (whether
+  a catalog-only naming is *"a run that changes the library"* is `(ahi)`/`(agm)`'s question and
+  answering it here would smuggle in a decision this entry has no evidence for).
+  It is `(agj)`'s shape on a fourth surface, with one difference: `(agj)` carried partial results
+  to a **record writer that already existed**, and here there is none.
   [Full entry](research/backlog/ahh.md)
 
 - **(ahi) THE RECORD-STATE CENSUS COVERS 5 OF 9 MUTATING OPERATIONS.** Filed 2026-08-25 (P72).
