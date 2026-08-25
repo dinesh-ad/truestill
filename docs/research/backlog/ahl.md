@@ -45,15 +45,24 @@
   a client USES what it asked for, so a field stays undeprecatable because the client requests it
   and ignores it. Named here because it is the boundary, not a gap to close later.
 
-  ## ⚠ STRIPPING COMMENTS MOVED THE ANSWER FROM 20 TO 34
+  ## ⚠ THE NAIVE GREP COSTS FIVE KEYS, NOT FOURTEEN - CORRECTED 2026-08-25 (P83)
 
-  The naive grep certified **fourteen** dead fields as live. `matched_path`'s only `app.js`
+  **This section read *"STRIPPING COMMENTS MOVED THE ANSWER FROM 20 TO 34 ... certified fourteen
+  dead fields as live"*, and that comparison was invalid.** The two figures came from two
+  different measurements: **20** counts keys unread by `app.js`, React **and `cli.py`**, while
+  **34** counts the two browser surfaces. Two variables moved at once, so the difference measured
+  neither. Caught by building the guard, which had to assert on the number.
+
+  **Holding the surfaces fixed**: 29 naive -> 34 stripped, so the effect is **five** -
+  `matched_path`, `modes`, `operation`, `redundancy_floor`, `uuid`. (On three surfaces it is
+  **one**: 20 -> 21.) Smaller than claimed, and still decisive: each is a field a naive grep
+  certifies as live on the strength of a comment that names it. `matched_path`'s only `app.js`
   occurrence is a comment at `app.js:2643` saying the field *cannot* answer the question.
 
-  **This exact failure has a published instance.** A Whatnot write-up (Dec 2025) describes an agent
-  proposing to delete fields still referenced in web client code, because the web repo lacked the
-  linter the mobile repos had. A text search that cannot tell code from prose is not a weaker
-  version of the check; it is a different check that returns the wrong answer confidently.
+  ⚠ **The lesson is the one the correction demonstrates**, not the number: a delta between two
+  measurements that differ in more than one variable is not a delta. It is now pinned in
+  `test_no_thirty_fifth_dead_payload_key.py`, which recomputes both and would fail if either
+  moved.
 
   ## THE 34
 

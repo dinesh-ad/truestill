@@ -271,7 +271,7 @@ what stops is changing *what a route returns* under a consumer that already read
   mechanical. The DECLARED end is an AST pass, and it must be AST: `test_migrate_reports_its_stop.py:149`
   records that asserting on `__required_keys__` was **vacuous** under
   `from __future__ import annotations`. The CONSUMED end is a text search over JavaScript -
-  stripping comments moved the answer from 20 to 34 - so what is buildable is a **declaration**
+  stripping comments is worth five keys, measured - so what is buildable is a **declaration**
   that goes red on a 35th field, not a liveness proof. ⚠ **No ecosystem proves field liveness
   statically**; GraphQL answers it at runtime (Apollo GraphOS Insights, Hive's
   `deprecatedSchema(period:)`) and REST has no equivalent. The mechanical-at-both-ends route is

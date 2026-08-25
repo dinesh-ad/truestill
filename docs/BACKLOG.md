@@ -190,8 +190,11 @@ is invisible here is retired, not free.**
   instances. Derived from the AST: **117 TypedDicts, 579 key slots, 289 distinct key names, 34**
   with no hit in `app.js` code and none in React (**11.8%**); **21** reach `cli.py` either.
   ⚠ **Checked, not assumed**: an AST walk of both `TypedDict` forms against the three consumer
-  surfaces with `//` and `/* */` stripped, derived twice independently. **Stripping the comments
-  moved the answer from 20 to 34** - the naive grep certified fourteen dead fields as live.
+  surfaces with `//` and `/* */` stripped, derived twice independently. **The naive grep certifies
+  five dead fields as live** on the strength of a comment naming them (29 -> 34, surfaces held
+  fixed). ⚠ **This entry said *"20 to 34 ... fourteen"* until 2026-08-25**; those two figures
+  measured different surface sets, so the delta measured neither. Corrected when the guard had to
+  assert on it.
   ⚠ **34 is a FLOOR, not a count.** A key-name census cannot see a collided field:
   `BakePreview.absent` is rendered at `app.js:4131` while `BakeSummary.absent` is not read by
   `bakeCompletion` at all, so the name never enters the list. `apollo-kotlin#991`, open since 2018,
