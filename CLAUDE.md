@@ -55,7 +55,7 @@ On 2026-08-22 those read **183** and **121**, leaving **62** mapped below. ⚠ T
 
 | Question | Document |
 |---|---|
-| Where does the project stand? What is next? | [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) |
+| Where does the project stand? What is next? **What order are we building in?** | [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) - **§1b** is the build order (engine, then contract, then UI), written down 2026-08-25 after being re-argued three times |
 | How do I work here? (workflow, research order, code standard) | [`docs/ENGINEERING_STANDARD.md`](docs/ENGINEERING_STANDARD.md) |
 | What are the binding rules? (invariants, architecture, data, gates) | [`docs/IMPLEMENTATION_STANDARDS.md`](docs/IMPLEMENTATION_STANDARDS.md) |
 | Why is the product this way? (settled stances: accounts, licensing, monetization, toolchain) | [`docs/DECISIONS.md`](docs/DECISIONS.md) - **D10**+**D13** on Python 3.14 (deferred, then adopted when the deferral's premise proved false), **D11** holds mypy, **D12** refuses Aceternity |
@@ -134,7 +134,8 @@ record. **When a research doc and `IMPLEMENTATION_STANDARDS.md` disagree, the co
   2026-08-15 - census, retired hypotheses and the experiment that ended it)
 
 New here? `docs/PROJECT_STATUS.md` **§0** is the fresh-clone setup, **§1** is where the project
-stands, **§2** is what ships next and **§3** is what blocks it. `default-layout-research.md` holds
+stands, **§1b** is the build order the rest sits inside, **§2** is what ships next and **§3** is
+what blocks it. `default-layout-research.md` holds
 the layout design and the flip, but read its own header first - its status line predates the build.
 
 ### Live refs - what exists on the remote besides `main`

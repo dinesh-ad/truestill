@@ -166,6 +166,73 @@ narrative, or volatile counts.
 
 ---
 
+## 1b. The build order - engine, then contract, then UI
+
+⚠ **Written down 2026-08-25 because it never had been.** The maintainer has worked to this since
+the first handoff and it has been re-argued at least three times, twice in two days by an agent
+that could not find it. Checked before writing: no phased-plan text existed in `PROJECT_STATUS.md`,
+`IMPLEMENTATION_STANDARDS.md`, `ENGINEERING_STANDARD.md` or `CLAUDE.md`.
+
+**It is a plan, not law.** `IMPLEMENTATION_STANDARDS.md` is binding rules about code *behaviour*;
+an order of work is neither binding nor about behaviour, and filing it there would make it read as
+enforceable when nothing enforces it - `(agc)`'s shape. Nothing enforces what follows except this
+page.
+
+1. **The engine finishes first.** The CLI and `truestill-core` carry every behaviour. The app is a
+   panel over them and never the only home of anything.
+2. **The payload shapes are then declared STABLE and pinned by contract tests.**
+3. **Only then is the UI built** - React, replacing `app.js` entirely (`(adi)`).
+
+### The rule that makes step 3 safe
+
+🔑 **A surface consumes only what the contract declares, and assumes nothing that is not in it.**
+This is the whole point of the order, and it is what `app.js` failed. Live evidence, not argument:
+
+| computed by a service | read by the surface |
+|---|---|
+| `service/bake.py`'s `absent` (3 sites) | **0** in `bakeCompletion` - the *preview* shows it, the run drops it |
+| `service/drives.py`'s `unmatched` (6 sites) | **0** in `app.js` - `(abm)`, still open |
+| `service/drives.py`'s `unreadable_dirs` (5 sites) | **0** in `app.js` - `(abm)`, still open |
+| `migrate.py`'s `stopped` and `refused` | **0** until `(ahc)` closed it 2026-08-25 - a stopped run read as *"Moved N files."* |
+
+**Rewriting the UI against a contract nobody has declared reproduces every one of these in a new
+language.** `test_surface_parity.py` already exists and does not cover this: its own docstring
+says it *"protects the REPAIR, not the contract."*
+
+### STABLE, and what it does not mean
+
+The field-standard lifecycle is **DRAFT -> BETA -> STABLE -> DEPRECATED**; step 2 heads for
+STABLE. ⚠ **"Freeze" is the wrong word and would mislead a later reader.** STABLE constrains the
+**shape** of what a route returns - its keys, their types, whether a field may vanish. It says
+nothing about quality. **A bug behind a stable contract is still a bug and still gets fixed**;
+what stops is changing *what a route returns* under a consumer that already reads it.
+
+### Step 1's exit condition, so it can be checked rather than felt
+
+*"The engine is finished"* is not testable. These four are, and each names its own subject:
+
+1. **Every mutating run writes a record.** Organize, backup and undo do; **migrate and bake do
+   not** - `(agm)`, open. Pinned by `test_the_app_records_what_a_run_did.py`, which lists each
+   surface as writing or not writing *with its reason*.
+2. **Every surface reports its own stop.** `(ahc)` closed migrate's last one.
+3. **No route computes a field no consumer reads.** The table above is the current list.
+4. ⚠ **No mutating behaviour lives only in the app** - added here because step 1's own sentence
+   requires it and nothing was checking. **Bake fails it today**: there is no CLI bake command
+   (`grep -rn 'set dates\|bake_run\|bake_preview' packages/truestill-cli/src` returns nothing;
+   `cli.py`'s three `bake` hits are the *Takeout* bake). Bake is a panel over nothing.
+
+The app **lacking** a route for a CLI subcommand is a different question and belongs to step 3 -
+[`cli-app-parity.md`](cli-app-parity.md) owns it.
+
+### Not in scope, so this does not read wider than it is
+
+CLI **human wording**; internal function and dataclass shapes; **schema versions** (`catalog.py`'s
+migrations are governed by `IMPLEMENTATION_STANDARDS.md`); and anything with **no consumer outside
+the process**. The contract is about what crosses a process boundary to a reader that cannot be
+changed in the same commit.
+
+---
+
 ## 2. What is next (in order)
 
 1. ⚠ **SUPERSEDED 2026-08-20: THE SOAK RAN.** The deferral below was ruled on 2026-08-12 and
