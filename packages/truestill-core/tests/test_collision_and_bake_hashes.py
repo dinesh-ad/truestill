@@ -28,7 +28,14 @@ from PIL import Image
 from truestill_core.catalog import Catalog
 from truestill_core.categorize import CategoryMatch, Confidence
 from truestill_core.destinations import LocalDestination
-from truestill_core.models import ActionStatus, DateSource, Decision, FileHashes, Resolution
+from truestill_core.models import (
+    ActionStatus,
+    DateSource,
+    Decision,
+    FileHashes,
+    Resolution,
+    RuleName,
+)
 from truestill_core.organizer import execute
 from truestill_core.takeout import IngestContext, MetadataWrite
 
@@ -46,7 +53,9 @@ def _jpeg(path: Path, tint: int) -> Path:
 def _resolution(source: Path, sha: str, relative: str = CONTESTED) -> Resolution:
     decision = Decision(
         source=source,
-        category=CategoryMatch(label="Camera", reason="t", confidence=Confidence.MEDIUM, rule="d"),
+        category=CategoryMatch(
+            label="Camera", reason="t", confidence=Confidence.MEDIUM, rule=RuleName.DEVICE
+        ),
         captured_at=WHEN,
         date_source=DateSource.EXIF,
         date_tag=None,

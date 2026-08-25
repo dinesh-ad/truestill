@@ -20,7 +20,14 @@ from truestill_core import exif, organizer
 from truestill_core.categorize import CategoryMatch, Confidence
 from truestill_core.destinations import LocalDestination
 from truestill_core.exif import WRITE_BATCH_SIZE, build_metadata_args, read_metadata
-from truestill_core.models import ActionStatus, DateSource, Decision, FileHashes, Resolution
+from truestill_core.models import (
+    ActionStatus,
+    DateSource,
+    Decision,
+    FileHashes,
+    Resolution,
+    RuleName,
+)
 from truestill_core.organizer import execute
 from truestill_core.takeout import IngestContext, MetadataWrite
 
@@ -42,7 +49,9 @@ def _photos(root: Path, count: int) -> list[Path]:
 def _resolution(source: Path, sha: str) -> Resolution:
     decision = Decision(
         source=source,
-        category=CategoryMatch(label="Camera", reason="t", confidence=Confidence.MEDIUM, rule="d"),
+        category=CategoryMatch(
+            label="Camera", reason="t", confidence=Confidence.MEDIUM, rule=RuleName.DEVICE
+        ),
         captured_at=WHEN,
         date_source=DateSource.EXIF,
         date_tag=None,

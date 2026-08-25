@@ -59,12 +59,20 @@ repos:
         language: system
         pass_filenames: false
         types_or: [python, markdown, toml, yaml]
+      # ⚠ always_run, NOT a `types_or` list, and the difference is the point. `types_or`
+      # decides only WHETHER a hook fires; with `pass_filenames: false` it never scopes what
+      # the script reads. This one read five declared file types and 13 hand-listed paths, so
+      # the declaration claimed a reach it did not have - found 2026-08-25.
+      # The reach stays the shop window ON PURPOSE, and the number is the argument: the full
+      # sweep of those five types finds 367 lines in 146 files, of which 35 files are RECORDS
+      # this repo forbids rewriting. `scripts/check_product_name.py` CHECKED is the list, and
+      # `test_the_product_name_guard_declares_its_reach.py` pins this.
       - id: product-name
-        name: the product name is "Truestill" wherever a person reads it
+        name: the product name is "Truestill" on the 13 surfaces a user reads
         entry: python3 scripts/check_product_name.py
         language: system
         pass_filenames: false
-        types_or: [python, markdown, toml, javascript, html]
+        always_run: true
       # Accidental ``> 25.9`` / ``-> 2024-03-24`` shell redirects land empty files at the root.
       # always_run so a previously committed artifact is caught even when untouched.
       - id: no-redirect-artifacts

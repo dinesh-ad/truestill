@@ -13,6 +13,7 @@ from truestill_core.models import (
     FileHashes,
     InferredLocalShift,
     Resolution,
+    RuleName,
     format_inferred_local_shift_line,
     inferred_local_shifts,
 )
@@ -28,7 +29,7 @@ def _resolution(
 ) -> Resolution:
     decision = Decision(
         source=Path(name),
-        category=CategoryMatch("Saved", "test", Confidence.HIGH, "test"),
+        category=CategoryMatch("Saved", "test", Confidence.HIGH, RuleName.SAVED_HEURISTIC),
         captured_at=captured_at,
         date_source=source,
         date_tag=date_tag,

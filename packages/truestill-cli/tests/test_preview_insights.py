@@ -23,6 +23,7 @@ from truestill_core.models import (
     DuplicateMatch,
     FileHashes,
     Resolution,
+    RuleName,
 )
 
 
@@ -46,7 +47,9 @@ def _resolution(
     )
     decision = Decision(
         source=source,
-        category=CategoryMatch(label="Camera", reason="t", confidence=Confidence.MEDIUM, rule="d"),
+        category=CategoryMatch(
+            label="Camera", reason="t", confidence=Confidence.MEDIUM, rule=RuleName.DEVICE
+        ),
         captured_at=when,
         date_source=DateSource.EXIF if when else DateSource.NONE,
         date_tag=None,
