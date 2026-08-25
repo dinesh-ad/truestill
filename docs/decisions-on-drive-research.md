@@ -71,8 +71,20 @@ a single `rescan`. Worth stating in the product, not only here.
 
 ## What goes in it
 
-**Human decisions only.** Everything else - hashes, dates, GPS, camera, categories, paths - is
-recomputable from the files, and is most of what makes the catalog 6.4 MB.
+**Human decisions only.** Everything else - hashes, dates, GPS, camera and paths - is recomputable
+from the files, and is most of what makes the catalog 6.4 MB.
+
+⚠ **THIS SAID "categories" TOO UNTIL 2026-08-25, AND A MEASUREMENT FALSIFIED IT.** Rebuilding a real
+organized library from its own files returned **identical dates for 1,127 of 1,127 files and a
+different CATEGORY for 3 of them** (`Camera` -> `Saved`, so a different folder). The cause is inside
+this product: `naming.py:49` renames to `%Y%m%d_%H%M%S_<original>`, and every name rule in
+`categorize.py` is `^`-anchored, so the operation that files a photo destroys the pattern the
+categoriser reads. It bites exactly the files with **no capture metadata** - the ones that had only
+their filename to go on.
+
+**Corrected in place because this document is a live design, not a record.** The line is repaired
+rather than annotated, and the finding it rests on is `(ahr)`; the original name survives as a
+suffix, so categories become recomputable again once the categoriser knows its own rename format.
 
 ```
 drive        uuid, label, notes

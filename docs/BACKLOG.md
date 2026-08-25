@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ahq). Next free: (ahr).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aht). Next free: (ahu).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -184,6 +184,46 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(ahr) ORGANIZE IS NOT IDEMPOTENT: ITS OWN RENAME DEFEATS THE CATEGORISER.** Filed 2026-08-25
+  (P98, soak six). **Re-organizing an already-organized library gives a different answer for some
+  files.** Rebuilding soak five's library from its own files: **1,127 of 1,127 matched by content,
+  dates identical for every one, and 3 changed `Camera` -> `Saved`** and moved folder.
+  ⚠ **Reproduced, not inferred**: `naming.py:49` renames to `%Y%m%d_%H%M%S_<original>` and every
+  name rule in `categorize.py` is `^`-anchored (`:91`, `:105`, `:117`, `:122`). With EXIF
+  Make/Model the answer is `Camera` either way; with **no metadata** the original matches
+  `camera_filename` and the renamed file falls through to `fallback`. It bites exactly the files
+  that had only their filename to go on.
+  ⚠ **The information is NOT lost** - the original name survives as a suffix - so this is an
+  anchored pattern meeting a prefixed name. **The remedy is a categoriser that recognises the
+  product's own rename format; not a column, not a wider drive document.**
+  **3 of 1,127, and deliberately not extrapolated.** It falsifies
+  `decisions-on-drive-research.md`'s founding *"categories are recomputable from the files"*, now
+  corrected in place.
+  [Full entry](research/backlog/ahr.md)
+
+- **(ahs) NO READ-ONLY PATH REBUILDS THE INVENTORY AFTER A LOST CATALOG.** Filed 2026-08-25 (P98).
+  A **product ruling, filed not ruled**. Catalog deleted, library rebuilt from files: `restore`
+  returns **drive identity only** (0 files, 0 copies); `rescan` reports all **10,710 as "ON THE
+  DRIVE, NOT IN THE CATALOG"**; `attach_drive` returns **`linked=0`, `unmatched=10710`** because it
+  links by content against zero rows. **Only a full re-organize rebuilds them.**
+  ⚠ `rescan`'s own sentence - *"No command repairs any of the above yet. This one only tells
+  you."* - is honest, and is also the whole gap.
+  The claim holds **in substance and not in reach**: the facts are in the files and only the
+  longest operation recovers them - and `(ahr)` means re-organize is not a clean recovery either.
+  [Full entry](research/backlog/ahs.md)
+
+- **(aht) THE ARCHIVE STAGING TREE IS NEVER REMOVED.** Filed 2026-08-25 (P98), found in `(ahp)`'s
+  artifact. A 1.61 GB archive leaves **535 files, 1.6 GB** under `.truestill-staging/` beside the
+  organized copy, and **nothing removes it** (`grep -iE "rmtree|unlink|clean"` against
+  `archive_ingest.py` returns nothing).
+  ⚠ **Measured, and it changes the rank**: a second ingest of the same archive **does not stage
+  again** - still 535 files, one directory - so N ingests cost **1x, not Nx**. Untidiness, not a
+  disk a user runs out of. **But the work repeats**: 534 files unpacked again. Cost is per
+  distinct archive.
+  Defensible as it stands - copy mode never deletes a source, and the staging tree *is* that run's
+  source.
+  [Full entry](research/backlog/aht.md)
 
 - **(ahq) FLAT PHOTOGRAPHS ARE ALL NEAR-DUPLICATES OF EACH OTHER.** Filed 2026-08-25 (P95).
   **89 files** sit within the default threshold (5) of the all-zero perceptual hash, across 16
