@@ -44,6 +44,38 @@ from datetime import datetime
 _OWN_STAMP_PREFIX = re.compile(r"^(\d{8})(?:_\d{6})?_")
 
 
+def without_own_stamp(name: str) -> str:
+    """`name` as the device wrote it, with **this module's own** date stamp removed. `(ahr)`
+
+    ⚠ **The categoriser needs this because organize defeats it otherwise.** Every name rule in
+    `categorize.py` is `^`-anchored, and `dated_filename` prefixes `YYYYMMDD_HHMMSS_`, so a photo
+    filed once no longer looks like the camera file it is: `IMG_20130930_092249.jpg` matches the
+    Android convention and `20131007_231928_IMG_20130930_092249.jpg` matches nothing. Measured on
+    a real library, that moved **3 of 1,127** files from `Camera` to `Saved` on a re-organize.
+
+    ⚠ **THE RECOGNISER LIVES HERE, NOT IN THE CATEGORISER**, and that is `STOP_WORDING`'s rule
+    applied to a format rather than a sentence: this module writes the stamp, so this module says
+    what one looks like. A regex copied into `categorize.py` would be a second definition of one
+    format, free to drift from `dated_filename` the next time the stamp changes.
+
+    ⚠ **Stripping can only ADD matches, never remove one**, which is what makes it safe to do
+    unconditionally: **no rule in `categorize.py` begins with a digit**, so a name starting with
+    eight digits matches nothing today. A name the strip does not change is unaffected by
+    definition; a name it does change could not have matched before.
+
+    ⚠ **A genuine bare-date name is not special-cased, because it does not need to be.**
+    ``20130930_092249.jpg`` - a real convention - is indistinguishable from a stamp, and stripping
+    it leaves ``092249.jpg``. Both categorise as ``Saved``, so the ambiguity costs nothing. What is
+    guarded is the empty remainder: a name that is *only* a stamp is returned unchanged rather
+    than reduced to its extension.
+    """
+    own = _OWN_STAMP_PREFIX.match(name)
+    if own is None:
+        return name
+    remainder = name[own.end() :]
+    return remainder or name
+
+
 def stamp_for(captured_at: datetime, *, time_known: bool) -> str:
     """The date stamp that would prefix a copy: ``YYYYMMDD_HHMMSS`` or ``YYYYMMDD``."""
     return captured_at.strftime("%Y%m%d_%H%M%S") if time_known else captured_at.strftime("%Y%m%d")

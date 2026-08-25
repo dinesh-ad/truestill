@@ -71,10 +71,16 @@ a single `rescan`. Worth stating in the product, not only here.
 
 ## What goes in it
 
-**Human decisions only.** Everything else - hashes, dates, GPS, camera and paths - is recomputable
-from the files, and is most of what makes the catalog 6.4 MB.
+**Human decisions only.** Everything else - hashes, dates, GPS, camera, categories and paths - is
+recomputable from the files, and is most of what makes the catalog 6.4 MB.
 
-⚠ **THIS SAID "categories" TOO UNTIL 2026-08-25, AND A MEASUREMENT FALSIFIED IT.** Rebuilding a real
+⚠ **"categories" WAS REMOVED FROM THAT LIST ON 2026-08-25 AND PUT BACK THE SAME DAY.** The
+measurement below was real and the rule was false while it stood; `(ahr)` repaired the product
+rather than the sentence, so the founding claim is true again and is restored above. Kept because
+the reason it was briefly false is the useful part, and because a rule that has been wrong once
+should say so.
+
+**What was measured:** Rebuilding a real
 organized library from its own files returned **identical dates for 1,127 of 1,127 files and a
 different CATEGORY for 3 of them** (`Camera` -> `Saved`, so a different folder). The cause is inside
 this product: `naming.py:49` renames to `%Y%m%d_%H%M%S_<original>`, and every name rule in
@@ -82,9 +88,11 @@ this product: `naming.py:49` renames to `%Y%m%d_%H%M%S_<original>`, and every na
 categoriser reads. It bites exactly the files with **no capture metadata** - the ones that had only
 their filename to go on.
 
-**Corrected in place because this document is a live design, not a record.** The line is repaired
-rather than annotated, and the finding it rests on is `(ahr)`; the original name survives as a
-suffix, so categories become recomputable again once the categoriser knows its own rename format.
+**Corrected in place because this document is a live design, not a record.** The original name
+survived as a suffix, so the fix was a categoriser that recognises its own rename -
+`naming.without_own_stamp`, one home for one format - and **not** a wider document or a new column.
+Re-running the rebuild afterwards returned **1,127 of 1,127 files with identical date, source and
+category**. `(ahr)` carries the measurement.
 
 ```
 drive        uuid, label, notes

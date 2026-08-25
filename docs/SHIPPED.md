@@ -22,6 +22,30 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(ahr) ORGANIZE IS NOW IDEMPOTENT: THE CATEGORISER RECOGNISES ITS OWN RENAME.** Shipped
+  2026-08-25, found by soak six's rebuild drill. Re-organizing an already-organized library gave a
+  **different category** for some files: `naming.py` prefixes `%Y%m%d_%H%M%S_` and every name rule
+  in `categorize.py` is `^`-anchored, so a photo filed once stopped looking like the camera file it
+  was. Measured: **3 of 1,127** moved `Camera` -> `Saved`, all of them files with **no capture
+  metadata** - the ones whose only evidence was the filename the product then rewrote.
+  **The fix is `naming.without_own_stamp`**, made public from the `_OWN_STAMP_PREFIX` that already
+  stopped `dated_filename` double-stamping. ⚠ **Unanchoring the rules was refused** - it would make
+  every convention match a substring anywhere - and a copied regex would be a second definition of
+  one format. ⚠ **The strip cannot lose a match**: no rule begins with a digit, so it is monotone
+  rather than merely tested.
+  ⚠ **The census says one instance, not a class.** The date resolver's filename tier is **not**
+  broken, and the reason is neat: `dated_filename` returns a name unchanged when its stamp is
+  already in it, so a file dated *from its filename* is never renamed - its evidence protects
+  itself. `rule_software` takes `_path` unused; event naming reads the user's typed name.
+  **The test asserts the property, not a mapping** - a second organize over its own output must
+  decide what the first did - with both cry-wolf halves. Two mutations caught by two different
+  tests: reverting fails 4 idempotence parameters, over-greed fails 11 convention tests.
+  🔑 **The closing measurement is the rebuild, not the unit test**: re-run on the same subset,
+  **1,127 of 1,127 with ZERO differences** in date, source or category.
+  It restores `decisions-on-drive-research.md`'s founding *"categories are recomputable from the
+  files"*, which `(ahr)` had falsified the same day.
+  [Full entry](research/backlog/ahr.md)
+
 - **(ahp) EVERY ARCHIVE INGEST CRASHED, AND THE CENSUS CHANGED THE FIX.** Shipped 2026-08-25,
   found by P95's full-library soak. `truestill ingest --source <archive>` died with
   `AttributeError: 'str' object has no attribute 'exists'` - a traceback, not a refusal, on the

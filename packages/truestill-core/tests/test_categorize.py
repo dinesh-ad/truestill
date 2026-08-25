@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
 import pytest
 from truestill_core.categorize import build_rules, categorize, sanitize_label
 from truestill_core.models import SAVED_LABEL, Confidence
+from truestill_core.naming import dated_filename
 
 
 def test_screenshot_metadata_beats_camera_exif() -> None:
@@ -157,3 +159,53 @@ def test_a_real_twitter_media_id_is_still_claimed(name: str) -> None:
     an uppercased hash is still a hash.
     """
     assert categorize(Path(name), {}).label == "Twitter"
+
+
+# --- the property, not the mapping. `(ahr)` ------------------------------------------------
+
+
+def _organized_once(name: str, captured: datetime) -> str:
+    """The name `organize` gives this file - i.e. what a SECOND organize would categorise."""
+    return dated_filename(name, captured, time_known=True)
+
+
+@pytest.mark.parametrize(
+    ("original", "metadata"),
+    [
+        ("IMG_20130930_092249.jpg", {}),
+        ("VID_20140101_120000.mp4", {}),
+        ("IMG-20140817-WA0006.jpg", {}),
+        ("Screenshot_20260721_001427.png", {}),
+        ("IMG_20130930_092249.jpg", {"Make": "Motorola", "Model": "XT1033"}),
+        ("holiday.jpg", {}),
+        ("20130930_092249.jpg", {}),
+    ],
+)
+def test_organizing_an_already_organized_file_gives_the_same_category(
+    original: str, metadata: dict[str, object]
+) -> None:
+    """⚠ **ORGANIZE MUST BE IDEMPOTENT IN CATEGORISATION, and it was not.** `(ahr)`
+
+    This asserts the **property**, not a filename-to-label mapping: whatever the first organize
+    decided, a second organize over its own output must decide the same. That is the sentence the
+    finding leads with, and a mapping test would have passed throughout the defect - each of these
+    names categorised correctly *before* organize touched it.
+
+    Measured on a real library before the fix: **3 of 1,127** files changed `Camera` -> `Saved` on
+    a rebuild, all of them files with **no capture metadata** - the ones whose only evidence was
+    the filename that organize then rewrote.
+
+    ⚠ **Both cry-wolf halves are in the parameters.** A file **with** EXIF `Make`/`Model` is
+    decided by the `device` rule and was never affected either way; a genuinely unrecognised name
+    must still land in `Saved` rather than being rescued into something. Neither may change.
+    """
+    first = categorize(Path("/src") / original, metadata)
+    filed_as = _organized_once(original, datetime(2013, 10, 7, 23, 19, 28))
+    second = categorize(Path("/library") / filed_as, metadata)
+
+    assert filed_as != original, "the fixture never exercised the rename"
+    assert second.label == first.label, (
+        f"{original!r} was filed as {filed_as!r} and then re-read as {second.label!r}, "
+        f"not {first.label!r} - organize is not idempotent in categorisation"
+    )
+    assert second.rule == first.rule, "same label by a different rule is still a drift"

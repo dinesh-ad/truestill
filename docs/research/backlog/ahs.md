@@ -40,8 +40,11 @@
   ## WHAT THIS ENTRY DOES NOT DECIDE
 
   Whether that is acceptable. It may be: a re-organize is safe, idempotent in placement, and a
-  catalog loss is rare. **⚠ It is NOT idempotent in categorisation** - that is `(ahr)`, and it
-  makes "just re-organize" a lossier answer than it looks.
+  catalog loss is rare. ⚠ **It was NOT idempotent in categorisation when this was filed** - that
+  was `(ahr)`, and it made "just re-organize" a lossier answer than it looked. **`(ahr)` shipped
+  2026-08-25**: a rebuild now returns identical date, source and category for 1,127 of 1,127
+  files, so re-organize IS a clean recovery and the only thing left against it is that it is the
+  longest operation in the product.
 
   The options are a ruling, not a fix: teach `rescan` a `--rebuild`, have `attach_drive` create
   `files` rows from content when none exist, widen the drive document, or **write down that
@@ -50,5 +53,5 @@
 
   ## RELATED
 
-  `(ahr)` (why re-organize is not a clean recovery), `(abm)` (the attach counts nobody saw),
+  `(ahr)` (which made re-organize a clean recovery), `(abm)` (the attach counts nobody saw),
   [`soak-six-record.md`](../../soak-six-record.md), `decisions-on-drive-research.md`.

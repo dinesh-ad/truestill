@@ -185,23 +185,6 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(ahr) ORGANIZE IS NOT IDEMPOTENT: ITS OWN RENAME DEFEATS THE CATEGORISER.** Filed 2026-08-25
-  (P98, soak six). **Re-organizing an already-organized library gives a different answer for some
-  files.** Rebuilding soak five's library from its own files: **1,127 of 1,127 matched by content,
-  dates identical for every one, and 3 changed `Camera` -> `Saved`** and moved folder.
-  ⚠ **Reproduced, not inferred**: `naming.py:49` renames to `%Y%m%d_%H%M%S_<original>` and every
-  name rule in `categorize.py` is `^`-anchored (`:91`, `:105`, `:117`, `:122`). With EXIF
-  Make/Model the answer is `Camera` either way; with **no metadata** the original matches
-  `camera_filename` and the renamed file falls through to `fallback`. It bites exactly the files
-  that had only their filename to go on.
-  ⚠ **The information is NOT lost** - the original name survives as a suffix - so this is an
-  anchored pattern meeting a prefixed name. **The remedy is a categoriser that recognises the
-  product's own rename format; not a column, not a wider drive document.**
-  **3 of 1,127, and deliberately not extrapolated.** It falsifies
-  `decisions-on-drive-research.md`'s founding *"categories are recomputable from the files"*, now
-  corrected in place.
-  [Full entry](research/backlog/ahr.md)
-
 - **(ahs) NO READ-ONLY PATH REBUILDS THE INVENTORY AFTER A LOST CATALOG.** Filed 2026-08-25 (P98).
   A **product ruling, filed not ruled**. Catalog deleted, library rebuilt from files: `restore`
   returns **drive identity only** (0 files, 0 copies); `rescan` reports all **10,710 as "ON THE
@@ -210,7 +193,9 @@ is invisible here is retired, not free.**
   ⚠ `rescan`'s own sentence - *"No command repairs any of the above yet. This one only tells
   you."* - is honest, and is also the whole gap.
   The claim holds **in substance and not in reach**: the facts are in the files and only the
-  longest operation recovers them - and `(ahr)` means re-organize is not a clean recovery either.
+  longest operation recovers them. ⚠ `(ahr)` made that recovery CLEAN on 2026-08-25 - a rebuild
+  now returns identical date, source and category for 1,127 of 1,127 - so what is left against it
+  is only that it is the longest operation in the product.
   [Full entry](research/backlog/ahs.md)
 
 - **(aht) THE ARCHIVE STAGING TREE IS NEVER REMOVED.** Filed 2026-08-25 (P98), found in `(ahp)`'s
