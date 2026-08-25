@@ -1,6 +1,6 @@
 # (ahj) §1b's FOURTH EXIT CONDITION IS CHECKABLE, AND IS CHECKED BY A CENSUS.
 
-*Body of backlog entry `(ahj)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(ahj)`, now in [`SHIPPED.md`](../../SHIPPED.md). The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
 - **(ahj) §1b's FOURTH EXIT CONDITION IS CHECKABLE, AND IS CHECKED BY A CENSUS.** Filed
   2026-08-25 (P72).

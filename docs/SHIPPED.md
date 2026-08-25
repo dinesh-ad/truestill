@@ -57,6 +57,34 @@ recording shipped work as unstarted, which is the more expensive direction of th
   at the wrong line before this branch.
   [Full entry](research/backlog/ahd.md)
 
+- **(ahj) §1b's FOURTH EXIT CONDITION IS CHECKED NOW, NOT CENSUSED.** Shipped 2026-08-25.
+  *"No mutating behaviour lives only in the app"* was verified **by hand three times in one
+  month** - P64, P68, P72 - finding bake, backup and trip apply, each of which took its own letter.
+  Nothing ran it, so nothing would have stopped the fourth.
+  🔑 **A COLUMN on `_EXPECTED`, not the fourth table it was filed as.** That table was already
+  keyed by operation string, already held every mutating operation and already failed when a route
+  was absent - so the condition needed a `surface` beside the `mutating` it already recorded, not
+  a new list to keep in step. Its value became a frozen `Decision(mutating, surface, deferred)`.
+  Every mutating operation now names a CLI subcommand **the parser defines**, or carries the
+  reason it does not; both ends are read from source.
+  ⚠ **What it proves is a DECLARATION, and it is sold as one.** A route naming `verify` while
+  copying files would pass. And ⚠ **the one genuinely deferred capability is invisible to it** -
+  naming a trip is app-only by recorded decision, and `events_apply` declares no operation at all,
+  so it never reaches the derived inventory. `deferred` is a column for a future declared job
+  rather than a description of today's exception; `(ahi)` and `(ahk)` own that gap.
+  ⚠ **The deferral end cannot be checked and the entry says so**: the *App-surface deferrals*
+  register is prose with no key, and its row does not contain any operation string. The row
+  declares `deferred` with a reason; the register stays the human home.
+  **Loops the DERIVED side**, per the seventy-second member it was written beside: emptying the
+  whole column fails on the **first** operation with **no floor involved** - proved by emptying it.
+  The floors that do exist sit at the **measured** 16 declarations and 9 mutating, not below them,
+  because `(agu)`'s `>= 12` against 16 could never have fired.
+  **`(ahi)` is NOT subsumed** - that claim was withdrawn in P76: `MUTATING_RUNS` is keyed by
+  service module and needs a second, different join. Five mutations, control first, both cry-wolf
+  directions: a subcommand the parser does not define, a row declaring neither, a row declaring
+  both, the column emptied - all caught - and a legitimate deferral, which correctly passes.
+  [Full entry](research/backlog/ahj.md)
+
 - **(ahf) THE THREE APP-ONLY MUTATING RUNS ARE RESOLVED: TWO CLIs AND ONE RECORDED DEFERRAL.**
   Shipped 2026-08-25, schema unchanged. Raised by `PROJECT_STATUS.md` §1b's fourth exit
   condition - *"no mutating behaviour lives only in the app"* - which named **bake** and, when
@@ -91,7 +119,12 @@ recording shipped work as unstarted, which is the more expensive direction of th
   being wrong specifically enough to check** - it named bake, and checking it found the other two.
   ⚠ **It is still a census, not a guard**: both inventories are AST-derivable (**9** mutating
   operations, **19** subcommands, **4** auto-joining), so a nine-row declared table checked at
-  both ends would make it mechanical. That is `(ahj)`, filed not built.
+  both ends would make it mechanical. That is `(ahj)`.
+  ⚠ **It shipped the same day, and this line called it unshipped until it did.** Only those three
+  words were edited: `test_backlog_references` exists to refuse exactly that phrasing, because a
+  stale cross-reference is a document asserting something false, and this file is in its scope by
+  design. The reasoning above is untouched - and ⚠ it guessed the shape wrong, since what landed
+  was a **column on `_EXPECTED`** rather than the new table this sentence imagined.
   **Filed rather than folded in**: `(ahh)` naming aborts mid-way with no record - a defect, and
   ranked above the other two for that reason; `(ahi)` the record-state census covers 5 of 9;
   `(ahj)` the guard.

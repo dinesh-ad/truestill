@@ -230,14 +230,22 @@ what stops is changing *what a route returns* under a consumer that already read
 | 1 | every mutating run writes a record | ❌ **`(agm)`** - migrate and bake do not. ⚠ And the census itself covers **5 of 9** mutating operations: `(ahi)` |
 | 2 | every surface reports its own stop | ✅ `(ahc)` closed migrate's last one |
 | 3 | no route computes a field no consumer reads | ❌ bake's `absent` (2 sites, rendered **0**) and `(abm)`'s two attach counts (**0** in `app.js`) |
-| 4 | no mutating behaviour lives only in the app | ✅ **met** - two CLIs built, one deferral recorded |
+| 4 | no mutating behaviour lives only in the app | ✅ **met AND GUARDED** since `(ahj)` - every mutating operation names a CLI subcommand the parser defines, or a recorded deferral |
 
-⚠ **ONE of the four is checked by a guard, and that one is partial.** Condition 1 has
-`test_the_app_records_what_a_run_did.py`, which covers **5 of 9** operations (`(ahi)`).
-Conditions 2, 3 and 4 are a **census** - somebody looking, three times this month for
-condition 4 alone. `(ahj)` is the entry for making the fourth mechanical; nothing yet
-proposes a guard for the second or the third, and that is stated rather than left to be
-read as covered.
+⚠ **TWO of the four are checked by a guard, and each pins a DECLARATION rather than behaviour.**
+
+* **Condition 4** is guarded outright by `(ahj)` - both ends read from source, the operations from
+  `server.py`'s AST and the subcommands from `cli.py`'s. ⚠ It proves a route **names** a
+  subcommand that exists, **not** that the subcommand does the same work; a route naming `verify`
+  while copying files would pass. And the one genuinely deferred capability - naming a trip - is
+  **invisible to it**, because that route declares no operation at all.
+* **Condition 1** has `test_the_app_records_what_a_run_did.py`, covering **5 of 9** operations
+  (`(ahi)`), and what it proves is **wiring**: that the code contains a call to a record entry
+  point, not that a record is written on every run. `(agj)` is the defect it would not catch.
+* **Condition 2 is met and unguarded**, checked rather than assumed: there are per-surface tests
+  and two censuses over `MigrationStopKind`'s wording, and **nothing enumerates the surfaces** and
+  asserts each reports its stop. Nothing proposes one.
+* **Condition 3 is a census** - the table above is the list, kept by hand.
 
 The app **lacking** a route for a CLI subcommand is a different question and belongs to step 3 -
 [`cli-app-parity.md`](cli-app-parity.md) owns it.

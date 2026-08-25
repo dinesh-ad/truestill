@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import ast
 import inspect
+from dataclasses import dataclass
 from pathlib import Path
 
 from truestill_app import jobs
@@ -88,39 +89,85 @@ def test_every_route_declares_and_the_declarations_are_read() -> None:
     assert len(declared) >= 12, f"only {len(declared)} routes were read; the scan is broken"
 
 
+_CLI = Path(__file__).resolve().parents[3] / "packages/truestill-cli/src/truestill_cli/cli.py"
+
+
+def _subcommands() -> set[str]:
+    """Every ``sub.add_parser("name", ...)`` in the CLI, parsed rather than matched.
+
+    The same read `test_the_cli_app_parity_table_is_complete.py` does, for the same reason: a
+    name in prose is not a declaration of a subcommand, and only the AST tells them apart.
+    """
+    return {
+        node.args[0].value
+        for node in ast.walk(ast.parse(_CLI.read_text(encoding="utf-8")))
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "add_parser"
+        and node.args
+        and isinstance(node.args[0], ast.Constant)
+    }
+
+
+@dataclass(frozen=True, slots=True)
+class Decision:
+    """What a route does to the drive, and **which CLI surface performs the same work**. `(ahj)`
+
+    ⚠ **`surface` is the column `(ahj)` asked for, and it is on THIS table rather than a fourth
+    one.** `PROJECT_STATUS.md` §1b's fourth exit condition - *"no mutating behaviour lives only in
+    the app"* - was verified by hand three times in one month and found three surfaces each time.
+    This table already held every operation and already failed when one was absent, so the
+    condition needed a column here, not a new list to keep in step.
+
+    ⚠ **`deferred` is the other answer, and the register stays its home.** A mutating operation may
+    legitimately have no CLI, and then it carries the reason here. The *App-surface deferrals*
+    register in `BACKLOG.md` is prose with no key - its row for the one deferred capability today
+    reads *"Naming a trip or event is APP-ONLY"* and does not contain any operation string - so
+    **no guard can check the register**. What is checkable is that this row declares one or the
+    other, and says why.
+    """
+
+    #: True when the route writes to the user's drive or their files.
+    mutating: bool
+    #: The CLI subcommand that performs the same work. **Checked against the parser.**
+    surface: str | None = None
+    #: Why this mutating operation has no CLI. Mutually exclusive with `surface`.
+    deferred: str | None = None
+
+
 #: What each operation is **decided** to be, with the reason it is not obvious. A route absent
 #: here fails rather than defaulting, because a default is the decision nobody made - which is the
 #: same argument `jobs.start` makes for having no default on the parameter itself.
-_EXPECTED: dict[str, bool] = {
+_EXPECTED: dict[str, Decision] = {
     # Writes user files on the drive. The four `(aaw)` was measured on.
-    "organize": True,
-    "backup": True,
-    "migrate": True,
-    "undo": True,
-    "undo organize": True,
+    "organize": Decision(True, surface="organize"),
+    "backup": Decision(True, surface="backup"),
+    "migrate": Decision(True, surface="migrate-layout"),
+    "undo": Decision(True, surface="migrate-layout"),  # `--undo`
+    "undo organize": Decision(True, surface="undo-organize"),
     # Writes a drive's decisions document / dates into the organized copies.
-    "set dates": True,
-    "trip apply": True,
+    "set dates": Decision(True, surface="bake"),
+    "trip apply": Decision(True, surface="migrate-layout"),
     # ⚠ Unpacks an archive set into a staging tree ON THE DESTINATION - `(agg)`. It was
     # `"import preview", False` until 2026-08-23, which is what this table exists to make
     # impossible to restate.
-    "archive unpack": True,
+    "archive unpack": Decision(True, surface="ingest"),
     # ⚠ Declares through `jobs.claim`, not `_start_drive_job` - `(agu)` gave it the exclusion
     # without the job machinery, because its screen contract is a synchronous result. It was
     # invisible to this table until 2026-08-25 for exactly that reason. It removes empty folders
     # from the user's drive, and `(agu)` calls it "the product's only unserialized DELETE".
-    "clean empty": True,
+    "clean empty": Decision(True, surface="clean-empty"),
     # Reads and reports. A stale preview is not data loss, and refusing one would be new
     # behaviour on a path that works today.
-    "organize preview": False,
-    "migrate preview": False,
-    "trip preview": False,
-    "undo preview": False,
-    "undo organize preview": False,
+    "organize preview": Decision(False),
+    "migrate preview": Decision(False),
+    "trip preview": Decision(False),
+    "undo preview": Decision(False),
+    "undo organize preview": Decision(False),
     # Previews an already-extracted folder - the route `"archive unpack"` was confused with.
-    "import preview": False,
+    "import preview": Decision(False),
     # Re-reads bytes and compares; writes nothing.
-    "verify": False,
+    "verify": Decision(False),
 }
 
 
@@ -136,10 +183,79 @@ def test_every_declaration_matches_the_recorded_decision() -> None:
             f"{operation!r} starts a drive job and is not in _EXPECTED. Decide what it does to "
             f"the drive and record it here; a route that answers by default answers by accident."
         )
-        assert mutating == _EXPECTED[operation], (
-            f"{operation!r} declares mutating={mutating}, recorded as {_EXPECTED[operation]}. "
+        assert mutating == _EXPECTED[operation].mutating, (
+            f"{operation!r} declares mutating={mutating}, recorded as "
+            f"{_EXPECTED[operation].mutating}. "
             f"If the route's behaviour changed, change the record and say why in `(agg)`."
         )
+
+
+def test_every_mutating_operation_names_a_cli_surface_or_says_why_not() -> None:
+    """§1b's fourth exit condition, checked instead of censused. `(ahj)`
+
+    *"No mutating behaviour lives only in the app."* It was verified **by hand three times in one
+    month** - P64, P68 and P72 - and found bake, backup and trip apply. Each took its own letter
+    to satisfy. Nothing ran it, so nothing stopped the fourth.
+
+    ⚠ **Looped over the DERIVED side**, per `ENGINEERING_STANDARD.md` §4's seventy-second member:
+    the iteration is over `_declared()`, read from `server.py`'s AST, and asserts **into**
+    `_EXPECTED`. Empty the table and this fails on the first operation rather than passing over an
+    empty dict - which is the failure that member exists for, and it needs no floor to notice.
+
+    ⚠ **WHAT THIS PROVES, AND WHAT IT DOES NOT.** It proves every mutating route **declares** a
+    CLI subcommand **that exists in the parser** - both ends read from source. It does **not**
+    prove the subcommand does the same work: a route could name `verify` and copy files, and this
+    would pass. That is a declaration guard, and selling it as a behaviour guard would be the
+    lens-that-cannot-resolve-it shape §4 keeps finding.
+
+    ⚠ **And the one genuinely deferred capability is invisible here**, which is worth knowing
+    before trusting the green. Naming a trip is app-only by recorded decision, and its route
+    (`events_apply`) declares **no operation at all** - checked: zero `operation=`/`mutating=` in
+    that handler - so it never reaches `_declared()`. `deferred` is therefore a column for a
+    future declared job, not a description of today's one exception. A mutating route that
+    declares nothing is `(ahi)`'s and `(ahk)`'s territory, not this guard's.
+    """
+    subcommands = _subcommands()
+    assert len(subcommands) >= 15, f"only {len(subcommands)} subcommands read; the scan is broken"
+
+    for operation, mutating in _declared():
+        if not mutating:
+            continue
+        decision = _EXPECTED[operation]
+        assert (decision.surface is None) != (decision.deferred is None), (
+            f"{operation!r} must name exactly one of `surface` or `deferred`. A mutating run "
+            "either has a CLI or has a recorded reason it does not; both, or neither, is the "
+            "decision nobody made."
+        )
+        if decision.deferred is not None:
+            assert len(decision.deferred) > 20, (
+                f"{operation!r} is deferred with no reason. The register in BACKLOG.md is the "
+                "human home for it, and this row is what points at one existing."
+            )
+            continue
+        assert decision.surface in subcommands, (
+            f"{operation!r} names the CLI subcommand {decision.surface!r}, which "
+            f"`cli.py` does not define. §1b's fourth exit condition: no mutating behaviour lives "
+            "only in the app - so either build the subcommand, or record it as deferred with why."
+        )
+
+
+def test_the_surface_column_is_not_vacuous() -> None:
+    """Measured, and the floor sits at the measurement rather than under it.
+
+    ⚠ **`(agu)`'s own floor read `>= 12` against 16 and could never have fired** - it would have
+    tolerated a scan that lost a quarter of its subject, which is exactly what happened when
+    `jobs.claim` went unread. Measured 2026-08-25: **16** declared operations, **9** of them
+    mutating, **19** subcommands. The floors below sit at those numbers, not below them.
+    """
+    declared = _declared()
+    mutating = [operation for operation, is_mutating in declared if is_mutating]
+
+    assert len(declared) >= 16, f"only {len(declared)} operations read; 16 existed at the floor"
+    assert len(mutating) >= 9, f"only {len(mutating)} mutating operations; 9 existed at the floor"
+    assert all(
+        _EXPECTED[operation].surface or _EXPECTED[operation].deferred for operation in mutating
+    ), "a mutating operation carries no surface decision"
 
 
 def test_the_routes_that_write_user_files_all_hold_the_drive() -> None:
