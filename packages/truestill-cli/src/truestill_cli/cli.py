@@ -31,6 +31,12 @@ from truestill_core.app_paths import (
 )
 from truestill_core.archive_extract import extract_archive_set
 from truestill_core.archive_ingest import archives_at, precheck_archives
+from truestill_core.backup import (
+    BackupPair,
+    _files_missing_on_target,
+    _gb,
+    copy_to_drive,
+)
 from truestill_core.bake import (
     CONFIRM_WORD,
     IRREVERSIBLE_NOTE,
@@ -325,6 +331,7 @@ _LOCKS_DRIVE_AT: dict[str, str | None] = {
     "self-check": None,  # inspects this install, never a library
     "catalog": None,  # catalog-only
     "config": None,  # settings rows
+    "backup": "target",  # writes into the target drive; `(ahf)`
     "bake": "path",  # writes bytes inside the user's files; `(ahd)`
     "clean-empty": "path",
     "rescan": None,  # reports; `(abn)` is that nothing acts on it yet
@@ -3723,6 +3730,17 @@ MAX_PATH = 260
 # be annotated without either the ignore below or a lie (audit F23).
 def _add_clean_parser(sub: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
     """The `clean-empty` surface, split out because `build_parser` is at its statement ceiling."""
+    backup = sub.add_parser(
+        "backup",
+        help="copy the library to a second registered drive (preview by default)",
+    )
+    backup.add_argument("source", type=Path, help="the drive holding the library")
+    backup.add_argument("target", type=Path, help="the drive to copy it to")
+    backup.add_argument("--db", type=Path, default=default_catalog_path(), help="SQLite catalog")
+    backup.add_argument(
+        "--apply", action="store_true", help="actually copy (default: preview only)"
+    )
+
     bake = sub.add_parser(
         "bake",
         help="write confirmed dates into the files on a drive (preview by default)",
@@ -3894,6 +3912,79 @@ def _confirm_cleanup(count: int, *, permanent: bool) -> bool | None:
     return _typed_confirmation(
         f"\nType 'delete forever' to remove {count} folder(s): ", "delete forever"
     )
+
+
+def _cmd_backup(args: argparse.Namespace) -> int:
+    """Copy the library to a second drive, verifying every file after it lands. `(ahf)` stage 2.
+
+    **Preview unless `--apply`**, the shape `migrate-layout` and `clean-empty` use.
+
+    ⚠ **BOTH FOLDERS MUST ALREADY BE REGISTERED DRIVES, and this REFUSES rather than registering
+    them.** The app auto-attaches, which is right for a screen where the user just chose a folder
+    and can see what happened. On a terminal it would make one command do two things and the
+    second silently: **registering is a distinct act with its own guard** - `(agr)` part 1's ghost
+    refusal - and a command that mints a drive id as a side effect of backing up is how a ghost
+    drive gets created from a shell. `_drive_or_explain` already refuses with the remedy, naming
+    `truestill drives --init <path>`, so there is no second wording to keep in step.
+    """
+    source = _drive_or_explain(args.source, args.db)
+    if source is None:
+        return 2
+    target = _drive_or_explain(args.target, args.db)
+    if target is None:
+        return 2
+    if source.uuid == target.uuid:
+        print("error: the 'from' and 'to' folders are the same drive.", file=sys.stderr)
+        return 2
+
+    with _catalog(args.db) as catalog:
+        missing = _files_missing_on_target(catalog, source.uuid, target.uuid)
+    need = sum(int(r.size or 0) for r in missing)
+    print(
+        f"From '{source.label}' to '{target.label}': {len(missing)} file(s) to copy, {_gb(need)}."
+    )
+    # ⚠ **What it does NOT do, and it costs a sentence.** The reassurance a person wants before
+    # letting a tool touch a second drive is that the first one is not at risk - and a backup
+    # that only ever adds is a different promise from one that mirrors.
+    print(
+        "       Copies only. Nothing on either drive is deleted or changed, and the files\n"
+        "       it copies are read from the source and left exactly as they are."
+    )
+    if not missing:
+        print("\nNothing to copy - every file is already on that drive.")
+        return 0
+    if not args.apply:
+        print("\nPreview only. Nothing was copied. Re-run with --apply to make the backup.")
+        return 0
+
+    try:
+        outcome = copy_to_drive(
+            BackupPair(
+                source=args.source,
+                source_marker=source,
+                target=args.target,
+                target_marker=target,
+            ),
+            args.db,
+            progress=_progress_printer("copying"),
+            cancel=threading.Event(),
+        )
+    except ValueError as exc:
+        _end_of_tier()
+        print(f"error: {exc}", file=sys.stderr)
+        return 4
+    _end_of_tier()
+
+    print(f"\nCopied {outcome.copied} file(s), {_gb(outcome.bytes_copied)}.")
+    for relative, why in outcome.failures:
+        print(f"  failed: {relative} -- {why}", file=sys.stderr)
+    if outcome.failures:
+        # ⚠ Not 0. A run that copied some and failed others is not a success, and reporting one
+        # would be BackInTime #1587's shape - a per-file failure visible only if someone reads
+        # the scrollback. The files that DID copy are recorded and a re-run resumes.
+        print(f"error: {len(outcome.failures)} file(s) could not be copied.", file=sys.stderr)
+        return 1
+    return 0
 
 
 def _print_bake_plan(plan: BakePlan) -> None:
@@ -4530,6 +4621,7 @@ def _dispatch(argv: list[str] | None) -> int:
         "self-check": _cmd_self_check,
         "catalog": _cmd_catalog,
         "config": _cmd_config,
+        "backup": _cmd_backup,
         "bake": _cmd_bake,
         "clean-empty": _cmd_clean_empty,
         "rescan": _cmd_rescan,

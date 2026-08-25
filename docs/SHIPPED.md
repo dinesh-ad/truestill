@@ -3008,7 +3008,7 @@ recording shipped work as unstarted, which is the more expensive direction of th
     `Morrowkeep` insert cleanly - checked, not assumed.
   - ⚠ **Collisions are LIKELY, not merely possible, because the label DEFAULTS TO THE FOLDER
     NAME.** Three of the four registration sites do `label=path.name or "Library"`
-    (`service/drives.py:310`, `service/organize.py:847`, `cli.py:2010`); only `drives --init`
+    (`service/drives.py:310`, `service/organize.py:847`, `cli.py:2017`); only `drives --init`
     takes a typed one. Two folders called `Backup` on two disks become two drives called
     `Backup`, and any unnamed root falls back to the literal string `Library`, which collides
     with itself.

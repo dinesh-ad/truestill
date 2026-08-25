@@ -27,6 +27,7 @@ implied: they sit in `jobs.py` and `attach_drive`, and stage 2 must answer for t
 
 from __future__ import annotations
 
+import shutil
 import sqlite3
 import threading
 from collections.abc import Callable, Sequence
@@ -36,13 +37,14 @@ from pathlib import Path
 from typing import NoReturn
 
 from truestill_core.catalog import Catalog
+from truestill_core.catalog_session import open_catalog
 from truestill_core.destinations.base import DestinationDevice
 from truestill_core.drive import DriveMarker
 from truestill_core.drive_adoption import AdoptionOffer, AdoptionVerdict
 from truestill_core.drive_unwritable import persists_for_the_run
 from truestill_core.hashing import sha256_file
 from truestill_core.progress import Phase, Progress, ProgressCallback
-from truestill_core.run_health import RunHealth
+from truestill_core.run_health import RunHealth, watcher_for
 from truestill_core.run_record import RunHeader, build_run_record, record_organize
 from truestill_core.safe_copy import staged_copy
 
@@ -50,6 +52,10 @@ _GB = 1_000_000_000
 _MB = 1_000_000
 
 _FREE_SPACE_MARGIN = 1.03  # keep a little headroom so a copy never fills the target drive
+
+#: Where the last backup target was seen. A settings key both surfaces write, so it lives with
+#: the run rather than with either panel.
+BACKUP_PATH_HINT = "path_hint.backup"
 
 
 def _now() -> str:
@@ -507,3 +513,99 @@ def _largest_copy_ahead(missing: Sequence[MissingCopy]) -> list[int]:
     for index in range(len(missing) - 1, -1, -1):
         suffix[index] = max(suffix[index + 1], int(missing[index].size or 0))
     return suffix
+
+
+@dataclass(frozen=True, slots=True)
+class BackupPair:
+    """The two drives of a backup, each already resolved by its own surface. `(ahf)` stage 2.
+
+    ⚠ **Resolved, never resolved HERE**, and that is the `drive_identity` line. The two surfaces
+    reach a marker by different routes and refuse differently when they cannot: the CLI prints a
+    sentence naming `truestill drives --init`, the app returns a payload carrying `can_register`
+    for a button. Neither belongs in core, so core takes the answer.
+    """
+
+    source: Path
+    source_marker: DriveMarker
+    target: Path
+    target_marker: DriveMarker
+
+
+@dataclass(frozen=True, slots=True)
+class BackupOutcome:
+    """What one backup copied. **A core value** - each panel shapes it for its own reader."""
+
+    copied: int
+    copied_names: list[str]
+    bytes_copied: int
+    failures: list[tuple[str, str]]
+
+
+def copy_to_drive(
+    pair: BackupPair, db: Path, *, progress: ProgressCallback, cancel: threading.Event
+) -> BackupOutcome:
+    """Copy everything missing on the target, verifying each file after it lands. `(ahf)` stage 2.
+
+    **The whole shared body of a backup**, so the CLI and the app run one copy of it rather than
+    two that drift. Registration is deliberately **not** here: it is a distinct act with its own
+    guard, and each surface decides whether to perform it or refuse.
+
+    ⚠ **Every guard on the write path is inside this call**, which is the `(ahe)` lesson applied
+    before it bit rather than after: a guard sitting at "the only caller" is one the second
+    surface walks straight past. The device check, the run-health watcher, the free-space
+    refusal, verify-after-write and the staged copy are all reached through here.
+
+    :raises ValueError: the two folders are one drive, or the target has no room. Both are stated
+        rather than folded into the outcome, because neither is a per-file failure the run can
+        carry on past.
+    """
+    if pair.source_marker.uuid == pair.target_marker.uuid:
+        message = "the 'from' and 'to' folders are the same drive."
+        raise ValueError(message)
+    with open_catalog(db) as catalog:
+        missing = _files_missing_on_target(
+            catalog, pair.source_marker.uuid, pair.target_marker.uuid
+        )
+        need = sum(int(r.size or 0) for r in missing)
+        free = shutil.disk_usage(pair.target).free
+        if free < need * _FREE_SPACE_MARGIN:
+            message = (
+                f"not enough space on {pair.target_marker.label}: needs {_gb(need)}, "
+                f"only {_gb(free)} free."
+            )
+            raise ValueError(message)
+        # A backup writes into a mounted drive for as long as an organize does, and the
+        # verify-after-write below cannot catch a dropped mount: it would re-read the copy we
+        # just made on the LOCAL disk and find it correct. The guard has to stop the folder
+        # being created at all -- see `DestinationDevice`.
+        device = DestinationDevice()
+        # The free-space check above measures `target`. On a mounted cloud drive that is the
+        # REMOTE's free space, while the disk that actually fills is this computer's - the client
+        # caches everything written to it. That is the confusion `RunHealth` exists to correct,
+        # and backup had it too.
+        health = watcher_for(pair.target, db)
+        copied, copied_names, copied_bytes, failures = _copy_missing(
+            _CopyRun(
+                catalog=catalog,
+                source=pair.source,
+                target=pair.target,
+                marker=pair.target_marker,
+                missing=missing,
+                ahead=_largest_copy_ahead(missing),
+                device=device,
+                health=health,
+                record=_recorder(
+                    db,
+                    source=pair.source,
+                    target=pair.target,
+                    marker=pair.target_marker,
+                    missing=missing,
+                ),
+            ),
+            progress,
+            cancel,
+        )
+        catalog.set_setting(BACKUP_PATH_HINT, str(pair.target))
+    return BackupOutcome(
+        copied=copied, copied_names=copied_names, bytes_copied=copied_bytes, failures=failures
+    )

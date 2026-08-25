@@ -202,7 +202,7 @@ guarded (`drive.py:99/728/745`, `cleanup.py:185` via `(afb)`), deliberate (`recl
 recorded above), conservative (cleanup tiers, `hash_cache.py:374`), or fails loud immediately
 behind the probe (`catalog_move.py:103/125`, `local.py:219/262`, `backup.py:157/162/625`, the
 CLI arg checks). A residue of **wording/under-count** sites where refused reads as absent in a
-message or report - `catalog_startup.py:246` and `cli.py:886/1276` (a refused catalog briefly
+message or report - `catalog_startup.py:246` and `cli.py:893/1276` (a refused catalog briefly
 banners as creatable before the open fails loudly), `bake.py:378`, `drives.py:219`,
 `left_behind.py:89`, `source_repoint.py:129`, `organizer.py:365` (reachable only via ACLs on a
 listable parent) - none records a fact or moves a byte; named here so the next audit inherits

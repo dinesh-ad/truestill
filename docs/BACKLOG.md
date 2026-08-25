@@ -185,8 +185,7 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(ahf) BACKUP AND TRIP APPLY ARE APP-ONLY MUTATING RUNS. STAGE 1 DONE: THE ENGINE IS IN
-  CORE.** Filed 2026-08-25 (P68), after
+- **(ahf) BACKUP HAS A CLI. TRIP APPLY IS THE LAST APP-ONLY MUTATING RUN.** Filed 2026-08-25 (P68), after
   `(ahd)` closed the third one. **§1b's fourth exit condition**: no mutating behaviour lives only
   in the app. **Backup gets a CLI. Trip apply gets a CLI or a row in *App-surface deferrals* -
   either is a decision, silence is not.**
@@ -259,6 +258,21 @@ is invisible here is retired, not free.**
   caller by construction**: the folder checks and `not_a_drive`, because they build UI payloads;
   the ghost refusal, inside `attach_drive`; and the drive lock, which is per-surface by design -
   `jobs.py` for the app, `_run_holding_the_drive` for the CLI.
+  ✅ **STAGE 2 SHIPPED 2026-08-25 (P71): `truestill backup`, preview by default.** The shared
+  setup moved to core as `copy_to_drive` so both surfaces run **one** copy of it - the same-drive
+  check, the free-space refusal, the device guard, the run-health watcher and the copy loop. The
+  app delegates to it and is **proved unchanged**.
+  🔑 **Q392's ruling holds and is built: the CLI REFUSES an unregistered drive.** Registering is a
+  distinct act with its own guard, and a command that mints a drive id as a side effect of backing
+  up is how a ghost drive is created from a shell. ⚠ **NULL: no new wording was needed** -
+  `_drive_or_explain` already refuses and already names `truestill drives --init <path>`. A core
+  constant would have been *wrong*, not merely redundant: it would put a terminal command inside
+  a string the app renders.
+  ⚠ **WHAT REMAINS, so this entry's state is not read from its title: `trip apply`.**
+  `apply_event_review_names` (`service/trips.py:479`) still has no CLI and no deferral row.
+  **`(ahf)` therefore stays OPEN**, and `PROJECT_STATUS.md` §1b's fourth exit condition is met
+  **except for that one run** - the remaining distance to a finished engine is one line, not a
+  search.
   [Full entry](research/backlog/ahf.md)
 
 - **(ahg) `cli-app-parity.md` IS KEYED BY CLI SUBCOMMAND, SO AN APP-ONLY CAPABILITY HAS NO ROW.**

@@ -12,7 +12,12 @@
   missing?"* **cannot see an app-only capability at all.** Structural, not an oversight.
 
   Measured: `bake` had **zero** mentions under any name until `(ahd)` gave it a subcommand and
-  therefore a row. `backup` and `trip apply` still have none, and are `(ahf)`.
+  therefore a row. ⚠ **`backup` was the second instance and is gone as of 2026-08-25** - `(ahf)`
+  stage 2 gave it a subcommand, so it is a CLI row now rather than an invisible app-only
+  capability. **One instance left: `trip apply`**, which still has no row and no deferral.
+  ⚠ **That is the class being closed one capability at a time, which is not the same as fixing
+  it**: each one only became visible because someone went looking. The re-key below is what makes
+  the next one visible without anybody looking.
 
   ## THE PROPOSED SHAPE
 

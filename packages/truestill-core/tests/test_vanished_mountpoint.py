@@ -192,12 +192,8 @@ def test_the_backup_copy_loop_is_guarded_too() -> None:
     creates = source.index("dst.parent.mkdir(parents=True, exist_ok=True)")
     assert guard < creates, "the guard must run BEFORE the folder is created, not after"
 
-    # ⚠ **The two halves live in two packages since `(ahf)` stage 1, so each is asserted where
-    # it is.** The device is CONSTRUCTED by the panel and CHECKED by the engine; a test that
-    # looked for both in one file would pass only until the next move, and the property is that
-    # the loop is handed a real device rather than that one file contains both words.
-    panel = (
-        Path(__file__).resolve().parents[3]
-        / "packages/truestill-app/src/truestill_app/service/backup.py"
-    ).read_text(encoding="utf-8")
-    assert "DestinationDevice()" in panel, "nothing builds the device the copy loop checks"
+    # ⚠ **Both halves are core's again since `(ahf)` stage 2.** Stage 1 left the device
+    # CONSTRUCTED by the panel and CHECKED by the engine, so this briefly read two files; stage 2
+    # moved the shared setup into `copy_to_drive` and they are one module once more. Kept as one
+    # assertion rather than two: the property is that the loop is handed a real device.
+    assert "DestinationDevice()" in source, "nothing builds the device the copy loop checks"

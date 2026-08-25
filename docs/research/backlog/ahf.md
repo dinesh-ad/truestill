@@ -1,10 +1,10 @@
-# (ahf) BACKUP AND TRIP APPLY ARE APP-ONLY MUTATING RUNS. STAGE 1 DONE: THE ENGINE IS IN CORE.
+# (ahf) BACKUP HAS A CLI. TRIP APPLY IS THE LAST APP-ONLY MUTATING RUN.
 
 *Body of backlog entry `(ahf)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
-- **(ahf) BACKUP AND TRIP APPLY ARE APP-ONLY MUTATING RUNS. STAGE 1 DONE: THE ENGINE IS IN
-  CORE.** Filed 2026-08-25 (P68); **stage 1 shipped the same day (P70)**. Stage 2 is the CLI, and
-  trip apply is untouched.
+- **(ahf) BACKUP HAS A CLI. TRIP APPLY IS THE LAST APP-ONLY MUTATING RUN.** Filed 2026-08-25
+  (P68); **both backup stages shipped the same day** (P70 the engine, P71 the CLI). ⚠ **The entry
+  stays OPEN for `trip apply`**, which has neither a CLI nor a deferral row.
 
   ## THE RULING
 
@@ -82,3 +82,22 @@
   **One of the two is false**, and the test is the one whose stated job is to record each
   surface's state *with its reason*. Recorded rather than fixed: P68 is docs-only and that is a
   test file. It is the `(agc)` shape in the guard written against it.
+
+  ## ⚠ THE WRITE-PATH GUARDS, PROVED RATHER THAN ASSERTED (P71)
+
+  `(ahe)` taught that a guard at "the only caller" is invisible until a second surface exists. So
+  each was removed in turn and the suite run:
+
+  | guard | killed by |
+  |---|---|
+  | verify-after-write (the digest comparison) | the backup suite |
+  | the staged copy never taking the real name early | the backup suite |
+  | `persists_for_the_run` on a **copy** failure | the backup suite |
+  | `_stop_if_ground_moved` | the backup suite |
+  | `persists_for_the_run` on a **commit** failure | ⚠ **NOTHING. Survives the whole suite.** |
+
+  ⚠ **AND THE MORE IMPORTANT FINDING: the CLI tests alone kill NONE of them.** Every one survived
+  `test_backup_cli.py` on its own. That is **not** because the guards sit at the caller - they are
+  inside `copy_to_drive`'s call graph, so the CLI inherits them - but because a happy-path fixture
+  never reaches them. It is P70's lesson repeated: **a mutation the fixture cannot reach proves
+  nothing**, and a test file that exercises a path is not the same as one that proves its guards.

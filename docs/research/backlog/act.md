@@ -14,7 +14,7 @@
     someone adds one. **Cited by symbol from here on**; the original count is kept below because a
     figure that grew is evidence and a figure quietly corrected is not.
   - Three of the four registration sites mint `label=path.name or "Library"`
-    (`service/drives.py:381`, `service/organize.py:847`, `cli.py:2010`). `Path("/").name` is `""`,
+    (`service/drives.py:381`, `service/organize.py:847`, `cli.py:2017`). `Path("/").name` is `""`,
     so **organizing to a filesystem root** - or any path whose final component is empty - produces
     the literal label `Library`. Two of them are indistinguishable by name, and unlike a folder
     called `Backup` this one was never a name the user chose.

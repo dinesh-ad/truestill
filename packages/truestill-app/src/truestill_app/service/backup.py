@@ -26,24 +26,19 @@ from typing import Literal, NotRequired, TypedDict
 
 from truestill_core.backup import (
     _FREE_SPACE_MARGIN,
+    BackupPair,
     MissingCopy,
     _blocked_message,
-    _copy_missing,
-    _CopyRun,
     _files_missing_on_target,
-    _gb,
-    _largest_copy_ahead,
-    _recorder,
+    copy_to_drive,
 )
 from truestill_core.catalog_session import open_catalog
-from truestill_core.destinations.base import DestinationDevice
 from truestill_core.drive import read_marker
 from truestill_core.progress import ProgressCallback
-from truestill_core.run_health import watcher_for
 
 from truestill_app.jobs import JobTarget
 from truestill_app.service.drive_support import not_a_drive
-from truestill_app.service.drives import BACKUP_PATH_HINT, attach_drive
+from truestill_app.service.drives import attach_drive
 from truestill_app.service.media_support import media_breakdown
 
 
@@ -189,58 +184,25 @@ def backup_run(source: Path, target: Path, db: Path) -> JobTarget:
         src_marker, tgt_marker = read_marker(source), read_marker(target)
         if src_marker is None or tgt_marker is None:
             raise not_a_drive(source if src_marker is None else target, db)
-        if src_marker.uuid == tgt_marker.uuid:
-            message = "the 'from' and 'to' folders are the same drive."
-            raise ValueError(message)
         if cancel.is_set():
             # Stopped during attach. What was hashed is recorded and the next run resumes from
             # there. Returning here rather than falling through means a cancelled run cannot be
             # answered with "not enough space" - a true statement about a run nobody asked to
             # continue, and a confusing one to be handed after pressing stop.
             return _nothing_copied(tgt_marker.label, target)
-        with open_catalog(db) as catalog:
-            missing = _files_missing_on_target(catalog, src_marker.uuid, tgt_marker.uuid)
-            need = sum(int(r.size or 0) for r in missing)
-            free = shutil.disk_usage(target).free
-            if free < need * _FREE_SPACE_MARGIN:
-                message = (
-                    f"not enough space on {tgt_marker.label}: needs {_gb(need)}, "
-                    f"only {_gb(free)} free."
-                )
-                raise ValueError(message)
-            copied = 0
-            copied_names: list[str] = []
-            copied_bytes = 0
-            # A backup writes into a mounted drive for as long as an organize does, and the
-            # verify-after-write below cannot catch a dropped mount: it would re-read the copy
-            # we just made on the LOCAL disk and find it correct. The guard has to stop the
-            # folder being created at all -- see `DestinationDevice`.
-            device = DestinationDevice()
-            # The free-space check above measures `target`. On a mounted cloud drive that is the
-            # REMOTE's free space, while the disk that actually fills is this computer's - the
-            # client caches everything written to it. That is the confusion `RunHealth` exists to
-            # correct, and backup had it too. The device half is already covered above, and more
-            # strictly: `device.check` fails closed on the first bad reading.
-            health = watcher_for(target, db)
-            ahead = _largest_copy_ahead(missing)
-            copied, copied_names, copied_bytes, failures = _copy_missing(
-                _CopyRun(
-                    catalog=catalog,
-                    source=source,
-                    target=target,
-                    marker=tgt_marker,
-                    missing=missing,
-                    ahead=ahead,
-                    device=device,
-                    health=health,
-                    record=_recorder(
-                        db, source=source, target=target, marker=tgt_marker, missing=missing
-                    ),
-                ),
-                progress,
-                cancel,
-            )
-            catalog.set_setting(BACKUP_PATH_HINT, str(target))
+        outcome = copy_to_drive(
+            BackupPair(
+                source=source,
+                source_marker=src_marker,
+                target=target,
+                target_marker=tgt_marker,
+            ),
+            db,
+            progress=progress,
+            cancel=cancel,
+        )
+        copied, copied_names = outcome.copied, outcome.copied_names
+        copied_bytes, failures = outcome.bytes_copied, outcome.failures
         breakdown = media_breakdown(copied_names)
         return {
             "copied": copied,

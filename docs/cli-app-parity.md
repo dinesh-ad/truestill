@@ -59,13 +59,13 @@ that exists **only in the app** has no subcommand, so it gets no row, so the doc
 *"what is actually missing"* cannot see it. Found 2026-08-25: `bake` had **zero** mentions here
 under any name, which is part of how it stayed the only mutating run with no CLI until `(ahd)`.
 
-**Two more are still invisible for the same reason**, checked by enumerating every
-`mutating=True` route in `server.py` against the subcommand list: **`backup`** (`backup_run`,
-`service/backup.py`, referenced only inside `truestill-app`) and **`trip apply`**
-(`apply_event_review_names`, `service/trips.py`). Neither is in `BACKLOG.md`'s *App-surface
-deferrals* register either, so neither is app-only by decision - they are app-only by nobody
-having asked. They are **not** listed below, because adding rows for them would say the table has
-a shape it does not; they are named here until they have a subcommand or a recorded deferral.
+⚠ **`backup` was one of them and has a row now** - `(ahf)` stage 2, 2026-08-25. **One remains:
+`trip apply`** (`apply_event_review_names`, `service/trips.py`), checked by enumerating every
+`mutating=True` route in `server.py` against the subcommand list. It is not in `BACKLOG.md`'s
+*App-surface deferrals* register either, so it is not app-only by decision - it is app-only by
+nobody having asked. It is **not** listed below, because a row for it would say this table has a
+shape it does not; it is named here until it has a subcommand or a recorded deferral. `(ahg)` is
+the entry for re-keying the table so a capability like it cannot hide again.
 
 | subcommand | CLI | app route | state |
 |---|---|---|---|
@@ -76,6 +76,7 @@ a shape it does not; they are named here until they have a subcommand or a recor
 | `where` | `cli.py` `add_parser("where"` | `/api/where` `server.py:923` | **covered**; `--limit` becomes paging |
 | `config` | `cli.py` `add_parser("config"` | `/api/layout{,/preview}` `server.py:900-901` | **covered**; presets resolve client-side to a template |
 | `status` | `cli.py` `add_parser("status"` | `/api/drives` `:921`, `/api/library/{status,stats}` `:897,:899` | **covered**; same `single_copy_shas` query both sides |
+| `backup` | `cli.py` `add_parser("backup"` | `/api/backup/{preview,run}` | **covered**, preview and apply. ⚠ The CLI **refuses** an unregistered drive where the app auto-attaches - a ruling, not a gap: registering is a distinct act with its own ghost guard. `(ahf)` |
 | `bake` | `cli.py` `add_parser("bake"` | `/api/dates/bake/{preview,run}` `server.py:922-923` | **covered**, preview and apply. ⚠ The *input* is not: confirming a date is app-only by recorded deferral, so a CLI bake writes only what the app recorded or `truestill restore` brought back. `(ahd)` |
 | `clean-empty` | `cli.py` `add_parser("clean-empty"` | `/api/clean-empty/{preview,apply}` `server.py:895-896` | **partial** - `--permanent` deliberately absent (`service/clean_empty.py:71`), app refuses and points at the CLI |
 | `ingest` | `cli.py` `add_parser("ingest"` | `/api/ingest/{preview,archives/precheck,archives/run}` `server.py:888-890` | ⚠ **partial - preview only.** `service/takeout.py:206` returns `ingest_preview(...)`; there is no apply endpoint. `--tz`, `--prefer-takeout-dates`, `--map-albums` unimplemented |
@@ -92,7 +93,7 @@ a shape it does not; they are named here until they have a subcommand or a recor
 
 Recorded because *"organize is covered"* is true and hides them: `--all-files`, `--by-device`,
 `--no-rename`, `--no-timestamps`, `--phash-threshold`, `--pool` / `--workers`, `--report` (all
-`_add_common_options`, `cli.py:352-419`), `verify --pool/--workers` (`cli.py:627-628`), and
+`_add_common_options`, `cli.py:352-419`), `verify --pool/--workers` (`cli.py:634-635`), and
 `undo-organize --run-id` / `--list` (`cli.py:429-430`). `--rclone` is **out of scope by design**:
 *"The app always writes to a local drive - there is no rclone path here"* (`service/organize.py:1045`).
 
