@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ahg). Next free: (ahh).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ahj). Next free: (ahk).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -185,95 +185,50 @@ is invisible here is retired, not free.**
 
 ## Approved - still to build
 
-- **(ahf) BACKUP HAS A CLI. TRIP APPLY IS THE LAST APP-ONLY MUTATING RUN.** Filed 2026-08-25 (P68), after
-  `(ahd)` closed the third one. **§1b's fourth exit condition**: no mutating behaviour lives only
-  in the app. **Backup gets a CLI. Trip apply gets a CLI or a row in *App-surface deferrals* -
-  either is a decision, silence is not.**
-  **Verified today, not carried from P64**: `backup_run` is defined at `service/backup.py:175` (`:621` before `(ahf)` stage 1 moved the engine out from under it) and
-  its only reference outside `truestill-app` is a *core test docstring* saying *"its own copy loop,
-  in the app package only"* - which confirms it rather than refuting it. ⚠ `catalog_backup` in
-  `cli.py` is the **pre-upgrade catalog copy**, a different thing, and is the near-miss that check
-  has to survive. `apply_event_review_names` (`service/trips.py:479`) has **zero** references
-  outside the app. Neither has a deferral row: that register holds three, and they are the date
-  rescue, `reclaim`, and the `{camera_model}` token.
-  🔑 **THE ARGUMENTS, RANKED, and the strongest are ours rather than the field's.**
-  **(1) §1b's fourth exit condition** - the engine finishes first, and a run the engine cannot
-  perform is not a panel over anything. **(2) An app-only mutating run cannot be tested the way
-  every other one is** - `(ahd)` proved this concretely rather than by argument: removing the
-  confirmation guard from the write left every CLI test green, because the CLI aborts earlier.
-  A guard only one surface exercises is a guard the next surface loses.
-  **(3) The field, and it is third for a reason.** Every comparable tool exposes backup on the
-  command line: restic and borg are CLI-only engines with GUIs layered over (Vorta over borg),
-  Kopia ships CLI and KopiaUI, Duplicati ships GUI/CLI/Server/Agent of one engine, PhotoPrism has
-  `photoprism backup`, Immich has a CLI and REST API. Even **Time Machine** - the most GUI-first
-  consumer tool there is - ships `tmutil startbackup` and documents `--block` for scripts. The
-  cautionary case is **Lightroom Classic**: catalog backup runs only on exit, no supported
-  scripting path, and users have asked for a "Backup Now" button for years - the closest analogue
-  to where truestill stands today.
-  ⚠ **AND THE CAVEAT, because the field evidence is weaker here than it looks.** Those tools are
-  server-side or repository operations where headless and scheduled use is the normal case.
-  **Truestill's backup is a local desktop copy to an attached drive**, so the headless/NAS
-  argument does not transfer at full strength. It is real but it is the *third* argument.
-  ⚠ **NULL RESULT, and it is the strongest thing the search found: no maintainer anywhere was
-  found publishing a defence of keeping backup GUI-only.** Recorded as a null rather than as
-  agreement - nobody arguing for a position is not the same as everybody arguing against it.
-  **What a CLI backup needs, and it is NOT bake's answer.** `(ahd)` step 1 found bake had **two**
-  app-side imports. `service/backup.py` has **four**: `jobs.JobTarget`, `drive_support.not_a_drive`,
-  `drives.BACKUP_PATH_HINT` **and `attach_drive`**, and `media_support.media_breakdown`.
-  `attach_drive` is a substantial app service, so this is a bigger core-computes/app-wraps move
-  than bake's, not a smaller one. **Say so before starting.**
-  ⚠ **A STALE PIN FOUND WHILE VERIFYING THIS, recorded here because it has nowhere else to
-  live**: `backup.py:157` in core - `service/backup.py:266-268` until stage 1 moved it - says the fail-fast policy **changed on 2026-08-23** -
-  *"Returned rather than raised, and that is the whole of the policy change"* - while
-  `test_the_app_records_what_a_run_did.py`'s backup row still asserts *"It still FAILS FAST"*.
-  One of the two is false. Not fixed here: P68 is docs-only and that is a test file.
-  ✅ **STAGE 1 SHIPPED 2026-08-25 (P70): the backup engine is `truestill_core.backup`.** Of
-  `service/backup.py`'s nineteen top-level symbols, **fourteen touched no app name at all** and
-  moved; the five that did are the two payload `TypedDict`s, `backup_preview`, `backup_run` and
-  `_nothing_copied`, and they stayed. Proved twice - the payloads, summary, progress ticks,
-  `file_copies` rows, target bytes and written record are **identical**, and every moved symbol is
-  **character-for-character** its original.
-  ⚠ **`attach_drive` did NOT move, and Q385's answer is (a) with a sequencing caveat.** It is
-  **core-shaped**: 128 lines of code using exactly **one** app-side name, `drive_path_hint`, which
-  is a re-export of `drive.drive_path_hint`; it returns `DriveAttachment`, a plain counts
-  dataclass with no UI affordance; and its ghost refusal already delegates to core's
-  `ghost_drive_at`. So core is where it belongs. It did not move here because **the engine never
-  calls it** - it runs at setup (`backup.py:102`, `:187`), never inside the copy loop - and
-  moving 333 lines out of `service/drives.py` in the same commit would make a red lane
-  unattributable, which is this stage's own rule.
-  🔑 **STAGE 2 - the CLI. What it inherits, so it is not re-derived.** Every helper exists:
-  `_typed_confirmation`, an `--apply` gate, a `"backup": <path arg>` row in `_LOCKS_DRIVE_AT`
-  after which `_run_holding_the_drive` takes the lock, and `_progress_printer`.
-  ⚠ **THE ONE REAL CONSTRAINT, and it is not bake's**: bake's was that no CLI path could *confirm*
-  a date. Backup has no such gap - but it does have **registration**. The app auto-attaches both
-  folders through `attach_drive`; a CLI that skipped that would write into an unregistered folder,
-  or worse into a **ghost** drive's path. Two ways out, and stage 2 must pick one deliberately:
-  move `attach_drive` to core first, **or** have the CLI require both to be registered drives
-  already and refuse otherwise - the shape `reclaim` and `migrate-layout` use. The second is
-  cheaper and arguably the better CLI, and either way `ghost_drive_at` must be called: it is
-  core's one implementation with **three CLI and three app call sites** today.
-  **Guards, censused (Q389).** At the write and therefore inherited by any second caller:
-  verify-after-write (`CopyVerdict`), `staged_copy` never taking the destination name until it
-  verifies, `persists_for_the_run` into `_stop_the_run`, and `_stop_if_ground_moved`. **At the
-  caller by construction**: the folder checks and `not_a_drive`, because they build UI payloads;
-  the ghost refusal, inside `attach_drive`; and the drive lock, which is per-surface by design -
-  `jobs.py` for the app, `_run_holding_the_drive` for the CLI.
-  ✅ **STAGE 2 SHIPPED 2026-08-25 (P71): `truestill backup`, preview by default.** The shared
-  setup moved to core as `copy_to_drive` so both surfaces run **one** copy of it - the same-drive
-  check, the free-space refusal, the device guard, the run-health watcher and the copy loop. The
-  app delegates to it and is **proved unchanged**.
-  🔑 **Q392's ruling holds and is built: the CLI REFUSES an unregistered drive.** Registering is a
-  distinct act with its own guard, and a command that mints a drive id as a side effect of backing
-  up is how a ghost drive is created from a shell. ⚠ **NULL: no new wording was needed** -
-  `_drive_or_explain` already refuses and already names `truestill drives --init <path>`. A core
-  constant would have been *wrong*, not merely redundant: it would put a terminal command inside
-  a string the app renders.
-  ⚠ **WHAT REMAINS, so this entry's state is not read from its title: `trip apply`.**
-  `apply_event_review_names` (`service/trips.py:479`) still has no CLI and no deferral row.
-  **`(ahf)` therefore stays OPEN**, and `PROJECT_STATUS.md` §1b's fourth exit condition is met
-  **except for that one run** - the remaining distance to a finished engine is one line, not a
-  search.
-  [Full entry](research/backlog/ahf.md)
+- **(ahh) NAMING TRIPS ABORTS MID-WAY AND RECORDS NOTHING ABOUT BEING INCOMPLETE.** Filed
+  2026-08-25 (P72), found while ruling `(ahf)`'s last surface. ⚠ **A defect, not a guard - ranked
+  above `(ahi)` and `(ahj)` for that reason**, and **surface-independent**: it is just as true of
+  the app today as it would be of any CLI.
+  `commit_trips` (`trip_review.py:363-392`) loops over decisions and **catches nothing**. Each
+  catalog call is atomic on its own through `Catalog._tx`, so a raise on the seventh trip leaves
+  the first six committed - and **nothing records that the run was incomplete**. `create_trip`'s
+  own docstring advertises the `sqlite3.IntegrityError` that would do it (`catalog.py:2745`).
+  `commit_catalog` (`event_review.py:162-190`) has the same shape.
+  **Checked**: there is no `delete_trip` and no `unname` anywhere - the only
+  `DELETE FROM trips|events|trip_days` in the tree is inside `update_trip_days`
+  (`catalog.py:2781`), reinserting its own rows. So a half-applied naming cannot be undone and
+  cannot be detected. `ENGINEERING_STANDARD.md` §4 Errors' partial-failure policy is the rule it
+  fails; whether the answer is skip-and-continue or a journal is the ruling this entry wants.
+  [Full entry](research/backlog/ahh.md)
+
+- **(ahi) THE RECORD-STATE CENSUS COVERS 5 OF 9 MUTATING OPERATIONS.** Filed 2026-08-25 (P72).
+  `test_the_app_records_what_a_run_did.py`'s `MUTATING_RUNS` has rows for organize, backup,
+  migrate, bake and organize_undo. Enumerated from `server.py` by AST, there are **nine**
+  `mutating=True` operations: those five plus **`trip apply`, `archive unpack`, `clean empty` and
+  migrate-`undo`** - and none of `service/trips.py`, `service/clean_empty.py` or
+  `service/migrate.py` writes a run record.
+  ⚠ **P69's own docstring predicted this exactly**: *"a new mutating service that writes no record
+  cannot be detected, because nothing in this codebase declares the set of mutating services."*
+  It was written as a stated limit and is now a measured gap - four operations outside the census
+  that exists to make absence visible. Same hand-list blind spot `cli-app-parity.md` has, in the
+  guard written against that class.
+  [Full entry](research/backlog/ahi.md)
+
+- **(ahj) §1b's FOURTH EXIT CONDITION IS CHECKABLE, AND IS CHECKED BY A CENSUS.** Filed
+  2026-08-25 (P72). *"No mutating behaviour lives only in the app"* was verified three times by
+  hand this month and found three surfaces; nothing runs it.
+  **Both inventories are AST-derivable**, measured: **9** `mutating=True` operations in
+  `server.py` and **19** `add_parser` names in `cli.py`. **4 of the 9 auto-join** by name
+  (`backup`, `organize`, `clean empty`->`clean-empty`, `undo organize`->`undo-organize`); the
+  other five do not.
+  **So the honest cost is a hand-written join, mechanically pinned on both sides**: a nine-row
+  declared table where every operation must have a row, and every row must name either a
+  subcommand that exists in the parser **or** a deferral. `MUTATING_RUNS`' shape from P69,
+  extended - and it would subsume `(ahi)` rather than sitting beside it.
+  ⚠ **Stated rather than implied**: the join itself is prose and cannot be derived, because
+  nothing declares that *"set dates"* is `bake`. What becomes mechanical is that no operation and
+  no subcommand is **missing** from the table, which is the failure that actually happened.
+  [Full entry](research/backlog/ahj.md)
 
 - **(ahg) `cli-app-parity.md` IS KEYED BY CLI SUBCOMMAND, SO AN APP-ONLY CAPABILITY HAS NO ROW.**
   Filed 2026-08-25 (P68). The document that answers *"what is actually missing"* **cannot see the
@@ -843,6 +798,26 @@ rather than assumed.
   feature that wants its own design. **Written down explicitly rather than left implicit**,
   because `test_surface_parity.py`'s second blind spot is a surface that omits a key entirely,
   so an undocumented single-surface contract is indistinguishable from drift.
+
+- **Naming a trip or event is APP-ONLY**, recorded 2026-08-25. ⚠ **The PLACEMENT half is not
+  missing, and that is the part everyone got wrong** - including `(ahf)`'s own text for four
+  prompts. `truestill migrate-layout --apply` already moves files into trip and event folders,
+  because placement derives from `files.event_id` and `trip_days`, and it is journalled and
+  reversible with `--undo`. What has no CLI is the **naming**: turning *"these 40 photos are the
+  Goa trip"* into a `trips` row.
+  It is **review-shaped**, and unlike the date rescue there is **no durable intermediate at all**.
+  The proposed names live in a browser array (`app.js:3380`, no `localStorage`) and a
+  process-local dict capped at 32 that calls itself *"Mutable UI-only review state"*
+  (`server.py:49`), and both die on reload. The request body sends the names as a **positional
+  array** zipped against the server's session cards, so the identities never leave the process. A
+  CLI could not consume a review - it would have to **own** one, which is the different and more
+  dangerous feature the date-rescue row above already refuses.
+  ⚠ **`server.py:675` held this decision in a comment** - *"session-based; merge/split are UI-only,
+  no CLI path"* - and this register did not. This row is that decision arriving where it can be
+  audited.
+  **What would reopen it**: a durable pre-apply record, a `trip_confirmations` analogue of
+  `date_confirmations`. The moment proposed names are written down before they are applied, a CLI
+  can consume them - which is exactly what let `truestill bake` exist.
 
 - **`truestill reclaim`** stays **CLI-only** until an app surface is explicitly approved. When
   one does get a surface, the pre-approved shape is advisory same-device detection plus a typed

@@ -1,8 +1,9 @@
-# (ahf) BACKUP HAS A CLI. TRIP APPLY IS THE LAST APP-ONLY MUTATING RUN.
+# (ahf) THE THREE APP-ONLY MUTATING RUNS ARE RESOLVED: TWO CLIs AND ONE RECORDED DEFERRAL.
 
-*Body of backlog entry `(ahf)`, under **Approved - still to build**. The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of backlog entry `(ahf)`, now in [`SHIPPED.md`](../../SHIPPED.md). The index is [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
 
-- **(ahf) BACKUP HAS A CLI. TRIP APPLY IS THE LAST APP-ONLY MUTATING RUN.** Filed 2026-08-25
+- **(ahf) THE THREE APP-ONLY MUTATING RUNS ARE RESOLVED: TWO CLIs AND ONE RECORDED
+  DEFERRAL.** Filed 2026-08-25
   (P68); **both backup stages shipped the same day** (P70 the engine, P71 the CLI). ⚠ **The entry
   stays OPEN for `trip apply`**, which has neither a CLI nor a deferral row.
 

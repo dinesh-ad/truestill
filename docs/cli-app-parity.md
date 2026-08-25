@@ -59,13 +59,14 @@ that exists **only in the app** has no subcommand, so it gets no row, so the doc
 *"what is actually missing"* cannot see it. Found 2026-08-25: `bake` had **zero** mentions here
 under any name, which is part of how it stayed the only mutating run with no CLI until `(ahd)`.
 
-⚠ **`backup` was one of them and has a row now** - `(ahf)` stage 2, 2026-08-25. **One remains:
-`trip apply`** (`apply_event_review_names`, `service/trips.py`), checked by enumerating every
-`mutating=True` route in `server.py` against the subcommand list. It is not in `BACKLOG.md`'s
-*App-surface deferrals* register either, so it is not app-only by decision - it is app-only by
-nobody having asked. It is **not** listed below, because a row for it would say this table has a
-shape it does not; it is named here until it has a subcommand or a recorded deferral. `(ahg)` is
-the entry for re-keying the table so a capability like it cannot hide again.
+⚠ **`backup` was one of them and has a row now** - `(ahf)` stage 2, 2026-08-25. **`trip apply`
+was the other, and reading what it writes dissolved it into two things.** The **placement** half
+is `migrate-layout --apply` and has been in this table all along; the **naming** half is app-only
+**by recorded decision** as of 2026-08-25 (`BACKLOG.md`'s *App-surface deferrals*). So the count
+of invisible app-only capabilities is **zero** today.
+⚠ **That is not the class being fixed, and the distinction matters**: each of the three was found
+because somebody went looking, and this table still cannot show an app-only capability at all.
+`(ahg)` is the entry for re-keying it so the next one is visible without anybody looking.
 
 | subcommand | CLI | app route | state |
 |---|---|---|---|

@@ -57,6 +57,46 @@ recording shipped work as unstarted, which is the more expensive direction of th
   at the wrong line before this branch.
   [Full entry](research/backlog/ahd.md)
 
+- **(ahf) THE THREE APP-ONLY MUTATING RUNS ARE RESOLVED: TWO CLIs AND ONE RECORDED DEFERRAL.**
+  Shipped 2026-08-25, schema unchanged. Raised by `PROJECT_STATUS.md` §1b's fourth exit
+  condition - *"no mutating behaviour lives only in the app"* - which named **bake** and, when
+  actually checked, turned up **three**.
+  ✅ **Backup**: engine to `truestill_core.backup` (P70), then `truestill backup` (P71), which
+  **refuses** an unregistered drive rather than registering one - registering is a distinct act
+  with its own ghost guard, and a command that mints a drive id as a side effect of backing up is
+  how a ghost drive is created from a shell.
+  ✅ **Trip apply**: ruled a **deferral**, and reading it dissolved the question. It is **two
+  operations**: the **placement** is `run_migration`, which `migrate-layout --apply` has always
+  driven - journalled and undoable - and the **naming** is app-only because it is review-shaped
+  with **no durable intermediate at all**. The proposed names live in a browser array and a
+  process-local dict capped at 32 that calls itself *"Mutable UI-only review state"*; a CLI could
+  not consume a review, only own one.
+  ⚠ **THE ENTRY'S OWN PREMISE WAS FALSE FOR FOUR PROMPTS, AND IT WAS MINE.** `(ahf)` said trip
+  apply renamed folders on disk. It does not: `apply_event_review_names`'s first docstring line is
+  *"Persist named trips and events to the catalog (Save names). **No files move.**"* The claim was
+  carried from a census of `mutating=True` routes and **nobody read what the function wrote**
+  until the 69th member was applied to it. **That is the ninth false-when-written premise this
+  month and the first one introduced and sustained by the agent rather than inherited** - the
+  class `(acc)` records, committed by the process built to catch it.
+  ⚠ **AND THE DECISION EXISTED, IN A PLACE THE REGISTER CANNOT SEE.** `server.py:675` reads
+  *"session-based; merge/split are UI-only, no CLI path"* - the ruling, written down, six months
+  of commits before anyone asked. The *App-surface deferrals* register exists because *"an
+  undocumented single-surface contract is indistinguishable from drift"*, and a decision recorded
+  only in a code comment is undocumented **to that register**. That is its own stated failure mode
+  happening to it. **Could anything have caught it? No** - nothing links a comment to a register,
+  and a guard that read comments would fire on every sentence that mentions a surface. Recorded as
+  a limit rather than filed as a defect.
+  🔑 **What the arc is worth recording.** One exit condition found three app-only runs; two got
+  CLIs; the third was two operations, one of which already had one. **The condition worked by
+  being wrong specifically enough to check** - it named bake, and checking it found the other two.
+  ⚠ **It is still a census, not a guard**: both inventories are AST-derivable (**9** mutating
+  operations, **19** subcommands, **4** auto-joining), so a nine-row declared table checked at
+  both ends would make it mechanical. That is `(ahj)`, filed not built.
+  **Filed rather than folded in**: `(ahh)` naming aborts mid-way with no record - a defect, and
+  ranked above the other two for that reason; `(ahi)` the record-state census covers 5 of 9;
+  `(ahj)` the guard.
+  [Full entry](research/backlog/ahf.md)
+
 - **(ahe) THE BAKE'S TYPED CONFIRMATION WAS NEVER ENFORCED WHERE THE WRITE HAPPENS.** Shipped
   2026-08-25, schema unchanged. Found by P64 while ruling on bake's missing CLI.
   ⚠ **The typed word was ceremony.** `CONFIRM_WORD` was shipped to the browser inside the

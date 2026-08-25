@@ -217,9 +217,27 @@ what stops is changing *what a route returns* under a consumer that already read
 2. **Every surface reports its own stop.** `(ahc)` closed migrate's last one.
 3. **No route computes a field no consumer reads.** The table above is the current list.
 4. ⚠ **No mutating behaviour lives only in the app** - added here because step 1's own sentence
-   requires it and nothing was checking. **Bake fails it today**: there is no CLI bake command
-   (`grep -rn 'set dates\|bake_run\|bake_preview' packages/truestill-cli/src` returns nothing;
-   `cli.py`'s three `bake` hits are the *Takeout* bake). Bake is a panel over nothing.
+   requires it and nothing was checking. ⚠ **This said *"Bake fails it today"* until 2026-08-25
+   and named only bake.** Checking it found **three**: bake, backup and trip apply. `(ahd)` gave
+   bake a CLI, `(ahf)` gave backup one, and trip apply turned out to be **two operations** - the
+   placement already had a CLI, and the naming is app-only **by recorded decision** (*App-surface
+   deferrals*). **The condition is met.**
+
+### Where the engine actually stands, so it is one place rather than four letters
+
+| | condition | status |
+|---|---|---|
+| 1 | every mutating run writes a record | ❌ **`(agm)`** - migrate and bake do not. ⚠ And the census itself covers **5 of 9** mutating operations: `(ahi)` |
+| 2 | every surface reports its own stop | ✅ `(ahc)` closed migrate's last one |
+| 3 | no route computes a field no consumer reads | ❌ bake's `absent` (2 sites, rendered **0**) and `(abm)`'s two attach counts (**0** in `app.js`) |
+| 4 | no mutating behaviour lives only in the app | ✅ **met** - two CLIs built, one deferral recorded |
+
+⚠ **ONE of the four is checked by a guard, and that one is partial.** Condition 1 has
+`test_the_app_records_what_a_run_did.py`, which covers **5 of 9** operations (`(ahi)`).
+Conditions 2, 3 and 4 are a **census** - somebody looking, three times this month for
+condition 4 alone. `(ahj)` is the entry for making the fourth mechanical; nothing yet
+proposes a guard for the second or the third, and that is stated rather than left to be
+read as covered.
 
 The app **lacking** a route for a CLI subcommand is a different question and belongs to step 3 -
 [`cli-app-parity.md`](cli-app-parity.md) owns it.
