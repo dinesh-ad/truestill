@@ -80,9 +80,35 @@
   1. **The seven literal payloads must be typed.** A dict literal has no schema, so each is a hole
      *in* the spec rather than a note beside it. `_start_drive_job`'s `{"job_id"}` first: one key,
      **15 call sites**, and the envelope every job route returns.
-  2. **Twelve routes resolve to 2-3 payload types and each needs a ruling.** 35 of 47 resolve to
-     exactly one. A `oneOf` is a legitimate answer, but it must be **decided** - a resolver
-     returning a set cannot tell a real union from an extra reference it happened to find.
+  2. ⚠ **THIS SAID "TWELVE ROUTES RESOLVE TO 2-3 TYPES, 35 OF 47 TO EXACTLY ONE", AND BOTH
+     FIGURES WERE BUILT ON A RESOLVER ANSWERING A DIFFERENT QUESTION.** Corrected 2026-08-25 (P94)
+     by narrowing it to **what reaches a `JSONResponse`** - returns, not references - and
+     re-deriving before any row was written. **The count did not fall to three. It rose to 25.**
+
+     **The prediction failed because the thing it was correcting was worse than measured**, in two
+     ways found only by the narrowing:
+
+     * ⚠ **For the job routes the old resolver named the wrong type entirely.** `/api/backup/run`
+       resolved to `JobTarget[BackupRunSummary]` - **the factory's callable type, which is never a
+       response.** The route returns a job envelope. So stage 2's *"47 of 50 name a payload type"*
+       is true as written and the type named is not the payload, for every job route.
+     * ⚠ **`_start_drive_job` returns THREE shapes** - a refusal Mapping, `DriveBusyPayload` and
+       `JobStarted` - so **all 15 job-start sites are genuine unions**, and the old resolver saw
+       inside that helper for only **4** of them (it followed `_start_drive_job(...)` and not
+       `run_in_threadpool(_start_drive_job, ...)`, the `(agu)` hole its own docstring disclaimed).
+       `expired_session`'s `ExpiredSessionPayload` was invisible the same way.
+
+     🔑 **So 25 is more accurate than 12, not less**, and the shape of the work changes with it:
+     the job envelope is **one reusable union component** shared by 15 routes, not 15 rulings. Six
+     routes remain `GET`+`POST` on one `Route` object and are **two operations**, not unions.
+
+     ⚠ **The narrowed resolver is NOT yet precise**: it reads a local's declared annotation without
+     applying branch narrowing, so `jobs.start`'s `str | DriveBusyPayload` survives where only the
+     `DriveBusyPayload` arm is ever sent. That must be fixed before rows are written, or the
+     declaration encodes the resolver's remaining mistakes.
+
+     **Nothing was declared this turn.** The gate was *"re-derive before writing any row; if the
+     count is wrong, stop and report"*, and it is reported here rather than worked around.
   3. **A Python-type to JSON-Schema mapping** for 117 TypedDicts, including the **29** that are
      nested-only and the `X | Y` unions.
   4. ✅ **RULED 2026-08-25 (P91), and it is no longer a blocker.** It was filed as *"OpenAPI has

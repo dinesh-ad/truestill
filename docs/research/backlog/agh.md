@@ -9,7 +9,7 @@
   ## What is already right, so the entry is not misread as an alarm
 
   The token is ASGI middleware, not a per-route check: `app.add_middleware(LocalGuard, token=token)`
-  (`server.py:1012`) wraps the whole app including the `/static` mount (`server.py:1010`). **A
+  (`server.py:1041`) wraps the whole app including the `/static` mount (`server.py:1039`). **A
   new route cannot forget it** - there is nothing per-route to forget. `security.py:84-94` checks
   Host (421), Origin (403) and the token with `secrets.compare_digest` (403), and the refusal names
   the session-link *file* rather than the token (`security.py:54-56`).

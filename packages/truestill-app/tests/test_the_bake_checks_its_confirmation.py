@@ -37,6 +37,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 from starlette.testclient import TestClient
+from truestill_app.server import _is_not_confirmed
 from truestill_app.service.bake import CONFIRM_WORD, NOT_CONFIRMED, bake_run
 from truestill_core.bake import NotConfirmedError, bake_confirmed_dates
 from truestill_core.catalog import Catalog
@@ -220,4 +221,27 @@ def test_the_browser_sends_the_word_it_collected() -> None:
     )
     assert "startBake(path, r.confirm_word)" in script, (
         "the typed word is collected and not handed to the request"
+    )
+
+
+def test_only_the_unconfirmed_refusal_takes_the_400() -> None:
+    """⚠ **FOUND BY A SURVIVING MUTATION.** `(ahn)` stage 4b.
+
+    `_is_not_confirmed` decides which refusal gets `(agk)`'s 400 and which keeps the 200 every
+    other soft refusal takes. Making it return `True` unconditionally was caught by **nothing**:
+    the confirmed path never reaches it (`isinstance(started, Mapping)` short-circuits on a
+    callable), and the unconfirmed path is `True` either way. The one case that moves is a
+    refusal carrying a **different** code - `MigrationUnfinished` - which would have started
+    returning 400 for a state of the user's drive rather than a malformed request, silently
+    reversing the ruling that put the two on different statuses.
+
+    Pinned at the predicate rather than through a route: reaching `MigrationUnfinished` needs a
+    journalled migration mid-bake, and the discrimination is what this guards - not the fixture.
+    """
+    assert _is_not_confirmed({"ok": False, "code": NOT_CONFIRMED, "error": "", "drive_label": ""})
+    assert not _is_not_confirmed(
+        {"ok": False, "code": "MigrationUnfinished", "error": "", "drive_label": ""}
+    ), "a migration-unfinished refusal would take the 400 that belongs to a malformed request"
+    assert not _is_not_confirmed({"ok": False, "error": "no code at all"}), (
+        "a payload with no `code` must not be read as the unconfirmed refusal"
     )

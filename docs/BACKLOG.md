@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ahn). Next free: (aho).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aho). Next free: (ahp).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -184,6 +184,19 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(aho) THE JOB ENVELOPE IS THE ONLY SUCCESS PAYLOAD WITH NOTHING TO NARROW ON.** Filed
+  2026-08-25 (P93/P94), split out of `(ahn)` stage 4b because the fix is a **wire change**.
+  Every arm of every response union in this app carries a `Literal`-tagged key - `ok`, `armed`,
+  `valid`, `code` - **except `JobStarted`**, which is one key, `job_id`, and no literal.
+  ⚠ **Checked, not assumed**: an AST pass over every union arm reachable from a route, reported in
+  the body. `_start_drive_job` returns **three** shapes, so all **15** job-start sites return a
+  union, and `app.js:244` tells the arms apart with `started.ok === false` - false for `JobStarted`
+  **only because `ok` is undefined**. The one place in the app where narrowing rests on a key not
+  being there.
+  **The fix** is `ok: Literal[True]`, additive and almost certainly safe - but it puts a new key on
+  the body every job start returns, which is a ruling and not a detail.
+  [Full entry](research/backlog/aho.md)
 
 - **(ahl) CONDITION 3 IS AT 34 FIELDS, NOT 2, AND ITS OWN CENSUS DISAGREES WITH ITSELF.** Filed
   2026-08-25 (P81). `PROJECT_STATUS.md`'s condition 3 is kept by hand and names **two** live
@@ -438,7 +451,7 @@ is invisible here is retired, not free.**
 
 - **(agh) `LocalGuard` MAKES FORGETTING THE TOKEN IMPOSSIBLE AND UN-EXEMPTING INVISIBLE.**
   Recorded 2026-08-23. **The token is enforced well** - ASGI middleware wrapping the whole app
-  (`server.py:1012`), so no route can forget it, with Host/Origin checks and
+  (`server.py:1041`), so no route can forget it, with Host/Origin checks and
   `secrets.compare_digest` (`security.py:84-94`), and the single `/static/` exemption verified
   inert. **The gap is that nothing pins the exemption LIST.** Coverage is per-route
   (`test_server.py:20,33,39,44`, `test_thumb_route.py:115`); a second `startswith` added to

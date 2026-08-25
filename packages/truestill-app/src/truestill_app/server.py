@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from functools import partial
 from pathlib import Path
+from typing import TypeGuard
 
 from starlette.applications import Starlette
 from starlette.concurrency import run_in_threadpool
@@ -50,6 +51,7 @@ from truestill_app.jobs import (
     JobTarget,
 )
 from truestill_app.security import LocalGuard
+from truestill_app.service.bake import BakeRefusal
 from truestill_app.service.drives import DrivesPayload
 from truestill_app.service.trips import (
     ExpiredSessionPayload,
@@ -110,6 +112,29 @@ def _static_fingerprint() -> str:
     index_html = (_TEMPLATES / "index.html").read_bytes()
     app_js = (_STATIC / "app.js").read_bytes()
     return hashlib.sha256(index_html + app_js).hexdigest()
+
+
+def _is_not_confirmed(payload: Mapping[str, object]) -> TypeGuard[BakeRefusal]:
+    """Is this the refusal a bake returns when the typed word was missing or wrong? `(ahn)` 4b.
+
+    ⚠ **A `TypeGuard` because the 400 below had no NAME.** The route returned
+    `JSONResponse(dict(started), status_code=400)`, and `dict()` widened a `BakeRefusal` - which
+    carries `ok` and a `code` literal - into a bare mapping, so nothing could describe what that
+    response body is. Narrowing instead of widening is what lets a spec name it.
+
+    ⚠ **And mypy does not infer it from the membership test here**, tried first: `"code" in
+    started` left the union as `DriveUnavailablePayload | BakeRefusal`. The predicate is written
+    out rather than asserted with `cast`, which would have claimed the narrowing instead of
+    checking it.
+
+    ⚠ **In this module rather than beside `BakeRefusal`**: a `service.*` predicate called
+    synchronously from an async handler is what `test_no_handler_blocks_the_event_loop` refuses,
+    and putting a pure comparison through a thread pool to satisfy it would be ceremony.
+
+    The comparison is unchanged - a payload with no `code` compared unequal to `NOT_CONFIRMED`
+    before and returns `False` here - so the body on the wire is byte-identical.
+    """
+    return payload.get("code") == service.NOT_CONFIRMED
 
 
 async def _catalog_busy_refusal(_request: Request, exc: Exception) -> JSONResponse:
@@ -641,12 +666,16 @@ def create_app(*, token: str, db: Path | None = None, explicit_db: bool = False)
         started = await run_in_threadpool(
             partial(service.bake_run, path, _db(), confirmation=str(body.get("confirm", "")))
         )
-        if isinstance(started, Mapping) and started.get("code") == service.NOT_CONFIRMED:
+        if isinstance(started, Mapping) and _is_not_confirmed(started):
             # ⚠ **400, not the 200 every other refusal here takes.** A missing word is the
             # caller's error, not a state of the user's drive, and `(agk)`/P24's ruling is that
             # the status is spent on the outcome it actually describes. A UI refusal a person
             # should read stays 200; a request that was malformed does not.
-            return JSONResponse(dict(started), status_code=400)
+            # ⚠ **Bound to an annotated local, so the narrowing is CONSUMED.** `JSONResponse`
+            # takes `Any`, so handing it `started` directly would let the `TypeGuard` narrow into
+            # a void and the repair would read well and check nothing.
+            refusal: BakeRefusal = started
+            return JSONResponse(refusal, status_code=400)
         return await run_in_threadpool(
             _start_drive_job,
             started,
