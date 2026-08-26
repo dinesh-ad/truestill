@@ -3,6 +3,44 @@
 **Ran 2026-08-25 (P98).** Machine: 16 cores / 30 GiB. Filesystem: **ext4** (`/data`), 712 G free.
 The half [`soak-five-record.md`](soak-five-record.md) named as missing.
 
+> ## ⚠ DATED CORRECTION - 2026-08-26 (P103)
+>
+> **A correction beside the record, never an edit** - the bullet it corrects is left standing
+> below, verbatim, because a record rewritten to stay correct stops being one.
+>
+> **The *"Trips and event naming"* bullet under "What was NOT reached" is wrong.** It reads *"a
+> name that lives only in the catalog dies with it"*. **A name has never lived only in the
+> catalog.** The claim came from the advisor, was carried into
+> [`handoff-2026-08-25.md`](handoff-2026-08-25.md) §4, and **was never checked against
+> `decisions.py`** - it was about to fund a whole soak.
+>
+> `.truestill-decisions.json` (`decisions.py:711`) carries `trips`, `events` and `albums`
+> (`decisions.py:76-78`) with the name in each (`decisions.py:390-404`, `:418`), and
+> `catalog_session.open_catalog` writes it to every reachable registered drive on any dirty exit
+> (`catalog_session.py:137`). `decisions.py:1005` names the comparison itself - *"which is the
+> Lightroom failure - a backup the user believes in and does not have"*.
+>
+> **A flat retraction would replace one wrong claim with another**, because the three sections
+> answer differently:
+>
+> | section | restored after a lost catalog? | by what |
+> |---|---|---|
+> | trips | **yes, unconditionally** | `_apply_trips` (`decisions.py:442`) rebuilds by day; `trip_days.day` is a primary key, so a day list is an identity |
+> | events | **no** | `apply_decisions` renames an event found by signature and cannot create one; after a rebuild `events` is empty, so every name lands in `unmatched` (`decisions.py:526-531`) |
+> | albums | **no** | `not_applied=("albums",)` (`decisions.py:590`), ruled at `research/backlog/acg.md:9-11` |
+>
+> **Measured P103**, 353 files from `IV Bangalore`, ext4, one trip and three events named through
+> the app's HTTP routes: the trip came back, **all three event names were lost**, and the
+> re-derived signatures were **byte-identical** to the document's - so the product's stated reason,
+> *"its photos have changed"*, is false. `(ahv)`.
+>
+> ⚠ **And the whole mechanism is defeated by an ordinary command line.** `truestill organize src
+> dest` with a **relative** destination stores a relative path hint (`cli.py:2606`, `:2616`), and
+> `write_decisions` refuses every save for the life of that drive (`decisions.py:741-746`). No
+> document is ever written and the names really do live only in the catalog. `(ahu)`. **So the
+> bullet below is false as a design claim and accidentally true for a common invocation** - which
+> is a worse defect than the one it described.
+
 ---
 
 ## The central claim, and it leaks in one specific place

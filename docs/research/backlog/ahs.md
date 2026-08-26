@@ -37,6 +37,27 @@
   read-only command, that every one of their photos is unknown - and the next step is to re-organize
   a library that is already organized.
 
+  ## ⚠ DATED NOTE - 2026-08-26 (P103): THE NAMING LAYER IS NOT PART OF THIS GAP
+
+  Measured P103, 353 files: the naming layer **does** come back through `restore`, so this entry
+  is narrower than `handoff-2026-08-25.md`'s ranking blurb implied. This entry never claimed
+  otherwise - its body and index line both say *files and copies* - so what needed correcting was
+  the blurb, not this.
+
+  | | after a lost catalog |
+  |---|---|
+  | trips | **restored** - `_apply_trips` (`decisions.py:442`) creates them from the days the document carries |
+  | events | **lost** - restore renames by signature and cannot create; that is `(ahv)` |
+  | albums | **never** - `decisions.py:590`, ruled at [`acg.md`](acg.md) |
+
+  **So what genuinely does not come back is the FILE INVENTORY**, which is what this entry is
+  about. Of its four options below, *"widen the drive document"* is partly moot for names - trips
+  and events are already carried - and remains live only for the inventory itself.
+
+  ⚠ Two adjacent findings that change how the recovery reads: the document is never written at all
+  when the destination was typed as a relative path (`(ahu)`), and the in-place arm of the
+  re-organize this entry recommends rebuilds **nothing** (`(ahy)`).
+
   ## WHAT THIS ENTRY DOES NOT DECIDE
 
   Whether that is acceptable. It may be: a re-organize is safe, idempotent in placement, and a

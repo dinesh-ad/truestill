@@ -33,7 +33,7 @@ letter is assigned here and the entry may live in `BACKLOG.md` or in
 names no `(u)` anywhere - which is exactly the drift this paragraph warns about, found in its
 own text. Replaced with citations verified present on 2026-08-01.)*
 
-**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(aht). Next free: (ahu).**
+**Used: (e)-(z), (aa)-(zz), (aaa), (bbb)-(fff), (aab)-(ahy). Next free: (ahz).**
 ⚠ **`(ahe)` was assigned ahead of `(ahd)` on 2026-08-25**, the way `(aap)` went ahead of
 `(aao)`: letters are identifiers rather than an ordering. **The gap was filled the same day** by
 `(ahd)`, so the range is contiguous again.
@@ -184,6 +184,54 @@ cited by name in `drive-identity-research.md` and `org-structure-research.md`. *
 is invisible here is retired, not free.**
 
 ## Approved - still to build
+
+- **(ahu) A RELATIVE DESTINATION SILENTLY DISABLES THE DECISIONS BACKUP, FOR THE LIFE OF THE DRIVE.** Filed 2026-08-26
+  (P103). `truestill organize src dest` stores the destination **unresolved** (`cli.py:2606`,
+  `:2616`), and `write_decisions` then refuses every save for the life of that drive
+  (`decisions.py:741`-`:746`). **The only durable copy of every trip and event name is never
+  written**, and nothing rewrites the hint. Measured, one variable, 353 files: relative -> no
+  document and `decisions.problem` = *"a drive root must be a full path"*; absolute -> a document
+  carrying all four names. The guard's own comment says *"A drive root is always absolute in
+  practice"*; it is not. **Every test that writes the hint passes an absolute `tmp_path`** - the
+  `(ahp)` class on a second path. Existing catalogs carry the bad hint and need a repair pass.
+  Body: [`research/backlog/ahu.md`](research/backlog/ahu.md).
+
+- **(ahv) RESTORE CANNOT CREATE AN EVENT, ONLY RENAME ONE - AND IT BLAMES THE PHOTOS.** Filed
+  2026-08-26 (P103). After a catalog rebuild the `events` table is empty, so `apply_decisions`
+  finds nothing by signature (`decisions.py:526`-`:531`) and **every event name is lost**.
+  Measured: 353 files, 1 trip + 3 events named through the app's HTTP routes - the trip came back,
+  all three events did not. ⚠ **The stated reason is false**: the product says *"its photos have
+  changed"* while the content was byte-identical and the re-derived signatures matched the
+  document's exactly, so **clustering is idempotent and the signature is stable**. Trips survive
+  because `_apply_trips` (`decisions.py:442`) creates them from days. Body:
+  [`research/backlog/ahv.md`](research/backlog/ahv.md).
+
+- **(ahw) THE APP'S EVENT QUERY TESTS A LABEL WHERE A RULE WAS MEANT, AND THE TRIPS SCREEN GOES DEAD.** Filed 2026-08-26 (P103).
+  `catalog.py:1289` filters `f.category = 'Camera'`; `layout.py:530`-`:532` forbids exactly that
+  test in as many words, and the CLI asks correctly by rule (`event_review.py:68`). **Under
+  `--by-device` the Trips screen proposes nothing** - not an error, not an empty state with a
+  reason. ⚠ **A rule with a named violator, so the subject is the census**: three unlinked
+  definitions of one concept, nothing guarding them, and a grep for the constant cannot see inside
+  a query. The entry carries the guard design, its two blind spots, and the safety condition -
+  **the rule is not persisted** (`catalog.py:92`) and the two selections **provably diverge**, so
+  the fix is not a strict repair. **P104.** Body:
+  [`research/backlog/ahw.md`](research/backlog/ahw.md).
+
+- **(ahx) `not_applied` REACHES NO CONSUMER, SO A RESTORE NEVER SAYS THE ALBUMS WERE DROPPED.** Filed 2026-08-26 (P103). `apply_decisions` returns
+  `not_applied=("albums",)` (`decisions.py:590`) and `_print_restore_plan` (`cli.py:1439`) prints
+  five other fields and not this one - against its own docstring at `cli.py:1440`-`:1443`
+  promising *"the half that is easy to leave out - what would not [come back]"*. **A user
+  restoring is never told the albums section was discarded**, on either surface. No test asserts
+  it. Checked: four hits repo-wide, one of them a name collision. Body:
+  [`research/backlog/ahx.md`](research/backlog/ahx.md).
+
+- **(ahy) AN IN-PLACE ORGANIZE AGAINST AN EMPTY CATALOG REBUILDS NOTHING, AND REPORTS SUCCESS.** Filed 2026-08-26
+  (P103). An organized 353-file drive, fresh catalog, `organize <drive> <drive> --in-place
+  --apply`: **`353 already in place`, exit 0, and 0 files / 0 copies recorded** - plus no
+  `path_hint`, so the decisions document can never reach that drive either. Copy mode rebuilt all
+  353. **`(aei)`'s shape on the in-place path**, and it is the arm a user with an
+  already-correct library would naturally reach for when `(ahs)` says re-organize is the recovery.
+  Body: [`research/backlog/ahy.md`](research/backlog/ahy.md).
 
 - **(ahs) NO READ-ONLY PATH REBUILDS THE INVENTORY AFTER A LOST CATALOG.** Filed 2026-08-25 (P98).
   A **product ruling, filed not ruled**. Catalog deleted, library rebuilt from files: `restore`
