@@ -35,7 +35,7 @@
   **A key-name census cannot see a collided field.** `absent` is declared twice with opposite
   fates: `BakePreview.absent` (`service/bake.py:238`) **is** rendered at `app.js:4131`;
   `BakeSummary.absent` (`service/bake.py:166`, emitted `:217`) is not read by `bakeCompletion`
-  (`app.js:4167`) at all. Because the name is *"read somewhere"*, it never enters the 34. So a bake
+  (`app.js:4172`) at all. Because the name is *"read somewhere"*, it never enters the 34. So a bake
   run names what failed and stays silent about what it could not find, and this census is
   structurally blind to it.
 

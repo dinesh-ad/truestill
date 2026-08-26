@@ -1,6 +1,6 @@
 # (ahw) THE APP'S EVENT QUERY TESTS A LABEL WHERE A RULE WAS MEANT, AND THE TRIPS SCREEN GOES DEAD.
 
-*Body of backlog entry `(ahw)`, open in [`BACKLOG.md`](../../BACKLOG.md); the letter namespace is shared with [`SHIPPED.md`](../../SHIPPED.md).*
+*Body of entry `(ahw)`, **shipped 2026-08-26** - the closure is in [`SHIPPED.md`](../../SHIPPED.md); the letter namespace is shared with [`BACKLOG.md`](../../BACKLOG.md).*
 
 - **(ahw) THE APP'S EVENT QUERY TESTS A LABEL WHERE A RULE WAS MEANT, AND THE TRIPS SCREEN GOES
   DEAD.** Filed 2026-08-26 (P103).
@@ -38,6 +38,47 @@
   a library with no trips in it.** The user concludes their photos do not group; the product has
   simply asked the wrong question. That is why this outranks the record corrections it was filed
   beside.
+
+  ## ⚠ FOUR CORRECTIONS, 2026-08-26 (P108/P110) - READ THESE BEFORE THE ANALYSIS BELOW
+
+  **1. The census was 3. It is 7**, and four of the missing ones were in `catalog.py`, the file
+  this entry already had open. `catalog.py:1289` is joined by `:2636` (the same predicate, and a
+  live test binds the two populations), `:2706` (which **confessed the defect in its own docstring**
+  and was filed nowhere), and `:2054-2055` - the completeness panel, where a `--by-device` library
+  counted **every camera photo as a side-bin file**. A fifth is in JavaScript: `app.js`'s legend
+  dropped every folder it could not name, so the panel **vanished**.
+
+  **2. *"The CLI asks correctly, the app does not"* is HALF WRONG, and it is why this looked like a
+  parity defect.** `event_review.py:68` asks by rule; `propose_from_catalog` in the **same module**
+  calls the label-based query. It is a *caller* of the one violator rather than a second copy of
+  it - so **both surfaces reach both predicates**, and the contrast that made this look app-shaped
+  was never real.
+
+  **3. The provenance argument is WITHDRAWN, and the asymmetry runs the other way.** A
+  `category_rule` column would not be provenance: the rule is **re-derivable**, and
+  `migrate.rederive_rules` already re-derives it from `files.original_name` - the pre-rename name -
+  with `(ahr)`'s strip applied unconditionally. `(ahr)` refused a column for exactly this reason.
+  The column was refused on measured grounds: the backfill reaches **3 of 7 rules**, **cannot
+  detect its own gaps** (the unreachable rules emit labels identical to reachable ones),
+  `camera_model` is NULL on every pre-v17 row, re-derivation answers with *today's* chain, and
+  `category_rule IN (...)` fails **CLOSED** on NULL - emptying the screen for every existing user.
+
+  **4. The regression this entry warned of HAS AN EMPTY WITNESS SET.** `rule_software` cannot fire:
+  `Software` is not in `exif.REQUESTED_TAGS`, a test-enforced exemption owned by `(aaq)`. Measured:
+  **781 files** carrying `Software` across both corpora and the real library, **zero** equal
+  `Camera`; and a set diff over two real catalogs returned the **identical set** - 2,632 of 2,695
+  and 3,770 of 4,105, delta empty. **The fix is a strict repair.**
+
+  ## THE THREE BLIND SPOTS, STATED
+
+  - ⚠ **The guard's subject had to change**, from *"no label literal outside the constant"* to
+    *"no timeline decision taken from a label"*. The first is greppable; the second is not.
+  - ⚠ **A literal-scanning census cannot see the JavaScript site.** It finds `CAT_INFO`'s keys and
+    misses `filter((n) => CAT_INFO[n])`, which contains **no label literal at all** - and that is
+    where the behaviour was. Scanning `.js` does not fix it.
+  - ⚠ **False positives dominate.** `"Saved"` is also the English past participle (`cli.py`,
+    `layout.py`), and `Downloads`/`Pictures` collide with a home-directory list in
+    `service/fs_browse.py`. A value-keyed guard would cry wolf more often than it caught anything.
 
   ## THE CENSUS P104 MUST RUN
 

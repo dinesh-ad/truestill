@@ -146,6 +146,12 @@ def propose_from_catalog(catalog: Catalog, drive_uuid: str) -> list[EventCandida
 
     This is the web UI's "review trips in place" path: it clusters what the catalog already knows,
     so naming trips operates on the organized library rather than a fresh import.
+
+    ⚠ **Membership is decided by `camera_copies_for_events`, which is a LABEL test** - unlike
+    `gather_camera_items` above, which asks by RULE. `(ahw)` was filed believing the CLI asked
+    correctly and the app did not; **both surfaces reach both predicates**, and this function is
+    why. It is a caller of the label test rather than a second copy of it, so it inherited the
+    `--by-device` blindness and inherits the fix.
     """
     items = [
         EventItem(

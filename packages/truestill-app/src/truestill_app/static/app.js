@@ -591,10 +591,15 @@ function chipsFor(folders) {
     `<span class="chip" title="${esc(catTip(k))}">${esc(k)} <span class="num">${nfmt(v)}</span></span>`).join("");
 }
 function legendFor(folders) {
-  const names = Object.keys(folders || {}).filter((n) => CAT_INFO[n]);
+  // (ahw): this filtered on `CAT_INFO[n]`, so a folder the map does not name was DROPPED. Under
+  // `--by-device` the camera folder is the hardware name ("Samsung SM-A546B") and no key matched,
+  // so `names` was empty and the whole legend vanished - the one screen-visible half of that entry.
+  // This is a VOCABULARY lookup, not a population filter, so it wants a default and not the
+  // inversion the SQL sites took: `catTip` already has one, and every folder now gets a line.
+  const names = Object.keys(folders || {});
   return names.length
     ? `<div class="k" style="font-size:var(--type-xs);margin-top:var(--space-2);line-height:1.6">${
-        names.map((n) => `<b>${esc(n)}</b> - ${esc(CAT_INFO[n])}`).join("<br>")}</div>` : "";
+        names.map((n) => `<b>${esc(n)}</b> - ${esc(catTip(n))}`).join("<br>")}</div>` : "";
 }
 
 // ---------- completion ----------

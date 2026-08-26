@@ -209,17 +209,6 @@ is invisible here is retired, not free.**
   because `_apply_trips` (`decisions.py:442`) creates them from days. Body:
   [`research/backlog/ahv.md`](research/backlog/ahv.md).
 
-- **(ahw) THE APP'S EVENT QUERY TESTS A LABEL WHERE A RULE WAS MEANT, AND THE TRIPS SCREEN GOES DEAD.** Filed 2026-08-26 (P103).
-  `catalog.py:1289` filters `f.category = 'Camera'`; `layout.py:530`-`:532` forbids exactly that
-  test in as many words, and the CLI asks correctly by rule (`event_review.py:68`). **Under
-  `--by-device` the Trips screen proposes nothing** - not an error, not an empty state with a
-  reason. ⚠ **A rule with a named violator, so the subject is the census**: three unlinked
-  definitions of one concept, nothing guarding them, and a grep for the constant cannot see inside
-  a query. The entry carries the guard design, its two blind spots, and the safety condition -
-  **the rule is not persisted** (`catalog.py:92`) and the two selections **provably diverge**, so
-  the fix is not a strict repair. **P104.** Body:
-  [`research/backlog/ahw.md`](research/backlog/ahw.md).
-
 - **(ahy) AN IN-PLACE ORGANIZE AGAINST AN EMPTY CATALOG REBUILDS NOTHING, AND REPORTS SUCCESS.** Filed 2026-08-26
   (P103). An organized 353-file drive, fresh catalog, `organize <drive> <drive> --in-place
   --apply`: **`353 already in place`, exit 0, and 0 files / 0 copies recorded** - plus no

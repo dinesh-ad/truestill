@@ -96,10 +96,14 @@ def test_the_empty_state_no_longer_calls_a_four_day_trip_close_together(ui: Page
 
 
 def test_the_empty_state_says_what_is_never_grouped(ui: Page) -> None:
-    """`camera_copies_for_events` filters `category = 'Camera' AND captured_at IS NOT NULL`.
+    """`camera_copies_for_events` excludes side-bin labels and undated files.
 
     Both exclusions are silent everywhere else, and either one explains an empty screen on a
     library that is full of pictures.
+
+    ⚠ **This docstring said the filter was `category = 'Camera'` until 2026-08-26, which was the
+    DEFECT written down as the specification.** That predicate matched nothing on a `--by-device`
+    library, so this suite documented a dead screen as intended behaviour. `(ahw)`
     """
     _propose(ui, cards=[], min_files=8)
 

@@ -22,6 +22,51 @@ provenance)** below, which records work that never had a backlog letter.
 only the entry tells you *how much* of it, and two entries elsewhere in this file were found
 recording shipped work as unstarted, which is the more expensive direction of the same mistake.
 
+- **(ahw) TIMELINE MEMBERSHIP IS A SIDE-BIN TEST, NOT THE WORD "CAMERA".** Shipped 2026-08-26.
+  Four SQL predicates asked `category = 'Camera'` - the device rule's DEFAULT label - so on a
+  `--by-device` library, where the label is the hardware name, they matched **nothing**:
+  the Trips screen proposed nothing, the completeness panel counted **every camera photo as a
+  side-bin file**, and the category legend **vanished**. `layout.py`'s `TIMELINE_RULES` comment
+  forbids exactly that test, in as many words.
+  **The fix is `catalog.timeline_label_sql`**, one home for four callers, asking
+  `category NOT IN (deterministic_side_bin_labels())` - the closed set `migrate.label_routes`
+  already leans on. ⚠ **An unknown label lands ON the timeline, and that direction is the
+  decision**: a photo wrongly on the timeline is visible and one click from correction; a photo
+  wrongly off it is invisible, and that invisibility is the defect. The sentence lives beside the
+  predicate, not in this entry.
+  🔑 **THE COLUMN WAS REFUSED ON MEASURED GROUNDS, and the provenance argument for it was
+  withdrawn.** The rule is **re-derivable** - `migrate.rederive_rules` already does it from the
+  pre-rename `original_name` - so a column would be a cache, not provenance, and `(ahr)` had
+  already refused one. Against it: the backfill reaches **3 of 7 rules**, **cannot detect its own
+  gaps**, `camera_model` is NULL on every pre-v17 row, re-derivation answers with today's chain,
+  `test_no_migration_performs_a_backfill` would refuse the DML outright, and
+  `category_rule IN (...)` fails **CLOSED** on NULL - emptying the screen for every existing user.
+  ⚠ **The regression the entry warned of had an EMPTY WITNESS SET.** `rule_software` cannot fire -
+  `Software` is not in `REQUESTED_TAGS`, the `(aaq)` exemption - and 781 files carrying `Software`
+  across both corpora and the real library yielded **zero** equal to `Camera`. **Measured as a set
+  diff, not a corpus scan**: two real catalogs, identical sha256 sets before and after, 2,632 of
+  2,695 and 3,770 of 4,105, zero on either side. A strict repair.
+  **The guard on the constant landed FIRST and was mutation-proved before a predicate moved** -
+  `deterministic_side_bin_labels()` had one production consumer and **zero tests**, and inverting
+  four predicates onto an unguarded constant is the trade this repo keeps filing letters about. Its
+  companion is the `(aaq)` guard, which fails if `Software` ever joins `REQUESTED_TAGS` while a
+  label-based timeline test survives - **what keeps a measured fact true rather than merely
+  observed.**
+  ⚠ **Corrections to the entry**: the census was 3 and is **7**; *"the CLI asks correctly"* was
+  **half wrong** - `propose_from_catalog` is a caller of the same label query, so both surfaces
+  reached both predicates; and a **test docstring encoded the defect as the specification**
+  (`tests/e2e/test_trips_and_import_on_the_pattern.py`), documenting a dead screen as intended.
+  ⚠ **`app.js`'s legend took a DEFAULT, not the inversion** - it is a vocabulary lookup, not a
+  population filter, and `catTip` already carried the fallback. Pinned from pytest, not the browser
+  lane, per `test_the_migrate_screen_says_it_stopped`.
+  🔑 **Two mutations found real gaps**, and it is the third entry running: the label-set guards
+  proved the DECLARATION exhaustive and never that a query USED it - dropping `Saved` from the set
+  changed every timeline query and killed no test. One mutant was also **inert** (a `match` case
+  that a preceding case already claimed) and was re-aimed rather than counted.
+  ⚠ **Shipped UNVERIFIED by CI**: GitHub Actions was in a major outage. `make check` green locally,
+  3,239 passed.
+  Body: [`research/backlog/ahw.md`](research/backlog/ahw.md).
+
 - **(ahx) EVERY FIELD THE RESTORE REPORT COMPUTES REACHES THE READER, BY LOOP.** Shipped
   2026-08-26, widened on the day it shipped. ⚠ **The entry's own census was ONE THIRD COMPLETE**:
   `not_applied` was one of three, with `conflicting_trips` and `trips_without_days` computed by

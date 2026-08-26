@@ -25,6 +25,7 @@ from typing import Self, cast
 
 from truestill_core import catalog_backup
 from truestill_core.catalog_busy import CatalogUnwritableError
+from truestill_core.categorize import deterministic_side_bin_labels
 from truestill_core.models import CaptureContext, DateSource
 
 
@@ -992,6 +993,36 @@ def _now() -> str:
 _LOCAL_SETTING_PREFIXES = ("path_hint.", "decisions.", "catalog.")
 
 
+def timeline_label_sql(column: str = "f.category") -> tuple[str, list[str]]:
+    """SQL for *"this label is on the timeline"*, and its parameters. **One home, four callers.**
+
+    🔑 **A label test, and deliberately the INVERSE of the obvious one.** These queries asked
+    ``category = 'Camera'`` - the device rule's DEFAULT label - so under ``--by-device``, where the
+    label is the hardware name, they matched nothing: the Trips screen proposed nothing, and the
+    completeness panel counted every camera photo as a side bin. `(ahw)`. `layout.py`'s
+    ``TIMELINE_RULES`` comment forbids exactly that test, in as many words.
+
+    ⚠ **AN UNKNOWN LABEL LANDS ON THE TIMELINE, and that direction IS the decision.** A photo
+    wrongly ON the timeline is visible and one click from correction; a photo wrongly OFF it is
+    invisible, and that invisibility is the defect this predicate exists to fix. **Fail toward the
+    error the user can see.**
+
+    ⚠ **Why a label test at all**, rather than the rule that was meant: the rule is not a catalog
+    column (`models.RuleName`: *"not a catalog column"*), and `(ahw)` refused to add one. It is
+    re-derivable - `migrate.rederive_rules` already does it - so a column would be a cache, not
+    provenance; its backfill reaches only 3 of 7 rules and **cannot detect its own gaps**, because
+    the unreachable rules emit labels identical to reachable ones; and ``category_rule IN (...)``
+    fails **CLOSED** on NULL, taking every pre-existing row off the timeline.
+
+    **Measured equivalent rather than assumed**: a set diff over two real catalogs returned the
+    identical set - 2,632 of 2,695 and 3,770 of 4,105, delta empty. That equivalence holds only
+    while `rule_software` cannot fire, and
+    `test_timeline_membership_is_not_a_label_test.py` is what keeps that true.
+    """
+    labels = sorted(deterministic_side_bin_labels())
+    return f"{column} NOT IN ({', '.join('?' for _ in labels)})", labels
+
+
 class Catalog:
     """Thin, typed wrapper over the SQLite state file. Use as a context manager."""
 
@@ -1273,22 +1304,27 @@ class Catalog:
     def camera_copies_for_events(self, drive_uuid: str) -> list[sqlite3.Row]:
         """Dated camera copies on a drive -- the clustering input for reviewing trips in place.
 
-        Only the device rule's default ``Camera`` label is proposed as trips (by-device layouts
-        are a follow-on); undated files carry no time to cluster on and are excluded.
+        ⚠ **This asked for the literal ``Camera`` until 2026-08-26**, the device rule's DEFAULT
+        label - so under ``--by-device``, where the label is the hardware name, it matched nothing
+        and the Trips screen proposed nothing at all. It now asks `timeline_label_sql`, which tests
+        for *not a known side bin*; read that function for why a label test and not a rule test,
+        and for the direction it fails in. `(ahw)` Undated files carry no time to cluster on and
+        are still excluded.
 
         **The coordinates are part of the clustering input, not decoration.** `cluster_camera`
         cuts an event boundary on a GPS jump, and omitting them here is what made this path
         disagree with a fresh import over the same photos - the jump-cut simply could not fire.
         """
+        _timeline, _labels = timeline_label_sql()
         return list(
             self._conn.execute(
-                """
+                f"""
                 SELECT fc.sha256, f.captured_at, f.gps_latitude, f.gps_longitude
                 FROM file_copies fc
                 JOIN files f ON f.sha256 = fc.sha256
-                WHERE fc.drive_uuid = ? AND f.category = 'Camera' AND f.captured_at IS NOT NULL
+                WHERE fc.drive_uuid = ? AND {_timeline} AND f.captured_at IS NOT NULL
                 """,
-                (drive_uuid,),
+                (drive_uuid, *_labels),
             )
         )
 
@@ -2036,9 +2072,16 @@ class Catalog:
 
         Complexity: O(n) over ``files`` and ``file_copies`` once each, with grouped aggregates.
         No per-file Python loops.
+
+        ⚠ **`timeline_files` and `side_bin_files` asked for the literal ``Camera`` until
+        2026-08-26**, so on a ``--by-device`` library the completeness panel counted **every camera
+        photo as a side-bin file** - the most visible of `(ahw)`'s four sites, and the one nobody
+        had filed. The two halves share one predicate so they cannot drift into overlapping or
+        leaving a gap.
         """
+        _timeline, _labels = timeline_label_sql("f.category")
         row: sqlite3.Row | None = self._conn.execute(
-            """
+            f"""
             WITH copy_rollup AS (
                 SELECT
                     sha256,
@@ -2051,8 +2094,8 @@ class Catalog:
                 COUNT(*) AS total_files,
                 COALESCE(SUM(size), 0) AS total_size,
                 COALESCE(SUM(CASE WHEN captured_at IS NULL THEN 1 ELSE 0 END), 0) AS undated_files,
-                COALESCE(SUM(CASE WHEN captured_at IS NOT NULL AND category = 'Camera' THEN 1 ELSE 0 END), 0) AS timeline_files,
-                COALESCE(SUM(CASE WHEN captured_at IS NULL OR category != 'Camera' THEN 1 ELSE 0 END), 0) AS side_bin_files,
+                COALESCE(SUM(CASE WHEN captured_at IS NOT NULL AND {_timeline} THEN 1 ELSE 0 END), 0) AS timeline_files,
+                COALESCE(SUM(CASE WHEN captured_at IS NULL OR NOT ({_timeline}) THEN 1 ELSE 0 END), 0) AS side_bin_files,
                 MIN(captured_at) AS oldest_capture,
                 MAX(captured_at) AS newest_capture,
                 COALESCE(SUM(CASE WHEN COALESCE(cr.copies, 0) >= 2 THEN 1 ELSE 0 END), 0) AS files_on_two_plus_drives,
@@ -2061,7 +2104,8 @@ class Catalog:
                 COALESCE(SUM(CASE WHEN COALESCE(cr.any_verified, 0) = 0 THEN 1 ELSE 0 END), 0) AS never_verified_files
             FROM files f
             LEFT JOIN copy_rollup cr ON cr.sha256 = f.sha256
-            """
+            """,
+            (*_labels, *_labels),
         ).fetchone()
         if row is None:
             message = "stats summary query returned no row"
@@ -2627,15 +2671,16 @@ class Catalog:
         A row whose ``source_path`` is NULL is still returned, for the same reason: missing
         evidence weakens a claim rather than being quietly excluded from it.
         """
+        _timeline, _labels = timeline_label_sql()
         return list(
             self._conn.execute(
-                """
+                f"""
                 SELECT fc.sha256, f.source_path, f.captured_at
                 FROM file_copies fc
                 JOIN files f ON f.sha256 = fc.sha256
-                WHERE fc.drive_uuid = ? AND f.category = 'Camera' AND f.captured_at IS NOT NULL
+                WHERE fc.drive_uuid = ? AND {_timeline} AND f.captured_at IS NOT NULL
                 """,
-                (drive_uuid,),
+                (drive_uuid, *_labels),
             )
         )
 
@@ -2692,19 +2737,22 @@ class Catalog:
 
         One SQL pass. Callers feed the strings (or parsed datetimes) into
         :func:`truestill_core.layout.count_capture_days` together with the current run's
-        un-evented members. ``category = 'Camera'`` matches the default device-rule label;
-        ``--by-device`` libraries that rename the timeline label are a follow-up.
+        un-evented members. ⚠ **This docstring used to say ``category = 'Camera'`` matches the
+        default device-rule label and that ``--by-device`` libraries were "a follow-up"** - a
+        defect confessed in place and filed nowhere. It now asks `timeline_label_sql`. `(ahw)`
         """
+        _timeline, _labels = timeline_label_sql("f.category")
         rows = self._conn.execute(
-            """
+            f"""
             SELECT f.captured_at
             FROM files f
             LEFT JOIN trip_days td ON td.day = date(f.captured_at)
             WHERE f.captured_at IS NOT NULL
               AND f.event_id IS NULL
               AND td.day IS NULL
-              AND f.category = 'Camera'
-            """
+              AND {_timeline}
+            """,
+            _labels,
         ).fetchall()
         return [str(row["captured_at"]) for row in rows]
 
