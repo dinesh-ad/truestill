@@ -14,7 +14,6 @@ real working directory, and never touches the setting itself.
 from __future__ import annotations
 
 import json
-import os
 import sqlite3
 import subprocess
 from pathlib import Path
@@ -105,7 +104,9 @@ def test_an_absolute_destination_still_works(
     assert (destination / DECISIONS_NAME).is_file()
 
 
-def test_a_relative_hint_already_in_a_catalog_reads_as_unknown(tmp_path: Path) -> None:
+def test_a_relative_hint_already_in_a_catalog_reads_as_unknown(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """⚠ **Existing catalogs carry the bad hint and no migration may repair it.**
 
     A relative hint cannot be interpreted - the working directory it was written from was never
@@ -117,7 +118,12 @@ def test_a_relative_hint_already_in_a_catalog_reads_as_unknown(tmp_path: Path) -
     root.mkdir()
     marker = create_marker(root, label="D")
 
-    os.chdir(tmp_path)
+    # ⚠ `monkeypatch.chdir`, never bare `os.chdir`: the working directory is PROCESS-GLOBAL, so a
+    # bare call leaks into every later test on this xdist worker - and when pytest removes
+    # `tmp_path` the leaked cwd no longer exists, so the next `os.getcwd()` raises
+    # `FileNotFoundError`. Measured: 17 unrelated failures on Linux and macOS from exactly that,
+    # while Windows passed because it will not delete a directory that is a live cwd.
+    monkeypatch.chdir(tmp_path)
     assert drive_reach("drive", marker.uuid) is DriveReach.UNKNOWN, (
         "a relative hint was resolved against the current working directory"
     )
