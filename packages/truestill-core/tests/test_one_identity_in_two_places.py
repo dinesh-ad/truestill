@@ -205,11 +205,23 @@ def test_a_path_that_timed_out_once_is_not_probed_again(
     create_marker(elsewhere, here.label, uuid=here.uuid)
     probes: list[Path] = []
     real = drive_module.read_marker
+    # ⚠ THE SAME FIXTURE DEFECT AS THE TEST ABOVE, LEFT IN ITS TWIN THIRTY LINES DOWN.
+    #
+    # This slept `SECOND_LOCATION_PROBE_SECONDS * 3` - 0.15 s against a 0.05 s join - and **failed
+    # on macOS in CI run 33010957536**, probing the wedged path twice. That is the identical race
+    # the comment above diagnoses, in the identical file: `Thread.join(timeout)` waits AT LEAST
+    # the timeout, so a main thread descheduled past 150 ms gets a real answer, the path is never
+    # recorded as slow, and the next call probes it again. **The fix was written once and applied
+    # to one of the two tests that needed it** - one concept, two places, one of them corrected.
+    #
+    # An Event nobody sets removes the race rather than widening it. Bounded at 30 s for the
+    # reason stated above: so a product that loses its timeout turns this RED instead of hanging.
+    blocked = threading.Event()
 
     def slow(root: Path) -> DriveMarker | None:
         probes.append(root)
         if root == elsewhere:
-            time.sleep(drive_module.SECOND_LOCATION_PROBE_SECONDS * 3)
+            blocked.wait(timeout=30)
         return real(root)
 
     monkeypatch.setattr(drive_module, "read_marker", slow)
