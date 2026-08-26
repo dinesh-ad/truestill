@@ -82,7 +82,6 @@ from truestill_core.decisions import (
     REPORT_FIELD_EXCEPTIONS,
     REPORT_FIELD_NOTE,
     RESTORE_WORDING,
-    SUPERSEDED_NOTE,
     ApplyReport,
     Decisions,
     DriveSave,
@@ -95,7 +94,9 @@ from truestill_core.decisions import (
     nothing_applied_note,
     notice_for,
     read_decisions,
+    render_swaps,
     restored_count,
+    superseded_note,
     unmatched_events_note,
     withheld_count,
     would_lose,
@@ -1513,10 +1514,11 @@ def _print_restore_plan(report: RestoreReport, documents: int) -> None:
     _print_omissions(applied)
     for loss in report.reconciled.superseded:
         _say(
-            SUPERSEDED_NOTE[loss.reason],
+            superseded_note(loss),
             count=loss.count,
             section=loss.section.replace("_", " "),
             label=loss.drive_label,
+            swaps=render_swaps(loss.swaps),
         )
     # ⚠ **Only documents with nothing superseded are listed here.** An undated document that also
     # lost a value already said so through `LOST_UNDATED`, and printing both is how one drive got
@@ -1557,7 +1559,13 @@ def _cmd_restore(args: argparse.Namespace) -> int:
         if args.discard:
             return _discard_to_drive(root, catalog, apply=args.apply)
 
-        report = apply_documents(catalog, documents, apply=False)
+        # ⚠ **Which document the user NAMED, carried into the merge for reporting.**
+        # `_restore_documents_for` returns the named root first and every other document is found
+        # through a stored hint - a distinction the merge has never had, so a hint-found document
+        # overruling the drive the user typed reads exactly like any other loss. `(ahz)` step 1.
+        # Positional convention is not relied on: the uuid is taken here and passed by name.
+        named = documents[0].drive_uuid if documents else ""
+        report = apply_documents(catalog, documents, apply=False, named_root_uuid=named)
         _print_restore_plan(report, len(documents))
         if not args.apply:
             print(f"\nPreview only. Restore with:  truestill restore {root} --apply")
@@ -1575,7 +1583,7 @@ def _cmd_restore(args: argparse.Namespace) -> int:
         # reports are IDENTICAL in the ordinary case, so this is not a corrected number - it is
         # that the omissions are unchanged by applying and were never said at the moment they
         # became permanent. `(ahx)`
-        report = apply_documents(catalog, documents, apply=True)
+        report = apply_documents(catalog, documents, apply=True, named_root_uuid=named)
         print(f"\nRestored into {args.db}.")
         _print_restore_summary(report.applied, RestoreNote.SUMMARY_DONE)
         _print_omissions(report.applied)

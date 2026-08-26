@@ -336,7 +336,7 @@ is invisible here is retired, not free.**
   does not race two OS processes.** A true collision has a known *shape* and a reproduced
   *window*, not an occurrence observed in the wild.
   🔑 **THE TWIN PATH WAS HARDENED AGAINST THE NEIGHBOURING SHAPE, WHICH IS THE EVIDENCE THIS IS
-  REAL.** `decisions.py:463-464`, verbatim:
+  REAL.** `decisions.py:530-531`, verbatim:
   > `# Day -> the name of the trip holding it. Read once and kept in step as trips are created, so`
   > `# a document that names one day twice cannot make `create_trip` fail on the day primary key.`
   ⚠ **That defends the WITHIN-RUN duplicate and not the cross-process one** - and because it reads

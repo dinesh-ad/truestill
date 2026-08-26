@@ -36,11 +36,14 @@ from truestill_core.decisions import (
     SUPERSEDED_NOTE,
     ApplyReport,
     Decisions,
+    NameSwap,
     RestoreNote,
     SupersededReason,
     nothing_applied_note,
     reconcile_documents,
+    render_swaps,
     restored_count,
+    superseded_note,
     unmatched_events_note,
     withheld_count,
 )
@@ -246,3 +249,66 @@ def test_both_halves_are_counted_from_the_fields_not_a_list() -> None:
     assert restored_count(full) == 3
     # 1 event + 1 conflict + 1 dayless + 1 not-applied + 3 awaiting
     assert withheld_count(full) == 7
+
+
+def test_a_superseded_loss_names_the_values_it_withheld() -> None:
+    """⚠ **A count is not a report.** `(ahz)` §6
+
+    `Superseded` carried `section, drive_label, count, reason` and no values, so the user read
+    *"3 events on dest were older and were not used"* and never learned WHICH names - the one
+    detail that would have made the line alarming, withheld by the one line that could have
+    alerted them.
+    """
+    a = _doc("aaa", "Drive A", "2026-01-02T00:00:01+00:00", "Kept")
+    b = _doc("bbb", "Drive B", "2026-01-01T00:00:00+00:00", "Beaten")
+    _, report = reconcile_documents([a, b])
+
+    loss = report.superseded[0]
+    assert loss.swaps == (NameSwap(lost="Beaten", kept="Kept"),)
+    assert render_swaps(loss.swaps) == "'Beaten' -> 'Kept'"
+
+
+def test_the_drive_the_user_named_losing_is_said_differently() -> None:
+    """⚠ **`restore <root>` is an explicit act - the user typed that path.**
+
+    A document found through a stored hint overruling it is the case `(ahz)` measured, and it read
+    exactly like any other loss: a `-` marker in the nothing-to-do register. It now has its own
+    sentence, chosen ahead of the reason, because *that* it lost matters more than *why*.
+
+    ⚠ Reported here and **acted on nowhere** - the merge still ranks by stamp. That is step 2.
+    """
+    named = _doc("aaa", "Your drive", "2026-01-01T00:00:00+00:00", "Bangalore Dec 2009")
+    other = _doc("bbb", "Rebuilt", "2026-01-02T00:00:01+00:00", "placeholder A")
+
+    _, report = reconcile_documents([named, other], named_root_uuid="aaa")
+    loss = report.superseded[0]
+    assert loss.from_named_root is True
+    assert superseded_note(loss) is RestoreNote.LOST_FROM_NAMED_ROOT
+    assert RESTORE_WORDING[RestoreNote.LOST_FROM_NAMED_ROOT].actionable
+
+    # The mirror: with no named root declared, it is an ordinary loss again.
+    _, plain = reconcile_documents([named, other])
+    assert plain.superseded[0].from_named_root is False
+    assert superseded_note(plain.superseded[0]) is RestoreNote.LOST_OLDER
+
+
+def test_the_named_root_winning_is_not_reported_as_a_loss() -> None:
+    """⚠ Anti-vacuity: the bit must track the LOSER, not merely be set whenever a uuid is passed."""
+    named = _doc("aaa", "Your drive", "2026-01-02T00:00:01+00:00", "Bangalore Dec 2009")
+    other = _doc("bbb", "Rebuilt", "2026-01-01T00:00:00+00:00", "placeholder A")
+    _, report = reconcile_documents([named, other], named_root_uuid="aaa")
+    assert report.superseded[0].from_named_root is False, "the WINNER was flagged as the loser"
+
+
+def test_the_sentence_serves_the_legitimate_case_too() -> None:
+    """⚠ **The side effect, named before it is built.** `(ahz)` step 2 inherits Microsoft's own
+    warning about an authoritative restore: *you lose all changes to the restore object that
+    occurred after the backup.*
+
+    If a user renamed a trip on a SECOND MACHINE after the named drive's document was written, the
+    named root would beat that legitimate newer change. The sentence has to serve both readings, so
+    it names both values and lets the reader decide which is theirs.
+    """
+    words = RESTORE_WORDING[RestoreNote.LOST_FROM_NAMED_ROOT].text
+    assert "{swaps}" in words, "the values are not shown, so the two cases cannot be told apart"
+    assert "elsewhere" in words, "the legitimate case is not offered to the reader at all"

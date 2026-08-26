@@ -188,6 +188,20 @@ class SupersededReason(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class NameSwap:
+    """One value that lost, beside the one that replaced it. Both, or neither is legible.
+
+    A user told *"Morning Market was not used"* cannot act; a user told *"Morning Market was
+    replaced by placeholder B, from Backup B"* can. `(ahz)`
+    """
+
+    #: The value that did not survive the merge.
+    lost: str
+    #: The value that took its key.
+    kept: str
+
+
+@dataclass(frozen=True, slots=True)
 class Superseded:
     """One drive's values for one section that were not used, and why.
 
@@ -204,6 +218,15 @@ class Superseded:
     #: **Required, with no default**: a default would let a new construction site describe a loss
     #: it never established, which is the whole defect this field exists to close.
     reason: SupersededReason
+    #: What was lost, and what replaced it. ⚠ **This type carried a COUNT and no values until
+    #: 2026-08-26**, so a user was told *"3 events were older and were not used"* and never which
+    #: names - the one detail that would have made the line alarming, withheld by the one line that
+    #: could have alerted them. `(ahz)`
+    swaps: tuple[NameSwap, ...] = ()
+    #: ⚠ **The loser was the drive the user NAMED.** `restore <root>` is an explicit act - the user
+    #: typed that path - so a document found by a stored hint overruling it is the case worth
+    #: saying out loud. Reported here; **acted on nowhere yet**, which is `(ahz)` step 2.
+    from_named_root: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -256,12 +279,29 @@ def _why_it_lost(winner: Decisions, loser: Decisions) -> SupersededReason:
     return SupersededReason.OLDER
 
 
+@dataclass(frozen=True, slots=True)
+class _Section:
+    """How one mergeable section is read, keyed and named. **Grouped because they travel together.**
+
+    Three callables and a name arrived as four positional arguments and the linter said so at
+    seven. They are one concept - *what this section is* - and splitting them across a signature is
+    how a caller comes to pass `albums`' key function with `trips`' rows.
+    """
+
+    name: str
+    rows_of: Callable[[Decisions], Sequence[dict[str, Any]]]
+    key_of: Callable[[dict[str, Any]], object]
+    #: The human-readable value, for the report. Defaults to `name`, which is right for every
+    #: section a person types into.
+    name_of: Callable[[dict[str, Any]], str] = lambda row: str(row.get("name") or "")
+
+
 def _merge_section(
     ranked: Sequence[Decisions],
-    section: str,
-    rows_of: Callable[[Decisions], Sequence[dict[str, Any]]],
-    key_of: Callable[[dict[str, Any]], object],
+    section: _Section,
     losses: list[Superseded],
+    *,
+    named_root_uuid: str = "",
 ) -> tuple[dict[str, Any], ...]:
     """First value per identity key wins, in ranked order. **Per decision, never per document.**
 
@@ -273,10 +313,10 @@ def _merge_section(
     superseded loser would bury the one real disagreement in a list of non-events.
     """
     chosen: dict[object, tuple[dict[str, Any], Decisions]] = {}
-    beaten: dict[tuple[str, SupersededReason], int] = {}
+    beaten: dict[tuple[str, SupersededReason, bool], list[NameSwap]] = {}
     for document in ranked:
-        for row in rows_of(document):
-            key = key_of(row)
+        for row in section.rows_of(document):
+            key = section.key_of(row)
             if key not in chosen:
                 chosen[key] = (row, document)
             elif chosen[key][0] != row:
@@ -284,10 +324,19 @@ def _merge_section(
                 # The winning DOCUMENT is kept beside the winning row for this one reason: "why
                 # did this lose" is a question about the two stamps, and the row does not carry
                 # one. Reported rather than assumed - see `SupersededReason`.
-                seat = (label, _why_it_lost(chosen[key][1], document))
-                beaten[seat] = beaten.get(seat, 0) + 1
+                seat = (
+                    label,
+                    _why_it_lost(chosen[key][1], document),
+                    bool(named_root_uuid) and document.drive_uuid == named_root_uuid,
+                )
+                # ⚠ The VALUES, not a tally. Grouped by (drive, reason, named-root) so one line can
+                # name every swap it covers - a count alone is what `(ahz)` §6 was about.
+                beaten.setdefault(seat, []).append(
+                    NameSwap(lost=section.name_of(row), kept=section.name_of(chosen[key][0]))
+                )
     losses.extend(
-        Superseded(section, label, count, reason) for (label, reason), count in beaten.items()
+        Superseded(section.name, label, len(swaps), reason, tuple(swaps), named)
+        for (label, reason, named), swaps in beaten.items()
     )
     return tuple(row for row, _ in chosen.values())
 
@@ -329,6 +378,10 @@ def _merge_confirmations(
     # OLDER is stated rather than defaulted, and it is genuinely true here: this merge orders on
     # the ROW's `confirmed_at` (see the docstring above), so a loser really did carry an earlier
     # correction. The document stamps play no part, so TIE and UNDATED cannot arise.
+    # ⚠ **No swaps here, stated rather than defaulted.** This merge resolves on the ROW's
+    # `confirmed_at`, and what it discards is an earlier CORRECTION of a date - there is no pair of
+    # human-typed names to show, and printing a sha256 beside a sha256 would be noise wearing a
+    # value's clothes. `from_named_root` is likewise false: the ranking here is not by document.
     losses.extend(
         Superseded("date_confirmations", label, n, SupersededReason.OLDER)
         for label, n in beaten.items()
@@ -339,14 +392,16 @@ def _merge_confirmations(
 def _trip_key(trip: dict[str, Any]) -> object:
     """A trip's identity is its DAY SET, not its name.
 
-    `(abv)`: the days are what survive leaving a catalog, and `trip_days.day` is a primary key so
+    `(ack)`: the days are what survive leaving a catalog, and `trip_days.day` is a primary key so
     they are disjoint across trips. The consequence here is that **same days with a different
     name is a RENAME** - the newer name wins - rather than two trips or a conflict to escalate.
     """
     return tuple(sorted(str(day) for day in trip.get("days") or ()))
 
 
-def reconcile_documents(documents: Sequence[Decisions]) -> tuple[Decisions, ReconcileReport]:
+def reconcile_documents(
+    documents: Sequence[Decisions], *, named_root_uuid: str = ""
+) -> tuple[Decisions, ReconcileReport]:
     """Merge the documents from several drives into one set of decisions.
 
     **Newest wins per decision.** Every section resolves on the document's `written` stamp, with
@@ -378,14 +433,25 @@ def reconcile_documents(documents: Sequence[Decisions]) -> tuple[Decisions, Reco
 
     merged = Decisions(
         settings=settings,
-        trips=_merge_section(ranked, "trips", lambda d: d.trips, _trip_key, losses),
+        trips=_merge_section(
+            ranked,
+            _Section("trips", lambda d: d.trips, _trip_key),
+            losses,
+            named_root_uuid=named_root_uuid,
+        ),
         events=_merge_section(
-            ranked, "events", lambda d: d.events, lambda e: str(e.get("signature") or ""), losses
+            ranked,
+            _Section("events", lambda d: d.events, lambda e: str(e.get("signature") or "")),
+            losses,
+            named_root_uuid=named_root_uuid,
         ),
         skipped_clusters=tuple(sorted(skipped)),
         date_confirmations=confirmations,
         albums=_merge_section(
-            ranked, "albums", lambda d: d.albums, lambda a: str(a.get("name") or ""), losses
+            ranked,
+            _Section("albums", lambda d: d.albums, lambda a: str(a.get("name") or "")),
+            losses,
+            named_root_uuid=named_root_uuid,
         ),
         written=ranked[0].written if ranked else "",
     )
@@ -452,6 +518,7 @@ class RestoreNote(StrEnum):
     LOST_OLDER = "lost_older"
     LOST_TIE = "lost_tie"
     LOST_UNDATED = "lost_undated"
+    LOST_FROM_NAMED_ROOT = "lost_from_named_root"
     DRIVE_HOLDS_MORE = "drive_holds_more"
     DRIVE_WRITTEN = "drive_written"
 
@@ -561,6 +628,19 @@ RESTORE_WORDING: Final[dict[RestoreNote, RestoreWording]] = {
         "    answer stable.",
         actionable=False,
     ),
+    # ⚠ **The drive the user NAMED lost.** `restore <root>` is an explicit act - they typed that
+    # path - and a document found through a stored hint overruled it. Says WHICH values, both
+    # sides, and which drive won, because the same sentence has to serve two opposite readings:
+    # the recovery inversion `(ahz)` measured, AND its mirror - a genuinely newer rename made on a
+    # second machine, which SHOULD win and which the user must be able to recognise as legitimate.
+    # Naming both values is what lets them tell the two apart; a count never could.
+    RestoreNote.LOST_FROM_NAMED_ROOT: RestoreWording(
+        "{count} {section} on {label} - the drive you named - were not used.\n"
+        "    Another drive's copy overruled them: {swaps}.\n"
+        "    If that copy is a change you made elsewhere, this is correct. If it came from\n"
+        "    rebuilding this catalog, the names on {label} are the ones you typed.",
+        actionable=True,
+    ),
     # Checked: the document carries no stamp. ⚠ Was reported as "older" AND separately as undated,
     # so one drive got two contradicting lines in one output.
     RestoreNote.LOST_UNDATED: RestoreWording(
@@ -581,8 +661,26 @@ RESTORE_WORDING: Final[dict[RestoreNote, RestoreWording]] = {
     ),
 }
 
+
 #: `SupersededReason` -> the note for it. Separate from the table so the mapping is data too, and
 #: a new reason with no note fails the exhaustiveness test rather than falling through.
+def superseded_note(loss: Superseded) -> RestoreNote:
+    """The sentence for one superseded group.
+
+    ⚠ **The named-root case outranks the reason**, deliberately. *Why* it lost - older, tie,
+    undated - is the smaller fact when the loser is the drive the user pointed at; that it lost at
+    all is the thing they need to read. `(ahz)`
+    """
+    if loss.from_named_root:
+        return RestoreNote.LOST_FROM_NAMED_ROOT
+    return SUPERSEDED_NOTE[loss.reason]
+
+
+def render_swaps(swaps: tuple[NameSwap, ...]) -> str:
+    """``'Morning Market' -> 'placeholder B'``, joined. **One home, so both surfaces agree.**"""
+    return ", ".join(f"{s.lost!r} -> {s.kept!r}" for s in swaps)
+
+
 SUPERSEDED_NOTE: Final[dict[SupersededReason, RestoreNote]] = {
     SupersededReason.OLDER: RestoreNote.LOST_OLDER,
     SupersededReason.TIE: RestoreNote.LOST_TIE,
@@ -909,7 +1007,11 @@ class RestoreReport:
 
 
 def apply_documents(
-    catalog: Any, documents: Sequence[Decisions], *, apply: bool = True
+    catalog: Any,
+    documents: Sequence[Decisions],
+    *,
+    apply: bool = True,
+    named_root_uuid: str = "",
 ) -> RestoreReport:
     """Reconcile the documents from several drives and apply the result. **One call, both halves.**
 
@@ -922,7 +1024,7 @@ def apply_documents(
 
     A label is a decision: the user typed it. It is simply the one decision that cannot be merged.
     """
-    merged, reconciled = reconcile_documents(documents)
+    merged, reconciled = reconcile_documents(documents, named_root_uuid=named_root_uuid)
     report = apply_decisions(catalog, merged, apply=apply)
 
     restored_drives = 0
